@@ -1,3 +1,4 @@
+import { MARKET_FLOW_STEP_COLORS } from '@/data/color-palette.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import {
   Book,
@@ -9,6 +10,7 @@ import {
   Sparkles,
   UserRound,
 } from 'lucide-react';
+import type { CSSProperties } from 'react';
 import type { ListingKind, MarketListing } from './market-data.js';
 
 /** Per-kind cover mini-illustration so the grid reads like a game inventory,
@@ -64,47 +66,16 @@ export function MarketCover({ listing }: { listing: MarketListing }) {
           </div>
         </div>
       );
-    case 'sop':
-      return (
-        <div className="off-kv off-kv-sop">
-          <div className="off-kv-pips">
-            <span className="off-kv-pip is-done" />
-            <span className="off-kv-line is-done" />
-            <span className="off-kv-pip is-done" />
-            <span className="off-kv-line is-done" />
-            <span className="off-kv-pip is-cur" />
-            <span className="off-kv-line" />
-            <span className="off-kv-pip" />
-            <span className="off-kv-line" />
-            <span className="off-kv-pip" />
-          </div>
-          <div className="off-kv-roles">
-            <em>PM</em>
-            <i>→</i>
-            <em>DSGN</em>
-            <i>→</i>
-            <em>DEV</em>
-            <i>→</i>
-            <em>QA</em>
-            <i>→</i>
-            <em>SHIP</em>
-          </div>
-        </div>
-      );
     case 'template':
       return (
         <div className="off-kv off-kv-template">
           <div className="off-kv-ribbon">
-            {(
-              [
-                ['PM', '#6a8dff'],
-                ['UX', '#7c4ddb'],
-                ['DEV', '#2f9f6a'],
-                ['QA', '#e0763f'],
-                ['OPS', '#647186'],
-              ] as const
-            ).map(([role, color]) => (
-              <div key={role} className="off-kv-role" style={{ background: color }}>
+            {MARKET_FLOW_STEP_COLORS.map(([role, color]) => (
+              <div
+                key={role}
+                className="off-kv-role"
+                style={{ '--off-market-role': color } as CSSProperties}
+              >
                 {role}
               </div>
             ))}
@@ -203,7 +174,6 @@ function secClass(l: MarketListing): string {
 const KIND_ICON: Record<ListingKind, LucideIcon> = {
   employee: UserRound,
   skill: Sparkles,
-  sop: Book,
   template: Building2,
   layout: LayoutGrid,
   prefab: Box,

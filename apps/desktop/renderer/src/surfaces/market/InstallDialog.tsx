@@ -15,7 +15,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import {
   AlertTriangle,
   CheckCircle2,
-  Circle,
   Globe,
   HardDrive,
   KeyRound,
@@ -27,16 +26,15 @@ import {
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import type { BindingSlot, MarketListing } from './market-data.js';
+import type { BindingSlot, InstallBindingValues, MarketListing } from './market-data.js';
 
 type Step = 'review' | 'configure' | 'installing' | 'done' | 'error';
 
 const PROGRESS_STEPS = [
-  'Loading package',
-  'Reviewing manifest',
-  'Configuring bindings',
-  'Installing assets',
-  'Complete',
+  'Fetch registry artifact',
+  'Validate manifest',
+  'Apply bindings',
+  'Materialize assets',
 ] as const;
 
 const RISK_TONE: Record<string, string> = {
@@ -49,41 +47,49 @@ interface InstallDialogProps {
   listing: MarketListing | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onInstalled: (listingId: string) => void;
+  onInstall?: (listing: MarketListing, bindings: InstallBindingValues) => Promise<void>;
 }
 
-export function InstallDialog({ listing, open, onOpenChange, onInstalled }: InstallDialogProps) {
+export function InstallDialog({ listing, open, onOpenChange, onInstall }: InstallDialogProps) {
   const [step, setStep] = useState<Step>('review');
-  const [progressStep, setProgressStep] = useState(0);
+  const [bindingValues, setBindingValues] = useState<InstallBindingValues>({});
+  const [errorMessage, setErrorMessage] = useState('');
 
   // Reset the flow each time the dialog opens for a fresh listing.
   useEffect(() => {
     if (open) {
       setStep('review');
-      setProgressStep(0);
+      setBindingValues({});
+      setErrorMessage('');
     }
   }, [open]);
 
-  // Drive the 5-step install progress machine once we enter "installing".
-  useEffect(() => {
-    if (step !== 'installing') return;
-    setProgressStep(0);
-    const timer = window.setInterval(() => {
-      setProgressStep((s) => {
-        if (s >= PROGRESS_STEPS.length - 1) {
-          window.clearInterval(timer);
-          setStep('done');
-          return s;
-        }
-        return s + 1;
-      });
-    }, 480);
-    return () => window.clearInterval(timer);
-  }, [step]);
-
   if (!listing) return null;
 
-  const sizeClass = step === 'review' || step === 'configure' ? 'sm:max-w-[540px]' : '';
+  async function startInstall(values: InstallBindingValues) {
+    if (!listing) return;
+    setBindingValues(values);
+    if (!listing.installArtifactUrl || !onInstall) {
+      setErrorMessage(
+        'Signed artifact not supplied. Install is locked until the registry provides a verified package artifact for this listing.',
+      );
+      setStep('error');
+      return;
+    }
+
+    setErrorMessage('');
+    setStep('installing');
+    try {
+      await onInstall(listing, values);
+      setStep('done');
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Install failed.');
+      setStep('error');
+    }
+  }
+
+  const sizeClass = step === 'review' || step === 'configure' ? 'off-mkt-dialog-review' : '';
+  const canRetry = Boolean(listing.installArtifactUrl && onInstall);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -92,25 +98,28 @@ export function InstallDialog({ listing, open, onOpenChange, onInstalled }: Inst
           <ReviewStep
             listing={listing}
             onCancel={() => onOpenChange(false)}
-            onContinue={() => setStep(listing.bindings.length > 0 ? 'configure' : 'installing')}
+            onContinue={() => {
+              if (listing.bindings.length > 0) setStep('configure');
+              else void startInstall({});
+            }}
           />
         ) : step === 'configure' ? (
           <ConfigureStep
             bindings={listing.bindings}
             onCancel={() => onOpenChange(false)}
-            onContinue={() => setStep('installing')}
+            onContinue={(values) => void startInstall(values)}
           />
         ) : step === 'installing' ? (
-          <InstallingStep current={progressStep} />
+          <InstallingStep />
         ) : step === 'done' ? (
-          <DoneStep
-            onClose={() => {
-              onInstalled(listing.id);
-              onOpenChange(false);
-            }}
-          />
+          <DoneStep onClose={() => onOpenChange(false)} />
         ) : (
-          <ErrorStep onClose={() => onOpenChange(false)} onRetry={() => setStep('installing')} />
+          <ErrorStep
+            message={errorMessage}
+            canRetry={canRetry}
+            onClose={() => onOpenChange(false)}
+            onRetry={() => void startInstall(bindingValues)}
+          />
         )}
       </DialogContent>
     </Dialog>
@@ -216,7 +225,7 @@ function ConfigureStep({
 }: {
   bindings: BindingSlot[];
   onCancel: () => void;
-  onContinue: () => void;
+  onContinue: (values: InstallBindingValues) => void;
 }) {
   const schema = z.object(
     Object.fromEntries(
@@ -233,14 +242,14 @@ function ConfigureStep({
   });
   const [skipped, setSkipped] = useState<Record<string, boolean>>({});
 
-  const submit = form.handleSubmit(() => onContinue());
+  const submit = form.handleSubmit((values) => onContinue(values));
 
   return (
     <>
       <DialogHeader>
         <DialogTitle>Configure Bindings</DialogTitle>
         <DialogDescription>
-          Choose which models to use for each role. Optional bindings can be skipped.
+          Choose runtime profile IDs for each role. Optional bindings can be skipped.
         </DialogDescription>
       </DialogHeader>
       <form onSubmit={submit} className="off-mkt-dlg-body">
@@ -267,23 +276,22 @@ function ConfigureStep({
               {!isSkipped ? (
                 <>
                   <CapsLabel className="off-bind-hint">{b.hint}</CapsLabel>
-                  <Input
-                    placeholder="provider/model (e.g. openai/gpt-4o)"
-                    {...form.register(b.id)}
-                  />
+                  <Input placeholder="runtime profile id" {...form.register(b.id)} />
                   {err ? <span className="off-bind-err">{err}</span> : null}
-                  <div className="off-bind-sugg">
-                    {b.suggestions.map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        className="off-bind-chip off-focusable"
-                        onClick={() => form.setValue(b.id, s, { shouldValidate: true })}
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div>
+                  {b.suggestions.length > 0 ? (
+                    <div className="off-bind-sugg">
+                      {b.suggestions.map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          className="off-bind-chip off-focusable"
+                          onClick={() => form.setValue(b.id, s, { shouldValidate: true })}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                 </>
               ) : null}
             </div>
@@ -302,27 +310,24 @@ function ConfigureStep({
   );
 }
 
-function InstallingStep({ current }: { current: number }) {
-  const pct = Math.round(((current + 1) / PROGRESS_STEPS.length) * 100);
+function InstallingStep() {
   return (
     <>
       <DialogHeader>
         <DialogTitle>Installing</DialogTitle>
       </DialogHeader>
       <div className="off-mkt-dlg-body">
-        <Progress value={pct} />
+        <Progress value={25} />
         <div className="off-step-list">
           {PROGRESS_STEPS.map((label, i) => {
-            const state = i < current ? 'done' : i === current ? 'active' : 'pending';
+            const state = i === 0 ? 'active' : 'pending';
             return (
               <div key={label} className={`off-step-row is-${state}`}>
                 <span className="off-step-si">
-                  {state === 'done' ? (
-                    <Icon icon={CheckCircle2} size="sm" />
-                  ) : state === 'active' ? (
+                  {state === 'active' ? (
                     <Icon icon={Loader2} size="sm" className="off-spin" />
                   ) : (
-                    <Icon icon={Circle} size="sm" />
+                    <span className="off-step-dot" />
                   )}
                 </span>
                 {label}
@@ -340,7 +345,7 @@ function DoneStep({ onClose }: { onClose: () => void }) {
     <div className="off-mkt-result">
       <Icon icon={CheckCircle2} size="md" className="off-mkt-result-ok" />
       <div className="off-mkt-result-t">Installation Complete</div>
-      <div className="off-mkt-result-d">The package has been installed successfully.</div>
+      <div className="off-mkt-result-d">Package installed and persisted.</div>
       <Button size="md" onClick={onClose}>
         Close
       </Button>
@@ -348,19 +353,31 @@ function DoneStep({ onClose }: { onClose: () => void }) {
   );
 }
 
-function ErrorStep({ onClose, onRetry }: { onClose: () => void; onRetry: () => void }) {
+function ErrorStep({
+  message,
+  canRetry,
+  onClose,
+  onRetry,
+}: {
+  message: string;
+  canRetry: boolean;
+  onClose: () => void;
+  onRetry: () => void;
+}) {
   return (
     <div className="off-mkt-result">
       <Icon icon={XCircle} size="md" className="off-mkt-result-err" />
       <div className="off-mkt-result-t">Installation Failed</div>
-      <div className="off-mkt-result-d is-err">Artifact hash mismatch — refusing to write.</div>
+      <div className="off-mkt-result-d is-err">{message || 'Install failed.'}</div>
       <div className="off-mkt-result-acts">
         <Button variant="outline" size="md" onClick={onClose}>
           Close
         </Button>
-        <Button size="md" onClick={onRetry}>
-          Retry
-        </Button>
+        {canRetry ? (
+          <Button size="md" onClick={onRetry}>
+            Retry
+          </Button>
+        ) : null}
       </div>
     </div>
   );

@@ -6,10 +6,7 @@ import type * as React from 'react';
 export function Command({ className, ...props }: React.ComponentProps<typeof CommandPrimitive>) {
   return (
     <CommandPrimitive
-      className={cn(
-        'flex h-full w-full flex-col overflow-hidden text-[var(--off-ink-1)]',
-        className,
-      )}
+      className={cn('off-command', className)}
       {...props}
     />
   );
@@ -20,13 +17,10 @@ export function CommandInput({
   ...props
 }: React.ComponentProps<typeof CommandPrimitive.Input>) {
   return (
-    <div className="flex items-center gap-[var(--off-sp-3)] border-b border-[var(--off-line-soft)] px-[var(--off-sp-5)]">
-      <Search className="size-[15px] shrink-0 text-[var(--off-ink-4)]" />
+    <div className="off-command-input-wrap">
+      <Search className="off-command-search-icon" />
       <CommandPrimitive.Input
-        className={cn(
-          'h-[44px] w-full bg-transparent text-[var(--off-fs-base)] text-[var(--off-ink-1)] outline-none placeholder:text-[var(--off-ink-4)]',
-          className,
-        )}
+        className={cn('off-command-input', className)}
         {...props}
       />
     </div>
@@ -39,10 +33,7 @@ export function CommandList({
 }: React.ComponentProps<typeof CommandPrimitive.List>) {
   return (
     <CommandPrimitive.List
-      className={cn(
-        'max-h-[340px] overflow-y-auto overflow-x-hidden p-[var(--off-sp-2)]',
-        className,
-      )}
+      className={cn('off-command-list', className)}
       {...props}
     />
   );
@@ -51,7 +42,7 @@ export function CommandList({
 export function CommandEmpty(props: React.ComponentProps<typeof CommandPrimitive.Empty>) {
   return (
     <CommandPrimitive.Empty
-      className="py-[var(--off-sp-7)] text-center text-[var(--off-fs-sm)] text-[var(--off-ink-3)]"
+      className="off-command-empty"
       {...props}
     />
   );
@@ -63,10 +54,7 @@ export function CommandGroup({
 }: React.ComponentProps<typeof CommandPrimitive.Group>) {
   return (
     <CommandPrimitive.Group
-      className={cn(
-        'overflow-hidden p-[var(--off-sp-1)] text-[var(--off-ink-1)] [&_[cmdk-group-heading]]:px-[var(--off-sp-3)] [&_[cmdk-group-heading]]:py-[var(--off-sp-2)] [&_[cmdk-group-heading]]:text-[var(--off-fs-micro)] [&_[cmdk-group-heading]]:font-[680] [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-[var(--off-ls-caps)] [&_[cmdk-group-heading]]:text-[var(--off-ink-3)]',
-        className,
-      )}
+      className={cn('off-command-group', className)}
       {...props}
     />
   );
@@ -78,10 +66,7 @@ export function CommandItem({
 }: React.ComponentProps<typeof CommandPrimitive.Item>) {
   return (
     <CommandPrimitive.Item
-      className={cn(
-        'relative flex cursor-default select-none items-center gap-[var(--off-sp-3)] rounded-[var(--off-r-sm)] px-[var(--off-sp-3)] py-[var(--off-sp-2)] text-[var(--off-fs-sm)] text-[var(--off-ink-2)] outline-none data-[selected=true]:bg-[var(--off-accent-surface)] data-[selected=true]:text-[var(--off-accent)] data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 [&_svg]:size-[15px] [&_svg]:shrink-0 [&_svg]:text-[var(--off-ink-3)] data-[selected=true]:[&_svg]:text-[var(--off-accent)]',
-        className,
-      )}
+      className={cn('off-command-item', className)}
       {...props}
     />
   );
@@ -93,10 +78,7 @@ export function CommandSeparator({
 }: React.ComponentProps<typeof CommandPrimitive.Separator>) {
   return (
     <CommandPrimitive.Separator
-      className={cn(
-        '-mx-[var(--off-sp-1)] my-[var(--off-sp-1)] h-px bg-[var(--off-line-soft)]',
-        className,
-      )}
+      className={cn('off-command-separator', className)}
       {...props}
     />
   );
@@ -105,10 +87,7 @@ export function CommandSeparator({
 export function CommandShortcut({ className, ...props }: React.HTMLAttributes<HTMLSpanElement>) {
   return (
     <span
-      className={cn(
-        'ml-auto font-mono text-[var(--off-fs-micro)] tracking-widest text-[var(--off-ink-4)]',
-        className,
-      )}
+      className={cn('off-command-shortcut', className)}
       {...props}
     />
   );

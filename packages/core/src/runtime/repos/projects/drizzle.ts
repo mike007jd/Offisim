@@ -27,6 +27,7 @@ function now(): string {
 interface ChatThreadDbRow {
   thread_id: string;
   project_id: string;
+  employee_id: string | null;
   title: string;
   title_set_by_user: number;
   summary: string | null;
@@ -39,6 +40,7 @@ function chatThreadFromDbRow(row: ChatThreadDbRow): ChatThread {
   return {
     thread_id: row.thread_id,
     project_id: row.project_id,
+    employee_id: row.employee_id,
     title: row.title,
     title_set_by_user: row.title_set_by_user === 1 ? 1 : 0,
     summary: row.summary,
@@ -172,6 +174,7 @@ export function createProjectsDrizzleRepos(db: Db): ProjectsDrizzleRepos {
       const row: ChatThreadDbRow = {
         thread_id: input.thread_id,
         project_id: input.project_id,
+        employee_id: input.employee_id ?? null,
         title: input.title ?? 'New thread',
         title_set_by_user: 0,
         summary: null,
@@ -271,6 +274,7 @@ export function createProjectsDrizzleRepos(db: Db): ProjectsDrizzleRepos {
       const row: ChatThreadDbRow = {
         thread_id: generateId('thread'),
         project_id: projectId,
+        employee_id: null,
         title: 'New thread',
         title_set_by_user: 0,
         summary: null,

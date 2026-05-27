@@ -1,7 +1,6 @@
 import { useEmployeeSkills } from '@/data/queries.js';
 import type { Employee } from '@/data/types.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
-import { Chip } from '@/design-system/grammar/Chip.js';
 import { SegmentedControl } from '@/design-system/grammar/SegmentedControl.js';
 import { Select } from '@/design-system/grammar/Select.js';
 import { Icon } from '@/design-system/icons/Icon.js';
@@ -30,14 +29,12 @@ import {
   DECISION_STYLE_OPTIONS,
   MODEL_FAMILY_OPTIONS,
   MODEL_MODE_OPTIONS,
-  MODEL_SUGGESTION_CHIPS,
   type ProfileFormValues,
   RISK_OPTIONS,
   TOOL_DEFAULT_MODE_OPTIONS,
   type ToolDefaultMode,
   type ToolPermissionState,
   type ToolPermissions,
-  WORKSTATION_OPTIONS,
   buildSystemPrompt,
 } from './personnel-data.js';
 
@@ -234,7 +231,6 @@ export function ProfileTab({
   const ciId = useId();
   const statusId = useId();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-
   if (employee.kind === 'external') {
     return (
       <div className="off-pers-tab-shell">
@@ -286,24 +282,18 @@ export function ProfileTab({
                 )}
               />
             </div>
-            <Controller
-              control={control}
-              name="workstation"
-              render={({ field }) => (
-                <div className="off-field">
-                  <label className="off-field-label" htmlFor={`${nameId}-ws`}>
-                    Assign workstation
-                  </label>
-                  <Select
-                    id={`${nameId}-ws`}
-                    value={field.value}
-                    onChange={(e) => field.onChange(e.target.value)}
-                    options={WORKSTATION_OPTIONS}
-                  />
-                  <p className="off-field-hint">MCP tools enabled</p>
-                </div>
-              )}
-            />
+            <div className="off-field">
+              <span className="off-field-label">Current workstation</span>
+              <div className="off-pers-ro-inp">
+                {employee.zoneLabel && employee.deskLabel
+                  ? `${employee.zoneLabel} · ${employee.deskLabel}`
+                  : 'Unassigned'}
+              </div>
+              <p className="off-field-hint">
+                Managed by the Office zone assignment flow so tool scope stays tied to the real
+                workstation.
+              </p>
+            </div>
           </section>
 
           {/* Persona */}
@@ -434,25 +424,9 @@ export function ProfileTab({
                   </label>
                   <Input
                     id={overrideId}
-                    placeholder="e.g. MiniMax-M2.7, GLM-5.1, openai/gpt-oss-120b:free"
+                    placeholder="runtime profile id"
                     {...register('modelOverride')}
                   />
-                  <div className="off-pers-chips">
-                    {MODEL_SUGGESTION_CHIPS.map((chip) => (
-                      <Chip
-                        key={chip}
-                        as="button"
-                        onClick={() =>
-                          form.setValue('modelOverride', chip, {
-                            shouldDirty: true,
-                            shouldValidate: true,
-                          })
-                        }
-                      >
-                        {chip}
-                      </Chip>
-                    ))}
-                  </div>
                 </div>
               </>
             ) : null}
@@ -478,7 +452,8 @@ export function ProfileTab({
               />
               {modelMode === 'custom' && Number(values.maxTokens) < 1024 ? (
                 <p className="off-field-hint is-warn">
-                  Some models (e.g. MiniMax) use tokens for thinking. Recommend max tokens ≥ 1024.
+                  Some reasoning models spend output budget on thinking. Recommend max tokens ≥
+                  1024.
                 </p>
               ) : null}
             </div>

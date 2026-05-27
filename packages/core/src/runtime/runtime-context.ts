@@ -104,7 +104,7 @@ export interface RuntimeContext {
   readonly conversationState: RunConversationStateType;
   /** Shared in-memory scratchpad for cross-node planning notes. */
   readonly scratchpad: Scratchpad;
-  /** Progressive-disclosure skill loader; optional until skill foundation is wired. */
+  /** Progressive-disclosure skill loader; optional until the skill foundation is available. */
   readonly skillLoader?: SkillLoader;
   /** Process-scoped staging for in-flight agent-mediated skill installs. */
   readonly skillStagingManager?: SkillStagingManager;

@@ -10,11 +10,9 @@ export const DropdownMenuPortal = DropdownMenuPrimitive.Portal;
 export const DropdownMenuSub = DropdownMenuPrimitive.Sub;
 export const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
 
-const menuSurface =
-  'z-50 min-w-[180px] overflow-hidden rounded-[var(--off-r-md)] border border-[var(--off-line)] bg-[var(--off-surface-1)] p-[var(--off-sp-1)] shadow-[var(--off-elev-3)] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95';
+const menuSurface = 'off-motion-popover off-menu-surface';
 
-const itemBase =
-  'off-focusable relative flex cursor-default select-none items-center gap-[var(--off-sp-3)] rounded-[var(--off-r-sm)] px-[var(--off-sp-3)] py-[var(--off-sp-2)] text-[var(--off-fs-sm)] text-[var(--off-ink-2)] outline-none transition-colors data-[highlighted]:bg-[var(--off-surface-sunken)] data-[highlighted]:text-[var(--off-ink-1)] data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:size-[14px] [&_svg]:shrink-0 [&_svg]:text-[var(--off-ink-3)]';
+const itemBase = 'off-focusable off-menu-item';
 
 export function DropdownMenuContent({
   className,
@@ -39,7 +37,7 @@ export function DropdownMenuItem({
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Item> & { inset?: boolean }) {
   return (
     <DropdownMenuPrimitive.Item
-      className={cn(itemBase, inset && 'pl-[var(--off-sp-8)]', className)}
+      className={cn(itemBase, inset && 'off-menu-inset', className)}
       {...props}
     />
   );
@@ -53,13 +51,13 @@ export function DropdownMenuCheckboxItem({
 }: React.ComponentProps<typeof DropdownMenuPrimitive.CheckboxItem>) {
   return (
     <DropdownMenuPrimitive.CheckboxItem
-      className={cn(itemBase, 'pl-[var(--off-sp-7)]', className)}
+      className={cn(itemBase, 'off-menu-indicated', className)}
       checked={checked}
       {...props}
     >
-      <span className="absolute left-[var(--off-sp-2)] flex items-center justify-center">
+      <span className="off-menu-check">
         <DropdownMenuPrimitive.ItemIndicator>
-          <Check className="size-[14px]" />
+          <Check />
         </DropdownMenuPrimitive.ItemIndicator>
       </span>
       {children}
@@ -74,12 +72,12 @@ export function DropdownMenuRadioItem({
 }: React.ComponentProps<typeof DropdownMenuPrimitive.RadioItem>) {
   return (
     <DropdownMenuPrimitive.RadioItem
-      className={cn(itemBase, 'pl-[var(--off-sp-7)]', className)}
+      className={cn(itemBase, 'off-menu-indicated', className)}
       {...props}
     >
-      <span className="absolute left-[var(--off-sp-3)] flex items-center justify-center">
+      <span className="off-menu-radio">
         <DropdownMenuPrimitive.ItemIndicator>
-          <span className="size-[6px] rounded-full bg-[var(--off-accent)]" />
+          <span className="off-menu-radio-dot" />
         </DropdownMenuPrimitive.ItemIndicator>
       </span>
       {children}
@@ -93,10 +91,7 @@ export function DropdownMenuLabel({
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Label>) {
   return (
     <DropdownMenuPrimitive.Label
-      className={cn(
-        'px-[var(--off-sp-3)] py-[var(--off-sp-1)] text-[var(--off-fs-micro)] font-[680] uppercase tracking-[var(--off-ls-caps)] text-[var(--off-ink-3)]',
-        className,
-      )}
+      className={cn('off-menu-label', className)}
       {...props}
     />
   );
@@ -108,10 +103,7 @@ export function DropdownMenuSeparator({
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Separator>) {
   return (
     <DropdownMenuPrimitive.Separator
-      className={cn(
-        '-mx-[var(--off-sp-1)] my-[var(--off-sp-1)] h-px bg-[var(--off-line-soft)]',
-        className,
-      )}
+      className={cn('off-menu-separator', className)}
       {...props}
     />
   );
@@ -123,10 +115,7 @@ export function DropdownMenuShortcut({
 }: React.HTMLAttributes<HTMLSpanElement>) {
   return (
     <span
-      className={cn(
-        'ml-auto text-[var(--off-fs-micro)] font-mono text-[var(--off-ink-4)]',
-        className,
-      )}
+      className={cn('off-menu-shortcut', className)}
       {...props}
     />
   );
@@ -142,14 +131,14 @@ export function DropdownMenuSubTrigger({
     <DropdownMenuPrimitive.SubTrigger
       className={cn(
         itemBase,
-        'data-[state=open]:bg-[var(--off-surface-sunken)]',
-        inset && 'pl-[var(--off-sp-8)]',
+        'off-menu-subtrigger',
+        inset && 'off-menu-inset',
         className,
       )}
       {...props}
     >
       {children}
-      <ChevronRight className="ml-auto size-[14px]" />
+      <ChevronRight className="off-menu-chevron" />
     </DropdownMenuPrimitive.SubTrigger>
   );
 }

@@ -330,5 +330,5 @@ function generateSlug(title: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
-    .slice(0, 80)}-${Date.now().toString(36)}`;
+    .slice(0, 80)}-${crypto.randomUUID().slice(0, 12)}`;
 }

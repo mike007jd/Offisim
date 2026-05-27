@@ -11,7 +11,7 @@
 - 当前已验证的本地文件 / shell / workspace 任务必须走默认 Offisim harness / gateway 工具路径；未来 tool-capable employee profile 或主 harness driver/replacement 必须先有独立 capability profile、审计、checkpoint/rollback 和 release `.app` 证据。external A2A 和未验证的 model transport 不能冒充本机工具执行者。
 
 # 当前架构决策（2026-05-18）
-- 开源前结构目标是生产级可维护拆分，执行源为 `openspec/changes/simplify-to-tauri-only-desktop-architecture/`。
+- 开源前结构目标是生产级可维护拆分。
 - Offisim 只保留 Tauri v2 桌面产品；不要新增独立 web、browser runtime 或 launcher 产品工作。
 - React renderer 位于 `apps/desktop/renderer`，归 desktop ownership；仓库不再保留 standalone web package。
 - launcher 已删除；相关端口、脚本、docs、验证路径不得恢复。
@@ -23,11 +23,11 @@
 - Approved stack: React 19 + Vite + Tauri renderer, Tailwind CSS v4, shadcn/ui, assistant-ui, Motion for React (`motion/react`), lucide-react, TanStack Query, Zustand, React Hook Form + Zod, dnd-kit, TanStack Virtual, react-resizable-panels, cmdk, Sonner, Recharts。
 - UI ownership 留在 `apps/desktop/renderer`。不要重建共享视觉 UI package；shared packages 只能承载类型、runtime/data contract，不承载视觉组件库。
 - Tailwind 只做 token/utility 编译层；shadcn 只做本地 accessible primitives；assistant-ui 只做 assistant surface/runtime primitives；Motion 只做统一动态语法。任何库都不能覆盖 Offisim V3 dense HUD 设计语言。
-- 禁止新引入非批准动画框架、组件套件或 CSS-in-JS 层，除非另有明确 OpenSpec 决策。
+- 禁止新引入非批准动画框架、组件套件或 CSS-in-JS 层，除非另有明确架构决策。
 
 # 验证 / 测试准则
 - 不在 `packages/core/src/**/*.test.mjs` 新增或保留 runtime / graph / product 行为测试。
-- 新的 graph、runtime、permission、planner、kanban、LLM replay 不变量必须走 deterministic harness：`packages/core/harness/scenarios/*.json` + `packages/core/src/testing/invariant-assertions.ts`，并按需加入 `manifest.json` / replay 或 soak 列表。
+- 新的 graph、runtime、permission、planner、LLM replay 不变量必须走 deterministic harness：`packages/core/harness/scenarios/*.json` + `packages/core/src/testing/invariant-assertions.ts`，并按需加入 `manifest.json` / replay 或 soak 列表。
 - 临时 `node --test` 只允许作为本地探索，不进 git；不要通过给 `packages/core/package.json` 加 `test` script 或 CI gate 来恢复普通 product 自动测试。
 - 如果 review 发现源内 `.test.mjs` 和 harness 重复，优先删除源内测试，把仍有价值的不变量迁到 harness。
 
@@ -45,7 +45,7 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **Offisim** (33319 symbols, 48819 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **Offisim** (23177 symbols, 33506 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

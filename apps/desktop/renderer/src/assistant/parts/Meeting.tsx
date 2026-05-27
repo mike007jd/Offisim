@@ -3,9 +3,10 @@ import type { ActionItemPriority, MeetingState } from '@/data/types.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { Icon } from '@/design-system/icons/Icon.js';
+import { Popover, PopoverContent, PopoverTrigger } from '@/design-system/primitives/popover.js';
 import { cn } from '@/lib/utils.js';
 import { useComposerRuntime } from '@assistant-ui/react';
-import { ArrowRight, Check, Users } from 'lucide-react';
+import { ArrowRight, Check, ListChecks, Users } from 'lucide-react';
 import { useMemo } from 'react';
 import { useRunStore } from '../run-store.js';
 
@@ -20,12 +21,10 @@ function useEmployeesById() {
   return useMemo(() => new Map((employees.data ?? []).map((e) => [e.id, e])), [employees.data]);
 }
 
-/** In-conversation meeting follow-up. Each action item can be checked off or
- *  delegated — Delegate pre-fills the composer with `@name description`, the
- *  prototype's one-tap hand-off. */
+/** In-conversation meeting follow-up. Completion is read-only until meeting
+ *  persistence lands; Delegate still pre-fills the assistant composer. */
 function MeetingActionItems({ meeting }: { meeting: MeetingState }) {
   const byId = useEmployeesById();
-  const toggle = useRunStore((s) => s.toggleActionItem);
   const composer = useComposerRuntime();
 
   return (
@@ -38,15 +37,13 @@ function MeetingActionItems({ meeting }: { meeting: MeetingState }) {
         const assignee = item.assigneeId ? byId.get(item.assigneeId) : undefined;
         return (
           <div key={item.id} className={cn('off-action-item', item.done && 'is-done')}>
-            <button
-              type="button"
-              className="off-action-check off-focusable"
-              aria-pressed={item.done}
-              aria-label={item.done ? 'Mark incomplete' : 'Mark complete'}
-              onClick={() => toggle(item.id)}
+            <span
+              className="off-action-check"
+              aria-hidden="true"
+              data-state={item.done ? 'done' : 'pending'}
             >
               {item.done ? <Icon icon={Check} size="sm" /> : null}
-            </button>
+            </span>
             <span className="off-action-desc">{item.description}</span>
             <span className={cn('off-action-prio', PRIORITY_TONE[item.priority])}>
               {item.priority}
@@ -128,4 +125,23 @@ export function MeetingRegion() {
   if (!meeting) return null;
   if (meeting.status === 'idle') return <MeetingActionItems meeting={meeting} />;
   return <MeetingPanel meeting={meeting} />;
+}
+
+export function MeetingTray() {
+  const meeting = useRunStore((s) => s.meeting);
+  if (!meeting) return null;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button" className="off-thread-pit off-focusable">
+          <Icon icon={ListChecks} size="sm" />
+          Follow-up
+          <span className="off-thread-pit-count">{meeting.actionItems.length}</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="off-thread-pit-pop" align="start">
+        <MeetingRegion />
+      </PopoverContent>
+    </Popover>
+  );
 }

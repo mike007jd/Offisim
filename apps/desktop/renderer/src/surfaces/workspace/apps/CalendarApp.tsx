@@ -1,12 +1,12 @@
 import { useUiState } from '@/app/ui-state.js';
+import { UI_DATA_COLORS } from '@/data/color-palette.js';
 import { useEmployees } from '@/data/queries.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { SegmentedControl } from '@/design-system/grammar/SegmentedControl.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
-import { Check, MessageSquare, Plus } from 'lucide-react';
+import { Check, MessageSquare } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { toast } from 'sonner';
 import { type AgendaEvent, type WsMeeting, useWsAgenda, useWsMeetings } from '../workspace-data.js';
 
 type View = 'agenda' | 'week';
@@ -31,7 +31,6 @@ export function CalendarApp() {
   const selectItem = useUiState((s) => s.selectWorkspaceItem);
   const setApp = useUiState((s) => s.setWorkspaceApp);
   const [view, setView] = useState<View>('agenda');
-  const [doneItems, setDoneItems] = useState<Record<string, boolean>>({});
 
   const byId = useMemo(
     () => new Map((employees.data ?? []).map((e) => [e.id, e])),
@@ -49,10 +48,6 @@ export function CalendarApp() {
   const meeting: WsMeeting | null = meetingId
     ? (meetingList.find((m) => m.id === meetingId) ?? null)
     : (meetingList[0] ?? null);
-
-  function toggleItem(id: string, current: boolean) {
-    setDoneItems((prev) => ({ ...prev, [id]: !current }));
-  }
 
   function EventRow({ ev }: { ev: AgendaEvent }) {
     const selectable = Boolean(EVENT_TO_MEETING[ev.id]);
@@ -96,14 +91,7 @@ export function CalendarApp() {
           Today
         </button>
         <span className="off-grow" />
-        <button
-          type="button"
-          className="off-ws-oa-approve off-focusable"
-          onClick={() => toast.message('New meeting')}
-        >
-          <Icon icon={Plus} size="sm" />
-          New meeting
-        </button>
+        <span className="off-ws-action-state">Scheduling backend pending</span>
       </div>
 
       <div className="off-ws-cal-body">
@@ -134,15 +122,10 @@ export function CalendarApp() {
                 Action items <span className="off-ws-seg-ct">{meeting.actionItems.length}</span>
               </div>
               {meeting.actionItems.map((item) => {
-                const done = doneItems[item.id] ?? item.done;
+                const done = item.done;
                 const owner = item.ownerId ? byId.get(item.ownerId) : null;
                 return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={cn('off-ws-ai off-focusable', done && 'is-done')}
-                    onClick={() => toggleItem(item.id, done)}
-                  >
+                  <div key={item.id} className={cn('off-ws-ai', done && 'is-done')}>
                     <span className="off-ws-ai-box">
                       {done ? <Icon icon={Check} size="sm" /> : null}
                     </span>
@@ -158,18 +141,22 @@ export function CalendarApp() {
                           brand={owner.kind === 'external'}
                         />
                       ) : (
-                        <EmployeeAvatar seed="Boss" colorA="#d7e3ff" colorB="#aac4ff" size={16} />
+                        <EmployeeAvatar
+                          seed="Boss"
+                          colorA={UI_DATA_COLORS.bossA}
+                          colorB={UI_DATA_COLORS.bossB}
+                          size={16}
+                        />
                       )}
                     </span>
-                  </button>
+                  </div>
                 );
               })}
               <button
                 type="button"
                 className="off-ws-dlv-btn off-ws-meet-open off-focusable"
                 onClick={() => {
-                  selectItem(meeting.threadId);
-                  setApp('messenger');
+                  setApp('messenger', meeting.threadId);
                 }}
               >
                 <Icon icon={MessageSquare} size="sm" />

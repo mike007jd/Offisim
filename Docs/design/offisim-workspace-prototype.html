@@ -81,8 +81,8 @@
     .traffic { display: flex; gap: 8px; }
     .dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08); }
     .red { background: #ff5f57; } .yellow { background: #febc2e; } .green { background: #28c840; }
-    .brand { display: flex; align-items: baseline; gap: 9px; font-weight: 640; font-size: var(--fs-md); letter-spacing: -0.01em; }
-    .brand .ver { font-size: var(--fs-micro); color: var(--ink-3); font-weight: 600; padding: 2px 6px; border-radius: var(--r-pill); background: var(--surface-sunken); letter-spacing: 0.02em; }
+    .brand { display: flex; align-items: baseline; gap: 9px; font-weight: 640; font-size: var(--fs-md); letter-spacing: 0; }
+    .brand .ver { font-size: var(--fs-micro); color: var(--ink-3); font-weight: 600; padding: 2px 6px; border-radius: var(--r-pill); background: var(--surface-sunken); letter-spacing: 0; }
 
     /* ── Top bar ── */
     .topbar { height: var(--toolbar); position: relative; display: flex; align-items: center; gap: var(--sp-5); padding: 0 var(--sp-5); background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
@@ -115,7 +115,7 @@
        Office = watch AI employees collaborate live in 3D.
        Workspace = the company's business-software layer (the
        in-game "desktop / phone" system): an enterprise suite
-       (Messenger / Approvals / Docs / Calendar / Meetings /
+       (Messenger / Approvals / Calendar / Meetings /
        Contacts / Workplace) over the SAME company, projects,
        employees, conversations, deliverables, approvals.
        ════════════════════════════════════════════════════ */
@@ -125,7 +125,7 @@
     .appbar { background: var(--surface-0); border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; padding: var(--sp-4) 0 var(--sp-3); gap: 3px; min-height: 0; }
     .appbar-id { width: 34px; height: 34px; border-radius: var(--r-md); background-size: cover; background-position: center; box-shadow: 0 0 0 1px var(--line), var(--elev-1); margin-bottom: var(--sp-3); }
     .appbtn { position: relative; width: 52px; padding: 7px 0 6px; border: 1px solid transparent; border-radius: var(--r-md); background: transparent; color: var(--ink-3); display: flex; flex-direction: column; align-items: center; gap: 3px; transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease; }
-    .appbtn .lab { font-size: 9px; font-weight: 620; letter-spacing: 0.01em; }
+    .appbtn .lab { font-size: 9px; font-weight: 620; letter-spacing: 0; }
     .appbtn:hover { background: var(--surface-sunken); color: var(--ink-1); }
     .appbtn.active { background: var(--accent-surface); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-ring); }
     .appbtn .nb { position: absolute; top: 2px; right: 7px; min-width: 15px; height: 15px; padding: 0 4px; display: grid; place-items: center; background: var(--danger); color: #fff; font-size: 9px; font-weight: 760; border-radius: var(--r-pill); box-shadow: 0 1px 3px rgba(214, 69, 61, 0.4); }
@@ -140,10 +140,10 @@
     .suite-detail { min-width: 0; min-height: 0; display: grid; }
     .min0 { min-width: 0; }
 
-    /* Generic list header (Messenger / Approvals / Docs / Contacts) */
+    /* Generic list header (Messenger / Approvals / Contacts) */
     .lst-head { border-bottom: 1px solid var(--line-soft); padding: var(--sp-4) var(--sp-5) var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-3); }
     .lst-head-top { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
-    .lst-title { font-size: var(--fs-md); font-weight: 680; color: var(--ink-1); letter-spacing: -0.01em; }
+    .lst-title { font-size: var(--fs-md); font-weight: 680; color: var(--ink-1); letter-spacing: 0; }
     .lst-add { width: 28px; height: 28px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-2); color: var(--ink-3); display: grid; place-items: center; transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease; }
     .lst-add:hover { background: var(--accent-surface); color: var(--accent); border-color: var(--accent-ring); }
     .field { height: 30px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-sunken); color: var(--ink-4); display: flex; align-items: center; gap: 7px; font-size: var(--fs-sm); transition: border-color 0.14s ease, background 0.14s ease; }
@@ -171,7 +171,7 @@
     .im-l1 { display: flex; align-items: baseline; gap: var(--sp-2); }
     .im-nm { flex: 1; min-width: 0; font-size: var(--fs-sm); font-weight: 640; color: var(--ink-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .im-row.active .im-nm { color: var(--accent); }
-    .im-btag { flex: none; font-size: 8.5px; font-weight: 760; letter-spacing: 0.06em; text-transform: uppercase; padding: 1px 5px; border-radius: 4px; background: var(--violet-surface); color: var(--violet); }
+    .im-btag { flex: none; font-size: 8.5px; font-weight: 760; letter-spacing: 0; text-transform: uppercase; padding: 1px 5px; border-radius: 4px; background: var(--violet-surface); color: var(--violet); }
     .im-tm { flex: none; font-size: 9.5px; color: var(--ink-4); font-variant-numeric: tabular-nums; }
     .im-l2 { display: flex; align-items: center; gap: var(--sp-2); margin-top: 3px; }
     .im-snip { flex: 1; min-width: 0; font-size: var(--fs-meta); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -179,9 +179,9 @@
     .im-nb.mut { background: var(--ink-4); }
     .im-rd { flex: none; color: var(--ok); display: grid; place-items: center; }
     .im-mute { flex: none; color: var(--ink-4); }
-    .im-sec { padding: var(--sp-4) var(--sp-3) var(--sp-2); font-size: var(--fs-micro); letter-spacing: var(--ls-caps); font-weight: 700; color: var(--ink-4); text-transform: uppercase; }
+    .im-sec { padding: var(--sp-4) var(--sp-3) var(--sp-2); font-size: var(--fs-micro); letter-spacing: 0; font-weight: 700; color: var(--ink-4); text-transform: uppercase; }
 
-    /* ── Conversation tabs (Chat / Files / Docs +) — container grammar ── */
+    /* ── Conversation tabs (Chat / Files) — container grammar ── */
     .conv-tabs { display: flex; align-items: center; gap: 2px; padding: var(--sp-3) var(--sp-5); border-bottom: 1px solid var(--line-soft); background: var(--surface-1); }
     .conv-tab { height: 28px; padding: 0 12px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--ink-2); font-size: var(--fs-sm); font-weight: 580; display: inline-flex; align-items: center; gap: 6px; transition: background 0.12s ease, color 0.12s ease; }
     .conv-tab:hover { background: var(--surface-sunken); color: var(--ink-1); }
@@ -222,7 +222,7 @@
     .download { color: var(--ink-3); display: grid; place-items: center; }
     .fname { font-weight: 640; color: var(--ink-1); font-size: var(--fs-sm); }
     .meta { color: var(--ink-3); font-size: var(--fs-micro); margin-top: 2px; }
-    .reasoning { display: inline-flex; align-items: center; gap: 6px; border-left: 2px solid var(--accent-ring); padding-left: 10px; color: var(--accent); font-size: var(--fs-micro); font-weight: 680; letter-spacing: 0.1em; text-transform: uppercase; }
+    .reasoning { display: inline-flex; align-items: center; gap: 6px; border-left: 2px solid var(--accent-ring); padding-left: 10px; color: var(--accent); font-size: var(--fs-micro); font-weight: 680; letter-spacing: 0; text-transform: uppercase; }
     .day-sep { align-self: center; font-size: 9.5px; font-weight: 620; color: var(--ink-4); background: var(--surface-sunken); border-radius: var(--r-pill); padding: 2px 11px; }
 
     /* ── Sedimented run record (reused) ── */
@@ -237,7 +237,7 @@
     .run-record.open .rr-caret { transform: rotate(90deg); }
     .rr-body { display: none; padding: 0 var(--sp-5) var(--sp-5); border-top: 1px solid var(--line-soft); }
     .run-record.open .rr-body { display: flex; flex-direction: column; gap: var(--sp-5); padding-top: var(--sp-5); }
-    .rail-sec-head { font-size: var(--fs-micro); letter-spacing: 0.16em; font-weight: 700; color: var(--ink-3); text-transform: uppercase; margin-bottom: var(--sp-4); display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+    .rail-sec-head { font-size: var(--fs-micro); letter-spacing: 0; font-weight: 700; color: var(--ink-3); text-transform: uppercase; margin-bottom: var(--sp-4); display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
     .rail-sec-head .ct { color: var(--ink-3); font-weight: 680; letter-spacing: 0; }
     .actrail { border: 1px solid var(--line-soft); border-radius: var(--r-lg); background: var(--surface-2); padding: var(--sp-4); box-shadow: var(--elev-1); }
     .act-pills { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
@@ -266,7 +266,7 @@
     .composer-tools .pill:hover { background: var(--surface-sunken); }
     .pill.mode-chip { cursor: pointer; font-weight: 640; }
     .mode-dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 7px; }
-    .pill.mode-sop { background: var(--accent-surface); color: var(--accent); border-color: var(--accent-ring); } .pill.mode-sop .mode-dot { background: var(--accent); }
+    .pill.mode-plan { background: var(--accent-surface); color: var(--accent); border-color: var(--accent-ring); } .pill.mode-plan .mode-dot { background: var(--accent); }
     .pill.mode-hil { background: var(--warn-surface); color: #8a5a0c; border-color: rgba(201, 132, 16, 0.4); } .pill.mode-hil .mode-dot { background: var(--warn); }
     .pill.mode-direct { background: var(--surface-sunken); color: var(--ink-2); border-color: var(--line); } .pill.mode-direct .mode-dot { background: var(--ink-4); }
     .pill.mode-yolo { background: var(--danger-surface); color: #b8352e; border-color: rgba(214, 69, 61, 0.4); } .pill.mode-yolo .mode-dot { background: var(--danger); }
@@ -276,7 +276,7 @@
     .send { height: 30px; padding: 0 14px; border: 0; border-radius: var(--r-sm); background: var(--accent); color: var(--accent-fg); font-size: var(--fs-sm); font-weight: 660; display: flex; align-items: center; justify-content: center; gap: 7px; transition: background 0.15s ease, transform 0.1s ease; }
     .send:hover { background: var(--accent-press); } .send:active { transform: scale(0.97); }
 
-    /* ── Deliverable card (reused for Messenger Docs tab + Docs app) ── */
+    /* ── Deliverable card (reused for Messenger files facet) ── */
     .dlv { border: 1px solid var(--line-soft); border-radius: var(--r-md); background: var(--surface-2); overflow: hidden; }
     .dlv.new { border-color: var(--ok); box-shadow: 0 0 0 3px var(--ok-surface); }
     .dlv-head { display: flex; align-items: flex-start; gap: var(--sp-3); padding: var(--sp-4) var(--sp-4) var(--sp-2); }
@@ -298,7 +298,7 @@
     .dlv-btn { height: 24px; padding: 0 8px; border: 0; border-radius: var(--r-xs); background: transparent; color: var(--ink-3); font-size: var(--fs-micro); font-weight: 580; display: inline-flex; align-items: center; gap: 4px; transition: background 0.12s ease, color 0.12s ease; }
     .dlv-btn:hover { background: var(--surface-sunken); color: var(--ink-1); }
     .dlv-fmt { height: 24px; padding: 0 6px; border: 1px solid var(--line); border-radius: var(--r-xs); background: var(--surface-1); color: var(--ink-3); font-size: var(--fs-micro); font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
-    .dlv-btn.sop-promoted { background: var(--ok); color: #fff; font-weight: 660; }
+    .dlv-btn.plan-promoted { background: var(--ok); color: #fff; font-weight: 660; }
 
     /* ── System / notification feed (Messenger system channel) ── */
     .sys-card { display: grid; grid-template-columns: 30px 1fr; gap: var(--sp-3); border: 1px solid var(--line-soft); border-left-width: 3px; border-radius: var(--r-md); background: var(--surface-1); padding: var(--sp-4); box-shadow: var(--elev-1); }
@@ -310,7 +310,7 @@
     .sys-card.warning .sys-ic { background: var(--warn-surface); color: #8a5a0c; }
     .sys-card.error .sys-ic { background: var(--danger-surface); color: #b8352e; }
     .sys-l1 { display: flex; align-items: center; gap: var(--sp-2); }
-    .sys-src { font-size: 9px; font-weight: 760; letter-spacing: 0.06em; text-transform: uppercase; padding: 1px 6px; border-radius: 4px; background: var(--surface-sunken); color: var(--ink-3); }
+    .sys-src { font-size: 9px; font-weight: 760; letter-spacing: 0; text-transform: uppercase; padding: 1px 6px; border-radius: 4px; background: var(--surface-sunken); color: var(--ink-3); }
     .sys-ttl { font-size: var(--fs-sm); font-weight: 660; color: var(--ink-1); }
     .sys-tm { margin-left: auto; font-size: 9.5px; color: var(--ink-4); }
     .sys-msg { font-size: var(--fs-meta); color: var(--ink-3); line-height: 1.5; margin-top: 3px; }
@@ -324,7 +324,7 @@
     .oa-row:hover { background: var(--surface-sunken); }
     .oa-row.active { background: var(--accent-surface); border-color: var(--accent-ring); }
     .oa-r1 { display: flex; align-items: center; gap: var(--sp-2); }
-    .oa-type { font-size: 8.5px; font-weight: 760; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; }
+    .oa-type { font-size: 8.5px; font-weight: 760; letter-spacing: 0; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; }
     .oa-type.perm { background: var(--warn-surface); color: #8a5a0c; }
     .oa-type.plan { background: var(--accent-surface); color: var(--accent); }
     .oa-type.ask { background: var(--violet-surface); color: var(--violet); }
@@ -337,32 +337,32 @@
     .oa-detail { min-height: 0; display: grid; grid-template-rows: auto 1fr auto; }
     .oa-d-head { padding: var(--sp-5) var(--sp-7); border-bottom: 1px solid var(--line-soft); }
     .oa-d-type { display: inline-flex; align-items: center; gap: 6px; }
-    .oa-d-ttl { font-size: var(--fs-lg); font-weight: 680; color: var(--ink-1); margin-top: var(--sp-3); letter-spacing: -0.01em; }
+    .oa-d-ttl { font-size: var(--fs-lg); font-weight: 680; color: var(--ink-1); margin-top: var(--sp-3); letter-spacing: 0; }
     .oa-d-sub { font-size: var(--fs-meta); color: var(--ink-3); margin-top: 4px; display: flex; align-items: center; gap: 7px; }
     .oa-d-sub .av { width: 18px; height: 18px; border-radius: 50%; background-size: cover; box-shadow: 0 0 0 1px var(--line); }
     .oa-d-body { min-height: 0; overflow-y: auto; padding: var(--sp-7); display: flex; flex-direction: column; gap: var(--sp-5); }
     .oa-card { border: 1px solid var(--line-soft); border-radius: var(--r-md); background: var(--surface-2); padding: var(--sp-5); box-shadow: var(--elev-1); }
-    .oa-card-h { font-size: var(--fs-micro); letter-spacing: var(--ls-caps); font-weight: 700; color: var(--ink-3); text-transform: uppercase; margin-bottom: var(--sp-4); }
+    .oa-card-h { font-size: var(--fs-micro); letter-spacing: 0; font-weight: 700; color: var(--ink-3); text-transform: uppercase; margin-bottom: var(--sp-4); }
     .oa-kv { display: grid; grid-template-columns: 116px 1fr; gap: var(--sp-2) var(--sp-4); font-size: var(--fs-sm); }
     .oa-kv dt { color: var(--ink-3); } .oa-kv dd { margin: 0; color: var(--ink-1); font-weight: 560; }
     .oa-kv code { font-family: var(--mono); font-size: 0.9em; background: var(--surface-sunken); padding: 1px 6px; border-radius: 4px; color: var(--ink-2); }
     .oa-cmd { font-family: var(--mono); font-size: var(--fs-meta); line-height: 1.6; color: var(--ink-2); background: #0f172a; color: #cdd6e6; border-radius: var(--r-sm); padding: 10px 12px; white-space: pre-wrap; word-break: break-word; }
     .oa-reason { font-size: var(--fs-sm); color: var(--ink-2); line-height: 1.55; }
-    .oa-scope-h { font-size: var(--fs-micro); letter-spacing: var(--ls-caps); font-weight: 700; color: var(--ink-3); text-transform: uppercase; margin-bottom: var(--sp-3); }
+    .oa-scope-h { font-size: var(--fs-micro); letter-spacing: 0; font-weight: 700; color: var(--ink-3); text-transform: uppercase; margin-bottom: var(--sp-3); }
     .oa-foot { border-top: 1px solid var(--line); padding: var(--sp-5) var(--sp-7); background: var(--surface-2); display: flex; align-items: center; gap: var(--sp-3); }
     .oa-deny { height: 34px; padding: 0 16px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-1); color: var(--ink-2); font-size: var(--fs-sm); font-weight: 620; }
     .oa-deny:hover { border-color: var(--danger); color: #b8352e; background: var(--danger-surface); }
     .oa-approve { height: 34px; padding: 0 18px; border: 0; border-radius: var(--r-sm); background: var(--accent); color: #fff; font-size: var(--fs-sm); font-weight: 660; display: inline-flex; align-items: center; gap: 7px; }
     .oa-approve:hover { background: var(--accent-press); }
 
-    /* ── Docs app rows ── */
+    /* ── Artifact/file rows ── */
     .doc-row { display: grid; grid-template-columns: 32px 1fr auto; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); border: 1px solid transparent; border-radius: var(--r-md); text-align: left; background: transparent; transition: background 0.12s ease, border-color 0.12s ease; }
     .doc-row:hover { background: var(--surface-sunken); } .doc-row.active { background: var(--accent-surface); border-color: var(--accent-ring); }
     .doc-ic { width: 30px; height: 30px; border-radius: var(--r-sm); background: var(--surface-sunken); color: var(--ink-3); display: grid; place-items: center; }
     .doc-row.active .doc-ic { background: var(--surface-1); color: var(--accent); }
     .doc-nm { display: block; font-size: var(--fs-sm); font-weight: 620; color: var(--ink-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .doc-sub { display: block; font-size: 9.5px; color: var(--ink-4); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .doc-fmt { flex: none; font-size: 8.5px; font-weight: 760; letter-spacing: 0.04em; padding: 2px 6px; border-radius: 4px; background: var(--surface-sunken); color: var(--ink-3); }
+    .doc-fmt { flex: none; font-size: 8.5px; font-weight: 760; letter-spacing: 0; padding: 2px 6px; border-radius: 4px; background: var(--surface-sunken); color: var(--ink-3); }
     .doc-view { min-height: 0; display: grid; grid-template-rows: auto 1fr; }
     .doc-view-h { padding: var(--sp-5) var(--sp-7); border-bottom: 1px solid var(--line-soft); }
     .doc-view-body { min-height: 0; overflow-y: auto; padding: var(--sp-7); }
@@ -373,7 +373,7 @@
     .doc-paper ul { margin: var(--sp-3) 0 0 20px; }
 
     /* ── Contacts ── */
-    .ct-grp { padding: var(--sp-4) var(--sp-3) var(--sp-2); font-size: var(--fs-micro); letter-spacing: var(--ls-caps); font-weight: 700; color: var(--ink-4); text-transform: uppercase; display: flex; align-items: center; gap: 6px; }
+    .ct-grp { padding: var(--sp-4) var(--sp-3) var(--sp-2); font-size: var(--fs-micro); letter-spacing: 0; font-weight: 700; color: var(--ink-4); text-transform: uppercase; display: flex; align-items: center; gap: 6px; }
     .ct-grp .ct { font-family: var(--mono); font-size: 9px; }
     .ct-row { display: grid; grid-template-columns: 34px 1fr auto; gap: var(--sp-3); align-items: center; padding: var(--sp-2) var(--sp-3); border: 1px solid transparent; border-radius: var(--r-md); text-align: left; background: transparent; transition: background 0.12s ease, border-color 0.12s ease; }
     .ct-row:hover { background: var(--surface-sunken); } .ct-row.active { background: var(--accent-surface); border-color: var(--accent-ring); }
@@ -427,14 +427,14 @@
     /* ── Workplace launcher ── */
     .wp { min-height: 0; overflow-y: auto; padding: var(--sp-8) var(--sp-8); }
     .wp-hero { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp-5); margin-bottom: var(--sp-7); }
-    .wp-hi { font-size: 21px; font-weight: 700; color: var(--ink-1); letter-spacing: -0.01em; }
+    .wp-hi { font-size: 21px; font-weight: 700; color: var(--ink-1); letter-spacing: 0; }
     .wp-hi .sub { display: block; font-size: var(--fs-sm); font-weight: 540; color: var(--ink-3); margin-top: 4px; }
     .wp-stats { display: flex; gap: var(--sp-3); }
     .wp-stat { border: 1px solid var(--line-soft); border-radius: var(--r-md); background: var(--surface-1); box-shadow: var(--elev-1); padding: var(--sp-3) var(--sp-5); min-width: 88px; }
     .wp-stat .v { font-size: var(--fs-lg); font-weight: 720; color: var(--ink-1); font-variant-numeric: tabular-nums; }
-    .wp-stat .k { font-size: 9.5px; font-weight: 600; color: var(--ink-4); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
+    .wp-stat .k { font-size: 9.5px; font-weight: 600; color: var(--ink-4); text-transform: uppercase; letter-spacing: 0; margin-top: 2px; }
     .wp-stat.alert .v { color: var(--warn); }
-    .wp-sec-h { font-size: var(--fs-micro); letter-spacing: var(--ls-caps); font-weight: 700; color: var(--ink-3); text-transform: uppercase; margin: var(--sp-6) 0 var(--sp-4); }
+    .wp-sec-h { font-size: var(--fs-micro); letter-spacing: 0; font-weight: 700; color: var(--ink-3); text-transform: uppercase; margin: var(--sp-6) 0 var(--sp-4); }
     .wp-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--sp-4); }
     .wp-tile { display: flex; flex-direction: column; gap: var(--sp-3); border: 1px solid var(--line-soft); border-radius: var(--r-md); background: var(--surface-1); box-shadow: var(--elev-1); padding: var(--sp-5); text-align: left; transition: border-color 0.14s ease, box-shadow 0.14s ease, transform 0.14s ease; }
     .wp-tile:hover { border-color: var(--line-strong); box-shadow: var(--elev-2); transform: translateY(-1px); }
@@ -449,7 +449,7 @@
     /* ── Specimen suite scaffold (reused from V3) ── */
     .spec-suite { width: min(1600px, 100%); display: flex; flex-direction: column; gap: 22px; flex: none; }
     .spec-suite-head { color: #cdd6e6; font-size: var(--fs-sm); line-height: 1.6; padding: 0 4px; }
-    .spec-suite-head h2 { margin: 0 0 4px; font-size: var(--fs-lg); font-weight: 680; color: #fff; letter-spacing: -0.01em; }
+    .spec-suite-head h2 { margin: 0 0 4px; font-size: var(--fs-lg); font-weight: 680; color: #fff; letter-spacing: 0; }
     .spec-suite-head b { color: #aebfff; font-weight: 640; }
     .spec-state { border-radius: 14px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 24px 60px rgba(0, 0, 0, 0.45); background: var(--bg); }
     .spec-cap { display: flex; align-items: center; gap: var(--sp-3); padding: 9px 14px; background: linear-gradient(#11161f, #0c0f16); color: #d6deec; font-size: var(--fs-sm); border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
@@ -540,7 +540,6 @@
       <div class="nav">
         <button><svg class="ico sm"><use href="#i-building"/></svg>Office</button>
         <button class="active"><svg class="ico sm"><use href="#i-grid"/></svg>Workspace</button>
-        <button>SOPs</button>
         <button>Market</button>
         <button>Personnel</button>
       </div>
@@ -551,18 +550,15 @@
     </nav>
 
     <main class="suite">
-      <!-- Left app rail — the suite's app switcher (Office/SOPs/Market/Personnel stay in the top nav; these are the in-Workspace apps) -->
+      <!-- Left app rail — the suite's app switcher (Office/Workspace/Market/Personnel stay in the top nav; these are the in-Workspace apps) -->
       <aside class="appbar" title="Workspace apps. The suite is the company's business-software layer over the same company / projects / employees / conversations / approvals / deliverables that Office shows live in 3D.">
         <span class="appbar-id" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Boss&backgroundColor=d7e3ff')" title="You — the boss"></span>
         <button class="appbtn active"><span class="nb">12</span><svg class="ico"><use href="#i-message"/></svg><span class="lab">Chats</span></button>
         <button class="appbtn"><span class="nb">3</span><svg class="ico"><use href="#i-clipboard"/></svg><span class="lab">Approve</span></button>
-        <button class="appbtn"><svg class="ico"><use href="#i-layers"/></svg><span class="lab">Docs</span></button>
         <button class="appbtn"><span class="nb dot"></span><svg class="ico"><use href="#i-calendar"/></svg><span class="lab">Calendar</span></button>
         <button class="appbtn"><svg class="ico"><use href="#i-video"/></svg><span class="lab">Meetings</span></button>
         <button class="appbtn"><svg class="ico"><use href="#i-users"/></svg><span class="lab">Contacts</span></button>
         <button class="appbtn"><svg class="ico"><use href="#i-grid"/></svg><span class="lab">Workplace</span></button>
-        <span class="appbar-sp"></span>
-        <button class="appbtn"><svg class="ico"><use href="#i-dots"/></svg><span class="lab">More</span></button>
       </aside>
 
       <!-- Messenger — split: conversation list + selected group chat -->
@@ -646,11 +642,10 @@
             </div>
           </div>
 
-          <div class="conv-tabs" title="One conversation, several facets — Chat (messages) / Files (attachments shared here) / Docs (deliverables produced in this thread). This is how Messenger differs from the Office rail: Office inlines outputs in the message stream; Messenger files them under Files/Docs tabs.">
+          <div class="conv-tabs" title="One conversation, two facets — Chat for messages and Files for attachments/deliverables shared here. Office inlines outputs in the message stream; Workspace files them under Files.">
             <button class="conv-tab active"><svg class="ico sm"><use href="#i-message"/></svg>Chat</button>
             <button class="conv-tab"><svg class="ico sm"><use href="#i-paperclip"/></svg>Files<span class="ct">6</span></button>
-            <button class="conv-tab"><svg class="ico sm"><use href="#i-layers"/></svg>Docs<span class="ct">2</span></button>
-            <button class="conv-tab add" title="Add a tab (pin a doc / board)"><svg class="ico sm"><use href="#i-plus"/></svg></button>
+            <button class="conv-tab add" title="Show files shared in this conversation"><svg class="ico sm"><use href="#i-plus"/></svg></button>
           </div>
 
           <div class="conv-scroll">
@@ -692,8 +687,8 @@
                   <span class="av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Marcus&backgroundColor=eaf1ff')"></span>
                   <span class="nm">Marcus Johnson</span><span class="rl">manager</span><span class="tm">14:32</span>
                 </div>
-                <div class="bubble">Fixture parser verified ✅ — wrote up the report. It's pinned under <code>Docs</code> for this thread.</div>
-                <!-- compact deliverable produced in-thread (lands under the Docs tab) -->
+                <div class="bubble">Fixture parser verified ✅ — wrote up the report. It's attached to this thread.</div>
+                <!-- compact deliverable produced in-thread (shared under Files) -->
                 <div class="dlv" style="max-width:78%">
                   <div class="dlv-head">
                     <svg class="ico sm"><use href="#i-file"/></svg>
@@ -750,8 +745,8 @@
               <button class="ibtn" title="Attach file"><svg class="ico sm"><use href="#i-paperclip"/></svg></button>
               <button class="ibtn" title="Mention (@)"><svg class="ico sm"><use href="#i-at"/></svg></button>
               <span class="divider"></span>
-              <button class="pill model-chip" title="Model — provider · model · think; reads configured ProviderConfig"><svg class="ico xs"><use href="#i-sparkle"/></svg>MiniMax · M2.7 · Med<span class="mode-caret"><svg class="ico xs"><use href="#i-chev-down"/></svg></span></button>
-              <button class="pill mode-chip mode-sop" title="SessionModeChip — SOP / Human-in-loop / Direct / YOLO"><span class="mode-dot"></span>SOP<span class="mode-caret"><svg class="ico xs"><use href="#i-chev-down"/></svg></span></button>
+              <button class="pill model-chip" title="Model — provider · model · think; reads configured ProviderConfig"><svg class="ico xs"><use href="#i-sparkle"/></svg>Runtime model · Med<span class="mode-caret"><svg class="ico xs"><use href="#i-chev-down"/></svg></span></button>
+              <button class="pill mode-chip mode-plan" title="SessionModeChip — Plan / Human-in-loop / Direct / YOLO"><span class="mode-dot"></span>Plan<span class="mode-caret"><svg class="ico xs"><use href="#i-chev-down"/></svg></span></button>
               <div class="grow"></div>
               <button class="send">Send<svg class="ico sm"><use href="#i-send"/></svg></button>
             </div>
@@ -765,7 +760,7 @@
   <div class="spec-suite">
     <div class="spec-suite-head">
       <h2>Workspace — the company collaboration suite</h2>
-      The frame above is the resting Workspace: <b>Messenger</b> on a team group chat. <b>Office</b> = watch the AI company collaborate live in 3D; <b>Workspace</b> = the same company seen through familiar business software (Messenger / Approvals / Docs / Calendar / Meetings / Contacts / Workplace). Same projects, employees, conversations (<code>chat_threads</code>), approvals (<code>interaction.requested</code>) and deliverables — re-surfaced, not duplicated. These specimens are each app, expressed against real product concepts.
+      The frame above is the resting Workspace: <b>Messenger</b> on a team group chat. <b>Office</b> = watch the AI company collaborate live in 3D; <b>Workspace</b> = the same company seen through familiar business software (Messenger / Approvals / Calendar / Meetings / Contacts / Workplace). Same projects, employees, conversations (<code>chat_threads</code>), approvals (<code>interaction.requested</code>) and deliverables — re-surfaced, not duplicated. These specimens are each app, expressed against real product concepts.
     </div>
     <!-- ── 1 · Messenger — direct chat with an AI employee ── -->
     <div class="spec-state">
@@ -776,13 +771,10 @@
             <span class="appbar-id" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Boss&backgroundColor=d7e3ff')"></span>
             <button class="appbtn active"><span class="nb">12</span><svg class="ico"><use href="#i-message"/></svg><span class="lab">Chats</span></button>
             <button class="appbtn"><span class="nb">3</span><svg class="ico"><use href="#i-clipboard"/></svg><span class="lab">Approve</span></button>
-            <button class="appbtn"><svg class="ico"><use href="#i-layers"/></svg><span class="lab">Docs</span></button>
             <button class="appbtn"><span class="nb dot"></span><svg class="ico"><use href="#i-calendar"/></svg><span class="lab">Calendar</span></button>
             <button class="appbtn"><svg class="ico"><use href="#i-video"/></svg><span class="lab">Meetings</span></button>
             <button class="appbtn"><svg class="ico"><use href="#i-users"/></svg><span class="lab">Contacts</span></button>
             <button class="appbtn"><svg class="ico"><use href="#i-grid"/></svg><span class="lab">Workplace</span></button>
-            <span class="appbar-sp"></span>
-            <button class="appbtn"><svg class="ico"><use href="#i-dots"/></svg><span class="lab">More</span></button>
           </aside>
           <section class="suite-body split">
             <div class="suite-list">
@@ -811,7 +803,6 @@
               <div class="conv-tabs">
                 <button class="conv-tab active"><svg class="ico sm"><use href="#i-message"/></svg>Chat</button>
                 <button class="conv-tab"><svg class="ico sm"><use href="#i-paperclip"/></svg>Files<span class="ct">2</span></button>
-                <button class="conv-tab"><svg class="ico sm"><use href="#i-layers"/></svg>Docs<span class="ct">1</span></button>
               </div>
               <div class="conv-scroll">
                 <section class="messages">
@@ -840,7 +831,7 @@
                 <div class="composer-tools">
                   <button class="ibtn"><svg class="ico sm"><use href="#i-paperclip"/></svg></button>
                   <span class="divider"></span>
-                  <button class="pill model-chip"><svg class="ico xs"><use href="#i-sparkle"/></svg>MiniMax · M2.7 · Med<span class="mode-caret"><svg class="ico xs"><use href="#i-chev-down"/></svg></span></button>
+                  <button class="pill model-chip"><svg class="ico xs"><use href="#i-sparkle"/></svg>Runtime model · Med<span class="mode-caret"><svg class="ico xs"><use href="#i-chev-down"/></svg></span></button>
                   <button class="pill mode-chip mode-direct"><span class="mode-dot"></span>Direct<span class="mode-caret"><svg class="ico xs"><use href="#i-chev-down"/></svg></span></button>
                   <div class="grow"></div>
                   <button class="send">Send<svg class="ico sm"><use href="#i-send"/></svg></button>
@@ -850,7 +841,7 @@
           </section>
         </div>
       </div>
-      <div class="ann-strip">Direct chat = <code>conversationKey &lt;projectId&gt;::&lt;threadId&gt;::&lt;employeeId&gt;</code> with the employee segment set. One product <code>chat_thread</code> fans out to a team <code>graph_thread</code> + one direct thread per employee. Header sub shows the employee's live <b>role + presence</b> (working / idle / blocked, from runtime state). Mode chip defaults to <b>Direct</b> here (work skips the boss → planner/employee loop). Avatars are DiceBear 2D from <code>persona.avatarSeed</code>.</div>
+      <div class="ann-strip">Direct chat = <code>conversationKey &lt;projectId&gt;::&lt;threadId&gt;::&lt;employeeId&gt;</code> with the employee segment set. One product <code>chat_thread</code> fans out to a team <code>graph_thread</code> + one direct thread per employee. Header sub shows the employee's live <b>role + presence</b> (working / idle / blocked, from runtime state). Mode chip defaults to <b>Direct</b> here (work skips the boss → planner/employee loop). Avatars read their persisted palette from <code>persona_json.appearance</code>.</div>
     </div>
 
     <!-- ── 2 · Messenger — System notifications channel ── -->
@@ -862,13 +853,10 @@
             <span class="appbar-id" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Boss&backgroundColor=d7e3ff')"></span>
             <button class="appbtn active"><span class="nb">12</span><svg class="ico"><use href="#i-message"/></svg><span class="lab">Chats</span></button>
             <button class="appbtn"><span class="nb">3</span><svg class="ico"><use href="#i-clipboard"/></svg><span class="lab">Approve</span></button>
-            <button class="appbtn"><svg class="ico"><use href="#i-layers"/></svg><span class="lab">Docs</span></button>
             <button class="appbtn"><span class="nb dot"></span><svg class="ico"><use href="#i-calendar"/></svg><span class="lab">Calendar</span></button>
             <button class="appbtn"><svg class="ico"><use href="#i-video"/></svg><span class="lab">Meetings</span></button>
             <button class="appbtn"><svg class="ico"><use href="#i-users"/></svg><span class="lab">Contacts</span></button>
             <button class="appbtn"><svg class="ico"><use href="#i-grid"/></svg><span class="lab">Workplace</span></button>
-            <span class="appbar-sp"></span>
-            <button class="appbtn"><svg class="ico"><use href="#i-dots"/></svg><span class="lab">More</span></button>
           </aside>
           <section class="suite-body split">
             <div class="suite-list">
@@ -952,13 +940,10 @@
             <span class="appbar-id" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Boss&backgroundColor=d7e3ff')"></span>
             <button class="appbtn"><span class="nb">12</span><svg class="ico"><use href="#i-message"/></svg><span class="lab">Chats</span></button>
             <button class="appbtn active"><span class="nb">3</span><svg class="ico"><use href="#i-clipboard"/></svg><span class="lab">Approve</span></button>
-            <button class="appbtn"><svg class="ico"><use href="#i-layers"/></svg><span class="lab">Docs</span></button>
             <button class="appbtn"><span class="nb dot"></span><svg class="ico"><use href="#i-calendar"/></svg><span class="lab">Calendar</span></button>
             <button class="appbtn"><svg class="ico"><use href="#i-video"/></svg><span class="lab">Meetings</span></button>
             <button class="appbtn"><svg class="ico"><use href="#i-users"/></svg><span class="lab">Contacts</span></button>
             <button class="appbtn"><svg class="ico"><use href="#i-grid"/></svg><span class="lab">Workplace</span></button>
-            <span class="appbar-sp"></span>
-            <button class="appbtn"><svg class="ico"><use href="#i-dots"/></svg><span class="lab">More</span></button>
           </aside>
           <section class="suite-body split">
             <div class="suite-list">
@@ -1042,105 +1027,19 @@
       <div class="ann-strip">The OA inbox is the home for <b>Human-in-loop</b> mode's gates. Four real approval kinds (<code>ToolPermissionEngine</code> allow / ask / deny): <b>Permission gate</b> (shown), <b>Plan review</b> (approve / reject / modify a plan), <b>Agent question</b> (templated options + freeform), <b>Skill install</b> (permissions + assets disclosure → Install / Fork / Edit). Each is an <code>interaction.requested</code>; resolving emits <code>interaction.resolved</code>. Grant scope = <code>once / thread / session</code>. The same gates also appear inline in chat — OA is the cross-thread queue so nothing waits unseen.</div>
     </div>
 
-    <!-- ── 4 · Docs — the company deliverables library ── -->
+    <!-- ── 4 · Contacts — the company directory ── -->
     <div class="spec-state">
-      <div class="spec-cap"><span class="n">4</span><span class="t">Docs · deliverables library</span><span class="d">— every artifact the company produced, with one-click export</span></div>
+      <div class="spec-cap"><span class="n">4</span><span class="t">Contacts · directory</span><span class="d">— employees by zone, internal + brand-outsourced, with presence</span></div>
       <div class="spec-frame">
         <div class="suite">
           <aside class="appbar">
             <span class="appbar-id" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Boss&backgroundColor=d7e3ff')"></span>
             <button class="appbtn"><span class="nb">12</span><svg class="ico"><use href="#i-message"/></svg><span class="lab">Chats</span></button>
             <button class="appbtn"><span class="nb">3</span><svg class="ico"><use href="#i-clipboard"/></svg><span class="lab">Approve</span></button>
-            <button class="appbtn active"><svg class="ico"><use href="#i-layers"/></svg><span class="lab">Docs</span></button>
-            <button class="appbtn"><span class="nb dot"></span><svg class="ico"><use href="#i-calendar"/></svg><span class="lab">Calendar</span></button>
-            <button class="appbtn"><svg class="ico"><use href="#i-video"/></svg><span class="lab">Meetings</span></button>
-            <button class="appbtn"><svg class="ico"><use href="#i-users"/></svg><span class="lab">Contacts</span></button>
-            <button class="appbtn"><svg class="ico"><use href="#i-grid"/></svg><span class="lab">Workplace</span></button>
-            <span class="appbar-sp"></span>
-            <button class="appbtn"><svg class="ico"><use href="#i-dots"/></svg><span class="lab">More</span></button>
-          </aside>
-          <section class="suite-body split">
-            <div class="suite-list">
-              <div class="lst-head">
-                <div class="lst-head-top"><span class="lst-title">Docs</span></div>
-                <div class="seg">
-                  <button class="conv-tab active" style="height:24px;padding:0 9px">All<span class="ct">14</span></button>
-                  <button class="conv-tab" style="height:24px;padding:0 9px">Documents</button>
-                  <button class="conv-tab" style="height:24px;padding:0 9px">Files</button>
-                </div>
-                <div class="field"><svg class="ico sm"><use href="#i-search"/></svg>Search title or contributor</div>
-              </div>
-              <div class="lst-scroll" style="gap:2px">
-                <div class="im-sec" style="color:var(--ink-4)">Q3 Launch</div>
-                <button class="doc-row active"><span class="doc-ic"><svg class="ico sm"><use href="#i-file"/></svg></span><span class="min0"><span class="doc-nm">Q3 Roadmap Outline</span><span class="doc-sub">Maya · Alex +2 · 2m ago</span></span><span class="doc-fmt">DOCX</span></button>
-                <button class="doc-row"><span class="doc-ic"><svg class="ico sm"><use href="#i-file"/></svg></span><span class="min0"><span class="doc-nm">Fixture Verification Report</span><span class="doc-sub">Marcus · Maya · 1h ago</span></span><span class="doc-fmt">MD</span></button>
-                <button class="doc-row"><span class="doc-ic"><svg class="ico sm"><use href="#i-grid"/></svg></span><span class="min0"><span class="doc-nm">Launch metrics</span><span class="doc-sub">Sophie · 3h ago</span></span><span class="doc-fmt">CSV</span></button>
-                <button class="doc-row"><span class="doc-ic"><svg class="ico sm"><use href="#i-layers"/></svg></span><span class="min0"><span class="doc-nm">Pitch deck v2</span><span class="doc-sub">Sophie · Marcus · Mon</span></span><span class="doc-fmt">PPTX</span></button>
-                <div class="im-sec" style="color:var(--ink-4)">Onboarding</div>
-                <button class="doc-row"><span class="doc-ic"><svg class="ico sm"><use href="#i-file"/></svg></span><span class="min0"><span class="doc-nm">DevOps runbook</span><span class="doc-sub">Maya · Tue</span></span><span class="doc-fmt">PDF</span></button>
-                <button class="doc-row"><span class="doc-ic"><svg class="ico sm"><use href="#i-file"/></svg></span><span class="min0"><span class="doc-nm">sandbox-bootstrap.log</span><span class="doc-sub">Maya · Tue</span></span><span class="doc-fmt">TXT</span></button>
-              </div>
-            </div>
-            <div class="doc-view">
-              <div class="doc-view-h">
-                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-4)">
-                  <div>
-                    <div style="font-size:var(--fs-lg);font-weight:700;color:var(--ink-1);letter-spacing:-0.01em">Q3 Roadmap Outline</div>
-                    <div style="font-size:var(--fs-meta);color:var(--ink-3);margin-top:5px;display:flex;align-items:center;gap:7px">
-                      <span class="dlv-stack" style="margin:0">
-                        <span class="av" style="width:18px;height:18px;background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Maya&backgroundColor=fff7e6')"></span>
-                        <span class="av" style="width:18px;height:18px;background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Alex&backgroundColor=eaf1ff')"></span>
-                        <span class="av" style="width:18px;height:18px;background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Sophie&backgroundColor=ffe9e9')"></span>
-                        <span class="more" style="width:18px;height:18px">+2</span>
-                      </span>
-                      <span>5 contributors · 8.1 KB · produced in <b>Q3 Launch · Team</b> · 2m ago</span>
-                    </div>
-                  </div>
-                  <div style="display:flex;align-items:center;gap:var(--sp-1);flex:none">
-                    <button class="dlv-btn">Copy</button>
-                    <span class="dlv-fmt">DOCX<svg class="ico xs"><use href="#i-chev-down"/></svg></span>
-                    <button class="dlv-btn"><svg class="ico xs"><use href="#i-download"/></svg>Export</button>
-                    <button class="dlv-btn sop-promoted" title="Promoted when ≥2 contributors"><svg class="ico xs"><use href="#i-pulse"/></svg>Save as SOP</button>
-                  </div>
-                </div>
-              </div>
-              <div class="doc-view-body">
-                <div class="doc-paper">
-                  <h1>Q3 Roadmap</h1>
-                  <p>Goals for the quarter, distilled from the launch kickoff. Owners are AI employees; the boss approves scope changes.</p>
-                  <h2>Workstreams</h2>
-                  <ul>
-                    <li>Ship the doc-engine verify flow (owner: Maya)</li>
-                    <li>Harden the attachment pipeline — caps, MIME, non-UTF-8 (owner: Alex)</li>
-                    <li>Close the UX / IA debt batch (owner: Sophie)</li>
-                  </ul>
-                  <h2>Milestones</h2>
-                  <p>Week 1 — sandbox + parser verified. Week 2 — pipeline hardened. Week 3 — launch review &amp; sign-off.</p>
-                </div>
-              </div>
-            </div>
-          </section>
-        </div>
-      </div>
-      <div class="ann-strip">Re-surfaces the real <code>deliverables</code> table — <b>title</b>, <b>kind</b> (document / file), <b>contributors</b> (with DiceBear avatars + role), originating <b>chat_thread</b>, size, timestamp. Export reuses <b>doc-engine</b> (DOCX / PDF / PPTX / CSV / HTML / TXT). <b>Save as SOP</b> is promoted when a deliverable has ≥2 contributors. This is the same data the Office rail shows inline per-thread under Outputs — here it's the company-wide library.</div>
-    </div>
-
-    <!-- ── 5 · Contacts — the company directory ── -->
-    <div class="spec-state">
-      <div class="spec-cap"><span class="n">5</span><span class="t">Contacts · directory</span><span class="d">— employees by zone, internal + brand-outsourced, with presence</span></div>
-      <div class="spec-frame">
-        <div class="suite">
-          <aside class="appbar">
-            <span class="appbar-id" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Boss&backgroundColor=d7e3ff')"></span>
-            <button class="appbtn"><span class="nb">12</span><svg class="ico"><use href="#i-message"/></svg><span class="lab">Chats</span></button>
-            <button class="appbtn"><span class="nb">3</span><svg class="ico"><use href="#i-clipboard"/></svg><span class="lab">Approve</span></button>
-            <button class="appbtn"><svg class="ico"><use href="#i-layers"/></svg><span class="lab">Docs</span></button>
             <button class="appbtn"><span class="nb dot"></span><svg class="ico"><use href="#i-calendar"/></svg><span class="lab">Calendar</span></button>
             <button class="appbtn"><svg class="ico"><use href="#i-video"/></svg><span class="lab">Meetings</span></button>
             <button class="appbtn active"><svg class="ico"><use href="#i-users"/></svg><span class="lab">Contacts</span></button>
             <button class="appbtn"><svg class="ico"><use href="#i-grid"/></svg><span class="lab">Workplace</span></button>
-            <span class="appbar-sp"></span>
-            <button class="appbtn"><svg class="ico"><use href="#i-dots"/></svg><span class="lab">More</span></button>
           </aside>
           <section class="suite-body split">
             <div class="suite-list">
@@ -1174,7 +1073,7 @@
               <dl class="ct-kv">
                 <dt>Role</dt><dd>developer</dd>
                 <dt>Zone</dt><dd>Engineering (workstation E-2)</dd>
-                <dt>Model</dt><dd>MiniMax · M2.7 · Med</dd>
+                <dt>Model</dt><dd>Runtime default</dd>
                 <dt>Expertise</dt><dd>parsers · edge cases · TypeScript</dd>
                 <dt>Tools</dt><dd>read_file · write_file · bash <span style="color:var(--ink-4)">(ask for out-of-root)</span></dd>
                 <dt>Decision style</dt><dd>analytical · balanced risk</dd>
@@ -1185,25 +1084,22 @@
           </section>
         </div>
       </div>
-      <div class="ann-strip">Re-surfaces the real <code>employees</code> roster as a directory — <b>name</b>, <b>role_slug</b>, <b>zone</b> (from <code>workstation_id</code>), live <b>presence</b> (working / idle / blocked / offline), <b>model</b> + <b>tool policy</b> from config, and <b>internal vs. external/brand</b> (A2A employees keep their brand avatar, e.g. OpenClaw). Detail CTAs reach the same employee everywhere: Direct chat (Messenger), Find in Office (3D scene), Edit in Personnel. Contacts <b>views</b> the roster; hiring/editing stays in HR + Personnel — no duplicate management UI.</div>
+      <div class="ann-strip">Re-surfaces the real <code>employees</code> roster as a directory — <b>name</b>, <b>role_slug</b>, <b>zone</b> (from <code>workstation_id</code>), live <b>presence</b> (working / idle / blocked / offline), <b>model</b> + <b>tool policy</b> from config, and <b>internal vs. external/brand</b> (A2A employees keep their brand avatar, e.g. OpenClaw). Detail actions reach the same employee everywhere: Direct chat appears only when a direct thread exists; otherwise a state chip says the chat has not started. Find in Office and Edit in Personnel stay live routes. Contacts <b>views</b> the roster; hiring/editing stays in HR + Personnel — no duplicate management UI.</div>
     </div>
 
-    <!-- ── 6 · Calendar / Meetings — the company's time dimension ── -->
+    <!-- ── 5 · Calendar / Meetings — the company's time dimension ── -->
     <div class="spec-state">
-      <div class="spec-cap"><span class="n">6</span><span class="t">Calendar &amp; Meetings</span><span class="d">— meetings, ceremonies, runs &amp; deadlines on one agenda</span></div>
+      <div class="spec-cap"><span class="n">5</span><span class="t">Calendar &amp; Meetings</span><span class="d">— meetings, ceremonies, runs &amp; deadlines on one agenda</span></div>
       <div class="spec-frame">
         <div class="suite">
           <aside class="appbar">
             <span class="appbar-id" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Boss&backgroundColor=d7e3ff')"></span>
             <button class="appbtn"><span class="nb">12</span><svg class="ico"><use href="#i-message"/></svg><span class="lab">Chats</span></button>
             <button class="appbtn"><span class="nb">3</span><svg class="ico"><use href="#i-clipboard"/></svg><span class="lab">Approve</span></button>
-            <button class="appbtn"><svg class="ico"><use href="#i-layers"/></svg><span class="lab">Docs</span></button>
             <button class="appbtn active"><span class="nb dot"></span><svg class="ico"><use href="#i-calendar"/></svg><span class="lab">Calendar</span></button>
             <button class="appbtn"><svg class="ico"><use href="#i-video"/></svg><span class="lab">Meetings</span></button>
             <button class="appbtn"><svg class="ico"><use href="#i-users"/></svg><span class="lab">Contacts</span></button>
             <button class="appbtn"><svg class="ico"><use href="#i-grid"/></svg><span class="lab">Workplace</span></button>
-            <span class="appbar-sp"></span>
-            <button class="appbtn"><svg class="ico"><use href="#i-dots"/></svg><span class="lab">More</span></button>
           </aside>
           <section class="suite-body single">
             <div class="cal">
@@ -1237,7 +1133,7 @@
                   <div class="ag-day">
                     <div class="ag-date">Mon<span>May 27</span></div>
                     <div class="ag-evts">
-                      <div class="evt run"><span class="bar"></span><div class="evt-main"><div class="evt-t">Weekly retro run</div><div class="evt-sub"><span class="evt-tm">10:00</span> · auto-scheduled SOP</div></div></div>
+                      <div class="evt run"><span class="bar"></span><div class="evt-main"><div class="evt-t">Weekly retro run</div><div class="evt-sub"><span class="evt-tm">10:00</span> · auto-scheduled Plan</div></div></div>
                     </div>
                   </div>
                 </div>
@@ -1263,22 +1159,19 @@
       <div class="ann-strip">The company's <b>time dimension</b>. <b>Meetings</b> + <b>action items</b> are real (<code>meeting.state</code>, <code>meeting.action.created</code> → <b>MeetingPanel</b> / <b>MeetingActionItems</b>); each meeting has a chat thread. <b>Ceremonies</b> = the 8-phase run ceremony as scheduled standups; <b>Runs</b> = run records placed on their start time; <b>Deadlines</b> = deliverable due dates. The month/week grid + manual scheduling is the lighter, partly net-new layer over these existing event streams.</div>
     </div>
 
-    <!-- ── 7 · Workplace — the suite home / launcher ── -->
+    <!-- ── 6 · Workplace — the suite home / launcher ── -->
     <div class="spec-state">
-      <div class="spec-cap"><span class="n">7</span><span class="t">Workplace · launcher</span><span class="d">— the company home: live counters + every app &amp; surface in one place</span></div>
+      <div class="spec-cap"><span class="n">6</span><span class="t">Workplace · launcher</span><span class="d">— the company home: live counters + every app &amp; surface in one place</span></div>
       <div class="spec-frame">
         <div class="suite">
           <aside class="appbar">
             <span class="appbar-id" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Boss&backgroundColor=d7e3ff')"></span>
             <button class="appbtn"><span class="nb">12</span><svg class="ico"><use href="#i-message"/></svg><span class="lab">Chats</span></button>
             <button class="appbtn"><span class="nb">3</span><svg class="ico"><use href="#i-clipboard"/></svg><span class="lab">Approve</span></button>
-            <button class="appbtn"><svg class="ico"><use href="#i-layers"/></svg><span class="lab">Docs</span></button>
             <button class="appbtn"><span class="nb dot"></span><svg class="ico"><use href="#i-calendar"/></svg><span class="lab">Calendar</span></button>
             <button class="appbtn"><svg class="ico"><use href="#i-video"/></svg><span class="lab">Meetings</span></button>
             <button class="appbtn"><svg class="ico"><use href="#i-users"/></svg><span class="lab">Contacts</span></button>
             <button class="appbtn active"><svg class="ico"><use href="#i-grid"/></svg><span class="lab">Workplace</span></button>
-            <span class="appbar-sp"></span>
-            <button class="appbtn"><svg class="ico"><use href="#i-dots"/></svg><span class="lab">More</span></button>
           </aside>
           <section class="suite-body single">
             <div class="wp">
@@ -1287,7 +1180,6 @@
                 <div class="wp-stats">
                   <div class="wp-stat alert"><div class="v">3</div><div class="k">To approve</div></div>
                   <div class="wp-stat"><div class="v">1</div><div class="k">Live runs</div></div>
-                  <div class="wp-stat"><div class="v">14</div><div class="k">Docs</div></div>
                   <div class="wp-stat"><div class="v">$0.42</div><div class="k">Spend today</div></div>
                 </div>
               </div>
@@ -1296,7 +1188,6 @@
               <div class="wp-tiles">
                 <button class="wp-tile"><span class="ic b-accent"><svg class="ico"><use href="#i-message"/></svg></span><span class="nm">Messenger</span><span class="ds">Group &amp; direct chats with your team</span><span class="nb">12 unread</span></button>
                 <button class="wp-tile"><span class="ic b-warn"><svg class="ico"><use href="#i-clipboard"/></svg></span><span class="nm">Approvals</span><span class="ds">Human-in-loop gates waiting on you</span><span class="nb" style="background:var(--warn-surface);color:#8a5a0c">3 to do</span></button>
-                <button class="wp-tile"><span class="ic b-ok"><svg class="ico"><use href="#i-layers"/></svg></span><span class="nm">Docs</span><span class="ds">Every deliverable, exportable</span></button>
                 <button class="wp-tile"><span class="ic b-accent"><svg class="ico"><use href="#i-calendar"/></svg></span><span class="nm">Calendar</span><span class="ds">Meetings, ceremonies &amp; deadlines</span></button>
                 <button class="wp-tile"><span class="ic b-violet"><svg class="ico"><use href="#i-users"/></svg></span><span class="nm">Contacts</span><span class="ds">The company directory</span></button>
               </div>
@@ -1304,7 +1195,6 @@
               <div class="wp-sec-h">Workspaces</div>
               <div class="wp-tiles">
                 <button class="wp-tile"><span class="ic b-accent"><svg class="ico"><use href="#i-building"/></svg></span><span class="nm">Office</span><span class="ds">Watch the team collaborate in 3D</span></button>
-                <button class="wp-tile"><span class="ic b-violet"><svg class="ico"><use href="#i-pulse"/></svg></span><span class="nm">SOPs</span><span class="ds">Reusable process DAGs</span></button>
                 <button class="wp-tile"><span class="ic b-ok"><svg class="ico"><use href="#i-store"/></svg></span><span class="nm">Market</span><span class="ds">Install skills, employees &amp; templates</span></button>
                 <button class="wp-tile"><span class="ic b-ink"><svg class="ico"><use href="#i-users"/></svg></span><span class="nm">Personnel</span><span class="ds">Hire, edit &amp; tune employees</span></button>
                 <button class="wp-tile"><span class="ic b-ink"><svg class="ico"><use href="#i-pen"/></svg></span><span class="nm">Studio</span><span class="ds">Edit the office layout</span></button>
@@ -1320,7 +1210,7 @@
           </section>
         </div>
       </div>
-      <div class="ann-strip">The suite <b>home</b>. Quick stats are <b>live counters</b> (pending <code>interaction.requested</code>, active runs, deliverable count, today's spend) — not a historical ledger; the cross-project <b>Boss Dashboard</b> stays v1-deferred (it is NOT resurrected here). Tiles launch both in-suite apps and the peer <b>workspaces</b> (Office / SOPs / Market / Personnel / Studio) — Workplace is the one place that ties the whole company OS together, mirroring the “mini-app launcher” of a real collaboration suite.</div>
+      <div class="ann-strip">The suite <b>home</b>. Quick stats are <b>live counters</b> (pending <code>interaction.requested</code>, active runs, deliverable count, today's spend) — not a historical ledger; the cross-project <b>Boss Dashboard</b> stays v1-deferred (it is NOT resurrected here). Tiles launch both in-suite apps and the peer <b>workspaces</b> (Office / Market / Personnel / Studio) — Workplace is the one place that ties the whole company OS together, mirroring the “mini-app launcher” of a real collaboration suite.</div>
     </div>
   </div>
 

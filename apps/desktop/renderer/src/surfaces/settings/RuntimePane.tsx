@@ -1,3 +1,5 @@
+import { type SceneDropDiagnostic, useUiState } from '@/app/ui-state.js';
+import { isTauriRuntime } from '@/data/adapters.js';
 import {
   CapsLabel,
   CardBlock,
@@ -8,18 +10,10 @@ import {
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import { Input } from '@/design-system/primitives/input.js';
-import {
-  Check,
-  Download,
-  FolderOpen,
-  Info,
-  Monitor,
-  Moon,
-  Package,
-  Sun,
-  Unlink,
-  Zap,
-} from 'lucide-react';
+import { safeErrorMessage } from '@/lib/provider-bridge.js';
+import { useQuery } from '@tanstack/react-query';
+import { Check, Download, FolderOpen, Info, Monitor, Moon, Package, Sun, Zap } from 'lucide-react';
+import { useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { toast } from 'sonner';
 import {
@@ -31,10 +25,56 @@ import {
   RUNTIME_BINDING_OPTIONS,
   type RuntimeBindingValue,
   type RuntimeFormValues,
-  SCENE_DIAGNOSTIC,
   type ThemeValue,
-  VAULT_STATUS,
 } from './settings-data.js';
+
+interface RuntimeVaultStatus {
+  readonly path: string;
+  readonly displayPath: string;
+  readonly employees: number;
+  readonly files: number;
+  readonly sizeBytes: number;
+  readonly size: string;
+  readonly available: boolean;
+}
+
+interface LocalExportResult {
+  readonly path: string;
+  readonly displayPath: string;
+  readonly fileName: string;
+  readonly sizeBytes: number;
+  readonly size: string;
+}
+
+async function loadRuntimeVaultStatus(): Promise<RuntimeVaultStatus> {
+  if (!isTauriRuntime()) {
+    return {
+      path: '',
+      displayPath: 'Desktop runtime unavailable',
+      employees: 0,
+      files: 0,
+      sizeBytes: 0,
+      size: '0 B',
+      available: false,
+    };
+  }
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke<RuntimeVaultStatus>('runtime_vault_status');
+}
+
+function sceneDiagnosticPayload(events: SceneDropDiagnostic[]): string {
+  return JSON.stringify(
+    {
+      schemaVersion: 1,
+      exportedAt: new Date().toISOString(),
+      source: 'settings.runtime.scene-drop-diagnostic',
+      eventCount: events.length,
+      events,
+    },
+    null,
+    2,
+  );
+}
 
 interface RuntimePaneProps {
   form: UseFormReturn<RuntimeFormValues>;
@@ -52,15 +92,77 @@ export function RuntimePane({
   onDensityChange,
 }: RuntimePaneProps) {
   const binding = form.watch('runtimeBinding') as RuntimeBindingValue;
+  const sceneDropDiagnostics = useUiState((s) => s.sceneDropDiagnostics);
   const errors = form.formState.errors;
+  const [openingVault, setOpeningVault] = useState(false);
+  const [exportingVaultZip, setExportingVaultZip] = useState(false);
+  const [exportingSceneDiagnostic, setExportingSceneDiagnostic] = useState(false);
+  const [lastVaultExport, setLastVaultExport] = useState<LocalExportResult | null>(null);
+  const [lastSceneDiagnostic, setLastSceneDiagnostic] = useState<LocalExportResult | null>(null);
+  const vaultQuery = useQuery({
+    queryKey: ['settings', 'runtime-vault-status'],
+    queryFn: loadRuntimeVaultStatus,
+  });
+  const vaultStatus = vaultQuery.data;
+  const tauriAvailable = isTauriRuntime();
+  const canOpenVault = tauriAvailable && !openingVault;
+  const canExportVaultZip = tauriAvailable && !exportingVaultZip;
+  const canExportSceneDiagnostic = tauriAvailable && !exportingSceneDiagnostic;
+
+  async function handleOpenVaultFolder() {
+    if (!canOpenVault) return;
+    setOpeningVault(true);
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('open_runtime_vault_folder');
+      await vaultQuery.refetch();
+      toast.success('Opened local vault folder');
+    } catch (error) {
+      toast.error('Could not open local vault folder', { description: safeErrorMessage(error) });
+    } finally {
+      setOpeningVault(false);
+    }
+  }
+
+  async function handleExportVaultZip() {
+    if (!canExportVaultZip) return;
+    setExportingVaultZip(true);
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const result = await invoke<LocalExportResult>('export_runtime_vault_zip');
+      setLastVaultExport(result);
+      await vaultQuery.refetch();
+      toast.success('Exported vault zip', { description: result.displayPath });
+    } catch (error) {
+      toast.error('Could not export vault zip', { description: safeErrorMessage(error) });
+    } finally {
+      setExportingVaultZip(false);
+    }
+  }
+
+  async function handleExportSceneDiagnostic() {
+    if (!canExportSceneDiagnostic) return;
+    setExportingSceneDiagnostic(true);
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const result = await invoke<LocalExportResult>('export_scene_drop_diagnostic', {
+        diagnosticsJson: sceneDiagnosticPayload(sceneDropDiagnostics),
+      });
+      setLastSceneDiagnostic(result);
+      toast.success('Exported scene diagnostic', { description: result.displayPath });
+    } catch (error) {
+      toast.error('Could not export scene diagnostic', { description: safeErrorMessage(error) });
+    } finally {
+      setExportingSceneDiagnostic(false);
+    }
+  }
 
   return (
     <div className="off-set-pane">
       <div className="off-set-panehead">
         <div className="off-set-panetitle">Runtime</div>
         <div className="off-set-panedesc">
-          How agents execute — runtime defaults, appearance, the main harness owner, conversation
-          memory, the local vault, and scene diagnostics.
+          Runtime defaults, appearance, memory, and local vault.
         </div>
       </div>
 
@@ -153,8 +255,7 @@ export function RuntimePane({
           <div>
             <CapsLabel>Main harness control</CapsLabel>
             <div className="off-set-sec-hint">
-              Who owns the top-level runtime. Replacement mode stays locked until release evidence
-              is recorded.
+              Top-level runtime ownership and release gate state.
             </div>
           </div>
         </div>
@@ -205,8 +306,8 @@ export function RuntimePane({
                   label: 'Provider gateway',
                   icon: <Icon icon={Zap} size="sm" />,
                 },
-                { value: 'claude', label: 'Claude engine' },
-                { value: 'codex', label: 'Codex engine' },
+                { value: 'claude', label: 'Verified driver' },
+                { value: 'codex', label: 'Isolated driver' },
               ]}
             />
             <div className="off-set-rbc-resolved">
@@ -216,8 +317,7 @@ export function RuntimePane({
             </div>
             <div className="off-set-callout is-muted">
               <Icon icon={Info} size="sm" />
-              Inherit falls back to user-default. Claude/Codex engines require a verified driver
-              profile (Main harness control).
+              Non-gateway drivers stay gated until Main harness control shows verified proof.
             </div>
           </div>
         </CardBlock>
@@ -333,14 +433,34 @@ export function RuntimePane({
             </div>
           </div>
           <div className="off-set-vault-status">
-            {VAULT_STATUS.employees} employees · {VAULT_STATUS.files} markdown files ·{' '}
-            {VAULT_STATUS.size}
-            <div className="off-set-vault-path">{VAULT_STATUS.path}</div>
+            {vaultQuery.isLoading ? (
+              'Checking local vault…'
+            ) : vaultQuery.isError ? (
+              'Local vault status unavailable'
+            ) : (
+              <>
+                {vaultStatus?.employees ?? 0} employees · {vaultStatus?.files ?? 0} markdown files ·{' '}
+                {vaultStatus?.size ?? '0 B'}
+              </>
+            )}
+            <div className="off-set-vault-path">
+              {vaultStatus?.displayPath ?? 'Desktop runtime unavailable'}
+            </div>
           </div>
           <div className="off-set-vault-actions">
-            <Button variant="outline" size="md" onClick={() => toast.info('Opening vault folder')}>
+            <Button
+              variant="outline"
+              size="md"
+              disabled={!canOpenVault}
+              title={
+                tauriAvailable
+                  ? 'Open the local vault folder in the OS file manager'
+                  : 'Local vault folder is only available in the desktop runtime'
+              }
+              onClick={handleOpenVaultFolder}
+            >
               <Icon icon={FolderOpen} size="sm" />
-              Open folder
+              {openingVault ? 'Opening…' : 'Open folder'}
             </Button>
           </div>
         </CardBlock>
@@ -351,30 +471,39 @@ export function RuntimePane({
             </span>
             <div>
               <div className="off-set-vault-title">
-                Vault directory <span className="off-set-mode-tag">Browser</span>
+                Vault snapshot <span className="off-set-mode-tag">Desktop</span>
               </div>
               <div className="off-set-vault-sub">
-                Mirror employee markdown into a browser-mounted folder, or export a zip snapshot.
+                Export a zip snapshot of the current desktop vault for backup or handoff.
               </div>
             </div>
           </div>
           <div className="off-set-vault-status">
-            Live sync is currently off. Mount a local directory to mirror the vault.
+            Desktop exports write to Offisim's app-local exports folder and include the current
+            employee vault files.
           </div>
           <div className="off-set-vault-actions">
-            <Button variant="outline" size="md" onClick={() => toast.info('Mounting directory')}>
-              <Icon icon={FolderOpen} size="sm" />
-              Mount directory
-            </Button>
-            <Button variant="outline" size="md" onClick={() => toast.info('Unmounted')}>
-              <Icon icon={Unlink} size="sm" />
-              Unmount
-            </Button>
-            <Button variant="outline" size="md" onClick={() => toast.success('Vault zip exported')}>
+            <span className="off-set-vault-state">Local snapshot export</span>
+            <Button
+              variant="outline"
+              size="md"
+              disabled={!canExportVaultZip}
+              title={
+                tauriAvailable
+                  ? 'Export the current local vault snapshot as a zip file'
+                  : 'Vault zip export is only available in the desktop runtime'
+              }
+              onClick={handleExportVaultZip}
+            >
               <Icon icon={Package} size="sm" />
-              Export zip
+              {exportingVaultZip ? 'Exporting…' : 'Export zip'}
             </Button>
           </div>
+          {lastVaultExport ? (
+            <div className="off-set-vault-path">
+              Last zip: {lastVaultExport.fileName} · {lastVaultExport.size}
+            </div>
+          ) : null}
         </CardBlock>
       </section>
 
@@ -391,17 +520,28 @@ export function RuntimePane({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => toast.success('Drop diagnostic exported')}
+            disabled={!canExportSceneDiagnostic}
+            title={
+              tauriAvailable
+                ? 'Export the recorded 3D scene drop attempts as JSON'
+                : 'Scene diagnostic export is only available in the desktop runtime'
+            }
+            onClick={handleExportSceneDiagnostic}
           >
             <Icon icon={Download} size="sm" />
-            Export drop diagnostic
+            {exportingSceneDiagnostic ? 'Exporting…' : 'Export drop diagnostic'}
           </Button>
         </div>
         <CardBlock>
           <div className="off-set-diag-last">
             <Icon icon={Check} size="sm" />
-            Last export: <b>{SCENE_DIAGNOSTIC.lastExport}</b> ·{' '}
-            <span className="off-mono">{SCENE_DIAGNOSTIC.lastFileName}</span>
+            Recorded attempts: <b>{sceneDropDiagnostics.length}</b>
+            {lastSceneDiagnostic ? (
+              <>
+                {' '}
+                · Last export: <span className="off-mono">{lastSceneDiagnostic.fileName}</span>
+              </>
+            ) : null}
           </div>
         </CardBlock>
       </section>

@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import { useRef } from 'react';
 import { DoubleSide, type Group } from 'three';
 import { type FaceExpression, getFaceTexture } from './character-face-texture.js';
+import { LIGHT_SCENE_3D } from './r3d/scene-colors.js';
 
 /**
  * Chibi "block person", ported from the legacy `character-mesh-builder` — body
@@ -11,7 +12,7 @@ import { type FaceExpression, getFaceTexture } from './character-face-texture.js
  * standard materials (the legacy SceneMaterial wrapper lived in the old package).
  */
 
-const SHOE_COLOR = '#3c4a60';
+const SHOE_COLOR = LIGHT_SCENE_3D.characterShoe;
 
 // Chibi proportions: head ~28% of total height.
 const LEG_LENGTH = 0.42;

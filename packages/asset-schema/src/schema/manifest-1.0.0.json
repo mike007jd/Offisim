@@ -38,7 +38,6 @@
           "enum": [
             "employee",
             "skill",
-            "sop",
             "company_template",
             "office_layout",
             "bundle",
@@ -287,7 +286,6 @@
             "enum": [
               "employee",
               "skill",
-              "sop",
               "company_template",
               "office_layout",
               "bundle",

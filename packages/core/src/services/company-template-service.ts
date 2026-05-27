@@ -17,7 +17,6 @@ import type { ZoneRepository } from '../repos/zone-repository.js';
 import type {
   EmployeeRepository,
   OfficeLayoutRepository,
-  SopTemplateRepository,
 } from '../runtime/repositories.js';
 import type { CompanyTemplate, TemplateZoneBlueprint } from '../templates/index.js';
 import { getTemplate, listTemplates as listAllTemplates } from '../templates/index.js';
@@ -254,7 +253,6 @@ export class CompanyTemplateService {
 
   constructor(
     private readonly employeeRepo: EmployeeRepository,
-    private readonly sopTemplateRepo: SopTemplateRepository,
     private readonly officeLayoutRepo: OfficeLayoutRepository,
     private readonly eventBus: EventBus,
     private readonly prefabRepo?: PrefabInstanceRepository,
@@ -271,8 +269,8 @@ export class CompanyTemplateService {
   }
 
   /**
-   * Materialize a template into a real company with employees, SOPs, layout,
-   * and (optionally) default prefab instances for each zone.
+   * Materialize a template into a real company with employees, layout, and
+   * (optionally) default prefab instances for each zone.
    * Returns the IDs of all created entities.
    *
    * When `transact` is provided (Drizzle/better-sqlite3 runtime), all DB writes
@@ -284,7 +282,6 @@ export class CompanyTemplateService {
     companyId: string,
   ): Promise<{
     employeeIds: string[];
-    sopTemplateIds: string[];
     layoutId: string | null;
     prefabInstanceIds: string[];
   }> {
@@ -321,7 +318,6 @@ export class CompanyTemplateService {
         });
       }
 
-      const sopTemplateIds: string[] = template.sops.map(() => `sop_${crypto.randomUUID()}`);
       const layoutId = `layout_${crypto.randomUUID()}`;
       const prefabInstanceIds: string[] = [];
 
@@ -343,25 +339,6 @@ export class CompanyTemplateService {
             role_slug: emp.role_slug,
             persona_json: emp.persona_json,
             config_json: emp.config_json,
-          });
-        }
-
-        // SOPs
-        for (const [i, sop] of template.sops.entries()) {
-          const sopTemplateId = sopTemplateIds[i];
-          if (!sopTemplateId) {
-            throw new Error(`Missing SOP template id for index ${i}`);
-          }
-          void this.sopTemplateRepo.create({
-            sop_template_id: sopTemplateId,
-            company_id: companyId,
-            name: sop.name,
-            description: sop.description,
-            definition_json: JSON.stringify(sop),
-            source_thread_id: null,
-            source_url: null,
-            version: null,
-            last_synced_at: null,
           });
         }
 
@@ -403,7 +380,6 @@ export class CompanyTemplateService {
 
       return {
         employeeIds,
-        sopTemplateIds,
         layoutId,
         prefabInstanceIds,
       };
@@ -430,24 +406,6 @@ export class CompanyTemplateService {
 
       // Emit employee.created so SceneManager and UI hooks pick up the new employee
       this.eventBus.emit(employeeCreated(companyId, result.employee_id, emp.name, emp.role_slug));
-    }
-
-    // ── Create SOP templates ───────────────────────────────────────
-    const sopTemplateIds: string[] = [];
-    for (const sop of template.sops) {
-      const sopTemplateId = `sop_${crypto.randomUUID()}`;
-      await this.sopTemplateRepo.create({
-        sop_template_id: sopTemplateId,
-        company_id: companyId,
-        name: sop.name,
-        description: sop.description,
-        definition_json: JSON.stringify(sop),
-        source_thread_id: null,
-        source_url: null,
-        version: null,
-        last_synced_at: null,
-      });
-      sopTemplateIds.push(sopTemplateId);
     }
 
     // ── Create office layout ───────────────────────────────────────
@@ -484,6 +442,6 @@ export class CompanyTemplateService {
       }
     }
 
-    return { employeeIds, sopTemplateIds, layoutId, prefabInstanceIds };
+    return { employeeIds, layoutId, prefabInstanceIds };
   }
 }

@@ -1,4 +1,5 @@
 import { useUiState } from '@/app/ui-state.js';
+import { UI_DATA_COLORS } from '@/data/color-palette.js';
 import { useEmployees } from '@/data/queries.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { StatusPill } from '@/design-system/grammar/StatusPill.js';
@@ -6,7 +7,7 @@ import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
 import { Check, MessageSquare, Video } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { type WsMeeting, useWsMeetings } from '../workspace-data.js';
 
 const STATUS_TONE: Record<WsMeeting['status'], 'accent' | 'ok' | 'muted'> = {
@@ -21,7 +22,6 @@ export function MeetingsApp() {
   const selectedId = useUiState((s) => s.workspaceSelectedId);
   const selectItem = useUiState((s) => s.selectWorkspaceItem);
   const setApp = useUiState((s) => s.setWorkspaceApp);
-  const [doneItems, setDoneItems] = useState<Record<string, boolean>>({});
 
   const byId = useMemo(
     () => new Map((employees.data ?? []).map((e) => [e.id, e])),
@@ -31,10 +31,6 @@ export function MeetingsApp() {
   const list = meetings.data ?? [];
   const activeId = selectedId ?? list[0]?.id ?? null;
   const active = list.find((m) => m.id === activeId) ?? null;
-
-  function toggleItem(id: string, current: boolean) {
-    setDoneItems((prev) => ({ ...prev, [id]: !current }));
-  }
 
   return (
     <>
@@ -106,15 +102,10 @@ export function MeetingsApp() {
             </div>
             <div className="off-ws-meet-items">
               {active.actionItems.map((item) => {
-                const done = doneItems[item.id] ?? item.done;
+                const done = item.done;
                 const owner = item.ownerId ? byId.get(item.ownerId) : null;
                 return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={cn('off-ws-ai off-focusable', done && 'is-done')}
-                    onClick={() => toggleItem(item.id, done)}
-                  >
+                  <div key={item.id} className={cn('off-ws-ai', done && 'is-done')}>
                     <span className="off-ws-ai-box">
                       {done ? <Icon icon={Check} size="sm" /> : null}
                     </span>
@@ -130,10 +121,15 @@ export function MeetingsApp() {
                           brand={owner.kind === 'external'}
                         />
                       ) : (
-                        <EmployeeAvatar seed="Boss" colorA="#d7e3ff" colorB="#aac4ff" size={16} />
+                        <EmployeeAvatar
+                          seed="Boss"
+                          colorA={UI_DATA_COLORS.bossA}
+                          colorB={UI_DATA_COLORS.bossB}
+                          size={16}
+                        />
                       )}
                     </span>
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -142,8 +138,7 @@ export function MeetingsApp() {
               type="button"
               className="off-ws-dlv-btn off-ws-meet-open off-focusable"
               onClick={() => {
-                selectItem(active.threadId);
-                setApp('messenger');
+                setApp('messenger', active.threadId);
               }}
             >
               <Icon icon={MessageSquare} size="sm" />

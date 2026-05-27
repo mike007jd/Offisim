@@ -1,3 +1,4 @@
+import { UI_DATA_COLORS } from '@/data/color-palette.js';
 import type { Company } from '@/data/types.js';
 
 /**
@@ -37,25 +38,25 @@ export function roleLabel(role: string): string {
 /** Status-dot color per role family — gives each employee card a colored
  *  presence dot that reads as a discipline cue (design spec: ROLE_DOT). */
 export const ROLE_DOT: Record<string, string> = {
-  Developer: '#3b82f6',
-  Frontend: '#6366f1',
-  Backend: '#10b981',
-  Fullstack: '#0ea5e9',
-  'Project Manager': '#a855f7',
-  'Product Manager': '#8b5cf6',
-  QA: '#f59e0b',
-  'UX Designer': '#f97316',
-  'UI Designer': '#ef4444',
-  'Graphic Designer': '#ec4899',
-  Researcher: '#14b8a6',
-  Writer: '#3b82f6',
-  Manager: '#db2777',
-  'SEO Specialist': '#0d9488',
-  'Account Manager': '#6366f1',
-  'Data Analyst': '#10b981',
+  Developer: UI_DATA_COLORS.blue2,
+  Frontend: UI_DATA_COLORS.indigo,
+  Backend: UI_DATA_COLORS.green3,
+  Fullstack: UI_DATA_COLORS.sky,
+  'Project Manager': UI_DATA_COLORS.purple,
+  'Product Manager': UI_DATA_COLORS.violet3,
+  QA: UI_DATA_COLORS.amber,
+  'UX Designer': UI_DATA_COLORS.orange,
+  'UI Designer': UI_DATA_COLORS.red,
+  'Graphic Designer': UI_DATA_COLORS.pink,
+  Researcher: UI_DATA_COLORS.teal,
+  Writer: UI_DATA_COLORS.blue2,
+  Manager: UI_DATA_COLORS.pink2,
+  'SEO Specialist': UI_DATA_COLORS.teal2,
+  'Account Manager': UI_DATA_COLORS.indigo,
+  'Data Analyst': UI_DATA_COLORS.green3,
 };
 
-const DEFAULT_ROLE_DOT = '#647186';
+const DEFAULT_ROLE_DOT = UI_DATA_COLORS.ink6;
 
 /** Resolve the status-dot color for a role. */
 export function roleDot(role: string): string {

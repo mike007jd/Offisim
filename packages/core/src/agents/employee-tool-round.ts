@@ -9,7 +9,6 @@ import { generateId } from '../utils/generate-id.js';
 import { MEMORY_TOOL_NAMES, handleMemoryTool } from './employee-memory-tools.js';
 import { MAX_CONTEXT_MESSAGES } from './employee-node-constants.js';
 import type { PreflightResult } from './employee-preflight.js';
-import { type TodoToolName, handleTodoTool, isTodoTool } from './employee-todo-tools.js';
 import {
   type SkillInstallToolName,
   handleSkillInstallTool,
@@ -113,17 +112,6 @@ export async function runToolRound(ctx: ToolRoundContext): Promise<ToolRoundOutc
           employee.employee_id,
           `${preflight.resolved.provider}/${preflight.resolved.model}`,
           ctx.state.projectId,
-        );
-        return { callId: toolCall.id, name: toolCall.name, result };
-      }
-
-      if (isTodoTool(toolCall.name)) {
-        const result = await handleTodoTool(
-          toolCall.name as TodoToolName,
-          toolCall.arguments,
-          preflight,
-          runtimeCtx,
-          ctx.state,
         );
         return { callId: toolCall.id, name: toolCall.name, result };
       }

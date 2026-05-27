@@ -16,13 +16,12 @@ import { sanitizePlanEmployees } from './sanitize-rebind.js';
 // are persisted as regular plan tasks keyed by employeeId.
 
 /**
- * Persist the LLM / SOP plan as a TaskPlan: write scratchpad, create taskRuns,
+ * Persist the LLM plan as a TaskPlan: write scratchpad, create taskRuns,
  * build PlanStep[] / PlanTask[], emit planCreated, append pm decision event.
  */
 export async function persistLlmPlanAsTaskPlan(
   plan: LlmPlan,
   prep: PmPreflightReady,
-  sopTemplateId: string | undefined,
 ): Promise<Partial<OffisimGraphState>> {
   const { runtimeCtx, state, validEmployees } = prep;
   const { repos, eventBus, companyId, threadId } = runtimeCtx;
@@ -127,28 +126,8 @@ export async function persistLlmPlanAsTaskPlan(
           };
         }),
       })),
-      sopTemplateId,
     ),
   );
-
-  if (projectId) {
-    await Promise.all(
-      planSteps.flatMap((step) =>
-        step.tasks.map((task, taskIndex) =>
-          repos.kanban.create({
-            project_id: projectId,
-            company_id: companyId,
-            title: task.description || step.description,
-            note: step.description,
-            origin: 'pm-planner',
-            assigned_employee_id: task.employeeId,
-            task_run_id: requireTaskRunId(task),
-            sort_order: step.stepIndex * 100 + taskIndex,
-          }),
-        ),
-      ),
-    );
-  }
 
   await appendAgentEvent(runtimeCtx, {
     projectId,

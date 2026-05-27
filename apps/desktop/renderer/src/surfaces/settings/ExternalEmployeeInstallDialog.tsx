@@ -19,14 +19,13 @@ type DiscoverValues = z.infer<typeof discoverSchema>;
 const INSTALL_STEPS = [
   { key: 'validate', label: 'Validate agent card schema' },
   { key: 'brand', label: 'Resolve brand assets' },
-  { key: 'write', label: 'Write to external_employees' },
-  { key: 'seat', label: 'Seat in Office scene' },
+  { key: 'connect', label: 'Create roster connection' },
 ] as const;
 
 interface ExternalEmployeeInstallDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onInstalled: (card: DiscoveredCard) => void;
+  onInstalled: (card: DiscoveredCard) => Promise<void>;
 }
 
 function Stepper({ step }: { step: Step }) {
@@ -35,7 +34,7 @@ function Stepper({ step }: { step: Step }) {
   return (
     <div className="off-set-stepper">
       {labels.map((label, i) => (
-        <div key={label} style={{ display: 'contents' }}>
+        <div key={label} className="off-set-step-part">
           <span
             className={`off-set-step${i === idx ? ' is-active' : ''}${i < idx ? ' is-done' : ''}`}
           >
@@ -97,30 +96,23 @@ export function ExternalEmployeeInstallDialog({
     }
   });
 
-  function runInstall() {
+  async function runInstall() {
     if (!card) return;
     setStep('installing');
     setInstallError(false);
-    setInstallProgress(0);
-    const tick = (n: number) => {
-      window.setTimeout(() => {
-        setInstallProgress(n);
-        if (n >= INSTALL_STEPS.length) {
-          window.setTimeout(() => {
-            onInstalled(card);
-            handleOpenChange(false);
-          }, 600);
-        } else {
-          tick(n + 1);
-        }
-      }, 420);
-    };
-    tick(1);
+    setInstallProgress(2);
+    try {
+      await onInstalled(card);
+      setInstallProgress(INSTALL_STEPS.length);
+      handleOpenChange(false);
+    } catch {
+      setInstallError(true);
+    }
   }
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-[520px]" showClose={step !== 'installing'}>
+      <DialogContent className="off-dialog-w-md" showClose={step !== 'installing'}>
         <Stepper step={step} />
 
         {step === 'discover' ? (
@@ -194,7 +186,7 @@ export function ExternalEmployeeInstallDialog({
               <Button variant="outline" size="md" onClick={() => setStep('discover')}>
                 Back
               </Button>
-              <Button size="md" onClick={runInstall}>
+              <Button size="md" onClick={() => void runInstall()}>
                 <Icon icon={Check} size="sm" />
                 Confirm &amp; install
               </Button>
@@ -238,14 +230,19 @@ export function ExternalEmployeeInstallDialog({
                   <div className="off-set-err-title">Install failed</div>
                   <div className="off-set-err-msg">Rolled back to pre-install state.</div>
                 </div>
-                <Button variant="outline" size="sm" className="ml-auto" onClick={runInstall}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="ml-auto"
+                  onClick={() => void runInstall()}
+                >
                   <Icon icon={RefreshCw} size="sm" />
                   Retry
                 </Button>
               </div>
             ) : null}
             <div className="off-set-dialog-actions">
-              <Button variant="outline" size="md" disabled>
+              <Button variant="outline" size="md" onClick={() => handleOpenChange(false)}>
                 Close
               </Button>
             </div>

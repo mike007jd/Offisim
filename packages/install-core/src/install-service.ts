@@ -281,7 +281,8 @@ export class InstallService {
           installedPackageId: existing.installed_package_id,
           installedAssetIds: [],
           employeeIds: [],
-          sopTemplateIds: [],
+          skillIds: [],
+          skillVaultPaths: [],
           companyTemplateIds: [],
           officeLayoutIds: [],
           prefabInstanceIds: [],
@@ -327,7 +328,8 @@ export class InstallService {
           installedPackageId: existing.installed_package_id,
           installedAssetIds: [],
           employeeIds: [],
-          sopTemplateIds: [],
+          skillIds: [],
+          skillVaultPaths: [],
           companyTemplateIds: [],
           officeLayoutIds: [],
           prefabInstanceIds: [],
@@ -437,10 +439,8 @@ export class InstallService {
     // Clean up cache
     this.planCache.delete(installTxnId);
 
-    // Surface the listing-installed signal for Market UI consumers. Employee
-    // packages finish materialization here; skill packages still need their
-    // post-materialize vault write — the skill pipeline emits its own event
-    // after `installSkill` so timing matches "user can see the result".
+    // Surface the listing-installed signal for Market UI consumers after all
+    // DB and vault writes have finished.
     const installedListingId = provenance?.originListingId;
     if (
       installedListingId &&
@@ -449,6 +449,18 @@ export class InstallService {
     ) {
       this.events.emitMarketListingInstalled(this.companyId, installedListingId, 'employee', {
         installedPackageId: result.installedPackageId,
+        packageId: plan.manifest.package.id,
+        version: plan.manifest.package.version,
+      });
+    }
+    if (
+      installedListingId &&
+      plan.manifest.package.kind === 'skill' &&
+      this.events.emitMarketListingInstalled
+    ) {
+      this.events.emitMarketListingInstalled(this.companyId, installedListingId, 'skill', {
+        installedPackageId: result.installedPackageId,
+        skillId: result.skillIds[0],
         packageId: plan.manifest.package.id,
         version: plan.manifest.package.version,
       });

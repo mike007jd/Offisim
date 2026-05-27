@@ -562,11 +562,6 @@ export async function finalizeEmployeeSuccess(
         employee.name,
       ),
     );
-    await repos.kanban.transitionByTaskRun(
-      taskRunId,
-      completionOutcome.ok ? 'done' : 'review',
-      completionOutcome.ok ? null : completionOutcome.reason,
-    );
     eventBus.emit(
       taskAssignmentChanged(companyId, taskRunId, employee.employee_id, 'unassigned', threadId, {
         employeeId: employee.employee_id,

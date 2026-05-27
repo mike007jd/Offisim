@@ -1,11 +1,14 @@
+import { UI_DATA_COLORS } from '@/data/color-palette.js';
 import { useCompanyTemplates } from '@/data/queries.js';
 import type { CompanyTemplate, TemplateEmployee } from '@/data/types.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { Icon } from '@/design-system/icons/Icon.js';
+import { Tabs, TabsList, TabsTrigger } from '@/design-system/primitives/tabs.js';
+import { Textarea } from '@/design-system/primitives/textarea.js';
 import { cn } from '@/lib/utils.js';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, Wrench } from 'lucide-react';
 import { motion } from 'motion/react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { clearDiscardConfirm, showDiscardConfirm } from './DiscardConfirmToast.js';
 import { TemplatePreview } from './TemplatePreview.js';
 import { roleDot, roleLabel, templateZones } from './lifecycle-data.js';
@@ -13,13 +16,22 @@ import { CREATE_YOUR_OWN_TEMPLATE, EMPLOYEE_BIOS, TEMPLATE_META } from './wizard
 
 type CreateStep = 'ready' | 'creating' | 'opening-studio';
 
+function roleAccentStyle(color: string): CSSProperties {
+  return { '--off-wiz-role-accent': color } as CSSProperties;
+}
+
+export interface CreateCompanyRequest {
+  name: string;
+  description: string | null;
+  template: CompanyTemplate;
+  openStudio: boolean;
+}
+
 interface CompanyCreationWizardProps {
   /** Return to the portal (create-new mode). Guarded by the dirty check. */
   onDismiss: () => void;
-  /** Fired after a real template build completes — hands the new company id up. */
-  onComplete: (company: { id: string; name: string }) => void;
-  /** Fired for the create-your-own → Studio handoff. */
-  onOpenStudio: () => void;
+  /** Fired after a real repository-backed company build completes. */
+  onComplete: (request: CreateCompanyRequest) => Promise<void>;
 }
 
 function EmployeeCard({ template, employee }: { template: string; employee: TemplateEmployee }) {
@@ -38,17 +50,17 @@ function EmployeeCard({ template, employee }: { template: string; employee: Temp
           <EmployeeAvatar
             seed={`${template}:${employee.name}`}
             appearance={employee.appearance}
-            colorA={employee.appearance.clothingColor ?? '#3c4a60'}
+            colorA={employee.appearance.clothingColor ?? UI_DATA_COLORS.ink3}
             colorB={
-              employee.appearance.accentColor ?? employee.appearance.clothingColor ?? '#1f2937'
+              employee.appearance.accentColor ?? employee.appearance.clothingColor ?? UI_DATA_COLORS.ink2
             }
             size={40}
           />
-          <span className="off-wiz-emp-st" style={{ background: dot }} />
+          <span className="off-wiz-emp-st" style={roleAccentStyle(dot)} />
         </span>
         <span className="off-wiz-emp-copy">
           <span className="off-wiz-emp-name">{employee.name}</span>
-          <span className="off-wiz-emp-role" style={{ color: dot }}>
+          <span className="off-wiz-emp-role" style={roleAccentStyle(dot)}>
             {roleLabel(employee.role)}
           </span>
           {bio ? <span className="off-wiz-emp-bio">{bio.bio}</span> : null}
@@ -59,7 +71,7 @@ function EmployeeCard({ template, employee }: { template: string; employee: Temp
         <div className="off-wiz-emp-detail">
           <div className="off-wiz-emp-tags">
             {bio.expertise.map((tag) => (
-              <span key={tag} className="off-wiz-tag" style={{ color: dot }}>
+              <span key={tag} className="off-wiz-tag" style={roleAccentStyle(dot)}>
                 {tag}
               </span>
             ))}
@@ -75,7 +87,6 @@ function EmployeeCard({ template, employee }: { template: string; employee: Temp
 export function CompanyCreationWizard({
   onDismiss,
   onComplete,
-  onOpenStudio,
 }: CompanyCreationWizardProps) {
   const templatesQuery = useCompanyTemplates();
 
@@ -88,6 +99,7 @@ export function CompanyCreationWizard({
   const [companyName, setCompanyName] = useState('');
   const [description, setDescription] = useState('');
   const [step, setStep] = useState<CreateStep>('ready');
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const safeIndex = templates.length ? Math.min(index, templates.length - 1) : 0;
   const selected = templates[safeIndex] ?? null;
@@ -144,26 +156,27 @@ export function CompanyCreationWizard({
     });
   }
 
-  function start() {
+  async function start() {
     if (!selected) return;
-    if (isCustom) {
-      setStep('opening-studio');
-      window.setTimeout(() => {
-        clearDiscardConfirm();
-        onOpenStudio();
-      }, 700);
-      return;
-    }
     if (!companyName.trim()) return;
-    setStep('creating');
+    setCreateError(null);
+    setStep(isCustom ? 'opening-studio' : 'creating');
     const name = companyName.trim();
-    window.setTimeout(() => {
+    try {
+      await onComplete({
+        name,
+        description: description.trim() || null,
+        template: selected,
+        openStudio: isCustom,
+      });
       clearDiscardConfirm();
-      onComplete({ id: `co-new-${Date.now().toString(36)}`, name });
-    }, 1400);
+    } catch (error) {
+      setStep('ready');
+      setCreateError(error instanceof Error ? error.message : 'Company creation failed');
+    }
   }
 
-  const primaryDisabled = !selected || (!isCustom && !companyName.trim());
+  const primaryDisabled = !selected || !companyName.trim();
 
   let ctaLabel = 'Start Company';
   if (isCustom) ctaLabel = step === 'opening-studio' ? 'Opening Studio…' : 'Open Studio Editor';
@@ -191,7 +204,10 @@ export function CompanyCreationWizard({
                   <Icon icon={ChevronLeft} size="md" />
                 </button>
                 <div className="off-wiz-carousel-ctr">
-                  <span className="off-wiz-carousel-ic" style={{ color: meta?.accentHex }}>
+                  <span
+                    className="off-wiz-carousel-ic"
+                    style={roleAccentStyle(meta?.accentHex ?? UI_DATA_COLORS.ink3)}
+                  >
                     <Icon icon={meta?.icon ?? Wrench} size="md" />
                   </span>
                   <span className="off-wiz-carousel-nm">{selected?.name}</span>
@@ -206,25 +222,24 @@ export function CompanyCreationWizard({
                   <Icon icon={ChevronRight} size="md" />
                 </button>
               </div>
-              <div className="off-wiz-dots" role="tablist" aria-label="Template pager">
-                {templates.map((t, i) => {
-                  const active = i === safeIndex;
-                  const m = TEMPLATE_META[t.id];
-                  return (
-                    <button
-                      type="button"
-                      key={t.id}
-                      role="tab"
-                      aria-selected={active}
-                      aria-label={t.name}
-                      className={cn('off-wiz-dot off-focusable', active && 'is-active')}
-                      style={active ? { background: m?.accentHex ?? '#3b82f6' } : undefined}
-                      disabled={busy}
-                      onClick={() => setIndex(i)}
-                    />
-                  );
-                })}
-              </div>
+              <Tabs value={String(safeIndex)} onValueChange={(value) => setIndex(Number(value))}>
+                <TabsList className="off-wiz-dots" aria-label="Template pager">
+                  {templates.map((t, i) => {
+                    const active = i === safeIndex;
+                    const m = TEMPLATE_META[t.id];
+                    return (
+                      <TabsTrigger
+                        key={t.id}
+                        value={String(i)}
+                        aria-label={t.name}
+                        className={cn('off-wiz-dot off-focusable', active && 'is-active')}
+                        style={active ? { background: m?.accentHex ?? UI_DATA_COLORS.blue2 } : undefined}
+                        disabled={busy}
+                      />
+                    );
+                  })}
+                </TabsList>
+              </Tabs>
             </div>
 
             <div className="off-wiz-zonebox">
@@ -271,21 +286,23 @@ export function CompanyCreationWizard({
                 <p>Your custom office will be designed in the 3D Studio editor.</p>
               </div>
             ) : selected ? (
-              <TemplatePreview template={selected} accentHex={meta?.accentHex ?? '#4d82ff'} />
+              <TemplatePreview template={selected} accentHex={meta?.accentHex ?? UI_DATA_COLORS.blue3} />
             ) : null}
           </div>
         </div>
       </div>
 
       <div className="off-wiz-foot">
-        {step === 'creating' ? (
+        {busy ? (
           <div className="off-wiz-building">
             <div className="off-wiz-building-ln">
               <Loader2 className="off-wiz-spin" size={18} />
-              Building your office…
+              {isCustom ? 'Preparing Studio workspace…' : 'Building your office…'}
             </div>
             <div className="off-wiz-building-sub">
-              Setting up employees, zones, and office layout
+              {isCustom
+                ? 'Creating a real company record before Studio opens'
+                : 'Setting up employees, zones, and office layout'}
             </div>
           </div>
         ) : (
@@ -299,33 +316,30 @@ export function CompanyCreationWizard({
               <Icon icon={ChevronLeft} size="sm" />
               Back
             </button>
-            {!isCustom ? (
-              <div className="off-wiz-fields">
-                <div className="off-wiz-name">
-                  <label htmlFor="off-wiz-name">Company Name</label>
-                  <input
-                    id="off-wiz-name"
-                    placeholder="My AI Company"
-                    value={companyName}
-                    disabled={busy}
-                    onChange={(e) => setCompanyName(e.target.value)}
-                  />
-                </div>
-                <div className="off-wiz-desc">
-                  <label htmlFor="off-wiz-desc">Description</label>
-                  <textarea
-                    id="off-wiz-desc"
-                    rows={2}
-                    placeholder="What does this company do? (optional)"
-                    value={description}
-                    disabled={busy}
-                    onChange={(e) => setDescription(e.target.value)}
-                  />
-                </div>
+            <div className={cn('off-wiz-fields', isCustom && 'off-wiz-fields-custom')}>
+              <div className="off-wiz-name">
+                <label htmlFor="off-wiz-name">Company Name</label>
+                <input
+                  id="off-wiz-name"
+                  placeholder="My AI Company"
+                  value={companyName}
+                  disabled={busy}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                />
               </div>
-            ) : (
-              <div className="off-wiz-fields off-wiz-fields-custom" />
-            )}
+              <div className="off-wiz-desc">
+                <label htmlFor="off-wiz-desc">Description</label>
+                <Textarea
+                  id="off-wiz-desc"
+                  rows={2}
+                  placeholder="What does this company do? (optional)"
+                  value={description}
+                  disabled={busy}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+              </div>
+              {createError ? <div className="off-wiz-error">{createError}</div> : null}
+            </div>
             <button
               type="button"
               className={cn(
@@ -334,9 +348,8 @@ export function CompanyCreationWizard({
                 !primaryDisabled && !busy && 'is-pulse',
               )}
               disabled={primaryDisabled || busy}
-              onClick={start}
+              onClick={() => void start()}
             >
-              {step === 'opening-studio' ? <Loader2 className="off-wiz-spin" size={16} /> : null}
               {ctaLabel}
             </button>
           </div>

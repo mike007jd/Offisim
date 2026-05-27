@@ -7,39 +7,64 @@ import {
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/design-system/primitives/dialog.js';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/design-system/primitives/dropdown-menu.js';
+import { Input } from '@/design-system/primitives/input.js';
 import { cn } from '@/lib/utils.js';
+import { useQueryClient } from '@tanstack/react-query';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   Box,
   Building2,
   ChevronDown,
   CloudUpload,
+  KeyRound,
   Layers,
   LayoutGrid,
   Loader2,
   Search,
   Sparkles,
   Store,
+  Upload,
   UserRound,
   WifiOff,
 } from 'lucide-react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { InstallDialog } from './InstallDialog.js';
 import { MarketCard } from './MarketCard.js';
 import { MarketDetail } from './MarketDetail.js';
 import { MarketManage } from './MarketManage.js';
 import { PublishDialog } from './PublishDialog.js';
 import {
+  type InstallBindingValues,
   type ListingKind,
   type ManageView,
   type MarketListing,
+  type PendingPackageInstall,
+  type PublishPackageRequest,
+  canInstallListing,
+  marketplaceTokenConfigured,
+  useCancelPackageImport,
+  useConfirmPackageInstall,
+  useImportPackageFile,
   useMarketListings,
+  usePrepareRegistryInstall,
+  usePublishPackage,
   usePublishSources,
+  usePublishedDrafts,
+  useRegistryConnection,
+  writeMarketplaceToken,
 } from './market-data.js';
 import { type SortKey, useMarketUi } from './market-store.js';
 
@@ -73,8 +98,17 @@ const GAP = 14;
 const ROW_HEIGHT = 216;
 
 export function MarketSurface() {
-  const listings = useMarketListings();
-  const sources = usePublishSources();
+  const queryClient = useQueryClient();
+  const companyId = useUiState((s) => s.companyId);
+  const listings = useMarketListings(companyId);
+  const sources = usePublishSources(companyId);
+  const registryConnection = useRegistryConnection();
+  const publishedDrafts = usePublishedDrafts(registryConnection.data?.connected === true);
+  const publishPackage = usePublishPackage();
+  const importPackageFile = useImportPackageFile(companyId);
+  const prepareRegistryInstall = usePrepareRegistryInstall(companyId);
+  const confirmPackageInstall = useConfirmPackageInstall(companyId);
+  const cancelPackageImport = useCancelPackageImport();
   const selectedListingId = useUiState((s) => s.selectedListingId);
   const selectListing = useUiState((s) => s.selectListing);
 
@@ -82,17 +116,21 @@ export function MarketSurface() {
   const setMode = useMarketUi((s) => s.setMode);
   const manageView = useMarketUi((s) => s.manageView);
   const setManageView = useMarketUi((s) => s.setManageView);
-  const sessionInstalledIds = useMarketUi((s) => s.sessionInstalledIds);
-  const markInstalled = useMarketUi((s) => s.markInstalled);
 
   const [kind, setKind] = useState<KindFilter>('all');
   const [sort, setSort] = useState<SortKey>('relevance');
   const [query, setQuery] = useState('');
   const [installTarget, setInstallTarget] = useState<MarketListing | null>(null);
   const [installOpen, setInstallOpen] = useState(false);
+  const [pendingPackageInstall, setPendingPackageInstall] = useState<PendingPackageInstall | null>(
+    null,
+  );
   const [publishOpen, setPublishOpen] = useState(false);
+  const [registryTokenOpen, setRegistryTokenOpen] = useState(false);
+  const [detailListingId, setDetailListingId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const isInstalled = (l: MarketListing) => l.installed || sessionInstalledIds.has(l.id);
+  const isInstalled = (l: MarketListing) => l.installed;
 
   const filtered = useMemo(() => {
     let list = listings.data ?? [];
@@ -114,8 +152,8 @@ export function MarketSurface() {
     return sorted;
   }, [listings.data, kind, sort, query]);
 
-  const selected = (listings.data ?? []).find((l) => l.id === selectedListingId) ?? null;
-  const detailOpen = selected !== null && mode === 'explore';
+  const detailListing = (listings.data ?? []).find((l) => l.id === detailListingId) ?? null;
+  const detailOpen = detailListing !== null && mode === 'explore';
 
   function resetFilters() {
     setKind('all');
@@ -123,13 +161,110 @@ export function MarketSurface() {
     setSort('relevance');
   }
 
-  function openInstall(listing: MarketListing) {
+  async function openInstall(listing: MarketListing) {
+    if (!canInstallListing(listing)) return;
+    if (listing.installSource === 'registry') {
+      try {
+        const pending = await prepareRegistryInstall.mutateAsync(listing);
+        setPendingPackageInstall(pending);
+        setInstallTarget(pending.listing);
+        setInstallOpen(true);
+      } catch (error) {
+        toast.error('Registry install failed', {
+          description: error instanceof Error ? error.message : String(error),
+        });
+      }
+      return;
+    }
+    setPendingPackageInstall(null);
     setInstallTarget(listing);
     setInstallOpen(true);
   }
 
+  function openDetail(listing: MarketListing) {
+    selectListing(listing.id);
+    setDetailListingId(listing.id);
+  }
+
+  async function handlePackageFile(file: File | null | undefined) {
+    if (!file) return;
+    try {
+      const pending = await importPackageFile.mutateAsync(file);
+      setPendingPackageInstall(pending);
+      setInstallTarget(pending.listing);
+      setInstallOpen(true);
+      toast.success('Package verified', {
+        description: `${pending.listing.name} is ready for install review.`,
+      });
+    } catch (error) {
+      toast.error('Package import failed', {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  function handleInstallOpenChange(open: boolean) {
+    setInstallOpen(open);
+    if (open) return;
+
+    if (pendingPackageInstall) {
+      void cancelPackageImport.mutateAsync(pendingPackageInstall).catch(() => undefined);
+      setPendingPackageInstall(null);
+    }
+    setInstallTarget(null);
+  }
+
+  async function handleInstall(listing: MarketListing, values: InstallBindingValues) {
+    if (!pendingPackageInstall || listing.id !== pendingPackageInstall.listing.id) {
+      throw new Error('This package does not have a prepared local install transaction.');
+    }
+    const result = await confirmPackageInstall.mutateAsync({
+      pending: pendingPackageInstall,
+      values,
+    });
+    setPendingPackageInstall(null);
+    if (result.installReceiptError) {
+      toast.error('Package installed locally; registry receipt failed', {
+        description: result.installReceiptError,
+      });
+      return;
+    }
+    toast.success('Package installed', {
+      description: result.installReceiptId
+        ? `${listing.name} is available and the registry receipt was recorded.`
+        : `${listing.name} is now available in this company.`,
+    });
+  }
+
+  async function handlePublish(request: PublishPackageRequest) {
+    const result = await publishPackage.mutateAsync(request);
+    toast.success('Package submitted', {
+      description: `Registry moderation job ${result.moderationJobId} is ${result.status}.`,
+    });
+    setPublishOpen(false);
+    setMode('manage');
+    setManageView('published');
+  }
+
+  function refreshRegistryQueries() {
+    void queryClient.invalidateQueries({ queryKey: ['market-registry-connection'] });
+    void queryClient.invalidateQueries({ queryKey: ['market-drafts'] });
+    void queryClient.invalidateQueries({ queryKey: ['market-listings'] });
+    void queryClient.invalidateQueries({ queryKey: ['market-installed'] });
+  }
+
+  function handleRegistryTokenSave(token: string | null) {
+    writeMarketplaceToken(token);
+    refreshRegistryQueries();
+    toast.success(token ? 'Registry token connected' : 'Registry token cleared', {
+      description: token
+        ? 'Market publish, drafts, and install receipts will use this token.'
+        : 'Market publish and receipt calls now require a new token.',
+    });
+  }
+
   return (
-    <div className={cn('off-market', detailOpen && 'is-with-detail')}>
+    <div className={cn('off-market', detailOpen && 'is-detail-mode')}>
       <div className="off-mkt-fbar">
         <div className="off-mkt-fbar-main">
           <SearchInput
@@ -151,6 +286,32 @@ export function MarketSurface() {
             </>
           ) : null}
           <ModeDropdown mode={mode} onChange={setMode} />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".offisimpkg,.aicspkg,.zip"
+            hidden
+            tabIndex={-1}
+            onChange={(event) => {
+              const file = event.currentTarget.files?.[0];
+              void handlePackageFile(file).finally(() => {
+                event.currentTarget.value = '';
+              });
+            }}
+          />
+          <Button
+            size="md"
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importPackageFile.isPending}
+          >
+            {importPackageFile.isPending ? (
+              <Icon icon={Loader2} size="sm" className="animate-spin" />
+            ) : (
+              <Icon icon={Upload} size="sm" />
+            )}
+            Import
+          </Button>
           {mode === 'explore' ? (
             <Button
               size="md"
@@ -177,18 +338,27 @@ export function MarketSurface() {
       </div>
 
       <div className="off-mkt-grid-wrap">
-        {mode === 'manage' ? (
+        {detailOpen && detailListing ? (
+          <MarketDetail
+            listing={detailListing}
+            installed={isInstalled(detailListing)}
+            onClose={() => setDetailListingId(null)}
+            onInstall={() => void openInstall(detailListing)}
+          />
+        ) : mode === 'manage' ? (
           <div className="off-mkt-listing">
             <MarketManage
               view={manageView}
+              companyId={companyId}
               onBrowseExplore={() => setMode('explore')}
+              onConnectRegistry={() => setRegistryTokenOpen(true)}
               onPublish={() => setPublishOpen(true)}
             />
           </div>
         ) : listings.isLoading ? (
           <SkeletonGrid />
         ) : listings.isError ? (
-          <MarketErrorState onRetry={() => listings.refetch()} />
+          <MarketErrorState error={listings.error} onRetry={() => listings.refetch()} />
         ) : filtered.length === 0 ? (
           <MarketEmptyState filtered={query !== '' || kind !== 'all'} onReset={resetFilters} />
         ) : (
@@ -197,30 +367,113 @@ export function MarketSurface() {
             selectedId={selectedListingId}
             isInstalled={isInstalled}
             onSelect={(id) => selectListing(id)}
+            onOpen={openDetail}
           />
         )}
-        {detailOpen && selected ? (
-          <MarketDetail
-            listing={selected}
-            installed={isInstalled(selected)}
-            onClose={() => selectListing(null)}
-            onInstall={() => openInstall(selected)}
-          />
-        ) : null}
       </div>
 
       <InstallDialog
         listing={installTarget}
         open={installOpen}
-        onOpenChange={setInstallOpen}
-        onInstalled={markInstalled}
+        onOpenChange={handleInstallOpenChange}
+        onInstall={handleInstall}
       />
       <PublishDialog
         open={publishOpen}
         onOpenChange={setPublishOpen}
         sources={sources.data ?? []}
+        registry={registryConnection.data ?? null}
+        drafts={publishedDrafts.data ?? []}
+        draftsLoading={publishedDrafts.isLoading && registryConnection.data?.connected === true}
+        publishing={publishPackage.isPending}
+        onConnectRegistry={() => setRegistryTokenOpen(true)}
+        onPublish={handlePublish}
+      />
+      <RegistryTokenDialog
+        open={registryTokenOpen}
+        connected={registryConnection.data?.connected === true}
+        configured={marketplaceTokenConfigured()}
+        onOpenChange={setRegistryTokenOpen}
+        onSave={handleRegistryTokenSave}
       />
     </div>
+  );
+}
+
+function RegistryTokenDialog({
+  open,
+  connected,
+  configured,
+  onOpenChange,
+  onSave,
+}: {
+  open: boolean;
+  connected: boolean;
+  configured: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSave: (token: string | null) => void;
+}) {
+  const [token, setToken] = useState('');
+
+  useEffect(() => {
+    if (open) setToken('');
+  }, [open]);
+
+  function saveToken() {
+    const next = token.trim();
+    if (!next) {
+      toast.error('Registry token required', {
+        description: 'Paste an offisim API token or clear the current token.',
+      });
+      return;
+    }
+    onSave(next);
+    onOpenChange(false);
+  }
+
+  function clearToken() {
+    onSave(null);
+    onOpenChange(false);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="off-mkt-dialog">
+        <DialogHeader>
+          <DialogTitle>Registry Token</DialogTitle>
+          <DialogDescription>
+            Connect a marketplace API token for drafts, publishing, and install receipts.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="off-token-dialog">
+          <div className="off-token-status">
+            <Icon icon={KeyRound} size="sm" />
+            <span>{connected ? 'Connected' : configured ? 'Token saved' : 'No token saved'}</span>
+          </div>
+          <Input
+            type="password"
+            value={token}
+            autoComplete="off"
+            placeholder="offisim_..."
+            aria-label="Registry API token"
+            onChange={(event) => setToken(event.currentTarget.value)}
+          />
+          <div className="off-token-actions">
+            {configured ? (
+              <Button size="md" variant="outline" type="button" onClick={clearToken}>
+                Clear token
+              </Button>
+            ) : null}
+            <Button size="md" variant="outline" type="button" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button size="md" type="button" onClick={saveToken}>
+              Save token
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -255,11 +508,13 @@ function CardGrid({
   selectedId,
   isInstalled,
   onSelect,
+  onOpen,
 }: {
   listings: MarketListing[];
   selectedId: string | null;
   isInstalled: (l: MarketListing) => boolean;
   onSelect: (id: string) => void;
+  onOpen: (listing: MarketListing) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [cols, setCols] = useState(3);
@@ -317,6 +572,7 @@ function CardGrid({
                   installed={isInstalled(listing)}
                   selected={listing.id === selectedId}
                   onSelect={() => onSelect(listing.id)}
+                  onOpen={() => onOpen(listing)}
                 />
               ))}
             </div>
@@ -327,22 +583,23 @@ function CardGrid({
   );
 }
 
+const MARKET_LOADING_CARD_KEYS = Array.from({ length: 8 }, (_, index) => `market-loading-${index}`);
+
 function SkeletonGrid() {
   return (
     <div className="off-mkt-scroll">
       <div className="off-mkt-skel-grid">
-        {Array.from({ length: 8 }).map((_, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: static placeholders
-          <div key={i} className="off-mkt-skel">
+        {MARKET_LOADING_CARD_KEYS.map((key) => (
+          <div key={key} className="off-mkt-skel">
             <div className="off-mkt-skel-cover" />
             <div className="off-mkt-skel-body">
-              <div className="off-mkt-sk" style={{ height: 11, width: '60%' }} />
-              <div className="off-mkt-sk" style={{ height: 13, width: '80%' }} />
-              <div className="off-mkt-sk" style={{ height: 11, width: '100%' }} />
-              <div className="off-mkt-sk" style={{ height: 11, width: '60%' }} />
+              <div className="off-mkt-sk is-title" />
+              <div className="off-mkt-sk is-name" />
+              <div className="off-mkt-sk is-line" />
+              <div className="off-mkt-sk is-title" />
               <div className="off-mkt-skel-stats">
-                <div className="off-mkt-sk" style={{ height: 11, width: 30 }} />
-                <div className="off-mkt-sk" style={{ height: 11, width: 46 }} />
+                <div className="off-mkt-sk is-rating" />
+                <div className="off-mkt-sk is-installs" />
               </div>
             </div>
           </div>
@@ -352,8 +609,12 @@ function SkeletonGrid() {
   );
 }
 
-function MarketErrorState({ onRetry }: { onRetry: () => void }) {
+function MarketErrorState({ error, onRetry }: { error: unknown; onRetry: () => void }) {
   const setSurface = useUiState((s) => s.setSurface);
+  const reason =
+    error instanceof Error && error.message
+      ? error.message
+      : 'No response from the marketplace data source.';
   return (
     <div className="off-mkt-scroll off-mkt-hero-wrap">
       <div className="off-mkt-hero">
@@ -364,7 +625,7 @@ function MarketErrorState({ onRetry }: { onRetry: () => void }) {
         <div className="off-mkt-hero-d">
           Couldn't reach the marketplace service. The platform may be offline.
         </div>
-        <div className="off-mkt-hero-tech">503 Service Unavailable — platform :4100</div>
+        <div className="off-mkt-hero-tech">{reason}</div>
         <div className="off-mkt-hero-a">
           <Button size="md" onClick={onRetry}>
             <Icon icon={Loader2} size="sm" />

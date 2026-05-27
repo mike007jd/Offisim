@@ -60,7 +60,7 @@ export function SettingsSaveBar({
         Saving…
       </>
     );
-    tip = 'Persisting to local_settings';
+    tip = 'Persisting to the desktop settings repository';
   } else if (validationBlocked) {
     label = (
       <>

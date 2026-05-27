@@ -41,7 +41,7 @@ Offisim does not keep a broad product unit-test suite. Release validation is a
 smaller set of retained gates that must match the risk of the change:
 
 - deterministic harness scenarios for graph/runtime/permission/planner/LLM replay invariants
-- aggregated security harnesses for P0/P1 platform, marketplace, local-tool, attachment, registry, provider-list, SOP sync, and web fetch/search boundaries
+- aggregated security harnesses for P0/P1 platform, marketplace, local-tool, attachment, registry, provider-list, and web fetch/search boundaries
 - targeted Rust safety checks for desktop credential transport, sidecars, workspace containment, local shell/git/path commands, and install materialization
 - platform migration generation/drift checks for `apps/platform` / `packages/db-platform`
 - package builds for the desktop renderer before any desktop verification
@@ -108,11 +108,6 @@ Current application/package shape:
 
 - `CLAUDE.md` — primary AI working instructions (root + per-package under `packages/*/CLAUDE.md`, `apps/*/CLAUDE.md`)
 
-### Capability specs
-
-- `openspec/specs/` — capability specifications (rebuild in progress; will grow as stable capabilities are locked down)
-- `openspec/changes/` — active change proposals
-
 ### Live contracts (code is the source of truth)
 
 - Package manifest schema → `packages/asset-schema/src/schema/manifest-1.0.0.json` + `packages/asset-schema/src/manifest.types.ts`
@@ -132,9 +127,8 @@ Current application/package shape:
 
 1. `README.md`
 2. `CLAUDE.md` (root + relevant package CLAUDE.md)
-3. `openspec/specs/` for the capability being touched
-4. Code paths listed under **Live contracts** for the affected surface
-5. `packages/db-local/src/schema.sql` or `packages/db-platform/src/schema.ts` when the task touches persistence
+3. Code paths listed under **Live contracts** for the affected surface
+4. `packages/db-local/src/schema.sql` or `packages/db-platform/src/schema.ts` when the task touches persistence
 
 ## Document precedence
 
@@ -142,8 +136,7 @@ When two sources overlap, use this order:
 
 1. Code + `git log` — the only live truth
 2. `CLAUDE.md` (root and per-package)
-3. `openspec/specs/` for the affected capability
-4. `Docs/` working notes (informational only, do not treat as contracts)
+3. `Docs/` working notes (informational only, do not treat as contracts)
 
 ## Task routing
 

@@ -58,7 +58,7 @@ export async function meetingStartNode(
     eventBus.emit(
       notificationCreated(
         companyId,
-        `meeting-solo-warn-${Date.now()}`,
+        generateId('meeting-solo-warn'),
         'warning',
         'Solo meeting',
         `Only ${participants[0].name} is available — consider hiring more team members for productive meetings.`,

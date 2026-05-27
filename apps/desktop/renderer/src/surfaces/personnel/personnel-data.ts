@@ -6,10 +6,12 @@
  * a Personnel-local view-model (memory entries, version history / fork
  * provenance / diffs, tool permissions, appearance option palettes, profile
  * form schema). It deliberately does not reach into `src/data/**` — Personnel
- * owns its own contracts until the real Tauri commands are wired per-capability
+ * owns its own contracts until the real Tauri commands are available per capability
  * (see apps/desktop/CLAUDE.md). Async hooks use `resolveAsync` from
  * `@/lib/platform.js` so the query paths are exercised.
  */
+import { reposOrNull } from '@/data/adapters.js';
+import { UI_DATA_COLORS } from '@/data/color-palette.js';
 import type { Employee } from '@/data/types.js';
 import type {
   AccentVariant,
@@ -19,7 +21,13 @@ import type {
   HairStyle,
 } from '@/lib/avatar.js';
 import { resolveAsync } from '@/lib/platform.js';
-import { useQuery } from '@tanstack/react-query';
+import {
+  EmployeeVersionService,
+  InMemoryEventBus,
+  type MemoryEntryRow,
+  type EmployeeVersionRow,
+} from '@offisim/core/browser';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 
 // ───────────────────────── Profile form ─────────────────────────
@@ -61,69 +69,6 @@ export const MODEL_FAMILY_OPTIONS = [
   { value: 'custom', label: 'Custom' },
 ] as const;
 
-/** Production build only surfaces validated families + the custom escape hatch.
- *  Suggestion chips / datalist come from the live provider catalog. */
-export const MODEL_SUGGESTION_CHIPS = [
-  'MiniMax-M2.7',
-  'GLM-5.1',
-  'openai/gpt-oss-120b:free',
-] as const;
-
-/** Office zones offered as workstation assignment targets, with the roles each
- *  zone accepts (drives drag-drop validity). */
-export interface WorkstationZone {
-  id: string;
-  label: string;
-  /** Roles this zone accepts; empty = any role. */
-  targetRoles: string[];
-  desks: Array<{ id: string; label: string; occupiedBy?: string }>;
-}
-
-export const WORKSTATION_ZONES: WorkstationZone[] = [
-  {
-    id: 'engineering_bay',
-    label: 'Engineering Bay',
-    targetRoles: ['Engineering Lead', 'Frontend Dev', 'Backend Dev', 'QA Analyst', 'DevOps'],
-    desks: [
-      { id: 'eng-1', label: 'Desk 1', occupiedBy: 'Mara Quinn' },
-      { id: 'eng-2', label: 'Desk 2' },
-      { id: 'eng-3', label: 'Desk 3' },
-      { id: 'eng-4', label: 'Desk 4' },
-      { id: 'eng-5', label: 'Desk 5', occupiedBy: 'Sela Ortiz' },
-      { id: 'eng-6', label: 'Desk 6' },
-    ],
-  },
-  {
-    id: 'design_studio',
-    label: 'Design Studio',
-    targetRoles: ['Product Designer', 'UI Designer'],
-    desks: [
-      { id: 'design-1', label: 'Easel 1' },
-      { id: 'design-2', label: 'Easel 2', occupiedBy: 'Devin Park' },
-      { id: 'design-3', label: 'Easel 3' },
-    ],
-  },
-  {
-    id: 'research_lab',
-    label: 'Research Lab',
-    targetRoles: [],
-    desks: [
-      { id: 'res-1', label: 'Bench 1' },
-      { id: 'res-2', label: 'Bench 2' },
-    ],
-  },
-];
-
-export const WORKSTATION_OPTIONS = [
-  { value: '', label: 'Unassigned' },
-  ...WORKSTATION_ZONES.flatMap((zone) =>
-    zone.desks.map((desk) => ({
-      value: `${zone.id}:${desk.id}`,
-      label: `${zone.label} · ${desk.label}`,
-    })),
-  ),
-] as const;
-
 export const profileFormSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   role: z.string().min(1, 'Role is required'),
@@ -151,10 +96,7 @@ export function profileDefaults(employee: Employee): ProfileFormValues {
     name: employee.name,
     role: employee.role,
     enabled: !employee.disabled,
-    workstation:
-      employee.zoneLabel && employee.deskLabel
-        ? `${zoneIdFromLabel(employee.zoneLabel)}:${employee.deskLabel}`
-        : '',
+    workstation: employee.workstationId ?? '',
     expertise: (employee.expertise ?? []).join(', '),
     workingStyle: 'detail-oriented, collaborative',
     communication: 'medium',
@@ -167,10 +109,6 @@ export function profileDefaults(employee: Employee): ProfileFormValues {
     maxTokens: 4096,
     customInstructions: '',
   };
-}
-
-function zoneIdFromLabel(label: string): string {
-  return WORKSTATION_ZONES.find((z) => z.label === label)?.id ?? label;
 }
 
 /** Compose the read-only system-prompt preview from the live form state. */
@@ -188,7 +126,7 @@ export function buildSystemPrompt(values: ProfileFormValues, companyName: string
   }
   lines.push(
     '',
-    'Follow company SOPs. Produce reviewable, minimal diffs. Surface risks before',
+    'Follow company playbooks. Produce reviewable, minimal diffs. Surface risks before',
     'acting on irreversible changes.',
   );
   return lines.join('\n');
@@ -273,31 +211,31 @@ export interface SwatchOption {
 /** Curated swatch palettes — SSOT mirrors `src/lib/avatar.ts` palettes
  *  (hash-stripped hex with a leading `#` for swatch rendering). */
 export const SKIN_SWATCHES: SwatchOption[] = [
-  { value: '#f8d9c4', label: 'Light' },
-  { value: '#edb98a', label: 'Fair' },
-  { value: '#d08b5b', label: 'Tan' },
-  { value: '#ae5d29', label: 'Brown' },
-  { value: '#614335', label: 'Deep' },
-  { value: '#fd9841', label: 'Warm' },
+  { value: UI_DATA_COLORS.lightSkin, label: 'Light' },
+  { value: UI_DATA_COLORS.fairSkin, label: 'Fair' },
+  { value: UI_DATA_COLORS.tanSkin, label: 'Tan' },
+  { value: UI_DATA_COLORS.brownSkin, label: 'Brown' },
+  { value: UI_DATA_COLORS.deepSkin, label: 'Deep' },
+  { value: UI_DATA_COLORS.warmSkin, label: 'Warm' },
 ];
 
 export const HAIR_SWATCHES: SwatchOption[] = [
-  { value: '#2c1b18', label: 'Black' },
-  { value: '#4a312c', label: 'Dark brown' },
-  { value: '#724133', label: 'Brown' },
-  { value: '#a55728', label: 'Auburn' },
-  { value: '#b58143', label: 'Light brown' },
-  { value: '#d6b370', label: 'Blonde' },
-  { value: '#e8e1e1', label: 'Grey' },
+  { value: UI_DATA_COLORS.brownBlack, label: 'Black' },
+  { value: UI_DATA_COLORS.darkBrown, label: 'Dark brown' },
+  { value: UI_DATA_COLORS.midBrown, label: 'Brown' },
+  { value: UI_DATA_COLORS.auburn, label: 'Auburn' },
+  { value: UI_DATA_COLORS.lightBrown, label: 'Light brown' },
+  { value: UI_DATA_COLORS.blonde, label: 'Blonde' },
+  { value: UI_DATA_COLORS.greyHair, label: 'Grey' },
 ];
 
 export const CLOTHING_SWATCHES: SwatchOption[] = [
-  { value: '#2f6bff', label: 'Blue' },
-  { value: '#1aa46a', label: 'Green' },
-  { value: '#d6453d', label: 'Red' },
-  { value: '#c98410', label: 'Amber' },
-  { value: '#7c4ddb', label: 'Violet' },
-  { value: '#3c4a60', label: 'Slate' },
+  { value: UI_DATA_COLORS.blue, label: 'Blue' },
+  { value: UI_DATA_COLORS.green, label: 'Green' },
+  { value: UI_DATA_COLORS.red3, label: 'Red' },
+  { value: UI_DATA_COLORS.amber3, label: 'Amber' },
+  { value: UI_DATA_COLORS.violet, label: 'Violet' },
+  { value: UI_DATA_COLORS.ink3, label: 'Slate' },
 ];
 
 export const ACCENT_SWATCHES: SwatchOption[] = [...CLOTHING_SWATCHES];
@@ -331,23 +269,7 @@ export const ACCENT_VARIANT_OPTIONS: ReadonlyArray<{ value: AccentVariant; label
   { value: 'scarf', label: 'Scarf' },
 ];
 
-/** DiceBear style grid offered in the customizer. Only `avataaars` is wired into
- *  `employeeAvatarUri`; the others are recorded on appearance and fall back to
- *  the seeded color resolvers for the preview (never crashes). */
-export const DICEBEAR_STYLES = [
-  { value: 'avataaars', label: 'avataaars' },
-  { value: 'micah', label: 'micah' },
-  { value: 'personas', label: 'personas' },
-  { value: 'lorelei', label: 'lorelei' },
-] as const;
-export type DicebearStyle = (typeof DICEBEAR_STYLES)[number]['value'];
-
-/** Working appearance shape used by the customizer — `EmployeeAppearance` plus
- *  the UI-only style + seed-override fields. */
-export interface AppearanceDraft extends EmployeeAppearance {
-  dicebearStyle?: DicebearStyle;
-  seedOverride?: string;
-}
+export type AppearanceDraft = EmployeeAppearance;
 
 export function appearanceDraftFor(employee: Employee): AppearanceDraft {
   return {
@@ -359,8 +281,6 @@ export function appearanceDraftFor(employee: Employee): AppearanceDraft {
     bodyType: employee.appearance?.bodyType ?? 'normal',
     gender: employee.appearance?.gender ?? 'neutral',
     accentVariant: employee.appearance?.accentVariant ?? 'vest',
-    dicebearStyle: 'avataaars',
-    seedOverride: employee.id,
   };
 }
 
@@ -431,9 +351,98 @@ const MEMORY_FIXTURE: Record<string, MemoryEntry[]> = {
 export function useEmployeeMemories(employeeId: string | null) {
   return useQuery({
     queryKey: ['personnel', 'memories', employeeId],
-    queryFn: () =>
-      resolveAsync<MemoryEntry[]>(employeeId ? (MEMORY_FIXTURE[employeeId] ?? []) : []),
+    queryFn: async () => {
+      if (!employeeId) return [];
+      const repos = await reposOrNull();
+      if (!repos) return resolveAsync<MemoryEntry[]>(MEMORY_FIXTURE[employeeId] ?? []);
+      const rows = await repos.memories.findByOwner(employeeId, { limit: 50 });
+      return rows.filter((row) => row.scope === 'employee').map(memoryEntryFromRow);
+    },
     enabled: employeeId !== null,
+  });
+}
+
+function memoryEntryFromRow(row: MemoryEntryRow): MemoryEntry {
+  return {
+    id: row.memory_id,
+    category: row.category,
+    content: row.content,
+    importance: row.importance,
+    scope: row.scope === 'employee' ? 'employee' : 'company',
+    reinforced: row.reinforcement_count,
+  };
+}
+
+export function useCreateEmployeeMemory(employeeId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      category,
+      content,
+      importance,
+    }: {
+      category: MemoryCategory;
+      content: string;
+      importance: number;
+    }) => {
+      if (!employeeId) throw new Error('Select an employee before creating memory');
+      const repos = await reposOrNull();
+      if (!repos) throw new Error('Memory editing requires the desktop runtime');
+      const employee = await repos.employees.findById(employeeId);
+      if (!employee) throw new Error(`Employee not found: ${employeeId}`);
+      await repos.memories.create({
+        memory_id: `mem-${crypto.randomUUID()}`,
+        company_id: employee.company_id,
+        scope: 'employee',
+        owner_id: employeeId,
+        category,
+        content,
+        importance,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['personnel', 'memories', employeeId] });
+    },
+  });
+}
+
+export function useUpdateEmployeeMemory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      employeeId,
+      memoryId,
+      content,
+      importance,
+    }: {
+      employeeId: string;
+      memoryId: string;
+      content?: string;
+      importance?: number;
+    }) => {
+      const repos = await reposOrNull();
+      if (!repos) throw new Error('Memory editing requires the desktop runtime');
+      await repos.memories.reinforce(memoryId, { content, importance });
+      return employeeId;
+    },
+    onSuccess: (employeeId) => {
+      queryClient.invalidateQueries({ queryKey: ['personnel', 'memories', employeeId] });
+    },
+  });
+}
+
+export function useDeleteEmployeeMemory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ employeeId, memoryId }: { employeeId: string; memoryId: string }) => {
+      const repos = await reposOrNull();
+      if (!repos) throw new Error('Memory editing requires the desktop runtime');
+      await repos.memories.delete(memoryId);
+      return employeeId;
+    },
+    onSuccess: (employeeId) => {
+      queryClient.invalidateQueries({ queryKey: ['personnel', 'memories', employeeId] });
+    },
   });
 }
 
@@ -531,7 +540,7 @@ const HISTORY_FIXTURE: Record<string, EmployeeHistory> = {
           current: 'detail-oriented, collaborative',
         },
         { field: 'maxTokens', kind: 'change', previous: '4096', current: '8192' },
-        { field: 'modelPreference', kind: 'add', previous: '(empty)', current: 'MiniMax-M2.7' },
+        { field: 'modelPreference', kind: 'add', previous: '(empty)', current: 'Runtime default' },
         {
           field: 'legacyHint',
           kind: 'remove',
@@ -552,13 +561,104 @@ const HISTORY_FIXTURE: Record<string, EmployeeHistory> = {
   },
 };
 
+function formatVersionTimestamp(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString(undefined, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function summarizeSnapshotValue(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '(empty)';
+  if (typeof value === 'string') return value;
+  return JSON.stringify(value);
+}
+
+function diffSnapshots(selectedSnapshot: string, currentSnapshot: string): VersionDiffRow[] {
+  const selected = JSON.parse(selectedSnapshot) as Record<string, unknown>;
+  const current = JSON.parse(currentSnapshot) as Record<string, unknown>;
+  const keys = new Set([...Object.keys(selected), ...Object.keys(current)]);
+  return [...keys]
+    .filter(
+      (key) => summarizeSnapshotValue(selected[key]) !== summarizeSnapshotValue(current[key]),
+    )
+    .map((key) => ({
+      field: key,
+      kind:
+        selected[key] == null ? 'add' : current[key] == null ? 'remove' : ('change' as DiffKind),
+      previous: summarizeSnapshotValue(selected[key]),
+      current: summarizeSnapshotValue(current[key]),
+    }));
+}
+
+function rowChangeType(row: EmployeeVersionRow): VersionChangeType {
+  if (row.change_type === 'create') return 'created';
+  if (row.change_type === 'update') return 'updated';
+  return row.change_type;
+}
+
+function employeeHistoryFromRows(rows: EmployeeVersionRow[]): EmployeeHistory | null {
+  if (rows.length === 0) return null;
+  const currentRow = rows.reduce((latest, row) =>
+    row.version_num > latest.version_num ? row : latest,
+  );
+  return {
+    fork: null,
+    versions: rows.map((row) => ({
+      id: row.version_id,
+      version: row.version_num,
+      changeType: rowChangeType(row),
+      summary: row.change_summary ?? `${rowChangeType(row)} employee version`,
+      timestamp: formatVersionTimestamp(row.created_at),
+      current: row.version_id === currentRow.version_id,
+    })),
+    diffs: Object.fromEntries(
+      rows
+        .filter((row) => row.version_id !== currentRow.version_id)
+        .map((row) => [
+          row.version_num,
+          diffSnapshots(row.snapshot_json, currentRow.snapshot_json),
+        ]),
+    ),
+  };
+}
+
 export function useEmployeeVersions(employeeId: string | null) {
   return useQuery({
     queryKey: ['personnel', 'versions', employeeId],
-    queryFn: () =>
-      resolveAsync<EmployeeHistory | null>(
-        employeeId ? (HISTORY_FIXTURE[employeeId] ?? null) : null,
-      ),
+    queryFn: async () => {
+      if (!employeeId) return null;
+      const repos = await reposOrNull();
+      if (!repos) return resolveAsync<EmployeeHistory | null>(HISTORY_FIXTURE[employeeId] ?? null);
+      const rows = await repos.employeeVersions.findByEmployee(employeeId, { limit: 24 });
+      return employeeHistoryFromRows(rows);
+    },
     enabled: employeeId !== null,
+  });
+}
+
+export function useRollbackEmployeeVersion(employeeId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (version: number) => {
+      if (!employeeId) throw new Error('Select an employee before rollback');
+      const repos = await reposOrNull();
+      if (!repos) throw new Error('Version rollback requires the desktop runtime');
+      const versionService = new EmployeeVersionService(
+        repos.employeeVersions,
+        repos.employees,
+        new InMemoryEventBus(),
+      );
+      await versionService.rollbackToVersion(employeeId, version);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['personnel', 'versions', employeeId] });
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
+    },
   });
 }

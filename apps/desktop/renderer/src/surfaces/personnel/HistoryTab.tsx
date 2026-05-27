@@ -4,10 +4,12 @@ import { Button } from '@/design-system/primitives/button.js';
 import { cn } from '@/lib/utils.js';
 import { Link2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import {
   type EmployeeVersion,
   type VersionChangeType,
   useEmployeeVersions,
+  useRollbackEmployeeVersion,
 } from './personnel-data.js';
 
 const CHANGE_BADGE: Record<VersionChangeType, { cls: string; label: string }> = {
@@ -24,12 +26,13 @@ interface HistoryTabProps {
 
 export function HistoryTab({ employeeId }: HistoryTabProps) {
   const query = useEmployeeVersions(employeeId);
+  const rollbackMutation = useRollbackEmployeeVersion(employeeId);
   const history = query.data;
 
   const currentVersion = history?.versions.find((v) => v.current) ?? null;
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
   const [confirmingRollback, setConfirmingRollback] = useState(false);
-  const [rollingBack, setRollingBack] = useState(false);
+  const rollingBack = rollbackMutation.isPending;
 
   const effectiveSelected = useMemo<EmployeeVersion | null>(() => {
     if (!history) return null;
@@ -44,12 +47,19 @@ export function HistoryTab({ employeeId }: HistoryTabProps) {
   const diffRows = effectiveSelected ? (history?.diffs[effectiveSelected.version] ?? []) : [];
 
   const doRollback = () => {
-    setRollingBack(true);
-    // Optimistic UI only — real rollback fires a backend mutation later.
-    window.setTimeout(() => {
-      setRollingBack(false);
-      setConfirmingRollback(false);
-    }, 320);
+    if (!effectiveSelected) return;
+    rollbackMutation.mutate(effectiveSelected.version, {
+      onSuccess: () => {
+        toast.success(`Rolled back to v${effectiveSelected.version}`);
+        setSelectedVersion(null);
+        setConfirmingRollback(false);
+      },
+      onError: (error) => {
+        toast.error('Rollback failed', {
+          description: error instanceof Error ? error.message : 'Employee version rollback failed',
+        });
+      },
+    });
   };
 
   if (query.isLoading) {

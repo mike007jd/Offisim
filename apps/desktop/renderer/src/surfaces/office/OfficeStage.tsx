@@ -1,30 +1,24 @@
 import { useUiState } from '@/app/ui-state.js';
-import { LiveRunAxis } from '@/assistant/parts/LiveRunAxis.js';
 import { RunPipelinePill } from '@/assistant/parts/RunPipelinePill.js';
 import { useRunStore } from '@/assistant/run-store.js';
 import { useRunCost } from '@/data/queries.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
-import { Bell, Box, Coins, LayoutPanelTop, Radio, SquareStack } from 'lucide-react';
+import { Bell, Box, Coins, LayoutPanelTop, Radio } from 'lucide-react';
 import { Suspense } from 'react';
-import { BoardView } from './scene/BoardView.js';
 import { OfficeScene2D } from './scene/OfficeScene2D.js';
 import { OfficeScene3D } from './scene/OfficeScene3D.js';
 
-const UNREAD = 2;
-
 export function OfficeStage() {
-  const stageRunAxis = useUiState((s) => s.stageRunAxis);
-  const toggleStageRunAxis = useUiState((s) => s.toggleStageRunAxis);
   const sceneRenderMode = useUiState((s) => s.sceneRenderMode);
   const setSceneRenderMode = useUiState((s) => s.setSceneRenderMode);
+  const setSurface = useUiState((s) => s.setSurface);
 
   const runCost = useRunCost();
   const isRunning = useRunStore((s) => s.isRunning);
 
   return (
     <section className={cn('off-stage', isRunning && 'is-live')}>
-      {/* The scene is always the base layer; run-axis entries overlay it. */}
       <div className="off-scene-host">
         {sceneRenderMode === '3d' ? (
           <Suspense fallback={<div className="off-scene-loading">Loading scene…</div>}>
@@ -35,18 +29,6 @@ export function OfficeStage() {
         )}
       </div>
 
-      {stageRunAxis === 'board' ? (
-        <div className="off-stage-overlay off-stage-board">
-          <BoardView />
-        </div>
-      ) : null}
-
-      {stageRunAxis === 'live' ? (
-        <div className="off-stage-overlay off-stage-live">
-          <LiveRunAxis />
-        </div>
-      ) : null}
-
       {/* Pipeline pill: always present while a run is live (Stop lives here). */}
       <RunPipelinePill />
 
@@ -54,7 +36,7 @@ export function OfficeStage() {
       <div className="off-stage-float off-stage-mode">
         <button
           type="button"
-          className={cn('off-stage-entry off-focusable', sceneRenderMode === '3d' && 'is-on')}
+          className={cn('off-stage-mode-btn off-focusable', sceneRenderMode === '3d' && 'is-on')}
           onClick={() => setSceneRenderMode('3d')}
         >
           <Icon icon={Box} size="sm" />
@@ -62,7 +44,7 @@ export function OfficeStage() {
         </button>
         <button
           type="button"
-          className={cn('off-stage-entry off-focusable', sceneRenderMode === '2d' && 'is-on')}
+          className={cn('off-stage-mode-btn off-focusable', sceneRenderMode === '2d' && 'is-on')}
           onClick={() => setSceneRenderMode('2d')}
         >
           <Icon icon={LayoutPanelTop} size="sm" />
@@ -70,25 +52,16 @@ export function OfficeStage() {
         </button>
       </div>
 
-      {/* stage-runaxis (center): Board + Live overlays on top of the scene. */}
-      <div className="off-stage-float off-stage-runaxis">
-        <button
-          type="button"
-          className={cn('off-stage-entry off-focusable', stageRunAxis === 'board' && 'is-on')}
-          onClick={() => toggleStageRunAxis('board')}
-        >
-          <Icon icon={SquareStack} size="sm" />
-          Board
-        </button>
-        <button
-          type="button"
-          className={cn('off-stage-entry off-focusable', stageRunAxis === 'live' && 'is-on')}
-          onClick={() => toggleStageRunAxis('live')}
-        >
+      {/* stage status (center): run state + token/cost readout. */}
+      <div className="off-stage-float off-stage-statusbar">
+        <div className="off-stage-status" aria-label="Run status and token cost">
           <span className={cn('off-stage-livedot', isRunning && 'is-on')} />
           <Icon icon={Radio} size="sm" />
-          Live
-        </button>
+          <span>{isRunning ? 'Running' : 'Idle'}</span>
+          <span className="off-stage-status-div" />
+          <span>{runCost.data ? runCost.data.tokens.toLocaleString() : '0'} tok</span>
+          <span>{runCost.data?.costLabel ?? '$0.00'}</span>
+        </div>
       </div>
 
       {/* Diegetic cost readout + notifications, on the scene border. */}
@@ -110,10 +83,11 @@ export function OfficeStage() {
         <button
           type="button"
           className="off-sc-notif has-unread off-focusable"
-          aria-label={`Notifications (${UNREAD} unread)`}
+          aria-label="Open Activity Log"
+          title="Open Activity Log"
+          onClick={() => setSurface('activity')}
         >
           <Icon icon={Bell} size="sm" />
-          <span className="off-sc-notif-count">{UNREAD}</span>
         </button>
       </div>
     </section>

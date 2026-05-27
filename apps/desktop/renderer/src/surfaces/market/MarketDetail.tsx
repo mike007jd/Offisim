@@ -1,16 +1,9 @@
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { Chip } from '@/design-system/grammar/Chip.js';
 import { Icon } from '@/design-system/icons/Icon.js';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/design-system/primitives/dropdown-menu.js';
 import { cn } from '@/lib/utils.js';
 import {
   ArrowLeft,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Download,
@@ -25,7 +18,12 @@ import {
 import { motion } from 'motion/react';
 import { type CSSProperties, useState } from 'react';
 import { kindIcon } from './MarketCover.js';
-import { INSTALLABLE_KINDS, type MarketListing, getRarityTone } from './market-data.js';
+import {
+  INSTALLABLE_KINDS,
+  type MarketListing,
+  canInstallListing,
+  getRarityTone,
+} from './market-data.js';
 
 interface MarketDetailProps {
   listing: MarketListing;
@@ -37,7 +35,7 @@ interface MarketDetailProps {
 export function MarketDetail({ listing, installed, onClose, onInstall }: MarketDetailProps) {
   const tone = getRarityTone(listing.kind);
   const installable = INSTALLABLE_KINDS.has(listing.kind);
-  const [version, setVersion] = useState(listing.version);
+  const installAvailable = canInstallListing(listing);
   const [shot, setShot] = useState(0);
   const shots = listing.screenshots;
   const badgeIcon = kindIcon(listing.kind);
@@ -120,27 +118,19 @@ export function MarketDetail({ listing, installed, onClose, onInstall }: MarketD
           ))}
         </div>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button type="button" className="off-vsel off-focusable">
-              {version}
-              <Icon icon={ChevronDown} size="sm" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            {listing.versions.map((v) => (
-              <DropdownMenuItem key={v} onSelect={() => setVersion(v)}>
-                {v}
-                {v === listing.version ? <span className="off-vsel-latest">latest</span> : null}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="off-vsel is-static" aria-label={`Current version ${listing.version}`}>
+          <span>{listing.version}</span>
+          {listing.versions.length > 1 ? (
+            <span className="off-vsel-latest">{listing.versions.length} versions</span>
+          ) : (
+            <span className="off-vsel-latest">latest</span>
+          )}
+        </div>
 
         <dl className="off-md-dl">
           <div>
             <div className="off-md-k">Version</div>
-            <div className="off-md-v is-mono">{version}</div>
+            <div className="off-md-v is-mono">{listing.version}</div>
           </div>
           <div>
             <div className="off-md-k">Installs</div>
@@ -161,9 +151,14 @@ export function MarketDetail({ listing, installed, onClose, onInstall }: MarketD
 
         {installable ? (
           installed ? (
-            <button type="button" className="off-md-install is-installed" disabled>
+            <span className="off-md-install is-installed" aria-label="Installed package">
               Installed
-            </button>
+            </span>
+          ) : !installAvailable ? (
+            <div className="off-md-unsupported">
+              Signed artifact not supplied. Install is locked until the registry provides a verified
+              package artifact for this listing.
+            </div>
           ) : (
             <button type="button" className="off-md-install off-focusable" onClick={onInstall}>
               <Icon icon={Download} size="sm" />

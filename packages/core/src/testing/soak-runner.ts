@@ -448,13 +448,6 @@ function buildYoloSoakGraphScenario(
     runs: Array.from({ length: fixture.turns }, () => ({ startAt: 'yolo-master' as const })),
     assertions: [
       { kind: 'firstGraphNodeIs', nodeName: 'yolo-master' },
-      {
-        kind: 'kanbanCards',
-        projectId,
-        count: fixture.turns,
-        origin: 'employee',
-        states: { done: fixture.turns },
-      },
       { kind: 'graphStateArrayEquals', field: 'pendingAssignments', value: [] },
     ],
   };

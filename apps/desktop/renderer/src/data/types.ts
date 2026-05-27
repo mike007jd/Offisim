@@ -4,9 +4,9 @@ export type { EmployeeAppearance };
 
 /**
  * Renderer view-model types. These are presentation contracts for the desktop
- * UI; they are intentionally decoupled from the core runtime/db schema so the
- * UI layer can render before backend wiring lands. The fixture source can later
- * be swapped for sandboxed Tauri commands without changing surface code.
+ * UI; they are intentionally decoupled from the core runtime/db schema. Browser
+ * preview can use fixtures, but release data must come from Tauri repositories
+ * and sandboxed commands.
  */
 
 export type RunState = 'idle' | 'running' | 'paused' | 'error' | 'done';
@@ -65,6 +65,8 @@ export interface Employee {
   skillCount: number;
   /** Office zone the workstation sits in, e.g. "Engineering Bay". */
   zoneLabel?: string;
+  /** Persisted workstation assignment; zone-level moves use the zone id as the workstation id. */
+  workstationId?: string | null;
   /** Desk/seat label within the zone, e.g. "Desk 1". */
   deskLabel?: string;
   expertise?: string[];
@@ -128,8 +130,7 @@ export interface RunRecord {
   meta: string;
   costLabel: string;
   steps: RunRecordStep[];
-  /** Activity + Plan sub-regions shown when the record is expanded (the same
-   *  surface the Live run-axis broadcasts into). */
+  /** Activity + Plan sub-regions shown when the record is expanded. */
   activity?: RunActivityEntry[];
   plan?: RunPlanStep[];
 }
@@ -152,7 +153,7 @@ export interface Deliverable {
   contributorIds: string[];
   /** Short body preview shown in the expanded deliverable card. */
   preview?: string;
-  /** Default export format label, e.g. "DOCX". */
+  /** Default export format label, e.g. "MD". */
   format?: string;
 }
 
@@ -200,6 +201,7 @@ export interface UsagePoint {
 
 export interface FileNode {
   name: string;
+  path: string;
   kind: 'dir' | 'file';
   depth: number;
 }
@@ -233,32 +235,6 @@ export interface OfficeSceneLayout {
   floorD: number;
 }
 
-export type BoardColumn = 'todo' | 'doing' | 'blocked' | 'review' | 'done';
-
-/** Who/what produced the card, surfaced as a tag chip on the board. */
-export type BoardTaskTag = 'pm' | 'human' | 'employee' | 'manager';
-
-export interface BoardTask {
-  id: string;
-  title: string;
-  column: BoardColumn;
-  assigneeId: string | null;
-  costLabel?: string;
-  tag?: BoardTaskTag;
-  /** Reason shown on cards parked in the Blocked column. */
-  blockedReason?: string;
-}
-
-/** Allowed kanban transitions (CAS-guarded server-side). The Live board uses
- *  this to reject invalid moves with an inline warning. */
-export const BOARD_TRANSITIONS: Record<BoardColumn, BoardColumn[]> = {
-  todo: ['doing'],
-  doing: ['blocked', 'review', 'todo'],
-  blocked: ['doing', 'todo'],
-  review: ['done', 'doing'],
-  done: ['review'],
-};
-
 export interface Skill {
   id: string;
   name: string;
@@ -268,15 +244,13 @@ export interface Skill {
 
 /* --- Run-state layer (assistant-ui driven) ----------------------------------
  * The chat run is the source of truth for the Office pipeline pill, the Stop
- * control, the Live run-axis broadcast and the chat error banner. The renderer
- * drives these states through the assistant-ui external-store runtime; the
- * fixture simulation here is the seam where the real harness run feed lands. */
+ * control, stage status readout and the chat error banner. The renderer
+ * drives these states through the assistant-ui external-store runtime. */
 
 /** Session execution mode shown on the composer mode chip. */
-export type SessionMode = 'sop' | 'direct' | 'hil' | 'yolo';
+export type SessionMode = 'direct' | 'hil' | 'yolo';
 
 export const SESSION_MODE_LABEL: Record<SessionMode, string> = {
-  sop: 'SOP',
   direct: 'Direct',
   hil: 'Human-in-loop',
   yolo: 'YOLO',
@@ -320,8 +294,7 @@ export interface TrackedErrorEntry {
   message: string;
 }
 
-/** A recoverable chat run failure. Drives the in-thread ErrorBanner with its
- *  Retry / Swap person / Swap model / Details actions. */
+/** A recoverable chat run failure. Drives the in-thread ErrorBanner recovery actions. */
 export interface RunError {
   id: string;
   reason: RunErrorReason;
@@ -364,14 +337,13 @@ export interface MeetingState {
 
 /* --- Chat attachment staging ------------------------------------------------*/
 
-export type AttachmentStatus = 'parsing' | 'parsed' | 'error';
+export type AttachmentStatus = 'attached' | 'error';
 
 /** Canonical staging failure reasons (size cap, dedupe, unsupported, etc.). */
 export type AttachmentFailReason =
   | 'too-large'
   | 'duplicate'
   | 'unsupported-type'
-  | 'parse-failed'
   | 'storage-unavailable'
   | 'too-many';
 
@@ -379,7 +351,6 @@ export const ATTACHMENT_FAIL_MESSAGE: Record<AttachmentFailReason, string> = {
   'too-large': 'File exceeds the 8 MB attachment limit.',
   duplicate: 'This file is already attached.',
   'unsupported-type': 'This file type can’t be attached.',
-  'parse-failed': 'Couldn’t read this file. Try again.',
   'storage-unavailable': 'Attachment storage is unavailable right now.',
   'too-many': 'You can attach up to 6 files per message.',
 };

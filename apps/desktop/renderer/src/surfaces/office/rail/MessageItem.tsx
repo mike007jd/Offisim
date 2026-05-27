@@ -3,11 +3,12 @@ import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn, relativeTime } from '@/lib/utils.js';
+import { MessagePartPrimitive, MessagePrimitive } from '@assistant-ui/react';
 import { ChevronRight, FileText, Terminal } from 'lucide-react';
 import { useState } from 'react';
 
 /** Expanded run record: Activity (tool feed, with ×N collapse) + Plan (who did
- *  what, role + cost) — the same two regions the Live run-axis broadcasts into.
+ *  what, role + cost).
  *  Falls back to the flat step list for records that carry only steps. */
 function RunRecordBody({ record, byId }: { record: RunRecord; byId: Map<string, Employee> }) {
   const hasRich = (record.activity?.length ?? 0) > 0 || (record.plan?.length ?? 0) > 0;
@@ -99,7 +100,8 @@ interface MessageItemProps {
 export function MessageItem({ message, employeesById }: MessageItemProps) {
   const meta = authorMeta(message, employeesById);
   return (
-    <article className={cn('off-msg', `is-${message.author}`)}>
+    <MessagePrimitive.Root asChild>
+      <article className={cn('off-msg', `is-${message.author}`)}>
       <header className="off-msg-head">
         {meta.employee ? (
           <EmployeeAvatar
@@ -114,7 +116,20 @@ export function MessageItem({ message, employeesById }: MessageItemProps) {
         <span className="off-msg-author">{meta.name}</span>
         <span className="off-msg-time">{relativeTime(message.at)}</span>
       </header>
-      <div className="off-msg-body">{message.body}</div>
+      <div className="off-msg-body">
+        <MessagePrimitive.Parts>
+          {({ part }) =>
+            part.type === 'text' ? (
+              <span className="off-msg-text">
+                <MessagePartPrimitive.Text />
+                <MessagePartPrimitive.InProgress>
+                  <span className="off-msg-cursor">|</span>
+                </MessagePartPrimitive.InProgress>
+              </span>
+            ) : null
+          }
+        </MessagePrimitive.Parts>
+      </div>
       {message.attachments?.map((attachment) => (
         <div key={attachment.id} className="off-attachment">
           <span className="off-att-icon">
@@ -129,6 +144,7 @@ export function MessageItem({ message, employeesById }: MessageItemProps) {
         </div>
       ))}
       {message.runRecord ? <RunRecordCard record={message.runRecord} byId={employeesById} /> : null}
-    </article>
+      </article>
+    </MessagePrimitive.Root>
   );
 }

@@ -14,7 +14,7 @@ import { createScopedRequestSignal } from './request-timeout.js';
 import { DEFAULT_RETRY_CONFIG, type RetryConfig, withRetry } from './retry.js';
 
 export interface AnthropicAdapterOptions {
-  /** Custom base URL for Anthropic-compatible providers (e.g. MiniMax) */
+  /** Custom base URL for Anthropic-compatible providers. */
   baseURL?: string;
   /** Extra headers for Anthropic-compatible proxying in browser dev mode */
   defaultHeaders?: Record<string, string>;
@@ -198,7 +198,7 @@ function mapMessages(
   return result;
 }
 
-// Third-party Anthropic-compatible endpoints (MiniMax, etc.) typically do not
+// Third-party Anthropic-compatible endpoints typically do not
 // whitelist the Stainless SDK telemetry headers, `x-api-key`, or
 // `anthropic-version` in their CORS allow-list, so browser calls would fail
 // at the CORS preflight stage. We apply two layers:

@@ -1,9 +1,0 @@
-{
-  "transitions": {
-    "todo": ["doing", "blocked", "review", "done"],
-    "doing": ["todo", "blocked", "review", "done"],
-    "blocked": ["todo", "doing", "review"],
-    "review": ["doing", "blocked", "done"],
-    "done": []
-  }
-}

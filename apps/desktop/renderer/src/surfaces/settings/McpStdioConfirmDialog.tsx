@@ -44,7 +44,7 @@ export function McpStdioConfirmDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onCancel()}>
-      <DialogContent showClose={false} className="max-w-[520px]">
+      <DialogContent showClose={false} className="off-dialog-w-md">
         <div className="off-set-confirm-head">
           <span className="off-set-confirm-icon">
             <Icon icon={ShieldCheck} size="sm" />

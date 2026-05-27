@@ -10,8 +10,8 @@
  * `threadId` is the product-layer `chat_threads.thread_id` resolved from
  * `OfficeSessionState.selectedThreadId` at submit time; it is the same value
  * embedded in the middle segment of `conversationKey` (`<projectId>::<threadId>::<employeeId?>`).
- * It is duplicated here so downstream consumers (deliverables, SOP runtime,
- * activity log, interaction-follow-up) can scope by thread without parsing
+ * It is duplicated here so downstream consumers (deliverables, activity log,
+ * interaction-follow-up) can scope by thread without parsing
  * `conversationKey`.
  */
 import type { ChatAttachmentRef } from './chat-attachments.js';
@@ -25,11 +25,6 @@ export interface RunScope {
   readonly runId: string;
   readonly threadId: string;
   readonly toolPolicy?: RunToolPolicy;
-  readonly sopTemplateId?: string;
-  readonly sopDefinitionRef?: {
-    readonly version: string | null;
-    readonly definitionHash: string;
-  };
   /**
    * Chat attachment refs persisted at user-submit time. Boss / manager /
    * employee nodes inherit these on dispatch and rebuild their gateway-lane

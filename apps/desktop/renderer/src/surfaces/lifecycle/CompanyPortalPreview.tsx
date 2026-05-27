@@ -1,7 +1,13 @@
+import { UI_DATA_COLORS } from '@/data/color-palette.js';
 import type { Company } from '@/data/types.js';
 import type { CompanyBrief } from './lifecycle-data.js';
 
-const ZONE_TINTS = ['#2f6bff', '#7c4ddb', '#1aa46a', '#c98410'];
+const ZONE_TINTS = [
+  UI_DATA_COLORS.blue,
+  UI_DATA_COLORS.violet,
+  UI_DATA_COLORS.green,
+  UI_DATA_COLORS.amber3,
+] as const;
 
 /** Portal office preview: a wide top-down SVG of the selected company's floor —
  *  24px grid + zones as accent-tinted rounded rects with caps labels + per-zone
@@ -16,7 +22,7 @@ export function CompanyPortalPreview({
 
   // Lay zones out into a simple two-row plan that scales with zone count.
   const zones = brief.zoneNames.slice(0, 4).map((name, i) => {
-    const accent = ZONE_TINTS[i % ZONE_TINTS.length] ?? '#2f6bff';
+    const accent = ZONE_TINTS[i % ZONE_TINTS.length] ?? UI_DATA_COLORS.blue;
     const isWide = brief.zoneNames.length <= 2 || i === brief.zoneNames.length - 1;
     if (i === 0) return { name, accent, x: 40, y: 40, w: 300, h: 180 };
     if (i === 1) return { name, accent, x: 360, y: 40, w: 320, h: 180 };

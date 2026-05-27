@@ -1,6 +1,6 @@
 [[permission]]
 identifier = "agent-bridges"
-description = "Allow trusted local agent, provider secret, runtime session, and kanban bridge commands."
+description = "Allow trusted local agent, provider secret, runtime session, and MCP bridge commands."
 commands.allow = [
   "runtime_secret_status",
   "runtime_secret_set",
@@ -17,15 +17,20 @@ commands.allow = [
   "llm_fetch_abort",
   "git_exec",
   "open_local_path",
+  "runtime_vault_status",
+  "open_runtime_vault_folder",
+  "runtime_vault_read_file",
+  "runtime_vault_write_file",
+  "runtime_vault_list_dir",
+  "runtime_vault_stat",
+  "runtime_vault_remove",
+  "runtime_vault_mkdir",
+  "export_runtime_vault_zip",
+  "export_scene_drop_diagnostic",
   "save_deliverable_to_local",
   "resume_conversation",
   "get_session",
   "set_session_mode",
-  "list_kanban_cards",
-  "create_kanban_card",
-  "update_kanban_card",
-  "transition_kanban_card",
-  "count_kanban_for_employee",
   "mcp_list_registered_servers",
   "mcp_register_server",
   "mcp_unregister_server",

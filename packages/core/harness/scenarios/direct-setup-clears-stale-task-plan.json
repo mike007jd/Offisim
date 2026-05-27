@@ -92,7 +92,7 @@
       "status": "completed"
     },
     { "kind": "mcpAuditContains", "toolName": "write_file" },
-    { "kind": "finalOutputNotContains", "contains": "SOP dispatcher could not advance" },
+    { "kind": "finalOutputNotContains", "contains": "Plan dispatcher could not advance" },
     { "kind": "finalOutputNotContains", "contains": "Task blocked:" }
   ]
 }

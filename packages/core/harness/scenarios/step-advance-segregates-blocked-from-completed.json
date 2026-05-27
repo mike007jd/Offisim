@@ -104,6 +104,6 @@
     { "kind": "graphStateArrayExcludes", "field": "blockedStepIndices", "value": 1 },
     { "kind": "threadStatusIs", "status": "blocked" },
     { "kind": "finalOutputContains", "contains": "Plan is blocked after 1 blocked step(s)." },
-    { "kind": "finalOutputNotContains", "contains": "SOP dispatcher could not advance" }
+    { "kind": "finalOutputNotContains", "contains": "Plan dispatcher could not advance" }
   ]
 }

@@ -18,7 +18,12 @@ import {
   requireScope,
 } from '../middleware/auth.js';
 import { publishRateLimit } from '../middleware/rate-limit.js';
-import { DraftCreateSchema, ManifestUploadSchema, SubmitDraftSchema } from '../schemas/index.js';
+import {
+  DraftCreateSchema,
+  ManifestUploadSchema,
+  SubmitDraftSchema,
+  VALID_KINDS,
+} from '../schemas/index.js';
 import { MAX_ARTIFACT_BYTES } from '../services/artifacts.js';
 import { processModerationJob } from '../services/moderation.js';
 import { assertListingOwnedByCreator } from '../services/publish-ownership.js';
@@ -27,6 +32,23 @@ import type { PlatformEnv } from '../types.js';
 
 const publish = new Hono<PlatformEnv>();
 const MAX_PUBLISH_MANIFEST_BODY_BYTES = Math.ceil(MAX_ARTIFACT_BYTES / 3) * 4 + 1024 * 1024;
+const ACTIVE_DRAFT_KIND_SET = new Set<string>(VALID_KINDS);
+
+function isActiveDraftKind(kind: string): boolean {
+  return ACTIVE_DRAFT_KIND_SET.has(kind);
+}
+
+function retiredDraftKindResponse(c: Context<PlatformEnv>, kind: string) {
+  return c.json(
+    {
+      error: {
+        code: 'RETIRED_DRAFT_KIND',
+        message: `Draft kind "${kind}" is retired and cannot be published.`,
+      },
+    },
+    410,
+  );
+}
 
 // All publish routes require auth and are rate-limited
 publish.use('/*', publishRateLimit);
@@ -127,9 +149,10 @@ publish.get('/drafts', async (c) => {
     .from(publishDrafts)
     .where(whereClause)
     .orderBy(desc(publishDrafts.updated_at));
+  const activeDrafts = drafts.filter((d) => isActiveDraftKind(d.kind));
 
   return c.json({
-    drafts: drafts.map((d) => ({
+    drafts: activeDrafts.map((d) => ({
       draft_id: d.draft_id,
       creator_id: d.creator_id,
       listing_id: d.listing_id,
@@ -157,6 +180,9 @@ publish.get('/drafts/:draftId', async (c) => {
     .limit(1);
 
   if (!draft) throw new HTTPException(404, { message: 'Draft not found' });
+  if (!isActiveDraftKind(draft.kind)) {
+    return retiredDraftKindResponse(c, draft.kind);
+  }
 
   return c.json({
     draft_id: draft.draft_id,
@@ -228,6 +254,9 @@ publish.put('/drafts/:draftId/manifest', async (c) => {
     .limit(1);
 
   if (!draft) throw new HTTPException(404, { message: 'Draft not found' });
+  if (!isActiveDraftKind(draft.kind)) {
+    return retiredDraftKindResponse(c, draft.kind);
+  }
   if (draft.status === 'submitted' || draft.status === 'approved') {
     throw new HTTPException(400, {
       message: `Cannot update a draft with status "${draft.status}". Only drafts in "draft", "validated", or "rejected" status can be updated.`,
@@ -306,6 +335,9 @@ publish.post('/submit', async (c) => {
     .limit(1);
 
   if (!draft) throw new HTTPException(404, { message: 'Draft not found' });
+  if (!isActiveDraftKind(draft.kind)) {
+    return retiredDraftKindResponse(c, draft.kind);
+  }
   if (draft.status === 'submitted')
     throw new HTTPException(400, { message: 'Draft already submitted' });
   if (draft.validation_state !== 'valid') {

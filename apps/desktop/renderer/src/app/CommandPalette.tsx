@@ -59,11 +59,7 @@ export function CommandPalette() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent
-        showClose={false}
-        className="top-[14%] max-w-[560px] -translate-y-0 gap-0 p-0"
-        aria-label="Command palette"
-      >
+      <DialogContent showClose={false} className="off-command-dialog" aria-label="Command palette">
         <Command loop>
           <CommandInput placeholder="Jump to a surface, company, or project…" />
           <CommandList>

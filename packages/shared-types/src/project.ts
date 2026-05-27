@@ -43,12 +43,13 @@ export type NewProjectAssignment = Omit<ProjectAssignmentRow, 'assigned_at'>;
  * Product-layer chat thread metadata. Decoupled from `graph_threads` (runtime
  * thread) on purpose — one chat thread backs many runtime threads (one per
  * `<projectId>::<threadId>::<employeeId?>` conversationKey: team chat + each
- * direct-chat target). See openspec/specs/workspace-thread-architecture
- * Decision 2.
+ * direct-chat target).
  */
 export interface ChatThread {
   thread_id: string;
   project_id: string;
+  /** Null = team/project thread; set = direct employee thread. */
+  employee_id: string | null;
   title: string;
   /** 1 = user-set (sticky against boss-driven retitle); 0 = system-set. */
   title_set_by_user: 0 | 1;
@@ -66,6 +67,7 @@ export interface ChatThread {
 export interface NewChatThread {
   thread_id: string;
   project_id: string;
+  employee_id?: string | null;
   title?: string;
 }
 

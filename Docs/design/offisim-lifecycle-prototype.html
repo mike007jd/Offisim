@@ -107,7 +107,7 @@
     .app { flex: none; }
 
     button { font: inherit; cursor: pointer; }
-    input, select, textarea { font: inherit; }
+    input, .primitive-select, .primitive-textarea { font: inherit; }
 
     .sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
     .ico { width: 16px; height: 16px; stroke: currentColor; stroke-width: 1.7;
@@ -130,9 +130,9 @@
     .dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08); }
     .red { background: #ff5f57; } .yellow { background: #febc2e; } .green { background: #28c840; }
     .brand { display: flex; align-items: baseline; gap: 9px;
-      font-weight: 640; font-size: var(--fs-md); letter-spacing: -0.01em; }
+      font-weight: 640; font-size: var(--fs-md); letter-spacing: 0; }
     .brand .ver { font-size: var(--fs-micro); color: var(--ink-3); font-weight: 600;
-      padding: 2px 6px; border-radius: var(--r-pill); background: var(--surface-sunken); letter-spacing: 0.02em; }
+      padding: 2px 6px; border-radius: var(--r-pill); background: var(--surface-sunken); letter-spacing: 0; }
 
     /* ── Top bar (V3) ───────────────────────────────── */
     .topbar {
@@ -196,7 +196,7 @@
 
     /* ── Shared atoms (V3 grammar) ──────────────────── */
     .badge { height: 19px; padding: 0 9px; border-radius: var(--r-pill); font-size: 9.5px;
-      font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+      font-weight: 700; letter-spacing: 0; text-transform: uppercase;
       display: inline-flex; align-items: center; gap: 5px; }
     .badge.ok { background: var(--ok-surface); color: #15824f; }
     .badge.accent { background: var(--accent-surface); color: var(--accent); }
@@ -213,7 +213,7 @@
       50% { opacity: 0.45; transform: scale(0.85); }
     }
 
-    .label { font-size: var(--fs-micro); letter-spacing: var(--ls-caps);
+    .label { font-size: var(--fs-micro); letter-spacing: 0;
       font-weight: 680; color: var(--ink-3); text-transform: uppercase; }
 
     .btn { height: 32px; padding: 0 12px; border-radius: var(--r-sm); font-size: var(--fs-sm);
@@ -231,7 +231,7 @@
     .btn.danger { background: var(--danger-surface); color: #b8352e; border-color: rgba(214,69,61,0.35); }
     .btn[disabled], .btn.disabled { opacity: 0.42; cursor: not-allowed; }
 
-    .field-l { font-size: var(--fs-micro); letter-spacing: var(--ls-caps);
+    .field-l { font-size: var(--fs-micro); letter-spacing: 0;
       font-weight: 680; color: var(--ink-3); text-transform: uppercase; display: block; }
     .field-l .opt { color: var(--ink-4); font-weight: 600; letter-spacing: 0; text-transform: none; }
     .field-l .req { color: var(--danger); letter-spacing: 0; text-transform: none; font-weight: 660; }
@@ -239,8 +239,9 @@
       border-radius: var(--r-sm); background: var(--surface-1); color: var(--ink-1); font-size: var(--fs-sm); }
     .inp::placeholder { color: var(--ink-4); }
     .inp:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
-    textarea.inp { height: auto; padding: 9px 11px; resize: none; line-height: 1.5; }
-    select.inp { padding-right: 28px; appearance: none;
+    .inp.area { height: auto; min-height: 76px; padding: 9px 11px; resize: none; line-height: 1.5; }
+    .inp.area[data-placeholder]:empty::before { content: attr(data-placeholder); color: var(--ink-4); }
+    .inp.primitive-select { padding-right: 28px; appearance: none;
       background: var(--surface-1) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23647186' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center; }
     .errbox { border: 1px solid rgba(214,69,61,0.4); background: var(--danger-surface);
       color: #b8352e; font-size: var(--fs-meta); padding: 7px 11px; border-radius: var(--r-sm); }
@@ -258,7 +259,7 @@
     .dlg.xl { max-width: 900px; }
     .dlg-head { padding: 16px 18px 14px; border-bottom: 1px solid var(--line-soft);
       display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-    .dlg-head h2 { margin: 0; font-size: var(--fs-xl); font-weight: 680; color: var(--ink-1); letter-spacing: -0.01em; }
+    .dlg-head h2 { margin: 0; font-size: var(--fs-xl); font-weight: 680; color: var(--ink-1); letter-spacing: 0; }
     .dlg-head p { margin: 4px 0 0; font-size: var(--fs-sm); color: var(--ink-3); }
     .dlg-x { width: 28px; height: 28px; flex: none; border: 0; border-radius: var(--r-sm);
       background: transparent; color: var(--ink-3); display: grid; place-items: center; }
@@ -307,7 +308,7 @@
       box-shadow: 0 0 0 1px var(--accent-ring), var(--elev-1); }
     .csp-row .r-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
     .csp-row .r-name { font-size: var(--fs-md); font-weight: 660; color: var(--ink-1); }
-    .csp-row .r-tpl { margin-top: 3px; font-size: var(--fs-micro); letter-spacing: var(--ls-caps);
+    .csp-row .r-tpl { margin-top: 3px; font-size: var(--fs-micro); letter-spacing: 0;
       text-transform: uppercase; font-weight: 680; color: var(--ink-3); }
     .csp-row .r-acts { display: flex; align-items: center; gap: 6px; flex: none; }
     .csp-rename { width: 100%; height: 28px; padding: 0 8px; border: 1px solid var(--accent-ring);
@@ -337,7 +338,7 @@
     .csp-stats { margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .csp-stat { border: 1px solid var(--line-soft); border-radius: var(--r-sm);
       background: var(--surface-sunken); padding: 10px 11px; }
-    .csp-stat .l { font-size: var(--fs-micro); letter-spacing: var(--ls-caps);
+    .csp-stat .l { font-size: var(--fs-micro); letter-spacing: 0;
       text-transform: uppercase; font-weight: 680; color: var(--ink-3); }
     .csp-stat .v { margin-top: 4px; font-size: var(--fs-xl); font-weight: 700; color: var(--ink-1); }
     .csp-updated { margin-top: 12px; font-size: var(--fs-micro); color: var(--ink-4); }
@@ -380,11 +381,11 @@
     .wiz-zonebox { border: 1px solid var(--wiz-line); background: var(--wiz-surface);
       border-radius: var(--r-sm); padding: 9px 11px; }
     .wiz-zonebox .l { font-size: var(--fs-micro); font-weight: 680; text-transform: uppercase;
-      letter-spacing: 0.18em; color: var(--wiz-ink-4); }
+      letter-spacing: 0; color: var(--wiz-ink-4); }
     .wiz-zonebox .v { margin-top: 4px; font-size: var(--fs-sm); color: var(--wiz-ink-2); }
     .wiz-tabs { display: flex; gap: 0; }
     .wiz-tab { padding: 0 16px 8px 0; border: 0; background: transparent;
-      font-size: var(--fs-sm); font-weight: 660; text-transform: uppercase; letter-spacing: 0.08em;
+      font-size: var(--fs-sm); font-weight: 660; text-transform: uppercase; letter-spacing: 0;
       color: var(--wiz-ink-4); }
     .wiz-tab + .wiz-tab { padding-left: 16px; }
     .wiz-tab.on { color: #fff; box-shadow: inset 0 -2px 0 var(--wiz-blue); }
@@ -430,11 +431,11 @@
     .wiz-back { height: 42px; flex: none; border: 1px solid var(--wiz-line-2);
       background: rgba(255,255,255,0.03); border-radius: var(--r-md); padding: 0 16px;
       color: var(--wiz-ink-3); font-size: var(--fs-meta); font-family: var(--mono);
-      text-transform: uppercase; letter-spacing: 0.08em; display: flex; align-items: center; gap: 6px; }
+      text-transform: uppercase; letter-spacing: 0; display: flex; align-items: center; gap: 6px; }
     .wiz-back:hover { border-color: rgba(255,255,255,0.2); color: #fff; }
     .wiz-name { flex: 1; }
     .wiz-name label { display: block; margin-bottom: 6px; font-size: var(--fs-meta); font-weight: 580;
-      text-transform: uppercase; letter-spacing: 0.08em; color: var(--wiz-ink-4); }
+      text-transform: uppercase; letter-spacing: 0; color: var(--wiz-ink-4); }
     .wiz-name input { width: 100%; height: 42px; padding: 0 14px; border: 1px solid var(--wiz-line-2);
       border-radius: var(--r-sm); background: rgba(255,255,255,0.03); color: #fff; font-size: var(--fs-sm); }
     .wiz-name input::placeholder { color: var(--wiz-ink-4); }
@@ -467,7 +468,7 @@
       box-shadow: var(--elev-3); }
     .tour-card.center { left: 50%; top: 50%; transform: translate(-50%,-50%); }
     .tour-card .step-eyebrow { font-size: var(--fs-micro); text-transform: uppercase;
-      letter-spacing: var(--ls-caps); font-weight: 680; color: var(--accent); }
+      letter-spacing: 0; font-weight: 680; color: var(--accent); }
     .tour-card h3 { margin: 6px 0 0; font-size: var(--fs-md); font-weight: 660; color: var(--ink-1); }
     .tour-card p { margin: 5px 0 0; font-size: var(--fs-sm); line-height: 1.55; color: var(--ink-3); }
     .tour-acts { margin-top: 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -502,9 +503,9 @@
     .pj-pop { width: 288px; border: 1px solid var(--line); border-radius: var(--r-md);
       background: var(--surface-1); box-shadow: var(--elev-3); overflow: hidden; }
     .pj-pop-h { padding: 9px 13px; border-bottom: 1px solid var(--line-soft);
-      font-size: var(--fs-micro); letter-spacing: var(--ls-caps); text-transform: uppercase;
+      font-size: var(--fs-micro); letter-spacing: 0; text-transform: uppercase;
       font-weight: 680; color: var(--ink-3); }
-    .pj-sect-t { padding: 9px 13px 4px; font-size: var(--fs-micro); letter-spacing: var(--ls-caps);
+    .pj-sect-t { padding: 9px 13px 4px; font-size: var(--fs-micro); letter-spacing: 0;
       text-transform: uppercase; font-weight: 680; color: var(--ink-3); }
     .pj-opt { width: 100%; display: flex; align-items: flex-start; gap: 9px; padding: 7px 13px;
       border: 0; background: transparent; text-align: left; }
@@ -525,14 +526,14 @@
       background: var(--surface-1); padding: 12px; display: flex; flex-direction: column; gap: 9px;
       font-size: var(--fs-meta); color: var(--ink-3); box-shadow: var(--elev-1); }
     .pj-summary .kv { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-    .pj-summary .k { font-size: var(--fs-micro); letter-spacing: var(--ls-caps);
+    .pj-summary .k { font-size: var(--fs-micro); letter-spacing: 0;
       text-transform: uppercase; font-weight: 680; color: var(--ink-3); }
     .pj-summary .v { font-weight: 580; color: var(--ink-1); }
     .pj-summary .col { display: flex; flex-direction: column; gap: 3px; }
     .pj-summary .acts { display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
     .pj-files { border-top: 1px solid var(--line-soft); padding-top: 9px; }
     .pj-files .fh { display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
-      font-size: var(--fs-micro); letter-spacing: var(--ls-caps); text-transform: uppercase;
+      font-size: var(--fs-micro); letter-spacing: 0; text-transform: uppercase;
       font-weight: 680; color: var(--ink-3); }
     .pj-files .fh .pth { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .pj-frow { width: 100%; display: flex; align-items: center; gap: 7px; padding: 5px 7px;
@@ -551,7 +552,7 @@
     /* ══════════ Deliverables (PitchHall) ══════════ */
     .ph { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
     .ph-h { display: flex; align-items: center; justify-content: space-between; padding: 0 2px 4px; }
-    .ph-h .l { font-size: var(--fs-micro); letter-spacing: var(--ls-caps); text-transform: uppercase;
+    .ph-h .l { font-size: var(--fs-micro); letter-spacing: 0; text-transform: uppercase;
       font-weight: 680; color: var(--ink-3); }
     .ph-h .c { font-size: var(--fs-micro); color: var(--ink-4); font-family: var(--mono); }
     .ph-empty { display: flex; flex-direction: column; align-items: center; gap: 10px;
@@ -592,11 +593,11 @@
       appearance: none;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23647186' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
       background-repeat: no-repeat; background-position: right 6px center; }
-    .dlv-acts .sop { height: 24px; padding: 0 8px; border: 0; border-radius: var(--r-xs);
+    .dlv-acts .plan { height: 24px; padding: 0 8px; border: 0; border-radius: var(--r-xs);
       background: transparent; color: var(--ink-3); font-size: var(--fs-micro); }
-    .dlv-acts .sop:hover { color: var(--ok); }
-    .dlv-acts .sop.promoted { background: var(--ok); color: #fff; animation: sopPulse 1.6s ease-in-out infinite; }
-    @keyframes sopPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.78; } }
+    .dlv-acts .plan:hover { color: var(--ok); }
+    .dlv-acts .plan.promoted { background: var(--ok); color: #fff; animation: planPulse 1.6s ease-in-out infinite; }
+    @keyframes planPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.78; } }
     .dlv .chip-row { margin-top: 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
       font-size: var(--fs-micro); }
     .dlv .nm-chip { display: inline-flex; align-items: center; max-width: 100%;
@@ -617,7 +618,7 @@
     .ec-steps { display: flex; align-items: center; gap: 4px; }
     .ec-step { display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px;
       border-radius: var(--r-sm); border: 1px solid transparent; font-size: var(--fs-micro);
-      font-weight: 660; text-transform: uppercase; letter-spacing: 0.08em; color: var(--wiz-ink-4); }
+      font-weight: 660; text-transform: uppercase; letter-spacing: 0; color: var(--wiz-ink-4); }
     .ec-step.on { border-color: rgba(59,130,246,0.5); background: rgba(59,130,246,0.15); color: #9db8ff; }
     .ec-step .sn { font-variant-numeric: tabular-nums; }
     .ec-sep { width: 12px; height: 1px; background: var(--wiz-line); }
@@ -633,11 +634,11 @@
     .ec-prev .rl { margin-top: 8px; display: inline-flex; align-items: center;
       border: 1px solid rgba(59,130,246,0.5); background: rgba(59,130,246,0.15);
       border-radius: var(--r-sm); padding: 4px 12px; font-family: var(--mono); font-size: var(--fs-sm);
-      text-transform: uppercase; letter-spacing: 0.08em; color: #9db8ff; }
+      text-transform: uppercase; letter-spacing: 0; color: #9db8ff; }
     .ec-rand { display: flex; align-items: center; gap: 8px; border: 1px solid var(--wiz-line);
       background: var(--wiz-surface); border-radius: var(--r-md); padding: 9px 16px;
       color: var(--wiz-ink-3); font-family: var(--mono); font-size: var(--fs-meta);
-      text-transform: uppercase; letter-spacing: 0.08em; }
+      text-transform: uppercase; letter-spacing: 0; }
     .ec-rand:hover { border-color: var(--wiz-line-2); color: #fff; }
     .ec-cfg { flex: 1; min-width: 0; overflow-y: auto; border-left: 1px solid var(--wiz-line);
       padding: 24px; display: flex; flex-direction: column; gap: 18px; }
@@ -649,13 +650,13 @@
       font-family: var(--mono); font-size: var(--fs-micro); font-weight: 700;
       background: rgba(255,255,255,0.05); color: var(--wiz-ink-4); }
     .ec-sec.on .sn { background: rgba(59,130,246,0.2); color: #9db8ff; }
-    .ec-sec .st { font-family: var(--mono); font-size: var(--fs-sm); font-weight: 660; letter-spacing: 0.12em; color: var(--wiz-ink-4); }
+    .ec-sec .st { font-family: var(--mono); font-size: var(--fs-sm); font-weight: 660; letter-spacing: 0; color: var(--wiz-ink-4); }
     .ec-sec.on .st { color: #9db8ff; }
     .ec-fl { display: block; margin-bottom: 7px; font-family: var(--mono); font-size: var(--fs-meta); color: var(--wiz-ink-4); }
     .ec-in { width: 100%; height: 42px; padding: 0 13px; border: 1px solid var(--wiz-line-2);
       border-radius: var(--r-sm); background: rgba(255,255,255,0.02); color: #fff; font-size: var(--fs-sm); }
     .ec-in::placeholder { color: var(--wiz-ink-4); }
-    select.ec-in { appearance: none; padding-right: 30px;
+    .ec-in.primitive-select { appearance: none; padding-right: 30px;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b97ad' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 11px center; }
     .ec-presets { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
     .ec-pre { display: flex; flex-direction: column; align-items: center; gap: 6px;
@@ -668,13 +669,13 @@
     .ec-defaults { border: 1px solid var(--wiz-line); background: var(--wiz-surface);
       border-radius: var(--r-md); padding: 18px; }
     .ec-defaults .l { font-family: var(--mono); font-size: var(--fs-micro); text-transform: uppercase;
-      letter-spacing: 0.18em; color: var(--wiz-ink-4); }
+      letter-spacing: 0; color: var(--wiz-ink-4); }
     .ec-defaults p { margin: 8px 0 0; font-size: var(--fs-sm); line-height: 1.55; color: var(--wiz-ink-3); }
     .ec-bot { height: 64px; flex: none; display: flex; align-items: center; justify-content: space-between;
       gap: 12px; padding: 0 24px; border-top: 1px solid var(--wiz-line); }
     .ec-cancel { border: 1px solid var(--wiz-line-2); border-radius: var(--r-sm); padding: 8px 16px;
       background: transparent; color: var(--wiz-ink-3); font-size: var(--fs-meta); font-weight: 560;
-      text-transform: uppercase; letter-spacing: 0.08em; }
+      text-transform: uppercase; letter-spacing: 0; }
     .ec-cancel:hover { background: rgba(255,255,255,0.05); color: #fff; }
     .ec-deploy { display: flex; align-items: center; gap: 8px; border: 0; border-radius: var(--r-md);
       padding: 11px 26px; background: var(--accent); color: #fff;
@@ -699,7 +700,7 @@
     /* ══════════ specimen suite scaffolding ══════════ */
     .spec-suite { width: min(1600px, 100%); display: flex; flex-direction: column; gap: 22px; flex: none; }
     .spec-suite-head { color: #cdd6e6; font-size: var(--fs-sm); line-height: 1.6; padding: 0 4px; }
-    .spec-suite-head h2 { margin: 0 0 4px; font-size: var(--fs-lg); font-weight: 680; color: #fff; letter-spacing: -0.01em; }
+    .spec-suite-head h2 { margin: 0 0 4px; font-size: var(--fs-lg); font-weight: 680; color: #fff; letter-spacing: 0; }
     .spec-suite-head b { color: #aebfff; font-weight: 640; }
     .spec-suite-head code { color: #aab6cc; font-family: var(--mono); font-size: var(--fs-meta); }
     .spec-state { border-radius: 14px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.08);
@@ -720,7 +721,7 @@
       background: var(--surface-1); overflow: hidden; box-shadow: var(--elev-1); }
     .mini-pane.dark { border-color: rgba(255,255,255,0.08); background: var(--wiz-bg); }
     .mini-cap { padding: 7px 12px; font-size: var(--fs-micro); font-weight: 680;
-      letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--ink-3);
+      letter-spacing: 0; text-transform: uppercase; color: var(--ink-3);
       background: var(--surface-2); border-bottom: 1px solid var(--line-soft); }
     .mini-cap.dark { color: var(--wiz-ink-4); background: #11161f; border-bottom-color: rgba(255,255,255,0.06); }
     .annot-dark { font-size: 10.5px; font-style: italic; color: #8b97ad; padding: 6px 4px 0; line-height: 1.65; }
@@ -728,13 +729,13 @@
     .annot-dark b { color: #aebfff; font-style: normal; font-weight: 640; }
     .rev-flag { display: inline-flex; align-items: center; gap: 5px; padding: 1px 7px; border-radius: var(--r-pill);
       background: rgba(201,132,16,0.18); color: #e0b15a; font-size: 9px; font-weight: 700;
-      text-transform: uppercase; letter-spacing: 0.06em; font-style: normal; }
+      text-transform: uppercase; letter-spacing: 0; font-style: normal; }
 
     /* ══════════ Appended (specimens 10–21) ══════════ */
     /* Keyboard shortcuts dialog */
     .ks-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 22px; }
     .ks-group { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
-    .ks-group-h { font-size: var(--fs-micro); letter-spacing: var(--ls-caps);
+    .ks-group-h { font-size: var(--fs-micro); letter-spacing: 0;
       text-transform: uppercase; font-weight: 680; color: var(--ink-3);
       padding-bottom: 6px; border-bottom: 1px solid var(--line-soft); }
     .ks-row { display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -788,7 +789,7 @@
       align-items: stretch; padding: 14px; background: var(--surface-1); }
     .handoff-tile { border: 1px solid var(--line-soft); border-radius: var(--r-md);
       background: var(--surface-2); padding: 12px; display: flex; flex-direction: column; gap: 7px; }
-    .handoff-tile .ph { font-size: 9.5px; letter-spacing: var(--ls-caps);
+    .handoff-tile .ph { font-size: 9.5px; letter-spacing: 0;
       text-transform: uppercase; font-weight: 700; color: var(--accent); }
     .handoff-tile .ttl { font-size: var(--fs-sm); font-weight: 660; color: var(--ink-1); }
     .handoff-tile .desc { font-size: var(--fs-meta); color: var(--ink-3); line-height: 1.55; }
@@ -821,7 +822,7 @@
     .flag-row:last-child .fk, .flag-row:last-child .fv { border-bottom: 0; }
     .flag-chip { display: inline-flex; align-items: center; height: 18px; padding: 0 7px;
       border-radius: var(--r-pill); font-size: 9.5px; font-weight: 700;
-      letter-spacing: 0.05em; text-transform: uppercase; }
+      letter-spacing: 0; text-transform: uppercase; }
     .flag-chip.t { background: var(--ok-surface); color: #15824f; }
     .flag-chip.f { background: var(--surface-sunken); color: var(--ink-3); border: 1px solid var(--line); }
     .flag-chip.p { background: var(--accent-surface); color: var(--accent); }
@@ -839,7 +840,7 @@
     .narrow-body { flex: 1; min-height: 0; padding: 22px 20px;
       display: flex; flex-direction: column; gap: 18px; background: var(--surface-1); }
     .narrow-body h3 { margin: 0; font-size: var(--fs-xl); font-weight: 700; color: var(--ink-1);
-      letter-spacing: -0.01em; line-height: 1.2; }
+      letter-spacing: 0; line-height: 1.2; }
     .narrow-body .sub { font-size: var(--fs-sm); line-height: 1.55; color: var(--ink-2); margin: 0; }
     .narrow-illus { flex: 1; min-height: 0; border: 1px solid var(--line-soft);
       background: var(--surface-sunken); border-radius: var(--r-md); padding: 12px;
@@ -861,7 +862,7 @@
     .reveal { animation: rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
     .reveal.d1 { animation-delay: 0.05s; }
     @media (prefers-reduced-motion: reduce) {
-      .reveal, .spin, .ctapulse, .dlv-acts .sop.promoted, .badge .pulse-dot { animation: none; }
+      .reveal, .spin, .ctapulse, .dlv-acts .plan.promoted, .badge .pulse-dot { animation: none; }
       * { transition: none !important; }
     }
   </style>
@@ -934,7 +935,7 @@
       </div>
       <div class="nav">
         <button class="active"><svg class="ico sm"><use href="#i-building"/></svg>Office</button>
-        <button><svg class="ico sm"><use href="#i-book"/></svg>SOPs</button>
+        <button><svg class="ico sm"><use href="#i-grid"/></svg>Workspace</button>
         <button><svg class="ico sm"><use href="#i-store"/></svg>Market</button>
         <button><svg class="ico sm"><use href="#i-users"/></svg>Personnel</button>
       </div>
@@ -1284,11 +1285,11 @@
         <p class="annot-dark"><b>Left info pane</b> (340px): template carousel (ChevronLeft/Right +
           <code>meta.icon</code> + name, dot pager — active dot widens, colored <code>accentHex</code>),
           "Zones · N" box (<code>getTemplateZoneSummary</code> joined " • "), <b>Team · {n}</b> /
-          <b>Workflows · {n}</b> tabs (Workflows hidden when <code>sops.length===0</code>).
+          <b>Workflows · {n}</b> tabs (Workflows hidden when <code>plans.length===0</code>).
           <b>EmployeeCard</b> = avatar (DiceBear via <code>getAvatar</code>) + role status dot
           (<code>ROLE_DOT</code>) + name + role label (<code>ROLE_LABELS</code>, colored) + bio
           italic; expand (ChevronDown/Up) → expertise tags + style chip + helpsWith paragraph (from
-          <code>EMPLOYEE_BIOS</code>). <b>ProductionWorkflow</b> (Workflows tab) = per-SOP "Phase N"
+          <code>EMPLOYEE_BIOS</code>). <b>ProductionWorkflow</b> (Workflows tab) = per-Plan "Phase N"
           dividers + step cards (3px role-color bar + label + role dot) + SVG connectors.
           create-your-own → tagline + <code>capabilities</code> bullet list.</p>
         <p class="annot-dark"><b>Center</b> = <code>Office2DPreview</code> (template zones,
@@ -1419,7 +1420,7 @@
           <div class="tour-ledger">
             <div class="tour-lrow done">
               <div class="tour-lnum"><svg class="ico xs"><use href="#i-check"/></svg></div>
-              <div class="tour-lbody"><div class="lt">Connect your AI provider</div><div class="ld">Open Settings and add an API key so the team can start working. We default to MiniMax — you can swap providers later.</div><div class="lm">connect-provider · settings · settings:provider-cta · auto-completes on provider_configured</div></div>
+              <div class="tour-lbody"><div class="lt">Connect your AI provider</div><div class="ld">Open Settings and add the configured provider credential so the team can start working. The selected runtime profile stays editable in Settings.</div><div class="lm">connect-provider · settings · settings:provider-cta · auto-completes on provider_configured</div></div>
             </div>
             <div class="tour-lrow active">
               <div class="tour-lnum">2</div>
@@ -1543,7 +1544,7 @@
                 </div>
                 <div>
                   <label class="field-l">Description <span class="opt">(optional)</span></label>
-                  <textarea class="inp" rows="3" placeholder="What is this project about?" style="margin-top:6px"></textarea>
+                  <div class="inp area primitive-textarea" data-primitive="Textarea" data-placeholder="What is this project about?" style="margin-top:6px"></div>
                 </div>
                 <div>
                   <label class="field-l">Workspace folder <span class="req">(required)</span></label>
@@ -1573,7 +1574,7 @@
                 </div>
                 <div>
                   <label class="field-l">Description <span class="opt">(optional)</span></label>
-                  <textarea class="inp" rows="3" style="margin-top:6px">Landing + pricing refresh for Q3</textarea>
+                  <div class="inp area primitive-textarea" data-primitive="Textarea" style="margin-top:6px">Landing + pricing refresh for Q3</div>
                 </div>
                 <div>
                   <label class="field-l">Workspace folder</label>
@@ -1616,31 +1617,31 @@
             "Creating…"; edit "Save changes" / "Saving…". Desktop folder row = path input (free
             paste) + Choose (<code>pickWorkspaceFolder</code>, "Choosing…") + Clear (when bound).
             Cancel disabled while submitting. Errors render in a danger box; submit failure keeps the
-            dialog open and re-enables. Wired in App.tsx via <code>projectDialog</code> state
+            dialog open and re-enables. App state uses <code>projectDialog</code>
             (create → <code>onCreated</code> sets it active; edit → <code>onUpdated</code>).</p>
         </div>
       </div>
     </div>
 
-    <!-- 7 · Deliverable management (PitchHall) -->
+    <!-- 7 · Deliverable management (thread pit) -->
     <div class="spec-state">
-      <div class="spec-cap"><span class="n">7</span><span class="t">PitchHall Outputs · DeliverableCard (full + compact)</span>
-        <span class="d">right-rail Outputs panel; <code>useDeliverables(activeThreadId)</code> filter; new deliverable glows 3s + scrolls</span></div>
+      <div class="spec-cap"><span class="n">7</span><span class="t">Thread Pit Outputs · DeliverableCard</span>
+        <span class="d">outputs live inside the thread pit popover; no permanent rail block and no empty-state block in the message viewport</span></div>
       <div class="spec-frame spec-grid-3">
         <div>
           <div class="mini-pane">
-            <div class="mini-cap">Outputs — empty</div>
+            <div class="mini-cap">Pit trigger — no outputs</div>
             <div style="background:var(--surface-1)">
               <div class="ph-empty">
                 <div class="ic"><svg class="ico lg"><use href="#i-file-output"/></svg></div>
-                <div><div class="t">No outputs yet</div><div class="d">Deliverables will appear here as your AI employees complete tasks. You can copy, export, or save them as SOPs.</div></div>
+                <div><div class="t">Outputs hidden</div><div class="d">Render nothing in the message viewport until a thread has deliverables. The pit trigger carries the count.</div></div>
               </div>
             </div>
           </div>
         </div>
         <div>
           <div class="mini-pane">
-            <div class="mini-cap">Outputs — populated (full card, new + promoted SOP)</div>
+            <div class="mini-cap">Pit popover — populated</div>
             <div style="background:var(--surface-1)">
               <div class="ph">
                 <div class="ph-h"><span class="l">Outputs</span><span class="c">2</span></div>
@@ -1663,10 +1664,9 @@
 Audience: solo developers shipping AI agents…</pre>
                     <div class="dlv-acts">
                       <button class="a">Copy</button>
-                      <select class="fmt"><option>DOCX</option><option>PDF</option><option>PPTX</option><option>CSV</option><option>HTML</option><option>TXT</option></select>
-                      <button class="a">Preview</button>
-                      <button class="a">Export</button>
-                      <button class="sop promoted">Save as SOP</button>
+                      <button class="a">Save locally</button>
+                      <button class="a">Open local output</button>
+                      <span class="fmt" type="button">Format · MD</span>
                     </div>
                   </div>
                 </div>
@@ -1682,10 +1682,9 @@ Audience: solo developers shipping AI agents…</pre>
 Acme,usage,…</pre>
                     <div class="dlv-acts">
                       <button class="a">Copy</button>
-                      <button class="a">Download</button>
                       <button class="a">Save locally</button>
-                      <button class="a">Open folder</button>
-                      <button class="sop">Save as SOP</button>
+                      <button class="a">Open local output</button>
+                      <span class="fmt" type="button">Format · CSV</span>
                     </div>
                   </div>
                 </div>
@@ -1711,38 +1710,32 @@ Acme,usage,…</pre>
                     <span class="el">· Maya Chen</span>
                   </div>
                   <div class="dlv-acts">
-                    <button class="a">Copy</button><button class="a">Open</button><button class="a">Download</button>
+                    <button class="a">Copy</button><button class="a">Open local output</button><span class="fmt">Format · MD</span>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-          <p class="annot-dark"><b>Full card</b> (Outputs): mime icon + title +
+          <p class="annot-dark"><b>Pit card</b> (Outputs): mime icon + title +
             <code>{bytes} · {timeAgo}</code> + ContributorStack (≤3 avatars, +N overflow); mono body
-            <code>truncate(content,200)</code>; actions Copy (Copied!/Copy failed) · format Select
-            (DOCX/PDF/PPTX/CSV/HTML/TXT — only when <b>not</b> a file artifact) · Preview (if
-            <code>canPreviewDeliverable</code>) · <b>Export</b> (non-file) / <b>Download</b> (file
-            artifact, "..." while exporting) · [desktop+file] Save locally → Open file ·
-            [desktop+vault] Open folder · [onSaveAsSop] <b>Save as SOP</b> — promoted variant
-            (filled success + pulse) when <code>contributingEmployees.length &gt;= 2</code>,
-            "Saved!" 2s. <code>isNew</code> → 3px success top stripe + auto-scroll.
+            <code>truncate(content,200)</code>; actions Copy (Copied!/Copy failed) · Save locally
+            through the desktop output writer · Open local output when a saved path exists · static
+            format chip. No process-promotion action is rendered from Outputs.
             <b>Compact card</b> (chat bubble): success-tinted, header + artifact-name chip +
-            mimeType + employeeLabel + Copy / Open (if preview) / Download (if fileName).</p>
+            mimeType + employeeLabel + Copy / Open local output / format chip.</p>
         </div>
       </div>
       <p class="annot-dark"><b>PitchHall</b>: <code>useDeliverables(activeThreadId ?? null)</code>
         (id-first dedupe, hydrate via <code>listRecentDeliverables({limit:100})</code> +
-        live <code>deliverable.created</code>). Empty → FileOutput + "No outputs yet" + hint. List
-        header = "Outputs" caps + count. <code>handleSaveAsSop</code> builds a
-        <code>SopDefinition</code> from <code>contributingEmployees</code> (one step per
-        contributor, role-slug carried), persists via <code>sopTemplates.create</code> +
-        emits <code>sop.template.created</code>.</p>
+        live <code>deliverable.created</code>). Empty state renders no persistent block in the
+        message viewport. The thread pit trigger exposes count; opening the pit shows Copy, Save
+        locally, Open local output, and a static format chip.</p>
     </div>
 
     <!-- 8 · EmployeeCreatorOverlay (live employee-add, hard-dark) -->
     <div class="spec-state">
       <div class="spec-cap"><span class="n">8</span><span class="t">EmployeeCreatorOverlay — 2-step fullscreen "Add employee" (<code>activeOverlay==='employee-creator'</code>)</span>
-        <span class="d">live path = this IDENTITY/VISUAL overlay; deploy → <code>handleCreatorDeploy</code> creates employee w/ avatarSeed</span>
+        <span class="d">live path = this IDENTITY/VISUAL overlay; deploy → <code>handleCreatorDeploy</code> creates employee w/ persisted appearance</span>
         <span class="rev-flag">reverse-risk · hard-dark</span></div>
       <div class="spec-frame">
         <div class="mini-pane dark" style="height:520px">
@@ -1773,7 +1766,7 @@ Acme,usage,…</pre>
                   <div class="sh"><span class="sn">01</span><span class="st">IDENTITY</span></div>
                   <div style="display:flex;flex-direction:column;gap:14px">
                     <div><label class="ec-fl">EMPLOYEE NAME</label><input class="ec-in" value="Nova Reyes" placeholder="Enter employee name..." /></div>
-                    <div><label class="ec-fl">ROLE ASSIGNMENT</label><select class="ec-in"><option>Developer</option><option>Designer</option><option>Product Manager</option><option>QA Engineer</option><option>DevOps</option></select></div>
+                    <div><label class="ec-fl">ROLE ASSIGNMENT</label><button class="ec-in" type="button">Developer <span aria-hidden="true">&#9662;</span></button></div>
                   </div>
                 </div>
                 <div class="ec-sec">
@@ -1781,7 +1774,7 @@ Acme,usage,…</pre>
                   <div style="display:flex;flex-direction:column;gap:14px">
                     <div><label class="ec-fl">AVATAR SEED</label><input class="ec-in" value="nova-reyes" placeholder="Auto-generated from name..." /></div>
                     <div>
-                      <p style="margin:0 0 11px;font-size:var(--fs-micro);font-weight:660;text-transform:uppercase;letter-spacing:0.08em;color:var(--wiz-ink-4)">Preset identities</p>
+                      <p style="margin:0 0 11px;font-size:var(--fs-micro);font-weight:660;text-transform:uppercase;letter-spacing: 0;color:var(--wiz-ink-4)">Preset identities</p>
                       <div class="ec-presets">
                         <div class="ec-pre on"><div class="av" style="background:conic-gradient(from 40deg,#6d8bd6,#b27fd6,#6dd6b2,#6d8bd6)"></div><span class="sd">atlas</span></div>
                         <div class="ec-pre"><div class="av" style="background:conic-gradient(from 120deg,#d6a06d,#6d8bd6,#6dd6b2)"></div><span class="sd">nova</span></div>
@@ -1811,18 +1804,16 @@ Acme,usage,…</pre>
           <code>onOpenEmployeeCreator</code>. An 8-step <b>InterviewWizard</b> (role/name/expertise/
           style/appearance/instructions/model/preview, <code>useInterviewWizard</code>) exists and
           is exported from <code>@offisim/ui-office</code> but is <b>not mounted anywhere</b> — do
-          not build it as a live surface; treat it as latent until it is wired.</p>
+          not build it as a live surface; treat it as latent until a product owner reopens it.</p>
         <p class="annot-dark"><b>Topbar</b>: Back arrow (discard-confirm toast if dirty: name
           non-empty OR seed manually edited) + "Add employee" + step chips (01 IDENTITY / 02 VISUAL,
           clickable to jump). <b>Left 45%</b>: DiceBear avatar (300px in glow ring) + name ("Unnamed
-          Employee" italic placeholder) + role label chip + Randomize (<code>agent-{rand}</code>
-          seed). <b>Right 55%</b>: SectionPanel IDENTITY (Employee Name input + Role
-          <code>ROLE_OPTIONS</code> select) · SectionPanel VISUAL IDENTITY (Avatar Seed input —
-          auto-derived from name unless manually edited — + 12 preset identity grid w/ live DiceBear)
+          Employee" italic placeholder) + role label chip. <b>Right 55%</b>: SectionPanel IDENTITY
+          (Employee Name input + Role <code>ROLE_OPTIONS</code> select) · SectionPanel VISUAL
+          IDENTITY (persisted appearance controls + 12 visual preset grid w/ live preview)
           · "Role Defaults" info box. <b>Bottom</b>: Cancel / "Add Employee" (Rocket, disabled until
-          <code>name.trim()</code>). Deploy → <code>onDeploy({name,role,seed})</code> →
-          persona_json carries <code>avatarSeed</code>; toast "Deploying… / deployed successfully";
-          overlay closes.</p>
+          <code>name.trim()</code>). Deploy → <code>onDeploy({name, role, appearance})</code> →
+          <code>persona_json.appearance</code>; overlay closes after the repository write.</p>
       </div>
     </div>
 
@@ -1882,11 +1873,11 @@ Acme,usage,…</pre>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
                   <div>
                     <label class="field-l">Brand</label>
-                    <select class="inp" style="margin-top:6px"><option>Hermes</option><option>OpenClaw</option><option>Codex</option><option>Custom</option></select>
+                    <button class="inp" type="button" style="margin-top:6px">Hermes <span aria-hidden="true">&#9662;</span></button>
                   </div>
                   <div>
                     <label class="field-l">Role</label>
-                    <select class="inp" style="margin-top:6px"><option>Research Scientist</option><option>Developer</option></select>
+                    <button class="inp" type="button" style="margin-top:6px">Research Scientist <span aria-hidden="true">&#9662;</span></button>
                   </div>
                 </div>
               </div>
@@ -1931,7 +1922,7 @@ Acme,usage,…</pre>
               <span class="tic"><svg class="ico sm"><use href="#i-slash"/></svg></span>
               <div class="tbody">
                 <div class="ttl">Press / for commands</div>
-                <div class="tcopy">Slash commands cover SOP runs, deliverable exports, and workspace switches.</div>
+                <div class="tcopy">Slash commands cover Plan runs, deliverable exports, and workspace switches.</div>
                 <div class="tacts"><button class="tact">Dismiss</button><button class="tact muted">Don't show again</button></div>
               </div>
               <button class="tx" aria-label="Close"><svg class="ico xs"><use href="#i-x"/></svg></button>
@@ -2024,7 +2015,7 @@ Acme,usage,…</pre>
                 <div class="ks-group">
                   <div class="ks-group-h">Navigation</div>
                   <div class="ks-row"><span class="lab">Switch to Office</span><span class="ks-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">1</span></span></div>
-                  <div class="ks-row"><span class="lab">Switch to SOPs</span><span class="ks-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">2</span></span></div>
+                  <div class="ks-row"><span class="lab">Switch to Workspace</span><span class="ks-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">2</span></span></div>
                   <div class="ks-row"><span class="lab">Switch to Market</span><span class="ks-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">3</span></span></div>
                   <div class="ks-row"><span class="lab">Switch to Personnel</span><span class="ks-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">4</span></span></div>
                   <div class="ks-row"><span class="lab">Command palette</span><span class="ks-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">K</span></span></div>
@@ -2041,7 +2032,7 @@ Acme,usage,…</pre>
                 </div>
                 <div class="ks-group">
                   <div class="ks-group-h">Run</div>
-                  <div class="ks-row"><span class="lab">Open Kanban board</span><span class="ks-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">J</span></span></div>
+                  <div class="ks-row"><span class="lab">Open run details</span><span class="ks-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">J</span></span></div>
                   <div class="ks-row"><span class="lab">Open Dashboard</span><span class="ks-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">D</span></span></div>
                   <div class="ks-row"><span class="lab">Pause / resume run</span><span class="ks-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">.</span></span></div>
                   <div class="ks-row"><span class="lab">Stop run</span><span class="ks-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">⇧</span><span class="kbd-plus">+</span><span class="kbd">.</span></span></div>
@@ -2081,21 +2072,21 @@ Acme,usage,…</pre>
           <div style="background:var(--wiz-bg);padding:14px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
             <!-- 1 -->
             <div style="border:1px solid var(--wiz-line);background:var(--wiz-surface);border-radius:var(--r-md);padding:11px;display:flex;flex-direction:column;gap:7px">
-              <div style="font-family:var(--mono);font-size:9.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--wiz-emerald)">Phase 1 · Template</div>
+              <div style="font-family:var(--mono);font-size:9.5px;letter-spacing: 0;text-transform:uppercase;color:var(--wiz-emerald)">Phase 1 · Template</div>
               <div style="font-size:var(--fs-sm);color:#fff;font-weight:660">Pick a template</div>
               <div style="display:flex;align-items:center;gap:4px"><i style="display:block;height:5px;width:18px;border-radius:99px;background:#3b82f6"></i><i style="display:block;height:5px;width:5px;border-radius:99px;background:rgba(255,255,255,0.14)"></i><i style="display:block;height:5px;width:5px;border-radius:99px;background:rgba(255,255,255,0.14)"></i><i style="display:block;height:5px;width:5px;border-radius:99px;background:rgba(255,255,255,0.14)"></i><i style="display:block;height:5px;width:5px;border-radius:99px;background:rgba(255,255,255,0.14)"></i></div>
               <div style="font-size:var(--fs-meta);color:var(--wiz-ink-3);line-height:1.5">Carousel through 5 templates + Create Your Own. Active dot widens, accent color from template.</div>
             </div>
             <!-- 2 -->
             <div style="border:1px solid var(--wiz-line);background:var(--wiz-surface);border-radius:var(--r-md);padding:11px;display:flex;flex-direction:column;gap:7px">
-              <div style="font-family:var(--mono);font-size:9.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--wiz-emerald)">Phase 2 · Name</div>
+              <div style="font-family:var(--mono);font-size:9.5px;letter-spacing: 0;text-transform:uppercase;color:var(--wiz-emerald)">Phase 2 · Name</div>
               <div style="font-size:var(--fs-sm);color:#fff;font-weight:660">Name + description</div>
               <input class="wiz-name" style="display:block" type="text" value="My AI Company" disabled />
-              <div style="font-size:var(--fs-meta);color:var(--wiz-ink-3);line-height:1.5">Footer name input only; description optional, lives in the same footer panel as a textarea expand-hint.</div>
+              <div style="font-size:var(--fs-meta);color:var(--wiz-ink-3);line-height:1.5">Footer name input only; description optional, lives in the same footer panel as a Textarea primitive expand hint.</div>
             </div>
             <!-- 3 -->
             <div style="border:1px solid var(--wiz-line);background:var(--wiz-surface);border-radius:var(--r-md);padding:11px;display:flex;flex-direction:column;gap:7px">
-              <div style="font-family:var(--mono);font-size:9.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--wiz-emerald)">Phase 3 · Preview</div>
+              <div style="font-family:var(--mono);font-size:9.5px;letter-spacing: 0;text-transform:uppercase;color:var(--wiz-emerald)">Phase 3 · Preview</div>
               <div style="font-size:var(--fs-sm);color:#fff;font-weight:660">Office 2D preview</div>
               <svg viewBox="0 0 180 80" style="width:100%;height:auto;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);border-radius:var(--r-xs)">
                 <rect x="6" y="6" width="78" height="32" rx="4" fill="#3b82f6" fill-opacity="0.18" stroke="#3b82f6" stroke-opacity="0.5"/>
@@ -2107,7 +2098,7 @@ Acme,usage,…</pre>
             </div>
             <!-- 4 -->
             <div style="border:1px solid var(--wiz-line);background:var(--wiz-surface);border-radius:var(--r-md);padding:11px;display:flex;flex-direction:column;gap:7px">
-              <div style="font-family:var(--mono);font-size:9.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--wiz-emerald)">Phase 4 · Team</div>
+              <div style="font-family:var(--mono);font-size:9.5px;letter-spacing: 0;text-transform:uppercase;color:var(--wiz-emerald)">Phase 4 · Team</div>
               <div style="font-size:var(--fs-sm);color:#fff;font-weight:660">Team tab</div>
               <div style="display:flex;flex-direction:column;gap:5px">
                 <div style="display:flex;align-items:center;gap:7px"><span style="width:18px;height:18px;border-radius:50%;background:#3b82f6"></span><span style="font-size:var(--fs-meta);color:#cdd6e6">Alex Chen · Lead Developer</span></div>
@@ -2118,18 +2109,18 @@ Acme,usage,…</pre>
             </div>
             <!-- 5 -->
             <div style="border:1px solid var(--wiz-line);background:var(--wiz-surface);border-radius:var(--r-md);padding:11px;display:flex;flex-direction:column;gap:7px">
-              <div style="font-family:var(--mono);font-size:9.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--wiz-emerald)">Phase 5 · Workflows</div>
+              <div style="font-family:var(--mono);font-size:9.5px;letter-spacing: 0;text-transform:uppercase;color:var(--wiz-emerald)">Phase 5 · Workflows</div>
               <div style="font-size:var(--fs-sm);color:#fff;font-weight:660">Workflows tab</div>
               <div style="display:flex;flex-direction:column;gap:5px;font-size:var(--fs-meta);color:#cdd6e6">
                 <div style="border-left:3px solid #3b82f6;padding:2px 0 2px 7px">Phase 1 · scope brief</div>
                 <div style="border-left:3px solid #f59e0b;padding:2px 0 2px 7px">Phase 2 · design pass</div>
                 <div style="border-left:3px solid #10b981;padding:2px 0 2px 7px">Phase 3 · ship</div>
               </div>
-              <div style="font-size:var(--fs-meta);color:var(--wiz-ink-3);line-height:1.5">ProductionWorkflow — per-SOP phase dividers + step cards w/ role-color bars.</div>
+              <div style="font-size:var(--fs-meta);color:var(--wiz-ink-3);line-height:1.5">ProductionWorkflow — per-Plan phase dividers + step cards w/ role-color bars.</div>
             </div>
             <!-- 6 -->
             <div style="border:1px solid var(--wiz-line);background:var(--wiz-surface);border-radius:var(--r-md);padding:11px;display:flex;flex-direction:column;gap:7px">
-              <div style="font-family:var(--mono);font-size:9.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--wiz-emerald)">Phase 6 · Creating</div>
+              <div style="font-family:var(--mono);font-size:9.5px;letter-spacing: 0;text-transform:uppercase;color:var(--wiz-emerald)">Phase 6 · Creating</div>
               <div style="font-size:var(--fs-sm);color:#fff;font-weight:660">step='creating'</div>
               <div class="wiz-building" style="padding:4px 0">
                 <div class="ln" style="font-size:var(--fs-sm)"><svg class="ico sm spin" style="color:#3b82f6"><use href="#i-loader"/></svg>Building your office...</div>
@@ -2139,14 +2130,14 @@ Acme,usage,…</pre>
             </div>
             <!-- 7 -->
             <div style="border:1px solid var(--wiz-line);background:var(--wiz-surface);border-radius:var(--r-md);padding:11px;display:flex;flex-direction:column;gap:7px">
-              <div style="font-family:var(--mono);font-size:9.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--wiz-emerald)">Phase 7 · Ready</div>
+              <div style="font-family:var(--mono);font-size:9.5px;letter-spacing: 0;text-transform:uppercase;color:var(--wiz-emerald)">Phase 7 · Ready</div>
               <div style="font-size:var(--fs-sm);color:#fff;font-weight:660">Ready → unmounts</div>
               <div style="display:flex;align-items:center;gap:7px;font-size:var(--fs-sm);color:var(--wiz-emerald)"><svg class="ico sm" style="color:var(--wiz-emerald)"><use href="#i-check"/></svg>Ready</div>
               <div style="font-size:var(--fs-meta);color:var(--wiz-ink-3);line-height:1.5">step='ready' renders <code>null</code>; <code>onComplete(companyId)</code> fires once. Caller switches workspace + shows the new office.</div>
             </div>
             <!-- 8 -->
             <div style="border:1px solid rgba(20,184,166,0.35);background:rgba(20,184,166,0.08);border-radius:var(--r-md);padding:11px;display:flex;flex-direction:column;gap:7px">
-              <div style="font-family:var(--mono);font-size:9.5px;letter-spacing:0.14em;text-transform:uppercase;color:#5eead4">Phase 8 · Studio handoff</div>
+              <div style="font-family:var(--mono);font-size:9.5px;letter-spacing: 0;text-transform:uppercase;color:#5eead4">Phase 8 · Studio handoff</div>
               <div style="font-size:var(--fs-sm);color:#fff;font-weight:660">Create Your Own branch</div>
               <div style="display:flex;align-items:center;gap:8px;font-size:var(--fs-sm);color:#cdd6e6"><svg class="ico sm" style="color:var(--wiz-emerald)"><use href="#i-wrench"/></svg>Open Studio Editor<span style="color:var(--wiz-ink-4)"><svg class="ico xs"><use href="#i-arrow-right"/></svg></span><span style="font-family:var(--mono);font-size:9.5px;color:#5eead4">studio-edit</span></div>
               <div style="font-size:var(--fs-meta);color:var(--wiz-ink-3);line-height:1.5">CYO replaces "Start Company" with "Open Studio Editor" (emerald gradient). Creates the empty custom company, then <code>sessionStorage[PENDING_VIEW_KEY]='studio-edit'</code> → Studio opens in edit mode.</div>
@@ -2175,7 +2166,7 @@ Acme,usage,…</pre>
                 <div class="sh"><span class="sn">01</span><span class="st">IDENTITY</span></div>
                 <div style="display:flex;flex-direction:column;gap:14px">
                   <div><label class="ec-fl">EMPLOYEE NAME</label><input class="ec-in" value="Maya Lin" placeholder="Enter employee name..." /></div>
-                  <div><label class="ec-fl">ROLE ASSIGNMENT</label><select class="ec-in"><option>UI/UX Designer</option><option>Developer</option><option>Product Manager</option><option>QA Engineer</option></select></div>
+                  <div><label class="ec-fl">ROLE ASSIGNMENT</label><button class="ec-in" type="button">UI/UX Designer <span aria-hidden="true">&#9662;</span></button></div>
                   <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
                     <div style="min-width:0;flex:1">
                       <label class="ec-fl">SEED (auto)</label>
@@ -2202,10 +2193,10 @@ Acme,usage,…</pre>
               <div class="ec-ava"><div class="d" style="background:conic-gradient(from 120deg,#d6a06d,#6d8bd6,#6dd6b2)"></div></div>
               <div><div class="ec-prev nm" style="font-size:var(--fs-xl)">Maya Lin</div></div>
               <div style="text-align:center"><span class="rl">UI/UX Designer</span></div>
-              <div style="font-family:var(--mono);font-size:var(--fs-meta);color:var(--wiz-ink-4)">avatarSeed = 'maya'</div>
+              <div style="font-family:var(--mono);font-size:var(--fs-meta);color:var(--wiz-ink-4)">appearance = neutral · short · normal</div>
             </div>
           </div>
-          <p class="annot-dark">Preview re-renders on every name/seed/role change.
+          <p class="annot-dark">Preview re-renders on every name/appearance/role change.
             <b>DicebearAvatar</b> resolves <code>top</code> from
             <code>HAIR_STYLE_TO_AVATAARS_TOP</code> v9; bald → <code>topProbability:0</code>.
             Outfit/skin/hair/accent colors come from <code>resolveOutfitColor(seed)</code>
@@ -2244,8 +2235,8 @@ Acme,usage,…</pre>
                     </div>
                   </div>
                   <div>
-                    <label class="ec-fl">SEED OVERRIDE</label>
-                    <input class="ec-in" value="maya" placeholder="leave blank to inherit name slug" />
+                    <label class="ec-fl">APPEARANCE</label>
+                    <input class="ec-in" value="neutral · short · normal" readonly />
                   </div>
                 </div>
               </div>
@@ -2255,13 +2246,12 @@ Acme,usage,…</pre>
             </div>
           </div>
         </div>
-        <p class="annot-dark"><b>Style cell</b> writes the preset's canonical seed into the
-          override input (mutually exclusive with Randomize). <b>Seed override</b> typed manually
-          wins over preset selection — the picked cell visually deselects when the seed no
-          longer matches. <b>Deploy</b> path = <code>onDeploy({name, role, seed})</code> →
-          <code>employees.create()</code> with <code>persona_json.avatarSeed</code> →
-          toast "Deploying… / deployed successfully" → overlay closes. <code>Deploy</code> is
-          <code>.dis</code> until <code>name.trim()</code>.</p>
+        <p class="annot-dark"><b>Appearance</b> writes only fields that the employee renderer can
+          read back from <code>persona_json.appearance</code>. Do not add seed/style override
+          controls until they are supported by the persisted employee view model. <b>Deploy</b>
+          path = <code>onDeploy({name, role, appearance})</code> → <code>employees.create()</code>
+          with <code>persona_json.appearance</code> → overlay closes after the repository write.
+          <code>Deploy</code> is <code>.dis</code> until <code>name.trim()</code>.</p>
       </div>
     </div>
 
@@ -2443,7 +2433,7 @@ Acme,usage,…</pre>
         <div class="mini-pane dark">
           <div class="mini-cap dark">Wizard surface w/ dirty input + Esc handler → discard toast</div>
           <div style="background:var(--wiz-bg);padding:20px;display:flex;flex-direction:column;gap:14px">
-            <div style="font-family:var(--mono);font-size:9.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--wiz-ink-4)">CompanyCreationWizard · phase 2 · isDirty=true</div>
+            <div style="font-family:var(--mono);font-size:9.5px;letter-spacing: 0;text-transform:uppercase;color:var(--wiz-ink-4)">CompanyCreationWizard · phase 2 · isDirty=true</div>
             <div class="wiz-foot-in" style="background:rgba(0,0,0,0.4);padding:14px;border-radius:var(--r-md);border:1px solid var(--wiz-line)">
               <button class="wiz-back"><svg class="ico sm"><use href="#i-chev-left"/></svg>Back</button>
               <div class="wiz-name">
@@ -2481,7 +2471,7 @@ Acme,usage,…</pre>
       (1) <b>CompanyCreationWizard</b> + <b>EmployeeCreatorOverlay</b> are hard-dark surfaces off the
       token theme — keep dark by design or migrate deliberately, not silently.
       (2) The 8-step <b>InterviewWizard</b> / <code>useInterviewWizard</code> is exported but
-      <b>unwired</b> — not a live spec surface; the live employee-add is the 2-step overlay.
+      <b>retired</b> — not a live spec surface; the live employee-add is the 2-step overlay.
       (3) First-run gating is fully <b>derived</b> from onboarding-store flags + company count — there
       is no "show again" toggle; don't invent one.
       (4) Onboarding tour <b>steps are derived</b> (first incomplete id), not a stored cursor;

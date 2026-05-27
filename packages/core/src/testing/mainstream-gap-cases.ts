@@ -1432,7 +1432,6 @@ function scenarioState(overrides: Record<string, unknown> = {}) {
     projectId: null,
     chatThreadId: null,
     targetEmployeeId: null,
-    selectedSopTemplateId: null,
     messages: [],
     compactBaseline: null,
     routeDecision: null,

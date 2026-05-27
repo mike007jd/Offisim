@@ -220,7 +220,7 @@ async function stepAdvanceNode(
       currentStepOutputs: [],
       interruptReason:
         state.taskPlan && !areAllPlanStepsTerminal(state)
-          ? 'SOP dispatcher could not advance: no newly dispatched steps and plan still has pending steps'
+          ? 'Planner dispatcher could not advance: no newly dispatched steps and plan still has pending steps'
           : state.interruptReason,
     };
   }

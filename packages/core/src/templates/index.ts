@@ -1,6 +1,5 @@
 import type {
   RoleSlug,
-  SopDefinition,
   SystemZoneTemplate,
   ZonePresetPrefab,
 } from '@offisim/shared-types';
@@ -34,7 +33,6 @@ export interface CompanyTemplate {
   description: string;
   icon: string;
   employees: CompanyTemplateEmployee[];
-  sops: SopDefinition[];
   layoutPreset: string;
   zones?: readonly TemplateZoneBlueprint[];
 }

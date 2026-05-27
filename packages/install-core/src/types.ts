@@ -18,6 +18,7 @@ import type {
   InstallSourceType,
   InstallState,
   PrefabInstanceRow,
+  SkillRow,
 } from '@offisim/shared-types';
 
 // ---------------------------------------------------------------------------
@@ -245,18 +246,6 @@ export interface NewEmployee {
   readonly agent_card_json?: string | null;
 }
 
-export interface NewInstalledSopTemplate {
-  readonly sop_template_id: string;
-  readonly company_id: string;
-  readonly name: string;
-  readonly description: string;
-  readonly definition_json: string;
-  readonly source_thread_id: string | null;
-  readonly source_url: string | null;
-  readonly version: string | null;
-  readonly last_synced_at: string | null;
-}
-
 export interface NewInstalledCompanyTemplate {
   readonly company_template_asset_id: string;
   readonly company_id: string;
@@ -275,6 +264,19 @@ export interface NewInstalledOfficeLayout {
   readonly name: string;
   readonly layout_json: string;
   readonly is_active: number;
+}
+
+export type NewSkill = SkillRow;
+
+export interface InstallVaultFileSystem {
+  readonly root: string;
+  readFile(relPath: string): Promise<string>;
+  writeFile(relPath: string, content: string): Promise<void>;
+  listDir(relPath: string): Promise<string[]>;
+  stat(relPath: string): Promise<{ mtimeMs: number; size: number } | null>;
+  remove(relPath: string): Promise<void>;
+  mkdir(relPath: string): Promise<void>;
+  exists(relPath: string): Promise<boolean>;
 }
 
 // ---------------------------------------------------------------------------
@@ -325,10 +327,6 @@ export interface InstallRepositories {
     /** Delete an employee by ID. Used during rollback. */
     delete(id: string): Promise<void>;
   };
-  readonly sopTemplates?: {
-    create(template: NewInstalledSopTemplate): Promise<{ sop_template_id: string }>;
-    delete(id: string): Promise<void>;
-  };
   readonly companyTemplates?: {
     create(template: NewInstalledCompanyTemplate): Promise<{ company_template_asset_id: string }>;
     delete(id: string): Promise<void>;
@@ -341,6 +339,11 @@ export interface InstallRepositories {
     create(instance: PrefabInstanceRow): Promise<{ instance_id: string }>;
     delete(id: string): Promise<void>;
   };
+  readonly skills?: {
+    insert(skill: NewSkill): Promise<void>;
+    delete(id: string): Promise<void>;
+  };
+  readonly vault?: InstallVaultFileSystem;
 }
 
 /**

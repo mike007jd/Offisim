@@ -2,7 +2,6 @@
 export type AssetKind =
   | 'employee'
   | 'skill'
-  | 'sop'
   | 'company_template'
   | 'office_layout'
   | 'bundle'

@@ -134,7 +134,7 @@ export function renderRelationshipsMd(
   const body = [
     '# Relationships',
     '',
-    '_Relationship narratives are populated by Phase 6 (Employee Relationships). This file is a placeholder for now._',
+    '_No relationship entries recorded yet._',
   ].join('\n');
   return serializeDocument(frontmatter, body);
 }

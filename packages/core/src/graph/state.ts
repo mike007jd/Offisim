@@ -59,7 +59,6 @@ export interface ManagerDirective {
   intent: string;
   recommendedEmployees: string[];
   constraints?: string;
-  sopTemplateId?: string; // explicit SOP selection — bypasses substring matching
 }
 
 /** A citation reference extracted from an employee response. */
@@ -147,7 +146,7 @@ export const OffisimGraphAnnotation = Annotation.Root({
   }),
 
   // Product-layer chat thread id (chat_threads.thread_id). Mirrors
-  // RunScope.threadId so emit-side consumers (deliverable / activity / SOP)
+  // RunScope.threadId so emit-side consumers (deliverable / activity)
   // can scope events to the active thread without parsing conversationKey.
   // null for non-chat invocations (background_sync, install_flow).
   chatThreadId: Annotation<string | null>({
@@ -157,12 +156,6 @@ export const OffisimGraphAnnotation = Annotation.Root({
 
   // Direct chat target
   targetEmployeeId: Annotation<string | null>({
-    reducer: (_prev, next) => next,
-    default: () => null,
-  }),
-
-  /** SOP template ID selected by boss — PM planner uses it to build the plan from SOP. */
-  selectedSopTemplateId: Annotation<string | null>({
     reducer: (_prev, next) => next,
     default: () => null,
   }),

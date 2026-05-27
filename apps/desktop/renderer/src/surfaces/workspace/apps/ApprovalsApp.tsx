@@ -8,12 +8,10 @@ import { cn } from '@/lib/utils.js';
 import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
 import { Check, CheckSquare } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { toast } from 'sonner';
 import {
   GATE_HEAD_LABEL,
   GATE_LABEL,
   type GateKind,
-  type GateStatus,
   type GrantScope,
   type WsApproval,
   useWsApprovals,
@@ -100,41 +98,25 @@ export function ApprovalsApp() {
   const selectedId = useUiState((s) => s.workspaceSelectedId);
   const selectItem = useUiState((s) => s.selectWorkspaceItem);
   const [segment, setSegment] = useState<Segment>('todo');
-  const [overrides, setOverrides] = useState<Record<string, GateStatus>>({});
-  const [scopeById, setScopeById] = useState<Record<string, GrantScope>>({});
 
   const byId = useMemo(
     () => new Map((employees.data ?? []).map((e) => [e.id, e])),
     [employees.data],
   );
 
-  const list: WsApproval[] = useMemo(
-    () => (approvals.data ?? []).map((a) => ({ ...a, status: overrides[a.id] ?? a.status })),
-    [approvals.data, overrides],
-  );
+  const list: WsApproval[] = approvals.data ?? [];
 
   const pending = list.filter((a) => a.status === 'pending');
   const resolved = list.filter((a) => a.status !== 'pending');
 
-  // To do shows pending + resolved-today; other segments are empty placeholders.
+  // To do shows pending plus resolved-today; other segments stay empty until their feeds exist.
   const visible = segment === 'todo' ? list : [];
   const activeId =
     selectedId && visible.some((a) => a.id === selectedId)
       ? selectedId
       : (pending[0]?.id ?? visible[0]?.id ?? null);
   const active = list.find((a) => a.id === activeId) ?? null;
-  const activeScope = active ? (scopeById[active.id] ?? active.scope) : 'thread';
-
-  function decide(approval: WsApproval, status: GateStatus) {
-    setOverrides((prev) => ({ ...prev, [approval.id]: status }));
-    if (status === 'approved') {
-      toast.success(`Approved: ${approval.title}`, {
-        description: `Grant scope: ${SCOPE_LABEL[activeScope]} · run unblocks in its thread`,
-      });
-    } else {
-      toast.message(`Denied: ${approval.title}`);
-    }
-  }
+  const activeScope = active?.scope ?? 'thread';
 
   return (
     <>
@@ -245,12 +227,17 @@ export function ApprovalsApp() {
               {active.status === 'pending' ? (
                 <div>
                   <div className="off-ws-oa-scope-h">Grant scope</div>
-                  <SegmentedControl
-                    options={SCOPE_OPTIONS}
-                    value={activeScope}
-                    onChange={(scope) => setScopeById((prev) => ({ ...prev, [active.id]: scope }))}
-                    ariaLabel="Grant scope"
-                  />
+                  <div className="off-seg" aria-label="Grant scope">
+                    {SCOPE_OPTIONS.map((option) => (
+                      <span
+                        key={option.value}
+                        data-selected={option.value === activeScope ? 'true' : undefined}
+                        className={cn('off-seg-btn', option.value === activeScope && 'is-on')}
+                      >
+                        {option.label}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               ) : null}
             </div>
@@ -258,27 +245,11 @@ export function ApprovalsApp() {
             <div className="off-ws-oa-foot">
               <span className="off-ws-oa-foot-note">
                 {active.status === 'pending'
-                  ? 'Resolving emits interaction.resolved → the run unblocks in its thread.'
+                  ? 'Approval is read-only until a runtime interaction target exists.'
                   : `Resolved · ${SCOPE_LABEL[active.scope]} scope`}
               </span>
               {active.status === 'pending' ? (
-                <>
-                  <button
-                    type="button"
-                    className="off-ws-oa-deny off-focusable"
-                    onClick={() => decide(active, 'denied')}
-                  >
-                    Deny
-                  </button>
-                  <button
-                    type="button"
-                    className="off-ws-oa-approve off-focusable"
-                    onClick={() => decide(active, 'approved')}
-                  >
-                    <Icon icon={Check} size="sm" />
-                    Approve
-                  </button>
-                </>
+                <span className="off-ws-action-state">Awaiting runtime interaction target</span>
               ) : null}
             </div>
           </>

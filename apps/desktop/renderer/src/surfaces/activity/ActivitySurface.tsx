@@ -44,7 +44,8 @@ const EVENT_TYPE_OPTIONS: ReadonlyArray<SelectOption> = [
 ];
 
 export function ActivitySurface() {
-  const records = useActivityRecords();
+  const companyId = useUiState((s) => s.companyId);
+  const records = useActivityRecords(companyId);
   const setSurface = useUiState((s) => s.setSurface);
 
   const [datePreset, setDatePreset] = useState<DatePreset>('today');

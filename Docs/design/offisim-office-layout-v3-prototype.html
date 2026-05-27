@@ -437,14 +437,14 @@
       border-color: var(--accent-ring);
     }
 
-    /* ── Tasks / SOP list shared scroller ─────────────── */
+    /* ── Thread deliverable shared scroller ─────────────── */
     .pane-scroll {
       min-height: 0; overflow-y: auto;
       padding: var(--sp-2) var(--sp-5) var(--sp-3);
     }
 
-    /* ── SOP cards ─────────────────────────────────────── */
-    .sop-card {
+    /* ── Deliverable cards ─────────────────────────────────────── */
+    .run-card {
       border: 1px solid var(--line-soft);
       border-radius: var(--r-md);
       background: var(--surface-1);
@@ -454,23 +454,23 @@
       box-shadow: var(--elev-1);
       transition: border-color 0.14s ease, box-shadow 0.14s ease, transform 0.14s ease;
     }
-    .sop-card:hover {
+    .run-card:hover {
       border-color: var(--line-strong);
       box-shadow: var(--elev-2);
       transform: translateY(-1px);
     }
-    .sop-head { display: flex; align-items: center; gap: var(--sp-3); }
-    .sop-name {
+    .run-head { display: flex; align-items: center; gap: var(--sp-3); }
+    .run-name {
       font-size: var(--fs-base); font-weight: 640;
       color: var(--ink-1); flex: 1;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    .sop-progress-num {
+    .run-progress-num {
       font-size: var(--fs-meta); font-weight: 620;
       color: var(--ink-3);
       font-variant-numeric: tabular-nums;
     }
-    .sop-status {
+    .run-status {
       display: inline-flex; align-items: center; gap: 5px;
       height: 19px; padding: 0 8px;
       border-radius: var(--r-pill);
@@ -478,49 +478,49 @@
       letter-spacing: 0.05em;
       text-transform: uppercase;
     }
-    .sop-status::before {
+    .run-status::before {
       content: ""; width: 5px; height: 5px; border-radius: 50%;
     }
-    .sop-status.running { background: var(--ok-surface); color: #15824f; }
-    .sop-status.running::before { background: var(--ok); animation: pulse 1.6s ease-in-out infinite; }
-    .sop-status.blocked { background: var(--warn-surface); color: #8a5a0c; }
-    .sop-status.blocked::before { background: var(--warn); }
-    .sop-status.review { background: var(--accent-surface); color: var(--accent); }
-    .sop-status.review::before { background: var(--accent); }
+    .run-status.running { background: var(--ok-surface); color: #15824f; }
+    .run-status.running::before { background: var(--ok); animation: pulse 1.6s ease-in-out infinite; }
+    .run-status.blocked { background: var(--warn-surface); color: #8a5a0c; }
+    .run-status.blocked::before { background: var(--warn); }
+    .run-status.review { background: var(--accent-surface); color: var(--accent); }
+    .run-status.review::before { background: var(--accent); }
     @keyframes pulse {
       0%, 100% { opacity: 1; transform: scale(1); }
       50% { opacity: 0.3; transform: scale(1.5); }
     }
-    .sop-steps {
+    .run-steps {
       display: flex; align-items: center; gap: 4px;
       margin: var(--sp-4) 0 var(--sp-3);
     }
-    .sop-step {
+    .run-step {
       flex: 1; min-width: 8px; max-width: 40px;
       height: 6px;
       border-radius: var(--r-pill);
       background: var(--surface-sunken);
     }
-    .sop-step.done { background: var(--ok); }
-    .sop-step.current { background: linear-gradient(90deg, var(--accent) 50%, #cdddff 50%); }
-    .sop-step.blocked { background: var(--warn); }
-    .sop-current-row {
+    .run-step.done { background: var(--ok); }
+    .run-step.current { background: linear-gradient(90deg, var(--accent) 50%, #cdddff 50%); }
+    .run-step.blocked { background: var(--warn); }
+    .run-current-row {
       display: grid;
       grid-template-columns: 1fr 22px;
       align-items: center; gap: var(--sp-3);
     }
-    .sop-current-label {
+    .run-current-label {
       font-size: var(--fs-meta); color: var(--ink-2); font-weight: 520;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    .sop-current-label b { font-weight: 640; color: var(--ink-1); }
+    .run-current-label b { font-weight: 640; color: var(--ink-1); }
     .avatar-xs {
       width: 22px; height: 22px;
       border-radius: 50%;
       background-size: cover; background-position: center;
       box-shadow: 0 0 0 1px var(--line), 0 0 0 2px var(--surface-1);
     }
-    .sop-recent-row {
+    .run-recent-row {
       display: grid; grid-template-columns: 16px 1fr auto;
       align-items: center; gap: var(--sp-3);
       padding: var(--sp-2) var(--sp-3);
@@ -529,13 +529,13 @@
       cursor: pointer;
       transition: background 0.12s ease;
     }
-    .sop-recent-row:hover { background: var(--surface-sunken); }
-    .sop-recent-mark { color: var(--ok); display: grid; place-items: center; }
-    .sop-recent-name {
+    .run-recent-row:hover { background: var(--surface-sunken); }
+    .run-recent-mark { color: var(--ok); display: grid; place-items: center; }
+    .run-recent-name {
       color: var(--ink-2); font-weight: 540;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    .sop-recent-time { color: var(--ink-4); font-size: var(--fs-micro); }
+    .run-recent-time { color: var(--ink-4); font-size: var(--fs-micro); }
 
     /* ── Git Workbench (faithful to GitWorkbench.tsx) ───── */
     .git-pane { min-height: 0; overflow-y: auto; padding: var(--sp-4) var(--sp-5) var(--sp-5); }
@@ -584,16 +584,8 @@
     .gw-card { border: 1px solid var(--line-soft); border-radius: var(--r-sm); background: var(--surface-2); padding: var(--sp-4); }
     .gw-card-head { display: flex; align-items: center; gap: 6px; font-size: 9px; letter-spacing: var(--ls-caps); font-weight: 700; color: var(--ink-3); text-transform: uppercase; margin-bottom: var(--sp-3); }
     .gw-card-head .ico { color: var(--ink-3); }
-    .gw-textarea { width: 100%; min-height: 44px; padding: 8px 9px; border: 1px solid var(--line); border-radius: var(--r-xs); background: var(--surface-1); resize: vertical; font-family: inherit; font-size: var(--fs-sm); line-height: 1.4; color: var(--ink-1); transition: border-color 0.14s ease, box-shadow 0.14s ease; }
-    .gw-textarea::placeholder { color: var(--ink-4); }
-    .gw-textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
-    .gw-commit-btn { margin-top: var(--sp-3); height: 30px; width: 100%; border: 0; border-radius: var(--r-xs); background: var(--accent); color: var(--accent-fg); font-size: var(--fs-sm); font-weight: 640; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: background 0.14s ease; }
-    .gw-commit-btn:hover:not(:disabled) { background: var(--accent-press); }
-    .gw-commit-btn:disabled { background: var(--surface-sunken); color: var(--ink-4); cursor: not-allowed; }
-    .gw-pr-msg, .gw-checks { font-size: var(--fs-meta); line-height: 1.5; color: var(--ink-3); }
-    .gw-pr-btn { margin-top: var(--sp-3); height: 30px; width: 100%; border: 1px solid var(--line); border-radius: var(--r-xs); background: var(--surface-1); color: var(--ink-2); font-size: var(--fs-sm); font-weight: 620; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease; }
-    .gw-pr-btn:hover:not(:disabled) { background: var(--accent-surface); color: var(--accent); border-color: var(--accent-ring); }
-    .gw-pr-btn:disabled { color: var(--ink-4); cursor: not-allowed; }
+    .gw-action-state { min-height: 28px; padding: 7px 9px; border: 1px solid var(--line); border-radius: var(--r-xs); background: var(--surface-sunken); color: var(--ink-3); font-size: var(--fs-meta); font-weight: 650; display: flex; align-items: center; gap: 7px; line-height: 1.35; }
+    .gw-checks { display: flex; flex-wrap: wrap; gap: 6px; font-size: var(--fs-meta); line-height: 1.5; color: var(--ink-3); }
 
     /* ── Workspace footer button ──────────────────────── */
     .ws-foot-btn {
@@ -654,31 +646,29 @@
     }
     .stage-mode button:hover { color: var(--ink-1); }
     .stage-mode button.active { color: var(--accent); background: var(--accent-surface); }
-    /* ── Stage run axis: two adjacent entries, same visual language,
-       different lifecycle. Board = persistent project/company-scoped
-       Kanban (present even when idle). Live = run-level broadcast that
-       sediments into the triggering conversation when the run ends. They
-       are NOT forced into one overlay. */
-    .stage-runaxis {
+    /* ── Stage status strip: token/cost/readiness only. Work details live in
+       the thread run record and the in-scene pipeline pill, not in a top
+       expansion surface. */
+    .stage-status {
       left: 50%; transform: translateX(-50%);
       border-radius: 0 0 var(--r-md) var(--r-md);
       overflow: hidden;
     }
-    .stage-entry {
+    .stage-status-chip {
       height: 32px; padding: 0 15px;
       border: 0; background: transparent;
       display: inline-flex; align-items: center; gap: 7px;
       color: var(--ink-2); font-size: var(--fs-sm); font-weight: 620;
       transition: background 0.14s ease, color 0.14s ease;
     }
-    .stage-entry + .stage-entry { border-left: 1px solid var(--line); }
-    .stage-entry:hover { background: #fff; color: var(--ink-1); }
-    .stage-entry .ico { color: var(--ink-3); }
-    .stage-entry.live-idle { color: var(--ink-4); }
-    .stage-entry.live-idle .ico { color: var(--ink-4); }
-    .stage-entry.live-active { color: var(--accent); }
-    .stage-entry.live-active .ico { color: var(--accent); }
-    .stage-entry .pulse-dot {
+    .stage-status-chip + .stage-status-chip { border-left: 1px solid var(--line); }
+    .stage-status-chip:hover { background: #fff; color: var(--ink-1); }
+    .stage-status-chip .ico { color: var(--ink-3); }
+    .stage-status-chip.is-muted { color: var(--ink-4); }
+    .stage-status-chip.is-muted .ico { color: var(--ink-4); }
+    .stage-status-chip.is-active { color: var(--accent); }
+    .stage-status-chip.is-active .ico { color: var(--accent); }
+    .stage-status-chip .pulse-dot {
       width: 6px; height: 6px; border-radius: 50%;
       background: var(--accent); animation: pulse 1.4s ease-in-out infinite;
     }
@@ -859,9 +849,9 @@
        conversation. The selected conversation IS everything for that
        thread — messages, the sedimented run record (plan + activity that
        ran in it), and its outputs. Chat / Inspect / Tasks tabs are gone:
-       they only existed to hold a mixed drawer. The run axis (Board +
-       live flow) and project summary do not live here (see stage + Files
-       + scope-bar). */
+       they only existed to hold a mixed drawer. Active run flow belongs to
+       the thread run record and the in-scene pipeline pill; project summary
+       belongs to Files + scope-bar. */
     .rail {
       min-width: 0; min-height: 0;
       background: var(--surface-1);
@@ -905,7 +895,7 @@
       display: flex; flex-direction: column;
     }
     .conv-scroll .messages { overflow: visible; flex: none; }
-    /* Sedimented run record — the live flow does NOT vanish when a run
+    /* Sedimented run record — the active flow does NOT vanish when a run
        ends; it settles into the conversation that triggered it. Collapsed
        by default; expands to the same Plan + Activity surface that
        broadcasts on the stage during the run. */
@@ -1059,10 +1049,6 @@
       background: var(--surface-1); color: var(--ink-3);
       font-size: var(--fs-micro); font-weight: 600;
       display: inline-flex; align-items: center; gap: 4px;
-    }
-    .dlv-btn.sop-promoted {
-      background: var(--ok); color: #fff; font-weight: 660;
-      animation: pulse 1.8s ease-in-out infinite;
     }
     .dlv-empty {
       display: flex; flex-direction: column; align-items: center;
@@ -1305,8 +1291,8 @@
     .composer-tools .pill:hover { background: var(--surface-sunken); }
     .composer-tools .pill.mode-chip { cursor: pointer; font-weight: 640; }
     .mode-dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 7px; }
-    .pill.mode-sop { background: var(--accent-surface); color: var(--accent); border-color: var(--accent-ring); }
-    .pill.mode-sop .mode-dot { background: var(--accent); }
+    .pill.mode-plan { background: var(--accent-surface); color: var(--accent); border-color: var(--accent-ring); }
+    .pill.mode-plan .mode-dot { background: var(--accent); }
     .pill.mode-hil { background: var(--warn-surface); color: #8a5a0c; border-color: rgba(201, 132, 16, 0.4); }
     .pill.mode-hil .mode-dot { background: var(--warn); }
     .pill.mode-direct { background: var(--surface-sunken); color: var(--ink-2); border-color: var(--line); }
@@ -1321,7 +1307,7 @@
     .composer-tools .pill.model-chip:hover { background: var(--surface-sunken); border-color: var(--line-strong); }
     .composer-tools .pill.model-chip .ico { color: var(--accent); }
 
-    /* ── Model switcher cascading menu (specimen 5) ───────── */
+    /* ── Runtime model state chip (specimen 5) ───────── */
     .mmenu {
       width: 286px;
       background: var(--surface-1);
@@ -1546,80 +1532,6 @@
         linear-gradient(rgba(40, 60, 90, 0.05) 1px, transparent 1px);
       background-size: auto, 40px 40px, 40px 40px;
     }
-
-    /* ── Kanban board (LiveKanbanBoard, 5 columns) ─────── */
-    .kb {
-      height: 470px;
-      display: flex; flex-direction: column;
-      padding: 14px 16px 22px;
-    }
-    .kb-alert {
-      margin-bottom: var(--sp-3);
-      border: 1px solid rgba(214, 69, 61, 0.3);
-      background: var(--danger-surface); color: #b8352e;
-      border-radius: var(--r-md); padding: 7px 11px;
-      font-size: var(--fs-meta); font-weight: 600;
-    }
-    .kb-cols {
-      flex: 1; min-height: 0;
-      display: grid; grid-template-columns: repeat(5, 1fr);
-      gap: 12px;
-    }
-    .kb-col {
-      display: flex; flex-direction: column; min-height: 0;
-      border: 1px solid var(--line-soft); border-radius: var(--r-md);
-      background: rgba(255, 255, 255, 0.68); box-shadow: var(--elev-1);
-      overflow: hidden;
-    }
-    .kb-col-h {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 10px 11px; border-bottom: 1px solid var(--line-soft);
-      border-top: 3px solid var(--line-strong);
-    }
-    .kb-col.todo .kb-col-h { border-top-color: #4f86c6; }
-    .kb-col.doing .kb-col-h { border-top-color: var(--warn); }
-    .kb-col.blocked .kb-col-h { border-top-color: var(--danger); }
-    .kb-col.review .kb-col-h { border-top-color: var(--accent); }
-    .kb-col.done .kb-col-h { border-top-color: var(--ok); }
-    .kb-col-h .nm { font-size: var(--fs-sm); font-weight: 720; color: var(--ink-1); }
-    .kb-col-h .ct { background: var(--surface-sunken); color: var(--ink-3); border-radius: var(--r-pill); padding: 0 7px; font-family: var(--mono); font-size: 9.5px; }
-    .kb-col-b { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 11px; }
-    .kb-card {
-      border: 1px solid var(--line-soft); border-radius: var(--r-md);
-      background: var(--surface-1); padding: 10px; box-shadow: var(--elev-1);
-    }
-    .kb-card .kc-t { font-size: var(--fs-sm); font-weight: 620; color: var(--ink-1); line-height: 1.35; }
-    .kb-card .kc-n { margin: 5px 0 0; font-size: var(--fs-micro); color: var(--ink-3); line-height: 1.5; }
-    .kb-card .kc-f { margin-top: 9px; display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp-2); }
-    .kb-tagchip {
-      display: inline-flex; max-width: 100%;
-      padding: 1px 7px; border-radius: var(--r-xs);
-      font-size: 9.5px; font-weight: 660;
-      background: var(--accent-surface); color: var(--accent);
-    }
-    .kb-tagchip.blocked { background: var(--danger-surface); color: #b8352e; }
-    .kb-asg { display: flex; align-items: center; gap: 5px; margin-top: 6px; font-size: 9.5px; color: var(--ink-3); font-weight: 560; }
-    .kb-asg .av { width: 16px; height: 16px; border-radius: 50%; background-size: cover; box-shadow: 0 0 0 1px var(--line); }
-    .kb-sdot { width: 7px; height: 7px; border-radius: 50%; flex: none; margin-bottom: 2px; }
-    .kb-sdot.todo { background: #4f86c6; }
-    .kb-sdot.doing { background: var(--warn); }
-    .kb-sdot.blocked { background: var(--danger); }
-    .kb-sdot.review { background: var(--accent); }
-    .kb-sdot.done { background: var(--ok); }
-    .kb-drop {
-      min-height: 70px; display: grid; place-items: center;
-      border: 1px dashed var(--line-strong); border-radius: var(--r-md);
-      color: var(--ink-4); font-size: var(--fs-micro);
-      background: rgba(255, 255, 255, 0.35);
-    }
-    .kb-add {
-      margin-top: auto; height: 34px;
-      border: 1px solid transparent; border-radius: var(--r-md);
-      background: transparent; color: var(--ink-3);
-      font-size: var(--fs-sm); font-weight: 560;
-      transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
-    }
-    .kb-add:hover { background: var(--surface-sunken); border-color: var(--line-soft); color: var(--accent); }
 
     /* ── Interaction modals (InteractionPrompt) ────────── */
     .modal-stack { display: flex; flex-direction: column; }
@@ -1961,7 +1873,7 @@
     .mp-btn.outline { background: var(--surface-1); color: var(--ink-2); }
     .mp-btn:disabled { opacity: 0.55; cursor: not-allowed; }
 
-    /* freeform textarea reuse */
+    /* freeform Textarea primitive specimen */
     .mp-textarea {
       width: 100%;
       min-height: 56px;
@@ -1972,6 +1884,7 @@
       font: inherit; font-size: var(--fs-sm); color: var(--ink-2);
       resize: vertical;
     }
+    .mp-textarea[data-placeholder]:empty::before { content: attr(data-placeholder); color: var(--ink-4); }
 
     /* simple chat bubble for specimen variants */
     .b-bubble {
@@ -2204,7 +2117,7 @@
     .reveal.d3 { animation-delay: 0.16s; }
     .reveal.d4 { animation-delay: 0.22s; }
     @media (prefers-reduced-motion: reduce) {
-      .reveal, .sop-status.running::before, .composer-input::after { animation: none; }
+      .reveal, .run-status.running::before, .composer-input::after { animation: none; }
       * { transition: none !important; }
     }
   </style>
@@ -2295,7 +2208,7 @@
       </div>
       <div class="nav reveal d1">
         <button class="active"><svg class="ico sm"><use href="#i-building"/></svg>Office</button>
-        <button>SOPs</button>
+        <button>Files</button>
         <button>Market</button>
         <button>Personnel</button>
       </div>
@@ -2312,7 +2225,7 @@
       <aside class="workspace reveal d2">
         <div class="ws-tabs">
           <button class="ws-tab active" data-pane="files"><svg class="ico sm"><use href="#i-file"/></svg>Files</button>
-          <button class="ws-tab" data-pane="sops"><svg class="ico sm"><use href="#i-activity"/></svg>SOPs <span class="badge">2</span></button>
+          <button class="ws-tab" data-pane="files"><svg class="ico sm"><use href="#i-activity"/></svg>Files <span class="badge">2</span></button>
           <button class="ws-tab" data-pane="git"><svg class="ico sm"><use href="#i-git"/></svg>Git <span class="badge">16</span></button>
         </div>
 
@@ -2398,68 +2311,68 @@
             <button class="ws-foot-btn"><svg class="ico sm"><use href="#i-refresh"/></svg>Refresh</button>
           </div>
 
-          <!-- SOPs pane -->
-          <div class="ws-pane" id="pane-sops">
+          <!-- Files pane -->
+          <div class="ws-pane" id="pane-files">
             <div class="ws-search">
-              <div class="field"><svg class="ico sm"><use href="#i-search"/></svg>Search SOPs…</div>
+              <div class="field"><svg class="ico sm"><use href="#i-search"/></svg>Search Files…</div>
               <button class="filter" title="Filter"><svg class="ico sm"><use href="#i-filter"/></svg></button>
             </div>
             <section class="pane-scroll">
               <div class="sec-head">Active <span class="sec-count">2</span></div>
 
-              <article class="sop-card">
-                <div class="sop-head">
-                  <div class="sop-name">Doc-Engine Verify Flow</div>
-                  <div class="sop-progress-num">3 / 7</div>
-                  <span class="sop-status blocked">Blocked</span>
+              <article class="run-card">
+                <div class="run-head">
+                  <div class="run-name">Doc-Engine Verify Run</div>
+                  <div class="run-progress-num">3 / 7</div>
+                  <span class="run-status blocked">Blocked</span>
                 </div>
-                <div class="sop-steps">
-                  <div class="sop-step done"></div>
-                  <div class="sop-step done"></div>
-                  <div class="sop-step done"></div>
-                  <div class="sop-step blocked"></div>
-                  <div class="sop-step"></div>
-                  <div class="sop-step"></div>
-                  <div class="sop-step"></div>
+                <div class="run-steps">
+                  <div class="run-step done"></div>
+                  <div class="run-step done"></div>
+                  <div class="run-step done"></div>
+                  <div class="run-step blocked"></div>
+                  <div class="run-step"></div>
+                  <div class="run-step"></div>
+                  <div class="run-step"></div>
                 </div>
-                <div class="sop-current-row">
-                  <div class="sop-current-label">Step 4 · <b>Edge case review</b> · awaiting verifier · 12m</div>
+                <div class="run-current-row">
+                  <div class="run-current-label">Step 4 · <b>Edge case review</b> · awaiting verifier · 12m</div>
                   <span class="avatar-xs" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Alex&backgroundColor=eaf1ff')"></span>
                 </div>
               </article>
 
-              <article class="sop-card">
-                <div class="sop-head">
-                  <div class="sop-name">Onboarding Plan</div>
-                  <div class="sop-progress-num">2 / 5</div>
-                  <span class="sop-status running">Running</span>
+              <article class="run-card">
+                <div class="run-head">
+                  <div class="run-name">Onboarding Run</div>
+                  <div class="run-progress-num">2 / 5</div>
+                  <span class="run-status running">Running</span>
                 </div>
-                <div class="sop-steps">
-                  <div class="sop-step done"></div>
-                  <div class="sop-step done"></div>
-                  <div class="sop-step current"></div>
-                  <div class="sop-step"></div>
-                  <div class="sop-step"></div>
+                <div class="run-steps">
+                  <div class="run-step done"></div>
+                  <div class="run-step done"></div>
+                  <div class="run-step current"></div>
+                  <div class="run-step"></div>
+                  <div class="run-step"></div>
                 </div>
-                <div class="sop-current-row">
-                  <div class="sop-current-label">Step 3 · <b>Provision sandbox</b> · 3m in flight</div>
+                <div class="run-current-row">
+                  <div class="run-current-label">Step 3 · <b>Provision sandbox</b> · 3m in flight</div>
                   <span class="avatar-xs" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Maya&backgroundColor=fff7e6')"></span>
                 </div>
               </article>
 
               <div class="sec-head">Recent <span class="sec-count">2</span></div>
-              <article class="sop-recent-row">
-                <span class="sop-recent-mark"><svg class="ico sm"><use href="#i-check"/></svg></span>
-                <span class="sop-recent-name">Q3 Roadmap Draft (5/5)</span>
-                <span class="sop-recent-time">yesterday</span>
+              <article class="run-recent-row">
+                <span class="run-recent-mark"><svg class="ico sm"><use href="#i-check"/></svg></span>
+                <span class="run-recent-name">Q3 Roadmap Draft (5/5)</span>
+                <span class="run-recent-time">yesterday</span>
               </article>
-              <article class="sop-recent-row">
-                <span class="sop-recent-mark"><svg class="ico sm"><use href="#i-check"/></svg></span>
-                <span class="sop-recent-name">Fixture Parser Smoke (4/4)</span>
-                <span class="sop-recent-time">2d ago</span>
+              <article class="run-recent-row">
+                <span class="run-recent-mark"><svg class="ico sm"><use href="#i-check"/></svg></span>
+                <span class="run-recent-name">Fixture Parser Smoke (4/4)</span>
+                <span class="run-recent-time">2d ago</span>
               </article>
             </section>
-            <button class="ws-foot-btn"><svg class="ico sm"><use href="#i-plus"/></svg>Start SOP</button>
+            <div class="gw-annot" style="padding:0 var(--sp-5) var(--sp-3)">Run records are opened from the thread pit; this pane has no standalone plan launcher.</div>
           </div>
 
           <!-- Git pane -->
@@ -2538,22 +2451,19 @@
               <div class="gw-cards">
                 <div class="gw-card">
                   <div class="gw-card-head"><svg class="ico xs"><use href="#i-git"/></svg>Commit</div>
-                  <textarea class="gw-textarea" rows="2" placeholder="Commit message"></textarea>
-                  <button class="gw-commit-btn"><svg class="ico xs"><use href="#i-check"/></svg>Commit selected files</button>
+                  <span class="gw-action-state"><svg class="ico xs"><use href="#i-check"/></svg>Commit flow pending reviewed message workflow</span>
                 </div>
                 <div class="gw-card">
                   <div class="gw-card-head"><svg class="ico xs"><use href="#i-corner-up"/></svg>PR-ready</div>
-                  <p class="gw-pr-msg">Create a feature branch before preparing a PR.</p>
-                  <button class="gw-pr-btn" disabled><svg class="ico xs"><use href="#i-corner-up"/></svg>Open compare</button>
-                  <div class="gw-annot">Message varies: no branch checked out · feature-branch needed · no upstream (commit locally then publish) · non-GitHub remote (no compare link) · upstream exists → enabled GitHub compare URL.</div>
+                  <span class="gw-action-state"><svg class="ico xs"><use href="#i-corner-up"/></svg>PR flow pending Git provider binding</span>
                 </div>
                 <div class="gw-card">
                   <div class="gw-card-head"><svg class="ico xs"><use href="#i-check"/></svg>Checks</div>
-                  <p class="gw-checks">Unavailable. No real checks source is connected to this local workspace.</p>
+                  <p class="gw-checks">Local repository signals only; no CI status is shown until a real provider binding exists.</p>
                 </div>
               </div>
 
-              <div class="gw-annot">Unavailable full-pane states: "No project selected" · "No workspace folder" (bind a local folder first) · "Desktop Git only" (web preview unsupported). Error → red alert banner with message above the body.</div>
+              <div class="gw-annot">Unavailable full-pane states: "No project selected" · "No workspace folder" (bind a local folder first). Error → red alert banner with message above the body. Commit and PR remain state rows until reviewed-message and provider bindings exist.</div>
             </section>
           </div>
         </div>
@@ -2565,13 +2475,13 @@
           <button class="active"><svg class="ico sm"><use href="#i-cube"/></svg></button>
           <button><svg class="ico sm"><use href="#i-square"/></svg></button>
         </div>
-        <div class="stage-float stage-runaxis" title="Run axis lives on the stage, not the rail. Two adjacent entries, one visual language, different lifecycle.">
-          <button class="stage-entry" data-kanban-toggle title="Board — persistent Kanban, project/company-scoped, present even when idle (cards carry projectId + companyId)">
-            <svg class="ico sm"><use href="#i-grid"/></svg>Board
-          </button>
-          <button class="stage-entry live-idle" title="Live — the current run's plan + activity broadcasts here on the stage; when the run ends it is NOT deleted, it sediments into the conversation that triggered it (re-open that conversation to review). Idle now: no active run.">
-            <svg class="ico sm"><use href="#i-pulse"/></svg>Live
-          </button>
+        <div class="stage-float stage-status" title="Office status strip: tokens, spend, and runtime readiness. Run details stay in the thread record and in-scene pipeline pill.">
+          <span class="stage-status-chip" title="Company token usage">
+            <svg class="ico sm"><use href="#i-sparkle"/></svg>142K tok
+          </span>
+          <span class="stage-status-chip is-muted" title="Estimated company spend">
+            <svg class="ico sm"><use href="#i-pulse"/></svg>$1.84
+          </span>
         </div>
         <div class="scene-wrap">
           <svg class="scene" viewBox="0 0 1600 800" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Office scene, fixed oblique camera">
@@ -2608,7 +2518,7 @@
               <rect x="1160" y="380" width="360" height="380" rx="10"/>
             </g>
 
-            <!-- Hero board -->
+            <!-- Hero status display -->
             <g filter="url(#soft)">
               <rect x="680" y="80" width="240" height="120" rx="10" fill="#fff" stroke="#d4dce6"/>
             </g>
@@ -2887,8 +2797,9 @@
                     </div>
                     <div class="dlv-actions">
                       <button class="dlv-btn">Copy</button>
-                      <button class="dlv-btn">Open</button>
-                      <button class="dlv-btn">Download</button>
+                      <button class="dlv-btn">Save locally</button>
+                      <button class="dlv-btn">Open local output</button>
+                      <span class="dlv-fmt">Format · MD</span>
                     </div>
                   </div>
                 </div>
@@ -2907,13 +2818,12 @@
               </div>
             </section>
 
-            <!-- Sedimented run record. The live flow does NOT vanish when
+            <!-- Sedimented run record. The active flow does NOT vanish when
                  a run ends — it settles into the conversation that
                  triggered it. Collapsed by default; expands to the SAME
-                 Plan + Activity surface that broadcasts on the stage 'Live'
-                 entry during the run. Re-opening this conversation IS the
-                 review path. -->
-            <div class="run-record open" title="Run record for this thread — the Plan + Activity that ran here. During the run this broadcasts on the stage 'Live' entry; on completion it sediments into this conversation (not deleted). Shown expanded to demonstrate the preserved surface; collapsed by default.">
+                 Plan + Activity surface used during the run. Re-opening
+                 this conversation IS the review path. -->
+            <div class="run-record open" title="Run record for this thread — the Plan + Activity that ran here. On completion it sediments into this conversation (not deleted). Shown expanded to demonstrate the preserved surface; collapsed by default.">
               <div class="rr-head">
                 <svg class="ico sm"><use href="#i-pulse"/></svg>
                 <span class="rr-title">Run record</span>
@@ -2939,7 +2849,7 @@
                       <div class="act-entry warning"><svg class="ico xs"><use href="#i-terminal"/></svg><span>Plan step 4 blocked — awaiting verifier</span></div>
                     </div>
                   </div>
-                  <div class="gw-annot" style="margin-top:6px">During a run this exact surface is the live broadcast on the stage <b>Live</b> entry. Idle conversation = no run record. Bursts of the same entry collapse to an <code>×N</code> badge.</div>
+                  <div class="gw-annot" style="margin-top:6px">During a run this exact surface is the active run record surfaced by the thread and the in-scene pipeline pill. Idle conversation = no run record. Bursts of the same entry collapse to an <code>×N</code> badge.</div>
                 </div>
                 <div>
                   <div class="rail-sec-head">Plan</div>
@@ -2986,7 +2896,7 @@
                       </div>
                     </div>
                   </div>
-                  <div class="gw-annot" style="margin-top:6px">Rendered when <code>planSteps&gt;0 || stage==='planning'</code>. No plan but running → centered stage-label card. The <b>Board</b> is a persistent stage entry (project/company-scoped), NOT part of the run record — it sits beside <b>Live</b> on the stage run axis.</div>
+                  <div class="gw-annot" style="margin-top:6px">Rendered when <code>planSteps&gt;0 || stage==='planning'</code>. No plan but running → centered stage-label card. Persistent work queues are not part of the Office stage; the thread run record is the review surface.</div>
                 </div>
               </div>
             </div>
@@ -3019,14 +2929,13 @@
 - Close UX/IA debt batch…</pre>
                   <div class="dlv-actions">
                     <button class="dlv-btn">Copy</button>
-                    <span class="dlv-fmt">DOCX<svg class="ico xs"><use href="#i-chev-down"/></svg></span>
-                    <button class="dlv-btn">Preview</button>
-                    <button class="dlv-btn">Export</button>
-                    <button class="dlv-btn sop-promoted" title="Promoted when ≥2 contributors">Save as SOP</button>
+                    <button class="dlv-btn">Save locally</button>
+                    <button class="dlv-btn">Open local output</button>
+                    <span class="dlv-fmt">Format · MD</span>
                   </div>
                 </div>
               </div>
-              <!-- Second full card (file artifact: Download + desktop Save locally / Open folder) -->
+              <!-- Second full card (text artifact: desktop Save locally / Open local output) -->
               <div class="dlv">
                 <div class="dlv-head">
                   <svg class="ico sm"><use href="#i-file"/></svg>
@@ -3044,14 +2953,13 @@
                   <pre class="dlv-content">Doc-Engine fixture verified. All .md attachments flow through as text…</pre>
                   <div class="dlv-actions">
                     <button class="dlv-btn">Copy</button>
-                    <button class="dlv-btn">Preview</button>
-                    <button class="dlv-btn">Download</button>
                     <button class="dlv-btn">Save locally</button>
-                    <button class="dlv-btn">Open folder</button>
+                    <button class="dlv-btn">Open local output</button>
+                    <span class="dlv-fmt">Format · MD</span>
                   </div>
                 </div>
               </div>
-              <div class="gw-annot" style="margin-top:4px">Outputs are thread-scoped and live inside the conversation (inline detail). Empty = "No Outputs Yet" placeholder (icon + hint). New deliverable highlights 3s + scrolls into view. Save-as-SOP shows "Saved!" 2s after success. No project bound → the rail shows the conversation list with "Select a project to start a conversation."</div>
+              <div class="gw-annot" style="margin-top:4px">Outputs live in the thread pit popover. Empty output state renders nothing in the rail. Connected actions are Copy, Save locally, and Open local output; format is a static state chip.</div>
             </div>
           </div>
 
@@ -3066,10 +2974,10 @@
                 <button class="ibtn" title="Attach file — / and @ are typed inline (slash registry / mention), no button needed"><svg class="ico sm"><use href="#i-paperclip"/></svg></button>
                 <span class="divider"></span>
                 <button class="pill model-chip" title="Model — provider ▸ model cascade + think level. The only in-conversation model switch; reads configured ProviderConfig, full key/endpoint setup lives in Settings">
-                  <svg class="ico xs"><use href="#i-sparkle"/></svg>MiniMax · M2.7 · Med<span class="mode-caret"><svg class="ico xs"><use href="#i-chev-down"/></svg></span>
+                  <svg class="ico xs"><use href="#i-sparkle"/></svg>Runtime model · Med<span class="mode-caret"><svg class="ico xs"><use href="#i-chev-down"/></svg></span>
                 </button>
-                <button class="pill mode-chip mode-sop" title="SessionModeChip — the only mode entry (SOP / Human-in-loop / Direct / YOLO)">
-                  <span class="mode-dot"></span>SOP<span class="mode-caret"><svg class="ico xs"><use href="#i-chev-down"/></svg></span>
+                <button class="pill mode-chip mode-plan" title="SessionModeChip — the only mode entry (Plan / Human-in-loop / Direct / YOLO)">
+                  <span class="mode-dot"></span>Plan<span class="mode-caret"><svg class="ico xs"><use href="#i-chev-down"/></svg></span>
                 </button>
                 <div class="grow"></div>
                 <button class="send">Send<svg class="ico sm"><use href="#i-send"/></svg></button>
@@ -3090,101 +2998,33 @@
   <div class="spec-suite">
     <div class="spec-suite-head">
       <h2>Office — state specimens</h2>
-      The frame above is the resting Office: the right rail is a <b>selected conversation</b> (messages + sedimented run record + thread outputs + composer) — no Chat/Inspect/Tasks tabs, no status bar, no Boss Dashboard. The run axis (<b>Board</b> + <b>Live</b>) lives on the stage; spend is a diegetic scene-border readout. These specimens are the remaining Office states an implementing agent must build, expressed 1:1 with real component code.
+      The frame above is the resting Office: the right rail is a <b>selected conversation</b> (messages + sedimented run record + thread outputs + composer) — no Chat/Inspect/Tasks tabs, no status bar, no Boss Dashboard. The top stage strip is status/token/cost only; detailed work remains in the thread run record and in-scene pipeline pill. These specimens are the remaining Office states an implementing agent must build, expressed 1:1 with real component code.
     </div>
 
-    <!-- 1 · Board — persistent stage entry (Kanban expanded) -->
+    <!-- 1 · Stage status strip -->
     <div class="spec-state">
       <div class="spec-cap">
-        <span class="n">1</span><span class="t">Board — persistent stage entry</span>
-        <span class="d">The <code style="color:#aab6cc">Board</code> stage-run-axis entry expands LiveKanbanBoard (5 columns) over the stage · project/company-scoped, present even when idle (cards carry projectId + companyId) · ⎋ / outside-click collapse · adjacent to <code style="color:#aab6cc">Live</code>, one visual language, different lifecycle</span>
+        <span class="n">1</span><span class="t">Stage status strip</span>
+        <span class="d">Top-center Office chrome is status/token/cost only. It does not expand, does not host work queues, and does not duplicate the thread run record.</span>
       </div>
-      <div class="spec-frame spec-stage-bg">
-        <div class="kb">
-          <div class="kb-alert">Invalid transition: Done → Doing</div>
-          <div class="kb-cols">
-            <div class="kb-col todo">
-              <div class="kb-col-h"><span class="nm">Todo</span><span class="ct">2</span></div>
-              <div class="kb-col-b">
-                <div class="kb-card">
-                  <div class="kc-t">Wire attachment GC sweeper</div>
-                  <p class="kc-n">Boot-time orphan scan + emit gc.swept event.</p>
-                  <div class="kc-f">
-                    <div>
-                      <span class="kb-tagchip">PM Planned</span>
-                      <div class="kb-asg"><span class="av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Kai&backgroundColor=f4eaff')"></span>Kai Nakamura</div>
-                    </div>
-                    <span class="kb-sdot todo"></span>
-                  </div>
-                </div>
-                <div class="kb-card">
-                  <div class="kc-t">Audit vault refs</div>
-                  <div class="kc-f"><span class="kb-tagchip">Human</span><span class="kb-sdot todo"></span></div>
-                </div>
-                <button class="kb-add">+ Add Card</button>
-              </div>
-            </div>
-            <div class="kb-col doing">
-              <div class="kb-col-h"><span class="nm">Doing</span><span class="ct">1</span></div>
-              <div class="kb-col-b">
-                <div class="kb-card">
-                  <div class="kc-t">Edge case review</div>
-                  <p class="kc-n">Boundary conditions for markdown parser.</p>
-                  <div class="kc-f">
-                    <div>
-                      <span class="kb-tagchip">Employee</span>
-                      <div class="kb-asg"><span class="av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Alex&backgroundColor=eaf1ff')"></span>Alex Chen</div>
-                    </div>
-                    <span class="kb-sdot doing"></span>
-                  </div>
-                </div>
-                <button class="kb-add">+ Add Card</button>
-              </div>
-            </div>
-            <div class="kb-col blocked">
-              <div class="kb-col-h"><span class="nm">Blocked</span><span class="ct">1</span></div>
-              <div class="kb-col-b">
-                <div class="kb-card">
-                  <div class="kc-t">Doc-Engine verify flow</div>
-                  <div class="kc-f">
-                    <div>
-                      <span class="kb-tagchip blocked">Awaiting verifier sign-off</span>
-                      <div class="kb-asg"><span class="av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Maya&backgroundColor=fff7e6')"></span>Maya Lin</div>
-                    </div>
-                    <span class="kb-sdot blocked"></span>
-                  </div>
-                </div>
-                <button class="kb-add">+ Add Card</button>
-              </div>
-            </div>
-            <div class="kb-col review">
-              <div class="kb-col-h"><span class="nm">Review</span><span class="ct">0</span></div>
-              <div class="kb-col-b">
-                <div class="kb-drop">Drop here</div>
-                <button class="kb-add">+ Add Card</button>
-              </div>
-            </div>
-            <div class="kb-col done">
-              <div class="kb-col-h"><span class="nm">Done</span><span class="ct">1</span></div>
-              <div class="kb-col-b">
-                <div class="kb-card">
-                  <div class="kc-t">Provision sandbox</div>
-                  <div class="kc-f">
-                    <div>
-                      <span class="kb-tagchip">Manager</span>
-                      <div class="kb-asg"><span class="av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Maya&backgroundColor=fff7e6')"></span>Maya Lin</div>
-                    </div>
-                    <span class="kb-sdot done"></span>
-                  </div>
-                </div>
-                <button class="kb-add">+ Add Card</button>
-              </div>
-            </div>
+      <div class="spec-frame spec-stage-bg" style="padding:34px 28px;display:flex;gap:36px;justify-content:center;align-items:flex-start;flex-wrap:wrap">
+        <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-start">
+          <span class="gw-annot" style="color:#8b97ad;margin:0">Idle status</span>
+          <div class="stage-float stage-status" style="position:static;transform:none">
+            <span class="stage-status-chip"><svg class="ico sm"><use href="#i-sparkle"/></svg>142K tok</span>
+            <span class="stage-status-chip is-muted"><svg class="ico sm"><use href="#i-pulse"/></svg>$1.84</span>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-start">
+          <span class="gw-annot" style="color:#8b97ad;margin:0">Run burning spend</span>
+          <div class="stage-float stage-status" style="position:static;transform:none">
+            <span class="stage-status-chip is-active"><svg class="ico sm"><use href="#i-sparkle"/></svg>+18K tok<span class="pulse-dot"></span></span>
+            <span class="stage-status-chip is-active"><svg class="ico sm"><use href="#i-pulse"/></svg>$0.04</span>
           </div>
         </div>
       </div>
       <div class="spec-cap" style="border-top:1px solid rgba(255,255,255,0.06);border-bottom:0">
-        <span class="d">Card edit (pencil → inline title/note/assignee/blocked-reason + Save/Cancel) and the PlanKanbanBoard variant (Requirements + step columns when <code style="color:#aab6cc">cards</code> is absent) reuse the same column shell. Empty board still renders.</span>
+        <span class="d">The strip is intentionally non-expanding. Activity, plan, blockers, and review state are owned by the selected thread's run record.</span>
       </div>
     </div>
 
@@ -3215,20 +3055,20 @@
       </div>
     </div>
 
-    <!-- 3 · Live — run broadcast on the stage -->
+    <!-- 3 · Active run record -->
     <div class="spec-state">
       <div class="spec-cap">
-        <span class="n">3</span><span class="t">Live — run broadcast on the stage</span>
-        <span class="d">The <code style="color:#aab6cc">Live</code> stage entry opens this while a run is active: Plan + Activity broadcast over the scene (the structured "needs intervention" surface — plan step status, blocked, error entries — never forced into 3D). Adjacent to <code style="color:#aab6cc">Board</code>, one visual language, different lifecycle.</span>
+        <span class="n">3</span><span class="t">Active run record</span>
+        <span class="d">When a run is active, Plan + Activity remain a thread-owned run record with an in-scene pipeline pill. The Office stage does not open a separate top overlay.</span>
       </div>
       <div class="spec-frame spec-stage-bg" style="padding:26px;display:flex;justify-content:center">
         <div style="width:560px;max-width:100%;background:var(--surface-1);border:1px solid var(--line-strong);border-radius:var(--r-lg);box-shadow:var(--elev-3);overflow:hidden">
           <div class="rr-head" style="cursor:default;border-bottom:1px solid var(--line-soft)">
             <svg class="ico sm"><use href="#i-pulse"/></svg>
-            <span class="rr-title">Live · Fixture Parser Verification</span>
+            <span class="rr-title">Run record · Fixture Parser Verification</span>
             <span class="rr-meta">3 / 7 · 1 blocked</span>
             <span class="rr-cost">$0.04</span>
-            <span class="rr-meta" style="margin-left:auto" title="Latency degrades into the live run overlay, never into the persistent scene readout">1.2s latency</span>
+            <span class="rr-meta" style="margin-left:auto" title="Latency belongs to the active run record, never to the persistent scene readout">1.2s latency</span>
           </div>
           <div style="padding:var(--sp-5);display:flex;flex-direction:column;gap:var(--sp-5)">
             <div>
@@ -3299,7 +3139,7 @@
         </div>
       </div>
       <div class="spec-cap" style="border-top:1px solid rgba(255,255,255,0.06);border-bottom:0">
-        <span class="d">Same surface as the resting frame's <b>Run record</b>: when the run ends this is NOT deleted — it sediments into the conversation that triggered it (re-open that conversation to review). Board vs Live = two adjacent stage entries, one visual language, different lifecycle; never merged into one overlay.</span>
+        <span class="d">Same surface as the resting frame's <b>Run record</b>: when the run ends this is NOT deleted — it sediments into the conversation that triggered it for later review.</span>
       </div>
     </div>
 
@@ -3307,7 +3147,7 @@
     <div class="spec-state">
       <div class="spec-cap">
         <span class="n">4</span><span class="t">Scene cost readout + notifications</span>
-        <span class="d">The deleted status bar's spend is now diegetic on the scene border. Quiet + fixed when idle; <code style="color:#aab6cc">.scene-cost.live</code> beats while a run burns spend (过程即价值 — money burning is felt, not stated). No bell, no status bar: the only notification surface is a quiet unread dot beside the readout (click → list) plus troubled employees/zones self-highlighting in the scene. Latency is NOT here — it lives in the Live run overlay.</span>
+        <span class="d">The deleted status bar's spend is now diegetic on the scene border. Quiet + fixed when idle; <code style="color:#aab6cc">.scene-cost.live</code> beats while a run burns spend (过程即价值 — money burning is felt, not stated). No bell, no status bar: the only notification surface is a quiet unread dot beside the readout (click → list) plus troubled employees/zones self-highlighting in the scene. Latency is NOT here — it lives in the active run record.</span>
       </div>
       <div class="spec-frame spec-stage-bg" style="padding:34px 28px;display:flex;gap:44px;justify-content:center;align-items:flex-start;flex-wrap:wrap">
         <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-start">
@@ -3318,7 +3158,7 @@
           </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-start">
-          <span class="gw-annot" style="color:#8b97ad;margin:0">Run live — beating</span>
+          <span class="gw-annot" style="color:#8b97ad;margin:0">Run active — beating</span>
           <div class="scene-cost live" style="position:static">
             <span class="sc-readout"><svg class="ico xs"><use href="#i-sparkle"/></svg><span class="sc-beat"><b>+18K</b> tok</span><span class="sc-div"></span><b>$0.04</b></span>
             <button class="sc-notif"><svg class="ico sm"><use href="#i-bell"/></svg><span class="nb-dot">3</span></button>
@@ -3335,7 +3175,7 @@
         </div>
       </div>
       <div class="spec-cap" style="border-top:1px solid rgba(255,255,255,0.06);border-bottom:0">
-        <span class="d">Boss Dashboard is removed with no replacement. Live diegetic spend + the Live overlay's single-run cost detail cover main-path cost anxiety. The cross-project historical aggregate ledger is explicitly <b>v1-deferred</b> (known gap) — it is NOT given a fake home; if ever needed it is a dedicated Activity Log peer-workspace design.</span>
+        <span class="d">Boss Dashboard is removed with no replacement. Diegetic spend + the active run record's single-run cost detail cover main-path cost anxiety. The cross-project historical aggregate ledger is explicitly <b>v1-deferred</b> (known gap) — it is NOT given a fake home; if ever needed it is a dedicated Activity Log peer-workspace design.</span>
       </div>
     </div>
 
@@ -3364,7 +3204,7 @@
               </div>
             </div>
             <div class="ic-body">
-              <textarea class="ic-textarea" readonly>Tell Offisim what to do instead</textarea>
+              <div class="ic-textarea primitive-textarea" data-primitive="Textarea">Tell Offisim what to do instead</div>
               <div class="ic-opts">
                 <button class="ic-opt secondary">Approve once</button>
                 <button class="ic-opt secondary">Always allow</button>
@@ -3387,7 +3227,7 @@
               <p class="ic-prompt">The deliverable can ship as DOCX or PDF. Pick one or tell me something else.</p>
             </div>
             <div class="ic-body">
-              <textarea class="ic-textarea" readonly>Tell Offisim what to do instead</textarea>
+              <div class="ic-textarea primitive-textarea" data-primitive="Textarea">Tell Offisim what to do instead</div>
               <div class="ic-opts">
                 <button class="ic-opt secondary">Use DOCX</button>
                 <button class="ic-opt secondary">Use PDF</button>
@@ -3517,40 +3357,25 @@ Run the verify script against the deliverable set…</div>
       </div>
     </div>
 
-    <!-- 7 · Model switcher — cascading menu -->
+    <!-- 7 · Runtime model state chip -->
     <div class="spec-state">
       <div class="spec-cap">
-        <span class="n">7</span><span class="t">Model switcher — cascading menu</span>
-        <span class="d">Composer chip ↑ (next to SessionModeChip) · Provider ▸ Model is a true cascade · Think level is a persistent segment (not a 3rd level) · footer routes to Settings — reads configured ProviderConfig, never forks key/endpoint setup</span>
+        <span class="n">7</span><span class="t">Runtime model state chip</span>
+        <span class="d">Composer chip is a read-only trust signal: stored-key runtime model or <code style="color:#aab6cc">Runtime model</code> fallback · provider/key/model editing belongs in Settings · no in-chat provider cascade.</span>
       </div>
       <div class="spec-frame spec-stage-bg" style="padding:34px 28px;display:flex;justify-content:center">
         <div class="mmenu">
-          <div class="mmenu-sec">Provider</div>
+          <div class="mmenu-sec">Runtime status</div>
           <div class="mmenu-row active">
             <span class="mmenu-radio"></span>
-            <span>MiniMax Global</span>
-            <span class="mmenu-sub-caret"><svg class="ico xs"><use href="#i-chev-right"/></svg></span>
-          </div>
-          <div class="mmenu-row disabled">
-            <span class="mmenu-radio"></span><span>OpenAI</span><span class="mmenu-flag">needs key</span>
-          </div>
-          <div class="mmenu-row disabled">
-            <span class="mmenu-radio"></span><span>OpenRouter</span><span class="mmenu-flag">needs key</span>
-          </div>
-          <div class="mmenu-row disabled">
-            <span class="mmenu-radio"></span><span>Kimi</span><span class="mmenu-flag">needs key</span>
-          </div>
-          <div class="mmenu-row disabled">
-            <span class="mmenu-radio"></span><span>Gemini</span><span class="mmenu-flag">needs key</span>
+            <span>Credential-backed runtime profile</span>
+            <span class="mmenu-flag">active</span>
           </div>
 
           <div class="mmenu-div"></div>
-          <div class="mmenu-sec" style="padding-top:0">Think level</div>
-          <div class="mmenu-seg">
-            <button>Off</button>
-            <button>Low</button>
-            <button class="on">Med</button>
-            <button>High</button>
+          <div class="mmenu-sec" style="padding-top:0">Composer label</div>
+          <div class="mmenu-row active">
+            <span class="mmenu-radio"></span><span>Runtime model · Med</span><span></span>
           </div>
 
           <div class="mmenu-div"></div>
@@ -3558,25 +3383,10 @@ Run the verify script against the deliverable set…</div>
             <svg class="ico sm"><use href="#i-settings"/></svg>Manage providers &amp; keys
             <span class="go">Settings ›</span>
           </div>
-
-          <!-- cascaded submenu: models for the hovered/selected provider -->
-          <div class="mmenu-cascade">
-            <div class="mmenu-sec" style="padding-top:var(--sp-2)">MiniMax models</div>
-            <div class="mmenu-row active">
-              <span class="mmenu-radio"></span><span>MiniMax-M2.7</span><span></span>
-            </div>
-            <div class="mmenu-row">
-              <span class="mmenu-radio"></span><span>MiniMax-M2</span><span></span>
-            </div>
-            <div class="mmenu-row">
-              <span class="mmenu-radio"></span><span>MiniMax-Text-01</span><span></span>
-            </div>
-            <div class="gw-annot" style="margin-top:6px;padding:0 var(--sp-3)">Model list is provider-driven (provider-source-registry catalog), not hardcoded. Empty / fetch-error → "No models — check provider in Settings."</div>
-          </div>
         </div>
       </div>
       <div class="spec-cap" style="border-top:1px solid rgba(255,255,255,0.06);border-bottom:0">
-        <span class="d">Chip label = <code style="color:#aab6cc">provider · model · think</code> compact form. Closed-state click in the resting frame above cycles think level (lightweight demo). Selecting a disabled provider is blocked inline; "Manage providers &amp; keys" navigates to the Settings workspace (same altitude relationship as SessionModeChip ↔ SOP management — quick switch here, full config there).</span>
+        <span class="d">Chip label = <code style="color:#aab6cc">runtime model · think</code> compact form. Clicking the chip opens Settings/provider configuration; it does not locally change provider, key, endpoint, or model state.</span>
       </div>
     </div>
 
@@ -3690,7 +3500,7 @@ Run the verify script against the deliverable set…</div>
               <span class="mp-t">Create · Sales Tear-down (proposed by Alex)</span>
               <span class="chip danger">create · error</span>
             </div>
-            <div class="mp-d">Self-authored by LLM. Frontmatter parse failed; reason surfaces inline — Confirm disabled until Retry succeeds.</div>
+            <div class="mp-d">Self-authored by LLM. Frontmatter parse failed; reason surfaces inline — Confirm remains unavailable until a regenerated valid artifact is attached by the runtime.</div>
             <div style="display:flex;flex-direction:column;gap:9px;margin-top:9px">
               <div>
                 <div class="sk-sec-l">Source</div>
@@ -3709,8 +3519,8 @@ Run the verify script against the deliverable set…</div>
                 </div>
               </div>
               <div class="ic-opts">
-                <button class="ic-opt secondary" disabled>Confirm</button>
-                <button class="ic-opt secondary">Retry</button>
+                <button class="ic-opt secondary" disabled>Confirm unavailable</button>
+                <button class="ic-opt secondary">Regenerate artifact</button>
                 <button class="ic-opt outline">Cancel</button>
               </div>
             </div>
@@ -3857,7 +3667,7 @@ Run the verify script against the deliverable set…</div>
                 <div class="listrow"><span class="chip accent">#4</span><span class="nm">Patch parser edge cases</span><span class="chip">Alex</span></div>
                 <div class="listrow"><span class="chip accent">#5</span><span class="nm">Re-run verifier suite</span><span class="chip">Maya</span></div>
               </div>
-              <textarea class="mp-textarea" placeholder="Tell Offisim what to change"></textarea>
+              <div class="mp-textarea primitive-textarea" data-primitive="Textarea" data-placeholder="Tell Offisim what to change"></div>
               <div class="ic-opts">
                 <button class="ic-opt secondary">Start execution</button>
                 <button class="ic-opt secondary">Revise plan</button>
@@ -3953,7 +3763,7 @@ Run the verify script against the deliverable set…</div>
     <div class="spec-state">
       <div class="spec-cap">
         <span class="n">16</span><span class="t">MeetingPanel — active</span>
-        <span class="d">Live participants dots + transcript + duration timer + end / pause / resume / inject buttons. Inject opens a side composer that drops a Boss interjection mid-meeting (used during HIL pauses).</span>
+        <span class="d">Live participants dots + transcript + duration timer + end / pause / inject actions. Resume is shown only in paused state, not as a disabled active-state placeholder.</span>
       </div>
       <div class="spec-frame spec-stage-bg" style="padding:26px;display:flex;justify-content:center">
         <div class="mini-pane" style="width:560px;max-width:100%">
@@ -3980,7 +3790,6 @@ Run the verify script against the deliverable set…</div>
           <div class="mp-row" style="border-top:1px solid var(--line-soft);padding-top:9px">
             <button class="mp-btn danger-o"><svg class="ico xs" style="margin-right:5px"><use href="#i-x"/></svg>End</button>
             <button class="mp-btn"><svg class="ico xs" style="margin-right:5px"><use href="#i-minus"/></svg>Pause</button>
-            <button class="mp-btn outline" disabled>Resume</button>
             <button class="mp-btn accent" style="margin-left:auto"><svg class="ico xs" style="margin-right:5px"><use href="#i-send"/></svg>Inject</button>
           </div>
         </div>
@@ -4157,30 +3966,28 @@ Run the verify script against the deliverable set…</div>
     <!-- 23 · ErrorBanner — full variants -->
     <div class="spec-state">
       <div class="spec-cap">
-        <span class="n">23</span><span class="t">ErrorBanner — Retry / Swap Person / Swap Model / Details</span>
-        <span class="d">Surfaced above the composer when a run fails. Retry replays the failed turn; Swap Person opens an employee dropdown; Swap Model routes to Settings; Details expands the error history list.</span>
+        <span class="n">23</span><span class="t">ErrorBanner — provider failure details</span>
+        <span class="d">Surfaced above the composer when a run fails. Recovery is explicit state: Details expands error history, Settings opens provider configuration, and redispatch is shown only after a runtime recovery target exists.</span>
       </div>
       <div class="spec-frame spec-stage-bg" style="padding:24px;display:flex;justify-content:center">
         <div style="width:600px;display:flex;flex-direction:column;gap:10px">
           <div class="inline-warn">
             <svg class="ico sm"><use href="#i-alert"/></svg>
             <div>
-              <div><b>Provider returned 429</b> · MiniMax-M2.7 rate-limited</div>
+              <div><b>Provider returned 429</b> · Runtime model rate-limited</div>
               <div style="font-size:var(--fs-micro);font-weight:540">Last turn: "Generate diff vs golden" — Alex Chen</div>
             </div>
             <div style="margin-left:auto;display:inline-flex;gap:6px">
-              <button class="mp-btn">Retry</button>
-              <button class="mp-btn">Swap Person ▾</button>
-              <button class="mp-btn">Swap Model ▾</button>
               <button class="mp-btn outline">Details</button>
+              <button class="mp-btn">Provider Settings</button>
             </div>
           </div>
           <div class="mini-pane">
             <div class="mp-l">expanded · error history</div>
             <div class="err-history">
-              <div class="er"><span class="lab">429</span>MiniMax rate-limit · retry-after 8s<span class="tm">now</span></div>
-              <div class="er"><span class="lab">429</span>MiniMax rate-limit · retry-after 4s<span class="tm">2m</span></div>
-              <div class="er"><span class="lab">503</span>MiniMax upstream busy<span class="tm">9m</span></div>
+              <div class="er"><span class="lab">429</span>Provider rate-limit · retry-after 8s<span class="tm">now</span></div>
+              <div class="er"><span class="lab">429</span>Provider rate-limit · retry-after 4s<span class="tm">2m</span></div>
+              <div class="er"><span class="lab">503</span>Provider upstream busy<span class="tm">9m</span></div>
               <div class="er"><span class="lab">timeout</span>provider stream stalled &gt;60s<span class="tm">14m</span></div>
             </div>
           </div>
@@ -4289,9 +4096,7 @@ Run the verify script against the deliverable set…</div>
           <div class="slash-row"><span class="cmd">/replan</span><span class="alias">alias: /rp</span><span class="ds">Revise the active plan from a freeform note</span></div>
           <div class="slash-row"><span class="cmd">/route</span><span class="alias">—</span><span class="ds">Re-route the active task to a specific employee</span></div>
           <div class="slash-row"><span class="cmd">/swap-model</span><span class="alias">/sm</span><span class="ds">Open the model cascade</span></div>
-          <div class="slash-row"><span class="cmd">/mode</span><span class="alias">—</span><span class="ds">Cycle SOP / HIL / Direct / YOLO</span></div>
-          <div class="slash-row"><span class="cmd">/board</span><span class="alias">/k · /kanban</span><span class="ds">Open the persistent kanban board</span></div>
-          <div class="slash-row"><span class="cmd">/live</span><span class="alias">—</span><span class="ds">Open the live run overlay</span></div>
+          <div class="slash-row"><span class="cmd">/mode</span><span class="alias">—</span><span class="ds">Cycle Plan / HIL / Direct / YOLO</span></div>
           <div class="slash-row"><span class="cmd">/skill install</span><span class="alias">—</span><span class="ds">Install a skill from marketplace or git URL</span></div>
           <div class="slash-row"><span class="cmd">/skill create</span><span class="alias">—</span><span class="ds">Self-author a new skill from a brief</span></div>
           <div class="slash-row"><span class="cmd">/hire</span><span class="alias">—</span><span class="ds">Open HR Bot to assess and propose hires</span></div>
@@ -4299,7 +4104,6 @@ Run the verify script against the deliverable set…</div>
           <div class="slash-row"><span class="cmd">/compact</span><span class="alias">—</span><span class="ds">Compact the conversation in place</span></div>
           <div class="slash-row"><span class="cmd">/clear</span><span class="alias">—</span><span class="ds">Clear the conversation (keeps thread)</span></div>
           <div class="slash-row"><span class="cmd">/attach</span><span class="alias">/a</span><span class="ds">Insert a library reference into this turn</span></div>
-          <div class="slash-row"><span class="cmd">/sop</span><span class="alias">—</span><span class="ds">Run an installed SOP</span></div>
           <div class="slash-row"><span class="cmd">/settings</span><span class="alias">—</span><span class="ds">Open the Settings workspace</span></div>
           <div class="slash-row"><span class="cmd">/help</span><span class="alias">/?</span><span class="ds">Show this catalog inline</span></div>
         </div>
@@ -4380,13 +4184,13 @@ Run the verify script against the deliverable set…</div>
       });
     }
 
-    const modeOrder = ['mode-sop', 'mode-hil', 'mode-direct', 'mode-yolo'];
-    const modeLabels = { 'mode-sop': 'SOP', 'mode-hil': 'HIL', 'mode-direct': 'Direct', 'mode-yolo': 'YOLO' };
+    const modeOrder = ['mode-plan', 'mode-hil', 'mode-direct', 'mode-yolo'];
+    const modeLabels = { 'mode-plan': 'Plan', 'mode-hil': 'HIL', 'mode-direct': 'Direct', 'mode-yolo': 'YOLO' };
     const modeChip = document.querySelector('.mode-chip');
     const sendBtn = document.querySelector('.send');
     if (modeChip) {
       modeChip.addEventListener('click', () => {
-        const current = modeOrder.find((m) => modeChip.classList.contains(m)) || 'mode-sop';
+        const current = modeOrder.find((m) => modeChip.classList.contains(m)) || 'mode-plan';
         const next = modeOrder[(modeOrder.indexOf(current) + 1) % modeOrder.length];
         modeOrder.forEach((m) => modeChip.classList.toggle(m, m === next));
         const label = modeChip.querySelector('.mode-dot').nextSibling;

@@ -1,13 +1,15 @@
 import { useUiState } from '@/app/ui-state.js';
+import { OFFICE_SCENE_2D_COLORS } from '@/data/color-palette.js';
 import { useEmployees, useOfficeScene, useThreads } from '@/data/queries.js';
 import type { ZoneKind } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
+import { CANVAS_FONT_TOKENS } from '@/styles/visual-tokens.js';
 import { useEffect, useMemo, useRef } from 'react';
 
 const ZONE_TINT: Record<ZoneKind, string> = {
-  workspace: '#dfe8ff',
-  meeting: '#efe6fb',
-  lounge: '#e1f3ea',
+  workspace: OFFICE_SCENE_2D_COLORS.zoneWorkspace,
+  meeting: OFFICE_SCENE_2D_COLORS.zoneMeeting,
+  lounge: OFFICE_SCENE_2D_COLORS.zoneLounge,
 };
 
 interface Hit {
@@ -77,7 +79,7 @@ export function OfficeScene2D() {
       const wy = (z: number) => oy + z * scale;
 
       // floor
-      ctx.fillStyle = '#f7f9fc';
+      ctx.fillStyle = OFFICE_SCENE_2D_COLORS.floor;
       roundRect(
         ctx,
         wx(-layout.floorW / 2),
@@ -87,11 +89,11 @@ export function OfficeScene2D() {
         14,
       );
       ctx.fill();
-      ctx.strokeStyle = '#dde3ec';
+      ctx.strokeStyle = OFFICE_SCENE_2D_COLORS.floorLine;
       ctx.stroke();
 
       // grid
-      ctx.strokeStyle = 'rgba(40,60,90,0.06)';
+      ctx.strokeStyle = OFFICE_SCENE_2D_COLORS.grid;
       ctx.lineWidth = 1;
       for (let gx = -layout.floorW / 2; gx <= layout.floorW / 2; gx += 1) {
         ctx.beginPath();
@@ -107,7 +109,7 @@ export function OfficeScene2D() {
       }
 
       // zones
-      ctx.font = '600 11px "General Sans", system-ui, sans-serif';
+      ctx.font = CANVAS_FONT_TOKENS.officeSceneLabel;
       for (const zone of layout.zones) {
         ctx.fillStyle = ZONE_TINT[zone.kind];
         roundRect(
@@ -119,7 +121,7 @@ export function OfficeScene2D() {
           10,
         );
         ctx.fill();
-        ctx.fillStyle = '#647186';
+        ctx.fillStyle = OFFICE_SCENE_2D_COLORS.zoneLabel;
         ctx.fillText(
           zone.label.toUpperCase(),
           wx(zone.cx - zone.w / 2) + 10,
@@ -142,7 +144,7 @@ export function OfficeScene2D() {
         const sy = wy(placement.z);
 
         // desk
-        ctx.fillStyle = '#e9edf4';
+        ctx.fillStyle = OFFICE_SCENE_2D_COLORS.desk;
         roundRect(ctx, sx - r * 1.1, sy + r * 0.5, r * 2.2, r * 0.9, 4);
         ctx.fill();
 
@@ -150,7 +152,9 @@ export function OfficeScene2D() {
         if (running || active) {
           ctx.beginPath();
           ctx.arc(sx, sy, r + 5, 0, Math.PI * 2);
-          ctx.strokeStyle = running ? '#2f6bff' : 'rgba(47,107,255,0.5)';
+          ctx.strokeStyle = running
+            ? OFFICE_SCENE_2D_COLORS.activeRing
+            : OFFICE_SCENE_2D_COLORS.activeRingSoft;
           ctx.lineWidth = running ? 2.5 : 1.5;
           ctx.stroke();
         }
@@ -158,17 +162,19 @@ export function OfficeScene2D() {
         // body (clothing) disc
         ctx.beginPath();
         ctx.arc(sx, sy, r, 0, Math.PI * 2);
-        ctx.fillStyle = employee.kind === 'external' ? '#586273' : colors.clothing;
+        ctx.fillStyle =
+          employee.kind === 'external' ? OFFICE_SCENE_2D_COLORS.externalClothing : colors.clothing;
         ctx.fill();
         // head (skin) inner disc
         ctx.beginPath();
         ctx.arc(sx, sy - r * 0.12, r * 0.52, 0, Math.PI * 2);
-        ctx.fillStyle = employee.kind === 'external' ? '#c8d1de' : colors.skin;
+        ctx.fillStyle =
+          employee.kind === 'external' ? OFFICE_SCENE_2D_COLORS.externalSkin : colors.skin;
         ctx.fill();
 
         // name
-        ctx.fillStyle = '#131a27';
-        ctx.font = '600 11px "General Sans", system-ui, sans-serif';
+        ctx.fillStyle = OFFICE_SCENE_2D_COLORS.name;
+        ctx.font = CANVAS_FONT_TOKENS.officeSceneLabel;
         ctx.textAlign = 'center';
         ctx.fillText(employee.name, sx, sy + r + 18);
         ctx.textAlign = 'left';

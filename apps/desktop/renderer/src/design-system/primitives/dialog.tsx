@@ -14,10 +14,7 @@ export function DialogOverlay({
 }: React.ComponentProps<typeof DialogPrimitive.Overlay>) {
   return (
     <DialogPrimitive.Overlay
-      className={cn(
-        'fixed inset-0 z-50 bg-[rgba(18,28,50,0.42)] backdrop-blur-[2px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
-        className,
-      )}
+      className={cn('off-motion-dialog-overlay off-dialog-overlay', className)}
       {...props}
     />
   );
@@ -34,8 +31,7 @@ export function DialogContent({
       <DialogOverlay />
       <DialogPrimitive.Content
         className={cn(
-          'fixed left-1/2 top-1/2 z-50 grid w-full max-w-[480px] -translate-x-1/2 -translate-y-1/2 gap-[var(--off-sp-5)] rounded-[var(--off-r-lg)] border border-[var(--off-line)] bg-[var(--off-surface-1)] p-[var(--off-sp-7)] shadow-[var(--off-elev-3)] outline-none',
-          'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95',
+          'off-motion-dialog-content off-dialog-content',
           className,
         )}
         {...props}
@@ -44,9 +40,9 @@ export function DialogContent({
         {showClose && (
           <DialogPrimitive.Close
             aria-label="Close"
-            className="off-focusable absolute right-[var(--off-sp-4)] top-[var(--off-sp-4)] grid size-[26px] place-items-center rounded-[var(--off-r-sm)] text-[var(--off-ink-3)] transition-colors hover:bg-[var(--off-surface-sunken)] hover:text-[var(--off-ink-1)]"
+            className="off-focusable off-dialog-close"
           >
-            <X className="size-[15px]" />
+            <X className="off-dialog-close-icon" />
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Content>
@@ -57,7 +53,7 @@ export function DialogContent({
 export function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn('flex flex-col gap-[var(--off-sp-1)] pr-[var(--off-sp-7)]', className)}
+      className={cn('off-dialog-header', className)}
       {...props}
     />
   );
@@ -66,10 +62,7 @@ export function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLD
 export function DialogFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn(
-        'flex flex-col-reverse gap-[var(--off-sp-2)] sm:flex-row sm:justify-end',
-        className,
-      )}
+      className={cn('off-dialog-footer', className)}
       {...props}
     />
   );
@@ -81,10 +74,7 @@ export function DialogTitle({
 }: React.ComponentProps<typeof DialogPrimitive.Title>) {
   return (
     <DialogPrimitive.Title
-      className={cn(
-        'text-[var(--off-fs-lg)] font-[660] leading-tight text-[var(--off-ink-1)]',
-        className,
-      )}
+      className={cn('off-dialog-title', className)}
       {...props}
     />
   );
@@ -96,7 +86,7 @@ export function DialogDescription({
 }: React.ComponentProps<typeof DialogPrimitive.Description>) {
   return (
     <DialogPrimitive.Description
-      className={cn('text-[var(--off-fs-sm)] leading-relaxed text-[var(--off-ink-3)]', className)}
+      className={cn('off-dialog-description', className)}
       {...props}
     />
   );

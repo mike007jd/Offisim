@@ -94,7 +94,7 @@
     }
 
     button { font: inherit; cursor: pointer; }
-    input, select, textarea { font: inherit; }
+    input, .primitive-select, .primitive-textarea { font: inherit; }
 
     .sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
     .ico {
@@ -120,7 +120,7 @@
     .traffic { display: flex; gap: 8px; }
     .dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08); }
     .red { background: #ff5f57; } .yellow { background: #febc2e; } .green { background: #28c840; }
-    .brand { display: flex; align-items: baseline; gap: 9px; font-weight: 640; font-size: var(--fs-md); letter-spacing: -0.01em; }
+    .brand { display: flex; align-items: baseline; gap: 9px; font-weight: 640; font-size: var(--fs-md); letter-spacing: 0; }
     .brand .ver { font-size: var(--fs-micro); color: var(--ink-3); font-weight: 600; padding: 2px 6px; border-radius: var(--r-pill); background: var(--surface-sunken); }
 
     /* Top bar (shared chrome) */
@@ -272,7 +272,7 @@
     .ad-x:hover { background: var(--surface-hover); color: var(--ink-1); }
     .ad-body { padding: 16px; display: flex; flex-direction: column; gap: 16px; }
     .ad-sec > .l { margin: 0 0 4px; font-size: 9.5px; text-transform: uppercase;
-      letter-spacing: 0.12em; color: var(--ink-4); }
+      letter-spacing: 0; color: var(--ink-4); }
     .ad-mono { margin: 0; font-family: var(--mono); font-size: var(--fs-sm); color: var(--ink-1); }
     .ad-ts { margin: 0; font-size: var(--fs-meta); color: var(--ink-2); }
     .ad-ent { margin: 0; font-size: var(--fs-meta); color: var(--ink-2); }
@@ -347,7 +347,7 @@
     /* ══════════ State specimens ══════════ */
     .spec-suite { width: min(1600px, 100%); display: flex; flex-direction: column; gap: 22px; flex: none; }
     .spec-suite-head { color: #cdd6e6; font-size: var(--fs-sm); line-height: 1.6; padding: 0 4px; }
-    .spec-suite-head h2 { margin: 0 0 4px; font-size: var(--fs-lg); font-weight: 680; color: #fff; letter-spacing: -0.01em; }
+    .spec-suite-head h2 { margin: 0 0 4px; font-size: var(--fs-lg); font-weight: 680; color: #fff; letter-spacing: 0; }
     .spec-suite-head b { color: #aebfff; font-weight: 640; }
     .spec-suite-head code { color: #aab6cc; font-family: var(--mono); font-size: var(--fs-meta); }
     .spec-state { border-radius: 14px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.08);
@@ -365,14 +365,14 @@
     .spec-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
     .mini-pane { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-1);
       overflow: hidden; box-shadow: var(--elev-1); }
-    .mini-cap { padding: 7px 12px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em;
+    .mini-cap { padding: 7px 12px; font-size: 9.5px; font-weight: 700; letter-spacing: 0;
       text-transform: uppercase; color: var(--ink-4); background: var(--surface-2); border-bottom: 1px solid var(--line-soft); }
     .annot-dark { font-size: 10px; font-style: italic; color: #8b97ad; padding: 6px 4px 0; }
     .annot-dark code { font-family: var(--mono); color: #aab6cc; }
     .annot-dark b { color: #aebfff; font-style: normal; font-weight: 640; }
     .rev-flag { display: inline-flex; align-items: center; gap: 5px; padding: 1px 7px; border-radius: var(--r-pill);
       background: rgba(201,132,16,0.18); color: #e0b15a; font-size: 9px; font-weight: 700;
-      text-transform: uppercase; letter-spacing: 0.06em; font-style: normal; }
+      text-transform: uppercase; letter-spacing: 0; font-style: normal; }
     .legend { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 18px; padding: 14px 16px;
       background: var(--surface-1); }
     .legend .li { display: flex; align-items: center; gap: 10px; font-size: var(--fs-meta); color: var(--ink-2); }
@@ -436,7 +436,7 @@
       </div>
       <div class="nav reveal d1">
         <button><svg class="ico sm"><use href="#i-building"/></svg>Office</button>
-        <button><svg class="ico sm"><use href="#i-book"/></svg>SOPs</button>
+        <button><svg class="ico sm"><use href="#i-grid"/></svg>Workspace</button>
         <button><svg class="ico sm"><use href="#i-store"/></svg>Market</button>
         <button><svg class="ico sm"><use href="#i-users"/></svg>Personnel</button>
       </div>
@@ -450,21 +450,9 @@
     <!-- Resting window = desktop tier · events present · no selection (grid-cols-1) -->
     <div class="act reveal">
       <div class="act-filter">
-        <select class="afsel">
-          <option>Today</option><option>Last 7 days</option>
-          <option>Last 30 days</option><option>All time</option>
-        </select>
-        <select class="afsel">
-          <option>All events</option><option>Node</option><option>Plan</option><option>Task</option>
-          <option>Deliverable</option><option>Employee</option><option>Install</option><option>Skill</option>
-          <option>LLM</option><option>Interaction</option><option>Error</option><option>MCP</option>
-          <option>Knowledge</option><option>Meeting</option><option>HR</option><option>Memory</option>
-          <option>Infrastructure</option><option>Git</option><option>Attachment</option>
-        </select>
-        <select class="afsel">
-          <option>All actors</option><option>Maya Chen</option><option>Diego Santos</option>
-          <option>Aria Kim</option><option>Boss</option><option>employee:emp_4f1a</option>
-        </select>
+        <button class="afsel" type="button">Today <span aria-hidden="true">&#9662;</span></button>
+        <button class="afsel" type="button">All events <span aria-hidden="true">&#9662;</span></button>
+        <button class="afsel" type="button">All actors <span aria-hidden="true">&#9662;</span></button>
         <div class="afsearch">
           <svg class="ico sm"><use href="#i-search"/></svg>
           <input value="" placeholder="Search events..." />
@@ -546,7 +534,7 @@
           </button>
           <button class="ev-row">
             <svg class="ico xl ev-ico c-default"><use href="#i-activity"/></svg>
-            <span class="ev-label">cost recorded — MiniMax-M2.7 · $0.0142</span>
+            <span class="ev-label">cost recorded — runtime provider · $0.0142</span>
             <span class="ev-ts">1d ago</span>
             <span class="ev-bar"></span>
           </button>
@@ -577,9 +565,9 @@
         <div class="mini-pane" style="height:520px">
           <div class="act" style="height:100%">
             <div class="act-filter">
-              <select class="afsel"><option>Last 30 days</option></select>
-              <select class="afsel"><option>Deliverable</option></select>
-              <select class="afsel"><option>All actors</option></select>
+              <button class="afsel" type="button">Last 30 days <span aria-hidden="true">&#9662;</span></button>
+              <button class="afsel" type="button">Deliverable <span aria-hidden="true">&#9662;</span></button>
+              <button class="afsel" type="button">All actors <span aria-hidden="true">&#9662;</span></button>
               <div class="afsearch"><svg class="ico sm"><use href="#i-search"/></svg><input value="" placeholder="Search events..."/></div>
             </div>
             <div class="act-body split">
@@ -668,9 +656,9 @@
       <div class="spec-frame">
         <div class="mini-pane">
           <div class="act-filter" style="background:var(--surface-2)">
-            <select class="afsel"><option>Last 30 days</option></select>
-            <select class="afsel"><option>All events</option></select>
-            <select class="afsel"><option>All actors</option></select>
+            <button class="afsel" type="button">Last 30 days <span aria-hidden="true">&#9662;</span></button>
+            <button class="afsel" type="button">All events <span aria-hidden="true">&#9662;</span></button>
+            <button class="afsel" type="button">All actors <span aria-hidden="true">&#9662;</span></button>
             <div class="afsearch"><svg class="ico sm"><use href="#i-search"/></svg><input value="" placeholder="Search events..."/></div>
           </div>
           <div class="legend" style="grid-template-columns:1fr">
@@ -708,9 +696,9 @@
             <div class="afscrim"></div>
             <div class="afsheet">
               <div class="afsheet-head"><h3>Filters</h3><button class="ad-x"><svg class="ico sm"><use href="#i-x"/></svg></button></div>
-              <select class="afsel"><option>Last 30 days</option></select>
-              <select class="afsel"><option>All events</option></select>
-              <select class="afsel"><option>All actors</option></select>
+              <button class="afsel" type="button">Last 30 days <span aria-hidden="true">&#9662;</span></button>
+              <button class="afsel" type="button">All events <span aria-hidden="true">&#9662;</span></button>
+              <button class="afsel" type="button">All actors <span aria-hidden="true">&#9662;</span></button>
             </div>
           </div>
           <p class="annot-dark">Sheet title = "Filters", same 3 controls stacked (<code>grid gap-3</code>). Backdrop button + X both call <code>setSheetOpen(false)</code>; modal registered as <code>activity-filter-sheet</code> overlay.</p>
@@ -798,7 +786,7 @@
           <div class="mini-pane" style="height:300px;overflow:hidden">
             <div class="act" style="height:100%">
               <div class="act-filter" style="background:var(--surface-2);grid-template-columns:repeat(3,1fr) 1.4fr;padding:0 14px;gap:8px">
-                <select class="afsel"><option>Today</option></select><select class="afsel"><option>All events</option></select><select class="afsel"><option>All actors</option></select>
+                <button class="afsel" type="button">Today <span aria-hidden="true">&#9662;</span></button><button class="afsel" type="button">All events <span aria-hidden="true">&#9662;</span></button><button class="afsel" type="button">All actors <span aria-hidden="true">&#9662;</span></button>
                 <div class="afsearch"><svg class="ico sm"><use href="#i-search"/></svg><input placeholder="Search…" disabled/></div>
               </div>
               <div class="act-body"><div class="act-tl">

@@ -41,28 +41,15 @@ export class ErrorBoundary extends Component<Props, State> {
     if (!this.state.error) return this.props.children;
     if (this.props.fallback !== undefined) return this.props.fallback;
     return (
-      <div
-        style={{
-          position: 'fixed',
-          inset: 0,
-          overflow: 'auto',
-          padding: '32px',
-          background: '#fff',
-          color: '#0f172a',
-          font: '13px/1.5 ui-monospace, monospace',
-          zIndex: 99999,
-        }}
-      >
-        <div style={{ fontSize: '15px', fontWeight: 700, marginBottom: '12px', color: '#b91c1c' }}>
+      <div className="off-error-boundary">
+        <div className="off-error-boundary__title">
           {this.props.label ? `${this.props.label} — ` : ''}Render error
         </div>
-        <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
+        <pre className="off-error-boundary__stack">
           {String(this.state.error?.stack ?? this.state.error?.message ?? this.state.error)}
         </pre>
         {this.state.info ? (
-          <pre style={{ whiteSpace: 'pre-wrap', marginTop: '16px', color: '#475569' }}>
-            {this.state.info}
-          </pre>
+          <pre className="off-error-boundary__info">{this.state.info}</pre>
         ) : null}
       </div>
     );

@@ -1,11 +1,20 @@
 import type { ChatAttachment, ChatMessage } from '@/data/types.js';
 import {
+  findDefaultChatProviderProfile,
+  loadRuntimeProviderProfiles,
+  safeErrorMessage,
+  sendProviderText,
+} from '@/lib/provider-bridge.js';
+import {
   type AppendMessage,
   type ThreadMessageLike,
   useExternalStoreRuntime,
 } from '@assistant-ui/react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { useRunStore } from '../run-store.js';
+
+const DEFAULT_MAX_OUTPUT_TOKENS = 512;
 
 /** Map an Offisim chat message into the assistant-ui thread model. The original
  *  message is carried in metadata.custom so the V3 rail keeps full fidelity. */
@@ -26,12 +35,28 @@ function appendText(message: AppendMessage): string {
     .trim();
 }
 
+function newDraftId(prefix: string): string {
+  return `${prefix}-${crypto.randomUUID()}`;
+}
+
+async function sendRuntimeProviderMessage(text: string, requestId: string): Promise<string> {
+  const profiles = await loadRuntimeProviderProfiles();
+  const profile = findDefaultChatProviderProfile(profiles);
+  if (!profile) {
+    throw new Error('Runtime provider profile is not configured.');
+  }
+  return sendProviderText({
+    profile,
+    text,
+    requestId,
+    maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS,
+  });
+}
+
 /**
- * The Office conversation runtime. assistant-ui is the runtime over our external
- * message store: `isRunning` and the Stop control (`onCancel`) are bound to the
- * shared run-state store, and sending the boss instruction routes into it via
- * `onNew` → `start()`. The stage pipeline pill, Live run-axis and error banner
- * all read the same store.
+ * The Office conversation runtime. assistant-ui owns the thread/composer state
+ * over Offisim's external message store. Desktop sends go through the Tauri
+ * provider bridge so credentials stay outside the webview.
  */
 export function useOfficeRuntime({
   threadId,
@@ -41,10 +66,13 @@ export function useOfficeRuntime({
   seedMessages: ChatMessage[];
 }) {
   const [drafts, setDrafts] = useState<ChatMessage[]>([]);
+  const [isSending, setIsSending] = useState(false);
+  const requestIdRef = useRef<string | null>(null);
   const messages = useMemo(() => [...seedMessages, ...drafts], [seedMessages, drafts]);
 
   const isRunning = useRunStore((s) => s.isRunning);
-  const start = useRunStore((s) => s.start);
+  const startRun = useRunStore((s) => s.start);
+  const finishRun = useRunStore((s) => s.finish);
   const stop = useRunStore((s) => s.stop);
   const staged = useRunStore((s) => s.staged);
   const clearStaged = useRunStore((s) => s.clearStaged);
@@ -54,12 +82,12 @@ export function useOfficeRuntime({
       const text = appendText(message);
       if (!text) return;
       const attachments: ChatAttachment[] = staged
-        .filter((a) => a.status === 'parsed')
+        .filter((a) => a.status === 'attached')
         .map((a) => ({ id: a.id, name: a.name, sizeLabel: a.sizeLabel, ext: a.ext }));
       setDrafts((prev) => [
         ...prev,
         {
-          id: `draft-${Date.now()}`,
+          id: newDraftId('boss'),
           threadId,
           author: 'boss',
           employeeId: null,
@@ -69,14 +97,60 @@ export function useOfficeRuntime({
         },
       ]);
       clearStaged();
-      start();
+      const requestId = newDraftId('provider');
+      requestIdRef.current = requestId;
+      setIsSending(true);
+      startRun('Provider response');
+      try {
+        const response = await sendRuntimeProviderMessage(text, requestId);
+        setDrafts((prev) => [
+          ...prev,
+          {
+            id: newDraftId('assistant'),
+            threadId,
+            author: 'employee',
+            employeeId: null,
+            body: response,
+            at: Date.now(),
+          },
+        ]);
+      } catch (error) {
+        const messageText = safeErrorMessage(error);
+        toast.error('Provider send failed', { description: messageText });
+        setDrafts((prev) => [
+          ...prev,
+          {
+            id: newDraftId('provider-error'),
+            threadId,
+            author: 'system',
+            employeeId: null,
+            body: `Provider bridge failed: ${messageText}`,
+            at: Date.now(),
+          },
+        ]);
+      } finally {
+        requestIdRef.current = null;
+        setIsSending(false);
+        finishRun();
+      }
     },
-    [threadId, staged, start, clearStaged],
+    [threadId, staged, clearStaged, startRun, finishRun],
   );
 
   const onCancel = useCallback(async () => {
+    const requestId = requestIdRef.current;
+    if (requestId) {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('llm_fetch_abort', { requestId }).catch(() => undefined);
+    }
     stop();
   }, [stop]);
 
-  return useExternalStoreRuntime({ messages, onNew, convertMessage, isRunning, onCancel });
+  return useExternalStoreRuntime({
+    messages,
+    onNew,
+    convertMessage,
+    isRunning: isRunning || isSending,
+    onCancel,
+  });
 }

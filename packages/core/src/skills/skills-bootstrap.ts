@@ -8,6 +8,7 @@ import type {
 } from '../runtime/repositories.js';
 import type { CompanyRepository } from '../runtime/repositories.js';
 import { Logger } from '../services/logger.js';
+import { generateId } from '../utils/generate-id.js';
 import type { VaultFileSystem } from '../vault/fs.js';
 import { employeeSlug } from '../vault/slug.js';
 import type { SkillLoader } from './skill-loader.js';
@@ -162,7 +163,7 @@ export async function migrateRuntimeSkills(deps: MigrateRuntimeSkillsDeps): Prom
   if (marker === 'true') return;
 
   const now = deps.now ?? (() => Date.now());
-  const newId = deps.newId ?? (() => `sk_${now()}_${Math.random().toString(36).slice(2, 10)}`);
+  const newId = deps.newId ?? (() => generateId('sk'));
 
   const companies = await deps.companies.findAll();
   for (const company of companies) {

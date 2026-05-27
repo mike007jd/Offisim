@@ -1,10 +1,16 @@
 import { useUiState } from '@/app/ui-state.js';
-import { useCompanies, useEmployees, useProjects } from '@/data/queries.js';
-import type { Company } from '@/data/types.js';
+import {
+  useCompanies,
+  useCompanyEmployees,
+  useProjects,
+  useUpdateCompany,
+} from '@/data/queries.js';
+import type { Company, Employee } from '@/data/types.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 import { Archive, ArrowRight, Building2, FolderPlus, Layers, Pencil, Users } from 'lucide-react';
 import { motion } from 'motion/react';
+import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { CompanyPortalPreview } from './CompanyPortalPreview.js';
@@ -15,33 +21,22 @@ interface CompanySelectionPageProps {
   onNewCompany: () => void;
 }
 
-/** CompanySelectionPage — the lifecycle default view. Full-screen three-region
- *  portal: company list (rename + active + counts) · SVG office preview ·
- *  Company Brief (2×2 stats + Enter / Archive). Rename + archive are local
- *  state only (no backend); Enter switches the active company and opens Office. */
+/** CompanySelectionPage — lifecycle default view: company list · office preview
+ *  · company brief. Company edits persist through the repo layer. */
 export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps) {
   const companiesQuery = useCompanies();
+  const updateCompany = useUpdateCompany();
   const setCompany = useUiState((s) => s.setCompany);
   const setSurface = useUiState((s) => s.setSurface);
   const activeCompanyId = useUiState((s) => s.companyId);
 
-  // Local-only lifecycle state: renamed names + archived ids overlay the query
-  // result (portal rename/archive are front-end-only per task scope).
-  const [renamedNames, setRenamedNames] = useState<Record<string, string>>({});
-  const [archivedIds, setArchivedIds] = useState<Set<string>>(() => new Set());
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState('');
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [confirmArchiveId, setConfirmArchiveId] = useState<string | null>(null);
 
   const allCompanies = companiesQuery.data ?? [];
-  const visible = useMemo(
-    () =>
-      allCompanies
-        .filter((c) => !archivedIds.has(c.id))
-        .map((c) => (renamedNames[c.id] ? { ...c, name: renamedNames[c.id] as string } : c)),
-    [allCompanies, archivedIds, renamedNames],
-  );
+  const visible = useMemo(() => allCompanies, [allCompanies]);
 
   // Selection precedence: explicit preview → active → first visible.
   const selectedId =
@@ -59,8 +54,25 @@ export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps
 
   function commitRename(id: string) {
     const next = renameDraft.trim();
-    if (next) setRenamedNames((m) => ({ ...m, [id]: next }));
+    const current = visible.find((company) => company.id === id);
     setRenamingId(null);
+    if (!next || !current || next === current.name) return;
+
+    updateCompany.mutate(
+      { companyId: id, fields: { name: next } },
+      {
+        onSuccess: (result) => {
+          if (result.persisted) {
+            toast.success('Company renamed');
+          } else {
+            toast.error('Company rename requires the release desktop app');
+          }
+        },
+        onError: () => {
+          toast.error('Rename failed');
+        },
+      },
+    );
   }
 
   function enterCompany(company: Company) {
@@ -74,10 +86,25 @@ export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps
       setConfirmArchiveId(company.id);
       return;
     }
-    setArchivedIds((s) => new Set(s).add(company.id));
     setConfirmArchiveId(null);
     setPreviewId(null);
-    toast.success('Company archived', { description: `${company.name} left the active list.` });
+    updateCompany.mutate(
+      { companyId: company.id, fields: { status: 'archived' } },
+      {
+        onSuccess: (result) => {
+          if (result.persisted) {
+            toast.success('Company archived', {
+              description: `${company.name} left the active list.`,
+            });
+          } else {
+            toast.error('Company archive requires the release desktop app');
+          }
+        },
+        onError: () => {
+          toast.error('Archive failed');
+        },
+      },
+    );
   }
 
   return (
@@ -133,6 +160,12 @@ export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps
                       >
                         <span className="off-csp-row-name">{company.name}</span>
                         <span className="off-csp-row-tpl">{brief.templateLabel}</span>
+                        {isActive ? (
+                          <span className="off-csp-active">
+                            <span className="off-csp-active-dot" />
+                            Active
+                          </span>
+                        ) : null}
                       </button>
                     )}
                     {!isRenaming ? (
@@ -148,12 +181,6 @@ export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps
                         >
                           <Icon icon={Pencil} size="sm" />
                         </button>
-                        {isActive ? (
-                          <span className="off-csp-active">
-                            <span className="off-csp-active-dot" />
-                            Active
-                          </span>
-                        ) : null}
                       </div>
                     ) : null}
                   </div>
@@ -178,7 +205,6 @@ export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps
         {selected ? (
           <SelectedCompany
             company={selected}
-            isActive={selected.id === activeCompanyId}
             confirmArchive={confirmArchiveId === selected.id}
             onEnter={() => enterCompany(selected)}
             onArchive={() => archiveCompany(selected)}
@@ -195,24 +221,22 @@ export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps
 
 function SelectedCompany({
   company,
-  isActive,
   confirmArchive,
   onEnter,
   onArchive,
 }: {
   company: Company;
-  isActive: boolean;
   confirmArchive: boolean;
   onEnter: () => void;
   onArchive: () => void;
 }) {
-  // Live counts for the active company; portal-derived counts for the rest.
-  const employeesQuery = useEmployees();
+  const employeesQuery = useCompanyEmployees(company.id);
   const projectsQuery = useProjects(company.id);
   const brief = companyBrief(company, {
-    employeeCount: isActive ? employeesQuery.data?.length : undefined,
+    employeeCount: employeesQuery.data?.length,
     projectCount: projectsQuery.data?.length,
   });
+  const roster = employeesQuery.data ?? [];
 
   return (
     <>
@@ -244,6 +268,7 @@ function SelectedCompany({
           <Stat label="Assets" value={brief.assetCount} />
         </div>
         <div className="off-csp-updated">{brief.updatedLabel}</div>
+        <CompanyRoster employees={roster} />
         <div className="off-csp-acts">
           <button type="button" className="off-csp-cta off-focusable" onClick={onEnter}>
             Enter Company
@@ -265,6 +290,39 @@ function SelectedCompany({
         </div>
       </aside>
     </>
+  );
+}
+
+function CompanyRoster({ employees }: { employees: Employee[] }) {
+  return (
+    <div className="off-csp-roster">
+      <div className="off-csp-roster-h">
+        <span>Employees</span>
+        <span>{employees.length}</span>
+      </div>
+      <div className="off-csp-roster-list">
+        {employees.slice(0, 5).map((employee) => (
+          <div key={employee.id} className="off-csp-roster-row">
+            <span
+              className="off-csp-roster-avatar"
+              style={
+                {
+                  '--off-csp-avatar-a': employee.avatarA,
+                  '--off-csp-avatar-b': employee.avatarB,
+                } as CSSProperties
+              }
+            >
+              {employee.name.slice(0, 1)}
+            </span>
+            <span className="off-csp-roster-copy">
+              <span className="off-csp-roster-name">{employee.name}</span>
+              <span className="off-csp-roster-role">{employee.role}</span>
+            </span>
+            <span className={cn('off-csp-roster-dot', employee.online && 'is-on')} />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

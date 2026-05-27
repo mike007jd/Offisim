@@ -31,7 +31,7 @@ export interface Prefab3DProps {
  * When the prefabId matches a known template (e.g. 'workstation-standard',
  * 'server-rack-2u'), we render the dedicated mesh. For unknown prefabIds we
  * fall back to a category-level default, and for completely unknown categories
- * we render a gray placeholder box.
+ * we render a small unmapped-asset marker so live data issues stay visible.
  */
 export function Prefab3D({ definition, position = [0, 0, 0], rotation = 0, state }: Prefab3DProps) {
   const sc = useSceneColors();
@@ -177,12 +177,23 @@ export function Prefab3D({ definition, position = [0, 0, 0], rotation = 0, state
       );
 
     default:
-      // Unknown category — render a gray placeholder cube
       return (
         <group position={position} rotation={[0, (rotation * Math.PI) / 180, 0]}>
-          <mesh position={[0, 0.5, 0]} castShadow>
-            <boxGeometry args={[1, 1, 1]} />
-            <SceneMaterial materialClass="plastic" color={sc.textMuted} />
+          <mesh position={[0, 0.03, 0]} receiveShadow>
+            <cylinderGeometry args={[0.42, 0.42, 0.06, 24]} />
+            <SceneMaterial
+              materialClass="rubber"
+              color={sc.floorGrid}
+              overrides={{ transparent: true, opacity: 0.72 }}
+            />
+          </mesh>
+          <mesh position={[0, 0.34, 0]} castShadow>
+            <boxGeometry args={[0.42, 0.48, 0.42]} />
+            <SceneMaterial
+              materialClass="plastic"
+              color={sc.textMuted}
+              overrides={{ wireframe: true }}
+            />
           </mesh>
         </group>
       );

@@ -4,7 +4,6 @@ mod claude_agent_host;
 mod codex_agent_host;
 mod deep_link;
 mod git;
-mod kanban;
 mod llm_transport;
 mod local_db;
 mod local_paths;
@@ -14,14 +13,55 @@ mod runtime_secrets;
 mod sessions;
 mod sidecar_stderr;
 
-use tauri::Manager;
+use std::path::Path;
+use tauri::{Emitter, Manager};
 use tauri_plugin_fs::FsExt;
 
 const MAIN_WINDOW_LABEL: &str = "main";
 const MAIN_WINDOW_FALLBACK_LABEL: &str = "main-live";
 
+#[derive(Clone, Debug, serde::Serialize)]
+struct NativeDroppedFile {
+    path: String,
+    name: String,
+    bytes: u64,
+    is_directory: bool,
+}
+
+#[derive(Clone, Debug, serde::Serialize)]
+struct NativeDropPosition {
+    x: f64,
+    y: f64,
+}
+
+#[derive(Clone, Debug, serde::Serialize)]
+struct NativeDroppedFiles {
+    files: Vec<NativeDroppedFile>,
+    position: NativeDropPosition,
+}
+
+fn native_dropped_file(path: &Path) -> NativeDroppedFile {
+    let metadata = std::fs::metadata(path).ok();
+    let is_directory = metadata.as_ref().is_some_and(|m| m.is_dir());
+    let bytes = metadata
+        .as_ref()
+        .filter(|m| m.is_file())
+        .map(|m| m.len())
+        .unwrap_or(0);
+    NativeDroppedFile {
+        path: path.to_string_lossy().to_string(),
+        name: path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("dropped-file")
+            .to_string(),
+        bytes,
+        is_directory,
+    }
+}
+
 #[cfg(target_os = "macos")]
-fn force_macos_foreground<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) {
+fn force_macos_foreground<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) -> bool {
     use objc2::{msg_send, MainThreadMarker};
     use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy, NSWindow};
 
@@ -36,13 +76,21 @@ fn force_macos_foreground<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) {
         let ns_window = ns_window.cast::<NSWindow>();
         unsafe {
             let _: () = msg_send![ns_window, setRestorable: false];
-            (&*ns_window).makeKeyAndOrderFront(None);
+            let ns_window = &*ns_window;
+            ns_window.displayIfNeeded();
+            ns_window.orderFrontRegardless();
+            ns_window.makeMainWindow();
+            ns_window.makeKeyAndOrderFront(None);
+            return ns_window.isVisible();
         }
     }
+    false
 }
 
 #[cfg(not(target_os = "macos"))]
-fn force_macos_foreground<R: tauri::Runtime>(_window: &tauri::WebviewWindow<R>) {}
+fn force_macos_foreground<R: tauri::Runtime>(_window: &tauri::WebviewWindow<R>) -> bool {
+    true
+}
 
 fn create_main_window_with_label<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
@@ -71,9 +119,9 @@ fn restore_main_window<R: tauri::Runtime>(
     let _ = app.show();
     let _ = window.unminimize();
     let _ = window.show();
-    force_macos_foreground(window);
+    let native_visible = force_macos_foreground(window);
     let _ = window.set_focus();
-    window.is_visible().unwrap_or(false)
+    native_visible && window.is_visible().unwrap_or(false)
 }
 
 fn ensure_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<()> {
@@ -129,15 +177,20 @@ pub fn run() {
             llm_transport::llm_fetch_abort,
             git::git_exec,
             local_paths::open_local_path,
+            local_paths::runtime_vault_status,
+            local_paths::open_runtime_vault_folder,
+            local_paths::runtime_vault_read_file,
+            local_paths::runtime_vault_write_file,
+            local_paths::runtime_vault_list_dir,
+            local_paths::runtime_vault_stat,
+            local_paths::runtime_vault_remove,
+            local_paths::runtime_vault_mkdir,
+            local_paths::export_runtime_vault_zip,
+            local_paths::export_scene_drop_diagnostic,
             local_paths::save_deliverable_to_local,
             resume::resume_conversation,
             sessions::get_session,
             sessions::set_session_mode,
-            kanban::list_kanban_cards,
-            kanban::create_kanban_card,
-            kanban::update_kanban_card,
-            kanban::transition_kanban_card,
-            kanban::count_kanban_for_employee,
             mcp_bridge::commands::mcp_list_registered_servers,
             mcp_bridge::commands::mcp_register_server,
             mcp_bridge::commands::mcp_unregister_server,
@@ -160,7 +213,9 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(mcp_bridge::init())
         .on_webview_event(|webview, event| {
-            if let tauri::WebviewEvent::DragDrop(tauri::DragDropEvent::Drop { paths, .. }) = event {
+            if let tauri::WebviewEvent::DragDrop(tauri::DragDropEvent::Drop { paths, position }) =
+                event
+            {
                 if let Some(scope) = webview.try_fs_scope() {
                     for path in paths {
                         let _ = if path.is_file() {
@@ -170,6 +225,14 @@ pub fn run() {
                         };
                     }
                 }
+                let payload = NativeDroppedFiles {
+                    files: paths.iter().map(|path| native_dropped_file(path)).collect(),
+                    position: NativeDropPosition {
+                        x: position.x as f64,
+                        y: position.y as f64,
+                    },
+                };
+                let _ = webview.emit("offisim-native-file-drop", payload);
             }
         })
         .on_page_load(|webview, payload| {

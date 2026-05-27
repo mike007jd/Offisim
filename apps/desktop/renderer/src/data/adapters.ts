@@ -1,37 +1,34 @@
 import type { EmployeeAppearance } from '@/lib/avatar.js';
 import { getRepos } from '@/runtime/repos.js';
 import type { RuntimeRepositories } from '@offisim/core/browser';
+import { ACCENT_PAIRS } from './color-palette.js';
 import type { ChatThread, Company, Employee, Project } from './types.js';
 
 /**
  * Real-backend adapters: map SQLite repo rows → renderer view-model types so the
  * UI renders REAL company/employee/project data with no shape changes upstream.
- * In a non-Tauri context (dev webview without tauri-plugin-sql) the caller falls
- * back to fixtures; in the release app this is the only data source.
+ * Browser preview may fall back to fixtures. Release Tauri builds must surface
+ * repository failures instead of silently rendering preview fixtures as success.
  */
 
 export function isTauriRuntime(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 }
 
-/** Resolve repos, or null when the backend is unavailable (non-Tauri/dev). */
+/** Resolve repos; only browser preview is allowed to return null. */
 export async function reposOrNull(): Promise<RuntimeRepositories | null> {
   if (!isTauriRuntime()) return null;
   try {
     return await getRepos();
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error(
+      typeof error === 'string' && error.trim()
+        ? error
+        : 'Desktop runtime repositories unavailable',
+    );
   }
 }
-
-const ACCENTS: ReadonlyArray<[string, string]> = [
-  ['#4d82ff', '#7c4ddb'],
-  ['#1aa46a', '#0e7c8b'],
-  ['#e8833a', '#d8542f'],
-  ['#7c4ddb', '#4d82ff'],
-  ['#0e7c8b', '#1aa46a'],
-  ['#d8542f', '#e8833a'],
-];
 
 function hash(input: string): number {
   let h = 5381;
@@ -40,7 +37,10 @@ function hash(input: string): number {
 }
 
 function accentPair(seed: string): [string, string] {
-  return ACCENTS[hash(seed) % ACCENTS.length] ?? ['#4d82ff', '#7c4ddb'];
+  const fallback = ACCENT_PAIRS[0];
+  const pair = ACCENT_PAIRS[hash(seed) % ACCENT_PAIRS.length] ?? fallback;
+  if (!pair) return ['var(--off-accent)', 'var(--off-violet)'];
+  return [pair[0], pair[1]];
 }
 
 function initials(name: string): string {
@@ -94,6 +94,8 @@ function normalizeAppearance(raw: unknown): EmployeeAppearance | undefined {
     out.hairStyle = a.hairStyle as EmployeeAppearance['hairStyle'];
   if (typeof a.bodyType === 'string') out.bodyType = a.bodyType as EmployeeAppearance['bodyType'];
   if (typeof a.gender === 'string') out.gender = a.gender as EmployeeAppearance['gender'];
+  if (typeof a.accentVariant === 'string')
+    out.accentVariant = a.accentVariant as EmployeeAppearance['accentVariant'];
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
@@ -101,6 +103,7 @@ interface EmployeeRowLike {
   employee_id: string;
   name: string;
   role_slug: string;
+  workstation_id: string | null;
   enabled: number;
   is_external: number;
   brand_key: string | null;
@@ -111,7 +114,7 @@ export function employeeToVm(row: EmployeeRowLike): Employee {
   const [a, b] = accentPair(row.employee_id);
   let appearance: EmployeeAppearance | undefined;
   const discipline = humanizeRole(row.role_slug);
-  let modelLabel = 'MiniMax-M2.7';
+  let modelLabel = 'Runtime default';
   try {
     const persona = row.persona_json ? JSON.parse(row.persona_json) : null;
     if (persona?.appearance) appearance = normalizeAppearance(persona.appearance);
@@ -133,12 +136,14 @@ export function employeeToVm(row: EmployeeRowLike): Employee {
     kind: row.is_external === 1 ? 'external' : 'internal',
     brandLabel: row.brand_key ?? undefined,
     online: row.enabled === 1,
+    disabled: row.enabled !== 1,
     avatarA: a,
     avatarB: b,
     appearance,
     discipline,
     modelLabel,
     skillCount: 0,
+    workstationId: row.workstation_id,
   };
 }
 
@@ -161,6 +166,7 @@ export function projectToVm(row: ProjectRowLike): Project {
 interface ChatThreadRowLike {
   thread_id: string;
   project_id: string;
+  employee_id?: string | null;
   title: string;
   summary: string | null;
   updated_at: string;
@@ -171,8 +177,8 @@ export function threadToVm(row: ChatThreadRowLike): ChatThread {
     projectId: row.project_id,
     title: row.title,
     subtitle: row.summary ?? 'Team thread',
-    scope: 'team',
-    employeeId: null,
+    scope: row.employee_id ? 'direct' : 'team',
+    employeeId: row.employee_id ?? null,
     updatedAt: Date.parse(row.updated_at) || Date.now(),
     runState: 'idle',
   };

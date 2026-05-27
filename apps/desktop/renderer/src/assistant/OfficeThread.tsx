@@ -10,19 +10,39 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/design-system/primitives/dropdown-menu.js';
+import { isDesktopProviderBridgeAvailable } from '@/lib/provider-bridge.js';
 import { ConvOutputs } from '@/surfaces/office/rail/ConvOutputs.js';
 import { MessageItem } from '@/surfaces/office/rail/MessageItem.js';
 import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
 import { AssistantRuntimeProvider, ComposerPrimitive, ThreadPrimitive } from '@assistant-ui/react';
+import { listen } from '@tauri-apps/api/event';
 import { ChevronDown, Cpu, MessageSquarePlus, Paperclip, SendHorizontal } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { type DragEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { StagedAttachments } from './composer/StagedAttachments.js';
 import { ChatErrorBanner } from './parts/ChatErrorBanner.js';
-import { MeetingRegion } from './parts/Meeting.js';
+import { MeetingTray } from './parts/Meeting.js';
 import { useRunStore } from './run-store.js';
 import { useOfficeRuntime } from './runtime/useOfficeRuntime.js';
 
-const SESSION_MODES: SessionMode[] = ['sop', 'direct', 'hil', 'yolo'];
+const SESSION_MODES: SessionMode[] = ['direct', 'hil', 'yolo'];
+
+function dragHasFiles(event: DragEvent<HTMLElement>) {
+  return Array.from(event.dataTransfer.types).includes('Files');
+}
+
+interface NativeDroppedFile {
+  name: string;
+  bytes: number;
+  is_directory?: boolean;
+}
+
+interface NativeDroppedFilesPayload {
+  files?: NativeDroppedFile[];
+  position?: {
+    x: number;
+    y: number;
+  };
+}
 
 interface OfficeThreadProps {
   threadId: string;
@@ -50,13 +70,108 @@ function OfficeComposer({
   const stageFiles = useRunStore((s) => s.stageFiles);
   const storageAvailable = useRunStore((s) => s.storageAvailable);
   const fileInput = useRef<HTMLInputElement>(null);
+  const composerRef = useRef<HTMLFormElement>(null);
+  const dragDepth = useRef(0);
+  const [dragActive, setDragActive] = useState(false);
+
+  function stageFileList(fileList: FileList | null) {
+    const files = Array.from(fileList ?? []).map((f) => ({
+      name: f.name,
+      bytes: f.size,
+    }));
+    if (files.length) stageFiles(files);
+  }
+
+  const stageNativeFiles = useCallback(
+    (payload: NativeDroppedFilesPayload) => {
+      const files = (payload.files ?? [])
+        .filter((file) => !file.is_directory)
+        .map((file) => ({
+          name: file.name,
+          bytes: file.bytes,
+        }));
+      if (files.length) stageFiles(files);
+    },
+    [stageFiles],
+  );
+
+  const nativeDropHitsComposer = useCallback((payload: NativeDroppedFilesPayload) => {
+    if (!payload.position || !composerRef.current) return true;
+    const rect = composerRef.current.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const points = [
+      payload.position,
+      {
+        x: payload.position.x / dpr,
+        y: payload.position.y / dpr,
+      },
+    ];
+    return points.some(
+      (point) =>
+        point.x >= rect.left &&
+        point.x <= rect.right &&
+        point.y >= rect.top &&
+        point.y <= rect.bottom,
+    );
+  }, []);
+
+  useEffect(() => {
+    // Native file-drop forwarding is a Tauri-only event bridge. Guard it so the
+    // browser preview (no `__TAURI_INTERNALS__`) does not throw inside `listen`.
+    if (!isDesktopProviderBridgeAvailable()) return;
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    void listen<NativeDroppedFilesPayload>('offisim-native-file-drop', (event) => {
+      if (!nativeDropHitsComposer(event.payload)) return;
+      stageNativeFiles(event.payload);
+      dragDepth.current = 0;
+      setDragActive(false);
+    }).then((nextUnlisten) => {
+      if (disposed) {
+        nextUnlisten();
+      } else {
+        unlisten = nextUnlisten;
+      }
+    });
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, [nativeDropHitsComposer, stageNativeFiles]);
 
   return (
-    <ComposerPrimitive.Root className="off-composer">
+    <ComposerPrimitive.Root
+      ref={composerRef}
+      className={`off-composer${dragActive ? ' is-drop-active' : ''}`}
+      onDragEnter={(event) => {
+        if (!dragHasFiles(event)) return;
+        event.preventDefault();
+        dragDepth.current += 1;
+        setDragActive(true);
+      }}
+      onDragOver={(event) => {
+        if (!dragHasFiles(event)) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = storageAvailable ? 'copy' : 'none';
+      }}
+      onDragLeave={(event) => {
+        if (!dragHasFiles(event)) return;
+        event.preventDefault();
+        dragDepth.current = Math.max(0, dragDepth.current - 1);
+        if (dragDepth.current === 0) setDragActive(false);
+      }}
+      onDrop={(event) => {
+        if (!dragHasFiles(event)) return;
+        event.preventDefault();
+        dragDepth.current = 0;
+        setDragActive(false);
+        stageFileList(event.dataTransfer.files);
+      }}
+    >
       <ComposerPrimitive.Input
         className="off-composer-input"
         placeholder="Message the team — / for commands, @ to mention, Enter to send"
-        rows={2}
+        rows={1}
         submitOnEnter
       />
       <div className="off-ccs">
@@ -72,20 +187,20 @@ function OfficeComposer({
           multiple
           hidden
           onChange={(e) => {
-            const files = Array.from(e.target.files ?? []).map((f) => ({
-              name: f.name,
-              bytes: f.size,
-            }));
-            if (files.length) stageFiles(files);
+            stageFileList(e.target.files);
             e.target.value = '';
           }}
         />
         <IconButton
           icon={Paperclip}
-          label={storageAvailable ? 'Attach file' : 'Attachment storage unavailable'}
+          label="Attach file"
           variant="subtle"
           size="iconSm"
-          disabled={!storageAvailable}
+          title={
+            storageAvailable
+              ? 'Attach files to the message'
+              : 'Attachment storage is unavailable; selected files will surface an error chip'
+          }
           onClick={() => fileInput.current?.click()}
         />
         <span className="off-composer-divider" aria-hidden />
@@ -114,6 +229,10 @@ function OfficeComposer({
           <Icon icon={SendHorizontal} size="sm" />
         </ComposerPrimitive.Send>
       </div>
+      <div className="off-composer-drop-overlay" aria-hidden={!dragActive}>
+        <Icon icon={Paperclip} size="sm" />
+        <span>{storageAvailable ? 'Drop files to attach' : 'Attachment vault unavailable'}</span>
+      </div>
     </ComposerPrimitive.Root>
   );
 }
@@ -133,7 +252,7 @@ export function OfficeThread({
   const syncThread = useRunStore((s) => s.syncThread);
 
   // Bind the shared run-state store to this thread: seeds the pipeline / error /
-  // meeting that the stage pill, Live axis and error banner all read.
+  // meeting that the stage pill and error banner both read.
   useEffect(() => {
     syncThread(threadId, runState);
   }, [threadId, runState, syncThread]);
@@ -142,36 +261,35 @@ export function OfficeThread({
   // mid-run) so it doesn't keep ticking into a store no component reads.
   useEffect(() => () => useRunStore.getState().stop(), []);
 
-  const messageCount = seedMessages.length;
-
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <ThreadPrimitive.Root className="off-thread">
         <ThreadPrimitive.Viewport className="off-thread-viewport">
-          {messageCount === 0 ? (
+          <ThreadPrimitive.Empty>
             <EmptyState
               icon={MessageSquarePlus}
               title="No messages yet"
               description="Send the first instruction to start this conversation."
             />
-          ) : (
-            <div className="off-messages">
-              <ThreadPrimitive.Messages>
-                {({ message }) => {
-                  const custom = message.metadata?.custom as unknown as ChatMessage | undefined;
-                  return custom ? (
-                    <MessageItem message={custom} employeesById={employeesById} />
-                  ) : null;
-                }}
-              </ThreadPrimitive.Messages>
-            </div>
-          )}
+          </ThreadPrimitive.Empty>
+          <div className="off-messages">
+            <ThreadPrimitive.Messages>
+              {({ message }) => {
+                const custom = message.metadata?.custom as unknown as ChatMessage | undefined;
+                return custom ? (
+                  <MessageItem message={custom} employeesById={employeesById} />
+                ) : null;
+              }}
+            </ThreadPrimitive.Messages>
+          </div>
           <ChatErrorBanner />
-          <MeetingRegion />
-          {scope === 'team' ? (
-            <ConvOutputs deliverables={deliverables} employeesById={employeesById} />
-          ) : null}
         </ThreadPrimitive.Viewport>
+        {scope === 'team' ? (
+          <div className="off-thread-pitbar" aria-label="Thread pit">
+            <MeetingTray />
+            <ConvOutputs deliverables={deliverables} employeesById={employeesById} />
+          </div>
+        ) : null}
         <OfficeComposer
           modelLabel={modelLabel}
           projectName={projectName}

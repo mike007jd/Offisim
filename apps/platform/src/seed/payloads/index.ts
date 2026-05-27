@@ -4,17 +4,15 @@ import { employeeSeed } from './employee.js';
 import { officeLayoutSeed } from './office-layout.js';
 import { prefabSeed } from './prefab.js';
 import { skillSeed } from './skill.js';
-import { sopSeed } from './sop.js';
 
 /**
- * Canonical seed order — one payload per AssetKind. Order is load-bearing
- * because downstream assertions ("kind column has exactly 6 distinct
- * values") and manual verification count the output; don't shuffle.
+ * Canonical seed order for currently supported official Marketplace kinds.
+ * Retired product surfaces are intentionally absent; startup retires any
+ * stale official listing whose slug is no longer present here.
  */
 export const OFFICIAL_PAYLOADS: readonly OfficialSeedPayload[] = [
   employeeSeed,
   skillSeed,
-  sopSeed,
   companyTemplateSeed,
   officeLayoutSeed,
   prefabSeed,

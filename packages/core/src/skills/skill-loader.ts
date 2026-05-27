@@ -10,7 +10,8 @@ import type {
   RuntimeRepositories,
   SkillRepository,
 } from '../runtime/repositories.js';
-import { type VaultFileSystem, createStubVaultFs } from '../vault/fs.js';
+import { generateId } from '../utils/generate-id.js';
+import { type VaultFileSystem, createUnavailableVaultFs } from '../vault/fs.js';
 import { employeeSlug } from '../vault/slug.js';
 import { parseSkillMd, serializeSkillMd } from './skill-md.js';
 import { resolveSkillPath } from './skill-path.js';
@@ -227,8 +228,8 @@ export class SkillLoader {
 
   /**
    * Build a `SkillLoader` from the shared repositories bundle, falling back to
-   * a stub fs until the vault activates. Returns `null` when the repos bundle
-   * lacks the skills table (backwards-compat / lite runtime scenarios).
+   * an unavailable fs until the vault activates. Returns `null` when the repos
+   * bundle lacks the skills table (backwards-compat / lite runtime scenarios).
    */
   static forRepos(
     repos: RuntimeRepositories,
@@ -238,7 +239,7 @@ export class SkillLoader {
     return new SkillLoader({
       skills: repos.skills,
       employees: repos.employees,
-      fs: createStubVaultFs('Vault not activated yet'),
+      fs: createUnavailableVaultFs('Vault not activated yet'),
       ...(events !== undefined ? { events } : {}),
     });
   }
@@ -374,7 +375,7 @@ export class SkillLoader {
       validateAssetPath(asset.relPath);
     }
 
-    const skillId = args.skillId ?? `sk_${now()}_${Math.random().toString(36).slice(2, 10)}`;
+    const skillId = args.skillId ?? generateId('sk');
     const slug = args.slug ?? skillSlug(args.name, skillId);
     const sourceRef = encodeSkillSourceRef(args.source);
 

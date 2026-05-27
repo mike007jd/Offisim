@@ -1,49 +1,145 @@
+import { useUiState } from '@/app/ui-state.js';
+import { reposOrNull } from '@/data/adapters.js';
 import { IconButton } from '@/design-system/grammar/index.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import { Input } from '@/design-system/primitives/input.js';
+import type { RoleSlug } from '@offisim/shared-types';
+import { useQueryClient } from '@tanstack/react-query';
 import { Pencil, Plug, Plus, RefreshCw, Trash2, Users } from 'lucide-react';
-import { useState } from 'react';
+import { type CSSProperties, useState } from 'react';
 import { toast } from 'sonner';
 import { ExternalEmployeeInstallDialog } from './ExternalEmployeeInstallDialog.js';
 import {
   type DiscoveredCard,
   type ExternalEmployee,
+  discoverAgentCard,
   useExternalEmployees,
 } from './settings-data.js';
 
+function externalRoleSlug(role: string): RoleSlug {
+  const normalized = role.toLowerCase();
+  if (normalized.includes('research')) return 'researcher';
+  if (normalized.includes('analyst')) return 'analyst';
+  if (normalized.includes('ops') || normalized.includes('devops')) return 'devops';
+  if (normalized.includes('code') || normalized.includes('engineer')) return 'engineer';
+  if (normalized.includes('qa') || normalized.includes('test')) return 'qa';
+  if (normalized.includes('design')) return 'designer';
+  return 'researcher';
+}
+
 export function ExternalEmployeesPane() {
-  const { data: fetched } = useExternalEmployees();
-  const [employees, setEmployees] = useState<readonly ExternalEmployee[]>(fetched);
+  const companyId = useUiState((s) => s.companyId);
+  const setSurface = useUiState((s) => s.setSurface);
+  const selectEmployee = useUiState((s) => s.selectEmployee);
+  const queryClient = useQueryClient();
+  const { data: fetched = [] } = useExternalEmployees(companyId);
   const [installOpen, setInstallOpen] = useState(false);
   const [tokenEditId, setTokenEditId] = useState<string | null>(null);
+  const [tokenDrafts, setTokenDrafts] = useState<Record<string, string>>({});
   const [justInstalled, setJustInstalled] = useState<string | null>(null);
+  const [refreshingId, setRefreshingId] = useState<string | null>(null);
 
-  function handleInstalled(card: DiscoveredCard) {
-    const employee: ExternalEmployee = {
-      id: `${card.name}-${Date.now()}`,
+  function invalidateExternalEmployees() {
+    void queryClient.invalidateQueries({ queryKey: ['settings', 'external-employees', companyId] });
+    void queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
+  }
+
+  async function handleInstalled(card: DiscoveredCard) {
+    const repos = await reposOrNull();
+    if (!repos) {
+      throw new Error('External employee install requires the release desktop app.');
+    }
+    const { employee_id } = await repos.employees.create({
+      company_id: companyId,
       name: card.name,
-      brand: card.brand,
-      brandGradient: card.brandGradient,
-      logoMark: card.logoMark,
-      role: card.roleDefault,
-      url: card.endpoint,
-      cardLabel: `${card.brand} · installed`,
-      connected: true,
-      installedAt: Date.now(),
-    };
-    setEmployees((prev) => [employee, ...prev]);
-    setJustInstalled(employee.id);
+      role_slug: externalRoleSlug(card.roleDefault),
+      source_asset_id: null,
+      source_package_id: null,
+      persona_json: JSON.stringify({ freeform: card.description }),
+      config_json: JSON.stringify({
+        runtime: 'a2a',
+        interfaces: card.interfaces,
+        endpoint: card.endpoint,
+      }),
+      is_external: true,
+      a2a_url: card.endpoint,
+      a2a_token: null,
+      a2a_agent_id: card.name,
+      brand_key: card.brand,
+      agent_card_json: JSON.stringify(card),
+    });
+    setJustInstalled(employee_id);
+    invalidateExternalEmployees();
     toast.success(`Connected ${card.name}`);
     window.setTimeout(() => setJustInstalled(null), 1400);
   }
 
-  function disconnect(id: string) {
-    setEmployees((prev) => prev.filter((e) => e.id !== id));
+  async function disconnect(employee: ExternalEmployee) {
+    const repos = await reposOrNull();
+    if (!repos) {
+      toast.error('External employee changes require the release desktop app.');
+      return;
+    }
+    await repos.employees.delete(employee.id);
+    invalidateExternalEmployees();
     toast.success('External employee disconnected');
   }
 
-  const sorted = [...employees].sort((a, b) => b.installedAt - a.installedAt);
+  async function refreshAgentCard(employee: ExternalEmployee) {
+    setRefreshingId(employee.id);
+    try {
+      const card = await discoverAgentCard(employee.cardUrl || employee.url);
+      const repos = await reposOrNull();
+      if (!repos) {
+        throw new Error('External employee changes require the release desktop app.');
+      }
+      await repos.employees.update(employee.id, {
+        name: card.name,
+        role_slug: externalRoleSlug(card.roleDefault),
+        config_json: JSON.stringify({
+          runtime: 'a2a',
+          interfaces: card.interfaces,
+          endpoint: card.endpoint,
+        }),
+        a2a_url: card.endpoint,
+        a2a_agent_id: card.name,
+        brand_key: card.brand,
+        agent_card_json: JSON.stringify(card),
+      });
+      invalidateExternalEmployees();
+      toast.success(`Refreshed ${card.name}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not refresh agent card');
+    } finally {
+      setRefreshingId(null);
+    }
+  }
+
+  async function saveToken(employee: ExternalEmployee) {
+    const token = tokenDrafts[employee.id]?.trim() ?? '';
+    const repos = await reposOrNull();
+    if (!repos) {
+      toast.error('External employee token changes require the release desktop app.');
+      return;
+    }
+    await repos.employees.update(employee.id, { a2a_token: token || null });
+    invalidateExternalEmployees();
+    toast.success('Token saved');
+    setTokenEditId(null);
+    setTokenDrafts((prev) => {
+      const next = { ...prev };
+      delete next[employee.id];
+      return next;
+    });
+  }
+
+  function openPersonnelProfile(employee: ExternalEmployee) {
+    selectEmployee(employee.id);
+    setSurface('personnel');
+  }
+
+  const sorted = [...fetched].sort((a, b) => b.installedAt - a.installedAt);
 
   return (
     <div className="off-set-pane">
@@ -89,9 +185,12 @@ export function ExternalEmployeesPane() {
               <div className="off-set-ext-main">
                 <div
                   className="off-set-ext-logo"
-                  style={{
-                    background: `linear-gradient(135deg, ${employee.brandGradient[0]}, ${employee.brandGradient[1]})`,
-                  }}
+                  style={
+                    {
+                      '--off-ext-brand-a': employee.brandGradient[0],
+                      '--off-ext-brand-b': employee.brandGradient[1],
+                    } as CSSProperties
+                  }
                 >
                   {employee.logoMark}
                 </div>
@@ -107,17 +206,18 @@ export function ExternalEmployeesPane() {
                 <div className="off-set-ext-actions">
                   <IconButton
                     icon={Pencil}
-                    label="Edit"
+                    label="Edit profile in Personnel"
                     size="iconSm"
                     variant="outline"
-                    onClick={() => toast.info('Edit URL + role override')}
+                    onClick={() => openPersonnelProfile(employee)}
                   />
                   <IconButton
                     icon={RefreshCw}
                     label="Refresh agent card"
                     size="iconSm"
                     variant="outline"
-                    onClick={() => toast.success('Agent card refreshed')}
+                    disabled={refreshingId === employee.id}
+                    onClick={() => void refreshAgentCard(employee)}
                   />
                   <Button
                     variant="outline"
@@ -134,7 +234,7 @@ export function ExternalEmployeesPane() {
                     size="iconSm"
                     variant="outline"
                     className="off-set-micro-danger"
-                    onClick={() => disconnect(employee.id)}
+                    onClick={() => void disconnect(employee)}
                   />
                 </div>
               </div>
@@ -146,16 +246,13 @@ export function ExternalEmployeesPane() {
                       type="password"
                       className="off-mono"
                       placeholder="leave empty to clear"
-                      defaultValue=""
+                      value={tokenDrafts[employee.id] ?? ''}
+                      onChange={(event) =>
+                        setTokenDrafts((prev) => ({ ...prev, [employee.id]: event.target.value }))
+                      }
                     />
                   </div>
-                  <Button
-                    size="md"
-                    onClick={() => {
-                      setTokenEditId(null);
-                      toast.success('Token saved');
-                    }}
-                  >
+                  <Button size="md" onClick={() => void saveToken(employee)}>
                     Save
                   </Button>
                   <Button variant="outline" size="md" onClick={() => setTokenEditId(null)}>

@@ -18,8 +18,7 @@ export function PopoverContent({
         align={align}
         sideOffset={sideOffset}
         className={cn(
-          'z-50 w-72 rounded-[var(--off-r-lg)] border border-[var(--off-line-strong)] bg-[var(--off-surface-1)] p-[var(--off-sp-4)] text-[var(--off-ink-1)] shadow-[var(--off-elev-3)] outline-none',
-          'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
+          'off-motion-popover off-popover-content',
           className,
         )}
         {...props}

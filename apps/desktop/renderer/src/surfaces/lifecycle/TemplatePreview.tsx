@@ -1,3 +1,4 @@
+import { PREVIEW_TINTS } from '@/data/color-palette.js';
 import type { CompanyTemplate } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
 
@@ -11,9 +12,9 @@ export function TemplatePreview({
   const H = 300;
   // Workspace (left, large), Meeting (top-right), Lounge (bottom-right).
   const zones = [
-    { label: 'Workspace', x: 16, y: 16, w: 184, h: 268, tint: 'rgba(77,130,255,0.14)' },
-    { label: 'Meeting', x: 212, y: 16, w: 92, h: 128, tint: 'rgba(124,77,219,0.16)' },
-    { label: 'Lounge', x: 212, y: 156, w: 92, h: 128, tint: 'rgba(26,164,106,0.16)' },
+    { label: 'Workspace', x: 16, y: 16, w: 184, h: 268, tint: PREVIEW_TINTS.workspace },
+    { label: 'Meeting', x: 212, y: 16, w: 92, h: 128, tint: PREVIEW_TINTS.meeting },
+    { label: 'Lounge', x: 212, y: 156, w: 92, h: 128, tint: PREVIEW_TINTS.lounge },
   ];
   const seats = template.employees.map((e, i) => {
     const col = i % 3;
@@ -66,10 +67,10 @@ export function TemplatePreview({
             width={32}
             height={12}
             rx={3}
-            fill="rgba(15,23,42,0.06)"
+            fill={PREVIEW_TINTS.seatShadow}
           />
           <circle cx={s.cx} cy={s.cy} r={13} fill={s.color} />
-          <circle cx={s.cx} cy={s.cy - 2} r={6.5} fill="rgba(255,255,255,0.92)" />
+          <circle cx={s.cx} cy={s.cy - 2} r={6.5} fill={PREVIEW_TINTS.seatHighlight} />
         </g>
       ))}
       <circle cx={258} cy={70} r={5} fill={accentHex} />

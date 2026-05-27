@@ -96,7 +96,7 @@
     }
 
     button { font: inherit; cursor: pointer; }
-    input, textarea { font: inherit; }
+    input, .primitive-textarea { font: inherit; }
 
     .sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
     .ico {
@@ -120,7 +120,7 @@
     .traffic { display: flex; gap: 8px; }
     .dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08); }
     .red { background: #ff5f57; } .yellow { background: #febc2e; } .green { background: #28c840; }
-    .brand { display: flex; align-items: baseline; gap: 9px; font-weight: 640; font-size: var(--fs-md); letter-spacing: -0.01em; }
+    .brand { display: flex; align-items: baseline; gap: 9px; font-weight: 640; font-size: var(--fs-md); letter-spacing: 0; }
     .brand .ver { font-size: var(--fs-micro); color: var(--ink-3); font-weight: 600; padding: 2px 6px; border-radius: var(--r-pill); background: var(--surface-sunken); }
 
     /* ───────────── Top bar ───────────── */
@@ -191,7 +191,7 @@
       min-height: 0; overflow-y: auto;
     }
     .set-nav-title {
-      font-size: var(--fs-micro); letter-spacing: var(--ls-caps);
+      font-size: var(--fs-micro); letter-spacing: 0;
       font-weight: 700; color: var(--ink-3); text-transform: uppercase;
       padding: 2px var(--sp-4) var(--sp-6);
     }
@@ -224,13 +224,13 @@
 
     /* page-level title (not over-sized; --fs-md per DNA §6) */
     .pane-head { margin-bottom: var(--sp-7); }
-    .pane-title { font-size: var(--fs-md); font-weight: 660; color: var(--ink-1); letter-spacing: -0.005em; }
+    .pane-title { font-size: var(--fs-md); font-weight: 660; color: var(--ink-1); letter-spacing: 0; }
     .pane-desc { font-size: var(--fs-sm); color: var(--ink-3); font-weight: 520; margin-top: 4px; line-height: 1.5; }
 
     /* caps label (DNA §6 — only "section heading" style) */
     .label {
       font-size: var(--fs-micro);
-      letter-spacing: var(--ls-caps);
+      letter-spacing: 0;
       font-weight: 680;
       color: var(--ink-3);
       text-transform: uppercase;
@@ -257,7 +257,7 @@
     .card-block .label + * { margin-top: var(--sp-4); }
 
     /* subhead inside card-block (rare; reuse caps label) */
-    .subhead { font-size: var(--fs-micro); font-weight: 680; letter-spacing: var(--ls-caps); color: var(--ink-3); text-transform: uppercase; margin: 0 0 var(--sp-3); }
+    .subhead { font-size: var(--fs-micro); font-weight: 680; letter-spacing: 0; color: var(--ink-3); text-transform: uppercase; margin: 0 0 var(--sp-3); }
     .subhead.mt { margin-top: var(--sp-6); }
 
     /* Grids */
@@ -288,7 +288,7 @@
     .callout.muted { background: var(--surface-sunken); color: var(--ink-3); }
 
     /* ──── Inputs / controls ──── */
-    /* .ctl is a wrapper for native text inputs + textarea; 34px height */
+    /* .ctl is a wrapper for native text inputs + Textarea primitive specimens; 34px height */
     .ctl {
       height: 34px; padding: 0 10px;
       border: 1px solid var(--line); border-radius: var(--r-sm);
@@ -298,17 +298,18 @@
     }
     .ctl:hover { border-color: var(--line-strong); }
     .ctl:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
-    .ctl input, .ctl textarea {
+    .ctl input, .ctl .primitive-textarea {
       flex: 1; min-width: 0; border: 0; background: transparent; outline: none;
       color: var(--ink-1); font-size: var(--fs-sm);
     }
     .ctl .lead, .ctl .trail { color: var(--ink-4); display: grid; place-items: center; flex: none; }
-    .ctl.mono input, .ctl.mono textarea { font-family: var(--mono); font-size: var(--fs-sm); letter-spacing: 0.01em; }
+    .ctl.mono input, .ctl.mono .primitive-textarea { font-family: var(--mono); font-size: var(--fs-sm); letter-spacing: 0; }
     .ctl.area { height: auto; align-items: stretch; padding: 8px 10px; }
-    .ctl.area textarea { flex: 1; border: 0; background: transparent; outline: none; resize: vertical; min-height: 80px; color: var(--ink-1); line-height: 1.5; font-family: var(--mono); }
+    .ctl.area .primitive-textarea { flex: 1; border: 0; background: transparent; outline: none; resize: vertical; min-height: 80px; color: var(--ink-1); line-height: 1.5; font-family: var(--mono); }
+    .primitive-textarea[data-placeholder]:empty::before { content: attr(data-placeholder); color: var(--ink-4); }
     .ctl.ro { background: var(--surface-sunken); }
 
-    /* Custom select trigger (replaces native <select> per DNA §11/§12) */
+    /* Select primitive trigger specimen per DNA §11/§12 */
     .sel {
       height: 34px; width: 100%; padding: 0 32px 0 10px;
       border: 1px solid var(--line); border-radius: var(--r-sm);
@@ -357,7 +358,7 @@
     .pill {
       display: inline-flex; align-items: center; gap: 5px;
       height: 19px; padding: 0 8px; border-radius: var(--r-pill);
-      font-size: 9.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+      font-size: 9.5px; font-weight: 700; letter-spacing: 0; text-transform: uppercase;
     }
     .pill::before { content: ""; width: 5px; height: 5px; border-radius: 50%; }
     .pill.ok { background: var(--ok-surface); color: #15824f; }
@@ -381,7 +382,7 @@
     .chip-mini {
       display: inline-flex; align-items: center; height: 18px; padding: 0 7px;
       border-radius: var(--r-pill); background: var(--accent-surface); color: var(--accent);
-      font-size: 9px; font-weight: 720; text-transform: uppercase; letter-spacing: 0.05em;
+      font-size: 9px; font-weight: 720; text-transform: uppercase; letter-spacing: 0;
     }
 
     /* Segmented (chip-grammar §5) */
@@ -466,7 +467,7 @@
       background: var(--surface-2); padding: 10px 12px;
     }
     .stat-card.warn { border-color: rgba(201,132,16,0.32); background: var(--warn-surface); }
-    .stat-k { font-size: var(--fs-micro); font-weight: 680; letter-spacing: 0.06em; color: var(--ink-3); text-transform: uppercase; }
+    .stat-k { font-size: var(--fs-micro); font-weight: 680; letter-spacing: 0; color: var(--ink-3); text-transform: uppercase; }
     .stat-card.warn .stat-k { color: #8a5a0c; }
     .stat-v { font-size: var(--fs-sm); font-weight: 640; color: var(--ink-1); margin-top: 3px; }
     .stat-card.warn .stat-v { color: #8a5a0c; }
@@ -477,8 +478,8 @@
       background: var(--surface-2);
     }
     .profile-row .pr-name { font-weight: 600; color: var(--ink-1); font-family: var(--mono); font-size: var(--fs-sm); }
-    .profile-row .pr-ok { color: #15824f; font-weight: 620; font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase; }
-    .profile-row .pr-no { color: #8a5a0c; font-weight: 620; font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase; }
+    .profile-row .pr-ok { color: #15824f; font-weight: 620; font-size: 9.5px; letter-spacing: 0; text-transform: uppercase; }
+    .profile-row .pr-no { color: #8a5a0c; font-weight: 620; font-size: 9.5px; letter-spacing: 0; text-transform: uppercase; }
 
     /* Vault */
     .vault-card { padding: var(--sp-5); }
@@ -495,7 +496,7 @@
     .vault-path { font-family: var(--mono); font-size: var(--fs-meta); color: var(--ink-3); margin-top: 3px; }
     .vault-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
     .mode-tag {
-      font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+      font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0;
       padding: 1px 6px; border-radius: var(--r-pill);
       background: var(--surface-sunken); color: var(--ink-3);
     }
@@ -534,7 +535,7 @@
     .mcp-group:first-of-type { margin-top: 0; }
     .mcp-group-head {
       display: flex; align-items: center; gap: var(--sp-2);
-      font-size: var(--fs-micro); letter-spacing: var(--ls-caps);
+      font-size: var(--fs-micro); letter-spacing: 0;
       font-weight: 680; color: var(--ink-3); text-transform: uppercase;
       padding: var(--sp-2) var(--sp-3) var(--sp-3);
     }
@@ -601,7 +602,7 @@
       font-size: 9.5px; color: var(--violet);
       background: var(--violet-surface); border: 1px solid rgba(124,77,219,0.22);
       padding: 1px 7px; border-radius: var(--r-pill);
-      font-weight: 720; text-transform: uppercase; letter-spacing: 0.05em;
+      font-weight: 720; text-transform: uppercase; letter-spacing: 0;
     }
     .ext-role { font-size: var(--fs-micro); color: var(--ink-4); font-family: var(--mono); }
     .ext-url { font-family: var(--mono); font-size: var(--fs-meta); color: var(--ink-3); margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -684,7 +685,7 @@
       flex: none;
     }
     .spec-suite-head { color: #cdd6e6; font-size: var(--fs-sm); line-height: 1.6; padding: 0 4px; }
-    .spec-suite-head h2 { margin: 0 0 4px; font-size: var(--fs-lg); font-weight: 680; color: #fff; letter-spacing: -0.01em; }
+    .spec-suite-head h2 { margin: 0 0 4px; font-size: var(--fs-lg); font-weight: 680; color: #fff; letter-spacing: 0; }
     .spec-suite-head b { color: #aebfff; font-weight: 640; }
     .spec-suite-head code { color: #aab6cc; font-family: var(--mono); font-size: var(--fs-meta); }
     .spec-state {
@@ -720,7 +721,7 @@
     .mini-cap {
       padding: 7px 12px;
       font-size: var(--fs-micro); font-weight: 700;
-      letter-spacing: var(--ls-caps); text-transform: uppercase;
+      letter-spacing: 0; text-transform: uppercase;
       color: var(--ink-3); background: var(--surface-2);
       border-bottom: 1px solid var(--line-soft);
     }
@@ -904,10 +905,6 @@
     .ctl.invalid { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(214,69,61,0.18); }
     .field-err { font-size: var(--fs-meta); color: #b8352e; display: inline-flex; align-items: center; gap: 5px; margin-top: 2px; }
 
-    /* Disabled vault row (web) */
-    .vault-card.disabled { opacity: 0.7; }
-    .vault-card.disabled .vault-ico { background: var(--surface-sunken); color: var(--ink-4); }
-    .vault-card.disabled .ctl-btn { background: var(--surface-sunken); color: var(--ink-4); cursor: not-allowed; pointer-events: none; }
   </style>
 </head>
 <body>
@@ -973,7 +970,7 @@
       </div>
       <div class="nav reveal d1">
         <button><svg class="ico sm"><use href="#i-building"/></svg>Office</button>
-        <button>SOPs</button>
+        <button>Workspace</button>
         <button>Market</button>
         <button>Personnel</button>
       </div>
@@ -1043,9 +1040,12 @@
               <div class="card-block">
                 <div class="field">
                   <span class="field-label">Model</span>
-                  <div class="ctl mono"><input value="MiniMax-M2.7" placeholder="model-name" list="modelopts" /></div>
-                  <datalist id="modelopts"><option value="MiniMax-M2.7"></option><option value="MiniMax-M2.7-highspeed"></option></datalist>
-                  <span class="field-note">Free-form id with suggestions from the scoped catalog (see Advanced model catalog).</span>
+                  <div class="ctl mono"><input value="MiniMax-M2.7" placeholder="model-name" /></div>
+                  <div class="chip-row" style="margin-top:6px">
+                    <span class="chip-mini">MiniMax-M2.7</span>
+                    <span class="chip-mini">MiniMax-M2.7-highspeed</span>
+                  </div>
+                  <span class="field-note">Free-form id with suggestions rendered as product chips from the scoped catalog.</span>
                 </div>
               </div>
             </div>
@@ -1057,7 +1057,7 @@
                   <span class="field-label">Secure API key</span>
                   <div class="ctl mono">
                     <span class="lead"><svg class="ico sm"><use href="#i-key"/></svg></span>
-                    <input type="password" value="sk-cp-9f2b7d4a1c8e3056ab47ee01" />
+                    <input type="password" placeholder="Stored credential; leave empty to keep" value="" />
                     <span class="trail reveal-key" style="cursor:pointer"><svg class="ico sm"><use href="#i-eye"/></svg></span>
                   </div>
                   <span class="field-note">Leave empty to keep the stored credential · Credential destination: <b>https://api.minimax.io</b></span>
@@ -1116,7 +1116,7 @@
                     </div>
                     <div class="field span-2">
                       <span class="field-label">Default headers <span class="opt">· JSON</span></span>
-                      <div class="ctl area mono"><textarea placeholder='{"HTTP-Referer":"https://example.com"}'></textarea></div>
+                      <div class="ctl area mono"><div class="primitive-textarea" data-primitive="Textarea" data-placeholder='{"HTTP-Referer":"https://example.com"}'></div></div>
                       <span class="field-note">JSON merged into transport headers.</span>
                     </div>
                     <div class="field span-2">
@@ -1134,7 +1134,7 @@
           <div class="set-pane" id="pane-runtime">
             <div class="pane-head">
               <div class="pane-title">Runtime</div>
-              <div class="pane-desc">How agents execute — runtime defaults, appearance, the main harness owner, conversation memory, the local vault, and scene diagnostics.</div>
+              <div class="pane-desc">Runtime defaults, appearance, memory, and local vault.</div>
             </div>
 
             <div class="sec">
@@ -1183,18 +1183,18 @@
               <div class="sec-head">
                 <div>
                   <div class="label">Main harness control</div>
-                  <div class="sec-hint">Who owns the top-level runtime. Replacement mode stays locked until release evidence is recorded.</div>
+                  <div class="sec-hint">Top-level runtime ownership and release gate state.</div>
                 </div>
               </div>
               <div class="card-block">
                 <div class="stat-grid" style="margin-top:0">
                   <div class="stat-card"><div class="stat-k">Default owner</div><div class="stat-v">Offisim core</div></div>
                   <div class="stat-card"><div class="stat-k">Driver profiles</div><div class="stat-v">1 verified</div></div>
-                  <div class="stat-card warn"><div class="stat-k">Replacement mode</div><div class="stat-v">Unavailable until release evidence</div></div>
+                  <div class="stat-card warn"><div class="stat-k">Replacement mode</div><div class="stat-v">Needs release proof</div></div>
                 </div>
                 <div style="margin-top:var(--sp-4)">
-                  <div class="profile-row"><span class="pr-name">claude-agent-sdk:driver</span><span class="pr-ok">Verified</span></div>
-                  <div class="profile-row"><span class="pr-name">codex-agent-sdk:replacement</span><span class="pr-no">No release evidence</span></div>
+                  <div class="profile-row"><span class="pr-name">gateway-driver</span><span class="pr-ok">Verified</span></div>
+                  <div class="profile-row"><span class="pr-name">full-agent-driver</span><span class="pr-no">Needs proof</span></div>
                 </div>
               </div>
             </div>
@@ -1456,7 +1456,7 @@
       window cannot show: <b>External Employees</b> (empty + populated + install wizard), <b>MCP</b>
       (grouped list + add form + stdio confirm), <b>Runtime</b> (density/theme/switches/binding/
       diagnostics), <b>Provider</b> (multi-config picker, key reveal, vault row), <b>save bar</b>
-      transitions, <b>discard toast</b>, <b>validation reject</b>, and the <b>disabled vault</b> on web.
+      transitions, <b>discard toast</b>, <b>validation reject</b>, and desktop vault snapshot export.
     </div>
 
     <!-- 1 · External Employees — empty + populated -->
@@ -1671,7 +1671,7 @@
                   </div>
                   <div class="field span-2">
                     <span class="field-label">Arguments <span class="opt">· one per line</span></span>
-                    <div class="ctl area mono"><textarea placeholder="--context&#10;ide-assistant"></textarea></div>
+                    <div class="ctl area mono"><div class="primitive-textarea" data-primitive="Textarea" data-placeholder="--context&#10;ide-assistant"></div></div>
                   </div>
                 </div>
                 <div class="iw-actions">
@@ -1871,8 +1871,8 @@
                   <div class="rbc-seg">
                     <button>Inherit</button>
                     <button class="active"><svg class="ico xs"><use href="#i-zap"/></svg>Provider gateway</button>
-                    <button>Claude engine</button>
-                    <button>Codex engine</button>
+                    <button>Verified driver</button>
+                    <button>Isolated driver</button>
                   </div>
                   <div class="rbc-resolved">
                     Resolved: <b>Provider gateway (Offisim core)</b>
@@ -1880,7 +1880,7 @@
                   </div>
                   <div class="callout muted" style="margin-top:6px">
                     <svg class="ico xs"><use href="#i-info"/></svg>
-                    Inherit falls back to user-default. Claude/Codex engines require a verified driver profile (Runtime &gt; Main harness control).
+                    Non-gateway drivers stay gated until Main harness control shows verified proof.
                   </div>
                 </div>
               </div>
@@ -1970,18 +1970,18 @@
           </div>
           <div>
             <div class="mini-pane">
-              <div class="mini-cap">Unified model dropdown — custom chev, no native arrow</div>
+              <div class="mini-cap">Unified model dropdown — Select primitive trigger</div>
               <div class="mini-bd">
                 <div class="field" style="margin-bottom:var(--sp-4)">
                   <span class="field-label">Model</span>
                   <button class="sel" type="button"><span class="sv">MiniMax-M2.7</span></button>
-                  <span class="field-note">Custom select trigger. Native <code>&lt;select&gt;</code> arrow chrome is suppressed via inline background-image — DNA §11.</span>
+                  <span class="field-note">Select primitive trigger. Browser-default arrow chrome is not part of the component contract — DNA §11.</span>
                 </div>
                 <div class="field" style="margin-bottom:var(--sp-4)">
                   <span class="field-label">Secure API key</span>
                   <div class="ctl mono">
                     <span class="lead"><svg class="ico sm"><use href="#i-key"/></svg></span>
-                    <input type="password" value="sk-cp-9f2b7d4a1c8e3056ab47ee01" />
+                    <input type="password" placeholder="Stored credential; leave empty to keep" value="" />
                     <span class="trail reveal-key" style="cursor:pointer" title="Reveal"><svg class="ico sm"><use href="#i-eye"/></svg></span>
                   </div>
                   <span class="field-note">Mask on (eye reveals plaintext). Leave empty to keep stored credential. Credential destination: <b>https://api.minimax.io</b></span>
@@ -1996,8 +1996,8 @@
               </div>
             </div>
             <p class="annot-dark">Eye trigger flips <code>input.type</code> between <code>password</code>
-              and <code>text</code>. Native select arrow is suppressed via the <code>.sel</code> class
-              (background SVG chev). Preset hint chip is informational only — clicking it does not
+              and <code>text</code>. Select state uses the <code>.sel</code> primitive specimen
+              with the product chevron. Preset hint chip is informational only — clicking it does not
               mutate (preset is set via product dropdown elsewhere).</p>
           </div>
         </div>
@@ -2020,7 +2020,7 @@
           <p class="annot-dark">Vault row is informational + one CTA — no editable path field. "Open in
             Finder" goes through <code>opener</code> Tauri plugin
             (<code>reveal-item-in-dir</code>). On Linux/Windows the label reads <b>"Open in file manager"</b>;
-            web variant in specimen 9.</p>
+            there is no browser-disabled variant in the desktop product spec.</p>
         </div>
       </div>
     </div>
@@ -2150,36 +2150,35 @@
       </div>
     </div>
 
-    <!-- 9 · VaultDirectorySection on web (disabled) -->
+    <!-- 9 · Vault snapshot export states -->
     <div class="spec-state">
-      <div class="spec-cap"><span class="n">9</span><span class="t">VaultDirectorySection — web (disabled stub)</span>
-        <span class="d"><code>components/settings/VaultDirectorySection.tsx</code> · renders disabled variant when <code>!isTauri()</code></span></div>
+      <div class="spec-cap"><span class="n">9</span><span class="t">Vault snapshot — desktop export states</span>
+        <span class="d"><code>RuntimePane.tsx</code> · local snapshot export state, busy state, and error surface</span></div>
       <div class="spec-frame">
         <div class="mini-pane" style="max-width:560px;margin:0 auto">
-          <div class="mini-cap">Web — Desktop-only stub</div>
+          <div class="mini-cap">Desktop — snapshot export ready</div>
           <div class="mini-bd">
-            <div class="card-block vault-card disabled" style="margin:0">
+            <div class="card-block vault-card" style="margin:0">
               <div class="vault-head">
                 <span class="vault-ico"><svg class="ico sm"><use href="#i-folder-open"/></svg></span>
                 <div>
-                  <div class="vault-title">Local vault location <span class="mode-tag">Desktop only</span></div>
-                  <div class="vault-sub">Vault management lives in the desktop app. The web build cannot mount a local directory.</div>
+                  <div class="vault-title">Vault snapshot <span class="mode-tag">Desktop</span></div>
+                  <div class="vault-sub">Export a zip snapshot of the current desktop vault for backup or handoff.</div>
                 </div>
               </div>
               <div class="vault-status">
-                Open the desktop app to manage your vault, see file counts, and reveal the folder in Finder.
+                Desktop exports write to Offisim's app-local exports folder and include the current employee vault files.
               </div>
               <div class="vault-actions">
-                <button class="ctl-btn" disabled><svg class="ico sm"><use href="#i-folder-open"/></svg>Open in Finder</button>
-                <a href="#" style="font-size:var(--fs-meta);color:var(--accent);font-weight:620;align-self:center;text-decoration:none">Download desktop app →</a>
+                <span class="mode-tag">Local snapshot export</span>
+                <button class="ctl-btn"><svg class="ico sm"><use href="#i-folder-open"/></svg>Export zip</button>
               </div>
             </div>
           </div>
         </div>
-        <p class="annot-dark" style="max-width:560px;margin:0 auto">Disabled variant keeps the same
-          shell so the user understands the feature exists. Action button is non-interactive
-          (<code>disabled</code> attribute + dimmed). The "Download desktop app" link is the only live
-          affordance and points to the release page.</p>
+        <p class="annot-dark" style="max-width:560px;margin:0 auto">Snapshot export is a desktop
+          runtime action. If the desktop command is unavailable, the surface shows a normal error
+          state; it does not render a browser/web placeholder.</p>
       </div>
     </div>
 
@@ -2210,7 +2209,7 @@
               <span class="field-label">Secure API key <span class="req">*</span></span>
               <div class="ctl mono invalid">
                 <span class="lead" style="color:#b8352e"><svg class="ico sm"><use href="#i-key"/></svg></span>
-                <input type="password" value="" placeholder="sk-…" />
+                <input type="password" value="" placeholder="Stored securely after save" />
               </div>
               <span class="field-err"><svg class="ico xs"><use href="#i-alert"/></svg>API key is required for this product. Either paste a key or remove this provider config.</span>
             </div>

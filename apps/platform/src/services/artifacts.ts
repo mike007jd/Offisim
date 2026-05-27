@@ -78,7 +78,7 @@ export function registryArtifactPublicUrl(packageVersionId: string): string {
   const publicUrl =
     process.env.PLATFORM_PUBLIC_URL ??
     process.env.OFFISIM_PLATFORM_PUBLIC_URL ??
-    `http://localhost:${process.env.PORT ?? '8787'}`;
+    `http://localhost:${process.env.PORT ?? '4100'}`;
   return `${publicUrl.replace(/\/$/u, '')}/v1/install/artifacts/${encodeURIComponent(packageVersionId)}`;
 }
 

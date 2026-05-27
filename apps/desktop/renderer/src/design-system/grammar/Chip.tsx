@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils.js';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { CSSProperties } from 'react';
 
 interface ChipProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'className'> {
   as?: 'button' | 'span';
@@ -23,7 +24,12 @@ export function Chip({
     as === 'button' && 'off-focusable',
     className,
   );
-  const dot = dotColor ? <span className="off-chip-dot" style={{ background: dotColor }} /> : null;
+  const dot = dotColor ? (
+    <span
+      className="off-chip-dot"
+      style={{ '--off-chip-dot': dotColor } as CSSProperties}
+    />
+  ) : null;
 
   if (as === 'button') {
     return (

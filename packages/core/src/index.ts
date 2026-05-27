@@ -18,7 +18,6 @@ export type {
   ToolCallRow,
   HandoffEventRow,
   MeetingSessionRow,
-  KanbanCardRow,
   GraphCheckpointRow,
   RuntimeEventRow,
   LlmCallRow,
@@ -27,7 +26,6 @@ export type {
   NewToolCall,
   NewHandoffEvent,
   NewMeetingSession,
-  NewKanbanCard,
   NewGraphCheckpoint,
   NewRuntimeEvent,
   NewLlmCall,
@@ -41,7 +39,6 @@ export type {
   ToolCallRepository,
   HandoffRepository,
   MeetingRepository,
-  KanbanRepository,
   EventRepository,
   McpAuditRepository,
   McpAuditRow,
@@ -74,9 +71,6 @@ export type {
   ModelCostRateRow,
   NewModelCostRate,
   ModelCostRateRepository,
-  SopTemplateRow,
-  NewSopTemplate,
-  SopTemplateRepository,
   RackRow,
   NewRack,
   RackRepository,
@@ -183,7 +177,6 @@ export {
   MemoryNodeSummaryRepository,
   MemoryEmployeeVersionRepository,
   MemoryModelCostRateRepository,
-  MemorySopTemplateRepository,
   MemoryRackRepository,
   MemorySlotRepository,
   MemoryWorkstationRackRepository,
@@ -385,7 +378,6 @@ export { EmployeeVersionService } from './runtime/employee-version-service.js';
 export { ensureYoloMasterForActiveCompanies } from './runtime/ensure-yolo-master.js';
 export type { VersionDiff } from './runtime/employee-version-service.js';
 export { CostCalculationService } from './runtime/cost-calculation-service.js';
-export { SopService } from './services/sop-service.js';
 export { RackSlotService } from './services/rack-slot-service.js';
 export type { RackWithSlots } from './services/rack-slot-service.js';
 export { WorkstationToolResolver } from './services/workstation-tool-resolver.js';
@@ -405,7 +397,7 @@ export type { CostAggregate, DashboardSummary } from './runtime/cost-calculation
 export { DEFAULT_COST_RATES } from './runtime/default-cost-rates.js';
 
 // --- Runtime ---
-export { MockToolExecutor } from './runtime/tool-executor.js';
+export { UnconfiguredToolExecutor } from './runtime/tool-executor.js';
 export { WorkstationAssignmentService } from './runtime/workstation-assignment-service.js';
 
 // --- MCP ---

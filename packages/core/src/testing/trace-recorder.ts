@@ -72,14 +72,12 @@ export class TraceRecorder {
     const snapshot = repos.snapshot?.() as
       | {
           taskRuns?: unknown;
-          kanbanCards?: unknown;
           activeInteractions?: unknown;
           toolPermissionApprovals?: unknown;
         }
       | undefined;
     return {
       taskRuns: normalizeRows(filterByThread(snapshot?.taskRuns, threadId)),
-      kanbanCards: normalizeRows(snapshotRows(snapshot?.kanbanCards)),
       llmCalls: normalizeRows(
         (await repos.llmCalls.findByThread(threadId)).filter((row) => !isAsyncReflectionCall(row)),
       ),
@@ -135,10 +133,6 @@ function normalizeFinalState(state: Partial<OffisimGraphState>): Record<string, 
     blockedStepIndices: state.blockedStepIndices ?? [],
     currentStepOutputs: state.currentStepOutputs ?? [],
   }) as Record<string, unknown>;
-}
-
-function snapshotRows(rows: unknown): unknown[] {
-  return Array.isArray(rows) ? rows : [];
 }
 
 function filterByThread(rows: unknown, threadId: string): unknown[] {

@@ -33,7 +33,7 @@ const MEMORY_TOOLS: readonly ToolDef[] = Object.freeze([
           type: 'string',
           enum: ['employee', 'team'],
           description:
-            'Visibility scope (employee=personal, team=team-wide). Company scope is reserved for SOP/config.',
+            'Visibility scope (employee=personal, team=team-wide). Company scope is reserved for company config.',
         },
         importance: {
           type: 'number',

@@ -1,13 +1,28 @@
 import { type SurfaceKey, useUiState } from '@/app/ui-state.js';
 import { motion } from 'motion/react';
-import type { ReactNode } from 'react';
-import { ActivitySurface } from './activity/ActivitySurface.js';
-import { MarketSurface } from './market/MarketSurface.js';
-import { OfficeSurface } from './office/OfficeSurface.js';
-import { PersonnelSurface } from './personnel/PersonnelSurface.js';
-import { SettingsSurface } from './settings/SettingsSurface.js';
-import { StudioSurface } from './studio/StudioSurface.js';
-import { WorkspaceSurface } from './workspace/WorkspaceSurface.js';
+import { lazy, Suspense, type ReactNode } from 'react';
+
+const ActivitySurface = lazy(() =>
+  import('./activity/ActivitySurface.js').then((m) => ({ default: m.ActivitySurface })),
+);
+const MarketSurface = lazy(() =>
+  import('./market/MarketSurface.js').then((m) => ({ default: m.MarketSurface })),
+);
+const OfficeSurface = lazy(() =>
+  import('./office/OfficeSurface.js').then((m) => ({ default: m.OfficeSurface })),
+);
+const PersonnelSurface = lazy(() =>
+  import('./personnel/PersonnelSurface.js').then((m) => ({ default: m.PersonnelSurface })),
+);
+const SettingsSurface = lazy(() =>
+  import('./settings/SettingsSurface.js').then((m) => ({ default: m.SettingsSurface })),
+);
+const StudioSurface = lazy(() =>
+  import('./studio/StudioSurface.js').then((m) => ({ default: m.StudioSurface })),
+);
+const WorkspaceSurface = lazy(() =>
+  import('./workspace/WorkspaceSurface.js').then((m) => ({ default: m.WorkspaceSurface })),
+);
 
 function renderSurface(surface: SurfaceKey): ReactNode {
   switch (surface) {
@@ -38,7 +53,9 @@ export function SurfaceRouter() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.16, ease: [0.2, 0, 0, 1] }}
     >
-      {renderSurface(surface)}
+      <Suspense fallback={<div className="off-surface-loading">Loading surface...</div>}>
+        {renderSurface(surface)}
+      </Suspense>
     </motion.div>
   );
 }

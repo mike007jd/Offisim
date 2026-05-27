@@ -8,11 +8,8 @@ import type {
   CompanyTemplateAssetRow,
   NewCompanyTemplateAsset,
   NewOfficeLayout,
-  NewSopTemplate,
   OfficeLayoutRepository,
   OfficeLayoutRow,
-  SopTemplateRepository,
-  SopTemplateRow,
 } from '../../repositories.js';
 import type { MemoryRepositoriesSnapshot } from '../memory-types.js';
 
@@ -22,56 +19,6 @@ function now(): string {
 
 function cloneRows<T extends object>(rows: Iterable<T>): T[] {
   return [...rows].map((row) => ({ ...row }));
-}
-
-export class MemorySopTemplateRepository implements SopTemplateRepository {
-  private readonly store = new Map<string, SopTemplateRow>();
-
-  constructor(initialRows?: Iterable<SopTemplateRow>) {
-    if (!initialRows) return;
-    for (const row of initialRows) {
-      this.store.set(row.sop_template_id, { ...row });
-    }
-  }
-
-  async create(template: NewSopTemplate): Promise<SopTemplateRow> {
-    const row: SopTemplateRow = {
-      ...template,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    this.store.set(row.sop_template_id, row);
-    return row;
-  }
-
-  async findById(sopTemplateId: string): Promise<SopTemplateRow | null> {
-    return this.store.get(sopTemplateId) ?? null;
-  }
-
-  async findByCompany(companyId: string): Promise<SopTemplateRow[]> {
-    return [...this.store.values()].filter((r) => r.company_id === companyId);
-  }
-
-  async update(
-    sopTemplateId: string,
-    patch: import('../../repositories.js').SopTemplateUpdate,
-  ): Promise<void> {
-    const existing = this.store.get(sopTemplateId);
-    if (!existing) return;
-    this.store.set(sopTemplateId, {
-      ...existing,
-      ...patch,
-      updated_at: new Date().toISOString(),
-    });
-  }
-
-  async delete(sopTemplateId: string): Promise<void> {
-    this.store.delete(sopTemplateId);
-  }
-
-  snapshot(): SopTemplateRow[] {
-    return cloneRows(this.store.values());
-  }
 }
 
 export class MemoryOfficeLayoutRepository implements OfficeLayoutRepository {
@@ -228,7 +175,6 @@ export class MemoryZoneRepository implements ZoneRepository {
 }
 
 export interface WorkspaceMemoryRepos {
-  sopTemplates: MemorySopTemplateRepository;
   companyTemplates: MemoryCompanyTemplateAssetRepository;
   officeLayouts: MemoryOfficeLayoutRepository;
   prefabInstances: MemoryPrefabInstanceRepository;
@@ -238,10 +184,9 @@ export interface WorkspaceMemoryRepos {
 export function createWorkspaceMemoryRepos(
   snapshot?: Partial<MemoryRepositoriesSnapshot>,
 ): WorkspaceMemoryRepos {
-  const sopTemplates = new MemorySopTemplateRepository(snapshot?.sopTemplates);
   const companyTemplates = new MemoryCompanyTemplateAssetRepository(snapshot?.companyTemplates);
   const officeLayouts = new MemoryOfficeLayoutRepository(snapshot?.officeLayouts);
   const prefabInstances = createMemoryPrefabRepository(snapshot?.prefabInstances);
   const zones = new MemoryZoneRepository(snapshot?.zones);
-  return { sopTemplates, companyTemplates, officeLayouts, prefabInstances, zones };
+  return { companyTemplates, officeLayouts, prefabInstances, zones };
 }

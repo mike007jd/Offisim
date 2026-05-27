@@ -3,10 +3,10 @@
   "category": "graph",
   "entryMode": "boss_chat",
   "seed": {
-    "company": { "companyId": "company-pm-planner-clears-stale-dispatch-state", "name": "SOP Reset Co" },
+    "company": { "companyId": "company-pm-planner-clears-stale-dispatch-state", "name": "Plan Reset Co" },
     "thread": { "threadId": "thread-pm-planner-clears-stale-dispatch-state", "status": "running" },
     "employees": [
-      { "id": "emp-sop-reset", "name": "SOP Engineer", "role": "engineer" }
+      { "id": "emp-plan-reset", "name": "Plan Engineer", "role": "engineer" }
     ]
   },
   "tools": [
@@ -23,8 +23,8 @@
   },
   "initialState": {
     "managerDirective": {
-      "intent": "Build the requested SOP deliverable",
-      "recommendedEmployees": ["emp-sop-reset"]
+      "intent": "Build the requested plan deliverable",
+      "recommendedEmployees": ["emp-plan-reset"]
     },
     "completedStepIndices": [0],
     "dispatchedStepIndices": [0],
@@ -33,8 +33,8 @@
   "llmTurns": [
     {
       "id": "pm-new-plan",
-      "match": { "contains": "Build the requested SOP deliverable" },
-      "content": "{\"summary\":\"Build SOP deliverable after stale checkpoint\",\"steps\":[{\"stepIndex\":0,\"description\":\"Create deliverable\",\"tasks\":[{\"taskType\":\"code\",\"employeeId\":\"emp-sop-reset\",\"description\":\"Create the deliverable and verify it\",\"dependsOnStepOutput\":false}]}]}"
+      "match": { "contains": "Build the requested plan deliverable" },
+      "content": "{\"summary\":\"Build plan deliverable after stale checkpoint\",\"steps\":[{\"stepIndex\":0,\"description\":\"Create deliverable\",\"tasks\":[{\"taskType\":\"code\",\"employeeId\":\"emp-plan-reset\",\"description\":\"Create the deliverable and verify it\",\"dependsOnStepOutput\":false}]}]}"
     },
     {
       "id": "employee-tool",

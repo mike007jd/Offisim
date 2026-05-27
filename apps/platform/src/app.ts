@@ -11,7 +11,6 @@ import { authRoute } from './routes/auth.js';
 import { creatorsRoute } from './routes/creators.js';
 import { health } from './routes/health.js';
 import { installRoute } from './routes/install.js';
-import { kanbanRoute } from './routes/kanban.js';
 import { market } from './routes/market.js';
 import { meRoute } from './routes/me.js';
 import { publish } from './routes/publish.js';
@@ -26,8 +25,6 @@ export function createApp(
   opts?: {
     resumeCoordinator?: PlatformEnv['Variables']['resumeCoordinator'];
     sessionStore?: PlatformEnv['Variables']['sessionStore'];
-    kanbanStore?: PlatformEnv['Variables']['kanbanStore'];
-    kanbanEventBus?: PlatformEnv['Variables']['kanbanEventBus'];
   },
 ) {
   const corsOrigins = resolveCorsOrigins();
@@ -52,12 +49,6 @@ export function createApp(
     if (opts?.sessionStore) {
       c.set('sessionStore', opts.sessionStore);
     }
-    if (opts?.kanbanStore) {
-      c.set('kanbanStore', opts.kanbanStore);
-    }
-    if (opts?.kanbanEventBus) {
-      c.set('kanbanEventBus', opts.kanbanEventBus);
-    }
     await next();
   });
   app.use('/api/auth/*', authRateLimit);
@@ -78,7 +69,6 @@ export function createApp(
   app.route('/v1/me', meRoute);
   app.route('/', resumeRoute);
   app.route('/', sessionsRoute);
-  app.route('/', kanbanRoute);
 
   return app;
 }

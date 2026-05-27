@@ -13,7 +13,6 @@ import { z } from 'zod';
 export const VALID_KINDS = [
   'employee',
   'skill',
-  'sop',
   'company_template',
   'office_layout',
   'bundle',
@@ -40,7 +39,11 @@ export type ReviewCreateBody = z.infer<typeof ReviewCreateSchema>;
 // ── Publish: Draft ──
 
 export const DraftCreateSchema = z.object({
-  kind: z.string().min(1, 'kind is required'),
+  kind: z.enum(VALID_KINDS, {
+    errorMap: (_issue, ctx) => ({
+      message: `Invalid draft kind: ${ctx.data}`,
+    }),
+  }),
   title: z.string().min(1, 'title is required'),
   summary: z.string().optional(),
   listing_id: z.string().regex(UUID_REGEX, 'listing_id must be a valid UUID').optional(),

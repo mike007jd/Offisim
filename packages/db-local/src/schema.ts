@@ -289,8 +289,7 @@ export const projects = sqliteTable(
 
 // ---------------------------------------------------------------------------
 // 010b — Chat threads (product-layer thread metadata; decoupled from
-// graph_threads on purpose — see openspec/specs/workspace-thread-architecture
-// Decision 2: one chat_thread backs many runtime graph_threads rows over
+// graph_threads on purpose: one chat_thread backs many runtime graph_threads rows over
 // its lifetime, one per (team-chat | direct-chat target) conversationKey.)
 // ---------------------------------------------------------------------------
 
@@ -301,6 +300,9 @@ export const chatThreads = sqliteTable(
     project_id: text('project_id')
       .notNull()
       .references(() => projects.project_id, { onDelete: 'cascade' }),
+    employee_id: text('employee_id').references(() => employees.employee_id, {
+      onDelete: 'set null',
+    }),
     title: text('title').notNull().default('New thread'),
     title_set_by_user: integer('title_set_by_user').notNull().default(0),
     summary: text('summary'),
@@ -310,6 +312,7 @@ export const chatThreads = sqliteTable(
   },
   (table) => [
     index('idx_chat_threads_project_updated').on(table.project_id, table.updated_at),
+    index('idx_chat_threads_project_employee').on(table.project_id, table.employee_id),
     index('idx_chat_threads_project_active').on(
       table.project_id,
       table.archived_at,
@@ -339,40 +342,6 @@ export const projectAssignments = sqliteTable(
     uniqueIndex('project_assignments_proj_emp').on(table.project_id, table.employee_id),
     index('idx_project_assignments_project').on(table.project_id),
     index('idx_project_assignments_employee').on(table.employee_id),
-  ],
-);
-
-// ---------------------------------------------------------------------------
-// 030 — Kanban cards
-// ---------------------------------------------------------------------------
-
-export const kanbanCards = sqliteTable(
-  'kanban_cards',
-  {
-    id: text('id').primaryKey(),
-    project_id: text('project_id')
-      .notNull()
-      .references(() => projects.project_id, { onDelete: 'cascade' }),
-    company_id: text('company_id')
-      .notNull()
-      .references(() => companies.company_id, { onDelete: 'cascade' }),
-    title: text('title').notNull(),
-    note: text('note').notNull().default(''),
-    state: text('state').notNull().default('todo'),
-    origin: text('origin').notNull(),
-    created_by_employee_id: text('created_by_employee_id'),
-    assigned_employee_id: text('assigned_employee_id'),
-    parent_card_id: text('parent_card_id'),
-    blocked_reason: text('blocked_reason'),
-    task_run_id: text('task_run_id'),
-    sort_order: integer('sort_order').notNull().default(0),
-    created_at: text('created_at').notNull(),
-    updated_at: text('updated_at').notNull(),
-  },
-  (table) => [
-    index('idx_kanban_project_state').on(table.project_id, table.state),
-    index('idx_kanban_assignee').on(table.assigned_employee_id, table.state),
-    index('idx_kanban_task_run').on(table.task_run_id),
   ],
 );
 
@@ -618,26 +587,6 @@ export const modelCostRates = sqliteTable(
     ),
   ],
 );
-
-// ---------------------------------------------------------------------------
-// 008 — SOP templates
-// ---------------------------------------------------------------------------
-
-export const sopTemplates = sqliteTable('sop_templates', {
-  sop_template_id: text('sop_template_id').primaryKey(),
-  company_id: text('company_id')
-    .notNull()
-    .references(() => companies.company_id, { onDelete: 'cascade' }),
-  name: text('name').notNull(),
-  description: text('description').notNull().default(''),
-  definition_json: text('definition_json').notNull(),
-  source_thread_id: text('source_thread_id'),
-  source_url: text('source_url'),
-  version: text('version'),
-  last_synced_at: text('last_synced_at'),
-  created_at: text('created_at').notNull().default(sql`(datetime('now'))`),
-  updated_at: text('updated_at').notNull().default(sql`(datetime('now'))`),
-});
 
 export const companyTemplateAssets = sqliteTable(
   'company_template_assets',

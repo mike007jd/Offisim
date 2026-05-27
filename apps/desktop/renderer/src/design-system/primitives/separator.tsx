@@ -13,8 +13,8 @@ export function Separator({
       decorative={decorative}
       orientation={orientation}
       className={cn(
-        'shrink-0 bg-[var(--off-line)]',
-        orientation === 'horizontal' ? 'h-px w-full' : 'h-full w-px',
+        'off-separator',
+        orientation === 'horizontal' ? 'off-separator-horizontal' : 'off-separator-vertical',
         className,
       )}
       {...props}

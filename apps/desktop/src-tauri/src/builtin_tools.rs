@@ -473,7 +473,18 @@ pub async fn project_list_dir<R: Runtime>(
     project_id: Option<String>,
 ) -> Result<Vec<ProjectDirEntry>, String> {
     let roots = workspace_roots(&app, project_id.as_deref()).await?;
-    let candidate = resolve_candidate(&path, cwd.as_deref())?;
+    let candidate = if PathBuf::from(&path).is_relative() && cwd.is_none() {
+        let root = roots
+            .first()
+            .ok_or_else(|| "no project workspace root is bound".to_string())?;
+        let candidate = root.join(&path);
+        if has_parent_dir(&candidate) {
+            return Err("parent-directory path segments are not allowed".to_string());
+        }
+        candidate
+    } else {
+        resolve_candidate(&path, cwd.as_deref())?
+    };
     let canonical = candidate
         .canonicalize()
         .map_err(|err| fs_resolve_error("resolve project directory", &candidate, err))?;

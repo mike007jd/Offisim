@@ -146,6 +146,7 @@ export class MemoryChatThreadRepository implements ChatThreadRepository {
     const row: ChatThread = {
       thread_id: input.thread_id,
       project_id: input.project_id,
+      employee_id: input.employee_id ?? null,
       title: input.title ?? 'New thread',
       title_set_by_user: 0,
       summary: null,

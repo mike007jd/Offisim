@@ -19,6 +19,68 @@
   min-width: 0;
 }
 
+.off-surface-loading {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-sm);
+  background: var(--off-bg);
+}
+
+.off-toast {
+  border: 1px solid var(--off-line) !important;
+  border-radius: var(--off-r-md) !important;
+  background: var(--off-surface-1) !important;
+  color: var(--off-ink-1) !important;
+  box-shadow: var(--off-elev-3) !important;
+}
+
+.off-toast-title {
+  font-size: var(--off-fs-sm) !important;
+  font-weight: 680 !important;
+  color: var(--off-ink-1) !important;
+}
+
+.off-toast-description {
+  font-size: var(--off-fs-meta) !important;
+  color: var(--off-ink-3) !important;
+}
+
+.off-toast-action,
+.off-toast-cancel {
+  border-radius: var(--off-r-sm) !important;
+}
+
+.off-error-boundary {
+  position: fixed;
+  inset: 0;
+  z-index: var(--off-z-emergency);
+  overflow: auto;
+  padding: 32px;
+  background: var(--off-surface-1);
+  color: var(--off-ink-1);
+  font: 13px / 1.5 var(--off-font-mono);
+}
+
+.off-error-boundary__title {
+  margin-bottom: 12px;
+  color: var(--off-danger);
+  font-size: var(--off-fs-lg);
+  font-weight: 700;
+}
+
+.off-error-boundary__stack,
+.off-error-boundary__info {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.off-error-boundary__info {
+  margin-top: 16px;
+  color: var(--off-ink-3);
+}
+
 .off-state {
   flex: 1;
   min-height: 0;
@@ -44,7 +106,7 @@
 }
 
 .off-state-glyph.is-error {
-  border-color: rgba(214, 69, 61, 0.4);
+  border-color: color-mix(in srgb, var(--off-danger) 40%, transparent);
   background: var(--off-danger-surface);
   color: var(--off-danger);
 }
@@ -81,7 +143,7 @@
     var(--off-surface-sunken) 70%
   );
   background-size: 200% 100%;
-  animation: off-shimmer 1.4s ease infinite;
+  animation: off-shimmer var(--off-motion-loop-base) var(--off-motion-loop-soft) infinite;
 }
 
 /* Compact recharts usage chart */
@@ -106,7 +168,7 @@
 .off-chart-tip-label {
   font-size: var(--off-fs-micro);
   font-weight: 680;
-  letter-spacing: var(--off-ls-caps);
+  letter-spacing: 0;
   text-transform: uppercase;
   color: var(--off-ink-3);
 }

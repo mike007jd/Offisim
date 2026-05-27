@@ -1,4 +1,6 @@
+import { isTauriRuntime } from '@/data/adapters.js';
 import { resolveAsync } from '@/lib/platform.js';
+import { getTauriDb } from '@/lib/tauri-db.js';
 import { useQuery } from '@tanstack/react-query';
 import {
   Activity,
@@ -65,6 +67,166 @@ export interface ActivityRecord {
   payload?: Record<string, ActivityPayloadValue>;
   /** Resolved actor label used by the actor filter / search. */
   actor?: string;
+}
+
+interface RuntimeEventDbRow {
+  event_id: string;
+  event_type: string;
+  severity: string;
+  payload_json: string | null;
+  created_at: string;
+  thread_id: string | null;
+}
+
+interface AgentEventDbRow {
+  event_id: string;
+  event_type: string;
+  payload_json: string;
+  created_at: string;
+  thread_id: string;
+  agent_name: string;
+}
+
+interface McpAuditDbRow {
+  audit_id: string;
+  thread_id: string;
+  employee_id: string;
+  server_name: string;
+  tool_name: string;
+  arguments_json: string;
+  result_json: string | null;
+  error: string | null;
+  latency_ms: number;
+  approved_by: string;
+  created_at: string;
+}
+
+function parsePayload(json: string | null | undefined): Record<string, ActivityPayloadValue> {
+  if (!json) return {};
+  try {
+    const parsed = JSON.parse(json) as unknown;
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, ActivityPayloadValue>)
+      : { value: String(parsed) };
+  } catch {
+    return { raw: json };
+  }
+}
+
+function toEventTime(value: string): number {
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : Date.now();
+}
+
+function entityFromPayload(
+  payload: Record<string, ActivityPayloadValue>,
+  fallback: ActivityEntity,
+): ActivityEntity {
+  const label =
+    (typeof payload.message === 'string' && payload.message) ||
+    (typeof payload.name === 'string' && payload.name) ||
+    (typeof payload.employeeName === 'string' && payload.employeeName) ||
+    fallback.label;
+  return {
+    ...fallback,
+    label,
+  };
+}
+
+async function loadRuntimeActivityRecords(companyId: string): Promise<ActivityRecord[]> {
+  const db = await getTauriDb();
+  const [runtimeRows, agentRows, mcpRows] = await Promise.all([
+    db.select<RuntimeEventDbRow[]>(
+      `select event_id, event_type, severity, payload_json, created_at, thread_id
+       from runtime_events
+       where company_id = $1
+       order by created_at desc
+       limit 200`,
+      [companyId],
+    ),
+    db.select<AgentEventDbRow[]>(
+      `select event_id, event_type, payload_json, created_at, thread_id, agent_name
+       from agent_events
+       where company_id = $1
+       order by created_at desc
+       limit 200`,
+      [companyId],
+    ),
+    db.select<McpAuditDbRow[]>(
+      `select a.audit_id, a.thread_id, a.employee_id, a.server_name, a.tool_name,
+              a.arguments_json, a.result_json, a.error, a.latency_ms, a.approved_by, a.created_at
+       from mcp_audit_log a
+       join graph_threads t on t.thread_id = a.thread_id
+       where t.company_id = $1
+       order by a.created_at desc
+       limit 200`,
+      [companyId],
+    ),
+  ]);
+
+  const runtimeRecords: ActivityRecord[] = runtimeRows.map((row) => {
+    const payload = parsePayload(row.payload_json);
+    return {
+      id: row.event_id,
+      type: row.event_type,
+      at: toEventTime(row.created_at),
+      actor: typeof payload.actor === 'string' ? payload.actor : 'runtime',
+      entity: entityFromPayload(payload, {
+        label: row.event_type,
+        type: 'runtime-event',
+        id: row.thread_id ?? row.event_id,
+      }),
+      payload: { ...payload, severity: row.severity, threadId: row.thread_id ?? null },
+    };
+  });
+
+  const agentRecords: ActivityRecord[] = agentRows.map((row) => {
+    const payload = parsePayload(row.payload_json);
+    return {
+      id: row.event_id,
+      type: `agent.${row.event_type}`,
+      at: toEventTime(row.created_at),
+      actor: row.agent_name,
+      entity: entityFromPayload(payload, {
+        label: row.agent_name,
+        type: 'agent-event',
+        id: row.thread_id,
+      }),
+      payload: { ...payload, threadId: row.thread_id, agentName: row.agent_name },
+    };
+  });
+
+  const mcpRecords: ActivityRecord[] = mcpRows.map((row) => {
+    const args = parsePayload(row.arguments_json);
+    const result = parsePayload(row.result_json);
+    return {
+      id: row.audit_id,
+      type: row.error ? 'mcp.tool.error' : 'mcp.tool.invoked',
+      at: toEventTime(row.created_at),
+      actor: row.employee_id,
+      entity: {
+        label: `${row.server_name} · ${row.tool_name}`,
+        type: 'mcp-tool',
+        id: row.audit_id,
+      },
+      payload: {
+        message: row.error
+          ? `MCP ${row.tool_name} failed on ${row.server_name}`
+          : `MCP ${row.tool_name} invoked on ${row.server_name}`,
+        threadId: row.thread_id,
+        employeeId: row.employee_id,
+        server: row.server_name,
+        tool: row.tool_name,
+        latencyMs: row.latency_ms,
+        approvedBy: row.approved_by,
+        arguments: args,
+        result,
+        error: row.error,
+      },
+    };
+  });
+
+  return [...runtimeRecords, ...agentRecords, ...mcpRecords].sort((a, b) => b.at - a.at);
 }
 
 /* ── Date presets ────────────────────────────────────────────────────────── */
@@ -581,11 +743,11 @@ function buildFixtures(now: number): ActivityRecord[] {
       id: 'evt-cost-recorded',
       type: 'cost.recorded',
       at: now - 1 * DAY - 5 * HOUR,
-      entity: { label: 'MiniMax-M2.7', type: 'model', id: 'mdl_m27' },
+      entity: { label: 'Runtime default model', type: 'model', id: 'mdl_default' },
       actor: 'employee:emp_4f1a',
       payload: {
-        message: 'cost recorded — MiniMax-M2.7 · $0.0142',
-        model: 'MiniMax-M2.7',
+        message: 'cost recorded by the configured runtime provider',
+        model: 'Runtime default',
         usd: 0.0142,
       },
     },
@@ -630,9 +792,12 @@ function buildFixtures(now: number): ActivityRecord[] {
 
 /* ── Query hook ──────────────────────────────────────────────────────────── */
 
-export function useActivityRecords() {
+export function useActivityRecords(companyId: string) {
   return useQuery({
-    queryKey: ['activity-records'],
-    queryFn: () => resolveAsync(buildFixtures(Date.now())),
+    queryKey: ['activity-records', companyId],
+    queryFn: () =>
+      isTauriRuntime()
+        ? loadRuntimeActivityRecords(companyId)
+        : resolveAsync(buildFixtures(Date.now())),
   });
 }

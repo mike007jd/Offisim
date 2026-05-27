@@ -8,7 +8,12 @@ import { cn } from '@/lib/utils.js';
 import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
 import { Building2, MessageSquare, SquarePen, UserPlus, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { type ContactDetail, type Presence, useWsContactDetails } from '../workspace-data.js';
+import {
+  type ContactDetail,
+  type Presence,
+  useWsContactDetails,
+  useWsConversations,
+} from '../workspace-data.js';
 
 const PRESENCE_PILL: Record<Presence, { label: string; cls: string }> = {
   working: { label: 'Working', cls: 'is-working' },
@@ -27,6 +32,7 @@ const PRESENCE_DOT: Record<Presence, string> = {
 export function ContactsApp() {
   const employees = useEmployees();
   const details = useWsContactDetails();
+  const conversations = useWsConversations();
   const selectedId = useUiState((s) => s.workspaceSelectedId);
   const selectItem = useUiState((s) => s.selectWorkspaceItem);
   const setSurface = useUiState((s) => s.setSurface);
@@ -61,6 +67,10 @@ export function ContactsApp() {
   const active = list.find((e) => e.id === activeId) ?? null;
   const activeDetail: ContactDetail | undefined = active ? detailById[active.id] : undefined;
   const presence: Presence = activeDetail?.presence ?? (active?.online ? 'idle' : 'offline');
+  const directConversationId = useMemo(() => {
+    if (!active) return null;
+    return conversations.data?.find((item) => item.employeeId === active.id)?.id ?? null;
+  }, [active, conversations.data]);
 
   return (
     <>
@@ -148,17 +158,24 @@ export function ContactsApp() {
                 {activeDetail?.presenceNote ? ` — ${activeDetail.presenceNote}` : ' now'}
               </span>
               <div className="off-ws-ct-cta">
-                <button
-                  type="button"
-                  className="off-ws-oa-approve off-focusable"
-                  onClick={() => {
-                    selectItem(active.id);
-                    setApp('messenger');
-                  }}
-                >
-                  <Icon icon={MessageSquare} size="sm" />
-                  Direct chat
-                </button>
+                {directConversationId ? (
+                  <button
+                    type="button"
+                    className="off-ws-oa-approve off-focusable"
+                    title={`Open ${active.name}'s direct chat`}
+                    onClick={() => {
+                      setApp('messenger', directConversationId);
+                    }}
+                  >
+                    <Icon icon={MessageSquare} size="sm" />
+                    Direct chat
+                  </button>
+                ) : (
+                  <output className="off-ws-ct-state" aria-label="Direct chat state">
+                    <Icon icon={MessageSquare} size="sm" />
+                    Direct chat not started
+                  </output>
+                )}
                 <button
                   type="button"
                   className="off-ws-oa-deny off-focusable"

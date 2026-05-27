@@ -3,20 +3,17 @@ import { useCompanies, useEmployees, useProjects, useRunCost } from '@/data/quer
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 import {
-  Activity,
   Building2,
   CalendarDays,
   CheckSquare,
   ClipboardList,
-  Layers,
   type LucideIcon,
   MessageSquare,
   SquarePen,
   Store,
   Users,
 } from 'lucide-react';
-import { toast } from 'sonner';
-import { useWsApprovals, useWsDocs, useWsMeetings } from '../workspace-data.js';
+import { useWsApprovals, useWsMeetings } from '../workspace-data.js';
 
 type Tone = 'accent' | 'violet' | 'ok' | 'warn' | 'ink';
 
@@ -39,7 +36,6 @@ export function WorkplaceApp() {
   const projects = useProjects(companyId);
   const employees = useEmployees();
   const approvals = useWsApprovals();
-  const docs = useWsDocs();
   const meetings = useWsMeetings();
   const runCost = useRunCost();
 
@@ -48,8 +44,7 @@ export function WorkplaceApp() {
   const headcount = employees.data?.length ?? 0;
   const workingNow = employees.data?.filter((e) => e.presence === 'working').length ?? 0;
   const toApprove = approvals.data?.filter((a) => a.status === 'pending').length ?? 0;
-  const liveRuns = meetings.data?.filter((m) => m.status === 'live').length ?? 1;
-  const docCount = docs.data?.length ?? 0;
+  const activeRuns = meetings.data?.filter((m) => m.status === 'live').length ?? 1;
   const spend = runCost.data?.costLabel ?? '$0.00';
 
   const hour = new Date().getHours();
@@ -57,8 +52,7 @@ export function WorkplaceApp() {
 
   const stats = [
     { label: 'To approve', value: String(toApprove), alert: toApprove > 0 },
-    { label: 'Live runs', value: String(liveRuns), alert: false },
-    { label: 'Docs', value: String(docCount), alert: false },
+    { label: 'Active runs', value: String(activeRuns), alert: false },
     { label: 'Spend today', value: spend, alert: false },
   ];
 
@@ -89,14 +83,6 @@ export function WorkplaceApp() {
       go: () => goApp('approvals'),
     },
     {
-      key: 'docs',
-      icon: Layers,
-      tone: 'ok',
-      name: 'Docs',
-      desc: 'Every deliverable, exportable',
-      go: () => goApp('docs'),
-    },
-    {
       key: 'calendar',
       icon: CalendarDays,
       tone: 'accent',
@@ -122,15 +108,6 @@ export function WorkplaceApp() {
       name: 'Office',
       desc: 'Watch the team collaborate in 3D',
       go: () => goSurface('office'),
-    },
-    {
-      key: 'sops',
-      icon: Activity,
-      tone: 'violet',
-      name: 'SOPs',
-      desc: 'Reusable process DAGs',
-      go: () =>
-        toast.message('SOPs', { description: 'Workflows are no longer a product surface.' }),
     },
     {
       key: 'market',

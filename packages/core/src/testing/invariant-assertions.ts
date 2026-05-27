@@ -1,7 +1,5 @@
 import type {
   DeliverableCreatedPayload,
-  KanbanOrigin,
-  KanbanState,
   RuntimeEvent,
 } from '@offisim/shared-types';
 import { materialize, type InstallPlan } from '@offisim/install-core';
@@ -65,31 +63,6 @@ export type ScenarioAssertion =
       readonly count?: number;
     }
   | { readonly kind: 'firstGraphNodeIs'; readonly nodeName: string }
-  | {
-      readonly kind: 'kanbanCards';
-      readonly projectId: string;
-      readonly count: number;
-      readonly origin?: KanbanOrigin;
-      readonly states?: Partial<Record<KanbanState, number>>;
-    }
-  | {
-      readonly kind: 'kanbanEventSequence';
-      readonly sequence: readonly KanbanEventExpectation[];
-    }
-  | {
-      readonly kind: 'kanbanRejectsTransition';
-      readonly cardId: string;
-      readonly next: KanbanState;
-      readonly errorIncludes?: string;
-    }
-  | {
-      readonly kind: 'kanbanRejectsStaleTransition';
-      readonly cardId: string;
-      readonly projectId: string;
-      readonly firstNext: KanbanState;
-      readonly secondNext: KanbanState;
-      readonly errorIncludes?: string;
-    }
   | { readonly kind: 'toolPermissionApprovalConsumed'; readonly scope: 'once' | 'thread' }
   | { readonly kind: 'finalOutputContains'; readonly contains: string }
   | { readonly kind: 'finalOutputNotContains'; readonly contains: string }
@@ -182,15 +155,6 @@ export interface ScenarioAssertionContext {
   readonly conversationState?: RunConversationStateSnapshot;
 }
 
-type KanbanEventExpectation =
-  | string
-  | {
-      readonly op: string;
-      readonly state: KanbanState;
-      readonly cardId?: string;
-      readonly blockedReason?: string | null;
-    };
-
 interface ConversationStateToolExpectation {
   readonly name: string;
   readonly surface?: string;
@@ -260,14 +224,6 @@ async function evaluateAssertion(
       return assertLlmRequestContains(ctx.repos, ctx.threadId, assertion);
     case 'firstGraphNodeIs':
       return assertFirstGraphNode(ctx.events, assertion.nodeName);
-    case 'kanbanCards':
-      return assertKanbanCards(ctx.repos, assertion);
-    case 'kanbanEventSequence':
-      return assertKanbanEventSequence(ctx.events, assertion.sequence);
-    case 'kanbanRejectsTransition':
-      return assertKanbanRejectsTransition(ctx.repos, assertion);
-    case 'kanbanRejectsStaleTransition':
-      return assertKanbanRejectsStaleTransition(ctx.repos, assertion);
     case 'toolPermissionApprovalConsumed':
       return assertToolPermissionApprovalConsumed(ctx.repos, ctx.threadId, assertion.scope);
     case 'finalOutputContains':
@@ -527,30 +483,19 @@ async function assertInstallMaterializationRollback(
       network_scope: 'none',
     },
     assets: [
-      { asset_id: 'sop.rollback', kind: 'sop', path: 'sop.json' },
+      { asset_id: 'employee.rollback', kind: 'employee', path: 'employee.json' },
       { asset_id: 'template.rollback', kind: 'company_template', path: 'template.json' },
       { asset_id: 'prefab.bad', kind: 'prefab', path: 'prefab.json' },
     ],
     integrity: { package_sha256: 'rollback-harness' },
     custom: {
       materializer_payloads: {
-        'sop.rollback': {
-          name: 'Rollback SOP',
-          definition: {
-            sop_id: 'rollback-sop',
-            name: 'Rollback SOP',
-            description: 'Rollback validation SOP',
-            created_at: '2026-01-01T00:00:00.000Z',
-            steps: [],
-          },
-        },
         'template.rollback': {
           id: 'template-rollback',
           name: 'Rollback Template',
           description: 'Rollback validation template',
           icon: 'briefcase',
           employees: [],
-          sops: [],
           layoutPreset: 'default',
         },
         'prefab.bad': {
@@ -588,15 +533,15 @@ async function assertInstallMaterializationRollback(
   }
 
   const snapshot = ctx.repos.snapshot?.() as
-    | {
-        installedAssets?: unknown[];
-        sopTemplates?: unknown[];
-        companyTemplates?: unknown[];
-        prefabInstances?: unknown[];
-      }
+      | {
+          installedAssets?: unknown[];
+          employees?: unknown[];
+          companyTemplates?: unknown[];
+          prefabInstances?: unknown[];
+        }
     | undefined;
   assertNoSnapshotRows(snapshot?.installedAssets, packageId, 'installed assets');
-  assertNoSnapshotRows(snapshot?.sopTemplates, `company-${ctx.scenarioId}`, 'SOP templates');
+  assertNoSnapshotRows(snapshot?.employees, `company-${ctx.scenarioId}`, 'employees');
   assertNoSnapshotRows(
     snapshot?.companyTemplates,
     `company-${ctx.scenarioId}`,
@@ -631,68 +576,6 @@ function assertTaskToolIntentEquals(
   }
 }
 
-async function assertKanbanRejectsTransition(
-  repos: RuntimeRepositories,
-  assertion: Extract<ScenarioAssertion, { kind: 'kanbanRejectsTransition' }>,
-): Promise<void> {
-  try {
-    await repos.kanban.transition(assertion.cardId, assertion.next, 'illegal transition scenario');
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (assertion.errorIncludes && !message.includes(assertion.errorIncludes)) {
-      throw new Error(
-        `Expected kanban error to include ${assertion.errorIncludes}, got ${message}`,
-      );
-    }
-    return;
-  }
-  throw new Error(`Expected kanban transition to ${assertion.next} to throw`);
-}
-
-async function assertKanbanRejectsStaleTransition(
-  repos: RuntimeRepositories,
-  assertion: Extract<ScenarioAssertion, { kind: 'kanbanRejectsStaleTransition' }>,
-): Promise<void> {
-  const results = await Promise.allSettled([
-    repos.kanban.transition(assertion.cardId, assertion.firstNext, 'first stale transition'),
-    repos.kanban.transition(assertion.cardId, assertion.secondNext, 'second stale transition'),
-  ]);
-  const successes = results.filter(
-    (
-      result,
-    ): result is PromiseFulfilledResult<Awaited<ReturnType<typeof repos.kanban.transition>>> =>
-      result.status === 'fulfilled' && result.value !== null,
-  );
-  const staleFailures = results.filter((result) => {
-    if (result.status !== 'rejected') return false;
-    const message = result.reason instanceof Error ? result.reason.message : String(result.reason);
-    return assertion.errorIncludes
-      ? message.includes(assertion.errorIncludes)
-      : message.includes('Kanban transition stale');
-  });
-  if (successes.length !== 1 || staleFailures.length !== 1) {
-    throw new Error(
-      `Expected one successful transition and one stale rejection, got ${results
-        .map((result) =>
-          result.status === 'fulfilled'
-            ? `fulfilled:${result.value?.state ?? '<null>'}`
-            : `rejected:${result.reason instanceof Error ? result.reason.message : String(result.reason)}`,
-        )
-        .join(', ')}`,
-    );
-  }
-
-  const cards = await repos.kanban.listByProject(assertion.projectId);
-  const card = cards.find((candidate) => candidate.id === assertion.cardId);
-  if (!card) throw new Error(`Expected kanban card ${assertion.cardId} to still exist`);
-  if (card.state === 'todo') throw new Error('Expected stale transition race to move out of todo');
-  if (card.state !== assertion.firstNext && card.state !== assertion.secondNext) {
-    throw new Error(
-      `Expected final state to be ${assertion.firstNext} or ${assertion.secondNext}, got ${card.state}`,
-    );
-  }
-}
-
 function assertGraphStateArrayEquals(
   finalState: Partial<OffisimGraphState>,
   field: Extract<ScenarioAssertion, { kind: 'graphStateArrayEquals' }>['field'],
@@ -724,84 +607,6 @@ function assertGraphStateArrayExcludes(
   if (actual.includes(expected)) {
     throw new Error(`Expected ${field} to exclude ${expected}, got ${JSON.stringify(actual)}`);
   }
-}
-
-async function assertKanbanCards(
-  repos: RuntimeRepositories,
-  assertion: Extract<ScenarioAssertion, { kind: 'kanbanCards' }>,
-): Promise<void> {
-  const cards = (await repos.kanban.listByProject(assertion.projectId)).filter((card) =>
-    assertion.origin ? card.origin === assertion.origin : true,
-  );
-  if (cards.length !== assertion.count) {
-    throw new Error(
-      `Expected ${assertion.count} kanban cards for ${assertion.projectId}, got ${cards.length}`,
-    );
-  }
-  for (const [state, expected] of Object.entries(assertion.states ?? {})) {
-    const actual = cards.filter((card) => card.state === state).length;
-    if (actual !== expected) {
-      throw new Error(`Expected ${expected} kanban cards in ${state}, got ${actual}`);
-    }
-  }
-}
-
-function assertKanbanEventSequence(
-  events: readonly RuntimeEvent[],
-  expected: readonly KanbanEventExpectation[],
-): void {
-  const actual = events
-    .map((event) => {
-      const payload = event.payload;
-      if (!payload || typeof payload !== 'object') return null;
-      const record = payload as {
-        kind?: unknown;
-        op?: unknown;
-        card?: { id?: unknown; state?: unknown; blocked_reason?: unknown };
-      };
-      if (record.kind !== 'kanban' || typeof record.op !== 'string') return null;
-      return {
-        op: record.op,
-        state: String(record.card?.state ?? '<missing>'),
-        cardId: typeof record.card?.id === 'string' ? record.card.id : undefined,
-        blockedReason:
-          typeof record.card?.blocked_reason === 'string' || record.card?.blocked_reason === null
-            ? record.card.blocked_reason
-            : undefined,
-      };
-    })
-    .filter((entry): entry is NormalizedKanbanEvent => entry !== null);
-  if (
-    actual.length !== expected.length ||
-    expected.some((entry, index) => !matchesKanbanEventExpectation(actual[index], entry))
-  ) {
-    throw new Error(
-      `Kanban event sequence mismatch. expected=${JSON.stringify(expected)} actual=${JSON.stringify(actual)}`,
-    );
-  }
-}
-
-interface NormalizedKanbanEvent {
-  readonly op: string;
-  readonly state: string;
-  readonly cardId: string | undefined;
-  readonly blockedReason: string | null | undefined;
-}
-
-function matchesKanbanEventExpectation(
-  actual: NormalizedKanbanEvent | undefined,
-  expected: KanbanEventExpectation,
-): boolean {
-  if (!actual) return false;
-  if (typeof expected === 'string') {
-    return `${actual.op}:${actual.state}` === expected;
-  }
-  if (actual.op !== expected.op || actual.state !== expected.state) return false;
-  if (expected.cardId !== undefined && actual.cardId !== expected.cardId) return false;
-  if (expected.blockedReason !== undefined && actual.blockedReason !== expected.blockedReason) {
-    return false;
-  }
-  return true;
 }
 
 function assertFirstGraphNode(events: readonly RuntimeEvent[], expected: string): void {

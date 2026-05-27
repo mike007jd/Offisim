@@ -35,16 +35,13 @@ interface BossDecision {
     | 'direct_reply'
     | 'meeting'
     | 'hire_or_assess'
-    | 'direct_delegate'
-    | 'use_sop';
+    | 'direct_delegate';
   reason?: string;
   reply?: string;
   isNewProject?: boolean;
   projectName?: string;
   /** Employee ID for direct_delegate — Boss picks a specific employee for simple tasks. */
   targetEmployeeId?: string;
-  /** SOP template ID for use_sop — Boss picks a matching SOP. */
-  sopTemplateId?: string;
   needsClarification?: boolean;
   clarificationQuestion?: string;
 }
@@ -55,13 +52,12 @@ export const BOSS_SYSTEM_PROMPT = `You are the Boss AI — the top-level coordin
 Analyze the user's message and decide how to handle it. Respond with JSON only:
 
 {
-  "action": "delegate" | "direct_reply" | "meeting" | "hire_or_assess" | "direct_delegate" | "use_sop",
+  "action": "delegate" | "direct_reply" | "meeting" | "hire_or_assess" | "direct_delegate",
   "reason": "brief explanation",
   "reply": "only if action is direct_reply",
   "isNewProject": true | false,
   "projectName": "short name — only if isNewProject is true",
   "targetEmployeeId": "employee ID — only if action is direct_delegate",
-  "sopTemplateId": "SOP template ID — only if action is use_sop",
   "needsClarification": true | false,
   "clarificationQuestion": "only when a critical detail is missing"
 }
@@ -77,17 +73,14 @@ Rules:
 - "projectName": a concise 2-5 word name for the project (only when isNewProject is true)
 - If a critical detail is missing and you cannot confidently route or scope the work, set "needsClarification": true and provide one concise "clarificationQuestion"
 - When "needsClarification" is true, still choose the most likely action you would take after the user answers
-- "use_sop": when the user's request closely matches an available SOP template. Use the SOP's predefined workflow instead of creating a new plan. You MUST include "sopTemplateId".
 - When in doubt between "direct_delegate" and "delegate", prefer "delegate" — it is safer to plan than to skip planning.
-- When an SOP matches, prefer "use_sop" over "delegate" — reusing a proven workflow is better than re-planning from scratch.
 
 Decision priority (check in order):
 1. Does the message mention a specific employee + a task? → direct_delegate
 2. Does the message request work (build, create, implement, fix, write, etc.)? → delegate
-3. Does the message match an available SOP? → use_sop
-4. Is it about hiring or team assessment? → hire_or_assess
-5. Is it a meeting request? → meeting
-6. Everything else (greetings, status, conversation) → direct_reply
+3. Is it about hiring or team assessment? → hire_or_assess
+4. Is it a meeting request? → meeting
+5. Everything else (greetings, status, conversation) → direct_reply
 
 Examples:
 User: "Ask Alex to implement a login page" → {"action":"direct_delegate","targetEmployeeId":"<Alex's ID>","reason":"single employee task"}
@@ -165,9 +158,7 @@ function resolveBossRosterPath(input: {
   entryMode: OffisimGraphState['entryMode'];
   interactionMode: string;
   targetEmployeeId?: string | null;
-  selectedSopTemplateId?: string | null;
-}): 'team-chat' | 'direct-chat' | 'yolo-chat' | 'sop-driven' | 'human-in-loop' {
-  if (input.selectedSopTemplateId) return 'sop-driven';
+}): 'team-chat' | 'direct-chat' | 'yolo-chat' | 'human-in-loop' {
   if (input.interactionMode === 'yolo') return 'yolo-chat';
   if (input.interactionMode === 'human_in_loop') return 'human-in-loop';
   if (input.entryMode === 'direct_chat' || input.targetEmployeeId) return 'direct-chat';
@@ -177,7 +168,7 @@ function resolveBossRosterPath(input: {
 function emitBossRosterDivergenceIfNeeded(input: {
   companyId: string;
   threadId: string;
-  path: 'team-chat' | 'direct-chat' | 'yolo-chat' | 'sop-driven' | 'human-in-loop';
+  path: 'team-chat' | 'direct-chat' | 'yolo-chat' | 'human-in-loop';
   railEmployeeCount: number;
   assembledRosterCount: number;
   eventBus: EventBus;
@@ -251,8 +242,7 @@ function parseBossDecision(content: string): BossDecision | null {
     action === 'direct_reply' ||
     action === 'meeting' ||
     action === 'hire_or_assess' ||
-    action === 'direct_delegate' ||
-    action === 'use_sop'
+    action === 'direct_delegate'
   ) {
     return {
       action,
@@ -262,7 +252,6 @@ function parseBossDecision(content: string): BossDecision | null {
       projectName: typeof parsed.projectName === 'string' ? parsed.projectName : undefined,
       targetEmployeeId:
         typeof parsed.targetEmployeeId === 'string' ? parsed.targetEmployeeId : undefined,
-      sopTemplateId: typeof parsed.sopTemplateId === 'string' ? parsed.sopTemplateId : undefined,
       needsClarification: parsed.needsClarification === true,
       clarificationQuestion:
         typeof parsed.clarificationQuestion === 'string' ? parsed.clarificationQuestion : undefined,
@@ -275,7 +264,6 @@ function mapActionToRoute(action: BossDecision['action']): OffisimGraphState['ro
   switch (action) {
     case 'delegate':
     case 'hire_or_assess':
-    case 'use_sop':
       return 'delegate_manager';
     case 'direct_reply':
       return 'direct_reply';
@@ -326,11 +314,7 @@ export async function bossNode(
     return localToolsGatewayLaneOutcomeState(state, taskToolIntent);
   }
 
-  // Build employee roster + SOP list in parallel for the prompt
-  const [employees, sopTemplates] = await Promise.all([
-    runtimeCtx.repos.employees.findByCompany(runtimeCtx.companyId),
-    runtimeCtx.repos.sopTemplates.findByCompany(runtimeCtx.companyId),
-  ]);
+  const employees = await runtimeCtx.repos.employees.findByCompany(runtimeCtx.companyId);
   const bossEmployeeRoster = formatBossEmployeeRosterSection(employees);
   emitBossEmployeeContextEmptyIfNeeded({
     companyId: runtimeCtx.companyId,
@@ -346,7 +330,6 @@ export async function bossNode(
       entryMode: state.entryMode ?? 'boss_chat',
       interactionMode,
       targetEmployeeId: state.targetEmployeeId,
-      selectedSopTemplateId: state.selectedSopTemplateId,
     }),
     railEmployeeCount: employees.length,
     assembledRosterCount: bossEmployeeRoster.injectedCount,
@@ -371,15 +354,6 @@ export async function bossNode(
     rosterSection = `\n\nAvailable employees for assignment:\n${roster}${localToolNote}`;
   }
 
-  // Inject available SOPs so boss can choose use_sop when a match exists
-  let sopSection = '';
-  if (sopTemplates.length > 0) {
-    const sopList = sopTemplates
-      .map((s) => `- ${s.sop_template_id}: "${s.name}" — ${s.description || 'no description'}`)
-      .join('\n');
-    sopSection = `\n\nAvailable SOPs (reusable workflows):\n${sopList}`;
-  }
-
   // Reasoning-only stream: partial JSON in the content channel would corrupt the UI,
   // so we forward reasoning deltas live while parsing the decision from the buffered
   // fullContent after stream close (byte-identical to the non-stream response).
@@ -393,7 +367,6 @@ export async function bossNode(
             BOSS_SYSTEM_PROMPT +
             bossEmployeeRoster.section +
             rosterSection +
-            sopSection +
             attachmentPreface,
         },
         { role: 'user', content: userContent },
@@ -490,15 +463,6 @@ export async function bossNode(
     const validEmployeeIds = new Set(nonManagerEmployees.map((e) => e.employee_id));
     if (!decision?.targetEmployeeId || !validEmployeeIds.has(decision.targetEmployeeId)) {
       route = 'delegate_manager';
-    }
-  }
-
-  // Validate use_sop: must have a valid sopTemplateId, otherwise fall back to delegate
-  if (decision?.action === 'use_sop') {
-    const validSopIds = new Set(sopTemplates.map((s) => s.sop_template_id));
-    if (!decision.sopTemplateId || !validSopIds.has(decision.sopTemplateId)) {
-      route = 'delegate_manager';
-      decision.sopTemplateId = undefined;
     }
   }
 
@@ -633,19 +597,12 @@ export async function bossNode(
           managerDirective: {
             intent: userContent,
             recommendedEmployees: [],
-            ...(decision?.action === 'use_sop' && decision.sopTemplateId
-              ? { sopTemplateId: decision.sopTemplateId }
-              : {}),
           },
         }
       : {}),
     // For direct_delegate, set targetEmployeeId so employee_direct_setup can use it
     ...(route === 'direct_delegate' && decision?.targetEmployeeId
       ? { targetEmployeeId: decision.targetEmployeeId }
-      : {}),
-    // For use_sop, pass the selected SOP template ID so PM planner can use it
-    ...(decision?.action === 'use_sop' && decision.sopTemplateId
-      ? { selectedSopTemplateId: decision.sopTemplateId }
       : {}),
   };
 }

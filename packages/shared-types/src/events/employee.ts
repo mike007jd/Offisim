@@ -55,7 +55,7 @@ export interface BossEmployeeContextEmptyPayload {
 }
 
 export interface BossRosterDivergencePayload {
-  readonly path: 'team-chat' | 'direct-chat' | 'yolo-chat' | 'sop-driven' | 'human-in-loop';
+  readonly path: 'team-chat' | 'direct-chat' | 'yolo-chat' | 'human-in-loop';
   readonly railEmployeeCount: number;
   readonly assembledRosterCount: number;
   readonly railCompanyId: string;

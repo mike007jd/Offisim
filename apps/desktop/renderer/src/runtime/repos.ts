@@ -9,9 +9,9 @@ import {
 
 /**
  * Real backend access for the renderer: Drizzle (sqlite-proxy over
- * tauri-plugin-sql) → RuntimeRepositories. No mock data — this is the single
+ * tauri-plugin-sql) → RuntimeRepositories. No preview-fixture data — this is the single
  * door to `<appDataDir>/offisim.db`. On first run, seeds one company from the
- * first built-in template (employees + SOPs + zones + prefab instances) so the
+ * first built-in template (employees + workspace layout + prefab instances) so the
  * office has real data to render.
  */
 
@@ -57,7 +57,6 @@ async function ensureSeededCompany(repos: RuntimeRepositories): Promise<void> {
 
   const service = new CompanyTemplateService(
     repos.employees,
-    repos.sopTemplates,
     repos.officeLayouts,
     runtimeEventBus,
     repos.prefabInstances,

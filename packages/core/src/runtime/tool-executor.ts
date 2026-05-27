@@ -47,12 +47,12 @@ export const WORKSTATION_ACCESS_DENIED = 'WORKSTATION_ACCESS_DENIED';
 export const TOOL_PERMISSION_DENIED = 'TOOL_PERMISSION_DENIED';
 export const TOOL_PERMISSION_REQUIRED = 'TOOL_PERMISSION_REQUIRED';
 
-/** Phase 2.0 mock — returns static results */
-export class MockToolExecutor implements ToolExecutor {
+export class UnconfiguredToolExecutor implements ToolExecutor {
   async execute(call: ToolCallRequest): Promise<ToolCallResponse> {
     return {
-      success: true,
-      result: { mock: true, tool: call.name, args: call.arguments },
+      success: false,
+      result: null,
+      error: `No tool executor is configured for "${call.name}".`,
     };
   }
 

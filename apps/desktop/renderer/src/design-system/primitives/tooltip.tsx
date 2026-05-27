@@ -28,8 +28,7 @@ export function TooltipContent({
       <TooltipPrimitive.Content
         sideOffset={sideOffset}
         className={cn(
-          'z-50 rounded-[var(--off-r-sm)] bg-[var(--off-ink-1)] px-[var(--off-sp-3)] py-[var(--off-sp-1)] text-[var(--off-fs-meta)] font-medium text-[var(--off-surface-1)] shadow-[var(--off-elev-2)]',
-          'data-[state=delayed-open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95',
+          'off-motion-tooltip off-tooltip-content',
           className,
         )}
         {...props}

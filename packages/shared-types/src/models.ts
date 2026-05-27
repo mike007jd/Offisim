@@ -179,7 +179,7 @@ export interface MainHarnessPolicyConfig {
 /**
  * Per-employee runtime binding. Provider mode keeps the Offisim-owned
  * prompt/tool-loop runtime; engine mode delegates one assigned task to a
- * trusted runtime adapter while Offisim retains top-level SOP ownership.
+ * trusted runtime adapter while Offisim retains top-level planning ownership.
  */
 export type EmployeeRuntimeBinding =
   | { readonly mode: 'provider' }

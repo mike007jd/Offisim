@@ -4,24 +4,28 @@ import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { SegmentedControl } from '@/design-system/grammar/SegmentedControl.js';
 import { Select } from '@/design-system/grammar/Select.js';
 import { Icon } from '@/design-system/icons/Icon.js';
-import { Input } from '@/design-system/primitives/input.js';
-import { type EmployeeAppearance, employeeAvatarUri } from '@/lib/avatar.js';
+import { type EmployeeAppearance, resolveAppearance } from '@/lib/avatar.js';
 import { cn } from '@/lib/utils.js';
-import { Dices, Lock, User } from 'lucide-react';
-import { useId } from 'react';
+import { OrbitControls } from '@react-three/drei';
+import { Canvas } from '@react-three/fiber';
+import { Lock } from 'lucide-react';
+import { useId, type CSSProperties } from 'react';
+import { BlockCharacter } from '../office/scene/BlockCharacter.js';
 import {
   ACCENT_SWATCHES,
   type AppearanceDraft,
   BODY_TYPE_OPTIONS,
   CLOTHING_SWATCHES,
-  DICEBEAR_STYLES,
-  type DicebearStyle,
   GENDER_OPTIONS,
   HAIR_STYLE_OPTIONS,
   HAIR_SWATCHES,
   SKIN_SWATCHES,
   type SwatchOption,
 } from './personnel-data.js';
+
+function swatchStyle(value: string): CSSProperties {
+  return { '--off-pers-swatch': value } as CSSProperties;
+}
 
 function SwatchRow({
   label,
@@ -50,7 +54,7 @@ function SwatchRow({
               aria-pressed={selected}
               title={swatch.label}
               className={cn('off-pers-sw off-focusable', selected && 'is-on')}
-              style={{ background: swatch.value }}
+              style={swatchStyle(swatch.value)}
               onClick={() => onChange(swatch.value)}
             />
           );
@@ -74,13 +78,27 @@ function PreviewCard({
   seed: string;
   brand: boolean;
 }) {
+  const resolved = resolveAppearance(seed, appearance);
   return (
     <div className="off-pers-prev">
       <span className="off-pers-prev-label">{label}</span>
       {label.startsWith('3D') ? (
-        <span className="off-pers-prev-figure">
-          <Icon icon={User} size="md" />
-        </span>
+        <div className="off-pers-prev-canvas" aria-label="3D avatar preview">
+          <Canvas camera={{ position: [0, 1.35, 3.2], fov: 36 }} dpr={[1, 2]}>
+            <ambientLight intensity={0.8} />
+            <directionalLight position={[2, 4, 3]} intensity={1.7} />
+            <group position={[0, -0.62, 0]} rotation={[0, -0.28, 0]} scale={1.35}>
+              <BlockCharacter appearance={resolved} running={false} phase={0} />
+            </group>
+            <OrbitControls
+              enablePan={false}
+              minDistance={2.4}
+              maxDistance={4.4}
+              minPolarAngle={0.7}
+              maxPolarAngle={1.4}
+            />
+          </Canvas>
+        </div>
       ) : (
         <EmployeeAvatar
           seed={seed}
@@ -104,7 +122,7 @@ interface AppearanceTabProps {
 export function AppearanceTab({ employee, draft, onChange }: AppearanceTabProps) {
   const hairStyleId = useId();
   const bodyTypeId = useId();
-  const seed = draft.seedOverride?.trim() || employee.id;
+  const seed = employee.id;
   const isExternal = employee.kind === 'external';
 
   const previewAppearance: EmployeeAppearance = {
@@ -219,59 +237,15 @@ export function AppearanceTab({ employee, draft, onChange }: AppearanceTabProps)
               </div>
             </div>
 
-            <CapsLabel className="mt-[var(--off-sp-2)]">Avatar style</CapsLabel>
-            <div className="off-pers-style-grid">
-              {DICEBEAR_STYLES.map((style) => {
-                const selected = (draft.dicebearStyle ?? 'avataaars') === style.value;
-                return (
-                  <button
-                    key={style.value}
-                    type="button"
-                    aria-pressed={selected}
-                    className={cn('off-pers-style-cell off-focusable', selected && 'is-on')}
-                    onClick={() =>
-                      onChange({ ...draft, dicebearStyle: style.value as DicebearStyle })
-                    }
-                  >
-                    <span
-                      className="off-pers-style-av"
-                      style={{
-                        backgroundImage: `url(${employeeAvatarUri(`${seed}:${style.value}`, previewAppearance)})`,
-                      }}
-                    />
-                    <span>{style.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            <CapsLabel className="mt-[var(--off-sp-2)]">Seed override</CapsLabel>
-            <div className="off-pers-seed-row">
-              <Input
-                className="font-mono text-[var(--off-fs-meta)]"
-                value={draft.seedOverride ?? ''}
-                onChange={(e) => onChange({ ...draft, seedOverride: e.target.value })}
-              />
-              <button
-                type="button"
-                title="Randomize seed"
-                aria-label="Randomize seed"
-                className="off-pers-dice off-focusable"
-                onClick={() =>
-                  onChange({ ...draft, seedOverride: Math.random().toString(36).slice(2, 10) })
-                }
-              >
-                <Icon icon={Dices} size="sm" />
-              </button>
-            </div>
             <p className="off-field-hint">
-              Seed feeds both the DiceBear hash and the procedural color resolvers.
+              These controls persist to the employee persona and drive both the 2D avatar and the
+              3D preview.
             </p>
           </div>
 
           <div className="off-pers-prev-col">
             <PreviewCard
-              label={`2D · ${draft.dicebearStyle ?? 'avataaars'}`}
+              label="2D"
               employee={employee}
               appearance={previewAppearance}
               seed={seed}

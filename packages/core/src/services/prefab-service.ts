@@ -7,6 +7,7 @@ import type {
 import { getSystemZoneDefaultPrefabs, parsePrefabBindings } from '@offisim/shared-types';
 import type { EventBus } from '../events/event-bus.js';
 import type { PrefabInstanceRepository } from '../repos/prefab-instance-repository.js';
+import { generateId } from '../utils/generate-id.js';
 
 // ── Default layout definitions per zone type ────────────────────
 type ZoneType = 'department' | 'library' | 'rest_area' | 'meeting_room' | 'server_room';
@@ -37,7 +38,7 @@ function getDefaultPlacements(zoneType: ZoneType, count: number): DefaultPlaceme
 }
 
 function generateInstanceId(): string {
-  return `pi-${Math.random().toString(36).slice(2, 10)}`;
+  return generateId('pi');
 }
 
 function now(): string {

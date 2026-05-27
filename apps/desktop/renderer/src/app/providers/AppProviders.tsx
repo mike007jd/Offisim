@@ -26,7 +26,20 @@ export function AppProviders({ children }: AppProvidersProps) {
     <QueryClientProvider client={queryClient}>
       <MotionConfig reducedMotion="user">
         <TooltipProvider>{children}</TooltipProvider>
-        <Toaster closeButton richColors position="top-right" />
+        <Toaster
+          closeButton
+          position="top-right"
+          toastOptions={{
+            classNames: {
+              toast: 'off-toast',
+              title: 'off-toast-title',
+              description: 'off-toast-description',
+              actionButton: 'off-toast-action',
+              cancelButton: 'off-toast-cancel',
+              closeButton: 'off-toast-close',
+            },
+          }}
+        />
       </MotionConfig>
     </QueryClientProvider>
   );

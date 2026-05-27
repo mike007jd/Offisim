@@ -109,7 +109,7 @@
     }
 
     button { font: inherit; cursor: pointer; }
-    input, select, textarea { font: inherit; }
+    input, .primitive-select, .primitive-textarea { font: inherit; }
 
     .sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
     .ico {
@@ -134,8 +134,8 @@
     .traffic { display: flex; gap: 8px; }
     .dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08); }
     .red { background: #ff5f57; } .yellow { background: #febc2e; } .green { background: #28c840; }
-    .brand { display: flex; align-items: baseline; gap: 9px; font-weight: 640; font-size: var(--fs-md); letter-spacing: -0.01em; }
-    .brand .ver { font-size: var(--fs-micro); color: var(--ink-3); font-weight: 600; padding: 2px 6px; border-radius: var(--r-pill); background: var(--surface-sunken); letter-spacing: 0.02em; }
+    .brand { display: flex; align-items: baseline; gap: 9px; font-weight: 640; font-size: var(--fs-md); letter-spacing: 0; }
+    .brand .ver { font-size: var(--fs-micro); color: var(--ink-3); font-weight: 600; padding: 2px 6px; border-radius: var(--r-pill); background: var(--surface-sunken); letter-spacing: 0; }
 
     /* ── Top bar (V3 verbatim, no bell) ─────────────── */
     .topbar {
@@ -246,7 +246,7 @@
     .pr-filter { margin-top: var(--sp-3); display: block; }
     .pr-filter .lbl {
       display: block; margin-bottom: var(--sp-1);
-      font-size: var(--fs-micro); letter-spacing: var(--ls-caps);
+      font-size: var(--fs-micro); letter-spacing: 0;
       font-weight: 680; color: var(--ink-3); text-transform: uppercase;
     }
     .pr-sel, .selbox {
@@ -290,14 +290,14 @@
       border: 1px solid var(--line);
       background: var(--surface-1); color: var(--ink-3);
       font-size: 9.5px; display: inline-flex; align-items: center;
-      letter-spacing: 0.05em; text-transform: uppercase; font-weight: 700;
+      letter-spacing: 0; text-transform: uppercase; font-weight: 700;
     }
 
     /* Avatar — DiceBear 2D fallback stand-in */
     .av {
       flex: none; border-radius: 26%;
       display: grid; place-items: center;
-      color: #fff; font-weight: 720; letter-spacing: -0.02em;
+      color: #fff; font-weight: 720; letter-spacing: 0;
       background: linear-gradient(150deg, var(--av-a, #6a8dff), var(--av-b, #3a5fd0));
       box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18);
       overflow: hidden;
@@ -340,7 +340,7 @@
     .pd-name {
       margin: 0; font-size: var(--fs-xl); font-weight: 700; color: var(--ink-1);
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-      letter-spacing: -0.01em;
+      letter-spacing: 0;
     }
     .pd-role {
       font-size: var(--fs-sm); color: var(--ink-3);
@@ -351,7 +351,7 @@
       height: 20px; padding: 0 9px; border-radius: var(--r-pill);
       border: 1px solid;
       font-size: 9.5px; font-weight: 700;
-      letter-spacing: 0.05em; text-transform: uppercase;
+      letter-spacing: 0; text-transform: uppercase;
       display: inline-flex; align-items: center; gap: 5px;
     }
     .st-pill::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
@@ -402,7 +402,7 @@
     /* ── Caps label (the only "section heading" style) ── */
     .insp-sec-label, .cap-label {
       display: block;
-      font-size: var(--fs-micro); letter-spacing: var(--ls-caps);
+      font-size: var(--fs-micro); letter-spacing: 0;
       font-weight: 680; color: var(--ink-3);
       text-transform: uppercase;
     }
@@ -534,7 +534,7 @@
     }
     .avc .cap-label { margin-bottom: 2px; }
     .swrow { display: flex; flex-direction: column; gap: 4px; }
-    .swrow .sl { font-size: var(--fs-micro); color: var(--ink-4); letter-spacing: 0.02em; }
+    .swrow .sl { font-size: var(--fs-micro); color: var(--ink-4); letter-spacing: 0; }
     .swrow .sws { display: flex; flex-wrap: wrap; gap: 6px; }
     .sw {
       width: 22px; height: 22px; border-radius: 50%;
@@ -572,7 +572,7 @@
     .prev .pl {
       position: absolute; left: 8px; top: 6px;
       font-size: 9.5px; font-weight: 700;
-      text-transform: uppercase; letter-spacing: var(--ls-caps);
+      text-transform: uppercase; letter-spacing: 0;
       color: var(--ink-4);
     }
     .prev .figure { width: 88px; height: 110px; display: grid; place-items: center; color: var(--ink-3); }
@@ -601,7 +601,7 @@
     .rbind-opt .req {
       margin-top: 2px;
       font-size: 9px; font-weight: 700;
-      text-transform: uppercase; letter-spacing: 0.06em;
+      text-transform: uppercase; letter-spacing: 0;
       color: var(--warn);
     }
     .rbind-resolved { font-size: var(--fs-meta); color: var(--ink-3); }
@@ -648,14 +648,14 @@
       height: 17px; padding: 0 7px; border-radius: var(--r-pill);
       border: 1px solid var(--line); background: var(--surface-1);
       color: var(--ink-3); font-size: 9px; font-weight: 700;
-      letter-spacing: 0.04em; text-transform: uppercase;
+      letter-spacing: 0; text-transform: uppercase;
       display: inline-flex; align-items: center;
     }
     .ovr-tag {
       height: 17px; padding: 0 7px; border-radius: var(--r-pill);
       border: 1px solid rgba(201,132,16,0.40); background: var(--warn-surface);
       color: #8a5a0c; font-size: 9px; font-weight: 700;
-      letter-spacing: 0.04em; text-transform: uppercase;
+      letter-spacing: 0; text-transform: uppercase;
       display: inline-flex; align-items: center;
     }
     .skrow .sr-desc { margin: 0; font-size: var(--fs-meta); color: var(--ink-3); line-height: 1.5; }
@@ -694,7 +694,7 @@
     .mem-sec .mh { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
     .mem-sec .mh h4 {
       margin: 0;
-      font-size: var(--fs-micro); letter-spacing: var(--ls-caps);
+      font-size: var(--fs-micro); letter-spacing: 0;
       font-weight: 680; color: var(--ink-3); text-transform: uppercase;
     }
     .mem-sec .mh .ct {
@@ -718,7 +718,7 @@
       width: 100%;
       font-size: var(--fs-sm); color: var(--ink-1); line-height: 1.55;
     }
-    .mem-entry textarea {
+    .mem-entry .primitive-textarea {
       width: 100%; min-height: 52px;
       border: 1px solid var(--line); border-radius: var(--r-xs);
       background: var(--surface-2); padding: 7px 9px;
@@ -792,7 +792,7 @@
     .difftbl th {
       text-align: left; padding: 6px 8px; color: var(--ink-3); font-weight: 600;
       border-bottom: 1px solid var(--line);
-      font-size: var(--fs-micro); letter-spacing: var(--ls-caps); text-transform: uppercase;
+      font-size: var(--fs-micro); letter-spacing: 0; text-transform: uppercase;
     }
     .difftbl td {
       padding: 6px 8px; border-bottom: 1px solid var(--line-soft); vertical-align: top;
@@ -805,7 +805,7 @@
     .badge {
       height: 19px; padding: 0 9px; border-radius: var(--r-pill);
       font-size: 9.5px; font-weight: 700;
-      letter-spacing: 0.05em; text-transform: uppercase;
+      letter-spacing: 0; text-transform: uppercase;
       display: inline-flex; align-items: center;
     }
     .badge.ok { background: var(--ok-surface); color: #15824f; }
@@ -862,7 +862,7 @@
     /* ══════════ State specimens ══════════ */
     .spec-suite { width: min(1600px, 100%); display: flex; flex-direction: column; gap: 22px; flex: none; }
     .spec-suite-head { color: #cdd6e6; font-size: var(--fs-sm); line-height: 1.6; padding: 0 4px; }
-    .spec-suite-head h2 { margin: 0 0 4px; font-size: var(--fs-lg); font-weight: 680; color: #fff; letter-spacing: -0.01em; }
+    .spec-suite-head h2 { margin: 0 0 4px; font-size: var(--fs-lg); font-weight: 680; color: #fff; letter-spacing: 0; }
     .spec-suite-head b { color: #aebfff; font-weight: 640; }
     .spec-suite-head code { color: #aab6cc; font-family: var(--mono); font-size: var(--fs-meta); }
     .spec-state {
@@ -898,7 +898,7 @@
     }
     .mini-cap {
       padding: 7px 12px;
-      font-size: 9.5px; font-weight: 700; letter-spacing: var(--ls-caps);
+      font-size: 9.5px; font-weight: 700; letter-spacing: 0;
       text-transform: uppercase; color: var(--ink-4);
       background: var(--surface-2); border-bottom: 1px solid var(--line-soft);
     }
@@ -913,7 +913,7 @@
       padding: 1px 7px; border-radius: var(--r-pill);
       background: rgba(201,132,16,0.18); color: #e0b15a;
       font-size: 9px; font-weight: 700;
-      text-transform: uppercase; letter-spacing: 0.06em;
+      text-transform: uppercase; letter-spacing: 0;
     }
 
     /* ── Spec specimens · added 11–22 ─────────────── */
@@ -966,7 +966,7 @@
       height: 22px; padding: 0 9px; border: 0; border-radius: var(--r-xs);
       background: transparent; color: var(--ink-3);
       font-size: 9.5px; font-weight: 680;
-      letter-spacing: var(--ls-caps); text-transform: uppercase;
+      letter-spacing: 0; text-transform: uppercase;
     }
     .tri-seg button.on {
       background: var(--surface-1); color: var(--ink-1); box-shadow: var(--elev-1);
@@ -994,7 +994,7 @@
       height: 18px; padding: 0 7px;
       border-radius: var(--r-pill);
       font-size: 9.5px; font-weight: 680;
-      letter-spacing: 0.04em; text-transform: uppercase;
+      letter-spacing: 0; text-transform: uppercase;
     }
     .lp::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
     .lp.idle { background: var(--surface-sunken); color: var(--ink-3); }
@@ -1225,7 +1225,7 @@
       </div>
       <div class="nav reveal d1">
         <button><svg class="ico sm"><use href="#i-building"/></svg>Office</button>
-        <button><svg class="ico sm"><use href="#i-book"/></svg>SOPs</button>
+        <button><svg class="ico sm"><use href="#i-grid"/></svg>Workspace</button>
         <button><svg class="ico sm"><use href="#i-store"/></svg>Market</button>
         <button class="active"><svg class="ico sm"><use href="#i-users"/></svg>Personnel</button>
       </div>
@@ -1249,11 +1249,7 @@
           </div>
           <label class="pr-filter">
             <span class="lbl">Role filter</span>
-            <select class="pr-sel">
-              <option>All roles</option><option>Developer</option><option>Frontend Dev</option>
-              <option>Backend Dev</option><option>UI Designer</option><option>QA</option>
-              <option>DevOps</option><option>Writer</option><option>Researcher</option>
-            </select>
+            <button class="pr-sel" type="button">All roles <span aria-hidden="true">&#9662;</span></button>
           </label>
         </div>
         <div class="pr-list">
@@ -1516,12 +1512,12 @@
               <span class="insp-sec-label">Config</span>
               <div class="fld"><span class="fl">Model mode</span><span class="seg"><button>Inherit unified setting</button><button class="on">Custom model</button></span><span class="hint">This employee will use the explicit model below.</span></div>
               <div class="fld"><label>Model family</label><div class="selbox">Configured validation models</div></div>
-              <div class="fld"><label>Override model</label><div class="inp ph">e.g. MiniMax-M2.7, GLM-5.1, openai/gpt-oss-120b:free</div>
-                <div class="chips"><button>MiniMax-M2.7</button><button>GLM-5.1</button><button>openai/gpt-oss-120b:free</button></div></div>
-              <div class="fld"><label>Max Tokens</label><div class="inp">512</div><span class="hint warn">Some models (e.g. MiniMax) use tokens for thinking. Recommend max tokens ≥ 1024.</span></div>
+              <div class="fld"><label>Override model</label><div class="inp ph">e.g. current provider default or approved model id</div>
+                <div class="chips"><button>Provider default</button><button>Analysis model</button><button>Budget model</button></div></div>
+              <div class="fld"><label>Max Tokens</label><div class="inp">512</div><span class="hint warn">Some reasoning models spend output budget on thinking. Recommend max tokens ≥ 1024.</span></div>
             </div>
           </div>
-          <p class="annot-dark">Prod build hides dev-only families (only "Configured validation models" + "Custom"); chips/datalist = <code>currentProviderModels</code>. <span class="rev-flag">reverse-risk</span> live <code>ProfileTab.tsx</code> ships the model-mode toggle labels in Chinese (<code>跟随统一设置 / 自定义模型</code>) — violates ui-office "UI 全英文" rule; spec renders English, fix at source.</p>
+          <p class="annot-dark">Prod build hides dev-only families (only "Configured validation models" + "Custom"); model suggestion chips = <code>currentProviderModels</code>. <span class="rev-flag">verified</span> live <code>ProfileTab.tsx</code> now ships the model-mode toggle labels in English, matching this spec.</p>
         </div>
       </div>
     </div>
@@ -1544,7 +1540,7 @@ Working style: detail-oriented, collaborative
 Communication frequency: medium · Risk preference: balanced
 Decision style: collaborative
 
-Follow company SOPs. Produce reviewable, minimal diffs. Surface
+Follow company operating guidance. Produce reviewable, minimal diffs. Surface
 risks before acting on irreversible changes.</pre>
             </div>
           </div>
@@ -1612,10 +1608,10 @@ risks before acting on irreversible changes.</pre>
               <div class="rbind">
                 <div class="rbind-opt sel"><span class="lab">Inherit company default</span><span class="des">Use the company capability profile.</span></div>
                 <div class="rbind-opt"><span class="lab">Offisim gateway tools</span><span class="des">Default harness with Offisim file, shell, MCP, and evidence paths.</span></div>
-                <div class="rbind-opt"><span class="lab">Claude text engine</span><span class="des">Preview text/reasoning only; no Offisim local tools.</span><span class="prof">claude · text-only · preview · unverified</span></div>
-                <div class="rbind-opt"><span class="lab">Codex text engine</span><span class="des">Preview text/reasoning only; no Offisim local tools.</span><span class="full">Full-agent target unavailable: codex-engine:sdk-native-full-power · missing release-app / denied-path</span></div>
-                <div class="rbind-opt dis"><span class="lab">OpenAI text engine</span><span class="des">Preview text/reasoning only; no Offisim local tools.</span><span class="req">Requires trusted desktop runtime</span></div>
-                <div class="rbind-opt"><span class="lab">Codex full-agent</span><span class="des">Blocked until selected-model release evidence passes.</span><span class="full">Unavailable: release-app / cancellation</span></div>
+                <div class="rbind-opt"><span class="lab">Text preview profile</span><span class="des">Preview reasoning only; no Offisim local tools.</span><span class="prof">text-only · preview · unverified</span></div>
+                <div class="rbind-opt"><span class="lab">Tool-isolated preview</span><span class="des">Preview reasoning only; no Offisim local tools.</span><span class="full">Full-agent target unavailable: missing release-app / denied-path</span></div>
+                <div class="rbind-opt dis"><span class="lab">Trusted desktop profile</span><span class="des">Preview reasoning only; no Offisim local tools.</span><span class="req">Requires trusted desktop runtime</span></div>
+                <div class="rbind-opt"><span class="lab">Full-agent profile</span><span class="des">Blocked until selected-model release evidence passes.</span><span class="full">Unavailable: release-app / cancellation</span></div>
               </div>
               <p class="rbind-resolved" style="margin:0">Resolved: <b>Provider gateway (from company default)</b></p>
               <div class="rbind-disc">Text-only preview · SDK transport is model access, not a full-agent route. Gateway-bridged tools and SDK-native full-agent profiles become selectable only after deterministic, benchmark, trusted-host, release app, denied-path, cancellation, rollback, sandbox, and credential-boundary evidence passes.</div>
@@ -1654,7 +1650,7 @@ risks before acting on irreversible changes.</pre>
             <div style="padding:16px;background:var(--surface-1);display:flex;flex-direction:column;gap:10px">
               <span class="insp-sec-label">Skills</span>
               <div class="skrow sel"><svg class="ico sm"><use href="#i-puzzle"/></svg><div class="sr-main"><div class="sr-top"><span class="sr-name">Competitive Teardown</span><span class="scope-tag">personal</span></div><p class="sr-desc">Structured market + competitor analysis skill that emits a graded teardown report.</p></div></div>
-              <div class="skrow"><svg class="ico sm"><use href="#i-puzzle"/></svg><div class="sr-main"><div class="sr-top"><span class="sr-name">Release Checklist</span><span class="scope-tag">global</span><span class="ovr-tag">overridden by your own</span></div><p class="sr-desc">Pre-ship verification SOP — superseded by this employee's personal copy.</p></div></div>
+              <div class="skrow"><svg class="ico sm"><use href="#i-puzzle"/></svg><div class="sr-main"><div class="sr-top"><span class="sr-name">Release Checklist</span><span class="scope-tag">global</span><span class="ovr-tag">overridden by your own</span></div><p class="sr-desc">Pre-ship verification Plan — superseded by this employee's personal copy.</p></div></div>
               <div class="skrow"><svg class="ico sm"><use href="#i-puzzle"/></svg><div class="sr-main"><div class="sr-top"><span class="sr-name">Doc Summarizer</span><span class="scope-tag">global</span></div><p class="sr-desc">Condenses long context into a structured brief.</p></div></div>
             </div>
           </div>
@@ -1697,7 +1693,7 @@ risks before acting on irreversible changes.</pre>
             <div class="mem-sec"><div class="mh"><h4>preference</h4><span class="ct">0</span></div><p class="empty">No entries in this category.</p></div>
           </div>
         </div>
-        <p class="annot-dark">Content textarea saves on blur (only if changed); importance range saves on change; Delete uses <code>window.confirm</code>. Loading → "Loading memories..." · error → red line · no employee/company → <b>TabSelectionEmpty</b> "Select an employee to view memories."</p>
+        <p class="annot-dark">Content Textarea primitive saves on blur (only if changed); importance range saves on change; Delete uses the shared confirmation <code>Dialog</code> primitive. Loading → "Loading memories..." · error → red line · no employee/company → <b>TabSelectionEmpty</b> "Select an employee to view memories."</p>
       </div>
     </div>
 
@@ -1724,7 +1720,7 @@ risks before acting on irreversible changes.</pre>
                   <tbody>
                     <tr><td class="f df-ch">style</td><td><pre>collaborative</pre></td><td><pre>detail-oriented, collaborative</pre></td></tr>
                     <tr><td class="f df-ch">maxTokens</td><td><pre>4096</pre></td><td><pre>8192</pre></td></tr>
-                    <tr><td class="f df-add">modelPreference</td><td><pre>(empty)</pre></td><td><pre>MiniMax-M2.7</pre></td></tr>
+                    <tr><td class="f df-add">modelPreference</td><td><pre>(empty)</pre></td><td><pre>Provider default</pre></td></tr>
                   </tbody></table>
               </div>
             </div>
@@ -1870,7 +1866,7 @@ risks before acting on irreversible changes.</pre>
     <!-- 13 · Tool permission editor -->
     <div class="spec-state">
       <div class="spec-cap"><span class="n">13</span><span class="t">Profile tab — Tool permission editor</span>
-        <span class="d"><b>ToolPermissionEditor</b> · default mode segmented (auto-allow / ask-each / deny-all) · per-tool override = <b>TriStateSeg</b> (allow / ask / deny) for 5 builtin tools · stored on <code>employee.toolPermissions</code></span></div>
+        <span class="d"><b>ToolPermissionEditor</b> · default mode segmented (auto-allow / ask-each / deny-all) · per-tool override = <b>TriStateSeg</b> (allow / ask / deny) for 5 builtin tools · stored on runtime-readable <code>config.toolPermissionPolicy</code></span></div>
       <div class="spec-frame">
         <div class="mini-pane" style="max-width:720px;margin:0 auto"><div class="mini-cap">Tool permissions</div>
           <div style="padding:14px;background:var(--surface-1);display:flex;flex-direction:column;gap:12px">
@@ -1941,7 +1937,7 @@ Prefer one bundled PR over many small ones for chat-area refactors.</pre>
     <!-- 15 · Memory tab full panel -->
     <div class="spec-state">
       <div class="spec-cap"><span class="n">15</span><span class="t">Memory tab — full 4-category panel with importance + scope + reinforced</span>
-        <span class="d"><b>MemoryPanel</b> compose grid <code>140 | 1fr | 140 | auto</code> · filter <code>140 | 1fr</code> · 4 fixed sections (experience / decision / knowledge / preference) · each row: editable textarea + importance range + scope label + reinforcement count + Delete</span></div>
+        <span class="d"><b>MemoryPanel</b> compose grid <code>140 | 1fr | 140 | auto</code> · filter <code>140 | 1fr</code> · 4 fixed sections (experience / decision / knowledge / preference) · each row: editable Textarea primitive + importance range + scope label + reinforcement count + Delete</span></div>
       <div class="spec-frame">
         <div class="mini-pane" style="max-width:920px;margin:0 auto">
           <div style="padding:16px;background:var(--surface-1);display:flex;flex-direction:column;gap:14px">
@@ -1958,29 +1954,29 @@ Prefer one bundled PR over many small ones for chat-area refactors.</pre>
             </div>
             <div class="mem-sec">
               <div class="mh"><h4>experience</h4><span class="ct">2</span></div>
-              <div class="mem-entry"><textarea>Shipped the v3 layout overhaul; learned the Tabs retain-state class is required to avoid CLS.</textarea>
+              <div class="mem-entry"><div class="primitive-textarea" data-primitive="Textarea">Shipped the v3 layout overhaul; learned the Tabs retain-state class is required to avoid CLS.</div>
                 <div class="mrow"><label>Importance <input class="rng" type="range" min="0" max="1" step="0.1" value="0.8" style="width:90px"/><span class="imp-val">0.8</span></label><span>scope: employee</span><span>reinforced: 3</span><button class="del">Delete</button></div></div>
-              <div class="mem-entry"><textarea>Boss prefers one bundled PR over many small ones for refactors in the chat area.</textarea>
+              <div class="mem-entry"><div class="primitive-textarea" data-primitive="Textarea">Boss prefers one bundled PR over many small ones for refactors in the chat area.</div>
                 <div class="mrow"><label>Importance <input class="rng" type="range" min="0" max="1" step="0.1" value="0.6" style="width:90px"/><span class="imp-val">0.6</span></label><span>scope: company</span><span>reinforced: 1</span><button class="del">Delete</button></div></div>
             </div>
             <div class="mem-sec">
               <div class="mh"><h4>decision</h4><span class="ct">1</span></div>
-              <div class="mem-entry"><textarea>Picked Drizzle over Prisma for the local DB layer (small surface, no codegen runtime).</textarea>
+              <div class="mem-entry"><div class="primitive-textarea" data-primitive="Textarea">Picked Drizzle over Prisma for the local DB layer (small surface, no codegen runtime).</div>
                 <div class="mrow"><label>Importance <input class="rng" type="range" min="0" max="1" step="0.1" value="0.5" style="width:90px"/><span class="imp-val">0.5</span></label><span>scope: company</span><span>reinforced: 2</span><button class="del">Delete</button></div></div>
             </div>
             <div class="mem-sec">
               <div class="mh"><h4>knowledge</h4><span class="ct">1</span></div>
-              <div class="mem-entry"><textarea>Deterministic harness is the only allowed automated-proof layer; product validation stays live-agent.</textarea>
+              <div class="mem-entry"><div class="primitive-textarea" data-primitive="Textarea">Deterministic harness is the only allowed automated-proof layer; product validation stays live-agent.</div>
                 <div class="mrow"><label>Importance <input class="rng" type="range" min="0" max="1" step="0.1" value="0.7" style="width:90px"/><span class="imp-val">0.7</span></label><span>scope: company</span><span>reinforced: 5</span><button class="del">Delete</button></div></div>
             </div>
             <div class="mem-sec">
               <div class="mh"><h4>preference</h4><span class="ct">1</span></div>
-              <div class="mem-entry"><textarea>Replies in Chinese unless the question is English-tagged.</textarea>
+              <div class="mem-entry"><div class="primitive-textarea" data-primitive="Textarea">Replies in Chinese unless the question is English-tagged.</div>
                 <div class="mrow"><label>Importance <input class="rng" type="range" min="0" max="1" step="0.1" value="0.4" style="width:90px"/><span class="imp-val">0.4</span></label><span>scope: employee</span><span>reinforced: 8</span><button class="del">Delete</button></div></div>
             </div>
           </div>
         </div>
-        <p class="annot-dark">Textarea saves on blur (only if changed); importance saves on change. Delete uses <code>window.confirm</code> ("Delete this memory?"). Reinforcement count is read-only — incremented by the runtime on recall.</p>
+        <p class="annot-dark">Textarea primitive saves on blur (only if changed); importance saves on change. Delete uses the shared confirmation <code>Dialog</code> primitive. Reinforcement count is read-only — incremented by the runtime on recall.</p>
       </div>
     </div>
 
@@ -2008,7 +2004,7 @@ Prefer one bundled PR over many small ones for chat-area refactors.</pre>
                 <tbody>
                   <tr><td class="f df-ch">workingStyle</td><td><pre>collaborative</pre></td><td><pre>detail-oriented, collaborative</pre></td></tr>
                   <tr><td class="f df-ch">maxTokens</td><td><pre>4096</pre></td><td><pre>8192</pre></td></tr>
-                  <tr><td class="f df-add">modelPreference</td><td><pre>(empty)</pre></td><td><pre>MiniMax-M2.7</pre></td></tr>
+                  <tr><td class="f df-add">modelPreference</td><td><pre>(empty)</pre></td><td><pre>Provider default</pre></td></tr>
                   <tr><td class="f df-rm">legacyHint</td><td><pre>"force collaborative tone"</pre></td><td><pre>(removed)</pre></td></tr>
                 </tbody></table>
             </div>
@@ -2063,7 +2059,7 @@ Prefer one bundled PR over many small ones for chat-area refactors.</pre>
     <!-- 19 · Live employee.state.changed updates -->
     <div class="spec-state">
       <div class="spec-cap"><span class="n">19</span><span class="t">Roster — live <code>employee.state.changed</code> across rows</span>
-        <span class="d">runtime emits <code>employee.state.changed</code> · roster rows render a <b>LiveStatePill</b> next to role (idle / executing / blocked / failed) · failed row gets a Retry chip on the right · pulse only on executing</span></div>
+        <span class="d">runtime emits <code>employee.state.changed</code> · roster rows render a <b>LiveStatePill</b> next to role (idle / executing / blocked / failed) · failed row gets a recovery-pending chip on the right · pulse only on executing</span></div>
       <div class="spec-frame">
         <div class="mini-pane" style="max-width:340px;margin:0 auto">
           <div class="pr-list" style="padding:6px">
@@ -2074,24 +2070,24 @@ Prefer one bundled PR over many small ones for chat-area refactors.</pre>
             <button class="pr-emp"><span class="av" style="width:30px;height:30px;font-size:11px;--av-a:#e0763f;--av-b:#c0551f">AK</span>
               <span class="pe-info"><span class="pe-name-row"><span class="pe-name">Aria Kim</span><span class="lp block">blocked</span></span><span class="pe-meta"><span class="pe-role">UI Designer</span></span><span class="live-hint">awaiting design tokens decision</span></span></button>
             <button class="pr-emp"><span class="av" style="width:30px;height:30px;font-size:11px;--av-a:#d6453d;--av-b:#b0322b">SR</span>
-              <span class="pe-info"><span class="pe-name-row"><span class="pe-name">Sam Rivera</span><span class="lp fail">failed</span></span><span class="pe-meta"><span class="pe-role">DevOps</span><span class="retry-chip" style="margin-left:auto"><svg class="ico xs"><use href="#i-bolt"/></svg>Retry</span></span></span></button>
+              <span class="pe-info"><span class="pe-name-row"><span class="pe-name">Sam Rivera</span><span class="lp fail">failed</span></span><span class="pe-meta"><span class="pe-role">DevOps</span><span class="retry-chip" style="margin-left:auto"><svg class="ico xs"><use href="#i-bolt"/></svg>Recovery pending</span></span></span></button>
           </div>
         </div>
-        <p class="annot-dark">Pills wire from <code>useEmployeeLiveState(employeeId)</code> subscription. Pulse animation only on executing (CSS prefers-reduced-motion respected). Retry chip wired to <code>runtime.retryEmployee(employeeId)</code>; only renders on <code>failed</code>.</p>
+        <p class="annot-dark">Pills derive from <code>useEmployeeLiveState(employeeId)</code> subscription. Pulse animation only on executing (CSS prefers-reduced-motion respected). Failed rows render recovery-pending state until the runtime recovery workflow is connected.</p>
       </div>
     </div>
 
-    <!-- 20 · employee.workstation.drop-requested -->
+    <!-- 20 · employee.workstation.assignment-truth -->
     <div class="spec-state">
-      <div class="spec-cap"><span class="n">20</span><span class="t">Profile tab — <code>employee.workstation.drop-requested</code> drag overlay</span>
-        <span class="d">drag a workstation chip from Office onto an employee → <b>WorkstationDropOverlay</b> on the Profile tab Workstation field · valid: accent ring + zone preview · invalid: danger ring + reason · drop fires <code>employee.workstation.assigned</code></span></div>
+      <div class="spec-cap"><span class="n">20</span><span class="t">Profile tab — read-only current workstation</span>
+        <span class="d">Profile displays the current <code>workstation_id</code> / zone assignment only. Workstation mutation belongs to the Office zone-assignment flow so MCP/tool scope stays tied to the real workstation record.</span></div>
       <div class="spec-frame spec-grid-2">
         <div>
-          <div class="mini-pane"><div class="mini-cap">Valid drop · Engineering Bay · Desk 2</div>
+          <div class="mini-pane"><div class="mini-cap">Current assignment · Engineering Bay · Desk 2</div>
             <div style="padding:14px;background:var(--surface-1);display:flex;flex-direction:column;gap:12px">
-              <span class="insp-sec-label">Workstation</span>
+              <span class="insp-sec-label">Current workstation</span>
               <div class="drop-overlay valid">
-                <div class="drop-hint"><svg class="ico sm"><use href="#i-check"/></svg>Drop on <b style="margin:0 4px">Engineering Bay · Desk 2</b></div>
+                <div class="drop-hint"><svg class="ico sm"><use href="#i-check"/></svg><b style="margin:0 4px">Engineering Bay · Desk 2</b></div>
                 <div class="zone-preview">
                   <div class="desk-cell occ">Desk 1<br><span style="font-size:9px">Maya</span></div>
                   <div class="desk-cell target">Desk 2<br><span style="font-size:9px">drop here</span></div>
@@ -2100,24 +2096,24 @@ Prefer one bundled PR over many small ones for chat-area refactors.</pre>
                   <div class="desk-cell occ">Desk 5<br><span style="font-size:9px">Diego</span></div>
                   <div class="desk-cell">Desk 6</div>
                 </div>
-                <p class="hint" style="margin:0">MCP tools enabled · zone <code>engineering_bay</code> matches role <code>frontend_dev</code></p>
+                <p class="hint" style="margin:0">Read-only here · change assignment from Office so MCP scope remains backend-owned.</p>
               </div>
             </div>
           </div>
-          <p class="annot-dark">Highlight binds via <code>onDragEnter</code> capture; release fires <code>workstation.dropped</code> → service writes <code>employee.workstationId</code> + emits <code>employee.workstation.assigned</code>.</p>
+          <p class="annot-dark">Profile never writes a static desk option. The persisted value is <code>employees.workstation_id</code>, changed by the Office assignment flow.</p>
         </div>
         <div>
-          <div class="mini-pane"><div class="mini-cap">Invalid drop · zone-role mismatch</div>
+          <div class="mini-pane"><div class="mini-cap">Unassigned state</div>
             <div style="padding:14px;background:var(--surface-1);display:flex;flex-direction:column;gap:12px">
-              <span class="insp-sec-label">Workstation</span>
+              <span class="insp-sec-label">Current workstation</span>
               <div class="drop-overlay invalid">
-                <div class="drop-hint"><svg class="ico sm"><use href="#i-x"/></svg>Can't drop on <b style="margin:0 4px">Design Studio</b></div>
+                <div class="drop-hint"><svg class="ico sm"><use href="#i-x"/></svg><b style="margin:0 4px">Unassigned</b></div>
                 <div class="zone-preview">
                   <div class="desk-cell">Easel 1</div>
                   <div class="desk-cell occ">Easel 2<br><span style="font-size:9px">Aria</span></div>
                   <div class="desk-cell">Easel 3</div>
                 </div>
-                <p class="hint warn" style="margin:0">Role <code>frontend_dev</code> doesn't match zone target roles <code>[ui_designer]</code> — drop rejected.</p>
+                <p class="hint warn" style="margin:0">No local Profile selector is shown. Use Office assignment controls when the runtime can write a real workstation.</p>
               </div>
             </div>
           </div>
@@ -2153,38 +2149,37 @@ Prefer one bundled PR over many small ones for chat-area refactors.</pre>
       </div>
     </div>
 
-    <!-- 22 · Avatar customizer · dicebear style + seed override -->
+    <!-- 22 · Appearance customizer · persisted palette + live preview -->
     <div class="spec-state">
-      <div class="spec-cap"><span class="n">22</span><span class="t">Appearance tab — <b>AvatarCustomizer</b> style picker + seed override + live preview</span>
-        <span class="d">DiceBear style grid (avataaars / micah / personas / lorelei) · seed override input (free text) · dice button = <code>randomizeSeed()</code> · live 2D preview reacts on every change</span></div>
+      <div class="spec-cap"><span class="n">22</span><span class="t">Appearance tab — <b>AvatarCustomizer</b> persisted palette + live preview</span>
+        <span class="d">skin / hair / clothing / accent swatches · gender / hair style / body type controls · Save appearance writes <code>persona_json.appearance</code> · live 2D + 3D preview reacts on every change</span></div>
       <div class="spec-frame spec-grid-2">
         <div>
-          <div class="mini-pane"><div class="mini-cap">Style picker</div>
+          <div class="mini-pane"><div class="mini-cap">Appearance controls</div>
             <div style="padding:14px;background:var(--surface-1);display:flex;flex-direction:column;gap:12px">
-              <span class="insp-sec-label">Avatar style</span>
+              <span class="insp-sec-label">Palette</span>
               <div class="style-grid">
-                <div class="style-cell on"><span class="sav" style="--av-a:#7c4ddb;--av-b:#5b2fb0">MC</span><span>avataaars</span></div>
-                <div class="style-cell"><span class="sav" style="--av-a:#2f9f6a;--av-b:#1c7a4c">MC</span><span>micah</span></div>
-                <div class="style-cell"><span class="sav" style="--av-a:#e0763f;--av-b:#c0551f">MC</span><span>personas</span></div>
-                <div class="style-cell"><span class="sav" style="--av-a:#3aa0d4;--av-b:#1f7fb0">MC</span><span>lorelei</span></div>
+                <div class="style-cell on"><span class="sav" style="--av-a:#f8d9c4;--av-b:#d08b5b"></span><span>skin</span></div>
+                <div class="style-cell"><span class="sav" style="--av-a:#2c1b18;--av-b:#b58143"></span><span>hair</span></div>
+                <div class="style-cell"><span class="sav" style="--av-a:#2f6bff;--av-b:#7c4ddb"></span><span>clothing</span></div>
+                <div class="style-cell"><span class="sav" style="--av-a:#1aa46a;--av-b:#d6453d"></span><span>accent</span></div>
               </div>
-              <span class="insp-sec-label" style="margin-top:4px">Seed override</span>
+              <span class="insp-sec-label" style="margin-top:4px">Shape</span>
               <div class="seed-row">
-                <div class="inp">maya-chen-2026-05</div>
-                <button class="dice" title="Randomize seed"><svg class="ico sm"><use href="#i-dice"/></svg></button>
+                <div class="inp">neutral · short · normal</div>
               </div>
-              <p class="hint">Seed feeds both DiceBear hash and procedural color resolvers (<code>outfitColorFromSeed</code>, <code>hairColorFromSeed</code>, etc.).</p>
+              <p class="hint">Save appearance persists the visible 2D/3D result to the employee persona.</p>
             </div>
           </div>
-          <p class="annot-dark">Style choice persists on <code>employee.appearance.dicebearStyle</code>; seed on <code>employee.avatarSeed</code>. Cell ring color = accent.</p>
+          <p class="annot-dark">Do not reintroduce avatar-style or seed-override controls until they persist through the employee view model and renderer. Current SSOT = <code>persona_json.appearance</code>.</p>
         </div>
         <div>
           <div class="mini-pane"><div class="mini-cap">Live preview</div>
             <div style="padding:14px;background:var(--surface-1)">
               <div class="prev-col" style="max-width:200px;margin:0 auto">
-                <div class="prev"><span class="pl">2D · avataaars</span><span class="av" style="width:88px;height:88px;font-size:28px;--av-a:#7c4ddb;--av-b:#5b2fb0">MC</span></div>
+                <div class="prev"><span class="pl">2D</span><span class="av" style="width:88px;height:88px;font-size:28px;--av-a:#7c4ddb;--av-b:#5b2fb0">MC</span></div>
                 <div class="prev"><span class="pl">3D</span><span class="figure"><svg class="ico" style="width:48px;height:70px"><use href="#i-user"/></svg></span></div>
-                <p class="hint" style="text-align:center;margin:0">preview recomputes on every style / seed / color change</p>
+                <p class="hint" style="text-align:center;margin:0">preview recomputes on every persisted appearance change</p>
               </div>
             </div>
           </div>

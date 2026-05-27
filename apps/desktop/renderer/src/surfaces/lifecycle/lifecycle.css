@@ -16,7 +16,7 @@
 
 .off-csp-label {
   font-size: var(--off-fs-micro);
-  letter-spacing: var(--off-ls-caps);
+  letter-spacing: 0;
   font-weight: 680;
   text-transform: uppercase;
   color: var(--off-ink-3);
@@ -149,7 +149,7 @@
 
 .off-csp-row-tpl {
   font-size: var(--off-fs-micro);
-  letter-spacing: var(--off-ls-caps);
+  letter-spacing: 0;
   text-transform: uppercase;
   font-weight: 680;
   color: var(--off-ink-3);
@@ -160,6 +160,8 @@
   align-items: center;
   gap: var(--off-sp-2);
   flex: none;
+  min-width: 24px;
+  justify-content: flex-end;
 }
 
 .off-csp-rename {
@@ -198,6 +200,8 @@
 }
 
 .off-csp-active {
+  margin-top: 2px;
+  width: fit-content;
   height: 19px;
   padding: 0 var(--off-sp-3);
   display: inline-flex;
@@ -206,18 +210,18 @@
   border-radius: var(--off-r-pill);
   background: var(--off-ok-surface);
   color: var(--off-ok);
-  font-size: 9.5px;
+  font-size: var(--off-fs-label);
   font-weight: 700;
-  letter-spacing: 0.05em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
 .off-csp-active-dot {
   width: 6px;
   height: 6px;
-  border-radius: 50%;
+  border-radius: var(--off-r-round);
   background: currentColor;
-  animation: off-csp-pulse 1.6s ease-in-out infinite;
+  animation: off-csp-pulse var(--off-motion-loop-slow) var(--off-motion-loop-ease) infinite;
 }
 
 @keyframes off-csp-pulse {
@@ -352,7 +356,7 @@
 
 .off-csp-stat-l {
   font-size: var(--off-fs-micro);
-  letter-spacing: var(--off-ls-caps);
+  letter-spacing: 0;
   text-transform: uppercase;
   font-weight: 680;
   color: var(--off-ink-3);
@@ -369,6 +373,97 @@
   margin-top: var(--off-sp-5);
   font-size: var(--off-fs-micro);
   color: var(--off-ink-4);
+}
+
+.off-csp-roster {
+  margin-top: var(--off-sp-5);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-sunken);
+  overflow: hidden;
+}
+
+.off-csp-roster-h {
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--off-sp-3);
+  padding: 0 var(--off-sp-4);
+  border-bottom: 1px solid var(--off-line-soft);
+  font-size: var(--off-fs-micro);
+  letter-spacing: 0;
+  text-transform: uppercase;
+  color: var(--off-ink-3);
+  font-weight: 700;
+}
+
+.off-csp-roster-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.off-csp-roster-row {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-3);
+  padding: var(--off-sp-2) var(--off-sp-4);
+}
+
+.off-csp-roster-row + .off-csp-roster-row {
+  border-top: 1px solid var(--off-line-soft);
+}
+
+.off-csp-roster-avatar {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: var(--off-r-sm);
+  background: linear-gradient(135deg, var(--off-csp-avatar-a), var(--off-csp-avatar-b));
+  color: var(--off-accent-fg);
+  font-size: var(--off-fs-micro);
+  font-weight: 800;
+}
+
+.off-csp-roster-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.off-csp-roster-name,
+.off-csp-roster-role {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.off-csp-roster-name {
+  font-size: var(--off-fs-meta);
+  font-weight: 680;
+  color: var(--off-ink-1);
+}
+
+.off-csp-roster-role {
+  font-size: var(--off-fs-micro);
+  color: var(--off-ink-4);
+}
+
+.off-csp-roster-dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: var(--off-r-round);
+  background: var(--off-ink-5);
+}
+
+.off-csp-roster-dot.is-on {
+  background: var(--off-ok);
 }
 
 .off-csp-acts {
@@ -523,6 +618,7 @@
   display: grid;
   place-items: center;
   flex: none;
+  color: var(--off-wiz-role-accent);
 }
 
 .off-wiz-carousel-nm {
@@ -572,7 +668,7 @@
   font-size: var(--off-fs-micro);
   font-weight: 680;
   text-transform: uppercase;
-  letter-spacing: var(--off-ls-caps);
+  letter-spacing: 0;
   color: var(--off-ink-3);
 }
 
@@ -593,7 +689,7 @@
   font-size: var(--off-fs-sm);
   font-weight: 660;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
   color: var(--off-ink-1);
   box-shadow: inset 0 -2px 0 var(--off-accent);
 }
@@ -648,7 +744,8 @@
   bottom: -2px;
   width: 13px;
   height: 13px;
-  border-radius: 50%;
+  border-radius: var(--off-r-round);
+  background: var(--off-wiz-role-accent);
   border: 2px solid var(--off-surface-1);
 }
 
@@ -669,6 +766,7 @@
 .off-wiz-emp-role {
   font-size: var(--off-fs-meta);
   font-weight: 600;
+  color: var(--off-wiz-role-accent);
 }
 
 .off-wiz-emp-bio {
@@ -712,7 +810,8 @@
   align-items: center;
   border-radius: var(--off-r-xs);
   background: var(--off-surface-sunken);
-  font-size: 9.5px;
+  color: var(--off-wiz-role-accent);
+  font-size: var(--off-fs-label);
   font-weight: 600;
 }
 
@@ -771,7 +870,7 @@
 .off-wiz-cyo-dot {
   width: 6px;
   height: 6px;
-  border-radius: 50%;
+  border-radius: var(--off-r-round);
   background: var(--off-ok);
   flex: none;
 }
@@ -805,9 +904,9 @@
 
 .off-wiz-preview-zone {
   fill: var(--off-ink-3);
-  font-size: 9px;
+  font-size: var(--off-fs-xs);
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
 }
 
 .off-wiz-studio-empty {
@@ -853,7 +952,7 @@
   font-size: var(--off-fs-meta);
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
   display: flex;
   align-items: center;
   gap: var(--off-sp-2);
@@ -881,7 +980,7 @@
 }
 
 .off-wiz-fields-custom {
-  display: block;
+  grid-template-columns: 1fr 1fr;
 }
 
 .off-wiz-name,
@@ -898,7 +997,7 @@
   font-size: var(--off-fs-micro);
   font-weight: 680;
   text-transform: uppercase;
-  letter-spacing: var(--off-ls-caps);
+  letter-spacing: 0;
   color: var(--off-ink-3);
 }
 
@@ -947,6 +1046,13 @@
   opacity: 0.6;
 }
 
+.off-wiz-error {
+  grid-column: 1 / -1;
+  color: var(--off-danger);
+  font-size: var(--off-fs-xs);
+  font-weight: 620;
+}
+
 .off-wiz-cta {
   flex: none;
   height: 46px;
@@ -977,7 +1083,7 @@
 }
 
 .off-wiz-cta.is-pulse {
-  animation: off-wiz-ctapulse 3s ease-in-out infinite;
+  animation: off-wiz-ctapulse var(--off-motion-loop-callout) var(--off-motion-loop-ease) infinite;
 }
 
 .off-wiz-cta:disabled {
@@ -1022,7 +1128,7 @@
 
 .off-wiz-spin {
   color: var(--off-accent);
-  animation: off-wiz-spin 0.9s linear infinite;
+  animation: off-wiz-spin var(--off-motion-spin) var(--off-motion-linear) infinite;
 }
 
 @keyframes off-wiz-spin {
@@ -1060,7 +1166,7 @@
 .off-discard-esc {
   margin-top: 3px;
   font-family: var(--off-font-mono);
-  font-size: 10px;
+  font-size: var(--off-fs-micro);
   color: var(--off-ink-4);
 }
 

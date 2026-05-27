@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS installed_packages (
   installed_package_id TEXT PRIMARY KEY,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   package_id TEXT NOT NULL,
-  package_kind TEXT NOT NULL CHECK (package_kind IN ('employee', 'skill', 'sop', 'company_template', 'office_layout', 'prefab', 'bundle')),
+  package_kind TEXT NOT NULL CHECK (package_kind IN ('employee', 'skill', 'company_template', 'office_layout', 'prefab', 'bundle')),
   version TEXT NOT NULL,
   source_type TEXT NOT NULL CHECK (source_type IN ('registry', 'url', 'file')),
   source_ref TEXT,
@@ -112,7 +112,7 @@ CREATE TABLE IF NOT EXISTS installed_assets (
   installed_asset_id TEXT PRIMARY KEY,
   installed_package_id TEXT NOT NULL REFERENCES installed_packages(installed_package_id) ON DELETE CASCADE,
   asset_id TEXT NOT NULL,
-  asset_kind TEXT NOT NULL CHECK (asset_kind IN ('employee', 'skill', 'sop', 'company_template', 'office_layout', 'prefab', 'bundle')),
+  asset_kind TEXT NOT NULL CHECK (asset_kind IN ('employee', 'skill', 'company_template', 'office_layout', 'prefab', 'bundle')),
   local_instance_id TEXT,
   entrypoint TEXT,
   enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
@@ -253,16 +253,6 @@ CREATE TABLE IF NOT EXISTS model_cost_rates (
   effective_until      TEXT,
   created_at           TEXT NOT NULL DEFAULT (datetime('now'))
 );
-CREATE TABLE IF NOT EXISTS sop_templates (
-  sop_template_id TEXT PRIMARY KEY,
-  company_id      TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
-  name            TEXT NOT NULL,
-  description     TEXT NOT NULL DEFAULT '',
-  definition_json TEXT NOT NULL,
-  source_thread_id TEXT,
-  created_at      TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
-  , source_url TEXT, version TEXT, last_synced_at TEXT);
 CREATE TABLE IF NOT EXISTS company_template_assets (
   company_template_asset_id TEXT PRIMARY KEY,
   company_id      TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
@@ -344,6 +334,7 @@ CREATE TABLE IF NOT EXISTS projects (
 CREATE TABLE IF NOT EXISTS chat_threads (
   thread_id         TEXT PRIMARY KEY,
   project_id        TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
+  employee_id       TEXT REFERENCES employees(employee_id) ON DELETE SET NULL,
   title             TEXT NOT NULL DEFAULT 'New thread',
   title_set_by_user INTEGER NOT NULL DEFAULT 0 CHECK (title_set_by_user IN (0, 1)),
   summary           TEXT,
@@ -553,23 +544,6 @@ CREATE TABLE IF NOT EXISTS tool_permission_approvals (
   created_at TEXT NOT NULL,
   expires_at TEXT
 );
-CREATE TABLE IF NOT EXISTS kanban_cards (
-  id TEXT PRIMARY KEY,
-  project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
-  company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
-  title TEXT NOT NULL,
-  note TEXT NOT NULL DEFAULT '',
-  state TEXT NOT NULL DEFAULT 'todo',
-  origin TEXT NOT NULL,
-  created_by_employee_id TEXT,
-  assigned_employee_id TEXT,
-  parent_card_id TEXT,
-  blocked_reason TEXT,
-  task_run_id TEXT,
-  sort_order INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
 CREATE INDEX IF NOT EXISTS idx_workstations_company ON workstations(company_id);
 CREATE INDEX IF NOT EXISTS idx_racks_company ON racks(company_id);
 CREATE INDEX IF NOT EXISTS idx_employees_company ON employees(company_id);
@@ -587,7 +561,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_emp_ver_emp_num ON employee_versions(emplo
 CREATE INDEX IF NOT EXISTS idx_emp_ver_emp ON employee_versions(employee_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_cost_rates_provider_model
   ON model_cost_rates(provider, model_pattern, effective_from);
-CREATE INDEX IF NOT EXISTS idx_sop_templates_company ON sop_templates(company_id);
 CREATE INDEX IF NOT EXISTS idx_company_template_assets_company ON company_template_assets(company_id);
 CREATE INDEX IF NOT EXISTS idx_office_layouts_company ON office_layouts(company_id);
 CREATE INDEX IF NOT EXISTS idx_library_docs_company ON library_documents(company_id);
@@ -600,6 +573,8 @@ CREATE INDEX IF NOT EXISTS idx_projects_company
   ON projects(company_id, status, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_chat_threads_project_updated
   ON chat_threads(project_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_chat_threads_project_employee
+  ON chat_threads(project_id, employee_id);
 CREATE INDEX IF NOT EXISTS idx_chat_threads_project_active
   ON chat_threads(project_id, archived_at, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_project_assignments_project
@@ -675,11 +650,5 @@ CREATE INDEX IF NOT EXISTS idx_tool_perm_approval_company
   ON tool_permission_approvals(company_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_tool_perm_approval_company_lookup
   ON tool_permission_approvals(company_id, thread_id, employee_id, server_name, tool_name, policy_hash);
-CREATE INDEX IF NOT EXISTS idx_kanban_project_state
-  ON kanban_cards(project_id, state);
-CREATE INDEX IF NOT EXISTS idx_kanban_assignee
-  ON kanban_cards(assigned_employee_id, state);
-CREATE INDEX IF NOT EXISTS idx_kanban_task_run
-  ON kanban_cards(task_run_id);
 CREATE INDEX IF NOT EXISTS idx_meeting_sessions_mode
   ON meeting_sessions(interaction_mode);

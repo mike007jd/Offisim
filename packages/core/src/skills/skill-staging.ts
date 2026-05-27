@@ -1,3 +1,4 @@
+import { generateId } from '../utils/generate-id.js';
 import type { SkillInstallSource } from './skill-loader.js';
 import type { ScannedSkill, VirtualTree } from './skill-source-resolvers/types.js';
 
@@ -76,8 +77,7 @@ export class SkillStagingManager {
   constructor(opts: SkillStagingManagerOpts = {}) {
     this.ttlMs = opts.ttlMs ?? 30 * 60 * 1000;
     this.now = opts.now ?? (() => Date.now());
-    this.idFactory =
-      opts.idFactory ?? (() => `stg_${this.now()}_${Math.random().toString(36).slice(2, 10)}`);
+    this.idFactory = opts.idFactory ?? (() => generateId('stg'));
     const setIv = (opts.setInterval ?? globalThis.setInterval.bind(globalThis)) as (
       fn: () => void,
       ms: number,

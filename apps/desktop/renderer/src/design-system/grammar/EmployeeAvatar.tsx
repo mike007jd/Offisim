@@ -2,7 +2,7 @@ import { Icon } from '@/design-system/icons/Icon.js';
 import { type EmployeeAppearance, employeeAvatarUri } from '@/lib/avatar.js';
 import { cn } from '@/lib/utils.js';
 import { Bot } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, type CSSProperties } from 'react';
 
 interface EmployeeAvatarProps {
   seed: string;
@@ -29,14 +29,16 @@ export function EmployeeAvatar({
     () => (brand ? null : employeeAvatarUri(seed, appearance)),
     [seed, appearance, brand],
   );
+  const avatarStyle = {
+    '--off-av-size': `${size}px`,
+    '--off-av-a': colorA,
+    '--off-av-b': colorB,
+  } as CSSProperties;
+
   return (
     <span
       className={cn('off-av', className)}
-      style={{
-        width: size,
-        height: size,
-        background: `linear-gradient(150deg, ${colorA}, ${colorB})`,
-      }}
+      style={avatarStyle}
       aria-hidden
     >
       {uri ? (

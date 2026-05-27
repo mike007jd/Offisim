@@ -1,9 +1,8 @@
 export const DEV_AUTH_SECRET = 'offisim-dev-secret-change-in-production';
 
 // CORS allowlist for the platform server. `tauri://localhost` is required for
-// the desktop release `.app` to call platform endpoints (Invariant B). See
-// `openspec/specs/desktop-llm-credential-isolation/spec.md` requirement
-// "Tauri release `.app` CSP SHALL allow platform endpoint origins".
+// the desktop release `.app` to call platform endpoints (Invariant B:
+// Tauri release `.app` CSP `connect-src` SHALL include platform listen origins).
 // Drift on this constant is enforced by `scripts/check-platform-tauri-origin-sync.mjs`.
 export const DEV_DEFAULT_ORIGINS = [
   'http://localhost:3000',

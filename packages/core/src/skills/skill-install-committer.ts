@@ -21,7 +21,7 @@ export interface SkillInstallCommitterDeps {
 
 /**
  * Commits or cancels a staged skill install when its `skill_install_confirm`
- * interaction resolves. Wired into `InteractionService` via the optional
+ * interaction resolves. Registered with `InteractionService` via the optional
  * `skillInstallConfirmHandler` dep. Errors are surfaced to the thread via
  * the shared `error.occurred` event rather than thrown — the interaction
  * itself is already considered resolved once the user clicked through.

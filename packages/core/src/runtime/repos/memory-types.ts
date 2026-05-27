@@ -16,7 +16,6 @@ import type {
   HandoffEventRow,
   InteractionActiveRow,
   InteractionHistoryRow,
-  KanbanCardRow,
   LibraryDocumentRow,
   LlmCallRow,
   McpAuditRow,
@@ -31,7 +30,6 @@ import type {
   RecoveryKnowledgeRow,
   SkillRow,
   SlotRow,
-  SopTemplateRow,
   TaskRunRow,
   ToolCallRow,
   ToolPermissionApprovalRow,
@@ -66,7 +64,6 @@ export interface MemoryRepositoriesSnapshot extends MemoryInstallRepositoriesSna
   fileHistory: FileHistoryRow[];
   employeeVersions: EmployeeVersionRow[];
   costRates: ModelCostRateRow[];
-  sopTemplates: SopTemplateRow[];
   companyTemplates: CompanyTemplateAssetRow[];
   racks: RackRow[];
   slots: SlotRow[];
@@ -78,7 +75,6 @@ export interface MemoryRepositoriesSnapshot extends MemoryInstallRepositoriesSna
   projects: ProjectRow[];
   projectAssignments: ProjectAssignmentRow[];
   chatThreads: ChatThread[];
-  kanbanCards: KanbanCardRow[];
   agentEvents: AgentEventRow[];
   recoveryKnowledge: RecoveryKnowledgeRow[];
   deliverables: DeliverableSummaryRow[];

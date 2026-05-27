@@ -1,11 +1,11 @@
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
-import { AlertCircle, FileText, Loader2, X } from 'lucide-react';
+import { AlertCircle, FileText, X } from 'lucide-react';
 import { useRunStore } from '../run-store.js';
 
 /** Staged attachment chips shown between the composer input and its tool row.
- *  Each chip reflects parse state; failed chips carry the canonical error string
- *  so a size/dedupe/type rejection is never a silent no-op (prototype rev-risk). */
+ *  Each chip reflects truthful staging state; failed chips carry the canonical
+ *  error string so size/dedupe/type rejection is never a silent no-op. */
 export function StagedAttachments() {
   const staged = useRunStore((s) => s.staged);
   const removeStaged = useRunStore((s) => s.removeStaged);
@@ -17,9 +17,7 @@ export function StagedAttachments() {
       {staged.map((att) => (
         <div key={att.id} className={cn('off-staged-chip', `is-${att.status}`)}>
           <span className="off-staged-icon">
-            {att.status === 'parsing' ? (
-              <Icon icon={Loader2} size="sm" className="off-spin" />
-            ) : att.status === 'error' ? (
+            {att.status === 'error' ? (
               <Icon icon={AlertCircle} size="sm" />
             ) : (
               <Icon icon={FileText} size="sm" />

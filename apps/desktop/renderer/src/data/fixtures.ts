@@ -1,21 +1,17 @@
 import type {
-  BoardTask,
   ChatMessage,
   ChatThread,
   Company,
   Deliverable,
   Employee,
   FileNode,
-  GitWorkbench,
-  MeetingState,
   OfficeSceneLayout,
   Project,
-  RunCost,
-  RunPipeline,
   Skill,
   UnfinishedThread,
   UsagePoint,
 } from './types.js';
+import { UI_DATA_COLORS } from './color-palette.js';
 
 const HOUR = 3_600_000;
 const now = Date.UTC(2026, 4, 25, 9, 0, 0);
@@ -25,17 +21,23 @@ export const companies: Company[] = [
     id: 'co-northwind',
     name: 'Northwind Studio',
     initials: 'NW',
-    accentA: '#6a8dff',
-    accentB: '#3a5fd0',
+    accentA: UI_DATA_COLORS.blue4,
+    accentB: UI_DATA_COLORS.blue5,
   },
   {
     id: 'co-atlas',
     name: 'Atlas Robotics',
     initials: 'AR',
-    accentA: '#7c4ddb',
-    accentB: '#5b2fb0',
+    accentA: UI_DATA_COLORS.violet,
+    accentB: UI_DATA_COLORS.violet2,
   },
-  { id: 'co-harbor', name: 'Harbor Foods', initials: 'HF', accentA: '#1aa46a', accentB: '#0f7a4d' },
+  {
+    id: 'co-harbor',
+    name: 'Harbor Foods',
+    initials: 'HF',
+    accentA: UI_DATA_COLORS.green,
+    accentB: UI_DATA_COLORS.green2,
+  },
 ];
 
 export const projects: Project[] = [
@@ -70,12 +72,12 @@ export const employees: Employee[] = [
     kind: 'internal',
     online: true,
     presence: 'working',
-    avatarA: '#6a8dff',
-    avatarB: '#3a5fd0',
+    avatarA: UI_DATA_COLORS.blue4,
+    avatarB: UI_DATA_COLORS.blue5,
     discipline: 'Backend systems',
-    modelLabel: 'MiniMax-M2.7',
+    modelLabel: 'Runtime default',
     skillCount: 6,
-    appearance: { hairStyle: 'short', clothingColor: '#2f6bff' },
+    appearance: { hairStyle: 'short', clothingColor: UI_DATA_COLORS.blue },
     zoneLabel: 'Engineering Bay',
     deskLabel: 'Desk 1',
     expertise: ['API design', 'TypeScript', 'Data modeling'],
@@ -87,12 +89,12 @@ export const employees: Employee[] = [
     kind: 'internal',
     online: true,
     presence: 'working',
-    avatarA: '#7c4ddb',
-    avatarB: '#5b2fb0',
+    avatarA: UI_DATA_COLORS.violet,
+    avatarB: UI_DATA_COLORS.violet2,
     discipline: 'Interface & flows',
-    modelLabel: 'MiniMax-M2.7',
+    modelLabel: 'Runtime default',
     skillCount: 4,
-    appearance: { hairStyle: 'long', clothingColor: '#7c4ddb' },
+    appearance: { hairStyle: 'long', clothingColor: UI_DATA_COLORS.violet },
     zoneLabel: 'Design Studio',
     deskLabel: 'Desk 2',
     expertise: ['Product UI', 'Flows', 'Prototyping'],
@@ -104,12 +106,12 @@ export const employees: Employee[] = [
     kind: 'internal',
     online: false,
     presence: 'idle',
-    avatarA: '#1aa46a',
-    avatarB: '#0f7a4d',
+    avatarA: UI_DATA_COLORS.green,
+    avatarB: UI_DATA_COLORS.green2,
     discipline: 'Test & verification',
-    modelLabel: 'MiniMax-M2.7',
+    modelLabel: 'Runtime default',
     skillCount: 5,
-    appearance: { hairStyle: 'bob', clothingColor: '#1aa46a' },
+    appearance: { hairStyle: 'bob', clothingColor: UI_DATA_COLORS.green },
     zoneLabel: 'Engineering Bay',
     deskLabel: 'Desk 3',
     expertise: ['Test plans', 'Repro', 'Evidence'],
@@ -122,8 +124,8 @@ export const employees: Employee[] = [
     brandLabel: 'A2A',
     online: true,
     presence: 'blocked',
-    avatarA: '#586273',
-    avatarB: '#353c49',
+    avatarA: UI_DATA_COLORS.slateA,
+    avatarB: UI_DATA_COLORS.slateB,
     discipline: 'Static analysis',
     modelLabel: 'Remote agent',
     skillCount: 2,
@@ -190,7 +192,7 @@ export const messages: Record<string, ChatMessage[]> = {
       threadId: 'th-team',
       author: 'employee',
       employeeId: 'emp-mara',
-      body: 'Taking the session endpoints. I drafted the contract and wired the first handler against the sandbox.',
+      body: 'Taking the session endpoints. I drafted the contract and connected the first handler against the sandbox.',
       at: now - HOUR * 2.4,
       runRecord: {
         id: 'rr1',
@@ -291,164 +293,16 @@ export const deliverables: Deliverable[] = [
     name: 'verify-report.md',
     kind: 'report',
     contributorIds: ['emp-sela', 'emp-devin', 'emp-mara'],
-    format: 'DOCX',
+    format: 'MD',
     preview:
       '# Verification report\n\n- TTL asserted at 30m sliding renewal\n- 2 onboarding edge cases reproduced and fixed',
   },
 ];
 
-export const runCost: RunCost = { tokens: 48210, costLabel: '$0.41', live: true };
-
-/** The live run broadcasting over the team thread's stage. Seeds the assistant-ui
- *  run-state store; replaced by the real harness run feed once wired. */
-export const activeRunPipeline: RunPipeline = {
-  title: 'Edge case review',
-  assigneeId: 'emp-devin',
-  stepDone: 3,
-  stepTotal: 7,
-  stages: [
-    { id: 'st-boss', label: 'Boss', state: 'done' },
-    { id: 'st-mgr', label: 'Manager', state: 'done' },
-    { id: 'st-pm', label: 'PM', state: 'done' },
-    { id: 'st-emp', label: 'Employee', state: 'active' },
-    { id: 'st-sum', label: 'Summary', state: 'pending' },
-  ],
-};
-
-export const activeMeeting: MeetingState = {
-  status: 'idle',
-  threadId: 'th-team',
-  title: 'Launch standup',
-  inRoomIds: ['emp-mara', 'emp-devin', 'emp-sela'],
-  transcript: [
-    { id: 'tr1', speakerId: 'emp-mara', text: 'Session contract is merged; TTL verified at 30m.' },
-    {
-      id: 'tr2',
-      speakerId: 'emp-devin',
-      text: 'Onboarding screens in review, two edge cases left.',
-    },
-    {
-      id: 'tr3',
-      speakerId: 'emp-sela',
-      text: 'I’ll run the verification pass after review lands.',
-    },
-  ],
-  actionItems: [
-    {
-      id: 'ai1',
-      description: 'Close the two onboarding edge cases',
-      assigneeId: 'emp-devin',
-      priority: 'high',
-      done: false,
-    },
-    {
-      id: 'ai2',
-      description: 'Run verification pass on the onboarding flow',
-      assigneeId: 'emp-sela',
-      priority: 'medium',
-      done: false,
-    },
-    {
-      id: 'ai3',
-      description: 'Confirm token TTL copy with stakeholders',
-      assigneeId: 'emp-mara',
-      priority: 'low',
-      done: true,
-    },
-  ],
-};
-
 /** Threads from a previous session that did not finish — drives the ResumeBar. */
 export const unfinishedThreads: UnfinishedThread[] = [
   { threadId: 'th-team', projectId: 'pj-relay', name: 'Relay Launch · Team', state: 'running' },
   { threadId: 'th-audit', projectId: 'pj-relay', name: 'Orion Audit', state: 'blocked' },
-];
-
-/** Git workbench state per project (left workspace panel Git tab). The real
- *  desktop wires this through the `git_exec` Tauri command. */
-export const gitWorkbenches: Record<string, GitWorkbench> = {
-  'pj-relay': {
-    branch: 'feat/onboarding',
-    ahead: 3,
-    behind: 0,
-    changes: [
-      { path: 'src/api/session.ts', status: 'modified', staged: true, added: 24, removed: 6 },
-      { path: 'src/ui/onboarding.tsx', status: 'modified', staged: true, added: 58, removed: 12 },
-      { path: 'src/ui/onboarding.test.ts', status: 'added', staged: false, added: 41, removed: 0 },
-      { path: 'docs/legacy-flow.md', status: 'deleted', staged: false, added: 0, removed: 33 },
-    ],
-    diffPreview: [
-      { kind: 'context', text: 'export async function createSession(req) {' },
-      { kind: 'remove', text: '  const ttl = 15 * 60_000;' },
-      { kind: 'add', text: '  const ttl = 30 * 60_000; // 30m sliding renewal' },
-      { kind: 'context', text: '  return persist({ ...req, ttl });' },
-      { kind: 'context', text: '}' },
-    ],
-    checks: [
-      { id: 'ck-types', label: 'typecheck', state: 'pass' },
-      { id: 'ck-build', label: 'build', state: 'pass' },
-      { id: 'ck-lint', label: 'lint', state: 'running' },
-    ],
-  },
-  'pj-ledger': {
-    branch: 'feat/import',
-    ahead: 1,
-    behind: 2,
-    changes: [
-      { path: 'migrations/0002_import.sql', status: 'added', staged: false, added: 64, removed: 0 },
-    ],
-    diffPreview: [{ kind: 'add', text: 'CREATE TABLE import_batches (id TEXT PRIMARY KEY);' }],
-    checks: [{ id: 'ck-types', label: 'typecheck', state: 'pass' }],
-  },
-};
-
-export const boardTasks: BoardTask[] = [
-  {
-    id: 'bt-1',
-    title: 'Implement session contract',
-    column: 'doing',
-    assigneeId: 'emp-mara',
-    costLabel: '$0.0184',
-    tag: 'employee',
-  },
-  {
-    id: 'bt-2',
-    title: 'Review onboarding edge cases',
-    column: 'doing',
-    assigneeId: 'emp-devin',
-    tag: 'employee',
-  },
-  {
-    id: 'bt-3',
-    title: 'Verify token TTL behavior',
-    column: 'todo',
-    assigneeId: 'emp-sela',
-    tag: 'pm',
-  },
-  {
-    id: 'bt-4',
-    title: 'Security pass on transport',
-    column: 'blocked',
-    assigneeId: 'emp-orion',
-    tag: 'manager',
-    blockedReason: 'Waiting on repo access approval',
-  },
-  {
-    id: 'bt-7',
-    title: 'Confirm copy with stakeholders',
-    column: 'review',
-    assigneeId: 'emp-devin',
-    tag: 'human',
-  },
-  {
-    id: 'bt-5',
-    title: 'Draft session contract',
-    column: 'done',
-    assigneeId: 'emp-mara',
-    costLabel: '$0.0092',
-    tag: 'employee',
-  },
-  { id: 'bt-6', title: 'Onboarding flow spec', column: 'done', assigneeId: 'emp-devin', tag: 'pm' },
 ];
 
 export const officeScene: OfficeSceneLayout = {
@@ -532,18 +386,18 @@ export const employeeSkills: Record<string, Skill[]> = {
 
 export const projectFiles: Record<string, FileNode[]> = {
   'pj-relay': [
-    { name: 'src', kind: 'dir', depth: 0 },
-    { name: 'api', kind: 'dir', depth: 1 },
-    { name: 'session.ts', kind: 'file', depth: 2 },
-    { name: 'router.ts', kind: 'file', depth: 2 },
-    { name: 'ui', kind: 'dir', depth: 1 },
-    { name: 'onboarding.tsx', kind: 'file', depth: 2 },
-    { name: 'README.md', kind: 'file', depth: 0 },
-    { name: 'package.json', kind: 'file', depth: 0 },
+    { name: 'src', path: 'src', kind: 'dir', depth: 0 },
+    { name: 'api', path: 'src/api', kind: 'dir', depth: 1 },
+    { name: 'session.ts', path: 'src/api/session.ts', kind: 'file', depth: 2 },
+    { name: 'router.ts', path: 'src/api/router.ts', kind: 'file', depth: 2 },
+    { name: 'ui', path: 'src/ui', kind: 'dir', depth: 1 },
+    { name: 'onboarding.tsx', path: 'src/ui/onboarding.tsx', kind: 'file', depth: 2 },
+    { name: 'README.md', path: 'README.md', kind: 'file', depth: 0 },
+    { name: 'package.json', path: 'package.json', kind: 'file', depth: 0 },
   ],
   'pj-ledger': [
-    { name: 'migrations', kind: 'dir', depth: 0 },
-    { name: '0001_init.sql', kind: 'file', depth: 1 },
-    { name: 'import.ts', kind: 'file', depth: 0 },
+    { name: 'migrations', path: 'migrations', kind: 'dir', depth: 0 },
+    { name: '0001_init.sql', path: 'migrations/0001_init.sql', kind: 'file', depth: 1 },
+    { name: 'import.ts', path: 'import.ts', kind: 'file', depth: 0 },
   ],
 };

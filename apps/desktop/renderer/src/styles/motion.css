@@ -1,9 +1,60 @@
 :root {
+  --off-motion-instant: 60ms;
   --off-motion-fast: 120ms;
+  --off-motion-quick: 140ms;
   --off-motion-base: 180ms;
   --off-motion-slow: 260ms;
+  --off-motion-spin-fast: 800ms;
+  --off-motion-spin: 900ms;
+  --off-motion-loop-fast: 1.2s;
+  --off-motion-loop-base: 1.4s;
+  --off-motion-loop-slow: 1.6s;
+  --off-motion-loop-callout: 3s;
   --off-motion-ease: cubic-bezier(0.2, 0, 0, 1);
   --off-motion-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --off-motion-loop-soft: ease;
+  --off-motion-loop-ease: ease-in-out;
+  --off-motion-linear: linear;
+}
+
+.off-motion-popover[data-state="open"],
+.off-motion-tooltip[data-state="delayed-open"] {
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity var(--off-motion-fast) var(--off-motion-ease), transform
+    var(--off-motion-fast) var(--off-motion-ease);
+}
+
+.off-motion-popover[data-state="closed"],
+.off-motion-tooltip[data-state="closed"] {
+  opacity: 0;
+  transform: scale(0.98);
+  transition: opacity var(--off-motion-fast) var(--off-motion-ease), transform
+    var(--off-motion-fast) var(--off-motion-ease);
+}
+
+.off-motion-dialog-overlay[data-state="open"] {
+  opacity: 1;
+  transition: opacity var(--off-motion-base) var(--off-motion-ease);
+}
+
+.off-motion-dialog-overlay[data-state="closed"] {
+  opacity: 0;
+  transition: opacity var(--off-motion-fast) var(--off-motion-ease);
+}
+
+.off-motion-dialog-content[data-state="open"] {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+  transition: opacity var(--off-motion-base) var(--off-motion-ease), transform
+    var(--off-motion-base) var(--off-motion-spring);
+}
+
+.off-motion-dialog-content[data-state="closed"] {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.98);
+  transition: opacity var(--off-motion-fast) var(--off-motion-ease), transform
+    var(--off-motion-fast) var(--off-motion-ease);
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -624,7 +624,7 @@ export async function createRuntimeHarness(options) {
     eventBus,
     llmGateway: gateway,
     modelResolver,
-    toolExecutor: new core.MockToolExecutor(),
+    toolExecutor: new core.UnconfiguredToolExecutor(),
     companyId,
     threadId,
     runtimePolicy,

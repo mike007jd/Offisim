@@ -13,13 +13,13 @@
       "status": "running"
     },
     "employees": [
-      { "id": "emp-text-deliverable", "name": "SOP Writer", "role": "ops" }
+      { "id": "emp-text-deliverable", "name": "Plan Writer", "role": "ops" }
     ],
     "taskRuns": [
       {
         "id": "task-text-deliverable",
         "employeeId": "emp-text-deliverable",
-        "taskType": "sop_step",
+        "taskType": "plan_step",
         "input": {
           "description": "Summarize the desktop release request into concise acceptance criteria."
         }
@@ -29,10 +29,10 @@
   "initialState": {
     "pendingAssignments": [
       {
-        "taskType": "sop_step",
+        "taskType": "plan_step",
         "employeeId": "emp-text-deliverable",
         "assigneeKind": "employee",
-        "assigneeName": "SOP Writer",
+        "assigneeName": "Plan Writer",
         "taskRunId": "task-text-deliverable",
         "stepIndex": 0,
         "inputJson": {

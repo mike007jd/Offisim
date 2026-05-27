@@ -24,7 +24,6 @@ export type {
   ToolCallRow,
   HandoffEventRow,
   MeetingSessionRow,
-  KanbanCardRow,
   GraphCheckpointRow,
   RuntimeEventRow,
   LlmCallRow,
@@ -33,7 +32,6 @@ export type {
   NewToolCall,
   NewHandoffEvent,
   NewMeetingSession,
-  NewKanbanCard,
   NewGraphCheckpoint,
   NewRuntimeEvent,
   NewLlmCall,
@@ -47,7 +45,6 @@ export type {
   ToolCallRepository,
   HandoffRepository,
   MeetingRepository,
-  KanbanRepository,
   EventRepository,
   McpAuditRepository,
   McpAuditRow,
@@ -87,10 +84,6 @@ export type {
   ModelCostRateRow,
   NewModelCostRate,
   ModelCostRateRepository,
-  SopTemplateRow,
-  NewSopTemplate,
-  SopTemplateUpdate,
-  SopTemplateRepository,
   RackRow,
   NewRack,
   RackRepository,
@@ -295,7 +288,6 @@ export {
   MemoryNodeSummaryRepository,
   MemoryEmployeeVersionRepository,
   MemoryModelCostRateRepository,
-  MemorySopTemplateRepository,
   MemoryRackRepository,
   MemorySlotRepository,
   MemoryWorkstationRackRepository,
@@ -319,9 +311,6 @@ export {
 export { EmployeeVersionService } from './runtime/employee-version-service.js';
 export { CostCalculationService } from './runtime/cost-calculation-service.js';
 export { SessionCostTracker } from './runtime/session-cost-tracker.js';
-export { SopService } from './services/sop-service.js';
-export { SopSyncService } from './services/sop-sync-service.js';
-export type { SopSyncResult } from './services/sop-sync-service.js';
 export { RackSlotService } from './services/rack-slot-service.js';
 export { LibraryService } from './services/library-service.js';
 export type { CitationEntry } from './services/library-service.js';

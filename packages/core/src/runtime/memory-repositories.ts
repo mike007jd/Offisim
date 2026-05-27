@@ -6,7 +6,6 @@ import { createDeliverablesMemoryRepos } from './repos/deliverables/memory.js';
 import { createEmployeesMemoryRepos } from './repos/employees/memory.js';
 import { createFilesMemoryRepos } from './repos/files/memory.js';
 import { createInstallMemoryRepos } from './repos/install/memory.js';
-import { createKanbanMemoryRepos } from './repos/kanban/memory.js';
 import { createLlmMemoryRepos } from './repos/llm/memory.js';
 import { createMemorySystemMemoryRepos } from './repos/memory-system/memory.js';
 import type { MemoryRepositoriesSnapshot, MemoryRepositorySeed } from './repos/memory-types.js';
@@ -44,7 +43,6 @@ export {
   MemoryInstalledAssetRepository,
   MemoryInstalledPackageRepository,
 } from './repos/install/memory.js';
-export { MemoryKanbanStorage } from './repos/kanban/memory.js';
 export {
   MemoryLlmCallRepository,
   MemoryModelCostRateRepository,
@@ -74,7 +72,6 @@ export {
 export {
   MemoryOfficeLayoutRepository,
   MemoryPrefabInstanceRepository,
-  MemorySopTemplateRepository,
   MemoryZoneRepository,
 } from './repos/workspace/memory.js';
 export type { MemoryRepositoriesSnapshot, MemoryRepositorySeed } from './repos/memory-types.js';
@@ -82,7 +79,7 @@ export type { MemoryRepositoriesSnapshot, MemoryRepositorySeed } from './repos/m
 export function createMemoryRepositories(
   snapshot?: Partial<MemoryRepositoriesSnapshot>,
   deliverableContentLoader?: DeliverableContentLoader,
-  eventBus?: EventBus,
+  _eventBus?: EventBus,
 ): RuntimeRepositories & { seed: MemoryRepositorySeed; snapshot(): MemoryRepositoriesSnapshot } {
   const orchestration = createOrchestrationMemoryRepos(snapshot);
   const employeesFamily = createEmployeesMemoryRepos(snapshot);
@@ -94,7 +91,6 @@ export function createMemoryRepositories(
   const filesFamily = createFilesMemoryRepos(snapshot);
   const workspaceFamily = createWorkspaceMemoryRepos(snapshot);
   const projectsFamily = createProjectsMemoryRepos(snapshot);
-  const kanbanFamily = createKanbanMemoryRepos(snapshot, eventBus);
   const agentEventsFamily = createAgentEventsMemoryRepos(snapshot);
   const deliverablesFamily = createDeliverablesMemoryRepos(snapshot, deliverableContentLoader);
   const skillsFamily = createSkillsMemoryRepos(snapshot);
@@ -119,7 +115,6 @@ export function createMemoryRepositories(
     ...filesFamily,
     ...workspaceFamily,
     ...projectsFamily,
-    kanban: kanbanFamily.kanban,
     ...agentEventsFamily,
     ...deliverablesFamily,
     ...skillsFamily,
@@ -155,7 +150,6 @@ export function createMemoryRepositories(
         compactSummaries: memorySystemFamily.compactSummaries.snapshot(),
         fileHistory: filesFamily.fileHistory.snapshot(),
         libraryDocuments: filesFamily.libraryDocuments.snapshot(),
-        sopTemplates: workspaceFamily.sopTemplates.snapshot(),
         companyTemplates: workspaceFamily.companyTemplates.snapshot(),
         officeLayouts: workspaceFamily.officeLayouts.snapshot(),
         prefabInstances: workspaceFamily.prefabInstances.snapshot(),
@@ -163,7 +157,6 @@ export function createMemoryRepositories(
         projects: projectsFamily.projects.snapshot(),
         projectAssignments: projectsFamily.projectAssignments.snapshot(),
         chatThreads: projectsFamily.chatThreads.snapshot(),
-        kanbanCards: kanbanFamily.kanbanStorage.snapshot(),
         agentEvents: agentEventsFamily.agentEvents.snapshot(),
         recoveryKnowledge: agentEventsFamily.recoveryKnowledge.snapshot(),
         deliverables: deliverablesFamily.deliverables.snapshot(),

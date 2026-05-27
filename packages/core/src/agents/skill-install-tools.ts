@@ -668,7 +668,7 @@ async function handleSkillInstallToolInner(
       if (!env.uploadResolver) {
         return JSON.stringify({
           kind: 'upload-not-available',
-          message: 'Uploads are not wired on this runtime.',
+          message: 'Uploads are unavailable in this runtime profile.',
         });
       }
       const payload = await env.uploadResolver.resolve(fileRef);

@@ -7,7 +7,6 @@ import { createDeliverablesDrizzleRepos } from './repos/deliverables/drizzle.js'
 import { createEmployeesDrizzleRepos } from './repos/employees/drizzle.js';
 import { createFilesDrizzleRepos } from './repos/files/drizzle.js';
 import { createInstallDrizzleRepos } from './repos/install/drizzle.js';
-import { createKanbanDrizzleRepos } from './repos/kanban/drizzle.js';
 import { createLlmDrizzleRepos } from './repos/llm/drizzle.js';
 import { createMemorySystemDrizzleRepos } from './repos/memory-system/drizzle.js';
 import { createOrchestrationDrizzleRepos } from './repos/orchestration/drizzle.js';
@@ -34,7 +33,7 @@ function makeTransact(db: Db) {
   };
 }
 
-export function createDrizzleRepositories(db: Db, eventBus?: EventBus): RuntimeRepositories {
+export function createDrizzleRepositories(db: Db, _eventBus?: EventBus): RuntimeRepositories {
   return {
     ...createOrchestrationDrizzleRepos(db),
     ...createEmployeesDrizzleRepos(db),
@@ -46,7 +45,6 @@ export function createDrizzleRepositories(db: Db, eventBus?: EventBus): RuntimeR
     ...createFilesDrizzleRepos(db),
     ...createWorkspaceDrizzleRepos(db),
     ...createProjectsDrizzleRepos(db),
-    ...createKanbanDrizzleRepos(db, eventBus),
     ...createAgentEventsDrizzleRepos(db),
     ...createDeliverablesDrizzleRepos(db),
     ...createSkillsDrizzleRepos(db),

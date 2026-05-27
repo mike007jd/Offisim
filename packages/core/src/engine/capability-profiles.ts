@@ -375,7 +375,7 @@ function codexSdkNativeFullPowerBlockedAfterReviewProfile(): RuntimeEngineCapabi
       ],
       blockers: [
         ...profile.verification.blockers,
-        '2026-05-11 release .app could not complete SDK-native smoke with selected model MiniMax-M2.7; Codex local-auth returned 400 model unsupported for ChatGPT account',
+        '2026-05-11 release .app could not complete SDK-native smoke with the selected Offisim model; Codex local-auth returned 400 model unsupported for the signed-in ChatGPT account',
         'Codex SDK-native full-agent must not be promoted until the selected Offisim model is Codex-supported or the product exposes a dedicated Codex model selection with release .app evidence',
       ],
     },

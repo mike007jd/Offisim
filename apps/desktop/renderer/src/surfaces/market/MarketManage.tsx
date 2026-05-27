@@ -1,8 +1,7 @@
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
-import { Edit3, KeyRound, Loader2, RefreshCw, Store, Trash2, UploadCloud } from 'lucide-react';
-import { toast } from 'sonner';
+import { KeyRound, Loader2, Store, UploadCloud } from 'lucide-react';
 import {
   type DraftStatus,
   type InstalledPackage,
@@ -10,29 +9,40 @@ import {
   type PublishedDraft,
   useInstalledPackages,
   usePublishedDrafts,
+  useRegistryConnection,
 } from './market-data.js';
 
 interface MarketManageProps {
   view: ManageView;
+  companyId: string | null;
   onBrowseExplore: () => void;
+  onConnectRegistry: () => void;
   onPublish: () => void;
 }
 
-export function MarketManage({ view, onBrowseExplore, onPublish }: MarketManageProps) {
+export function MarketManage({
+  view,
+  companyId,
+  onBrowseExplore,
+  onConnectRegistry,
+  onPublish,
+}: MarketManageProps) {
   if (view === 'published') {
-    return <PublishedList onPublish={onPublish} />;
+    return <PublishedList onConnectRegistry={onConnectRegistry} onPublish={onPublish} />;
   }
-  return <InstalledList view={view} onBrowseExplore={onBrowseExplore} />;
+  return <InstalledList view={view} companyId={companyId} onBrowseExplore={onBrowseExplore} />;
 }
 
 function InstalledList({
   view,
+  companyId,
   onBrowseExplore,
 }: {
   view: ManageView;
+  companyId: string | null;
   onBrowseExplore: () => void;
 }) {
-  const installed = useInstalledPackages();
+  const installed = useInstalledPackages(companyId);
   const rows = installed.data ?? [];
   const visible = view === 'updates' ? rows.filter((r) => r.latestVersion) : rows;
 
@@ -50,7 +60,11 @@ function InstalledList({
       <EmptyState
         icon={Store}
         title={view === 'updates' ? 'No updates available' : 'No installed market packages'}
-        description="Packages installed from the marketplace appear here for manual update checks."
+        description={
+          view === 'updates'
+            ? 'Installed registry packages appear here when the configured registry reports a newer version.'
+            : 'Packages installed from marketplace artifacts appear here after review and install.'
+        }
       />
     );
   }
@@ -79,6 +93,11 @@ function InstalledList({
 function InstalledItem({ pkg }: { pkg: InstalledPackage }) {
   const hasOrigin = pkg.originListingId !== null;
   const hasUpdate = pkg.latestVersion !== null;
+  const registryState = hasOrigin
+    ? hasUpdate
+      ? 'Registry update available'
+      : 'Registry checked'
+    : 'Sideloaded package';
 
   return (
     <div className="off-mng-item">
@@ -94,31 +113,12 @@ function InstalledItem({ pkg }: { pkg: InstalledPackage }) {
       {hasUpdate ? <div className="off-mng-latest">→ latest {pkg.latestVersion}</div> : null}
       {pkg.checkState === 'error' ? <div className="off-mng-err">Update check failed</div> : null}
       <div className="off-mng-acts">
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={!hasOrigin || pkg.checkState === 'checking'}
-          onClick={() => toast.success(`Checked ${pkg.packageId}`)}
-        >
-          {pkg.checkState === 'checking' ? (
-            <>
-              <Icon icon={Loader2} size="sm" className="off-spin" />
-              Checking…
-            </>
-          ) : (
-            <>
-              <Icon icon={RefreshCw} size="sm" />
-              Check
-            </>
-          )}
-        </Button>
+        <span className="off-mng-action-state">{registryState}</span>
         {hasUpdate && hasOrigin ? (
-          <Button size="sm" onClick={() => toast.success(`Updating ${pkg.packageId}`)}>
-            <Icon icon={UploadCloud} size="sm" />
-            Update
-          </Button>
+          <span className="off-mng-annot">
+            Open the latest registry listing to review and install.
+          </span>
         ) : null}
-        {!hasOrigin ? <span className="off-mng-annot">no origin → disabled</span> : null}
       </div>
     </div>
   );
@@ -132,25 +132,62 @@ const STATUS_TONE: Record<DraftStatus, { cls: string; label: string }> = {
   rejected: { cls: 'off-pst-err', label: 'Rejected' },
 };
 
-function PublishedList({ onPublish }: { onPublish: () => void }) {
-  // Auth gate derived from RegistryClient.hasAuthToken (true in fixtures).
-  const hasAuthToken = true;
-  const drafts = usePublishedDrafts();
+function PublishedList({
+  onConnectRegistry,
+  onPublish,
+}: {
+  onConnectRegistry: () => void;
+  onPublish: () => void;
+}) {
+  const registry = useRegistryConnection();
+  const drafts = usePublishedDrafts(registry.data?.connected === true);
+  const unavailableTitle =
+    registry.data?.reason === 'registry-config-missing'
+      ? 'Registry endpoint not configured'
+      : registry.data?.reason === 'creator-missing'
+        ? 'Creator profile not registered'
+        : registry.data?.reason === 'platform-unreachable'
+          ? 'Registry service unreachable'
+          : 'Sign in to view your drafts';
+  const unavailableDescription =
+    registry.data?.reason === 'registry-config-missing'
+      ? 'Set the desktop registry base URL before using marketplace publish history.'
+      : registry.data?.reason === 'creator-missing'
+        ? 'This registry token is valid, but the account does not have a creator profile yet.'
+        : registry.data?.reason === 'platform-unreachable'
+          ? 'The configured marketplace endpoint did not respond to the desktop app.'
+          : 'Publishing requires a marketplace account. Once you connect one, your drafts and published packages will appear here.';
 
-  if (!hasAuthToken) {
+  if (registry.isLoading) {
+    return (
+      <div className="off-mng-loading">
+        <Icon icon={Loader2} size="sm" className="off-spin" />
+        Checking registry connection…
+      </div>
+    );
+  }
+
+  if (!registry.data?.connected) {
+    const canManageToken =
+      registry.data?.reason !== 'registry-config-missing' &&
+      registry.data?.reason !== 'desktop-runtime-unavailable';
     return (
       <div className="off-mng-unauth">
         <span className="off-mng-unauth-i">
           <Icon icon={KeyRound} size="md" />
         </span>
-        <div className="off-mng-unauth-t">Sign in to view your drafts</div>
-        <div className="off-mng-unauth-d">
-          Publishing requires a marketplace account. Once you connect one, your drafts and published
-          packages will appear here.
-        </div>
-        <Button size="md" onClick={onPublish}>
-          Connect registry
-        </Button>
+        <div className="off-mng-unauth-t">{unavailableTitle}</div>
+        <div className="off-mng-unauth-d">{unavailableDescription}</div>
+        <span className="off-mng-action-state">
+          {registry.data?.reason === 'auth-not-configured'
+            ? 'Registry auth unavailable'
+            : 'Registry connection unavailable'}
+        </span>
+        {canManageToken ? (
+          <Button size="sm" variant="outline" onClick={onConnectRegistry}>
+            {registry.data?.reason === 'auth-not-configured' ? 'Connect registry' : 'Manage token'}
+          </Button>
+        ) : null}
       </div>
     );
   }
@@ -205,20 +242,9 @@ function DraftItem({ draft }: { draft: PublishedDraft }) {
         <span className={`off-pub-status ${tone.cls}`}>{tone.label}</span>
       </div>
       <div className="off-mng-acts off-pub-acts">
-        <Button variant="outline" size="sm" onClick={() => toast.info(`Editing ${draft.title}`)}>
-          <Icon icon={Edit3} size="sm" />
-          Edit
-        </Button>
-        {isDraft ? (
-          <Button size="sm" onClick={() => toast.success(`Submitted ${draft.title}`)}>
-            <Icon icon={UploadCloud} size="sm" />
-            Submit
-          </Button>
-        ) : null}
-        <Button variant="ghost" size="sm" onClick={() => toast.success(`Deleted ${draft.title}`)}>
-          <Icon icon={Trash2} size="sm" />
-          Delete
-        </Button>
+        <span className="off-mng-action-state">
+          {isDraft ? 'Submission waiting for registry auth' : 'Read-only registry status'}
+        </span>
       </div>
     </div>
   );

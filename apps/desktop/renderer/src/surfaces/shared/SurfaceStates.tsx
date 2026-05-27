@@ -54,11 +54,11 @@ export function ErrorState({ title, detail, onRetry, className }: ErrorStateProp
 }
 
 export function SkeletonRows({ rows = 5, className }: { rows?: number; className?: string }) {
+  const rowKeys = Array.from({ length: rows }, (_, index) => `loading-row-${index}`);
   return (
     <div className={cn('off-skel-list', className)} aria-hidden>
-      {Array.from({ length: rows }).map((_, i) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: static placeholder rows
-        <div key={i} className="off-skel-row" />
+      {rowKeys.map((key) => (
+        <div key={key} className="off-skel-row" />
       ))}
     </div>
   );

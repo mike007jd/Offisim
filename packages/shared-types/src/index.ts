@@ -227,16 +227,6 @@ export {
   LOCAL_TOOLS_REQUIRE_GATEWAY_LANE,
   isChatRuntimeOutcomeKind,
 } from './chat-outcomes.js';
-export type { KanbanOrigin, KanbanState } from './kanban.js';
-export {
-  isKanbanOrigin,
-  isKanbanState,
-  isKanbanTransitionAllowed,
-  KANBAN_ORIGINS,
-  KANBAN_STATES,
-  KANBAN_TRANSITIONS,
-} from './kanban.js';
-
 export type {
   BindingType,
   BindingStatus,
@@ -282,8 +272,6 @@ export type {
   RuntimeToolSearchPolicy,
 } from './models.js';
 export { ENGINE_IDS } from './models.js';
-
-export type { SopStep, SopDefinition } from './sop.js';
 
 export type {
   SemanticCategory,

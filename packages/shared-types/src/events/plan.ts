@@ -2,8 +2,6 @@ export interface PlanCreatedPayload {
   readonly planId: string;
   readonly threadId: string;
   readonly summary: string;
-  /** The SOP template that produced this plan, if any. */
-  readonly sopTemplateId?: string;
   readonly steps: ReadonlyArray<{
     readonly stepIndex: number;
     readonly description: string;

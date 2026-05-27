@@ -119,7 +119,7 @@
     }
 
     button { font: inherit; cursor: pointer; }
-    input, select, textarea { font: inherit; }
+    input, .primitive-select, .primitive-textarea { font: inherit; }
 
     .sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
     .ico {
@@ -145,12 +145,12 @@
     .red { background: #ff5f57; } .yellow { background: #febc2e; } .green { background: #28c840; }
     .brand {
       display: flex; align-items: baseline; gap: 9px;
-      font-weight: 640; font-size: var(--fs-md); letter-spacing: -0.01em;
+      font-weight: 640; font-size: var(--fs-md); letter-spacing: 0;
     }
     .brand .ver {
       font-size: var(--fs-micro); color: var(--ink-3); font-weight: 600;
       padding: 2px 6px; border-radius: var(--r-pill);
-      background: var(--surface-sunken); letter-spacing: 0.02em;
+      background: var(--surface-sunken); letter-spacing: 0;
     }
 
     /* ── Top bar (V3 — no bell) ────────────────────────── */
@@ -233,7 +233,7 @@
 
     /* ── Caps label (DNA §6) ───────────────────────────── */
     .caps {
-      font-size: var(--fs-micro); letter-spacing: var(--ls-caps);
+      font-size: var(--fs-micro); letter-spacing: 0;
       font-weight: 680; color: var(--ink-3);
       text-transform: uppercase;
     }
@@ -241,7 +241,7 @@
     /* ── Shared atoms ──────────────────────────────────── */
     .badge {
       height: 19px; padding: 0 9px; border-radius: var(--r-pill);
-      font-size: 9.5px; font-weight: 720; letter-spacing: 0.05em;
+      font-size: 9.5px; font-weight: 720; letter-spacing: 0;
       text-transform: uppercase;
       display: inline-flex; align-items: center; gap: 5px;
     }
@@ -288,8 +288,8 @@
 
     .hint { font-size: var(--fs-meta); color: var(--ink-4); line-height: 1.5; }
 
-    /* Custom-arrow native select (DNA §12.5) */
-    .sel-native {
+    /* Select primitive specimen (DNA §12.5) */
+    .sel-primitive {
       height: 28px; max-width: 220px;
       border: 1px solid var(--line); border-radius: var(--r-sm);
       background: var(--surface-1) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23647186' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 9px center;
@@ -316,7 +316,7 @@
     }
     .rb .lbl {
       flex: none; color: #8a5a0c; font-weight: 660;
-      font-size: var(--fs-meta); letter-spacing: 0.02em;
+      font-size: var(--fs-meta); letter-spacing: 0;
     }
     .rb .pjs { display: flex; flex-wrap: wrap; gap: 5px; flex: 1; min-width: 0; }
     .rb .pj {
@@ -426,7 +426,7 @@
     }
     .pp-lbl {
       font-size: 9.5px; font-weight: 720;
-      letter-spacing: 0.05em; text-transform: uppercase;
+      letter-spacing: 0; text-transform: uppercase;
       color: var(--ink-4);
     }
     .c-warn { color: var(--warn); } .c-accent { color: var(--accent); } .c-ok { color: var(--ok); }
@@ -451,7 +451,7 @@
     }
     .pp-sub {
       margin-top: 6px; text-align: center;
-      font-size: var(--fs-micro); letter-spacing: 0.04em;
+      font-size: var(--fs-micro); letter-spacing: 0;
       color: var(--ink-4);
     }
 
@@ -467,7 +467,7 @@
       border: 0; border-radius: var(--r-sm);
       background: transparent; color: var(--ink-3);
       font-size: 9.5px; font-weight: 720;
-      letter-spacing: 0.05em; text-transform: uppercase;
+      letter-spacing: 0; text-transform: uppercase;
       display: inline-flex; align-items: center; gap: 5px;
     }
     .stage-chip.on { background: var(--accent-surface); color: var(--accent); }
@@ -495,7 +495,7 @@
     .mtg-h .sp { margin-left: auto; }
     .mtg-body { padding: 11px 12px; display: flex; flex-direction: column; gap: 11px; }
     .mtg-sl {
-      font-size: 9.5px; font-weight: 680; letter-spacing: var(--ls-caps);
+      font-size: 9.5px; font-weight: 680; letter-spacing: 0;
       color: var(--ink-3); text-transform: uppercase;
       margin-bottom: 6px;
     }
@@ -535,7 +535,7 @@
     .mai .as { font-size: var(--fs-micro); color: var(--ink-4); }
     .mai .pr {
       flex: none;
-      font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 720;
+      font-size: 9px; letter-spacing: 0; text-transform: uppercase; font-weight: 720;
     }
     .p-hi { color: var(--danger); } .p-md { color: #c98410; } .p-lo { color: var(--ink-4); }
     .mtg-empty {
@@ -558,7 +558,7 @@
       height: 22px; padding: 0 9px;
       border: 1px solid currentColor; border-radius: var(--r-xs);
       background: transparent; color: inherit;
-      font-size: 9px; font-weight: 720; letter-spacing: 0.04em;
+      font-size: 9px; font-weight: 720; letter-spacing: 0;
       text-transform: uppercase;
     }
     .cai .dg:hover { background: rgba(255,255,255,0.6); }
@@ -651,7 +651,7 @@
       background: rgba(47,107,255,0.07);
       display: grid; place-items: center;
       color: var(--accent); font-weight: 640; font-size: var(--fs-sm);
-      letter-spacing: 0.02em;
+      letter-spacing: 0;
     }
     .att-drop.unavail {
       border-color: rgba(201,132,16,0.5);
@@ -674,7 +674,7 @@
     }
     .dlg-head h2 {
       margin: 0; font-size: var(--fs-xl); font-weight: 680;
-      color: var(--ink-1); letter-spacing: -0.01em;
+      color: var(--ink-1); letter-spacing: 0;
     }
     .dlg-head p { margin: 4px 0 0; font-size: var(--fs-sm); color: var(--ink-3); }
     .dlg-x {
@@ -708,7 +708,7 @@
     .sc-tbl th {
       text-align: left; padding: 7px 9px;
       font-size: var(--fs-micro); font-weight: 700;
-      letter-spacing: var(--ls-caps); text-transform: uppercase;
+      letter-spacing: 0; text-transform: uppercase;
       color: var(--ink-3);
       border-bottom: 1px solid var(--line);
       background: var(--surface-2);
@@ -736,7 +736,7 @@
       border: 1px solid;
       padding: 7px 10px;
       font-size: 9.5px; font-weight: 720;
-      letter-spacing: 0.06em; text-transform: uppercase;
+      letter-spacing: 0; text-transform: uppercase;
     }
     .pin {
       position: absolute; width: 14px; height: 14px;
@@ -748,7 +748,7 @@
       border-radius: 50%; border: 2px solid var(--accent-ring);
       animation: pulse 1.6s ease-in-out infinite;
     }
-    /* Stage run-axis (V3) */
+    /* Stage status/pipeline shell (V3) */
     .stage-float {
       position: absolute;
       top: 0;
@@ -770,22 +770,22 @@
       transition: background 0.14s ease, color 0.14s ease;
     }
     .stage-mode button.active { color: var(--accent); background: var(--accent-surface); }
-    .stage-runaxis {
+    .stage-status {
       left: 50%; transform: translateX(-50%);
       border-radius: 0 0 var(--r-md) var(--r-md);
       overflow: hidden;
     }
-    .stage-entry {
+    .stage-status-chip {
       height: 30px; padding: 0 13px;
       border: 0; background: transparent;
       display: inline-flex; align-items: center; gap: 6px;
       color: var(--ink-2); font-size: var(--fs-sm); font-weight: 620;
     }
-    .stage-entry + .stage-entry { border-left: 1px solid var(--line); }
-    .stage-entry .ico { color: var(--ink-3); }
-    .stage-entry.live-active { color: var(--accent); }
-    .stage-entry.live-active .ico { color: var(--accent); }
-    .stage-entry .pulse-dot {
+    .stage-status-chip + .stage-status-chip { border-left: 1px solid var(--line); }
+    .stage-status-chip .ico { color: var(--ink-3); }
+    .stage-status-chip.is-active { color: var(--accent); }
+    .stage-status-chip.is-active .ico { color: var(--accent); }
+    .stage-status-chip .pulse-dot {
       width: 6px; height: 6px; border-radius: 50%;
       background: var(--accent);
       animation: pulse 1.4s ease-in-out infinite;
@@ -847,7 +847,7 @@
       border: 0; border-radius: var(--r-pill);
       background: var(--danger-surface); color: var(--danger);
       font-size: var(--fs-micro); font-weight: 700;
-      letter-spacing: 0.05em; text-transform: uppercase;
+      letter-spacing: 0; text-transform: uppercase;
       transition: background 0.14s ease;
     }
     .stage-pipe .sp-stop:hover { background: #fadad6; }
@@ -927,7 +927,7 @@
       border-bottom-left-radius: var(--r-xs);
     }
     .bub .who {
-      font-size: var(--fs-micro); letter-spacing: var(--ls-caps);
+      font-size: var(--fs-micro); letter-spacing: 0;
       font-weight: 680; text-transform: uppercase;
       color: var(--ink-3); margin-bottom: 4px;
     }
@@ -957,7 +957,7 @@
     }
     .spec-suite-head h2 {
       margin: 0 0 4px; font-size: var(--fs-lg); font-weight: 680;
-      color: #fff; letter-spacing: -0.01em;
+      color: #fff; letter-spacing: 0;
     }
     .spec-suite-head b { color: #aebfff; font-weight: 640; }
     .spec-suite-head code { color: #aab6cc; font-family: var(--mono); font-size: var(--fs-meta); }
@@ -997,7 +997,7 @@
     .mini-cap {
       padding: 7px 12px;
       font-size: var(--fs-micro); font-weight: 700;
-      letter-spacing: var(--ls-caps); text-transform: uppercase;
+      letter-spacing: 0; text-transform: uppercase;
       color: var(--ink-3);
       background: var(--surface-2);
       border-bottom: 1px solid var(--line-soft);
@@ -1017,7 +1017,7 @@
       padding: 1px 7px; border-radius: var(--r-pill);
       background: rgba(201,132,16,0.18); color: #e0b15a;
       font-size: 9px; font-weight: 720;
-      text-transform: uppercase; letter-spacing: 0.06em;
+      text-transform: uppercase; letter-spacing: 0;
       font-style: normal;
     }
     .legend {
@@ -1157,7 +1157,7 @@
     }
     .plan-step .ds { color: var(--ink-1); font-weight: 580; }
     .plan-step .role {
-      font-size: 9.5px; letter-spacing: var(--ls-caps);
+      font-size: 9.5px; letter-spacing: 0;
       text-transform: uppercase; font-weight: 700;
       color: var(--ink-3);
     }
@@ -1170,7 +1170,7 @@
       color: var(--ink-1); font-size: var(--fs-sm);
       margin-top: 11px;
     }
-    .plan-fb::placeholder { color: var(--ink-4); }
+    .plan-fb[data-placeholder]:empty::before { content: attr(data-placeholder); color: var(--ink-4); }
     .plan-foot {
       display: flex; align-items: center; gap: 8px;
       padding: 12px 16px;
@@ -1185,7 +1185,7 @@
       background: var(--danger-surface);
       color: #b8352e;
       font-size: 9.5px; font-weight: 720;
-      letter-spacing: var(--ls-caps); text-transform: uppercase;
+      letter-spacing: 0; text-transform: uppercase;
     }
     .sev-pill::before {
       content: ""; width: 5px; height: 5px; border-radius: 50%;
@@ -1200,13 +1200,13 @@
       border: 1px solid var(--line); border-radius: var(--r-sm);
       background: var(--surface-1);
     }
-    .clarify-slot textarea {
+    .clarify-slot .primitive-textarea {
       flex: 1; min-height: 38px;
       border: 0; resize: none; background: transparent;
       color: var(--ink-1); font-size: var(--fs-sm);
       outline: none;
     }
-    .clarify-slot textarea::placeholder { color: var(--ink-4); }
+    .clarify-slot .primitive-textarea[data-placeholder]:empty::before { content: attr(data-placeholder); color: var(--ink-4); }
 
     /* Handoff visualization — activity row + scene mini */
     .activity-rail {
@@ -1250,7 +1250,7 @@
       border: 1px solid;
       padding: 4px 7px;
       font-size: 9.5px; font-weight: 720;
-      letter-spacing: 0.05em; text-transform: uppercase;
+      letter-spacing: 0; text-transform: uppercase;
     }
     .mini-seat {
       position: absolute; width: 16px; height: 16px;
@@ -1265,7 +1265,7 @@
       background: var(--violet-surface); color: var(--violet);
       border-radius: var(--r-pill);
       font-size: 9.5px; font-weight: 700;
-      letter-spacing: 0.05em; text-transform: uppercase;
+      letter-spacing: 0; text-transform: uppercase;
       box-shadow: var(--elev-1);
     }
 
@@ -1297,7 +1297,7 @@
       border: 1px solid currentColor; border-radius: var(--r-xs);
       background: transparent; color: inherit;
       font-size: 9.5px; font-weight: 720;
-      letter-spacing: 0.04em;
+      letter-spacing: 0;
     }
 
     /* Perf tier downgrade chip */
@@ -1361,7 +1361,7 @@
       font-size: var(--fs-meta);
     }
     .prop-card .kind {
-      font-size: 9.5px; letter-spacing: var(--ls-caps);
+      font-size: 9.5px; letter-spacing: 0;
       font-weight: 720; text-transform: uppercase;
       color: var(--violet);
     }
@@ -1417,7 +1417,7 @@
     }
     .sc-group {
       padding: 6px 4px 2px;
-      font-size: 9.5px; letter-spacing: var(--ls-caps);
+      font-size: 9.5px; letter-spacing: 0;
       text-transform: uppercase; font-weight: 720;
       color: var(--ink-3);
     }
@@ -1449,7 +1449,7 @@
     .reveal { animation: rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
     @media (prefers-reduced-motion: reduce) {
       .reveal, .pp-dot.active i, .badge.ok.running::before, .rb.running .ic::before,
-      .pin.active::after, .sc-beat::before, .stage-entry .pulse-dot { animation: none; }
+      .pin.active::after, .sc-beat::before, .stage-status-chip .pulse-dot { animation: none; }
       * { transition: none !important; }
     }
   </style>
@@ -1540,7 +1540,7 @@
       </div>
       <div class="nav reveal">
         <button class="active"><svg class="ico sm"><use href="#i-building"/></svg>Office</button>
-        <button>SOPs</button>
+        <button>Workspace</button>
         <button>Market</button>
         <button>Personnel</button>
       </div>
@@ -1555,23 +1555,22 @@
     <div class="office">
       <!-- Stage -->
       <section class="scene">
-        <!-- Stage-mode + run-axis (V3 floating shells) -->
+        <!-- Stage-mode + status strip (V3 floating shells) -->
         <div class="stage-float stage-mode">
           <button class="active" title="3D"><svg class="ico sm"><use href="#i-cube"/></svg></button>
           <button title="2D"><svg class="ico sm"><use href="#i-square2"/></svg></button>
         </div>
-        <!-- V3 stage run-axis: pure Board/Live entries. Run state details
-             belong on the stage (above the working employees), not in the
-             axis chip. -->
-        <div class="stage-float stage-runaxis">
-          <button class="stage-entry"><svg class="ico sm"><use href="#i-grid-board"/></svg>Board</button>
-          <button class="stage-entry live-active">
-            <svg class="ico sm"><use href="#i-pulse"/></svg>Live
+        <!-- V3 stage status: token/cost/readiness only. Work details belong
+             in the thread run record and the in-scene pipeline pill. -->
+        <div class="stage-float stage-status">
+          <span class="stage-status-chip"><svg class="ico sm"><use href="#i-sparkle"/></svg>48.2K tok</span>
+          <span class="stage-status-chip is-active">
+            <svg class="ico sm"><use href="#i-pulse"/></svg>$0.41
             <span class="pulse-dot"></span>
-          </button>
+          </span>
         </div>
         <!-- Diegetic in-scene pipeline readout. Floats above the worker
-             zones so the live step + assignee + Stop sit visually attached
+             zones so the live step + assignee + abort state sit visually attached
              to the employees actually doing the work. One pill, no nesting. -->
         <div class="stage-pipe" role="status" aria-label="Plan progress · current step">
           <span class="sp-pulse"></span>
@@ -1580,9 +1579,9 @@
           <span class="sp-div"></span>
           <span class="sp-prog"><span class="sp-bar"><i></i></span>3/7</span>
           <span class="sp-div"></span>
-          <button class="sp-stop" title="Stop execution">
-            <svg class="ico xs fill"><use href="#i-square"/></svg>Stop
-          </button>
+          <span class="sp-stop is-state">
+            <svg class="ico xs fill"><use href="#i-square"/></svg>Abort pending
+          </span>
         </div>
 
         <!-- Zones -->
@@ -1633,13 +1632,13 @@
         <div class="chat-f">
           <!-- PipelineProgress lives on stage (see .axis-pipe above).
                chat-foot only carries the composer — V3 right rail is
-               one axis, no run-axis chrome stacked on it. -->
+               one axis, no extra stage chrome stacked on it. -->
           <div class="pad">
             <div class="cmp">
               <div class="ph">Message the team…</div>
               <div class="cmp-row">
                 <button class="clip" aria-label="Attach file"><svg class="ico sm"><use href="#i-paperclip"/></svg></button>
-                <span class="mode-chip"><span class="d"></span>SOP</span>
+                <span class="mode-chip"><span class="d"></span>Plan</span>
                 <div style="flex:1"></div>
                 <button class="send icon-only" aria-label="Send"><svg class="ico sm"><use href="#i-send"/></svg></button>
               </div>
@@ -1659,7 +1658,7 @@
       <b>chat failure recovery</b>, <b>running-pipeline control</b>, <b>meeting + action items</b>,
       <b>attachment staging/error</b>, <b>keyboard shortcuts</b>. The window above is the canonical
       runtime state: Office mid-run, <code>PipelineProgress</code> lives diegetically on the stage
-      run-axis (V3 §9 — game content area, not chrome) at the <code>executing</code> stage with the
+      content area (V3 §9 — game content area, not chrome) at the <code>executing</code> stage with the
       inline <code>Stop</code> control. Every specimen below is
       built 1:1 with the real component and its controlling hook — no invented controls, no dropped
       states. Each pane is captioned with its source file.
@@ -1757,60 +1756,53 @@
         <span class="d"><code>components/error/ErrorBanner.tsx</code> · <code>useErrorTracking()</code> · ChatPanel mounts when <code>bannerMessage</code> truthy</span></div>
       <div class="spec-frame">
         <div class="mini-pane">
-          <div class="mini-cap">Full bar — all recovery actions present (failed run)</div>
+          <div class="mini-cap">Full bar — recovery states + details</div>
           <div class="mini-bd">
             <div class="eb">
               <div class="eb-bar">
                 <svg class="ico sm ic"><use href="#i-alert-circle"/></svg>
                 <span class="eb-msg">Employee run failed: provider returned 429 (rate limited) at node employee</span>
                 <div class="eb-acts">
-                  <button class="eb-btn" title="Retry with same configuration"><svg class="ico xs"><use href="#i-refresh"/></svg>Retry</button>
-                  <button class="eb-btn" title="Re-dispatch task to a different employee"><svg class="ico xs"><use href="#i-user-cog"/></svg>Swap person</button>
-                  <button class="eb-btn" title="Change LLM model in settings and retry"><svg class="ico xs"><use href="#i-zap"/></svg>Swap model</button>
-                  <button class="eb-btn"><svg class="ico xs"><use href="#i-code"/></svg>Details <svg class="ico xs"><use href="#i-chev-down"/></svg></button>
-                  <button class="eb-btn eb-x" aria-label="Dismiss error"><svg class="ico sm"><use href="#i-x"/></svg></button>
+	                  <span class="eb-btn is-state"><svg class="ico xs"><use href="#i-refresh"/></svg>Redispatch pending</span>
+	                  <span class="eb-btn is-state"><svg class="ico xs"><use href="#i-user-cog"/></svg>Swap pending</span>
+	                  <button class="eb-btn"><svg class="ico xs"><use href="#i-code"/></svg>Details <svg class="ico xs"><use href="#i-chev-down"/></svg></button>
+	                  <button class="eb-btn eb-x" aria-label="Dismiss error"><svg class="ico sm"><use href="#i-x"/></svg></button>
                 </div>
               </div>
             </div>
           </div>
           <div class="legend">
-            <div class="li"><b>Retry</b><code>shown iff onRetry — failedRunError exists</code></div>
-            <div class="li"><b>Swap person</b><code>iff onSwapPerson &amp;&amp; employeeList.length&gt;0</code></div>
-            <div class="li"><b>Swap model</b><code>iff onSwapModel → onOpenSettings()</code></div>
-            <div class="li"><b>Details</b><code>always — toggles panel</code></div>
+	            <div class="li"><b>Redispatch pending</b><code>state chip until persisted redispatch exists</code></div>
+	            <div class="li"><b>Swap pending</b><code>state chip until employee/model reroute exists</code></div>
+	            <div class="li"><b>Details</b><code>always — toggles panel</code></div>
           </div>
         </div>
         <div class="spec-grid-2" style="margin-top:18px">
           <div>
             <div class="mini-pane">
-              <div class="mini-cap">Swap person expanded — re-dispatch dropdown</div>
+	              <div class="mini-cap">Recovery state — reroute unavailable</div>
               <div class="mini-bd">
                 <div class="eb">
                   <div class="eb-bar">
                     <svg class="ico sm ic"><use href="#i-alert-circle"/></svg>
                     <span class="eb-msg">Employee run failed</span>
                     <div class="eb-acts">
-                      <button class="eb-btn"><svg class="ico xs"><use href="#i-refresh"/></svg>Retry</button>
-                      <button class="eb-btn on"><svg class="ico xs"><use href="#i-user-cog"/></svg>Swap person</button>
-                      <button class="eb-btn eb-x" aria-label="Dismiss error"><svg class="ico sm"><use href="#i-x"/></svg></button>
+	                      <span class="eb-btn is-state"><svg class="ico xs"><use href="#i-refresh"/></svg>Redispatch pending</span>
+	                      <span class="eb-btn is-state"><svg class="ico xs"><use href="#i-user-cog"/></svg>Swap pending</span>
+	                      <button class="eb-btn eb-x" aria-label="Dismiss error"><svg class="ico sm"><use href="#i-x"/></svg></button>
                     </div>
                   </div>
-                  <div class="eb-swap">
-                    <span class="l">Re-dispatch to:</span>
-                    <select class="sel-native" aria-label="Select employee" style="border-color:rgba(214,69,61,0.3)">
-                      <option>Select employee…</option>
-                      <option>Maya Chen (content-lead)</option>
-                      <option>Leo Park (project-manager)</option>
-                      <option>Sam Ortiz (engineer)</option>
-                    </select>
-                  </div>
+	                  <div class="eb-swap">
+	                    <span class="l">Recovery workflow:</span>
+	                    <span class="sel-primitive" style="border-color:rgba(214,69,61,0.3)">
+	                      Requires persisted redispatch state
+	                    </span>
+	                  </div>
                 </div>
               </div>
             </div>
-            <p class="annot-dark">On select → <code>onSwapPerson(id)</code>: <code>clearError()</code>,
-              re-adds last user message to the new employee's conversation, opens a fresh
-              <code>RunScope</code> (new <code>conversationKey</code> + <code>runId</code>) and
-              re-sends. Items render <code>{agent.name} ({agent.role})</code>.</p>
+	            <p class="annot-dark">Recovery remains state-only until persisted redispatch/reroute
+	              state exists. Do not render employee/model selectors from this banner.</p>
           </div>
           <div>
             <div class="mini-pane">
@@ -1879,7 +1871,7 @@
                       <div class="pp-conn pending"></div>
                       <div class="pp-node"><div class="pp-dot pending"><i></i></div><div class="pp-lbl">Summary</div></div>
                     </div>
-                    <button class="pp-stop" title="Stop execution"><svg class="ico xs fill"><use href="#i-square"/></svg>Stop</button>
+	                    <span class="pp-stop is-state"><svg class="ico xs fill"><use href="#i-square"/></svg>Abort pending</span>
                   </div>
                   <div class="pp-sub">Thinking…</div>
                 </div>
@@ -1888,7 +1880,7 @@
             <p class="annot-dark">Secondary label = <code>activeCeremonyLabel ?? routeLabel</code>.
               <code>ROUTE_LABELS</code>: <code>delegate</code>→"Delegating task",
               <code>meeting</code>→"Starting meeting", <code>direct_reply</code>→"Thinking…",
-              <code>use_sop</code>→"Running SOP", <code>hire_or_assess</code>→"HR assessment".</p>
+              <code>use_plan</code>→"Running Plan", <code>hire_or_assess</code>→"HR assessment".</p>
           </div>
           <div>
             <div class="mini-pane">
@@ -1907,15 +1899,15 @@
                       <div class="pp-conn pending"></div>
                       <div class="pp-node"><div class="pp-dot pending"><i></i></div><div class="pp-lbl">Summary</div></div>
                     </div>
-                    <button class="pp-stop" title="Stop execution"><svg class="ico xs fill"><use href="#i-square"/></svg>Stop</button>
+	                    <span class="pp-stop is-state"><svg class="ico xs fill"><use href="#i-square"/></svg>Abort pending</span>
                   </div>
                   <div class="pp-sub">Employees working</div>
                 </div>
               </div>
             </div>
             <p class="annot-dark">Node state per step: <code>idx&lt;active</code>→completed (✓ green),
-              <code>idx===active</code>→active (ring + pulse dot in stage color),
-              <code>idx&gt;active</code>→pending. Stop shown iff <code>isRunning &amp;&amp; onAbort</code>
+	              <code>idx===active</code>→active (ring + pulse dot in stage color),
+	              <code>idx&gt;active</code>→pending. Abort state is shown until provider abort support
               → <code>abortExecution()</code>.</p>
           </div>
           <div>
@@ -2167,14 +2159,14 @@
                   <div class="att-err">huge-video.mov · exceeds the 8 MB per-file limit</div>
                   <div class="att-err">deck-final.pptx · exceeds the 32 MB total attachment limit</div>
                   <div class="att-err">q3-brief.pdf · already attached</div>
-                  <div class="att-err">notes.docx · storage unavailable in this browser window</div>
+                  <div class="att-err">notes.docx · attachment vault unavailable</div>
                   <div class="att-err">scan.tiff · parser failed</div>
                   <div class="att-err">report.pdf · failed to persist attachment</div>
                 </div>
                 <div class="cmp">
                   <div class="ph">Message the team…</div>
                   <div class="cmp-row">
-                    <button class="clip" disabled aria-label="Attach file" title="Storage unavailable — try a non-private window"><svg class="ico sm"><use href="#i-paperclip"/></svg></button>
+                    <button class="clip" aria-label="Attach file" title="Select files; failures surface as attachment error chips"><svg class="ico sm"><use href="#i-paperclip"/></svg></button>
                     <div style="flex:1"></div>
                     <button class="send icon-only" aria-label="Send"><svg class="ico sm"><use href="#i-send"/></svg></button>
                   </div>
@@ -2184,11 +2176,11 @@
             <p class="annot-dark">Error region is <code>aria-live="polite"</code>. Exact strings:
               <code>oversize-per-file</code> "exceeds the 8 MB per-file limit",
               <code>oversize-total</code> "exceeds the 32 MB total attachment limit",
-              <code>duplicate</code> "Already attached", <code>storage-unavailable</code> "storage
-              unavailable in this browser window", <code>parser-exception</code> "{detail ?? 'parser
-              failed'}", <code>persist-failed</code> "failed to persist attachment". When
-              <code>!storageAvailable</code> the paperclip is <code>disabled</code> with title
-              "Storage unavailable — try a non-private window". Dedupe key =
+              <code>duplicate</code> "Already attached", <code>storage-unavailable</code> "attachment
+              vault unavailable", <code>parser-exception</code> "{detail ?? 'parser failed'}",
+              <code>persist-failed</code> "failed to persist attachment". When
+              <code>!storageAvailable</code> the paperclip remains operable and selected files create
+              an attachment error chip instead of silently failing. Dedupe key =
               <code>name\0size\0sha256</code>.</p>
           </div>
         </div>
@@ -2215,9 +2207,9 @@
               <div class="mini-bd" style="position:relative;min-height:120px">
                 <div class="cmp" style="opacity:0.5">
                   <div class="ph">Message the team…</div>
-                  <div class="cmp-row"><button class="clip" disabled><svg class="ico sm"><use href="#i-paperclip"/></svg></button><div style="flex:1"></div><button class="send icon-only"><svg class="ico sm"><use href="#i-send"/></svg></button></div>
+                  <div class="cmp-row"><button class="clip"><svg class="ico sm"><use href="#i-paperclip"/></svg></button><div style="flex:1"></div><button class="send icon-only"><svg class="ico sm"><use href="#i-send"/></svg></button></div>
                 </div>
-                <div class="att-drop unavail">Storage unavailable</div>
+                <div class="att-drop unavail">Attachment vault unavailable</div>
               </div>
             </div>
             <p class="annot-dark">Overlay copy is <code>storageAvailable ? 'Drop to attach' : 'Storage
@@ -2248,7 +2240,7 @@
                   </div>
                   <div class="dlg-body">
                     <div class="ks-row"><span class="ds">Toggle Dashboard</span><kbd>Cmd/Ctrl · D</kbd></div>
-                    <div class="ks-row"><span class="ds">Toggle Kanban</span><kbd>Cmd/Ctrl · J</kbd></div>
+                    <div class="ks-row"><span class="ds">Toggle Queue</span><kbd>Cmd/Ctrl · J</kbd></div>
                     <div class="ks-row"><span class="ds">Toggle 3D / 2D view</span><kbd>Cmd/Ctrl · 1</kbd></div>
                     <div class="ks-row"><span class="ds">Edit selected employee</span><kbd>Cmd/Ctrl · E</kbd></div>
                     <div class="ks-row"><span class="ds">Open keyboard shortcuts</span><kbd>Cmd/Ctrl · /</kbd></div>
@@ -2276,12 +2268,12 @@
                     <tr><td><span class="cmd">/assess</span></td><td>team</td><td>Run team performance assessment</td></tr>
                     <tr><td><span class="cmd">/assign</span></td><td>team</td><td>Assign a task to an employee</td></tr>
                     <tr><td><span class="cmd">/meeting</span></td><td>workflow</td><td>Start a team meeting</td></tr>
-                    <tr><td><span class="cmd">/sop</span></td><td>workflow</td><td>Execute a saved workflow</td></tr>
+                    <tr><td><span class="cmd">/plan</span></td><td>workflow</td><td>Execute a saved workflow</td></tr>
                     <tr><td><span class="cmd">/library</span></td><td>workflow</td><td>Reference a library document</td></tr>
                     <tr><td><span class="cmd">/status</span> <span class="al">/s</span></td><td>navigate</td><td>Open the dashboard</td></tr>
                     <tr><td><span class="cmd">/budget</span></td><td>navigate</td><td>Show cost breakdown</td></tr>
                     <tr><td><span class="cmd">/dashboard</span> <span class="al">/dash</span></td><td>navigate</td><td>Toggle dashboard overlay</td></tr>
-                    <tr><td><span class="cmd">/kanban</span> <span class="al">/board /k</span></td><td>navigate</td><td>Toggle project board</td></tr>
+                    <tr><td><span class="cmd">/activity</span> <span class="al">/log</span></td><td>navigate</td><td>Open Activity Log</td></tr>
                     <tr><td><span class="cmd">/settings</span></td><td>config</td><td>Open provider settings</td></tr>
                     <tr><td><span class="cmd">/editor</span></td><td>config</td><td>Open office layout editor</td></tr>
                     <tr><td><span class="cmd">/studio</span></td><td>config</td><td>Open decoration studio</td></tr>
@@ -2679,7 +2671,7 @@
                     <span class="who">Riya Bhatt</span>
                   </div>
                 </div>
-                <textarea class="plan-fb" placeholder="Tell Offisim what to change… (free text — appended to the revise prompt)"></textarea>
+                <div class="plan-fb primitive-textarea" data-primitive="Textarea" data-placeholder="Tell Offisim what to change... (free text - appended to the revise prompt)"></div>
               </div>
               <div class="plan-foot">
                 <span class="sev-pill">High · execution blocked until resolved</span>
@@ -2694,7 +2686,7 @@
         <p class="annot-dark">Steps render directly inside <code>.dlg-body</code> — no outer plan card
           (anti-nesting). Each step is a single-layer row: <code>{index, description, role, assignee}</code>.
           <i>Start execution</i> emits <code>plan.review.approved</code> with the (possibly-edited)
-          plan; <i>Revise plan</i> packages the textarea + steps and routes back to PM with
+          plan; <i>Revise plan</i> packages the Textarea primitive value + steps and routes back to PM with
           <code>plan.review.revised</code>; <i>Cancel</i> aborts the run (severity=high). Severity
           pill uses danger surface to make the blocking nature explicit; modal cannot be closed by
           backdrop click while severity=high.</p>
@@ -2718,7 +2710,7 @@
                 <div class="who">Boss · clarification</div>
                 Before I route this, I need to confirm: are these tests for the <b>public API</b> or the <b>internal worker</b>?
                 <div class="clarify-slot">
-                  <textarea placeholder="Type your answer…"></textarea>
+                  <div class="primitive-textarea" data-primitive="Textarea" data-placeholder="Type your answer..."></div>
                   <div style="display:flex;flex-direction:column;gap:4px;align-items:stretch">
                     <button class="btn primary sm"><svg class="ico xs"><use href="#i-send"/></svg>Send</button>
                     <button class="btn ghost sm">Cancel</button>
@@ -2802,7 +2794,7 @@
     <!-- 18 · execution.aborted post-state -->
     <div class="spec-state">
       <div class="spec-cap"><span class="n">18</span><span class="t">execution.aborted — post-Stop state</span>
-        <span class="d"><code>execution.aborted</code> event · stage pill collapses to muted, banner appears below run-axis · Resume / Discard</span></div>
+        <span class="d"><code>execution.aborted</code> event · stage pill collapses to muted, banner appears below the pipeline · Resume / Discard</span></div>
       <div class="spec-frame">
         <div class="mini-pane">
           <div class="mini-cap">Muted stage pill — replaces the live diegetic pipeline pill</div>
@@ -2831,10 +2823,10 @@
         <p class="annot-dark"><i>Stop</i> on the live diegetic pill emits
           <code>execution.aborted({runId, stoppedAtStep, elapsedMs, completedCount})</code>; the
           live pill is replaced in place by the muted variant (no layout shift). Banner sits below
-          run-axis until resolved. <i>Resume from #N</i> emits
+          the pipeline until resolved. <i>Resume from #N</i> emits
           <code>execution.resume({runId, fromStep})</code> reusing the same plan + checkpointed
           state; <i>Discard</i> marks the run <code>aborted</code> and clears the banner. Completed
-          steps stay in the kanban Done column regardless of resume/discard.</p>
+          steps stay in the queue Done column regardless of resume/discard.</p>
       </div>
     </div>
 
@@ -2867,7 +2859,7 @@
           the same zone + seat geometry rendered via canvas — no functional loss, only visual.
           <i>Retry 3D</i> calls <code>useSceneRenderer().retry()</code>; on success the badge
           disappears and 3D mounts. Badge sits top-right of scene only (not chrome) so it doesn't
-          collide with the stage run-axis.</p>
+          collide with the stage status strip.</p>
       </div>
     </div>
 
@@ -3017,7 +3009,7 @@
               <div class="att-err">q3-brief.pdf · already attached</div>
               <div class="att-err">scan.tiff · parser failed</div>
               <div class="att-err">report.pdf · failed to persist attachment</div>
-              <div class="att-err">notes.docx · storage unavailable in this browser window</div>
+              <div class="att-err">notes.docx · attachment vault unavailable</div>
             </div>
           </div>
         </div>
@@ -3080,13 +3072,13 @@
               <div class="sc-item"><span><span class="sc-cmd">/assign</span></span><span class="sc-ds">Assign a task to an employee</span></div>
               <div class="sc-group">Workflow</div>
               <div class="sc-item"><span><span class="sc-cmd">/meeting</span></span><span class="sc-ds">Start a team meeting</span></div>
-              <div class="sc-item"><span><span class="sc-cmd">/sop</span></span><span class="sc-ds">Execute a saved workflow</span></div>
+              <div class="sc-item"><span><span class="sc-cmd">/plan</span></span><span class="sc-ds">Execute a saved workflow</span></div>
               <div class="sc-item"><span><span class="sc-cmd">/library</span></span><span class="sc-ds">Reference a library document</span></div>
               <div class="sc-group">Navigate</div>
               <div class="sc-item on"><span><span class="sc-cmd">/status</span><span class="sc-al">/s</span></span><span class="sc-ds">Open the dashboard</span></div>
               <div class="sc-item"><span><span class="sc-cmd">/budget</span></span><span class="sc-ds">Show cost breakdown</span></div>
               <div class="sc-item"><span><span class="sc-cmd">/dashboard</span><span class="sc-al">/dash</span></span><span class="sc-ds">Toggle dashboard overlay</span></div>
-              <div class="sc-item"><span><span class="sc-cmd">/kanban</span><span class="sc-al">/board /k</span></span><span class="sc-ds">Toggle project board</span></div>
+              <div class="sc-item"><span><span class="sc-cmd">/activity</span><span class="sc-al">/log</span></span><span class="sc-ds">Open Activity Log</span></div>
               <div class="sc-group">Config</div>
               <div class="sc-item"><span><span class="sc-cmd">/settings</span></span><span class="sc-ds">Open provider settings</span></div>
               <div class="sc-item"><span><span class="sc-cmd">/editor</span></span><span class="sc-ds">Open office layout editor</span></div>
@@ -3112,8 +3104,8 @@
         <div class="mini-pane">
           <div class="mini-cap">5 rev-risks + 1 note</div>
           <div class="legend" style="grid-template-columns:1fr">
-            <div class="li"><span class="rev-flag">rev-risk</span><span style="flex:1">Drop <b>PipelineProgress</b> → running pipeline becomes invisible and there is no <code>Stop</code>; user cannot tell who is running or abort it. Highest-value loss.</span></div>
-            <div class="li"><span class="rev-flag">rev-risk</span><span style="flex:1">Drop <b>ErrorBanner</b> recovery actions → a failed run dead-ends; no Retry / Swap person / Swap model / Details path. Banner intentionally never auto-closes.</span></div>
+	            <div class="li"><span class="rev-flag">rev-risk</span><span style="flex:1">Drop <b>PipelineProgress</b> → running pipeline becomes invisible; user cannot tell who is running or which abort state applies. Highest-value loss.</span></div>
+	            <div class="li"><span class="rev-flag">rev-risk</span><span style="flex:1">Drop <b>ErrorBanner</b> recovery states → a failed run loses redispatch/swap status and Details path. Banner intentionally never auto-closes.</span></div>
             <div class="li"><span class="rev-flag">rev-risk</span><span style="flex:1">Drop <b>ResumeBar</b> → an interrupted/blocked run is unrecoverable after reload (threads stay <code>running</code>/<code>blocked</code> but are unreachable).</span></div>
             <div class="li"><span class="rev-flag">rev-risk</span><span style="flex:1">Drop the attachment <b>error region</b> → every cap / dedupe / storage / parse rejection becomes a silent no-op; user sees nothing.</span></div>
             <div class="li"><span class="rev-flag">rev-risk</span><span style="flex:1">Drop <b>MeetingActionItems</b> Delegate → meeting outcomes never convert to delegated follow-up; the meeting becomes a dead-end transcript.</span></div>

@@ -1,40 +1,37 @@
 import { useUiState } from '@/app/ui-state.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
-import { Activity, LayoutGrid, Settings } from 'lucide-react';
+import { Activity, LayoutGrid, Settings, type LucideIcon } from 'lucide-react';
+
+type UtilityEntry = {
+  key: 'activity' | 'settings' | 'studio';
+  label: string;
+  icon: LucideIcon;
+};
+
+const UTILITY_ENTRIES: readonly UtilityEntry[] = [
+  { key: 'activity', label: 'Activity', icon: Activity },
+  { key: 'settings', label: 'Settings', icon: Settings },
+  { key: 'studio', label: 'Studio', icon: LayoutGrid },
+];
 
 export function IconBar() {
   const surface = useUiState((s) => s.surface);
   const setSurface = useUiState((s) => s.setSurface);
-  const showStudio = surface === 'office' || surface === 'studio';
 
   return (
     <div className="off-iconbar">
-      <IconButton
-        icon={Activity}
-        label="Activity"
-        size="iconSm"
-        variant={surface === 'activity' ? 'accentSoft' : 'ghost'}
-        onClick={() => setSurface('activity')}
-      />
-      <IconButton
-        icon={Settings}
-        label="Settings"
-        size="iconSm"
-        variant={surface === 'settings' ? 'accentSoft' : 'ghost'}
-        onClick={() => setSurface('settings')}
-      />
-      {showStudio ? (
-        <>
-          <span className="off-iconbar-divider" aria-hidden />
+      {UTILITY_ENTRIES.map((entry, index) => (
+        <span key={entry.key} className="off-iconbar-entry">
+          {index === 2 ? <span className="off-iconbar-divider" aria-hidden /> : null}
           <IconButton
-            icon={LayoutGrid}
-            label="Studio"
+            icon={entry.icon}
+            label={entry.label}
             size="iconSm"
-            variant={surface === 'studio' ? 'accentSoft' : 'ghost'}
-            onClick={() => setSurface('studio')}
+            variant={surface === entry.key ? 'accentSoft' : 'ghost'}
+            onClick={() => setSurface(entry.key)}
           />
-        </>
-      ) : null}
+        </span>
+      ))}
     </div>
   );
 }

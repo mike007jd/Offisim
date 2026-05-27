@@ -210,7 +210,9 @@ function runSdkNativeFullPowerCase(record: CaseRecorder): void {
     );
     if (engineId === 'codex-engine') {
       assert(
-        profile.verification.blockers.some((blocker) => blocker.includes('MiniMax-M2.7')),
+        profile.verification.blockers.some((blocker) =>
+          blocker.includes('selected Offisim model'),
+        ),
         `${profile.profileId} lacks selected-model release blocker`,
       );
     } else {

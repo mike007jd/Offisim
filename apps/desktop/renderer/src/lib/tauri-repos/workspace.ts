@@ -2,10 +2,8 @@ import type {
   CompanyTemplateAssetRow,
   NewCompanyTemplateAsset,
   NewOfficeLayout,
-  NewSopTemplate,
   OfficeLayoutRow,
   RuntimeRepositories,
-  SopTemplateRow,
 } from '@offisim/core/browser';
 import * as schema from '@offisim/db-local';
 import { and, eq } from 'drizzle-orm';
@@ -16,7 +14,6 @@ function now(): string {
 }
 
 export interface WorkspaceTauriRepos {
-  sopTemplates: RuntimeRepositories['sopTemplates'];
   companyTemplates: RuntimeRepositories['companyTemplates'];
   officeLayouts: RuntimeRepositories['officeLayouts'];
   prefabInstances: RuntimeRepositories['prefabInstances'];
@@ -24,39 +21,6 @@ export interface WorkspaceTauriRepos {
 }
 
 export function createWorkspaceTauriRepos(db: TauriDrizzleDb): WorkspaceTauriRepos {
-  const sopTemplates: RuntimeRepositories['sopTemplates'] = {
-    async create(template: NewSopTemplate) {
-      const ts = now();
-      const row: SopTemplateRow = { ...template, created_at: ts, updated_at: ts };
-      await db.insert(schema.sopTemplates).values(row);
-      return row;
-    },
-    async findById(sopTemplateId) {
-      const rows = await db
-        .select()
-        .from(schema.sopTemplates)
-        .where(eq(schema.sopTemplates.sop_template_id, sopTemplateId));
-      return (rows[0] as SopTemplateRow | undefined) ?? null;
-    },
-    async findByCompany(companyId) {
-      return (await db
-        .select()
-        .from(schema.sopTemplates)
-        .where(eq(schema.sopTemplates.company_id, companyId))) as SopTemplateRow[];
-    },
-    async update(sopTemplateId, patch) {
-      await db
-        .update(schema.sopTemplates)
-        .set({ ...patch, updated_at: now() })
-        .where(eq(schema.sopTemplates.sop_template_id, sopTemplateId));
-    },
-    async delete(sopTemplateId) {
-      await db
-        .delete(schema.sopTemplates)
-        .where(eq(schema.sopTemplates.sop_template_id, sopTemplateId));
-    },
-  };
-
   const companyTemplates: RuntimeRepositories['companyTemplates'] = {
     async create(template: NewCompanyTemplateAsset) {
       const ts = now();
@@ -232,5 +196,5 @@ export function createWorkspaceTauriRepos(db: TauriDrizzleDb): WorkspaceTauriRep
     },
   };
 
-  return { sopTemplates, companyTemplates, officeLayouts, prefabInstances, zones };
+  return { companyTemplates, officeLayouts, prefabInstances, zones };
 }

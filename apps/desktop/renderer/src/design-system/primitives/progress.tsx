@@ -9,14 +9,11 @@ export function Progress({
 }: React.ComponentProps<typeof ProgressPrimitive.Root>) {
   return (
     <ProgressPrimitive.Root
-      className={cn(
-        'relative h-[4px] w-full overflow-hidden rounded-[var(--off-r-pill)] bg-[var(--off-line-strong)]',
-        className,
-      )}
+      className={cn('off-progress', className)}
       {...props}
     >
       <ProgressPrimitive.Indicator
-        className="h-full bg-[var(--off-accent)] transition-transform"
+        className="off-progress-indicator"
         style={{ transform: `translateX(-${100 - (value ?? 0)}%)` }}
       />
     </ProgressPrimitive.Root>

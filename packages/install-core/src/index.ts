@@ -23,6 +23,8 @@ export type {
   InstalledAssetRow,
   AssetBindingRow,
   NewEmployee,
+  NewSkill,
+  InstallVaultFileSystem,
   InstallRepositories,
   InstallEventEmitter,
 } from './types.js';
@@ -98,3 +100,9 @@ export type {
 // File importer (D.4)
 // ---------------------------------------------------------------------------
 export { readPackageFile, FileImportError } from './file-importer.js';
+
+// ---------------------------------------------------------------------------
+// Package builder (Market publish artifacts)
+// ---------------------------------------------------------------------------
+export { artifactBytesToBase64, buildPackageArtifact } from './package-builder.js';
+export type { BuildPackageArtifactInput, BuiltPackageArtifact } from './package-builder.js';

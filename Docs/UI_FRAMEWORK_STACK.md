@@ -2,7 +2,7 @@
 
 Last updated: 2026-05-25
 
-This is the source of truth for new Offisim desktop UI work. The design source remains `Docs/design`; do not edit those prototype files when changing the runtime UI framework.
+This is the source of truth for new Offisim desktop UI work. The design source remains `Docs/design`; when a prototype conflicts with the V3 DNA brief or a retired product surface, treat the V3 DNA brief as authoritative and retire the stale prototype language instead of restoring old UI.
 
 ## Product Direction
 
@@ -27,7 +27,6 @@ Do not recreate a shared UI package for the new app. Shared packages may expose 
 | Server/async state | TanStack Query | Tauri commands, platform API, loading/error/cache/invalidation. |
 | UI state | Zustand | Workspace, selected ids, rail state, panels, density, ephemeral UI only. |
 | Forms | React Hook Form + Zod | Settings, Market publish, employee config, MCP config, install/confirm flows. |
-| Drag/drop | dnd-kit | SOP DAG, kanban, employee dock, reorder and sortable work surfaces. |
 | Virtualization | TanStack Virtual | Activity log, chat history, Market listings, long file/event lists. |
 | Panels | react-resizable-panels | Split panes and rail resizing; do not hand-roll splitter state. |
 | Command UI | cmdk | Command palette, slash command, quick switcher. |
@@ -41,7 +40,7 @@ Do not recreate a shared UI package for the new app. Shared packages may expose 
 3. `design-system/grammar/`: Offisim V3 grammar components: chip bar, caps label, status pill, card block, field row, dialog shell, popover shell.
 4. `design-system/shell/`: titlebar, topbar, scope bar, workspace nav, iconbar, app frame.
 5. `assistant/`: assistant-ui runtime adapter, Thread skin, Composer skin, message parts, tool approval, run records, attachments.
-6. `surfaces/`: Office, SOPs, Market, Personnel, Settings, Activity, Lifecycle, States. Surfaces compose grammar; they do not define new chrome.
+6. `surfaces/`: Office, Workspace, Market, Personnel, Settings, Activity, Lifecycle, States. Surfaces compose grammar; they do not define new chrome.
 
 ## Hard Rules
 
@@ -54,7 +53,7 @@ Do not recreate a shared UI package for the new app. Shared packages may expose 
 - No `transition-all` as a motion system. Motion behavior must be named and centralized.
 - Long lists must virtualize before they can be treated as production-ready.
 - Forms must be schema-backed before they can be treated as production-ready.
-- Drag/drop must include keyboard path and visible state feedback before it can be treated as production-ready.
+- Any future drag/drop must first add an approved dependency decision plus keyboard path and visible state feedback before it can be treated as production-ready.
 
 ## Validation Gates
 

@@ -1,69 +1,70 @@
 import type { Employee } from '@/data/types.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { Icon } from '@/design-system/icons/Icon.js';
-import { Button } from '@/design-system/primitives/button.js';
 import { cn } from '@/lib/utils.js';
-import { Lock, Save } from 'lucide-react';
-import { useState } from 'react';
+import { AlertTriangle, Bot, CheckCircle2, Lock, ShieldCheck, Wrench } from 'lucide-react';
 
 interface RuntimeBindingOption {
   id: string;
   label: string;
-  description: string;
-  /** Sub-line: profile id (mono), unavailable reason (warn), or requirement. */
-  profile?: string;
-  unavailable?: string;
-  requires?: string;
-  disabled?: boolean;
+  summary: string;
+  status: 'ready' | 'preview' | 'blocked';
+  chip: string;
 }
 
 const BINDING_OPTIONS: RuntimeBindingOption[] = [
   {
     id: 'inherit',
     label: 'Inherit company default',
-    description: 'Use the company capability profile.',
+    summary: 'Company profile',
+    status: 'ready',
+    chip: 'default',
   },
   {
     id: 'gateway',
     label: 'Offisim gateway tools',
-    description: 'Default harness with Offisim file, shell, MCP, and evidence paths.',
+    summary: 'Files · shell · MCP',
+    status: 'ready',
+    chip: 'tools',
   },
   {
-    id: 'claude-text',
-    label: 'Claude text engine',
-    description: 'Preview text/reasoning only; no Offisim local tools.',
-    profile: 'claude · text-only · preview · unverified',
+    id: 'text-preview',
+    label: 'Text preview profile',
+    summary: 'Reasoning preview',
+    status: 'preview',
+    chip: 'text-only',
   },
   {
-    id: 'codex-text',
-    label: 'Codex text engine',
-    description: 'Preview text/reasoning only; no Offisim local tools.',
-    unavailable:
-      'Full-agent target unavailable: codex-engine:sdk-native-full-power · missing release-app / denied-path',
+    id: 'tool-isolated-preview',
+    label: 'Tool-isolated preview',
+    summary: 'Denied-path evidence missing',
+    status: 'blocked',
+    chip: 'blocked',
   },
   {
-    id: 'openai-text',
-    label: 'OpenAI text engine',
-    description: 'Preview text/reasoning only; no Offisim local tools.',
-    requires: 'Requires trusted desktop runtime',
-    disabled: true,
+    id: 'trusted-desktop',
+    label: 'Trusted desktop profile',
+    summary: 'Trusted desktop required',
+    status: 'blocked',
+    chip: 'locked',
   },
   {
-    id: 'codex-full',
-    label: 'Codex full-agent',
-    description: 'Blocked until selected-model release evidence passes.',
-    unavailable: 'Unavailable: release-app / cancellation',
+    id: 'full-agent',
+    label: 'Full-agent profile',
+    summary: 'Release proof missing',
+    status: 'blocked',
+    chip: 'gated',
   },
 ];
+
+const GATE_BADGES = ['release app', 'denied path', 'rollback', 'credential boundary'];
 
 interface RuntimeTabProps {
   employee: Employee;
 }
 
 export function RuntimeTab({ employee }: RuntimeTabProps) {
-  const [binding, setBinding] = useState('inherit');
-  const [initialBinding] = useState('inherit');
-  const isDirty = binding !== initialBinding;
+  const binding = 'inherit';
 
   if (employee.kind === 'external') {
     return (
@@ -72,11 +73,8 @@ export function RuntimeTab({ employee }: RuntimeTabProps) {
           <CapsLabel>Execution binding</CapsLabel>
           <div className="off-pers-lock-note">
             <Icon icon={Lock} size="sm" />
-            External A2A peer — routing handled by brand endpoint.
+            External A2A peer · brand endpoint owned.
           </div>
-          <p className="off-field-hint">
-            A2A discovery + dispatch is owned by the remote agent card; no local binding selection.
-          </p>
         </div>
       </div>
     );
@@ -86,56 +84,64 @@ export function RuntimeTab({ employee }: RuntimeTabProps) {
     <div className="off-pers-tab-shell">
       <div className="off-pers-tab-scroll">
         <CapsLabel>Execution binding</CapsLabel>
+        <div className="off-pers-runtime-head">
+          <span className="off-pers-runtime-ic">
+            <Icon icon={Bot} size="sm" />
+          </span>
+          <div>
+            <div className="off-pers-runtime-title">Provider gateway</div>
+            <div className="off-pers-runtime-sub">{employee.modelLabel} · company default</div>
+          </div>
+          <span className="off-pers-runtime-ok">
+            <Icon icon={ShieldCheck} size="sm" />
+            Tools isolated
+          </span>
+        </div>
         <div className="off-pers-rbind">
           {BINDING_OPTIONS.map((option) => {
             const selected = option.id === binding;
             return (
-              <button
+              <div
                 key={option.id}
-                type="button"
-                aria-pressed={selected}
-                disabled={option.disabled}
-                className={cn(
-                  'off-pers-rbind-opt off-focusable',
-                  selected && 'is-sel',
-                  option.disabled && 'is-dis',
-                )}
-                onClick={() => !option.disabled && setBinding(option.id)}
+                data-selected={selected ? 'true' : undefined}
+                className={cn('off-pers-rbind-opt', selected && 'is-sel', 'is-dis')}
               >
-                <span className="off-pers-rbind-lab">{option.label}</span>
-                <span className="off-pers-rbind-des">{option.description}</span>
-                {option.profile ? (
-                  <span className="off-pers-rbind-prof">{option.profile}</span>
-                ) : null}
-                {option.unavailable ? (
-                  <span className="off-pers-rbind-full">{option.unavailable}</span>
-                ) : null}
-                {option.requires ? (
-                  <span className="off-pers-rbind-req">{option.requires}</span>
-                ) : null}
-              </button>
+                <span className="off-pers-rbind-top">
+                  <span className="off-pers-rbind-lab">{option.label}</span>
+                  <StatusDot status={option.status} />
+                </span>
+                <span className="off-pers-rbind-des">{option.summary}</span>
+                <span className={cn('off-pers-rbind-chip', `is-${option.status}`)}>
+                  {option.chip}
+                </span>
+              </div>
             );
           })}
         </div>
-        <p className="off-pers-rbind-resolved">
-          Resolved: <b>Provider gateway (from company default)</b>
-        </p>
-        <div className="off-pers-rbind-disc">
-          Text-only preview · SDK transport is model access, not a full-agent route. Gateway-bridged
-          tools and SDK-native full-agent profiles become selectable only after deterministic,
-          benchmark, trusted-host, release app, denied-path, cancellation, rollback, sandbox, and
-          credential-boundary evidence passes.
+        <div className="off-pers-runtime-note">
+          Runtime binding is read-only until employee runtime profiles persist changes.
+        </div>
+        <div className="off-pers-runtime-gates">
+          <span className="off-pers-runtime-gates-label">
+            <Icon icon={Wrench} size="sm" />
+            Gates
+          </span>
+          {GATE_BADGES.map((gate) => (
+            <span key={gate} className="off-pers-runtime-gate">
+              {gate}
+            </span>
+          ))}
         </div>
       </div>
-      {isDirty ? (
-        <div className="off-pers-savebar">
-          <span className="off-pers-savebar-left" />
-          <Button size="sm" onClick={() => setBinding(initialBinding)}>
-            <Icon icon={Save} size="sm" />
-            Save
-          </Button>
-        </div>
-      ) : null}
     </div>
+  );
+}
+
+function StatusDot({ status }: { status: RuntimeBindingOption['status'] }) {
+  const icon = status === 'blocked' ? AlertTriangle : CheckCircle2;
+  return (
+    <span className={cn('off-pers-rbind-status', `is-${status}`)}>
+      <Icon icon={icon} size="sm" />
+    </span>
   );
 }

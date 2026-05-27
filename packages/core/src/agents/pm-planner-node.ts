@@ -7,23 +7,9 @@ import { persistLlmPlanAsTaskPlan } from './pm-planner/plan-persistence.js';
 import { awaitPlanReview } from './pm-planner/plan-review-gate.js';
 import { runPmPreflight } from './pm-planner/preflight.js';
 import { PM_SYSTEM_PROMPT, generatePmLlmContent } from './pm-planner/prompt-assembly.js';
-import {
-  findEmployeeForRole,
-  matchSopTemplate,
-  sopBatchesToLlmPlan,
-  tryBuildExplicitSopPlan,
-  tryBuildSopPlan,
-} from './pm-planner/sop-matching.js';
 
 export type { LlmPlanStep } from './pm-planner-types.js';
-export {
-  PM_SYSTEM_PROMPT,
-  parsePmPlan,
-  matchSopTemplate,
-  findEmployeeForRole,
-  sopBatchesToLlmPlan,
-  tryBuildSopPlan,
-};
+export { PM_SYSTEM_PROMPT, parsePmPlan };
 
 function shouldRethrowPlannerError(error: unknown, config: RunnableConfig): boolean {
   const signal = getConfigSignal(config);
@@ -116,36 +102,6 @@ export async function pmPlannerNode(
   if (prep.kind === 'short-circuit') return prep.result;
 
   let plan: LlmPlan | null = prep.reviewedPlan;
-  let sopTemplateId: string | undefined;
-
-  const typedSopTemplateId = prep.runScope?.sopTemplateId ?? prep.directive.sopTemplateId;
-
-  if (typedSopTemplateId && !prep.planRevisionNote) {
-    const explicit = await tryBuildExplicitSopPlan(
-      prep.runtimeCtx.repos,
-      prep.runtimeCtx.eventBus,
-      typedSopTemplateId,
-      prep.allEnabled,
-    );
-    if (explicit) {
-      plan = explicit.plan;
-      sopTemplateId = explicit.sopTemplateId;
-    }
-  }
-
-  if (!plan && !prep.planRevisionNote) {
-    const sop = await tryBuildSopPlan(
-      prep.runtimeCtx.repos,
-      prep.runtimeCtx.eventBus,
-      prep.runtimeCtx.companyId,
-      prep.directive.intent,
-      prep.allEnabled,
-    );
-    if (sop) {
-      plan = sop.plan;
-      sopTemplateId = sop.sopTemplateId;
-    }
-  }
 
   if (!plan) {
     let content = '';
@@ -161,5 +117,5 @@ export async function pmPlannerNode(
 
   await awaitPlanReview(plan, prep);
 
-  return persistLlmPlanAsTaskPlan(plan, prep, sopTemplateId);
+  return persistLlmPlanAsTaskPlan(plan, prep);
 }

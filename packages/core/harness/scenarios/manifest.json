@@ -4,37 +4,58 @@
     {
       "id": "permission-runtime-deny-overrides-thread-grant",
       "category": "permission",
-      "invariants": ["permission.runtime_deny_absolute", "permission.grant_not_consumed_by_deny"]
+      "invariants": [
+        "permission.runtime_deny_absolute",
+        "permission.grant_not_consumed_by_deny"
+      ]
     },
     {
       "id": "permission-ask-approved-blocks-and-then-executes",
       "category": "permission",
-      "invariants": ["permission.ask_blocks", "tool.executes_after_approval"]
+      "invariants": [
+        "permission.ask_blocks",
+        "tool.executes_after_approval"
+      ]
     },
     {
       "id": "permission-ask-denied-does-not-execute",
       "category": "permission",
-      "invariants": ["permission.deny_returns_denied", "tool.not_executed"]
+      "invariants": [
+        "permission.deny_returns_denied",
+        "tool.not_executed"
+      ]
     },
     {
       "id": "permission-employee-deny-blocks-tool",
       "category": "permission",
-      "invariants": ["permission.employee_deny_absolute", "tool.not_executed"]
+      "invariants": [
+        "permission.employee_deny_absolute",
+        "tool.not_executed"
+      ]
     },
     {
       "id": "plan-review-cancel-terminates",
       "category": "interaction",
-      "invariants": ["interaction.cancel_terminal", "graph.no_employee_after_cancel"]
+      "invariants": [
+        "interaction.cancel_terminal",
+        "graph.no_employee_after_cancel"
+      ]
     },
     {
       "id": "plan-review-approve-survives-restore",
       "category": "interaction",
-      "invariants": ["interaction.payload_persisted", "plan.reviewed_payload_restored"]
+      "invariants": [
+        "interaction.payload_persisted",
+        "plan.reviewed_payload_restored"
+      ]
     },
     {
       "id": "dag-output-attribution",
       "category": "graph",
-      "invariants": ["graph.step_outputs_grouped_by_step_index", "graph.no_duplicate_step_outputs"]
+      "invariants": [
+        "graph.step_outputs_grouped_by_step_index",
+        "graph.no_duplicate_step_outputs"
+      ]
     },
     {
       "id": "pm-planner-clears-stale-dispatch-state",
@@ -103,17 +124,23 @@
     {
       "id": "boss-summary-single-artifact-already-emitted-no-duplicate",
       "category": "graph",
-      "invariants": ["deliverable.already_emitted_artifact_does_not_emit_again"]
+      "invariants": [
+        "deliverable.already_emitted_artifact_does_not_emit_again"
+      ]
     },
     {
       "id": "boss-summary-ordinary-team-summary-no-deliverable",
       "category": "graph",
-      "invariants": ["deliverable.ordinary_team_summary_does_not_emit"]
+      "invariants": [
+        "deliverable.ordinary_team_summary_does_not_emit"
+      ]
     },
     {
       "id": "boss-summary-existing-document-no-deliverable",
       "category": "graph",
-      "invariants": ["deliverable.existing_document_summary_does_not_emit"]
+      "invariants": [
+        "deliverable.existing_document_summary_does_not_emit"
+      ]
     },
     {
       "id": "step-advance-segregates-blocked-from-completed",
@@ -126,12 +153,18 @@
     {
       "id": "recorded-stream-tool-call-replay",
       "category": "llm-recording",
-      "invariants": ["llm.stream_tool_calls_recorded", "llm.replay_reproduces_tool_calls"]
+      "invariants": [
+        "llm.stream_tool_calls_recorded",
+        "llm.replay_reproduces_tool_calls"
+      ]
     },
     {
       "id": "stream-nonstream-middleware-parity",
       "category": "llm-recording",
-      "invariants": ["llm.middleware_after_visible_in_stream", "llm.stream_nonstream_parity"]
+      "invariants": [
+        "llm.middleware_after_visible_in_stream",
+        "llm.stream_nonstream_parity"
+      ]
     },
     {
       "id": "long-running-microcompact-triggers",
@@ -275,12 +308,16 @@
     {
       "id": "completion-coffee-tagline-no-deliverable",
       "category": "long-running-runtime",
-      "invariants": ["deliverable.coffee_tagline_does_not_emit"]
+      "invariants": [
+        "deliverable.coffee_tagline_does_not_emit"
+      ]
     },
     {
       "id": "completion-chinese-chat-no-deliverable",
       "category": "long-running-runtime",
-      "invariants": ["deliverable.chinese_chat_does_not_emit"]
+      "invariants": [
+        "deliverable.chinese_chat_does_not_emit"
+      ]
     },
     {
       "id": "completion-explicit-markdown-file-emits-deliverable",
@@ -293,17 +330,23 @@
     {
       "id": "completion-read-existing-file-no-deliverable",
       "category": "long-running-runtime",
-      "invariants": ["deliverable.existing_file_read_does_not_emit"]
+      "invariants": [
+        "deliverable.existing_file_read_does_not_emit"
+      ]
     },
     {
       "id": "completion-bare-filename-text-repairs-deliverable",
       "category": "long-running-runtime",
-      "invariants": ["deliverable.bare_filename_plain_text_repairs_to_file"]
+      "invariants": [
+        "deliverable.bare_filename_plain_text_repairs_to_file"
+      ]
     },
     {
       "id": "completion-document-deliverable-no-boss-duplicate",
       "category": "long-running-runtime",
-      "invariants": ["deliverable.document_employee_artifact_prevents_boss_duplicate"]
+      "invariants": [
+        "deliverable.document_employee_artifact_prevents_boss_duplicate"
+      ]
     },
     {
       "id": "pm-heartbeat-flags-blocked-task",
@@ -316,7 +359,10 @@
     {
       "id": "skill-create-real-tool-call",
       "category": "skill-install",
-      "invariants": ["skill.create_requires_real_llm_tool_call", "skill.create_preview_interaction"]
+      "invariants": [
+        "skill.create_requires_real_llm_tool_call",
+        "skill.create_preview_interaction"
+      ]
     },
     {
       "id": "skill-create-target-employee-mismatch",
@@ -345,12 +391,16 @@
     {
       "id": "yolo-mode-skips-boss-chain",
       "category": "interaction-modes",
-      "invariants": ["graph.first_node_yolo_master"]
+      "invariants": [
+        "graph.first_node_yolo_master"
+      ]
     },
     {
       "id": "direct-mode-skips-boss-chain",
       "category": "interaction-modes",
-      "invariants": ["graph.first_node_pm_planner"]
+      "invariants": [
+        "graph.first_node_pm_planner"
+      ]
     },
     {
       "id": "direct-setup-clears-stale-task-plan",
@@ -363,7 +413,9 @@
     {
       "id": "gateway-lane-yolo-has-fs-shell-tools",
       "category": "interaction-modes",
-      "invariants": ["tools.gateway_yolo_exposes_fs_shell"]
+      "invariants": [
+        "tools.gateway_yolo_exposes_fs_shell"
+      ]
     },
     {
       "id": "builtin-tool-registry-audit-path",
@@ -409,7 +461,9 @@
     {
       "id": "tool-kit-without-builtins-omits-fs-shell",
       "category": "interaction-modes",
-      "invariants": ["tools.web_without_builtins_omits_fs_shell"]
+      "invariants": [
+        "tools.web_without_builtins_omits_fs_shell"
+      ]
     },
     {
       "id": "non-tool-lane-omits-all-runtime-tools",
@@ -503,7 +557,9 @@
     {
       "id": "direct-chat-hides-boss-summary-node",
       "category": "chat-streaming-ux",
-      "invariants": ["chat.direct_chat_hides_boss_summary_node"]
+      "invariants": [
+        "chat.direct_chat_hides_boss_summary_node"
+      ]
     },
     {
       "id": "orchestration-project-thread-scopes-runtime-context",
@@ -604,47 +660,37 @@
     {
       "id": "builtin-tools-rejects-symlink-escape",
       "category": "desktop-builtin-tools",
-      "invariants": ["desktop.builtin_tools_rejects_symlink_escape"]
+      "invariants": [
+        "desktop.builtin_tools_rejects_symlink_escape"
+      ]
     },
     {
       "id": "builtin-tools-rejects-overbroad-root",
       "category": "desktop-builtin-tools",
-      "invariants": ["desktop.builtin_tools_rejects_overbroad_root"]
+      "invariants": [
+        "desktop.builtin_tools_rejects_overbroad_root"
+      ]
     },
     {
       "id": "builtin-tools-rejects-oversize-read",
       "category": "desktop-builtin-tools",
-      "invariants": ["desktop.builtin_tools_rejects_oversize_read"]
+      "invariants": [
+        "desktop.builtin_tools_rejects_oversize_read"
+      ]
     },
     {
       "id": "builtin-tools-rejects-oversize-write",
       "category": "desktop-builtin-tools",
-      "invariants": ["desktop.builtin_tools_rejects_oversize_write"]
+      "invariants": [
+        "desktop.builtin_tools_rejects_oversize_write"
+      ]
     },
     {
       "id": "builtin-tools-overwrites-existing-root-file",
       "category": "desktop-builtin-tools",
-      "invariants": ["desktop.builtin_tools_overwrites_existing_root_file"]
-    },
-    {
-      "id": "kanban-card-state-transitions",
-      "category": "kanban",
       "invariants": [
-        "kanban.pm_planner_writes_5_cards",
-        "kanban.employee_completes_3_cards",
-        "kanban.remaining_2_stay_todo",
-        "kanban.event_order_matches"
+        "desktop.builtin_tools_overwrites_existing_root_file"
       ]
-    },
-    {
-      "id": "kanban-rejects-illegal-transition",
-      "category": "kanban",
-      "invariants": ["kanban.done_cannot_transition_to_todo"]
-    },
-    {
-      "id": "kanban-rejects-stale-transition",
-      "category": "kanban",
-      "invariants": ["kanban.transition_is_atomic_cas"]
     },
     {
       "id": "company-startup-providerless-no-fake-work",
@@ -655,17 +701,11 @@
       ]
     },
     {
-      "id": "pm-planner-typed-sop-run-uses-selected-id",
-      "category": "sop-runtime",
-      "invariants": [
-        "sop.typed_run_scope_overrides_duplicate_name",
-        "sop.definition_ref_travels_with_run_scope"
-      ]
-    },
-    {
       "id": "completion-natural-production-artifact-intent-emits-deliverable",
       "category": "long-running-runtime",
-      "invariants": ["deliverable.natural_production_artifact_intent_emits"]
+      "invariants": [
+        "deliverable.natural_production_artifact_intent_emits"
+      ]
     },
     {
       "id": "project-null-workspace-text-work-stays-productive",
@@ -680,7 +720,7 @@
       "category": "install-runtime",
       "invariants": [
         "install.production_asset_materialization_is_atomic",
-        "install.partial_sop_prefab_rows_rollback"
+        "install.partial_asset_prefab_rows_rollback"
       ]
     },
     {
@@ -697,20 +737,15 @@
     {
       "id": "soak-leak-detector-catches-pending-assignment",
       "category": "long-running-soak",
-      "invariants": ["soak.leak_detector_reports_pending_assignments"]
+      "invariants": [
+        "soak.leak_detector_reports_pending_assignments"
+      ]
     },
     {
       "id": "soak-leak-detector-bounded-memory",
       "category": "harness-contract",
-      "invariants": ["soak.bounded_memory_summary"]
-    },
-    {
-      "id": "mode-kanban-matrix",
-      "category": "kanban-matrix",
       "invariants": [
-        "matrix.boss_proxy_creates_done_card",
-        "matrix.direct_to_employee_creates_done_card",
-        "matrix.yolo_creates_done_card"
+        "soak.bounded_memory_summary"
       ]
     },
     {

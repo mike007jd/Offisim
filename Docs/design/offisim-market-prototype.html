@@ -38,12 +38,12 @@
       --violet: #7c4ddb;    --violet-surface: #f1ebfd;
 
       /* Rarity tones — 1:1 with market-rarity.ts getRarityColor(kind).
-         employee → accent, skill → violet, sop/prefab → warn,
+         employee → accent, skill → violet, plan/prefab → warn,
          company_template → violet, office_layout → danger, bundle → ink-3,
          default → ink-3. No --info alias survives; --info was a duplicate of accent. */
       --r-employee: var(--accent);   --r-employee-s: var(--accent-surface);
       --r-skill: var(--violet);      --r-skill-s: var(--violet-surface);
-      --r-sop: var(--warn);          --r-sop-s: var(--warn-surface);
+      --r-plan: var(--warn);          --r-plan-s: var(--warn-surface);
       --r-template: var(--violet);   --r-template-s: var(--violet-surface);
       --r-layout: var(--danger);     --r-layout-s: var(--danger-surface);
       --r-prefab: var(--warn);       --r-prefab-s: var(--warn-surface);
@@ -104,7 +104,7 @@
     }
 
     button { font: inherit; cursor: pointer; }
-    input, select, textarea { font: inherit; }
+    input, .primitive-select, .primitive-textarea { font: inherit; }
 
     .sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
     .ico {
@@ -129,7 +129,7 @@
     .traffic { display: flex; gap: 8px; }
     .dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08); }
     .red { background: #ff5f57; } .yellow { background: #febc2e; } .green { background: #28c840; }
-    .brand { display: flex; align-items: baseline; gap: 9px; font-weight: 640; font-size: var(--fs-md); letter-spacing: -0.01em; }
+    .brand { display: flex; align-items: baseline; gap: 9px; font-weight: 640; font-size: var(--fs-md); letter-spacing: 0; }
     .brand .ver { font-size: var(--fs-micro); color: var(--ink-3); font-weight: 600; padding: 2px 6px; border-radius: var(--r-pill); background: var(--surface-sunken); }
 
     /* ══════════ Top bar (V3 verbatim — no bell) ══════════ */
@@ -202,7 +202,7 @@
     .mkt-fbar { flex: none; border-bottom: 1px solid var(--line); background: var(--surface-1); }
     .mkt-fbar-main { height: 48px; display: flex; align-items: center; gap: var(--sp-4); padding: 0 var(--sp-7); }
     .mkt-fbar-sub { height: 38px; display: flex; align-items: center; gap: var(--sp-3); padding: 0 var(--sp-7); border-top: 1px solid var(--line-soft); background: var(--surface-2); }
-    .mkt-fbar-sub .lbl { font-size: var(--fs-micro); text-transform: uppercase; letter-spacing: var(--ls-caps); color: var(--ink-4); font-weight: 680; }
+    .mkt-fbar-sub .lbl { font-size: var(--fs-micro); text-transform: uppercase; letter-spacing: 0; color: var(--ink-4); font-weight: 680; }
 
     .mkt-search { position: relative; flex: 1; max-width: 360px; }
     .mkt-search .ico { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--ink-4); }
@@ -217,7 +217,7 @@
     .seg button.active { background: var(--accent-surface); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-ring); }
     .seg .ico { width: 11px; height: 11px; }
 
-    /* dropdown chip — uses custom 12×12 chev SVG, never native select arrow */
+    /* dropdown chip — Select primitive trigger specimen */
     .mkt-drop {
       height: 30px; padding: 0 28px 0 10px;
       border: 1px solid var(--line); border-radius: var(--r-md);
@@ -259,7 +259,6 @@
     }
     .mkt-card:hover { border-color: var(--line-strong); box-shadow: var(--elev-2); transform: translateY(-1px); }
     .mkt-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-ring), var(--elev-2); }
-    .mkt-card.featured { grid-column: span 2; }
 
     /* Rarity = 3px top stripe + inner highlight */
     .mkt-card::before {
@@ -284,11 +283,6 @@
       background:
         linear-gradient(180deg, color-mix(in srgb, var(--rcs, var(--surface-sunken)) 55%, white) 0%, var(--rcs, var(--surface-sunken)) 100%);
     }
-    .mkt-card.featured .mc-cover.icon {
-      background:
-        radial-gradient(120% 100% at 0% 0%, color-mix(in srgb, var(--rc) 18%, white) 0%, var(--rcs) 60%, var(--rcs) 100%);
-    }
-
     /* kind badge — top-right, caps grammar */
     .mc-badge {
       position: absolute; right: 9px; top: 9px; z-index: 3;
@@ -299,7 +293,7 @@
       box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rc, var(--ink-3)) 55%, transparent), 0 1px 2px rgba(18, 28, 50, 0.06);
       color: var(--rc, var(--ink-3));
       font-size: 9.5px; font-weight: 720;
-      letter-spacing: 0.06em; text-transform: uppercase;
+      letter-spacing: 0; text-transform: uppercase;
     }
     .mc-badge .ico { width: 10px; height: 10px; }
 
@@ -312,7 +306,7 @@
       background: var(--ok-surface); color: #15824f;
       box-shadow: inset 0 0 0 1px rgba(26, 164, 106, 0.45);
       font-size: 9.5px; font-weight: 720;
-      letter-spacing: 0.06em; text-transform: uppercase;
+      letter-spacing: 0; text-transform: uppercase;
     }
 
     /* ── Kind-specific cover viz (mini-illustrations) ───────────
@@ -336,7 +330,7 @@
       width: 60px; height: 60px; border-radius: 50%; flex: none;
       background: linear-gradient(135deg, var(--av-a, #6a8dff), var(--av-b, #3a5fd0));
       color: #fff; display: grid; place-items: center;
-      font-size: 19px; font-weight: 720; letter-spacing: -0.02em;
+      font-size: 19px; font-weight: 720; letter-spacing: 0;
       box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.18), 0 2px 5px rgba(20, 32, 56, 0.18);
     }
     .kv-employee .kv-tags { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 4px; align-content: center; max-height: 60px; overflow: hidden; }
@@ -359,7 +353,7 @@
       background: rgba(255, 255, 255, 0.86);
       box-shadow: inset 0 0 0 1px var(--line-soft);
       font-size: 9px; font-weight: 700; color: var(--ink-4);
-      letter-spacing: 0.06em; text-transform: uppercase;
+      letter-spacing: 0; text-transform: uppercase;
     }
     .kv-skill .kv-perm .pd { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-4); flex: none; }
     .kv-skill .kv-perm.on { color: var(--rc); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rc) 42%, transparent); }
@@ -369,35 +363,35 @@
     .kv-skill .kv-caps {
       display: flex; align-items: center; justify-content: center; gap: 8px;
       font-size: 9px; color: var(--ink-3); font-family: var(--mono);
-      letter-spacing: 0.04em;
+      letter-spacing: 0;
     }
     .kv-skill .kv-caps span { display: inline-flex; align-items: center; gap: 3px; }
     .kv-skill .kv-caps b { color: var(--rc); font-weight: 700; }
     .kv-skill .kv-caps i { font-style: normal; color: var(--ink-4); }
 
-    /* kv-sop: DAG progress pip strip + role sequence */
-    .kv-sop { flex-direction: column; align-items: stretch; justify-content: center; gap: 9px; padding: 0 4px; }
-    .kv-sop .kv-pips { display: flex; align-items: center; gap: 0; height: 13px; }
-    .kv-sop .kv-pip {
+    /* kv-plan: DAG progress pip strip + role sequence */
+    .kv-plan { flex-direction: column; align-items: stretch; justify-content: center; gap: 9px; padding: 0 4px; }
+    .kv-plan .kv-pips { display: flex; align-items: center; gap: 0; height: 13px; }
+    .kv-plan .kv-pip {
       width: 12px; height: 12px; border-radius: 50%; flex: none;
       background: rgba(255, 255, 255, 0.92);
       box-shadow: inset 0 0 0 2px var(--line-strong);
     }
-    .kv-sop .kv-pip.done { background: var(--ok); box-shadow: inset 0 0 0 1px rgba(26, 164, 106, 0.45); }
-    .kv-sop .kv-pip.cur {
+    .kv-plan .kv-pip.done { background: var(--ok); box-shadow: inset 0 0 0 1px rgba(26, 164, 106, 0.45); }
+    .kv-plan .kv-pip.cur {
       background: var(--rc);
       box-shadow: 0 0 0 3px color-mix(in srgb, var(--rc) 22%, transparent), inset 0 0 0 1px rgba(0, 0, 0, 0.08);
     }
-    .kv-sop .kv-line { flex: 1; height: 2px; background: var(--line-strong); }
-    .kv-sop .kv-line.done { background: var(--ok); }
-    .kv-sop .kv-roles {
+    .kv-plan .kv-line { flex: 1; height: 2px; background: var(--line-strong); }
+    .kv-plan .kv-line.done { background: var(--ok); }
+    .kv-plan .kv-roles {
       display: flex; align-items: center; justify-content: center; gap: 3px;
       font-size: 9px; color: var(--ink-3); font-weight: 700;
-      letter-spacing: 0.06em; text-transform: uppercase;
+      letter-spacing: 0; text-transform: uppercase;
       font-family: var(--mono);
     }
-    .kv-sop .kv-roles em { font-style: normal; color: var(--rc); font-weight: 720; }
-    .kv-sop .kv-roles i { font-style: normal; color: var(--ink-4); margin: 0 1px; }
+    .kv-plan .kv-roles em { font-style: normal; color: var(--rc); font-weight: 720; }
+    .kv-plan .kv-roles i { font-style: normal; color: var(--ink-4); margin: 0 1px; }
 
     /* kv-template: role color ribbon (mini team strip) */
     .kv-template { align-items: center; justify-content: center; }
@@ -408,7 +402,7 @@
       font-size: 12px; font-weight: 720;
       color: rgba(255, 255, 255, 0.96);
       box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.18), 0 1px 2px rgba(18, 28, 50, 0.12);
-      letter-spacing: -0.01em;
+      letter-spacing: 0;
     }
 
     /* kv-layout: tiny office floor-plan sketch */
@@ -418,7 +412,7 @@
     .kv-layout .wall { stroke: var(--rc); stroke-width: 1; opacity: 0.45; }
     .kv-layout .seat { fill: var(--rc); opacity: 0.55; }
     .kv-layout .seat.hi { opacity: 0.9; }
-    .kv-layout .lbl { fill: var(--rc); font-size: 7.5px; font-family: var(--mono); letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; }
+    .kv-layout .lbl { fill: var(--rc); font-size: 7.5px; font-family: var(--mono); letter-spacing: 0; text-transform: uppercase; font-weight: 700; }
 
     /* kv-prefab: isometric line drawing of the prefab geometry */
     .kv-prefab { align-items: center; justify-content: center; padding: 4px 0; }
@@ -427,7 +421,7 @@
     .kv-prefab .fill { fill: color-mix(in srgb, var(--rc) 16%, white); stroke: var(--rc); stroke-width: 1.2; opacity: 0.95; stroke-linejoin: round; }
     .kv-prefab .hi { fill: var(--rc); opacity: 0.6; }
 
-    /* kv-bundle: overlapping contents (employee + skill + sop stack) */
+    /* kv-bundle: overlapping contents (employee + skill + plan stack) */
     .kv-bundle { align-items: center; justify-content: center; gap: 0; }
     .kv-bundle .kv-stack { display: flex; }
     .kv-bundle .kv-stack-item {
@@ -445,7 +439,7 @@
 
     /* Body — title + summary + chip-stack stats */
     .mc-body { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 9px 12px 9px; gap: 2px; }
-    .mc-title { margin: 0; font-size: var(--fs-md); font-weight: 700; color: var(--ink-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: -0.005em; line-height: 1.2; }
+    .mc-title { margin: 0; font-size: var(--fs-md); font-weight: 700; color: var(--ink-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: 0; line-height: 1.2; }
     .mc-summary { margin: 2px 0 0; flex: 1; font-size: var(--fs-sm); line-height: 1.4; color: var(--ink-3); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     .mc-vdot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex: none; display: inline-block; }
 
@@ -513,7 +507,7 @@
       background: var(--rcs, var(--surface-sunken));
       color: var(--rc, var(--ink-3));
       font-size: 9.5px; font-weight: 700;
-      letter-spacing: 0.05em; text-transform: uppercase;
+      letter-spacing: 0; text-transform: uppercase;
     }
     .md-close {
       margin-left: auto;
@@ -524,7 +518,7 @@
 
     .md-body { flex: 1; min-height: 0; overflow-y: auto; padding: var(--sp-7); display: flex; flex-direction: column; gap: var(--sp-5); }
 
-    .md-title { margin: 0; font-size: var(--fs-lg); font-weight: 700; letter-spacing: -0.01em; color: var(--ink-1); }
+    .md-title { margin: 0; font-size: var(--fs-lg); font-weight: 700; letter-spacing: 0; color: var(--ink-1); }
     .md-sum { margin: 5px 0 0; font-size: var(--fs-sm); color: var(--ink-3); line-height: 1.55; }
     .md-handle-row { display: flex; align-items: center; gap: 7px; font-size: var(--fs-meta); color: var(--ink-4); font-family: var(--mono); margin-top: 8px; }
     .md-handle-row .h { color: var(--ink-3); }
@@ -536,7 +530,7 @@
 
     /* Caps label — the only section heading style (V3 §6) */
     .label, .md-sec h3, .perm-box .ph, .md-req-row .k, .md-dl .k, .md-line .lbl, .mng-note {
-      font-size: 9.5px; font-weight: 680; letter-spacing: 0.14em;
+      font-size: 9.5px; font-weight: 680; letter-spacing: 0;
       color: var(--ink-3); text-transform: uppercase;
     }
 
@@ -623,7 +617,7 @@
       background: var(--ok-surface); color: #15824f;
       box-shadow: inset 0 0 0 1px rgba(26,164,106,0.4);
       font-size: 9.5px; font-weight: 700;
-      letter-spacing: 0.06em; text-transform: uppercase;
+      letter-spacing: 0; text-transform: uppercase;
       display: inline-flex; align-items: center;
     }
     .mng-item .latest { font-size: var(--fs-meta); color: var(--ink-3); font-family: var(--mono); }
@@ -661,7 +655,7 @@
     .pub-status {
       flex: none; height: 19px; padding: 0 8px; border-radius: var(--r-pill);
       font-size: 9.5px; font-weight: 700;
-      letter-spacing: 0.05em; text-transform: uppercase;
+      letter-spacing: 0; text-transform: uppercase;
       display: inline-flex; align-items: center;
       box-shadow: inset 0 0 0 1px transparent;
     }
@@ -697,7 +691,7 @@
     /* ══════════ State specimens (dark frame, V3 grammar) ══════════ */
     .spec-suite { width: min(1600px, 100%); display: flex; flex-direction: column; gap: 22px; flex: none; }
     .spec-suite-head { color: #cdd6e6; font-size: var(--fs-sm); line-height: 1.6; padding: 0 4px; }
-    .spec-suite-head h2 { margin: 0 0 4px; font-size: var(--fs-lg); font-weight: 680; color: #fff; letter-spacing: -0.01em; }
+    .spec-suite-head h2 { margin: 0 0 4px; font-size: var(--fs-lg); font-weight: 680; color: #fff; letter-spacing: 0; }
     .spec-suite-head b { color: #aebfff; font-weight: 640; }
     .spec-suite-head code { color: #aab6cc; font-family: var(--mono); font-size: var(--fs-meta); }
     .spec-state { border-radius: 14px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 24px 60px rgba(0, 0, 0, 0.45); background: var(--bg); }
@@ -710,19 +704,19 @@
     .spec-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
     .spec-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
     .mini-pane { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-1); overflow: hidden; box-shadow: var(--elev-1); }
-    .mini-cap { padding: 6px 12px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-4); background: var(--surface-2); border-bottom: 1px solid var(--line-soft); }
+    .mini-cap { padding: 6px 12px; font-size: 9.5px; font-weight: 700; letter-spacing: 0; text-transform: uppercase; color: var(--ink-4); background: var(--surface-2); border-bottom: 1px solid var(--line-soft); }
 
     /* ── Dialog primitive (DialogShell) — r-lg allowed for dialogs only ── */
     .dlg { width: 100%; background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--elev-3); overflow: hidden; margin: 0 auto; }
     .dlg.md { max-width: 540px; } .dlg.xl { max-width: 940px; }
     .dlg-h { padding: var(--sp-7) var(--sp-7) var(--sp-5); border-bottom: 1px solid var(--line-soft); }
-    .dlg-h .dt { font-size: var(--fs-lg); font-weight: 700; color: var(--ink-1); letter-spacing: -0.01em; }
+    .dlg-h .dt { font-size: var(--fs-lg); font-weight: 700; color: var(--ink-1); letter-spacing: 0; }
     .dlg-h .dd { font-size: var(--fs-meta); color: var(--ink-3); margin-top: 4px; line-height: 1.5; }
     .dlg-b { padding: var(--sp-7); }
     .dlg-f { padding: var(--sp-5) var(--sp-7); border-top: 1px solid var(--line-soft); display: flex; justify-content: flex-end; gap: 7px; background: var(--surface-2); }
 
     .fld { display: flex; flex-direction: column; gap: 5px; }
-    .fld-l { font-size: 9.5px; font-weight: 680; letter-spacing: 0.14em; color: var(--ink-3); text-transform: uppercase; display: flex; align-items: center; gap: 5px; }
+    .fld-l { font-size: 9.5px; font-weight: 680; letter-spacing: 0; color: var(--ink-3); text-transform: uppercase; display: flex; align-items: center; gap: 5px; }
     .fld-hint { font-size: 9.5px; color: var(--ink-4); }
     .fld-hint.ok { color: #15824f; }
     .inp { height: 30px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-1); color: var(--ink-1); font-size: var(--fs-sm); display: flex; align-items: center; }
@@ -739,7 +733,7 @@
     .alert.warn { border: 1px solid rgba(201,132,16,0.4); background: var(--warn-surface); color: #8a5a0c; }
     .alert.err { border: 1px solid rgba(214,69,61,0.4); background: var(--danger-surface); color: #b8352e; }
 
-    .badge { height: 18px; padding: 0 8px; border-radius: var(--r-pill); font-size: 9.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; display: inline-flex; align-items: center; }
+    .badge { height: 18px; padding: 0 8px; border-radius: var(--r-pill); font-size: 9.5px; font-weight: 700; letter-spacing: 0; text-transform: uppercase; display: inline-flex; align-items: center; }
     .badge.ok { background: var(--ok-surface); color: #15824f; box-shadow: inset 0 0 0 1px rgba(26,164,106,0.4); }
     .badge.warn { background: var(--warn-surface); color: #8a5a0c; box-shadow: inset 0 0 0 1px rgba(201,132,16,0.4); }
     .badge.err { background: var(--danger-surface); color: #b8352e; box-shadow: inset 0 0 0 1px rgba(214,69,61,0.4); }
@@ -812,7 +806,7 @@
     .dropzone .dz-ext {
       display: inline-flex; gap: 4px; margin-top: 3px;
       font-size: 9.5px; font-family: var(--mono); color: var(--ink-4);
-      letter-spacing: 0.04em;
+      letter-spacing: 0;
     }
     .dropzone .dz-ext span {
       padding: 2px 6px; border-radius: var(--r-xs);
@@ -856,7 +850,7 @@
       box-shadow: inset 0 0 0 1px var(--line-soft);
       color: var(--ink-3);
       font-size: 9.5px; font-weight: 700;
-      letter-spacing: 0.14em; text-transform: uppercase;
+      letter-spacing: 0; text-transform: uppercase;
     }
     .capchip .ico { width: 11px; height: 11px; color: var(--ink-4); }
     .capchip.on { color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-ring); background: var(--accent-surface); }
@@ -886,7 +880,7 @@
     }
     .fork-card .fc-h {
       display: flex; align-items: center; gap: 6px;
-      font-size: 9.5px; font-weight: 680; letter-spacing: 0.14em;
+      font-size: 9.5px; font-weight: 680; letter-spacing: 0;
       text-transform: uppercase; color: var(--ink-3);
     }
     .fork-card .fc-h .ico { width: 11px; height: 11px; color: var(--violet); }
@@ -915,7 +909,7 @@
       padding: 6px 10px;
       border-bottom: 1px solid var(--line-soft);
       background: var(--surface-2);
-      font-size: 9.5px; font-weight: 700; letter-spacing: 0.14em;
+      font-size: 9.5px; font-weight: 700; letter-spacing: 0;
       text-transform: uppercase; color: var(--ink-3);
     }
     .cmp-head .swatch {
@@ -926,22 +920,26 @@
     }
     .cmp-head .swatch .ico { width: 9px; height: 9px; }
 
-    /* ── Disabled CTA grammar (Rate / Report placeholders) ── */
-    .stub-row { display: flex; flex-wrap: wrap; gap: 7px; }
-    .stub-btn {
+    /* ── Community status grammar (read-only until registry moderation exists) ── */
+    .community-row { display: flex; flex-wrap: wrap; gap: 7px; }
+    .community-state,
+    .menu-state,
+    .mng-action-state {
       height: 26px; padding: 0 10px;
       border-radius: var(--r-sm);
-      border: 1px dashed var(--line-strong);
-      background: var(--surface-2);
-      color: var(--ink-4);
+      border: 1px solid var(--line);
+      background: var(--surface-sunken);
+      color: var(--ink-3);
       font-size: var(--fs-meta); font-weight: 600;
       display: inline-flex; align-items: center; gap: 5px;
-      cursor: not-allowed;
     }
-    .stub-btn .ico { width: 11px; height: 11px; color: var(--ink-4); }
-    .stub-btn .soon {
+    .community-state .ico,
+    .menu-state .ico,
+    .mng-action-state .ico { width: 11px; height: 11px; color: var(--ink-3); }
+    .community-state .meta,
+    .menu-state .meta {
       font-family: var(--mono); font-size: 9px;
-      color: var(--ink-4); letter-spacing: 0.04em;
+      color: var(--ink-4); letter-spacing: 0;
       margin-left: 2px;
     }
 
@@ -982,7 +980,7 @@
       background: var(--accent-surface); color: var(--accent);
       box-shadow: inset 0 0 0 1px var(--accent-ring);
       font-size: 9.5px; font-weight: 720;
-      letter-spacing: 0.06em; text-transform: uppercase;
+      letter-spacing: 0; text-transform: uppercase;
     }
     .seed-chip .ico { width: 10px; height: 10px; }
 
@@ -1043,7 +1041,7 @@
       padding: 8px 14px 0;
       gap: 8px;
     }
-    .mng-tab-head .mh-l { font-size: 9.5px; font-weight: 680; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3); }
+    .mng-tab-head .mh-l { font-size: 9.5px; font-weight: 680; letter-spacing: 0; text-transform: uppercase; color: var(--ink-3); }
     .mng-tab-head .mh-r { font-size: var(--fs-meta); color: var(--ink-4); font-family: var(--mono); }
 
     @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
@@ -1128,7 +1126,7 @@
       </div>
       <div class="nav reveal d1">
         <button><svg class="ico sm"><use href="#i-building"/></svg>Office</button>
-        <button><svg class="ico sm"><use href="#i-book"/></svg>SOPs</button>
+        <button><svg class="ico sm"><use href="#i-grid"/></svg>Workspace</button>
         <button class="active"><svg class="ico sm"><use href="#i-store"/></svg>Market</button>
         <button>Personnel</button>
       </div>
@@ -1146,16 +1144,15 @@
             <svg class="ico sm"><use href="#i-search"/></svg>
             <input value="" placeholder="Search packages…" />
           </div>
-          <div class="seg" role="tablist" aria-label="Kind filter">
+          <div class="seg" role="group" aria-label="Kind filter">
             <button class="active">All</button>
             <button><svg class="ico"><use href="#i-user-plus"/></svg>Employees</button>
             <button><svg class="ico"><use href="#i-zap"/></svg>Skills</button>
-            <button><svg class="ico"><use href="#i-book"/></svg>SOPs</button>
             <button>Templates</button>
             <button>Layouts</button>
             <button>Prefabs</button>
           </div>
-          <div class="seg" role="tablist" aria-label="Sort">
+          <div class="seg" role="group" aria-label="Sort">
             <button class="active">Relevance</button>
             <button>Newest</button>
             <button>Rating</button>
@@ -1219,10 +1216,10 @@
             </div>
           </button>
 
-          <!-- sop · kv-sop: DAG progress pip strip -->
-          <button class="mkt-card" style="--rc:var(--r-sop);--rcs:var(--r-sop-s)">
+          <!-- plan · kv-plan: DAG progress pip strip -->
+          <button class="mkt-card" style="--rc:var(--r-plan);--rcs:var(--r-plan-s)">
             <div class="mc-cover icon">
-              <div class="kv kv-sop">
+              <div class="kv kv-plan">
                 <div class="kv-pips">
                   <span class="kv-pip done"></span><span class="kv-line done"></span>
                   <span class="kv-pip done"></span><span class="kv-line done"></span>
@@ -1234,7 +1231,7 @@
                   <em>PM</em><i>→</i><em>DSGN</em><i>→</i><em>DEV</em><i>→</i><em>QA</em><i>→</i><em>SHIP</em>
                 </div>
               </div>
-              <span class="mc-badge"><svg class="ico"><use href="#i-book"/></svg>sop</span>
+              <span class="mc-badge"><svg class="ico"><use href="#i-book"/></svg>plan</span>
             </div>
             <div class="mc-body">
               <div class="mc-title">Feature Delivery Pipeline</div>
@@ -1263,7 +1260,7 @@
             </div>
             <div class="mc-body">
               <div class="mc-title">Lean Product Studio</div>
-              <p class="mc-summary">6-role studio blueprint with pre-wired zones and a delivery SOP bundle.</p>
+              <p class="mc-summary">6-role studio blueprint with ready zones and a delivery Plan bundle.</p>
               <div class="mc-stats">
                 <span class="mc-stat-chip stars"><svg class="ico fill"><use href="#i-star"/></svg>4.7</span>
                 <span class="mc-stat-chip installs"><svg class="ico"><use href="#i-download"/></svg>5.4k</span>
@@ -1340,7 +1337,7 @@
             </div>
           </button>
 
-          <!-- bundle · kv-bundle: stacked contents (employee + skill + sop) -->
+          <!-- bundle · kv-bundle: stacked contents (employee + skill + plan) -->
           <button class="mkt-card" style="--rc:var(--r-bundle);--rcs:var(--r-bundle-s)">
             <div class="mc-cover icon">
               <div class="kv kv-bundle">
@@ -1354,7 +1351,7 @@
             </div>
             <div class="mc-body">
               <div class="mc-title">Indie Launch Kit</div>
-              <p class="mc-summary">Bundle pairing a growth employee with a launch-checklist SOP for solo founders.</p>
+              <p class="mc-summary">Bundle pairing a growth employee with a launch-checklist Plan for solo founders.</p>
               <div class="mc-stats">
                 <span class="mc-stat-chip stars"><svg class="ico fill"><use href="#i-star"/></svg>3.9</span>
                 <span class="mc-stat-chip installs"><svg class="ico"><use href="#i-download"/></svg>120</span>
@@ -1457,7 +1454,7 @@
   <div class="spec-suite">
     <div class="spec-suite-head">
       <h2>Market — state specimens</h2>
-      The window above is the resting <b>Explore</b> card grid at desktop tier (<b>MarketFilterBar</b> 48px + <b>MarketCardGrid</b> of dense inventory <b>MarketListingCard</b>s, infinite scroll). Market is a full-width center workspace — non-Office routes through <code>WorkspaceRouter</code> with no right rail. Below is every remaining state an implementing agent must build, 1:1 with <code>MarketPage</code> and its children. <code>INSTALLABLE_KINDS = {employee, skill}</code> — other kinds show no install button. Rarity tone = <code>getRarityColor(kind)</code>: employee→accent, skill→violet, sop/prefab→warn, template→violet, layout→danger, bundle→ink-3.
+      The window above is the resting <b>Explore</b> card grid at desktop tier (<b>MarketFilterBar</b> 48px + <b>MarketCardGrid</b> of dense inventory <b>MarketListingCard</b>s, infinite scroll). Market is a full-width center workspace — non-Office routes through <code>WorkspaceRouter</code> with no right rail. Below is every remaining state an implementing agent must build, 1:1 with <code>MarketPage</code> and its children. <code>INSTALLABLE_KINDS = {employee, skill}</code> — other kinds show no install button. Rarity tone = <code>getRarityColor(kind)</code>: employee→accent, skill→violet, plan/prefab→warn, template→violet, layout→danger, bundle→ink-3.
     </div>
 
     <!-- 1 · Explore detail (grid + 440px right panel) -->
@@ -1473,7 +1470,7 @@
               <div class="mkt-fbar">
                 <div class="mkt-fbar-main">
                   <div class="mkt-search"><svg class="ico sm"><use href="#i-search"/></svg><input value="" placeholder="Search packages…" /></div>
-                  <div class="seg"><button class="active">All</button><button>Skills</button><button>SOPs</button></div>
+                  <div class="seg"><button class="active">All</button><button>Skills</button><button>Templates</button></div>
                   <div class="seg"><button class="active">Relevance</button><button>Rating</button></div>
                   <button class="mkt-drop">Explore</button>
                   <button class="mkt-pub"><svg class="ico"><use href="#i-cloud-up"/></svg>Publish</button>
@@ -1489,8 +1486,8 @@
                     <div class="mc-cover icon"><span class="mc-iconwrap"><svg class="ico"><use href="#i-zap"/></svg></span><span class="mc-badge"><svg class="ico"><use href="#i-zap"/></svg>skill</span></div>
                     <div class="mc-body"><div class="mc-handle"><span class="h">@growth-tools</span></div><div class="mc-title">Competitive Teardown</div><p class="mc-summary">Market + competitor analysis.</p><div class="mc-stats"><span class="st mc-stars"><svg class="ico fill"><use href="#i-star"/></svg>4.6</span><span class="st mc-installs">980</span></div></div>
                   </div>
-                  <div class="mkt-card" style="--rc:var(--r-sop);--rcs:var(--r-sop-s)">
-                    <div class="mc-cover icon"><span class="mc-iconwrap"><svg class="ico"><use href="#i-book"/></svg></span><span class="mc-badge"><svg class="ico"><use href="#i-book"/></svg>sop</span></div>
+                  <div class="mkt-card" style="--rc:var(--r-plan);--rcs:var(--r-plan-s)">
+                    <div class="mc-cover icon"><span class="mc-iconwrap"><svg class="ico"><use href="#i-book"/></svg></span><span class="mc-badge"><svg class="ico"><use href="#i-book"/></svg>plan</span></div>
                     <div class="mc-body"><div class="mc-handle"><span class="h">@ops-collective</span><span class="mc-vdot"></span></div><div class="mc-title">Feature Delivery Pipeline</div><p class="mc-summary">5-step DAG.</p><div class="mc-stats"><span class="st mc-stars"><svg class="ico fill"><use href="#i-star"/></svg>4.9</span><span class="st mc-installs">12k</span></div></div>
                   </div>
                   <div class="mkt-card" style="--rc:var(--r-template);--rcs:var(--r-template-s)">
@@ -1564,7 +1561,7 @@
     <div class="spec-state">
       <div class="spec-cap">
         <span class="n">2</span><span class="t">MarketDetailView — install affordance states</span>
-        <span class="d">Install button: rarity-tinted accent · <code>Installed</code> disabled when per-company <code>installedListingIds</code> ∪ <code>installedPackageKeys</code> matches · non-installable kinds → "Install not supported for {kind}." · plus loading skeleton + unavailable.</span>
+        <span class="d">Install affordance: rarity-tinted accent when installable · installed rows render an installed state instead of a live install CTA · non-installable kinds → "Install not supported for {kind}." · plus loading skeleton + unavailable.</span>
       </div>
       <div class="spec-frame spec-grid-2">
         <div class="mini-pane">
@@ -1587,7 +1584,7 @@
           </div>
         </div>
         <div class="mini-pane">
-          <div class="mini-cap">Non-installable kind (sop / template / layout / prefab / bundle)</div>
+          <div class="mini-cap">Non-installable kind (plan / template / layout / prefab / bundle)</div>
           <div style="padding:14px;background:var(--surface-1);display:flex;flex-direction:column;gap:12px">
             <dl class="md-dl">
               <div><div class="k">Version</div><div class="v mono">2.0.0</div></div>
@@ -1595,8 +1592,8 @@
               <div><div class="k">Creator</div><div class="v">Ops Collective <span class="at">@ops-collective</span></div></div>
               <div><div class="k">Rating</div><div class="v"><span style="color:var(--warn)"><svg class="ico fill"><use href="#i-star"/></svg></span>4.9</div></div>
             </dl>
-            <div class="md-unsupported">Install not supported for sop.</div>
-            <div class="perm-box" style="--rc:var(--r-sop)">
+            <div class="md-unsupported">Install not supported for plan.</div>
+            <div class="perm-box" style="--rc:var(--r-plan)">
               <div class="ph"><svg class="ico"><use href="#i-shield"/></svg>Permissions</div>
               <div class="perm-row"><span class="pk"><svg class="ico"><use href="#i-shield"/></svg>Risk</span><span class="pv">data</span></div>
               <div class="perm-row"><span class="pk"><svg class="ico"><use href="#i-hard-drive"/></svg>Filesystem</span><span class="pv">none</span></div>
@@ -1680,7 +1677,7 @@
     <div class="spec-state">
       <div class="spec-cap">
         <span class="n">4</span><span class="t">Manage — Installed / Updates (InstalledList)</span>
-        <span class="d">filtered to <code>install_state==='installed'</code> · per-item Check update (disabled when no <code>origin_listing_id</code>) → latest version line / Update badge / error · Update btn when <code>origin_listing_id &amp;&amp; hasUpdate</code> · Updates tab adds a caps sub-header · footer Browse Explore.</span>
+        <span class="d">filtered to <code>install_state==='installed'</code> · per-item Check update appears only when <code>origin_listing_id</code> exists → latest version line / Update badge / error · Update btn when <code>origin_listing_id &amp;&amp; hasUpdate</code> · sideloaded packages render read-only local state · Updates tab adds a caps sub-header · footer Browse Explore.</span>
       </div>
       <div class="spec-frame spec-grid-3">
         <div class="mini-pane">
@@ -1719,7 +1716,7 @@
               </div>
               <div class="mng-item">
                 <div class="top"><div><div class="name">sideloaded/local-pack</div><div class="ver">v0.1.0 · 5/01/26</div></div></div>
-                <div class="mng-acts"><button class="mbtn" disabled><svg class="ico"><use href="#i-refresh"/></svg>Check</button><span class="annot">no origin → disabled</span></div>
+                <div class="mng-acts"><span class="mng-action-state"><svg class="ico"><use href="#i-box"/></svg>Local package</span><span class="annot">No registry origin</span></div>
               </div>
             </div>
           </div>
@@ -1729,7 +1726,7 @@
           <div style="background:var(--surface-1);height:300px;display:flex;flex-direction:column">
             <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;text-align:center;padding:0 18px">
               <div style="width:42px;height:42px;border-radius:var(--r-md);border:1px solid var(--line);background:var(--surface-sunken);display:grid;place-items:center;color:var(--ink-4)"><svg class="ico"><use href="#i-store"/></svg></div>
-              <div><div style="font-size:var(--fs-md);font-weight:660;color:var(--ink-1)">No installed market packages</div><div style="margin-top:4px;font-size:var(--fs-meta);color:var(--ink-3);line-height:1.5">Packages installed from the marketplace appear here for manual update checks.</div></div>
+              <div><div style="font-size:var(--fs-md);font-weight:660;color:var(--ink-1)">No installed market packages</div><div style="margin-top:4px;font-size:var(--fs-meta);color:var(--ink-3);line-height:1.5">Packages installed from marketplace artifacts appear here after review and install.</div></div>
             </div>
             <div style="border-top:1px solid var(--line-soft);padding:8px 14px;font-size:var(--fs-meta);color:var(--ink-4);display:flex;align-items:center;gap:6px"><svg class="ico spin"><use href="#i-loader"/></svg>Loading installed packages…</div>
           </div>
@@ -1795,8 +1792,8 @@
               <div style="display:flex;flex-direction:column;gap:14px">
                 <div class="fld">
                   <span class="fld-l"><svg class="ico" style="color:var(--accent)"><use href="#i-key"/></svg>Registry token</span>
-                  <div class="inp"><span class="ph">offisim_your_api_token</span></div>
-                  <span class="fld-hint ok">Publishing as @offisim-labs (Offisim Labs)</span>
+                  <div class="state">Platform auth required</div>
+                  <span class="fld-hint warn">Connect platform registry auth before publishing.</span>
                 </div>
                 <div style="display:flex;flex-direction:column;gap:12px">
                   <div class="fld"><span class="fld-l">Kind</span><div class="selbox">Employee</div></div>
@@ -1810,7 +1807,7 @@
                     <div class="fld"><span class="fld-l">Risk class</span><div class="selbox">Data asset</div></div>
                   </div>
                   <div class="fld"><span class="fld-l">Description / README</span><div class="inp area"><span class="ph">What this package includes, who it is for, and setup notes.</span></div></div>
-                  <p style="margin:0;font-size:var(--fs-meta);color:var(--ink-3);font-family:var(--mono)">Draft queued for review · mod_9f3a21</p>
+                  <p style="margin:0;font-size:var(--fs-meta);color:var(--ink-3);font-family:var(--mono)">Registry connection required before submit</p>
                 </div>
               </div>
               <aside style="display:flex;flex-direction:column;gap:16px;border-left:1px solid var(--line-soft);padding-left:18px">
@@ -1838,7 +1835,7 @@
             <button class="btn primary"><svg class="ico"><use href="#i-cloud-up"/></svg>Submit draft</button>
           </div>
         </div>
-        <p class="annot-dark">Kind select appears only when the active company has both employees AND skills. Source select + form auto-prefill from the first available source. Cancel while dirty → discard-confirm toast (shared with SOP/Project dialogs).</p>
+        <p class="annot-dark">Kind select appears only when the active company has both employees AND skills. Source select + form auto-prefill from the first available source. Cancel while dirty → discard-confirm toast (shared with Plan/Project dialogs).</p>
       </div>
     </div>
 
@@ -1882,23 +1879,20 @@
         </div>
         <div>
           <div class="dlg md">
-            <div class="dlg-h"><div class="dt">Configure Bindings</div><div class="dd">Choose which models to use for each role. Optional bindings can be skipped.</div></div>
+            <div class="dlg-h"><div class="dt">Configure Bindings</div><div class="dd">Choose runtime profile IDs for each role. Optional bindings can be skipped.</div></div>
             <div class="dlg-b" style="display:flex;flex-direction:column;gap:12px">
               <div class="perm-box">
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="font-size:var(--fs-sm);font-weight:660;color:var(--ink-1)">analyst</span></div>
-                <div style="font-size:9.5px;color:var(--ink-4);text-transform:uppercase;letter-spacing:0.14em;font-weight:680">Primary reasoning model</div>
-                <div class="inp"><span class="ph">provider/model (e.g. openai/gpt-4o)</span></div>
+                <div style="font-size:9.5px;color:var(--ink-4);text-transform:uppercase;letter-spacing: 0;font-weight:680">Primary reasoning model</div>
+                <div class="inp"><span class="ph">runtime profile id</span></div>
                 <div style="display:flex;flex-wrap:wrap;gap:4px">
-                  <button class="btn outline" style="height:22px;font-size:9.5px;padding:0 7px;font-family:var(--mono)">openai/gpt-4o</button>
-                  <button class="btn outline" style="height:22px;font-size:9.5px;padding:0 7px;font-family:var(--mono)">openai/gpt-4o-mini</button>
-                  <button class="btn outline" style="height:22px;font-size:9.5px;padding:0 7px;font-family:var(--mono)">anthropic/claude-sonnet-4</button>
-                  <button class="btn outline" style="height:22px;font-size:9.5px;padding:0 7px;font-family:var(--mono)">google/gemini-2.5-flash</button>
+                  <span class="annot" style="margin:0">Configured runtime profiles appear here when supplied by the package manifest.</span>
                 </div>
               </div>
               <div class="perm-box">
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="display:flex;align-items:center;gap:7px;font-size:var(--fs-sm);font-weight:660;color:var(--ink-1)">summarizer <span class="badge sec">optional</span></span><button class="btn" style="height:22px;font-size:9.5px;padding:0 8px;background:transparent;border:0;color:var(--ink-3)">Skip</button></div>
-                <div style="font-size:9.5px;color:var(--ink-4);text-transform:uppercase;letter-spacing:0.14em;font-weight:680">Cheap recap pass</div>
-                <div class="inp"><span class="ph">provider/model</span></div>
+                <div style="font-size:9.5px;color:var(--ink-4);text-transform:uppercase;letter-spacing: 0;font-weight:680">Cheap recap pass</div>
+                <div class="inp"><span class="ph">runtime profile id</span></div>
               </div>
               <div style="display:flex;justify-content:flex-end;gap:7px;padding-top:8px;border-top:1px solid var(--line-soft)"><button class="btn outline">Cancel</button><button class="btn primary">Continue</button></div>
             </div>
@@ -1959,16 +1953,16 @@
             <div class="dlg md" style="max-width:none">
               <div class="dlg-b" style="align-items:center;text-align:center;display:flex;flex-direction:column;gap:8px;padding:20px 14px">
                 <svg class="ico lg" style="width:32px;height:32px;color:var(--ok)"><use href="#i-check-c"/></svg>
-                <div style="font-size:var(--fs-md);font-weight:660;color:var(--ink-1)">Installation Complete</div>
-                <div style="font-size:var(--fs-sm);color:var(--ink-3)">The package has been installed successfully.</div>
+                <div style="font-size:var(--fs-md);font-weight:660;color:var(--ink-1)">Registry Install Complete</div>
+                <div style="font-size:var(--fs-sm);color:var(--ink-3)">Shown only after a registry artifact is installed and persisted.</div>
                 <button class="btn primary" style="margin-top:3px">Close</button>
               </div>
             </div>
             <div class="dlg md" style="max-width:none">
               <div class="dlg-b" style="align-items:center;text-align:center;display:flex;flex-direction:column;gap:8px;padding:20px 14px">
                 <svg class="ico lg" style="width:32px;height:32px;color:var(--danger)"><use href="#i-x-c"/></svg>
-                <div style="font-size:var(--fs-md);font-weight:660;color:var(--ink-1)">Installation Failed</div>
-                <div style="font-size:var(--fs-sm);color:#b8352e">Artifact hash mismatch — refusing to write.</div>
+                <div style="font-size:var(--fs-md);font-weight:660;color:var(--ink-1)">Install Unavailable</div>
+                <div style="font-size:var(--fs-sm);color:var(--danger)">Registry artifact unavailable.</div>
                 <div style="display:flex;gap:7px;margin-top:3px"><button class="btn outline">Close</button><button class="btn primary">Retry</button></div>
               </div>
             </div>
@@ -2000,8 +1994,8 @@
               <div class="hero">
                 <div class="hi danger"><svg class="ico"><use href="#i-wifi-off"/></svg></div>
                 <div class="ht">Market is unavailable</div>
-                <div class="hd">Couldn't reach the marketplace service. Showing 6 cached listings below.</div>
-                <div class="htech">503 Service Unavailable — platform :4100</div>
+                <div class="hd">Couldn't reach the marketplace service. Showing the runtime error returned by the current data source.</div>
+                <div class="htech">No response from the marketplace data source.</div>
                 <div class="ha"><button class="btn primary">Retry</button><button class="btn outline">Back to Office</button></div>
               </div>
             </div>
@@ -2037,9 +2031,9 @@
             <div class="mc-cover thumb"><span class="mc-iconwrap"><svg class="ico"><use href="#i-zap"/></svg></span><span class="mc-thumb"><img src="https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=192&q=70" alt=""></span><span class="mc-badge"><svg class="ico"><use href="#i-zap"/></svg>skill</span></div>
             <div class="mc-body"><div class="mc-handle"><span class="h">@growth-tools</span></div><div class="mc-title">Skill · violet (curated thumb)</div><p class="mc-summary">Installable, optional 96×64 thumb, unverified creator.</p><div class="mc-stats"><span class="st mc-stars"><svg class="ico fill"><use href="#i-star"/></svg>4.6</span><span class="st mc-installs">980</span></div></div>
           </button>
-          <button class="mkt-card" style="--rc:var(--r-sop);--rcs:var(--r-sop-s)">
-            <div class="mc-cover icon"><span class="mc-iconwrap"><svg class="ico"><use href="#i-book"/></svg></span><span class="mc-badge"><svg class="ico"><use href="#i-book"/></svg>sop</span></div>
-            <div class="mc-body"><div class="mc-handle"><span class="h">@ops-collective</span><span class="mc-vdot"></span></div><div class="mc-title">SOP · warn</div><p class="mc-summary">Not installable → no Installed pip ever.</p><div class="mc-stats"><span class="st mc-stars"><svg class="ico fill"><use href="#i-star"/></svg>4.9</span><span class="st mc-installs">12k</span></div></div>
+          <button class="mkt-card" style="--rc:var(--r-plan);--rcs:var(--r-plan-s)">
+            <div class="mc-cover icon"><span class="mc-iconwrap"><svg class="ico"><use href="#i-book"/></svg></span><span class="mc-badge"><svg class="ico"><use href="#i-book"/></svg>plan</span></div>
+            <div class="mc-body"><div class="mc-handle"><span class="h">@ops-collective</span><span class="mc-vdot"></span></div><div class="mc-title">Plan · warn</div><p class="mc-summary">Not installable → no Installed pip ever.</p><div class="mc-stats"><span class="st mc-stars"><svg class="ico fill"><use href="#i-star"/></svg>4.9</span><span class="st mc-installs">12k</span></div></div>
           </button>
           <button class="mkt-card" style="--rc:var(--r-layout);--rcs:var(--r-layout-s)">
             <div class="mc-cover icon"><span class="mc-iconwrap"><svg class="ico"><use href="#i-grid"/></svg></span><span class="mc-badge"><svg class="ico"><use href="#i-grid"/></svg>layout</span></div>
@@ -2051,7 +2045,7 @@
           </button>
           <button class="mkt-card" style="--rc:var(--r-prefab);--rcs:var(--r-prefab-s)">
             <div class="mc-cover icon"><span class="mc-iconwrap"><svg class="ico"><use href="#i-box"/></svg></span><span class="mc-badge"><svg class="ico"><use href="#i-box"/></svg>prefab</span></div>
-            <div class="mc-body"><div class="mc-handle"><span class="h">@props-bay</span></div><div class="mc-title">Prefab · warn</div><p class="mc-summary">Shares warn tone with sop.</p><div class="mc-stats"><span class="st mc-stars"><svg class="ico fill"><use href="#i-star"/></svg>4.1</span><span class="st mc-installs">410</span></div></div>
+            <div class="mc-body"><div class="mc-handle"><span class="h">@props-bay</span></div><div class="mc-title">Prefab · warn</div><p class="mc-summary">Shares warn tone with plan.</p><div class="mc-stats"><span class="st mc-stars"><svg class="ico fill"><use href="#i-star"/></svg>4.1</span><span class="st mc-installs">410</span></div></div>
           </button>
           <button class="mkt-card" style="--rc:var(--r-bundle);--rcs:var(--r-bundle-s)">
             <div class="mc-cover icon"><span class="mc-iconwrap"><svg class="ico"><use href="#i-box"/></svg></span><span class="mc-badge"><svg class="ico"><use href="#i-box"/></svg>bundle</span></div>
@@ -2069,7 +2063,7 @@
     <div class="spec-state">
       <div class="spec-cap">
         <span class="n">11</span><span class="t">MarketplaceDetailOverlay — deep-link install</span>
-        <span class="d">legacy fullscreen overlay kept only for <code>offisim://install?listing_id=X</code> · close X top-right · wraps MarketDetailView (same loading/unavailable/install states) · all other detail access goes through the workspace side panel (specimen 1).</span>
+        <span class="d">deep-link detail route for <code>offisim://install?listing_id=X</code> · close X top-right · wraps MarketDetailView (same loading/unavailable/install states) · ordinary Market cards use single-click selection and double-click/Enter to open the full detail route, never an embedded side panel.</span>
       </div>
       <div class="spec-frame">
         <div class="dl-overlay" style="--rc:var(--r-employee);--rcs:var(--r-employee-s)">
@@ -2232,7 +2226,7 @@
                   </div>
                   <span class="mng-badge">Update</span>
                 </div>
-                <div class="latest">3 new SOP nodes · 0 breaking</div>
+                <div class="latest">3 new Plan nodes · 0 breaking</div>
                 <div class="mng-acts">
                   <button class="mbtn primary"><svg class="ico"><use href="#i-upload-cloud"/></svg>Update</button>
                   <button class="mbtn">Skip</button>
@@ -2271,7 +2265,7 @@
                 </div>
                 <div class="mng-acts" style="margin-top:8px">
                   <button class="mbtn"><svg class="ico"><use href="#i-edit"/></svg>Edit</button>
-                  <button class="mbtn" disabled><svg class="ico"><use href="#i-cloud-up"/></svg>Submit</button>
+                  <span class="mng-action-state"><svg class="ico"><use href="#i-shield"/></svg>Registry auth required</span>
                   <button class="mbtn"><svg class="ico"><use href="#i-trash"/></svg>Delete</button>
                 </div>
               </div>
@@ -2310,7 +2304,7 @@
             <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:10px">
               <div class="fld"><span class="fld-l">Title</span><div class="inp">Senior Frontend Engineer</div></div>
               <div class="fld">
-                <span class="fld-l">Version <span style="color:var(--ink-4);letter-spacing:0;text-transform:none;font-weight:560">semver</span></span>
+                <span class="fld-l">Version <span style="color:var(--ink-4);letter-spacing: 0;text-transform:none;font-weight:560">semver</span></span>
                 <div class="inp">0.1.0</div>
                 <span class="fld-hint">MAJOR.MINOR.PATCH · publish increments PATCH</span>
               </div>
@@ -2369,7 +2363,7 @@
               </div>
               <div style="display:flex;gap:7px;align-items:center">
                 <button class="vsel">v1.2.0</button>
-                <span style="font-size:9.5px;color:var(--ink-4);font-family:var(--mono);letter-spacing:0.04em">latest · 5 versions</span>
+                <span style="font-size:9.5px;color:var(--ink-4);font-family:var(--mono);letter-spacing:0">latest · 5 versions</span>
               </div>
               <button class="md-install"><svg class="ico"><use href="#i-download"/></svg>Install</button>
               <div class="md-shots">
@@ -2487,7 +2481,7 @@
             <div class="dlg-b" style="display:flex;flex-direction:column;gap:10px">
               <div class="fld">
                 <span class="fld-l">analyst <span class="badge ok" style="margin-left:5px">required</span></span>
-                <div class="selbox">openai/gpt-4o</div>
+                <div class="selbox">company/default-reasoning</div>
               </div>
               <div class="fld">
                 <span class="fld-l">summarizer <span class="badge sec" style="margin-left:5px">optional</span></span>
@@ -2530,12 +2524,11 @@
         </div>
         <div>
           <div class="dlg md">
-            <div class="dlg-h"><div class="dt">Failed</div><div class="dd" style="color:#b8352e">Artifact hash mismatch — refusing to write.</div></div>
+            <div class="dlg-h"><div class="dt">Unavailable</div><div class="dd" style="color:var(--danger)">Registry artifact unavailable.</div></div>
             <div class="dlg-b" style="display:flex;flex-direction:column;gap:10px">
-              <div class="alert err"><svg class="ico"><use href="#i-octagon"/></svg><span>Expected <span style="font-family:var(--mono)">sha256:a4f2…</span> — got <span style="font-family:var(--mono)">sha256:c91b…</span>. Local cache cleared.</span></div>
-              <details style="font-size:var(--fs-meta);color:var(--ink-3)"><summary style="cursor:pointer">Technical detail</summary><pre style="margin:6px 0 0;font-family:var(--mono);color:var(--ink-3);font-size:9.5px;background:var(--surface-sunken);padding:7px 9px;border-radius:var(--r-xs);overflow-x:auto">InstallError: hash_mismatch
-  at materializer.ts:142
-  package = offisim-labs/fe-eng@1.2.0</pre></details>
+              <div class="alert err"><svg class="ico"><use href="#i-octagon"/></svg><span>This catalog row has no installable registry artifact yet. Keep the package visible for UX review, but do not show a successful install state.</span></div>
+              <details style="font-size:var(--fs-meta);color:var(--ink-3)"><summary style="cursor:pointer">Technical detail</summary><pre style="margin:6px 0 0;font-family:var(--mono);color:var(--ink-3);font-size:9.5px;background:var(--surface-sunken);padding:7px 9px;border-radius:var(--r-xs);overflow-x:auto">InstallError: registry_artifact_unavailable
+  listing = offisim-labs/fe-eng@1.2.0</pre></details>
               <div style="display:flex;justify-content:flex-end;gap:7px;padding-top:6px;border-top:1px solid var(--line-soft)"><button class="btn outline">Cancel</button><button class="btn primary"><svg class="ico"><use href="#i-refresh"/></svg>Retry</button></div>
             </div>
           </div>
@@ -2606,7 +2599,7 @@
     <div class="spec-state">
       <div class="spec-cap">
         <span class="n">19</span><span class="t">Fork provenance card (compact specimen)</span>
-        <span class="d">Single-layer card surfacing the source asset · version · URL · parent author handle. Rendered inside the detail body's Lineage section, or attached to forked items in Personnel / SOP. No nested card grammar.</span>
+        <span class="d">Single-layer card surfacing the source asset · version · URL · parent author handle. Rendered inside the detail body's Lineage section, or attached to forked items in Personnel / Plan. No nested card grammar.</span>
       </div>
       <div class="spec-frame spec-grid-2">
         <div class="mini-pane">
@@ -2634,26 +2627,26 @@
       </div>
     </div>
 
-    <!-- 20 · Rating / Report — deferred placeholders -->
+    <!-- 20 · Rating / Report — read-only community state -->
     <div class="spec-state">
       <div class="spec-cap">
-        <span class="n">20</span><span class="t">Rating &amp; Report — deferred placeholders</span>
-        <span class="d">Slot is acknowledged in detail panel + card overflow. CTAs render as disabled stub buttons with "coming soon" annotation so implementing agent does NOT build the moderation pipeline yet. Single-row, single-layer.</span>
+        <span class="n">20</span><span class="t">Rating &amp; Report — read-only community state</span>
+        <span class="d">Detail panel and card overflow show aggregate rating/reporting state only. No Rate/Report action appears until the registry moderation pipeline exists. Single-row, single-layer.</span>
       </div>
       <div class="spec-frame spec-grid-2">
         <div class="mini-pane">
           <div class="mini-cap">Detail · below Lineage</div>
           <div style="padding:14px;background:var(--surface-1);display:flex;flex-direction:column;gap:8px">
             <span class="label">Community</span>
-            <div class="stub-row">
-              <button class="stub-btn"><svg class="ico"><use href="#i-star"/></svg>Rate<span class="soon">· coming soon</span></button>
-              <button class="stub-btn"><svg class="ico"><use href="#i-flag"/></svg>Report<span class="soon">· coming soon</span></button>
+            <div class="community-row">
+              <span class="community-state"><svg class="ico"><use href="#i-star"/></svg>4.6 aggregate<span class="meta">read-only</span></span>
+              <span class="community-state"><svg class="ico"><use href="#i-shield"/></svg>No reports<span class="meta">registry pending</span></span>
             </div>
             <p style="margin:0;font-size:9.5px;color:var(--ink-4);line-height:1.5">Moderation pipeline + report-queue endpoint deferred until v1 hosted registry lands. Until then, ratings are read-only aggregate counts.</p>
           </div>
         </div>
         <div class="mini-pane">
-          <div class="mini-cap">Card overflow · context menu (placeholder rows)</div>
+          <div class="mini-cap">Card overflow · context menu (no community actions)</div>
           <div style="padding:14px;background:var(--surface-1);display:flex;flex-direction:column;gap:6px">
             <div style="display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:var(--r-xs);color:var(--ink-1);font-size:var(--fs-sm)">
               <svg class="ico"><use href="#i-arrow-right"/></svg>Open detail
@@ -2662,12 +2655,7 @@
               <svg class="ico"><use href="#i-download"/></svg>Install
             </div>
             <div style="border-top:1px solid var(--line-soft);margin:2px 0"></div>
-            <div style="display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:var(--r-xs);color:var(--ink-4);font-size:var(--fs-sm);cursor:not-allowed">
-              <svg class="ico"><use href="#i-star"/></svg>Rate <span style="font-family:var(--mono);font-size:9px;letter-spacing:0.04em;margin-left:auto">soon</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:var(--r-xs);color:var(--ink-4);font-size:var(--fs-sm);cursor:not-allowed">
-              <svg class="ico"><use href="#i-flag"/></svg>Report <span style="font-family:var(--mono);font-size:9px;letter-spacing:0.04em;margin-left:auto">soon</span>
-            </div>
+            <span class="menu-state"><svg class="ico"><use href="#i-star"/></svg>Community rating is read-only<span class="meta">4.6</span></span>
           </div>
         </div>
       </div>
@@ -2714,13 +2702,13 @@
                 </div>
               </div>
             </button>
-            <button class="mkt-card" style="--rc:var(--r-sop);--rcs:var(--r-sop-s)">
+            <button class="mkt-card" style="--rc:var(--r-plan);--rcs:var(--r-plan-s)">
               <div class="mc-cover icon">
-                <div class="kv kv-sop">
+                <div class="kv kv-plan">
                   <div class="kv-pips"><span class="kv-pip done"></span><span class="kv-line done"></span><span class="kv-pip done"></span><span class="kv-line"></span><span class="kv-pip cur"></span><span class="kv-line"></span><span class="kv-pip"></span><span class="kv-line"></span><span class="kv-pip"></span></div>
                   <div class="kv-roles"><em>PM</em><i>→</i>FE<i>→</i><em>QA</em><i>→</i>OPS<i>→</i>LD</div>
                 </div>
-                <span class="mc-badge"><svg class="ico"><use href="#i-book"/></svg>sop</span>
+                <span class="mc-badge"><svg class="ico"><use href="#i-book"/></svg>plan</span>
               </div>
               <div class="mc-body">
                 <h3 class="mc-title">Feature Delivery Pipeline</h3>
@@ -2790,7 +2778,7 @@
               </div>
               <div class="mc-body">
                 <h3 class="mc-title">Starter Studio Pack</h3>
-                <p class="mc-summary">Employee + skill + sop bundle (seeded).</p>
+                <p class="mc-summary">Employee + skill + plan bundle (seeded).</p>
                 <div class="mc-stats">
                   <span class="seed-chip"><svg class="ico"><use href="#i-verified"/></svg>Verified by Offisim</span>
                   <span class="mc-stat-chip creator"><span class="mc-vdot"></span>@offisim</span>

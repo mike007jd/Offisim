@@ -45,6 +45,11 @@ export interface Scene3DColors {
   wallTrim: string;
   wallShadow: string;
   zoneRug: string;
+  zoneWorkspace: string;
+  zoneMeeting: string;
+  zoneRest: string;
+  zoneLibrary: string;
+  zoneServer: string;
   zoneLabelBg: string;
   zoneLabelText: string;
   labelGlow: string;
@@ -53,6 +58,7 @@ export interface Scene3DColors {
   characterShoe: string;
   characterHand: string;
   brandNeutral: string;
+  emissiveBase: string;
 }
 
 export const LIGHT_SCENE_3D: Scene3DColors = {
@@ -95,6 +101,11 @@ export const LIGHT_SCENE_3D: Scene3DColors = {
   wallTrim: '#94a3b8',
   wallShadow: '#64748b',
   zoneRug: '#e4ebf3',
+  zoneWorkspace: '#cdd9f2',
+  zoneMeeting: '#e0d6f4',
+  zoneRest: '#d6efe4',
+  zoneLibrary: '#d3ecdd',
+  zoneServer: '#f2e3cf',
   zoneLabelBg: 'rgba(248,250,252,0.86)',
   zoneLabelText: '#172033',
   labelGlow: '#0891b2',
@@ -103,4 +114,15 @@ export const LIGHT_SCENE_3D: Scene3DColors = {
   characterShoe: '#1e293b',
   characterHand: '#f2c6b6',
   brandNeutral: '#64748b',
+  emissiveBase: '#000000',
 };
+
+export const SCENE_LIGHTING_COLORS = {
+  hemisphereSky: '#ffe9c8',
+  hemisphereGround: '#dbe3ef',
+  key: '#fffaf0',
+  sideFill: '#9bb4d4',
+  rim: '#7e90b8',
+  bounceFront: '#ffe1bf',
+  bounceBack: '#cfd8e8',
+} as const;

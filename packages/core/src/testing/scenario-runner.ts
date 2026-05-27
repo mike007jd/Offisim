@@ -87,10 +87,8 @@ export interface DeterministicScenario {
     readonly thread?: Partial<SeedThread>;
     readonly projects?: readonly SeedProject[];
     readonly employees?: readonly SeedEmployee[];
-    readonly sopTemplates?: readonly SeedSopTemplate[];
     readonly events?: readonly SeedRuntimeEvent[];
     readonly taskRuns?: readonly SeedTaskRun[];
-    readonly kanbanCards?: readonly SeedKanbanCard[];
   };
   readonly initialState: ScenarioInitialState;
   readonly tools?: readonly ToolDef[];
@@ -139,14 +137,6 @@ interface SeedEmployee {
   readonly agentCardJson?: string | null;
 }
 
-interface SeedSopTemplate {
-  readonly id: string;
-  readonly name: string;
-  readonly description?: string;
-  readonly definition: unknown;
-  readonly version?: string | null;
-}
-
 interface SeedRuntimeEvent {
   readonly type: string;
   readonly entityId: string;
@@ -173,16 +163,6 @@ interface ScenarioModelRegistryEntry {
   readonly temperature?: number;
   readonly maxTokens?: number;
   readonly contextWindow?: number;
-}
-
-interface SeedKanbanCard {
-  readonly id: string;
-  readonly projectId: string;
-  readonly title: string;
-  readonly state?: 'todo' | 'doing' | 'blocked' | 'review' | 'done';
-  readonly origin?: 'pm-planner' | 'employee' | 'manager' | 'human';
-  readonly assignedEmployeeId?: string | null;
-  readonly taskRunId?: string | null;
 }
 
 interface ScenarioInitialState {
@@ -226,8 +206,6 @@ interface ScenarioRunScope {
   readonly conversationKey?: string;
   readonly runId?: string;
   readonly threadId?: string;
-  readonly sopTemplateId?: string;
-  readonly sopDefinitionRef?: RunScope['sopDefinitionRef'];
   readonly pendingAttachments?: readonly (Omit<ChatAttachmentRef, 'vaultRef'> & {
     readonly vaultRef: string;
   })[];
@@ -265,9 +243,6 @@ interface ScenarioAbortHarness {
 export async function runDeterministicScenario(
   scenario: DeterministicScenario,
 ): Promise<ScenarioTraceReport> {
-  if (isKanbanMatrixScenario(scenario)) {
-    return runKanbanMatrixScenario(scenario);
-  }
   if (isMainstreamGapScenario(scenario)) {
     return runMainstreamGapScenario(scenario);
   }
@@ -425,10 +400,6 @@ export async function runDeterministicScenario(
   }
 }
 
-function isKanbanMatrixScenario(scenario: DeterministicScenario): boolean {
-  return scenario.category === 'kanban-matrix';
-}
-
 function isMainstreamGapScenario(scenario: DeterministicScenario): boolean {
   return scenario.category === 'mainstream-gap';
 }
@@ -462,386 +433,6 @@ async function runMainstreamGapScenario(
     traceHash: await sha256Text(canonicalJson(trace)),
     assertions,
     trace,
-  };
-}
-
-async function runKanbanMatrixScenario(
-  scenario: DeterministicScenario,
-): Promise<ScenarioTraceReport> {
-  const modes: readonly InteractionMode[] = ['boss_proxy', 'direct_to_employee', 'yolo'];
-  const reports = await Promise.all(
-    modes.map((mode) => runDeterministicScenario(buildMatrixCaseScenario(scenario.id, mode))),
-  );
-  const caseAssertions = reports.map((report) => ({
-    kind: `kanbanMatrix:${report.scenarioId}`,
-    passed: report.passed,
-    message: report.passed
-      ? undefined
-      : report.assertions
-          .filter((assertion) => !assertion.passed)
-          .map((assertion) => assertion.message ?? assertion.kind)
-          .join('; '),
-  }));
-  const matrixAssertions = evaluateKanbanMatrixAssertions(scenario, reports);
-  const assertions = [...caseAssertions, ...matrixAssertions];
-  const trace = {
-    events: reports.map((report) => ({
-      scenarioId: report.scenarioId,
-      traceHash: '<hash>',
-      events: report.trace.events,
-    })),
-    db: {
-      taskRuns: [],
-      llmCalls: [],
-      mcpAudit: [],
-      activeInteractions: [],
-      interactionHistory: [],
-      toolPermissionApprovals: [],
-    },
-    finalState: {
-      completed: true,
-      pendingAssignments: [],
-      cases: reports.map((report) => ({
-        scenarioId: report.scenarioId,
-        passed: report.passed,
-        traceHash: '<hash>',
-      })),
-    },
-  };
-  return {
-    scenarioId: scenario.id,
-    passed: assertions.every((assertion) => assertion.passed),
-    traceHash: await sha256Text(canonicalJson(trace)),
-    assertions,
-    trace,
-  };
-}
-
-interface KanbanMatrixAssertion {
-  readonly kind: 'kanbanMatrixAllModesPassed' | 'kanbanMatrixCaseCards';
-  readonly mode?: InteractionMode;
-  readonly origin?: 'pm-planner' | 'employee';
-  readonly states?: Record<string, number>;
-  readonly taskRunBound?: boolean;
-  readonly assignedEmployeeId?: string | null;
-  readonly transitionTrail?: readonly KanbanMatrixTrailExpectation[];
-}
-
-interface KanbanMatrixTrailExpectation {
-  readonly op: 'created' | 'transitioned' | 'assigned';
-  readonly state?: SeedKanbanCard['state'];
-  readonly taskRunBound?: boolean;
-  readonly assignedEmployeeId?: string | null;
-}
-
-function evaluateKanbanMatrixAssertions(
-  scenario: DeterministicScenario,
-  reports: readonly ScenarioTraceReport[],
-): ScenarioTraceReport['assertions'] {
-  const rawAssertions = Array.isArray((scenario as { assertions?: unknown }).assertions)
-    ? ((scenario as { assertions: readonly unknown[] }).assertions ?? [])
-    : [];
-  return rawAssertions.map((assertion, index) => {
-    if (!isKanbanMatrixAssertion(assertion)) {
-      return {
-        kind: `kanbanMatrix.assertion.${index}`,
-        passed: false,
-        message: `Unsupported kanban matrix assertion: ${JSON.stringify(assertion)}`,
-      };
-    }
-    try {
-      assertKanbanMatrixAssertion(assertion, reports);
-      return { kind: assertion.kind, passed: true };
-    } catch (error) {
-      return {
-        kind: assertion.kind,
-        passed: false,
-        message: error instanceof Error ? error.message : String(error),
-      };
-    }
-  });
-}
-
-function isKanbanMatrixAssertion(value: unknown): value is KanbanMatrixAssertion {
-  if (!value || typeof value !== 'object') return false;
-  const kind = (value as { kind?: unknown }).kind;
-  return kind === 'kanbanMatrixAllModesPassed' || kind === 'kanbanMatrixCaseCards';
-}
-
-function assertKanbanMatrixAssertion(
-  assertion: KanbanMatrixAssertion,
-  reports: readonly ScenarioTraceReport[],
-): void {
-  if (assertion.kind === 'kanbanMatrixAllModesPassed') {
-    const failed = reports.filter((report) => !report.passed).map((report) => report.scenarioId);
-    if (failed.length > 0) throw new Error(`Kanban matrix failed cases: ${failed.join(', ')}`);
-    return;
-  }
-
-  const mode = assertion.mode;
-  if (!mode) throw new Error('kanbanMatrixCaseCards requires mode');
-  const report = reports.find((candidate) => candidate.scenarioId.endsWith(modeSuffix(mode)));
-  if (!report) throw new Error(`No kanban matrix case report for mode ${mode}`);
-  const cards = toRecordArray(report.trace.db.kanbanCards);
-  if (cards.length === 0) throw new Error(`No kanban cards recorded for mode ${mode}`);
-  if (assertion.origin) {
-    const mismatched = cards.filter((card) => card.origin !== assertion.origin);
-    if (mismatched.length > 0) {
-      throw new Error(
-        `Expected all ${mode} cards origin=${assertion.origin}, got ${JSON.stringify(cards)}`,
-      );
-    }
-  }
-  for (const [state, expectedCount] of Object.entries(assertion.states ?? {})) {
-    const actual = cards.filter((card) => card.state === state).length;
-    if (actual !== expectedCount) {
-      throw new Error(`Expected ${expectedCount} ${mode} cards in ${state}, got ${actual}`);
-    }
-  }
-  if (assertion.taskRunBound !== undefined) {
-    assertCardsTaskRunBound(mode, cards, assertion.taskRunBound);
-  }
-  if (hasOwn(assertion, 'assignedEmployeeId')) {
-    assertCardsAssignedEmployee(mode, cards, assertion.assignedEmployeeId ?? null);
-  }
-  if (assertion.transitionTrail) {
-    assertKanbanTransitionTrail(mode, report.trace.events, assertion.transitionTrail);
-  }
-}
-
-function modeSuffix(mode: InteractionMode): string {
-  return mode.replaceAll('_', '-');
-}
-
-function assertCardsTaskRunBound(
-  mode: InteractionMode,
-  cards: readonly Record<string, unknown>[],
-  expected: boolean,
-): void {
-  const mismatched = cards.filter((card) => isTaskRunBound(card) !== expected);
-  if (mismatched.length > 0) {
-    throw new Error(
-      `Expected all ${mode} cards taskRunBound=${expected}, got ${JSON.stringify(cards)}`,
-    );
-  }
-}
-
-function assertCardsAssignedEmployee(
-  mode: InteractionMode,
-  cards: readonly Record<string, unknown>[],
-  expected: string | null,
-): void {
-  const mismatched = cards.filter((card) => (card.assigned_employee_id ?? null) !== expected);
-  if (mismatched.length > 0) {
-    throw new Error(
-      `Expected all ${mode} cards assignedEmployeeId=${expected}, got ${JSON.stringify(cards)}`,
-    );
-  }
-}
-
-function assertKanbanTransitionTrail(
-  mode: InteractionMode,
-  events: readonly unknown[],
-  expectedTrail: readonly KanbanMatrixTrailExpectation[],
-): void {
-  const trail = toRecordArray(events)
-    .map((event) => {
-      const payload = toRecord(event.payload);
-      if (payload?.kind !== 'kanban') return null;
-      const card = toRecord(payload.card);
-      return {
-        op: payload.op,
-        state: card?.state,
-        taskRunBound: isTaskRunBound(card),
-        assignedEmployeeId: card?.assigned_employee_id ?? null,
-      };
-    })
-    .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
-
-  if (trail.length !== expectedTrail.length) {
-    throw new Error(
-      `Expected ${mode} kanban trail length ${expectedTrail.length}, got ${trail.length}: ${JSON.stringify(trail)}`,
-    );
-  }
-
-  expectedTrail.forEach((expected, index) => {
-    const actual = trail[index];
-    if (!actual) throw new Error(`Missing ${mode} kanban trail event at index ${index}`);
-    if (actual.op !== expected.op) {
-      throw new Error(
-        `Expected ${mode} kanban trail op ${expected.op} at index ${index}, got ${String(actual.op)}`,
-      );
-    }
-    if (expected.state !== undefined && actual.state !== expected.state) {
-      throw new Error(
-        `Expected ${mode} kanban trail state ${expected.state} at index ${index}, got ${String(actual.state)}`,
-      );
-    }
-    if (expected.taskRunBound !== undefined && actual.taskRunBound !== expected.taskRunBound) {
-      throw new Error(
-        `Expected ${mode} kanban trail taskRunBound=${expected.taskRunBound} at index ${index}, got ${actual.taskRunBound}`,
-      );
-    }
-    if (
-      hasOwn(expected, 'assignedEmployeeId') &&
-      actual.assignedEmployeeId !== (expected.assignedEmployeeId ?? null)
-    ) {
-      throw new Error(
-        `Expected ${mode} kanban trail assignedEmployeeId=${expected.assignedEmployeeId ?? null} at index ${index}, got ${String(actual.assignedEmployeeId)}`,
-      );
-    }
-  });
-}
-
-function isTaskRunBound(card: Record<string, unknown> | null): boolean {
-  return typeof card?.task_run_id === 'string' && card.task_run_id.length > 0;
-}
-
-function toRecordArray(value: unknown): Record<string, unknown>[] {
-  return Array.isArray(value)
-    ? value.filter((entry): entry is Record<string, unknown> =>
-        Boolean(entry && typeof entry === 'object'),
-      )
-    : [];
-}
-
-function toRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
-}
-
-function hasOwn(value: object, key: string): boolean {
-  return Object.prototype.hasOwnProperty.call(value, key);
-}
-
-function buildMatrixCaseScenario(matrixId: string, mode: InteractionMode): DeterministicScenario {
-  const suffix = modeSuffix(mode);
-  const companyId = `company-${matrixId}-${suffix}`;
-  const threadId = `thread-${matrixId}-${suffix}`;
-  const projectId = `project-${matrixId}-${suffix}`;
-  const employeeId = mode === 'yolo' ? `emp-${suffix}` : `emp-${matrixId}-${suffix}`;
-  const employeeName = mode === 'yolo' ? 'YOLO Master' : `Matrix ${suffix}`;
-  const employeeRole: RoleSlug = mode === 'yolo' ? 'yolo_master' : 'engineer';
-  const tool: ToolDef = {
-    name: 'pnpm-test',
-    description: 'Run the deterministic package test command.',
-    parameters: { type: 'object', properties: { command: { type: 'string' } } },
-  };
-  const pmPlan = JSON.stringify({
-    summary: `Build a counter component in ${mode}`,
-    steps: [
-      {
-        stepIndex: 0,
-        description: `Build a counter component in ${mode}`,
-        tasks: [
-          {
-            taskType: 'code',
-            employeeId,
-            description: `Build a counter component with tests in ${mode}`,
-            dependsOnStepOutput: false,
-          },
-        ],
-      },
-    ],
-  });
-  const base = {
-    id: `${matrixId}-${suffix}`,
-    category: 'kanban-matrix-case',
-    entryMode: 'boss_chat' as const,
-    interactionMode: mode,
-    seed: {
-      company: { companyId, name: `Matrix ${mode}` },
-      thread: { threadId, status: 'running', projectId },
-      projects: [{ id: projectId, name: `Matrix ${mode} Project` }],
-      employees: [{ id: employeeId, name: employeeName, role: employeeRole }],
-    },
-    tools: [tool],
-    initialState: {
-      projectId,
-      managerDirective: {
-        intent: 'Build a counter component with tests',
-        recommendedEmployees: [employeeId],
-      },
-    },
-    assertions: [
-      {
-        kind: 'kanbanCards' as const,
-        projectId,
-        count: 1,
-        origin: mode === 'yolo' ? ('employee' as const) : ('pm-planner' as const),
-        states: { done: 1 },
-      },
-    ],
-  };
-
-  if (mode === 'yolo') {
-    return {
-      ...base,
-      toolFixtures: {
-        'pnpm-test': [{ success: true, result: { ok: true, command: 'pnpm test -- counter' } }],
-      },
-      llmTurns: [
-        {
-          id: 'yolo-create-todo-and-test',
-          match: {
-            toolNames: ['todo_create', 'pnpm-test'],
-          },
-          content: '',
-          toolCalls: [
-            {
-              id: 'tc-yolo-todo',
-              name: 'todo_create',
-              arguments: { title: 'Build counter component', projectId },
-            },
-            {
-              id: 'tc-yolo-test',
-              name: 'pnpm-test',
-              arguments: { command: 'pnpm test -- counter' },
-            },
-          ],
-        },
-        {
-          id: 'yolo-final',
-          match: { contains: 'pnpm test -- counter' },
-          content: 'COUNTER_DONE_YOLO',
-        },
-      ],
-      runs: [{}],
-    };
-  }
-
-  return {
-    ...base,
-    toolFixtures: {
-      'pnpm-test': [{ success: true, result: { ok: true, command: 'pnpm test -- counter' } }],
-    },
-    llmTurns: [
-      {
-        id: 'pm-plan',
-        match: { contains: 'Build a counter component with tests' },
-        content: pmPlan,
-      },
-      {
-        id: 'employee-test',
-        match: {
-          contains: `Build a counter component with tests in ${mode}`,
-          toolNames: ['pnpm-test'],
-        },
-        content: '',
-        toolCalls: [
-          {
-            id: 'tc-employee-test',
-            name: 'pnpm-test',
-            arguments: { command: 'pnpm test -- counter' },
-          },
-        ],
-      },
-      {
-        id: 'employee-final',
-        match: { contains: 'pnpm test -- counter' },
-        content: `COUNTER_DONE_${mode.toUpperCase()}`,
-      },
-    ],
-    runs: [{ startAt: 'pm_planner' }],
   };
 }
 
@@ -1104,19 +695,6 @@ async function seedScenario(params: {
       await params.repos.employees.update(employee.id, { enabled: 0 });
     }
   }
-  for (const sop of params.scenario.seed.sopTemplates ?? []) {
-    await params.repos.sopTemplates.create({
-      sop_template_id: sop.id,
-      company_id: params.companyId,
-      name: sop.name,
-      description: sop.description ?? '',
-      definition_json: JSON.stringify(sop.definition),
-      source_thread_id: null,
-      source_url: null,
-      version: sop.version ?? null,
-      last_synced_at: null,
-    });
-  }
   for (const event of params.scenario.seed.events ?? []) {
     params.eventBus.emit({
       type: event.type,
@@ -1139,19 +717,6 @@ async function seedScenario(params: {
       input_json: JSON.stringify(taskRun.input ?? {}),
       output_json: null,
       started_at: now,
-    });
-  }
-  for (const card of params.scenario.seed.kanbanCards ?? []) {
-    await params.repos.kanban.create({
-      id: card.id,
-      project_id: card.projectId,
-      company_id: params.companyId,
-      title: card.title,
-      note: '',
-      state: card.state ?? 'todo',
-      origin: card.origin ?? 'human',
-      assigned_employee_id: card.assignedEmployeeId ?? null,
-      task_run_id: card.taskRunId ?? null,
     });
   }
 }
@@ -1256,8 +821,6 @@ function buildScenarioRunScope(
     ...(scope.availableAttachments
       ? { availableAttachments: scope.availableAttachments as readonly ChatAttachmentRef[] }
       : {}),
-    ...(scope.sopTemplateId ? { sopTemplateId: scope.sopTemplateId } : {}),
-    ...(scope.sopDefinitionRef ? { sopDefinitionRef: scope.sopDefinitionRef } : {}),
   };
 }
 

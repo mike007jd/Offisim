@@ -172,7 +172,10 @@ pub(crate) fn read_provider_secret(secret_ref: Option<&str>) -> Result<Option<St
         "openrouter" => "OPENROUTER_API_KEY",
         _ => return read_secret_raw(),
     };
-    Ok(env_or_local(env_name))
+    match env_or_local(env_name) {
+        Some(secret) => Ok(Some(secret)),
+        None => read_secret_raw(),
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -187,6 +190,8 @@ pub struct RuntimeProviderProfile {
     pub(crate) auth_scheme: String,
     pub(crate) allowed_host: String,
     pub(crate) local_endpoint: bool,
+    #[serde(default)]
+    has_credential: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -276,6 +281,10 @@ fn normalize_profile(
     profile.allowed_host = allowed_host;
     profile.local_endpoint = local_endpoint;
     profile.auth_scheme = auth_scheme_for(&profile.provider, &profile.base_url);
+    profile.has_credential = read_provider_secret(Some(&profile.secret_ref))
+        .ok()
+        .flatten()
+        .is_some();
     Ok(profile)
 }
 
@@ -353,6 +362,7 @@ fn profile_from_env(
         auth_scheme: String::new(),
         allowed_host: String::new(),
         local_endpoint: false,
+        has_credential: false,
     })
     .ok()
 }
@@ -430,6 +440,7 @@ pub fn runtime_provider_profile_upsert(
         auth_scheme: String::new(),
         allowed_host: String::new(),
         local_endpoint: req.local_endpoint.unwrap_or(false),
+        has_credential: false,
     })?;
     if profile.display_name.is_empty() || profile.model.is_empty() {
         return Err("provider profile displayName and model are required".into());

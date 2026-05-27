@@ -1,42 +1,57 @@
 import { useUiState } from '@/app/ui-state.js';
-import { useEmployees } from '@/data/queries.js';
+import { StagedAttachments } from '@/assistant/composer/StagedAttachments.js';
+import { useRunStore } from '@/assistant/run-store.js';
+import { isTauriRuntime } from '@/data/adapters.js';
+import { UI_DATA_COLORS } from '@/data/color-palette.js';
+import { useEmployees, useProjects } from '@/data/queries.js';
 import type { Employee } from '@/data/types.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { SearchInput } from '@/design-system/grammar/SearchInput.js';
 import { Icon } from '@/design-system/icons/Icon.js';
+import { Button } from '@/design-system/primitives/button.js';
+import {
+  findDefaultChatProviderProfile,
+  loadRuntimeProviderProfiles,
+  safeErrorMessage,
+  sendProviderText,
+} from '@/lib/provider-bridge.js';
 import { cn } from '@/lib/utils.js';
+import { useProviderConfigs } from '@/surfaces/settings/settings-data.js';
 import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
 import {
+  type AppendMessage,
+  AssistantRuntimeProvider,
+  ComposerPrimitive,
+  MessagePartPrimitive,
+  MessagePrimitive,
+  type ThreadMessageLike,
+  ThreadPrimitive,
+  useExternalStoreRuntime,
+} from '@assistant-ui/react';
+import {
   AlertTriangle,
-  AtSign,
   Bot,
   Building2,
   Check,
-  ChevronDown,
   ChevronRight,
   Download,
   Eye,
   FileText,
-  Layers,
   Megaphone,
   MessageSquare,
   MessageSquarePlus,
-  MoreHorizontal,
   Paperclip,
   Plus,
-  Search,
   SendHorizontal,
   Shield,
   Sparkles,
   Store,
   Terminal,
-  UserPlus,
   Users,
-  Video,
   X,
 } from 'lucide-react';
-import { type KeyboardEvent, type ReactNode, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
   MODE_LABEL,
@@ -51,7 +66,9 @@ import {
   useWsThread,
 } from '../workspace-data.js';
 
-type ConvFacet = 'chat' | 'files' | 'docs';
+type ConvFacet = 'chat' | 'files';
+
+const WORKSPACE_MAX_OUTPUT_TOKENS = 512;
 
 const PRESENCE_CLASS: Record<NonNullable<WsConversation['presence']>, string> = {
   working: 'is-working',
@@ -81,6 +98,78 @@ const SYS_SOURCE_ICON: Record<SysSource, typeof Store> = {
   install: Plus,
 };
 
+const DELIVERABLE_EXTENSION: Record<string, string> = {
+  MD: 'md',
+  MARKDOWN: 'md',
+  TXT: 'txt',
+  TEXT: 'txt',
+};
+
+function deliverableFileName(card: NonNullable<WsMessage['deliverable']>): string {
+  const base =
+    card.title
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || card.id;
+  const extension = DELIVERABLE_EXTENSION[card.format.trim().toUpperCase()] ?? 'txt';
+  return `${base}.${extension}`;
+}
+
+function deliverableDisabledReason({
+  projectId,
+  workspaceBound,
+  content,
+}: {
+  projectId: string | null;
+  workspaceBound: boolean;
+  content: string | undefined;
+}): string | null {
+  if (!isTauriRuntime()) return 'Open and export require the desktop runtime';
+  if (!projectId || !workspaceBound) return 'Bind a project workspace folder to export artifacts';
+  if (!content?.trim()) return 'This artifact has metadata only; no exportable body is available';
+  return null;
+}
+
+function appendText(message: AppendMessage): string {
+  return message.content
+    .map((part) => ('text' in part ? part.text : ''))
+    .join('')
+    .trim();
+}
+
+function wsMessageToAssistant(message: WsMessage): ThreadMessageLike {
+  return {
+    id: message.id,
+    role: message.author === 'boss' ? 'user' : 'assistant',
+    content: [{ type: 'text', text: message.body }],
+    createdAt: new Date(),
+    metadata: { custom: message as unknown as Record<string, unknown> },
+  };
+}
+
+function workspaceDraftId(prefix: string): string {
+  return `${prefix}-${crypto.randomUUID()}`;
+}
+
+function workspaceTimeLabel(date = new Date()): string {
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+async function sendWorkspaceProviderMessage(text: string, requestId: string): Promise<string> {
+  const profiles = await loadRuntimeProviderProfiles();
+  const profile = findDefaultChatProviderProfile(profiles);
+  if (!profile) {
+    throw new Error('Runtime provider profile is not configured.');
+  }
+  return sendProviderText({
+    profile,
+    text,
+    requestId,
+    maxOutputTokens: WORKSPACE_MAX_OUTPUT_TOKENS,
+  });
+}
+
 function ConvAvatar({
   conv,
   employee,
@@ -90,23 +179,24 @@ function ConvAvatar({
   employee: Employee | null;
   size?: number;
 }) {
+  const avatarClass = cn('off-ws-im-av', size <= 30 && 'is-compact');
   if (conv.kind === 'group') {
     return (
-      <span className="off-ws-im-av is-group" style={{ width: size, height: size }}>
+      <span className={cn(avatarClass, 'is-group')}>
         <Icon icon={conv.id === 'th-design' ? Users : Building2} size="sm" />
       </span>
     );
   }
   if (conv.kind === 'system') {
     return (
-      <span className="off-ws-im-av is-bot" style={{ width: size, height: size }}>
+      <span className={cn(avatarClass, 'is-bot')}>
         <Icon icon={Sparkles} size="sm" />
       </span>
     );
   }
   if (employee) {
     return (
-      <span className="off-ws-im-av-wrap">
+      <span className={cn('off-ws-im-av-wrap', size <= 30 && 'is-compact')}>
         <EmployeeAvatar
           seed={employee.id}
           appearance={employee.appearance}
@@ -123,7 +213,7 @@ function ConvAvatar({
     );
   }
   return (
-    <span className="off-ws-im-av is-group" style={{ width: size, height: size }}>
+    <span className={cn(avatarClass, 'is-group')}>
       <Icon icon={Bot} size="sm" />
     </span>
   );
@@ -185,12 +275,55 @@ function ReasoningTag() {
 function DeliverableInline({
   card,
   byId,
-  onExport,
+  projectId,
+  workspaceBound,
 }: {
   card: NonNullable<WsMessage['deliverable']>;
   byId: Map<string, Employee>;
-  onExport: () => void;
+  projectId: string | null;
+  workspaceBound: boolean;
 }) {
+  const [savedPath, setSavedPath] = useState<string | null>(null);
+  const [busyAction, setBusyAction] = useState<'open' | 'export' | null>(null);
+  const disabledReason = deliverableDisabledReason({
+    projectId,
+    workspaceBound,
+    content: card.content,
+  });
+  const disabledTitle = busyAction ? 'Deliverable action is running' : (disabledReason ?? '');
+
+  async function persistDeliverable(action: 'open' | 'export') {
+    if (disabledReason || !projectId || !card.content) {
+      toast.error(disabledReason ?? 'Deliverable is not ready');
+      return;
+    }
+    setBusyAction(action);
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const relativePath =
+        action === 'open' && savedPath
+          ? savedPath
+          : await invoke<string>('save_deliverable_to_local', {
+              projectId,
+              fileName: deliverableFileName(card),
+              content: card.content,
+            });
+      setSavedPath(relativePath);
+      if (action === 'open') {
+        await invoke('open_local_path', { projectId, path: relativePath });
+        toast.success('Opened deliverable', { description: relativePath });
+      } else {
+        toast.success('Exported deliverable', { description: relativePath });
+      }
+    } catch (error) {
+      toast.error(action === 'open' ? 'Open deliverable failed' : 'Export deliverable failed', {
+        description: safeErrorMessage(error),
+      });
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
   return (
     <div className="off-ws-dlv">
       <div className="off-ws-dlv-head">
@@ -221,16 +354,29 @@ function DeliverableInline({
         </div>
       </div>
       <div className="off-ws-dlv-actions">
-        <button type="button" className="off-ws-dlv-btn off-focusable" onClick={onExport}>
-          Open
-        </button>
-        <span className="off-ws-dlv-fmt">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="off-ws-dlv-btn off-focusable"
+          disabled={Boolean(disabledReason) || busyAction !== null}
+          title={disabledTitle}
+          onClick={() => void persistDeliverable('open')}
+        >
+          {busyAction === 'open' ? 'Opening…' : 'Open'}
+        </Button>
+        <span className="off-ws-dlv-fmt" title="Export format">
           {card.format}
-          <Icon icon={ChevronDown} size="sm" />
         </span>
-        <button type="button" className="off-ws-dlv-btn off-focusable" onClick={onExport}>
-          Export
-        </button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="off-ws-dlv-btn off-focusable"
+          disabled={Boolean(disabledReason) || busyAction !== null}
+          title={disabledTitle}
+          onClick={() => void persistDeliverable('export')}
+        >
+          {busyAction === 'export' ? 'Exporting…' : 'Export'}
+        </Button>
       </div>
     </div>
   );
@@ -274,57 +420,87 @@ function RunRecordInline({ run }: { run: WsRunRecord }) {
 function MessageRow({
   message,
   byId,
-  onExport,
+  projectId,
+  workspaceBound,
 }: {
   message: WsMessage;
   byId: Map<string, Employee>;
-  onExport: () => void;
+  projectId: string | null;
+  workspaceBound: boolean;
 }) {
   const employee = message.employeeId ? byId.get(message.employeeId) : null;
   const isMe = message.author === 'boss';
   return (
-    <div className={cn('off-ws-msg-row', isMe && 'is-me')}>
-      <div className="off-ws-msg-from">
-        {isMe ? (
-          <EmployeeAvatar seed="Boss" colorA="#d7e3ff" colorB="#aac4ff" size={22} />
-        ) : employee ? (
-          <EmployeeAvatar
-            seed={employee.id}
-            appearance={employee.appearance}
-            colorA={employee.avatarA}
-            colorB={employee.avatarB}
-            size={22}
-            brand={employee.kind === 'external'}
+    <MessagePrimitive.Root asChild>
+      <div className={cn('off-ws-msg-row', isMe && 'is-me')}>
+        <div className="off-ws-msg-from">
+          {isMe ? (
+            <EmployeeAvatar
+              seed="Boss"
+              colorA={UI_DATA_COLORS.bossA}
+              colorB={UI_DATA_COLORS.bossB}
+              size={22}
+            />
+          ) : employee ? (
+            <EmployeeAvatar
+              seed={employee.id}
+              appearance={employee.appearance}
+              colorA={employee.avatarA}
+              colorB={employee.avatarB}
+              size={22}
+              brand={employee.kind === 'external'}
+            />
+          ) : null}
+          <span className="off-ws-msg-nm">{isMe ? 'You' : (employee?.name ?? 'Employee')}</span>
+          {message.role ? <span className="off-ws-msg-rl">{message.role}</span> : null}
+          <span className="off-ws-msg-tm">{message.timeLabel}</span>
+        </div>
+        {message.reasoning ? <ReasoningTag /> : null}
+        <div className={cn('off-ws-bubble', isMe && 'is-me')}>
+          <MessagePrimitive.Parts>
+            {({ part }) =>
+              part.type === 'text' ? (
+                <span>
+                  <MessagePartPrimitive.Text />
+                  <MessagePartPrimitive.InProgress>
+                    <span className="off-msg-cursor">|</span>
+                  </MessagePartPrimitive.InProgress>
+                </span>
+              ) : null
+            }
+          </MessagePrimitive.Parts>
+        </div>
+        {message.attachment ? (
+          <div className="off-ws-attachment">
+            <span className="off-ws-file-icon">
+              <Icon icon={FileText} size="sm" />
+            </span>
+            <span>
+              <span className="off-ws-fname">{message.attachment.name}</span>
+              <span className="off-ws-fmeta">{message.attachment.meta}</span>
+            </span>
+            <span className="off-ws-download">
+              <Icon icon={Download} size="sm" />
+            </span>
+          </div>
+        ) : null}
+        {message.deliverable ? (
+          <DeliverableInline
+            card={message.deliverable}
+            byId={byId}
+            projectId={projectId}
+            workspaceBound={workspaceBound}
           />
         ) : null}
-        <span className="off-ws-msg-nm">{isMe ? 'You' : (employee?.name ?? 'Employee')}</span>
-        {message.role ? <span className="off-ws-msg-rl">{message.role}</span> : null}
-        <span className="off-ws-msg-tm">{message.timeLabel}</span>
       </div>
-      {message.reasoning ? <ReasoningTag /> : null}
-      <div className={cn('off-ws-bubble', isMe && 'is-me')}>{message.body}</div>
-      {message.attachment ? (
-        <div className="off-ws-attachment">
-          <span className="off-ws-file-icon">
-            <Icon icon={FileText} size="sm" />
-          </span>
-          <span>
-            <span className="off-ws-fname">{message.attachment.name}</span>
-            <span className="off-ws-fmeta">{message.attachment.meta}</span>
-          </span>
-          <span className="off-ws-download">
-            <Icon icon={Download} size="sm" />
-          </span>
-        </div>
-      ) : null}
-      {message.deliverable ? (
-        <DeliverableInline card={message.deliverable} byId={byId} onExport={onExport} />
-      ) : null}
-    </div>
+    </MessagePrimitive.Root>
   );
 }
 
-function SystemChannel({ cards }: { cards: SysCard[] }) {
+function SystemChannel({
+  cards,
+  onOpenActivity,
+}: { cards: SysCard[]; onOpenActivity: () => void }) {
   return (
     <>
       <header className="off-ws-chat-head">
@@ -336,8 +512,13 @@ function SystemChannel({ cards }: { cards: SysCard[] }) {
           <span className="off-ws-crumb-sub">Notifications · runtime · hr · market · install</span>
         </div>
         <div className="off-ws-chat-tools">
-          <IconButton icon={Check} label="Mark all read" variant="ghost" size="iconSm" />
-          <IconButton icon={Terminal} label="Open Activity Log" variant="ghost" size="iconSm" />
+          <IconButton
+            icon={Terminal}
+            label="Open Activity Log"
+            variant="ghost"
+            size="iconSm"
+            onClick={onOpenActivity}
+          />
         </div>
       </header>
       <div className="off-ws-conv-scroll">
@@ -364,17 +545,13 @@ function SystemChannel({ cards }: { cards: SysCard[] }) {
                   {card.actions.length > 0 ? (
                     <div className="off-ws-sys-act">
                       {card.actions.map((action) => (
-                        <button
+                        <span
                           key={action.id}
-                          type="button"
-                          className={cn(
-                            'off-ws-sys-btn off-focusable',
-                            action.primary && 'is-primary',
-                          )}
-                          onClick={() => toast.message(action.label)}
+                          className={cn('off-ws-sys-chip', action.primary && 'is-primary')}
+                          title="Action state is mirrored from Activity Log"
                         >
                           {action.label}
-                        </button>
+                        </span>
                       ))}
                     </div>
                   ) : null}
@@ -407,7 +584,6 @@ function ConvTabs({
     [
       { key: 'chat', label: 'Chat', icon: MessageSquare },
       { key: 'files', label: 'Files', icon: Paperclip, count: conv.fileCount },
-      { key: 'docs', label: 'Docs', icon: Layers, count: conv.docCount },
     ];
   return (
     <div className="off-ws-conv-tabs">
@@ -425,41 +601,287 @@ function ConvTabs({
       ))}
       <IconButton
         icon={Plus}
-        label="Pin a doc or board"
+        label="Files shared in this thread"
         variant="ghost"
         size="iconSm"
         className="off-ws-conv-tab-add"
+        onClick={() => onFacet('files')}
+        title="Show files shared in this conversation"
       />
     </div>
   );
 }
 
-function FacetEmpty({ kind }: { kind: 'files' | 'docs' }) {
+function FacetEmpty() {
   return (
     <EmptyState
-      icon={kind === 'files' ? Paperclip : Layers}
-      title={kind === 'files' ? 'No files yet' : 'No docs yet'}
-      description={
-        kind === 'files'
-          ? 'Files shared in this conversation appear here.'
-          : 'Deliverables produced in this thread land here.'
-      }
+      icon={Paperclip}
+      title="No files yet"
+      description="Files shared in this conversation appear here."
     />
   );
 }
 
+function WorkspaceAssistantThread({
+  active,
+  messages,
+  daySep,
+  run,
+  byId,
+  facet,
+  modeClass,
+  modelLabel,
+  projectId,
+  workspaceBound,
+}: {
+  active: WsConversation;
+  messages: WsMessage[];
+  daySep: string;
+  run: WsRunRecord | null | undefined;
+  byId: Map<string, Employee>;
+  facet: ConvFacet;
+  modeClass: string;
+  modelLabel: string;
+  projectId: string | null;
+  workspaceBound: boolean;
+}) {
+  const [drafts, setDrafts] = useState<WsMessage[]>([]);
+  const [isSending, setIsSending] = useState(false);
+  const requestIdRef = useRef<string | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const chatEnabled = isTauriRuntime();
+  const staged = useRunStore((s) => s.staged);
+  const stageFiles = useRunStore((s) => s.stageFiles);
+  const clearStaged = useRunStore((s) => s.clearStaged);
+  const storageAvailable = useRunStore((s) => s.storageAvailable);
+  const runtimeMessages = useMemo(() => [...messages, ...drafts], [messages, drafts]);
+
+  useEffect(() => {
+    setDrafts([]);
+    requestIdRef.current = null;
+    setIsSending(false);
+    clearStaged();
+  }, [clearStaged]);
+
+  function stageFileList(fileList: FileList | null) {
+    const files = Array.from(fileList ?? []).map((f) => ({
+      name: f.name,
+      bytes: f.size,
+    }));
+    if (files.length) stageFiles(files);
+  }
+
+  const onNew = useCallback(
+    async (message: AppendMessage) => {
+      const text = appendText(message);
+      if (!text) return;
+      if (!chatEnabled) {
+        toast.error('Workspace chat requires the release desktop runtime');
+        return;
+      }
+      const attached = staged.filter((attachment) => attachment.status === 'attached');
+      const firstAttachment = attached[0]
+        ? {
+            id: attached[0].id,
+            name: attached[0].name,
+            meta:
+              attached.length > 1
+                ? `${attached[0].sizeLabel} · ${attached.length} files staged`
+                : attached[0].sizeLabel,
+          }
+        : undefined;
+      setDrafts((prev) => [
+        ...prev,
+        {
+          id: workspaceDraftId('workspace-user'),
+          author: 'boss',
+          employeeId: null,
+          timeLabel: workspaceTimeLabel(),
+          body: text,
+          attachment: firstAttachment,
+        },
+      ]);
+      clearStaged();
+      const requestId = workspaceDraftId('workspace-provider');
+      requestIdRef.current = requestId;
+      setIsSending(true);
+      try {
+        const response = await sendWorkspaceProviderMessage(text, requestId);
+        setDrafts((prev) => [
+          ...prev,
+          {
+            id: workspaceDraftId('workspace-assistant'),
+            author: 'employee',
+            employeeId: active.employeeId,
+            role: active.kind === 'group' ? 'workspace' : undefined,
+            timeLabel: workspaceTimeLabel(),
+            body: response,
+          },
+        ]);
+      } catch (error) {
+        const messageText = safeErrorMessage(error);
+        toast.error('Workspace provider send failed', { description: messageText });
+        setDrafts((prev) => [
+          ...prev,
+          {
+            id: workspaceDraftId('workspace-provider-error'),
+            author: 'employee',
+            employeeId: active.employeeId,
+            role: 'runtime',
+            timeLabel: workspaceTimeLabel(),
+            body: `Provider bridge failed: ${messageText}`,
+          },
+        ]);
+      } finally {
+        requestIdRef.current = null;
+        setIsSending(false);
+      }
+    },
+    [active.employeeId, active.kind, chatEnabled, clearStaged, staged],
+  );
+  const onCancel = useCallback(async () => {
+    const requestId = requestIdRef.current;
+    if (requestId) {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('llm_fetch_abort', { requestId }).catch(() => undefined);
+    }
+    requestIdRef.current = null;
+    setIsSending(false);
+  }, []);
+  const runtime = useExternalStoreRuntime({
+    messages: runtimeMessages,
+    onNew,
+    convertMessage: wsMessageToAssistant,
+    isRunning: Boolean(run) || isSending,
+    onCancel,
+  });
+
+  return (
+    <AssistantRuntimeProvider runtime={runtime}>
+      <ThreadPrimitive.Root className="off-ws-thread">
+        {facet === 'chat' ? (
+          <ThreadPrimitive.Viewport className="off-ws-conv-scroll">
+            {runtimeMessages.length === 0 ? (
+              <EmptyState
+                icon={MessageSquarePlus}
+                title="No messages"
+                description="Send the first message to start."
+              />
+            ) : (
+              <>
+                <section className="off-ws-messages">
+                  <span className="off-ws-day-sep">{daySep}</span>
+                  <ThreadPrimitive.Messages>
+                    {({ message }) => {
+                      const custom = message.metadata?.custom as unknown as WsMessage | undefined;
+                      return custom ? (
+                        <MessageRow
+                          message={custom}
+                          byId={byId}
+                          projectId={projectId}
+                          workspaceBound={workspaceBound}
+                        />
+                      ) : null;
+                    }}
+                  </ThreadPrimitive.Messages>
+                </section>
+                {run ? <RunRecordInline run={run} /> : null}
+              </>
+            )}
+          </ThreadPrimitive.Viewport>
+        ) : (
+          <div className="off-ws-conv-scroll">
+            <div className="off-ws-facet-pad">
+              <FacetEmpty />
+            </div>
+          </div>
+        )}
+
+        {facet === 'chat' ? (
+          <ComposerPrimitive.Root className="off-ws-composer">
+            <ComposerPrimitive.Input
+              className="off-ws-composer-input"
+              placeholder={`Message ${active.title}…`}
+              rows={1}
+              submitOnEnter
+              disabled={!chatEnabled}
+              title={
+                chatEnabled
+                  ? `Message ${active.title}`
+                  : 'Workspace chat requires the release desktop runtime'
+              }
+            />
+            <StagedAttachments />
+            <div className="off-ws-composer-tools">
+              <input
+                ref={fileInput}
+                type="file"
+                multiple
+                hidden
+                onChange={(event) => {
+                  stageFileList(event.target.files);
+                  event.target.value = '';
+                }}
+              />
+              <IconButton
+                icon={Paperclip}
+                label="Attach file"
+                variant="subtle"
+                size="iconSm"
+                title={
+                  storageAvailable
+                    ? 'Attach files to the workspace message'
+                    : 'Attachment storage is unavailable; selected files will surface an error chip'
+                }
+                onClick={() => fileInput.current?.click()}
+              />
+              <span className="off-ws-comp-div" />
+              <span className="off-ws-comp-pill is-model" title="Desktop provider profile">
+                <Icon icon={Sparkles} size="sm" />
+                {modelLabel} · Med
+              </span>
+              <span
+                className={cn('off-ws-comp-pill is-mode', modeClass)}
+                title="Session mode inherited from the active conversation"
+              >
+                <span className="off-ws-mode-dot" />
+                {MODE_LABEL[active.mode ?? 'direct']}
+              </span>
+              <span className="off-grow" />
+              <ComposerPrimitive.Send
+                className="off-ws-send off-focusable"
+                disabled={!chatEnabled || isSending}
+                title={
+                  chatEnabled
+                    ? 'Send message through runtime provider'
+                    : 'Workspace chat requires the release desktop runtime'
+                }
+              >
+                Send
+                <Icon icon={SendHorizontal} size="sm" />
+              </ComposerPrimitive.Send>
+            </div>
+          </ComposerPrimitive.Root>
+        ) : null}
+      </ThreadPrimitive.Root>
+    </AssistantRuntimeProvider>
+  );
+}
+
 export function MessengerApp() {
+  const companyId = useUiState((s) => s.companyId);
+  const projectId = useUiState((s) => s.projectId);
   const selectedId = useUiState((s) => s.workspaceSelectedId);
   const selectItem = useUiState((s) => s.selectWorkspaceItem);
   const setSurface = useUiState((s) => s.setSurface);
   const selectEmployee = useUiState((s) => s.selectEmployee);
   const conversations = useWsConversations();
   const employees = useEmployees();
+  const projects = useProjects(companyId);
+  const providerConfigs = useProviderConfigs();
   const systemCards = useWsSystemCards();
   const [query, setQuery] = useState('');
   const [facet, setFacet] = useState<ConvFacet>('chat');
-  const [draft, setDraft] = useState('');
-  const [sentByConv, setSentByConv] = useState<Record<string, WsMessage[]>>({});
 
   const list = conversations.data ?? [];
   const activeId = selectedId ?? list[0]?.id ?? null;
@@ -482,41 +904,16 @@ export function MessengerApp() {
   const pinned = filtered.filter((c) => c.section !== 'earlier');
   const earlier = filtered.filter((c) => c.section === 'earlier');
   const activeEmployee = active?.employeeId ? (byId.get(active.employeeId) ?? null) : null;
-  const sentDrafts = activeId ? (sentByConv[activeId] ?? []) : [];
+  const activeProject = projects.data?.find((p) => p.id === projectId) ?? null;
+  const workspaceBound = Boolean(activeProject?.workspaceRoot);
   const baseMessages = thread.data?.messages ?? [];
-  const allMessages = useMemo(() => [...baseMessages, ...sentDrafts], [baseMessages, sentDrafts]);
-
-  function send() {
-    const text = draft.trim();
-    if (!text || !activeId) return;
-    setSentByConv((prev) => ({
-      ...prev,
-      [activeId]: [
-        ...(prev[activeId] ?? []),
-        {
-          id: `ws-d-${Date.now()}`,
-          author: 'boss',
-          employeeId: null,
-          timeLabel: new Intl.DateTimeFormat('en', { hour: '2-digit', minute: '2-digit' }).format(
-            Date.now(),
-          ),
-          body: text,
-        },
-      ],
-    }));
-    setDraft('');
-  }
-  function onKey(e: KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      send();
-    }
-  }
 
   const isSystem = active?.kind === 'system';
   const isDirect = active?.kind === 'direct' || active?.kind === 'external';
-  const mode = active?.mode ?? 'sop';
+  const mode = active?.mode ?? 'direct';
   const modeClass = `is-${mode}`;
+  const runtimeModelLabel =
+    providerConfigs.data?.find((config) => config.hasStoredKey)?.model ?? 'Runtime model';
 
   let detailBody: ReactNode;
   if (!active) {
@@ -528,7 +925,9 @@ export function MessengerApp() {
       />
     );
   } else if (isSystem) {
-    detailBody = <SystemChannel cards={systemCards.data ?? []} />;
+    detailBody = (
+      <SystemChannel cards={systemCards.data ?? []} onOpenActivity={() => setSurface('activity')} />
+    );
   } else {
     detailBody = (
       <>
@@ -557,90 +956,24 @@ export function MessengerApp() {
                 }}
               />
             ) : null}
-            <IconButton
-              icon={Search}
-              label="Search in conversation"
-              variant="ghost"
-              size="iconSm"
-            />
-            {!isDirect ? (
-              <IconButton icon={Video} label="Start a meeting" variant="ghost" size="iconSm" />
-            ) : null}
-            {!isDirect ? (
-              <IconButton icon={Users} label="Members" variant="ghost" size="iconSm" />
-            ) : null}
-            <IconButton icon={MoreHorizontal} label="More" variant="ghost" size="iconSm" />
           </div>
         </header>
 
         <ConvTabs conv={active} facet={facet} onFacet={setFacet} />
 
-        <div className="off-ws-conv-scroll">
-          {facet === 'chat' ? (
-            allMessages.length === 0 ? (
-              <EmptyState
-                icon={MessageSquarePlus}
-                title="No messages"
-                description="Send the first message to start."
-              />
-            ) : (
-              <>
-                <section className="off-ws-messages">
-                  <span className="off-ws-day-sep">{thread.data?.daySep ?? 'Today'}</span>
-                  {allMessages.map((m) => (
-                    <MessageRow
-                      key={m.id}
-                      message={m}
-                      byId={byId}
-                      onExport={() => toast.success('Export started')}
-                    />
-                  ))}
-                </section>
-                {thread.data?.run ? <RunRecordInline run={thread.data.run} /> : null}
-              </>
-            )
-          ) : (
-            <div className="off-ws-facet-pad">
-              <FacetEmpty kind={facet} />
-            </div>
-          )}
-        </div>
-
-        <div className="off-ws-composer">
-          <textarea
-            className="off-ws-composer-input"
-            placeholder={`Message ${active.title}…`}
-            rows={2}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={onKey}
-          />
-          <div className="off-ws-composer-tools">
-            <IconButton icon={Paperclip} label="Attach file" variant="subtle" size="iconSm" />
-            <IconButton icon={AtSign} label="Mention" variant="subtle" size="iconSm" />
-            <span className="off-ws-comp-div" />
-            <button type="button" className="off-ws-comp-pill is-model off-focusable">
-              <Icon icon={Sparkles} size="sm" />
-              MiniMax · M2.7 · Med
-              <Icon icon={ChevronDown} size="sm" className="off-ws-comp-caret" />
-            </button>
-            <button type="button" className={cn('off-ws-comp-pill is-mode', modeClass)}>
-              <span className="off-ws-mode-dot" />
-              {MODE_LABEL[mode]}
-              <Icon icon={ChevronDown} size="sm" className="off-ws-comp-caret" />
-            </button>
-            <span className="off-grow" />
-            <button
-              type="button"
-              className="off-ws-send off-focusable"
-              disabled={!draft.trim()}
-              onClick={send}
-            >
-              Send
-              <Icon icon={SendHorizontal} size="sm" />
-            </button>
-          </div>
-        </div>
+        <WorkspaceAssistantThread
+          key={active.id}
+          active={active}
+          messages={baseMessages}
+          daySep={thread.data?.daySep ?? 'Today'}
+          run={thread.data?.run}
+          byId={byId}
+          facet={facet}
+          modeClass={modeClass}
+          modelLabel={runtimeModelLabel}
+          projectId={projectId}
+          workspaceBound={workspaceBound}
+        />
       </>
     );
   }
@@ -650,7 +983,6 @@ export function MessengerApp() {
       <div className="off-ws-list">
         <div className="off-ws-list-head">
           <span className="off-ws-list-title">Chats</span>
-          <IconButton icon={UserPlus} label="New chat / group" variant="subtle" size="iconSm" />
         </div>
         <div className="off-ws-list-search">
           <SearchInput

@@ -1,14 +1,25 @@
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { Select } from '@/design-system/grammar/Select.js';
 import { Button } from '@/design-system/primitives/button.js';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/design-system/primitives/dialog.js';
 import { Input } from '@/design-system/primitives/input.js';
 import { Textarea } from '@/design-system/primitives/textarea.js';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import {
   MEMORY_CATEGORIES,
   type MemoryCategory,
-  type MemoryEntry,
+  useCreateEmployeeMemory,
+  useDeleteEmployeeMemory,
   useEmployeeMemories,
+  useUpdateEmployeeMemory,
 } from './personnel-data.js';
 
 const CATEGORY_OPTIONS = MEMORY_CATEGORIES.map((c) => ({ value: c, label: c }));
@@ -20,18 +31,17 @@ interface MemoryTabProps {
 
 export function MemoryTab({ employeeId }: MemoryTabProps) {
   const query = useEmployeeMemories(employeeId);
-  const [entries, setEntries] = useState<MemoryEntry[]>([]);
-
-  // Seed local working state from the query; re-seed when the employee changes.
-  useEffect(() => {
-    if (query.data) setEntries(query.data);
-  }, [query.data]);
+  const createMemory = useCreateEmployeeMemory(employeeId);
+  const updateMemory = useUpdateEmployeeMemory();
+  const deleteMemory = useDeleteEmployeeMemory();
+  const entries = query.data ?? [];
 
   const [composeCategory, setComposeCategory] = useState<MemoryCategory>('knowledge');
   const [composeText, setComposeText] = useState('');
   const [composeImportance, setComposeImportance] = useState(0.6);
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterText, setFilterText] = useState('');
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const q = filterText.trim().toLowerCase();
@@ -45,32 +55,61 @@ export function MemoryTab({ employeeId }: MemoryTabProps) {
   const addEntry = () => {
     const content = composeText.trim();
     if (!content) return;
-    setEntries((prev) => [
+    createMemory.mutate(
+      { category: composeCategory, content, importance: composeImportance },
       {
-        id: `mem-${Date.now()}`,
-        category: composeCategory,
-        content,
-        importance: composeImportance,
-        scope: 'employee',
-        reinforced: 0,
+        onSuccess: () => {
+          setComposeText('');
+          setComposeImportance(0.6);
+          toast.success('Memory saved');
+        },
+        onError: (error) => {
+          toast.error('Memory save failed', {
+            description: error instanceof Error ? error.message : 'Could not save memory',
+          });
+        },
       },
-      ...prev,
-    ]);
-    setComposeText('');
-    setComposeImportance(0.6);
+    );
   };
 
   const updateContent = (id: string, content: string) => {
-    setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, content } : e)));
+    updateMemory.mutate(
+      { employeeId, memoryId: id, content },
+      {
+        onSuccess: () => toast.success('Memory updated'),
+        onError: (error) =>
+          toast.error('Memory update failed', {
+            description: error instanceof Error ? error.message : 'Could not update memory',
+          }),
+      },
+    );
   };
 
   const updateImportance = (id: string, importance: number) => {
-    setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, importance } : e)));
+    updateMemory.mutate(
+      { employeeId, memoryId: id, importance },
+      {
+        onError: (error) =>
+          toast.error('Memory update failed', {
+            description: error instanceof Error ? error.message : 'Could not update memory',
+          }),
+      },
+    );
   };
 
   const deleteEntry = (id: string) => {
-    setEntries((prev) => prev.filter((e) => e.id !== id));
+    deleteMemory.mutate(
+      { employeeId, memoryId: id },
+      {
+        onSuccess: () => toast.success('Memory deleted'),
+        onError: (error) =>
+          toast.error('Memory delete failed', {
+            description: error instanceof Error ? error.message : 'Could not delete memory',
+          }),
+      },
+    );
   };
+  const pendingDelete = entries.find((entry) => entry.id === pendingDeleteId) ?? null;
 
   if (query.isLoading) {
     return (
@@ -120,7 +159,7 @@ export function MemoryTab({ employeeId }: MemoryTabProps) {
             disabled={composeText.trim().length === 0}
             onClick={addEntry}
           >
-            Add
+            {createMemory.isPending ? 'Saving…' : 'Add'}
           </Button>
         </div>
 
@@ -152,7 +191,7 @@ export function MemoryTab({ employeeId }: MemoryTabProps) {
                 rows.map((entry) => (
                   <div key={entry.id} className="off-pers-mem-entry">
                     <Textarea
-                      className="min-h-[52px] bg-[var(--off-surface-2)]"
+                      className="off-pers-memory-input"
                       defaultValue={entry.content}
                       onBlur={(e) => {
                         if (e.target.value !== entry.content)
@@ -179,9 +218,7 @@ export function MemoryTab({ employeeId }: MemoryTabProps) {
                       <button
                         type="button"
                         className="off-pers-mem-del off-focusable"
-                        onClick={() => {
-                          if (window.confirm('Delete this memory?')) deleteEntry(entry.id);
-                        }}
+                        onClick={() => setPendingDeleteId(entry.id)}
                       >
                         Delete
                       </button>
@@ -193,6 +230,40 @@ export function MemoryTab({ employeeId }: MemoryTabProps) {
           );
         })}
       </div>
+      <Dialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => !open && setPendingDeleteId(null)}
+      >
+        <DialogContent className="off-dialog-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete Memory</DialogTitle>
+            <DialogDescription>
+              Remove this employee memory from the current working set.
+            </DialogDescription>
+          </DialogHeader>
+          {pendingDelete ? (
+            <p className="text-[length:var(--off-fs-sm)] text-[var(--off-ink-2)]">
+              {pendingDelete.content}
+            </p>
+          ) : null}
+          <DialogFooter>
+            <Button variant="ghost" size="sm" onClick={() => setPendingDeleteId(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={deleteMemory.isPending}
+              onClick={() => {
+                if (pendingDelete) deleteEntry(pendingDelete.id);
+                setPendingDeleteId(null);
+              }}
+            >
+              {deleteMemory.isPending ? 'Deleting…' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

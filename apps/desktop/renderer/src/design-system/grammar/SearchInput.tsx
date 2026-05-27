@@ -13,10 +13,10 @@ interface SearchInputProps {
 /** Sunken search field with a leading icon — the shared filter-strip search. */
 export function SearchInput({ value, onChange, placeholder, className }: SearchInputProps) {
   return (
-    <div className={cn('relative', className)}>
-      <Search className="pointer-events-none absolute left-[10px] top-1/2 size-[14px] -translate-y-1/2 text-[var(--off-ink-4)]" />
+    <div className={cn('off-search-input-wrap', className)}>
+      <Search className="off-search-input-icon" />
       <Input
-        className="h-[30px] bg-[var(--off-surface-sunken)] pl-[30px]"
+        className="off-search-input"
         value={value}
         placeholder={placeholder}
         onChange={(e: ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}

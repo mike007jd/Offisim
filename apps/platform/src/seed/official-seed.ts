@@ -6,7 +6,7 @@ import {
   packageVersions,
   users,
 } from '@offisim/db-platform';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, notInArray } from 'drizzle-orm';
 import type { PlatformDb } from '../db.js';
 import { setSeededArtifact } from './artifact-store.js';
 import { buildSeedArtifact } from './package-builder.js';
@@ -83,6 +83,21 @@ async function populateArtifactCacheForExistingCreator(
     matched += 1;
   }
   return matched;
+}
+
+async function retireObsoleteOfficialListings(
+  db: PlatformDb,
+  creatorId: string,
+  built: readonly SeedBuildResult[],
+): Promise<number> {
+  const activeSlugs = built.map((entry) => entry.payload.slug);
+  if (activeSlugs.length === 0) return 0;
+  const retired = await db
+    .update(listings)
+    .set({ status: 'retired', updated_at: new Date() })
+    .where(and(eq(listings.creator_id, creatorId), notInArray(listings.slug, activeSlugs)))
+    .returning({ listing_id: listings.listing_id });
+  return retired.length;
 }
 
 async function ensureOfficialUserId(db: PlatformDb): Promise<string> {
@@ -208,6 +223,7 @@ export async function seedOfficialResources(db: PlatformDb, options: SeedOptions
       .limit(1);
 
     if (existingCreator) {
+      const retired = await retireObsoleteOfficialListings(db, existingCreator.creator_id, built);
       const matched = await populateArtifactCacheForExistingCreator(
         db,
         existingCreator.creator_id,
@@ -215,7 +231,7 @@ export async function seedOfficialResources(db: PlatformDb, options: SeedOptions
         built,
       );
       console.log(
-        `[seed] Offisim creator already exists — rebuilt in-memory artifacts for ${matched}/${built.length} seeded listings`,
+        `[seed] Offisim creator already exists — rebuilt in-memory artifacts for ${matched}/${built.length} seeded listings; retired ${retired} obsolete listings`,
       );
       return;
     }

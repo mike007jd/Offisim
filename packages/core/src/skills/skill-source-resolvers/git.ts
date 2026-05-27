@@ -313,8 +313,8 @@ function applySubpath(
  * When the scanner reports `ambiguous` on the effective tree, fill `candidates`
  * with first-level directories (if not already populated) and rewrite the
  * message to directly instruct the LLM to retry with `subpath`. Without this
- * hint MiniMax has been observed to either (a) surface the candidates to the
- * user and stop, or (b) stuff the chosen directory into `ref` and 404.
+ * hint some providers have been observed to either surface the candidates to
+ * the user and stop, or put the chosen directory into `ref` and 404.
  */
 function enrichAmbiguous(err: SkillResolverError, tree: VirtualTree): SkillResolverError {
   if (err.kind !== 'skill-scanner-ambiguous') return err;

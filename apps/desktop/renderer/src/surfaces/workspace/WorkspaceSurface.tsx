@@ -1,22 +1,20 @@
 import { type WorkspaceApp, useUiState } from '@/app/ui-state.js';
+import { UI_DATA_COLORS } from '@/data/color-palette.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 import {
   CalendarDays,
   CheckSquare,
-  FileText,
   LayoutGrid,
   type LucideIcon,
   MessageSquare,
-  MoreHorizontal,
   Users,
   Video,
 } from 'lucide-react';
 import { ApprovalsApp } from './apps/ApprovalsApp.js';
 import { CalendarApp } from './apps/CalendarApp.js';
 import { ContactsApp } from './apps/ContactsApp.js';
-import { DocsApp } from './apps/DocsApp.js';
 import { MeetingsApp } from './apps/MeetingsApp.js';
 import { MessengerApp } from './apps/MessengerApp.js';
 import { WorkplaceApp } from './apps/WorkplaceApp.js';
@@ -25,7 +23,6 @@ import { useWsApprovals, useWsConversations } from './workspace-data.js';
 const APPS: ReadonlyArray<{ key: WorkspaceApp; label: string; icon: LucideIcon }> = [
   { key: 'messenger', label: 'Chats', icon: MessageSquare },
   { key: 'approvals', label: 'Approve', icon: CheckSquare },
-  { key: 'docs', label: 'Docs', icon: FileText },
   { key: 'calendar', label: 'Calendar', icon: CalendarDays },
   { key: 'meetings', label: 'Meetings', icon: Video },
   { key: 'contacts', label: 'Contacts', icon: Users },
@@ -52,7 +49,12 @@ function AppRail() {
   return (
     <nav className="off-ws-rail" aria-label="Workspace apps">
       <span className="off-ws-rail-id" title="You — the boss">
-        <EmployeeAvatar seed="Boss" colorA="#d7e3ff" colorB="#aac4ff" size={34} />
+        <EmployeeAvatar
+          seed="Boss"
+          colorA={UI_DATA_COLORS.bossA}
+          colorB={UI_DATA_COLORS.bossB}
+          size={34}
+        />
       </span>
       <div className="off-ws-rail-apps">
         {APPS.map((item) => {
@@ -74,13 +76,6 @@ function AppRail() {
           );
         })}
       </div>
-      <span className="off-ws-rail-sp" />
-      <button type="button" className="off-ws-rail-btn off-focusable" title="More">
-        <span className="off-ws-rail-icon">
-          <Icon icon={MoreHorizontal} size="md" />
-        </span>
-        <span className="off-ws-rail-label">More</span>
-      </button>
     </nav>
   );
 }
@@ -93,7 +88,6 @@ export function WorkspaceSurface() {
       <AppRail />
       {app === 'messenger' ? <MessengerApp /> : null}
       {app === 'approvals' ? <ApprovalsApp /> : null}
-      {app === 'docs' ? <DocsApp /> : null}
       {app === 'calendar' ? <CalendarApp /> : null}
       {app === 'meetings' ? <MeetingsApp /> : null}
       {app === 'contacts' ? <ContactsApp /> : null}

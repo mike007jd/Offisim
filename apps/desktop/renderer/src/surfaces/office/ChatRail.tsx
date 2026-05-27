@@ -8,6 +8,7 @@ import {
   useThreads,
 } from '@/data/queries.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
+import { useProviderConfigs } from '@/surfaces/settings/settings-data.js';
 import { SkeletonRows } from '@/surfaces/shared/SurfaceStates.js';
 import { ChevronLeft, MessagesSquare } from 'lucide-react';
 import { useMemo } from 'react';
@@ -25,6 +26,7 @@ export function ChatRail() {
   const employees = useEmployees();
   const messages = useMessages(railMode === 'thread' ? selectedThreadId : null);
   const deliverables = useDeliverables();
+  const providerConfigs = useProviderConfigs();
 
   const employeesById = useMemo(
     () => new Map((employees.data ?? []).map((e) => [e.id, e])),
@@ -42,9 +44,15 @@ export function ChatRail() {
     );
   }
 
-  const modelLabel = activeThread?.employeeId
-    ? (employeesById.get(activeThread.employeeId)?.modelLabel ?? 'MiniMax-M2.7')
-    : 'MiniMax-M2.7';
+  const runtimeModelLabel =
+    providerConfigs.data?.find((config) => config.hasStoredKey)?.model ?? 'Runtime model';
+  const employeeModelLabel = activeThread?.employeeId
+    ? employeesById.get(activeThread.employeeId)?.modelLabel
+    : null;
+  const modelLabel =
+    employeeModelLabel && employeeModelLabel !== 'Runtime default'
+      ? employeeModelLabel
+      : runtimeModelLabel;
 
   return (
     <section className="off-rail" aria-label="Conversation">

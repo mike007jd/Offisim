@@ -12,15 +12,23 @@ export const WORKSPACE_NAV: ReadonlyArray<{ key: WorkspaceKey; label: string }> 
   { key: 'personnel', label: 'Personnel' },
 ];
 
-/** The scene is always the stage base layer. The run-axis entries (Board / Live)
- *  open as overlays on top of it; "none" shows the bare scene. */
-export type StageRunAxis = 'none' | 'board' | 'live';
 export type SceneRenderMode = '3d' | '2d';
 export type RailMode = 'list' | 'thread';
+export interface SceneDropDiagnostic {
+  id: string;
+  at: string;
+  employeeId: string;
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+  targetZoneId: string | null;
+  decision: 'assigned' | 'missed' | 'not-moved';
+}
+
 export type WorkspaceApp =
   | 'messenger'
   | 'approvals'
-  | 'docs'
   | 'calendar'
   | 'meetings'
   | 'contacts'
@@ -34,8 +42,8 @@ interface UiState {
   /** Office surface */
   railMode: RailMode;
   selectedThreadId: string | null;
-  stageRunAxis: StageRunAxis;
   sceneRenderMode: SceneRenderMode;
+  sceneDropDiagnostics: SceneDropDiagnostic[];
   sessionMode: SessionMode;
   resumeDismissed: boolean;
 
@@ -56,9 +64,8 @@ interface UiState {
 
   openThread: (threadId: string) => void;
   closeThread: () => void;
-  setStageRunAxis: (axis: StageRunAxis) => void;
-  toggleStageRunAxis: (axis: Exclude<StageRunAxis, 'none'>) => void;
   setSceneRenderMode: (mode: SceneRenderMode) => void;
+  recordSceneDropDiagnostic: (event: SceneDropDiagnostic) => void;
   setSessionMode: (mode: SessionMode) => void;
   dismissResume: () => void;
 
@@ -67,7 +74,7 @@ interface UiState {
 
   selectListing: (listingId: string | null) => void;
 
-  setWorkspaceApp: (app: WorkspaceApp) => void;
+  setWorkspaceApp: (app: WorkspaceApp, selectedId?: string | null) => void;
   selectWorkspaceItem: (id: string | null) => void;
 }
 
@@ -78,9 +85,9 @@ export const useUiState = create<UiState>((set) => ({
 
   railMode: 'thread',
   selectedThreadId: 'th-team',
-  stageRunAxis: 'none',
   sceneRenderMode: '3d',
-  sessionMode: 'sop',
+  sceneDropDiagnostics: [],
+  sessionMode: 'direct',
   resumeDismissed: false,
 
   selectedEmployeeId: 'emp-mara',
@@ -97,10 +104,9 @@ export const useUiState = create<UiState>((set) => ({
 
   openThread: (threadId) => set({ selectedThreadId: threadId, railMode: 'thread' }),
   closeThread: () => set({ railMode: 'list' }),
-  setStageRunAxis: (stageRunAxis) => set({ stageRunAxis }),
-  toggleStageRunAxis: (axis) =>
-    set((s) => ({ stageRunAxis: s.stageRunAxis === axis ? 'none' : axis })),
   setSceneRenderMode: (sceneRenderMode) => set({ sceneRenderMode }),
+  recordSceneDropDiagnostic: (event) =>
+    set((s) => ({ sceneDropDiagnostics: [event, ...s.sceneDropDiagnostics].slice(0, 10) })),
   setSessionMode: (sessionMode) => set({ sessionMode }),
   dismissResume: () => set({ resumeDismissed: true }),
 
@@ -109,6 +115,7 @@ export const useUiState = create<UiState>((set) => ({
 
   selectListing: (selectedListingId) => set({ selectedListingId }),
 
-  setWorkspaceApp: (workspaceApp) => set({ workspaceApp, workspaceSelectedId: null }),
+  setWorkspaceApp: (workspaceApp, workspaceSelectedId = null) =>
+    set({ workspaceApp, workspaceSelectedId }),
   selectWorkspaceItem: (workspaceSelectedId) => set({ workspaceSelectedId }),
 }));

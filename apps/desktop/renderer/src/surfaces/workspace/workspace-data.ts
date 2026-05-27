@@ -7,7 +7,7 @@ import { useQuery } from '@tanstack/react-query';
  * These models are owned by the Workspace surface and intentionally diverge from
  * the (legacy / incorrect) `@/data/types` `Approval` / `CalendarEvent` shapes:
  * the suite re-surfaces real product concepts — the four AI run-gates, the
- * NotificationCenter feed as a bot channel, deliverables-as-Docs, the employee
+ * NotificationCenter feed as a bot channel, file attachments, the employee
  * roster as Contacts, and the agenda of meetings / runs / ceremonies / deadlines.
  *
  * Employee identity is shared: callers join these by `employeeId` against
@@ -42,11 +42,10 @@ export interface WsConversation {
   /** Header sub line + member/working counts (group). */
   members?: number;
   workingNow?: number;
-  /** Files / Docs facet counts surfaced on the conv tabs. */
+  /** File count surfaced on the conversation tabs. */
   fileCount?: number;
-  docCount?: number;
   /** Composer mode chip default. */
-  mode?: 'sop' | 'direct' | 'hil' | 'yolo';
+  mode?: 'direct' | 'hil' | 'yolo';
 }
 
 /* ── Messenger message stream (group / direct) ───────────────────────────── */
@@ -63,6 +62,8 @@ export interface WsDeliverableCard {
   meta: string;
   format: string;
   contributorIds: string[];
+  /** Exportable artifact body. Omit when the thread only has metadata. */
+  content?: string;
 }
 
 export interface WsRunActivity {
@@ -154,27 +155,6 @@ export interface WsApproval {
   scope: GrantScope;
 }
 
-/* ── Docs (deliverables library) ─────────────────────────────────────────── */
-
-export type DocFormat = 'DOCX' | 'MD' | 'CSV' | 'PPTX' | 'PDF' | 'TXT' | 'HTML';
-export type DocKind = 'document' | 'file';
-
-export interface WsDoc {
-  id: string;
-  title: string;
-  kind: DocKind;
-  format: DocFormat;
-  /** Group the row sorts under (originating project / area). */
-  group: string;
-  contributorIds: string[];
-  sizeLabel: string;
-  updatedLabel: string;
-  /** Source chat thread the artifact was produced in. */
-  sourceThread: string;
-  /** Rendered document body (document kind). */
-  body?: { h1: string; sections: Array<{ h2?: string; p?: string; bullets?: string[] }> };
-}
-
 /* ── Contacts (the employee directory KV view) ───────────────────────────── */
 
 export interface ContactDetail {
@@ -183,7 +163,7 @@ export interface ContactDetail {
   presenceNote?: string;
   /** Zone label, e.g. "Engineering (workstation E-2)". */
   zone: string;
-  model: string;
+  model?: string;
   expertise: string;
   tools: string;
   toolsNote?: string;
@@ -255,8 +235,7 @@ const conversations: WsConversation[] = [
     members: 4,
     workingNow: 2,
     fileCount: 6,
-    docCount: 2,
-    mode: 'sop',
+    mode: 'hil',
   },
   {
     id: 'th-mara',
@@ -268,7 +247,6 @@ const conversations: WsConversation[] = [
     timeLabel: '14:30',
     unread: 1,
     fileCount: 2,
-    docCount: 1,
     mode: 'direct',
   },
   {
@@ -290,7 +268,6 @@ const conversations: WsConversation[] = [
     timeLabel: '13:55',
     read: true,
     fileCount: 1,
-    docCount: 1,
     mode: 'direct',
   },
   {
@@ -303,8 +280,7 @@ const conversations: WsConversation[] = [
     members: 3,
     workingNow: 0,
     fileCount: 4,
-    docCount: 3,
-    mode: 'sop',
+    mode: 'hil',
   },
   {
     id: 'th-audit',
@@ -316,7 +292,6 @@ const conversations: WsConversation[] = [
     timeLabel: 'Mon',
     muted: true,
     fileCount: 3,
-    docCount: 0,
     mode: 'direct',
   },
   {
@@ -330,7 +305,6 @@ const conversations: WsConversation[] = [
     section: 'earlier',
     read: true,
     fileCount: 0,
-    docCount: 0,
     mode: 'direct',
   },
 ];
@@ -374,13 +348,30 @@ const threadsById: Record<string, WsThread> = {
         employeeId: 'emp-orion',
         role: 'manager',
         timeLabel: '14:32',
-        body: "Fixture parser verified ✅ — wrote up the report. It's pinned under Docs for this thread.",
+        body: 'Fixture parser verified ✅ — wrote up the report. The artifact is attached to this thread.',
         deliverable: {
           id: 't-d1',
           title: 'Fixture Verification Report',
           meta: '2.4 KB · 1m',
-          format: 'DOCX',
+          format: 'MD',
           contributorIds: ['emp-orion', 'emp-devin'],
+          content: [
+            '# Fixture Verification Report',
+            '',
+            '## Scope',
+            '- Verified the Relay launch fixture parser against the deterministic harness sandbox.',
+            '- Confirmed the attachment metadata path resolves into this Workspace thread.',
+            '- Checked the remaining sign-off block before the doc-engine export handoff.',
+            '',
+            '## Result',
+            '- Parser fixture set: pass',
+            '- Attachment pipeline: pass',
+            '- Export handoff: blocked until the bound project workspace is available',
+            '',
+            '## Owners',
+            '- Orion Audit: verification lead',
+            '- Devin Park: sandbox bootstrap',
+          ].join('\n'),
         },
       },
     ],
@@ -585,122 +576,12 @@ const approvals: WsApproval[] = [
   },
 ];
 
-const docs: WsDoc[] = [
-  {
-    id: 'doc-roadmap',
-    title: 'Relay Roadmap Outline',
-    kind: 'document',
-    format: 'DOCX',
-    group: 'Relay Launch',
-    contributorIds: ['emp-mara', 'emp-devin', 'emp-sela', 'emp-orion'],
-    sizeLabel: '8.1 KB',
-    updatedLabel: '2m ago',
-    sourceThread: 'Relay Launch · Team',
-    body: {
-      h1: 'Relay Roadmap',
-      sections: [
-        {
-          p: 'Goals for the quarter, distilled from the launch kickoff. Owners are AI employees; the boss approves scope changes.',
-        },
-        {
-          h2: 'Workstreams',
-          bullets: [
-            'Ship the doc-engine verify flow (owner: Devin)',
-            'Harden the attachment pipeline — caps, MIME, non-UTF-8 (owner: Mara)',
-            'Close the UX / IA debt batch (owner: Sela)',
-          ],
-        },
-        {
-          h2: 'Milestones',
-          p: 'Week 1 — sandbox + parser verified. Week 2 — pipeline hardened. Week 3 — launch review & sign-off.',
-        },
-      ],
-    },
-  },
-  {
-    id: 'doc-fixture',
-    title: 'Fixture Verification Report',
-    kind: 'document',
-    format: 'MD',
-    group: 'Relay Launch',
-    contributorIds: ['emp-orion', 'emp-devin'],
-    sizeLabel: '2.4 KB',
-    updatedLabel: '1h ago',
-    sourceThread: 'Relay Launch · Team',
-    body: {
-      h1: 'Fixture Verification Report',
-      sections: [
-        {
-          p: 'The fixture parser was run against the deterministic harness sandbox and verified green.',
-        },
-        {
-          h2: 'Results',
-          bullets: [
-            'Empty files handled — no panic',
-            '8 MB cap enforced at the sandbox boundary',
-            'Non-UTF-8 input rejected with a clear error',
-          ],
-        },
-      ],
-    },
-  },
-  {
-    id: 'doc-metrics',
-    title: 'Launch metrics',
-    kind: 'file',
-    format: 'CSV',
-    group: 'Relay Launch',
-    contributorIds: ['emp-sela'],
-    sizeLabel: '1.2 KB',
-    updatedLabel: '3h ago',
-    sourceThread: 'Relay Launch · spec',
-  },
-  {
-    id: 'doc-deck',
-    title: 'Pitch deck v2',
-    kind: 'file',
-    format: 'PPTX',
-    group: 'Relay Launch',
-    contributorIds: ['emp-sela', 'emp-orion'],
-    sizeLabel: '4.6 MB',
-    updatedLabel: 'Mon',
-    sourceThread: 'Design Review',
-  },
-  {
-    id: 'doc-runbook',
-    title: 'DevOps runbook',
-    kind: 'document',
-    format: 'PDF',
-    group: 'Onboarding',
-    contributorIds: ['emp-devin'],
-    sizeLabel: '320 KB',
-    updatedLabel: 'Tue',
-    sourceThread: 'Onboarding',
-    body: {
-      h1: 'DevOps runbook',
-      sections: [{ p: 'How to provision the deterministic harness sandbox and roll a release.' }],
-    },
-  },
-  {
-    id: 'doc-log',
-    title: 'sandbox-bootstrap.log',
-    kind: 'file',
-    format: 'TXT',
-    group: 'Onboarding',
-    contributorIds: ['emp-devin'],
-    sizeLabel: '3.2 KB',
-    updatedLabel: 'Tue',
-    sourceThread: 'Relay Launch · Team',
-  },
-];
-
 /** Contact KV detail keyed by employee id (joined against `useEmployees()`). */
 const contactDetails: Record<string, ContactDetail> = {
   'emp-mara': {
     presence: 'working',
     presenceNote: '“Edge case review”',
     zone: 'Engineering (workstation E-2)',
-    model: 'MiniMax · M2.7 · Med',
     expertise: 'parsers · edge cases · TypeScript',
     tools: 'read_file · write_file · bash',
     toolsNote: '(ask for out-of-root)',
@@ -712,7 +593,6 @@ const contactDetails: Record<string, ContactDetail> = {
   'emp-devin': {
     presence: 'idle',
     zone: 'DevOps (workstation D-1)',
-    model: 'MiniMax · M2.7 · Med',
     expertise: 'sandboxes · CI · provisioning',
     tools: 'read_file · write_file · bash',
     decisionStyle: 'pragmatic · low risk',
@@ -723,7 +603,6 @@ const contactDetails: Record<string, ContactDetail> = {
   'emp-sela': {
     presence: 'offline',
     zone: 'Design (workstation S-1)',
-    model: 'MiniMax · M2.7 · Med',
     expertise: 'specs · writing · launch metrics',
     tools: 'read_file · write_file',
     decisionStyle: 'thorough · detail-first',
@@ -735,7 +614,6 @@ const contactDetails: Record<string, ContactDetail> = {
     presence: 'working',
     presenceNote: 'managing the Relay run',
     zone: 'Management (workstation M-1)',
-    model: 'MiniMax · M2.7 · High',
     expertise: 'planning · routing · static analysis',
     tools: 'plan · delegate · read_file',
     decisionStyle: 'decisive · risk-aware',
@@ -806,7 +684,7 @@ const agenda: AgendaDay[] = [
         kind: 'run',
         title: 'Weekly retro run',
         timeLabel: '10:00',
-        note: 'auto-scheduled SOP',
+        note: 'auto-scheduled run',
       },
     ],
   },
@@ -879,10 +757,6 @@ export function useWsApprovals() {
   return useQuery({ queryKey: ['ws', 'approvals'], queryFn: () => resolveAsync(approvals) });
 }
 
-export function useWsDocs() {
-  return useQuery({ queryKey: ['ws', 'docs'], queryFn: () => resolveAsync(docs) });
-}
-
 export function useWsContactDetails() {
   return useQuery({
     queryKey: ['ws', 'contact-details'],
@@ -915,7 +789,6 @@ export const GATE_HEAD_LABEL: Record<GateKind, string> = {
 };
 
 export const MODE_LABEL: Record<NonNullable<WsConversation['mode']>, string> = {
-  sop: 'SOP',
   direct: 'Direct',
   hil: 'HIL',
   yolo: 'YOLO',

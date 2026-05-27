@@ -10,7 +10,7 @@ export const INTERACTION_MODES = [
 export const DEFAULT_INTERACTION_MODE: InteractionMode = 'boss_proxy';
 
 export const INTERACTION_MODE_LABEL: Record<InteractionMode, string> = {
-  boss_proxy: 'SOP',
+  boss_proxy: 'Plan',
   human_in_loop: 'Human-in-loop',
   direct_to_employee: 'Direct',
   yolo: 'YOLO',
@@ -18,7 +18,7 @@ export const INTERACTION_MODE_LABEL: Record<InteractionMode, string> = {
 
 export const INTERACTION_MODE_DESCRIPTION: Record<InteractionMode, string> = {
   boss_proxy: 'Boss routes work through the standard manager and planner chain.',
-  human_in_loop: 'Boss routes work through SOP with explicit human approval gates.',
+  human_in_loop: 'Boss routes work through the planner with explicit human approval gates.',
   direct_to_employee: 'Work enters the planner and employee loop without boss ceremony.',
   yolo: 'A single autonomous YOLO Master owns the task end to end.',
 };

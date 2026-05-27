@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 // Origin-sync smoke check for the desktop release `.app` ↔ platform server CORS / CSP coupling.
-// Spec: openspec/specs/desktop-llm-credential-isolation/spec.md
 //   Invariant A — CSP `connect-src` SHALL include every platform listen origin the desktop webview reaches.
 //   Invariant B — `apps/platform/src/startup.ts` `DEV_DEFAULT_ORIGINS` SHALL include `tauri://localhost`.
 // Wired into `apps/desktop` and `apps/platform` `prebuild` so a drift on either side fails the build.

@@ -1,13 +1,16 @@
 import { useUiState } from '@/app/ui-state.js';
+import { isTauriRuntime, reposOrNull } from '@/data/adapters.js';
 import { useGitWorkbench, useProjectFiles, useProjects } from '@/data/queries.js';
-import type { GitFileChange, GitWorkbench } from '@/data/types.js';
+import type { FileNode, GitFileChange, GitWorkbench } from '@/data/types.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { SearchInput } from '@/design-system/grammar/SearchInput.js';
 import { Icon } from '@/design-system/icons/Icon.js';
-import { Button } from '@/design-system/primitives/button.js';
+import { Tabs, TabsList, TabsTrigger } from '@/design-system/primitives/tabs.js';
+import { pickWorkspaceFolder } from '@/lib/desktop-dialog.js';
 import { cn } from '@/lib/utils.js';
-import { EmptyState, SkeletonRows } from '@/surfaces/shared/SurfaceStates.js';
+import { EmptyState, ErrorState, SkeletonRows } from '@/surfaces/shared/SurfaceStates.js';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   ChevronRight,
   FileText,
@@ -17,8 +20,17 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { toast } from 'sonner';
 
 type PanelTab = 'files' | 'git';
+const FILE_PREVIEW_BYTES = 12_000;
+
+interface FilePreviewState {
+  path: string;
+  content: string;
+  truncated: boolean;
+  totalSize: number;
+}
 
 const STATUS_GLYPH: Record<GitFileChange['status'], string> = {
   added: 'A',
@@ -30,9 +42,18 @@ const STATUS_GLYPH: Record<GitFileChange['status'], string> = {
 function FilesTab({
   projectId,
   workspaceRoot,
-}: { projectId: string; workspaceRoot: string | null }) {
+  onBindFolder,
+}: {
+  projectId: string;
+  workspaceRoot: string | null;
+  onBindFolder: () => void;
+}) {
   const files = useProjectFiles(projectId);
   const [query, setQuery] = useState('');
+  const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [preview, setPreview] = useState<FilePreviewState | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   if (!workspaceRoot) {
     return (
@@ -40,15 +61,83 @@ function FilesTab({
         icon={FolderClosed}
         title="No workspace bound"
         description="Bind a local folder to give this project file context for runs."
-        action={{ label: 'Bind folder', onClick: () => {} }}
+        action={{ label: 'Bind folder', onClick: onBindFolder }}
       />
     );
   }
   if (files.isLoading) return <SkeletonRows rows={6} />;
 
+  const fileError = files.error;
+  if (fileError) {
+    return (
+      <ErrorState
+        title="Workspace files unavailable"
+        detail={
+          fileError instanceof Error
+            ? fileError.message
+            : typeof fileError === 'string'
+              ? fileError
+              : 'Project file listing failed.'
+        }
+        onRetry={() => void files.refetch()}
+      />
+    );
+  }
+
   const visible = (files.data ?? []).filter((n) =>
-    n.name.toLowerCase().includes(query.trim().toLowerCase()),
+    `${n.name} ${n.path}`.toLowerCase().includes(query.trim().toLowerCase()),
   );
+
+  async function selectNode(node: FileNode) {
+    setSelectedPath(node.path);
+    setPreview(null);
+    setPreviewError(null);
+    if (node.kind === 'dir') return;
+    if (!isTauriRuntime()) {
+      setPreviewError('File preview requires the desktop runtime.');
+      return;
+    }
+    setPreviewLoading(true);
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const result = await invoke<FilePreviewState>('project_read_file_preview', {
+        path: node.path,
+        cwd: null,
+        maxBytes: FILE_PREVIEW_BYTES,
+        projectId,
+      });
+      setPreview({ ...result, path: node.path });
+    } catch (error) {
+      setPreviewError(
+        error instanceof Error
+          ? error.message
+          : typeof error === 'string'
+            ? error
+            : 'File preview failed.',
+      );
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
+  async function openNode(node: FileNode) {
+    if (!isTauriRuntime()) {
+      toast.error('Open requires the desktop runtime');
+      return;
+    }
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('open_local_path', { projectId, path: node.path });
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : typeof error === 'string'
+            ? error
+            : 'Open local path failed',
+      );
+    }
+  }
 
   return (
     <>
@@ -61,32 +150,68 @@ function FilesTab({
       </div>
       <div className="off-ws-scroll">
         <CapsLabel className="px-[var(--off-sp-3)] pb-[var(--off-sp-1)]">Files</CapsLabel>
-        {visible.map((node, index) => (
-          <button
-            type="button"
-            key={`${index}-${node.depth}-${node.name}`}
-            className="off-tree-row off-focusable"
-            data-depth={node.depth}
-          >
-            <Icon
-              icon={node.kind === 'dir' ? ChevronRight : FileText}
-              size="sm"
-              className="off-tree-icon"
-            />
-            {node.name}
-          </button>
-        ))}
+        {visible.length > 0 ? (
+          visible.map((node, index) => (
+            <button
+              type="button"
+              key={`${index}-${node.depth}-${node.name}`}
+              className={cn(
+                'off-tree-row off-focusable',
+                selectedPath === node.path && 'is-active',
+              )}
+              data-depth={node.depth}
+              aria-pressed={selectedPath === node.path}
+              onClick={() => void selectNode(node)}
+              onDoubleClick={() => void openNode(node)}
+            >
+              <Icon
+                icon={node.kind === 'dir' ? ChevronRight : FileText}
+                size="sm"
+                className="off-tree-icon"
+              />
+              {node.name}
+            </button>
+          ))
+        ) : (
+          <EmptyState
+            icon={FileText}
+            title={files.data?.length ? 'No matching files' : 'Workspace folder is empty'}
+            description={
+              files.data?.length
+                ? 'Clear the search to return to the full project file list.'
+                : 'Add files to the bound folder, then rescan the workspace.'
+            }
+            action={
+              files.data?.length
+                ? undefined
+                : { label: 'Rescan', onClick: () => void files.refetch() }
+            }
+          />
+        )}
+        {selectedPath ? (
+          <section className="off-file-preview" aria-label="Selected workspace file">
+            <div className="off-file-preview-head">
+              <span>{selectedPath}</span>
+              {preview ? <span>{preview.totalSize.toLocaleString()} B</span> : null}
+            </div>
+            {previewLoading ? (
+              <div className="off-file-preview-empty">Loading preview...</div>
+            ) : null}
+            {previewError ? <div className="off-file-preview-error">{previewError}</div> : null}
+            {preview ? (
+              <pre className="off-file-preview-body">
+                {preview.content}
+                {preview.truncated ? '\n...' : ''}
+              </pre>
+            ) : null}
+          </section>
+        ) : null}
       </div>
     </>
   );
 }
 
 function GitTab({ workbench }: { workbench: GitWorkbench }) {
-  const [staged, setStaged] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(workbench.changes.map((c) => [c.path, c.staged])),
-  );
-  const stagedCount = Object.values(staged).filter(Boolean).length;
-
   return (
     <div className="off-gw">
       <div className="off-gw-branch">
@@ -101,24 +226,21 @@ function GitTab({ workbench }: { workbench: GitWorkbench }) {
         <CapsLabel>Changes · {workbench.changes.length}</CapsLabel>
         <div className="off-gw-files">
           {workbench.changes.map((change) => (
-            <label key={change.path} className="off-gw-file off-focusable">
-              <input
-                type="checkbox"
-                checked={Boolean(staged[change.path])}
-                onChange={(e) =>
-                  setStaged((prev) => ({ ...prev, [change.path]: e.target.checked }))
-                }
-              />
+            <div key={change.path} className="off-gw-file">
               <span className={cn('off-gw-status', `is-${change.status}`)}>
                 {STATUS_GLYPH[change.status]}
               </span>
+              {change.staged ? <span className="off-gw-stage">staged</span> : null}
               <span className="off-gw-path">{change.path}</span>
               <span className="off-gw-stat">
                 <span className="off-gw-add">+{change.added}</span>
                 <span className="off-gw-rem">−{change.removed}</span>
               </span>
-            </label>
+            </div>
           ))}
+          {workbench.changes.length === 0 ? (
+            <div className="off-gw-empty">No local changes</div>
+          ) : null}
         </div>
       </div>
 
@@ -148,23 +270,22 @@ function GitTab({ workbench }: { workbench: GitWorkbench }) {
       </div>
 
       <div className="off-gw-actions">
-        <Button variant="subtle" size="sm">
-          PR-ready
-        </Button>
-        <Button variant="default" size="sm" disabled={stagedCount === 0}>
-          Commit {stagedCount > 0 ? `(${stagedCount})` : ''}
-        </Button>
+        <span className="off-gw-action-state">Commit flow pending reviewed message workflow</span>
+        <span className="off-gw-action-state">PR flow pending Git provider binding</span>
       </div>
     </div>
   );
 }
 
 export function WorkspacePanel() {
+  const companyId = useUiState((s) => s.companyId);
   const projectId = useUiState((s) => s.projectId);
-  const projects = useProjects(useUiState((s) => s.companyId));
+  const queryClient = useQueryClient();
+  const projects = useProjects(companyId);
   const git = useGitWorkbench(projectId);
   const project = projects.data?.find((p) => p.id === projectId);
   const [tab, setTab] = useState<PanelTab>('files');
+  const [bindingFolder, setBindingFolder] = useState(false);
 
   const tabs = useMemo(
     () =>
@@ -175,30 +296,76 @@ export function WorkspacePanel() {
     [],
   );
 
+  async function bindWorkspaceFolder() {
+    if (!project) {
+      toast.error('Select a project before binding a folder');
+      return;
+    }
+    setBindingFolder(true);
+    try {
+      const folder = await pickWorkspaceFolder('Bind project workspace folder');
+      if (!folder) return;
+      const repos = await reposOrNull();
+      if (!repos) {
+        toast.error('Project binding requires the desktop runtime');
+        return;
+      }
+      await repos.projects.update(project.id, { workspace_root: folder });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['projects', companyId] }),
+        queryClient.invalidateQueries({ queryKey: ['project-files', project.id] }),
+        queryClient.invalidateQueries({ queryKey: ['git-workbench', project.id] }),
+      ]);
+      toast.success('Workspace folder bound');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Workspace binding failed');
+    } finally {
+      setBindingFolder(false);
+    }
+  }
+
+  async function rescanWorkspace() {
+    if (!project) return;
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['project-files', project.id] }),
+      queryClient.invalidateQueries({ queryKey: ['git-workbench', project.id] }),
+    ]);
+    toast.success('Workspace refreshed');
+  }
+
   return (
     <aside className="off-ws-panel">
       <div className="off-ws-head">
-        <div className="off-ws-tabs" role="tablist">
-          {tabs.map((t) => (
-            <button
-              type="button"
-              key={t.id}
-              role="tab"
-              aria-selected={tab === t.id}
-              className={cn('off-ws-tab off-focusable', tab === t.id && 'is-active')}
-              onClick={() => setTab(t.id)}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+        <Tabs value={tab} onValueChange={(value) => setTab(value as PanelTab)}>
+          <TabsList className="off-ws-tabs" aria-label="Workspace panel">
+            {tabs.map((t) => (
+              <TabsTrigger
+                key={t.id}
+                value={t.id}
+                className={cn('off-ws-tab off-focusable', tab === t.id && 'is-active')}
+              >
+                {t.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
         <div className="ml-auto">
-          <IconButton icon={RefreshCw} label="Rescan workspace" size="iconSm" />
+          <IconButton
+            icon={RefreshCw}
+            label="Rescan workspace"
+            size="iconSm"
+            onClick={() => void rescanWorkspace()}
+            disabled={!project?.workspaceRoot || bindingFolder}
+          />
         </div>
       </div>
 
       {tab === 'files' ? (
-        <FilesTab projectId={projectId} workspaceRoot={project?.workspaceRoot ?? null} />
+        <FilesTab
+          projectId={projectId}
+          workspaceRoot={project?.workspaceRoot ?? null}
+          onBindFolder={() => void bindWorkspaceFolder()}
+        />
       ) : git.isLoading ? (
         <SkeletonRows rows={6} />
       ) : git.data ? (

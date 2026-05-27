@@ -294,11 +294,12 @@ export function EmissiveMaterial({
   intensity?: number;
   tier?: EmissiveTier;
 }) {
+  const sc = useSceneColors();
   const resolvedIntensity = intensity ?? EMISSIVE_INTENSITY[tier];
   const surfaceRoughness = tier === 'screen' ? 0.6 : 1.0;
   return (
     <meshStandardMaterial
-      color="#000000"
+      color={sc.emissiveBase}
       emissive={color}
       emissiveIntensity={resolvedIntensity}
       roughness={surfaceRoughness}

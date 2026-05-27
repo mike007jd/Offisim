@@ -14,6 +14,7 @@ import type {
   RunScope,
 } from '../graph/state.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
+import { generateId } from '../utils/generate-id.js';
 import { NodeSummaryService } from './node-summary-service.js';
 import type {
   WorkspaceStalenessResult,
@@ -282,7 +283,7 @@ export class OrchestrationService {
      * Active project id; written into `graph_threads.project_id` on first use
      * and into `OffisimGraphState.projectId`. Required by the Tauri
      * builtin-tool sandbox (`project_id → workspace_root`); also threaded into
-     * `RunScope`-derived events so deliverables / activity / SOP can scope by
+     * `RunScope`-derived events so deliverables / activity can scope by
      * project. `null` for non-chat invocations (background_sync, install_flow).
      */
     projectId?: string | null;
@@ -657,7 +658,7 @@ export class OrchestrationService {
       recursionDepth,
     };
     this.runtimeCtx.eventBus.emit({
-      type: 'sop.dispatcher.recursion_limit',
+      type: 'plan.dispatcher.recursion_limit',
       entityId: plan?.planId ?? threadId,
       entityType: 'runtime',
       companyId: this.runtimeCtx.companyId,
@@ -666,10 +667,10 @@ export class OrchestrationService {
       payload,
     });
     await this.runtimeCtx.repos?.events?.insert({
-      event_id: `evt-${threadId}-dispatcher-recursion-${Date.now()}`,
+      event_id: generateId('evt'),
       company_id: this.runtimeCtx.companyId,
       thread_id: threadId,
-      event_type: 'sop.dispatcher.recursion_limit',
+      event_type: 'plan.dispatcher.recursion_limit',
       severity: 'error',
       payload_json: JSON.stringify(payload),
       created_at: new Date().toISOString(),
@@ -703,7 +704,7 @@ export class OrchestrationService {
     severity: 'warn' | 'error',
   ): Promise<void> {
     await this.runtimeCtx.repos?.events?.insert({
-      event_id: `evt-${threadId}-workspace-${Date.now()}`,
+      event_id: generateId('evt'),
       company_id: this.runtimeCtx.companyId,
       thread_id: threadId,
       event_type: 'workspace.staleness.detected',

@@ -7,10 +7,8 @@ import type {
   CompanyTemplateAssetRow,
   NewCompanyTemplateAsset,
   NewOfficeLayout,
-  NewSopTemplate,
   OfficeLayoutRow,
   RuntimeRepositories,
-  SopTemplateRow,
 } from '../../repositories.js';
 
 type Db = BetterSQLite3Database<typeof schema>;
@@ -20,7 +18,6 @@ function now(): string {
 }
 
 export interface WorkspaceDrizzleRepos {
-  sopTemplates: RuntimeRepositories['sopTemplates'];
   companyTemplates: RuntimeRepositories['companyTemplates'];
   officeLayouts: RuntimeRepositories['officeLayouts'];
   prefabInstances: RuntimeRepositories['prefabInstances'];
@@ -28,42 +25,6 @@ export interface WorkspaceDrizzleRepos {
 }
 
 export function createWorkspaceDrizzleRepos(db: Db): WorkspaceDrizzleRepos {
-  const sopTemplates: RuntimeRepositories['sopTemplates'] = {
-    // NOTE: not `async` — see EmployeeRepository.create for rationale.
-    create(template: NewSopTemplate) {
-      const ts = now();
-      const row: SopTemplateRow = { ...template, created_at: ts, updated_at: ts };
-      db.insert(schema.sopTemplates).values(row).run();
-      return Promise.resolve(row);
-    },
-    async findById(sopTemplateId) {
-      const rows = db
-        .select()
-        .from(schema.sopTemplates)
-        .where(eq(schema.sopTemplates.sop_template_id, sopTemplateId))
-        .all();
-      return (rows[0] as SopTemplateRow | undefined) ?? null;
-    },
-    async findByCompany(companyId) {
-      return db
-        .select()
-        .from(schema.sopTemplates)
-        .where(eq(schema.sopTemplates.company_id, companyId))
-        .all() as SopTemplateRow[];
-    },
-    async update(sopTemplateId, patch) {
-      db.update(schema.sopTemplates)
-        .set({ ...patch, updated_at: now() })
-        .where(eq(schema.sopTemplates.sop_template_id, sopTemplateId))
-        .run();
-    },
-    async delete(sopTemplateId) {
-      db.delete(schema.sopTemplates)
-        .where(eq(schema.sopTemplates.sop_template_id, sopTemplateId))
-        .run();
-    },
-  };
-
   const companyTemplates: RuntimeRepositories['companyTemplates'] = {
     create(template: NewCompanyTemplateAsset) {
       const ts = now();
@@ -252,5 +213,5 @@ export function createWorkspaceDrizzleRepos(db: Db): WorkspaceDrizzleRepos {
     },
   };
 
-  return { sopTemplates, companyTemplates, officeLayouts, prefabInstances, zones };
+  return { companyTemplates, officeLayouts, prefabInstances, zones };
 }

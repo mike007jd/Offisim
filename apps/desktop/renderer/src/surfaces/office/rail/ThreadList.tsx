@@ -1,19 +1,46 @@
 import { useUiState } from '@/app/ui-state.js';
+import { reposOrNull } from '@/data/adapters.js';
 import { useThreads } from '@/data/queries.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { RunStatePill } from '@/design-system/grammar/RunStatePill.js';
 import { SearchInput } from '@/design-system/grammar/SearchInput.js';
 import { cn } from '@/lib/utils.js';
 import { EmptyState, SkeletonRows } from '@/surfaces/shared/SurfaceStates.js';
+import { generateId } from '@offisim/core/browser';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { MessagesSquare, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { toast } from 'sonner';
 
 export function ThreadList() {
   const projectId = useUiState((s) => s.projectId);
   const selectedThreadId = useUiState((s) => s.selectedThreadId);
   const openThread = useUiState((s) => s.openThread);
   const threads = useThreads(projectId);
+  const queryClient = useQueryClient();
   const [query, setQuery] = useState('');
+  const createThread = useMutation({
+    mutationFn: async () => {
+      if (!projectId) throw new Error('Select a project before creating a thread.');
+      const repos = await reposOrNull();
+      if (!repos) throw new Error('Thread creation requires the desktop runtime.');
+      return repos.chatThreads.create({
+        thread_id: generateId('thread'),
+        project_id: projectId,
+        title: 'New thread',
+      });
+    },
+    onSuccess: async (thread) => {
+      await queryClient.invalidateQueries({ queryKey: ['threads', projectId] });
+      openThread(thread.thread_id);
+      toast.success('Thread created');
+    },
+    onError: (error) => {
+      toast.error('Thread creation failed', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
+    },
+  });
 
   const filtered = useMemo(() => {
     const list = threads.data ?? [];
@@ -28,7 +55,14 @@ export function ThreadList() {
     <>
       <div className="off-conv-list-head">
         <SearchInput value={query} onChange={setQuery} placeholder="Search threads" />
-        <IconButton icon={Plus} label="New thread" variant="subtle" size="icon" />
+        <IconButton
+          icon={Plus}
+          label="New thread"
+          variant="subtle"
+          size="icon"
+          disabled={createThread.isPending || !projectId}
+          onClick={() => createThread.mutate()}
+        />
       </div>
 
       {threads.isLoading ? (

@@ -2,8 +2,6 @@ import type { NewEmployee } from '@offisim/install-core';
 import type {
   InteractionKind,
   InteractionMode,
-  KanbanOrigin,
-  KanbanState,
   RoleSlug,
   SkillRow,
   SkillScope,
@@ -132,64 +130,6 @@ export interface MeetingSessionRow {
   summary_json: string | null;
   created_at: string;
   updated_at: string;
-}
-
-export interface KanbanCardRow {
-  id: string;
-  project_id: string;
-  company_id: string;
-  title: string;
-  note: string;
-  state: KanbanState;
-  origin: KanbanOrigin;
-  created_by_employee_id: string | null;
-  assigned_employee_id: string | null;
-  parent_card_id: string | null;
-  blocked_reason: string | null;
-  task_run_id: string | null;
-  sort_order: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export type NewKanbanCard = Pick<KanbanCardRow, 'project_id' | 'company_id' | 'title' | 'origin'> &
-  Partial<
-    Pick<
-      KanbanCardRow,
-      | 'id'
-      | 'note'
-      | 'state'
-      | 'created_by_employee_id'
-      | 'assigned_employee_id'
-      | 'parent_card_id'
-      | 'blocked_reason'
-      | 'task_run_id'
-      | 'sort_order'
-    >
-  >;
-
-export type KanbanCardUpdate = Partial<
-  Pick<KanbanCardRow, 'title' | 'assigned_employee_id' | 'blocked_reason'>
-> & {
-  note?: string | null;
-};
-
-export interface KanbanRepository {
-  create(input: NewKanbanCard): Promise<KanbanCardRow>;
-  update(id: string, input: KanbanCardUpdate): Promise<KanbanCardRow | null>;
-  transition(
-    id: string,
-    next: KanbanState,
-    blockedReason?: string | null,
-  ): Promise<KanbanCardRow | null>;
-  transitionByTaskRun(
-    taskRunId: string,
-    next: KanbanState,
-    blockedReason?: string | null,
-  ): Promise<void>;
-  listByProject(projectId: string): Promise<KanbanCardRow[]>;
-  listByEmployee(employeeId: string, state?: KanbanState): Promise<KanbanCardRow[]>;
-  assign(id: string, employeeId: string): Promise<void>;
 }
 
 export interface GraphCheckpointRow {
@@ -767,41 +707,6 @@ export interface ModelCostRateRepository {
   upsert(rate: NewModelCostRate): Promise<ModelCostRateRow>;
 }
 
-// ---------------------------------------------------------------------------
-// SOP Templates
-// ---------------------------------------------------------------------------
-
-export interface SopTemplateRow {
-  sop_template_id: string;
-  company_id: string;
-  name: string;
-  description: string;
-  definition_json: string;
-  source_thread_id: string | null;
-  source_url: string | null;
-  version: string | null;
-  last_synced_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export type NewSopTemplate = Omit<SopTemplateRow, 'created_at' | 'updated_at'>;
-
-export type SopTemplateUpdate = Partial<
-  Pick<
-    SopTemplateRow,
-    'name' | 'description' | 'definition_json' | 'source_url' | 'version' | 'last_synced_at'
-  >
->;
-
-export interface SopTemplateRepository {
-  create(template: NewSopTemplate): Promise<SopTemplateRow>;
-  findById(sopTemplateId: string): Promise<SopTemplateRow | null>;
-  findByCompany(companyId: string): Promise<SopTemplateRow[]>;
-  update(sopTemplateId: string, patch: SopTemplateUpdate): Promise<void>;
-  delete(sopTemplateId: string): Promise<void>;
-}
-
 export interface CompanyTemplateAssetRow {
   company_template_asset_id: string;
   company_id: string;
@@ -1226,7 +1131,6 @@ export interface RuntimeRepositories {
   fileHistory: FileHistoryRepository;
   employeeVersions: EmployeeVersionRepository;
   costRates: ModelCostRateRepository;
-  sopTemplates: SopTemplateRepository;
   companyTemplates: CompanyTemplateAssetRepository;
   racks: RackRepository;
   slots: SlotRepository;
@@ -1238,7 +1142,6 @@ export interface RuntimeRepositories {
   projects: ProjectRepository;
   projectAssignments: ProjectAssignmentRepository;
   chatThreads: ChatThreadRepository;
-  kanban: KanbanRepository;
   /** User-level preferences — optional for backward compatibility. */
   userPreferences?: UserPreferenceRepository;
   /** Agent event sourcing — optional for backward compatibility. */

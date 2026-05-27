@@ -15,9 +15,10 @@ interface MarketCardProps {
   installed: boolean;
   selected: boolean;
   onSelect: () => void;
+  onOpen: () => void;
 }
 
-export function MarketCard({ listing, installed, selected, onSelect }: MarketCardProps) {
+export function MarketCard({ listing, installed, selected, onSelect, onOpen }: MarketCardProps) {
   const tone = getRarityTone(listing.kind);
   const badgeIcon = kindIcon(listing.kind);
   const showInstalledPip = installed && INSTALLABLE_KINDS.has(listing.kind);
@@ -26,10 +27,17 @@ export function MarketCard({ listing, installed, selected, onSelect }: MarketCar
     <button
       type="button"
       onClick={onSelect}
+      onDoubleClick={onOpen}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          onOpen();
+        }
+      }}
+      aria-pressed={selected}
       className={cn(
         'off-mkt-card off-focusable',
         selected && 'is-selected',
-        listing.featured && 'is-featured',
       )}
       style={{ '--rc': tone.rc, '--rcs': tone.rcs } as CSSProperties}
     >

@@ -108,6 +108,7 @@ async fn apply_schema(pool: &SqlitePool) -> Result<(), String> {
 async fn apply_schema_compatibility(pool: &SqlitePool) -> Result<(), String> {
     ensure_task_runs_status_constraint(pool).await?;
     ensure_deliverables_chat_thread_id(pool).await?;
+    ensure_chat_threads_employee_id(pool).await?;
     ensure_llm_call_cache_token_columns(pool).await?;
 
     let rows = sqlx::query("PRAGMA table_info(install_transactions)")
@@ -133,6 +134,36 @@ async fn apply_schema_compatibility(pool: &SqlitePool) -> Result<(), String> {
     Ok(())
 }
 
+async fn ensure_chat_threads_employee_id(pool: &SqlitePool) -> Result<(), String> {
+    let rows = sqlx::query("PRAGMA table_info(chat_threads)")
+        .fetch_all(pool)
+        .await
+        .map_err(|err| format!("inspect chat_threads schema: {err}"))?;
+    if rows.is_empty() {
+        return Ok(());
+    }
+    let has_employee_id = rows.iter().any(|row| {
+        row.try_get::<String, _>("name")
+            .map(|name| name == "employee_id")
+            .unwrap_or(false)
+    });
+    if !has_employee_id {
+        raw_sql("ALTER TABLE chat_threads ADD COLUMN employee_id TEXT")
+            .execute(pool)
+            .await
+            .map_err(|err| format!("add chat_threads.employee_id: {err}"))?;
+    }
+    raw_sql(
+        "CREATE INDEX IF NOT EXISTS idx_chat_threads_project_employee
+          ON chat_threads(project_id, employee_id)",
+    )
+    .execute(pool)
+    .await
+    .map_err(|err| format!("create chat_threads.project_employee index: {err}"))?;
+
+    Ok(())
+}
+
 async fn ensure_llm_call_cache_token_columns(pool: &SqlitePool) -> Result<(), String> {
     let rows = sqlx::query("PRAGMA table_info(llm_calls)")
         .fetch_all(pool)
@@ -149,10 +180,12 @@ async fn ensure_llm_call_cache_token_columns(pool: &SqlitePool) -> Result<(), St
         })
     };
     if !has_column("cache_read_input_tokens") {
-        raw_sql("ALTER TABLE llm_calls ADD COLUMN cache_read_input_tokens INTEGER NOT NULL DEFAULT 0")
-            .execute(pool)
-            .await
-            .map_err(|err| format!("add llm_calls.cache_read_input_tokens: {err}"))?;
+        raw_sql(
+            "ALTER TABLE llm_calls ADD COLUMN cache_read_input_tokens INTEGER NOT NULL DEFAULT 0",
+        )
+        .execute(pool)
+        .await
+        .map_err(|err| format!("add llm_calls.cache_read_input_tokens: {err}"))?;
     }
     if !has_column("cache_creation_input_tokens") {
         raw_sql(

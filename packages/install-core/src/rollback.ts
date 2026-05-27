@@ -53,6 +53,21 @@ export async function rollback(
   );
   collectErrors(employeeResults, result.employeeIds, (id) => `employees.delete(${id})`, errors);
 
+  const skillResults = await Promise.allSettled(
+    (result.skillIds ?? []).map((id) => repos.skills?.delete(id)),
+  );
+  collectErrors(skillResults, result.skillIds ?? [], (id) => `skills.delete(${id})`, errors);
+
+  const skillVaultResults = await Promise.allSettled(
+    (result.skillVaultPaths ?? []).map((path) => repos.vault?.remove(path)),
+  );
+  collectErrors(
+    skillVaultResults,
+    result.skillVaultPaths ?? [],
+    (path) => `vault.remove(${path})`,
+    errors,
+  );
+
   const prefabResults = await Promise.allSettled(
     (result.prefabInstanceIds ?? []).map((id) => repos.prefabInstances?.delete(id)),
   );
@@ -70,16 +85,6 @@ export async function rollback(
     layoutResults,
     result.officeLayoutIds ?? [],
     (id) => `officeLayouts.delete(${id})`,
-    errors,
-  );
-
-  const sopResults = await Promise.allSettled(
-    (result.sopTemplateIds ?? []).map((id) => repos.sopTemplates?.delete(id)),
-  );
-  collectErrors(
-    sopResults,
-    result.sopTemplateIds ?? [],
-    (id) => `sopTemplates.delete(${id})`,
     errors,
   );
 

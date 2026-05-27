@@ -38,3 +38,4 @@ export { Label } from './label.js';
 export { Avatar, AvatarFallback, AvatarImage } from './avatar.js';
 export { Switch } from './switch.js';
 export { Progress } from './progress.js';
+export { Tabs, TabsContent, TabsList, TabsTrigger } from './tabs.js';

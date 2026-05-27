@@ -1,7 +1,10 @@
+import { reposOrNull } from '@/data/adapters.js';
 import { CapsLabel } from '@/design-system/grammar/index.js';
 import { Icon } from '@/design-system/icons/Icon.js';
+import { safeErrorMessage } from '@/lib/provider-bridge.js';
 import { cn } from '@/lib/utils.js';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
 import { Bot, Cpu, Plug, Users } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -26,6 +29,8 @@ import {
 
 type SettingsTab = 'provider' | 'runtime' | 'mcp' | 'external';
 
+const RUNTIME_SETTINGS_KEY = 'settings.runtime.v1';
+
 const NAV: ReadonlyArray<{ key: SettingsTab; label: string; icon: typeof Bot }> = [
   { key: 'provider', label: 'Provider', icon: Bot },
   { key: 'runtime', label: 'Runtime', icon: Cpu },
@@ -33,11 +38,88 @@ const NAV: ReadonlyArray<{ key: SettingsTab; label: string; icon: typeof Bot }> 
   { key: 'external', label: 'External Employees', icon: Users },
 ];
 
+function providerProtocol(product: string): 'anthropic' | 'openai' | 'openai-compat' {
+  if (product === 'minimax' || product === 'anthropic') return 'anthropic';
+  if (product === 'openai') return 'openai';
+  return 'openai-compat';
+}
+
+function isLoopbackEndpoint(baseUrl: string): boolean {
+  try {
+    const host = new URL(baseUrl).hostname;
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1';
+  } catch {
+    return false;
+  }
+}
+
+function providerBaseUrl(config: ProviderConfig, values: ProviderFormValues): string {
+  const override = values.endpointOverride.trim();
+  if (override) return override.replace(/\/$/u, '');
+  return config.credentialDestination.replace(/\/$/u, '');
+}
+
+interface PersistedRuntimeSettings {
+  runtime: RuntimeFormValues;
+  theme: ThemeValue;
+  density: DensityValue;
+}
+
+function isThemeValue(value: unknown): value is ThemeValue {
+  return value === 'system' || value === 'light' || value === 'dark';
+}
+
+function isDensityValue(value: unknown): value is DensityValue {
+  return value === 'compact' || value === 'normal' || value === 'spacious';
+}
+
+function parsePersistedRuntimeSettings(value: string | null): PersistedRuntimeSettings | null {
+  if (!value) return null;
+  try {
+    const raw = JSON.parse(value) as Partial<PersistedRuntimeSettings>;
+    const runtime = runtimeFormSchema.safeParse(raw.runtime);
+    if (!runtime.success) return null;
+    return {
+      runtime: runtime.data,
+      theme: isThemeValue(raw.theme) ? raw.theme : 'system',
+      density: isDensityValue(raw.density) ? raw.density : 'normal',
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function persistProviderProfile(config: ProviderConfig, values: ProviderFormValues) {
+  const { invoke } = await import('@tauri-apps/api/core');
+  const secret = values.apiKey.trim();
+  if (secret) {
+    await invoke('runtime_secret_set', { secret });
+  }
+  const baseUrl = providerBaseUrl(config, values);
+  await invoke('runtime_provider_profile_upsert', {
+    req: {
+      id: config.id,
+      displayName: config.displayName,
+      provider: providerProtocol(values.product),
+      model: values.model.trim(),
+      baseUrl,
+      secretRef: config.id,
+      localEndpoint: isLoopbackEndpoint(baseUrl),
+    },
+  });
+}
+
 export function SettingsSurface() {
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<SettingsTab>('provider');
   const [activeConfigId, setActiveConfigId] = useState(PROVIDER_CONFIGS[0].id);
+  const [activeProviderConfig, setActiveProviderConfig] = useState<ProviderConfig>(
+    PROVIDER_CONFIGS[0],
+  );
   const [theme, setTheme] = useState<ThemeValue>('system');
   const [density, setDensity] = useState<DensityValue>('normal');
+  const [savedTheme, setSavedTheme] = useState<ThemeValue>('system');
+  const [savedDensity, setSavedDensity] = useState<DensityValue>('normal');
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -54,15 +136,16 @@ export function SettingsSurface() {
 
   const providerDirty = providerForm.formState.isDirty;
   const runtimeDirty = runtimeForm.formState.isDirty;
+  const appearanceDirty = theme !== savedTheme || density !== savedDensity;
   const providerValid = providerForm.formState.isValid;
   const runtimeValid = runtimeForm.formState.isValid;
 
   const dirtyScopes = useMemo(() => {
     const scopes: string[] = [];
     if (providerDirty) scopes.push('provider');
-    if (runtimeDirty) scopes.push('runtime');
+    if (runtimeDirty || appearanceDirty) scopes.push('runtime');
     return scopes;
-  }, [providerDirty, runtimeDirty]);
+  }, [appearanceDirty, providerDirty, runtimeDirty]);
 
   const anyDirty = dirtyScopes.length > 0;
   const validationBlocked = anyDirty && (!providerValid || !runtimeValid);
@@ -76,9 +159,31 @@ export function SettingsSurface() {
     });
   }, [anyDirty]);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function loadRuntimeSettings() {
+      const repos = await reposOrNull();
+      if (!repos?.settings) return;
+      const persisted = parsePersistedRuntimeSettings(
+        await repos.settings.get(RUNTIME_SETTINGS_KEY),
+      );
+      if (!persisted || cancelled) return;
+      runtimeForm.reset(persisted.runtime);
+      setTheme(persisted.theme);
+      setDensity(persisted.density);
+      setSavedTheme(persisted.theme);
+      setSavedDensity(persisted.density);
+    }
+    void loadRuntimeSettings();
+    return () => {
+      cancelled = true;
+    };
+  }, [runtimeForm]);
+
   const onSelectConfig = useCallback(
     (config: ProviderConfig) => {
       setActiveConfigId(config.id);
+      setActiveProviderConfig(config);
       providerForm.reset(providerDefaults(config));
     },
     [providerForm],
@@ -88,16 +193,52 @@ export function SettingsSurface() {
     if (!anyDirty || validationBlocked) return;
     setSaveStatus('saving');
     setSaveError(null);
-    // Reinitialize phase only when provider/runtime defaults changed.
-    await new Promise((resolve) => setTimeout(resolve, 320));
-    setSaveStatus('post-save');
-    await new Promise((resolve) => setTimeout(resolve, 360));
-    // Persist: snapshot the current values as the new pristine baseline.
-    providerForm.reset(providerForm.getValues());
-    runtimeForm.reset(runtimeForm.getValues());
-    setSaveStatus('idle');
-    toast.success('Settings saved');
-  }, [anyDirty, validationBlocked, providerForm, runtimeForm]);
+    try {
+      if (providerDirty) {
+        const values = providerForm.getValues();
+        await persistProviderProfile(activeProviderConfig, values);
+        await queryClient.invalidateQueries({ queryKey: ['settings', 'provider-configs'] });
+      }
+      if (runtimeDirty || appearanceDirty) {
+        const repos = await reposOrNull();
+        if (!repos?.settings) {
+          throw new Error('Runtime settings persistence is only available in the desktop runtime');
+        }
+        await repos.settings.set(
+          RUNTIME_SETTINGS_KEY,
+          JSON.stringify({
+            runtime: runtimeForm.getValues(),
+            theme,
+            density,
+          } satisfies PersistedRuntimeSettings),
+        );
+      }
+      setSaveStatus('post-save');
+      providerForm.reset(providerForm.getValues());
+      runtimeForm.reset(runtimeForm.getValues());
+      setSavedTheme(theme);
+      setSavedDensity(density);
+      setSaveStatus('idle');
+      toast.success('Settings saved');
+    } catch (error) {
+      const message = safeErrorMessage(error);
+      setSaveError(message);
+      setSaveStatus('error');
+      toast.error('Settings save failed', { description: message });
+    }
+  }, [
+    activeProviderConfig,
+    anyDirty,
+    appearanceDirty,
+    density,
+    providerDirty,
+    providerForm,
+    queryClient,
+    runtimeDirty,
+    runtimeForm,
+    theme,
+    validationBlocked,
+  ]);
 
   const onRetry = useCallback(() => {
     setSaveStatus(anyDirty ? 'dirty' : 'idle');
@@ -117,12 +258,14 @@ export function SettingsSurface() {
       if (event.key === 'Escape' && anyDirty) {
         providerForm.reset();
         runtimeForm.reset();
+        setTheme(savedTheme);
+        setDensity(savedDensity);
         toast('Changes discarded');
       }
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [tab, anyDirty, onSave, providerForm, runtimeForm]);
+  }, [tab, anyDirty, onSave, providerForm, runtimeForm, savedDensity, savedTheme]);
 
   const showSaveBar = tab !== 'external';
 

@@ -139,11 +139,17 @@ function buildArtifactWorkflowFallback(employees: EmployeeRow[], intent: string)
     findEmployee(employees, (e) => /qa|review/u.test(e.role_slug), used) ??
     findEmployee(employees, (e) => /OpenRouter QA Analyst/u.test(e.name), used) ??
     findEmployee(employees, () => true, used);
-  const modelValidators = employees.filter(
-    (employee) =>
-      !used.has(employee.employee_id) &&
-      /MiniMax Stress Engineer|ZAI Planning Engineer|OpenRouter QA Analyst/u.test(employee.name),
-  );
+  const modelValidators = employees.filter((employee) => {
+    if (used.has(employee.employee_id)) return false;
+    const haystack = `${employee.name} ${employee.role_slug}`.toLowerCase();
+    return (
+      haystack.includes('model') ||
+      haystack.includes('provider') ||
+      haystack.includes('stress') ||
+      haystack.includes('planning') ||
+      haystack.includes('analyst')
+    );
+  });
   for (const employee of modelValidators) used.add(employee.employee_id);
 
   const steps: LlmPlanStep[] = [];

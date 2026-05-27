@@ -1,3 +1,4 @@
+import { UI_DATA_COLORS } from '@/data/color-palette.js';
 import type { CompanyTemplate } from '@/data/types.js';
 import {
   Brain,
@@ -21,42 +22,42 @@ export interface TemplateMeta {
 export const TEMPLATE_META: Record<string, TemplateMeta> = {
   'rd-company': {
     icon: FlaskConical,
-    accentHex: '#3b82f6',
+    accentHex: UI_DATA_COLORS.blue2,
     tagline: 'Build software with a full engineering team',
     bestFor: ['Software Development', 'Full Stack', 'Enterprise'],
     capabilities: ['Full-stack development', 'Code review & testing', 'Technical documentation'],
   },
   'content-studio': {
     icon: PenTool,
-    accentHex: '#10b981',
+    accentHex: UI_DATA_COLORS.green3,
     tagline: 'Create, edit, and publish content at scale',
     bestFor: ['Content Marketing', 'Publishing', 'Creative'],
     capabilities: ['Article & blog writing', 'Design & illustration', 'Editorial workflow'],
   },
   'product-team': {
     icon: Rocket,
-    accentHex: '#8b5cf6',
+    accentHex: UI_DATA_COLORS.violet3,
     tagline: 'Design and ship products from research to launch',
     bestFor: ['Product Strategy', 'Design Thinking', 'Agile'],
     capabilities: ['User research', 'Product strategy', 'Design prototyping'],
   },
   'agency-lite': {
     icon: Briefcase,
-    accentHex: '#f59e0b',
+    accentHex: UI_DATA_COLORS.amber,
     tagline: 'Lean team for client projects and quick deliveries',
     bestFor: ['Client Work', 'Freelance', 'Fast Delivery'],
     capabilities: ['Fast turnaround', 'Multi-client support', 'Flexible roles'],
   },
   'ai-startup': {
     icon: Brain,
-    accentHex: '#06b6d4',
+    accentHex: UI_DATA_COLORS.cyan,
     tagline: 'Research-first team pushing the boundaries of AI',
     bestFor: ['Machine Learning', 'Research', 'Data Science'],
     capabilities: ['ML research', 'Data analysis', 'Rapid prototyping'],
   },
   'create-your-own': {
     icon: Wrench,
-    accentHex: '#34d399',
+    accentHex: UI_DATA_COLORS.emerald,
     tagline: 'Design your office from scratch in the 3D Studio editor',
     bestFor: ['Custom layout', 'Full creative control'],
     capabilities: ['3D Studio Editor', 'Custom plot size', 'Free placement'],

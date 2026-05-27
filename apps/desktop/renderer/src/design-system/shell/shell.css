@@ -9,7 +9,7 @@
 
 .off-topbar {
   position: relative;
-  z-index: 20;
+  z-index: var(--off-z-overlay);
   display: flex;
   align-items: center;
   gap: var(--off-sp-5);
@@ -80,19 +80,24 @@
   flex: none;
   width: 20px;
   height: 20px;
-  border-radius: 26%;
+  border-radius: var(--off-avatar-radius);
+  background: linear-gradient(150deg, var(--off-scope-badge-a), var(--off-scope-badge-b));
   display: grid;
   place-items: center;
-  color: #fff;
-  font-size: 9.5px;
+  color: var(--off-accent-fg);
+  font-size: var(--off-fs-label);
   font-weight: 720;
-  letter-spacing: -0.02em;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+  letter-spacing: 0;
+  box-shadow: inset 0 0 0 1px var(--off-white-line);
 }
 
 .off-scope-caret {
   color: var(--off-ink-4);
   flex: none;
+}
+
+.off-scope-check {
+  color: var(--off-accent);
 }
 
 .off-scope-divider {
@@ -146,6 +151,11 @@
 .off-iconbar {
   margin-left: auto;
   gap: 2px;
+}
+
+.off-iconbar-entry {
+  display: inline-flex;
+  align-items: center;
 }
 
 .off-iconbar-divider {

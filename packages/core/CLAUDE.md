@@ -6,7 +6,7 @@ LangGraph kernel, agents, services, repos (Node.js). 浏览器代码必须用 `@
 
 - `HookRegistry` (**同步串行**, `await emit()` 阻塞流控用) ≠ `EventBus` (**异步 fire-and-forget**, 前缀订阅 UI 推送), 不要合并。图节点常常两个都 emit
 - `Scratchpad` per-runtime 临时存储, 持久化用 `MemoryService`
-- Boss node JSON 路由 **三层** 防御: (1) `BOSS_SYSTEM_PROMPT` 常量 (2) `TASK_KEYWORDS` 正则兜底 (3) `targetEmployeeId` / `sopTemplateId` 有效性校验。修改时三层同步
+- Boss node JSON 路由 **三层** 防御: (1) `BOSS_SYSTEM_PROMPT` 常量 (2) `TASK_KEYWORDS` 正则兜底 (3) `targetEmployeeId` 有效性校验。修改时三层同步
 - `NodeContextMiddleware` 共享 1800 char budget (summary 1000 + pack 700), 两半独立查询独立截断, 不要加独立 middleware
 - `InstallService.planCache` 是实例属性, `dispose()` 清理, 不要模块层缓存
 - Employee repo `create()` 可选 `employee_id`, `transact()` 中必须用预生成 ID (非 `void promise.then()`)
@@ -18,7 +18,7 @@ LangGraph kernel, agents, services, repos (Node.js). 浏览器代码必须用 `@
 - `read_attachment` 是唯一允许 AI 读 chat attachment 的 builtin：只在 gateway lane 进入 tool pool，执行时必须拿到当前 `companyId + RunScope.threadId`，并且 `vaultRef` 里的 company/thread 必须完全匹配；缺 scope、跨 company、跨 thread 都返回 `attachment-forbidden`，不要 fallback 到全局 store 或 graph thread。
 - **本地工具路由硬规则**：本地工具意图判定的 SSOT 在 `packages/core/src/agents/task-tool-intent.ts`（`detectTaskToolIntent` + `evidenceToolsForIntent` + 命名 vocabulary 集合）。Boss / Manager / PM preflight / direct setup / yolo entry 在入口处算一次，存入 `state.taskToolIntent`；下游消费者（manager / direct-setup / completion verifier）**只读 state field，禁止再 grep 文本**。`requiresLocalTools=true` 时只选 enabled internal employee；external A2A 员工没有本机工作区能力，不能作为证据来源；直聊 external A2A 做本地工具任务必须 fail fast。bare-noun（`file` / `命令` / `workspace` 等）和 narrative prose（"describe the workspace" / "file a bug"）不触发；只接 verb+object pairs / 显式 tool tokens / 中文 imperative。
 - **路由 rebind 必须 observable**：manager-node 把 LLM 选 external 的 assignment 过滤掉时、`pm-planner/sanitize-rebind.ts` 把缺失/disabled 员工换成 planner-recommended 时，都必须 emit `task.assignment.rerouted` 事件 + `logger.info` 镜像，原始 `requestedEmployeeId` / `resolvedEmployeeId` / `reason` 进 payload。reason union: `'requires-local-tools' | 'employee-not-found' | 'employee-disabled' | 'no-recommendation-fallback'`。`sanitizePlanEmployees` fallback 优先取 `LlmPlan.recommendedEmployees` 或 `ManagerDirective.recommendedEmployees`，最后才退到 `validEmployees[0]`（并标记 `no-recommendation-fallback`）。
-- **completion verifier 边界**：文件/读取任务要求 `read_file` 成功证据；写入/创建文件任务要求 `write_file` 成功证据；命令任务要求 `bash` 成功或预期失败证据；显式 verification 任务要求默认验证工具证据。普通 SOP 文本交付不得因为没有工具调用而被卡死，也不得为了过关伪造工具证据。
+- **completion verifier 边界**：文件/读取任务要求 `read_file` 成功证据；写入/创建文件任务要求 `write_file` 成功证据；命令任务要求 `bash` 成功或预期失败证据；显式 verification 任务要求默认验证工具证据。普通文本交付不得因为没有工具调用而被卡死，也不得为了过关伪造工具证据。
 - Deterministic harness scenarios must not assert mock LLM text as proof of success. `scripts/harness-contract.mjs` rejects any `finalOutputContains` assertion that exactly equals an `llmTurns[].content` value during load.
 - Boss employee context SSOT lives in `packages/core/src/agents/boss-node.ts`: both routing and direct-reply prompts must receive the active company roster from `repos.employees.findByCompany(companyId)` with at least `employee_id + name + role_slug`; if DB rows are non-empty but injected count is zero, emit `boss.employee-context.empty` once per company session.
 - Runtime workspace binding SSOT for file/shell tools is the active graph thread's project: carry `threadId` through `ToolCallRequest` into builtin adapters, resolve `graph_threads.project_id` first, then legacy `projects.thread_id`; if selected project has no usable `workspace_root`, emit `workspace-binding.unavailable` once per `(companyId, projectId)` session from the runtime-context layer.
@@ -34,16 +34,13 @@ LangGraph kernel, agents, services, repos (Node.js). 浏览器代码必须用 `@
 - zones 约束: 必须有 `rest`+`meeting` archetype, role 不可多 zone, 所有 role 需匹配
 - `companies.default_model_policy_json` 实际存公司描述, 字段名误导但不可重命名
 - Role 统一 `RoleSlug` branded type (shared-types/roles.ts)
-- `getExecutionBatches()` 是 `SopService.getExecutionOrder()` 本地副本, 两处必须同步
-- `step_dispatcher` / `step_advance` 终态必须共同认 `areAllPlanStepsTerminal()`；所有 step terminal 后只能进 `boss_summary`，不能再在 dispatcher/advance 间自循环。未来若又撞 LangGraph recursion limit，先看 `sop.dispatcher.recursion_limit` runtime event payload。
-- `PlanCreatedPayload.sopTemplateId` 贯穿 core→UI, 新增字段注意链路完整性
-- Marketplace 安装：employee 已物化；skill 作为一等 asset（T2.1 `add-skills-foundation-two-tier-schema`）schema + SkillLoader + 两层 scope + publish/install/fork/edit 主路径已落地；剩余主要是 UX 和 evidence 收口。sop / company_template / office_layout / prefab 仍未完成。Skill 不再嵌入 `employee.config_json.runtimeSkill`（该字段已删）
+- `step_dispatcher` / `step_advance` 终态必须共同认 `areAllPlanStepsTerminal()`；所有 step terminal 后只能进 `boss_summary`，不能再在 dispatcher/advance 间自循环。未来若又撞 LangGraph recursion limit，先看 `plan.dispatcher.recursion_limit` runtime event payload。
+- Marketplace 安装：employee 已物化；skill 作为一等 asset（T2.1 `add-skills-foundation-two-tier-schema`）schema + SkillLoader + 两层 scope + publish/install/fork/edit 主路径已落地；剩余主要是 UX 和 evidence 收口。company_template / office_layout / prefab 仍未完成。Skill 不再嵌入 `employee.config_json.runtimeSkill`（该字段已删）
 - `GitAutoCommitService` 桌面端专用, 浏览器 no-op
-- `SopSyncService` 先 JSON.parse 再 stringify 比较 definition, 避免 key 顺序差异
 
 ## Repository 三后端同步
 
-`packages/core/src/runtime/drizzle-repositories.ts` / `memory-repositories.ts` + `apps/desktop/renderer/src/lib/tauri-repos.ts` 现为 barrel（各 <200 行 NBNC）, 按 family 拆到 `runtime/repos/<family>/{drizzle,memory}.ts` + `tauri-repos/<family>.ts`。repo 接口变更必须跨 3 个 backend 同步对应 family 文件, 契约约束见 `openspec/specs/repository-backend-boundaries/spec.md`。自动 parity test 已删除, 靠人工 + spec 核对。
+`packages/core/src/runtime/drizzle-repositories.ts` / `memory-repositories.ts` + `apps/desktop/renderer/src/lib/tauri-repos.ts` 现为 barrel（各 <200 行 NBNC）, 按 family 拆到 `runtime/repos/<family>/{drizzle,memory}.ts` + `tauri-repos/<family>.ts`。repo 接口变更必须跨 3 个 backend 同步对应 family 文件。自动 parity test 已删除, 靠人工核对。
 
 ## Skills (SKILL.md open standard, vault-authoritative)
 

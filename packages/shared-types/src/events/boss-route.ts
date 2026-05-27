@@ -3,8 +3,7 @@ export type BossRouteAction =
   | 'direct_reply'
   | 'meeting'
   | 'hire_or_assess'
-  | 'direct_delegate'
-  | 'use_sop';
+  | 'direct_delegate';
 
 export interface BossRouteDecidedPayload {
   readonly action: BossRouteAction;
