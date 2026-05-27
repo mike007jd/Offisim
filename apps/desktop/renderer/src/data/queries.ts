@@ -321,37 +321,43 @@ function formatCostLabel(cost: number): string {
 
 async function loadRunCost(): Promise<RunCost> {
   if (!isTauriRuntime()) return { tokens: 0, costLabel: '$0.00', live: false };
-  const db = await getTauriDb();
-  const [calls, rates] = await Promise.all([
-    db.select<LlmUsageRow[]>(
-      `SELECT provider,
-              model,
-              input_tokens,
-              output_tokens,
-              cache_read_input_tokens,
-              cache_creation_input_tokens
-         FROM llm_calls`,
-    ),
-    db.select<CostRateRow[]>(
-      `SELECT provider,
-              model_pattern,
-              input_cost_per_mtok,
-              output_cost_per_mtok
-         FROM model_cost_rates
-        WHERE effective_until IS NULL OR effective_until > datetime('now')`,
-    ),
-  ]);
-  const tokens = calls.reduce(
-    (sum, call) =>
-      sum +
-      call.input_tokens +
-      call.output_tokens +
-      call.cache_read_input_tokens +
-      call.cache_creation_input_tokens,
-    0,
-  );
-  const cost = calls.reduce((sum, call) => sum + estimateCallCost(call, rates), 0);
-  return { tokens, costLabel: formatCostLabel(cost), live: calls.length > 0 };
+  try {
+    const db = await getTauriDb();
+    const [calls, rates] = await Promise.all([
+      db.select<LlmUsageRow[]>(
+        `SELECT provider,
+                model,
+                input_tokens,
+                output_tokens,
+                cache_read_input_tokens,
+                cache_creation_input_tokens
+           FROM llm_calls`,
+      ),
+      db.select<CostRateRow[]>(
+        `SELECT provider,
+                model_pattern,
+                input_cost_per_mtok,
+                output_cost_per_mtok
+           FROM model_cost_rates
+          WHERE effective_until IS NULL OR effective_until > datetime('now')`,
+      ),
+    ]);
+    const tokens = calls.reduce(
+      (sum, call) =>
+        sum +
+        call.input_tokens +
+        call.output_tokens +
+        call.cache_read_input_tokens +
+        call.cache_creation_input_tokens,
+      0,
+    );
+    const cost = calls.reduce((sum, call) => sum + estimateCallCost(call, rates), 0);
+    return { tokens, costLabel: formatCostLabel(cost), live: calls.length > 0 };
+  } catch {
+    // A missing/renamed cost table or column should degrade to a non-live zero
+    // cost, not surface as a hard query error in the cost UI.
+    return { tokens: 0, costLabel: '$0.00', live: false };
+  }
 }
 
 export function useRunCost() {

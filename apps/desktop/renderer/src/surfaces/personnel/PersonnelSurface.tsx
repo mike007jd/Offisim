@@ -533,7 +533,9 @@ function Inspector({
 
       const persona = safeJsonRecord(row.persona_json);
       const config = safeJsonRecord(row.config_json);
-      if (employee.appearance) persona.appearance = employee.appearance;
+      // persona.appearance already comes from the freshly-read row; do not
+      // reinject the (possibly stale) query snapshot, which can clobber an
+      // appearance just saved from the sibling appearance panel.
       persona.profile = {
         expertise: values.expertise,
         workingStyle: values.workingStyle,

@@ -405,7 +405,7 @@ export function StudioSurface() {
     }
   }
 
-  async function moveZone(dx: number, dz: number) {
+  function moveZone(dx: number, dz: number) {
     if (!selectedZone || !selectedZonePersisted || !zoneDraft) return;
     setZoneDraft({ ...zoneDraft, cx: zoneDraft.cx + dx, cz: zoneDraft.cz + dz });
   }

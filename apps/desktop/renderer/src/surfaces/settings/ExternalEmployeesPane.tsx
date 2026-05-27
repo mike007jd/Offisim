@@ -39,6 +39,7 @@ export function ExternalEmployeesPane() {
   const [tokenDrafts, setTokenDrafts] = useState<Record<string, string>>({});
   const [justInstalled, setJustInstalled] = useState<string | null>(null);
   const [refreshingId, setRefreshingId] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   function invalidateExternalEmployees() {
     void queryClient.invalidateQueries({ queryKey: ['settings', 'external-employees', companyId] });
@@ -76,14 +77,20 @@ export function ExternalEmployeesPane() {
   }
 
   async function disconnect(employee: ExternalEmployee) {
-    const repos = await reposOrNull();
-    if (!repos) {
-      toast.error('External employee changes require the release desktop app.');
-      return;
+    if (busyId === employee.id) return;
+    setBusyId(employee.id);
+    try {
+      const repos = await reposOrNull();
+      if (!repos) {
+        toast.error('External employee changes require the release desktop app.');
+        return;
+      }
+      await repos.employees.delete(employee.id);
+      invalidateExternalEmployees();
+      toast.success('External employee disconnected');
+    } finally {
+      setBusyId(null);
     }
-    await repos.employees.delete(employee.id);
-    invalidateExternalEmployees();
-    toast.success('External employee disconnected');
   }
 
   async function refreshAgentCard(employee: ExternalEmployee) {
@@ -117,21 +124,27 @@ export function ExternalEmployeesPane() {
   }
 
   async function saveToken(employee: ExternalEmployee) {
-    const token = tokenDrafts[employee.id]?.trim() ?? '';
-    const repos = await reposOrNull();
-    if (!repos) {
-      toast.error('External employee token changes require the release desktop app.');
-      return;
+    if (busyId === employee.id) return;
+    setBusyId(employee.id);
+    try {
+      const token = tokenDrafts[employee.id]?.trim() ?? '';
+      const repos = await reposOrNull();
+      if (!repos) {
+        toast.error('External employee token changes require the release desktop app.');
+        return;
+      }
+      await repos.employees.update(employee.id, { a2a_token: token || null });
+      invalidateExternalEmployees();
+      toast.success('Token saved');
+      setTokenEditId(null);
+      setTokenDrafts((prev) => {
+        const next = { ...prev };
+        delete next[employee.id];
+        return next;
+      });
+    } finally {
+      setBusyId(null);
     }
-    await repos.employees.update(employee.id, { a2a_token: token || null });
-    invalidateExternalEmployees();
-    toast.success('Token saved');
-    setTokenEditId(null);
-    setTokenDrafts((prev) => {
-      const next = { ...prev };
-      delete next[employee.id];
-      return next;
-    });
   }
 
   function openPersonnelProfile(employee: ExternalEmployee) {
@@ -234,6 +247,7 @@ export function ExternalEmployeesPane() {
                     size="iconSm"
                     variant="outline"
                     className="off-set-micro-danger"
+                    disabled={busyId === employee.id}
                     onClick={() => void disconnect(employee)}
                   />
                 </div>
@@ -252,7 +266,11 @@ export function ExternalEmployeesPane() {
                       }
                     />
                   </div>
-                  <Button size="md" onClick={() => void saveToken(employee)}>
+                  <Button
+                    size="md"
+                    disabled={busyId === employee.id}
+                    onClick={() => void saveToken(employee)}
+                  >
                     Save
                   </Button>
                   <Button variant="outline" size="md" onClick={() => setTokenEditId(null)}>

@@ -713,17 +713,21 @@ export function OfficeScene3D({
   const liveThread = threads.data?.find((t) => t.runState === 'running');
   const roster = employees.data ?? [];
 
-  const zoneDefs: ZoneDef[] = real
-    ? real.zones.map((z) => ({
-        id: z.zone_id,
-        label: z.label,
-        archetype: z.archetype ?? 'workspace',
-        cx: z.cx,
-        cz: z.cz,
-        w: z.w,
-        d: z.d,
-      }))
-    : FALLBACK_ZONES;
+  const zoneDefs: ZoneDef[] = useMemo(
+    () =>
+      real
+        ? real.zones.map((z) => ({
+            id: z.zone_id,
+            label: z.label,
+            archetype: z.archetype ?? 'workspace',
+            cx: z.cx,
+            cz: z.cz,
+            w: z.w,
+            d: z.d,
+          }))
+        : FALLBACK_ZONES,
+    [real],
+  );
 
   const defaultEmployeeZone = useMemo(() => {
     const workZone =
@@ -735,6 +739,14 @@ export function OfficeScene3D({
     () => employeePositions(roster, zoneDefs, defaultEmployeeZone),
     [defaultEmployeeZone, roster, zoneDefs],
   );
+
+  const threadByEmployee = useMemo(() => {
+    const map = new Map<string, NonNullable<typeof threads.data>[number]>();
+    for (const t of threads.data ?? []) {
+      if (t.employeeId && !map.has(t.employeeId)) map.set(t.employeeId, t);
+    }
+    return map;
+  }, [threads.data]);
 
   return (
     <Canvas
@@ -801,7 +813,7 @@ export function OfficeScene3D({
           defaultEmployeeZone.cx,
           defaultEmployeeZone.cz,
         ];
-        const thread = threads.data?.find((t) => t.employeeId === employee.id);
+        const thread = threadByEmployee.get(employee.id);
         const running =
           thread?.runState === 'running' || (liveThread?.scope === 'team' && employee.online);
         return (

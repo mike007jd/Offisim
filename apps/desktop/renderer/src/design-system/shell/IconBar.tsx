@@ -20,9 +20,9 @@ export function IconBar() {
 
   return (
     <div className="off-iconbar">
-      {UTILITY_ENTRIES.map((entry, index) => (
+      {UTILITY_ENTRIES.map((entry) => (
         <span key={entry.key} className="off-iconbar-entry">
-          {index === 2 ? <span className="off-iconbar-divider" aria-hidden /> : null}
+          {entry.key === 'studio' ? <span className="off-iconbar-divider" aria-hidden /> : null}
           <IconButton
             icon={entry.icon}
             label={entry.label}

@@ -130,8 +130,6 @@ export function MarketSurface() {
   const [detailListingId, setDetailListingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const isInstalled = (l: MarketListing) => l.installed;
-
   const filtered = useMemo(() => {
     let list = listings.data ?? [];
     if (kind !== 'all') list = list.filter((l) => l.kind === kind);
@@ -341,7 +339,7 @@ export function MarketSurface() {
         {detailOpen && detailListing ? (
           <MarketDetail
             listing={detailListing}
-            installed={isInstalled(detailListing)}
+            installed={detailListing.installed}
             onClose={() => setDetailListingId(null)}
             onInstall={() => void openInstall(detailListing)}
           />
@@ -365,7 +363,6 @@ export function MarketSurface() {
           <CardGrid
             listings={filtered}
             selectedId={selectedListingId}
-            isInstalled={isInstalled}
             onSelect={(id) => selectListing(id)}
             onOpen={openDetail}
           />
@@ -506,13 +503,11 @@ function ModeDropdown({
 function CardGrid({
   listings,
   selectedId,
-  isInstalled,
   onSelect,
   onOpen,
 }: {
   listings: MarketListing[];
   selectedId: string | null;
-  isInstalled: (l: MarketListing) => boolean;
   onSelect: (id: string) => void;
   onOpen: (listing: MarketListing) => void;
 }) {
@@ -569,7 +564,7 @@ function CardGrid({
                 <MarketCard
                   key={listing.id}
                   listing={listing}
-                  installed={isInstalled(listing)}
+                  installed={listing.installed}
                   selected={listing.id === selectedId}
                   onSelect={() => onSelect(listing.id)}
                   onOpen={() => onOpen(listing)}

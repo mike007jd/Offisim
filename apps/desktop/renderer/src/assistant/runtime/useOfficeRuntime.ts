@@ -68,6 +68,7 @@ export function useOfficeRuntime({
   const [drafts, setDrafts] = useState<ChatMessage[]>([]);
   const [isSending, setIsSending] = useState(false);
   const requestIdRef = useRef<string | null>(null);
+  const abortedRef = useRef(false);
   const messages = useMemo(() => [...seedMessages, ...drafts], [seedMessages, drafts]);
 
   const isRunning = useRunStore((s) => s.isRunning);
@@ -99,6 +100,7 @@ export function useOfficeRuntime({
       clearStaged();
       const requestId = newDraftId('provider');
       requestIdRef.current = requestId;
+      abortedRef.current = false;
       setIsSending(true);
       startRun('Provider response');
       try {
@@ -115,29 +117,39 @@ export function useOfficeRuntime({
           },
         ]);
       } catch (error) {
-        const messageText = safeErrorMessage(error);
-        toast.error('Provider send failed', { description: messageText });
-        setDrafts((prev) => [
-          ...prev,
-          {
-            id: newDraftId('provider-error'),
-            threadId,
-            author: 'system',
-            employeeId: null,
-            body: `Provider bridge failed: ${messageText}`,
-            at: Date.now(),
-          },
-        ]);
+        // A deliberate Stop aborts the in-flight request, which rejects here.
+        // That is a cancel, not a failure — skip the error toast/bubble.
+        if (!abortedRef.current) {
+          const messageText = safeErrorMessage(error);
+          toast.error('Provider send failed', { description: messageText });
+          setDrafts((prev) => [
+            ...prev,
+            {
+              id: newDraftId('provider-error'),
+              threadId,
+              author: 'system',
+              employeeId: null,
+              body: `Provider bridge failed: ${messageText}`,
+              at: Date.now(),
+            },
+          ]);
+        }
       } finally {
         requestIdRef.current = null;
         setIsSending(false);
-        finishRun();
+        // An aborted run is stopped (not "done"); only a settled request completes.
+        if (abortedRef.current) {
+          stop();
+        } else {
+          finishRun();
+        }
       }
     },
-    [threadId, staged, clearStaged, startRun, finishRun],
+    [threadId, staged, clearStaged, startRun, finishRun, stop],
   );
 
   const onCancel = useCallback(async () => {
+    abortedRef.current = true;
     const requestId = requestIdRef.current;
     if (requestId) {
       const { invoke } = await import('@tauri-apps/api/core');

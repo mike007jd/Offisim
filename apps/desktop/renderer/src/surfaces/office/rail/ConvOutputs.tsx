@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/design-system/primiti
 import { safeErrorMessage } from '@/lib/provider-bridge.js';
 import { cn } from '@/lib/utils.js';
 import { ChevronDown, Copy, FileCode2, FolderOpen, Save } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 const MAX_FACES = 3;
@@ -75,6 +75,13 @@ function DeliverableCard({
   const [open, setOpen] = useState(false);
   const [busyAction, setBusyAction] = useState<'save' | 'open' | null>(null);
   const [savedPath, setSavedPath] = useState<string | null>(null);
+  // The card persists across in-place deliverable updates (keyed by id), so a
+  // cached savedPath can outlive the content it points at — drop it when the
+  // body or name changes so Open re-saves the current output, not a stale file.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: preview/name are intentional reset triggers, not values read in the effect body.
+  useEffect(() => {
+    setSavedPath(null);
+  }, [deliverable.preview, deliverable.name]);
   const format = deliverable.format?.trim().toUpperCase() ?? 'TXT';
   const extension = TEXT_OUTPUT_EXTENSIONS[format] ?? null;
   const exportableBody = extension && deliverable.preview?.trim() ? deliverable.preview : null;

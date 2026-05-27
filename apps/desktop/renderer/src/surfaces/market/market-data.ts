@@ -265,7 +265,15 @@ export function compactInstalls(n: number): string {
 }
 
 export function canInstallListing(listing: MarketListing): boolean {
-  return INSTALLABLE_KINDS.has(listing.kind) && Boolean(listing.installArtifactUrl);
+  // Require a usable install route, not just an artifact URL: a registry
+  // listing whose artifact lacks a packageVersionId has installSource
+  // undefined and the install flow rejects it, so it must render the locked
+  // state rather than an Install button that always errors.
+  return (
+    INSTALLABLE_KINDS.has(listing.kind) &&
+    Boolean(listing.installArtifactUrl) &&
+    Boolean(listing.installSource)
+  );
 }
 
 const DESKTOP_INSTALL_ENVIRONMENT: RuntimeEnvironment = {
