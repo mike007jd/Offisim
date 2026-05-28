@@ -15,7 +15,11 @@ import {
 } from '@offisim/db-platform';
 import { and, eq } from 'drizzle-orm';
 import type { PlatformDb } from '../db.js';
-import { persistRegistryArtifact, registryArtifactPublicUrl } from './artifacts.js';
+import {
+  persistRegistryArtifact,
+  registryArtifactPublicUrl,
+  removeRegistryArtifact,
+} from './artifacts.js';
 
 export async function processModerationJob(db: PlatformDb, jobId: string): Promise<void> {
   const [job] = await db
@@ -118,9 +122,18 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
     }
   }
 
-  // Wrap all mutating operations in a transaction to prevent orphaned records
+  // FS-after-DB sequencing:
+  //   1. tx commits all DB rows (listing / packageVersions(artifact_url=null) /
+  //      lineage / tags / draft.approved / job.completed)
+  //   2. post-commit: write artifact bytes to disk
+  //   3. post-commit: update packageVersions.artifact_url to public URL
+  //   4. on any post-commit failure: hard-delete the row, revert draft,
+  //      mark job rejected, best-effort unlink the FS file
+  //
+  // The version id flows out of the tx callback for cleanup to use.
+  let committedVersionId: string;
   try {
-    await db.transaction(async (tx) => {
+    committedVersionId = await db.transaction(async (tx) => {
       // Create or update listing
       let listingId = draft.listing_id;
       if (!listingId) {
@@ -187,21 +200,8 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
       }
 
       const versionId = version.package_version_id;
-      const persistedArtifact = await persistRegistryArtifact(
-        versionId,
-        artifact.registry_bytes_base64,
-      );
-      if (
-        persistedArtifact.sha256 !== artifact.sha256 ||
-        persistedArtifact.size_bytes !== artifact.size_bytes
-      ) {
-        throw new Error('Artifact metadata changed before persistence');
-      }
-      const artifactUrl = registryArtifactPublicUrl(versionId);
-      await tx
-        .update(packageVersions)
-        .set({ artifact_url: artifactUrl })
-        .where(eq(packageVersions.package_version_id, versionId));
+      // Defer FS write until after tx commit. versionId returns to caller
+      // for the post-commit phases below.
 
       // Write lineage record if manifest contains lineage info
       if (lineage?.origin_listing_id || lineage?.origin_package_id) {
@@ -246,6 +246,7 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
           completed_at: new Date(),
         })
         .where(pendingJobPredicate);
+      return versionId;
     });
   } catch (err) {
     if (!isDuplicatePackageVersionDbError(err)) {
@@ -267,6 +268,55 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
       .update(publishDrafts)
       .set({ status: 'draft', updated_at: new Date() })
       .where(and(eq(publishDrafts.draft_id, draft.draft_id), eq(publishDrafts.status, 'submitted')));
+    return;
+  }
+
+  // Phase 3: persist artifact bytes to disk now that DB is committed.
+  // Phase 4: stamp the public URL onto packageVersions in a second DB write.
+  try {
+    const persistedArtifact = await persistRegistryArtifact(
+      committedVersionId,
+      artifact.registry_bytes_base64,
+    );
+    if (
+      persistedArtifact.sha256 !== artifact.sha256 ||
+      persistedArtifact.size_bytes !== artifact.size_bytes
+    ) {
+      throw new Error('Artifact metadata changed before persistence');
+    }
+    const artifactUrl = registryArtifactPublicUrl(committedVersionId);
+    await db
+      .update(packageVersions)
+      .set({ artifact_url: artifactUrl })
+      .where(eq(packageVersions.package_version_id, committedVersionId));
+  } catch (fsErr) {
+    // Compensating rollback: delete the version row, revert draft state,
+    // mark moderation job rejected, best-effort unlink any partial FS file.
+    await removeRegistryArtifact(committedVersionId);
+    try {
+      await db
+        .delete(packageVersions)
+        .where(eq(packageVersions.package_version_id, committedVersionId));
+    } catch {
+      /* version cleanup is best-effort */
+    }
+    await db
+      .update(publishDrafts)
+      .set({ status: 'submitted', updated_at: new Date() })
+      .where(eq(publishDrafts.draft_id, draft.draft_id));
+    await db
+      .update(moderationJobs)
+      .set({
+        status: 'completed',
+        result: {
+          outcome: 'rejected',
+          code: 'artifact_persistence_failed',
+          reason: fsErr instanceof Error ? fsErr.message : 'Failed to persist artifact bytes',
+        },
+        completed_at: new Date(),
+      })
+      .where(pendingJobPredicate);
+    throw fsErr;
   }
 }
 

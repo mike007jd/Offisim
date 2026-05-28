@@ -74,7 +74,12 @@ async function buildListingDetail(db: PlatformDb, listing: ListingRow, creator: 
     .where(eq(listingPreviews.listing_id, listingId))
     .orderBy(listingPreviews.sort_order);
 
-  const manifest = latestVersion?.manifest_json as Record<string, unknown> | undefined;
+  // G/I9 defence-in-depth: pull only the public sub-tree of the stored
+  // manifest. Even though `buildListingDetail` reads only requirements /
+  // permissions / lineage today, future fields added to the response should
+  // never accidentally leak `manifest.custom` (which may carry full asset
+  // bodies in legacy seed payloads).
+  const manifest = publicManifestView(latestVersion?.manifest_json);
 
   return {
     listing_id: listing.listing_id,
@@ -137,6 +142,25 @@ function normalizePreviewKind(kind: string): 'icon' | 'image' | 'video' | 'readm
     return kind;
   }
   return 'image';
+}
+
+/**
+ * Allow-list manifest fields that may be served to public API callers. This
+ * deliberately omits `custom` (where seed payloads historically embedded
+ * `skill_md_content` and other asset bodies), `assetFiles`, and any other
+ * non-metadata sub-tree. G/I9 — defence-in-depth so future response code
+ * can't accidentally surface a private field.
+ */
+function publicManifestView(
+  raw: unknown,
+): Record<string, unknown> | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const source = raw as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const key of ['requirements', 'permissions', 'lineage', 'package', 'assets'] as const) {
+    if (source[key] !== undefined) out[key] = source[key];
+  }
+  return out;
 }
 
 function publicLineage(lineage: unknown) {

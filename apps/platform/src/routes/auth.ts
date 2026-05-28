@@ -31,40 +31,55 @@ authRoute.post('/register-creator', requireAuth, requireSessionAuth, async (c) =
     throw new HTTPException(401, { message: 'Unauthorized' });
   }
 
-  // Check for handle uniqueness
-  const [existingHandle] = await db
-    .select()
-    .from(creators)
-    .where(eq(creators.handle, handle))
-    .limit(1);
-
-  if (existingHandle) {
-    throw new HTTPException(409, { message: 'Handle is already taken' });
-  }
-
-  // Check user doesn't already have a creator profile
-  const [existingCreator] = await db
-    .select()
-    .from(creators)
-    .where(eq(creators.user_id, userId))
-    .limit(1);
-
-  if (existingCreator) {
-    throw new HTTPException(409, { message: 'User already has a creator profile' });
-  }
-
-  const [created] = await db
-    .insert(creators)
-    .values({
-      user_id: userId,
-      handle,
-      display_name: displayName,
-      bio,
-    })
-    .returning();
-
-  if (!created) {
-    throw new HTTPException(500, { message: 'Failed to create creator profile' });
+  // Run the existence checks + insert inside one transaction. The previous
+  // shape (select handle → select user → insert) had a TOCTOU race: two
+  // requests racing for the same handle could both pass the select and both
+  // attempt the insert, with the DB unique constraint being the only stop.
+  // We still catch the unique-violation case below to surface a clean 409
+  // when our serialised check loses the race anyway. (G/I1)
+  let created: typeof creators.$inferSelect;
+  try {
+    created = await db.transaction(async (tx) => {
+      const [existingHandle] = await tx
+        .select({ creator_id: creators.creator_id })
+        .from(creators)
+        .where(eq(creators.handle, handle))
+        .limit(1);
+      if (existingHandle) {
+        throw new HTTPException(409, { message: 'Handle is already taken' });
+      }
+      const [existingCreator] = await tx
+        .select({ creator_id: creators.creator_id })
+        .from(creators)
+        .where(eq(creators.user_id, userId))
+        .limit(1);
+      if (existingCreator) {
+        throw new HTTPException(409, { message: 'User already has a creator profile' });
+      }
+      const [row] = await tx
+        .insert(creators)
+        .values({
+          user_id: userId,
+          handle,
+          display_name: displayName,
+          bio,
+        })
+        .returning();
+      if (!row) {
+        throw new HTTPException(500, { message: 'Failed to create creator profile' });
+      }
+      return row;
+    });
+  } catch (err) {
+    if (err instanceof HTTPException) throw err;
+    if (
+      err instanceof Error &&
+      /unique|duplicate key/i.test(err.message) &&
+      /handle|creators_user_id|creators_handle/i.test(err.message)
+    ) {
+      throw new HTTPException(409, { message: 'Handle is already taken' });
+    }
+    throw err;
   }
 
   return c.json({

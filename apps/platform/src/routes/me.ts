@@ -36,7 +36,10 @@ meRoute.get('/library', requireAuth, requireSessionAuth, async (c) => {
       .select()
       .from(listings)
       .innerJoin(creators, eq(listings.creator_id, creators.creator_id))
-      .where(inArray(listings.listing_id, listingIds)),
+      // OWASP API3:2023 data-exposure: never surface unlisted / retired /
+      // delisted entries through the user-facing library. status='listed' is
+      // the only state visible to clients.
+      .where(and(inArray(listings.listing_id, listingIds), eq(listings.status, 'listed'))),
     db
       .select()
       .from(packageVersions)

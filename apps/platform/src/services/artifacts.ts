@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 
 export const MAX_ARTIFACT_BYTES = 50 * 1024 * 1024;
@@ -57,6 +57,15 @@ export async function persistRegistryArtifact(
   await writeFile(tmpPath, decoded.bytes);
   await rename(tmpPath, finalPath);
   return decoded;
+}
+
+/** Best-effort removal of a persisted artifact (for FS-after-DB rollback). */
+export async function removeRegistryArtifact(packageVersionId: string): Promise<void> {
+  try {
+    await unlink(registryArtifactPath(packageVersionId));
+  } catch {
+    // ENOENT or permission — nothing useful to do at this layer.
+  }
 }
 
 export async function getRegistryArtifact(
