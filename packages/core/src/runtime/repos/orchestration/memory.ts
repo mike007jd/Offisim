@@ -51,7 +51,7 @@ export class MemoryCompanyRepository implements CompanyRepository {
     fields: Partial<
       Pick<
         CompanyRow,
-        'name' | 'status' | 'template_id' | 'template_label' | 'default_model_policy_json'
+        'name' | 'status' | 'template_id' | 'template_label' | 'description_json'
       >
     >,
   ): Promise<void> {

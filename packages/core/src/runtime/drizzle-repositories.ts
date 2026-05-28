@@ -33,6 +33,17 @@ function makeTransact(db: Db) {
   };
 }
 
+// Drizzle Node uses better-sqlite3, which is a single-threaded sync driver.
+// It cannot hold a SQLite transaction open across `await` boundaries — if we
+// tried, every microtask would either bail with SQLITE_BUSY or commit early.
+// So on Node we expose `asyncTransact` as a passthrough that simply awaits
+// fn(); callers needing atomic multi-write semantics must use the sync
+// `transact()` API on this backend. The portable callers (skill install,
+// install materializer) target the Tauri backend where asyncTransact is real.
+function makeAsyncTransact() {
+  return async <T>(fn: () => Promise<T>): Promise<T> => fn();
+}
+
 export function createDrizzleRepositories(db: Db, _eventBus?: EventBus): RuntimeRepositories {
   return {
     ...createOrchestrationDrizzleRepos(db),
@@ -49,5 +60,6 @@ export function createDrizzleRepositories(db: Db, _eventBus?: EventBus): Runtime
     ...createDeliverablesDrizzleRepos(db),
     ...createSkillsDrizzleRepos(db),
     transact: makeTransact(db),
+    asyncTransact: makeAsyncTransact(),
   };
 }

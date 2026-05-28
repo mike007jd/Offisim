@@ -297,6 +297,11 @@ export {
 export type { MemoryRepositoriesSnapshot } from './runtime/memory-repositories.js';
 export type { DeliverableContentLoader } from './runtime/repos/deliverables/memory.js';
 export { InMemoryMemoryRepository } from './repositories/memory-memory-repository.js';
+export {
+  buildMemoryUpdatePatch,
+  normalizeMemoryDedupeKey,
+} from './runtime/repos/memory-system/patch.js';
+export type { MemoryUpdateColumns } from './runtime/repos/memory-system/patch.js';
 export { MemoryUserPreferenceRepository } from './repositories/memory-user-preference-repository.js';
 export { createMemoryInstallRepositories } from './runtime/memory-install-repos.js';
 export type { MemoryInstallRepositoriesSnapshot } from './runtime/memory-install-repos.js';

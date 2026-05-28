@@ -51,6 +51,35 @@ export function createLlmDrizzleRepos(db: Db): LlmDrizzleRepos {
     },
   };
 
+  // Compiled-regex cache keyed by provider. Every cost lookup previously
+  // rebuilt N RegExp objects from `model_pattern` strings; on a hot streaming
+  // path with N=20+ patterns per provider this showed up. The cache is
+  // invalidated by `upsert` below — the only path that mutates the rates set.
+  const costRateRegexCache = new Map<string, { rows: ModelCostRateRow[]; compiled: RegExp[] }>();
+  function rebuildCostRateCache(provider: string): {
+    rows: ModelCostRateRow[];
+    compiled: RegExp[];
+  } {
+    const rows = db
+      .select()
+      .from(schema.modelCostRates)
+      .where(eq(schema.modelCostRates.provider, provider))
+      .all() as ModelCostRateRow[];
+    const compiled = rows.map((r) => {
+      // Escape regex metacharacters first, then translate glob wildcards (*
+      // → .*, ? → .). Without this, an unescaped '.' / '+' / '(' / '[' in
+      // model_pattern would be regex-meta and overmatch (e.g.
+      // 'gpt-4.5o-mini' would match 'gpt-4Xo-mini' and mis-bill).
+      const escaped = r.model_pattern
+        .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+        .replace(/\*/g, '.*')
+        .replace(/\?/g, '.');
+      return new RegExp(`^${escaped}$`, 'i');
+    });
+    const entry = { rows, compiled };
+    costRateRegexCache.set(provider, entry);
+    return entry;
+  }
   const costRates: ModelCostRateRepository = {
     async create(rate: NewModelCostRate) {
       const row: ModelCostRateRow = {
@@ -59,21 +88,18 @@ export function createLlmDrizzleRepos(db: Db): LlmDrizzleRepos {
         created_at: now(),
       };
       db.insert(schema.modelCostRates).values(row).run();
+      costRateRegexCache.delete(rate.provider);
       return row;
     },
     async findByProviderModel(provider, model) {
-      const rows = db
-        .select()
-        .from(schema.modelCostRates)
-        .where(eq(schema.modelCostRates.provider, provider))
-        .all() as ModelCostRateRow[];
-      const matching = rows.filter((r) => {
-        const regex = new RegExp(
-          `^${r.model_pattern.replace(/\*/g, '.*').replace(/\?/g, '.')}$`,
-          'i',
-        );
-        return regex.test(model);
-      });
+      const entry = costRateRegexCache.get(provider) ?? rebuildCostRateCache(provider);
+      const matching: ModelCostRateRow[] = [];
+      for (let i = 0; i < entry.rows.length; i++) {
+        if (entry.compiled[i]?.test(model)) {
+          const row = entry.rows[i];
+          if (row) matching.push(row);
+        }
+      }
       if (matching.length === 0) return null;
       matching.sort((a, b) => b.model_pattern.length - a.model_pattern.length);
       const [bestMatch] = matching;
@@ -105,6 +131,7 @@ export function createLlmDrizzleRepos(db: Db): LlmDrizzleRepos {
           },
         })
         .run();
+      costRateRegexCache.delete(rate.provider);
       const persisted = db
         .select()
         .from(schema.modelCostRates)

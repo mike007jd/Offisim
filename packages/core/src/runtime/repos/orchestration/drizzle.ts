@@ -180,22 +180,21 @@ export function createOrchestrationDrizzleRepos(db: Db): OrchestrationDrizzleRep
         .run();
     },
     async findQueue(companyId, opts) {
-      const threadRows = db
-        .select({ thread_id: schema.graphThreads.thread_id })
-        .from(schema.graphThreads)
-        .where(eq(schema.graphThreads.company_id, companyId))
-        .all();
-      const threadIds = threadRows.map((t) => t.thread_id);
-      if (threadIds.length === 0) return [];
-
-      const conditions = [inArray(schema.taskRuns.thread_id, threadIds)];
+      // Single inner-join over (task_runs ⨝ graph_threads) replaces the prior
+      // two-step "select threads → inArray on task_runs" pattern, which became
+      // an N+1 once a company accumulated many threads.
+      const conditions = [eq(schema.graphThreads.company_id, companyId)];
       if (opts?.statuses && opts.statuses.length > 0) {
         conditions.push(inArray(schema.taskRuns.status, opts.statuses));
       }
 
       let query = db
-        .select()
+        .select({ taskRun: schema.taskRuns })
         .from(schema.taskRuns)
+        .innerJoin(
+          schema.graphThreads,
+          eq(schema.taskRuns.thread_id, schema.graphThreads.thread_id),
+        )
         .where(and(...conditions))
         .orderBy(desc(schema.taskRuns.started_at));
 
@@ -203,24 +202,20 @@ export function createOrchestrationDrizzleRepos(db: Db): OrchestrationDrizzleRep
         query = query.limit(opts.limit) as typeof query;
       }
 
-      return query.all() as TaskRunRow[];
+      return query.all().map((row) => row.taskRun) as TaskRunRow[];
     },
     async countByStatus(companyId) {
-      const threadRows = db
-        .select({ thread_id: schema.graphThreads.thread_id })
-        .from(schema.graphThreads)
-        .where(eq(schema.graphThreads.company_id, companyId))
-        .all();
-      const threadIds = threadRows.map((t) => t.thread_id);
-      if (threadIds.length === 0) return {};
-
       const rows = db
         .select({
           status: schema.taskRuns.status,
           cnt: sql<number>`COUNT(*)`,
         })
         .from(schema.taskRuns)
-        .where(inArray(schema.taskRuns.thread_id, threadIds))
+        .innerJoin(
+          schema.graphThreads,
+          eq(schema.taskRuns.thread_id, schema.graphThreads.thread_id),
+        )
+        .where(eq(schema.graphThreads.company_id, companyId))
         .groupBy(schema.taskRuns.status)
         .all();
 

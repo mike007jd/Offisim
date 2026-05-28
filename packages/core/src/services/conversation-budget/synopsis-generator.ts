@@ -136,8 +136,13 @@ export class SynopsisGenerator {
       failure_streak: summarySource === 'llm' ? 0 : failureStreak,
       created_at: synopsis.updatedAt,
     });
+    // D/C4: use a freshly-generated id rather than a deterministic
+    // `evt-${threadId}-${version}` key. Two successive compactions at the same
+    // synopsis.version (which can happen when a retry repeats a previously
+    // failed pass) would otherwise hit the runtime_events UNIQUE(event_id)
+    // constraint. The version is now stored in payload_json, where it belongs.
     await ctx.repos.events.insert({
-      event_id: `evt-${ctx.threadId}-${synopsis.version}`,
+      event_id: generateId('evt'),
       company_id: ctx.companyId,
       thread_id: ctx.threadId,
       event_type: 'conversation.synopsis.updated',

@@ -64,8 +64,16 @@ export class UserMemoryService {
   constructor(
     private readonly prefRepo: UserPreferenceRepository,
     private readonly llmGateway: LlmGateway,
-    /** Model name to use for extraction LLM calls (e.g., 'gpt-4o-mini'). */
-    private readonly extractionModel: string = 'gpt-4o-mini',
+    /**
+     * Model name to use for extraction LLM calls. When `null`/omitted, the
+     * service refuses to dispatch a request rather than silently calling the
+     * old default `'gpt-4o-mini'` against whatever provider the gateway
+     * points at. The boss / employee turn machinery already supplies this
+     * from the active provider config; if it ends up null, the surface should
+     * disable user-memory extraction and tell the user instead of swallowing
+     * 401s. (D/I6)
+     */
+    private readonly extractionModel: string | null = null,
     systemCaller?: RecordedSystemLlmCaller,
   ) {
     this.systemCaller = systemCaller ?? null;
@@ -138,6 +146,15 @@ export class UserMemoryService {
     conversationText: string,
     threadId: string,
   ): Promise<void> {
+    if (!this.extractionModel) {
+      // Warn (not debug) so the silent no-op is visible in release logs;
+      // boss orchestration fires this fire-and-forget so there's no other
+      // signal to the caller that user-preference extraction is off.
+      logger.warn(
+        'UserMemoryService.doExtract skipped: no extractionModel configured; user-preference extraction is disabled until a provider model is configured.',
+      );
+      return;
+    }
     try {
       const messages = pruneLlmMessages(
         [

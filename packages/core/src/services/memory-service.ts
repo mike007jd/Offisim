@@ -208,12 +208,19 @@ export class MemoryService {
       ),
     );
 
-    // Prune least important memories when over limit
+    // Prune least important memories when over limit. CRITICAL: prune within
+    // the current scope only — team/company memories share `ownerId=companyId`
+    // for the company scope, so a global sort would treat a low-importance
+    // company memory as evictable when a high-importance team memory had
+    // recently filled the team-scope budget (D/C1). Each scope keeps its own
+    // 50-fact ceiling.
     const maxFacts = 50;
-    const allMemories = await this.memoryRepo.findByOwner(ownerId);
-    if (allMemories.length > maxFacts) {
-      const sorted = [...allMemories].sort((a, b) => a.importance - b.importance);
-      const toDelete = sorted.slice(0, allMemories.length - maxFacts);
+    const scopeMemories = (await this.memoryRepo.findByOwner(ownerId)).filter(
+      (m) => m.scope === params.scope,
+    );
+    if (scopeMemories.length > maxFacts) {
+      const sorted = [...scopeMemories].sort((a, b) => a.importance - b.importance);
+      const toDelete = sorted.slice(0, scopeMemories.length - maxFacts);
       await Promise.all(toDelete.map((mem) => this.memoryRepo.delete(mem.memory_id)));
     }
 

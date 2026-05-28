@@ -92,7 +92,7 @@ export interface CompanyRow {
   template_id: string | null;
   template_label: string | null;
   workspace_root: string | null;
-  default_model_policy_json: string | null;
+  description_json: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -210,7 +210,7 @@ export interface CompanyRepository {
     fields: Partial<
       Pick<
         CompanyRow,
-        'name' | 'status' | 'template_id' | 'template_label' | 'default_model_policy_json'
+        'name' | 'status' | 'template_id' | 'template_label' | 'description_json'
       >
     >,
   ): Promise<void>;
@@ -384,6 +384,17 @@ export interface MemoryReinforcementPatch {
   sourceTaskRunId?: string | null;
 }
 
+/**
+ * Direct field overwrite for human edits (Personnel memory tab). Unlike
+ * `reinforce`, this does not gate content by length, does not max-merge
+ * importance, and does not bump the reinforcement count — it writes exactly
+ * what the caller passes. `reinforce` stays reserved for runtime reinforcement.
+ */
+export interface MemoryUpdatePatch {
+  content?: string;
+  importance?: number;
+}
+
 export interface MemoryRepository {
   create(entry: MemoryEntryCreate): Promise<MemoryEntryRow>;
   findById(memoryId: string): Promise<MemoryEntryRow | null>;
@@ -398,6 +409,7 @@ export interface MemoryRepository {
     opts?: { category?: string; limit?: number },
   ): Promise<MemoryEntryRow[]>;
   reinforce(memoryId: string, patch: MemoryReinforcementPatch): Promise<MemoryEntryRow | null>;
+  update(memoryId: string, patch: MemoryUpdatePatch): Promise<MemoryEntryRow | null>;
   touchAccess(memoryId: string): Promise<void>;
 }
 
@@ -1160,4 +1172,16 @@ export interface RuntimeRepositories {
    * All repo .run() calls inside the callback share the same SQLite transaction.
    */
   transact?<T>(fn: () => T): T;
+  /**
+   * Async variant of {@link transact}. Available on every backend (Drizzle,
+   * Tauri sqlite-proxy, in-memory). Use this whenever a multi-write flow
+   * needs to run inside one logical transaction and the body has any awaits.
+   *
+   * - Drizzle (Node): wraps in a real `better-sqlite3` transaction.
+   * - Tauri sqlite-proxy: queues writes and commits them in a single
+   *   `local_db_execute_transaction` IPC call. SELECTs inside the callback
+   *   read committed state (no read-your-own-write isolation).
+   * - In-memory: no-op — calls fn() directly.
+   */
+  asyncTransact?<T>(fn: () => Promise<T>): Promise<T>;
 }

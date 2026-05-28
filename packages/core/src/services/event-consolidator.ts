@@ -6,6 +6,7 @@ import type { RecordedSystemLlmCaller } from '../llm/recorded-system-caller.js';
 import type { AgentEventRepository, MemoryRepository } from '../runtime/repositories.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { generateId } from '../utils/generate-id.js';
+import { sha256Text } from '../utils/hash.js';
 import { Logger } from './logger.js';
 
 const logger = new Logger('event-consolidator');
@@ -108,8 +109,15 @@ export class EventConsolidator {
     const importance =
       typeof parsed.importance === 'number' ? Math.max(0, Math.min(1, parsed.importance)) : 0.6;
 
-    // Store as company-scope experience memory
+    // Store as company-scope experience memory. We explicitly stamp
+    // `confidence` so downstream quality filters (which compare against
+    // 0.7 and treat `undefined < 0.7` as falsy → keep) actually see a real
+    // value, and `dedupe_key` so repeated consolidations of overlapping
+    // event sets don't insert duplicates (D/C5).
     const memoryId = generateId('mem');
+    const dedupeKey = await sha256Text(
+      `${opts.companyId}::company::experience::${parsed.summary}`,
+    );
     await this.memoryRepo.create({
       memory_id: memoryId,
       company_id: opts.companyId,
@@ -118,6 +126,8 @@ export class EventConsolidator {
       category: 'experience',
       content: parsed.summary,
       importance,
+      confidence: 0.85,
+      dedupe_key: dedupeKey,
       source_thread_id: opts.threadId,
     });
 

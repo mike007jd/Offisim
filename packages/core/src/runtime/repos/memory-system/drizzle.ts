@@ -12,20 +12,12 @@ import type {
   NodeSummaryRepository,
   NodeSummaryRow,
 } from '../../repositories.js';
+import { buildMemoryUpdatePatch, normalizeMemoryDedupeKey } from './patch.js';
 
 type Db = BetterSQLite3Database<typeof schema>;
 
 function now(): string {
   return new Date().toISOString();
-}
-
-function normalizeMemoryDedupeKey(content: string): string {
-  const normalized = content.normalize('NFKC').toLowerCase();
-  const simplified = normalized
-    .replace(/[.,:;/，。：；、]+/gu, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  return simplified || normalized.replace(/\s+/g, ' ').trim();
 }
 
 export interface MemorySystemDrizzleRepos {
@@ -160,6 +152,17 @@ export function createMemorySystemDrizzleRepos(db: Db): MemorySystemDrizzleRepos
         .where(eq(schema.memoryEntries.memory_id, memoryId))
         .run();
 
+      return memories.findById(memoryId);
+    },
+    async update(memoryId, patch) {
+      const existing = await memories.findById(memoryId);
+      if (!existing) return null;
+      const updates = buildMemoryUpdatePatch(patch);
+      if (Object.keys(updates).length === 0) return existing;
+      db.update(schema.memoryEntries)
+        .set(updates)
+        .where(eq(schema.memoryEntries.memory_id, memoryId))
+        .run();
       return memories.findById(memoryId);
     },
     async touchAccess(memoryId) {

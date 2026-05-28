@@ -1,22 +1,18 @@
+import {
+  buildMemoryUpdatePatch,
+  normalizeMemoryDedupeKey,
+} from '../runtime/repos/memory-system/patch.js';
 import type {
   MemoryDedupeLookup,
   MemoryEntryCreate,
   MemoryEntryRow,
   MemoryReinforcementPatch,
   MemoryRepository,
+  MemoryUpdatePatch,
 } from '../runtime/repositories.js';
 
 function now(): string {
   return new Date().toISOString();
-}
-
-function normalizeMemoryDedupeKey(content: string): string {
-  const normalized = content.normalize('NFKC').toLowerCase();
-  const simplified = normalized
-    .replace(/[.,:;/，。：；、]+/gu, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  return simplified || normalized.replace(/\s+/g, ' ').trim();
 }
 
 /**
@@ -140,6 +136,16 @@ export class InMemoryMemoryRepository implements MemoryRepository {
       reinforcement_count: row.reinforcement_count + 1,
       last_reinforced_at: now(),
     };
+    this.store.set(memoryId, updated);
+    return updated;
+  }
+
+  async update(memoryId: string, patch: MemoryUpdatePatch): Promise<MemoryEntryRow | null> {
+    const row = this.store.get(memoryId);
+    if (!row) return null;
+    const updates = buildMemoryUpdatePatch(patch);
+    if (Object.keys(updates).length === 0) return row;
+    const updated: MemoryEntryRow = { ...row, ...updates };
     this.store.set(memoryId, updated);
     return updated;
   }

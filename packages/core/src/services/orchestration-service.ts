@@ -502,6 +502,12 @@ export class OrchestrationService {
             : { ...previousState, ...delta };
           finalState = nextState;
 
+          // D/C3 deferred: this re-fetches the entire thread's llm_calls /
+          // mcp_audit history on every node exit (O(nodes × calls)). The
+          // correct fix is for each node to emit its own call IDs into
+          // nodeSummaryService so we never re-scan the whole table — that
+          // requires reworking the nodeSummaryService contract and every
+          // node entry, which is its own follow-up change.
           const llmCalls = llmCallRepo ? await llmCallRepo.findByThread(threadId) : [];
           const newLlmCalls = llmCalls.slice(llmCallCount);
           llmCallCount = llmCalls.length;
