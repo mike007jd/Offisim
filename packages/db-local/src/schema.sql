@@ -8,11 +8,13 @@ CREATE TABLE IF NOT EXISTS companies (
   company_id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'archived')),
+  template_id TEXT,
+  template_label TEXT,
   workspace_root TEXT,
-  default_model_policy_json TEXT,
+  description_json TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
-  , template_id TEXT, template_label TEXT);
+);
 CREATE TABLE IF NOT EXISTS workstations (
   workstation_id TEXT PRIMARY KEY,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
@@ -53,9 +55,15 @@ CREATE TABLE IF NOT EXISTS employees (
   persona_json TEXT,
   config_json TEXT,
   enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+  is_external INTEGER NOT NULL DEFAULT 0,
+  a2a_url TEXT,
+  a2a_token TEXT,
+  a2a_agent_id TEXT,
+  brand_key TEXT,
+  agent_card_json TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
-  , is_external INTEGER NOT NULL DEFAULT 0, a2a_url TEXT, a2a_token TEXT, a2a_agent_id TEXT, brand_key TEXT, agent_card_json TEXT);
+);
 CREATE TABLE IF NOT EXISTS install_transactions (
   install_txn_id TEXT PRIMARY KEY,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
@@ -104,8 +112,10 @@ CREATE TABLE IF NOT EXISTS installed_packages (
   package_hash TEXT NOT NULL,
   install_state TEXT NOT NULL CHECK (install_state IN ('installed', 'disabled', 'broken', 'pending_upgrade')),
   enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+  origin_listing_id TEXT,
+  origin_package_version_id TEXT,
   installed_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL, origin_listing_id TEXT, origin_package_version_id TEXT,
+  updated_at TEXT NOT NULL,
   UNIQUE(company_id, package_id, version)
 );
 CREATE TABLE IF NOT EXISTS installed_assets (
@@ -183,9 +193,10 @@ CREATE TABLE IF NOT EXISTS meeting_sessions (
   topic TEXT NOT NULL,
   status TEXT NOT NULL CHECK (status IN ('scheduled', 'running', 'paused', 'completed', 'cancelled')),
   summary_json TEXT,
+  interaction_mode TEXT NOT NULL DEFAULT 'boss_proxy',
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
-  , interaction_mode TEXT NOT NULL DEFAULT 'boss_proxy');
+);
 CREATE TABLE IF NOT EXISTS runtime_events (
   event_id TEXT PRIMARY KEY,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
@@ -210,8 +221,14 @@ CREATE TABLE IF NOT EXISTS llm_calls (
   response_json  TEXT,
   latency_ms    INTEGER,
   error_code    TEXT,
+  request_json TEXT,
+  tool_calls_json TEXT,
+  prompt_hash TEXT,
+  tools_hash TEXT,
+  response_hash TEXT,
+  recording_mode TEXT,
   created_at    TEXT NOT NULL DEFAULT (datetime('now'))
-  , request_json TEXT, tool_calls_json TEXT, prompt_hash TEXT, tools_hash TEXT, response_hash TEXT, recording_mode TEXT);
+);
 CREATE TABLE IF NOT EXISTS checkpoints (
   thread_id TEXT NOT NULL,
   checkpoint_ns TEXT NOT NULL DEFAULT '',
@@ -317,9 +334,12 @@ CREATE TABLE IF NOT EXISTS "graph_threads" (
     'queued', 'running', 'blocked', 'paused', 'completed', 'failed', 'cancelled'
   )),
   project_id   TEXT,
+  compact_baseline_json TEXT,
+  interaction_mode TEXT NOT NULL DEFAULT 'boss_proxy',
+  synopsis_json TEXT,
   created_at   TEXT NOT NULL,
   updated_at   TEXT NOT NULL
-  , compact_baseline_json TEXT, interaction_mode TEXT NOT NULL DEFAULT 'boss_proxy', synopsis_json TEXT);
+);
 CREATE TABLE IF NOT EXISTS projects (
   project_id  TEXT PRIMARY KEY,
   company_id  TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
@@ -396,9 +416,10 @@ CREATE TABLE IF NOT EXISTS active_thread_interactions (
   kind TEXT NOT NULL,
   interaction_mode TEXT NOT NULL,
   request_json TEXT NOT NULL,
+  payload_json TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
-  , payload_json TEXT);
+);
 CREATE TABLE IF NOT EXISTS interaction_history (
   history_id TEXT PRIMARY KEY,
   interaction_id TEXT NOT NULL,
@@ -411,9 +432,10 @@ CREATE TABLE IF NOT EXISTS interaction_history (
   freeform_response TEXT,
   request_json TEXT NOT NULL,
   response_json TEXT,
+  payload_json TEXT,
   created_at TEXT NOT NULL,
   resolved_at TEXT NOT NULL
-  , payload_json TEXT);
+);
 CREATE TABLE IF NOT EXISTS "mcp_audit_log" (
   audit_id TEXT PRIMARY KEY,
   thread_id TEXT NOT NULL REFERENCES graph_threads(thread_id) ON DELETE CASCADE,
@@ -575,8 +597,13 @@ CREATE INDEX IF NOT EXISTS idx_chat_threads_project_updated
   ON chat_threads(project_id, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_chat_threads_project_employee
   ON chat_threads(project_id, employee_id);
-CREATE INDEX IF NOT EXISTS idx_chat_threads_project_active
-  ON chat_threads(project_id, archived_at, updated_at DESC);
+-- Partial index: only non-archived threads contribute. The legacy three-col
+-- index on (project_id, archived_at, updated_at DESC) couldn't be used by the
+-- common "active threads for project" lookup because SQLite can't seek past a
+-- NULL filter cleanly. WHERE archived_at IS NULL flips the same query into a
+-- pure (project_id, updated_at DESC) scan and shrinks the index footprint.
+CREATE INDEX IF NOT EXISTS idx_chat_threads_project_active_partial
+  ON chat_threads(project_id, updated_at DESC) WHERE archived_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_project_assignments_project
   ON project_assignments(project_id);
 CREATE INDEX IF NOT EXISTS idx_project_assignments_employee

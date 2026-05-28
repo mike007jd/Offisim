@@ -202,7 +202,7 @@ export interface ResolvedProviderVariant {
   readonly modelIds: ReadonlyArray<string>;
 }
 
-/** Company-level model policy stored in companies.default_model_policy_json */
+/** Company-level model policy stored in companies.description_json */
 export interface ModelPolicyConfig {
   readonly default: ModelProfile;
   readonly overrides?: Readonly<Record<string, ModelProfile>>;

@@ -35,7 +35,7 @@ export const companies = sqliteTable('companies', {
   template_id: text('template_id'),
   template_label: text('template_label'),
   workspace_root: text('workspace_root'),
-  default_model_policy_json: text('default_model_policy_json'),
+  description_json: text('description_json'),
   created_at: text('created_at').notNull(),
   updated_at: text('updated_at').notNull(),
 });
@@ -313,11 +313,13 @@ export const chatThreads = sqliteTable(
   (table) => [
     index('idx_chat_threads_project_updated').on(table.project_id, table.updated_at),
     index('idx_chat_threads_project_employee').on(table.project_id, table.employee_id),
-    index('idx_chat_threads_project_active').on(
-      table.project_id,
-      table.archived_at,
-      table.updated_at,
-    ),
+    // Partial index — only live (non-archived) threads. See schema.sql for
+    // rationale. Replaces the older `idx_chat_threads_project_active`
+    // three-column index which couldn't be used efficiently for the common
+    // "list active threads for project, newest first" query.
+    index('idx_chat_threads_project_active_partial')
+      .on(table.project_id, table.updated_at)
+      .where(sql`${table.archived_at} IS NULL`),
   ],
 );
 

@@ -32,7 +32,7 @@ LangGraph kernel, agents, services, repos (Node.js). 浏览器代码必须用 `@
 - 员工→zone 用 `resolveZoneForRole()` 按 targetRoles, 不要用 `ROLE_TO_DEPARTMENT`
 - 模板 `CompanyTemplate.zones?` 自定义, 无时 fallback `SYSTEM_ZONE_TEMPLATES` (7)。用 `createZoneBlueprint()` 工厂
 - zones 约束: 必须有 `rest`+`meeting` archetype, role 不可多 zone, 所有 role 需匹配
-- `companies.default_model_policy_json` 实际存公司描述, 字段名误导但不可重命名
+- `companies.description_json` 存公司描述 JSON(2026-05-29 从 `default_model_policy_json` rename — pre-launch 单基线 schema 允许 rename)
 - Role 统一 `RoleSlug` branded type (shared-types/roles.ts)
 - `step_dispatcher` / `step_advance` 终态必须共同认 `areAllPlanStepsTerminal()`；所有 step terminal 后只能进 `boss_summary`，不能再在 dispatcher/advance 间自循环。未来若又撞 LangGraph recursion limit，先看 `plan.dispatcher.recursion_limit` runtime event payload。
 - Marketplace 安装：employee 已物化；skill 作为一等 asset（T2.1 `add-skills-foundation-two-tier-schema`）schema + SkillLoader + 两层 scope + publish/install/fork/edit 主路径已落地；剩余主要是 UX 和 evidence 收口。company_template / office_layout / prefab 仍未完成。Skill 不再嵌入 `employee.config_json.runtimeSkill`（该字段已删）
