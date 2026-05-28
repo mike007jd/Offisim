@@ -424,6 +424,30 @@ export class SkillLoader {
       skillSlug: slug,
     });
 
+    const ts = String(now());
+    const row: SkillRow = {
+      skill_id: skillId,
+      company_id: args.companyId,
+      employee_id: scopeEmployeeId,
+      scope: args.scope,
+      slug,
+      name: args.name,
+      description: args.description,
+      version: args.version ?? '0.1.0',
+      source_kind: sourceKindForInsert(args.source),
+      source_ref: sourceRef,
+      vault_path: paths.skillMdPath,
+      created_at: ts,
+      updated_at: ts,
+    };
+
+    // FS-after-DB: insert the row first so a mid-write crash leaves an orphan
+    // DB row pointing at a missing vault file. That's observable through
+    // `listSkillsForEmployee` + a subsequent `loadSkillBody` ENOENT, and the
+    // user can clean it from the Skills UI. The previous order (FS first) left
+    // orphan vault files with no DB anchor, which were invisible.
+    await this.skills.insert(row);
+
     const writtenPaths: string[] = [];
     try {
       await this.fs.writeFile(paths.skillMdPath, args.files.skillMd);
@@ -437,27 +461,10 @@ export class SkillLoader {
         writtenPaths.push(assetPath);
       }
 
-      const ts = String(now());
-      const row: SkillRow = {
-        skill_id: skillId,
-        company_id: args.companyId,
-        employee_id: scopeEmployeeId,
-        scope: args.scope,
-        slug,
-        name: args.name,
-        description: args.description,
-        version: args.version ?? '0.1.0',
-        source_kind: sourceKindForInsert(args.source),
-        source_ref: sourceRef,
-        vault_path: paths.skillMdPath,
-        created_at: ts,
-        updated_at: ts,
-      };
-      await this.skills.insert(row);
       // Only marketplace installs surface to the Market UI's installed-state
       // signal — git / upload / fork / claude-code / codex / self-authored
-      // sources have no listing to map to. Emit happens after the row insert
-      // so subscribers can trust the DB matches the event.
+      // sources have no listing to map to. Emit happens after FS+DB are
+      // consistent so subscribers can trust the DB row matches the vault.
       if (args.source.kind === 'marketplace' && this.events) {
         this.events.emitMarketListingInstalled(args.companyId, args.source.listingId, 'skill', {
           skillId: row.skill_id,
@@ -466,12 +473,20 @@ export class SkillLoader {
       }
       return { row, wasExisting: false };
     } catch (err) {
+      // Compensating rollback: unlink any partial FS writes, then delete the
+      // DB row. Best-effort — if any step fails we still surface the original
+      // error to the caller.
       for (const written of writtenPaths.reverse()) {
         try {
           await this.fs.remove(written);
         } catch {
           /* best-effort rollback */
         }
+      }
+      try {
+        await this.skills.delete(row.skill_id);
+      } catch {
+        /* best-effort rollback — orphan row preferred over hiding the error */
       }
       throw err;
     }
@@ -483,13 +498,18 @@ export class SkillLoader {
    * preserved byte-equivalently via `serializeSkillMd`; only the body + DB
    * `version` (patch bump) + `updated_at` change.
    *
-   * Scope / ownership guards are the caller's responsibility — this loader is
-   * a generic write API future mutation paths (T2.5 peer-transfer,
-   * T2.6 self-improve) will reuse.
+   * Defence-in-depth (C/C-11): callers SHOULD supply `expectedCompanyId` so
+   * the loader refuses to overwrite a skill that doesn't live in the active
+   * company's vault. Calls without `expectedCompanyId` continue to work
+   * (preserves the generic-write-API shape used by future T2.5 peer-transfer
+   * / T2.6 self-improve), but those callers must keep doing their own scope
+   * gate at the staging layer.
    */
   async editSkillBody(args: {
     skillId: string;
     newBody: string;
+    expectedCompanyId?: string;
+    expectedEmployeeId?: string | null;
     now?: () => number;
   }): Promise<{ row: SkillRow }> {
     const now = args.now ?? (() => Date.now());
@@ -498,6 +518,24 @@ export class SkillLoader {
       throw new SkillEditError(
         'skill-not-found',
         `editSkillBody: skill ${args.skillId} not found`,
+        args.skillId,
+      );
+    }
+
+    if (args.expectedCompanyId !== undefined && row.company_id !== args.expectedCompanyId) {
+      throw new SkillEditError(
+        'skill-not-found',
+        `editSkillBody: skill ${args.skillId} does not belong to company ${args.expectedCompanyId}`,
+        args.skillId,
+      );
+    }
+    if (
+      args.expectedEmployeeId !== undefined &&
+      (row.employee_id ?? null) !== (args.expectedEmployeeId ?? null)
+    ) {
+      throw new SkillEditError(
+        'skill-not-found',
+        `editSkillBody: skill ${args.skillId} does not belong to employee ${args.expectedEmployeeId ?? '(company-scope)'}`,
         args.skillId,
       );
     }

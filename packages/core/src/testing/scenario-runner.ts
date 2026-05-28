@@ -650,7 +650,7 @@ async function seedScenario(params: {
     template_id: null,
     template_label: 'Harness',
     workspace_root: null,
-    default_model_policy_json: null,
+    description_json: null,
     created_at: now,
     updated_at: now,
   });

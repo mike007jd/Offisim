@@ -56,11 +56,30 @@ export function createGrepTool(config: BuiltinToolConfig): BuiltinTool | null {
     },
     async execute(args, context) {
       const root = (args.path as string | undefined) ?? '.';
-      const regex = new RegExp(args.pattern as string, 'iu');
+      // Malformed user-supplied regex (e.g. '[' / '(unclosed') would
+      // otherwise throw SyntaxError uncaught and crash the turn instead of
+      // returning a clean tool error.
+      let regex: RegExp;
+      try {
+        regex = new RegExp(args.pattern as string, 'iu');
+      } catch (err) {
+        return `Invalid regex pattern: ${err instanceof Error ? err.message : String(err)}`;
+      }
       const files = await walk(listDir, root, context?.threadId);
+      // ReDoS guard: cap the total time spent in regex.test across the whole
+      // grep call, and skip individual lines that exceed the per-line size
+      // cap. JS RegExp is V8-backtracking; a malicious pattern like
+      // `(a+)+$` can otherwise stall the event loop indefinitely on a long
+      // line. RE2 would be the proper fix but pulls in a wasm dep — the
+      // budget covers the realistic abuse path.
+      const startMs = Date.now();
+      const MAX_REGEX_BUDGET_MS = 1500;
+      const MAX_LINE_LEN_FOR_REGEX = 4096;
       const results: string[] = [];
+      let budgetExhausted = false;
       for (const file of files) {
         if (results.length >= MAX_RESULTS) break;
+        if (budgetExhausted) break;
         let text = '';
         try {
           text = await fs.readFile(
@@ -71,13 +90,21 @@ export function createGrepTool(config: BuiltinToolConfig): BuiltinTool | null {
           continue;
         }
         const lines = text.split(/\r?\n/u);
-        lines.forEach((line, index) => {
-          if (results.length < MAX_RESULTS && regex.test(line)) {
+        for (let index = 0; index < lines.length; index++) {
+          if (results.length >= MAX_RESULTS) break;
+          if (Date.now() - startMs > MAX_REGEX_BUDGET_MS) {
+            budgetExhausted = true;
+            break;
+          }
+          const line = lines[index] ?? '';
+          if (line.length > MAX_LINE_LEN_FOR_REGEX) continue;
+          if (regex.test(line)) {
             results.push(`${file}:${index + 1}:${line}`);
           }
-        });
+        }
       }
-      return results.join('\n') || '(no matches)';
+      const body = results.join('\n') || '(no matches)';
+      return budgetExhausted ? `${body}\n(grep stopped: regex budget exhausted)` : body;
     },
   };
 }

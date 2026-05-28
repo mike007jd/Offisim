@@ -208,15 +208,19 @@ export class A2ARequestHandler {
 
   private handleGetTask(rpc: A2AJsonRpcRequest): Promise<A2AHttpResponse> {
     const taskId = (rpc.params as Record<string, unknown>).id as string;
+    // JSON-RPC standard code -32601 = Method not found. Distinct from -32001
+    // (server-side recoverable) so that clients can recognise this as
+    // structurally unsupported and abort polling immediately, instead of
+    // grinding through a 2-minute poll loop.
     return Promise.resolve(
-      this.jsonRpcError(rpc.id, -32001, `Task polling not yet implemented (task: ${taskId})`),
+      this.jsonRpcError(rpc.id, -32601, `Task polling not implemented (task: ${taskId})`),
     );
   }
 
   private handleCancelTask(rpc: A2AJsonRpcRequest): Promise<A2AHttpResponse> {
     const taskId = (rpc.params as Record<string, unknown>).id as string;
     return Promise.resolve(
-      this.jsonRpcError(rpc.id, -32001, `Task cancellation not yet implemented (task: ${taskId})`),
+      this.jsonRpcError(rpc.id, -32601, `Task cancellation not implemented (task: ${taskId})`),
     );
   }
 

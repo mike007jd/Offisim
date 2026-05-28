@@ -1,10 +1,28 @@
 import type { ResolvedModel } from '@offisim/shared-types';
+import { llmCallCompleted, llmCallStarted } from '../events/event-factories.js';
 import type { RunScope } from '../graph/state.js';
 import type { LlmMessage, LlmResponse, LlmToolChoice, ToolDef } from '../llm/gateway.js';
 import { forwardStreamChunks, recordedLlmCall, recordedLlmStream } from '../llm/recorded-call.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { generateId } from '../utils/generate-id.js';
 import { SKILL_INSTALL_TOOL_NAMES } from './skill-install-tools.js';
+
+function emitSyntheticLlmCallPair(args: {
+  runtimeCtx: RuntimeContext;
+  nodeName: string;
+  provider: string;
+  model: string;
+  threadId: string;
+}): void {
+  const { runtimeCtx, nodeName, provider, model, threadId } = args;
+  const llmCallId = runtimeCtx.determinism.id('lc-synth');
+  runtimeCtx.eventBus.emit(
+    llmCallStarted(runtimeCtx.companyId, llmCallId, nodeName, provider, model, threadId),
+  );
+  runtimeCtx.eventBus.emit(
+    llmCallCompleted(runtimeCtx.companyId, llmCallId, nodeName, 0, 0, 0, 0, 0),
+  );
+}
 
 const OUTPUT_TRUNCATED_NOTICE =
   '[OUTPUT_TRUNCATED] Model stopped at max output tokens; response may be incomplete.';
@@ -178,6 +196,18 @@ export function buildTurnRunner(deps: TurnRunnerDeps): TurnRunner {
           ],
           usage: { inputTokens: 0, outputTokens: 0 },
         };
+        // Synthetic llm-call audit pair so the activity feed / replay can see
+        // that an employee turn occurred, even though we bypassed the real
+        // gateway. Without this, skill-install turns vanish from the audit
+        // trail (B/F4 — turn appears in transcript but llm_calls table is
+        // missing the row).
+        emitSyntheticLlmCallPair({
+          runtimeCtx,
+          nodeName: 'employee',
+          provider: resolved.provider,
+          model: '__skill_install_bypass__',
+          threadId,
+        });
         await observeRollingJournal(runtimeCtx, messages, response);
         return response;
       }

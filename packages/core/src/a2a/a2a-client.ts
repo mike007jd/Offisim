@@ -40,6 +40,21 @@ export const A2A_AGENT_CARD_MAX_BYTES = 20 * 1024;
 export const A2A_RPC_MAX_BYTES = 1_000_000;
 export const A2A_FETCH_TIMEOUT_MS = 10_000;
 
+/**
+ * Carries the JSON-RPC `error.code` from the A2A peer so callers can
+ * distinguish a "method not supported" (-32601) — which means polling will
+ * never succeed — from a transient error.
+ */
+export class A2ARpcError extends Error {
+  constructor(
+    public readonly code: number,
+    message: string,
+  ) {
+    super(`A2A error ${code}: ${message}`);
+    this.name = 'A2ARpcError';
+  }
+}
+
 export class A2AClient {
   private readonly peer: A2APeer;
   private readonly peerBaseUrl: URL;
@@ -184,7 +199,19 @@ export class A2AClient {
     let last = initial;
     while (Date.now() < deadline) {
       await new Promise((r) => setTimeout(r, pollMs));
-      last = await this.getTask(initial.id);
+      try {
+        last = await this.getTask(initial.id);
+      } catch (err) {
+        // -32601 (Method not found) means the peer can never satisfy GetTask;
+        // any further polling is wasted time. Abort and surface a clear
+        // error instead of grinding through the full timeoutMs window.
+        if (err instanceof A2ARpcError && err.code === -32601) {
+          throw new Error(
+            `A2A peer does not support GetTask polling (task ${initial.id}; last known state: ${last.status.state})`,
+          );
+        }
+        throw err;
+      }
       if (TERMINAL_STATES.has(last.status.state)) return last;
       logger.debug('Task still in progress', { taskId: initial.id, state: last.status.state });
     }
@@ -239,7 +266,7 @@ export class A2AClient {
       const body = JSON.parse(await readResponseTextWithLimit(res, A2A_RPC_MAX_BYTES)) as
         A2AJsonRpcResponse<R>;
       if (body.error) {
-        throw new Error(`A2A error ${body.error.code}: ${body.error.message}`);
+        throw new A2ARpcError(body.error.code, body.error.message);
       }
       if (body.result === undefined) {
         throw new Error(`A2A response missing result for ${method}`);

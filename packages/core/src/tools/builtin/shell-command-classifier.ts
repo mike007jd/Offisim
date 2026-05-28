@@ -112,7 +112,11 @@ export function classifyShellCommand(
   command: string,
   options: { readOnly?: boolean } = {},
 ): ShellCommandClassification {
-  const normalized = command.trim();
+  // NFKC fold homoglyph attacks (fullwidth `ｓudo`, subscript `sᵤdo`, etc.)
+  // before any pattern matching. Without this, `sᵤdo rm -rf /` passes every
+  // ASCII-only check because the first token doesn't textually equal "sudo".
+  // ref: openai/codex#13095
+  const normalized = command.normalize('NFKC').trim();
   if (!normalized) return { decision: 'deny', reason: 'empty command' };
   for (const { pattern, reason } of CATASTROPHIC_PATTERNS) {
     if (pattern.test(normalized)) {

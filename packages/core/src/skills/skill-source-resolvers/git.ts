@@ -49,6 +49,13 @@ export interface GitResolverInput {
    * scanner's view to that subtree before locating SKILL.md.
    */
   subpath?: string | undefined;
+  /**
+   * Optional `sha256:…` expected over the raw tarball bytes (C/C-12). When
+   * supplied, the web resolver verifies the downloaded archive matches before
+   * unpacking. Useful when an outer system has already pinned the install to
+   * a specific commit / release artifact.
+   */
+  expectedSha256?: string | undefined;
 }
 
 export interface GitResolverResult {
@@ -227,10 +234,28 @@ export async function resolveGitSource(
   } catch (err) {
     return {
       kind: 'git-fetch-failed',
-      message: `Could not read tarball body: ${err instanceof Error ? err.message : String(err)}`,
+      message: `Tarball read failed: ${err instanceof Error ? err.message : String(err)}`,
       sourceRef: input.url,
     };
   }
+
+  if (input.expectedSha256) {
+    const digest = await crypto.subtle.digest('SHA-256', buf as BufferSource);
+    const actual = `sha256:${[...new Uint8Array(digest)]
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')}`;
+    const expected = input.expectedSha256.startsWith('sha256:')
+      ? input.expectedSha256
+      : `sha256:${input.expectedSha256}`;
+    if (actual !== expected) {
+      return {
+        kind: 'git-fetch-failed',
+        message: `Tarball SHA-256 mismatch: expected ${expected}, got ${actual}.`,
+        sourceRef: input.url,
+      };
+    }
+  }
+
   let tar: Uint8Array;
   try {
     tar = gunzipSync(buf);

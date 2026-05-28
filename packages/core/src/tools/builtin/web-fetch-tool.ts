@@ -19,6 +19,14 @@ export function createWebFetchTool(): BuiltinTool {
     },
     async execute(args) {
       const url = validateWebFetchUrl(args.url);
+      // C/C-02: DNS-rebinding mitigation. On Node we resolve the host once
+      // and reject if any returned IP sits inside a private/loopback range;
+      // an attacker-controlled DNS that returns a public IP at validation
+      // time but a private IP at fetch time is the canonical attack. In
+      // browser environments we have no DNS hook, so this is a no-op there
+      // and the hostname check is the only guard. fail-open on resolve
+      // errors so we don't break the tool on transient DNS hiccups.
+      await rejectPrivateDnsResolution(url.hostname);
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), WEB_FETCH_TIMEOUT_MS);
       try {
@@ -125,6 +133,31 @@ function isPrivateOrLocalHost(hostname: string): boolean {
     host.startsWith('fe80:') ||
     host === 'metadata.google.internal'
   );
+}
+
+async function rejectPrivateDnsResolution(hostname: string): Promise<void> {
+  // Browser / non-Node host: there's no DNS API we can call before fetch.
+  const proc = (globalThis as { process?: { versions?: { node?: string } } }).process;
+  if (typeof proc?.versions?.node !== 'string') return;
+  try {
+    const dynamicImport = new Function('specifier', 'return import(specifier)') as (
+      specifier: string,
+    ) => Promise<unknown>;
+    const dns = (await dynamicImport('node:dns/promises')) as {
+      lookup(host: string, opts: { all: true }): Promise<Array<{ address: string }>>;
+    };
+    const records = await dns.lookup(hostname, { all: true });
+    for (const record of records) {
+      if (isPrivateOrLocalHost(record.address)) {
+        throw new Error(
+          '[WEB_FETCH_URL_DENIED] DNS resolved to a private-network IP — refusing fetch.',
+        );
+      }
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith('[WEB_FETCH_URL_DENIED]')) throw err;
+    // dns.lookup failure (NXDOMAIN, EAI_AGAIN, etc.): let fetch handle it.
+  }
 }
 
 function parseIpv4(host: string): [number, number, number, number] | null {
