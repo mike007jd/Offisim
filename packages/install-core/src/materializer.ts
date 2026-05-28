@@ -412,6 +412,14 @@ export async function materialize(
     // We pre-generate all IDs so we never need to await a create() result.
     // The async Promise wrappers resolve immediately (no I/O yield), so
     // the transaction scope holds for every write inside this callback.
+    //
+    // INVARIANT (H/I6): every `void repos.X.create(...)` below assumes the
+    // underlying repo runs its INSERT synchronously inside `transact(fn)`. If
+    // a future repo implementation actually yields between begin/commit, the
+    // transaction scope collapses and these writes happen outside the tx.
+    // Any new backend wired into the sync path MUST run its writes
+    // synchronously; if you need an async backend, route the call through
+    // the `asyncTransact` branch above instead.
     return transact((): MaterializeResult => {
       // 1. Create installed_packages row
       const installedPackageId = generateId();
@@ -653,8 +661,6 @@ export async function materialize(
         );
         const skillId = generateId();
         const vaultPath = skillVaultPath(companyId, slug);
-        await repos.vault.writeFile(vaultPath, skillMdContent(manifest, payload, asset));
-        partial.skillVaultPaths.push(vaultPath);
         const skillNow = nowMsString();
         const row = buildSkillFromPayload(
           manifest,
@@ -665,7 +671,14 @@ export async function materialize(
           vaultPath,
           skillNow,
         );
+        // FS-after-DB: insert the row first so that if vault.writeFile throws
+        // before commit, the asyncTransact queue is discarded — there's no
+        // orphan FS file pointing at a row that never committed. The vault
+        // write still happens *before* the queue commits, but if it succeeds
+        // and the commit later fails, rollback() handles partial.skillVaultPaths.
         await repos.skills.insert(row);
+        await repos.vault.writeFile(vaultPath, skillMdContent(manifest, payload, asset));
+        partial.skillVaultPaths.push(vaultPath);
         skillIds.push(skillId);
         skillVaultPaths.push(vaultPath);
         partial.skillIds.push(skillId);

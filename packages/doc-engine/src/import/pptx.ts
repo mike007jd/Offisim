@@ -15,15 +15,32 @@ function extractText(xml: string): string {
   return out.join('');
 }
 
+// Single-pass entity decoder so we don't accidentally re-decode an entity
+// produced by a previous step (the classic `&amp;lt;` double-escape problem).
+// `String.prototype.replace` matches non-overlapping substrings left to right,
+// so each `&…;` in the source is recognised exactly once.
 function decodeXmlEntities(s: string): string {
-  return s
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
-    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(Number.parseInt(n, 16)))
-    .replace(/&amp;/g, '&');
+  return s.replace(
+    /&(?:#(\d+);|#x([0-9a-fA-F]+);|(lt|gt|quot|apos|amp);)/g,
+    (_match, dec: string | undefined, hex: string | undefined, named: string | undefined) => {
+      if (dec) return String.fromCodePoint(Number(dec));
+      if (hex) return String.fromCodePoint(Number.parseInt(hex, 16));
+      switch (named) {
+        case 'lt':
+          return '<';
+        case 'gt':
+          return '>';
+        case 'quot':
+          return '"';
+        case 'apos':
+          return "'";
+        case 'amp':
+          return '&';
+        default:
+          return _match;
+      }
+    },
+  );
 }
 
 export async function parsePptx(bytes: Uint8Array): Promise<ParsedAttachment> {
