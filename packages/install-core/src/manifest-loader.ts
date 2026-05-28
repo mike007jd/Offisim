@@ -72,9 +72,7 @@ export async function extractPackage(archiveBytes: Uint8Array): Promise<Extracte
     );
   }
   let totalInflatedBytes = 0;
-  for (const name of entryNames) {
-    const data = entries[name];
-    if (!data) continue;
+  for (const data of Object.values(entries)) {
     totalInflatedBytes += data.byteLength;
     if (totalInflatedBytes > MAX_DECOMPRESSED_BYTES) {
       throw new Error(

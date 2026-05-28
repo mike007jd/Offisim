@@ -130,7 +130,6 @@ export function SettingsSurface() {
     () => () => {
       if (saveStatusFlashTimer.current !== null) {
         window.clearTimeout(saveStatusFlashTimer.current);
-        saveStatusFlashTimer.current = null;
       }
     },
     [],
