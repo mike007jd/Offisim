@@ -1,13 +1,15 @@
-import type {
-  CompactSummaryRepository,
-  CompactSummaryRow,
-  MemoryEntryCreate,
-  MemoryEntryRow,
-  MemoryRepository,
-  NewCompactSummary,
-  NewNodeSummary,
-  NodeSummaryRepository,
-  NodeSummaryRow,
+import {
+  type CompactSummaryRepository,
+  type CompactSummaryRow,
+  type MemoryEntryCreate,
+  type MemoryEntryRow,
+  type MemoryRepository,
+  type NewCompactSummary,
+  type NewNodeSummary,
+  type NodeSummaryRepository,
+  type NodeSummaryRow,
+  buildMemoryUpdatePatch,
+  normalizeMemoryDedupeKey,
 } from '@offisim/core/browser';
 import * as schema from '@offisim/db-local';
 import { and, desc, eq, notInArray, sql } from 'drizzle-orm';
@@ -15,15 +17,6 @@ import type { TauriDrizzleDb } from '../tauri-drizzle';
 
 function now(): string {
   return new Date().toISOString();
-}
-
-function normalizeMemoryDedupeKey(content: string): string {
-  const normalized = content.normalize('NFKC').toLowerCase();
-  const simplified = normalized
-    .replace(/[.,:;/，。：；、]+/gu, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  return simplified || normalized.replace(/\s+/g, ' ').trim();
 }
 
 type MemoryDedupeLookup = Parameters<MemoryRepository['findByDedupeKey']>[0];
@@ -158,6 +151,17 @@ export function createMemorySystemTauriRepos(db: TauriDrizzleDb): MemorySystemTa
         })
         .where(eq(schema.memoryEntries.memory_id, memoryId));
 
+      return memories.findById(memoryId);
+    },
+    async update(memoryId, patch) {
+      const existing = await memories.findById(memoryId);
+      if (!existing) return null;
+      const updates = buildMemoryUpdatePatch(patch);
+      if (Object.keys(updates).length === 0) return existing;
+      await db
+        .update(schema.memoryEntries)
+        .set(updates)
+        .where(eq(schema.memoryEntries.memory_id, memoryId));
       return memories.findById(memoryId);
     },
     async touchAccess(memoryId) {

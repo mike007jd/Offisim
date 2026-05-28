@@ -77,13 +77,12 @@ export function createTauriDrizzleDb() {
         return { rows: [] };
       }
 
-      if (activeTransactionQueue) {
-        throw new Error('Tauri SQL write transaction does not support SELECT statements.');
-      }
-
-      // tauri-plugin-sql returns object rows, while drizzle sqlite-proxy maps
-      // selected fields from positional arrays. Normalize here so typed SELECTs
-      // round-trip correctly in Tauri.
+      // SELECTs inside a `withTauriSqlTransaction` block read committed state.
+      // Because the writes in the queue are not yet committed, this means the
+      // body of an `asyncTransact` callback does not see read-your-own-write
+      // isolation for queued writes. Callers must structure work so that any
+      // SELECT they care about either runs before queued writes or accepts
+      // the prior committed snapshot.
       const rows = await db.select(convertedSql, params);
       return {
         rows: normalizePluginSqlRows(rows, method),

@@ -110,7 +110,7 @@ type CompanyUpdateFields = Partial<{
   status: string;
   template_id: string | null;
   template_label: string | null;
-  default_model_policy_json: string | null;
+  description_json: string | null;
 }>;
 
 export function useUpdateCompany() {

@@ -422,7 +422,7 @@ export function useUpdateEmployeeMemory() {
     }) => {
       const repos = await reposOrNull();
       if (!repos) throw new Error('Memory editing requires the desktop runtime');
-      await repos.memories.reinforce(memoryId, { content, importance });
+      await repos.memories.update(memoryId, { content, importance });
       return employeeId;
     },
     onSuccess: (employeeId) => {

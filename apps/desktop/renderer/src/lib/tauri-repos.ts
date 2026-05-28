@@ -4,6 +4,7 @@
 
 import type { EventBus, RuntimeRepositories } from '@offisim/core/browser';
 import type { TauriDrizzleDb } from './tauri-drizzle';
+import { withTauriSqlTransaction } from './tauri-drizzle';
 import { createAgentEventsTauriRepos } from './tauri-repos/agent-events';
 import { createConversationsTauriRepos } from './tauri-repos/conversations';
 import { createDeliverablesTauriRepos } from './tauri-repos/deliverables';
@@ -25,9 +26,8 @@ import { createWorkspaceTauriRepos } from './tauri-repos/workspace';
  * on all Drizzle calls (sqlite-proxy returns Promises).
  *
  * Unlike the better-sqlite3 runtime, sqlite-proxy cannot safely implement the
- * synchronous `repos.transact(fn)` contract. Callers must use async fallback
- * paths for multi-write flows until transaction orchestration is redesigned for
- * the Tauri driver.
+ * synchronous `repos.transact(fn)` contract. Callers must use the async
+ * `asyncTransact(fn)` path on the Tauri backend.
  */
 export function createTauriRepositories(db: TauriDrizzleDb, _eventBus?: EventBus): RuntimeRepositories {
   return {
@@ -44,5 +44,11 @@ export function createTauriRepositories(db: TauriDrizzleDb, _eventBus?: EventBus
     ...createAgentEventsTauriRepos(db),
     ...createDeliverablesTauriRepos(db),
     ...createSkillsTauriRepos(db),
+    // Real atomic transactions on desktop: every drizzle .run() inside fn() is
+    // queued and committed atomically via `local_db_execute_transaction`. The
+    // Rust side validates each statement against the SQL allowlist (E/C1).
+    asyncTransact<T>(fn: () => Promise<T>): Promise<T> {
+      return withTauriSqlTransaction(fn);
+    },
   };
 }

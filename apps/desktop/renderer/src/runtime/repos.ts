@@ -50,7 +50,7 @@ async function ensureSeededCompany(repos: RuntimeRepositories): Promise<void> {
     template_id: template.id,
     template_label: template.name,
     workspace_root: null,
-    default_model_policy_json: null,
+    description_json: null,
     created_at: now,
     updated_at: now,
   });

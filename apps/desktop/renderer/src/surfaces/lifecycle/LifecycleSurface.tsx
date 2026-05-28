@@ -39,7 +39,7 @@ export function LifecycleSurface() {
       template_id: isCustom ? null : request.template.id,
       template_label: isCustom ? 'Custom Studio' : request.template.name,
       workspace_root: null,
-      default_model_policy_json: null,
+      description_json: null,
       created_at: now,
       updated_at: now,
     });

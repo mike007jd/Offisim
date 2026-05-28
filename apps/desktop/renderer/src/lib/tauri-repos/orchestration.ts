@@ -172,21 +172,20 @@ export function createOrchestrationTauriRepos(db: TauriDrizzleDb): Orchestration
         .where(eq(schema.taskRuns.task_run_id, id));
     },
     async findQueue(companyId, opts) {
-      const threadRows = await db
-        .select({ thread_id: schema.graphThreads.thread_id })
-        .from(schema.graphThreads)
-        .where(eq(schema.graphThreads.company_id, companyId));
-      const threadIds = threadRows.map((t) => t.thread_id);
-      if (threadIds.length === 0) return [];
-
-      const conditions = [inArray(schema.taskRuns.thread_id, threadIds)];
+      // Single inner-join replaces the prior two-step "select threads → inArray
+      // on task_runs" pattern (A/HIGH N+1 on multi-thread companies).
+      const conditions = [eq(schema.graphThreads.company_id, companyId)];
       if (opts?.statuses && opts.statuses.length > 0) {
         conditions.push(inArray(schema.taskRuns.status, opts.statuses));
       }
 
       let query = db
-        .select()
+        .select({ taskRun: schema.taskRuns })
         .from(schema.taskRuns)
+        .innerJoin(
+          schema.graphThreads,
+          eq(schema.taskRuns.thread_id, schema.graphThreads.thread_id),
+        )
         .where(and(...conditions))
         .orderBy(desc(schema.taskRuns.started_at));
 
@@ -194,23 +193,20 @@ export function createOrchestrationTauriRepos(db: TauriDrizzleDb): Orchestration
         query = query.limit(opts.limit) as typeof query;
       }
 
-      return (await query) as TaskRunRow[];
+      return (await query).map((row) => row.taskRun) as TaskRunRow[];
     },
     async countByStatus(companyId) {
-      const threadRows = await db
-        .select({ thread_id: schema.graphThreads.thread_id })
-        .from(schema.graphThreads)
-        .where(eq(schema.graphThreads.company_id, companyId));
-      const threadIds = threadRows.map((t) => t.thread_id);
-      if (threadIds.length === 0) return {};
-
       const rows = await db
         .select({
           status: schema.taskRuns.status,
           cnt: sql<number>`COUNT(*)`,
         })
         .from(schema.taskRuns)
-        .where(inArray(schema.taskRuns.thread_id, threadIds))
+        .innerJoin(
+          schema.graphThreads,
+          eq(schema.taskRuns.thread_id, schema.graphThreads.thread_id),
+        )
+        .where(eq(schema.graphThreads.company_id, companyId))
         .groupBy(schema.taskRuns.status);
 
       const counts: Record<string, number> = {};
