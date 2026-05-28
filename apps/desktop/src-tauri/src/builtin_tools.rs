@@ -593,6 +593,12 @@ pub async fn bash_execute<R: Runtime>(
     ensure_inside_workspace(&cwd_path, &roots)?;
     let network_policy = network_policy.unwrap_or_else(|| "approval-gated-disclosed".into());
 
+    if let crate::shell_classifier::Decision::Deny(reason) =
+        crate::shell_classifier::classify(&cmd)
+    {
+        return Err(format!("bash_execute rejected: {reason}"));
+    }
+
     let child = Command::new("bash")
         .arg("-c")
         .arg(&cmd)
@@ -609,6 +615,12 @@ pub async fn bash_execute<R: Runtime>(
     let max_bytes = max_output_bytes
         .map(|value| value as usize)
         .unwrap_or(DEFAULT_MAX_OUTPUT_BYTES);
+    // E/I2: on timeout, `tokio::time::timeout` cancels the inner future,
+    // which drops `child.wait_with_output()`, which in turn drops the tokio
+    // `Child`. We configured `kill_on_drop(true)` above, so SIGKILL is sent
+    // to the spawned process during that drop. The process is not orphaned;
+    // we explicitly do NOT need a separate `child.kill().await` here because
+    // `wait_with_output()` has taken ownership of the child by this point.
     let timed = timeout(
         Duration::from_millis(u64::from(timeout_ms.max(1))),
         child.wait_with_output(),

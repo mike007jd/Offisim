@@ -11,6 +11,7 @@ mod mcp_bridge;
 mod resume;
 mod runtime_secrets;
 mod sessions;
+mod shell_classifier;
 mod sidecar_stderr;
 
 use std::path::Path;
