@@ -31,6 +31,12 @@ export class McpToolExecutor implements ToolExecutor {
   private readonly resourcesByServer = new Map<string, ReadonlyArray<McpResourceDef>>();
   private readonly promptsByServer = new Map<string, ReadonlyArray<McpPromptDef>>();
   private readonly capabilitiesByServer = new Map<string, McpServerCapabilities>();
+  /**
+   * Per-server `trustedAnnotations` flag. Default false. Used by the auditing
+   * executor to decide whether MCP-server-supplied `readOnlyHint` can short
+   * the permission ask, per MCP 2025-03-26 spec.
+   */
+  private readonly trustedAnnotationsByServer = new Map<string, boolean>();
   private readonly eventBus: EventBus;
   private readonly companyId: string;
   private readonly clientFactory: McpClientFactory;
@@ -57,6 +63,7 @@ export class McpToolExecutor implements ToolExecutor {
 
     // Register the connection
     this.servers.set(config.name, connection);
+    this.trustedAnnotationsByServer.set(config.name, config.trustedAnnotations === true);
     await this.refreshConnectionCatalog(config.name, connection);
 
     this.eventBus.emit(
@@ -88,6 +95,7 @@ export class McpToolExecutor implements ToolExecutor {
     this.resourcesByServer.delete(name);
     this.promptsByServer.delete(name);
     this.capabilitiesByServer.delete(name);
+    this.trustedAnnotationsByServer.delete(name);
   }
 
   /**
@@ -214,11 +222,21 @@ export class McpToolExecutor implements ToolExecutor {
     this.promptsByServer.clear();
     this.capabilitiesByServer.clear();
     this.toolServerMap.clear();
+    this.trustedAnnotationsByServer.clear();
   }
 
   /** Look up which server owns a given tool. Used by AuditingToolExecutor. */
   getServerForTool(toolName: string): string | undefined {
     return this.toolServerMap.get(toolName);
+  }
+
+  /**
+   * Whether the named server's tool annotations may be trusted to auto-approve
+   * read-only calls. Defaults to `false` for unknown servers — that's the
+   * MCP-spec-correct posture: untrusted unless explicitly trusted.
+   */
+  isServerTrustedForAnnotations(serverName: string): boolean {
+    return this.trustedAnnotationsByServer.get(serverName) === true;
   }
 
   /** Get the number of connected servers (useful for testing). */

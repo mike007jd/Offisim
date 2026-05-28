@@ -101,6 +101,17 @@ async function callWithCapacityFallback<T>(
   }
 }
 
+// INVARIANT: when `ctx.modelRegistry` is populated, every gateway it returns
+// MUST use the same credential transport as `ctx.llmGateway`. On desktop both
+// must go through Rust `llm_fetch` (so OPENAI_API_KEY never crosses the
+// Rust→JS boundary). Today `apps/desktop/renderer/src/lib/tauri-engine-adapters.ts`
+// leaves `ctx.modelRegistry` undefined, so the registry path isn't taken; if
+// you start wiring it, install a boot-time assert in that adapter file:
+//
+//   if (ctx.modelRegistry) {
+//     const sample = ctx.modelRegistry.getGateway('any');
+//     console.assert(sample.options?.fetch === ctx.llmGateway.options?.fetch);
+//   }
 function gatewayForRequest(ctx: RuntimeContext, request: LlmRequest) {
   return ctx.modelRegistry?.getGateway(request.model) ?? ctx.llmGateway;
 }

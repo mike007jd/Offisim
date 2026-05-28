@@ -9,6 +9,14 @@
 export interface McpServerConfig {
   readonly name: string;
   readonly transport: 'stdio' | 'sse';
+  /**
+   * When `true`, this server's tool annotations (e.g. `readOnlyHint`) may be
+   * trusted to auto-approve calls without user prompting. Defaults to `false`
+   * per MCP 2025-03-26 spec, which requires treating annotations as untrusted
+   * unless the server itself is trusted. Settings UI surfaces this as a
+   * per-server checkbox; only flip it on for official / known-good servers.
+   */
+  readonly trustedAnnotations?: boolean;
   /** Rust-side registered server identifier for desktop stdio servers */
   readonly registeredServerId?: string;
   /** Rust-side approval id required before desktop stdio startup */

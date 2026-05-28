@@ -28,6 +28,59 @@ import {
 import { capToolResultForModel } from '../tools/tool-result-size.js';
 import { generateId } from '../utils/generate-id.js';
 
+// Keys whose values should never land in audit storage as plaintext. Matched
+// case-insensitively. Surrounded value content (PEM headers, OpenAI-style key
+// prefixes, etc.) also triggers redaction inside scalar string values.
+const SENSITIVE_KEY_PATTERNS = [
+  /api[_-]?key/i,
+  /secret/i,
+  /password/i,
+  /token/i,
+  /authorization/i,
+  /bearer/i,
+  /access[_-]?key/i,
+  /private[_-]?key/i,
+  /cookie/i,
+];
+const SENSITIVE_VALUE_PATTERNS = [
+  /-----BEGIN [A-Z ]+PRIVATE KEY-----/,
+  /\bssh-(?:rsa|ed25519|dss)\s+[A-Za-z0-9+/=]+/,
+  /\bsk-[A-Za-z0-9_-]{20,}\b/, // OpenAI-style secret key
+  /\bpk-[A-Za-z0-9_-]{20,}\b/, // public key with credential-looking prefix
+  /\bBearer\s+[A-Za-z0-9._-]+/i,
+];
+const REDACTED = '[REDACTED]';
+
+function isSensitiveKey(key: string): boolean {
+  return SENSITIVE_KEY_PATTERNS.some((p) => p.test(key));
+}
+
+function maskValueString(value: string): string {
+  let out = value;
+  for (const pattern of SENSITIVE_VALUE_PATTERNS) {
+    out = out.replace(pattern, REDACTED);
+  }
+  return out;
+}
+
+function redactSensitiveFields(value: unknown, depth = 0): unknown {
+  if (depth > 8) return value; // bound recursion on pathological payloads
+  if (value === null || value === undefined) return value;
+  if (typeof value === 'string') return maskValueString(value);
+  if (typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map((item) => redactSensitiveFields(item, depth + 1));
+  const source = value as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const key of Object.keys(source)) {
+    if (isSensitiveKey(key)) {
+      out[key] = REDACTED;
+    } else {
+      out[key] = redactSensitiveFields(source[key], depth + 1);
+    }
+  }
+  return out;
+}
+
 interface ToolExecutionRecordContext {
   readonly auditId: string;
   readonly call: ToolCallRequest;
@@ -320,7 +373,34 @@ export class AuditingToolExecutor implements ToolExecutor {
     const tool = (await this.inner.listAvailable(this.companyId)).find(
       (item) => item.name === toolName,
     );
-    return tool?.annotations?.readOnlyHint;
+    const hint = tool?.annotations?.readOnlyHint;
+    if (hint !== true) return hint;
+
+    // MCP 2025-03-26 spec: tool annotations are untrusted unless they come from
+    // a server the user has explicitly marked as trusted. For unknown servers
+    // we must surface the call to the permission ask flow even when the server
+    // claims `readOnlyHint: true`.
+    const serverName = this.resolveToolSource(toolName).serverName;
+    if (this.isServerTrustedForAnnotations(serverName)) {
+      return hint;
+    }
+    return undefined;
+  }
+
+  private isServerTrustedForAnnotations(serverName: string): boolean {
+    if (
+      this.inner &&
+      typeof this.inner === 'object' &&
+      'isServerTrustedForAnnotations' in this.inner &&
+      typeof (this.inner as Record<string, unknown>).isServerTrustedForAnnotations === 'function'
+    ) {
+      return (
+        this.inner as { isServerTrustedForAnnotations(n: string): boolean }
+      ).isServerTrustedForAnnotations(serverName);
+    }
+    // Default-untrusted for executors that don't implement the duck-typed
+    // method (e.g. built-in-only executors, test stubs).
+    return false;
   }
 
   private async resolveAskDecision(
@@ -490,9 +570,18 @@ export class AuditingToolExecutor implements ToolExecutor {
         employee_id: params.call.employeeId ?? 'unknown',
         server_name: params.serverName,
         tool_name: params.call.name,
-        arguments_json: JSON.stringify(params.call.arguments),
-        result_json: params.response.success ? JSON.stringify(params.response.result) : null,
-        error: params.response.success ? null : (params.response.error ?? null),
+        arguments_json: JSON.stringify(redactSensitiveFields(params.call.arguments)),
+        result_json: params.response.success
+          ? JSON.stringify(redactSensitiveFields(params.response.result))
+          : null,
+        // MCP server error strings (and our own deny-reason text) routinely
+        // echo back the offending command/headers/url; mask the same value
+        // patterns we already redact in arguments_json/result_json.
+        error: params.response.success
+          ? null
+          : params.response.error
+            ? maskValueString(params.response.error)
+            : null,
         latency_ms: params.latencyMs,
         approved_by: params.approvedBy,
         created_at: new Date().toISOString(),
@@ -515,6 +604,7 @@ export class AuditingToolExecutor implements ToolExecutor {
     concurrentWith: string[],
   ): void {
     const latencyMs = completedAt - startedAt;
+    const redactedError = response.error ? maskValueString(response.error) : response.error;
     this.eventBus.emit(
       mcpToolResult(
         this.companyId,
@@ -524,7 +614,7 @@ export class AuditingToolExecutor implements ToolExecutor {
         call.toolCallId,
         response.success,
         latencyMs,
-        response.error,
+        redactedError,
       ),
     );
     this.eventBus.emit(
@@ -548,7 +638,7 @@ export class AuditingToolExecutor implements ToolExecutor {
               response.error?.includes(TOOL_PERMISSION_REQUIRED)
             ? 'denied'
             : 'error',
-        errorType: response.success ? undefined : response.error,
+        errorType: response.success ? undefined : redactedError,
         concurrentWith,
         ...chatScopeFields(call.runScope),
       }),

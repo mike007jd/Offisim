@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { PROMPT_CACHE_VOLATILE_MARKER } from '../agents/employee-prompt-assembly.js';
 import { LlmError } from '../errors.js';
+import { extractErrorText, isCapacityErrorText } from './error-utils.js';
 import type {
   LlmGateway,
   LlmMessage,
@@ -40,6 +41,28 @@ type CompatDelta = {
   reasoning_content?: string | null;
   tool_calls?: OpenAI.Chat.Completions.ChatCompletionChunk.Choice.Delta.ToolCall[];
 };
+
+/**
+ * Sleep that rejects with AbortError immediately when the signal aborts,
+ * instead of completing the full timeout window. Used by chatStream's retry
+ * backoff so user Stop doesn't have to wait out a 30s delay.
+ */
+function abortableSleep(ms: number, signal: AbortSignal | undefined): Promise<void> {
+  if (signal?.aborted) {
+    return Promise.reject(new DOMException('Aborted', 'AbortError'));
+  }
+  return new Promise<void>((resolve, reject) => {
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new DOMException('Aborted', 'AbortError'));
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
 
 /** Convert our ToolDef to OpenAI's tool format */
 function mapToolDefs(
@@ -177,12 +200,36 @@ export class OpenAiAdapter implements LlmGateway {
   }
 
   async *chatStream(request: LlmRequest): AsyncIterable<LlmStreamChunk> {
-    yield* await withRetry(
-      () => this.doChatStream(request),
-      this.retryConfig,
-      (error) => error instanceof LlmError && error.recoverable,
-      request.signal,
-    );
+    // Single retry boundary that covers both HTTP setup (Promise resolution)
+    // AND SSE consumption (idle timeout, mid-stream disconnect). We previously
+    // wrapped this in withRetry, which itself retries — making the worst case
+    // (maxRetries+1)². The doChatStream call is now inside the try, so setup
+    // errors and mid-stream errors share the same retry budget.
+    //
+    // Stop retrying once any visible chunk has been forwarded — re-running
+    // would duplicate output. Node-level recovery still applies after that.
+    const config = this.retryConfig;
+    let attempt = 0;
+    while (true) {
+      let emittedVisibleChunk = false;
+      try {
+        const stream = await this.doChatStream(request);
+        for await (const chunk of stream) {
+          if (chunk.content || chunk.reasoning || chunk.toolCalls || chunk.done) {
+            emittedVisibleChunk = true;
+          }
+          yield chunk;
+        }
+        return;
+      } catch (err) {
+        if (emittedVisibleChunk) throw err;
+        if (!(err instanceof LlmError) || !err.recoverable) throw err;
+        if (attempt >= config.maxRetries) throw err;
+        attempt += 1;
+        const delayMs = Math.min(config.baseDelayMs * 2 ** (attempt - 1), config.maxDelayMs);
+        await abortableSleep(delayMs, request.signal);
+      }
+    }
   }
 
   private async doChatStream(request: LlmRequest): Promise<AsyncGenerator<LlmStreamChunk>> {
@@ -198,9 +245,9 @@ export class OpenAiAdapter implements LlmGateway {
           tools: mapToolDefs(request.tools),
           tool_choice: mapToolChoice(request.toolChoice),
           stream: true,
-          // stream_options.include_usage is an OpenAI extension;
-          // not all compat endpoints support it. When omitted, usage will be undefined.
-          ...(this.isCompat ? {} : { stream_options: { include_usage: true } }),
+          // include_usage is unconditional: MiniMax/OpenRouter/together/groq/fireworks all support it.
+          // teeStream's `if (chunk.usage)` already guards providers that ignore the option.
+          stream_options: { include_usage: true },
         },
         { signal: scoped.signal, timeout: timeoutMs },
       );
@@ -334,15 +381,23 @@ export class OpenAiAdapter implements LlmGateway {
   }
 
   private mapError(error: unknown): LlmError {
-    if (error instanceof OpenAI.APIError) {
-      return new LlmError(error.message, this.providerLabel, error.status, { cause: error });
+    const baseStatus = error instanceof OpenAI.APIError ? error.status : undefined;
+    const baseMessage =
+      error instanceof OpenAI.APIError
+        ? error.message
+        : error instanceof Error
+          ? error.message
+          : `Unknown ${this.providerLabel} error`;
+
+    // Compat providers like MiniMax surface overloaded with HTTP 200 + a body
+    // string that the SDK can't easily decode. Without lifting the status to
+    // 529, `isCapacityError` would miss it and `callWithCapacityFallback`
+    // would never trigger a fallback model.
+    const surfaceText = extractErrorText(error);
+    if (isCapacityErrorText(surfaceText) || isCapacityErrorText(baseMessage)) {
+      return new LlmError(baseMessage, this.providerLabel, 529, { cause: error });
     }
-    return new LlmError(
-      error instanceof Error ? error.message : `Unknown ${this.providerLabel} error`,
-      this.providerLabel,
-      undefined,
-      { cause: error },
-    );
+    return new LlmError(baseMessage, this.providerLabel, baseStatus, { cause: error });
   }
 }
 

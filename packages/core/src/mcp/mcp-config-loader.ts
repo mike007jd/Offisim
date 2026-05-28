@@ -1,7 +1,39 @@
+import { z } from 'zod';
 import { Logger } from '../services/logger.js';
 import type { McpServerConfig } from './types.js';
 
 const logger = new Logger('mcp-config');
+
+const McpServerConfigEntrySchema = z
+  .object({
+    name: z.string(),
+    transport: z.enum(['stdio', 'sse']),
+    enabled: z.boolean(),
+    description: z.string().optional(),
+    command: z.string().optional(),
+    args: z.array(z.string()).optional(),
+    url: z.string().optional(),
+    env: z.record(z.string(), z.string()).optional(),
+    registeredServerId: z.string().optional(),
+    approvalId: z.string().optional(),
+    commandFingerprint: z.string().optional(),
+    projectId: z.string().optional(),
+    source: z.enum(['user-config', 'installed-asset', 'developer-runtime']).optional(),
+    sourcePackageId: z.string().optional(),
+    sourcePackageVersion: z.string().optional(),
+    sourceManifestHash: z.string().optional(),
+    requestSurface: z.enum(['settings', 'installed-asset-runtime', 'developer-runtime']).optional(),
+    trustedAnnotations: z.boolean().optional(),
+    toolAllowPatterns: z.array(z.string()).optional(),
+  })
+  .strict();
+
+const McpConfigFileSchema = z
+  .object({
+    version: z.literal('1.0'),
+    servers: z.array(McpServerConfigEntrySchema),
+  })
+  .strict();
 
 export interface McpConfigFile {
   version: '1.0';
@@ -178,12 +210,13 @@ export class McpConfigLoader {
   private async readConfig(): Promise<McpConfigFile | null> {
     try {
       const content = await this.opts.readFile(this.configPath);
-      const parsed = JSON.parse(content) as McpConfigFile;
-      if (!parsed.servers || !Array.isArray(parsed.servers)) {
-        logger.error('Invalid MCP config: missing servers array');
+      const raw = JSON.parse(content) as unknown;
+      const result = McpConfigFileSchema.safeParse(raw);
+      if (!result.success) {
+        logger.error('Invalid MCP config schema', result.error.format());
         return null;
       }
-      return parsed;
+      return result.data as McpConfigFile;
     } catch (err) {
       logger.error('Failed to read MCP config file', err);
       return null;
