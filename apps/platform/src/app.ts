@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { secureHeaders } from 'hono/secure-headers';
 import { auth } from './auth.js';
 import { db } from './db.js';
 import type { PlatformDb } from './db.js';
@@ -30,6 +31,10 @@ export function createApp(
   const corsOrigins = resolveCorsOrigins();
   const app = new Hono<PlatformEnv>();
 
+  // Apply secureHeaders before cors so X-* defenders ride along with every
+  // response. Hono's default set covers X-Content-Type-Options, X-Frame-Options
+  // and Referrer-Policy among others (G/I10).
+  app.use('*', secureHeaders());
   app.use(
     '*',
     cors({

@@ -82,11 +82,20 @@ export const optionalAuth = createMiddleware<PlatformEnv>(async (c, next) => {
         .limit(1);
 
       if (tokenRow) {
-        // Check expiry
+        // Check expiry. Returning 401 instead of silently degrading to
+        // anonymous prevents an expired token from getting back a
+        // "successful" anonymous response — the client must explicitly
+        // re-auth. (G/I2 — `expired bearer` should not fall-through.)
         if (tokenRow.expires_at && tokenRow.expires_at < new Date()) {
-          // Expired token — treat as unauthenticated
-          await next();
-          return;
+          return c.json(
+            {
+              error: {
+                code: 'TOKEN_EXPIRED',
+                message: 'API token is expired.',
+              },
+            },
+            401,
+          );
         }
 
         // Look up the linked Offisim user
