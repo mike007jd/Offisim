@@ -129,7 +129,15 @@ fn find_local_env_path() -> Option<PathBuf> {
             roots.push(parent.to_path_buf());
         }
     }
-    roots.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")));
+    // E/I3: `env!("CARGO_MANIFEST_DIR")` bakes the original build host's
+    // absolute path into the release binary, which both leaks the developer's
+    // home directory layout and tries to read a `.env.local` from a path that
+    // doesn't exist on the end user's machine. Only consult it on debug
+    // builds, where the developer is the user.
+    #[cfg(debug_assertions)]
+    {
+        roots.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")));
+    }
 
     for root in roots {
         for ancestor in root.ancestors() {

@@ -102,12 +102,10 @@ pub async fn runtime_vault_write_file<R: Runtime>(
     path: String,
     content: String,
 ) -> Result<(), String> {
-    let (root, target) = resolve_runtime_vault_target(&app, &path)?;
-    if let Some(parent) = target.parent() {
-        ensure_inside(parent, &root)?;
-        fs::create_dir_all(parent)
-            .map_err(|err| format!("Failed to create vault parent directory: {err}"))?;
-    }
+    // resolve_runtime_vault_target now returns a canonical target whose parent
+    // has been created+canonicalized inside the vault root, so we no longer
+    // need to re-check `ensure_inside(parent)` here.
+    let (_root, target) = resolve_runtime_vault_target(&app, &path)?;
     fs::write(&target, content).map_err(|err| format!("Failed to write vault file: {err}"))
 }
 
@@ -331,9 +329,31 @@ fn resolve_runtime_vault_target<R: Runtime>(
     relative: &str,
 ) -> Result<(PathBuf, PathBuf), String> {
     let root = runtime_vault_root(app)?;
-    let target = resolve_relative_target(&root, relative.trim())?;
-    ensure_inside(&target, &root)?;
-    Ok((root, target))
+    let lexical = resolve_relative_target(&root, relative.trim())?;
+    let canonical = canonicalize_or_parent(&lexical)?;
+    ensure_inside(&canonical, &root)?;
+    Ok((root, canonical))
+}
+
+// Canonicalize a target so that any symlinks along the path are resolved
+// before comparing against the vault root. For not-yet-existing files we
+// canonicalize the parent and reattach the basename — a symlinked *parent*
+// pointing outside the vault is the realistic attack path.
+fn canonicalize_or_parent(target: &Path) -> Result<PathBuf, String> {
+    if let Ok(real) = fs::canonicalize(target) {
+        return Ok(real);
+    }
+    let parent = target
+        .parent()
+        .ok_or_else(|| "vault target has no parent directory".to_string())?;
+    fs::create_dir_all(parent)
+        .map_err(|err| format!("Failed to create vault parent directory: {err}"))?;
+    let real_parent = fs::canonicalize(parent)
+        .map_err(|err| format!("Resolve vault parent directory: {err}"))?;
+    let basename = target
+        .file_name()
+        .ok_or_else(|| "vault target has no basename".to_string())?;
+    Ok(real_parent.join(basename))
 }
 
 fn unix_timestamp() -> Result<u64, String> {
@@ -550,9 +570,13 @@ fn ensure_inside(candidate: &Path, root: &Path) -> Result<(), String> {
 mod tests {
     use super::*;
 
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static TEMP_ROOT_COUNTER: AtomicU64 = AtomicU64::new(0);
+
     fn temp_root() -> PathBuf {
+        let id = TEMP_ROOT_COUNTER.fetch_add(1, Ordering::SeqCst);
         let root = std::env::temp_dir().join(format!(
-            "offisim-local-paths-{}",
+            "offisim-local-paths-{}-{id}",
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
@@ -595,5 +619,77 @@ mod tests {
     fn byte_format_is_human_readable() {
         assert_eq!(format_bytes(0), "0 B");
         assert_eq!(format_bytes(1024), "1.0 KB");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn canonicalize_or_parent_resolves_symlink_to_outside_target() {
+        use std::os::unix::fs::symlink;
+
+        let root = temp_root();
+        let outside = temp_root();
+        let outside_file = outside.join("secret.txt");
+        std::fs::write(&outside_file, "leak").unwrap();
+
+        // Inside vault, plant a symlink pointing at the outside file.
+        let link_path = root.join("evil.md");
+        symlink(&outside_file, &link_path).unwrap();
+
+        let real = canonicalize_or_parent(&link_path).unwrap();
+        // Real path resolves to the *outside* canonical file, which should NOT
+        // be inside the root.
+        assert!(
+            ensure_inside(&real, &root).is_err(),
+            "symlink target {real:?} should not be considered inside {root:?}"
+        );
+
+        std::fs::remove_dir_all(&root).ok();
+        std::fs::remove_dir_all(&outside).ok();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn canonicalize_or_parent_resolves_symlinked_parent_directory() {
+        use std::os::unix::fs::symlink;
+
+        let root = temp_root();
+        let outside = temp_root();
+
+        // Plant a symlink directory inside vault pointing to outside dir.
+        let link_dir = root.join("attack-dir");
+        symlink(&outside, &link_dir).unwrap();
+
+        // Target inside the symlinked dir — file doesn't exist yet, so we go
+        // through the canonicalize-parent branch.
+        let write_target = link_dir.join("escape.txt");
+        let real = canonicalize_or_parent(&write_target).unwrap();
+        assert!(
+            ensure_inside(&real, &root).is_err(),
+            "write through symlinked parent {real:?} should not pass ensure_inside"
+        );
+
+        std::fs::remove_dir_all(&root).ok();
+        std::fs::remove_dir_all(&outside).ok();
+    }
+
+    #[test]
+    fn canonicalize_or_parent_returns_canonical_for_real_files_inside_root() {
+        let root = temp_root();
+        let nested = root.join("companies/c1/employees/alex/memory.md");
+        std::fs::create_dir_all(nested.parent().unwrap()).unwrap();
+        std::fs::write(&nested, "ok").unwrap();
+        let real = canonicalize_or_parent(&nested).unwrap();
+        ensure_inside(&real, &root).expect("real file in vault must pass");
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn canonicalize_or_parent_handles_missing_target() {
+        let root = temp_root();
+        let new_file = root.join("companies/c1/skills/new/SKILL.md");
+        // parent doesn't exist yet; canonicalize_or_parent should mkdir it.
+        let real = canonicalize_or_parent(&new_file).unwrap();
+        ensure_inside(&real, &root).expect("not-yet-existing file in vault must pass");
+        std::fs::remove_dir_all(&root).ok();
     }
 }

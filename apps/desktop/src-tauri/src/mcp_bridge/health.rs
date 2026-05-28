@@ -75,6 +75,16 @@ pub async fn health_monitor_loop(
     let mut tick = interval(config.interval);
     let mut consecutive_failures: u32 = 0;
 
+    // E/I7: a monitor binds to the specific `Arc<Mutex<ManagedProcess>>` it
+    // was spawned for. If `spawn_managed_process` re-inserts the same name
+    // with a different process (reconnect / re-register), the *old* monitor
+    // would otherwise keep pinging the new process alongside the freshly
+    // spawned monitor — two monitors, doubled ping rate, doubled reconnect
+    // attempts. We capture the original handle on the first tick and
+    // ptr_eq-check on every subsequent tick so each monitor exits as soon
+    // as it's been superseded.
+    let mut bound_handle: Option<std::sync::Arc<tokio::sync::Mutex<ManagedProcess>>> = None;
+
     loop {
         tick.tick().await;
 
@@ -85,6 +95,15 @@ pub async fn health_monitor_loop(
         let Some(process_handle) = process_handle else {
             break; // Server removed, stop monitoring
         };
+        if let Some(bound) = bound_handle.as_ref() {
+            if !std::sync::Arc::ptr_eq(bound, &process_handle) {
+                // Registry entry was replaced (reconnect / re-register).
+                // The fresh process has its own monitor — this one is stale.
+                break;
+            }
+        } else {
+            bound_handle = Some(process_handle.clone());
+        }
         let mut process = process_handle.lock().await;
 
         // Signal 1: Process liveness
@@ -150,10 +169,16 @@ pub async fn health_monitor_loop(
                         eprintln!("[mcp_bridge] {} reconnected successfully", server_name);
                         new_process.state = ProcessState::Ready;
                         consecutive_failures = 0;
-                        servers.insert(
-                            server_name.clone(),
-                            std::sync::Arc::new(tokio::sync::Mutex::new(new_process)),
-                        );
+                        // This monitor performed the respawn itself, so the
+                        // new Arc IS the one this monitor now owns. Rebind
+                        // bound_handle to the fresh Arc; otherwise the next
+                        // tick's ptr_eq check would treat the in-loop
+                        // reconnect as a supersession and break, leaving
+                        // the reconnected server with zero health watch.
+                        let new_arc =
+                            std::sync::Arc::new(tokio::sync::Mutex::new(new_process));
+                        servers.insert(server_name.clone(), new_arc.clone());
+                        bound_handle = Some(new_arc);
                     }
                     Err(e) => {
                         eprintln!("[mcp_bridge] {} reconnect init failed: {}", server_name, e);

@@ -4,8 +4,11 @@
 //! so the frontend can trigger the install review flow.
 
 use serde::Serialize;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
+
+const MAIN_WINDOW_LABEL: &str = "main";
+const MAIN_WINDOW_FALLBACK_LABEL: &str = "main-live";
 
 /// Payload emitted to the webview when a valid install deep link is received.
 #[derive(Debug, Clone, Serialize)]
@@ -57,7 +60,20 @@ pub fn handle_deep_link_urls(app: &AppHandle, urls: Vec<url::Url>) {
     for url in urls {
         let raw = url.as_str();
         if let Some(payload) = parse_install_url(raw) {
-            if let Err(e) = app.emit("deep-link-install", &payload) {
+            // E/I6: address the deep-link payload at the primary install
+            // window only, not every webview. `app.emit` broadcasts to all
+            // windows, which means a child preview or hidden popup that
+            // happens to be alive would also see the install intent. Target
+            // `main`; fall back to `main-live` for the live-rebuild webview
+            // so dev still receives the event.
+            let target = app
+                .get_webview_window(MAIN_WINDOW_LABEL)
+                .or_else(|| app.get_webview_window(MAIN_WINDOW_FALLBACK_LABEL));
+            let emit_result = match &target {
+                Some(window) => window.emit("deep-link-install", &payload),
+                None => app.emit("deep-link-install", &payload),
+            };
+            if let Err(e) = emit_result {
                 eprintln!("[deep_link] Failed to emit install event: {e}");
             }
         } else {

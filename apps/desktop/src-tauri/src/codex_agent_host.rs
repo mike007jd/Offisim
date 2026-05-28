@@ -14,8 +14,13 @@ use tokio::process::{Child, Command};
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
+use crate::runtime_secrets;
 use crate::sidecar_stderr::sanitized_stderr;
 
+// `OPENAI_API_KEY` / `OPENAI_BASE_URL` are deliberately NOT in the whitelist:
+// ambient process env must never reach the sidecar. The provider secret comes
+// through `runtime_secrets::read_provider_secret` and is injected at spawn
+// time only — mirroring the Claude host.
 const ENV_WHITELIST: &[&str] = &[
     "PATH",
     "HOME",
@@ -41,8 +46,6 @@ const ENV_WHITELIST: &[&str] = &[
     "NODE_EXTRA_CA_CERTS",
     "REQUESTS_CA_BUNDLE",
     "CODEX_HOME",
-    "OPENAI_API_KEY",
-    "OPENAI_BASE_URL",
 ];
 const BUNDLED_SIDECAR_RESOURCE_PATH: &str = "resources/codex-agent-host.mjs";
 
@@ -78,6 +81,8 @@ pub struct CodexAgentExecuteRequest {
     request_id: String,
     request: serde_json::Value,
     #[serde(default)]
+    provider_profile_id: Option<String>,
+    #[serde(default)]
     cwd: Option<String>,
     #[serde(default)]
     project_id: Option<String>,
@@ -111,6 +116,7 @@ struct SidecarError {
 #[derive(Debug)]
 enum HostError {
     Aborted,
+    NoCredential,
     HostUnavailable(String),
     Spawn(String),
     Request(String),
@@ -125,6 +131,10 @@ impl HostError {
     fn into_code_message(self) -> (String, String) {
         match self {
             Self::Aborted => ("aborted".into(), "Codex lane request aborted".into()),
+            Self::NoCredential => (
+                "no-credential".into(),
+                "No provider credential stored on this device for the trusted Codex lane.".into(),
+            ),
             Self::HostUnavailable(message) => ("host-unavailable".into(), message),
             Self::Spawn(message) => ("spawn".into(), message),
             Self::Request(message) => ("request".into(), message),
@@ -244,7 +254,11 @@ fn sidecar_script_path<R: tauri::Runtime>(
     )))
 }
 
-fn build_env(workspace_root: Option<&PathBuf>) -> HashMap<String, String> {
+fn build_env(
+    workspace_root: Option<&PathBuf>,
+    secret: Option<&str>,
+    base_url: Option<&str>,
+) -> HashMap<String, String> {
     let mut env = HashMap::new();
     for key in ENV_WHITELIST {
         if let Ok(value) = std::env::var(key) {
@@ -266,6 +280,16 @@ fn build_env(workspace_root: Option<&PathBuf>) -> HashMap<String, String> {
         }
     }
 
+    if let Some(secret) = secret {
+        env.insert("OPENAI_API_KEY".into(), secret.to_string());
+        if let Some(base_url) = base_url.and_then(|value| {
+            let trimmed = value.trim();
+            (!trimmed.is_empty()).then_some(trimmed)
+        }) {
+            env.insert("OPENAI_BASE_URL".into(), base_url.to_string());
+        }
+    }
+
     env
 }
 
@@ -274,6 +298,7 @@ fn append_sidecar_audit<R: tauri::Runtime>(
     req: &CodexAgentExecuteRequest,
     cwd: &Path,
     status: &str,
+    credential_recorded: bool,
 ) {
     let Some(dir) = app.path().app_local_data_dir().ok() else {
         return;
@@ -286,9 +311,9 @@ fn append_sidecar_audit<R: tauri::Runtime>(
         "projectId": req.project_id,
         "employeeId": req.employee_id,
         "cwd": cwd.to_string_lossy(),
-        "providerProfileId": serde_json::Value::Null,
+        "providerProfileId": req.provider_profile_id,
         "executionLane": "codex-agent-sdk",
-        "credentialBytesRecorded": false,
+        "credentialBytesRecorded": credential_recorded,
         "atUnixMs": std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|duration| duration.as_millis())
@@ -398,9 +423,26 @@ async fn do_execute<R: tauri::Runtime>(
     on_event: &Channel<CodexAgentHostEvent>,
     token: CancellationToken,
 ) -> Result<(), HostError> {
+    // Resolve provider profile + secret from runtime_secrets (mirrors the
+    // Claude host). Fail-closed: if no providerProfileId or no stored secret,
+    // we don't try to fall back to ambient env.
+    let provider_profile = req
+        .provider_profile_id
+        .as_deref()
+        .map(runtime_secrets::resolve_runtime_provider_profile)
+        .transpose()
+        .map_err(HostError::Request)?;
+    let secret = runtime_secrets::read_provider_secret(
+        provider_profile
+            .as_ref()
+            .map(|profile| profile.secret_ref.as_str()),
+    )
+    .map_err(HostError::Request)?
+    .ok_or(HostError::NoCredential)?;
+
     let workspace_root = project_workspace_root(app, req.project_id.as_deref()).await?;
     let cwd = resolved_request_cwd(req.cwd.as_deref(), &workspace_root)?;
-    append_sidecar_audit(app, &req, &cwd, "started");
+    append_sidecar_audit(app, &req, &cwd, "started", true);
     let dev_root = dev_workspace_root();
     let script_path = sidecar_script_path(app, dev_root.as_ref())?;
     let node_executable =
@@ -415,7 +457,13 @@ async fn do_execute<R: tauri::Runtime>(
         .arg(&script_path)
         .current_dir(&cwd)
         .env_clear()
-        .envs(build_env(Some(&workspace_root)))
+        .envs(build_env(
+            Some(&workspace_root),
+            Some(secret.as_str()),
+            provider_profile
+                .as_ref()
+                .map(|profile| profile.base_url.as_str()),
+        ))
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());

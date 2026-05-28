@@ -43,6 +43,10 @@ pub async fn local_db_execute_transaction<R: Runtime>(
     if statements.is_empty() {
         return Ok(());
     }
+    for (idx, statement) in statements.iter().enumerate() {
+        validate_statement_sql(&statement.sql)
+            .map_err(|err| format!("statement[{idx}]: {err}"))?;
+    }
     let pool = get_offisim_pool(&app)?;
     let mut tx = pool
         .begin()
@@ -64,6 +68,59 @@ pub async fn local_db_execute_transaction<R: Runtime>(
         .await
         .map_err(|err| format!("commit local db transaction: {err}"))?;
     Ok(())
+}
+
+// Renderer-facing SQL allowlist. Even though Drizzle generates only DML, this
+// IPC entry would otherwise accept any string from the webview (XSS / second
+// window / deep-link). Defence-in-depth: lexical keyword prefix + reject
+// embedded `;` to block multi-statement payloads.
+fn validate_statement_sql(sql: &str) -> Result<(), String> {
+    let stripped = strip_leading_comments_and_whitespace(sql);
+    if stripped.is_empty() {
+        return Err("empty SQL statement".to_string());
+    }
+
+    let first_word: String = stripped
+        .chars()
+        .take_while(|c| c.is_ascii_alphabetic())
+        .flat_map(|c| c.to_uppercase())
+        .collect();
+
+    const ALLOWED: &[&str] = &["INSERT", "UPDATE", "DELETE", "SELECT", "WITH"];
+    if !ALLOWED.contains(&first_word.as_str()) {
+        return Err(format!(
+            "rejected SQL statement: leading keyword `{first_word}` not in allowlist \
+             (INSERT|UPDATE|DELETE|SELECT|WITH)"
+        ));
+    }
+
+    // Reject embedded `;` (multi-statement). sqlx prepares single statement, but
+    // some compat backends parse top-level; tightening here avoids any surprise.
+    let trimmed_trailing = sql.trim_end_matches(|c: char| c.is_whitespace() || c == ';');
+    if trimmed_trailing.contains(';') {
+        return Err("rejected SQL statement: multi-statement payload not allowed".to_string());
+    }
+
+    Ok(())
+}
+
+fn strip_leading_comments_and_whitespace(sql: &str) -> &str {
+    let mut s = sql.trim_start();
+    loop {
+        if let Some(rest) = s.strip_prefix("--") {
+            match rest.find('\n') {
+                Some(nl) => s = rest[nl + 1..].trim_start(),
+                None => return "",
+            }
+        } else if let Some(rest) = s.strip_prefix("/*") {
+            match rest.find("*/") {
+                Some(end) => s = rest[end + 2..].trim_start(),
+                None => return "",
+            }
+        } else {
+            return s;
+        }
+    }
 }
 
 fn bind_json_param<'q>(
@@ -338,6 +395,63 @@ async fn ensure_task_runs_status_constraint(pool: &SqlitePool) -> Result<(), Str
 mod tests {
     use super::*;
 
+    #[test]
+    fn validate_statement_sql_accepts_dml() {
+        for sql in [
+            "INSERT INTO companies (company_id) VALUES ('x')",
+            "  UPDATE memories SET importance = $1 WHERE id = $2",
+            "DELETE FROM llm_calls WHERE finished_at < $1",
+            "SELECT * FROM employees",
+            "WITH recent AS (SELECT * FROM chat_threads ORDER BY updated_at DESC LIMIT 50) \
+             INSERT INTO archive SELECT * FROM recent",
+            "insert into x values (1)",
+            "-- guard\nUPDATE x SET y = 1",
+            "/* block */\nDELETE FROM x",
+        ] {
+            validate_statement_sql(sql)
+                .unwrap_or_else(|err| panic!("expected accept for {sql:?}: {err}"));
+        }
+    }
+
+    #[test]
+    fn validate_statement_sql_rejects_ddl_and_pragma() {
+        for (sql, label) in [
+            ("DROP TABLE companies", "DROP"),
+            ("CREATE TABLE evil (id TEXT)", "CREATE"),
+            ("ALTER TABLE x ADD COLUMN y TEXT", "ALTER"),
+            ("ATTACH DATABASE '/etc/passwd' AS pw", "ATTACH"),
+            ("PRAGMA writable_schema = ON", "PRAGMA"),
+            ("REINDEX companies", "REINDEX"),
+            ("VACUUM", "VACUUM"),
+            ("drop table companies", "lowercase DROP"),
+            ("  attach DATABASE 'x'", "leading-space ATTACH"),
+            ("-- innocent\nDROP TABLE x", "comment-prefix DROP"),
+            ("/* hi */ CREATE TABLE x (id TEXT)", "block-comment CREATE"),
+            ("", "empty"),
+            ("   ", "whitespace only"),
+        ] {
+            let err = validate_statement_sql(sql).unwrap_err();
+            assert!(
+                err.contains("rejected") || err.contains("empty"),
+                "expected reject for {label} but got: {err}"
+            );
+        }
+    }
+
+    #[test]
+    fn validate_statement_sql_rejects_multi_statement() {
+        let err = validate_statement_sql("INSERT INTO x VALUES (1); DROP TABLE x").unwrap_err();
+        assert!(err.contains("multi-statement"), "got {err}");
+    }
+
+    #[test]
+    fn validate_statement_sql_allows_trailing_semicolon() {
+        // Trailing `;` (with whitespace) should not be treated as multi-statement.
+        validate_statement_sql("INSERT INTO x VALUES (1);").expect("trailing `;` should be ok");
+        validate_statement_sql("INSERT INTO x VALUES (1) ;  \n")
+            .expect("trailing `;` + whitespace should be ok");
+    }
+
     #[tokio::test]
     async fn apply_schema_upgrades_existing_install_transactions_table() {
         let pool = SqlitePoolOptions::new()
@@ -479,7 +593,7 @@ mod tests {
               name,
               status,
               workspace_root,
-              default_model_policy_json,
+              description_json,
               created_at,
               updated_at
             ) VALUES (
