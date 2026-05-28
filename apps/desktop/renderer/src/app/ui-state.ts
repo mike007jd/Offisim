@@ -58,6 +58,13 @@ interface UiState {
   workspaceApp: WorkspaceApp;
   workspaceSelectedId: string | null;
 
+  /**
+   * Highest activity-record timestamp the user has marked as seen. Office's
+   * Bell badge compares this to the live activity feed to render an honest
+   * unread count instead of the prior hardcoded "always lit" indicator.
+   */
+  activityLastSeenAt: number;
+
   setSurface: (surface: SurfaceKey) => void;
   setCompany: (companyId: string) => void;
   setProject: (projectId: string) => void;
@@ -76,6 +83,9 @@ interface UiState {
 
   setWorkspaceApp: (app: WorkspaceApp, selectedId?: string | null) => void;
   selectWorkspaceItem: (id: string | null) => void;
+
+  /** Stamp the most recent seen activity timestamp (clears the Bell badge). */
+  markActivityRead: (timestampMs: number) => void;
 }
 
 export const useUiState = create<UiState>((set) => ({
@@ -98,6 +108,8 @@ export const useUiState = create<UiState>((set) => ({
   workspaceApp: 'messenger',
   workspaceSelectedId: 'th-team',
 
+  activityLastSeenAt: 0,
+
   setSurface: (surface) => set({ surface }),
   setCompany: (companyId) => set({ companyId }),
   setProject: (projectId) => set({ projectId, selectedThreadId: null, railMode: 'list' }),
@@ -118,4 +130,7 @@ export const useUiState = create<UiState>((set) => ({
   setWorkspaceApp: (workspaceApp, workspaceSelectedId = null) =>
     set({ workspaceApp, workspaceSelectedId }),
   selectWorkspaceItem: (workspaceSelectedId) => set({ workspaceSelectedId }),
+
+  markActivityRead: (timestampMs) =>
+    set((s) => ({ activityLastSeenAt: Math.max(s.activityLastSeenAt, timestampMs) })),
 }));

@@ -752,6 +752,12 @@ export function OfficeScene3D({
     <Canvas
       shadows="soft"
       dpr={[1, 2]}
+      // Keep R3F's default `frameloop="always"`. We tried "demand" to save
+      // idle CPU but BlockCharacter.useFrame mutates `group.position.y`
+      // directly via refs (idle bob, walk bob) and never invalidates, so
+      // demand mode froze every employee's animation. ServerRack LOD checks
+      // similarly run in useFrame without setState. Re-enable demand only
+      // alongside an invalidate() in those useFrame consumers.
       camera={{ position: OFFICE_CAMERA_PRESET.position, fov: OFFICE_CAMERA_PRESET.fov }}
       gl={{ antialias: true, toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.05 }}
       className="off-scene-canvas"

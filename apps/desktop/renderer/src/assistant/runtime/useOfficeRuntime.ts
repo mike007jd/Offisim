@@ -10,7 +10,7 @@ import {
   type ThreadMessageLike,
   useExternalStoreRuntime,
 } from '@assistant-ui/react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useRunStore } from '../run-store.js';
 
@@ -156,6 +156,34 @@ export function useOfficeRuntime({
       await invoke('llm_fetch_abort', { requestId }).catch(() => undefined);
     }
     stop();
+  }, [stop]);
+
+  // F/I4: ChatRail mounts OfficeThread with `key={selectedThreadId}`, so
+  // switching threads (or list <-> thread) unmounts this runtime. Without
+  // an explicit cleanup, an in-flight `llm_fetch` would resolve onto an
+  // unmounted component and call setDrafts, and the Rust side request never
+  // hears about the cancellation. Cleanup mirrors `onCancel` without the
+  // user-facing toast suppression — we don't surface a cancel notification
+  // when the unmount itself initiated it.
+  useEffect(() => {
+    return () => {
+      abortedRef.current = true;
+      const requestId = requestIdRef.current;
+      if (requestId) {
+        void import('@tauri-apps/api/core').then(({ invoke }) =>
+          invoke('llm_fetch_abort', { requestId }).catch((err: unknown) => {
+            // Surface the failure: silent catch hid orphan llm_fetch
+            // requests when the dynamic import resolved onto a dead
+            // component. Console output is enough — no UI toast on unmount.
+            console.warn('[useOfficeRuntime] llm_fetch_abort failed during cleanup', {
+              requestId,
+              err,
+            });
+          }),
+        );
+      }
+      stop();
+    };
   }, [stop]);
 
   return useExternalStoreRuntime({

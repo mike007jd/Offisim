@@ -4,8 +4,9 @@ import { useRunStore } from '@/assistant/run-store.js';
 import { useRunCost } from '@/data/queries.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
+import { useActivityRecords } from '@/surfaces/activity/activity-data.js';
 import { Bell, Box, Coins, LayoutPanelTop, Radio } from 'lucide-react';
-import { Suspense } from 'react';
+import { Suspense, useMemo } from 'react';
 import { OfficeScene2D } from './scene/OfficeScene2D.js';
 import { OfficeScene3D } from './scene/OfficeScene3D.js';
 
@@ -13,9 +14,29 @@ export function OfficeStage() {
   const sceneRenderMode = useUiState((s) => s.sceneRenderMode);
   const setSceneRenderMode = useUiState((s) => s.setSceneRenderMode);
   const setSurface = useUiState((s) => s.setSurface);
+  const companyId = useUiState((s) => s.companyId);
+  const activityLastSeenAt = useUiState((s) => s.activityLastSeenAt);
+  const markActivityRead = useUiState((s) => s.markActivityRead);
 
   const runCost = useRunCost();
   const isRunning = useRunStore((s) => s.isRunning);
+  const activityRecords = useActivityRecords(companyId);
+
+  // Unread = activity rows with `at` strictly newer than the last-seen stamp.
+  // Hardcoded `has-unread` was the only signal previously, so this lights up
+  // honestly and clears on bell click via markActivityRead.
+  const { unreadCount, newestAt } = useMemo(() => {
+    const rows = activityRecords.data ?? [];
+    let unread = 0;
+    let newest = 0;
+    for (const row of rows) {
+      if (row.at > activityLastSeenAt) unread += 1;
+      if (row.at > newest) newest = row.at;
+    }
+    return { unreadCount: unread, newestAt: newest };
+  }, [activityRecords.data, activityLastSeenAt]);
+  const notifLabel =
+    unreadCount > 0 ? `Open Activity Log (${unreadCount} unread)` : 'Open Activity Log';
 
   return (
     <section className={cn('off-stage', isRunning && 'is-live')}>
@@ -82,12 +103,24 @@ export function OfficeStage() {
         </span>
         <button
           type="button"
-          className="off-sc-notif has-unread off-focusable"
-          aria-label="Open Activity Log"
-          title="Open Activity Log"
-          onClick={() => setSurface('activity')}
+          className={cn('off-sc-notif off-focusable', unreadCount > 0 && 'has-unread')}
+          aria-label={notifLabel}
+          title={notifLabel}
+          onClick={() => {
+            // newestAt === 0 means no activity rows have arrived yet —
+            // falling back to Date.now() would stamp lastSeenAt to a value
+            // higher than the first incoming row's `at`, hiding it from the
+            // badge. Skip the read-mark entirely when there's nothing to mark.
+            if (newestAt > 0) markActivityRead(newestAt);
+            setSurface('activity');
+          }}
         >
           <Icon icon={Bell} size="sm" />
+          {unreadCount > 0 ? (
+            <span className="off-sc-notif-count" aria-hidden="true">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          ) : null}
         </button>
       </div>
     </section>

@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils.js';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { KeyRound, Sparkles, UserRound, X } from 'lucide-react';
 import { type KeyboardEvent, useEffect, useMemo, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { type Control, Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import type {
@@ -48,6 +48,34 @@ const RISK_CLASSES = [
   { value: 'logic', label: 'Logic asset' },
   { value: 'system', label: 'System asset' },
 ];
+
+function ControlledSelectField({
+  id,
+  control,
+  name,
+  options,
+}: {
+  id: string;
+  control: Control<PublishForm>;
+  name: 'license' | 'riskClass';
+  options: ReadonlyArray<{ value: string; label: string }>;
+}) {
+  return (
+    <Controller
+      control={control}
+      name={name}
+      render={({ field }) => (
+        <Select
+          id={id}
+          options={options}
+          value={field.value}
+          onChange={(e) => field.onChange(e.target.value)}
+          onBlur={field.onBlur}
+        />
+      )}
+    />
+  );
+}
 
 interface PublishDialogProps {
   open: boolean;
@@ -318,11 +346,23 @@ export function PublishDialog({
 
             <div className="off-pub-2col">
               <FieldRow label="License">
-                {({ id }) => <Select id={id} options={LICENSES} {...form.register('license')} />}
+                {({ id }) => (
+                  <ControlledSelectField
+                    id={id}
+                    control={form.control}
+                    name="license"
+                    options={LICENSES}
+                  />
+                )}
               </FieldRow>
               <FieldRow label="Risk class">
                 {({ id }) => (
-                  <Select id={id} options={RISK_CLASSES} {...form.register('riskClass')} />
+                  <ControlledSelectField
+                    id={id}
+                    control={form.control}
+                    name="riskClass"
+                    options={RISK_CLASSES}
+                  />
                 )}
               </FieldRow>
             </div>
