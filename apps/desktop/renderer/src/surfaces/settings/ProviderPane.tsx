@@ -28,6 +28,7 @@ import {
   PROVIDER_VARIANT_OPTIONS,
   type ProviderConfig,
   type ProviderFormValues,
+  resolveActiveProviderConfig,
   useProviderConfigs,
 } from './settings-data.js';
 
@@ -100,7 +101,7 @@ export function ProviderPane({ form, activeConfigId, onSelectConfig }: ProviderP
   const isHostResolved = accessMode === 'host-resolved' || accessMode === 'managed';
   const providerBridgeAvailable = isDesktopProviderBridgeAvailable();
 
-  const active = configs.find((c) => c.id === activeConfigId) ?? configs[0] ?? PROVIDER_CONFIGS[0];
+  const active = resolveActiveProviderConfig(configs, activeConfigId);
   const activeConfig = active;
   const modelSuggestions = useMemo(() => modelSuggestionsFromConfigs(configs), [configs]);
   const catalogSources = useMemo(() => catalogSourcesFromConfigs(configs), [configs]);

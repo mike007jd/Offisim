@@ -305,6 +305,21 @@ function mergeRuntimeProviderConfigs(
   return merged;
 }
 
+/**
+ * Resolve the active provider config from the merged runtime list by id. SSOT
+ * for "which config the UI shows and saves" — the displayed pane and the save
+ * path must both resolve through this so the persisted endpoint always matches
+ * the runtime-profile-merged config on screen, not a static base.
+ */
+export function resolveActiveProviderConfig(
+  configs: readonly ProviderConfig[],
+  activeConfigId: string,
+): ProviderConfig {
+  return (
+    configs.find((config) => config.id === activeConfigId) ?? configs[0] ?? PROVIDER_CONFIGS[0]
+  );
+}
+
 // ───────────────────────── Runtime ─────────────────────────
 
 export const EXECUTION_MODE_OPTIONS = [

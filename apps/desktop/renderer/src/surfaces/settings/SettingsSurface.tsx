@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils.js';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { Bot, Cpu, Plug, Users } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { ExternalEmployeesPane } from './ExternalEmployeesPane.js';
@@ -24,7 +24,9 @@ import {
   type ThemeValue,
   providerDefaults,
   providerFormSchema,
+  resolveActiveProviderConfig,
   runtimeFormSchema,
+  useProviderConfigs,
 } from './settings-data.js';
 
 type SettingsTab = 'provider' | 'runtime' | 'mcp' | 'external';
@@ -113,15 +115,26 @@ export function SettingsSurface() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<SettingsTab>('provider');
   const [activeConfigId, setActiveConfigId] = useState(PROVIDER_CONFIGS[0].id);
-  const [activeProviderConfig, setActiveProviderConfig] = useState<ProviderConfig>(
-    PROVIDER_CONFIGS[0],
-  );
+  const providerConfigsQuery = useProviderConfigs();
+  const providerConfigs = providerConfigsQuery.data ?? [...PROVIDER_CONFIGS];
   const [theme, setTheme] = useState<ThemeValue>('system');
   const [density, setDensity] = useState<DensityValue>('normal');
   const [savedTheme, setSavedTheme] = useState<ThemeValue>('system');
   const [savedDensity, setSavedDensity] = useState<DensityValue>('normal');
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [saveError, setSaveError] = useState<string | null>(null);
+  // Tracks the post-save flash timer so a second save (or unmount) doesn't
+  // leave it firing onto stale state and clobbering an in-flight 'saving'.
+  const saveStatusFlashTimer = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (saveStatusFlashTimer.current !== null) {
+        window.clearTimeout(saveStatusFlashTimer.current);
+        saveStatusFlashTimer.current = null;
+      }
+    },
+    [],
+  );
 
   const providerForm = useForm<ProviderFormValues>({
     resolver: zodResolver(providerFormSchema),
@@ -183,7 +196,6 @@ export function SettingsSurface() {
   const onSelectConfig = useCallback(
     (config: ProviderConfig) => {
       setActiveConfigId(config.id);
-      setActiveProviderConfig(config);
       providerForm.reset(providerDefaults(config));
     },
     [providerForm],
@@ -196,7 +208,8 @@ export function SettingsSurface() {
     try {
       if (providerDirty) {
         const values = providerForm.getValues();
-        await persistProviderProfile(activeProviderConfig, values);
+        const config = resolveActiveProviderConfig(providerConfigs, activeConfigId);
+        await persistProviderProfile(config, values);
         await queryClient.invalidateQueries({ queryKey: ['settings', 'provider-configs'] });
       }
       if (runtimeDirty || appearanceDirty) {
@@ -213,12 +226,26 @@ export function SettingsSurface() {
           } satisfies PersistedRuntimeSettings),
         );
       }
+      // F/I3: React batches state updates in the same tick, so
+      // `setSaveStatus('post-save')` followed by `setSaveStatus('idle')` in
+      // the same block never renders `post-save`. Drop the flash through a
+      // setTimeout so the SaveBar's "Saved" affordance is actually visible.
       setSaveStatus('post-save');
       providerForm.reset(providerForm.getValues());
       runtimeForm.reset(runtimeForm.getValues());
       setSavedTheme(theme);
       setSavedDensity(density);
-      setSaveStatus('idle');
+      if (saveStatusFlashTimer.current !== null) {
+        window.clearTimeout(saveStatusFlashTimer.current);
+      }
+      saveStatusFlashTimer.current = window.setTimeout(() => {
+        saveStatusFlashTimer.current = null;
+        // Only fade to idle if we're still showing the post-save flash —
+        // a fresh save kicked off in the meantime sets 'saving'/'error',
+        // and the resting-status useEffect already moves dirty back to
+        // 'dirty' on form mutation.
+        setSaveStatus((current) => (current === 'post-save' ? 'idle' : current));
+      }, 1200);
       toast.success('Settings saved');
     } catch (error) {
       const message = safeErrorMessage(error);
@@ -227,10 +254,11 @@ export function SettingsSurface() {
       toast.error('Settings save failed', { description: message });
     }
   }, [
-    activeProviderConfig,
+    activeConfigId,
     anyDirty,
     appearanceDirty,
     density,
+    providerConfigs,
     providerDirty,
     providerForm,
     queryClient,
