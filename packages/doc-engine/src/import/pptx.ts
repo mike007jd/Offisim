@@ -1,4 +1,5 @@
 import type { ParsedAttachment } from '@offisim/shared-types';
+import { safeUnzipEntries } from './safe-archive.js';
 
 const SLIDE_PATH_RE = /^ppt\/slides\/slide(\d+)\.xml$/;
 
@@ -44,16 +45,15 @@ function decodeXmlEntities(s: string): string {
 }
 
 export async function parsePptx(bytes: Uint8Array): Promise<ParsedAttachment> {
-  const { default: JSZip } = await import('jszip');
-  const zip = await JSZip.loadAsync(bytes);
+  // Stream-extract with a hard inflation cap (zip-bomb safe) instead of JSZip,
+  // which would inflate the whole archive into memory first.
+  const files = safeUnzipEntries(bytes);
+  const decoder = new TextDecoder('utf-8');
   const entries: Array<{ index: number; xml: string }> = [];
-  for (const path of Object.keys(zip.files)) {
+  for (const [path, content] of Object.entries(files)) {
     const match = SLIDE_PATH_RE.exec(path);
     if (!match || !match[1]) continue;
-    const file = zip.file(path);
-    if (!file) continue;
-    const xml = await file.async('text');
-    entries.push({ index: Number(match[1]), xml });
+    entries.push({ index: Number(match[1]), xml: decoder.decode(content) });
   }
   entries.sort((a, b) => a.index - b.index);
   const slides = entries.map((e) => extractText(e.xml));

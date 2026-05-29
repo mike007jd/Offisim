@@ -1,4 +1,4 @@
-import { gunzipSync, unzipSync } from 'fflate';
+import { ZipBombError, safeGunzipSync, safeUnzipSync } from '@offisim/install-core';
 import { scanSkillDir } from '../skill-scanner.js';
 import { firstLevelDirs, subtreeOf } from '../virtual-tree-utils.js';
 import type { ScannedSkill, SkillResolverError, VirtualTree } from './types.js';
@@ -65,7 +65,9 @@ function untarToTree(bytes: Uint8Array): VirtualTree {
 }
 
 function unzipToTree(bytes: Uint8Array): VirtualTree {
-  const entries = unzipSync(bytes);
+  // safeUnzipSync streams the inflate and trips a ZipBombError before
+  // allocating gigabytes (skill uploads are small; the shared defaults apply).
+  const entries = safeUnzipSync(bytes);
   const files: VirtualTree['files'] = [];
   for (const [path, content] of Object.entries(entries)) {
     if (path.endsWith('/')) continue; // directory entry
@@ -96,7 +98,7 @@ export function resolveUploadSource(
     if (isZip(bytes)) {
       tree = unzipToTree(bytes);
     } else if (isGzip(bytes)) {
-      tree = untarToTree(gunzipSync(bytes));
+      tree = untarToTree(safeGunzipSync(bytes));
     } else if (isTar(bytes)) {
       tree = untarToTree(bytes);
     } else {
@@ -107,6 +109,13 @@ export function resolveUploadSource(
       };
     }
   } catch (err) {
+    if (err instanceof ZipBombError) {
+      return {
+        kind: 'upload-unsupported-format',
+        message: `Refused to extract "${filename}": ${err.message}`,
+        sourceRef: filename,
+      };
+    }
     return {
       kind: 'upload-unsupported-format',
       message: `Failed to decompress "${filename}": ${err instanceof Error ? err.message : String(err)}`,

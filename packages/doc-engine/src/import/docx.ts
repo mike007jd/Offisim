@@ -1,6 +1,11 @@
 import type { ParsedAttachment } from '@offisim/shared-types';
+import { assertArchiveInflationBudget } from './safe-archive.js';
 
 export async function parseDocx(bytes: Uint8Array): Promise<ParsedAttachment> {
+  // mammoth inflates the whole docx (a ZIP) internally with no size hook, so
+  // prove the inflated size is bounded BEFORE handing it the bytes — a bomb
+  // throws here and never reaches mammoth.
+  assertArchiveInflationBudget(bytes);
   const mammoth = await import('mammoth');
   // mammoth wires options differently per env: browser wants `arrayBuffer`,
   // Node wants `buffer` (real Node Buffer). We pass whichever the runtime

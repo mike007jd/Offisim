@@ -6,7 +6,7 @@
  */
 
 import { parseManifest } from '@offisim/asset-schema';
-import { unzipSync } from 'fflate';
+import { ZipBombError, safeUnzipSync } from './safe-unzip.js';
 import type { ExtractedPackage } from './types.js';
 
 // ---------------------------------------------------------------------------
@@ -31,54 +31,38 @@ async function sha256Hex(data: Uint8Array): Promise<string> {
 
 const MANIFEST_FILENAME = 'manifest.json';
 
-// zip-bomb defence: cap inflated size and entry count. The compressed archive
-// cap (64 MB) keeps the input bounded; the decompressed cap (256 MB) and
-// file-count cap (1000) keep a malicious 64 MB archive from inflating to
-// gigabytes or millions of file headers.
+// zip-bomb defence: caps are now enforced by `safeUnzipSync`, which streams the
+// inflate and trips BEFORE allocating the gigabytes — unlike the old
+// `unzipSync` + post-hoc size check, where the OOM had already happened by the
+// time the check ran. Package archives can legitimately bundle multiple assets,
+// so we allow a larger decompressed budget than the shared default.
 const MAX_COMPRESSED_BYTES = 64 * 1024 * 1024;
 const MAX_DECOMPRESSED_BYTES = 256 * 1024 * 1024;
+const MAX_ENTRY_BYTES = 64 * 1024 * 1024;
 const MAX_ENTRY_COUNT = 1000;
 
 /**
  * Extract a `.offisimpkg` ZIP archive, locate and validate `manifest.json`,
  * and compute integrity hashes.
  *
- * @throws {Error} If the archive is corrupt, manifest.json is missing, or
- *   the manifest fails JSON Schema validation.
+ * @throws {Error} If the archive is corrupt, manifest.json is missing, the
+ *   manifest fails JSON Schema validation, or the archive trips a zip-bomb cap.
  */
 export async function extractPackage(archiveBytes: Uint8Array): Promise<ExtractedPackage> {
-  if (archiveBytes.byteLength > MAX_COMPRESSED_BYTES) {
-    throw new Error(
-      `Archive exceeds ${MAX_COMPRESSED_BYTES} byte cap (${archiveBytes.byteLength} bytes)`,
-    );
-  }
-
-  // 1. Decompress ZIP
+  // 1. Decompress ZIP with streaming bomb caps.
   let entries: Record<string, Uint8Array>;
   try {
-    entries = unzipSync(archiveBytes);
+    entries = safeUnzipSync(archiveBytes, {
+      maxCompressedBytes: MAX_COMPRESSED_BYTES,
+      maxDecompressedBytes: MAX_DECOMPRESSED_BYTES,
+      maxEntryBytes: MAX_ENTRY_BYTES,
+      maxEntryCount: MAX_ENTRY_COUNT,
+    });
   } catch (err) {
+    if (err instanceof ZipBombError) throw err;
     throw new Error(
       `Failed to decompress archive: ${err instanceof Error ? err.message : String(err)}`,
     );
-  }
-
-  // 1b. Post-decompress zip-bomb caps. We cannot do streaming validation with
-  //     fflate's sync API, but the upstream caps keep the worst case bounded.
-  const entryNames = Object.keys(entries);
-  if (entryNames.length > MAX_ENTRY_COUNT) {
-    throw new Error(
-      `Archive contains too many files (${entryNames.length} > ${MAX_ENTRY_COUNT})`,
-    );
-  }
-  let totalInflatedBytes = 0;
-  for (const data of Object.values(entries)) {
-    totalInflatedBytes += data.byteLength;
-    if (totalInflatedBytes > MAX_DECOMPRESSED_BYTES) {
-      throw new Error(
-        `Archive expands beyond ${MAX_DECOMPRESSED_BYTES} bytes; refusing to load (possible zip bomb)`,
-      );
-    }
   }
 
   // 2. Locate manifest.json at root level

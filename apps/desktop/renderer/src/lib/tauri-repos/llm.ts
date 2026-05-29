@@ -62,11 +62,13 @@ export function createLlmTauriRepos(db: TauriDrizzleDb): LlmTauriRepos {
         .from(schema.modelCostRates)
         .where(eq(schema.modelCostRates.provider, provider))) as ModelCostRateRow[];
       const matching = rows.filter((r) => {
-        const regex = new RegExp(
-          `^${r.model_pattern.replace(/\*/g, '.*').replace(/\?/g, '.')}$`,
-          'i',
-        );
-        return regex.test(model);
+        // Escape regex metacharacters BEFORE translating glob wildcards so a
+        // pattern like `gpt-4.1` matches the literal dot, not any char.
+        const escaped = r.model_pattern
+          .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+          .replace(/\*/g, '.*')
+          .replace(/\?/g, '.');
+        return new RegExp(`^${escaped}$`, 'i').test(model);
       });
       if (matching.length === 0) return null;
       matching.sort((a, b) => b.model_pattern.length - a.model_pattern.length);

@@ -106,3 +106,14 @@ export { readPackageFile, FileImportError } from './file-importer.js';
 // ---------------------------------------------------------------------------
 export { artifactBytesToBase64, buildPackageArtifact } from './package-builder.js';
 export type { BuildPackageArtifactInput, BuiltPackageArtifact } from './package-builder.js';
+
+// ---------------------------------------------------------------------------
+// Streaming zip-bomb-resistant extraction (shared by core skill upload too)
+// ---------------------------------------------------------------------------
+export {
+  safeUnzipSync,
+  safeGunzipSync,
+  ZipBombError,
+  DEFAULT_SAFE_UNZIP_LIMITS,
+} from './safe-unzip.js';
+export type { SafeUnzipLimits, SafeGunzipLimits } from './safe-unzip.js';
