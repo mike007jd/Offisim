@@ -30,8 +30,13 @@ export async function parsePdf(bytes: Uint8Array): Promise<ParsedAttachment> {
   });
   const doc = await loadingTask.promise;
   try {
+    // Clamp pages: a hostile/huge PDF (tens of thousands of pages) would
+    // otherwise extract text from every page and blow up memory/CPU.
+    const MAX_PDF_PAGES = 500;
+    const pageCount = Math.min(doc.numPages, MAX_PDF_PAGES);
+    const truncated = doc.numPages > MAX_PDF_PAGES;
     const pages: string[] = [];
-    for (let i = 1; i <= doc.numPages; i += 1) {
+    for (let i = 1; i <= pageCount; i += 1) {
       const page = await doc.getPage(i);
       const content = await page.getTextContent();
       const text = content.items
@@ -45,6 +50,7 @@ export async function parsePdf(bytes: Uint8Array): Promise<ParsedAttachment> {
       kind: 'pdf',
       pages,
       text: pages.join('\n\n'),
+      ...(truncated ? { truncated: true } : {}),
     };
   } finally {
     await doc.cleanup().catch(() => undefined);

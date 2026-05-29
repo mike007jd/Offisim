@@ -71,7 +71,11 @@ function extractStructuredData(
 }
 
 function neutralizeCsvFormulaCell(value: string): string {
-  if (/^[\s]*[=+\-@]/u.test(value)) {
+  // OWASP CSV-injection defence: prefix any cell a spreadsheet might evaluate as
+  // a formula with a single quote. Covers the classic `= + - @` triggers (with
+  // optional leading whitespace) AND a leading TAB (0x09) / CR (0x0D), which
+  // several importers also treat as a formula lead-in.
+  if (/^[\t\r]/u.test(value) || /^\s*[=+\-@]/u.test(value)) {
     return `'${value}`;
   }
   return value;

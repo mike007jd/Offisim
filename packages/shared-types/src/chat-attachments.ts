@@ -113,7 +113,13 @@ export interface StagedAttachment {
 /** Output of `parseAttachment(...)`. Discriminated by `kind`. */
 export type ParsedAttachment =
   | { readonly kind: 'text'; readonly text: string }
-  | { readonly kind: 'pdf'; readonly pages: readonly string[]; readonly text: string }
+  | {
+      readonly kind: 'pdf';
+      readonly pages: readonly string[];
+      readonly text: string;
+      /** True when the PDF had more pages than the extraction cap and `pages`/`text` are partial. */
+      readonly truncated?: boolean;
+    }
   | { readonly kind: 'docx'; readonly text: string; readonly html: string }
   | {
       readonly kind: 'xlsx';
@@ -270,7 +276,7 @@ function pluralize(n: number, unit: string): string {
 export function summaryFromParsed(parsed: ParsedAttachment): string {
   switch (parsed.kind) {
     case 'pdf':
-      return `PDF · ${pluralize(parsed.pages.length, 'page')}`;
+      return `PDF · ${pluralize(parsed.pages.length, 'page')}${parsed.truncated ? ' (truncated)' : ''}`;
     case 'docx':
       return `DOCX · ${pluralize(parsed.text.length, 'char')}`;
     case 'xlsx': {
