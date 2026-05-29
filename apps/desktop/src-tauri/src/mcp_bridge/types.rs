@@ -17,6 +17,11 @@ pub struct McpProcessConfig {
     pub source_package_id: Option<String>,
     pub source_package_version: Option<String>,
     pub source_manifest_hash: Option<String>,
+    /// Jailed working directory for the spawned child. Set by the connect
+    /// command to an app-owned location so relative command/arg paths resolve
+    /// inside a controlled directory instead of the process's ambient cwd.
+    #[serde(default)]
+    pub cwd: Option<std::path::PathBuf>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

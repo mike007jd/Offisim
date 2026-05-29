@@ -222,6 +222,15 @@ pub async fn mcp_connect_registered(
                     server.name
                 ))
             })?;
+            // cwd jail = app-owned local data root. Relative command/arg paths
+            // resolve here, and installed-asset absolute command paths must
+            // canonicalize inside it (enforced in ManagedProcess::spawn).
+            let jail_dir = app
+                .path()
+                .app_local_data_dir()
+                .map_err(|err| McpBridgeError::Registry(err.to_string()))?;
+            fs::create_dir_all(&jail_dir)
+                .map_err(|err| McpBridgeError::Registry(err.to_string()))?;
             let result = spawn_managed_process(
                 McpProcessConfig {
                     name: server.name.clone(),
@@ -235,6 +244,7 @@ pub async fn mcp_connect_registered(
                     source_package_id: server.source_package_id.clone(),
                     source_package_version: server.source_package_version.clone(),
                     source_manifest_hash: server.source_manifest_hash.clone(),
+                    cwd: Some(jail_dir),
                 },
                 process_registry,
             )

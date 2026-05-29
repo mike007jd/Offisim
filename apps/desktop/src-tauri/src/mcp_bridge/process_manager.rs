@@ -22,6 +22,76 @@ const ENV_WHITELIST: &[&str] = &[
     "XDG_DATA_HOME",
 ];
 
+/// Interpreters an `installed-asset` MCP server may launch as a bare,
+/// PATH-resolved command. Anything else from the installed-asset source must be
+/// an absolute path that canonicalizes inside the cwd jail (app-owned root), so
+/// a compromised renderer cannot register+connect e.g. `/bin/sh -c 'curl … |sh'`
+/// or `bash` as an "installed asset" and obtain arbitrary code execution.
+const INSTALLED_ASSET_INTERPRETER_ALLOWLIST: &[&str] =
+    &["node", "npx", "python", "python3", "deno", "bun", "uv", "uvx"];
+
+/// Fail-closed validation of the command an stdio MCP server will spawn.
+///
+/// `user-config` / `developer-runtime` sources carry deliberate user/developer
+/// intent (settings or dev surface) and are left to the user's discretion. The
+/// `installed-asset` source is reachable from the installed-asset runtime
+/// surface, so it is constrained to an interpreter allowlist or a vault-jailed
+/// absolute path.
+fn validate_spawn_command(config: &McpProcessConfig) -> Result<(), McpBridgeError> {
+    if config.source.as_deref() != Some("installed-asset") {
+        return Ok(());
+    }
+
+    let command = config.command.trim();
+    if command.is_empty() {
+        return Err(McpBridgeError::SpawnFailed(
+            config.command.clone(),
+            "installed-asset MCP command is empty".into(),
+        ));
+    }
+
+    let is_path = command.contains('/') || command.contains('\\');
+    if !is_path {
+        if INSTALLED_ASSET_INTERPRETER_ALLOWLIST.contains(&command) {
+            return Ok(());
+        }
+        return Err(McpBridgeError::SpawnFailed(
+            config.command.clone(),
+            "installed-asset MCP command must be an allowed interpreter \
+             (node/npx/python/python3/deno/bun/uv/uvx) or an absolute path inside the vault jail"
+                .into(),
+        ));
+    }
+
+    let path = std::path::Path::new(command);
+    if !path.is_absolute() {
+        return Err(McpBridgeError::SpawnFailed(
+            config.command.clone(),
+            "installed-asset MCP command path must be absolute".into(),
+        ));
+    }
+    let jail = config.cwd.as_ref().ok_or_else(|| {
+        McpBridgeError::SpawnFailed(
+            config.command.clone(),
+            "installed-asset MCP command requires a cwd jail".into(),
+        )
+    })?;
+    let canon_cmd = std::fs::canonicalize(path).map_err(|err| {
+        McpBridgeError::SpawnFailed(
+            config.command.clone(),
+            format!("cannot resolve installed-asset command path: {err}"),
+        )
+    })?;
+    let canon_jail = std::fs::canonicalize(jail).unwrap_or_else(|_| jail.clone());
+    if !canon_cmd.starts_with(&canon_jail) {
+        return Err(McpBridgeError::SpawnFailed(
+            config.command.clone(),
+            "installed-asset MCP command path escapes the vault jail".into(),
+        ));
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ProcessState {
     Starting,
@@ -54,6 +124,11 @@ pub struct ManagedProcess {
 impl ManagedProcess {
     /// Spawn the child process, set up stdin/stdout framing, perform MCP initialize handshake.
     pub async fn spawn(config: McpProcessConfig) -> Result<Self, McpBridgeError> {
+        // SECURITY: registering + connecting an stdio MCP server === controlled
+        // local code execution. The renderer is part of the TCB on this path,
+        // so we fail closed on the command itself before spawning.
+        validate_spawn_command(&config)?;
+
         // Build env: whitelist from parent + config overrides
         let mut env: HashMap<String, String> = HashMap::new();
         for key in ENV_WHITELIST {
@@ -72,6 +147,13 @@ impl ManagedProcess {
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped());
+
+        // cwd jail: resolve relative command/arg paths inside an app-owned
+        // directory instead of the process's ambient cwd. The connect command
+        // sets this; aligns with git_exec / bash_execute which both pin cwd.
+        if let Some(cwd) = &config.cwd {
+            cmd.current_dir(cwd);
+        }
 
         let mut child = cmd
             .spawn()
@@ -271,5 +353,63 @@ impl ManagedProcess {
             }
         }
         self.state = ProcessState::Dead;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn cfg(source: &str, command: &str, cwd: Option<PathBuf>) -> McpProcessConfig {
+        McpProcessConfig {
+            name: "test".into(),
+            command: command.into(),
+            args: vec![],
+            env: HashMap::new(),
+            approval_id: None,
+            command_fingerprint: None,
+            project_id: None,
+            source: Some(source.into()),
+            source_package_id: None,
+            source_package_version: None,
+            source_manifest_hash: None,
+            cwd,
+        }
+    }
+
+    #[test]
+    fn installed_asset_allows_known_interpreters() {
+        for interp in INSTALLED_ASSET_INTERPRETER_ALLOWLIST {
+            assert!(validate_spawn_command(&cfg("installed-asset", interp, None)).is_ok());
+        }
+    }
+
+    #[test]
+    fn installed_asset_rejects_arbitrary_bare_command() {
+        assert!(validate_spawn_command(&cfg("installed-asset", "bash", None)).is_err());
+        assert!(validate_spawn_command(&cfg("installed-asset", "sh", None)).is_err());
+        assert!(validate_spawn_command(&cfg("installed-asset", "curl", None)).is_err());
+    }
+
+    #[test]
+    fn installed_asset_rejects_relative_path_command() {
+        assert!(validate_spawn_command(&cfg("installed-asset", "./evil.sh", None)).is_err());
+    }
+
+    #[test]
+    fn installed_asset_rejects_absolute_path_outside_jail() {
+        let jail = std::env::temp_dir().join("offisim-mcp-jail-test");
+        assert!(
+            validate_spawn_command(&cfg("installed-asset", "/bin/sh", Some(jail))).is_err()
+        );
+    }
+
+    #[test]
+    fn user_config_and_developer_runtime_bypass_allowlist() {
+        // These carry deliberate user/developer intent and are not constrained.
+        assert!(validate_spawn_command(&cfg("user-config", "/bin/sh", None)).is_ok());
+        assert!(validate_spawn_command(&cfg("developer-runtime", "anything", None)).is_ok());
+        assert!(validate_spawn_command(&cfg("", "anything", None)).is_ok());
     }
 }
