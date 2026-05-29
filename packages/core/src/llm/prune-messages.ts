@@ -98,5 +98,17 @@ export function pruneLlmMessages(
     return mergedSystem;
   }
 
-  return [...mergedSystem, ...nonSystem.slice(-options.maxNonSystemMessages)];
+  // Tail-slice to the budget, then drop any leading `tool` messages: their
+  // owning assistant `tool_use` was sliced off, so they are orphan tool_results
+  // that Anthropic rejects with a 400 ("tool_result without preceding
+  // tool_use"). An orphan tool_result carries no meaning without its call, so
+  // dropping it (rather than walking the cut backwards and blowing the budget)
+  // is the right trim. A tail-slice cannot orphan a `tool_use` — results always
+  // follow their assistant, so the slice's end never severs them.
+  const sliced = nonSystem.slice(-options.maxNonSystemMessages);
+  let start = 0;
+  while (start < sliced.length && sliced[start]?.role === 'tool') {
+    start += 1;
+  }
+  return [...mergedSystem, ...(start > 0 ? sliced.slice(start) : sliced)];
 }

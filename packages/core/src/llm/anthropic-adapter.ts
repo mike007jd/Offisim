@@ -146,10 +146,57 @@ function textContent(text: string, cached: boolean): Anthropic.ContentBlockParam
   return [{ type: 'text', text, cache_control: cacheControl() } as Anthropic.TextBlockParam];
 }
 
+/**
+ * Defence-in-depth before sending to Anthropic: strip tool messages that have
+ * no pair. Anthropic 400s if a `tool_result` has no preceding `tool_use` (or a
+ * `tool_use` has no following `tool_result`). pruneLlmMessages already trims
+ * leading orphan tool_results, but compaction/rebuild paths could still hand us
+ * an unpaired block — this guarantees a well-formed transcript regardless of
+ * caller. In normal operation every call is paired, so this is a no-op.
+ */
+function stripUnpairedToolMessages(messages: readonly LlmMessage[]): readonly LlmMessage[] {
+  const toolUseIds = new Set<string>();
+  const toolResultIds = new Set<string>();
+  for (const m of messages) {
+    if (m.role === 'assistant' && m.toolCalls) {
+      for (const tc of m.toolCalls) toolUseIds.add(tc.id);
+    } else if (m.role === 'tool' && m.toolCallId) {
+      toolResultIds.add(m.toolCallId);
+    }
+  }
+
+  let changed = false;
+  const out: LlmMessage[] = [];
+  for (const m of messages) {
+    if (m.role === 'tool') {
+      if (m.toolCallId && toolUseIds.has(m.toolCallId)) out.push(m);
+      else changed = true; // drop orphan tool_result
+      continue;
+    }
+    if (m.role === 'assistant' && m.toolCalls && m.toolCalls.length > 0) {
+      const paired = m.toolCalls.filter((tc) => toolResultIds.has(tc.id));
+      if (paired.length === m.toolCalls.length) {
+        out.push(m);
+      } else if (paired.length === 0) {
+        // Every tool_use is orphaned: keep the text (if any), drop the calls.
+        changed = true;
+        if (m.content && m.content.trim().length > 0) out.push({ ...m, toolCalls: undefined });
+      } else {
+        changed = true;
+        out.push({ ...m, toolCalls: paired });
+      }
+      continue;
+    }
+    out.push(m);
+  }
+  return changed ? out : messages;
+}
+
 function mapMessages(
-  messages: readonly LlmMessage[],
+  rawMessages: readonly LlmMessage[],
   supportsPromptCaching = false,
 ): Anthropic.MessageParam[] {
+  const messages = stripUnpairedToolMessages(rawMessages);
   const result: Anthropic.MessageParam[] = [];
   const cachedMessageIndex = supportsPromptCaching ? cacheableMessageIndex(messages) : -1;
 
