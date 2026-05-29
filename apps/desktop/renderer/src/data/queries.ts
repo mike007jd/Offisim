@@ -89,6 +89,10 @@ export function useEmployees() {
       const rows = await repos.employees.findByCompany(companyId);
       return rows.map(employeeToVm);
     },
+    // Guard against running findByCompany(null) before a company is selected.
+    // Shares the ['employees', companyId] key with useCompanyEmployees by design
+    // (identical data → React Query dedupes; invalidations target both).
+    enabled: companyId !== null,
   });
 }
 

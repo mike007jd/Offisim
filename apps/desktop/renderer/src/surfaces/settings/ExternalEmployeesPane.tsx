@@ -7,7 +7,7 @@ import { Input } from '@/design-system/primitives/input.js';
 import type { RoleSlug } from '@offisim/shared-types';
 import { useQueryClient } from '@tanstack/react-query';
 import { Pencil, Plug, Plus, RefreshCw, Trash2, Users } from 'lucide-react';
-import { type CSSProperties, useState } from 'react';
+import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { ExternalEmployeeInstallDialog } from './ExternalEmployeeInstallDialog.js';
 import {
@@ -40,6 +40,14 @@ export function ExternalEmployeesPane() {
   const [justInstalled, setJustInstalled] = useState<string | null>(null);
   const [refreshingId, setRefreshingId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Clear the "just installed" highlight timer on unmount so it can't fire
+  // setState after the pane has been torn down.
+  const justInstalledTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (justInstalledTimer.current !== null) clearTimeout(justInstalledTimer.current);
+    };
+  }, []);
 
   function invalidateExternalEmployees() {
     void queryClient.invalidateQueries({ queryKey: ['settings', 'external-employees', companyId] });
@@ -73,7 +81,11 @@ export function ExternalEmployeesPane() {
     setJustInstalled(employee_id);
     invalidateExternalEmployees();
     toast.success(`Connected ${card.name}`);
-    window.setTimeout(() => setJustInstalled(null), 1400);
+    if (justInstalledTimer.current !== null) clearTimeout(justInstalledTimer.current);
+    justInstalledTimer.current = setTimeout(() => {
+      justInstalledTimer.current = null;
+      setJustInstalled(null);
+    }, 1400);
   }
 
   async function disconnect(employee: ExternalEmployee) {
