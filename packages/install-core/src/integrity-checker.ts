@@ -42,8 +42,11 @@ export async function checkIntegrity(
   let packageHashMatch = true;
 
   // 1. Verify package hash against external expectation
+  // Compare case-insensitively: `extracted.packageHash` is lowercase hex, but a
+  // registry-supplied `expectedHash` may be upper/mixed case — a case-sensitive
+  // `!==` would false-flag a genuine match as tampering.
   if (expectedHash !== undefined) {
-    if (extracted.packageHash !== expectedHash) {
+    if (extracted.packageHash !== expectedHash.toLowerCase()) {
       packageHashMatch = false;
     }
   }
