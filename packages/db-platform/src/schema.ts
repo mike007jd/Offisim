@@ -1,5 +1,6 @@
 import {
   boolean,
+  index,
   integer,
   jsonb,
   pgTable,
@@ -42,23 +43,27 @@ export const creators = pgTable('creators', {
 
 // ── 002: Registry Core ──
 
-export const listings = pgTable('listings', {
-  listing_id: uuid('listing_id').primaryKey().defaultRandom(),
-  creator_id: uuid('creator_id')
-    .notNull()
-    .references(() => creators.creator_id),
-  slug: text('slug').notNull().unique(),
-  kind: text('kind').notNull(),
-  title: text('title').notNull(),
-  summary: text('summary'),
-  description: text('description'),
-  status: text('status').notNull().default('listed'),
-  rating_avg: real('rating_avg').default(0),
-  rating_count: integer('rating_count').default(0),
-  install_count: integer('install_count').default(0),
-  created_at: timestamp('created_at').notNull().defaultNow(),
-  updated_at: timestamp('updated_at').notNull().defaultNow(),
-});
+export const listings = pgTable(
+  'listings',
+  {
+    listing_id: uuid('listing_id').primaryKey().defaultRandom(),
+    creator_id: uuid('creator_id')
+      .notNull()
+      .references(() => creators.creator_id),
+    slug: text('slug').notNull().unique(),
+    kind: text('kind').notNull(),
+    title: text('title').notNull(),
+    summary: text('summary'),
+    description: text('description'),
+    status: text('status').notNull().default('listed'),
+    rating_avg: real('rating_avg').default(0),
+    rating_count: integer('rating_count').default(0),
+    install_count: integer('install_count').default(0),
+    created_at: timestamp('created_at').notNull().defaultNow(),
+    updated_at: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [index('listings_creator_id_idx').on(table.creator_id)],
+);
 
 export const packageVersions = pgTable(
   'package_versions',
@@ -66,7 +71,7 @@ export const packageVersions = pgTable(
     package_version_id: uuid('package_version_id').primaryKey().defaultRandom(),
     listing_id: uuid('listing_id')
       .notNull()
-      .references(() => listings.listing_id),
+      .references(() => listings.listing_id, { onDelete: 'cascade' }),
     package_id: text('package_id').notNull(),
     version: text('version').notNull(),
     manifest_json: jsonb('manifest_json').notNull(),
@@ -95,64 +100,91 @@ export const listingTags = pgTable(
   {
     listing_id: uuid('listing_id')
       .notNull()
-      .references(() => listings.listing_id),
+      .references(() => listings.listing_id, { onDelete: 'cascade' }),
     tag: text('tag').notNull(),
   },
   (table) => [unique('listing_tags_listing_tag_unique').on(table.listing_id, table.tag)],
 );
 
-export const listingPreviews = pgTable('listing_previews', {
-  preview_id: uuid('preview_id').primaryKey().defaultRandom(),
-  listing_id: uuid('listing_id')
-    .notNull()
-    .references(() => listings.listing_id),
-  kind: text('kind').notNull(),
-  url: text('url').notNull(),
-  alt_text: text('alt_text'),
-  sort_order: integer('sort_order').notNull().default(0),
-});
+export const listingPreviews = pgTable(
+  'listing_previews',
+  {
+    preview_id: uuid('preview_id').primaryKey().defaultRandom(),
+    listing_id: uuid('listing_id')
+      .notNull()
+      .references(() => listings.listing_id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    url: text('url').notNull(),
+    alt_text: text('alt_text'),
+    sort_order: integer('sort_order').notNull().default(0),
+  },
+  (table) => [index('listing_previews_listing_id_idx').on(table.listing_id)],
+);
 
 // ── 003: Publish and Lineage ──
 
-export const publishDrafts = pgTable('publish_drafts', {
-  draft_id: uuid('draft_id').primaryKey().defaultRandom(),
-  creator_id: uuid('creator_id')
-    .notNull()
-    .references(() => creators.creator_id),
-  listing_id: uuid('listing_id').references(() => listings.listing_id),
-  kind: text('kind').notNull(),
-  title: text('title').notNull(),
-  summary: text('summary'),
-  manifest_json: jsonb('manifest_json'),
-  artifact_id: text('artifact_id'),
-  validation_state: text('validation_state').notNull().default('unknown'),
-  validation_report: jsonb('validation_report'),
-  status: text('status').notNull().default('draft'),
-  created_at: timestamp('created_at').notNull().defaultNow(),
-  updated_at: timestamp('updated_at').notNull().defaultNow(),
-});
+export const publishDrafts = pgTable(
+  'publish_drafts',
+  {
+    draft_id: uuid('draft_id').primaryKey().defaultRandom(),
+    creator_id: uuid('creator_id')
+      .notNull()
+      .references(() => creators.creator_id),
+    listing_id: uuid('listing_id').references(() => listings.listing_id, { onDelete: 'set null' }),
+    kind: text('kind').notNull(),
+    title: text('title').notNull(),
+    summary: text('summary'),
+    manifest_json: jsonb('manifest_json'),
+    artifact_id: text('artifact_id'),
+    validation_state: text('validation_state').notNull().default('unknown'),
+    validation_report: jsonb('validation_report'),
+    status: text('status').notNull().default('draft'),
+    created_at: timestamp('created_at').notNull().defaultNow(),
+    updated_at: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('publish_drafts_creator_id_idx').on(table.creator_id),
+    index('publish_drafts_listing_id_idx').on(table.listing_id),
+  ],
+);
 
-export const packageLineage = pgTable('package_lineage', {
-  lineage_id: uuid('lineage_id').primaryKey().defaultRandom(),
-  package_version_id: uuid('package_version_id')
-    .notNull()
-    .references(() => packageVersions.package_version_id),
-  origin_listing_id: uuid('origin_listing_id').references(() => listings.listing_id),
-  origin_package_id: text('origin_package_id'),
-  forked_from_version: text('forked_from_version'),
-});
+export const packageLineage = pgTable(
+  'package_lineage',
+  {
+    lineage_id: uuid('lineage_id').primaryKey().defaultRandom(),
+    package_version_id: uuid('package_version_id')
+      .notNull()
+      .references(() => packageVersions.package_version_id, { onDelete: 'cascade' }),
+    origin_listing_id: uuid('origin_listing_id').references(() => listings.listing_id, {
+      onDelete: 'set null',
+    }),
+    origin_package_id: text('origin_package_id'),
+    forked_from_version: text('forked_from_version'),
+  },
+  (table) => [
+    index('package_lineage_package_version_id_idx').on(table.package_version_id),
+    index('package_lineage_origin_listing_id_idx').on(table.origin_listing_id),
+  ],
+);
 
-export const moderationJobs = pgTable('moderation_jobs', {
-  job_id: uuid('job_id').primaryKey().defaultRandom(),
-  target_type: text('target_type').notNull(),
-  target_id: uuid('target_id').notNull(),
-  job_kind: text('job_kind').notNull(),
-  status: text('status').notNull().default('pending'),
-  result: jsonb('result'),
-  assigned_to: uuid('assigned_to').references(() => users.user_id),
-  created_at: timestamp('created_at').notNull().defaultNow(),
-  completed_at: timestamp('completed_at'),
-});
+export const moderationJobs = pgTable(
+  'moderation_jobs',
+  {
+    job_id: uuid('job_id').primaryKey().defaultRandom(),
+    target_type: text('target_type').notNull(),
+    target_id: uuid('target_id').notNull(),
+    job_kind: text('job_kind').notNull(),
+    status: text('status').notNull().default('pending'),
+    result: jsonb('result'),
+    assigned_to: uuid('assigned_to').references(() => users.user_id, { onDelete: 'set null' }),
+    created_at: timestamp('created_at').notNull().defaultNow(),
+    completed_at: timestamp('completed_at'),
+  },
+  (table) => [
+    index('moderation_jobs_assigned_to_idx').on(table.assigned_to),
+    index('moderation_jobs_target_idx').on(table.target_type, table.target_id),
+  ],
+);
 
 // ── 004: Reviews, Library, and Moderation ──
 
@@ -173,7 +205,13 @@ export const reviews = pgTable(
     created_at: timestamp('created_at').notNull().defaultNow(),
     updated_at: timestamp('updated_at').notNull().defaultNow(),
   },
-  (table) => [unique('reviews_listing_user_unique').on(table.listing_id, table.user_id)],
+  (table) => [
+    unique('reviews_listing_user_unique').on(table.listing_id, table.user_id),
+    // listing_id is the leftmost column of the unique above, so it is already
+    // indexed; user_id is not, so add it for "reviews by user" lookups and FK
+    // delete scans.
+    index('reviews_user_id_idx').on(table.user_id),
+  ],
 );
 
 export const userLibrary = pgTable(
@@ -191,20 +229,33 @@ export const userLibrary = pgTable(
     saved_at: timestamp('saved_at').notNull().defaultNow(),
     install_receipt_id: text('install_receipt_id'),
   },
-  (table) => [unique('user_library_user_listing_unique').on(table.user_id, table.listing_id)],
+  (table) => [
+    unique('user_library_user_listing_unique').on(table.user_id, table.listing_id),
+    // user_id is leftmost of the unique (already indexed); index the other FKs.
+    index('user_library_listing_id_idx').on(table.listing_id),
+    index('user_library_package_version_id_idx').on(table.package_version_id),
+  ],
 );
 
-export const installReceipts = pgTable('install_receipts', {
-  install_receipt_id: text('install_receipt_id').primaryKey(),
-  user_id: uuid('user_id').references(() => users.user_id, { onDelete: 'set null' }),
-  listing_id: uuid('listing_id').references(() => listings.listing_id, { onDelete: 'set null' }),
-  package_version_id: uuid('package_version_id').references(
-    () => packageVersions.package_version_id,
-    { onDelete: 'set null' },
-  ),
-  install_source: text('install_source').notNull(),
-  created_at: timestamp('created_at').notNull().defaultNow(),
-});
+export const installReceipts = pgTable(
+  'install_receipts',
+  {
+    install_receipt_id: text('install_receipt_id').primaryKey(),
+    user_id: uuid('user_id').references(() => users.user_id, { onDelete: 'set null' }),
+    listing_id: uuid('listing_id').references(() => listings.listing_id, { onDelete: 'set null' }),
+    package_version_id: uuid('package_version_id').references(
+      () => packageVersions.package_version_id,
+      { onDelete: 'set null' },
+    ),
+    install_source: text('install_source').notNull(),
+    created_at: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('install_receipts_user_id_idx').on(table.user_id),
+    index('install_receipts_listing_id_idx').on(table.listing_id),
+    index('install_receipts_package_version_id_idx').on(table.package_version_id),
+  ],
+);
 
 // ── 005: Better Auth tables ──
 // Better Auth manages these tables automatically via its adapter.
@@ -278,15 +329,22 @@ export const apiTokens = pgTable('api_tokens', {
   created_at: timestamp('created_at').notNull().defaultNow(),
 });
 
-export const moderationFlags = pgTable('moderation_flags', {
-  flag_id: uuid('flag_id').primaryKey().defaultRandom(),
-  target_type: text('target_type').notNull(),
-  target_id: uuid('target_id').notNull(),
-  reporter_user_id: uuid('reporter_user_id')
-    .notNull()
-    .references(() => users.user_id),
-  reason: text('reason').notNull(),
-  details: text('details'),
-  status: text('status').notNull().default('open'),
-  created_at: timestamp('created_at').notNull().defaultNow(),
-});
+export const moderationFlags = pgTable(
+  'moderation_flags',
+  {
+    flag_id: uuid('flag_id').primaryKey().defaultRandom(),
+    target_type: text('target_type').notNull(),
+    target_id: uuid('target_id').notNull(),
+    reporter_user_id: uuid('reporter_user_id')
+      .notNull()
+      .references(() => users.user_id),
+    reason: text('reason').notNull(),
+    details: text('details'),
+    status: text('status').notNull().default('open'),
+    created_at: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('moderation_flags_reporter_user_id_idx').on(table.reporter_user_id),
+    index('moderation_flags_target_idx').on(table.target_type, table.target_id),
+  ],
+);

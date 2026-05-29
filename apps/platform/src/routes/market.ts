@@ -17,7 +17,7 @@ import {
   getRequiredCreatorId,
   requireAuth,
   requireCreator,
-  requireScope,
+  requireApiTokenScope,
   requireSessionAuth,
 } from '../middleware/auth.js';
 import {
@@ -591,7 +591,7 @@ market.get('/listings/:listingId/lineage', async (c) => {
 market.patch(
   '/listings/:listingId/status',
   requireAuth,
-  requireScope('publish:write'),
+  requireApiTokenScope('publish:write'),
   requireCreator,
   async (c) => {
     const db = c.get('db');

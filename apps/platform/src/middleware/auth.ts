@@ -250,7 +250,18 @@ export function getRequiredUserId(c: { get: (key: 'userId') => string | undefine
   return userId;
 }
 
-export function requireScope(scope: string) {
+/**
+ * Restrict an API-TOKEN-authenticated request to tokens carrying `scope`.
+ *
+ * IMPORTANT — this is NOT a general authorization gate. It only inspects
+ * api-token auth: session/cookie auth (authKind !== 'api-token') passes through
+ * UNCHECKED by design (interactive users are gated by `requireAuth` /
+ * `requireCreator` / per-resource ownership instead). Renamed from the
+ * ambiguous `requireScope` so call sites can't mistake it for "this route
+ * requires <scope> for everyone" — it does not. Always pair it with
+ * `requireAuth` (and ownership checks where a resource is addressed by id).
+ */
+export function requireApiTokenScope(scope: string) {
   return createMiddleware<PlatformEnv>(async (c, next) => {
     if (c.get('authKind') !== 'api-token') {
       await next();
@@ -272,6 +283,19 @@ export function requireScope(scope: string) {
   });
 }
 
+/**
+ * Gate for local-runtime bridge routes (sessions / resume). Accepts either an
+ * authenticated user session OR a matching `OFFISIM_LOCAL_RUNTIME_TOKEN`.
+ *
+ * OWNERSHIP CAVEAT: this only proves the caller is *some* authenticated
+ * principal, not that they own the `:id` resource the route addresses. Today
+ * the session/resume stores are local single-user desktop infrastructure (the
+ * multi-user market deployment does not attach a sessionStore/resumeCoordinator
+ * — those routes 503 there), so there is no cross-tenant exposure. If
+ * multi-user session hosting is ever enabled, the route handlers MUST add a
+ * per-resource ownership check (the session record must belong to the
+ * authenticated user) to avoid an IDOR on `:id`.
+ */
 export const requireLocalRuntimeAccess = createMiddleware<PlatformEnv>(async (c, next) => {
   if (c.get('userId')) {
     await next();

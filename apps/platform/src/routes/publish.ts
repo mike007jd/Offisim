@@ -15,7 +15,7 @@ import {
   getRequiredCreatorId,
   requireAuth,
   requireCreator,
-  requireScope,
+  requireApiTokenScope,
 } from '../middleware/auth.js';
 import { publishRateLimit } from '../middleware/rate-limit.js';
 import {
@@ -53,7 +53,7 @@ function retiredDraftKindResponse(c: Context<PlatformEnv>, kind: string) {
 // All publish routes require auth and are rate-limited
 publish.use('/*', publishRateLimit);
 publish.use('/*', requireAuth);
-publish.use('/*', requireScope('publish:write'));
+publish.use('/*', requireApiTokenScope('publish:write'));
 
 // GET /v1/publish/me — registered before requireCreator because non-creators get { creator: null }
 publish.get('/me', async (c) => {

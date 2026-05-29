@@ -3,7 +3,7 @@ import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { bearer } from 'better-auth/plugins';
 import { db } from './db.js';
-import { resolveAuthSecret, resolveCorsOrigins } from './startup.js';
+import { resolveAuthBaseUrl, resolveAuthSecret, resolveCorsOrigins } from './startup.js';
 
 const authSecret = resolveAuthSecret();
 
@@ -23,7 +23,7 @@ const authSecret = resolveAuthSecret();
 export const auth = betterAuth({
   basePath: '/api/auth',
   secret: authSecret,
-  baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:4100',
+  baseURL: resolveAuthBaseUrl(),
 
   database: drizzleAdapter(db, {
     provider: 'pg',

@@ -18,7 +18,7 @@ import { publish } from './routes/publish.js';
 import { resumeRoute } from './routes/resume.js';
 import { reviewsRoute } from './routes/reviews.js';
 import { sessionsRoute } from './routes/sessions.js';
-import { resolveCorsOrigins } from './startup.js';
+import { assertProxyTrustConfig, resolveCorsOrigins } from './startup.js';
 import type { PlatformEnv } from './types.js';
 
 export function createApp(
@@ -29,12 +29,27 @@ export function createApp(
   },
 ) {
   const corsOrigins = resolveCorsOrigins();
+  // Warn (once, at app construction) if a production deployment behind a proxy
+  // would silently collapse per-IP rate limiting. See assertProxyTrustConfig.
+  assertProxyTrustConfig();
   const app = new Hono<PlatformEnv>();
 
   // Apply secureHeaders before cors so X-* defenders ride along with every
   // response. Hono's default set covers X-Content-Type-Options, X-Frame-Options
-  // and Referrer-Policy among others (G/I10).
-  app.use('*', secureHeaders());
+  // and Referrer-Policy among others (G/I10). This is a JSON API that serves no
+  // HTML and embeds no resources, so we lock the CSP all the way down:
+  // `default-src 'none'` denies every fetch/script/style/frame origin and
+  // `frame-ancestors 'none'` forbids embedding the API in any frame
+  // (clickjacking defence beyond the legacy X-Frame-Options).
+  app.use(
+    '*',
+    secureHeaders({
+      contentSecurityPolicy: {
+        defaultSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+      },
+    }),
+  );
   app.use(
     '*',
     cors({
