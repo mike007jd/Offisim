@@ -46,8 +46,16 @@ export class CompositeToolExecutor implements ToolExecutor {
         };
       }
     }
-    // Fall through to MCP executor
-    return this.mcpExecutor.execute(call);
+    // Fall through to MCP executor, then cap its result the same way builtin
+    // results are capped: an MCP tool can return an unbounded payload that would
+    // otherwise flood the model context / memory. (Input validation stays the
+    // MCP executor's responsibility — it holds each tool's inputSchema.)
+    const mcpResponse = await this.mcpExecutor.execute(call);
+    if (!mcpResponse.success) return mcpResponse;
+    return {
+      ...mcpResponse,
+      result: await capToolResultForModel({ name: call.name } as unknown as ToolDef, mcpResponse.result),
+    };
   }
 
   async listAvailable(companyId: string): Promise<ToolDef[]> {
