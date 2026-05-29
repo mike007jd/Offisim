@@ -49,12 +49,33 @@ export interface ModelRegistryEntry {
  * The registry owns gateway lifecycle: gateways are created lazily and
  * cached until `disposeAll()` is called.
  */
+export interface ModelRegistryOptions {
+  /**
+   * Credential-isolated transport that every gateway built by `getGateway`
+   * MUST use. On desktop this is the Rust-side `llm_fetch`-backed fetch so the
+   * provider apiKey never crosses the Rust→JS boundary. When omitted,
+   * `getGateway` refuses to build a real gateway (fails closed) — this prevents
+   * the latent credential-leak footgun where a production wiring would
+   * otherwise create an SDK client holding the raw apiKey on a default fetch.
+   *
+   * This class is testing/factory infrastructure: production runtime leaves
+   * `ctx.modelRegistry` undefined (see the INVARIANT note in recorded-call.ts).
+   * Any future production wiring must pass `transportFetch` here.
+   */
+  transportFetch?: typeof fetch;
+}
+
 export class ModelRegistry {
   private entries = new Map<string, ModelRegistryEntry>();
   private gateways = new Map<string, LlmGateway>();
   private defaultId: string | null = null;
   private capacityFailures = new Map<string, number>();
   private readonly capacityFailureThreshold = 2;
+  private readonly transportFetch?: typeof fetch;
+
+  constructor(options: ModelRegistryOptions = {}) {
+    this.transportFetch = options.transportFetch;
+  }
 
   /** Load models from parsed config. Does not do file I/O. */
   loadConfig(config: ModelRegistryConfig): void {
@@ -106,6 +127,15 @@ export class ModelRegistry {
     const fallbackCached = this.gateways.get(cacheKey);
     if (fallbackCached) return fallbackCached;
 
+    // Fail closed: never build a gateway holding the raw apiKey on a default
+    // fetch. A real gateway requires the credential-isolated transport.
+    if (!this.transportFetch) {
+      logger.error(
+        `Refusing to build gateway for model "${modelId}": no credential-isolated transport configured (construct ModelRegistry with { transportFetch }).`,
+      );
+      return null;
+    }
+
     const gatewayConfig: GatewayConfig = {
       provider: entry.provider,
       apiKey: entry.apiKey,
@@ -113,6 +143,7 @@ export class ModelRegistry {
       defaultHeaders: entry.defaultHeaders,
       supportsPromptCaching: entry.supportsPromptCaching,
       dangerouslyAllowBrowser: true,
+      fetch: this.transportFetch,
     };
 
     try {

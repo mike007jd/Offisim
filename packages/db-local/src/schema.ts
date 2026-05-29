@@ -1,9 +1,26 @@
 /**
  * @offisim/db-local — Drizzle ORM SQLite schema
  *
- * Keep this TypeScript schema aligned with src/schema.sql. Offisim is still
- * pre-launch, so local SQLite uses a single bootstrap schema instead of a
- * versioned migration chain.
+ * @authoritative src/schema.sql
+ *
+ * IMPORTANT: `src/schema.sql` is the SOLE authority that builds the local
+ * database — it is `include_str!`'d and applied verbatim by the Rust side
+ * (`apps/desktop/src-tauri/.../local_db.rs`). This TypeScript file is a
+ * Drizzle *query-builder typing layer only*; it does NOT create tables and is
+ * never used to provision the schema.
+ *
+ * Therefore:
+ *  - The unique indexes and CHECK constraints declared in schema.sql are the
+ *    real, enforced constraints in production.
+ *  - DO NOT run `drizzle-kit push`/`generate` against this file to build or
+ *    migrate the database — doing so would create a schema MISSING those
+ *    constraints. No such script is wired into package.json by design; keep it
+ *    that way.
+ *  - When schema.sql changes, mirror it here for type-accuracy, but schema.sql
+ *    always wins on any drift.
+ *
+ * Offisim is still pre-launch, so local SQLite uses a single bootstrap schema
+ * (schema.sql) instead of a versioned migration chain.
  */
 
 import type { AssetKind } from '@offisim/asset-schema';

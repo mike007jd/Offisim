@@ -30,6 +30,22 @@ import type {
 
 const logger = new Logger('a2a-server');
 
+/**
+ * Constant-time string comparison for the Bearer token check. Avoids the
+ * early-exit timing side channel of `!==`. Portable across Node and browser
+ * (no `node:crypto` dependency, since this handler is transport-agnostic and
+ * may be bundled for the browser).
+ */
+function timingSafeStringEqual(a: string, b: string): boolean {
+  const enc = new TextEncoder();
+  const aBuf = enc.encode(a);
+  const bBuf = enc.encode(b);
+  if (aBuf.length !== bBuf.length) return false;
+  let diff = 0;
+  for (let i = 0; i < aBuf.length; i++) diff |= (aBuf[i] ?? 0) ^ (bBuf[i] ?? 0);
+  return diff === 0;
+}
+
 export interface A2AHttpRequest {
   method: string;
   path: string;
@@ -89,7 +105,7 @@ export class A2ARequestHandler {
 
   private async handleJsonRpc(req: A2AHttpRequest): Promise<A2AHttpResponse> {
     const authHeader = req.headers.authorization ?? req.headers.Authorization ?? '';
-    if (authHeader !== `Bearer ${this.config.token}`) {
+    if (!timingSafeStringEqual(authHeader, `Bearer ${this.config.token}`)) {
       logger.warn('Unauthorized A2A request');
       return {
         status: 200,

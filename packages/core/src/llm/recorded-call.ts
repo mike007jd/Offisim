@@ -64,15 +64,6 @@ async function withExecutionContext(
   };
 }
 
-function withModelRegistryFallback(ctx: RuntimeContext, request: LlmRequest): LlmRequest {
-  const registry = ctx.modelRegistry as
-    | { resolveForRequest?: (modelId: string) => { model: string } | null }
-    | undefined;
-  const fallback = registry?.resolveForRequest?.(request.model);
-  if (!fallback || fallback.model === request.model) return request;
-  return { ...request, model: fallback.model };
-}
-
 type CapacityAwareRegistry = {
   getGateway?: (modelId: string) => import('./gateway.js').LlmGateway | null;
   recordCapacityError?: (modelId: string) => { id?: string; model: string } | null;
@@ -105,13 +96,11 @@ async function callWithCapacityFallback<T>(
 // MUST use the same credential transport as `ctx.llmGateway`. On desktop both
 // must go through Rust `llm_fetch` (so OPENAI_API_KEY never crosses the
 // Rust→JS boundary). Today `apps/desktop/renderer/src/lib/tauri-engine-adapters.ts`
-// leaves `ctx.modelRegistry` undefined, so the registry path isn't taken; if
-// you start wiring it, install a boot-time assert in that adapter file:
-//
-//   if (ctx.modelRegistry) {
-//     const sample = ctx.modelRegistry.getGateway('any');
-//     console.assert(sample.options?.fetch === ctx.llmGateway.options?.fetch);
-//   }
+// leaves `ctx.modelRegistry` undefined, so the registry path isn't taken. The
+// enforcement now lives in `ModelRegistry` itself: `getGateway` fails closed
+// (returns null) unless the registry was constructed with a credential-isolated
+// `transportFetch`, so any future production wiring physically cannot leak the
+// raw apiKey onto a default fetch.
 function gatewayForRequest(ctx: RuntimeContext, request: LlmRequest) {
   return ctx.modelRegistry?.getGateway(request.model) ?? ctx.llmGateway;
 }
@@ -227,10 +216,7 @@ export async function recordedLlmCall(
     const preparedRequest = ctx.middlewareChain
       ? callCtx.request
       : { ...callCtx.request, messages: pruneLlmMessages(callCtx.request.messages) };
-    let effectiveRequest = withModelRegistryFallback(
-      ctx,
-      await withExecutionContext(ctx, preparedRequest, meta),
-    );
+    let effectiveRequest = await withExecutionContext(ctx, preparedRequest, meta);
 
     let response: LlmResponse;
     try {
@@ -247,10 +233,7 @@ export async function recordedLlmCall(
         meta,
         extras: { ...callCtx.extras, forceFullCompact: true, contextOverflowRecovery: true },
       });
-      effectiveRequest = withModelRegistryFallback(
-        ctx,
-        await withExecutionContext(ctx, callCtx.request, meta),
-      );
+      effectiveRequest = await withExecutionContext(ctx, callCtx.request, meta);
       const attempt = await callWithCapacityFallback(ctx, effectiveRequest, (attemptRequest) =>
         gatewayForRequest(ctx, attemptRequest).chat(attemptRequest),
       );
@@ -385,10 +368,7 @@ export async function recordedLlmStream(
     const preparedRequest = ctx.middlewareChain
       ? callCtx.request
       : { ...callCtx.request, messages: pruneLlmMessages(callCtx.request.messages) };
-    let effectiveRequest = withModelRegistryFallback(
-      ctx,
-      await withExecutionContext(ctx, preparedRequest, meta),
-    );
+    let effectiveRequest = await withExecutionContext(ctx, preparedRequest, meta);
 
     let result: TeeResult;
     try {
@@ -403,10 +383,7 @@ export async function recordedLlmStream(
         meta,
         extras: { ...callCtx.extras, forceFullCompact: true, contextOverflowRecovery: true },
       });
-      effectiveRequest = withModelRegistryFallback(
-        ctx,
-        await withExecutionContext(ctx, callCtx.request, meta),
-      );
+      effectiveRequest = await withExecutionContext(ctx, callCtx.request, meta);
       const attempt = await callStreamWithCapacityFallback(ctx, effectiveRequest, onChunk);
       effectiveRequest = attempt.request;
       result = attempt.result;
