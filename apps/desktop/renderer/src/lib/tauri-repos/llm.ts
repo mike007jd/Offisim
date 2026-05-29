@@ -1,3 +1,4 @@
+import { globToRegex } from '@offisim/core/browser';
 import type {
   LlmCallRepository,
   LlmCallRow,
@@ -61,15 +62,9 @@ export function createLlmTauriRepos(db: TauriDrizzleDb): LlmTauriRepos {
         .select()
         .from(schema.modelCostRates)
         .where(eq(schema.modelCostRates.provider, provider))) as ModelCostRateRow[];
-      const matching = rows.filter((r) => {
-        // Escape regex metacharacters BEFORE translating glob wildcards so a
-        // pattern containing a literal dot matches that dot, not any char.
-        const escaped = r.model_pattern
-          .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-          .replace(/\*/g, '.*')
-          .replace(/\?/g, '.');
-        return new RegExp(`^${escaped}$`, 'i').test(model);
-      });
+      // Shared escape-then-translate rule (avoids drift across the renderer/core
+      // glob copies). See @offisim/core's glob-match.
+      const matching = rows.filter((r) => globToRegex(r.model_pattern).test(model));
       if (matching.length === 0) return null;
       matching.sort((a, b) => b.model_pattern.length - a.model_pattern.length);
       return matching[0] ?? null;

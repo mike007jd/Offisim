@@ -16,8 +16,12 @@
  * measures the real inflated bytes.
  *
  * This mirrors `@offisim/install-core`'s `safe-unzip`, duplicated here on
- * purpose: doc-engine is a separate, browser-bundled boundary and must not pull
- * install-core's heavier (node-touching) graph into the web bundle.
+ * purpose: install-core only exposes its barrel (`.`) entry, whose index
+ * re-exports the entire install graph (install-service / materializer /
+ * planner / db-local types). Importing it from doc-engine would drag all of
+ * that into a browser doc-parsing bundle for one leaf function. The limits and
+ * surface also differ per boundary (doc-engine adds the validate-only
+ * `assertArchiveInflationBudget`; install-core adds tar.gz `safeGunzipSync`).
  */
 
 import { Unzip, UnzipInflate } from 'fflate';

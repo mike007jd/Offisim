@@ -1,6 +1,7 @@
 import { useUiState } from '@/app/ui-state.js';
 import { resolveAsync } from '@/lib/platform.js';
 import { getTauriDb } from '@/lib/tauri-db.js';
+import { globToRegex } from '@offisim/core/browser';
 import { getBuiltinPrefab } from '@offisim/renderer';
 import type {
   PrefabDefinition,
@@ -290,11 +291,9 @@ interface CostRateRow {
 }
 
 function matchesModelPattern(pattern: string, model: string): boolean {
-  const escaped = pattern
-    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-    .replace(/\*/g, '.*')
-    .replace(/\?/g, '.');
-  return new RegExp(`^${escaped}$`, 'i').test(model);
+  // Shared escape-then-translate rule (avoids drift across the renderer/core
+  // glob copies). See @offisim/core's glob-match.
+  return globToRegex(pattern).test(model);
 }
 
 function findCostRate(rates: CostRateRow[], provider: string, model: string): CostRateRow | null {

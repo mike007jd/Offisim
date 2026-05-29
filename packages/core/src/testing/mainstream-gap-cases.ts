@@ -679,7 +679,10 @@ async function assertToolValidationAndSpill(): Promise<Record<string, unknown>> 
   const invalid = validateToolInput(tool, { path: 3 });
   assert(!invalid.success, 'Malformed tool input was accepted.');
   const original = '0123456789abcdef'.repeat(16);
-  const capped = expectRecord(await capToolResultForModel(tool, original), 'spill result missing');
+  const capped = expectRecord(
+    await capToolResultForModel(tool.maxResultSizeChars, original),
+    'spill result missing',
+  );
   assert(capped.kind === 'tool-result-spilled', 'Oversized result did not spill.');
   assert(typeof capped.preview === 'string', 'Spill preview missing.');
   assert(String(capped.preview).length < original.length, 'Spill preview is not bounded.');

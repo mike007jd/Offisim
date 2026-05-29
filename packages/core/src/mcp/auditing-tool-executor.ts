@@ -260,7 +260,7 @@ export class AuditingToolExecutor implements ToolExecutor {
       (item) => item.name === call.name,
     );
     return tool
-      ? { ...response, result: await capToolResultForModel(tool, response.result) }
+      ? { ...response, result: await capToolResultForModel(tool.maxResultSizeChars, response.result) }
       : response;
   }
 

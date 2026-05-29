@@ -1,4 +1,3 @@
-import type { ToolDef } from '../llm/gateway.js';
 import { generateId } from '../utils/generate-id.js';
 
 const DEFAULT_MAX_RESULT_SIZE_CHARS = 30_000;
@@ -50,9 +49,12 @@ async function unlinkSpillFile(filePath: string): Promise<void> {
   }
 }
 
-export async function capToolResultForModel(tool: ToolDef, result: unknown): Promise<unknown> {
+export async function capToolResultForModel(
+  maxResultSizeChars: number | undefined,
+  result: unknown,
+): Promise<unknown> {
   const text = typeof result === 'string' ? result : JSON.stringify(result);
-  const maxChars = tool.maxResultSizeChars ?? DEFAULT_MAX_RESULT_SIZE_CHARS;
+  const maxChars = maxResultSizeChars ?? DEFAULT_MAX_RESULT_SIZE_CHARS;
   if (!text || text.length <= maxChars) return result;
   const spillId = generateId('tool-spill');
   const spillPath = await persistToolResultSpill(spillId, text);

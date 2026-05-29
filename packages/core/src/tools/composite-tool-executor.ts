@@ -37,7 +37,10 @@ export class CompositeToolExecutor implements ToolExecutor {
           ...(call.employeeId ? { employeeId: call.employeeId } : {}),
           ...(call.runScope !== undefined ? { runScope: call.runScope } : {}),
         });
-        return { success: true, result: await capToolResultForModel(builtin.def, result) };
+        return {
+          success: true,
+          result: await capToolResultForModel(builtin.def.maxResultSizeChars, result),
+        };
       } catch (err) {
         return {
           success: false,
@@ -52,9 +55,10 @@ export class CompositeToolExecutor implements ToolExecutor {
     // MCP executor's responsibility — it holds each tool's inputSchema.)
     const mcpResponse = await this.mcpExecutor.execute(call);
     if (!mcpResponse.success) return mcpResponse;
+    // No per-tool cap for MCP results — pass undefined so the default applies.
     return {
       ...mcpResponse,
-      result: await capToolResultForModel({ name: call.name } as unknown as ToolDef, mcpResponse.result),
+      result: await capToolResultForModel(undefined, mcpResponse.result),
     };
   }
 
