@@ -42,10 +42,28 @@ export interface MaterializeResult {
   readonly bindingIds: string[];
 }
 
+/** A skill vault file deferred for post-commit writing (see deferVaultWrites). */
+interface PendingVaultWrite {
+  readonly vaultPath: string;
+  readonly content: string;
+}
+
 export interface MaterializeOptions {
   readonly provenance?: InstallProvenance;
   readonly transact?: <T>(fn: () => T) => T;
   readonly asyncTransact?: <T>(fn: () => Promise<T>) => Promise<T>;
+  /**
+   * Internal: set by the `asyncTransact` branch. When present, skill `SKILL.md`
+   * vault writes are COLLECTED here instead of written immediately, so they can
+   * be flushed by the caller AFTER the DB transaction commits. This closes the
+   * FS-after-DB hazard: under the deferred-write transaction, `repos.skills.insert`
+   * is buffered until flush, but `repos.vault.writeFile` hits disk at once — so a
+   * flush failure (e.g. duplicate slug) or a crash before commit used to leave a
+   * SKILL.md on disk with no committed row (an invisible orphan; the in-transaction
+   * rollback never sees flush failures). Deferring the write means no file exists
+   * until the row is durable.
+   */
+  readonly deferVaultWrites?: PendingVaultWrite[];
 }
 
 type MutableMaterializeResult = {
@@ -401,9 +419,45 @@ export async function materialize(
   const hasSkillAssets = manifest.assets.some((asset) => asset.kind === 'skill');
 
   if (asyncTransact && hasSkillAssets) {
-    return asyncTransact(() =>
-      materialize(plan, bindings, repos, companyId, installTxnId, { provenance }),
+    // Collect skill vault writes during the transaction, then flush them only
+    // AFTER the DB has committed — so a flush failure or crash can never leave a
+    // SKILL.md on disk without its committed row.
+    const pendingVaultWrites: PendingVaultWrite[] = [];
+    const result = await asyncTransact(() =>
+      materialize(plan, bindings, repos, companyId, installTxnId, {
+        provenance,
+        deferVaultWrites: pendingVaultWrites,
+      }),
     );
+
+    // DB committed. Write the vault files now. If a write fails post-commit,
+    // compensate by deleting the just-committed skill rows (and removing any
+    // files already written) so we never leave a row pointing at a missing file.
+    const written: string[] = [];
+    try {
+      for (const pending of pendingVaultWrites) {
+        await repos.vault?.writeFile(pending.vaultPath, pending.content);
+        written.push(pending.vaultPath);
+      }
+    } catch (err) {
+      for (const skillId of result.skillIds) {
+        try {
+          await repos.skills?.delete(skillId);
+        } catch {
+          // best-effort compensation
+        }
+      }
+      for (const vaultPath of written) {
+        try {
+          await repos.vault?.remove(vaultPath);
+        } catch {
+          // best-effort compensation
+        }
+      }
+      throw err;
+    }
+
+    return result;
   }
 
   if (transact && !hasSkillAssets) {
@@ -671,14 +725,23 @@ export async function materialize(
           vaultPath,
           skillNow,
         );
-        // FS-after-DB: insert the row first so that if vault.writeFile throws
-        // before commit, the asyncTransact queue is discarded — there's no
-        // orphan FS file pointing at a row that never committed. The vault
-        // write still happens *before* the queue commits, but if it succeeds
-        // and the commit later fails, rollback() handles partial.skillVaultPaths.
         await repos.skills.insert(row);
-        await repos.vault.writeFile(vaultPath, skillMdContent(manifest, payload, asset));
-        partial.skillVaultPaths.push(vaultPath);
+        const skillContent = skillMdContent(manifest, payload, asset);
+        if (options.deferVaultWrites) {
+          // Deferred path (asyncTransact / desktop): collect the write for the
+          // caller to flush AFTER commit. Nothing is on disk yet, so this is
+          // deliberately NOT recorded in `partial.skillVaultPaths` — an
+          // in-transaction rollback must not try to delete a file that was
+          // never written. Post-commit write failures are compensated by the
+          // asyncTransact branch.
+          options.deferVaultWrites.push({ vaultPath, content: skillContent });
+        } else {
+          // Non-deferred path (memory repos / tests, no deferred commit):
+          // FS-after-DB so a mid-write throw discards the row before commit and
+          // rollback() can delete the file via partial.skillVaultPaths.
+          await repos.vault.writeFile(vaultPath, skillContent);
+          partial.skillVaultPaths.push(vaultPath);
+        }
         skillIds.push(skillId);
         skillVaultPaths.push(vaultPath);
         partial.skillIds.push(skillId);
