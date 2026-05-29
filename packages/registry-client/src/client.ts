@@ -32,6 +32,43 @@ export const REGISTRY_CLIENT_TIMEOUT_MS = 10_000;
 
 const REDIRECT_STATUS_CODES = new Set([301, 302, 303, 307, 308]);
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function backoffMs(attempt: number): number {
+  const base = 300 * 2 ** attempt; // 300, 600, 1200ms
+  const jitter = base * (0.5 + Math.random() * 0.5);
+  return Math.min(jitter, 5_000);
+}
+
+function parseRetryAfterMs(value: unknown): number | null {
+  if (typeof value !== 'string' && typeof value !== 'number') return null;
+  const raw = String(value).trim();
+  const seconds = Number(raw);
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+  const at = Date.parse(raw);
+  return Number.isFinite(at) ? Math.max(0, at - Date.now()) : null;
+}
+
+/**
+ * Backoff delay for a failed idempotent (GET) request, or null if the error is
+ * not transient and should not be retried. Retries 429 / 5xx (honoring
+ * Retry-After) and network/timeout errors; never retries other 4xx, redirects,
+ * or non-network failures (e.g. JSON parse).
+ */
+function idempotentRetryDelayMs(err: unknown, attempt: number): number | null {
+  if (err instanceof RegistryApiError) {
+    if (err.status === 429 || err.status >= 500) {
+      return parseRetryAfterMs(err.details?.retryAfter) ?? backoffMs(attempt);
+    }
+    return null;
+  }
+  const name = (err as { name?: string } | null)?.name;
+  if (name === 'AbortError' || name === 'TypeError') return backoffMs(attempt);
+  return null;
+}
+
 export interface RegistryClientConfig {
   baseUrl: string;
   authToken?: string;
@@ -198,7 +235,11 @@ export class RegistryClient {
           message: string;
           details?: Record<string, unknown>;
         };
-        throw new RegistryApiError(res.status, errObj.code, errObj.message, errObj.details);
+        const retryAfter = res.headers.get('retry-after');
+        throw new RegistryApiError(res.status, errObj.code, errObj.message, {
+          ...errObj.details,
+          ...(retryAfter ? { retryAfter } : {}),
+        });
       }
 
       return await readRegistryJson<T>(res);
@@ -207,8 +248,23 @@ export class RegistryClient {
     }
   }
 
-  private get<T>(path: string): Promise<T> {
-    return this.request<T>('GET', path);
+  // GETs are idempotent, so transient failures (429 / 5xx / network / timeout)
+  // are retried with bounded exponential backoff, honoring Retry-After. Mutating
+  // verbs (POST/PUT/PATCH/DELETE) deliberately do NOT auto-retry.
+  private async get<T>(path: string): Promise<T> {
+    const MAX_ATTEMPTS = 3;
+    let lastErr: unknown;
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      try {
+        return await this.request<T>('GET', path);
+      } catch (err) {
+        lastErr = err;
+        const delay = idempotentRetryDelayMs(err, attempt);
+        if (delay === null || attempt === MAX_ATTEMPTS - 1) throw err;
+        await sleep(delay);
+      }
+    }
+    throw lastErr;
   }
 
   private post<T>(path: string, body: unknown): Promise<T> {
