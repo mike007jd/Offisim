@@ -16,6 +16,9 @@ export function scoreDocument(doc: LibraryDocumentRow, keywords: string[]): numb
   const titleLower = doc.title.toLowerCase();
   const contentLower = doc.content_text.toLowerCase();
   for (const kw of keywords) {
+    // Skip empty keywords: `indexOf('')` returns 0 and `idx += 0` would spin
+    // forever (and a blank term matches everything anyway).
+    if (kw.length === 0) continue;
     if (titleLower.includes(kw)) score += 3; // title match worth 3x
     // Count occurrences in content
     let idx = contentLower.indexOf(kw);

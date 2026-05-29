@@ -10,8 +10,22 @@ export const DEFAULT_RETRY_CONFIG: RetryConfig = {
   maxDelayMs: 30000,
 };
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException('Aborted', 'AbortError'));
+      return;
+    }
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new DOMException('Aborted', 'AbortError'));
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
 }
 
 function retryAfterMs(error: unknown): number | null {
@@ -66,7 +80,9 @@ export async function withRetry<T>(
       if (!isRetryable(error) || attempt === config.maxRetries) {
         throw error;
       }
-      await sleep(computeDelay(attempt, config, error));
+      // Abortable backoff: if the signal fires during the (up to maxDelayMs)
+      // wait, reject immediately instead of stalling for the full delay.
+      await sleep(computeDelay(attempt, config, error), signal);
     }
   }
 
