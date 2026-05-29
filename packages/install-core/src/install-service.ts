@@ -296,9 +296,13 @@ export class InstallService {
         `Install transaction '${installTxnId}' is already materializing.`,
       );
     }
+    // No cached plan: either importFile was never called, or the app restarted
+    // mid-install (the plan + downloaded archive live only in memory and are not
+    // persisted). The transaction is recoverable — it can be cancelled cleanly
+    // from its awaiting_* state (see cancel()) and the install re-initiated.
     throw new InstallServiceError(
       'plan_not_found',
-      `Install plan for transaction '${installTxnId}' not found in cache. Was importFile called?`,
+      `Install plan for transaction '${installTxnId}' is unavailable (importFile not called, or the app restarted mid-install). Cancel this transaction and re-run the install.`,
     );
   }
 
@@ -570,23 +574,40 @@ export class InstallService {
       );
     }
 
-    // Only awaiting_confirmation can transition to cancelled per state machine
-    if (txn.state !== 'awaiting_confirmation') {
-      // For other non-terminal states, fail the transaction instead
-      await this.transitionToFailed(
+    // Prefer a clean 'cancelled' transition where the state machine allows it
+    // (awaiting_confirmation / awaiting_bindings / ready_to_install). Only call
+    // finish() AFTER the transition succeeds, so we never mark a transaction
+    // finished while its state is still non-terminal.
+    if (validateTransition(txn.state, 'cancelled').valid) {
+      await this.transition(
         installTxnId,
         txn.state,
-        'cancelled_by_user',
-        'Installation cancelled by user',
+        'cancelled',
+        txn.target_package_id ?? undefined,
       );
+      await this.repos.installTransactions.finish(installTxnId, 'cancelled');
+      this.planCache.delete(installTxnId);
+      return;
+    }
+
+    // Mid-pipeline states can't go straight to 'cancelled' — fail them instead,
+    // and only finish if the transition to 'failed' actually applied.
+    const failed = await this.transitionToFailed(
+      installTxnId,
+      txn.state,
+      'cancelled_by_user',
+      'Installation cancelled by user',
+    );
+    if (failed) {
       await this.repos.installTransactions.finish(installTxnId, 'failed');
       this.planCache.delete(installTxnId);
       return;
     }
 
-    await this.transition(installTxnId, txn.state, 'cancelled', txn.target_package_id ?? undefined);
-    await this.repos.installTransactions.finish(installTxnId, 'cancelled');
-    this.planCache.delete(installTxnId);
+    throw new InstallServiceError(
+      'cannot_cancel',
+      `Cannot cancel transaction in non-terminal state '${txn.state}' (no valid cancelled/failed transition)`,
+    );
   }
 
   // -------------------------------------------------------------------------
@@ -624,23 +645,28 @@ export class InstallService {
     this.events.emitInstallState(this.companyId, txnId, from, to, packageId);
   }
 
-  /** Transition to 'failed' state with error details. */
+  /**
+   * Transition to 'failed' state with error details. Returns `true` if the
+   * transition was valid and applied, `false` if `from` has no path to
+   * 'failed' (the caller must decide how to finalize in that case — it must NOT
+   * mark the transaction finished on a `false` result, or the row would be
+   * finished while its state machine state is still non-terminal).
+   */
   private async transitionToFailed(
     txnId: string,
     from: InstallState,
     errorCode: string,
     errorDetail: string,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const result = validateTransition(from, 'failed');
     if (!result.valid) {
-      // Some states (like awaiting_confirmation) can't go to failed directly.
-      // In those cases, we can only log — the caller should handle this case.
       console.warn(`[install-service] Cannot transition ${from} -> failed: ${result.reason}`);
-      return;
+      return false;
     }
 
     await this.repos.installTransactions.updateState(txnId, 'failed', errorCode, errorDetail);
     this.events.emitInstallState(this.companyId, txnId, from, 'failed', undefined, errorCode);
+    return true;
   }
 
   /**

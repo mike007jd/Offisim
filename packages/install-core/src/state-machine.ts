@@ -33,10 +33,13 @@ export const TRANSITIONS: TransitionMap = new Map<InstallState, ReadonlySet<Inst
   ],
   [
     'awaiting_confirmation',
-    new Set<InstallState>(['awaiting_bindings', 'ready_to_install', 'cancelled']),
+    new Set<InstallState>(['awaiting_bindings', 'ready_to_install', 'cancelled', 'failed']),
   ],
-  ['awaiting_bindings', new Set<InstallState>(['ready_to_install'])],
-  ['ready_to_install', new Set<InstallState>(['materializing'])],
+  // awaiting_bindings / ready_to_install must be cancellable and failable:
+  // without these exits, a user cancel (or any error) while waiting for binding
+  // input had no valid terminal transition and left the transaction stuck.
+  ['awaiting_bindings', new Set<InstallState>(['ready_to_install', 'cancelled', 'failed'])],
+  ['ready_to_install', new Set<InstallState>(['materializing', 'cancelled', 'failed'])],
   ['materializing', new Set<InstallState>(['installed', 'rolled_back', 'failed'])],
 ]);
 
