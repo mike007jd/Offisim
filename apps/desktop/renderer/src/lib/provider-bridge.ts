@@ -98,14 +98,19 @@ export async function sendProviderText({
   text,
   requestId,
   maxOutputTokens,
+  signal,
 }: {
   profile: RuntimeProviderProfile;
   text: string;
   requestId: string;
   maxOutputTokens: number;
+  signal?: AbortSignal;
 }): Promise<string> {
   if (!profile.hasCredential) {
     throw new Error('No provider credential stored on this device.');
+  }
+  if (signal?.aborted) {
+    throw new DOMException('Aborted', 'AbortError');
   }
 
   const { Channel, invoke } = await import('@tauri-apps/api/core');
@@ -114,6 +119,14 @@ export async function sendProviderText({
   const decoder = new TextDecoder();
 
   const channelDone = new Promise<void>((resolve, reject) => {
+    let onAbort: (() => void) | null = null;
+    const cleanup = () => {
+      if (onAbort && signal) {
+        signal.removeEventListener('abort', onAbort);
+        onAbort = null;
+      }
+    };
+
     const onEvent = new Channel<LlmTransportEvent>((event) => {
       if (event.kind === 'headers') {
         status = event.status;
@@ -124,12 +137,25 @@ export async function sendProviderText({
         return;
       }
       if (event.kind === 'error') {
+        cleanup();
         reject(new Error(event.message));
         return;
       }
       raw += decoder.decode();
+      cleanup();
       resolve();
     });
+
+    if (signal) {
+      // Without this, an abort via llm_fetch_abort can stop the Rust side from
+      // emitting any terminal event, leaving channelDone (and the caller) hung.
+      onAbort = () => {
+        void invoke('llm_fetch_abort', { requestId }).catch(() => undefined);
+        cleanup();
+        reject(new DOMException('Aborted', 'AbortError'));
+      };
+      signal.addEventListener('abort', onAbort, { once: true });
+    }
 
     void invoke('llm_fetch', {
       req: {
@@ -141,7 +167,10 @@ export async function sendProviderText({
         body: JSON.stringify(requestBodyFor(profile, text, maxOutputTokens)),
       },
       onEvent,
-    }).catch((error) => reject(new Error(safeErrorMessage(error))));
+    }).catch((error) => {
+      cleanup();
+      reject(new Error(safeErrorMessage(error)));
+    });
   });
 
   await channelDone;

@@ -36,6 +36,32 @@ import type {
 /** Max queued execute() calls per thread before rejecting. */
 const MAX_QUEUE_DEPTH = 3;
 
+/**
+ * LangGraph super-step budget for a full graph run.
+ *
+ * LangGraph's default is 25, which a legitimate multi-step plan or a 10-turn
+ * meeting blows past — producing a spurious `GraphRecursionError` mid-run. We
+ * raise it to a value that covers the worst-case *legitimate* path while still
+ * acting as a real stuck-loop guard (NOT an absurd number that hides genuine
+ * cycles).
+ *
+ * Worst-case legitimate plan/dispatch path (the dominant case):
+ *   - framing nodes (boss → manager → pm_planner → boss_summary)         ≈ 4
+ *   - per plan step batch: step_dispatcher(1) + employee fan-out
+ *     (one self-loop per pending assignment, ~8) + handoffs
+ *     (MAX_HANDOFF_COUNT=3) + step_advance(1)                            ≈ 13
+ *   - over a generous ~24-step plan                                      ≈ 312
+ *   - global replans (MAX_REPLAN_COUNT=3, ~2 super-steps each)           ≈ 6
+ *   - re-dispatch cycles for newly-unblocked dependent steps             (margin)
+ *
+ * Worst-case meeting path: meeting_start + MAX_TURNS(10) participant turns +
+ * up to 10 injects + resume/end + boss_summary ≈ 25 — well under this budget.
+ *
+ * 400 leaves headroom over the plan estimate while staying far below a value
+ * that would let a genuine infinite cycle run unbounded.
+ */
+const GRAPH_RECURSION_LIMIT = 400;
+
 function normalizeRetryableErrorMessage(message: string): string {
   return message.replace(/^\[Error Handler\]\s*/, '').trim();
 }
@@ -463,6 +489,7 @@ export class OrchestrationService {
     const stream = await this.graph.stream(state as Record<string, unknown>, {
       ...config,
       streamMode: 'updates' as const,
+      recursionLimit: GRAPH_RECURSION_LIMIT,
     });
     const repos = this.runtimeCtx.repos;
     const nodeSummaryRepo = repos?.nodeSummaries;

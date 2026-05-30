@@ -1535,9 +1535,18 @@ export function usePublishPackage() {
   });
 }
 
+export interface PrepareRegistryInstallInput {
+  listing: MarketListing;
+  /** Aborts the artifact download when the install dialog is closed. */
+  signal?: AbortSignal;
+}
+
 export function usePrepareRegistryInstall(companyId?: string | null) {
   return useMutation({
-    mutationFn: async (listing: MarketListing): Promise<PendingPackageInstall> => {
+    mutationFn: async ({
+      listing,
+      signal,
+    }: PrepareRegistryInstallInput): Promise<PendingPackageInstall> => {
       if (!companyId) {
         throw new Error('Select or create a company before installing a registry package.');
       }
@@ -1549,7 +1558,7 @@ export function usePrepareRegistryInstall(companyId?: string | null) {
         throw new Error('Registry install requires the desktop runtime and local database.');
       }
 
-      const response = await fetch(listing.installArtifactUrl, { credentials: 'omit' });
+      const response = await fetch(listing.installArtifactUrl, { credentials: 'omit', signal });
       if (!response.ok) {
         throw new Error(`Registry artifact download failed with HTTP ${response.status}.`);
       }

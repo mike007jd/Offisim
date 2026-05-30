@@ -23,6 +23,8 @@ export interface ExecuteHandoffContext {
   readonly runtimeCtx: RuntimeContext;
   readonly companyId: string;
   readonly threadId: string;
+  /** Run AbortSignal so the isolated handoff sub-run honors cancellation. */
+  readonly signal?: AbortSignal;
 }
 
 /**
@@ -41,7 +43,8 @@ export async function executeHandoff(
   args: HandoffArgs,
   ctx: ExecuteHandoffContext,
 ): Promise<Command | null> {
-  const { state, remaining, employee, taskRunId, stepIndex, runtimeCtx, companyId, threadId } = ctx;
+  const { state, remaining, employee, taskRunId, stepIndex, runtimeCtx, companyId, threadId, signal } =
+    ctx;
   const { repos, eventBus } = runtimeCtx;
 
   const targetEmp = await repos.employees.findById(args.targetEmployeeId).catch(() => null);
@@ -111,6 +114,7 @@ export async function executeHandoff(
     runtimeCtx,
     companyId,
     threadId,
+    signal,
   });
 
   return new Command({
@@ -153,8 +157,9 @@ async function runIsolatedHandoffSubRun(input: {
   readonly runtimeCtx: RuntimeContext;
   readonly companyId: string;
   readonly threadId: string;
+  readonly signal?: AbortSignal;
 }): Promise<{ summary: string }> {
-  const { args, state, targetEmp, taskRunId, runtimeCtx, companyId, threadId } = input;
+  const { args, state, targetEmp, taskRunId, runtimeCtx, companyId, threadId, signal } = input;
   const resolved = resolveTargetModel(runtimeCtx, targetEmp);
   const scopedTools =
     runtimeCtx.llmToolCallsEnabled === false || !runtimeCtx.builtinTools
@@ -195,6 +200,7 @@ async function runIsolatedHandoffSubRun(input: {
             temperature: resolved.temperature,
             maxTokens: resolved.maxTokens,
             tools: tools.length > 0 ? tools : undefined,
+            ...(signal ? { signal } : {}),
           },
           {
             nodeName: 'employee_sub_run',

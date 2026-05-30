@@ -67,7 +67,7 @@ export async function employeeNode(
   });
 
   if (employee.is_external === 1) {
-    return runEmployeeA2A(state, runtimeCtx, preflightOutcome.preflight);
+    return runEmployeeA2A(state, runtimeCtx, preflightOutcome.preflight, getConfigSignal(config));
   }
 
   const runtimeBinding = resolveEmployeeRuntimeBinding(employee, runtimeCtx.runtimePolicy);
@@ -214,6 +214,7 @@ export async function employeeNode(
           runtimeCtx,
           companyId,
           threadId,
+          signal: getConfigSignal(config),
         });
         if (command) return command;
         // Target employee gone — fall back to completing the task ourselves.

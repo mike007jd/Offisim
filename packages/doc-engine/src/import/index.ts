@@ -19,16 +19,22 @@ export { parseText } from './text.js';
  * fallback instead of throwing into the runtime.
  *
  * Bytes are not consumed — callers retain ownership; parsers copy when needed.
+ *
+ * An optional `signal` is threaded into the sequential PDF page extraction so
+ * a cancelled run can bail between pages instead of churning through a
+ * multi-hundred-page document; aborted parses funnel into
+ * `{ kind: 'unsupported', reason: 'aborted' }`.
  */
 export async function parseAttachment(
   bytes: Uint8Array,
   mimeType: string,
   filename: string,
+  signal?: AbortSignal,
 ): Promise<ParsedAttachment> {
   void filename; // reserved for future heuristics (extension-based fallbacks)
   const kind = kindFromMime(mimeType);
   try {
-    if (kind === 'pdf') return await parsePdf(bytes);
+    if (kind === 'pdf') return await parsePdf(bytes, signal);
     if (kind === 'docx') return await parseDocx(bytes);
     if (kind === 'xlsx') return await parseXlsx(bytes);
     if (kind === 'pptx') return await parsePptx(bytes);

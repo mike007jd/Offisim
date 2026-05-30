@@ -106,7 +106,7 @@ export class A2AClient {
    */
   async sendMessage(
     message: string,
-    opts?: { agentId?: string; contextId?: string; taskId?: string },
+    opts?: { agentId?: string; contextId?: string; taskId?: string; signal?: AbortSignal },
   ): Promise<A2ASendMessageResult> {
     const targetAgent = opts?.agentId ?? this.peer.agentId;
     const envelope: A2AMessage = {
@@ -118,14 +118,14 @@ export class A2AClient {
       ...(targetAgent ? { agentId: targetAgent } : {}),
     };
     logger.info('SendMessage', { peer: this.peer.name, agentId: targetAgent });
-    return this.rpc<A2ASendMessageResult>('SendMessage', { message: envelope });
+    return this.rpc<A2ASendMessageResult>('SendMessage', { message: envelope }, opts?.signal);
   }
 
   /** Poll for the status of a previously submitted task. */
-  async getTask(taskId: string, historyLength?: number): Promise<A2ATask> {
+  async getTask(taskId: string, historyLength?: number, signal?: AbortSignal): Promise<A2ATask> {
     const params: Record<string, unknown> = { id: taskId };
     if (historyLength !== undefined) params.historyLength = historyLength;
-    return this.rpc<A2ATask>('GetTask', params);
+    return this.rpc<A2ATask>('GetTask', params, signal);
   }
 
   /** Cancel an in-flight task. */
@@ -148,6 +148,8 @@ export class A2AClient {
       timeoutMs?: number;
       /** Polling interval in ms (default: 2 000). */
       pollMs?: number;
+      /** External cancellation signal; aborts the round-trip in addition to the per-request timeout. */
+      signal?: AbortSignal;
     },
   ): Promise<A2ATask> {
     const timeout = opts?.timeoutMs ?? 120_000;
@@ -156,11 +158,12 @@ export class A2AClient {
     const result = await this.sendMessage(message, {
       ...(opts?.agentId ? { agentId: opts.agentId } : {}),
       ...(opts?.contextId ? { contextId: opts.contextId } : {}),
+      ...(opts?.signal ? { signal: opts.signal } : {}),
     });
 
     if (result.task) {
       if (TERMINAL_STATES.has(result.task.status.state)) return result.task;
-      return this.pollUntilTerminal(result.task, timeout, pollInterval);
+      return this.pollUntilTerminal(result.task, timeout, pollInterval, opts?.signal);
     }
     if (result.message) {
       return {
@@ -194,13 +197,17 @@ export class A2AClient {
     initial: A2ATask,
     timeoutMs: number,
     pollMs: number,
+    signal?: AbortSignal,
   ): Promise<A2ATask> {
     const deadline = Date.now() + timeoutMs;
     let last = initial;
     while (Date.now() < deadline) {
-      await new Promise((r) => setTimeout(r, pollMs));
+      if (signal?.aborted) {
+        throw new DOMException('A2A task polling aborted', 'AbortError');
+      }
+      await sleepUnlessAborted(pollMs, signal);
       try {
-        last = await this.getTask(initial.id);
+        last = await this.getTask(initial.id, undefined, signal);
       } catch (err) {
         // -32601 (Method not found) means the peer can never satisfy GetTask;
         // any further polling is wasted time. Abort and surface a clear
@@ -243,7 +250,11 @@ export class A2AClient {
     return endpoint;
   }
 
-  private async rpc<R>(method: string, params: Record<string, unknown>): Promise<R> {
+  private async rpc<R>(
+    method: string,
+    params: Record<string, unknown>,
+    external?: AbortSignal,
+  ): Promise<R> {
     const endpoint = await this.resolveEndpoint();
     const requestId = generateId('a2a-req');
     return withA2AFetchTimeout(async (signal) => {
@@ -272,7 +283,7 @@ export class A2AClient {
         throw new Error(`A2A response missing result for ${method}`);
       }
       return body.result;
-    });
+    }, external);
   }
 
   private authHeaders(): Record<string, string> {
@@ -334,14 +345,45 @@ export async function readResponseTextWithLimit(
   return text + decoder.decode();
 }
 
-async function withA2AFetchTimeout<T>(fn: (signal: AbortSignal) => Promise<T>): Promise<T> {
+async function withA2AFetchTimeout<T>(
+  fn: (signal: AbortSignal) => Promise<T>,
+  external?: AbortSignal,
+): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), A2A_FETCH_TIMEOUT_MS);
+  // Combine the internal per-request timeout with any external cancellation
+  // signal so the fetch aborts on whichever fires first.
+  const signal = external ? AbortSignal.any([external, controller.signal]) : controller.signal;
   try {
-    return await fn(controller.signal);
+    return await fn(signal);
   } finally {
     clearTimeout(timeout);
   }
+}
+
+/**
+ * Sleep for `ms` but bail immediately if `signal` aborts, so polling between
+ * requests does not ignore an in-flight cancellation.
+ */
+async function sleepUnlessAborted(ms: number, signal?: AbortSignal): Promise<void> {
+  if (!signal) {
+    await new Promise((resolve) => setTimeout(resolve, ms));
+    return;
+  }
+  if (signal.aborted) {
+    throw new DOMException('A2A task polling aborted', 'AbortError');
+  }
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new DOMException('A2A task polling aborted', 'AbortError'));
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
 }
 
 function assertSameOrigin(url: URL, expected: URL, label: string): void {

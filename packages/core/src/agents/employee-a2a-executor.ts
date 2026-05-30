@@ -167,6 +167,7 @@ export async function runEmployeeA2A(
   state: OffisimGraphState,
   runtimeCtx: RuntimeContext,
   preflight: PreflightResult,
+  signal?: AbortSignal,
 ): Promise<Partial<OffisimGraphState>> {
   const {
     employee,
@@ -194,7 +195,10 @@ export async function runEmployeeA2A(
   const client = new A2AClient(peer);
   let task: A2ATask;
   try {
-    task = await client.sendAndWait(taskDescription, { agentId: peer.agentId });
+    task = await client.sendAndWait(taskDescription, {
+      ...(peer.agentId ? { agentId: peer.agentId } : {}),
+      ...(signal ? { signal } : {}),
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await markFailure(runtimeCtx, preflight, threadId, 'a2a_transport', message);

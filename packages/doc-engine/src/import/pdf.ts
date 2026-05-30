@@ -16,7 +16,13 @@ async function loadPdfjs(): Promise<typeof import('pdfjs-dist/legacy/build/pdf.m
   return pdfjs;
 }
 
-export async function parsePdf(bytes: Uint8Array): Promise<ParsedAttachment> {
+export async function parsePdf(
+  bytes: Uint8Array,
+  signal?: AbortSignal,
+): Promise<ParsedAttachment> {
+  if (signal?.aborted) {
+    return { kind: 'unsupported', reason: 'aborted' };
+  }
   const pdfjs = await loadPdfjs();
   // copy into a fresh buffer because pdfjs takes ownership of the underlying
   // ArrayBuffer (it transfers it to the worker), which would null-out the
@@ -37,6 +43,12 @@ export async function parsePdf(bytes: Uint8Array): Promise<ParsedAttachment> {
     const truncated = doc.numPages > MAX_PDF_PAGES;
     const pages: string[] = [];
     for (let i = 1; i <= pageCount; i += 1) {
+      // Per-page cancellation: a multi-hundred-page PDF can take seconds to
+      // extract; bail between pages so an aborted run releases the worker
+      // promptly instead of churning through every remaining page.
+      if (signal?.aborted) {
+        return { kind: 'unsupported', reason: 'aborted' };
+      }
       const page = await doc.getPage(i);
       const content = await page.getTextContent();
       const text = content.items

@@ -129,6 +129,7 @@ export function MarketSurface() {
   const [registryTokenOpen, setRegistryTokenOpen] = useState(false);
   const [detailListingId, setDetailListingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const registryInstallAbortRef = useRef<AbortController | null>(null);
 
   const filtered = useMemo(() => {
     let list = listings.data ?? [];
@@ -162,15 +163,26 @@ export function MarketSurface() {
   async function openInstall(listing: MarketListing) {
     if (!canInstallListing(listing)) return;
     if (listing.installSource === 'registry') {
+      registryInstallAbortRef.current?.abort();
+      const controller = new AbortController();
+      registryInstallAbortRef.current = controller;
       try {
-        const pending = await prepareRegistryInstall.mutateAsync(listing);
+        const pending = await prepareRegistryInstall.mutateAsync({
+          listing,
+          signal: controller.signal,
+        });
         setPendingPackageInstall(pending);
         setInstallTarget(pending.listing);
         setInstallOpen(true);
       } catch (error) {
+        if (controller.signal.aborted) return;
         toast.error('Registry install failed', {
           description: error instanceof Error ? error.message : String(error),
         });
+      } finally {
+        if (registryInstallAbortRef.current === controller) {
+          registryInstallAbortRef.current = null;
+        }
       }
       return;
     }
@@ -204,6 +216,9 @@ export function MarketSurface() {
   function handleInstallOpenChange(open: boolean) {
     setInstallOpen(open);
     if (open) return;
+
+    registryInstallAbortRef.current?.abort();
+    registryInstallAbortRef.current = null;
 
     if (pendingPackageInstall) {
       void cancelPackageImport.mutateAsync(pendingPackageInstall).catch(() => undefined);
@@ -260,6 +275,15 @@ export function MarketSurface() {
         : 'Market publish and receipt calls now require a new token.',
     });
   }
+
+  // Abort any in-flight registry artifact download if the surface unmounts.
+  useEffect(
+    () => () => {
+      registryInstallAbortRef.current?.abort();
+      registryInstallAbortRef.current = null;
+    },
+    [],
+  );
 
   return (
     <div className={cn('off-market', detailOpen && 'is-detail-mode')}>

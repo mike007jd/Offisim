@@ -22,6 +22,30 @@ import {
 /** Maximum local recovery retries before escalating to error_handler. */
 const MAX_RECOVERY_RETRIES = 2;
 
+/**
+ * Sleep for `ms`, resolving early (false) if the signal aborts. Lets recovery
+ * backoff honor run cancellation instead of blocking the full delay.
+ * Returns true if the full delay elapsed, false if aborted.
+ */
+async function abortableDelay(ms: number, signal: AbortSignal | undefined): Promise<boolean> {
+  if (signal?.aborted) return false;
+  if (!signal) {
+    await new Promise((resolve) => setTimeout(resolve, ms));
+    return true;
+  }
+  return new Promise<boolean>((resolve) => {
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve(true);
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      resolve(false);
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
 export interface RecoveryCallArgs {
   systemPrompt: string;
   taskDescription: string;
@@ -71,6 +95,8 @@ export async function attemptLocalRecovery(
 
   if (!recovery || recovery.strategy === 'escalate') return null;
 
+  const signal = getConfigSignal(config);
+
   // Execute fix strategy
   for (let attempt = 0; attempt < MAX_RECOVERY_RETRIES; attempt++) {
     try {
@@ -78,11 +104,17 @@ export async function attemptLocalRecovery(
       let retryProvider = callArgs.provider;
 
       if (recovery.strategy === 'retry_with_backoff') {
-        // Exponential backoff: 2s, 4s
+        // Exponential backoff: 2s, 4s — abort early if the run is cancelled.
         const delayMs = 2000 * 2 ** attempt;
-        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        if (!(await abortableDelay(delayMs, signal))) break;
       } else if (recovery.strategy === 'switch_model') {
-        // Fall back to the system default model
+        // Fall back to the system default model. The fallback is identical on
+        // every attempt, so back off before re-issuing instead of busy-retrying
+        // the same model immediately; bail if the run is cancelled.
+        if (attempt > 0) {
+          const delayMs = 2000 * 2 ** (attempt - 1);
+          if (!(await abortableDelay(delayMs, signal))) break;
+        }
         const fallback = modelResolver.resolve(null);
         retryModel = fallback.model;
         retryProvider = fallback.provider;

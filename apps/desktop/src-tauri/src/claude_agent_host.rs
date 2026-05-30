@@ -41,6 +41,10 @@ const ENV_WHITELIST: &[&str] = &[
     "REQUESTS_CA_BUNDLE",
 ];
 const BUNDLED_SIDECAR_RESOURCE_PATH: &str = "resources/claude-agent-host.mjs";
+/// Hard cap on the trusted Claude lane sidecar's stdout/stderr. Mirrors the
+/// bounded-I/O discipline in `builtin_tools.rs`: the lane fails closed instead
+/// of buffering an unbounded child stream into the desktop process.
+const MAX_SIDECAR_OUTPUT_BYTES: u64 = 16 * 1024 * 1024;
 
 static IN_FLIGHT: Lazy<Mutex<HashMap<String, CancellationToken>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
@@ -396,11 +400,11 @@ async fn do_execute<R: tauri::Runtime>(
         .stdin
         .take()
         .ok_or_else(|| HostError::Spawn("Trusted Claude lane host is missing stdin".into()))?;
-    let mut stdout = child
+    let stdout = child
         .stdout
         .take()
         .ok_or_else(|| HostError::Spawn("Trusted Claude lane host is missing stdout".into()))?;
-    let mut stderr = child
+    let stderr = child
         .stderr
         .take()
         .ok_or_else(|| HostError::Spawn("Trusted Claude lane host is missing stderr".into()))?;
@@ -418,7 +422,10 @@ async fn do_execute<R: tauri::Runtime>(
 
     let stdout_task = tokio::spawn(async move {
         let mut bytes = Vec::new();
+        // Read one byte past the cap so an exhausted limiter signals overflow
+        // rather than silently truncating the sidecar envelope.
         stdout
+            .take(MAX_SIDECAR_OUTPUT_BYTES + 1)
             .read_to_end(&mut bytes)
             .await
             .map(|_| bytes)
@@ -427,6 +434,7 @@ async fn do_execute<R: tauri::Runtime>(
     let stderr_task = tokio::spawn(async move {
         let mut bytes = Vec::new();
         stderr
+            .take(MAX_SIDECAR_OUTPUT_BYTES + 1)
             .read_to_end(&mut bytes)
             .await
             .map(|_| bytes)
@@ -449,6 +457,14 @@ async fn do_execute<R: tauri::Runtime>(
         .await
         .map_err(|e| HostError::Request(format!("Join trusted host stderr task: {e}")))?
         .map_err(HostError::Request)?;
+
+    let cap = usize::try_from(MAX_SIDECAR_OUTPUT_BYTES).unwrap_or(usize::MAX);
+    if stdout_bytes.len() > cap || stderr_bytes.len() > cap {
+        kill_child(&mut child).await;
+        return Err(HostError::Protocol(format!(
+            "Trusted Claude lane host exceeded the {cap}-byte output cap.",
+        )));
+    }
 
     let stdout_text = String::from_utf8(stdout_bytes)
         .map_err(|e| HostError::Protocol(format!("Trusted host stdout was not UTF-8: {e}")))?;

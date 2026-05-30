@@ -156,7 +156,11 @@ function workspaceTimeLabel(date = new Date()): string {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-async function sendWorkspaceProviderMessage(text: string, requestId: string): Promise<string> {
+async function sendWorkspaceProviderMessage(
+  text: string,
+  requestId: string,
+  signal: AbortSignal,
+): Promise<string> {
   const profiles = await loadRuntimeProviderProfiles();
   const profile = findDefaultChatProviderProfile(profiles);
   if (!profile) {
@@ -167,6 +171,7 @@ async function sendWorkspaceProviderMessage(text: string, requestId: string): Pr
     text,
     requestId,
     maxOutputTokens: WORKSPACE_MAX_OUTPUT_TOKENS,
+    signal,
   });
 }
 
@@ -648,6 +653,7 @@ function WorkspaceAssistantThread({
   const [drafts, setDrafts] = useState<WsMessage[]>([]);
   const [isSending, setIsSending] = useState(false);
   const requestIdRef = useRef<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const chatEnabled = isTauriRuntime();
   const staged = useRunStore((s) => s.staged);
@@ -656,12 +662,31 @@ function WorkspaceAssistantThread({
   const storageAvailable = useRunStore((s) => s.storageAvailable);
   const runtimeMessages = useMemo(() => [...messages, ...drafts], [messages, drafts]);
 
+  // Aborts any in-flight provider request and resets the local request state.
+  // Shared by the cancel action and the unmount cleanup so a conversation
+  // switch (which remounts this keyed component) never orphans a live request.
+  const abortInFlight = useCallback(() => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    const requestId = requestIdRef.current;
+    if (requestId) {
+      void import('@tauri-apps/api/core').then(({ invoke }) =>
+        invoke('llm_fetch_abort', { requestId }).catch(() => undefined),
+      );
+    }
+    requestIdRef.current = null;
+  }, []);
+
   useEffect(() => {
     setDrafts([]);
     requestIdRef.current = null;
+    abortControllerRef.current = null;
     setIsSending(false);
     clearStaged();
-  }, [clearStaged]);
+    return () => {
+      abortInFlight();
+    };
+  }, [clearStaged, abortInFlight]);
 
   function stageFileList(fileList: FileList | null) {
     const files = Array.from(fileList ?? []).map((f) => ({
@@ -704,9 +729,11 @@ function WorkspaceAssistantThread({
       clearStaged();
       const requestId = workspaceDraftId('workspace-provider');
       requestIdRef.current = requestId;
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
       setIsSending(true);
       try {
-        const response = await sendWorkspaceProviderMessage(text, requestId);
+        const response = await sendWorkspaceProviderMessage(text, requestId, controller.signal);
         setDrafts((prev) => [
           ...prev,
           {
@@ -719,6 +746,11 @@ function WorkspaceAssistantThread({
           },
         ]);
       } catch (error) {
+        // An aborted request (cancel or conversation switch) is not a failure;
+        // skip the error draft and toast so it does not surface as a bridge error.
+        if (controller.signal.aborted) {
+          return;
+        }
         const messageText = safeErrorMessage(error);
         toast.error('Workspace provider send failed', { description: messageText });
         setDrafts((prev) => [
@@ -733,21 +765,19 @@ function WorkspaceAssistantThread({
           },
         ]);
       } finally {
-        requestIdRef.current = null;
-        setIsSending(false);
+        if (!controller.signal.aborted) {
+          requestIdRef.current = null;
+          abortControllerRef.current = null;
+          setIsSending(false);
+        }
       }
     },
     [active.employeeId, active.kind, chatEnabled, clearStaged, staged],
   );
   const onCancel = useCallback(async () => {
-    const requestId = requestIdRef.current;
-    if (requestId) {
-      const { invoke } = await import('@tauri-apps/api/core');
-      await invoke('llm_fetch_abort', { requestId }).catch(() => undefined);
-    }
-    requestIdRef.current = null;
+    abortInFlight();
     setIsSending(false);
-  }, []);
+  }, [abortInFlight]);
   const runtime = useExternalStoreRuntime({
     messages: runtimeMessages,
     onNew,
