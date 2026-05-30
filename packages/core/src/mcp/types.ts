@@ -39,6 +39,14 @@ export interface McpServerConfig {
   readonly url?: string;
   /** Environment variables for stdio process */
   readonly env?: Record<string, string>;
+  /**
+   * Optional glob allowlist for this server's tools (e.g. `["read_*", "list_*"]`).
+   * When present and non-empty, only tools whose name matches at least one
+   * pattern are registered/exposed — useful for large MCP servers. Absent or
+   * empty means "expose all tools". Enforced in McpToolExecutor at catalog
+   * refresh time. Supports `*` (any run) and `?` (single char).
+   */
+  readonly toolAllowPatterns?: string[];
 }
 
 export interface McpToolDef {

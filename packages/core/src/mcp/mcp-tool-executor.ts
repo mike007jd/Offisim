@@ -19,6 +19,37 @@ interface McpToolExecutorDeps {
 }
 
 /**
+ * MCP `CallToolResult` carries a `isError: true` flag for tool-level failures
+ * (the tool ran but reported a domain error) — distinct from a thrown
+ * protocol/transport error. Reporting these as success hides failures from the
+ * model and from audit/telemetry, so they must surface as `success: false`.
+ */
+function isMcpToolError(result: unknown): boolean {
+  return (
+    !!result && typeof result === 'object' && (result as { isError?: unknown }).isError === true
+  );
+}
+
+/** Flatten the text blocks of a CallToolResult `content` array for an error message. */
+function flattenMcpTextContent(result: unknown): string {
+  if (!result || typeof result !== 'object') return '';
+  const content = (result as { content?: unknown }).content;
+  if (!Array.isArray(content)) return '';
+  const parts: string[] = [];
+  for (const block of content) {
+    if (
+      block &&
+      typeof block === 'object' &&
+      (block as { type?: unknown }).type === 'text' &&
+      typeof (block as { text?: unknown }).text === 'string'
+    ) {
+      parts.push((block as { text: string }).text);
+    }
+  }
+  return parts.join('\n');
+}
+
+/**
  * ToolExecutor implementation backed by MCP server connections.
  *
  * Each connected MCP server exposes a set of tools. When execute() is called,
@@ -134,6 +165,14 @@ export class McpToolExecutor implements ToolExecutor {
       const result = await connection.callTool(call.name, call.arguments, {
         signal: call.signal,
       });
+
+      // Tool-level error (isError: true) is a failure, not a success — do not
+      // emit the success event; surface it so the model / audit see the truth.
+      if (isMcpToolError(result)) {
+        const errorText =
+          flattenMcpTextContent(result) || `MCP tool '${call.name}' reported a tool-level error.`;
+        return { success: false, result, error: errorText };
+      }
 
       this.eventBus.emit(
         mcpToolCalled(this.companyId, serverName, call.name, call.employeeId ?? '', undefined),
@@ -259,7 +298,15 @@ export class McpToolExecutor implements ToolExecutor {
       }
     }
 
-    const tools = connection.listTools ? await connection.listTools() : connection.tools;
+    const allTools = connection.listTools ? await connection.listTools() : connection.tools;
+    // Enforce the configured tool allowlist (if any) so the documented
+    // `toolAllowPatterns` field actually filters which tools are registered /
+    // exposed to the model — previously it was parsed but ignored.
+    const allowPatterns = connection.config.toolAllowPatterns;
+    const tools =
+      allowPatterns && allowPatterns.length > 0
+        ? allTools.filter((tool) => matchesAnyGlob(tool.name, allowPatterns))
+        : allTools;
     const resources = connection.listResources
       ? await connection.listResources()
       : (connection.resources ?? []);
@@ -289,4 +336,16 @@ function isAbortLikeError(error: unknown, signal: AbortSignal | undefined): bool
   if (error instanceof Error && error.name === 'AbortError') return true;
   const message = error instanceof Error ? error.message : String(error);
   return /\babort(?:ed)?|cancelled\b/i.test(message);
+}
+
+/** Translate a simple shell-style glob (`*` any run, `?` single char) to a RegExp. */
+function globToRegExp(pattern: string): RegExp {
+  const escaped = pattern.replace(/[.+^${}()|[\]\\]/gu, '\\$&');
+  const body = escaped.replace(/\*/gu, '.*').replace(/\?/gu, '.');
+  return new RegExp(`^${body}$`, 'u');
+}
+
+/** Whether `name` matches at least one of the provided globs. */
+function matchesAnyGlob(name: string, patterns: readonly string[]): boolean {
+  return patterns.some((pattern) => globToRegExp(pattern).test(name));
 }

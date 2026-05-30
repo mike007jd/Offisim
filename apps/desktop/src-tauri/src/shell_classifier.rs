@@ -30,6 +30,15 @@ impl Decision {
 
 const PRIVILEGE_TOKENS: &[&str] = &["sudo", "doas", "pkexec", "su"];
 
+// Transparent runners that exec the rest of the line as a new command. They are
+// peeled (along with leading `VAR=value` assignments) before the command word
+// is read, so `env sudo …` / `FOO=bar sudo …` / `timeout 5 sudo …` cannot hide
+// an escalator behind the wrapper. Mirrors the TS shell-command-classifier
+// (keep both wrapper sets in sync).
+const TRANSPARENT_WRAPPERS: &[&str] = &[
+    "env", "command", "exec", "nice", "nohup", "timeout", "stdbuf",
+];
+
 const SENSITIVE_PATH_SUBSTRINGS: &[&str] = &[
     "/etc/passwd",
     "/etc/shadow",
@@ -177,8 +186,7 @@ pub fn classify(command: &str) -> Decision {
     // Privilege escalation: leading segment token in {sudo, doas, pkexec, su}.
     // Also catch escalators inside command substitution `$(sudo …)` / backticks.
     for segment in split_segments(&normalized) {
-        let trimmed = segment.trim_start();
-        let first = leading_word(trimmed);
+        let first = effective_command_word(segment.trim_start());
         if PRIVILEGE_TOKENS.contains(&first.as_str()) {
             return Decision::Deny(format!("privilege escalation via `{first}`"));
         }
@@ -221,12 +229,64 @@ fn split_segments(command: &str) -> Vec<&str> {
     out
 }
 
-fn leading_word(s: &str) -> String {
-    s.chars()
-        .take_while(|c| !c.is_whitespace() && *c != '\0')
-        .collect::<String>()
-        .trim_matches(|c: char| c == '"' || c == '\'' || c == '`')
-        .to_string()
+fn is_env_assignment(tok: &str) -> bool {
+    // ^[A-Za-z_][A-Za-z0-9_]*=
+    let mut chars = tok.chars();
+    match chars.next() {
+        Some(c) if c.is_ascii_alphabetic() || c == '_' => {}
+        _ => return false,
+    }
+    for c in chars {
+        if c == '=' {
+            return true;
+        }
+        if !(c.is_ascii_alphanumeric() || c == '_') {
+            return false;
+        }
+    }
+    false
+}
+
+/// Resolve the effective command word of a segment by peeling leading
+/// `VAR=value` assignments and transparent wrappers (with their flags / env
+/// args / a leading numeric arg for `timeout`/`nice`), so `FOO=bar env sudo …`
+/// reports `sudo` rather than `FOO=bar`. Quote-stripped to match `leading_word`
+/// behaviour the privilege check previously relied on.
+fn effective_command_word(segment: &str) -> String {
+    let tokens: Vec<&str> = segment.split_whitespace().collect();
+    let mut i = 0;
+    while i < tokens.len() {
+        let tok = tokens[i];
+        if is_env_assignment(tok) {
+            i += 1;
+            continue;
+        }
+        let word = tok.trim_matches(|c: char| c == '"' || c == '\'' || c == '`');
+        if TRANSPARENT_WRAPPERS.contains(&word) {
+            i += 1;
+            while i < tokens.len() {
+                let t = tokens[i];
+                if t == "--" {
+                    i += 1;
+                    break;
+                }
+                if t.starts_with('-') || is_env_assignment(t) {
+                    i += 1;
+                    continue;
+                }
+                if (word == "timeout" || word == "nice")
+                    && t.chars().next().is_some_and(|c| c.is_ascii_digit())
+                {
+                    i += 1;
+                    continue;
+                }
+                break;
+            }
+            continue;
+        }
+        return word.to_string();
+    }
+    String::new()
 }
 
 fn has_word_token(haystack: &str, token: &str) -> bool {
@@ -245,6 +305,13 @@ fn has_unsafe_rm_target(rest_after_rm_flags: &str) -> bool {
         let stripped = raw.trim_matches(|c: char| c == '"' || c == '\'' || c == '`');
         if stripped.starts_with('-') {
             continue; // additional flag
+        }
+        // Fail closed on variable / command-substitution targets: the
+        // post-expansion path (`rm -rf $HOME`, `rm -rf $VAR`, `rm -rf `pwd``)
+        // is invisible to this lexical check, and a sandboxed workspace agent
+        // never needs a variable-resolved recursive delete target.
+        if stripped.starts_with('$') || raw.contains('`') {
+            return true;
         }
         let normalized = stripped.trim_end_matches('/');
         let candidate = if normalized.is_empty() { "/" } else { normalized };

@@ -1,4 +1,4 @@
-import { gunzipSync } from 'fflate';
+import { ZipBombError, safeGunzipSync } from '@offisim/install-core';
 import { scanSkillDir } from '../skill-scanner.js';
 import { firstLevelDirs, subtreeOf } from '../virtual-tree-utils.js';
 import type { ScannedSkill, SkillResolverError, VirtualTree } from './types.js';
@@ -258,8 +258,18 @@ export async function resolveGitSource(
 
   let tar: Uint8Array;
   try {
-    tar = gunzipSync(buf);
+    // Stream-bounded inflate (mirrors the upload resolver): trips a ZipBombError
+    // before a malicious tarball can blow up memory, closing the decompression
+    // asymmetry vs the raw gunzipSync this path used to call.
+    tar = safeGunzipSync(buf);
   } catch (err) {
+    if (err instanceof ZipBombError) {
+      return {
+        kind: 'git-fetch-failed',
+        message: `Tarball rejected (decompression bomb guard): ${err.message}`,
+        sourceRef: input.url,
+      };
+    }
     return {
       kind: 'git-fetch-failed',
       message: `Tarball gunzip failed: ${err instanceof Error ? err.message : String(err)}`,
