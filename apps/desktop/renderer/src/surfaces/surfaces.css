@@ -81,6 +81,21 @@
   color: var(--off-ink-3);
 }
 
+.off-error-boundary__reset {
+  margin-top: 20px;
+  padding: 6px 14px;
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-2);
+  color: var(--off-ink-1);
+  font: inherit;
+  cursor: pointer;
+}
+
+.off-error-boundary__reset:hover {
+  background: var(--off-surface-sunken);
+}
+
 .off-state {
   flex: 1;
   min-height: 0;

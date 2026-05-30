@@ -39,3 +39,13 @@ export { Avatar, AvatarFallback, AvatarImage } from './avatar.js';
 export { Switch } from './switch.js';
 export { Progress } from './progress.js';
 export { Tabs, TabsContent, TabsList, TabsTrigger } from './tabs.js';
+export {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+  CommandShortcut,
+} from './command.js';

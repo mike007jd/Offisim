@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils.js';
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from 'react';
 import type { CSSProperties } from 'react';
 
 interface ChipProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'className'> {
@@ -40,7 +40,7 @@ export function Chip({
     );
   }
   return (
-    <span className={classes}>
+    <span className={classes} {...(props as HTMLAttributes<HTMLSpanElement>)}>
       {dot}
       {children}
     </span>

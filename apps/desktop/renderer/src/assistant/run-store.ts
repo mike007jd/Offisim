@@ -20,6 +20,14 @@ import { create } from 'zustand';
  */
 
 const MAX_ATTACHMENTS = 6;
+// Client-side pre-check that intentionally mirrors the Rust attachment sandbox
+// (`attachment_store.rs` MAX_FILE_BYTES). The Rust side is the authoritative
+// gate; this constant only gives the composer an early, local rejection so an
+// oversized file surfaces an error chip without a round-trip. Keep in sync.
+const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
+// Extension allowlist is a renderer-only UX policy (the Rust sandbox enforces
+// the byte cap but not the type); it gates which files the composer offers to
+// stage and is not a security boundary.
 const SUPPORTED_EXT = new Set([
   'pdf',
   'md',
@@ -164,10 +172,14 @@ export const useRunStore = create<RunStore>((set, get) => ({
       const next = [...s.staged];
       for (const file of files) {
         const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+        // Dedupe key is name+bytes: two distinct files sharing a name and exact
+        // byte length collide here and the second is rejected as a duplicate.
+        // Accepted explicitly — the staging tray is a short-lived per-message
+        // buffer where such a collision is a negligible UX edge, not data loss.
         const id = `att-${file.name}-${file.bytes}`;
         let fail: AttachmentFailReason | null = null;
         if (next.filter((a) => a.status !== 'error').length >= MAX_ATTACHMENTS) fail = 'too-many';
-        else if (file.bytes > 8 * 1024 * 1024) fail = 'too-large';
+        else if (file.bytes > MAX_ATTACHMENT_BYTES) fail = 'too-large';
         else if (next.some((a) => a.id === id && a.status !== 'error')) fail = 'duplicate';
         else if (ext && !SUPPORTED_EXT.has(ext)) fail = 'unsupported-type';
         if (fail) {

@@ -148,6 +148,7 @@ export function resolveAppearance(
 }
 
 const cache = new Map<string, string>();
+const CACHE_MAX_ENTRIES = 256;
 
 export function employeeAvatarUri(seed: string, appearance?: EmployeeAppearance): string {
   const key = `${seed}|${appearance ? JSON.stringify(appearance) : ''}`;
@@ -169,6 +170,10 @@ export function employeeAvatarUri(seed: string, appearance?: EmployeeAppearance)
     ...(isBald ? { topProbability: 0 } : {}),
   }).toDataUri();
 
+  if (cache.size >= CACHE_MAX_ENTRIES) {
+    const oldest = cache.keys().next().value;
+    if (oldest !== undefined) cache.delete(oldest);
+  }
   cache.set(key, uri);
   return uri;
 }

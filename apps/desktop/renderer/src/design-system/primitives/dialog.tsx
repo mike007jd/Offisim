@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils.js';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { X } from 'lucide-react';
 import type * as React from 'react';
 
@@ -24,8 +25,17 @@ export function DialogContent({
   className,
   children,
   showClose = true,
+  title,
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Content> & { showClose?: boolean }) {
+}: React.ComponentProps<typeof DialogPrimitive.Content> & {
+  showClose?: boolean;
+  /**
+   * Accessible title fallback. When the children do not render a visible
+   * DialogTitle, pass `title` so the primitive emits a visually-hidden title
+   * and satisfies the Radix accessible-name requirement by default.
+   */
+  title?: string;
+}) {
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -36,6 +46,11 @@ export function DialogContent({
         )}
         {...props}
       >
+        {title ? (
+          <VisuallyHidden asChild>
+            <DialogPrimitive.Title>{title}</DialogPrimitive.Title>
+          </VisuallyHidden>
+        ) : null}
         {children}
         {showClose && (
           <DialogPrimitive.Close

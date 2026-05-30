@@ -256,7 +256,8 @@ export function TeamDock() {
   const directThread = useMutation({
     mutationFn: async (employee: Employee) => {
       if (!projectId) throw new Error('Select a project before messaging an employee.');
-      const existing = threads.data?.find((thread) => thread.employeeId === employee.id);
+      const currentThreads = queryClient.getQueryData<ChatThread[]>(['threads', projectId]);
+      const existing = currentThreads?.find((thread) => thread.employeeId === employee.id);
       if (existing) return existing.id;
 
       const repos = await reposOrNull();

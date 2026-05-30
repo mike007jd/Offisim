@@ -231,9 +231,7 @@ export class A2AClient {
     const deadline = Date.now() + timeoutMs;
     let last = initial;
     while (Date.now() < deadline) {
-      if (signal?.aborted) {
-        throw new DOMException('A2A task polling aborted', 'AbortError');
-      }
+      // sleepUnlessAborted throws the same AbortError if already aborted.
       await sleepUnlessAborted(pollMs, signal);
       try {
         last = await this.getTask(initial.id, undefined, signal);

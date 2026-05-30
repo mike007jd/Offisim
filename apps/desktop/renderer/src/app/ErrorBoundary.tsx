@@ -1,9 +1,13 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { recordLastError } from './last-error.js';
 
 interface Props {
   children: ReactNode;
-  /** When set, render this instead of the full-screen error panel (scene-local). */
-  fallback?: ReactNode;
+  /**
+   * When set, render this instead of the full-screen error panel (scene-local).
+   * Receives a `reset` callback so the host can offer its own recovery affordance.
+   */
+  fallback?: ReactNode | ((reset: () => void) => ReactNode);
   label?: string;
 }
 
@@ -27,19 +31,21 @@ export class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, info: ErrorInfo) {
     this.setState({ error, info: info.componentStack ?? '' });
     console.error(`[ErrorBoundary${this.props.label ? `:${this.props.label}` : ''}]`, error, info);
-    try {
-      localStorage.setItem(
-        'offisim:lastError',
-        `${this.props.label ?? 'root'}: ${error.stack ?? error.message}\n--- component stack ---${info.componentStack ?? ''}`,
-      );
-    } catch {
-      /* localStorage unavailable */
-    }
+    recordLastError(
+      `error-boundary:${this.props.label ?? 'root'}`,
+      `${error.stack ?? error.message}\n--- component stack ---${info.componentStack ?? ''}`,
+    );
   }
+
+  reset = () => this.setState({ error: null, info: '' });
 
   render() {
     if (!this.state.error) return this.props.children;
-    if (this.props.fallback !== undefined) return this.props.fallback;
+    if (this.props.fallback !== undefined) {
+      return typeof this.props.fallback === 'function'
+        ? this.props.fallback(this.reset)
+        : this.props.fallback;
+    }
     return (
       <div className="off-error-boundary">
         <div className="off-error-boundary__title">
@@ -51,6 +57,9 @@ export class ErrorBoundary extends Component<Props, State> {
         {this.state.info ? (
           <pre className="off-error-boundary__info">{this.state.info}</pre>
         ) : null}
+        <button type="button" className="off-error-boundary__reset" onClick={this.reset}>
+          Try again
+        </button>
       </div>
     );
   }

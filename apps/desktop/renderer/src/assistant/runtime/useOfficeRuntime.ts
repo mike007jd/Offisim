@@ -28,6 +28,10 @@ function convertMessage(message: ChatMessage): ThreadMessageLike {
   };
 }
 
+/** Flatten an AppendMessage to its text. Non-text parts are intentionally
+ *  ignored here: attachments are sourced from the run-store staging path (see
+ *  onNew), not from assistant-ui's attachment adapter, which is deliberately
+ *  unused for this external-store runtime. */
 function appendText(message: AppendMessage): string {
   return message.content
     .map((part) => ('text' in part ? part.text : ''))
@@ -100,7 +104,13 @@ export function useOfficeRuntime({
   const abortedRef = useRef(false);
   const messages = useMemo(() => [...seedMessages, ...drafts], [seedMessages, drafts]);
 
-  const isRunning = useRunStore((s) => s.isRunning);
+  // Only honor the shared store's running flag when it is bound to *this*
+  // thread. The store is process-global (it also drives the diegetic stage and
+  // pipeline pill), so reading its `isRunning` unscoped would let a run on
+  // another thread leak into this runtime's composer state. `isSending` below
+  // is this runtime's own in-flight signal; the store read covers the case of
+  // opening a thread that was already persisted mid-run.
+  const storeRunningHere = useRunStore((s) => s.threadId === threadId && s.isRunning);
   const startRun = useRunStore((s) => s.start);
   const finishRun = useRunStore((s) => s.finish);
   const stop = useRunStore((s) => s.stop);
@@ -135,6 +145,11 @@ export function useOfficeRuntime({
       startRun('Provider response', assigneeId ?? null);
       try {
         const response = await sendRuntimeProviderMessage(text, requestId);
+        // A Stop can resolve the in-flight request late (the Rust abort and the
+        // awaited response race). Without this guard a cancelled run would still
+        // commit its response as a normal assistant message. The `finally` block
+        // below still runs and routes cleanup through the aborted branch.
+        if (abortedRef.current) return;
         setDrafts((prev) => [
           ...prev,
           {
@@ -223,7 +238,7 @@ export function useOfficeRuntime({
     messages,
     onNew,
     convertMessage,
-    isRunning: isRunning || isSending,
+    isRunning: storeRunningHere || isSending,
     onCancel,
   });
 }

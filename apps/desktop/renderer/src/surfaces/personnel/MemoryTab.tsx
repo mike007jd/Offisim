@@ -42,6 +42,10 @@ export function MemoryTab({ employeeId }: MemoryTabProps) {
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterText, setFilterText] = useState('');
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  // Live importance drafts keyed by memory id, so dragging the range slider
+  // feels instant without issuing a DB mutation on every pointer tick. The
+  // value is committed once on pointer/key release.
+  const [importanceDrafts, setImportanceDrafts] = useState<Record<string, number>>({});
 
   const filtered = useMemo(() => {
     const q = filterText.trim().toLowerCase();
@@ -85,9 +89,17 @@ export function MemoryTab({ employeeId }: MemoryTabProps) {
     );
   };
 
-  const updateImportance = (id: string, importance: number) => {
+  const commitImportance = (id: string, persisted: number) => {
+    const draft = importanceDrafts[id];
+    setImportanceDrafts((prev) => {
+      if (!(id in prev)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    if (draft === undefined || draft === persisted) return;
     updateMemory.mutate(
-      { employeeId, memoryId: id, importance },
+      { employeeId, memoryId: id, importance: draft },
       {
         onError: (error) =>
           toast.error('Memory update failed', {
@@ -188,43 +200,54 @@ export function MemoryTab({ employeeId }: MemoryTabProps) {
               {rows.length === 0 ? (
                 <p className="off-pers-mem-empty">No entries in this category.</p>
               ) : (
-                rows.map((entry) => (
-                  <div key={entry.id} className="off-pers-mem-entry">
-                    <Textarea
-                      className="off-pers-memory-input"
-                      defaultValue={entry.content}
-                      onBlur={(e) => {
-                        if (e.target.value !== entry.content)
-                          updateContent(entry.id, e.target.value);
-                      }}
-                    />
-                    <div className="off-pers-mem-row">
-                      <label className="off-pers-mem-imp">
-                        Importance
-                        <input
-                          type="range"
-                          className="off-pers-rng off-focusable"
-                          min={0}
-                          max={1}
-                          step={0.1}
-                          value={entry.importance}
-                          aria-label="Importance"
-                          onChange={(e) => updateImportance(entry.id, Number(e.target.value))}
-                        />
-                        <span className="off-pers-imp-val">{entry.importance.toFixed(1)}</span>
-                      </label>
-                      <span>scope: {entry.scope}</span>
-                      <span>reinforced: {entry.reinforced}</span>
-                      <button
-                        type="button"
-                        className="off-pers-mem-del off-focusable"
-                        onClick={() => setPendingDeleteId(entry.id)}
-                      >
-                        Delete
-                      </button>
+                rows.map((entry) => {
+                  const importanceValue = importanceDrafts[entry.id] ?? entry.importance;
+                  return (
+                    <div key={entry.id} className="off-pers-mem-entry">
+                      <Textarea
+                        className="off-pers-memory-input"
+                        defaultValue={entry.content}
+                        onBlur={(e) => {
+                          if (e.target.value !== entry.content)
+                            updateContent(entry.id, e.target.value);
+                        }}
+                      />
+                      <div className="off-pers-mem-row">
+                        <label className="off-pers-mem-imp">
+                          Importance
+                          <input
+                            type="range"
+                            className="off-pers-rng off-focusable"
+                            min={0}
+                            max={1}
+                            step={0.1}
+                            value={importanceValue}
+                            aria-label="Importance"
+                            onChange={(e) =>
+                              setImportanceDrafts((prev) => ({
+                                ...prev,
+                                [entry.id]: Number(e.target.value),
+                              }))
+                            }
+                            onPointerUp={() => commitImportance(entry.id, entry.importance)}
+                            onKeyUp={() => commitImportance(entry.id, entry.importance)}
+                            onBlur={() => commitImportance(entry.id, entry.importance)}
+                          />
+                          <span className="off-pers-imp-val">{importanceValue.toFixed(1)}</span>
+                        </label>
+                        <span>scope: {entry.scope}</span>
+                        <span>reinforced: {entry.reinforced}</span>
+                        <button
+                          type="button"
+                          className="off-pers-mem-del off-focusable"
+                          onClick={() => setPendingDeleteId(entry.id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           );

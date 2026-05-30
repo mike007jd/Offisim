@@ -1,31 +1,15 @@
 import { AIMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
-import type { TaskAssignmentRerouteReason } from '@offisim/shared-types';
 import { graphNodeEntered } from '../events/event-factories.js';
 import type { OffisimGraphState, PlanStep, PlanTask, TaskPlan } from '../graph/state.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
-import type { EmployeeRow } from '../runtime/repositories.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { generateId } from '../utils/generate-id.js';
 import { getRunScope, getRuntime } from '../utils/get-runtime.js';
 import { getConfigSignal } from '../utils/get-signal.js';
 import { emitAssignmentRerouted } from './emit-assignment-rerouted.js';
-
-/**
- * Classify why a replan task's requested employee was dropped, mirroring
- * pm-planner/sanitize-rebind. Replan has no planner-recommended ordering, so a
- * valid-but-rebound assignment is always `no-recommendation-fallback`.
- */
-function classifyReplanReason(
-  requestedEmployeeId: string,
-  allEmployees: readonly EmployeeRow[],
-): TaskAssignmentRerouteReason {
-  const found = allEmployees.find((e) => e.employee_id === requestedEmployeeId);
-  if (!found) return 'employee-not-found';
-  if (found.enabled !== 1) return 'employee-disabled';
-  return 'no-recommendation-fallback';
-}
+import { classifyDropReason } from './pm-planner/sanitize-rebind.js';
 
 const PM_REPLAN_TIMEOUT_MS = 45_000;
 
@@ -267,7 +251,9 @@ export async function pmReplanNode(
           taskRunId: `pm-replan:${threadId}:${newIndex}`,
           requestedEmployeeId: t.employeeId,
           resolvedEmployeeId,
-          reason: classifyReplanReason(t.employeeId, employees),
+          // Replan has no planner-recommended ordering, so a valid-but-rebound
+          // assignment is always `no-recommendation-fallback`.
+          reason: classifyDropReason(t.employeeId, employees, false),
           source: 'pm-planner',
           eventBus: runtimeCtx.eventBus,
         });

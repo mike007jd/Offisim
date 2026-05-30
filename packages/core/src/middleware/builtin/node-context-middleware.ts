@@ -32,28 +32,24 @@ function buildSummaryBlock(
 function buildPackBlock(pack: AgentContextPack, maxChars: number): string {
   const heading = '## Runtime Context (current state)\n';
   let content = heading;
-  let hasContent = false;
 
   if (pack.recommendedFocus) {
     const line = `Focus: ${pack.recommendedFocus}\n`;
-    if (content.length + line.length > maxChars) return hasContent ? content.trimEnd() : '';
+    if (content.length + line.length > maxChars) return content === heading ? '' : content.trimEnd();
     content += line;
-    hasContent = true;
   }
 
   if (pack.pendingInteraction) {
     const pi = pack.pendingInteraction;
     const line = `Pending: [${pi.kind}] ${pi.title}${pi.severity === 'high' ? ' (HIGH)' : ''}\n`;
-    if (content.length + line.length > maxChars) return hasContent ? content.trimEnd() : '';
+    if (content.length + line.length > maxChars) return content === heading ? '' : content.trimEnd();
     content += line;
-    hasContent = true;
   }
 
   if (pack.activeTaskRuns.length > 0) {
     const header = `Active tasks: ${pack.activeTaskRuns.length}\n`;
     if (content.length + header.length <= maxChars) {
       content += header;
-      hasContent = true;
       for (const task of pack.activeTaskRuns) {
         const line = `- [${task.status}] ${task.taskType}${task.employeeId ? ` (${task.employeeId})` : ''}\n`;
         if (content.length + line.length > maxChars) break;
@@ -65,7 +61,7 @@ function buildPackBlock(pack: AgentContextPack, maxChars: number): string {
   // recentNodeSummaries are intentionally NOT rendered here —
   // the execution context block already covers them via buildSummaryBlock().
 
-  return hasContent ? content.trimEnd() : '';
+  return content === heading ? '' : content.trimEnd();
 }
 
 export class NodeContextMiddleware implements LlmMiddleware {

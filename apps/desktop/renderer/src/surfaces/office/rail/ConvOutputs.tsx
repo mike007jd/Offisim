@@ -37,25 +37,24 @@ function Contributors({
   ids: string[];
   employeesById: Map<string, Employee>;
 }) {
-  const faces = ids.slice(0, MAX_FACES);
-  const overflow = ids.length - faces.length;
+  const resolved = ids
+    .map((id) => employeesById.get(id))
+    .filter((e): e is Employee => Boolean(e));
+  const faces = resolved.slice(0, MAX_FACES);
+  const overflow = resolved.length - faces.length;
   return (
     <span className="off-dlv-contributors">
-      {faces.map((id) => {
-        const e = employeesById.get(id);
-        if (!e) return null;
-        return (
-          <EmployeeAvatar
-            key={id}
-            seed={e.id}
-            appearance={e.appearance}
-            colorA={e.avatarA}
-            colorB={e.avatarB}
-            size={20}
-            brand={e.kind === 'external'}
-          />
-        );
-      })}
+      {faces.map((e) => (
+        <EmployeeAvatar
+          key={e.id}
+          seed={e.id}
+          appearance={e.appearance}
+          colorA={e.avatarA}
+          colorB={e.avatarB}
+          size={20}
+          brand={e.kind === 'external'}
+        />
+      ))}
       {overflow > 0 ? <span className="off-dlv-more">+{overflow}</span> : null}
     </span>
   );

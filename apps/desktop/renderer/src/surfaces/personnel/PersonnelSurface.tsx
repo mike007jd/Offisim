@@ -1,6 +1,6 @@
 import { useUiState } from '@/app/ui-state.js';
 import { isTauriRuntime, reposOrNull } from '@/data/adapters.js';
-import { useEmployees } from '@/data/queries.js';
+import { useCompanies, useEmployees } from '@/data/queries.js';
 import type { Employee, EmployeeAppearance, EmployeePresence } from '@/data/types.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
@@ -287,6 +287,12 @@ function RosterRail({
   const [role, setRole] = useState('all');
 
   const roles = useMemo(() => Array.from(new Set(employees.map((e) => e.role))), [employees]);
+  // Self-heal a stale role filter: if the active role disappears from the
+  // roster (employee removed / company switched), fall back to 'all' so the
+  // list doesn't strand on an empty filter.
+  useEffect(() => {
+    if (role !== 'all' && !roles.includes(role)) setRole('all');
+  }, [role, roles]);
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return employees.filter(
@@ -743,6 +749,7 @@ function HireEmployeeDialog({
 
 export function PersonnelSurface() {
   const employees = useEmployees();
+  const companies = useCompanies();
   const companyId = useUiState((s) => s.companyId);
   const selectedEmployeeId = useUiState((s) => s.selectedEmployeeId);
   const collapsed = useUiState((s) => s.personnelRailCollapsed);
@@ -760,7 +767,11 @@ export function PersonnelSurface() {
     setTab('profile');
   }, [selectedEmployeeId]);
 
-  const companyName = companyId.replace(/^co-/, '').replace(/(^|\s)\S/g, (s) => s.toUpperCase());
+  // Prefer the company record's display name; fall back to a slug munge only
+  // while the company list is still loading or the record is unavailable.
+  const activeCompanyName = (companies.data ?? []).find((c) => c.id === companyId)?.name;
+  const companyName =
+    activeCompanyName ?? companyId.replace(/^co-/, '').replace(/(^|\s)\S/g, (s) => s.toUpperCase());
 
   const onToggleList = () => {
     if (collapsed) listPanelRef.current?.expand();

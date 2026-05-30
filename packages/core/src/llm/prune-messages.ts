@@ -36,6 +36,22 @@ function makeCompactedToolResultContent(originalLength: number): string {
   return `[tool result compacted: ${originalLength} chars omitted]`;
 }
 
+/**
+ * Drop leading orphan `tool` messages from a message window. After a tail-slice
+ * the front may hold tool_results whose owning assistant `tool_use` was cut off;
+ * providers (e.g. Anthropic) reject those orphans with a 400, and an orphan
+ * tool_result carries no meaning without its call — so advancing the cut to the
+ * first non-`tool` message (rather than walking backwards and blowing the
+ * budget) keeps the window self-contained.
+ */
+export function dropLeadingOrphanToolResults(
+  messages: readonly LlmMessage[],
+): readonly LlmMessage[] {
+  let start = 0;
+  while (start < messages.length && messages[start]?.role === 'tool') start += 1;
+  return start === 0 ? messages : messages.slice(start);
+}
+
 export function compactToolResultMessages(
   messages: readonly LlmMessage[],
   options: Pick<ResolvedPruneOptions, 'toolResultKeepRecent' | 'toolResultMaxContentChars'>,
@@ -98,17 +114,9 @@ export function pruneLlmMessages(
     return mergedSystem;
   }
 
-  // Tail-slice to the budget, then drop any leading `tool` messages: their
-  // owning assistant `tool_use` was sliced off, so they are orphan tool_results
-  // that Anthropic rejects with a 400 ("tool_result without preceding
-  // tool_use"). An orphan tool_result carries no meaning without its call, so
-  // dropping it (rather than walking the cut backwards and blowing the budget)
-  // is the right trim. A tail-slice cannot orphan a `tool_use` — results always
-  // follow their assistant, so the slice's end never severs them.
-  const sliced = nonSystem.slice(-options.maxNonSystemMessages);
-  let start = 0;
-  while (start < sliced.length && sliced[start]?.role === 'tool') {
-    start += 1;
-  }
-  return [...mergedSystem, ...(start > 0 ? sliced.slice(start) : sliced)];
+  // Tail-slice to the budget, then drop leading orphan tool_results (see
+  // dropLeadingOrphanToolResults). A tail-slice cannot orphan a `tool_use` —
+  // results always follow their assistant, so the slice's end never severs them.
+  const sliced = dropLeadingOrphanToolResults(nonSystem.slice(-options.maxNonSystemMessages));
+  return [...mergedSystem, ...sliced];
 }

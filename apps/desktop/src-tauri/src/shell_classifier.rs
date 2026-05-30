@@ -250,8 +250,8 @@ fn is_env_assignment(tok: &str) -> bool {
 /// Resolve the effective command word of a segment by peeling leading
 /// `VAR=value` assignments and transparent wrappers (with their flags / env
 /// args / a leading numeric arg for `timeout`/`nice`), so `FOO=bar env sudo …`
-/// reports `sudo` rather than `FOO=bar`. Quote-stripped to match `leading_word`
-/// behaviour the privilege check previously relied on.
+/// reports `sudo` rather than `FOO=bar`. Quote-stripped to match the
+/// privilege check's prior word-extraction behaviour.
 fn effective_command_word(segment: &str) -> String {
     let tokens: Vec<&str> = segment.split_whitespace().collect();
     let mut i = 0;

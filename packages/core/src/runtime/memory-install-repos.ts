@@ -14,6 +14,10 @@ function now(): string {
   return new Date().toISOString();
 }
 
+function cloneRows<T extends object>(rows: Iterable<T>): T[] {
+  return [...rows].map((row) => ({ ...row }));
+}
+
 export interface MemoryInstallRepositoriesSnapshot {
   installTransactions: InstallTransactionRow[];
   installedPackages: InstalledPackageRow[];
@@ -104,7 +108,7 @@ export class MemoryInstallTransactionRepository implements InstallTransactionRep
   }
 
   snapshot(): InstallTransactionRow[] {
-    return [...this.store.values()].map((row) => ({ ...row }));
+    return cloneRows(this.store.values());
   }
 }
 
@@ -128,15 +132,15 @@ export class MemoryInstalledPackageRepository implements InstalledPackageReposit
   }
 
   async findByPackageId(companyId: string, packageId: string): Promise<InstalledPackageRow[]> {
-    return [...this.store.values()]
-      .filter((p) => p.company_id === companyId && p.package_id === packageId)
-      .map((row) => ({ ...row }));
+    return cloneRows(
+      [...this.store.values()].filter(
+        (p) => p.company_id === companyId && p.package_id === packageId,
+      ),
+    );
   }
 
   async listByCompany(companyId: string): Promise<InstalledPackageRow[]> {
-    return [...this.store.values()]
-      .filter((p) => p.company_id === companyId)
-      .map((row) => ({ ...row }));
+    return cloneRows([...this.store.values()].filter((p) => p.company_id === companyId));
   }
 
   async delete(id: string): Promise<void> {
@@ -144,7 +148,7 @@ export class MemoryInstalledPackageRepository implements InstalledPackageReposit
   }
 
   snapshot(): InstalledPackageRow[] {
-    return [...this.store.values()].map((row) => ({ ...row }));
+    return cloneRows(this.store.values());
   }
 }
 
@@ -172,7 +176,7 @@ export class MemoryInstalledAssetRepository implements InstalledAssetRepository 
   }
 
   snapshot(): InstalledAssetRow[] {
-    return [...this.store.values()].map((row) => ({ ...row }));
+    return cloneRows(this.store.values());
   }
 }
 
@@ -196,9 +200,7 @@ export class MemoryAssetBindingRepository implements AssetBindingRepository {
   }
 
   async findByTransaction(txnId: string): Promise<AssetBindingRow[]> {
-    return [...this.store.values()]
-      .filter((b) => b.install_txn_id === txnId)
-      .map((row) => ({ ...row }));
+    return cloneRows([...this.store.values()].filter((b) => b.install_txn_id === txnId));
   }
 
   async updateStatus(id: string, status: BindingStatus, valueJson?: string): Promise<void> {
@@ -218,7 +220,7 @@ export class MemoryAssetBindingRepository implements AssetBindingRepository {
   }
 
   snapshot(): AssetBindingRow[] {
-    return [...this.store.values()].map((row) => ({ ...row }));
+    return cloneRows(this.store.values());
   }
 }
 

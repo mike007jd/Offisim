@@ -44,7 +44,7 @@ function pickResolvedEmployee(
   return { id: fallback.employee_id, usedRecommendation: false };
 }
 
-function classifyDropReason(
+export function classifyDropReason(
   requestedEmployeeId: string,
   allEmployees: readonly EmployeeRow[],
   usedRecommendation: boolean,

@@ -98,6 +98,9 @@ export function SettingsSurface() {
   useApplyAppearance(theme, density);
   const [savedTheme, setSavedTheme] = useState<ThemeValue>('system');
   const [savedDensity, setSavedDensity] = useState<DensityValue>('normal');
+  // Last persisted runtime snapshot, used to restore the form on Escape/discard
+  // rather than reverting to bare RUNTIME_DEFAULTS.
+  const [savedRuntime, setSavedRuntime] = useState<RuntimeFormValues>(RUNTIME_DEFAULTS);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [saveError, setSaveError] = useState<string | null>(null);
   // Tracks the post-save flash timer so a second save (or unmount) doesn't
@@ -158,6 +161,7 @@ export function SettingsSurface() {
       );
       if (!persisted || cancelled) return;
       runtimeForm.reset(persisted.runtime);
+      setSavedRuntime(persisted.runtime);
       setTheme(persisted.theme);
       setDensity(persisted.density);
       setSavedTheme(persisted.theme);
@@ -208,7 +212,9 @@ export function SettingsSurface() {
       // setTimeout so the SaveBar's "Saved" affordance is actually visible.
       setSaveStatus('post-save');
       providerForm.reset(providerForm.getValues());
-      runtimeForm.reset(runtimeForm.getValues());
+      const persistedRuntime = runtimeForm.getValues();
+      runtimeForm.reset(persistedRuntime);
+      setSavedRuntime(persistedRuntime);
       setSavedTheme(theme);
       setSavedDensity(density);
       if (saveStatusFlashTimer.current !== null) {
@@ -260,8 +266,10 @@ export function SettingsSurface() {
         }
       }
       if (event.key === 'Escape' && anyDirty) {
-        providerForm.reset();
-        runtimeForm.reset();
+        providerForm.reset(
+          providerDefaults(resolveActiveProviderConfig(providerConfigs, activeConfigId)),
+        );
+        runtimeForm.reset(savedRuntime);
         setTheme(savedTheme);
         setDensity(savedDensity);
         toast('Changes discarded');
@@ -269,7 +277,18 @@ export function SettingsSurface() {
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [tab, anyDirty, onSave, providerForm, runtimeForm, savedDensity, savedTheme]);
+  }, [
+    tab,
+    anyDirty,
+    onSave,
+    providerForm,
+    runtimeForm,
+    activeConfigId,
+    providerConfigs,
+    savedRuntime,
+    savedDensity,
+    savedTheme,
+  ]);
 
   const showSaveBar = tab !== 'external';
 

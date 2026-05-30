@@ -260,9 +260,16 @@ export function OfficeThread({
     syncThread(threadId, runState);
   }, [threadId, runState, syncThread]);
 
-  // Stop the advance timer when the conversation unmounts (e.g. navigating away
-  // mid-run) so it doesn't keep ticking into a store no component reads.
-  useEffect(() => () => useRunStore.getState().stop(), []);
+  // Stop the run when this conversation unmounts (e.g. navigating away mid-run)
+  // so it doesn't keep ticking into a store no component reads. Gate on the
+  // active threadId so unmounting thread A cannot clobber a sibling thread B
+  // that has already taken over the shared store.
+  useEffect(
+    () => () => {
+      if (useRunStore.getState().threadId === threadId) useRunStore.getState().stop();
+    },
+    [threadId],
+  );
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
@@ -279,6 +286,11 @@ export function OfficeThread({
             <ThreadPrimitive.Messages>
               {({ message }) => {
                 const custom = message.metadata?.custom as unknown as ChatMessage | undefined;
+                // While a send is in flight, assistant-ui drives an optimistic
+                // assistant bubble that has no `metadata.custom` (the real reply
+                // is appended to the external store on resolve). Returning null
+                // for the custom===undefined case suppresses that placeholder so
+                // it never renders alongside the real, store-backed message.
                 return custom ? (
                   <MessageItem message={custom} employeesById={employeesById} />
                 ) : null;

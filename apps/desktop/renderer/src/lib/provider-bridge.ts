@@ -64,11 +64,16 @@ function requestBodyFor(profile: RuntimeProviderProfile, text: string, maxOutput
 }
 
 export function extractProviderText(raw: string): string {
-  const parsed = JSON.parse(raw) as {
+  let parsed: {
     content?: Array<{ type?: string; text?: string }>;
     choices?: Array<{ message?: { content?: string }; text?: string }>;
     output_text?: string;
   };
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return 'Provider returned a malformed response.';
+  }
   if (typeof parsed.output_text === 'string' && parsed.output_text.trim()) {
     return parsed.output_text.trim();
   }

@@ -4,6 +4,7 @@ import type { CompactBaselineState } from '../../graph/state.js';
 import type { LlmRequest } from '../../llm/gateway.js';
 import type { RuntimeContext } from '../../runtime/runtime-context.js';
 import { generateId } from '../../utils/generate-id.js';
+import { touchLru } from '../../utils/lru-map.js';
 import { normalizeSummary } from './message-utils.js';
 import type { ResolvedConversationBudgetOptions } from './options-resolver.js';
 import type { SynopsisGenerator, ThreadSynopsisRecord } from './synopsis-generator.js';
@@ -83,15 +84,7 @@ export class FullCompactOrchestrator {
   }
 
   private setTrackedThread(map: Map<string, number>, threadId: string, value: number): void {
-    // Re-insert so this thread becomes most-recently-used in iteration order.
-    map.delete(threadId);
-    map.set(threadId, value);
-    // Evict least-recently-updated threads beyond the cap.
-    while (map.size > MAX_TRACKED_THREADS) {
-      const oldest = map.keys().next().value;
-      if (oldest === undefined) break;
-      map.delete(oldest);
-    }
+    touchLru(map, threadId, value, MAX_TRACKED_THREADS);
   }
 
   async tryInitialCompact(

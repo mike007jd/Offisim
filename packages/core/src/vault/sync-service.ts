@@ -321,7 +321,7 @@ export class VaultSyncService {
       this.onError?.(wrapped);
       return;
     }
-    const dir = `companies/${companyId}/employees/${employeeSlug(employeeId)}`;
+    const dir = this.employeeDir({ companyId, slug: employeeSlug(employeeId) });
     try {
       await this.fs.remove(dir);
       this.slugByEmployee.delete(employeeId);

@@ -15,6 +15,7 @@ import type {
 } from '../graph/state.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { generateId } from '../utils/generate-id.js';
+import { touchLru } from '../utils/lru-map.js';
 import { NodeSummaryService } from './node-summary-service.js';
 import type {
   WorkspaceStalenessResult,
@@ -439,8 +440,7 @@ export class OrchestrationService {
   ): Promise<void> {
     if (this.ensuredThreads.has(threadId)) {
       // Touch for LRU recency so an active thread is never evicted.
-      this.ensuredThreads.delete(threadId);
-      this.ensuredThreads.set(threadId, true);
+      this.markEnsuredThread(threadId);
       return;
     }
     const existing = await this.runtimeCtx.repos.threads.findById(threadId);
@@ -467,12 +467,7 @@ export class OrchestrationService {
 
   /** Record `threadId` in the ensured-threads LRU, evicting the oldest past the cap. */
   private markEnsuredThread(threadId: string): void {
-    this.ensuredThreads.set(threadId, true);
-    while (this.ensuredThreads.size > MAX_ENSURED_THREADS) {
-      const oldest = this.ensuredThreads.keys().next().value;
-      if (oldest === undefined) break;
-      this.ensuredThreads.delete(oldest);
-    }
+    touchLru(this.ensuredThreads, threadId, true, MAX_ENSURED_THREADS);
   }
 
   private async _executeStateInner(

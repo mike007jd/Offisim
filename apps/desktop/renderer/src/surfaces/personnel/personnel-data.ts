@@ -89,8 +89,13 @@ export const profileFormSchema = z.object({
 export type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
 /** Seed the profile form from an employee view-model. The renderer view-model is
- *  intentionally thinner than the backend record, so persona fields fall back to
- *  derived defaults until the real employee config command lands. */
+ *  intentionally thinner than the backend record (it carries no persona_json /
+ *  config_json), so the persona fields below — workingStyle, communication, risk,
+ *  decisionStyle, modelMode/family/override, temperature, maxTokens,
+ *  customInstructions — are stub defaults rather than the stored persona. They are
+ *  not hydrated from the persisted record until the employee config command exposes
+ *  persona_json.profile and config_json.modelSettings to the renderer; saving an
+ *  untouched form therefore reflects these stubs, not the saved persona. */
 export function profileDefaults(employee: Employee): ProfileFormValues {
   return {
     name: employee.name,
@@ -373,6 +378,10 @@ function memoryEntryFromRow(row: MemoryEntryRow): MemoryEntry {
   };
 }
 
+/** Memory create/update intentionally edit only `category`, `content`, and
+ *  `importance` here. `confidence` is backend-managed (set/decayed by the
+ *  runtime as memories are reinforced) and is not user-editable from this
+ *  surface, mirroring the other view-model narrowing in this file. */
 export function useCreateEmployeeMemory(employeeId: string | null) {
   const queryClient = useQueryClient();
   return useMutation({

@@ -211,7 +211,7 @@ export function createOrchestrationTauriRepos(db: TauriDrizzleDb): Orchestration
 
       const counts: Record<string, number> = {};
       for (const r of rows) {
-        counts[r.status] = r.cnt;
+        counts[r.status] = Number(r.cnt);
       }
       return counts;
     },

@@ -63,7 +63,7 @@ export function Select({
         aria-label={ariaLabel}
         aria-labelledby={ariaLabelledBy}
         className={cn('off-select off-focusable', sunken && 'is-sunken', className)}
-        onBlur={() => onBlur?.(toFocusEvent(name, selected ?? fallbackValue))}
+        onBlur={() => onBlur?.(toFocusEvent(name, selected))}
       >
         <SelectPrimitive.Value />
         <SelectPrimitive.Icon className="off-select-ico">

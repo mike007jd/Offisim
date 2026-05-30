@@ -64,6 +64,16 @@ function convertPlaceholders(sql: string): string {
   return sql.replace(/\?/g, () => `$${++idx}`);
 }
 
+/**
+ * Reconstruct a positional column array from a plugin-sql row.
+ *
+ * CONSTRAINT: When the row is an object (the plugin returns named columns),
+ * column order is taken from `Object.values` key ordering, which mirrors the
+ * SELECT projection. Drizzle generates explicit, single-table column lists, so
+ * this ordering is stable. Do NOT route a `SELECT *` across joins (or any query
+ * with duplicate/ambiguous column names) through this proxy — duplicate keys
+ * collapse and the positional reconstruction would be wrong.
+ */
 function normalizePluginSqlRow(row: unknown): unknown[] {
   if (Array.isArray(row)) {
     return row;

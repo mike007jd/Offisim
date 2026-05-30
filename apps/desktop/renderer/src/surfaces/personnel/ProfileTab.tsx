@@ -450,7 +450,7 @@ export function ProfileTab({
                 type="number"
                 {...register('maxTokens', { valueAsNumber: true })}
               />
-              {modelMode === 'custom' && Number(values.maxTokens) < 1024 ? (
+              {Number.isFinite(values.maxTokens) && values.maxTokens < 1024 ? (
                 <p className="off-field-hint is-warn">
                   Some reasoning models spend output budget on thinking. Recommend max tokens ≥
                   1024.

@@ -781,6 +781,43 @@ function brandGradient(seed: string): readonly [string, string] {
   return pairs[pairIndex] ?? fallbackPair;
 }
 
+/** Read a response body up to `cap` bytes, aborting the request as soon as the
+ *  cap is exceeded so we never buffer an unbounded (possibly spoofed) body. */
+async function readBodyWithCap(
+  response: Response,
+  controller: AbortController,
+  cap: number,
+): Promise<string> {
+  const reader = response.body?.getReader();
+  if (!reader) {
+    // No streaming body available (e.g. a polyfilled fetch) — buffer and
+    // enforce the cap on the decoded text instead.
+    const text = await response.text();
+    if (new Blob([text]).size > cap) throw new Error('Agent card is too large');
+    return text;
+  }
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+    total += value.byteLength;
+    if (total > cap) {
+      controller.abort();
+      throw new Error('Agent card is too large');
+    }
+    chunks.push(value);
+  }
+  const merged = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(merged);
+}
+
 export async function discoverAgentCard(url: string): Promise<DiscoveredCard> {
   const trimmed = url.trim();
   if (trimmed.length === 0) {
@@ -797,23 +834,26 @@ export async function discoverAgentCard(url: string): Promise<DiscoveredCard> {
     throw new Error('Agent card must use http or https');
   }
 
+  const controller = new AbortController();
   const response = await fetch(parsed.href, {
     headers: { Accept: 'application/json' },
     cache: 'no-store',
+    signal: controller.signal,
   });
   if (!response.ok) {
     throw new Error(`Agent card returned HTTP ${response.status}`);
   }
 
+  // Early-out on an honest Content-Length, but never trust it as the gate:
+  // stream the body and abort once the real byte count exceeds the cap, so a
+  // spoofed/absent header cannot make us buffer an unbounded response.
   const contentLength = Number(response.headers.get('content-length') ?? 0);
   if (Number.isFinite(contentLength) && contentLength > MAX_AGENT_CARD_BYTES) {
+    controller.abort();
     throw new Error('Agent card is too large');
   }
 
-  const text = await response.text();
-  if (new Blob([text]).size > MAX_AGENT_CARD_BYTES) {
-    throw new Error('Agent card is too large');
-  }
+  const text = await readBodyWithCap(response, controller, MAX_AGENT_CARD_BYTES);
 
   const card = asRecord(JSON.parse(text));
   if (!card) throw new Error('Agent card must be a JSON object');
@@ -892,11 +932,14 @@ export function useExternalEmployees(companyId: string | null) {
   return useQuery({
     queryKey: ['settings', 'external-employees', companyId],
     queryFn: async () => {
+      // No company selected → empty result even in the preview build, so the
+      // demo fixture never surfaces as if it were a real company's roster.
+      if (!companyId) return [];
       const repos = await reposOrNull();
       if (!repos) return resolveAsync(EXTERNAL_EMPLOYEES_FIXTURE);
-      if (!companyId) return [];
       const rows = await repos.employees.findByCompany(companyId);
       return rows.filter((row) => row.is_external === 1).map(externalEmployeeFromRow);
     },
+    enabled: companyId !== null,
   });
 }

@@ -10,6 +10,7 @@ import {
 } from '../events/event-factories.js';
 import type { MeetingActionItem, OffisimGraphState } from '../graph/state.js';
 import { forwardStreamChunks, recordedLlmStream } from '../llm/recorded-call.js';
+import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { EventConsolidator } from '../services/event-consolidator.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { generateId } from '../utils/generate-id.js';
@@ -17,6 +18,31 @@ import { getRunScope, getRuntime } from '../utils/get-runtime.js';
 import { autoTitleThread } from './auto-title-thread.js';
 import { isNewDeliverableRequest } from './deliverable-intent.js';
 import { inferDeliverableFile } from './infer-deliverable-file.js';
+
+/**
+ * Best-effort post-summary bookkeeping: record the summary action and trigger an
+ * auto-title. A logging-table failure must not turn an already delivered summary
+ * + completed thread into a failed run, so all errors are swallowed with a warn.
+ */
+async function recordSummaryBookkeeping(
+  runtimeCtx: RuntimeContext,
+  state: OffisimGraphState,
+  employeeResultCount: number,
+  outputLength: number,
+): Promise<void> {
+  try {
+    await appendAgentEvent(runtimeCtx, {
+      projectId: state.projectId,
+      threadId: state.threadId,
+      agentName: 'boss',
+      eventType: 'action',
+      payload: { action: 'summary', employeeResultCount, outputLength },
+    });
+    autoTitleThread(runtimeCtx, state);
+  } catch (err) {
+    console.warn('[boss-summary-node] post-summary bookkeeping failed', err);
+  }
+}
 
 const BOSS_SUMMARY_PROMPT = `You are the Boss AI summarizing your team's work for the user.
 
@@ -458,22 +484,7 @@ export async function bossSummaryNode(
       await runtimeCtx.repos.threads.updateStatus(state.threadId, 'completed');
     }
     if (runtimeCtx) emitDirectChatCompletedIfNeeded(state, runtimeCtx);
-    // Best-effort bookkeeping: a logging-table failure must not turn an already
-    // delivered summary + completed thread into a failed run.
-    if (runtimeCtx) {
-      try {
-        await appendAgentEvent(runtimeCtx, {
-          projectId: state.projectId,
-          threadId: state.threadId,
-          agentName: 'boss',
-          eventType: 'action',
-          payload: { action: 'summary', employeeResultCount: 1, outputLength: content.length },
-        });
-        autoTitleThread(runtimeCtx, state);
-      } catch (err) {
-        console.warn('[boss-summary-node] post-summary bookkeeping failed', err);
-      }
-    }
+    if (runtimeCtx) await recordSummaryBookkeeping(runtimeCtx, state, 1, content.length);
     return {
       completed: true,
       messages: [new AIMessage({ content })],
@@ -515,24 +526,7 @@ export async function bossSummaryNode(
   await runtimeCtx.repos.threads.updateStatus(state.threadId, 'completed');
   emitDirectChatCompletedIfNeeded(state, runtimeCtx);
 
-  // Best-effort bookkeeping: a logging-table failure must not turn an already
-  // delivered summary + completed thread into a failed run.
-  try {
-    await appendAgentEvent(runtimeCtx, {
-      projectId: state.projectId,
-      threadId: state.threadId,
-      agentName: 'boss',
-      eventType: 'action',
-      payload: {
-        action: 'summary',
-        employeeResultCount: employeeResults.length,
-        outputLength: finalContent.length,
-      },
-    });
-    autoTitleThread(runtimeCtx, state);
-  } catch (err) {
-    console.warn('[boss-summary-node] post-summary bookkeeping failed', err);
-  }
+  await recordSummaryBookkeeping(runtimeCtx, state, employeeResults.length, finalContent.length);
 
   return {
     completed: true,

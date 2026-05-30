@@ -151,10 +151,10 @@ function FilesTab({
       <div className="off-ws-scroll">
         <CapsLabel className="px-[var(--off-sp-3)] pb-[var(--off-sp-1)]">Files</CapsLabel>
         {visible.length > 0 ? (
-          visible.map((node, index) => (
+          visible.map((node) => (
             <button
               type="button"
-              key={`${index}-${node.depth}-${node.name}`}
+              key={node.path}
               className={cn(
                 'off-tree-row off-focusable',
                 selectedPath === node.path && 'is-active',
@@ -368,6 +368,12 @@ export function WorkspacePanel() {
         />
       ) : git.isLoading ? (
         <SkeletonRows rows={6} />
+      ) : git.isError ? (
+        <ErrorState
+          title="Git workbench unavailable"
+          detail={git.error?.message ?? 'Git workbench failed to load.'}
+          onRetry={() => void git.refetch()}
+        />
       ) : git.data ? (
         <GitTab workbench={git.data} />
       ) : (

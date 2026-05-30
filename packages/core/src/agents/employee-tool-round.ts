@@ -1,5 +1,6 @@
 import type { OffisimGraphState, RunScope } from '../graph/state.js';
 import type { LlmMessage, LlmResponse, ToolCallResult } from '../llm/gateway.js';
+import { dropLeadingOrphanToolResults } from '../llm/prune-messages.js';
 import type { RecentToolResult } from '../runtime/completion-verifier.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { WORKSTATION_ACCESS_DENIED } from '../runtime/tool-executor.js';
@@ -237,7 +238,7 @@ export async function runToolRound(ctx: ToolRoundContext): Promise<ToolRoundOutc
   const [firstMessage] = nextHistory;
   const trimmedHistory =
     nextHistory.length > MAX_CONTEXT_MESSAGES + 1 && firstMessage
-      ? [firstMessage, ...dropLeadingOrphanToolMessages(nextHistory.slice(-MAX_CONTEXT_MESSAGES))]
+      ? [firstMessage, ...dropLeadingOrphanToolResults(nextHistory.slice(-MAX_CONTEXT_MESSAGES))]
       : nextHistory;
 
   return {
@@ -251,18 +252,6 @@ const CONCURRENCY_SAFE_TOOL_NAMES = new Set<string>(['read_file', 'web_search', 
 
 function isConcurrencySafeToolCall(toolCall: ToolCallResult): boolean {
   return CONCURRENCY_SAFE_TOOL_NAMES.has(toolCall.name);
-}
-
-/**
- * Drop `tool` messages at the front of a trimmed window whose owning assistant
- * `tool_use` message was cut off. Without their preceding tool_use these are
- * orphans that providers reject; advancing the cut to the first non-`tool`
- * message keeps the window self-contained.
- */
-function dropLeadingOrphanToolMessages(window: LlmMessage[]): LlmMessage[] {
-  let start = 0;
-  while (start < window.length && window[start]?.role === 'tool') start += 1;
-  return start === 0 ? window : window.slice(start);
 }
 
 const textEncoder = new TextEncoder();

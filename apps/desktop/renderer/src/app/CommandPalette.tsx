@@ -33,13 +33,7 @@ const SURFACES: ReadonlyArray<{ key: SurfaceKey; label: string; icon: LucideIcon
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
-  const companyId = useUiState((s) => s.companyId);
   const setSurface = useUiState((s) => s.setSurface);
-  const setCompany = useUiState((s) => s.setCompany);
-  const setProject = useUiState((s) => s.setProject);
-
-  const companies = useCompanies();
-  const projects = useProjects(companyId);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -76,44 +70,62 @@ export function CommandPalette() {
                 </CommandItem>
               ))}
             </CommandGroup>
-            <CommandSeparator />
-            <CommandGroup heading="Companies">
-              {companies.data?.map((company) => (
-                <CommandItem
-                  key={company.id}
-                  value={`company ${company.name}`}
-                  onSelect={() => run(() => setCompany(company.id))}
-                >
-                  <BriefcaseBusiness />
-                  {company.name}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-            {projects.data?.length ? (
-              <>
-                <CommandSeparator />
-                <CommandGroup heading="Projects">
-                  {projects.data.map((project) => (
-                    <CommandItem
-                      key={project.id}
-                      value={`project ${project.name}`}
-                      onSelect={() =>
-                        run(() => {
-                          setProject(project.id);
-                          setSurface('office');
-                        })
-                      }
-                    >
-                      <FolderGit2 />
-                      {project.name}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </>
-            ) : null}
+            {/* Mount the data-driven groups only while open so the company/project
+                queries do not run on every session start (idiomatic enabled gate). */}
+            {open ? <CommandDataGroups run={run} /> : null}
           </CommandList>
         </Command>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function CommandDataGroups({ run }: { run: (action: () => void) => void }) {
+  const companyId = useUiState((s) => s.companyId);
+  const setSurface = useUiState((s) => s.setSurface);
+  const setCompany = useUiState((s) => s.setCompany);
+  const setProject = useUiState((s) => s.setProject);
+
+  const companies = useCompanies();
+  const projects = useProjects(companyId);
+
+  return (
+    <>
+      <CommandSeparator />
+      <CommandGroup heading="Companies">
+        {companies.data?.map((company) => (
+          <CommandItem
+            key={company.id}
+            value={`company ${company.name}`}
+            onSelect={() => run(() => setCompany(company.id))}
+          >
+            <BriefcaseBusiness />
+            {company.name}
+          </CommandItem>
+        ))}
+      </CommandGroup>
+      {projects.data?.length ? (
+        <>
+          <CommandSeparator />
+          <CommandGroup heading="Projects">
+            {projects.data.map((project) => (
+              <CommandItem
+                key={project.id}
+                value={`project ${project.name}`}
+                onSelect={() =>
+                  run(() => {
+                    setProject(project.id);
+                    setSurface('office');
+                  })
+                }
+              >
+                <FolderGit2 />
+                {project.name}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </>
+      ) : null}
+    </>
   );
 }

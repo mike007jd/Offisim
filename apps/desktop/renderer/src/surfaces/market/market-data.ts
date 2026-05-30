@@ -1703,7 +1703,6 @@ export function useImportPackageFile(companyId?: string | null) {
         service,
       };
     },
-    throwOnError: false,
   });
 }
 

@@ -25,7 +25,7 @@ export function SegmentedControl<T extends string>({
   ariaLabel,
 }: SegmentedControlProps<T>) {
   return (
-    <div className={cn('off-seg', wrap && 'is-wrap', className)} aria-label={ariaLabel}>
+    <div role="group" className={cn('off-seg', wrap && 'is-wrap', className)} aria-label={ariaLabel}>
       {options.map((option) => (
         <button
           key={option.value}

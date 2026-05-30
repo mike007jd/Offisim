@@ -214,7 +214,7 @@ export async function employeeNode(
           runtimeCtx,
           companyId,
           threadId,
-          signal: getConfigSignal(config),
+          signal,
         });
         if (command) return command;
         // Target employee gone — fall back to completing the task ourselves.

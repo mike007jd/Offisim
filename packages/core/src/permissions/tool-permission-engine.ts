@@ -222,14 +222,7 @@ export class ToolPermissionEngine implements ToolPermissionAuthorizer {
     );
     const matchedRule = [...policy.rules]
       .filter((rule) => identities.some((identity) => globToRegex(rule.pattern).test(identity)))
-      .sort((a, b) => {
-        const byLength = b.pattern.length - a.pattern.length;
-        if (byLength !== 0) return byLength;
-        const byBehavior =
-          runtimeBehaviorRank(b.behavior) - runtimeBehaviorRank(a.behavior);
-        if (byBehavior !== 0) return byBehavior;
-        return a.pattern.localeCompare(b.pattern);
-      })[0];
+      .sort(byPatternSpecificity((rule) => runtimeBehaviorRank(rule.behavior)))[0];
 
     if (matchedRule) {
       return runtimeBehaviorToDecision(matchedRule.behavior, {
@@ -298,6 +291,20 @@ function approvalModeRank(mode: ToolApprovalMode): number {
   }
 }
 
+// Most-specific-first: longest pattern wins; ties broken by a security-biased
+// rank (higher = more restrictive), then by pattern string for determinism.
+function byPatternSpecificity<T extends { pattern: string }>(
+  rank: (item: T) => number,
+): (a: T, b: T) => number {
+  return (a, b) => {
+    const byLength = b.pattern.length - a.pattern.length;
+    if (byLength !== 0) return byLength;
+    const byRank = rank(b) - rank(a);
+    if (byRank !== 0) return byRank;
+    return a.pattern.localeCompare(b.pattern);
+  };
+}
+
 function buildRuntimeIdentities(
   serverName: string,
   toolName: string,
@@ -319,13 +326,7 @@ function resolveEmployeePolicyMatch(
 ): { mode: ToolApprovalMode; matchedPattern?: string } {
   const match = [...policy.overrides]
     .filter((override) => globToRegex(override.pattern).test(toolName))
-    .sort((a, b) => {
-      const byLength = b.pattern.length - a.pattern.length;
-      if (byLength !== 0) return byLength;
-      const byMode = approvalModeRank(b.mode) - approvalModeRank(a.mode);
-      if (byMode !== 0) return byMode;
-      return a.pattern.localeCompare(b.pattern);
-    })[0];
+    .sort(byPatternSpecificity((override) => approvalModeRank(override.mode)))[0];
 
   if (match) {
     return { mode: match.mode, matchedPattern: match.pattern };
