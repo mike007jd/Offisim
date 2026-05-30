@@ -32,6 +32,7 @@ import type {
 } from '@offisim/shared-types';
 import { sql } from 'drizzle-orm';
 import {
+  type AnySQLiteColumn,
   index,
   integer,
   primaryKey,
@@ -392,7 +393,10 @@ export const taskRuns = sqliteTable(
     employee_id: text('employee_id').references(() => employees.employee_id, {
       onDelete: 'set null',
     }),
-    parent_task_run_id: text('parent_task_run_id'),
+    parent_task_run_id: text('parent_task_run_id').references(
+      (): AnySQLiteColumn => taskRuns.task_run_id,
+      { onDelete: 'set null' },
+    ),
     task_type: text('task_type').notNull(),
     status: text('status').notNull(),
     input_json: text('input_json'),
@@ -441,21 +445,25 @@ export const handoffEvents = sqliteTable('handoff_events', {
   created_at: text('created_at').notNull(),
 });
 
-export const meetingSessions = sqliteTable('meeting_sessions', {
-  meeting_id: text('meeting_id').primaryKey(),
-  company_id: text('company_id')
-    .notNull()
-    .references(() => companies.company_id, { onDelete: 'cascade' }),
-  thread_id: text('thread_id').references(() => graphThreads.thread_id, {
-    onDelete: 'set null',
-  }),
-  topic: text('topic').notNull(),
-  status: text('status').notNull(),
-  interaction_mode: text('interaction_mode').notNull().default('boss_proxy'),
-  summary_json: text('summary_json'),
-  created_at: text('created_at').notNull(),
-  updated_at: text('updated_at').notNull(),
-});
+export const meetingSessions = sqliteTable(
+  'meeting_sessions',
+  {
+    meeting_id: text('meeting_id').primaryKey(),
+    company_id: text('company_id')
+      .notNull()
+      .references(() => companies.company_id, { onDelete: 'cascade' }),
+    thread_id: text('thread_id').references(() => graphThreads.thread_id, {
+      onDelete: 'set null',
+    }),
+    topic: text('topic').notNull(),
+    status: text('status').notNull(),
+    interaction_mode: text('interaction_mode').notNull().default('boss_proxy'),
+    summary_json: text('summary_json'),
+    created_at: text('created_at').notNull(),
+    updated_at: text('updated_at').notNull(),
+  },
+  (table) => [index('idx_meeting_sessions_mode').on(table.interaction_mode)],
+);
 
 // ---------------------------------------------------------------------------
 // 004 — Audit & events
@@ -1030,8 +1038,14 @@ export const skills = sqliteTable(
     updated_at: integer('updated_at').notNull(),
   },
   (table) => [
+    uniqueIndex('idx_skills_company_slug')
+      .on(table.company_id, table.slug)
+      .where(sql`employee_id IS NULL`),
+    uniqueIndex('idx_skills_employee_slug')
+      .on(table.company_id, table.employee_id, table.slug)
+      .where(sql`employee_id IS NOT NULL`),
     index('idx_skills_company_scope').on(table.company_id, table.scope),
-    index('idx_skills_employee').on(table.employee_id),
+    index('idx_skills_employee').on(table.employee_id).where(sql`employee_id IS NOT NULL`),
   ],
 );
 

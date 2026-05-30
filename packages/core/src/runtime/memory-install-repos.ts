@@ -31,6 +31,10 @@ export class MemoryInstallTransactionRepository implements InstallTransactionRep
     }
   }
 
+  // NOTE: async here is safe ONLY because the memory backend never participates
+  // in a sync transact() (it offers an asyncTransact passthrough instead). The
+  // drizzle install repos deliberately keep create() non-async for the opposite
+  // reason — see the NOTE in repos/install/drizzle.ts. This asymmetry is intentional.
   async create(txn: Omit<InstallTransactionRow, 'finished_at'>): Promise<InstallTransactionRow> {
     if (txn.idempotency_key) {
       const duplicate = [...this.store.values()].find(
@@ -47,27 +51,32 @@ export class MemoryInstallTransactionRepository implements InstallTransactionRep
     }
     const row: InstallTransactionRow = { ...txn, finished_at: null };
     this.store.set(row.install_txn_id, row);
-    return row;
+    return { ...row };
   }
 
   async findById(id: string): Promise<InstallTransactionRow | null> {
-    return this.store.get(id) ?? null;
+    const row = this.store.get(id);
+    return row ? { ...row } : null;
   }
 
   async findByIdempotencyKey(
     companyId: string,
     idempotencyKey: string,
   ): Promise<InstallTransactionRow | null> {
-    return (
-      [...this.store.values()].find(
-        (row) =>
-          row.company_id === companyId &&
-          row.idempotency_key === idempotencyKey &&
-          row.state !== 'failed' &&
-          row.state !== 'rolled_back' &&
-          row.state !== 'cancelled',
-      ) ?? null
-    );
+    // Mirror the drizzle ordering (desc started_at, take 1) so both backends
+    // deterministically resolve the same row when multiple active rows share the key.
+    const row =
+      [...this.store.values()]
+        .filter(
+          (r) =>
+            r.company_id === companyId &&
+            r.idempotency_key === idempotencyKey &&
+            r.state !== 'failed' &&
+            r.state !== 'rolled_back' &&
+            r.state !== 'cancelled',
+        )
+        .sort((a, b) => b.started_at.localeCompare(a.started_at))[0] ?? null;
+    return row ? { ...row } : null;
   }
 
   async updateState(
@@ -109,19 +118,25 @@ export class MemoryInstalledPackageRepository implements InstalledPackageReposit
     }
   }
 
+  // NOTE: async here is safe ONLY because the memory backend never participates
+  // in a sync transact() (asyncTransact passthrough) — see the NOTE in
+  // repos/install/drizzle.ts for the inverse non-async constraint.
   async create(pkg: InstalledPackageRow): Promise<InstalledPackageRow> {
-    this.store.set(pkg.installed_package_id, pkg);
-    return pkg;
+    const r = { ...pkg };
+    this.store.set(r.installed_package_id, r);
+    return { ...r };
   }
 
   async findByPackageId(companyId: string, packageId: string): Promise<InstalledPackageRow[]> {
-    return [...this.store.values()].filter(
-      (p) => p.company_id === companyId && p.package_id === packageId,
-    );
+    return [...this.store.values()]
+      .filter((p) => p.company_id === companyId && p.package_id === packageId)
+      .map((row) => ({ ...row }));
   }
 
   async listByCompany(companyId: string): Promise<InstalledPackageRow[]> {
-    return [...this.store.values()].filter((p) => p.company_id === companyId);
+    return [...this.store.values()]
+      .filter((p) => p.company_id === companyId)
+      .map((row) => ({ ...row }));
   }
 
   async delete(id: string): Promise<void> {
@@ -143,9 +158,13 @@ export class MemoryInstalledAssetRepository implements InstalledAssetRepository 
     }
   }
 
+  // NOTE: async here is safe ONLY because the memory backend never participates
+  // in a sync transact() (asyncTransact passthrough) — see the NOTE in
+  // repos/install/drizzle.ts for the inverse non-async constraint.
   async create(asset: InstalledAssetRow): Promise<InstalledAssetRow> {
-    this.store.set(asset.installed_asset_id, asset);
-    return asset;
+    const r = { ...asset };
+    this.store.set(r.installed_asset_id, r);
+    return { ...r };
   }
 
   async delete(id: string): Promise<void> {
@@ -167,13 +186,19 @@ export class MemoryAssetBindingRepository implements AssetBindingRepository {
     }
   }
 
+  // NOTE: async here is safe ONLY because the memory backend never participates
+  // in a sync transact() (asyncTransact passthrough) — see the NOTE in
+  // repos/install/drizzle.ts for the inverse non-async constraint.
   async create(binding: AssetBindingRow): Promise<AssetBindingRow> {
-    this.store.set(binding.binding_id, binding);
-    return binding;
+    const r = { ...binding };
+    this.store.set(r.binding_id, r);
+    return { ...r };
   }
 
   async findByTransaction(txnId: string): Promise<AssetBindingRow[]> {
-    return [...this.store.values()].filter((b) => b.install_txn_id === txnId);
+    return [...this.store.values()]
+      .filter((b) => b.install_txn_id === txnId)
+      .map((row) => ({ ...row }));
   }
 
   async updateStatus(id: string, status: BindingStatus, valueJson?: string): Promise<void> {

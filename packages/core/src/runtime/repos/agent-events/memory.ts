@@ -145,7 +145,8 @@ export class MemoryRecoveryKnowledgeRepository implements RecoveryKnowledgeRepos
           b.success_count + b.failure_count > 0
             ? b.success_count / (b.success_count + b.failure_count)
             : 0.5;
-        return rateB - rateA;
+        if (rateB !== rateA) return rateB - rateA;
+        return (b.last_used_at ?? '').localeCompare(a.last_used_at ?? '');
       })[0] ?? null
     );
   }

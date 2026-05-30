@@ -6,7 +6,7 @@ import type {
   InstalledPackageRow,
 } from '@offisim/install-core';
 import type { BindingStatus, InstallState } from '@offisim/shared-types';
-import { and, eq, notInArray } from 'drizzle-orm';
+import { and, desc, eq, notInArray } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type { AssetBindingRepository } from '../../../repos/asset-binding-repository.js';
 import type { InstallTransactionRepository } from '../../../repos/install-transaction-repository.js';
@@ -42,6 +42,8 @@ export function createInstallDrizzleRepos(db: Db): InstallDrizzleRepos {
       return (rows[0] as InstallTransactionRow | undefined) ?? null;
     },
     async findByIdempotencyKey(companyId, idempotencyKey) {
+      // Deterministic resolution when multiple active rows share the key: newest
+      // started_at wins. The in-memory backend mirrors this same ordering.
       const rows = db
         .select()
         .from(schema.installTransactions)
@@ -52,6 +54,8 @@ export function createInstallDrizzleRepos(db: Db): InstallDrizzleRepos {
             notInArray(schema.installTransactions.state, ['failed', 'rolled_back', 'cancelled']),
           ),
         )
+        .orderBy(desc(schema.installTransactions.started_at))
+        .limit(1)
         .all();
       return (rows[0] as InstallTransactionRow | undefined) ?? null;
     },

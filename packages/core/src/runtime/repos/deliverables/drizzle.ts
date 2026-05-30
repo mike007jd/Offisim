@@ -113,7 +113,9 @@ export function createDeliverablesDrizzleRepos(db: Db): DeliverablesDrizzleRepos
           mime_type: schema.deliverables.mime_type,
           contributors_json: schema.deliverables.contributors_json,
           created_at: schema.deliverables.created_at,
-          content_size: sql<number>`length(${schema.deliverables.content})`.as('content_size'),
+          content_size: sql<number>`length(CAST(${schema.deliverables.content} AS BLOB))`.as(
+            'content_size',
+          ),
         })
         .from(schema.deliverables)
         .where(whereClause)
