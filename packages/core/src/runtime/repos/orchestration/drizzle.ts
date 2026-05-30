@@ -98,10 +98,11 @@ export function createOrchestrationDrizzleRepos(db: Db): OrchestrationDrizzleRep
               )
             : eq(schema.graphThreads.company_id, companyId),
         )
-        .orderBy(desc(schema.graphThreads.created_at));
+        .orderBy(desc(schema.graphThreads.created_at))
+        .$dynamic();
 
-      if (opts?.limit) {
-        query = query.limit(opts.limit) as typeof query;
+      if (typeof opts?.limit === 'number') {
+        query = query.limit(opts.limit);
       }
 
       return query.all() as GraphThreadRow[];
@@ -196,10 +197,11 @@ export function createOrchestrationDrizzleRepos(db: Db): OrchestrationDrizzleRep
           eq(schema.taskRuns.thread_id, schema.graphThreads.thread_id),
         )
         .where(and(...conditions))
-        .orderBy(desc(schema.taskRuns.started_at));
+        .orderBy(desc(schema.taskRuns.started_at))
+        .$dynamic();
 
-      if (opts?.limit) {
-        query = query.limit(opts.limit) as typeof query;
+      if (typeof opts?.limit === 'number') {
+        query = query.limit(opts.limit);
       }
 
       return query.all().map((row) => row.taskRun) as TaskRunRow[];

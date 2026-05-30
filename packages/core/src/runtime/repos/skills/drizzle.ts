@@ -28,7 +28,9 @@ export function createSkillsDrizzleRepos(db: Db): SkillsDrizzleRepos {
     },
     async update(skillId, patch: SkillUpdate) {
       const values = buildSkillUpdateValues(patch);
-      if (Object.keys(values).length === 1) return;
+      // buildSkillUpdateValues always stamps updated_at; skip the write when no
+      // real column changed (patch was empty) rather than bumping the timestamp alone.
+      if (Object.keys(values).every((k) => k === 'updated_at')) return;
       db.update(schema.skills).set(values).where(eq(schema.skills.skill_id, skillId)).run();
     },
     async delete(skillId) {

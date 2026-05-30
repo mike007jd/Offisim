@@ -47,7 +47,9 @@ export class HookRegistry {
   async emit(event: HookEvent, payload: Record<string, unknown>): Promise<void> {
     if (this.hooks.size === 0) return;
     const hooks = [...this.hooks].filter((hook) => hook.event === event);
-    await Promise.allSettled(
+    // Per-hook .catch isolates one failing hook; Promise.all (not allSettled)
+    // is fine because no branch can reject after the catch swallows the error.
+    await Promise.all(
       hooks.map((hook) =>
         this.runHook(hook, payload).catch((error) => {
           console.warn(`[HookRegistry] hook "${hook.name}" failed for ${event}`, error);
@@ -62,20 +64,30 @@ export class HookRegistry {
     threadId: string;
     employeeId?: string;
   }): Promise<ToolBeforeResult> {
+    // Gate semantics: any deny is terminal. Run tool.before hooks sequentially
+    // so the result is order-independent — a later allow() can never undo an
+    // earlier block(), and updateInput rewrites apply deterministically in
+    // registration order before the first block short-circuits.
     let blockedReason: string | null = null;
     let nextInput = payload.input;
-    await this.emit('tool.before', {
-      ...payload,
-      allow: () => {
-        blockedReason = null;
-      },
-      block: (reason: string) => {
-        blockedReason = reason || 'Blocked by tool.before hook.';
-      },
-      updateInput: (input: Record<string, unknown>) => {
-        nextInput = input;
-      },
-    });
+    const hooks = [...this.hooks].filter((hook) => hook.event === 'tool.before');
+    for (const hook of hooks) {
+      const hookPayload = {
+        ...payload,
+        input: nextInput,
+        allow: () => {},
+        block: (reason: string) => {
+          blockedReason = reason || 'Blocked by tool.before hook.';
+        },
+        updateInput: (input: Record<string, unknown>) => {
+          nextInput = input;
+        },
+      };
+      await this.runHook(hook, hookPayload).catch((error) => {
+        console.warn(`[HookRegistry] hook "${hook.name}" failed for tool.before`, error);
+      });
+      if (blockedReason) break;
+    }
     return blockedReason
       ? { blocked: true, reason: blockedReason }
       : { blocked: false, input: nextInput };

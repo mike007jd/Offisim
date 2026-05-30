@@ -84,7 +84,7 @@ export function createLlmDrizzleRepos(db: Db): LlmDrizzleRepos {
     async create(rate: NewModelCostRate) {
       const row: ModelCostRateRow = {
         ...rate,
-        rate_id: crypto.randomUUID(),
+        rate_id: `mcr-${crypto.randomUUID()}`,
         created_at: now(),
       };
       db.insert(schema.modelCostRates).values(row).run();
@@ -143,7 +143,9 @@ export function createLlmDrizzleRepos(db: Db): LlmDrizzleRepos {
           ),
         )
         .all() as ModelCostRateRow[];
-      return persisted[0] as ModelCostRateRow;
+      const out = persisted[0] as ModelCostRateRow | undefined;
+      if (!out) throw new Error('cost rate upsert failed to persist');
+      return out;
     },
   };
 

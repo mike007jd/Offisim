@@ -20,8 +20,9 @@ export class MemoryFileHistoryRepository implements FileHistoryRepository {
   }
 
   async create(entry: FileHistoryRow): Promise<FileHistoryRow> {
-    this.rows.push(entry);
-    return entry;
+    const row = { ...entry };
+    this.rows.push(row);
+    return row;
   }
 
   async listByThread(threadId: string, opts?: { limit?: number }): Promise<FileHistoryRow[]> {

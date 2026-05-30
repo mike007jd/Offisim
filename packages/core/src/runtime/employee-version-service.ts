@@ -13,6 +13,23 @@ export interface VersionDiff {
   to: unknown;
 }
 
+/**
+ * Parse a DB-sourced snapshot_json blob defensively. Corrupt or non-object
+ * JSON returns null rather than throwing, so a single malformed row cannot
+ * abort history/diff/rollback flows.
+ */
+function parseSnapshot(snapshotJson: string): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(snapshotJson) as unknown;
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return null;
+    }
+    return parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
 export class EmployeeVersionService {
   constructor(
     private readonly versionRepo: EmployeeVersionRepository,
@@ -55,11 +72,16 @@ export class EmployeeVersionService {
     } else if (latestNum > 0) {
       const prevVersion = await this.versionRepo.findByVersion(employeeId, latestNum);
       if (prevVersion) {
-        const diffs = this.diffVersions(prevVersion.snapshot_json, snapshot);
-        if (diffs.length > 0) {
-          changeSummary = diffs.map((d) => `${d.field} changed`).join(', ');
+        const prevParsed = parseSnapshot(prevVersion.snapshot_json);
+        if (prevParsed === null) {
+          changeSummary = 'change summary unavailable';
         } else {
-          changeSummary = 'No visible changes';
+          const diffs = this.diffVersions(prevVersion.snapshot_json, snapshot);
+          if (diffs.length > 0) {
+            changeSummary = diffs.map((d) => `${d.field} changed`).join(', ');
+          } else {
+            changeSummary = 'No visible changes';
+          }
         }
       }
     }
@@ -88,9 +110,15 @@ export class EmployeeVersionService {
     return row;
   }
 
-  /** Get version history for an employee, newest first. */
+  /**
+   * Get version history for an employee, newest first. `limit`, when provided,
+   * must be a positive integer; non-positive or non-integer values are treated
+   * as "no limit" so a stray `0` cannot be misread as "zero rows" by backends
+   * that do not all agree on the LIMIT 0 case.
+   */
   async getHistory(employeeId: string, limit?: number): Promise<EmployeeVersionRow[]> {
-    return this.versionRepo.findByEmployee(employeeId, limit != null ? { limit } : undefined);
+    const hasLimit = limit != null && Number.isInteger(limit) && limit > 0;
+    return this.versionRepo.findByEmployee(employeeId, hasLimit ? { limit } : undefined);
   }
 
   /** Rollback employee to a specific version. Applies the snapshot and creates a new version record. */
@@ -105,9 +133,19 @@ export class EmployeeVersionService {
       throw new Error(`Employee not found: ${employeeId}`);
     }
 
-    const parsed = JSON.parse(version.snapshot_json) as Record<string, unknown>;
+    const parsed = parseSnapshot(version.snapshot_json);
+    if (parsed === null) {
+      throw new Error(
+        `Snapshot for version ${versionNum} of employee ${employeeId} is corrupt and cannot be rolled back`,
+      );
+    }
+    if (typeof parsed.name !== 'string' || typeof parsed.role_slug !== 'string') {
+      throw new Error(
+        `Snapshot for version ${versionNum} of employee ${employeeId} is missing required fields`,
+      );
+    }
     const snapshot = {
-      name: parsed.name as string,
+      name: parsed.name,
       role_slug: parsed.role_slug as RoleSlug,
       enabled: parsed.enabled as number,
       persona_json: (parsed.persona_json as string) ?? null,
@@ -151,8 +189,12 @@ export class EmployeeVersionService {
 
   /** Compare two version snapshots and return structured diffs. */
   diffVersions(snapshotA: string, snapshotB: string): VersionDiff[] {
-    const objA = JSON.parse(snapshotA) as Record<string, unknown>;
-    const objB = JSON.parse(snapshotB) as Record<string, unknown>;
+    const objA = parseSnapshot(snapshotA);
+    const objB = parseSnapshot(snapshotB);
+    if (objA === null || objB === null) {
+      // Corrupt snapshot — no reliable diff can be produced.
+      return [];
+    }
     const diffs: VersionDiff[] = [];
 
     const allKeys = new Set([...Object.keys(objA), ...Object.keys(objB)]);

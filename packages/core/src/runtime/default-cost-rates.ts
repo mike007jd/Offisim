@@ -16,12 +16,9 @@ export const DEFAULT_COST_RATES: Array<{
   output_cost_per_mtok: number;
 }> = [
   // OpenAI
-  {
-    provider: 'openai',
-    model_pattern: 'gpt-4o',
-    input_cost_per_mtok: 2.5,
-    output_cost_per_mtok: 10,
-  },
+  // `gpt-4o*` covers the exact `gpt-4o` id (and any suffix) with the same rate,
+  // so no separate exact row is needed — matchCostRate scores by pattern length
+  // and the longer `gpt-4o-mini*` still wins for the mini variant.
   {
     provider: 'openai',
     model_pattern: 'gpt-4o*',

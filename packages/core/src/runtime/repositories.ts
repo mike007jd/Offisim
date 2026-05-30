@@ -175,6 +175,7 @@ export interface LlmCallRow {
   created_at: string;
 }
 
+/** Full-row insert: caller supplies llm_call_id + created_at (backend does not stamp). */
 export type NewLlmCall = Omit<LlmCallRow, never>;
 
 /** New-row types (omit auto-generated fields) */
@@ -478,7 +479,8 @@ export interface McpAuditRow {
   created_at: string;
 }
 
-export type NewMcpAudit = McpAuditRow;
+/** Full-row insert: caller supplies audit_id + created_at (backend does not stamp). */
+export type NewMcpAudit = Omit<McpAuditRow, never>;
 
 export interface McpAuditRepository {
   create(audit: NewMcpAudit): Promise<McpAuditRow>;
@@ -508,7 +510,8 @@ export interface ToolPermissionApprovalRow {
   expires_at: string | null;
 }
 
-export type NewToolPermissionApproval = ToolPermissionApprovalRow;
+/** Full-row insert: caller supplies approval_id + created_at (backend does not stamp). */
+export type NewToolPermissionApproval = Omit<ToolPermissionApprovalRow, never>;
 
 export interface ToolPermissionApprovalLookup {
   threadId: string;
@@ -550,7 +553,8 @@ export interface NodeSummaryRow {
   created_at: string;
 }
 
-export type NewNodeSummary = NodeSummaryRow;
+/** Full-row insert: caller supplies summary_id + created_at (backend does not stamp). */
+export type NewNodeSummary = Omit<NodeSummaryRow, never>;
 
 export interface NodeSummaryRepository {
   create(summary: NewNodeSummary): Promise<NodeSummaryRow>;
@@ -578,7 +582,8 @@ export interface CompactSummaryRow {
   created_at: string;
 }
 
-export type NewCompactSummary = CompactSummaryRow;
+/** Full-row insert: caller supplies compact_id + created_at (backend does not stamp). */
+export type NewCompactSummary = Omit<CompactSummaryRow, never>;
 
 export interface CompactSummaryRepository {
   create(summary: NewCompactSummary): Promise<CompactSummaryRow>;
@@ -1024,7 +1029,8 @@ export interface DeliverableRow {
   created_at: string;
 }
 
-export type NewDeliverable = DeliverableRow;
+/** Full-row insert: caller supplies deliverable_id + created_at (backend does not stamp). */
+export type NewDeliverable = Omit<DeliverableRow, never>;
 
 /** Metadata-only projection — `content` is omitted; `content_size` is byte length. */
 export type DeliverableSummaryRow = Omit<DeliverableRow, 'content'> & {
