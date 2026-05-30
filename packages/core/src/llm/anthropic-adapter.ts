@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { PROMPT_CACHE_VOLATILE_MARKER } from '../agents/employee-prompt-assembly.js';
 import { LlmError } from '../errors.js';
+import { extractErrorText, isCapacityErrorText } from './error-utils.js';
 import type {
   LlmGateway,
   LlmMessage,
@@ -88,35 +89,6 @@ function appendCacheControl(blocks: Anthropic.ContentBlockParam[]): void {
   const last = blocks[blocks.length - 1];
   if (!last) return;
   (last as { cache_control?: AnthropicCacheControl }).cache_control = cacheControl();
-}
-
-/**
- * Collect text from the full error surface: message + cause chain + parsed
- * error body. Used so overloaded/capacity detection sees the real body even
- * when the SDK wraps it in a generic `APIConnectionError`.
- */
-function extractAnthropicErrorText(error: unknown, depth = 0): string {
-  if (error === null || error === undefined || depth > 4) return '';
-  if (typeof error === 'string') return error;
-  if (typeof error !== 'object') return String(error);
-  const record = error as Record<string, unknown>;
-  const parts: string[] = [];
-  if (typeof record.message === 'string') parts.push(record.message);
-  for (const key of ['error', 'body', 'response'] as const) {
-    const value = record[key];
-    if (typeof value === 'string') parts.push(value);
-    else if (value && typeof value === 'object') {
-      try {
-        parts.push(JSON.stringify(value));
-      } catch {
-        // ignore non-serializable
-      }
-    }
-  }
-  if (record.cause && record.cause !== error) {
-    parts.push(extractAnthropicErrorText(record.cause, depth + 1));
-  }
-  return parts.join(' ');
 }
 
 /**
@@ -534,12 +506,10 @@ export class AnthropicAdapter implements LlmGateway {
     // not just `error.message`. The SDK wraps mid-stream/transport failures as
     // `APIConnectionError` with a generic message and the real overloaded body
     // in `cause`/`error` — checking only message after the APIError branch made
-    // capacity detection dead code (capacity fallback never triggered).
-    const surfaceText = extractAnthropicErrorText(error);
-    const isOverloaded =
-      /overloaded_error|overloaded|capacity|server is busy|temporar(?:y|ily) unavailable|rate limit/i.test(
-        surfaceText,
-      );
+    // capacity detection dead code (capacity fallback never triggered). Shares
+    // the surface walker + capacity matcher with the OpenAI adapter.
+    const surfaceText = extractErrorText(error);
+    const isOverloaded = isCapacityErrorText(surfaceText);
     const shouldRetry = readShouldRetryHeader(error);
 
     if (error instanceof Anthropic.APIError) {

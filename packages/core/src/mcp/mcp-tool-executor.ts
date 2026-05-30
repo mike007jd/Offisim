@@ -95,7 +95,21 @@ export class McpToolExecutor implements ToolExecutor {
     // Register the connection
     this.servers.set(config.name, connection);
     this.trustedAnnotationsByServer.set(config.name, config.trustedAnnotations === true);
-    await this.refreshConnectionCatalog(config.name, connection);
+    try {
+      await this.refreshConnectionCatalog(config.name, connection);
+    } catch (err) {
+      // A failed catalog load must not leave a live, unusable connection
+      // registered. Roll back the map entries and close the connection so the
+      // server can be re-added cleanly.
+      this.servers.delete(config.name);
+      this.trustedAnnotationsByServer.delete(config.name);
+      this.toolsByServer.delete(config.name);
+      this.resourcesByServer.delete(config.name);
+      this.promptsByServer.delete(config.name);
+      this.capabilitiesByServer.delete(config.name);
+      await connection.close().catch(() => {});
+      throw err;
+    }
 
     this.eventBus.emit(
       mcpServerConnected(

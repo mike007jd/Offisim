@@ -29,11 +29,33 @@ import { type ForkSubContextResult, forkSubContext } from './fork-sub-context.js
 
 const logger = new Logger('a2a-client');
 
+const TASK_STATES: ReadonlySet<A2ATaskState> = new Set([
+  'TASK_STATE_SUBMITTED',
+  'TASK_STATE_WORKING',
+  'TASK_STATE_INPUT_REQUIRED',
+  'TASK_STATE_COMPLETED',
+  'TASK_STATE_CANCELED',
+  'TASK_STATE_FAILED',
+  'TASK_STATE_REJECTED',
+  'TASK_STATE_AUTH_REQUIRED',
+  'TASK_STATE_UNKNOWN',
+]);
+
 const TERMINAL_STATES: ReadonlySet<A2ATaskState> = new Set([
   'TASK_STATE_COMPLETED',
   'TASK_STATE_FAILED',
   'TASK_STATE_CANCELED',
   'TASK_STATE_REJECTED',
+]);
+
+/**
+ * States where the peer is waiting on the caller rather than making progress.
+ * Polling these to the timeout is wasted work — the caller must respond on the
+ * same taskId — so the client hands them back as terminal-for-polling.
+ */
+const PAUSED_STATES: ReadonlySet<A2ATaskState> = new Set([
+  'TASK_STATE_INPUT_REQUIRED',
+  'TASK_STATE_AUTH_REQUIRED',
 ]);
 
 export const A2A_AGENT_CARD_MAX_BYTES = 20 * 1024;
@@ -86,12 +108,10 @@ export class A2AClient {
       if (!res.ok) {
         throw new Error(`Agent card fetch failed: ${res.status} ${res.statusText}`);
       }
-      const card = JSON.parse(await readResponseTextWithLimit(res, A2A_AGENT_CARD_MAX_BYTES)) as
-        | A2AAgentCard
-        | null;
-      if (!card || typeof card !== 'object') {
-        throw new Error('Agent card response was not a JSON object');
-      }
+      const parsed = JSON.parse(
+        await readResponseTextWithLimit(res, A2A_AGENT_CARD_MAX_BYTES),
+      ) as unknown;
+      const card = assertValidAgentCard(parsed);
       assertJsonRpcInterfacesStayOnPeer(card, this.peerBaseUrl);
       this.cachedCard = card;
       this.cachedEndpoint = null;
@@ -125,12 +145,12 @@ export class A2AClient {
   async getTask(taskId: string, historyLength?: number, signal?: AbortSignal): Promise<A2ATask> {
     const params: Record<string, unknown> = { id: taskId };
     if (historyLength !== undefined) params.historyLength = historyLength;
-    return this.rpc<A2ATask>('GetTask', params, signal);
+    return assertValidTask(await this.rpc<A2ATask>('GetTask', params, signal), 'GetTask');
   }
 
   /** Cancel an in-flight task. */
   async cancelTask(taskId: string): Promise<A2ATask> {
-    return this.rpc<A2ATask>('CancelTask', { id: taskId });
+    return assertValidTask(await this.rpc<A2ATask>('CancelTask', { id: taskId }), 'CancelTask');
   }
 
   /**
@@ -144,6 +164,8 @@ export class A2AClient {
     opts?: {
       agentId?: string;
       contextId?: string;
+      /** Existing task id to continue (multi-turn / INPUT_REQUIRED follow-up). */
+      taskId?: string;
       /** Maximum time to wait in ms (default: 120 000). */
       timeoutMs?: number;
       /** Polling interval in ms (default: 2 000). */
@@ -158,12 +180,19 @@ export class A2AClient {
     const result = await this.sendMessage(message, {
       ...(opts?.agentId ? { agentId: opts.agentId } : {}),
       ...(opts?.contextId ? { contextId: opts.contextId } : {}),
+      ...(opts?.taskId ? { taskId: opts.taskId } : {}),
       ...(opts?.signal ? { signal: opts.signal } : {}),
     });
 
     if (result.task) {
-      if (TERMINAL_STATES.has(result.task.status.state)) return result.task;
-      return this.pollUntilTerminal(result.task, timeout, pollInterval, opts?.signal);
+      const task = assertValidTask(result.task, 'SendMessage');
+      // Terminal, or paused waiting on the caller (INPUT_REQUIRED / AUTH_REQUIRED):
+      // hand it straight back so the caller can respond on the same taskId
+      // instead of polling a state the peer will never advance on its own.
+      if (TERMINAL_STATES.has(task.status.state) || PAUSED_STATES.has(task.status.state)) {
+        return task;
+      }
+      return this.pollUntilTerminal(task, timeout, pollInterval, opts?.signal);
     }
     if (result.message) {
       return {
@@ -219,7 +248,9 @@ export class A2AClient {
         }
         throw err;
       }
-      if (TERMINAL_STATES.has(last.status.state)) return last;
+      if (TERMINAL_STATES.has(last.status.state) || PAUSED_STATES.has(last.status.state)) {
+        return last;
+      }
       logger.debug('Task still in progress', { taskId: initial.id, state: last.status.state });
     }
     throw new Error(
@@ -301,6 +332,50 @@ export function validateA2AExternalUrl(rawUrl: string, label = 'A2A URL'): URL {
     throw new Error(`${label} cannot target localhost or a private network`);
   }
   return url;
+}
+
+/**
+ * Validate an agent-card payload before it is trusted downstream (its fields
+ * feed `.find()`/origin checks and endpoint resolution). Require the v1.0
+ * essentials — name, version, and at least one supported interface — so a
+ * malformed peer surfaces a clear error instead of letting `undefined` reach
+ * `.toLowerCase()`/`.find()` later.
+ */
+export function assertValidAgentCard(value: unknown): A2AAgentCard {
+  if (!value || typeof value !== 'object') {
+    throw new Error('Agent card response was not a JSON object');
+  }
+  const card = value as Partial<A2AAgentCard>;
+  if (typeof card.name !== 'string' || card.name.length === 0) {
+    throw new Error('Agent card is missing a name');
+  }
+  if (typeof card.version !== 'string' || card.version.length === 0) {
+    throw new Error('Agent card is missing a version');
+  }
+  if (!Array.isArray(card.supportedInterfaces) || card.supportedInterfaces.length === 0) {
+    throw new Error('Agent card has no supportedInterfaces');
+  }
+  return value as A2AAgentCard;
+}
+
+/**
+ * Validate a Task payload returned by the peer before its status is inspected,
+ * so an unknown/missing `status.state` cannot slip through the `.has()` checks
+ * (which would otherwise silently treat it as non-terminal and poll forever).
+ */
+export function assertValidTask(value: unknown, method: string): A2ATask {
+  if (!value || typeof value !== 'object') {
+    throw new Error(`A2A ${method} returned a malformed task`);
+  }
+  const task = value as Partial<A2ATask>;
+  if (typeof task.id !== 'string' || task.id.length === 0) {
+    throw new Error(`A2A ${method} task is missing an id`);
+  }
+  const state = task.status?.state;
+  if (typeof state !== 'string' || !TASK_STATES.has(state as A2ATaskState)) {
+    throw new Error(`A2A ${method} task has an unknown status.state: ${String(state)}`);
+  }
+  return value as A2ATask;
 }
 
 export function assertJsonRpcInterfacesStayOnPeer(card: A2AAgentCard, peerBaseUrl: URL): void {

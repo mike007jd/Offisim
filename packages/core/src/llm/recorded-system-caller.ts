@@ -84,13 +84,13 @@ export class RecordedSystemLlmCaller {
           cache_read_input_tokens: response.usage.cacheReadInputTokens ?? 0,
           cache_creation_input_tokens: response.usage.cacheCreationInputTokens ?? 0,
           usage_raw_json: JSON.stringify(response.usage),
-          request_json: JSON.stringify({
-            model: request.model,
-            messages: request.messages,
-            tools: request.tools ?? [],
-          }),
-          response_json: JSON.stringify(response),
-          tool_calls_json: JSON.stringify(response.toolCalls),
+          // recording_mode is 'metadata' for system calls (no RuntimeContext /
+          // runtime policy to opt into full replay capture), so the prompt/
+          // response/tool-call bodies must stay null to honor the recorded-call
+          // contract — only counts and usage are persisted.
+          request_json: null,
+          response_json: null,
+          tool_calls_json: null,
           prompt_hash: null,
           tools_hash: null,
           response_hash: null,

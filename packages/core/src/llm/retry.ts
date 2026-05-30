@@ -53,9 +53,18 @@ function retryAfterMs(error: unknown): number | null {
   return Number.isFinite(at) ? Math.max(0, at - Date.now()) : null;
 }
 
+// Dedicated ceiling for a server-provided Retry-After. A legitimate Retry-After
+// routinely exceeds our jittered-backoff `maxDelayMs` (servers ask for 10-60s),
+// so it must NOT be clamped to that knob — but an untrusted/misbehaving server
+// still must not stall a call indefinitely. 2 minutes honors every realistic
+// Retry-After while capping absurd values.
+const RETRY_AFTER_MAX_MS = 120_000;
+
 export function computeDelay(attempt: number, config: RetryConfig, error: unknown): number {
   const headerDelay = retryAfterMs(error);
-  if (headerDelay !== null) return headerDelay;
+  // Honor the server-provided Retry-After (clamped only to RETRY_AFTER_MAX_MS,
+  // never the lower backoff ceiling). Stays abortable via sleep(signal) in withRetry.
+  if (headerDelay !== null) return Math.min(headerDelay, RETRY_AFTER_MAX_MS);
   const exponential = config.baseDelayMs * 2 ** attempt;
   const jitter = exponential * (0.5 + Math.random() * 0.5);
   return Math.min(jitter, config.maxDelayMs);

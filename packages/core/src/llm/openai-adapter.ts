@@ -159,6 +159,10 @@ export class OpenAiAdapter implements LlmGateway {
       baseURL: options?.baseURL,
       defaultHeaders: options?.defaultHeaders,
       dangerouslyAllowBrowser: options?.dangerouslyAllowBrowser,
+      // The custom withRetry loop is the single source of truth for retry policy
+      // (Retry-After, jitter, abortable backoff, x-should-retry). Disable the
+      // SDK's built-in retries so the two layers don't stack into retry storms.
+      maxRetries: 0,
       ...(typeof options?.fetch === 'function' ? { fetch: options.fetch } : {}),
     });
     this.retryConfig = options?.retryConfig ?? DEFAULT_RETRY_CONFIG;

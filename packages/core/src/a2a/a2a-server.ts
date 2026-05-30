@@ -31,18 +31,23 @@ import type {
 const logger = new Logger('a2a-server');
 
 /**
- * Constant-time string comparison for the Bearer token check. Avoids the
- * early-exit timing side channel of `!==`. Portable across Node and browser
- * (no `node:crypto` dependency, since this handler is transport-agnostic and
- * may be bundled for the browser).
+ * Constant-time Bearer-token comparison. Both inputs are first reduced to
+ * fixed-length SHA-256 digests, so neither the comparison length nor the
+ * byte-by-byte loop reveals anything about the secret (no length leak, no
+ * content leak). Uses Web Crypto `subtle.digest`, available in both Node and
+ * the browser, keeping this handler transport-agnostic (no `node:crypto`).
  */
-function timingSafeStringEqual(a: string, b: string): boolean {
+async function timingSafeStringEqual(a: string, b: string): Promise<boolean> {
   const enc = new TextEncoder();
-  const aBuf = enc.encode(a);
-  const bBuf = enc.encode(b);
-  if (aBuf.length !== bBuf.length) return false;
+  const [aDigest, bDigest] = await Promise.all([
+    crypto.subtle.digest('SHA-256', enc.encode(a)),
+    crypto.subtle.digest('SHA-256', enc.encode(b)),
+  ]);
+  const aBytes = new Uint8Array(aDigest);
+  const bBytes = new Uint8Array(bDigest);
+  // Digests are always 32 bytes, so the length is constant regardless of input.
   let diff = 0;
-  for (let i = 0; i < aBuf.length; i++) diff |= (aBuf[i] ?? 0) ^ (bBuf[i] ?? 0);
+  for (let i = 0; i < aBytes.length; i++) diff |= (aBytes[i] ?? 0) ^ (bBytes[i] ?? 0);
   return diff === 0;
 }
 
@@ -77,6 +82,17 @@ export type A2ATaskHandler = (message: string, agentId?: string) => Promise<stri
 
 const JSON_HEADERS: Record<string, string> = { 'Content-Type': 'application/json' };
 
+/**
+ * Normalizes a request path for exact routing: strips any query string /
+ * fragment and removes a single trailing slash (except for the root `/`), so
+ * `/rpc`, `/rpc/`, and `/rpc?x=1` all compare equal.
+ */
+function normalizePathname(rawPath: string): string {
+  const path = rawPath.split('?')[0]?.split('#')[0] ?? '';
+  if (path.length > 1 && path.endsWith('/')) return path.slice(0, -1);
+  return path;
+}
+
 export class A2ARequestHandler {
   constructor(
     private readonly config: A2AServerConfig,
@@ -84,8 +100,12 @@ export class A2ARequestHandler {
   ) {}
 
   async handle(req: A2AHttpRequest): Promise<A2AHttpResponse> {
-    // Agent Card discovery (unauthenticated — public well-known).
-    if (req.method === 'GET' && req.path.includes('.well-known/agent-card')) {
+    const path = normalizePathname(req.path);
+
+    // Agent Card discovery (unauthenticated — public well-known). Match the
+    // canonical well-known path exactly so unrelated paths that merely contain
+    // the substring are not served the card.
+    if (req.method === 'GET' && path === '/.well-known/agent-card.json') {
       return {
         status: 200,
         headers: JSON_HEADERS,
@@ -93,19 +113,39 @@ export class A2ARequestHandler {
       };
     }
 
-    // JSON-RPC endpoint. v1.0 spec default path is `/rpc`; we match any POST
-    // whose path resolves to the JSONRPC interface URL (typically ends in /rpc
-    // or /a2a/rpc, configured by the agent card's supportedInterfaces entry).
-    if (req.method === 'POST') {
+    // JSON-RPC endpoint. v1.0 spec default path is `/rpc`; the concrete path is
+    // declared by the agent card's JSONRPC supportedInterfaces entry. Only POSTs
+    // to that exact path are routed to the RPC handler; everything else is 404.
+    if (req.method === 'POST' && path === this.jsonRpcPath()) {
       return this.handleJsonRpc(req);
     }
 
     return { status: 404, headers: {}, body: 'Not found' };
   }
 
+  /**
+   * Resolves the configured JSON-RPC interface path from the agent card's
+   * JSONRPC `supportedInterfaces` entry, falling back to the v1.0 default
+   * `/rpc` when the card does not declare a parseable JSONRPC URL.
+   */
+  private jsonRpcPath(): string {
+    const iface = this.config.agentCard.supportedInterfaces.find(
+      (i) => i.protocolBinding === 'JSONRPC',
+    );
+    if (iface) {
+      try {
+        return normalizePathname(new URL(iface.url).pathname);
+      } catch {
+        // url may be a bare path (no origin); fall through to direct normalize.
+        if (iface.url.startsWith('/')) return normalizePathname(iface.url);
+      }
+    }
+    return '/rpc';
+  }
+
   private async handleJsonRpc(req: A2AHttpRequest): Promise<A2AHttpResponse> {
     const authHeader = req.headers.authorization ?? req.headers.Authorization ?? '';
-    if (!timingSafeStringEqual(authHeader, `Bearer ${this.config.token}`)) {
+    if (!(await timingSafeStringEqual(authHeader, `Bearer ${this.config.token}`))) {
       logger.warn('Unauthorized A2A request');
       return {
         status: 200,
@@ -135,11 +175,15 @@ export class A2ARequestHandler {
     try {
       rpc = JSON.parse(req.body || '{}') as A2AJsonRpcRequest;
     } catch {
+      // JSON-RPC 2.0 requires a top-level `id` (null when it cannot be
+      // determined). Use status 200 with the error body to match the other
+      // RPC-level error branches (Unauthorized / too-large).
       return {
-        status: 400,
+        status: 200,
         headers: JSON_HEADERS,
         body: JSON.stringify({
           jsonrpc: '2.0',
+          id: null,
           error: { code: -32700, message: 'Parse error' },
         }),
       };
@@ -168,6 +212,10 @@ export class A2ARequestHandler {
     const msg = params.message;
     const parts: A2APart[] = msg?.parts ?? [];
     const agentId = msg?.agentId;
+    // Echo the caller's conversation context back on the returned Task so
+    // context correlation works even though task persistence/polling is
+    // unimplemented (see GetTask/CancelTask stubs).
+    const contextId = msg?.contextId;
 
     const text = parts
       .map((p) => p.text)
@@ -185,6 +233,7 @@ export class A2ARequestHandler {
       const response = await this.onTaskReceived(text, agentId);
       const task: A2ATask = {
         id: taskId,
+        ...(contextId ? { contextId } : {}),
         status: { state: 'TASK_STATE_COMPLETED' },
         artifacts: [
           {
@@ -204,6 +253,7 @@ export class A2ARequestHandler {
       logger.error('A2A task execution failed', err, { taskId });
       const failedTask: A2ATask = {
         id: taskId,
+        ...(contextId ? { contextId } : {}),
         status: {
           state: 'TASK_STATE_FAILED',
           message: {

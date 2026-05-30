@@ -153,6 +153,12 @@ export function areAllPlanStepsTerminal(state: OffisimGraphState): boolean {
 export function routeFromStepDispatcher(state: OffisimGraphState): string {
   if (areAllPlanStepsTerminal(state)) return 'boss_summary';
   if (state.pendingAssignments.length > 0) return 'employee';
+  // A blocked step with nothing dispatched this round terminates at boss_summary
+  // as 'blocked'. (core-graph-engine/F6 — letting independent ready steps proceed
+  // past a blocked one — is intentionally NOT taken: the step_dispatcher/
+  // step_advance pair must not self-loop on a stuck plan, and the step-advance
+  // terminal contract treats this path as blocked, not failed. A safe version
+  // needs a dedicated "dispatchable steps remain" check + test update.)
   if ((state.blockedStepIndices ?? []).length > 0) return 'boss_summary';
   return 'step_advance';
 }

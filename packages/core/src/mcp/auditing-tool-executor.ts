@@ -150,6 +150,11 @@ export class AuditingToolExecutor implements ToolExecutor {
       }),
     );
 
+    // Memoize the available-tool catalog for the duration of this single call.
+    // capResponse() and readOnlyHintForTool() each need a ToolDef lookup; without
+    // this they would re-list the entire catalog (O(N)) on every invocation.
+    const loadTools = this.memoizeToolDefs();
+
     try {
       let approvedBy = 'auto';
       const before = await this.hookRegistry?.runToolBefore({
@@ -162,9 +167,17 @@ export class AuditingToolExecutor implements ToolExecutor {
         const response = this.buildPermissionResponse('deny', before.reason ?? 'Blocked by hook.');
         return this.recordAndEmit(recordCtx, response, 'hook:tool.before');
       }
-      const effectiveCall = before?.input ? { ...call, arguments: before.input } : call;
+      // The hook signals an intentional input replacement by presence, not
+      // truthiness: a hook may clear/reset arguments via `updateInput({})` (or
+      // null). Apply `before.input` whenever it is present (not undefined) so an
+      // intentionally emptied/cleared input still takes effect.
+      const rewrittenInput =
+        before && 'input' in before && before.input !== undefined ? before.input : undefined;
+      const effectiveCall =
+        rewrittenInput !== undefined ? { ...call, arguments: rewrittenInput } : call;
       let executionCall = effectiveCall;
-      let effectiveRecordCtx = before?.input ? { ...recordCtx, call: effectiveCall } : recordCtx;
+      let effectiveRecordCtx =
+        rewrittenInput !== undefined ? { ...recordCtx, call: effectiveCall } : recordCtx;
       const shellGate = await this.resolveShellPermissionGate(effectiveRecordCtx, executionCall);
       if (shellGate.kind === 'return') return shellGate.response;
       executionCall = shellGate.call;
@@ -174,14 +187,19 @@ export class AuditingToolExecutor implements ToolExecutor {
           : { ...effectiveRecordCtx, call: executionCall };
       if (shellGate.approvedBy) approvedBy = shellGate.approvedBy;
       if (this.permissionAuthorizer) {
-        const decision = await this.evaluatePermission(executionCall, serverName, threadId);
+        const decision = await this.evaluatePermission(
+          executionCall,
+          serverName,
+          threadId,
+          loadTools,
+        );
         approvedBy = approvedBy === 'auto' ? decision.approvedBy : approvedBy;
         if (decision.behavior === 'deny') {
           const response = this.buildPermissionResponse(decision.behavior, decision.reason);
           return this.recordAndEmit(effectiveRecordCtx, response, approvedBy);
         }
         if (decision.behavior === 'ask') {
-          const askOutcome = await this.resolveAskDecision(effectiveRecordCtx, decision);
+          const askOutcome = await this.resolveAskDecision(effectiveRecordCtx, decision, loadTools);
           if (askOutcome.kind === 'return') return askOutcome.response;
           approvedBy = askOutcome.approvedBy;
         }
@@ -190,6 +208,7 @@ export class AuditingToolExecutor implements ToolExecutor {
       const response = await this.capResponse(
         executionCall,
         await this.inner.execute(executionCall),
+        loadTools,
       );
       await this.hookRegistry?.emit('tool.after', {
         toolName: executionCall.name,
@@ -251,14 +270,26 @@ export class AuditingToolExecutor implements ToolExecutor {
     return resolveRuntimeToolSource(toolName);
   }
 
+  /**
+   * Build a memoized accessor for the available-tool catalog, scoped to a single
+   * execute() call. The first await triggers one listAvailable(); every later
+   * lookup reuses the resolved promise instead of re-listing the catalog.
+   */
+  private memoizeToolDefs(): () => Promise<ToolDef[]> {
+    let cached: Promise<ToolDef[]> | undefined;
+    return () => {
+      if (!cached) cached = this.inner.listAvailable(this.companyId);
+      return cached;
+    };
+  }
+
   private async capResponse(
     call: ToolCallRequest,
     response: ToolCallResponse,
+    loadTools: () => Promise<ToolDef[]>,
   ): Promise<ToolCallResponse> {
     if (!response.success) return response;
-    const tool = (await this.inner.listAvailable(this.companyId)).find(
-      (item) => item.name === call.name,
-    );
+    const tool = (await loadTools()).find((item) => item.name === call.name);
     return tool
       ? { ...response, result: await capToolResultForModel(tool.maxResultSizeChars, response.result) }
       : response;
@@ -268,6 +299,7 @@ export class AuditingToolExecutor implements ToolExecutor {
     call: ToolCallRequest,
     serverName: string,
     threadId: string,
+    loadTools: () => Promise<ToolDef[]>,
   ): Promise<ToolPermissionDecision> {
     if (!this.permissionAuthorizer) {
       throw new Error('Permission authorizer is not configured.');
@@ -277,7 +309,7 @@ export class AuditingToolExecutor implements ToolExecutor {
       serverName,
       toolName: call.name,
       arguments: call.arguments,
-      readOnlyHint: await this.readOnlyHintForTool(call.name),
+      readOnlyHint: await this.readOnlyHintForTool(call.name, loadTools),
       employeeId: call.employeeId,
       employeeConfigJson: call.employeeConfigJson,
     });
@@ -369,10 +401,11 @@ export class AuditingToolExecutor implements ToolExecutor {
     };
   }
 
-  private async readOnlyHintForTool(toolName: string): Promise<boolean | undefined> {
-    const tool = (await this.inner.listAvailable(this.companyId)).find(
-      (item) => item.name === toolName,
-    );
+  private async readOnlyHintForTool(
+    toolName: string,
+    loadTools: () => Promise<ToolDef[]>,
+  ): Promise<boolean | undefined> {
+    const tool = (await loadTools()).find((item) => item.name === toolName);
     const hint = tool?.annotations?.readOnlyHint;
     if (hint !== true) return hint;
 
@@ -406,6 +439,7 @@ export class AuditingToolExecutor implements ToolExecutor {
   private async resolveAskDecision(
     ctx: ToolExecutionRecordContext,
     decision: ToolPermissionDecision,
+    loadTools: () => Promise<ToolDef[]>,
   ): Promise<
     { kind: 'continue'; approvedBy: string } | { kind: 'return'; response: ToolCallResponse }
   > {
@@ -441,7 +475,12 @@ export class AuditingToolExecutor implements ToolExecutor {
       };
     }
 
-    const afterGrant = await this.evaluatePermission(call, toolSource.serverName, ctx.threadId);
+    const afterGrant = await this.evaluatePermission(
+      call,
+      toolSource.serverName,
+      ctx.threadId,
+      loadTools,
+    );
     if (afterGrant.behavior !== 'allow') {
       const response = this.buildPermissionResponse(afterGrant.behavior, afterGrant.reason);
       return {

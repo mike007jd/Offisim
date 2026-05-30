@@ -31,6 +31,29 @@ function checkpointTimestamp(checkpoint: { ts?: unknown }, metadata: unknown): n
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+/**
+ * A LangGraph checkpoint's `channel_values` only carries the channels a node
+ * actually wrote during its step. A partial (delta) write therefore looks like
+ * a full state but is missing structural channels, and resuming from it would
+ * resurrect a corrupt mid-turn state (e.g. a plan with no step indices). Guard
+ * by requiring the always-present structural channels before treating
+ * `channel_values` as a resumable full state; otherwise force a full replan.
+ */
+function isResumableState(values: unknown): values is OffisimGraphState {
+  if (!values || typeof values !== 'object') return false;
+  const state = values as Partial<OffisimGraphState>;
+  return (
+    typeof state.entryMode === 'string' &&
+    Array.isArray(state.messages) &&
+    Array.isArray(state.dispatchedStepIndices) &&
+    Array.isArray(state.completedStepIndices) &&
+    Array.isArray(state.blockedStepIndices) &&
+    // taskPlan is nullable but the channel itself must be present (null when
+    // no plan, an object otherwise — undefined means it was never written).
+    state.taskPlan !== undefined
+  );
+}
+
 function withLoadLatest<T extends BaseCheckpointSaver>(saver: T): T & LoadLatestCheckpointSaver {
   const enhanced = saver as T & LoadLatestCheckpointSaver;
   enhanced.loadLatest = async (conversationId: string) => {
@@ -39,8 +62,10 @@ function withLoadLatest<T extends BaseCheckpointSaver>(saver: T): T & LoadLatest
     });
     if (!tuple) return null;
     const checkpoint = tuple.checkpoint as { channel_values?: unknown; ts?: unknown };
-    const state = checkpoint.channel_values as OffisimGraphState | undefined;
-    if (!state) return null;
+    const state = checkpoint.channel_values;
+    // Reject partial (delta) checkpoints so resume falls back to a full replan
+    // instead of resurrecting an incomplete mid-turn state.
+    if (!isResumableState(state)) return null;
     return {
       state,
       lastCheckpointTs: checkpointTimestamp(checkpoint, tuple.metadata),

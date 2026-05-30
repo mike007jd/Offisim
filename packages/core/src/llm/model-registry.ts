@@ -149,6 +149,11 @@ export class ModelRegistry {
     try {
       const gateway = createGateway(gatewayConfig);
       this.gateways.set(cacheKey, gateway);
+      // Also cache under the requested alias so repeat lookups hit the
+      // top-level cache instead of re-running entryOrFallback (and re-warning).
+      if (modelId !== cacheKey) {
+        this.gateways.set(modelId, gateway);
+      }
       return gateway;
     } catch (err) {
       logger.error(`Failed to create gateway for model "${modelId}"`, err);

@@ -80,6 +80,7 @@ export class McpConfigLoader {
   private lastMtime = 0;
   private lastConfig: McpConfigFile | null = null;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private polling = false;
   private readonly opts: Required<McpConfigLoaderOptions>;
 
   constructor(
@@ -134,10 +135,16 @@ export class McpConfigLoader {
     if (this.pollTimer) return () => this.stopWatching();
 
     this.pollTimer = setInterval(async () => {
+      // Skip if a previous poll is still in flight to avoid overlapping
+      // checkForChanges() (and overlapping applyDiff add/remove churn).
+      if (this.polling) return;
+      this.polling = true;
       try {
         await this.checkForChanges();
       } catch (err) {
         logger.error('Error checking MCP config changes', err);
+      } finally {
+        this.polling = false;
       }
     }, this.opts.pollIntervalMs);
 
@@ -202,9 +209,25 @@ export class McpConfigLoader {
       a.transport !== b.transport ||
       a.command !== b.command ||
       a.url !== b.url ||
+      // Security-identity fields: a change here must re-establish the connection
+      // under the new trust/approval/fingerprint, not silently reuse the old one.
+      a.trustedAnnotations !== b.trustedAnnotations ||
+      a.source !== b.source ||
+      a.approvalId !== b.approvalId ||
+      a.commandFingerprint !== b.commandFingerprint ||
       JSON.stringify(a.args) !== JSON.stringify(b.args) ||
-      JSON.stringify(a.env) !== JSON.stringify(b.env)
+      JSON.stringify(a.toolAllowPatterns) !== JSON.stringify(b.toolAllowPatterns) ||
+      // Compare env on a sorted-key canonical form so key reordering alone is
+      // not treated as a change (and a real key/value change always is).
+      this.canonicalEnv(a.env) !== this.canonicalEnv(b.env)
     );
+  }
+
+  /** Stable, key-sorted serialization of an env record for change detection. */
+  private canonicalEnv(env: Record<string, string> | undefined): string {
+    if (!env) return '';
+    const entries = Object.entries(env).sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0));
+    return JSON.stringify(entries);
   }
 
   private async readConfig(): Promise<McpConfigFile | null> {

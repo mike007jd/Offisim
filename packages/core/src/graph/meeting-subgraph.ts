@@ -22,20 +22,36 @@ const logger = new Logger('meeting');
 /** Internal task type used to store meeting turn state in pendingAssignments. */
 const MEETING_STATE_TASK_TYPE = '__meeting_state';
 
-interface MeetingTurnState {
-  turnCount: number;
-  participantIndex: number;
-  participantIds: string[];
-  transcript: string[];
+const meetingTurnStateSchema = z.object({
+  turnCount: z.number(),
+  participantIndex: z.number(),
+  participantIds: z.array(z.string()),
+  transcript: z.array(z.string()),
+});
+
+type MeetingTurnState = z.infer<typeof meetingTurnStateSchema>;
+
+function defaultMeetingTurnState(): MeetingTurnState {
+  return { turnCount: 0, participantIndex: 0, participantIds: [], transcript: [] };
 }
 
 function parseMeetingTurnState(state: OffisimGraphState): MeetingTurnState {
   // Extract turn state from the last message metadata or defaults
   const existing = state.pendingAssignments.find((a) => a.taskType === MEETING_STATE_TASK_TYPE);
-  if (existing) {
-    return existing.inputJson as unknown as MeetingTurnState;
+  if (!existing) {
+    return defaultMeetingTurnState();
   }
-  return { turnCount: 0, participantIndex: 0, participantIds: [], transcript: [] };
+  // Validate the persisted turn state rather than trusting the stored shape;
+  // fall back to the default on mismatch, consistent with the graceful-fallback
+  // style used elsewhere in this subgraph.
+  const result = meetingTurnStateSchema.safeParse(existing.inputJson);
+  if (!result.success) {
+    logger.warn('Invalid meeting turn state, falling back to default', {
+      zodError: result.error.message,
+    });
+    return defaultMeetingTurnState();
+  }
+  return result.data;
 }
 
 /**
