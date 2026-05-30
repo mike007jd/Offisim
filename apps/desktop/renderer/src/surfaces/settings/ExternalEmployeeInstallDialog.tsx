@@ -16,12 +16,6 @@ const discoverSchema = z.object({
 });
 type DiscoverValues = z.infer<typeof discoverSchema>;
 
-const INSTALL_STEPS = [
-  { key: 'validate', label: 'Validate agent card schema' },
-  { key: 'brand', label: 'Resolve brand assets' },
-  { key: 'connect', label: 'Create roster connection' },
-] as const;
-
 interface ExternalEmployeeInstallDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -59,7 +53,6 @@ export function ExternalEmployeeInstallDialog({
   const [card, setCard] = useState<DiscoveredCard | null>(null);
   const [discovering, setDiscovering] = useState(false);
   const [discoverError, setDiscoverError] = useState<string | null>(null);
-  const [installProgress, setInstallProgress] = useState(0);
   const [installError, setInstallError] = useState(false);
 
   const form = useForm<DiscoverValues>({
@@ -72,7 +65,6 @@ export function ExternalEmployeeInstallDialog({
     setCard(null);
     setDiscovering(false);
     setDiscoverError(null);
-    setInstallProgress(0);
     setInstallError(false);
     form.reset({ url: '' });
   }
@@ -100,10 +92,8 @@ export function ExternalEmployeeInstallDialog({
     if (!card) return;
     setStep('installing');
     setInstallError(false);
-    setInstallProgress(2);
     try {
       await onInstalled(card);
-      setInstallProgress(INSTALL_STEPS.length);
       handleOpenChange(false);
     } catch {
       setInstallError(true);
@@ -196,39 +186,26 @@ export function ExternalEmployeeInstallDialog({
 
         {step === 'installing' ? (
           <div className="flex flex-col gap-[var(--off-sp-5)]">
-            <div className="off-set-install-progress">
-              {INSTALL_STEPS.map((s, i) => {
-                const done = installProgress > i;
-                const running = installProgress === i;
-                return (
-                  <div
-                    key={s.key}
-                    className={`off-set-install-line${done ? ' is-done' : ''}${!done && !running ? ' is-pend' : ''}`}
-                  >
-                    <span className="off-set-install-ic">
-                      {done ? (
-                        <Icon icon={Check} size="sm" className="text-[color:var(--off-ok)]" />
-                      ) : running ? (
-                        <Icon
-                          icon={Loader2}
-                          size="sm"
-                          className="animate-spin text-[color:var(--off-accent)]"
-                        />
-                      ) : (
-                        <Icon icon={Check} size="sm" className="text-[color:var(--off-ink-4)]" />
-                      )}
-                    </span>
-                    {s.label}
-                  </div>
-                );
-              })}
-            </div>
+            {!installError ? (
+              <div className="off-set-install-progress">
+                <div className="off-set-install-line">
+                  <span className="off-set-install-ic">
+                    <Icon
+                      icon={Loader2}
+                      size="sm"
+                      className="animate-spin text-[color:var(--off-accent)]"
+                    />
+                  </span>
+                  Connecting external employee…
+                </div>
+              </div>
+            ) : null}
             {installError ? (
               <div className="off-set-err-banner">
                 <Icon icon={AlertTriangle} size="sm" />
                 <div>
                   <div className="off-set-err-title">Install failed</div>
-                  <div className="off-set-err-msg">Rolled back to pre-install state.</div>
+                  <div className="off-set-err-msg">No connection was created. You can retry.</div>
                 </div>
                 <Button
                   variant="outline"

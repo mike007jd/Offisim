@@ -51,6 +51,8 @@ interface RunStore {
   finish: () => void;
   /** Stop the live run (assistant-ui Cancel). */
   stop: () => void;
+  /** Surface a real run failure into the in-thread error banner. */
+  setError: (error: RunError) => void;
   /** Clear the error banner. */
   dismissError: () => void;
 
@@ -65,6 +67,32 @@ const ACTIVE_PROVIDER_STAGES: PipelineStage[] = [
   { id: 'assistant-response', label: 'Response', state: 'pending' },
 ];
 
+/** Seed a pipeline for a thread that is already mid-run when it is opened, so
+ *  the stage pill reflects the persisted run state rather than showing nothing. */
+function seedPipeline(): RunPipeline {
+  return {
+    title: 'Provider response',
+    assigneeId: null,
+    stepTotal: ACTIVE_PROVIDER_STAGES.length,
+    stepDone: 1,
+    stages: ACTIVE_PROVIDER_STAGES.map((stage) => ({ ...stage })),
+  };
+}
+
+/** Seed an error banner for a thread persisted in the `error` state. The prior
+ *  failure detail is not persisted per-thread, so this is an honest generic
+ *  banner (no fabricated transport/auth specifics) until the run is retried. */
+function seedError(): RunError {
+  return {
+    id: 'thread-error',
+    reason: 'unknown',
+    message: 'The previous run on this conversation ended in an error.',
+    technicalDetail: 'No detail was captured for the prior failure.',
+    history: [],
+    swapCandidateIds: [],
+  };
+}
+
 export const useRunStore = create<RunStore>((set, get) => ({
   threadId: null,
   isRunning: false,
@@ -74,12 +102,15 @@ export const useRunStore = create<RunStore>((set, get) => ({
   staged: [],
   storageAvailable: true,
 
-  syncThread: (threadId, _runState) => {
+  syncThread: (threadId, runState) => {
+    const running = runState === 'running' || runState === 'paused';
     set({
       threadId,
-      isRunning: false,
-      pipeline: null,
-      error: null,
+      isRunning: running,
+      pipeline: running ? seedPipeline() : null,
+      error: runState === 'error' ? seedError() : null,
+      // No producer emits MeetingState yet, so this stays null and
+      // MeetingTray/MeetingRegion render nothing rather than asserting a meeting.
       meeting: null,
       staged: [],
     });
@@ -113,6 +144,8 @@ export const useRunStore = create<RunStore>((set, get) => ({
   stop: () => {
     set({ isRunning: false });
   },
+
+  setError: (error) => set({ error }),
 
   dismissError: () => set({ error: null }),
 

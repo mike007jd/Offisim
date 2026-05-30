@@ -120,11 +120,7 @@ export function MarketDetail({ listing, installed, onClose, onInstall }: MarketD
 
         <div className="off-vsel is-static" aria-label={`Current version ${listing.version}`}>
           <span>{listing.version}</span>
-          {listing.versions.length > 1 ? (
-            <span className="off-vsel-latest">{listing.versions.length} versions</span>
-          ) : (
-            <span className="off-vsel-latest">latest</span>
-          )}
+          <span className="off-vsel-latest">latest</span>
         </div>
 
         <dl className="off-md-dl">

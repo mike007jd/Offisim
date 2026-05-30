@@ -9,7 +9,6 @@ import {
   DialogTitle,
 } from '@/design-system/primitives/dialog.js';
 import { Input } from '@/design-system/primitives/input.js';
-import { Progress } from '@/design-system/primitives/progress.js';
 import { cn } from '@/lib/utils.js';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -29,13 +28,6 @@ import { z } from 'zod';
 import type { BindingSlot, InstallBindingValues, MarketListing } from './market-data.js';
 
 type Step = 'review' | 'configure' | 'installing' | 'done' | 'error';
-
-const PROGRESS_STEPS = [
-  'Fetch registry artifact',
-  'Validate manifest',
-  'Apply bindings',
-  'Materialize assets',
-] as const;
 
 const RISK_TONE: Record<string, string> = {
   data: 'off-badge is-ok',
@@ -317,23 +309,11 @@ function InstallingStep() {
         <DialogTitle>Installing</DialogTitle>
       </DialogHeader>
       <div className="off-mkt-dlg-body">
-        <Progress value={25} />
-        <div className="off-step-list">
-          {PROGRESS_STEPS.map((label, i) => {
-            const state = i === 0 ? 'active' : 'pending';
-            return (
-              <div key={label} className={`off-step-row is-${state}`}>
-                <span className="off-step-si">
-                  {state === 'active' ? (
-                    <Icon icon={Loader2} size="sm" className="off-spin" />
-                  ) : (
-                    <span className="off-step-dot" />
-                  )}
-                </span>
-                {label}
-              </div>
-            );
-          })}
+        <div className="off-step-row is-active">
+          <span className="off-step-si">
+            <Icon icon={Loader2} size="sm" className="off-spin" />
+          </span>
+          Fetching artifact and applying bindings…
         </div>
       </div>
     </>

@@ -225,7 +225,8 @@ export function RuntimePane({
                 ]}
               />
               <span className="off-field-hint">
-                {theme === 'system' ? 'Following OS preference: Light' : `Forcing ${theme} theme`}
+                Applied via <code>data-theme</code> on the document
+                {theme === 'system' ? ', following the OS color scheme' : `, forcing ${theme}`}.
               </span>
             </div>
             <div className="off-field">

@@ -1,4 +1,4 @@
-import type { ChatAttachment, ChatMessage } from '@/data/types.js';
+import type { ChatAttachment, ChatMessage, RunError, RunErrorReason } from '@/data/types.js';
 import {
   findDefaultChatProviderProfile,
   loadRuntimeProviderProfiles,
@@ -39,6 +39,32 @@ function newDraftId(prefix: string): string {
   return `${prefix}-${crypto.randomUUID()}`;
 }
 
+/** Classify a provider-send failure into the banner's recovery reason. */
+function classifyRunErrorReason(message: string): RunErrorReason {
+  const text = message.toLowerCase();
+  if (text.includes('credential') || text.includes('unauthorized') || text.includes('401')) {
+    return 'auth';
+  }
+  if (text.includes('not configured')) return 'auth';
+  if (text.includes('context') && text.includes('overflow')) return 'context-overflow';
+  if (text.includes('network') || text.includes('fetch') || text.includes('transport')) {
+    return 'transport';
+  }
+  return 'unknown';
+}
+
+function buildRunError(message: string): RunError {
+  const reason = classifyRunErrorReason(message);
+  return {
+    id: newDraftId('run-error'),
+    reason,
+    message: 'Provider send failed.',
+    technicalDetail: message,
+    history: [{ id: newDraftId('err-hist'), at: Date.now(), reason, message }],
+    swapCandidateIds: [],
+  };
+}
+
 async function sendRuntimeProviderMessage(text: string, requestId: string): Promise<string> {
   const profiles = await loadRuntimeProviderProfiles();
   const profile = findDefaultChatProviderProfile(profiles);
@@ -61,9 +87,12 @@ async function sendRuntimeProviderMessage(text: string, requestId: string): Prom
 export function useOfficeRuntime({
   threadId,
   seedMessages,
+  assigneeId,
 }: {
   threadId: string;
   seedMessages: ChatMessage[];
+  /** Employee that holds this run (direct thread's employee), shown on the pill. */
+  assigneeId?: string | null;
 }) {
   const [drafts, setDrafts] = useState<ChatMessage[]>([]);
   const [isSending, setIsSending] = useState(false);
@@ -75,6 +104,7 @@ export function useOfficeRuntime({
   const startRun = useRunStore((s) => s.start);
   const finishRun = useRunStore((s) => s.finish);
   const stop = useRunStore((s) => s.stop);
+  const setRunError = useRunStore((s) => s.setError);
   const staged = useRunStore((s) => s.staged);
   const clearStaged = useRunStore((s) => s.clearStaged);
 
@@ -102,7 +132,7 @@ export function useOfficeRuntime({
       requestIdRef.current = requestId;
       abortedRef.current = false;
       setIsSending(true);
-      startRun('Provider response');
+      startRun('Provider response', assigneeId ?? null);
       try {
         const response = await sendRuntimeProviderMessage(text, requestId);
         setDrafts((prev) => [
@@ -122,6 +152,9 @@ export function useOfficeRuntime({
         if (!abortedRef.current) {
           const messageText = safeErrorMessage(error);
           toast.error('Provider send failed', { description: messageText });
+          // Route the real failure into shared run state so the in-thread
+          // ChatErrorBanner becomes reachable (not just the toast/bubble).
+          setRunError(buildRunError(messageText));
           setDrafts((prev) => [
             ...prev,
             {
@@ -145,7 +178,7 @@ export function useOfficeRuntime({
         }
       }
     },
-    [threadId, staged, clearStaged, startRun, finishRun, stop],
+    [threadId, assigneeId, staged, clearStaged, startRun, finishRun, stop, setRunError],
   );
 
   const onCancel = useCallback(async () => {

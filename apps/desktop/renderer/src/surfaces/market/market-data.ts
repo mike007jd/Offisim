@@ -416,7 +416,7 @@ function bindingValuesToConfirmations(
     .filter((value): value is BindingConfirmation => value !== null);
 }
 
-function describeFileImportError(error: unknown): string {
+export function describeFileImportError(error: unknown): string {
   if (error instanceof FileImportError) return error.message;
   if (error instanceof Error) return error.message;
   return String(error);
@@ -1704,9 +1704,6 @@ export function useImportPackageFile(companyId?: string | null) {
       };
     },
     throwOnError: false,
-    meta: {
-      describeError: describeFileImportError,
-    },
   });
 }
 

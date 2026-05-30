@@ -51,6 +51,8 @@ interface OfficeThreadProps {
   employeesById: Map<string, Employee>;
   deliverables: Deliverable[];
   scope: ThreadScope;
+  /** Employee holding this conversation's run (direct thread), shown on the pill. */
+  employeeId: string | null;
   modelLabel: string;
   projectName: string;
   attachmentsAvailable: number;
@@ -244,11 +246,12 @@ export function OfficeThread({
   employeesById,
   deliverables,
   scope,
+  employeeId,
   modelLabel,
   projectName,
   attachmentsAvailable,
 }: OfficeThreadProps) {
-  const runtime = useOfficeRuntime({ threadId, seedMessages });
+  const runtime = useOfficeRuntime({ threadId, seedMessages, assigneeId: employeeId });
   const syncThread = useRunStore((s) => s.syncThread);
 
   // Bind the shared run-state store to this thread: seeds the pipeline / error /

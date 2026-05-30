@@ -92,6 +92,7 @@ export function ChatRail() {
           employeesById={employeesById}
           deliverables={deliverables.data ?? []}
           scope={activeThread?.scope ?? 'team'}
+          employeeId={activeThread?.employeeId ?? null}
           modelLabel={modelLabel}
           projectName={projectName}
           attachmentsAvailable={deliverables.data?.length ?? 0}

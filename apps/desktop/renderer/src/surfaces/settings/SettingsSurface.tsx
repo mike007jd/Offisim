@@ -9,6 +9,12 @@ import { Bot, Cpu, Plug, Users } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
+import {
+  type PersistedRuntimeSettings,
+  RUNTIME_SETTINGS_KEY,
+  parsePersistedRuntimeSettings,
+  useApplyAppearance,
+} from './appearance.js';
 import { ExternalEmployeesPane } from './ExternalEmployeesPane.js';
 import { McpServersPane } from './McpServersPane.js';
 import { ProviderPane } from './ProviderPane.js';
@@ -30,8 +36,6 @@ import {
 } from './settings-data.js';
 
 type SettingsTab = 'provider' | 'runtime' | 'mcp' | 'external';
-
-const RUNTIME_SETTINGS_KEY = 'settings.runtime.v1';
 
 const NAV: ReadonlyArray<{ key: SettingsTab; label: string; icon: typeof Bot }> = [
   { key: 'provider', label: 'Provider', icon: Bot },
@@ -59,36 +63,6 @@ function providerBaseUrl(config: ProviderConfig, values: ProviderFormValues): st
   const override = values.endpointOverride.trim();
   if (override) return override.replace(/\/$/u, '');
   return config.credentialDestination.replace(/\/$/u, '');
-}
-
-interface PersistedRuntimeSettings {
-  runtime: RuntimeFormValues;
-  theme: ThemeValue;
-  density: DensityValue;
-}
-
-function isThemeValue(value: unknown): value is ThemeValue {
-  return value === 'system' || value === 'light' || value === 'dark';
-}
-
-function isDensityValue(value: unknown): value is DensityValue {
-  return value === 'compact' || value === 'normal' || value === 'spacious';
-}
-
-function parsePersistedRuntimeSettings(value: string | null): PersistedRuntimeSettings | null {
-  if (!value) return null;
-  try {
-    const raw = JSON.parse(value) as Partial<PersistedRuntimeSettings>;
-    const runtime = runtimeFormSchema.safeParse(raw.runtime);
-    if (!runtime.success) return null;
-    return {
-      runtime: runtime.data,
-      theme: isThemeValue(raw.theme) ? raw.theme : 'system',
-      density: isDensityValue(raw.density) ? raw.density : 'normal',
-    };
-  } catch {
-    return null;
-  }
 }
 
 async function persistProviderProfile(config: ProviderConfig, values: ProviderFormValues) {
@@ -119,6 +93,9 @@ export function SettingsSurface() {
   const providerConfigs = providerConfigsQuery.data ?? [...PROVIDER_CONFIGS];
   const [theme, setTheme] = useState<ThemeValue>('system');
   const [density, setDensity] = useState<DensityValue>('normal');
+  // Apply the current (possibly unsaved) appearance to the document live, so
+  // editing Theme/Density reflects immediately rather than only after save.
+  useApplyAppearance(theme, density);
   const [savedTheme, setSavedTheme] = useState<ThemeValue>('system');
   const [savedDensity, setSavedDensity] = useState<DensityValue>('normal');
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');

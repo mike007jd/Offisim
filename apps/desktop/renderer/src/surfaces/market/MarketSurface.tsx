@@ -54,6 +54,7 @@ import {
   type PendingPackageInstall,
   type PublishPackageRequest,
   canInstallListing,
+  describeFileImportError,
   marketplaceTokenConfigured,
   useCancelPackageImport,
   useConfirmPackageInstall,
@@ -208,7 +209,7 @@ export function MarketSurface() {
       });
     } catch (error) {
       toast.error('Package import failed', {
-        description: error instanceof Error ? error.message : String(error),
+        description: describeFileImportError(error),
       });
     }
   }
