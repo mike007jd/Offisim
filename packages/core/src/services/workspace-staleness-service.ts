@@ -86,11 +86,10 @@ export class WorkspaceStalenessService {
       return { status: 'block', reason: 'git_head_changed', baseline, current };
     }
 
-    if (
-      baseline.statusHash !== current.statusHash ||
-      baseline.dirty !== current.dirty ||
-      baseline.statusLines !== current.statusLines
-    ) {
+    // statusHash + gitHead are the authoritative comparison pair. dirty/statusLines
+    // are display-only fields and must not enter the equality test (statusLines can
+    // drift on CRLF / trailing-newline porcelain output even when content is identical).
+    if (baseline.statusHash !== current.statusHash) {
       return { status: 'warn', reason: 'git_worktree_changed', baseline, current };
     }
 
@@ -156,7 +155,10 @@ async function captureWorkspaceSnapshot(workspaceRoot: string): Promise<Workspac
     gitHead: head.stdout.trim() || null,
     statusHash: hashText(normalized),
     dirty: normalized.length > 0,
-    statusLines: normalized.length > 0 ? normalized.split('\n').length : 0,
+    // Informational/display-only; computed from the same normalized string used for
+    // statusHash. Split on \r?\n so CRLF porcelain output does not over-count. Not a
+    // staleness comparison input — see checkThread().
+    statusLines: normalized.length > 0 ? normalized.split(/\r?\n/).length : 0,
     capturedAt: new Date().toISOString(),
   };
 }

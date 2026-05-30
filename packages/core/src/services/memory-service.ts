@@ -130,7 +130,14 @@ export class MemoryService {
       return this.memoryScore(b, now) - this.memoryScore(a, now);
     });
 
-    return all.slice(0, cappedLimit);
+    const result = all.slice(0, cappedLimit);
+
+    // Record access on the memories we actually surface so access_count /
+    // accessed_at reflect retrieval (the access bonus in memoryScore is dead
+    // weight otherwise). Best-effort: a touch failure must never break recall.
+    await Promise.allSettled(result.map((mem) => this.memoryRepo.touchAccess(mem.memory_id)));
+
+    return result;
   }
 
   /**
@@ -180,6 +187,32 @@ export class MemoryService {
       return existing.memory_id;
     }
 
+    // Exact dedupe-key match is too narrow: a reworded insight in the same
+    // scope+category is a near-duplicate that should supersede the prior row
+    // (reinforce in place) rather than accrete a second, drifting copy. Find
+    // the highest-overlap existing memory above a conservative threshold and
+    // reinforce it instead of inserting. This keeps the 3-layer store from
+    // filling with paraphrases; genuinely distinct facts (low overlap) still
+    // create fresh rows and surface to the Edit/Forget UI as today.
+    const overlapMatch = await this.findOverlappingMemory({
+      companyId: params.companyId,
+      scope: params.scope,
+      ownerId,
+      category: params.category,
+      content,
+    });
+    if (overlapMatch) {
+      await this.memoryRepo.reinforce(overlapMatch.memory_id, {
+        content,
+        importance: params.importance,
+        confidence,
+        metadataJson,
+        sourceThreadId: params.threadId,
+        sourceTaskRunId: params.sourceTaskRunId ?? null,
+      });
+      return overlapMatch.memory_id;
+    }
+
     const memoryId = generateId('mem');
     await this.memoryRepo.create({
       memory_id: memoryId,
@@ -208,21 +241,31 @@ export class MemoryService {
       ),
     );
 
-    // Prune least important memories when over limit. CRITICAL: prune within
+    // Prune least valuable memories when over limit. CRITICAL: prune within
     // the current scope only — team/company memories share `ownerId=companyId`
-    // for the company scope, so a global sort would treat a low-importance
-    // company memory as evictable when a high-importance team memory had
-    // recently filled the team-scope budget (D/C1). Each scope keeps its own
-    // 50-fact ceiling.
-    const maxFacts = 50;
-    const scopeMemories = (await this.memoryRepo.findByOwner(ownerId)).filter(
-      (m) => m.scope === params.scope,
-    );
-    if (scopeMemories.length > maxFacts) {
-      const sorted = [...scopeMemories].sort((a, b) => a.importance - b.importance);
+    // for the company scope, so a global sort would treat a low-value company
+    // memory as evictable when a high-value team memory had recently filled the
+    // team-scope budget (D/C1). Each scope keeps its own ceiling.
+    //
+    // Eviction ranks by the same memoryScore used for retrieval (importance ×
+    // confidence × recency × reinforcement/access bonuses), not raw importance,
+    // so a stale-but-important fact is not kept over a fresh, frequently
+    // reinforced one. The read-modify-write is serialized per owner+scope so
+    // concurrent creates cannot over-delete past the budget.
+    await this.queue.enqueue(`prune:${ownerId}:${params.scope}`, async () => {
+      const maxFacts = this.policy.maxFacts;
+      const scopeMemories = (await this.memoryRepo.findByOwner(ownerId)).filter(
+        (m) => m.scope === params.scope,
+      );
+      if (scopeMemories.length <= maxFacts) return;
+      const now = Date.now();
+      // Most valuable last so the lowest-scoring rows are sliced off the front.
+      const sorted = [...scopeMemories].sort(
+        (a, b) => this.memoryScore(a, now) - this.memoryScore(b, now),
+      );
       const toDelete = sorted.slice(0, scopeMemories.length - maxFacts);
       await Promise.all(toDelete.map((mem) => this.memoryRepo.delete(mem.memory_id)));
-    }
+    });
 
     return memoryId;
   }
@@ -258,9 +301,20 @@ export class MemoryService {
     companyId: string,
     taskContent: string,
     threadId: string,
-    opts?: { skip?: boolean; signal?: AbortSignal },
+    opts?: { skip?: boolean; signal?: AbortSignal; model?: string },
   ): Promise<void> {
     if (opts?.skip || !this.policy.enabled) return;
+
+    // The bare `'default'` literal only resolves when the systemCaller owns its
+    // own model config; on the raw gateway path it can hit a provider that has
+    // no 'default' alias and silently fail. Use the caller's active model when
+    // provided, and skip (with a warning) when neither is available rather than
+    // gambling on the sentinel.
+    const reflectionModel = opts?.model ?? (this.systemCaller ? 'default' : null);
+    if (!reflectionModel) {
+      logger.warn('reflectAndRemember skipped: no model resolved', { employeeId });
+      return;
+    }
 
     await this.queue.enqueue(`${companyId}:${employeeId}`, async () => {
       let rawResponse: string;
@@ -271,7 +325,7 @@ export class MemoryService {
         ]);
         const chatRequest: LlmRequest = {
           messages,
-          model: 'default',
+          model: reflectionModel,
           temperature: 0.3,
           maxTokens: 1024,
           signal: opts?.signal,
@@ -311,15 +365,31 @@ export class MemoryService {
     });
   }
 
-  /** Recency factor: newer → higher score (exponential decay over 7 days) */
-  private recencyFactor(referenceAt: string, now: number): number {
-    const ageMs = now - new Date(referenceAt).getTime();
+  /**
+   * Recency factor: newer → higher score (exponential decay). The decay rate is
+   * scaled per memory rather than a fixed global half-life: durable categories
+   * (preference / decision) and high-importance facts fade more slowly than a
+   * fleeting low-importance observation, so a critical decision is not crowded
+   * out by recent noise. base 0.14/day (~5-day half-life) for ephemeral
+   * experience/knowledge, easing toward ~0.06/day (~11-day half-life) for the
+   * most durable, highest-importance entries.
+   */
+  private recencyFactor(memory: MemoryEntryRow, now: number): number {
+    const ageMs = now - new Date(memory.last_reinforced_at).getTime();
     const ageDays = ageMs / (1000 * 60 * 60 * 24);
-    return Math.exp(-0.14 * ageDays);
+    return Math.exp(-this.decayRate(memory) * ageDays);
+  }
+
+  private decayRate(memory: MemoryEntryRow): number {
+    const categoryDurability =
+      memory.category === 'preference' ? 0.5 : memory.category === 'decision' ? 0.7 : 1;
+    // importance in [0,1]: at importance 1 the rate is halved, at 0 it is full.
+    const importanceSlowdown = 1 - 0.5 * Math.min(Math.max(memory.importance, 0), 1);
+    return 0.14 * categoryDurability * importanceSlowdown;
   }
 
   private memoryScore(memory: MemoryEntryRow, now: number): number {
-    const recency = this.recencyFactor(memory.last_reinforced_at, now);
+    const recency = this.recencyFactor(memory, now);
     const reinforcementBonus = 1 + Math.min(memory.reinforcement_count - 1, 5) * 0.12;
     const accessBonus = 1 + Math.min(memory.access_count, 10) * 0.02;
     return memory.importance * memory.confidence * recency * reinforcementBonus * accessBonus;
@@ -336,6 +406,55 @@ export class MemoryService {
       .replace(/\s+/g, ' ')
       .trim();
     return simplified || normalized.replace(/\s+/g, ' ').trim();
+  }
+
+  /** Word-set Jaccard overlap of two memory bodies, in [0,1]. */
+  private contentOverlap(a: string, b: string): number {
+    const tokenize = (text: string): Set<string> =>
+      new Set(
+        this.buildDedupeKey(text)
+          .split(' ')
+          .filter((t) => t.length > 0),
+      );
+    const setA = tokenize(a);
+    const setB = tokenize(b);
+    if (setA.size === 0 || setB.size === 0) return 0;
+    let intersection = 0;
+    for (const token of setA) {
+      if (setB.has(token)) intersection += 1;
+    }
+    const union = setA.size + setB.size - intersection;
+    return union === 0 ? 0 : intersection / union;
+  }
+
+  /**
+   * Find an existing same-scope+category memory that is a near-duplicate of the
+   * incoming content (reworded, not byte-identical, so the dedupe key missed
+   * it). Returns the highest-overlap row above a conservative threshold so the
+   * caller can reinforce it in place instead of accreting a paraphrase.
+   * Distinct facts (low overlap) return null and create a fresh row.
+   */
+  private async findOverlappingMemory(params: {
+    companyId: string;
+    scope: 'employee' | 'team' | 'company';
+    ownerId: string;
+    category: 'experience' | 'decision' | 'knowledge' | 'preference';
+    content: string;
+  }): Promise<MemoryEntryRow | null> {
+    const OVERLAP_THRESHOLD = 0.7;
+    const candidates = (
+      await this.memoryRepo.findByOwner(params.ownerId, { category: params.category })
+    ).filter((m) => m.scope === params.scope && m.company_id === params.companyId);
+    let best: MemoryEntryRow | null = null;
+    let bestOverlap = OVERLAP_THRESHOLD;
+    for (const candidate of candidates) {
+      const overlap = this.contentOverlap(params.content, candidate.content);
+      if (overlap >= bestOverlap) {
+        best = candidate;
+        bestOverlap = overlap;
+      }
+    }
+    return best;
   }
 
   private deriveConfidence(category: string, importance: number): number {

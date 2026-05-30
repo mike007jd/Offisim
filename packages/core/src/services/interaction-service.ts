@@ -230,6 +230,15 @@ export class InteractionService implements ToolPermissionGrantResolver {
     return request;
   }
 
+  /**
+   * Contract: one pending interaction per thread/service. The service tracks a
+   * single-slot {@link resolutionWaiter}, mirroring the single `pending` request
+   * model — a thread can only have one outstanding interaction at a time. A new
+   * `requestAndWait` call supersedes any prior pending wait and rejects it with
+   * "replaced before it was resolved", so concurrent callers do not coexist;
+   * the later caller wins and the earlier promise rejects. Callers must not rely
+   * on overlapping waits resolving independently.
+   */
   async requestAndWait(
     request: InteractionRequest,
     options: InteractionWaitOptions = {},

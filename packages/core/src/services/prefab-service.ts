@@ -80,7 +80,7 @@ export class PrefabService {
     const created = await this.repo.create(row);
 
     this.eventBus.emit(
-      this.buildStateEvent(row.instance_id, companyId, prefabId, 'workspace', '', 'created'),
+      this.buildStateEvent(row.instance_id, companyId, prefabId, '', 'created'),
     );
 
     return created;
@@ -118,8 +118,7 @@ export class PrefabService {
         instanceId,
         row.company_id,
         row.prefab_id,
-        'workspace',
-        'unbound',
+        existing >= 0 ? 'bound' : 'unbound',
         'bound',
       ),
     );
@@ -139,14 +138,7 @@ export class PrefabService {
     });
 
     this.eventBus.emit(
-      this.buildStateEvent(
-        instanceId,
-        row.company_id,
-        row.prefab_id,
-        'workspace',
-        'bound',
-        'unbound',
-      ),
+      this.buildStateEvent(instanceId, row.company_id, row.prefab_id, 'bound', 'unbound'),
     );
   }
 
@@ -167,14 +159,7 @@ export class PrefabService {
 
     if (row) {
       this.eventBus.emit(
-        this.buildStateEvent(
-          instanceId,
-          row.company_id,
-          row.prefab_id,
-          'workspace',
-          'created',
-          'deleted',
-        ),
+        this.buildStateEvent(instanceId, row.company_id, row.prefab_id, 'created', 'deleted'),
       );
     }
   }
@@ -216,7 +201,7 @@ export class PrefabService {
 
     for (const row of rows) {
       this.eventBus.emit(
-        this.buildStateEvent(row.instance_id, companyId, row.prefab_id, 'workspace', '', 'created'),
+        this.buildStateEvent(row.instance_id, companyId, row.prefab_id, '', 'created'),
       );
     }
 
@@ -261,7 +246,6 @@ export class PrefabService {
     instanceId: string,
     companyId: string,
     prefabId: string,
-    category: string,
     prev: string,
     next: string,
   ): RuntimeEvent<PrefabStateChangedPayload> {
@@ -271,7 +255,7 @@ export class PrefabService {
       entityType: 'prefab',
       companyId,
       timestamp: Date.now(),
-      payload: { instanceId, prefabId, category, prev, next },
+      payload: { instanceId, prefabId, prev, next },
     };
   }
 }

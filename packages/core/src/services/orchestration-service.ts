@@ -36,6 +36,9 @@ import type {
 /** Max queued execute() calls per thread before rejecting. */
 const MAX_QUEUE_DEPTH = 3;
 
+/** Max thread ids cached in the `ensuredThreads` LRU before evicting oldest. */
+const MAX_ENSURED_THREADS = 256;
+
 /**
  * LangGraph super-step budget for a full graph run.
  *
@@ -124,11 +127,16 @@ export class OrchestrationService {
   >();
 
   /**
-   * Cache of thread ids whose `graph_threads` row is known to exist this process
-   * lifetime. `ensureExecutionThread` short-circuits on a hit so a long-lived
-   * chat does not pay a `repos.threads.findById` roundtrip per turn.
+   * Cache of thread ids whose `graph_threads` row is known to exist. A hit lets
+   * `ensureExecutionThread` short-circuit so a long-lived chat does not pay a
+   * `repos.threads.findById` roundtrip per turn.
+   *
+   * Bounded LRU (insertion-ordered Map; touch on hit, evict oldest past the cap)
+   * so a long-lived process cycling through many threads cannot grow it without
+   * limit. The row genuinely exists in the DB regardless of cache residency, so
+   * evicting a cold entry only costs one extra `findById` on its next use.
    */
-  private readonly ensuredThreads = new Set<string>();
+  private readonly ensuredThreads = new Map<string, true>();
 
   private readonly workspaceStalenessService: WorkspaceStalenessService | null;
   private readonly checkpointSaver: Pick<BaseCheckpointSaver, 'getTuple'> | null;
@@ -329,7 +337,32 @@ export class OrchestrationService {
     runScope?: RunScope;
   }): Promise<OffisimGraphState> {
     const threadId = input.threadId ?? this.runtimeCtx.threadId;
+    return this.withThreadLock(threadId, input.runScope ?? null, (signal) =>
+      this._executeInner({ ...input, threadId, signal }),
+    );
+  }
 
+  private async executeState(
+    state: Partial<OffisimGraphState>,
+    threadId: string,
+  ): Promise<OffisimGraphState> {
+    return this.withThreadLock(threadId, null, (signal) =>
+      this._executeStateInner(state, threadId, signal, null),
+    );
+  }
+
+  /**
+   * Serialize work on `threadId` behind the per-thread lock, enforcing the
+   * queue-depth cap and registering the run's AbortController *after* the lock
+   * is acquired so `abortExecution()` always targets the running call, not a
+   * queued one. Shared by `execute()` and `executeState()` so the lock/queue/
+   * abort scaffolding (and the currentAborts-after-await ordering) lives once.
+   */
+  private async withThreadLock<T>(
+    threadId: string,
+    runScope: RunScope | null,
+    run: (signal: AbortSignal) => Promise<T>,
+  ): Promise<T> {
     // Reject if queue is already too deep (prevents unbounded wait times)
     const depth = this.threadQueueDepth.get(threadId) ?? 0;
     if (depth >= MAX_QUEUE_DEPTH) {
@@ -339,8 +372,6 @@ export class OrchestrationService {
     }
     this.threadQueueDepth.set(threadId, depth + 1);
 
-    // Create AbortController for this execution (registered after acquiring the lock
-    // so abortExecution() always targets the *running* request, not a queued one)
     const abort = new AbortController();
 
     // Serialize concurrent calls on the same threadId
@@ -352,52 +383,10 @@ export class OrchestrationService {
     this.threadLocks.set(threadId, gate);
     try {
       await prev;
-      this.currentAborts.set(threadId, {
-        controller: abort,
-        runScope: input.runScope ?? null,
-      });
-      return await this._executeInner({ ...input, threadId, signal: abort.signal });
-    } finally {
-      release?.();
-      this.currentAborts.delete(threadId);
-      const remaining = (this.threadQueueDepth.get(threadId) ?? 1) - 1;
-      if (remaining <= 0) {
-        this.threadQueueDepth.delete(threadId);
-      } else {
-        this.threadQueueDepth.set(threadId, remaining);
-      }
-      if (this.threadLocks.get(threadId) === gate) {
-        this.threadLocks.delete(threadId);
-      }
-    }
-  }
-
-  private async executeState(
-    state: Partial<OffisimGraphState>,
-    threadId: string,
-  ): Promise<OffisimGraphState> {
-    const depth = this.threadQueueDepth.get(threadId) ?? 0;
-    if (depth >= MAX_QUEUE_DEPTH) {
-      throw new Error(
-        `Thread "${threadId}" has ${depth} queued requests — rejecting to prevent unbounded wait. Try again later.`,
-      );
-    }
-    this.threadQueueDepth.set(threadId, depth + 1);
-
-    // Create AbortController for this execution (registered after acquiring the lock
-    // so abortExecution() always targets the *running* request, not a queued one)
-    const abort = new AbortController();
-
-    const prev = this.threadLocks.get(threadId) ?? Promise.resolve();
-    let release: (() => void) | undefined;
-    const gate = new Promise<void>((r) => {
-      release = r;
-    });
-    this.threadLocks.set(threadId, gate);
-    try {
-      await prev;
-      this.currentAborts.set(threadId, { controller: abort, runScope: null });
-      return await this._executeStateInner(state, threadId, abort.signal, null);
+      // Registered after acquiring the lock so abortExecution() always targets
+      // the *running* request, not a queued one.
+      this.currentAborts.set(threadId, { controller: abort, runScope });
+      return await run(abort.signal);
     } finally {
       release?.();
       this.currentAborts.delete(threadId);
@@ -448,7 +437,12 @@ export class OrchestrationService {
     entryMode: OffisimGraphState['entryMode'],
     projectId: string | null,
   ): Promise<void> {
-    if (this.ensuredThreads.has(threadId)) return;
+    if (this.ensuredThreads.has(threadId)) {
+      // Touch for LRU recency so an active thread is never evicted.
+      this.ensuredThreads.delete(threadId);
+      this.ensuredThreads.set(threadId, true);
+      return;
+    }
     const existing = await this.runtimeCtx.repos.threads.findById(threadId);
     if (existing) {
       // Backfill project_id when an older row (or background_sync row) is
@@ -457,7 +451,7 @@ export class OrchestrationService {
       if (projectId && !existing.project_id) {
         await this.runtimeCtx.repos.threads.updateProject(threadId, projectId);
       }
-      this.ensuredThreads.add(threadId);
+      this.markEnsuredThread(threadId);
       return;
     }
     await this.runtimeCtx.repos.threads.create({
@@ -468,7 +462,17 @@ export class OrchestrationService {
       status: 'queued',
       project_id: projectId,
     });
-    this.ensuredThreads.add(threadId);
+    this.markEnsuredThread(threadId);
+  }
+
+  /** Record `threadId` in the ensured-threads LRU, evicting the oldest past the cap. */
+  private markEnsuredThread(threadId: string): void {
+    this.ensuredThreads.set(threadId, true);
+    while (this.ensuredThreads.size > MAX_ENSURED_THREADS) {
+      const oldest = this.ensuredThreads.keys().next().value;
+      if (oldest === undefined) break;
+      this.ensuredThreads.delete(oldest);
+    }
   }
 
   private async _executeStateInner(
@@ -508,12 +512,21 @@ export class OrchestrationService {
     const nodeSummaryService = nodeSummaryRepo ? new NodeSummaryService(nodeSummaryRepo) : null;
     let llmCallCount = llmCallRepo ? (await llmCallRepo.findByThread(threadId)).length : 0;
     let mcpAuditCount = mcpAuditRepo ? (await mcpAuditRepo.listByThread(threadId)).length : 0;
-    const nodeEnteredAt = new Map<string, number>();
+    // Per-node FIFO of enter timestamps. A re-entrant node (e.g. step_dispatcher
+    // looping) can enter again before a prior exit is processed; pairing each
+    // exit with the *oldest* pending enter keeps per-invocation durations
+    // correct instead of all reading the latest enter.
+    const nodeEnteredAt = new Map<string, number[]>();
     let stepDispatcherEntryCount = 0;
     const unsubscribeNodeEntered = this.runtimeCtx.eventBus.on('graph.node.entered', (event) => {
       if (event.threadId !== threadId) return;
       if (typeof event.payload?.nodeName === 'string') {
-        nodeEnteredAt.set(event.payload.nodeName, event.timestamp);
+        const queue = nodeEnteredAt.get(event.payload.nodeName);
+        if (queue) {
+          queue.push(event.timestamp);
+        } else {
+          nodeEnteredAt.set(event.payload.nodeName, [event.timestamp]);
+        }
         if (event.payload.nodeName === 'step_dispatcher') {
           stepDispatcherEntryCount += 1;
         }
@@ -553,8 +566,12 @@ export class OrchestrationService {
           const newMcpAudits = mcpAudits.slice(mcpAuditCount);
           mcpAuditCount = mcpAudits.length;
 
-          const enteredAt = nodeEnteredAt.get(nodeName) ?? Date.now();
-          const durationMs = Math.max(0, Date.now() - enteredAt);
+          // Pop the oldest pending enter for this node (FIFO) so re-entrant
+          // nodes get per-invocation durations. When no enter was observed the
+          // duration is unknown; record 0 (the schema's NOT NULL sentinel) so a
+          // missing-enter row is not silently miscounted as a long-running node.
+          const enteredAt = nodeEnteredAt.get(nodeName)?.shift();
+          const durationMs = enteredAt === undefined ? 0 : Math.max(0, Date.now() - enteredAt);
 
           if (nodeSummaryService) {
             await nodeSummaryService.recordNodeSummary({

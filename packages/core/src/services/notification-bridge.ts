@@ -30,14 +30,11 @@ function truncateMessage(text: string): string {
  */
 export class NotificationBridge {
   private unsubscribers: (() => void)[] = [];
-  private companyId: string;
 
   constructor(
     private eventBus: EventBus,
-    companyId: string,
-  ) {
-    this.companyId = companyId;
-  }
+    private companyId: string,
+  ) {}
 
   activate(): void {
     // Guard against double activation
@@ -50,16 +47,16 @@ export class NotificationBridge {
         if (next === 'blocked') {
           this.emitNotification(
             'warning',
-            `Employee ${employeeId} is blocked`,
-            `Employee ${employeeId} has been blocked and cannot continue working.`,
+            'Employee blocked',
+            'An employee has been blocked and cannot continue working.',
             'runtime',
             { employeeId },
           );
         } else if (next === 'failed') {
           this.emitNotification(
             'error',
-            `Employee ${employeeId} failed`,
-            `Employee ${employeeId} encountered a failure.`,
+            'Employee failed',
+            'An employee encountered a failure.',
             'runtime',
             { employeeId },
           );

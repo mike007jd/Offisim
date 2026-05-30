@@ -1,10 +1,10 @@
 import type { ConversationCompactCompletedPayload } from '@offisim/shared-types';
 import { conversationCompactCompleted } from '../../events/event-factories.js';
 import type { CompactBaselineState } from '../../graph/state.js';
-import type { LlmRequest, LlmResponse } from '../../llm/gateway.js';
+import type { LlmRequest } from '../../llm/gateway.js';
 import type { RuntimeContext } from '../../runtime/runtime-context.js';
 import { generateId } from '../../utils/generate-id.js';
-import { estimateTokens } from './message-utils.js';
+import { normalizeSummary } from './message-utils.js';
 import type { ResolvedConversationBudgetOptions } from './options-resolver.js';
 import type { SynopsisGenerator, ThreadSynopsisRecord } from './synopsis-generator.js';
 
@@ -47,11 +47,52 @@ function sliceAfterCompactionBoundary(
   return messages.slice(toolPairSafeCutIndex(messages, requestedCut));
 }
 
+// Bound memory: the circuit-breaker maps are per-thread scratch state, not
+// durable storage. Without a cap they grow one entry per thread for the life of
+// the process across long multi-thread sessions.
+const MAX_TRACKED_THREADS = 200;
+
 export class FullCompactOrchestrator {
+  // Insertion-ordered: the first key is the least-recently-updated thread, so
+  // we can evict it when MAX_TRACKED_THREADS is exceeded.
   private readonly fullCompactFailureStreaks = new Map<string, number>();
   private readonly fullCompactFailureMessageCounts = new Map<string, number>();
 
   constructor(private readonly synopsisGenerator: SynopsisGenerator) {}
+
+  dispose(): void {
+    this.fullCompactFailureStreaks.clear();
+    this.fullCompactFailureMessageCounts.clear();
+  }
+
+  // Recompute the streak from the live map right before the write so an
+  // interleaved same-thread prepareRequest cannot clobber the increment with a
+  // pre-await snapshot, and re-insert with insertion-order eviction so the maps
+  // stay bounded.
+  private recordFailure(threadId: string, circuitOpen: boolean, rawMessageCount: number): number {
+    const currentStreak = this.fullCompactFailureStreaks.get(threadId) ?? 0;
+    const nextFailureStreak = circuitOpen ? currentStreak : currentStreak + 1;
+    this.setTrackedThread(this.fullCompactFailureStreaks, threadId, nextFailureStreak);
+    this.setTrackedThread(this.fullCompactFailureMessageCounts, threadId, rawMessageCount);
+    return nextFailureStreak;
+  }
+
+  private clearFailure(threadId: string): void {
+    this.fullCompactFailureStreaks.delete(threadId);
+    this.fullCompactFailureMessageCounts.delete(threadId);
+  }
+
+  private setTrackedThread(map: Map<string, number>, threadId: string, value: number): void {
+    // Re-insert so this thread becomes most-recently-used in iteration order.
+    map.delete(threadId);
+    map.set(threadId, value);
+    // Evict least-recently-updated threads beyond the cap.
+    while (map.size > MAX_TRACKED_THREADS) {
+      const oldest = map.keys().next().value;
+      if (oldest === undefined) break;
+      map.delete(oldest);
+    }
+  }
 
   async tryInitialCompact(
     ctx: RuntimeContext,
@@ -93,8 +134,7 @@ export class FullCompactOrchestrator {
         priorCompactVersion: 0,
         cachedTokenCount: approximateTokens,
       });
-      this.fullCompactFailureStreaks.delete(ctx.threadId);
-      this.fullCompactFailureMessageCounts.delete(ctx.threadId);
+      this.clearFailure(ctx.threadId);
       return {
         baseline,
         nonSystemMessages: sliceAfterCompactionBoundary(
@@ -104,7 +144,6 @@ export class FullCompactOrchestrator {
       };
     }
 
-    const failureStreak = this.fullCompactFailureStreaks.get(ctx.threadId) ?? 0;
     const fallbackSynopsis =
       priorSynopsis ??
       (
@@ -115,9 +154,11 @@ export class FullCompactOrchestrator {
         })
       )?.synopsis ??
       null;
-    const nextFailureStreak = circuitOpen ? failureStreak : failureStreak + 1;
-    this.fullCompactFailureStreaks.set(ctx.threadId, nextFailureStreak);
-    this.fullCompactFailureMessageCounts.set(ctx.threadId, rawNonSystemMessages.length);
+    const nextFailureStreak = this.recordFailure(
+      ctx.threadId,
+      circuitOpen,
+      rawNonSystemMessages.length,
+    );
     await this.recordSkip(ctx, {
       summaryText: fallbackSynopsis?.summary ?? existingSynopsis?.summary ?? '',
       summarySource: circuitOpen ? 'circuit_breaker' : 'llm_error',
@@ -166,8 +207,7 @@ export class FullCompactOrchestrator {
         priorCompactVersion: compactBaseline.compactVersion,
         cachedTokenCount: approximateTokens,
       });
-      this.fullCompactFailureStreaks.delete(ctx.threadId);
-      this.fullCompactFailureMessageCounts.delete(ctx.threadId);
+      this.clearFailure(ctx.threadId);
       return {
         baseline,
         nonSystemMessages: sliceAfterCompactionBoundary(
@@ -177,10 +217,11 @@ export class FullCompactOrchestrator {
       };
     }
 
-    const failureStreak = this.fullCompactFailureStreaks.get(ctx.threadId) ?? 0;
-    const nextFailureStreak = circuitOpen ? failureStreak : failureStreak + 1;
-    this.fullCompactFailureStreaks.set(ctx.threadId, nextFailureStreak);
-    this.fullCompactFailureMessageCounts.set(ctx.threadId, rawNonSystemMessages.length);
+    const nextFailureStreak = this.recordFailure(
+      ctx.threadId,
+      circuitOpen,
+      rawNonSystemMessages.length,
+    );
     await this.recordSkip(ctx, {
       summaryText: compactBaseline.summaryText,
       summarySource: circuitOpen ? 'circuit_breaker' : 'llm_error',
@@ -246,17 +287,12 @@ export class FullCompactOrchestrator {
       const response = ctx.systemCaller
         ? await ctx.systemCaller.chat('conversation_full_compact', chatRequest)
         : await ctx.llmGateway.chat(chatRequest);
-      const summary = this.normalizeSummary(response);
+      const summary = normalizeSummary(response);
       if (!summary) return null;
       return { summary, updatedAt: new Date().toISOString() };
     } catch {
       return null;
     }
-  }
-
-  private normalizeSummary(response: LlmResponse): string | null {
-    const summary = response.content.replace(/\s+/g, ' ').trim();
-    return summary.length > 0 ? summary : null;
   }
 
   private async persistBaseline(
@@ -292,13 +328,8 @@ export class FullCompactOrchestrator {
       nonSystemMessages,
       targetCompactedNonSystemMessageCount,
     );
-    const compactVersion = Math.max(
-      priorCompactVersion > 0 ? priorCompactVersion + 1 : 1,
-      (await ctx.repos.compactSummaries.listByThread(ctx.threadId, { limit: 50 })).filter(
-        (row) => row.compact_kind === 'full_thread',
-      ).length + 1,
-    );
-    const tokenCount = cachedTokenCount ?? estimateTokens(nonSystemMessages);
+    const compactVersion = priorCompactVersion > 0 ? priorCompactVersion + 1 : 1;
+    const tokenCount = cachedTokenCount;
     const baseline: CompactBaselineState = {
       compactId: generateId('fcb'),
       compactVersion,

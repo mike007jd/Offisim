@@ -73,8 +73,8 @@ export class EventConsolidator {
     }
 
     // Format events for LLM
-    const eventsText = events
-      .reverse() // chronological order
+    const eventsText = [...events]
+      .reverse() // chronological order (copy so the repository result is never mutated)
       .map((e) => `[${e.agent_name}] ${e.event_type}: ${e.payload_json.slice(0, 300)}`)
       .join('\n');
 

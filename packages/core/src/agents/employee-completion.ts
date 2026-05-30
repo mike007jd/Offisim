@@ -614,7 +614,7 @@ export async function finalizeEmployeeSuccess(
         companyId,
         `Task: ${taskDescription}\n\nResponse: ${llmResponse.content}`,
         threadId,
-        { skip: skipReflection, signal },
+        { skip: skipReflection, signal, model: resolved.model },
       );
     } catch (err) {
       logger.warn('reflectAndRemember failed', {

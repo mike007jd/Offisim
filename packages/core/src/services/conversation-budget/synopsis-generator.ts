@@ -1,9 +1,9 @@
 import type { ConversationSynopsisUpdatedPayload } from '@offisim/shared-types';
 import { conversationSynopsisUpdated } from '../../events/event-factories.js';
-import type { LlmRequest, LlmResponse } from '../../llm/gateway.js';
+import type { LlmRequest } from '../../llm/gateway.js';
 import type { RuntimeContext } from '../../runtime/runtime-context.js';
 import { generateId } from '../../utils/generate-id.js';
-import { estimateTokens } from './message-utils.js';
+import { estimateTokens, normalizeSummary } from './message-utils.js';
 import type { ResolvedConversationBudgetOptions } from './options-resolver.js';
 
 type LlmMessage = LlmRequest['messages'][number];
@@ -175,11 +175,6 @@ export class SynopsisGenerator {
     }
   }
 
-  private normalizeSummary(response: LlmResponse): string | null {
-    const summary = response.content.replace(/\s+/g, ' ').trim();
-    return summary.length > 0 ? summary : null;
-  }
-
   private formatTranscript(messages: readonly LlmMessage[]): string {
     return messages
       .map((message) => `${message.role.toUpperCase()}: ${message.content}`)
@@ -209,7 +204,7 @@ export class SynopsisGenerator {
     const response = ctx.systemCaller
       ? await ctx.systemCaller.chat('conversation_budget', chatRequest)
       : await ctx.llmGateway.chat(chatRequest);
-    return this.normalizeSummary(response);
+    return normalizeSummary(response);
   }
 
   private buildHeuristicSummary(

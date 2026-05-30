@@ -10,12 +10,17 @@ export interface CitationEntry {
   snippet: string;
 }
 
-/** Score a document's relevance to a multi-keyword query */
+/**
+ * Score a document's relevance to a multi-keyword query.
+ * Keywords are lowercased internally, so matching is case-insensitive
+ * regardless of how the caller pre-processes them.
+ */
 export function scoreDocument(doc: LibraryDocumentRow, keywords: string[]): number {
   let score = 0;
   const titleLower = doc.title.toLowerCase();
   const contentLower = doc.content_text.toLowerCase();
-  for (const kw of keywords) {
+  for (const rawKw of keywords) {
+    const kw = rawKw.toLowerCase();
     // Skip empty keywords: `indexOf('')` returns 0 and `idx += 0` would spin
     // forever (and a blank term matches everything anyway).
     if (kw.length === 0) continue;
@@ -31,16 +36,24 @@ export function scoreDocument(doc: LibraryDocumentRow, keywords: string[]): numb
   return score;
 }
 
-/** Extract a snippet around the first keyword match in content */
+/**
+ * Extract a snippet around the earliest keyword match in content.
+ * Scans all keywords and centers on the minimum match position (not the
+ * first-listed keyword). Keywords are lowercased internally, so matching is
+ * case-insensitive regardless of how the caller pre-processes them.
+ */
 export function extractRelevantSnippet(content: string, keywords: string[], maxLen = 500): string {
   const contentLower = content.toLowerCase();
-  // Find position of first keyword match
+  // Find the earliest match position across all keywords (not just the first listed).
   let bestPos = 0;
-  for (const kw of keywords) {
+  let found = false;
+  for (const rawKw of keywords) {
+    const kw = rawKw.toLowerCase();
+    if (kw.length === 0) continue;
     const pos = contentLower.indexOf(kw);
-    if (pos >= 0) {
+    if (pos >= 0 && (!found || pos < bestPos)) {
       bestPos = pos;
-      break;
+      found = true;
     }
   }
   // Center snippet around match
