@@ -5,7 +5,6 @@ export { HookRegistry } from './runtime/hook-registry.js';
 export { ResumeCoordinator } from './runtime/resume-coordinator.js';
 export { createRuntimeContext, disposeRuntime } from './runtime/runtime-context.js';
 export { Scratchpad } from './runtime/scratchpad.js';
-export { SessionCostTracker } from './runtime/session-cost-tracker.js';
 export {
   buildSkillUpdateValues,
   coerceSkillScope,

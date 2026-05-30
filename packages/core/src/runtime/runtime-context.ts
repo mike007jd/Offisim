@@ -24,7 +24,6 @@ import type { ResumeCoordinator } from './resume-coordinator.js';
 import { RunConversationState } from './run-conversation-state.js';
 import type { RunConversationState as RunConversationStateType } from './run-conversation-state.js';
 import { Scratchpad } from './scratchpad.js';
-import type { SessionCostTracker } from './session-cost-tracker.js';
 import type { ToolExecutor } from './tool-executor.js';
 
 /**
@@ -76,8 +75,6 @@ export interface RuntimeContext {
   readonly modelRegistry?: ModelRegistry;
   /** Recorded caller for system services — provides audit trail for background LLM calls. */
   readonly systemCaller?: RecordedSystemLlmCaller;
-  /** Live per-thread LLM cost accumulator. */
-  readonly sessionCostTracker?: SessionCostTracker;
   /** Live tool execution telemetry buffer. */
   readonly toolTelemetryService?: ToolTelemetryService;
   /**
@@ -165,7 +162,6 @@ export function createRuntimeContext(deps: {
   middlewareChain?: LlmMiddlewareChain;
   modelRegistry?: ModelRegistry;
   systemCaller?: RecordedSystemLlmCaller;
-  sessionCostTracker?: SessionCostTracker;
   toolTelemetryService?: ToolTelemetryService;
   llmToolCallsEnabled?: boolean;
   builtinTools?: ReadonlyMap<string, BuiltinTool>;

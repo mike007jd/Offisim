@@ -309,6 +309,11 @@ function findCostRate(rates: CostRateRow[], provider: string, model: string): Co
 function estimateCallCost(call: LlmUsageRow, rates: CostRateRow[]): number {
   const rate = findCostRate(rates, call.provider, call.model);
   if (!rate) return 0;
+  // The 0.1x cache-read / 1.25x cache-write multipliers are vendor-specific:
+  // correct for the cache-aware vendor, a known approximation elsewhere. On the
+  // compat lane (including the default provider) the cache-token columns are not
+  // populated upstream, so these terms are 0 and the approximation stays latent
+  // rather than active mispricing.
   const inputCost =
     (call.input_tokens / 1_000_000) * rate.input_cost_per_mtok +
     (call.cache_read_input_tokens / 1_000_000) * rate.input_cost_per_mtok * 0.1 +

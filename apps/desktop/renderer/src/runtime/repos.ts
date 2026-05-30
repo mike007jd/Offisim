@@ -5,6 +5,7 @@ import {
   InMemoryEventBus,
   type RuntimeRepositories,
   listTemplates,
+  seedDefaultCostRates,
 } from '@offisim/core/browser';
 
 /**
@@ -25,6 +26,14 @@ export function getRepos(): Promise<RuntimeRepositories> {
       const db = createTauriDrizzleDb();
       const repos = createTauriRepositories(db, runtimeEventBus);
       await ensureSeededCompany(repos);
+      // Seed default model cost rates once so the cost UI reports real spend
+      // instead of $0 out of the box (the model_cost_rates table is otherwise
+      // empty). Best-effort: a seeding failure must not block runtime access.
+      if (repos.settings) {
+        await seedDefaultCostRates({ costRates: repos.costRates, settings: repos.settings }).catch(
+          () => undefined,
+        );
+      }
       return repos;
     })().catch((err) => {
       reposPromise = null;

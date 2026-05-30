@@ -287,7 +287,6 @@ export { InteractionService } from './services/interaction-service.js';
 
 // --- User Memory ---
 export { UserMemoryService } from './services/user-memory-service.js';
-export { SessionCostTracker } from './runtime/session-cost-tracker.js';
 export { ToolTelemetryService } from './services/tool-telemetry-service.js';
 export { FileHistoryService, FileHistoryToolExecutor } from './services/file-history-service.js';
 export type { FileSnapshotAdapter } from './services/file-history-service.js';
@@ -377,7 +376,6 @@ export { OrchestrationService } from './services/orchestration-service.js';
 export { EmployeeVersionService } from './runtime/employee-version-service.js';
 export { ensureYoloMasterForActiveCompanies } from './runtime/ensure-yolo-master.js';
 export type { VersionDiff } from './runtime/employee-version-service.js';
-export { CostCalculationService } from './runtime/cost-calculation-service.js';
 export { RackSlotService } from './services/rack-slot-service.js';
 export type { RackWithSlots } from './services/rack-slot-service.js';
 export { WorkstationToolResolver } from './services/workstation-tool-resolver.js';
@@ -393,8 +391,7 @@ export type {
   TemplateZoneBlueprint,
 } from './templates/index.js';
 export { listTemplates, getTemplate } from './templates/index.js';
-export type { CostAggregate, DashboardSummary } from './runtime/cost-calculation-service.js';
-export { DEFAULT_COST_RATES } from './runtime/default-cost-rates.js';
+export { DEFAULT_COST_RATES, seedDefaultCostRates } from './runtime/default-cost-rates.js';
 
 // --- Runtime ---
 export { UnconfiguredToolExecutor } from './runtime/tool-executor.js';
