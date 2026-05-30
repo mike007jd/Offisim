@@ -488,17 +488,24 @@ pub fn runtime_secret_set(secret: String) -> Result<(), String> {
     // cannot leave a half-written secret on disk.
     let tmp = path.with_extension("txt.tmp");
     {
-        let mut f = fs::OpenOptions::new()
-            .create(true)
-            .truncate(true)
-            .write(true)
+        // Create the tmp file at mode 0600 BEFORE any secret bytes are written,
+        // so the secret is never momentarily readable at the default umask
+        // between write and chmod. The post-rename chmod stays as a belt-and-
+        // suspenders re-assert.
+        let mut opts = fs::OpenOptions::new();
+        opts.create(true).truncate(true).write(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            opts.mode(0o600);
+        }
+        let mut f = opts
             .open(&tmp)
             .map_err(|e| format!("open tmp secret file: {e}"))?;
         f.write_all(trimmed.as_bytes())
             .map_err(|e| format!("write secret: {e}"))?;
         f.sync_all().map_err(|e| format!("fsync secret: {e}"))?;
     }
-    set_file_mode_600(&tmp).map_err(|e| format!("chmod 600 tmp: {e}"))?;
     fs::rename(&tmp, &path).map_err(|e| format!("rename secret file: {e}"))?;
     set_file_mode_600(&path).map_err(|e| format!("chmod 600 final: {e}"))?;
     Ok(())

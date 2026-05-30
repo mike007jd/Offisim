@@ -433,26 +433,22 @@ export async function materialize(
     // DB committed. Write the vault files now. If a write fails post-commit,
     // compensate by deleting the just-committed skill rows (and removing any
     // files already written) so we never leave a row pointing at a missing file.
-    const written: string[] = [];
     try {
       for (const pending of pendingVaultWrites) {
         await repos.vault?.writeFile(pending.vaultPath, pending.content);
-        written.push(pending.vaultPath);
       }
     } catch (err) {
-      for (const skillId of result.skillIds) {
-        try {
-          await repos.skills?.delete(skillId);
-        } catch {
-          // best-effort compensation
-        }
-      }
-      for (const vaultPath of written) {
-        try {
-          await repos.vault?.remove(vaultPath);
-        } catch {
-          // best-effort compensation
-        }
+      // Post-commit vault flush failed. Roll back the ENTIRE committed install
+      // (bindings → assets → employees → skills → vault files → package, in
+      // FK-safe order) rather than deleting only the skill rows — the latter
+      // left orphaned installed_package / installed_asset / binding rows behind
+      // a missing skill file. rollback() also removes any files already written
+      // (it clears every result.skillVaultPaths) and swallows per-entity errors.
+      const { rollback } = await import('./rollback.js');
+      try {
+        await rollback(result, repos);
+      } catch {
+        // best-effort compensation
       }
       throw err;
     }

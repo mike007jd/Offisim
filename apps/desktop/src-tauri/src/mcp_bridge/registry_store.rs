@@ -299,8 +299,9 @@ fn command_fingerprint(
     source_package_version: Option<&str>,
     source_manifest_hash: Option<&str>,
 ) -> String {
-    let canonical_command = std::fs::canonicalize(command)
-        .ok()
+    let canonical_path = std::fs::canonicalize(command).ok();
+    let canonical_command = canonical_path
+        .as_ref()
         .map(|path| path.to_string_lossy().to_string())
         .unwrap_or_else(|| command.to_string());
     let mut hasher = Sha256::new();
@@ -317,6 +318,24 @@ fn command_fingerprint(
     hasher.update(source_package_version.unwrap_or_default().as_bytes());
     hasher.update(b"\0");
     hasher.update(source_manifest_hash.unwrap_or_default().as_bytes());
+    // For user-config / developer-runtime, also bind the target binary's
+    // identity (size + mtime) so a post-approval binary swap at the same path
+    // invalidates the fingerprint. installed-asset is already content-pinned by
+    // source_manifest_hash. A bare PATH-resolved command name has no canonical
+    // path to stat, so the path/args/source binding remains the floor there.
+    if matches!(source, "user-config" | "developer-runtime") {
+        if let Some(path) = canonical_path.as_ref() {
+            if let Ok(meta) = std::fs::metadata(path) {
+                hasher.update(b"\0bin\0");
+                hasher.update(meta.len().to_le_bytes());
+                if let Ok(modified) = meta.modified() {
+                    if let Ok(dur) = modified.duration_since(std::time::UNIX_EPOCH) {
+                        hasher.update(dur.as_nanos().to_le_bytes());
+                    }
+                }
+            }
+        }
+    }
     hex::encode(hasher.finalize())
 }
 

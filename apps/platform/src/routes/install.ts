@@ -172,6 +172,17 @@ installRoute.get('/artifacts/:versionId', async (c) => {
       404,
     );
   }
+  // Integrity gate: getRegistryArtifact recomputes the sha256 of the on-disk
+  // bytes — now actually compared to the version's recorded digest. If a
+  // persisted artifact has been corrupted or swapped, refuse to serve it
+  // instead of paying the hash cost and ignoring the result. (Seeded artifacts
+  // are built in-memory from trusted source at boot and carry no sha256.)
+  if ('sha256' in artifact && version.artifact_sha256 && artifact.sha256 !== version.artifact_sha256) {
+    return c.json(
+      { error: { code: 'ARTIFACT_INTEGRITY', message: 'Stored artifact failed integrity check' } },
+      502,
+    );
+  }
   // Cast to Uint8Array<ArrayBuffer> — WHATWG Response accepts Uint8Array at
   // runtime; the DOM typings in Node's lib.d.ts don't expose BodyInit.
   const body = artifact.bytes as unknown as ReadableStream | ArrayBuffer;
