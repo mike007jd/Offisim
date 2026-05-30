@@ -5,7 +5,11 @@ import type { LlmMessage, LlmResponse, LlmToolChoice, ToolDef } from '../llm/gat
 import { forwardStreamChunks, recordedLlmCall, recordedLlmStream } from '../llm/recorded-call.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { generateId } from '../utils/generate-id.js';
-import { SKILL_INSTALL_TOOL_NAMES } from './skill-install-tools.js';
+import {
+  SKILL_INSTALL_TOOL_DEFS,
+  SKILL_INSTALL_TOOL_NAMES,
+  type SkillInstallToolName,
+} from './skill-install-tools.js';
 
 function emitSyntheticLlmCallPair(args: {
   runtimeCtx: RuntimeContext;
@@ -71,6 +75,17 @@ async function observeRollingJournal(
   }
 }
 
+/**
+ * Anchored trigger: the tool name must appear as a distinct token (delimited by
+ * non-identifier characters) rather than as an incidental substring inside other
+ * prose. Without this, free-form user text that merely mentions a tool name in
+ * passing would silently force a skill-install tool call.
+ */
+function mentionsSkillTool(userText: string, toolName: SkillInstallToolName): boolean {
+  const pattern = new RegExp(`(?:^|[^A-Za-z0-9_])${toolName}(?:[^A-Za-z0-9_]|$)`, 'u');
+  return pattern.test(userText);
+}
+
 function resolveForcedSkillToolChoice(messages: readonly LlmMessage[]): LlmToolChoice | undefined {
   let lastUserIndex = -1;
   for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -89,7 +104,7 @@ function resolveForcedSkillToolChoice(messages: readonly LlmMessage[]): LlmToolC
   if (!userText) return undefined;
 
   const requestedToolName = SKILL_INSTALL_TOOL_NAMES.find((toolName) =>
-    userText.includes(toolName),
+    mentionsSkillTool(userText, toolName),
   );
 
   return requestedToolName ? { type: 'tool', name: requestedToolName } : undefined;
@@ -144,6 +159,29 @@ function parseExplicitSkillToolArgs(userText: string): Record<string, unknown> |
   return Object.keys(kvArgs).length > 0 ? kvArgs : null;
 }
 
+function requiredParamsForSkillTool(toolName: string): readonly string[] {
+  const def = SKILL_INSTALL_TOOL_DEFS.find((tool) => tool.name === toolName);
+  const required = def?.parameters?.required;
+  return Array.isArray(required)
+    ? required.filter((key): key is string => typeof key === 'string')
+    : [];
+}
+
+/**
+ * Only treat scraped free-text args as a confident tool invocation when every
+ * required parameter from the tool schema is present as a non-empty string.
+ * Tools whose body lives in an attachment / large field (e.g. skillBody) cannot
+ * be reconstructed from a one-line mention, so they never coerce.
+ */
+function scrapedArgsSatisfySchema(toolName: string, args: Record<string, unknown>): boolean {
+  const required = requiredParamsForSkillTool(toolName);
+  if (required.length === 0) return false;
+  return required.every((key) => {
+    const value = args[key];
+    return typeof value === 'string' && value.trim().length > 0;
+  });
+}
+
 function coerceExplicitSkillToolCall(
   messages: readonly LlmMessage[],
   response: LlmResponse,
@@ -154,12 +192,18 @@ function coerceExplicitSkillToolCall(
 
   const userText = lastUserText(messages);
   const args = parseExplicitSkillToolArgs(userText);
-  if (!args) return response;
+  if (!args || !scrapedArgsSatisfySchema(forcedChoice.name, args)) return response;
 
+  // The gateway native toolChoice (passed in the request) is the primary forcing
+  // mechanism; this fallback only fires when the provider ignored it and returned
+  // no matching tool call. Preserve any model content rather than blanking it, so
+  // the assistant turn keeps its reasoning/prose alongside the synthesized call.
   return {
     ...response,
-    content: '',
-    toolCalls: [{ id: generateId('forced-tool'), name: forcedChoice.name, arguments: args }],
+    toolCalls: [
+      ...response.toolCalls,
+      { id: generateId('forced-tool'), name: forcedChoice.name, arguments: args },
+    ],
   };
 }
 
@@ -188,7 +232,7 @@ export function buildTurnRunner(deps: TurnRunnerDeps): TurnRunner {
     const forcedSkillToolChoice = resolveForcedSkillToolChoice(messages);
     if (forcedSkillToolChoice && typeof forcedSkillToolChoice !== 'string') {
       const args = parseExplicitSkillToolArgs(lastUserText(messages));
-      if (args) {
+      if (args && scrapedArgsSatisfySchema(forcedSkillToolChoice.name, args)) {
         const response: LlmResponse = {
           content: '',
           toolCalls: [

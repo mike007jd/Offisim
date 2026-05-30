@@ -167,6 +167,21 @@ function emptySingleEmployeeSummaryText(
 }
 
 /**
+ * Set a thread's status unless it has been cancelled. Centralizes the
+ * findById + status-guard + updateStatus pattern so the summary branches do
+ * not each re-fetch the row or risk overwriting a cancellation.
+ */
+async function setThreadStatusUnlessCancelled(
+  runtimeCtx: NonNullable<ReturnType<typeof getRuntime>>,
+  threadId: string,
+  next: string,
+): Promise<void> {
+  const thread = await runtimeCtx.repos.threads.findById(threadId);
+  if (thread?.status === 'cancelled') return;
+  await runtimeCtx.repos.threads.updateStatus(threadId, next);
+}
+
+/**
  * Boss summary node — produces the final summary after employee work
  * or after an error handler. Marks the graph as completed.
  *
@@ -269,10 +284,7 @@ export async function bossSummaryNode(
   if (state.taskPlan && stats.blocked > 0) {
     const content = blockedPlanSummaryText(stats);
     if (runtimeCtx) {
-      const thread = await runtimeCtx.repos.threads.findById(state.threadId);
-      if (thread?.status !== 'cancelled') {
-        await runtimeCtx.repos.threads.updateStatus(state.threadId, 'blocked');
-      }
+      await setThreadStatusUnlessCancelled(runtimeCtx, state.threadId, 'blocked');
       await appendAgentEvent(runtimeCtx, {
         projectId: state.projectId,
         threadId: state.threadId,
@@ -297,10 +309,7 @@ export async function bossSummaryNode(
   if (state.taskPlan && stats.total > 0 && !stats.allTerminal && employeeResults.length > 0) {
     const content = pendingPlanSummaryText(stats);
     if (runtimeCtx) {
-      const thread = await runtimeCtx.repos.threads.findById(state.threadId);
-      if (thread?.status !== 'cancelled') {
-        await runtimeCtx.repos.threads.updateStatus(state.threadId, 'running');
-      }
+      await setThreadStatusUnlessCancelled(runtimeCtx, state.threadId, 'running');
       await appendAgentEvent(runtimeCtx, {
         projectId: state.projectId,
         threadId: state.threadId,
@@ -342,10 +351,7 @@ export async function bossSummaryNode(
           ? `Plan reached a terminal state with ${stats.completed} completed step(s) and ${stats.blocked} blocked step(s). Human review is required before this can be treated as complete.`
           : `Plan completed ${stats.completed}/${stats.total} step(s), but no employee output was captured for summary.`;
       if (runtimeCtx && stats.blocked === 0) {
-        const thread = await runtimeCtx.repos.threads.findById(state.threadId);
-        if (thread?.status !== 'cancelled') {
-          await runtimeCtx.repos.threads.updateStatus(state.threadId, 'completed');
-        }
+        await setThreadStatusUnlessCancelled(runtimeCtx, state.threadId, 'completed');
       }
       return {
         completed: stats.blocked === 0,
@@ -452,15 +458,21 @@ export async function bossSummaryNode(
       await runtimeCtx.repos.threads.updateStatus(state.threadId, 'completed');
     }
     if (runtimeCtx) emitDirectChatCompletedIfNeeded(state, runtimeCtx);
+    // Best-effort bookkeeping: a logging-table failure must not turn an already
+    // delivered summary + completed thread into a failed run.
     if (runtimeCtx) {
-      await appendAgentEvent(runtimeCtx, {
-        projectId: state.projectId,
-        threadId: state.threadId,
-        agentName: 'boss',
-        eventType: 'action',
-        payload: { action: 'summary', employeeResultCount: 1, outputLength: content.length },
-      });
-      autoTitleThread(runtimeCtx, state);
+      try {
+        await appendAgentEvent(runtimeCtx, {
+          projectId: state.projectId,
+          threadId: state.threadId,
+          agentName: 'boss',
+          eventType: 'action',
+          payload: { action: 'summary', employeeResultCount: 1, outputLength: content.length },
+        });
+        autoTitleThread(runtimeCtx, state);
+      } catch (err) {
+        console.warn('[boss-summary-node] post-summary bookkeeping failed', err);
+      }
     }
     return {
       completed: true,
@@ -503,18 +515,24 @@ export async function bossSummaryNode(
   await runtimeCtx.repos.threads.updateStatus(state.threadId, 'completed');
   emitDirectChatCompletedIfNeeded(state, runtimeCtx);
 
-  await appendAgentEvent(runtimeCtx, {
-    projectId: state.projectId,
-    threadId: state.threadId,
-    agentName: 'boss',
-    eventType: 'action',
-    payload: {
-      action: 'summary',
-      employeeResultCount: employeeResults.length,
-      outputLength: finalContent.length,
-    },
-  });
-  autoTitleThread(runtimeCtx, state);
+  // Best-effort bookkeeping: a logging-table failure must not turn an already
+  // delivered summary + completed thread into a failed run.
+  try {
+    await appendAgentEvent(runtimeCtx, {
+      projectId: state.projectId,
+      threadId: state.threadId,
+      agentName: 'boss',
+      eventType: 'action',
+      payload: {
+        action: 'summary',
+        employeeResultCount: employeeResults.length,
+        outputLength: finalContent.length,
+      },
+    });
+    autoTitleThread(runtimeCtx, state);
+  } catch (err) {
+    console.warn('[boss-summary-node] post-summary bookkeeping failed', err);
+  }
 
   return {
     completed: true,

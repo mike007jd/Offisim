@@ -2,7 +2,7 @@ import type { RunnableConfig } from '@langchain/core/runnables';
 import type { OffisimGraphState } from '../graph/state.js';
 import { getConfigSignal } from '../utils/get-signal.js';
 import type { LlmPlan } from './pm-planner-types.js';
-import { buildLlmPlanFallback, parsePmPlan } from './pm-planner/plan-parser.js';
+import { buildLlmPlanFallback, parsePmPlan, taskTypeForRole } from './pm-planner/plan-parser.js';
 import { persistLlmPlanAsTaskPlan } from './pm-planner/plan-persistence.js';
 import { awaitPlanReview } from './pm-planner/plan-review-gate.js';
 import { runPmPreflight } from './pm-planner/preflight.js';
@@ -34,14 +34,6 @@ function shouldRequireRecommendedEmployeeCoverage(
     new RegExp(`\\b${recommendedCount}\\s*(employees|people|members)\\b`, 'i').test(intent) ||
     new RegExp(`${recommendedCount}\\s*(个|位)?\\s*(员工|成员|人)`, 'u').test(intent)
   );
-}
-
-function taskTypeForRole(roleSlug: string): string {
-  if (roleSlug.includes('design')) return 'design';
-  if (roleSlug.includes('review') || roleSlug.includes('qa')) return 'review';
-  if (roleSlug.includes('manager')) return 'analysis';
-  if (roleSlug.includes('engineer') || roleSlug.includes('developer')) return 'code';
-  return 'general';
 }
 
 function ensureRecommendedEmployeesCovered(

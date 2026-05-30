@@ -6,8 +6,15 @@ export type { LlmPlanStep };
 
 const ARTIFACT_WORKFLOW_RE =
   /\b(pdf|ppt|pptx|html|infographic|copy|organize|directory|folder|codebase)\b|代码库|源码|项目|分析报告|复制|拷贝|整理|目录|文件夹|输出|生成|保存/u;
+// Each relative path segment is matched with a leading separator (`/`) so the
+// repeated group cannot overlap-backtrack with the trailing segment — this avoids
+// the nested `(?:[chars]+\/)+[chars]+` quantifier (a ReDoS surface) of the earlier
+// form while matching the same set of paths.
 const PATH_CANDIDATE_RE =
-  /(?:^|[\s("'`])((?:\/[^\s"'`]+|(?:\.{1,2}\/)?(?:[A-Za-z0-9._-]+\/)+[A-Za-z0-9._-]+(?:\.[A-Za-z0-9._-]+)?))(?=$|[\s)"'`,.;:，。；：、])/gu;
+  /(?:^|[\s("'`])((?:\/[^\s"'`]+|(?:\.{1,2}\/)?[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)+(?:\.[A-Za-z0-9._-]+)?))(?=$|[\s)"'`,.;:，。；：、])/gu;
+// Cap the slice scanned for path candidates so unbounded user intent cannot turn
+// the regex scan into a denial-of-service vector.
+const PATH_SCAN_MAX_CHARS = 20_000;
 
 const DEFAULT_ARTIFACT_TARGETS = {
   sourceCopy: 'deliverables/01_source_copy/source_project',
@@ -29,7 +36,7 @@ function findEmployee(
   return found;
 }
 
-function taskTypeForRole(roleSlug: string): string {
+export function taskTypeForRole(roleSlug: string): string {
   if (roleSlug.includes('design')) return 'design';
   if (roleSlug.includes('frontend') || roleSlug.includes('fullstack')) return 'code';
   if (
@@ -59,7 +66,9 @@ function stripTrailingPathPunctuation(path: string): string {
 
 function extractIntentPaths(intent: string): string[] {
   const targets = new Set<string>();
-  for (const match of intent.matchAll(PATH_CANDIDATE_RE)) {
+  const scanned =
+    intent.length > PATH_SCAN_MAX_CHARS ? intent.slice(0, PATH_SCAN_MAX_CHARS) : intent;
+  for (const match of scanned.matchAll(PATH_CANDIDATE_RE)) {
     const candidate = stripTrailingPathPunctuation(match[1]?.trim() ?? '');
     if (!candidate || candidate.includes('://')) continue;
     targets.add(candidate);

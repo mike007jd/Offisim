@@ -27,6 +27,8 @@ function classifyReplanReason(
   return 'no-recommendation-fallback';
 }
 
+const PM_REPLAN_TIMEOUT_MS = 45_000;
+
 const PM_REPLAN_PROMPT = `You are the PM AI. The current plan has been partially executed, but a problem was reported.
 
 Original plan:
@@ -57,7 +59,9 @@ Respond with JSON only:
         {
           "taskType": "general",
           "employeeId": "<id>",
-          "description": "specific instruction"
+          "description": "specific instruction",
+          "dependsOnStepOutput": false,
+          "requiredSkills": ["optional relevant skill keyword"]
         }
       ]
     }
@@ -75,6 +79,8 @@ interface ReplanResult {
       taskType: string;
       employeeId: string;
       description: string;
+      dependsOnStepOutput?: boolean;
+      requiredSkills?: string[];
     }>;
   }>;
 }
@@ -101,7 +107,16 @@ function parseReplanResult(content: string): ReplanResult | null {
         typeof t.employeeId === 'string' &&
         typeof t.description === 'string'
       ) {
-        tasks.push({ taskType: t.taskType, employeeId: t.employeeId, description: t.description });
+        tasks.push({
+          taskType: t.taskType,
+          employeeId: t.employeeId,
+          description: t.description,
+          dependsOnStepOutput:
+            typeof t.dependsOnStepOutput === 'boolean' ? t.dependsOnStepOutput : undefined,
+          requiredSkills: Array.isArray(t.requiredSkills)
+            ? t.requiredSkills.filter((skill): skill is string => typeof skill === 'string')
+            : undefined,
+        });
       }
     }
     if (tasks.length > 0) {
@@ -189,8 +204,9 @@ export async function pmReplanNode(
       ],
       model: resolved.model,
       temperature: resolved.temperature,
-      maxTokens: resolved.maxTokens,
+      maxTokens: Math.min(resolved.maxTokens, 2048),
       signal: getConfigSignal(config),
+      timeoutMs: PM_REPLAN_TIMEOUT_MS,
     },
     {
       nodeName: 'pm_replan',
@@ -277,7 +293,11 @@ export async function pmReplanNode(
         taskType: t.taskType,
         employeeId: resolvedEmployeeId,
         description: t.description,
-        dependsOnStepOutput: newIndex > 0,
+        // Honor the LLM's explicit dependsOnStepOutput; default to "depends on
+        // the previous step" for any step past the first, matching the prior
+        // replan behavior when the field is absent.
+        dependsOnStepOutput: t.dependsOnStepOutput ?? newIndex > 0,
+        requiredSkills: t.requiredSkills,
         taskRunId,
       });
     }

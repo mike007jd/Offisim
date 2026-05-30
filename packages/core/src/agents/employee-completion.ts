@@ -445,7 +445,12 @@ export function extractUsedCitations(
   const re = /\[(\d+)]/g;
   let m = re.exec(responseText);
   while (m !== null) {
-    usedIndices.add(Number(m[1]));
+    const n = Number(m[1]);
+    // Citation indices are 1-based; only keep bracketed numbers that map to a
+    // real injected citation so stray markers like [0] / [99] are ignored.
+    if (n >= 1 && citationMap.some((c) => c.index === n)) {
+      usedIndices.add(n);
+    }
     m = re.exec(responseText);
   }
   return citationMap

@@ -96,12 +96,16 @@ export async function handleMemoryTool(
   switch (toolName) {
     case 'remember': {
       const content = String(args.content ?? '');
-      const category = String(args.category ?? 'experience') as
-        | 'experience'
-        | 'decision'
-        | 'knowledge'
-        | 'preference';
-      const scope = String(args.scope ?? 'employee') as 'employee' | 'team' | 'company';
+      // Guard category/scope against the advertised tool enums; unknown values
+      // (including the reserved 'company' scope) fall back to the safe default.
+      const rawCategory = String(args.category ?? 'experience');
+      const category: 'experience' | 'decision' | 'knowledge' | 'preference' =
+        rawCategory === 'decision' ||
+        rawCategory === 'knowledge' ||
+        rawCategory === 'preference'
+          ? rawCategory
+          : 'experience';
+      const scope: 'employee' | 'team' = args.scope === 'team' ? 'team' : 'employee';
       const importance = Math.max(0, Math.min(1, Number(args.importance ?? 0.5)));
 
       const memoryId = await memoryService.createMemory({
@@ -123,8 +127,9 @@ export async function handleMemoryTool(
 
       if (memories.length === 0) return 'No relevant memories found.';
 
-      // Touch access for each recalled memory (parallel — independent operations)
-      await Promise.all(
+      // Touch access for each recalled memory (parallel — independent operations).
+      // allSettled so a single failed touch does not discard the recalled memories.
+      await Promise.allSettled(
         memories.map(async (mem) => {
           await repos.memories.touchAccess(mem.memory_id);
           eventBus.emit(memoryAccessed(companyId, mem.memory_id, employeeId, query, threadId));

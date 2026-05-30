@@ -21,6 +21,7 @@ import {
   isResolverError,
 } from '../skills/skill-source-resolvers/types.js';
 import { resolveUploadSource } from '../skills/skill-source-resolvers/upload.js';
+import { skillSlug } from '../skills/skill-slug.js';
 import { byteLength } from '../utils/byte-length.js';
 
 import type { SkillInstallStructuredError } from './skill-install/errors.js';
@@ -195,7 +196,7 @@ function buildSkillInstallConfirmCopy(args: {
     case 'fork':
       return {
         title: `Fork skill "${args.skillName}"?`,
-        prompt: `Confirm fork of "${args.parent?.name ?? args.skillName}@${args.parent?.version ?? ''} into ${args.targetLabel}.`,
+        prompt: `Confirm fork of "${args.parent?.name ?? args.skillName}@${args.parent?.version ?? ''}" into ${args.targetLabel}.`,
         confirmLabel: 'Fork',
       };
     case 'install':
@@ -329,7 +330,13 @@ async function stageAndEmit(args: {
       resolvedEmployeeName: args.employeeName,
       assetPaths: scan.assetPaths,
       skillMdBody: parsed.body,
-      ...(isCreateAction ? { skillMdText, slug: parsed.name, modelKey: args.modelKey } : {}),
+      // Compute the preview slug the same way the committer does
+      // (`skillSlug` over the parsed name) so the previewed slug matches the
+      // slug eventually persisted. The id arg only feeds the non-ASCII
+      // fallback, so passing the name keeps ASCII names byte-identical.
+      ...(isCreateAction
+        ? { skillMdText, slug: skillSlug(parsed.name, parsed.name), modelKey: args.modelKey }
+        : {}),
       action: stagedAction,
       ...(args.parent !== undefined ? { parent: args.parent } : {}),
     },
@@ -421,9 +428,12 @@ async function stageEditAndEmit(args: {
       skillName: args.skillName,
       skillDescription: args.skillDescription,
       allowedTools: args.allowedTools,
-      // Existing skill — the row has its own source; fork/install rail keeps
-      // the union coherent. `edit` doesn't ship a skillMdBody (body lives in
-      // staging) so the UI defers to `bodyDiff`.
+      // `action: 'edit'` is the truthful discriminator consumers MUST branch on
+      // for this path. `SkillInstallSourceKind` carries no `'edit'` member, so
+      // `sourceKind` here is a non-provenance placeholder, NOT a claim that the
+      // row was forked — the edited skill keeps its own DB `source_kind`.
+      // `edit` ships no skillMdBody (body lives in staging) so the UI defers to
+      // `bodyDiff`.
       sourceKind: 'fork' as SkillInstallSourceKind,
       sourceRef: args.sourceRefLabel,
       resolvedScope: 'employee',
@@ -463,7 +473,10 @@ async function emitSelfAuthoringFrontmatterError(args: {
   employeeName: string | null;
   modelKey: string;
   error: SkillFrontmatterError;
-}): Promise<{ kind: string; message: string; reason: string; interactionId?: string }> {
+  // Uniform model-facing error shape. The UI already holds the emitted
+  // interaction (it was just `request()`-ed), so the interaction id is not
+  // surfaced in the JSON the LLM reasons over.
+}): Promise<{ kind: string; reason: string; message: string }> {
   const interactionService = args.ctx.interactionService;
   if (!interactionService) {
     return {
@@ -512,12 +525,14 @@ async function emitSelfAuthoringFrontmatterError(args: {
     kind: 'skill-frontmatter-error',
     reason: args.error.reason,
     message: args.error.detail,
-    interactionId: request.interactionId,
   };
 }
 
 function isWideScopePattern(pattern: string): boolean {
-  return /^(bash|network|fs|exec)(:|\*)/iu.test(pattern);
+  // Flag the most-permissive forms whether or not a scope suffix follows:
+  // bare `bash` / `Bash`, scoped `bash:*`, glob `bash*`, and Anthropic-style
+  // `Bash(...)`. Case-folded so capitalized tool names are not missed.
+  return /^(bash|network|fs|exec)(\b|[:*(])/iu.test(pattern.trim());
 }
 
 function describeSource(source: SkillInstallSource): string {
@@ -705,6 +720,12 @@ async function handleSkillInstallToolInner(
     }
 
     case 'sync_from_claude_code': {
+      // Home and project-local `.claude/skills` roots can produce candidates
+      // with identical slugs. `path` is the stable disambiguating selector:
+      // `filterSyncCandidates` matches against it, so a caller can include a
+      // path fragment (e.g. `.claude` for home vs the repo dir name for
+      // project-local) in `filter` to narrow a slug collision down to a single
+      // candidate before this stages it directly.
       const filter = typeof rawArgs.filter === 'string' ? rawArgs.filter.trim() || null : null;
       const result = await resolveClaudeCodeSync({
         runtime: env.runtime,

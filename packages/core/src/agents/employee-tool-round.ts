@@ -230,10 +230,14 @@ export async function runToolRound(ctx: ToolRoundContext): Promise<ToolRoundOutc
   }
 
   // Trim — keep system message (first) + the last MAX_CONTEXT_MESSAGES messages.
+  // The cut boundary must not split an assistant tool_use from its tool results:
+  // a `tool` message left at the front of the window has no preceding tool_use
+  // and providers reject the orphan. Advance the cut past any leading `tool`
+  // messages so the window starts on a self-contained turn.
   const [firstMessage] = nextHistory;
   const trimmedHistory =
     nextHistory.length > MAX_CONTEXT_MESSAGES + 1 && firstMessage
-      ? [firstMessage, ...nextHistory.slice(-MAX_CONTEXT_MESSAGES)]
+      ? [firstMessage, ...dropLeadingOrphanToolMessages(nextHistory.slice(-MAX_CONTEXT_MESSAGES))]
       : nextHistory;
 
   return {
@@ -247,6 +251,18 @@ const CONCURRENCY_SAFE_TOOL_NAMES = new Set<string>(['read_file', 'web_search', 
 
 function isConcurrencySafeToolCall(toolCall: ToolCallResult): boolean {
   return CONCURRENCY_SAFE_TOOL_NAMES.has(toolCall.name);
+}
+
+/**
+ * Drop `tool` messages at the front of a trimmed window whose owning assistant
+ * `tool_use` message was cut off. Without their preceding tool_use these are
+ * orphans that providers reject; advancing the cut to the first non-`tool`
+ * message keeps the window self-contained.
+ */
+function dropLeadingOrphanToolMessages(window: LlmMessage[]): LlmMessage[] {
+  let start = 0;
+  while (start < window.length && window[start]?.role === 'tool') start += 1;
+  return start === 0 ? window : window.slice(start);
 }
 
 const textEncoder = new TextEncoder();

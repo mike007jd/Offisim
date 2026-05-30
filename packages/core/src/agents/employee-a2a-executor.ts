@@ -36,22 +36,66 @@ function decodeBase64Text(data: string): string {
   return data;
 }
 
+/**
+ * A media type is decodable as UTF-8 text when it is absent or text-like
+ * (`text/*`, or the common structured-text suffixes/types). Binary media types
+ * (images, PDFs, archives, etc.) must keep their base64 bytes intact rather than
+ * being force-decoded into mojibake.
+ */
+function isTextMediaType(mediaType: string | null): boolean {
+  if (!mediaType) return true;
+  const normalized = mediaType.split(';')[0]?.trim().toLowerCase() ?? '';
+  return (
+    normalized.startsWith('text/') ||
+    normalized.endsWith('+json') ||
+    normalized.endsWith('+xml') ||
+    normalized === 'application/json' ||
+    normalized === 'application/xml' ||
+    normalized === 'application/yaml' ||
+    normalized === 'application/x-yaml'
+  );
+}
+
 interface A2AOutput {
   readonly content: string;
   readonly fileName: string | null;
   readonly mimeType: string | null;
   readonly artifactBacked: boolean;
+  /**
+   * `'base64'` when `content` holds the verbatim base64 payload of a binary
+   * artifact (preserving real bytes); `'utf8'` when it holds decoded text.
+   */
+  readonly encoding: 'utf8' | 'base64';
 }
 
 function extractOutput(task: A2ATask): A2AOutput {
   const parts = task.artifacts?.flatMap((artifact) => artifact.parts) ?? [];
   for (const part of parts) {
     if (part.raw) {
+      const mediaType = part.mediaType ?? null;
+      if (isTextMediaType(mediaType)) {
+        let decoded: string;
+        try {
+          decoded = decodeBase64Text(part.raw);
+        } catch {
+          // Malformed base64 must degrade gracefully — the remote task already
+          // succeeded, so fall back to the raw payload instead of throwing.
+          decoded = part.raw;
+        }
+        return {
+          content: decoded,
+          fileName: part.filename ?? null,
+          mimeType: mediaType,
+          artifactBacked: true,
+          encoding: 'utf8',
+        };
+      }
       return {
-        content: decodeBase64Text(part.raw),
+        content: part.raw,
         fileName: part.filename ?? null,
-        mimeType: part.mediaType ?? null,
+        mimeType: mediaType,
         artifactBacked: true,
+        encoding: 'base64',
       };
     }
     if (part.text?.trim()) {
@@ -60,6 +104,7 @@ function extractOutput(task: A2ATask): A2AOutput {
         fileName: part.filename ?? null,
         mimeType: part.mediaType ?? 'text/plain',
         artifactBacked: true,
+        encoding: 'utf8',
       };
     }
   }
@@ -73,6 +118,7 @@ function extractOutput(task: A2ATask): A2AOutput {
     fileName: null,
     mimeType: messageText ? 'text/plain' : null,
     artifactBacked: false,
+    encoding: 'utf8',
   };
 }
 

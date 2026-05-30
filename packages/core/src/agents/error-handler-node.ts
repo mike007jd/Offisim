@@ -133,15 +133,21 @@ export async function errorHandlerNode(
               },
             });
 
-            // For now, record the knowledge and escalate.
-            // Future: implement retry_with_backoff, switch_model, etc.
-            // The knowledge base will learn and improve over time.
+            // Record the knowledge and escalate. No recovery strategy is
+            // routed back into the graph from this terminal position yet
+            // (retry_with_backoff, switch_model, etc. are future work), so
+            // success=true is structurally unreachable here: every outcome is
+            // recorded as a failure. This means the recovery knowledge base's
+            // confidence numbers (and the >=0.3 selection gate that consumes
+            // them) are only ever decremented by this caller — do not read the
+            // recorded confidence as evidence a fix worked until a strategy is
+            // actually applied and its real outcome reported.
             await recordRecoveryOutcome(
               runtimeCtx,
               structured.errorCode,
               recovery.cause,
               recovery.strategy,
-              false, // We can't actually retry in this graph position — mark as failed for now
+              false, // structurally unreachable success — see comment above
               recovery.knowledgeId,
             );
           }

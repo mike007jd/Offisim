@@ -83,22 +83,20 @@ function shouldDelegateWholeTeam(userContent: string, employeeCount: number): bo
   );
 }
 
+// Whole-team fan-out is an employee-id list only: downstream consumers read
+// nothing but `assignments[].employeeId` (the manager no longer creates taskRuns
+// here — the PM planner owns per-step taskType/description splitting). taskType
+// and description are therefore left neutral rather than asserting a fake per-role
+// split or duplicating the verbatim user message into every step.
 function buildWholeTeamDecision(
   employees: readonly { employee_id: string; role_slug: string }[],
-  userContent: string,
 ): ManagerDecision {
   return {
     intent: 'work',
     assignments: employees.map((employee) => ({
-      taskType: employee.role_slug.includes('design')
-        ? 'design'
-        : employee.role_slug.includes('review') || employee.role_slug.includes('qa')
-          ? 'review'
-          : employee.role_slug.includes('manager')
-            ? 'analysis'
-            : 'general',
+      taskType: 'general',
       employeeId: employee.employee_id,
-      description: userContent,
+      description: '',
     })),
   };
 }
@@ -180,14 +178,16 @@ export async function managerNode(
   const nonManagerEmployees = employees.filter(
     (e) =>
       !GRAPH_ONLY_ROLES.has(e.role_slug) &&
-      e.enabled &&
+      // enabled is a number column; use === 1 to match boss/pm/preflight roster
+      // filters so NULL/legacy values can never produce path-dependent divergence.
+      e.enabled === 1 &&
       (!localToolRequired || isLocalToolAssignableEmployee(e)),
   );
 
   const employeeList = buildEnrichedEmployeeList(nonManagerEmployees);
   const attachmentPreface = buildAttachmentSystemPreface(runtimeCtx, runScope);
   const wholeTeamDecision = shouldDelegateWholeTeam(userContent, nonManagerEmployees.length)
-    ? buildWholeTeamDecision(nonManagerEmployees, userContent)
+    ? buildWholeTeamDecision(nonManagerEmployees)
     : null;
 
   // --- Rule-based fast path: single employee, simple delegation ---
@@ -306,7 +306,7 @@ export async function managerNode(
     nonManagerEmployees.length > 0
   ) {
     fallbackTriggered = true;
-    decision = buildWholeTeamDecision(nonManagerEmployees, userContent);
+    decision = buildWholeTeamDecision(nonManagerEmployees);
   }
 
   // Emit task.assignment.rerouted for every silently-overridden LLM pick.

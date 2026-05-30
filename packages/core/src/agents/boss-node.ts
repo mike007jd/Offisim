@@ -299,9 +299,24 @@ export async function bossNode(
   const interactionMode = interactionService?.getMode() ?? 'boss_proxy';
   const resolved = modelResolver.resolve(null, 'boss');
 
-  // Build messages for LLM — use last N human messages for multi-turn context
-  const recentHumanMessages = state.messages.filter((m) => m._getType() === 'human').slice(-3);
+  // Build messages for LLM — feed a role-tagged recent window (both human and
+  // assistant turns) so continuation/clarification context survives multi-turn
+  // routing instead of collapsing to human-only text.
+  const recentMessages = state.messages.slice(-6);
+  const routerContext = recentMessages
+    .map((m) => {
+      const role = m._getType() === 'human' ? 'user' : 'assistant';
+      const text = typeof m.content === 'string' ? m.content : '';
+      if (!text) return '';
+      return `${role}: ${text}`;
+    })
+    .filter(Boolean)
+    .join('\n---\n');
+  const routerContent = routerContext || 'No user message found';
 
+  // Keyword fallbacks and intent detection must stay anchored to the user's own
+  // turns, not the assistant's prior replies, so derive userContent separately.
+  const recentHumanMessages = state.messages.filter((m) => m._getType() === 'human').slice(-3);
   const userContent =
     recentHumanMessages.length > 0
       ? recentHumanMessages
@@ -369,7 +384,7 @@ export async function bossNode(
             rosterSection +
             attachmentPreface,
         },
-        { role: 'user', content: userContent },
+        { role: 'user', content: routerContent },
       ],
       model: resolved.model,
       temperature: resolved.temperature,

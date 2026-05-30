@@ -15,10 +15,11 @@ function formatPlanReviewPrompt(plan: LlmPlan): string {
   return `Review the plan before execution.\nSummary: ${plan.summary}\n${stepPreview}${extraSteps}`;
 }
 
-function buildPlanReviewReason(plan: LlmPlan, revisionNote: string | null): string {
-  if (revisionNote) {
-    return 'The updated plan reflects your requested changes and is ready to run.';
-  }
+function buildRevisedPlanReviewReason(): string {
+  return 'The updated plan reflects your requested changes and is ready to run.';
+}
+
+function buildInitialPlanReviewReason(plan: LlmPlan): string {
   return `The plan is structured into ${plan.steps.length} step${plan.steps.length === 1 ? '' : 's'} and looks ready to execute.`;
 }
 
@@ -50,7 +51,9 @@ export async function awaitPlanReview(plan: LlmPlan, prep: PmPreflightReady): Pr
       ],
       recommendation: {
         optionId: 'start_execution',
-        reason: buildPlanReviewReason(plan, planRevisionNote),
+        reason: planRevisionNote
+          ? buildRevisedPlanReviewReason()
+          : buildInitialPlanReviewReason(plan),
       },
       allowFreeformResponse: true,
       placeholder: 'Tell Offisim what to change in the plan',

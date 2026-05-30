@@ -618,6 +618,10 @@ export async function runEmployeeEngine(
         engineToolResults.push({
           toolName: completionEvidenceToolName(event, runtimeProfile),
           success: event.status !== 'error' && event.status !== 'denied',
+          // Intentional gap: the engine `tool_completed` event carries no result
+          // payload size, and the completion verifier only reads toolName/success/
+          // evidenceClass — never bytes as a threshold. We record a presence
+          // sentinel (1) rather than fabricate a byte count.
           bytes: 1,
           evidenceClass: event.evidenceClass ?? profileEvidenceClass(runtimeProfile),
           taskRunId: preflight.taskRunId ?? null,
@@ -648,6 +652,10 @@ export async function runEmployeeEngine(
           'employee',
           result.usage.inputTokens ?? 0,
           result.usage.outputTokens ?? 0,
+          // Intentional gap: EngineRunResult.usage only exposes input/output
+          // tokens. latencyMs and cache read/creation tokens are unavailable
+          // from the engine contract, so they fall back to the factory's 0
+          // defaults (cacheReadInputTokens / cacheCreationInputTokens) here.
           0,
         ),
       );

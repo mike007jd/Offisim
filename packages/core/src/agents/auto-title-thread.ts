@@ -11,8 +11,24 @@ const TITLE_MAX_LEN = 60;
 const FALLBACK_TITLE = 'New thread';
 const PER_MESSAGE_CHAR_CAP = 400;
 const PROMPT_TOTAL_CAP = 2400;
+const LOCKED_THREAD_CAP = 1024;
 
+// Threads whose title was set by the user; we never auto-rewrite these. Bounded
+// (FIFO-evicted) so a long-lived runtime cannot grow this set without limit — an
+// evicted id simply re-reads title_set_by_user from the DB and re-locks.
 const lockedThreadIds = new Set<string>();
+// Threads with an auto-title pass currently running, to coalesce concurrent
+// invocations of the same chatThreadId (claimed at entry, cleared in finally).
+const inFlightThreadIds = new Set<string>();
+
+function lockThread(chatThreadId: string): void {
+  lockedThreadIds.add(chatThreadId);
+  while (lockedThreadIds.size > LOCKED_THREAD_CAP) {
+    const oldest = lockedThreadIds.values().next().value;
+    if (oldest === undefined) break;
+    lockedThreadIds.delete(oldest);
+  }
+}
 
 function isHumanMessage(m: unknown): m is HumanMessage {
   return (
@@ -53,17 +69,20 @@ export function autoTitleThread(ctx: RuntimeContext, state: OffisimGraphState): 
   const chatThreadId = state.chatThreadId;
   if (!chatThreadId) return;
   if (lockedThreadIds.has(chatThreadId)) return;
+  if (inFlightThreadIds.has(chatThreadId)) return;
   if (!ctx.repos.chatThreads) return;
+  const chatThreads = ctx.repos.chatThreads;
 
   const userPrompt = firstUserPrompt(state);
   const fallback = clampTitle(userPrompt) || FALLBACK_TITLE;
 
+  inFlightThreadIds.add(chatThreadId);
   void (async () => {
     try {
-      const existing = await ctx.repos.chatThreads.findById(chatThreadId);
+      const existing = await chatThreads.findById(chatThreadId);
       if (!existing) return;
       if (existing.title_set_by_user === 1) {
-        lockedThreadIds.add(chatThreadId);
+        lockThread(chatThreadId);
         return;
       }
 
@@ -96,13 +115,15 @@ export function autoTitleThread(ctx: RuntimeContext, state: OffisimGraphState): 
         console.warn('[auto-title-thread] LLM summarizer failed; using fallback', err);
       }
 
-      await ctx.repos.chatThreads.updateTitle(chatThreadId, summary, { byUser: false });
+      await chatThreads.updateTitle(chatThreadId, summary, { byUser: false });
       const projectId = existing.project_id;
       ctx.eventBus.emit(
         chatThreadUpdated(ctx.companyId, { chatThreadId, projectId, reason: 'title' }),
       );
     } catch (err) {
       console.warn('[auto-title-thread] best-effort title rewrite failed', err);
+    } finally {
+      inFlightThreadIds.delete(chatThreadId);
     }
   })();
 }
