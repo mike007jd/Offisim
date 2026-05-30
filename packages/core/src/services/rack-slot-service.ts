@@ -1,5 +1,5 @@
 import type { EventBus } from '../events/event-bus.js';
-import { rackBound, rackUnbound, slotAssigned } from '../events/event-factories.js';
+import { rackBound, rackUnbound, slotAssigned, slotRemoved } from '../events/event-factories.js';
 import type { RackRepository, RackRow, SlotRepository, SlotRow } from '../runtime/repositories.js';
 
 export interface RackWithSlots extends RackRow {
@@ -7,10 +7,17 @@ export interface RackWithSlots extends RackRow {
 }
 
 export class RackSlotService {
+  /**
+   * @param transact Optional synchronous transaction wrapper (Drizzle/
+   *   better-sqlite3 runtime). When provided, multi-row writes (deleteRack)
+   *   run inside a single SQLite transaction and events are emitted only
+   *   after the transaction commits. Memory/test backends omit it.
+   */
   constructor(
     private readonly rackRepo: RackRepository,
     private readonly slotRepo: SlotRepository,
     private readonly eventBus: EventBus,
+    private readonly transact?: <T>(fn: () => T) => T,
   ) {}
 
   async createRack(companyId: string, label: string, providerType: string): Promise<string> {
@@ -61,8 +68,14 @@ export class RackSlotService {
     return slotId;
   }
 
-  async removeSlot(slotId: string): Promise<void> {
+  async removeSlot(rackId: string, slotId: string): Promise<void> {
+    const rack = await this.rackRepo.findById(rackId);
+    if (!rack) throw new Error(`Rack not found: ${rackId}`);
+    const slots = await this.slotRepo.findByRack(rackId);
+    const slot = slots.find((s) => s.slot_id === slotId);
+    if (!slot) throw new Error(`Slot not found: ${slotId}`);
     await this.slotRepo.delete(slotId);
+    this.eventBus.emit(slotRemoved(rack.company_id, slotId, rackId));
   }
 
   async getAvailableCapabilities(companyId: string): Promise<SlotRow[]> {
@@ -87,10 +100,31 @@ export class RackSlotService {
   }
 
   async deleteRack(rackId: string): Promise<void> {
+    const rack = await this.rackRepo.findById(rackId);
+    if (!rack) throw new Error(`Rack not found: ${rackId}`);
+    // Pre-fetch slots outside the transaction so the sync transact callback
+    // only contains writes (no awaits / no microtask suspension).
     const slots = await this.slotRepo.findByRack(rackId);
-    for (const slot of slots) {
-      await this.slotRepo.delete(slot.slot_id);
+
+    if (this.transact) {
+      // ── Drizzle path: slot + rack deletions in one transaction ──────────
+      // Collect events and emit them only after the transaction commits.
+      this.transact(() => {
+        for (const slot of slots) {
+          void this.slotRepo.delete(slot.slot_id);
+        }
+        void this.rackRepo.delete(rackId);
+      });
+    } else {
+      // ── Async/memory-repos path ─────────────────────────────────────────
+      for (const slot of slots) {
+        await this.slotRepo.delete(slot.slot_id);
+      }
+      await this.rackRepo.delete(rackId);
     }
-    await this.rackRepo.delete(rackId);
+
+    for (const slot of slots) {
+      this.eventBus.emit(slotRemoved(rack.company_id, slot.slot_id, rackId));
+    }
   }
 }

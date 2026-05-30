@@ -418,6 +418,17 @@ export async function materialize(
   const { provenance, transact, asyncTransact } = options;
   const hasSkillAssets = manifest.assets.some((asset) => asset.kind === 'skill');
 
+  // Skill materialization writes SKILL.md files to the vault outside the DB
+  // transaction; staying atomic requires the post-commit vault flush in the
+  // asyncTransact branch below. A sync-only `transact` backend can wrap the DB
+  // rows but cannot defer + flush vault writes, so a skill package handed only
+  // `transact` would silently fall through to the non-transactional memory path
+  // and break the documented "skill materialization is transactional" invariant.
+  // Enforce the invariant instead of assuming it.
+  if (hasSkillAssets && transact && !asyncTransact) {
+    throw new Error('skill materialization requires an asyncTransact-capable backend');
+  }
+
   if (asyncTransact && hasSkillAssets) {
     // Collect skill vault writes during the transaction, then flush them only
     // AFTER the DB has committed — so a flush failure or crash can never leave a

@@ -22,9 +22,14 @@ import {
 } from './artifacts.js';
 
 export async function processModerationJob(db: PlatformDb, jobId: string): Promise<void> {
-  const [job] = await db
-    .select()
-    .from(moderationJobs)
+  // Claim-then-process: atomically flip pending -> processing in a single
+  // guarded UPDATE so concurrent workers cannot both pass the gate and insert
+  // duplicate listings. If no row is returned, another worker already claimed
+  // (or the job is no longer pending) — return early. This is the standard
+  // job-queue idiom and future-proofs the "no background queue" note.
+  const claimedRows = await db
+    .update(moderationJobs)
+    .set({ status: 'processing' })
     .where(
       and(
         eq(moderationJobs.job_id, jobId),
@@ -33,12 +38,15 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
         eq(moderationJobs.job_kind, 'publish_review'),
       ),
     )
-    .limit(1);
+    .returning();
+  const [job] = claimedRows;
 
   if (!job) return;
-  const pendingJobPredicate = and(
+  // The claimed job now sits in 'processing'; all terminal writes below must
+  // match that state, not 'pending'.
+  const claimedJobPredicate = and(
     eq(moderationJobs.job_id, jobId),
-    eq(moderationJobs.status, 'pending'),
+    eq(moderationJobs.status, 'processing'),
   );
 
   const [draft] = await db
@@ -55,7 +63,7 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
         result: { outcome: 'rejected', reason: 'Draft not found' },
         completed_at: new Date(),
       })
-      .where(pendingJobPredicate);
+      .where(claimedJobPredicate);
     return;
   }
 
@@ -68,7 +76,7 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
         result: { outcome: 'rejected', reason: 'Manifest not valid' },
         completed_at: new Date(),
       })
-      .where(pendingJobPredicate);
+      .where(claimedJobPredicate);
 
     await db
       .update(publishDrafts)
@@ -87,7 +95,7 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
         result: { outcome: 'rejected', reason: 'Artifact integrity metadata missing' },
         completed_at: new Date(),
       })
-      .where(pendingJobPredicate);
+      .where(claimedJobPredicate);
     await db
       .update(publishDrafts)
       .set({ status: 'rejected', updated_at: new Date() })
@@ -113,7 +121,7 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
           result: { outcome: 'rejected', reason: 'Lineage origin_listing_id is not public' },
           completed_at: new Date(),
         })
-        .where(pendingJobPredicate);
+        .where(claimedJobPredicate);
       await db
         .update(publishDrafts)
         .set({ status: 'rejected', updated_at: new Date() })
@@ -245,7 +253,7 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
           result: { outcome: 'approved', listing_id: listingId },
           completed_at: new Date(),
         })
-        .where(pendingJobPredicate);
+        .where(claimedJobPredicate);
       return versionId;
     });
   } catch (err) {
@@ -263,7 +271,7 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
         },
         completed_at: new Date(),
       })
-      .where(pendingJobPredicate);
+      .where(claimedJobPredicate);
     await db
       .update(publishDrafts)
       .set({ status: 'draft', updated_at: new Date() })
@@ -315,7 +323,7 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
         },
         completed_at: new Date(),
       })
-      .where(pendingJobPredicate);
+      .where(claimedJobPredicate);
     throw fsErr;
   }
 }
@@ -364,9 +372,14 @@ function isDuplicatePackageVersionDbError(err: unknown): boolean {
     const current = queue.shift();
     if (!current || typeof current !== 'object') continue;
     const raw = current as Record<string, unknown>;
+    // postgres-js surfaces the violated constraint on `constraint_name` (the
+    // PG error field 'n'); keep `constraint` as a portability fallback for
+    // other drivers. Matching only `raw.constraint` here was a dead branch —
+    // the AND never fired because that property does not exist on PostgresError.
+    const constraintName = String(raw.constraint_name ?? raw.constraint ?? '');
     if (
       raw.code === '23505' &&
-      String(raw.constraint ?? '').includes('package_versions_listing_package_version_unique')
+      constraintName.includes('package_versions_listing_package_version_unique')
     ) {
       return true;
     }

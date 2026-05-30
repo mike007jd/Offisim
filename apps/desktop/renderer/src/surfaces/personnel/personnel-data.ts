@@ -653,6 +653,8 @@ export function useRollbackEmployeeVersion(employeeId: string | null) {
         repos.employeeVersions,
         repos.employees,
         new InMemoryEventBus(),
+        undefined,
+        repos.asyncTransact?.bind(repos),
       );
       await versionService.rollbackToVersion(employeeId, version);
     },

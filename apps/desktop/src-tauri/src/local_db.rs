@@ -378,6 +378,24 @@ async fn ensure_task_runs_status_constraint(pool: &SqlitePool) -> Result<(), Str
         return Err(format!("rebuild task_runs status constraint: {err}"));
     }
 
+    // Canonical SQLite 12-step ALTER procedure: verify referential integrity on
+    // the same connection after COMMIT and before re-enabling foreign keys. The
+    // rebuild copies every column verbatim, so it cannot INTRODUCE new FK
+    // violations — a reported row is therefore a PRE-EXISTING dangling reference
+    // in legacy data. This is a best-effort startup fixup, so surface such rows
+    // as a warning (the release "clean dirty data" action is the remediation
+    // path) rather than failing the whole schema upgrade and bricking launch.
+    let violations = sqlx::query("PRAGMA foreign_key_check")
+        .fetch_all(&mut *conn)
+        .await
+        .map_err(|err| format!("foreign key check after task_runs rebuild: {err}"))?;
+    if !violations.is_empty() {
+        eprintln!(
+            "[local_db] task_runs rebuild: PRAGMA foreign_key_check reported {} pre-existing dangling reference(s); continuing (run the release clean-dirty-data action to remediate)",
+            violations.len()
+        );
+    }
+
     let restore_sql = if foreign_keys_enabled {
         "PRAGMA foreign_keys=ON"
     } else {

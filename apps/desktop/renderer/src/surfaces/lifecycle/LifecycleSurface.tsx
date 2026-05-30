@@ -44,32 +44,47 @@ export function LifecycleSurface() {
       updated_at: now,
     });
 
-    await repos.events.insert({
-      event_id: crypto.randomUUID(),
-      company_id: companyId,
-      thread_id: null,
-      event_type: 'company.created',
-      severity: 'info',
-      payload_json: JSON.stringify({
-        name: request.name,
-        templateId: isCustom ? null : request.template.id,
-        templateLabel: isCustom ? 'Custom Studio' : request.template.name,
-        description: request.description,
-        destination: request.openStudio ? 'studio' : 'office',
-      }),
-      created_at: now,
-    });
+    // The company row now exists. The remaining steps (event emit + template
+    // materialization) write additional company-scoped rows non-atomically, so a
+    // partial failure here would orphan the company. On any failure, delete the
+    // company row — every company-scoped child (the created event, employees,
+    // office layout, zones, prefab instances) is FK `ON DELETE CASCADE`, so the
+    // delete rolls the whole create back — then rethrow so the user sees it.
+    try {
+      await repos.events.insert({
+        event_id: crypto.randomUUID(),
+        company_id: companyId,
+        thread_id: null,
+        event_type: 'company.created',
+        severity: 'info',
+        payload_json: JSON.stringify({
+          name: request.name,
+          templateId: isCustom ? null : request.template.id,
+          templateLabel: isCustom ? 'Custom Studio' : request.template.name,
+          description: request.description,
+          destination: request.openStudio ? 'studio' : 'office',
+        }),
+        created_at: now,
+      });
 
-    if (!isCustom) {
-      const templateService = new CompanyTemplateService(
-        repos.employees,
-        repos.officeLayouts,
-        runtimeEventBus,
-        repos.prefabInstances,
-        undefined,
-        repos.zones,
-      );
-      await templateService.materializeTemplate(request.template.id, companyId);
+      if (!isCustom) {
+        const templateService = new CompanyTemplateService(
+          repos.employees,
+          repos.officeLayouts,
+          runtimeEventBus,
+          repos.prefabInstances,
+          undefined,
+          repos.zones,
+        );
+        await templateService.materializeTemplate(request.template.id, companyId);
+      }
+    } catch (error) {
+      try {
+        await repos.companies.delete(companyId);
+      } catch {
+        // Best-effort compensation; surface the original create failure below.
+      }
+      throw error;
     }
 
     await queryClient.invalidateQueries({ queryKey: ['companies'] });

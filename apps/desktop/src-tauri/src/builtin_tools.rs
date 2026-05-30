@@ -544,26 +544,47 @@ pub async fn project_write_file<R: Runtime>(
     ensure_write_size(content.len(), &candidate, &roots)?;
     let target = resolve_write_target(&candidate, &roots)?;
     ensure_inside_workspace(&target, &roots)?;
-    if let Some(parent) = target.parent() {
-        ensure_inside_workspace(parent, &roots)?;
-        tokio::fs::create_dir_all(parent)
-            .await
-            .map_err(|err| fs_op_error("create project file parent", parent, &roots, err))?;
-        let canonical_parent = parent
-            .canonicalize()
-            .map_err(|err| fs_resolve_error("resolve project file parent", parent, err))?;
-        ensure_inside_workspace(&canonical_parent, &roots)?;
-    }
-    tokio::fs::write(&target, content)
+    // The leaf file name we will open. Anchoring the open under the freshly
+    // canonicalized parent (below) — rather than `target` directly — means the
+    // path components above the leaf cannot have been swapped after validation.
+    let leaf = target
+        .file_name()
+        .ok_or_else(|| "project file target has no file name".to_string())?
+        .to_os_string();
+    let parent = target
+        .parent()
+        .ok_or_else(|| "project file target has no parent".to_string())?;
+    ensure_inside_workspace(parent, &roots)?;
+    tokio::fs::create_dir_all(parent)
         .await
-        .map_err(|err| fs_op_error("write project file", &target, &roots, err))?;
-    let canonical = target
+        .map_err(|err| fs_op_error("create project file parent", parent, &roots, err))?;
+    // Re-assert the boundary on the canonicalized parent IMMEDIATELY before the
+    // open below. This closes the canonicalize-then-write window for the parent
+    // chain; the leaf component is guarded separately by O_NOFOLLOW so a symlink
+    // swapped in at the final path segment is rejected rather than followed out
+    // of the workspace.
+    let canonical_parent = parent
         .canonicalize()
-        .map_err(|err| fs_resolve_error("resolve written project file", &target, err))?;
-    if let Err(err) = ensure_inside_workspace(&canonical, &roots) {
-        let _ = tokio::fs::remove_file(&target).await;
-        return Err(err);
+        .map_err(|err| fs_resolve_error("resolve project file parent", parent, err))?;
+    ensure_inside_workspace(&canonical_parent, &roots)?;
+    let leaf_target = canonical_parent.join(&leaf);
+
+    let mut opts = OpenOptions::new();
+    opts.create(true).truncate(true).write(true);
+    // O_NOFOLLOW rejects (ELOOP) an *existing* symlink at the final component
+    // instead of following it; new-file creation is unaffected. This removes the
+    // leaf-symlink escape that the post-write canonicalize check could only
+    // detect after the out-of-bounds target had already been opened/truncated.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        opts.custom_flags(libc::O_NOFOLLOW);
     }
+    let mut file = opts
+        .open(&leaf_target)
+        .map_err(|err| fs_op_error("write project file", &leaf_target, &roots, err))?;
+    file.write_all(content.as_bytes())
+        .map_err(|err| fs_op_error("write project file", &leaf_target, &roots, err))?;
     Ok(())
 }
 

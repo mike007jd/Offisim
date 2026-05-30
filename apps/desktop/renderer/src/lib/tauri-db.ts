@@ -16,6 +16,11 @@ export function getTauriDb(): Promise<Database> {
       // Enable WAL for concurrent read/write safety
       await db.execute('PRAGMA journal_mode=WAL', []);
       await db.execute('PRAGMA busy_timeout=5000', []);
+      // SQLite defaults foreign_keys=OFF per connection, which silently disables
+      // the schema's declared `ON DELETE CASCADE` / `SET NULL` rules. Enable it so
+      // a `companies.delete(...)` (and other parent deletes) atomically cascades to
+      // child rows instead of leaving orphans — relied on for compensating rollback.
+      await db.execute('PRAGMA foreign_keys=ON', []);
       return db;
     })().catch((err) => {
       dbPromise = null; // Reset so next call retries

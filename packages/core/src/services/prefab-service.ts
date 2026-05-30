@@ -48,9 +48,17 @@ function now(): string {
 // ── PrefabService ───────────────────────────────────────────────
 
 export class PrefabService {
+  /**
+   * @param transact Optional synchronous transaction wrapper (Drizzle/
+   *   better-sqlite3 runtime). When provided, multi-row writes
+   *   (materializeDefaultLayout) run inside a single SQLite transaction and
+   *   events are emitted only after the transaction commits. Memory/test
+   *   backends omit it.
+   */
   constructor(
     private readonly repo: PrefabInstanceRepository,
     private readonly eventBus: EventBus,
+    private readonly transact?: <T>(fn: () => T) => T,
   ) {}
 
   /** Create a new prefab instance */
@@ -67,28 +75,12 @@ export class PrefabService {
       configOverrides?: Record<string, unknown>;
     },
   ): Promise<PrefabInstanceRow> {
-    const instanceId = options?.instanceId ?? generateInstanceId();
-    const ts = now();
-
-    const row: PrefabInstanceRow = {
-      instance_id: instanceId,
-      company_id: companyId,
-      prefab_id: prefabId,
-      zone_id: zoneId,
-      position_x: options?.positionX ?? 0,
-      position_y: options?.positionY ?? 0,
-      rotation: options?.rotation ?? 0,
-      bindings_json: options?.bindings ? JSON.stringify(options.bindings) : null,
-      config_json: options?.configOverrides ? JSON.stringify(options.configOverrides) : null,
-      enabled: 1,
-      created_at: ts,
-      updated_at: ts,
-    };
+    const row = this.buildInstanceRow(companyId, prefabId, zoneId, options);
 
     const created = await this.repo.create(row);
 
     this.eventBus.emit(
-      this.buildStateEvent(instanceId, companyId, prefabId, 'workspace', '', 'created'),
+      this.buildStateEvent(row.instance_id, companyId, prefabId, 'workspace', '', 'created'),
     );
 
     return created;
@@ -197,20 +189,73 @@ export class PrefabService {
     const effectiveCount = count ?? 1;
     const placements = getDefaultPlacements(zoneType, effectiveCount);
 
-    const created: PrefabInstanceRow[] = [];
-    for (const placement of placements) {
-      const instance = await this.createInstance(companyId, placement.prefabId, zoneId, {
+    // Pre-build all rows so persistence and event emission are separable.
+    const rows = placements.map((placement) =>
+      this.buildInstanceRow(companyId, placement.prefabId, zoneId, {
         positionX: placement.offsetX,
         positionY: placement.offsetZ,
         rotation: placement.rotation ?? 0,
+      }),
+    );
+
+    if (this.transact) {
+      // ── Drizzle path: all instance inserts in one transaction ───────────
+      // The sync transact callback contains writes only; events fire after
+      // the transaction commits.
+      this.transact(() => {
+        for (const row of rows) {
+          void this.repo.create(row);
+        }
       });
-      created.push(instance);
+    } else {
+      // ── Async/memory-repos path ─────────────────────────────────────────
+      for (const row of rows) {
+        await this.repo.create(row);
+      }
     }
 
-    return created;
+    for (const row of rows) {
+      this.eventBus.emit(
+        this.buildStateEvent(row.instance_id, companyId, row.prefab_id, 'workspace', '', 'created'),
+      );
+    }
+
+    return rows;
   }
 
   // ── Private helpers ─────────────────────────────────────────
+
+  private buildInstanceRow(
+    companyId: string,
+    prefabId: string,
+    zoneId: string,
+    options?: {
+      instanceId?: string;
+      positionX?: number;
+      positionY?: number;
+      rotation?: 0 | 90 | 180 | 270;
+      bindings?: PrefabBinding[];
+      configOverrides?: Record<string, unknown>;
+    },
+  ): PrefabInstanceRow {
+    const instanceId = options?.instanceId ?? generateInstanceId();
+    const ts = now();
+
+    return {
+      instance_id: instanceId,
+      company_id: companyId,
+      prefab_id: prefabId,
+      zone_id: zoneId,
+      position_x: options?.positionX ?? 0,
+      position_y: options?.positionY ?? 0,
+      rotation: options?.rotation ?? 0,
+      bindings_json: options?.bindings ? JSON.stringify(options.bindings) : null,
+      config_json: options?.configOverrides ? JSON.stringify(options.configOverrides) : null,
+      enabled: 1,
+      created_at: ts,
+      updated_at: ts,
+    };
+  }
 
   private buildStateEvent(
     instanceId: string,

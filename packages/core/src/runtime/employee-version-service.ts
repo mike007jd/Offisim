@@ -19,6 +19,7 @@ export class EmployeeVersionService {
     private readonly employeeRepo: EmployeeRepository,
     private readonly eventBus: EventBus,
     private readonly transact?: <T>(fn: () => T) => T,
+    private readonly asyncTransact?: <T>(fn: () => Promise<T>) => Promise<T>,
   ) {}
 
   /** Snapshot current employee state as a new version. */
@@ -99,19 +100,53 @@ export class EmployeeVersionService {
       throw new Error(`Version ${versionNum} not found for employee ${employeeId}`);
     }
 
-    const parsed = JSON.parse(version.snapshot_json) as Record<string, unknown>;
+    const employee = await this.employeeRepo.findById(employeeId);
+    if (!employee) {
+      throw new Error(`Employee not found: ${employeeId}`);
+    }
 
-    await this.employeeRepo.update(employeeId, {
+    const parsed = JSON.parse(version.snapshot_json) as Record<string, unknown>;
+    const snapshot = {
       name: parsed.name as string,
       role_slug: parsed.role_slug as RoleSlug,
       enabled: parsed.enabled as number,
       persona_json: (parsed.persona_json as string) ?? null,
       config_json: (parsed.config_json as string) ?? null,
       workstation_id: (parsed.workstation_id as string) ?? null,
-    });
+    };
 
-    // Create a new version record for the rollback action
-    await this.createVersion(employeeId, 'rollback');
+    // The rollback applies a known snapshot, so the new version record mirrors
+    // exactly what we just wrote (no employee re-read needed — the Tauri queued
+    // transaction has no read-your-own-write isolation).
+    const apply = async (): Promise<number> => {
+      await this.employeeRepo.update(employeeId, snapshot);
+
+      // Allocate the next version number inside the transaction so two
+      // concurrent rollbacks cannot collide on the same version_num.
+      const nextNum = (await this.versionRepo.getLatestVersionNum(employeeId)) + 1;
+      await this.versionRepo.create({
+        employee_id: employeeId,
+        version_num: nextNum,
+        change_type: 'rollback',
+        snapshot_json: JSON.stringify(snapshot),
+        change_summary: 'Rolled back to a previous version',
+        created_by: 'user',
+      });
+      return nextNum;
+    };
+
+    let nextNum: number;
+    if (this.asyncTransact) {
+      // Snapshot-apply + version-record write commit atomically.
+      nextNum = await this.asyncTransact(apply);
+    } else {
+      // Memory backend (no transactional boundary) — sequential is equivalent.
+      nextNum = await apply();
+    }
+
+    this.eventBus.emit(
+      employeeVersionCreated(employee.company_id, employeeId, nextNum, 'rollback'),
+    );
   }
 
   /** Compare two version snapshots and return structured diffs. */
