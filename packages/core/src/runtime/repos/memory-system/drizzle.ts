@@ -1,5 +1,5 @@
 import * as schema from '@offisim/db-local/dist/schema.js';
-import { and, desc, eq, notInArray, sql } from 'drizzle-orm';
+import { and, desc, eq, notInArray, or, sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type {
   CompactSummaryRepository,
@@ -85,7 +85,16 @@ export function createMemorySystemDrizzleRepos(db: Db): MemorySystemDrizzleRepos
         .split(/\s+/)
         .filter((w) => w.length >= 3);
       if (queryWords.length > 0) {
-        conditions.push(sql`lower(${schema.memoryEntries.content}) LIKE ${`%${queryWords[0]}%`}`);
+        // Match ANY query word (OR), mirroring the in-memory backend's
+        // `.some()` filter below. A single-word pre-filter would exclude rows
+        // that match a later word but not the first, so the DB candidate set
+        // would diverge from the post-filter / memory backend.
+        const wordMatch = or(
+          ...queryWords.map(
+            (w) => sql`lower(${schema.memoryEntries.content}) LIKE ${`%${w}%`}`,
+          ),
+        );
+        if (wordMatch) conditions.push(wordMatch);
       }
       const limit = opts.limit ?? 10;
       const rows = db

@@ -228,6 +228,29 @@ export class MemoryService {
   }
 
   /**
+   * Delete a memory only when the caller owns it. Employee-scope memories are
+   * owned by the employee; team/company-scope memories are owned by the
+   * company. Cross-company access is always forbidden. Returns a typed outcome
+   * instead of silently deleting so the `forget` tool can never erase another
+   * employee's (or another company's) memory by guessing/replaying an id.
+   */
+  async forgetMemory(
+    memoryId: string,
+    scope: { employeeId: string; companyId: string },
+  ): Promise<'deleted' | 'not-found-or-forbidden'> {
+    const row = await this.memoryRepo.findById(memoryId);
+    if (!row) return 'not-found-or-forbidden';
+    if (row.company_id !== scope.companyId) return 'not-found-or-forbidden';
+    const ownerMatches =
+      row.scope === 'employee'
+        ? row.owner_id === scope.employeeId
+        : row.owner_id === scope.companyId;
+    if (!ownerMatches) return 'not-found-or-forbidden';
+    await this.memoryRepo.delete(memoryId);
+    return 'deleted';
+  }
+
+  /**
    * After task completion, asks LLM to extract worth-remembering insights.
    */
   async reflectAndRemember(

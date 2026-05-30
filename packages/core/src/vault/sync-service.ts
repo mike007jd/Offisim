@@ -178,7 +178,7 @@ export class VaultSyncService {
       return;
     }
     if (event.type === 'employee.deleted') {
-      void this.handleDeletion(employeeId);
+      void this.handleDeletion(employeeId, event.companyId);
       return;
     }
     // Created / updated / any state change: always render the full bundle so
@@ -304,15 +304,27 @@ export class VaultSyncService {
     }
   }
 
-  private async handleDeletion(employeeId: string): Promise<void> {
-    const record = this.slugByEmployee.get(employeeId);
-    if (!record) {
+  private async handleDeletion(employeeId: string, eventCompanyId?: string): Promise<void> {
+    // The vault slug is a pure function of employee_id, so the directory can be
+    // reconstructed even on a cold cache (process restarted since the employee
+    // was last synced). Prefer the cached company, fall back to the company on
+    // the deletion event — without one we cannot locate the directory.
+    const cached = this.slugByEmployee.get(employeeId);
+    const companyId = cached?.companyId ?? eventCompanyId;
+    if (!companyId) {
+      const wrapped = new VaultSyncError(
+        'Cannot delete vault directory: company unknown for employee',
+        employeeId,
+      );
+      logger.error(wrapped.message, wrapped);
+      this.emitFailure(wrapped, 'delete');
+      this.onError?.(wrapped);
       return;
     }
-    this.slugByEmployee.delete(employeeId);
-    const dir = this.employeeDir(record);
+    const dir = `companies/${companyId}/employees/${employeeSlug(employeeId)}`;
     try {
       await this.fs.remove(dir);
+      this.slugByEmployee.delete(employeeId);
     } catch (err) {
       const wrapped = new VaultSyncError('Failed to delete vault directory', employeeId, err);
       logger.error(wrapped.message, wrapped);
@@ -349,7 +361,7 @@ export class VaultSyncService {
     }
     const record: SlugRecord = {
       companyId: row.company_id,
-      slug: employeeSlug(row.name, row.employee_id),
+      slug: employeeSlug(row.employee_id),
     };
     this.slugByEmployee.set(row.employee_id, record);
     return record;

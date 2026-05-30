@@ -26,7 +26,17 @@ export interface EmployeeVaultFiles {
 }
 
 function newerThan(mdTime: string, rowTime: string): boolean {
-  return mdTime.localeCompare(rowTime) > 0;
+  // Compare on parsed epoch rather than lexical order: both values are
+  // schema-validated ISO-8601 (datetime + optional offset), so two equal
+  // instants written with different offsets must still compare equal. If
+  // either fails to parse (should not happen post-validation), fall back to
+  // "not newer" so a bad md never wins the last-writer-wins resolution.
+  const md = Date.parse(mdTime);
+  const row = Date.parse(rowTime);
+  if (Number.isNaN(md) || Number.isNaN(row)) {
+    return false;
+  }
+  return md > row;
 }
 
 function soulBodyToFreeform(body: string): string | undefined {

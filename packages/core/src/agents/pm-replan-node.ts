@@ -1,13 +1,31 @@
 import { AIMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
+import type { TaskAssignmentRerouteReason } from '@offisim/shared-types';
 import { graphNodeEntered } from '../events/event-factories.js';
 import type { OffisimGraphState, PlanStep, PlanTask, TaskPlan } from '../graph/state.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
+import type { EmployeeRow } from '../runtime/repositories.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { generateId } from '../utils/generate-id.js';
 import { getRunScope, getRuntime } from '../utils/get-runtime.js';
 import { getConfigSignal } from '../utils/get-signal.js';
+import { emitAssignmentRerouted } from './emit-assignment-rerouted.js';
+
+/**
+ * Classify why a replan task's requested employee was dropped, mirroring
+ * pm-planner/sanitize-rebind. Replan has no planner-recommended ordering, so a
+ * valid-but-rebound assignment is always `no-recommendation-fallback`.
+ */
+function classifyReplanReason(
+  requestedEmployeeId: string,
+  allEmployees: readonly EmployeeRow[],
+): TaskAssignmentRerouteReason {
+  const found = allEmployees.find((e) => e.employee_id === requestedEmployeeId);
+  if (!found) return 'employee-not-found';
+  if (found.enabled !== 1) return 'employee-disabled';
+  return 'no-recommendation-fallback';
+}
 
 const PM_REPLAN_PROMPT = `You are the PM AI. The current plan has been partially executed, but a problem was reported.
 
@@ -68,12 +86,16 @@ function parseReplanResult(content: string): ReplanResult | null {
   if (!Array.isArray(parsed.revisedSteps)) return null;
 
   const revisedSteps: ReplanResult['revisedSteps'] = [];
-  for (const s of parsed.revisedSteps as Record<string, unknown>[]) {
-    if (typeof s.stepIndex !== 'number' || typeof s.description !== 'string') continue;
-    if (!Array.isArray(s.tasks) || (s.tasks as unknown[]).length === 0) continue;
+  for (const s of parsed.revisedSteps as unknown[]) {
+    if (!s || typeof s !== 'object') continue;
+    const step = s as Record<string, unknown>;
+    if (typeof step.stepIndex !== 'number' || typeof step.description !== 'string') continue;
+    if (!Array.isArray(step.tasks) || (step.tasks as unknown[]).length === 0) continue;
 
     const tasks: ReplanResult['revisedSteps'][0]['tasks'] = [];
-    for (const t of s.tasks as Record<string, unknown>[]) {
+    for (const rawTask of step.tasks as unknown[]) {
+      if (!rawTask || typeof rawTask !== 'object') continue;
+      const t = rawTask as Record<string, unknown>;
       if (
         typeof t.taskType === 'string' &&
         typeof t.employeeId === 'string' &&
@@ -84,11 +106,11 @@ function parseReplanResult(content: string): ReplanResult | null {
     }
     if (tasks.length > 0) {
       revisedSteps.push({
-        stepIndex: s.stepIndex,
-        description: s.description,
-        phase: typeof s.phase === 'string' ? s.phase : undefined,
-        dependsOnSteps: Array.isArray(s.dependsOnSteps)
-          ? (s.dependsOnSteps as unknown[]).filter((n): n is number => typeof n === 'number')
+        stepIndex: step.stepIndex,
+        description: step.description,
+        phase: typeof step.phase === 'string' ? step.phase : undefined,
+        dependsOnSteps: Array.isArray(step.dependsOnSteps)
+          ? (step.dependsOnSteps as unknown[]).filter((n): n is number => typeof n === 'number')
           : undefined,
         tasks,
       });
@@ -122,7 +144,11 @@ export async function pmReplanNode(
   }
 
   const completedIndices = new Set(state.completedStepIndices ?? []);
-  const nextStepIndex = Math.max(...[...completedIndices, -1]) + 1;
+  const blockedIndices = new Set(state.blockedStepIndices ?? []);
+  // Renumber revised steps above EVERY reserved index — completed (kept in the
+  // new plan) and blocked (may still be referenced in run state) — so a fresh
+  // step index can never collide with one and get dropped or aliased.
+  const nextStepIndex = Math.max(-1, ...completedIndices, ...blockedIndices) + 1;
 
   // Get the employee feedback that triggered this replan
   const lastOutputs = state.currentStepOutputs;
@@ -141,7 +167,7 @@ export async function pmReplanNode(
 
   // Get available employees for the revised plan
   const employees = await repos.employees.findByCompany(companyId);
-  const enabledEmployees = employees.filter((e) => e.enabled);
+  const enabledEmployees = employees.filter((e) => e.enabled === 1);
   const employeeList = enabledEmployees
     .map((e) => `${e.employee_id}: ${e.name} (${e.role_slug})`)
     .join(', ');
@@ -181,18 +207,65 @@ export async function pmReplanNode(
     return {};
   }
 
-  // Build new steps: keep completed, replace remaining
+  // With no assignable employee there is nobody to route revised tasks to;
+  // keep the original plan rather than persist taskRuns pinned to invalid ids.
+  const fallbackEmployee = enabledEmployees[0];
+  if (!fallbackEmployee) {
+    return {};
+  }
+  const enabledIds = new Set(enabledEmployees.map((e) => e.employee_id));
+  const fallbackEmployeeId = fallbackEmployee.employee_id;
+
+  // Build new steps: keep completed, replace remaining. Revised steps are
+  // RENUMBERED sequentially from nextStepIndex (F1) so an LLM-chosen stepIndex
+  // can never collide with a completed step and get silently dropped. We map
+  // the LLM's original index -> the assigned index so dependencies can be
+  // remapped onto the survivors (F2).
   const completedSteps = plan.steps.filter((s) => completedIndices.has(s.stepIndex));
   const newSteps: PlanStep[] = [...completedSteps];
 
+  const indexMap = new Map<number, number>();
+  replanResult.revisedSteps.forEach((revised, i) => {
+    if (!indexMap.has(revised.stepIndex)) {
+      indexMap.set(revised.stepIndex, nextStepIndex + i);
+    }
+  });
+
+  const addedSteps: number[] = [];
+  let revisedOrdinal = 0;
   for (const revised of replanResult.revisedSteps) {
+    const newIndex = nextStepIndex + revisedOrdinal;
+    revisedOrdinal += 1;
+
     const planTasks: PlanTask[] = [];
+    const seenEmployees = new Set<string>();
     for (const t of revised.tasks) {
+      // Rebind invalid/disabled assignees to a valid employee and make the
+      // reroute observable (F3) — replan previously bypassed sanitize-rebind.
+      let resolvedEmployeeId = t.employeeId;
+      if (!enabledIds.has(resolvedEmployeeId)) {
+        resolvedEmployeeId = fallbackEmployeeId;
+        emitAssignmentRerouted({
+          companyId,
+          threadId,
+          taskRunId: `pm-replan:${threadId}:${newIndex}`,
+          requestedEmployeeId: t.employeeId,
+          resolvedEmployeeId,
+          reason: classifyReplanReason(t.employeeId, employees),
+          source: 'pm-planner',
+          eventBus: runtimeCtx.eventBus,
+        });
+      }
+      // Defensive dedupe: rebinding several invalid ids to the same fallback
+      // must not spawn duplicate taskRuns for one employee within a step.
+      if (seenEmployees.has(resolvedEmployeeId)) continue;
+      seenEmployees.add(resolvedEmployeeId);
+
       const taskRunId = generateId('tr');
       await repos.taskRuns.create({
         task_run_id: taskRunId,
         thread_id: threadId,
-        employee_id: t.employeeId,
+        employee_id: resolvedEmployeeId,
         parent_task_run_id: null,
         task_type: t.taskType,
         status: 'planned',
@@ -202,19 +275,36 @@ export async function pmReplanNode(
       });
       planTasks.push({
         taskType: t.taskType,
-        employeeId: t.employeeId,
+        employeeId: resolvedEmployeeId,
         description: t.description,
-        dependsOnStepOutput: revised.stepIndex > 0,
+        dependsOnStepOutput: newIndex > 0,
         taskRunId,
       });
     }
+
+    if (planTasks.length === 0) continue;
+
+    // Remap dependencies onto surviving indices: keep deps on completed steps,
+    // translate deps on sibling revised steps to their new index, and drop any
+    // dangling edge that references a removed/unknown step (F2) so dispatch
+    // cannot deadlock waiting on a step that no longer exists.
+    const remappedDeps = (revised.dependsOnSteps ?? [])
+      .map((oldDep) => {
+        if (completedIndices.has(oldDep)) return oldDep;
+        const mapped = indexMap.get(oldDep);
+        if (mapped === undefined || mapped === newIndex) return null;
+        return mapped;
+      })
+      .filter((d): d is number => d !== null);
+
     newSteps.push({
-      stepIndex: revised.stepIndex,
+      stepIndex: newIndex,
       description: revised.description,
       tasks: planTasks,
       phase: revised.phase,
-      dependsOnSteps: revised.dependsOnSteps,
+      dependsOnSteps: remappedDeps.length > 0 ? remappedDeps : undefined,
     });
+    addedSteps.push(newIndex);
   }
 
   const updatedPlan: TaskPlan = {
@@ -237,7 +327,7 @@ export async function pmReplanNode(
       removedSteps: plan.steps
         .filter((s) => !completedIndices.has(s.stepIndex))
         .map((s) => s.stepIndex),
-      addedSteps: replanResult.revisedSteps.map((s) => s.stepIndex),
+      addedSteps,
       completedBefore: [...completedIndices],
     },
   });
@@ -250,7 +340,7 @@ export async function pmReplanNode(
     currentStepOutputs: [],
     messages: [
       new AIMessage({
-        content: `[PM Re-Plan] Plan revised (v${newReplanCount}): ${replanResult.reason}. ${replanResult.revisedSteps.length} new steps created.`,
+        content: `[PM Re-Plan] Plan revised (v${newReplanCount}): ${replanResult.reason}. ${addedSteps.length} new steps created.`,
       }),
     ],
   };

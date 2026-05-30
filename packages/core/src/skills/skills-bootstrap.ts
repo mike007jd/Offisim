@@ -105,7 +105,7 @@ async function migrateEmployee(
   }
   const skillId = newId();
   const slug = skillSlug(rawName, skillId);
-  const empSlug = employeeSlug(employee.name, employee.employee_id);
+  const empSlug = employeeSlug(employee.employee_id);
   const paths = resolveSkillPath({
     companyId: employee.company_id,
     scope: 'employee',

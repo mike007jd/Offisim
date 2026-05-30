@@ -325,7 +325,7 @@ export class SkillLoader {
   async resolveEmployeeSlug(employeeId: string): Promise<string | null> {
     const row = await this.employees.findById(employeeId);
     if (!row) return null;
-    return employeeSlug(row.name, row.employee_id);
+    return employeeSlug(row.employee_id);
   }
 
   /**
@@ -414,7 +414,7 @@ export class SkillLoader {
           `installSkill: employeeId ${scopeEmployeeId} does not belong to company ${args.companyId}`,
         );
       }
-      empSlug = employeeSlug(employee.name, employee.employee_id);
+      empSlug = employeeSlug(employee.employee_id);
     }
 
     const paths = resolveSkillPath({

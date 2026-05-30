@@ -54,7 +54,7 @@ LangGraph kernel, agents, services, repos (Node.js). 浏览器代码必须用 `@
   - Tier 1 `listSkillsForEmployee(companyId, employeeId)` — DB-only 合并（employee 覆盖 company，slug dedupe），零磁盘 IO
   - Tier 2 `loadSkillBody(skillId)` — 读 SKILL.md 返回 body（frontmatter 剥离）
   - Tier 3 `loadSkillAsset(skillId, relPath)` — 只允许 `scripts/` / `references/` / `assets/` 前缀；IO 前拒 `..` / 绝对路径
-- `slug`：`skillSlug(name, id)` 和 `employeeSlug` 同策略（kebab-case，纯非 ASCII fallback `skill-{id前8字符}`）
+- `slug`：`skillSlug(name, id)` kebab-case name + 纯非 ASCII fallback `skill-{id前8字符}`（注：`employeeSlug` 已改为纯 id 派生，见 Vault 段，两者不再同策略）
 - DB 表 `skills` 属于当前单基线 SQLite schema；`UNIQUE` 用两条 partial index（`WHERE employee_id IS NULL` / `IS NOT NULL`），让 `(companyId, null, slug)` 跨 company-scope 行碰撞
 - 旧 `runtimeSkill` 兼容引导：`migrateRuntimeSkills()` 扫全员 `config_json.runtimeSkill` → 生成员工 scope SKILL.md + 插 row（`source_kind='synthesized'`, `source_ref='legacy:runtimeSkill'`），strip 原字段。Guard 在 `settings.skills_migration_v1_done`（`settings` key-value 表在基线 schema 内）
 - 员工 prompt 装配：`employee-prompt-assembly.ts` 在 skillLoader 可用时注入 `## Available skills` 块（description 截 200 UTF-16）；列表空则整段不输出。**本次不注册 `activate_skill` 工具**（纯 tier-1 informational）
@@ -81,6 +81,6 @@ LangGraph kernel, agents, services, repos (Node.js). 浏览器代码必须用 `@
 - desktop renderer 端有 FSAccess API 时: vault directory handle 持久化到 IndexedDB, 刷新后启动时 rehydrate 并重新探测权限; 无 FSAccess API 时降级为 zip export-only, 不做 live mount
 - `memory.md` 是 read-only view: md → DB 不 import memory (content 结构复杂), 玩家用 UI Forget/Edit 按钮, 不手编 md body
 - `renderMemoryMd` 按 4 类别 (`experience` / `decision` / `knowledge` / `preference`) 分段, 每类内按 `last_reinforced_at` 倒序 + `importance` tie-break
-- `employeeSlug(name, id)` 生成 FS-safe 目录名, 纯非 ASCII fallback 到 `employee-{id前8字符}`
+- `employeeSlug(id)` 生成 FS-safe 目录名 (`employee-{id前12字符}`), **纯 employee_id 派生** (不含 name): 同名员工不碰撞 + 改名不动目录 (employee-scope skill `vault_path` 安装时固化, 目录必须 rename-stable, 否则孤儿/分裂). 展示名在 `employee.md` 内
 - `VaultSyncError` 经 `onError` callback 和 EventBus `vault.sync.failed` 事件双通道 surface, runtime 不崩; UI 层订阅 `vault.` 前缀转 Toast (runtime/app 接入在 Phase 1c, core 层完成)
 - `VaultSyncFailedPayload.target` 四值 `'write' | 'import' | 'delete' | 'activate'`。前三条是 per-employee 失败 (`employeeId` 有效); `'activate'` 是 company-level 激活失败 (由 `apps/desktop/renderer/src/lib/vault-tauri-activation.ts` 的 `emitActivationFailure` 发出, `employeeId: ''` sentinel)。App.tsx toast handler 必须覆盖全 4 个分支

@@ -72,9 +72,11 @@ export async function pmHeartbeatNode(
     }
   }
 
-  // No-op detection: compare with last heartbeat
+  // No-op detection: compare with the last heartbeat ON THIS THREAD. A
+  // cross-thread/cross-company findByAgent('pm') lookup would compare against
+  // an unrelated run's progress and wrongly suppress (or emit) a heartbeat.
   if (repos.agentEvents) {
-    const lastHeartbeats = await repos.agentEvents.findByAgent('pm', {
+    const lastHeartbeats = await repos.agentEvents.findByThread(state.threadId, {
       eventType: 'heartbeat',
       limit: 1,
     });

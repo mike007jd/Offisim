@@ -141,8 +141,10 @@ export async function handleMemoryTool(
 
     case 'forget': {
       const memoryId = String(args.memoryId ?? '');
-      await repos.memories.delete(memoryId);
-      return `Memory ${memoryId} deleted.`;
+      const outcome = await memoryService.forgetMemory(memoryId, { employeeId, companyId });
+      return outcome === 'deleted'
+        ? `Memory ${memoryId} deleted.`
+        : `Memory ${memoryId} not found, or not yours to delete.`;
     }
 
     default:

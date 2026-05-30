@@ -3,7 +3,12 @@ import { z } from 'zod';
 
 export const VAULT_SCHEMA_VERSION = 1;
 
-const isoDate = z.string();
+// Conflict resolution (last-writer-wins) compares these timestamps, so a
+// malformed/hand-edited value must be rejected into the diagnostics path
+// rather than silently corrupting the comparison. Our own renders always emit
+// `Date#toISOString()` (UTC `Z`); `{ offset: true }` additionally tolerates a
+// legitimate human-entered timezone offset.
+const isoDate = z.string().datetime({ offset: true });
 
 export const employeeFrontmatterSchema = z.object({
   schema: z.literal(VAULT_SCHEMA_VERSION),
