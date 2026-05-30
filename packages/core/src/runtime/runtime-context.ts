@@ -27,12 +27,14 @@ import { Scratchpad } from './scratchpad.js';
 import type { ToolExecutor } from './tool-executor.js';
 
 /**
- * Mutable container for meeting interrupts.
- * Set by boss via OrchestrationService.interruptMeeting(),
- * consumed by participantTurnNode after each LLM turn.
+ * Mutable container for meeting interrupts, keyed by threadId so concurrent
+ * meetings on different threads (the RuntimeContext is per-runtime, shared
+ * across threads) cannot consume each other's boss commands.
+ * Set by boss via OrchestrationService.interruptMeeting(threadId, …),
+ * consumed by participantTurnNode for its own thread after each LLM turn.
  */
 export interface MeetingInterruptBox {
-  pending: MeetingInterrupt | null;
+  pending: Map<string, MeetingInterrupt>;
 }
 
 export interface InteractionBox {
@@ -190,7 +192,7 @@ export function createRuntimeContext(deps: {
   } = deps;
   return Object.freeze({
     ...rest,
-    meetingInterruptBox: meetingInterruptBox ?? { pending: null },
+    meetingInterruptBox: meetingInterruptBox ?? { pending: new Map() },
     interactionBox: interactionBox ?? { pending: null },
     hookRegistry: hookRegistry ?? new HookRegistry(),
     conversationState: conversationState ?? new RunConversationState(),

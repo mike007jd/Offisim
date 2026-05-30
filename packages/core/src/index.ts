@@ -439,7 +439,6 @@ export {
   meetingEndNode,
   meetingPausedNode,
   meetingResumeNode,
-  meetingResumeCheck,
   meetingInjectNode,
 } from './graph/meeting-subgraph.js';
 export type { MeetingInterrupt, MeetingInterruptType } from './graph/state.js';

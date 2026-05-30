@@ -174,15 +174,23 @@ export class OrchestrationService {
    * - 'pause': pause the meeting, preserving state for later resume
    * - 'end': end the meeting immediately
    * - 'inject': inject a boss comment into the meeting transcript
-   * - null: clear any pending interrupt (used for resume)
+   * - null: clear any pending interrupt for this thread (used for resume)
+   *
+   * Scoped by threadId so a command for one meeting can't be consumed by a
+   * concurrent meeting on another thread.
    */
-  interruptMeeting(type: MeetingInterruptType, bossComment?: string): void {
-    this.runtimeCtx.meetingInterruptBox.pending = type ? { type, bossComment } : null;
+  interruptMeeting(threadId: string, type: MeetingInterruptType, bossComment?: string): void {
+    const box = this.runtimeCtx.meetingInterruptBox;
+    if (type) {
+      box.pending.set(threadId, { type, bossComment });
+    } else {
+      box.pending.delete(threadId);
+    }
   }
 
-  /** Check if there is a pending meeting interrupt. */
-  get hasPendingInterrupt(): boolean {
-    return this.runtimeCtx.meetingInterruptBox.pending !== null;
+  /** Whether a meeting interrupt is pending for the given thread. */
+  hasPendingInterrupt(threadId: string): boolean {
+    return this.runtimeCtx.meetingInterruptBox.pending.has(threadId);
   }
 
   /**

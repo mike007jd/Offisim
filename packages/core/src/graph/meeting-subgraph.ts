@@ -19,8 +19,6 @@ import type { MeetingActionItem, OffisimGraphState } from './state.js';
 
 const logger = new Logger('meeting');
 
-const MAX_TURNS = 10;
-
 /** Internal task type used to store meeting turn state in pendingAssignments. */
 const MEETING_STATE_TASK_TYPE = '__meeting_state';
 
@@ -143,18 +141,34 @@ export async function participantTurnNode(
 
   const employee = await repos.employees.findById(currentParticipantId);
   if (!employee) {
-    // Participant was deleted mid-meeting — skip to next participant gracefully
+    // Participant was deleted mid-meeting — skip to next participant gracefully.
+    // Advance turnCount/index the SAME way a real turn does (increment turnCount
+    // when the index wraps past the end of a round), so a round made entirely of
+    // skips still consumes a turn and meetingTurnCheck can terminate it —
+    // otherwise an all-deleted roster loops to the graph recursion limit. The
+    // next assignment also targets the NEXT participant, not the deleted one.
     logger.warn(`Meeting participant ${currentParticipantId} not found — skipping turn`);
     if (turnState.participantIds.length === 0) {
       return { pendingAssignments: [] };
     }
-    const nextIndex = (turnState.participantIndex + 1) % turnState.participantIds.length;
-    const nextTurn: MeetingTurnState = { ...turnState, participantIndex: nextIndex };
+    const skipNextIndex = turnState.participantIndex + 1;
+    const skipWrapped = skipNextIndex >= turnState.participantIds.length;
+    const skipParticipantIndex = skipWrapped ? 0 : skipNextIndex;
+    const nextTurn: MeetingTurnState = {
+      ...turnState,
+      turnCount: skipWrapped ? turnState.turnCount + 1 : turnState.turnCount,
+      participantIndex: skipParticipantIndex,
+    };
+    const skipNextParticipantId =
+      turnState.participantIds[skipParticipantIndex] ?? turnState.participantIds[0];
+    if (!skipNextParticipantId) {
+      return { pendingAssignments: [] };
+    }
     return {
       pendingAssignments: [
         {
           taskType: MEETING_STATE_TASK_TYPE,
-          employeeId: currentParticipantId,
+          employeeId: skipNextParticipantId,
           inputJson: nextTurn as unknown as Record<string, unknown>,
         },
       ],
@@ -225,12 +239,14 @@ export async function participantTurnNode(
     throw new Error('Expected at least one meeting participant');
   }
 
-  // Check if boss sent a meeting interrupt while the LLM call was running
+  // Check if boss sent a meeting interrupt (for THIS thread) while the LLM call
+  // was running. The interrupt box is keyed by threadId so a boss command for
+  // one meeting can't be consumed by a concurrent meeting on another thread.
   const interruptBox = runtimeCtx.meetingInterruptBox;
-  const pendingInterrupt = interruptBox.pending;
+  const pendingInterrupt = interruptBox.pending.get(state.threadId) ?? null;
   if (pendingInterrupt) {
     // Consume the interrupt so it's not processed again
-    interruptBox.pending = null;
+    interruptBox.pending.delete(state.threadId);
   }
 
   return {
@@ -267,13 +283,10 @@ export function meetingTurnCheck(state: OffisimGraphState): string {
 
   const turnState = parseMeetingTurnState(state);
 
-  // End if max turns reached or if all participants have spoken at least once
-  // and we've completed a full round
-  if (turnState.turnCount >= MAX_TURNS) {
-    return 'meeting_end';
-  }
-
-  // Minimum: each participant speaks once (one full round)
+  // Meetings are SINGLE-ROUND: every participant speaks exactly once, then the
+  // meeting concludes (turnCount increments to 1 when the participant index
+  // wraps back to 0 after a full pass). A previous multi-round cap (MAX_TURNS)
+  // was unreachable behind this rule and has been removed.
   if (turnState.turnCount >= 1 && turnState.participantIndex === 0) {
     return 'meeting_end';
   }
@@ -319,18 +332,6 @@ export async function meetingPausedNode(
       }),
     ],
   };
-}
-
-/**
- * Resume check — called after meeting_paused when the boss sends a command.
- * Routes to participant_turn (resume) or meeting_end (end).
- */
-export function meetingResumeCheck(state: OffisimGraphState): string {
-  if (state.meetingInterrupt?.type === 'end') {
-    return 'meeting_end';
-  }
-  // Default: resume the meeting
-  return 'meeting_resume';
 }
 
 /**
