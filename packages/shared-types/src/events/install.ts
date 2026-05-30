@@ -74,7 +74,10 @@ export type SkillInstallOutcomePayload = SkillInstallOutcomeKind & {
 const SKILL_OUTCOME_ERROR_MAX = 120;
 
 function truncateLabel(text: string, maxLength: number): string {
-  return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
+  const codePoints = Array.from(text);
+  return codePoints.length > maxLength
+    ? `${codePoints.slice(0, maxLength - 1).join('')}…`
+    : text;
 }
 
 /**

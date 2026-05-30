@@ -16,14 +16,39 @@ const DEFAULT_MAX_TOOL_RESULT_BYTES = 8000;
 const DEFAULT_SNIPPET_BYTES = 400;
 const DEFAULT_PRESERVE_LAST_N = 1;
 const textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder();
 
 function byteLength(text: string): number {
   return textEncoder.encode(text).byteLength;
 }
 
+// UTF-8 continuation bytes match 0b10xxxxxx; a code point starts on any other byte.
+function isContinuationByte(byte: number): boolean {
+  return (byte & 0xc0) === 0x80;
+}
+
+// Take the first `maxBytes` UTF-8 bytes, snapping the end back to a code-point
+// boundary so we never decode a split multibyte sequence into U+FFFD.
+function headByteSlice(bytes: Uint8Array, maxBytes: number): Uint8Array {
+  if (bytes.byteLength <= maxBytes) return bytes;
+  let end = maxBytes;
+  while (end > 0 && isContinuationByte(bytes[end] ?? 0)) end -= 1;
+  return bytes.subarray(0, end);
+}
+
+// Take the last `maxBytes` UTF-8 bytes, snapping the start forward to a
+// code-point boundary so the slice begins on a whole character.
+function tailByteSlice(bytes: Uint8Array, maxBytes: number): Uint8Array {
+  if (bytes.byteLength <= maxBytes) return bytes;
+  let start = bytes.byteLength - maxBytes;
+  while (start < bytes.byteLength && isContinuationByte(bytes[start] ?? 0)) start += 1;
+  return bytes.subarray(start);
+}
+
 function buildCompactedContent(content: string, origBytes: number, snippetBytes: number): string {
-  const head = content.slice(0, snippetBytes);
-  const tail = content.slice(Math.max(0, content.length - snippetBytes));
+  const bytes = textEncoder.encode(content);
+  const head = textDecoder.decode(headByteSlice(bytes, snippetBytes));
+  const tail = textDecoder.decode(tailByteSlice(bytes, snippetBytes));
   return `${head}\n\n[microcompacted ${origBytes} bytes]\n\n${tail}`;
 }
 

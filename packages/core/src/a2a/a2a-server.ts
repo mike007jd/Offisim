@@ -119,7 +119,7 @@ export class A2ARequestHandler {
     }
 
     const MAX_BODY_BYTES = 1_048_576;
-    if (req.body && req.body.length > MAX_BODY_BYTES) {
+    if (req.body && new TextEncoder().encode(req.body).length > MAX_BODY_BYTES) {
       return {
         status: 200,
         headers: JSON_HEADERS,
