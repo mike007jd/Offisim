@@ -55,6 +55,9 @@ test-*.mjs
 apps/desktop/src-tauri/resources/claude-agent-host.mjs
 .gitnexus
 
+# Review/feedback dumps (local-only, not shared)
+feedbacks/
+
 # Local logs
 *.log
 logs/
