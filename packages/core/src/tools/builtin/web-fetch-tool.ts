@@ -26,6 +26,15 @@ export function createWebFetchTool(): BuiltinTool {
       // browser environments we have no DNS hook, so this is a no-op there
       // and the hostname check is the only guard. fail-open on resolve
       // errors so we don't break the tool on transient DNS hiccups.
+      //
+      // Acknowledged residual window (core-crosscutting/F10): this guard
+      // binds to the hostname, not the IP that fetch() ultimately connects
+      // to. fetch() re-resolves the host independently, so a DNS that flips
+      // public->private between this lookup and the connect can still slip
+      // through. Fully closing it would require pinning the validated IP via
+      // a Node-only custom undici dispatcher, which would break this tool's
+      // isomorphic (browser + Node) design and pull in a dependency not
+      // otherwise needed; it is deliberately left as a best-effort guard.
       await rejectPrivateDnsResolution(url.hostname);
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), WEB_FETCH_TIMEOUT_MS);

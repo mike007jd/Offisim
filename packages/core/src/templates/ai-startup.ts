@@ -1,4 +1,5 @@
 import { createZoneBlueprint } from '@offisim/shared-types';
+import type { EmployeeConfig, EmployeePersona } from '@offisim/shared-types';
 import { YOLO_MASTER_EMPLOYEE } from '../agents/yolo-master-persona.js';
 import type { CompanyTemplate } from './index.js';
 
@@ -30,12 +31,12 @@ export const aiStartupTemplate: CompanyTemplate = {
           bodyType: 'slim',
           gender: 'masculine',
         },
-      }),
+      } satisfies EmployeePersona),
       config_json: JSON.stringify({
         modelPreference: '',
         temperature: 0.4,
         maxTokens: 4096,
-      }),
+      } satisfies EmployeeConfig),
     },
     {
       name: 'Aria Patel',
@@ -54,12 +55,12 @@ export const aiStartupTemplate: CompanyTemplate = {
           bodyType: 'normal',
           gender: 'feminine',
         },
-      }),
+      } satisfies EmployeePersona),
       config_json: JSON.stringify({
         modelPreference: '',
         temperature: 0.4,
         maxTokens: 4096,
-      }),
+      } satisfies EmployeeConfig),
     },
     // ── Data ──
     {
@@ -79,12 +80,12 @@ export const aiStartupTemplate: CompanyTemplate = {
           bodyType: 'normal',
           gender: 'masculine',
         },
-      }),
+      } satisfies EmployeePersona),
       config_json: JSON.stringify({
         modelPreference: '',
         temperature: 0.3,
         maxTokens: 4096,
-      }),
+      } satisfies EmployeeConfig),
     },
     // ── Product ──
     {
@@ -104,12 +105,12 @@ export const aiStartupTemplate: CompanyTemplate = {
           bodyType: 'normal',
           gender: 'neutral',
         },
-      }),
+      } satisfies EmployeePersona),
       config_json: JSON.stringify({
         modelPreference: '',
         temperature: 0.5,
         maxTokens: 3072,
-      }),
+      } satisfies EmployeeConfig),
     },
     // ── Engineering ──
     {
@@ -129,12 +130,12 @@ export const aiStartupTemplate: CompanyTemplate = {
           bodyType: 'normal',
           gender: 'feminine',
         },
-      }),
+      } satisfies EmployeePersona),
       config_json: JSON.stringify({
         modelPreference: '',
         temperature: 0.4,
         maxTokens: 4096,
-      }),
+      } satisfies EmployeeConfig),
     },
     // ── Design ──
     {
@@ -154,12 +155,12 @@ export const aiStartupTemplate: CompanyTemplate = {
           bodyType: 'slim',
           gender: 'feminine',
         },
-      }),
+      } satisfies EmployeePersona),
       config_json: JSON.stringify({
         modelPreference: '',
         temperature: 0.7,
         maxTokens: 4096,
-      }),
+      } satisfies EmployeeConfig),
     },
     YOLO_MASTER_EMPLOYEE,
   ],  layoutPreset: 'ai-lab',
@@ -189,7 +190,7 @@ export const aiStartupTemplate: CompanyTemplate = {
       w: 10,
       d: 8,
       targetRoles: ['fullstack', 'frontend', 'ux_designer', 'product_manager', 'yolo_master'],
-      deskSlots: 3,
+      deskSlots: 5,
       sortOrder: 1,
     }),
     {

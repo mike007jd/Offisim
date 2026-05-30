@@ -55,6 +55,13 @@ export class NodeFileSystem implements VaultFileSystem {
 
   // Resolve a write target. Parent must canonicalize inside the root; final
   // basename is attached unmodified so writing a brand-new file is allowed.
+  //
+  // Parent canonicalization mitigates the common attack (a symlinked
+  // *directory* in the path). The leaf is not realpath'd because new-file
+  // creation must be permitted, so we lstat it without following: if the leaf
+  // already exists as a symlink, refuse — that closes the leaf-symlink escape
+  // (a pre-planted `foo.md -> /etc/passwd`) while still allowing brand-new
+  // files and existing real dirs/files to be written/created.
   private async resolveForWrite(relPath: string): Promise<string> {
     const full = path.resolve(this.root, relPath);
     const realRoot = await this.getRealRoot();
@@ -64,7 +71,18 @@ export class NodeFileSystem implements VaultFileSystem {
     if (!this.isInsideRoot(realParent, realRoot)) {
       throw this.outsideRootError(relPath);
     }
-    return path.join(realParent, path.basename(full));
+    const target = path.join(realParent, path.basename(full));
+    try {
+      const leaf = await fs.lstat(target);
+      if (leaf.isSymbolicLink()) {
+        throw this.outsideRootError(relPath);
+      }
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw err;
+      }
+    }
+    return target;
   }
 
   async readFile(relPath: string): Promise<string> {

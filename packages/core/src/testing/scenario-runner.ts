@@ -536,7 +536,14 @@ function createScenarioModelRegistry(
       ...(entry.contextWindow !== undefined ? { contextWindow: entry.contextWindow } : {}),
     }),
   );
-  return {
+  // Type the literal against the exact ModelRegistry method surface the harness
+  // stubs (via Pick) so a renamed/removed registry method is caught at build
+  // time, then narrow to ModelRegistry — the cast no longer launders through
+  // `unknown`, so signature drift can no longer slip past the compiler.
+  const stub: Pick<
+    ModelRegistry,
+    'findById' | 'listModels' | 'getDefault' | 'getGateway' | 'disposeAll' | 'resolveEnvVars'
+  > = {
     findById(modelId: string) {
       return normalized.find((entry) => entry.id === modelId || entry.model === modelId) ?? null;
     },
@@ -549,12 +556,12 @@ function createScenarioModelRegistry(
     getGateway(_modelId: string): LlmGateway | null {
       return null;
     },
-    loadConfig() {},
     disposeAll() {},
     resolveEnvVars(value: string) {
       return value;
     },
-  } as unknown as ModelRegistry;
+  };
+  return stub as ModelRegistry;
 }
 
 function createScenarioSkillInstallEnvironment(

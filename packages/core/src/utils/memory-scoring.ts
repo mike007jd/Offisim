@@ -26,7 +26,10 @@ export function scoreMemoryEntry(
   referenceDate: string,
   now: number = Date.now(),
 ): number {
-  const ageMs = now - new Date(referenceDate).getTime();
+  const ref = Date.parse(referenceDate);
+  // Treat an unparseable referenceDate as maximally stale (age 0 floor) so the
+  // score never becomes NaN and the sort comparator stays total.
+  const ageMs = Number.isNaN(ref) ? 0 : now - ref;
   const ageDays = ageMs / (1000 * 60 * 60 * 24);
   const recency = Math.exp(-0.14 * ageDays);
   const reinforcementBonus = 1 + Math.min(entry.reinforcement_count, 5) * 0.12;

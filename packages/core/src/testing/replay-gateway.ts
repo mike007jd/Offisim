@@ -28,7 +28,12 @@ export class ReplayGateway implements LlmGateway {
     const response = await this.chat(request);
     if (response.content) yield { content: response.content, done: false };
     if (response.reasoningContent) yield { reasoning: response.reasoningContent, done: false };
-    yield { done: true, toolCalls: response.toolCalls, usage: response.usage };
+    yield {
+      done: true,
+      toolCalls: response.toolCalls,
+      usage: response.usage,
+      ...(response.stopReason ? { stopReason: response.stopReason } : {}),
+    };
   }
 
   dispose(): void {}

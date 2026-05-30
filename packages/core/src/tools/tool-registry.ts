@@ -10,6 +10,17 @@ export interface RuntimeToolSource {
   readonly permissionIdentity: string;
 }
 
+/**
+ * Optional capability for a {@link ToolExecutor} to report where a tool routes.
+ * Implemented by the MCP/auditing executors; consumers should narrow with a
+ * runtime `typeof` check before calling, so a rename surfaces as a compile error
+ * here instead of a silent structural-cast degradation at the call site.
+ */
+export interface ToolSourceResolver {
+  getServerForTool(toolName: string): string | undefined;
+  getToolTypeForTool(toolName: string): RuntimeToolType | undefined;
+}
+
 export interface RegisteredTool {
   readonly name: string;
   readonly surface: ToolRegistrySurface;

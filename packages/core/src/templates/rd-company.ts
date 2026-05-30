@@ -4,6 +4,13 @@ import type { CompanyTemplate } from './index.js';
 /**
  * R&D Company template — 8 employees across 3 departments (DEV, PROD, ART).
  * Each employee has a unique Appearance for the puppet system stored in persona_json.
+ *
+ * NOTE: `appearance.hairStyle` and `appearance.bodyType` are typed as loose
+ * `string` in shared-types (renderer-agnostic), but the authoritative value sets
+ * are the avatar unions in `apps/desktop/renderer/src/lib/avatar.ts`:
+ *   hairStyle: 'short' | 'long' | 'ponytail' | 'curly' | 'bald' | 'bob' | 'spiky' | 'braids'
+ *   bodyType:  'slim' | 'normal' | 'stocky'
+ * Only use values from those unions; anything else falls back at render time.
  */
 export const rdCompanyTemplate: CompanyTemplate = {
   id: 'rd-company',

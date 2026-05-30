@@ -222,7 +222,14 @@ export class ToolPermissionEngine implements ToolPermissionAuthorizer {
     );
     const matchedRule = [...policy.rules]
       .filter((rule) => identities.some((identity) => globToRegex(rule.pattern).test(identity)))
-      .sort((a, b) => b.pattern.length - a.pattern.length)[0];
+      .sort((a, b) => {
+        const byLength = b.pattern.length - a.pattern.length;
+        if (byLength !== 0) return byLength;
+        const byBehavior =
+          runtimeBehaviorRank(b.behavior) - runtimeBehaviorRank(a.behavior);
+        if (byBehavior !== 0) return byBehavior;
+        return a.pattern.localeCompare(b.pattern);
+      })[0];
 
     if (matchedRule) {
       return runtimeBehaviorToDecision(matchedRule.behavior, {
@@ -265,6 +272,32 @@ async function runtimeBehaviorToDecision(
   };
 }
 
+// Security-biased rank for deterministic tie-breaks when two matching patterns
+// have equal length: higher rank = more restrictive, so it wins the tie.
+function runtimeBehaviorRank(behavior: RuntimeToolPermissionBehavior): number {
+  switch (behavior) {
+    case 'deny':
+      return 2;
+    case 'ask':
+      return 1;
+    case 'allow':
+      return 0;
+  }
+}
+
+function approvalModeRank(mode: ToolApprovalMode): number {
+  switch (mode) {
+    case 'deny':
+      return 3;
+    case 'always_ask':
+      return 2;
+    case 'ask_first_time':
+      return 1;
+    case 'auto':
+      return 0;
+  }
+}
+
 function buildRuntimeIdentities(
   serverName: string,
   toolName: string,
@@ -286,7 +319,13 @@ function resolveEmployeePolicyMatch(
 ): { mode: ToolApprovalMode; matchedPattern?: string } {
   const match = [...policy.overrides]
     .filter((override) => globToRegex(override.pattern).test(toolName))
-    .sort((a, b) => b.pattern.length - a.pattern.length)[0];
+    .sort((a, b) => {
+      const byLength = b.pattern.length - a.pattern.length;
+      if (byLength !== 0) return byLength;
+      const byMode = approvalModeRank(b.mode) - approvalModeRank(a.mode);
+      if (byMode !== 0) return byMode;
+      return a.pattern.localeCompare(b.pattern);
+    })[0];
 
   if (match) {
     return { mode: match.mode, matchedPattern: match.pattern };

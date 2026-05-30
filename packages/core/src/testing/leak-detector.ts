@@ -11,8 +11,14 @@ export interface RuntimeLeakSummary {
 export function summarizeRuntimeLeaks(reports: readonly ScenarioTraceReport[]): RuntimeLeakSummary {
   return reports.reduce<RuntimeLeakSummary>(
     (acc, report) => {
-      const activeInteractions = toRecordRows(report.trace.db.activeInteractions);
-      const pendingAssignments = toRecordRows(report.trace.finalState.pendingAssignments);
+      // Residual active interactions / pending assignments only count as leaks once the run
+      // reached a non-suspended terminal state. While a run is legitimately interrupted
+      // (interruptReason set, e.g. awaiting plan resolution), that leftover state is expected.
+      const suspended = report.trace.finalState.interruptReason != null;
+      const activeInteractions = suspended ? [] : toRecordRows(report.trace.db.activeInteractions);
+      const pendingAssignments = suspended
+        ? []
+        : toRecordRows(report.trace.finalState.pendingAssignments);
       const taskRuns = toRecordRows(report.trace.db.taskRuns);
       const mcpAudit = toRecordRows(report.trace.db.mcpAudit);
       return {

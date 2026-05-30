@@ -195,15 +195,15 @@ function buildPrefabInstances(
 }
 
 function validateTemplateZones(template: CompanyTemplate): void {
-  if (!template.zones) {
-    return;
-  }
+  // Validate against the effective zones (custom `zones` or the system fallback),
+  // so zone-less templates are not silently exempted from these invariants.
+  const zoneTemplates = getZoneTemplates(template);
 
   const slugSet = new Set<string>();
   const workspaceRoleToZone = new Map<RoleSlug, string>();
-  const availableZones = buildAvailableZones('', template, template.zones);
+  const availableZones = buildAvailableZones('', template, zoneTemplates);
 
-  for (const zoneTemplate of template.zones) {
+  for (const zoneTemplate of zoneTemplates) {
     if (slugSet.has(zoneTemplate.slug)) {
       throw new Error(
         `Template "${template.id}" defines duplicate zone slug "${zoneTemplate.slug}"`,
@@ -227,7 +227,7 @@ function validateTemplateZones(template: CompanyTemplate): void {
   }
 
   for (const requiredArchetype of REQUIRED_ARCHETYPES) {
-    const hasRequiredZone = template.zones.some((zone) => zone.archetype === requiredArchetype);
+    const hasRequiredZone = zoneTemplates.some((zone) => zone.archetype === requiredArchetype);
     if (!hasRequiredZone) {
       throw new Error(
         `Template "${template.id}" must include a "${requiredArchetype}" zone archetype`,
@@ -243,6 +243,13 @@ function validateTemplateZones(template: CompanyTemplate): void {
       );
     }
   }
+}
+
+// Fail fast at module load: validate every built-in template's zones together so
+// a malformed template surfaces once at startup rather than per-user-per-template
+// at materialize-time.
+for (const template of listAllTemplates()) {
+  validateTemplateZones(template);
 }
 
 // ── Service ────────────────────────────────────────────────────────
@@ -264,7 +271,7 @@ export class CompanyTemplateService {
   }
 
   /** List available built-in templates */
-  listTemplates(): CompanyTemplate[] {
+  listTemplates(): readonly CompanyTemplate[] {
     return listAllTemplates();
   }
 

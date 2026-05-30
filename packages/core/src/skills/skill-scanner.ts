@@ -20,8 +20,10 @@ import type {
 export function scanSkillDir(tree: VirtualTree): ScannedSkill | SkillResolverError {
   const candidates: string[] = [];
   for (const f of tree.files) {
-    const lower = f.path.toLowerCase();
-    if (lower.endsWith('skill.md')) {
+    // The SKILL.md open standard fixes the filename as uppercase `SKILL.md`.
+    // Match it case-sensitively so detection and the strip below agree on case
+    // and the asset-prefix slicing below cannot be corrupted by a mismatch.
+    if (f.path === 'SKILL.md' || f.path.endsWith('/SKILL.md')) {
       const depth = f.path.split('/').filter((s) => s.length > 0).length;
       if (depth === 1 || depth === 2) {
         candidates.push(f.path);
@@ -38,7 +40,7 @@ export function scanSkillDir(tree: VirtualTree): ScannedSkill | SkillResolverErr
     return {
       kind: 'skill-scanner-ambiguous',
       message: 'Multiple SKILL.md files found.',
-      candidates: candidates.map((p) => ({ path: p.replace(/\/?SKILL\.md$/iu, '/') })),
+      candidates: candidates.map((p) => ({ path: p.replace(/\/?SKILL\.md$/u, '/') })),
     };
   }
 
@@ -49,7 +51,7 @@ export function scanSkillDir(tree: VirtualTree): ScannedSkill | SkillResolverErr
       message: 'No SKILL.md found at the archive root or in a single subdirectory.',
     };
   }
-  const root = skillMd.replace(/\/?SKILL\.md$/iu, '');
+  const root = skillMd.replace(/\/?SKILL\.md$/u, '');
   const assetPaths: string[] = [];
   const rootPrefix = root.length > 0 ? `${root}/` : '';
   for (const f of tree.files) {

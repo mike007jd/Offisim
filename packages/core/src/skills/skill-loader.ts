@@ -10,6 +10,7 @@ import type {
   RuntimeRepositories,
   SkillRepository,
 } from '../runtime/repositories.js';
+import { Logger } from '../services/logger.js';
 import { generateId } from '../utils/generate-id.js';
 import { type VaultFileSystem, createUnavailableVaultFs } from '../vault/fs.js';
 import { employeeSlug } from '../vault/slug.js';
@@ -151,26 +152,38 @@ export class SkillScopeError extends Error {
   }
 }
 
+/**
+ * Percent-encode the reserved delimiters (`:` `@` `#`) used to structure the
+ * provenance `source_ref` string so a url / path / slug / ref that legitimately
+ * contains one of them cannot break the encoded format (and a downstream parser
+ * cannot mis-split it). Only the three delimiters are escaped to keep the ref
+ * human-readable; `decodeURIComponent` round-trips them back.
+ */
+function encodeSourceSegment(segment: string): string {
+  return segment.replace(/[:@#]/gu, (ch) => `%${ch.charCodeAt(0).toString(16).toUpperCase()}`);
+}
+
 export function encodeSkillSourceRef(source: SkillInstallSource): string {
   switch (source.kind) {
     case 'marketplace':
       return source.listingId;
     case 'git': {
-      const base = source.ref ? `git:${source.url}@${source.ref}` : `git:${source.url}`;
-      return source.subpath ? `${base}#${source.subpath}` : base;
+      const url = encodeSourceSegment(source.url);
+      const base = source.ref ? `git:${url}@${encodeSourceSegment(source.ref)}` : `git:${url}`;
+      return source.subpath ? `${base}#${encodeSourceSegment(source.subpath)}` : base;
     }
     case 'upload': {
-      const base = `upload:${source.filename}`;
-      return source.subpath ? `${base}#${source.subpath}` : base;
+      const base = `upload:${encodeSourceSegment(source.filename)}`;
+      return source.subpath ? `${base}#${encodeSourceSegment(source.subpath)}` : base;
     }
     case 'claude-code':
-      return `claude-code:${source.path}`;
+      return `claude-code:${encodeSourceSegment(source.path)}`;
     case 'codex':
-      return `codex:${source.path}`;
+      return `codex:${encodeSourceSegment(source.path)}`;
     case 'fork':
-      return `company-skill:${source.parentSkillId}@${source.parentVersion}`;
+      return `company-skill:${encodeSourceSegment(source.parentSkillId)}@${encodeSourceSegment(source.parentVersion)}`;
     case 'self-authored':
-      return `llm-author:${source.modelKey}`;
+      return `llm-author:${encodeSourceSegment(source.modelKey)}`;
   }
 }
 
@@ -204,6 +217,38 @@ function validateAssetPath(relPath: string): void {
 }
 
 /**
+ * Authoritative containment gate: collapse `.` / `..` / duplicate-slash segments
+ * in the fully resolved vault path and assert it stays under the skill
+ * directory. `validateAssetPath` runs on the caller-supplied relPath before any
+ * IO, but the scanned SKILL.md / asset paths are concatenated into vault writes;
+ * this re-checks the final resolved path immediately before `fs.writeFile` so a
+ * crafted slug or relPath can never escape `paths.dir`.
+ */
+function assertVaultPathContained(dir: string, vaultPath: string, relPath: string): void {
+  const normalize = (p: string): string => {
+    const out: string[] = [];
+    for (const seg of p.split('/')) {
+      if (seg === '' || seg === '.') continue;
+      if (seg === '..') {
+        out.pop();
+        continue;
+      }
+      out.push(seg);
+    }
+    return out.join('/');
+  };
+  const normDir = normalize(dir);
+  const normPath = normalize(vaultPath);
+  if (normPath !== normDir && !normPath.startsWith(`${normDir}/`)) {
+    throw new SkillAssetError(
+      'path-traversal',
+      `Skill write path "${vaultPath}" resolves outside the skill directory "${dir}"`,
+      relPath,
+    );
+  }
+}
+
+/**
  * Progressive-disclosure skill loader.
  *
  * - Tier 1 — listing (sync-shaped, DB-only): `listSkillsForEmployee`
@@ -217,6 +262,7 @@ export class SkillLoader {
   private readonly skills: SkillRepository;
   private readonly employees: EmployeeRepository;
   private readonly events: SkillMarketEventEmitter | undefined;
+  private readonly logger = new Logger('skill-loader');
   private fs: VaultFileSystem;
 
   constructor(deps: SkillLoaderDeps) {
@@ -450,6 +496,7 @@ export class SkillLoader {
 
     const writtenPaths: string[] = [];
     try {
+      assertVaultPathContained(paths.dir, paths.skillMdPath, 'SKILL.md');
       await this.fs.writeFile(paths.skillMdPath, args.files.skillMd);
       writtenPaths.push(paths.skillMdPath);
 
@@ -457,6 +504,7 @@ export class SkillLoader {
         const content =
           typeof asset.content === 'string' ? asset.content : decodeUint8(asset.content);
         const assetPath = paths.assetPathFor(asset.relPath);
+        assertVaultPathContained(paths.dir, assetPath, asset.relPath);
         await this.fs.writeFile(assetPath, content);
         writtenPaths.push(assetPath);
       }
@@ -494,9 +542,12 @@ export class SkillLoader {
 
   /**
    * Rewrite an existing skill's SKILL.md body without touching identity fields
-   * (slug / scope / source_kind / source_ref / vault_path). Frontmatter is
-   * preserved byte-equivalently via `serializeSkillMd`; only the body + DB
-   * `version` (patch bump) + `updated_at` change.
+   * (slug / scope / source_kind / source_ref / vault_path). Standard frontmatter
+   * (name / description / allowedTools / license / version) is preserved via
+   * `serializeSkillMd`; only the body + DB `version` (patch bump) + `updated_at`
+   * change. Non-standard frontmatter keys are NOT round-tripped by
+   * `serializeSkillMd` and are therefore dropped on edit — this is surfaced as a
+   * `skill.edit.frontmatter-fields-dropped` warning rather than silent loss.
    *
    * Defence-in-depth (C/C-11): callers SHOULD supply `expectedCompanyId` so
    * the loader refuses to overwrite a skill that doesn't live in the active
@@ -559,6 +610,17 @@ export class SkillLoader {
         `editSkillBody: version "${row.version}" is not semver-patch-bumpable`,
         args.skillId,
       );
+    }
+
+    const droppedKeys = Object.keys(parsed.unknownFields);
+    if (droppedKeys.length > 0) {
+      // serializeSkillMd only re-emits the standard key set, so any
+      // non-standard frontmatter present on disk would silently disappear on
+      // edit. Surface it so the loss is observable rather than invisible.
+      this.logger.warn('skill.edit.frontmatter-fields-dropped', {
+        skillId: args.skillId,
+        droppedKeys,
+      });
     }
 
     const serialized = serializeSkillMd({
@@ -624,6 +686,22 @@ function decodeUint8(bytes: Uint8Array): string {
   return out;
 }
 
+/**
+ * Detect the "tried to readFile a directory" error so the walker can recurse
+ * instead of conflating it with a genuine file-read failure. Node throws
+ * `EISDIR`; the File System Access (web) backend surfaces a directory as a
+ * TypeMismatch / "is a directory" style message. Anything else is a real IO
+ * failure that must surface rather than be silently dropped.
+ */
+function isDirectoryReadError(err: unknown): boolean {
+  const code = (err as { code?: unknown } | null)?.code;
+  if (code === 'EISDIR') return true;
+  const name = (err as { name?: unknown } | null)?.name;
+  if (name === 'TypeMismatchError') return true;
+  const message = err instanceof Error ? err.message : String(err);
+  return /\bis a directory\b|EISDIR/iu.test(message);
+}
+
 async function walkVaultSubtree(
   fs: VaultFileSystem,
   dirAbs: string,
@@ -634,20 +712,19 @@ async function walkVaultSubtree(
   for (const entry of entries) {
     const childAbs = `${dirAbs}/${entry}`;
     const childRel = `${relPrefix}/${entry}`;
-    // listDir returns names only (no stat). Try read as file first; if it
-    // fails (likely a directory), recurse.
+    // listDir returns names only (no stat). Try read as file first; a
+    // directory-read error means recurse, but any other IO failure is a real
+    // unreadable file that must surface instead of being silently dropped from
+    // the fork snapshot.
+    let text: string | undefined;
     try {
-      const text = await fs.readFile(childAbs);
-      out.push({ relPath: childRel, content: text });
-    } catch {
-      // Assume directory — recurse. If `listDir` fails too, swallow since the
-      // caller is best-effort (missing subtree is fine).
-      try {
-        await walkVaultSubtree(fs, childAbs, childRel, out);
-      } catch {
-        /* non-fatal: unreadable node */
-      }
+      text = await fs.readFile(childAbs);
+    } catch (err) {
+      if (!isDirectoryReadError(err)) throw err;
+      await walkVaultSubtree(fs, childAbs, childRel, out);
+      continue;
     }
+    out.push({ relPath: childRel, content: text });
   }
 }
 

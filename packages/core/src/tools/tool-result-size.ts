@@ -10,10 +10,26 @@ const SPILL_DIR_NAME = 'offisim-tool-result-spills';
 const SPILL_MAX_ENTRIES = 256;
 const SPILL_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
+// Optional logical owner of a spilled result. When a caller supplies a scope,
+// readToolResultSpill must be given the matching scope to retrieve the content,
+// so a spill belonging to one company/thread can never be read back under
+// another. Callers that do not thread scope leave it undefined (unchanged
+// behavior).
+export interface ToolResultSpillScope {
+  readonly companyId?: string;
+  readonly threadId?: string;
+}
+
 interface SpillEntry {
   readonly text: string;
   readonly createdAt: number;
   readonly filePath?: string;
+  readonly scope?: ToolResultSpillScope;
+}
+
+function scopeMatches(entry: ToolResultSpillScope | undefined, requested: ToolResultSpillScope | undefined): boolean {
+  if (!entry?.companyId && !entry?.threadId) return true;
+  return entry.companyId === requested?.companyId && entry.threadId === requested?.threadId;
 }
 
 // JS Map preserves insertion order; we re-set on access to keep the LRU
@@ -52,6 +68,7 @@ async function unlinkSpillFile(filePath: string): Promise<void> {
 export async function capToolResultForModel(
   maxResultSizeChars: number | undefined,
   result: unknown,
+  scope?: ToolResultSpillScope,
 ): Promise<unknown> {
   const text = typeof result === 'string' ? result : JSON.stringify(result);
   const maxChars = maxResultSizeChars ?? DEFAULT_MAX_RESULT_SIZE_CHARS;
@@ -62,6 +79,7 @@ export async function capToolResultForModel(
     text,
     createdAt: Date.now(),
     ...(spillPath ? { filePath: spillPath } : {}),
+    ...(scope?.companyId || scope?.threadId ? { scope } : {}),
   };
   while (spills.size >= SPILL_MAX_ENTRIES) {
     evictOldestSpill();
@@ -76,7 +94,7 @@ export async function capToolResultForModel(
   };
 }
 
-export function readToolResultSpill(spillId: string): string | null {
+export function readToolResultSpill(spillId: string, scope?: ToolResultSpillScope): string | null {
   const entry = spills.get(spillId);
   if (!entry) return null;
   if (isExpired(entry, Date.now())) {
@@ -84,6 +102,9 @@ export function readToolResultSpill(spillId: string): string | null {
     if (entry.filePath) void unlinkSpillFile(entry.filePath);
     return null;
   }
+  // Reject reads from a different logical owner so a spill belonging to one
+  // company/thread is never returned under another (the cache is module-global).
+  if (!scopeMatches(entry.scope, scope)) return null;
   // Touch for LRU.
   spills.delete(spillId);
   spills.set(spillId, entry);

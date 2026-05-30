@@ -4,6 +4,7 @@ import { createMemoryRepositories } from '../runtime/memory-repositories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { ConversationBudgetService } from '../services/conversation-budget-service.js';
 import { microCompactMessages } from '../services/conversation-budget/micro-compact.js';
+import { estimateTokens as estimateMessageTokens } from '../services/conversation-budget/message-utils.js';
 import type { DeterministicScenario } from './scenario-runner.js';
 import { runDeterministicScenario } from './scenario-runner.js';
 
@@ -426,11 +427,14 @@ function estimateTraceTokens(value: unknown): number {
 }
 
 function estimateMessagesTokens(messages: readonly LlmMessage[]): number {
-  return estimateTokens(messages.map((message) => message.content).join('\n'));
+  return estimateMessageTokens(messages);
 }
 
+// Delegate raw-string estimates to the production estimator (over a single
+// synthetic message) so harness thresholds track the real conversation-budget
+// estimator instead of a divergent local heuristic.
 function estimateTokens(text: string): number {
-  return Math.ceil(text.length / 4);
+  return estimateMessageTokens([{ role: 'user', content: text }]);
 }
 
 function countCompactedMarkers(value: unknown): number {

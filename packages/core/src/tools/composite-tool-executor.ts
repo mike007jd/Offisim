@@ -2,7 +2,7 @@ import type { ToolDef } from '../llm/gateway.js';
 import type { ToolCallRequest, ToolCallResponse, ToolExecutor } from '../runtime/tool-executor.js';
 import { Logger } from '../services/logger.js';
 import type { BuiltinTool, BuiltinToolExecutionContext } from './builtin/types.js';
-import type { RuntimeToolType } from './tool-registry.js';
+import type { RuntimeToolType, ToolSourceResolver } from './tool-registry.js';
 import { capToolResultForModel } from './tool-result-size.js';
 import { validateToolInput } from './tool-schema-validator.js';
 
@@ -81,17 +81,17 @@ export class CompositeToolExecutor implements ToolExecutor {
 
   getServerForTool(toolName: string): string | undefined {
     if (this.builtinTools.has(toolName)) return 'builtin';
-    const resolver = (this.mcpExecutor as unknown as Record<string, unknown>).getServerForTool;
-    return typeof resolver === 'function'
-      ? (resolver as (name: string) => string | undefined).call(this.mcpExecutor, toolName)
+    const resolver = this.mcpExecutor as Partial<ToolSourceResolver>;
+    return typeof resolver.getServerForTool === 'function'
+      ? resolver.getServerForTool(toolName)
       : undefined;
   }
 
   getToolTypeForTool(toolName: string): RuntimeToolType | undefined {
     if (this.builtinTools.has(toolName)) return 'builtin';
-    const resolver = (this.mcpExecutor as unknown as Record<string, unknown>).getToolTypeForTool;
-    return typeof resolver === 'function'
-      ? (resolver as (name: string) => RuntimeToolType | undefined).call(this.mcpExecutor, toolName)
+    const resolver = this.mcpExecutor as Partial<ToolSourceResolver>;
+    return typeof resolver.getToolTypeForTool === 'function'
+      ? resolver.getToolTypeForTool(toolName)
       : 'mcp';
   }
 }

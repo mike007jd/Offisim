@@ -253,21 +253,24 @@ async function assertPromptCacheBoundary(): Promise<Record<string, unknown>> {
   );
 
   const proxyBodies: unknown[] = [];
+  // Gap cases must remain serially executed: this mutates the global fetch.
+  // Assign inside the try so the finally always restores it, even if gateway
+  // setup throws before the first request.
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
-    proxyBodies.push(JSON.parse(String(init?.body ?? '{}')));
-    return jsonResponse({
-      id: 'msg_proxy_1',
-      type: 'message',
-      role: 'assistant',
-      model: 'proxy-claude',
-      content: [{ type: 'text', text: 'proxy ok' }],
-      stop_reason: 'end_turn',
-      stop_sequence: null,
-      usage: { input_tokens: 5, output_tokens: 2 },
-    });
-  }) as typeof fetch;
   try {
+    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      proxyBodies.push(JSON.parse(String(init?.body ?? '{}')));
+      return jsonResponse({
+        id: 'msg_proxy_1',
+        type: 'message',
+        role: 'assistant',
+        model: 'proxy-claude',
+        content: [{ type: 'text', text: 'proxy ok' }],
+        stop_reason: 'end_turn',
+        stop_sequence: null,
+        usage: { input_tokens: 5, output_tokens: 2 },
+      });
+    }) as typeof fetch;
     const proxy = createGateway({
       provider: 'anthropic',
       apiKey: 'test-key',

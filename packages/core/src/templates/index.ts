@@ -32,12 +32,12 @@ export interface CompanyTemplate {
   name: string;
   description: string;
   icon: string;
-  employees: CompanyTemplateEmployee[];
+  employees: readonly CompanyTemplateEmployee[];
   layoutPreset: string;
   zones?: readonly TemplateZoneBlueprint[];
 }
 
-const TEMPLATES: CompanyTemplate[] = [
+const TEMPLATES: readonly CompanyTemplate[] = [
   rdCompanyTemplate,
   contentStudioTemplate,
   productTeamTemplate,
@@ -45,7 +45,7 @@ const TEMPLATES: CompanyTemplate[] = [
   aiStartupTemplate,
 ];
 
-export function listTemplates(): CompanyTemplate[] {
+export function listTemplates(): readonly CompanyTemplate[] {
   return TEMPLATES;
 }
 

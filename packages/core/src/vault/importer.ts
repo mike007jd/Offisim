@@ -17,7 +17,12 @@ export interface ImportOutcome {
 
 export interface EmployeeSourceFile {
   readonly content: string;
-  readonly mtime: string;
+  // Caller-provided filesystem mtime hint. NOT consumed by the conflict
+  // resolution below: last-writer-wins compares the schema-validated
+  // frontmatter `updated_at` against the DB row, never this value. Kept
+  // optional so callers may omit it; do not reintroduce it into the
+  // comparison without also reconciling F4 (md vs. real fs mtime trust).
+  readonly mtime?: string;
 }
 
 export interface EmployeeVaultFiles {

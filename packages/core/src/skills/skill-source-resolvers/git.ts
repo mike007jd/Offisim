@@ -5,7 +5,7 @@ import type { ScannedSkill, SkillResolverError, VirtualTree } from './types.js';
 
 export type GitHttpFetch = (
   url: string,
-  init?: { headers?: Record<string, string> },
+  init?: { headers?: Record<string, string>; signal?: AbortSignal },
 ) => Promise<{
   ok: boolean;
   status: number;
@@ -56,6 +56,12 @@ export interface GitResolverInput {
    * a specific commit / release artifact.
    */
   expectedSha256?: string | undefined;
+  /**
+   * Optional cancellation signal forwarded to the web tarball fetch so a stalled
+   * download can be aborted (the streamed read loop has no wall-clock bound on
+   * its own). Desktop clone goes through the injected adapter and ignores this.
+   */
+  signal?: AbortSignal | undefined;
 }
 
 export interface GitResolverResult {
@@ -82,12 +88,19 @@ function parseGithub(url: string): { owner: string; repo: string } | null {
   }
 }
 
-// Minimal ustar parser — shared with upload resolver but kept inline to avoid
-// a cross-resolver helper file just for a ~30-line routine.
+// Minimal ustar parser — shared in spirit with the upload resolver but kept
+// inline to avoid a cross-resolver helper file just for a ~40-line routine.
+//
+// GNU `L` (long name) and PAX `x`/`g` extended headers are consumed so a path
+// longer than the 100-byte ustar `name` field overrides the FOLLOWING file
+// entry instead of silently emitting that file under a truncated path. Link
+// entries (`1`/`2`) and directories (`5`) are skipped, never treated as files.
 function untarToTree(bytes: Uint8Array): VirtualTree {
   const files: VirtualTree['files'] = [];
   let offset = 0;
   const td = new TextDecoder('utf-8');
+  // Path override carried from a preceding GNU/PAX long-name record.
+  let pendingNameOverride: string | null = null;
   while (offset + 512 <= bytes.length) {
     const header = bytes.subarray(offset, offset + 512);
     if (header.every((b) => b === 0)) break;
@@ -102,18 +115,50 @@ function untarToTree(bytes: Uint8Array): VirtualTree {
     const size = sizeStr ? Number.parseInt(sizeStr, 8) : 0;
     const typeFlag = String.fromCharCode(header[156] ?? 0);
     offset += 512;
-    if ((typeFlag === '0' || typeFlag === '\0') && name && size > 0) {
-      const content = bytes.subarray(offset, offset + size);
+    const body = bytes.subarray(offset, offset + size);
+    offset += Math.ceil(size / 512) * 512;
+
+    if (typeFlag === 'L') {
+      // GNU long-name: the body is the NUL-terminated real path for the next entry.
+      const raw = td.decode(body);
+      const end = raw.indexOf('\0');
+      pendingNameOverride = (end === -1 ? raw : raw.slice(0, end)) || null;
+      continue;
+    }
+    if (typeFlag === 'x' || typeFlag === 'g') {
+      // PAX extended header: parse `<len> path=<value>\n` records; `path=`
+      // overrides the next entry (x = next-entry scope, g = global default).
+      const override = parsePaxPath(td.decode(body));
+      if (override) pendingNameOverride = override;
+      continue;
+    }
+
+    const effectiveName = pendingNameOverride ?? name;
+    pendingNameOverride = null;
+
+    if ((typeFlag === '0' || typeFlag === '\0') && effectiveName && size > 0) {
       // GitHub tarballs wrap everything under `<repo>-<sha>/`; strip the first
       // segment so the scanner sees SKILL.md at depth 1 (or in one subdirectory).
-      const stripped = name.split('/').slice(1).join('/');
+      const stripped = effectiveName.split('/').slice(1).join('/');
       if (stripped.length > 0) {
-        files.push({ path: stripped, content: new Uint8Array(content) });
+        files.push({ path: stripped, content: new Uint8Array(body) });
       }
     }
-    offset += Math.ceil(size / 512) * 512;
+    // typeFlag 1/2 (links), 5 (directory), and others fall through unrecorded.
   }
   return { files };
+}
+
+// Extract the `path=` override from a PAX extended-header body. Records are
+// `<decimal-length> <keyword>=<value>\n`; we only care about `path`.
+function parsePaxPath(record: string): string | null {
+  const re = /\d+ ([^=]+)=([^\n]*)\n/gu;
+  let match: RegExpExecArray | null = re.exec(record);
+  while (match !== null) {
+    if (match[1] === 'path' && match[2]) return match[2];
+    match = re.exec(record);
+  }
+  return null;
 }
 
 /**
@@ -187,6 +232,7 @@ export async function resolveGitSource(
       Accept: 'application/vnd.github+json',
       'User-Agent': 'Offisim-Skill-Installer',
     },
+    ...(input.signal !== undefined ? { signal: input.signal } : {}),
   });
 
   if (resp.status === 403) {

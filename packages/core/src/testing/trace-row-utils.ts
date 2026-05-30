@@ -12,7 +12,7 @@ export function countDuplicateRowsByKey(
   let duplicates = 0;
   for (const row of rows) {
     const value = row[key];
-    if (!value) continue;
+    if (value == null) continue;
     if (seen.has(value)) {
       duplicates++;
       continue;

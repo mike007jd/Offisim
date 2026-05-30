@@ -87,9 +87,19 @@ function formatMemoryLine(entry: MemoryEntryRow): string {
   return `- \`${entry.memory_id}\` · ★${importance} · ${entry.access_count}× · ${date} — ${content}`;
 }
 
+// This is a recency-ordered view: entries are displayed newest-first
+// (`last_reinforced_at` desc, with importance as a tie-break). Callers must
+// fetch the top-N by `last_reinforced_at` so the rows they truncate to are the
+// same ones a recency view would surface; truncating by any other criterion
+// silently drops recent memories the body claims to show.
+//
+// Pass `totalCount` (the true memory total, ignoring the display limit) so the
+// frontmatter `count` reflects how many memories exist rather than how many
+// were rendered; the body then notes the truncation explicitly.
 export function renderMemoryMd(
   row: Pick<EmployeeRow, 'employee_id' | 'company_id' | 'updated_at'>,
   memories: readonly MemoryEntryRow[],
+  totalCount?: number,
 ): string {
   const sorted = [...memories].sort((a, b) => {
     if (a.last_reinforced_at === b.last_reinforced_at) {
@@ -97,14 +107,20 @@ export function renderMemoryMd(
     }
     return b.last_reinforced_at.localeCompare(a.last_reinforced_at);
   });
+  const shown = sorted.length;
+  const total = typeof totalCount === 'number' && totalCount > shown ? totalCount : shown;
   const frontmatter: MemoryFrontmatter = {
     schema: VAULT_SCHEMA_VERSION,
     employee_id: row.employee_id,
     company_id: row.company_id,
-    count: sorted.length,
+    count: total,
     updated_at: row.updated_at,
   };
   const sections: string[] = ['# Memories', ''];
+  if (total > shown) {
+    sections.push(`_Showing ${shown} of ${total} memories (most recent first)._`);
+    sections.push('');
+  }
   for (const category of MEMORY_CATEGORY_ORDER) {
     const entries = sorted.filter((entry) => entry.category === category);
     sections.push(`## ${category}`);
@@ -121,6 +137,12 @@ export function renderMemoryMd(
   return serializeDocument(frontmatter, sections.join('\n').trimEnd());
 }
 
+// Intentionally-deferred stub: relationship rows are not yet modeled, so this
+// always renders an empty `relationships` frontmatter array and a placeholder
+// body. `relationship.*` events still schedule a write of this constant
+// content (see VaultSyncService); that no-op write is accepted for now. When
+// relationship data lands, give this the same shape as `renderMemoryMd` —
+// accept the real rows and populate the frontmatter — instead of ignoring them.
 export function renderRelationshipsMd(
   row: Pick<EmployeeRow, 'employee_id' | 'company_id' | 'updated_at'>,
 ): string {
