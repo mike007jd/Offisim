@@ -1,4 +1,3 @@
-import { useEmployeeSkills } from '@/data/queries.js';
 import type { Employee } from '@/data/types.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { SegmentedControl } from '@/design-system/grammar/SegmentedControl.js';
@@ -16,7 +15,6 @@ import {
   FileText,
   Link2,
   Lock,
-  Puzzle,
   Save,
   Search,
 } from 'lucide-react';
@@ -136,37 +134,6 @@ function SystemPromptPreview({ text }: { text: string }) {
       </button>
       {open ? <pre>{text}</pre> : null}
     </div>
-  );
-}
-
-function EmbeddedSkills({ employeeId }: { employeeId: string }) {
-  const skills = useEmployeeSkills(employeeId);
-  if (!skills.data?.length) {
-    return (
-      <div className="off-pers-sk-empty">
-        <Icon icon={Puzzle} size="md" />
-        <p>
-          No skills available. Skills installed from the marketplace or created locally will appear
-          here.
-        </p>
-      </div>
-    );
-  }
-  return (
-    <>
-      {skills.data.map((skill) => (
-        <div key={skill.id} className="off-pers-skrow">
-          <Icon icon={Puzzle} size="sm" />
-          <div className="off-pers-skrow-main">
-            <div className="off-pers-skrow-top">
-              <span className="off-pers-skrow-name">{skill.name}</span>
-              <span className="off-pers-scope-tag">{skill.scope}</span>
-            </div>
-            <p className="off-pers-skrow-desc">{skill.description}</p>
-          </div>
-        </div>
-      ))}
-    </>
   );
 }
 
@@ -459,11 +426,6 @@ export function ProfileTab({
             </div>
           </section>
 
-          {/* Embedded skills */}
-          <section className="off-pers-prof-sec">
-            <CapsLabel>Skills</CapsLabel>
-            <EmbeddedSkills employeeId={employee.id} />
-          </section>
         </div>
       </div>
 
