@@ -1348,6 +1348,21 @@
   gap: var(--off-sp-3);
 }
 
+/* Honest preview tag for fixture-only surfaces (no backend yet). */
+.off-ws-preview-tag {
+  height: 18px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--off-r-pill);
+  background: var(--off-surface-sunken);
+  color: var(--off-ink-4);
+  font-size: var(--off-fs-label);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
 .off-ws-oa-deny {
   height: 34px;
   padding: 0 16px;

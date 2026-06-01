@@ -91,7 +91,7 @@ export function CalendarApp() {
           Today
         </button>
         <span className="off-grow" />
-        <span className="off-ws-action-state">Scheduling backend pending</span>
+        <span className="off-ws-preview-tag">Preview</span>
       </div>
 
       <div className="off-ws-cal-body">
