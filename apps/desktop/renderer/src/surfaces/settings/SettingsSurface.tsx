@@ -239,6 +239,11 @@ export function SettingsSurface() {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
         if (tab === 'provider') {
           event.preventDefault();
+          if (!providerDirty) return;
+          if (!providerValid) {
+            toast.error('Fix the highlighted provider fields before saving');
+            return;
+          }
           void saveProvider();
         }
       }
@@ -253,7 +258,7 @@ export function SettingsSurface() {
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [tab, saveProvider, providerDirty, providerForm, activeConfigId, providerConfigs]);
+  }, [tab, saveProvider, providerDirty, providerValid, providerForm, activeConfigId, providerConfigs]);
 
   return (
     <div className="off-settings">

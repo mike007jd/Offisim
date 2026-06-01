@@ -449,6 +449,9 @@ function EmployeeDetail({
   });
   const baselineProfile = useRef<ProfileFormValues>(profileDefaults(employee));
   const baselineTools = useRef<ToolPermissions>(defaultToolPermissions());
+  // Held in a ref (like profile/tools) and advanced explicitly on save, so the
+  // dirty/reset baseline doesn't lag behind the post-save query refetch.
+  const baselineAppearance = useRef<AppearanceDraft>(appearanceDraftFor(employee));
   const [toolPermissions, setToolPermissions] = useState<ToolPermissions>(defaultToolPermissions());
   const [toolPermissionsDirty, setToolPermissionsDirty] = useState(false);
   const [appearance, setAppearance] = useState<AppearanceDraft>(appearanceDraftFor(employee));
@@ -456,8 +459,7 @@ function EmployeeDetail({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
-  const baselineAppearance = appearanceDraftFor(employee);
-  const appearanceDirty = appearanceKey(appearance) !== appearanceKey(baselineAppearance);
+  const appearanceDirty = appearanceKey(appearance) !== appearanceKey(baselineAppearance.current);
   const isDirty = form.formState.isDirty || toolPermissionsDirty || appearanceDirty;
   const nameValid = form.watch('name').trim().length > 0;
   const canSave = isDirty && !isSaving && employee.kind !== 'external' && nameValid;
@@ -534,6 +536,7 @@ function EmployeeDetail({
       await queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
       baselineProfile.current = values;
       baselineTools.current = toolPermissions;
+      baselineAppearance.current = appearance;
       form.reset(values);
       setToolPermissionsDirty(false);
       toast.success(`${employee.name} saved`);
@@ -550,7 +553,7 @@ function EmployeeDetail({
     form.reset(baselineProfile.current);
     setToolPermissions(baselineTools.current);
     setToolPermissionsDirty(false);
-    setAppearance(baselineAppearance);
+    setAppearance(baselineAppearance.current);
     setSaveError(null);
   };
 
