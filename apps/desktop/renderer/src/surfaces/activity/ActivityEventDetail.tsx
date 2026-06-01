@@ -6,6 +6,7 @@ import {
   type ActivityRecord,
   LEVEL_BADGE_LABEL,
   formatFullTimestamp,
+  getDisplayLabel,
   getEventLevel,
 } from './activity-data.js';
 
@@ -23,7 +24,7 @@ export function ActivityEventDetail({ record, onClose }: ActivityEventDetailProp
   return (
     <div className="off-act-detail">
       <div className="off-ad-head">
-        <h2>Event Detail</h2>
+        <h2>{getDisplayLabel(record)}</h2>
         <IconButton icon={X} label="Close detail" size="iconSm" onClick={onClose} side="left" />
       </div>
       <div className="off-ad-body">

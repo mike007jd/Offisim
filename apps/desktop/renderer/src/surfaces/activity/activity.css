@@ -362,6 +362,12 @@
   flex-direction: column;
 }
 
+.off-pv-summary {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: var(--off-sp-3);
+}
+
 .off-pv-row {
   display: flex;
   align-items: baseline;

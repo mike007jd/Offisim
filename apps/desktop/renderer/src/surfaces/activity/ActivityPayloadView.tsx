@@ -108,7 +108,8 @@ function PayloadNode({ name, value, depth }: PayloadNodeProps) {
   );
 }
 
-/** Recursive key/value payload tree used by the event detail panel. */
+/** Payload view: a curated summary of the top-level scalar fields (skipping
+ *  null/empty), with the complete tree tucked into a "Raw payload" disclosure. */
 export function ActivityPayloadView({
   payload,
 }: {
@@ -118,11 +119,27 @@ export function ActivityPayloadView({
   if (entries.length === 0) {
     return <p className="off-pv-empty">Empty payload</p>;
   }
+  // Summary = up to four top-level scalar fields that actually have a value.
+  const summary = entries
+    .filter(([, value]) => value !== null && value !== undefined && typeof value !== 'object')
+    .slice(0, 4);
   return (
     <div className="off-pv">
-      {entries.map(([key, value]) => (
-        <PayloadNode key={key} name={key} value={value} depth={1} />
-      ))}
+      {summary.length > 0 ? (
+        <div className="off-pv-summary">
+          {summary.map(([key, value]) => (
+            <div key={key} className="off-pv-row">
+              <span className="off-pv-key">{key}</span>
+              <PrimitiveValue value={value} />
+            </div>
+          ))}
+        </div>
+      ) : null}
+      <Collapsible label="Raw payload" defaultOpen={summary.length === 0}>
+        {entries.map(([key, value]) => (
+          <PayloadNode key={key} name={key} value={value} depth={1} />
+        ))}
+      </Collapsible>
     </div>
   );
 }

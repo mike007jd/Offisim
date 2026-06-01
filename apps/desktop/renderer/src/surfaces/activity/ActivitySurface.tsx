@@ -193,7 +193,7 @@ export function ActivitySurface() {
           <EmptyState
             icon={Activity}
             title="No activity yet"
-            description="Activity Log surfaces workspace and runtime events as your company operates — chat and task dispatch, employee plans and tool calls, deliverables, installs, and errors. Start a task in Office and events will appear here."
+            description="Workspace and runtime events show up here once you start a task in Office."
             action={{ label: 'Back to Office', onClick: backToOffice }}
           />
         </div>
