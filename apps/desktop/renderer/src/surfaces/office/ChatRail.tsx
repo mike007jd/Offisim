@@ -9,7 +9,7 @@ import {
 } from '@/data/queries.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { SkeletonRows } from '@/surfaces/shared/SurfaceStates.js';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Inbox } from 'lucide-react';
 import { useMemo } from 'react';
 import { ThreadList } from './rail/ThreadList.js';
 
@@ -19,6 +19,8 @@ export function ChatRail() {
   const projectId = useUiState((s) => s.projectId);
   const selectedThreadId = useUiState((s) => s.selectedThreadId);
   const closeThread = useUiState((s) => s.closeThread);
+  const setSurface = useUiState((s) => s.setSurface);
+  const setWorkspaceApp = useUiState((s) => s.setWorkspaceApp);
 
   const threads = useThreads(projectId);
   const projects = useProjects(companyId);
@@ -58,6 +60,16 @@ export function ChatRail() {
             <span className="off-chat-sub">{activeThread.subtitle}</span>
           ) : null}
         </div>
+        <IconButton
+          icon={Inbox}
+          label="Open in Inbox"
+          variant="ghost"
+          size="icon"
+          onClick={() => {
+            if (selectedThreadId) setWorkspaceApp('messenger', selectedThreadId);
+            setSurface('workspace');
+          }}
+        />
       </header>
 
       {messages.isLoading || !selectedThreadId ? (

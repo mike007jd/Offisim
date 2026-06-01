@@ -237,6 +237,7 @@ export function MessengerApp() {
   const selectItem = useUiState((s) => s.selectWorkspaceItem);
   const setSurface = useUiState((s) => s.setSurface);
   const selectEmployee = useUiState((s) => s.selectEmployee);
+  const openThread = useUiState((s) => s.openThread);
   const conversations = useWsConversations();
   const employees = useEmployees();
   const projects = useProjects(companyId);
@@ -299,6 +300,16 @@ export function MessengerApp() {
             </span>
           </div>
           <div className="off-ws-chat-tools">
+            <IconButton
+              icon={Building2}
+              label="Open in Office"
+              variant="ghost"
+              size="iconSm"
+              onClick={() => {
+                openThread(active.id);
+                setSurface('office');
+              }}
+            />
             {isDirect ? (
               <IconButton
                 icon={Eye}
