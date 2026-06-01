@@ -4,13 +4,6 @@ export type WorkspaceKey = 'office' | 'workspace' | 'market' | 'personnel';
 export type OverlaySurface = 'activity' | 'settings' | 'studio' | 'lifecycle';
 export type SurfaceKey = WorkspaceKey | OverlaySurface;
 
-export const WORKSPACE_NAV: ReadonlyArray<{ key: WorkspaceKey; label: string }> = [
-  { key: 'office', label: 'Office' },
-  { key: 'workspace', label: 'Workspace' },
-  { key: 'market', label: 'Market' },
-  { key: 'personnel', label: 'Personnel' },
-];
-
 export type SceneRenderMode = '3d' | '2d';
 export type RailMode = 'list' | 'thread';
 export interface SceneDropDiagnostic {

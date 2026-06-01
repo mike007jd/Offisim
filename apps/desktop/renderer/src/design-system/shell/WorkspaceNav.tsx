@@ -1,4 +1,6 @@
-import { WORKSPACE_NAV, useUiState } from '@/app/ui-state.js';
+import { PRIMARY_NAV } from '@/app/nav-registry.js';
+import { useUiState } from '@/app/ui-state.js';
+import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 
 export function WorkspaceNav() {
@@ -6,9 +8,9 @@ export function WorkspaceNav() {
   const setSurface = useUiState((s) => s.setSurface);
 
   return (
-    <nav className="off-workspace-nav" aria-label="Workspace">
-      {WORKSPACE_NAV.map((item) => {
-        const active = surface === item.key || (item.key === 'office' && surface === 'studio');
+    <nav className="off-workspace-nav" aria-label="Primary">
+      {PRIMARY_NAV.map((item) => {
+        const active = surface === item.key;
         return (
           <button
             key={item.key}
@@ -17,6 +19,7 @@ export function WorkspaceNav() {
             aria-current={active ? 'page' : undefined}
             onClick={() => setSurface(item.key)}
           >
+            <Icon icon={item.icon} size="sm" />
             {item.label}
           </button>
         );

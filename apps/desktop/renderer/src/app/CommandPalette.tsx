@@ -1,4 +1,5 @@
-import { type SurfaceKey, useUiState } from '@/app/ui-state.js';
+import { NAV_ENTRIES } from '@/app/nav-registry.js';
+import { useUiState } from '@/app/ui-state.js';
 import { useCompanies, useProjects } from '@/data/queries.js';
 import {
   Command,
@@ -10,30 +11,13 @@ import {
   CommandSeparator,
 } from '@/design-system/primitives/command.js';
 import { Dialog, DialogContent } from '@/design-system/primitives/dialog.js';
-import {
-  Activity,
-  BriefcaseBusiness,
-  FolderGit2,
-  LayoutGrid,
-  type LucideIcon,
-  Settings,
-  Store,
-  UsersRound,
-} from 'lucide-react';
+import { BriefcaseBusiness, FolderGit2, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
-
-const SURFACES: ReadonlyArray<{ key: SurfaceKey; label: string; icon: LucideIcon }> = [
-  { key: 'office', label: 'Office', icon: BriefcaseBusiness },
-  { key: 'market', label: 'Market', icon: Store },
-  { key: 'personnel', label: 'Personnel', icon: UsersRound },
-  { key: 'activity', label: 'Activity', icon: Activity },
-  { key: 'settings', label: 'Settings', icon: Settings },
-  { key: 'studio', label: 'Studio', icon: LayoutGrid },
-];
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const setSurface = useUiState((s) => s.setSurface);
+  const openLifecycle = useUiState((s) => s.openLifecycle);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -55,20 +39,30 @@ export function CommandPalette() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent showClose={false} className="off-command-dialog" aria-label="Command palette">
         <Command loop>
-          <CommandInput placeholder="Jump to a surface, company, or project…" />
+          <CommandInput placeholder="Search or jump to…" />
           <CommandList>
             <CommandEmpty>No results.</CommandEmpty>
             <CommandGroup heading="Go to">
-              {SURFACES.map((surface) => (
+              {NAV_ENTRIES.map((entry) => (
                 <CommandItem
-                  key={surface.key}
-                  value={`go ${surface.label}`}
-                  onSelect={() => run(() => setSurface(surface.key))}
+                  key={entry.key}
+                  value={`go ${entry.label}`}
+                  onSelect={() => run(() => setSurface(entry.key))}
                 >
-                  <surface.icon />
-                  {surface.label}
+                  <entry.icon />
+                  {entry.label}
                 </CommandItem>
               ))}
+            </CommandGroup>
+            <CommandSeparator />
+            <CommandGroup heading="Actions">
+              <CommandItem
+                value="new company create"
+                onSelect={() => run(() => openLifecycle('create'))}
+              >
+                <Plus />
+                New company
+              </CommandItem>
             </CommandGroup>
             {/* Mount the data-driven groups only while open so the company/project
                 queries do not run on every session start (idiomatic enabled gate). */}

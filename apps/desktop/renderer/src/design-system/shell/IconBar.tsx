@@ -1,18 +1,6 @@
+import { UTILITY_NAV } from '@/app/nav-registry.js';
 import { useUiState } from '@/app/ui-state.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
-import { Activity, LayoutGrid, Settings, type LucideIcon } from 'lucide-react';
-
-type UtilityEntry = {
-  key: 'activity' | 'settings' | 'studio';
-  label: string;
-  icon: LucideIcon;
-};
-
-const UTILITY_ENTRIES: readonly UtilityEntry[] = [
-  { key: 'activity', label: 'Activity', icon: Activity },
-  { key: 'settings', label: 'Settings', icon: Settings },
-  { key: 'studio', label: 'Studio', icon: LayoutGrid },
-];
 
 export function IconBar() {
   const surface = useUiState((s) => s.surface);
@@ -20,9 +8,12 @@ export function IconBar() {
 
   return (
     <div className="off-iconbar">
-      {UTILITY_ENTRIES.map((entry) => (
+      {UTILITY_NAV.map((entry, index) => (
         <span key={entry.key} className="off-iconbar-entry">
-          {entry.key === 'studio' ? <span className="off-iconbar-divider" aria-hidden /> : null}
+          {/* Divider before Studio separates feed/config utilities from the editor. */}
+          {entry.key === 'studio' && index > 0 ? (
+            <span className="off-iconbar-divider" aria-hidden />
+          ) : null}
           <IconButton
             icon={entry.icon}
             label={entry.label}

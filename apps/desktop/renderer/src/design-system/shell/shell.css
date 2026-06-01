@@ -137,7 +137,10 @@
 
 .off-workspace-nav button {
   height: 28px;
-  padding: 0 var(--off-sp-6);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+  padding: 0 var(--off-sp-4);
   border: 0;
   border-radius: var(--off-r-sm);
   background: transparent;
