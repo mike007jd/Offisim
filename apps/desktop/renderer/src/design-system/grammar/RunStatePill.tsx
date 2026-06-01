@@ -3,22 +3,22 @@ import { StatusPill } from './StatusPill.js';
 
 const RUN_TONE: Record<
   RunState,
-  { tone: 'accent' | 'ok' | 'danger' | 'muted'; running: boolean } | null
+  { tone: 'accent' | 'ok' | 'danger' | 'muted'; running: boolean; label: string } | null
 > = {
-  running: { tone: 'accent', running: true },
-  error: { tone: 'danger', running: false },
-  done: { tone: 'ok', running: false },
-  paused: { tone: 'muted', running: false },
+  running: { tone: 'accent', running: true, label: 'Running' },
+  error: { tone: 'danger', running: false, label: 'Failed' },
+  done: { tone: 'ok', running: false, label: 'Done' },
+  paused: { tone: 'muted', running: false, label: 'Paused' },
   idle: null,
 };
 
 /** Renders a status pill for a run state, or nothing when idle. */
 export function RunStatePill({ state }: { state: RunState }) {
-  const tone = RUN_TONE[state];
-  if (!tone) return null;
+  const config = RUN_TONE[state];
+  if (!config) return null;
   return (
-    <StatusPill tone={tone.tone} running={tone.running}>
-      {state}
+    <StatusPill tone={config.tone} running={config.running}>
+      {config.label}
     </StatusPill>
   );
 }

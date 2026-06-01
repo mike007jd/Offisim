@@ -705,7 +705,7 @@
   font-size: var(--off-fs-micro);
   font-weight: 720;
   letter-spacing: 0;
-  text-transform: uppercase;
+  text-transform: capitalize;
 }
 
 .off-status-dot {
@@ -737,11 +737,6 @@
 .off-status-pill-danger {
   background: var(--off-danger-surface);
   color: var(--off-danger);
-}
-
-.off-status-pill-violet {
-  background: var(--off-violet-surface);
-  color: var(--off-violet);
 }
 
 .off-status-pill-muted {
