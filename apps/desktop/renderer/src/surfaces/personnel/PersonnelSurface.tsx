@@ -827,8 +827,8 @@ export function PersonnelSurface() {
             </span>
             <p className="off-state-title">Hire your first employee</p>
             <p className="off-state-desc">
-              Build a roster of AI staff with their own persona, skills, memory, and runtime
-              binding. Start from scratch or grab a vetted template from the marketplace.
+              Hire AI staff with their own persona, skills, and memory — from scratch or a
+              marketplace template.
             </p>
             <div className="off-pers-empty-actions">
               <Button
