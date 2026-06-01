@@ -174,7 +174,7 @@ export function ProviderPane({ form, activeConfigId, onSelectConfig }: ProviderP
         <div className="off-set-panedesc">The AI provider your employees use.</div>
       </div>
 
-      {/* Connected provider card */}
+      {/* Active provider */}
       <section className="off-set-sec">
         <CardBlock>
           <div className="off-set-pv-row">
@@ -208,84 +208,62 @@ export function ProviderPane({ form, activeConfigId, onSelectConfig }: ProviderP
         </CardBlock>
       </section>
 
-      {/* Multi-config picker */}
+      {/* Credentials — the primary edit */}
       <section className="off-set-sec">
         <div className="off-set-sec-head">
-          <CapsLabel>Configurations</CapsLabel>
+          <CapsLabel>Credentials</CapsLabel>
         </div>
         <CardBlock>
-          <div className="off-set-pv-grid">
-            {configs.map((config) => (
-              <button
-                key={config.id}
-                type="button"
-                className={`off-set-pv-mini off-focusable${config.id === activeConfigId ? ' is-active' : ''}`}
-                onClick={() => onSelectConfig(config)}
-              >
-                <span className="off-set-pm-logo" style={providerLogoStyle(config)}>
-                  {config.logoMark}
-                </span>
-                <span className="min-w-0 text-left">
-                  <span className="off-set-pm-name">{config.displayName}</span>
-                  <span className="off-set-pm-sub">{config.subtitle}</span>
-                </span>
-                <StatusPill tone={healthTone(config.health)}>
-                  {PROVIDER_HEALTH_LABELS[config.health]}
-                </StatusPill>
-              </button>
-            ))}
-          </div>
-          <div className="off-set-pv-state">
-            Key and model changes save with the Settings bar.
-          </div>
-        </CardBlock>
-      </section>
-
-      {/* Route */}
-      <section className="off-set-sec">
-        <div className="off-set-sec-head">
-          <CapsLabel>Route</CapsLabel>
-        </div>
-        <CardBlock>
-          <div className="off-set-grid-2">
-            <FieldRow label="Product">
-              {({ id }) => (
-                <Select
-                  id={id}
-                  options={PRODUCT_OPTIONS}
-                  value={product}
-                  {...form.register('product')}
-                />
-              )}
-            </FieldRow>
-            <FieldRow label="Access mode">
-              {({ id }) => (
-                <Select
-                  id={id}
-                  options={ACCESS_MODE_OPTIONS}
-                  value={accessMode}
-                  {...form.register('accessMode')}
-                />
-              )}
-            </FieldRow>
-            <div className="off-set-span-2 off-field">
-              <div className="off-set-route-summary">
-                <span className="off-set-rs-name">{active.displayName}</span>
-                <span className="off-set-chip-mini">
-                  {ACCESS_MODE_OPTIONS.find((o) => o.value === accessMode)?.label ??
-                    'Global API key'}
-                </span>
-                <span className="off-set-route-trail">
-                  {routeProtocolLabel(activeConfig)} · {activeConfig.endpointKind} ·{' '}
-                  {activeConfig.region}
-                </span>
-              </div>
+          {isManaged ? (
+            <div className="off-set-callout is-muted">
+              <Icon icon={Info} size="sm" />
+              Credentials managed by host.
             </div>
+          ) : (
+            <div className="off-field">
+              <span className="off-field-label">Secure API key</span>
+              <div className="off-set-ctl is-mono">
+                <span className="off-set-ctl-lead">
+                  <Icon icon={Key} size="sm" />
+                </span>
+                <Input
+                  type={revealKey ? 'text' : 'password'}
+                  className="off-set-ctl-input"
+                  placeholder="provider token"
+                  {...form.register('apiKey')}
+                />
+                <button
+                  type="button"
+                  className="off-set-ctl-trail off-focusable"
+                  aria-label={revealKey ? 'Hide key' : 'Reveal key'}
+                  onClick={() => setRevealKey((v) => !v)}
+                >
+                  <Icon icon={revealKey ? EyeOff : Eye} size="sm" />
+                </button>
+              </div>
+              <span className="off-field-hint">
+                Leave empty to keep the stored key · Saved to <b>{active.credentialDestination}</b>
+              </span>
+            </div>
+          )}
+          <div className="mt-[var(--off-sp-4)] flex flex-col gap-[var(--off-sp-2)]">
+            {active.isThinking ? (
+              <div className="off-set-callout is-warn">
+                <Icon icon={AlertTriangle} size="sm" />
+                Thinking model — keep max tokens at 1024+.
+              </div>
+            ) : null}
+            {isHostResolved ? (
+              <div className="off-set-callout is-info">
+                <Icon icon={Info} size="sm" />
+                Local/host-managed providers need a running host.
+              </div>
+            ) : null}
           </div>
         </CardBlock>
       </section>
 
-      {/* Model */}
+      {/* Model — the primary edit */}
       <section className="off-set-sec">
         <div className="off-set-sec-head">
           <CapsLabel>Model</CapsLabel>
@@ -295,7 +273,7 @@ export function ProviderPane({ form, activeConfigId, onSelectConfig }: ProviderP
             label="Model"
             hint={
               form.formState.errors.model?.message ??
-              'Free-form id with suggestions from runtime provider profiles.'
+              'Type any model id; suggestions come from your provider profiles.'
             }
             warn={!!form.formState.errors.model}
           >
@@ -333,58 +311,51 @@ export function ProviderPane({ form, activeConfigId, onSelectConfig }: ProviderP
         </CardBlock>
       </section>
 
-      {/* Credentials */}
+      {/* Route — resolved summary */}
       <section className="off-set-sec">
         <div className="off-set-sec-head">
-          <CapsLabel>Credentials</CapsLabel>
+          <CapsLabel>Route</CapsLabel>
         </div>
         <CardBlock>
-          {isManaged ? (
-            <div className="off-set-callout is-muted">
-              <Icon icon={Info} size="sm" />
-              Credentials managed by host.
-            </div>
-          ) : (
-            <div className="off-field">
-              <span className="off-field-label">Secure API key</span>
-              <div className="off-set-ctl is-mono">
-                <span className="off-set-ctl-lead">
-                  <Icon icon={Key} size="sm" />
+          <div className="off-set-route-summary">
+            <span className="off-set-rs-name">{active.displayName}</span>
+            <span className="off-set-chip-mini">
+              {ACCESS_MODE_OPTIONS.find((o) => o.value === accessMode)?.label ?? 'Global API key'}
+            </span>
+            <span className="off-set-route-trail">
+              {routeProtocolLabel(activeConfig)} · {activeConfig.endpointKind} ·{' '}
+              {activeConfig.region}
+            </span>
+          </div>
+        </CardBlock>
+      </section>
+
+      {/* Configurations — switch the active provider */}
+      <section className="off-set-sec">
+        <div className="off-set-sec-head">
+          <CapsLabel>Configurations</CapsLabel>
+        </div>
+        <CardBlock>
+          <div className="off-set-pv-grid">
+            {configs.map((config) => (
+              <button
+                key={config.id}
+                type="button"
+                className={`off-set-pv-mini off-focusable${config.id === activeConfigId ? ' is-active' : ''}`}
+                onClick={() => onSelectConfig(config)}
+              >
+                <span className="off-set-pm-logo" style={providerLogoStyle(config)}>
+                  {config.logoMark}
                 </span>
-                <Input
-                  type={revealKey ? 'text' : 'password'}
-                  className="off-set-ctl-input"
-                  placeholder="provider token"
-                  {...form.register('apiKey')}
-                />
-                <button
-                  type="button"
-                  className="off-set-ctl-trail off-focusable"
-                  aria-label={revealKey ? 'Hide key' : 'Reveal key'}
-                  onClick={() => setRevealKey((v) => !v)}
-                >
-                  <Icon icon={revealKey ? EyeOff : Eye} size="sm" />
-                </button>
-              </div>
-              <span className="off-field-hint">
-                Leave empty to keep the stored credential · Credential destination:{' '}
-                <b>{active.credentialDestination}</b>
-              </span>
-            </div>
-          )}
-          <div className="mt-[var(--off-sp-4)] flex flex-col gap-[var(--off-sp-2)]">
-            {active.isThinking ? (
-              <div className="off-set-callout is-warn">
-                <Icon icon={AlertTriangle} size="sm" />
-                Thinking model — keep max tokens at 1024+.
-              </div>
-            ) : null}
-            {isHostResolved ? (
-              <div className="off-set-callout is-info">
-                <Icon icon={Info} size="sm" />
-                Local/host-managed providers need a running host.
-              </div>
-            ) : null}
+                <span className="min-w-0 text-left">
+                  <span className="off-set-pm-name">{config.displayName}</span>
+                  <span className="off-set-pm-sub">{config.subtitle}</span>
+                </span>
+                <StatusPill tone={healthTone(config.health)}>
+                  {PROVIDER_HEALTH_LABELS[config.health]}
+                </StatusPill>
+              </button>
+            ))}
           </div>
         </CardBlock>
       </section>
@@ -400,66 +371,34 @@ export function ProviderPane({ form, activeConfigId, onSelectConfig }: ProviderP
             <span className="off-set-chev">
               <Icon icon={ChevronRight} size="sm" />
             </span>
-            Runtime profile models
-          </summary>
-          <div className="off-set-disclosure-body">
-            <div className="off-set-catalog-row">
-              <div>
-                <div className="off-set-cr-t">Runtime profile refresh</div>
-                <div className="off-set-cr-meta">
-                  Last refresh {runtimeProfileRefreshLabel} · {runtimeProfileScopeSummary}
-                </div>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!providerBridgeAvailable || providerConfigsQuery.isFetching}
-                title={
-                  providerBridgeAvailable
-                    ? 'Refresh model suggestions from desktop runtime provider profiles'
-                    : 'Runtime profile refresh is only available in the desktop runtime'
-                }
-                onClick={() => void handleRefreshCatalog()}
-              >
-                <Icon icon={RefreshCw} size="sm" />
-                {providerConfigsQuery.isFetching ? 'Refreshing' : 'Refresh profiles'}
-              </Button>
-            </div>
-            <div className="mb-[var(--off-sp-3)] flex items-center gap-[var(--off-sp-3)]">
-              <span className="off-set-chip-mini">Agent scoped</span>
-              <span className="text-[length:var(--off-fs-meta)] text-[color:var(--off-ink-3)]">
-                {modelSuggestions.length} model suggestions from the active provider profiles.
-              </span>
-            </div>
-            <div className="off-set-catalog-srcs">
-              {catalogSources.map((src) => (
-                <div key={src.label} className="off-set-catalog-src">
-                  <div className="off-set-cs-label">{src.label}</div>
-                  <div className="off-set-cs-sum">{src.summary}</div>
-                </div>
-              ))}
-            </div>
-            {catalogError ? (
-              <div className="off-set-catalog-err">
-                <Icon icon={AlertTriangle} size="sm" />
-                {catalogError}
-              </div>
-            ) : null}
-          </div>
-        </details>
-
-        <details className="off-set-disclosure" open>
-          <summary>
-            <span className="off-set-chev">
-              <Icon icon={ChevronRight} size="sm" />
-            </span>
-            Advanced routing
+            Connection details
           </summary>
           <div className="off-set-disclosure-body">
             <p className="off-set-sec-hint mb-[var(--off-sp-4)] mt-0">
-              {active.displayName} key route. Variant and execution lane resolve the transport.
+              How {active.displayName} is reached. Product and access mode follow the configuration
+              you pick above; override them only for a custom transport.
             </p>
             <div className="off-set-grid-2">
+              <FieldRow label="Product">
+                {({ id }) => (
+                  <Select
+                    id={id}
+                    options={PRODUCT_OPTIONS}
+                    value={product}
+                    {...form.register('product')}
+                  />
+                )}
+              </FieldRow>
+              <FieldRow label="Access mode">
+                {({ id }) => (
+                  <Select
+                    id={id}
+                    options={ACCESS_MODE_OPTIONS}
+                    value={accessMode}
+                    {...form.register('accessMode')}
+                  />
+                )}
+              </FieldRow>
               <FieldRow label="Provider variant">
                 {({ id }) => (
                   <Select
@@ -535,6 +474,59 @@ export function ProviderPane({ form, activeConfigId, onSelectConfig }: ProviderP
                 )}
               </FieldRow>
             </div>
+          </div>
+        </details>
+
+        <details className="off-set-disclosure">
+          <summary>
+            <span className="off-set-chev">
+              <Icon icon={ChevronRight} size="sm" />
+            </span>
+            Runtime profile models
+          </summary>
+          <div className="off-set-disclosure-body">
+            <div className="off-set-catalog-row">
+              <div>
+                <div className="off-set-cr-t">Runtime profile refresh</div>
+                <div className="off-set-cr-meta">
+                  Last refresh {runtimeProfileRefreshLabel} · {runtimeProfileScopeSummary}
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!providerBridgeAvailable || providerConfigsQuery.isFetching}
+                title={
+                  providerBridgeAvailable
+                    ? 'Refresh model suggestions from desktop runtime provider profiles'
+                    : 'Runtime profile refresh is only available in the desktop runtime'
+                }
+                onClick={() => void handleRefreshCatalog()}
+              >
+                <Icon icon={RefreshCw} size="sm" />
+                {providerConfigsQuery.isFetching ? 'Refreshing' : 'Refresh profiles'}
+              </Button>
+            </div>
+            <div className="mb-[var(--off-sp-3)] flex items-center gap-[var(--off-sp-3)]">
+              <span className="off-set-chip-mini">Agent scoped</span>
+              <span className="text-[length:var(--off-fs-meta)] text-[color:var(--off-ink-3)]">
+                {modelSuggestions.length} model suggestions from the active provider profiles.
+              </span>
+            </div>
+            <div className="off-set-catalog-srcs">
+              {catalogSources.map((src) => (
+                <div key={src.label} className="off-set-catalog-src">
+                  <div className="off-set-cs-label">{src.label}</div>
+                  <div className="off-set-cs-sum">{src.summary}</div>
+                </div>
+              ))}
+            </div>
+            {catalogError ? (
+              <div className="off-set-catalog-err">
+                <Icon icon={AlertTriangle} size="sm" />
+                {catalogError}
+              </div>
+            ) : null}
           </div>
         </details>
       </section>

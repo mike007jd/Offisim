@@ -12,7 +12,18 @@ import { Button } from '@/design-system/primitives/button.js';
 import { Input } from '@/design-system/primitives/input.js';
 import { safeErrorMessage } from '@/lib/provider-bridge.js';
 import { useQuery } from '@tanstack/react-query';
-import { Check, Download, FolderOpen, Info, Monitor, Moon, Package, Sun, Zap } from 'lucide-react';
+import {
+  Check,
+  ChevronRight,
+  Download,
+  FolderOpen,
+  Info,
+  Monitor,
+  Moon,
+  Package,
+  Sun,
+  Zap,
+} from 'lucide-react';
 import { useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -163,10 +174,51 @@ export function RuntimePane({
         <div className="off-set-panedesc">Appearance and how employees run.</div>
       </div>
 
-      {/* Runtime defaults */}
+      {/* General — Appearance */}
       <section className="off-set-sec">
         <div className="off-set-sec-head">
-          <CapsLabel>Runtime defaults</CapsLabel>
+          <CapsLabel>Appearance</CapsLabel>
+        </div>
+        <CardBlock>
+          <div className="off-set-grid-2">
+            <div className="off-field">
+              <span className="off-field-label">Theme</span>
+              <SegmentedControl<ThemeValue>
+                value={theme}
+                onChange={onThemeChange}
+                ariaLabel="Theme"
+                options={[
+                  { value: 'system', label: 'System', icon: <Icon icon={Monitor} size="sm" /> },
+                  { value: 'light', label: 'Light', icon: <Icon icon={Sun} size="sm" /> },
+                  { value: 'dark', label: 'Dark', icon: <Icon icon={Moon} size="sm" /> },
+                ]}
+              />
+              <span className="off-field-hint">
+                {theme === 'system' ? 'Follows your OS color scheme.' : `Always ${theme}.`}
+              </span>
+            </div>
+            <div className="off-field">
+              <span className="off-field-label">Display density</span>
+              <SegmentedControl<DensityValue>
+                value={density}
+                onChange={onDensityChange}
+                ariaLabel="Display density"
+                options={[
+                  { value: 'compact', label: 'Compact' },
+                  { value: 'normal', label: 'Normal' },
+                  { value: 'spacious', label: 'Spacious' },
+                ]}
+              />
+              <span className="off-field-hint">How tightly rows and panels are packed.</span>
+            </div>
+          </div>
+        </CardBlock>
+      </section>
+
+      {/* General — execution behavior */}
+      <section className="off-set-sec">
+        <div className="off-set-sec-head">
+          <CapsLabel>How employees run</CapsLabel>
         </div>
         <CardBlock>
           <div className="off-set-grid-3">
@@ -202,307 +254,286 @@ export function RuntimePane({
         </CardBlock>
       </section>
 
-      {/* Appearance */}
+      {/* Advanced */}
       <section className="off-set-sec">
         <div className="off-set-sec-head">
-          <CapsLabel>Appearance</CapsLabel>
+          <CapsLabel>Advanced</CapsLabel>
         </div>
-        <CardBlock>
-          <div className="off-set-grid-2">
-            <div className="off-field">
-              <span className="off-field-label">Theme</span>
-              <SegmentedControl<ThemeValue>
-                value={theme}
-                onChange={onThemeChange}
-                ariaLabel="Theme"
+
+        <details className="off-set-disclosure">
+          <summary>
+            <span className="off-set-chev">
+              <Icon icon={ChevronRight} size="sm" />
+            </span>
+            Runtime binding
+          </summary>
+          <div className="off-set-disclosure-body">
+            <div className="off-set-rbc">
+              <SegmentedControl<RuntimeBindingValue>
+                wrap
+                value={binding}
+                onChange={(value) =>
+                  form.setValue('runtimeBinding', value, { shouldDirty: true })
+                }
+                ariaLabel="Runtime binding"
                 options={[
-                  { value: 'system', label: 'System', icon: <Icon icon={Monitor} size="sm" /> },
-                  { value: 'light', label: 'Light', icon: <Icon icon={Sun} size="sm" /> },
-                  { value: 'dark', label: 'Dark', icon: <Icon icon={Moon} size="sm" /> },
+                  { value: 'inherit', label: 'Inherit' },
+                  {
+                    value: 'gateway',
+                    label: 'Provider gateway',
+                    icon: <Icon icon={Zap} size="sm" />,
+                  },
+                  { value: 'claude', label: 'Verified driver' },
+                  { value: 'codex', label: 'Isolated driver' },
                 ]}
               />
-              <span className="off-field-hint">
-                Applied via <code>data-theme</code> on the document
-                {theme === 'system' ? ', following the OS color scheme' : `, forcing ${theme}`}.
-              </span>
-            </div>
-            <div className="off-field">
-              <span className="off-field-label">Display density</span>
-              <SegmentedControl<DensityValue>
-                value={density}
-                onChange={onDensityChange}
-                ariaLabel="Display density"
-                options={[
-                  { value: 'compact', label: 'Compact' },
-                  { value: 'normal', label: 'Normal' },
-                  { value: 'spacious', label: 'Spacious' },
-                ]}
-              />
-              <span className="off-field-hint">
-                Compact tightens row padding; Spacious does the inverse. Applied via{' '}
-                <code>data-density</code> on the document.
-              </span>
+              <div className="off-set-rbc-resolved">
+                Resolved:{' '}
+                <b>
+                  {RUNTIME_BINDING_OPTIONS.find((o) => o.value === binding)?.label ?? 'Inherit'}
+                </b>
+                <span className="off-set-rbc-source">· source: company override</span>
+              </div>
+              <div className="off-set-callout is-muted">
+                <Icon icon={Info} size="sm" />
+                Verified and Isolated drivers require a release build.
+              </div>
             </div>
           </div>
-        </CardBlock>
-      </section>
+        </details>
 
-      {/* Runtime binding control */}
-      <section className="off-set-sec">
-        <div className="off-set-sec-head">
-          <CapsLabel>Runtime binding</CapsLabel>
-        </div>
-        <CardBlock>
-          <div className="off-set-rbc">
-            <SegmentedControl<RuntimeBindingValue>
-              wrap
-              value={binding}
-              onChange={(value) => form.setValue('runtimeBinding', value, { shouldDirty: true })}
-              ariaLabel="Runtime binding"
-              options={[
-                { value: 'inherit', label: 'Inherit' },
-                {
-                  value: 'gateway',
-                  label: 'Provider gateway',
-                  icon: <Icon icon={Zap} size="sm" />,
-                },
-                { value: 'claude', label: 'Verified driver' },
-                { value: 'codex', label: 'Isolated driver' },
-              ]}
-            />
-            <div className="off-set-rbc-resolved">
-              Resolved:{' '}
-              <b>{RUNTIME_BINDING_OPTIONS.find((o) => o.value === binding)?.label ?? 'Inherit'}</b>
-              <span className="off-set-rbc-source">· source: company override</span>
-            </div>
-            <div className="off-set-callout is-muted">
-              <Icon icon={Info} size="sm" />
-              Verified and Isolated drivers require a release build.
-            </div>
-          </div>
-        </CardBlock>
-      </section>
-
-      {/* Conversation memory & summarization */}
-      <section className="off-set-sec">
-        <div className="off-set-sec-head">
-          <CapsLabel>Conversation memory &amp; summarization</CapsLabel>
-        </div>
-        <CardBlock>
-          <div className="off-set-subhead">Memory</div>
-          <div className="off-set-grid-4">
-            <FieldRow label="Enabled">
-              {({ id }) => (
-                <Select id={id} options={ENABLED_OPTIONS} {...form.register('memoryEnabled')} />
-              )}
-            </FieldRow>
-            <FieldRow label="Prompt injection">
-              {({ id }) => (
-                <Select id={id} options={ENABLED_OPTIONS} {...form.register('memoryInjection')} />
-              )}
-            </FieldRow>
-            <FieldRow
-              label="Max facts"
-              hint={errors.memoryMaxFacts?.message}
-              warn={!!errors.memoryMaxFacts}
-            >
-              {({ id }) => (
-                <Input
-                  id={id}
-                  type="number"
-                  {...form.register('memoryMaxFacts', { valueAsNumber: true })}
-                />
-              )}
-            </FieldRow>
-            <FieldRow
-              label="Confidence"
-              hint={errors.memoryConfidence?.message}
-              warn={!!errors.memoryConfidence}
-            >
-              {({ id }) => (
-                <Input
-                  id={id}
-                  type="number"
-                  step="0.1"
-                  {...form.register('memoryConfidence', { valueAsNumber: true })}
-                />
-              )}
-            </FieldRow>
-          </div>
-          <div className="off-set-subhead mt-[var(--off-sp-6)]">Summarization</div>
-          <div className="off-set-sec-hint mb-[var(--off-sp-3)]">
-            Auto-compress long conversations.
-          </div>
-          <div className="off-set-grid-3">
-            <FieldRow label="Enabled">
-              {({ id }) => (
-                <Select
-                  id={id}
-                  options={ENABLED_OPTIONS}
-                  {...form.register('summarizationEnabled')}
-                />
-              )}
-            </FieldRow>
-            <FieldRow
-              label="Trigger tokens"
-              hint={errors.summarizationTrigger?.message}
-              warn={!!errors.summarizationTrigger}
-            >
-              {({ id }) => (
-                <Input
-                  id={id}
-                  type="number"
-                  {...form.register('summarizationTrigger', { valueAsNumber: true })}
-                />
-              )}
-            </FieldRow>
-            <FieldRow
-              label="Keep recent"
-              hint={errors.summarizationKeepRecent?.message}
-              warn={!!errors.summarizationKeepRecent}
-            >
-              {({ id }) => (
-                <Input
-                  id={id}
-                  type="number"
-                  {...form.register('summarizationKeepRecent', { valueAsNumber: true })}
-                />
-              )}
-            </FieldRow>
-          </div>
-        </CardBlock>
-      </section>
-
-      {/* Local vault */}
-      <section className="off-set-sec">
-        <div className="off-set-sec-head">
-          <CapsLabel>Local vault</CapsLabel>
-        </div>
-        <CardBlock className="off-set-vault-card">
-          <div className="off-set-vault-head">
-            <span className="off-set-vault-ico">
-              <Icon icon={FolderOpen} size="sm" />
+        <details className="off-set-disclosure">
+          <summary>
+            <span className="off-set-chev">
+              <Icon icon={ChevronRight} size="sm" />
             </span>
-            <div>
-              <div className="off-set-vault-title">
-                Local vault <span className="off-set-mode-tag">Desktop</span>
-              </div>
-              <div className="off-set-vault-sub">
-                Employee files are mirrored to a local folder.
-              </div>
+            Conversation memory &amp; summarization
+          </summary>
+          <div className="off-set-disclosure-body">
+            <div className="off-set-subhead">Memory</div>
+            <div className="off-set-grid-4">
+              <FieldRow label="Enabled">
+                {({ id }) => (
+                  <Select id={id} options={ENABLED_OPTIONS} {...form.register('memoryEnabled')} />
+                )}
+              </FieldRow>
+              <FieldRow label="Prompt injection">
+                {({ id }) => (
+                  <Select
+                    id={id}
+                    options={ENABLED_OPTIONS}
+                    {...form.register('memoryInjection')}
+                  />
+                )}
+              </FieldRow>
+              <FieldRow
+                label="Max facts"
+                hint={errors.memoryMaxFacts?.message}
+                warn={!!errors.memoryMaxFacts}
+              >
+                {({ id }) => (
+                  <Input
+                    id={id}
+                    type="number"
+                    {...form.register('memoryMaxFacts', { valueAsNumber: true })}
+                  />
+                )}
+              </FieldRow>
+              <FieldRow
+                label="Confidence"
+                hint={errors.memoryConfidence?.message}
+                warn={!!errors.memoryConfidence}
+              >
+                {({ id }) => (
+                  <Input
+                    id={id}
+                    type="number"
+                    step="0.1"
+                    {...form.register('memoryConfidence', { valueAsNumber: true })}
+                  />
+                )}
+              </FieldRow>
+            </div>
+            <div className="off-set-subhead mt-[var(--off-sp-6)]">Summarization</div>
+            <div className="off-set-sec-hint mb-[var(--off-sp-3)]">
+              Auto-compress long conversations.
+            </div>
+            <div className="off-set-grid-3">
+              <FieldRow label="Enabled">
+                {({ id }) => (
+                  <Select
+                    id={id}
+                    options={ENABLED_OPTIONS}
+                    {...form.register('summarizationEnabled')}
+                  />
+                )}
+              </FieldRow>
+              <FieldRow
+                label="Trigger tokens"
+                hint={errors.summarizationTrigger?.message}
+                warn={!!errors.summarizationTrigger}
+              >
+                {({ id }) => (
+                  <Input
+                    id={id}
+                    type="number"
+                    {...form.register('summarizationTrigger', { valueAsNumber: true })}
+                  />
+                )}
+              </FieldRow>
+              <FieldRow
+                label="Keep recent"
+                hint={errors.summarizationKeepRecent?.message}
+                warn={!!errors.summarizationKeepRecent}
+              >
+                {({ id }) => (
+                  <Input
+                    id={id}
+                    type="number"
+                    {...form.register('summarizationKeepRecent', { valueAsNumber: true })}
+                  />
+                )}
+              </FieldRow>
             </div>
           </div>
-          <div className="off-set-vault-status">
-            {vaultQuery.isLoading ? (
-              'Checking local vault…'
-            ) : vaultQuery.isError ? (
-              'Local vault status unavailable'
-            ) : (
-              <>
-                {vaultStatus?.employees ?? 0} employees · {vaultStatus?.files ?? 0} markdown files ·{' '}
-                {vaultStatus?.size ?? '0 B'}
-              </>
-            )}
-            <div className="off-set-vault-path">
-              {vaultStatus?.displayPath ?? 'Desktop runtime unavailable'}
-            </div>
-          </div>
-          <div className="off-set-vault-actions">
-            <Button
-              variant="outline"
-              size="md"
-              disabled={!canOpenVault}
-              title={
-                tauriAvailable
-                  ? 'Open the local vault folder in the OS file manager'
-                  : 'Local vault folder is only available in the desktop runtime'
-              }
-              onClick={handleOpenVaultFolder}
-            >
-              <Icon icon={FolderOpen} size="sm" />
-              {openingVault ? 'Opening…' : 'Open folder'}
-            </Button>
-          </div>
-        </CardBlock>
-        <CardBlock className="off-set-vault-card">
-          <div className="off-set-vault-head">
-            <span className="off-set-vault-ico">
-              <Icon icon={FolderOpen} size="sm" />
-            </span>
-            <div>
-              <div className="off-set-vault-title">
-                Vault snapshot <span className="off-set-mode-tag">Desktop</span>
-              </div>
-              <div className="off-set-vault-sub">
-                Export a zip snapshot of the current desktop vault for backup or handoff.
-              </div>
-            </div>
-          </div>
-          <div className="off-set-vault-status">
-            Desktop exports write to Offisim's app-local exports folder and include the current
-            employee vault files.
-          </div>
-          <div className="off-set-vault-actions">
-            <span className="off-set-vault-state">Local snapshot export</span>
-            <Button
-              variant="outline"
-              size="md"
-              disabled={!canExportVaultZip}
-              title={
-                tauriAvailable
-                  ? 'Export the current local vault snapshot as a zip file'
-                  : 'Vault zip export is only available in the desktop runtime'
-              }
-              onClick={handleExportVaultZip}
-            >
-              <Icon icon={Package} size="sm" />
-              {exportingVaultZip ? 'Exporting…' : 'Export zip'}
-            </Button>
-          </div>
-          {lastVaultExport ? (
-            <div className="off-set-vault-path">
-              Last zip: {lastVaultExport.fileName} · {lastVaultExport.size}
-            </div>
-          ) : null}
-        </CardBlock>
-      </section>
+        </details>
 
-      {/* 2D scene diagnostics */}
-      <section className="off-set-sec">
-        <div className="off-set-sec-head">
-          <div>
-            <CapsLabel>2D scene diagnostics</CapsLabel>
-            <div className="off-set-sec-hint">
+        <details className="off-set-disclosure">
+          <summary>
+            <span className="off-set-chev">
+              <Icon icon={ChevronRight} size="sm" />
+            </span>
+            Local vault
+          </summary>
+          <div className="off-set-disclosure-body">
+            <CardBlock className="off-set-vault-card">
+              <div className="off-set-vault-head">
+                <span className="off-set-vault-ico">
+                  <Icon icon={FolderOpen} size="sm" />
+                </span>
+                <div>
+                  <div className="off-set-vault-title">
+                    Local vault <span className="off-set-mode-tag">Desktop</span>
+                  </div>
+                  <div className="off-set-vault-sub">
+                    Employee files are mirrored to a local folder.
+                  </div>
+                </div>
+              </div>
+              <div className="off-set-vault-status">
+                {vaultQuery.isLoading ? (
+                  'Checking local vault…'
+                ) : vaultQuery.isError ? (
+                  'Local vault status unavailable'
+                ) : (
+                  <>
+                    {vaultStatus?.employees ?? 0} employees · {vaultStatus?.files ?? 0} markdown
+                    files · {vaultStatus?.size ?? '0 B'}
+                  </>
+                )}
+                <div className="off-set-vault-path">
+                  {vaultStatus?.displayPath ?? 'Desktop runtime unavailable'}
+                </div>
+              </div>
+              <div className="off-set-vault-actions">
+                <Button
+                  variant="outline"
+                  size="md"
+                  disabled={!canOpenVault}
+                  title={
+                    tauriAvailable
+                      ? 'Open the local vault folder in the OS file manager'
+                      : 'Local vault folder is only available in the desktop runtime'
+                  }
+                  onClick={handleOpenVaultFolder}
+                >
+                  <Icon icon={FolderOpen} size="sm" />
+                  {openingVault ? 'Opening…' : 'Open folder'}
+                </Button>
+              </div>
+            </CardBlock>
+            <CardBlock className="off-set-vault-card">
+              <div className="off-set-vault-head">
+                <span className="off-set-vault-ico">
+                  <Icon icon={FolderOpen} size="sm" />
+                </span>
+                <div>
+                  <div className="off-set-vault-title">
+                    Vault snapshot <span className="off-set-mode-tag">Desktop</span>
+                  </div>
+                  <div className="off-set-vault-sub">
+                    Export a zip snapshot of the current vault for backup or handoff.
+                  </div>
+                </div>
+              </div>
+              <div className="off-set-vault-status">
+                Exports write to Offisim's app-local exports folder with the current employee
+                vault files.
+              </div>
+              <div className="off-set-vault-actions">
+                <Button
+                  variant="outline"
+                  size="md"
+                  disabled={!canExportVaultZip}
+                  title={
+                    tauriAvailable
+                      ? 'Export the current local vault snapshot as a zip file'
+                      : 'Vault zip export is only available in the desktop runtime'
+                  }
+                  onClick={handleExportVaultZip}
+                >
+                  <Icon icon={Package} size="sm" />
+                  {exportingVaultZip ? 'Exporting…' : 'Export zip'}
+                </Button>
+              </div>
+              {lastVaultExport ? (
+                <div className="off-set-vault-path">
+                  Last zip: {lastVaultExport.fileName} · {lastVaultExport.size}
+                </div>
+              ) : null}
+            </CardBlock>
+          </div>
+        </details>
+
+        <details className="off-set-disclosure">
+          <summary>
+            <span className="off-set-chev">
+              <Icon icon={ChevronRight} size="sm" />
+            </span>
+            2D scene diagnostics
+          </summary>
+          <div className="off-set-disclosure-body">
+            <div className="off-set-sec-hint mb-[var(--off-sp-3)] mt-0">
               Export recent drag-and-drop events as JSON for support.
             </div>
+            <div className="off-set-diag-last">
+              <Icon icon={Check} size="sm" />
+              Recorded attempts: <b>{sceneDropDiagnostics.length}</b>
+              {lastSceneDiagnostic ? (
+                <>
+                  {' '}
+                  · Last export: <span className="off-mono">{lastSceneDiagnostic.fileName}</span>
+                </>
+              ) : null}
+            </div>
+            <div className="mt-[var(--off-sp-4)]">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!canExportSceneDiagnostic}
+                title={
+                  tauriAvailable
+                    ? 'Export the recorded 3D scene drop attempts as JSON'
+                    : 'Scene diagnostic export is only available in the desktop runtime'
+                }
+                onClick={handleExportSceneDiagnostic}
+              >
+                <Icon icon={Download} size="sm" />
+                {exportingSceneDiagnostic ? 'Exporting…' : 'Export drop diagnostic'}
+              </Button>
+            </div>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!canExportSceneDiagnostic}
-            title={
-              tauriAvailable
-                ? 'Export the recorded 3D scene drop attempts as JSON'
-                : 'Scene diagnostic export is only available in the desktop runtime'
-            }
-            onClick={handleExportSceneDiagnostic}
-          >
-            <Icon icon={Download} size="sm" />
-            {exportingSceneDiagnostic ? 'Exporting…' : 'Export drop diagnostic'}
-          </Button>
-        </div>
-        <CardBlock>
-          <div className="off-set-diag-last">
-            <Icon icon={Check} size="sm" />
-            Recorded attempts: <b>{sceneDropDiagnostics.length}</b>
-            {lastSceneDiagnostic ? (
-              <>
-                {' '}
-                · Last export: <span className="off-mono">{lastSceneDiagnostic.fileName}</span>
-              </>
-            ) : null}
-          </div>
-        </CardBlock>
+        </details>
       </section>
     </div>
   );
