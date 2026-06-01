@@ -131,7 +131,9 @@ function ProjectDialog({
         <DialogHeader>
           <DialogTitle>{mode === 'edit' ? 'Edit project' : 'New project'}</DialogTitle>
           <DialogDescription>
-            Project metadata is persisted through the Offisim desktop repository.
+            {mode === 'edit'
+              ? 'Update the name or workspace folder.'
+              : 'Name it and pick a workspace folder.'}
           </DialogDescription>
         </DialogHeader>
         <div className="off-field">
@@ -262,18 +264,14 @@ export function ScopeBar() {
               </DropdownMenuItem>
             ))
           ) : (
-            <DropdownMenuItem disabled>No projects in this company</DropdownMenuItem>
+            <DropdownMenuItem disabled>No projects yet</DropdownMenuItem>
           )}
           {activeProject ? (
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 disabled={!activeProject.workspaceRoot}
-                title={
-                  activeProject.workspaceRoot
-                    ? 'Open the bound project workspace folder'
-                    : 'Bind a workspace folder before opening it'
-                }
+                title={activeProject.workspaceRoot ? 'Open folder' : 'Set a folder first'}
                 onSelect={() => void openProjectFolder()}
               >
                 <Icon icon={FolderOpen} size="sm" />

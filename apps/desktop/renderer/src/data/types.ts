@@ -355,6 +355,7 @@ export type UnfinishedThreadState = 'running' | 'blocked';
 
 export interface UnfinishedThread {
   threadId: string;
+  companyId: string;
   projectId: string;
   name: string;
   state: UnfinishedThreadState;

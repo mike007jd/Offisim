@@ -301,8 +301,20 @@ export const deliverables: Deliverable[] = [
 
 /** Threads from a previous session that did not finish — drives the ResumeBar. */
 export const unfinishedThreads: UnfinishedThread[] = [
-  { threadId: 'th-team', projectId: 'pj-relay', name: 'Relay Launch · Team', state: 'running' },
-  { threadId: 'th-audit', projectId: 'pj-relay', name: 'Orion Audit', state: 'blocked' },
+  {
+    threadId: 'th-team',
+    companyId: 'co-northwind',
+    projectId: 'pj-relay',
+    name: 'Relay Launch · Team',
+    state: 'running',
+  },
+  {
+    threadId: 'th-audit',
+    companyId: 'co-northwind',
+    projectId: 'pj-relay',
+    name: 'Orion Audit',
+    state: 'blocked',
+  },
 ];
 
 export const officeScene: OfficeSceneLayout = {

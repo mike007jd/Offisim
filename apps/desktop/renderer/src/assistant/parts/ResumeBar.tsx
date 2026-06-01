@@ -16,6 +16,8 @@ export function ResumeBar() {
   const dismissResume = useUiState((s) => s.dismissResume);
   const surface = useUiState((s) => s.surface);
   const setSurface = useUiState((s) => s.setSurface);
+  const setCompany = useUiState((s) => s.setCompany);
+  const setProject = useUiState((s) => s.setProject);
   const openThread = useUiState((s) => s.openThread);
 
   const items = unfinished.data ?? [];
@@ -29,9 +31,14 @@ export function ResumeBar() {
       : `Resume ${only.name}`
     : `${items.length} conversations need attention${blocked ? ` · ${blocked} blocked` : ''}`;
 
-  function go(threadId: string) {
+  function go(item: (typeof items)[number]) {
+    // Point breadcrumbs at the thread's own scope before opening it, so the
+    // top bar doesn't read the wrong company/project. setProject clears the
+    // thread selection, so openThread must follow it.
+    setCompany(item.companyId);
+    setProject(item.projectId);
     if (surface !== 'office') setSurface('office');
-    openThread(threadId);
+    openThread(item.threadId);
     dismissResume();
   }
 
@@ -45,7 +52,7 @@ export function ResumeBar() {
             key={item.threadId}
             type="button"
             className={cn('off-resume-chip off-focusable', `is-${item.state}`)}
-            onClick={() => go(item.threadId)}
+            onClick={() => go(item)}
           >
             {item.state === 'blocked' ? 'Review' : 'Resume'} {item.name}
             <Icon icon={ArrowRight} size="sm" />

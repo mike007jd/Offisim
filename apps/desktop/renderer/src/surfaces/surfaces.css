@@ -57,42 +57,86 @@
   inset: 0;
   z-index: var(--off-z-emergency);
   overflow: auto;
-  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--off-sp-3);
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 48px 32px;
   background: var(--off-surface-1);
   color: var(--off-ink-1);
-  font: 13px / 1.5 var(--off-font-mono);
+  font-size: var(--off-fs-base);
+  line-height: 1.5;
 }
 
 .off-error-boundary__title {
-  margin-bottom: 12px;
-  color: var(--off-danger);
-  font-size: var(--off-fs-lg);
+  color: var(--off-ink-1);
+  font-size: var(--off-fs-xl);
   font-weight: 700;
 }
 
-.off-error-boundary__stack,
-.off-error-boundary__info {
+.off-error-boundary__msg {
   margin: 0;
-  white-space: pre-wrap;
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-md);
 }
 
-.off-error-boundary__info {
-  margin-top: 16px;
-  color: var(--off-ink-3);
+.off-error-boundary__actions {
+  margin: var(--off-sp-2) 0;
 }
 
 .off-error-boundary__reset {
-  margin-top: 20px;
-  padding: 6px 14px;
-  border: 1px solid var(--off-line);
+  padding: 8px 16px;
+  border: 0;
   border-radius: var(--off-r-sm);
-  background: var(--off-surface-2);
-  color: var(--off-ink-1);
+  background: var(--off-accent);
+  color: var(--off-accent-fg);
   font: inherit;
+  font-weight: 600;
   cursor: pointer;
 }
 
 .off-error-boundary__reset:hover {
+  background: var(--off-accent-strong);
+}
+
+.off-error-boundary__details {
+  width: 100%;
+  color: var(--off-ink-3);
+}
+
+.off-error-boundary__details > summary {
+  cursor: pointer;
+  font-size: var(--off-fs-sm);
+  color: var(--off-ink-3);
+  user-select: none;
+}
+
+.off-error-boundary__stack {
+  margin: var(--off-sp-3) 0;
+  max-height: 40vh;
+  overflow: auto;
+  padding: var(--off-sp-3);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-sunken);
+  color: var(--off-ink-2);
+  white-space: pre-wrap;
+  font: var(--off-fs-sm) / 1.5 var(--off-font-mono);
+}
+
+.off-error-boundary__copy {
+  padding: 4px 10px;
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-2);
+  color: var(--off-ink-1);
+  font-size: var(--off-fs-sm);
+  cursor: pointer;
+}
+
+.off-error-boundary__copy:hover {
   background: var(--off-surface-sunken);
 }
 

@@ -39,6 +39,17 @@ export class ErrorBoundary extends Component<Props, State> {
 
   reset = () => this.setState({ error: null, info: '' });
 
+  private detailText(): string {
+    const { error, info } = this.state;
+    const head = this.props.label ? `[${this.props.label}] ` : '';
+    const body = String(error?.stack ?? error?.message ?? error);
+    return info ? `${head}${body}\n--- component stack ---${info}` : `${head}${body}`;
+  }
+
+  copyDetails = () => {
+    void navigator.clipboard?.writeText(this.detailText());
+  };
+
   render() {
     if (!this.state.error) return this.props.children;
     if (this.props.fallback !== undefined) {
@@ -48,18 +59,23 @@ export class ErrorBoundary extends Component<Props, State> {
     }
     return (
       <div className="off-error-boundary">
-        <div className="off-error-boundary__title">
-          {this.props.label ? `${this.props.label} — ` : ''}Render error
+        <div className="off-error-boundary__title">Something went wrong</div>
+        <p className="off-error-boundary__msg">
+          This view hit an unexpected error. Try again — if it keeps happening, copy the
+          details so we can look into it.
+        </p>
+        <div className="off-error-boundary__actions">
+          <button type="button" className="off-error-boundary__reset" onClick={this.reset}>
+            Try again
+          </button>
         </div>
-        <pre className="off-error-boundary__stack">
-          {String(this.state.error?.stack ?? this.state.error?.message ?? this.state.error)}
-        </pre>
-        {this.state.info ? (
-          <pre className="off-error-boundary__info">{this.state.info}</pre>
-        ) : null}
-        <button type="button" className="off-error-boundary__reset" onClick={this.reset}>
-          Try again
-        </button>
+        <details className="off-error-boundary__details">
+          <summary>Technical details</summary>
+          <pre className="off-error-boundary__stack">{this.detailText()}</pre>
+          <button type="button" className="off-error-boundary__copy" onClick={this.copyDetails}>
+            Copy details
+          </button>
+        </details>
       </div>
     );
   }

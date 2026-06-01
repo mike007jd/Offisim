@@ -53,7 +53,7 @@ export function SurfaceRouter() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.16, ease: [0.2, 0, 0, 1] }}
     >
-      <Suspense fallback={<div className="off-surface-loading">Loading surface...</div>}>
+      <Suspense fallback={<div className="off-surface-loading">Loading…</div>}>
         {renderSurface(surface)}
       </Suspense>
     </motion.div>
