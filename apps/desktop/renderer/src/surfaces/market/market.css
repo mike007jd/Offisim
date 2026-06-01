@@ -1510,6 +1510,15 @@
   gap: var(--off-sp-2);
   flex-wrap: wrap;
 }
+.off-pub-connect {
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-3);
+}
+.off-pub-connect .off-alert {
+  flex: 1;
+  min-width: 0;
+}
 .off-pub-aside {
   display: flex;
   flex-direction: column;

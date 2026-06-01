@@ -205,6 +205,9 @@ export function PublishDialog({
     publishing ||
     !hasSourceOptions;
   const registryCopy = registry ? registryStatusCopy(registry) : 'Checking registry state.';
+  const canConnect =
+    registry?.reason !== 'registry-config-missing' &&
+    registry?.reason !== 'desktop-runtime-unavailable';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -212,39 +215,27 @@ export function PublishDialog({
         <DialogHeader>
           <DialogTitle>Publish To Market</DialogTitle>
           <DialogDescription>
-            Build a package from an employee or a skill, then submit a registry draft with
-            platform-verified artifact bytes.
+            Package an employee or skill and submit it for review.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={onSubmit} className="off-pub-grid">
           <div className="off-pub-main">
-            <FieldRow
-              label={
-                <span className="off-pub-token-l">
-                  <Icon icon={KeyRound} size="sm" className="off-pub-token-i" />
-                  Registry token
+            {/* Account connection is a prerequisite shown as an inline banner only
+                when not connected — it no longer leads the form as a token field. */}
+            {!registry?.connected ? (
+              <div className="off-pub-connect">
+                <span className="off-alert is-warn">
+                  <Icon icon={KeyRound} size="sm" />
+                  {canConnect ? 'Connect your account to publish.' : registryCopy}
                 </span>
-              }
-              hint="Connect platform registry auth before publishing."
-            >
-              {({ id }) => (
-                <div className="off-pub-token-row">
-                  <output
-                    id={id}
-                    className={cn('off-pub-token-state', registry?.connected && 'is-ready')}
-                  >
-                    {registryCopy}
-                  </output>
-                  {registry?.reason !== 'registry-config-missing' &&
-                  registry?.reason !== 'desktop-runtime-unavailable' ? (
-                    <Button size="sm" variant="outline" type="button" onClick={onConnectRegistry}>
-                      {registry?.connected ? 'Manage token' : 'Connect'}
-                    </Button>
-                  ) : null}
-                </div>
-              )}
-            </FieldRow>
+                {canConnect ? (
+                  <Button size="sm" variant="outline" type="button" onClick={onConnectRegistry}>
+                    Connect
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
 
             {showKindSelect ? (
               <FieldRow label="Kind">
@@ -380,23 +371,6 @@ export function PublishDialog({
 
           <aside className="off-pub-aside">
             <div>
-              <p className="off-pub-aside-l">Draft preview</p>
-              <dl className="off-pub-preview">
-                <div>
-                  <dt>Title</dt>
-                  <dd>{form.watch('title') || '—'}</dd>
-                </div>
-                <div>
-                  <dt>Version</dt>
-                  <dd className="is-mono">{form.watch('version')}</dd>
-                </div>
-                <div>
-                  <dt>Tags</dt>
-                  <dd className="is-mono">{tags.join(', ') || '—'}</dd>
-                </div>
-              </dl>
-            </div>
-            <div>
               <p className="off-pub-aside-l">Recent drafts</p>
               <DraftHistory registry={registry} drafts={drafts} loading={draftsLoading} />
             </div>
@@ -407,9 +381,7 @@ export function PublishDialog({
               Cancel
             </Button>
             <span className="off-pub-foot-state">
-              {activeSource?.publishable
-                ? 'Artifact export and draft submit use registry APIs'
-                : (activeSource?.unavailableReason ?? 'Select an export-ready source')}
+              {activeSource?.publishable ? '' : (activeSource?.unavailableReason ?? 'Select a source')}
             </span>
             <Button size="md" type="submit" disabled={publishBlocked}>
               {publishing ? 'Publishing…' : 'Submit'}

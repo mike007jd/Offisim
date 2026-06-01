@@ -70,7 +70,7 @@ export function MarketDetail({ listing, installed, onClose, onInstall }: MarketD
       <div className="off-md-body">
         <div>
           <h1 className="off-md-title">{listing.name}</h1>
-          <p className="off-md-sum">{listing.description}</p>
+          <p className="off-md-sum">{listing.summary}</p>
           <div className="off-md-handle-row">
             <span className="off-md-handle-h">@{listing.handle}</span>
             {listing.verified ? <span className="off-mc-vdot" /> : null}
@@ -118,11 +118,6 @@ export function MarketDetail({ listing, installed, onClose, onInstall }: MarketD
           ))}
         </div>
 
-        <div className="off-vsel is-static" aria-label={`Current version ${listing.version}`}>
-          <span>{listing.version}</span>
-          <span className="off-vsel-latest">latest</span>
-        </div>
-
         <dl className="off-md-dl">
           <div>
             <div className="off-md-k">Version</div>
@@ -151,10 +146,7 @@ export function MarketDetail({ listing, installed, onClose, onInstall }: MarketD
               Installed
             </span>
           ) : !installAvailable ? (
-            <div className="off-md-unsupported">
-              Signed artifact not supplied. Install is locked until the registry provides a verified
-              package artifact for this listing.
-            </div>
+            <div className="off-md-unsupported">Not available to install yet.</div>
           ) : (
             <button type="button" className="off-md-install off-focusable" onClick={onInstall}>
               <Icon icon={Download} size="sm" />
@@ -162,7 +154,7 @@ export function MarketDetail({ listing, installed, onClose, onInstall }: MarketD
             </button>
           )
         ) : (
-          <div className="off-md-unsupported">Install not supported for {listing.kind}.</div>
+          <div className="off-md-unsupported">Catalog only — not installable.</div>
         )}
 
         <div className="off-perm-box">
