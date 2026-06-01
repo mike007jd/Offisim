@@ -15,6 +15,21 @@ type LlmTransportEvent =
   | { kind: 'done' }
   | { kind: 'error'; code: string; message: string };
 
+export interface ProviderUsage {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadInputTokens: number;
+  cacheCreationInputTokens: number;
+  raw: unknown;
+}
+
+export interface ProviderSendResult {
+  text: string;
+  raw: string;
+  status: number;
+  usage: ProviderUsage | null;
+}
+
 export function isDesktopProviderBridgeAvailable(): boolean {
   return (
     typeof window !== 'undefined' &&
@@ -92,6 +107,53 @@ export function extractProviderText(raw: string): string {
   return 'Provider returned an empty response.';
 }
 
+function numberField(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+}
+
+export function extractProviderUsage(raw: string): ProviderUsage | null {
+  let parsed: { usage?: Record<string, unknown> };
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  const usage = parsed.usage;
+  if (!usage || typeof usage !== 'object') return null;
+
+  if ('prompt_tokens' in usage || 'completion_tokens' in usage) {
+    const promptTokens = numberField(usage.prompt_tokens);
+    const completionTokens = numberField(usage.completion_tokens);
+    const promptDetails = usage.prompt_tokens_details as Record<string, unknown> | undefined;
+    const cachedTokens = numberField(promptDetails?.cached_tokens);
+    return {
+      inputTokens: Math.max(0, promptTokens - cachedTokens),
+      outputTokens: completionTokens,
+      cacheReadInputTokens: cachedTokens,
+      cacheCreationInputTokens: 0,
+      raw: usage,
+    };
+  }
+
+  if ('input_tokens' in usage || 'output_tokens' in usage) {
+    return {
+      inputTokens: numberField(usage.input_tokens),
+      outputTokens: numberField(usage.output_tokens),
+      cacheReadInputTokens: numberField(usage.cache_read_input_tokens),
+      cacheCreationInputTokens: numberField(usage.cache_creation_input_tokens),
+      raw: usage,
+    };
+  }
+
+  return {
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheReadInputTokens: 0,
+    cacheCreationInputTokens: 0,
+    raw: usage,
+  };
+}
+
 export function safeErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === 'string') return error;
@@ -111,6 +173,29 @@ export async function sendProviderText({
   maxOutputTokens: number;
   signal?: AbortSignal;
 }): Promise<string> {
+  const result = await sendProviderTextDetailed({
+    profile,
+    text,
+    requestId,
+    maxOutputTokens,
+    signal,
+  });
+  return result.text;
+}
+
+export async function sendProviderTextDetailed({
+  profile,
+  text,
+  requestId,
+  maxOutputTokens,
+  signal,
+}: {
+  profile: RuntimeProviderProfile;
+  text: string;
+  requestId: string;
+  maxOutputTokens: number;
+  signal?: AbortSignal;
+}): Promise<ProviderSendResult> {
   if (!profile.hasCredential) {
     throw new Error('No provider credential stored on this device.');
   }
@@ -119,6 +204,9 @@ export async function sendProviderText({
   }
 
   const { Channel, invoke } = await import('@tauri-apps/api/core');
+  if (signal?.aborted) {
+    throw new DOMException('Aborted', 'AbortError');
+  }
   let status = 0;
   let raw = '';
   const decoder = new TextDecoder();
@@ -160,6 +248,10 @@ export async function sendProviderText({
         reject(new DOMException('Aborted', 'AbortError'));
       };
       signal.addEventListener('abort', onAbort, { once: true });
+      if (signal.aborted) {
+        onAbort();
+        return;
+      }
     }
 
     void invoke('llm_fetch', {
@@ -182,5 +274,10 @@ export async function sendProviderText({
   if (status >= 400) {
     throw new Error(`Provider request failed with HTTP ${status}.`);
   }
-  return extractProviderText(raw);
+  return {
+    text: extractProviderText(raw),
+    raw,
+    status,
+    usage: extractProviderUsage(raw),
+  };
 }

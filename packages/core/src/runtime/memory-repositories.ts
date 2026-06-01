@@ -121,7 +121,7 @@ export function createMemoryRepositories(
     // In-memory repos have no transactional boundary — every write is already
     // applied to the snapshot Map. asyncTransact is a passthrough so that
     // shared code can call it without branching on backend type.
-    async asyncTransact<T>(fn: () => Promise<T>): Promise<T> {
+    async asyncTransact<T>(fn: (txRepos?: RuntimeRepositories) => Promise<T>): Promise<T> {
       return fn();
     },
     seed,

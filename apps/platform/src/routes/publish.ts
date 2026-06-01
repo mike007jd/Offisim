@@ -13,9 +13,9 @@ import { HTTPException } from 'hono/http-exception';
 import { readJsonBodyWithLimit, readPlatformJsonBody } from '../lib/body-limit.js';
 import {
   getRequiredCreatorId,
+  requireApiTokenScope,
   requireAuth,
   requireCreator,
-  requireApiTokenScope,
 } from '../middleware/auth.js';
 import { publishRateLimit } from '../middleware/rate-limit.js';
 import {
@@ -362,39 +362,39 @@ publish.post('/submit', async (c) => {
     }
   }
 
-  // Update draft status
-  const submittedRows = await db
-    .update(publishDrafts)
-    .set({ status: 'submitted', updated_at: new Date() })
-    .where(
-      and(
-        eq(publishDrafts.draft_id, draft.draft_id),
-        eq(publishDrafts.creator_id, creatorId),
-        eq(publishDrafts.status, draft.status),
-        eq(publishDrafts.validation_state, 'valid'),
-      ),
-    )
-    .returning({ draft_id: publishDrafts.draft_id });
+  const job = await db.transaction(async (tx) => {
+    const submittedRows = await tx
+      .update(publishDrafts)
+      .set({ status: 'submitted', updated_at: new Date() })
+      .where(
+        and(
+          eq(publishDrafts.draft_id, draft.draft_id),
+          eq(publishDrafts.creator_id, creatorId),
+          eq(publishDrafts.status, draft.status),
+          eq(publishDrafts.validation_state, 'valid'),
+        ),
+      )
+      .returning({ draft_id: publishDrafts.draft_id });
 
-  if (submittedRows.length === 0) {
-    throw new HTTPException(409, { message: 'Draft state changed before submission' });
-  }
+    if (submittedRows.length === 0) {
+      throw new HTTPException(409, { message: 'Draft state changed before submission' });
+    }
 
-  // Create moderation job
-  const jobRows = await db
-    .insert(moderationJobs)
-    .values({
-      target_type: 'publish_draft',
-      target_id: draft.draft_id,
-      job_kind: 'publish_review',
-      status: 'pending',
-    })
-    .returning();
-  const [job] = jobRows;
+    const [createdJob] = await tx
+      .insert(moderationJobs)
+      .values({
+        target_type: 'publish_draft',
+        target_id: draft.draft_id,
+        job_kind: 'publish_review',
+        status: 'pending',
+      })
+      .returning();
 
-  if (!job) {
-    throw new HTTPException(500, { message: 'Failed to create moderation job' });
-  }
+    if (!createdJob) {
+      throw new HTTPException(500, { message: 'Failed to create moderation job' });
+    }
+    return createdJob;
+  });
 
   // 1.0: auto-process moderation (synchronous for simplicity)
   await processModerationJob(db, job.job_id);

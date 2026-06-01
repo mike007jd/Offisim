@@ -167,7 +167,6 @@ export type {
 } from './graph/state.js';
 export type { RetryConfig } from './llm/retry.js';
 export type { TeeResult } from './llm/stream-tee.js';
-export type { ExecutionTrace, ExecutionTraceService } from './services/execution-trace-service.js';
 export type { VersionDiff } from './runtime/employee-version-service.js';
 export type {
   CompanyTemplate,

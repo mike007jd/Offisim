@@ -8,6 +8,7 @@ import {
   type RunState,
   type StagedAttachment,
 } from '@/data/types.js';
+import { CHAT_ATTACHMENT_MAX_BYTES, kindFromMime } from '@offisim/shared-types';
 import { create } from 'zustand';
 
 /**
@@ -20,11 +21,6 @@ import { create } from 'zustand';
  */
 
 const MAX_ATTACHMENTS = 6;
-// Client-side pre-check that intentionally mirrors the Rust attachment sandbox
-// (`attachment_store.rs` MAX_FILE_BYTES). The Rust side is the authoritative
-// gate; this constant only gives the composer an early, local rejection so an
-// oversized file surfaces an error chip without a round-trip. Keep in sync.
-const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
 // Extension allowlist is a renderer-only UX policy (the Rust sandbox enforces
 // the byte cap but not the type); it gates which files the composer offers to
 // stage and is not a security boundary.
@@ -41,6 +37,13 @@ const SUPPORTED_EXT = new Set([
   'docx',
   'xlsx',
 ]);
+
+interface StageFileInput {
+  name: string;
+  bytes: number;
+  type?: string;
+  file?: { arrayBuffer(): Promise<ArrayBuffer> };
+}
 
 interface RunStore {
   threadId: string | null;
@@ -64,11 +67,13 @@ interface RunStore {
   /** Clear the error banner. */
   dismissError: () => void;
 
-  stageFiles: (files: Array<{ name: string; bytes: number }>) => void;
+  stageFiles: (files: StageFileInput[]) => Promise<void>;
   removeStaged: (id: string) => void;
   clearStaged: () => void;
   setStorageAvailable: (available: boolean) => void;
 }
+
+type RunStoreSet = (partial: Partial<RunStore> | ((state: RunStore) => Partial<RunStore>)) => void;
 
 const ACTIVE_PROVIDER_STAGES: PipelineStage[] = [
   { id: 'provider-request', label: 'Provider', state: 'active' },
@@ -93,11 +98,8 @@ function seedPipeline(): RunPipeline {
 function seedError(): RunError {
   return {
     id: 'thread-error',
-    reason: 'unknown',
     message: 'The previous run on this conversation ended in an error.',
     technicalDetail: 'No detail was captured for the prior failure.',
-    history: [],
-    swapCandidateIds: [],
   };
 }
 
@@ -157,7 +159,7 @@ export const useRunStore = create<RunStore>((set, get) => ({
 
   dismissError: () => set({ error: null }),
 
-  stageFiles: (files) => {
+  stageFiles: async (files) => {
     if (!get().storageAvailable) {
       // Storage unavailable: surface a single error chip, attach nothing.
       set((s) => ({
@@ -168,34 +170,42 @@ export const useRunStore = create<RunStore>((set, get) => ({
       }));
       return;
     }
-    set((s) => {
-      const next = [...s.staged];
-      for (const file of files) {
-        const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
-        // Dedupe key is name+bytes: two distinct files sharing a name and exact
-        // byte length collide here and the second is rejected as a duplicate.
-        // Accepted explicitly — the staging tray is a short-lived per-message
-        // buffer where such a collision is a negligible UX edge, not data loss.
-        const id = `att-${file.name}-${file.bytes}`;
-        let fail: AttachmentFailReason | null = null;
-        if (next.filter((a) => a.status !== 'error').length >= MAX_ATTACHMENTS) fail = 'too-many';
-        else if (file.bytes > MAX_ATTACHMENT_BYTES) fail = 'too-large';
-        else if (next.some((a) => a.id === id && a.status !== 'error')) fail = 'duplicate';
-        else if (ext && !SUPPORTED_EXT.has(ext)) fail = 'unsupported-type';
-        if (fail) {
-          next.push(errorChip(id, file.name, fail));
-          continue;
-        }
-        next.push({
-          id,
-          name: file.name,
-          ext,
-          sizeLabel: formatBytes(file.bytes),
-          status: 'attached',
-        });
+    const prepared: StagedAttachment[] = [];
+    const hydrationTasks: Promise<void>[] = [];
+    for (const file of files) {
+      const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+      const id = `att-${file.name}-${file.bytes}`;
+      let fail: AttachmentFailReason | null = null;
+      const existing = [...get().staged, ...prepared];
+      if (existing.filter((a) => a.status !== 'error').length >= MAX_ATTACHMENTS) fail = 'too-many';
+      else if (file.bytes > CHAT_ATTACHMENT_MAX_BYTES) fail = 'too-large';
+      else if (existing.some((a) => a.id === id && a.status !== 'error')) fail = 'duplicate';
+      else if (ext && !SUPPORTED_EXT.has(ext)) fail = 'unsupported-type';
+      if (fail) {
+        prepared.push(errorChip(id, file.name, fail));
+        continue;
       }
-      return { staged: next };
-    });
+      const mimeType = file.type || mimeFromExt(ext);
+      const kind = kindFromMime(mimeType);
+      const attachmentId = file.file ? crypto.randomUUID() : undefined;
+      if (file.file) {
+        hydrationTasks.push(hydrateStagedFile(id, attachmentId, file.name, file.file, set));
+      }
+      prepared.push({
+        id,
+        name: file.name,
+        ext,
+        sizeLabel: formatBytes(file.bytes),
+        status: 'attached',
+        mimeType,
+        byteLength: file.bytes,
+        attachmentId,
+        file: file.file,
+        kind,
+      });
+    }
+    if (prepared.length) set((s) => ({ staged: [...s.staged, ...prepared] }));
+    await Promise.all(hydrationTasks);
   },
 
   removeStaged: (id) => set((s) => ({ staged: s.staged.filter((a) => a.id !== id) })),
@@ -218,4 +228,67 @@ function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${bytes} B`;
+}
+
+function mimeFromExt(ext: string): string {
+  switch (ext) {
+    case 'md':
+      return 'text/markdown';
+    case 'txt':
+      return 'text/plain';
+    case 'csv':
+      return 'text/csv';
+    case 'json':
+      return 'application/json';
+    case 'pdf':
+      return 'application/pdf';
+    case 'png':
+      return 'image/png';
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg';
+    case 'docx':
+      return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    case 'xlsx':
+      return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    default:
+      return 'application/octet-stream';
+  }
+}
+
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  // `bytes` is typed Uint8Array<ArrayBufferLike>; copy into a plain ArrayBuffer
+  // so digest's BufferSource type is satisfied under TS 5.7+ (no SharedArrayBuffer).
+  const digest = await crypto.subtle.digest('SHA-256', Uint8Array.from(bytes).buffer as ArrayBuffer);
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+async function hydrateStagedFile(
+  id: string,
+  attachmentId: string | undefined,
+  name: string,
+  file: { arrayBuffer(): Promise<ArrayBuffer> },
+  set: RunStoreSet,
+): Promise<void> {
+  try {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const sha256 = await sha256Hex(bytes);
+    set((s) => ({
+      staged: s.staged.map((attachment) =>
+        attachment.id === id && attachment.attachmentId === attachmentId
+          ? { ...attachment, bytes, sha256 }
+          : attachment,
+      ),
+    }));
+  } catch {
+    set((s) => ({
+      staged: s.staged.map((attachment) =>
+        attachment.id === id && attachment.attachmentId === attachmentId
+          ? errorChip(id, name, 'storage-unavailable')
+          : attachment,
+      ),
+    }));
+  }
 }

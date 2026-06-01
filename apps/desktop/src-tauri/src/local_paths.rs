@@ -1,5 +1,6 @@
 use sqlx::Row;
-use std::fs;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 use std::path::{Component, Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::Manager;
@@ -348,8 +349,8 @@ fn canonicalize_or_parent(target: &Path) -> Result<PathBuf, String> {
         .ok_or_else(|| "vault target has no parent directory".to_string())?;
     fs::create_dir_all(parent)
         .map_err(|err| format!("Failed to create vault parent directory: {err}"))?;
-    let real_parent = fs::canonicalize(parent)
-        .map_err(|err| format!("Resolve vault parent directory: {err}"))?;
+    let real_parent =
+        fs::canonicalize(parent).map_err(|err| format!("Resolve vault parent directory: {err}"))?;
     let basename = target
         .file_name()
         .ok_or_else(|| "vault target has no basename".to_string())?;
@@ -493,17 +494,53 @@ pub async fn save_deliverable_to_local<R: Runtime>(
     ensure_inside(&deliverables_dir, &root)?;
 
     let safe_name = sanitize_file_name(&file_name);
-    let destination = deliverables_dir.join(safe_name);
-    fs::write(&destination, content)
-        .map_err(|err| format!("Failed to write deliverable file: {err}"))?;
-    let canonical = destination
-        .canonicalize()
-        .map_err(|err| format!("Resolve saved deliverable: {err}"))?;
-    ensure_inside(&canonical, &root)?;
-    canonical
+    let destination = safe_write_under_root(&deliverables_dir, &safe_name, &content, &root)?;
+    destination
         .strip_prefix(&root)
         .map_err(|_| "Saved path is outside project workspace".to_string())
         .map(|relative| relative.to_string_lossy().to_string())
+}
+
+fn safe_write_under_root(
+    parent: &Path,
+    leaf_name: &str,
+    content: &str,
+    root: &Path,
+) -> Result<PathBuf, String> {
+    let leaf = PathBuf::from(leaf_name);
+    if leaf.is_absolute()
+        || leaf
+            .components()
+            .any(|component| !matches!(component, Component::Normal(_)))
+    {
+        return Err("deliverable file name is invalid".into());
+    }
+    let canonical_parent = parent
+        .canonicalize()
+        .map_err(|err| format!("Resolve deliverables directory: {err}"))?;
+    ensure_inside(&canonical_parent, root)?;
+    let leaf_target = canonical_parent.join(&leaf);
+    let mut opts = OpenOptions::new();
+    opts.create(true).truncate(true).write(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        opts.custom_flags(libc::O_NOFOLLOW);
+    }
+    let mut file = opts
+        .open(&leaf_target)
+        .map_err(|err| format!("Failed to write deliverable file: {err}"))?;
+    file.write_all(content.as_bytes())
+        .map_err(|err| format!("Failed to write deliverable file: {err}"))?;
+    file.flush()
+        .map_err(|err| format!("Failed to flush deliverable file: {err}"))?;
+    leaf_target
+        .canonicalize()
+        .map_err(|err| format!("Resolve saved deliverable: {err}"))
+        .and_then(|canonical| {
+            ensure_inside(&canonical, root)?;
+            Ok(canonical)
+        })
 }
 
 async fn project_workspace_root<R: Runtime>(

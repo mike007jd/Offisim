@@ -1,4 +1,3 @@
-import type { SessionMode } from '@/data/types.js';
 import { create } from 'zustand';
 
 export type WorkspaceKey = 'office' | 'workspace' | 'market' | 'personnel';
@@ -44,7 +43,6 @@ interface UiState {
   selectedThreadId: string | null;
   sceneRenderMode: SceneRenderMode;
   sceneDropDiagnostics: SceneDropDiagnostic[];
-  sessionMode: SessionMode;
   resumeDismissed: boolean;
 
   /** Personnel surface */
@@ -73,7 +71,6 @@ interface UiState {
   closeThread: () => void;
   setSceneRenderMode: (mode: SceneRenderMode) => void;
   recordSceneDropDiagnostic: (event: SceneDropDiagnostic) => void;
-  setSessionMode: (mode: SessionMode) => void;
   dismissResume: () => void;
 
   selectEmployee: (employeeId: string | null) => void;
@@ -97,7 +94,6 @@ export const useUiState = create<UiState>((set) => ({
   selectedThreadId: 'th-team',
   sceneRenderMode: '3d',
   sceneDropDiagnostics: [],
-  sessionMode: 'direct',
   resumeDismissed: false,
 
   selectedEmployeeId: 'emp-mara',
@@ -119,7 +115,6 @@ export const useUiState = create<UiState>((set) => ({
   setSceneRenderMode: (sceneRenderMode) => set({ sceneRenderMode }),
   recordSceneDropDiagnostic: (event) =>
     set((s) => ({ sceneDropDiagnostics: [event, ...s.sceneDropDiagnostics].slice(0, 10) })),
-  setSessionMode: (sessionMode) => set({ sessionMode }),
   dismissResume: () => set({ resumeDismissed: true }),
 
   selectEmployee: (selectedEmployeeId) => set({ selectedEmployeeId }),

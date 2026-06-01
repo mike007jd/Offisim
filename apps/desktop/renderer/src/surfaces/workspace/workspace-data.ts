@@ -42,10 +42,6 @@ export interface WsConversation {
   /** Header sub line + member/working counts (group). */
   members?: number;
   workingNow?: number;
-  /** File count surfaced on the conversation tabs. */
-  fileCount?: number;
-  /** Composer mode chip default. */
-  mode?: 'direct' | 'hil' | 'yolo';
 }
 
 /* ── Messenger message stream (group / direct) ───────────────────────────── */
@@ -66,20 +62,6 @@ export interface WsDeliverableCard {
   content?: string;
 }
 
-export interface WsRunActivity {
-  id: string;
-  tool: string;
-  detail: string;
-  level: 'info' | 'success' | 'warning';
-  repeat?: number;
-}
-
-export interface WsRunRecord {
-  meta: string;
-  costLabel: string;
-  activity: WsRunActivity[];
-}
-
 export interface WsMessage {
   id: string;
   author: 'boss' | 'employee';
@@ -88,8 +70,6 @@ export interface WsMessage {
   role?: string;
   timeLabel: string;
   body: string;
-  /** Show the collapsed "Reasoning" affordance above the bubble. */
-  reasoning?: boolean;
   attachment?: WsAttachment;
   deliverable?: WsDeliverableCard;
 }
@@ -97,7 +77,6 @@ export interface WsMessage {
 export interface WsThread {
   daySep: string;
   messages: WsMessage[];
-  run?: WsRunRecord;
 }
 
 /* ── System notification channel ─────────────────────────────────────────── */
@@ -234,8 +213,6 @@ const conversations: WsConversation[] = [
     section: 'pinned',
     members: 4,
     workingNow: 2,
-    fileCount: 6,
-    mode: 'hil',
   },
   {
     id: 'th-mara',
@@ -246,8 +223,6 @@ const conversations: WsConversation[] = [
     snippet: 'On it — reviewing the edge cases now',
     timeLabel: '14:30',
     unread: 1,
-    fileCount: 2,
-    mode: 'direct',
   },
   {
     id: SYSTEM_CONV_ID,
@@ -267,8 +242,6 @@ const conversations: WsConversation[] = [
     snippet: 'Sandbox is ready whenever you are',
     timeLabel: '13:55',
     read: true,
-    fileCount: 1,
-    mode: 'direct',
   },
   {
     id: 'th-design',
@@ -279,8 +252,6 @@ const conversations: WsConversation[] = [
     timeLabel: 'Mon',
     members: 3,
     workingNow: 0,
-    fileCount: 4,
-    mode: 'hil',
   },
   {
     id: 'th-audit',
@@ -291,8 +262,6 @@ const conversations: WsConversation[] = [
     snippet: 'Outsourced render batch delivered',
     timeLabel: 'Mon',
     muted: true,
-    fileCount: 3,
-    mode: 'direct',
   },
   {
     id: 'th-sela',
@@ -304,8 +273,6 @@ const conversations: WsConversation[] = [
     timeLabel: 'Sun',
     section: 'earlier',
     read: true,
-    fileCount: 0,
-    mode: 'direct',
   },
 ];
 
@@ -326,7 +293,6 @@ const threadsById: Record<string, WsThread> = {
         employeeId: 'emp-orion',
         role: 'manager',
         timeLabel: '14:06',
-        reasoning: true,
         body: "Got it. Breaking this into a 7-step plan and assigning Devin (sandbox), Mara (edge cases) and Sela (spec). I'll report back as steps land.",
       },
       {
@@ -339,7 +305,7 @@ const threadsById: Record<string, WsThread> = {
         attachment: {
           id: 't-a1',
           name: 'sandbox-bootstrap.log',
-          meta: '3.2 KB · Text · shared to Files',
+          meta: '3.2 KB · Text attachment',
         },
       },
       {
@@ -375,31 +341,6 @@ const threadsById: Record<string, WsThread> = {
         },
       },
     ],
-    run: {
-      meta: '5 / 7 steps · 1 blocked',
-      costLabel: '$0.06',
-      activity: [
-        {
-          id: 't-av1',
-          tool: 'bash',
-          detail: 'Devin completed "Provision sandbox"',
-          level: 'success',
-        },
-        {
-          id: 't-av2',
-          tool: 'bash',
-          detail: 'Mara started "Edge case review"',
-          level: 'info',
-          repeat: 3,
-        },
-        {
-          id: 't-av3',
-          tool: 'alert',
-          detail: 'Step 6 blocked — awaiting your approval (see Approvals)',
-          level: 'warning',
-        },
-      ],
-    },
   },
   'th-mara': {
     daySep: 'Today',
@@ -417,7 +358,6 @@ const threadsById: Record<string, WsThread> = {
         employeeId: 'emp-mara',
         role: 'developer',
         timeLabel: '14:22',
-        reasoning: true,
         body: "On it. Running the parser against empty files, 8 MB caps and non-UTF-8 input. Will flag anything that needs a tool I don't have.",
       },
       {
@@ -429,7 +369,6 @@ const threadsById: Record<string, WsThread> = {
         body: 'Three pass, one needs your call: reading ./.cache is outside the workspace root. I requested approval — it’s in Approvals.',
       },
     ],
-    run: { meta: '2 / 3 steps', costLabel: '$0.02', activity: [] },
   },
 };
 
@@ -786,10 +725,4 @@ export const GATE_HEAD_LABEL: Record<GateKind, string> = {
   plan: 'Plan review',
   ask: 'Agent question',
   install: 'Skill install',
-};
-
-export const MODE_LABEL: Record<NonNullable<WsConversation['mode']>, string> = {
-  direct: 'Direct',
-  hil: 'HIL',
-  yolo: 'YOLO',
 };

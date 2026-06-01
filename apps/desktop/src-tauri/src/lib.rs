@@ -163,7 +163,6 @@ pub fn run() {
             runtime_secrets::runtime_secret_clear,
             runtime_secrets::runtime_provider_profiles,
             runtime_secrets::runtime_provider_profile_upsert,
-            runtime_secrets::trusted_host_product_status,
             local_db::local_db_execute_transaction,
             builtin_tools::project_read_file,
             builtin_tools::project_read_file_preview,

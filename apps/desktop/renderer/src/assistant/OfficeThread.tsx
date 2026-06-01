@@ -1,30 +1,19 @@
-import { useUiState } from '@/app/ui-state.js';
 import type { ChatMessage, Deliverable, Employee, RunState, ThreadScope } from '@/data/types.js';
-import { SESSION_MODE_LABEL, type SessionMode } from '@/data/types.js';
-import { Chip } from '@/design-system/grammar/Chip.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { Icon } from '@/design-system/icons/Icon.js';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/design-system/primitives/dropdown-menu.js';
 import { isDesktopProviderBridgeAvailable } from '@/lib/provider-bridge.js';
 import { ConvOutputs } from '@/surfaces/office/rail/ConvOutputs.js';
 import { MessageItem } from '@/surfaces/office/rail/MessageItem.js';
 import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
 import { AssistantRuntimeProvider, ComposerPrimitive, ThreadPrimitive } from '@assistant-ui/react';
 import { listen } from '@tauri-apps/api/event';
-import { ChevronDown, Cpu, MessageSquarePlus, Paperclip, SendHorizontal } from 'lucide-react';
+import { MessageSquarePlus, Paperclip, SendHorizontal } from 'lucide-react';
 import { type DragEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { StagedAttachments } from './composer/StagedAttachments.js';
 import { ChatErrorBanner } from './parts/ChatErrorBanner.js';
 import { MeetingTray } from './parts/Meeting.js';
 import { useRunStore } from './run-store.js';
 import { useOfficeRuntime } from './runtime/useOfficeRuntime.js';
-
-const SESSION_MODES: SessionMode[] = ['direct', 'hil', 'yolo'];
 
 function dragHasFiles(event: DragEvent<HTMLElement>) {
   return Array.from(event.dataTransfer.types).includes('Files');
@@ -46,6 +35,8 @@ interface NativeDroppedFilesPayload {
 
 interface OfficeThreadProps {
   threadId: string;
+  companyId: string | null;
+  projectId: string | null;
   runState: RunState;
   seedMessages: ChatMessage[];
   employeesById: Map<string, Employee>;
@@ -53,22 +44,17 @@ interface OfficeThreadProps {
   scope: ThreadScope;
   /** Employee holding this conversation's run (direct thread), shown on the pill. */
   employeeId: string | null;
-  modelLabel: string;
   projectName: string;
   attachmentsAvailable: number;
 }
 
 function OfficeComposer({
-  modelLabel,
   projectName,
   attachmentsAvailable,
 }: {
-  modelLabel: string;
   projectName: string;
   attachmentsAvailable: number;
 }) {
-  const sessionMode = useUiState((s) => s.sessionMode);
-  const setSessionMode = useUiState((s) => s.setSessionMode);
   const stageFiles = useRunStore((s) => s.stageFiles);
   const storageAvailable = useRunStore((s) => s.storageAvailable);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -80,8 +66,10 @@ function OfficeComposer({
     const files = Array.from(fileList ?? []).map((f) => ({
       name: f.name,
       bytes: f.size,
+      type: f.type,
+      file: f,
     }));
-    if (files.length) stageFiles(files);
+    if (files.length) void stageFiles(files);
   }
 
   const stageNativeFiles = useCallback(
@@ -92,7 +80,7 @@ function OfficeComposer({
           name: file.name,
           bytes: file.bytes,
         }));
-      if (files.length) stageFiles(files);
+      if (files.length) void stageFiles(files);
     },
     [stageFiles],
   );
@@ -198,33 +186,9 @@ function OfficeComposer({
           label="Attach file"
           variant="subtle"
           size="iconSm"
-          title={
-            storageAvailable
-              ? 'Attach files to the message'
-              : 'Attachment storage is unavailable; selected files will surface an error chip'
-          }
+          title={storageAvailable ? 'Attach file' : 'Attachment storage unavailable'}
           onClick={() => fileInput.current?.click()}
         />
-        <span className="off-composer-divider" aria-hidden />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Chip as="button" accent dotColor="var(--off-accent)">
-              {SESSION_MODE_LABEL[sessionMode]}
-              <Icon icon={ChevronDown} size="sm" />
-            </Chip>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            {SESSION_MODES.map((mode) => (
-              <DropdownMenuItem key={mode} onSelect={() => setSessionMode(mode)}>
-                {SESSION_MODE_LABEL[mode]}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <Chip as="span">
-          <Icon icon={Cpu} size="sm" />
-          {modelLabel} · Med
-        </Chip>
         <span className="off-grow" />
         <ComposerPrimitive.Send className="off-composer-send off-focusable">
           Send
@@ -241,17 +205,24 @@ function OfficeComposer({
 
 export function OfficeThread({
   threadId,
+  companyId,
+  projectId,
   runState,
   seedMessages,
   employeesById,
   deliverables,
   scope,
   employeeId,
-  modelLabel,
   projectName,
   attachmentsAvailable,
 }: OfficeThreadProps) {
-  const runtime = useOfficeRuntime({ threadId, seedMessages, assigneeId: employeeId });
+  const runtime = useOfficeRuntime({
+    threadId,
+    seedMessages,
+    assigneeId: employeeId,
+    companyId,
+    projectId,
+  });
   const syncThread = useRunStore((s) => s.syncThread);
 
   // Bind the shared run-state store to this thread: seeds the pipeline / error /
@@ -306,7 +277,6 @@ export function OfficeThread({
           </div>
         ) : null}
         <OfficeComposer
-          modelLabel={modelLabel}
           projectName={projectName}
           attachmentsAvailable={attachmentsAvailable}
         />

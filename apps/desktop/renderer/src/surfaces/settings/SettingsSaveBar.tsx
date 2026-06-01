@@ -48,11 +48,11 @@ export function SettingsSaveBar({
   } else if (status === 'post-save') {
     label = (
       <>
-        <span className="off-set-spin-inline" />
-        Saving… · Reinitializing runtime
+        <Icon icon={Check} size="sm" />
+        Saved
       </>
     );
-    tip = 'Reloading provider transport for in-flight threads';
+    tip = 'Settings saved';
   } else if (status === 'saving') {
     label = (
       <>

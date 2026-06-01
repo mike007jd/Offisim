@@ -1,7 +1,6 @@
 import { reposOrNull } from '@/data/adapters.js';
 import { UI_DATA_COLORS } from '@/data/color-palette.js';
 import { resolveAsync } from '@/lib/platform.js';
-import { withTauriSqlTransaction } from '@/lib/tauri-drizzle.js';
 import { createTauriVaultFileSystem } from '@/lib/tauri-vault-fs.js';
 import { runtimeEventBus } from '@/runtime/repos.js';
 import {
@@ -25,12 +24,12 @@ import {
   readPackageFile,
 } from '@offisim/install-core';
 import {
-  type ArtifactDownloadInfo,
   type ListingDetail,
   type ListingSummary,
   type PublishDraft,
   RegistryApiError,
   RegistryClient,
+  type VersionSummary,
 } from '@offisim/registry-client';
 import type { SkillRow } from '@offisim/shared-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -1277,33 +1276,45 @@ async function buildPublishArtifactInput(
   };
 }
 
-function packageVersionIdFor(detail: ListingDetail): string | null {
-  return detail.version.package_version_id ?? null;
+type RegistryListingPayload = ListingDetail | ListingSummary;
+
+function packageVersionIdFor(detail: RegistryListingPayload): string | null {
+  return detail.version?.package_version_id ?? detail.artifact?.package_version_id ?? null;
 }
 
 function registryListingToVm(
   summary: ListingSummary,
-  detail: ListingDetail,
-  download: ArtifactDownloadInfo | null,
+  detail: RegistryListingPayload,
   installedRows: readonly InstalledPackageRow[],
 ): MarketListing {
+  const version: VersionSummary = detail.version ?? {
+    package_id: detail.package_id ?? detail.slug,
+    version: detail.latest_version,
+    runtime_range: '>=0.7.0',
+    schema_version: '1',
+    environments: [],
+    risk_class: detail.permissions?.risk_class ?? 'data_asset',
+  };
   const packageVersionId = packageVersionIdFor(detail);
   const tags = detail.tags ?? [];
+  const requirements = detail.requirements ?? {};
+  const permissions = detail.permissions ?? {};
+  const artifact = detail.artifact ?? null;
   return {
     id: detail.listing_id,
     kind: registryKindToListingKind(detail.kind),
     slug: detail.slug,
     name: detail.title,
     summary: detail.summary,
-    description: detail.description,
+    description: detail.description ?? detail.summary,
     handle: detail.creator.handle,
     creatorName: detail.creator.display_name,
     verified: detail.creator.verification_state !== 'unverified',
     rating: detail.rating,
     installs: detail.install_count,
-    version: detail.version.version,
-    versions: [detail.version.version],
-    publishedLabel: detail.version.published_at ? shortDate(detail.version.published_at) : 'Live',
+    version: version.version,
+    versions: [version.version],
+    publishedLabel: version.published_at ? shortDate(version.published_at) : 'Live',
     tags,
     license: 'Registry',
     initials: detail.title
@@ -1323,47 +1334,47 @@ function registryListingToVm(
       installedRows,
     ),
     permissions: {
-      risk: registryRiskToListingRisk(detail.permissions.risk_class),
-      filesystem: registryFsToListingScope(detail.permissions.filesystem_scope),
-      network: registryNetToListingScope(detail.permissions.network_scope),
-      secrets: detail.permissions.declares_secrets ? 'declared' : 'none',
+      risk: registryRiskToListingRisk(permissions.risk_class),
+      filesystem: registryFsToListingScope(permissions.filesystem_scope),
+      network: registryNetToListingScope(permissions.network_scope),
+      secrets: permissions.declares_secrets ? 'declared' : 'none',
     },
     requirements: {
-      capabilities: [...(detail.requirements.required_capabilities ?? [])],
-      mcps: [...(detail.requirements.required_mcps ?? [])],
-      models: (detail.requirements.recommended_models ?? []).map((model) => model.profile),
-      runtime: detail.version.runtime_range,
-      schema: Number(detail.version.schema_version) || 1,
+      capabilities: [...(requirements.required_capabilities ?? [])],
+      mcps: [...(requirements.required_mcps ?? [])],
+      models: (requirements.recommended_models ?? []).map((model) => model.profile),
+      runtime: version.runtime_range,
+      schema: Number(version.schema_version) || 1,
     },
     lineage: {
       origin:
         detail.lineage?.origin_package_id ?? detail.package_id ?? summary.package_id ?? detail.slug,
       forkedFrom: detail.lineage?.forked_from_version ?? null,
     },
-    changelog: detail.version.changelog
+    changelog: version.changelog
       ? [
           {
-            version: detail.version.version,
-            date: detail.version.published_at ? shortDate(detail.version.published_at) : 'Live',
-            entries: [{ kind: 'note', text: detail.version.changelog }],
+            version: version.version,
+            date: version.published_at ? shortDate(version.published_at) : 'Live',
+            entries: [{ kind: 'note', text: version.changelog }],
           },
         ]
       : [],
     screenshots: (detail.previews ?? [])
       .filter((preview) => preview.kind === 'image')
       .map((preview) => preview.url),
-    bindings: (detail.requirements.recommended_models ?? []).map((model) => ({
+    bindings: (requirements.recommended_models ?? []).map((model) => ({
       id: model.profile,
       role: model.profile,
       hint: model.reason ?? 'Recommended model profile',
       required: false,
       suggestions: model.provider_hints ?? [],
     })),
-    installArtifactUrl: download?.artifact_url ?? null,
-    installSource: download?.artifact_url && packageVersionId ? 'registry' : undefined,
+    installArtifactUrl: artifact?.artifact_url ?? null,
+    installSource: artifact?.artifact_url && packageVersionId ? 'registry' : undefined,
     packageVersionId,
-    artifactSha256: download?.artifact_sha256 ?? null,
-    artifactSizeBytes: download?.artifact_size_bytes ?? null,
+    artifactSha256: artifact?.artifact_sha256 ?? null,
+    artifactSizeBytes: artifact?.artifact_size_bytes ?? null,
   };
 }
 
@@ -1377,16 +1388,7 @@ async function loadRegistryListings(
     repos && companyId ? await repos.installedPackages.listByCompany(companyId) : [];
   const client = registryClient(config);
   const search = await client.searchListings({ per_page: 48, sort: 'updated' });
-  return Promise.all(
-    search.items.map(async (summary) => {
-      const detail = await client.getListingDetail(summary.listing_id);
-      const versionId = packageVersionIdFor(detail);
-      const download = versionId
-        ? await client.getArtifactDownloadInfo(versionId).catch(() => null)
-        : null;
-      return registryListingToVm(summary, detail, download, installedRows);
-    }),
-  );
+  return search.items.map((summary) => registryListingToVm(summary, summary, installedRows));
 }
 
 function draftToVm(draft: PublishDraft): PublishedDraft {
@@ -1568,7 +1570,7 @@ export function usePrepareRegistryInstall(companyId?: string | null) {
         events: createInstallEvents(),
         companyId,
         environment: DESKTOP_INSTALL_ENVIRONMENT,
-        asyncTransact: withTauriSqlTransaction,
+        asyncTransact: repos.asyncTransact?.bind(repos),
       });
       const result = await service.importFile(archiveBytes, {
         sourceType: 'registry',
@@ -1683,7 +1685,7 @@ export function useImportPackageFile(companyId?: string | null) {
         events: createInstallEvents(),
         companyId,
         environment: DESKTOP_INSTALL_ENVIRONMENT,
-        asyncTransact: withTauriSqlTransaction,
+        asyncTransact: repos.asyncTransact?.bind(repos),
       });
       const archiveBytes = await readPackageFile(file);
       const result = await service.importFile(archiveBytes, {

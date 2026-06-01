@@ -42,6 +42,7 @@ export interface ListingSummary {
   kind: AssetKind;
   title: string;
   summary: string;
+  description?: string;
   creator: CreatorSummary;
   status: 'listed' | 'hidden' | 'retired';
   /** Stable manifest package identifier — survives catalog re-seed. */
@@ -51,6 +52,12 @@ export interface ListingSummary {
   install_count: number;
   tags?: string[];
   preview?: PreviewRef;
+  version?: VersionSummary;
+  requirements?: RequirementsSummary;
+  permissions?: PermissionSummary;
+  lineage?: LineageSummary;
+  previews?: PreviewRef[];
+  artifact?: ListingArtifactSummary;
 }
 
 export interface VersionSummary {
@@ -97,6 +104,13 @@ export interface ListingDetail extends ListingSummary {
   permissions: PermissionSummary;
   lineage?: LineageSummary;
   previews?: PreviewRef[];
+}
+
+export interface ListingArtifactSummary {
+  package_version_id: string;
+  artifact_url: string | null;
+  artifact_sha256: string | null;
+  artifact_size_bytes: number | null;
 }
 
 // ── Versions ──

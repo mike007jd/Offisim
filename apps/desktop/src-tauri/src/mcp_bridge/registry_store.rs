@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager, Wry};
@@ -280,7 +281,23 @@ impl RegisteredServerStore {
         let mut values = servers.values().cloned().collect::<Vec<_>>();
         values.sort_by(|a, b| a.name.cmp(&b.name));
         let raw = serde_json::to_string_pretty(&values).map_err(|e| e.to_string())?;
-        fs::write(&self.file_path, raw).map_err(|e| e.to_string())
+        let tmp_path = self.file_path.with_extension("json.tmp");
+        let mut file = fs::OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .write(true)
+            .open(&tmp_path)
+            .map_err(|e| e.to_string())?;
+        file.write_all(raw.as_bytes()).map_err(|e| e.to_string())?;
+        file.sync_all().map_err(|e| e.to_string())?;
+        drop(file);
+        fs::rename(&tmp_path, &self.file_path).map_err(|e| e.to_string())?;
+        if let Some(parent) = self.file_path.parent() {
+            if let Ok(dir) = fs::File::open(parent) {
+                let _ = dir.sync_all();
+            }
+        }
+        Ok(())
     }
 }
 
@@ -351,14 +368,35 @@ fn load_registry_entries(file_path: &Path) -> Result<HashMap<String, RegisteredM
             .map(|server| (server.server_id.clone(), server))
             .collect()),
         Err(err) => {
+            let backup_path = malformed_registry_backup_path(file_path);
             eprintln!(
-                "[mcp_bridge] ignoring malformed MCP registry at {}: {}",
+                "[mcp_bridge] ignoring malformed MCP registry at {}: {}; preserving copy at {}",
                 file_path.display(),
-                err
+                err,
+                backup_path.display()
             );
+            if let Err(rename_err) = fs::rename(file_path, &backup_path) {
+                eprintln!(
+                    "[mcp_bridge] failed to preserve malformed MCP registry {}: {}",
+                    file_path.display(),
+                    rename_err
+                );
+            }
             Ok(HashMap::new())
         }
     }
+}
+
+fn malformed_registry_backup_path(file_path: &Path) -> PathBuf {
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or(0);
+    let file_name = file_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(REGISTRY_FILE);
+    file_path.with_file_name(format!("{file_name}.bad.{stamp}"))
 }
 
 fn generate_server_id(name: &str) -> String {

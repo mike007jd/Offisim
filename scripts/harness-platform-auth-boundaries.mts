@@ -7,8 +7,8 @@ import {
   normalizeApiTokenScopes,
   parseApiTokenExpiryDays,
   parseApiTokenScopes,
+  requireApiTokenScope,
   requireLocalRuntimeAccess,
-  requireScope,
   requireSessionAuth,
 } from '../apps/platform/src/middleware/auth.js';
 import { _resetRateLimitStore, rateLimit } from '../apps/platform/src/middleware/rate-limit.js';
@@ -57,7 +57,7 @@ async function runMiddleware(
 
 async function expectScopeDenied() {
   const { nextCalled, response } = await runMiddleware(
-    requireScope('publish:write') as never,
+    requireApiTokenScope('publish:write') as never,
     makeContext({ authKind: 'api-token', scopes: ['reviews:write'] }),
   );
   if (nextCalled || response?.status !== 403) {
@@ -67,7 +67,7 @@ async function expectScopeDenied() {
 
 async function expectScopeAllowed() {
   const { nextCalled, response } = await runMiddleware(
-    requireScope('publish:write') as never,
+    requireApiTokenScope('publish:write') as never,
     makeContext({ authKind: 'api-token', scopes: ['publish:write'] }),
   );
   if (!nextCalled || response) throw new Error('API token with required scope was not allowed');
@@ -206,22 +206,13 @@ function expectMigrationDriftFailure() {
 
 function expectMarketplaceVisibilityGuards() {
   const root = new URL('..', import.meta.url);
-  const marketSource = readFileSync(
-    new URL('apps/platform/src/routes/market.ts', root),
-    'utf8',
-  );
-  const installSource = readFileSync(
-    new URL('apps/platform/src/routes/install.ts', root),
-    'utf8',
-  );
+  const marketSource = readFileSync(new URL('apps/platform/src/routes/market.ts', root), 'utf8');
+  const installSource = readFileSync(new URL('apps/platform/src/routes/install.ts', root), 'utf8');
   const creatorsSource = readFileSync(
     new URL('apps/platform/src/routes/creators.ts', root),
     'utf8',
   );
-  const reviewsSource = readFileSync(
-    new URL('apps/platform/src/routes/reviews.ts', root),
-    'utf8',
-  );
+  const reviewsSource = readFileSync(new URL('apps/platform/src/routes/reviews.ts', root), 'utf8');
   const marketRequired = [
     "market.post('/listings/:listingId/reports'",
     "market.get('/listings/:listingId/forks'",
@@ -243,8 +234,14 @@ function expectMarketplaceVisibilityGuards() {
   if (downloadStart < 0 || artifactStart < 0) {
     throw new Error('missing install download/artifact route markers');
   }
-  const downloadRoute = installSource.slice(downloadStart, installSource.indexOf('\n});', downloadStart));
-  const artifactRoute = installSource.slice(artifactStart, installSource.indexOf('\n});', artifactStart));
+  const downloadRoute = installSource.slice(
+    downloadStart,
+    installSource.indexOf('\n});', downloadStart),
+  );
+  const artifactRoute = installSource.slice(
+    artifactStart,
+    installSource.indexOf('\n});', artifactStart),
+  );
   if (!downloadRoute.includes('await getVisiblePackageVersionById(db, versionId)')) {
     throw new Error('install download route bypasses visible package version lookup');
   }
@@ -330,7 +327,10 @@ function expectMarketplaceVisibilityGuards() {
 }
 
 function expectTokenRevokeOwnershipBoundInDelete() {
-  const authSource = readFileSync(new URL('../apps/platform/src/routes/auth.ts', import.meta.url), 'utf8');
+  const authSource = readFileSync(
+    new URL('../apps/platform/src/routes/auth.ts', import.meta.url),
+    'utf8',
+  );
   for (const route of [
     "authRoute.post('/register-creator', requireAuth, requireSessionAuth",
     "authRoute.post('/tokens', requireAuth, requireSessionAuth",
@@ -345,7 +345,10 @@ function expectTokenRevokeOwnershipBoundInDelete() {
   if (revokeStart < 0) {
     throw new Error('API token revoke route is missing');
   }
-  const revokeRoute = authSource.slice(revokeStart, authSource.indexOf('export { authRoute }', revokeStart));
+  const revokeRoute = authSource.slice(
+    revokeStart,
+    authSource.indexOf('export { authRoute }', revokeStart),
+  );
   const requiredPhrases = [
     'const deletedRows = await db',
     'eq(apiTokens.token_id, tokenId)',
@@ -360,10 +363,13 @@ function expectTokenRevokeOwnershipBoundInDelete() {
 }
 
 function expectMarketplaceWriteRoutesHaveApiTokenBoundaries() {
-  const marketSource = readFileSync(new URL('../apps/platform/src/routes/market.ts', import.meta.url), 'utf8');
+  const marketSource = readFileSync(
+    new URL('../apps/platform/src/routes/market.ts', import.meta.url),
+    'utf8',
+  );
   for (const route of [
     "market.post('/listings/:listingId/reports', requireAuth, requireSessionAuth",
-    "market.patch(\n  '/listings/:listingId/status',\n  requireAuth,\n  requireScope('publish:write'),\n  requireCreator",
+    "market.patch(\n  '/listings/:listingId/status',\n  requireAuth,\n  requireApiTokenScope('publish:write'),\n  requireCreator",
   ]) {
     if (!marketSource.includes(route)) {
       throw new Error(`marketplace write route API-token boundary is missing: ${route}`);
@@ -372,7 +378,10 @@ function expectMarketplaceWriteRoutesHaveApiTokenBoundaries() {
 }
 
 function expectPrivateLibraryRouteIsSessionOnly() {
-  const meSource = readFileSync(new URL('../apps/platform/src/routes/me.ts', import.meta.url), 'utf8');
+  const meSource = readFileSync(
+    new URL('../apps/platform/src/routes/me.ts', import.meta.url),
+    'utf8',
+  );
   if (!meSource.includes("meRoute.get('/library', requireAuth, requireSessionAuth")) {
     throw new Error('private library route is not session-only');
   }

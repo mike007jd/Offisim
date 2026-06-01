@@ -41,7 +41,7 @@ function makeTransact(db: Db) {
 // `transact()` API on this backend. The portable callers (skill install,
 // install materializer) target the Tauri backend where asyncTransact is real.
 function makeAsyncTransact() {
-  return async <T>(fn: () => Promise<T>): Promise<T> => fn();
+  return async <T>(fn: (txRepos?: RuntimeRepositories) => Promise<T>): Promise<T> => fn();
 }
 
 export function createDrizzleRepositories(db: Db, _eventBus?: EventBus): RuntimeRepositories {

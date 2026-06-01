@@ -1211,13 +1211,6 @@
   flex: 1;
 }
 
-.off-composer-divider {
-  width: 1px;
-  height: var(--off-composer-divider-h);
-  background: var(--off-line);
-  margin: 0 2px;
-}
-
 .off-composer-send {
   height: var(--off-composer-send-h);
   padding: 0 var(--off-sp-5);
@@ -1566,30 +1559,6 @@
   color: var(--off-ink-2);
   margin-bottom: var(--off-sp-2);
 }
-.off-errbanner-history {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.off-errbanner-history li {
-  display: flex;
-  align-items: center;
-  gap: var(--off-sp-2);
-  font-size: var(--off-fs-micro);
-  color: var(--off-ink-3);
-}
-.off-errbanner-hist-reason {
-  font-weight: 700;
-  text-transform: uppercase;
-  font-size: var(--off-fs-xs);
-  letter-spacing: 0;
-  color: var(--off-danger);
-}
-.off-errbanner-hist-at {
-  margin-left: auto;
-  font-family: var(--off-font-mono);
-}
-
 /* === Meeting region ======================================================= */
 .off-meeting-panel {
   margin: var(--off-sp-3) 0;

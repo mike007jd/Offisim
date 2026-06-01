@@ -1,5 +1,5 @@
 import { creators, listingTags, listings, packageVersions } from '@offisim/db-platform';
-import { and, desc, eq, exists, ilike, inArray, or, sql } from 'drizzle-orm';
+import { and, desc, eq, exists, inArray, or, sql } from 'drizzle-orm';
 import type { PlatformDb } from '../db.js';
 
 export interface SearchFilters {
@@ -12,10 +12,15 @@ export interface SearchFilters {
   per_page?: number;
 }
 
+function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
 export async function searchListings(db: PlatformDb, filters: SearchFilters) {
   const page = Math.max(1, filters.page ?? 1);
   const perPage = Math.min(100, Math.max(1, filters.per_page ?? 20));
   const offset = (page - 1) * perPage;
+  const q = filters.q?.trim() ?? '';
 
   const conditions = [eq(listings.status, 'listed')];
 
@@ -39,12 +44,13 @@ export async function searchListings(db: PlatformDb, filters: SearchFilters) {
     );
   }
 
-  if (filters.q) {
-    const pattern = `%${filters.q}%`;
+  if (q) {
+    const pattern = `%${escapeLikePattern(q)}%`;
     const textSearch = or(
-      ilike(listings.title, pattern),
-      ilike(listings.summary, pattern),
-      ilike(creators.display_name, pattern),
+      sql`${listings.title} ILIKE ${pattern} ESCAPE '\\'`,
+      sql`${listings.slug} ILIKE ${pattern} ESCAPE '\\'`,
+      sql`${listings.summary} ILIKE ${pattern} ESCAPE '\\'`,
+      sql`${creators.display_name} ILIKE ${pattern} ESCAPE '\\'`,
     );
 
     if (textSearch) {
@@ -64,7 +70,17 @@ export async function searchListings(db: PlatformDb, filters: SearchFilters) {
   const where = and(...conditions);
 
   // Sort
-  const relevanceOrder = desc(sql`${listings.rating_avg} * ln(${listings.install_count} + 1)`);
+  const socialProofScore = sql`coalesce(${listings.rating_avg}, 0) * ln(greatest(${listings.install_count}, 0) + 1)`;
+  const newnessFloor = sql`greatest(0, 1 - (extract(epoch from (now() - ${listings.updated_at})) / 2592000.0))`;
+  const textBoost = q
+    ? sql`CASE
+        WHEN ${listings.title} ILIKE ${escapeLikePattern(q)} ESCAPE '\\' THEN 100
+        WHEN ${listings.title} ILIKE ${`${escapeLikePattern(q)}%`} ESCAPE '\\' THEN 40
+        WHEN ${listings.slug} ILIKE ${`${escapeLikePattern(q)}%`} ESCAPE '\\' THEN 25
+        ELSE 0
+      END`
+    : sql`0`;
+  const relevanceOrder = desc(sql`${textBoost} + ${socialProofScore} + ${newnessFloor}`);
   let orderBy = relevanceOrder;
   switch (filters.sort) {
     case 'newest':

@@ -51,7 +51,7 @@ interface PendingVaultWrite {
 export interface MaterializeOptions {
   readonly provenance?: InstallProvenance;
   readonly transact?: <T>(fn: () => T) => T;
-  readonly asyncTransact?: <T>(fn: () => Promise<T>) => Promise<T>;
+  readonly asyncTransact?: <T>(fn: (txRepos?: InstallRepositories) => Promise<T>) => Promise<T>;
   /**
    * Internal: set by the `asyncTransact` branch. When present, skill `SKILL.md`
    * vault writes are COLLECTED here instead of written immediately, so they can
@@ -434,8 +434,8 @@ export async function materialize(
     // AFTER the DB has committed — so a flush failure or crash can never leave a
     // SKILL.md on disk without its committed row.
     const pendingVaultWrites: PendingVaultWrite[] = [];
-    const result = await asyncTransact(() =>
-      materialize(plan, bindings, repos, companyId, installTxnId, {
+    const result = await asyncTransact((txRepos) =>
+      materialize(plan, bindings, txRepos ?? repos, companyId, installTxnId, {
         provenance,
         deferVaultWrites: pendingVaultWrites,
       }),
@@ -641,8 +641,8 @@ export async function materialize(
   }
 
   if (asyncTransact) {
-    return asyncTransact(() =>
-      materialize(plan, bindings, repos, companyId, installTxnId, { provenance }),
+    return asyncTransact((txRepos) =>
+      materialize(plan, bindings, txRepos ?? repos, companyId, installTxnId, { provenance }),
     );
   }
 

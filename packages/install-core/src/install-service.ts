@@ -50,7 +50,7 @@ export interface InstallServiceDeps {
    * When provided, materialize() wraps all writes in a single SQLite transaction.
    */
   readonly transact?: <T>(fn: () => T) => T;
-  readonly asyncTransact?: <T>(fn: () => Promise<T>) => Promise<T>;
+  readonly asyncTransact?: <T>(fn: (txRepos?: InstallRepositories) => Promise<T>) => Promise<T>;
 }
 
 // ---------------------------------------------------------------------------
@@ -77,7 +77,9 @@ export class InstallService {
   private readonly companyId: string;
   private readonly environment: RuntimeEnvironment;
   private readonly transact: (<T>(fn: () => T) => T) | undefined;
-  private readonly asyncTransact: (<T>(fn: () => Promise<T>) => Promise<T>) | undefined;
+  private readonly asyncTransact:
+    | (<T>(fn: (txRepos?: InstallRepositories) => Promise<T>) => Promise<T>)
+    | undefined;
   private readonly planCache = new Map<string, InstallPlan>();
   private readonly materializeLocks = new Map<string, Promise<void>>();
 

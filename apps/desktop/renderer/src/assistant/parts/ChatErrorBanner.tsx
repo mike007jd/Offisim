@@ -1,5 +1,4 @@
 import { Icon } from '@/design-system/icons/Icon.js';
-import { relativeTime } from '@/lib/utils.js';
 import { AlertTriangle, ChevronDown, X } from 'lucide-react';
 import { useState } from 'react';
 import { useRunStore } from '../run-store.js';
@@ -48,15 +47,6 @@ export function ChatErrorBanner() {
       {showDetails ? (
         <div className="off-errbanner-details">
           <p className="off-errbanner-tech">{error.technicalDetail}</p>
-          <ul className="off-errbanner-history">
-            {error.history.map((entry) => (
-              <li key={entry.id}>
-                <span className="off-errbanner-hist-reason">{entry.reason}</span>
-                <span className="off-errbanner-hist-msg">{entry.message}</span>
-                <span className="off-errbanner-hist-at">{relativeTime(entry.at)}</span>
-              </li>
-            ))}
-          </ul>
         </div>
       ) : null}
     </div>

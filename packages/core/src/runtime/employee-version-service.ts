@@ -7,6 +7,11 @@ import type {
   EmployeeVersionRow,
 } from './repositories.js';
 
+interface EmployeeVersionTxRepos {
+  readonly employeeVersions: EmployeeVersionRepository;
+  readonly employees: EmployeeRepository;
+}
+
 export interface VersionDiff {
   field: string;
   from: unknown;
@@ -36,7 +41,9 @@ export class EmployeeVersionService {
     private readonly employeeRepo: EmployeeRepository,
     private readonly eventBus: EventBus,
     private readonly transact?: <T>(fn: () => T) => T,
-    private readonly asyncTransact?: <T>(fn: () => Promise<T>) => Promise<T>,
+    private readonly asyncTransact?: <T>(
+      fn: (txRepos?: EmployeeVersionTxRepos) => Promise<T>,
+    ) => Promise<T>,
   ) {}
 
   /** Snapshot current employee state as a new version. */
@@ -156,13 +163,16 @@ export class EmployeeVersionService {
     // The rollback applies a known snapshot, so the new version record mirrors
     // exactly what we just wrote (no employee re-read needed — the Tauri queued
     // transaction has no read-your-own-write isolation).
-    const apply = async (): Promise<number> => {
-      await this.employeeRepo.update(employeeId, snapshot);
+    const apply = async (txRepos?: EmployeeVersionTxRepos): Promise<number> => {
+      const employeeRepo = txRepos?.employees ?? this.employeeRepo;
+      const versionRepo = txRepos?.employeeVersions ?? this.versionRepo;
+
+      await employeeRepo.update(employeeId, snapshot);
 
       // Allocate the next version number inside the transaction so two
       // concurrent rollbacks cannot collide on the same version_num.
-      const nextNum = (await this.versionRepo.getLatestVersionNum(employeeId)) + 1;
-      await this.versionRepo.create({
+      const nextNum = (await versionRepo.getLatestVersionNum(employeeId)) + 1;
+      await versionRepo.create({
         employee_id: employeeId,
         version_num: nextNum,
         change_type: 'rollback',
@@ -176,7 +186,7 @@ export class EmployeeVersionService {
     let nextNum: number;
     if (this.asyncTransact) {
       // Snapshot-apply + version-record write commit atomically.
-      nextNum = await this.asyncTransact(apply);
+      nextNum = await this.asyncTransact((txRepos) => apply(txRepos));
     } else {
       // Memory backend (no transactional boundary) — sequential is equivalent.
       nextNum = await apply();

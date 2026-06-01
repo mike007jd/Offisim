@@ -1,4 +1,5 @@
 import type { EmployeeAppearance } from '@/lib/avatar.js';
+import type { AttachmentKind, VaultRef } from '@offisim/shared-types';
 
 export type { EmployeeAppearance };
 
@@ -94,6 +95,11 @@ export interface ChatAttachment {
   name: string;
   sizeLabel: string;
   ext: string;
+  vaultRef?: VaultRef;
+  mimeType?: string;
+  byteLength?: number;
+  kind?: AttachmentKind;
+  summary?: string;
 }
 
 export interface RunRecordStep {
@@ -247,15 +253,6 @@ export interface Skill {
  * control, stage status readout and the chat error banner. The renderer
  * drives these states through the assistant-ui external-store runtime. */
 
-/** Session execution mode shown on the composer mode chip. */
-export type SessionMode = 'direct' | 'hil' | 'yolo';
-
-export const SESSION_MODE_LABEL: Record<SessionMode, string> = {
-  direct: 'Direct',
-  hil: 'Human-in-loop',
-  yolo: 'YOLO',
-};
-
 export type PipelineStageState = 'done' | 'active' | 'pending';
 
 /** One stage of the orchestration pipeline (Boss → Manager → PM → Employee →
@@ -278,33 +275,12 @@ export interface RunPipeline {
   stepTotal: number;
 }
 
-/** Canonical chat-failure reasons surfaced by the error banner. */
-export type RunErrorReason =
-  | 'transport'
-  | 'auth'
-  | 'context-overflow'
-  | 'tool-failure'
-  | 'aborted'
-  | 'unknown';
-
-export interface TrackedErrorEntry {
-  id: string;
-  at: number;
-  reason: RunErrorReason;
-  message: string;
-}
-
-/** A recoverable chat run failure. Drives the in-thread ErrorBanner recovery actions. */
+/** A recoverable chat run failure. Drives the in-thread ErrorBanner. */
 export interface RunError {
   id: string;
-  reason: RunErrorReason;
   message: string;
   /** Technical detail revealed under "Details". */
   technicalDetail: string;
-  /** Last few tracked errors, newest first. */
-  history: TrackedErrorEntry[];
-  /** Employees that could take over the run (Swap person). */
-  swapCandidateIds: string[];
 }
 
 /* --- Meetings ---------------------------------------------------------------*/
@@ -361,6 +337,14 @@ export interface StagedAttachment {
   ext: string;
   sizeLabel: string;
   status: AttachmentStatus;
+  mimeType?: string;
+  byteLength?: number;
+  bytes?: Uint8Array;
+  sha256?: string;
+  attachmentId?: string;
+  file?: { arrayBuffer(): Promise<ArrayBuffer> };
+  kind?: AttachmentKind;
+  summary?: string;
   /** Present when status is "error". */
   failReason?: AttachmentFailReason;
 }

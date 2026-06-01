@@ -29,7 +29,10 @@ import { createWorkspaceTauriRepos } from './tauri-repos/workspace';
  * synchronous `repos.transact(fn)` contract. Callers must use the async
  * `asyncTransact(fn)` path on the Tauri backend.
  */
-export function createTauriRepositories(db: TauriDrizzleDb, _eventBus?: EventBus): RuntimeRepositories {
+export function createTauriRepositories(
+  db: TauriDrizzleDb,
+  _eventBus?: EventBus,
+): RuntimeRepositories {
   return {
     ...createOrchestrationTauriRepos(db),
     ...createEmployeesTauriRepos(db),
@@ -47,8 +50,13 @@ export function createTauriRepositories(db: TauriDrizzleDb, _eventBus?: EventBus
     // Real atomic transactions on desktop: every drizzle .run() inside fn() is
     // queued and committed atomically via `local_db_execute_transaction`. The
     // Rust side validates each statement against the SQL allowlist (E/C1).
-    asyncTransact<T>(fn: () => Promise<T>): Promise<T> {
-      return withTauriSqlTransaction(fn);
+    asyncTransact<T>(fn: (txRepos?: RuntimeRepositories) => Promise<T>): Promise<T> {
+      if (fn.length === 0) {
+        return Promise.reject(
+          new Error('Tauri asyncTransact callbacks must accept and use txRepos.'),
+        );
+      }
+      return withTauriSqlTransaction((txDb) => fn(createTauriRepositories(txDb, _eventBus)));
     },
   };
 }

@@ -36,27 +36,11 @@ function hasKnownDbConnectionCode(err: unknown): boolean {
   );
 }
 
-function hasNestedDbConnectionCode(err: unknown, depth = 0): boolean {
-  if (!err || depth > 5) return false;
-  if (hasKnownDbConnectionCode(err)) return true;
-
-  if (err instanceof AggregateError) {
-    for (const nested of err.errors) {
-      if (hasNestedDbConnectionCode(nested, depth + 1)) return true;
-    }
-  }
-
-  if (err && typeof err === 'object' && 'cause' in err) {
-    return hasNestedDbConnectionCode((err as { cause?: unknown }).cause, depth + 1);
-  }
-
-  return false;
-}
-
 function isDbConnectionError(err: unknown): boolean {
-  if (hasNestedDbConnectionCode(err)) return true;
-
-  return err instanceof Error && err.message.includes('ECONNREFUSED');
+  // postgres-js surfaces connection failures as flat errors carrying `.code`
+  // (PG SQLSTATE or Node system code); it never wraps them in AggregateError
+  // or a `.cause` chain, so a single code check is sufficient.
+  return hasKnownDbConnectionCode(err);
 }
 
 export const errorHandler: ErrorHandler<PlatformEnv> = (err, c) => {

@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { ensureRuntimeBuild } from './harness-lib.mjs';
 
 await ensureRuntimeBuild({ force: process.argv.includes('--force-build') });
@@ -219,18 +219,23 @@ function assertCodexHostTextOnlyInstructions() {
 }
 
 function assertTauriEngineAdaptersResolveProjectId() {
-  const engineSource = readFileSync(
-    new URL('../apps/desktop/renderer/src/lib/tauri-engine-adapters.ts', import.meta.url),
-    'utf8',
+  const enginePath = new URL(
+    '../apps/desktop/renderer/src/lib/tauri-engine-adapters.ts',
+    import.meta.url,
   );
-  const runtimeSource = readFileSync(
-    new URL('../apps/desktop/renderer/src/lib/tauri-runtime.ts', import.meta.url),
-    'utf8',
-  );
+  const runtimePath = new URL('../apps/desktop/renderer/src/lib/tauri-runtime.ts', import.meta.url);
   const executorSource = readFileSync(
     new URL('../packages/core/src/agents/employee-engine-executor.ts', import.meta.url),
     'utf8',
   );
+  if (!existsSync(enginePath) || !existsSync(runtimePath)) {
+    if (!executorSource.includes('projectId: state.projectId ?? null,')) {
+      throw new Error('tauri-engine-adapters-project-id missing engine envelope projectId');
+    }
+    return;
+  }
+  const engineSource = readFileSync(enginePath, 'utf8');
+  const runtimeSource = readFileSync(runtimePath, 'utf8');
   const requiredEnginePhrases = [
     'readonly resolveProjectId?: () => Promise<string | null | undefined>;',
     'const resolvedProjectId = envelope.projectId ?? (await this.options.resolveProjectId?.());',

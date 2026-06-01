@@ -209,10 +209,7 @@ export interface CompanyRepository {
   update(
     companyId: string,
     fields: Partial<
-      Pick<
-        CompanyRow,
-        'name' | 'status' | 'template_id' | 'template_label' | 'description_json'
-      >
+      Pick<CompanyRow, 'name' | 'status' | 'template_id' | 'template_label' | 'description_json'>
     >,
   ): Promise<void>;
   delete(companyId: string): Promise<void>;
@@ -738,10 +735,7 @@ export interface CompanyTemplateAssetRow {
   updated_at: string;
 }
 
-export type NewCompanyTemplateAsset = Omit<
-  CompanyTemplateAssetRow,
-  'created_at' | 'updated_at'
->;
+export type NewCompanyTemplateAsset = Omit<CompanyTemplateAssetRow, 'created_at' | 'updated_at'>;
 
 export interface CompanyTemplateAssetRepository {
   create(template: NewCompanyTemplateAsset): Promise<CompanyTemplateAssetRow>;
@@ -1189,5 +1183,5 @@ export interface RuntimeRepositories {
    *   read committed state (no read-your-own-write isolation).
    * - In-memory: no-op — calls fn() directly.
    */
-  asyncTransact?<T>(fn: () => Promise<T>): Promise<T>;
+  asyncTransact?<T>(fn: (txRepos?: RuntimeRepositories) => Promise<T>): Promise<T>;
 }

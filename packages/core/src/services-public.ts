@@ -5,7 +5,6 @@ export { FileHistoryService, FileHistoryToolExecutor } from './services/file-his
 export { GitAutoCommitService } from './services/git-auto-commit-service.js';
 export { InteractionService } from './services/interaction-service.js';
 export { MemoryService } from './services/memory-service.js';
-export { NotificationBridge } from './services/notification-bridge.js';
 export { OrchestrationService } from './services/orchestration-service.js';
 export { ToolTelemetryService } from './services/tool-telemetry-service.js';
 export { UserMemoryService } from './services/user-memory-service.js';

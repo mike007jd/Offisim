@@ -1,10 +1,6 @@
-import type { ChatAttachment, ChatMessage, RunError, RunErrorReason } from '@/data/types.js';
-import {
-  findDefaultChatProviderProfile,
-  loadRuntimeProviderProfiles,
-  safeErrorMessage,
-  sendProviderText,
-} from '@/lib/provider-bridge.js';
+import { persistChatMessage } from '@/data/chat-message-events.js';
+import type { ChatAttachment, ChatMessage } from '@/data/types.js';
+import { safeErrorMessage } from '@/lib/provider-bridge.js';
 import {
   type AppendMessage,
   type ThreadMessageLike,
@@ -13,6 +9,14 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useRunStore } from '../run-store.js';
+import {
+  appendText,
+  buildRunError,
+  displayAttachmentsFromStaged,
+  materializeChatTurn,
+  newDraftId,
+  sendDesktopProviderMessage,
+} from './desktop-chat-runtime.js';
 
 const DEFAULT_MAX_OUTPUT_TOKENS = 512;
 
@@ -28,61 +32,6 @@ function convertMessage(message: ChatMessage): ThreadMessageLike {
   };
 }
 
-/** Flatten an AppendMessage to its text. Non-text parts are intentionally
- *  ignored here: attachments are sourced from the run-store staging path (see
- *  onNew), not from assistant-ui's attachment adapter, which is deliberately
- *  unused for this external-store runtime. */
-function appendText(message: AppendMessage): string {
-  return message.content
-    .map((part) => ('text' in part ? part.text : ''))
-    .join('')
-    .trim();
-}
-
-function newDraftId(prefix: string): string {
-  return `${prefix}-${crypto.randomUUID()}`;
-}
-
-/** Classify a provider-send failure into the banner's recovery reason. */
-function classifyRunErrorReason(message: string): RunErrorReason {
-  const text = message.toLowerCase();
-  if (text.includes('credential') || text.includes('unauthorized') || text.includes('401')) {
-    return 'auth';
-  }
-  if (text.includes('not configured')) return 'auth';
-  if (text.includes('context') && text.includes('overflow')) return 'context-overflow';
-  if (text.includes('network') || text.includes('fetch') || text.includes('transport')) {
-    return 'transport';
-  }
-  return 'unknown';
-}
-
-function buildRunError(message: string): RunError {
-  const reason = classifyRunErrorReason(message);
-  return {
-    id: newDraftId('run-error'),
-    reason,
-    message: 'Provider send failed.',
-    technicalDetail: message,
-    history: [{ id: newDraftId('err-hist'), at: Date.now(), reason, message }],
-    swapCandidateIds: [],
-  };
-}
-
-async function sendRuntimeProviderMessage(text: string, requestId: string): Promise<string> {
-  const profiles = await loadRuntimeProviderProfiles();
-  const profile = findDefaultChatProviderProfile(profiles);
-  if (!profile) {
-    throw new Error('Runtime provider profile is not configured.');
-  }
-  return sendProviderText({
-    profile,
-    text,
-    requestId,
-    maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS,
-  });
-}
-
 /**
  * The Office conversation runtime. assistant-ui owns the thread/composer state
  * over Offisim's external message store. Desktop sends go through the Tauri
@@ -92,15 +41,20 @@ export function useOfficeRuntime({
   threadId,
   seedMessages,
   assigneeId,
+  companyId,
+  projectId,
 }: {
   threadId: string;
   seedMessages: ChatMessage[];
   /** Employee that holds this run (direct thread's employee), shown on the pill. */
   assigneeId?: string | null;
+  companyId: string | null;
+  projectId: string | null;
 }) {
   const [drafts, setDrafts] = useState<ChatMessage[]>([]);
   const [isSending, setIsSending] = useState(false);
   const requestIdRef = useRef<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const abortedRef = useRef(false);
   const messages = useMemo(() => [...seedMessages, ...drafts], [seedMessages, drafts]);
 
@@ -122,13 +76,13 @@ export function useOfficeRuntime({
     async (message: AppendMessage) => {
       const text = appendText(message);
       if (!text) return;
-      const attachments: ChatAttachment[] = staged
-        .filter((a) => a.status === 'attached')
-        .map((a) => ({ id: a.id, name: a.name, sizeLabel: a.sizeLabel, ext: a.ext }));
+      const stagedForTurn = staged.filter((a) => a.status === 'attached');
+      const attachments: ChatAttachment[] = displayAttachmentsFromStaged(stagedForTurn);
+      const userMessageId = newDraftId('boss');
       setDrafts((prev) => [
         ...prev,
         {
-          id: newDraftId('boss'),
+          id: userMessageId,
           threadId,
           author: 'boss',
           employeeId: null,
@@ -139,28 +93,56 @@ export function useOfficeRuntime({
       ]);
       clearStaged();
       const requestId = newDraftId('provider');
+      const abortController = new AbortController();
       requestIdRef.current = requestId;
+      abortControllerRef.current = abortController;
       abortedRef.current = false;
       setIsSending(true);
       startRun('Provider response', assigneeId ?? null);
       try {
-        const response = await sendRuntimeProviderMessage(text, requestId);
+        const materialized = await materializeChatTurn({
+          text,
+          companyId,
+          threadId,
+          staged: stagedForTurn,
+        });
+        const userMessage: ChatMessage = {
+          id: userMessageId,
+          threadId,
+          author: 'boss',
+          employeeId: null,
+          body: text,
+          at: Date.now(),
+          attachments: materialized.attachments.length ? materialized.attachments : undefined,
+        };
+        setDrafts((prev) =>
+          prev.map((draft) => (draft.id === userMessageId ? userMessage : draft)),
+        );
+        await persistChatMessage({ message: userMessage, companyId, projectId });
+        const response = await sendDesktopProviderMessage({
+          text: materialized.promptText,
+          requestId,
+          maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS,
+          threadId,
+          companyId,
+          projectId,
+          signal: abortController.signal,
+        });
         // A Stop can resolve the in-flight request late (the Rust abort and the
         // awaited response race). Without this guard a cancelled run would still
         // commit its response as a normal assistant message. The `finally` block
         // below still runs and routes cleanup through the aborted branch.
         if (abortedRef.current) return;
-        setDrafts((prev) => [
-          ...prev,
-          {
-            id: newDraftId('assistant'),
-            threadId,
-            author: 'employee',
-            employeeId: null,
-            body: response,
-            at: Date.now(),
-          },
-        ]);
+        const assistantMessage: ChatMessage = {
+          id: newDraftId('assistant'),
+          threadId,
+          author: 'employee',
+          employeeId: null,
+          body: response,
+          at: Date.now(),
+        };
+        setDrafts((prev) => [...prev, assistantMessage]);
+        await persistChatMessage({ message: assistantMessage, companyId, projectId });
       } catch (error) {
         // A deliberate Stop aborts the in-flight request, which rejects here.
         // That is a cancel, not a failure — skip the error toast/bubble.
@@ -183,7 +165,12 @@ export function useOfficeRuntime({
           ]);
         }
       } finally {
-        requestIdRef.current = null;
+        if (abortControllerRef.current === abortController) {
+          abortControllerRef.current = null;
+        }
+        if (requestIdRef.current === requestId) {
+          requestIdRef.current = null;
+        }
         setIsSending(false);
         // An aborted run is stopped (not "done"); only a settled request completes.
         if (abortedRef.current) {
@@ -193,11 +180,23 @@ export function useOfficeRuntime({
         }
       }
     },
-    [threadId, assigneeId, staged, clearStaged, startRun, finishRun, stop, setRunError],
+    [
+      threadId,
+      assigneeId,
+      companyId,
+      projectId,
+      staged,
+      clearStaged,
+      startRun,
+      finishRun,
+      stop,
+      setRunError,
+    ],
   );
 
   const onCancel = useCallback(async () => {
     abortedRef.current = true;
+    abortControllerRef.current?.abort();
     const requestId = requestIdRef.current;
     if (requestId) {
       const { invoke } = await import('@tauri-apps/api/core');
@@ -216,6 +215,7 @@ export function useOfficeRuntime({
   useEffect(() => {
     return () => {
       abortedRef.current = true;
+      abortControllerRef.current?.abort();
       const requestId = requestIdRef.current;
       if (requestId) {
         void import('@tauri-apps/api/core').then(({ invoke }) =>

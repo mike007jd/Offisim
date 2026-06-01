@@ -15,9 +15,9 @@ import type { PlatformDb } from '../db.js';
 import { readPlatformJsonBody } from '../lib/body-limit.js';
 import {
   getRequiredCreatorId,
+  requireApiTokenScope,
   requireAuth,
   requireCreator,
-  requireApiTokenScope,
   requireSessionAuth,
 } from '../middleware/auth.js';
 import {
@@ -151,9 +151,7 @@ function normalizePreviewKind(kind: string): 'icon' | 'image' | 'video' | 'readm
  * non-metadata sub-tree. G/I9 — defence-in-depth so future response code
  * can't accidentally surface a private field.
  */
-function publicManifestView(
-  raw: unknown,
-): Record<string, unknown> | undefined {
+function publicManifestView(raw: unknown): Record<string, unknown> | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
   const source = raw as Record<string, unknown>;
   const out: Record<string, unknown> = {};
@@ -252,6 +250,24 @@ market.get('/search', async (c) => {
     }
   }
 
+  const previewsMap = new Map<
+    string,
+    Array<{ kind: 'icon' | 'image' | 'video' | 'readme'; url: string; alt: string | null }>
+  >();
+  for (const p of allPreviews) {
+    const preview = {
+      kind: normalizePreviewKind(p.kind),
+      url: p.url,
+      alt: p.alt_text,
+    };
+    const previews = previewsMap.get(p.listing_id);
+    if (previews) {
+      previews.push(preview);
+    } else {
+      previewsMap.set(p.listing_id, [preview]);
+    }
+  }
+
   // First preview per listing (sort_order ascending), normalized to client API kinds
   const previewMap = new Map<string, { kind: string; url: string; alt: string | null }>();
   for (const p of allPreviews) {
@@ -270,6 +286,7 @@ market.get('/search', async (c) => {
     const creator = row.creators;
     const latestVersion = versionMap.get(listing.listing_id);
     const preview = previewMap.get(listing.listing_id);
+    const manifest = publicManifestView(latestVersion?.manifest_json);
 
     return {
       listing_id: listing.listing_id,
@@ -277,6 +294,7 @@ market.get('/search', async (c) => {
       kind: listing.kind,
       title: listing.title,
       summary: listing.summary ?? '',
+      description: listing.description ?? '',
       creator: {
         creator_id: creator.creator_id,
         handle: creator.handle,
@@ -286,10 +304,50 @@ market.get('/search', async (c) => {
       status: listing.status,
       ...(latestVersion ? { package_id: latestVersion.package_id } : {}),
       latest_version: latestVersion?.version ?? '0.0.0',
+      ...(latestVersion
+        ? {
+            version: {
+              package_id: latestVersion.package_id,
+              package_version_id: latestVersion.package_version_id,
+              version: latestVersion.version,
+              runtime_range: latestVersion.runtime_range,
+              schema_version: latestVersion.schema_version,
+              environments: latestVersion.environments,
+              risk_class: latestVersion.risk_class,
+              published_at: latestVersion.published_at.toISOString(),
+              changelog: latestVersion.changelog,
+            },
+            artifact: {
+              package_version_id: latestVersion.package_version_id,
+              artifact_url: latestVersion.artifact_url,
+              artifact_sha256: latestVersion.artifact_sha256,
+              artifact_size_bytes: latestVersion.artifact_size_bytes,
+            },
+          }
+        : {}),
       rating: listing.rating_avg ?? 0,
       install_count: listing.install_count ?? 0,
       tags: tagMap.get(listing.listing_id) ?? [],
+      requirements: {
+        required_capabilities:
+          (manifest?.requirements as Record<string, unknown>)?.required_capabilities ?? [],
+        required_mcps: (manifest?.requirements as Record<string, unknown>)?.required_mcps ?? [],
+        recommended_models:
+          (manifest?.requirements as Record<string, unknown>)?.recommended_models ?? [],
+      },
+      permissions: {
+        risk_class:
+          (manifest?.permissions as Record<string, unknown>)?.risk_class ??
+          latestVersion?.risk_class,
+        declares_secrets:
+          (manifest?.permissions as Record<string, unknown>)?.declares_secrets ?? false,
+        filesystem_scope:
+          (manifest?.permissions as Record<string, unknown>)?.filesystem_scope ?? 'none',
+        network_scope: (manifest?.permissions as Record<string, unknown>)?.network_scope ?? 'none',
+      },
+      lineage: publicLineage(manifest?.lineage),
       ...(preview ? { preview } : {}),
+      previews: previewsMap.get(listing.listing_id) ?? [],
     };
   });
 
@@ -615,7 +673,9 @@ market.patch(
     }
 
     if (creatorId !== listing.creator_id) {
-      throw new HTTPException(403, { message: 'Only the listing creator can change listing status' });
+      throw new HTTPException(403, {
+        message: 'Only the listing creator can change listing status',
+      });
     }
 
     // Validate state transition

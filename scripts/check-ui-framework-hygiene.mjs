@@ -119,7 +119,7 @@ const checks = [
     label: 'workspace chat disabled attachment picker',
     dirs: [
       'apps/desktop/renderer/src/assistant/OfficeThread.tsx',
-      'apps/desktop/renderer/src/surfaces/workspace/apps/MessengerApp.tsx',
+      'apps/desktop/renderer/src/surfaces/workspace/apps/WorkspaceAssistantThread.tsx',
       'Docs/design/offisim-states-prototype.html',
     ],
     pattern:
@@ -127,7 +127,7 @@ const checks = [
   },
   {
     label: 'workspace chat fake disabled controls',
-    dirs: ['apps/desktop/renderer/src/surfaces/workspace/apps/MessengerApp.tsx'],
+    dirs: ['apps/desktop/renderer/src/surfaces/workspace/apps'],
     pattern:
       /Mention unavailable|Conversation search unavailable|Start meeting unavailable|Members unavailable|More actions unavailable|No additional conversation actions are available|Mark all read unavailable|New chat unavailable|Pin artifact unavailable|System actions require a connected workflow target/,
   },
@@ -516,7 +516,7 @@ const requiredChecks = [
   },
   {
     label: 'Workspace assistant-ui thread primitives',
-    file: 'apps/desktop/renderer/src/surfaces/workspace/apps/MessengerApp.tsx',
+    file: 'apps/desktop/renderer/src/surfaces/workspace/apps/WorkspaceAssistantThread.tsx',
     patterns: [
       /AssistantRuntimeProvider/,
       /useExternalStoreRuntime/,
@@ -547,7 +547,6 @@ const requiredChecks = [
       /min-height:\s*var\(--off-composer-input-min\)/,
       /max-height:\s*var\(--off-composer-input-max\)/,
       /height:\s*var\(--off-composer-send-h\)/,
-      /height:\s*var\(--off-composer-divider-h\)/,
     ],
   },
   {

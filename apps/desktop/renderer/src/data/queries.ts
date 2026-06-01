@@ -1,4 +1,5 @@
 import { useUiState } from '@/app/ui-state.js';
+import { loadPersistedChatMessages } from '@/data/chat-message-events.js';
 import { resolveAsync } from '@/lib/platform.js';
 import { getTauriDb } from '@/lib/tauri-db.js';
 import { globToRegex } from '@offisim/core/browser';
@@ -34,6 +35,7 @@ import {
 } from './fixtures.js';
 import type {
   ChatMessage,
+  Deliverable,
   Employee,
   FileNode,
   GitFileChange,
@@ -240,9 +242,8 @@ export function useMessages(threadId: string | null) {
     queryFn: async () => {
       const repos = await reposOrNull();
       // Chat messages are not a persisted DB table — they are produced live by
-      // the agent runtime. A real (un-run) thread therefore has no history yet,
-      // so the real backend yields an empty conversation rather than fixtures.
-      if (repos) return [] as ChatMessage[];
+      // the direct desktop provider path and stored as agent event rows.
+      if (repos) return loadPersistedChatMessages(threadId ?? '');
       return resolveAsync<ChatMessage[]>(threadId ? (messages[threadId] ?? []) : []);
     },
     enabled: threadId !== null,
@@ -254,6 +255,7 @@ export function useDeliverables() {
   return useQuery({
     queryKey: ['deliverables', companyId],
     queryFn: async () => {
+      if (companyId === null) return [] as Deliverable[];
       const repos = await reposOrNull();
       if (!repos?.deliverables) return resolveAsync(deliverables);
       const rows = await repos.deliverables.listByCompany(companyId, { limit: 100 });
@@ -264,6 +266,7 @@ export function useDeliverables() {
         contributorIds: [] as string[],
       }));
     },
+    enabled: companyId !== null,
   });
 }
 
@@ -281,6 +284,8 @@ interface LlmUsageRow {
   output_tokens: number;
   cache_read_input_tokens: number;
   cache_creation_input_tokens: number;
+  usage_raw_json: string | null;
+  recording_mode: string | null;
 }
 
 interface CostRateRow {
@@ -338,7 +343,9 @@ async function loadRunCost(): Promise<RunCost> {
                 input_tokens,
                 output_tokens,
                 cache_read_input_tokens,
-                cache_creation_input_tokens
+                cache_creation_input_tokens,
+                usage_raw_json,
+                recording_mode
            FROM llm_calls`,
       ),
       db.select<CostRateRow[]>(
@@ -360,7 +367,23 @@ async function loadRunCost(): Promise<RunCost> {
       0,
     );
     const cost = calls.reduce((sum, call) => sum + estimateCallCost(call, rates), 0);
-    return { tokens, costLabel: formatCostLabel(cost), live: calls.length > 0 };
+    const hasUnknownUsage = calls.some(
+      (call) =>
+        call.recording_mode === 'usage-unknown' ||
+        (!call.usage_raw_json &&
+          call.input_tokens +
+            call.output_tokens +
+            call.cache_read_input_tokens +
+            call.cache_creation_input_tokens ===
+            0),
+    );
+    const costLabel =
+      hasUnknownUsage && tokens === 0
+        ? 'Usage unknown'
+        : hasUnknownUsage
+          ? `${formatCostLabel(cost)}+`
+          : formatCostLabel(cost);
+    return { tokens, costLabel, live: calls.length > 0 };
   } catch {
     // A missing/renamed cost table or column should degrade to a non-live zero
     // cost, not surface as a hard query error in the cost UI.
@@ -454,7 +477,8 @@ export function useCreateZone() {
     mutationFn: async (fields: ZoneCreateFields) => {
       const repos = await reposOrNull();
       if (!repos) return { persisted: false, zoneId: null };
-      if (!companyId) throw new Error('Select or create a company before editing the office layout');
+      if (!companyId)
+        throw new Error('Select or create a company before editing the office layout');
       const zoneId = `zone-custom-${crypto.randomUUID()}`;
       await repos.zones.create({
         zone_id: zoneId,
@@ -490,7 +514,8 @@ export function useDeleteZone() {
     mutationFn: async ({ zoneId }: { zoneId: string }) => {
       const repos = await reposOrNull();
       if (!repos) return { persisted: false, deletedObjects: 0 };
-      if (!companyId) throw new Error('Select or create a company before editing the office layout');
+      if (!companyId)
+        throw new Error('Select or create a company before editing the office layout');
       const prefabs = await repos.prefabInstances.findByCompanyAndZone(companyId, zoneId);
       await Promise.all(prefabs.map((prefab) => repos.prefabInstances.delete(prefab.instance_id)));
       await repos.zones.delete(zoneId);
@@ -522,7 +547,8 @@ export function useCreatePrefabInstance() {
     }) => {
       const repos = await reposOrNull();
       if (!repos) return { persisted: false, instanceId: null };
-      if (!companyId) throw new Error('Select or create a company before editing the office layout');
+      if (!companyId)
+        throw new Error('Select or create a company before editing the office layout');
       const ts = new Date().toISOString();
       const instanceId = crypto.randomUUID();
       await repos.prefabInstances.create({
@@ -654,10 +680,13 @@ function parseStatusLine(rawLine: string): GitFileChange | null {
   if (!pathPart) return null;
   const statusCode = x === ' ' || x === '?' ? y : x;
   const status: GitFileChange['status'] =
-    statusCode === 'A' || statusCode === '?' ? 'added'
-    : statusCode === 'D' ? 'deleted'
-    : statusCode === 'R' ? 'renamed'
-    : 'modified';
+    statusCode === 'A' || statusCode === '?'
+      ? 'added'
+      : statusCode === 'D'
+        ? 'deleted'
+        : statusCode === 'R'
+          ? 'renamed'
+          : 'modified';
   const path = status === 'renamed' ? (pathPart.split(' -> ').at(-1) ?? pathPart) : pathPart;
   return {
     path,
@@ -668,7 +697,9 @@ function parseStatusLine(rawLine: string): GitFileChange | null {
   };
 }
 
-function parseBranch(statusHeader: string | undefined): Pick<GitWorkbench, 'branch' | 'ahead' | 'behind'> {
+function parseBranch(
+  statusHeader: string | undefined,
+): Pick<GitWorkbench, 'branch' | 'ahead' | 'behind'> {
   if (!statusHeader?.startsWith('## ')) return { branch: 'detached', ahead: 0, behind: 0 };
   const value = statusHeader.slice(3).trim();
   const branch = value.split('...')[0]?.replace('No commits yet on ', '').trim() || 'detached';
@@ -699,9 +730,12 @@ function parseDiffPreview(stdout: string): GitWorkbench['diffPreview'] {
     .filter((line) => line && !line.startsWith('diff --git') && !line.startsWith('index '))
     .slice(0, 80)
     .map((line) => ({
-      kind: line.startsWith('+') && !line.startsWith('+++') ? 'add'
-        : line.startsWith('-') && !line.startsWith('---') ? 'remove'
-        : 'context',
+      kind:
+        line.startsWith('+') && !line.startsWith('+++')
+          ? 'add'
+          : line.startsWith('-') && !line.startsWith('---')
+            ? 'remove'
+            : 'context',
       text: line.replace(/^[+-]/, ''),
     }));
 }
@@ -715,7 +749,9 @@ async function loadGitWorkbench(projectId: string): Promise<GitWorkbench | null>
 
   const statusLines = status.stdout.split('\n').filter(Boolean);
   const branch = parseBranch(statusLines.find((line) => line.startsWith('## ')));
-  const changes = statusLines.map(parseStatusLine).filter((row): row is GitFileChange => Boolean(row));
+  const changes = statusLines
+    .map(parseStatusLine)
+    .filter((row): row is GitFileChange => Boolean(row));
   const [unstagedStats, stagedStats, diffPreview] = await Promise.all([
     runGit(projectId, ['diff', '--numstat']),
     runGit(projectId, ['diff', '--cached', '--numstat']),
