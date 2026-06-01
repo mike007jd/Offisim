@@ -38,7 +38,21 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: var(--off-sp-3);
+}
+
+.off-ws-rail-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 3px;
+}
+
+.off-ws-rail-sep {
+  width: 24px;
+  height: 1px;
+  margin: 2px 0 var(--off-sp-2);
+  background: var(--off-line);
 }
 
 .off-ws-rail-sp {

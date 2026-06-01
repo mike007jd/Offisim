@@ -20,13 +20,21 @@ import { MessengerApp } from './apps/MessengerApp.js';
 import { WorkplaceApp } from './apps/WorkplaceApp.js';
 import { useWsApprovals, useWsConversations } from './workspace-data.js';
 
-const APPS: ReadonlyArray<{ key: WorkspaceApp; label: string; icon: LucideIcon }> = [
-  { key: 'messenger', label: 'Chats', icon: MessageSquare },
-  { key: 'approvals', label: 'Approve', icon: CheckSquare },
-  { key: 'calendar', label: 'Calendar', icon: CalendarDays },
-  { key: 'meetings', label: 'Meetings', icon: Video },
-  { key: 'contacts', label: 'Contacts', icon: Users },
-  { key: 'workplace', label: 'Workplace', icon: LayoutGrid },
+type AppEntry = { key: WorkspaceApp; label: string; icon: LucideIcon };
+
+// Tiered rail: action apps (carry badges) lead, then browse apps, then the
+// overview at the bottom — so the rail reads by priority, not as six equals.
+const APP_GROUPS: ReadonlyArray<ReadonlyArray<AppEntry>> = [
+  [
+    { key: 'messenger', label: 'Chats', icon: MessageSquare },
+    { key: 'approvals', label: 'Approve', icon: CheckSquare },
+  ],
+  [
+    { key: 'calendar', label: 'Calendar', icon: CalendarDays },
+    { key: 'meetings', label: 'Meetings', icon: Video },
+    { key: 'contacts', label: 'Contacts', icon: Users },
+  ],
+  [{ key: 'workplace', label: 'Workplace', icon: LayoutGrid }],
 ];
 
 function AppRail() {
@@ -48,7 +56,7 @@ function AppRail() {
 
   return (
     <nav className="off-ws-rail" aria-label="Workspace apps">
-      <span className="off-ws-rail-id" title="You — the boss">
+      <span className="off-ws-rail-id" title="You">
         <EmployeeAvatar
           seed="Boss"
           colorA={UI_DATA_COLORS.bossA}
@@ -57,24 +65,29 @@ function AppRail() {
         />
       </span>
       <div className="off-ws-rail-apps">
-        {APPS.map((item) => {
-          const badge = badgeFor(item.key);
-          return (
-            <button
-              key={item.key}
-              type="button"
-              className={cn('off-ws-rail-btn off-focusable', app === item.key && 'is-active')}
-              onClick={() => setApp(item.key)}
-            >
-              <span className="off-ws-rail-icon">
-                <Icon icon={item.icon} size="md" />
-                {badge.count ? <span className="off-ws-rail-badge">{badge.count}</span> : null}
-                {badge.dot ? <span className="off-ws-rail-badge is-dot" /> : null}
-              </span>
-              <span className="off-ws-rail-label">{item.label}</span>
-            </button>
-          );
-        })}
+        {APP_GROUPS.map((group, groupIndex) => (
+          <div key={group[0]?.key ?? groupIndex} className="off-ws-rail-group">
+            {groupIndex > 0 ? <span className="off-ws-rail-sep" aria-hidden /> : null}
+            {group.map((item) => {
+              const badge = badgeFor(item.key);
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  className={cn('off-ws-rail-btn off-focusable', app === item.key && 'is-active')}
+                  onClick={() => setApp(item.key)}
+                >
+                  <span className="off-ws-rail-icon">
+                    <Icon icon={item.icon} size="md" />
+                    {badge.count ? <span className="off-ws-rail-badge">{badge.count}</span> : null}
+                    {badge.dot ? <span className="off-ws-rail-badge is-dot" /> : null}
+                  </span>
+                  <span className="off-ws-rail-label">{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        ))}
       </div>
     </nav>
   );
