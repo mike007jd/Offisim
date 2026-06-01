@@ -291,29 +291,50 @@
   left: var(--off-sp-6);
 }
 
-.off-stage-statusbar {
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.off-stage-status {
-  height: 32px;
+/* Notifications: independent top-right float (glass round button + count). */
+.off-stage-notif {
+  position: absolute;
+  top: var(--off-sp-6);
+  right: var(--off-sp-7);
+  z-index: var(--off-z-float);
+  height: 30px;
+  min-width: 30px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: var(--off-sp-2);
-  padding: 0 var(--off-sp-4);
-  border: 0;
-  background: transparent;
-  color: var(--off-ink-2);
-  font-family: var(--off-font-mono);
-  font-size: var(--off-fs-meta);
-  font-weight: 680;
+  padding: 0 var(--off-sp-2);
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-pill);
+  background: var(--off-surface-glass-strong);
+  backdrop-filter: blur(6px);
+  box-shadow: var(--off-elev-1);
+  color: var(--off-ink-4);
+  transition: color var(--off-motion-fast) var(--off-motion-ease), border-color
+    var(--off-motion-fast) var(--off-motion-ease);
 }
 
-.off-stage-status-div {
-  width: 1px;
-  height: 14px;
-  background: var(--off-line);
+.off-stage-notif:hover {
+  color: var(--off-accent);
+  border-color: var(--off-accent-ring);
+}
+
+.off-stage-notif.has-unread {
+  color: var(--off-ink-2);
+}
+
+.off-stage-notif-count {
+  height: 16px;
+  min-width: 16px;
+  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--off-r-pill);
+  background: var(--off-danger);
+  color: var(--off-accent-fg);
+  font-size: var(--off-fs-label);
+  font-weight: 720;
 }
 
 .off-stage-mode-btn {
@@ -350,18 +371,6 @@
 .off-stage-mode-btn.is-on {
   color: var(--off-accent);
   background: var(--off-accent-surface);
-}
-
-.off-stage-status .off-stage-livedot {
-  width: 6px;
-  height: 6px;
-  border-radius: var(--off-r-round);
-  background: var(--off-line-strong);
-  animation: none;
-}
-.off-stage-status .off-stage-livedot.is-on {
-  background: var(--off-accent);
-  animation: off-pulse var(--off-motion-loop-base) var(--off-motion-loop-ease) infinite;
 }
 
 /* Diegetic cost readout */
@@ -421,38 +430,6 @@
   width: 1px;
   height: 12px;
   background: var(--off-line);
-}
-
-.off-sc-notif {
-  position: relative;
-  width: 26px;
-  height: 26px;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--off-line);
-  border-radius: var(--off-r-round);
-  background: var(--off-surface-glass-weak);
-  backdrop-filter: blur(6px);
-  color: var(--off-ink-4);
-  transition: color var(--off-motion-fast) var(--off-motion-ease), border-color
-    var(--off-motion-fast) var(--off-motion-ease);
-}
-
-.off-sc-notif:hover {
-  color: var(--off-accent);
-  border-color: var(--off-accent-ring);
-}
-
-.off-sc-notif.has-unread::after {
-  content: "";
-  position: absolute;
-  top: -2px;
-  right: -2px;
-  width: 8px;
-  height: 8px;
-  border-radius: var(--off-r-round);
-  background: var(--off-danger);
-  box-shadow: 0 0 0 1.5px var(--off-surface-1);
 }
 
 /* --- Team dock --- */
