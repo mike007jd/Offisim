@@ -6,6 +6,13 @@
    this implementation uses the light token theme so the lifecycle surface is
    consistent with the rest of the product. token-only, no raw values. */
 
+/* Front-door boot placeholder — holds the full window at the base background
+   while the company count resolves, so the wrong front door never flashes. */
+.off-lc-boot {
+  height: 100vh;
+  background: var(--off-bg);
+}
+
 /* ════════════ Company selection portal ════════════ */
 .off-csp {
   display: flex;

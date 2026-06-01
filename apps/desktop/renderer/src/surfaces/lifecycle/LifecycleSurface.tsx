@@ -1,4 +1,5 @@
 import { useUiState } from '@/app/ui-state.js';
+import { useCompanies } from '@/data/queries.js';
 import { reposOrNull } from '@/data/adapters.js';
 import { runtimeEventBus } from '@/runtime/repos.js';
 import { CompanyTemplateService } from '@offisim/core/browser';
@@ -14,13 +15,15 @@ import { CompanySelectionPage } from './CompanySelectionPage.js';
 type LifecycleMode = 'portal' | 'create';
 
 /** Lifecycle surface root — level-0 full-screen takeover (rendered outside the
- *  AppFrame, so no topbar/nav chrome). Switches between the company-selection
- *  portal (default) and the company-creation wizard. */
+ *  AppFrame, so no topbar/nav chrome). This is the product front door: with no
+ *  companies it opens the creation wizard directly; with one or more it opens
+ *  the selection page. A user action (new / dismiss) overrides the derived mode. */
 export function LifecycleSurface() {
   const setCompany = useUiState((s) => s.setCompany);
   const setSurface = useUiState((s) => s.setSurface);
   const queryClient = useQueryClient();
-  const [mode, setMode] = useState<LifecycleMode>('portal');
+  const companies = useCompanies();
+  const [override, setOverride] = useState<LifecycleMode | null>(null);
 
   async function createCompany(request: CreateCompanyRequest) {
     const repos = await reposOrNull();
@@ -91,7 +94,7 @@ export function LifecycleSurface() {
     await queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
 
     setCompany(companyId);
-    setMode('portal');
+    setOverride('portal');
     setSurface(request.openStudio ? 'studio' : 'office');
 
     toast.success(`Created ${request.name}`, {
@@ -101,14 +104,22 @@ export function LifecycleSurface() {
     });
   }
 
+  // Don't flash the wrong front door before the company count resolves.
+  if (companies.isLoading) {
+    return <div className="off-lc-boot" aria-busy="true" />;
+  }
+  const hasCompanies = (companies.data?.length ?? 0) > 0;
+  const mode: LifecycleMode = override ?? (hasCompanies ? 'portal' : 'create');
+
   if (mode === 'create') {
     return (
       <CompanyCreationWizard
-        onDismiss={() => setMode('portal')}
+        dismissible={hasCompanies}
+        onDismiss={() => setOverride('portal')}
         onComplete={createCompany}
       />
     );
   }
 
-  return <CompanySelectionPage onNewCompany={() => setMode('create')} />;
+  return <CompanySelectionPage onNewCompany={() => setOverride('create')} />;
 }

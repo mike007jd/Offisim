@@ -86,23 +86,25 @@ interface UiState {
 }
 
 export const useUiState = create<UiState>((set) => ({
-  surface: 'office',
-  companyId: 'co-northwind',
-  projectId: 'pj-relay',
+  // Land on the lifecycle front door; LifecycleSurface derives create-vs-select
+  // from the real company count. No seed fixtures — ids are assigned on entry.
+  surface: 'lifecycle',
+  companyId: '',
+  projectId: '',
 
   railMode: 'thread',
-  selectedThreadId: 'th-team',
+  selectedThreadId: null,
   sceneRenderMode: '3d',
   sceneDropDiagnostics: [],
   resumeDismissed: false,
 
-  selectedEmployeeId: 'emp-mara',
+  selectedEmployeeId: null,
   personnelRailCollapsed: false,
 
   selectedListingId: null,
 
   workspaceApp: 'messenger',
-  workspaceSelectedId: 'th-team',
+  workspaceSelectedId: null,
 
   activityLastSeenAt: 0,
 

@@ -32,6 +32,12 @@ interface CompanyCreationWizardProps {
   onDismiss: () => void;
   /** Fired after a real repository-backed company build completes. */
   onComplete: (request: CreateCompanyRequest) => Promise<void>;
+  /**
+   * Whether the wizard can be closed. False on the cold-start front door (no
+   * companies exist yet) — there is nowhere to dismiss to, so the Back/Esc
+   * affordances are hidden. Defaults to true.
+   */
+  dismissible?: boolean;
 }
 
 function EmployeeCard({ template, employee }: { template: string; employee: TemplateEmployee }) {
@@ -87,6 +93,7 @@ function EmployeeCard({ template, employee }: { template: string; employee: Temp
 export function CompanyCreationWizard({
   onDismiss,
   onComplete,
+  dismissible = true,
 }: CompanyCreationWizardProps) {
   const templatesQuery = useCompanyTemplates();
 
@@ -112,7 +119,7 @@ export function CompanyCreationWizard({
   const busy = step !== 'ready';
 
   function attemptDismiss() {
-    if (busy) return;
+    if (busy || !dismissible) return;
     if (!isDirty) {
       onDismiss();
       return;
@@ -129,7 +136,7 @@ export function CompanyCreationWizard({
   // the handler always reads the current dirty/busy state.
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key !== 'Escape' || busy) return;
+      if (event.key !== 'Escape' || busy || !dismissible) return;
       event.preventDefault();
       if (!isDirty) {
         onDismiss();
@@ -142,7 +149,7 @@ export function CompanyCreationWizard({
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isDirty, busy, onDismiss]);
+  }, [isDirty, busy, dismissible, onDismiss]);
 
   // Always clear any armed discard toast when the wizard unmounts.
   useEffect(() => () => clearDiscardConfirm(), []);
@@ -307,15 +314,17 @@ export function CompanyCreationWizard({
           </div>
         ) : (
           <div className="off-wiz-foot-in">
-            <button
-              type="button"
-              className="off-wiz-back off-focusable"
-              disabled={busy}
-              onClick={attemptDismiss}
-            >
-              <Icon icon={ChevronLeft} size="sm" />
-              Back
-            </button>
+            {dismissible ? (
+              <button
+                type="button"
+                className="off-wiz-back off-focusable"
+                disabled={busy}
+                onClick={attemptDismiss}
+              >
+                <Icon icon={ChevronLeft} size="sm" />
+                Back
+              </button>
+            ) : null}
             <div className={cn('off-wiz-fields', isCustom && 'off-wiz-fields-custom')}>
               <div className="off-wiz-name">
                 <label htmlFor="off-wiz-name">Company Name</label>
