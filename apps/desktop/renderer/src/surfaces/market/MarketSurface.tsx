@@ -13,12 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/design-system/primitives/dialog.js';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/design-system/primitives/dropdown-menu.js';
 import { Input } from '@/design-system/primitives/input.js';
 import { cn } from '@/lib/utils.js';
 import { useQueryClient } from '@tanstack/react-query';
@@ -26,7 +20,6 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   Box,
   Building2,
-  ChevronDown,
   CloudUpload,
   KeyRound,
   Layers,
@@ -91,6 +84,12 @@ const MANAGE_VIEWS: ReadonlyArray<SegmentedOption<ManageView>> = [
   { value: 'installed', label: 'Installed', icon: <Icon icon={Layers} size="sm" /> },
   { value: 'updates', label: 'Updates' },
   { value: 'published', label: 'Published' },
+];
+
+// Primary Browse/Installed switch — an app-store-style tab pair next to search.
+const MODE_TABS: ReadonlyArray<SegmentedOption<'explore' | 'manage'>> = [
+  { value: 'explore', label: 'Browse', icon: <Icon icon={Store} size="sm" /> },
+  { value: 'manage', label: 'Installed', icon: <Icon icon={Layers} size="sm" /> },
 ];
 
 const MIN_CARD = 216;
@@ -293,8 +292,14 @@ export function MarketSurface() {
           <SearchInput
             value={query}
             onChange={setQuery}
-            placeholder="Search packages…"
+            placeholder="Search employees, skills, templates…"
             className="off-mkt-search"
+          />
+          <SegmentedControl
+            options={MODE_TABS}
+            value={mode}
+            onChange={setMode}
+            ariaLabel="Marketplace mode"
           />
           {mode === 'explore' ? (
             <>
@@ -308,7 +313,6 @@ export function MarketSurface() {
               <SegmentedControl options={SORTS} value={sort} onChange={setSort} ariaLabel="Sort" />
             </>
           ) : null}
-          <ModeDropdown mode={mode} onChange={setMode} />
           <input
             ref={fileInputRef}
             type="file"
@@ -385,12 +389,7 @@ export function MarketSurface() {
         ) : filtered.length === 0 ? (
           <MarketEmptyState filtered={query !== '' || kind !== 'all'} onReset={resetFilters} />
         ) : (
-          <CardGrid
-            listings={filtered}
-            selectedId={selectedListingId}
-            onSelect={(id) => selectListing(id)}
-            onOpen={openDetail}
-          />
+          <CardGrid listings={filtered} selectedId={selectedListingId} onOpen={openDetail} />
         )}
       </div>
 
@@ -499,41 +498,16 @@ function RegistryTokenDialog({
   );
 }
 
-function ModeDropdown({
-  mode,
-  onChange,
-}: {
-  mode: 'explore' | 'manage';
-  onChange: (m: 'explore' | 'manage') => void;
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button type="button" className="off-mkt-drop off-focusable" aria-label="Marketplace mode">
-          {mode === 'explore' ? 'Explore' : 'Manage'}
-          <Icon icon={ChevronDown} size="sm" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start">
-        <DropdownMenuItem onSelect={() => onChange('explore')}>Explore</DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => onChange('manage')}>Manage</DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
 /** Virtualized responsive card grid. Columns are derived from container width
  *  (auto-fill minmax(216px,1fr)); TanStack Virtual virtualizes the rows so a
  *  long registry stays smooth. */
 function CardGrid({
   listings,
   selectedId,
-  onSelect,
   onOpen,
 }: {
   listings: MarketListing[];
   selectedId: string | null;
-  onSelect: (id: string) => void;
   onOpen: (listing: MarketListing) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -591,7 +565,6 @@ function CardGrid({
                   listing={listing}
                   installed={listing.installed}
                   selected={listing.id === selectedId}
-                  onSelect={() => onSelect(listing.id)}
                   onOpen={() => onOpen(listing)}
                 />
               ))}

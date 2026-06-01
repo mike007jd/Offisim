@@ -14,11 +14,10 @@ interface MarketCardProps {
   listing: MarketListing;
   installed: boolean;
   selected: boolean;
-  onSelect: () => void;
   onOpen: () => void;
 }
 
-export function MarketCard({ listing, installed, selected, onSelect, onOpen }: MarketCardProps) {
+export function MarketCard({ listing, installed, selected, onOpen }: MarketCardProps) {
   const tone = getRarityTone(listing.kind);
   const badgeIcon = kindIcon(listing.kind);
   const showInstalledPip = installed && INSTALLABLE_KINDS.has(listing.kind);
@@ -26,8 +25,7 @@ export function MarketCard({ listing, installed, selected, onSelect, onOpen }: M
   return (
     <button
       type="button"
-      onClick={onSelect}
-      onDoubleClick={onOpen}
+      onClick={onOpen}
       onKeyDown={(event) => {
         if (event.key === 'Enter') {
           event.preventDefault();
