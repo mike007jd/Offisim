@@ -3,7 +3,6 @@ import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { SegmentedControl } from '@/design-system/grammar/SegmentedControl.js';
 import { Select } from '@/design-system/grammar/Select.js';
 import { Icon } from '@/design-system/icons/Icon.js';
-import { Button } from '@/design-system/primitives/button.js';
 import { Input } from '@/design-system/primitives/input.js';
 import { Switch } from '@/design-system/primitives/switch.js';
 import { Textarea } from '@/design-system/primitives/textarea.js';
@@ -143,11 +142,6 @@ interface ProfileTabProps {
   form: UseFormReturn<ProfileFormValues>;
   toolPermissions: ToolPermissions;
   onToolPermissionsChange: (next: ToolPermissions) => void;
-  isDirty: boolean;
-  isSaving: boolean;
-  saveError: string | null;
-  onSave: () => void;
-  onDelete: () => void;
 }
 
 /** Read-only external (A2A) profile — brand-managed, no form/save. */
@@ -183,11 +177,6 @@ export function ProfileTab({
   form,
   toolPermissions,
   onToolPermissionsChange,
-  isDirty,
-  isSaving,
-  saveError,
-  onSave,
-  onDelete,
 }: ProfileTabProps) {
   const nameId = useId();
   const expertiseId = useId();
@@ -197,7 +186,6 @@ export function ProfileTab({
   const overrideId = useId();
   const ciId = useId();
   const statusId = useId();
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
   if (employee.kind === 'external') {
     return (
       <div className="off-pers-tab-shell">
@@ -211,7 +199,6 @@ export function ProfileTab({
   const { control, register, watch, formState } = form;
   const values = watch();
   const nameError = formState.errors.name?.message;
-  const canSave = isDirty && values.name.trim().length > 0 && !isSaving;
   const modelMode = values.modelMode;
 
   return (
@@ -339,12 +326,18 @@ export function ProfileTab({
             <SystemPromptPreview text={buildSystemPrompt(values, companyName)} />
           </section>
 
-          {/* Permissions */}
-          <ToolPermissionEditor value={toolPermissions} onChange={onToolPermissionsChange} />
+          {/* Advanced — permissions & model (collapsed by default) */}
+          <details className="off-pers-adv">
+            <summary className="off-focusable">
+              <Icon icon={ChevronRight} size="sm" className="off-pers-adv-chev" />
+              Advanced — permissions &amp; model
+            </summary>
+            <div className="off-pers-adv-body">
+              <ToolPermissionEditor value={toolPermissions} onChange={onToolPermissionsChange} />
 
-          {/* Config */}
-          <section className="off-pers-prof-sec">
-            <CapsLabel>Config</CapsLabel>
+              {/* Config */}
+              <section className="off-pers-prof-sec">
+                <CapsLabel>Config</CapsLabel>
             <Controller
               control={control}
               name="modelMode"
@@ -424,42 +417,11 @@ export function ProfileTab({
                 </p>
               ) : null}
             </div>
-          </section>
-
-        </div>
-      </div>
-
-      {/* Sticky save bar */}
-      <div className="off-pers-savebar">
-        <div className="off-pers-savebar-left">
-          {confirmingDelete ? (
-            <div className="off-pers-del-confirm">
-              <span>Delete {employee.name}? This cannot be undone.</span>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => {
-                  onDelete();
-                  setConfirmingDelete(false);
-                }}
-              >
-                Delete
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setConfirmingDelete(false)}>
-                Cancel
-              </Button>
+              </section>
             </div>
-          ) : (
-            <Button variant="destructive" size="sm" onClick={() => setConfirmingDelete(true)}>
-              Delete
-            </Button>
-          )}
+          </details>
         </div>
-        <Button size="sm" disabled={!canSave} onClick={onSave}>
-          {isSaving ? 'Saving…' : 'Save'}
-        </Button>
       </div>
-      {saveError ? <div className="off-pers-save-error">{saveError}</div> : null}
     </div>
   );
 }

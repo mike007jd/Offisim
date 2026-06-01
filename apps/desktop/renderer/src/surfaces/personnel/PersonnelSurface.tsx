@@ -33,7 +33,7 @@ import {
   UsersRound,
   Zap,
 } from 'lucide-react';
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Group, Panel, Separator, usePanelRef } from 'react-resizable-panels';
 import { toast } from 'sonner';
@@ -56,9 +56,10 @@ import {
 
 const INSPECTOR_TABS = [
   { key: 'profile', label: 'Profile' },
-  { key: 'runtime', label: 'Runtime' },
   { key: 'skills', label: 'Skills' },
   { key: 'memory', label: 'Memory' },
+  { key: 'appearance', label: 'Appearance' },
+  { key: 'runtime', label: 'Runtime' },
   { key: 'history', label: 'History' },
 ] as const;
 type InspectorTab = (typeof INSPECTOR_TABS)[number]['key'];
@@ -426,68 +427,11 @@ function appearanceKey(draft: AppearanceDraft): string {
   return JSON.stringify(appearancePayload(draft));
 }
 
-function EmployeeDetail({ employee }: { employee: Employee }) {
-  const queryClient = useQueryClient();
-  const companyId = useUiState((s) => s.companyId);
-  const [appearance, setAppearance] = useState<AppearanceDraft>(appearanceDraftFor(employee));
-  const [savingAppearance, setSavingAppearance] = useState(false);
-  const [appearanceError, setAppearanceError] = useState<string | null>(null);
-  const baselineAppearance = appearanceDraftFor(employee);
-  const appearanceDirty = appearanceKey(appearance) !== appearanceKey(baselineAppearance);
-
-  const saveAppearance = async () => {
-    setSavingAppearance(true);
-    setAppearanceError(null);
-    try {
-      const repos = await reposOrNull();
-      if (!repos) throw new Error('Appearance save requires the desktop runtime');
-      const row = await repos.employees.findById(employee.id);
-      if (!row) throw new Error('Employee no longer exists');
-      const persona = safeJsonRecord(row.persona_json);
-      persona.appearance = appearancePayload(appearance);
-      await repos.employees.update(employee.id, {
-        persona_json: JSON.stringify(persona),
-      });
-      await queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
-      toast.success(`${employee.name} appearance saved`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Appearance save failed';
-      setAppearanceError(message);
-      toast.error('Appearance save failed', { description: message });
-    } finally {
-      setSavingAppearance(false);
-    }
-  };
-
-  return (
-    <>
-      <DetailHeader employee={employee} />
-      <div className="off-pers-detail-body">
-        <AppearanceTab employee={employee} draft={appearance} onChange={setAppearance} />
-      </div>
-      <div className="off-pers-savebar">
-        <span className="off-pers-savebar-left">
-          {appearanceError ? <span className="off-pers-save-error">{appearanceError}</span> : null}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={!appearanceDirty || savingAppearance}
-          onClick={() => setAppearance(baselineAppearance)}
-        >
-          Reset
-        </Button>
-        <Button size="sm" disabled={!appearanceDirty || savingAppearance} onClick={saveAppearance}>
-          {savingAppearance ? 'Saving...' : 'Save appearance'}
-        </Button>
-      </div>
-    </>
-  );
-}
-
-/** Right inspector tabs + per-employee form/appearance/permission state.
- *  Keyed by employee id at the parent so this remounts (fresh state) on switch. */
-function Inspector({
+/** Detail panel: identity header + inspector tabs + one unified save bar.
+ *  Holds all editable per-employee state (profile form, tool permissions, and
+ *  appearance) so a single Save persists everything together. Keyed by employee
+ *  id at the parent so this remounts (fresh state) on switch. */
+function EmployeeDetail({
   employee,
   companyName,
   tab,
@@ -505,12 +449,20 @@ function Inspector({
     defaultValues: profileDefaults(employee),
     mode: 'onChange',
   });
+  const baselineProfile = useRef<ProfileFormValues>(profileDefaults(employee));
+  const baselineTools = useRef<ToolPermissions>(defaultToolPermissions());
   const [toolPermissions, setToolPermissions] = useState<ToolPermissions>(defaultToolPermissions());
   const [toolPermissionsDirty, setToolPermissionsDirty] = useState(false);
+  const [appearance, setAppearance] = useState<AppearanceDraft>(appearanceDraftFor(employee));
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
-  const isDirty = form.formState.isDirty || toolPermissionsDirty;
+  const baselineAppearance = appearanceDraftFor(employee);
+  const appearanceDirty = appearanceKey(appearance) !== appearanceKey(baselineAppearance);
+  const isDirty = form.formState.isDirty || toolPermissionsDirty || appearanceDirty;
+  const nameValid = form.watch('name').trim().length > 0;
+  const canSave = isDirty && !isSaving && employee.kind !== 'external' && nameValid;
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: form is stable from useForm; re-hydrate only when switching employees.
   useEffect(() => {
@@ -525,8 +477,12 @@ function Inspector({
       const config = safeJsonRecord(row.config_json);
       // Hydrate the form from the real saved persona so an untouched Save can't
       // overwrite it with the stub defaults; reset clears dirty state.
-      form.reset(profileDefaultsFromRecord(employee, persona, config));
-      setToolPermissions(toolPermissionsFromConfig(config));
+      const hydrated = profileDefaultsFromRecord(employee, persona, config);
+      baselineProfile.current = hydrated;
+      form.reset(hydrated);
+      const tools = toolPermissionsFromConfig(config);
+      baselineTools.current = tools;
+      setToolPermissions(tools);
       setToolPermissionsDirty(false);
     })();
     return () => {
@@ -535,20 +491,18 @@ function Inspector({
   }, [employee.id]);
 
   const onSave = async () => {
+    if (!canSave) return;
     const values = form.getValues();
     setIsSaving(true);
     setSaveError(null);
     try {
       const repos = await reposOrNull();
-      if (!repos) throw new Error('Employee profile save requires the desktop runtime');
+      if (!repos) throw new Error('Saving an employee requires the desktop runtime');
       const row = await repos.employees.findById(employee.id);
       if (!row) throw new Error('Employee no longer exists');
 
       const persona = safeJsonRecord(row.persona_json);
       const config = safeJsonRecord(row.config_json);
-      // persona.appearance already comes from the freshly-read row; do not
-      // reinject the (possibly stale) query snapshot, which can clobber an
-      // appearance just saved from the sibling appearance panel.
       persona.profile = {
         expertise: values.expertise,
         workingStyle: values.workingStyle,
@@ -557,6 +511,7 @@ function Inspector({
         decisionStyle: values.decisionStyle,
         customInstructions: values.customInstructions,
       };
+      if (appearanceDirty) persona.appearance = appearancePayload(appearance);
       config.modelPreference =
         values.modelMode === 'custom' && values.modelOverride.trim()
           ? values.modelOverride.trim()
@@ -579,6 +534,8 @@ function Inspector({
         config_json: JSON.stringify(config),
       });
       await queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
+      baselineProfile.current = values;
+      baselineTools.current = toolPermissions;
       form.reset(values);
       setToolPermissionsDirty(false);
       toast.success(`${employee.name} saved`);
@@ -589,6 +546,14 @@ function Inspector({
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const onReset = () => {
+    form.reset(baselineProfile.current);
+    setToolPermissions(baselineTools.current);
+    setToolPermissionsDirty(false);
+    setAppearance(baselineAppearance);
+    setSaveError(null);
   };
 
   const onDelete = async () => {
@@ -607,6 +572,7 @@ function Inspector({
 
   return (
     <>
+      <DetailHeader employee={employee} />
       <Tabs value={tab} onValueChange={(value) => onTabChange(value as InspectorTab)}>
         <TabsList className="off-pers-insp-tabs" aria-label="Employee inspector">
           {INSPECTOR_TABS.map((entry) => (
@@ -631,17 +597,50 @@ function Inspector({
               setToolPermissions(next);
               setToolPermissionsDirty(true);
             }}
-            isDirty={isDirty}
-            isSaving={isSaving}
-            saveError={saveError}
-            onSave={onSave}
-            onDelete={onDelete}
           />
         ) : null}
-        {tab === 'runtime' ? <RuntimeTab employee={employee} /> : null}
         {tab === 'skills' ? <SkillsTab employeeId={employee.id} /> : null}
         {tab === 'memory' ? <MemoryTab employeeId={employee.id} /> : null}
+        {tab === 'appearance' ? (
+          <AppearanceTab employee={employee} draft={appearance} onChange={setAppearance} />
+        ) : null}
+        {tab === 'runtime' ? <RuntimeTab employee={employee} /> : null}
         {tab === 'history' ? <HistoryTab employeeId={employee.id} /> : null}
+      </div>
+      {saveError ? <div className="off-pers-save-error">{saveError}</div> : null}
+      <div className="off-pers-savebar">
+        <div className="off-pers-savebar-left">
+          {employee.kind === 'external' ? null : confirmingDelete ? (
+            <div className="off-pers-del-confirm">
+              <span>Delete {employee.name}? This cannot be undone.</span>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => {
+                  void onDelete();
+                  setConfirmingDelete(false);
+                }}
+              >
+                Delete
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setConfirmingDelete(false)}>
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            <Button variant="destructive" size="sm" onClick={() => setConfirmingDelete(true)}>
+              Delete
+            </Button>
+          )}
+        </div>
+        <div className="flex items-center gap-[var(--off-sp-3)]">
+          <Button variant="outline" size="sm" disabled={!isDirty || isSaving} onClick={onReset}>
+            Reset
+          </Button>
+          <Button size="sm" disabled={!canSave} onClick={() => void onSave()}>
+            {isSaving ? 'Saving…' : 'Save'}
+          </Button>
+        </div>
       </div>
     </>
   );
@@ -879,9 +878,15 @@ export function PersonnelSurface() {
 
         <Separator className="off-resize-handle" />
 
-        <Panel className="off-pers-detail" defaultSize="44%" minSize="34%">
+        <Panel className="off-pers-detail" defaultSize="82%" minSize="50%">
           {selected ? (
-            <EmployeeDetail key={selected.id} employee={selected} />
+            <EmployeeDetail
+              key={selected.id}
+              employee={selected}
+              companyName={companyName}
+              tab={tab}
+              onTabChange={setTab}
+            />
           ) : (
             <div className="off-pers-detail-empty">
               <EmptyState
@@ -891,25 +896,6 @@ export function PersonnelSurface() {
               />
             </div>
           )}
-        </Panel>
-
-        <Separator className="off-resize-handle" />
-
-        <Panel
-          className="off-pers-insp"
-          defaultSize="38%"
-          minSize={PANEL_SIZE_TOKENS.personnelInspectorMin}
-          maxSize={PANEL_SIZE_TOKENS.personnelInspectorMax}
-        >
-          {selected ? (
-            <Inspector
-              key={selected.id}
-              employee={selected}
-              companyName={companyName}
-              tab={tab}
-              onTabChange={setTab}
-            />
-          ) : null}
         </Panel>
       </Group>
       <HireEmployeeDialog companyId={companyId} open={hireOpen} onOpenChange={setHireOpen} />
