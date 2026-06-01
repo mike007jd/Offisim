@@ -106,29 +106,27 @@ function titleizeRole(slug: string): string {
     .join(' ');
 }
 
-function toolDefaultToRuntime(mode: ToolPermissions['defaultMode']): string {
-  if (mode === 'auto-allow') return 'auto';
-  if (mode === 'deny-all') return 'deny';
-  return 'always_ask';
+/** Tool-permission vocabulary SSOT: the three approval levels and how each maps
+ *  between the UI editor enums and the runtime policy enum. The legacy config
+ *  shape stored the UI enum directly; the runtime policy uses
+ *  'auto' / 'always_ask' / 'deny'. One table here keeps the two from drifting. */
+interface PermissionLevel {
+  readonly uiDefault: ToolPermissions['defaultMode'];
+  readonly uiState: 'allow' | 'ask' | 'deny';
+  readonly runtime: string;
 }
-
-function toolStateToRuntime(state: string): string {
-  if (state === 'allow') return 'auto';
-  if (state === 'deny') return 'deny';
-  return 'always_ask';
-}
-
-function runtimeDefaultToTool(mode: unknown): ToolPermissions['defaultMode'] {
-  if (mode === 'auto') return 'auto-allow';
-  if (mode === 'deny') return 'deny-all';
-  return 'ask-each';
-}
-
-function runtimeStateToTool(mode: unknown): 'allow' | 'ask' | 'deny' {
-  if (mode === 'auto') return 'allow';
-  if (mode === 'deny') return 'deny';
-  return 'ask';
-}
+const ASK_LEVEL: PermissionLevel = { uiDefault: 'ask-each', uiState: 'ask', runtime: 'always_ask' };
+const PERMISSION_LEVELS: readonly PermissionLevel[] = [
+  { uiDefault: 'auto-allow', uiState: 'allow', runtime: 'auto' },
+  ASK_LEVEL,
+  { uiDefault: 'deny-all', uiState: 'deny', runtime: 'deny' },
+];
+const levelByRuntime = (mode: unknown) =>
+  PERMISSION_LEVELS.find((level) => level.runtime === mode) ?? ASK_LEVEL;
+const levelByUiDefault = (mode: unknown) =>
+  PERMISSION_LEVELS.find((level) => level.uiDefault === mode) ?? ASK_LEVEL;
+const levelByUiState = (state: unknown) =>
+  PERMISSION_LEVELS.find((level) => level.uiState === state) ?? ASK_LEVEL;
 
 function toolPermissionsFromConfig(config: Record<string, unknown>): ToolPermissions {
   const legacy = config.toolPermissions;
@@ -157,13 +155,13 @@ function toolPermissionsFromConfig(config: Record<string, unknown>): ToolPermiss
     return defaultToolPermissions();
   const raw = policy as { defaultMode?: unknown; overrides?: unknown };
   const next = defaultToolPermissions();
-  next.defaultMode = runtimeDefaultToTool(raw.defaultMode);
+  next.defaultMode = levelByRuntime(raw.defaultMode).uiDefault;
   if (Array.isArray(raw.overrides)) {
     for (const override of raw.overrides) {
       if (!override || typeof override !== 'object') continue;
       const item = override as { pattern?: unknown; mode?: unknown };
       if (typeof item.pattern !== 'string') continue;
-      next.overrides[item.pattern] = runtimeStateToTool(item.mode);
+      next.overrides[item.pattern] = levelByRuntime(item.mode).uiState;
     }
   }
   return next;
@@ -171,10 +169,10 @@ function toolPermissionsFromConfig(config: Record<string, unknown>): ToolPermiss
 
 function toolPermissionPolicyFromUi(value: ToolPermissions) {
   return {
-    defaultMode: toolDefaultToRuntime(value.defaultMode),
+    defaultMode: levelByUiDefault(value.defaultMode).runtime,
     overrides: Object.entries(value.overrides).map(([pattern, mode]) => ({
       pattern,
-      mode: toolStateToRuntime(mode),
+      mode: levelByUiState(mode).runtime,
     })),
   };
 }
