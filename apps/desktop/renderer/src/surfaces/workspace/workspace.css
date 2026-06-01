@@ -1341,6 +1341,13 @@
   color: var(--off-ink-3);
 }
 
+.off-ws-oa-actions {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--off-sp-3);
+}
+
 .off-ws-oa-deny {
   height: 34px;
   padding: 0 16px;

@@ -4,6 +4,7 @@ import type { Employee } from '@/data/types.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { SegmentedControl } from '@/design-system/grammar/SegmentedControl.js';
 import { Icon } from '@/design-system/icons/Icon.js';
+import { Button } from '@/design-system/primitives/button.js';
 import { cn } from '@/lib/utils.js';
 import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
 import { Check, CheckSquare } from 'lucide-react';
@@ -17,13 +18,11 @@ import {
   useWsApprovals,
 } from '../workspace-data.js';
 
-type Segment = 'todo' | 'done' | 'ccd' | 'announce';
+type Segment = 'todo' | 'resolved';
 
 const SEGMENTS: ReadonlyArray<{ value: Segment; label: string }> = [
   { value: 'todo', label: 'To do' },
-  { value: 'done', label: 'Done' },
-  { value: 'ccd', label: "CC'd" },
-  { value: 'announce', label: 'Announce' },
+  { value: 'resolved', label: 'Resolved' },
 ];
 
 const SCOPE_OPTIONS: ReadonlyArray<{ value: GrantScope; label: string }> = [
@@ -109,12 +108,11 @@ export function ApprovalsApp() {
   const pending = list.filter((a) => a.status === 'pending');
   const resolved = list.filter((a) => a.status !== 'pending');
 
-  // To do shows pending plus resolved-today; other segments stay empty until their feeds exist.
-  const visible = segment === 'todo' ? list : [];
+  const visible = segment === 'todo' ? pending : resolved;
   const activeId =
     selectedId && visible.some((a) => a.id === selectedId)
       ? selectedId
-      : (pending[0]?.id ?? visible[0]?.id ?? null);
+      : (visible[0]?.id ?? null);
   const active = list.find((a) => a.id === activeId) ?? null;
   const activeScope = active?.scope ?? 'thread';
 
@@ -126,15 +124,14 @@ export function ApprovalsApp() {
           <SegmentedControl
             options={SEGMENTS.map((s) => ({
               value: s.value,
-              label:
-                s.value === 'todo' ? (
-                  <>
-                    {s.label}
-                    <span className="off-ws-seg-ct">{pending.length}</span>
-                  </>
-                ) : (
-                  s.label
-                ),
+              label: (
+                <>
+                  {s.label}
+                  <span className="off-ws-seg-ct">
+                    {s.value === 'todo' ? pending.length : resolved.length}
+                  </span>
+                </>
+              ),
             }))}
             value={segment}
             onChange={setSegment}
@@ -142,25 +139,19 @@ export function ApprovalsApp() {
           />
         </div>
         <div className="off-ws-oa-rows">
-          {segment === 'todo' ? (
-            <>
-              {pending.map((a) => (
-                <Row key={a.id} a={a} byId={byId} activeId={activeId} onSelect={selectItem} />
-              ))}
-              {resolved.length > 0 ? (
-                <>
-                  <div className="off-ws-im-sec">Resolved today</div>
-                  {resolved.map((a) => (
-                    <Row key={a.id} a={a} byId={byId} activeId={activeId} onSelect={selectItem} />
-                  ))}
-                </>
-              ) : null}
-            </>
+          {visible.length > 0 ? (
+            visible.map((a) => (
+              <Row key={a.id} a={a} byId={byId} activeId={activeId} onSelect={selectItem} />
+            ))
           ) : (
             <EmptyState
               icon={CheckSquare}
-              title={`Nothing in ${SEGMENTS.find((s) => s.value === segment)?.label}`}
-              description="Approvals you’ve handled or been copied on show up here."
+              title={segment === 'todo' ? 'Nothing to approve' : 'Nothing resolved yet'}
+              description={
+                segment === 'todo'
+                  ? 'Approvals waiting on you appear here.'
+                  : 'Handled and CC’d approvals appear here.'
+              }
             />
           )}
         </div>
@@ -220,7 +211,7 @@ export function ApprovalsApp() {
               ) : null}
 
               <div className="off-ws-oa-card">
-                <div className="off-ws-oa-card-h">Why it’s asking</div>
+                <div className="off-ws-oa-card-h">Reason</div>
                 <p className="off-ws-oa-reason">{active.reason}</p>
               </div>
 
@@ -243,14 +234,21 @@ export function ApprovalsApp() {
             </div>
 
             <div className="off-ws-oa-foot">
-              <span className="off-ws-oa-foot-note">
-                {active.status === 'pending'
-                  ? 'Approval is read-only until a runtime interaction target exists.'
-                  : `Resolved · ${SCOPE_LABEL[active.scope]} scope`}
-              </span>
               {active.status === 'pending' ? (
-                <span className="off-ws-action-state">Awaiting runtime interaction target</span>
-              ) : null}
+                <div className="off-ws-oa-actions" title="Connecting to run">
+                  <Button size="sm" variant="outline" disabled>
+                    Deny
+                  </Button>
+                  <Button size="sm" disabled>
+                    <Icon icon={Check} size="sm" />
+                    Approve
+                  </Button>
+                </div>
+              ) : (
+                <span className="off-ws-oa-foot-note">
+                  Resolved · {SCOPE_LABEL[active.scope]} scope
+                </span>
+              )}
             </div>
           </>
         ) : (
