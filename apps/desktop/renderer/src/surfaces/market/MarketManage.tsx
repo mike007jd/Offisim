@@ -1,7 +1,8 @@
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
+import { cn } from '@/lib/utils.js';
 import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
-import { KeyRound, Loader2, Store, UploadCloud } from 'lucide-react';
+import { ExternalLink, KeyRound, Loader2, Store, UploadCloud } from 'lucide-react';
 import {
   type DraftStatus,
   type InstalledPackage,
@@ -18,6 +19,8 @@ interface MarketManageProps {
   onBrowseExplore: () => void;
   onConnectRegistry: () => void;
   onPublish: () => void;
+  /** Open the package's origin listing in Browse (review / update). */
+  onOpenListing: (listingId: string) => void;
 }
 
 export function MarketManage({
@@ -26,21 +29,31 @@ export function MarketManage({
   onBrowseExplore,
   onConnectRegistry,
   onPublish,
+  onOpenListing,
 }: MarketManageProps) {
   if (view === 'published') {
     return <PublishedList onConnectRegistry={onConnectRegistry} onPublish={onPublish} />;
   }
-  return <InstalledList view={view} companyId={companyId} onBrowseExplore={onBrowseExplore} />;
+  return (
+    <InstalledList
+      view={view}
+      companyId={companyId}
+      onBrowseExplore={onBrowseExplore}
+      onOpenListing={onOpenListing}
+    />
+  );
 }
 
 function InstalledList({
   view,
   companyId,
   onBrowseExplore,
+  onOpenListing,
 }: {
   view: ManageView;
   companyId: string | null;
   onBrowseExplore: () => void;
+  onOpenListing: (listingId: string) => void;
 }) {
   const installed = useInstalledPackages(companyId);
   const rows = installed.data ?? [];
@@ -59,11 +72,11 @@ function InstalledList({
     return (
       <EmptyState
         icon={Store}
-        title={view === 'updates' ? 'No updates available' : 'No installed market packages'}
+        title={view === 'updates' ? 'No updates available' : 'No installed packages'}
         description={
           view === 'updates'
-            ? 'Installed registry packages appear here when the configured registry reports a newer version.'
-            : 'Packages installed from marketplace artifacts appear here after review and install.'
+            ? 'Everything is up to date.'
+            : 'Packages you install appear here.'
         }
       />
     );
@@ -76,13 +89,13 @@ function InstalledList({
       ) : null}
       <div className="off-mng-wrap">
         {visible.map((pkg) => (
-          <InstalledItem key={pkg.id} pkg={pkg} />
+          <InstalledItem key={pkg.id} pkg={pkg} onOpenListing={onOpenListing} />
         ))}
       </div>
       {view === 'installed' ? (
         <div className="off-mng-browse">
           <Button variant="subtle" size="sm" onClick={onBrowseExplore}>
-            Browse Explore
+            Browse marketplace
           </Button>
         </div>
       ) : null}
@@ -90,14 +103,17 @@ function InstalledList({
   );
 }
 
-function InstalledItem({ pkg }: { pkg: InstalledPackage }) {
-  const hasOrigin = pkg.originListingId !== null;
+function InstalledItem({
+  pkg,
+  onOpenListing,
+}: {
+  pkg: InstalledPackage;
+  onOpenListing: (listingId: string) => void;
+}) {
+  const originId = pkg.originListingId;
   const hasUpdate = pkg.latestVersion !== null;
-  const registryState = hasOrigin
-    ? hasUpdate
-      ? 'Registry update available'
-      : 'Registry checked'
-    : 'Sideloaded package';
+  const status = !originId ? 'Sideloaded' : hasUpdate ? 'Update available' : 'Up to date';
+  const statusTone = !originId ? 'is-muted' : hasUpdate ? 'is-update' : 'is-ok';
 
   return (
     <div className="off-mng-item">
@@ -108,18 +124,22 @@ function InstalledItem({ pkg }: { pkg: InstalledPackage }) {
             v{pkg.version} · {pkg.installedLabel}
           </div>
         </div>
-        {hasUpdate ? <span className="off-mng-badge">Update</span> : null}
+        <span className={cn('off-mng-badge', statusTone)}>{status}</span>
       </div>
       {hasUpdate ? <div className="off-mng-latest">→ latest {pkg.latestVersion}</div> : null}
       {pkg.checkState === 'error' ? <div className="off-mng-err">Update check failed</div> : null}
-      <div className="off-mng-acts">
-        <span className="off-mng-action-state">{registryState}</span>
-        {hasUpdate && hasOrigin ? (
-          <span className="off-mng-annot">
-            Open the latest registry listing to review and install.
-          </span>
-        ) : null}
-      </div>
+      {originId ? (
+        <div className="off-mng-acts">
+          <Button
+            size="sm"
+            variant={hasUpdate ? 'default' : 'outline'}
+            onClick={() => onOpenListing(originId)}
+          >
+            <Icon icon={ExternalLink} size="sm" />
+            {hasUpdate ? 'Update' : 'Open listing'}
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -208,7 +228,7 @@ function PublishedList({
       <EmptyState
         icon={UploadCloud}
         title="No published packages yet"
-        description="Use Publish from the toolbar to package an asset."
+        description="Publish an employee or skill to get started."
         action={{ label: 'Publish', onClick: onPublish }}
       />
     );
@@ -227,7 +247,6 @@ function PublishedList({
 
 function DraftItem({ draft }: { draft: PublishedDraft }) {
   const tone = STATUS_TONE[draft.status];
-  const isDraft = draft.status === 'draft' || draft.status === 'validated';
   return (
     <div className="off-pub-item">
       <div className="off-pub-top">
@@ -240,11 +259,6 @@ function DraftItem({ draft }: { draft: PublishedDraft }) {
           </div>
         </div>
         <span className={`off-pub-status ${tone.cls}`}>{tone.label}</span>
-      </div>
-      <div className="off-mng-acts off-pub-acts">
-        <span className="off-mng-action-state">
-          {isDraft ? 'Submission waiting for registry auth' : 'Read-only registry status'}
-        </span>
       </div>
     </div>
   );

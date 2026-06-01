@@ -391,6 +391,11 @@ export function MarketSurface() {
               onBrowseExplore={() => setMode('explore')}
               onConnectRegistry={() => setRegistryTokenOpen(true)}
               onPublish={() => setPublishOpen(true)}
+              onOpenListing={(id) => {
+                setMode('explore');
+                const listing = (listings.data ?? []).find((l) => l.id === id);
+                if (listing) openDetail(listing);
+              }}
             />
           </div>
         ) : listings.isLoading ? (
