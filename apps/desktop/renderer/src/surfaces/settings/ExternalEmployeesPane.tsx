@@ -172,8 +172,7 @@ export function ExternalEmployeesPane() {
         <div>
           <div className="off-set-panetitle">External Employees</div>
           <div className="off-set-panedesc">
-            Branded A2A agents connected to this company. Offisim dispatches tasks over JSON-RPC
-            using each agent card.
+            External A2A agents connected to this company.
           </div>
         </div>
         {sorted.length > 0 ? (
@@ -190,14 +189,10 @@ export function ExternalEmployeesPane() {
             <Icon icon={Users} size="md" />
           </div>
           <div className="off-set-ee-t">No external employees connected</div>
-          <div className="off-set-ee-d">
-            Paste an A2A agent card URL to add a branded external employee.
-            <br />
-            OpenClaw, Hermes, Codex and custom A2A endpoints are supported.
-          </div>
+          <div className="off-set-ee-d">Connect an A2A agent by its card URL.</div>
           <Button size="md" className="mt-[var(--off-sp-5)]" onClick={() => setInstallOpen(true)}>
             <Icon icon={Plus} size="sm" />
-            Install external employee
+            Connect agent
           </Button>
         </div>
       ) : (

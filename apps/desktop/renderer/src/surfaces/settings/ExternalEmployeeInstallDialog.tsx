@@ -129,8 +129,7 @@ export function ExternalEmployeeInstallDialog({
                 </span>
               ) : (
                 <span className="off-field-hint">
-                  Paste any <code>.well-known/agent.json</code> or <code>/a2a/card</code> URL.
-                  Offisim fetches the card, infers brand, and shows a preview.
+                  Paste the agent card URL (<code>.well-known/agent.json</code>).
                 </span>
               )}
             </div>
@@ -178,7 +177,7 @@ export function ExternalEmployeeInstallDialog({
               </Button>
               <Button size="md" onClick={() => void runInstall()}>
                 <Icon icon={Check} size="sm" />
-                Confirm &amp; install
+                Connect agent
               </Button>
             </div>
           </div>

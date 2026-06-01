@@ -1,4 +1,3 @@
-import { StatusPill } from '@/design-system/grammar/index.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import {
@@ -11,10 +10,7 @@ import {
 import { AlertTriangle, Check, ShieldCheck } from 'lucide-react';
 import type { McpServer, McpServerFormValues } from './settings-data.js';
 
-interface PendingStdio extends McpServerFormValues {
-  readonly requestedTools: readonly string[];
-  readonly riskyTools: readonly string[];
-}
+type PendingStdio = McpServerFormValues;
 
 interface McpStdioConfirmDialogProps {
   pending: PendingStdio | McpServer | null;
@@ -22,10 +18,8 @@ interface McpStdioConfirmDialogProps {
   onCancel: () => void;
 }
 
-function resolveTools(pending: PendingStdio | McpServer) {
+function resolveInfo(pending: PendingStdio | McpServer) {
   return {
-    requestedTools: pending.requestedTools,
-    riskyTools: pending.riskyTools,
     command: 'command' in pending ? pending.command : '',
     args: 'args' in pending ? pending.args : '',
     name: pending.name,
@@ -39,8 +33,7 @@ export function McpStdioConfirmDialog({
   onCancel,
 }: McpStdioConfirmDialogProps) {
   if (!pending) return null;
-  const info = resolveTools(pending);
-  const highRisk = info.riskyTools.length > 0;
+  const info = resolveInfo(pending);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onCancel()}>
@@ -54,13 +47,10 @@ export function McpStdioConfirmDialog({
               Confirm stdio MCP server
             </DialogTitle>
             <DialogDescription className="text-[length:var(--off-fs-meta)]">
-              Stdio servers run arbitrary local processes. Confirm the command and requested tools
-              before connecting.
+              This starts a local process that can run shell commands. Review the command before
+              connecting.
             </DialogDescription>
           </div>
-          <StatusPill tone={highRisk ? 'warn' : 'accent'}>
-            {highRisk ? 'High risk' : 'Medium'}
-          </StatusPill>
         </div>
 
         <dl className="off-set-confirm-dl">
@@ -75,20 +65,6 @@ export function McpStdioConfirmDialog({
           <dt>Approval</dt>
           <dd>{info.approvalId || `mcp.${info.name}.default`}</dd>
         </dl>
-
-        <div>
-          <div className="off-set-subhead">Requested tools · {info.requestedTools.length}</div>
-          <div className="off-set-tool-grid">
-            {info.requestedTools.map((tool) => (
-              <div key={tool}>
-                {tool}
-                {info.riskyTools.includes(tool) ? (
-                  <span className="off-set-tool-risk">risk</span>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        </div>
 
         <div className="off-set-callout is-warn">
           <Icon icon={AlertTriangle} size="sm" />

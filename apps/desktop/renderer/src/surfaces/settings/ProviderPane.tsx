@@ -171,11 +171,7 @@ export function ProviderPane({ form, activeConfigId, onSelectConfig }: ProviderP
     <div className="off-set-pane">
       <div className="off-set-panehead">
         <div className="off-set-panetitle">Provider</div>
-        <div className="off-set-panedesc">
-          The model vendor every employee uses. Offisim calls the vendor API directly — there is no
-          proxy. Product + access mode resolve the route; the execution lane decides whether Offisim
-          tools are exposed.
-        </div>
+        <div className="off-set-panedesc">The AI provider your employees use.</div>
       </div>
 
       {/* Connected provider card */}
@@ -240,8 +236,7 @@ export function ProviderPane({ form, activeConfigId, onSelectConfig }: ProviderP
             ))}
           </div>
           <div className="off-set-pv-state">
-            Runtime profiles load from the desktop registry. Model/key changes save through the
-            global Settings bar.
+            Key and model changes save with the Settings bar.
           </div>
         </CardBlock>
       </section>
@@ -285,10 +280,6 @@ export function ProviderPane({ form, activeConfigId, onSelectConfig }: ProviderP
                   {activeConfig.region}
                 </span>
               </div>
-              <span className="off-field-hint">
-                Direct key auth against the {active.displayName} endpoint. No host resolver
-                required.
-              </span>
             </div>
           </div>
         </CardBlock>
@@ -391,7 +382,7 @@ export function ProviderPane({ form, activeConfigId, onSelectConfig }: ProviderP
             {isHostResolved ? (
               <div className="off-set-callout is-info">
                 <Icon icon={Info} size="sm" />
-                Runtime binding activates only when a trusted host resolver is available.
+                Local/host-managed providers need a running host.
               </div>
             ) : null}
           </div>
@@ -481,7 +472,7 @@ export function ProviderPane({ form, activeConfigId, onSelectConfig }: ProviderP
               </FieldRow>
               <FieldRow
                 label="Execution lane"
-                hint="Gateway lane exposes Offisim tools when the runtime has a trusted host + workspace. SDK options are model-transport bindings only — not a tools-capable product lane."
+                hint="Gateway exposes Offisim tools. SDK lanes are transport only."
               >
                 {({ id }) => (
                   <Select

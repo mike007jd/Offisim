@@ -40,17 +40,12 @@ function statusTone(status: McpStatus) {
   return 'muted' as const;
 }
 
-interface PendingStdio extends McpServerFormValues {
-  requestedTools: readonly string[];
-  riskyTools: readonly string[];
-}
-
 export function McpServersPane() {
   const queryClient = useQueryClient();
   const desktopAvailable = isTauriRuntime();
   const serversQuery = useMcpServers();
   const servers = serversQuery.data ?? [];
-  const [pending, setPending] = useState<PendingStdio | null>(null);
+  const [pending, setPending] = useState<McpServerFormValues | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [busyServerId, setBusyServerId] = useState<string | null>(null);
 
@@ -110,12 +105,8 @@ export function McpServersPane() {
 
   const onSubmit = form.handleSubmit((values) => {
     if (values.transport === 'stdio') {
-      // High-risk stdio requires a confirm before connecting.
-      setPending({
-        ...values,
-        requestedTools: ['tools/list probe', 'local process startup'],
-        riskyTools: ['local process startup'],
-      });
+      // Starting a local process requires an explicit confirm.
+      setPending(values);
       return;
     }
     commitServer(values);
@@ -235,8 +226,7 @@ export function McpServersPane() {
       <div className="off-set-panehead">
         <div className="off-set-panetitle">MCP Servers</div>
         <div className="off-set-panedesc">
-          Model Context Protocol tool servers available to employees. Stdio servers start only after
-          desktop approval; SSE entries are stored for the web runtime.
+          Tool servers your employees can use. Stdio servers need your approval to start.
         </div>
         {!desktopAvailable ? (
           <div className="off-set-callout">

@@ -60,7 +60,7 @@ export function SettingsSaveBar({
         Saving…
       </>
     );
-    tip = 'Persisting to the desktop settings repository';
+    tip = 'Saving…';
   } else if (validationBlocked) {
     label = (
       <>
@@ -77,7 +77,7 @@ export function SettingsSaveBar({
         {scopeLabel(dirtyScopes)}
       </>
     );
-    tip = `${dirtyScopes.length} ${dirtyScopes.length === 1 ? 'section has' : 'sections have'} unsaved changes · ⌘S to save`;
+    tip = 'Unsaved changes · ⌘S';
   } else {
     label = (
       <>
