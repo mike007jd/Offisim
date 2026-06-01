@@ -3,6 +3,7 @@ import { UI_DATA_COLORS } from '@/data/color-palette.js';
 import { useEmployees } from '@/data/queries.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { SegmentedControl } from '@/design-system/grammar/SegmentedControl.js';
+import { StatusPill } from '@/design-system/grammar/StatusPill.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 import { Check, MessageSquare } from 'lucide-react';
@@ -15,6 +16,12 @@ const VIEWS: ReadonlyArray<{ value: View; label: string }> = [
   { value: 'agenda', label: 'Agenda' },
   { value: 'week', label: 'Week' },
 ];
+
+const STATUS_TONE: Record<WsMeeting['status'], 'accent' | 'ok' | 'muted'> = {
+  live: 'accent',
+  upcoming: 'ok',
+  ended: 'muted',
+};
 
 /** Agenda events that surface a meeting card on the right when picked. */
 const EVENT_TO_MEETING: Record<string, string> = {
@@ -114,10 +121,36 @@ export function CalendarApp() {
         {meeting ? (
           <div className="off-ws-meet">
             <div className="off-ws-meet-h">
-              <div className="off-ws-meet-t">{meeting.title}</div>
-              <div className="off-ws-meet-s">{meeting.sub}</div>
+              <div className="min-w-0">
+                <div className="off-ws-meet-t">{meeting.title}</div>
+                <div className="off-ws-meet-s">{meeting.sub}</div>
+              </div>
+              <StatusPill tone={STATUS_TONE[meeting.status]} running={meeting.status === 'live'}>
+                {meeting.status}
+              </StatusPill>
             </div>
             <div className="off-ws-meet-b">
+              {meeting.attendeeIds.length ? (
+                <div className="off-ws-attendees">
+                  {meeting.attendeeIds.map((id) => {
+                    const e = byId.get(id);
+                    if (!e) return null;
+                    return (
+                      <span key={id} className="off-ws-attendee">
+                        <EmployeeAvatar
+                          seed={e.id}
+                          appearance={e.appearance}
+                          colorA={e.avatarA}
+                          colorB={e.avatarB}
+                          size={20}
+                          brand={e.kind === 'external'}
+                        />
+                        {e.name}
+                      </span>
+                    );
+                  })}
+                </div>
+              ) : null}
               <div className="off-ws-meet-sec-head">
                 Action items <span className="off-ws-seg-ct">{meeting.actionItems.length}</span>
               </div>

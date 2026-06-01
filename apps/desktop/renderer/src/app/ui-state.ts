@@ -18,13 +18,7 @@ export interface SceneDropDiagnostic {
   decision: 'assigned' | 'missed' | 'not-moved';
 }
 
-export type WorkspaceApp =
-  | 'messenger'
-  | 'approvals'
-  | 'calendar'
-  | 'meetings'
-  | 'contacts'
-  | 'workplace';
+export type WorkspaceApp = 'messenger' | 'approvals' | 'calendar' | 'contacts' | 'workplace';
 
 interface UiState {
   surface: SurfaceKey;

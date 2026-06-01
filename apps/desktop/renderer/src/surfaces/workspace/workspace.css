@@ -1790,6 +1790,10 @@
 .off-ws-meet-h {
   padding: var(--off-sp-5);
   border-bottom: 1px solid var(--off-line-soft);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--off-sp-4);
 }
 
 .off-ws-meet-t {

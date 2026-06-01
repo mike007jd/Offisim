@@ -10,12 +10,10 @@ import {
   type LucideIcon,
   MessageSquare,
   Users,
-  Video,
 } from 'lucide-react';
 import { ApprovalsApp } from './apps/ApprovalsApp.js';
 import { CalendarApp } from './apps/CalendarApp.js';
 import { ContactsApp } from './apps/ContactsApp.js';
-import { MeetingsApp } from './apps/MeetingsApp.js';
 import { MessengerApp } from './apps/MessengerApp.js';
 import { WorkplaceApp } from './apps/WorkplaceApp.js';
 import { useWsApprovals, useWsConversations } from './workspace-data.js';
@@ -31,7 +29,6 @@ const APP_GROUPS: ReadonlyArray<ReadonlyArray<AppEntry>> = [
   ],
   [
     { key: 'calendar', label: 'Calendar', icon: CalendarDays },
-    { key: 'meetings', label: 'Meetings', icon: Video },
     { key: 'contacts', label: 'Contacts', icon: Users },
   ],
   [{ key: 'workplace', label: 'Workplace', icon: LayoutGrid }],
@@ -102,7 +99,6 @@ export function WorkspaceSurface() {
       {app === 'messenger' ? <MessengerApp /> : null}
       {app === 'approvals' ? <ApprovalsApp /> : null}
       {app === 'calendar' ? <CalendarApp /> : null}
-      {app === 'meetings' ? <MeetingsApp /> : null}
       {app === 'contacts' ? <ContactsApp /> : null}
       {app === 'workplace' ? <WorkplaceApp /> : null}
     </div>
