@@ -3,13 +3,11 @@ import { Button } from '@/design-system/primitives/button.js';
 import { Dialog, DialogContent } from '@/design-system/primitives/dialog.js';
 import { Input } from '@/design-system/primitives/input.js';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AlertTriangle, Check, Globe, Loader2, RefreshCw, Search } from 'lucide-react';
-import { useState } from 'react';
+import { AlertTriangle, Check, Globe, Loader2, Search } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { type DiscoveredCard, discoverAgentCard } from './settings-data.js';
-
-type Step = 'discover' | 'preview' | 'installing';
 
 const discoverSchema = z.object({
   url: z.string().min(1, 'Agent card URL is required'),
@@ -22,49 +20,30 @@ interface ExternalEmployeeInstallDialogProps {
   onInstalled: (card: DiscoveredCard) => Promise<void>;
 }
 
-function Stepper({ step }: { step: Step }) {
-  const idx = step === 'discover' ? 0 : step === 'preview' ? 1 : 2;
-  const labels = ['Discover', 'Preview', 'Install'];
-  return (
-    <div className="off-set-stepper">
-      {labels.map((label, i) => (
-        <div key={label} className="off-set-step-part">
-          <span
-            className={`off-set-step${i === idx ? ' is-active' : ''}${i < idx ? ' is-done' : ''}`}
-          >
-            <span className="off-set-step-num">
-              {i < idx ? <Icon icon={Check} size="sm" /> : i + 1}
-            </span>
-            {i >= idx ? label : null}
-          </span>
-          {i < labels.length - 1 ? <span className="off-set-step-div" /> : null}
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export function ExternalEmployeeInstallDialog({
   open,
   onOpenChange,
   onInstalled,
 }: ExternalEmployeeInstallDialogProps) {
-  const [step, setStep] = useState<Step>('discover');
   const [card, setCard] = useState<DiscoveredCard | null>(null);
+  const [discoveredUrl, setDiscoveredUrl] = useState<string | null>(null);
   const [discovering, setDiscovering] = useState(false);
   const [discoverError, setDiscoverError] = useState<string | null>(null);
+  const [connecting, setConnecting] = useState(false);
   const [installError, setInstallError] = useState(false);
 
   const form = useForm<DiscoverValues>({
     resolver: zodResolver(discoverSchema),
     defaultValues: { url: '' },
   });
+  const urlValue = form.watch('url');
 
   function reset() {
-    setStep('discover');
     setCard(null);
+    setDiscoveredUrl(null);
     setDiscovering(false);
     setDiscoverError(null);
+    setConnecting(false);
     setInstallError(false);
     form.reset({ url: '' });
   }
@@ -74,13 +53,24 @@ export function ExternalEmployeeInstallDialog({
     onOpenChange(next);
   }
 
+  // Editing the URL after a lookup drops the stale preview so Connect can't fire
+  // against a card that no longer matches the field.
+  useEffect(() => {
+    if (card && urlValue !== discoveredUrl) {
+      setCard(null);
+      setDiscoveredUrl(null);
+      setInstallError(false);
+    }
+  }, [urlValue, card, discoveredUrl]);
+
   const onDiscover = form.handleSubmit(async ({ url }) => {
     setDiscovering(true);
     setDiscoverError(null);
+    setCard(null);
     try {
       const result = await discoverAgentCard(url);
       setCard(result);
-      setStep('preview');
+      setDiscoveredUrl(url);
     } catch (err) {
       setDiscoverError(err instanceof Error ? err.message : 'Could not reach agent card');
     } finally {
@@ -88,30 +78,36 @@ export function ExternalEmployeeInstallDialog({
     }
   });
 
-  async function runInstall() {
+  async function runConnect() {
     if (!card) return;
-    setStep('installing');
+    setConnecting(true);
     setInstallError(false);
     try {
       await onInstalled(card);
       handleOpenChange(false);
     } catch {
       setInstallError(true);
+      setConnecting(false);
     }
   }
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="off-dialog-w-md" showClose={step !== 'installing'}>
-        <Stepper step={step} />
+      <DialogContent className="off-dialog-w-md" showClose={!connecting}>
+        <div className="flex flex-col gap-[var(--off-sp-5)]">
+          <div>
+            <div className="off-set-panetitle">Connect external employee</div>
+            <div className="off-set-panedesc">
+              Look up an A2A agent card, then connect it as an employee.
+            </div>
+          </div>
 
-        {step === 'discover' ? (
-          <form onSubmit={onDiscover} className="flex flex-col gap-[var(--off-sp-5)]">
-            <div className="off-field">
-              <label className="off-field-label" htmlFor="ext-card-url">
-                Agent card URL
-              </label>
-              <div className={`off-set-ctl is-mono${discoverError ? ' is-invalid' : ''}`}>
+          <form onSubmit={onDiscover} className="off-field">
+            <label className="off-field-label" htmlFor="ext-card-url">
+              Agent card URL
+            </label>
+            <div className="flex gap-[var(--off-sp-3)]">
+              <div className={`off-set-ctl is-mono flex-1${discoverError ? ' is-invalid' : ''}`}>
                 <span className="off-set-ctl-lead">
                   <Icon icon={Globe} size="sm" />
                 </span>
@@ -122,35 +118,28 @@ export function ExternalEmployeeInstallDialog({
                   {...form.register('url')}
                 />
               </div>
-              {discoverError ? (
-                <span className="off-set-field-err">
-                  <Icon icon={AlertTriangle} size="sm" />
-                  {discoverError}
-                </span>
-              ) : (
-                <span className="off-field-hint">
-                  Paste the agent card URL (<code>.well-known/agent.json</code>).
-                </span>
-              )}
-            </div>
-            <div className="off-set-dialog-actions">
-              <Button variant="outline" size="md" onClick={() => handleOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" size="md" disabled={discovering}>
+              <Button type="submit" variant="outline" size="md" disabled={discovering}>
                 <Icon
                   icon={discovering ? Loader2 : Search}
                   size="sm"
                   className={discovering ? 'animate-spin' : undefined}
                 />
-                Discover
+                {discovering ? 'Looking up…' : 'Look up'}
               </Button>
             </div>
+            {discoverError ? (
+              <span className="off-set-field-err">
+                <Icon icon={AlertTriangle} size="sm" />
+                {discoverError}
+              </span>
+            ) : (
+              <span className="off-field-hint">
+                Paste the agent card URL (<code>.well-known/agent.json</code>).
+              </span>
+            )}
           </form>
-        ) : null}
 
-        {step === 'preview' && card ? (
-          <div className="flex flex-col gap-[var(--off-sp-5)]">
+          {card ? (
             <div className="off-set-preview">
               <dl className="off-set-preview-row">
                 <dt>Name</dt>
@@ -171,59 +160,37 @@ export function ExternalEmployeeInstallDialog({
                 <dd className="off-mono">{card.endpoint}</dd>
               </dl>
             </div>
-            <div className="off-set-dialog-actions">
-              <Button variant="outline" size="md" onClick={() => setStep('discover')}>
-                Back
-              </Button>
-              <Button size="md" onClick={() => void runInstall()}>
-                <Icon icon={Check} size="sm" />
-                Connect agent
-              </Button>
-            </div>
-          </div>
-        ) : null}
+          ) : null}
 
-        {step === 'installing' ? (
-          <div className="flex flex-col gap-[var(--off-sp-5)]">
-            {!installError ? (
-              <div className="off-set-install-progress">
-                <div className="off-set-install-line">
-                  <span className="off-set-install-ic">
-                    <Icon
-                      icon={Loader2}
-                      size="sm"
-                      className="animate-spin text-[color:var(--off-accent)]"
-                    />
-                  </span>
-                  Connecting external employee…
-                </div>
+          {installError ? (
+            <div className="off-set-err-banner">
+              <Icon icon={AlertTriangle} size="sm" />
+              <div>
+                <div className="off-set-err-title">Connection failed</div>
+                <div className="off-set-err-msg">No connection was created. You can retry.</div>
               </div>
-            ) : null}
-            {installError ? (
-              <div className="off-set-err-banner">
-                <Icon icon={AlertTriangle} size="sm" />
-                <div>
-                  <div className="off-set-err-title">Install failed</div>
-                  <div className="off-set-err-msg">No connection was created. You can retry.</div>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="ml-auto"
-                  onClick={() => void runInstall()}
-                >
-                  <Icon icon={RefreshCw} size="sm" />
-                  Retry
-                </Button>
-              </div>
-            ) : null}
-            <div className="off-set-dialog-actions">
-              <Button variant="outline" size="md" onClick={() => handleOpenChange(false)}>
-                Close
-              </Button>
             </div>
+          ) : null}
+
+          <div className="off-set-dialog-actions">
+            <Button
+              variant="outline"
+              size="md"
+              disabled={connecting}
+              onClick={() => handleOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Button size="md" disabled={!card || connecting} onClick={() => void runConnect()}>
+              <Icon
+                icon={connecting ? Loader2 : Check}
+                size="sm"
+                className={connecting ? 'animate-spin' : undefined}
+              />
+              {connecting ? 'Connecting…' : 'Connect agent'}
+            </Button>
           </div>
-        ) : null}
+        </div>
       </DialogContent>
     </Dialog>
   );
