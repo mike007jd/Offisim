@@ -9,7 +9,7 @@ import {
 } from '@/data/queries.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { SkeletonRows } from '@/surfaces/shared/SurfaceStates.js';
-import { ChevronLeft, MessagesSquare } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { useMemo } from 'react';
 import { ThreadList } from './rail/ThreadList.js';
 
@@ -57,15 +57,6 @@ export function ChatRail() {
           {activeThread?.subtitle ? (
             <span className="off-chat-sub">{activeThread.subtitle}</span>
           ) : null}
-        </div>
-        <div className="off-chat-head-tools">
-          <IconButton
-            icon={MessagesSquare}
-            label="Conversation list"
-            variant="ghost"
-            size="iconSm"
-            onClick={closeThread}
-          />
         </div>
       </header>
 

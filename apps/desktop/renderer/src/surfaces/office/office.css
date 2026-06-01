@@ -2,7 +2,8 @@
   position: absolute;
   inset: 0;
   display: grid;
-  grid-template-columns: 296px minmax(0, 1fr) 448px;
+  /* Chat is the focal column: widened, with the scene as calmer ambient space. */
+  grid-template-columns: 288px minmax(0, 1fr) 520px;
   grid-template-rows: 1fr auto;
   grid-template-areas:
     "workspace stage chat"
@@ -13,7 +14,8 @@
 
 @media (max-width: 1200px) {
   .off-office {
-    grid-template-columns: minmax(0, 1fr) 408px;
+    /* Drop the workspace panel first; keep the chat column prominent. */
+    grid-template-columns: minmax(0, 1fr) 480px;
     grid-template-areas:
       "stage chat"
       "team  chat";
@@ -174,7 +176,8 @@
   background-color: var(--off-surface-0);
   background-image: linear-gradient(var(--off-grid-line) 1px, transparent 1px),
     linear-gradient(90deg, var(--off-grid-line) 1px, transparent 1px);
-  background-size: 40px 40px, 40px 40px;
+  /* Airier grid so the scene reads as calm ambient space, not a focal surface. */
+  background-size: 48px 48px, 48px 48px;
   border-bottom: 1px solid var(--off-line);
 }
 
@@ -867,12 +870,6 @@
 .off-chat-sub {
   font-size: var(--off-fs-micro);
   color: var(--off-ink-3);
-}
-
-.off-chat-head-tools {
-  display: flex;
-  align-items: center;
-  gap: var(--off-sp-1);
 }
 
 /* Messages */
