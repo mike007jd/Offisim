@@ -13,13 +13,24 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/design-system/primitives/dialog.js';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@/design-system/primitives/dropdown-menu.js';
 import { Input } from '@/design-system/primitives/input.js';
 import { cn } from '@/lib/utils.js';
 import { useQueryClient } from '@tanstack/react-query';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
+  ArrowDownNarrowWide,
   Box,
   Building2,
+  ChevronDown,
   CloudUpload,
   KeyRound,
   Layers,
@@ -302,16 +313,13 @@ export function MarketSurface() {
             ariaLabel="Marketplace mode"
           />
           {mode === 'explore' ? (
-            <>
-              <SegmentedControl
-                options={KIND_FILTERS}
-                value={kind}
-                onChange={setKind}
-                wrap
-                ariaLabel="Filter by kind"
-              />
-              <SegmentedControl options={SORTS} value={sort} onChange={setSort} ariaLabel="Sort" />
-            </>
+            <SegmentedControl
+              options={KIND_FILTERS}
+              value={kind}
+              onChange={setKind}
+              wrap
+              ariaLabel="Filter by kind"
+            />
           ) : null}
           <input
             ref={fileInputRef}
@@ -326,30 +334,33 @@ export function MarketSurface() {
               });
             }}
           />
-          <Button
-            size="md"
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={importPackageFile.isPending}
-          >
-            {importPackageFile.isPending ? (
-              <Icon icon={Loader2} size="sm" className="animate-spin" />
-            ) : (
-              <Icon icon={Upload} size="sm" />
-            )}
-            Import
-          </Button>
+          {/* Sort (explore only) collapses into a dropdown, pushed right. */}
           {mode === 'explore' ? (
-            <Button
-              size="md"
-              variant="outline"
-              className="ml-auto"
-              onClick={() => setPublishOpen(true)}
-            >
-              <Icon icon={CloudUpload} size="sm" />
-              Publish
-            </Button>
+            <SortMenu sort={sort} onChange={setSort} className="ml-auto" />
           ) : null}
+          {/* Import + Publish are expert/low-frequency — grouped under Contribute. */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="md" variant="outline" className={mode === 'explore' ? '' : 'ml-auto'}>
+                <Icon icon={CloudUpload} size="sm" />
+                Contribute
+                <Icon icon={ChevronDown} size="sm" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onSelect={() => fileInputRef.current?.click()}
+                disabled={importPackageFile.isPending}
+              >
+                <Icon icon={importPackageFile.isPending ? Loader2 : Upload} size="sm" />
+                Import package…
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setPublishOpen(true)}>
+                <Icon icon={CloudUpload} size="sm" />
+                Publish…
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         {mode === 'manage' ? (
           <div className="off-mkt-fbar-sub">
@@ -495,6 +506,41 @@ function RegistryTokenDialog({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Sort control collapsed into a dropdown — secondary to Browse/Installed and
+ *  the kind filter, so it reads as a refinement rather than a primary tab row. */
+function SortMenu({
+  sort,
+  onChange,
+  className,
+}: {
+  sort: SortKey;
+  onChange: (s: SortKey) => void;
+  className?: string;
+}) {
+  const current = SORTS.find((option) => option.value === sort)?.label ?? 'Sort';
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button size="md" variant="outline" className={className}>
+          <Icon icon={ArrowDownNarrowWide} size="sm" />
+          {current}
+          <Icon icon={ChevronDown} size="sm" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+        <DropdownMenuRadioGroup value={sort} onValueChange={(value) => onChange(value as SortKey)}>
+          {SORTS.map((option) => (
+            <DropdownMenuRadioItem key={option.value} value={option.value}>
+              {option.label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
