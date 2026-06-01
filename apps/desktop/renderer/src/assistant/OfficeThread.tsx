@@ -1,4 +1,4 @@
-import type { ChatMessage, Deliverable, Employee, RunState, ThreadScope } from '@/data/types.js';
+import type { ChatMessage, Deliverable, Employee, RunState } from '@/data/types.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { isDesktopProviderBridgeAvailable } from '@/lib/provider-bridge.js';
@@ -41,7 +41,6 @@ interface OfficeThreadProps {
   seedMessages: ChatMessage[];
   employeesById: Map<string, Employee>;
   deliverables: Deliverable[];
-  scope: ThreadScope;
   /** Employee holding this conversation's run (direct thread), shown on the pill. */
   employeeId: string | null;
   projectName: string;
@@ -202,7 +201,6 @@ export function OfficeThread({
   seedMessages,
   employeesById,
   deliverables,
-  scope,
   employeeId,
   projectName,
 }: OfficeThreadProps) {
@@ -260,7 +258,10 @@ export function OfficeThread({
           </div>
           <ChatErrorBanner />
         </ThreadPrimitive.Viewport>
-        {scope === 'team' ? (
+        {/* Outputs/Meeting pit is available in any thread that produced
+            deliverables — not just team threads. ConvOutputs self-hides when
+            empty and MeetingTray when there is no meeting. */}
+        {deliverables.length > 0 ? (
           <div className="off-thread-pitbar" aria-label="Thread pit">
             <MeetingTray />
             <ConvOutputs deliverables={deliverables} employeesById={employeesById} />

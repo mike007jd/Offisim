@@ -13,21 +13,30 @@ import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/design-system/primitives/dropdown-menu.js';
 import { Popover, PopoverContent, PopoverTrigger } from '@/design-system/primitives/popover.js';
 import { cn } from '@/lib/utils.js';
 import { useEmployeeMemories } from '@/surfaces/personnel/personnel-data.js';
 import { generateId } from '@offisim/core/browser';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  ArrowDownNarrowWide,
   ChevronDown,
   ChevronUp,
-  Filter,
   ListChecks,
   MapPin,
   MessageSquare,
   Power,
   Search,
+  SlidersHorizontal,
   Sparkles,
   UserPlus,
   UserRound,
@@ -328,11 +337,16 @@ export function TeamDock() {
     [layout.data?.zones],
   );
 
+  // Search / filter / sort are noise for a handful of people; only surface the
+  // list-options control once the roster is large enough to need it.
+  const rosterSize = employees.data?.length ?? 0;
+  const showListControls = rosterSize > 6;
+
   return (
     <div className={cn('off-team', collapsed && 'is-collapsed')} aria-label="Team">
       <div className="off-dock-label">
         <span className="off-dock-title">Team</span>
-        <span className="off-dock-count">{employees.data?.length ?? 0} people</span>
+        <span className="off-dock-count">{rosterSize} people</span>
       </div>
 
       <div className="off-dock-strip">
@@ -415,42 +429,57 @@ export function TeamDock() {
       </div>
 
       <div className="off-dock-tools">
-        {showSearch ? (
-          <input
-            className="off-dock-search"
-            value={query}
-            placeholder="Search team…"
-            onChange={(e) => setQuery(e.target.value)}
-            // biome-ignore lint/a11y/noAutofocus: opens on explicit user action
-            autoFocus
-            onBlur={() => !query && setShowSearch(false)}
-          />
-        ) : (
-          <IconButton
-            icon={Search}
-            label="Search team"
-            size="iconSm"
-            onClick={() => setShowSearch(true)}
-          />
-        )}
-        <IconButton
-          icon={Filter}
-          label={showWorkingOnly ? 'Show all team' : 'Show working team'}
-          size="iconSm"
-          variant={showWorkingOnly ? 'subtle' : 'ghost'}
-          onClick={() => setShowWorkingOnly((v) => !v)}
-        />
-        <IconButton
-          icon={ArrowDownNarrowWide}
-          label={`Sort team by ${sortMode === 'seat' ? 'name' : sortMode === 'name' ? 'presence' : 'seat'}`}
-          size="iconSm"
-          variant={sortMode === 'seat' ? 'ghost' : 'subtle'}
-          onClick={() =>
-            setSortMode((current) =>
-              current === 'seat' ? 'name' : current === 'name' ? 'presence' : 'seat',
-            )
-          }
-        />
+        {showListControls ? (
+          <>
+            {showSearch ? (
+              <input
+                className="off-dock-search"
+                value={query}
+                placeholder="Search team…"
+                onChange={(e) => setQuery(e.target.value)}
+                // biome-ignore lint/a11y/noAutofocus: opens on explicit user action
+                autoFocus
+                onBlur={() => !query && setShowSearch(false)}
+              />
+            ) : (
+              <IconButton
+                icon={Search}
+                label="Search team"
+                size="iconSm"
+                onClick={() => setShowSearch(true)}
+              />
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant={showWorkingOnly || sortMode !== 'seat' ? 'subtle' : 'ghost'}
+                  size="iconSm"
+                  aria-label="List options"
+                >
+                  <Icon icon={SlidersHorizontal} size="sm" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuCheckboxItem
+                  checked={showWorkingOnly}
+                  onCheckedChange={(value) => setShowWorkingOnly(Boolean(value))}
+                >
+                  Working only
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+                <DropdownMenuRadioGroup
+                  value={sortMode}
+                  onValueChange={(value) => setSortMode(value as TeamSortMode)}
+                >
+                  <DropdownMenuRadioItem value="seat">Seat</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="name">Name</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="presence">Presence</DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        ) : null}
         <IconButton
           icon={collapsed ? ChevronUp : ChevronDown}
           label={collapsed ? 'Expand dock' : 'Collapse dock'}

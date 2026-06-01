@@ -72,7 +72,6 @@ export function ChatRail() {
           seedMessages={messages.data ?? []}
           employeesById={employeesById}
           deliverables={deliverables.data ?? []}
-          scope={activeThread?.scope ?? 'team'}
           employeeId={activeThread?.employeeId ?? null}
           projectName={projectName}
         />
