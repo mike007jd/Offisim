@@ -53,6 +53,7 @@ function initials(name: string): string {
 interface CompanyRowLike {
   company_id: string;
   name: string;
+  template_label?: string | null;
 }
 export function companyToVm(row: CompanyRowLike): Company {
   const [a, b] = accentPair(row.company_id);
@@ -62,6 +63,7 @@ export function companyToVm(row: CompanyRowLike): Company {
     initials: initials(row.name),
     accentA: a,
     accentB: b,
+    templateLabel: row.template_label?.trim() || 'Custom',
   };
 }
 

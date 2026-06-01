@@ -30,10 +30,8 @@ export function showDiscardConfirm({ message, detail, onDiscard }: DiscardConfir
     (id) => (
       <div className="off-discard-bar" role="alertdialog" aria-label="Discard unsaved changes">
         <div className="off-discard-copy">
-          <div className="off-discard-msg">{message ?? 'Discard unsaved settings?'}</div>
-          <div className="off-discard-esc">
-            {detail ?? 'esc · close attempt while name or template is dirty'}
-          </div>
+          <div className="off-discard-msg">{message ?? 'Discard new company?'}</div>
+          <div className="off-discard-esc">{detail ?? 'Your draft will be lost.'}</div>
         </div>
         <div className="off-discard-acts">
           <button

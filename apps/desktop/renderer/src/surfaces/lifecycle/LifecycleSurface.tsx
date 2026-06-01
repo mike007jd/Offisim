@@ -100,11 +100,7 @@ export function LifecycleSurface() {
     setOverride('portal');
     setSurface(request.openStudio ? 'studio' : 'office');
 
-    toast.success(`Created ${request.name}`, {
-      description: request.openStudio
-        ? 'Studio opened on a real company workspace.'
-        : 'Employees, zones, and office layout were persisted.',
-    });
+    toast.success(`${request.name} created.`);
   }
 
   // Don't flash the wrong front door before the company count resolves.

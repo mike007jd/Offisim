@@ -3,10 +3,9 @@ import { useCompanyTemplates } from '@/data/queries.js';
 import type { CompanyTemplate, TemplateEmployee } from '@/data/types.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { Icon } from '@/design-system/icons/Icon.js';
-import { Tabs, TabsList, TabsTrigger } from '@/design-system/primitives/tabs.js';
 import { Textarea } from '@/design-system/primitives/textarea.js';
 import { cn } from '@/lib/utils.js';
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, Wrench } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronUp, Loader2, Wrench } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { clearDiscardConfirm, showDiscardConfirm } from './DiscardConfirmToast.js';
@@ -142,10 +141,7 @@ export function CompanyCreationWizard({
         onDismiss();
         return;
       }
-      showDiscardConfirm({
-        detail: 'esc · close attempt while name or template is dirty',
-        onDiscard: onDismiss,
-      });
+      showDiscardConfirm({ onDiscard: onDismiss });
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -153,15 +149,6 @@ export function CompanyCreationWizard({
 
   // Always clear any armed discard toast when the wizard unmounts.
   useEffect(() => () => clearDiscardConfirm(), []);
-
-  function move(delta: number) {
-    if (busy || templates.length === 0) return;
-    setIndex((i) => {
-      const next =
-        (Math.min(i, templates.length - 1) + delta + templates.length) % templates.length;
-      return next;
-    });
-  }
 
   async function start() {
     if (!selected) return;
@@ -185,9 +172,9 @@ export function CompanyCreationWizard({
 
   const primaryDisabled = !selected || !companyName.trim();
 
-  let ctaLabel = 'Start Company';
-  if (isCustom) ctaLabel = step === 'opening-studio' ? 'Opening Studio…' : 'Open Studio Editor';
-  else if (step === 'creating') ctaLabel = 'Initializing…';
+  // One verb for every path. The Studio route is a template choice (Create your
+  // own), not a second primary action.
+  const ctaLabel = step === 'ready' ? 'Create company' : 'Creating…';
 
   return (
     <motion.div
@@ -196,121 +183,98 @@ export function CompanyCreationWizard({
       animate={{ opacity: 1 }}
       transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
     >
+      <div className="off-wiz-head">
+        <div className="off-wiz-head-ttl">Create a company</div>
+        <div className="off-wiz-head-sub">Pick a starting template, or build your own.</div>
+      </div>
+
+      {/* Scannable template track — every template + Create-your-own is visible
+          and selectable at once (no carousel / pager dots). */}
+      <div className="off-wiz-track" role="radiogroup" aria-label="Company template">
+        {templates.map((t, i) => {
+          const m = TEMPLATE_META[t.id];
+          const active = i === safeIndex;
+          const isCyo = t.id === 'create-your-own';
+          return (
+            <button
+              key={t.id}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              className={cn('off-wiz-card off-focusable', active && 'is-active')}
+              style={active ? roleAccentStyle(m?.accentHex ?? UI_DATA_COLORS.blue2) : undefined}
+              disabled={busy}
+              onClick={() => setIndex(i)}
+            >
+              <span
+                className="off-wiz-card-ic"
+                style={roleAccentStyle(m?.accentHex ?? UI_DATA_COLORS.ink3)}
+              >
+                <Icon icon={m?.icon ?? Wrench} size="md" />
+              </span>
+              <span className="off-wiz-card-nm">{t.name}</span>
+              <span className="off-wiz-card-meta">
+                {isCyo ? 'Build in Studio' : `${t.employees.length} people`}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       <div className="off-wiz-body">
-        <div className="off-wiz-info">
-          <div className="off-wiz-info-h">
-            <div className="off-wiz-carousel">
-              <div className="off-wiz-carousel-row">
-                <button
-                  type="button"
-                  className="off-wiz-nav off-focusable"
-                  aria-label="Previous template"
-                  disabled={busy}
-                  onClick={() => move(-1)}
-                >
-                  <Icon icon={ChevronLeft} size="md" />
-                </button>
-                <div className="off-wiz-carousel-ctr">
-                  <span
-                    className="off-wiz-carousel-ic"
-                    style={roleAccentStyle(meta?.accentHex ?? UI_DATA_COLORS.ink3)}
-                  >
-                    <Icon icon={meta?.icon ?? Wrench} size="md" />
-                  </span>
-                  <span className="off-wiz-carousel-nm">{selected?.name}</span>
-                </div>
-                <button
-                  type="button"
-                  className="off-wiz-nav off-focusable"
-                  aria-label="Next template"
-                  disabled={busy}
-                  onClick={() => move(1)}
-                >
-                  <Icon icon={ChevronRight} size="md" />
-                </button>
-              </div>
-              <Tabs value={String(safeIndex)} onValueChange={(value) => setIndex(Number(value))}>
-                <TabsList className="off-wiz-dots" aria-label="Template pager">
-                  {templates.map((t, i) => {
-                    const active = i === safeIndex;
-                    const m = TEMPLATE_META[t.id];
-                    return (
-                      <TabsTrigger
-                        key={t.id}
-                        value={String(i)}
-                        aria-label={t.name}
-                        className={cn('off-wiz-dot off-focusable', active && 'is-active')}
-                        style={active ? { background: m?.accentHex ?? UI_DATA_COLORS.blue2 } : undefined}
-                        disabled={busy}
-                      />
-                    );
-                  })}
-                </TabsList>
-              </Tabs>
-            </div>
-
-            <div className="off-wiz-zonebox">
-              <div className="off-wiz-zonebox-l">Zones · {zones.length}</div>
-              <div className="off-wiz-zonebox-v">{zones.join(' • ')}</div>
-            </div>
-
-            {!isCustom && selected ? (
-              <div className="off-wiz-tabs">
-                <span className="off-wiz-tab is-on">Team · {selected.employees.length}</span>
-              </div>
-            ) : null}
-          </div>
-
-          <div className="off-wiz-info-b">
-            {isCustom ? (
-              <div className="off-wiz-cyo">
-                <span className="off-wiz-cyo-ic">
-                  <Icon icon={Wrench} size="md" />
-                </span>
-                <p>Design your office from scratch in the 3D Studio editor.</p>
-                <div className="off-wiz-cyo-caps">
-                  {(meta?.capabilities ?? []).map((c) => (
-                    <span key={c} className="off-wiz-cyo-cap">
-                      <span className="off-wiz-cyo-dot" />
-                      {c}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ) : selected ? (
-              selected.employees.map((e) => (
-                <EmployeeCard key={e.name} template={selected.id} employee={e} />
-              ))
-            ) : null}
-          </div>
-        </div>
-
         <div className="off-wiz-stage">
           <div className="off-wiz-stage-frame">
             {isCustom ? (
               <div className="off-wiz-studio-empty">
                 <Icon icon={Wrench} size="md" />
-                <p>Your custom office will be designed in the 3D Studio editor.</p>
+                <p>Opens in Studio after you create it.</p>
               </div>
             ) : selected ? (
               <TemplatePreview template={selected} accentHex={meta?.accentHex ?? UI_DATA_COLORS.blue3} />
             ) : null}
           </div>
+          {!isCustom && zones.length ? (
+            <div className="off-wiz-zonechips">
+              {zones.map((z) => (
+                <span key={z} className="off-wiz-zonechip">
+                  {z}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
+
+        <aside className="off-wiz-side">
+          {isCustom ? (
+            <div className="off-wiz-cyo">
+              <p>Build your office in the Studio editor.</p>
+              <div className="off-wiz-cyo-caps">
+                {(meta?.capabilities ?? []).map((c) => (
+                  <span key={c} className="off-wiz-cyo-cap">
+                    <span className="off-wiz-cyo-dot" />
+                    {c}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : selected ? (
+            <details className="off-wiz-team" open>
+              <summary>Team · {selected.employees.length}</summary>
+              <div className="off-wiz-team-list">
+                {selected.employees.map((e) => (
+                  <EmployeeCard key={e.name} template={selected.id} employee={e} />
+                ))}
+              </div>
+            </details>
+          ) : null}
+        </aside>
       </div>
 
       <div className="off-wiz-foot">
         {busy ? (
           <div className="off-wiz-building">
-            <div className="off-wiz-building-ln">
-              <Loader2 className="off-wiz-spin" size={18} />
-              {isCustom ? 'Preparing Studio workspace…' : 'Building your office…'}
-            </div>
-            <div className="off-wiz-building-sub">
-              {isCustom
-                ? 'Creating a real company record before Studio opens'
-                : 'Setting up employees, zones, and office layout'}
-            </div>
+            <Loader2 className="off-wiz-spin" size={18} />
+            Creating company…
           </div>
         ) : (
           <div className="off-wiz-foot-in">
@@ -325,9 +289,9 @@ export function CompanyCreationWizard({
                 Back
               </button>
             ) : null}
-            <div className={cn('off-wiz-fields', isCustom && 'off-wiz-fields-custom')}>
+            <div className="off-wiz-fields">
               <div className="off-wiz-name">
-                <label htmlFor="off-wiz-name">Company Name</label>
+                <label htmlFor="off-wiz-name">Company name</label>
                 <input
                   id="off-wiz-name"
                   placeholder="My AI Company"
@@ -337,11 +301,13 @@ export function CompanyCreationWizard({
                 />
               </div>
               <div className="off-wiz-desc">
-                <label htmlFor="off-wiz-desc">Description</label>
+                <label htmlFor="off-wiz-desc">
+                  Description <span className="off-wiz-opt">optional</span>
+                </label>
                 <Textarea
                   id="off-wiz-desc"
                   rows={2}
-                  placeholder="What does this company do? (optional)"
+                  placeholder="What does this company do?"
                   value={description}
                   disabled={busy}
                   onChange={(e) => setDescription(e.target.value)}
@@ -351,11 +317,7 @@ export function CompanyCreationWizard({
             </div>
             <button
               type="button"
-              className={cn(
-                'off-wiz-cta off-focusable',
-                isCustom && 'is-cyo',
-                !primaryDisabled && !busy && 'is-pulse',
-              )}
+              className="off-wiz-cta off-focusable"
               disabled={primaryDisabled || busy}
               onClick={() => void start()}
             >

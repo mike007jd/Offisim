@@ -10,8 +10,8 @@ const ZONE_TINTS = [
 ] as const;
 
 /** Portal office preview: a wide top-down SVG of the selected company's floor —
- *  24px grid + zones as accent-tinted rounded rects with caps labels + per-zone
- *  asset count + prefab instances as small dots. Mirrors the portal spec. */
+ *  24px grid + the company's real office zones as accent-tinted rounded rects
+ *  with caps labels. Renders an honest empty plate when no zones exist yet. */
 export function CompanyPortalPreview({
   company,
   brief,
@@ -30,13 +30,6 @@ export function CompanyPortalPreview({
     if (i === 2) return { name, accent, x: 40, y: 240, w: 300, h: 200 };
     return { name, accent, x: 360, y: 240, w: 320, h: 200 };
   });
-
-  // Distribute asset dots across the floor deterministically.
-  const dotCount = Math.min(brief.assetCount, 9);
-  const dots = Array.from({ length: dotCount }, (_, i) => ({
-    cx: 90 + ((i * 137) % 560),
-    cy: 90 + ((i * 211) % 300),
-  }));
 
   return (
     <svg
@@ -59,46 +52,36 @@ export function CompanyPortalPreview({
       </defs>
       <rect width={W} height={H} rx={14} fill="var(--off-surface-sunken)" />
       <rect width={W} height={H} rx={14} fill={`url(#${gridId})`} />
-      {zones.map((z, i) => {
-        const perZone = Math.max(1, Math.round(brief.assetCount / zones.length));
-        return (
-          <g key={z.name}>
-            <rect
-              x={z.x}
-              y={z.y}
-              width={z.w}
-              height={z.h}
-              rx={12}
-              fill={z.accent}
-              fillOpacity={0.12}
-              stroke={z.accent}
-              strokeOpacity={0.45}
-            />
-            <text x={z.x + 12} y={z.y + 22} fill={z.accent} fontSize={11} fontWeight={700}>
-              {z.name.toUpperCase()}
-            </text>
-            <text
-              x={z.x + z.w - 12}
-              y={z.y + 22}
-              fill="var(--off-ink-4)"
-              fontSize={10}
-              textAnchor="end"
-            >
-              {perZone + (i % 3)} assets
-            </text>
-          </g>
-        );
-      })}
-      {dots.map((d) => (
-        <circle
-          key={`${d.cx}-${d.cy}`}
-          cx={d.cx}
-          cy={d.cy}
-          r={4.5}
-          fill="var(--off-surface-1)"
-          opacity={0.9}
-        />
+      {zones.map((z) => (
+        <g key={z.name}>
+          <rect
+            x={z.x}
+            y={z.y}
+            width={z.w}
+            height={z.h}
+            rx={12}
+            fill={z.accent}
+            fillOpacity={0.12}
+            stroke={z.accent}
+            strokeOpacity={0.45}
+          />
+          <text x={z.x + 12} y={z.y + 22} fill={z.accent} fontSize={11} fontWeight={700}>
+            {z.name.toUpperCase()}
+          </text>
+        </g>
       ))}
+      {zones.length === 0 ? (
+        <text
+          x={W / 2}
+          y={H / 2}
+          fill="var(--off-ink-4)"
+          fontSize={13}
+          textAnchor="middle"
+          dominantBaseline="middle"
+        >
+          No office layout yet
+        </text>
+      ) : null}
     </svg>
   );
 }

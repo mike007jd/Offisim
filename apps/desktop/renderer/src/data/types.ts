@@ -18,6 +18,8 @@ export interface Company {
   initials: string;
   accentA: string;
   accentB: string;
+  /** Real template label chosen at creation (e.g. "R&D Company"), or "Custom". */
+  templateLabel: string;
 }
 
 export interface Project {

@@ -23,6 +23,7 @@ export const companies: Company[] = [
     initials: 'NW',
     accentA: UI_DATA_COLORS.blue4,
     accentB: UI_DATA_COLORS.blue5,
+    templateLabel: 'Content Studio',
   },
   {
     id: 'co-atlas',
@@ -30,6 +31,7 @@ export const companies: Company[] = [
     initials: 'AR',
     accentA: UI_DATA_COLORS.violet,
     accentB: UI_DATA_COLORS.violet2,
+    templateLabel: 'AI Startup',
   },
   {
     id: 'co-harbor',
@@ -37,6 +39,7 @@ export const companies: Company[] = [
     initials: 'HF',
     accentA: UI_DATA_COLORS.green,
     accentB: UI_DATA_COLORS.green2,
+    templateLabel: 'Agency Lite',
   },
 ];
 

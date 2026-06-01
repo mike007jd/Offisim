@@ -2,13 +2,14 @@ import { useUiState } from '@/app/ui-state.js';
 import {
   useCompanies,
   useCompanyEmployees,
+  useOfficeLayout,
   useProjects,
   useUpdateCompany,
 } from '@/data/queries.js';
 import type { Company, Employee } from '@/data/types.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
-import { Archive, ArrowRight, Building2, FolderPlus, Layers, Pencil, Users } from 'lucide-react';
+import { Archive, ArrowRight, Building2, FolderPlus, Pencil } from 'lucide-react';
 import { motion } from 'motion/react';
 import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
@@ -65,7 +66,7 @@ export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps
           if (result.persisted) {
             toast.success('Company renamed');
           } else {
-            toast.error('Company rename requires the release desktop app');
+            toast.error("Can't save in this build.");
           }
         },
         onError: () => {
@@ -97,7 +98,7 @@ export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps
               description: `${company.name} left the active list.`,
             });
           } else {
-            toast.error('Company archive requires the release desktop app');
+            toast.error("Can't save in this build.");
           }
         },
         onError: () => {
@@ -116,10 +117,7 @@ export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps
     >
       <aside className="off-csp-aside">
         <div className="off-csp-aside-h">
-          <div>
-            <div className="off-csp-label">Companies</div>
-            <div className="off-csp-aside-ttl">Portal</div>
-          </div>
+          <div className="off-csp-aside-ttl">Companies</div>
           <button type="button" className="off-csp-new off-focusable" onClick={onNewCompany}>
             <Icon icon={FolderPlus} size="sm" />
             New
@@ -127,11 +125,16 @@ export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps
         </div>
 
         {visible.length === 0 ? (
-          <div className="off-csp-empty">No companies yet. Create one to start building.</div>
+          <div className="off-csp-empty">
+            <p className="off-csp-empty-msg">No companies yet.</p>
+            <button type="button" className="off-csp-empty-cta off-focusable" onClick={onNewCompany}>
+              <Icon icon={FolderPlus} size="sm" />
+              Create company
+            </button>
+          </div>
         ) : (
           <div className="off-csp-list">
             {visible.map((company) => {
-              const brief = companyBrief(company);
               const isSel = company.id === selectedId;
               const isActive = company.id === activeCompanyId;
               const isRenaming = renamingId === company.id;
@@ -159,7 +162,7 @@ export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps
                         onClick={() => setPreviewId(company.id)}
                       >
                         <span className="off-csp-row-name">{company.name}</span>
-                        <span className="off-csp-row-tpl">{brief.templateLabel}</span>
+                        <span className="off-csp-row-tpl">{company.templateLabel}</span>
                         {isActive ? (
                           <span className="off-csp-active">
                             <span className="off-csp-active-dot" />
@@ -184,16 +187,6 @@ export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps
                       </div>
                     ) : null}
                   </div>
-                  <div className="off-csp-row-stats">
-                    <span>
-                      <Icon icon={Users} size="sm" />
-                      {brief.employeeCount}
-                    </span>
-                    <span>
-                      <Icon icon={Layers} size="sm" />
-                      {brief.projectCount}
-                    </span>
-                  </div>
                 </div>
               );
             })}
@@ -210,9 +203,7 @@ export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps
             onArchive={() => archiveCompany(selected)}
           />
         ) : (
-          <div className="off-csp-no-sel">
-            Pick a company on the left to inspect its layout, or create a new company.
-          </div>
+          <div className="off-csp-no-sel">Select a company, or create one.</div>
         )}
       </main>
     </motion.div>
@@ -232,64 +223,63 @@ function SelectedCompany({
 }) {
   const employeesQuery = useCompanyEmployees(company.id);
   const projectsQuery = useProjects(company.id);
+  const layoutQuery = useOfficeLayout(company.id);
+  const zoneNames = (layoutQuery.data?.zones ?? []).map((zone) => zone.label);
   const brief = companyBrief(company, {
     employeeCount: employeesQuery.data?.length,
     projectCount: projectsQuery.data?.length,
+    zoneNames,
   });
   const roster = employeesQuery.data ?? [];
 
   return (
-    <>
-      <section className="off-csp-prev-wrap">
-        <div className="off-csp-prev-h">
-          <div className="off-csp-label">Preview</div>
-          <div className="off-csp-prev-ttl">{company.name}</div>
-        </div>
-        <div className="off-csp-prev">
-          <CompanyPortalPreview company={company} brief={brief} />
-        </div>
-      </section>
-
-      <aside className="off-csp-brief">
-        <div className="off-csp-label">Company Brief</div>
-        <div className="off-csp-brief-id">
+    <div className="off-csp-detail">
+      {/* Hero: the company identity + the primary "Enter" action lead the column. */}
+      <header className="off-csp-hero">
+        <div className="off-csp-hero-id">
           <span className="off-csp-brief-ic">
             <Icon icon={Building2} size="md" />
           </span>
           <div className="off-csp-brief-copy">
             <div className="off-csp-brief-nm">{company.name}</div>
-            <div className="off-csp-brief-tp">{brief.templateLabel}</div>
+            <div className="off-csp-brief-tp">{company.templateLabel}</div>
           </div>
         </div>
-        <div className="off-csp-stats">
-          <Stat label="Employees" value={brief.employeeCount} />
-          <Stat label="Projects" value={brief.projectCount} />
-          <Stat label="Zones" value={brief.zoneCount} />
-          <Stat label="Assets" value={brief.assetCount} />
+        <button type="button" className="off-csp-cta off-focusable" onClick={onEnter}>
+          Enter company
+          <Icon icon={ArrowRight} size="sm" />
+        </button>
+      </header>
+
+      <div className="off-csp-stats">
+        <Stat label="Employees" value={brief.employeeCount} />
+        <Stat label="Projects" value={brief.projectCount} />
+        <Stat label="Zones" value={brief.zoneCount} />
+      </div>
+
+      <section className="off-csp-prev-wrap">
+        <div className="off-csp-label">Floor plan</div>
+        <div className="off-csp-prev">
+          <CompanyPortalPreview company={company} brief={brief} />
         </div>
-        <div className="off-csp-updated">{brief.updatedLabel}</div>
-        <CompanyRoster employees={roster} />
-        <div className="off-csp-acts">
-          <button type="button" className="off-csp-cta off-focusable" onClick={onEnter}>
-            Enter Company
-            <Icon icon={ArrowRight} size="sm" />
-          </button>
-          <button
-            type="button"
-            className={cn('off-csp-arch off-focusable', confirmArchive && 'is-armed')}
-            onClick={onArchive}
-          >
-            <Icon icon={Archive} size="sm" />
-            {confirmArchive ? 'Confirm Archive' : 'Archive Company'}
-          </button>
-          {confirmArchive ? (
-            <div className="off-csp-arch-warn">
-              Archive {company.name}? The company will be removed from the active list.
-            </div>
-          ) : null}
-        </div>
-      </aside>
-    </>
+      </section>
+
+      <CompanyRoster employees={roster} />
+
+      <div className="off-csp-acts">
+        <button
+          type="button"
+          className={cn('off-csp-arch off-focusable', confirmArchive && 'is-armed')}
+          onClick={onArchive}
+        >
+          <Icon icon={Archive} size="sm" />
+          {confirmArchive ? 'Archive (again to confirm)' : 'Archive'}
+        </button>
+        {confirmArchive ? (
+          <div className="off-csp-arch-warn">Remove {company.name} from the active list?</div>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
