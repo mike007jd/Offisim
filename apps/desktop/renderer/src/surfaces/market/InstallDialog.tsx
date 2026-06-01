@@ -22,7 +22,7 @@ import {
   Shield,
   XCircle,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useLayoutEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import type { BindingSlot, InstallBindingValues, MarketListing } from './market-data.js';
@@ -47,14 +47,29 @@ export function InstallDialog({ listing, open, onOpenChange, onInstall }: Instal
   const [bindingValues, setBindingValues] = useState<InstallBindingValues>({});
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Reset the flow each time the dialog opens for a fresh listing.
-  useEffect(() => {
-    if (open) {
+  // Risk-adaptive entry: a package that requests no filesystem/network/secrets
+  // access, no MCP servers, and has no bindings installs in one step (straight
+  // to installing). Listings with bindings (but no sensitive perms) jump to
+  // Configure; only sensitive permissions surface the full Review screen.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: startInstall reads the current listing via closure; re-run only when the dialog opens for a listing.
+  useLayoutEffect(() => {
+    if (!open || !listing) return;
+    setBindingValues({});
+    setErrorMessage('');
+    const perms = listing.permissions;
+    const hasSensitive =
+      perms.filesystem !== 'none' ||
+      perms.network !== 'none' ||
+      perms.secrets !== 'none' ||
+      listing.requirements.mcps.length > 0;
+    if (hasSensitive) {
       setStep('review');
-      setBindingValues({});
-      setErrorMessage('');
+    } else if (listing.bindings.length > 0) {
+      setStep('configure');
+    } else {
+      void startInstall({});
     }
-  }, [open]);
+  }, [open, listing]);
 
   if (!listing) return null;
 
@@ -62,9 +77,7 @@ export function InstallDialog({ listing, open, onOpenChange, onInstall }: Instal
     if (!listing) return;
     setBindingValues(values);
     if (!listing.installArtifactUrl || !onInstall) {
-      setErrorMessage(
-        'Signed artifact not supplied. Install is locked until the registry provides a verified package artifact for this listing.',
-      );
+      setErrorMessage('Not available to install yet.');
       setStep('error');
       return;
     }
@@ -138,8 +151,8 @@ function ReviewStep({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Review Package</DialogTitle>
-        <DialogDescription>Review the package details before installing.</DialogDescription>
+        <DialogTitle>Install {listing.name}?</DialogTitle>
+        <DialogDescription>Review what it can access before installing.</DialogDescription>
       </DialogHeader>
       <div className="off-mkt-dlg-body">
         <div className="off-mkt-rv-top">
@@ -178,7 +191,7 @@ function ReviewStep({
             ))}
             <div className="off-alert is-warn">
               <Icon icon={AlertTriangle} size="sm" />
-              <span>Configure these MCP servers in your local runtime before installing.</span>
+              <span>Set up these MCP servers first.</span>
             </div>
           </div>
         ) : null}
@@ -203,7 +216,7 @@ function ReviewStep({
           Cancel
         </Button>
         <Button size="md" onClick={onContinue}>
-          Approve &amp; Continue
+          {listing.bindings.length > 0 ? 'Configure' : 'Install'}
         </Button>
       </DialogFooterRow>
     </>
@@ -240,9 +253,7 @@ function ConfigureStep({
     <>
       <DialogHeader>
         <DialogTitle>Configure Bindings</DialogTitle>
-        <DialogDescription>
-          Choose runtime profile IDs for each role. Optional bindings can be skipped.
-        </DialogDescription>
+        <DialogDescription>Assign a model profile to each role.</DialogDescription>
       </DialogHeader>
       <form onSubmit={submit} className="off-mkt-dlg-body">
         {bindings.map((b) => {
@@ -325,7 +336,7 @@ function DoneStep({ onClose }: { onClose: () => void }) {
     <div className="off-mkt-result">
       <Icon icon={CheckCircle2} size="md" className="off-mkt-result-ok" />
       <div className="off-mkt-result-t">Installation Complete</div>
-      <div className="off-mkt-result-d">Package installed and persisted.</div>
+      <div className="off-mkt-result-d">Installed.</div>
       <Button size="md" onClick={onClose}>
         Close
       </Button>
