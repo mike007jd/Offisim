@@ -75,7 +75,6 @@ export function ChatRail() {
           scope={activeThread?.scope ?? 'team'}
           employeeId={activeThread?.employeeId ?? null}
           projectName={projectName}
-          attachmentsAvailable={deliverables.data?.length ?? 0}
         />
       )}
     </section>

@@ -211,7 +211,6 @@ function EmployeeDockPopover({
           <Icon icon={UserRound} size="sm" />
           Profile
         </Button>
-        <span className="off-team-pop-state">Delegation waits for runtime dispatch</span>
         <Button size="sm" variant="subtle" disabled={toggling} onClick={onToggleEnabled}>
           <Icon icon={Power} size="sm" />
           {employee.disabled ? 'Enable' : 'Disable'}

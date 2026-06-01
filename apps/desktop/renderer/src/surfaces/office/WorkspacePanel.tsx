@@ -268,11 +268,6 @@ function GitTab({ workbench }: { workbench: GitWorkbench }) {
           </span>
         ))}
       </div>
-
-      <div className="off-gw-actions">
-        <span className="off-gw-action-state">Commit flow pending reviewed message workflow</span>
-        <span className="off-gw-action-state">PR flow pending Git provider binding</span>
-      </div>
     </div>
   );
 }

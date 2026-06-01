@@ -31,20 +31,20 @@ export function ChatErrorBanner() {
           <Icon icon={X} size="sm" />
         </button>
       </div>
-      <div className="off-errbanner-actions">
-        <span className="off-errbanner-act is-state">Redispatch pending</span>
-        <span className="off-errbanner-act is-state">Swap pending</span>
-        <button
-          type="button"
-          className="off-errbanner-act is-ghost off-focusable"
-          aria-expanded={showDetails}
-          onClick={() => setShowDetails((v) => !v)}
-        >
-          Details
-          <Icon icon={ChevronDown} size="sm" />
-        </button>
-      </div>
-      {showDetails ? (
+      {error.technicalDetail ? (
+        <div className="off-errbanner-actions">
+          <button
+            type="button"
+            className="off-errbanner-act is-ghost off-focusable"
+            aria-expanded={showDetails}
+            onClick={() => setShowDetails((v) => !v)}
+          >
+            Details
+            <Icon icon={ChevronDown} size="sm" />
+          </button>
+        </div>
+      ) : null}
+      {showDetails && error.technicalDetail ? (
         <div className="off-errbanner-details">
           <p className="off-errbanner-tech">{error.technicalDetail}</p>
         </div>

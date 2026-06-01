@@ -109,12 +109,12 @@ function seedPipeline(): RunPipeline {
 
 /** Seed an error banner for a thread persisted in the `error` state. The prior
  *  failure detail is not persisted per-thread, so this is an honest generic
- *  banner (no fabricated transport/auth specifics) until the run is retried. */
+ *  banner (no fabricated transport/auth specifics, no Details) until retried. */
 function seedError(): RunError {
   return {
     id: 'thread-error',
-    message: 'The previous run on this conversation ended in an error.',
-    technicalDetail: 'No detail was captured for the prior failure.',
+    message: 'Last run failed.',
+    technicalDetail: '',
   };
 }
 

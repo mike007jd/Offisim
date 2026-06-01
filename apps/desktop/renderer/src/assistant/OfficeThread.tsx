@@ -45,16 +45,9 @@ interface OfficeThreadProps {
   /** Employee holding this conversation's run (direct thread), shown on the pill. */
   employeeId: string | null;
   projectName: string;
-  attachmentsAvailable: number;
 }
 
-function OfficeComposer({
-  projectName,
-  attachmentsAvailable,
-}: {
-  projectName: string;
-  attachmentsAvailable: number;
-}) {
+function OfficeComposer({ projectName }: { projectName: string }) {
   const stageFiles = useRunStore((s) => s.stageFiles);
   const storageAvailable = useRunStore((s) => s.storageAvailable);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -160,14 +153,12 @@ function OfficeComposer({
     >
       <ComposerPrimitive.Input
         className="off-composer-input"
-        placeholder="Message the team — / for commands, @ to mention, Enter to send"
+        placeholder="Message the team"
         rows={1}
         submitOnEnter
       />
       <div className="off-ccs">
         <span className="off-ccs-project">{projectName}</span>
-        <span className="off-ccs-dot" />
-        <span className="off-ccs-att">{attachmentsAvailable} attachments available</span>
       </div>
       <StagedAttachments />
       <div className="off-composer-tools">
@@ -214,7 +205,6 @@ export function OfficeThread({
   scope,
   employeeId,
   projectName,
-  attachmentsAvailable,
 }: OfficeThreadProps) {
   const runtime = useOfficeRuntime({
     threadId,
@@ -276,10 +266,7 @@ export function OfficeThread({
             <ConvOutputs deliverables={deliverables} employeesById={employeesById} />
           </div>
         ) : null}
-        <OfficeComposer
-          projectName={projectName}
-          attachmentsAvailable={attachmentsAvailable}
-        />
+        <OfficeComposer projectName={projectName} />
       </ThreadPrimitive.Root>
     </AssistantRuntimeProvider>
   );

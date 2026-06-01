@@ -85,11 +85,11 @@ function DeliverableCard({
   const extension = TEXT_OUTPUT_EXTENSIONS[format] ?? null;
   const exportableBody = extension && deliverable.preview?.trim() ? deliverable.preview : null;
   const disabledReason = !isTauriRuntime()
-    ? 'Local output actions require the desktop runtime'
+    ? 'Saving needs the desktop app'
     : !projectId || !workspaceBound
-      ? 'Bind a project workspace folder to save outputs'
+      ? 'Bind a workspace folder first'
       : !exportableBody
-        ? 'This output has no text-backed local artifact body'
+        ? 'No text to save'
         : null;
 
   function outputFileName() {
@@ -218,7 +218,6 @@ export function ConvOutputs({ deliverables, employeesById }: ConvOutputsProps) {
           <div className="off-rail-sec-head">
             Outputs
             <span className="off-rail-sec-count">{deliverables.length}</span>
-            <span className="off-rail-sec-note">Runtime artifacts</span>
           </div>
           {deliverables.map((deliverable) => (
             <DeliverableCard
