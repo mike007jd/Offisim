@@ -24,7 +24,6 @@ import {
   EXECUTION_LANE_OPTIONS,
   PRODUCT_OPTIONS,
   PROVIDER_CONFIGS,
-  PROVIDER_HEALTH_LABELS,
   PROVIDER_VARIANT_OPTIONS,
   type ProviderConfig,
   type ProviderFormValues,
@@ -36,11 +35,6 @@ interface ProviderPaneProps {
   form: UseFormReturn<ProviderFormValues>;
   activeConfigId: string;
   onSelectConfig: (config: ProviderConfig) => void;
-}
-
-function healthTone(health: ProviderConfig['health']) {
-  if (health === 'active' || health === 'reachable') return 'ok' as const;
-  return 'muted' as const;
 }
 
 function runtimeProfileMatches(config: ProviderConfig, displayName: string): boolean {
@@ -331,34 +325,34 @@ export function ProviderPane({ form, activeConfigId, onSelectConfig }: ProviderP
       </section>
 
       {/* Configurations — switch the active provider */}
-      <section className="off-set-sec">
-        <div className="off-set-sec-head">
-          <CapsLabel>Configurations</CapsLabel>
-        </div>
-        <CardBlock>
-          <div className="off-set-pv-grid">
-            {configs.map((config) => (
-              <button
-                key={config.id}
-                type="button"
-                className={`off-set-pv-mini off-focusable${config.id === activeConfigId ? ' is-active' : ''}`}
-                onClick={() => onSelectConfig(config)}
-              >
-                <span className="off-set-pm-logo" style={providerLogoStyle(config)}>
-                  {config.logoMark}
-                </span>
-                <span className="min-w-0 text-left">
-                  <span className="off-set-pm-name">{config.displayName}</span>
-                  <span className="off-set-pm-sub">{config.subtitle}</span>
-                </span>
-                <StatusPill tone={healthTone(config.health)}>
-                  {PROVIDER_HEALTH_LABELS[config.health]}
-                </StatusPill>
-              </button>
-            ))}
+      {configs.length > 1 ? (
+        <section className="off-set-sec">
+          <div className="off-set-sec-head">
+            <CapsLabel>Configurations</CapsLabel>
           </div>
-        </CardBlock>
-      </section>
+          <CardBlock>
+            <FieldRow
+              label="Active configuration"
+              hint="Switch which provider profile you're editing."
+            >
+              {({ id }) => (
+                <Select
+                  id={id}
+                  options={configs.map((config) => ({
+                    value: config.id,
+                    label: `${config.displayName} · ${config.model}`,
+                  }))}
+                  value={activeConfigId}
+                  onChange={(event) => {
+                    const next = configs.find((config) => config.id === event.target.value);
+                    if (next) onSelectConfig(next);
+                  }}
+                />
+              )}
+            </FieldRow>
+          </CardBlock>
+        </section>
+      ) : null}
 
       {/* Advanced */}
       <section className="off-set-sec">

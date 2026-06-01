@@ -17,7 +17,6 @@ import {
   ChevronRight,
   Download,
   FolderOpen,
-  Info,
   Monitor,
   Moon,
   Package,
@@ -32,11 +31,11 @@ import {
   type DensityValue,
   ENABLED_OPTIONS,
   EXECUTION_MODE_OPTIONS,
-  RUNTIME_BINDING_OPTIONS,
-  type RuntimeBindingValue,
   type RuntimeFormValues,
   type ThemeValue,
 } from './settings-data.js';
+
+type EmployeeRuntimeValue = 'gateway' | 'claude' | 'codex';
 
 interface RuntimeVaultStatus {
   readonly path: string;
@@ -101,7 +100,7 @@ export function RuntimePane({
   onThemeChange,
   onDensityChange,
 }: RuntimePaneProps) {
-  const binding = form.watch('runtimeBinding') as RuntimeBindingValue;
+  const defaultRuntime = form.watch('defaultRuntime') as EmployeeRuntimeValue;
   const sceneDropDiagnostics = useUiState((s) => s.sceneDropDiagnostics);
   const errors = form.formState.errors;
   const [openingVault, setOpeningVault] = useState(false);
@@ -241,15 +240,34 @@ export function RuntimePane({
                 <Select id={id} options={ENABLED_OPTIONS} {...form.register('gitAutoCommit')} />
               )}
             </FieldRow>
-            <FieldRow className="off-set-span-2" label="Default employee runtime">
-              {({ id }) => (
-                <Select
-                  id={id}
-                  options={DEFAULT_RUNTIME_OPTIONS}
-                  {...form.register('defaultRuntime')}
-                />
-              )}
-            </FieldRow>
+          </div>
+          <div className="off-field mt-[var(--off-sp-6)]">
+            <span className="off-field-label">Default employee runtime</span>
+            <SegmentedControl<EmployeeRuntimeValue>
+              wrap
+              value={defaultRuntime}
+              onChange={(value) => {
+                form.setValue('defaultRuntime', value, { shouldDirty: true });
+                form.setValue('runtimeBinding', value, { shouldDirty: true });
+              }}
+              ariaLabel="Default employee runtime"
+              options={[
+                { value: 'gateway', label: 'Offisim core', icon: <Icon icon={Zap} size="sm" /> },
+                { value: 'claude', label: 'Verified driver' },
+                { value: 'codex', label: 'Isolated driver' },
+              ]}
+            />
+            <div className="off-set-rbc-resolved">
+              Resolved:{' '}
+              <b>
+                {DEFAULT_RUNTIME_OPTIONS.find((o) => o.value === defaultRuntime)?.label ??
+                  'Offisim core (gateway)'}
+              </b>
+            </div>
+            <span className="off-field-hint">
+              The runtime employees use unless a company overrides it. Verified and Isolated
+              drivers require a release build.
+            </span>
           </div>
         </CardBlock>
       </section>
@@ -259,48 +277,6 @@ export function RuntimePane({
         <div className="off-set-sec-head">
           <CapsLabel>Advanced</CapsLabel>
         </div>
-
-        <details className="off-set-disclosure">
-          <summary>
-            <span className="off-set-chev">
-              <Icon icon={ChevronRight} size="sm" />
-            </span>
-            Runtime binding
-          </summary>
-          <div className="off-set-disclosure-body">
-            <div className="off-set-rbc">
-              <SegmentedControl<RuntimeBindingValue>
-                wrap
-                value={binding}
-                onChange={(value) =>
-                  form.setValue('runtimeBinding', value, { shouldDirty: true })
-                }
-                ariaLabel="Runtime binding"
-                options={[
-                  { value: 'inherit', label: 'Inherit' },
-                  {
-                    value: 'gateway',
-                    label: 'Provider gateway',
-                    icon: <Icon icon={Zap} size="sm" />,
-                  },
-                  { value: 'claude', label: 'Verified driver' },
-                  { value: 'codex', label: 'Isolated driver' },
-                ]}
-              />
-              <div className="off-set-rbc-resolved">
-                Resolved:{' '}
-                <b>
-                  {RUNTIME_BINDING_OPTIONS.find((o) => o.value === binding)?.label ?? 'Inherit'}
-                </b>
-                <span className="off-set-rbc-source">· source: company override</span>
-              </div>
-              <div className="off-set-callout is-muted">
-                <Icon icon={Info} size="sm" />
-                Verified and Isolated drivers require a release build.
-              </div>
-            </div>
-          </div>
-        </details>
 
         <details className="off-set-disclosure">
           <summary>
