@@ -1938,12 +1938,35 @@
 }
 
 .off-ws-wp-sec-h {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--off-sp-3);
   font-size: var(--off-fs-micro);
   letter-spacing: 0;
   font-weight: 700;
   color: var(--off-ink-3);
   text-transform: uppercase;
   margin: var(--off-sp-6) 0 var(--off-sp-4);
+}
+
+.off-ws-wp-seeall {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--off-accent);
+  font-size: var(--off-fs-micro);
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+
+.off-ws-wp-recent-empty {
+  font-size: var(--off-fs-sm);
+  color: var(--off-ink-4);
 }
 
 .off-ws-wp-tiles {
