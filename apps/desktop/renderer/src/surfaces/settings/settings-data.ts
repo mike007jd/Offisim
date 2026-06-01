@@ -361,23 +361,6 @@ export const RUNTIME_BINDING_OPTIONS = [
 ] as const;
 export type RuntimeBindingValue = (typeof RUNTIME_BINDING_OPTIONS)[number]['value'];
 
-export interface HarnessControl {
-  readonly defaultOwner: string;
-  readonly verifiedProfiles: number;
-  readonly replacementMode: string;
-  readonly profiles: ReadonlyArray<{ name: string; verified: boolean; note: string }>;
-}
-
-export const HARNESS_CONTROL: HarnessControl = {
-  defaultOwner: 'Offisim core',
-  verifiedProfiles: 1,
-  replacementMode: 'Needs release proof',
-  profiles: [
-    { name: 'gateway-driver', verified: true, note: 'Verified' },
-    { name: 'full-agent-driver', verified: false, note: 'Needs proof' },
-  ],
-};
-
 export const runtimeFormSchema = z.object({
   executionMode: z.string().min(1),
   toolSearch: z.string().min(1),

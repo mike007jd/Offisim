@@ -21,7 +21,6 @@ import {
   type DensityValue,
   ENABLED_OPTIONS,
   EXECUTION_MODE_OPTIONS,
-  HARNESS_CONTROL,
   RUNTIME_BINDING_OPTIONS,
   type RuntimeBindingValue,
   type RuntimeFormValues,
@@ -161,9 +160,7 @@ export function RuntimePane({
     <div className="off-set-pane">
       <div className="off-set-panehead">
         <div className="off-set-panetitle">Runtime</div>
-        <div className="off-set-panedesc">
-          Runtime defaults, appearance, memory, and local vault.
-        </div>
+        <div className="off-set-panedesc">Appearance and how employees run.</div>
       </div>
 
       {/* Runtime defaults */}
@@ -250,44 +247,6 @@ export function RuntimePane({
         </CardBlock>
       </section>
 
-      {/* Main harness control */}
-      <section className="off-set-sec">
-        <div className="off-set-sec-head">
-          <div>
-            <CapsLabel>Main harness control</CapsLabel>
-            <div className="off-set-sec-hint">
-              Top-level runtime ownership and release gate state.
-            </div>
-          </div>
-        </div>
-        <CardBlock>
-          <div className="off-set-stat-grid">
-            <div className="off-set-stat-card">
-              <div className="off-set-stat-k">Default owner</div>
-              <div className="off-set-stat-v">{HARNESS_CONTROL.defaultOwner}</div>
-            </div>
-            <div className="off-set-stat-card">
-              <div className="off-set-stat-k">Driver profiles</div>
-              <div className="off-set-stat-v">{HARNESS_CONTROL.verifiedProfiles} verified</div>
-            </div>
-            <div className="off-set-stat-card is-warn">
-              <div className="off-set-stat-k">Replacement mode</div>
-              <div className="off-set-stat-v">{HARNESS_CONTROL.replacementMode}</div>
-            </div>
-          </div>
-          <div className="mt-[var(--off-sp-4)]">
-            {HARNESS_CONTROL.profiles.map((profile) => (
-              <div key={profile.name} className="off-set-profile-row">
-                <span className="off-set-pr-name">{profile.name}</span>
-                <span className={profile.verified ? 'off-set-pr-ok' : 'off-set-pr-no'}>
-                  {profile.note}
-                </span>
-              </div>
-            ))}
-          </div>
-        </CardBlock>
-      </section>
-
       {/* Runtime binding control */}
       <section className="off-set-sec">
         <div className="off-set-sec-head">
@@ -318,7 +277,7 @@ export function RuntimePane({
             </div>
             <div className="off-set-callout is-muted">
               <Icon icon={Info} size="sm" />
-              Non-gateway drivers stay gated until Main harness control shows verified proof.
+              Verified and Isolated drivers require a release build.
             </div>
           </div>
         </CardBlock>
@@ -429,7 +388,7 @@ export function RuntimePane({
                 Local vault <span className="off-set-mode-tag">Desktop</span>
               </div>
               <div className="off-set-vault-sub">
-                Desktop mirrors employee markdown into Offisim's local vault folder automatically.
+                Employee files are mirrored to a local folder.
               </div>
             </div>
           </div>
@@ -514,8 +473,7 @@ export function RuntimePane({
           <div>
             <CapsLabel>2D scene diagnostics</CapsLabel>
             <div className="off-set-sec-hint">
-              Export the last 10 employee→zone drag attempts (PointerEvent stream, hit results, drop
-              decision) as JSON for incident debugging.
+              Export recent drag-and-drop events as JSON for support.
             </div>
           </div>
           <Button
