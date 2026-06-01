@@ -68,6 +68,7 @@ export function useOfficeRuntime({
   const startRun = useRunStore((s) => s.start);
   const finishRun = useRunStore((s) => s.finish);
   const stop = useRunStore((s) => s.stop);
+  const setStopHandler = useRunStore((s) => s.setStopHandler);
   const setRunError = useRunStore((s) => s.setError);
   const staged = useRunStore((s) => s.staged);
   const clearStaged = useRunStore((s) => s.clearStaged);
@@ -204,6 +205,15 @@ export function useOfficeRuntime({
     }
     stop();
   }, [stop]);
+
+  // Expose the real provider abort to the out-of-tree stage pill: register
+  // onCancel as the store's stop handler while this runtime is mounted, so the
+  // diegetic Stop control performs the same AbortController + llm_fetch_abort
+  // cancel as the composer's own Stop. Cleared on unmount.
+  useEffect(() => {
+    setStopHandler(onCancel);
+    return () => setStopHandler(null);
+  }, [onCancel, setStopHandler]);
 
   // F/I4: ChatRail mounts OfficeThread with `key={selectedThreadId}`, so
   // switching threads (or list <-> thread) unmounts this runtime. Without

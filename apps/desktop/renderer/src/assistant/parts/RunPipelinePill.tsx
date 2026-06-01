@@ -7,13 +7,14 @@ import { useRunStore } from '../run-store.js';
 
 /**
  * The diegetic run-status pill floating on the Office stage while a run is active:
- * the work title, who holds it, a step progress bar, the 5-stage ceremony, and
- * the stop affordance. Losing this bar is the prototype's documented rev-risk;
- * stage-level stop stays read-only until provider abort support is available.
+ * the work title, who holds it, a step progress bar, the 5-stage ceremony, and a
+ * real Stop control that routes through the run store into the active runtime's
+ * provider abort (AbortController + llm_fetch_abort).
  */
 export function RunPipelinePill() {
   const isRunning = useRunStore((s) => s.isRunning);
   const pipeline = useRunStore((s) => s.pipeline);
+  const requestStop = useRunStore((s) => s.requestStop);
   const employees = useEmployees();
 
   const assignee = useMemo(
@@ -56,7 +57,9 @@ export function RunPipelinePill() {
         </span>
       </span>
       <Progress className="off-pipe-progress" value={progressValue} aria-label="Run progress" />
-      <span className="off-pipe-stop is-state">Abort pending</span>
+      <button type="button" className="off-pipe-stop off-focusable" onClick={requestStop}>
+        Stop
+      </button>
     </div>
   );
 }

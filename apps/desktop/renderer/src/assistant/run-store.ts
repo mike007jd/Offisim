@@ -62,6 +62,21 @@ interface RunStore {
   finish: () => void;
   /** Stop the live run (assistant-ui Cancel). */
   stop: () => void;
+  /**
+   * Real provider-abort handler registered by the active thread's runtime
+   * (AbortController + llm_fetch_abort). The stage pill lives outside the
+   * runtime tree, so it requests a stop through the store rather than holding
+   * the handler directly. Null when no run is mounted.
+   */
+  stopHandler: (() => void) | null;
+  /** Register (or clear) the active runtime's real abort handler. */
+  setStopHandler: (handler: (() => void) | null) => void;
+  /**
+   * Request a stop from outside the runtime (the diegetic stage pill). Invokes
+   * the registered runtime abort when present; otherwise flips the local
+   * running flag so the control is never inert.
+   */
+  requestStop: () => void;
   /** Surface a real run failure into the in-thread error banner. */
   setError: (error: RunError) => void;
   /** Clear the error banner. */
@@ -111,6 +126,7 @@ export const useRunStore = create<RunStore>((set, get) => ({
   meeting: null,
   staged: [],
   storageAvailable: true,
+  stopHandler: null,
 
   syncThread: (threadId, runState) => {
     const running = runState === 'running' || runState === 'paused';
@@ -153,6 +169,18 @@ export const useRunStore = create<RunStore>((set, get) => ({
 
   stop: () => {
     set({ isRunning: false });
+  },
+
+  setStopHandler: (stopHandler) => set({ stopHandler }),
+
+  requestStop: () => {
+    const handler = get().stopHandler;
+    if (handler) {
+      // The runtime's onCancel performs the real abort and calls stop() itself.
+      handler();
+    } else {
+      set({ isRunning: false });
+    }
   },
 
   setError: (error) => set({ error }),

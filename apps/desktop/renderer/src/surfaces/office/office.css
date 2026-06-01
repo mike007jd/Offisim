@@ -1370,23 +1370,18 @@
   align-items: center;
   gap: 5px;
   height: 26px;
-  padding: 0 var(--off-sp-3);
+  padding: 0 var(--off-sp-4);
   border: 1px solid var(--off-danger);
   border-radius: var(--off-r-pill);
   background: var(--off-danger-surface);
   color: var(--off-danger);
   font-size: var(--off-fs-micro);
   font-weight: 680;
+  cursor: pointer;
   transition: filter var(--off-motion-fast) var(--off-motion-ease);
 }
 .off-pipe-stop:hover {
   filter: brightness(0.96);
-}
-.off-pipe-stop.is-state {
-  border-color: var(--off-line);
-  background: var(--off-surface-sunken);
-  color: var(--off-ink-3);
-  pointer-events: none;
 }
 
 /* === Composer context strip + staged attachments ========================= */
