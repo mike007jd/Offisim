@@ -21,8 +21,11 @@ type LifecycleMode = 'portal' | 'create';
 export function LifecycleSurface() {
   const setCompany = useUiState((s) => s.setCompany);
   const setSurface = useUiState((s) => s.setSurface);
+  const intent = useUiState((s) => s.lifecycleIntent);
   const queryClient = useQueryClient();
   const companies = useCompanies();
+  // In-page toggles (wizard dismiss / selection "Create") win over the entry
+  // intent, which in turn wins over the count-derived default.
   const [override, setOverride] = useState<LifecycleMode | null>(null);
 
   async function createCompany(request: CreateCompanyRequest) {
@@ -109,7 +112,9 @@ export function LifecycleSurface() {
     return <div className="off-lc-boot" aria-busy="true" />;
   }
   const hasCompanies = (companies.data?.length ?? 0) > 0;
-  const mode: LifecycleMode = override ?? (hasCompanies ? 'portal' : 'create');
+  const intentMode: LifecycleMode | null =
+    intent === 'create' ? 'create' : intent === 'select' ? 'portal' : null;
+  const mode: LifecycleMode = override ?? intentMode ?? (hasCompanies ? 'portal' : 'create');
 
   if (mode === 'create') {
     return (

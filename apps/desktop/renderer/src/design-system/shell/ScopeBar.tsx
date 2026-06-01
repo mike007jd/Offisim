@@ -23,7 +23,7 @@ import {
 import { Input } from '@/design-system/primitives/input.js';
 import { pickWorkspaceFolder } from '@/lib/desktop-dialog.js';
 import { useQueryClient } from '@tanstack/react-query';
-import { Check, ChevronDown, FolderGit2, FolderOpen, Pencil, Plus } from 'lucide-react';
+import { Building2, Check, ChevronDown, FolderGit2, FolderOpen, Pencil, Plus } from 'lucide-react';
 import { type CSSProperties, useEffect, useId, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -175,7 +175,7 @@ export function ScopeBar() {
   const projectId = useUiState((s) => s.projectId);
   const setCompany = useUiState((s) => s.setCompany);
   const setProject = useUiState((s) => s.setProject);
-  const setSurface = useUiState((s) => s.setSurface);
+  const openLifecycle = useUiState((s) => s.openLifecycle);
 
   const companies = useCompanies();
   const projects = useProjects(companyId);
@@ -228,7 +228,11 @@ export function ScopeBar() {
             </DropdownMenuItem>
           ))}
           <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => setSurface('lifecycle')}>
+          <DropdownMenuItem onSelect={() => openLifecycle('select')}>
+            <Icon icon={Building2} size="sm" />
+            All companies…
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => openLifecycle('create')}>
             <Icon icon={Plus} size="sm" />
             New company
           </DropdownMenuItem>

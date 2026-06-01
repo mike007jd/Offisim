@@ -26,25 +26,38 @@
   overflow: hidden;
 }
 
-/* --- Shared chip-bar containers --- */
-.off-scope-bar,
-.off-iconbar {
+/* --- Wordmark anchor (far left) --- */
+/* Quietest of the four clusters: a muted text anchor that returns to the
+   lifecycle front door. The loud chip-bar frame is reserved for the primary
+   nav (.off-workspace-nav) alone, establishing the top-bar weight gradient. */
+.off-wordmark {
+  flex: none;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--off-sp-2);
+  border: 0;
+  background: transparent;
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-md);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  border-radius: var(--off-r-sm);
+  transition: color var(--off-motion-fast) var(--off-motion-ease);
+}
+
+.off-wordmark:hover {
+  color: var(--off-ink-1);
+}
+
+/* --- Scope bar (quiet, frameless company/project context) --- */
+.off-scope-bar {
   height: 34px;
   display: flex;
   align-items: center;
-  padding: 3px;
-  border: 1px solid var(--off-line);
-  border-radius: var(--off-r-md);
-  background: var(--off-surface-2);
-  box-shadow: var(--off-elev-1);
-}
-
-/* --- Scope bar --- */
-.off-scope-bar {
   max-width: 460px;
   min-width: 0;
   gap: 2px;
-  background: var(--off-surface-1);
 }
 
 .off-scope-seg {
@@ -147,8 +160,11 @@
   font-weight: 640;
 }
 
-/* --- Icon bar (right) --- */
+/* --- Icon bar (right, frameless ghost utilities) --- */
 .off-iconbar {
+  height: 34px;
+  display: flex;
+  align-items: center;
   margin-left: auto;
   gap: 2px;
 }

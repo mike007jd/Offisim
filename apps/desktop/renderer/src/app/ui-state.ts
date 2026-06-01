@@ -57,6 +57,13 @@ interface UiState {
   workspaceSelectedId: string | null;
 
   /**
+   * Which lifecycle front door to open on entry: the company selection page
+   * ('select'), the creation wizard ('create'), or count-derived (null). Set by
+   * the entry points (wordmark / scope menu / palette) right before navigating.
+   */
+  lifecycleIntent: 'select' | 'create' | null;
+
+  /**
    * Highest activity-record timestamp the user has marked as seen. Office's
    * Bell badge compares this to the live activity feed to render an honest
    * unread count instead of the prior hardcoded "always lit" indicator.
@@ -64,6 +71,8 @@ interface UiState {
   activityLastSeenAt: number;
 
   setSurface: (surface: SurfaceKey) => void;
+  /** Navigate to the lifecycle front door with an explicit initial intent. */
+  openLifecycle: (intent: 'select' | 'create') => void;
   setCompany: (companyId: string) => void;
   setProject: (projectId: string) => void;
 
@@ -106,9 +115,12 @@ export const useUiState = create<UiState>((set) => ({
   workspaceApp: 'messenger',
   workspaceSelectedId: null,
 
+  lifecycleIntent: null,
+
   activityLastSeenAt: 0,
 
   setSurface: (surface) => set({ surface }),
+  openLifecycle: (intent) => set({ surface: 'lifecycle', lifecycleIntent: intent }),
   setCompany: (companyId) => set({ companyId }),
   setProject: (projectId) => set({ projectId, selectedThreadId: null, railMode: 'list' }),
 
