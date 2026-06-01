@@ -104,6 +104,19 @@
   background: var(--off-surface-1);
 }
 
+.off-studio-banner {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-3);
+  padding: 8px var(--off-sp-6);
+  border-bottom: 1px solid var(--off-warn-line-mid);
+  background: var(--off-warn-surface);
+  color: var(--off-warn);
+  font-size: var(--off-fs-meta);
+  font-weight: 540;
+}
+
 .off-studio-tool.is-on {
   background: var(--off-accent-surface);
   color: var(--off-accent);

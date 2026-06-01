@@ -33,6 +33,7 @@ import {
   ArrowRight,
   ArrowUp,
   Box,
+  Info,
   LayoutGrid,
   Move3d,
   PanelTop,
@@ -309,10 +310,7 @@ export function StudioSurface() {
       toast.error('Select a company first');
       return;
     }
-    if (!layout.data) {
-      toast.error('Zone creation requires the desktop runtime');
-      return;
-    }
+    if (!layout.data) return;
     const base = selectedZone ?? zones.at(-1);
     const nextIndex = zones.length + 1;
     const candidate = {
@@ -344,8 +342,6 @@ export function StudioSurface() {
       if (result.persisted && result.zoneId) {
         setSelectedZoneId(result.zoneId);
         toast.success('Zone created');
-      } else {
-        toast.info('Zone creation requires the desktop runtime');
       }
     } catch (error) {
       toast.error('Zone creation failed', { description: safeErrorMessage(error) });
@@ -369,8 +365,6 @@ export function StudioSurface() {
               ? `${result.deletedObjects} objects removed`
               : selectedZone.label,
         });
-      } else {
-        toast.info('Zone deletion requires the desktop runtime');
       }
     } catch (error) {
       toast.error('Zone deletion failed', { description: safeErrorMessage(error) });
@@ -397,8 +391,6 @@ export function StudioSurface() {
       });
       if (result.persisted) {
         toast.success('Zone saved', { description: zoneDraft.label.trim() });
-      } else {
-        toast.info('Zone save requires the desktop runtime');
       }
     } catch (error) {
       toast.error('Zone save failed', { description: safeErrorMessage(error) });
@@ -424,10 +416,7 @@ export function StudioSurface() {
     targetZone: StudioZone | null = selectedZone,
     point?: Pick<ScenePlacementPoint, 'x' | 'z'>,
   ) {
-    if (!layout.data || !targetZone) {
-      toast.error('Object placement requires the desktop runtime');
-      return;
-    }
+    if (!layout.data || !targetZone) return;
     const targetZonePersisted = layout.data.zones.some((zone) => zone.zone_id === targetZone.id);
     if (!targetZonePersisted) {
       toast.error('Pick a persisted zone footprint');
@@ -446,8 +435,6 @@ export function StudioSurface() {
         setSelectedPrefabId(result.instanceId);
         setObjectDeleteArmed(false);
         toast.success(`Added ${item.label}`, { description: targetZone.label });
-      } else {
-        toast.info('Object placement requires the desktop runtime');
       }
     } catch (error) {
       toast.error('Object placement failed', { description: safeErrorMessage(error) });
@@ -567,8 +554,6 @@ export function StudioSurface() {
         setSelectedPrefabId(move.instanceId);
         setSelectedZoneId(move.zoneId);
         toast.success('Object moved', { description: zone?.label ?? move.zoneId });
-      } else {
-        toast.info('Object movement requires the desktop runtime');
       }
     } catch (error) {
       toast.error('Object move failed', { description: safeErrorMessage(error) });
@@ -587,8 +572,6 @@ export function StudioSurface() {
       });
       if (result.persisted) {
         toast.success('Object rotated', { description: `${nextRotation}°` });
-      } else {
-        toast.info('Object rotation requires the desktop runtime');
       }
     } catch (error) {
       toast.error('Object rotation failed', { description: safeErrorMessage(error) });
@@ -609,8 +592,6 @@ export function StudioSurface() {
         toast.success('Object deleted', { description: selectedPrefab.definition.name });
         setSelectedPrefabId(null);
         setObjectDeleteArmed(false);
-      } else {
-        toast.info('Object deletion requires the desktop runtime');
       }
     } catch (error) {
       toast.error('Object deletion failed', { description: safeErrorMessage(error) });
@@ -655,6 +636,12 @@ export function StudioSurface() {
       </aside>
 
       <section className="off-studio-stage">
+        {!layout.isLoading && !layout.data ? (
+          <div className="off-studio-banner">
+            <Icon icon={Info} size="sm" />
+            Preview scene — Studio editing needs the desktop app, so changes here won't be saved.
+          </div>
+        ) : null}
         <div className="off-studio-toolbar">
           <SegmentedControl
             options={[
@@ -673,11 +660,7 @@ export function StudioSurface() {
               ? `Drop on a zone footprint to place ${paletteDrag.label}`
               : tool === 'place' && placing
                 ? `Click a zone footprint to place ${PALETTE.find((item) => item.id === placing)?.label ?? 'object'}`
-                : dirty
-                  ? 'Unsaved zone edits'
-                  : layout.data
-                    ? `${zones.length} zones · ${layout.data.prefabs.length} objects`
-                    : 'Preview scene'}
+                : `${zones.length} zones · ${layout.data?.prefabs.length ?? 0} objects`}
           </span>
         </div>
         <div className="off-studio-canvas-host">
@@ -948,11 +931,6 @@ export function StudioSurface() {
                 </Button>
               </div>
             </div>
-            {!selectedZonePersisted ? (
-              <span className="off-studio-state-chip" aria-live="polite">
-                Desktop layout required
-              </span>
-            ) : null}
             {selectedZonePersisted ? (
               <div className="off-studio-danger">
                 <Button
