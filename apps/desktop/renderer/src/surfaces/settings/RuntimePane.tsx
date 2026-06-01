@@ -91,6 +91,7 @@ interface RuntimePaneProps {
   density: DensityValue;
   onThemeChange: (value: ThemeValue) => void;
   onDensityChange: (value: DensityValue) => void;
+  saved: boolean;
 }
 
 export function RuntimePane({
@@ -99,6 +100,7 @@ export function RuntimePane({
   density,
   onThemeChange,
   onDensityChange,
+  saved,
 }: RuntimePaneProps) {
   const defaultRuntime = form.watch('defaultRuntime') as EmployeeRuntimeValue;
   const sceneDropDiagnostics = useUiState((s) => s.sceneDropDiagnostics);
@@ -169,8 +171,18 @@ export function RuntimePane({
   return (
     <div className="off-set-pane">
       <div className="off-set-panehead">
-        <div className="off-set-panetitle">Runtime</div>
-        <div className="off-set-panedesc">Appearance and how employees run.</div>
+        <div className="off-set-panetitle">
+          Runtime
+          {saved ? (
+            <span className="off-set-saved-flash">
+              <Icon icon={Check} size="sm" />
+              Saved
+            </span>
+          ) : null}
+        </div>
+        <div className="off-set-panedesc">
+          Appearance and how employees run · changes save automatically.
+        </div>
       </div>
 
       {/* General — Appearance */}

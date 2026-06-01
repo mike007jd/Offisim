@@ -93,6 +93,18 @@
   font-weight: 660;
   color: var(--off-ink-1);
   letter-spacing: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-3);
+}
+
+.off-set-saved-flash {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--off-sp-1);
+  font-size: var(--off-fs-meta);
+  font-weight: 600;
+  color: var(--off-ok);
 }
 
 .off-set-panedesc {

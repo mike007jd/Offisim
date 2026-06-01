@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils.js';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { Bot, Cpu, Plug, Users } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import {
@@ -19,7 +19,6 @@ import { ExternalEmployeesPane } from './ExternalEmployeesPane.js';
 import { McpServersPane } from './McpServersPane.js';
 import { ProviderPane } from './ProviderPane.js';
 import { RuntimePane } from './RuntimePane.js';
-import { type SaveStatus, SettingsSaveBar } from './SettingsSaveBar.js';
 import {
   type DensityValue,
   PROVIDER_CONFIGS,
@@ -98,19 +97,22 @@ export function SettingsSurface() {
   useApplyAppearance(theme, density);
   const [savedTheme, setSavedTheme] = useState<ThemeValue>('system');
   const [savedDensity, setSavedDensity] = useState<DensityValue>('normal');
-  // Last persisted runtime snapshot, used to restore the form on Escape/discard
-  // rather than reverting to bare RUNTIME_DEFAULTS.
-  const [savedRuntime, setSavedRuntime] = useState<RuntimeFormValues>(RUNTIME_DEFAULTS);
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
-  const [saveError, setSaveError] = useState<string | null>(null);
-  // Tracks the post-save flash timer so a second save (or unmount) doesn't
-  // leave it firing onto stale state and clobbering an in-flight 'saving'.
-  const saveStatusFlashTimer = useRef<number | null>(null);
+
+  // Save model: Provider is an explicit commit (it writes a credential, and a
+  // half-typed key auto-saved would clobber the stored one). Runtime and
+  // Appearance are preferences and auto-save on change. There is no global save
+  // bar — each pane owns its own persistence.
+  const [providerSave, setProviderSave] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [providerSaveError, setProviderSaveError] = useState<string | null>(null);
+  const [runtimeSaved, setRuntimeSaved] = useState(false);
+  const providerFlashTimer = useRef<number | null>(null);
+  const runtimeFlashTimer = useRef<number | null>(null);
+  const runtimeSaveTimer = useRef<number | null>(null);
   useEffect(
     () => () => {
-      if (saveStatusFlashTimer.current !== null) {
-        window.clearTimeout(saveStatusFlashTimer.current);
-      }
+      if (providerFlashTimer.current !== null) window.clearTimeout(providerFlashTimer.current);
+      if (runtimeFlashTimer.current !== null) window.clearTimeout(runtimeFlashTimer.current);
+      if (runtimeSaveTimer.current !== null) window.clearTimeout(runtimeSaveTimer.current);
     },
     [],
   );
@@ -127,29 +129,10 @@ export function SettingsSurface() {
   });
 
   const providerDirty = providerForm.formState.isDirty;
-  const runtimeDirty = runtimeForm.formState.isDirty;
-  const appearanceDirty = theme !== savedTheme || density !== savedDensity;
   const providerValid = providerForm.formState.isValid;
+  const runtimeDirty = runtimeForm.formState.isDirty;
   const runtimeValid = runtimeForm.formState.isValid;
-
-  const dirtyScopes = useMemo(() => {
-    const scopes: string[] = [];
-    if (providerDirty) scopes.push('provider');
-    if (runtimeDirty || appearanceDirty) scopes.push('runtime');
-    return scopes;
-  }, [appearanceDirty, providerDirty, runtimeDirty]);
-
-  const anyDirty = dirtyScopes.length > 0;
-  const validationBlocked = anyDirty && (!providerValid || !runtimeValid);
-
-  // Derive the resting save status from form dirtiness (error/saving states are
-  // set imperatively in onSave and kept until resolved).
-  useEffect(() => {
-    setSaveStatus((current) => {
-      if (current === 'saving' || current === 'post-save' || current === 'error') return current;
-      return anyDirty ? 'dirty' : 'idle';
-    });
-  }, [anyDirty]);
+  const appearanceDirty = theme !== savedTheme || density !== savedDensity;
 
   useEffect(() => {
     let cancelled = false;
@@ -161,7 +144,6 @@ export function SettingsSurface() {
       );
       if (!persisted || cancelled) return;
       runtimeForm.reset(persisted.runtime);
-      setSavedRuntime(persisted.runtime);
       setTheme(persisted.theme);
       setDensity(persisted.density);
       setSavedTheme(persisted.theme);
@@ -177,120 +159,101 @@ export function SettingsSurface() {
     (config: ProviderConfig) => {
       setActiveConfigId(config.id);
       providerForm.reset(providerDefaults(config));
+      setProviderSave('idle');
+      setProviderSaveError(null);
     },
     [providerForm],
   );
 
-  const onSave = useCallback(async () => {
-    if (!anyDirty || validationBlocked) return;
-    setSaveStatus('saving');
-    setSaveError(null);
+  const saveProvider = useCallback(async () => {
+    if (!providerDirty || !providerValid) return;
+    setProviderSave('saving');
+    setProviderSaveError(null);
     try {
-      if (providerDirty) {
-        const values = providerForm.getValues();
-        const config = resolveActiveProviderConfig(providerConfigs, activeConfigId);
-        await persistProviderProfile(config, values);
-        await queryClient.invalidateQueries({ queryKey: ['settings', 'provider-configs'] });
-      }
-      if (runtimeDirty || appearanceDirty) {
-        const repos = await reposOrNull();
-        if (!repos?.settings) {
-          throw new Error('Runtime settings persistence is only available in the desktop runtime');
-        }
-        await repos.settings.set(
-          RUNTIME_SETTINGS_KEY,
-          JSON.stringify({
-            runtime: runtimeForm.getValues(),
-            theme,
-            density,
-          } satisfies PersistedRuntimeSettings),
-        );
-      }
-      // F/I3: React batches state updates in the same tick, so
-      // `setSaveStatus('post-save')` followed by `setSaveStatus('idle')` in
-      // the same block never renders `post-save`. Drop the flash through a
-      // setTimeout so the SaveBar's "Saved" affordance is actually visible.
-      setSaveStatus('post-save');
+      const values = providerForm.getValues();
+      const config = resolveActiveProviderConfig(providerConfigs, activeConfigId);
+      await persistProviderProfile(config, values);
+      await queryClient.invalidateQueries({ queryKey: ['settings', 'provider-configs'] });
       providerForm.reset(providerForm.getValues());
-      const persistedRuntime = runtimeForm.getValues();
-      runtimeForm.reset(persistedRuntime);
-      setSavedRuntime(persistedRuntime);
-      setSavedTheme(theme);
-      setSavedDensity(density);
-      if (saveStatusFlashTimer.current !== null) {
-        window.clearTimeout(saveStatusFlashTimer.current);
-      }
-      saveStatusFlashTimer.current = window.setTimeout(() => {
-        saveStatusFlashTimer.current = null;
-        // Only fade to idle if we're still showing the post-save flash —
-        // a fresh save kicked off in the meantime sets 'saving'/'error',
-        // and the resting-status useEffect already moves dirty back to
-        // 'dirty' on form mutation.
-        setSaveStatus((current) => (current === 'post-save' ? 'idle' : current));
-      }, 1200);
-      toast.success('Settings saved');
+      setProviderSave('saved');
+      if (providerFlashTimer.current !== null) window.clearTimeout(providerFlashTimer.current);
+      providerFlashTimer.current = window.setTimeout(() => {
+        providerFlashTimer.current = null;
+        setProviderSave((current) => (current === 'saved' ? 'idle' : current));
+      }, 1400);
+      toast.success('Provider saved');
     } catch (error) {
       const message = safeErrorMessage(error);
-      setSaveError(message);
-      setSaveStatus('error');
-      toast.error('Settings save failed', { description: message });
+      setProviderSaveError(message);
+      setProviderSave('error');
+      toast.error('Provider save failed', { description: message });
     }
-  }, [
-    activeConfigId,
-    anyDirty,
-    appearanceDirty,
-    density,
-    providerConfigs,
-    providerDirty,
-    providerForm,
-    queryClient,
-    runtimeDirty,
-    runtimeForm,
-    theme,
-    validationBlocked,
-  ]);
+  }, [activeConfigId, providerConfigs, providerDirty, providerForm, providerValid, queryClient]);
 
-  const onRetry = useCallback(() => {
-    setSaveStatus(anyDirty ? 'dirty' : 'idle');
-    setSaveError(null);
-    void onSave();
-  }, [anyDirty, onSave]);
+  const persistRuntime = useCallback(async () => {
+    const repos = await reposOrNull();
+    if (!repos?.settings) return; // preview build has nothing to persist to
+    await repos.settings.set(
+      RUNTIME_SETTINGS_KEY,
+      JSON.stringify({
+        runtime: runtimeForm.getValues(),
+        theme,
+        density,
+      } satisfies PersistedRuntimeSettings),
+    );
+    runtimeForm.reset(runtimeForm.getValues());
+    setSavedTheme(theme);
+    setSavedDensity(density);
+    setRuntimeSaved(true);
+    if (runtimeFlashTimer.current !== null) window.clearTimeout(runtimeFlashTimer.current);
+    runtimeFlashTimer.current = window.setTimeout(() => {
+      runtimeFlashTimer.current = null;
+      setRuntimeSaved(false);
+    }, 1400);
+  }, [density, runtimeForm, theme]);
 
-  // ⌘S to save when dirty.
+  // Auto-save runtime + appearance, debounced. A stable serialized snapshot is
+  // the trigger so unrelated re-renders (e.g. provider editing) don't keep
+  // resetting the timer.
+  const runtimeSnapshot = JSON.stringify(runtimeForm.watch());
+  useEffect(() => {
+    if (!runtimeValid) return;
+    if (!runtimeDirty && !appearanceDirty) return;
+    if (runtimeSaveTimer.current !== null) window.clearTimeout(runtimeSaveTimer.current);
+    runtimeSaveTimer.current = window.setTimeout(() => {
+      runtimeSaveTimer.current = null;
+      void persistRuntime();
+    }, 600);
+    return () => {
+      if (runtimeSaveTimer.current !== null) {
+        window.clearTimeout(runtimeSaveTimer.current);
+        runtimeSaveTimer.current = null;
+      }
+    };
+  }, [runtimeSnapshot, theme, density, runtimeDirty, appearanceDirty, runtimeValid, persistRuntime]);
+
+  // ⌘S commits the Provider pane; Escape discards its pending edits. Runtime
+  // auto-saves, so neither shortcut applies there.
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
-        if (tab !== 'external') {
+        if (tab === 'provider') {
           event.preventDefault();
-          void onSave();
+          void saveProvider();
         }
       }
-      if (event.key === 'Escape' && anyDirty) {
+      if (event.key === 'Escape' && tab === 'provider' && providerDirty) {
         providerForm.reset(
           providerDefaults(resolveActiveProviderConfig(providerConfigs, activeConfigId)),
         );
-        runtimeForm.reset(savedRuntime);
-        setTheme(savedTheme);
-        setDensity(savedDensity);
-        toast('Changes discarded');
+        setProviderSave('idle');
+        setProviderSaveError(null);
+        toast('Provider changes discarded');
       }
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [
-    tab,
-    anyDirty,
-    onSave,
-    providerForm,
-    runtimeForm,
-    activeConfigId,
-    providerConfigs,
-    savedRuntime,
-    savedDensity,
-    savedTheme,
-  ]);
-
-  const showSaveBar = tab !== 'external';
+  }, [tab, saveProvider, providerDirty, providerForm, activeConfigId, providerConfigs]);
 
   return (
     <div className="off-settings">
@@ -316,6 +279,12 @@ export function SettingsSurface() {
               form={providerForm}
               activeConfigId={activeConfigId}
               onSelectConfig={onSelectConfig}
+              dirty={providerDirty}
+              valid={providerValid}
+              saving={providerSave === 'saving'}
+              saved={providerSave === 'saved'}
+              saveError={providerSaveError}
+              onSave={() => void saveProvider()}
             />
           ) : null}
           {tab === 'runtime' ? (
@@ -325,22 +294,12 @@ export function SettingsSurface() {
               density={density}
               onThemeChange={setTheme}
               onDensityChange={setDensity}
+              saved={runtimeSaved}
             />
           ) : null}
           {tab === 'mcp' ? <McpServersPane /> : null}
           {tab === 'external' ? <ExternalEmployeesPane /> : null}
         </div>
-
-        {showSaveBar ? (
-          <SettingsSaveBar
-            status={saveStatus}
-            dirtyScopes={dirtyScopes}
-            validationBlocked={validationBlocked}
-            errorMessage={saveError}
-            onSave={() => void onSave()}
-            onRetry={onRetry}
-          />
-        ) : null}
       </div>
     </div>
   );

@@ -15,7 +15,7 @@ import {
   safeErrorMessage,
   sendProviderText,
 } from '@/lib/provider-bridge.js';
-import { AlertTriangle, ChevronRight, Eye, EyeOff, Info, Key, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Check, ChevronRight, Eye, EyeOff, Info, Key, RefreshCw } from 'lucide-react';
 import { type CSSProperties, useMemo, useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -35,6 +35,12 @@ interface ProviderPaneProps {
   form: UseFormReturn<ProviderFormValues>;
   activeConfigId: string;
   onSelectConfig: (config: ProviderConfig) => void;
+  dirty: boolean;
+  valid: boolean;
+  saving: boolean;
+  saved: boolean;
+  saveError: string | null;
+  onSave: () => void;
 }
 
 function runtimeProfileMatches(config: ProviderConfig, displayName: string): boolean {
@@ -81,7 +87,17 @@ function providerLogoStyle(config: ProviderConfig): CSSProperties {
   } as CSSProperties;
 }
 
-export function ProviderPane({ form, activeConfigId, onSelectConfig }: ProviderPaneProps) {
+export function ProviderPane({
+  form,
+  activeConfigId,
+  onSelectConfig,
+  dirty,
+  valid,
+  saving,
+  saved,
+  saveError,
+  onSave,
+}: ProviderPaneProps) {
   const providerConfigsQuery = useProviderConfigs();
   const configs = providerConfigsQuery.data ?? [...PROVIDER_CONFIGS];
   const [revealKey, setRevealKey] = useState(false);
@@ -186,16 +202,34 @@ export function ProviderPane({ form, activeConfigId, onSelectConfig }: ProviderP
                 {active.model} · {active.lane} lane · {active.region} · {active.endpointKind}
               </div>
             </div>
-            <Button
-              variant="outline"
-              size="md"
-              disabled={isTesting}
-              onClick={() => void handleTestConnection()}
-            >
-              <Icon icon={RefreshCw} size="sm" />
-              {isTesting ? 'Testing' : 'Test connection'}
-            </Button>
+            <div className="flex items-center gap-[var(--off-sp-3)]">
+              {dirty || saving ? (
+                <Button variant="default" size="md" disabled={saving || !valid} onClick={onSave}>
+                  {saving ? 'Saving…' : 'Save'}
+                </Button>
+              ) : saved ? (
+                <span className="inline-flex items-center gap-[var(--off-sp-1)] font-[600] text-[length:var(--off-fs-meta)] text-[color:var(--off-ok)]">
+                  <Icon icon={Check} size="sm" />
+                  Saved
+                </span>
+              ) : null}
+              <Button
+                variant="outline"
+                size="md"
+                disabled={isTesting}
+                onClick={() => void handleTestConnection()}
+              >
+                <Icon icon={RefreshCw} size="sm" />
+                {isTesting ? 'Testing' : 'Test connection'}
+              </Button>
+            </div>
           </div>
+          {saveError ? (
+            <div className="off-set-callout is-warn mt-[var(--off-sp-3)]">
+              <Icon icon={AlertTriangle} size="sm" />
+              {saveError}
+            </div>
+          ) : null}
           {testMessage ? (
             <div className="off-set-sec-hint mt-[var(--off-sp-3)]">{testMessage}</div>
           ) : null}
