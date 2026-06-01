@@ -88,14 +88,10 @@ export const profileFormSchema = z.object({
 });
 export type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
-/** Seed the profile form from an employee view-model. The renderer view-model is
- *  intentionally thinner than the backend record (it carries no persona_json /
- *  config_json), so the persona fields below — workingStyle, communication, risk,
- *  decisionStyle, modelMode/family/override, temperature, maxTokens,
- *  customInstructions — are stub defaults rather than the stored persona. They are
- *  not hydrated from the persisted record until the employee config command exposes
- *  persona_json.profile and config_json.modelSettings to the renderer; saving an
- *  untouched form therefore reflects these stubs, not the saved persona. */
+/** Seed the profile form from the thin employee view-model. The persona/model
+ *  fields are stub defaults here; the real persisted persona is layered on by
+ *  {@link profileDefaultsFromRecord} once the full row is read at mount. Using
+ *  the stubs alone would let an untouched Save overwrite the saved persona. */
 export function profileDefaults(employee: Employee): ProfileFormValues {
   return {
     name: employee.name,
@@ -113,6 +109,56 @@ export function profileDefaults(employee: Employee): ProfileFormValues {
     temperature: 0.7,
     maxTokens: 4096,
     customInstructions: '',
+  };
+}
+
+const COMMUNICATION_VALUES = new Set<ProfileFormValues['communication']>(['low', 'medium', 'high']);
+const RISK_VALUES = new Set<ProfileFormValues['risk']>([
+  'conservative',
+  'balanced',
+  'aggressive',
+]);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** Hydrate the profile form from the persisted employee record so reopening an
+ *  employee shows their real saved persona (not the stub defaults). Mirrors the
+ *  exact shape that PersonnelSurface.onSave writes: persona_json.profile and
+ *  config_json.modelSettings / modelPreference. Each field falls back to the
+ *  stub when missing or malformed, so a partially-written record stays valid. */
+export function profileDefaultsFromRecord(
+  employee: Employee,
+  persona: Record<string, unknown>,
+  config: Record<string, unknown>,
+): ProfileFormValues {
+  const base = profileDefaults(employee);
+  const profile = isRecord(persona.profile) ? persona.profile : {};
+  const modelSettings = isRecord(config.modelSettings) ? config.modelSettings : {};
+  const modelPreference =
+    typeof config.modelPreference === 'string' ? config.modelPreference.trim() : '';
+  const str = (value: unknown, fallback: string) =>
+    typeof value === 'string' && value ? value : fallback;
+  const num = (value: unknown, fallback: number) =>
+    typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+  return {
+    ...base,
+    expertise: str(profile.expertise, base.expertise),
+    workingStyle: str(profile.workingStyle, base.workingStyle),
+    communication: COMMUNICATION_VALUES.has(profile.communication as ProfileFormValues['communication'])
+      ? (profile.communication as ProfileFormValues['communication'])
+      : base.communication,
+    risk: RISK_VALUES.has(profile.risk as ProfileFormValues['risk'])
+      ? (profile.risk as ProfileFormValues['risk'])
+      : base.risk,
+    decisionStyle: str(profile.decisionStyle, base.decisionStyle),
+    customInstructions: str(profile.customInstructions, base.customInstructions),
+    modelFamily: str(modelSettings.family, base.modelFamily),
+    temperature: num(modelSettings.temperature, base.temperature),
+    maxTokens: num(modelSettings.maxTokens, base.maxTokens),
+    modelMode: modelPreference ? 'custom' : base.modelMode,
+    modelOverride: modelPreference || base.modelOverride,
   };
 }
 

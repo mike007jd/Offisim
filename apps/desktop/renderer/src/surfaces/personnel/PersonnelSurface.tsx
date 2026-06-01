@@ -50,6 +50,7 @@ import {
   appearanceDraftFor,
   defaultToolPermissions,
   profileDefaults,
+  profileDefaultsFromRecord,
   profileFormSchema,
 } from './personnel-data.js';
 
@@ -511,6 +512,7 @@ function Inspector({
 
   const isDirty = form.formState.isDirty || toolPermissionsDirty;
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: form is stable from useForm; re-hydrate only when switching employees.
   useEffect(() => {
     let cancelled = false;
     setToolPermissions(defaultToolPermissions());
@@ -518,8 +520,13 @@ function Inspector({
     void (async () => {
       const repos = await reposOrNull();
       const row = repos ? await repos.employees.findById(employee.id) : null;
-      if (cancelled) return;
-      setToolPermissions(toolPermissionsFromConfig(safeJsonRecord(row?.config_json)));
+      if (cancelled || !row) return;
+      const persona = safeJsonRecord(row.persona_json);
+      const config = safeJsonRecord(row.config_json);
+      // Hydrate the form from the real saved persona so an untouched Save can't
+      // overwrite it with the stub defaults; reset clears dirty state.
+      form.reset(profileDefaultsFromRecord(employee, persona, config));
+      setToolPermissions(toolPermissionsFromConfig(config));
       setToolPermissionsDirty(false);
     })();
     return () => {
