@@ -277,21 +277,6 @@
   }
 }
 
-.off-csp-row-stats {
-  margin-top: var(--off-sp-4);
-  display: flex;
-  align-items: center;
-  gap: var(--off-sp-6);
-  font-size: var(--off-fs-sm);
-  color: var(--off-ink-3);
-}
-
-.off-csp-row-stats span {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
 /* --- main: preview + brief --- */
 .off-csp-main {
   flex: 1;

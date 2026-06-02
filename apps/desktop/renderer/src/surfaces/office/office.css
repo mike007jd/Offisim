@@ -617,21 +617,6 @@
   gap: var(--off-sp-2);
 }
 
-.off-team-pop-state {
-  min-height: var(--off-control-sm);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--off-line);
-  border-radius: var(--off-r-sm);
-  background: var(--off-surface-sunken);
-  color: var(--off-ink-3);
-  padding: 0 var(--off-sp-3);
-  font-size: var(--off-fs-meta);
-  font-weight: 680;
-  text-align: center;
-}
-
 .off-team-zone-picker {
   display: grid;
   gap: var(--off-sp-2);
@@ -1059,17 +1044,6 @@
   letter-spacing: 0;
 }
 
-.off-rail-sec-note {
-  margin-left: auto;
-  border: 1px solid var(--off-line-soft);
-  border-radius: var(--off-r-pill);
-  padding: 2px 8px;
-  color: var(--off-ink-4);
-  font-size: var(--off-fs-micro);
-  font-weight: 760;
-  text-transform: uppercase;
-}
-
 .off-dlv {
   display: flex;
   align-items: center;
@@ -1374,12 +1348,6 @@
   font-weight: 620;
   color: var(--off-ink-2);
 }
-.off-ccs-dot {
-  width: 3px;
-  height: 3px;
-  border-radius: var(--off-r-round);
-  background: var(--off-ink-4);
-}
 .off-staged {
   display: flex;
   flex-wrap: wrap;
@@ -1507,12 +1475,6 @@
 .off-errbanner-act:hover {
   background: var(--off-surface-sunken);
   color: var(--off-ink-1);
-}
-.off-errbanner-act.is-state {
-  border-color: color-mix(in srgb, var(--off-danger) 30%, var(--off-line));
-  background: color-mix(in srgb, var(--off-danger-surface) 70%, var(--off-surface-1));
-  color: var(--off-ink-3);
-  pointer-events: none;
 }
 .off-errbanner-act.is-ghost {
   border-color: transparent;
@@ -1967,27 +1929,6 @@
   background: var(--off-accent);
   animation: off-pulse var(--off-motion-loop-base) var(--off-motion-loop-ease) infinite;
 }
-.off-gw-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--off-sp-2);
-  margin-top: auto;
-  padding-top: var(--off-sp-3);
-}
-
-.off-gw-action-state {
-  min-height: var(--off-control-sm);
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid var(--off-line);
-  border-radius: var(--off-r-sm);
-  background: var(--off-surface-sunken);
-  color: var(--off-ink-3);
-  padding: 0 var(--off-sp-3);
-  font-size: var(--off-fs-meta);
-  font-weight: 680;
-}
-
 /* === Team dock: label / strip / tools ===================================== */
 .off-team {
   align-items: stretch;

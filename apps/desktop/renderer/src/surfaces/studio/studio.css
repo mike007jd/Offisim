@@ -61,19 +61,6 @@
   opacity: 0.48;
 }
 
-.off-studio-state-chip {
-  display: inline-flex;
-  align-items: center;
-  width: fit-content;
-  border: 1px solid var(--off-line-soft);
-  border-radius: var(--off-r-pill);
-  padding: 4px 9px;
-  color: var(--off-ink-4);
-  font-size: var(--off-fs-micro);
-  font-weight: 760;
-  text-transform: uppercase;
-}
-
 .off-studio-tool:hover {
   background: var(--off-surface-sunken);
   color: var(--off-ink-1);

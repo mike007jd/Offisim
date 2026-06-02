@@ -275,10 +275,6 @@
   max-width: var(--off-dialog-max-w-md);
 }
 
-.off-dialog-w-lg {
-  max-width: var(--off-dialog-max-w-lg);
-}
-
 .off-command-dialog {
   top: var(--off-command-dialog-top);
   max-width: var(--off-dialog-max-w-command);
@@ -772,23 +768,6 @@
   }
 }
 
-/* --- Chip-bar container grammar (the §5 formula) --- */
-.off-chip-bar {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  height: 34px;
-  padding: 3px;
-  border: 1px solid var(--off-line);
-  border-radius: var(--off-r-md);
-  background: var(--off-surface-2);
-  box-shadow: var(--off-elev-1);
-}
-
-.off-chip-bar.is-sm {
-  height: 30px;
-}
-
 /* --- Segmented control --- */
 .off-seg {
   display: inline-flex;
@@ -987,13 +966,6 @@ button.off-chip:hover {
 
 .off-field-hint.is-warn {
   color: var(--off-warn);
-}
-
-/* --- Vertical divider --- */
-.off-vdiv {
-  width: 1px;
-  align-self: stretch;
-  background: var(--off-line);
 }
 
 /* --- Resizable panel splitter (react-resizable-panels v4 Separator) --- */

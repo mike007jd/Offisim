@@ -63,30 +63,6 @@
   max-width: 360px;
 }
 
-/* Mode dropdown chip — V3 custom select skin, no native arrow */
-.off-mkt-drop {
-  height: 30px;
-  padding: 0 var(--off-sp-4);
-  border: 1px solid var(--off-line);
-  border-radius: var(--off-r-md);
-  background: var(--off-surface-1);
-  color: var(--off-ink-1);
-  font-size: var(--off-fs-meta);
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--off-sp-2);
-  transition: background var(--off-motion-fast) var(--off-motion-ease), border-color
-    var(--off-motion-fast) var(--off-motion-ease);
-}
-.off-mkt-drop:hover {
-  background: var(--off-surface-sunken);
-  border-color: var(--off-line-strong);
-}
-.off-mkt-drop .off-icon {
-  color: var(--off-ink-4);
-}
-
 /* ── Grid wrap + scroll ───────────────────────────────────────────────── */
 .off-mkt-grid-wrap {
   flex: 1;
@@ -876,34 +852,6 @@
   background: var(--off-surface-1);
 }
 
-/* Version state. It stays non-interactive until registry artifact lookup can
-   install a specific historical version. */
-.off-vsel {
-  display: inline-flex;
-  align-self: flex-start;
-  align-items: center;
-  gap: 6px;
-  height: 26px;
-  padding: 0 10px;
-  border: 1px solid var(--off-line);
-  border-radius: var(--off-r-sm);
-  background: var(--off-surface-1);
-  color: var(--off-ink-1);
-  font-size: var(--off-fs-meta);
-  font-weight: 620;
-  font-family: var(--off-font-mono);
-}
-.off-vsel.is-static {
-  pointer-events: none;
-}
-.off-vsel-latest {
-  margin-left: auto;
-  font-size: var(--off-fs-xs);
-  color: var(--off-accent);
-  text-transform: uppercase;
-  letter-spacing: 0;
-}
-
 /* metadata grid */
 .off-md-dl {
   display: grid;
@@ -1378,11 +1326,6 @@
 }
 
 /* install progress */
-.off-step-list {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-}
 .off-step-row {
   display: flex;
   align-items: center;
@@ -1399,12 +1342,6 @@
 .off-step-si .off-icon {
   width: 14px;
   height: 14px;
-}
-.off-step-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: var(--off-r-full);
-  background: var(--off-ink-5);
 }
 .off-step-row.is-done {
   color: var(--off-ink-3);
@@ -1481,35 +1418,6 @@
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
-.off-pub-token-l {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-.off-pub-token-i {
-  color: var(--off-accent);
-  width: 11px;
-  height: 11px;
-}
-.off-pub-token-state {
-  display: inline-flex;
-  align-items: center;
-  min-height: 34px;
-  width: fit-content;
-  border: 1px solid var(--off-line-soft);
-  border-radius: var(--off-r-sm);
-  padding: 0 10px;
-  color: var(--off-ink-4);
-  font-size: var(--off-fs-sm);
-  font-weight: 760;
-  text-transform: uppercase;
-}
-.off-pub-token-row {
-  display: flex;
-  align-items: center;
-  gap: var(--off-sp-2);
-  flex-wrap: wrap;
-}
 .off-pub-connect {
   display: flex;
   align-items: center;
@@ -1533,31 +1441,6 @@
   letter-spacing: 0;
   text-transform: uppercase;
   color: var(--off-ink-3);
-}
-.off-pub-preview {
-  margin: 9px 0 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: var(--off-fs-meta);
-}
-.off-pub-preview > div {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-}
-.off-pub-preview dt {
-  color: var(--off-ink-4);
-}
-.off-pub-preview dd {
-  margin: 0;
-  color: var(--off-ink-1);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.off-pub-preview dd.is-mono {
-  font-family: var(--off-font-mono);
 }
 .off-pub-recent {
   margin: 9px 0 0;
@@ -1814,11 +1697,6 @@
   gap: 6px;
   flex-wrap: wrap;
 }
-.off-mng-annot {
-  font-size: var(--off-fs-label);
-  color: var(--off-ink-4);
-  margin-left: 5px;
-}
 .off-mng-action-state {
   min-height: var(--off-control-sm);
   display: inline-flex;
@@ -1963,10 +1841,6 @@
   color: var(--off-danger);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--off-danger) 40%, transparent);
 }
-.off-pub-acts {
-  padding-top: 2px;
-}
-
 .off-pub-foot-state {
   min-height: var(--off-control-md);
   display: inline-flex;

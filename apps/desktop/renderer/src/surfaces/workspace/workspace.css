@@ -55,11 +55,6 @@
   background: var(--off-line);
 }
 
-.off-ws-rail-sp {
-  flex: 1;
-  min-height: var(--off-sp-3);
-}
-
 .off-ws-rail-btn {
   position: relative;
   width: 52px;
@@ -166,16 +161,6 @@
 
 .off-ws-list-head:not(.off-ws-list-head-col) .off-ws-list-title {
   flex: 1;
-}
-
-.off-ws-list-count {
-  margin-left: auto;
-  font-size: var(--off-fs-micro);
-  font-weight: 680;
-  color: var(--off-ink-3);
-  background: var(--off-surface-sunken);
-  border-radius: var(--off-r-pill);
-  padding: 1px 7px;
 }
 
 .off-ws-list-add {
@@ -398,82 +383,12 @@
   place-items: center;
 }
 
-/* ── Generic icon row (Meetings) ─────────────────────────────────────────── */
-.off-ws-row {
-  display: flex;
-  align-items: center;
-  gap: var(--off-sp-3);
-  padding: var(--off-sp-3);
-  border: 1px solid transparent;
-  border-radius: var(--off-r-md);
-  background: transparent;
-  text-align: left;
-  transition: background var(--off-motion-fast) var(--off-motion-ease), border-color
-    var(--off-motion-fast) var(--off-motion-ease);
-}
-
-.off-ws-row:hover {
-  background: var(--off-surface-sunken);
-}
-
-.off-ws-row.is-active {
-  border-color: var(--off-accent-ring);
-  background: var(--off-accent-surface);
-}
-
 .off-ws-row-copy {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
-}
-
-.off-ws-row-title {
-  font-size: var(--off-fs-sm);
-  font-weight: 620;
-  color: var(--off-ink-1);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.off-ws-row-sub {
-  font-size: var(--off-fs-micro);
-  color: var(--off-ink-3);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.off-ws-row-icon {
-  width: 34px;
-  height: 34px;
-  flex: none;
-  display: grid;
-  place-items: center;
-  border-radius: var(--off-r-sm);
-  background: var(--off-surface-sunken);
-  color: var(--off-ink-3);
-}
-
-.off-ws-row-icon.is-lg {
-  width: 44px;
-  height: 44px;
-  border-radius: var(--off-r-md);
-}
-
-.off-ws-row-icon[data-tone="accent"] {
-  background: var(--off-accent-surface);
-  color: var(--off-accent);
-}
-.off-ws-row-icon[data-tone="ok"] {
-  background: var(--off-ok-surface);
-  color: var(--off-ok);
-}
-.off-ws-row-icon[data-tone="muted"] {
-  background: var(--off-surface-sunken);
-  color: var(--off-ink-3);
 }
 
 /* ── Detail column shell ─────────────────────────────────────────────────── */
@@ -488,32 +403,6 @@
 
 .off-ws-detail-full {
   overflow-y: auto;
-}
-
-.off-ws-pad {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: var(--off-sp-7);
-  display: flex;
-  flex-direction: column;
-  gap: var(--off-sp-5);
-}
-
-.off-ws-detail-kind {
-  font-size: var(--off-fs-micro);
-  letter-spacing: 0;
-  font-weight: 680;
-  text-transform: uppercase;
-  color: var(--off-ink-3);
-}
-
-.off-ws-detail-title {
-  margin: 0;
-  font-size: var(--off-fs-lg);
-  font-weight: 680;
-  letter-spacing: 0;
-  color: var(--off-ink-1);
 }
 
 /* ── Chat header ─────────────────────────────────────────────────────────── */
@@ -782,21 +671,6 @@
 
 .off-ws-dlv-stack .off-ws-dlv-av:first-child {
   margin-left: 0;
-}
-
-.off-ws-dlv-more {
-  min-width: 18px;
-  height: 18px;
-  padding: 0 4px;
-  display: grid;
-  place-items: center;
-  margin-left: -6px;
-  background: var(--off-surface-sunken);
-  color: var(--off-ink-3);
-  border-radius: var(--off-r-pill);
-  font-size: var(--off-fs-xs);
-  font-weight: 680;
-  box-shadow: 0 0 0 1px var(--off-line);
 }
 
 .off-ws-dlv-actions {
@@ -1815,12 +1689,6 @@
   gap: var(--off-sp-3);
 }
 
-.off-ws-meet-items {
-  display: flex;
-  flex-direction: column;
-  gap: var(--off-sp-3);
-}
-
 .off-ws-meet-sec-head {
   font-size: var(--off-fs-micro);
   letter-spacing: 0;
@@ -1884,21 +1752,6 @@
 .off-ws-meet-open {
   align-self: flex-start;
   margin-top: var(--off-sp-2);
-}
-
-.off-ws-action-state {
-  min-height: var(--off-control-sm);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--off-line);
-  border-radius: var(--off-r-sm);
-  background: var(--off-surface-sunken);
-  color: var(--off-ink-3);
-  padding: 0 var(--off-sp-3);
-  font-size: var(--off-fs-meta);
-  font-weight: 680;
-  white-space: nowrap;
 }
 
 /* ── Workplace launcher ──────────────────────────────────────────────────── */
@@ -1995,90 +1848,6 @@
   color: var(--off-ink-4);
 }
 
-.off-ws-wp-tiles {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: var(--off-sp-4);
-}
-
-.off-ws-wp-tile {
-  display: flex;
-  flex-direction: column;
-  gap: var(--off-sp-3);
-  border: 1px solid var(--off-line-soft);
-  border-radius: var(--off-r-md);
-  background: var(--off-surface-1);
-  box-shadow: var(--off-elev-1);
-  padding: var(--off-sp-5);
-  text-align: left;
-  transition: border-color var(--off-motion-fast) var(--off-motion-ease), box-shadow
-    var(--off-motion-fast) var(--off-motion-ease), transform var(--off-motion-fast)
-    var(--off-motion-ease);
-}
-
-.off-ws-wp-tile:hover {
-  border-color: var(--off-line-strong);
-  box-shadow: var(--off-elev-2);
-  transform: translateY(-1px);
-}
-
-.off-ws-wp-tile-ic {
-  width: 38px;
-  height: 38px;
-  border-radius: var(--off-r-md);
-  display: grid;
-  place-items: center;
-}
-
-.off-ws-wp-tile-ic.is-accent {
-  background: var(--off-accent-surface);
-  color: var(--off-accent);
-}
-.off-ws-wp-tile-ic.is-violet {
-  background: var(--off-violet-surface);
-  color: var(--off-violet);
-}
-.off-ws-wp-tile-ic.is-ok {
-  background: var(--off-ok-surface);
-  color: var(--off-ok);
-}
-.off-ws-wp-tile-ic.is-warn {
-  background: var(--off-warn-surface);
-  color: var(--off-warn);
-}
-.off-ws-wp-tile-ic.is-ink {
-  background: var(--off-surface-sunken);
-  color: var(--off-ink-2);
-}
-
-.off-ws-wp-tile-nm {
-  font-size: var(--off-fs-md);
-  font-weight: 660;
-  color: var(--off-ink-1);
-}
-
-.off-ws-wp-tile-ds {
-  font-size: var(--off-fs-meta);
-  color: var(--off-ink-3);
-  line-height: 1.45;
-}
-
-.off-ws-wp-tile-nb {
-  align-self: flex-start;
-  margin-top: auto;
-  font-size: var(--off-fs-label);
-  font-weight: 660;
-  padding: 1px 8px;
-  border-radius: var(--off-r-pill);
-  background: var(--off-accent-surface);
-  color: var(--off-accent);
-}
-
-.off-ws-wp-tile-nb.is-warn {
-  background: var(--off-warn-surface);
-  color: var(--off-warn);
-}
-
 .off-ws-wp-recent {
   margin-top: 0;
 }
@@ -2102,17 +1871,3 @@
   color: var(--off-ink-2);
 }
 
-/* Detail head row reused by Meetings */
-.off-ws-approval-head {
-  display: flex;
-  align-items: center;
-  gap: var(--off-sp-4);
-}
-
-.off-ws-approval-head > div {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
