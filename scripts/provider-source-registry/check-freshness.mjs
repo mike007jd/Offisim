@@ -4,9 +4,12 @@
  *
  * Reads `catalog/provider-source-registry/official-fixtures.json` (the
  * hand-verified, official-tier source of truth for provider defaults + leaf
- * model ids) and fails when the catalog would ship a stale recommendation:
+ * model ids) and fails when the fixture is malformed or the catalog would ship
+ * a stale recommendation:
  *
  *   ERROR (exit 1):
+ *     - the fixture fails shape validation (a typo'd/missing required field, an
+ *       invalid model `status`, a malformed date) — see `normalizeFixturesShape`
  *     - a provider's `defaultModel` is missing from its `models` map
  *     - a provider's `defaultModel` is marked `status: "retired"`
  *     - a provider's `defaultModel` has a `retiresOn` date that is today or past
@@ -16,8 +19,9 @@
  *     - any model's `retiresOn` is within `--warn-within-days` (default 30)
  *     - a non-default model is past its `retiresOn` (tombstone — consider removing)
  *     - a provider with models is missing `lastVerifiedAt` / `sourceUrl`
- *     - a model with no `status`
+ *     - a `vendor` has no drift mapping in `VENDOR_OPENROUTER_FAMILY`
  *     - `verification.checkedAt` is older than `verification.staleAfterDays`
+ *     - the cached default-drift snapshot is itself older than `staleAfterDays`
  *
  * This is intentionally offline + deterministic: it only reads the local
  * fixture, so it is safe to run in `validate` / pre-commit without network.
@@ -31,16 +35,9 @@
  *   node scripts/provider-source-registry/check-freshness.mjs --warn-within-days 45
  */
 import { resolve } from 'node:path';
-import { CATALOG_DIR, readJson } from './lib/catalog.mjs';
+import { CATALOG_DIR, asUtcDate, normalizeFixturesShape, readJson } from './lib/catalog.mjs';
 import { parseArgs } from './lib/cli-args.mjs';
-
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/u;
-
-function asUtcDate(value) {
-  if (typeof value !== 'string' || !DATE_RE.test(value.trim())) return null;
-  const ms = Date.parse(`${value.trim()}T00:00:00Z`);
-  return Number.isFinite(ms) ? ms : null;
-}
+import { VENDOR_OPENROUTER_FAMILY } from './lib/latest-models.mjs';
 
 function daysBetween(fromMs, toMs) {
   return Math.floor((toMs - fromMs) / 86_400_000);
@@ -65,23 +62,39 @@ const warnings = [];
 const fixturesPath = resolve(CATALOG_DIR, 'official-fixtures.json');
 const fixtures = await readJson(fixturesPath);
 
-const verification = fixtures.verification ?? null;
-if (!verification || typeof verification.checkedAt !== 'string') {
-  warnings.push('verification.checkedAt is missing — catalog has no freshness baseline.');
-} else {
-  const checkedMs = asUtcDate(verification.checkedAt);
-  const staleAfterDays = Number.isFinite(verification.staleAfterDays)
-    ? verification.staleAfterDays
-    : 90;
-  if (checkedMs == null) {
-    warnings.push(`verification.checkedAt "${verification.checkedAt}" is not a YYYY-MM-DD date.`);
-  } else {
-    const age = daysBetween(checkedMs, nowMs);
-    if (age > staleAfterDays) {
-      warnings.push(
-        `catalog last verified ${verification.checkedAt} (${age}d ago, > staleAfterDays ${staleAfterDays}); re-verify provider defaults against live docs and run \`pnpm provider:refresh\`.`,
-      );
-    }
+// Foundation integrity: validate the fixture's structure before reading any
+// freshness field, so a typo (`status: "currnet"`, `retiredOn`, a string
+// `staleAfterDays`) is a hard failure instead of being silently read past. A
+// freshness gate whose own data layer can be hollowed out by a typo is no gate.
+const shapeErrors = normalizeFixturesShape(fixtures);
+if (shapeErrors.length > 0) {
+  console.error(`official-fixtures.json failed shape validation (${shapeErrors.length} error(s)):`);
+  for (const shapeError of shapeErrors) console.error(`  ✖ ${shapeError}`);
+  console.error('\nprovider:check failed — fix the malformed fixture fields above.');
+  process.exit(1);
+}
+
+// Shape validation guarantees a well-formed verification baseline below.
+const verification = fixtures.verification;
+const staleAfterDays = verification.staleAfterDays;
+const checkedMs = asUtcDate(verification.checkedAt);
+const verifiedAge = daysBetween(checkedMs, nowMs);
+if (verifiedAge > staleAfterDays) {
+  warnings.push(
+    `catalog last verified ${verification.checkedAt} (${verifiedAge}d ago, > staleAfterDays ${staleAfterDays}); re-verify provider defaults against live docs and run \`pnpm provider:refresh\`.`,
+  );
+}
+
+// A vendor with no drift mapping silently disables behind-detection for it
+// (looks like a deliberate `skip`). Make the omission loud, not silent rot.
+const fixtureVendors = new Set(
+  Object.values(fixtures.providers).map((provider) => provider.vendor),
+);
+for (const vendor of [...fixtureVendors].sort()) {
+  if (!(vendor in VENDOR_OPENROUTER_FAMILY)) {
+    warnings.push(
+      `vendor "${vendor}" has no drift mapping in latest-models.mjs (VENDOR_OPENROUTER_FAMILY); behind-detection is silently off for it — add a {namespace,line} or an explicit {skip}.`,
+    );
   }
 }
 
@@ -102,10 +115,6 @@ for (const providerId of Object.keys(providers).sort()) {
 
   for (const modelId of modelIds) {
     const model = models[modelId] ?? {};
-    const status = typeof model.status === 'string' ? model.status : null;
-    if (!status) {
-      warnings.push(`${providerId} / ${modelId}: no status (expected current|legacy|retired).`);
-    }
     const retiresMs = asUtcDate(model.retiresOn);
     if (retiresMs != null && retiresMs <= nowMs && modelId !== provider.defaultModel) {
       warnings.push(
@@ -149,13 +158,24 @@ try {
   const driftReport = await readJson(resolve(CATALOG_DIR, 'generated', 'diff-report.json'));
   const drift = driftReport.defaultDrift;
   if (drift && Array.isArray(drift.providers)) {
-    const driftGeneratedAt =
-      typeof driftReport.generatedAt === 'string' ? driftReport.generatedAt.slice(0, 10) : '?';
-    for (const entry of drift.providers) {
-      if (entry.status === 'behind') {
-        warnings.push(
-          `${entry.providerId}: default "${entry.defaultModel}" is behind — OpenRouter has "${entry.latestLeafId}" (${entry.latestCreated}) as of last refresh ${driftGeneratedAt}; run \`pnpm provider:latest\` to re-check, then bump it.`,
-        );
+    const driftDateIso =
+      typeof driftReport.generatedAt === 'string' ? driftReport.generatedAt.slice(0, 10) : null;
+    const driftMs = asUtcDate(driftDateIso);
+    const driftAge = driftMs == null ? null : daysBetween(driftMs, nowMs);
+    // TTL on the cached drift snapshot: past staleAfterDays, the per-provider
+    // "behind" lines are stale conclusions that read as fresh at a glance.
+    // Replace them with one "refresh me" line rather than parroting old drift.
+    if (driftAge != null && driftAge > staleAfterDays) {
+      warnings.push(
+        `default-drift snapshot is ${driftAge}d old (generated ${driftDateIso}, > staleAfterDays ${staleAfterDays}) — run \`pnpm provider:refresh\` to recompute it; not reporting per-provider drift from a stale snapshot.`,
+      );
+    } else {
+      for (const entry of drift.providers) {
+        if (entry.status === 'behind') {
+          warnings.push(
+            `${entry.providerId}: default "${entry.defaultModel}" is behind — OpenRouter has "${entry.latestLeafId}" (${entry.latestCreated}) as of last refresh ${driftDateIso ?? '?'}; run \`pnpm provider:latest\` to re-check, then bump it.`,
+          );
+        }
       }
     }
   }

@@ -129,6 +129,166 @@ function normalizeRegistryShape(registry) {
   return errors;
 }
 
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/u;
+const MODEL_STATUSES = new Set(['current', 'legacy', 'retired']);
+
+// Closed key sets — anything outside them is a typo (`retiredOn` for
+// `retiresOn`, `defautModel`) and must fail, not be silently ignored. This is
+// the `additionalProperties: false` the old (dead) registry schema only
+// promised. `REQUIRED_*` are the subset that must also be present + well-typed.
+const FIXTURES_KEYS = new Set(['version', 'verification', 'providers']);
+const VERIFICATION_KEYS = new Set(['checkedAt', 'staleAfterDays', 'note', 'modelStatus']);
+const PROVIDER_KEYS = new Set([
+  'productName',
+  'vendor',
+  'region',
+  'compatibility',
+  'surface',
+  'providerTransport',
+  'authMode',
+  'baseURL',
+  'defaultModel',
+  'communityAliases',
+  'lastVerifiedAt',
+  'sourceUrl',
+  'models',
+]);
+const MODEL_KEYS = new Set([
+  'displayName',
+  'status',
+  'retiresOn',
+  'sourceUrl',
+  'notes',
+  'communityAliases',
+]);
+// Provider scalar fields every shipped provider must carry. `defaultModel`,
+// `baseURL`, `lastVerifiedAt`, `sourceUrl`, `communityAliases` are intentionally
+// optional here (the user-defined `custom` passthrough has no default/url).
+const REQUIRED_PROVIDER_FIELDS = [
+  'productName',
+  'vendor',
+  'region',
+  'compatibility',
+  'surface',
+  'providerTransport',
+  'authMode',
+];
+
+// Parse a strict `YYYY-MM-DD` string to its UTC-midnight epoch ms, or null.
+// Strict (no trim) so a stray space reads as the typo it is. The single date
+// helper for this subsystem — shared by the fixture validator (`isIsoDate`)
+// and the freshness gate's day math (check-freshness.mjs imports it).
+export function asUtcDate(value) {
+  if (typeof value !== 'string' || !ISO_DATE_RE.test(value)) return null;
+  const ms = Date.parse(`${value}T00:00:00Z`);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function isIsoDate(value) {
+  return asUtcDate(value) != null;
+}
+
+function reportUnknownKeys(errors, label, object, allowed) {
+  for (const key of Object.keys(object)) {
+    if (!allowed.has(key)) {
+      errors.push(`${label} has unknown field "${key}" (possible typo)`);
+    }
+  }
+}
+
+/**
+ * Structural validation of `official-fixtures.json` — the model truth source.
+ * Returns a list of error strings (empty = valid), same idiom as
+ * `normalizeRegistryShape`.
+ *
+ * This is the data-layer half of the freshness mechanism: it makes a typo
+ * (`retiredOn` instead of `retiresOn`, `status: "currnet"`, `staleAfterDays` as
+ * a string) a HARD failure instead of letting the freshness gate read past it
+ * and silently lose its baseline. Closed key sets catch misspelled field names;
+ * type/format/enum checks catch malformed values. Temporal checks (default
+ * retired, date in the past) and cross-references (default points at a real
+ * model) stay in the freshness gate, so neither layer's logic becomes dead.
+ */
+export function normalizeFixturesShape(fixtures) {
+  const errors = [];
+  if (!isRecord(fixtures)) {
+    return ['official-fixtures document must be an object'];
+  }
+  reportUnknownKeys(errors, 'fixtures', fixtures, FIXTURES_KEYS);
+  if (fixtures.version !== 1) {
+    errors.push('fixtures.version must equal 1');
+  }
+
+  const verification = fixtures.verification;
+  if (!isRecord(verification)) {
+    errors.push('fixtures.verification must be an object (the freshness baseline)');
+  } else {
+    reportUnknownKeys(errors, 'fixtures.verification', verification, VERIFICATION_KEYS);
+    if (!isIsoDate(verification.checkedAt)) {
+      errors.push(
+        `fixtures.verification.checkedAt "${verification.checkedAt}" must be a YYYY-MM-DD date`,
+      );
+    }
+    if (!Number.isInteger(verification.staleAfterDays) || verification.staleAfterDays <= 0) {
+      errors.push(
+        `fixtures.verification.staleAfterDays "${verification.staleAfterDays}" must be a positive integer`,
+      );
+    }
+  }
+
+  if (!isRecord(fixtures.providers)) {
+    errors.push('fixtures.providers must be an object');
+    return errors;
+  }
+
+  for (const providerId of Object.keys(fixtures.providers).sort()) {
+    const provider = fixtures.providers[providerId];
+    const at = `provider "${providerId}"`;
+    if (!isRecord(provider)) {
+      errors.push(`${at} must be an object`);
+      continue;
+    }
+    reportUnknownKeys(errors, at, provider, PROVIDER_KEYS);
+    for (const field of REQUIRED_PROVIDER_FIELDS) {
+      if (typeof provider[field] !== 'string' || !provider[field].trim()) {
+        errors.push(`${at} is missing required string field "${field}"`);
+      }
+    }
+    if (
+      'defaultModel' in provider &&
+      (typeof provider.defaultModel !== 'string' || !provider.defaultModel.trim())
+    ) {
+      errors.push(`${at}.defaultModel must be a non-empty string when present`);
+    }
+    if ('lastVerifiedAt' in provider && !isIsoDate(provider.lastVerifiedAt)) {
+      errors.push(`${at}.lastVerifiedAt "${provider.lastVerifiedAt}" must be a YYYY-MM-DD date`);
+    }
+    if (!isRecord(provider.models)) {
+      errors.push(`${at}.models must be an object`);
+      continue;
+    }
+    for (const modelId of Object.keys(provider.models).sort()) {
+      const model = provider.models[modelId];
+      const at2 = `${at} / model "${modelId}"`;
+      if (!isRecord(model)) {
+        errors.push(`${at2} must be an object`);
+        continue;
+      }
+      reportUnknownKeys(errors, at2, model, MODEL_KEYS);
+      if (!MODEL_STATUSES.has(model.status)) {
+        errors.push(
+          `${at2} has invalid status "${model.status}" (expected current|legacy|retired)`,
+        );
+      }
+      if ('retiresOn' in model && !isIsoDate(model.retiresOn)) {
+        errors.push(`${at2}.retiresOn "${model.retiresOn}" must be a YYYY-MM-DD date`);
+      }
+    }
+  }
+
+  return errors;
+}
+
 export async function loadRegistryContext(options = {}) {
   const catalogDir = options.catalogDir ?? CATALOG_DIR;
   const [registry, officialFixtures, curatedOverrides] = await Promise.all([
@@ -140,6 +300,10 @@ export async function loadRegistryContext(options = {}) {
   const errors = normalizeRegistryShape(registry);
   if (errors.length > 0) {
     throw new Error(`Invalid provider source registry:\n- ${errors.join('\n- ')}`);
+  }
+  const fixtureErrors = normalizeFixturesShape(officialFixtures);
+  if (fixtureErrors.length > 0) {
+    throw new Error(`Invalid official-fixtures:\n- ${fixtureErrors.join('\n- ')}`);
   }
 
   return {
