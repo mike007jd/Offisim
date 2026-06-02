@@ -188,7 +188,6 @@ function DeliverableCard({
               title={disabledReason ?? undefined}
               onClick={() => void persistOutput('open')}
             />
-            <span className="off-dlv-export is-static">Format · {format}</span>
           </div>
         </div>
       ) : null}

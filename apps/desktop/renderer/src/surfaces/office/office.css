@@ -2089,26 +2089,3 @@
   align-items: center;
   gap: var(--off-sp-2);
 }
-.off-dlv-export {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 28px;
-  padding: 0 var(--off-sp-3);
-  border: 1px solid var(--off-line);
-  border-radius: var(--off-r-sm);
-  background: var(--off-surface-1);
-  color: var(--off-ink-2);
-  font-size: var(--off-fs-micro);
-  font-weight: 620;
-}
-.off-dlv-export:hover {
-  background: var(--off-surface-sunken);
-  color: var(--off-ink-1);
-}
-
-.off-dlv-export.is-static,
-.off-dlv-export.is-static:hover {
-  background: var(--off-surface-1);
-  color: var(--off-ink-3);
-}
