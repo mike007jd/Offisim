@@ -228,17 +228,22 @@
   gap: var(--off-sp-2);
 }
 
-.off-studio-dirty {
-  height: 24px;
-  display: flex;
+.off-studio-inline.is-dirty {
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+}
+
+.off-studio-dirty-chip {
+  display: inline-flex;
   align-items: center;
-  padding: 0 var(--off-sp-3);
+  align-self: center;
+  padding: 0 var(--off-sp-2);
   border: 1px solid var(--off-warn-line);
   border-radius: var(--off-r-sm);
   background: var(--off-warn-surface);
   color: var(--off-warn);
-  font-size: var(--off-fs-meta);
+  font-size: var(--off-fs-label);
   font-weight: 680;
+  white-space: nowrap;
 }
 
 .off-studio-invalid {

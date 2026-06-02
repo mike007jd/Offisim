@@ -795,7 +795,7 @@ export function StudioSurface() {
             <CapsLabel>Properties</CapsLabel>
             <div className="off-studio-field">
               <label htmlFor={zoneLabelInputId}>Label</label>
-              <div className="off-studio-inline">
+              <div className={`off-studio-inline${dirty ? ' is-dirty' : ''}`}>
                 <Input
                   id={zoneLabelInputId}
                   value={zoneDraft?.label ?? ''}
@@ -805,6 +805,11 @@ export function StudioSurface() {
                   disabled={!selectedZonePersisted || busy}
                   aria-label="Zone label"
                 />
+                {dirty ? (
+                  <span className="off-studio-dirty-chip" title="Unsaved zone edits">
+                    Unsaved
+                  </span>
+                ) : null}
                 <IconButton
                   icon={Save}
                   label="Save zone edits"
@@ -823,7 +828,6 @@ export function StudioSurface() {
                 />
               </div>
             </div>
-            {dirty ? <div className="off-studio-dirty">Unsaved zone edits</div> : null}
             {validation.errors.length > 0 ? (
               <div className="off-studio-invalid">{validation.errors[0]}</div>
             ) : null}
