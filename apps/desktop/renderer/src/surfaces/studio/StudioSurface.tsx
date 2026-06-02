@@ -795,7 +795,7 @@ export function StudioSurface() {
             <CapsLabel>Properties</CapsLabel>
             <div className="off-studio-field">
               <label htmlFor={zoneLabelInputId}>Label</label>
-              <div className={`off-studio-inline${dirty ? ' is-dirty' : ''}`}>
+              <div className={cn('off-studio-inline', dirty && 'is-dirty')}>
                 <Input
                   id={zoneLabelInputId}
                   value={zoneDraft?.label ?? ''}
