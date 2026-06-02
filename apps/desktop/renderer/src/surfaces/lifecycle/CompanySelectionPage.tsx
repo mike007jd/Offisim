@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils.js';
 import { Archive, ArrowRight, Building2, FolderPlus, Pencil } from 'lucide-react';
 import { motion } from 'motion/react';
 import type { CSSProperties } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { CompanyPortalPreview } from './CompanyPortalPreview.js';
 import { companyBrief } from './lifecycle-data.js';
@@ -36,8 +36,7 @@ export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [confirmArchiveId, setConfirmArchiveId] = useState<string | null>(null);
 
-  const allCompanies = companiesQuery.data ?? [];
-  const visible = useMemo(() => allCompanies, [allCompanies]);
+  const visible = companiesQuery.data ?? [];
 
   // Selection precedence: explicit preview → active → first visible.
   const selectedId =

@@ -7,11 +7,106 @@ import {
   useProjects,
   useThreads,
 } from '@/data/queries.js';
+import type { ChatAttachment, ChatMessage } from '@/data/types.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { SkeletonRows } from '@/surfaces/shared/SurfaceStates.js';
+import {
+  type WsAttachment,
+  type WsConversation,
+  type WsMessage,
+  useWsConversations,
+  useWsThread,
+} from '@/surfaces/workspace/workspace-data.js';
+import {
+  persistWorkspaceMessage,
+  usePersistedWorkspaceMessages,
+} from '@/surfaces/workspace/workspace-message-events.js';
 import { ChevronLeft, Inbox } from 'lucide-react';
 import { useMemo } from 'react';
 import { ThreadList } from './rail/ThreadList.js';
+
+function extensionFromName(name: string): string {
+  const [, ext] = /\.([^.]+)$/.exec(name) ?? [];
+  return ext ? ext.toUpperCase() : 'FILE';
+}
+
+function wsAttachmentToChatAttachment(attachment: WsAttachment): ChatAttachment {
+  return {
+    id: attachment.id,
+    name: attachment.name,
+    ext: extensionFromName(attachment.name),
+    sizeLabel: attachment.meta,
+  };
+}
+
+function workspaceTimeLabel(date: Date): string {
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+function wsMessageTime(label: string, index: number): number {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(label);
+  const at = new Date();
+  if (match) {
+    at.setHours(Number(match[1]), Number(match[2]), 0, 0);
+    if (at.getTime() > Date.now()) at.setDate(at.getDate() - 1);
+    return at.getTime();
+  }
+  return Date.now() - Math.max(0, 50 - index) * 60_000;
+}
+
+function wsMessageToChatMessage(message: WsMessage, threadId: string, index: number): ChatMessage {
+  const attachments: ChatAttachment[] = [];
+  if (message.attachment) attachments.push(wsAttachmentToChatAttachment(message.attachment));
+  if (message.deliverable) {
+    attachments.push({
+      id: message.deliverable.id,
+      name: message.deliverable.title,
+      ext: message.deliverable.format,
+      sizeLabel: message.deliverable.meta,
+    });
+  }
+  return {
+    id: message.id,
+    threadId,
+    author: message.author,
+    employeeId: message.employeeId,
+    body: message.body,
+    at: wsMessageTime(message.timeLabel, index),
+    attachments: attachments.length ? attachments : undefined,
+  };
+}
+
+function mergeWsMessages(...sources: WsMessage[][]): WsMessage[] {
+  const merged = new Map<string, WsMessage>();
+  for (const source of sources) {
+    for (const message of source) {
+      merged.set(message.id, message);
+    }
+  }
+  return Array.from(merged.values());
+}
+
+function chatMessageToWsMessage(message: ChatMessage, conversation: WsConversation): WsMessage {
+  const firstAttachment = message.attachments?.[0];
+  return {
+    id: message.id,
+    author: message.author === 'boss' ? 'boss' : 'employee',
+    employeeId: message.author === 'boss' ? null : (message.employeeId ?? conversation.employeeId),
+    role: conversation.kind === 'group' ? 'workspace' : undefined,
+    timeLabel: workspaceTimeLabel(new Date(message.at)),
+    body: message.body,
+    attachment: firstAttachment
+      ? {
+          id: firstAttachment.id,
+          name: firstAttachment.name,
+          meta:
+            message.attachments && message.attachments.length > 1
+              ? `${firstAttachment.sizeLabel} · ${message.attachments.length} files staged`
+              : firstAttachment.sizeLabel,
+        }
+      : undefined,
+  };
+}
 
 export function ChatRail() {
   const railMode = useUiState((s) => s.railMode);
@@ -27,6 +122,7 @@ export function ChatRail() {
   const employees = useEmployees();
   const messages = useMessages(railMode === 'thread' ? selectedThreadId : null);
   const deliverables = useDeliverables();
+  const workspaceConversations = useWsConversations();
 
   const employeesById = useMemo(
     () => new Map((employees.data ?? []).map((e) => [e.id, e])),
@@ -34,6 +130,56 @@ export function ChatRail() {
   );
 
   const activeThread = threads.data?.find((t) => t.id === selectedThreadId);
+  const activeWorkspaceConversation = workspaceConversations.data?.find(
+    (c) => c.id === selectedThreadId && c.kind !== 'system',
+  );
+  const workspaceThread = useWsThread(
+    !activeThread && activeWorkspaceConversation ? selectedThreadId : null,
+  );
+  const persistedWorkspaceMessages = usePersistedWorkspaceMessages(
+    !activeThread && activeWorkspaceConversation ? selectedThreadId : null,
+  );
+  const workspaceMessages = useMemo(
+    () =>
+      mergeWsMessages(workspaceThread.data?.messages ?? [], persistedWorkspaceMessages.data ?? []),
+    [workspaceThread.data?.messages, persistedWorkspaceMessages.data],
+  );
+  const workspaceSeedMessages = useMemo(
+    () =>
+      selectedThreadId
+        ? workspaceMessages.map((message, index) =>
+            wsMessageToChatMessage(message, selectedThreadId, index),
+          )
+        : [],
+    [selectedThreadId, workspaceMessages],
+  );
+  const persistWorkspaceChatMessage = useMemo(
+    () =>
+      !activeThread && activeWorkspaceConversation && selectedThreadId
+        ? (message: ChatMessage) =>
+            persistWorkspaceMessage({
+              threadId: selectedThreadId,
+              message: chatMessageToWsMessage(message, activeWorkspaceConversation),
+              companyId,
+              projectId,
+            })
+        : undefined,
+    [activeThread, activeWorkspaceConversation, companyId, projectId, selectedThreadId],
+  );
+  const displayThread =
+    activeThread ??
+    (activeWorkspaceConversation && selectedThreadId
+      ? {
+          id: selectedThreadId,
+          title: activeWorkspaceConversation.title,
+          subtitle:
+            activeWorkspaceConversation.kind === 'group'
+              ? `Team thread · ${activeWorkspaceConversation.members ?? 0} members`
+              : activeWorkspaceConversation.snippet,
+          runState: 'idle' as const,
+          employeeId: activeWorkspaceConversation.employeeId,
+        }
+      : null);
   const projectName = projects.data?.find((p) => p.id === projectId)?.name ?? 'Project';
 
   if (railMode === 'list') {
@@ -55,9 +201,9 @@ export function ChatRail() {
           onClick={closeThread}
         />
         <div className="off-chat-crumb">
-          <span className="off-chat-title">{activeThread?.title ?? 'Conversation'}</span>
-          {activeThread?.subtitle ? (
-            <span className="off-chat-sub">{activeThread.subtitle}</span>
+          <span className="off-chat-title">{displayThread?.title ?? 'Conversation'}</span>
+          {displayThread?.subtitle ? (
+            <span className="off-chat-sub">{displayThread.subtitle}</span>
           ) : null}
         </div>
         <IconButton
@@ -72,7 +218,10 @@ export function ChatRail() {
         />
       </header>
 
-      {messages.isLoading || !selectedThreadId ? (
+      {(activeThread
+        ? messages.isLoading
+        : workspaceThread.isLoading || persistedWorkspaceMessages.isLoading) ||
+      !selectedThreadId ? (
         <SkeletonRows rows={4} />
       ) : (
         <OfficeThread
@@ -80,12 +229,13 @@ export function ChatRail() {
           threadId={selectedThreadId}
           companyId={companyId}
           projectId={projectId}
-          runState={activeThread?.runState ?? 'idle'}
-          seedMessages={messages.data ?? []}
+          runState={displayThread?.runState ?? 'idle'}
+          seedMessages={activeThread ? (messages.data ?? []) : workspaceSeedMessages}
           employeesById={employeesById}
           deliverables={deliverables.data ?? []}
-          employeeId={activeThread?.employeeId ?? null}
+          employeeId={displayThread?.employeeId ?? null}
           projectName={projectName}
+          persistMessage={persistWorkspaceChatMessage}
         />
       )}
     </section>

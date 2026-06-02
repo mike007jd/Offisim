@@ -8,6 +8,7 @@ import {
   type RunState,
   type StagedAttachment,
 } from '@/data/types.js';
+import { sha256Hex } from '@/lib/utils.js';
 import { CHAT_ATTACHMENT_MAX_BYTES, kindFromMime } from '@offisim/shared-types';
 import { create } from 'zustand';
 
@@ -95,12 +96,10 @@ const ACTIVE_PROVIDER_STAGES: PipelineStage[] = [
   { id: 'assistant-response', label: 'Response', state: 'pending' },
 ];
 
-/** Seed a pipeline for a thread that is already mid-run when it is opened, so
- *  the stage pill reflects the persisted run state rather than showing nothing. */
-function seedPipeline(): RunPipeline {
+function makePipeline(title: string, assigneeId: string | null): RunPipeline {
   return {
-    title: 'Provider response',
-    assigneeId: null,
+    title,
+    assigneeId,
     stepTotal: ACTIVE_PROVIDER_STAGES.length,
     stepDone: 1,
     stages: ACTIVE_PROVIDER_STAGES.map((stage) => ({ ...stage })),
@@ -133,7 +132,7 @@ export const useRunStore = create<RunStore>((set, get) => ({
     set({
       threadId,
       isRunning: running,
-      pipeline: running ? seedPipeline() : null,
+      pipeline: running ? makePipeline('Provider response', null) : null,
       error: runState === 'error' ? seedError() : null,
       // No producer emits MeetingState yet, so this stays null and
       // MeetingTray/MeetingRegion render nothing rather than asserting a meeting.
@@ -143,14 +142,11 @@ export const useRunStore = create<RunStore>((set, get) => ({
   },
 
   start: (title, assigneeId) => {
-    const pipeline: RunPipeline = {
-      title: title ?? 'Provider response',
-      assigneeId: assigneeId ?? null,
-      stepTotal: ACTIVE_PROVIDER_STAGES.length,
-      stepDone: 1,
-      stages: ACTIVE_PROVIDER_STAGES.map((stage) => ({ ...stage })),
-    };
-    set({ isRunning: true, pipeline, error: null });
+    set({
+      isRunning: true,
+      pipeline: makePipeline(title ?? 'Provider response', assigneeId ?? null),
+      error: null,
+    });
   },
 
   finish: () => {
@@ -282,15 +278,6 @@ function mimeFromExt(ext: string): string {
     default:
       return 'application/octet-stream';
   }
-}
-
-async function sha256Hex(bytes: Uint8Array): Promise<string> {
-  // `bytes` is typed Uint8Array<ArrayBufferLike>; copy into a plain ArrayBuffer
-  // so digest's BufferSource type is satisfied under TS 5.7+ (no SharedArrayBuffer).
-  const digest = await crypto.subtle.digest('SHA-256', Uint8Array.from(bytes).buffer as ArrayBuffer);
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('');
 }
 
 async function hydrateStagedFile(

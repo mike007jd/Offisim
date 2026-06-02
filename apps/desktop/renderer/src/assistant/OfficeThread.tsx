@@ -44,6 +44,7 @@ interface OfficeThreadProps {
   /** Employee holding this conversation's run (direct thread), shown on the pill. */
   employeeId: string | null;
   projectName: string;
+  persistMessage?: (message: ChatMessage) => Promise<void>;
 }
 
 function OfficeComposer({ projectName }: { projectName: string }) {
@@ -203,6 +204,7 @@ export function OfficeThread({
   deliverables,
   employeeId,
   projectName,
+  persistMessage,
 }: OfficeThreadProps) {
   const runtime = useOfficeRuntime({
     threadId,
@@ -210,6 +212,7 @@ export function OfficeThread({
     assigneeId: employeeId,
     companyId,
     projectId,
+    persistMessage,
   });
   const syncThread = useRunStore((s) => s.syncThread);
 

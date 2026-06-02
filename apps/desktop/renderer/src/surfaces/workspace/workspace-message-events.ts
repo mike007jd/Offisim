@@ -1,4 +1,4 @@
-import { reposOrNull } from '@/data/adapters.js';
+import { appendThreadMessageEvent, loadThreadMessageEvents } from '@/data/thread-message-events.js';
 import { useQuery } from '@tanstack/react-query';
 import type { WsMessage } from './workspace-data.js';
 
@@ -20,51 +20,39 @@ export async function persistWorkspaceMessage({
   companyId: string | null;
   projectId: string | null;
 }): Promise<void> {
-  if (!companyId) return;
+  // WsMessage carries no numeric timestamp of its own, so stamp one for ordering.
   const createdAt = new Date();
-  const repos = await reposOrNull();
-  if (!repos?.agentEvents) return;
-  await repos.agentEvents.append({
-    event_id: `evt-${crypto.randomUUID()}`,
-    project_id: projectId,
-    thread_id: threadId,
-    company_id: companyId,
-    agent_name: message.author === 'boss' ? 'boss' : 'workspace-runtime',
-    event_type: WORKSPACE_CHAT_MESSAGE_EVENT,
-    payload_json: JSON.stringify({ message, createdAtMs: createdAt.getTime() }),
-    parent_event_id: null,
-    created_at: createdAt.toISOString(),
+  await appendThreadMessageEvent({
+    eventType: WORKSPACE_CHAT_MESSAGE_EVENT,
+    threadId,
+    companyId,
+    projectId,
+    agentName: message.author === 'boss' ? 'boss' : 'workspace-runtime',
+    payload: { message, createdAtMs: createdAt.getTime() } satisfies WorkspaceMessagePayload,
+    createdAt,
   });
 }
 
 export async function loadPersistedWorkspaceMessages(threadId: string): Promise<WsMessage[]> {
-  const repos = await reposOrNull();
-  const rows =
-    (await repos?.agentEvents?.findByThread(threadId, {
-      eventType: WORKSPACE_CHAT_MESSAGE_EVENT,
-      limit: 500,
-    })) ?? [];
-  return rows
-    .map((row) => {
-      try {
-        const payload = JSON.parse(row.payload_json) as WorkspaceMessagePayload;
-        if (!payload.message) return null;
-        return {
-          message: payload.message,
-          createdAtMs: payload.createdAtMs ?? (Date.parse(row.created_at) || 0),
-        };
-      } catch {
-        return null;
-      }
-    })
-    .filter((entry): entry is { message: WsMessage; createdAtMs: number } => entry !== null)
-    .sort((a, b) => a.createdAtMs - b.createdAtMs)
-    .map((entry) => entry.message);
+  const entries = await loadThreadMessageEvents<{ message: WsMessage; createdAtMs: number }>(
+    threadId,
+    WORKSPACE_CHAT_MESSAGE_EVENT,
+    (payload, row) => {
+      const parsed = payload as WorkspaceMessagePayload;
+      if (!parsed.message) return null;
+      return {
+        message: parsed.message,
+        createdAtMs: parsed.createdAtMs ?? (Date.parse(row.created_at) || 0),
+      };
+    },
+  );
+  return entries.sort((a, b) => a.createdAtMs - b.createdAtMs).map((entry) => entry.message);
 }
 
-export function usePersistedWorkspaceMessages(threadId: string) {
+export function usePersistedWorkspaceMessages(threadId: string | null) {
   return useQuery({
     queryKey: ['ws', 'persisted-thread-messages', threadId],
-    queryFn: () => loadPersistedWorkspaceMessages(threadId),
+    queryFn: () => loadPersistedWorkspaceMessages(threadId ?? ''),
+    enabled: threadId !== null,
   });
 }

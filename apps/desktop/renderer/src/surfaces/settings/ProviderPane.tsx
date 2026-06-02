@@ -112,7 +112,6 @@ export function ProviderPane({
   const providerBridgeAvailable = isDesktopProviderBridgeAvailable();
 
   const active = resolveActiveProviderConfig(configs, activeConfigId);
-  const activeConfig = active;
   const modelSuggestions = useMemo(() => modelSuggestionsFromConfigs(configs), [configs]);
   const catalogSources = useMemo(() => catalogSourcesFromConfigs(configs), [configs]);
   const runtimeProfileRefreshLabel = providerBridgeAvailable
@@ -126,9 +125,9 @@ export function ProviderPane({
     : null;
 
   const effectiveEndpoint =
-    activeConfig.endpointKind === 'messages'
-      ? `${activeConfig.credentialDestination.replace(/\/$/u, '')}/v1/messages`
-      : `${activeConfig.credentialDestination.replace(/\/$/u, '')}/v1/chat/completions`;
+    active.endpointKind === 'messages'
+      ? `${active.credentialDestination.replace(/\/$/u, '')}/v1/messages`
+      : `${active.credentialDestination.replace(/\/$/u, '')}/v1/chat/completions`;
 
   async function handleTestConnection() {
     setIsTesting(true);
@@ -136,24 +135,24 @@ export function ProviderPane({
     try {
       const profiles = await loadRuntimeProviderProfiles();
       const profile =
-        profiles.find((candidate) => candidate.id === activeConfig.id) ??
-        profiles.find((candidate) => runtimeProfileMatches(activeConfig, candidate.displayName));
+        profiles.find((candidate) => candidate.id === active.id) ??
+        profiles.find((candidate) => runtimeProfileMatches(active, candidate.displayName));
       if (!profile) {
         throw new Error('Provider profile is not saved in the desktop runtime.');
       }
       const response = await sendProviderText({
         profile,
         text: 'Reply with exactly: ok',
-        requestId: createProviderTestRequestId(activeConfig.id),
+        requestId: createProviderTestRequestId(active.id),
         maxOutputTokens: 32,
       });
-      setTestMessage(`${activeConfig.displayName} reachable · ${response.slice(0, 80)}`);
-      toast.success(`${activeConfig.displayName} is reachable`, {
+      setTestMessage(`${active.displayName} reachable · ${response.slice(0, 80)}`);
+      toast.success(`${active.displayName} is reachable`, {
         description: response.slice(0, 120),
       });
     } catch (error) {
       setTestMessage(`Test failed · ${safeErrorMessage(error)}`);
-      toast.error(`${activeConfig.displayName} test failed`, {
+      toast.error(`${active.displayName} test failed`, {
         description: safeErrorMessage(error),
       });
     } finally {
@@ -351,8 +350,8 @@ export function ProviderPane({
               {ACCESS_MODE_OPTIONS.find((o) => o.value === accessMode)?.label ?? 'Global API key'}
             </span>
             <span className="off-set-route-trail">
-              {routeProtocolLabel(activeConfig)} · {activeConfig.endpointKind} ·{' '}
-              {activeConfig.region}
+              {routeProtocolLabel(active)} · {active.endpointKind} ·{' '}
+              {active.region}
             </span>
           </div>
         </CardBlock>

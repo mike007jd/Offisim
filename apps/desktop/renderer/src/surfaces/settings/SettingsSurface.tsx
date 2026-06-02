@@ -102,7 +102,7 @@ export function SettingsSurface() {
   // half-typed key auto-saved would clobber the stored one). Runtime and
   // Appearance are preferences and auto-save on change. There is no global save
   // bar — each pane owns its own persistence.
-  const [providerSave, setProviderSave] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [providerSave, setProviderSave] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [providerSaveError, setProviderSaveError] = useState<string | null>(null);
   const [runtimeSaved, setRuntimeSaved] = useState(false);
   const providerFlashTimer = useRef<number | null>(null);
@@ -185,7 +185,7 @@ export function SettingsSurface() {
     } catch (error) {
       const message = safeErrorMessage(error);
       setProviderSaveError(message);
-      setProviderSave('error');
+      setProviderSave('idle');
       toast.error('Provider save failed', { description: message });
     }
   }, [activeConfigId, providerConfigs, providerDirty, providerForm, providerValid, queryClient]);

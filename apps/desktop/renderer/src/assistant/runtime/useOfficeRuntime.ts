@@ -43,6 +43,7 @@ export function useOfficeRuntime({
   assigneeId,
   companyId,
   projectId,
+  persistMessage,
 }: {
   threadId: string;
   seedMessages: ChatMessage[];
@@ -50,6 +51,7 @@ export function useOfficeRuntime({
   assigneeId?: string | null;
   companyId: string | null;
   projectId: string | null;
+  persistMessage?: (message: ChatMessage) => Promise<void>;
 }) {
   const [drafts, setDrafts] = useState<ChatMessage[]>([]);
   const [isSending, setIsSending] = useState(false);
@@ -72,6 +74,13 @@ export function useOfficeRuntime({
   const setRunError = useRunStore((s) => s.setError);
   const staged = useRunStore((s) => s.staged);
   const clearStaged = useRunStore((s) => s.clearStaged);
+  const persistRuntimeMessage = useCallback(
+    (message: ChatMessage) =>
+      persistMessage
+        ? persistMessage(message)
+        : persistChatMessage({ message, companyId, projectId }),
+    [companyId, persistMessage, projectId],
+  );
 
   const onNew = useCallback(
     async (message: AppendMessage) => {
@@ -119,7 +128,7 @@ export function useOfficeRuntime({
         setDrafts((prev) =>
           prev.map((draft) => (draft.id === userMessageId ? userMessage : draft)),
         );
-        await persistChatMessage({ message: userMessage, companyId, projectId });
+        await persistRuntimeMessage(userMessage);
         const response = await sendDesktopProviderMessage({
           text: materialized.promptText,
           requestId,
@@ -138,12 +147,12 @@ export function useOfficeRuntime({
           id: newDraftId('assistant'),
           threadId,
           author: 'employee',
-          employeeId: null,
+          employeeId: assigneeId ?? null,
           body: response,
           at: Date.now(),
         };
         setDrafts((prev) => [...prev, assistantMessage]);
-        await persistChatMessage({ message: assistantMessage, companyId, projectId });
+        await persistRuntimeMessage(assistantMessage);
       } catch (error) {
         // A deliberate Stop aborts the in-flight request, which rejects here.
         // That is a cancel, not a failure — skip the error toast/bubble.
@@ -192,63 +201,48 @@ export function useOfficeRuntime({
       finishRun,
       stop,
       setRunError,
+      persistRuntimeMessage,
     ],
   );
 
-  const onCancel = useCallback(async () => {
+  // Shared by the diegetic Stop, the composer Stop, and the unmount cleanup so
+  // a thread switch (ChatRail mounts OfficeThread keyed on selectedThreadId, so
+  // switching unmounts this runtime) never orphans a live `llm_fetch`: marks the
+  // run aborted, aborts the controller, tells the Rust side to drop the request,
+  // and stops the store. Fire-and-forget — the abort failure is logged, never
+  // surfaced as a cancel toast.
+  const abortInFlight = useCallback(async () => {
     abortedRef.current = true;
     abortControllerRef.current?.abort();
     const requestId = requestIdRef.current;
     if (requestId) {
-      const { invoke } = await import('@tauri-apps/api/core');
-      await invoke('llm_fetch_abort', { requestId }).catch(() => undefined);
+      void import('@tauri-apps/api/core').then(({ invoke }) =>
+        invoke('llm_fetch_abort', { requestId }).catch((err: unknown) => {
+          console.warn('[useOfficeRuntime] llm_fetch_abort failed', { requestId, err });
+        }),
+      );
     }
     stop();
   }, [stop]);
 
-  // Expose the real provider abort to the out-of-tree stage pill: register
-  // onCancel as the store's stop handler while this runtime is mounted, so the
-  // diegetic Stop control performs the same AbortController + llm_fetch_abort
-  // cancel as the composer's own Stop. Cleared on unmount.
+  // Register the real provider abort as the store's stop handler while mounted,
+  // so the out-of-tree diegetic Stop pill cancels exactly like the composer Stop.
   useEffect(() => {
-    setStopHandler(onCancel);
+    setStopHandler(abortInFlight);
     return () => setStopHandler(null);
-  }, [onCancel, setStopHandler]);
+  }, [abortInFlight, setStopHandler]);
 
-  // F/I4: ChatRail mounts OfficeThread with `key={selectedThreadId}`, so
-  // switching threads (or list <-> thread) unmounts this runtime. Without
-  // an explicit cleanup, an in-flight `llm_fetch` would resolve onto an
-  // unmounted component and call setDrafts, and the Rust side request never
-  // hears about the cancellation. Cleanup mirrors `onCancel` without the
-  // user-facing toast suppression — we don't surface a cancel notification
-  // when the unmount itself initiated it.
   useEffect(() => {
     return () => {
-      abortedRef.current = true;
-      abortControllerRef.current?.abort();
-      const requestId = requestIdRef.current;
-      if (requestId) {
-        void import('@tauri-apps/api/core').then(({ invoke }) =>
-          invoke('llm_fetch_abort', { requestId }).catch((err: unknown) => {
-            // Surface the failure: silent catch hid orphan llm_fetch
-            // requests when the dynamic import resolved onto a dead
-            // component. Console output is enough — no UI toast on unmount.
-            console.warn('[useOfficeRuntime] llm_fetch_abort failed during cleanup', {
-              requestId,
-              err,
-            });
-          }),
-        );
-      }
-      stop();
+      abortInFlight();
     };
-  }, [stop]);
+  }, [abortInFlight]);
 
   return useExternalStoreRuntime({
     messages,
     onNew,
     convertMessage,
     isRunning: storeRunningHere || isSending,
-    onCancel,
+    onCancel: abortInFlight,
   });
 }

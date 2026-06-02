@@ -8,6 +8,7 @@ import {
   safeErrorMessage,
   sendProviderTextDetailed,
 } from '@/lib/provider-bridge.js';
+import { sha256Hex } from '@/lib/utils.js';
 import type { AppendMessage } from '@assistant-ui/react';
 import type { RuntimeRepositories } from '@offisim/core/browser';
 import {
@@ -194,7 +195,7 @@ async function materializeAttachmentBytes(
   const bytes = new Uint8Array(await attachment.file.arrayBuffer());
   return {
     bytes,
-    sha256: await sha256BytesHex(bytes),
+    sha256: await sha256Hex(bytes),
     attachmentId: attachment.attachmentId,
   };
 }
@@ -304,19 +305,8 @@ async function recordDirectProviderCall({
 
 async function sha256TextOrNull(value: string): Promise<string | null> {
   try {
-    const bytes = new TextEncoder().encode(value);
-    return await sha256BytesHex(bytes);
+    return await sha256Hex(new TextEncoder().encode(value));
   } catch {
     return null;
   }
-}
-
-async function sha256BytesHex(bytes: Uint8Array): Promise<string> {
-  const digest = await crypto.subtle.digest(
-    'SHA-256',
-    Uint8Array.from(bytes).buffer as ArrayBuffer,
-  );
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('');
 }

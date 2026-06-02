@@ -1190,91 +1190,6 @@
   line-height: 1.5;
 }
 
-/* ───────────── Save / error bars ───────────── */
-.off-set-savebar-wrap {
-  flex: none;
-}
-
-.off-set-savebar {
-  border-top: 1px solid var(--off-line);
-  background: var(--off-topbar-bg);
-  backdrop-filter: blur(8px);
-  padding: var(--off-sp-4) 32px var(--off-sp-5);
-}
-
-.off-set-savebar-inner {
-  margin: 0 auto;
-}
-
-.off-set-btn-save {
-  height: 36px;
-  width: 100%;
-  border: 0;
-  border-radius: var(--off-r-sm);
-  background: var(--off-accent);
-  color: var(--off-accent-fg);
-  font-size: var(--off-fs-sm);
-  font-weight: 640;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  transition: background var(--off-motion-fast) var(--off-motion-ease);
-}
-
-.off-set-btn-save:hover {
-  background: var(--off-accent-press);
-}
-
-.off-set-savebar.is-idle .off-set-btn-save,
-.off-set-btn-save:disabled {
-  background: var(--off-surface-sunken);
-  color: var(--off-ink-4);
-  border: 1px solid var(--off-line);
-  cursor: not-allowed;
-}
-
-.off-set-savebar.is-busy .off-set-btn-save {
-  opacity: 0.86;
-  cursor: progress;
-}
-
-.off-set-savebar.is-error .off-set-btn-save {
-  background: var(--off-danger);
-  color: var(--off-accent-fg);
-}
-
-.off-set-save-tip {
-  text-align: center;
-  font-size: var(--off-fs-label);
-  color: var(--off-ink-4);
-  margin-top: 5px;
-  line-height: 1.4;
-}
-
-.off-set-save-tip.is-err {
-  color: var(--off-danger);
-}
-
-.off-set-save-tip.is-warn {
-  color: var(--off-warn);
-}
-
-.off-set-spin-inline {
-  width: 12px;
-  height: 12px;
-  border: 2px solid var(--off-white-line-strong);
-  border-top-color: var(--off-accent-fg);
-  border-radius: var(--off-r-round);
-  animation: off-set-spin var(--off-motion-spin-fast) var(--off-motion-linear) infinite;
-}
-
-@keyframes off-set-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .off-set-err-banner {
   display: flex;
   align-items: flex-start;
@@ -1304,12 +1219,6 @@
   font-size: var(--off-fs-meta);
   color: var(--off-ink-2);
   margin-top: 2px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .off-set-spin-inline {
-    animation: none;
-  }
 }
 
 /* ───────────── Shared utility classes consumed by other surfaces ─────────────

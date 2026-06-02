@@ -333,8 +333,26 @@ export function getEventLevel(type: string): ActivityLevel {
 
 /* ── Display label ───────────────────────────────────────────────────────── */
 
+const KNOWN_TOPIC_LABELS: Record<string, string> = {
+  'agent.action': 'Agent completed an action',
+  'agent.decision': 'Agent recorded a decision',
+  'boss.route.decided': 'Boss routed the task',
+  'pm-preflight-cancelled': 'Preflight was cancelled',
+};
+
 function titleFromTopic(type: string): string {
-  return type.replaceAll('.', ' / ');
+  if (KNOWN_TOPIC_LABELS[type]) return KNOWN_TOPIC_LABELS[type];
+
+  const words = type
+    .replace(/^agent[._-]/, 'agent ')
+    .replace(/^boss[._-]/, 'boss ')
+    .replaceAll('.', ' ')
+    .replaceAll('_', ' ')
+    .replaceAll('-', ' ')
+    .trim()
+    .split(/\s+/);
+  if (words.length === 0) return type;
+  return words.map((word) => word[0]?.toUpperCase() + word.slice(1)).join(' ');
 }
 
 /** Resolve the human label shown on a row. Dedicated formatters win, then the
@@ -344,15 +362,18 @@ export function getDisplayLabel(record: ActivityRecord): string {
 
   if (type === 'task.assignment.rerouted') {
     const reason = (payload?.reason as string) ?? 'unspecified';
-    return `task assignment rerouted → ${reason}`;
+    return `Task assignment rerouted: ${reason}`;
   }
   if (type === 'skill.install.outcome') {
     const action = (payload?.action as string) ?? 'installed';
     const who = (payload?.employeeName as string) ?? (payload?.actor as string);
-    return who
-      ? `skill.install.outcome — ${action} by ${who}`
-      : `skill.install.outcome — ${action}`;
+    return who ? `Skill ${action} by ${who}` : `Skill ${action}`;
   }
+  if (type === 'agent.error') {
+    if (payload?.message === 'pm-preflight-cancelled') return 'Preflight was cancelled';
+    return 'Agent hit an error';
+  }
+  if (KNOWN_TOPIC_LABELS[type]) return KNOWN_TOPIC_LABELS[type];
 
   if (payload) {
     const message = payload.message ?? payload.nodeName ?? payload.employeeName ?? payload.name;

@@ -7,13 +7,11 @@ import { Textarea } from '@/design-system/primitives/textarea.js';
 import { cn } from '@/lib/utils.js';
 import { ChevronDown, ChevronLeft, ChevronUp, Loader2, Wrench } from 'lucide-react';
 import { motion } from 'motion/react';
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { clearDiscardConfirm, showDiscardConfirm } from './DiscardConfirmToast.js';
 import { TemplatePreview } from './TemplatePreview.js';
 import { roleDot, roleLabel, templateZones } from './lifecycle-data.js';
 import { CREATE_YOUR_OWN_TEMPLATE, EMPLOYEE_BIOS, TEMPLATE_META } from './wizard-data.js';
-
-type CreateStep = 'ready' | 'creating' | 'opening-studio';
 
 function roleAccentStyle(color: string): CSSProperties {
   return { '--off-wiz-role-accent': color } as CSSProperties;
@@ -104,7 +102,7 @@ export function CompanyCreationWizard({
   const [index, setIndex] = useState(0);
   const [companyName, setCompanyName] = useState('');
   const [description, setDescription] = useState('');
-  const [step, setStep] = useState<CreateStep>('ready');
+  const [busy, setBusy] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
   const safeIndex = templates.length ? Math.min(index, templates.length - 1) : 0;
@@ -115,37 +113,28 @@ export function CompanyCreationWizard({
 
   // Dirty = name typed OR template moved off the default (index 0).
   const isDirty = companyName.trim().length > 0 || description.trim().length > 0 || safeIndex !== 0;
-  const busy = step !== 'ready';
 
-  function attemptDismiss() {
+  // Close attempt (button or Esc) routes through one dirty guard: clean closes
+  // immediately, dirty arms (or re-arms) the single discard confirm rather than
+  // force-closing the wizard.
+  const attemptDismiss = useCallback(() => {
     if (busy || !dismissible) return;
     if (!isDirty) {
       onDismiss();
       return;
     }
-    // Dirty: arm (or re-arm) the discard guard. Esc while it is already armed
-    // replaces the single instance rather than force-closing the wizard.
-    showDiscardConfirm({
-      detail: 'esc · close attempt while name or template is dirty',
-      onDiscard: onDismiss,
-    });
-  }
+    showDiscardConfirm({ onDiscard: onDismiss });
+  }, [busy, dismissible, isDirty, onDismiss]);
 
-  // Esc routes through the dirty guard. Re-binds when the guard inputs change so
-  // the handler always reads the current dirty/busy state.
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key !== 'Escape' || busy || !dismissible) return;
       event.preventDefault();
-      if (!isDirty) {
-        onDismiss();
-        return;
-      }
-      showDiscardConfirm({ onDiscard: onDismiss });
+      attemptDismiss();
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isDirty, busy, dismissible, onDismiss]);
+  }, [busy, dismissible, attemptDismiss]);
 
   // Always clear any armed discard toast when the wizard unmounts.
   useEffect(() => () => clearDiscardConfirm(), []);
@@ -154,7 +143,7 @@ export function CompanyCreationWizard({
     if (!selected) return;
     if (!companyName.trim()) return;
     setCreateError(null);
-    setStep(isCustom ? 'opening-studio' : 'creating');
+    setBusy(true);
     const name = companyName.trim();
     try {
       await onComplete({
@@ -165,7 +154,7 @@ export function CompanyCreationWizard({
       });
       clearDiscardConfirm();
     } catch (error) {
-      setStep('ready');
+      setBusy(false);
       setCreateError(error instanceof Error ? error.message : 'Company creation failed');
     }
   }
@@ -174,7 +163,7 @@ export function CompanyCreationWizard({
 
   // One verb for every path. The Studio route is a template choice (Create your
   // own), not a second primary action.
-  const ctaLabel = step === 'ready' ? 'Create company' : 'Creating…';
+  const ctaLabel = busy ? 'Creating…' : 'Create company';
 
   return (
     <motion.div
