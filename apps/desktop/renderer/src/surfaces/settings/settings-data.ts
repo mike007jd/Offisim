@@ -30,8 +30,8 @@ export interface ProviderConfig {
   readonly displayName: string;
   readonly logoMark: string;
   readonly logoGradient: readonly [string, string];
+  /** User-configured model id. Empty until the user sets one — no presumptuous default. */
   readonly model: string;
-  readonly subtitle: string;
   readonly health: ProviderHealth;
   readonly accessMode: string;
   readonly lane: string;
@@ -79,8 +79,7 @@ export const PROVIDER_CONFIGS: readonly [ProviderConfig, ...ProviderConfig[]] = 
     displayName: 'MiniMax Global',
     logoMark: 'M',
     logoGradient: [UI_DATA_COLORS.blue, UI_DATA_COLORS.blueViolet],
-    model: 'MiniMax-M3',
-    subtitle: 'MiniMax-M3 · default',
+    model: '',
     health: 'no-key',
     accessMode: 'global-key',
     lane: 'gateway',
@@ -97,8 +96,7 @@ export const PROVIDER_CONFIGS: readonly [ProviderConfig, ...ProviderConfig[]] = 
     displayName: 'OpenAI',
     logoMark: 'O',
     logoGradient: [UI_DATA_COLORS.green, UI_DATA_COLORS.green2],
-    model: 'gpt-5.4-mini',
-    subtitle: 'gpt-5.4-mini · backup',
+    model: '',
     health: 'stale',
     accessMode: 'global-key',
     lane: 'gateway',
@@ -115,8 +113,7 @@ export const PROVIDER_CONFIGS: readonly [ProviderConfig, ...ProviderConfig[]] = 
     displayName: 'OpenRouter',
     logoMark: 'R',
     logoGradient: [UI_DATA_COLORS.amber3, UI_DATA_COLORS.amber4],
-    model: 'google/gemma-4-31b-it:free',
-    subtitle: 'google/gemma-4-31b-it:free',
+    model: '',
     health: 'unused',
     accessMode: 'global-key',
     lane: 'gateway',
@@ -133,8 +130,7 @@ export const PROVIDER_CONFIGS: readonly [ProviderConfig, ...ProviderConfig[]] = 
     displayName: 'Anthropic',
     logoMark: 'A',
     logoGradient: [UI_DATA_COLORS.violet, UI_DATA_COLORS.blue3],
-    model: 'claude-opus-4-8',
-    subtitle: 'claude-opus-4-8 · direct',
+    model: '',
     health: 'no-key',
     accessMode: 'global-key',
     lane: 'gateway',
@@ -151,8 +147,7 @@ export const PROVIDER_CONFIGS: readonly [ProviderConfig, ...ProviderConfig[]] = 
     displayName: 'Google',
     logoMark: 'G',
     logoGradient: [UI_DATA_COLORS.red3, UI_DATA_COLORS.red5],
-    model: 'gemini-3.5-flash',
-    subtitle: 'gemini-3.5-flash',
+    model: '',
     health: 'no-key',
     accessMode: 'global-key',
     lane: 'gateway',
@@ -169,8 +164,7 @@ export const PROVIDER_CONFIGS: readonly [ProviderConfig, ...ProviderConfig[]] = 
     displayName: 'Ollama',
     logoMark: 'L',
     logoGradient: [UI_DATA_COLORS.ink6, UI_DATA_COLORS.ink3],
-    model: 'qwen3.6:27b',
-    subtitle: 'qwen3.6:27b · local',
+    model: '',
     health: 'reachable',
     accessMode: 'host-resolved',
     lane: 'gateway',
@@ -251,7 +245,6 @@ function baseConfigForRuntimeProfile(
     product,
     displayName: profile.displayName || profile.id,
     logoMark: logoMarkForRuntimeProfile(profile),
-    subtitle: `${profile.model} · runtime`,
     region: profile.localEndpoint ? 'local' : 'custom',
     credentialDestination: profile.baseUrl || base.credentialDestination,
     isThinking: product === 'minimax' || base.isThinking,
@@ -271,7 +264,6 @@ function providerConfigFromRuntime(
     ...base,
     displayName: profile.displayName || base.displayName,
     model: profile.model || base.model,
-    subtitle: `${profile.model || base.model} · runtime`,
     health,
     accessMode: profile.localEndpoint ? 'host-resolved' : base.accessMode,
     endpointKind: endpointKindForRuntimeProfile(profile),

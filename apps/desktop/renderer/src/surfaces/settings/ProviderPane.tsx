@@ -15,7 +15,16 @@ import {
   safeErrorMessage,
   sendProviderText,
 } from '@/lib/provider-bridge.js';
-import { AlertTriangle, Check, ChevronRight, Eye, EyeOff, Info, Key, RefreshCw } from 'lucide-react';
+import {
+  AlertTriangle,
+  Check,
+  ChevronRight,
+  Eye,
+  EyeOff,
+  Info,
+  Key,
+  RefreshCw,
+} from 'lucide-react';
 import { type CSSProperties, useMemo, useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -72,7 +81,9 @@ function modelSuggestionsFromConfigs(configs: readonly ProviderConfig[]): string
 function catalogSourcesFromConfigs(configs: readonly ProviderConfig[]) {
   return configs.map((config) => ({
     label: config.displayName,
-    summary: `${config.model} · ${config.hasStoredKey || config.hostResolved ? 'ready' : 'needs key'}`,
+    summary: [config.model, config.hasStoredKey || config.hostResolved ? 'ready' : 'needs key']
+      .filter(Boolean)
+      .join(' · '),
   }));
 }
 
@@ -198,7 +209,9 @@ export function ProviderPane({
                 </StatusPill>
               </div>
               <div className="off-set-pv-meta">
-                {active.model} · {active.lane} lane · {active.region} · {active.endpointKind}
+                {[active.model, `${active.lane} lane`, active.region, active.endpointKind]
+                  .filter(Boolean)
+                  .join(' · ')}
               </div>
             </div>
             <div className="flex items-center gap-[var(--off-sp-3)]">
@@ -350,8 +363,7 @@ export function ProviderPane({
               {ACCESS_MODE_OPTIONS.find((o) => o.value === accessMode)?.label ?? 'Global API key'}
             </span>
             <span className="off-set-route-trail">
-              {routeProtocolLabel(active)} · {active.endpointKind} ·{' '}
-              {active.region}
+              {routeProtocolLabel(active)} · {active.endpointKind} · {active.region}
             </span>
           </div>
         </CardBlock>
@@ -373,7 +385,9 @@ export function ProviderPane({
                   id={id}
                   options={configs.map((config) => ({
                     value: config.id,
-                    label: `${config.displayName} · ${config.model}`,
+                    label: config.model
+                      ? `${config.displayName} · ${config.model}`
+                      : config.displayName,
                   }))}
                   value={activeConfigId}
                   onChange={(event) => {
