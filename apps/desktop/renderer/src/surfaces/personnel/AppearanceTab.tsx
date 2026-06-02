@@ -258,9 +258,6 @@ export function AppearanceTab({ employee, draft, onChange }: AppearanceTabProps)
               seed={seed}
               brand={false}
             />
-            <p className="off-field-hint text-center">
-              Preview recomputes on every style / seed / color change.
-            </p>
           </div>
         </div>
       </div>

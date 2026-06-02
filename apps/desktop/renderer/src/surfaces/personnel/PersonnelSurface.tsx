@@ -893,7 +893,7 @@ export function PersonnelSurface() {
               <EmptyState
                 icon={UsersRound}
                 title="Select an employee"
-                description="Pick someone from the list to view and edit their profile."
+                description="Select an employee to edit."
               />
             </div>
           )}

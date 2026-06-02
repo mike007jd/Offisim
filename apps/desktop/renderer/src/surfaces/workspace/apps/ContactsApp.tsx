@@ -173,7 +173,7 @@ export function ContactsApp() {
                 ) : (
                   <output className="off-ws-ct-state" aria-label="Direct chat state">
                     <Icon icon={MessageSquare} size="sm" />
-                    Direct chat not started
+                    No chat yet
                   </output>
                 )}
                 <button

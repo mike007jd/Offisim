@@ -457,7 +457,7 @@ export function StudioSurface() {
     if (!layout.data || !targetZone) return;
     const targetZonePersisted = layout.data.zones.some((zone) => zone.zone_id === targetZone.id);
     if (!targetZonePersisted) {
-      toast.error('Pick a persisted zone footprint');
+      toast.error('Save the zone first, then add objects.');
       return;
     }
     try {
@@ -655,7 +655,7 @@ export function StudioSurface() {
               type="button"
               className={cn('off-studio-tool off-focusable', placing === item.id && 'is-on')}
               disabled={!layout.data || busy}
-              title={layout.data ? `Place ${item.label} in scene` : 'Desktop layout required'}
+              title={layout.data ? `Place ${item.label} in scene` : 'Preview only — editing needs the desktop app'}
               onPointerDown={(event) => beginPaletteDrag(item, event)}
               onClick={() => {
                 if (suppressPaletteClickRef.current) {

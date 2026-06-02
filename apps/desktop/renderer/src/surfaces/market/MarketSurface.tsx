@@ -479,7 +479,7 @@ function RegistryTokenDialog({
         <DialogHeader>
           <DialogTitle>Registry Token</DialogTitle>
           <DialogDescription>
-            Connect a marketplace API token for drafts, publishing, and install receipts.
+            Connect a token to publish and track your drafts.
           </DialogDescription>
         </DialogHeader>
         <div className="off-token-dialog">
@@ -667,7 +667,7 @@ function MarketErrorState({ error, onRetry }: { error: unknown; onRetry: () => v
         </span>
         <div className="off-mkt-hero-t">Market is unavailable</div>
         <div className="off-mkt-hero-d">
-          Couldn't reach the marketplace service. The platform may be offline.
+          Couldn't reach the marketplace.
         </div>
         <div className="off-mkt-hero-tech">{reason}</div>
         <div className="off-mkt-hero-a">
@@ -694,7 +694,7 @@ function MarketEmptyState({ filtered, onReset }: { filtered: boolean; onReset: (
         <div className="off-mkt-hero-t">{filtered ? 'No packages found' : 'Market is empty'}</div>
         <div className="off-mkt-hero-d">
           {filtered
-            ? 'Try adjusting your search or filters to find what you need.'
+            ? 'Try a different search or clear filters.'
             : 'Published employees, skills, and templates will appear here.'}
         </div>
         {filtered ? (

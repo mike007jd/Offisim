@@ -74,7 +74,7 @@ export function ThreadList() {
           description={
             query
               ? 'Try a different search term.'
-              : 'Start a conversation with the team or a single employee.'
+              : 'Message the team or one employee.'
           }
         />
       ) : (

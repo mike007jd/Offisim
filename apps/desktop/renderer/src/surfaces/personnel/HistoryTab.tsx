@@ -86,7 +86,7 @@ export function HistoryTab({ employeeId }: HistoryTabProps) {
     return (
       <div className="off-pers-tab-shell">
         <div className="off-pers-tab-scroll text-center text-[var(--off-fs-sm)] text-[var(--off-ink-4)]">
-          Only one version exists. Make changes to build up history.
+          No changes yet. Edits build version history.
         </div>
       </div>
     );

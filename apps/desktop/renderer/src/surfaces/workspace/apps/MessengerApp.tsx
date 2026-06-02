@@ -168,7 +168,7 @@ function SystemChannel({
         </span>
         <div className="off-ws-crumb">
           <span className="off-ws-crumb-title">System</span>
-          <span className="off-ws-crumb-sub">Notifications · runtime · hr · market · install</span>
+          <span className="off-ws-crumb-sub">Runtime · HR · Market · Install</span>
         </div>
         <div className="off-ws-chat-tools">
           <IconButton
@@ -207,7 +207,7 @@ function SystemChannel({
                         <span
                           key={action.id}
                           className={cn('off-ws-sys-chip', action.primary && 'is-primary')}
-                          title="Action state is mirrored from Activity Log"
+                          title="State from Activity Log"
                         >
                           {action.label}
                         </span>

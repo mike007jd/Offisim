@@ -146,7 +146,7 @@ export function MemoryTab({ employeeId }: MemoryTabProps) {
           />
           <Input
             value={composeText}
-            placeholder="Seed a memory…"
+            placeholder="Add a memory…"
             onChange={(e) => setComposeText(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') addEntry();
@@ -261,7 +261,7 @@ export function MemoryTab({ employeeId }: MemoryTabProps) {
           <DialogHeader>
             <DialogTitle>Delete Memory</DialogTitle>
             <DialogDescription>
-              Remove this employee memory from the current working set.
+              Permanently remove this memory.
             </DialogDescription>
           </DialogHeader>
           {pendingDelete ? (

@@ -70,8 +70,8 @@ function deliverableDisabledReason({
   workspaceBound: boolean;
   content: string | undefined;
 }): string | null {
-  if (!isTauriRuntime()) return 'Open and export require the desktop runtime';
-  if (!projectId || !workspaceBound) return 'Bind a project workspace folder to export artifacts';
+  if (!isTauriRuntime()) return 'Open and export need the desktop app';
+  if (!projectId || !workspaceBound) return 'Bind a project folder to export';
   if (!content?.trim()) return 'This artifact has metadata only; no exportable body is available';
   return null;
 }
@@ -561,9 +561,7 @@ export function WorkspaceAssistantThread({
               className="off-ws-send off-focusable"
               disabled={!chatEnabled || isSending}
               title={
-                chatEnabled
-                  ? 'Send message through runtime provider'
-                  : 'Workspace chat requires the release desktop runtime'
+                chatEnabled ? undefined : 'Workspace chat requires the release desktop runtime'
               }
             >
               Send

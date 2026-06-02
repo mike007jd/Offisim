@@ -107,7 +107,7 @@ export function ActivitySurface() {
       (item) => item.kind === 'row' && item.row.record.id === selectedEventId,
     );
     if (!stillVisible) {
-      toast.info('The selected event is no longer available.');
+      toast.info('Event no longer available.');
       setSelectedEventId(null);
     }
   }, [selectedEventId, items, records.isLoading]);
@@ -203,7 +203,7 @@ export function ActivitySurface() {
             <EmptyState
               icon={Search}
               title="No events match your filters"
-              description="Try widening the time range, removing event types, or clearing actor filters."
+              description="Try a wider time range or fewer filters."
               action={{ label: 'Reset filters', onClick: resetFilters }}
             />
             <button type="button" className="off-act-noresults-secondary" onClick={backToOffice}>
