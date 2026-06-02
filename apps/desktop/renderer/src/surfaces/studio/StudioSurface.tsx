@@ -163,6 +163,44 @@ function setDraftNumber(
   return { ...draft, [key]: parsed };
 }
 
+/**
+ * Two-step destructive button: first click arms (turns red, swaps to "Confirm
+ * delete" and reveals Cancel), second click runs the action. The `armed` state
+ * lives in the caller so each delete target keeps its own arm flag.
+ */
+function ConfirmDeleteButton({
+  armed,
+  label,
+  busy,
+  onClick,
+  onCancel,
+}: {
+  armed: boolean;
+  label: string;
+  busy: boolean;
+  onClick: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <>
+      <Button
+        variant={armed ? 'destructive' : 'outline'}
+        size="sm"
+        disabled={busy}
+        onClick={onClick}
+      >
+        <Icon icon={Trash2} size="sm" />
+        {armed ? 'Confirm delete' : label}
+      </Button>
+      {armed ? (
+        <Button variant="ghost" size="sm" onClick={onCancel}>
+          Cancel
+        </Button>
+      ) : null}
+    </>
+  );
+}
+
 export function StudioSurface() {
   const zoneLabelInputId = useId();
   const zoneXInputId = useId();
@@ -742,20 +780,13 @@ export function StudioSurface() {
                 <Icon icon={RotateCw} size="sm" />
                 Rotate
               </Button>
-              <Button
-                variant={objectDeleteArmed ? 'destructive' : 'outline'}
-                size="sm"
-                disabled={busy}
+              <ConfirmDeleteButton
+                armed={objectDeleteArmed}
+                label="Delete"
+                busy={busy}
                 onClick={() => void deleteSelectedObject()}
-              >
-                <Icon icon={Trash2} size="sm" />
-                {objectDeleteArmed ? 'Confirm delete' : 'Delete'}
-              </Button>
-              {objectDeleteArmed ? (
-                <Button variant="ghost" size="sm" onClick={() => setObjectDeleteArmed(false)}>
-                  Cancel
-                </Button>
-              ) : null}
+                onCancel={() => setObjectDeleteArmed(false)}
+              />
             </div>
           </div>
         ) : null}
@@ -933,20 +964,13 @@ export function StudioSurface() {
             </div>
             {selectedZonePersisted ? (
               <div className="off-studio-danger">
-                <Button
-                  variant={deleteArmed ? 'destructive' : 'outline'}
-                  size="sm"
-                  disabled={busy}
+                <ConfirmDeleteButton
+                  armed={deleteArmed}
+                  label="Delete zone"
+                  busy={busy}
                   onClick={() => void deleteSelectedZone()}
-                >
-                  <Icon icon={Trash2} size="sm" />
-                  {deleteArmed ? 'Confirm delete' : 'Delete zone'}
-                </Button>
-                {deleteArmed ? (
-                  <Button variant="ghost" size="sm" onClick={() => setDeleteArmed(false)}>
-                    Cancel
-                  </Button>
-                ) : null}
+                  onCancel={() => setDeleteArmed(false)}
+                />
               </div>
             ) : null}
           </div>
