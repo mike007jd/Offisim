@@ -55,18 +55,24 @@
   --off-sp-9: 24px;
   --off-sp-10: 28px;
 
-  --off-fs-nano: 7.5px;
-  --off-fs-2xs: 8.5px;
-  --off-fs-xs: 9px;
-  --off-fs-label: 9.5px;
-  --off-fs-micro: 10px;
-  --off-fs-micro-lg: 10.5px;
-  --off-fs-meta: 11px;
-  --off-fs-sm: 12px;
-  --off-fs-base: 13px;
-  --off-fs-md: 14px;
-  --off-fs-lg: 15px;
-  --off-fs-xl: 19px;
+  /* 6-value dense type scale (F2 convergence). All 12 names kept so call sites
+     stay untouched; only 6 distinct values remain: 9 / 11 / 12 / 13 / 15 / 19.
+     Canonicals hold their CURRENT values (no shift for the common sm/base/meta/
+     lg/xl); the rest alias to the nearest canonical, so only nano/2xs/label/
+     micro/micro-lg/md change value. */
+  --off-fs-xs: 9px;          /* canonical 9: tiniest meta / caps labels */
+  --off-fs-meta: 11px;       /* canonical 11: micro pill / secondary label */
+  --off-fs-sm: 12px;         /* canonical 12: secondary body */
+  --off-fs-base: 13px;       /* canonical 13: default body */
+  --off-fs-lg: 15px;         /* canonical 15: subhead / emphasis */
+  --off-fs-xl: 19px;         /* canonical 19: display heading */
+  /* aliases → nearest canonical */
+  --off-fs-nano: var(--off-fs-xs); /* 7.5 → 9 */
+  --off-fs-2xs: var(--off-fs-xs); /* 8.5 → 9 */
+  --off-fs-label: var(--off-fs-xs); /* 9.5 → 9 */
+  --off-fs-micro: var(--off-fs-meta); /* 10 → 11 */
+  --off-fs-micro-lg: var(--off-fs-meta); /* 10.5 → 11 */
+  --off-fs-md: var(--off-fs-base); /* 14 → 13 */
   --off-lh-copy: 1.55;
   --off-ls-caps: 0;
 
@@ -125,14 +131,16 @@
   --off-body-bg: var(--off-bg);
   --off-topbar-bg: rgba(255, 255, 255, 0.92);
   --off-overlay: rgba(18, 28, 50, 0.42);
-  --off-surface-glass: rgba(255, 255, 255, 0.92);
-  --off-surface-glass-strong: rgba(255, 255, 255, 0.96);
-  --off-surface-glass-xstrong: rgba(255, 255, 255, 0.97);
-  --off-surface-glass-mid: rgba(255, 255, 255, 0.88);
-  --off-surface-glass-muted: rgba(255, 255, 255, 0.86);
-  --off-surface-glass-soft: rgba(255, 255, 255, 0.85);
-  --off-surface-glass-weak: rgba(255, 255, 255, 0.82);
-  --off-surface-glass-faint: rgba(255, 255, 255, 0.45);
+  /* 3-tier glass (F2 convergence): solid / muted / faint. Legacy names aliased
+     so call sites stay untouched; absorbed deltas are all <=0.05 alpha. */
+  --off-surface-glass: rgba(255, 255, 255, 0.92); /* canonical: solid */
+  --off-surface-glass-muted: rgba(255, 255, 255, 0.85); /* canonical: muted */
+  --off-surface-glass-faint: rgba(255, 255, 255, 0.45); /* canonical: faint */
+  --off-surface-glass-strong: var(--off-surface-glass); /* 0.96 → 0.92 */
+  --off-surface-glass-xstrong: var(--off-surface-glass); /* 0.97 → 0.92 */
+  --off-surface-glass-mid: var(--off-surface-glass); /* 0.88 → 0.92 */
+  --off-surface-glass-soft: var(--off-surface-glass-muted); /* 0.85 → 0.85 */
+  --off-surface-glass-weak: var(--off-surface-glass-muted); /* 0.82 → 0.85 */
   --off-white-text: rgba(255, 255, 255, 0.96);
   --off-ink-shadow-soft: rgba(18, 28, 50, 0.06);
   --off-ink-shadow-mid: rgba(20, 32, 56, 0.12);
