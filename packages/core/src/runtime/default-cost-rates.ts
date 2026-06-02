@@ -8,6 +8,14 @@ import type { ModelCostRateRepository, SettingsRepository } from './repositories
  * bootstrap via {@link seedDefaultCostRates}; without that seed the cost UI
  * silently reports $0 / 'unknown' out of the box because the table is empty.
  * Users can override rates via the UI or direct DB edits.
+ *
+ * Freshness: this is a small hand-verified bootstrap (rates current as of
+ * 2026-06-02). Patterns are globs scored by length, so a `*-4*` family pattern
+ * keeps matching newer leaf ids at the family list price. The broader,
+ * continuously-synced pricing source is the provider-source-registry catalog
+ * (`catalog/provider-source-registry`, refreshed from litellm via
+ * `pnpm provider:refresh`); models without a row here fall back to that or to
+ * 'unknown' rather than a fabricated price.
  */
 export const DEFAULT_COST_RATES: Array<{
   provider: string;
@@ -37,6 +45,20 @@ export const DEFAULT_COST_RATES: Array<{
     input_cost_per_mtok: 10,
     output_cost_per_mtok: 30,
   },
+  // GPT-5.5 (current flagship) + GPT-5.4 mini — verified 2026-06-02
+  // (developers.openai.com / litellm). gpt-5.5 = $5/$30, gpt-5.4-mini = $0.75/$4.50.
+  {
+    provider: 'openai',
+    model_pattern: 'gpt-5.5*',
+    input_cost_per_mtok: 5,
+    output_cost_per_mtok: 30,
+  },
+  {
+    provider: 'openai',
+    model_pattern: 'gpt-5.4-mini*',
+    input_cost_per_mtok: 0.75,
+    output_cost_per_mtok: 4.5,
+  },
   // Anthropic
   {
     provider: 'anthropic',
@@ -55,6 +77,15 @@ export const DEFAULT_COST_RATES: Array<{
     model_pattern: 'claude-sonnet-4*',
     input_cost_per_mtok: 3,
     output_cost_per_mtok: 15,
+  },
+  // Opus 4.x — current Anthropic flagship + default. The 4.5+ generation cut
+  // Opus pricing to $5/$25 (verified 2026-06-02 via litellm / catalog), down
+  // from the old Opus-3 $15/$75 tier.
+  {
+    provider: 'anthropic',
+    model_pattern: 'claude-opus-4*',
+    input_cost_per_mtok: 5,
+    output_cost_per_mtok: 25,
   },
   {
     provider: 'anthropic',
@@ -81,8 +112,11 @@ export const DEFAULT_COST_RATES: Array<{
     input_cost_per_mtok: 0.1,
     output_cost_per_mtok: 0.4,
   },
-  // MiniMax — Offisim's default provider. Public M2.7 list price (2026):
-  // $0.279 / MTok input, $1.20 / MTok output. MiniMax reaches the runtime via
+  // MiniMax — Offisim's default provider. Rate below is the published
+  // MiniMax-M2.7 list price ($0.279 in / $1.20 out per MTok); the `MiniMax*`
+  // glob also matches the current MiniMax-M3 default, whose list price was not
+  // re-verified on 2026-06-02 — confirm and split the pattern if it differs.
+  // MiniMax reaches the runtime via
   // the CORS-friendly Anthropic-compatible transport on desktop but may be
   // tagged 'openai-compat' elsewhere, so it is seeded under both LlmProvider
   // tags. The `MiniMax*` pattern is disjoint from claude-*/gpt-*/gemini-*, so

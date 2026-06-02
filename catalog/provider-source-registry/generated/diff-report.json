@@ -81,28 +81,6 @@
           "sourceKind": "community-aggregator",
           "trustTier": "community"
         },
-        "value": 128000
-      },
-      "modelId": "anthropic/claude-3.7-sonnet",
-      "providerId": "openrouter-openai-general",
-      "scope": "model",
-      "winner": {
-        "provenance": {
-          "sourceId": "openrouter-live",
-          "sourceKind": "provider-live-api",
-          "trustTier": "community"
-        },
-        "value": 64000
-      }
-    },
-    {
-      "field": "maxOutputTokens",
-      "loser": {
-        "provenance": {
-          "sourceId": "litellm",
-          "sourceKind": "community-aggregator",
-          "trustTier": "community"
-        },
         "value": 200000
       },
       "modelId": "anthropic/claude-haiku-4.5",
@@ -202,7 +180,7 @@
           "sourceKind": "provider-live-api",
           "trustTier": "community"
         },
-        "value": 163840
+        "value": 131072
       }
     },
     {
@@ -224,7 +202,7 @@
           "sourceKind": "provider-live-api",
           "trustTier": "community"
         },
-        "value": 16384
+        "value": 16000
       }
     },
     {
@@ -250,8 +228,8 @@
           "trustTier": "community"
         },
         "value": {
-          "inputCostPerToken": 3.2e-7,
-          "outputCostPerToken": 8.9e-7
+          "inputCostPerToken": 2.002e-7,
+          "outputCostPerToken": 8.001e-7
         }
       }
     },
@@ -328,28 +306,6 @@
       }
     },
     {
-      "field": "contextWindow",
-      "loser": {
-        "provenance": {
-          "sourceId": "litellm",
-          "sourceKind": "community-aggregator",
-          "trustTier": "community"
-        },
-        "value": 163840
-      },
-      "modelId": "deepseek/deepseek-chat-v3.1",
-      "providerId": "openrouter-openai-general",
-      "scope": "model",
-      "winner": {
-        "provenance": {
-          "sourceId": "openrouter-live",
-          "sourceKind": "provider-live-api",
-          "trustTier": "community"
-        },
-        "value": 32768
-      }
-    },
-    {
       "field": "maxOutputTokens",
       "loser": {
         "provenance": {
@@ -368,7 +324,7 @@
           "sourceKind": "provider-live-api",
           "trustTier": "community"
         },
-        "value": 7168
+        "value": 32768
       }
     },
     {
@@ -394,8 +350,8 @@
           "trustTier": "community"
         },
         "value": {
-          "inputCostPerToken": 1.5e-7,
-          "outputCostPerToken": 7.5e-7
+          "inputCostPerToken": 2.1e-7,
+          "outputCostPerToken": 7.9e-7
         }
       }
     },
@@ -418,7 +374,7 @@
           "sourceKind": "provider-live-api",
           "trustTier": "community"
         },
-        "value": 64000
+        "value": 163840
       }
     },
     {
@@ -556,7 +512,7 @@
           "sourceKind": "provider-live-api",
           "trustTier": "community"
         },
-        "value": 65536
+        "value": 64000
       }
     },
     {
@@ -582,8 +538,8 @@
           "trustTier": "community"
         },
         "value": {
-          "inputCostPerToken": 2.52e-7,
-          "outputCostPerToken": 3.78e-7
+          "inputCostPerToken": 2.288e-7,
+          "outputCostPerToken": 3.432e-7
         }
       }
     },
@@ -828,6 +784,35 @@
           "/v1/completions"
         ]
       },
+      "modelId": "google/gemini-3.1-flash-lite",
+      "providerId": "openrouter-openai-general",
+      "scope": "model",
+      "winner": {
+        "provenance": {
+          "sourceId": "openrouter-live",
+          "sourceKind": "provider-live-api",
+          "trustTier": "community"
+        },
+        "value": [
+          "chat_completions",
+          "responses"
+        ]
+      }
+    },
+    {
+      "field": "supportedEndpoints",
+      "loser": {
+        "provenance": {
+          "sourceId": "litellm",
+          "sourceKind": "community-aggregator",
+          "trustTier": "community"
+        },
+        "value": [
+          "/v1/batch",
+          "/v1/chat/completions",
+          "/v1/completions"
+        ]
+      },
       "modelId": "google/gemini-3.1-flash-lite-preview",
       "providerId": "openrouter-openai-general",
       "scope": "model",
@@ -928,28 +913,6 @@
       }
     },
     {
-      "field": "contextWindow",
-      "loser": {
-        "provenance": {
-          "sourceId": "litellm",
-          "sourceKind": "community-aggregator",
-          "trustTier": "community"
-        },
-        "value": 204800
-      },
-      "modelId": "minimax/minimax-m2",
-      "providerId": "openrouter-openai-general",
-      "scope": "model",
-      "winner": {
-        "provenance": {
-          "sourceId": "openrouter-live",
-          "sourceKind": "provider-live-api",
-          "trustTier": "community"
-        },
-        "value": 196608
-      }
-    },
-    {
       "field": "maxOutputTokens",
       "loser": {
         "provenance": {
@@ -1018,7 +981,7 @@
           "sourceKind": "provider-live-api",
           "trustTier": "community"
         },
-        "value": 196608
+        "value": 204800
       }
     },
     {
@@ -1072,6 +1035,28 @@
       }
     },
     {
+      "field": "contextWindow",
+      "loser": {
+        "provenance": {
+          "sourceId": "litellm",
+          "sourceKind": "community-aggregator",
+          "trustTier": "community"
+        },
+        "value": 196608
+      },
+      "modelId": "minimax/minimax-m2.5",
+      "providerId": "openrouter-openai-general",
+      "scope": "model",
+      "winner": {
+        "provenance": {
+          "sourceId": "openrouter-live",
+          "sourceKind": "provider-live-api",
+          "trustTier": "community"
+        },
+        "value": 204800
+      }
+    },
+    {
       "field": "maxOutputTokens",
       "loser": {
         "provenance": {
@@ -1090,7 +1075,7 @@
           "sourceKind": "provider-live-api",
           "trustTier": "community"
         },
-        "value": 131072
+        "value": 196608
       }
     },
     {
@@ -1200,6 +1185,28 @@
       }
     },
     {
+      "field": "maxOutputTokens",
+      "loser": {
+        "provenance": {
+          "sourceId": "litellm",
+          "sourceKind": "community-aggregator",
+          "trustTier": "community"
+        },
+        "value": 131072
+      },
+      "modelId": "mistralai/mistral-small-3.1-24b-instruct",
+      "providerId": "openrouter-openai-general",
+      "scope": "model",
+      "winner": {
+        "provenance": {
+          "sourceId": "openrouter-live",
+          "sourceKind": "provider-live-api",
+          "trustTier": "community"
+        },
+        "value": 128000
+      }
+    },
+    {
       "field": "pricing",
       "loser": {
         "provenance": {
@@ -1222,8 +1229,8 @@
           "trustTier": "community"
         },
         "value": {
-          "inputCostPerToken": 3.5e-7,
-          "outputCostPerToken": 5.6e-7
+          "inputCostPerToken": 3.51e-7,
+          "outputCostPerToken": 5.55e-7
         }
       }
     },
@@ -1333,28 +1340,6 @@
       }
     },
     {
-      "field": "maxOutputTokens",
-      "loser": {
-        "provenance": {
-          "sourceId": "litellm",
-          "sourceKind": "community-aggregator",
-          "trustTier": "community"
-        },
-        "value": 262144
-      },
-      "modelId": "moonshotai/kimi-k2.5",
-      "providerId": "openrouter-openai-general",
-      "scope": "model",
-      "winner": {
-        "provenance": {
-          "sourceId": "openrouter-live",
-          "sourceKind": "provider-live-api",
-          "trustTier": "community"
-        },
-        "value": 65535
-      }
-    },
-    {
       "field": "pricing",
       "loser": {
         "provenance": {
@@ -1377,8 +1362,8 @@
           "trustTier": "community"
         },
         "value": {
-          "inputCostPerToken": 4.4e-7,
-          "outputCostPerToken": 0.000002
+          "inputCostPerToken": 4e-7,
+          "outputCostPerToken": 0.0000019
         }
       }
     },
@@ -1651,28 +1636,6 @@
       }
     },
     {
-      "field": "maxOutputTokens",
-      "loser": {
-        "provenance": {
-          "sourceId": "litellm",
-          "sourceKind": "community-aggregator",
-          "trustTier": "community"
-        },
-        "value": 16384
-      },
-      "modelId": "openai/gpt-5.2-chat",
-      "providerId": "openrouter-openai-general",
-      "scope": "model",
-      "winner": {
-        "provenance": {
-          "sourceId": "openrouter-live",
-          "sourceKind": "provider-live-api",
-          "trustTier": "community"
-        },
-        "value": 32000
-      }
-    },
-    {
       "field": "capabilities",
       "loser": {
         "provenance": {
@@ -1772,28 +1735,6 @@
       }
     },
     {
-      "field": "maxOutputTokens",
-      "loser": {
-        "provenance": {
-          "sourceId": "litellm",
-          "sourceKind": "community-aggregator",
-          "trustTier": "community"
-        },
-        "value": 32768
-      },
-      "modelId": "openai/gpt-oss-20b",
-      "providerId": "openrouter-openai-general",
-      "scope": "model",
-      "winner": {
-        "provenance": {
-          "sourceId": "openrouter-live",
-          "sourceKind": "provider-live-api",
-          "trustTier": "community"
-        },
-        "value": 131072
-      }
-    },
-    {
       "field": "pricing",
       "loser": {
         "provenance": {
@@ -1816,7 +1757,7 @@
           "trustTier": "community"
         },
         "value": {
-          "inputCostPerToken": 3e-8,
+          "inputCostPerToken": 2.9e-8,
           "outputCostPerToken": 1.4e-7
         }
       }
@@ -2011,6 +1952,28 @@
           "sourceKind": "provider-live-api",
           "trustTier": "community"
         },
+        "value": 128000
+      }
+    },
+    {
+      "field": "maxOutputTokens",
+      "loser": {
+        "provenance": {
+          "sourceId": "litellm",
+          "sourceKind": "community-aggregator",
+          "trustTier": "community"
+        },
+        "value": 33792
+      },
+      "modelId": "qwen/qwen-2.5-coder-32b-instruct",
+      "providerId": "openrouter-openai-general",
+      "scope": "model",
+      "winner": {
+        "provenance": {
+          "sourceId": "openrouter-live",
+          "sourceKind": "provider-live-api",
+          "trustTier": "community"
+        },
         "value": 32768
       }
     },
@@ -2043,78 +2006,6 @@
       }
     },
     {
-      "field": "contextWindow",
-      "loser": {
-        "provenance": {
-          "sourceId": "litellm",
-          "sourceKind": "community-aggregator",
-          "trustTier": "community"
-        },
-        "value": 8192
-      },
-      "modelId": "qwen/qwen-vl-plus",
-      "providerId": "openrouter-openai-general",
-      "scope": "model",
-      "winner": {
-        "provenance": {
-          "sourceId": "openrouter-live",
-          "sourceKind": "provider-live-api",
-          "trustTier": "community"
-        },
-        "value": 131072
-      }
-    },
-    {
-      "field": "maxOutputTokens",
-      "loser": {
-        "provenance": {
-          "sourceId": "litellm",
-          "sourceKind": "community-aggregator",
-          "trustTier": "community"
-        },
-        "value": 2048
-      },
-      "modelId": "qwen/qwen-vl-plus",
-      "providerId": "openrouter-openai-general",
-      "scope": "model",
-      "winner": {
-        "provenance": {
-          "sourceId": "openrouter-live",
-          "sourceKind": "provider-live-api",
-          "trustTier": "community"
-        },
-        "value": 8192
-      }
-    },
-    {
-      "field": "pricing",
-      "loser": {
-        "provenance": {
-          "sourceId": "litellm",
-          "sourceKind": "community-aggregator",
-          "trustTier": "community"
-        },
-        "value": {
-          "inputCostPerToken": 2.1e-7,
-          "outputCostPerToken": 6.3e-7
-        }
-      },
-      "modelId": "qwen/qwen-vl-plus",
-      "providerId": "openrouter-openai-general",
-      "scope": "model",
-      "winner": {
-        "provenance": {
-          "sourceId": "openrouter-live",
-          "sourceKind": "provider-live-api",
-          "trustTier": "community"
-        },
-        "value": {
-          "inputCostPerToken": 1.365e-7,
-          "outputCostPerToken": 4.095e-7
-        }
-      }
-    },
-    {
       "field": "maxOutputTokens",
       "loser": {
         "provenance": {
@@ -2134,28 +2025,6 @@
           "trustTier": "community"
         },
         "value": 16384
-      }
-    },
-    {
-      "field": "contextWindow",
-      "loser": {
-        "provenance": {
-          "sourceId": "litellm",
-          "sourceKind": "community-aggregator",
-          "trustTier": "community"
-        },
-        "value": 262144
-      },
-      "modelId": "qwen/qwen3-235b-a22b-thinking-2507",
-      "providerId": "openrouter-openai-general",
-      "scope": "model",
-      "winner": {
-        "provenance": {
-          "sourceId": "openrouter-live",
-          "sourceKind": "provider-live-api",
-          "trustTier": "community"
-        },
-        "value": 131072
       }
     },
     {
@@ -2181,8 +2050,8 @@
           "trustTier": "community"
         },
         "value": {
-          "inputCostPerToken": 1.495e-7,
-          "outputCostPerToken": 0.000001495
+          "inputCostPerToken": 1e-7,
+          "outputCostPerToken": 1e-7
         }
       }
     },
@@ -2205,7 +2074,7 @@
           "sourceKind": "provider-live-api",
           "trustTier": "community"
         },
-        "value": 262144
+        "value": 1048576
       }
     },
     {
@@ -2336,6 +2205,28 @@
       }
     },
     {
+      "field": "maxOutputTokens",
+      "loser": {
+        "provenance": {
+          "sourceId": "litellm",
+          "sourceKind": "community-aggregator",
+          "trustTier": "community"
+        },
+        "value": 65536
+      },
+      "modelId": "qwen/qwen3.5-122b-a10b",
+      "providerId": "openrouter-openai-general",
+      "scope": "model",
+      "winner": {
+        "provenance": {
+          "sourceId": "openrouter-live",
+          "sourceKind": "provider-live-api",
+          "trustTier": "community"
+        },
+        "value": 262144
+      }
+    },
+    {
       "field": "pricing",
       "loser": {
         "provenance": {
@@ -2436,7 +2327,7 @@
           "trustTier": "community"
         },
         "value": {
-          "inputCostPerToken": 1.5e-7,
+          "inputCostPerToken": 1.4e-7,
           "outputCostPerToken": 0.000001
         }
       }
@@ -2576,6 +2467,84 @@
       }
     },
     {
+      "field": "pricing",
+      "loser": {
+        "provenance": {
+          "sourceId": "litellm",
+          "sourceKind": "community-aggregator",
+          "trustTier": "community"
+        },
+        "value": {
+          "inputCostPerToken": 4e-7,
+          "outputCostPerToken": 0.000002
+        }
+      },
+      "modelId": "xiaomi/mimo-v2.5",
+      "providerId": "openrouter-openai-general",
+      "scope": "model",
+      "winner": {
+        "provenance": {
+          "sourceId": "openrouter-live",
+          "sourceKind": "provider-live-api",
+          "trustTier": "community"
+        },
+        "value": {
+          "inputCostPerToken": 1.4e-7,
+          "outputCostPerToken": 2.8e-7
+        }
+      }
+    },
+    {
+      "field": "maxOutputTokens",
+      "loser": {
+        "provenance": {
+          "sourceId": "litellm",
+          "sourceKind": "community-aggregator",
+          "trustTier": "community"
+        },
+        "value": 16384
+      },
+      "modelId": "xiaomi/mimo-v2.5-pro",
+      "providerId": "openrouter-openai-general",
+      "scope": "model",
+      "winner": {
+        "provenance": {
+          "sourceId": "openrouter-live",
+          "sourceKind": "provider-live-api",
+          "trustTier": "community"
+        },
+        "value": 131072
+      }
+    },
+    {
+      "field": "pricing",
+      "loser": {
+        "provenance": {
+          "sourceId": "litellm",
+          "sourceKind": "community-aggregator",
+          "trustTier": "community"
+        },
+        "value": {
+          "inputCostPerToken": 0.000001,
+          "outputCostPerToken": 0.000003
+        }
+      },
+      "modelId": "xiaomi/mimo-v2.5-pro",
+      "providerId": "openrouter-openai-general",
+      "scope": "model",
+      "winner": {
+        "provenance": {
+          "sourceId": "openrouter-live",
+          "sourceKind": "provider-live-api",
+          "trustTier": "community"
+        },
+        "value": {
+          "inputCostPerToken": 4.35e-7,
+          "outputCostPerToken": 8.7e-7
+        }
+      }
+    },
+    {
       "field": "contextWindow",
       "loser": {
         "provenance": {
@@ -2594,7 +2563,7 @@
           "sourceKind": "provider-live-api",
           "trustTier": "community"
         },
-        "value": 204800
+        "value": 202752
       }
     },
     {
@@ -2616,7 +2585,7 @@
           "sourceKind": "provider-live-api",
           "trustTier": "community"
         },
-        "value": 204800
+        "value": 131072
       }
     },
     {
@@ -2642,9 +2611,31 @@
           "trustTier": "community"
         },
         "value": {
-          "inputCostPerToken": 3.9e-7,
-          "outputCostPerToken": 0.0000019
+          "inputCostPerToken": 4.3e-7,
+          "outputCostPerToken": 0.00000174
         }
+      }
+    },
+    {
+      "field": "maxOutputTokens",
+      "loser": {
+        "provenance": {
+          "sourceId": "litellm",
+          "sourceKind": "community-aggregator",
+          "trustTier": "community"
+        },
+        "value": 64000
+      },
+      "modelId": "z-ai/glm-4.7",
+      "providerId": "openrouter-openai-general",
+      "scope": "model",
+      "winner": {
+        "provenance": {
+          "sourceId": "openrouter-live",
+          "sourceKind": "provider-live-api",
+          "trustTier": "community"
+        },
+        "value": 131072
       }
     },
     {
@@ -2670,8 +2661,8 @@
           "trustTier": "community"
         },
         "value": {
-          "inputCostPerToken": 3.8e-7,
-          "outputCostPerToken": 0.00000174
+          "inputCostPerToken": 4e-7,
+          "outputCostPerToken": 0.00000175
         }
       }
     },
@@ -2748,6 +2739,28 @@
       }
     },
     {
+      "field": "maxOutputTokens",
+      "loser": {
+        "provenance": {
+          "sourceId": "litellm",
+          "sourceKind": "community-aggregator",
+          "trustTier": "community"
+        },
+        "value": 128000
+      },
+      "modelId": "z-ai/glm-5",
+      "providerId": "openrouter-openai-general",
+      "scope": "model",
+      "winner": {
+        "provenance": {
+          "sourceId": "openrouter-live",
+          "sourceKind": "provider-live-api",
+          "trustTier": "community"
+        },
+        "value": 16384
+      }
+    },
+    {
       "field": "pricing",
       "loser": {
         "provenance": {
@@ -2771,12 +2784,168 @@
         },
         "value": {
           "inputCostPerToken": 6e-7,
-          "outputCostPerToken": 0.00000192
+          "outputCostPerToken": 0.00000208
         }
+      }
+    },
+    {
+      "field": "displayName",
+      "loser": {
+        "provenance": {
+          "sourceId": "openrouter-live",
+          "sourceKind": "provider-live-api",
+          "trustTier": "community"
+        },
+        "value": "Google: Gemma 4 31B (free)"
+      },
+      "modelId": "google/gemma-4-31b-it:free",
+      "providerId": "openrouter-openai-general",
+      "scope": "model",
+      "winner": {
+        "provenance": {
+          "sourceId": "official-fixtures",
+          "sourceKind": "official-static",
+          "trustTier": "official"
+        },
+        "value": "Gemma 4 31B Instruct (free)"
       }
     }
   ],
-  "generatedAt": "2026-05-06T07:08:21.687Z",
+  "defaultDrift": {
+    "generatedFrom": "openrouter-live",
+    "providers": [
+      {
+        "defaultModel": "claude-opus-4-8",
+        "latestCreated": "2026-05-27",
+        "latestLeafId": "anthropic/claude-opus-4.8",
+        "pinnedCreated": "2026-05-27",
+        "providerId": "anthropic-default",
+        "status": "current",
+        "vendor": "anthropic"
+      },
+      {
+        "defaultModel": "deepseek-v4-pro",
+        "latestCreated": "2026-04-24",
+        "latestLeafId": "deepseek/deepseek-v4-pro",
+        "pinnedCreated": "2026-04-24",
+        "providerId": "deepseek-openai-general",
+        "status": "current",
+        "vendor": "deepseek"
+      },
+      {
+        "defaultModel": "gemini-3.5-flash",
+        "latestCreated": "2026-05-19",
+        "latestLeafId": "google/gemini-3.5-flash",
+        "pinnedCreated": "2026-05-19",
+        "providerId": "gemini-openai-general",
+        "status": "current",
+        "vendor": "google"
+      },
+      {
+        "defaultModel": "kimi-k2.6",
+        "latestCreated": "2026-04-20",
+        "latestLeafId": "moonshotai/kimi-k2.6",
+        "pinnedCreated": "2026-04-20",
+        "providerId": "kimi-cn-anthropic-coding",
+        "status": "current",
+        "vendor": "kimi"
+      },
+      {
+        "defaultModel": "kimi-k2.6",
+        "latestCreated": "2026-04-20",
+        "latestLeafId": "moonshotai/kimi-k2.6",
+        "pinnedCreated": "2026-04-20",
+        "providerId": "kimi-cn-openai-general",
+        "status": "current",
+        "vendor": "kimi"
+      },
+      {
+        "defaultModel": "kimi-k2.6",
+        "latestCreated": "2026-04-20",
+        "latestLeafId": "moonshotai/kimi-k2.6",
+        "pinnedCreated": "2026-04-20",
+        "providerId": "kimi-intl-openai-general",
+        "status": "current",
+        "vendor": "kimi"
+      },
+      {
+        "defaultModel": "qwen/qwen3.6-27b",
+        "providerId": "lmstudio",
+        "reason": "local-weights",
+        "status": "manual",
+        "vendor": "lmstudio"
+      },
+      {
+        "defaultModel": "MiniMax-M3",
+        "latestCreated": "2026-05-31",
+        "latestLeafId": "minimax/minimax-m3",
+        "pinnedCreated": "2026-05-31",
+        "providerId": "minimax-cn-anthropic-coding",
+        "status": "current",
+        "vendor": "minimax"
+      },
+      {
+        "defaultModel": "MiniMax-M3",
+        "latestCreated": "2026-05-31",
+        "latestLeafId": "minimax/minimax-m3",
+        "pinnedCreated": "2026-05-31",
+        "providerId": "minimax-intl-anthropic-coding",
+        "status": "current",
+        "vendor": "minimax"
+      },
+      {
+        "defaultModel": "gpt-5.5",
+        "latestCreated": "2026-04-24",
+        "latestLeafId": "openai/gpt-5.5-pro",
+        "pinnedCreated": "2026-04-24",
+        "providerId": "openai-default",
+        "status": "current",
+        "vendor": "openai"
+      },
+      {
+        "defaultModel": "google/gemma-4-31b-it:free",
+        "providerId": "openrouter-openai-general",
+        "reason": "router",
+        "status": "manual",
+        "vendor": "openrouter"
+      },
+      {
+        "defaultModel": "glm-5.1",
+        "latestCreated": "2026-04-07",
+        "latestLeafId": "z-ai/glm-5.1",
+        "pinnedCreated": "2026-04-07",
+        "providerId": "zai-shared-anthropic-coding",
+        "status": "current",
+        "vendor": "zai"
+      },
+      {
+        "defaultModel": "glm-5.1",
+        "latestCreated": "2026-04-07",
+        "latestLeafId": "z-ai/glm-5.1",
+        "pinnedCreated": "2026-04-07",
+        "providerId": "zai-shared-openai-coding",
+        "status": "current",
+        "vendor": "zai"
+      },
+      {
+        "defaultModel": "glm-5.1",
+        "latestCreated": "2026-04-07",
+        "latestLeafId": "z-ai/glm-5.1",
+        "pinnedCreated": "2026-04-07",
+        "providerId": "zai-shared-openai-general",
+        "status": "current",
+        "vendor": "zai"
+      }
+    ],
+    "summary": {
+      "behind": 0,
+      "current": 12,
+      "manual": 2,
+      "providerCount": 14,
+      "unverifiable": 0
+    }
+  },
+  "generatedAt": "2026-06-02T09:01:48.461Z",
   "newModels": [
     {
       "modelId": "claude-3-7-sonnet-20250219",
@@ -2804,11 +2973,6 @@
       "sourceId": "litellm"
     },
     {
-      "modelId": "claude-haiku-4-5",
-      "providerId": "anthropic-default",
-      "sourceId": "litellm"
-    },
-    {
       "modelId": "claude-haiku-4-5-20251001",
       "providerId": "anthropic-default",
       "sourceId": "litellm"
@@ -2820,11 +2984,6 @@
     },
     {
       "modelId": "claude-opus-4-1-20250805",
-      "providerId": "anthropic-default",
-      "sourceId": "litellm"
-    },
-    {
-      "modelId": "claude-opus-4-20250514",
       "providerId": "anthropic-default",
       "sourceId": "litellm"
     },
@@ -2865,11 +3024,6 @@
     },
     {
       "modelId": "claude-sonnet-4-5-20250929",
-      "providerId": "anthropic-default",
-      "sourceId": "litellm"
-    },
-    {
-      "modelId": "claude-sonnet-4-6",
       "providerId": "anthropic-default",
       "sourceId": "litellm"
     },
@@ -3010,6 +3164,11 @@
     },
     {
       "modelId": "gemini-3.1-flash-image-preview",
+      "providerId": "gemini-openai-general",
+      "sourceId": "litellm"
+    },
+    {
+      "modelId": "gemini-3.1-flash-lite",
       "providerId": "gemini-openai-general",
       "sourceId": "litellm"
     },
@@ -3244,17 +3403,17 @@
       "sourceId": "litellm"
     },
     {
+      "modelId": "kimi-k2-thinking",
+      "providerId": "kimi-cn-anthropic-coding",
+      "sourceId": "litellm"
+    },
+    {
       "modelId": "kimi-k2-thinking-turbo",
       "providerId": "kimi-cn-anthropic-coding",
       "sourceId": "litellm"
     },
     {
       "modelId": "kimi-k2-turbo-preview",
-      "providerId": "kimi-cn-anthropic-coding",
-      "sourceId": "litellm"
-    },
-    {
-      "modelId": "kimi-k2.6",
       "providerId": "kimi-cn-anthropic-coding",
       "sourceId": "litellm"
     },
@@ -3344,17 +3503,17 @@
       "sourceId": "litellm"
     },
     {
+      "modelId": "kimi-k2-thinking",
+      "providerId": "kimi-cn-openai-general",
+      "sourceId": "litellm"
+    },
+    {
       "modelId": "kimi-k2-thinking-turbo",
       "providerId": "kimi-cn-openai-general",
       "sourceId": "litellm"
     },
     {
       "modelId": "kimi-k2-turbo-preview",
-      "providerId": "kimi-cn-openai-general",
-      "sourceId": "litellm"
-    },
-    {
-      "modelId": "kimi-k2.6",
       "providerId": "kimi-cn-openai-general",
       "sourceId": "litellm"
     },
@@ -3444,17 +3603,17 @@
       "sourceId": "litellm"
     },
     {
+      "modelId": "kimi-k2-thinking",
+      "providerId": "kimi-intl-openai-general",
+      "sourceId": "litellm"
+    },
+    {
       "modelId": "kimi-k2-thinking-turbo",
       "providerId": "kimi-intl-openai-general",
       "sourceId": "litellm"
     },
     {
       "modelId": "kimi-k2-turbo-preview",
-      "providerId": "kimi-intl-openai-general",
-      "sourceId": "litellm"
-    },
-    {
-      "modelId": "kimi-k2.6",
       "providerId": "kimi-intl-openai-general",
       "sourceId": "litellm"
     },
@@ -4019,11 +4178,6 @@
       "sourceId": "litellm"
     },
     {
-      "modelId": "gpt-5.4-mini",
-      "providerId": "openai-default",
-      "sourceId": "litellm"
-    },
-    {
       "modelId": "gpt-5.4-mini-2026-03-17",
       "providerId": "openai-default",
       "sourceId": "litellm"
@@ -4045,11 +4199,6 @@
     },
     {
       "modelId": "gpt-5.4-pro-2026-03-05",
-      "providerId": "openai-default",
-      "sourceId": "litellm"
-    },
-    {
-      "modelId": "gpt-5.5",
       "providerId": "openai-default",
       "sourceId": "litellm"
     },
@@ -4135,6 +4284,11 @@
     },
     {
       "modelId": "gpt-realtime-1.5",
+      "providerId": "openai-default",
+      "sourceId": "litellm"
+    },
+    {
+      "modelId": "gpt-realtime-2",
       "providerId": "openai-default",
       "sourceId": "litellm"
     },
@@ -4629,6 +4783,11 @@
       "sourceId": "litellm"
     },
     {
+      "modelId": "google/gemini-3.1-flash-lite",
+      "providerId": "openrouter-openai-general",
+      "sourceId": "litellm"
+    },
+    {
       "modelId": "google/gemini-3.1-flash-lite-preview",
       "providerId": "openrouter-openai-general",
       "sourceId": "litellm"
@@ -4914,6 +5073,11 @@
       "sourceId": "litellm"
     },
     {
+      "modelId": "qwen/qwen3.6-plus",
+      "providerId": "openrouter-openai-general",
+      "sourceId": "litellm"
+    },
+    {
       "modelId": "switchpoint/router",
       "providerId": "openrouter-openai-general",
       "sourceId": "litellm"
@@ -4930,6 +5094,16 @@
     },
     {
       "modelId": "xiaomi/mimo-v2-flash",
+      "providerId": "openrouter-openai-general",
+      "sourceId": "litellm"
+    },
+    {
+      "modelId": "xiaomi/mimo-v2.5",
+      "providerId": "openrouter-openai-general",
+      "sourceId": "litellm"
+    },
+    {
+      "modelId": "xiaomi/mimo-v2.5-pro",
       "providerId": "openrouter-openai-general",
       "sourceId": "litellm"
     },
@@ -5124,27 +5298,7 @@
       "sourceId": "openrouter-live"
     },
     {
-      "modelId": "alfredpros/codellama-7b-instruct-solidity",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "alibaba/tongyi-deepresearch-30b-a3b",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
       "modelId": "allenai/olmo-3-32b-think",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "allenai/olmo-3.1-32b-instruct",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "alpindale/goliath-120b",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
     },
@@ -5189,16 +5343,6 @@
       "sourceId": "openrouter-live"
     },
     {
-      "modelId": "anthropic/claude-3.7-sonnet",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "anthropic/claude-3.7-sonnet:thinking",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
       "modelId": "anthropic/claude-haiku-4.5",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
@@ -5234,6 +5378,21 @@
       "sourceId": "openrouter-live"
     },
     {
+      "modelId": "anthropic/claude-opus-4.7-fast",
+      "providerId": "openrouter-openai-general",
+      "sourceId": "openrouter-live"
+    },
+    {
+      "modelId": "anthropic/claude-opus-4.8",
+      "providerId": "openrouter-openai-general",
+      "sourceId": "openrouter-live"
+    },
+    {
+      "modelId": "anthropic/claude-opus-4.8-fast",
+      "providerId": "openrouter-openai-general",
+      "sourceId": "openrouter-live"
+    },
+    {
       "modelId": "anthropic/claude-sonnet-4",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
@@ -5264,11 +5423,6 @@
       "sourceId": "openrouter-live"
     },
     {
-      "modelId": "arcee-ai/trinity-large-preview",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
       "modelId": "arcee-ai/trinity-large-thinking",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
@@ -5284,37 +5438,12 @@
       "sourceId": "openrouter-live"
     },
     {
-      "modelId": "baidu/cobuddy:free",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "baidu/ernie-4.5-21b-a3b",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "baidu/ernie-4.5-21b-a3b-thinking",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "baidu/ernie-4.5-300b-a47b",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
       "modelId": "baidu/ernie-4.5-vl-28b-a3b",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
     },
     {
       "modelId": "baidu/ernie-4.5-vl-424b-a47b",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "baidu/qianfan-ocr-fast:free",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
     },
@@ -5424,11 +5553,6 @@
       "sourceId": "openrouter-live"
     },
     {
-      "modelId": "deepseek/deepseek-v3.2-speciale",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
       "modelId": "deepseek/deepseek-v4-flash",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
@@ -5440,16 +5564,6 @@
     },
     {
       "modelId": "essentialai/rnj-1-instruct",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "google/gemini-2.0-flash-001",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "google/gemini-2.0-flash-lite-001",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
     },
@@ -5504,6 +5618,11 @@
       "sourceId": "openrouter-live"
     },
     {
+      "modelId": "google/gemini-3.1-flash-lite",
+      "providerId": "openrouter-openai-general",
+      "sourceId": "openrouter-live"
+    },
+    {
       "modelId": "google/gemini-3.1-flash-lite-preview",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
@@ -5515,6 +5634,11 @@
     },
     {
       "modelId": "google/gemini-3.1-pro-preview-customtools",
+      "providerId": "openrouter-openai-general",
+      "sourceId": "openrouter-live"
+    },
+    {
+      "modelId": "google/gemini-3.5-flash",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
     },
@@ -5559,11 +5683,6 @@
       "sourceId": "openrouter-live"
     },
     {
-      "modelId": "google/gemma-4-31b-it:free",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
       "modelId": "google/lyria-3-clip-preview",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
@@ -5594,12 +5713,17 @@
       "sourceId": "openrouter-live"
     },
     {
-      "modelId": "inclusionai/ling-2.6-1t:free",
+      "modelId": "inclusionai/ling-2.6-1t",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
     },
     {
       "modelId": "inclusionai/ling-2.6-flash",
+      "providerId": "openrouter-openai-general",
+      "sourceId": "openrouter-live"
+    },
+    {
+      "modelId": "inclusionai/ring-2.6-1t",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
     },
@@ -5754,12 +5878,12 @@
       "sourceId": "openrouter-live"
     },
     {
-      "modelId": "minimax/minimax-m2.5:free",
+      "modelId": "minimax/minimax-m2.7",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
     },
     {
-      "modelId": "minimax/minimax-m2.7",
+      "modelId": "minimax/minimax-m3",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
     },
@@ -5770,16 +5894,6 @@
     },
     {
       "modelId": "mistralai/devstral-2512",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "mistralai/devstral-medium",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "mistralai/devstral-small",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
     },
@@ -5799,22 +5913,12 @@
       "sourceId": "openrouter-live"
     },
     {
-      "modelId": "mistralai/mistral-7b-instruct-v0.1",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
       "modelId": "mistralai/mistral-large",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
     },
     {
       "modelId": "mistralai/mistral-large-2407",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "mistralai/mistral-large-2411",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
     },
@@ -5874,16 +5978,6 @@
       "sourceId": "openrouter-live"
     },
     {
-      "modelId": "mistralai/mixtral-8x7b-instruct",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "mistralai/pixtral-large-2411",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
       "modelId": "mistralai/voxtral-small-24b-2507",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
@@ -5910,6 +6004,11 @@
     },
     {
       "modelId": "moonshotai/kimi-k2.6",
+      "providerId": "openrouter-openai-general",
+      "sourceId": "openrouter-live"
+    },
+    {
+      "modelId": "moonshotai/kimi-k2.6:free",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
     },
@@ -5959,11 +6058,6 @@
       "sourceId": "openrouter-live"
     },
     {
-      "modelId": "nvidia/llama-3.1-nemotron-70b-instruct",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
       "modelId": "nvidia/llama-3.3-nemotron-super-49b-v1.5",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
@@ -5990,11 +6084,6 @@
     },
     {
       "modelId": "nvidia/nemotron-3-super-120b-a12b:free",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "nvidia/nemotron-nano-12b-v2-vl",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
     },
@@ -6090,11 +6179,6 @@
     },
     {
       "modelId": "openai/gpt-4o-2024-11-20",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "openai/gpt-4o-audio-preview",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
     },
@@ -6364,6 +6448,11 @@
       "sourceId": "openrouter-live"
     },
     {
+      "modelId": "perceptron/perceptron-mk1",
+      "providerId": "openrouter-openai-general",
+      "sourceId": "openrouter-live"
+    },
+    {
       "modelId": "perplexity/sonar",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
@@ -6419,11 +6508,6 @@
       "sourceId": "openrouter-live"
     },
     {
-      "modelId": "qwen/qwen-max",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
       "modelId": "qwen/qwen-plus",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
@@ -6435,21 +6519,6 @@
     },
     {
       "modelId": "qwen/qwen-plus-2025-07-28:thinking",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "qwen/qwen-turbo",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "qwen/qwen-vl-max",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "qwen/qwen-vl-plus",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
     },
@@ -6659,6 +6728,11 @@
       "sourceId": "openrouter-live"
     },
     {
+      "modelId": "qwen/qwen3.7-max",
+      "providerId": "openrouter-openai-general",
+      "sourceId": "openrouter-live"
+    },
+    {
       "modelId": "rekaai/reka-edge",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
@@ -6709,6 +6783,11 @@
       "sourceId": "openrouter-live"
     },
     {
+      "modelId": "stepfun/step-3.7-flash",
+      "providerId": "openrouter-openai-general",
+      "sourceId": "openrouter-live"
+    },
+    {
       "modelId": "switchpoint/router",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
@@ -6719,7 +6798,7 @@
       "sourceId": "openrouter-live"
     },
     {
-      "modelId": "tencent/hy3-preview:free",
+      "modelId": "tencent/hy3-preview",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
     },
@@ -6744,11 +6823,6 @@
       "sourceId": "openrouter-live"
     },
     {
-      "modelId": "tngtech/deepseek-r1t2-chimera",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
       "modelId": "undi95/remm-slerp-l2-13b",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
@@ -6760,41 +6834,6 @@
     },
     {
       "modelId": "writer/palmyra-x5",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "x-ai/grok-3",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "x-ai/grok-3-beta",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "x-ai/grok-3-mini",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "x-ai/grok-3-mini-beta",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "x-ai/grok-4",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "x-ai/grok-4-fast",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "x-ai/grok-4.1-fast",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
     },
@@ -6814,22 +6853,12 @@
       "sourceId": "openrouter-live"
     },
     {
-      "modelId": "x-ai/grok-code-fast-1",
+      "modelId": "x-ai/grok-build-0.1",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
     },
     {
       "modelId": "xiaomi/mimo-v2-flash",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "xiaomi/mimo-v2-omni",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "xiaomi/mimo-v2-pro",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
     },
@@ -7028,13 +7057,13 @@
     {
       "communityAlias": "azure",
       "docsUrl": "https://docs.litellm.ai/docs/providers/azure",
-      "modelCount": 197,
+      "modelCount": 198,
       "providerDisplayName": "Azure (`azure`)"
     },
     {
       "communityAlias": "azure_ai",
       "docsUrl": "https://docs.litellm.ai/docs/providers/azure_ai",
-      "modelCount": 76,
+      "modelCount": 85,
       "providerDisplayName": "Azure AI (`azure_ai`)"
     },
     {
@@ -7069,7 +7098,7 @@
     },
     {
       "communityAlias": "bedrock_converse",
-      "modelCount": 120
+      "modelCount": 126
     },
     {
       "communityAlias": "bedrock_mantle",
@@ -7271,7 +7300,7 @@
     {
       "communityAlias": "fireworks_ai",
       "docsUrl": "https://docs.litellm.ai/docs/providers/fireworks_ai",
-      "modelCount": 269,
+      "modelCount": 271,
       "providerDisplayName": "Fireworks AI (`fireworks_ai`)"
     },
     {
@@ -7449,7 +7478,7 @@
     {
       "communityAlias": "mistral",
       "docsUrl": "https://docs.litellm.ai/docs/providers/mistral",
-      "modelCount": 51,
+      "modelCount": 52,
       "providerDisplayName": "Mistral AI API (`mistral`)"
     },
     {
@@ -7494,9 +7523,15 @@
       "providerDisplayName": "Nvidia NIM (`nvidia_nim`)"
     },
     {
+      "communityAlias": "nvidia_riva",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/nvidia_riva",
+      "modelCount": 0,
+      "providerDisplayName": "Nvidia Riva (`nvidia_riva`)"
+    },
+    {
       "communityAlias": "oci",
       "docsUrl": "https://docs.litellm.ai/docs/providers/oci",
-      "modelCount": 37,
+      "modelCount": 44,
       "providerDisplayName": "OCI (`oci`)"
     },
     {
@@ -7597,6 +7632,12 @@
       "providerDisplayName": "Recraft (`recraft`)"
     },
     {
+      "communityAlias": "reducto",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/reducto",
+      "modelCount": 2,
+      "providerDisplayName": "Reducto (`reducto`)"
+    },
+    {
       "communityAlias": "replicate",
       "docsUrl": "https://docs.litellm.ai/docs/providers/replicate",
       "modelCount": 40,
@@ -7629,7 +7670,7 @@
     {
       "communityAlias": "sambanova",
       "docsUrl": "https://docs.litellm.ai/docs/providers/sambanova",
-      "modelCount": 16,
+      "modelCount": 17,
       "providerDisplayName": "Sambanova (`sambanova`)"
     },
     {
@@ -7742,7 +7783,7 @@
     {
       "communityAlias": "vertex_ai",
       "docsUrl": "https://docs.litellm.ai/docs/providers/vertex",
-      "modelCount": 14,
+      "modelCount": 15,
       "providerDisplayName": "Google - Vertex AI (`vertex_ai`)"
     },
     {
@@ -7751,7 +7792,7 @@
     },
     {
       "communityAlias": "vertex_ai-anthropic_models",
-      "modelCount": 29
+      "modelCount": 31
     },
     {
       "communityAlias": "vertex_ai-deepseek_models",
@@ -7767,7 +7808,7 @@
     },
     {
       "communityAlias": "vertex_ai-language-models",
-      "modelCount": 31
+      "modelCount": 34
     },
     {
       "communityAlias": "vertex_ai-llama_models",
@@ -7850,7 +7891,7 @@
     {
       "communityAlias": "xai",
       "docsUrl": "https://docs.litellm.ai/docs/providers/xai",
-      "modelCount": 36,
+      "modelCount": 38,
       "providerDisplayName": "xAI (`xai`)"
     },
     {
@@ -7867,9 +7908,9 @@
     }
   ],
   "summary": {
-    "conflictCount": 112,
-    "newModelCount": 834,
-    "newProviderAliasCount": 160,
+    "conflictCount": 113,
+    "newModelCount": 806,
+    "newProviderAliasCount": 162,
     "providerCount": 15
   },
   "version": 1

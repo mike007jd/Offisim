@@ -4,23 +4,7 @@ import {
   refreshProviderSourceRegistry,
   writeProviderSourceRegistryArtifacts,
 } from './lib/catalog.mjs';
-
-function parseArgs(argv) {
-  const parsed = {};
-  for (let index = 0; index < argv.length; index += 1) {
-    const raw = argv[index];
-    if (!raw.startsWith('--')) continue;
-    const key = raw.slice(2);
-    const next = argv[index + 1];
-    if (next && !next.startsWith('--')) {
-      parsed[key] = next;
-      index += 1;
-      continue;
-    }
-    parsed[key] = 'true';
-  }
-  return parsed;
-}
+import { parseArgs } from './lib/cli-args.mjs';
 
 const args = parseArgs(process.argv.slice(2));
 const catalogDir = args['catalog-dir'] ? resolve(process.cwd(), args['catalog-dir']) : CATALOG_DIR;

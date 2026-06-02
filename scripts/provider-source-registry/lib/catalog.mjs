@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { detectDefaultDrift } from './latest-models.mjs';
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 export const CATALOG_DIR = resolve(ROOT, 'catalog/provider-source-registry');
@@ -57,7 +58,7 @@ function hasValue(value) {
   return true;
 }
 
-async function readJson(path) {
+export async function readJson(path) {
   return JSON.parse(await readFile(path, 'utf8'));
 }
 
@@ -165,16 +166,21 @@ function ensureModelSnapshot(providerSnapshot, modelId) {
   return providerSnapshot.models[modelId];
 }
 
+// Trimmed-string fields carried straight from official-fixtures. status /
+// retiresOn / sourceUrl are the official-tier freshness fields (see sources.json
+// ownedFields) that let the generated catalog tell `current` from
+// `legacy`/`retired` and surface a source.
+const MODEL_STRING_FIELDS = ['displayName', 'status', 'retiresOn', 'sourceUrl', 'notes'];
+
 function normalizeModelFixture(model) {
   const normalized = {};
-  if (typeof model.displayName === 'string' && model.displayName.trim()) {
-    normalized.displayName = model.displayName.trim();
+  for (const field of MODEL_STRING_FIELDS) {
+    if (typeof model[field] === 'string' && model[field].trim()) {
+      normalized[field] = model[field].trim();
+    }
   }
   if (Array.isArray(model.communityAliases) && model.communityAliases.length > 0) {
     normalized.communityAliases = sortStrings(model.communityAliases);
-  }
-  if (typeof model.notes === 'string' && model.notes.trim()) {
-    normalized.notes = model.notes.trim();
   }
   return normalized;
 }
@@ -199,6 +205,8 @@ export function normalizeOfficialFixturesSnapshot(officialFixtures, source) {
       'authMode',
       'baseURL',
       'defaultModel',
+      'lastVerifiedAt',
+      'sourceUrl',
     ]) {
       if (hasValue(provider[field])) {
         providerSnapshot.fields[field] = clone(provider[field]);
@@ -719,10 +727,12 @@ export function buildCuratedCatalog({
   officialSnapshot,
   overrideSnapshot,
   expansionSnapshots = [],
+  verification,
 }) {
   const curated = {
     version: 1,
     generatedAt,
+    ...(verification ? { verification: clone(verification) } : {}),
     providers: {},
   };
   const { providerIds, modelIdsByProvider } = buildAllowedCatalogScope(
@@ -854,6 +864,7 @@ export async function refreshProviderSourceRegistry(options = {}) {
     officialSnapshot,
     overrideSnapshot,
     expansionSnapshots: [openRouterSnapshot],
+    verification: context.officialFixtures.verification,
   });
   const diffReport = buildDiffReport({
     officialSnapshot,
@@ -862,6 +873,22 @@ export async function refreshProviderSourceRegistry(options = {}) {
     mergedCatalog,
     generatedAt,
   });
+  // Automatic default-drift: compare each pinned `defaultModel` to the newest
+  // in-family leaf id on the live OpenRouter list. Written into the diff report
+  // so the offline `provider:check` gate can surface "behind" defaults without
+  // re-fetching. Best-effort — never fail the refresh over it.
+  try {
+    diffReport.defaultDrift = detectDefaultDrift({
+      openRouterData: openRouterPayloads.modelsPayload?.data ?? [],
+      officialFixtures: context.officialFixtures,
+    });
+  } catch (error) {
+    diffReport.defaultDrift = {
+      error: String(error?.message ?? error),
+      providers: [],
+      summary: {},
+    };
+  }
   const rawSourceSnapshots = {
     version: 1,
     generatedAt,

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-06T07:08:21.687Z",
+  "generatedAt": "2026-06-02T09:01:48.461Z",
   "providers": {
     "anthropic-default": {
       "authMode": "api-key",
@@ -9,30 +9,93 @@
       "communityDisplayName": "Anthropic (`anthropic`)",
       "communityDocsUrl": "https://docs.litellm.ai/docs/providers/anthropic",
       "compatibility": "native",
-      "defaultModel": "claude-sonnet-4-20250514",
+      "defaultModel": "claude-opus-4-8",
       "executionLaneHints": {
         "productExposed": [
           "gateway"
         ]
       },
+      "lastVerifiedAt": "2026-06-02",
       "models": {
+        "claude-haiku-4-5": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 200000,
+          "displayName": "Claude Haiku 4.5",
+          "maxOutputTokens": 64000,
+          "pricing": {
+            "inputCostPerToken": 0.000001,
+            "outputCostPerToken": 0.000005
+          },
+          "status": "current"
+        },
+        "claude-opus-4-20250514": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 200000,
+          "displayName": "Claude Opus 4 (retiring)",
+          "maxOutputTokens": 32000,
+          "pricing": {
+            "inputCostPerToken": 0.000015,
+            "outputCostPerToken": 0.000075
+          },
+          "retiresOn": "2026-06-15",
+          "sourceUrl": "https://platform.claude.com/docs/en/about-claude/model-deprecations",
+          "status": "retired"
+        },
+        "claude-opus-4-8": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 1000000,
+          "displayName": "Claude Opus 4.8",
+          "maxOutputTokens": 128000,
+          "pricing": {
+            "inputCostPerToken": 0.000005,
+            "outputCostPerToken": 0.000025
+          },
+          "status": "current"
+        },
         "claude-sonnet-4-20250514": {
           "capabilities": {
             "functionCalling": true,
             "reasoning": true
           },
           "contextWindow": 1000000,
-          "displayName": "Claude Sonnet 4",
+          "displayName": "Claude Sonnet 4 (retiring)",
           "maxOutputTokens": 64000,
           "pricing": {
             "inputCostPerToken": 0.000003,
             "outputCostPerToken": 0.000015
-          }
+          },
+          "retiresOn": "2026-06-15",
+          "sourceUrl": "https://platform.claude.com/docs/en/about-claude/model-deprecations",
+          "status": "retired"
+        },
+        "claude-sonnet-4-6": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 1000000,
+          "displayName": "Claude Sonnet 4.6",
+          "maxOutputTokens": 64000,
+          "pricing": {
+            "inputCostPerToken": 0.000003,
+            "outputCostPerToken": 0.000015
+          },
+          "status": "current"
         }
       },
       "productName": "Anthropic",
       "providerTransport": "anthropic",
       "region": "shared",
+      "sourceUrl": "https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions",
       "supportedEndpoints": [
         "a2a",
         "batches",
@@ -71,12 +134,13 @@
       "communityDisplayName": "Deepseek (`deepseek`)",
       "communityDocsUrl": "https://docs.litellm.ai/docs/providers/deepseek",
       "compatibility": "openai-compatible",
-      "defaultModel": "deepseek-reasoner",
+      "defaultModel": "deepseek-v4-pro",
       "executionLaneHints": {
         "productExposed": [
           "gateway"
         ]
       },
+      "lastVerifiedAt": "2026-06-02",
       "models": {
         "deepseek-reasoner": {
           "capabilities": {
@@ -84,20 +148,31 @@
             "reasoning": true
           },
           "contextWindow": 131072,
-          "displayName": "DeepSeek Reasoner",
+          "displayName": "DeepSeek Reasoner (legacy alias)",
           "maxOutputTokens": 65536,
           "pricing": {
             "inputCostPerToken": 2.8e-7,
             "outputCostPerToken": 4.2e-7
           },
+          "retiresOn": "2026-07-24",
+          "status": "legacy",
           "supportedEndpoints": [
             "/v1/chat/completions"
           ]
+        },
+        "deepseek-v4-flash": {
+          "displayName": "DeepSeek V4 Flash",
+          "status": "current"
+        },
+        "deepseek-v4-pro": {
+          "displayName": "DeepSeek V4 Pro",
+          "status": "current"
         }
       },
       "productName": "DeepSeek",
       "providerTransport": "openai-compat",
       "region": "shared",
+      "sourceUrl": "https://api-docs.deepseek.com/quick_start/pricing",
       "supportedEndpoints": [
         "a2a",
         "chat_completions",
@@ -117,12 +192,13 @@
       "communityDisplayName": "Google AI Studio - Gemini (`gemini`)",
       "communityDocsUrl": "https://docs.litellm.ai/docs/providers/gemini",
       "compatibility": "openai-compatible",
-      "defaultModel": "gemini-2.5-flash",
+      "defaultModel": "gemini-3.5-flash",
       "executionLaneHints": {
         "productExposed": [
           "gateway"
         ]
       },
+      "lastVerifiedAt": "2026-06-02",
       "models": {
         "gemini-2.5-flash": {
           "capabilities": {
@@ -130,12 +206,32 @@
             "reasoning": true
           },
           "contextWindow": 1048576,
-          "displayName": "Gemini 2.5 Flash",
+          "displayName": "Gemini 2.5 Flash (legacy)",
           "maxOutputTokens": 65535,
           "pricing": {
             "inputCostPerToken": 3e-7,
             "outputCostPerToken": 0.0000025
           },
+          "status": "legacy",
+          "supportedEndpoints": [
+            "/v1/batch",
+            "/v1/chat/completions",
+            "/v1/completions"
+          ]
+        },
+        "gemini-3.5-flash": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 1048576,
+          "displayName": "Gemini 3.5 Flash",
+          "maxOutputTokens": 65535,
+          "pricing": {
+            "inputCostPerToken": 0.0000015,
+            "outputCostPerToken": 0.000009
+          },
+          "status": "current",
           "supportedEndpoints": [
             "/v1/batch",
             "/v1/chat/completions",
@@ -146,6 +242,7 @@
       "productName": "Google Gemini",
       "providerTransport": "openai-compat",
       "region": "shared",
+      "sourceUrl": "https://ai.google.dev/gemini-api/docs/models",
       "supportedEndpoints": [
         "a2a",
         "chat_completions",
@@ -170,43 +267,47 @@
       "communityDisplayName": "Moonshot (`moonshot`)",
       "communityDocsUrl": "https://docs.litellm.ai/docs/providers/moonshot",
       "compatibility": "anthropic-compatible",
-      "defaultModel": "kimi-k2.5",
+      "defaultModel": "kimi-k2.6",
       "executionLaneHints": {
         "productExposed": [
           "gateway"
         ]
       },
+      "lastVerifiedAt": "2026-06-02",
       "models": {
-        "kimi-k2-thinking": {
-          "capabilities": {
-            "functionCalling": true,
-            "reasoning": true
-          },
-          "contextWindow": 262144,
-          "displayName": "Kimi K2 Thinking",
-          "maxOutputTokens": 262144,
-          "pricing": {
-            "inputCostPerToken": 6e-7,
-            "outputCostPerToken": 0.0000025
-          }
-        },
         "kimi-k2.5": {
           "capabilities": {
             "functionCalling": true,
             "reasoning": true
           },
           "contextWindow": 262144,
-          "displayName": "Kimi K2.5",
+          "displayName": "Kimi K2.5 (legacy)",
           "maxOutputTokens": 262144,
           "pricing": {
             "inputCostPerToken": 6e-7,
             "outputCostPerToken": 0.000003
-          }
+          },
+          "status": "legacy"
+        },
+        "kimi-k2.6": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 262144,
+          "displayName": "Kimi K2.6",
+          "maxOutputTokens": 262144,
+          "pricing": {
+            "inputCostPerToken": 9.5e-7,
+            "outputCostPerToken": 0.000004
+          },
+          "status": "current"
         }
       },
       "productName": "Kimi CN · Claude Code",
       "providerTransport": "anthropic",
       "region": "cn",
+      "sourceUrl": "https://platform.moonshot.cn/docs",
       "supportedEndpoints": [
         "a2a",
         "chat_completions",
@@ -226,43 +327,47 @@
       "communityDisplayName": "Moonshot (`moonshot`)",
       "communityDocsUrl": "https://docs.litellm.ai/docs/providers/moonshot",
       "compatibility": "openai-compatible",
-      "defaultModel": "kimi-k2.5",
+      "defaultModel": "kimi-k2.6",
       "executionLaneHints": {
         "productExposed": [
           "gateway"
         ]
       },
+      "lastVerifiedAt": "2026-06-02",
       "models": {
-        "kimi-k2-thinking": {
-          "capabilities": {
-            "functionCalling": true,
-            "reasoning": true
-          },
-          "contextWindow": 262144,
-          "displayName": "Kimi K2 Thinking",
-          "maxOutputTokens": 262144,
-          "pricing": {
-            "inputCostPerToken": 6e-7,
-            "outputCostPerToken": 0.0000025
-          }
-        },
         "kimi-k2.5": {
           "capabilities": {
             "functionCalling": true,
             "reasoning": true
           },
           "contextWindow": 262144,
-          "displayName": "Kimi K2.5",
+          "displayName": "Kimi K2.5 (legacy)",
           "maxOutputTokens": 262144,
           "pricing": {
             "inputCostPerToken": 6e-7,
             "outputCostPerToken": 0.000003
-          }
+          },
+          "status": "legacy"
+        },
+        "kimi-k2.6": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 262144,
+          "displayName": "Kimi K2.6",
+          "maxOutputTokens": 262144,
+          "pricing": {
+            "inputCostPerToken": 9.5e-7,
+            "outputCostPerToken": 0.000004
+          },
+          "status": "current"
         }
       },
       "productName": "Kimi CN · General API",
       "providerTransport": "openai-compat",
       "region": "cn",
+      "sourceUrl": "https://platform.moonshot.cn/docs",
       "supportedEndpoints": [
         "a2a",
         "chat_completions",
@@ -282,43 +387,47 @@
       "communityDisplayName": "Moonshot (`moonshot`)",
       "communityDocsUrl": "https://docs.litellm.ai/docs/providers/moonshot",
       "compatibility": "openai-compatible",
-      "defaultModel": "kimi-k2.5",
+      "defaultModel": "kimi-k2.6",
       "executionLaneHints": {
         "productExposed": [
           "gateway"
         ]
       },
+      "lastVerifiedAt": "2026-06-02",
       "models": {
-        "kimi-k2-thinking": {
-          "capabilities": {
-            "functionCalling": true,
-            "reasoning": true
-          },
-          "contextWindow": 262144,
-          "displayName": "Kimi K2 Thinking",
-          "maxOutputTokens": 262144,
-          "pricing": {
-            "inputCostPerToken": 6e-7,
-            "outputCostPerToken": 0.0000025
-          }
-        },
         "kimi-k2.5": {
           "capabilities": {
             "functionCalling": true,
             "reasoning": true
           },
           "contextWindow": 262144,
-          "displayName": "Kimi K2.5",
+          "displayName": "Kimi K2.5 (legacy)",
           "maxOutputTokens": 262144,
           "pricing": {
             "inputCostPerToken": 6e-7,
             "outputCostPerToken": 0.000003
-          }
+          },
+          "status": "legacy"
+        },
+        "kimi-k2.6": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 262144,
+          "displayName": "Kimi K2.6",
+          "maxOutputTokens": 262144,
+          "pricing": {
+            "inputCostPerToken": 9.5e-7,
+            "outputCostPerToken": 0.000004
+          },
+          "status": "current"
         }
       },
       "productName": "Kimi Intl · General API",
       "providerTransport": "openai-compat",
       "region": "intl",
+      "sourceUrl": "https://platform.moonshot.ai/docs",
       "supportedEndpoints": [
         "a2a",
         "chat_completions",
@@ -333,20 +442,23 @@
       "authMode": "api-key",
       "baseURL": "http://localhost:1234/v1",
       "compatibility": "openai-compatible",
-      "defaultModel": "qwen/qwen3.5-9b",
+      "defaultModel": "qwen/qwen3.6-27b",
       "executionLaneHints": {
         "productExposed": [
           "gateway"
         ]
       },
+      "lastVerifiedAt": "2026-06-02",
       "models": {
-        "qwen/qwen3.5-9b": {
-          "displayName": "Qwen 3.5 9B"
+        "qwen/qwen3.6-27b": {
+          "displayName": "Qwen 3.6 27B",
+          "status": "current"
         }
       },
       "productName": "LM Studio (Local)",
       "providerTransport": "openai-compat",
       "region": "local",
+      "sourceUrl": "https://lmstudio.ai/models/qwen/qwen3.6-27b",
       "surface": "general",
       "vendor": "lmstudio"
     },
@@ -359,20 +471,27 @@
       "communityDisplayName": "Minimax (`minimax`)",
       "communityDocsUrl": "https://docs.litellm.ai/docs/providers/minimax",
       "compatibility": "anthropic-compatible",
-      "defaultModel": "MiniMax-M2.7",
+      "defaultModel": "MiniMax-M3",
       "executionLaneHints": {
         "productExposed": [
           "gateway"
         ]
       },
+      "lastVerifiedAt": "2026-06-02",
       "models": {
         "MiniMax-M2.7": {
-          "displayName": "MiniMax M2.7"
+          "displayName": "MiniMax M2.7 (legacy)",
+          "status": "legacy"
+        },
+        "MiniMax-M3": {
+          "displayName": "MiniMax M3",
+          "status": "current"
         }
       },
       "productName": "MiniMax CN",
       "providerTransport": "anthropic",
       "region": "cn",
+      "sourceUrl": "https://platform.minimaxi.com/document/text-anthropic-api",
       "supportedEndpoints": [
         "chat_completions",
         "messages",
@@ -390,20 +509,27 @@
       "communityDisplayName": "Minimax (`minimax`)",
       "communityDocsUrl": "https://docs.litellm.ai/docs/providers/minimax",
       "compatibility": "anthropic-compatible",
-      "defaultModel": "MiniMax-M2.7",
+      "defaultModel": "MiniMax-M3",
       "executionLaneHints": {
         "productExposed": [
           "gateway"
         ]
       },
+      "lastVerifiedAt": "2026-06-02",
       "models": {
         "MiniMax-M2.7": {
-          "displayName": "MiniMax M2.7"
+          "displayName": "MiniMax M2.7 (legacy)",
+          "status": "legacy"
+        },
+        "MiniMax-M3": {
+          "displayName": "MiniMax M3",
+          "status": "current"
         }
       },
       "productName": "MiniMax Global",
       "providerTransport": "anthropic",
       "region": "intl",
+      "sourceUrl": "https://platform.minimax.io/docs/api-reference/text-anthropic-api",
       "supportedEndpoints": [
         "chat_completions",
         "messages",
@@ -420,29 +546,70 @@
       "communityDisplayName": "OpenAI (`openai`)",
       "communityDocsUrl": "https://docs.litellm.ai/docs/providers/openai",
       "compatibility": "native",
-      "defaultModel": "gpt-4o-mini",
+      "defaultModel": "gpt-5.5",
       "executionLaneHints": {
         "productExposed": [
           "gateway"
         ]
       },
+      "lastVerifiedAt": "2026-06-02",
       "models": {
         "gpt-4o-mini": {
           "capabilities": {
             "functionCalling": true
           },
           "contextWindow": 128000,
-          "displayName": "GPT-4o mini",
+          "displayName": "GPT-4o mini (legacy)",
           "maxOutputTokens": 16384,
           "pricing": {
             "inputCostPerToken": 1.5e-7,
             "outputCostPerToken": 6e-7
-          }
+          },
+          "status": "legacy"
+        },
+        "gpt-5.4-mini": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 272000,
+          "displayName": "GPT-5.4 mini",
+          "maxOutputTokens": 128000,
+          "pricing": {
+            "inputCostPerToken": 7.5e-7,
+            "outputCostPerToken": 0.0000045
+          },
+          "status": "current",
+          "supportedEndpoints": [
+            "/v1/batch",
+            "/v1/chat/completions",
+            "/v1/responses"
+          ]
+        },
+        "gpt-5.5": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 1050000,
+          "displayName": "GPT-5.5",
+          "maxOutputTokens": 128000,
+          "pricing": {
+            "inputCostPerToken": 0.000005,
+            "outputCostPerToken": 0.00003
+          },
+          "status": "current",
+          "supportedEndpoints": [
+            "/v1/batch",
+            "/v1/chat/completions",
+            "/v1/responses"
+          ]
         }
       },
       "productName": "OpenAI",
       "providerTransport": "openai",
       "region": "shared",
+      "sourceUrl": "https://developers.openai.com/api/docs/models/gpt-5.5",
       "supportedEndpoints": [
         "a2a",
         "assistants",
@@ -481,12 +648,13 @@
       "communityDisplayName": "OpenRouter",
       "communityDocsUrl": "https://openrouter.ai/docs",
       "compatibility": "openai-compatible",
-      "defaultModel": "google/gemma-3-4b-it:free",
+      "defaultModel": "google/gemma-4-31b-it:free",
       "executionLaneHints": {
         "productExposed": [
           "gateway"
         ]
       },
+      "lastVerifiedAt": "2026-06-02",
       "models": {
         "ai21/jamba-large-1.7": {
           "capabilities": {
@@ -561,35 +729,6 @@
             "chat_completions"
           ]
         },
-        "alfredpros/codellama-7b-instruct-solidity": {
-          "contextWindow": 4096,
-          "displayName": "AlfredPros: CodeLLaMa 7B Instruct Solidity",
-          "maxOutputTokens": 4096,
-          "pricing": {
-            "inputCostPerToken": 8e-7,
-            "outputCostPerToken": 0.0000012
-          },
-          "supportedEndpoints": [
-            "chat_completions"
-          ]
-        },
-        "alibaba/tongyi-deepresearch-30b-a3b": {
-          "capabilities": {
-            "functionCalling": true,
-            "reasoning": true
-          },
-          "contextWindow": 131072,
-          "displayName": "Tongyi DeepResearch 30B A3B",
-          "maxOutputTokens": 131072,
-          "pricing": {
-            "inputCostPerToken": 9e-8,
-            "outputCostPerToken": 4.5e-7
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
         "allenai/olmo-3-32b-think": {
           "capabilities": {
             "reasoning": true
@@ -600,34 +739,6 @@
           "pricing": {
             "inputCostPerToken": 1.5e-7,
             "outputCostPerToken": 5e-7
-          },
-          "supportedEndpoints": [
-            "chat_completions"
-          ]
-        },
-        "allenai/olmo-3.1-32b-instruct": {
-          "capabilities": {
-            "functionCalling": true
-          },
-          "contextWindow": 65536,
-          "displayName": "AllenAI: Olmo 3.1 32B Instruct",
-          "maxOutputTokens": 16384,
-          "pricing": {
-            "inputCostPerToken": 2e-7,
-            "outputCostPerToken": 6e-7
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
-        "alpindale/goliath-120b": {
-          "contextWindow": 6144,
-          "displayName": "Goliath 120B",
-          "maxOutputTokens": 1024,
-          "pricing": {
-            "inputCostPerToken": 0.00000375,
-            "outputCostPerToken": 0.0000075
           },
           "supportedEndpoints": [
             "chat_completions"
@@ -715,7 +826,7 @@
           ]
         },
         "anthracite-org/magnum-v4-72b": {
-          "contextWindow": 16384,
+          "contextWindow": 32768,
           "displayName": "Magnum v4 72B",
           "maxOutputTokens": 2048,
           "pricing": {
@@ -752,40 +863,6 @@
           "pricing": {
             "inputCostPerToken": 8e-7,
             "outputCostPerToken": 0.000004
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
-        "anthropic/claude-3.7-sonnet": {
-          "capabilities": {
-            "functionCalling": true,
-            "reasoning": true
-          },
-          "contextWindow": 200000,
-          "displayName": "Anthropic: Claude 3.7 Sonnet",
-          "maxOutputTokens": 64000,
-          "pricing": {
-            "inputCostPerToken": 0.000003,
-            "outputCostPerToken": 0.000015
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
-        "anthropic/claude-3.7-sonnet:thinking": {
-          "capabilities": {
-            "functionCalling": true,
-            "reasoning": true
-          },
-          "contextWindow": 200000,
-          "displayName": "Anthropic: Claude 3.7 Sonnet (thinking)",
-          "maxOutputTokens": 64000,
-          "pricing": {
-            "inputCostPerToken": 0.000003,
-            "outputCostPerToken": 0.000015
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -911,6 +988,57 @@
             "responses"
           ]
         },
+        "anthropic/claude-opus-4.7-fast": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 1000000,
+          "displayName": "Anthropic: Claude Opus 4.7 (Fast)",
+          "maxOutputTokens": 128000,
+          "pricing": {
+            "inputCostPerToken": 0.00003,
+            "outputCostPerToken": 0.00015
+          },
+          "supportedEndpoints": [
+            "chat_completions",
+            "responses"
+          ]
+        },
+        "anthropic/claude-opus-4.8": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 1000000,
+          "displayName": "Anthropic: Claude Opus 4.8",
+          "maxOutputTokens": 128000,
+          "pricing": {
+            "inputCostPerToken": 0.000005,
+            "outputCostPerToken": 0.000025
+          },
+          "supportedEndpoints": [
+            "chat_completions",
+            "responses"
+          ]
+        },
+        "anthropic/claude-opus-4.8-fast": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 1000000,
+          "displayName": "Anthropic: Claude Opus 4.8 (Fast)",
+          "maxOutputTokens": 128000,
+          "pricing": {
+            "inputCostPerToken": 0.00001,
+            "outputCostPerToken": 0.00005
+          },
+          "supportedEndpoints": [
+            "chat_completions",
+            "responses"
+          ]
+        },
         "anthropic/claude-sonnet-4": {
           "capabilities": {
             "functionCalling": true,
@@ -997,21 +1125,6 @@
             "chat_completions"
           ]
         },
-        "arcee-ai/trinity-large-preview": {
-          "capabilities": {
-            "functionCalling": true
-          },
-          "contextWindow": 131000,
-          "displayName": "Arcee AI: Trinity Large Preview",
-          "pricing": {
-            "inputCostPerToken": 1.5e-7,
-            "outputCostPerToken": 4.5e-7
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
         "arcee-ai/trinity-large-thinking": {
           "capabilities": {
             "functionCalling": true,
@@ -1062,72 +1175,12 @@
             "responses"
           ]
         },
-        "baidu/cobuddy:free": {
-          "capabilities": {
-            "functionCalling": true,
-            "reasoning": true
-          },
-          "contextWindow": 131072,
-          "displayName": "Baidu Qianfan: CoBuddy (free)",
-          "maxOutputTokens": 65536,
-          "pricing": {
-            "inputCostPerToken": 0,
-            "outputCostPerToken": 0
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
-        "baidu/ernie-4.5-21b-a3b": {
-          "capabilities": {
-            "functionCalling": true
-          },
-          "contextWindow": 120000,
-          "displayName": "Baidu: ERNIE 4.5 21B A3B",
-          "maxOutputTokens": 8000,
-          "pricing": {
-            "inputCostPerToken": 7e-8,
-            "outputCostPerToken": 2.8e-7
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
-        "baidu/ernie-4.5-21b-a3b-thinking": {
-          "capabilities": {
-            "reasoning": true
-          },
-          "contextWindow": 131072,
-          "displayName": "Baidu: ERNIE 4.5 21B A3B Thinking",
-          "maxOutputTokens": 65536,
-          "pricing": {
-            "inputCostPerToken": 7e-8,
-            "outputCostPerToken": 2.8e-7
-          },
-          "supportedEndpoints": [
-            "chat_completions"
-          ]
-        },
-        "baidu/ernie-4.5-300b-a47b": {
-          "contextWindow": 123000,
-          "displayName": "Baidu: ERNIE 4.5 300B A47B",
-          "maxOutputTokens": 12000,
-          "pricing": {
-            "inputCostPerToken": 2.8e-7,
-            "outputCostPerToken": 0.0000011
-          },
-          "supportedEndpoints": [
-            "chat_completions"
-          ]
-        },
         "baidu/ernie-4.5-vl-28b-a3b": {
           "capabilities": {
             "functionCalling": true,
             "reasoning": true
           },
-          "contextWindow": 30000,
+          "contextWindow": 131072,
           "displayName": "Baidu: ERNIE 4.5 VL 28B A3B",
           "maxOutputTokens": 8000,
           "pricing": {
@@ -1143,27 +1196,12 @@
           "capabilities": {
             "reasoning": true
           },
-          "contextWindow": 123000,
+          "contextWindow": 131072,
           "displayName": "Baidu: ERNIE 4.5 VL 424B A47B",
           "maxOutputTokens": 16000,
           "pricing": {
             "inputCostPerToken": 4.2e-7,
             "outputCostPerToken": 0.00000125
-          },
-          "supportedEndpoints": [
-            "chat_completions"
-          ]
-        },
-        "baidu/qianfan-ocr-fast:free": {
-          "capabilities": {
-            "reasoning": true
-          },
-          "contextWindow": 65536,
-          "displayName": "Baidu: Qianfan-OCR-Fast (free)",
-          "maxOutputTokens": 28672,
-          "pricing": {
-            "inputCostPerToken": 0,
-            "outputCostPerToken": 0
           },
           "supportedEndpoints": [
             "chat_completions"
@@ -1334,12 +1372,12 @@
           "capabilities": {
             "functionCalling": true
           },
-          "contextWindow": 163840,
+          "contextWindow": 131072,
           "displayName": "DeepSeek: DeepSeek V3",
-          "maxOutputTokens": 16384,
+          "maxOutputTokens": 16000,
           "pricing": {
-            "inputCostPerToken": 3.2e-7,
-            "outputCostPerToken": 8.9e-7
+            "inputCostPerToken": 2.002e-7,
+            "outputCostPerToken": 8.001e-7
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -1367,12 +1405,12 @@
             "functionCalling": true,
             "reasoning": true
           },
-          "contextWindow": 32768,
+          "contextWindow": 163840,
           "displayName": "DeepSeek: DeepSeek V3.1",
-          "maxOutputTokens": 7168,
+          "maxOutputTokens": 32768,
           "pricing": {
-            "inputCostPerToken": 1.5e-7,
-            "outputCostPerToken": 7.5e-7
+            "inputCostPerToken": 2.1e-7,
+            "outputCostPerToken": 7.9e-7
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -1384,7 +1422,7 @@
             "functionCalling": true,
             "reasoning": true
           },
-          "contextWindow": 64000,
+          "contextWindow": 163840,
           "displayName": "DeepSeek: R1",
           "maxOutputTokens": 16000,
           "pricing": {
@@ -1432,7 +1470,7 @@
           "capabilities": {
             "reasoning": true
           },
-          "contextWindow": 32768,
+          "contextWindow": 128000,
           "displayName": "DeepSeek: R1 Distill Qwen 32B",
           "maxOutputTokens": 32768,
           "pricing": {
@@ -1467,10 +1505,10 @@
           },
           "contextWindow": 131072,
           "displayName": "DeepSeek: DeepSeek V3.2",
-          "maxOutputTokens": 65536,
+          "maxOutputTokens": 64000,
           "pricing": {
-            "inputCostPerToken": 2.52e-7,
-            "outputCostPerToken": 3.78e-7
+            "inputCostPerToken": 2.288e-7,
+            "outputCostPerToken": 3.432e-7
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -1494,21 +1532,6 @@
             "responses"
           ]
         },
-        "deepseek/deepseek-v3.2-speciale": {
-          "capabilities": {
-            "reasoning": true
-          },
-          "contextWindow": 163840,
-          "displayName": "DeepSeek: DeepSeek V3.2 Speciale",
-          "maxOutputTokens": 163840,
-          "pricing": {
-            "inputCostPerToken": 4e-7,
-            "outputCostPerToken": 0.0000012
-          },
-          "supportedEndpoints": [
-            "chat_completions"
-          ]
-        },
         "deepseek/deepseek-v4-flash": {
           "capabilities": {
             "functionCalling": true,
@@ -1516,10 +1539,10 @@
           },
           "contextWindow": 1048576,
           "displayName": "DeepSeek: DeepSeek V4 Flash",
-          "maxOutputTokens": 384000,
+          "maxOutputTokens": 131072,
           "pricing": {
-            "inputCostPerToken": 1.4e-7,
-            "outputCostPerToken": 2.8e-7
+            "inputCostPerToken": 9.83e-8,
+            "outputCostPerToken": 1.966e-7
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -1552,38 +1575,6 @@
           "pricing": {
             "inputCostPerToken": 1.5e-7,
             "outputCostPerToken": 1.5e-7
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
-        "google/gemini-2.0-flash-001": {
-          "capabilities": {
-            "functionCalling": true
-          },
-          "contextWindow": 1048576,
-          "displayName": "Google: Gemini 2.0 Flash",
-          "maxOutputTokens": 8192,
-          "pricing": {
-            "inputCostPerToken": 1e-7,
-            "outputCostPerToken": 4e-7
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
-        "google/gemini-2.0-flash-lite-001": {
-          "capabilities": {
-            "functionCalling": true
-          },
-          "contextWindow": 1048576,
-          "displayName": "Google: Gemini 2.0 Flash Lite",
-          "maxOutputTokens": 8192,
-          "pricing": {
-            "inputCostPerToken": 7.5e-8,
-            "outputCostPerToken": 3e-7
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -1740,7 +1731,7 @@
           "capabilities": {
             "reasoning": true
           },
-          "contextWindow": 65536,
+          "contextWindow": 131072,
           "displayName": "Google: Nano Banana 2 (Gemini 3.1 Flash Image Preview)",
           "maxOutputTokens": 65536,
           "pricing": {
@@ -1749,6 +1740,23 @@
           },
           "supportedEndpoints": [
             "chat_completions"
+          ]
+        },
+        "google/gemini-3.1-flash-lite": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 1048576,
+          "displayName": "Google: Gemini 3.1 Flash Lite",
+          "maxOutputTokens": 65536,
+          "pricing": {
+            "inputCostPerToken": 2.5e-7,
+            "outputCostPerToken": 0.0000015
+          },
+          "supportedEndpoints": [
+            "chat_completions",
+            "responses"
           ]
         },
         "google/gemini-3.1-flash-lite-preview": {
@@ -1790,12 +1798,29 @@
             "functionCalling": true,
             "reasoning": true
           },
-          "contextWindow": 1048576,
+          "contextWindow": 1048756,
           "displayName": "Google: Gemini 3.1 Pro Preview Custom Tools",
           "maxOutputTokens": 65536,
           "pricing": {
             "inputCostPerToken": 0.000002,
             "outputCostPerToken": 0.000012
+          },
+          "supportedEndpoints": [
+            "chat_completions",
+            "responses"
+          ]
+        },
+        "google/gemini-3.5-flash": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 1048576,
+          "displayName": "Google: Gemini 3.5 Flash",
+          "maxOutputTokens": 65536,
+          "pricing": {
+            "inputCostPerToken": 0.0000015,
+            "outputCostPerToken": 0.000009
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -1859,7 +1884,8 @@
           ]
         },
         "google/gemma-3-4b-it:free": {
-          "displayName": "Gemma 3 4B Instruct (free)"
+          "displayName": "Gemma 3 4B Instruct (free, legacy)",
+          "status": "legacy"
         },
         "google/gemma-3n-e4b-it": {
           "contextWindow": 32768,
@@ -1914,8 +1940,8 @@
           "displayName": "Google: Gemma 4 31B",
           "maxOutputTokens": 16384,
           "pricing": {
-            "inputCostPerToken": 1.3e-7,
-            "outputCostPerToken": 3.8e-7
+            "inputCostPerToken": 1.2e-7,
+            "outputCostPerToken": 3.7e-7
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -1928,12 +1954,13 @@
             "reasoning": true
           },
           "contextWindow": 262144,
-          "displayName": "Google: Gemma 4 31B (free)",
+          "displayName": "Gemma 4 31B Instruct (free)",
           "maxOutputTokens": 32768,
           "pricing": {
             "inputCostPerToken": 0,
             "outputCostPerToken": 0
           },
+          "status": "current",
           "supportedEndpoints": [
             "chat_completions",
             "responses"
@@ -1978,9 +2005,10 @@
         "ibm-granite/granite-4.0-h-micro": {
           "contextWindow": 131000,
           "displayName": "IBM: Granite 4.0 Micro",
+          "maxOutputTokens": 131000,
           "pricing": {
             "inputCostPerToken": 1.7e-8,
-            "outputCostPerToken": 1.1e-7
+            "outputCostPerToken": 1.12e-7
           },
           "supportedEndpoints": [
             "chat_completions"
@@ -2019,16 +2047,16 @@
             "responses"
           ]
         },
-        "inclusionai/ling-2.6-1t:free": {
+        "inclusionai/ling-2.6-1t": {
           "capabilities": {
             "functionCalling": true
           },
           "contextWindow": 262144,
-          "displayName": "inclusionAI: Ling-2.6-1T (free)",
+          "displayName": "inclusionAI: Ling-2.6-1T",
           "maxOutputTokens": 32768,
           "pricing": {
-            "inputCostPerToken": 0,
-            "outputCostPerToken": 0
+            "inputCostPerToken": 7.5e-8,
+            "outputCostPerToken": 6.25e-7
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -2043,8 +2071,25 @@
           "displayName": "inclusionAI: Ling-2.6-flash",
           "maxOutputTokens": 32768,
           "pricing": {
-            "inputCostPerToken": 8e-8,
-            "outputCostPerToken": 2.4e-7
+            "inputCostPerToken": 1e-8,
+            "outputCostPerToken": 3e-8
+          },
+          "supportedEndpoints": [
+            "chat_completions",
+            "responses"
+          ]
+        },
+        "inclusionai/ring-2.6-1t": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 262144,
+          "displayName": "inclusionAI: Ring-2.6-1T",
+          "maxOutputTokens": 65536,
+          "pricing": {
+            "inputCostPerToken": 3e-7,
+            "outputCostPerToken": 0.0000025
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -2092,7 +2137,7 @@
           ]
         },
         "liquid/lfm-2-24b-a2b": {
-          "contextWindow": 32768,
+          "contextWindow": 128000,
           "displayName": "LiquidAI: LFM2-24B-A2B",
           "pricing": {
             "inputCostPerToken": 3e-8,
@@ -2152,19 +2197,15 @@
           ]
         },
         "meta-llama/llama-3-8b-instruct": {
-          "capabilities": {
-            "functionCalling": true
-          },
           "contextWindow": 8192,
           "displayName": "Meta: Llama 3 8B Instruct",
-          "maxOutputTokens": 16384,
+          "maxOutputTokens": 8192,
           "pricing": {
-            "inputCostPerToken": 3e-8,
+            "inputCostPerToken": 4e-8,
             "outputCostPerToken": 4e-8
           },
           "supportedEndpoints": [
-            "chat_completions",
-            "responses"
+            "chat_completions"
           ]
         },
         "meta-llama/llama-3.1-70b-instruct": {
@@ -2187,7 +2228,7 @@
           "capabilities": {
             "functionCalling": true
           },
-          "contextWindow": 16384,
+          "contextWindow": 131072,
           "displayName": "Meta: Llama 3.1 8B Instruct",
           "maxOutputTokens": 16384,
           "pricing": {
@@ -2212,22 +2253,24 @@
           ]
         },
         "meta-llama/llama-3.2-1b-instruct": {
-          "contextWindow": 60000,
+          "contextWindow": 131072,
           "displayName": "Meta: Llama 3.2 1B Instruct",
+          "maxOutputTokens": 60000,
           "pricing": {
             "inputCostPerToken": 2.7e-8,
-            "outputCostPerToken": 2e-7
+            "outputCostPerToken": 2.01e-7
           },
           "supportedEndpoints": [
             "chat_completions"
           ]
         },
         "meta-llama/llama-3.2-3b-instruct": {
-          "contextWindow": 80000,
+          "contextWindow": 131072,
           "displayName": "Meta: Llama 3.2 3B Instruct",
+          "maxOutputTokens": 80000,
           "pricing": {
-            "inputCostPerToken": 5.1e-8,
-            "outputCostPerToken": 3.4e-7
+            "inputCostPerToken": 5.09e-8,
+            "outputCostPerToken": 3.35e-7
           },
           "supportedEndpoints": [
             "chat_completions"
@@ -2264,7 +2307,7 @@
           "capabilities": {
             "functionCalling": true
           },
-          "contextWindow": 65536,
+          "contextWindow": 131072,
           "displayName": "Meta: Llama 3.3 70B Instruct (free)",
           "pricing": {
             "inputCostPerToken": 0,
@@ -2276,6 +2319,9 @@
           ]
         },
         "meta-llama/llama-4-maverick": {
+          "capabilities": {
+            "functionCalling": true
+          },
           "contextWindow": 1048576,
           "displayName": "Meta: Llama 4 Maverick",
           "maxOutputTokens": 16384,
@@ -2284,14 +2330,15 @@
             "outputCostPerToken": 6e-7
           },
           "supportedEndpoints": [
-            "chat_completions"
+            "chat_completions",
+            "responses"
           ]
         },
         "meta-llama/llama-4-scout": {
           "capabilities": {
             "functionCalling": true
           },
-          "contextWindow": 327680,
+          "contextWindow": 10000000,
           "displayName": "Meta: Llama 4 Scout",
           "maxOutputTokens": 16384,
           "pricing": {
@@ -2306,8 +2353,9 @@
         "meta-llama/llama-guard-3-8b": {
           "contextWindow": 131072,
           "displayName": "Llama Guard 3 8B",
+          "maxOutputTokens": 131072,
           "pricing": {
-            "inputCostPerToken": 4.8e-7,
+            "inputCostPerToken": 4.84e-7,
             "outputCostPerToken": 3e-8
           },
           "supportedEndpoints": [
@@ -2339,7 +2387,7 @@
           ]
         },
         "microsoft/phi-4-mini-instruct": {
-          "contextWindow": 128000,
+          "contextWindow": 131072,
           "displayName": "Microsoft: Phi 4 Mini Instruct",
           "maxOutputTokens": 128000,
           "pricing": {
@@ -2351,7 +2399,7 @@
           ]
         },
         "microsoft/wizardlm-2-8x22b": {
-          "contextWindow": 65535,
+          "contextWindow": 65536,
           "displayName": "WizardLM-2 8x22B",
           "maxOutputTokens": 8000,
           "pricing": {
@@ -2396,7 +2444,7 @@
             "functionCalling": true,
             "reasoning": true
           },
-          "contextWindow": 196608,
+          "contextWindow": 204800,
           "displayName": "MiniMax: MiniMax M2",
           "maxOutputTokens": 196608,
           "pricing": {
@@ -2425,7 +2473,7 @@
             "functionCalling": true,
             "reasoning": true
           },
-          "contextWindow": 196608,
+          "contextWindow": 204800,
           "displayName": "MiniMax: MiniMax M2.1",
           "maxOutputTokens": 196608,
           "pricing": {
@@ -2442,29 +2490,12 @@
             "functionCalling": true,
             "reasoning": true
           },
-          "contextWindow": 196608,
+          "contextWindow": 204800,
           "displayName": "MiniMax: MiniMax M2.5",
-          "maxOutputTokens": 131072,
+          "maxOutputTokens": 196608,
           "pricing": {
             "inputCostPerToken": 1.5e-7,
             "outputCostPerToken": 0.00000115
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
-        "minimax/minimax-m2.5:free": {
-          "capabilities": {
-            "functionCalling": true,
-            "reasoning": true
-          },
-          "contextWindow": 196608,
-          "displayName": "MiniMax: MiniMax M2.5 (free)",
-          "maxOutputTokens": 8192,
-          "pricing": {
-            "inputCostPerToken": 0,
-            "outputCostPerToken": 0
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -2476,8 +2507,26 @@
             "functionCalling": true,
             "reasoning": true
           },
-          "contextWindow": 196608,
+          "contextWindow": 204800,
           "displayName": "MiniMax: MiniMax M2.7",
+          "maxOutputTokens": 131072,
+          "pricing": {
+            "inputCostPerToken": 2.79e-7,
+            "outputCostPerToken": 0.0000012
+          },
+          "supportedEndpoints": [
+            "chat_completions",
+            "responses"
+          ]
+        },
+        "minimax/minimax-m3": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 1048576,
+          "displayName": "MiniMax: MiniMax M3",
+          "maxOutputTokens": 512000,
           "pricing": {
             "inputCostPerToken": 3e-7,
             "outputCostPerToken": 0.0000012
@@ -2512,36 +2561,6 @@
           "pricing": {
             "inputCostPerToken": 4e-7,
             "outputCostPerToken": 0.000002
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
-        "mistralai/devstral-medium": {
-          "capabilities": {
-            "functionCalling": true
-          },
-          "contextWindow": 131072,
-          "displayName": "Mistral: Devstral Medium",
-          "pricing": {
-            "inputCostPerToken": 4e-7,
-            "outputCostPerToken": 0.000002
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
-        "mistralai/devstral-small": {
-          "capabilities": {
-            "functionCalling": true
-          },
-          "contextWindow": 131072,
-          "displayName": "Mistral: Devstral Small 1.1",
-          "pricing": {
-            "inputCostPerToken": 1e-7,
-            "outputCostPerToken": 3e-7
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -2596,17 +2615,6 @@
             "responses"
           ]
         },
-        "mistralai/mistral-7b-instruct-v0.1": {
-          "contextWindow": 2824,
-          "displayName": "Mistral: Mistral 7B Instruct v0.1",
-          "pricing": {
-            "inputCostPerToken": 1.1e-7,
-            "outputCostPerToken": 1.9e-7
-          },
-          "supportedEndpoints": [
-            "chat_completions"
-          ]
-        },
         "mistralai/mistral-large": {
           "capabilities": {
             "functionCalling": true
@@ -2629,21 +2637,6 @@
           },
           "contextWindow": 131072,
           "displayName": "Mistral Large 2407",
-          "pricing": {
-            "inputCostPerToken": 0.000002,
-            "outputCostPerToken": 0.000006
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
-        "mistralai/mistral-large-2411": {
-          "capabilities": {
-            "functionCalling": true
-          },
-          "contextWindow": 131072,
-          "displayName": "Mistral Large 2411",
           "pricing": {
             "inputCostPerToken": 0.000002,
             "outputCostPerToken": 0.000006
@@ -2776,10 +2769,10 @@
         "mistralai/mistral-small-3.1-24b-instruct": {
           "contextWindow": 128000,
           "displayName": "Mistral: Mistral Small 3.1 24B",
-          "maxOutputTokens": 131072,
+          "maxOutputTokens": 128000,
           "pricing": {
-            "inputCostPerToken": 3.5e-7,
-            "outputCostPerToken": 5.6e-7
+            "inputCostPerToken": 3.51e-7,
+            "outputCostPerToken": 5.55e-7
           },
           "supportedEndpoints": [
             "chat_completions"
@@ -2808,37 +2801,6 @@
           "contextWindow": 65536,
           "displayName": "Mistral: Mixtral 8x22B Instruct",
           "maxOutputTokens": 65536,
-          "pricing": {
-            "inputCostPerToken": 0.000002,
-            "outputCostPerToken": 0.000006
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
-        "mistralai/mixtral-8x7b-instruct": {
-          "capabilities": {
-            "functionCalling": true
-          },
-          "contextWindow": 32768,
-          "displayName": "Mistral: Mixtral 8x7B Instruct",
-          "maxOutputTokens": 16384,
-          "pricing": {
-            "inputCostPerToken": 5.4e-7,
-            "outputCostPerToken": 5.4e-7
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
-        "mistralai/pixtral-large-2411": {
-          "capabilities": {
-            "functionCalling": true
-          },
-          "contextWindow": 131072,
-          "displayName": "Mistral: Pixtral Large 2411",
           "pricing": {
             "inputCostPerToken": 0.000002,
             "outputCostPerToken": 0.000006
@@ -2887,8 +2849,8 @@
           "displayName": "MoonshotAI: Kimi K2 0905",
           "maxOutputTokens": 262144,
           "pricing": {
-            "inputCostPerToken": 4e-7,
-            "outputCostPerToken": 0.000002
+            "inputCostPerToken": 6e-7,
+            "outputCostPerToken": 0.0000025
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -2919,10 +2881,10 @@
           },
           "contextWindow": 262144,
           "displayName": "MoonshotAI: Kimi K2.5",
-          "maxOutputTokens": 65535,
+          "maxOutputTokens": 262144,
           "pricing": {
-            "inputCostPerToken": 4.4e-7,
-            "outputCostPerToken": 0.000002
+            "inputCostPerToken": 4e-7,
+            "outputCostPerToken": 0.0000019
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -2936,10 +2898,26 @@
           },
           "contextWindow": 262144,
           "displayName": "MoonshotAI: Kimi K2.6",
-          "maxOutputTokens": 16384,
+          "maxOutputTokens": 262144,
           "pricing": {
-            "inputCostPerToken": 7.5e-7,
-            "outputCostPerToken": 0.0000035
+            "inputCostPerToken": 6.84e-7,
+            "outputCostPerToken": 0.00000342
+          },
+          "supportedEndpoints": [
+            "chat_completions",
+            "responses"
+          ]
+        },
+        "moonshotai/kimi-k2.6:free": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 262144,
+          "displayName": "MoonshotAI: Kimi K2.6 (free)",
+          "pricing": {
+            "inputCostPerToken": 0,
+            "outputCostPerToken": 0
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -3061,22 +3039,6 @@
             "chat_completions"
           ]
         },
-        "nvidia/llama-3.1-nemotron-70b-instruct": {
-          "capabilities": {
-            "functionCalling": true
-          },
-          "contextWindow": 131072,
-          "displayName": "NVIDIA: Llama 3.1 Nemotron 70B Instruct",
-          "maxOutputTokens": 16384,
-          "pricing": {
-            "inputCostPerToken": 0.0000012,
-            "outputCostPerToken": 0.0000012
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
         "nvidia/llama-3.3-nemotron-super-49b-v1.5": {
           "capabilities": {
             "functionCalling": true,
@@ -3149,7 +3111,7 @@
             "functionCalling": true,
             "reasoning": true
           },
-          "contextWindow": 262144,
+          "contextWindow": 1000000,
           "displayName": "NVIDIA: Nemotron 3 Super",
           "pricing": {
             "inputCostPerToken": 9e-8,
@@ -3165,7 +3127,7 @@
             "functionCalling": true,
             "reasoning": true
           },
-          "contextWindow": 262144,
+          "contextWindow": 1000000,
           "displayName": "NVIDIA: Nemotron 3 Super (free)",
           "maxOutputTokens": 262144,
           "pricing": {
@@ -3175,21 +3137,6 @@
           "supportedEndpoints": [
             "chat_completions",
             "responses"
-          ]
-        },
-        "nvidia/nemotron-nano-12b-v2-vl": {
-          "capabilities": {
-            "reasoning": true
-          },
-          "contextWindow": 131072,
-          "displayName": "NVIDIA: Nemotron Nano 12B 2 VL",
-          "maxOutputTokens": 16384,
-          "pricing": {
-            "inputCostPerToken": 2e-7,
-            "outputCostPerToken": 6e-7
-          },
-          "supportedEndpoints": [
-            "chat_completions"
           ]
         },
         "nvidia/nemotron-nano-12b-v2-vl:free": {
@@ -3494,22 +3441,6 @@
             "responses"
           ]
         },
-        "openai/gpt-4o-audio-preview": {
-          "capabilities": {
-            "functionCalling": true
-          },
-          "contextWindow": 128000,
-          "displayName": "OpenAI: GPT-4o Audio",
-          "maxOutputTokens": 16384,
-          "pricing": {
-            "inputCostPerToken": 0.0000025,
-            "outputCostPerToken": 0.00001
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
         "openai/gpt-4o-mini": {
           "capabilities": {
             "functionCalling": true
@@ -3719,7 +3650,7 @@
           },
           "contextWindow": 128000,
           "displayName": "OpenAI: GPT-5.1 Chat",
-          "maxOutputTokens": 16384,
+          "maxOutputTokens": 32000,
           "pricing": {
             "inputCostPerToken": 0.00000125,
             "outputCostPerToken": 0.00001
@@ -3770,7 +3701,7 @@
           },
           "contextWindow": 400000,
           "displayName": "OpenAI: GPT-5.1-Codex-Mini",
-          "maxOutputTokens": 128000,
+          "maxOutputTokens": 100000,
           "pricing": {
             "inputCostPerToken": 2.5e-7,
             "outputCostPerToken": 0.000002
@@ -3803,7 +3734,7 @@
           },
           "contextWindow": 128000,
           "displayName": "OpenAI: GPT-5.2 Chat",
-          "maxOutputTokens": 32000,
+          "maxOutputTokens": 16384,
           "pricing": {
             "inputCostPerToken": 0.00000175,
             "outputCostPerToken": 0.000014
@@ -4086,9 +4017,9 @@
           },
           "contextWindow": 131072,
           "displayName": "OpenAI: gpt-oss-20b",
-          "maxOutputTokens": 131072,
+          "maxOutputTokens": 32768,
           "pricing": {
-            "inputCostPerToken": 3e-8,
+            "inputCostPerToken": 2.9e-8,
             "outputCostPerToken": 1.4e-7
           },
           "supportedEndpoints": [
@@ -4358,11 +4289,26 @@
           ]
         },
         "openrouter/pareto-code": {
-          "contextWindow": 200000,
+          "contextWindow": 2000000,
           "displayName": "Pareto Code Router",
           "pricing": {
             "inputCostPerToken": -1,
             "outputCostPerToken": -1
+          },
+          "supportedEndpoints": [
+            "chat_completions"
+          ]
+        },
+        "perceptron/perceptron-mk1": {
+          "capabilities": {
+            "reasoning": true
+          },
+          "contextWindow": 32768,
+          "displayName": "Perceptron: Perceptron Mk1",
+          "maxOutputTokens": 8192,
+          "pricing": {
+            "inputCostPerToken": 1.5e-7,
+            "outputCostPerToken": 0.0000015
           },
           "supportedEndpoints": [
             "chat_completions"
@@ -4439,9 +4385,9 @@
             "functionCalling": true,
             "reasoning": true
           },
-          "contextWindow": 131072,
+          "contextWindow": 262144,
           "displayName": "Poolside: Laguna M.1 (free)",
-          "maxOutputTokens": 8192,
+          "maxOutputTokens": 32768,
           "pricing": {
             "inputCostPerToken": 0,
             "outputCostPerToken": 0
@@ -4456,9 +4402,9 @@
             "functionCalling": true,
             "reasoning": true
           },
-          "contextWindow": 131072,
+          "contextWindow": 262144,
           "displayName": "Poolside: Laguna XS.2 (free)",
-          "maxOutputTokens": 8192,
+          "maxOutputTokens": 32768,
           "pricing": {
             "inputCostPerToken": 0,
             "outputCostPerToken": 0
@@ -4489,7 +4435,7 @@
           "capabilities": {
             "functionCalling": true
           },
-          "contextWindow": 32768,
+          "contextWindow": 131072,
           "displayName": "Qwen2.5 72B Instruct",
           "maxOutputTokens": 16384,
           "pricing": {
@@ -4502,10 +4448,7 @@
           ]
         },
         "qwen/qwen-2.5-7b-instruct": {
-          "capabilities": {
-            "functionCalling": true
-          },
-          "contextWindow": 32768,
+          "contextWindow": 131072,
           "displayName": "Qwen: Qwen2.5 7B Instruct",
           "maxOutputTokens": 32768,
           "pricing": {
@@ -4513,36 +4456,19 @@
             "outputCostPerToken": 1e-7
           },
           "supportedEndpoints": [
-            "chat_completions",
-            "responses"
+            "chat_completions"
           ]
         },
         "qwen/qwen-2.5-coder-32b-instruct": {
-          "contextWindow": 32768,
+          "contextWindow": 128000,
           "displayName": "Qwen2.5 Coder 32B Instruct",
-          "maxOutputTokens": 33792,
+          "maxOutputTokens": 32768,
           "pricing": {
             "inputCostPerToken": 6.6e-7,
             "outputCostPerToken": 0.000001
           },
           "supportedEndpoints": [
             "chat_completions"
-          ]
-        },
-        "qwen/qwen-max": {
-          "capabilities": {
-            "functionCalling": true
-          },
-          "contextWindow": 32768,
-          "displayName": "Qwen: Qwen-Max",
-          "maxOutputTokens": 8192,
-          "pricing": {
-            "inputCostPerToken": 0.00000104,
-            "outputCostPerToken": 0.00000416
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
           ]
         },
         "qwen/qwen-plus": {
@@ -4594,52 +4520,8 @@
             "responses"
           ]
         },
-        "qwen/qwen-turbo": {
-          "capabilities": {
-            "functionCalling": true
-          },
-          "contextWindow": 131072,
-          "displayName": "Qwen: Qwen-Turbo",
-          "maxOutputTokens": 8192,
-          "pricing": {
-            "inputCostPerToken": 3.25e-8,
-            "outputCostPerToken": 1.3e-7
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
-        "qwen/qwen-vl-max": {
-          "capabilities": {
-            "functionCalling": true
-          },
-          "contextWindow": 131072,
-          "displayName": "Qwen: Qwen VL Max",
-          "maxOutputTokens": 32768,
-          "pricing": {
-            "inputCostPerToken": 5.2e-7,
-            "outputCostPerToken": 0.00000208
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
-        "qwen/qwen-vl-plus": {
-          "contextWindow": 131072,
-          "displayName": "Qwen: Qwen VL Plus",
-          "maxOutputTokens": 8192,
-          "pricing": {
-            "inputCostPerToken": 1.365e-7,
-            "outputCostPerToken": 4.095e-7
-          },
-          "supportedEndpoints": [
-            "chat_completions"
-          ]
-        },
         "qwen/qwen2.5-vl-72b-instruct": {
-          "contextWindow": 32000,
+          "contextWindow": 131072,
           "displayName": "Qwen: Qwen2.5 VL 72B Instruct",
           "pricing": {
             "inputCostPerToken": 2.5e-7,
@@ -4654,11 +4536,11 @@
             "functionCalling": true,
             "reasoning": true
           },
-          "contextWindow": 40960,
+          "contextWindow": 131702,
           "displayName": "Qwen: Qwen3 14B",
           "maxOutputTokens": 40960,
           "pricing": {
-            "inputCostPerToken": 6e-8,
+            "inputCostPerToken": 1e-7,
             "outputCostPerToken": 2.4e-7
           },
           "supportedEndpoints": [
@@ -4704,12 +4586,12 @@
             "functionCalling": true,
             "reasoning": true
           },
-          "contextWindow": 131072,
+          "contextWindow": 262144,
           "displayName": "Qwen: Qwen3 235B A22B Thinking 2507",
           "maxOutputTokens": 262144,
           "pricing": {
-            "inputCostPerToken": 1.495e-7,
-            "outputCostPerToken": 0.000001495
+            "inputCostPerToken": 1e-7,
+            "outputCostPerToken": 1e-7
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -4721,7 +4603,7 @@
             "functionCalling": true,
             "reasoning": true
           },
-          "contextWindow": 40960,
+          "contextWindow": 131072,
           "displayName": "Qwen: Qwen3 30B A3B",
           "maxOutputTokens": 20000,
           "pricing": {
@@ -4737,12 +4619,12 @@
           "capabilities": {
             "functionCalling": true
           },
-          "contextWindow": 262144,
+          "contextWindow": 131072,
           "displayName": "Qwen: Qwen3 30B A3B Instruct 2507",
-          "maxOutputTokens": 262144,
+          "maxOutputTokens": 32000,
           "pricing": {
-            "inputCostPerToken": 9e-8,
-            "outputCostPerToken": 3e-7
+            "inputCostPerToken": 4.28e-8,
+            "outputCostPerToken": 1.716e-7
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -4771,12 +4653,12 @@
             "functionCalling": true,
             "reasoning": true
           },
-          "contextWindow": 40960,
+          "contextWindow": 131072,
           "displayName": "Qwen: Qwen3 32B",
-          "maxOutputTokens": 40960,
+          "maxOutputTokens": 16384,
           "pricing": {
             "inputCostPerToken": 8e-8,
-            "outputCostPerToken": 2.4e-7
+            "outputCostPerToken": 2.8e-7
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -4788,7 +4670,7 @@
             "functionCalling": true,
             "reasoning": true
           },
-          "contextWindow": 40960,
+          "contextWindow": 131072,
           "displayName": "Qwen: Qwen3 8B",
           "maxOutputTokens": 8192,
           "pricing": {
@@ -4804,7 +4686,7 @@
           "capabilities": {
             "functionCalling": true
           },
-          "contextWindow": 262144,
+          "contextWindow": 1048576,
           "displayName": "Qwen: Qwen3 Coder 480B A35B",
           "maxOutputTokens": 65536,
           "pricing": {
@@ -4856,7 +4738,7 @@
           "displayName": "Qwen: Qwen3 Coder Next",
           "maxOutputTokens": 262144,
           "pricing": {
-            "inputCostPerToken": 1.2e-7,
+            "inputCostPerToken": 1.1e-7,
             "outputCostPerToken": 8e-7
           },
           "supportedEndpoints": [
@@ -4884,7 +4766,7 @@
           "capabilities": {
             "functionCalling": true
           },
-          "contextWindow": 262000,
+          "contextWindow": 1048576,
           "displayName": "Qwen: Qwen3 Coder 480B A35B (free)",
           "maxOutputTokens": 262000,
           "pricing": {
@@ -4965,7 +4847,7 @@
             "functionCalling": true,
             "reasoning": true
           },
-          "contextWindow": 131072,
+          "contextWindow": 262144,
           "displayName": "Qwen: Qwen3 Next 80B A3B Thinking",
           "maxOutputTokens": 32768,
           "pricing": {
@@ -5014,7 +4896,7 @@
           "capabilities": {
             "functionCalling": true
           },
-          "contextWindow": 131072,
+          "contextWindow": 262144,
           "displayName": "Qwen: Qwen3 VL 30B A3B Instruct",
           "maxOutputTokens": 32768,
           "pricing": {
@@ -5047,7 +4929,7 @@
           "capabilities": {
             "functionCalling": true
           },
-          "contextWindow": 131072,
+          "contextWindow": 262144,
           "displayName": "Qwen: Qwen3 VL 32B Instruct",
           "maxOutputTokens": 32768,
           "pricing": {
@@ -5063,7 +4945,7 @@
           "capabilities": {
             "functionCalling": true
           },
-          "contextWindow": 131072,
+          "contextWindow": 256000,
           "displayName": "Qwen: Qwen3 VL 8B Instruct",
           "maxOutputTokens": 32768,
           "pricing": {
@@ -5080,7 +4962,7 @@
             "functionCalling": true,
             "reasoning": true
           },
-          "contextWindow": 131072,
+          "contextWindow": 256000,
           "displayName": "Qwen: Qwen3 VL 8B Thinking",
           "maxOutputTokens": 32768,
           "pricing": {
@@ -5099,7 +4981,7 @@
           },
           "contextWindow": 262144,
           "displayName": "Qwen: Qwen3.5-122B-A10B",
-          "maxOutputTokens": 65536,
+          "maxOutputTokens": 262144,
           "pricing": {
             "inputCostPerToken": 2.6e-7,
             "outputCostPerToken": 0.00000208
@@ -5135,7 +5017,7 @@
           "displayName": "Qwen: Qwen3.5-35B-A3B",
           "maxOutputTokens": 262144,
           "pricing": {
-            "inputCostPerToken": 1.5e-7,
+            "inputCostPerToken": 1.4e-7,
             "outputCostPerToken": 0.000001
           },
           "supportedEndpoints": [
@@ -5167,8 +5049,9 @@
           },
           "contextWindow": 262144,
           "displayName": "Qwen: Qwen3.5-9B",
+          "maxOutputTokens": 81920,
           "pricing": {
-            "inputCostPerToken": 1e-7,
+            "inputCostPerToken": 4e-8,
             "outputCostPerToken": 1.5e-7
           },
           "supportedEndpoints": [
@@ -5219,8 +5102,8 @@
           "displayName": "Qwen: Qwen3.5 Plus 2026-04-20",
           "maxOutputTokens": 65536,
           "pricing": {
-            "inputCostPerToken": 4e-7,
-            "outputCostPerToken": 0.0000024
+            "inputCostPerToken": 3e-7,
+            "outputCostPerToken": 0.0000018
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -5234,9 +5117,9 @@
           },
           "contextWindow": 262144,
           "displayName": "Qwen: Qwen3.6 27B",
-          "maxOutputTokens": 81920,
+          "maxOutputTokens": 262140,
           "pricing": {
-            "inputCostPerToken": 3.2e-7,
+            "inputCostPerToken": 2.9e-7,
             "outputCostPerToken": 0.0000032
           },
           "supportedEndpoints": [
@@ -5251,9 +5134,9 @@
           },
           "contextWindow": 262144,
           "displayName": "Qwen: Qwen3.6 35B A3B",
-          "maxOutputTokens": 262144,
+          "maxOutputTokens": 262140,
           "pricing": {
-            "inputCostPerToken": 1.5e-7,
+            "inputCostPerToken": 1.4e-7,
             "outputCostPerToken": 0.000001
           },
           "supportedEndpoints": [
@@ -5270,8 +5153,8 @@
           "displayName": "Qwen: Qwen3.6 Flash",
           "maxOutputTokens": 65536,
           "pricing": {
-            "inputCostPerToken": 2.5e-7,
-            "outputCostPerToken": 0.0000015
+            "inputCostPerToken": 1.875e-7,
+            "outputCostPerToken": 0.000001125
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -5306,6 +5189,23 @@
           "pricing": {
             "inputCostPerToken": 3.25e-7,
             "outputCostPerToken": 0.00000195
+          },
+          "supportedEndpoints": [
+            "chat_completions",
+            "responses"
+          ]
+        },
+        "qwen/qwen3.7-max": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 1000000,
+          "displayName": "Qwen: Qwen3.7 Max",
+          "maxOutputTokens": 65536,
+          "pricing": {
+            "inputCostPerToken": 0.00000125,
+            "outputCostPerToken": 0.00000375
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -5445,10 +5345,27 @@
           },
           "contextWindow": 262144,
           "displayName": "StepFun: Step 3.5 Flash",
-          "maxOutputTokens": 65536,
+          "maxOutputTokens": 16384,
           "pricing": {
-            "inputCostPerToken": 1e-7,
+            "inputCostPerToken": 9e-8,
             "outputCostPerToken": 3e-7
+          },
+          "supportedEndpoints": [
+            "chat_completions",
+            "responses"
+          ]
+        },
+        "stepfun/step-3.7-flash": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 256000,
+          "displayName": "StepFun: Step 3.7 Flash",
+          "maxOutputTokens": 256000,
+          "pricing": {
+            "inputCostPerToken": 2e-7,
+            "outputCostPerToken": 0.00000115
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -5485,17 +5402,16 @@
             "chat_completions"
           ]
         },
-        "tencent/hy3-preview:free": {
+        "tencent/hy3-preview": {
           "capabilities": {
             "functionCalling": true,
             "reasoning": true
           },
           "contextWindow": 262144,
-          "displayName": "Tencent: Hy3 preview (free)",
-          "maxOutputTokens": 262144,
+          "displayName": "Tencent: Hy3 preview",
           "pricing": {
-            "inputCostPerToken": 0,
-            "outputCostPerToken": 0
+            "inputCostPerToken": 6.3e-8,
+            "outputCostPerToken": 2.1e-7
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -5558,23 +5474,6 @@
             "responses"
           ]
         },
-        "tngtech/deepseek-r1t2-chimera": {
-          "capabilities": {
-            "functionCalling": true,
-            "reasoning": true
-          },
-          "contextWindow": 163840,
-          "displayName": "TNG: DeepSeek R1T2 Chimera",
-          "maxOutputTokens": 163840,
-          "pricing": {
-            "inputCostPerToken": 3e-7,
-            "outputCostPerToken": 0.0000011
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
         "undi95/remm-slerp-l2-13b": {
           "contextWindow": 6144,
           "displayName": "ReMM SLERP 13B",
@@ -5613,119 +5512,6 @@
           },
           "supportedEndpoints": [
             "chat_completions"
-          ]
-        },
-        "x-ai/grok-3": {
-          "capabilities": {
-            "functionCalling": true
-          },
-          "contextWindow": 131072,
-          "displayName": "xAI: Grok 3",
-          "pricing": {
-            "inputCostPerToken": 0.000003,
-            "outputCostPerToken": 0.000015
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
-        "x-ai/grok-3-beta": {
-          "capabilities": {
-            "functionCalling": true
-          },
-          "contextWindow": 131072,
-          "displayName": "xAI: Grok 3 Beta",
-          "pricing": {
-            "inputCostPerToken": 0.000003,
-            "outputCostPerToken": 0.000015
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
-        "x-ai/grok-3-mini": {
-          "capabilities": {
-            "functionCalling": true,
-            "reasoning": true
-          },
-          "contextWindow": 131072,
-          "displayName": "xAI: Grok 3 Mini",
-          "pricing": {
-            "inputCostPerToken": 3e-7,
-            "outputCostPerToken": 5e-7
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
-        "x-ai/grok-3-mini-beta": {
-          "capabilities": {
-            "functionCalling": true,
-            "reasoning": true
-          },
-          "contextWindow": 131072,
-          "displayName": "xAI: Grok 3 Mini Beta",
-          "pricing": {
-            "inputCostPerToken": 3e-7,
-            "outputCostPerToken": 5e-7
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
-        "x-ai/grok-4": {
-          "capabilities": {
-            "functionCalling": true,
-            "reasoning": true
-          },
-          "contextWindow": 256000,
-          "displayName": "xAI: Grok 4",
-          "maxOutputTokens": 256000,
-          "pricing": {
-            "inputCostPerToken": 0.000003,
-            "outputCostPerToken": 0.000015
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
-        "x-ai/grok-4-fast": {
-          "capabilities": {
-            "functionCalling": true,
-            "reasoning": true
-          },
-          "contextWindow": 2000000,
-          "displayName": "xAI: Grok 4 Fast",
-          "maxOutputTokens": 30000,
-          "pricing": {
-            "inputCostPerToken": 2e-7,
-            "outputCostPerToken": 5e-7
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
-        "x-ai/grok-4.1-fast": {
-          "capabilities": {
-            "functionCalling": true,
-            "reasoning": true
-          },
-          "contextWindow": 2000000,
-          "displayName": "xAI: Grok 4.1 Fast",
-          "maxOutputTokens": 30000,
-          "pricing": {
-            "inputCostPerToken": 2e-7,
-            "outputCostPerToken": 5e-7
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
           ]
         },
         "x-ai/grok-4.20": {
@@ -5774,17 +5560,16 @@
             "responses"
           ]
         },
-        "x-ai/grok-code-fast-1": {
+        "x-ai/grok-build-0.1": {
           "capabilities": {
             "functionCalling": true,
             "reasoning": true
           },
           "contextWindow": 256000,
-          "displayName": "xAI: Grok Code Fast 1",
-          "maxOutputTokens": 10000,
+          "displayName": "xAI: Grok Build 0.1",
           "pricing": {
-            "inputCostPerToken": 2e-7,
-            "outputCostPerToken": 0.0000015
+            "inputCostPerToken": 0.000001,
+            "outputCostPerToken": 0.000002
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -5800,42 +5585,8 @@
           "displayName": "Xiaomi: MiMo-V2-Flash",
           "maxOutputTokens": 65536,
           "pricing": {
-            "inputCostPerToken": 9e-8,
-            "outputCostPerToken": 2.9e-7
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
-        "xiaomi/mimo-v2-omni": {
-          "capabilities": {
-            "functionCalling": true,
-            "reasoning": true
-          },
-          "contextWindow": 262144,
-          "displayName": "Xiaomi: MiMo-V2-Omni",
-          "maxOutputTokens": 65536,
-          "pricing": {
-            "inputCostPerToken": 4e-7,
-            "outputCostPerToken": 0.000002
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
-        "xiaomi/mimo-v2-pro": {
-          "capabilities": {
-            "functionCalling": true,
-            "reasoning": true
-          },
-          "contextWindow": 1048576,
-          "displayName": "Xiaomi: MiMo-V2-Pro",
-          "maxOutputTokens": 131072,
-          "pricing": {
-            "inputCostPerToken": 0.000001,
-            "outputCostPerToken": 0.000003
+            "inputCostPerToken": 1e-7,
+            "outputCostPerToken": 3e-7
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -5851,8 +5602,8 @@
           "displayName": "Xiaomi: MiMo-V2.5",
           "maxOutputTokens": 131072,
           "pricing": {
-            "inputCostPerToken": 4e-7,
-            "outputCostPerToken": 0.000002
+            "inputCostPerToken": 1.4e-7,
+            "outputCostPerToken": 2.8e-7
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -5868,8 +5619,8 @@
           "displayName": "Xiaomi: MiMo-V2.5-Pro",
           "maxOutputTokens": 131072,
           "pricing": {
-            "inputCostPerToken": 0.000001,
-            "outputCostPerToken": 0.000003
+            "inputCostPerToken": 4.35e-7,
+            "outputCostPerToken": 8.7e-7
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -5915,9 +5666,9 @@
           },
           "contextWindow": 131072,
           "displayName": "Z.ai: GLM 4.5 Air",
-          "maxOutputTokens": 98304,
+          "maxOutputTokens": 131070,
           "pricing": {
-            "inputCostPerToken": 1.3e-7,
+            "inputCostPerToken": 1.25e-7,
             "outputCostPerToken": 8.5e-7
           },
           "supportedEndpoints": [
@@ -5964,12 +5715,12 @@
             "functionCalling": true,
             "reasoning": true
           },
-          "contextWindow": 204800,
+          "contextWindow": 202752,
           "displayName": "Z.ai: GLM 4.6",
-          "maxOutputTokens": 204800,
+          "maxOutputTokens": 131072,
           "pricing": {
-            "inputCostPerToken": 3.9e-7,
-            "outputCostPerToken": 0.0000019
+            "inputCostPerToken": 4.3e-7,
+            "outputCostPerToken": 0.00000174
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -6000,10 +5751,10 @@
           },
           "contextWindow": 202752,
           "displayName": "Z.ai: GLM 4.7",
-          "maxOutputTokens": 64000,
+          "maxOutputTokens": 131072,
           "pricing": {
-            "inputCostPerToken": 3.8e-7,
-            "outputCostPerToken": 0.00000174
+            "inputCostPerToken": 4e-7,
+            "outputCostPerToken": 0.00000175
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -6034,10 +5785,10 @@
           },
           "contextWindow": 202752,
           "displayName": "Z.ai: GLM 5",
-          "maxOutputTokens": 128000,
+          "maxOutputTokens": 16384,
           "pricing": {
             "inputCostPerToken": 6e-7,
-            "outputCostPerToken": 0.00000192
+            "outputCostPerToken": 0.00000208
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -6068,10 +5819,10 @@
           },
           "contextWindow": 202752,
           "displayName": "Z.ai: GLM 5.1",
-          "maxOutputTokens": 65535,
+          "maxOutputTokens": 131072,
           "pricing": {
-            "inputCostPerToken": 0.00000105,
-            "outputCostPerToken": 0.0000035
+            "inputCostPerToken": 9.8e-7,
+            "outputCostPerToken": 0.00000308
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -6155,8 +5906,8 @@
           "displayName": "Google Gemini Flash Latest",
           "maxOutputTokens": 65536,
           "pricing": {
-            "inputCostPerToken": 5e-7,
-            "outputCostPerToken": 0.000003
+            "inputCostPerToken": 0.0000015,
+            "outputCostPerToken": 0.000009
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -6187,10 +5938,10 @@
           },
           "contextWindow": 262144,
           "displayName": "MoonshotAI Kimi Latest",
-          "maxOutputTokens": 16384,
+          "maxOutputTokens": 262144,
           "pricing": {
-            "inputCostPerToken": 7.5e-7,
-            "outputCostPerToken": 0.0000035
+            "inputCostPerToken": 6.84e-7,
+            "outputCostPerToken": 0.00000342
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -6235,6 +5986,7 @@
       "productName": "OpenRouter",
       "providerTransport": "openai-compat",
       "region": "shared",
+      "sourceUrl": "https://openrouter.ai/models",
       "supportedEndpoints": [
         "chat_completions",
         "responses"
@@ -6251,12 +6003,13 @@
       "communityDisplayName": "Z.AI (Zhipu AI) (`zai`)",
       "communityDocsUrl": "https://docs.litellm.ai/docs/providers/zai",
       "compatibility": "anthropic-compatible",
-      "defaultModel": "GLM-4.7",
+      "defaultModel": "glm-5.1",
       "executionLaneHints": {
         "productExposed": [
           "gateway"
         ]
       },
+      "lastVerifiedAt": "2026-06-02",
       "models": {
         "GLM-4.5-Air": {
           "capabilities": {
@@ -6266,12 +6019,13 @@
             "glm-4.5-air"
           ],
           "contextWindow": 128000,
-          "displayName": "GLM 4.5 Air",
+          "displayName": "GLM 4.5 Air (legacy)",
           "maxOutputTokens": 32000,
           "pricing": {
             "inputCostPerToken": 2e-7,
             "outputCostPerToken": 0.0000011
-          }
+          },
+          "status": "legacy"
         },
         "GLM-4.7": {
           "capabilities": {
@@ -6282,17 +6036,26 @@
             "glm-4.7"
           ],
           "contextWindow": 200000,
-          "displayName": "GLM 4.7",
+          "displayName": "GLM 4.7 (legacy)",
           "maxOutputTokens": 128000,
           "pricing": {
             "inputCostPerToken": 6e-7,
             "outputCostPerToken": 0.0000022
-          }
+          },
+          "status": "legacy"
+        },
+        "glm-5.1": {
+          "communityAliases": [
+            "glm-5.1"
+          ],
+          "displayName": "GLM 5.1",
+          "status": "current"
         }
       },
       "productName": "Z.AI · Claude Code",
       "providerTransport": "anthropic",
       "region": "shared",
+      "sourceUrl": "https://docs.z.ai/devpack/tool/claude",
       "supportedEndpoints": [
         "a2a",
         "chat_completions",
@@ -6318,6 +6081,7 @@
           "gateway"
         ]
       },
+      "lastVerifiedAt": "2026-06-02",
       "models": {
         "glm-5": {
           "capabilities": {
@@ -6325,20 +6089,23 @@
             "reasoning": true
           },
           "contextWindow": 200000,
-          "displayName": "GLM 5",
+          "displayName": "GLM 5 (legacy)",
           "maxOutputTokens": 128000,
           "pricing": {
             "inputCostPerToken": 0.000001,
             "outputCostPerToken": 0.0000032
-          }
+          },
+          "status": "legacy"
         },
         "glm-5.1": {
-          "displayName": "GLM 5.1"
+          "displayName": "GLM 5.1",
+          "status": "current"
         }
       },
       "productName": "Z.AI · Coding API",
       "providerTransport": "openai-compat",
       "region": "shared",
+      "sourceUrl": "https://docs.z.ai/guides/llm/glm-5.1",
       "supportedEndpoints": [
         "a2a",
         "chat_completions",
@@ -6358,24 +6125,26 @@
       "communityDisplayName": "Z.AI (Zhipu AI) (`zai`)",
       "communityDocsUrl": "https://docs.litellm.ai/docs/providers/zai",
       "compatibility": "openai-compatible",
-      "defaultModel": "glm-4.5-air",
+      "defaultModel": "glm-5.1",
       "executionLaneHints": {
         "productExposed": [
           "gateway"
         ]
       },
+      "lastVerifiedAt": "2026-06-02",
       "models": {
         "glm-4.5-air": {
           "capabilities": {
             "functionCalling": true
           },
           "contextWindow": 128000,
-          "displayName": "GLM 4.5 Air",
+          "displayName": "GLM 4.5 Air (legacy)",
           "maxOutputTokens": 32000,
           "pricing": {
             "inputCostPerToken": 2e-7,
             "outputCostPerToken": 0.0000011
-          }
+          },
+          "status": "legacy"
         },
         "glm-4.5v": {
           "capabilities": {
@@ -6387,12 +6156,18 @@
           "pricing": {
             "inputCostPerToken": 6e-7,
             "outputCostPerToken": 0.0000018
-          }
+          },
+          "status": "current"
+        },
+        "glm-5.1": {
+          "displayName": "GLM 5.1",
+          "status": "current"
         }
       },
       "productName": "Z.AI · General API",
       "providerTransport": "openai-compat",
       "region": "shared",
+      "sourceUrl": "https://docs.z.ai/api-reference/llm/chat-completion",
       "supportedEndpoints": [
         "a2a",
         "chat_completions",
@@ -6403,6 +6178,16 @@
       "surface": "general",
       "vendor": "zai"
     }
+  },
+  "verification": {
+    "checkedAt": "2026-06-02",
+    "modelStatus": {
+      "current": "Verified available and a sensible default on checkedAt.",
+      "legacy": "Still callable but superseded — kept for compatibility, not default-recommended.",
+      "retired": "Scheduled for or past shutdown — must not be used as a default."
+    },
+    "note": "Default models and leaf model ids below were verified against each provider's official model list / API docs / deprecation notice on `checkedAt`. Do not trust these as 'latest/recommended/usable' once `checkedAt` is older than `staleAfterDays`, or once any model's `retiresOn` is reached — re-verify against the live source first. `pnpm provider:check` gates this (fails on a retired default or a passed `retiresOn`; warns on staleness). `pnpm provider:refresh` re-pulls community context-window/pricing from litellm + openrouter; provider-tier default ids stay hand-verified here.",
+    "staleAfterDays": 90
   },
   "version": 1
 }

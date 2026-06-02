@@ -17,7 +17,12 @@
         "provider.baseURL",
         "provider.defaultModel",
         "provider.communityAliases",
-        "model.displayName"
+        "provider.lastVerifiedAt",
+        "provider.sourceUrl",
+        "model.displayName",
+        "model.status",
+        "model.retiresOn",
+        "model.sourceUrl"
       ],
       "supportsProviders": [
         "minimax-intl-anthropic-coding",

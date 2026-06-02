@@ -108,7 +108,7 @@ export const employeeSeed: OfficialSeedPayload = {
   requirements: {
     required_capabilities: ['boss-route', 'pm-planner', 'memory-write'],
     recommended_models: [
-      { profile: 'gpt-4o-mini', reason: 'Cheap planning + research summaries' },
+      { profile: 'gpt-5.4-mini', reason: 'Cheap planning + research summaries' },
       { profile: 'claude-haiku-4-5', reason: 'Brief writing pass' },
     ],
   },

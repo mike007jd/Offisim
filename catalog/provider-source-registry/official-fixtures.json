@@ -1,5 +1,15 @@
 {
   "version": 1,
+  "verification": {
+    "checkedAt": "2026-06-02",
+    "staleAfterDays": 90,
+    "note": "Default models and leaf model ids below were verified against each provider's official model list / API docs / deprecation notice on `checkedAt`. Do not trust these as 'latest/recommended/usable' once `checkedAt` is older than `staleAfterDays`, or once any model's `retiresOn` is reached — re-verify against the live source first. `pnpm provider:check` gates this (fails on a retired default or a passed `retiresOn`; warns on staleness). `pnpm provider:refresh` re-pulls community context-window/pricing from litellm + openrouter; provider-tier default ids stay hand-verified here.",
+    "modelStatus": {
+      "current": "Verified available and a sensible default on checkedAt.",
+      "legacy": "Still callable but superseded — kept for compatibility, not default-recommended.",
+      "retired": "Scheduled for or past shutdown — must not be used as a default."
+    }
+  },
   "providers": {
     "anthropic-default": {
       "productName": "Anthropic",
@@ -9,11 +19,34 @@
       "surface": "general",
       "providerTransport": "anthropic",
       "authMode": "api-key",
-      "defaultModel": "claude-sonnet-4-20250514",
+      "defaultModel": "claude-opus-4-8",
       "communityAliases": ["anthropic"],
+      "lastVerifiedAt": "2026-06-02",
+      "sourceUrl": "https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions",
       "models": {
+        "claude-opus-4-8": {
+          "displayName": "Claude Opus 4.8",
+          "status": "current"
+        },
+        "claude-sonnet-4-6": {
+          "displayName": "Claude Sonnet 4.6",
+          "status": "current"
+        },
+        "claude-haiku-4-5": {
+          "displayName": "Claude Haiku 4.5",
+          "status": "current"
+        },
         "claude-sonnet-4-20250514": {
-          "displayName": "Claude Sonnet 4"
+          "displayName": "Claude Sonnet 4 (retiring)",
+          "status": "retired",
+          "retiresOn": "2026-06-15",
+          "sourceUrl": "https://platform.claude.com/docs/en/about-claude/model-deprecations"
+        },
+        "claude-opus-4-20250514": {
+          "displayName": "Claude Opus 4 (retiring)",
+          "status": "retired",
+          "retiresOn": "2026-06-15",
+          "sourceUrl": "https://platform.claude.com/docs/en/about-claude/model-deprecations"
         }
       }
     },
@@ -36,11 +69,23 @@
       "providerTransport": "openai-compat",
       "authMode": "api-key",
       "baseURL": "https://api.deepseek.com/v1",
-      "defaultModel": "deepseek-reasoner",
+      "defaultModel": "deepseek-v4-pro",
       "communityAliases": ["deepseek"],
+      "lastVerifiedAt": "2026-06-02",
+      "sourceUrl": "https://api-docs.deepseek.com/quick_start/pricing",
       "models": {
+        "deepseek-v4-pro": {
+          "displayName": "DeepSeek V4 Pro",
+          "status": "current"
+        },
+        "deepseek-v4-flash": {
+          "displayName": "DeepSeek V4 Flash",
+          "status": "current"
+        },
         "deepseek-reasoner": {
-          "displayName": "DeepSeek Reasoner"
+          "displayName": "DeepSeek Reasoner (legacy alias)",
+          "status": "legacy",
+          "retiresOn": "2026-07-24"
         }
       }
     },
@@ -53,11 +98,18 @@
       "providerTransport": "openai-compat",
       "authMode": "api-key",
       "baseURL": "https://generativelanguage.googleapis.com/v1beta/openai",
-      "defaultModel": "gemini-2.5-flash",
+      "defaultModel": "gemini-3.5-flash",
       "communityAliases": ["gemini"],
+      "lastVerifiedAt": "2026-06-02",
+      "sourceUrl": "https://ai.google.dev/gemini-api/docs/models",
       "models": {
+        "gemini-3.5-flash": {
+          "displayName": "Gemini 3.5 Flash",
+          "status": "current"
+        },
         "gemini-2.5-flash": {
-          "displayName": "Gemini 2.5 Flash"
+          "displayName": "Gemini 2.5 Flash (legacy)",
+          "status": "legacy"
         }
       }
     },
@@ -70,14 +122,18 @@
       "providerTransport": "anthropic",
       "authMode": "api-key",
       "baseURL": "https://api.moonshot.cn/anthropic",
-      "defaultModel": "kimi-k2.5",
+      "defaultModel": "kimi-k2.6",
       "communityAliases": ["moonshot"],
+      "lastVerifiedAt": "2026-06-02",
+      "sourceUrl": "https://platform.moonshot.cn/docs",
       "models": {
-        "kimi-k2-thinking": {
-          "displayName": "Kimi K2 Thinking"
+        "kimi-k2.6": {
+          "displayName": "Kimi K2.6",
+          "status": "current"
         },
         "kimi-k2.5": {
-          "displayName": "Kimi K2.5"
+          "displayName": "Kimi K2.5 (legacy)",
+          "status": "legacy"
         }
       }
     },
@@ -90,14 +146,18 @@
       "providerTransport": "openai-compat",
       "authMode": "api-key",
       "baseURL": "https://api.moonshot.cn/v1",
-      "defaultModel": "kimi-k2.5",
+      "defaultModel": "kimi-k2.6",
       "communityAliases": ["moonshot"],
+      "lastVerifiedAt": "2026-06-02",
+      "sourceUrl": "https://platform.moonshot.cn/docs",
       "models": {
-        "kimi-k2-thinking": {
-          "displayName": "Kimi K2 Thinking"
+        "kimi-k2.6": {
+          "displayName": "Kimi K2.6",
+          "status": "current"
         },
         "kimi-k2.5": {
-          "displayName": "Kimi K2.5"
+          "displayName": "Kimi K2.5 (legacy)",
+          "status": "legacy"
         }
       }
     },
@@ -110,14 +170,18 @@
       "providerTransport": "openai-compat",
       "authMode": "api-key",
       "baseURL": "https://api.moonshot.ai/v1",
-      "defaultModel": "kimi-k2.5",
+      "defaultModel": "kimi-k2.6",
       "communityAliases": ["moonshot"],
+      "lastVerifiedAt": "2026-06-02",
+      "sourceUrl": "https://platform.moonshot.ai/docs",
       "models": {
-        "kimi-k2-thinking": {
-          "displayName": "Kimi K2 Thinking"
+        "kimi-k2.6": {
+          "displayName": "Kimi K2.6",
+          "status": "current"
         },
         "kimi-k2.5": {
-          "displayName": "Kimi K2.5"
+          "displayName": "Kimi K2.5 (legacy)",
+          "status": "legacy"
         }
       }
     },
@@ -130,10 +194,13 @@
       "providerTransport": "openai-compat",
       "authMode": "api-key",
       "baseURL": "http://localhost:1234/v1",
-      "defaultModel": "qwen/qwen3.5-9b",
+      "defaultModel": "qwen/qwen3.6-27b",
+      "lastVerifiedAt": "2026-06-02",
+      "sourceUrl": "https://lmstudio.ai/models/qwen/qwen3.6-27b",
       "models": {
-        "qwen/qwen3.5-9b": {
-          "displayName": "Qwen 3.5 9B"
+        "qwen/qwen3.6-27b": {
+          "displayName": "Qwen 3.6 27B",
+          "status": "current"
         }
       }
     },
@@ -146,11 +213,18 @@
       "providerTransport": "anthropic",
       "authMode": "api-key",
       "baseURL": "https://api.minimaxi.com/anthropic",
-      "defaultModel": "MiniMax-M2.7",
+      "defaultModel": "MiniMax-M3",
       "communityAliases": ["minimax"],
+      "lastVerifiedAt": "2026-06-02",
+      "sourceUrl": "https://platform.minimaxi.com/document/text-anthropic-api",
       "models": {
+        "MiniMax-M3": {
+          "displayName": "MiniMax M3",
+          "status": "current"
+        },
         "MiniMax-M2.7": {
-          "displayName": "MiniMax M2.7"
+          "displayName": "MiniMax M2.7 (legacy)",
+          "status": "legacy"
         }
       }
     },
@@ -163,11 +237,18 @@
       "providerTransport": "anthropic",
       "authMode": "api-key",
       "baseURL": "https://api.minimax.io/anthropic",
-      "defaultModel": "MiniMax-M2.7",
+      "defaultModel": "MiniMax-M3",
       "communityAliases": ["minimax"],
+      "lastVerifiedAt": "2026-06-02",
+      "sourceUrl": "https://platform.minimax.io/docs/api-reference/text-anthropic-api",
       "models": {
+        "MiniMax-M3": {
+          "displayName": "MiniMax M3",
+          "status": "current"
+        },
         "MiniMax-M2.7": {
-          "displayName": "MiniMax M2.7"
+          "displayName": "MiniMax M2.7 (legacy)",
+          "status": "legacy"
         }
       }
     },
@@ -179,11 +260,22 @@
       "surface": "general",
       "providerTransport": "openai",
       "authMode": "api-key",
-      "defaultModel": "gpt-4o-mini",
+      "defaultModel": "gpt-5.5",
       "communityAliases": ["openai"],
+      "lastVerifiedAt": "2026-06-02",
+      "sourceUrl": "https://developers.openai.com/api/docs/models/gpt-5.5",
       "models": {
+        "gpt-5.5": {
+          "displayName": "GPT-5.5",
+          "status": "current"
+        },
+        "gpt-5.4-mini": {
+          "displayName": "GPT-5.4 mini",
+          "status": "current"
+        },
         "gpt-4o-mini": {
-          "displayName": "GPT-4o mini"
+          "displayName": "GPT-4o mini (legacy)",
+          "status": "legacy"
         }
       }
     },
@@ -196,11 +288,18 @@
       "providerTransport": "openai-compat",
       "authMode": "api-key",
       "baseURL": "https://openrouter.ai/api/v1",
-      "defaultModel": "google/gemma-3-4b-it:free",
+      "defaultModel": "google/gemma-4-31b-it:free",
       "communityAliases": ["openrouter"],
+      "lastVerifiedAt": "2026-06-02",
+      "sourceUrl": "https://openrouter.ai/models",
       "models": {
+        "google/gemma-4-31b-it:free": {
+          "displayName": "Gemma 4 31B Instruct (free)",
+          "status": "current"
+        },
         "google/gemma-3-4b-it:free": {
-          "displayName": "Gemma 3 4B Instruct (free)"
+          "displayName": "Gemma 3 4B Instruct (free, legacy)",
+          "status": "legacy"
         }
       }
     },
@@ -213,16 +312,25 @@
       "providerTransport": "anthropic",
       "authMode": "api-key",
       "baseURL": "https://api.z.ai/api/anthropic",
-      "defaultModel": "GLM-4.7",
+      "defaultModel": "glm-5.1",
       "communityAliases": ["zai"],
+      "lastVerifiedAt": "2026-06-02",
+      "sourceUrl": "https://docs.z.ai/devpack/tool/claude",
       "models": {
-        "GLM-4.5-Air": {
-          "communityAliases": ["glm-4.5-air"],
-          "displayName": "GLM 4.5 Air"
+        "glm-5.1": {
+          "communityAliases": ["glm-5.1"],
+          "displayName": "GLM 5.1",
+          "status": "current"
         },
         "GLM-4.7": {
           "communityAliases": ["glm-4.7"],
-          "displayName": "GLM 4.7"
+          "displayName": "GLM 4.7 (legacy)",
+          "status": "legacy"
+        },
+        "GLM-4.5-Air": {
+          "communityAliases": ["glm-4.5-air"],
+          "displayName": "GLM 4.5 Air (legacy)",
+          "status": "legacy"
         }
       }
     },
@@ -237,12 +345,16 @@
       "baseURL": "https://api.z.ai/api/coding/paas/v4",
       "defaultModel": "glm-5.1",
       "communityAliases": ["zai"],
+      "lastVerifiedAt": "2026-06-02",
+      "sourceUrl": "https://docs.z.ai/guides/llm/glm-5.1",
       "models": {
-        "glm-5": {
-          "displayName": "GLM 5"
-        },
         "glm-5.1": {
-          "displayName": "GLM 5.1"
+          "displayName": "GLM 5.1",
+          "status": "current"
+        },
+        "glm-5": {
+          "displayName": "GLM 5 (legacy)",
+          "status": "legacy"
         }
       }
     },
@@ -255,14 +367,22 @@
       "providerTransport": "openai-compat",
       "authMode": "api-key",
       "baseURL": "https://api.z.ai/api/paas/v4",
-      "defaultModel": "glm-4.5-air",
+      "defaultModel": "glm-5.1",
       "communityAliases": ["zai"],
+      "lastVerifiedAt": "2026-06-02",
+      "sourceUrl": "https://docs.z.ai/api-reference/llm/chat-completion",
       "models": {
+        "glm-5.1": {
+          "displayName": "GLM 5.1",
+          "status": "current"
+        },
         "glm-4.5-air": {
-          "displayName": "GLM 4.5 Air"
+          "displayName": "GLM 4.5 Air (legacy)",
+          "status": "legacy"
         },
         "glm-4.5v": {
-          "displayName": "GLM 4.5V"
+          "displayName": "GLM 4.5V",
+          "status": "current"
         }
       }
     }

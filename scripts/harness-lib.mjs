@@ -424,7 +424,7 @@ export function resolveCommonOptions(args) {
     trimString(args['execution-lane'] || process.env.HARNESS_EXECUTION_LANE) || 'gateway';
   const model =
     trimString(args.model || process.env.HARNESS_MODEL) ||
-    (provider === 'anthropic' ? 'claude-sonnet-4-20250514' : 'gpt-4.1-mini');
+    (provider === 'anthropic' ? 'claude-opus-4-8' : 'gpt-5.5');
   const baseUrl = trimString(args['base-url'] || process.env.HARNESS_BASE_URL) || undefined;
   const apiKey = trimString(args['api-key'] || process.env.HARNESS_API_KEY) || '';
   const temperature = parseNumber(args.temperature ?? process.env.HARNESS_TEMPERATURE, 0.2);
