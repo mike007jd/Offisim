@@ -272,6 +272,33 @@ function GitTab({ workbench }: { workbench: GitWorkbench }) {
   );
 }
 
+/**
+ * Returns a human-readable reason when `folder` is too broad to bind as an AI
+ * workspace root, or null when it is a usable project folder. Mirrors the
+ * intent of the Rust guard `is_overbroad_workspace_root` so the bind UX fails
+ * honestly at pick time instead of appearing to succeed and then resolving to
+ * nothing. The Rust sandbox remains the authoritative enforcer.
+ */
+async function overbroadWorkspaceReason(folder: string): Promise<string | null> {
+  const normalized = folder.replace(/\/+$/u, '');
+  const segments = normalized.split('/').filter(Boolean);
+  // Disk root ("/"), single-segment privileged roots ("/tmp", "/var", "/opt",
+  // "/Users", "/home") — too broad to hand an employee.
+  if (segments.length < 2) {
+    return `“${normalized || '/'}” is too broad to use as an AI workspace. Pick a specific project folder.`;
+  }
+  try {
+    const { homeDir } = await import('@tauri-apps/api/path');
+    const home = (await homeDir()).replace(/\/+$/u, '');
+    if (normalized === home) {
+      return 'Your home folder is too broad to use as an AI workspace. Pick a specific project folder inside it.';
+    }
+  } catch {
+    // Path API unavailable (non-desktop) — rely on the Rust guard.
+  }
+  return null;
+}
+
 export function WorkspacePanel() {
   const companyId = useUiState((s) => s.companyId);
   const projectId = useUiState((s) => s.projectId);
@@ -300,6 +327,17 @@ export function WorkspacePanel() {
     try {
       const folder = await pickWorkspaceFolder('Bind project workspace folder');
       if (!folder) return;
+      // Reject roots that are too broad to scope an AI employee to (your whole
+      // home folder, /tmp, a disk root). The Rust file sandbox
+      // (builtin_tools.rs `is_overbroad_workspace_root`) silently drops these,
+      // which made an over-broad pick look bound but resolve to nothing and then
+      // fail file ops with a cryptic "no workspace root bound". Tell the user up
+      // front instead so the failure is honest, not a silent no-op.
+      const overbroad = await overbroadWorkspaceReason(folder);
+      if (overbroad) {
+        toast.error(overbroad);
+        return;
+      }
       const repos = await reposOrNull();
       if (!repos) {
         toast.error('Project binding requires the desktop runtime');
