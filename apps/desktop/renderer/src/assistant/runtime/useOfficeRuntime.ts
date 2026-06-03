@@ -20,6 +20,14 @@ import {
 
 const DEFAULT_MAX_OUTPUT_TOKENS = 512;
 
+/**
+ * Slice 1 flag: route desktop chat through the real LangGraph agent runtime
+ * (graph → employee node → builtin tools) instead of the single-shot direct
+ * provider completion. When off, the existing `sendDesktopProviderMessage`
+ * fallback is used unchanged. Flip via `VITE_AGENT_RUNTIME=true`.
+ */
+const AGENT_RUNTIME_ENABLED = import.meta.env.VITE_AGENT_RUNTIME === 'true';
+
 /** Map an Offisim chat message into the assistant-ui thread model. The original
  *  message is carried in metadata.custom so the V3 rail keeps full fidelity. */
 function convertMessage(message: ChatMessage): ThreadMessageLike {
@@ -129,15 +137,31 @@ export function useOfficeRuntime({
           prev.map((draft) => (draft.id === userMessageId ? userMessage : draft)),
         );
         await persistRuntimeMessage(userMessage);
-        const response = await sendDesktopProviderMessage({
-          text: materialized.promptText,
-          requestId,
-          maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS,
-          threadId,
-          companyId,
-          projectId,
-          signal: abortController.signal,
-        });
+        // The agent-runtime module is dynamically imported so that with the flag
+        // off the entire LangGraph stack is tree-shaken out of the default bundle
+        // and never evaluated on OfficeSurface load — the single-shot path stays
+        // completely untouched.
+        let response: string;
+        if (AGENT_RUNTIME_ENABLED && companyId) {
+          const { getDesktopAgentRuntime } = await import('@/runtime/desktop-agent-runtime.js');
+          const runtime = await getDesktopAgentRuntime(companyId);
+          response = await runtime.execute({
+            text: materialized.promptText,
+            threadId,
+            employeeId: assigneeId ?? null,
+            projectId,
+          });
+        } else {
+          response = await sendDesktopProviderMessage({
+            text: materialized.promptText,
+            requestId,
+            maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS,
+            threadId,
+            companyId,
+            projectId,
+            signal: abortController.signal,
+          });
+        }
         // A Stop can resolve the in-flight request late (the Rust abort and the
         // awaited response race). Without this guard a cancelled run would still
         // commit its response as a normal assistant message. The `finally` block
@@ -214,6 +238,18 @@ export function useOfficeRuntime({
   const abortInFlight = useCallback(async () => {
     abortedRef.current = true;
     abortControllerRef.current?.abort();
+    // Agent-runtime path: cancel the in-flight graph execution for this thread.
+    // The orchestration abort signals the running graph stream; the underlying
+    // `llm_fetch` is then cancelled through the run's AbortSignal. (Harmless
+    // no-op when no run is in flight for this thread.)
+    if (AGENT_RUNTIME_ENABLED && companyId) {
+      void import('@/runtime/desktop-agent-runtime.js')
+        .then(({ getDesktopAgentRuntime }) => getDesktopAgentRuntime(companyId))
+        .then((runtime) => runtime.abort(threadId))
+        .catch((err: unknown) => {
+          console.warn('[useOfficeRuntime] agent runtime abort failed', { threadId, err });
+        });
+    }
     const requestId = requestIdRef.current;
     if (requestId) {
       void import('@tauri-apps/api/core').then(({ invoke }) =>
@@ -223,7 +259,7 @@ export function useOfficeRuntime({
       );
     }
     stop();
-  }, [stop]);
+  }, [stop, companyId, threadId]);
 
   // Register the real provider abort as the store's stop handler while mounted,
   // so the out-of-tree diegetic Stop pill cancels exactly like the composer Stop.

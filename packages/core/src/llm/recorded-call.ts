@@ -95,7 +95,9 @@ async function callWithCapacityFallback<T>(
 // INVARIANT: when `ctx.modelRegistry` is populated, every gateway it returns
 // MUST use the same credential transport as `ctx.llmGateway`. On desktop both
 // must go through Rust `llm_fetch` (so OPENAI_API_KEY never crosses the
-// Rust→JS boundary). Today `apps/desktop/renderer/src/lib/tauri-engine-adapters.ts`
+// Rust→JS boundary). Today the desktop wiring in
+// `apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts` builds a single
+// `ctx.llmGateway` via `createGateway({ fetch: createTauriLlmFetch(...) })` and
 // leaves `ctx.modelRegistry` undefined, so the registry path isn't taken. The
 // enforcement now lives in `ModelRegistry` itself: `getGateway` fails closed
 // (returns null) unless the registry was constructed with a credential-isolated
