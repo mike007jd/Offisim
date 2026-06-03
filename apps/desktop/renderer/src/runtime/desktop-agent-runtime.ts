@@ -20,7 +20,7 @@ import {
   createRuntimeContext,
 } from '@offisim/core/runtime';
 import { OrchestrationService } from '@offisim/core/services';
-import { createBuiltinTools } from '@offisim/core/tools';
+import { CompositeToolExecutor, createBuiltinTools } from '@offisim/core/tools';
 import type { LlmProvider, ModelPolicyConfig } from '@offisim/shared-types';
 import { getRepos, runtimeEventBus } from './repos.js';
 
@@ -194,12 +194,22 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
     },
   });
 
+  // The tool executor must DISPATCH the builtin tools, not just leave them in
+  // the offered list. CompositeToolExecutor runs builtins (read_file etc.) by
+  // name and falls through to the MCP executor (NullToolExecutor — none yet on
+  // desktop) for anything else. Passing NullToolExecutor directly here was the
+  // Slice-1 gap: read_file was offered to the model but every call fell through
+  // to "no external tools available" because builtins were never dispatched.
+  const toolExecutor = new CompositeToolExecutor(builtinTools, new NullToolExecutor(), {
+    companyId,
+  });
+
   const runtimeCtx = createRuntimeContext({
     repos,
     eventBus: runtimeEventBus,
     llmGateway,
     modelResolver,
-    toolExecutor: new NullToolExecutor(),
+    toolExecutor,
     companyId,
     // Placeholder — OrchestrationService.execute() overrides this per run.
     threadId: `desktop-agent-${companyId}`,
