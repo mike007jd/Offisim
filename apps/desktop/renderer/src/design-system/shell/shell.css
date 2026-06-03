@@ -2,9 +2,17 @@
   width: 100%;
   height: 100vh;
   display: grid;
-  grid-template-rows: var(--off-toolbar) 1fr;
+  /* topbar · banner slot (auto: 0 height when empty) · surface host */
+  grid-template-rows: var(--off-toolbar) auto 1fr;
   overflow: hidden;
   background: var(--off-bg);
+}
+
+/* Banner row above the surface host (ResumeBar). Collapses to zero height when
+   its child renders nothing, so there is no layout shift when there is nothing
+   to resume. */
+.off-banner-slot {
+  min-width: 0;
 }
 
 .off-topbar {

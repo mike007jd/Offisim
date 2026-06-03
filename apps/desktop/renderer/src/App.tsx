@@ -36,8 +36,7 @@ export function App() {
       {isLifecycle ? (
         <LifecycleSurface />
       ) : (
-        <AppFrame>
-          <ResumeBar />
+        <AppFrame banner={<ResumeBar />}>
           <SurfaceRouter />
         </AppFrame>
       )}

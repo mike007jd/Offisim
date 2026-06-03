@@ -6,9 +6,16 @@ import { WorkspaceNav } from './WorkspaceNav.js';
 
 interface AppFrameProps {
   children: ReactNode;
+  /**
+   * Optional banner row rendered BETWEEN the topbar and the surface host (e.g.
+   * the ResumeBar). The surface host fills the rest with `position: absolute`
+   * surfaces, so a banner placed inside it would be covered — it needs its own
+   * grid row. The slot collapses to zero height when the banner renders nothing.
+   */
+  banner?: ReactNode;
 }
 
-export function AppFrame({ children }: AppFrameProps) {
+export function AppFrame({ children, banner }: AppFrameProps) {
   const openLifecycle = useUiState((s) => s.openLifecycle);
   return (
     <main className="off-app">
@@ -25,6 +32,7 @@ export function AppFrame({ children }: AppFrameProps) {
         <WorkspaceNav />
         <IconBar />
       </header>
+      <div className="off-banner-slot">{banner}</div>
       <div className="off-surface-host">{children}</div>
     </main>
   );
