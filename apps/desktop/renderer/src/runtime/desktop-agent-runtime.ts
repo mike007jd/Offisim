@@ -4,6 +4,8 @@ import {
   loadRuntimeProviderProfiles,
 } from '@/lib/provider-bridge.js';
 import { createTauriLlmFetch } from '@/lib/tauri-llm-fetch.js';
+import { createTauriMcpClientFactory } from '@/lib/tauri-mcp-client-factory.js';
+import { loadRegisteredStdioMcpConfigs } from '@/lib/tauri-mcp-config.js';
 import { createTauriProjectFsAdapter } from '@/lib/tauri-project-fs-adapter.js';
 import { createTauriShellExecAdapter } from '@/lib/tauri-shell-exec-adapter.js';
 import { createTauriVaultFileSystem } from '@/lib/tauri-vault-fs.js';
@@ -14,13 +16,9 @@ import {
   type SkillInstallEnvironment,
   SkillLoader,
   SkillStagingManager,
-  type ToolCallRequest,
-  type ToolCallResponse,
-  type ToolExecutor,
 } from '@offisim/core/browser';
-import type { ToolDef } from '@offisim/core/llm';
 import { ModelResolver, createGateway } from '@offisim/core/llm';
-import { AuditingToolExecutor } from '@offisim/core/mcp';
+import { AuditingToolExecutor, McpToolExecutor } from '@offisim/core/mcp';
 import {
   HumanMessage,
   buildOffisimGraph,
@@ -48,31 +46,10 @@ import { getRepos, runtimeEventBus } from './repos.js';
  * sandboxed `project_*` file tools, and the sandboxed `bash_execute` shell. A
  * direct chat to one employee enters at `employee_direct_setup → employee`, the
  * employee node resolves the active provider model and calls the gateway, and
- * the builtin read/write/bash/glob/grep tools are reachable. Every tool call is
+ * the builtin read/write/bash/glob/grep tools are reachable, plus the tools of
+ * any registered stdio MCP server. Every tool call — builtin and MCP — is
  * recorded in `mcp_audit_log` via the AuditingToolExecutor wrapper.
  */
-
-/**
- * No-op MCP executor. Slice 1 exposes only the desktop builtin tools (wired
- * through `runtimeCtx.builtinTools`); there is no external/MCP tool surface
- * yet (slice 5 replaces this with a real McpToolExecutor), so the executor
- * reports an empty catalog and refuses any call routed to it. The
- * `CompositeToolExecutor` dispatches builtins directly and only falls through
- * to this executor for unknown tool names.
- */
-class NullToolExecutor implements ToolExecutor {
-  async execute(call: ToolCallRequest): Promise<ToolCallResponse> {
-    return {
-      success: false,
-      result: null,
-      error: `No external tools are available on desktop yet (requested "${call.name}").`,
-    };
-  }
-
-  async listAvailable(_companyId: string): Promise<ToolDef[]> {
-    return [];
-  }
-}
 
 /** Map a (possibly wider) provider profile string onto the core LlmProvider union. */
 function toCoreProvider(provider: string): LlmProvider {
@@ -107,17 +84,32 @@ export interface DesktopAgentRuntime {
    * skill-install outcome (for confirm) so the caller can surface the result.
    */
   resolveInteraction(response: InteractionResponse): Promise<SkillInstallOutcomeKind | null>;
+  /**
+   * Tear down company-scoped resources: kill every MCP child process and stop
+   * the skill-staging GC timer. Called on company switch / app teardown via
+   * `disposeDesktopAgentRuntime` so a switched-away company leaks no processes.
+   */
+  dispose(): Promise<void>;
 }
 
 class DesktopAgentRuntimeImpl implements DesktopAgentRuntime {
   constructor(
     private readonly orchestration: OrchestrationService,
     private readonly interactionService: InteractionService,
+    private readonly mcpExecutor: McpToolExecutor,
+    private readonly skillStagingManager: SkillStagingManager,
   ) {}
 
   async resolveInteraction(response: InteractionResponse): Promise<SkillInstallOutcomeKind | null> {
     const result = await this.interactionService.resolve(response);
     return result?.skillInstallOutcome ?? null;
+  }
+
+  async dispose(): Promise<void> {
+    await this.mcpExecutor.dispose().catch((err: unknown) => {
+      console.warn('[desktop-agent-runtime] MCP executor dispose failed', { err });
+    });
+    this.skillStagingManager.dispose();
   }
 
   async execute(input: DesktopAgentRunInput): Promise<string> {
@@ -243,11 +235,36 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
     }),
   });
 
+  // MCP fallback: a real McpToolExecutor over the desktop stdio bridge. We spawn
+  // every registered stdio server up front; a single server's spawn/list failure
+  // is swallowed (logged) so one bad server can't sink the whole runtime —
+  // mirrors `mcp-config-loader`. The executor is disposed on company switch so
+  // child processes are killed (`disposeDesktopAgentRuntime`).
+  const mcpExecutor = new McpToolExecutor({
+    eventBus: runtimeEventBus,
+    companyId,
+    clientFactory: createTauriMcpClientFactory(),
+  });
+  try {
+    for (const serverConfig of await loadRegisteredStdioMcpConfigs()) {
+      try {
+        await mcpExecutor.addServer(serverConfig);
+      } catch (err) {
+        console.warn('[desktop-agent-runtime] MCP server failed to start', {
+          server: serverConfig.name,
+          err,
+        });
+      }
+    }
+  } catch (err) {
+    // Listing the registry itself failed — run without MCP rather than aborting.
+    console.warn('[desktop-agent-runtime] could not list registered MCP servers', { err });
+  }
+
   // The tool executor must DISPATCH the builtin tools, not just leave them in
   // the offered list. CompositeToolExecutor runs builtins (read_file etc.) by
-  // name and falls through to the MCP executor (NullToolExecutor — none yet on
-  // desktop) for anything else.
-  const compositeExecutor = new CompositeToolExecutor(builtinTools, new NullToolExecutor(), {
+  // name and falls through to the MCP executor for any registered MCP tool.
+  const compositeExecutor = new CompositeToolExecutor(builtinTools, mcpExecutor, {
     companyId,
   });
   // Wrap the composite in the AuditingToolExecutor so EVERY tool call — builtin
@@ -334,7 +351,12 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
 
   const graph = buildOffisimGraph({ checkpointer: createMemoryCheckpointSaver() });
   const orchestration = new OrchestrationService(graph, runtimeCtx);
-  return new DesktopAgentRuntimeImpl(orchestration, interactionService);
+  return new DesktopAgentRuntimeImpl(
+    orchestration,
+    interactionService,
+    mcpExecutor,
+    skillStagingManager,
+  );
 }
 
 const runtimeCache = new Map<string, Promise<DesktopAgentRuntime>>();
@@ -353,4 +375,23 @@ export function getDesktopAgentRuntime(companyId: string): Promise<DesktopAgentR
   });
   runtimeCache.set(companyId, promise);
   return promise;
+}
+
+/**
+ * Dispose and evict a company's runtime — kills its MCP child processes and
+ * stops the skill-staging GC timer. Called when the active company changes (or
+ * the app unmounts) so a switched-away company leaks no processes; the next
+ * `getDesktopAgentRuntime` for that company reassembles from scratch. No-op when
+ * the company was never assembled.
+ */
+export async function disposeDesktopAgentRuntime(companyId: string): Promise<void> {
+  const cached = runtimeCache.get(companyId);
+  if (!cached) return;
+  runtimeCache.delete(companyId);
+  try {
+    const runtime = await cached;
+    await runtime.dispose();
+  } catch (err) {
+    console.warn('[desktop-agent-runtime] dispose failed', { companyId, err });
+  }
 }
