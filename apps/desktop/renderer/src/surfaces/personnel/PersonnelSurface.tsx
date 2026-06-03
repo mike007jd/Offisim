@@ -107,9 +107,8 @@ function titleizeRole(slug: string): string {
 }
 
 /** Tool-permission vocabulary SSOT: the three approval levels and how each maps
- *  between the UI editor enums and the runtime policy enum. The legacy config
- *  shape stored the UI enum directly; the runtime policy uses
- *  'auto' / 'always_ask' / 'deny'. One table here keeps the two from drifting. */
+ *  between the UI editor enums and the runtime policy enum ('auto' / 'always_ask'
+ *  / 'deny'). One table here keeps the two from drifting. */
 interface PermissionLevel {
   readonly uiDefault: ToolPermissions['defaultMode'];
   readonly uiState: 'allow' | 'ask' | 'deny';
@@ -129,27 +128,6 @@ const levelByUiState = (state: unknown) =>
   PERMISSION_LEVELS.find((level) => level.uiState === state) ?? ASK_LEVEL;
 
 function toolPermissionsFromConfig(config: Record<string, unknown>): ToolPermissions {
-  const legacy = config.toolPermissions;
-  if (legacy && typeof legacy === 'object' && !Array.isArray(legacy)) {
-    const raw = legacy as { defaultMode?: unknown; overrides?: unknown };
-    const fallback = defaultToolPermissions();
-    return {
-      defaultMode:
-        raw.defaultMode === 'auto-allow' ||
-        raw.defaultMode === 'ask-each' ||
-        raw.defaultMode === 'deny-all'
-          ? raw.defaultMode
-          : fallback.defaultMode,
-      overrides:
-        raw.overrides && typeof raw.overrides === 'object' && !Array.isArray(raw.overrides)
-          ? {
-              ...fallback.overrides,
-              ...(raw.overrides as Record<string, 'allow' | 'ask' | 'deny'>),
-            }
-          : fallback.overrides,
-    };
-  }
-
   const policy = config.toolPermissionPolicy;
   if (!policy || typeof policy !== 'object' || Array.isArray(policy))
     return defaultToolPermissions();
@@ -523,7 +501,6 @@ function EmployeeDetail({
       };
       if (toolPermissionsDirty) {
         config.toolPermissionPolicy = toolPermissionPolicyFromUi(toolPermissions);
-        config.toolPermissions = undefined;
       }
 
       await repos.employees.update(employee.id, {

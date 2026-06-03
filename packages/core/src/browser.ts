@@ -469,7 +469,6 @@ export type {
 export { skillSlug } from './skills/skill-slug.js';
 export { resolveSkillPath } from './skills/skill-path.js';
 export type { ResolveSkillPathArgs, ResolvedSkillPath } from './skills/skill-path.js';
-export { migrateRuntimeSkills, onVaultReadyForSkills } from './skills/skills-bootstrap.js';
 export { scanSkillDir } from './skills/skill-scanner.js';
 export { resolveUploadSource } from './skills/skill-source-resolvers/upload.js';
 export { resolveGitSource } from './skills/skill-source-resolvers/git.js';

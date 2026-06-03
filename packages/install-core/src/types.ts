@@ -370,11 +370,10 @@ export interface InstallEventEmitter {
   ): void;
   /**
    * Emitted when a Market listing install reaches the `installed` terminal
-   * state for the active company. Defaults to a noop on legacy adapters that
-   * do not implement it; concrete adapters in @offisim/core wire this to
+   * state for the active company. Concrete adapters wire this to
    * `market.listing-installed` runtime events.
    */
-  emitMarketListingInstalled?(
+  emitMarketListingInstalled(
     companyId: string,
     listingId: string,
     kind: 'employee' | 'skill',

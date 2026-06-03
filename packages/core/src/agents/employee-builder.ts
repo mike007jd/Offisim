@@ -4,11 +4,7 @@ import { sanitizeForPrompt } from '../utils/sanitize-prompt.js';
 
 interface Persona {
   expertise?: string;
-  /** Editor saves as 'style', legacy as 'tone' */
-  tone?: string;
   style?: string;
-  /** Editor saves as 'customInstructions', legacy as 'constraints' */
-  constraints?: string;
   customInstructions?: string;
   communicationFrequency?: CommunicationFrequency;
   riskPreference?: RiskPreference;
@@ -36,11 +32,10 @@ export function buildEmployeePrompt(
   if (persona.expertise) {
     lines.push(`Your expertise: ${sanitizeForPrompt(persona.expertise, 500)}`);
   }
-  const style = persona.style ?? persona.tone;
-  if (style) {
-    lines.push(`Communication style: ${sanitizeForPrompt(style, 500)}`);
+  if (persona.style) {
+    lines.push(`Communication style: ${sanitizeForPrompt(persona.style, 500)}`);
   }
-  const instructions = persona.customInstructions ?? persona.constraints;
+  const instructions = persona.customInstructions;
   if (instructions) {
     lines.push(`Additional instructions: ${sanitizeForPrompt(instructions, 1000)}`);
   }

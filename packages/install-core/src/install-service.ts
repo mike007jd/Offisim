@@ -448,22 +448,14 @@ export class InstallService {
     // Surface the listing-installed signal for Market UI consumers after all
     // DB and vault writes have finished.
     const installedListingId = provenance?.originListingId;
-    if (
-      installedListingId &&
-      plan.manifest.package.kind === 'employee' &&
-      this.events.emitMarketListingInstalled
-    ) {
+    if (installedListingId && plan.manifest.package.kind === 'employee') {
       this.events.emitMarketListingInstalled(this.companyId, installedListingId, 'employee', {
         installedPackageId: result.installedPackageId,
         packageId: plan.manifest.package.id,
         version: plan.manifest.package.version,
       });
     }
-    if (
-      installedListingId &&
-      plan.manifest.package.kind === 'skill' &&
-      this.events.emitMarketListingInstalled
-    ) {
+    if (installedListingId && plan.manifest.package.kind === 'skill') {
       this.events.emitMarketListingInstalled(this.companyId, installedListingId, 'skill', {
         installedPackageId: result.installedPackageId,
         skillId: result.skillIds[0],
