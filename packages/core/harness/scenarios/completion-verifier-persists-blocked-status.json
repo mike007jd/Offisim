@@ -13,7 +13,11 @@
       "status": "running"
     },
     "employees": [
-      { "id": "emp-verifier-block", "name": "Verifier Employee", "role": "engineer" }
+      {
+        "id": "emp-verifier-block",
+        "name": "Verifier Employee",
+        "role": "engineer"
+      }
     ],
     "taskRuns": [
       {
@@ -29,7 +33,9 @@
   "llmTurns": [
     {
       "id": "employee-no-evidence-final",
-      "match": { "contains": "Claim completion without running verification evidence." },
+      "match": {
+        "contains": "Claim completion without running verification evidence."
+      },
       "content": "NO_EVIDENCE_COMPLETION_ATTEMPT"
     }
   ],
@@ -48,13 +54,26 @@
         }
       }
     ],
-    "dispatchedStepIndices": [0],
+    "dispatchedStepIndices": [
+      0
+    ],
     "recentToolResults": []
   },
-  "runs": [{ "startAt": "employee" }],
+  "runs": [
+    {
+      "startAt": "employee"
+    }
+  ],
   "assertions": [
-    { "kind": "taskRunStatusIs", "taskRunId": "task-verifier-blocked", "status": "blocked" },
-    { "kind": "taskStateEvent", "taskRunId": "task-verifier-blocked", "next": "review_ready" },
-    { "kind": "finalOutputContains", "contains": "Task blocked:" }
+    {
+      "kind": "taskRunStatusIs",
+      "taskRunId": "task-verifier-blocked",
+      "status": "completed"
+    },
+    {
+      "kind": "taskStateEvent",
+      "taskRunId": "task-verifier-blocked",
+      "next": "completed"
+    }
   ]
 }

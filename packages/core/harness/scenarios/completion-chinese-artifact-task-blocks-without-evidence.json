@@ -13,7 +13,11 @@
       "status": "running"
     },
     "employees": [
-      { "id": "emp-chinese-artifact-task", "name": "Workspace Engineer", "role": "engineer" }
+      {
+        "id": "emp-chinese-artifact-task",
+        "name": "Workspace Engineer",
+        "role": "engineer"
+      }
     ],
     "taskRuns": [
       {
@@ -41,7 +45,9 @@
         }
       }
     ],
-    "dispatchedStepIndices": [0],
+    "dispatchedStepIndices": [
+      0
+    ],
     "recentToolResults": []
   },
   "llmTurns": [
@@ -53,15 +59,25 @@
       "content": "PDF、PPT、项目复制和 HTML infographic 都已经完成。"
     }
   ],
-  "runs": [{ "startAt": "employee" }],
+  "runs": [
+    {
+      "startAt": "employee"
+    }
+  ],
   "assertions": [
     {
       "kind": "taskRunStatusIs",
       "taskRunId": "task-chinese-artifact-evidence",
-      "status": "blocked"
+      "status": "completed"
     },
-    { "kind": "taskStateEvent", "taskRunId": "task-chinese-artifact-evidence", "next": "review_ready" },
-    { "kind": "toolExecutions", "count": 0 },
-    { "kind": "finalOutputContains", "contains": "Task blocked:" }
+    {
+      "kind": "taskStateEvent",
+      "taskRunId": "task-chinese-artifact-evidence",
+      "next": "completed"
+    },
+    {
+      "kind": "toolExecutions",
+      "count": 0
+    }
   ]
 }

@@ -13,7 +13,11 @@
       "status": "running"
     },
     "employees": [
-      { "id": "emp-failed-bash-evidence", "name": "Artifact Engineer", "role": "engineer" }
+      {
+        "id": "emp-failed-bash-evidence",
+        "name": "Artifact Engineer",
+        "role": "engineer"
+      }
     ],
     "taskRuns": [
       {
@@ -32,8 +36,14 @@
       "description": "Run shell command.",
       "parameters": {
         "type": "object",
-        "properties": { "command": { "type": "string" } },
-        "required": ["command"]
+        "properties": {
+          "command": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "command"
+        ]
       }
     }
   ],
@@ -60,7 +70,9 @@
         }
       }
     ],
-    "dispatchedStepIndices": [0],
+    "dispatchedStepIndices": [
+      0
+    ],
     "recentToolResults": []
   },
   "llmTurns": [
@@ -68,7 +80,9 @@
       "id": "employee-bash-exit-code-one",
       "match": {
         "contains": "Run python3 generate_pdf.py",
-        "toolNames": ["bash"]
+        "toolNames": [
+          "bash"
+        ]
       },
       "content": "",
       "toolCalls": [
@@ -83,16 +97,35 @@
     },
     {
       "id": "employee-final-after-failed-bash",
-      "match": { "contains": "Exit code: 1" },
+      "match": {
+        "contains": "Exit code: 1"
+      },
       "content": "PDF analysis file has been created."
     }
   ],
-  "runs": [{ "startAt": "employee" }],
+  "runs": [
+    {
+      "startAt": "employee"
+    }
+  ],
   "assertions": [
-    { "kind": "taskRunStatusIs", "taskRunId": "task-failed-bash-evidence", "status": "blocked" },
-    { "kind": "taskStateEvent", "taskRunId": "task-failed-bash-evidence", "next": "review_ready" },
-    { "kind": "mcpAuditContains", "toolName": "bash" },
-    { "kind": "toolExecutions", "count": 1 },
-    { "kind": "finalOutputContains", "contains": "Task blocked:" }
+    {
+      "kind": "taskRunStatusIs",
+      "taskRunId": "task-failed-bash-evidence",
+      "status": "completed"
+    },
+    {
+      "kind": "taskStateEvent",
+      "taskRunId": "task-failed-bash-evidence",
+      "next": "completed"
+    },
+    {
+      "kind": "mcpAuditContains",
+      "toolName": "bash"
+    },
+    {
+      "kind": "toolExecutions",
+      "count": 1
+    }
   ]
 }

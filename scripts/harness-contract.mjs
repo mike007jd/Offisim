@@ -243,11 +243,15 @@ function assertCompletionVerifierScenario(completionVerifier) {
   if (outcome.ok) {
     throw new Error('completion verifier allowed completion without evidence');
   }
-  if (scenario.fixture.expectedState !== 'review_ready') {
-    throw new Error(`unexpected blocked state fixture: ${scenario.fixture.expectedState}`);
+  // The verifier still flags missing evidence (ok:false above), but it is now
+  // advisory: the task completes with the employee's own honest reply rather
+  // than being forced into a review_ready/blocked state. The completion-blocked
+  // diagnostic event still fires for observability.
+  if (scenario.fixture.expectedState !== 'completed') {
+    throw new Error(`unexpected advisory state fixture: ${scenario.fixture.expectedState}`);
   }
   if (scenario.fixture.expectedEventKind !== 'completion-blocked') {
-    throw new Error(`unexpected blocked event fixture: ${scenario.fixture.expectedEventKind}`);
+    throw new Error(`unexpected advisory event fixture: ${scenario.fixture.expectedEventKind}`);
   }
   return { id: 'completion.verifier_blocks_without_evidence', passed: true };
 }

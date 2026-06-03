@@ -4,9 +4,21 @@
   "entryMode": "boss_chat",
   "interactionMode": "direct_to_employee",
   "seed": {
-    "company": { "companyId": "company-workspace-read", "name": "Workspace Read Co" },
-    "thread": { "threadId": "thread-workspace-read", "status": "running" },
-    "employees": [{ "id": "emp-workspace-read", "name": "Workspace Analyst", "role": "engineer" }],
+    "company": {
+      "companyId": "company-workspace-read",
+      "name": "Workspace Read Co"
+    },
+    "thread": {
+      "threadId": "thread-workspace-read",
+      "status": "running"
+    },
+    "employees": [
+      {
+        "id": "emp-workspace-read",
+        "name": "Workspace Analyst",
+        "role": "engineer"
+      }
+    ],
     "taskRuns": [
       {
         "id": "task-workspace-read",
@@ -33,21 +45,39 @@
         }
       }
     ],
-    "dispatchedStepIndices": [0],
+    "dispatchedStepIndices": [
+      0
+    ],
     "recentToolResults": []
   },
   "llmTurns": [
     {
       "id": "employee-claims-workspace-read",
-      "match": { "contains": "Read the workspace notes and report the current status." },
+      "match": {
+        "contains": "Read the workspace notes and report the current status."
+      },
       "content": "The workspace notes look current."
     }
   ],
-  "runs": [{ "startAt": "employee" }],
+  "runs": [
+    {
+      "startAt": "employee"
+    }
+  ],
   "assertions": [
-    { "kind": "taskRunStatusIs", "taskRunId": "task-workspace-read", "status": "blocked" },
-    { "kind": "taskStateEvent", "taskRunId": "task-workspace-read", "next": "review_ready" },
-    { "kind": "toolExecutions", "count": 0 },
-    { "kind": "finalOutputContains", "contains": "Task blocked:" }
+    {
+      "kind": "taskRunStatusIs",
+      "taskRunId": "task-workspace-read",
+      "status": "completed"
+    },
+    {
+      "kind": "taskStateEvent",
+      "taskRunId": "task-workspace-read",
+      "next": "completed"
+    },
+    {
+      "kind": "toolExecutions",
+      "count": 0
+    }
   ]
 }

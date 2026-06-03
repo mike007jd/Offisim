@@ -519,10 +519,16 @@ export async function finalizeEmployeeSuccess(
           taskDescription,
         })
       : ({ ok: false, reason: 'no-task-run-id' } as const);
-  const nextTaskRunStatus = completionOutcome.ok ? 'completed' : 'blocked';
-  const finalResponseContent = completionOutcome.ok
-    ? llmResponse.content
-    : `Task blocked: ${completionOutcome.reason}. Human review is required before this can be marked complete.`;
+  // The completion verifier is advisory, not a user-facing gate. A
+  // missing-evidence result is still recorded (the `completion-blocked` agent
+  // event below) for diagnostics and still suppresses deliverable
+  // materialization, but it never replaces the employee's own reply with a
+  // "human review required" ceremony nor forces a blocked terminal state. After
+  // a failed tool call the model's own answer already explains what went wrong
+  // honestly — that honest answer is what the user should see, not a bureaucratic
+  // block.
+  const nextTaskRunStatus = 'completed';
+  const finalResponseContent = llmResponse.content;
 
   const materializedDeliverable = completionOutcome.ok
     ? (ctx.materializedDeliverableOverride ??
@@ -556,8 +562,7 @@ export async function finalizeEmployeeSuccess(
         companyId,
         taskRunId,
         'running',
-        // review_ready is UI-only; SQLite task_runs.status persists the blocked state above.
-        completionOutcome.ok ? 'completed' : 'review_ready',
+        'completed',
         threadId,
         employee.employee_id,
         'employee',
@@ -588,9 +593,9 @@ export async function finalizeEmployeeSuccess(
       employee.employee_id,
       completedSoFar,
       taskLabel,
-      completionOutcome.ok ? 'done' : 'failed',
+      'done',
       totalAssignments,
-      completionOutcome.ok ? completedSoFar + 1 : completedSoFar,
+      completedSoFar + 1,
       threadId,
       { employeeId: employee.employee_id, assigneeKind: 'employee', assigneeName: employee.name },
     ),

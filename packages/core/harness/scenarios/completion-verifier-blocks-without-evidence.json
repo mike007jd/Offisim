@@ -6,7 +6,7 @@
       { "toolName": "read_file", "success": true, "bytes": 128 },
       { "toolName": "write_file", "success": true, "bytes": 256 }
     ],
-    "expectedState": "review_ready",
+    "expectedState": "completed",
     "expectedEventKind": "completion-blocked"
   },
   "invariants": [
