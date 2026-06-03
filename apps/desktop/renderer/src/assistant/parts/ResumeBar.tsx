@@ -40,6 +40,18 @@ export function ResumeBar() {
     if (surface !== 'office') setSurface('office');
     openThread(item.threadId);
     dismissResume();
+    // A running/queued/paused thread has an unfinished plan — kick the graph to
+    // resume from its latest persisted checkpoint (fire-and-forget; the run
+    // surfaces through the stage pill + activity log). Blocked threads await
+    // human review, so they only navigate.
+    if (item.state !== 'blocked') {
+      void import('@/runtime/desktop-agent-runtime.js')
+        .then(({ getDesktopAgentRuntime }) => getDesktopAgentRuntime(item.companyId))
+        .then((runtime) => runtime.resume(item.threadId))
+        .catch((err: unknown) => {
+          console.warn('[ResumeBar] resume failed', { threadId: item.threadId, err });
+        });
+    }
   }
 
   return (

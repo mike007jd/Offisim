@@ -1,5 +1,4 @@
 import { InMemoryMemoryRepository } from '../../../repositories/memory-memory-repository.js';
-import { MemoryUserPreferenceRepository } from '../../../repositories/memory-user-preference-repository.js';
 import type {
   CompactSummaryRepository,
   CompactSummaryRow,
@@ -99,7 +98,6 @@ export class MemoryCompactSummaryRepository implements CompactSummaryRepository 
 
 export interface MemorySystemMemoryRepos {
   memories: InMemoryMemoryRepository;
-  userPreferences: MemoryUserPreferenceRepository;
   nodeSummaries: MemoryNodeSummaryRepository;
   compactSummaries: MemoryCompactSummaryRepository;
 }
@@ -108,8 +106,7 @@ export function createMemorySystemMemoryRepos(
   snapshot?: Partial<MemoryRepositoriesSnapshot>,
 ): MemorySystemMemoryRepos {
   const memories = new InMemoryMemoryRepository(snapshot?.memories);
-  const userPreferences = new MemoryUserPreferenceRepository(snapshot?.userPreferences);
   const nodeSummaries = new MemoryNodeSummaryRepository(snapshot?.nodeSummaries);
   const compactSummaries = new MemoryCompactSummaryRepository(snapshot?.compactSummaries);
-  return { memories, userPreferences, nodeSummaries, compactSummaries };
+  return { memories, nodeSummaries, compactSummaries };
 }

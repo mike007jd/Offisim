@@ -1075,3 +1075,51 @@ export const zones = sqliteTable(
   },
   (table) => [index('idx_zones_company').on(table.company_id)],
 );
+
+// ---------------------------------------------------------------------------
+// LangGraph checkpoints — mirrors the SqliteSaver DDL already in schema.sql.
+// The `checkpoint` / `metadata` / `value` payload columns are BLOB-affinity in
+// schema.sql; on desktop the renderer's TauriCheckpointSaver is the SOLE reader
+// + writer and stores base64-encoded serde payloads as text, so the
+// tauri-plugin-sql proxy round-trips them as strings (no binary-fidelity risk).
+// Declared `text()` here to bind/read as strings accordingly.
+// ---------------------------------------------------------------------------
+
+export const checkpoints = sqliteTable(
+  'checkpoints',
+  {
+    thread_id: text('thread_id').notNull(),
+    checkpoint_ns: text('checkpoint_ns').notNull().default(''),
+    checkpoint_id: text('checkpoint_id').notNull(),
+    parent_checkpoint_id: text('parent_checkpoint_id'),
+    type: text('type'),
+    checkpoint: text('checkpoint'),
+    metadata: text('metadata'),
+  },
+  (table) => [primaryKey({ columns: [table.thread_id, table.checkpoint_ns, table.checkpoint_id] })],
+);
+
+export const writes = sqliteTable(
+  'writes',
+  {
+    thread_id: text('thread_id').notNull(),
+    checkpoint_ns: text('checkpoint_ns').notNull().default(''),
+    checkpoint_id: text('checkpoint_id').notNull(),
+    task_id: text('task_id').notNull(),
+    idx: integer('idx').notNull(),
+    channel: text('channel').notNull(),
+    type: text('type'),
+    value: text('value'),
+  },
+  (table) => [
+    primaryKey({
+      columns: [
+        table.thread_id,
+        table.checkpoint_ns,
+        table.checkpoint_id,
+        table.task_id,
+        table.idx,
+      ],
+    }),
+  ],
+);

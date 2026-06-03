@@ -42,6 +42,7 @@ import type {
   GitWorkbench,
   RunCost,
   Skill,
+  UnfinishedThread,
   UsagePoint,
 } from './types.js';
 
@@ -395,14 +396,41 @@ export function useRunCost() {
   return useQuery({ queryKey: ['run-cost'], queryFn: loadRunCost });
 }
 
+// graph_threads.status values that are NOT terminal — these are the runs the
+// ResumeBar can pick back up (a persisted checkpoint exists for them).
+const NON_TERMINAL_THREAD_STATUSES = new Set(['queued', 'running', 'blocked', 'paused']);
+// Only conversational entry modes are resumable from the ResumeBar; background
+// sync / install flows are not user-facing conversations.
+const RESUMABLE_ENTRY_MODES = new Set(['direct_chat', 'boss_chat', 'meeting']);
+
 export function useUnfinishedThreads() {
   return useQuery({
     queryKey: ['unfinished-threads'],
-    queryFn: async () => {
+    queryFn: async (): Promise<UnfinishedThread[]> => {
       const repos = await reposOrNull();
-      // A freshly bootstrapped real backend has no prior unfinished runs.
-      if (repos) return [];
-      return resolveAsync(unfinishedThreads);
+      // Browser preview has no repos — resolve the fixture.
+      if (!repos) return resolveAsync(unfinishedThreads);
+
+      // Real backend: surface non-terminal conversational graph threads across
+      // all active companies, named by their chat-thread title.
+      const companies = (await repos.companies.findAll()).filter((c) => c.status !== 'archived');
+      const items: UnfinishedThread[] = [];
+      for (const company of companies) {
+        const threadRows = await repos.threads.findByCompany(company.company_id);
+        for (const row of threadRows) {
+          if (!NON_TERMINAL_THREAD_STATUSES.has(row.status)) continue;
+          if (!RESUMABLE_ENTRY_MODES.has(row.entry_mode)) continue;
+          const chatThread = await repos.chatThreads.findById(row.thread_id).catch(() => null);
+          items.push({
+            threadId: row.thread_id,
+            companyId: row.company_id,
+            projectId: row.project_id ?? '',
+            name: chatThread?.title?.trim() || 'Untitled conversation',
+            state: row.status === 'blocked' ? 'blocked' : 'running',
+          });
+        }
+      }
+      return items;
     },
   });
 }

@@ -4,7 +4,7 @@ import type { LlmCallContext, LlmMiddleware } from '../types.js';
 /**
  * Wraps ConversationBudgetService as an LlmMiddleware.
  * Handles message pruning + LLM-driven synopsis generation.
- * Priority 10 — runs before UserPreferenceMiddleware (50).
+ * Priority 10 — the earliest builtin middleware in the chain.
  */
 export class SummarizationMiddleware implements LlmMiddleware {
   readonly name = 'summarization';

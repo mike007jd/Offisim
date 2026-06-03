@@ -151,7 +151,6 @@ export function createMemoryRepositories(
         mcpAudit: permissionsFamily.mcpAudit.snapshot(),
         toolPermissionApprovals: permissionsFamily.toolPermissionApprovals.snapshot(),
         memories: memorySystemFamily.memories.snapshot(),
-        userPreferences: memorySystemFamily.userPreferences.snapshot(),
         nodeSummaries: memorySystemFamily.nodeSummaries.snapshot(),
         compactSummaries: memorySystemFamily.compactSummaries.snapshot(),
         fileHistory: filesFamily.fileHistory.snapshot(),

@@ -9,6 +9,7 @@ import { loadRegisteredStdioMcpConfigs } from '@/lib/tauri-mcp-config.js';
 import { createTauriProjectFsAdapter } from '@/lib/tauri-project-fs-adapter.js';
 import { createTauriShellExecAdapter } from '@/lib/tauri-shell-exec-adapter.js';
 import { createTauriVaultFileSystem } from '@/lib/tauri-vault-fs.js';
+import { createTauriCheckpointSaver } from '@/runtime/tauri-checkpoint-saver.js';
 import {
   InteractionService,
   type RuntimeRepositories,
@@ -19,12 +20,7 @@ import {
 } from '@offisim/core/browser';
 import { ModelResolver, createGateway } from '@offisim/core/llm';
 import { AuditingToolExecutor, McpToolExecutor } from '@offisim/core/mcp';
-import {
-  HumanMessage,
-  buildOffisimGraph,
-  createMemoryCheckpointSaver,
-  createRuntimeContext,
-} from '@offisim/core/runtime';
+import { HumanMessage, buildOffisimGraph, createRuntimeContext } from '@offisim/core/runtime';
 import { OrchestrationService } from '@offisim/core/services';
 import { CompositeToolExecutor, createBuiltinTools } from '@offisim/core/tools';
 import type {
@@ -85,6 +81,12 @@ export interface DesktopAgentRuntime {
    */
   resolveInteraction(response: InteractionResponse): Promise<SkillInstallOutcomeKind | null>;
   /**
+   * Resume an unfinished plan on a thread from its latest persisted checkpoint.
+   * Fire-and-forget from the ResumeBar; the graph picks up at the next pending
+   * step (it does not replay from step 0). Throws if no checkpoint exists.
+   */
+  resume(threadId: string): Promise<void>;
+  /**
    * Tear down company-scoped resources: kill every MCP child process and stop
    * the skill-staging GC timer. Called on company switch / app teardown via
    * `disposeDesktopAgentRuntime` so a switched-away company leaks no processes.
@@ -140,6 +142,10 @@ class DesktopAgentRuntimeImpl implements DesktopAgentRuntime {
 
   abort(threadId: string): void {
     this.orchestration.abortExecution(threadId);
+  }
+
+  async resume(threadId: string): Promise<void> {
+    await this.orchestration.resumePlan(threadId);
   }
 }
 
@@ -349,8 +355,15 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
     interactionService,
   });
 
-  const graph = buildOffisimGraph({ checkpointer: createMemoryCheckpointSaver() });
-  const orchestration = new OrchestrationService(graph, runtimeCtx);
+  // Persistent checkpoints: the SAME saver instance feeds the graph (so steps
+  // are written) and the OrchestrationService (so resume can read the latest
+  // checkpoint). Survives restart — `checkpoints`/`writes` rows persist in
+  // offisim.db, unlike the in-memory saver the harness uses.
+  const checkpointer = createTauriCheckpointSaver();
+  const graph = buildOffisimGraph({ checkpointer });
+  const orchestration = new OrchestrationService(graph, runtimeCtx, {
+    checkpointSaver: checkpointer,
+  });
   return new DesktopAgentRuntimeImpl(
     orchestration,
     interactionService,

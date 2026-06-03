@@ -1,5 +1,17 @@
 export { buildOffisimGraph } from './graph/main-graph.js';
-export { createMemoryCheckpointSaver } from './graph/checkpoint-saver.js';
+export { createMemoryCheckpointSaver, withLoadLatest } from './graph/checkpoint-saver.js';
+export type {
+  LoadLatestCheckpointSaver,
+  LatestCheckpointSnapshot,
+} from './graph/checkpoint-saver.js';
+// Re-export the LangGraph checkpoint base class + types so the desktop Tauri
+// checkpoint saver can subclass it without taking a direct `@langchain/langgraph`
+// dependency (this barrel already pulls LangGraph via `buildOffisimGraph`). The
+// saver derives its method parameter types (CheckpointListOptions /
+// ChannelVersions / PendingWrite) from `BaseCheckpointSaver` via `Parameters<>`,
+// so only what LangGraph itself re-exports needs to ride here.
+export { BaseCheckpointSaver } from '@langchain/langgraph';
+export type { Checkpoint, CheckpointMetadata, CheckpointTuple } from '@langchain/langgraph';
 // Re-export the LangChain message constructors graph callers need to seed
 // `OrchestrationService.execute({ messages })`, so desktop wiring does not have
 // to take a direct `@langchain/core` dependency. This barrel already pulls

@@ -33,7 +33,6 @@ import type {
   TaskRunRow,
   ToolCallRow,
   ToolPermissionApprovalRow,
-  UserPreferenceRow,
   WorkstationRackRow,
 } from '../repositories.js';
 
@@ -54,7 +53,6 @@ export interface MemoryRepositoriesSnapshot extends MemoryInstallRepositoriesSna
   events: NewRuntimeEvent[];
   llmCalls: LlmCallRow[];
   memories: ReturnType<InMemoryMemoryRepository['snapshot']>;
-  userPreferences: UserPreferenceRow[];
   mcpAudit: McpAuditRow[];
   toolPermissionApprovals: ToolPermissionApprovalRow[];
   nodeSummaries: NodeSummaryRow[];

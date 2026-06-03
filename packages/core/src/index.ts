@@ -86,10 +86,6 @@ export type {
   OfficeLayoutRow,
   NewOfficeLayout,
   OfficeLayoutRepository,
-  UserPreferenceRow,
-  UserPreferenceCreate,
-  UserPreferenceCategory,
-  UserPreferenceRepository,
 } from './runtime/repositories.js';
 export type { InstallTransactionRepository } from './repos/install-transaction-repository.js';
 export type { InstalledPackageRepository } from './repos/installed-package-repository.js';
@@ -268,7 +264,6 @@ export {
 // --- Middleware ---
 export { LlmMiddlewareChain } from './middleware/chain.js';
 export type { LlmMiddleware, LlmCallContext, LlmCallMeta } from './middleware/types.js';
-export { UserPreferenceMiddleware } from './middleware/builtin/user-preference-middleware.js';
 export { SummarizationMiddleware } from './middleware/builtin/summarization-middleware.js';
 export { NodeContextMiddleware } from './middleware/builtin/node-context-middleware.js';
 export type {
@@ -284,12 +279,9 @@ export type {
 } from './services/interaction-service.js';
 export { InteractionService } from './services/interaction-service.js';
 
-// --- User Memory ---
-export { UserMemoryService } from './services/user-memory-service.js';
 export { ToolTelemetryService } from './services/tool-telemetry-service.js';
 export { FileHistoryService, FileHistoryToolExecutor } from './services/file-history-service.js';
 export type { FileSnapshotAdapter } from './services/file-history-service.js';
-export { MemoryUserPreferenceRepository } from './repositories/memory-user-preference-repository.js';
 
 // --- Utilities ---
 export { extractJsonFromLlm } from './utils/extract-json.js';

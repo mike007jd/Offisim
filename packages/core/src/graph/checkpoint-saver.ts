@@ -54,7 +54,9 @@ function isResumableState(values: unknown): values is OffisimGraphState {
   );
 }
 
-function withLoadLatest<T extends BaseCheckpointSaver>(saver: T): T & LoadLatestCheckpointSaver {
+export function withLoadLatest<T extends BaseCheckpointSaver>(
+  saver: T,
+): T & LoadLatestCheckpointSaver {
   const enhanced = saver as T & LoadLatestCheckpointSaver;
   enhanced.loadLatest = async (conversationId: string) => {
     const tuple = await saver.getTuple({

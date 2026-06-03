@@ -103,8 +103,6 @@ export type {
   OfficeLayoutRepository,
   ProjectRepository,
   ChatThreadRepository,
-  UserPreferenceRepository,
-  UserPreferenceRow,
   DeliverableRepository,
   DeliverableRow,
   DeliverableSummaryRow,
@@ -300,7 +298,6 @@ export {
   normalizeMemoryDedupeKey,
 } from './runtime/repos/memory-system/patch.js';
 export type { MemoryUpdateColumns } from './runtime/repos/memory-system/patch.js';
-export { MemoryUserPreferenceRepository } from './repositories/memory-user-preference-repository.js';
 export { createMemoryInstallRepositories } from './runtime/memory-install-repos.js';
 export type { MemoryInstallRepositoriesSnapshot } from './runtime/memory-install-repos.js';
 export {
