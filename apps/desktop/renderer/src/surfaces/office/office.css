@@ -1490,6 +1490,80 @@
   color: var(--off-ink-2);
   margin-bottom: var(--off-sp-2);
 }
+/* === Skill install confirm bar ============================================ */
+.off-skillconfirm {
+  margin: var(--off-sp-3);
+  padding: var(--off-sp-4);
+  border: 1px solid var(--off-accent-line);
+  border-radius: var(--off-r-md);
+  background: var(--off-accent-surface);
+}
+.off-skillconfirm-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--off-sp-2);
+  margin-bottom: var(--off-sp-2);
+}
+.off-skillconfirm-action {
+  padding: 2px var(--off-sp-2);
+  border-radius: var(--off-r-xs);
+  background: var(--off-accent);
+  color: var(--off-accent-fg);
+  font-size: var(--off-fs-meta);
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.off-skillconfirm-name {
+  font-size: var(--off-fs-base);
+  font-weight: 650;
+  color: var(--off-ink-1);
+}
+.off-skillconfirm-target {
+  font-size: var(--off-fs-sm);
+  color: var(--off-ink-3);
+}
+.off-skillconfirm-desc {
+  margin: 0 0 var(--off-sp-2);
+  font-size: var(--off-fs-sm);
+  color: var(--off-ink-2);
+}
+.off-skillconfirm-parent {
+  margin: 0 0 var(--off-sp-2);
+  font-size: var(--off-fs-meta);
+  color: var(--off-ink-3);
+}
+.off-skillconfirm-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--off-sp-1);
+  margin-bottom: var(--off-sp-2);
+}
+.off-skillconfirm-tool {
+  padding: 2px var(--off-sp-2);
+  border-radius: var(--off-r-xs);
+  background: var(--off-surface-1);
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-meta);
+}
+.off-skillconfirm-body {
+  margin: 0 0 var(--off-sp-3);
+  max-height: 132px;
+  overflow: auto;
+  white-space: pre-wrap;
+  padding: var(--off-sp-3);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-1);
+  color: var(--off-ink-2);
+  font-family: var(--off-font-mono);
+  font-size: var(--off-fs-meta);
+}
+.off-skillconfirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--off-sp-2);
+}
 /* === Meeting region ======================================================= */
 .off-meeting-panel {
   margin: var(--off-sp-3) 0;

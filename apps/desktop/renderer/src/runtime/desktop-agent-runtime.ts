@@ -6,11 +6,17 @@ import {
 import { createTauriLlmFetch } from '@/lib/tauri-llm-fetch.js';
 import { createTauriProjectFsAdapter } from '@/lib/tauri-project-fs-adapter.js';
 import { createTauriShellExecAdapter } from '@/lib/tauri-shell-exec-adapter.js';
-import type {
-  RuntimeRepositories,
-  ToolCallRequest,
-  ToolCallResponse,
-  ToolExecutor,
+import { createTauriVaultFileSystem } from '@/lib/tauri-vault-fs.js';
+import {
+  InteractionService,
+  type RuntimeRepositories,
+  SkillInstallCommitter,
+  type SkillInstallEnvironment,
+  SkillLoader,
+  SkillStagingManager,
+  type ToolCallRequest,
+  type ToolCallResponse,
+  type ToolExecutor,
 } from '@offisim/core/browser';
 import type { ToolDef } from '@offisim/core/llm';
 import { ModelResolver, createGateway } from '@offisim/core/llm';
@@ -23,7 +29,12 @@ import {
 } from '@offisim/core/runtime';
 import { OrchestrationService } from '@offisim/core/services';
 import { CompositeToolExecutor, createBuiltinTools } from '@offisim/core/tools';
-import type { LlmProvider, ModelPolicyConfig } from '@offisim/shared-types';
+import type {
+  InteractionResponse,
+  LlmProvider,
+  ModelPolicyConfig,
+  SkillInstallOutcomeKind,
+} from '@offisim/shared-types';
 import { getRepos, runtimeEventBus } from './repos.js';
 
 /**
@@ -88,10 +99,26 @@ export interface DesktopAgentRuntime {
   execute(input: DesktopAgentRunInput): Promise<string>;
   /** Abort the in-flight run on a thread (Stop). */
   abort(threadId: string): void;
+  /**
+   * Resolve a pending interaction (e.g. a `skill_install_confirm` preview). The
+   * renderer calls this when the user clicks Confirm/Cancel on the confirm bar;
+   * on confirm the staged skill is committed to the vault + skills table by the
+   * InteractionService's SkillInstallCommitter handler. Returns the structured
+   * skill-install outcome (for confirm) so the caller can surface the result.
+   */
+  resolveInteraction(response: InteractionResponse): Promise<SkillInstallOutcomeKind | null>;
 }
 
 class DesktopAgentRuntimeImpl implements DesktopAgentRuntime {
-  constructor(private readonly orchestration: OrchestrationService) {}
+  constructor(
+    private readonly orchestration: OrchestrationService,
+    private readonly interactionService: InteractionService,
+  ) {}
+
+  async resolveInteraction(response: InteractionResponse): Promise<SkillInstallOutcomeKind | null> {
+    const result = await this.interactionService.resolve(response);
+    return result?.skillInstallOutcome ?? null;
+  }
 
   async execute(input: DesktopAgentRunInput): Promise<string> {
     const finalState = await this.orchestration.execute({
@@ -172,6 +199,12 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
     }
   }
 
+  // Placeholder thread id for the company-scoped runtime context / audit
+  // executor / interaction service. OrchestrationService.execute() overrides
+  // the per-run ctx threadId; the interaction service routes by the request's
+  // own threadId, so this only labels company-scoped scaffolding.
+  const baseThreadId = `desktop-agent-${companyId}`;
+
   const coreProvider = toCoreProvider(profile.provider);
   const transportFetch = createTauriLlmFetch(profile);
   const llmGateway = createGateway({
@@ -228,11 +261,59 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
     repos.mcpAudit,
     runtimeEventBus,
     companyId,
-    `desktop-agent-${companyId}`,
+    baseThreadId,
     undefined,
     undefined,
     undefined,
   );
+
+  // --- Skill subsystem (fork / edit / create_skill_from_scratch) ---
+  // The skill-mutation tools unlock as soon as a staging manager + loader are
+  // on the context (employee-tool-kit gates on those two). fork/create stage a
+  // preview through the InteractionService as a `skill_install_confirm`
+  // interaction; the renderer renders a confirm bar and calls
+  // `resolveInteraction`, which drives the SkillInstallCommitter to write the
+  // SKILL.md to the vault + insert the skills row.
+  const skillLoader = SkillLoader.forRepos(repos);
+  if (!skillLoader) {
+    throw new Error('Cannot start the agent runtime: repos.skills is unavailable.');
+  }
+  // The loader starts with an "unavailable" vault fs; swap in the real Tauri
+  // vault filesystem (synchronous construct, backed by `runtime_vault_*`).
+  skillLoader.setFs(createTauriVaultFileSystem());
+  const skillStagingManager = new SkillStagingManager();
+
+  // Skill install environment: a real `httpFetch` (honest HTTP for git/GitHub
+  // tarball sources) but no clone / gitFs / localDir adapters — those sources
+  // return a structured `not-supported` error rather than a faked clone. fork /
+  // edit / create never touch this env (they run off the loader + staging).
+  const skillInstallEnvironment: SkillInstallEnvironment = {
+    runtime: 'desktop',
+    httpFetch: (url, init) =>
+      fetch(url, {
+        ...(init?.headers ? { headers: init.headers } : {}),
+        ...(init?.signal ? { signal: init.signal } : {}),
+      }),
+  };
+
+  // One InteractionService per company runtime. The desktop chat is
+  // single-active-thread, so a single pending slot is correct; the renderer
+  // routes the confirm bar by `request.threadId` (carried in the request), not
+  // the service's placeholder threadId. The SkillInstallCommitter handler
+  // commits the staged skill on confirm.
+  const interactionService = new InteractionService({
+    eventBus: runtimeEventBus,
+    companyId,
+    threadId: baseThreadId,
+    permissionApprovals: repos.toolPermissionApprovals,
+    skillInstallConfirmHandler: new SkillInstallCommitter({
+      companyId,
+      threadId: baseThreadId,
+      skillLoader,
+      staging: skillStagingManager,
+      eventBus: runtimeEventBus,
+    }),
+  });
 
   const runtimeCtx = createRuntimeContext({
     repos,
@@ -242,14 +323,18 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
     toolExecutor,
     companyId,
     // Placeholder — OrchestrationService.execute() overrides this per run.
-    threadId: `desktop-agent-${companyId}`,
+    threadId: baseThreadId,
     builtinTools,
     llmToolCallsEnabled: true,
+    skillLoader,
+    skillStagingManager,
+    skillInstallEnvironment,
+    interactionService,
   });
 
   const graph = buildOffisimGraph({ checkpointer: createMemoryCheckpointSaver() });
   const orchestration = new OrchestrationService(graph, runtimeCtx);
-  return new DesktopAgentRuntimeImpl(orchestration);
+  return new DesktopAgentRuntimeImpl(orchestration, interactionService);
 }
 
 const runtimeCache = new Map<string, Promise<DesktopAgentRuntime>>();

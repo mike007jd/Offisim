@@ -1,4 +1,5 @@
 import { StagedAttachments } from '@/assistant/composer/StagedAttachments.js';
+import { SkillInstallConfirmBar } from '@/assistant/parts/SkillInstallConfirmBar.js';
 import { useRunStore } from '@/assistant/run-store.js';
 import {
   STREAM_REPLY_NODES,
@@ -580,6 +581,7 @@ export function WorkspaceAssistantThread({
           )}
         </ThreadPrimitive.Viewport>
 
+        <SkillInstallConfirmBar companyId={companyId} threadId={active.id} />
         <ComposerPrimitive.Root className="off-ws-composer">
           <ComposerPrimitive.Input
             className="off-ws-composer-input"

@@ -11,6 +11,7 @@ import { MessageSquarePlus, Paperclip, SendHorizontal } from 'lucide-react';
 import { type DragEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { StagedAttachments } from './composer/StagedAttachments.js';
 import { ChatErrorBanner } from './parts/ChatErrorBanner.js';
+import { SkillInstallConfirmBar } from './parts/SkillInstallConfirmBar.js';
 import { MeetingTray } from './parts/Meeting.js';
 import { useRunStore } from './run-store.js';
 import { useOfficeRuntime } from './runtime/useOfficeRuntime.js';
@@ -260,6 +261,7 @@ export function OfficeThread({
             </ThreadPrimitive.Messages>
           </div>
           <ChatErrorBanner />
+          <SkillInstallConfirmBar companyId={companyId} threadId={threadId} />
         </ThreadPrimitive.Viewport>
         {/* Outputs/Meeting pit is available in any thread that produced
             deliverables — not just team threads. ConvOutputs self-hides when
