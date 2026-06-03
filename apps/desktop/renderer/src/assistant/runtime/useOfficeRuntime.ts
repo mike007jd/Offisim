@@ -28,6 +28,15 @@ const DEFAULT_MAX_OUTPUT_TOKENS = 512;
  */
 const AGENT_RUNTIME_ENABLED = import.meta.env.VITE_AGENT_RUNTIME === 'true';
 
+/**
+ * Graph nodes whose streamed `content` is the user-visible reply for a chat
+ * surface. A direct chat ends at the `employee` node (boss_summary short-circuits
+ * its reply without a new LLM call); `boss_summary`/`hr` cover the summary and HR
+ * reply paths. `boss`/`manager` routing chatter is intentionally excluded so it
+ * never leaks into the bubble.
+ */
+const STREAM_REPLY_NODES = new Set(['employee', 'boss_summary', 'hr']);
+
 /** Map an Offisim chat message into the assistant-ui thread model. The original
  *  message is carried in metadata.custom so the V3 rail keeps full fidelity. */
 function convertMessage(message: ChatMessage): ThreadMessageLike {
@@ -141,18 +150,84 @@ export function useOfficeRuntime({
         // off the entire LangGraph stack is tree-shaken out of the default bundle
         // and never evaluated on OfficeSurface load — the single-shot path stays
         // completely untouched.
-        let response: string;
         if (AGENT_RUNTIME_ENABLED && companyId) {
           const { getDesktopAgentRuntime } = await import('@/runtime/desktop-agent-runtime.js');
+          const { runtimeEventBus } = await import('@/runtime/repos.js');
           const runtime = await getDesktopAgentRuntime(companyId);
-          response = await runtime.execute({
-            text: materialized.promptText,
-            threadId,
-            employeeId: assigneeId ?? null,
-            projectId,
+
+          // Stream the employee's reply into a single assistant draft so the
+          // bubble fills chunk-by-chunk instead of popping in whole. The graph
+          // emits `llm.stream.chunk` on the shared runtimeEventBus; we append
+          // the `content` channel for this thread's reply nodes. The
+          // authoritative `response` from execute() overwrites the same draft
+          // afterward — never a second message.
+          const streamDraftId = newDraftId('assistant');
+          setDrafts((prev) => [
+            ...prev,
+            {
+              id: streamDraftId,
+              threadId,
+              author: 'employee',
+              employeeId: assigneeId ?? null,
+              body: '',
+              at: Date.now(),
+            },
+          ]);
+          const unsubscribe = runtimeEventBus.on('llm.stream.chunk', (event) => {
+            // `LlmStreamChunkPayload` does not declare `chatThreadId` in
+            // shared-types; the event factory still sets it from the run scope.
+            // Cast locally to keep this renderer-only (no shared-types change).
+            const payload = event.payload as {
+              nodeName?: string;
+              content?: string;
+              channel?: 'content' | 'reasoning';
+              chatThreadId?: string;
+            };
+            // Drop the reasoning channel (MiniMax emits it) — only content fills
+            // the bubble. Land only on this thread's reply nodes; boss/manager
+            // routing chatter must not leak into the visible reply.
+            if (payload.channel !== 'content') return;
+            if ((payload.chatThreadId || event.threadId) !== threadId) return;
+            if (!payload.nodeName || !STREAM_REPLY_NODES.has(payload.nodeName)) return;
+            const chunk = payload.content;
+            if (!chunk) return;
+            setDrafts((prev) =>
+              prev.map((draft) =>
+                draft.id === streamDraftId ? { ...draft, body: draft.body + chunk } : draft,
+              ),
+            );
           });
+          let response: string;
+          try {
+            response = await runtime.execute({
+              text: materialized.promptText,
+              threadId,
+              employeeId: assigneeId ?? null,
+              projectId,
+            });
+          } finally {
+            // InMemoryEventBus has no auto-cleanup — always release this handler.
+            unsubscribe();
+          }
+          // A late-resolving Stop: keep whatever already streamed into the draft
+          // (do not overwrite with the authoritative response, do not persist).
+          if (abortedRef.current) return;
+          const assistantMessage: ChatMessage = {
+            id: streamDraftId,
+            threadId,
+            author: 'employee',
+            employeeId: assigneeId ?? null,
+            body: response,
+            at: Date.now(),
+          };
+          // Overwrite the streaming draft in place — the authoritative text is
+          // the graph's final reply, not the concatenated chunks.
+          setDrafts((prev) =>
+            prev.map((draft) => (draft.id === streamDraftId ? assistantMessage : draft)),
+          );
+          await persistRuntimeMessage(assistantMessage);
         } else {
-          response = await sendDesktopProviderMessage({
+          const response = await sendDesktopProviderMessage({
             text: materialized.promptText,
             requestId,
             maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS,
@@ -161,22 +236,22 @@ export function useOfficeRuntime({
             projectId,
             signal: abortController.signal,
           });
+          // A Stop can resolve the in-flight request late (the Rust abort and the
+          // awaited response race). Without this guard a cancelled run would still
+          // commit its response as a normal assistant message. The `finally` block
+          // below still runs and routes cleanup through the aborted branch.
+          if (abortedRef.current) return;
+          const assistantMessage: ChatMessage = {
+            id: newDraftId('assistant'),
+            threadId,
+            author: 'employee',
+            employeeId: assigneeId ?? null,
+            body: response,
+            at: Date.now(),
+          };
+          setDrafts((prev) => [...prev, assistantMessage]);
+          await persistRuntimeMessage(assistantMessage);
         }
-        // A Stop can resolve the in-flight request late (the Rust abort and the
-        // awaited response race). Without this guard a cancelled run would still
-        // commit its response as a normal assistant message. The `finally` block
-        // below still runs and routes cleanup through the aborted branch.
-        if (abortedRef.current) return;
-        const assistantMessage: ChatMessage = {
-          id: newDraftId('assistant'),
-          threadId,
-          author: 'employee',
-          employeeId: assigneeId ?? null,
-          body: response,
-          at: Date.now(),
-        };
-        setDrafts((prev) => [...prev, assistantMessage]);
-        await persistRuntimeMessage(assistantMessage);
       } catch (error) {
         // A deliberate Stop aborts the in-flight request, which rejects here.
         // That is a cancel, not a failure — skip the error toast/bubble.
