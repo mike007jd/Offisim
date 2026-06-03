@@ -7,6 +7,12 @@ export interface ShellExecOptions {
   cwd?: string;
   threadId?: string;
   employeeId?: string;
+  /**
+   * Active project whose bound `workspace_root` scopes the shell sandbox. The
+   * desktop `bash_execute` command requires it; a null/absent project means no
+   * bound workspace and the executor must fail closed.
+   */
+  projectId?: string | null;
   timeoutMs?: number;
   maxOutputBytes?: number;
 }
@@ -39,6 +45,8 @@ export interface BuiltinToolExecutionContext {
   readonly companyId?: string;
   readonly threadId?: string;
   readonly employeeId?: string;
+  /** Active project for workspace-scoped tools (carried to `bash`). */
+  readonly projectId?: string | null;
   readonly runScope?: RunScope | null;
 }
 

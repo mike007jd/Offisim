@@ -35,6 +35,7 @@ export class CompositeToolExecutor implements ToolExecutor {
           ...this.builtinContext,
           ...(call.threadId ? { threadId: call.threadId } : {}),
           ...(call.employeeId ? { employeeId: call.employeeId } : {}),
+          ...(call.projectId ? { projectId: call.projectId } : {}),
           ...(call.runScope !== undefined ? { runScope: call.runScope } : {}),
         });
         return {

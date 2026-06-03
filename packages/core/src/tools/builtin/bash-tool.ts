@@ -42,6 +42,7 @@ export function createBashTool(config: BuiltinToolConfig): BuiltinTool | null {
         cwd,
         ...(context?.threadId ? { threadId: context.threadId } : {}),
         ...(context?.employeeId ? { employeeId: context.employeeId } : {}),
+        ...(context?.projectId ? { projectId: context.projectId } : {}),
         timeoutMs,
         maxOutputBytes: maxOutput,
       });

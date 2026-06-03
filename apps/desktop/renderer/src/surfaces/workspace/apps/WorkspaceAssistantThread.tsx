@@ -1,10 +1,10 @@
 import { StagedAttachments } from '@/assistant/composer/StagedAttachments.js';
 import { useRunStore } from '@/assistant/run-store.js';
 import {
+  STREAM_REPLY_NODES,
   appendText,
   materializeChatTurn,
   newDraftId,
-  sendDesktopProviderMessage,
 } from '@/assistant/runtime/desktop-chat-runtime.js';
 import { isTauriRuntime } from '@/data/adapters.js';
 import { UI_DATA_COLORS } from '@/data/color-palette.js';
@@ -40,8 +40,6 @@ import {
   persistWorkspaceMessage,
   usePersistedWorkspaceMessages,
 } from '../workspace-message-events.js';
-
-const WORKSPACE_MAX_OUTPUT_TOKENS = 512;
 
 const DELIVERABLE_EXTENSION: Record<string, string> = {
   MD: 'md',
@@ -338,6 +336,16 @@ export function WorkspaceAssistantThread({
   const abortInFlight = useCallback(() => {
     abortControllerRef.current?.abort();
     abortControllerRef.current = null;
+    // Cancel the in-flight graph execution for this conversation. The
+    // orchestration abort signals the running graph stream; the underlying
+    // `llm_fetch` is cancelled through the run's AbortSignal. Harmless no-op
+    // when nothing is in flight.
+    if (companyId) {
+      void import('@/runtime/desktop-agent-runtime.js')
+        .then(({ getDesktopAgentRuntime }) => getDesktopAgentRuntime(companyId))
+        .then((runtime) => runtime.abort(active.id))
+        .catch(() => undefined);
+    }
     const requestId = requestIdRef.current;
     if (requestId) {
       void import('@tauri-apps/api/core').then(({ invoke }) =>
@@ -345,7 +353,7 @@ export function WorkspaceAssistantThread({
       );
     }
     requestIdRef.current = null;
-  }, []);
+  }, [companyId, active.id]);
 
   useEffect(() => {
     setDrafts([]);
@@ -409,36 +417,85 @@ export function WorkspaceAssistantThread({
           companyId,
           projectId,
         });
+        // Every workspace chat runs through the real LangGraph agent runtime
+        // (the single-shot direct-provider path was retired in slice 3). A chat
+        // with no active company cannot assemble a runtime — fail honestly.
+        if (!companyId) {
+          throw new Error('Cannot send: no active company is bound to this workspace.');
+        }
         const materialized = await materializeChatTurn({
           text,
           companyId,
           threadId: active.id,
           staged: attached,
         });
-        const response = await sendDesktopProviderMessage({
-          text: materialized.promptText,
-          requestId,
-          maxOutputTokens: WORKSPACE_MAX_OUTPUT_TOKENS,
-          threadId: active.id,
-          companyId,
-          projectId,
-          signal: controller.signal,
-        });
-        const assistantMessage: WsMessage = {
-          id: newDraftId('workspace-assistant'),
+        const { getDesktopAgentRuntime } = await import('@/runtime/desktop-agent-runtime.js');
+        const { runtimeEventBus } = await import('@/runtime/repos.js');
+        const runtime = await getDesktopAgentRuntime(companyId);
+
+        // Stream the reply into a single assistant draft (mirrors the Office
+        // runtime): append the graph's `content` channel for this thread's reply
+        // nodes. The draft is created lazily on the first chunk (a provider error
+        // before any token leaves no empty bubble); the authoritative response
+        // overwrites it afterward.
+        const streamDraftId = newDraftId('workspace-assistant');
+        const makeAssistantDraft = (body: string): WsMessage => ({
+          id: streamDraftId,
           author: 'employee',
           employeeId: active.employeeId,
           role: active.kind === 'group' ? 'workspace' : undefined,
           timeLabel: workspaceTimeLabel(),
-          body: response,
-        };
+          body,
+        });
+        const upsertDraft = (body: string, mode: 'append' | 'set') =>
+          setDrafts((prev) => {
+            const existing = prev.find((draft) => draft.id === streamDraftId);
+            if (!existing) return [...prev, makeAssistantDraft(body)];
+            const nextBody = mode === 'append' ? `${existing.body}${body}` : body;
+            return prev.map((draft) =>
+              draft.id === streamDraftId ? { ...draft, body: nextBody } : draft,
+            );
+          });
+        const unsubscribe = runtimeEventBus.on('llm.stream.chunk', (event) => {
+          // `LlmStreamChunkPayload` does not declare `chatThreadId`; the event
+          // factory still sets it from the run scope. Cast locally (renderer-only).
+          const payload = event.payload as {
+            nodeName?: string;
+            content?: string;
+            channel?: 'content' | 'reasoning';
+            chatThreadId?: string;
+          };
+          if (payload.channel !== 'content') return;
+          if ((payload.chatThreadId || event.threadId) !== active.id) return;
+          if (!payload.nodeName || !STREAM_REPLY_NODES.has(payload.nodeName)) return;
+          const chunk = payload.content;
+          if (!chunk) return;
+          upsertDraft(chunk, 'append');
+        });
+        let response: string;
+        try {
+          response = await runtime.execute({
+            text: materialized.promptText,
+            threadId: active.id,
+            employeeId: active.employeeId,
+            projectId,
+          });
+        } finally {
+          // InMemoryEventBus has no auto-cleanup — always release this handler.
+          unsubscribe();
+        }
+        // A late-resolving cancel: keep whatever already streamed into the draft.
+        if (controller.signal.aborted) return;
+        const assistantMessage = makeAssistantDraft(response);
         await persistWorkspaceMessage({
           threadId: active.id,
           message: assistantMessage,
           companyId,
           projectId,
         });
-        setDrafts((prev) => [...prev, assistantMessage]);
+        // Replace the streamed draft with the authoritative final reply (or
+        // create it when the reply did not stream).
+        upsertDraft(response, 'set');
       } catch (error) {
         // An aborted request (cancel or conversation switch) is not a failure;
         // skip the error draft and toast so it does not surface as a bridge error.

@@ -9,6 +9,12 @@ export interface ToolCallRequest {
   readonly nodeName?: string;
   /** Runtime thread issuing the tool call. Project-scoped chats use the project thread. */
   readonly threadId?: string;
+  /**
+   * Active project whose bound `workspace_root` scopes workspace tools (`bash`).
+   * Carried from `state.projectId` so the desktop shell sandbox knows which
+   * project root to run inside; null/absent means no bound workspace.
+   */
+  readonly projectId?: string | null;
   /** The employee that initiated this tool call (used for scene feedback). */
   readonly employeeId?: string;
   /** The task run that initiated this tool call, when available. */

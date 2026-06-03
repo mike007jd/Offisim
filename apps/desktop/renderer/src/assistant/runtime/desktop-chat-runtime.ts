@@ -1,16 +1,6 @@
-import { reposOrNull } from '@/data/adapters.js';
 import type { ChatAttachment, RunError, StagedAttachment } from '@/data/types.js';
-import {
-  type ProviderSendResult,
-  type RuntimeProviderProfile,
-  findDefaultChatProviderProfile,
-  loadRuntimeProviderProfiles,
-  safeErrorMessage,
-  sendProviderTextDetailed,
-} from '@/lib/provider-bridge.js';
 import { sha256Hex } from '@/lib/utils.js';
 import type { AppendMessage } from '@assistant-ui/react';
-import type { RuntimeRepositories } from '@offisim/core/browser';
 import {
   type AttachmentKind,
   type AttachmentMeta,
@@ -200,113 +190,13 @@ async function materializeAttachmentBytes(
   };
 }
 
-export async function sendDesktopProviderMessage({
-  text,
-  requestId,
-  maxOutputTokens,
-  threadId,
-  companyId,
-  projectId,
-  signal,
-}: {
-  text: string;
-  requestId: string;
-  maxOutputTokens: number;
-  threadId: string;
-  companyId: string | null;
-  projectId: string | null;
-  signal?: AbortSignal;
-}): Promise<string> {
-  const profiles = await loadRuntimeProviderProfiles();
-  const profile = findDefaultChatProviderProfile(profiles);
-  if (!profile) {
-    throw new Error('Runtime provider profile is not configured.');
-  }
-  const repos = await reposOrNull();
-  const started = performance.now();
-  let result: ProviderSendResult | null = null;
-  let caught: unknown;
-  try {
-    result = await sendProviderTextDetailed({
-      profile,
-      text,
-      requestId,
-      maxOutputTokens,
-      signal,
-    });
-  } catch (error) {
-    caught = error;
-  }
-  await recordDirectProviderCall({
-    repos,
-    profile,
-    text,
-    requestId,
-    threadId,
-    companyId,
-    projectId,
-    result,
-    error: caught,
-    latencyMs: Math.max(0, Math.round(performance.now() - started)),
-  });
-  if (caught) throw caught;
-  return result?.text ?? '';
-}
-
-async function recordDirectProviderCall({
-  repos,
-  profile,
-  text,
-  requestId,
-  threadId,
-  companyId,
-  projectId,
-  result,
-  error,
-  latencyMs,
-}: {
-  repos: RuntimeRepositories | null;
-  profile: RuntimeProviderProfile;
-  text: string;
-  requestId: string;
-  threadId: string;
-  companyId: string | null;
-  projectId: string | null;
-  result: ProviderSendResult | null;
-  error: unknown;
-  latencyMs: number;
-}): Promise<void> {
-  if (!repos) return;
-  const usage = result?.usage ?? null;
-  await repos.llmCalls.create({
-    llm_call_id: `llm-${crypto.randomUUID()}`,
-    thread_id: threadId,
-    task_run_id: null,
-    node_name: 'desktop.direct_provider_chat',
-    provider: profile.provider,
-    model: profile.model,
-    input_tokens: usage?.inputTokens ?? 0,
-    output_tokens: usage?.outputTokens ?? 0,
-    cache_read_input_tokens: usage?.cacheReadInputTokens ?? 0,
-    cache_creation_input_tokens: usage?.cacheCreationInputTokens ?? 0,
-    usage_raw_json: usage ? JSON.stringify(usage.raw) : null,
-    request_json: JSON.stringify({ requestId, companyId, projectId, prompt: text }),
-    response_json: result?.raw ?? null,
-    tool_calls_json: null,
-    prompt_hash: await sha256TextOrNull(text),
-    tools_hash: null,
-    response_hash: result?.raw ? await sha256TextOrNull(result.raw) : null,
-    recording_mode: usage ? 'provider-usage' : 'usage-unknown',
-    latency_ms: latencyMs,
-    error_code: error ? safeErrorMessage(error) : null,
-    created_at: new Date().toISOString(),
-  });
-}
-
-async function sha256TextOrNull(value: string): Promise<string | null> {
-  try {
-    return await sha256Hex(new TextEncoder().encode(value));
-  } catch {
-    return null;
-  }
-}
+/**
+ * Graph nodes whose streamed `content` is the user-visible reply for a chat
+ * surface. Shared by the Office runtime and the Workspace messenger so both
+ * filter `llm.stream.chunk` events identically: a direct chat ends at the
+ * `employee` node (boss_summary short-circuits its reply without a new LLM
+ * call); `boss_summary`/`hr` cover the summary and HR reply paths. `boss` /
+ * `manager` routing chatter is intentionally excluded so it never leaks into
+ * the bubble.
+ */
+export const STREAM_REPLY_NODES: ReadonlySet<string> = new Set(['employee', 'boss_summary', 'hr']);

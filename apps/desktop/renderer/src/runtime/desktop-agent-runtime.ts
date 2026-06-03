@@ -5,6 +5,7 @@ import {
 } from '@/lib/provider-bridge.js';
 import { createTauriLlmFetch } from '@/lib/tauri-llm-fetch.js';
 import { createTauriProjectFsAdapter } from '@/lib/tauri-project-fs-adapter.js';
+import { createTauriShellExecAdapter } from '@/lib/tauri-shell-exec-adapter.js';
 import type {
   RuntimeRepositories,
   ToolCallRequest,
@@ -13,6 +14,7 @@ import type {
 } from '@offisim/core/browser';
 import type { ToolDef } from '@offisim/core/llm';
 import { ModelResolver, createGateway } from '@offisim/core/llm';
+import { AuditingToolExecutor } from '@offisim/core/mcp';
 import {
   HumanMessage,
   buildOffisimGraph,
@@ -25,25 +27,27 @@ import type { LlmProvider, ModelPolicyConfig } from '@offisim/shared-types';
 import { getRepos, runtimeEventBus } from './repos.js';
 
 /**
- * Slice 1 of the real LangGraph agent runtime wired into desktop chat.
+ * The real LangGraph agent runtime wired into desktop chat. This is now the
+ * ONLY chat path on desktop — the single-shot direct-provider completion was
+ * retired in slice 3 (flag removed; Office + Workspace both run through here).
  *
- * This assembles the same graph/orchestration/runtime-context stack the test
+ * It assembles the same graph/orchestration/runtime-context stack the test
  * harness drives (`packages/core/src/testing/scenario-runner.ts`) but with the
- * real credential-isolated Tauri transport, the real Drizzle-backed repos, and
- * the sandboxed `project_*` file tools. A direct chat to one employee enters at
- * `employee_direct_setup → employee`, the employee node resolves the active
- * provider model and calls the gateway, and a `read_file` builtin is reachable.
- *
- * It runs BEHIND A FLAG. The existing single-shot `sendDesktopProviderMessage`
- * path remains the flag-off fallback.
+ * real credential-isolated Tauri transport, the real Drizzle-backed repos, the
+ * sandboxed `project_*` file tools, and the sandboxed `bash_execute` shell. A
+ * direct chat to one employee enters at `employee_direct_setup → employee`, the
+ * employee node resolves the active provider model and calls the gateway, and
+ * the builtin read/write/bash/glob/grep tools are reachable. Every tool call is
+ * recorded in `mcp_audit_log` via the AuditingToolExecutor wrapper.
  */
 
 /**
  * No-op MCP executor. Slice 1 exposes only the desktop builtin tools (wired
  * through `runtimeCtx.builtinTools`); there is no external/MCP tool surface
- * yet, so the executor reports an empty catalog and refuses any call routed to
- * it. The `CompositeToolExecutor` inside the graph dispatches builtins directly
- * and only falls through to this executor for unknown tool names.
+ * yet (slice 5 replaces this with a real McpToolExecutor), so the executor
+ * reports an empty catalog and refuses any call routed to it. The
+ * `CompositeToolExecutor` dispatches builtins directly and only falls through
+ * to this executor for unknown tool names.
  */
 class NullToolExecutor implements ToolExecutor {
   async execute(call: ToolCallRequest): Promise<ToolCallResponse> {
@@ -151,9 +155,18 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
   }
 
   const repos: RuntimeRepositories = await getRepos();
-  // Fail loud rather than silently degrade — Slice 1 needs the full repo set
-  // the graph nodes read (employees, threads, llm_calls, deliverables, …).
-  for (const required of ['employees', 'threads', 'companies', 'llmCalls', 'taskRuns'] as const) {
+  // Fail loud rather than silently degrade — the graph nodes read the full repo
+  // set (employees, threads, llm_calls, deliverables, …) and tool execution now
+  // audits every call through `mcpAudit`, so it is required, not optional.
+  for (const required of [
+    'employees',
+    'threads',
+    'companies',
+    'llmCalls',
+    'taskRuns',
+    'mcpAudit',
+    'projects',
+  ] as const) {
     if (!repos[required]) {
       throw new Error(`Cannot start the agent runtime: repos.${required} is unavailable.`);
     }
@@ -186,23 +199,40 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
   const builtinTools = createBuiltinTools({
     executionMode: 'desktop-trusted',
     fs: createTauriProjectFsAdapter(),
-    shellExec: async () => {
-      // Slice 3 wires `bash_execute` (it needs project-id plumbing the direct
-      // chat does not carry yet). Until then bash fails closed with a clear
-      // message rather than pretending to run.
-      throw new Error('shell execution is not available on desktop yet.');
-    },
+    // Real shell now runs through the sandboxed `bash_execute` command. It fails
+    // closed when no project workspace is bound (no widening of the Rust
+    // sandbox) and defaults cwd to the bound project root.
+    shellExec: createTauriShellExecAdapter({
+      resolveProjectRoot: async (projectId) => {
+        const project = await repos.projects.findById(projectId);
+        return project?.workspace_root ?? null;
+      },
+    }),
   });
 
   // The tool executor must DISPATCH the builtin tools, not just leave them in
   // the offered list. CompositeToolExecutor runs builtins (read_file etc.) by
   // name and falls through to the MCP executor (NullToolExecutor — none yet on
-  // desktop) for anything else. Passing NullToolExecutor directly here was the
-  // Slice-1 gap: read_file was offered to the model but every call fell through
-  // to "no external tools available" because builtins were never dispatched.
-  const toolExecutor = new CompositeToolExecutor(builtinTools, new NullToolExecutor(), {
+  // desktop) for anything else.
+  const compositeExecutor = new CompositeToolExecutor(builtinTools, new NullToolExecutor(), {
     companyId,
   });
+  // Wrap the composite in the AuditingToolExecutor so EVERY tool call — builtin
+  // included — lands in `mcp_audit_log` (the Slice-1 gap: the composite
+  // dispatched builtins directly, bypassing the audit decorator). Audit-only for
+  // now: no authorizer / interactionService / hookRegistry — builtins run as
+  // they do today, but recorded. The bash-tool's own shell classifier still
+  // gates destructive commands. Mirrors `scenario-runner.ts` wiring.
+  const toolExecutor = new AuditingToolExecutor(
+    compositeExecutor,
+    repos.mcpAudit,
+    runtimeEventBus,
+    companyId,
+    `desktop-agent-${companyId}`,
+    undefined,
+    undefined,
+    undefined,
+  );
 
   const runtimeCtx = createRuntimeContext({
     repos,

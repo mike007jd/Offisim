@@ -15,18 +15,7 @@ import {
   displayAttachmentsFromStaged,
   materializeChatTurn,
   newDraftId,
-  sendDesktopProviderMessage,
 } from './desktop-chat-runtime.js';
-
-const DEFAULT_MAX_OUTPUT_TOKENS = 512;
-
-/**
- * Slice 1 flag: route desktop chat through the real LangGraph agent runtime
- * (graph → employee node → builtin tools) instead of the single-shot direct
- * provider completion. When off, the existing `sendDesktopProviderMessage`
- * fallback is used unchanged. Flip via `VITE_AGENT_RUNTIME=true`.
- */
-const AGENT_RUNTIME_ENABLED = import.meta.env.VITE_AGENT_RUNTIME === 'true';
 
 /**
  * Graph nodes whose streamed `content` is the user-visible reply for a chat
@@ -146,112 +135,97 @@ export function useOfficeRuntime({
           prev.map((draft) => (draft.id === userMessageId ? userMessage : draft)),
         );
         await persistRuntimeMessage(userMessage);
-        // The agent-runtime module is dynamically imported so that with the flag
-        // off the entire LangGraph stack is tree-shaken out of the default bundle
-        // and never evaluated on OfficeSurface load — the single-shot path stays
-        // completely untouched.
-        if (AGENT_RUNTIME_ENABLED && companyId) {
-          const { getDesktopAgentRuntime } = await import('@/runtime/desktop-agent-runtime.js');
-          const { runtimeEventBus } = await import('@/runtime/repos.js');
-          const runtime = await getDesktopAgentRuntime(companyId);
+        // The chat always runs through the real LangGraph agent runtime; the
+        // single-shot direct-provider path was retired with the flag in slice 3.
+        // A chat without an active company cannot assemble a runtime — fail
+        // honestly rather than silently degrade onto a removed path.
+        if (!companyId) {
+          throw new Error('Cannot send this message: no active company is bound to this chat.');
+        }
+        const { getDesktopAgentRuntime } = await import('@/runtime/desktop-agent-runtime.js');
+        const { runtimeEventBus } = await import('@/runtime/repos.js');
+        const runtime = await getDesktopAgentRuntime(companyId);
 
-          // Stream the employee's reply into a single assistant draft so the
-          // bubble fills chunk-by-chunk instead of popping in whole. The graph
-          // emits `llm.stream.chunk` on the shared runtimeEventBus; we append
-          // the `content` channel for this thread's reply nodes. The
-          // authoritative `response` from execute() overwrites the same draft
-          // afterward — never a second message.
-          const streamDraftId = newDraftId('assistant');
-          setDrafts((prev) => [
-            ...prev,
-            {
-              id: streamDraftId,
-              threadId,
-              author: 'employee',
-              employeeId: assigneeId ?? null,
-              body: '',
-              at: Date.now(),
-            },
-          ]);
-          const unsubscribe = runtimeEventBus.on('llm.stream.chunk', (event) => {
-            // `LlmStreamChunkPayload` does not declare `chatThreadId` in
-            // shared-types; the event factory still sets it from the run scope.
-            // Cast locally to keep this renderer-only (no shared-types change).
-            const payload = event.payload as {
-              nodeName?: string;
-              content?: string;
-              channel?: 'content' | 'reasoning';
-              chatThreadId?: string;
-            };
-            // Drop the reasoning channel (MiniMax emits it) — only content fills
-            // the bubble. Land only on this thread's reply nodes; boss/manager
-            // routing chatter must not leak into the visible reply.
-            if (payload.channel !== 'content') return;
-            if ((payload.chatThreadId || event.threadId) !== threadId) return;
-            if (!payload.nodeName || !STREAM_REPLY_NODES.has(payload.nodeName)) return;
-            const chunk = payload.content;
-            if (!chunk) return;
-            setDrafts((prev) =>
-              prev.map((draft) =>
-                draft.id === streamDraftId ? { ...draft, body: draft.body + chunk } : draft,
-              ),
+        // Stream the employee's reply into a single assistant draft so the bubble
+        // fills chunk-by-chunk instead of popping in whole. The graph emits
+        // `llm.stream.chunk` on the shared runtimeEventBus; we append the
+        // `content` channel for this thread's reply nodes. The draft is created
+        // lazily on the first chunk (so a provider error before any token leaves
+        // no empty bubble — just the error), and the authoritative `response`
+        // from execute() overwrites it afterward — never a second message.
+        const streamDraftId = newDraftId('assistant');
+        const upsertDraft = (body: string, mode: 'append' | 'set') =>
+          setDrafts((prev) => {
+            const existing = prev.find((draft) => draft.id === streamDraftId);
+            if (!existing) {
+              return [
+                ...prev,
+                {
+                  id: streamDraftId,
+                  threadId,
+                  author: 'employee',
+                  employeeId: assigneeId ?? null,
+                  body,
+                  at: Date.now(),
+                },
+              ];
+            }
+            const nextBody = mode === 'append' ? existing.body + body : body;
+            return prev.map((draft) =>
+              draft.id === streamDraftId ? { ...draft, body: nextBody } : draft,
             );
           });
-          let response: string;
-          try {
-            response = await runtime.execute({
-              text: materialized.promptText,
-              threadId,
-              employeeId: assigneeId ?? null,
-              projectId,
-            });
-          } finally {
-            // InMemoryEventBus has no auto-cleanup — always release this handler.
-            unsubscribe();
-          }
-          // A late-resolving Stop: keep whatever already streamed into the draft
-          // (do not overwrite with the authoritative response, do not persist).
-          if (abortedRef.current) return;
-          const assistantMessage: ChatMessage = {
-            id: streamDraftId,
-            threadId,
-            author: 'employee',
-            employeeId: assigneeId ?? null,
-            body: response,
-            at: Date.now(),
+        const unsubscribe = runtimeEventBus.on('llm.stream.chunk', (event) => {
+          // `LlmStreamChunkPayload` does not declare `chatThreadId` in
+          // shared-types; the event factory still sets it from the run scope.
+          // Cast locally to keep this renderer-only (no shared-types change).
+          const payload = event.payload as {
+            nodeName?: string;
+            content?: string;
+            channel?: 'content' | 'reasoning';
+            chatThreadId?: string;
           };
-          // Overwrite the streaming draft in place — the authoritative text is
-          // the graph's final reply, not the concatenated chunks.
-          setDrafts((prev) =>
-            prev.map((draft) => (draft.id === streamDraftId ? assistantMessage : draft)),
-          );
-          await persistRuntimeMessage(assistantMessage);
-        } else {
-          const response = await sendDesktopProviderMessage({
+          // Drop the reasoning channel (MiniMax emits it) — only content fills
+          // the bubble. Land only on this thread's reply nodes; boss/manager
+          // routing chatter must not leak into the visible reply.
+          if (payload.channel !== 'content') return;
+          if ((payload.chatThreadId || event.threadId) !== threadId) return;
+          if (!payload.nodeName || !STREAM_REPLY_NODES.has(payload.nodeName)) return;
+          const chunk = payload.content;
+          if (!chunk) return;
+          upsertDraft(chunk, 'append');
+        });
+        let response: string;
+        try {
+          response = await runtime.execute({
             text: materialized.promptText,
-            requestId,
-            maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS,
             threadId,
-            companyId,
-            projectId,
-            signal: abortController.signal,
-          });
-          // A Stop can resolve the in-flight request late (the Rust abort and the
-          // awaited response race). Without this guard a cancelled run would still
-          // commit its response as a normal assistant message. The `finally` block
-          // below still runs and routes cleanup through the aborted branch.
-          if (abortedRef.current) return;
-          const assistantMessage: ChatMessage = {
-            id: newDraftId('assistant'),
-            threadId,
-            author: 'employee',
             employeeId: assigneeId ?? null,
-            body: response,
-            at: Date.now(),
-          };
-          setDrafts((prev) => [...prev, assistantMessage]);
-          await persistRuntimeMessage(assistantMessage);
+            projectId,
+          });
+        } finally {
+          // InMemoryEventBus has no auto-cleanup — always release this handler.
+          unsubscribe();
         }
+        // A late-resolving Stop: keep whatever already streamed into the draft
+        // (do not overwrite with the authoritative response, do not persist).
+        if (abortedRef.current) return;
+        const assistantMessage: ChatMessage = {
+          id: streamDraftId,
+          threadId,
+          author: 'employee',
+          employeeId: assigneeId ?? null,
+          body: response,
+          at: Date.now(),
+        };
+        // Replace the streamed draft with the authoritative final reply (or
+        // create it when the reply did not stream, e.g. a short-circuited node).
+        setDrafts((prev) =>
+          prev.some((draft) => draft.id === streamDraftId)
+            ? prev.map((draft) => (draft.id === streamDraftId ? assistantMessage : draft))
+            : [...prev, assistantMessage],
+        );
+        await persistRuntimeMessage(assistantMessage);
       } catch (error) {
         // A deliberate Stop aborts the in-flight request, which rejects here.
         // That is a cancel, not a failure — skip the error toast/bubble.
@@ -313,11 +287,11 @@ export function useOfficeRuntime({
   const abortInFlight = useCallback(async () => {
     abortedRef.current = true;
     abortControllerRef.current?.abort();
-    // Agent-runtime path: cancel the in-flight graph execution for this thread.
-    // The orchestration abort signals the running graph stream; the underlying
-    // `llm_fetch` is then cancelled through the run's AbortSignal. (Harmless
-    // no-op when no run is in flight for this thread.)
-    if (AGENT_RUNTIME_ENABLED && companyId) {
+    // Cancel the in-flight graph execution for this thread. The orchestration
+    // abort signals the running graph stream; the underlying `llm_fetch` is then
+    // cancelled through the run's AbortSignal. (Harmless no-op when no run is in
+    // flight for this thread.)
+    if (companyId) {
       void import('@/runtime/desktop-agent-runtime.js')
         .then(({ getDesktopAgentRuntime }) => getDesktopAgentRuntime(companyId))
         .then((runtime) => runtime.abort(threadId))
