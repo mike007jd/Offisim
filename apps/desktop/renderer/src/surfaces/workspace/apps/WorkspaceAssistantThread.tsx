@@ -539,8 +539,8 @@ export function WorkspaceAssistantThread({
           {runtimeMessages.length === 0 ? (
             <EmptyState
               icon={MessageSquarePlus}
-              title="No messages"
-              description="Send the first message to start."
+              title="No messages yet"
+              description="Write a message below to start this thread."
             />
           ) : (
             <section className="off-ws-messages">
@@ -566,7 +566,7 @@ export function WorkspaceAssistantThread({
         <ComposerPrimitive.Root className="off-ws-composer">
           <ComposerPrimitive.Input
             className="off-ws-composer-input"
-            placeholder={`Message ${active.title}...`}
+            placeholder="Write a message..."
             rows={1}
             submitOnEnter
             disabled={!chatEnabled}

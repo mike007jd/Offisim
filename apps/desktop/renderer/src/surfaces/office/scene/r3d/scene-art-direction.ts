@@ -17,11 +17,11 @@ export const OFFICE_ROOM = {
  *  pulled back along +Z, looking straight down the room at a downward tilt (not a
  *  45° corner isometric). Rotation is locked; OrbitControls disable rotate. */
 export const OFFICE_CAMERA_PRESET = {
-  position: [0, 30, 38] as [number, number, number],
-  target: [0, 1, 0] as [number, number, number],
-  fov: 40,
-  minDistance: 28,
-  maxDistance: 62,
+  position: [0, 34, 46] as [number, number, number],
+  target: [0, 0.8, 1] as [number, number, number],
+  fov: 48,
+  minDistance: 34,
+  maxDistance: 72,
 } as const;
 
 export const SCENE_LAYER_Y = {

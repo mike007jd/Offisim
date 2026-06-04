@@ -21,7 +21,8 @@ export function ResumeBar() {
   const openThread = useUiState((s) => s.openThread);
 
   const items = unfinished.data ?? [];
-  if (dismissed || items.length === 0) return null;
+  const shouldShowInSurface = surface === 'office' || surface === 'workspace';
+  if (dismissed || items.length === 0 || !shouldShowInSurface) return null;
 
   const blocked = items.filter((i) => i.state === 'blocked').length;
   const only = items.length === 1 ? items[0] : null;

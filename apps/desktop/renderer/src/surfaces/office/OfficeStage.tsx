@@ -5,7 +5,7 @@ import { useRunCost } from '@/data/queries.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 import { useActivityRecords } from '@/surfaces/activity/activity-data.js';
-import { Bell, Box, Coins, LayoutPanelTop } from 'lucide-react';
+import { Activity, Box, Coins, LayoutPanelTop } from 'lucide-react';
 import { Suspense, useMemo } from 'react';
 import { OfficeScene2D } from './scene/OfficeScene2D.js';
 import { OfficeScene3D } from './scene/OfficeScene3D.js';
@@ -23,8 +23,7 @@ export function OfficeStage() {
   const activityRecords = useActivityRecords(companyId);
 
   // Unread = activity rows with `at` strictly newer than the last-seen stamp.
-  // Hardcoded `has-unread` was the only signal previously, so this lights up
-  // honestly and clears on bell click via markActivityRead.
+  // The scene readout owns this state so Office avoids generic header chrome.
   const { unreadCount, newestAt } = useMemo(() => {
     const rows = activityRecords.data ?? [];
     let unread = 0;
@@ -35,7 +34,7 @@ export function OfficeStage() {
     }
     return { unreadCount: unread, newestAt: newest };
   }, [activityRecords.data, activityLastSeenAt]);
-  const notifLabel =
+  const activityLabel =
     unreadCount > 0 ? `Open Activity Log (${unreadCount} unread)` : 'Open Activity Log';
 
   return (
@@ -73,26 +72,6 @@ export function OfficeStage() {
         </button>
       </div>
 
-      {/* Notifications: stable top-right chrome, separate from the cost readout. */}
-      <button
-        type="button"
-        className={cn('off-stage-notif off-focusable', unreadCount > 0 && 'has-unread')}
-        aria-label={notifLabel}
-        title={notifLabel}
-        onClick={() => {
-          // newestAt === 0 means no activity rows have arrived yet — falling back
-          // to Date.now() would stamp lastSeenAt higher than the first incoming
-          // row's `at`, hiding it from the badge. Skip the mark when nothing's new.
-          if (newestAt > 0) markActivityRead(newestAt);
-          setSurface('activity');
-        }}
-      >
-        <Icon icon={Bell} size="sm" />
-        {unreadCount > 0 ? (
-          <span className="off-stage-notif-count">{unreadCount > 99 ? '99+' : unreadCount}</span>
-        ) : null}
-      </button>
-
       {/* Single diegetic cost/token readout on the scene border. */}
       <div className={cn('off-scene-cost', isRunning && 'is-live')}>
         <span className="off-sc-readout">
@@ -109,6 +88,21 @@ export function OfficeStage() {
             </>
           ) : null}
         </span>
+        <button
+          type="button"
+          className={cn('off-sc-notif off-focusable', unreadCount > 0 && 'has-unread')}
+          aria-label={activityLabel}
+          title={activityLabel}
+          onClick={() => {
+            // newestAt === 0 means no activity rows have arrived yet; skip the
+            // mark so a first incoming row can still surface as unread.
+            if (newestAt > 0) markActivityRead(newestAt);
+            setSurface('activity');
+          }}
+        >
+          <Icon icon={Activity} size="sm" />
+          {unreadCount > 0 ? <span className="off-sc-notif-dot" aria-hidden /> : null}
+        </button>
       </div>
     </section>
   );

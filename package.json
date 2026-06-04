@@ -11,6 +11,7 @@
     "build:codex-agent-host": "node scripts/build-codex-agent-host.mjs",
     "build:runtime-deps": "node scripts/build-runtime-deps.mjs",
     "check:ui-hygiene": "node scripts/check-ui-framework-hygiene.mjs",
+    "check:ui-ux-drift": "node scripts/check-ui-ux-drift.mjs",
     "dev:all": "node scripts/dev-all.mjs",
     "harness:edge": "node scripts/harness-edge.mjs",
     "harness:load": "node scripts/harness-load.mjs",

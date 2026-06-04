@@ -60,12 +60,12 @@
      Canonicals hold their CURRENT values (no shift for the common sm/base/meta/
      lg/xl); the rest alias to the nearest canonical, so only nano/2xs/label/
      micro/micro-lg/md change value. */
-  --off-fs-xs: 9px;          /* canonical 9: tiniest meta / caps labels */
-  --off-fs-meta: 11px;       /* canonical 11: micro pill / secondary label */
-  --off-fs-sm: 12px;         /* canonical 12: secondary body */
-  --off-fs-base: 13px;       /* canonical 13: default body */
-  --off-fs-lg: 15px;         /* canonical 15: subhead / emphasis */
-  --off-fs-xl: 19px;         /* canonical 19: display heading */
+  --off-fs-xs: 9px; /* canonical 9: tiniest meta / caps labels */
+  --off-fs-meta: 11px; /* canonical 11: micro pill / secondary label */
+  --off-fs-sm: 12px; /* canonical 12: secondary body */
+  --off-fs-base: 13px; /* canonical 13: default body */
+  --off-fs-lg: 15px; /* canonical 15: subhead / emphasis */
+  --off-fs-xl: 19px; /* canonical 19: display heading */
   /* aliases → nearest canonical */
   --off-fs-nano: var(--off-fs-xs); /* 7.5 → 9 */
   --off-fs-2xs: var(--off-fs-xs); /* 8.5 → 9 */
@@ -128,7 +128,7 @@
   --off-z-emergency: 99999;
   --off-blur-dialog: 2px;
 
-  --off-body-bg: var(--off-bg);
+  --off-body-bg: radial-gradient(1200px 700px at 50% -10%, #1f2738 0%, #0f1420 60%, #0b0f17 100%);
   --off-topbar-bg: rgba(255, 255, 255, 0.92);
   --off-overlay: rgba(18, 28, 50, 0.42);
   /* 3-tier glass (F2 convergence): solid / muted / faint. Legacy names aliased

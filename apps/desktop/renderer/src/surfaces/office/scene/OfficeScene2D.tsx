@@ -5,6 +5,7 @@ import type { ZoneKind } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
 import { CANVAS_FONT_TOKENS } from '@/styles/visual-tokens.js';
 import { useEffect, useMemo, useRef } from 'react';
+import { compactSceneEmployeeName } from './scene-labels.js';
 
 const ZONE_TINT: Record<ZoneKind, string> = {
   workspace: OFFICE_SCENE_2D_COLORS.zoneWorkspace,
@@ -176,7 +177,7 @@ export function OfficeScene2D() {
         ctx.fillStyle = OFFICE_SCENE_2D_COLORS.name;
         ctx.font = CANVAS_FONT_TOKENS.officeSceneLabel;
         ctx.textAlign = 'center';
-        ctx.fillText(employee.name, sx, sy + r + 18);
+        ctx.fillText(compactSceneEmployeeName(employee.name), sx, sy + r + 18);
         ctx.textAlign = 'left';
 
         if (thread) hitsRef.current.push({ threadId: thread.id, sx, sy, r: r + 6 });

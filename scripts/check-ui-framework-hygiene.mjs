@@ -581,7 +581,7 @@ const requiredChecks = [
   {
     label: 'IconBar consumes the nav registry (utilities not hardcoded)',
     file: 'apps/desktop/renderer/src/design-system/shell/IconBar.tsx',
-    patterns: [/UTILITY_NAV\.map/],
+    patterns: [/UTILITY_NAV\.filter/, /visibleEntries\.map/],
   },
   {
     label: 'WorkspaceNav consumes the nav registry (primary not hardcoded)',

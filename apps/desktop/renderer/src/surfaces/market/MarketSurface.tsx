@@ -105,8 +105,8 @@ const MODE_TABS: ReadonlyArray<SegmentedOption<'explore' | 'manage'>> = [
 
 const MIN_CARD = 216;
 const GAP = 14;
-/** Card (200) + the per-row top spacing (sp-7 = 16) used as inter-row rhythm. */
-const ROW_HEIGHT = 216;
+/** Card (180) + the per-row top spacing (sp-7 = 16) used as inter-row rhythm. */
+const ROW_HEIGHT = 196;
 
 export function MarketSurface() {
   const queryClient = useQueryClient();
@@ -413,7 +413,12 @@ export function MarketSurface() {
         ) : filtered.length === 0 ? (
           <MarketEmptyState filtered={query !== '' || kind !== 'all'} onReset={resetFilters} />
         ) : (
-          <CardGrid listings={filtered} selectedId={selectedListingId} onOpen={openDetail} />
+          <CardGrid
+            listings={filtered}
+            selectedId={selectedListingId}
+            onSelect={(listing) => selectListing(listing.id)}
+            onOpen={openDetail}
+          />
         )}
       </div>
 
@@ -486,9 +491,7 @@ function RegistryTokenDialog({
       <DialogContent className="off-mkt-dialog">
         <DialogHeader>
           <DialogTitle>Registry Token</DialogTitle>
-          <DialogDescription>
-            Connect a token to publish and track your drafts.
-          </DialogDescription>
+          <DialogDescription>Connect a token to publish and track your drafts.</DialogDescription>
         </DialogHeader>
         <div className="off-token-dialog">
           <div className="off-token-status">
@@ -563,10 +566,12 @@ function SortMenu({
 function CardGrid({
   listings,
   selectedId,
+  onSelect,
   onOpen,
 }: {
   listings: MarketListing[];
   selectedId: string | null;
+  onSelect: (listing: MarketListing) => void;
   onOpen: (listing: MarketListing) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -624,6 +629,7 @@ function CardGrid({
                   listing={listing}
                   installed={listing.installed}
                   selected={listing.id === selectedId}
+                  onSelect={() => onSelect(listing)}
                   onOpen={() => onOpen(listing)}
                 />
               ))}
@@ -674,9 +680,7 @@ function MarketErrorState({ error, onRetry }: { error: unknown; onRetry: () => v
           <Icon icon={WifiOff} size="md" />
         </span>
         <div className="off-mkt-hero-t">Market is unavailable</div>
-        <div className="off-mkt-hero-d">
-          Couldn't reach the marketplace.
-        </div>
+        <div className="off-mkt-hero-d">Couldn't reach the marketplace.</div>
         <div className="off-mkt-hero-tech">{reason}</div>
         <div className="off-mkt-hero-a">
           <Button size="md" onClick={onRetry}>
@@ -734,8 +738,8 @@ function MarketNotConnected({
         </span>
         <div className="off-mkt-hero-t">No marketplace connected</div>
         <div className="off-mkt-hero-d">
-          Browsing a remote catalog needs a registry. You can install packages
-          right now by importing a local .offisimpkg, .aicspkg, or .zip file.
+          Browsing a remote catalog needs a registry. You can install packages right now by
+          importing a local .offisimpkg, .aicspkg, or .zip file.
         </div>
         <div className="off-mkt-hero-a">
           <Button size="md" onClick={onImport} disabled={importing}>

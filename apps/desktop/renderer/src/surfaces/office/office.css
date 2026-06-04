@@ -185,11 +185,16 @@
   box-shadow: inset 0 0 0 1px var(--off-accent-ring);
 }
 
-/* Scene host: fills the stage behind the floats; 3D Canvas / 2D canvas */
+/* Scene host reserves lanes for mode controls and scene readouts. */
 .off-scene-host {
   position: absolute;
-  inset: 0;
+  inset: 38px var(--off-sp-4) 38px var(--off-sp-4);
   min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-md);
+  background: var(--off-surface-0);
+  box-shadow: inset 0 0 0 1px var(--off-white-line);
 }
 
 .off-scene-canvas {
@@ -213,8 +218,12 @@
 .off-scene-tag {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
-  padding: 2px 8px;
+  min-width: 48px;
+  max-width: 76px;
+  min-height: 22px;
+  padding: 3px 9px;
   border: 1px solid var(--off-line);
   border-radius: var(--off-r-pill);
   background: var(--off-surface-glass);
@@ -223,6 +232,8 @@
   font-size: var(--off-fs-meta);
   font-weight: 600;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   transform: translateY(-100%);
   pointer-events: none;
 }
@@ -271,7 +282,7 @@
   font-size: var(--off-fs-micro);
 }
 
-/* Stage floats: render mode (left) + status/token/cost (center) */
+/* Stage floats: render mode plus scene readouts. */
 .off-stage-float {
   position: absolute;
   top: 0;
@@ -289,52 +300,6 @@
 
 .off-stage-mode {
   left: var(--off-sp-6);
-}
-
-/* Notifications: independent top-right float (glass round button + count). */
-.off-stage-notif {
-  position: absolute;
-  top: var(--off-sp-6);
-  right: var(--off-sp-7);
-  z-index: var(--off-z-float);
-  height: 30px;
-  min-width: 30px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--off-sp-2);
-  padding: 0 var(--off-sp-2);
-  border: 1px solid var(--off-line);
-  border-radius: var(--off-r-pill);
-  background: var(--off-surface-glass-strong);
-  backdrop-filter: blur(6px);
-  box-shadow: var(--off-elev-1);
-  color: var(--off-ink-4);
-  transition: color var(--off-motion-fast) var(--off-motion-ease), border-color
-    var(--off-motion-fast) var(--off-motion-ease);
-}
-
-.off-stage-notif:hover {
-  color: var(--off-accent);
-  border-color: var(--off-accent-ring);
-}
-
-.off-stage-notif.has-unread {
-  color: var(--off-ink-2);
-}
-
-.off-stage-notif-count {
-  height: 16px;
-  min-width: 16px;
-  padding: 0 4px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--off-r-pill);
-  background: var(--off-danger);
-  color: var(--off-accent-fg);
-  font-size: var(--off-fs-label);
-  font-weight: 720;
 }
 
 .off-stage-mode-btn {
@@ -382,6 +347,40 @@
   display: flex;
   align-items: center;
   gap: var(--off-sp-3);
+}
+
+.off-sc-notif {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-pill);
+  background: var(--off-surface-glass-weak);
+  backdrop-filter: blur(6px);
+  box-shadow: var(--off-elev-1);
+  color: var(--off-ink-4);
+  transition: color var(--off-motion-fast) var(--off-motion-ease), border-color
+    var(--off-motion-fast) var(--off-motion-ease);
+}
+
+.off-sc-notif:hover,
+.off-sc-notif.has-unread {
+  color: var(--off-accent);
+  border-color: var(--off-accent-ring);
+}
+
+.off-sc-notif-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--off-r-round);
+  background: var(--off-danger);
+  box-shadow: 0 0 0 2px var(--off-surface-1);
 }
 
 .off-sc-readout {

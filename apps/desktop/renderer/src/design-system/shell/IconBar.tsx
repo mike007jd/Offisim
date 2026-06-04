@@ -5,10 +5,13 @@ import { IconButton } from '@/design-system/grammar/IconButton.js';
 export function IconBar() {
   const surface = useUiState((s) => s.surface);
   const setSurface = useUiState((s) => s.setSurface);
+  const visibleEntries = UTILITY_NAV.filter(
+    (entry) => entry.key !== 'studio' || surface === 'office' || surface === 'studio',
+  );
 
   return (
     <div className="off-iconbar">
-      {UTILITY_NAV.map((entry, index) => (
+      {visibleEntries.map((entry, index) => (
         <span key={entry.key} className="off-iconbar-entry">
           {/* Divider before Studio separates feed/config utilities from the editor. */}
           {entry.key === 'studio' && index > 0 ? (

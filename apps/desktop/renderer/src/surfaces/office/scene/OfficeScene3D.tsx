@@ -20,6 +20,7 @@ import { WhiteboardMesh3D } from './r3d/prefabs/WhiteboardMesh3D.js';
 import { WorkstationUnit3D } from './r3d/prefabs/WorkstationMesh3D.js';
 import { OFFICE_CAMERA_PRESET } from './r3d/scene-art-direction.js';
 import { LIGHT_SCENE_3D } from './r3d/scene-colors.js';
+import { compactSceneEmployeeName } from './scene-labels.js';
 
 interface ZoneDef {
   id: string;
@@ -487,6 +488,8 @@ function EmployeeUnit({
     () => (employee.id.charCodeAt(employee.id.length - 1) % 10) * 0.6,
     [employee.id],
   );
+  const labelLane = (employee.id.charCodeAt(employee.id.length - 1) % 3) - 1;
+  const labelText = compactSceneEmployeeName(employee.name);
 
   useEffect(
     () => () => {
@@ -632,7 +635,7 @@ function EmployeeUnit({
         <BlockCharacter appearance={appearance} running={running} phase={phase} />
       </group>
       <Html
-        position={[0, 2.1, 0]}
+        position={[labelLane * 0.28, 2.05 + Math.abs(labelLane) * 0.22, labelLane * 0.14]}
         center
         distanceFactor={16}
         occlude={false}
@@ -640,6 +643,8 @@ function EmployeeUnit({
       >
         <button
           type="button"
+          aria-label={`Open ${employee.name}`}
+          title={employee.name}
           className={`off-scene-tag is-interactive${running ? ' is-running' : ''}`}
           onClick={(e) => {
             e.stopPropagation();
@@ -662,7 +667,7 @@ function EmployeeUnit({
           }}
           draggable={false}
         >
-          {employee.name}
+          {labelText}
         </button>
       </Html>
     </group>

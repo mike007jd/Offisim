@@ -386,12 +386,16 @@
 /* ── Right inspector ──────────────────────────── */
 .off-pers-insp-tabs {
   flex: none;
-  height: 44px;
+  height: 36px;
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 0 var(--off-sp-5);
-  border-bottom: 1px solid var(--off-line);
+  margin: var(--off-sp-4) var(--off-sp-5) 0;
+  padding: 3px;
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-md);
+  background: var(--off-surface-2);
+  box-shadow: var(--off-elev-1);
   overflow-x: auto;
 }
 

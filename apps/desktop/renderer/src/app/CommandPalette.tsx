@@ -46,11 +46,11 @@ export function CommandPalette() {
               {NAV_ENTRIES.map((entry) => (
                 <CommandItem
                   key={entry.key}
-                  value={`go ${entry.label}`}
+                  value={`go ${entry.key === 'studio' ? 'Office Studio editor' : entry.label}`}
                   onSelect={() => run(() => setSurface(entry.key))}
                 >
                   <entry.icon />
-                  {entry.label}
+                  {entry.key === 'studio' ? 'Office Studio editor' : entry.label}
                 </CommandItem>
               ))}
             </CommandGroup>

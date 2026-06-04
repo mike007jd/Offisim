@@ -52,8 +52,8 @@ interface UiState {
 
   /**
    * Highest activity-record timestamp the user has marked as seen. Office's
-   * Bell badge compares this to the live activity feed to render an honest
-   * unread count instead of the prior hardcoded "always lit" indicator.
+   * scene readout compares this to the live activity feed to render an honest
+   * unread signal instead of the prior hardcoded "always lit" indicator.
    */
   activityLastSeenAt: number;
 
@@ -77,7 +77,7 @@ interface UiState {
   setWorkspaceApp: (app: WorkspaceApp, selectedId?: string | null) => void;
   selectWorkspaceItem: (id: string | null) => void;
 
-  /** Stamp the most recent seen activity timestamp (clears the Bell badge). */
+  /** Stamp the most recent seen activity timestamp (clears the scene unread signal). */
   markActivityRead: (timestampMs: number) => void;
 }
 
