@@ -252,16 +252,21 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
     clientFactory: createTauriMcpClientFactory(),
   });
   try {
-    for (const serverConfig of await loadRegisteredStdioMcpConfigs()) {
-      try {
-        await mcpExecutor.addServer(serverConfig);
-      } catch (err) {
-        console.warn('[desktop-agent-runtime] MCP server failed to start', {
-          server: serverConfig.name,
-          err,
-        });
-      }
-    }
+    // Servers are independent (addServer keys by name + rolls back only its own
+    // entries), so spawn + handshake them concurrently — runtime assembly waits
+    // on the slowest server, not the sum. Each failure is swallowed per-server so
+    // one bad server can't sink the rest (mirrors dispose()'s parallel teardown).
+    const serverConfigs = await loadRegisteredStdioMcpConfigs();
+    await Promise.all(
+      serverConfigs.map((serverConfig) =>
+        mcpExecutor.addServer(serverConfig).catch((err: unknown) => {
+          console.warn('[desktop-agent-runtime] MCP server failed to start', {
+            server: serverConfig.name,
+            err,
+          });
+        }),
+      ),
+    );
   } catch (err) {
     // Listing the registry itself failed — run without MCP rather than aborting.
     console.warn('[desktop-agent-runtime] could not list registered MCP servers', { err });

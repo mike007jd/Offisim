@@ -412,25 +412,31 @@ export function useUnfinishedThreads() {
       if (!repos) return resolveAsync(unfinishedThreads);
 
       // Real backend: surface non-terminal conversational graph threads across
-      // all active companies, named by their chat-thread title.
+      // all active companies, named by their chat-thread title. These are reads
+      // (not serialized by the tauri write-chain mutex), so fan them out:
+      // per-company thread lists in parallel, then one parallel batch of title
+      // lookups over only the surviving non-terminal threads (no per-row await).
       const companies = (await repos.companies.findAll()).filter((c) => c.status !== 'archived');
-      const items: UnfinishedThread[] = [];
-      for (const company of companies) {
-        const threadRows = await repos.threads.findByCompany(company.company_id);
-        for (const row of threadRows) {
-          if (!NON_TERMINAL_THREAD_STATUSES.has(row.status)) continue;
-          if (!RESUMABLE_ENTRY_MODES.has(row.entry_mode)) continue;
-          const chatThread = await repos.chatThreads.findById(row.thread_id).catch(() => null);
-          items.push({
-            threadId: row.thread_id,
-            companyId: row.company_id,
-            projectId: row.project_id ?? '',
-            name: chatThread?.title?.trim() || 'Untitled conversation',
-            state: row.status === 'blocked' ? 'blocked' : 'running',
-          });
-        }
-      }
-      return items;
+      const threadsByCompany = await Promise.all(
+        companies.map((company) => repos.threads.findByCompany(company.company_id)),
+      );
+      const candidates = threadsByCompany
+        .flat()
+        .filter(
+          (row) =>
+            NON_TERMINAL_THREAD_STATUSES.has(row.status) &&
+            RESUMABLE_ENTRY_MODES.has(row.entry_mode),
+        );
+      const titles = await Promise.all(
+        candidates.map((row) => repos.chatThreads.findById(row.thread_id).catch(() => null)),
+      );
+      return candidates.map((row, i) => ({
+        threadId: row.thread_id,
+        companyId: row.company_id,
+        projectId: row.project_id ?? '',
+        name: titles[i]?.title?.trim() || 'Untitled conversation',
+        state: row.status === 'blocked' ? 'blocked' : 'running',
+      }));
     },
   });
 }

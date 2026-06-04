@@ -1,6 +1,7 @@
 import type { ChatAttachment, RunError, StagedAttachment } from '@/data/types.js';
 import { sha256Hex } from '@/lib/utils.js';
 import type { AppendMessage } from '@assistant-ui/react';
+import type { EventBus } from '@offisim/core/browser';
 import {
   type AttachmentKind,
   type AttachmentMeta,
@@ -200,3 +201,36 @@ async function materializeAttachmentBytes(
  * the bubble.
  */
 export const STREAM_REPLY_NODES: ReadonlySet<string> = new Set(['employee', 'boss_summary', 'hr']);
+
+/**
+ * Subscribe to the graph's `llm.stream.chunk` events for one chat thread and
+ * forward each user-visible content chunk to `onContentChunk`. Shared by the
+ * Office runtime and the Workspace messenger so both filter identically: drop
+ * the reasoning channel (MiniMax emits it), match this thread by the run-scope
+ * `chatThreadId` (falling back to the event's `threadId`), and accept only the
+ * reply nodes in `STREAM_REPLY_NODES` (boss/manager routing chatter is excluded).
+ *
+ * Returns the unsubscribe function — the InMemoryEventBus has no auto-cleanup,
+ * so callers MUST release it (e.g. in a `finally`).
+ */
+export function subscribeReplyStream(
+  eventBus: EventBus,
+  threadId: string,
+  onContentChunk: (chunk: string) => void,
+): () => void {
+  return eventBus.on('llm.stream.chunk', (event) => {
+    // `LlmStreamChunkPayload` does not declare `chatThreadId` in shared-types;
+    // the event factory still sets it from the run scope. Cast locally.
+    const payload = event.payload as {
+      nodeName?: string;
+      content?: string;
+      channel?: 'content' | 'reasoning';
+      chatThreadId?: string;
+    };
+    if (payload.channel !== 'content') return;
+    if ((payload.chatThreadId || event.threadId) !== threadId) return;
+    if (!payload.nodeName || !STREAM_REPLY_NODES.has(payload.nodeName)) return;
+    if (!payload.content) return;
+    onContentChunk(payload.content);
+  });
+}

@@ -15,16 +15,8 @@ import {
   displayAttachmentsFromStaged,
   materializeChatTurn,
   newDraftId,
+  subscribeReplyStream,
 } from './desktop-chat-runtime.js';
-
-/**
- * Graph nodes whose streamed `content` is the user-visible reply for a chat
- * surface. A direct chat ends at the `employee` node (boss_summary short-circuits
- * its reply without a new LLM call); `boss_summary`/`hr` cover the summary and HR
- * reply paths. `boss`/`manager` routing chatter is intentionally excluded so it
- * never leaks into the bubble.
- */
-const STREAM_REPLY_NODES = new Set(['employee', 'boss_summary', 'hr']);
 
 /** Map an Offisim chat message into the assistant-ui thread model. The original
  *  message is carried in metadata.custom so the V3 rail keeps full fidelity. */
@@ -154,7 +146,7 @@ export function useOfficeRuntime({
         // no empty bubble — just the error), and the authoritative `response`
         // from execute() overwrites it afterward — never a second message.
         const streamDraftId = newDraftId('assistant');
-        const upsertDraft = (body: string, mode: 'append' | 'set') =>
+        const appendChunk = (chunk: string) =>
           setDrafts((prev) => {
             const existing = prev.find((draft) => draft.id === streamDraftId);
             if (!existing) {
@@ -165,36 +157,16 @@ export function useOfficeRuntime({
                   threadId,
                   author: 'employee',
                   employeeId: assigneeId ?? null,
-                  body,
+                  body: chunk,
                   at: Date.now(),
                 },
               ];
             }
-            const nextBody = mode === 'append' ? existing.body + body : body;
             return prev.map((draft) =>
-              draft.id === streamDraftId ? { ...draft, body: nextBody } : draft,
+              draft.id === streamDraftId ? { ...draft, body: draft.body + chunk } : draft,
             );
           });
-        const unsubscribe = runtimeEventBus.on('llm.stream.chunk', (event) => {
-          // `LlmStreamChunkPayload` does not declare `chatThreadId` in
-          // shared-types; the event factory still sets it from the run scope.
-          // Cast locally to keep this renderer-only (no shared-types change).
-          const payload = event.payload as {
-            nodeName?: string;
-            content?: string;
-            channel?: 'content' | 'reasoning';
-            chatThreadId?: string;
-          };
-          // Drop the reasoning channel (MiniMax emits it) — only content fills
-          // the bubble. Land only on this thread's reply nodes; boss/manager
-          // routing chatter must not leak into the visible reply.
-          if (payload.channel !== 'content') return;
-          if ((payload.chatThreadId || event.threadId) !== threadId) return;
-          if (!payload.nodeName || !STREAM_REPLY_NODES.has(payload.nodeName)) return;
-          const chunk = payload.content;
-          if (!chunk) return;
-          upsertDraft(chunk, 'append');
-        });
+        const unsubscribe = subscribeReplyStream(runtimeEventBus, threadId, appendChunk);
         let response: string;
         try {
           response = await runtime.execute({

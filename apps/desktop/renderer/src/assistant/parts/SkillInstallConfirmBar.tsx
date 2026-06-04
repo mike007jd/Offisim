@@ -87,7 +87,9 @@ export function SkillInstallConfirmBar({
     }
   };
 
-  const bodyPreview = context.skillMdBody?.trim().slice(0, 400) ?? '';
+  const trimmedBody = context.skillMdBody?.trim() ?? '';
+  const bodyPreview = trimmedBody.slice(0, 400);
+  const bodyTruncated = trimmedBody.length > 400;
   const actionLabel =
     context.action === 'fork' ? 'Fork' : context.action === 'edit' ? 'Edit' : 'Create';
 
@@ -120,7 +122,7 @@ export function SkillInstallConfirmBar({
       {bodyPreview ? (
         <pre className="off-skillconfirm-body">
           {bodyPreview}
-          {context.skillMdBody && context.skillMdBody.length > 400 ? '…' : ''}
+          {bodyTruncated ? '…' : ''}
         </pre>
       ) : null}
       <div className="off-skillconfirm-actions">

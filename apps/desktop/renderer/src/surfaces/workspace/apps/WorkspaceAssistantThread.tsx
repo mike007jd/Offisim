@@ -2,10 +2,10 @@ import { StagedAttachments } from '@/assistant/composer/StagedAttachments.js';
 import { SkillInstallConfirmBar } from '@/assistant/parts/SkillInstallConfirmBar.js';
 import { useRunStore } from '@/assistant/run-store.js';
 import {
-  STREAM_REPLY_NODES,
   appendText,
   materializeChatTurn,
   newDraftId,
+  subscribeReplyStream,
 } from '@/assistant/runtime/desktop-chat-runtime.js';
 import { isTauriRuntime } from '@/data/adapters.js';
 import { UI_DATA_COLORS } from '@/data/color-palette.js';
@@ -457,22 +457,9 @@ export function WorkspaceAssistantThread({
               draft.id === streamDraftId ? { ...draft, body: nextBody } : draft,
             );
           });
-        const unsubscribe = runtimeEventBus.on('llm.stream.chunk', (event) => {
-          // `LlmStreamChunkPayload` does not declare `chatThreadId`; the event
-          // factory still sets it from the run scope. Cast locally (renderer-only).
-          const payload = event.payload as {
-            nodeName?: string;
-            content?: string;
-            channel?: 'content' | 'reasoning';
-            chatThreadId?: string;
-          };
-          if (payload.channel !== 'content') return;
-          if ((payload.chatThreadId || event.threadId) !== active.id) return;
-          if (!payload.nodeName || !STREAM_REPLY_NODES.has(payload.nodeName)) return;
-          const chunk = payload.content;
-          if (!chunk) return;
-          upsertDraft(chunk, 'append');
-        });
+        const unsubscribe = subscribeReplyStream(runtimeEventBus, active.id, (chunk) =>
+          upsertDraft(chunk, 'append'),
+        );
         let response: string;
         try {
           response = await runtime.execute({

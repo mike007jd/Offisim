@@ -87,17 +87,15 @@ class TauriCheckpointSaver extends BaseCheckpointSaver {
     const checkpointNs = (configurable.checkpoint_ns as string | undefined) ?? '';
     const checkpointId = configurable.checkpoint_id as string | undefined;
 
-    const where = checkpointId
-      ? and(
-          eq(schema.checkpoints.thread_id, threadId),
-          eq(schema.checkpoints.checkpoint_ns, checkpointNs),
-          eq(schema.checkpoints.checkpoint_id, checkpointId),
-        )
-      : and(
-          eq(schema.checkpoints.thread_id, threadId),
-          eq(schema.checkpoints.checkpoint_ns, checkpointNs),
-        );
-    const base = this.db.select().from(schema.checkpoints).where(where);
+    const conditions = [
+      eq(schema.checkpoints.thread_id, threadId),
+      eq(schema.checkpoints.checkpoint_ns, checkpointNs),
+    ];
+    if (checkpointId) conditions.push(eq(schema.checkpoints.checkpoint_id, checkpointId));
+    const base = this.db
+      .select()
+      .from(schema.checkpoints)
+      .where(and(...conditions));
     const rows = (
       checkpointId
         ? await base
