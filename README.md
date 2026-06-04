@@ -103,6 +103,8 @@ Current application/package shape:
 
 - `README.md` — this file; project truth and document routing
 - `Docs/00_start_here/LOCAL_DEVELOPMENT.md` — new-machine setup, prerequisites, env, and local startup commands
+- `Docs/00_start_here/DEPLOYMENT.md` — platform/registry backend deployment (Docker) and desktop distribution
+- `Docs/00_start_here/RELEASE_GATES.md` — the gate commands and evidence requirements for a release
 
 ### AI operating rules
 
@@ -120,8 +122,10 @@ Current application/package shape:
 
 ### Working notes (evolving, not authoritative)
 
-- `Docs/04_runtime_experience/` — scene / chat / runtime UX notes still in flux
-- `Docs/design/spacing-density.md`
+- `Docs/UI_FRAMEWORK_STACK.md` — the approved renderer UI stack (source of truth for new UI work)
+- `Docs/design/` — per-surface HTML prototype specs (Office, Settings, Market, Personnel, Activity, Workspace, lifecycle, states)
+- `Docs/design/spacing-density.md` — spacing token reference
+- `Docs/reviews/` — formal code-inspection reports
 
 ## Recommended reading order for AI agents
 
@@ -142,11 +146,11 @@ When two sources overlap, use this order:
 
 If a task is about...
 
-- **runtime behavior, orchestration, local state, installs** → start with `ENGINEERING_RULES`, contracts, and schemas
-- **visual language or marketplace presentation** → start with `DESIGN_RULES`
-- **user flows, trust, readability, accessibility** → start with `UX_RULES`
-- **office scene animation or rich feedback** → start with the GDD, then `SCENE_STATE_MATRIX`
-- **platform publish / listing / versions / reviews** → start with OpenAPI and platform schema
+- **runtime behavior, orchestration, local state, installs** → start with `CLAUDE.md`, the **Live contracts** above, and `packages/db-local/src/schema.sql`
+- **visual language or marketplace presentation** → start with `Docs/UI_FRAMEWORK_STACK.md` and `Docs/design/`
+- **user flows, trust, readability, accessibility** → start with the per-surface prototypes in `Docs/design/`
+- **office scene / layout / prefabs** → start with `packages/renderer` (scene tokens, layout engine, prefab/state logic) and `Docs/design/offisim-office-layout-v3-prototype.html`
+- **platform publish / listing / versions / reviews** → start with `apps/platform/src/routes/` and `packages/db-platform/src/schema.ts`
 
 ## Important guardrails
 

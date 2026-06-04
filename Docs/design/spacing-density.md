@@ -33,7 +33,7 @@ Spacious:
 
 ## Tailwind Mapping
 
-`apps/web/src/index.css` maps these variables into Tailwind spacing tokens:
+`apps/desktop/renderer/src/styles/index.css` maps these variables into Tailwind spacing tokens:
 - `p-sp-sm`
 - `px-sp-lg`
 - `gap-sp-md`

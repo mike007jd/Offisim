@@ -19,8 +19,6 @@ WORKDIR /app
 
 COPY --from=builder /app /app
 
-RUN rm -rf apps/web apps/launcher
-
 ENV NODE_ENV=production
 
 EXPOSE 4100

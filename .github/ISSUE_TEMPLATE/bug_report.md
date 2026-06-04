@@ -12,11 +12,11 @@ Describe the bug clearly.
 
 ## Environment
 
-- Surface: web / desktop / platform
+- Surface: desktop / platform
 - OS:
 - Node version:
 - pnpm version:
-- Browser or desktop version:
+- Desktop app version:
 
 ## Steps To Reproduce
 
