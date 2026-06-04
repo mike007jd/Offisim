@@ -402,6 +402,14 @@ export function MarketSurface() {
           <SkeletonGrid />
         ) : listings.isError ? (
           <MarketErrorState error={listings.error} onRetry={() => listings.refetch()} />
+        ) : registryConnection.data?.reason === 'registry-config-missing' ? (
+          // No registry configured (the default desktop build): show an honest
+          // not-connected state with local import, not a fabricated storefront.
+          <MarketNotConnected
+            onImport={() => fileInputRef.current?.click()}
+            onConnectRegistry={() => setRegistryTokenOpen(true)}
+            importing={importPackageFile.isPending}
+          />
         ) : filtered.length === 0 ? (
           <MarketEmptyState filtered={query !== '' || kind !== 'all'} onReset={resetFilters} />
         ) : (
@@ -704,6 +712,41 @@ function MarketEmptyState({ filtered, onReset }: { filtered: boolean; onReset: (
             </Button>
           </div>
         ) : null}
+      </div>
+    </div>
+  );
+}
+
+function MarketNotConnected({
+  onImport,
+  onConnectRegistry,
+  importing,
+}: {
+  onImport: () => void;
+  onConnectRegistry: () => void;
+  importing: boolean;
+}) {
+  return (
+    <div className="off-mkt-scroll off-mkt-hero-wrap">
+      <div className="off-mkt-hero">
+        <span className="off-mkt-hero-i">
+          <Icon icon={Store} size="md" />
+        </span>
+        <div className="off-mkt-hero-t">No marketplace connected</div>
+        <div className="off-mkt-hero-d">
+          Browsing a remote catalog needs a registry. You can install packages
+          right now by importing a local .offisimpkg, .aicspkg, or .zip file.
+        </div>
+        <div className="off-mkt-hero-a">
+          <Button size="md" onClick={onImport} disabled={importing}>
+            <Icon icon={importing ? Loader2 : Upload} size="sm" />
+            Import package…
+          </Button>
+          <Button variant="outline" size="md" onClick={onConnectRegistry}>
+            <Icon icon={KeyRound} size="sm" />
+            Connect registry…
+          </Button>
+        </div>
       </div>
     </div>
   );

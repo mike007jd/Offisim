@@ -1413,12 +1413,12 @@ export function useMarketListings(companyId?: string | null) {
       const registryListings = await loadRegistryListings(companyId);
       if (registryListings) return registryListings;
       const repos = await reposOrNull();
-      if (!repos || !companyId) return resolveAsync(marketListings);
-      const installedRows = await repos.installedPackages.listByCompany(companyId);
-      return marketListings.map((listing) => ({
-        ...listing,
-        installed: listingIsInstalled(listing, installedRows),
-      }));
+      // Browser preview (no Tauri repos) renders the demo catalog so the surface
+      // isn't blank. In a real desktop build with no registry configured, return
+      // [] — the Market surface shows an honest "not connected" state with local
+      // import, never a fabricated browsable storefront keyed off fixtures.
+      if (!repos) return resolveAsync(marketListings);
+      return [] as MarketListing[];
     },
   });
 }
