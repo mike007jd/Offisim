@@ -1,4 +1,10 @@
+import { useUiState } from '@/app/ui-state.js';
+import { employeeToVm, isTauriRuntime, reposOrNull } from '@/data/adapters.js';
+import type { Employee } from '@/data/types.js';
 import { resolveAsync } from '@/lib/platform.js';
+import { getTauriDb } from '@/lib/tauri-db.js';
+import type { MeetingSessionRow } from '@offisim/core/browser';
+import type { InteractionRequest } from '@offisim/shared-types';
 import { useQuery } from '@tanstack/react-query';
 
 /**
@@ -672,43 +678,405 @@ const meetings: WsMeeting[] = [
 
 /* ── Query hooks (fixture seam) ──────────────────────────────────────────── */
 
+/**
+ * Real conversation list = the active project's non-archived chat_threads
+ * (employee_id set => direct, null => group). Browser preview (no repos) keeps
+ * the demo fixture so the surface renders; release shows an honest empty list
+ * when the project has no threads. No presence/unread/snippet beyond the real
+ * summary — those have no backing column.
+ */
 export function useWsConversations() {
+  const projectId = useUiState((s) => s.projectId);
   return useQuery({
-    queryKey: ['ws', 'conversations'],
-    queryFn: () => resolveAsync(conversations),
+    queryKey: ['ws', 'conversations', projectId],
+    queryFn: async (): Promise<WsConversation[]> => {
+      const repos = await reposOrNull();
+      if (!repos) return resolveAsync(conversations); // browser preview only
+      if (!projectId) return [];
+      const rows = await repos.chatThreads.listByProject(projectId);
+      return rows.map((row) => ({
+        id: row.thread_id,
+        kind: row.employee_id ? 'direct' : 'group',
+        title: row.title?.trim() || 'New thread',
+        employeeId: row.employee_id ?? null,
+        snippet: row.summary ?? '',
+        timeLabel: Number.isFinite(Date.parse(row.updated_at))
+          ? ageLabelFrom(Date.parse(row.updated_at), Date.now())
+          : '',
+      }));
+    },
   });
 }
 
 export function useWsThread(conversationId: string | null) {
   return useQuery({
     queryKey: ['ws', 'thread', conversationId],
-    queryFn: () =>
-      resolveAsync<WsThread | null>(conversationId ? (threadsById[conversationId] ?? null) : null),
+    queryFn: async (): Promise<WsThread | null> => {
+      if (!conversationId) return null;
+      const repos = await reposOrNull();
+      if (!repos) return threadsById[conversationId] ?? null; // browser preview seed
+      // Release: the message stream is the persisted agent_events feed rendered
+      // by WorkspaceAssistantThread. Return an honest empty seed — no fabricated
+      // messages on top of the real persisted ones.
+      return { daySep: 'Today', messages: [] };
+    },
     enabled: conversationId !== null,
   });
 }
 
 export function useWsSystemCards() {
-  return useQuery({ queryKey: ['ws', 'system'], queryFn: () => resolveAsync(systemCards) });
-}
-
-export function useWsApprovals() {
-  return useQuery({ queryKey: ['ws', 'approvals'], queryFn: () => resolveAsync(approvals) });
-}
-
-export function useWsContactDetails() {
   return useQuery({
-    queryKey: ['ws', 'contact-details'],
-    queryFn: () => resolveAsync(contactDetails),
+    queryKey: ['ws', 'system'],
+    queryFn: async (): Promise<SysCard[]> => {
+      // The real conversation list (chat_threads) produces no `system` row, so
+      // the System channel never opens in release — runtime / HR / market /
+      // install events live in the Activity Log. Return [] in release; keep the
+      // demo fixture for browser preview.
+      if (isTauriRuntime()) return [];
+      return resolveAsync(systemCards);
+    },
   });
 }
 
-export function useWsAgenda() {
-  return useQuery({ queryKey: ['ws', 'agenda'], queryFn: () => resolveAsync(agenda) });
+/* ── Approvals real-bind (active_thread_interactions + interaction_history) ── */
+
+const INTERACTION_KIND_TO_GATE: Record<string, GateKind> = {
+  permission_request: 'permission',
+  plan_review: 'plan',
+  agent_question: 'ask',
+  skill_install_confirm: 'install',
+};
+
+function ageLabelFrom(createdAtMs: number, now: number): string {
+  const diff = Math.max(0, now - createdAtMs);
+  const min = 60_000;
+  const hour = 60 * min;
+  const day = 24 * hour;
+  if (diff < min) return 'just now';
+  if (diff < hour) return `${Math.floor(diff / min)}m`;
+  if (diff < day) return `${Math.floor(diff / hour)}h`;
+  return `${Math.floor(diff / day)}d`;
+}
+
+// Maps an InteractionRequest (parsed from request_json) to a WsApproval. Fields
+// with no real source on the interaction record are blanked ('—') / omitted,
+// never fabricated (requesterRole, threadName, expiresLabel).
+function interactionToApproval(
+  req: InteractionRequest,
+  opts: { status: GateStatus; scope: GrantScope; threadName: string },
+  now: number,
+): WsApproval {
+  const kind = INTERACTION_KIND_TO_GATE[req.kind] ?? 'ask';
+  const ctx = req.context;
+
+  const request: ApprovalKV[] = [];
+  if (ctx?.type === 'permission_request') {
+    request.push({ label: 'Tool', value: `${ctx.serverName} · ${ctx.toolName}`, mono: true });
+    if (ctx.policyHash) request.push({ label: 'Policy', value: ctx.policyHash, mono: true });
+  } else if (ctx?.type === 'skill_install_confirm') {
+    request.push({ label: 'Skill', value: ctx.skillName });
+    if (ctx.allowedTools.length)
+      request.push({ label: 'Permissions', value: ctx.allowedTools.join(' · '), mono: true });
+    request.push({ label: 'Scope', value: ctx.resolvedScope });
+    request.push({ label: 'Source', value: `${ctx.sourceKind} · ${ctx.sourceRef}` });
+  } else if (ctx?.type === 'plan_review' && ctx.planId) {
+    request.push({ label: 'Plan', value: ctx.planId, mono: true });
+  } else if (ctx?.type === 'agent_question' && ctx.questionKey) {
+    request.push({ label: 'Question', value: ctx.questionKey });
+  }
+  if (req.options.length)
+    request.push({ label: 'Options', value: req.options.map((o) => o.label).join(' · ') });
+
+  // No raw shell command is persisted — show the tool ref, never an invented line.
+  const command =
+    ctx?.type === 'permission_request' ? `${ctx.serverName}/${ctx.toolName}` : undefined;
+  const reason = req.recommendation?.reason ?? req.prompt ?? '—';
+
+  return {
+    id: req.interactionId,
+    kind,
+    status: opts.status,
+    title: req.title,
+    requesterId: req.employeeId ?? '',
+    requesterRole: '—',
+    threadName: opts.threadName,
+    ageLabel: ageLabelFrom(req.createdAt, now),
+    request,
+    command,
+    reason,
+    scope: opts.scope,
+  };
+}
+
+function resolveStatusAndScope(
+  req: InteractionRequest,
+  selectedOptionId: string | null,
+  historyStatus: string,
+): { status: GateStatus; scope: GrantScope } {
+  if (historyStatus === 'cancelled' || historyStatus === 'superseded') {
+    return { status: 'denied', scope: 'once' };
+  }
+  const opt = req.options.find((o) => o.id === selectedOptionId);
+  const isReject = !opt || /reject|deny|cancel|no/i.test(opt.id);
+  return { status: isReject ? 'denied' : 'approved', scope: (opt?.scope as GrantScope) ?? 'once' };
+}
+
+function defaultScope(req: InteractionRequest): GrantScope {
+  const rec = req.recommendation
+    ? req.options.find((o) => o.id === req.recommendation?.optionId)
+    : undefined;
+  return (rec?.scope as GrantScope) ?? 'once';
+}
+
+function safeParseRequest(json: string): InteractionRequest | null {
+  try {
+    return JSON.parse(json) as InteractionRequest;
+  } catch {
+    return null;
+  }
+}
+
+export function useWsApprovals(companyId: string | null) {
+  return useQuery({
+    queryKey: ['ws', 'approvals', companyId],
+    enabled: companyId !== null,
+    queryFn: async (): Promise<WsApproval[]> => {
+      const repos = await reposOrNull();
+      // Browser preview (no Tauri repos): keep the demo fixture.
+      if (!repos) return resolveAsync(approvals);
+
+      const cid = companyId ?? '';
+      const [active, history] = await Promise.all([
+        repos.activeInteractions.findByCompany(cid),
+        repos.interactionHistory.listByCompany(cid, { limit: 100 }),
+      ]);
+      const now = Date.now();
+
+      const pending = active
+        .map((row) => {
+          const req = safeParseRequest(row.request_json);
+          if (!req) return null;
+          return interactionToApproval(
+            req,
+            { status: 'pending', scope: defaultScope(req), threadName: '—' },
+            now,
+          );
+        })
+        .filter((a): a is WsApproval => a !== null);
+
+      const resolved = history
+        .map((row) => {
+          const req = safeParseRequest(row.request_json);
+          if (!req) return null;
+          const { status, scope } = resolveStatusAndScope(req, row.selected_option_id, row.status);
+          // The resolved-row age tracks resolved_at, not the original createdAt.
+          const ageReq = { ...req, createdAt: Date.parse(row.resolved_at) || req.createdAt };
+          return interactionToApproval(ageReq, { status, scope, threadName: '—' }, now);
+        })
+        .filter((a): a is WsApproval => a !== null);
+
+      return [...pending, ...resolved];
+    },
+  });
+}
+
+/* ── Contacts detail real-bind (employee row + workstation zone + chat count) ─ */
+
+interface WorkstationLabelRow {
+  employee_id: string;
+  zone_label: string | null;
+}
+interface DirectChatCountRow {
+  employee_id: string;
+  n: number;
+}
+
+/**
+ * Real per-employee Contacts detail, derived from the employee row + the office
+ * workstation it is seated at + a direct-chat count. No presumptuous default:
+ * fields with no persisted source (tools / decision style / live working-or-
+ * blocked presence) render an em dash.
+ */
+async function loadContactDetails(
+  companyId: string | null,
+  employees: Employee[],
+): Promise<Record<string, ContactDetail>> {
+  if (employees.length === 0) return {};
+  const db = await getTauriDb();
+  const [wsRows, chatRows] = await Promise.all([
+    db.select<WorkstationLabelRow[]>(
+      `select e.employee_id as employee_id, w.label as zone_label
+         from employees e
+         left join workstations w on w.workstation_id = e.workstation_id
+        where e.company_id = $1`,
+      [companyId ?? ''],
+    ),
+    db.select<DirectChatCountRow[]>(
+      `select ct.employee_id as employee_id, count(*) as n
+         from chat_threads ct
+         join projects p on p.project_id = ct.project_id
+        where p.company_id = $1
+          and ct.employee_id is not null
+          and ct.archived_at is null
+        group by ct.employee_id`,
+      [companyId ?? ''],
+    ),
+  ]);
+  const zoneByEmp = new Map<string, string>();
+  for (const r of wsRows)
+    if (r.zone_label?.trim()) zoneByEmp.set(r.employee_id, r.zone_label.trim());
+  const chatByEmp = new Map<string, number>();
+  for (const r of chatRows) chatByEmp.set(r.employee_id, Number(r.n) || 0);
+
+  const out: Record<string, ContactDetail> = {};
+  for (const e of employees) {
+    const zone = zoneByEmp.get(e.id) ?? e.zoneLabel ?? '';
+    const directChats = chatByEmp.get(e.id) ?? 0;
+    const group = zone || e.discipline || 'Team';
+    out[e.id] = {
+      presence: e.online ? 'idle' : 'offline',
+      zone: zone || '—',
+      model: e.modelLabel,
+      expertise: e.expertise && e.expertise.length > 0 ? e.expertise.join(' · ') : '—',
+      tools: '—',
+      decisionStyle: '—',
+      openChats: directChats === 1 ? '1 direct' : `${directChats} direct`,
+      source:
+        e.kind === 'external'
+          ? e.brandLabel
+            ? `External · ${e.brandLabel} (A2A)`
+            : 'External (A2A)'
+          : 'Internal employee',
+      group,
+    };
+  }
+  return out;
+}
+
+export function useWsContactDetails() {
+  const companyId = useUiState((s) => s.companyId);
+  return useQuery({
+    queryKey: ['ws', 'contact-details', companyId],
+    queryFn: async (): Promise<Record<string, ContactDetail>> => {
+      // Browser preview (no Tauri runtime / repos): keep the demo fixture.
+      if (!isTauriRuntime()) return resolveAsync(contactDetails);
+      const repos = await reposOrNull();
+      if (!repos) return resolveAsync(contactDetails);
+      const rows = await repos.employees.findByCompany(companyId ?? '');
+      const employees = rows.map(employeeToVm);
+      return loadContactDetails(companyId, employees);
+    },
+  });
+}
+
+/* ── Calendar / Meetings real-bind (meeting_sessions) ────────────────────── */
+
+/** DB status -> the VM's 3 buckets. running = live; scheduled = upcoming;
+ *  completed/cancelled/paused = ended. */
+function mapMeetingStatus(dbStatus: string): WsMeeting['status'] {
+  if (dbStatus === 'running') return 'live';
+  if (dbStatus === 'scheduled') return 'upcoming';
+  return 'ended';
+}
+
+const MEETING_DATE_FMT = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
+const MEETING_TIME_FMT = new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit' });
+const AGENDA_WEEKDAY_FMT = new Intl.DateTimeFormat('en-US', { weekday: 'short' });
+
+/** Parse summary_json.participants (string[] of employee ids), written only on
+ *  completed meetings. Anything else -> []. No invented ids. */
+function parseAttendeeIds(summaryJson: string | null): string[] {
+  if (!summaryJson) return [];
+  try {
+    const parsed = JSON.parse(summaryJson) as { participants?: unknown };
+    if (!Array.isArray(parsed?.participants)) return [];
+    return parsed.participants.filter((p): p is string => typeof p === 'string');
+  } catch {
+    return [];
+  }
+}
+
+function meetingRowToVm(row: MeetingSessionRow): WsMeeting {
+  const created = new Date(row.created_at);
+  const valid = !Number.isNaN(created.getTime());
+  const status = mapMeetingStatus(row.status);
+  const timeLabel = valid
+    ? `${MEETING_DATE_FMT.format(created)} · ${MEETING_TIME_FMT.format(created)}`
+    : '—';
+  return {
+    id: row.meeting_id,
+    title: row.topic,
+    status,
+    // Honest sub line from real fields only — no fabricated "12 min · 4 attendees".
+    sub: valid ? `${timeLabel} · ${status}` : status,
+    timeLabel,
+    attendeeIds: parseAttendeeIds(row.summary_json),
+    threadId: row.thread_id ?? '',
+    // No action-items column / no action-items in summary_json -> always empty.
+    actionItems: [],
+  };
 }
 
 export function useWsMeetings() {
-  return useQuery({ queryKey: ['ws', 'meetings'], queryFn: () => resolveAsync(meetings) });
+  const companyId = useUiState((s) => s.companyId);
+  return useQuery({
+    queryKey: ['ws', 'meetings', companyId],
+    queryFn: async (): Promise<WsMeeting[]> => {
+      const repos = await reposOrNull();
+      if (!repos) return resolveAsync(meetings);
+      if (!companyId) return [];
+      const rows = await repos.meetings.findByCompany(companyId);
+      return rows.map(meetingRowToVm);
+    },
+  });
+}
+
+/** Project real meeting_sessions into the multi-day AgendaDay structure (one
+ *  AgendaEvent per meeting). No calendar/events table exists, so meetings are
+ *  the only real agenda we can show — not invented slots. */
+function meetingsToAgenda(rows: MeetingSessionRow[]): AgendaDay[] {
+  const todayKey = new Date().toDateString();
+  const byDay = new Map<string, { date: Date; events: AgendaEvent[] }>();
+  for (const row of rows) {
+    const d = new Date(row.created_at);
+    if (Number.isNaN(d.getTime())) continue;
+    const key = d.toDateString();
+    let bucket = byDay.get(key);
+    if (!bucket) {
+      bucket = { date: d, events: [] };
+      byDay.set(key, bucket);
+    }
+    bucket.events.push({
+      id: `mtg-ev-${row.meeting_id}`,
+      kind: 'meeting',
+      title: row.topic,
+      timeLabel: MEETING_TIME_FMT.format(d),
+      note: mapMeetingStatus(row.status),
+    });
+  }
+  return [...byDay.values()]
+    .sort((a, b) => a.date.getTime() - b.date.getTime())
+    .map(({ date, events }) => ({
+      id: `agd-${date.toISOString().slice(0, 10)}`,
+      weekday: AGENDA_WEEKDAY_FMT.format(date),
+      date: MEETING_DATE_FMT.format(date),
+      today: date.toDateString() === todayKey,
+      events: events.sort((a, b) => a.timeLabel.localeCompare(b.timeLabel)),
+    }));
+}
+
+export function useWsAgenda() {
+  const companyId = useUiState((s) => s.companyId);
+  return useQuery({
+    queryKey: ['ws', 'agenda', companyId],
+    queryFn: async (): Promise<AgendaDay[]> => {
+      const repos = await reposOrNull();
+      if (!repos) return resolveAsync(agenda);
+      if (!companyId) return [];
+      const rows = await repos.meetings.findByCompany(companyId);
+      return meetingsToAgenda(rows);
+    },
+  });
 }
 
 /* ── Shared label maps ───────────────────────────────────────────────────── */

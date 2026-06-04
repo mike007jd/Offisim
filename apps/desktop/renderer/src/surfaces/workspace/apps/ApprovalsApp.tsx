@@ -79,7 +79,8 @@ function Row({
               brand={requester.kind === 'external'}
             />
           ) : null}
-          {requester?.name ?? 'Unknown'} · {a.requesterRole}
+          {requester?.name ?? 'Unknown'}
+          {requester?.role ? ` · ${requester.role}` : ''}
         </span>
       ) : (
         <span className="off-ws-oa-from is-resolved">
@@ -92,7 +93,8 @@ function Row({
 }
 
 export function ApprovalsApp() {
-  const approvals = useWsApprovals();
+  const companyId = useUiState((s) => s.companyId);
+  const approvals = useWsApprovals(companyId || null);
   const employees = useEmployees();
   const selectedId = useUiState((s) => s.workspaceSelectedId);
   const selectItem = useUiState((s) => s.selectWorkspaceItem);
@@ -110,9 +112,7 @@ export function ApprovalsApp() {
 
   const visible = segment === 'todo' ? pending : resolved;
   const activeId =
-    selectedId && visible.some((a) => a.id === selectedId)
-      ? selectedId
-      : (visible[0]?.id ?? null);
+    selectedId && visible.some((a) => a.id === selectedId) ? selectedId : (visible[0]?.id ?? null);
   const active = list.find((a) => a.id === activeId) ?? null;
   const activeScope = active?.scope ?? 'thread';
 
@@ -185,8 +185,16 @@ export function ApprovalsApp() {
                     />
                   ) : null;
                 })()}
-                {byId.get(active.requesterId)?.name ?? '—'} · {active.requesterRole} · in{' '}
-                <b>{active.threadName}</b>
+                {byId.get(active.requesterId)?.name ?? '—'}
+                {byId.get(active.requesterId)?.role
+                  ? ` · ${byId.get(active.requesterId)?.role}`
+                  : ''}
+                {active.threadName !== '—' ? (
+                  <>
+                    {' '}
+                    · in <b>{active.threadName}</b>
+                  </>
+                ) : null}
               </div>
             </div>
 

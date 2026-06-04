@@ -37,7 +37,8 @@ const APP_GROUPS: ReadonlyArray<ReadonlyArray<AppEntry>> = [
 function AppRail() {
   const app = useUiState((s) => s.workspaceApp);
   const setApp = useUiState((s) => s.setWorkspaceApp);
-  const approvals = useWsApprovals();
+  const companyId = useUiState((s) => s.companyId);
+  const approvals = useWsApprovals(companyId);
   const conversations = useWsConversations();
 
   const toDo = approvals.data?.filter((a) => a.status === 'pending').length ?? 0;

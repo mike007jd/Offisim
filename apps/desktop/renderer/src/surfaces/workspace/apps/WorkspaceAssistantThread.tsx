@@ -27,16 +27,10 @@ import {
   ThreadPrimitive,
   useExternalStoreRuntime,
 } from '@assistant-ui/react';
-import {
-  Download,
-  FileText,
-  MessageSquarePlus,
-  Paperclip,
-  SendHorizontal,
-} from 'lucide-react';
+import { Download, FileText, MessageSquarePlus, Paperclip, SendHorizontal } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { type WsConversation, type WsMessage } from '../workspace-data.js';
+import type { WsConversation, WsMessage } from '../workspace-data.js';
 import {
   persistWorkspaceMessage,
   usePersistedWorkspaceMessages,

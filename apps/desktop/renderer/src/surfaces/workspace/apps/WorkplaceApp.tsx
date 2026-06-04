@@ -1,12 +1,12 @@
 import { useUiState } from '@/app/ui-state.js';
 import { useCompanies, useEmployees, useProjects, useRunCost } from '@/data/queries.js';
 import { Icon } from '@/design-system/icons/Icon.js';
+import { cn } from '@/lib/utils.js';
 import {
   formatRelativeTimestamp,
   getDisplayLabel,
   useActivityRecords,
 } from '@/surfaces/activity/activity-data.js';
-import { cn } from '@/lib/utils.js';
 import { ArrowRight } from 'lucide-react';
 import { useWsApprovals, useWsMeetings } from '../workspace-data.js';
 
@@ -21,7 +21,7 @@ export function WorkplaceApp() {
   const companies = useCompanies();
   const projects = useProjects(companyId);
   const employees = useEmployees();
-  const approvals = useWsApprovals();
+  const approvals = useWsApprovals(companyId);
   const meetings = useWsMeetings();
   const runCost = useRunCost();
   const activity = useActivityRecords(companyId);
