@@ -228,7 +228,13 @@ export function StudioSurface() {
   const dragClearTimerRef = useRef<number | null>(null);
 
   const zones = useMemo<StudioZone[]>(() => {
-    if (layout.data?.zones.length) {
+    // When a real layout is loaded (release/Tauri), always edit IT — even when
+    // it has zero zones — so the editor never masks an empty real scene with a
+    // synthetic one. An empty layout renders an empty zone list; the always-on
+    // "Create zone" button seeds the first real zone. The synthetic fixture
+    // below is reached only in browser preview (layout.data === null), matching
+    // OfficeScene3D's `real`-truthiness gate.
+    if (layout.data) {
       const prefabCounts = new Map<string, number>();
       for (const prefab of layout.data.prefabs) {
         const zoneId = prefab.instance.zone_id;
