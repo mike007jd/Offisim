@@ -76,16 +76,28 @@ const valid = await resolveGitSource(
 assert.equal('kind' in valid, false, JSON.stringify(valid));
 assert.equal(valid.scan.skillMdPath, 'smoke-skill/SKILL.md');
 
-const rendererTarballSource = readFileSync(
-  new URL('../apps/desktop/renderer/src/lib/github-tarball.ts', import.meta.url),
+// Source-text belt-and-suspenders over the real owner of the GitHub tarball
+// download. The former renderer helper (apps/desktop/renderer/src/lib/
+// github-tarball.ts) was removed with the legacy UI framework in fc5f08ec; the
+// byte-cap + streaming-read + zip-bomb guard now live solely in the core git
+// resolver, which the behavioral scenarios above already exercise. We re-point
+// the static assertion there so a future edit that drops the cap or buffers the
+// whole tarball still trips this harness.
+const gitResolverSource = readFileSync(
+  new URL('../packages/core/src/skills/skill-source-resolvers/git.ts', import.meta.url),
   'utf8',
 );
-assert.match(rendererTarballSource, /GITHUB_TARBALL_MAX_BYTES/u);
-assert.match(rendererTarballSource, /resp\.body\.getReader\(\)/u);
-assert.equal(
-  rendererTarballSource.includes('resp.arrayBuffer()'),
-  false,
-  'renderer GitHub tarball helper must not use uncapped arrayBuffer()',
+assert.match(gitResolverSource, /GITHUB_TARBALL_MAX_BYTES/u);
+assert.match(
+  gitResolverSource,
+  /readGitTarballBytesWithLimit\(\s*resp,\s*GITHUB_TARBALL_MAX_BYTES\s*\)/u,
+  'git resolver must read the tarball body through the byte-capped streaming reader',
+);
+assert.match(gitResolverSource, /resp\.body\.getReader\(\)/u);
+assert.match(
+  gitResolverSource,
+  /safeGunzipSync/u,
+  'git resolver must gunzip through the zip-bomb-guarded helper',
 );
 
 console.log('Git source security harness passed.');
