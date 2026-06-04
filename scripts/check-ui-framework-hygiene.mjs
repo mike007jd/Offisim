@@ -394,6 +394,12 @@ const checks = [
     excludePrefixes: [
       'apps/desktop/renderer/src/surfaces/settings/',
       'apps/desktop/renderer/src/lib/provider-bridge.ts',
+      // Provider-aware transport/runtime plumbing (not user-facing copy): these
+      // map provider profiles onto transport schemes and filter provider stream
+      // quirks, so they must name providers. Same exemption as provider-bridge.
+      'apps/desktop/renderer/src/lib/tauri-llm-fetch.ts',
+      'apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts',
+      'apps/desktop/renderer/src/assistant/runtime/desktop-chat-runtime.ts',
     ],
   },
   {
@@ -419,6 +425,13 @@ const checks = [
       'apps/desktop/renderer/src/surfaces/settings/',
       'apps/desktop/renderer/src/lib/provider-bridge.ts',
       'Docs/design/offisim-settings-prototype.html',
+      // Provider-aware transport/runtime plumbing (not user-facing copy): the
+      // credential-isolated gateway fetch shim and the provider→scheme mapping
+      // legitimately reference Anthropic/OpenAI SDK shapes. Same exemption as
+      // provider-bridge.
+      'apps/desktop/renderer/src/lib/tauri-llm-fetch.ts',
+      'apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts',
+      'apps/desktop/renderer/src/assistant/runtime/desktop-chat-runtime.ts',
     ],
   },
   {
@@ -627,14 +640,12 @@ const requiredChecks = [
     file: 'packages/shared-types/src/project.ts',
     patterns: [/employee_id: string \| null/, /employee_id\?: string \| null/],
   },
-  {
-    label: 'desktop chat thread employee migration',
-    file: 'apps/desktop/src-tauri/src/local_db.rs',
-    patterns: [
-      /ensure_chat_threads_employee_id/,
-      /ALTER TABLE chat_threads ADD COLUMN employee_id TEXT/,
-    ],
-  },
+  // NOTE: the desktop no longer runs a chat_threads.employee_id ALTER migration.
+  // The single-baseline schema (packages/db-local/src/schema.sql, since
+  // ba7788c9) declares employee_id in the chat_threads CREATE TABLE and is
+  // bootstrapped on startup, so no migration function exists or is needed. The
+  // former 'desktop chat thread employee migration' assertion was stale and was
+  // removed; the metadata-schema assertion above still gates the type.
 ];
 
 function extensionOf(path) {

@@ -32,7 +32,7 @@ import type {
 import { getRepos, runtimeEventBus } from './repos.js';
 
 /**
- * The real LangGraph agent runtime wired into desktop chat. This is now the
+ * The real LangGraph agent runtime that backs desktop chat. This is now the
  * ONLY chat path on desktop — the single-shot direct-provider completion was
  * retired in slice 3 (flag removed; Office + Workspace both run through here).
  *
