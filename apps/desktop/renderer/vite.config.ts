@@ -33,6 +33,19 @@ export default defineConfig(({ command }) => ({
     exclude: ['@tauri-apps/api', '@tauri-apps/plugin-sql'],
   },
   build: {
+    // The agent stack (LangGraph/LangChain + LLM SDKs + MCP SDK) lands in a
+    // single ~1.5MB `desktop-agent-runtime` chunk. That chunk is intentionally
+    // code-split: every consumer imports it via `await import(...)` and it is NOT
+    // modulepreloaded in index.html, so it never blocks first paint — it loads
+    // from local disk on chat-open. The size warning here is therefore expected
+    // and honest; do NOT silence it by raising this limit, and do NOT add a
+    // manualChunks split for the agent vendors: the eager entry transitively
+    // touches a few `@langchain`/`@anthropic-ai` modules through the
+    // `@offisim/core/browser` barrel, so forcing those packages into named
+    // vendor chunks pulls the whole 800KB+ into the entry's modulepreload set
+    // (measured) — making first paint worse, not better. The real lever to move
+    // execution out of the webview is a Node sidecar, which is blocked until a
+    // Node runtime is bundled into the .app (same gap as the MCP sidecar).
     chunkSizeWarningLimit: 1300,
     rollupOptions: {
       external: ['better-sqlite3', '@langchain/langgraph-checkpoint-sqlite'],
