@@ -217,9 +217,32 @@ export function useUpdateEmployeeEnabled() {
 }
 
 export function useEmployeeSkills(employeeId: string | null) {
+  const companyId = useUiState((s) => s.companyId);
   return useQuery({
-    queryKey: ['employee-skills', employeeId],
-    queryFn: () => resolveAsync<Skill[]>(employeeId ? (employeeSkills[employeeId] ?? []) : []),
+    queryKey: ['employee-skills', companyId, employeeId],
+    queryFn: async () => {
+      if (!employeeId) return [] as Skill[];
+      const repos = await reposOrNull();
+      // Browser preview (no Tauri repos): keep the demo fixture so the surface
+      // still renders. Release always has repos and reads the real skills table —
+      // matching useEmployeeMemories / useEmployeeVersions, not a fixture seam.
+      if (!repos?.skills) return resolveAsync<Skill[]>(employeeSkills[employeeId] ?? []);
+      // An employee's effective skill set = the company-global skills that apply
+      // to everyone plus this employee's own (employee-scoped) skills. The two
+      // queries are disjoint (employee_id IS NULL vs = id), so no dedup needed.
+      const [companyScoped, personal] = await Promise.all([
+        repos.skills.listByCompanyScope(companyId ?? ''),
+        repos.skills.listByEmployee(companyId ?? '', employeeId),
+      ]);
+      return [...companyScoped, ...personal].map<Skill>((row) => ({
+        id: row.skill_id,
+        name: row.name,
+        description: row.description,
+        // DB scope is only 'company' | 'employee'; the view-model's 'global'
+        // tier is never produced by the real source.
+        scope: row.scope === 'employee' ? 'employee' : 'company',
+      }));
+    },
     enabled: employeeId !== null,
   });
 }
