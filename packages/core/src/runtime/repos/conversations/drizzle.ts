@@ -75,6 +75,15 @@ export function createConversationsDrizzleRepos(db: Db): ConversationsDrizzleRep
         .all();
       return (rows[0] as MeetingSessionRow | undefined) ?? null;
     },
+    async findByCompany(companyId) {
+      const rows = db
+        .select()
+        .from(schema.meetingSessions)
+        .where(eq(schema.meetingSessions.company_id, companyId))
+        .orderBy(desc(schema.meetingSessions.created_at))
+        .all();
+      return rows as MeetingSessionRow[];
+    },
     async updateStatus(id, status, summaryJson) {
       db.update(schema.meetingSessions)
         .set({ status, summary_json: summaryJson ?? undefined, updated_at: now() })
@@ -111,6 +120,15 @@ export function createConversationsDrizzleRepos(db: Db): ConversationsDrizzleRep
         .all();
       return (rows[0] as InteractionActiveRow | undefined) ?? null;
     },
+    async findByCompany(companyId) {
+      const rows = db
+        .select()
+        .from(schema.activeThreadInteractions)
+        .where(eq(schema.activeThreadInteractions.company_id, companyId))
+        .orderBy(desc(schema.activeThreadInteractions.updated_at))
+        .all();
+      return rows as InteractionActiveRow[];
+    },
     async deleteByThread(threadId) {
       db.delete(schema.activeThreadInteractions)
         .where(eq(schema.activeThreadInteractions.thread_id, threadId))
@@ -128,6 +146,17 @@ export function createConversationsDrizzleRepos(db: Db): ConversationsDrizzleRep
         .select()
         .from(schema.interactionHistory)
         .where(eq(schema.interactionHistory.thread_id, threadId))
+        .orderBy(desc(schema.interactionHistory.resolved_at));
+      if (opts?.limit) {
+        query = query.limit(opts.limit) as typeof query;
+      }
+      return query.all() as InteractionHistoryRow[];
+    },
+    async listByCompany(companyId, opts) {
+      let query = db
+        .select()
+        .from(schema.interactionHistory)
+        .where(eq(schema.interactionHistory.company_id, companyId))
         .orderBy(desc(schema.interactionHistory.resolved_at));
       if (opts?.limit) {
         query = query.limit(opts.limit) as typeof query;

@@ -95,6 +95,12 @@ export class MemoryMeetingRepository implements MeetingRepository {
     return this.rows.get(id) ?? null;
   }
 
+  async findByCompany(companyId: string): Promise<MeetingSessionRow[]> {
+    return [...this.rows.values()]
+      .filter((m) => m.company_id === companyId)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  }
+
   async updateStatus(id: string, status: string, summaryJson?: string | null): Promise<void> {
     const row = this.rows.get(id);
     if (row) {
@@ -132,6 +138,12 @@ export class MemoryActiveInteractionRepository implements ActiveInteractionRepos
     return this.rows.get(threadId) ?? null;
   }
 
+  async findByCompany(companyId: string): Promise<InteractionActiveRow[]> {
+    return [...this.rows.values()]
+      .filter((r) => r.company_id === companyId)
+      .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+  }
+
   async deleteByThread(threadId: string): Promise<void> {
     this.rows.delete(threadId);
   }
@@ -161,6 +173,16 @@ export class MemoryInteractionHistoryRepository implements InteractionHistoryRep
   ): Promise<InteractionHistoryRow[]> {
     const rows = this.rows
       .filter((row) => row.thread_id === threadId)
+      .sort((a, b) => b.resolved_at.localeCompare(a.resolved_at));
+    return typeof opts?.limit === 'number' ? rows.slice(0, opts.limit) : rows;
+  }
+
+  async listByCompany(
+    companyId: string,
+    opts?: { limit?: number },
+  ): Promise<InteractionHistoryRow[]> {
+    const rows = this.rows
+      .filter((row) => row.company_id === companyId)
       .sort((a, b) => b.resolved_at.localeCompare(a.resolved_at));
     return typeof opts?.limit === 'number' ? rows.slice(0, opts.limit) : rows;
   }

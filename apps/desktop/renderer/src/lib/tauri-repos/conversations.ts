@@ -71,6 +71,14 @@ export function createConversationsTauriRepos(db: TauriDrizzleDb): Conversations
         .where(eq(schema.meetingSessions.meeting_id, id));
       return (rows[0] as MeetingSessionRow | undefined) ?? null;
     },
+    async findByCompany(companyId) {
+      const rows = await db
+        .select()
+        .from(schema.meetingSessions)
+        .where(eq(schema.meetingSessions.company_id, companyId))
+        .orderBy(desc(schema.meetingSessions.created_at));
+      return rows as MeetingSessionRow[];
+    },
     async updateStatus(id, status, summaryJson) {
       await db
         .update(schema.meetingSessions)
@@ -105,6 +113,14 @@ export function createConversationsTauriRepos(db: TauriDrizzleDb): Conversations
         .where(eq(schema.activeThreadInteractions.thread_id, threadId));
       return (rows[0] as InteractionActiveRow | undefined) ?? null;
     },
+    async findByCompany(companyId) {
+      const rows = await db
+        .select()
+        .from(schema.activeThreadInteractions)
+        .where(eq(schema.activeThreadInteractions.company_id, companyId))
+        .orderBy(desc(schema.activeThreadInteractions.updated_at));
+      return rows as InteractionActiveRow[];
+    },
     async deleteByThread(threadId) {
       await db
         .delete(schema.activeThreadInteractions)
@@ -122,6 +138,17 @@ export function createConversationsTauriRepos(db: TauriDrizzleDb): Conversations
         .select()
         .from(schema.interactionHistory)
         .where(eq(schema.interactionHistory.thread_id, threadId))
+        .orderBy(desc(schema.interactionHistory.resolved_at));
+      if (opts?.limit) {
+        query = query.limit(opts.limit) as typeof query;
+      }
+      return (await query) as InteractionHistoryRow[];
+    },
+    async listByCompany(companyId, opts) {
+      let query = db
+        .select()
+        .from(schema.interactionHistory)
+        .where(eq(schema.interactionHistory.company_id, companyId))
         .orderBy(desc(schema.interactionHistory.resolved_at));
       if (opts?.limit) {
         query = query.limit(opts.limit) as typeof query;

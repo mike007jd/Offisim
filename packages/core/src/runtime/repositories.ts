@@ -291,6 +291,7 @@ export interface HandoffRepository {
 export interface MeetingRepository {
   create(meeting: NewMeetingSession): Promise<MeetingSessionRow>;
   findById(meetingId: string): Promise<MeetingSessionRow | null>;
+  findByCompany(companyId: string): Promise<MeetingSessionRow[]>;
   updateStatus(meetingId: string, status: string, summaryJson?: string | null): Promise<void>;
 }
 
@@ -565,6 +566,7 @@ export type NewInteractionActive = InteractionActiveRow;
 export interface ActiveInteractionRepository {
   upsert(row: NewInteractionActive): Promise<InteractionActiveRow>;
   findByThread(threadId: string): Promise<InteractionActiveRow | null>;
+  findByCompany(companyId: string): Promise<InteractionActiveRow[]>;
   deleteByThread(threadId: string): Promise<void>;
 }
 
@@ -590,6 +592,7 @@ export type NewInteractionHistory = InteractionHistoryRow;
 export interface InteractionHistoryRepository {
   create(row: NewInteractionHistory): Promise<InteractionHistoryRow>;
   listByThread(threadId: string, opts?: { limit?: number }): Promise<InteractionHistoryRow[]>;
+  listByCompany(companyId: string, opts?: { limit?: number }): Promise<InteractionHistoryRow[]>;
 }
 
 // ---------------------------------------------------------------------------
