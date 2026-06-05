@@ -268,24 +268,14 @@ market.get('/search', async (c) => {
     }
   }
 
-  // First preview per listing (sort_order ascending), normalized to client API kinds
-  const previewMap = new Map<string, { kind: string; url: string; alt: string | null }>();
-  for (const p of allPreviews) {
-    if (!previewMap.has(p.listing_id)) {
-      previewMap.set(p.listing_id, {
-        kind: normalizePreviewKind(p.kind),
-        url: p.url,
-        alt: p.alt_text,
-      });
-    }
-  }
-
-  // Transform joined rows into ListingSummary shape (pure in-memory lookups)
+  // Transform joined rows into ListingSummary shape (pure in-memory lookups).
+  // First preview per listing is just the head of previewsMap (same allPreviews
+  // order), so no second pass is needed.
   const items = result.items.map((row) => {
     const listing = row.listings;
     const creator = row.creators;
     const latestVersion = versionMap.get(listing.listing_id);
-    const preview = previewMap.get(listing.listing_id);
+    const preview = previewsMap.get(listing.listing_id)?.[0];
     const manifest = publicManifestView(latestVersion?.manifest_json);
 
     return {
