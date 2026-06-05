@@ -1,5 +1,4 @@
 use serde::Serialize;
-use sqlx::Row;
 use std::path::{Component, Path, PathBuf};
 use tauri::Runtime;
 use tokio::process::Command;
@@ -113,25 +112,13 @@ pub async fn git_exec<R: Runtime>(
 }
 
 fn scrubbed_git_env() -> Vec<(String, String)> {
-    const ALLOW: &[&str] = &[
-        "PATH",
-        "HOME",
-        "USER",
-        "LANG",
-        "TERM",
-        "TMPDIR",
-        "LC_ALL",
-        "LC_CTYPE",
-        "SSH_AUTH_SOCK",
-    ];
-    let mut env = ALLOW
-        .iter()
-        .filter_map(|key| {
-            std::env::var(key)
-                .ok()
-                .map(|value| ((*key).to_string(), value))
-        })
-        .collect::<Vec<_>>();
+    // Git lane extends the shared base allowlist with SSH_AUTH_SOCK (for
+    // ssh-agent-backed remotes) and pins GIT_TERMINAL_PROMPT=0. The base set
+    // and the scan mechanism are shared via `crate::redaction`; the git-only
+    // extras stay here so the policies are not unified into a superset.
+    let mut allow = crate::redaction::BASE_ENV_ALLOWLIST.to_vec();
+    allow.push("SSH_AUTH_SOCK");
+    let mut env = crate::redaction::scrub_env_to_allowlist(&allow);
     env.push(("GIT_TERMINAL_PROMPT".into(), "0".into()));
     env
 }
@@ -149,50 +136,11 @@ fn truncate_git_output(bytes: &[u8]) -> String {
     text
 }
 
-fn redact_url_credentials(token: &str) -> String {
-    let Some(scheme_idx) = token.find("://") else {
-        return token.to_string();
-    };
-    let credential_start = scheme_idx + 3;
-    let Some(relative_at) = token[credential_start..].find('@') else {
-        return token.to_string();
-    };
-    let at_idx = credential_start + relative_at;
-    let first_path_idx = token[credential_start..]
-        .find('/')
-        .map(|idx| credential_start + idx)
-        .unwrap_or(token.len());
-    if at_idx > first_path_idx {
-        return token.to_string();
-    }
-    format!(
-        "{}[REDACTED]{}",
-        &token[..credential_start],
-        &token[at_idx..]
-    )
-}
-
 fn redacted_git_output(bytes: &[u8]) -> String {
     let text = truncate_git_output(bytes);
-    let mut redacted = String::new();
-    for token in text.split_inclusive(char::is_whitespace) {
-        let credential_redacted = redact_url_credentials(token);
-        let bare = credential_redacted
-            .trim_matches(|ch: char| !ch.is_ascii_alphanumeric() && ch != '_' && ch != '-');
-        let lower = bare.to_ascii_lowercase();
-        let looks_secret = bare.len() >= 24
-            && (bare.starts_with("sk-")
-                || bare.starts_with("offisim_")
-                || lower.contains("api_key")
-                || lower.contains("token")
-                || lower.contains("secret"));
-        if looks_secret {
-            redacted.push_str(credential_redacted.replace(bare, "[REDACTED]").as_str());
-        } else {
-            redacted.push_str(&credential_redacted);
-        }
-    }
-    redacted
+    // Git policy (stricter than shell): URL-credential redaction on + the extra
+    // `secret` keyword. The scan mechanism lives in `crate::redaction`.
+    crate::redaction::redact_secret_tokens(&text, true, &["secret"])
 }
 
 fn validate_status(args: &[String]) -> Result<(), String> {
@@ -351,37 +299,15 @@ async fn project_workspace_root<R: Runtime>(
     app: &tauri::AppHandle<R>,
     project_id: &str,
 ) -> Result<PathBuf, String> {
-    let project_id = project_id.trim();
-    if project_id.is_empty() {
-        return Err("projectId is required for git_exec".into());
-    }
-    let pool = crate::local_db::get_offisim_pool(app).map_err(|err| {
-        eprintln!("[git] {err}");
-        "open offisim.db failed".to_string()
-    })?;
-    let row = sqlx::query(
-        r#"
-        SELECT workspace_root
-        FROM projects
-        WHERE project_id = ?
-          AND workspace_root IS NOT NULL
-          AND trim(workspace_root) <> ''
-        "#,
+    // Identical SQL / missing-row / canonicalize behavior as the shared helper;
+    // git only keeps its own empty-id message. (Internal eprintln log prefix is
+    // now `[local_paths]`, which is logging-only and not observable behavior.)
+    crate::local_paths::project_workspace_root_with(
+        app,
+        project_id,
+        "projectId is required for git_exec",
     )
-    .bind(project_id)
-    .fetch_optional(&pool)
     .await
-    .map_err(|err| {
-        eprintln!("[git] project workspace lookup failed: {err}");
-        "project workspace lookup failed".to_string()
-    })?
-    .ok_or_else(|| "No workspace_root is bound for this project".to_string())?;
-    let raw: String = row
-        .try_get("workspace_root")
-        .map_err(|err| format!("decode workspace_root: {err}"))?;
-    PathBuf::from(raw)
-        .canonicalize()
-        .map_err(|err| format!("Resolve project workspace: {err}"))
 }
 
 fn resolve_git_cwd(root: &Path, cwd: &str) -> Result<PathBuf, String> {

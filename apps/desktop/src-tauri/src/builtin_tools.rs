@@ -298,22 +298,9 @@ fn truncate_text(bytes: &[u8], max_bytes: usize) -> String {
 
 fn redacted_text(bytes: &[u8], max_bytes: usize) -> String {
     let text = truncate_text(bytes, max_bytes);
-    let mut redacted = String::new();
-    for token in text.split_inclusive(char::is_whitespace) {
-        let bare =
-            token.trim_matches(|ch: char| !ch.is_ascii_alphanumeric() && ch != '_' && ch != '-');
-        let looks_secret = bare.len() >= 24
-            && (bare.starts_with("sk-")
-                || bare.starts_with("offisim_")
-                || bare.to_ascii_lowercase().contains("api_key")
-                || bare.to_ascii_lowercase().contains("token"));
-        if looks_secret {
-            redacted.push_str(token.replace(bare, "[REDACTED]").as_str());
-        } else {
-            redacted.push_str(token);
-        }
-    }
-    redacted
+    // Shell policy: no URL-credential redaction, no `secret` keyword. The
+    // token-scan mechanism lives in `crate::redaction`; the policy stays here.
+    crate::redaction::redact_secret_tokens(&text, false, &[])
 }
 
 fn append_shell_audit<R: Runtime>(app: &tauri::AppHandle<R>, input: ShellAuditInput<'_>) {
@@ -352,17 +339,8 @@ fn append_shell_audit<R: Runtime>(app: &tauri::AppHandle<R>, input: ShellAuditIn
 }
 
 fn scrubbed_shell_env() -> Vec<(String, String)> {
-    const ALLOW: &[&str] = &[
-        "PATH", "HOME", "USER", "LANG", "TERM", "TMPDIR", "LC_ALL", "LC_CTYPE",
-    ];
-    ALLOW
-        .iter()
-        .filter_map(|key| {
-            std::env::var(key)
-                .ok()
-                .map(|value| ((*key).to_string(), value))
-        })
-        .collect()
+    // Shell lane uses exactly the shared minimal base allowlist (no extras).
+    crate::redaction::scrub_env_to_allowlist(crate::redaction::BASE_ENV_ALLOWLIST)
 }
 
 fn relative_path_for_entry(root: &Path, entry_path: &Path) -> String {

@@ -547,9 +547,24 @@ async fn project_workspace_root<R: Runtime>(
     app: &tauri::AppHandle<R>,
     project_id: &str,
 ) -> Result<PathBuf, String> {
+    project_workspace_root_with(app, project_id, "projectId is required for local path commands")
+        .await
+}
+
+/// Single-project workspace-root lookup + canonicalize, shared by the
+/// `local_paths`, `git`, and (via thin adapters) the SDK agent-host lanes.
+///
+/// `empty_id_error` lets each caller preserve its exact "projectId is required
+/// for <X>" wording — the SQL, missing-row error, and canonicalize error are
+/// identical across callers, so only that one message is parameterized.
+pub(crate) async fn project_workspace_root_with<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    project_id: &str,
+    empty_id_error: &str,
+) -> Result<PathBuf, String> {
     let project_id = project_id.trim();
     if project_id.is_empty() {
-        return Err("projectId is required for local path commands".into());
+        return Err(empty_id_error.to_string());
     }
     let pool = crate::local_db::get_offisim_pool(app).map_err(|err| {
         eprintln!("[local_paths] {err}");

@@ -9,6 +9,7 @@ mod llm_transport;
 mod local_db;
 mod local_paths;
 mod mcp_bridge;
+mod redaction;
 mod resume;
 mod runtime_secrets;
 mod sessions;
