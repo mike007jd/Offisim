@@ -93,7 +93,7 @@ export type { InstalledAssetRepository } from './repos/installed-asset-repositor
 export type { AssetBindingRepository } from './repos/asset-binding-repository.js';
 export type { PrefabInstanceRepository } from './repos/prefab-instance-repository.js';
 export type { ZoneRepository, NewZone } from './repos/zone-repository.js';
-export { createMemoryPrefabRepository } from './runtime/memory-prefab-repository.js';
+export { createMemoryPrefabRepository } from './runtime/repos/workspace/memory.js';
 export { PrefabService } from './services/prefab-service.js';
 export { ZoneService, hydrateZone, dehydrateZone } from './services/zone-service.js';
 export type {
@@ -180,14 +180,14 @@ export {
 } from './runtime/memory-repositories.js';
 export type { MemoryRepositoriesSnapshot } from './runtime/memory-repositories.js';
 // Drizzle repositories: import from '@offisim/core/drizzle'
-export { createMemoryInstallRepositories } from './runtime/memory-install-repos.js';
-export type { MemoryInstallRepositoriesSnapshot } from './runtime/memory-install-repos.js';
+export { createMemoryInstallRepositories } from './runtime/repos/install/memory.js';
+export type { MemoryInstallRepositoriesSnapshot } from './runtime/repos/install/memory.js';
 export {
   MemoryInstallTransactionRepository,
   MemoryInstalledPackageRepository,
   MemoryInstalledAssetRepository,
   MemoryAssetBindingRepository,
-} from './runtime/memory-install-repos.js';
+} from './runtime/repos/install/memory.js';
 
 // --- LLM ---
 export { AnthropicAdapter } from './llm/anthropic-adapter.js';
@@ -290,7 +290,7 @@ export { globToRegex, matchCostRate } from './utils/glob-match.js';
 
 // --- Events ---
 export { InMemoryEventBus } from './events/event-bus.js';
-export { InMemoryMemoryRepository } from './repositories/memory-memory-repository.js';
+export { InMemoryMemoryRepository } from './runtime/repos/memory-system/memory.js';
 export {
   employeeStateChanged,
   companyStartupRequested,

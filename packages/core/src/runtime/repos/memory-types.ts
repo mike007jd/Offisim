@@ -1,12 +1,9 @@
 import type { ChatThread, ZoneRow } from '@offisim/shared-types';
-import type { InMemoryMemoryRepository } from '../../repositories/memory-memory-repository.js';
-import type { MemoryInstallRepositoriesSnapshot } from '../memory-install-repos.js';
-import type { createMemoryPrefabRepository } from '../memory-prefab-repository.js';
 import type {
   AgentEventRow,
-  CompanyTemplateAssetRow,
   CompactSummaryRow,
   CompanyRow,
+  CompanyTemplateAssetRow,
   DeliverableSummaryRow,
   EmployeeRow,
   EmployeeVersionRow,
@@ -35,6 +32,9 @@ import type {
   ToolPermissionApprovalRow,
   WorkstationRackRow,
 } from '../repositories.js';
+import type { MemoryInstallRepositoriesSnapshot } from './install/memory.js';
+import type { InMemoryMemoryRepository } from './memory-system/memory.js';
+import type { createMemoryPrefabRepository } from './workspace/memory.js';
 
 export interface MemoryRepositorySeed {
   employees(rows: EmployeeRow[]): void;

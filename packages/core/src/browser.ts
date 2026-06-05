@@ -292,20 +292,20 @@ export {
 } from './runtime/memory-repositories.js';
 export type { MemoryRepositoriesSnapshot } from './runtime/memory-repositories.js';
 export type { DeliverableContentLoader } from './runtime/repos/deliverables/memory.js';
-export { InMemoryMemoryRepository } from './repositories/memory-memory-repository.js';
+export { InMemoryMemoryRepository } from './runtime/repos/memory-system/memory.js';
 export {
   buildMemoryUpdatePatch,
   normalizeMemoryDedupeKey,
 } from './runtime/repos/memory-system/patch.js';
 export type { MemoryUpdateColumns } from './runtime/repos/memory-system/patch.js';
-export { createMemoryInstallRepositories } from './runtime/memory-install-repos.js';
-export type { MemoryInstallRepositoriesSnapshot } from './runtime/memory-install-repos.js';
+export { createMemoryInstallRepositories } from './runtime/repos/install/memory.js';
+export type { MemoryInstallRepositoriesSnapshot } from './runtime/repos/install/memory.js';
 export {
   MemoryInstallTransactionRepository,
   MemoryInstalledPackageRepository,
   MemoryInstalledAssetRepository,
   MemoryAssetBindingRepository,
-} from './runtime/memory-install-repos.js';
+} from './runtime/repos/install/memory.js';
 
 // --- Services (browser-safe, no LLM/graph deps) ---
 export { EmployeeVersionService } from './runtime/employee-version-service.js';
