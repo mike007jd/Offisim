@@ -1,11 +1,12 @@
 import type { RunnableConfig } from '@langchain/core/runnables';
 import type { Command } from '@langchain/langgraph';
 import { resolveEmployeeRuntimeBinding } from '../engine/runtime-binding.js';
+import { toErrorMessage } from '../errors.js';
 import type { OffisimGraphState } from '../graph/state.js';
 import type { LlmMessage } from '../llm/gateway.js';
 import type { RecentToolResult } from '../runtime/completion-verifier.js';
 import { Logger } from '../services/logger.js';
-import { errorMessage, isAbortLikeError } from '../utils/abort-detection.js';
+import { isAbortLikeError } from '../utils/abort-detection.js';
 import { getRunScope, getRuntime } from '../utils/get-runtime.js';
 import { getConfigSignal } from '../utils/get-signal.js';
 import { runEmployeeA2A } from './employee-a2a-executor.js';
@@ -256,7 +257,7 @@ export async function employeeNode(
       signal: getConfigSignal(config),
     });
   } catch (err) {
-    const message = errorMessage(err);
+    const message = toErrorMessage(err);
     if (isAbortLikeError(err, signal)) {
       runtimeCtx.conversationState.recordCancellation(message);
       return finalizeEmployeeCancellation({

@@ -5,7 +5,7 @@ import type { DeliverableContentLoader } from './repos/deliverables/memory.js';
 import { createDeliverablesMemoryRepos } from './repos/deliverables/memory.js';
 import { createEmployeesMemoryRepos } from './repos/employees/memory.js';
 import { createFilesMemoryRepos } from './repos/files/memory.js';
-import { createInstallMemoryRepos } from './repos/install/memory.js';
+import { createMemoryInstallRepositories } from './repos/install/memory.js';
 import { createLlmMemoryRepos } from './repos/llm/memory.js';
 import { createMemorySystemMemoryRepos } from './repos/memory-system/memory.js';
 import type { MemoryRepositoriesSnapshot, MemoryRepositorySeed } from './repos/memory-types.js';
@@ -85,7 +85,7 @@ export function createMemoryRepositories(
   const employeesFamily = createEmployeesMemoryRepos(snapshot);
   const conversationsFamily = createConversationsMemoryRepos(snapshot);
   const llmFamily = createLlmMemoryRepos(snapshot);
-  const installFamily = createInstallMemoryRepos(snapshot);
+  const installFamily = createMemoryInstallRepositories(snapshot);
   const permissionsFamily = createPermissionsMemoryRepos(snapshot);
   const memorySystemFamily = createMemorySystemMemoryRepos(snapshot);
   const filesFamily = createFilesMemoryRepos(snapshot);

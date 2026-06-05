@@ -12,6 +12,7 @@ import type {
   RuntimeEngineCapabilityProfile,
 } from '../engine/engine-types.js';
 import type { EmployeeRuntimeBinding } from '../engine/engine-types.js';
+import { toErrorMessage } from '../errors.js';
 import {
   engineActivity,
   engineProposalCreated,
@@ -24,7 +25,7 @@ import type { OffisimGraphState, RunScope } from '../graph/state.js';
 import type { LlmResponse } from '../llm/gateway.js';
 import type { RecentToolResult } from '../runtime/completion-verifier.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
-import { errorMessage, isAbortLikeError } from '../utils/abort-detection.js';
+import { isAbortLikeError } from '../utils/abort-detection.js';
 import { generateId } from '../utils/generate-id.js';
 import { finalizeEmployeeSuccess } from './employee-completion.js';
 import type { MaterializedEmployeeDeliverable } from './employee-deliverables.js';
@@ -687,7 +688,7 @@ export async function runEmployeeEngine(
     if (runId) {
       await adapter.cancelRun(runId).catch(() => {});
     }
-    const message = errorMessage(err);
+    const message = toErrorMessage(err);
     if (isAbortLikeError(err, signal)) {
       return finalizeEmployeeCancellation({
         runtimeCtx,

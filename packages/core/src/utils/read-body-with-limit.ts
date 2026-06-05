@@ -3,6 +3,8 @@
 // content-length-precheck + getReader-accumulate loop that drifted only in its
 // error string and empty-body handling; this is the single source of truth.
 
+import { byteLength } from './byte-length.js';
+
 export interface ReadBodyWithByteLimitOptions {
   /** Message thrown both on the content-length precheck and on streaming overflow. */
   readonly tooLargeMessage: string;
@@ -32,7 +34,7 @@ export async function readBodyWithByteLimit(
   if (!response.body) {
     if (options.emptyBody === 'read-text') {
       const text = await response.text();
-      if (new TextEncoder().encode(text).byteLength > maxBytes) {
+      if (byteLength(text) > maxBytes) {
         throw new Error(options.tooLargeMessage);
       }
       return text;

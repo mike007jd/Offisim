@@ -9,7 +9,6 @@ import type { AssetBindingRepository } from '../../../repos/asset-binding-reposi
 import type { InstallTransactionRepository } from '../../../repos/install-transaction-repository.js';
 import type { InstalledAssetRepository } from '../../../repos/installed-asset-repository.js';
 import type { InstalledPackageRepository } from '../../../repos/installed-package-repository.js';
-import type { MemoryRepositoriesSnapshot } from '../memory-types.js';
 
 function now(): string {
   return new Date().toISOString();
@@ -239,17 +238,4 @@ export function createMemoryInstallRepositories(
     installedAssets: new MemoryInstalledAssetRepository(snapshot?.installedAssets),
     assetBindings: new MemoryAssetBindingRepository(snapshot?.assetBindings),
   };
-}
-
-export interface InstallMemoryRepos {
-  installTransactions: MemoryInstallTransactionRepository;
-  installedPackages: MemoryInstalledPackageRepository;
-  installedAssets: MemoryInstalledAssetRepository;
-  assetBindings: MemoryAssetBindingRepository;
-}
-
-export function createInstallMemoryRepos(
-  snapshot?: Partial<MemoryRepositoriesSnapshot>,
-): InstallMemoryRepos {
-  return createMemoryInstallRepositories(snapshot);
 }
