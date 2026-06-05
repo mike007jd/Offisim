@@ -61,7 +61,7 @@
 
   body {
     margin: 0;
-    background: var(--off-body-bg);
+    background: var(--off-bg);
     color: var(--off-ink-1);
     font-family: var(--off-font-sans);
     font-size: var(--off-fs-base);

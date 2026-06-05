@@ -16,7 +16,7 @@ import { CalendarApp } from './apps/CalendarApp.js';
 import { ContactsApp } from './apps/ContactsApp.js';
 import { MessengerApp } from './apps/MessengerApp.js';
 import { WorkplaceApp } from './apps/WorkplaceApp.js';
-import { useWsApprovals, useWsConversations } from './workspace-data.js';
+import { useWsAgenda, useWsApprovals, useWsConversations } from './workspace-data.js';
 
 type AppEntry = { key: WorkspaceApp; label: string; icon: LucideIcon };
 
@@ -40,15 +40,18 @@ function AppRail() {
   const companyId = useUiState((s) => s.companyId);
   const approvals = useWsApprovals(companyId);
   const conversations = useWsConversations();
+  const agenda = useWsAgenda();
 
   const toDo = approvals.data?.filter((a) => a.status === 'pending').length ?? 0;
   const unread = (conversations.data ?? []).reduce((sum, c) => sum + (c.unread ?? 0), 0);
+  // Real signal, not a hardcoded dot: only light Calendar when today actually
+  // has events (shares the cached ['ws','agenda'] query with CalendarApp).
+  const hasToday = (agenda.data ?? []).some((d) => d.today && d.events.length > 0);
 
   function badgeFor(key: WorkspaceApp): { count?: number; dot?: boolean } {
     if (key === 'messenger') return unread > 0 ? { count: unread } : {};
     if (key === 'approvals') return toDo > 0 ? { count: toDo } : {};
-    // Calendar carries a no-count attention dot (events waiting today).
-    if (key === 'calendar') return { dot: true };
+    if (key === 'calendar') return hasToday ? { dot: true } : {};
     return {};
   }
 

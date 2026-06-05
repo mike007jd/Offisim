@@ -1,5 +1,5 @@
-import type { CompanyTemplate } from './types.js';
 import { UI_DATA_COLORS } from './color-palette.js';
+import type { CompanyTemplate } from './types.js';
 
 /**
  * Company templates — ported from the legacy `packages/core/src/templates`
@@ -11,7 +11,6 @@ export const companyTemplates: CompanyTemplate[] = [
     id: 'rd-company',
     name: 'R&D Company',
     description: 'Dev + PM + Design team',
-    icon: '🏢',
     layoutPreset: 'rd-office',
     employees: [
       {
@@ -124,7 +123,6 @@ export const companyTemplates: CompanyTemplate[] = [
     id: 'content-studio',
     name: 'Content Studio',
     description: 'Research, write, review, publish',
-    icon: '📝',
     layoutPreset: 'content-lab',
     employees: [
       {
@@ -198,7 +196,6 @@ export const companyTemplates: CompanyTemplate[] = [
     id: 'product-team',
     name: 'Product Team',
     description: 'Spec → design → build → ship',
-    icon: '🚀',
     layoutPreset: 'product-hub',
     employees: [
       {
@@ -259,7 +256,6 @@ export const companyTemplates: CompanyTemplate[] = [
     id: 'agency-lite',
     name: 'Agency Lite',
     description: 'Client work + creative delivery',
-    icon: '🏗️',
     layoutPreset: 'agency-studio',
     employees: [
       {
@@ -333,7 +329,6 @@ export const companyTemplates: CompanyTemplate[] = [
     id: 'ai-startup',
     name: 'AI Startup',
     description: 'ML research + data + product',
-    icon: '🧠',
     layoutPreset: 'ai-lab',
     employees: [
       {

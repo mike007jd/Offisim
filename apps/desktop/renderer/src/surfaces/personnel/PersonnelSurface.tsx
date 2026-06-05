@@ -1,7 +1,7 @@
 import { useUiState } from '@/app/ui-state.js';
 import { isTauriRuntime, reposOrNull } from '@/data/adapters.js';
 import { useCompanies, useEmployees } from '@/data/queries.js';
-import type { Employee, EmployeeAppearance, EmployeePresence } from '@/data/types.js';
+import type { Employee, EmployeeAppearance } from '@/data/types.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { SearchInput } from '@/design-system/grammar/SearchInput.js';
@@ -20,20 +20,21 @@ import { Input } from '@/design-system/primitives/input.js';
 import { Tabs, TabsList, TabsTrigger } from '@/design-system/primitives/tabs.js';
 import { cn } from '@/lib/utils.js';
 import { PANEL_SIZE_TOKENS } from '@/styles/visual-tokens.js';
-import { EmptyState, ErrorState, SkeletonRows } from '@/surfaces/shared/SurfaceStates.js';
+import {
+  clearDiscardConfirm,
+  showDiscardConfirm,
+} from '@/surfaces/lifecycle/DiscardConfirmToast.js';
+import {
+  EmptyState,
+  ErrorState,
+  SkeletonRows,
+  errorDetail,
+} from '@/surfaces/shared/SurfaceStates.js';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { RoleSlug } from '@offisim/shared-types';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  PanelLeftClose,
-  PanelLeftOpen,
-  SearchX,
-  Store,
-  UserPlus,
-  UsersRound,
-  Zap,
-} from 'lucide-react';
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { PanelLeftClose, PanelLeftOpen, SearchX, Store, UserPlus, UsersRound } from 'lucide-react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Group, Panel, Separator, usePanelRef } from 'react-resizable-panels';
 import { toast } from 'sonner';
@@ -180,19 +181,6 @@ function newEmployeeConfig(): Record<string, unknown> {
   };
 }
 
-const LIVE_PILL: Record<Exclude<EmployeePresence, 'offline'>, { cls: string; label: string }> = {
-  working: { cls: 'is-exec', label: 'executing' },
-  idle: { cls: 'is-idle', label: 'idle' },
-  blocked: { cls: 'is-block', label: 'blocked' },
-  failed: { cls: 'is-fail', label: 'failed' },
-};
-
-function livePresence(employee: Employee): Exclude<EmployeePresence, 'offline'> {
-  const presence = employee.presence ?? 'idle';
-  if (presence === 'offline') return 'idle';
-  return presence;
-}
-
 function RosterRow({
   employee,
   selected,
@@ -204,8 +192,6 @@ function RosterRow({
   collapsed: boolean;
   onSelect: () => void;
 }) {
-  const presence = livePresence(employee);
-  const pill = LIVE_PILL[presence];
   return (
     <div className={cn('off-pers-emp-wrap', selected && 'is-sel')}>
       <button
@@ -226,7 +212,6 @@ function RosterRow({
           <span className="off-pers-emp-name-row">
             <span className="off-pers-emp-name">{employee.name}</span>
             {employee.disabled ? <span className="off-pers-emp-dis">disabled</span> : null}
-            <span className={cn('off-pers-lp', pill.cls)}>{pill.label}</span>
           </span>
           <span className="off-pers-emp-meta">
             <span className="off-pers-emp-role">{employee.role}</span>
@@ -236,12 +221,6 @@ function RosterRow({
           </span>
         </span>
       </button>
-      {presence === 'failed' && !collapsed ? (
-        <output className="off-pers-retry-chip" aria-label="Recovery pending">
-          <Icon icon={Zap} size="sm" />
-          Recovery pending
-        </output>
-      ) : null}
     </div>
   );
 }
@@ -252,15 +231,16 @@ function RosterRail({
   onToggleCollapse,
   onHire,
   canHire,
+  onSelectEmployee,
 }: {
   employees: Employee[];
   collapsed: boolean;
   onToggleCollapse: () => void;
   onHire: () => void;
   canHire: boolean;
+  onSelectEmployee: (id: string) => void;
 }) {
   const selectedEmployeeId = useUiState((s) => s.selectedEmployeeId);
-  const selectEmployee = useUiState((s) => s.selectEmployee);
   const [query, setQuery] = useState('');
   const [role, setRole] = useState('all');
 
@@ -346,7 +326,7 @@ function RosterRail({
               employee={employee}
               selected={employee.id === selectedEmployeeId}
               collapsed={collapsed}
-              onSelect={() => selectEmployee(employee.id)}
+              onSelect={() => onSelectEmployee(employee.id)}
             />
           ))
         )}
@@ -412,11 +392,13 @@ function EmployeeDetail({
   companyName,
   tab,
   onTabChange,
+  onDirtyChange,
 }: {
   employee: Employee;
   companyName: string;
   tab: InspectorTab;
   onTabChange: (tab: InspectorTab) => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const queryClient = useQueryClient();
   const companyId = useUiState((s) => s.companyId);
@@ -441,6 +423,13 @@ function EmployeeDetail({
   const isDirty = form.formState.isDirty || toolPermissionsDirty || appearanceDirty;
   const nameValid = form.watch('name').trim().length > 0;
   const canSave = isDirty && !isSaving && employee.kind !== 'external' && nameValid;
+
+  // Report dirty state up so the roster can guard against discarding unsaved
+  // edits on an employee switch. Clear on unmount so a stale flag can't block.
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+    return () => onDirtyChange?.(false);
+  }, [isDirty, onDirtyChange]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: form is stable from useForm; re-hydrate only when switching employees.
   useEffect(() => {
@@ -736,19 +725,45 @@ export function PersonnelSurface() {
   const companies = useCompanies();
   const companyId = useUiState((s) => s.companyId);
   const selectedEmployeeId = useUiState((s) => s.selectedEmployeeId);
+  const selectEmployee = useUiState((s) => s.selectEmployee);
   const collapsed = useUiState((s) => s.personnelRailCollapsed);
   const setCollapsed = useUiState((s) => s.setPersonnelRailCollapsed);
   const [tab, setTab] = useState<InspectorTab>('profile');
   const [hireOpen, setHireOpen] = useState(false);
   const listPanelRef = usePanelRef();
+  // Tracks whether the open EmployeeDetail has unsaved edits, so switching the
+  // selected employee can guard against silent data loss (PERS-03).
+  const dirtyRef = useRef(false);
 
   const roster = employees.data ?? [];
   const selected = roster.find((e) => e.id === selectedEmployeeId) ?? null;
 
-  // Reset to Profile when the selected employee changes (tab is local).
+  const guardedSelect = useCallback(
+    (id: string) => {
+      if (dirtyRef.current && id !== selectedEmployeeId) {
+        showDiscardConfirm({
+          message: 'Discard unsaved changes?',
+          detail: 'Switching employees will lose your edits to this profile.',
+          onDiscard: () => {
+            dirtyRef.current = false;
+            selectEmployee(id);
+          },
+        });
+        return;
+      }
+      selectEmployee(id);
+    },
+    [selectedEmployeeId, selectEmployee],
+  );
+
+  // Reset to Profile when the selected employee changes (tab is local). Also
+  // clear any lingering discard bar and the dirty flag — the freshly-mounted
+  // EmployeeDetail re-reports its own dirty state.
   // biome-ignore lint/correctness/useExhaustiveDependencies: re-run on selection change only
   useEffect(() => {
     setTab('profile');
+    clearDiscardConfirm();
+    dirtyRef.current = false;
   }, [selectedEmployeeId]);
 
   // Prefer the company record's display name; fall back to a slug munge only
@@ -781,11 +796,7 @@ export function PersonnelSurface() {
         <div className="off-pers-rail is-fixed">
           <ErrorState
             title="Couldn't load employees"
-            detail={
-              employees.error instanceof Error
-                ? employees.error.message
-                : 'The roster could not be refreshed.'
-            }
+            detail={errorDetail(employees.error, 'The roster could not be refreshed.')}
             onRetry={() => employees.refetch()}
           />
         </div>
@@ -851,6 +862,7 @@ export function PersonnelSurface() {
             onToggleCollapse={onToggleList}
             onHire={() => setHireOpen(true)}
             canHire={canHire}
+            onSelectEmployee={guardedSelect}
           />
         </Panel>
 
@@ -864,6 +876,9 @@ export function PersonnelSurface() {
               companyName={companyName}
               tab={tab}
               onTabChange={setTab}
+              onDirtyChange={(d) => {
+                dirtyRef.current = d;
+              }}
             />
           ) : (
             <div className="off-pers-detail-empty">

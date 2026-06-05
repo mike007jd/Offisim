@@ -53,6 +53,13 @@ export function ErrorState({ title, detail, onRetry, className }: ErrorStateProp
   );
 }
 
+/** Pull a human-readable message off an unknown query error, falling back for
+ *  non-Error rejections. Collapses the `instanceof Error` ternary that every
+ *  surface's load-failure ErrorState repeats. */
+export function errorDetail(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
+
 export function SkeletonRows({ rows = 5, className }: { rows?: number; className?: string }) {
   const rowKeys = Array.from({ length: rows }, (_, index) => `loading-row-${index}`);
   return (

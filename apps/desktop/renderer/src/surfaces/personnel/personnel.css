@@ -110,15 +110,6 @@
   position: relative;
 }
 
-.off-pers-emp-wrap > .off-pers-retry-chip {
-  position: absolute;
-  right: var(--off-sp-3);
-  top: 50%;
-  transform: translateY(-50%);
-  margin: 0;
-  z-index: var(--off-z-base);
-}
-
 .off-pers-emp {
   display: flex;
   align-items: center;
@@ -206,67 +197,6 @@
   letter-spacing: 0;
   text-transform: uppercase;
   font-weight: 700;
-}
-
-/* Live state pills */
-.off-pers-lp {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 18px;
-  padding: 0 7px;
-  border-radius: var(--off-r-pill);
-  font-size: var(--off-fs-label);
-  font-weight: 680;
-  letter-spacing: 0;
-  text-transform: uppercase;
-}
-
-.off-pers-lp::before {
-  content: "";
-  width: 5px;
-  height: 5px;
-  border-radius: var(--off-r-round);
-  background: currentColor;
-}
-
-.off-pers-lp.is-idle {
-  background: var(--off-surface-sunken);
-  color: var(--off-ink-3);
-}
-
-.off-pers-lp.is-exec {
-  background: var(--off-accent-surface);
-  color: var(--off-accent);
-}
-
-.off-pers-lp.is-exec::before {
-  animation: off-pulse var(--off-motion-loop-fast) var(--off-motion-loop-ease) infinite;
-}
-
-.off-pers-lp.is-block {
-  background: var(--off-warn-surface);
-  color: var(--off-warn);
-}
-
-.off-pers-lp.is-fail {
-  background: var(--off-danger-surface);
-  color: var(--off-danger);
-}
-
-.off-pers-retry-chip {
-  margin-left: auto;
-  height: 18px;
-  padding: 0 7px;
-  border-radius: var(--off-r-xs);
-  border: 1px solid var(--off-danger-line-soft);
-  background: var(--off-danger-surface);
-  color: var(--off-danger);
-  font-size: var(--off-fs-label);
-  font-weight: 660;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
 }
 
 /* collapsed rail variant */

@@ -1,15 +1,11 @@
 .off-app {
-  width: calc(100% - 16px);
-  height: calc(100vh - 16px);
-  margin: 8px auto;
+  width: 100%;
+  height: 100vh;
   display: grid;
   /* topbar · banner slot (auto: 0 height when empty) · surface host */
   grid-template-rows: var(--off-toolbar) auto 1fr;
   overflow: hidden;
   background: var(--off-bg);
-  border: 1px solid var(--off-white-line);
-  border-radius: var(--off-r-lg);
-  box-shadow: 0 0 0 1px var(--off-black-line), 0 20px 64px var(--off-ink-shadow-xstrong);
 }
 
 /* Banner row above the surface host (ResumeBar). Collapses to zero height when

@@ -8,7 +8,6 @@ import {
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import { Input } from '@/design-system/primitives/input.js';
-import { Textarea } from '@/design-system/primitives/textarea.js';
 import {
   isDesktopProviderBridgeAvailable,
   loadRuntimeProviderProfiles,
@@ -30,10 +29,8 @@ import type { UseFormReturn } from 'react-hook-form';
 import { toast } from 'sonner';
 import {
   ACCESS_MODE_OPTIONS,
-  EXECUTION_LANE_OPTIONS,
   PRODUCT_OPTIONS,
   PROVIDER_CONFIGS,
-  PROVIDER_VARIANT_OPTIONS,
   type ProviderConfig,
   type ProviderFormValues,
   resolveActiveProviderConfig,
@@ -116,8 +113,6 @@ export function ProviderPane({
   const [testMessage, setTestMessage] = useState<string | null>(null);
   const product = form.watch('product');
   const accessMode = form.watch('accessMode');
-  const providerVariant = form.watch('variant');
-  const executionLane = form.watch('lane');
   const isManaged = accessMode === 'managed';
   const isHostResolved = accessMode === 'host-resolved' || accessMode === 'managed';
   const providerBridgeAvailable = isDesktopProviderBridgeAvailable();
@@ -440,29 +435,6 @@ export function ProviderPane({
                   />
                 )}
               </FieldRow>
-              <FieldRow label="Provider variant">
-                {({ id }) => (
-                  <Select
-                    id={id}
-                    options={PROVIDER_VARIANT_OPTIONS}
-                    value={providerVariant}
-                    {...form.register('variant')}
-                  />
-                )}
-              </FieldRow>
-              <FieldRow
-                label="Execution lane"
-                hint="Gateway exposes Offisim tools. SDK lanes are transport only."
-              >
-                {({ id }) => (
-                  <Select
-                    id={id}
-                    options={EXECUTION_LANE_OPTIONS}
-                    value={executionLane}
-                    {...form.register('lane')}
-                  />
-                )}
-              </FieldRow>
               <FieldRow
                 className="off-set-span-2"
                 label={
@@ -478,24 +450,6 @@ export function ProviderPane({
                     className="off-mono"
                     placeholder={`${active.credentialDestination}/v1`}
                     {...form.register('endpointOverride')}
-                  />
-                )}
-              </FieldRow>
-              <FieldRow
-                className="off-set-span-2"
-                label={
-                  <>
-                    Default headers <span className="off-set-opt">· JSON</span>
-                  </>
-                }
-                hint="JSON merged into transport headers."
-              >
-                {({ id }) => (
-                  <Textarea
-                    id={id}
-                    className="off-mono"
-                    placeholder='{"HTTP-Referer":"https://example.com"}'
-                    {...form.register('headersJson')}
                   />
                 )}
               </FieldRow>

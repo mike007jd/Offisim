@@ -194,9 +194,7 @@ function FilesTab({
               <span>{selectedPath}</span>
               {preview ? <span>{preview.totalSize.toLocaleString()} B</span> : null}
             </div>
-            {previewLoading ? (
-              <div className="off-file-preview-empty">Loading preview...</div>
-            ) : null}
+            {previewLoading ? <div className="off-file-preview-empty">Loading preview…</div> : null}
             {previewError ? <div className="off-file-preview-error">{previewError}</div> : null}
             {preview ? (
               <pre className="off-file-preview-body">

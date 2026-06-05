@@ -5,7 +5,12 @@ import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { RunStatePill } from '@/design-system/grammar/RunStatePill.js';
 import { SearchInput } from '@/design-system/grammar/SearchInput.js';
 import { cn } from '@/lib/utils.js';
-import { EmptyState, SkeletonRows } from '@/surfaces/shared/SurfaceStates.js';
+import {
+  EmptyState,
+  ErrorState,
+  SkeletonRows,
+  errorDetail,
+} from '@/surfaces/shared/SurfaceStates.js';
 import { generateId } from '@offisim/core/browser';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { MessagesSquare, Plus } from 'lucide-react';
@@ -65,17 +70,19 @@ export function ThreadList() {
         />
       </div>
 
-      {threads.isLoading ? (
+      {threads.isError ? (
+        <ErrorState
+          title="Couldn't load threads"
+          detail={errorDetail(threads.error, 'Conversations failed to load.')}
+          onRetry={() => void threads.refetch()}
+        />
+      ) : threads.isLoading ? (
         <SkeletonRows rows={5} />
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={MessagesSquare}
           title={query ? 'No matching threads' : 'No threads yet'}
-          description={
-            query
-              ? 'Try a different search term.'
-              : 'Message the team or one employee.'
-          }
+          description={query ? 'Try a different search term.' : 'Message the team or one employee.'}
         />
       ) : (
         <div className="off-conv-list">

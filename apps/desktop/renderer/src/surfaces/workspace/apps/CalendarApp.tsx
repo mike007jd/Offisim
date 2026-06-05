@@ -3,13 +3,12 @@ import { isTauriRuntime } from '@/data/adapters.js';
 import { UI_DATA_COLORS } from '@/data/color-palette.js';
 import { useEmployees } from '@/data/queries.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
-import { SegmentedControl } from '@/design-system/grammar/SegmentedControl.js';
 import { StatusPill } from '@/design-system/grammar/StatusPill.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
-import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
+import { EmptyState, ErrorState, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
 import { CalendarDays, Check, MessageSquare } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef } from 'react';
 import { type AgendaEvent, type WsMeeting, useWsAgenda, useWsMeetings } from '../workspace-data.js';
 
 /** real agenda event ids are `mtg-ev-<meeting_id>`. */
@@ -18,13 +17,6 @@ function meetingIdForEvent(eventId: string | null): string | undefined {
   if (eventId?.startsWith(MEETING_EVENT_PREFIX)) return eventId.slice(MEETING_EVENT_PREFIX.length);
   return eventId ? FIXTURE_EVENT_TO_MEETING[eventId] : undefined;
 }
-
-type View = 'agenda' | 'week';
-
-const VIEWS: ReadonlyArray<{ value: View; label: string }> = [
-  { value: 'agenda', label: 'Agenda' },
-  { value: 'week', label: 'Week' },
-];
 
 const STATUS_TONE: Record<WsMeeting['status'], 'accent' | 'ok' | 'muted'> = {
   live: 'accent',
@@ -47,7 +39,7 @@ export function CalendarApp() {
   const selectedId = useUiState((s) => s.workspaceSelectedId);
   const selectItem = useUiState((s) => s.selectWorkspaceItem);
   const setApp = useUiState((s) => s.setWorkspaceApp);
-  const [view, setView] = useState<View>('agenda');
+  const todayRef = useRef<HTMLDivElement | null>(null);
 
   const byId = useMemo(
     () => new Map((employees.data ?? []).map((e) => [e.id, e])),
@@ -56,6 +48,7 @@ export function CalendarApp() {
 
   const days = agenda.data ?? [];
   const meetingList = meetings.data ?? [];
+  const hasToday = days.some((d) => d.today);
 
   // The selected event id (defaults to the first event that maps to a meeting).
   const firstMeetingEvent =
@@ -94,16 +87,11 @@ export function CalendarApp() {
     <div className="off-ws-detail off-ws-detail-full off-ws-cal">
       <div className="off-ws-cal-head">
         <span className="off-ws-cal-ttl">This week</span>
-        <SegmentedControl
-          options={VIEWS}
-          value={view}
-          onChange={setView}
-          ariaLabel="Calendar view"
-        />
         <button
           type="button"
-          className="off-ws-oa-deny off-focusable"
-          onClick={() => setView('agenda')}
+          className="off-ws-cal-today off-focusable"
+          disabled={!hasToday}
+          onClick={() => todayRef.current?.scrollIntoView({ block: 'nearest' })}
         >
           Today
         </button>
@@ -111,7 +99,14 @@ export function CalendarApp() {
         {!isTauriRuntime() ? <span className="off-ws-preview-tag">Preview</span> : null}
       </div>
 
-      {days.length === 0 ? (
+      {agenda.isError ? (
+        <ErrorState
+          title="Couldn't load the calendar"
+          detail={errorDetail(agenda.error, 'The agenda failed to load.')}
+          onRetry={() => void agenda.refetch()}
+          className="off-ws-detail-full"
+        />
+      ) : days.length === 0 ? (
         <EmptyState
           icon={CalendarDays}
           title="No meetings yet"
@@ -123,7 +118,10 @@ export function CalendarApp() {
           <div className="off-ws-agenda">
             {days.map((day) => (
               <div key={day.id} className="off-ws-ag-day">
-                <div className={cn('off-ws-ag-date', day.today && 'is-today')}>
+                <div
+                  ref={day.today ? todayRef : undefined}
+                  className={cn('off-ws-ag-date', day.today && 'is-today')}
+                >
                   {day.weekday}
                   <span>{day.date}</span>
                 </div>

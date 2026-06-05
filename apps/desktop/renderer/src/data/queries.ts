@@ -31,7 +31,6 @@ import {
   projects,
   threads,
   unfinishedThreads,
-  usageSeries,
 } from './fixtures.js';
 import type {
   ChatMessage,
@@ -43,7 +42,6 @@ import type {
   RunCost,
   Skill,
   UnfinishedThread,
-  UsagePoint,
 } from './types.js';
 
 /**
@@ -291,13 +289,6 @@ export function useDeliverables() {
       }));
     },
     enabled: companyId !== null,
-  });
-}
-
-export function useUsageSeries() {
-  return useQuery({
-    queryKey: ['usage-series'],
-    queryFn: () => resolveAsync<UsagePoint[]>(usageSeries),
   });
 }
 

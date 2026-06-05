@@ -200,7 +200,7 @@ function EmployeeDockPopover({
           Memory
         </span>
         {memories.isLoading ? (
-          <p className="off-team-pop-sub">Loading memory...</p>
+          <p className="off-team-pop-sub">Loading memory…</p>
         ) : topMemories.length > 0 ? (
           <ul className="off-team-pop-memory">
             {topMemories.map((memory) => (

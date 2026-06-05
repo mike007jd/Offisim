@@ -68,7 +68,6 @@ export const CREATE_YOUR_OWN_TEMPLATE: CompanyTemplate = {
   id: 'create-your-own',
   name: 'Create Your Own',
   description: 'Design your office from scratch in the 3D Studio editor',
-  icon: '🛠',
   layoutPreset: 'custom',
   employees: [],
 };

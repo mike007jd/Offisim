@@ -40,7 +40,6 @@ export interface CompanyTemplate {
   id: string;
   name: string;
   description: string;
-  icon: string;
   layoutPreset: string;
   employees: TemplateEmployee[];
 }
@@ -199,12 +198,6 @@ export interface RunCost {
   tokens: number;
   costLabel: string;
   live: boolean;
-}
-
-export interface UsagePoint {
-  label: string;
-  runs: number;
-  cost: number;
 }
 
 export interface FileNode {

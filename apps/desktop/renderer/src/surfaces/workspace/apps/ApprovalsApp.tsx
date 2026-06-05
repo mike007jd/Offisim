@@ -4,9 +4,8 @@ import type { Employee } from '@/data/types.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { SegmentedControl } from '@/design-system/grammar/SegmentedControl.js';
 import { Icon } from '@/design-system/icons/Icon.js';
-import { Button } from '@/design-system/primitives/button.js';
 import { cn } from '@/lib/utils.js';
-import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
+import { EmptyState, ErrorState, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
 import { Check, CheckSquare } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
@@ -23,12 +22,6 @@ type Segment = 'todo' | 'resolved';
 const SEGMENTS: ReadonlyArray<{ value: Segment; label: string }> = [
   { value: 'todo', label: 'To do' },
   { value: 'resolved', label: 'Resolved' },
-];
-
-const SCOPE_OPTIONS: ReadonlyArray<{ value: GrantScope; label: string }> = [
-  { value: 'once', label: 'Once' },
-  { value: 'thread', label: 'This thread' },
-  { value: 'session', label: 'This session' },
 ];
 
 const TYPE_CLASS: Record<GateKind, string> = {
@@ -114,7 +107,6 @@ export function ApprovalsApp() {
   const activeId =
     selectedId && visible.some((a) => a.id === selectedId) ? selectedId : (visible[0]?.id ?? null);
   const active = list.find((a) => a.id === activeId) ?? null;
-  const activeScope = active?.scope ?? 'thread';
 
   return (
     <>
@@ -139,7 +131,13 @@ export function ApprovalsApp() {
           />
         </div>
         <div className="off-ws-oa-rows">
-          {visible.length > 0 ? (
+          {approvals.isError ? (
+            <ErrorState
+              title="Couldn't load approvals"
+              detail={errorDetail(approvals.error, 'The approvals queue failed to load.')}
+              onRetry={() => void approvals.refetch()}
+            />
+          ) : visible.length > 0 ? (
             visible.map((a) => (
               <Row key={a.id} a={a} byId={byId} activeId={activeId} onSelect={selectItem} />
             ))
@@ -222,36 +220,17 @@ export function ApprovalsApp() {
                 <div className="off-ws-oa-card-h">Reason</div>
                 <p className="off-ws-oa-reason">{active.reason}</p>
               </div>
-
-              {active.status === 'pending' ? (
-                <div>
-                  <div className="off-ws-oa-scope-h">Grant scope</div>
-                  <div className="off-seg" aria-label="Grant scope">
-                    {SCOPE_OPTIONS.map((option) => (
-                      <span
-                        key={option.value}
-                        data-selected={option.value === activeScope ? 'true' : undefined}
-                        className={cn('off-seg-btn', option.value === activeScope && 'is-on')}
-                      >
-                        {option.label}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
             </div>
 
             <div className="off-ws-oa-foot">
               {active.status === 'pending' ? (
-                <div className="off-ws-oa-actions" title="Connecting to run">
-                  <Button size="sm" variant="outline" disabled>
-                    Deny
-                  </Button>
-                  <Button size="sm" disabled>
-                    <Icon icon={Check} size="sm" />
-                    Approve
-                  </Button>
-                </div>
+                // Gates are resolved inline in the run that raised them (the
+                // InteractionService pending is thread/run-scoped, not a cross-
+                // company queue). This is an honest triage/review view — the
+                // requested options are listed above; respond in the run.
+                <p className="off-ws-oa-foot-note">
+                  Respond to this request in the conversation where it was raised.
+                </p>
               ) : (
                 <span className="off-ws-oa-foot-note">
                   Resolved · {SCOPE_LABEL[active.scope]} scope

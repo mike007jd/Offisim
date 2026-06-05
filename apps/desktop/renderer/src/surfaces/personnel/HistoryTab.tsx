@@ -2,7 +2,13 @@ import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import { cn } from '@/lib/utils.js';
-import { Link2 } from 'lucide-react';
+import {
+  EmptyState,
+  ErrorState,
+  SkeletonRows,
+  errorDetail,
+} from '@/surfaces/shared/SurfaceStates.js';
+import { History, Link2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -62,11 +68,25 @@ export function HistoryTab({ employeeId }: HistoryTabProps) {
     });
   };
 
+  if (query.isError) {
+    return (
+      <div className="off-pers-tab-shell">
+        <div className="off-pers-tab-scroll">
+          <ErrorState
+            title="Couldn't load version history"
+            detail={errorDetail(query.error, 'Version history could not be loaded.')}
+            onRetry={() => void query.refetch()}
+          />
+        </div>
+      </div>
+    );
+  }
+
   if (query.isLoading) {
     return (
       <div className="off-pers-tab-shell">
-        <div className="off-pers-tab-scroll text-center text-[var(--off-fs-sm)] text-[var(--off-ink-4)]">
-          Loading version history…
+        <div className="off-pers-tab-scroll">
+          <SkeletonRows rows={4} />
         </div>
       </div>
     );
@@ -75,8 +95,12 @@ export function HistoryTab({ employeeId }: HistoryTabProps) {
   if (!history || history.versions.length === 0) {
     return (
       <div className="off-pers-tab-shell">
-        <div className="off-pers-tab-scroll text-center text-[var(--off-fs-sm)] text-[var(--off-ink-4)]">
-          No version history available.
+        <div className="off-pers-tab-scroll">
+          <EmptyState
+            icon={History}
+            title="No version history"
+            description="This employee has no recorded versions yet."
+          />
         </div>
       </div>
     );
@@ -85,8 +109,12 @@ export function HistoryTab({ employeeId }: HistoryTabProps) {
   if (history.versions.length === 1) {
     return (
       <div className="off-pers-tab-shell">
-        <div className="off-pers-tab-scroll text-center text-[var(--off-fs-sm)] text-[var(--off-ink-4)]">
-          No changes yet. Edits build version history.
+        <div className="off-pers-tab-scroll">
+          <EmptyState
+            icon={History}
+            title="No changes yet"
+            description="Edits to this employee build up a version history you can review and roll back here."
+          />
         </div>
       </div>
     );

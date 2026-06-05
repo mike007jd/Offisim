@@ -5,7 +5,7 @@ import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { SearchInput } from '@/design-system/grammar/SearchInput.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
-import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
+import { EmptyState, ErrorState, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
 import { Building2, MessageSquare, SquarePen, UserPlus, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
@@ -92,6 +92,13 @@ export function ContactsApp() {
           <SearchInput value={query} onChange={setQuery} placeholder="Search by name or role" />
         </div>
         <div className="off-ws-rows off-ws-ct-rows">
+          {employees.isError ? (
+            <ErrorState
+              title="Couldn't load contacts"
+              detail={errorDetail(employees.error, 'The team directory failed to load.')}
+              onRetry={() => void employees.refetch()}
+            />
+          ) : null}
           {groups.map(([group, items]) => (
             <div key={group} className="off-ws-ct-grp-block">
               <div className="off-ws-ct-grp">

@@ -1,15 +1,13 @@
 import { useUiState } from '@/app/ui-state.js';
-import { useCompanies } from '@/data/queries.js';
 import { reposOrNull } from '@/data/adapters.js';
+import { useCompanies } from '@/data/queries.js';
 import { runtimeEventBus } from '@/runtime/repos.js';
+import { ErrorState, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
 import { CompanyTemplateService } from '@offisim/core/browser';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import {
-  CompanyCreationWizard,
-  type CreateCompanyRequest,
-} from './CompanyCreationWizard.js';
+import { CompanyCreationWizard, type CreateCompanyRequest } from './CompanyCreationWizard.js';
 import { CompanySelectionPage } from './CompanySelectionPage.js';
 
 type LifecycleMode = 'portal' | 'create';
@@ -106,6 +104,20 @@ export function LifecycleSurface() {
   // Don't flash the wrong front door before the company count resolves.
   if (companies.isLoading) {
     return <div className="off-lc-boot" aria-busy="true" />;
+  }
+  // A read failure must NOT collapse into the empty-account 'create' path — a
+  // user who actually has companies would otherwise be dropped into the wizard
+  // and could author a duplicate. Show an honest load-failure with Retry.
+  if (companies.isError) {
+    return (
+      <div className="off-lc-error-wrap" role="alert">
+        <ErrorState
+          title="Couldn't load your companies"
+          detail={errorDetail(companies.error, 'Local data is temporarily unavailable.')}
+          onRetry={() => void companies.refetch()}
+        />
+      </div>
+    );
   }
   const hasCompanies = (companies.data?.length ?? 0) > 0;
   const intentMode: LifecycleMode | null =

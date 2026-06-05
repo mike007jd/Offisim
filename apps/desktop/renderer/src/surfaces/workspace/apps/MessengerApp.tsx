@@ -6,7 +6,7 @@ import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { SearchInput } from '@/design-system/grammar/SearchInput.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
-import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
+import { EmptyState, ErrorState, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
 import {
   AlertTriangle,
   Bot,
@@ -351,6 +351,13 @@ export function MessengerApp() {
           />
         </div>
         <div className="off-ws-chats">
+          {conversations.isError && list.length === 0 ? (
+            <ErrorState
+              title="Couldn't load chats"
+              detail={errorDetail(conversations.error, 'Your conversations failed to load.')}
+              onRetry={() => void conversations.refetch()}
+            />
+          ) : null}
           {pinned.map((conv) => (
             <ConvRow
               key={conv.id}

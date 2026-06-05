@@ -59,19 +59,6 @@ export const ACCESS_MODE_OPTIONS = [
   { value: 'managed', label: 'Managed by host' },
 ] as const;
 
-export const PROVIDER_VARIANT_OPTIONS = [
-  { value: 'standard', label: 'Standard' },
-  { value: 'minimax-global', label: 'MiniMax Global (default)' },
-  { value: 'minimax-cn', label: 'MiniMax CN' },
-] as const;
-
-export const EXECUTION_LANE_OPTIONS = [
-  { value: 'gateway', label: 'Gateway' },
-  { value: 'claude-agent-sdk', label: 'Claude Agent SDK (transport only)' },
-  { value: 'codex-agent-sdk', label: 'Codex Agent SDK (transport only)' },
-  { value: 'openai-agents-sdk', label: 'OpenAI Agents SDK (transport only)' },
-] as const;
-
 export const PROVIDER_CONFIGS: readonly [ProviderConfig, ...ProviderConfig[]] = [
   {
     id: 'minimax',
@@ -191,10 +178,7 @@ export const providerFormSchema = z.object({
   accessMode: z.string().min(1, 'Required'),
   model: z.string().min(1, 'Model is required'),
   apiKey: z.string(),
-  variant: z.string().min(1),
-  lane: z.string().min(1),
   endpointOverride: z.string(),
-  headersJson: z.string(),
 });
 export type ProviderFormValues = z.infer<typeof providerFormSchema>;
 
@@ -205,10 +189,7 @@ export function providerDefaults(config: ProviderConfig): ProviderFormValues {
     accessMode: config.accessMode,
     model: config.model,
     apiKey: '',
-    variant: config.product === 'minimax' ? 'minimax-global' : 'standard',
-    lane: config.lane,
     endpointOverride: '',
-    headersJson: '',
   };
 }
 

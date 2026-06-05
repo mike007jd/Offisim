@@ -661,7 +661,11 @@ export function StudioSurface() {
               type="button"
               className={cn('off-studio-tool off-focusable', placing === item.id && 'is-on')}
               disabled={!layout.data || busy}
-              title={layout.data ? `Place ${item.label} in scene` : 'Preview only — editing needs the desktop app'}
+              title={
+                layout.data
+                  ? `Place ${item.label} in scene`
+                  : 'Preview only — editing needs the desktop app'
+              }
               onPointerDown={(event) => beginPaletteDrag(item, event)}
               onClick={() => {
                 if (suppressPaletteClickRef.current) {
@@ -680,7 +684,19 @@ export function StudioSurface() {
       </aside>
 
       <section className="off-studio-stage">
-        {!layout.isLoading && !layout.data ? (
+        {layout.isError ? (
+          <div className="off-studio-banner is-error" role="alert">
+            <Icon icon={Info} size="sm" />
+            Couldn't load the office layout.
+            <button
+              type="button"
+              className="off-studio-banner-retry off-focusable"
+              onClick={() => void layout.refetch()}
+            >
+              Retry
+            </button>
+          </div>
+        ) : !layout.isLoading && !layout.data ? (
           <div className="off-studio-banner">
             <Icon icon={Info} size="sm" />
             Preview scene — Studio editing needs the desktop app, so changes here won't be saved.
@@ -983,6 +999,15 @@ export function StudioSurface() {
                 />
               </div>
             ) : null}
+          </div>
+        ) : zones.length === 0 && layout.data ? (
+          <div className="off-studio-props">
+            <EmptyState
+              icon={LayoutGrid}
+              title="Empty scene"
+              description="This office has no zones yet. Create the first zone to start laying out the floor."
+              action={{ label: 'Create first zone', onClick: () => void createWorkspaceZone() }}
+            />
           </div>
         ) : (
           <div className="off-studio-props">

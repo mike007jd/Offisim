@@ -1,7 +1,7 @@
 import { useEmployeeSkills } from '@/data/queries.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { Icon } from '@/design-system/icons/Icon.js';
-import { SkeletonRows } from '@/surfaces/shared/SurfaceStates.js';
+import { ErrorState, SkeletonRows, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
 import { Puzzle } from 'lucide-react';
 
 interface SkillsTabProps {
@@ -15,7 +15,13 @@ export function SkillsTab({ employeeId }: SkillsTabProps) {
     <div className="off-pers-tab-shell">
       <div className="off-pers-tab-scroll">
         <CapsLabel>Skills</CapsLabel>
-        {skills.isLoading ? (
+        {skills.isError ? (
+          <ErrorState
+            title="Couldn't load skills"
+            detail={errorDetail(skills.error, 'Skills could not be loaded.')}
+            onRetry={() => void skills.refetch()}
+          />
+        ) : skills.isLoading ? (
           <SkeletonRows rows={3} />
         ) : !skills.data?.length ? (
           <div className="off-pers-sk-empty">

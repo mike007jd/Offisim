@@ -11,6 +11,7 @@ import {
 } from '@/design-system/primitives/dialog.js';
 import { Input } from '@/design-system/primitives/input.js';
 import { Textarea } from '@/design-system/primitives/textarea.js';
+import { ErrorState, SkeletonRows, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -123,11 +124,25 @@ export function MemoryTab({ employeeId }: MemoryTabProps) {
   };
   const pendingDelete = entries.find((entry) => entry.id === pendingDeleteId) ?? null;
 
+  if (query.isError) {
+    return (
+      <div className="off-pers-tab-shell">
+        <div className="off-pers-tab-scroll">
+          <ErrorState
+            title="Couldn't load memories"
+            detail={errorDetail(query.error, 'Memories could not be loaded.')}
+            onRetry={() => void query.refetch()}
+          />
+        </div>
+      </div>
+    );
+  }
+
   if (query.isLoading) {
     return (
       <div className="off-pers-tab-shell">
-        <div className="off-pers-tab-scroll text-[var(--off-fs-sm)] text-[var(--off-ink-4)]">
-          Loading memories…
+        <div className="off-pers-tab-scroll">
+          <SkeletonRows rows={4} />
         </div>
       </div>
     );
@@ -260,9 +275,7 @@ export function MemoryTab({ employeeId }: MemoryTabProps) {
         <DialogContent className="off-dialog-w-sm">
           <DialogHeader>
             <DialogTitle>Delete Memory</DialogTitle>
-            <DialogDescription>
-              Permanently remove this memory.
-            </DialogDescription>
+            <DialogDescription>Permanently remove this memory.</DialogDescription>
           </DialogHeader>
           {pendingDelete ? (
             <p className="text-[length:var(--off-fs-sm)] text-[var(--off-ink-2)]">

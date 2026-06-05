@@ -1,11 +1,18 @@
 import { useUiState } from '@/app/ui-state.js';
 import { OFFICE_SCENE_2D_COLORS } from '@/data/color-palette.js';
-import { useEmployees, useOfficeScene, useThreads } from '@/data/queries.js';
+import { useEmployees, useOfficeLayout, useThreads } from '@/data/queries.js';
 import type { ZoneKind } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
 import { CANVAS_FONT_TOKENS } from '@/styles/visual-tokens.js';
 import { useEffect, useMemo, useRef } from 'react';
 import { compactSceneEmployeeName } from './scene-labels.js';
+import {
+  archetypeToKind,
+  defaultEmployeeZone,
+  employeePositions,
+  floorBounds,
+  zoneDefsFromLayout,
+} from './scene-layout.js';
 
 const ZONE_TINT: Record<ZoneKind, string> = {
   workspace: OFFICE_SCENE_2D_COLORS.zoneWorkspace,
@@ -33,27 +40,35 @@ function roundRect(
 }
 
 export function OfficeScene2D() {
+  const companyId = useUiState((s) => s.companyId);
   const projectId = useUiState((s) => s.projectId);
   const selectedThreadId = useUiState((s) => s.selectedThreadId);
   const openThread = useUiState((s) => s.openThread);
   const employees = useEmployees();
   const threads = useThreads(projectId);
-  const scene = useOfficeScene();
+  // Same real source as the 3D scene — real zones + real roster, with the
+  // synthetic fallback only when there is no backend (non-Tauri/dev preview).
+  const layout = useOfficeLayout(companyId);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const hitsRef = useRef<Hit[]>([]);
 
-  const byId = useMemo(
-    () => new Map((employees.data ?? []).map((e) => [e.id, e])),
-    [employees.data],
+  // Memoized so positions and the canvas draw effect don't recompute/redraw on
+  // every render — `employees.data ?? []` is otherwise a fresh array each time.
+  const roster = useMemo(() => employees.data ?? [], [employees.data]);
+  const zoneDefs = useMemo(() => zoneDefsFromLayout(layout.data), [layout.data]);
+  const { floorW, floorD } = useMemo(() => floorBounds(zoneDefs), [zoneDefs]);
+  const fallbackZone = useMemo(() => defaultEmployeeZone(zoneDefs), [zoneDefs]);
+  const positions = useMemo(
+    () => employeePositions(roster, zoneDefs, fallbackZone),
+    [roster, zoneDefs, fallbackZone],
   );
 
-  const layout = scene.data;
   const threadList = threads.data;
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !layout) return;
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -73,7 +88,7 @@ export function OfficeScene2D() {
       ctx.clearRect(0, 0, cw, ch);
 
       const pad = 48;
-      const scale = Math.min((cw - pad * 2) / layout.floorW, (ch - pad * 2) / layout.floorD);
+      const scale = Math.min((cw - pad * 2) / floorW, (ch - pad * 2) / floorD);
       const ox = cw / 2;
       const oy = ch / 2;
       const wx = (x: number) => ox + x * scale;
@@ -81,14 +96,7 @@ export function OfficeScene2D() {
 
       // floor
       ctx.fillStyle = OFFICE_SCENE_2D_COLORS.floor;
-      roundRect(
-        ctx,
-        wx(-layout.floorW / 2),
-        wy(-layout.floorD / 2),
-        layout.floorW * scale,
-        layout.floorD * scale,
-        14,
-      );
+      roundRect(ctx, wx(-floorW / 2), wy(-floorD / 2), floorW * scale, floorD * scale, 14);
       ctx.fill();
       ctx.strokeStyle = OFFICE_SCENE_2D_COLORS.floorLine;
       ctx.stroke();
@@ -96,23 +104,23 @@ export function OfficeScene2D() {
       // grid
       ctx.strokeStyle = OFFICE_SCENE_2D_COLORS.grid;
       ctx.lineWidth = 1;
-      for (let gx = -layout.floorW / 2; gx <= layout.floorW / 2; gx += 1) {
+      for (let gx = -floorW / 2; gx <= floorW / 2; gx += 1) {
         ctx.beginPath();
-        ctx.moveTo(wx(gx), wy(-layout.floorD / 2));
-        ctx.lineTo(wx(gx), wy(layout.floorD / 2));
+        ctx.moveTo(wx(gx), wy(-floorD / 2));
+        ctx.lineTo(wx(gx), wy(floorD / 2));
         ctx.stroke();
       }
-      for (let gz = -layout.floorD / 2; gz <= layout.floorD / 2; gz += 1) {
+      for (let gz = -floorD / 2; gz <= floorD / 2; gz += 1) {
         ctx.beginPath();
-        ctx.moveTo(wx(-layout.floorW / 2), wy(gz));
-        ctx.lineTo(wx(layout.floorW / 2), wy(gz));
+        ctx.moveTo(wx(-floorW / 2), wy(gz));
+        ctx.lineTo(wx(floorW / 2), wy(gz));
         ctx.stroke();
       }
 
       // zones
       ctx.font = CANVAS_FONT_TOKENS.officeSceneLabel;
-      for (const zone of layout.zones) {
-        ctx.fillStyle = ZONE_TINT[zone.kind];
+      for (const zone of zoneDefs) {
+        ctx.fillStyle = ZONE_TINT[archetypeToKind(zone.archetype)];
         roundRect(
           ctx,
           wx(zone.cx - zone.w / 2),
@@ -130,19 +138,19 @@ export function OfficeScene2D() {
         );
       }
 
-      // employees
+      // employees — real roster, seated by the shared layout helper
       hitsRef.current = [];
       const r = Math.max(16, scale * 0.42);
-      for (const placement of layout.placements) {
-        const employee = byId.get(placement.employeeId);
-        if (!employee) continue;
+      for (const employee of roster) {
+        const pos = positions.get(employee.id);
+        if (!pos) continue;
         const thread = threadList?.find((t) => t.employeeId === employee.id);
         const running =
           thread?.runState === 'running' || (liveThread?.scope === 'team' && employee.online);
         const active = Boolean(thread && thread.id === selectedThreadId);
         const colors = resolveAppearance(employee.id, employee.appearance);
-        const sx = wx(placement.x);
-        const sy = wy(placement.z);
+        const sx = wx(pos[0]);
+        const sy = wy(pos[1]);
 
         // desk
         ctx.fillStyle = OFFICE_SCENE_2D_COLORS.desk;
@@ -188,7 +196,7 @@ export function OfficeScene2D() {
     const observer = new ResizeObserver(draw);
     if (canvas.parentElement) observer.observe(canvas.parentElement);
     return () => observer.disconnect();
-  }, [layout, threadList, byId, selectedThreadId]);
+  }, [zoneDefs, floorW, floorD, positions, roster, threadList, selectedThreadId]);
 
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: canvas hit-test is a pointer convenience; employees are keyboard-selectable via the team dock and thread list

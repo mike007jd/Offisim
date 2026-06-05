@@ -7,6 +7,7 @@ import {
   getDisplayLabel,
   useActivityRecords,
 } from '@/surfaces/activity/activity-data.js';
+import { SkeletonRows } from '@/surfaces/shared/SurfaceStates.js';
 import { ArrowRight } from 'lucide-react';
 import { useWsApprovals, useWsMeetings } from '../workspace-data.js';
 
@@ -29,7 +30,6 @@ export function WorkplaceApp() {
   const company = companies.data?.find((c) => c.id === companyId) ?? null;
   const project = projects.data?.find((p) => p.id === projectId) ?? projects.data?.[0] ?? null;
   const headcount = employees.data?.length ?? 0;
-  const workingNow = employees.data?.filter((e) => e.presence === 'working').length ?? 0;
   const toApprove = approvals.data?.filter((a) => a.status === 'pending').length ?? 0;
   const activeRuns = meetings.data?.filter((m) => m.status === 'live').length ?? 0;
   const spend = runCost.data?.costLabel ?? '$0.00';
@@ -51,8 +51,7 @@ export function WorkplaceApp() {
           <div className="off-ws-wp-hi">
             {greeting}
             <span className="off-ws-wp-hi-sub">
-              {company?.name ?? 'Company'} · {project?.name ?? 'Project'} · {headcount} employees,{' '}
-              {workingNow} working now
+              {company?.name ?? 'Company'} · {project?.name ?? 'Project'} · {headcount} employees
             </span>
           </div>
           <div className="off-ws-wp-stats">
@@ -76,7 +75,11 @@ export function WorkplaceApp() {
             <Icon icon={ArrowRight} size="sm" />
           </button>
         </div>
-        {recent.length > 0 ? (
+        {activity.isError ? (
+          <div className="off-ws-wp-recent-empty is-error">Couldn’t load recent activity.</div>
+        ) : activity.isLoading ? (
+          <SkeletonRows rows={3} className="off-ws-wp-recent" />
+        ) : recent.length > 0 ? (
           <div className="off-ws-act-entries off-ws-wp-recent">
             {recent.map((record) => (
               <div key={record.id} className="off-ws-act-entry">

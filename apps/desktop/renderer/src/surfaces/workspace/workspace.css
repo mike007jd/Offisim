@@ -1529,13 +1529,33 @@
   color: var(--off-ink-1);
 }
 
-.off-ws-cal-head .off-ws-oa-deny {
-  height: 30px;
-  padding: 0 12px;
-}
-
 .off-ws-cal-head .off-ws-oa-approve {
   height: 30px;
+}
+
+/* Neutral "Today" jump button — not the approvals deny semantics. */
+.off-ws-cal-today {
+  height: 30px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-1);
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-sm);
+  font-weight: 560;
+  cursor: pointer;
+}
+
+.off-ws-cal-today:hover:not(:disabled) {
+  border-color: var(--off-accent);
+  color: var(--off-ink-1);
+}
+
+.off-ws-cal-today:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .off-ws-cal-body {
@@ -1846,6 +1866,10 @@
 .off-ws-wp-recent-empty {
   font-size: var(--off-fs-sm);
   color: var(--off-ink-4);
+}
+
+.off-ws-wp-recent-empty.is-error {
+  color: var(--off-danger);
 }
 
 .off-ws-wp-recent {

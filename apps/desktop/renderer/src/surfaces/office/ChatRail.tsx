@@ -9,7 +9,7 @@ import {
 } from '@/data/queries.js';
 import type { ChatAttachment, ChatMessage } from '@/data/types.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
-import { SkeletonRows } from '@/surfaces/shared/SurfaceStates.js';
+import { ErrorState, SkeletonRows, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
 import {
   type WsAttachment,
   type WsConversation,
@@ -218,11 +218,32 @@ export function ChatRail() {
         />
       </header>
 
-      {(activeThread
+      {!selectedThreadId ||
+      (activeThread
         ? messages.isLoading
-        : workspaceThread.isLoading || persistedWorkspaceMessages.isLoading) ||
-      !selectedThreadId ? (
+        : workspaceThread.isLoading || persistedWorkspaceMessages.isLoading) ? (
         <SkeletonRows rows={4} />
+      ) : (
+          activeThread
+            ? messages.isError
+            : workspaceThread.isError || persistedWorkspaceMessages.isError
+        ) ? (
+        <ErrorState
+          title="Couldn't load this conversation"
+          detail={errorDetail(
+            activeThread
+              ? messages.error
+              : (workspaceThread.error ?? persistedWorkspaceMessages.error),
+            'The messages failed to load.',
+          )}
+          onRetry={() => {
+            if (activeThread) void messages.refetch();
+            else {
+              void workspaceThread.refetch();
+              void persistedWorkspaceMessages.refetch();
+            }
+          }}
+        />
       ) : (
         <OfficeThread
           key={selectedThreadId}

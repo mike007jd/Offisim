@@ -1,7 +1,12 @@
 import { useUiState } from '@/app/ui-state.js';
 import { Select, type SelectOption } from '@/design-system/grammar/Select.js';
 import { cn } from '@/lib/utils.js';
-import { EmptyState, SkeletonRows } from '@/surfaces/shared/SurfaceStates.js';
+import {
+  EmptyState,
+  ErrorState,
+  SkeletonRows,
+  errorDetail,
+} from '@/surfaces/shared/SurfaceStates.js';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Activity, Search } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -55,8 +60,25 @@ export function ActivitySurface() {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Once the user explicitly picks a date window, stop auto-widening it.
+  const hasUserPickedDate = useRef(false);
 
   const allRecords = useMemo(() => records.data ?? [], [records.data]);
+
+  // "Today" is the right resting default when today has activity — but on first
+  // open it must not hide an entire non-empty history behind a false "no events"
+  // first impression. If today is empty against a non-empty dataset, widen to
+  // the narrowest window that has rows. Respects an explicit user pick.
+  useEffect(() => {
+    if (records.isLoading || hasUserPickedDate.current) return;
+    if (datePreset !== 'today' || allRecords.length === 0) return;
+    const dateOnly = (preset: DatePreset) =>
+      filterRecords(allRecords, { datePreset: preset, eventType: 'all', actor: 'all', search: '' })
+        .length;
+    if (dateOnly('today') > 0) return;
+    const widened = (['7d', '30d', 'all'] as DatePreset[]).find((preset) => dateOnly(preset) > 0);
+    if (widened) setDatePreset(widened);
+  }, [records.isLoading, allRecords, datePreset]);
 
   const filters: ActivityFilters = useMemo(
     () => ({ datePreset, eventType, actor, search }),
@@ -158,7 +180,10 @@ export function ActivitySurface() {
           options={DATE_OPTIONS}
           value={datePreset}
           aria-label="Date range"
-          onChange={(e) => setDatePreset(e.target.value as DatePreset)}
+          onChange={(e) => {
+            hasUserPickedDate.current = true;
+            setDatePreset(e.target.value as DatePreset);
+          }}
         />
         <Select
           options={EVENT_TYPE_OPTIONS}
@@ -184,7 +209,15 @@ export function ActivitySurface() {
         </div>
       </div>
 
-      {records.isLoading && allRecords.length === 0 ? (
+      {records.isError && allRecords.length === 0 ? (
+        <div className="off-act-empty-wrap">
+          <ErrorState
+            title="Couldn't load activity"
+            detail={errorDetail(records.error, 'The event log failed to load.')}
+            onRetry={() => void records.refetch()}
+          />
+        </div>
+      ) : records.isLoading && allRecords.length === 0 ? (
         <div className="off-act-empty-wrap">
           <SkeletonRows rows={8} />
         </div>

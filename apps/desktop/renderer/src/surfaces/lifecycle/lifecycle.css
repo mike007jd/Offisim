@@ -13,6 +13,15 @@
   background: var(--off-bg);
 }
 
+/* Front-door load failure — full window, centered honest error + Retry. Must
+   stay visually distinct from the cold-start wizard (the empty-account path). */
+.off-lc-error-wrap {
+  display: grid;
+  place-items: center;
+  height: 100vh;
+  background: var(--off-bg);
+}
+
 /* ════════════ Company selection portal ════════════ */
 .off-csp {
   display: flex;
@@ -79,41 +88,10 @@
 }
 
 /* Empty list: a centered prompt + a primary Create button (not a dashed box). */
+/* EmptyState plate stretched to fill the companies aside vertically. */
 .off-csp-empty {
   flex: 1;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--off-sp-4);
-  padding: var(--off-sp-6);
-  text-align: center;
-}
-
-.off-csp-empty-msg {
-  margin: 0;
-  font-size: var(--off-fs-sm);
-  color: var(--off-ink-3);
-}
-
-.off-csp-empty-cta {
-  height: 38px;
-  padding: 0 var(--off-sp-6);
-  display: inline-flex;
-  align-items: center;
-  gap: var(--off-sp-2);
-  border: 0;
-  border-radius: var(--off-r-md);
-  background: var(--off-accent);
-  color: var(--off-accent-fg);
-  font-size: var(--off-fs-sm);
-  font-weight: 640;
-  transition: background var(--off-motion-fast) var(--off-motion-ease);
-}
-
-.off-csp-empty-cta:hover {
-  background: var(--off-accent-press);
 }
 
 .off-csp-no-sel {
@@ -186,6 +164,11 @@
   font-size: var(--off-fs-md);
   font-weight: 660;
   color: var(--off-ink-1);
+  /* Fixed-width aside row — clip long names rather than push the layout. */
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .off-csp-row-tpl {
@@ -352,6 +335,8 @@
   font-size: var(--off-fs-xl);
   font-weight: 700;
   color: var(--off-ink-1);
+  /* Hero name is a heading — wrap long/unbroken names rather than overflow. */
+  overflow-wrap: anywhere;
 }
 
 .off-csp-brief-tp {

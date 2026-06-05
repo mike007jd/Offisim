@@ -21,16 +21,12 @@ import { WorkstationUnit3D } from './r3d/prefabs/WorkstationMesh3D.js';
 import { OFFICE_CAMERA_PRESET } from './r3d/scene-art-direction.js';
 import { LIGHT_SCENE_3D } from './r3d/scene-colors.js';
 import { compactSceneEmployeeName } from './scene-labels.js';
-
-interface ZoneDef {
-  id: string;
-  label: string;
-  archetype: string;
-  cx: number;
-  cz: number;
-  w: number;
-  d: number;
-}
+import {
+  type ZoneDef,
+  employeePositions,
+  defaultEmployeeZone as resolveDefaultEmployeeZone,
+  zoneDefsFromLayout,
+} from './scene-layout.js';
 
 export interface ScenePlacementPoint {
   readonly x: number;
@@ -82,13 +78,6 @@ const ZONE_TINT: Record<string, string> = {
   library: LIGHT_SCENE_3D.zoneLibrary,
   server: LIGHT_SCENE_3D.zoneServer,
 };
-
-/** Synthetic fallback layout (non-Tauri/dev, or empty backend). */
-const FALLBACK_ZONES: ZoneDef[] = [
-  { id: 'work', label: 'Workspace', archetype: 'workspace', cx: -5, cz: -1, w: 16, d: 25 },
-  { id: 'meet', label: 'Meeting', archetype: 'meeting', cx: 8.5, cz: -8.5, w: 11, d: 11 },
-  { id: 'lounge', label: 'Lounge', archetype: 'rest', cx: 8.5, cz: 7, w: 11, d: 14 },
-];
 
 function zoneTint(archetype: string): string {
   return ZONE_TINT[archetype] ?? LIGHT_SCENE_3D.zoneWorkspace;
@@ -374,52 +363,6 @@ function ExternalPlacementController({
 }
 
 /** Evenly spread `count` standing positions inside a zone footprint. */
-function seatsInZone(zone: ZoneDef, count: number): [number, number][] {
-  if (count <= 0) return [];
-  const cols = Math.ceil(Math.sqrt(count));
-  const rows = Math.ceil(count / cols);
-  const padX = Math.min(2.4, zone.w / (cols + 1));
-  const padZ = Math.min(2.4, zone.d / (rows + 1));
-  const cellW = (zone.w - padX * 2) / Math.max(1, cols - 1 || 1);
-  const cellD = (zone.d - padZ * 2) / Math.max(1, rows - 1 || 1);
-  const out: [number, number][] = [];
-  for (let i = 0; i < count; i += 1) {
-    const c = i % cols;
-    const r = Math.floor(i / cols);
-    const x = cols === 1 ? zone.cx : zone.cx - zone.w / 2 + padX + c * cellW;
-    const z = rows === 1 ? zone.cz : zone.cz - zone.d / 2 + padZ + r * cellD;
-    out.push([x, z]);
-  }
-  return out;
-}
-
-function employeeZone(employee: Employee, zones: ZoneDef[], fallbackZone: ZoneDef): ZoneDef {
-  return zones.find((zone) => zone.id === employee.workstationId) ?? fallbackZone;
-}
-
-function employeePositions(
-  roster: Employee[],
-  zones: ZoneDef[],
-  fallbackZone: ZoneDef,
-): Map<string, [number, number]> {
-  const byZone = new Map<string, { zone: ZoneDef; employees: Employee[] }>();
-  for (const employee of roster) {
-    const zone = employeeZone(employee, zones, fallbackZone);
-    const group = byZone.get(zone.id) ?? { zone, employees: [] };
-    group.employees.push(employee);
-    byZone.set(zone.id, group);
-  }
-
-  const positions = new Map<string, [number, number]>();
-  for (const { zone, employees } of byZone.values()) {
-    const seats = seatsInZone(zone, employees.length);
-    employees.forEach((employee, index) => {
-      positions.set(employee.id, seats[index] ?? [zone.cx, zone.cz]);
-    });
-  }
-  return positions;
-}
-
 function ZoneRug({ zone, highlight = false }: { zone: ZoneDef; highlight?: boolean }) {
   return (
     <group position={[zone.cx, 0, zone.cz]}>
@@ -718,27 +661,9 @@ export function OfficeScene3D({
   const liveThread = threads.data?.find((t) => t.runState === 'running');
   const roster = employees.data ?? [];
 
-  const zoneDefs: ZoneDef[] = useMemo(
-    () =>
-      real
-        ? real.zones.map((z) => ({
-            id: z.zone_id,
-            label: z.label,
-            archetype: z.archetype ?? 'workspace',
-            cx: z.cx,
-            cz: z.cz,
-            w: z.w,
-            d: z.d,
-          }))
-        : FALLBACK_ZONES,
-    [real],
-  );
+  const zoneDefs: ZoneDef[] = useMemo(() => zoneDefsFromLayout(real), [real]);
 
-  const defaultEmployeeZone = useMemo(() => {
-    const workZone =
-      zoneDefs.find((z) => z.archetype === 'workspace') ?? zoneDefs[0] ?? FALLBACK_ZONES[0];
-    return workZone as ZoneDef;
-  }, [zoneDefs]);
+  const defaultEmployeeZone = useMemo(() => resolveDefaultEmployeeZone(zoneDefs), [zoneDefs]);
 
   const seatsByEmployee = useMemo(
     () => employeePositions(roster, zoneDefs, defaultEmployeeZone),

@@ -1,3 +1,4 @@
+import { UI_DATA_COLORS } from './color-palette.js';
 import type {
   ChatMessage,
   ChatThread,
@@ -9,9 +10,7 @@ import type {
   Project,
   Skill,
   UnfinishedThread,
-  UsagePoint,
 } from './types.js';
-import { UI_DATA_COLORS } from './color-palette.js';
 
 const HOUR = 3_600_000;
 const now = Date.UTC(2026, 4, 25, 9, 0, 0);
@@ -335,16 +334,6 @@ export const officeScene: OfficeSceneLayout = {
     { employeeId: 'emp-orion', x: 4.6, z: -3, rotation: 180 },
   ],
 };
-
-export const usageSeries: UsagePoint[] = [
-  { label: 'Mon', runs: 8, cost: 0.62 },
-  { label: 'Tue', runs: 14, cost: 1.08 },
-  { label: 'Wed', runs: 11, cost: 0.74 },
-  { label: 'Thu', runs: 19, cost: 1.46 },
-  { label: 'Fri', runs: 16, cost: 1.12 },
-  { label: 'Sat', runs: 5, cost: 0.31 },
-  { label: 'Sun', runs: 9, cost: 0.58 },
-];
 
 export const employeeSkills: Record<string, Skill[]> = {
   'emp-mara': [

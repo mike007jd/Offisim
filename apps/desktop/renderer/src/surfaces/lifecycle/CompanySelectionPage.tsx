@@ -9,6 +9,7 @@ import {
 import type { Company, Employee } from '@/data/types.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
+import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
 import { Archive, ArrowRight, Building2, FolderPlus, Pencil } from 'lucide-react';
 import { motion } from 'motion/react';
 import type { CSSProperties } from 'react';
@@ -124,13 +125,13 @@ export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps
         </div>
 
         {visible.length === 0 ? (
-          <div className="off-csp-empty">
-            <p className="off-csp-empty-msg">No companies yet.</p>
-            <button type="button" className="off-csp-empty-cta off-focusable" onClick={onNewCompany}>
-              <Icon icon={FolderPlus} size="sm" />
-              Create company
-            </button>
-          </div>
+          <EmptyState
+            className="off-csp-empty"
+            icon={Building2}
+            title="No companies yet"
+            description="Create your first AI company to get started."
+            action={{ label: 'Create company', onClick: onNewCompany }}
+          />
         ) : (
           <div className="off-csp-list">
             {visible.map((company) => {
@@ -145,6 +146,7 @@ export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps
                         className="off-csp-rename"
                         value={renameDraft}
                         aria-label={`Rename ${company.name}`}
+                        maxLength={60}
                         // biome-ignore lint/a11y/noAutofocus: rename input must take focus on open
                         autoFocus
                         onChange={(e) => setRenameDraft(e.target.value)}

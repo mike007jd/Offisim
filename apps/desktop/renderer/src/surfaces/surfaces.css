@@ -17,6 +17,52 @@
   background: var(--off-bg);
 }
 
+/* Pane-scoped failure plate (scene-local ErrorBoundary fallback). Unlike
+   .off-error-boundary it stays inside the surface host (absolute, not fixed,
+   no emergency z) so the shell and other surfaces keep working. */
+.off-surface-error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--off-sp-3);
+  padding: var(--off-sp-9);
+  text-align: center;
+  background: var(--off-bg);
+  color: var(--off-ink-1);
+}
+
+.off-surface-error__title {
+  font-size: var(--off-fs-lg);
+  font-weight: 660;
+}
+
+.off-surface-error__msg {
+  max-width: 360px;
+  font-size: var(--off-fs-sm);
+  color: var(--off-ink-3);
+  line-height: var(--off-lh-copy);
+}
+
+.off-surface-error__retry {
+  height: var(--off-button-h-md);
+  padding: 0 var(--off-sp-6);
+  border: 1px solid var(--off-line-strong);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-1);
+  color: var(--off-ink-1);
+  font-size: var(--off-fs-sm);
+  font-weight: 580;
+  cursor: pointer;
+}
+
+.off-surface-error__retry:hover {
+  background: var(--off-surface-sunken);
+  border-color: var(--off-accent);
+}
+
 .off-toast {
   border: 1px solid var(--off-line) !important;
   border-radius: var(--off-r-md) !important;
@@ -192,39 +238,6 @@
   );
   background-size: 200% 100%;
   animation: off-shimmer var(--off-motion-loop-base) var(--off-motion-loop-soft) infinite;
-}
-
-/* Compact recharts usage chart */
-.off-chart {
-  width: 100%;
-  height: 84px;
-}
-
-.off-chart-tip {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  padding: var(--off-sp-2) var(--off-sp-3);
-  border: 1px solid var(--off-line);
-  border-radius: var(--off-r-sm);
-  background: var(--off-surface-1);
-  box-shadow: var(--off-elev-2);
-  font-size: var(--off-fs-meta);
-  color: var(--off-ink-2);
-}
-
-.off-chart-tip-label {
-  font-size: var(--off-fs-micro);
-  font-weight: 680;
-  letter-spacing: 0;
-  text-transform: uppercase;
-  color: var(--off-ink-3);
-}
-
-.off-chart-tip b {
-  color: var(--off-ink-1);
-  font-family: var(--off-font-mono);
-  font-weight: 680;
 }
 
 @keyframes off-shimmer {

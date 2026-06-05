@@ -128,7 +128,6 @@
   --off-z-emergency: 99999;
   --off-blur-dialog: 2px;
 
-  --off-body-bg: radial-gradient(1200px 700px at 50% -10%, #1f2738 0%, #0f1420 60%, #0b0f17 100%);
   --off-topbar-bg: rgba(255, 255, 255, 0.92);
   --off-overlay: rgba(18, 28, 50, 0.42);
   /* 3-tier glass (F2 convergence): solid / muted / faint. Legacy names aliased

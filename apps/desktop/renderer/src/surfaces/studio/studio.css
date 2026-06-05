@@ -104,6 +104,24 @@
   font-weight: 540;
 }
 
+.off-studio-banner.is-error {
+  border-bottom-color: var(--off-danger-line);
+  background: var(--off-danger-surface);
+  color: var(--off-danger);
+}
+
+.off-studio-banner-retry {
+  margin-left: auto;
+  padding: 2px var(--off-sp-4);
+  border: 1px solid var(--off-danger-line);
+  border-radius: var(--off-r-xs);
+  background: var(--off-surface-1);
+  color: var(--off-danger);
+  font-size: var(--off-fs-meta);
+  font-weight: 580;
+  cursor: pointer;
+}
+
 .off-studio-tool.is-on {
   background: var(--off-accent-surface);
   color: var(--off-accent);

@@ -12,27 +12,15 @@ import { Button } from '@/design-system/primitives/button.js';
 import { Input } from '@/design-system/primitives/input.js';
 import { safeErrorMessage } from '@/lib/provider-bridge.js';
 import { useQuery } from '@tanstack/react-query';
-import {
-  Check,
-  ChevronRight,
-  Download,
-  FolderOpen,
-  Monitor,
-  Moon,
-  Package,
-  Sun,
-  Zap,
-} from 'lucide-react';
+import { Check, ChevronRight, Download, FolderOpen, Package, Zap } from 'lucide-react';
 import { useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { toast } from 'sonner';
 import {
   DEFAULT_RUNTIME_OPTIONS,
-  type DensityValue,
   ENABLED_OPTIONS,
   EXECUTION_MODE_OPTIONS,
   type RuntimeFormValues,
-  type ThemeValue,
 } from './settings-data.js';
 
 type EmployeeRuntimeValue = 'gateway' | 'claude' | 'codex';
@@ -87,21 +75,10 @@ function sceneDiagnosticPayload(events: SceneDropDiagnostic[]): string {
 
 interface RuntimePaneProps {
   form: UseFormReturn<RuntimeFormValues>;
-  theme: ThemeValue;
-  density: DensityValue;
-  onThemeChange: (value: ThemeValue) => void;
-  onDensityChange: (value: DensityValue) => void;
   saved: boolean;
 }
 
-export function RuntimePane({
-  form,
-  theme,
-  density,
-  onThemeChange,
-  onDensityChange,
-  saved,
-}: RuntimePaneProps) {
+export function RuntimePane({ form, saved }: RuntimePaneProps) {
   const defaultRuntime = form.watch('defaultRuntime') as EmployeeRuntimeValue;
   const sceneDropDiagnostics = useUiState((s) => s.sceneDropDiagnostics);
   const errors = form.formState.errors;
@@ -180,56 +157,17 @@ export function RuntimePane({
             </span>
           ) : null}
         </div>
-        <div className="off-set-panedesc">
-          Appearance and how employees run · changes save automatically.
-        </div>
+        <div className="off-set-panedesc">How employees run · saved as local preferences.</div>
       </div>
-
-      {/* General — Appearance */}
-      <section className="off-set-sec">
-        <div className="off-set-sec-head">
-          <CapsLabel>Appearance</CapsLabel>
-        </div>
-        <CardBlock>
-          <div className="off-set-grid-2">
-            <div className="off-field">
-              <span className="off-field-label">Theme</span>
-              <SegmentedControl<ThemeValue>
-                value={theme}
-                onChange={onThemeChange}
-                ariaLabel="Theme"
-                options={[
-                  { value: 'system', label: 'System', icon: <Icon icon={Monitor} size="sm" /> },
-                  { value: 'light', label: 'Light', icon: <Icon icon={Sun} size="sm" /> },
-                  { value: 'dark', label: 'Dark', icon: <Icon icon={Moon} size="sm" /> },
-                ]}
-              />
-              <span className="off-field-hint">
-                {theme === 'system' ? 'Follows your OS color scheme.' : `Always ${theme}.`}
-              </span>
-            </div>
-            <div className="off-field">
-              <span className="off-field-label">Display density</span>
-              <SegmentedControl<DensityValue>
-                value={density}
-                onChange={onDensityChange}
-                ariaLabel="Display density"
-                options={[
-                  { value: 'compact', label: 'Compact' },
-                  { value: 'normal', label: 'Normal' },
-                  { value: 'spacious', label: 'Spacious' },
-                ]}
-              />
-              <span className="off-field-hint">How tightly rows and panels are packed.</span>
-            </div>
-          </div>
-        </CardBlock>
-      </section>
 
       {/* General — execution behavior */}
       <section className="off-set-sec">
         <div className="off-set-sec-head">
           <CapsLabel>How employees run</CapsLabel>
+        </div>
+        <div className="off-set-sec-hint mb-[var(--off-sp-3)] mt-0">
+          Saved as preferences. In this build employees run in Offisim's trusted desktop lane; these
+          values are not yet read by the runtime.
         </div>
         <CardBlock>
           <div className="off-set-grid-3">
@@ -277,8 +215,8 @@ export function RuntimePane({
               </b>
             </div>
             <span className="off-field-hint">
-              The runtime employees use unless a company overrides it. Verified and Isolated
-              drivers require a release build.
+              The runtime employees use unless a company overrides it. Verified and Isolated drivers
+              require a release build.
             </span>
           </div>
         </CardBlock>
@@ -298,6 +236,9 @@ export function RuntimePane({
             Conversation memory &amp; summarization
           </summary>
           <div className="off-set-disclosure-body">
+            <div className="off-set-sec-hint mb-[var(--off-sp-3)] mt-0">
+              Saved as preferences; not yet read by the runtime in this build.
+            </div>
             <div className="off-set-subhead">Memory</div>
             <div className="off-set-grid-4">
               <FieldRow label="Enabled">
@@ -307,11 +248,7 @@ export function RuntimePane({
               </FieldRow>
               <FieldRow label="Prompt injection">
                 {({ id }) => (
-                  <Select
-                    id={id}
-                    options={ENABLED_OPTIONS}
-                    {...form.register('memoryInjection')}
-                  />
+                  <Select id={id} options={ENABLED_OPTIONS} {...form.register('memoryInjection')} />
                 )}
               </FieldRow>
               <FieldRow
@@ -455,8 +392,8 @@ export function RuntimePane({
                 </div>
               </div>
               <div className="off-set-vault-status">
-                Exports write to Offisim's app-local exports folder with the current employee
-                vault files.
+                Exports write to Offisim's app-local exports folder with the current employee vault
+                files.
               </div>
               <div className="off-set-vault-actions">
                 <Button

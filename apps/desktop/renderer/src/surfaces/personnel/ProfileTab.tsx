@@ -7,16 +7,7 @@ import { Input } from '@/design-system/primitives/input.js';
 import { Switch } from '@/design-system/primitives/switch.js';
 import { Textarea } from '@/design-system/primitives/textarea.js';
 import { cn } from '@/lib/utils.js';
-import {
-  Bolt,
-  ChevronDown,
-  ChevronRight,
-  FileText,
-  Link2,
-  Lock,
-  Save,
-  Search,
-} from 'lucide-react';
+import { Bolt, ChevronDown, ChevronRight, FileText, Link2, Lock, Save, Search } from 'lucide-react';
 import { useId, useState } from 'react';
 import { Controller, type UseFormReturn } from 'react-hook-form';
 import {
@@ -239,9 +230,11 @@ export function ProfileTab({
             <div className="off-field">
               <span className="off-field-label">Current workstation</span>
               <div className="off-pers-ro-inp">
-                {employee.zoneLabel && employee.deskLabel
-                  ? `${employee.zoneLabel} · ${employee.deskLabel}`
-                  : 'Unassigned'}
+                {employee.zoneLabel
+                  ? `${employee.zoneLabel}${employee.deskLabel ? ` · ${employee.deskLabel}` : ''}`
+                  : employee.workstationId
+                    ? 'Assigned'
+                    : 'Unassigned'}
               </div>
               <p className="off-field-hint">
                 Managed by the Office zone assignment flow so tool scope stays tied to the real
@@ -338,85 +331,85 @@ export function ProfileTab({
               {/* Config */}
               <section className="off-pers-prof-sec">
                 <CapsLabel>Config</CapsLabel>
-            <Controller
-              control={control}
-              name="modelMode"
-              render={({ field }) => (
-                <div className="off-field">
-                  <span className="off-field-label">Model mode</span>
-                  <SegmentedControl
-                    options={MODEL_MODE_OPTIONS}
-                    value={field.value}
-                    onChange={field.onChange}
-                    wrap
-                    ariaLabel="Model mode"
-                  />
-                  <p className="off-field-hint">
-                    {field.value === 'inherit'
-                      ? 'Uses the company-wide model from Settings > Provider.'
-                      : 'This employee will use the explicit model below.'}
-                  </p>
-                </div>
-              )}
-            />
-            {modelMode === 'custom' ? (
-              <>
                 <Controller
                   control={control}
-                  name="modelFamily"
+                  name="modelMode"
                   render={({ field }) => (
                     <div className="off-field">
-                      <label className="off-field-label" htmlFor={`${overrideId}-fam`}>
-                        Model family
-                      </label>
-                      <Select
-                        id={`${overrideId}-fam`}
+                      <span className="off-field-label">Model mode</span>
+                      <SegmentedControl
+                        options={MODEL_MODE_OPTIONS}
                         value={field.value}
-                        onChange={(e) => field.onChange(e.target.value)}
-                        options={MODEL_FAMILY_OPTIONS}
+                        onChange={field.onChange}
+                        wrap
+                        ariaLabel="Model mode"
                       />
+                      <p className="off-field-hint">
+                        {field.value === 'inherit'
+                          ? 'Uses the company-wide model from Settings > Provider.'
+                          : 'This employee will use the explicit model below.'}
+                      </p>
                     </div>
                   )}
                 />
+                {modelMode === 'custom' ? (
+                  <>
+                    <Controller
+                      control={control}
+                      name="modelFamily"
+                      render={({ field }) => (
+                        <div className="off-field">
+                          <label className="off-field-label" htmlFor={`${overrideId}-fam`}>
+                            Model family
+                          </label>
+                          <Select
+                            id={`${overrideId}-fam`}
+                            value={field.value}
+                            onChange={(e) => field.onChange(e.target.value)}
+                            options={MODEL_FAMILY_OPTIONS}
+                          />
+                        </div>
+                      )}
+                    />
+                    <div className="off-field">
+                      <label className="off-field-label" htmlFor={overrideId}>
+                        Override model
+                      </label>
+                      <Input
+                        id={overrideId}
+                        placeholder="runtime profile id"
+                        {...register('modelOverride')}
+                      />
+                    </div>
+                  </>
+                ) : null}
                 <div className="off-field">
-                  <label className="off-field-label" htmlFor={overrideId}>
-                    Override model
+                  <label className="off-field-label" htmlFor={tempId}>
+                    Temperature
                   </label>
                   <Input
-                    id={overrideId}
-                    placeholder="runtime profile id"
-                    {...register('modelOverride')}
+                    id={tempId}
+                    type="number"
+                    step="0.1"
+                    {...register('temperature', { valueAsNumber: true })}
                   />
                 </div>
-              </>
-            ) : null}
-            <div className="off-field">
-              <label className="off-field-label" htmlFor={tempId}>
-                Temperature
-              </label>
-              <Input
-                id={tempId}
-                type="number"
-                step="0.1"
-                {...register('temperature', { valueAsNumber: true })}
-              />
-            </div>
-            <div className="off-field">
-              <label className="off-field-label" htmlFor={maxTokensId}>
-                Max tokens
-              </label>
-              <Input
-                id={maxTokensId}
-                type="number"
-                {...register('maxTokens', { valueAsNumber: true })}
-              />
-              {Number.isFinite(values.maxTokens) && values.maxTokens < 1024 ? (
-                <p className="off-field-hint is-warn">
-                  Some reasoning models spend output budget on thinking. Recommend max tokens ≥
-                  1024.
-                </p>
-              ) : null}
-            </div>
+                <div className="off-field">
+                  <label className="off-field-label" htmlFor={maxTokensId}>
+                    Max tokens
+                  </label>
+                  <Input
+                    id={maxTokensId}
+                    type="number"
+                    {...register('maxTokens', { valueAsNumber: true })}
+                  />
+                  {Number.isFinite(values.maxTokens) && values.maxTokens < 1024 ? (
+                    <p className="off-field-hint is-warn">
+                      Some reasoning models spend output budget on thinking. Recommend max tokens ≥
+                      1024.
+                    </p>
+                  ) : null}
+                </div>
               </section>
             </div>
           </details>

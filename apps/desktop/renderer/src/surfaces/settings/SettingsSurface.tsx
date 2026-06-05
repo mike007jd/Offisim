@@ -9,16 +9,16 @@ import { Bot, Cpu, Plug, Users } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
+import { ExternalEmployeesPane } from './ExternalEmployeesPane.js';
+import { McpServersPane } from './McpServersPane.js';
+import { ProviderPane } from './ProviderPane.js';
+import { RuntimePane } from './RuntimePane.js';
 import {
   type PersistedRuntimeSettings,
   RUNTIME_SETTINGS_KEY,
   parsePersistedRuntimeSettings,
   useApplyAppearance,
 } from './appearance.js';
-import { ExternalEmployeesPane } from './ExternalEmployeesPane.js';
-import { McpServersPane } from './McpServersPane.js';
-import { ProviderPane } from './ProviderPane.js';
-import { RuntimePane } from './RuntimePane.js';
 import {
   type DensityValue,
   PROVIDER_CONFIGS,
@@ -230,7 +230,15 @@ export function SettingsSurface() {
         runtimeSaveTimer.current = null;
       }
     };
-  }, [runtimeSnapshot, theme, density, runtimeDirty, appearanceDirty, runtimeValid, persistRuntime]);
+  }, [
+    runtimeSnapshot,
+    theme,
+    density,
+    runtimeDirty,
+    appearanceDirty,
+    runtimeValid,
+    persistRuntime,
+  ]);
 
   // ⌘S commits the Provider pane; Escape discards its pending edits. Runtime
   // auto-saves, so neither shortcut applies there.
@@ -258,7 +266,15 @@ export function SettingsSurface() {
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [tab, saveProvider, providerDirty, providerValid, providerForm, activeConfigId, providerConfigs]);
+  }, [
+    tab,
+    saveProvider,
+    providerDirty,
+    providerValid,
+    providerForm,
+    activeConfigId,
+    providerConfigs,
+  ]);
 
   return (
     <div className="off-settings">
@@ -292,16 +308,7 @@ export function SettingsSurface() {
               onSave={() => void saveProvider()}
             />
           ) : null}
-          {tab === 'runtime' ? (
-            <RuntimePane
-              form={runtimeForm}
-              theme={theme}
-              density={density}
-              onThemeChange={setTheme}
-              onDensityChange={setDensity}
-              saved={runtimeSaved}
-            />
-          ) : null}
+          {tab === 'runtime' ? <RuntimePane form={runtimeForm} saved={runtimeSaved} /> : null}
           {tab === 'mcp' ? <McpServersPane /> : null}
           {tab === 'external' ? <ExternalEmployeesPane /> : null}
         </div>

@@ -7,7 +7,7 @@ import { Textarea } from '@/design-system/primitives/textarea.js';
 import { cn } from '@/lib/utils.js';
 import { ChevronDown, ChevronLeft, ChevronUp, Loader2, Wrench } from 'lucide-react';
 import { motion } from 'motion/react';
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { type CSSProperties, useCallback, useEffect, useMemo, useState } from 'react';
 import { clearDiscardConfirm, showDiscardConfirm } from './DiscardConfirmToast.js';
 import { TemplatePreview } from './TemplatePreview.js';
 import { roleDot, roleLabel, templateZones } from './lifecycle-data.js';
@@ -55,7 +55,9 @@ function EmployeeCard({ template, employee }: { template: string; employee: Temp
             appearance={employee.appearance}
             colorA={employee.appearance.clothingColor ?? UI_DATA_COLORS.ink3}
             colorB={
-              employee.appearance.accentColor ?? employee.appearance.clothingColor ?? UI_DATA_COLORS.ink2
+              employee.appearance.accentColor ??
+              employee.appearance.clothingColor ??
+              UI_DATA_COLORS.ink2
             }
             size={40}
           />
@@ -219,7 +221,10 @@ export function CompanyCreationWizard({
                 <p>Opens in Studio after you create it.</p>
               </div>
             ) : selected ? (
-              <TemplatePreview template={selected} accentHex={meta?.accentHex ?? UI_DATA_COLORS.blue3} />
+              <TemplatePreview
+                template={selected}
+                accentHex={meta?.accentHex ?? UI_DATA_COLORS.blue3}
+              />
             ) : null}
           </div>
           {!isCustom && zones.length ? (
@@ -286,6 +291,7 @@ export function CompanyCreationWizard({
                   placeholder="My AI Company"
                   value={companyName}
                   disabled={busy}
+                  maxLength={60}
                   onChange={(e) => setCompanyName(e.target.value)}
                 />
               </div>
