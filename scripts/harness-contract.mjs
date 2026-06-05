@@ -47,8 +47,8 @@ const completionVerifier = await import(
 const taskToolIntent = await import(
   new URL('../packages/core/dist/agents/task-tool-intent.js', import.meta.url).href
 );
-const employeeCompletion = await import(
-  new URL('../packages/core/dist/agents/employee-completion.js', import.meta.url).href
+const completionVerifierEvidence = await import(
+  new URL('../packages/core/dist/agents/completion-verifier-evidence.js', import.meta.url).href
 );
 const bossSummary = await import(
   new URL('../packages/core/dist/agents/boss-summary-node.js', import.meta.url).href
@@ -76,7 +76,7 @@ const invariants = [
   assertCompletionEvidenceFamilies(completionVerifier),
   assertCodexFullAgentRequestGuards(),
   assertBashEvidenceCanSatisfyFileIntent(completionVerifier, taskToolIntent),
-  await assertArtifactTasksRequireWriteAudit(employeeCompletion),
+  await assertArtifactTasksRequireWriteAudit(completionVerifierEvidence),
   await assertBossSummaryWaitsForPendingPlan(bossSummary),
   assertLeakDetectorScenario(leakDetector),
   await assertSoakBoundedMemoryScenario(soakRunner),
@@ -579,10 +579,10 @@ function assertBashEvidenceCanSatisfyFileIntent(completionVerifier, taskToolInte
   return { id: 'completion.bash_evidence_satisfies_file_intent', passed: true };
 }
 
-async function assertArtifactTasksRequireWriteAudit(employeeCompletion) {
+async function assertArtifactTasksRequireWriteAudit(completionVerifierEvidence) {
   const taskDescription =
     'Generate the self-contained HTML infographic at the requested 04_infographic path. Full user intent: 分析项目代码库，输出 PDF、PPT、HTML infographic，并拷贝项目到目标目录。';
-  if (!employeeCompletion.requiresConcreteWriteEvidence(taskDescription)) {
+  if (!completionVerifierEvidence.requiresConcreteWriteEvidence(taskDescription)) {
     throw new Error('artifact HTML task did not require concrete write evidence');
   }
   const runtimeCtx = {
@@ -601,7 +601,7 @@ async function assertArtifactTasksRequireWriteAudit(employeeCompletion) {
       },
     },
   };
-  const outcome = await employeeCompletion.verifyConcreteWriteEvidence({
+  const outcome = await completionVerifierEvidence.verifyConcreteWriteEvidence({
     runtimeCtx,
     threadId: 'thread-artifact',
     taskRunId: 'task-artifact',
@@ -610,7 +610,7 @@ async function assertArtifactTasksRequireWriteAudit(employeeCompletion) {
   if (outcome?.ok) {
     throw new Error('artifact task accepted read/list-only bash evidence');
   }
-  const failedWriteOutcome = await employeeCompletion.verifyConcreteWriteEvidence({
+  const failedWriteOutcome = await completionVerifierEvidence.verifyConcreteWriteEvidence({
     runtimeCtx: makeArtifactAuditRuntime([
       {
         task_run_id: 'task-artifact',
@@ -629,7 +629,7 @@ async function assertArtifactTasksRequireWriteAudit(employeeCompletion) {
   if (failedWriteOutcome?.ok) {
     throw new Error('artifact task accepted failed write_file audit evidence');
   }
-  const failedBashOutcome = await employeeCompletion.verifyConcreteWriteEvidence({
+  const failedBashOutcome = await completionVerifierEvidence.verifyConcreteWriteEvidence({
     runtimeCtx: makeArtifactAuditRuntime([
       {
         task_run_id: 'task-artifact',
@@ -647,7 +647,7 @@ async function assertArtifactTasksRequireWriteAudit(employeeCompletion) {
     throw new Error('artifact task accepted failed bash write audit evidence');
   }
   let checkedCommand = '';
-  const fullIntentTargetOutcome = await employeeCompletion.verifyConcreteWriteEvidence({
+  const fullIntentTargetOutcome = await completionVerifierEvidence.verifyConcreteWriteEvidence({
     runtimeCtx: makeArtifactAuditRuntime(
       [
         {
@@ -679,7 +679,7 @@ async function assertArtifactTasksRequireWriteAudit(employeeCompletion) {
   if (!fullIntentTargetOutcome?.ok) {
     throw new Error('artifact task did not resolve concrete target from full user intent');
   }
-  const dependencyOutcome = await employeeCompletion.verifyDependencyConstraints({
+  const dependencyOutcome = await completionVerifierEvidence.verifyDependencyConstraints({
     runtimeCtx: makeArtifactAuditRuntime([
       {
         task_run_id: 'task-pdf',

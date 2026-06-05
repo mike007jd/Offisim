@@ -23,15 +23,6 @@ import type { MaterializedEmployeeDeliverable } from './employee-deliverables.js
 import { TASK_TYPE_HANDOFF_CONTINUATION } from './employee-node-constants.js';
 import type { PreflightResult } from './employee-preflight.js';
 
-// Completion evidence verifiers live in completion-verifier-evidence.ts. These
-// re-exports preserve the historical employee-completion.js module surface that
-// scripts/harness-contract.mjs exercises via namespace import.
-export {
-  requiresConcreteWriteEvidence,
-  verifyConcreteWriteEvidence,
-  verifyDependencyConstraints,
-} from './completion-verifier-evidence.js';
-
 const logger = new Logger('employee-completion');
 
 /**
