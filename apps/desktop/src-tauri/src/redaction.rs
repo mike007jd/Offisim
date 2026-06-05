@@ -37,9 +37,9 @@ pub(crate) fn scrub_env_to_allowlist(allow: &[&str]) -> Vec<(String, String)> {
 
 /// Redact a URL embedded `user:pass@host` credential prefix in a single
 /// whitespace-delimited token. Returns the token unchanged when no
-/// scheme/`@`-before-path credential is present. This is the exact mechanism
-/// the git scrubber relies on; the shell scrubber never enables it.
-pub(crate) fn redact_url_credentials(token: &str) -> String {
+/// scheme/`@`-before-path credential is present. Internal to the scan loop
+/// below; enabled only when the caller passes `redact_url_creds: true`.
+fn redact_url_credentials(token: &str) -> String {
     let Some(scheme_idx) = token.find("://") else {
         return token.to_string();
     };

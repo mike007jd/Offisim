@@ -552,7 +552,9 @@ async fn project_workspace_root<R: Runtime>(
 }
 
 /// Single-project workspace-root lookup + canonicalize, shared by the
-/// `local_paths`, `git`, and (via thin adapters) the SDK agent-host lanes.
+/// `local_paths` and `git` lanes. (The SDK agent-host lanes keep their own
+/// copies because they return `HostError` with distinct error *codes* over IPC,
+/// not the `String` this returns.)
 ///
 /// `empty_id_error` lets each caller preserve its exact "projectId is required
 /// for <X>" wording — the SQL, missing-row error, and canonicalize error are
