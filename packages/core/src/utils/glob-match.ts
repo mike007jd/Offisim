@@ -14,6 +14,10 @@ import type { ModelCostRateRow } from '../runtime/repositories.js';
  *  - `*` → `.*` (greedy, crosses `:`)
  *  - `?` → `.`
  *
+ * `caseSensitive` defaults to false (flag `i`) for the cost/permission/identity
+ * callers, which match case-insensitively. The MCP `toolAllowPatterns` filter
+ * passes `{ caseSensitive: true }` because MCP tool names are case-significant.
+ *
  * NOTE on segment scoping: we deliberately keep `*` greedy (`.*`) rather than
  * a segment-scoped `[^:]*`. Permission/deny identities are multi-segment
  * (`mcp:<server>:<tool>` — see buildRuntimeIdentities). A segment-scoped `*`
@@ -23,10 +27,10 @@ import type { ModelCostRateRow } from '../runtime/repositories.js';
  * above is what closes the real injection hole. The file-glob builtin
  * (search-tools.ts) keeps its own `[^/]*` semantics for path patterns.
  */
-export function globToRegex(pattern: string): RegExp {
+export function globToRegex(pattern: string, options?: { caseSensitive?: boolean }): RegExp {
   const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&');
   const translated = escaped.replace(/\*/g, '.*').replace(/\?/g, '.');
-  return new RegExp(`^${translated}$`, 'i');
+  return new RegExp(`^${translated}$`, options?.caseSensitive ? 'u' : 'i');
 }
 
 /**

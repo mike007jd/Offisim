@@ -1,3 +1,4 @@
+import { readBodyWithByteLimit } from '../../utils/read-body-with-limit.js';
 import type { BuiltinTool, WebSearchFn } from './types.js';
 
 export const WEB_SEARCH_MAX_BODY_BYTES = 512 * 1024;
@@ -47,40 +48,11 @@ export async function readWebSearchTextWithLimit(
   response: Response,
   maxBytes = WEB_SEARCH_MAX_BODY_BYTES,
 ): Promise<string> {
-  const contentLength = response.headers.get('content-length');
-  if (contentLength) {
-    const bytes = Number(contentLength);
-    if (Number.isFinite(bytes) && bytes > maxBytes) {
-      throw new Error(`Search provider response exceeds ${maxBytes} bytes`);
-    }
-  }
-  if (!response.body) {
-    const text = await response.text();
-    if (new TextEncoder().encode(text).byteLength > maxBytes) {
-      throw new Error(`Search provider response exceeds ${maxBytes} bytes`);
-    }
-    return text;
-  }
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let total = 0;
-  let text = '';
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (!value) continue;
-      total += value.byteLength;
-      if (total > maxBytes) {
-        await reader.cancel('search provider response too large');
-        throw new Error(`Search provider response exceeds ${maxBytes} bytes`);
-      }
-      text += decoder.decode(value, { stream: true });
-    }
-  } finally {
-    reader.releaseLock();
-  }
-  return text + decoder.decode();
+  return readBodyWithByteLimit(response, maxBytes, {
+    tooLargeMessage: `Search provider response exceeds ${maxBytes} bytes`,
+    cancelReason: 'search provider response too large',
+    emptyBody: 'read-text',
+  });
 }
 
 /**

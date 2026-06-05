@@ -16,6 +16,8 @@
 
 import { Logger } from '../services/logger.js';
 import { generateId } from '../utils/generate-id.js';
+import { isPrivateOrLocalHost } from '../utils/private-host.js';
+import { readBodyWithByteLimit } from '../utils/read-body-with-limit.js';
 import type {
   A2AAgentCard,
   A2AJsonRpcResponse,
@@ -303,8 +305,9 @@ export class A2AClient {
       if (!res.ok) {
         throw new Error(`A2A RPC ${method} failed: ${res.status} ${res.statusText}`);
       }
-      const body = JSON.parse(await readResponseTextWithLimit(res, A2A_RPC_MAX_BYTES)) as
-        A2AJsonRpcResponse<R>;
+      const body = JSON.parse(
+        await readResponseTextWithLimit(res, A2A_RPC_MAX_BYTES),
+      ) as A2AJsonRpcResponse<R>;
       if (body.error) {
         throw new A2ARpcError(body.error.code, body.error.message);
       }
@@ -388,34 +391,10 @@ export async function readResponseTextWithLimit(
   response: Response,
   maxBytes: number,
 ): Promise<string> {
-  const contentLength = response.headers.get('content-length');
-  if (contentLength) {
-    const bytes = Number(contentLength);
-    if (Number.isFinite(bytes) && bytes > maxBytes) {
-      throw new Error(`A2A response exceeds ${maxBytes} bytes`);
-    }
-  }
-  if (!response.body) return '';
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let total = 0;
-  let text = '';
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (!value) continue;
-      total += value.byteLength;
-      if (total > maxBytes) {
-        await reader.cancel('a2a response too large');
-        throw new Error(`A2A response exceeds ${maxBytes} bytes`);
-      }
-      text += decoder.decode(value, { stream: true });
-    }
-  } finally {
-    reader.releaseLock();
-  }
-  return text + decoder.decode();
+  return readBodyWithByteLimit(response, maxBytes, {
+    tooLargeMessage: `A2A response exceeds ${maxBytes} bytes`,
+    cancelReason: 'a2a response too large',
+  });
 }
 
 async function withA2AFetchTimeout<T>(
@@ -467,48 +446,6 @@ function assertSameOrigin(url: URL, expected: URL, label: string): void {
 
 function isRedirectStatus(status: number): boolean {
   return status >= 300 && status < 400;
-}
-
-function isPrivateOrLocalHost(hostname: string): boolean {
-  const host = hostname.toLowerCase().replace(/^\[/u, '').replace(/\]$/u, '').replace(/\.$/u, '');
-  if (
-    host === 'localhost' ||
-    host.endsWith('.localhost') ||
-    host === '0.0.0.0' ||
-    host === '::' ||
-    host === '::1' ||
-    host === 'metadata.google.internal'
-  ) {
-    return true;
-  }
-  const ipv4 = parseIpv4(host);
-  if (ipv4) {
-    const [a, b] = ipv4;
-    return (
-      a === 0 ||
-      a === 10 ||
-      a === 127 ||
-      (a === 169 && b === 254) ||
-      (a === 172 && b >= 16 && b <= 31) ||
-      (a === 192 && b === 168)
-    );
-  }
-  if (host.startsWith('::ffff:')) {
-    const mapped = parseIpv4(host.slice('::ffff:'.length));
-    if (mapped) return isPrivateOrLocalHost(mapped.join('.'));
-  }
-  return host.startsWith('fc') || host.startsWith('fd') || host.startsWith('fe80:');
-}
-
-function parseIpv4(host: string): [number, number, number, number] | null {
-  const parts = host.split('.');
-  if (parts.length !== 4) return null;
-  const octets = parts.map((part) => {
-    if (!/^\d{1,3}$/u.test(part)) return Number.NaN;
-    return Number(part);
-  });
-  if (octets.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return null;
-  return octets as [number, number, number, number];
 }
 
 function taskTextSummary(task: A2ATask): string {

@@ -3,6 +3,7 @@ import { mcpServerConnected, mcpToolCalled } from '../events/event-factories.js'
 import type { ToolDef } from '../llm/gateway.js';
 import type { ToolCallRequest, ToolCallResponse, ToolExecutor } from '../runtime/tool-executor.js';
 import { isAbortLikeError } from '../utils/abort-detection.js';
+import { globToRegex } from '../utils/glob-match.js';
 import type {
   McpClientFactory,
   McpConnection,
@@ -345,14 +346,11 @@ export class McpToolExecutor implements ToolExecutor {
   }
 }
 
-/** Translate a simple shell-style glob (`*` any run, `?` single char) to a RegExp. */
-function globToRegExp(pattern: string): RegExp {
-  const escaped = pattern.replace(/[.+^${}()|[\]\\]/gu, '\\$&');
-  const body = escaped.replace(/\*/gu, '.*').replace(/\?/gu, '.');
-  return new RegExp(`^${body}$`, 'u');
-}
-
-/** Whether `name` matches at least one of the provided globs. */
+/**
+ * Whether `name` matches at least one of the provided globs. Case-sensitive
+ * (MCP tool names are case-significant), unlike the cost/permission callers of
+ * globToRegex which match case-insensitively.
+ */
 function matchesAnyGlob(name: string, patterns: readonly string[]): boolean {
-  return patterns.some((pattern) => globToRegExp(pattern).test(name));
+  return patterns.some((pattern) => globToRegex(pattern, { caseSensitive: true }).test(name));
 }
