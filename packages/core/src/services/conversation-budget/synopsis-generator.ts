@@ -122,27 +122,66 @@ export class SynopsisGenerator {
     };
 
     const synopsisTokenCount = estimateTokens(nonSystemMessages);
-    await ctx.repos.threads.updateSynopsis(ctx.threadId, JSON.stringify(synopsis));
-    await ctx.repos.compactSummaries.create({
-      compact_id: generateId('cs'),
-      thread_id: ctx.threadId,
-      company_id: ctx.companyId,
-      compact_kind: 'thread_synopsis',
-      summary_source: summarySource,
-      summary_text: synopsis.summary,
-      pre_compact_message_count: nonSystemMessages.length,
-      pre_compact_token_count: synopsisTokenCount,
-      messages_compacted: sourceMessages.length,
-      failure_streak: summarySource === 'llm' ? 0 : failureStreak,
-      created_at: synopsis.updatedAt,
-    });
-    // D/C4: use a freshly-generated id rather than a deterministic
+    // D/C4: use a freshly-generated event id rather than a deterministic
     // `evt-${threadId}-${version}` key. Two successive compactions at the same
     // synopsis.version (which can happen when a retry repeats a previously
     // failed pass) would otherwise hit the runtime_events UNIQUE(event_id)
-    // constraint. The version is now stored in payload_json, where it belongs.
+    // constraint. The version is stored in payload_json, where it belongs.
+    await this.persistSynopsis(ctx, synopsis, {
+      compactId: generateId('cs'),
+      eventId: generateId('evt'),
+      compactKind: 'thread_synopsis',
+      summarySource,
+      preCompactMessageCount: nonSystemMessages.length,
+      preCompactTokenCount: synopsisTokenCount,
+      messagesCompacted: sourceMessages.length,
+      failureStreak: summarySource === 'llm' ? 0 : failureStreak,
+    });
+    await this.postCompactCleanup(ctx, options, synopsis.updatedAt);
+    ctx.eventBus.emit(this.makeSynopsisEvent(ctx, synopsis));
+    return { synopsis, summarySource, failureStreak };
+  }
+
+  /**
+   * Persist one synopsis: the four-step DB sequence that must stay
+   * shape-consistent (thread.synopsis_json + compact_summaries row +
+   * runtime_events row). The `conversation.synopsis.updated` event-bus emit is
+   * left to the caller so each path keeps its own ordering relative to any
+   * post-compaction cleanup. Callers own the divergent record fields — notably
+   * prunedMessageCount semantics: `generate()` prunes only the overflow
+   * (prunedMessageCount < totalMessageCount), whereas the rolling journal
+   * summarizes the whole window (prunedMessageCount === totalMessageCount).
+   */
+  async persistSynopsis(
+    ctx: RuntimeContext,
+    synopsis: ThreadSynopsisRecord,
+    opts: {
+      compactId: string;
+      eventId: string;
+      compactKind: string;
+      summarySource: string;
+      preCompactMessageCount: number;
+      preCompactTokenCount: number;
+      messagesCompacted: number;
+      failureStreak: number;
+    },
+  ): Promise<void> {
+    await ctx.repos.threads.updateSynopsis(ctx.threadId, JSON.stringify(synopsis));
+    await ctx.repos.compactSummaries.create({
+      compact_id: opts.compactId,
+      thread_id: ctx.threadId,
+      company_id: ctx.companyId,
+      compact_kind: opts.compactKind,
+      summary_source: opts.summarySource,
+      summary_text: synopsis.summary,
+      pre_compact_message_count: opts.preCompactMessageCount,
+      pre_compact_token_count: opts.preCompactTokenCount,
+      messages_compacted: opts.messagesCompacted,
+      failure_streak: opts.failureStreak,
+      created_at: synopsis.updatedAt,
+    });
     await ctx.repos.events.insert({
-      event_id: generateId('evt'),
+      event_id: opts.eventId,
       company_id: ctx.companyId,
       thread_id: ctx.threadId,
       event_type: 'conversation.synopsis.updated',
@@ -155,9 +194,6 @@ export class SynopsisGenerator {
       }),
       created_at: synopsis.updatedAt,
     });
-    await this.postCompactCleanup(ctx, options, synopsis.updatedAt);
-    ctx.eventBus.emit(this.makeSynopsisEvent(ctx, synopsis));
-    return { synopsis, summarySource, failureStreak };
   }
 
   private async postCompactCleanup(
@@ -221,7 +257,7 @@ export class SynopsisGenerator {
     return existing ? `${existing.summary} | ${snippet}`.slice(0, 900) : snippet.slice(0, 900);
   }
 
-  private makeSynopsisEvent(ctx: RuntimeContext, synopsis: ThreadSynopsisRecord) {
+  makeSynopsisEvent(ctx: RuntimeContext, synopsis: ThreadSynopsisRecord) {
     const payload: ConversationSynopsisUpdatedPayload = {
       summary: synopsis.summary,
       version: synopsis.version,

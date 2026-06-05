@@ -1,4 +1,3 @@
-import { conversationSynopsisUpdated } from '../../events/event-factories.js';
 import type { LlmMessage } from '../../llm/gateway.js';
 import type { RuntimeContext } from '../../runtime/runtime-context.js';
 import { estimateTokens } from './message-utils.js';
@@ -43,42 +42,20 @@ export function createRuntimeRollingJournal(
       const now = ctx.determinism.nowIso();
       const synopsis = buildSynopsisRecord(existing, summary, latestMessages, now);
 
-      await ctx.repos.threads.updateSynopsis(ctx.threadId, JSON.stringify(synopsis));
-      await ctx.repos.compactSummaries.create({
-        compact_id: ctx.determinism.id('cs'),
-        thread_id: ctx.threadId,
-        company_id: ctx.companyId,
-        compact_kind: 'rolling_journal',
-        summary_source: 'rolling_journal',
-        summary_text: synopsis.summary,
-        pre_compact_message_count: latestMessages.length,
-        pre_compact_token_count: estimateTokens(latestMessages),
-        messages_compacted: latestMessages.length,
-        failure_streak: 0,
-        created_at: now,
+      // The rolling journal summarizes the whole window, so it prunes every
+      // message it counts (prunedMessageCount === totalMessageCount; see
+      // buildSynopsisRecord), unlike generate() which keeps a tail.
+      await synopsisGenerator.persistSynopsis(ctx, synopsis, {
+        compactId: ctx.determinism.id('cs'),
+        eventId: ctx.determinism.id('evt'),
+        compactKind: 'rolling_journal',
+        summarySource: 'rolling_journal',
+        preCompactMessageCount: latestMessages.length,
+        preCompactTokenCount: estimateTokens(latestMessages),
+        messagesCompacted: latestMessages.length,
+        failureStreak: 0,
       });
-      await ctx.repos.events.insert({
-        event_id: ctx.determinism.id('evt'),
-        company_id: ctx.companyId,
-        thread_id: ctx.threadId,
-        event_type: 'conversation.synopsis.updated',
-        severity: 'info',
-        payload_json: JSON.stringify({
-          summary: synopsis.summary,
-          version: synopsis.version,
-          prunedMessageCount: synopsis.prunedMessageCount,
-          totalMessageCount: synopsis.totalMessageCount,
-        }),
-        created_at: now,
-      });
-      ctx.eventBus.emit(
-        conversationSynopsisUpdated(ctx.companyId, ctx.threadId, {
-          summary: synopsis.summary,
-          version: synopsis.version,
-          prunedMessageCount: synopsis.prunedMessageCount,
-          totalMessageCount: synopsis.totalMessageCount,
-        }),
-      );
+      ctx.eventBus.emit(synopsisGenerator.makeSynopsisEvent(ctx, synopsis));
     },
   });
 }
