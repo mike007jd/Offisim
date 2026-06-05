@@ -386,6 +386,130 @@ function buildInstalledPackageRow(
   };
 }
 
+function buildInstalledAssetRow(
+  plan: InstallPlan,
+  asset: ManifestAsset,
+  payload: Readonly<Record<string, unknown>>,
+  installedAssetId: string,
+  installedPackageId: string,
+  now: string,
+): InstalledAssetRow {
+  return {
+    installed_asset_id: installedAssetId,
+    installed_package_id: installedPackageId,
+    asset_id: asset.asset_id,
+    asset_kind: asset.kind,
+    local_instance_id: null,
+    entrypoint: asset.entrypoint ?? null,
+    enabled: asset.default_enabled !== false ? 1 : 0,
+    override_json: JSON.stringify({
+      ...sourceMetadata(plan, asset),
+      payload,
+    }),
+    created_at: now,
+    updated_at: now,
+  };
+}
+
+function buildInstalledCompanyTemplateRow(
+  plan: InstallPlan,
+  asset: ManifestAsset,
+  template: Readonly<Record<string, unknown>>,
+  companyTemplateAssetId: string,
+  companyId: string,
+): NewInstalledCompanyTemplate {
+  const manifest = plan.manifest;
+  return {
+    company_template_asset_id: companyTemplateAssetId,
+    company_id: companyId,
+    template_id: stringField(template, 'id') ?? asset.asset_id,
+    name: stringField(template, 'name') ?? manifest.package.title,
+    description: stringField(template, 'description') ?? manifest.package.summary ?? '',
+    template_json: stringifyJson(template, {
+      source: sourceMetadata(plan, asset),
+    }),
+    source_package_id: manifest.package.id,
+    source_asset_id: asset.asset_id,
+    version: manifest.package.version,
+  };
+}
+
+function buildInstalledOfficeLayoutRow(
+  plan: InstallPlan,
+  asset: ManifestAsset,
+  payload: Readonly<Record<string, unknown>>,
+  layoutId: string,
+  companyId: string,
+): NewInstalledOfficeLayout {
+  const manifest = plan.manifest;
+  return {
+    layout_id: layoutId,
+    company_id: companyId,
+    name: stringField(payload, 'name') ?? manifest.package.title,
+    layout_json: stringifyJson(jsonField(payload, 'layout'), {
+      source: sourceMetadata(plan, asset),
+      zones: [],
+      prefabs: [],
+    }),
+    is_active: 0,
+  };
+}
+
+function buildInstalledPrefabRow(
+  plan: InstallPlan,
+  asset: ManifestAsset,
+  payload: Readonly<Record<string, unknown>>,
+  instanceId: string,
+  zoneId: string,
+  companyId: string,
+  now: string,
+) {
+  const config = jsonField(payload, 'config');
+  return {
+    instance_id: instanceId,
+    company_id: companyId,
+    prefab_id: stringField(payload, 'prefab_id') ?? asset.asset_id,
+    zone_id: zoneId,
+    position_x: finiteNumberField(payload, 'position_x', asset),
+    position_y: finiteNumberField(payload, 'position_y', asset),
+    rotation: (payload.rotation === 90 || payload.rotation === 180 || payload.rotation === 270
+      ? payload.rotation
+      : 0) as 0 | 90 | 180 | 270,
+    bindings_json: stringifyJson(jsonField(payload, 'bindings'), []),
+    config_json: stringifyJson(
+      {
+        ...(config && typeof config === 'object' ? (config as Record<string, unknown>) : {}),
+        source: sourceMetadata(plan, asset),
+      },
+      { source: sourceMetadata(plan, asset) },
+    ),
+    enabled: asset.default_enabled !== false ? 1 : 0,
+    created_at: now,
+    updated_at: now,
+  };
+}
+
+function buildAssetBindingRow(
+  req: InstallPlan['bindings'][number],
+  confirmation: BindingConfirmation | undefined,
+  bindingId: string,
+  installedAssetId: string | null,
+  installTxnId: string,
+  now: string,
+): AssetBindingRow {
+  return {
+    binding_id: bindingId,
+    installed_asset_id: installedAssetId,
+    install_txn_id: installTxnId,
+    binding_type: req.bindingType,
+    binding_key: req.bindingKey,
+    binding_value_json: confirmation?.valueJson ?? null,
+    status: confirmation ? 'satisfied' : req.required ? 'pending' : 'skipped',
+    created_at: now,
+    updated_at: now,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -500,21 +624,14 @@ export async function materialize(
         assertSupportedAssetKind(asset.kind);
         const installedAssetId = generateId();
         const payload = payloadForAsset(manifest, asset);
-        const assetRow: InstalledAssetRow = {
-          installed_asset_id: installedAssetId,
-          installed_package_id: installedPackageId,
-          asset_id: asset.asset_id,
-          asset_kind: asset.kind,
-          local_instance_id: null,
-          entrypoint: asset.entrypoint ?? null,
-          enabled: asset.default_enabled !== false ? 1 : 0,
-          override_json: JSON.stringify({
-            ...sourceMetadata(plan, asset),
-            payload,
-          }),
-          created_at: now,
-          updated_at: now,
-        };
+        const assetRow = buildInstalledAssetRow(
+          plan,
+          asset,
+          payload,
+          installedAssetId,
+          installedPackageId,
+          now,
+        );
         void repos.installedAssets.create(assetRow);
         installedAssetIds.push(installedAssetId);
 
@@ -530,19 +647,13 @@ export async function materialize(
           }
           const template = companyTemplateFromPayload(payload, asset);
           const companyTemplateAssetId = `company_template_${generateId()}`;
-          const row: NewInstalledCompanyTemplate = {
-            company_template_asset_id: companyTemplateAssetId,
-            company_id: companyId,
-            template_id: stringField(template, 'id') ?? asset.asset_id,
-            name: stringField(template, 'name') ?? manifest.package.title,
-            description: stringField(template, 'description') ?? manifest.package.summary ?? '',
-            template_json: stringifyJson(template, {
-              source: sourceMetadata(plan, asset),
-            }),
-            source_package_id: manifest.package.id,
-            source_asset_id: asset.asset_id,
-            version: manifest.package.version,
-          };
+          const row = buildInstalledCompanyTemplateRow(
+            plan,
+            asset,
+            template,
+            companyTemplateAssetId,
+            companyId,
+          );
           void repos.companyTemplates.create(row);
           companyTemplateIds.push(companyTemplateAssetId);
         }
@@ -551,17 +662,7 @@ export async function materialize(
             throw new Error('Office layout materializer repository is unavailable');
           validateOfficeLayoutPayload(packagePrefabs, payload, asset);
           const layoutId = `layout_${generateId()}`;
-          const row: NewInstalledOfficeLayout = {
-            layout_id: layoutId,
-            company_id: companyId,
-            name: stringField(payload, 'name') ?? manifest.package.title,
-            layout_json: stringifyJson(jsonField(payload, 'layout'), {
-              source: sourceMetadata(plan, asset),
-              zones: [],
-              prefabs: [],
-            }),
-            is_active: 0,
-          };
+          const row = buildInstalledOfficeLayoutRow(plan, asset, payload, layoutId, companyId);
           void repos.officeLayouts.create(row);
           officeLayoutIds.push(layoutId);
         }
@@ -572,33 +673,7 @@ export async function materialize(
           const zoneId = stringField(payload, 'zone_id');
           if (!zoneId) throw new Error(`Prefab asset '${asset.asset_id}' is missing zone_id`);
           const instanceId = `prefab_${generateId()}`;
-          const config = jsonField(payload, 'config');
-          const row = {
-            instance_id: instanceId,
-            company_id: companyId,
-            prefab_id: stringField(payload, 'prefab_id') ?? asset.asset_id,
-            zone_id: zoneId,
-            position_x: finiteNumberField(payload, 'position_x', asset),
-            position_y: finiteNumberField(payload, 'position_y', asset),
-            rotation: (payload.rotation === 90 ||
-            payload.rotation === 180 ||
-            payload.rotation === 270
-              ? payload.rotation
-              : 0) as 0 | 90 | 180 | 270,
-            bindings_json: stringifyJson(jsonField(payload, 'bindings'), []),
-            config_json: stringifyJson(
-              {
-                ...(config && typeof config === 'object'
-                  ? (config as Record<string, unknown>)
-                  : {}),
-                source: sourceMetadata(plan, asset),
-              },
-              { source: sourceMetadata(plan, asset) },
-            ),
-            enabled: asset.default_enabled !== false ? 1 : 0,
-            created_at: now,
-            updated_at: now,
-          };
+          const row = buildInstalledPrefabRow(plan, asset, payload, instanceId, zoneId, companyId, now);
           void repos.prefabInstances.create(row);
           prefabInstanceIds.push(instanceId);
         }
@@ -611,17 +686,14 @@ export async function materialize(
       for (const req of plan.bindings) {
         const bindingId = generateId();
         const confirmation = bindingLookup.get(req.bindingKey);
-        const bindingRow: AssetBindingRow = {
-          binding_id: bindingId,
-          installed_asset_id: installedAssetIds[0] ?? null,
-          install_txn_id: installTxnId,
-          binding_type: req.bindingType,
-          binding_key: req.bindingKey,
-          binding_value_json: confirmation?.valueJson ?? null,
-          status: confirmation ? 'satisfied' : req.required ? 'pending' : 'skipped',
-          created_at: now,
-          updated_at: now,
-        };
+        const bindingRow = buildAssetBindingRow(
+          req,
+          confirmation,
+          bindingId,
+          installedAssetIds[0] ?? null,
+          installTxnId,
+          now,
+        );
         void repos.assetBindings.create(bindingRow);
         bindingIds.push(bindingId);
       }
@@ -683,21 +755,14 @@ export async function materialize(
       const payload = payloadForAsset(manifest, asset);
 
       // Create installed_assets row
-      const assetRow: InstalledAssetRow = {
-        installed_asset_id: installedAssetId,
-        installed_package_id: installedPackageId,
-        asset_id: asset.asset_id,
-        asset_kind: asset.kind,
-        local_instance_id: null,
-        entrypoint: asset.entrypoint ?? null,
-        enabled: asset.default_enabled !== false ? 1 : 0,
-        override_json: JSON.stringify({
-          ...sourceMetadata(plan, asset),
-          payload,
-        }),
-        created_at: now,
-        updated_at: now,
-      };
+      const assetRow = buildInstalledAssetRow(
+        plan,
+        asset,
+        payload,
+        installedAssetId,
+        installedPackageId,
+        now,
+      );
       await repos.installedAssets.create(assetRow);
       installedAssetIds.push(installedAssetId);
       partial.installedAssetIds.push(installedAssetId);
@@ -760,19 +825,13 @@ export async function materialize(
         }
         const template = companyTemplateFromPayload(payload, asset);
         const companyTemplateAssetId = `company_template_${generateId()}`;
-        const row: NewInstalledCompanyTemplate = {
-          company_template_asset_id: companyTemplateAssetId,
-          company_id: companyId,
-          template_id: stringField(template, 'id') ?? asset.asset_id,
-          name: stringField(template, 'name') ?? manifest.package.title,
-          description: stringField(template, 'description') ?? manifest.package.summary ?? '',
-          template_json: stringifyJson(template, {
-            source: sourceMetadata(plan, asset),
-          }),
-          source_package_id: manifest.package.id,
-          source_asset_id: asset.asset_id,
-          version: manifest.package.version,
-        };
+        const row = buildInstalledCompanyTemplateRow(
+          plan,
+          asset,
+          template,
+          companyTemplateAssetId,
+          companyId,
+        );
         await repos.companyTemplates.create(row);
         companyTemplateIds.push(companyTemplateAssetId);
         partial.companyTemplateIds.push(companyTemplateAssetId);
@@ -783,17 +842,7 @@ export async function materialize(
           throw new Error('Office layout materializer repository is unavailable');
         validateOfficeLayoutPayload(packagePrefabs, payload, asset);
         const layoutId = `layout_${generateId()}`;
-        const row: NewInstalledOfficeLayout = {
-          layout_id: layoutId,
-          company_id: companyId,
-          name: stringField(payload, 'name') ?? manifest.package.title,
-          layout_json: stringifyJson(jsonField(payload, 'layout'), {
-            source: sourceMetadata(plan, asset),
-            zones: [],
-            prefabs: [],
-          }),
-          is_active: 0,
-        };
+        const row = buildInstalledOfficeLayoutRow(plan, asset, payload, layoutId, companyId);
         await repos.officeLayouts.create(row);
         officeLayoutIds.push(layoutId);
         partial.officeLayoutIds.push(layoutId);
@@ -806,29 +855,7 @@ export async function materialize(
         const zoneId = stringField(payload, 'zone_id');
         if (!zoneId) throw new Error(`Prefab asset '${asset.asset_id}' is missing zone_id`);
         const instanceId = `prefab_${generateId()}`;
-        const config = jsonField(payload, 'config');
-        const row = {
-          instance_id: instanceId,
-          company_id: companyId,
-          prefab_id: stringField(payload, 'prefab_id') ?? asset.asset_id,
-          zone_id: zoneId,
-          position_x: finiteNumberField(payload, 'position_x', asset),
-          position_y: finiteNumberField(payload, 'position_y', asset),
-          rotation: (payload.rotation === 90 || payload.rotation === 180 || payload.rotation === 270
-            ? payload.rotation
-            : 0) as 0 | 90 | 180 | 270,
-          bindings_json: stringifyJson(jsonField(payload, 'bindings'), []),
-          config_json: stringifyJson(
-            {
-              ...(config && typeof config === 'object' ? (config as Record<string, unknown>) : {}),
-              source: sourceMetadata(plan, asset),
-            },
-            { source: sourceMetadata(plan, asset) },
-          ),
-          enabled: asset.default_enabled !== false ? 1 : 0,
-          created_at: now,
-          updated_at: now,
-        };
+        const row = buildInstalledPrefabRow(plan, asset, payload, instanceId, zoneId, companyId, now);
         await repos.prefabInstances.create(row);
         prefabInstanceIds.push(instanceId);
         partial.prefabInstanceIds.push(instanceId);
@@ -843,17 +870,14 @@ export async function materialize(
       const bindingId = generateId();
       const confirmation = bindingLookup.get(req.bindingKey);
 
-      const bindingRow: AssetBindingRow = {
-        binding_id: bindingId,
-        installed_asset_id: installedAssetIds[0] ?? null,
-        install_txn_id: installTxnId,
-        binding_type: req.bindingType,
-        binding_key: req.bindingKey,
-        binding_value_json: confirmation?.valueJson ?? null,
-        status: confirmation ? 'satisfied' : req.required ? 'pending' : 'skipped',
-        created_at: now,
-        updated_at: now,
-      };
+      const bindingRow = buildAssetBindingRow(
+        req,
+        confirmation,
+        bindingId,
+        installedAssetIds[0] ?? null,
+        installTxnId,
+        now,
+      );
       await repos.assetBindings.create(bindingRow);
       bindingIds.push(bindingId);
       partial.bindingIds.push(bindingId);
