@@ -324,7 +324,7 @@ export function MarketSurface() {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".offisimpkg,.aicspkg,.zip"
+            accept=".offisimpkg,.zip"
             hidden
             tabIndex={-1}
             onChange={(event) => {
@@ -739,7 +739,7 @@ function MarketNotConnected({
         <div className="off-mkt-hero-t">No marketplace connected</div>
         <div className="off-mkt-hero-d">
           Browsing a remote catalog needs a registry. You can install packages right now by
-          importing a local .offisimpkg, .aicspkg, or .zip file.
+          importing a local .offisimpkg or .zip file.
         </div>
         <div className="off-mkt-hero-a">
           <Button size="md" onClick={onImport} disabled={importing}>
