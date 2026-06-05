@@ -18,7 +18,6 @@
   "dependencies": {
     "@offisim/asset-schema": "workspace:*",
     "@offisim/db-local": "workspace:*",
-    "@offisim/registry-client": "workspace:*",
     "@offisim/shared-types": "workspace:*",
     "fflate": "^0.8.2",
     "js-yaml": "^4.1.0"

@@ -19,10 +19,6 @@ export const VALID_KINDS = [
   'prefab',
 ] as const;
 
-export const VALID_RISK_CLASSES = ['data_asset', 'logic_asset', 'privileged_asset'] as const;
-
-export const VALID_ENVIRONMENTS = ['desktop', 'docker', 'web_limited'] as const;
-
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SHA256_REGEX = /^[a-f0-9]{64}$/i;
 
@@ -153,65 +149,3 @@ export const SearchParamsSchema = z.object({
   per_page: z.coerce.number().int().min(1).max(100).default(20),
 });
 export type SearchParams = z.infer<typeof SearchParamsSchema>;
-
-// ── Manifest validation schema (replaces services/validation.ts if-checks) ──
-
-const packageSchema = z.object({
-  id: z.string().min(1, 'Missing package.id'),
-  kind: z.enum(VALID_KINDS, {
-    errorMap: (_issue, ctx) => ({
-      message: `Invalid package.kind: ${ctx.data}`,
-    }),
-  }),
-  version: z.string().min(1, 'Missing package.version'),
-  title: z.string().min(1, 'Missing package.title'),
-  license: z.string().min(1, 'Missing package.license'),
-  summary: z.string().optional(),
-});
-
-const compatibilitySchema = z.object({
-  runtime_range: z.string().min(1, 'Missing compatibility.runtime_range'),
-  schema_version: z.string().min(1, 'Missing compatibility.schema_version'),
-  supported_environments: z
-    .array(
-      z.enum(VALID_ENVIRONMENTS, {
-        errorMap: (_issue, ctx) => ({
-          message: `Invalid environment: ${ctx.data}`,
-        }),
-      }),
-    )
-    .min(1, 'Missing compatibility.supported_environments'),
-});
-
-const permissionsSchema = z.object({
-  risk_class: z.enum(VALID_RISK_CLASSES, {
-    errorMap: (_issue, ctx) => ({
-      message: `Invalid permissions.risk_class: ${ctx.data}`,
-    }),
-  }),
-  declares_secrets: z.boolean({
-    required_error: 'permissions.declares_secrets must be boolean',
-    invalid_type_error: 'permissions.declares_secrets must be boolean',
-  }),
-  filesystem_scope: z.string().optional(),
-  network_scope: z.string().optional(),
-});
-
-const integritySchema = z.object({
-  package_sha256: z
-    .string({ required_error: 'Missing integrity.package_sha256' })
-    .min(1, 'Missing integrity.package_sha256'),
-  file_hashes: z.record(z.string()).optional(),
-});
-
-export const ManifestSchema = z.object({
-  spec_version: z.string().min(1, 'Missing spec_version'),
-  package: packageSchema,
-  compatibility: compatibilitySchema,
-  requirements: z.record(z.unknown()),
-  permissions: permissionsSchema,
-  assets: z.array(z.record(z.unknown())).min(1, 'Missing or invalid assets array'),
-  integrity: integritySchema,
-  previews: z.record(z.unknown()).optional(),
-  lineage: z.record(z.unknown()).optional(),
-});

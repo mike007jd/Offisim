@@ -24,7 +24,3 @@ export function getSeededArtifact(packageVersionId: string): SeededArtifact | un
   if (!bytes) return undefined;
   return { bytes, size: bytes.byteLength };
 }
-
-export function clearSeededArtifacts(): void {
-  store.clear();
-}

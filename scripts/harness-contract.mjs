@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ensureRuntimeBuild } from './harness-lib.mjs';
@@ -375,24 +375,10 @@ function assertCompletionEvidenceFamilies(completionVerifier) {
 }
 
 function assertCodexFullAgentRequestGuards() {
-  const adapterPath = resolve(ROOT, 'apps/desktop/renderer/src/lib/tauri-engine-adapters.ts');
-  if (existsSync(adapterPath)) {
-    const adapterSource = readFileSync(adapterPath, 'utf8');
-    if (!/model:\s*envelope\.model/u.test(adapterSource)) {
-      throw new Error('Tauri engine adapter must always pass the selected model');
-    }
-    if (/runtimeProfile\.tier\s*!==\s*['"]sdk-native-full-agent['"]/u.test(adapterSource)) {
-      throw new Error(
-        'Tauri engine adapter still strips model from sdk-native full-agent requests',
-      );
-    }
-    if (/approvalPolicy:\s*[^,\n]*['"]never['"]/u.test(adapterSource)) {
-      throw new Error(
-        'Tauri engine adapter must not hardcode approvalPolicy never for full-agent requests',
-      );
-    }
-  }
-
+  // The model/approvalPolicy invariants once probed via the deleted renderer
+  // tauri-engine-adapters.ts are now enforced directly against the live codex
+  // host scripts by the spawned guard cases below (missing-model,
+  // full-agent-never-approval), so no source-grep of a deleted file is needed.
   const hostFiles = [
     {
       label: 'source',

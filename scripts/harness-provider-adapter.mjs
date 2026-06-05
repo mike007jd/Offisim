@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { ensureRuntimeBuild } from './harness-lib.mjs';
 
 await ensureRuntimeBuild({ force: process.argv.includes('--force-build') });
@@ -79,7 +79,7 @@ if (openAiAgentsFetchCount !== 0) {
 }
 assertCodexCoreFactoryFailsClosed();
 assertCodexHostTextOnlyInstructions();
-assertTauriEngineAdaptersResolveProjectId();
+assertEngineEnvelopeResolvesProjectId();
 
 console.log(
   JSON.stringify(
@@ -95,7 +95,7 @@ console.log(
         'openai-agents-sdk-rejects-tools',
         'codex-agent-sdk-core-factory-fails-closed',
         'codex-agent-host-text-only-instructions',
-        'tauri-engine-adapters-project-id',
+        'engine-envelope-project-id',
       ],
     },
     null,
@@ -218,48 +218,16 @@ function assertCodexHostTextOnlyInstructions() {
   }
 }
 
-function assertTauriEngineAdaptersResolveProjectId() {
-  const enginePath = new URL(
-    '../apps/desktop/renderer/src/lib/tauri-engine-adapters.ts',
-    import.meta.url,
-  );
-  const runtimePath = new URL('../apps/desktop/renderer/src/lib/tauri-runtime.ts', import.meta.url);
+function assertEngineEnvelopeResolvesProjectId() {
+  // The renderer tauri-engine-adapters.ts / tauri-runtime.ts that once carried
+  // resolveProjectId were removed in fc5f08ec; the engine envelope now resolves
+  // projectId directly in employee-engine-executor.ts. Assert against that.
   const executorSource = readFileSync(
     new URL('../packages/core/src/agents/employee-engine-executor.ts', import.meta.url),
     'utf8',
   );
-  if (!existsSync(enginePath) || !existsSync(runtimePath)) {
-    if (!executorSource.includes('projectId: state.projectId ?? null,')) {
-      throw new Error('tauri-engine-adapters-project-id missing engine envelope projectId');
-    }
-    return;
-  }
-  const engineSource = readFileSync(enginePath, 'utf8');
-  const runtimeSource = readFileSync(runtimePath, 'utf8');
-  const requiredEnginePhrases = [
-    'readonly resolveProjectId?: () => Promise<string | null | undefined>;',
-    'const resolvedProjectId = envelope.projectId ?? (await this.options.resolveProjectId?.());',
-    'projectId: resolvedProjectId',
-    'new TauriCodexEngineAdapter({ resolveProjectId: options.resolveProjectId })',
-    'resolveProjectId: options.resolveProjectId',
-  ];
-  for (const phrase of requiredEnginePhrases) {
-    if (!engineSource.includes(phrase)) {
-      throw new Error(`tauri-engine-adapters-project-id missing "${phrase}"`);
-    }
-  }
-  const requiredRuntimePhrases = [
-    'engineAdapters: createTauriEngineAdapterRegistry({',
-    'async resolveProjectId()',
-    'thread?.project_id ?? (await resolveSingleActiveProjectId(repos, companyId))',
-  ];
-  for (const phrase of requiredRuntimePhrases) {
-    if (!runtimeSource.includes(phrase)) {
-      throw new Error(`tauri-runtime-engine-project-id missing "${phrase}"`);
-    }
-  }
   if (!executorSource.includes('projectId: state.projectId ?? null,')) {
-    throw new Error('tauri-engine-adapters-project-id missing engine envelope projectId');
+    throw new Error('engine-envelope-project-id: employee-engine-executor must pass projectId');
   }
 }
 

@@ -206,10 +206,3 @@ export const installRateLimit = rateLimit({
   refillRate: 30 / 60,
   label: 'install',
 });
-
-// ── Test helpers ──
-
-/** Clear all rate limit state (for testing only) */
-export function _resetRateLimitStore() {
-  store.clear();
-}

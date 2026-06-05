@@ -242,14 +242,6 @@ export const requireSessionAuth = createMiddleware<PlatformEnv>(async (c, next) 
   await next();
 });
 
-export function getRequiredUserId(c: { get: (key: 'userId') => string | undefined }): string {
-  const userId = c.get('userId');
-  if (!userId) {
-    throw new HTTPException(401, { message: 'Authentication required' });
-  }
-  return userId;
-}
-
 /**
  * Restrict an API-TOKEN-authenticated request to tokens carrying `scope`.
  *
