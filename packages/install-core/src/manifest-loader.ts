@@ -6,24 +6,9 @@
  */
 
 import { parseManifest } from '@offisim/asset-schema';
+import { sha256Hex } from './hash.js';
 import { ZipBombError, safeUnzipSync } from './safe-unzip.js';
 import type { ExtractedPackage } from './types.js';
-
-// ---------------------------------------------------------------------------
-// Hashing helper
-// ---------------------------------------------------------------------------
-
-/** Compute SHA-256 hex digest of the given bytes. */
-async function sha256Hex(data: Uint8Array): Promise<string> {
-  const hashBuffer = await globalThis.crypto.subtle.digest(
-    'SHA-256',
-    data as Uint8Array<ArrayBuffer>,
-  );
-  const hashArray = new Uint8Array(hashBuffer);
-  return Array.from(hashArray)
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-}
 
 // ---------------------------------------------------------------------------
 // Public API

@@ -6,22 +6,8 @@
  * 2. Per-file hashes declared in manifest.integrity.files
  */
 
+import { sha256Hex } from './hash.js';
 import type { ExtractedPackage, IntegrityResult } from './types.js';
-
-// ---------------------------------------------------------------------------
-// Hashing helper
-// ---------------------------------------------------------------------------
-
-async function sha256Hex(data: Uint8Array): Promise<string> {
-  const hashBuffer = await globalThis.crypto.subtle.digest(
-    'SHA-256',
-    data as Uint8Array<ArrayBuffer>,
-  );
-  const hashArray = new Uint8Array(hashBuffer);
-  return Array.from(hashArray)
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-}
 
 // ---------------------------------------------------------------------------
 // Public API

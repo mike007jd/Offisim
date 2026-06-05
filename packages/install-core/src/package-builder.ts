@@ -9,6 +9,7 @@ import {
   validateManifest,
 } from '@offisim/asset-schema';
 import { zipSync } from 'fflate';
+import { sha256Hex } from './hash.js';
 
 export interface BuildPackageArtifactInput {
   readonly packageId: string;
@@ -62,16 +63,6 @@ function coerceBytes(value: string | Uint8Array): Uint8Array {
 function buildReadme(input: BuildPackageArtifactInput): string {
   const body = input.description?.trim() || input.summary.trim();
   return `# ${input.title}\n\n${body}\n`;
-}
-
-async function sha256Hex(data: Uint8Array): Promise<string> {
-  const subtle = globalThis.crypto?.subtle;
-  if (!subtle) {
-    throw new Error('Package artifact hashing requires Web Crypto.');
-  }
-  const bytes = new Uint8Array(data);
-  const hash = await subtle.digest('SHA-256', bytes.buffer);
-  return Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
 export function artifactBytesToBase64(bytes: Uint8Array): string {
