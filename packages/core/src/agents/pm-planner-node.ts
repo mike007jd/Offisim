@@ -7,6 +7,7 @@ import { persistLlmPlanAsTaskPlan } from './pm-planner/plan-persistence.js';
 import { awaitPlanReview } from './pm-planner/plan-review-gate.js';
 import { runPmPreflight } from './pm-planner/preflight.js';
 import { PM_SYSTEM_PROMPT, generatePmLlmContent } from './pm-planner/prompt-assembly.js';
+import { detectWholeTeamIntent } from './whole-team-intent.js';
 
 export type { LlmPlanStep } from './pm-planner-types.js';
 export { PM_SYSTEM_PROMPT, parsePmPlan };
@@ -20,22 +21,6 @@ function shouldRethrowPlannerError(error: unknown, config: RunnableConfig): bool
   return /\b(no-credential|No provider credential|API key|unauthorized|forbidden)\b/i.test(message);
 }
 
-function shouldRequireRecommendedEmployeeCoverage(
-  intent: string,
-  recommendedCount: number,
-): boolean {
-  if (recommendedCount <= 1) return false;
-  return (
-    /\b(all|everyone|whole team|entire team|all employees|team-wide)\b/i.test(intent) ||
-    /全员|所有员工|整个团队|全团队|共同合作|一起合作|分成\s*[一二三四五六七八九十0-9]+\s*组/u.test(
-      intent,
-    ) ||
-    /完整办公室团队|办公室团队/u.test(intent) ||
-    new RegExp(`\\b${recommendedCount}\\s*(employees|people|members)\\b`, 'i').test(intent) ||
-    new RegExp(`${recommendedCount}\\s*(个|位)?\\s*(员工|成员|人)`, 'u').test(intent)
-  );
-}
-
 function ensureRecommendedEmployeesCovered(
   plan: LlmPlan,
   prep: Awaited<ReturnType<typeof runPmPreflight>>,
@@ -45,7 +30,7 @@ function ensureRecommendedEmployeesCovered(
   if (plan.summary.startsWith('Fallback phased artifact workflow for:')) {
     return plan;
   }
-  if (!shouldRequireRecommendedEmployeeCoverage(prep.directive.intent, recommendedIds.length)) {
+  if (!detectWholeTeamIntent(prep.directive.intent, recommendedIds.length)) {
     return plan;
   }
 

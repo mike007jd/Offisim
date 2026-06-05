@@ -24,6 +24,7 @@ import type { OffisimGraphState, RunScope } from '../graph/state.js';
 import type { LlmResponse } from '../llm/gateway.js';
 import type { RecentToolResult } from '../runtime/completion-verifier.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
+import { errorMessage, isAbortLikeError } from '../utils/abort-detection.js';
 import { generateId } from '../utils/generate-id.js';
 import { finalizeEmployeeSuccess } from './employee-completion.js';
 import type { MaterializedEmployeeDeliverable } from './employee-deliverables.js';
@@ -48,17 +49,6 @@ function materializeEngineArtifact(
     mimeType: artifact.mimeType ?? null,
     artifactContent: artifact.content,
   };
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-function isAbortLikeError(error: unknown, signal: AbortSignal | undefined): boolean {
-  if (signal?.aborted) return true;
-  if (error instanceof DOMException && error.name === 'AbortError') return true;
-  if (error instanceof Error && error.name === 'AbortError') return true;
-  return /\babort(?:ed)?|cancelled\b/i.test(errorMessage(error));
 }
 
 function completionEvidenceToolName(

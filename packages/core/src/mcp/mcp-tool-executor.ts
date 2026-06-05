@@ -2,6 +2,7 @@ import type { EventBus } from '../events/event-bus.js';
 import { mcpServerConnected, mcpToolCalled } from '../events/event-factories.js';
 import type { ToolDef } from '../llm/gateway.js';
 import type { ToolCallRequest, ToolCallResponse, ToolExecutor } from '../runtime/tool-executor.js';
+import { isAbortLikeError } from '../utils/abort-detection.js';
 import type {
   McpClientFactory,
   McpConnection,
@@ -342,14 +343,6 @@ export class McpToolExecutor implements ToolExecutor {
       this.toolServerMap.set(tool.name, serverName);
     }
   }
-}
-
-function isAbortLikeError(error: unknown, signal: AbortSignal | undefined): boolean {
-  if (signal?.aborted) return true;
-  if (error instanceof DOMException && error.name === 'AbortError') return true;
-  if (error instanceof Error && error.name === 'AbortError') return true;
-  const message = error instanceof Error ? error.message : String(error);
-  return /\babort(?:ed)?|cancelled\b/i.test(message);
 }
 
 /** Translate a simple shell-style glob (`*` any run, `?` single char) to a RegExp. */

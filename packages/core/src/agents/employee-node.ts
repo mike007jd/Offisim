@@ -5,6 +5,7 @@ import type { OffisimGraphState } from '../graph/state.js';
 import type { LlmMessage } from '../llm/gateway.js';
 import type { RecentToolResult } from '../runtime/completion-verifier.js';
 import { Logger } from '../services/logger.js';
+import { errorMessage, isAbortLikeError } from '../utils/abort-detection.js';
 import { getRunScope, getRuntime } from '../utils/get-runtime.js';
 import { getConfigSignal } from '../utils/get-signal.js';
 import { runEmployeeA2A } from './employee-a2a-executor.js';
@@ -34,17 +35,6 @@ function appendRecentToolResults(
   next: readonly RecentToolResult[],
 ): RecentToolResult[] {
   return [...existing, ...next].slice(-MAX_RECENT_TOOL_RESULTS);
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-function isAbortLikeError(error: unknown, signal: AbortSignal | undefined): boolean {
-  if (signal?.aborted) return true;
-  if (error instanceof DOMException && error.name === 'AbortError') return true;
-  if (error instanceof Error && error.name === 'AbortError') return true;
-  return /\babort(?:ed)?|cancelled\b/i.test(errorMessage(error));
 }
 
 export async function employeeNode(

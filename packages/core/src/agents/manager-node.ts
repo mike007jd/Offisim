@@ -3,6 +3,7 @@ import type { TaskAssignmentRerouteReason } from '@offisim/shared-types';
 import { graphNodeEntered } from '../events/event-factories.js';
 import type { OffisimGraphState } from '../graph/state.js';
 import { forwardStreamChunks, recordedLlmStream } from '../llm/recorded-call.js';
+import { isAbortLikeError } from '../utils/abort-detection.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { getRunScope, getRuntime } from '../utils/get-runtime.js';
@@ -15,6 +16,7 @@ import {
   localToolsRequireGatewayLane,
 } from './local-tool-lane-guard.js';
 import { detectTaskToolIntent, isLocalToolAssignableEmployee } from './task-tool-intent.js';
+import { detectWholeTeamIntent } from './whole-team-intent.js';
 
 interface LlmAssignment {
   taskType: string;
@@ -61,27 +63,6 @@ Rules:
 - Each assignment must reference a valid employee ID`;
 
 const VALID_INTENTS = new Set(['work', 'hire', 'assess_team']);
-
-function isAbortLikeError(error: unknown, signal: AbortSignal | undefined): boolean {
-  if (signal?.aborted) return true;
-  if (error instanceof DOMException && error.name === 'AbortError') return true;
-  if (error instanceof Error && error.name === 'AbortError') return true;
-  const message = error instanceof Error ? error.message : String(error);
-  return /\babort(?:ed)?\b/i.test(message);
-}
-
-function shouldDelegateWholeTeam(userContent: string, employeeCount: number): boolean {
-  if (employeeCount <= 1) return false;
-  return (
-    /\b(all|everyone|whole team|entire team|all employees|team-wide)\b/i.test(userContent) ||
-    /全员|所有员工|整个团队|全团队|共同合作|一起合作|分成\s*[一二三四五六七八九十0-9]+\s*组/u.test(
-      userContent,
-    ) ||
-    /完整办公室团队|办公室团队/u.test(userContent) ||
-    new RegExp(`\\b${employeeCount}\\s*(employees|people|members)\\b`, 'i').test(userContent) ||
-    new RegExp(`${employeeCount}\\s*(个|位)?\\s*(员工|成员|人)`, 'u').test(userContent)
-  );
-}
 
 // Whole-team fan-out is an employee-id list only: downstream consumers read
 // nothing but `assignments[].employeeId` (the manager no longer creates taskRuns
@@ -186,7 +167,7 @@ export async function managerNode(
 
   const employeeList = buildEnrichedEmployeeList(nonManagerEmployees);
   const attachmentPreface = buildAttachmentSystemPreface(runtimeCtx, runScope);
-  const wholeTeamDecision = shouldDelegateWholeTeam(userContent, nonManagerEmployees.length)
+  const wholeTeamDecision = detectWholeTeamIntent(userContent, nonManagerEmployees.length)
     ? buildWholeTeamDecision(nonManagerEmployees)
     : null;
 
