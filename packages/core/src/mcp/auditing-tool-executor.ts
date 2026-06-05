@@ -23,6 +23,8 @@ import { classifyShellCommand } from '../tools/builtin/shell-command-classifier.
 import {
   type RuntimeToolSource,
   type RuntimeToolType,
+  type ServerAnnotationTrustResolver,
+  type ToolSourceResolver,
   resolveRuntimeToolSource,
 } from '../tools/tool-registry.js';
 import { capToolResultForModel } from '../tools/tool-result-size.js';
@@ -247,27 +249,19 @@ export class AuditingToolExecutor implements ToolExecutor {
   }
 
   private resolveToolSource(toolName: string): RuntimeToolSource {
-    if (
-      'getServerForTool' in this.inner &&
-      typeof (this.inner as Record<string, unknown>).getServerForTool === 'function'
-    ) {
-      const serverName =
-        (this.inner as { getServerForTool(n: string): string | undefined }).getServerForTool(
-          toolName,
-        ) ?? toolName;
-      const toolType =
-        'getToolTypeForTool' in this.inner &&
-        typeof (this.inner as Record<string, unknown>).getToolTypeForTool === 'function'
-          ? (
-              this.inner as { getToolTypeForTool(n: string): RuntimeToolType | undefined }
-            ).getToolTypeForTool(toolName)
-          : undefined;
-      return resolveRuntimeToolSource(toolName, {
-        serverForTool: () => serverName,
-        toolTypeForTool: () => toolType,
-      });
+    const resolver = this.inner as Partial<ToolSourceResolver>;
+    if (typeof resolver.getServerForTool !== 'function') {
+      return resolveRuntimeToolSource(toolName);
     }
-    return resolveRuntimeToolSource(toolName);
+    const serverName = resolver.getServerForTool(toolName) ?? toolName;
+    const toolType =
+      typeof resolver.getToolTypeForTool === 'function'
+        ? resolver.getToolTypeForTool(toolName)
+        : undefined;
+    return resolveRuntimeToolSource(toolName, {
+      serverForTool: () => serverName,
+      toolTypeForTool: () => toolType,
+    });
   }
 
   /**
@@ -421,19 +415,12 @@ export class AuditingToolExecutor implements ToolExecutor {
   }
 
   private isServerTrustedForAnnotations(serverName: string): boolean {
-    if (
-      this.inner &&
-      typeof this.inner === 'object' &&
-      'isServerTrustedForAnnotations' in this.inner &&
-      typeof (this.inner as Record<string, unknown>).isServerTrustedForAnnotations === 'function'
-    ) {
-      return (
-        this.inner as { isServerTrustedForAnnotations(n: string): boolean }
-      ).isServerTrustedForAnnotations(serverName);
-    }
-    // Default-untrusted for executors that don't implement the duck-typed
-    // method (e.g. built-in-only executors, test stubs).
-    return false;
+    const resolver = this.inner as Partial<ServerAnnotationTrustResolver>;
+    // Default-untrusted for executors that don't implement the capability
+    // (e.g. the composite/built-in-only executors, test stubs).
+    return typeof resolver.isServerTrustedForAnnotations === 'function'
+      ? resolver.isServerTrustedForAnnotations(serverName)
+      : false;
   }
 
   private async resolveAskDecision(

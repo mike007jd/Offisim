@@ -21,6 +21,18 @@ export interface ToolSourceResolver {
   getToolTypeForTool(toolName: string): RuntimeToolType | undefined;
 }
 
+/**
+ * Optional MCP capability for reporting whether a server's tool annotations may
+ * be trusted to auto-approve read-only calls. Implemented by the MCP executor
+ * (not the composite/builtin executors); consumers should narrow with a runtime
+ * `typeof` check the same way they do for {@link ToolSourceResolver}, so a
+ * rename surfaces as a compile error instead of a silent default-untrusted
+ * degradation.
+ */
+export interface ServerAnnotationTrustResolver {
+  isServerTrustedForAnnotations(serverName: string): boolean;
+}
+
 export interface RegisteredTool {
   readonly name: string;
   readonly surface: ToolRegistrySurface;
