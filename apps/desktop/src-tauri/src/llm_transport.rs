@@ -7,11 +7,7 @@
 //! profile id plus endpoint kind; Rust resolves the canonical destination and
 //! auth scheme from its provider profile registry.
 
-use std::collections::HashMap;
-use std::sync::Mutex;
-
 use futures_util::StreamExt;
-use once_cell::sync::Lazy;
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
 use tauri::ipc::Channel;
@@ -70,34 +66,12 @@ pub enum TransportEvent {
     },
 }
 
-static IN_FLIGHT: Lazy<Mutex<HashMap<String, CancellationToken>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
+use crate::in_flight::InFlightRegistry;
+
+static IN_FLIGHT: InFlightRegistry = InFlightRegistry::new("llm_transport");
 
 const MAX_PROVIDER_RESPONSE_BYTES: usize = 64 * 1024 * 1024;
 const MAX_PROVIDER_CHUNK_BYTES: usize = 4 * 1024 * 1024;
-
-fn register_token(id: &str) -> CancellationToken {
-    let token = CancellationToken::new();
-    IN_FLIGHT
-        .lock()
-        .expect("llm_transport in_flight poisoned")
-        .insert(id.to_string(), token.clone());
-    token
-}
-
-fn clear_token(id: &str) {
-    IN_FLIGHT
-        .lock()
-        .expect("llm_transport in_flight poisoned")
-        .remove(id);
-}
-
-fn pluck_token(id: &str) -> Option<CancellationToken> {
-    IN_FLIGHT
-        .lock()
-        .expect("llm_transport in_flight poisoned")
-        .remove(id)
-}
 
 #[tauri::command]
 pub async fn llm_fetch(
@@ -113,7 +87,7 @@ pub async fn llm_fetch(
         body,
     } = req;
 
-    let token = register_token(&request_id);
+    let token = IN_FLIGHT.register(&request_id);
 
     let result = do_fetch(
         &provider_profile_id,
@@ -126,7 +100,7 @@ pub async fn llm_fetch(
     )
     .await;
 
-    clear_token(&request_id);
+    IN_FLIGHT.clear(&request_id);
 
     match result {
         Ok(()) => Ok(()),
@@ -186,8 +160,9 @@ async fn do_fetch(
 ) -> Result<(), FetchError> {
     // TS side may forward its own Authorization / x-api-key sentinel (e.g.
     // `Bearer ignored`). Drop any existing credential-shaped header before we
-    // inject the real one from Keychain — otherwise the SDK's sentinel wins
-    // because reqwest keeps the first insertion.
+    // inject the real one from runtime_secrets (the Rust-only 0600 plaintext
+    // file, NOT the OS Keychain — see runtime_secrets) — otherwise the SDK's
+    // sentinel wins because reqwest keeps the first insertion.
     headers.retain(|(name, _)| {
         let lower = name.to_ascii_lowercase();
         lower != "authorization" && lower != "x-api-key"
@@ -404,7 +379,7 @@ fn is_filtered_response_header(name: &str) -> bool {
 
 #[tauri::command]
 pub fn llm_fetch_abort(request_id: String) -> Result<(), String> {
-    if let Some(token) = pluck_token(&request_id) {
+    if let Some(token) = IN_FLIGHT.pluck(&request_id) {
         token.cancel();
     }
     Ok(())

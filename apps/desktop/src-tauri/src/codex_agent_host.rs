@@ -3,9 +3,7 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::ExitStatus;
-use std::sync::Mutex;
 
-use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
 use tauri::{ipc::Channel, path::BaseDirectory, AppHandle, Manager};
@@ -49,31 +47,9 @@ const ENV_WHITELIST: &[&str] = &[
 ];
 const BUNDLED_SIDECAR_RESOURCE_PATH: &str = "resources/codex-agent-host.mjs";
 
-static IN_FLIGHT: Lazy<Mutex<HashMap<String, CancellationToken>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
+use crate::in_flight::InFlightRegistry;
 
-fn register_token(id: &str) -> CancellationToken {
-    let token = CancellationToken::new();
-    IN_FLIGHT
-        .lock()
-        .expect("codex_agent_host in_flight poisoned")
-        .insert(id.to_string(), token.clone());
-    token
-}
-
-fn clear_token(id: &str) {
-    IN_FLIGHT
-        .lock()
-        .expect("codex_agent_host in_flight poisoned")
-        .remove(id);
-}
-
-fn pluck_token(id: &str) -> Option<CancellationToken> {
-    IN_FLIGHT
-        .lock()
-        .expect("codex_agent_host in_flight poisoned")
-        .remove(id)
-}
+static IN_FLIGHT: InFlightRegistry = InFlightRegistry::new("codex_agent_host");
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -520,9 +496,9 @@ pub async fn codex_agent_execute(
     on_event: Channel<CodexAgentHostEvent>,
 ) -> Result<(), String> {
     let request_id = req.request_id.clone();
-    let token = register_token(&request_id);
+    let token = IN_FLIGHT.register(&request_id);
     let result = do_execute(&app, req, &on_event, token.clone()).await;
-    clear_token(&request_id);
+    IN_FLIGHT.clear(&request_id);
 
     match result {
         Ok(()) => Ok(()),
@@ -540,7 +516,7 @@ pub async fn codex_agent_execute(
 
 #[tauri::command]
 pub fn codex_agent_abort(request_id: String) -> Result<(), String> {
-    if let Some(token) = pluck_token(&request_id) {
+    if let Some(token) = IN_FLIGHT.pluck(&request_id) {
         token.cancel();
     }
     Ok(())

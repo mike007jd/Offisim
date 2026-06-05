@@ -4,6 +4,7 @@ mod claude_agent_host;
 mod codex_agent_host;
 mod deep_link;
 mod git;
+mod in_flight;
 mod llm_transport;
 mod local_db;
 mod local_paths;
