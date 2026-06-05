@@ -1,9 +1,9 @@
-import type { LocalDirAdapter } from './skill-source-resolvers/claude-code.js';
 import type {
   GitCloneAdapter,
   GitHttpFetch,
   GitLocalFsAdapter,
 } from './skill-source-resolvers/git.js';
+import type { LocalDirAdapter } from './skill-source-resolvers/local-sync.js';
 
 /**
  * Runtime-specific IO adapters for the agent-mediated skill install path.

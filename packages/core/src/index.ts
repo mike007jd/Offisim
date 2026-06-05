@@ -536,7 +536,7 @@ export type {
   SyncCandidate,
   SyncResolverDeps,
   SyncResolverResult,
-} from './skills/skill-source-resolvers/claude-code.js';
+} from './skills/skill-source-resolvers/local-sync.js';
 export { SkillStagingManager } from './skills/skill-staging.js';
 export type { StagedSkill, SkillStagingManagerOpts } from './skills/skill-staging.js';
 export type {
