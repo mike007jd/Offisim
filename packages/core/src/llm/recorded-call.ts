@@ -1,16 +1,17 @@
 import { isCapacityError, isContextOverflowError } from '../errors.js';
-import {
-  llmCallCompleted,
-  llmCallStarted,
-  llmStreamChunk,
-  llmUsageRecorded,
-} from '../events/event-factories.js';
+import { llmCallStarted, llmStreamChunk } from '../events/event-factories.js';
 import type { RunScope } from '../graph/state.js';
 import type { LlmCallContext, LlmCallMeta } from '../middleware/types.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { Logger } from '../services/logger.js';
 import { canonicalJson } from '../utils/canonical-json.js';
 import { sha256Text } from '../utils/hash.js';
+import {
+  EMPTY_LLM_CALL_REPLAY,
+  EMPTY_LLM_CALL_USAGE,
+  buildLlmCallRow,
+  emitLlmCallCompletedAndUsage,
+} from './llm-call-record.js';
 import { replayRequestHashes } from './replay-request-hashes.js';
 
 const logger = new Logger('llm');
@@ -18,25 +19,6 @@ import type { LlmRequest, LlmResponse, LlmStreamChunk, ToolDef } from './gateway
 import { pruneLlmMessages } from './prune-messages.js';
 import type { TeeResult } from './stream-tee.js';
 import { teeStream } from './stream-tee.js';
-
-const EMPTY_REPLAY_FIELDS = {
-  usage_raw_json: null,
-  request_json: null,
-  response_json: null,
-  tool_calls_json: null,
-  prompt_hash: null,
-  tools_hash: null,
-  response_hash: null,
-} as const;
-
-const EMPTY_REPLAY_VALUES = {
-  requestJson: null,
-  responseJson: null,
-  toolCallsJson: null,
-  promptHash: null,
-  toolsHash: null,
-  responseHash: null,
-} as const;
 
 async function withExecutionContext(
   ctx: RuntimeContext,
@@ -252,61 +234,46 @@ export async function recordedLlmCall(
     const replayFields = await buildReplayFields(ctx, effectiveRequest, response);
 
     try {
-      await ctx.repos.llmCalls.create({
-        llm_call_id: llmCallId,
-        thread_id: ctx.threadId,
-        task_run_id: meta.taskRunId ?? null,
-        node_name: meta.nodeName,
-        provider: actual.provider,
-        model: actual.model,
-        input_tokens: response.usage.inputTokens,
-        output_tokens: response.usage.outputTokens,
-        cache_read_input_tokens: response.usage.cacheReadInputTokens ?? 0,
-        cache_creation_input_tokens: response.usage.cacheCreationInputTokens ?? 0,
-        usage_raw_json: JSON.stringify(response.usage),
-        request_json: replayFields.requestJson,
-        response_json: replayFields.responseJson,
-        tool_calls_json: replayFields.toolCallsJson,
-        prompt_hash: replayFields.promptHash,
-        tools_hash: replayFields.toolsHash,
-        response_hash: replayFields.responseHash,
-        recording_mode: replayFields.recordingMode,
-        latency_ms: latencyMs,
-        error_code: null,
-        created_at: ctx.determinism.nowIso(),
-      });
+      await ctx.repos.llmCalls.create(
+        buildLlmCallRow({
+          llmCallId,
+          threadId: ctx.threadId,
+          taskRunId: meta.taskRunId ?? null,
+          nodeName: meta.nodeName,
+          provider: actual.provider,
+          model: actual.model,
+          usage: {
+            inputTokens: response.usage.inputTokens,
+            outputTokens: response.usage.outputTokens,
+            cacheReadInputTokens: response.usage.cacheReadInputTokens ?? 0,
+            cacheCreationInputTokens: response.usage.cacheCreationInputTokens ?? 0,
+            usageRawJson: JSON.stringify(response.usage),
+          },
+          replay: replayFields,
+          recordingMode: replayFields.recordingMode,
+          latencyMs,
+          errorCode: null,
+          createdAt: ctx.determinism.nowIso(),
+        }),
+      );
     } catch (dbError) {
       logger.error('Failed to record successful LLM call to DB', dbError, { llmCallId });
     }
 
-    ctx.eventBus.emit(
-      llmCallCompleted(
-        ctx.companyId,
-        llmCallId,
-        meta.nodeName,
-        latencyMs,
-        response.usage.inputTokens,
-        response.usage.outputTokens,
-        response.usage.cacheReadInputTokens ?? 0,
-        response.usage.cacheCreationInputTokens ?? 0,
-      ),
-    );
-    ctx.eventBus.emit(
-      llmUsageRecorded(
-        ctx.companyId,
-        llmCallId,
-        ctx.threadId,
-        meta.taskRunId ?? null,
-        actual.provider,
-        actual.model,
-        meta.nodeName,
-        response.usage.inputTokens,
-        response.usage.outputTokens,
-        latencyMs,
-        response.usage.cacheReadInputTokens ?? 0,
-        response.usage.cacheCreationInputTokens ?? 0,
-      ),
-    );
+    emitLlmCallCompletedAndUsage(ctx.eventBus, {
+      companyId: ctx.companyId,
+      llmCallId,
+      nodeName: meta.nodeName,
+      threadId: ctx.threadId,
+      taskRunId: meta.taskRunId ?? null,
+      provider: actual.provider,
+      model: actual.model,
+      latencyMs,
+      inputTokens: response.usage.inputTokens,
+      outputTokens: response.usage.outputTokens,
+      cacheReadInputTokens: response.usage.cacheReadInputTokens ?? 0,
+      cacheCreationInputTokens: response.usage.cacheCreationInputTokens ?? 0,
+    });
 
     return response;
   } catch (error) {
@@ -314,23 +281,22 @@ export async function recordedLlmCall(
     const errorCode = error instanceof Error ? error.message : 'unknown';
 
     try {
-      await ctx.repos.llmCalls.create({
-        llm_call_id: llmCallId,
-        thread_id: ctx.threadId,
-        task_run_id: meta.taskRunId ?? null,
-        node_name: meta.nodeName,
-        provider: meta.provider,
-        model: meta.model,
-        input_tokens: 0,
-        output_tokens: 0,
-        cache_read_input_tokens: 0,
-        cache_creation_input_tokens: 0,
-        ...EMPTY_REPLAY_FIELDS,
-        recording_mode: recordingMode(ctx),
-        latency_ms: latencyMs,
-        error_code: errorCode,
-        created_at: ctx.determinism.nowIso(),
-      });
+      await ctx.repos.llmCalls.create(
+        buildLlmCallRow({
+          llmCallId,
+          threadId: ctx.threadId,
+          taskRunId: meta.taskRunId ?? null,
+          nodeName: meta.nodeName,
+          provider: meta.provider,
+          model: meta.model,
+          usage: EMPTY_LLM_CALL_USAGE,
+          replay: EMPTY_LLM_CALL_REPLAY,
+          recordingMode: recordingMode(ctx),
+          latencyMs,
+          errorCode,
+          createdAt: ctx.determinism.nowIso(),
+        }),
+      );
     } catch (dbError) {
       logger.error('Failed to record LLM error to DB', dbError, { llmCallId });
     }
@@ -417,61 +383,46 @@ export async function recordedLlmStream(
     const replayFields = await buildReplayFields(ctx, effectiveRequest, finalResponse);
 
     try {
-      await ctx.repos.llmCalls.create({
-        llm_call_id: llmCallId,
-        thread_id: ctx.threadId,
-        task_run_id: meta.taskRunId ?? null,
-        node_name: meta.nodeName,
-        provider: actual.provider,
-        model: actual.model,
-        input_tokens: finalResult.usage.inputTokens,
-        output_tokens: finalResult.usage.outputTokens,
-        cache_read_input_tokens: finalResult.usage.cacheReadInputTokens ?? 0,
-        cache_creation_input_tokens: finalResult.usage.cacheCreationInputTokens ?? 0,
-        usage_raw_json: JSON.stringify(finalResult.usage),
-        request_json: replayFields.requestJson,
-        response_json: replayFields.responseJson,
-        tool_calls_json: replayFields.toolCallsJson,
-        prompt_hash: replayFields.promptHash,
-        tools_hash: replayFields.toolsHash,
-        response_hash: replayFields.responseHash,
-        recording_mode: replayFields.recordingMode,
-        latency_ms: latencyMs,
-        error_code: null,
-        created_at: ctx.determinism.nowIso(),
-      });
+      await ctx.repos.llmCalls.create(
+        buildLlmCallRow({
+          llmCallId,
+          threadId: ctx.threadId,
+          taskRunId: meta.taskRunId ?? null,
+          nodeName: meta.nodeName,
+          provider: actual.provider,
+          model: actual.model,
+          usage: {
+            inputTokens: finalResult.usage.inputTokens,
+            outputTokens: finalResult.usage.outputTokens,
+            cacheReadInputTokens: finalResult.usage.cacheReadInputTokens ?? 0,
+            cacheCreationInputTokens: finalResult.usage.cacheCreationInputTokens ?? 0,
+            usageRawJson: JSON.stringify(finalResult.usage),
+          },
+          replay: replayFields,
+          recordingMode: replayFields.recordingMode,
+          latencyMs,
+          errorCode: null,
+          createdAt: ctx.determinism.nowIso(),
+        }),
+      );
     } catch (dbError) {
       logger.error('Failed to record successful LLM stream to DB', dbError, { llmCallId });
     }
 
-    ctx.eventBus.emit(
-      llmCallCompleted(
-        ctx.companyId,
-        llmCallId,
-        meta.nodeName,
-        latencyMs,
-        finalResult.usage.inputTokens,
-        finalResult.usage.outputTokens,
-        finalResult.usage.cacheReadInputTokens ?? 0,
-        finalResult.usage.cacheCreationInputTokens ?? 0,
-      ),
-    );
-    ctx.eventBus.emit(
-      llmUsageRecorded(
-        ctx.companyId,
-        llmCallId,
-        ctx.threadId,
-        meta.taskRunId ?? null,
-        actual.provider,
-        actual.model,
-        meta.nodeName,
-        finalResult.usage.inputTokens,
-        finalResult.usage.outputTokens,
-        latencyMs,
-        finalResult.usage.cacheReadInputTokens ?? 0,
-        finalResult.usage.cacheCreationInputTokens ?? 0,
-      ),
-    );
+    emitLlmCallCompletedAndUsage(ctx.eventBus, {
+      companyId: ctx.companyId,
+      llmCallId,
+      nodeName: meta.nodeName,
+      threadId: ctx.threadId,
+      taskRunId: meta.taskRunId ?? null,
+      provider: actual.provider,
+      model: actual.model,
+      latencyMs,
+      inputTokens: finalResult.usage.inputTokens,
+      outputTokens: finalResult.usage.outputTokens,
+      cacheReadInputTokens: finalResult.usage.cacheReadInputTokens ?? 0,
+      cacheCreationInputTokens: finalResult.usage.cacheCreationInputTokens ?? 0,
+    });
 
     return finalResult;
   } catch (error) {
@@ -479,23 +430,22 @@ export async function recordedLlmStream(
     const errorCode = error instanceof Error ? error.message : 'unknown';
 
     try {
-      await ctx.repos.llmCalls.create({
-        llm_call_id: llmCallId,
-        thread_id: ctx.threadId,
-        task_run_id: meta.taskRunId ?? null,
-        node_name: meta.nodeName,
-        provider: meta.provider,
-        model: meta.model,
-        input_tokens: 0,
-        output_tokens: 0,
-        cache_read_input_tokens: 0,
-        cache_creation_input_tokens: 0,
-        ...EMPTY_REPLAY_FIELDS,
-        recording_mode: recordingMode(ctx),
-        latency_ms: latencyMs,
-        error_code: errorCode,
-        created_at: ctx.determinism.nowIso(),
-      });
+      await ctx.repos.llmCalls.create(
+        buildLlmCallRow({
+          llmCallId,
+          threadId: ctx.threadId,
+          taskRunId: meta.taskRunId ?? null,
+          nodeName: meta.nodeName,
+          provider: meta.provider,
+          model: meta.model,
+          usage: EMPTY_LLM_CALL_USAGE,
+          replay: EMPTY_LLM_CALL_REPLAY,
+          recordingMode: recordingMode(ctx),
+          latencyMs,
+          errorCode,
+          createdAt: ctx.determinism.nowIso(),
+        }),
+      );
     } catch (dbError) {
       logger.error('Failed to record LLM error to DB', dbError, { llmCallId });
     }
@@ -521,7 +471,7 @@ async function buildReplayFields(
 ): Promise<ReplayFields> {
   const mode = recordingMode(ctx);
   if (mode === 'metadata') {
-    return { ...EMPTY_REPLAY_VALUES, recordingMode: mode };
+    return { ...EMPTY_LLM_CALL_REPLAY, recordingMode: mode };
   }
   const redactedRequest = redactLlmRequest(request);
   const redactedResponse = redactLlmResponse(response);

@@ -13,11 +13,17 @@
  * See CLAUDE.md — AI Runtime Policy, rule 4.
  */
 import type { EventBus } from '../events/event-bus.js';
-import { llmCallCompleted, llmCallStarted, llmUsageRecorded } from '../events/event-factories.js';
+import { llmCallStarted } from '../events/event-factories.js';
 import type { LlmCallRepository } from '../runtime/repositories.js';
 import { Logger } from '../services/logger.js';
 import { generateId } from '../utils/generate-id.js';
 import type { LlmGateway, LlmRequest, LlmResponse } from './gateway.js';
+import {
+  EMPTY_LLM_CALL_REPLAY,
+  EMPTY_LLM_CALL_USAGE,
+  buildLlmCallRow,
+  emitLlmCallCompletedAndUsage,
+} from './llm-call-record.js';
 
 const logger = new Logger('system-llm');
 
@@ -71,66 +77,51 @@ export class RecordedSystemLlmCaller {
       const response = await this.gateway.chat(request);
       const latencyMs = Date.now() - startedAt;
 
+      // recording_mode is 'metadata' for system calls (no RuntimeContext /
+      // runtime policy to opt into full replay capture), so the prompt/response/
+      // tool-call bodies stay null (EMPTY_LLM_CALL_REPLAY) to honor the
+      // recorded-call contract — only counts and usage are persisted.
       try {
-        await this.llmCalls.create({
-          llm_call_id: llmCallId,
-          thread_id: this.threadId,
-          task_run_id: null,
-          node_name: nodeName,
-          provider,
-          model: request.model,
-          input_tokens: response.usage.inputTokens,
-          output_tokens: response.usage.outputTokens,
-          cache_read_input_tokens: response.usage.cacheReadInputTokens ?? 0,
-          cache_creation_input_tokens: response.usage.cacheCreationInputTokens ?? 0,
-          usage_raw_json: JSON.stringify(response.usage),
-          // recording_mode is 'metadata' for system calls (no RuntimeContext /
-          // runtime policy to opt into full replay capture), so the prompt/
-          // response/tool-call bodies must stay null to honor the recorded-call
-          // contract — only counts and usage are persisted.
-          request_json: null,
-          response_json: null,
-          tool_calls_json: null,
-          prompt_hash: null,
-          tools_hash: null,
-          response_hash: null,
-          recording_mode: 'metadata',
-          latency_ms: latencyMs,
-          error_code: null,
-          created_at: new Date().toISOString(),
-        });
+        await this.llmCalls.create(
+          buildLlmCallRow({
+            llmCallId,
+            threadId: this.threadId,
+            taskRunId: null,
+            nodeName,
+            provider,
+            model: request.model,
+            usage: {
+              inputTokens: response.usage.inputTokens,
+              outputTokens: response.usage.outputTokens,
+              cacheReadInputTokens: response.usage.cacheReadInputTokens ?? 0,
+              cacheCreationInputTokens: response.usage.cacheCreationInputTokens ?? 0,
+              usageRawJson: JSON.stringify(response.usage),
+            },
+            replay: EMPTY_LLM_CALL_REPLAY,
+            recordingMode: 'metadata',
+            latencyMs,
+            errorCode: null,
+            createdAt: new Date().toISOString(),
+          }),
+        );
       } catch (dbError) {
         logger.error('Failed to record system LLM call', dbError, { llmCallId, nodeName });
       }
 
-      this.eventBus.emit(
-        llmCallCompleted(
-          this.companyId,
-          llmCallId,
-          nodeName,
-          latencyMs,
-          response.usage.inputTokens,
-          response.usage.outputTokens,
-          response.usage.cacheReadInputTokens ?? 0,
-          response.usage.cacheCreationInputTokens ?? 0,
-        ),
-      );
-      this.eventBus.emit(
-        llmUsageRecorded(
-          this.companyId,
-          llmCallId,
-          this.threadId ?? '',
-          null,
-          provider,
-          request.model,
-          nodeName,
-          response.usage.inputTokens,
-          response.usage.outputTokens,
-          latencyMs,
-          response.usage.cacheReadInputTokens ?? 0,
-          response.usage.cacheCreationInputTokens ?? 0,
-        ),
-      );
+      emitLlmCallCompletedAndUsage(this.eventBus, {
+        companyId: this.companyId,
+        llmCallId,
+        nodeName,
+        threadId: this.threadId ?? '',
+        taskRunId: null,
+        provider,
+        model: request.model,
+        latencyMs,
+        inputTokens: response.usage.inputTokens,
+        outputTokens: response.usage.outputTokens,
+        cacheReadInputTokens: response.usage.cacheReadInputTokens ?? 0,
+        cacheCreationInputTokens: response.usage.cacheCreationInputTokens ?? 0,
+      });
 
       return response;
     } catch (error) {
@@ -138,29 +129,22 @@ export class RecordedSystemLlmCaller {
       const errorCode = error instanceof Error ? error.message : 'unknown';
 
       try {
-        await this.llmCalls.create({
-          llm_call_id: llmCallId,
-          thread_id: this.threadId,
-          task_run_id: null,
-          node_name: nodeName,
-          provider,
-          model: request.model,
-          input_tokens: 0,
-          output_tokens: 0,
-          cache_read_input_tokens: 0,
-          cache_creation_input_tokens: 0,
-          usage_raw_json: null,
-          request_json: null,
-          response_json: null,
-          tool_calls_json: null,
-          prompt_hash: null,
-          tools_hash: null,
-          response_hash: null,
-          recording_mode: 'metadata',
-          latency_ms: latencyMs,
-          error_code: errorCode,
-          created_at: new Date().toISOString(),
-        });
+        await this.llmCalls.create(
+          buildLlmCallRow({
+            llmCallId,
+            threadId: this.threadId,
+            taskRunId: null,
+            nodeName,
+            provider,
+            model: request.model,
+            usage: EMPTY_LLM_CALL_USAGE,
+            replay: EMPTY_LLM_CALL_REPLAY,
+            recordingMode: 'metadata',
+            latencyMs,
+            errorCode,
+            createdAt: new Date().toISOString(),
+          }),
+        );
       } catch (dbError) {
         logger.error('Failed to record system LLM error', dbError, { llmCallId, nodeName });
       }
