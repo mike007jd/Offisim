@@ -206,3 +206,11 @@ export const installRateLimit = rateLimit({
   refillRate: 30 / 60,
   label: 'install',
 });
+
+/**
+ * Reset all rate-limit token buckets. Consumed by the platform auth-boundaries
+ * harness (scripts/harness-platform-auth-boundaries.mts) to isolate scenarios.
+ */
+export function _resetRateLimitStore() {
+  store.clear();
+}
