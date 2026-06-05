@@ -1,5 +1,5 @@
 /**
- * File importer — browser File API adapter for .aicspkg archives.
+ * File importer — browser File API adapter for .offisimpkg archives.
  *
  * Validates file size and extension before reading bytes.
  * This module is intentionally browser-only (uses File API).
@@ -13,7 +13,7 @@
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 /** Allowed file extensions (lowercase, with dot). */
-const ALLOWED_EXTENSIONS = new Set(['.aicspkg', '.zip', '.offisimpkg']);
+const ALLOWED_EXTENSIONS = new Set(['.zip', '.offisimpkg']);
 
 // ---------------------------------------------------------------------------
 // Errors

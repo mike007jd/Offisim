@@ -60,7 +60,7 @@ function computeConfirmation(manifest: {
 /**
  * Run the full pre-install pipeline and produce an install plan.
  *
- * @param archiveBytes - Raw bytes of the .aicspkg ZIP archive.
+ * @param archiveBytes - Raw bytes of the .offisimpkg ZIP archive.
  * @param env - Current runtime environment for compatibility checks.
  * @param expectedHash - Optional expected SHA-256 of the archive (e.g. from registry).
  * @returns PlanResult — either { ok: true, plan } or { ok: false, stage, error }.
