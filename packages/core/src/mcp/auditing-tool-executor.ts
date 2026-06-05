@@ -1,4 +1,8 @@
-import { type InteractionRequest, chatScopeFields } from '@offisim/shared-types';
+import {
+  type InteractionRequest,
+  type InteractionResponse,
+  chatScopeFields,
+} from '@offisim/shared-types';
 import type { EventBus } from '../events/event-bus.js';
 import { mcpToolResult, toolExecutionTelemetry } from '../events/event-factories.js';
 import type {
@@ -91,6 +95,11 @@ interface ToolExecutionRecordContext {
   readonly startedAt: number;
   readonly concurrentWith: string[];
 }
+
+/** Outcome of an approval ask flow: proceed with the call, or short-circuit. */
+type AskFlowOutcome =
+  | { kind: 'continue'; approvedBy: string }
+  | { kind: 'return'; response: ToolCallResponse };
 
 /**
  * Decorator that wraps any ToolExecutor with audit logging and event emission.
@@ -221,27 +230,13 @@ export class AuditingToolExecutor implements ToolExecutor {
       });
       return this.recordAndEmit(effectiveRecordCtx, response, approvedBy);
     } catch (error) {
-      const completedAt = Date.now();
-      this.eventBus.emit(
-        toolExecutionTelemetry(this.companyId, threadId, {
-          toolCallId: call.toolCallId,
-          toolName: call.name,
-          toolType,
-          evidenceClass: 'offisim-gateway',
-          threadId,
-          nodeName: call.nodeName,
-          employeeId: call.employeeId,
-          taskRunId: call.taskRunId ?? null,
-          ...chatScopeFields(call.runScope),
-          serverName,
-          startedAt,
-          completedAt,
-          durationMs: completedAt - startedAt,
-          status: 'error',
-          errorType: error instanceof Error ? error.message : String(error),
-          concurrentWith,
-        }),
-      );
+      this.emitToolExecutionTelemetry(call, toolSource, threadId, {
+        startedAt,
+        completedAt: Date.now(),
+        status: 'error',
+        errorType: error instanceof Error ? error.message : String(error),
+        concurrentWith,
+      });
       throw error;
     } finally {
       this.activeToolCalls.delete(call.toolCallId);
@@ -352,12 +347,18 @@ export class AuditingToolExecutor implements ToolExecutor {
     };
   }
 
-  private async resolveShellAskDecision(
+  /**
+   * Shared approval ask skeleton: build the interaction request, short-circuit
+   * to an `ask` audit when no human is in the loop, deny when the user rejects,
+   * and otherwise hand the resolved interaction to `onGranted` to decide how the
+   * call proceeds. The shell-classifier and permission-engine flows differ only
+   * in that post-grant step.
+   */
+  private async resolveAskFlow(
     ctx: ToolExecutionRecordContext,
     decision: ToolPermissionDecision,
-  ): Promise<
-    { kind: 'continue'; approvedBy: string } | { kind: 'return'; response: ToolCallResponse }
-  > {
+    onGranted: (resolved: InteractionResponse) => AskFlowOutcome | Promise<AskFlowOutcome>,
+  ): Promise<AskFlowOutcome> {
     const request = this.buildPermissionInteractionRequest(
       ctx.call,
       ctx.toolSource.serverName,
@@ -388,11 +389,18 @@ export class AuditingToolExecutor implements ToolExecutor {
         response: await this.recordAndEmit(ctx, response, 'interaction:reject'),
       };
     }
-    return {
+    return onGranted(resolved);
+  }
+
+  private resolveShellAskDecision(
+    ctx: ToolExecutionRecordContext,
+    decision: ToolPermissionDecision,
+  ): Promise<AskFlowOutcome> {
+    return this.resolveAskFlow(ctx, decision, (resolved) => ({
       kind: 'continue',
       approvedBy:
         resolved.selectedOptionId === 'approve_thread' ? 'interaction:thread' : 'interaction:once',
-    };
+    }));
   }
 
   private async readOnlyHintForTool(
@@ -423,60 +431,29 @@ export class AuditingToolExecutor implements ToolExecutor {
       : false;
   }
 
-  private async resolveAskDecision(
+  private resolveAskDecision(
     ctx: ToolExecutionRecordContext,
     decision: ToolPermissionDecision,
     loadTools: () => Promise<ToolDef[]>,
-  ): Promise<
-    { kind: 'continue'; approvedBy: string } | { kind: 'return'; response: ToolCallResponse }
-  > {
-    const { call, toolSource } = ctx;
-    const request = this.buildPermissionInteractionRequest(
-      call,
-      toolSource.serverName,
-      decision.reason,
-      ctx.threadId,
-      decision.policyHash,
-    );
-
-    if (this.interactionService?.getMode() !== 'human_in_loop') {
-      if (this.interactionService) {
-        await this.interactionService.request(request, { runScope: call.runScope ?? null });
+  ): Promise<AskFlowOutcome> {
+    return this.resolveAskFlow(ctx, decision, async () => {
+      // Re-evaluate after the grant: a thread-scoped approval may now resolve to
+      // allow, but a policy can still deny/ask on the second pass.
+      const afterGrant = await this.evaluatePermission(
+        ctx.call,
+        ctx.toolSource.serverName,
+        ctx.threadId,
+        loadTools,
+      );
+      if (afterGrant.behavior !== 'allow') {
+        const response = this.buildPermissionResponse(afterGrant.behavior, afterGrant.reason);
+        return {
+          kind: 'return',
+          response: await this.recordAndEmit(ctx, response, afterGrant.approvedBy),
+        };
       }
-      const response = this.buildPermissionResponse('ask', decision.reason);
-      return {
-        kind: 'return',
-        response: await this.recordAndEmit(ctx, response, decision.approvedBy),
-      };
-    }
-
-    const resolved = await this.interactionService.requestAndWait(request, {
-      signal: call.signal,
-      runScope: call.runScope ?? null,
+      return { kind: 'continue', approvedBy: afterGrant.approvedBy };
     });
-    if (resolved.selectedOptionId === 'reject') {
-      const response = this.buildPermissionResponse('deny', 'Denied by user approval prompt.');
-      return {
-        kind: 'return',
-        response: await this.recordAndEmit(ctx, response, 'interaction:reject'),
-      };
-    }
-
-    const afterGrant = await this.evaluatePermission(
-      call,
-      toolSource.serverName,
-      ctx.threadId,
-      loadTools,
-    );
-    if (afterGrant.behavior !== 'allow') {
-      const response = this.buildPermissionResponse(afterGrant.behavior, afterGrant.reason);
-      return {
-        kind: 'return',
-        response: await this.recordAndEmit(ctx, response, afterGrant.approvedBy),
-      };
-    }
-
-    return { kind: 'continue', approvedBy: afterGrant.approvedBy };
   }
 
   private async recordAndEmit(
@@ -643,29 +620,56 @@ export class AuditingToolExecutor implements ToolExecutor {
         redactedError,
       ),
     );
+    this.emitToolExecutionTelemetry(call, toolSource, call.threadId ?? this.threadId, {
+      startedAt,
+      completedAt,
+      status: response.success
+        ? 'completed'
+        : response.error?.includes(WORKSTATION_ACCESS_DENIED) ||
+            response.error?.includes(TOOL_PERMISSION_DENIED) ||
+            response.error?.includes(TOOL_PERMISSION_REQUIRED)
+          ? 'denied'
+          : 'error',
+      errorType: response.success ? undefined : redactedError,
+      concurrentWith,
+    });
+  }
+
+  /**
+   * Emit the single completion-shaped `tool.execution.telemetry` event. The
+   * success/denied path (via emitToolResult) and the inner-executor-threw path
+   * (execute()'s catch) build an identical payload here — only status/errorType
+   * differ — so the field set lives in exactly one place.
+   */
+  private emitToolExecutionTelemetry(
+    call: ToolCallRequest,
+    toolSource: RuntimeToolSource,
+    threadId: string,
+    fields: {
+      startedAt: number;
+      completedAt: number;
+      status: 'completed' | 'denied' | 'error';
+      errorType: string | undefined;
+      concurrentWith: string[];
+    },
+  ): void {
     this.eventBus.emit(
-      toolExecutionTelemetry(this.companyId, call.threadId ?? this.threadId, {
+      toolExecutionTelemetry(this.companyId, threadId, {
         toolCallId: call.toolCallId,
         toolName: call.name,
         toolType: toolSource.toolType,
         evidenceClass: 'offisim-gateway',
-        threadId: call.threadId ?? this.threadId,
+        threadId,
         nodeName: call.nodeName,
         employeeId: call.employeeId,
         taskRunId: call.taskRunId ?? null,
         serverName: toolSource.serverName,
-        startedAt,
-        completedAt,
-        durationMs: latencyMs,
-        status: response.success
-          ? 'completed'
-          : response.error?.includes(WORKSTATION_ACCESS_DENIED) ||
-              response.error?.includes(TOOL_PERMISSION_DENIED) ||
-              response.error?.includes(TOOL_PERMISSION_REQUIRED)
-            ? 'denied'
-            : 'error',
-        errorType: response.success ? undefined : redactedError,
-        concurrentWith,
+        startedAt: fields.startedAt,
+        completedAt: fields.completedAt,
+        durationMs: fields.completedAt - fields.startedAt,
+        status: fields.status,
+        errorType: fields.errorType,
+        concurrentWith: fields.concurrentWith,
         ...chatScopeFields(call.runScope),
       }),
     );
