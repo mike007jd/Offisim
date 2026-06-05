@@ -1,4 +1,5 @@
 import type { EmployeeAppearance } from '@/lib/avatar.js';
+import { initialsOf } from '@/lib/utils.js';
 import { getRepos } from '@/runtime/repos.js';
 import type { RuntimeRepositories } from '@offisim/core/browser';
 import { ACCENT_PAIRS } from './color-palette.js';
@@ -43,13 +44,6 @@ function accentPair(seed: string): [string, string] {
   return [pair[0], pair[1]];
 }
 
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '??';
-  if (parts.length === 1) return (parts[0]?.slice(0, 2) ?? '??').toUpperCase();
-  return ((parts[0]?.[0] ?? '') + (parts[parts.length - 1]?.[0] ?? '')).toUpperCase();
-}
-
 interface CompanyRowLike {
   company_id: string;
   name: string;
@@ -60,7 +54,7 @@ export function companyToVm(row: CompanyRowLike): Company {
   return {
     id: row.company_id,
     name: row.name,
-    initials: initials(row.name),
+    initials: initialsOf(row.name),
     accentA: a,
     accentB: b,
     templateLabel: row.template_label?.trim() || 'Custom',

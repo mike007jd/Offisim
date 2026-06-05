@@ -1,3 +1,9 @@
+import {
+  type LlmTransportEvent,
+  abortLlmFetch,
+  endpointKindFor,
+} from './llm-transport-protocol.js';
+
 export interface RuntimeProviderProfile {
   id: string;
   displayName: string;
@@ -8,12 +14,6 @@ export interface RuntimeProviderProfile {
   localEndpoint: boolean;
   hasCredential: boolean;
 }
-
-type LlmTransportEvent =
-  | { kind: 'headers'; status: number; headers: Array<[string, string]> }
-  | { kind: 'chunk'; bytes: number[] }
-  | { kind: 'done' }
-  | { kind: 'error'; code: string; message: string };
 
 export interface ProviderUsage {
   inputTokens: number;
@@ -55,10 +55,6 @@ export function findDefaultChatProviderProfile(
     profiles.find((candidate) => candidate.hasCredential) ??
     null
   );
-}
-
-function endpointKindFor(profile: RuntimeProviderProfile) {
-  return profile.provider === 'anthropic' ? 'anthropic-messages' : 'open-ai-chat-completions';
 }
 
 function headersFor(profile: RuntimeProviderProfile): Array<[string, string]> {
@@ -243,7 +239,7 @@ export async function sendProviderTextDetailed({
       // Without this, an abort via llm_fetch_abort can stop the Rust side from
       // emitting any terminal event, leaving channelDone (and the caller) hung.
       onAbort = () => {
-        void invoke('llm_fetch_abort', { requestId }).catch(() => undefined);
+        abortLlmFetch(requestId);
         cleanup();
         reject(new DOMException('Aborted', 'AbortError'));
       };

@@ -8,8 +8,8 @@ export function cn(...inputs: ClassValue[]) {
 /** Two-letter initials from a display name. */
 export function initialsOf(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  if (parts.length === 1) return (parts[0]?.slice(0, 2) ?? '?').toUpperCase();
+  if (parts.length === 0) return '??';
+  if (parts.length === 1) return (parts[0]?.slice(0, 2) ?? '??').toUpperCase();
   return `${parts[0]?.[0] ?? ''}${parts[parts.length - 1]?.[0] ?? ''}`.toUpperCase();
 }
 
@@ -26,7 +26,10 @@ const RELATIVE_UNITS: ReadonlyArray<[Intl.RelativeTimeFormatUnit, number]> = [
 export async function sha256Hex(bytes: Uint8Array): Promise<string> {
   // `bytes` is typed Uint8Array<ArrayBufferLike>; copy into a plain ArrayBuffer
   // so digest's BufferSource type is satisfied under TS 5.7+ (no SharedArrayBuffer).
-  const digest = await crypto.subtle.digest('SHA-256', Uint8Array.from(bytes).buffer as ArrayBuffer);
+  const digest = await crypto.subtle.digest(
+    'SHA-256',
+    Uint8Array.from(bytes).buffer as ArrayBuffer,
+  );
   return Array.from(new Uint8Array(digest))
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('');

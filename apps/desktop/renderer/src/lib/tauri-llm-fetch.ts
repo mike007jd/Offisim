@@ -1,4 +1,9 @@
 import {
+  type LlmTransportEvent,
+  abortLlmFetch,
+  endpointKindFor,
+} from './llm-transport-protocol.js';
+import {
   type RuntimeProviderProfile,
   isDesktopProviderBridgeAvailable,
 } from './provider-bridge.js';
@@ -24,17 +29,6 @@ import {
  * `provider-bridge.ts`, including the abort handling that pokes
  * `llm_fetch_abort` so the Rust side drops the in-flight request.
  */
-
-/** Wire shape emitted by the Rust `llm_transport::TransportEvent` enum. */
-type LlmTransportEvent =
-  | { kind: 'headers'; status: number; headers: Array<[string, string]> }
-  | { kind: 'chunk'; bytes: number[] }
-  | { kind: 'done' }
-  | { kind: 'error'; code: string; message: string };
-
-function endpointKindFor(profile: RuntimeProviderProfile): string {
-  return profile.provider === 'anthropic' ? 'anthropic-messages' : 'open-ai-chat-completions';
-}
 
 function bodyToString(body: BodyInit | null | undefined): string | undefined {
   if (body == null) return undefined;
@@ -109,7 +103,7 @@ export function createTauriLlmFetch(profile: RuntimeProviderProfile): typeof fet
         cancel() {
           // The consumer (SDK) gave up on the body — drop the Rust request.
           if (!settled) {
-            void invoke('llm_fetch_abort', { requestId }).catch(() => undefined);
+            abortLlmFetch(requestId);
           }
           cleanupAbort();
         },
@@ -151,7 +145,7 @@ export function createTauriLlmFetch(profile: RuntimeProviderProfile): typeof fet
         onAbort = () => {
           aborted = true;
           settled = true;
-          void invoke('llm_fetch_abort', { requestId }).catch(() => undefined);
+          abortLlmFetch(requestId);
           const err = new DOMException('Aborted', 'AbortError');
           if (controllerRef) {
             controllerRef.error(err);
