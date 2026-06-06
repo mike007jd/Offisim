@@ -175,8 +175,7 @@ pub async fn health_monitor_loop(
                         // tick's ptr_eq check would treat the in-loop
                         // reconnect as a supersession and break, leaving
                         // the reconnected server with zero health watch.
-                        let new_arc =
-                            std::sync::Arc::new(tokio::sync::Mutex::new(new_process));
+                        let new_arc = std::sync::Arc::new(tokio::sync::Mutex::new(new_process));
                         servers.insert(server_name.clone(), new_arc.clone());
                         bound_handle = Some(new_arc);
                     }

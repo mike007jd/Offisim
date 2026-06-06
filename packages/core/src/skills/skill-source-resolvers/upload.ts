@@ -1,6 +1,7 @@
 import { ZipBombError, safeGunzipSync, safeUnzipSync } from '@offisim/install-core';
 import { scanSkillDir } from '../skill-scanner.js';
 import { firstLevelDirs, subtreeOf } from '../virtual-tree-utils.js';
+import { normalizeArchiveEntryPath, untarToTree } from './tar.js';
 import type { ScannedSkill, SkillResolverError, VirtualTree } from './types.js';
 
 export interface UploadResolverInput {
@@ -40,30 +41,6 @@ function isTar(bytes: Uint8Array): boolean {
   );
 }
 
-function untarToTree(bytes: Uint8Array): VirtualTree {
-  // Minimal ustar parser: 512-byte header blocks + 512-aligned content.
-  const files: VirtualTree['files'] = [];
-  let offset = 0;
-  const td = new TextDecoder('utf-8');
-  while (offset + 512 <= bytes.length) {
-    const header = bytes.subarray(offset, offset + 512);
-    if (header.every((b) => b === 0)) break;
-    const nameBytes = header.subarray(0, 100);
-    const nameEnd = nameBytes.indexOf(0);
-    const name = td.decode(nameEnd === -1 ? nameBytes : nameBytes.subarray(0, nameEnd));
-    const sizeStr = td.decode(header.subarray(124, 136)).replace(/\0.*$/u, '').trim();
-    const size = sizeStr ? Number.parseInt(sizeStr, 8) : 0;
-    const typeFlag = String.fromCharCode(header[156] ?? 0);
-    offset += 512;
-    if ((typeFlag === '0' || typeFlag === '\0') && name && size > 0) {
-      const content = bytes.subarray(offset, offset + size);
-      files.push({ path: name.replace(/^\.\//u, ''), content: new Uint8Array(content) });
-    }
-    offset += Math.ceil(size / 512) * 512;
-  }
-  return { files };
-}
-
 function unzipToTree(bytes: Uint8Array): VirtualTree {
   // safeUnzipSync streams the inflate and trips a ZipBombError before
   // allocating gigabytes (skill uploads are small; the shared defaults apply).
@@ -71,7 +48,7 @@ function unzipToTree(bytes: Uint8Array): VirtualTree {
   const files: VirtualTree['files'] = [];
   for (const [path, content] of Object.entries(entries)) {
     if (path.endsWith('/')) continue; // directory entry
-    files.push({ path: path.replace(/^\.\//u, ''), content });
+    files.push({ path: normalizeArchiveEntryPath(path), content });
   }
   return { files };
 }

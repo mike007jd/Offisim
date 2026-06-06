@@ -28,11 +28,11 @@ export interface SeedOptions {
   readonly baseUrl: string;
 }
 
-function buildAll(): SeedBuildResult[] {
+async function buildAll(): Promise<SeedBuildResult[]> {
   const built: SeedBuildResult[] = [];
   for (const payload of OFFICIAL_PAYLOADS) {
     try {
-      built.push(buildSeedArtifact(payload));
+      built.push(await buildSeedArtifact(payload));
     } catch (err) {
       console.warn(
         `[seed] skipping payload '${payload.slug}': ${err instanceof Error ? err.message : String(err)}`,
@@ -210,7 +210,7 @@ async function insertOneListing(
 export async function seedOfficialResources(db: PlatformDb, options: SeedOptions): Promise<void> {
   const baseUrl = options.baseUrl.replace(/\/+$/, '');
   try {
-    const built = buildAll();
+    const built = await buildAll();
     if (built.length === 0) {
       console.warn('[seed] no valid payloads — nothing to seed');
       return;

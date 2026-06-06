@@ -227,6 +227,9 @@ importers:
       '@offisim/db-platform':
         specifier: workspace:*
         version: link:../../packages/db-platform
+      '@offisim/install-core':
+        specifier: workspace:*
+        version: link:../../packages/install-core
       '@offisim/renderer':
         specifier: workspace:*
         version: link:../../packages/renderer

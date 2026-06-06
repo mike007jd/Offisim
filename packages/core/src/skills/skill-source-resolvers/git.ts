@@ -1,6 +1,7 @@
 import { ZipBombError, safeGunzipSync } from '@offisim/install-core';
 import { scanSkillDir } from '../skill-scanner.js';
 import { firstLevelDirs, subtreeOf } from '../virtual-tree-utils.js';
+import { untarToTree } from './tar.js';
 import type { ScannedSkill, SkillResolverError, VirtualTree } from './types.js';
 
 export type GitHttpFetch = (
@@ -86,79 +87,6 @@ function parseGithub(url: string): { owner: string; repo: string } | null {
   } catch {
     return null;
   }
-}
-
-// Minimal ustar parser — shared in spirit with the upload resolver but kept
-// inline to avoid a cross-resolver helper file just for a ~40-line routine.
-//
-// GNU `L` (long name) and PAX `x`/`g` extended headers are consumed so a path
-// longer than the 100-byte ustar `name` field overrides the FOLLOWING file
-// entry instead of silently emitting that file under a truncated path. Link
-// entries (`1`/`2`) and directories (`5`) are skipped, never treated as files.
-function untarToTree(bytes: Uint8Array): VirtualTree {
-  const files: VirtualTree['files'] = [];
-  let offset = 0;
-  const td = new TextDecoder('utf-8');
-  // Path override carried from a preceding GNU/PAX long-name record.
-  let pendingNameOverride: string | null = null;
-  while (offset + 512 <= bytes.length) {
-    const header = bytes.subarray(offset, offset + 512);
-    if (header.every((b) => b === 0)) break;
-    const nameBytes = header.subarray(0, 100);
-    const nameEnd = nameBytes.indexOf(0);
-    let name = td.decode(nameEnd === -1 ? nameBytes : nameBytes.subarray(0, nameEnd));
-    const prefixBytes = header.subarray(345, 500);
-    const prefixEnd = prefixBytes.indexOf(0);
-    const prefix = td.decode(prefixEnd === -1 ? prefixBytes : prefixBytes.subarray(0, prefixEnd));
-    if (prefix) name = `${prefix}/${name}`;
-    const sizeStr = td.decode(header.subarray(124, 136)).replace(/\0.*$/u, '').trim();
-    const size = sizeStr ? Number.parseInt(sizeStr, 8) : 0;
-    const typeFlag = String.fromCharCode(header[156] ?? 0);
-    offset += 512;
-    const body = bytes.subarray(offset, offset + size);
-    offset += Math.ceil(size / 512) * 512;
-
-    if (typeFlag === 'L') {
-      // GNU long-name: the body is the NUL-terminated real path for the next entry.
-      const raw = td.decode(body);
-      const end = raw.indexOf('\0');
-      pendingNameOverride = (end === -1 ? raw : raw.slice(0, end)) || null;
-      continue;
-    }
-    if (typeFlag === 'x' || typeFlag === 'g') {
-      // PAX extended header: parse `<len> path=<value>\n` records; `path=`
-      // overrides the next entry (x = next-entry scope, g = global default).
-      const override = parsePaxPath(td.decode(body));
-      if (override) pendingNameOverride = override;
-      continue;
-    }
-
-    const effectiveName = pendingNameOverride ?? name;
-    pendingNameOverride = null;
-
-    if ((typeFlag === '0' || typeFlag === '\0') && effectiveName && size > 0) {
-      // GitHub tarballs wrap everything under `<repo>-<sha>/`; strip the first
-      // segment so the scanner sees SKILL.md at depth 1 (or in one subdirectory).
-      const stripped = effectiveName.split('/').slice(1).join('/');
-      if (stripped.length > 0) {
-        files.push({ path: stripped, content: new Uint8Array(body) });
-      }
-    }
-    // typeFlag 1/2 (links), 5 (directory), and others fall through unrecorded.
-  }
-  return { files };
-}
-
-// Extract the `path=` override from a PAX extended-header body. Records are
-// `<decimal-length> <keyword>=<value>\n`; we only care about `path`.
-function parsePaxPath(record: string): string | null {
-  const re = /\d+ ([^=]+)=([^\n]*)\n/gu;
-  let match: RegExpExecArray | null = re.exec(record);
-  while (match !== null) {
-    if (match[1] === 'path' && match[2]) return match[2];
-    match = re.exec(record);
-  }
-  return null;
 }
 
 /**
@@ -323,7 +251,16 @@ export async function resolveGitSource(
     };
   }
 
-  const raw = untarToTree(tar);
+  let raw: VirtualTree;
+  try {
+    raw = untarToTree(tar, { stripFirstPathSegment: true });
+  } catch (err) {
+    return {
+      kind: 'git-fetch-failed',
+      message: `Tarball extract failed: ${err instanceof Error ? err.message : String(err)}`,
+      sourceRef: input.url,
+    };
+  }
   const scopedResult = applySubpath(raw, input.subpath, input.url);
   if ('kind' in scopedResult) return scopedResult;
   const scan = scanSkillDir(scopedResult);

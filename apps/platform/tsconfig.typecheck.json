@@ -6,8 +6,17 @@
     "rootDir": "../..",
     "baseUrl": ".",
     "paths": {
-      "@offisim/db-platform": ["../../packages/db-platform/src/index.ts"]
+      "@offisim/asset-schema": ["../../packages/asset-schema/src/index.ts"],
+      "@offisim/db-local": ["../../packages/db-local/src/index.ts"],
+      "@offisim/db-platform": ["../../packages/db-platform/src/index.ts"],
+      "@offisim/install-core": ["../../packages/install-core/src/index.ts"]
     }
   },
-  "include": ["src", "../../packages/db-platform/src"]
+  "include": [
+    "src",
+    "../../packages/asset-schema/src",
+    "../../packages/db-local/src",
+    "../../packages/db-platform/src",
+    "../../packages/install-core/src"
+  ]
 }

@@ -149,6 +149,7 @@ const PROVIDER_KEYS = new Set([
   'baseURL',
   'defaultModel',
   'communityAliases',
+  'supportedEndpoints',
   'lastVerifiedAt',
   'sourceUrl',
   'models',
@@ -263,6 +264,18 @@ export function normalizeFixturesShape(fixtures) {
     if ('lastVerifiedAt' in provider && !isIsoDate(provider.lastVerifiedAt)) {
       errors.push(`${at}.lastVerifiedAt "${provider.lastVerifiedAt}" must be a YYYY-MM-DD date`);
     }
+    if ('supportedEndpoints' in provider) {
+      if (!Array.isArray(provider.supportedEndpoints) || provider.supportedEndpoints.length === 0) {
+        errors.push(`${at}.supportedEndpoints must be a non-empty string array when present`);
+      } else {
+        for (const endpoint of provider.supportedEndpoints) {
+          if (typeof endpoint !== 'string' || !endpoint.trim()) {
+            errors.push(`${at}.supportedEndpoints must contain only non-empty strings`);
+            break;
+          }
+        }
+      }
+    }
     if (!isRecord(provider.models)) {
       errors.push(`${at}.models must be an object`);
       continue;
@@ -371,9 +384,11 @@ export function normalizeOfficialFixturesSnapshot(officialFixtures, source) {
       'defaultModel',
       'lastVerifiedAt',
       'sourceUrl',
+      'supportedEndpoints',
     ]) {
       if (hasValue(provider[field])) {
-        providerSnapshot.fields[field] = clone(provider[field]);
+        providerSnapshot.fields[field] =
+          field === 'supportedEndpoints' ? sortStrings(provider[field]) : clone(provider[field]);
       }
     }
     if (Array.isArray(provider.communityAliases) && provider.communityAliases.length > 0) {

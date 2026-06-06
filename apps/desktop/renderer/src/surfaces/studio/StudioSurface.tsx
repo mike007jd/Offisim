@@ -47,6 +47,7 @@ import {
 } from 'lucide-react';
 import {
   type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   useEffect,
   useId,
@@ -226,6 +227,8 @@ export function StudioSurface() {
   const [paletteDrag, setPaletteDrag] = useState<PaletteDragState | null>(null);
   const suppressPaletteClickRef = useRef(false);
   const dragClearTimerRef = useRef<number | null>(null);
+  const paletteDragCleanupRef = useRef<(() => void) | null>(null);
+  const layoutData = layout.data;
 
   const zones = useMemo<StudioZone[]>(() => {
     // When a real layout is loaded (release/Tauri), always edit IT — even when
@@ -234,13 +237,13 @@ export function StudioSurface() {
     // "Create zone" button seeds the first real zone. The synthetic fixture
     // below is reached only in browser preview (layout.data === null), matching
     // OfficeScene3D's `real`-truthiness gate.
-    if (layout.data) {
+    if (layoutData) {
       const prefabCounts = new Map<string, number>();
-      for (const prefab of layout.data.prefabs) {
+      for (const prefab of layoutData.prefabs) {
         const zoneId = prefab.instance.zone_id;
         prefabCounts.set(zoneId, (prefabCounts.get(zoneId) ?? 0) + 1);
       }
-      return layout.data.zones.map((zone) => ({
+      return layoutData.zones.map((zone) => ({
         id: zone.zone_id,
         label: zone.label,
         kind: toStudioZoneKind(zone.archetype),
@@ -264,7 +267,7 @@ export function StudioSurface() {
       sortOrder: 0,
       prefabCount: 0,
     }));
-  }, [fallbackScene.data?.zones, layout.data?.prefabs, layout.data?.zones]);
+  }, [fallbackScene.data?.zones, layoutData]);
   const selectedZone = zones.find((z) => z.id === selectedZoneId) ?? null;
   const selectedPrefab =
     layout.data?.prefabs.find((prefab) => prefab.instance.instance_id === selectedPrefabId) ?? null;
@@ -320,6 +323,8 @@ export function StudioSurface() {
 
   useEffect(
     () => () => {
+      paletteDragCleanupRef.current?.();
+      paletteDragCleanupRef.current = null;
       if (dragClearTimerRef.current !== null) {
         window.clearTimeout(dragClearTimerRef.current);
       }
@@ -501,16 +506,35 @@ export function StudioSurface() {
     }
   }
 
-  function beginPaletteDrag(item: PaletteItem, event: ReactPointerEvent<HTMLButtonElement>) {
+  function beginPaletteDrag(
+    item: PaletteItem,
+    event: ReactPointerEvent<HTMLButtonElement> | ReactMouseEvent<HTMLButtonElement>,
+    input: 'pointer' | 'mouse',
+  ) {
     if (!layout.data || busy || event.button !== 0) return;
+    event.preventDefault();
     const startX = event.clientX;
     const startY = event.clientY;
     let dragging = false;
+    let cleared = false;
+    paletteDragCleanupRef.current?.();
+    paletteDragCleanupRef.current = null;
 
     const clearListeners = () => {
-      window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerup', onPointerUp);
-      window.removeEventListener('pointercancel', onPointerCancel);
+      if (cleared) return;
+      cleared = true;
+      if (input === 'pointer') {
+        window.removeEventListener('pointermove', onPointerMove);
+        window.removeEventListener('pointerup', onPointerUp);
+        window.removeEventListener('pointercancel', onPointerCancel);
+      } else {
+        window.removeEventListener('mousemove', onMouseMove);
+        window.removeEventListener('mouseup', onMouseUp);
+        document.removeEventListener('mouseup', onMouseUp);
+      }
+      if (paletteDragCleanupRef.current === clearListeners) {
+        paletteDragCleanupRef.current = null;
+      }
       document.body.style.cursor = '';
     };
     const settleSuppress = () => {
@@ -522,7 +546,7 @@ export function StudioSurface() {
         suppressPaletteClickRef.current = false;
       }, PALETTE_DRAG_SETTLE_MS);
     };
-    const onPointerMove = (moveEvent: PointerEvent) => {
+    const updateDrag = (moveEvent: PointerEvent | MouseEvent) => {
       if (
         !dragging &&
         Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY) <=
@@ -546,7 +570,7 @@ export function StudioSurface() {
         commitId: null,
       });
     };
-    const onPointerUp = (upEvent: PointerEvent) => {
+    const finishDrag = (upEvent: PointerEvent | MouseEvent) => {
       clearListeners();
       if (!dragging) {
         suppressPaletteClickRef.current = false;
@@ -563,15 +587,30 @@ export function StudioSurface() {
       });
       settleSuppress();
     };
+    const onPointerMove = (moveEvent: PointerEvent) => updateDrag(moveEvent);
+    const onMouseMove = (moveEvent: MouseEvent) => updateDrag(moveEvent);
+    const onPointerUp = (upEvent: PointerEvent) => finishDrag(upEvent);
+    const onMouseUp = (upEvent: MouseEvent) => finishDrag(upEvent);
     const onPointerCancel = () => {
       clearListeners();
       setPaletteDrag(null);
+      if (dragging) {
+        setTool('select');
+        setPlacing(null);
+      }
       suppressPaletteClickRef.current = false;
     };
 
-    window.addEventListener('pointermove', onPointerMove);
-    window.addEventListener('pointerup', onPointerUp);
-    window.addEventListener('pointercancel', onPointerCancel);
+    if (input === 'pointer') {
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', onPointerUp);
+      window.addEventListener('pointercancel', onPointerCancel);
+    } else {
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+      document.addEventListener('mouseup', onMouseUp);
+    }
+    paletteDragCleanupRef.current = clearListeners;
   }
 
   function selectPrefab(instanceId: string) {
@@ -661,12 +700,18 @@ export function StudioSurface() {
               type="button"
               className={cn('off-studio-tool off-focusable', placing === item.id && 'is-on')}
               disabled={!layout.data || busy}
+              draggable={false}
               title={
                 layout.data
                   ? `Place ${item.label} in scene`
                   : 'Preview only — editing needs the desktop app'
               }
-              onPointerDown={(event) => beginPaletteDrag(item, event)}
+              onPointerDown={(event) => beginPaletteDrag(item, event, 'pointer')}
+              onMouseDown={(event) => {
+                if (paletteDragCleanupRef.current) return;
+                beginPaletteDrag(item, event, 'mouse');
+              }}
+              onDragStart={(event) => event.preventDefault()}
               onClick={() => {
                 if (suppressPaletteClickRef.current) {
                   suppressPaletteClickRef.current = false;

@@ -43,8 +43,16 @@ const NAV: ReadonlyArray<{ key: SettingsTab; label: string; icon: typeof Bot }> 
   { key: 'external', label: 'External Employees', icon: Users },
 ];
 
-function providerProtocol(product: string): 'anthropic' | 'openai' | 'openai-compat' {
-  if (product === 'minimax' || product === 'anthropic') return 'anthropic';
+function providerProtocol(
+  config: ProviderConfig,
+  product: string,
+): 'anthropic' | 'openai' | 'openai-compat' {
+  if (product !== config.product) {
+    if (product === 'anthropic' || product === 'minimax') return 'anthropic';
+    if (product === 'openai') return 'openai';
+    return 'openai-compat';
+  }
+  if (config.endpointKind === 'messages') return 'anthropic';
   if (product === 'openai') return 'openai';
   return 'openai-compat';
 }
@@ -75,10 +83,10 @@ async function persistProviderProfile(config: ProviderConfig, values: ProviderFo
     req: {
       id: config.id,
       displayName: config.displayName,
-      provider: providerProtocol(values.product),
+      provider: providerProtocol(config, values.product),
       model: values.model.trim(),
       baseUrl,
-      secretRef: config.id,
+      secretRef: config.secretRef ?? config.id,
       localEndpoint: isLoopbackEndpoint(baseUrl),
     },
   });
@@ -215,8 +223,13 @@ export function SettingsSurface() {
   // Auto-save runtime + appearance, debounced. A stable serialized snapshot is
   // the trigger so unrelated re-renders (e.g. provider editing) don't keep
   // resetting the timer.
-  const runtimeSnapshot = JSON.stringify(runtimeForm.watch());
+  const runtimeAutosaveSnapshot = JSON.stringify({
+    runtime: runtimeForm.watch(),
+    theme,
+    density,
+  });
   useEffect(() => {
+    if (!runtimeAutosaveSnapshot) return;
     if (!runtimeValid) return;
     if (!runtimeDirty && !appearanceDirty) return;
     if (runtimeSaveTimer.current !== null) window.clearTimeout(runtimeSaveTimer.current);
@@ -230,15 +243,7 @@ export function SettingsSurface() {
         runtimeSaveTimer.current = null;
       }
     };
-  }, [
-    runtimeSnapshot,
-    theme,
-    density,
-    runtimeDirty,
-    appearanceDirty,
-    runtimeValid,
-    persistRuntime,
-  ]);
+  }, [runtimeAutosaveSnapshot, runtimeDirty, appearanceDirty, runtimeValid, persistRuntime]);
 
   // ⌘S commits the Provider pane; Escape discards its pending edits. Runtime
   // auto-saves, so neither shortcut applies there.

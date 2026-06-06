@@ -2739,28 +2739,6 @@
       }
     },
     {
-      "field": "maxOutputTokens",
-      "loser": {
-        "provenance": {
-          "sourceId": "litellm",
-          "sourceKind": "community-aggregator",
-          "trustTier": "community"
-        },
-        "value": 128000
-      },
-      "modelId": "z-ai/glm-5",
-      "providerId": "openrouter-openai-general",
-      "scope": "model",
-      "winner": {
-        "provenance": {
-          "sourceId": "openrouter-live",
-          "sourceKind": "provider-live-api",
-          "trustTier": "community"
-        },
-        "value": 16384
-      }
-    },
-    {
       "field": "pricing",
       "loser": {
         "provenance": {
@@ -2784,8 +2762,90 @@
         },
         "value": {
           "inputCostPerToken": 6e-7,
-          "outputCostPerToken": 0.00000208
+          "outputCostPerToken": 0.00000192
         }
+      }
+    },
+    {
+      "field": "supportedEndpoints",
+      "loser": {
+        "provenance": {
+          "sourceId": "litellm",
+          "sourceKind": "community-aggregator",
+          "trustTier": "community"
+        },
+        "value": [
+          "chat_completions",
+          "messages",
+          "responses"
+        ]
+      },
+      "providerId": "minimax-cn-anthropic-coding",
+      "scope": "provider",
+      "winner": {
+        "provenance": {
+          "sourceId": "official-fixtures",
+          "sourceKind": "official-static",
+          "trustTier": "official"
+        },
+        "value": [
+          "messages"
+        ]
+      }
+    },
+    {
+      "field": "supportedEndpoints",
+      "loser": {
+        "provenance": {
+          "sourceId": "litellm",
+          "sourceKind": "community-aggregator",
+          "trustTier": "community"
+        },
+        "value": [
+          "chat_completions",
+          "messages",
+          "responses"
+        ]
+      },
+      "providerId": "minimax-intl-anthropic-coding",
+      "scope": "provider",
+      "winner": {
+        "provenance": {
+          "sourceId": "official-fixtures",
+          "sourceKind": "official-static",
+          "trustTier": "official"
+        },
+        "value": [
+          "messages"
+        ]
+      }
+    },
+    {
+      "field": "supportedEndpoints",
+      "loser": {
+        "provenance": {
+          "sourceId": "litellm",
+          "sourceKind": "community-aggregator",
+          "trustTier": "community"
+        },
+        "value": [
+          "chat_completions",
+          "messages",
+          "responses"
+        ]
+      },
+      "providerId": "minimax-intl-openai-general",
+      "scope": "provider",
+      "winner": {
+        "provenance": {
+          "sourceId": "official-fixtures",
+          "sourceKind": "official-static",
+          "trustTier": "official"
+        },
+        "value": [
+          "chat_completions",
+          "responses"
+        ]
       }
     },
     {
@@ -2808,6 +2868,93 @@
           "trustTier": "official"
         },
         "value": "Gemma 4 31B Instruct (free)"
+      }
+    },
+    {
+      "field": "supportedEndpoints",
+      "loser": {
+        "provenance": {
+          "sourceId": "litellm",
+          "sourceKind": "community-aggregator",
+          "trustTier": "community"
+        },
+        "value": [
+          "a2a",
+          "chat_completions",
+          "interactions",
+          "messages",
+          "responses"
+        ]
+      },
+      "providerId": "zai-shared-anthropic-coding",
+      "scope": "provider",
+      "winner": {
+        "provenance": {
+          "sourceId": "official-fixtures",
+          "sourceKind": "official-static",
+          "trustTier": "official"
+        },
+        "value": [
+          "messages"
+        ]
+      }
+    },
+    {
+      "field": "supportedEndpoints",
+      "loser": {
+        "provenance": {
+          "sourceId": "litellm",
+          "sourceKind": "community-aggregator",
+          "trustTier": "community"
+        },
+        "value": [
+          "a2a",
+          "chat_completions",
+          "interactions",
+          "messages",
+          "responses"
+        ]
+      },
+      "providerId": "zai-shared-openai-coding",
+      "scope": "provider",
+      "winner": {
+        "provenance": {
+          "sourceId": "official-fixtures",
+          "sourceKind": "official-static",
+          "trustTier": "official"
+        },
+        "value": [
+          "chat_completions"
+        ]
+      }
+    },
+    {
+      "field": "supportedEndpoints",
+      "loser": {
+        "provenance": {
+          "sourceId": "litellm",
+          "sourceKind": "community-aggregator",
+          "trustTier": "community"
+        },
+        "value": [
+          "a2a",
+          "chat_completions",
+          "interactions",
+          "messages",
+          "responses"
+        ]
+      },
+      "providerId": "zai-shared-openai-general",
+      "scope": "provider",
+      "winner": {
+        "provenance": {
+          "sourceId": "official-fixtures",
+          "sourceKind": "official-static",
+          "trustTier": "official"
+        },
+        "value": [
+          "chat_completions"
+        ]
       }
     }
   ],
@@ -2894,6 +3041,15 @@
         "vendor": "minimax"
       },
       {
+        "defaultModel": "MiniMax-M3",
+        "latestCreated": "2026-05-31",
+        "latestLeafId": "minimax/minimax-m3",
+        "pinnedCreated": "2026-05-31",
+        "providerId": "minimax-intl-openai-general",
+        "status": "current",
+        "vendor": "minimax"
+      },
+      {
         "defaultModel": "gpt-5.5",
         "latestCreated": "2026-04-24",
         "latestLeafId": "openai/gpt-5.5-pro",
@@ -2939,13 +3095,13 @@
     ],
     "summary": {
       "behind": 0,
-      "current": 12,
+      "current": 13,
       "manual": 2,
-      "providerCount": 14,
+      "providerCount": 15,
       "unverifiable": 0
     }
   },
-  "generatedAt": "2026-06-02T09:01:48.461Z",
+  "generatedAt": "2026-06-06T05:24:11.106Z",
   "newModels": [
     {
       "modelId": "claude-3-7-sonnet-20250219",
@@ -3390,6 +3546,51 @@
     {
       "modelId": "speech-2.6-turbo",
       "providerId": "minimax-intl-anthropic-coding",
+      "sourceId": "litellm"
+    },
+    {
+      "modelId": "MiniMax-M2",
+      "providerId": "minimax-intl-openai-general",
+      "sourceId": "litellm"
+    },
+    {
+      "modelId": "MiniMax-M2.1",
+      "providerId": "minimax-intl-openai-general",
+      "sourceId": "litellm"
+    },
+    {
+      "modelId": "MiniMax-M2.1-lightning",
+      "providerId": "minimax-intl-openai-general",
+      "sourceId": "litellm"
+    },
+    {
+      "modelId": "MiniMax-M2.5",
+      "providerId": "minimax-intl-openai-general",
+      "sourceId": "litellm"
+    },
+    {
+      "modelId": "MiniMax-M2.5-lightning",
+      "providerId": "minimax-intl-openai-general",
+      "sourceId": "litellm"
+    },
+    {
+      "modelId": "speech-02-hd",
+      "providerId": "minimax-intl-openai-general",
+      "sourceId": "litellm"
+    },
+    {
+      "modelId": "speech-02-turbo",
+      "providerId": "minimax-intl-openai-general",
+      "sourceId": "litellm"
+    },
+    {
+      "modelId": "speech-2.6-hd",
+      "providerId": "minimax-intl-openai-general",
+      "sourceId": "litellm"
+    },
+    {
+      "modelId": "speech-2.6-turbo",
+      "providerId": "minimax-intl-openai-general",
       "sourceId": "litellm"
     },
     {
@@ -6028,11 +6229,6 @@
       "sourceId": "openrouter-live"
     },
     {
-      "modelId": "nousresearch/hermes-2-pro-llama-3-8b",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
       "modelId": "nousresearch/hermes-3-llama-3.1-405b",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
@@ -6088,6 +6284,21 @@
       "sourceId": "openrouter-live"
     },
     {
+      "modelId": "nvidia/nemotron-3-ultra-550b-a55b",
+      "providerId": "openrouter-openai-general",
+      "sourceId": "openrouter-live"
+    },
+    {
+      "modelId": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "providerId": "openrouter-openai-general",
+      "sourceId": "openrouter-live"
+    },
+    {
+      "modelId": "nvidia/nemotron-3.5-content-safety:free",
+      "providerId": "openrouter-openai-general",
+      "sourceId": "openrouter-live"
+    },
+    {
       "modelId": "nvidia/nemotron-nano-12b-v2-vl:free",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
@@ -6124,11 +6335,6 @@
     },
     {
       "modelId": "openai/gpt-4",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "openai/gpt-4-0314",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
     },
@@ -6438,6 +6644,11 @@
       "sourceId": "openrouter-live"
     },
     {
+      "modelId": "openrouter/fusion",
+      "providerId": "openrouter-openai-general",
+      "sourceId": "openrouter-live"
+    },
+    {
       "modelId": "openrouter/owl-alpha",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
@@ -6733,6 +6944,11 @@
       "sourceId": "openrouter-live"
     },
     {
+      "modelId": "qwen/qwen3.7-plus",
+      "providerId": "openrouter-openai-general",
+      "sourceId": "openrouter-live"
+    },
+    {
       "modelId": "rekaai/reka-edge",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
@@ -6749,11 +6965,6 @@
     },
     {
       "modelId": "relace/relace-search",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "sao10k/l3-euryale-70b",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
     },
@@ -7908,10 +8119,10 @@
     }
   ],
   "summary": {
-    "conflictCount": 113,
-    "newModelCount": 806,
+    "conflictCount": 118,
+    "newModelCount": 817,
     "newProviderAliasCount": 162,
-    "providerCount": 15
+    "providerCount": 16
   },
   "version": 1
 }

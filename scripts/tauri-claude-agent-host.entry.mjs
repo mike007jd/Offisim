@@ -1,5 +1,6 @@
-#!/usr/bin/env node
-
+import { constants, accessSync } from 'node:fs';
+import { delimiter, dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { ClaudeAgentSdkAdapter } from '../packages/core/src/llm/claude-agent-sdk-adapter.ts';
 
 async function readStdin() {
@@ -27,6 +28,38 @@ function injectedApiKey() {
   return apiKey;
 }
 
+function executablePath(candidate) {
+  if (!candidate) return undefined;
+  try {
+    accessSync(candidate, constants.X_OK);
+    return candidate;
+  } catch {
+    return undefined;
+  }
+}
+
+function pathExecutable(command) {
+  for (const dir of (process.env.PATH ?? '').split(delimiter)) {
+    const candidate = dir ? join(dir, command) : command;
+    const executable = executablePath(candidate);
+    if (executable) return executable;
+  }
+  return undefined;
+}
+
+function bundledClaudeExecutable() {
+  const scriptDir = dirname(fileURLToPath(import.meta.url));
+  return executablePath(join(scriptDir, 'claude-code-native', 'claude'));
+}
+
+function resolveClaudeCodeExecutable() {
+  return (
+    executablePath(asNonEmptyString(process.env.OFFISIM_CLAUDE_CODE_EXECUTABLE)) ??
+    bundledClaudeExecutable() ??
+    pathExecutable('claude')
+  );
+}
+
 async function main() {
   const raw = await readStdin();
   const payload = raw.trim() ? JSON.parse(raw) : {};
@@ -39,7 +72,7 @@ async function main() {
   const adapter = new ClaudeAgentSdkAdapter(injectedApiKey(), {
     baseURL: asNonEmptyString(process.env.ANTHROPIC_BASE_URL),
     cwd: asNonEmptyString(payload.cwd) ?? process.cwd(),
-    pathToClaudeCodeExecutable: asNonEmptyString(process.env.OFFISIM_CLAUDE_CODE_EXECUTABLE),
+    pathToClaudeCodeExecutable: resolveClaudeCodeExecutable(),
   });
 
   try {

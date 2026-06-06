@@ -15,6 +15,7 @@
     "@offisim/asset-schema": "workspace:*",
     "@offisim/core": "workspace:*",
     "@offisim/db-platform": "workspace:*",
+    "@offisim/install-core": "workspace:*",
     "@offisim/renderer": "workspace:*",
     "@offisim/shared-types": "workspace:*",
     "@hono/node-server": "^1.14.0",

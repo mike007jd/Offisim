@@ -17,6 +17,7 @@
         "provider.baseURL",
         "provider.defaultModel",
         "provider.communityAliases",
+        "provider.supportedEndpoints",
         "provider.lastVerifiedAt",
         "provider.sourceUrl",
         "model.displayName",
@@ -27,6 +28,7 @@
       "supportsProviders": [
         "minimax-intl-anthropic-coding",
         "minimax-cn-anthropic-coding",
+        "minimax-intl-openai-general",
         "kimi-cn-anthropic-coding",
         "kimi-cn-openai-general",
         "kimi-intl-openai-general",
@@ -108,6 +110,7 @@
       "supportsProviders": [
         "minimax-intl-anthropic-coding",
         "minimax-cn-anthropic-coding",
+        "minimax-intl-openai-general",
         "kimi-cn-anthropic-coding",
         "kimi-cn-openai-general",
         "kimi-intl-openai-general",

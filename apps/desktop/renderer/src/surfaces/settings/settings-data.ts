@@ -41,10 +41,12 @@ export interface ProviderConfig {
   readonly hasStoredKey: boolean;
   readonly isThinking: boolean;
   readonly hostResolved: boolean;
+  readonly secretRef?: string;
 }
 
 export const PRODUCT_OPTIONS = [
   { value: 'minimax', label: 'MiniMax' },
+  { value: 'zai', label: 'Z.AI' },
   { value: 'openai', label: 'OpenAI' },
   { value: 'openai-compatible', label: 'OpenAI-compatible' },
   { value: 'openrouter', label: 'OpenRouter' },
@@ -200,6 +202,7 @@ function endpointKindForRuntimeProfile(profile: RuntimeProviderProfile): string 
 function productForRuntimeProfile(profile: RuntimeProviderProfile): string {
   const name = `${profile.id} ${profile.displayName}`.toLowerCase();
   if (name.includes('minimax')) return 'minimax';
+  if (name.includes('z.ai') || name.includes('zai')) return 'zai';
   if (name.includes('openrouter')) return 'openrouter';
   if (profile.provider === 'openai') return 'openai';
   if (profile.provider === 'anthropic') return 'anthropic';
@@ -229,6 +232,7 @@ function baseConfigForRuntimeProfile(
     region: profile.localEndpoint ? 'local' : 'custom',
     credentialDestination: profile.baseUrl || base.credentialDestination,
     isThinking: product === 'minimax' || base.isThinking,
+    secretRef: profile.secretRef,
   };
 }
 
@@ -251,7 +255,15 @@ function providerConfigFromRuntime(
     credentialDestination: profile.baseUrl || base.credentialDestination,
     hasStoredKey: profile.hasCredential,
     hostResolved: profile.localEndpoint,
+    secretRef: profile.secretRef,
   };
+}
+
+function baseRuntimeProfileMatch(base: ProviderConfig, candidate: RuntimeProviderProfile): boolean {
+  if (base.product !== 'minimax') return false;
+  return (
+    candidate.provider === 'anthropic' && candidate.displayName.toLowerCase().includes('minimax')
+  );
 }
 
 function mergeRuntimeProviderConfigs(
@@ -261,10 +273,7 @@ function mergeRuntimeProviderConfigs(
   const merged = baseConfigs.map((base) => {
     const profile =
       runtimeProfiles.find((candidate) => candidate.id === base.id) ??
-      runtimeProfiles.find(
-        (candidate) =>
-          base.product === 'minimax' && candidate.displayName.toLowerCase().includes('minimax'),
-      );
+      runtimeProfiles.find((candidate) => baseRuntimeProfileMatch(base, candidate));
     return profile ? providerConfigFromRuntime(base, profile) : base;
   });
   const seen = new Set(merged.map((config) => config.id));

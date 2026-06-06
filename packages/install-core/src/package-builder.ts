@@ -35,7 +35,14 @@ export interface BuildPackageArtifactInput {
   readonly requiredMcps?: readonly string[];
   readonly assetPath: string;
   readonly assetBody: string | Uint8Array;
+  readonly extraFiles?: Readonly<Record<string, string | Uint8Array>>;
   readonly materializerPayload?: Readonly<Record<string, unknown>>;
+  readonly recommendedModels?: readonly { readonly profile: string; readonly reason?: string }[];
+  readonly lineage?: {
+    readonly originPackageId?: string;
+    readonly forkedFromVersion?: string;
+    readonly derivativeOf?: readonly string[];
+  };
   readonly customManifest?: Readonly<Record<string, unknown>>;
 }
 
@@ -58,6 +65,31 @@ function encodeJson(data: unknown): Uint8Array {
 
 function coerceBytes(value: string | Uint8Array): Uint8Array {
   return typeof value === 'string' ? encodeText(value) : value;
+}
+
+function assertPackageArchivePath(
+  path: string,
+  label: string,
+  allowedPrefixes: readonly string[],
+): string {
+  if (
+    path.length === 0 ||
+    path !== path.trim() ||
+    path.startsWith('/') ||
+    path.startsWith('\\') ||
+    /^[A-Za-z]:/.test(path) ||
+    path.includes('\\')
+  ) {
+    throw new Error(`${label} '${path}' must be a relative POSIX archive path.`);
+  }
+  const segments = path.split('/');
+  if (segments.some((segment) => segment.length === 0 || segment === '.' || segment === '..')) {
+    throw new Error(`${label} '${path}' must not contain empty, '.', or '..' path segments.`);
+  }
+  if (!allowedPrefixes.some((prefix) => path.startsWith(prefix))) {
+    throw new Error(`${label} '${path}' must start with ${allowedPrefixes.join(' or ')}.`);
+  }
+  return path;
 }
 
 function buildReadme(input: BuildPackageArtifactInput): string {
@@ -85,13 +117,23 @@ export function artifactBytesToBase64(bytes: Uint8Array): string {
 export async function buildPackageArtifact(
   input: BuildPackageArtifactInput,
 ): Promise<BuiltPackageArtifact> {
-  if (!input.assetPath.startsWith('assets/')) {
-    throw new Error(`Package asset path '${input.assetPath}' must start with 'assets/'.`);
+  const assetPath = assertPackageArchivePath(input.assetPath, 'Package asset path', ['assets/']);
+  const extraFiles: ExportedFiles = {};
+  for (const [rawPath, body] of Object.entries(input.extraFiles ?? {})) {
+    const path = assertPackageArchivePath(rawPath, 'Package extra file path', [
+      'assets/',
+      'previews/',
+    ]);
+    if (path === assetPath) {
+      throw new Error(`Package extra file path '${path}' must not overwrite the primary asset.`);
+    }
+    extraFiles[path] = coerceBytes(body);
   }
 
   const readmeBytes = encodeText(buildReadme(input));
   const assetBytes: ExportedFiles = {
-    [input.assetPath]: coerceBytes(input.assetBody),
+    [assetPath]: coerceBytes(input.assetBody),
+    ...extraFiles,
   };
   const integrityInputs: ExportedFiles = {
     'README.md': readmeBytes,
@@ -138,6 +180,14 @@ export async function buildPackageArtifact(
     requirements: {
       required_capabilities: [...(input.requiredCapabilities ?? [])],
       required_mcps: [...(input.requiredMcps ?? [])],
+      ...(input.recommendedModels
+        ? {
+            recommended_models: input.recommendedModels.map((model) => ({
+              profile: model.profile,
+              ...(model.reason ? { reason: model.reason } : {}),
+            })),
+          }
+        : {}),
     },
     permissions: {
       risk_class: input.riskClass,
@@ -149,7 +199,7 @@ export async function buildPackageArtifact(
       {
         asset_id: input.assetId,
         kind: input.kind,
-        path: input.assetPath,
+        path: assetPath,
         default_enabled: true,
       },
     ],
@@ -157,6 +207,21 @@ export async function buildPackageArtifact(
       package_sha256: '0'.repeat(64),
       files: integrityFiles,
     },
+    ...(input.lineage
+      ? {
+          lineage: {
+            ...(input.lineage.originPackageId
+              ? { origin_package_id: input.lineage.originPackageId }
+              : {}),
+            ...(input.lineage.forkedFromVersion
+              ? { forked_from_version: input.lineage.forkedFromVersion }
+              : {}),
+            ...(input.lineage.derivativeOf
+              ? { derivative_of: [...input.lineage.derivativeOf] }
+              : {}),
+          },
+        }
+      : {}),
     previews: {
       readme_path: 'README.md',
     },

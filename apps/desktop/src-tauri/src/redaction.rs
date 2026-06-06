@@ -89,8 +89,8 @@ pub(crate) fn redact_secret_tokens(
         } else {
             token.to_string()
         };
-        let bare = scanned
-            .trim_matches(|ch: char| !ch.is_ascii_alphanumeric() && ch != '_' && ch != '-');
+        let bare =
+            scanned.trim_matches(|ch: char| !ch.is_ascii_alphanumeric() && ch != '_' && ch != '-');
         let lower = bare.to_ascii_lowercase();
         let looks_secret = bare.len() >= 24
             && (bare.starts_with("sk-")

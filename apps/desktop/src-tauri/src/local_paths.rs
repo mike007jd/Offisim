@@ -547,8 +547,12 @@ async fn project_workspace_root<R: Runtime>(
     app: &tauri::AppHandle<R>,
     project_id: &str,
 ) -> Result<PathBuf, String> {
-    project_workspace_root_with(app, project_id, "projectId is required for local path commands")
-        .await
+    project_workspace_root_with(
+        app,
+        project_id,
+        "projectId is required for local path commands",
+    )
+    .await
 }
 
 /// Single-project workspace-root lookup + canonicalize, shared by the

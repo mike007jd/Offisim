@@ -27,8 +27,9 @@ const ENV_WHITELIST: &[&str] = &[
 /// an absolute path that canonicalizes inside the cwd jail (app-owned root), so
 /// a compromised renderer cannot register+connect e.g. `/bin/sh -c 'curl … |sh'`
 /// or `bash` as an "installed asset" and obtain arbitrary code execution.
-const INSTALLED_ASSET_INTERPRETER_ALLOWLIST: &[&str] =
-    &["node", "npx", "python", "python3", "deno", "bun", "uv", "uvx"];
+const INSTALLED_ASSET_INTERPRETER_ALLOWLIST: &[&str] = &[
+    "node", "npx", "python", "python3", "deno", "bun", "uv", "uvx",
+];
 
 /// Fail-closed validation of the command an stdio MCP server will spawn.
 ///
@@ -400,9 +401,7 @@ mod tests {
     #[test]
     fn installed_asset_rejects_absolute_path_outside_jail() {
         let jail = std::env::temp_dir().join("offisim-mcp-jail-test");
-        assert!(
-            validate_spawn_command(&cfg("installed-asset", "/bin/sh", Some(jail))).is_err()
-        );
+        assert!(validate_spawn_command(&cfg("installed-asset", "/bin/sh", Some(jail))).is_err());
     }
 
     #[test]

@@ -2,7 +2,8 @@
 
 // scripts/tauri-codex-agent-host.mjs
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 function asUtf8String(chunk) {
@@ -35,26 +36,27 @@ function pathHasExecutable(command) {
     return dir ? existsSync(join(dir, command)) : false;
   });
 }
+function codexAppExecutableCandidates() {
+  if (process.platform !== 'darwin') return [];
+  return [
+    '/Applications/Codex.app/Contents/Resources/codex',
+    process.env.HOME
+      ? join(process.env.HOME, 'Applications/Codex.app/Contents/Resources/codex')
+      : null,
+  ].filter(Boolean);
+}
 function resolveCodexExecutable() {
   const explicit = asNonEmptyString(process.env.OFFISIM_CODEX_EXECUTABLE);
   if (explicit && pathHasExecutable(explicit)) {
     return explicit;
   }
+  for (const candidate of codexAppExecutableCandidates()) {
+    if (candidate && existsSync(candidate)) {
+      return candidate;
+    }
+  }
   if (pathHasExecutable('codex')) {
     return 'codex';
-  }
-  if (process.platform === 'darwin') {
-    const appCandidates = [
-      '/Applications/Codex.app/Contents/Resources/codex',
-      process.env.HOME
-        ? join(process.env.HOME, 'Applications/Codex.app/Contents/Resources/codex')
-        : null,
-    ].filter(Boolean);
-    for (const candidate of appCandidates) {
-      if (candidate && existsSync(candidate)) {
-        return candidate;
-      }
-    }
   }
   throw Object.assign(
     new Error(
@@ -511,6 +513,75 @@ function isShellCommandName(toolName) {
     'timeout',
   ].includes(toolName);
 }
+function tomlString(value) {
+  return JSON.stringify(String(value));
+}
+function assertCodexResponsesCompatibleBaseURL(baseURL) {
+  let parsed;
+  try {
+    parsed = new URL(baseURL);
+  } catch {
+    throw Object.assign(new Error(`Invalid OPENAI_BASE_URL for Codex lane: ${baseURL}`), {
+      code: 'invalid-provider-endpoint',
+    });
+  }
+  const host = parsed.hostname.toLowerCase();
+  const path = parsed.pathname.replace(/\/+$/, '');
+  if (host === 'api.z.ai' && (path === '/api/paas/v4' || path === '/api/coding/paas/v4')) {
+    throw Object.assign(
+      new Error(
+        'Z.AI OpenAI-compatible endpoints are chat-completions only. Use the gateway runtime profile, or use the Z.AI Anthropic endpoint for the Claude lane.',
+      ),
+      { code: 'invalid-provider-endpoint' },
+    );
+  }
+}
+function createScopedCodexHome(request) {
+  const baseURL = asNonEmptyString(process.env.OPENAI_BASE_URL);
+  if (!baseURL) {
+    return {
+      env: process.env,
+      cleanup: () => {},
+    };
+  }
+  const normalizedBaseURL = baseURL.replace(/\/+$/, '');
+  assertCodexResponsesCompatibleBaseURL(normalizedBaseURL);
+  const home = mkdtempSync(join(tmpdir(), 'offisim-codex-host-'));
+  const codexHome = join(home, '.codex');
+  mkdirSync(codexHome, { recursive: true });
+  writeFileSync(
+    join(codexHome, 'config.toml'),
+    [
+      `model = ${tomlString(codexModel(request))}`,
+      'model_provider = "offisim"',
+      '',
+      '[model_providers.offisim]',
+      'name = "Offisim OpenAI-compatible"',
+      `base_url = ${tomlString(normalizedBaseURL)}`,
+      'env_key = "OPENAI_API_KEY"',
+      'wire_api = "responses"',
+      'supports_websockets = false',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  return {
+    env: {
+      ...process.env,
+      HOME: home,
+      CODEX_HOME: codexHome,
+    },
+    cleanup: () => {
+      try {
+        rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        process.stderr.write(`Codex scoped home cleanup warning: ${message}
+`);
+      }
+    },
+  };
+}
 function codexApprovalPolicy(request) {
   return asNonEmptyString(request.approvalPolicy) ?? 'on-request';
 }
@@ -625,9 +696,10 @@ async function runCodexTurn(payload) {
   assertSupportedRuntimeRequest(request);
   const allowNativeTools = isFullAgentRuntime(request);
   const codexExecutable = resolveCodexExecutable();
+  const scopedHome = createScopedCodexHome(request);
   const child = spawn(codexExecutable, ['app-server', '--listen', 'stdio://'], {
     cwd,
-    env: process.env,
+    env: scopedHome.env,
     stdio: ['pipe', 'pipe', 'pipe'],
   });
   const client = createJsonRpcClient(child);
@@ -708,14 +780,22 @@ async function runCodexTurn(payload) {
         }
         switch (message?.method) {
           case 'error':
-            rejectOnce(
-              Object.assign(
-                new Error(message.params?.message ?? 'Codex app-server reported an error.'),
-                {
+            if (message.params?.willRetry === true) {
+              break;
+            }
+            {
+              const errorParams = message.params?.error ?? message.params;
+              const messageText =
+                errorParams?.message ??
+                message.params?.message ??
+                'Codex app-server reported an error.';
+              const detail = errorParams?.additionalDetails ?? message.params?.additionalDetails;
+              rejectOnce(
+                Object.assign(new Error(detail ? `${messageText} ${detail}` : messageText), {
                   code: 'upstream',
-                },
-              ),
-            );
+                }),
+              );
+            }
             break;
           case 'item/agentMessage/delta':
             if (turnMatches(turnId, message.params)) {
@@ -854,6 +934,7 @@ async function runCodexTurn(payload) {
   } finally {
     if (timeout) clearTimeout(timeout);
     await client.close().catch(() => {});
+    scopedHome.cleanup();
   }
 }
 async function main() {

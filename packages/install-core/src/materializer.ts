@@ -510,6 +510,251 @@ function buildAssetBindingRow(
   };
 }
 
+function createEmptyResult(installedPackageId = ''): MutableMaterializeResult {
+  return {
+    installedPackageId,
+    installedAssetIds: [],
+    employeeIds: [],
+    skillIds: [],
+    skillVaultPaths: [],
+    companyTemplateIds: [],
+    officeLayoutIds: [],
+    prefabInstanceIds: [],
+    bindingIds: [],
+  };
+}
+
+type AssetMaterializeContext = {
+  plan: InstallPlan;
+  asset: ManifestAsset;
+  payload: Readonly<Record<string, unknown>>;
+  installedAssetId: string;
+  installedPackageId: string;
+  companyId: string;
+  now: string;
+  packagePrefabs: ReadonlySet<string>;
+  result: MutableMaterializeResult;
+  partialResult?: MutableMaterializeResult;
+};
+
+type ResultListKey = Exclude<keyof MutableMaterializeResult, 'installedPackageId'>;
+
+function pushCreated(
+  context: Pick<AssetMaterializeContext, 'result' | 'partialResult'>,
+  key: ResultListKey,
+  value: string,
+): void {
+  context.result[key].push(value);
+  context.partialResult?.[key].push(value);
+}
+
+function pushFinalOnly(
+  context: Pick<AssetMaterializeContext, 'result'>,
+  key: ResultListKey,
+  value: string,
+): void {
+  context.result[key].push(value);
+}
+
+function materializeAssetSync(repos: InstallRepositories, context: AssetMaterializeContext): void {
+  const {
+    plan,
+    asset,
+    payload,
+    installedAssetId,
+    installedPackageId,
+    companyId,
+    now,
+    packagePrefabs,
+  } = context;
+  const assetRow = buildInstalledAssetRow(
+    plan,
+    asset,
+    payload,
+    installedAssetId,
+    installedPackageId,
+    now,
+  );
+  void repos.installedAssets.create(assetRow);
+  pushCreated(context, 'installedAssetIds', installedAssetId);
+
+  switch (asset.kind) {
+    case 'employee': {
+      const employeeId = generateId();
+      const empData = buildEmployeeFromPayload(plan, asset, payload, companyId, employeeId);
+      void repos.employees.create(empData);
+      pushCreated(context, 'employeeIds', employeeId);
+      return;
+    }
+    case 'skill':
+      throw new Error('skill materialization requires an asyncTransact-capable backend');
+    case 'company_template': {
+      if (!repos.companyTemplates) {
+        throw new Error('Company template materializer repository is unavailable');
+      }
+      const template = companyTemplateFromPayload(payload, asset);
+      const companyTemplateAssetId = `company_template_${generateId()}`;
+      const row = buildInstalledCompanyTemplateRow(
+        plan,
+        asset,
+        template,
+        companyTemplateAssetId,
+        companyId,
+      );
+      void repos.companyTemplates.create(row);
+      pushCreated(context, 'companyTemplateIds', companyTemplateAssetId);
+      return;
+    }
+    case 'office_layout': {
+      if (!repos.officeLayouts) {
+        throw new Error('Office layout materializer repository is unavailable');
+      }
+      validateOfficeLayoutPayload(packagePrefabs, payload, asset);
+      const layoutId = `layout_${generateId()}`;
+      const row = buildInstalledOfficeLayoutRow(plan, asset, payload, layoutId, companyId);
+      void repos.officeLayouts.create(row);
+      pushCreated(context, 'officeLayoutIds', layoutId);
+      return;
+    }
+    case 'prefab': {
+      if (!repos.prefabInstances) {
+        throw new Error('Prefab materializer repository is unavailable');
+      }
+      validatePrefabPayload(payload, asset);
+      const zoneId = stringField(payload, 'zone_id');
+      if (!zoneId) throw new Error(`Prefab asset '${asset.asset_id}' is missing zone_id`);
+      const instanceId = `prefab_${generateId()}`;
+      const row = buildInstalledPrefabRow(plan, asset, payload, instanceId, zoneId, companyId, now);
+      void repos.prefabInstances.create(row);
+      pushCreated(context, 'prefabInstanceIds', instanceId);
+      return;
+    }
+    default:
+      assertSupportedAssetKind(asset.kind);
+  }
+}
+
+async function materializeAssetAsync(
+  repos: InstallRepositories,
+  context: AssetMaterializeContext,
+  options: MaterializeOptions,
+): Promise<void> {
+  const {
+    plan,
+    asset,
+    payload,
+    installedAssetId,
+    installedPackageId,
+    companyId,
+    now,
+    packagePrefabs,
+  } = context;
+  const manifest = plan.manifest;
+  const assetRow = buildInstalledAssetRow(
+    plan,
+    asset,
+    payload,
+    installedAssetId,
+    installedPackageId,
+    now,
+  );
+  await repos.installedAssets.create(assetRow);
+  pushCreated(context, 'installedAssetIds', installedAssetId);
+
+  switch (asset.kind) {
+    case 'employee': {
+      const empData = buildEmployeeFromPayload(plan, asset, payload, companyId, undefined);
+      const { employee_id } = await repos.employees.create(empData);
+      pushCreated(context, 'employeeIds', employee_id);
+      return;
+    }
+    case 'skill': {
+      if (!repos.skills) {
+        throw new Error('Skill materializer repository is unavailable');
+      }
+      const deferredVaultWrites = options.deferVaultWrites;
+      const vault = repos.vault;
+      if (!deferredVaultWrites && !vault) {
+        throw new Error('Skill materializer vault is unavailable');
+      }
+      const custom = customRecord(manifest);
+      const slug = skillSlug(
+        stringField(payload, 'skill_slug') ?? stringField(custom, 'skill_slug') ?? asset.asset_id,
+      );
+      const skillId = generateId();
+      const vaultPath = skillVaultPath(companyId, slug);
+      const skillNow = nowMsString();
+      const row = buildSkillFromPayload(
+        manifest,
+        asset,
+        payload,
+        companyId,
+        skillId,
+        vaultPath,
+        skillNow,
+      );
+      await repos.skills.insert(row);
+      const skillContent = skillMdContent(manifest, payload, asset);
+      if (deferredVaultWrites) {
+        deferredVaultWrites.push({ vaultPath, content: skillContent });
+      } else if (vault) {
+        await vault.writeFile(vaultPath, skillContent);
+        pushCreated(context, 'skillVaultPaths', vaultPath);
+      } else {
+        throw new Error('Skill materializer vault is unavailable');
+      }
+      pushCreated(context, 'skillIds', skillId);
+      if (deferredVaultWrites) {
+        pushFinalOnly(context, 'skillVaultPaths', vaultPath);
+      }
+      return;
+    }
+    case 'company_template': {
+      if (!repos.companyTemplates) {
+        throw new Error('Company template materializer repository is unavailable');
+      }
+      const template = companyTemplateFromPayload(payload, asset);
+      const companyTemplateAssetId = `company_template_${generateId()}`;
+      const row = buildInstalledCompanyTemplateRow(
+        plan,
+        asset,
+        template,
+        companyTemplateAssetId,
+        companyId,
+      );
+      await repos.companyTemplates.create(row);
+      pushCreated(context, 'companyTemplateIds', companyTemplateAssetId);
+      return;
+    }
+    case 'office_layout': {
+      if (!repos.officeLayouts) {
+        throw new Error('Office layout materializer repository is unavailable');
+      }
+      validateOfficeLayoutPayload(packagePrefabs, payload, asset);
+      const layoutId = `layout_${generateId()}`;
+      const row = buildInstalledOfficeLayoutRow(plan, asset, payload, layoutId, companyId);
+      await repos.officeLayouts.create(row);
+      pushCreated(context, 'officeLayoutIds', layoutId);
+      return;
+    }
+    case 'prefab': {
+      if (!repos.prefabInstances) {
+        throw new Error('Prefab materializer repository is unavailable');
+      }
+      validatePrefabPayload(payload, asset);
+      const zoneId = stringField(payload, 'zone_id');
+      if (!zoneId) throw new Error(`Prefab asset '${asset.asset_id}' is missing zone_id`);
+      const instanceId = `prefab_${generateId()}`;
+      const row = buildInstalledPrefabRow(plan, asset, payload, instanceId, zoneId, companyId, now);
+      await repos.prefabInstances.create(row);
+      pushCreated(context, 'prefabInstanceIds', instanceId);
+      return;
+    }
+    default:
+      assertSupportedAssetKind(asset.kind);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -554,6 +799,10 @@ export async function materialize(
   }
 
   if (asyncTransact && hasSkillAssets) {
+    if (!repos.vault) {
+      throw new Error('Skill materializer vault is unavailable');
+    }
+    const vault = repos.vault;
     // Collect skill vault writes during the transaction, then flush them only
     // AFTER the DB has committed — so a flush failure or crash can never leave a
     // SKILL.md on disk without its committed row.
@@ -570,7 +819,7 @@ export async function materialize(
     // files already written) so we never leave a row pointing at a missing file.
     try {
       for (const pending of pendingVaultWrites) {
-        await repos.vault?.writeFile(pending.vaultPath, pending.content);
+        await vault.writeFile(pending.vaultPath, pending.content);
       }
     } catch (err) {
       // Post-commit vault flush failed. Roll back the ENTIRE committed install
@@ -611,76 +860,27 @@ export async function materialize(
       const pkgRow = buildInstalledPackageRow(plan, companyId, installedPackageId, now, provenance);
       void repos.installedPackages.create(pkgRow);
 
-      // 2. Create assets and employees
-      const installedAssetIds: string[] = [];
-      const employeeIds: string[] = [];
-      const skillIds: string[] = [];
-      const skillVaultPaths: string[] = [];
-      const companyTemplateIds: string[] = [];
-      const officeLayoutIds: string[] = [];
-      const prefabInstanceIds: string[] = [];
+      // 2. Create assets and kind-specific runtime rows.
+      const result = createEmptyResult(installedPackageId);
 
       for (const asset of orderedAssets(manifest.assets)) {
         assertSupportedAssetKind(asset.kind);
         const installedAssetId = generateId();
         const payload = payloadForAsset(manifest, asset);
-        const assetRow = buildInstalledAssetRow(
+        materializeAssetSync(repos, {
           plan,
           asset,
           payload,
           installedAssetId,
           installedPackageId,
+          companyId,
           now,
-        );
-        void repos.installedAssets.create(assetRow);
-        installedAssetIds.push(installedAssetId);
-
-        if (asset.kind === 'employee') {
-          const employeeId = generateId();
-          const empData = buildEmployeeFromPayload(plan, asset, payload, companyId, employeeId);
-          void repos.employees.create(empData);
-          employeeIds.push(employeeId);
-        }
-        if (asset.kind === 'company_template') {
-          if (!repos.companyTemplates) {
-            throw new Error('Company template materializer repository is unavailable');
-          }
-          const template = companyTemplateFromPayload(payload, asset);
-          const companyTemplateAssetId = `company_template_${generateId()}`;
-          const row = buildInstalledCompanyTemplateRow(
-            plan,
-            asset,
-            template,
-            companyTemplateAssetId,
-            companyId,
-          );
-          void repos.companyTemplates.create(row);
-          companyTemplateIds.push(companyTemplateAssetId);
-        }
-        if (asset.kind === 'office_layout') {
-          if (!repos.officeLayouts)
-            throw new Error('Office layout materializer repository is unavailable');
-          validateOfficeLayoutPayload(packagePrefabs, payload, asset);
-          const layoutId = `layout_${generateId()}`;
-          const row = buildInstalledOfficeLayoutRow(plan, asset, payload, layoutId, companyId);
-          void repos.officeLayouts.create(row);
-          officeLayoutIds.push(layoutId);
-        }
-        if (asset.kind === 'prefab') {
-          if (!repos.prefabInstances)
-            throw new Error('Prefab materializer repository is unavailable');
-          validatePrefabPayload(payload, asset);
-          const zoneId = stringField(payload, 'zone_id');
-          if (!zoneId) throw new Error(`Prefab asset '${asset.asset_id}' is missing zone_id`);
-          const instanceId = `prefab_${generateId()}`;
-          const row = buildInstalledPrefabRow(plan, asset, payload, instanceId, zoneId, companyId, now);
-          void repos.prefabInstances.create(row);
-          prefabInstanceIds.push(instanceId);
-        }
+          packagePrefabs,
+          result,
+        });
       }
 
       // 3. Create asset_bindings rows
-      const bindingIds: string[] = [];
       const bindingLookup = new Map(bindings.map((b) => [b.bindingKey, b]));
 
       for (const req of plan.bindings) {
@@ -690,25 +890,15 @@ export async function materialize(
           req,
           confirmation,
           bindingId,
-          installedAssetIds[0] ?? null,
+          result.installedAssetIds[0] ?? null,
           installTxnId,
           now,
         );
         void repos.assetBindings.create(bindingRow);
-        bindingIds.push(bindingId);
+        result.bindingIds.push(bindingId);
       }
 
-      return {
-        installedPackageId,
-        installedAssetIds,
-        employeeIds,
-        skillIds,
-        skillVaultPaths,
-        companyTemplateIds,
-        officeLayoutIds,
-        prefabInstanceIds,
-        bindingIds,
-      };
+      return result;
     });
   }
 
@@ -721,149 +911,41 @@ export async function materialize(
   // ── Memory-repos / fallback async path ──────────────────────────────────
   // Used in tests and browser environments where transact is not available.
 
-  const partial: MutableMaterializeResult = {
-    installedPackageId: '',
-    installedAssetIds: [],
-    employeeIds: [],
-    skillIds: [],
-    skillVaultPaths: [],
-    companyTemplateIds: [],
-    officeLayoutIds: [],
-    prefabInstanceIds: [],
-    bindingIds: [],
-  };
+  const partial = createEmptyResult();
+  const result = createEmptyResult();
 
   try {
     // 1. Create installed_packages row
     const installedPackageId = generateId();
     partial.installedPackageId = installedPackageId;
+    result.installedPackageId = installedPackageId;
     const pkgRow = buildInstalledPackageRow(plan, companyId, installedPackageId, now, provenance);
     await repos.installedPackages.create(pkgRow);
 
-    // 2. Create assets and employees
-    const installedAssetIds: string[] = [];
-    const employeeIds: string[] = [];
-    const skillIds: string[] = [];
-    const skillVaultPaths: string[] = [];
-    const companyTemplateIds: string[] = [];
-    const officeLayoutIds: string[] = [];
-    const prefabInstanceIds: string[] = [];
-
+    // 2. Create assets and kind-specific runtime rows.
     for (const asset of orderedAssets(manifest.assets)) {
       assertSupportedAssetKind(asset.kind);
       const installedAssetId = generateId();
       const payload = payloadForAsset(manifest, asset);
-
-      // Create installed_assets row
-      const assetRow = buildInstalledAssetRow(
-        plan,
-        asset,
-        payload,
-        installedAssetId,
-        installedPackageId,
-        now,
-      );
-      await repos.installedAssets.create(assetRow);
-      installedAssetIds.push(installedAssetId);
-      partial.installedAssetIds.push(installedAssetId);
-
-      if (asset.kind === 'employee') {
-        const empData = buildEmployeeFromPayload(plan, asset, payload, companyId, undefined);
-        const { employee_id } = await repos.employees.create(empData);
-        employeeIds.push(employee_id);
-        partial.employeeIds.push(employee_id);
-      }
-
-      if (asset.kind === 'skill') {
-        if (!repos.skills) {
-          throw new Error('Skill materializer repository is unavailable');
-        }
-        if (!repos.vault) {
-          throw new Error('Skill materializer vault is unavailable');
-        }
-        const custom = customRecord(manifest);
-        const slug = skillSlug(
-          stringField(payload, 'skill_slug') ?? stringField(custom, 'skill_slug') ?? asset.asset_id,
-        );
-        const skillId = generateId();
-        const vaultPath = skillVaultPath(companyId, slug);
-        const skillNow = nowMsString();
-        const row = buildSkillFromPayload(
-          manifest,
-          asset,
-          payload,
-          companyId,
-          skillId,
-          vaultPath,
-          skillNow,
-        );
-        await repos.skills.insert(row);
-        const skillContent = skillMdContent(manifest, payload, asset);
-        if (options.deferVaultWrites) {
-          // Deferred path (asyncTransact / desktop): collect the write for the
-          // caller to flush AFTER commit. Nothing is on disk yet, so this is
-          // deliberately NOT recorded in `partial.skillVaultPaths` — an
-          // in-transaction rollback must not try to delete a file that was
-          // never written. Post-commit write failures are compensated by the
-          // asyncTransact branch.
-          options.deferVaultWrites.push({ vaultPath, content: skillContent });
-        } else {
-          // Non-deferred path (memory repos / tests, no deferred commit):
-          // FS-after-DB so a mid-write throw discards the row before commit and
-          // rollback() can delete the file via partial.skillVaultPaths.
-          await repos.vault.writeFile(vaultPath, skillContent);
-          partial.skillVaultPaths.push(vaultPath);
-        }
-        skillIds.push(skillId);
-        skillVaultPaths.push(vaultPath);
-        partial.skillIds.push(skillId);
-      }
-
-      if (asset.kind === 'company_template') {
-        if (!repos.companyTemplates) {
-          throw new Error('Company template materializer repository is unavailable');
-        }
-        const template = companyTemplateFromPayload(payload, asset);
-        const companyTemplateAssetId = `company_template_${generateId()}`;
-        const row = buildInstalledCompanyTemplateRow(
+      await materializeAssetAsync(
+        repos,
+        {
           plan,
           asset,
-          template,
-          companyTemplateAssetId,
+          payload,
+          installedAssetId,
+          installedPackageId,
           companyId,
-        );
-        await repos.companyTemplates.create(row);
-        companyTemplateIds.push(companyTemplateAssetId);
-        partial.companyTemplateIds.push(companyTemplateAssetId);
-      }
-
-      if (asset.kind === 'office_layout') {
-        if (!repos.officeLayouts)
-          throw new Error('Office layout materializer repository is unavailable');
-        validateOfficeLayoutPayload(packagePrefabs, payload, asset);
-        const layoutId = `layout_${generateId()}`;
-        const row = buildInstalledOfficeLayoutRow(plan, asset, payload, layoutId, companyId);
-        await repos.officeLayouts.create(row);
-        officeLayoutIds.push(layoutId);
-        partial.officeLayoutIds.push(layoutId);
-      }
-
-      if (asset.kind === 'prefab') {
-        if (!repos.prefabInstances)
-          throw new Error('Prefab materializer repository is unavailable');
-        validatePrefabPayload(payload, asset);
-        const zoneId = stringField(payload, 'zone_id');
-        if (!zoneId) throw new Error(`Prefab asset '${asset.asset_id}' is missing zone_id`);
-        const instanceId = `prefab_${generateId()}`;
-        const row = buildInstalledPrefabRow(plan, asset, payload, instanceId, zoneId, companyId, now);
-        await repos.prefabInstances.create(row);
-        prefabInstanceIds.push(instanceId);
-        partial.prefabInstanceIds.push(instanceId);
-      }
+          now,
+          packagePrefabs,
+          result,
+          partialResult: partial,
+        },
+        options,
+      );
     }
 
     // 3. Create asset_bindings rows
-    const bindingIds: string[] = [];
     const bindingLookup = new Map(bindings.map((b) => [b.bindingKey, b]));
 
     for (const req of plan.bindings) {
@@ -874,26 +956,16 @@ export async function materialize(
         req,
         confirmation,
         bindingId,
-        installedAssetIds[0] ?? null,
+        result.installedAssetIds[0] ?? null,
         installTxnId,
         now,
       );
       await repos.assetBindings.create(bindingRow);
-      bindingIds.push(bindingId);
+      result.bindingIds.push(bindingId);
       partial.bindingIds.push(bindingId);
     }
 
-    return {
-      installedPackageId,
-      installedAssetIds,
-      employeeIds,
-      skillIds,
-      skillVaultPaths,
-      companyTemplateIds,
-      officeLayoutIds,
-      prefabInstanceIds,
-      bindingIds,
-    };
+    return result;
   } catch (err) {
     const { rollback } = await import('./rollback.js');
     await rollback(partial, repos);

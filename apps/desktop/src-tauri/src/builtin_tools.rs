@@ -592,8 +592,7 @@ pub async fn bash_execute<R: Runtime>(
     ensure_inside_workspace(&cwd_path, &roots)?;
     let network_policy = network_policy.unwrap_or_else(|| "approval-gated-disclosed".into());
 
-    if let crate::shell_classifier::Decision::Deny(reason) =
-        crate::shell_classifier::classify(&cmd)
+    if let crate::shell_classifier::Decision::Deny(reason) = crate::shell_classifier::classify(&cmd)
     {
         return Err(format!("bash_execute rejected: {reason}"));
     }

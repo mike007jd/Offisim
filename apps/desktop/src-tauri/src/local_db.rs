@@ -44,8 +44,7 @@ pub async fn local_db_execute_transaction<R: Runtime>(
         return Ok(());
     }
     for (idx, statement) in statements.iter().enumerate() {
-        validate_statement_sql(&statement.sql)
-            .map_err(|err| format!("statement[{idx}]: {err}"))?;
+        validate_statement_sql(&statement.sql).map_err(|err| format!("statement[{idx}]: {err}"))?;
     }
     let pool = get_offisim_pool(&app)?;
     let mut tx = pool

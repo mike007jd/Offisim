@@ -1,3 +1,4 @@
+mod agent_host_runtime;
 mod attachment_store;
 mod builtin_tools;
 mod claude_agent_host;
@@ -63,38 +64,6 @@ fn native_dropped_file(path: &Path) -> NativeDroppedFile {
     }
 }
 
-#[cfg(target_os = "macos")]
-fn force_macos_foreground<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) -> bool {
-    use objc2::{msg_send, MainThreadMarker};
-    use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy, NSWindow};
-
-    if let Some(mtm) = MainThreadMarker::new() {
-        let app = NSApplication::sharedApplication(mtm);
-        let _ = app.setActivationPolicy(NSApplicationActivationPolicy::Regular);
-        #[allow(deprecated)]
-        app.activateIgnoringOtherApps(true);
-    }
-
-    if let Ok(ns_window) = window.ns_window() {
-        let ns_window = ns_window.cast::<NSWindow>();
-        unsafe {
-            let _: () = msg_send![ns_window, setRestorable: false];
-            let ns_window = &*ns_window;
-            ns_window.displayIfNeeded();
-            ns_window.orderFrontRegardless();
-            ns_window.makeMainWindow();
-            ns_window.makeKeyAndOrderFront(None);
-            return ns_window.isVisible();
-        }
-    }
-    false
-}
-
-#[cfg(not(target_os = "macos"))]
-fn force_macos_foreground<R: tauri::Runtime>(_window: &tauri::WebviewWindow<R>) -> bool {
-    true
-}
-
 fn create_main_window_with_label<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     label: &str,
@@ -122,9 +91,8 @@ fn restore_main_window<R: tauri::Runtime>(
     let _ = app.show();
     let _ = window.unminimize();
     let _ = window.show();
-    let native_visible = force_macos_foreground(window);
     let _ = window.set_focus();
-    native_visible && window.is_visible().unwrap_or(false)
+    window.is_visible().unwrap_or(false)
 }
 
 fn ensure_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<()> {
@@ -143,6 +111,17 @@ fn ensure_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> tauri::Re
     Ok(())
 }
 
+fn schedule_ensure_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    let scheduler = app.clone();
+    let app_for_main_thread = app.clone();
+    let _ = scheduler.run_on_main_thread(move || {
+        let _ = app_for_main_thread.set_activation_policy(tauri::ActivationPolicy::Regular);
+        if let Err(err) = ensure_main_window(&app_for_main_thread) {
+            eprintln!("Offisim main window restore failed: {err}");
+        }
+    });
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -153,11 +132,7 @@ pub fn run() {
         // the shared appDataDir) and the second window hangs with a black
         // webview. The callback focuses the existing window instead.
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
-            let app_for_main_thread = app.clone();
-            let _ = app.run_on_main_thread(move || {
-                let _ = app_for_main_thread.set_activation_policy(tauri::ActivationPolicy::Regular);
-                let _ = ensure_main_window(&app_for_main_thread);
-            });
+            schedule_ensure_main_window(app);
         }))
         .invoke_handler(tauri::generate_handler![
             runtime_secrets::runtime_secret_status,

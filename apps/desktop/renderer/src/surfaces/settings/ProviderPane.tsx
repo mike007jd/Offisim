@@ -9,6 +9,7 @@ import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import { Input } from '@/design-system/primitives/input.js';
 import {
+  type RuntimeProviderProfile,
   isDesktopProviderBridgeAvailable,
   loadRuntimeProviderProfiles,
   safeErrorMessage,
@@ -49,14 +50,20 @@ interface ProviderPaneProps {
   onSave: () => void;
 }
 
-function runtimeProfileMatches(config: ProviderConfig, displayName: string): boolean {
-  const normalizedName = displayName.toLowerCase();
+function runtimeProfileMatches(config: ProviderConfig, profile: RuntimeProviderProfile): boolean {
+  const providerMatches =
+    config.endpointKind === 'messages'
+      ? profile.provider === 'anthropic'
+      : profile.provider === 'openai' || profile.provider === 'openai-compat';
+  if (!providerMatches) return false;
+
+  const normalizedName = profile.displayName.toLowerCase();
   if (config.product === 'minimax') return normalizedName.includes('minimax');
   return normalizedName.includes(config.displayName.toLowerCase());
 }
 
 function routeProtocolLabel(config: ProviderConfig): string {
-  if (config.product === 'minimax' || config.product === 'anthropic') return 'anthropic-compat';
+  if (config.endpointKind === 'messages') return 'anthropic-compat';
   if (config.product === 'openai') return 'openai';
   return 'openai-compat';
 }
@@ -142,7 +149,7 @@ export function ProviderPane({
       const profiles = await loadRuntimeProviderProfiles();
       const profile =
         profiles.find((candidate) => candidate.id === active.id) ??
-        profiles.find((candidate) => runtimeProfileMatches(active, candidate.displayName));
+        profiles.find((candidate) => runtimeProfileMatches(active, candidate));
       if (!profile) {
         throw new Error('Provider profile is not saved in the desktop runtime.');
       }

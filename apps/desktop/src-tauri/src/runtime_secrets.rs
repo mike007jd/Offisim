@@ -339,6 +339,7 @@ fn profile_from_env(
     model_env: &str,
     base_url_env: &str,
     secret_env: &str,
+    secret_ref: Option<&str>,
 ) -> Option<RuntimeProviderProfile> {
     let model = env_or_local(model_env)?;
     let base_url = env_or_local(base_url_env)?;
@@ -349,7 +350,7 @@ fn profile_from_env(
         provider: provider.into(),
         model,
         base_url,
-        secret_ref: id.into(),
+        secret_ref: secret_ref.unwrap_or(id).into(),
         auth_scheme: String::new(),
         allowed_host: String::new(),
         local_endpoint: false,
@@ -368,6 +369,25 @@ pub fn runtime_provider_profiles() -> Result<Vec<RuntimeProviderProfile>, String
             "MINIMAX_MODEL",
             "MINIMAX_BASE_URL",
             "MINIMAX_API_KEY",
+            None,
+        ),
+        profile_from_env(
+            "minimax-openai",
+            "MiniMax Codex",
+            "openai-compat",
+            "MINIMAX_OPENAI_MODEL",
+            "MINIMAX_OPENAI_BASE_URL",
+            "MINIMAX_API_KEY",
+            Some("minimax"),
+        ),
+        profile_from_env(
+            "zai-anthropic",
+            "Z.AI Claude Code",
+            "anthropic",
+            "ZAI_ANTHROPIC_MODEL",
+            "ZAI_ANTHROPIC_BASE_URL",
+            "ZAI_API_KEY",
+            Some("zai"),
         ),
         profile_from_env(
             "zai",
@@ -376,6 +396,7 @@ pub fn runtime_provider_profiles() -> Result<Vec<RuntimeProviderProfile>, String
             "ZAI_MODEL",
             "ZAI_BASE_URL",
             "ZAI_API_KEY",
+            None,
         ),
         profile_from_env(
             "openrouter",
@@ -384,6 +405,7 @@ pub fn runtime_provider_profiles() -> Result<Vec<RuntimeProviderProfile>, String
             "OPENROUTER_MODEL",
             "OPENROUTER_BASE_URL",
             "OPENROUTER_API_KEY",
+            None,
         ),
     ]
     .into_iter()

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-02T09:01:48.461Z",
+  "generatedAt": "2026-06-06T05:24:11.106Z",
   "providers": {
     "anthropic-default": {
       "authMode": "api-key",
@@ -493,9 +493,7 @@
       "region": "cn",
       "sourceUrl": "https://platform.minimaxi.com/document/text-anthropic-api",
       "supportedEndpoints": [
-        "chat_completions",
-        "messages",
-        "responses"
+        "messages"
       ],
       "surface": "coding-plan",
       "vendor": "minimax"
@@ -512,10 +510,11 @@
       "defaultModel": "MiniMax-M3",
       "executionLaneHints": {
         "productExposed": [
-          "gateway"
+          "gateway",
+          "claude-agent-sdk"
         ]
       },
-      "lastVerifiedAt": "2026-06-02",
+      "lastVerifiedAt": "2026-06-06",
       "models": {
         "MiniMax-M2.7": {
           "displayName": "MiniMax M2.7 (legacy)",
@@ -526,16 +525,58 @@
           "status": "current"
         }
       },
+      "notes": "MiniMax Anthropic-compatible endpoint supports the Claude lane; verified with the current MiniMax-M3 model.",
       "productName": "MiniMax Global",
       "providerTransport": "anthropic",
       "region": "intl",
       "sourceUrl": "https://platform.minimax.io/docs/api-reference/text-anthropic-api",
       "supportedEndpoints": [
-        "chat_completions",
-        "messages",
-        "responses"
+        "messages"
       ],
       "surface": "coding-plan",
+      "vendor": "minimax"
+    },
+    "minimax-intl-openai-general": {
+      "authMode": "api-key",
+      "baseURL": "https://api.minimax.io/v1",
+      "communityAliases": [
+        "minimax"
+      ],
+      "communityDisplayName": "Minimax (`minimax`)",
+      "communityDocsUrl": "https://docs.litellm.ai/docs/providers/minimax",
+      "compatibility": "openai-compatible",
+      "defaultModel": "MiniMax-M3",
+      "executionLaneHints": {
+        "productExposed": [
+          "gateway",
+          "codex-agent-sdk"
+        ]
+      },
+      "lastVerifiedAt": "2026-06-06",
+      "models": {
+        "MiniMax-M2.7": {
+          "displayName": "MiniMax M2.7 (legacy)",
+          "status": "legacy"
+        },
+        "MiniMax-M2.7-highspeed": {
+          "displayName": "MiniMax M2.7 Highspeed (legacy)",
+          "status": "legacy"
+        },
+        "MiniMax-M3": {
+          "displayName": "MiniMax M3",
+          "status": "current"
+        }
+      },
+      "notes": "MiniMax OpenAI-compatible endpoint supports the Responses wire required by the Codex sidecar.",
+      "productName": "MiniMax Global · OpenAI",
+      "providerTransport": "openai-compat",
+      "region": "intl",
+      "sourceUrl": "https://platform.minimax.io/docs/token-plan/codex",
+      "supportedEndpoints": [
+        "chat_completions",
+        "responses"
+      ],
+      "surface": "general",
       "vendor": "minimax"
     },
     "openai-default": {
@@ -1938,10 +1979,10 @@
           },
           "contextWindow": 262144,
           "displayName": "Google: Gemma 4 31B",
-          "maxOutputTokens": 16384,
+          "maxOutputTokens": 8192,
           "pricing": {
             "inputCostPerToken": 1.2e-7,
-            "outputCostPerToken": 3.7e-7
+            "outputCostPerToken": 3.6e-7
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -2088,8 +2129,8 @@
           "displayName": "inclusionAI: Ring-2.6-1T",
           "maxOutputTokens": 65536,
           "pricing": {
-            "inputCostPerToken": 3e-7,
-            "outputCostPerToken": 0.0000025
+            "inputCostPerToken": 7.5e-8,
+            "outputCostPerToken": 6.25e-7
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -2233,7 +2274,7 @@
           "maxOutputTokens": 16384,
           "pricing": {
             "inputCostPerToken": 2e-8,
-            "outputCostPerToken": 5e-8
+            "outputCostPerToken": 3e-8
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -2509,7 +2550,7 @@
           },
           "contextWindow": 204800,
           "displayName": "MiniMax: MiniMax M2.7",
-          "maxOutputTokens": 131072,
+          "maxOutputTokens": 196608,
           "pricing": {
             "inputCostPerToken": 2.79e-7,
             "outputCostPerToken": 0.0000012
@@ -2964,18 +3005,6 @@
             "responses"
           ]
         },
-        "nousresearch/hermes-2-pro-llama-3-8b": {
-          "contextWindow": 8192,
-          "displayName": "NousResearch: Hermes 2 Pro - Llama-3 8B",
-          "maxOutputTokens": 8192,
-          "pricing": {
-            "inputCostPerToken": 1.4e-7,
-            "outputCostPerToken": 1.4e-7
-          },
-          "supportedEndpoints": [
-            "chat_completions"
-          ]
-        },
         "nousresearch/hermes-3-llama-3.1-405b": {
           "contextWindow": 131072,
           "displayName": "Nous: Hermes 3 405B Instruct",
@@ -3139,6 +3168,55 @@
             "responses"
           ]
         },
+        "nvidia/nemotron-3-ultra-550b-a55b": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 1000000,
+          "displayName": "NVIDIA: Nemotron 3 Ultra",
+          "maxOutputTokens": 16384,
+          "pricing": {
+            "inputCostPerToken": 5e-7,
+            "outputCostPerToken": 0.0000025
+          },
+          "supportedEndpoints": [
+            "chat_completions",
+            "responses"
+          ]
+        },
+        "nvidia/nemotron-3-ultra-550b-a55b:free": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 1000000,
+          "displayName": "NVIDIA: Nemotron 3 Ultra (free)",
+          "maxOutputTokens": 65536,
+          "pricing": {
+            "inputCostPerToken": 0,
+            "outputCostPerToken": 0
+          },
+          "supportedEndpoints": [
+            "chat_completions",
+            "responses"
+          ]
+        },
+        "nvidia/nemotron-3.5-content-safety:free": {
+          "capabilities": {
+            "reasoning": true
+          },
+          "contextWindow": 128000,
+          "displayName": "NVIDIA: Nemotron 3.5 Content Safety (free)",
+          "maxOutputTokens": 8192,
+          "pricing": {
+            "inputCostPerToken": 0,
+            "outputCostPerToken": 0
+          },
+          "supportedEndpoints": [
+            "chat_completions"
+          ]
+        },
         "nvidia/nemotron-nano-12b-v2-vl:free": {
           "capabilities": {
             "functionCalling": true,
@@ -3255,22 +3333,6 @@
           },
           "contextWindow": 8191,
           "displayName": "OpenAI: GPT-4",
-          "maxOutputTokens": 4096,
-          "pricing": {
-            "inputCostPerToken": 0.00003,
-            "outputCostPerToken": 0.00006
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
-        "openai/gpt-4-0314": {
-          "capabilities": {
-            "functionCalling": true
-          },
-          "contextWindow": 8191,
-          "displayName": "OpenAI: GPT-4 (older v0314)",
           "maxOutputTokens": 4096,
           "pricing": {
             "inputCostPerToken": 0.00003,
@@ -4272,6 +4334,17 @@
             "responses"
           ]
         },
+        "openrouter/fusion": {
+          "contextWindow": 128000,
+          "displayName": "OpenRouter: Fusion",
+          "pricing": {
+            "inputCostPerToken": -1,
+            "outputCostPerToken": -1
+          },
+          "supportedEndpoints": [
+            "chat_completions"
+          ]
+        },
         "openrouter/owl-alpha": {
           "capabilities": {
             "functionCalling": true
@@ -4605,7 +4678,7 @@
           },
           "contextWindow": 131072,
           "displayName": "Qwen: Qwen3 30B A3B",
-          "maxOutputTokens": 20000,
+          "maxOutputTokens": 16384,
           "pricing": {
             "inputCostPerToken": 9e-8,
             "outputCostPerToken": 4.5e-7
@@ -4623,8 +4696,8 @@
           "displayName": "Qwen: Qwen3 30B A3B Instruct 2507",
           "maxOutputTokens": 32000,
           "pricing": {
-            "inputCostPerToken": 4.28e-8,
-            "outputCostPerToken": 1.716e-7
+            "inputCostPerToken": 4.815e-8,
+            "outputCostPerToken": 1.9305e-7
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -5212,6 +5285,23 @@
             "responses"
           ]
         },
+        "qwen/qwen3.7-plus": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 1000000,
+          "displayName": "Qwen: Qwen3.7 Plus",
+          "maxOutputTokens": 65536,
+          "pricing": {
+            "inputCostPerToken": 4e-7,
+            "outputCostPerToken": 0.0000016
+          },
+          "supportedEndpoints": [
+            "chat_completions",
+            "responses"
+          ]
+        },
         "rekaai/reka-edge": {
           "capabilities": {
             "functionCalling": true
@@ -5265,22 +5355,6 @@
           "pricing": {
             "inputCostPerToken": 0.000001,
             "outputCostPerToken": 0.000003
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
-        "sao10k/l3-euryale-70b": {
-          "capabilities": {
-            "functionCalling": true
-          },
-          "contextWindow": 8192,
-          "displayName": "Sao10k: Llama 3 Euryale 70B v2.1",
-          "maxOutputTokens": 8192,
-          "pricing": {
-            "inputCostPerToken": 0.00000148,
-            "outputCostPerToken": 0.00000148
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -5785,10 +5859,10 @@
           },
           "contextWindow": 202752,
           "displayName": "Z.ai: GLM 5",
-          "maxOutputTokens": 16384,
+          "maxOutputTokens": 128000,
           "pricing": {
             "inputCostPerToken": 6e-7,
-            "outputCostPerToken": 0.00000208
+            "outputCostPerToken": 0.00000192
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -5819,7 +5893,6 @@
           },
           "contextWindow": 202752,
           "displayName": "Z.ai: GLM 5.1",
-          "maxOutputTokens": 131072,
           "pricing": {
             "inputCostPerToken": 9.8e-7,
             "outputCostPerToken": 0.00000308
@@ -6006,10 +6079,11 @@
       "defaultModel": "glm-5.1",
       "executionLaneHints": {
         "productExposed": [
-          "gateway"
+          "gateway",
+          "claude-agent-sdk"
         ]
       },
-      "lastVerifiedAt": "2026-06-02",
+      "lastVerifiedAt": "2026-06-06",
       "models": {
         "GLM-4.5-Air": {
           "capabilities": {
@@ -6052,16 +6126,13 @@
           "status": "current"
         }
       },
+      "notes": "Z.AI Anthropic-compatible endpoint supports the Claude lane; Z.AI OpenAI-compatible endpoints remain gateway-only because they are chat-completions only.",
       "productName": "Z.AI · Claude Code",
       "providerTransport": "anthropic",
       "region": "shared",
       "sourceUrl": "https://docs.z.ai/devpack/tool/claude",
       "supportedEndpoints": [
-        "a2a",
-        "chat_completions",
-        "interactions",
-        "messages",
-        "responses"
+        "messages"
       ],
       "surface": "coding-plan",
       "vendor": "zai"
@@ -6081,7 +6152,7 @@
           "gateway"
         ]
       },
-      "lastVerifiedAt": "2026-06-02",
+      "lastVerifiedAt": "2026-06-06",
       "models": {
         "glm-5": {
           "capabilities": {
@@ -6102,16 +6173,13 @@
           "status": "current"
         }
       },
+      "notes": "Z.AI OpenAI-compatible coding endpoint is chat-completions only; do not route it through the Codex sidecar.",
       "productName": "Z.AI · Coding API",
       "providerTransport": "openai-compat",
       "region": "shared",
       "sourceUrl": "https://docs.z.ai/guides/llm/glm-5.1",
       "supportedEndpoints": [
-        "a2a",
-        "chat_completions",
-        "interactions",
-        "messages",
-        "responses"
+        "chat_completions"
       ],
       "surface": "coding-plan",
       "vendor": "zai"
@@ -6131,7 +6199,7 @@
           "gateway"
         ]
       },
-      "lastVerifiedAt": "2026-06-02",
+      "lastVerifiedAt": "2026-06-06",
       "models": {
         "glm-4.5-air": {
           "capabilities": {
@@ -6164,16 +6232,13 @@
           "status": "current"
         }
       },
+      "notes": "Z.AI OpenAI-compatible general endpoint is chat-completions only; do not route it through the Codex sidecar.",
       "productName": "Z.AI · General API",
       "providerTransport": "openai-compat",
       "region": "shared",
       "sourceUrl": "https://docs.z.ai/api-reference/llm/chat-completion",
       "supportedEndpoints": [
-        "a2a",
-        "chat_completions",
-        "interactions",
-        "messages",
-        "responses"
+        "chat_completions"
       ],
       "surface": "general",
       "vendor": "zai"
