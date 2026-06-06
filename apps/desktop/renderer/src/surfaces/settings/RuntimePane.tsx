@@ -25,6 +25,13 @@ import {
 
 type EmployeeRuntimeValue = 'gateway' | 'claude' | 'codex';
 
+const EXECUTION_MODE_COPY: Record<string, string> = {
+  plan: 'Draft a plan before work starts.',
+  human_loop: 'Ask before sensitive or high-impact actions.',
+  direct: 'Run normal tasks without extra ceremony.',
+  yolo: 'Use maximum autonomy and minimal interruption.',
+};
+
 interface RuntimeVaultStatus {
   readonly path: string;
   readonly displayPath: string;
@@ -80,6 +87,9 @@ interface RuntimePaneProps {
 
 export function RuntimePane({ form, saved }: RuntimePaneProps) {
   const defaultRuntime = form.watch('defaultRuntime') as EmployeeRuntimeValue;
+  const executionMode = form.watch('executionMode');
+  const toolSearch = form.watch('toolSearch');
+  const gitAutoCommit = form.watch('gitAutoCommit');
   const sceneDropDiagnostics = useUiState((s) => s.sceneDropDiagnostics);
   const errors = form.formState.errors;
   const [openingVault, setOpeningVault] = useState(false);
@@ -157,7 +167,7 @@ export function RuntimePane({ form, saved }: RuntimePaneProps) {
             </span>
           ) : null}
         </div>
-        <div className="off-set-panedesc">How employees run · saved as local preferences.</div>
+        <div className="off-set-panedesc">How employees plan, ask, and execute work.</div>
       </div>
 
       {/* General — execution behavior */}
@@ -166,30 +176,61 @@ export function RuntimePane({ form, saved }: RuntimePaneProps) {
           <CapsLabel>How employees run</CapsLabel>
         </div>
         <div className="off-set-sec-hint mb-[var(--off-sp-3)] mt-0">
-          Saved as preferences. In this build employees run in Offisim's trusted desktop lane; these
-          values are not yet read by the runtime.
+          Choose the default autonomy level for employee runs.
         </div>
         <CardBlock>
           <div className="off-set-grid-3">
-            <FieldRow label="Execution mode">
+            <FieldRow label="Run mode">
               {({ id }) => (
                 <Select
                   id={id}
                   options={EXECUTION_MODE_OPTIONS}
-                  {...form.register('executionMode')}
+                  name="executionMode"
+                  value={executionMode}
+                  onChange={(event) =>
+                    form.setValue('executionMode', event.target.value, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    })
+                  }
                 />
               )}
             </FieldRow>
-            <FieldRow label="Tool search">
+            <FieldRow label="Tool discovery">
               {({ id }) => (
-                <Select id={id} options={ENABLED_OPTIONS} {...form.register('toolSearch')} />
+                <Select
+                  id={id}
+                  options={ENABLED_OPTIONS}
+                  name="toolSearch"
+                  value={toolSearch}
+                  onChange={(event) =>
+                    form.setValue('toolSearch', event.target.value, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    })
+                  }
+                />
               )}
             </FieldRow>
-            <FieldRow label="Git auto-commit">
+            <FieldRow label="Auto-commit">
               {({ id }) => (
-                <Select id={id} options={ENABLED_OPTIONS} {...form.register('gitAutoCommit')} />
+                <Select
+                  id={id}
+                  options={ENABLED_OPTIONS}
+                  name="gitAutoCommit"
+                  value={gitAutoCommit}
+                  onChange={(event) =>
+                    form.setValue('gitAutoCommit', event.target.value, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    })
+                  }
+                />
               )}
             </FieldRow>
+          </div>
+          <div className="off-set-mode-copy">
+            {EXECUTION_MODE_COPY[executionMode] ?? EXECUTION_MODE_COPY.direct}
           </div>
           <div className="off-field mt-[var(--off-sp-6)]">
             <span className="off-field-label">Default employee runtime</span>
@@ -202,7 +243,7 @@ export function RuntimePane({ form, saved }: RuntimePaneProps) {
               }}
               ariaLabel="Default employee runtime"
               options={[
-                { value: 'gateway', label: 'Offisim core', icon: <Icon icon={Zap} size="sm" /> },
+                { value: 'gateway', label: 'Desktop lane', icon: <Icon icon={Zap} size="sm" /> },
                 { value: 'claude', label: 'Verified driver' },
                 { value: 'codex', label: 'Isolated driver' },
               ]}
@@ -211,12 +252,11 @@ export function RuntimePane({ form, saved }: RuntimePaneProps) {
               Resolved:{' '}
               <b>
                 {DEFAULT_RUNTIME_OPTIONS.find((o) => o.value === defaultRuntime)?.label ??
-                  'Offisim core (gateway)'}
+                  'Desktop lane'}
               </b>
             </div>
             <span className="off-field-hint">
-              The runtime employees use unless a company overrides it. Verified and Isolated drivers
-              require a release build.
+              The execution lane employees use unless a company override applies.
             </span>
           </div>
         </CardBlock>
@@ -233,12 +273,24 @@ export function RuntimePane({ form, saved }: RuntimePaneProps) {
             <span className="off-set-chev">
               <Icon icon={ChevronRight} size="sm" />
             </span>
-            Conversation memory &amp; summarization
+            Runtime wiring status
           </summary>
           <div className="off-set-disclosure-body">
             <div className="off-set-sec-hint mb-[var(--off-sp-3)] mt-0">
-              Saved as preferences; not yet read by the runtime in this build.
+              Preferences are saved locally. This build still executes in Offisim's trusted desktop
+              lane while the full policy wiring lands.
             </div>
+          </div>
+        </details>
+
+        <details className="off-set-disclosure">
+          <summary>
+            <span className="off-set-chev">
+              <Icon icon={ChevronRight} size="sm" />
+            </span>
+            Conversation memory &amp; summarization
+          </summary>
+          <div className="off-set-disclosure-body">
             <div className="off-set-subhead">Memory</div>
             <div className="off-set-grid-4">
               <FieldRow label="Enabled">

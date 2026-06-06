@@ -5,7 +5,7 @@ import { safeErrorMessage } from '@/lib/provider-bridge.js';
 import { cn } from '@/lib/utils.js';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
-import { Bot, Cpu, Plug, Users } from 'lucide-react';
+import { Bot, CheckCircle2, Cpu, Plug, Route, ShieldCheck, Users } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -42,6 +42,130 @@ const NAV: ReadonlyArray<{ key: SettingsTab; label: string; icon: typeof Bot }> 
   { key: 'mcp', label: 'MCP', icon: Plug },
   { key: 'external', label: 'External Employees', icon: Users },
 ];
+
+const RUN_MODE_LABELS: Record<string, string> = {
+  plan: 'Plan',
+  human_loop: 'Human-in-loop',
+  direct: 'Direct',
+  yolo: 'YOLO',
+  auto: 'Direct',
+  manual: 'Human-in-loop',
+  review: 'Human-in-loop',
+};
+
+function SettingsCompanion({
+  tab,
+  provider,
+  runtime,
+  providerDirty,
+  providerSaved,
+  runtimeSaved,
+}: {
+  tab: SettingsTab;
+  provider: ProviderConfig;
+  runtime: RuntimeFormValues;
+  providerDirty: boolean;
+  providerSaved: boolean;
+  runtimeSaved: boolean;
+}) {
+  if (tab === 'runtime') {
+    return (
+      <aside className="off-set-companion" aria-label="Runtime summary">
+        <div className="off-set-comp-card">
+          <div className="off-set-comp-k">Effective run mode</div>
+          <div className="off-set-comp-main">
+            <Icon icon={Cpu} size="sm" />
+            {RUN_MODE_LABELS[runtime.executionMode] ?? 'Direct'}
+          </div>
+          <dl className="off-set-comp-list">
+            <div>
+              <dt>Tool discovery</dt>
+              <dd>{runtime.toolSearch === 'enabled' ? 'Enabled' : 'Disabled'}</dd>
+            </div>
+            <div>
+              <dt>Auto-commit</dt>
+              <dd>{runtime.gitAutoCommit === 'enabled' ? 'Enabled' : 'Disabled'}</dd>
+            </div>
+            <div>
+              <dt>Execution lane</dt>
+              <dd>{runtime.defaultRuntime === 'gateway' ? 'Desktop lane' : runtime.defaultRuntime}</dd>
+            </div>
+          </dl>
+          <div className="off-set-comp-note">
+            <Icon icon={ShieldCheck} size="sm" />
+            {runtimeSaved ? 'Saved locally' : 'Local policy preview'}
+          </div>
+        </div>
+      </aside>
+    );
+  }
+
+  if (tab === 'mcp') {
+    return (
+      <aside className="off-set-companion" aria-label="MCP summary">
+        <div className="off-set-comp-card">
+          <div className="off-set-comp-k">Tool layer</div>
+          <div className="off-set-comp-main">
+            <Icon icon={Plug} size="sm" />
+            Local MCP registry
+          </div>
+          <p className="off-set-comp-copy">
+            Stdio servers require command review. SSE servers stay registered here and connect from
+            the web runtime.
+          </p>
+        </div>
+      </aside>
+    );
+  }
+
+  if (tab === 'external') {
+    return (
+      <aside className="off-set-companion" aria-label="External employees summary">
+        <div className="off-set-comp-card">
+          <div className="off-set-comp-k">Extension lane</div>
+          <div className="off-set-comp-main">
+            <Icon icon={Users} size="sm" />
+            External employees
+          </div>
+          <p className="off-set-comp-copy">
+            Installed employees appear in Personnel and use the same workspace, memory, and runtime
+            boundaries as first-party staff.
+          </p>
+        </div>
+      </aside>
+    );
+  }
+
+  return (
+    <aside className="off-set-companion" aria-label="Provider summary">
+      <div className="off-set-comp-card">
+        <div className="off-set-comp-k">Current route</div>
+        <div className="off-set-comp-main">
+          <Icon icon={Bot} size="sm" />
+          {provider.displayName}
+        </div>
+        <dl className="off-set-comp-list">
+          <div>
+            <dt>Model</dt>
+            <dd>{provider.model}</dd>
+          </div>
+          <div>
+            <dt>Endpoint</dt>
+            <dd>{provider.endpointKind}</dd>
+          </div>
+          <div>
+            <dt>Region</dt>
+            <dd>{provider.region}</dd>
+          </div>
+        </dl>
+        <div className="off-set-comp-note">
+          <Icon icon={providerDirty ? Route : CheckCircle2} size="sm" />
+          {providerDirty ? 'Pending provider edits' : providerSaved ? 'Provider saved' : 'Ready'}
+        </div>
+      </div>
+    </aside>
+  );
+}
 
 function providerProtocol(
   config: ProviderConfig,
@@ -141,6 +265,8 @@ export function SettingsSurface() {
   const runtimeDirty = runtimeForm.formState.isDirty;
   const runtimeValid = runtimeForm.formState.isValid;
   const appearanceDirty = theme !== savedTheme || density !== savedDensity;
+  const runtimeValues = runtimeForm.watch();
+  const activeProviderConfig = resolveActiveProviderConfig(providerConfigs, activeConfigId);
 
   useEffect(() => {
     let cancelled = false;
@@ -300,22 +426,34 @@ export function SettingsSurface() {
 
       <div className="off-set-main">
         <div className="off-set-scroll">
-          {tab === 'provider' ? (
-            <ProviderPane
-              form={providerForm}
-              activeConfigId={activeConfigId}
-              onSelectConfig={onSelectConfig}
-              dirty={providerDirty}
-              valid={providerValid}
-              saving={providerSave === 'saving'}
-              saved={providerSave === 'saved'}
-              saveError={providerSaveError}
-              onSave={() => void saveProvider()}
+          <div className="off-set-workspace">
+            <div className="off-set-primary">
+              {tab === 'provider' ? (
+                <ProviderPane
+                  form={providerForm}
+                  activeConfigId={activeConfigId}
+                  onSelectConfig={onSelectConfig}
+                  dirty={providerDirty}
+                  valid={providerValid}
+                  saving={providerSave === 'saving'}
+                  saved={providerSave === 'saved'}
+                  saveError={providerSaveError}
+                  onSave={() => void saveProvider()}
+                />
+              ) : null}
+              {tab === 'runtime' ? <RuntimePane form={runtimeForm} saved={runtimeSaved} /> : null}
+              {tab === 'mcp' ? <McpServersPane /> : null}
+              {tab === 'external' ? <ExternalEmployeesPane /> : null}
+            </div>
+            <SettingsCompanion
+              tab={tab}
+              provider={activeProviderConfig}
+              runtime={runtimeValues}
+              providerDirty={providerDirty}
+              providerSaved={providerSave === 'saved'}
+              runtimeSaved={runtimeSaved}
             />
-          ) : null}
-          {tab === 'runtime' ? <RuntimePane form={runtimeForm} saved={runtimeSaved} /> : null}
-          {tab === 'mcp' ? <McpServersPane /> : null}
-          {tab === 'external' ? <ExternalEmployeesPane /> : null}
+          </div>
         </div>
       </div>
     </div>

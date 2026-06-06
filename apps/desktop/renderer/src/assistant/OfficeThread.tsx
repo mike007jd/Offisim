@@ -48,7 +48,15 @@ interface OfficeThreadProps {
   persistMessage?: (message: ChatMessage) => Promise<void>;
 }
 
-function OfficeComposer({ projectName }: { projectName: string }) {
+function OfficeComposer({
+  projectName,
+  deliverables,
+  employeesById,
+}: {
+  projectName: string;
+  deliverables: Deliverable[];
+  employeesById: Map<string, Employee>;
+}) {
   const stageFiles = useRunStore((s) => s.stageFiles);
   const storageAvailable = useRunStore((s) => s.storageAvailable);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -152,40 +160,48 @@ function OfficeComposer({ projectName }: { projectName: string }) {
         stageFileList(event.dataTransfer.files);
       }}
     >
-      <ComposerPrimitive.Input
-        className="off-composer-input"
-        placeholder="Message the team"
-        rows={1}
-        submitOnEnter
-      />
-      <div className="off-ccs">
-        <span className="off-ccs-project">{projectName}</span>
-      </div>
-      <StagedAttachments />
-      <div className="off-composer-tools">
-        <input
-          ref={fileInput}
-          type="file"
-          multiple
-          hidden
-          onChange={(e) => {
-            stageFileList(e.target.files);
-            e.target.value = '';
-          }}
+      <div className="off-composer-shell">
+        <ComposerPrimitive.Input
+          className="off-composer-input"
+          placeholder="Message the team"
+          rows={1}
+          submitOnEnter
         />
-        <IconButton
-          icon={Paperclip}
-          label="Attach file"
-          variant="subtle"
-          size="iconSm"
-          title={storageAvailable ? 'Attach file' : 'Attachment storage unavailable'}
-          onClick={() => fileInput.current?.click()}
-        />
-        <span className="off-grow" />
-        <ComposerPrimitive.Send className="off-composer-send off-focusable">
-          Send
-          <Icon icon={SendHorizontal} size="sm" />
-        </ComposerPrimitive.Send>
+        <StagedAttachments />
+        <div className="off-composer-footer">
+          <input
+            ref={fileInput}
+            type="file"
+            multiple
+            hidden
+            onChange={(e) => {
+              stageFileList(e.target.files);
+              e.target.value = '';
+            }}
+          />
+          <IconButton
+            icon={Paperclip}
+            label="Attach file"
+            variant="subtle"
+            size="iconSm"
+            title={storageAvailable ? 'Attach file' : 'Attachment storage unavailable'}
+            onClick={() => fileInput.current?.click()}
+          />
+          <span className="off-composer-context" title={projectName}>
+            {projectName}
+          </span>
+          <div className="off-composer-pits" aria-label="Thread outputs and follow-up">
+            <MeetingTray />
+            <ConvOutputs deliverables={deliverables} employeesById={employeesById} />
+          </div>
+          <span className="off-composer-mode" title="Direct execution mode">
+            Direct
+          </span>
+          <ComposerPrimitive.Send className="off-composer-send off-focusable" aria-label="Send">
+            <span>Send</span>
+            <Icon icon={SendHorizontal} size="sm" />
+          </ComposerPrimitive.Send>
+        </div>
       </div>
       <div className="off-composer-drop-overlay" aria-hidden={!dragActive}>
         <Icon icon={Paperclip} size="sm" />
@@ -263,16 +279,11 @@ export function OfficeThread({
           <ChatErrorBanner />
           <SkillInstallConfirmBar companyId={companyId} threadId={threadId} />
         </ThreadPrimitive.Viewport>
-        {/* Outputs/Meeting pit is available in any thread that produced
-            deliverables — not just team threads. ConvOutputs self-hides when
-            empty and MeetingTray when there is no meeting. */}
-        {deliverables.length > 0 ? (
-          <div className="off-thread-pitbar" aria-label="Thread pit">
-            <MeetingTray />
-            <ConvOutputs deliverables={deliverables} employeesById={employeesById} />
-          </div>
-        ) : null}
-        <OfficeComposer projectName={projectName} />
+        <OfficeComposer
+          projectName={projectName}
+          deliverables={deliverables}
+          employeesById={employeesById}
+        />
       </ThreadPrimitive.Root>
     </AssistantRuntimeProvider>
   );

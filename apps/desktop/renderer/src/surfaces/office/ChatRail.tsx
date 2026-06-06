@@ -121,7 +121,7 @@ export function ChatRail() {
   const projects = useProjects(companyId);
   const employees = useEmployees();
   const messages = useMessages(railMode === 'thread' ? selectedThreadId : null);
-  const deliverables = useDeliverables();
+  const deliverables = useDeliverables(railMode === 'thread' ? selectedThreadId : null);
   const workspaceConversations = useWsConversations();
 
   const employeesById = useMemo(

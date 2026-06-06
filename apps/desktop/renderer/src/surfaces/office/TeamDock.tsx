@@ -225,11 +225,15 @@ function EmployeeDockPopover({
           {employee.disabled ? 'Enable' : 'Disable'}
         </Button>
       </div>
-      <div className="off-team-zone-picker" aria-label="Move employee">
-        <span className="off-team-zone-title">
-          <Icon icon={MapPin} size="sm" />
-          Move
-        </span>
+      <details className="off-team-zone-picker" aria-label="Move employee">
+        <summary className="off-team-zone-summary">
+          <span className="off-team-zone-title">
+            <Icon icon={MapPin} size="sm" />
+            Move to
+          </span>
+          <span className="off-team-zone-current">{currentZoneLabel ?? 'Unassigned'}</span>
+          <Icon icon={ChevronDown} size="sm" className="off-team-zone-caret" />
+        </summary>
         <div className="off-team-zone-grid">
           {zones.map((zone) => (
             <Button
@@ -243,7 +247,7 @@ function EmployeeDockPopover({
             </Button>
           ))}
         </div>
-      </div>
+      </details>
     </div>
   );
 }

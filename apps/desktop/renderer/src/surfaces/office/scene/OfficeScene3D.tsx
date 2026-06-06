@@ -52,6 +52,22 @@ interface SceneEmployeeDrop {
   readonly moved: boolean;
 }
 
+interface SceneEmployeeDrag {
+  readonly employeeId: string;
+  readonly x: number;
+  readonly z: number;
+  readonly clientX: number;
+  readonly clientY: number;
+  readonly moved: boolean;
+}
+
+interface SceneDropNotice {
+  readonly id: string;
+  readonly x: number;
+  readonly z: number;
+  readonly message: string;
+}
+
 export interface ScenePlacementProbe {
   readonly clientX: number;
   readonly clientY: number;
@@ -403,6 +419,7 @@ function EmployeeUnit({
   withDesk,
   running,
   active,
+  dragging,
   zones,
   onSelect,
   onHoverZone,
@@ -415,11 +432,12 @@ function EmployeeUnit({
   withDesk: boolean;
   running: boolean;
   active: boolean;
+  dragging: boolean;
   zones: ZoneDef[];
   onSelect: () => void;
   onHoverZone: (zoneId: string | null) => void;
   onDrop: (result: SceneEmployeeDrop) => void;
-  onDragState: (drag: { employeeId: string } | null) => void;
+  onDragState: (drag: SceneEmployeeDrag | null) => void;
 }) {
   const { camera, gl } = useThree();
   const cleanupRef = useRef<(() => void) | null>(null);
@@ -449,6 +467,9 @@ function EmployeeUnit({
     const startY = event.clientY;
     let moved = false;
     let complete = false;
+    let lastPoint: ScenePlacementPoint | null = null;
+    let lastClientX = startX;
+    let lastClientY = startY;
 
     const releasePointer = () => {
       try {
@@ -471,6 +492,8 @@ function EmployeeUnit({
       gl.domElement.removeEventListener('pointerup', onPointerUp);
       gl.domElement.removeEventListener('pointercancel', onPointerCancel);
       gl.domElement.removeEventListener('mouseup', onMouseUp);
+      gl.domElement.removeEventListener('lostpointercapture', onLostPointerCapture);
+      window.removeEventListener('blur', onPointerCancel);
       releasePointer();
       document.body.style.cursor = '';
       onHoverZone(null);
@@ -481,10 +504,27 @@ function EmployeeUnit({
     const toGround = (e: PointerEvent | MouseEvent) =>
       groundPointFromClient(e.clientX, e.clientY, gl.domElement, camera, zones);
 
+    const updateDragPreview = (e: PointerEvent | MouseEvent, nextMoved: boolean) => {
+      const point = toGround(e);
+      lastPoint = point;
+      lastClientX = e.clientX;
+      lastClientY = e.clientY;
+      onDragState({
+        employeeId: employee.id,
+        x: point?.x ?? x,
+        z: point?.z ?? z,
+        clientX: e.clientX,
+        clientY: e.clientY,
+        moved: nextMoved,
+      });
+      return point;
+    };
+
     const onPointerMove = (e: PointerEvent) => {
       e.preventDefault();
       if (Math.hypot(e.clientX - startX, e.clientY - startY) > 5) moved = true;
-      onHoverZone(moved ? (toGround(e)?.zoneId ?? null) : null);
+      const point = updateDragPreview(e, moved);
+      onHoverZone(moved ? (point?.zoneId ?? null) : null);
     };
 
     const finishDrop = (e: PointerEvent | MouseEvent) => {
@@ -503,8 +543,24 @@ function EmployeeUnit({
       cleanup();
     };
 
+    const finishLatestDrop = () => {
+      if (complete) return;
+      onDrop({
+        zoneId: moved ? (lastPoint?.zoneId ?? null) : null,
+        x: moved ? (lastPoint?.x ?? null) : null,
+        z: moved ? (lastPoint?.z ?? null) : null,
+        startX,
+        startY,
+        endX: lastClientX,
+        endY: lastClientY,
+        moved,
+      });
+      cleanup();
+    };
+
     const onPointerUp = (e: PointerEvent) => finishDrop(e);
     const onMouseUp = (e: MouseEvent) => finishDrop(e);
+    const onLostPointerCapture = () => finishLatestDrop();
     const onPointerCancel = () => {
       onDrop({
         zoneId: null,
@@ -525,7 +581,14 @@ function EmployeeUnit({
       // Window/document listeners still own the drag lifecycle if capture is unavailable.
     }
 
-    onDragState({ employeeId: employee.id });
+    onDragState({
+      employeeId: employee.id,
+      x,
+      z,
+      clientX: startX,
+      clientY: startY,
+      moved: false,
+    });
     document.body.style.cursor = 'grabbing';
     cleanupRef.current = cleanup;
     window.addEventListener('pointermove', onPointerMove, { passive: false });
@@ -538,6 +601,8 @@ function EmployeeUnit({
     gl.domElement.addEventListener('pointerup', onPointerUp);
     gl.domElement.addEventListener('pointercancel', onPointerCancel);
     gl.domElement.addEventListener('mouseup', onMouseUp);
+    gl.domElement.addEventListener('lostpointercapture', onLostPointerCapture);
+    window.addEventListener('blur', onPointerCancel);
   };
 
   return (
@@ -575,45 +640,113 @@ function EmployeeUnit({
           <boxGeometry args={[1.2, 2.1, 1.2]} />
           <meshBasicMaterial transparent opacity={0} depthWrite={false} />
         </mesh>
-        <BlockCharacter appearance={appearance} running={running} phase={phase} />
+        <BlockCharacter
+          appearance={appearance}
+          running={running}
+          phase={phase}
+          opacity={dragging ? 0.24 : 1}
+        />
       </group>
-      <Html
-        position={[labelLane * 0.28, 2.05 + Math.abs(labelLane) * 0.22, labelLane * 0.14]}
-        center
-        distanceFactor={16}
-        occlude={false}
-        className="off-scene-html-interactive"
-      >
-        <button
-          type="button"
-          aria-label={`Open ${employee.name}`}
-          title={employee.name}
-          className={`off-scene-tag is-interactive${running ? ' is-running' : ''}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            onSelect();
-          }}
-          onPointerDown={(e) => {
-            e.stopPropagation();
-            e.nativeEvent.stopImmediatePropagation();
-            e.nativeEvent.preventDefault();
-            beginDrag(e.nativeEvent);
-          }}
-          onMouseDown={(e) => {
-            e.stopPropagation();
-            e.nativeEvent.stopImmediatePropagation();
-            e.nativeEvent.preventDefault();
-            beginDrag(e.nativeEvent);
-          }}
-          onDragStart={(e) => {
-            e.preventDefault();
-          }}
-          draggable={false}
+      {!dragging ? (
+        <Html
+          position={[labelLane * 0.28, 2.05 + Math.abs(labelLane) * 0.22, labelLane * 0.14]}
+          center
+          distanceFactor={16}
+          occlude={false}
+          className="off-scene-html-interactive"
         >
-          {labelText}
-        </button>
-      </Html>
+          <button
+            type="button"
+            aria-label={`Open ${employee.name}`}
+            title={employee.name}
+            className={`off-scene-tag is-interactive${running ? ' is-running' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect();
+            }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              e.nativeEvent.stopImmediatePropagation();
+              e.nativeEvent.preventDefault();
+              beginDrag(e.nativeEvent);
+            }}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              e.nativeEvent.stopImmediatePropagation();
+              e.nativeEvent.preventDefault();
+              beginDrag(e.nativeEvent);
+            }}
+            onDragStart={(e) => {
+              e.preventDefault();
+            }}
+            draggable={false}
+          >
+            {labelText}
+          </button>
+        </Html>
+      ) : null}
     </group>
+  );
+}
+
+function EmployeeDragGhost({ employee, drag }: { employee: Employee; drag: SceneEmployeeDrag }) {
+  const appearance = useMemo(
+    () => resolveAppearance(employee.id, employee.appearance),
+    [employee.id, employee.appearance],
+  );
+  const wobble = Math.sin((drag.clientX + drag.clientY) * 0.035) * 0.16;
+  const phase = (drag.clientX + drag.clientY) * 0.012;
+  const ghostOpacity = drag.moved ? 0.92 : 0.68;
+
+  return (
+    <group position={[drag.x, 0.16, drag.z]} rotation={[0, wobble, 0]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0]}>
+        <circleGeometry args={[0.94, 44]} />
+        <meshBasicMaterial
+          color={LIGHT_SCENE_3D.selectionRing}
+          transparent
+          opacity={drag.moved ? 0.18 : 0.1}
+          depthWrite={false}
+        />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
+        <ringGeometry args={[0.58, 0.98, 44]} />
+        <meshBasicMaterial
+          color={LIGHT_SCENE_3D.selectionRing}
+          transparent
+          opacity={drag.moved ? 0.62 : 0.34}
+          depthWrite={false}
+        />
+      </mesh>
+      <group scale={1.5}>
+        <BlockCharacter appearance={appearance} running phase={phase} opacity={ghostOpacity} />
+      </group>
+      {drag.moved ? (
+        <Html
+          position={[0, 2.64, 0]}
+          center
+          distanceFactor={17}
+          occlude={false}
+          className="off-scene-html-passive"
+        >
+          <span className="off-scene-drag-chip">Move</span>
+        </Html>
+      ) : null}
+    </group>
+  );
+}
+
+function SceneDropNoticeLabel({ notice }: { notice: SceneDropNotice }) {
+  return (
+    <Html
+      position={[notice.x, 1.15, notice.z]}
+      center
+      distanceFactor={18}
+      occlude={false}
+      className="off-scene-html-passive"
+    >
+      <span className="off-scene-drop-note">{notice.message}</span>
+    </Html>
   );
 }
 
@@ -652,10 +785,11 @@ export function OfficeScene3D({
   const threads = useThreads(projectId);
   const layout = useOfficeLayout(companyId);
   const reassign = useReassignEmployee();
-  const [employeeDrag, setEmployeeDrag] = useState<{ employeeId: string } | null>(null);
+  const [employeeDrag, setEmployeeDrag] = useState<SceneEmployeeDrag | null>(null);
   const [prefabDrag, setPrefabDrag] = useState<{ instanceId: string } | null>(null);
   const [hoveredZoneId, setHoveredZoneId] = useState<string | null>(null);
   const [placementZoneId, setPlacementZoneId] = useState<string | null>(null);
+  const [dropNotice, setDropNotice] = useState<SceneDropNotice | null>(null);
 
   const real = layout.data ?? null;
   const liveThread = threads.data?.find((t) => t.runState === 'running');
@@ -677,6 +811,15 @@ export function OfficeScene3D({
     }
     return map;
   }, [threads.data]);
+  const draggedEmployee = employeeDrag
+    ? (roster.find((employee) => employee.id === employeeDrag.employeeId) ?? null)
+    : null;
+
+  useEffect(() => {
+    if (!dropNotice) return;
+    const timer = window.setTimeout(() => setDropNotice(null), 1400);
+    return () => window.clearTimeout(timer);
+  }, [dropNotice]);
 
   return (
     <Canvas
@@ -761,6 +904,7 @@ export function OfficeScene3D({
             withDesk={!real}
             running={running}
             active={Boolean(thread && thread.id === selectedThreadId)}
+            dragging={employeeDrag?.employeeId === employee.id}
             zones={zoneDefs}
             onSelect={() => thread && openThread(thread.id)}
             onHoverZone={setHoveredZoneId}
@@ -779,10 +923,23 @@ export function OfficeScene3D({
                 targetZoneId: result.zoneId,
                 decision: result.zoneId ? 'assigned' : result.moved ? 'missed' : 'not-moved',
               });
+              if (result.moved && !result.zoneId) {
+                setDropNotice({
+                  id: `drop-note-${crypto.randomUUID()}`,
+                  x: result.x ?? seat[0],
+                  z: result.z ?? seat[1],
+                  message: 'Drop on a zone',
+                });
+              }
             }}
           />
         );
       })}
+
+      {employeeDrag && draggedEmployee ? (
+        <EmployeeDragGhost employee={draggedEmployee} drag={employeeDrag} />
+      ) : null}
+      {dropNotice ? <SceneDropNoticeLabel key={dropNotice.id} notice={dropNotice} /> : null}
 
       <ContactShadows position={[0, 0.02, 0]} opacity={0.3} scale={48} blur={2.6} far={8} />
       {/* Office: fixed oblique top-down, rotation/pan locked, gentle zoom only.

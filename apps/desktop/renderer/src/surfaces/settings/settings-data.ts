@@ -305,9 +305,10 @@ export function resolveActiveProviderConfig(
 // ───────────────────────── Runtime ─────────────────────────
 
 export const EXECUTION_MODE_OPTIONS = [
-  { value: 'auto', label: 'Auto' },
-  { value: 'manual', label: 'Manual' },
-  { value: 'review', label: 'Review every step' },
+  { value: 'plan', label: 'Plan' },
+  { value: 'human_loop', label: 'Human-in-loop' },
+  { value: 'direct', label: 'Direct' },
+  { value: 'yolo', label: 'YOLO' },
 ] as const;
 
 export const ENABLED_OPTIONS = [
@@ -316,7 +317,7 @@ export const ENABLED_OPTIONS = [
 ] as const;
 
 export const DEFAULT_RUNTIME_OPTIONS = [
-  { value: 'gateway', label: 'Offisim core (gateway)' },
+  { value: 'gateway', label: 'Desktop lane' },
   { value: 'claude', label: 'Verified driver' },
   { value: 'codex', label: 'Isolated driver' },
 ] as const;
@@ -360,7 +361,7 @@ export const runtimeFormSchema = z.object({
 export type RuntimeFormValues = z.infer<typeof runtimeFormSchema>;
 
 export const RUNTIME_DEFAULTS: RuntimeFormValues = {
-  executionMode: 'auto',
+  executionMode: 'direct',
   toolSearch: 'enabled',
   gitAutoCommit: 'enabled',
   defaultRuntime: 'gateway',

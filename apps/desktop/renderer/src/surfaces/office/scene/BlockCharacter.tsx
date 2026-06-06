@@ -25,6 +25,10 @@ const ARM_LENGTH = 0.38;
 const FACE_SPRITE_SIZE = HEAD_SIZE * 0.78;
 const FACE_SPRITE_Z = HEAD_SIZE / 2 + 0.002;
 
+function materialAlpha(opacity: number) {
+  return opacity < 1 ? { transparent: true, opacity, depthWrite: false } : {};
+}
+
 const BODY_TYPE_FACTORS = {
   slim: { torso: 0.75, arm: 0.78, leg: 0.95, head: 1.0, bellyExtra: 0 },
   normal: { torso: 1.0, arm: 1.0, leg: 1.0, head: 1.0, bellyExtra: 0 },
@@ -37,13 +41,20 @@ const GENDER_FACTORS = {
   neutral: { shoulder: 1.0, hip: 1.0, aspect: 1.0, showSkirt: false, shoulderChamfer: false },
 } as const;
 
-function FaceBillboard({ expression }: { expression: FaceExpression }) {
+function FaceBillboard({ expression, opacity }: { expression: FaceExpression; opacity: number }) {
   const texture = getFaceTexture(expression);
   if (!texture) return null;
   return (
     <mesh position={[0, HEAD_Y, FACE_SPRITE_Z]}>
       <planeGeometry args={[FACE_SPRITE_SIZE, FACE_SPRITE_SIZE]} />
-      <meshBasicMaterial map={texture} transparent alphaTest={0.04} side={DoubleSide} />
+      <meshBasicMaterial
+        map={texture}
+        transparent
+        opacity={opacity}
+        alphaTest={0.04}
+        side={DoubleSide}
+        depthWrite={opacity >= 1}
+      />
     </mesh>
   );
 }
@@ -51,7 +62,8 @@ function FaceBillboard({ expression }: { expression: FaceExpression }) {
 function JacketTrim({
   upperTorsoWidth,
   accentColor,
-}: { upperTorsoWidth: number; accentColor: string }) {
+  opacity,
+}: { upperTorsoWidth: number; accentColor: string; opacity: number }) {
   return (
     <>
       {[-1, 1].map((side) => (
@@ -61,7 +73,12 @@ function JacketTrim({
           rotation={[0, 0, side * 0.45]}
         >
           <planeGeometry args={[upperTorsoWidth * 0.32, 0.18]} />
-          <meshStandardMaterial color={accentColor} roughness={0.7} side={DoubleSide} />
+          <meshStandardMaterial
+            color={accentColor}
+            roughness={0.7}
+            side={DoubleSide}
+            {...materialAlpha(opacity)}
+          />
         </mesh>
       ))}
       {[-1, 1].map((side) => (
@@ -71,7 +88,7 @@ function JacketTrim({
           castShadow
         >
           <boxGeometry args={[0.12, 0.05, 0.13]} />
-          <meshStandardMaterial color={accentColor} roughness={0.68} />
+          <meshStandardMaterial color={accentColor} roughness={0.68} {...materialAlpha(opacity)} />
         </mesh>
       ))}
     </>
@@ -81,12 +98,13 @@ function JacketTrim({
 function ScarfWrap({
   upperTorsoWidth,
   accentColor,
-}: { upperTorsoWidth: number; accentColor: string }) {
+  opacity,
+}: { upperTorsoWidth: number; accentColor: string; opacity: number }) {
   return (
     <>
       <mesh position={[0, HEAD_Y - HEAD_SIZE / 2 - 0.06, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[upperTorsoWidth * 0.36, 0.04, 8, 18]} />
-        <meshStandardMaterial color={accentColor} roughness={0.78} />
+        <meshStandardMaterial color={accentColor} roughness={0.78} {...materialAlpha(opacity)} />
       </mesh>
       <mesh
         position={[upperTorsoWidth * 0.18, HEAD_Y - HEAD_SIZE / 2 - 0.22, 0.07]}
@@ -94,7 +112,12 @@ function ScarfWrap({
         castShadow
       >
         <planeGeometry args={[0.18, 0.36]} />
-        <meshStandardMaterial color={accentColor} roughness={0.78} side={DoubleSide} />
+        <meshStandardMaterial
+          color={accentColor}
+          roughness={0.78}
+          side={DoubleSide}
+          {...materialAlpha(opacity)}
+        />
       </mesh>
     </>
   );
@@ -103,11 +126,12 @@ function ScarfWrap({
 function VestPanel({
   upperTorsoWidth,
   accentColor,
-}: { upperTorsoWidth: number; accentColor: string }) {
+  opacity,
+}: { upperTorsoWidth: number; accentColor: string; opacity: number }) {
   return (
     <mesh position={[0, SHOULDER_Y - UPPER_TORSO_HEIGHT * 0.1, 0.105]} castShadow>
       <boxGeometry args={[upperTorsoWidth * 0.7, UPPER_TORSO_HEIGHT + 0.04, 0.022]} />
-      <meshStandardMaterial color={accentColor} roughness={0.65} />
+      <meshStandardMaterial color={accentColor} roughness={0.65} {...materialAlpha(opacity)} />
     </mesh>
   );
 }
@@ -115,7 +139,8 @@ function VestPanel({
 function ShoulderChamfers({
   upperTorsoWidth,
   outfitColor,
-}: { upperTorsoWidth: number; outfitColor: string }) {
+  opacity,
+}: { upperTorsoWidth: number; outfitColor: string; opacity: number }) {
   return (
     <>
       {[-1, 1].map((side) => (
@@ -126,40 +151,49 @@ function ShoulderChamfers({
           castShadow
         >
           <boxGeometry args={[0.16, 0.1, 0.18]} />
-          <meshStandardMaterial color={outfitColor} roughness={0.72} />
+          <meshStandardMaterial color={outfitColor} roughness={0.72} {...materialAlpha(opacity)} />
         </mesh>
       ))}
     </>
   );
 }
 
-function SkirtFlare({ outfitColor }: { outfitColor: string }) {
+function SkirtFlare({ outfitColor, opacity }: { outfitColor: string; opacity: number }) {
   return (
     <mesh position={[0, LEG_LENGTH + LOWER_TORSO_HEIGHT * 0.45, 0]} castShadow>
       <cylinderGeometry args={[0.16, 0.32, LOWER_TORSO_HEIGHT + 0.06, 12, 1, true]} />
-      <meshStandardMaterial color={outfitColor} roughness={0.78} side={DoubleSide} />
+      <meshStandardMaterial
+        color={outfitColor}
+        roughness={0.78}
+        side={DoubleSide}
+        {...materialAlpha(opacity)}
+      />
     </mesh>
   );
 }
 
-function HairMesh({ style, color }: { style: ResolvedAppearance['hairStyle']; color: string }) {
+function HairMesh({
+  style,
+  color,
+  opacity,
+}: { style: ResolvedAppearance['hairStyle']; color: string; opacity: number }) {
   if (style === 'bald') return null;
   const capY = HEAD_Y + HEAD_SIZE * 0.35;
   const cap =
     style === 'long' ? (
       <mesh position={[0, capY - 0.04, -0.02]} castShadow>
         <boxGeometry args={[HEAD_SIZE + 0.04, HEAD_SIZE * 1.1, HEAD_SIZE + 0.02]} />
-        <meshStandardMaterial color={color} roughness={0.9} />
+        <meshStandardMaterial color={color} roughness={0.9} {...materialAlpha(opacity)} />
       </mesh>
     ) : style === 'bob' ? (
       <mesh position={[0, capY - 0.06, -0.01]} castShadow>
         <boxGeometry args={[HEAD_SIZE + 0.06, HEAD_SIZE * 0.6, HEAD_SIZE + 0.04]} />
-        <meshStandardMaterial color={color} roughness={0.9} />
+        <meshStandardMaterial color={color} roughness={0.9} {...materialAlpha(opacity)} />
       </mesh>
     ) : (
       <mesh position={[0, capY, 0]} castShadow>
         <boxGeometry args={[HEAD_SIZE + 0.02, HEAD_SIZE * 0.42, HEAD_SIZE + 0.02]} />
-        <meshStandardMaterial color={color} roughness={0.9} />
+        <meshStandardMaterial color={color} roughness={0.9} {...materialAlpha(opacity)} />
       </mesh>
     );
 
@@ -173,7 +207,7 @@ function HairMesh({ style, color }: { style: ResolvedAppearance['hairStyle']; co
           castShadow
         >
           <cylinderGeometry args={[0.045, 0.045, 0.34, 8]} />
-          <meshStandardMaterial color={color} roughness={0.9} />
+          <meshStandardMaterial color={color} roughness={0.9} {...materialAlpha(opacity)} />
         </mesh>
       </>
     );
@@ -196,7 +230,7 @@ function HairMesh({ style, color }: { style: ResolvedAppearance['hairStyle']; co
             castShadow
           >
             <sphereGeometry args={[0.09, 8, 6]} />
-            <meshStandardMaterial color={color} roughness={0.9} />
+            <meshStandardMaterial color={color} roughness={0.9} {...materialAlpha(opacity)} />
           </mesh>
         ))}
       </>
@@ -221,7 +255,7 @@ function HairMesh({ style, color }: { style: ResolvedAppearance['hairStyle']; co
             castShadow
           >
             <coneGeometry args={[0.05, 0.13, 6]} />
-            <meshStandardMaterial color={color} roughness={0.9} />
+            <meshStandardMaterial color={color} roughness={0.9} {...materialAlpha(opacity)} />
           </mesh>
         ))}
       </>
@@ -234,7 +268,7 @@ function HairMesh({ style, color }: { style: ResolvedAppearance['hairStyle']; co
         {[-0.22, 0.22].map((x) => (
           <mesh key={x} position={[x, HEAD_Y - HEAD_SIZE * 0.1, 0]} castShadow>
             <cylinderGeometry args={[0.04, 0.04, 0.36, 8]} />
-            <meshStandardMaterial color={color} roughness={0.9} />
+            <meshStandardMaterial color={color} roughness={0.9} {...materialAlpha(opacity)} />
           </mesh>
         ))}
       </>
@@ -248,9 +282,15 @@ interface BlockCharacterProps {
   running?: boolean;
   /** Deterministic phase offset so idle bobs don't sync across the room. */
   phase?: number;
+  opacity?: number;
 }
 
-export function BlockCharacter({ appearance, running = false, phase = 0 }: BlockCharacterProps) {
+export function BlockCharacter({
+  appearance,
+  running = false,
+  phase = 0,
+  opacity = 1,
+}: BlockCharacterProps) {
   const group = useRef<Group>(null);
   const body = BODY_TYPE_FACTORS[appearance.bodyType];
   const gender = GENDER_FACTORS[appearance.gender];
@@ -274,29 +314,51 @@ export function BlockCharacter({ appearance, running = false, phase = 0 }: Block
       {/* legs */}
       <mesh position={[-0.11, LEG_LENGTH / 2, 0]} castShadow>
         <boxGeometry args={[legWidth, LEG_LENGTH, 0.13]} />
-        <meshStandardMaterial color={appearance.clothing} roughness={0.75} />
+        <meshStandardMaterial
+          color={appearance.clothing}
+          roughness={0.75}
+          {...materialAlpha(opacity)}
+        />
       </mesh>
       <mesh position={[0.11, LEG_LENGTH / 2, 0]} castShadow>
         <boxGeometry args={[legWidth, LEG_LENGTH, 0.13]} />
-        <meshStandardMaterial color={appearance.clothing} roughness={0.75} />
+        <meshStandardMaterial
+          color={appearance.clothing}
+          roughness={0.75}
+          {...materialAlpha(opacity)}
+        />
       </mesh>
       {/* shoes */}
       <mesh position={[-0.11, 0.04, 0.04]} castShadow>
         <boxGeometry args={[legWidth * 1.18, 0.08, 0.2]} />
-        <meshStandardMaterial color={SHOE_COLOR} roughness={0.5} metalness={0.1} />
+        <meshStandardMaterial
+          color={SHOE_COLOR}
+          roughness={0.5}
+          metalness={0.1}
+          {...materialAlpha(opacity)}
+        />
       </mesh>
       <mesh position={[0.11, 0.04, 0.04]} castShadow>
         <boxGeometry args={[legWidth * 1.18, 0.08, 0.2]} />
-        <meshStandardMaterial color={SHOE_COLOR} roughness={0.5} metalness={0.1} />
+        <meshStandardMaterial
+          color={SHOE_COLOR}
+          roughness={0.5}
+          metalness={0.1}
+          {...materialAlpha(opacity)}
+        />
       </mesh>
 
       {/* lower torso / hips */}
       {gender.showSkirt ? (
-        <SkirtFlare outfitColor={appearance.clothing} />
+        <SkirtFlare outfitColor={appearance.clothing} opacity={opacity} />
       ) : (
         <mesh position={[0, LEG_LENGTH + LOWER_TORSO_HEIGHT / 2, 0]} castShadow>
           <boxGeometry args={[lowerTorsoWidth + body.bellyExtra, LOWER_TORSO_HEIGHT, 0.22]} />
-          <meshStandardMaterial color={appearance.clothing} roughness={0.72} />
+          <meshStandardMaterial
+            color={appearance.clothing}
+            roughness={0.72}
+            {...materialAlpha(opacity)}
+          />
         </mesh>
       )}
 
@@ -305,56 +367,80 @@ export function BlockCharacter({ appearance, running = false, phase = 0 }: Block
         <boxGeometry
           args={[upperTorsoWidth + body.bellyExtra, UPPER_TORSO_HEIGHT * gender.aspect, 0.22]}
         />
-        <meshStandardMaterial color={appearance.clothing} roughness={0.7} />
+        <meshStandardMaterial
+          color={appearance.clothing}
+          roughness={0.7}
+          {...materialAlpha(opacity)}
+        />
       </mesh>
 
       {gender.shoulderChamfer && (
-        <ShoulderChamfers upperTorsoWidth={upperTorsoWidth} outfitColor={appearance.clothing} />
+        <ShoulderChamfers
+          upperTorsoWidth={upperTorsoWidth}
+          outfitColor={appearance.clothing}
+          opacity={opacity}
+        />
       )}
 
       {/* neck */}
       <mesh position={[0, SHOULDER_Y + UPPER_TORSO_HEIGHT * 0.34, 0.01]} castShadow>
         <boxGeometry args={[0.14 * body.torso, 0.1, 0.13]} />
-        <meshStandardMaterial color={appearance.skin} roughness={0.42} />
+        <meshStandardMaterial color={appearance.skin} roughness={0.42} {...materialAlpha(opacity)} />
       </mesh>
 
       {/* accent variant */}
       {hasAccent && appearance.accentVariant === 'vest' && (
-        <VestPanel upperTorsoWidth={upperTorsoWidth} accentColor={appearance.accent} />
+        <VestPanel upperTorsoWidth={upperTorsoWidth} accentColor={appearance.accent} opacity={opacity} />
       )}
       {hasAccent && appearance.accentVariant === 'jacket' && (
-        <JacketTrim upperTorsoWidth={upperTorsoWidth} accentColor={appearance.accent} />
+        <JacketTrim
+          upperTorsoWidth={upperTorsoWidth}
+          accentColor={appearance.accent}
+          opacity={opacity}
+        />
       )}
       {hasAccent && appearance.accentVariant === 'scarf' && (
-        <ScarfWrap upperTorsoWidth={upperTorsoWidth} accentColor={appearance.accent} />
+        <ScarfWrap
+          upperTorsoWidth={upperTorsoWidth}
+          accentColor={appearance.accent}
+          opacity={opacity}
+        />
       )}
 
       {/* arms */}
       <mesh position={[-armX, SHOULDER_Y - ARM_LENGTH / 2, 0]} castShadow>
         <boxGeometry args={[armWidth, ARM_LENGTH, 0.11]} />
-        <meshStandardMaterial color={appearance.clothing} roughness={0.74} />
+        <meshStandardMaterial
+          color={appearance.clothing}
+          roughness={0.74}
+          {...materialAlpha(opacity)}
+        />
       </mesh>
       <mesh position={[armX, SHOULDER_Y - ARM_LENGTH / 2, 0]} castShadow>
         <boxGeometry args={[armWidth, ARM_LENGTH, 0.11]} />
-        <meshStandardMaterial color={appearance.clothing} roughness={0.74} />
+        <meshStandardMaterial
+          color={appearance.clothing}
+          roughness={0.74}
+          {...materialAlpha(opacity)}
+        />
       </mesh>
       {/* hands */}
       <mesh position={[-armX, SHOULDER_Y - ARM_LENGTH - 0.04, 0.02]} castShadow>
         <boxGeometry args={[armWidth * 1.15, 0.09, 0.12]} />
-        <meshStandardMaterial color={appearance.skin} roughness={0.45} />
+        <meshStandardMaterial color={appearance.skin} roughness={0.45} {...materialAlpha(opacity)} />
       </mesh>
       <mesh position={[armX, SHOULDER_Y - ARM_LENGTH - 0.04, 0.02]} castShadow>
         <boxGeometry args={[armWidth * 1.15, 0.09, 0.12]} />
-        <meshStandardMaterial color={appearance.skin} roughness={0.45} />
+        <meshStandardMaterial color={appearance.skin} roughness={0.45} {...materialAlpha(opacity)} />
       </mesh>
 
       {/* head */}
       <mesh position={[0, HEAD_Y, 0]} castShadow>
         <boxGeometry args={[HEAD_SIZE * body.head, HEAD_SIZE, HEAD_SIZE * 0.9]} />
-        <meshStandardMaterial color={appearance.skin} roughness={0.42} />
+        <meshStandardMaterial color={appearance.skin} roughness={0.42} {...materialAlpha(opacity)} />
       </mesh>
-      <HairMesh style={appearance.hairStyle} color={appearance.hair} />
-      <FaceBillboard expression={expression} />
+      <HairMesh style={appearance.hairStyle} color={appearance.hair} opacity={opacity} />
+      <FaceBillboard expression={expression} opacity={opacity} />
     </group>
   );
 }

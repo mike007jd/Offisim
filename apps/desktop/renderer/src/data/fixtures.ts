@@ -275,6 +275,7 @@ export const messages: Record<string, ChatMessage[]> = {
 export const deliverables: Deliverable[] = [
   {
     id: 'dl1',
+    threadId: 'th-team',
     name: 'session.ts',
     kind: 'code',
     contributorIds: ['emp-mara'],
@@ -284,6 +285,7 @@ export const deliverables: Deliverable[] = [
   },
   {
     id: 'dl2',
+    threadId: 'th-team',
     name: 'onboarding-flow.fig',
     kind: 'design',
     contributorIds: ['emp-devin', 'emp-mara'],
@@ -292,6 +294,7 @@ export const deliverables: Deliverable[] = [
   },
   {
     id: 'dl3',
+    threadId: 'th-audit',
     name: 'verify-report.md',
     kind: 'report',
     contributorIds: ['emp-sela', 'emp-devin', 'emp-mara'],

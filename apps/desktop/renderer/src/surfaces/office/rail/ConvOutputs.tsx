@@ -1,6 +1,6 @@
 import { useUiState } from '@/app/ui-state.js';
 import { isTauriRuntime } from '@/data/adapters.js';
-import { useProjects } from '@/data/queries.js';
+import { loadDeliverableBody, useProjects } from '@/data/queries.js';
 import type { Deliverable, Employee } from '@/data/types.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
@@ -74,21 +74,26 @@ function DeliverableCard({
   const [open, setOpen] = useState(false);
   const [busyAction, setBusyAction] = useState<'save' | 'open' | null>(null);
   const [savedPath, setSavedPath] = useState<string | null>(null);
+  const [body, setBody] = useState<string | null>(deliverable.preview ?? null);
+  const [bodyLoading, setBodyLoading] = useState(false);
   // The card persists across in-place deliverable updates (keyed by id), so a
-  // cached savedPath can outlive the content it points at — drop it when the
-  // body or name changes so Open re-saves the current output, not a stale file.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: preview/name are intentional reset triggers, not values read in the effect body.
+  // cached savedPath/body can outlive the row they point at — drop it when the
+  // identity or content changes so Open re-saves the current output.
   useEffect(() => {
     setSavedPath(null);
-  }, [deliverable.preview, deliverable.name]);
+    setBody(deliverable.preview ?? null);
+  }, [deliverable.id, deliverable.preview, deliverable.name]);
   const format = deliverable.format?.trim().toUpperCase() ?? 'TXT';
   const extension = TEXT_OUTPUT_EXTENSIONS[format] ?? null;
-  const exportableBody = extension && deliverable.preview?.trim() ? deliverable.preview : null;
+  const outputBody = body ?? deliverable.preview ?? '';
+  const hasOutputBody = Boolean(outputBody.trim()) || (deliverable.contentSize ?? 0) > 0;
   const disabledReason = !isTauriRuntime()
     ? 'Saving needs the desktop app'
     : !projectId || !workspaceBound
       ? 'Bind a workspace folder first'
-      : !exportableBody
+      : !extension
+        ? 'Unsupported text format'
+        : !hasOutputBody
         ? 'No text to save'
         : null;
 
@@ -98,13 +103,29 @@ function DeliverableCard({
     return `${cleanName}.${extension}`;
   }
 
+  async function ensureOutputBody() {
+    if (body !== null) return body;
+    setBodyLoading(true);
+    try {
+      const nextBody = await loadDeliverableBody(deliverable);
+      setBody(nextBody);
+      return nextBody;
+    } catch (error) {
+      toast.error('Load output failed', { description: safeErrorMessage(error) });
+      return '';
+    } finally {
+      setBodyLoading(false);
+    }
+  }
+
   async function copyPreview() {
-    if (!deliverable.preview?.trim()) {
+    const nextBody = await ensureOutputBody();
+    if (!nextBody.trim()) {
       toast.error('No output body to copy');
       return;
     }
     try {
-      await navigator.clipboard.writeText(deliverable.preview);
+      await navigator.clipboard.writeText(nextBody);
       toast.success('Copied output');
     } catch (error) {
       toast.error('Copy output failed', { description: safeErrorMessage(error) });
@@ -112,13 +133,18 @@ function DeliverableCard({
   }
 
   async function persistOutput(action: 'save' | 'open') {
-    if (disabledReason || !projectId || !exportableBody) {
+    if (disabledReason || !projectId || !extension) {
       toast.error(disabledReason ?? 'Output is not ready');
       return;
     }
     setBusyAction(action);
     try {
       const { invoke } = await import('@tauri-apps/api/core');
+      const exportableBody = await ensureOutputBody();
+      if (!exportableBody.trim()) {
+        toast.error('No text to save');
+        return;
+      }
       const relativePath =
         action === 'open' && savedPath
           ? savedPath
@@ -148,7 +174,11 @@ function DeliverableCard({
       <button
         type="button"
         className="off-dlv-head off-focusable"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          const nextOpen = !open;
+          setOpen(nextOpen);
+          if (nextOpen) void ensureOutputBody();
+        }}
       >
         <Icon icon={FileCode2} size="sm" className="off-dlv-icon" />
         <span className="off-dlv-name">{deliverable.name}</span>
@@ -158,16 +188,16 @@ function DeliverableCard({
       </button>
       {open ? (
         <div className="off-dlv-body">
-          {deliverable.preview ? (
-            <pre className="off-dlv-preview">{deliverable.preview}</pre>
-          ) : null}
+          <pre className="off-dlv-preview">
+            {bodyLoading ? 'Loading output…' : outputBody || 'No output body.'}
+          </pre>
           <div className="off-dlv-actions">
             <IconButton
               icon={Copy}
               label="Copy output body"
               variant="subtle"
               size="iconSm"
-              disabled={!deliverable.preview?.trim()}
+              disabled={bodyLoading || !hasOutputBody}
               onClick={() => void copyPreview()}
             />
             <IconButton

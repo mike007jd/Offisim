@@ -65,14 +65,12 @@ function SwatchRow({
   );
 }
 
-function PreviewCard({
-  label,
+function AppearancePreviewPanel({
   employee,
   appearance,
   seed,
   brand,
 }: {
-  label: string;
   employee: Employee;
   appearance: EmployeeAppearance;
   seed: string;
@@ -80,35 +78,35 @@ function PreviewCard({
 }) {
   const resolved = resolveAppearance(seed, appearance);
   return (
-    <div className="off-pers-prev">
-      <span className="off-pers-prev-label">{label}</span>
-      {label.startsWith('3D') ? (
-        <div className="off-pers-prev-canvas" aria-label="3D avatar preview">
-          <Canvas camera={{ position: [0, 1.35, 3.2], fov: 36 }} dpr={[1, 2]}>
-            <ambientLight intensity={0.8} />
-            <directionalLight position={[2, 4, 3]} intensity={1.7} />
-            <group position={[0, -0.62, 0]} rotation={[0, -0.28, 0]} scale={1.35}>
-              <BlockCharacter appearance={resolved} running={false} phase={0} />
-            </group>
-            <OrbitControls
-              enablePan={false}
-              minDistance={2.4}
-              maxDistance={4.4}
-              minPolarAngle={0.7}
-              maxPolarAngle={1.4}
-            />
-          </Canvas>
-        </div>
-      ) : (
+    <div className="off-pers-prev is-3d-main">
+      <span className="off-pers-prev-label">3D</span>
+      <div className="off-pers-prev-canvas" aria-label="3D avatar preview">
+        <Canvas camera={{ position: [0, 1.4, 5.6], fov: 34 }} dpr={[1, 2]}>
+          <ambientLight intensity={0.84} />
+          <directionalLight position={[2, 4, 3]} intensity={1.75} />
+          <group position={[0, -0.9, 0]} rotation={[0, -0.26, 0]} scale={1.28}>
+            <BlockCharacter appearance={resolved} running={false} phase={0} />
+          </group>
+          <OrbitControls
+            enablePan={false}
+            minDistance={3.2}
+            maxDistance={6.8}
+            minPolarAngle={0.62}
+            maxPolarAngle={1.42}
+          />
+        </Canvas>
+      </div>
+      <div className="off-pers-prev-2d" aria-label="2D avatar reference">
         <EmployeeAvatar
           seed={seed}
           appearance={appearance}
           colorA={employee.avatarA}
           colorB={employee.avatarB}
-          size={88}
+          size={44}
           brand={brand}
         />
-      )}
+        <span>2D</span>
+      </div>
     </div>
   );
 }
@@ -145,15 +143,7 @@ export function AppearanceTab({ employee, draft, onChange }: AppearanceTabProps)
             Brand avatar — appearance is fixed.
           </div>
           <div className="off-pers-prev-col">
-            <PreviewCard
-              label="2D"
-              employee={employee}
-              appearance={previewAppearance}
-              seed={seed}
-              brand
-            />
-            <PreviewCard
-              label="3D"
+            <AppearancePreviewPanel
               employee={employee}
               appearance={previewAppearance}
               seed={seed}
@@ -238,21 +228,12 @@ export function AppearanceTab({ employee, draft, onChange }: AppearanceTabProps)
             </div>
 
             <p className="off-field-hint">
-              These controls persist to the employee persona and drive both the 2D avatar and the
-              3D preview.
+              These controls persist to the employee persona and drive the office 3D avatar.
             </p>
           </div>
 
           <div className="off-pers-prev-col">
-            <PreviewCard
-              label="2D"
-              employee={employee}
-              appearance={previewAppearance}
-              seed={seed}
-              brand={false}
-            />
-            <PreviewCard
-              label="3D"
+            <AppearancePreviewPanel
               employee={employee}
               appearance={previewAppearance}
               seed={seed}

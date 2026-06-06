@@ -155,9 +155,13 @@ export interface ChatMessage {
 
 export interface Deliverable {
   id: string;
+  threadId?: string | null;
   name: string;
   kind: string;
   contributorIds: string[];
+  fileName?: string | null;
+  mimeType?: string | null;
+  contentSize?: number;
   /** Short body preview shown in the expanded deliverable card. */
   preview?: string;
   /** Default export format label, e.g. "MD". */

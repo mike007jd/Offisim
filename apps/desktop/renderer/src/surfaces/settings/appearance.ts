@@ -25,8 +25,14 @@ export function parsePersistedRuntimeSettings(value: string | null): PersistedRu
     const raw = JSON.parse(value) as Partial<PersistedRuntimeSettings>;
     const runtime = runtimeFormSchema.safeParse(raw.runtime);
     if (!runtime.success) return null;
+    const executionMode =
+      runtime.data.executionMode === 'auto'
+        ? 'direct'
+        : runtime.data.executionMode === 'manual' || runtime.data.executionMode === 'review'
+          ? 'human_loop'
+          : runtime.data.executionMode;
     return {
-      runtime: runtime.data,
+      runtime: { ...runtime.data, executionMode },
       theme: isThemeValue(raw.theme) ? raw.theme : 'system',
       density: isDensityValue(raw.density) ? raw.density : 'normal',
     };

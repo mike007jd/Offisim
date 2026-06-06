@@ -271,24 +271,76 @@ export function useMessages(threadId: string | null) {
   });
 }
 
-export function useDeliverables() {
+const TEMP_DELIVERABLE_RE = /(^|[/\\])(?:tmp|temp|\.tmp)([/\\]|$)|ui-tool-deliverable/i;
+
+function deliverableFormat(title: string, fileName: string | null, mimeType: string | null): string {
+  const source = fileName?.trim() || title.trim();
+  const [, ext] = /\.([^.]+)$/.exec(source) ?? [];
+  if (ext) return ext.toUpperCase();
+  if (mimeType?.includes('markdown')) return 'MD';
+  if (mimeType?.includes('json')) return 'JSON';
+  if (mimeType?.startsWith('text/')) return 'TXT';
+  return 'TXT';
+}
+
+function deliverableVisible(input: { title: string; fileName?: string | null; kind?: string | null }) {
+  const title = input.title.trim();
+  const fileName = input.fileName?.trim() ?? '';
+  if (!title) return false;
+  if (TEMP_DELIVERABLE_RE.test(title) || TEMP_DELIVERABLE_RE.test(fileName)) return false;
+  const kind = input.kind?.toLowerCase() ?? '';
+  return kind !== 'debug' && kind !== 'diagnostic' && kind !== 'temp' && kind !== 'temporary';
+}
+
+export function useDeliverables(threadId: string | null) {
   const companyId = useUiState((s) => s.companyId);
   return useQuery({
-    queryKey: ['deliverables', companyId],
+    queryKey: ['deliverables', companyId, threadId],
     queryFn: async () => {
-      if (companyId === null) return [] as Deliverable[];
+      if (companyId === null || threadId === null) return [] as Deliverable[];
       const repos = await reposOrNull();
-      if (!repos?.deliverables) return resolveAsync(deliverables);
-      const rows = await repos.deliverables.listByCompany(companyId, { limit: 100 });
-      return rows.map((r) => ({
-        id: r.deliverable_id,
-        name: r.title,
-        kind: r.kind ?? 'doc',
-        contributorIds: [] as string[],
-      }));
+      if (!repos?.deliverables)
+        return resolveAsync(
+          deliverables.filter(
+            (deliverable) =>
+              deliverable.threadId === threadId &&
+              deliverableVisible({
+                title: deliverable.name,
+                fileName: deliverable.fileName,
+                kind: deliverable.kind,
+              }),
+          ),
+        );
+      const rows = await repos.deliverables.listByCompany(companyId, {
+        threadId,
+        limit: 40,
+      });
+      return rows
+        .filter((r) => deliverableVisible({ title: r.title, fileName: r.file_name, kind: r.kind }))
+        .map((r) => ({
+          id: r.deliverable_id,
+          threadId: r.chat_thread_id ?? r.thread_id,
+          name: r.file_name?.trim() || r.title,
+          kind: r.kind ?? 'document',
+          contributorIds: [],
+          fileName: r.file_name,
+          mimeType: r.mime_type,
+          contentSize: r.content_size,
+          format: deliverableFormat(r.title, r.file_name, r.mime_type),
+        }));
     },
-    enabled: companyId !== null,
+    enabled: companyId !== null && threadId !== null,
   });
+}
+
+export async function loadDeliverableBody(deliverable: Deliverable): Promise<string> {
+  if (deliverable.preview !== undefined) return deliverable.preview;
+  const repos = await reposOrNull();
+  if (!repos?.deliverables) {
+    return deliverables.find((fixture) => fixture.id === deliverable.id)?.preview ?? '';
+  }
+  const row = await repos.deliverables.findById(deliverable.id);
+  return row?.content ?? '';
 }
 
 export function useRunCost() {
