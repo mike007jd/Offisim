@@ -3,6 +3,7 @@ import { useUnfinishedThreads } from '@/data/queries.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 import { ArrowRight, History, X } from 'lucide-react';
+import { useState } from 'react';
 
 /**
  * Top-of-window banner that surfaces unfinished work from a previous session.
@@ -11,6 +12,7 @@ import { ArrowRight, History, X } from 'lucide-react';
  * is nothing to resume.
  */
 export function ResumeBar() {
+  const [overflowOpen, setOverflowOpen] = useState(false);
   const unfinished = useUnfinishedThreads();
   const dismissed = useUiState((s) => s.resumeDismissed);
   const dismissResume = useUiState((s) => s.dismissResume);
@@ -26,6 +28,9 @@ export function ResumeBar() {
 
   const blocked = items.filter((i) => i.state === 'blocked').length;
   const only = items.length === 1 ? items[0] : null;
+  const visibleItems = items.slice(0, 2);
+  const overflowItems = items.slice(visibleItems.length);
+  const extraCount = overflowItems.length;
   const summary = only
     ? only.state === 'blocked'
       ? `Review ${only.name}`
@@ -40,6 +45,7 @@ export function ResumeBar() {
     setProject(item.projectId);
     if (surface !== 'office') setSurface('office');
     openThread(item.threadId);
+    setOverflowOpen(false);
     dismissResume();
     // A running/queued/paused thread has an unfinished plan — kick the graph to
     // resume from its latest persisted checkpoint (fire-and-forget; the run
@@ -60,7 +66,7 @@ export function ResumeBar() {
       <Icon icon={History} size="sm" className="off-resume-glyph" />
       <span className="off-resume-text">{summary}</span>
       <span className="off-resume-chips">
-        {items.map((item) => (
+        {visibleItems.map((item) => (
           <button
             key={item.threadId}
             type="button"
@@ -71,6 +77,44 @@ export function ResumeBar() {
             <Icon icon={ArrowRight} size="sm" />
           </button>
         ))}
+        {extraCount > 0 ? (
+          <span
+            className="off-resume-overflow"
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setOverflowOpen(false);
+            }}
+          >
+            <button
+              type="button"
+              className="off-resume-more off-focusable"
+              aria-haspopup="menu"
+              aria-expanded={overflowOpen}
+              aria-label={`${extraCount} more conversations`}
+              onClick={() => setOverflowOpen((open) => !open)}
+            >
+              +{extraCount}
+            </button>
+            {overflowOpen ? (
+              <span className="off-resume-menu" role="menu">
+                {overflowItems.map((item) => (
+                  <button
+                    key={item.threadId}
+                    type="button"
+                    role="menuitem"
+                    className={cn('off-resume-menu-item off-focusable', `is-${item.state}`)}
+                    onClick={() => go(item)}
+                  >
+                    <span className="off-resume-menu-action">
+                      {item.state === 'blocked' ? 'Review' : 'Resume'}
+                    </span>
+                    <span className="off-resume-menu-name">{item.name}</span>
+                    <Icon icon={ArrowRight} size="sm" />
+                  </button>
+                ))}
+              </span>
+            ) : null}
+          </span>
+        ) : null}
       </span>
       <button
         type="button"

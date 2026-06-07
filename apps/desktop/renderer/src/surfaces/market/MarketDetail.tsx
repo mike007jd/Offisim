@@ -4,6 +4,7 @@ import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 import {
   ArrowLeft,
+  Check,
   ChevronLeft,
   ChevronRight,
   Download,
@@ -142,9 +143,10 @@ export function MarketDetail({ listing, installed, onClose, onInstall }: MarketD
 
         {installable ? (
           installed ? (
-            <span className="off-md-install is-installed" aria-label="Installed package">
+            <div className="off-md-installed" aria-label="Installed package">
+              <Icon icon={Check} size="sm" />
               Installed
-            </span>
+            </div>
           ) : !installAvailable ? (
             <div className="off-md-unsupported">Not available to install yet.</div>
           ) : (

@@ -1,18 +1,24 @@
 .off-app {
+  position: relative;
   width: 100%;
   height: 100vh;
+  margin: 0;
   display: grid;
-  /* topbar · banner slot (auto: 0 height when empty) · surface host */
-  grid-template-rows: var(--off-toolbar) auto 1fr;
+  grid-template-rows: var(--off-toolbar) 1fr;
   overflow: hidden;
   background: var(--off-bg);
 }
 
-/* Banner row above the surface host (ResumeBar). Collapses to zero height when
-   its child renders nothing, so there is no layout shift when there is nothing
-   to resume. */
+/* Floating resume tray. It is positioned outside the grid so it cannot become
+   a second topbar or steal a vertical axis from the active surface. */
 .off-banner-slot {
+  position: absolute;
+  top: calc(var(--off-toolbar) + var(--off-sp-3));
+  right: var(--off-sp-5);
+  z-index: var(--off-z-float);
   min-width: 0;
+  max-width: min(620px, calc(100% - 32px));
+  pointer-events: none;
 }
 
 .off-topbar {

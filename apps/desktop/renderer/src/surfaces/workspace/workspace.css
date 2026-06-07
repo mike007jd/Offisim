@@ -693,6 +693,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  cursor: pointer;
   transition: background var(--off-motion-fast) var(--off-motion-ease), color var(--off-motion-fast)
     var(--off-motion-ease);
 }
@@ -700,6 +701,11 @@
 .off-ws-dlv-btn:hover {
   background: var(--off-surface-sunken);
   color: var(--off-ink-1);
+}
+
+.off-ws-dlv-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .off-ws-dlv-btn:disabled:hover {
@@ -955,29 +961,37 @@
 
 .off-ws-sys-act {
   display: flex;
-  gap: var(--off-sp-2);
-  margin-top: var(--off-sp-3);
+  flex-wrap: wrap;
+  gap: var(--off-sp-2) var(--off-sp-4);
+  margin-top: var(--off-sp-2);
 }
 
+/* Resolved state read from the Activity Log — these are NOT actions, so they
+   read as plain labels (a leading dot + muted text), never button-shaped pills. */
 .off-ws-sys-chip {
-  height: 26px;
-  padding: 0 11px;
-  border: 1px solid var(--off-line);
-  border-radius: var(--off-r-sm);
-  background: var(--off-surface-sunken);
-  color: var(--off-ink-3);
-  font-size: var(--off-fs-meta);
-  font-weight: 620;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-meta);
+  font-weight: 580;
   cursor: default;
 }
 
+.off-ws-sys-chip::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--off-ink-4);
+}
+
 .off-ws-sys-chip.is-primary {
-  background: var(--off-accent-surface);
   color: var(--off-accent);
-  border-color: var(--off-accent-ring);
+}
+
+.off-ws-sys-chip.is-primary::before {
+  background: var(--off-accent);
 }
 
 /* ── Approvals (OA) ──────────────────────────────────────────────────────── */

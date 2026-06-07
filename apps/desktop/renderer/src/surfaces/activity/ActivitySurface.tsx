@@ -30,8 +30,8 @@ import {
   useActivityRecords,
 } from './activity-data.js';
 
-const GROUP_HEADER_HEIGHT = 33;
-const ROW_HEIGHT = 48;
+const GROUP_HEADER_HEIGHT = 28;
+const ROW_HEIGHT = 36;
 
 /** Flat virtualizer items: a group header or one timeline row. */
 type TimelineItem =

@@ -238,8 +238,8 @@
 
 .off-pers-name {
   margin: 0;
-  font-size: var(--off-fs-xl);
-  font-weight: 700;
+  font-size: var(--off-fs-lg);
+  font-weight: 680;
   letter-spacing: 0;
   color: var(--off-ink-1);
   overflow: hidden;
@@ -264,10 +264,11 @@
 }
 
 .off-pers-st-pill {
-  height: 20px;
-  padding: 0 9px;
-  border-radius: var(--off-r-pill);
-  border: 1px solid;
+  height: 18px;
+  padding: 0;
+  border-radius: 0;
+  border: 0;
+  background: transparent;
   font-size: var(--off-fs-label);
   font-weight: 700;
   letter-spacing: 0;
@@ -286,24 +287,17 @@
 }
 
 .off-pers-st-pill.is-on {
-  border-color: var(--off-ok-line);
-  background: var(--off-ok-surface);
   color: var(--off-ok);
 }
 
-.off-pers-st-pill.is-on::before {
-  animation: off-pulse var(--off-motion-loop-slow) var(--off-motion-loop-ease) infinite;
-}
+/* "Enabled" is a static state — no perpetual pulse (pulse is reserved for
+   genuinely running execution, matching the shared status-pill convention). */
 
 .off-pers-st-pill.is-off {
-  border-color: var(--off-line);
-  background: var(--off-surface-sunken);
   color: var(--off-ink-4);
 }
 
 .off-pers-st-pill.is-brand {
-  border-color: var(--off-line);
-  background: var(--off-surface-sunken);
   color: var(--off-ink-3);
 }
 
@@ -317,11 +311,15 @@
 .off-pers-insp-tabs {
   flex: none;
   height: 36px;
+  width: fit-content;
+  max-width: calc(100% - var(--off-sp-5) - var(--off-sp-5));
   display: flex;
   align-items: center;
   gap: 2px;
   margin: var(--off-sp-4) var(--off-sp-5) 0;
-  padding: 3px;
+  /* Extra inner gutter so a focused tab's outline isn't clipped by the
+     horizontal scroll container (overflow-x:auto forces overflow-y:auto). */
+  padding: 4px;
   border: 1px solid var(--off-line);
   border-radius: var(--off-r-md);
   background: var(--off-surface-2);
@@ -376,7 +374,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: var(--off-sp-7);
+  padding: var(--off-sp-6) var(--off-sp-7) var(--off-sp-8);
   display: flex;
   flex-direction: column;
   gap: var(--off-sp-6);
@@ -607,9 +605,9 @@
 /* Save bar */
 .off-pers-savebar {
   flex: none;
-  border-top: 1px solid var(--off-line);
-  background: var(--off-surface-2);
-  padding: var(--off-sp-3) var(--off-sp-7);
+  border-top: 1px solid var(--off-line-soft);
+  background: var(--off-surface-1);
+  padding: var(--off-sp-2) var(--off-sp-5);
   display: flex;
   align-items: center;
   justify-content: space-between;

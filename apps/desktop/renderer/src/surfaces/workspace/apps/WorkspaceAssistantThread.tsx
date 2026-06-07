@@ -13,7 +13,6 @@ import type { Employee } from '@/data/types.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { Icon } from '@/design-system/icons/Icon.js';
-import { Button } from '@/design-system/primitives/button.js';
 import { safeErrorMessage } from '@/lib/provider-bridge.js';
 import { cn } from '@/lib/utils.js';
 import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
@@ -178,29 +177,27 @@ function DeliverableInline({
         </div>
       </div>
       <div className="off-ws-dlv-actions">
-        <Button
-          variant="ghost"
-          size="sm"
+        <button
+          type="button"
           className="off-ws-dlv-btn off-focusable"
           disabled={Boolean(disabledReason) || busyAction !== null}
           title={disabledTitle}
           onClick={() => void persistDeliverable('open')}
         >
           {busyAction === 'open' ? 'Opening...' : 'Open'}
-        </Button>
+        </button>
         <span className="off-ws-dlv-fmt" title="Export format">
           {card.format}
         </span>
-        <Button
-          variant="ghost"
-          size="sm"
+        <button
+          type="button"
           className="off-ws-dlv-btn off-focusable"
           disabled={Boolean(disabledReason) || busyAction !== null}
           title={disabledTitle}
           onClick={() => void persistDeliverable('export')}
         >
           {busyAction === 'export' ? 'Exporting...' : 'Export'}
-        </Button>
+        </button>
       </div>
     </div>
   );

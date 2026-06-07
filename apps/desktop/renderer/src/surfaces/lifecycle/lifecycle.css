@@ -119,10 +119,10 @@
 
 .off-csp-row {
   border: 1px solid var(--off-line-soft);
-  border-radius: var(--off-r-md);
+  border-radius: var(--off-r-sm);
   background: var(--off-surface-1);
-  padding: var(--off-sp-5);
-  box-shadow: var(--off-elev-1);
+  padding: var(--off-sp-4);
+  box-shadow: none;
   transition: background var(--off-motion-fast) var(--off-motion-ease), border-color
     var(--off-motion-fast) var(--off-motion-ease), transform var(--off-motion-fast)
     var(--off-motion-ease), box-shadow var(--off-motion-fast) var(--off-motion-ease);
@@ -265,7 +265,7 @@
   flex: 1;
   min-width: 0;
   display: block;
-  padding: var(--off-sp-8);
+  padding: var(--off-sp-6);
   overflow-y: auto;
 }
 
@@ -276,16 +276,17 @@
 
 /* Single detail column — identity + Enter lead, floor plan demoted below. */
 .off-csp-detail {
-  max-width: 720px;
+  max-width: 760px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: var(--off-sp-6);
+  gap: var(--off-sp-4);
 }
 
 .off-csp-hero {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   gap: var(--off-sp-5);
 }
 
@@ -303,7 +304,7 @@
 }
 
 .off-csp-prev {
-  height: 260px;
+  height: 190px;
   border: 1px solid var(--off-line-soft);
   border-radius: var(--off-r-md);
   background: var(--off-surface-2);
@@ -316,8 +317,8 @@
 }
 
 .off-csp-brief-ic {
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   flex: none;
   border: 1px solid var(--off-line-soft);
   border-radius: var(--off-r-sm);
@@ -332,8 +333,8 @@
 }
 
 .off-csp-brief-nm {
-  font-size: var(--off-fs-xl);
-  font-weight: 700;
+  font-size: var(--off-fs-lg);
+  font-weight: 680;
   color: var(--off-ink-1);
   /* Hero name is a heading — wrap long/unbroken names rather than overflow. */
   overflow-wrap: anywhere;
@@ -355,7 +356,7 @@
   border: 1px solid var(--off-line-soft);
   border-radius: var(--off-r-sm);
   background: var(--off-surface-sunken);
-  padding: var(--off-sp-4) var(--off-sp-4);
+  padding: var(--off-sp-3) var(--off-sp-4);
 }
 
 .off-csp-stat-l {
@@ -367,9 +368,9 @@
 }
 
 .off-csp-stat-v {
-  margin-top: 4px;
-  font-size: var(--off-fs-xl);
-  font-weight: 700;
+  margin-top: 2px;
+  font-size: var(--off-fs-lg);
+  font-weight: 680;
   color: var(--off-ink-1);
 }
 
@@ -471,14 +472,15 @@
 
 /* Primary hero action: full-width, the heaviest element on the page. */
 .off-csp-cta {
-  width: 100%;
-  height: 46px;
+  width: auto;
+  min-width: 154px;
+  height: 34px;
   border-radius: var(--off-r-md);
   border: 0;
   background: var(--off-accent);
   color: var(--off-accent-fg);
   font-weight: 680;
-  font-size: var(--off-fs-md);
+  font-size: var(--off-fs-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -562,7 +564,9 @@
   gap: var(--off-sp-3);
   padding: 0 var(--off-sp-8) var(--off-sp-5);
   overflow-x: auto;
-  justify-content: center;
+  /* Centered when the templates fit, but falls back to start-aligned when they
+     overflow so the first card never gets pushed off the left, out of scroll. */
+  justify-content: safe center;
 }
 
 .off-wiz-card {
@@ -809,6 +813,7 @@
 .off-wiz-stage {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: var(--off-sp-4);
@@ -823,6 +828,7 @@
   display: grid;
   place-items: center;
   padding: var(--off-sp-3);
+  overflow: auto;
   box-shadow: var(--off-elev-1);
 }
 

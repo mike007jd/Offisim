@@ -148,7 +148,9 @@
   position: fixed;
   left: 0;
   top: 0;
-  z-index: calc(var(--off-z-overlay) + 1);
+  /* Cursor-follow feedback must float above popovers/dialogs (z 50), not the
+     overlay tier (z 20) — otherwise an open Select renders over the ghost. */
+  z-index: var(--off-z-emergency);
   pointer-events: none;
   transform: translate3d(
     calc(var(--off-drag-x) + var(--off-sp-3)),
@@ -243,6 +245,7 @@
 .off-studio-inline {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
   gap: var(--off-sp-2);
 }
 
@@ -262,6 +265,20 @@
   font-size: var(--off-fs-label);
   font-weight: 680;
   white-space: nowrap;
+}
+
+/* key/value readout row for the Object + Zone property panels */
+.off-about-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--off-fs-sm);
+  color: var(--off-ink-2);
+}
+
+.off-about-row span:last-child {
+  font-family: var(--off-font-mono);
+  color: var(--off-ink-3);
 }
 
 .off-studio-invalid {

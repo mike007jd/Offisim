@@ -191,7 +191,6 @@ export function McpServersPane() {
                 </div>
                 <div className="off-set-mcp-cmd">{server.command}</div>
               </div>
-              <span />
               <div className="off-set-row-actions">
                 <IconButton
                   icon={RefreshCw}

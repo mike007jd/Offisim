@@ -380,9 +380,11 @@ export function PublishDialog({
             <Button variant="outline" size="md" type="button" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <span className="off-pub-foot-state">
-              {activeSource?.publishable ? '' : (activeSource?.unavailableReason ?? 'Select a source')}
-            </span>
+            {activeSource?.publishable ? null : (
+              <span className="off-pub-foot-state">
+                {activeSource?.unavailableReason ?? 'Select a source'}
+              </span>
+            )}
             <Button size="md" type="submit" disabled={publishBlocked}>
               {publishing ? 'Publishing…' : 'Submit'}
             </Button>

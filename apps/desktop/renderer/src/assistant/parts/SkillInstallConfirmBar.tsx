@@ -111,13 +111,10 @@ export function SkillInstallConfirmBar({
         </p>
       ) : null}
       {context.allowedTools.length > 0 ? (
-        <div className="off-skillconfirm-tools">
-          {context.allowedTools.map((tool) => (
-            <span key={tool} className="off-skillconfirm-tool">
-              {tool}
-            </span>
-          ))}
-        </div>
+        <p className="off-skillconfirm-tools">
+          <span className="off-skillconfirm-tools-lbl">Allowed tools</span>
+          {context.allowedTools.join(', ')}
+        </p>
       ) : null}
       {bodyPreview ? (
         <pre className="off-skillconfirm-body">

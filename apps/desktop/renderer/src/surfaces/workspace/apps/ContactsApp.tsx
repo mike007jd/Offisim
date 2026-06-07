@@ -107,7 +107,6 @@ export function ContactsApp() {
               </div>
               {items.map((e) => {
                 const p = detailById[e.id]?.presence ?? (e.online ? 'idle' : 'offline');
-                const pill = PRESENCE_PILL[p];
                 return (
                   <button
                     key={e.id}
@@ -131,7 +130,6 @@ export function ContactsApp() {
                       <span className="off-ws-ct-nm">{e.name}</span>
                       <span className="off-ws-ct-role">{e.role}</span>
                     </span>
-                    <span className={cn('off-ws-ct-st', pill.cls)}>{pill.label}</span>
                   </button>
                 );
               })}
@@ -161,7 +159,7 @@ export function ContactsApp() {
                 </div>
               </div>
               <span className={cn('off-ws-ct-prof-st', PRESENCE_PILL[presence].cls)}>
-                ● {PRESENCE_PILL[presence].label}
+                {PRESENCE_PILL[presence].label}
                 {activeDetail?.presenceNote ? ` — ${activeDetail.presenceNote}` : ' now'}
               </span>
               <div className="off-ws-ct-cta">

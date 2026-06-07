@@ -24,6 +24,7 @@
 - UI ownership 留在 `apps/desktop/renderer`。不要重建共享视觉 UI package；shared packages 只能承载类型、runtime/data contract，不承载视觉组件库。
 - Tailwind 只做 token/utility 编译层；shadcn 只做本地 accessible primitives；assistant-ui 只做 assistant surface/runtime primitives；Motion 只做统一动态语法。任何库都不能覆盖 Offisim V3 dense HUD 设计语言。
 - 禁止新引入非批准动画框架、组件套件或 CSS-in-JS 层，除非另有明确架构决策。
+- 桌面 renderer root / shell / lifecycle 入口禁止再添加外圈 margin、padding、gutter、黑色外框或 `calc(100% - 16px)` 式缩边。WebView 内容必须贴齐可绘制区域；层级和呼吸感只能在内部 panel / toolbar / rail 里处理，不能靠外圈留黑边。
 
 # 验证 / 测试准则
 - 不在 `packages/core/src/**/*.test.mjs` 新增或保留 runtime / graph / product 行为测试。
@@ -45,7 +46,7 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **Offisim** (15121 symbols, 26382 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **Offisim** (15018 symbols, 26262 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

@@ -36,18 +36,25 @@
   min-height: 48px;
   display: flex;
   align-items: center;
-  gap: var(--off-sp-4);
-  padding: var(--off-sp-2) var(--off-sp-7);
+  gap: var(--off-sp-3);
+  padding: var(--off-sp-2) var(--off-sp-5);
 }
 
+/* Kind filter sits on its own wrap-friendly sub-row so it never breaks the
+   fixed-height main toolbar or misaligns the right-pinned Sort/Contribute. */
 .off-mkt-fbar-sub {
-  height: 38px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--off-sp-2);
+  padding: 0 var(--off-sp-5) var(--off-sp-3);
+}
+
+.off-mkt-manage-inline {
   display: flex;
   align-items: center;
   gap: var(--off-sp-3);
-  padding: 0 var(--off-sp-7);
-  border-top: 1px solid var(--off-line-soft);
-  background: var(--off-surface-2);
+  min-width: 0;
 }
 
 .off-mkt-fbar-lbl {
@@ -918,15 +925,19 @@
 .off-md-install:active {
   transform: translateY(1px);
 }
-.off-md-install.is-installed {
-  background: var(--off-surface-sunken);
-  color: var(--off-ink-4);
-  box-shadow: inset 0 0 0 1px var(--off-line);
-  cursor: default;
-  pointer-events: none;
+/* Installed is a status confirmation, not an action — calm left-aligned row
+   with a check, never styled as the solid Install button. */
+.off-md-installed {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 2px;
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-meta);
+  font-weight: 580;
 }
-.off-md-install.is-installed:hover {
-  filter: none;
+.off-md-installed svg {
+  color: var(--off-success, var(--off-accent));
 }
 .off-md-unsupported {
   text-align: center;
@@ -1284,6 +1295,12 @@
   font-weight: 660;
   color: var(--off-ink-1);
 }
+.off-bind-optional {
+  font-size: var(--off-fs-label);
+  font-weight: 500;
+  color: var(--off-ink-4);
+  text-transform: lowercase;
+}
 .off-bind-skip {
   height: 22px;
   padding: 0 8px;
@@ -1608,13 +1625,14 @@
 
 /* ════════════════ Manage views ════════════════ */
 .off-mng-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: var(--off-sp-5) var(--off-sp-7) var(--off-sp-7);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--off-sp-4);
+  padding: var(--off-sp-5);
+  align-content: start;
 }
 .off-mng-note {
-  padding: var(--off-sp-5) var(--off-sp-7) 2px;
+  padding: var(--off-sp-4) var(--off-sp-5) 0;
   font-size: var(--off-fs-label);
   font-weight: 680;
   letter-spacing: 0;
@@ -1625,11 +1643,12 @@
   border: 1px solid var(--off-line-soft);
   border-radius: var(--off-r-md);
   background: var(--off-surface-1);
-  padding: var(--off-sp-5);
+  padding: var(--off-sp-4);
   box-shadow: var(--off-elev-1);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
+  min-height: 104px;
 }
 .off-mng-top {
   display: flex;
@@ -1655,32 +1674,25 @@
 .off-mng-badge {
   flex: none;
   height: 18px;
-  padding: 0 7px;
-  border-radius: var(--off-r-pill);
-  background: var(--off-surface-sunken);
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--off-ink-3);
-  box-shadow: inset 0 0 0 1px var(--off-line);
   font-size: var(--off-fs-label);
-  font-weight: 700;
+  font-weight: 680;
   letter-spacing: 0;
-  text-transform: uppercase;
+  text-transform: none;
   display: inline-flex;
   align-items: center;
 }
 .off-mng-badge.is-ok {
-  background: var(--off-ok-surface);
   color: var(--off-ok);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--off-ok) 40%, transparent);
 }
 .off-mng-badge.is-update {
-  background: var(--off-accent-surface);
   color: var(--off-accent);
-  box-shadow: inset 0 0 0 1px var(--off-accent-ring);
 }
 .off-mng-badge.is-muted {
-  background: var(--off-surface-sunken);
   color: var(--off-ink-4);
-  box-shadow: inset 0 0 0 1px var(--off-line);
 }
 .off-mng-latest {
   font-size: var(--off-fs-meta);
@@ -1711,8 +1723,8 @@
 }
 .off-mng-browse {
   display: flex;
-  justify-content: center;
-  padding: 0 var(--off-sp-7) var(--off-sp-7);
+  justify-content: flex-start;
+  padding: 0 var(--off-sp-5) var(--off-sp-5);
 }
 .off-mng-loading {
   display: flex;
@@ -1841,17 +1853,15 @@
   color: var(--off-danger);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--off-danger) 40%, transparent);
 }
+/* Blocking reason — a left-aligned note, not a button-shaped chip between the
+   Cancel/Submit actions. */
 .off-pub-foot-state {
-  min-height: var(--off-control-md);
+  margin-right: auto;
   display: inline-flex;
   align-items: center;
-  border: 1px solid var(--off-line);
-  border-radius: var(--off-r-md);
-  background: var(--off-surface-sunken);
   color: var(--off-ink-3);
-  padding: 0 var(--off-sp-4);
   font-size: var(--off-fs-meta);
-  font-weight: 680;
+  font-weight: 540;
 }
 
 @media (prefers-reduced-motion: reduce) {

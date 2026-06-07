@@ -909,10 +909,10 @@
   color: var(--off-ink-3);
 }
 
-/* Messages */
+/* Messages — the single scroller is .off-thread-viewport; this is a plain
+   flow block so the error banner / confirm bar scroll with the conversation
+   instead of being trapped under a nested inner scrollbar. */
 .off-messages {
-  min-height: 0;
-  overflow-y: auto;
   padding: var(--off-sp-6) var(--off-sp-6) var(--off-sp-3);
   display: flex;
   flex-direction: column;
@@ -997,7 +997,7 @@
 /* Run record (collapsible) */
 .off-run-record {
   border: 1px solid var(--off-line-soft);
-  border-radius: var(--off-r-lg);
+  border-radius: var(--off-r-md);
   background: var(--off-surface-2);
   box-shadow: var(--off-elev-1);
   overflow: hidden;
@@ -1241,18 +1241,16 @@
   min-width: 0;
 }
 
+/* Context + mode are passive labels, not controls — plain muted text, no pill
+   chrome, so the footer reads as one input row with real actions on the right. */
 .off-composer-context {
   max-width: 150px;
   height: 26px;
   display: inline-flex;
   align-items: center;
-  padding: 0 var(--off-sp-2);
-  border: 1px solid var(--off-line);
-  border-radius: var(--off-r-pill);
-  background: var(--off-surface-2);
-  color: var(--off-ink-3);
+  color: var(--off-ink-4);
   font-size: var(--off-fs-meta);
-  font-weight: 620;
+  font-weight: 580;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1263,13 +1261,9 @@
   display: inline-flex;
   align-items: center;
   flex: 0 0 auto;
-  padding: 0 var(--off-sp-2);
-  border: 1px solid var(--off-line);
-  border-radius: var(--off-r-pill);
-  background: var(--off-surface-1);
-  color: var(--off-ink-2);
+  color: var(--off-ink-4);
   font-size: var(--off-fs-meta);
-  font-weight: 680;
+  font-weight: 580;
 }
 
 .off-composer-send {
@@ -1328,14 +1322,14 @@
 .off-thread-pit-count {
   min-width: 17px;
   height: 17px;
+  padding: 0 4px;
   display: inline-grid;
   place-items: center;
   border-radius: var(--off-r-pill);
-  background: var(--off-surface-1);
+  background: var(--off-accent-surface);
   color: inherit;
   font-family: var(--off-font-mono);
   font-size: var(--off-fs-xs);
-  box-shadow: inset 0 0 0 1px currentColor;
 }
 
 .off-thread-pit-pop {
@@ -1626,18 +1620,24 @@
   font-size: var(--off-fs-meta);
   color: var(--off-ink-3);
 }
+/* Allowed tools as one muted line, not a per-tool chip pile. */
 .off-skillconfirm-tools {
+  margin: 0 0 var(--off-sp-2);
   display: flex;
   flex-wrap: wrap;
-  gap: var(--off-sp-1);
-  margin-bottom: var(--off-sp-2);
-}
-.off-skillconfirm-tool {
-  padding: 2px var(--off-sp-2);
-  border-radius: var(--off-r-xs);
-  background: var(--off-surface-1);
+  align-items: baseline;
+  gap: var(--off-sp-2);
   color: var(--off-ink-3);
   font-size: var(--off-fs-meta);
+  font-family: var(--off-font-mono);
+}
+.off-skillconfirm-tools-lbl {
+  color: var(--off-ink-4);
+  font-family: var(--off-font-sans, inherit);
+  text-transform: uppercase;
+  letter-spacing: 0;
+  font-weight: 680;
+  font-size: var(--off-fs-micro);
 }
 .off-skillconfirm-body {
   margin: 0 0 var(--off-sp-3);
@@ -1830,19 +1830,29 @@
 /* === Resume bar =========================================================== */
 .off-resume {
   flex: none;
+  max-width: 100%;
   display: flex;
   align-items: center;
-  gap: var(--off-sp-3);
-  height: 40px;
-  padding: 0 var(--off-sp-5);
-  border-bottom: 1px solid var(--off-accent-ring);
-  background: var(--off-accent-surface);
+  gap: var(--off-sp-2);
+  height: 30px;
+  padding: 0 var(--off-sp-2) 0 var(--off-sp-3);
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-md);
+  background: color-mix(in srgb, var(--off-surface-1) 94%, transparent);
+  box-shadow: var(--off-elev-2);
   z-index: var(--off-z-overlay);
+  pointer-events: auto;
+  backdrop-filter: blur(12px);
 }
 .off-resume-glyph {
   color: var(--off-accent);
+  flex: none;
 }
 .off-resume-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: var(--off-fs-sm);
   font-weight: 620;
   color: var(--off-ink-1);
@@ -1850,33 +1860,112 @@
 .off-resume-chips {
   display: inline-flex;
   gap: var(--off-sp-2);
-  margin-left: var(--off-sp-2);
-  overflow-x: auto;
+  margin-left: 2px;
+  min-width: 0;
 }
 .off-resume-chip {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  height: 26px;
-  padding: 0 var(--off-sp-3);
-  border: 1px solid var(--off-line);
-  border-radius: var(--off-r-pill);
-  background: var(--off-surface-1);
+  max-width: 164px;
+  height: 22px;
+  padding: 0 var(--off-sp-2);
+  border: 1px solid transparent;
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-sunken);
   color: var(--off-ink-2);
   font-size: var(--off-fs-micro);
   font-weight: 620;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .off-resume-chip.is-blocked {
-  border-color: var(--off-warn);
+  border-color: var(--off-warn-line-soft);
   color: var(--off-warn);
 }
 .off-resume-chip:hover {
   border-color: var(--off-accent-ring);
   color: var(--off-accent);
 }
+.off-resume-more {
+  height: 22px;
+  min-width: 24px;
+  padding: 0 var(--off-sp-2);
+  border: 1px solid transparent;
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-sunken);
+  color: var(--off-ink-4);
+  font-size: var(--off-fs-micro);
+  font-weight: 680;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.off-resume-more:hover,
+.off-resume-more[aria-expanded='true'] {
+  border-color: var(--off-accent-ring);
+  color: var(--off-accent);
+}
+.off-resume-overflow {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+.off-resume-menu {
+  position: absolute;
+  top: calc(100% + var(--off-sp-2));
+  right: 0;
+  width: min(280px, calc(100vw - var(--off-sp-8)));
+  max-height: min(260px, calc(100vh - 120px));
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--off-sp-1);
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-md);
+  background: color-mix(in srgb, var(--off-surface-1) 98%, transparent);
+  box-shadow: var(--off-elev-3);
+  z-index: calc(var(--off-z-overlay) + 1);
+  backdrop-filter: blur(12px);
+}
+.off-resume-menu-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--off-sp-2);
+  min-height: 28px;
+  padding: 0 var(--off-sp-2);
+  border: 1px solid transparent;
+  border-radius: var(--off-r-sm);
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-sm);
+  font-weight: 620;
+  text-align: left;
+}
+.off-resume-menu-item:hover {
+  border-color: var(--off-accent-ring);
+  color: var(--off-accent);
+  background: var(--off-surface-sunken);
+}
+.off-resume-menu-item.is-blocked {
+  color: var(--off-warn);
+}
+.off-resume-menu-action {
+  color: inherit;
+  font-size: var(--off-fs-micro);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.off-resume-menu-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .off-resume-x {
-  margin-left: auto;
+  flex: none;
   display: inline-flex;
   color: var(--off-ink-3);
   border-radius: var(--off-r-xs);
@@ -2134,8 +2223,10 @@
 .off-team.is-collapsed .off-team-card .off-team-info {
   display: none;
 }
-.off-team.is-collapsed .off-team-card {
+.off-team.is-collapsed .off-team-card,
+.off-team.is-collapsed .off-team-add {
   width: auto;
+  height: 34px;
   padding: 0 var(--off-sp-3);
 }
 .off-team-add {
@@ -2239,9 +2330,8 @@
 .off-dlv-preview {
   margin: 0;
   padding: var(--off-sp-3);
-  border-radius: var(--off-r-sm);
+  border-radius: var(--off-r-xs);
   background: var(--off-surface-0);
-  border: 1px solid var(--off-line-soft);
   font-family: var(--off-font-mono);
   font-size: var(--off-fs-micro);
   color: var(--off-ink-2);

@@ -264,7 +264,7 @@ function ConfigureStep({
               <div className="off-bind-head">
                 <span className="off-bind-role">
                   {b.role}
-                  {!b.required ? <span className="off-badge is-sec">optional</span> : null}
+                  {!b.required ? <span className="off-bind-optional">optional</span> : null}
                 </span>
                 {!b.required ? (
                   <button

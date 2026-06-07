@@ -312,14 +312,16 @@ export function MarketSurface() {
             onChange={setMode}
             ariaLabel="Marketplace mode"
           />
-          {mode === 'explore' ? (
-            <SegmentedControl
-              options={KIND_FILTERS}
-              value={kind}
-              onChange={setKind}
-              wrap
-              ariaLabel="Filter by kind"
-            />
+          {mode === 'manage' ? (
+            <div className="off-mkt-manage-inline">
+              <span className="off-mkt-fbar-lbl">View</span>
+              <SegmentedControl
+                options={MANAGE_VIEWS}
+                value={manageView}
+                onChange={setManageView}
+                ariaLabel="Manage view"
+              />
+            </div>
           ) : null}
           <input
             ref={fileInputRef}
@@ -362,14 +364,14 @@ export function MarketSurface() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        {mode === 'manage' ? (
+        {mode === 'explore' ? (
           <div className="off-mkt-fbar-sub">
-            <span className="off-mkt-fbar-lbl">View</span>
             <SegmentedControl
-              options={MANAGE_VIEWS}
-              value={manageView}
-              onChange={setManageView}
-              ariaLabel="Manage view"
+              options={KIND_FILTERS}
+              value={kind}
+              onChange={setKind}
+              wrap
+              ariaLabel="Filter by kind"
             />
           </div>
         ) : null}

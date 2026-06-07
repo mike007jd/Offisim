@@ -8,7 +8,7 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: var(--off-surface-1);
+  background: var(--off-bg);
   overflow: hidden;
   container-type: inline-size;
 }
@@ -16,18 +16,18 @@
 /* ── Filter bar ── 3 single selects + search */
 .off-act-filter {
   flex: none;
-  height: 56px;
+  height: 48px;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(160px, 2fr);
   align-items: center;
-  gap: var(--off-sp-5);
-  padding: 0 var(--off-sp-9, 24px);
+  gap: var(--off-sp-3);
+  padding: 0 var(--off-sp-5);
   border-bottom: 1px solid var(--off-line);
-  background: var(--off-surface-2);
+  background: var(--off-surface-1);
 }
 
 .off-act-filter .off-select {
-  height: 36px;
+  height: 32px;
   min-width: 0;
   background-color: var(--off-surface-1);
 }
@@ -50,7 +50,7 @@
 
 .off-act-search input {
   width: 100%;
-  height: 36px;
+  height: 32px;
   padding: 0 11px 0 30px;
   border: 1px solid var(--off-line);
   border-radius: var(--off-r-md);
@@ -74,6 +74,8 @@
   min-height: 0;
   display: grid;
   grid-template-columns: 1fr;
+  gap: var(--off-sp-4);
+  padding: var(--off-sp-4);
 }
 
 .off-act-body.is-split {
@@ -120,15 +122,20 @@
 .off-act-tl {
   min-width: 0;
   overflow-y: auto;
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-md);
+  background: var(--off-surface-1);
+  box-shadow: var(--off-elev-1);
 }
 
 .off-tl-grp-head {
   display: flex;
   align-items: center;
   gap: var(--off-sp-3);
-  height: 33px;
-  padding: var(--off-sp-3) var(--off-sp-7);
-  background: var(--off-surface-sunken);
+  height: 28px;
+  padding: 0 var(--off-sp-5);
+  background: var(--off-surface-2);
+  border-bottom: 1px solid var(--off-line-soft);
 }
 
 .off-tl-gl {
@@ -147,11 +154,11 @@
 }
 
 .off-ev-row {
-  height: 48px;
+  height: 36px;
   display: flex;
   align-items: center;
-  gap: var(--off-sp-5);
-  padding: 0 var(--off-sp-7);
+  gap: var(--off-sp-3);
+  padding: 0 var(--off-sp-5);
   border: 0;
   border-left: 4px solid transparent;
   background: transparent;
@@ -176,8 +183,8 @@
 }
 
 .off-ev-ico {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   flex: none;
   stroke-width: 1.7;
 }
@@ -228,7 +235,7 @@
 }
 
 .off-ev-ts {
-  width: 80px;
+  width: 66px;
   flex: none;
   text-align: right;
   font-size: var(--off-fs-meta);
@@ -237,8 +244,8 @@
 }
 
 .off-ev-bar {
-  width: 4px;
-  height: 24px;
+  width: 3px;
+  height: 20px;
   border-radius: var(--off-r-pill);
   flex: none;
   background: transparent;
@@ -255,7 +262,8 @@
 /* ── Event detail panel ── */
 .off-act-detail {
   min-width: 0;
-  border-left: 1px solid var(--off-line);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-md);
   background: var(--off-surface-2);
   display: flex;
   flex-direction: column;

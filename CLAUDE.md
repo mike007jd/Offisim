@@ -16,6 +16,10 @@ Do not create a standalone web product or a shared visual UI package. Visual
 components, styling, motion, assistant surface composition, and desktop layout
 ownership stay inside `apps/desktop/renderer`.
 
+Do not add renderer-root outer margin, padding, gutter, fake black frame, or
+`calc(100% - 16px)` shell sizing. WebView content must sit flush to the drawable
+area; spacing belongs inside panels, rails, and toolbar regions.
+
 ## Build And Verification
 
 - Renderer only: `pnpm --filter @offisim/desktop-renderer typecheck && pnpm --filter @offisim/desktop-renderer build`
@@ -39,7 +43,7 @@ ownership stay inside `apps/desktop/renderer`.
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **Offisim** (15121 symbols, 26382 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **Offisim** (15018 symbols, 26262 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
