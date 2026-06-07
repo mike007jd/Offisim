@@ -125,7 +125,6 @@ Current application/package shape:
 - `Docs/UI_FRAMEWORK_STACK.md` — the approved renderer UI stack (source of truth for new UI work)
 - `Docs/design/` — per-surface HTML prototype specs (Office, Settings, Market, Personnel, Activity, Workspace, lifecycle, states)
 - `Docs/design/spacing-density.md` — spacing token reference
-- `Docs/reviews/` — formal code-inspection reports
 
 ## Recommended reading order for AI agents
 

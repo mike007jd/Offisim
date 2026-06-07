@@ -4,7 +4,7 @@
 // (H/C1) The legacy `tokens/` subtree (colors / motion / state-feedback /
 // departments) was dropped: no consumer outside this package imports those
 // symbols. If you bring back any of them, re-export from here and update the
-// audit in `feedbacks/2026-05-28-full-code-review/INDEX.md`.
+// package-level compatibility notes.
 
 // Layout engine — pure algorithm
 export { computeFloorPlan, computeRestAreaSeats } from './layout/zone-layout-engine.js';
