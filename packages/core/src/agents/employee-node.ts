@@ -177,7 +177,9 @@ export async function employeeNode(
     runtimeCtx.conversationState.recordUsage(llmResponse.usage);
     runtimeCtx.conversationState.recordPendingToolCalls(llmResponse.toolCalls);
 
-    // Multi-round tool calling loop (max 5 rounds to prevent infinite loops)
+    // Multi-round tool calling loop. The real exit is "model stopped calling
+    // tools"; maxToolRounds is only a high runaway guard (see
+    // MAX_TOOL_ROUNDS) so long agentic tasks run to natural completion.
     let workingHistory = conversationHistory;
 
     while (llmResponse.toolCalls.length > 0 && round < maxToolRounds) {

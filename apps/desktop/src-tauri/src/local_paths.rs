@@ -60,6 +60,60 @@ pub async fn open_local_path<R: Runtime>(
     open_path_in_file_manager(&target).await
 }
 
+/// Provision (and return the canonical path of) a per-company default workspace
+/// directory under the app's local data dir. This is the capability-first
+/// fallback that guarantees the agent's file/shell tools always have a real,
+/// sandbox-jailable working directory even before the user binds a project to a
+/// real repo folder — mirroring how Codex / Claude Code default to a working
+/// directory rather than refusing to run tools. The returned path is a deep
+/// app-data path (`…/com.offisim.desktop/workspaces/<companyId>`), so it has
+/// well over two path components and is never treated as an overbroad root by
+/// the builtin-tool sandbox.
+#[tauri::command]
+pub async fn ensure_company_workspace<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    company_id: String,
+) -> Result<String, String> {
+    let company_id = company_id.trim();
+    if company_id.is_empty() {
+        return Err("companyId is required".into());
+    }
+    let base = app
+        .path()
+        .app_local_data_dir()
+        .map_err(|err| format!("Resolve app local data directory: {err}"))?;
+    let dir = base
+        .join("workspaces")
+        .join(sanitize_workspace_component(company_id));
+    fs::create_dir_all(&dir)
+        .map_err(|err| format!("Failed to create company workspace: {err}"))?;
+    dir.canonicalize()
+        .map_err(|err| format!("Resolve company workspace: {err}"))
+        .map(|canonical| canonical.to_string_lossy().to_string())
+}
+
+/// Reduce a company id to a safe single path component (alphanumerics, `-`, `_`).
+/// Company ids are UUIDs in practice, but this fails safe against any future id
+/// shape so a workspace dir can never escape the `workspaces/` parent.
+fn sanitize_workspace_component(raw: &str) -> String {
+    let cleaned: String = raw
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
+                ch
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let trimmed = cleaned.trim_matches('_').to_string();
+    if trimmed.is_empty() {
+        "company".into()
+    } else {
+        trimmed
+    }
+}
+
 #[tauri::command]
 pub async fn runtime_vault_status<R: Runtime>(
     app: tauri::AppHandle<R>,

@@ -982,7 +982,7 @@
   content: "";
   width: 5px;
   height: 5px;
-  border-radius: 50%;
+  border-radius: var(--off-r-round);
   background: var(--off-ink-4);
 }
 
@@ -1376,30 +1376,6 @@
   font-size: var(--off-fs-label);
   color: var(--off-ink-4);
   margin-top: 1px;
-}
-
-.off-ws-ct-st {
-  font-size: var(--off-fs-xs);
-  font-weight: 640;
-  padding: 1px 7px;
-  border-radius: var(--off-r-pill);
-}
-
-.off-ws-ct-st.is-working {
-  background: var(--off-warn-surface);
-  color: var(--off-warn);
-}
-.off-ws-ct-st.is-idle {
-  background: var(--off-ok-surface);
-  color: var(--off-ok);
-}
-.off-ws-ct-st.is-blocked {
-  background: var(--off-danger-surface);
-  color: var(--off-danger);
-}
-.off-ws-ct-st.is-offline {
-  background: var(--off-surface-sunken);
-  color: var(--off-ink-4);
 }
 
 .off-ws-ct-detail {

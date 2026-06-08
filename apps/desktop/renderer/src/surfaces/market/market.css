@@ -937,7 +937,7 @@
   font-weight: 580;
 }
 .off-md-installed svg {
-  color: var(--off-success, var(--off-accent));
+  color: var(--off-ok);
 }
 .off-md-unsupported {
   text-align: center;
@@ -1674,9 +1674,6 @@
 .off-mng-badge {
   flex: none;
   height: 18px;
-  padding: 0;
-  border-radius: 0;
-  background: transparent;
   color: var(--off-ink-3);
   font-size: var(--off-fs-label);
   font-weight: 680;

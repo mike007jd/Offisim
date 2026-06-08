@@ -6,6 +6,7 @@ import {
   type AttachmentKind,
   type AttachmentMeta,
   CURRENT_PARSED_REV,
+  type ToolExecutionTelemetryPayload,
   type VaultRef,
 } from '@offisim/shared-types';
 
@@ -233,4 +234,39 @@ export function subscribeReplyStream(
     if (!payload.content) return;
     onContentChunk(payload.content);
   });
+}
+
+/**
+ * Subscribe to the graph's tool-call lifecycle. `tool.execution.telemetry` is
+ * the shared start/completion stream for builtin, workstation, runtime-profile,
+ * and MCP tools; `mcp.tool.result` is retained as a legacy completion fallback.
+ * Returns a combined unsubscribe; callers MUST release it (InMemoryEventBus has
+ * no auto-cleanup). Not thread-scoped: desktop runs one chat at a time and the
+ * run store is already bound to the active thread, so activity is attributed to
+ * the live run exactly like the pipeline pill.
+ */
+export function subscribeRunActivity(
+  eventBus: EventBus,
+  handlers: {
+    onCalled: (tool: string) => void;
+    onResult: (tool: string, success: boolean) => void;
+  },
+): () => void {
+  const offTelemetry = eventBus.on('tool.execution.telemetry', (event) => {
+    const payload = event.payload as ToolExecutionTelemetryPayload | undefined;
+    if (!payload?.toolName) return;
+    if (payload.status === 'started') {
+      handlers.onCalled(payload.toolName);
+      return;
+    }
+    handlers.onResult(payload.toolName, payload.status === 'completed');
+  });
+  const offResult = eventBus.on('mcp.tool.result', (event) => {
+    const payload = event.payload as { toolName?: string; success?: boolean } | undefined;
+    if (payload?.toolName) handlers.onResult(payload.toolName, payload.success !== false);
+  });
+  return () => {
+    offTelemetry();
+    offResult();
+  };
 }

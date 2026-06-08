@@ -2,6 +2,7 @@ import { useUiState } from '@/app/ui-state.js';
 import { reposOrNull } from '@/data/adapters.js';
 import { useEffect } from 'react';
 import { toast } from 'sonner';
+import { ensureCompanyWorkspaceProjectId } from './ensure-default-workspace.js';
 
 /**
  * On the real desktop backend, pre-select the first company/project from SQLite
@@ -23,9 +24,11 @@ export function useRealDataBootstrap(): void {
       const company = companies[0];
       if (!company || cancelled) return;
       setCompany(company.company_id);
-      const projects = await repos.projects.findByCompany(company.company_id);
-      const project = projects[0];
-      if (project && !cancelled) setProject(project.project_id);
+      // Guarantee a project bound to a real workspace dir so the agent's
+      // file/shell tools work the instant the user enters a chat (otherwise a
+      // fresh company has no project and every tool fails closed).
+      const projectId = await ensureCompanyWorkspaceProjectId(repos, company.company_id);
+      if (projectId && !cancelled) setProject(projectId);
     })().catch((error: unknown) => {
       console.error('[offisim] desktop repository bootstrap failed', error);
       toast.error('Desktop data source unavailable', {

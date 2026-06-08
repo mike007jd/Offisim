@@ -457,9 +457,6 @@
   display: inline-flex;
   align-items: center;
   height: 18px;
-  padding: 0;
-  border-radius: 0;
-  background: transparent;
   color: var(--off-ink-3);
   font-size: var(--off-fs-xs);
   font-weight: 680;

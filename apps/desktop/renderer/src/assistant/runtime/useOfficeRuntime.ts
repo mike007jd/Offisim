@@ -16,6 +16,7 @@ import {
   materializeChatTurn,
   newDraftId,
   subscribeReplyStream,
+  subscribeRunActivity,
 } from './desktop-chat-runtime.js';
 
 /** Map an Offisim chat message into the assistant-ui thread model. The original
@@ -72,6 +73,8 @@ export function useOfficeRuntime({
   const setRunError = useRunStore((s) => s.setError);
   const staged = useRunStore((s) => s.staged);
   const clearStaged = useRunStore((s) => s.clearStaged);
+  const noteToolCalled = useRunStore((s) => s.noteToolCalled);
+  const noteToolResult = useRunStore((s) => s.noteToolResult);
   const persistRuntimeMessage = useCallback(
     (message: ChatMessage) =>
       persistMessage
@@ -167,6 +170,12 @@ export function useOfficeRuntime({
             );
           });
         const unsubscribe = subscribeReplyStream(runtimeEventBus, threadId, appendChunk);
+        // Surface tool calls live (builtin + MCP) so a long run shows the agent
+        // working instead of a blank streaming bubble.
+        const unsubscribeActivity = subscribeRunActivity(runtimeEventBus, {
+          onCalled: noteToolCalled,
+          onResult: noteToolResult,
+        });
         let response: string;
         try {
           response = await runtime.execute({
@@ -176,8 +185,9 @@ export function useOfficeRuntime({
             projectId,
           });
         } finally {
-          // InMemoryEventBus has no auto-cleanup — always release this handler.
+          // InMemoryEventBus has no auto-cleanup — always release these handlers.
           unsubscribe();
+          unsubscribeActivity();
         }
         // A late-resolving Stop: keep whatever already streamed into the draft
         // (do not overwrite with the authoritative response, do not persist).
@@ -247,6 +257,8 @@ export function useOfficeRuntime({
       stop,
       setRunError,
       persistRuntimeMessage,
+      noteToolCalled,
+      noteToolResult,
     ],
   );
 

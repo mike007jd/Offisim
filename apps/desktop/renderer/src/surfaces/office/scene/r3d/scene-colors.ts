@@ -126,3 +126,13 @@ export const SCENE_LIGHTING_COLORS = {
   bounceFront: '#ffe1bf',
   bounceBack: '#cfd8e8',
 } as const;
+
+/** Lightformer emitter colours for the IBL environment rig (SceneEnvironment).
+ *  Kept here so the raw scene-art hex values stay in the allowlisted module. */
+export const SCENE_ENV_COLORS = {
+  ceiling: '#fff6e8',
+  sideFill: '#cdddf2',
+  frontBounce: '#ffe2c0',
+  backRim: '#eef3fb',
+  streak: '#ffffff',
+} as const;

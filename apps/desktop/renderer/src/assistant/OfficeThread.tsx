@@ -11,6 +11,7 @@ import { MessageSquarePlus, Paperclip, SendHorizontal } from 'lucide-react';
 import { type DragEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { StagedAttachments } from './composer/StagedAttachments.js';
 import { ChatErrorBanner } from './parts/ChatErrorBanner.js';
+import { RunActivityStrip } from './parts/RunActivityStrip.js';
 import { SkillInstallConfirmBar } from './parts/SkillInstallConfirmBar.js';
 import { MeetingTray } from './parts/Meeting.js';
 import { useRunStore } from './run-store.js';
@@ -160,6 +161,7 @@ function OfficeComposer({
         stageFileList(event.dataTransfer.files);
       }}
     >
+      <RunActivityStrip />
       <div className="off-composer-shell">
         <ComposerPrimitive.Input
           className="off-composer-input"
@@ -190,7 +192,7 @@ function OfficeComposer({
           <span className="off-composer-context" title={projectName}>
             {projectName}
           </span>
-          <div className="off-composer-pits" aria-label="Thread outputs and follow-up">
+          <div className="off-thread-pitbar" aria-label="Thread outputs and follow-up">
             <MeetingTray />
             <ConvOutputs deliverables={deliverables} employeesById={employeesById} />
           </div>

@@ -9,12 +9,16 @@ import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import { Input } from '@/design-system/primitives/input.js';
 import {
+  CHAT_PROVIDER_ID_PRIORITY,
   type RuntimeProviderProfile,
+  getPreferredProviderId,
   isDesktopProviderBridgeAvailable,
   loadRuntimeProviderProfiles,
   safeErrorMessage,
   sendProviderText,
+  setPreferredProviderId,
 } from '@/lib/provider-bridge.js';
+import { useUiState } from '@/app/ui-state.js';
 import {
   AlertTriangle,
   Check,
@@ -95,6 +99,26 @@ function createProviderTestRequestId(profileId: string): string {
   return `provider-test-${profileId}-${crypto.randomUUID()}`;
 }
 
+/**
+ * The provider config the chat runtime will actually pick, mirroring
+ * `findDefaultChatProviderProfile`: explicit user choice first, then a local
+ * endpoint, then z.ai, then MiniMax, then any credentialed profile. Used to
+ * badge "In use for chat" on the right card.
+ */
+function resolveEffectiveChatConfigId(
+  configs: readonly ProviderConfig[],
+  preferredId: string | null,
+): string | null {
+  const cred = (id: string) => configs.find((c) => c.hasStoredKey && c.id === id)?.id;
+  return (
+    (preferredId ? cred(preferredId) : undefined) ??
+    configs.find((c) => c.hasStoredKey && c.hostResolved)?.id ??
+    CHAT_PROVIDER_ID_PRIORITY.map(cred).find(Boolean) ??
+    configs.find((c) => c.hasStoredKey)?.id ??
+    null
+  );
+}
+
 function providerLogoStyle(config: ProviderConfig): CSSProperties {
   return {
     '--off-provider-brand-a': config.logoGradient[0],
@@ -118,6 +142,10 @@ export function ProviderPane({
   const [revealKey, setRevealKey] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testMessage, setTestMessage] = useState<string | null>(null);
+  const [preferredProviderId, setPreferredProviderIdState] = useState<string | null>(() =>
+    getPreferredProviderId(),
+  );
+  const companyId = useUiState((s) => s.companyId);
   const product = form.watch('product');
   const accessMode = form.watch('accessMode');
   const isManaged = accessMode === 'managed';
@@ -125,6 +153,8 @@ export function ProviderPane({
   const providerBridgeAvailable = isDesktopProviderBridgeAvailable();
 
   const active = resolveActiveProviderConfig(configs, activeConfigId);
+  const effectiveChatConfigId = resolveEffectiveChatConfigId(configs, preferredProviderId);
+  const inUseForChat = effectiveChatConfigId === active.id;
   const modelSuggestions = useMemo(() => modelSuggestionsFromConfigs(configs), [configs]);
   const catalogSources = useMemo(() => catalogSourcesFromConfigs(configs), [configs]);
   const runtimeProfileRefreshLabel = providerBridgeAvailable
@@ -173,6 +203,29 @@ export function ProviderPane({
     }
   }
 
+  async function handleUseForChat() {
+    if (!active.hasStoredKey) {
+      toast.error(`${active.displayName} has no stored key`, {
+        description: 'Save an API key for this provider before using it for chat.',
+      });
+      return;
+    }
+    setPreferredProviderId(active.id);
+    setPreferredProviderIdState(active.id);
+    // Evict the cached per-company runtime so the next chat reassembles against
+    // the newly-selected provider (the runtime resolves the provider once at
+    // assembly time).
+    if (companyId) {
+      const { disposeDesktopAgentRuntime } = await import(
+        '@/runtime/desktop-agent-runtime.js'
+      );
+      await disposeDesktopAgentRuntime(companyId).catch(() => undefined);
+    }
+    toast.success(`${active.displayName} is now your chat provider`, {
+      description: active.model ? `Model · ${active.model}` : undefined,
+    });
+  }
+
   async function handleRefreshCatalog() {
     if (!providerBridgeAvailable) {
       toast.error('Runtime profile refresh requires the desktop runtime');
@@ -209,6 +262,7 @@ export function ProviderPane({
                 <StatusPill tone={active.hasStoredKey ? 'ok' : 'muted'}>
                   {active.hasStoredKey ? 'Connected' : 'No key'}
                 </StatusPill>
+                {inUseForChat ? <StatusPill tone="accent">In use for chat</StatusPill> : null}
               </div>
               <div className="off-set-pv-meta">
                 {[active.model, `${active.lane} lane`, active.region, active.endpointKind]
@@ -226,6 +280,11 @@ export function ProviderPane({
                   <Icon icon={Check} size="sm" />
                   Saved
                 </span>
+              ) : null}
+              {active.hasStoredKey && !inUseForChat ? (
+                <Button variant="outline" size="md" onClick={() => void handleUseForChat()}>
+                  Use for chat
+                </Button>
               ) : null}
               <Button
                 variant="outline"

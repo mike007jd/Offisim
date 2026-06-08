@@ -7,6 +7,7 @@ import {
   listTemplates,
   seedDefaultCostRates,
 } from '@offisim/core/browser';
+import { ensureCompanyWorkspaceProjectId } from './ensure-default-workspace.js';
 
 /**
  * Real backend access for the renderer: Drizzle (sqlite-proxy over
@@ -73,4 +74,9 @@ async function ensureSeededCompany(repos: RuntimeRepositories): Promise<void> {
     repos.zones,
   );
   await service.materializeTemplate(template.id, companyId);
+
+  // Bind a default workspace directory so the seeded company can run file/shell
+  // tools out of the box (best-effort: a provisioning failure must not block
+  // first-run seeding — the runtime re-ensures this lazily on first chat).
+  await ensureCompanyWorkspaceProjectId(repos, companyId).catch(() => undefined);
 }

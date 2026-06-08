@@ -9,7 +9,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ACESFilmicToneMapping, type Camera, Plane, Raycaster, Vector2, Vector3 } from 'three';
 import { BlockCharacter } from './BlockCharacter.js';
 import { RoomShell } from './r3d/RoomShell.js';
+import { SceneEnvironment } from './r3d/SceneEnvironment.js';
 import { SceneLighting } from './r3d/SceneLighting.js';
+import { ScenePostFx } from './r3d/ScenePostFx.js';
 import { BookshelfMesh3D } from './r3d/prefabs/BookshelfMesh3D.js';
 import { DecorativeMesh3D } from './r3d/prefabs/DecorativeMesh3D.js';
 import { MeetingTableMesh3D } from './r3d/prefabs/MeetingTableMesh3D.js';
@@ -18,7 +20,7 @@ import { RestAreaMesh3D } from './r3d/prefabs/RestAreaMesh3D.js';
 import { ServerRackUnit3D } from './r3d/prefabs/ServerRackMesh3D.js';
 import { WhiteboardMesh3D } from './r3d/prefabs/WhiteboardMesh3D.js';
 import { WorkstationUnit3D } from './r3d/prefabs/WorkstationMesh3D.js';
-import { OFFICE_CAMERA_PRESET } from './r3d/scene-art-direction.js';
+import { OFFICE_CAMERA_PRESET, SCENE_CONTENT_SCALE } from './r3d/scene-art-direction.js';
 import { LIGHT_SCENE_3D } from './r3d/scene-colors.js';
 import { compactSceneEmployeeName } from './scene-labels.js';
 import {
@@ -82,8 +84,6 @@ interface OfficeScene3DProps {
   readonly selectedPrefabId?: string | null;
   readonly onPrefabSelect?: (instanceId: string) => void;
   readonly onPrefabMove?: (move: ScenePrefabMove) => void;
-  /** Free orbit/pan — Studio editor only. Office stays a fixed oblique camera. */
-  readonly allowOrbit?: boolean;
 }
 
 const ZONE_TINT: Record<string, string> = {
@@ -258,9 +258,15 @@ function ScenePrefabInstance3D({
 
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: r3f raycaster on a 3D prefab; editable prefab selection is also reachable through Studio inspector controls
+    // SCENE_CONTENT_SCALE lives on the placement group (not a single scene-wide
+    // root) on purpose: `position` stays in stored authoring coordinates while
+    // the drag/placement raycaster hits the world-space y=0 plane, so scaling
+    // here keeps stored coords == world coords. A shared scaled root would force
+    // every ground hit to be divided by the scale to round-trip into storage.
     <group
       position={[instance.position_x, 0, instance.position_y]}
       rotation={[0, (instance.rotation * Math.PI) / 180, 0]}
+      scale={SCENE_CONTENT_SCALE}
       onClick={(e) => {
         if (!onSelect) return;
         e.stopPropagation();
@@ -606,7 +612,9 @@ function EmployeeUnit({
   };
 
   return (
-    <group position={[x, 0, z]}>
+    // Scale the whole unit (character, selection ring, label, fallback desk)
+    // together so they stay proportional; the seat position stays unscaled.
+    <group position={[x, 0, z]} scale={SCENE_CONTENT_SCALE}>
       {withDesk ? (
         <WorkstationUnit3D position={[0, 0, -1.8]} rotation={0} variant="compact" />
       ) : null}
@@ -753,7 +761,7 @@ function SceneDropNoticeLabel({ notice }: { notice: SceneDropNotice }) {
 /** Synthetic furniture for the fallback layout (no real prefab instances). */
 function FallbackFurniture() {
   return (
-    <>
+    <group scale={SCENE_CONTENT_SCALE}>
       <MeetingTableMesh3D position={[8.5, 0, -8.5]} rotation={0} capacity={8} />
       <ServerRackUnit3D position={[1, 0, -13]} rotation={0} heightScale={1.24} />
       <ServerRackUnit3D position={[-1, 0, -13]} rotation={0} />
@@ -762,7 +770,7 @@ function FallbackFurniture() {
       <DecorativeMesh3D position={[12.5, 0, 11]} rotation={0} template="plant-large" />
       <DecorativeMesh3D position={[3.5, 0, 11]} rotation={0} template="plant-small" />
       <WhiteboardMesh3D position={[8.5, 0, -14]} rotation={0} />
-    </>
+    </group>
   );
 }
 
@@ -773,7 +781,6 @@ export function OfficeScene3D({
   selectedPrefabId = null,
   onPrefabSelect,
   onPrefabMove,
-  allowOrbit = false,
 }: OfficeScene3DProps) {
   const companyId = useUiState((s) => s.companyId);
   const projectId = useUiState((s) => s.projectId);
@@ -838,6 +845,7 @@ export function OfficeScene3D({
       <color attach="background" args={[LIGHT_SCENE_3D.sceneBackground]} />
 
       <SceneLighting />
+      <SceneEnvironment />
       <RoomShell onFloorClick={placementEnabled ? undefined : closeThread} />
 
       {zoneDefs.map((zone) => (
@@ -941,20 +949,32 @@ export function OfficeScene3D({
       ) : null}
       {dropNotice ? <SceneDropNoticeLabel key={dropNotice.id} notice={dropNotice} /> : null}
 
-      <ContactShadows position={[0, 0.02, 0]} opacity={0.3} scale={48} blur={2.6} far={8} />
-      {/* Office: fixed oblique top-down, rotation/pan locked, gentle zoom only.
-          Studio editor opts into free orbit/pan via allowOrbit. */}
+      <ContactShadows
+        position={[0, 0.02, 0]}
+        opacity={0.32}
+        scale={54}
+        blur={2.4}
+        far={9}
+        resolution={1024}
+      />
+      {/* Free orbit camera: drag to rotate, two-finger / right-drag to pan,
+          scroll to zoom. Damped for a premium feel. Polar clamps keep the user
+          above the floor plane; OrbitControls is suspended mid-drag so employee
+          and prefab dragging keep the camera still. */}
       <OrbitControls
         makeDefault
         target={OFFICE_CAMERA_PRESET.target}
         enabled={!employeeDrag && !prefabDrag && !placementEnabled}
-        enableRotate={allowOrbit}
-        enablePan={allowOrbit}
+        enableRotate
+        enablePan
+        enableDamping
+        dampingFactor={0.075}
         minDistance={OFFICE_CAMERA_PRESET.minDistance}
         maxDistance={OFFICE_CAMERA_PRESET.maxDistance}
-        minPolarAngle={0.45}
-        maxPolarAngle={1.35}
+        minPolarAngle={OFFICE_CAMERA_PRESET.minPolarAngle}
+        maxPolarAngle={OFFICE_CAMERA_PRESET.maxPolarAngle}
       />
+      <ScenePostFx />
     </Canvas>
   );
 }

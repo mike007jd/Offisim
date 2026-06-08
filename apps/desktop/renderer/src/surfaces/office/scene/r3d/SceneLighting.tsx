@@ -16,25 +16,25 @@ export function SceneLighting() {
         args={[
           SCENE_LIGHTING_COLORS.hemisphereSky,
           SCENE_LIGHTING_COLORS.hemisphereGround,
-          0.42,
+          0.32,
         ]}
-        intensity={0.42}
+        intensity={0.32}
       />
       <directionalLight
         castShadow
         position={[12, 25, 12]}
-        intensity={1.35}
+        intensity={1.4}
         color={SCENE_LIGHTING_COLORS.key}
-        shadow-mapSize={[2048, 2048]}
-        shadow-bias={-0.00035}
-        shadow-normalBias={0.02}
-        shadow-radius={4}
+        shadow-mapSize={[4096, 4096]}
+        shadow-bias={-0.0003}
+        shadow-normalBias={0.022}
+        shadow-radius={3.5}
         shadow-camera-near={0.5}
         shadow-camera-far={80}
-        shadow-camera-left={-25}
-        shadow-camera-right={25}
-        shadow-camera-top={20}
-        shadow-camera-bottom={-20}
+        shadow-camera-left={-24}
+        shadow-camera-right={24}
+        shadow-camera-top={22}
+        shadow-camera-bottom={-22}
       />
       <directionalLight
         position={[-15, 12, -10]}
@@ -62,8 +62,8 @@ export function SceneLighting() {
         color={SCENE_LIGHTING_COLORS.bounceBack}
         decay={1.5}
       />
-      <ambientLight intensity={0.2} />
-      <fog attach="fog" args={[sc.sceneBackground, 48, 160]} />
+      <ambientLight intensity={0.1} />
+      <fog attach="fog" args={[sc.sceneBackground, 60, 180]} />
     </>
   );
 }

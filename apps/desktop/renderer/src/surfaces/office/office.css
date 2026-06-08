@@ -958,6 +958,122 @@
   font-style: italic;
 }
 
+/* Markdown deliverable rendering inside an employee reply. Reads as a document
+   (real heading scale, lists, tables, fenced code) rather than a flat dump.
+   Token-only type/radius/colour so it passes UI-framework hygiene. */
+.off-office-md {
+  font-size: var(--off-fs-base);
+  line-height: 1.6;
+  color: var(--off-ink-1);
+}
+.off-office-md > :first-child {
+  margin-top: 0;
+}
+.off-office-md > :last-child {
+  margin-bottom: 0;
+}
+.off-office-md p {
+  margin: 0 0 var(--off-sp-3);
+}
+.off-office-md h1,
+.off-office-md h2,
+.off-office-md h3,
+.off-office-md h4 {
+  margin: var(--off-sp-4) 0 var(--off-sp-2);
+  font-weight: 680;
+  line-height: 1.3;
+  color: var(--off-ink-1);
+}
+.off-office-md h1 {
+  font-size: var(--off-fs-xl);
+}
+.off-office-md h2 {
+  font-size: var(--off-fs-lg);
+}
+.off-office-md h3,
+.off-office-md h4 {
+  font-size: var(--off-fs-base);
+}
+.off-office-md ul,
+.off-office-md ol {
+  margin: 0 0 var(--off-sp-3);
+  padding-left: var(--off-sp-5);
+}
+.off-office-md li {
+  margin: var(--off-sp-1) 0;
+}
+.off-office-md li > ul,
+.off-office-md li > ol {
+  margin: var(--off-sp-1) 0 0;
+}
+.off-office-md-link {
+  color: var(--off-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: default;
+}
+.off-office-md strong {
+  font-weight: 680;
+  color: var(--off-ink-1);
+}
+.off-office-md em {
+  font-style: italic;
+}
+.off-office-md code {
+  font-family: var(--off-font-mono);
+  font-size: var(--off-fs-sm);
+  background: var(--off-surface-sunken);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-2xs);
+  padding: 0 var(--off-sp-1);
+}
+.off-office-md pre {
+  margin: 0 0 var(--off-sp-3);
+  padding: var(--off-sp-3);
+  background: var(--off-surface-sunken);
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-md);
+  overflow-x: auto;
+}
+.off-office-md pre code {
+  display: block;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  font-size: var(--off-fs-sm);
+  line-height: 1.55;
+  color: var(--off-ink-1);
+  white-space: pre;
+}
+.off-office-md blockquote {
+  margin: 0 0 var(--off-sp-3);
+  padding-left: var(--off-sp-4);
+  border-left: 2px solid var(--off-line-strong);
+  color: var(--off-ink-3);
+}
+.off-office-md table {
+  width: 100%;
+  margin: 0 0 var(--off-sp-3);
+  border-collapse: collapse;
+  font-size: var(--off-fs-sm);
+}
+.off-office-md th,
+.off-office-md td {
+  border: 1px solid var(--off-line);
+  padding: var(--off-sp-1) var(--off-sp-2);
+  text-align: left;
+}
+.off-office-md th {
+  background: var(--off-surface-sunken);
+  font-weight: 640;
+}
+.off-office-md hr {
+  margin: var(--off-sp-4) 0;
+  border: 0;
+  border-top: 1px solid var(--off-line);
+}
+
 /* Attachment chip */
 .off-attachment {
   display: grid;
@@ -1233,7 +1349,7 @@
   min-width: 0;
 }
 
-.off-composer-pits {
+.off-thread-pitbar {
   flex: 1 1 auto;
   display: inline-flex;
   align-items: center;
@@ -1267,7 +1383,7 @@
 }
 
 .off-composer-send {
-  height: 30px;
+  height: var(--off-composer-send-h);
   flex: 0 0 auto;
   padding: 0 var(--off-sp-3);
   display: inline-flex;
@@ -1294,6 +1410,59 @@
 .off-composer-send:disabled {
   opacity: 0.45;
   pointer-events: none;
+}
+
+/* Live tool-activity strip (RunActivityStrip): builtin/MCP tool calls shown in
+   the chat column as the agent works. Token-only type/radius/colour. */
+.off-run-activity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--off-sp-2);
+  margin-bottom: var(--off-sp-2);
+  padding: var(--off-sp-1) var(--off-sp-2);
+  font-size: var(--off-fs-meta);
+  color: var(--off-ink-3);
+}
+.off-run-act-lead {
+  font-weight: 620;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--off-ink-4);
+}
+.off-run-act-more {
+  color: var(--off-ink-4);
+}
+.off-run-act {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--off-sp-1);
+  height: 18px;
+  padding: 0 var(--off-sp-2);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-pill);
+  background: var(--off-surface-1);
+  font-family: var(--off-font-mono);
+  color: var(--off-ink-2);
+}
+.off-run-act-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: var(--off-r-round);
+  background: var(--off-ink-4);
+}
+.off-run-act.is-running {
+  border-color: var(--off-accent-ring);
+  color: var(--off-ink-1);
+}
+.off-run-act.is-running .off-run-act-dot {
+  background: var(--off-accent);
+}
+.off-run-act.is-done .off-run-act-dot {
+  background: var(--off-ok);
+}
+.off-run-act.is-error .off-run-act-dot {
+  background: var(--off-danger);
 }
 
 .off-thread-pit {
@@ -1928,7 +2097,6 @@
   background: color-mix(in srgb, var(--off-surface-1) 98%, transparent);
   box-shadow: var(--off-elev-3);
   z-index: calc(var(--off-z-overlay) + 1);
-  backdrop-filter: blur(12px);
 }
 .off-resume-menu-item {
   display: grid;
@@ -2226,6 +2394,7 @@
 .off-team.is-collapsed .off-team-card,
 .off-team.is-collapsed .off-team-add {
   width: auto;
+  /* fits the 50px collapsed dock strip (expanded card is 68px) */
   height: 34px;
   padding: 0 var(--off-sp-3);
 }

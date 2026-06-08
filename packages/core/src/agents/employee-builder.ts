@@ -74,6 +74,15 @@ export function buildEmployeePrompt(
   lines.push(
     '- Keep explanation outside the artifact short and only include it when it materially helps the user use the result.',
   );
+  lines.push(
+    '- Deliver, do not narrate. Lead with the result the user asked for. Your tool calls and their raw output are shown to the user separately, so do not replay a step-by-step log of what you ran, and do not paste raw command/file output back into the reply unless the user asked to see it.',
+  );
+  lines.push(
+    '- Write the reply as one coherent, scannable deliverable: a short lead answer first, then only the sections, bullets, or table that actually matter. Use Markdown — headings, lists, tables, and fenced code blocks are rendered for the user.',
+  );
+  lines.push(
+    '- Be concise. Cut filler, restated instructions, and meta-commentary about your own process. Prefer the shortest reply that fully answers the task and is verifiable.',
+  );
 
   return lines.join('\n');
 }

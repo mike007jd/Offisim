@@ -42,12 +42,63 @@ export async function loadRuntimeProviderProfiles(): Promise<RuntimeProviderProf
   return invoke<RuntimeProviderProfile[]>('runtime_provider_profiles');
 }
 
+/** localStorage key for the user's explicitly chosen chat provider profile id. */
+const PREFERRED_PROVIDER_STORAGE_KEY = 'offisim:active-provider-id';
+
+/** The provider profile id the user picked in Settings → Providers ("Use for
+ *  chat"), or null when they have not chosen one (use the default priority). */
+export function getPreferredProviderId(): string | null {
+  try {
+    if (typeof localStorage === 'undefined') return null;
+    return localStorage.getItem(PREFERRED_PROVIDER_STORAGE_KEY)?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Persist (or clear) the user's chosen chat provider. The desktop runtime is
+ *  cached per company, so the caller must dispose it after changing this so the
+ *  next chat reassembles against the newly-selected provider. */
+export function setPreferredProviderId(id: string | null): void {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    const trimmed = id?.trim();
+    if (trimmed) localStorage.setItem(PREFERRED_PROVIDER_STORAGE_KEY, trimmed);
+    else localStorage.removeItem(PREFERRED_PROVIDER_STORAGE_KEY);
+  } catch {
+    /* best-effort: a private-mode storage failure must not break selection */
+  }
+}
+
+/** Ordered provider profile ids the chat runtime prefers (highest first), once
+ *  the user's explicit choice and a local endpoint are exhausted. Shared with
+ *  the Settings "In use for chat" badge (resolveEffectiveChatConfigId) so the
+ *  two can never silently drift. */
+export const CHAT_PROVIDER_ID_PRIORITY = [
+  'zai-anthropic',
+  'zai',
+  'minimax',
+  'minimax-openai',
+] as const;
+
+/**
+ * Pick the chat provider profile. Priority:
+ *   1. the user's explicit choice (Settings → "Use for chat"), if it has a key
+ *   2. a credentialed local endpoint (ollama-style)
+ *   3. CHAT_PROVIDER_ID_PRIORITY by id (z.ai's Anthropic lane first, then MiniMax)
+ *   4. MiniMax by display name
+ *   5. any profile with a stored credential
+ */
 export function findDefaultChatProviderProfile(
   profiles: readonly RuntimeProviderProfile[],
 ): RuntimeProviderProfile | null {
+  const credentialed = (id: string) =>
+    profiles.find((candidate) => candidate.hasCredential && candidate.id === id);
+  const preferredId = getPreferredProviderId();
   return (
+    (preferredId ? credentialed(preferredId) : undefined) ??
     profiles.find((candidate) => candidate.hasCredential && candidate.localEndpoint) ??
-    profiles.find((candidate) => candidate.hasCredential && candidate.id === 'minimax') ??
+    CHAT_PROVIDER_ID_PRIORITY.map(credentialed).find(Boolean) ??
     profiles.find(
       (candidate) =>
         candidate.hasCredential && candidate.displayName.toLowerCase().includes('minimax'),

@@ -770,7 +770,6 @@ export function StudioSurface() {
         </div>
         <div className="off-studio-canvas-host">
           <OfficeScene3D
-            allowOrbit
             placementEnabled={tool === 'place' && Boolean(placing) && Boolean(layout.data) && !busy}
             placementProbe={placementProbe}
             onPlacementPoint={placeOnCanvas}

@@ -20,8 +20,9 @@ import {
 } from '@offisim/core/browser';
 import { ModelResolver, createGateway } from '@offisim/core/llm';
 import { AuditingToolExecutor, McpToolExecutor } from '@offisim/core/mcp';
+import { LlmMiddlewareChain, SummarizationMiddleware } from '@offisim/core/middleware';
 import { HumanMessage, buildOffisimGraph, createRuntimeContext } from '@offisim/core/runtime';
-import { OrchestrationService } from '@offisim/core/services';
+import { ConversationBudgetService, OrchestrationService } from '@offisim/core/services';
 import { CompositeToolExecutor, createBuiltinTools } from '@offisim/core/tools';
 import type {
   InteractionResponse,
@@ -29,6 +30,7 @@ import type {
   ModelPolicyConfig,
   SkillInstallOutcomeKind,
 } from '@offisim/shared-types';
+import { ensureProjectBoundForRun } from './ensure-default-workspace.js';
 import { getRepos, runtimeEventBus } from './repos.js';
 
 /**
@@ -100,6 +102,8 @@ class DesktopAgentRuntimeImpl implements DesktopAgentRuntime {
     private readonly interactionService: InteractionService,
     private readonly mcpExecutor: McpToolExecutor,
     private readonly skillStagingManager: SkillStagingManager,
+    private readonly companyId: string,
+    private readonly repos: RuntimeRepositories,
   ) {}
 
   async resolveInteraction(response: InteractionResponse): Promise<SkillInstallOutcomeKind | null> {
@@ -115,15 +119,25 @@ class DesktopAgentRuntimeImpl implements DesktopAgentRuntime {
   }
 
   async execute(input: DesktopAgentRunInput): Promise<string> {
+    // Capability-first: make sure this run is scoped to a project with a real
+    // workspace_root so file/shell tools work. Binds the requested project in
+    // place when it is unbound (keeps thread scoping stable), else falls back to
+    // the company default workspace project. In the common case the bootstrap
+    // already selected a bound project, so this resolves to input.projectId.
+    const projectId = await ensureProjectBoundForRun(
+      this.repos,
+      this.companyId,
+      input.projectId,
+    );
     const finalState = await this.orchestration.execute({
       entryMode: 'direct_chat',
       messages: [new HumanMessage(input.text)],
       targetEmployeeId: input.employeeId ?? null,
       threadId: input.threadId,
-      projectId: input.projectId,
+      projectId,
       runScope: {
         // Convention: `<projectId>::<threadId>::<employeeId?>`.
-        conversationKey: `${input.projectId ?? ''}::${input.threadId}::${input.employeeId ?? ''}`,
+        conversationKey: `${projectId ?? ''}::${input.threadId}::${input.employeeId ?? ''}`,
         runId: `run-${crypto.randomUUID()}`,
         threadId: input.threadId,
       },
@@ -210,7 +224,13 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
     // The real secret is injected Rust-side and the SDK auth header is stripped;
     // this sentinel only satisfies the SDK constructor's non-empty key check.
     apiKey: 'tauri-managed',
-    ...(coreProvider === 'anthropic' ? {} : { baseURL: profile.baseUrl }),
+    // Always pass the profile baseURL — including for the anthropic lane. The
+    // AnthropicAdapter needs the real host to detect a third-party endpoint
+    // (Bearer auth + CORS-friendly shim + prompt-caching capability); omitting
+    // it left the SDK defaulting to api.anthropic.com, which broke any
+    // anthropic-compatible provider on a custom host (e.g. z.ai's Claude-Code
+    // endpoint https://api.z.ai/api/anthropic).
+    baseURL: profile.baseUrl,
     dangerouslyAllowBrowser: true,
     fetch: transportFetch,
   });
@@ -343,12 +363,25 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
     }),
   });
 
+  // Long-horizon context management. Without a middleware chain the runtime
+  // fell back to a crude fixed message trim AND rethrew any context-overflow
+  // (413) with no recovery. Wiring the ConversationBudgetService activates
+  // micro-compaction of bloated tool results, a running thread synopsis, full
+  // compaction near the context window, and the 413 self-heal path in
+  // recorded-call.ts. Defaults only trigger synopsis/full-compaction on long
+  // conversations (≥80 messages / ≥60k tokens), so short chats pay no extra LLM
+  // call. This is desktop-only — the deterministic harness (scenario-runner)
+  // intentionally runs without it, so the contract replay is unaffected.
+  const middlewareChain = new LlmMiddlewareChain();
+  middlewareChain.register(new SummarizationMiddleware(new ConversationBudgetService()));
+
   const runtimeCtx = createRuntimeContext({
     repos,
     eventBus: runtimeEventBus,
     llmGateway,
     modelResolver,
     toolExecutor,
+    middlewareChain,
     companyId,
     // Placeholder — OrchestrationService.execute() overrides this per run.
     threadId: baseThreadId,
@@ -374,6 +407,8 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
     interactionService,
     mcpExecutor,
     skillStagingManager,
+    companyId,
+    repos,
   );
 }
 

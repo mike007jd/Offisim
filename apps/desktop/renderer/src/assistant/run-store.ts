@@ -46,6 +46,20 @@ interface StageFileInput {
   file?: { arrayBuffer(): Promise<ArrayBuffer> };
 }
 
+/** One tool call surfaced live while a run is in flight. Fed from the graph's
+ *  `tool.execution.telemetry` stream so the user can see builtin, workstation,
+ *  runtime-profile, and MCP tools actually working. */
+export interface RunToolActivity {
+  id: string;
+  tool: string;
+  state: 'running' | 'done' | 'error';
+}
+
+/** Cap on retained `activity` entries. Only the last few ever render, so a long
+ *  agentic run (MAX_TOOL_ROUNDS up to 200) must not grow this unbounded; the
+ *  true count is preserved separately via `activityTotal`. */
+const MAX_ACTIVITY_ENTRIES = 12;
+
 interface RunStore {
   threadId: string | null;
   isRunning: boolean;
@@ -54,6 +68,12 @@ interface RunStore {
   meeting: MeetingState | null;
   staged: StagedAttachment[];
   storageAvailable: boolean;
+  /** Live tool activity for the in-flight run (cleared when a new run starts).
+   *  Capped to the last MAX_ACTIVITY_ENTRIES; older entries are dropped. */
+  activity: RunToolActivity[];
+  /** Total tool calls noted this run, including ones evicted from `activity`.
+   *  Source of monotonic activity ids and the strip's "+N hidden" count. */
+  activityTotal: number;
 
   /** Bind the store to the active thread; seeds run/error/meeting from its state. */
   syncThread: (threadId: string, runState: RunState) => void;
@@ -78,6 +98,10 @@ interface RunStore {
    * running flag so the control is never inert.
    */
   requestStop: () => void;
+  /** Record that a tool call started (appends a `running` activity entry). */
+  noteToolCalled: (tool: string) => void;
+  /** Resolve the most recent `running` entry for a tool to done/error. */
+  noteToolResult: (tool: string, success: boolean) => void;
   /** Surface a real run failure into the in-thread error banner. */
   setError: (error: RunError) => void;
   /** Clear the error banner. */
@@ -126,6 +150,8 @@ export const useRunStore = create<RunStore>((set, get) => ({
   staged: [],
   storageAvailable: true,
   stopHandler: null,
+  activity: [],
+  activityTotal: 0,
 
   syncThread: (threadId, runState) => {
     const running = runState === 'running' || runState === 'paused';
@@ -138,6 +164,8 @@ export const useRunStore = create<RunStore>((set, get) => ({
       // MeetingTray/MeetingRegion render nothing rather than asserting a meeting.
       meeting: null,
       staged: [],
+      activity: [],
+      activityTotal: 0,
     });
   },
 
@@ -146,8 +174,39 @@ export const useRunStore = create<RunStore>((set, get) => ({
       isRunning: true,
       pipeline: makePipeline(title ?? 'Provider response', assigneeId ?? null),
       error: null,
+      activity: [],
+      activityTotal: 0,
     });
   },
+
+  noteToolCalled: (tool) =>
+    set((s) => {
+      const total = s.activityTotal + 1;
+      // Id is keyed off the monotonic total so it stays unique past eviction.
+      const activity = [
+        ...s.activity,
+        { id: `act-${total}-${tool}`, tool, state: 'running' as const },
+      ].slice(-MAX_ACTIVITY_ENTRIES);
+      return { activity, activityTotal: total };
+    }),
+
+  noteToolResult: (tool, success) =>
+    set((s) => {
+      // Resolve the latest still-running entry for this tool name.
+      let target = -1;
+      for (let i = s.activity.length - 1; i >= 0; i--) {
+        if (s.activity[i]?.tool === tool && s.activity[i]?.state === 'running') {
+          target = i;
+          break;
+        }
+      }
+      if (target < 0) return {};
+      return {
+        activity: s.activity.map((entry, i) =>
+          i === target ? { ...entry, state: success ? ('done' as const) : ('error' as const) } : entry,
+        ),
+      };
+    }),
 
   finish: () => {
     const current = get().pipeline;

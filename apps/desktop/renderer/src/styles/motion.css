@@ -57,6 +57,28 @@
     var(--off-motion-fast) var(--off-motion-ease);
 }
 
+/* Streaming reply caret — a soft accent block that blinks while tokens arrive,
+   replacing the unstyled literal "|". Lives in motion.css so the
+   prefers-reduced-motion block below neutralises it. */
+@keyframes off-caret-blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  50.01%,
+  100% {
+    opacity: 0;
+  }
+}
+.off-msg-cursor {
+  display: inline-block;
+  width: 0.5em;
+  margin-left: 1px;
+  color: var(--off-accent);
+  font-weight: 600;
+  animation: off-caret-blink var(--off-motion-loop-fast) steps(1) infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
