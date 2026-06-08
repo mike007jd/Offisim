@@ -3,7 +3,7 @@ import { useEmployees, useOfficeLayout, useReassignEmployee, useThreads } from '
 import type { Employee } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
 import type { PrefabDefinition, PrefabInstanceRow } from '@offisim/shared-types';
-import { ContactShadows, Html, OrbitControls } from '@react-three/drei';
+import { Html, OrbitControls } from '@react-three/drei';
 import { Canvas, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ACESFilmicToneMapping, type Camera, Plane, Raycaster, Vector2, Vector3 } from 'three';
@@ -25,7 +25,7 @@ import { LIGHT_SCENE_3D } from './r3d/scene-colors.js';
 import { compactSceneEmployeeName } from './scene-labels.js';
 import {
   type ZoneDef,
-  employeePositions,
+  employeePlacements,
   defaultEmployeeZone as resolveDefaultEmployeeZone,
   zoneDefsFromLayout,
 } from './scene-layout.js';
@@ -257,12 +257,12 @@ function ScenePrefabInstance3D({
   };
 
   return (
-    // biome-ignore lint/a11y/useKeyWithClickEvents: r3f raycaster on a 3D prefab; editable prefab selection is also reachable through Studio inspector controls
     // SCENE_CONTENT_SCALE lives on the placement group (not a single scene-wide
     // root) on purpose: `position` stays in stored authoring coordinates while
     // the drag/placement raycaster hits the world-space y=0 plane, so scaling
     // here keeps stored coords == world coords. A shared scaled root would force
     // every ground hit to be divided by the scale to round-trip into storage.
+    // biome-ignore lint/a11y/useKeyWithClickEvents: r3f raycaster on a 3D prefab; editable prefab selection is also reachable through Studio inspector controls
     <group
       position={[instance.position_x, 0, instance.position_y]}
       rotation={[0, (instance.rotation * Math.PI) / 180, 0]}
@@ -422,6 +422,7 @@ function EmployeeUnit({
   employee,
   x,
   z,
+  rotation,
   withDesk,
   running,
   active,
@@ -435,6 +436,7 @@ function EmployeeUnit({
   employee: Employee;
   x: number;
   z: number;
+  rotation: number;
   withDesk: boolean;
   running: boolean;
   active: boolean;
@@ -455,8 +457,16 @@ function EmployeeUnit({
     () => (employee.id.charCodeAt(employee.id.length - 1) % 10) * 0.6,
     [employee.id],
   );
-  const labelLane = (employee.id.charCodeAt(employee.id.length - 1) % 3) - 1;
+  const labelSeed = employee.id
+    .split('')
+    .reduce((total, char, index) => total + char.charCodeAt(0) * (index + 1), 0);
+  const labelLane = (labelSeed % 5) - 2;
+  const labelTier = Math.floor(labelSeed / 5) % 3;
+  const labelX = labelLane * 0.3;
+  const labelY = 2.12 + labelTier * 0.18 + Math.abs(labelLane) * 0.06;
+  const labelZ = (labelTier - 1) * 0.24 + labelLane * 0.07;
   const labelText = compactSceneEmployeeName(employee.name);
+  const characterRotation = (rotation * Math.PI) / 180;
 
   useEffect(
     () => () => {
@@ -618,7 +628,7 @@ function EmployeeUnit({
       {withDesk ? (
         <WorkstationUnit3D position={[0, 0, -1.8]} rotation={0} variant="compact" />
       ) : null}
-      {active ? (
+      {active && !dragging ? (
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
           <ringGeometry args={[0.52, 0.64, 40]} />
           <meshBasicMaterial color={LIGHT_SCENE_3D.selectionRing} transparent opacity={0.8} />
@@ -626,6 +636,7 @@ function EmployeeUnit({
       ) : null}
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: r3f raycaster on a 3D object; employees are keyboard-selectable via the team dock and thread list */}
       <group
+        rotation={[0, characterRotation, 0]}
         onClick={(e) => {
           e.stopPropagation();
           onSelect();
@@ -648,18 +659,20 @@ function EmployeeUnit({
           <boxGeometry args={[1.2, 2.1, 1.2]} />
           <meshBasicMaterial transparent opacity={0} depthWrite={false} />
         </mesh>
-        <BlockCharacter
-          appearance={appearance}
-          running={running}
-          phase={phase}
-          opacity={dragging ? 0.24 : 1}
-        />
+        {!dragging ? (
+          <BlockCharacter
+            appearance={appearance}
+            action={active ? 'active' : running ? 'working' : 'idle'}
+            running={running}
+            phase={phase}
+          />
+        ) : null}
       </group>
       {!dragging ? (
         <Html
-          position={[labelLane * 0.28, 2.05 + Math.abs(labelLane) * 0.22, labelLane * 0.14]}
+          position={[labelX, labelY, labelZ]}
           center
-          distanceFactor={16}
+          distanceFactor={18}
           occlude={false}
           className="off-scene-html-interactive"
         >
@@ -704,7 +717,7 @@ function EmployeeDragGhost({ employee, drag }: { employee: Employee; drag: Scene
   );
   const wobble = Math.sin((drag.clientX + drag.clientY) * 0.035) * 0.16;
   const phase = (drag.clientX + drag.clientY) * 0.012;
-  const ghostOpacity = drag.moved ? 0.92 : 0.68;
+  const ghostOpacity = 1;
 
   return (
     <group position={[drag.x, 0.16, drag.z]} rotation={[0, wobble, 0]}>
@@ -713,7 +726,7 @@ function EmployeeDragGhost({ employee, drag }: { employee: Employee; drag: Scene
         <meshBasicMaterial
           color={LIGHT_SCENE_3D.selectionRing}
           transparent
-          opacity={drag.moved ? 0.18 : 0.1}
+          opacity={drag.moved ? 0.12 : 0.06}
           depthWrite={false}
         />
       </mesh>
@@ -722,12 +735,18 @@ function EmployeeDragGhost({ employee, drag }: { employee: Employee; drag: Scene
         <meshBasicMaterial
           color={LIGHT_SCENE_3D.selectionRing}
           transparent
-          opacity={drag.moved ? 0.62 : 0.34}
+          opacity={drag.moved ? 0.42 : 0.24}
           depthWrite={false}
         />
       </mesh>
       <group scale={1.5}>
-        <BlockCharacter appearance={appearance} running phase={phase} opacity={ghostOpacity} />
+        <BlockCharacter
+          appearance={appearance}
+          action="dragging"
+          running
+          phase={phase}
+          opacity={ghostOpacity}
+        />
       </group>
       {drag.moved ? (
         <Html
@@ -806,9 +825,9 @@ export function OfficeScene3D({
 
   const defaultEmployeeZone = useMemo(() => resolveDefaultEmployeeZone(zoneDefs), [zoneDefs]);
 
-  const seatsByEmployee = useMemo(
-    () => employeePositions(roster, zoneDefs, defaultEmployeeZone),
-    [defaultEmployeeZone, roster, zoneDefs],
+  const placementsByEmployee = useMemo(
+    () => employeePlacements(roster, zoneDefs, defaultEmployeeZone, real?.prefabs),
+    [defaultEmployeeZone, real?.prefabs, roster, zoneDefs],
   );
 
   const threadByEmployee = useMemo(() => {
@@ -831,7 +850,7 @@ export function OfficeScene3D({
   return (
     <Canvas
       shadows="soft"
-      dpr={[1, 2]}
+      dpr={[1, 1.75]}
       // Keep R3F's default `frameloop="always"`. We tried "demand" to save
       // idle CPU but BlockCharacter.useFrame mutates `group.position.y`
       // directly via refs (idle bob, walk bob) and never invalidates, so
@@ -896,10 +915,11 @@ export function OfficeScene3D({
       )}
 
       {roster.map((employee) => {
-        const seat = seatsByEmployee.get(employee.id) ?? [
-          defaultEmployeeZone.cx,
-          defaultEmployeeZone.cz,
-        ];
+        const placement = placementsByEmployee.get(employee.id) ?? {
+          x: defaultEmployeeZone.cx,
+          z: defaultEmployeeZone.cz,
+          rotation: 0,
+        };
         const thread = threadByEmployee.get(employee.id);
         const running =
           thread?.runState === 'running' || (liveThread?.scope === 'team' && employee.online);
@@ -907,8 +927,9 @@ export function OfficeScene3D({
           <EmployeeUnit
             key={employee.id}
             employee={employee}
-            x={seat[0]}
-            z={seat[1]}
+            x={placement.x}
+            z={placement.z}
+            rotation={placement.rotation}
             withDesk={!real}
             running={running}
             active={Boolean(thread && thread.id === selectedThreadId)}
@@ -934,8 +955,8 @@ export function OfficeScene3D({
               if (result.moved && !result.zoneId) {
                 setDropNotice({
                   id: `drop-note-${crypto.randomUUID()}`,
-                  x: result.x ?? seat[0],
-                  z: result.z ?? seat[1],
+                  x: result.x ?? placement.x,
+                  z: result.z ?? placement.z,
                   message: 'Drop on a zone',
                 });
               }
@@ -949,14 +970,6 @@ export function OfficeScene3D({
       ) : null}
       {dropNotice ? <SceneDropNoticeLabel key={dropNotice.id} notice={dropNotice} /> : null}
 
-      <ContactShadows
-        position={[0, 0.02, 0]}
-        opacity={0.32}
-        scale={54}
-        blur={2.4}
-        far={9}
-        resolution={1024}
-      />
       {/* Free orbit camera: drag to rotate, two-finger / right-drag to pan,
           scroll to zoom. Damped for a premium feel. Polar clamps keep the user
           above the floor plane; OrbitControls is suspended mid-drag so employee

@@ -5,9 +5,9 @@ import { HalfFloatType } from 'three';
  * Post-processing stack for the office diorama. This is the second half of the
  * fidelity story (the first is the env map in `SceneEnvironment`):
  *
- * - N8AO  — screen-space ambient occlusion. Darkens contact creases (furniture
- *           meeting the floor, books in shelves, racks against the wall) so the
- *           scene reads as solid objects in a space, not floating props.
+ * - N8AO  — screen-space ambient occlusion. Kept deliberately soft so camera
+ *           orbiting does not turn small depth changes into flickering floor
+ *           stains.
  * - Bloom — luminance-thresholded glow. The emissive screens / LEDs / server
  *           lights render raw HDR (`toneMapped={false}`, intensity > 1) so only
  *           they cross the threshold and bloom; matte surfaces stay crisp. This
@@ -25,10 +25,13 @@ export function ScenePostFx() {
   return (
     <EffectComposer multisampling={0} frameBufferType={HalfFloatType}>
       <N8AO
-        aoRadius={1.4}
-        distanceFalloff={1}
-        intensity={2.1}
+        aoRadius={1.05}
+        distanceFalloff={1.25}
+        intensity={1.18}
         quality="medium"
+        aoSamples={16}
+        denoiseSamples={8}
+        denoiseRadius={9}
         halfRes={false}
       />
       <Bloom

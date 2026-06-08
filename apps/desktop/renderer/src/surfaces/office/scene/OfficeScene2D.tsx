@@ -60,8 +60,8 @@ export function OfficeScene2D() {
   const { floorW, floorD } = useMemo(() => floorBounds(zoneDefs), [zoneDefs]);
   const fallbackZone = useMemo(() => defaultEmployeeZone(zoneDefs), [zoneDefs]);
   const positions = useMemo(
-    () => employeePositions(roster, zoneDefs, fallbackZone),
-    [roster, zoneDefs, fallbackZone],
+    () => employeePositions(roster, zoneDefs, fallbackZone, layout.data?.prefabs),
+    [roster, zoneDefs, fallbackZone, layout.data?.prefabs],
   );
 
   const threadList = threads.data;
