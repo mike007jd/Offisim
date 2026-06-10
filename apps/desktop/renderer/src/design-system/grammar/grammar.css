@@ -300,9 +300,14 @@
 }
 
 .off-command-dialog {
-  top: var(--off-command-dialog-top);
+  /* !important: .off-motion-dialog-content[data-state] (styles/motion.css)
+     re-centers vertically with translate(-50%, -50%) at higher specificity;
+     without these the tall unfiltered list (including the search input)
+     gets pushed above the window top on initial render. */
+  top: var(--off-command-dialog-top) !important;
+  bottom: auto !important;
   max-width: var(--off-dialog-max-w-command);
-  transform: translate(-50%, 0);
+  transform: translate(-50%, 0) !important;
   gap: 0;
   padding: 0;
 }
@@ -510,7 +515,8 @@
 }
 
 .off-command-list {
-  max-height: var(--off-command-list-max-h);
+  /* 72vh = 100vh minus a symmetric 2 × 14% (--off-command-dialog-top) clearance */
+  max-height: min(var(--off-command-list-max-h), 72vh);
   overflow-x: hidden;
   overflow-y: auto;
   padding: var(--off-sp-2);
