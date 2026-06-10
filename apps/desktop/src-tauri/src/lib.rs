@@ -239,11 +239,13 @@ pub fn run() {
                 ensure_main_window(app.handle()).map_err(|e| format!("main window init: {e}"))?;
             }
 
-            // Open devtools on launch. Gated only by the OFFISIM_DESKTOP_DEVTOOLS
-            // env var at startup so live verify from release .app bundles can
-            // flip it on (Computer Use only attaches to .app bundles, not to
-            // `target/debug/offisim-desktop` bare binaries). Debug builds keep
-            // the previous always-on behaviour.
+            // Open devtools on launch. Only compiled into debug builds or
+            // live-verify builds made with `--features devtools`; the ship
+            // release channel has no devtools at all (`open_devtools` does not
+            // exist without the cargo feature). Within a devtools-capable
+            // build, release behaviour is still gated on the
+            // OFFISIM_DESKTOP_DEVTOOLS env var at startup.
+            #[cfg(any(debug_assertions, feature = "devtools"))]
             {
                 use tauri::Manager;
                 let force_devtools = std::env::var("OFFISIM_DESKTOP_DEVTOOLS")

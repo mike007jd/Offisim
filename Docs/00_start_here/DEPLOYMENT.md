@@ -64,4 +64,24 @@ notarizable bundle is at
 `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`. Code signing /
 notarization is environment-specific and out of scope for this repo's defaults.
 
+The recommended release entrypoint is `pnpm release:run` from the repo root —
+it enforces the core gates from
+[`RELEASE_GATES.md`](./RELEASE_GATES.md) before building, aborts on any
+failure, and writes evidence (gate logs, git commit, bundle sha256) to
+`output/release-evidence/`.
+
+Release builds do not include WebView devtools. Live-verify builds that need
+right-click → Inspect on the `.app` must be made with
+`pnpm --filter @offisim/desktop build:devtools` and must not be distributed.
+
+### No auto-update (deliberate 1.0 trade-off)
+
+1.0 ships without `tauri-plugin-updater` or any in-app update channel. Updating
+means installing a newer build manually. This is intentional for the 1.0
+local-first scope: an update channel implies signed artifacts, an update
+server, and a rollback story — all post-1.0 work. User data survives manual
+reinstalls: the local SQLite schema is versioned (`PRAGMA user_version`) and
+newer builds upgrade existing `offisim.db` files through the migration chain in
+`packages/db-local/src/migrations/`.
+
 See also: [LOCAL_DEVELOPMENT.md](./LOCAL_DEVELOPMENT.md) · [RELEASE_GATES.md](./RELEASE_GATES.md)

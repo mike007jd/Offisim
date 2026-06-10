@@ -51,6 +51,13 @@ credential destinations or arbitrary local execution roots.
   base URL, allowed host, auth scheme, and localhost-only exception before
   adding credentials. Credential-shaped response headers are filtered before
   reaching the webview.
+- Provider secrets are persisted as a plaintext file with `0600` permissions
+  (atomic tmp+rename writes) under the app's local data directory, not in the
+  OS keychain. This is a deliberate trade-off: the threat model protects
+  against prompt-injected exfiltration across the Rust→JS boundary, not
+  against an attacker with local disk access under the same user account.
+  (The macOS keychain was rejected because code-sign rebuilds trigger ACL
+  prompts and the `keyring` crate dropped writes in CI/mock contexts.)
 - Trusted Claude/Codex sidecars are text/reasoning lanes only in Offisim 1.0.
   File, shell, memory, todo, skill, MCP, and builtin Offisim tools must stay on
   the gateway lane. Sidecars must run inside the bound workspace and write

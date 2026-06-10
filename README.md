@@ -86,6 +86,26 @@ The product and package scope are branded as `Offisim` / `@offisim/*`.
 5. **Desktop is the product environment.**
    Offisim ships as a Tauri desktop app with an internal WebView renderer, not a standalone web runtime.
 
+## 1.0 marketplace install scope
+
+Not every Market listing kind has an install pipeline in 1.0. The current
+boundary (mirrored in each listing's description):
+
+- **Skill packages** — full install support (agent-mediated install and local
+  package import).
+- **Employee packages** — full install support (materialized into the company
+  roster).
+- **Company templates** — preview-only in the Market; companies are created
+  from templates through the first-run company creation flow, not by Market
+  install.
+- **Office Layout packs** — preview-only; zone layouts are applied by the
+  in-product zone creator, there is no layout install pipeline yet.
+- **Prefab packs** — preview-only; prefab install / copy-into-library is not
+  yet implemented.
+
+Preview-only kinds render listing pages and previews but have no install
+action. Expanding these pipelines is post-1.0 scope.
+
 ## Repository / project shape
 
 Current application/package shape:

@@ -5,8 +5,35 @@
 ### Open Source Release Candidate
 
 - added legal and contributor-facing open source files
-- added GitHub issue templates, pull request template, CI, and release workflow
-- added Docker support for the web shell, platform API, and local Postgres
+- added GitHub issue templates, a pull request template, and a CI workflow
+  (`.github/workflows/ci.yml`) that enforces the core release gates on every
+  push/PR: typecheck + provider catalog freshness, UI hygiene, deterministic
+  harness, security harness, supply-chain audit, and desktop Rust tests
+- `pnpm release:run` runs the same gates before building, aborts on any
+  failure, and writes release evidence (gate logs, git commit, bundle sha256)
+  to `output/release-evidence/`
+- release desktop builds no longer ship WebView devtools; live-verify builds
+  opt back in with `pnpm --filter @offisim/desktop build:devtools`
+- versioned the local SQLite schema: fresh installs bootstrap the end-state
+  schema and are stamped via `PRAGMA user_version`; existing user databases
+  upgrade through the ordered migration chain in
+  `packages/db-local/src/migrations/`
+- added Docker support for the platform API and local Postgres
 - aligned package metadata for an open source release candidate
 - fixed the web `tauri-repos` import path so tests no longer depend on private `dist` paths
 - prepared the repository for final 1.0 UI and runtime polish
+
+### Known limitations
+
+- Market install pipelines cover skill and employee packages; company
+  templates, office layout packs, and prefab packs are preview-only listings
+  (see README → "1.0 marketplace install scope")
+- the platform API is a single-process deployment; the rate limiter is
+  process-local (see `Docs/00_start_here/DEPLOYMENT.md`)
+- no in-app auto-update mechanism; updating means installing a newer build
+  manually (deliberate 1.0 trade-off, documented in DEPLOYMENT.md)
+- no automated release/CD workflow yet; releases are produced locally via
+  `pnpm release:run`, which records gate + bundle evidence
+- desktop provider credentials are stored as a `0600` plaintext file outside
+  the webview boundary rather than in the OS keychain (documented trade-off,
+  see `SECURITY.md`)

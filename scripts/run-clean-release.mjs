@@ -1,7 +1,16 @@
 #!/usr/bin/env node
 
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
-import { mkdirSync, openSync, rmSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import {
+  appendFileSync,
+  mkdirSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,6 +22,25 @@ const platformPort = 4100;
 const appPath = path.join(root, 'apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app');
 const rendererLogPath = path.join(root, 'output/run-action-renderer-dev.log');
 const platformLogPath = path.join(root, 'output/run-action-platform-dev.log');
+
+// Release gates are mandatory (PRELAUNCH_AUDIT_2026-06-10 B1). `--skip-gates`
+// exists for fast local iteration only — the evidence summary records the skip
+// and the run does not count as release evidence.
+const skipGates = process.argv.includes('--skip-gates');
+
+// Same core set as .github/workflows/ci.yml and RELEASE_GATES.md.
+const RELEASE_GATES = [
+  { name: 'validate', command: 'pnpm', args: ['validate'] },
+  { name: 'ui-hygiene', command: 'pnpm', args: ['check:ui-hygiene'] },
+  { name: 'deterministic-harness', command: 'pnpm', args: ['harness:deterministic'] },
+  { name: 'security-harness', command: 'pnpm', args: ['security:harness'] },
+  {
+    name: 'cargo-test',
+    command: 'cargo',
+    args: ['test'],
+    cwd: path.join(root, 'apps/desktop/src-tauri'),
+  },
+];
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -93,6 +121,79 @@ function killOffisimPlatform() {
 
 function removePath(relativePath) {
   rmSync(path.join(root, relativePath), { recursive: true, force: true });
+}
+
+function gitInfo() {
+  const exec = (args) =>
+    execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  try {
+    return {
+      commit: exec(['rev-parse', 'HEAD']).trim(),
+      dirty: exec(['status', '--porcelain']).trim().length > 0,
+    };
+  } catch {
+    return { commit: 'unknown', dirty: null };
+  }
+}
+
+function runGate(gate, logPath) {
+  const startedAt = Date.now();
+  const header = `\n===== gate: ${gate.name} (${gate.command} ${gate.args.join(' ')}) =====\n`;
+  appendFileSync(logPath, header);
+  return new Promise((resolve) => {
+    const child = spawn(gate.command, gate.args, {
+      cwd: gate.cwd ?? root,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: process.env,
+    });
+    const tee = (chunk, stream) => {
+      stream.write(chunk);
+      appendFileSync(logPath, chunk);
+    };
+    child.stdout.on('data', (chunk) => tee(chunk, process.stdout));
+    child.stderr.on('data', (chunk) => tee(chunk, process.stderr));
+    child.on('close', (code) => {
+      const status = code === 0 ? 'pass' : 'fail';
+      appendFileSync(logPath, `===== gate: ${gate.name} → ${status} (exit ${code}) =====\n`);
+      resolve({ name: gate.name, status, exitCode: code, durationMs: Date.now() - startedAt });
+    });
+    child.on('error', (error) => {
+      appendFileSync(logPath, `===== gate: ${gate.name} → spawn error: ${error.message} =====\n`);
+      resolve({
+        name: gate.name,
+        status: 'fail',
+        exitCode: null,
+        durationMs: Date.now() - startedAt,
+        error: error.message,
+      });
+    });
+  });
+}
+
+// Deterministic content hash of the .app bundle: sha256 over each file's
+// (relative path, bytes) in sorted order. Symlinks/dirs contribute their path
+// + link target only.
+function hashAppBundle(bundlePath) {
+  const aggregate = createHash('sha256');
+  const walk = (dir) => {
+    const entries = readdirSync(dir, { withFileTypes: true }).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+    for (const entry of entries) {
+      const absolute = path.join(dir, entry.name);
+      const relative = path.relative(bundlePath, absolute);
+      aggregate.update(relative);
+      aggregate.update('\0');
+      if (entry.isDirectory()) {
+        walk(absolute);
+      } else if (entry.isFile()) {
+        aggregate.update(readFileSync(absolute));
+      }
+      aggregate.update('\0');
+    }
+  };
+  walk(bundlePath);
+  return aggregate.digest('hex');
 }
 
 function cleanBuildArtifacts() {
@@ -179,6 +280,51 @@ async function startRendererDev() {
 }
 
 async function main() {
+  const git = gitInfo();
+  const evidenceDir = path.join(
+    root,
+    'output/release-evidence',
+    `${new Date().toISOString().replace(/[:.]/g, '-')}-${git.commit.slice(0, 8)}`,
+  );
+  mkdirSync(evidenceDir, { recursive: true });
+  const gatesLogPath = path.join(evidenceDir, 'gates.log');
+  const summaryPath = path.join(evidenceDir, 'summary.json');
+  const summary = {
+    createdAt: new Date().toISOString(),
+    gitCommit: git.commit,
+    gitDirty: git.dirty,
+    gatesSkipped: skipGates,
+    gates: [],
+    appPath,
+    bundleSha256: null,
+    releaseEvidence: false,
+  };
+  const writeSummary = () => writeFileSync(summaryPath, `${JSON.stringify(summary, null, 2)}\n`);
+
+  if (skipGates) {
+    console.warn(
+      '[run-clean-release] ⚠️  --skip-gates: release gates NOT run. This build is for local ' +
+        'iteration only and must not be used as release evidence.',
+    );
+    writeSummary();
+  } else {
+    console.log(`[run-clean-release] running release gates (evidence: ${evidenceDir})`);
+    for (const gate of RELEASE_GATES) {
+      console.log(`[run-clean-release] gate: ${gate.name}`);
+      const result = await runGate(gate, gatesLogPath);
+      summary.gates.push(result);
+      writeSummary();
+      if (result.status !== 'pass') {
+        console.error(
+          `[run-clean-release] gate "${result.name}" failed (exit ${result.exitCode}). ` +
+            `Aborting release. Log: ${gatesLogPath}`,
+        );
+        process.exit(1);
+      }
+    }
+    console.log('[run-clean-release] all release gates green');
+  }
+
   console.log(
     '[run-clean-release] stopping existing desktop app, platform, and renderer dev ports',
   );
@@ -192,6 +338,13 @@ async function main() {
 
   console.log('[run-clean-release] building release desktop package');
   run('pnpm', ['--filter', '@offisim/desktop', 'build']);
+
+  console.log('[run-clean-release] hashing release bundle');
+  summary.bundleSha256 = hashAppBundle(appPath);
+  summary.releaseEvidence = !skipGates;
+  writeSummary();
+  console.log(`[run-clean-release] bundle sha256: ${summary.bundleSha256}`);
+  console.log(`[run-clean-release] evidence written to ${evidenceDir}`);
 
   console.log('[run-clean-release] starting platform API on http://localhost:4100');
   await startPlatformDev();

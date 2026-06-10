@@ -23,8 +23,18 @@ export function resolveAuthSecret(input: StartupConfigInput = {}) {
   const nodeEnv = input.nodeEnv ?? process.env.NODE_ENV ?? 'development';
   const authSecret = input.authSecret ?? process.env.BETTER_AUTH_SECRET;
 
-  if (!authSecret && nodeEnv === 'production') {
-    throw new Error('BETTER_AUTH_SECRET is not set in production.');
+  if (nodeEnv === 'production') {
+    if (!authSecret) {
+      throw new Error('BETTER_AUTH_SECRET is not set in production.');
+    }
+    // Refuse to boot a production deployment on a published placeholder
+    // secret (repo dev default or the docker-compose sample value).
+    if (authSecret === DEV_AUTH_SECRET || authSecret === 'change-me-for-real-use') {
+      throw new Error(
+        'BETTER_AUTH_SECRET is set to a published placeholder value; ' +
+          'set a real secret (>=32 random chars) before running in production.',
+      );
+    }
   }
 
   return authSecret ?? DEV_AUTH_SECRET;

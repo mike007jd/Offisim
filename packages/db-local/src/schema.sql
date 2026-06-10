@@ -1,6 +1,13 @@
--- Offisim local SQLite baseline schema.
--- This is a pre-launch schema bootstrap, not a migration chain.
--- Keep it aligned with packages/db-local/src/schema.ts.
+-- Offisim local SQLite schema — always the LATEST end-state shape.
+-- Fresh databases apply this file directly and are stamped with
+-- LOCAL_SCHEMA_VERSION (PRAGMA user_version); existing user databases are
+-- upgraded through the ordered chain in src/migrations/ instead.
+--
+-- Any schema change shipped after 1.0 must do all of:
+--   1. update this file AND packages/db-local/src/schema.ts
+--   2. bump LOCAL_SCHEMA_VERSION in apps/desktop/src-tauri/src/local_db.rs
+--   3. add src/migrations/NNNN_<name>.sql and register it in MIGRATIONS there
+-- See src/migrations/README.md.
 
 DROP TABLE IF EXISTS _sqlx_migrations;
 

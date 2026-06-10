@@ -7,6 +7,21 @@ core gates below and carry live `.app` evidence.**
 
 All commands run from the repo root unless noted.
 
+## Enforcement
+
+These gates are not a convention — they are enforced in two places:
+
+- **CI** (`.github/workflows/ci.yml`) runs the core gate set plus desktop
+  `cargo test` on every push/PR to `main`.
+- **`pnpm release:run`** runs the same core gates before building, aborts on
+  the first failure, and writes evidence — per-gate logs, git commit/dirty
+  state, and the `.app` bundle sha256 — to `output/release-evidence/`.
+  `--skip-gates` exists for local iteration only; its output is marked
+  non-evidence in `summary.json`.
+
+Keep the CI workflow, the `RELEASE_GATES` list in
+`scripts/run-clean-release.mjs`, and this table in sync.
+
 ## Core gates (run for any release-bound change)
 
 | Gate | Command | Proves |
@@ -17,6 +32,7 @@ All commands run from the repo root unless noted.
 | UI hygiene | `pnpm check:ui-hygiene` | no stale/dead UI copy, no hardcoded provider copy outside settings, design-token discipline |
 | Deterministic harness | `pnpm harness:deterministic` | graph/runtime/permission/planner/LLM replay invariants (`contract` + `replay` + `provider-adapter`) |
 | Security harness | `pnpm security:harness` | platform auth/body-limit, doc-engine CSV, git-source tarball cap/zip-bomb, registry-client, web fetch/search boundaries |
+| Desktop Rust | `cargo test` in `apps/desktop/src-tauri` | path containment, shell classifier, redaction, attachment store, local db migration chain |
 | Supply chain | `pnpm audit --prod --audit-level high` | no unresolved high/critical advisories in the prod tree (transitive highs are pinned via root `pnpm.overrides`) |
 
 ## Build gates (desktop release)

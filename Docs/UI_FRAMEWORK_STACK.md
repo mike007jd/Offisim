@@ -1,6 +1,6 @@
 # Offisim UI Framework Stack
 
-Last updated: 2026-05-25
+Last updated: 2026-06-10
 
 This is the source of truth for new Offisim desktop UI work. The design source remains `Docs/design`; when a prototype conflicts with the V3 DNA brief or a retired product surface, treat the V3 DNA brief as authoritative and retire the stale prototype language instead of restoring old UI.
 
@@ -32,6 +32,8 @@ Do not recreate a shared UI package for the new app. Shared packages may expose 
 | Command UI | cmdk | Command palette, slash command, quick switcher. |
 | Toasts | Sonner | Behavior layer only; visual skin must match V3 `.icard` grammar. |
 | Charts | Recharts | Small runtime/cost/usage charts only; avoid chart-library-driven visual language. |
+| 3D scene | three + @react-three/fiber | Scene layer only (Office 3D scene, Studio editor under `surfaces/office/scene` and `surfaces/studio`); never for general UI chrome. |
+| 3D scene helpers | @react-three/drei + @react-three/postprocessing | Scene-layer helpers/IBL/post effects only. Scene palette lives in `scene-colors.ts` / `scene-art-direction.ts` with explicit `raw-hex-allowed` exemptions — a parallel track to CSS tokens that must be synced manually on theme changes. |
 
 ## Architecture Layers
 

@@ -5,6 +5,24 @@ use tauri::{Manager, Runtime};
 
 const LOCAL_SCHEMA_SQL: &str = include_str!("../../../../packages/db-local/src/schema.sql");
 
+/// Schema version stamped into `PRAGMA user_version`.
+///
+/// `schema.sql` always describes the LATEST end-state shape: fresh databases
+/// apply it directly and are stamped with this version, skipping the chain.
+/// Any shipped schema change must (a) update `schema.sql` + `schema.ts`,
+/// (b) bump this constant by 1, and (c) add a matching upgrade entry to
+/// `MIGRATIONS` so existing user databases have an upgrade path.
+const LOCAL_SCHEMA_VERSION: i64 = 1;
+
+/// Ordered upgrade chain for existing user databases: `(target_version, sql)`
+/// where each entry upgrades `target_version - 1` → `target_version`. Each
+/// entry runs in its own transaction together with the version stamp. SQL
+/// files live in `packages/db-local/src/migrations/` (see the README there).
+///
+/// Example entry:
+/// `(2, include_str!("../../../../packages/db-local/src/migrations/0002_add_x.sql")),`
+const MIGRATIONS: &[(i64, &str)] = &[];
+
 pub struct OffisimDbState {
     pool: SqlitePool,
 }
@@ -153,11 +171,107 @@ fn offisim_db_url<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<String, Strin
 }
 
 async fn apply_schema(pool: &SqlitePool) -> Result<(), String> {
-    raw_sql(LOCAL_SCHEMA_SQL)
-        .execute(pool)
-        .await
-        .map_err(|err| format!("apply offisim schema: {err}"))?;
+    ensure_schema(pool, LOCAL_SCHEMA_VERSION, LOCAL_SCHEMA_SQL, MIGRATIONS).await
+}
+
+/// Versioned schema bootstrap:
+/// - fresh database → apply the end-state baseline atomically, stamp `latest`
+/// - `user_version == 0` but tables exist (pre-versioning install, i.e. the
+///   1.0.0-rc baseline shape) → adopt as version 1, then run the chain
+/// - `user_version` in range → run pending migrations sequentially
+/// - `user_version > latest` → refuse to open (downgraded app on newer data)
+async fn ensure_schema(
+    pool: &SqlitePool,
+    latest: i64,
+    baseline_sql: &str,
+    migrations: &[(i64, &str)],
+) -> Result<(), String> {
+    let mut version = read_user_version(pool).await?;
+    if version > latest {
+        return Err(format!(
+            "offisim.db user_version {version} is newer than this build supports ({latest}); \
+             refusing to open a newer database with an older app"
+        ));
+    }
+
+    if version == 0 {
+        if is_empty_database(pool).await? {
+            let mut tx = pool
+                .begin()
+                .await
+                .map_err(|err| format!("begin offisim schema bootstrap: {err}"))?;
+            raw_sql(baseline_sql)
+                .execute(&mut *tx)
+                .await
+                .map_err(|err| format!("apply offisim schema: {err}"))?;
+            raw_sql(&format!("PRAGMA user_version = {latest}"))
+                .execute(&mut *tx)
+                .await
+                .map_err(|err| format!("stamp offisim schema version: {err}"))?;
+            tx.commit()
+                .await
+                .map_err(|err| format!("commit offisim schema bootstrap: {err}"))?;
+            return Ok(());
+        }
+        // Pre-versioning install: the database predates user_version stamping
+        // and is on the version-1 baseline. Adopt it and let the chain run.
+        raw_sql("PRAGMA user_version = 1")
+            .execute(pool)
+            .await
+            .map_err(|err| format!("adopt pre-versioning offisim.db: {err}"))?;
+        version = 1;
+    }
+
+    for (target, sql) in migrations {
+        if *target <= version {
+            continue;
+        }
+        if *target != version + 1 {
+            return Err(format!(
+                "offisim.db migration chain has a gap: at version {version}, next entry targets {target}"
+            ));
+        }
+        let mut tx = pool
+            .begin()
+            .await
+            .map_err(|err| format!("begin offisim migration {target}: {err}"))?;
+        raw_sql(sql)
+            .execute(&mut *tx)
+            .await
+            .map_err(|err| format!("apply offisim migration {target}: {err}"))?;
+        raw_sql(&format!("PRAGMA user_version = {target}"))
+            .execute(&mut *tx)
+            .await
+            .map_err(|err| format!("stamp offisim migration {target}: {err}"))?;
+        tx.commit()
+            .await
+            .map_err(|err| format!("commit offisim migration {target}: {err}"))?;
+        version = *target;
+    }
+
+    if version != latest {
+        return Err(format!(
+            "offisim.db migration chain is incomplete: reached version {version}, expected {latest}"
+        ));
+    }
     Ok(())
+}
+
+async fn read_user_version(pool: &SqlitePool) -> Result<i64, String> {
+    sqlx::query_scalar::<_, i64>("PRAGMA user_version")
+        .fetch_one(pool)
+        .await
+        .map_err(|err| format!("read offisim.db user_version: {err}"))
+}
+
+async fn is_empty_database(pool: &SqlitePool) -> Result<bool, String> {
+    let tables: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
+    )
+    .fetch_one(pool)
+    .await
+    .map_err(|err| format!("inspect offisim.db tables: {err}"))?;
+    Ok(tables == 0)
 }
 
 #[cfg(test)]
@@ -219,5 +333,92 @@ mod tests {
         validate_statement_sql("INSERT INTO x VALUES (1);").expect("trailing `;` should be ok");
         validate_statement_sql("INSERT INTO x VALUES (1) ;  \n")
             .expect("trailing `;` + whitespace should be ok");
+    }
+
+    // max_connections(1): each new connection to `sqlite::memory:` is a
+    // separate database, so the pool must reuse a single connection.
+    async fn memory_pool() -> SqlitePool {
+        SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .expect("open in-memory sqlite")
+    }
+
+    #[tokio::test]
+    async fn fresh_database_bootstraps_baseline_and_stamps_latest_version() {
+        let pool = memory_pool().await;
+        ensure_schema(&pool, LOCAL_SCHEMA_VERSION, LOCAL_SCHEMA_SQL, MIGRATIONS)
+            .await
+            .expect("fresh bootstrap");
+        assert_eq!(read_user_version(&pool).await.unwrap(), LOCAL_SCHEMA_VERSION);
+        let companies: i64 =
+            sqlx::query_scalar("SELECT count(*) FROM sqlite_master WHERE name = 'companies'")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(companies, 1, "baseline schema should create companies");
+        // Re-running on an up-to-date database is a no-op.
+        ensure_schema(&pool, LOCAL_SCHEMA_VERSION, LOCAL_SCHEMA_SQL, MIGRATIONS)
+            .await
+            .expect("idempotent re-run");
+    }
+
+    #[tokio::test]
+    async fn pre_versioning_database_is_adopted_and_migrated() {
+        let pool = memory_pool().await;
+        // Simulate a database created before user_version stamping existed.
+        raw_sql("CREATE TABLE companies (company_id TEXT PRIMARY KEY); \
+                 INSERT INTO companies VALUES ('c1');")
+            .execute(&pool)
+            .await
+            .unwrap();
+        ensure_schema(
+            &pool,
+            2,
+            "CREATE TABLE companies (company_id TEXT PRIMARY KEY, display_name TEXT);",
+            &[(2, "ALTER TABLE companies ADD COLUMN display_name TEXT")],
+        )
+        .await
+        .expect("adopt + migrate");
+        assert_eq!(read_user_version(&pool).await.unwrap(), 2);
+        let preserved: String =
+            sqlx::query_scalar("SELECT company_id FROM companies WHERE display_name IS NULL")
+                .fetch_one(&pool)
+                .await
+                .expect("existing row survives the migration");
+        assert_eq!(preserved, "c1");
+    }
+
+    #[tokio::test]
+    async fn migration_chain_gap_is_rejected() {
+        let pool = memory_pool().await;
+        raw_sql("CREATE TABLE companies (company_id TEXT PRIMARY KEY)")
+            .execute(&pool)
+            .await
+            .unwrap();
+        let err = ensure_schema(&pool, 3, "", &[(3, "SELECT 1")]).await.unwrap_err();
+        assert!(err.contains("gap"), "got: {err}");
+    }
+
+    #[tokio::test]
+    async fn incomplete_migration_chain_is_rejected() {
+        let pool = memory_pool().await;
+        raw_sql("CREATE TABLE companies (company_id TEXT PRIMARY KEY)")
+            .execute(&pool)
+            .await
+            .unwrap();
+        let err = ensure_schema(&pool, 2, "", &[]).await.unwrap_err();
+        assert!(err.contains("incomplete"), "got: {err}");
+    }
+
+    #[tokio::test]
+    async fn newer_database_is_refused_by_older_app() {
+        let pool = memory_pool().await;
+        raw_sql("PRAGMA user_version = 99").execute(&pool).await.unwrap();
+        let err = ensure_schema(&pool, LOCAL_SCHEMA_VERSION, LOCAL_SCHEMA_SQL, MIGRATIONS)
+            .await
+            .unwrap_err();
+        assert!(err.contains("newer"), "got: {err}");
     }
 }
