@@ -452,6 +452,13 @@
   color: var(--off-ink-4);
 }
 
+.off-csp-roster-more {
+  padding: var(--off-sp-3) var(--off-sp-4);
+  border-top: 1px solid var(--off-line-soft);
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-sm);
+}
+
 .off-csp-roster-dot {
   width: 7px;
   height: 7px;

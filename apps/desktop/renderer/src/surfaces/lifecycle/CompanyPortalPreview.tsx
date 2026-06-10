@@ -20,15 +20,29 @@ export function CompanyPortalPreview({
   const H = 480;
   const gridId = `csp-grid-${company.id}`;
 
-  // Lay zones out into a simple two-row plan that scales with zone count.
-  const zones = brief.zoneNames.slice(0, 4).map((name, i) => {
+  // Lay ALL zones out on a simple grid that scales with zone count, so the
+  // preview never contradicts the "Zones" stat. The last zone stretches across
+  // any leftover columns of its row.
+  const count = brief.zoneNames.length;
+  const cols = count > 4 ? 3 : Math.min(Math.max(count, 1), 2);
+  const rows = Math.ceil(count / cols) || 1;
+  const PAD = 40;
+  const GAP = 20;
+  const cellW = (W - PAD * 2 - GAP * (cols - 1)) / cols;
+  const cellH = (H - PAD * 2 - GAP * (rows - 1)) / rows;
+  const zones = brief.zoneNames.map((name, i) => {
     const accent = ZONE_TINTS[i % ZONE_TINTS.length] ?? UI_DATA_COLORS.blue;
-    const isWide = brief.zoneNames.length <= 2 || i === brief.zoneNames.length - 1;
-    if (i === 0) return { name, accent, x: 40, y: 40, w: 300, h: 180 };
-    if (i === 1) return { name, accent, x: 360, y: 40, w: 320, h: 180 };
-    if (i === 2 && isWide) return { name, accent, x: 40, y: 240, w: 640, h: 200 };
-    if (i === 2) return { name, accent, x: 40, y: 240, w: 300, h: 200 };
-    return { name, accent, x: 360, y: 240, w: 320, h: 200 };
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const span = i === count - 1 ? cols - col : 1;
+    return {
+      name,
+      accent,
+      x: PAD + col * (cellW + GAP),
+      y: PAD + row * (cellH + GAP),
+      w: cellW * span + GAP * (span - 1),
+      h: cellH,
+    };
   });
 
   return (

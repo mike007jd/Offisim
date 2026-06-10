@@ -284,6 +284,8 @@ function SelectedCompany({
   );
 }
 
+const ROSTER_PREVIEW_LIMIT = 5;
+
 function CompanyRoster({ employees }: { employees: Employee[] }) {
   return (
     <div className="off-csp-roster">
@@ -292,7 +294,7 @@ function CompanyRoster({ employees }: { employees: Employee[] }) {
         <span>{employees.length}</span>
       </div>
       <div className="off-csp-roster-list">
-        {employees.slice(0, 5).map((employee) => (
+        {employees.slice(0, ROSTER_PREVIEW_LIMIT).map((employee) => (
           <div key={employee.id} className="off-csp-roster-row">
             <span
               className="off-csp-roster-avatar"
@@ -309,9 +311,17 @@ function CompanyRoster({ employees }: { employees: Employee[] }) {
               <span className="off-csp-roster-name">{employee.name}</span>
               <span className="off-csp-roster-role">{employee.role}</span>
             </span>
-            <span className={cn('off-csp-roster-dot', employee.online && 'is-on')} />
+            <span
+              className={cn('off-csp-roster-dot', !employee.disabled && 'is-on')}
+              title={employee.disabled ? 'Disabled' : 'Enabled'}
+            />
           </div>
         ))}
+        {employees.length > ROSTER_PREVIEW_LIMIT ? (
+          <div className="off-csp-roster-more">
+            +{employees.length - ROSTER_PREVIEW_LIMIT} more — enter the company to see everyone
+          </div>
+        ) : null}
       </div>
     </div>
   );

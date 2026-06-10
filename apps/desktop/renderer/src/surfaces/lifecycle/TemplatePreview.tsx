@@ -1,21 +1,40 @@
 import { PREVIEW_TINTS } from '@/data/color-palette.js';
 import type { CompanyTemplate } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
+import { templateZones } from './lifecycle-data.js';
+
+const PREVIEW_TINT_CYCLE = [
+  PREVIEW_TINTS.workspace,
+  PREVIEW_TINTS.meeting,
+  PREVIEW_TINTS.lounge,
+] as const;
 
 /** Compact 2D office-layout preview for the create-company wizard: floor + the
- *  three default zones + the template roster placed as seats in the workspace. */
+ *  template's real zones (same list as the zone chips) + the template roster
+ *  placed as seats in the first zone. */
 export function TemplatePreview({
   template,
   accentHex,
 }: { template: CompanyTemplate; accentHex: string }) {
   const W = 320;
   const H = 300;
-  // Workspace (left, large), Meeting (top-right), Lounge (bottom-right).
-  const zones = [
-    { label: 'Workspace', x: 16, y: 16, w: 184, h: 268, tint: PREVIEW_TINTS.workspace },
-    { label: 'Meeting', x: 212, y: 16, w: 92, h: 128, tint: PREVIEW_TINTS.meeting },
-    { label: 'Lounge', x: 212, y: 156, w: 92, h: 128, tint: PREVIEW_TINTS.lounge },
-  ];
+  const INSET = 16;
+  const innerH = H - 2 * INSET;
+  // First zone gets the hero plot (left, large); the rest stack in a
+  // right-hand column so the preview matches the template's zone chips.
+  const names = templateZones(template.id);
+  const sideCount = names.length - 1;
+  const sideH = sideCount > 0 ? Math.floor((innerH - (sideCount - 1) * 8) / sideCount) : 0;
+  const zones = names.map((label, i) => {
+    const tint = PREVIEW_TINT_CYCLE[i % PREVIEW_TINT_CYCLE.length] ?? PREVIEW_TINTS.workspace;
+    if (i === 0) {
+      return { label, x: INSET, y: INSET, w: sideCount > 0 ? 184 : W - 2 * INSET, h: innerH, tint };
+    }
+    const slot = i - 1;
+    return { label, x: 212, y: INSET + slot * (sideH + 8), w: 92, h: sideH, tint };
+  });
+  const dotA = zones[1];
+  const dotB = zones.length > 2 ? zones[zones.length - 1] : undefined;
   const seats = template.employees.map((e, i) => {
     const col = i % 3;
     const row = Math.floor(i / 3);
@@ -73,8 +92,12 @@ export function TemplatePreview({
           <circle cx={s.cx} cy={s.cy - 2} r={6.5} fill={PREVIEW_TINTS.seatHighlight} />
         </g>
       ))}
-      <circle cx={258} cy={70} r={5} fill={accentHex} />
-      <circle cx={258} cy={210} r={5} fill="var(--off-ink-3)" />
+      {dotA ? (
+        <circle cx={dotA.x + dotA.w / 2} cy={dotA.y + dotA.h - 16} r={5} fill={accentHex} />
+      ) : null}
+      {dotB ? (
+        <circle cx={dotB.x + dotB.w / 2} cy={dotB.y + dotB.h - 16} r={5} fill="var(--off-ink-3)" />
+      ) : null}
     </svg>
   );
 }
