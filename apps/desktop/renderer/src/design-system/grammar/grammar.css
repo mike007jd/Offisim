@@ -801,6 +801,10 @@
 /* --- Segmented control --- */
 .off-seg {
   display: inline-flex;
+  /* Column-flex parents (.off-field etc.) default to stretch; pin to content
+     width here. width (not align-self) so row-flex parents keep cross-axis
+     centering, and `is-wrap` still clamps to the container and wraps. */
+  width: fit-content;
   align-items: center;
   gap: 2px;
   padding: 3px;

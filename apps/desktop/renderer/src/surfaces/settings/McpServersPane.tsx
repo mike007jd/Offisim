@@ -46,6 +46,7 @@ export function McpServersPane() {
   const serversQuery = useMcpServers();
   const servers = serversQuery.data ?? [];
   const [pending, setPending] = useState<McpServerFormValues | null>(null);
+  const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [busyServerId, setBusyServerId] = useState<string | null>(null);
 
@@ -88,6 +89,7 @@ export function McpServersPane() {
         });
       }
       form.reset(MCP_SERVER_DEFAULTS);
+      setShowForm(false);
       await refreshServers();
     } catch (error) {
       toast.error(
@@ -109,7 +111,7 @@ export function McpServersPane() {
       setPending(values);
       return;
     }
-    commitServer(values);
+    void commitServer(values);
   });
 
   function confirmPending() {
@@ -236,148 +238,23 @@ export function McpServersPane() {
         ) : null}
       </div>
 
-      {/* Add MCP server */}
-      <section className="off-set-sec">
-        <div className="off-set-sec-head">
-          <CapsLabel>Add MCP server</CapsLabel>
-        </div>
-        <CardBlock>
-          <form onSubmit={onSubmit} className="flex flex-col gap-[var(--off-sp-4)]">
-            <div className="off-field">
-              <span className="off-field-label">Transport</span>
-              <SegmentedControl<McpTransport>
-                value={transport}
-                onChange={setTransport}
-                ariaLabel="Transport"
-                options={[
-                  { value: 'stdio', label: 'stdio', icon: <Icon icon={Terminal} size="sm" /> },
-                  { value: 'sse', label: 'sse', icon: <Icon icon={Globe} size="sm" /> },
-                ]}
-              />
-            </div>
-            <div className="off-set-grid-2">
-              <FieldRow
-                label={
-                  <>
-                    Server name <span className="off-set-req">*</span>
-                  </>
-                }
-                hint={form.formState.errors.name?.message}
-                warn={!!form.formState.errors.name}
-              >
-                {({ id }) => (
-                  <Input id={id} placeholder="workspace-tools" {...form.register('name')} />
-                )}
-              </FieldRow>
-              <FieldRow
-                label={
-                  <>
-                    Approval ID <span className="off-set-opt">· optional</span>
-                  </>
-                }
-              >
-                {({ id }) => (
-                  <Input
-                    id={id}
-                    className="off-mono"
-                    placeholder="mcp.workspace.tools"
-                    {...form.register('approvalId')}
-                  />
-                )}
-              </FieldRow>
-
-              {transport === 'stdio' ? (
-                <>
-                  <FieldRow
-                    className="off-set-span-2"
-                    label="Command"
-                    hint={form.formState.errors.command?.message}
-                    warn={!!form.formState.errors.command}
-                  >
-                    {({ id }) => (
-                      <Input
-                        id={id}
-                        className="off-mono"
-                        placeholder="mcp-server-command"
-                        {...form.register('command')}
-                      />
-                    )}
-                  </FieldRow>
-                  <FieldRow
-                    className="off-set-span-2"
-                    label={
-                      <>
-                        Arguments <span className="off-set-opt">· one per line</span>
-                      </>
-                    }
-                  >
-                    {({ id }) => (
-                      <Textarea
-                        id={id}
-                        className="off-mono"
-                        placeholder={'--workspace\ncurrent-project'}
-                        {...form.register('args')}
-                      />
-                    )}
-                  </FieldRow>
-                </>
-              ) : (
-                <FieldRow
-                  className="off-set-span-2"
-                  label="Endpoint URL"
-                  hint={form.formState.errors.url?.message}
-                  warn={!!form.formState.errors.url}
-                >
-                  {({ id }) => (
-                    <Input
-                      id={id}
-                      className="off-mono"
-                      placeholder="http://localhost:3001/sse"
-                      {...form.register('url')}
-                    />
-                  )}
-                </FieldRow>
-              )}
-            </div>
-            <div className="off-set-dialog-actions">
-              <Button
-                type="button"
-                variant="outline"
-                size="md"
-                onClick={() => form.reset(MCP_SERVER_DEFAULTS)}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                size="md"
-                className="off-set-btn-ok"
-                disabled={!desktopAvailable || submitting}
-                title={
-                  desktopAvailable
-                    ? undefined
-                    : 'MCP registry changes require the release desktop app'
-                }
-              >
-                <Icon icon={Plus} size="sm" />
-                {submitting ? 'Adding…' : 'Add server'}
-              </Button>
-            </div>
-          </form>
-        </CardBlock>
-      </section>
-
       {/* Configured servers */}
       <section className="off-set-sec">
         <div className="off-set-sec-head">
           <CapsLabel>Configured servers</CapsLabel>
+          {showForm ? null : (
+            <Button size="sm" variant="outline" onClick={() => setShowForm(true)}>
+              <Icon icon={Plus} size="sm" />
+              Add server
+            </Button>
+          )}
         </div>
         <CardBlock>
           {serversQuery.isLoading ? (
             <div className="off-set-empty-line">Loading MCP registry…</div>
           ) : servers.length === 0 ? (
             <div className="off-set-empty-line">
-              No MCP servers registered. Add one above to enable tool use.
+              No MCP servers registered. Use “Add server” to enable tool use.
             </div>
           ) : (
             <>
@@ -387,6 +264,142 @@ export function McpServersPane() {
           )}
         </CardBlock>
       </section>
+
+      {/* Form section — only mounted while showForm; "Add server" opens it */}
+      {showForm ? (
+        <section className="off-set-sec">
+          <div className="off-set-sec-head">
+            <CapsLabel>Add MCP server</CapsLabel>
+          </div>
+          <CardBlock>
+            <form onSubmit={onSubmit} className="flex flex-col gap-[var(--off-sp-4)]">
+              <div className="off-field">
+                <span className="off-field-label">Transport</span>
+                <SegmentedControl<McpTransport>
+                  value={transport}
+                  onChange={setTransport}
+                  ariaLabel="Transport"
+                  options={[
+                    { value: 'stdio', label: 'stdio', icon: <Icon icon={Terminal} size="sm" /> },
+                    { value: 'sse', label: 'sse', icon: <Icon icon={Globe} size="sm" /> },
+                  ]}
+                />
+              </div>
+              <div className="off-set-grid-2">
+                <FieldRow
+                  label={
+                    <>
+                      Server name <span className="off-set-req">*</span>
+                    </>
+                  }
+                  hint={form.formState.errors.name?.message}
+                  warn={!!form.formState.errors.name}
+                >
+                  {({ id }) => (
+                    <Input id={id} placeholder="workspace-tools" {...form.register('name')} />
+                  )}
+                </FieldRow>
+                <FieldRow
+                  label={
+                    <>
+                      Approval ID <span className="off-set-opt">· optional</span>
+                    </>
+                  }
+                >
+                  {({ id }) => (
+                    <Input
+                      id={id}
+                      className="off-mono"
+                      placeholder="mcp.workspace.tools"
+                      {...form.register('approvalId')}
+                    />
+                  )}
+                </FieldRow>
+
+                {transport === 'stdio' ? (
+                  <>
+                    <FieldRow
+                      className="off-set-span-2"
+                      label="Command"
+                      hint={form.formState.errors.command?.message}
+                      warn={!!form.formState.errors.command}
+                    >
+                      {({ id }) => (
+                        <Input
+                          id={id}
+                          className="off-mono"
+                          placeholder="mcp-server-command"
+                          {...form.register('command')}
+                        />
+                      )}
+                    </FieldRow>
+                    <FieldRow
+                      className="off-set-span-2"
+                      label={
+                        <>
+                          Arguments <span className="off-set-opt">· one per line</span>
+                        </>
+                      }
+                    >
+                      {({ id }) => (
+                        <Textarea
+                          id={id}
+                          className="off-mono"
+                          placeholder={'--workspace\ncurrent-project'}
+                          {...form.register('args')}
+                        />
+                      )}
+                    </FieldRow>
+                  </>
+                ) : (
+                  <FieldRow
+                    className="off-set-span-2"
+                    label="Endpoint URL"
+                    hint={form.formState.errors.url?.message}
+                    warn={!!form.formState.errors.url}
+                  >
+                    {({ id }) => (
+                      <Input
+                        id={id}
+                        className="off-mono"
+                        placeholder="http://localhost:3001/sse"
+                        {...form.register('url')}
+                      />
+                    )}
+                  </FieldRow>
+                )}
+              </div>
+              <div className="off-set-dialog-actions">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="md"
+                  onClick={() => {
+                    form.reset(MCP_SERVER_DEFAULTS);
+                    setSubmitting(false);
+                    setShowForm(false);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  size="md"
+                  disabled={!desktopAvailable || submitting}
+                  title={
+                    desktopAvailable
+                      ? undefined
+                      : 'MCP registry changes require the release desktop app'
+                  }
+                >
+                  <Icon icon={Plus} size="sm" />
+                  {submitting ? 'Adding…' : 'Add server'}
+                </Button>
+              </div>
+            </form>
+          </CardBlock>
+        </section>
+      ) : null}
 
       <McpStdioConfirmDialog
         pending={pending}
