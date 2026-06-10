@@ -196,21 +196,7 @@ async fn ensure_schema(
 
     if version == 0 {
         if is_empty_database(pool).await? {
-            let mut tx = pool
-                .begin()
-                .await
-                .map_err(|err| format!("begin offisim schema bootstrap: {err}"))?;
-            raw_sql(baseline_sql)
-                .execute(&mut *tx)
-                .await
-                .map_err(|err| format!("apply offisim schema: {err}"))?;
-            raw_sql(&format!("PRAGMA user_version = {latest}"))
-                .execute(&mut *tx)
-                .await
-                .map_err(|err| format!("stamp offisim schema version: {err}"))?;
-            tx.commit()
-                .await
-                .map_err(|err| format!("commit offisim schema bootstrap: {err}"))?;
+            apply_sql_and_stamp(pool, baseline_sql, latest, "offisim schema bootstrap").await?;
             return Ok(());
         }
         // Pre-versioning install: the database predates user_version stamping
@@ -231,21 +217,7 @@ async fn ensure_schema(
                 "offisim.db migration chain has a gap: at version {version}, next entry targets {target}"
             ));
         }
-        let mut tx = pool
-            .begin()
-            .await
-            .map_err(|err| format!("begin offisim migration {target}: {err}"))?;
-        raw_sql(sql)
-            .execute(&mut *tx)
-            .await
-            .map_err(|err| format!("apply offisim migration {target}: {err}"))?;
-        raw_sql(&format!("PRAGMA user_version = {target}"))
-            .execute(&mut *tx)
-            .await
-            .map_err(|err| format!("stamp offisim migration {target}: {err}"))?;
-        tx.commit()
-            .await
-            .map_err(|err| format!("commit offisim migration {target}: {err}"))?;
+        apply_sql_and_stamp(pool, sql, *target, &format!("offisim migration {target}")).await?;
         version = *target;
     }
 
@@ -254,6 +226,31 @@ async fn ensure_schema(
             "offisim.db migration chain is incomplete: reached version {version}, expected {latest}"
         ));
     }
+    Ok(())
+}
+
+/// Run `sql` and stamp `PRAGMA user_version = version` in one transaction.
+async fn apply_sql_and_stamp(
+    pool: &SqlitePool,
+    sql: &str,
+    version: i64,
+    context: &str,
+) -> Result<(), String> {
+    let mut tx = pool
+        .begin()
+        .await
+        .map_err(|err| format!("begin {context}: {err}"))?;
+    raw_sql(sql)
+        .execute(&mut *tx)
+        .await
+        .map_err(|err| format!("apply {context}: {err}"))?;
+    raw_sql(&format!("PRAGMA user_version = {version}"))
+        .execute(&mut *tx)
+        .await
+        .map_err(|err| format!("stamp {context}: {err}"))?;
+    tx.commit()
+        .await
+        .map_err(|err| format!("commit {context}: {err}"))?;
     Ok(())
 }
 

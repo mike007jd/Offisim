@@ -3,17 +3,18 @@
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
-  appendFileSync,
+  createReadStream,
+  createWriteStream,
   mkdirSync,
   openSync,
   readdirSync,
-  readFileSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { gateCwd, RELEASE_GATES } from './release-gates.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
@@ -27,20 +28,6 @@ const platformLogPath = path.join(root, 'output/run-action-platform-dev.log');
 // exists for fast local iteration only — the evidence summary records the skip
 // and the run does not count as release evidence.
 const skipGates = process.argv.includes('--skip-gates');
-
-// Same core set as .github/workflows/ci.yml and RELEASE_GATES.md.
-const RELEASE_GATES = [
-  { name: 'validate', command: 'pnpm', args: ['validate'] },
-  { name: 'ui-hygiene', command: 'pnpm', args: ['check:ui-hygiene'] },
-  { name: 'deterministic-harness', command: 'pnpm', args: ['harness:deterministic'] },
-  { name: 'security-harness', command: 'pnpm', args: ['security:harness'] },
-  {
-    name: 'cargo-test',
-    command: 'cargo',
-    args: ['test'],
-    cwd: path.join(root, 'apps/desktop/src-tauri'),
-  },
-];
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -138,32 +125,37 @@ function gitInfo() {
 
 function runGate(gate, logPath) {
   const startedAt = Date.now();
-  const header = `\n===== gate: ${gate.name} (${gate.command} ${gate.args.join(' ')}) =====\n`;
-  appendFileSync(logPath, header);
+  const logStream = createWriteStream(logPath, { flags: 'a' });
+  logStream.write(`\n===== gate: ${gate.name} (${gate.command} ${gate.args.join(' ')}) =====\n`);
   return new Promise((resolve) => {
+    const finish = (footer, result) => {
+      logStream.end(footer);
+      resolve({ ...result, durationMs: Date.now() - startedAt });
+    };
     const child = spawn(gate.command, gate.args, {
-      cwd: gate.cwd ?? root,
+      cwd: gateCwd(gate),
       stdio: ['ignore', 'pipe', 'pipe'],
       env: process.env,
     });
     const tee = (chunk, stream) => {
       stream.write(chunk);
-      appendFileSync(logPath, chunk);
+      logStream.write(chunk);
     };
     child.stdout.on('data', (chunk) => tee(chunk, process.stdout));
     child.stderr.on('data', (chunk) => tee(chunk, process.stderr));
     child.on('close', (code) => {
       const status = code === 0 ? 'pass' : 'fail';
-      appendFileSync(logPath, `===== gate: ${gate.name} → ${status} (exit ${code}) =====\n`);
-      resolve({ name: gate.name, status, exitCode: code, durationMs: Date.now() - startedAt });
+      finish(`===== gate: ${gate.name} → ${status} (exit ${code}) =====\n`, {
+        name: gate.name,
+        status,
+        exitCode: code,
+      });
     });
     child.on('error', (error) => {
-      appendFileSync(logPath, `===== gate: ${gate.name} → spawn error: ${error.message} =====\n`);
-      resolve({
+      finish(`===== gate: ${gate.name} → spawn error: ${error.message} =====\n`, {
         name: gate.name,
         status: 'fail',
         exitCode: null,
-        durationMs: Date.now() - startedAt,
         error: error.message,
       });
     });
@@ -171,11 +163,11 @@ function runGate(gate, logPath) {
 }
 
 // Deterministic content hash of the .app bundle: sha256 over each file's
-// (relative path, bytes) in sorted order. Symlinks/dirs contribute their path
-// + link target only.
-function hashAppBundle(bundlePath) {
+// (relative path, bytes) in sorted order, streamed so peak memory stays at
+// chunk size rather than the largest binary in the bundle.
+async function hashAppBundle(bundlePath) {
   const aggregate = createHash('sha256');
-  const walk = (dir) => {
+  const walk = async (dir) => {
     const entries = readdirSync(dir, { withFileTypes: true }).sort((a, b) =>
       a.name.localeCompare(b.name),
     );
@@ -185,14 +177,19 @@ function hashAppBundle(bundlePath) {
       aggregate.update(relative);
       aggregate.update('\0');
       if (entry.isDirectory()) {
-        walk(absolute);
+        await walk(absolute);
       } else if (entry.isFile()) {
-        aggregate.update(readFileSync(absolute));
+        await new Promise((resolve, reject) => {
+          createReadStream(absolute)
+            .on('data', (chunk) => aggregate.update(chunk))
+            .on('end', resolve)
+            .on('error', reject);
+        });
       }
       aggregate.update('\0');
     }
   };
-  walk(bundlePath);
+  await walk(bundlePath);
   return aggregate.digest('hex');
 }
 
@@ -340,7 +337,7 @@ async function main() {
   run('pnpm', ['--filter', '@offisim/desktop', 'build']);
 
   console.log('[run-clean-release] hashing release bundle');
-  summary.bundleSha256 = hashAppBundle(appPath);
+  summary.bundleSha256 = await hashAppBundle(appPath);
   summary.releaseEvidence = !skipGates;
   writeSummary();
   console.log(`[run-clean-release] bundle sha256: ${summary.bundleSha256}`);

@@ -19,8 +19,9 @@ These gates are not a convention — they are enforced in two places:
   `--skip-gates` exists for local iteration only; its output is marked
   non-evidence in `summary.json`.
 
-Keep the CI workflow, the `RELEASE_GATES` list in
-`scripts/run-clean-release.mjs`, and this table in sync.
+The gate list itself is defined once in `scripts/release-gates.mjs`; CI and
+`release:run` both consume it, so only this prose table can drift — update it
+when the list changes.
 
 ## Core gates (run for any release-bound change)
 
