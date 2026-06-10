@@ -5,17 +5,13 @@
  */
 
 import { RoundedBox } from '@react-three/drei';
-import { SceneMaterial } from '../scene-materials.js';
+import { EmissiveMaterial, SceneMaterial } from '../scene-materials.js';
 import { useSceneColors } from '../use-scene-colors.js';
 
 export interface RestAreaMesh3DProps {
   position?: [number, number, number];
   rotation?: number;
   state?: string;
-}
-
-function SofaFabricMaterial({ color, opacity = 0.96 }: { color: string; opacity?: number }) {
-  return <meshBasicMaterial color={color} transparent opacity={opacity} toneMapped={false} />;
 }
 
 export function RestAreaMesh3D({
@@ -28,51 +24,109 @@ export function RestAreaMesh3D({
 
   return (
     <group position={position} rotation={[0, rotY, 0]}>
-      {/* Carpet */}
       <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[10, 6]} />
-        <SceneMaterial materialClass="fabric" color={sc.furnitureLight} />
+        <planeGeometry args={[6.8, 4.8]} />
+        <SceneMaterial
+          materialClass="carpet"
+          color={sc.zoneRest}
+          overrides={{ transparent: true, opacity: 0.78 }}
+        />
       </mesh>
-      {/* Sofa set 1 - L shape */}
-      <RoundedBox args={[4, 0.4, 1.2]} position={[-1, 0.2, -2.2]} radius={0.1}>
-        <SofaFabricMaterial color={sc.ledAmber} />
+
+      <RoundedBox
+        args={[3.9, 0.42, 1.12]}
+        position={[-0.9, 0.24, -1.45]}
+        radius={0.12}
+        smoothness={5}
+        castShadow
+        receiveShadow
+      >
+        <SceneMaterial materialClass="leather" color={sc.accentWarm} />
       </RoundedBox>
-      <RoundedBox args={[4, 0.6, 0.3]} position={[-1, 0.5, -2.75]} radius={0.1}>
-        <SofaFabricMaterial color={sc.ledAmber} opacity={0.9} />
+      <RoundedBox
+        args={[3.9, 0.72, 0.28]}
+        position={[-0.9, 0.58, -1.94]}
+        radius={0.1}
+        smoothness={5}
+        castShadow
+        receiveShadow
+      >
+        <SceneMaterial materialClass="leather" color={sc.accentWarm} />
       </RoundedBox>
-      {[-2.2, -1, 0.2].map((x) => (
+      <RoundedBox
+        args={[1.1, 0.42, 2.6]}
+        position={[-2.3, 0.24, -0.16]}
+        radius={0.12}
+        smoothness={5}
+        castShadow
+        receiveShadow
+      >
+        <SceneMaterial materialClass="leather" color={sc.accentWarm} />
+      </RoundedBox>
+      <RoundedBox
+        args={[0.28, 0.68, 2.6]}
+        position={[-2.82, 0.56, -0.16]}
+        radius={0.1}
+        smoothness={5}
+        castShadow
+        receiveShadow
+      >
+        <SceneMaterial materialClass="leather" color={sc.accentWarm} />
+      </RoundedBox>
+
+      {[-2.1, -1.05, 0.0].map((x) => (
         <RoundedBox
-          key={`cushion-a-${x}`}
-          args={[0.75, 0.12, 0.55]}
-          position={[x, 0.45, -2.18]}
+          key={`sofa-seat-${x}`}
+          args={[0.78, 0.1, 0.58]}
+          position={[x, 0.49, -1.38]}
           radius={0.08}
+          smoothness={4}
+          castShadow
         >
-          <SofaFabricMaterial color={sc.accentWarm} />
+          <SceneMaterial materialClass="fabric" color={sc.furnitureLight} />
         </RoundedBox>
       ))}
-      {/* Sofa set 2 */}
-      <RoundedBox args={[3, 0.4, 1]} position={[1, 0.2, 2]} radius={0.1}>
-        <SofaFabricMaterial color={sc.accentWarm} />
-      </RoundedBox>
-      <RoundedBox args={[3, 0.6, 0.3]} position={[1, 0.5, 2.45]} radius={0.1}>
-        <SofaFabricMaterial color={sc.accentWarm} opacity={0.9} />
-      </RoundedBox>
-      {[-0.1, 0.95, 2].map((x) => (
+      {[-0.9, 0.15].map((z) => (
         <RoundedBox
-          key={`cushion-b-${x}`}
-          args={[0.68, 0.12, 0.46]}
-          position={[x, 0.45, 2]}
+          key={`chaise-seat-${z}`}
+          args={[0.58, 0.1, 0.82]}
+          position={[-2.28, 0.49, z]}
           radius={0.08}
+          smoothness={4}
+          castShadow
         >
-          <SofaFabricMaterial color={sc.ledAmber} />
+          <SceneMaterial materialClass="fabric" color={sc.furnitureLight} />
         </RoundedBox>
       ))}
-      <RoundedBox args={[1.05, 0.22, 0.72]} position={[-3.2, 0.22, -0.15]} radius={0.08} castShadow>
+
+      <RoundedBox
+        args={[0.72, 0.18, 0.72]}
+        position={[2.0, 0.2, 1.3]}
+        radius={0.08}
+        smoothness={4}
+        castShadow
+        receiveShadow
+      >
         <SceneMaterial materialClass="fabric" color={sc.furnitureLight} />
       </RoundedBox>
-      <RoundedBox args={[0.72, 0.18, 0.72]} position={[3.1, 0.2, 0.1]} radius={0.08} castShadow>
-        <SceneMaterial materialClass="fabric" color={sc.furnitureLight} />
-      </RoundedBox>
+      <group position={[2.55, 0, -1.5]}>
+        <mesh position={[0, 0.82, 0]} castShadow>
+          <cylinderGeometry args={[0.035, 0.035, 1.64, 10]} />
+          <SceneMaterial materialClass="metal-brushed" color={sc.deskEdge} />
+        </mesh>
+        <mesh position={[0, 0.06, 0]} castShadow>
+          <cylinderGeometry args={[0.28, 0.32, 0.06, 18]} />
+          <SceneMaterial materialClass="metal" color={sc.deskEdge} />
+        </mesh>
+        <mesh position={[0, 1.68, 0]} castShadow>
+          <coneGeometry args={[0.34, 0.34, 18, 1, true]} />
+          <SceneMaterial materialClass="fabric" color={sc.furnitureLight} />
+        </mesh>
+        <mesh position={[0, 1.55, 0]}>
+          <sphereGeometry args={[0.09, 14, 10]} />
+          <EmissiveMaterial color={sc.whiteboardSurface} tier="accent" intensity={0.34} />
+        </mesh>
+      </group>
     </group>
   );
 }

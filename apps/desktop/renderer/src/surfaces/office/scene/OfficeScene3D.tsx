@@ -2,7 +2,7 @@ import { useUiState } from '@/app/ui-state.js';
 import { useEmployees, useOfficeLayout, useReassignEmployee, useThreads } from '@/data/queries.js';
 import type { Employee } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
-import type { PrefabDefinition, PrefabInstanceRow } from '@offisim/shared-types';
+import { extractZoneSlug, type PrefabDefinition, type PrefabInstanceRow } from '@offisim/shared-types';
 import { Html, OrbitControls } from '@react-three/drei';
 import { Canvas, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -22,6 +22,7 @@ import { WhiteboardMesh3D } from './r3d/prefabs/WhiteboardMesh3D.js';
 import { WorkstationUnit3D } from './r3d/prefabs/WorkstationMesh3D.js';
 import { OFFICE_CAMERA_PRESET, SCENE_CONTENT_SCALE } from './r3d/scene-art-direction.js';
 import { LIGHT_SCENE_3D } from './r3d/scene-colors.js';
+import { SceneMaterial } from './r3d/scene-materials.js';
 import { compactSceneEmployeeName } from './scene-labels.js';
 import {
   type ZoneDef,
@@ -97,6 +98,246 @@ const ZONE_TINT: Record<string, string> = {
 
 function zoneTint(archetype: string): string {
   return ZONE_TINT[archetype] ?? LIGHT_SCENE_3D.zoneWorkspace;
+}
+
+type ScenePrefabItem = { instance: PrefabInstanceRow; definition: PrefabDefinition };
+
+interface LegacyPrefabRefreshRule {
+  readonly prefabId: string;
+  readonly from: readonly [number, number];
+  readonly to?: readonly [number, number];
+  readonly fromRotation?: PrefabInstanceRow['rotation'];
+  readonly toRotation?: PrefabInstanceRow['rotation'];
+}
+
+const LEGACY_POSITION_EPSILON = 0.08;
+const WORKSTATION_PREFAB_IDS = new Set([
+  'workstation-standard',
+  'workstation-compact',
+  'workstation-dual',
+]);
+
+const WORKSPACE_SCENE_SLOTS: Readonly<
+  Record<string, readonly { x: number; z: number; rotation: PrefabInstanceRow['rotation'] }[]>
+> = {
+  'zone-dev': [
+    { x: -3.8, z: -1.35, rotation: 0 },
+    { x: 2.75, z: 1.55, rotation: 180 },
+  ],
+  'zone-product': [
+    { x: -3.25, z: -1.25, rotation: 0 },
+    { x: 2.65, z: 1.65, rotation: 180 },
+  ],
+  'zone-art': [
+    { x: -3.2, z: -1.25, rotation: 0 },
+    { x: 2.85, z: 1.65, rotation: 180 },
+  ],
+};
+
+const LEGACY_SYSTEM_PREFAB_REFRESH: Readonly<Record<string, readonly LegacyPrefabRefreshRule[]>> = {
+  'zone-dev': [
+    { prefabId: 'workstation-dual', from: [-4.6, -1.9], to: [-3.8, -1.35] },
+    { prefabId: 'workstation-dual', from: [-4.35, -1.75], to: [-3.8, -1.35] },
+    {
+      prefabId: 'workstation-standard',
+      from: [-1.45, -1.9],
+      to: [2.75, 1.55],
+      toRotation: 180,
+    },
+    {
+      prefabId: 'workstation-standard',
+      from: [0.15, -1.75],
+      to: [2.75, 1.55],
+      toRotation: 180,
+    },
+    { prefabId: 'workstation-standard', from: [1.75, -1.9] },
+    { prefabId: 'workstation-dual', from: [4.9, -1.9] },
+    { prefabId: 'workstation-dual', from: [4.95, 2.55] },
+    { prefabId: 'workstation-standard', from: [-2.25, 2.7] },
+    { prefabId: 'workstation-standard', from: [2.45, 2.7] },
+    { prefabId: 'standing-table', from: [-5.1, 2.9], to: [-0.9, 2.85] },
+    { prefabId: 'standing-table', from: [-5.15, 2.85], to: [-0.9, 2.85] },
+    { prefabId: 'network-switch', from: [5.3, 2.8], to: [5.15, -2.85] },
+    { prefabId: 'network-switch', from: [5.35, -3.05], to: [5.15, -2.85] },
+    { prefabId: 'plant-large', from: [5.5, -3.0], to: [-5.35, 2.9] },
+    { prefabId: 'plant-large', from: [-5.45, -3.05], to: [-5.35, 2.9] },
+  ],
+  'zone-product': [
+    { prefabId: 'workstation-standard', from: [-3.7, -1.35], to: [-3.25, -1.25] },
+    { prefabId: 'workstation-standard', from: [-3.75, -1.45], to: [-3.25, -1.25] },
+    { prefabId: 'workstation-standard', from: [-0.7, -1.35] },
+    {
+      prefabId: 'workstation-standard',
+      from: [2.3, -1.35],
+      to: [2.65, 1.65],
+      toRotation: 180,
+    },
+    {
+      prefabId: 'workstation-standard',
+      from: [1.45, -1.45],
+      to: [2.65, 1.65],
+      toRotation: 180,
+    },
+    { prefabId: 'workstation-compact', from: [4.9, 2.2] },
+    { prefabId: 'standing-table', from: [-2.6, 2.7], to: [0, 2.8] },
+    { prefabId: 'standing-table', from: [-3.35, 2.75], to: [0, 2.8] },
+    { prefabId: 'status-board', from: [4.6, -2.8], to: [4.8, -2.85] },
+    { prefabId: 'status-board', from: [4.75, 2.55], to: [4.8, -2.85] },
+    { prefabId: 'plant-large', from: [5.0, 2.9], to: [-5.05, 2.75] },
+    { prefabId: 'plant-large', from: [5.15, -2.95], to: [-5.05, 2.75] },
+  ],
+  'zone-art': [
+    { prefabId: 'workstation-dual', from: [-4.1, -1.45], to: [-3.2, -1.25] },
+    { prefabId: 'workstation-dual', from: [-4.0, -1.45], to: [-3.2, -1.25] },
+    { prefabId: 'workstation-standard', from: [-0.9, -1.45] },
+    { prefabId: 'workstation-standard', from: [2.4, -1.45] },
+    {
+      prefabId: 'workstation-dual',
+      from: [-1.1, 2.7],
+      to: [2.85, 1.65],
+      toRotation: 180,
+    },
+    {
+      prefabId: 'workstation-standard',
+      from: [1.45, -1.45],
+      to: [2.85, 1.65],
+      toRotation: 180,
+    },
+    { prefabId: 'standing-table', from: [3.8, 2.8], to: [-0.1, 2.75] },
+    { prefabId: 'standing-table', from: [3.75, 2.65], to: [-0.1, 2.75] },
+    { prefabId: 'status-board', from: [4.7, -2.8], to: [4.8, -2.85] },
+    { prefabId: 'plant-large', from: [-4.8, 2.9], to: [-5.05, 2.65] },
+    { prefabId: 'plant-large', from: [-4.95, 2.75], to: [-5.05, 2.65] },
+    { prefabId: 'plant-small', from: [4.7, -3.1] },
+  ],
+  'zone-library': [
+    { prefabId: 'bookshelf-double', from: [-4.9, -2.85], to: [-5.4, -2.55] },
+    { prefabId: 'bookshelf-double', from: [4.9, -2.85], to: [5.4, -2.55] },
+    { prefabId: 'reading-table', from: [0, 0.65], to: [0, 1.45] },
+    { prefabId: 'chair-standalone', from: [-1.05, 2.45], to: [-2.4, 2.85] },
+    { prefabId: 'chair-standalone', from: [1.05, 2.45], to: [2.4, 2.85] },
+    { prefabId: 'plant-large', from: [5.6, 2.65], to: [-5.4, 2.7] },
+  ],
+};
+
+function prefabDefinitionId({ instance, definition }: ScenePrefabItem): string {
+  return definition.prefabId ?? instance.prefab_id;
+}
+
+function isSceneWorkstation(item: ScenePrefabItem): boolean {
+  return WORKSTATION_PREFAB_IDS.has(prefabDefinitionId(item));
+}
+
+function near(a: number, b: number): boolean {
+  return Math.abs(a - b) <= LEGACY_POSITION_EPSILON;
+}
+
+function legacyRefreshRuleFor(
+  item: ScenePrefabItem,
+  zone: ZoneDef,
+): LegacyPrefabRefreshRule | null {
+  const rules = LEGACY_SYSTEM_PREFAB_REFRESH[extractZoneSlug(zone.id)];
+  if (!rules) return null;
+  const prefabId = prefabDefinitionId(item);
+  const localX = item.instance.position_x - zone.cx;
+  const localZ = item.instance.position_y - zone.cz;
+  const rotation = ((item.instance.rotation % 360) + 360) % 360;
+  return (
+    rules.find(
+      (rule) =>
+        rule.prefabId === prefabId &&
+        near(localX, rule.from[0]) &&
+        near(localZ, rule.from[1]) &&
+        (rule.fromRotation === undefined || rotation === rule.fromRotation),
+    ) ?? null
+  );
+}
+
+function relaxedScenePrefabs(
+  prefabs: readonly ScenePrefabItem[] | undefined,
+  zones: readonly ZoneDef[],
+): readonly ScenePrefabItem[] | undefined {
+  if (!prefabs) return undefined;
+  const zonesBySlug = new Map(zones.map((zone) => [extractZoneSlug(zone.id), zone]));
+  const refreshed: ScenePrefabItem[] = [];
+
+  for (const item of prefabs) {
+    const zone = zonesBySlug.get(extractZoneSlug(item.instance.zone_id));
+    if (!zone) {
+      refreshed.push(item);
+      continue;
+    }
+    const rule = legacyRefreshRuleFor(item, zone);
+    if (!rule) {
+      refreshed.push(item);
+      continue;
+    }
+    if (!rule.to) {
+      continue;
+    }
+    refreshed.push({
+      ...item,
+      instance: {
+        ...item.instance,
+        position_x: zone.cx + rule.to[0],
+        position_y: zone.cz + rule.to[1],
+        rotation: rule.toRotation ?? item.instance.rotation,
+      },
+    });
+  }
+
+  const denseWorkspaceSlugs = new Set<string>();
+  const workstationsBySlug = new Map<string, ScenePrefabItem[]>();
+  for (const item of refreshed) {
+    const zone = zonesBySlug.get(extractZoneSlug(item.instance.zone_id));
+    if (!zone || zone.archetype !== 'workspace' || !isSceneWorkstation(item)) continue;
+    const slug = extractZoneSlug(zone.id);
+    const items = workstationsBySlug.get(slug) ?? [];
+    items.push(item);
+    workstationsBySlug.set(slug, items);
+  }
+
+  for (const [slug, items] of workstationsBySlug) {
+    if (items.length > (WORKSPACE_SCENE_SLOTS[slug]?.length ?? 2)) {
+      denseWorkspaceSlugs.add(slug);
+    }
+  }
+
+  if (denseWorkspaceSlugs.size === 0) return refreshed;
+
+  const workstationRank = new Map<ScenePrefabItem, number>();
+  for (const slug of denseWorkspaceSlugs) {
+    const items = [...(workstationsBySlug.get(slug) ?? [])].sort(
+      (a, b) =>
+        a.instance.position_y - b.instance.position_y ||
+        a.instance.position_x - b.instance.position_x,
+    );
+    items.forEach((item, index) => workstationRank.set(item, index));
+  }
+
+  const out: ScenePrefabItem[] = [];
+  for (const item of refreshed) {
+    const zone = zonesBySlug.get(extractZoneSlug(item.instance.zone_id));
+    const slug = zone ? extractZoneSlug(zone.id) : '';
+    const rank = workstationRank.get(item);
+    if (!zone || !denseWorkspaceSlugs.has(slug) || rank === undefined) {
+      out.push(item);
+      continue;
+    }
+    const slot = WORKSPACE_SCENE_SLOTS[slug]?.[rank];
+    if (!slot) continue;
+    out.push({
+      ...item,
+      instance: {
+        ...item.instance,
+        position_x: zone.cx + slot.x,
+        position_y: zone.cz + slot.z,
+        rotation: slot.rotation,
+      },
+    });
+  }
+
+  return out;
 }
 
 function hitTestZone(zones: ZoneDef[], x: number, z: number): ZoneDef | null {
@@ -386,17 +627,58 @@ function ExternalPlacementController({
 
 /** Evenly spread `count` standing positions inside a zone footprint. */
 function ZoneRug({ zone, highlight = false }: { zone: ZoneDef; highlight?: boolean }) {
+  const borderOpacity = highlight ? 0.86 : 0.38;
+  const rugOpacity = highlight ? 0.42 : zone.archetype === 'server' ? 0.56 : 0.44;
+  const showGlass =
+    zone.archetype === 'meeting' || zone.archetype === 'server' || zone.archetype === 'library';
+  const labelZ =
+    zone.archetype === 'meeting' || zone.archetype === 'server'
+      ? -zone.d / 2 + 0.68
+      : zone.d / 2 - 0.68;
+  const labelX =
+    zone.archetype === 'meeting' || zone.archetype === 'library'
+      ? -zone.w / 2 + 4.2
+      : -zone.w / 2 + 0.72;
+  const borderStrips: [number, number, number, number][] = [
+    [0, -zone.d / 2, zone.w, 0.07],
+    [0, zone.d / 2, zone.w, 0.07],
+    [-zone.w / 2, 0, 0.07, zone.d],
+    [zone.w / 2, 0, 0.07, zone.d],
+  ];
   return (
     <group position={[zone.cx, 0, zone.cz]}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.022, 0]} receiveShadow>
         <planeGeometry args={[zone.w, zone.d]} />
-        <meshStandardMaterial
+        <SceneMaterial
+          materialClass={zone.archetype === 'server' ? 'rubber' : 'carpet'}
           color={highlight ? LIGHT_SCENE_3D.selectionRing : zoneTint(zone.archetype)}
-          roughness={0.95}
-          transparent
-          opacity={highlight ? 0.32 : 0.5}
+          overrides={{
+            roughness: zone.archetype === 'server' ? 0.86 : 0.95,
+            transparent: true,
+            opacity: rugOpacity,
+          }}
         />
       </mesh>
+      {borderStrips.map(([x, z, w, d]) => (
+        <mesh key={`zone-border-${x}-${z}`} position={[x, 0.044, z]} receiveShadow>
+          <boxGeometry args={[w, 0.032, d]} />
+          <SceneMaterial
+            materialClass="rubber"
+            color={highlight ? LIGHT_SCENE_3D.selectionRing : LIGHT_SCENE_3D.floorBorder}
+            overrides={{ transparent: true, opacity: borderOpacity, roughness: 0.82 }}
+          />
+        </mesh>
+      ))}
+      {showGlass ? (
+        <mesh position={[0, 0.62, -zone.d / 2 + 0.1]} castShadow receiveShadow>
+          <boxGeometry args={[zone.w * 0.82, 1.18, 0.045]} />
+          <SceneMaterial
+            materialClass="glass"
+            color={LIGHT_SCENE_3D.partition}
+            overrides={{ transparent: true, opacity: 0.2, roughness: 0.16, thickness: 0.05 }}
+          />
+        </mesh>
+      ) : null}
       {highlight ? (
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
           <ringGeometry
@@ -406,9 +688,9 @@ function ZoneRug({ zone, highlight = false }: { zone: ZoneDef; highlight?: boole
         </mesh>
       ) : null}
       <Html
-        position={[-zone.w / 2 + 0.5, 0.05, -zone.d / 2 + 0.5]}
+        position={[labelX, 0.1, labelZ]}
         center={false}
-        distanceFactor={22}
+        distanceFactor={12}
         occlude={false}
         className="off-scene-html-passive"
       >
@@ -466,6 +748,7 @@ function EmployeeUnit({
   const labelY = 2.12 + labelTier * 0.18 + Math.abs(labelLane) * 0.06;
   const labelZ = (labelTier - 1) * 0.24 + labelLane * 0.07;
   const labelText = compactSceneEmployeeName(employee.name);
+  const labelInteractive = active || running;
   const characterRotation = (rotation * Math.PI) / 180;
 
   useEffect(
@@ -628,6 +911,17 @@ function EmployeeUnit({
       {withDesk ? (
         <WorkstationUnit3D position={[0, 0, -1.8]} rotation={0} variant="compact" />
       ) : null}
+      {!dragging ? (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.018, 0]}>
+          <circleGeometry args={[0.46, 34]} />
+          <meshBasicMaterial
+            color={LIGHT_SCENE_3D.text}
+            transparent
+            opacity={active ? 0.18 : running ? 0.14 : 0.1}
+            depthWrite={false}
+          />
+        </mesh>
+      ) : null}
       {active && !dragging ? (
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
           <ringGeometry args={[0.52, 0.64, 40]} />
@@ -674,36 +968,42 @@ function EmployeeUnit({
           center
           distanceFactor={18}
           occlude={false}
-          className="off-scene-html-interactive"
+          className={labelInteractive ? 'off-scene-html-interactive' : 'off-scene-html-passive'}
         >
-          <button
-            type="button"
-            aria-label={`Open ${employee.name}`}
-            title={employee.name}
-            className={`off-scene-tag is-interactive${running ? ' is-running' : ''}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onSelect();
-            }}
-            onPointerDown={(e) => {
-              e.stopPropagation();
-              e.nativeEvent.stopImmediatePropagation();
-              e.nativeEvent.preventDefault();
-              beginDrag(e.nativeEvent);
-            }}
-            onMouseDown={(e) => {
-              e.stopPropagation();
-              e.nativeEvent.stopImmediatePropagation();
-              e.nativeEvent.preventDefault();
-              beginDrag(e.nativeEvent);
-            }}
-            onDragStart={(e) => {
-              e.preventDefault();
-            }}
-            draggable={false}
-          >
-            {labelText}
-          </button>
+          {labelInteractive ? (
+            <button
+              type="button"
+              aria-label={`Open ${employee.name}`}
+              title={employee.name}
+              className={`off-scene-tag is-interactive${running ? ' is-running' : ''}${
+                active ? ' is-active' : ''
+              }`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect();
+              }}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                e.nativeEvent.stopImmediatePropagation();
+                e.nativeEvent.preventDefault();
+                beginDrag(e.nativeEvent);
+              }}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                e.nativeEvent.stopImmediatePropagation();
+                e.nativeEvent.preventDefault();
+                beginDrag(e.nativeEvent);
+              }}
+              onDragStart={(e) => {
+                e.preventDefault();
+              }}
+              draggable={false}
+            >
+              {labelText}
+            </button>
+          ) : (
+            <span className="off-scene-tag">{labelText}</span>
+          )}
         </Html>
       ) : null}
     </group>
@@ -781,14 +1081,22 @@ function SceneDropNoticeLabel({ notice }: { notice: SceneDropNotice }) {
 function FallbackFurniture() {
   return (
     <group scale={SCENE_CONTENT_SCALE}>
-      <MeetingTableMesh3D position={[8.5, 0, -8.5]} rotation={0} capacity={8} />
-      <ServerRackUnit3D position={[1, 0, -13]} rotation={0} heightScale={1.24} />
-      <ServerRackUnit3D position={[-1, 0, -13]} rotation={0} />
-      <BookshelfMesh3D position={[-12.5, 0, -12.5]} rotation={0} template="bookshelf-double" />
-      <RestAreaMesh3D position={[7.5, 0, 8]} rotation={0} />
-      <DecorativeMesh3D position={[12.5, 0, 11]} rotation={0} template="plant-large" />
-      <DecorativeMesh3D position={[3.5, 0, 11]} rotation={0} template="plant-small" />
-      <WhiteboardMesh3D position={[8.5, 0, -14]} rotation={0} />
+      <WorkstationUnit3D position={[-14.8, 0, 8.6]} rotation={0} variant="dual" />
+      <WorkstationUnit3D position={[-2.7, 0, 9.0]} rotation={0} />
+      <WorkstationUnit3D position={[10.4, 0, 9.0]} rotation={0} variant="dual" />
+      <BookshelfMesh3D position={[-15.7, 0, -2.1]} rotation={0} template="bookshelf-double" />
+      <BookshelfMesh3D position={[-7.0, 0, -2.1]} rotation={0} template="bookshelf-double" />
+      <BookshelfMesh3D position={[-11.3, 0, 1.2]} rotation={0} template="reading-table" />
+      <RestAreaMesh3D position={[3.5, 0, 0.2]} rotation={0} />
+      <DecorativeMesh3D position={[7.8, 0, -0.6]} rotation={0} template="coffee-table" />
+      <DecorativeMesh3D position={[11.5, 0, -2.1]} rotation={180} template="water-cooler" />
+      <MeetingTableMesh3D position={[-9.4, 0, -8.45]} rotation={0} capacity={8} />
+      <WhiteboardMesh3D position={[-9.4, 0, -11.7]} rotation={0} />
+      <ServerRackUnit3D position={[6.2, 0, -9.2]} rotation={0} heightScale={1.24} />
+      <ServerRackUnit3D position={[9.4, 0, -9.2]} rotation={0} />
+      <ServerRackUnit3D position={[12.6, 0, -9.2]} rotation={0} heightScale={1.24} />
+      <DecorativeMesh3D position={[-18.2, 0, 14.0]} rotation={0} template="plant-large" />
+      <DecorativeMesh3D position={[17.2, 0, 14.0]} rotation={0} template="plant-large" />
     </group>
   );
 }
@@ -822,12 +1130,16 @@ export function OfficeScene3D({
   const roster = employees.data ?? [];
 
   const zoneDefs: ZoneDef[] = useMemo(() => zoneDefsFromLayout(real), [real]);
+  const scenePrefabs = useMemo(
+    () => relaxedScenePrefabs(real?.prefabs, zoneDefs),
+    [real?.prefabs, zoneDefs],
+  );
 
   const defaultEmployeeZone = useMemo(() => resolveDefaultEmployeeZone(zoneDefs), [zoneDefs]);
 
   const placementsByEmployee = useMemo(
-    () => employeePlacements(roster, zoneDefs, defaultEmployeeZone, real?.prefabs),
-    [defaultEmployeeZone, real?.prefabs, roster, zoneDefs],
+    () => employeePlacements(roster, zoneDefs, defaultEmployeeZone, scenePrefabs),
+    [defaultEmployeeZone, roster, scenePrefabs, zoneDefs],
   );
 
   const threadByEmployee = useMemo(() => {
@@ -858,7 +1170,7 @@ export function OfficeScene3D({
       // similarly run in useFrame without setState. Re-enable demand only
       // alongside an invalidate() in those useFrame consumers.
       camera={{ position: OFFICE_CAMERA_PRESET.position, fov: OFFICE_CAMERA_PRESET.fov }}
-      gl={{ antialias: true, toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.05 }}
+      gl={{ antialias: true, toneMapping: ACESFilmicToneMapping, toneMappingExposure: 0.92 }}
       className="off-scene-canvas"
     >
       <color attach="background" args={[LIGHT_SCENE_3D.sceneBackground]} />
@@ -897,7 +1209,7 @@ export function OfficeScene3D({
       ) : null}
 
       {real ? (
-        real.prefabs.map(({ instance, definition }) => (
+        scenePrefabs?.map(({ instance, definition }) => (
           <ScenePrefabInstance3D
             key={instance.instance_id}
             instance={instance}

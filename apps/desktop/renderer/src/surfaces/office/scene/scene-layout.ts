@@ -15,9 +15,61 @@ export interface ZoneDef {
 /** Synthetic fallback layout (non-Tauri/dev, or an empty backend). Both scenes
  *  fall back to this so dev/preview stays consistent across render modes. */
 export const FALLBACK_ZONES: ZoneDef[] = [
-  { id: 'work', label: 'Workspace', archetype: 'workspace', cx: -6.2, cz: 1.4, w: 17.5, d: 22 },
-  { id: 'meet', label: 'Meeting', archetype: 'meeting', cx: 8.8, cz: -8.8, w: 10.8, d: 8.8 },
-  { id: 'lounge', label: 'Lounge', archetype: 'rest', cx: 8.8, cz: 7.4, w: 10.8, d: 12.5 },
+  {
+    id: 'zone-dev',
+    label: 'DEVELOPMENT',
+    archetype: 'workspace',
+    cx: -13.2,
+    cz: 10.6,
+    w: 12.4,
+    d: 8.8,
+  },
+  {
+    id: 'zone-product',
+    label: 'PRODUCT',
+    archetype: 'workspace',
+    cx: -0.2,
+    cz: 10.6,
+    w: 11.2,
+    d: 8.8,
+  },
+  {
+    id: 'zone-art',
+    label: 'ART & DESIGN',
+    archetype: 'workspace',
+    cx: 12.4,
+    cz: 10.6,
+    w: 11.2,
+    d: 8.8,
+  },
+  {
+    id: 'zone-library',
+    label: 'LIBRARY',
+    archetype: 'library',
+    cx: -11.3,
+    cz: 0.7,
+    w: 13.2,
+    d: 7.6,
+  },
+  { id: 'zone-rest', label: 'REST AREA', archetype: 'rest', cx: 6.3, cz: 0.7, w: 13.8, d: 7.6 },
+  {
+    id: 'zone-meeting',
+    label: 'MEETING ROOM',
+    archetype: 'meeting',
+    cx: -9.4,
+    cz: -8.8,
+    w: 15.2,
+    d: 7.4,
+  },
+  {
+    id: 'zone-server',
+    label: 'SERVER ROOM',
+    archetype: 'server',
+    cx: 9.4,
+    cz: -8.8,
+    w: 15.2,
+    d: 7.4,
+  },
 ];
 
 interface RealZone {

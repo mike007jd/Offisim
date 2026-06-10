@@ -19,9 +19,9 @@ export const OFFICE_ROOM = {
  *  inside a sensible zoom band while letting them get close enough to read the
  *  furniture detail and circle the room. */
 export const OFFICE_CAMERA_PRESET = {
-  position: [3.2, 16.2, 25.4] as [number, number, number],
-  target: [0.2, 1.35, 0.45] as [number, number, number],
-  fov: 38,
+  position: [2.8, 15.8, 26.2] as [number, number, number],
+  target: [0.15, 1.3, 1.1] as [number, number, number],
+  fov: 37,
   minDistance: 8.5,
   maxDistance: 72,
   /** Polar clamps for the free orbit: ~10° off straight-down to ~6° above the
@@ -40,7 +40,7 @@ export const OFFICE_CAMERA_PRESET = {
  *  `@offisim/shared-types` `system-zone-prefab-layout.ts` is widened to leave
  *  room for this factor. If you raise this, re-check that layout's neighbour
  *  gaps so enlarged pieces don't overlap (there is no automated guard). */
-export const SCENE_CONTENT_SCALE = 1.32;
+export const SCENE_CONTENT_SCALE = 1.18;
 
 export const SCENE_LAYER_Y = {
   floor: 0,

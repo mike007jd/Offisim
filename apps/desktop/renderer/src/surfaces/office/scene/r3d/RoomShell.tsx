@@ -89,6 +89,75 @@ function FloorBands() {
   );
 }
 
+function GlassRun({
+  x,
+  z,
+  width,
+  depth,
+}: {
+  x: number;
+  z: number;
+  width?: number;
+  depth?: number;
+}) {
+  const sc = useSceneColors();
+  const isHorizontal = width !== undefined;
+  const posts: [number, number][] = isHorizontal
+    ? [
+        [-(width ?? 1) / 2, 0],
+        [(width ?? 1) / 2, 0],
+      ]
+    : [
+        [0, -(depth ?? 1) / 2],
+        [0, (depth ?? 1) / 2],
+      ];
+  return (
+    <group position={[x, 0, z]}>
+      <mesh position={[0, 1.12, 0]} castShadow receiveShadow>
+        <boxGeometry args={isHorizontal ? [width ?? 1, 2.18, 0.06] : [0.06, 2.18, depth ?? 1]} />
+        <SceneMaterial
+          materialClass="glass"
+          color={sc.partition}
+          overrides={{ transparent: true, opacity: 0.42, roughness: 0.08, thickness: 0.08 }}
+        />
+      </mesh>
+      {posts.map(([px, pz]) => (
+        <mesh key={`glass-post-${px}-${pz}`} position={[px, 1.12, pz]} castShadow>
+          <boxGeometry args={[0.09, 2.24, 0.09]} />
+          <SceneMaterial materialClass="metal-brushed" color={sc.deskEdge} />
+        </mesh>
+      ))}
+      <mesh position={[0, 0.07, 0]} receiveShadow>
+        <boxGeometry args={isHorizontal ? [width ?? 1, 0.08, 0.12] : [0.12, 0.08, depth ?? 1]} />
+        <SceneMaterial materialClass="metal" color={sc.deskEdge} overrides={{ roughness: 0.55 }} />
+      </mesh>
+    </group>
+  );
+}
+
+function InteriorPartitions() {
+  const sc = useSceneColors();
+  return (
+    <>
+      <GlassRun x={-13.0} z={-5.02} width={7.7} />
+      <GlassRun x={-5.0} z={-5.02} width={5.0} />
+      <GlassRun x={6.0} z={-5.02} width={6.8} />
+      <GlassRun x={13.6} z={-5.02} width={4.9} />
+      <GlassRun x={0} z={-8.8} depth={6.8} />
+      {[-5.8, 4.8].map((x) => (
+        <mesh key={`middle-low-divider-${x}`} position={[x, 0.42, 4.85]} castShadow receiveShadow>
+          <boxGeometry args={[7.2, 0.74, 0.1]} />
+          <SceneMaterial
+            materialClass="glass"
+            color={sc.partition}
+            overrides={{ transparent: true, opacity: 0.22, roughness: 0.16 }}
+          />
+        </mesh>
+      ))}
+    </>
+  );
+}
+
 type WallPanelKind = 'framed-art' | 'corkboard' | 'season-screen' | 'framed-art-alt';
 
 const WALL_PANEL_KINDS: ReadonlyArray<WallPanelKind> = [
@@ -344,6 +413,8 @@ export function RoomShell({ onFloorClick }: { onFloorClick?: () => void }) {
         />
       </mesh>
       <FloorBands />
+      <FloorLineGrid />
+      <InteriorPartitions />
       <mesh position={[0, OFFICE_ROOM.wallHeight / 2, -OFFICE_ROOM.depth / 2]} receiveShadow>
         <boxGeometry args={[OFFICE_ROOM.width, OFFICE_ROOM.wallHeight, 0.3]} />
         <SceneMaterial materialClass="plastic" color={sc.wallShell} />

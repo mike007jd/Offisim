@@ -220,21 +220,23 @@
   align-items: center;
   justify-content: center;
   gap: 5px;
-  min-width: 48px;
-  max-width: 76px;
-  min-height: 22px;
-  padding: 3px 9px;
-  border: 1px solid var(--off-line);
+  min-width: 40px;
+  max-width: 64px;
+  min-height: 18px;
+  padding: 2px 7px;
+  border: 1px solid transparent;
   border-radius: var(--off-r-pill);
-  background: var(--off-surface-glass);
-  box-shadow: var(--off-elev-1);
-  color: var(--off-ink-1);
-  font-size: var(--off-fs-meta);
+  background: transparent;
+  box-shadow: none;
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-micro);
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   transform: translateY(-100%);
+  opacity: 0.24;
+  scale: 0.86;
   pointer-events: none;
 }
 
@@ -261,15 +263,35 @@
 
 .off-scene-tag.is-running {
   border-color: var(--off-accent-ring);
+  background: color-mix(in oklab, var(--off-surface-glass) 78%, transparent);
+  box-shadow: 0 5px 14px rgb(15 23 42 / 10%);
   color: var(--off-accent);
+  opacity: 0.9;
+  scale: 1;
+}
+
+.off-scene-tag.is-active {
+  border-color: var(--off-accent);
+  background: var(--off-surface-glass-strong);
+  color: var(--off-ink-1);
+  opacity: 1;
+  scale: 1;
 }
 
 .off-scene-zone-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 18px;
+  padding: 0 7px;
+  border: 1px solid color-mix(in oklab, var(--off-line) 72%, transparent);
+  border-radius: var(--off-r-xs);
+  background: color-mix(in oklab, var(--off-surface-glass-strong) 82%, transparent);
+  box-shadow: 0 5px 12px rgb(15 23 42 / 8%);
   font-size: var(--off-fs-micro);
   letter-spacing: 0;
   font-weight: 700;
   text-transform: uppercase;
-  color: var(--off-ink-3);
+  color: var(--off-ink-2);
   white-space: nowrap;
   pointer-events: none;
 }
@@ -2072,7 +2094,7 @@
   justify-content: center;
 }
 .off-resume-more:hover,
-.off-resume-more[aria-expanded='true'] {
+.off-resume-more[aria-expanded="true"] {
   border-color: var(--off-accent-ring);
   color: var(--off-accent);
 }

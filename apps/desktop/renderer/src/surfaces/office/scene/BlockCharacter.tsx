@@ -279,23 +279,40 @@ function HairMesh({
   opacity,
 }: { style: ResolvedAppearance['hairStyle']; color: string; opacity: number }) {
   if (style === 'bald') return null;
-  const capY = HEAD_SIZE * 0.35;
+  const capY = HEAD_SIZE * 0.34;
+  const backZ = -HEAD_SIZE / 2 - 0.055;
+  const crown = (
+    <mesh position={[0, capY + 0.035, -0.012]} scale={[1.1, 0.42, 1.02]} castShadow>
+      <sphereGeometry args={[HEAD_SIZE * 0.5, 12, 8]} />
+      <meshStandardMaterial color={color} roughness={0.9} {...materialAlpha(opacity)} />
+    </mesh>
+  );
   const cap =
     style === 'long' ? (
-      <mesh position={[0, capY - 0.04, -0.02]} castShadow>
-        <boxGeometry args={[HEAD_SIZE + 0.04, HEAD_SIZE * 1.1, HEAD_SIZE + 0.02]} />
-        <meshStandardMaterial color={color} roughness={0.9} {...materialAlpha(opacity)} />
-      </mesh>
+      <>
+        {crown}
+        <mesh position={[0, capY - 0.11, backZ]} scale={[1.0, 1.1, 0.42]} castShadow>
+          <sphereGeometry args={[HEAD_SIZE * 0.44, 10, 8]} />
+          <meshStandardMaterial color={color} roughness={0.9} {...materialAlpha(opacity)} />
+        </mesh>
+      </>
     ) : style === 'bob' ? (
-      <mesh position={[0, capY - 0.06, -0.01]} castShadow>
-        <boxGeometry args={[HEAD_SIZE + 0.06, HEAD_SIZE * 0.6, HEAD_SIZE + 0.04]} />
-        <meshStandardMaterial color={color} roughness={0.9} {...materialAlpha(opacity)} />
-      </mesh>
+      <>
+        {crown}
+        {[-1, 1].map((side) => (
+          <mesh
+            key={`bob-side-${side}`}
+            position={[side * HEAD_SIZE * 0.45, capY - 0.06, -0.035]}
+            scale={[0.34, 0.82, 0.58]}
+            castShadow
+          >
+            <sphereGeometry args={[HEAD_SIZE * 0.34, 8, 6]} />
+            <meshStandardMaterial color={color} roughness={0.9} {...materialAlpha(opacity)} />
+          </mesh>
+        ))}
+      </>
     ) : (
-      <mesh position={[0, capY, 0]} castShadow>
-        <boxGeometry args={[HEAD_SIZE + 0.02, HEAD_SIZE * 0.42, HEAD_SIZE + 0.02]} />
-        <meshStandardMaterial color={color} roughness={0.9} {...materialAlpha(opacity)} />
-      </mesh>
+      crown
     );
 
   if (style === 'ponytail') {
@@ -303,11 +320,14 @@ function HairMesh({
       <>
         {cap}
         <mesh
-          position={[0, -HEAD_SIZE * 0.1, -HEAD_SIZE / 2 - 0.05]}
-          rotation={[Math.PI / 2, 0, 0]}
+          position={[0, -HEAD_SIZE * 0.18, backZ - 0.035]}
           castShadow
         >
-          <cylinderGeometry args={[0.045, 0.045, 0.34, 8]} />
+          <cylinderGeometry args={[0.052, 0.038, 0.34, 8]} />
+          <meshStandardMaterial color={color} roughness={0.9} {...materialAlpha(opacity)} />
+        </mesh>
+        <mesh position={[0, -HEAD_SIZE * 0.02, backZ - 0.028]} castShadow>
+          <sphereGeometry args={[0.075, 8, 6]} />
           <meshStandardMaterial color={color} roughness={0.9} {...materialAlpha(opacity)} />
         </mesh>
       </>
@@ -319,10 +339,10 @@ function HairMesh({
         {cap}
         {(
           [
-            [-0.12, capY + 0.06, -0.1],
-            [0.12, capY + 0.06, -0.1],
-            [-0.12, capY + 0.06, 0.1],
-            [0.12, capY + 0.06, 0.1],
+            [-0.13, capY + 0.075, -0.13],
+            [0.13, capY + 0.075, -0.13],
+            [-0.13, capY + 0.07, 0.1],
+            [0.13, capY + 0.07, 0.1],
           ] as const
         ).map((position) => (
           <mesh
@@ -343,11 +363,11 @@ function HairMesh({
         {cap}
         {(
           [
-            [0, capY + 0.08, 0],
-            [-0.12, capY + 0.06, -0.07],
-            [0.12, capY + 0.06, -0.07],
-            [-0.12, capY + 0.06, 0.07],
-            [0.12, capY + 0.06, 0.07],
+            [0, capY + 0.12, 0],
+            [-0.13, capY + 0.095, -0.08],
+            [0.13, capY + 0.095, -0.08],
+            [-0.12, capY + 0.085, 0.08],
+            [0.12, capY + 0.085, 0.08],
           ] as const
         ).map((position) => (
           <mesh
@@ -355,7 +375,7 @@ function HairMesh({
             position={position as unknown as [number, number, number]}
             castShadow
           >
-            <coneGeometry args={[0.05, 0.13, 6]} />
+            <coneGeometry args={[0.05, 0.14, 6]} />
             <meshStandardMaterial color={color} roughness={0.9} {...materialAlpha(opacity)} />
           </mesh>
         ))}
@@ -366,11 +386,21 @@ function HairMesh({
     return (
       <>
         {cap}
-        {[-0.22, 0.22].map((x) => (
-          <mesh key={x} position={[x, -HEAD_SIZE * 0.1, 0]} castShadow>
-            <cylinderGeometry args={[0.04, 0.04, 0.36, 8]} />
-            <meshStandardMaterial color={color} roughness={0.9} {...materialAlpha(opacity)} />
-          </mesh>
+        {[-1, 1].map((side) => (
+          <group
+            key={side}
+            position={[side * HEAD_SIZE * 0.52, -HEAD_SIZE * 0.12, backZ + 0.02]}
+            rotation={[0, 0, side * 0.08]}
+          >
+            <mesh castShadow>
+              <cylinderGeometry args={[0.042, 0.034, 0.36, 8]} />
+              <meshStandardMaterial color={color} roughness={0.9} {...materialAlpha(opacity)} />
+            </mesh>
+            <mesh position={[0, -0.2, 0]} castShadow>
+              <sphereGeometry args={[0.046, 8, 6]} />
+              <meshStandardMaterial color={color} roughness={0.9} {...materialAlpha(opacity)} />
+            </mesh>
+          </group>
         ))}
       </>
     );

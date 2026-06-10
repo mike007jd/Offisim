@@ -262,10 +262,10 @@ export function WorkstationUnit3D({
   const deskDepth = isCompact ? 1.05 : 1.25;
   const laptopPositions = isDual
     ? ([
-        [-0.35, -0.2, Math.PI + 0.1],
-        [0.35, -0.2, Math.PI - 0.1],
+        [-0.35, 0.12, 0.08],
+        [0.35, 0.12, -0.08],
       ] as [number, number, number][])
-    : ([[0, -0.2, Math.PI]] as [number, number, number][]);
+    : ([[0, 0.12, 0]] as [number, number, number][]);
 
   return (
     <group position={position} rotation={[0, rotY, 0]}>

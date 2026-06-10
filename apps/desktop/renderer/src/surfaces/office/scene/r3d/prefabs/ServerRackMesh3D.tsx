@@ -67,6 +67,33 @@ export function ServerRackUnit3D({
         <planeGeometry args={[0.68, Math.max(1.9, height - 0.22)]} />
         <SceneMaterial materialClass="metal" color={sc.furniture} overrides={{ roughness: 0.42 }} />
       </mesh>
+      <mesh position={[0, 0.075, 0.02]} castShadow>
+        <boxGeometry args={[0.9, 0.15, 0.82]} />
+        <SceneMaterial materialClass="rubber" color={sc.furnitureDark} />
+      </mesh>
+      {[-0.26, -0.13, 0, 0.13, 0.26].map((x) => (
+        <mesh key={`unit-door-v-${x}`} position={[x, centerY, 0.412]}>
+          <boxGeometry args={[0.012, Math.max(1.78, height - 0.34), 0.014]} />
+          <SceneMaterial
+            materialClass="metal-brushed"
+            color={sc.furnitureDark}
+            overrides={{ roughness: 0.68 }}
+          />
+        </mesh>
+      ))}
+      {Array.from({ length: heightScale > 1 ? 8 : 6 }, (_, i) => {
+        const y = 0.34 + i * ((height - 0.62) / Math.max(1, (heightScale > 1 ? 8 : 6) - 1));
+        return (
+          <mesh key={`unit-door-h-${y.toFixed(2)}`} position={[0, y, 0.416]}>
+            <boxGeometry args={[0.58, 0.012, 0.014]} />
+            <SceneMaterial
+              materialClass="metal-brushed"
+              color={sc.furnitureDark}
+              overrides={{ roughness: 0.68 }}
+            />
+          </mesh>
+        );
+      })}
       {ledRows.map((y, rowIndex) => (
         <group key={`unit-led-row-${y}`}>
           {[-0.22, 0, 0.22].map((x, ledIndex) => (
@@ -84,6 +111,20 @@ export function ServerRackUnit3D({
             materialClass="metal"
             color={sc.furnitureLight}
             overrides={{ roughness: 0.5 }}
+          />
+        </mesh>
+      ))}
+      {[-0.18, 0.02, 0.2].map((x, index) => (
+        <mesh
+          key={`unit-service-cable-${x}`}
+          position={[x, 0.18 + index * 0.04, 0.47]}
+          rotation={[0, 0, x * 0.18]}
+          castShadow
+        >
+          <boxGeometry args={[0.28, 0.026, 0.026]} />
+          <SceneMaterial
+            materialClass="rubber"
+            color={index === 1 ? sc.cableAccent : sc.cableChannel}
           />
         </mesh>
       ))}
