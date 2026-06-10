@@ -224,6 +224,15 @@
   white-space: nowrap;
 }
 
+.off-ev-actor {
+  font-weight: 640;
+  color: var(--off-ink-1);
+}
+
+.off-ev-entity {
+  color: var(--off-ink-3);
+}
+
 .off-ev-x {
   flex: none;
   padding: 1px 8px;

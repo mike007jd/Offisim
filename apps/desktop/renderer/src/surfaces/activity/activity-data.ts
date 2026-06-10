@@ -382,6 +382,18 @@ export function getDisplayLabel(record: ActivityRecord): string {
   return titleFromTopic(type);
 }
 
+/** Row headline: lead with WHO when we know it — "Maya Lin · completed an action". */
+export function getDisplaySummary(record: ActivityRecord): { actor: string | null; label: string } {
+  const label = getDisplayLabel(record);
+  const actor = record.actor ?? null;
+  if (!actor) return { actor: null, label };
+  // Some labels already name the actor (e.g. "Skill installed by Maya Chen") — don't repeat it.
+  if (label.toLowerCase().includes(actor.toLowerCase())) return { actor: null, label };
+  // Strip the generic "Agent " prefix when an actor name replaces it.
+  const trimmed = label.replace(/^Agent\s+/i, '');
+  return { actor, label: trimmed };
+}
+
 /* ── Filter pipeline ─────────────────────────────────────────────────────── */
 
 export interface ActivityFilters {

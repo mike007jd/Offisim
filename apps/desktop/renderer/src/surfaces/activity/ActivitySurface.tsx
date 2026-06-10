@@ -24,7 +24,7 @@ import {
   filterRecords,
   formatRelativeTimestamp,
   getAvailableActorFilters,
-  getDisplayLabel,
+  getDisplaySummary,
   getEventLevel,
   groupByTime,
   useActivityRecords,
@@ -276,6 +276,7 @@ export function ActivitySurface() {
                 const level = getEventLevel(record.type);
                 const { icon: DomainGlyph, color } = domainIcon(record.type);
                 const selected = record.id === selectedEventId;
+                const summary = getDisplaySummary(record);
                 return (
                   <button
                     type="button"
@@ -295,7 +296,14 @@ export function ActivitySurface() {
                     onClick={() => toggleSelect(record.id)}
                   >
                     <DomainGlyph aria-hidden className={cn('off-ev-ico', `off-ev-ico-${color}`)} />
-                    <span className="off-ev-label">{getDisplayLabel(record)}</span>
+                    <span className="off-ev-label">
+                      {summary.actor ? <b className="off-ev-actor">{summary.actor}</b> : null}
+                      {summary.actor ? ' · ' : ''}
+                      {summary.label}
+                      {record.entity?.label && record.entity.label !== record.actor ? (
+                        <span className="off-ev-entity"> — {record.entity.label}</span>
+                      ) : null}
+                    </span>
                     {collapsedCount ? <span className="off-ev-x">×{collapsedCount}</span> : null}
                     <span className="off-ev-ts">{formatRelativeTimestamp(record.at)}</span>
                     <span

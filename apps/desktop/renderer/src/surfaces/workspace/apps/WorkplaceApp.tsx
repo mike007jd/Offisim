@@ -4,7 +4,7 @@ import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 import {
   formatRelativeTimestamp,
-  getDisplayLabel,
+  getDisplaySummary,
   useActivityRecords,
 } from '@/surfaces/activity/activity-data.js';
 import { SkeletonRows } from '@/surfaces/shared/SurfaceStates.js';
@@ -81,12 +81,17 @@ export function WorkplaceApp() {
           <SkeletonRows rows={3} className="off-ws-wp-recent" />
         ) : recent.length > 0 ? (
           <div className="off-ws-act-entries off-ws-wp-recent">
-            {recent.map((record) => (
-              <div key={record.id} className="off-ws-act-entry">
-                <span>{getDisplayLabel(record)}</span>
-                <span className="off-ws-act-x">{formatRelativeTimestamp(record.at)}</span>
-              </div>
-            ))}
+            {recent.map((record) => {
+              const summary = getDisplaySummary(record);
+              return (
+                <div key={record.id} className="off-ws-act-entry">
+                  <span>
+                    {summary.actor ? `${summary.actor} · ${summary.label}` : summary.label}
+                  </span>
+                  <span className="off-ws-act-x">{formatRelativeTimestamp(record.at)}</span>
+                </div>
+              );
+            })}
           </div>
         ) : (
           <div className="off-ws-wp-recent-empty">No activity yet.</div>
