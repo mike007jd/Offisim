@@ -242,7 +242,11 @@ export function ApprovalsApp() {
           <EmptyState
             icon={CheckSquare}
             title="No approval selected"
-            description="Pick a request to review."
+            description={
+              pending.length === 0
+                ? 'Approvals appear here when an employee needs your decision.'
+                : 'Pick a request to review.'
+            }
           />
         )}
       </div>

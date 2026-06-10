@@ -5,9 +5,7 @@ import { IconButton } from '@/design-system/grammar/IconButton.js';
 export function IconBar() {
   const surface = useUiState((s) => s.surface);
   const setSurface = useUiState((s) => s.setSurface);
-  const visibleEntries = UTILITY_NAV.filter(
-    (entry) => entry.key !== 'studio' || surface === 'office' || surface === 'studio',
-  );
+  const visibleEntries = UTILITY_NAV;
 
   return (
     <div className="off-iconbar">

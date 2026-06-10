@@ -580,41 +580,50 @@ function EmployeeDetail({
         {tab === 'runtime' ? <RuntimeTab employee={employee} /> : null}
         {tab === 'history' ? <HistoryTab employeeId={employee.id} /> : null}
       </div>
-      {saveError ? <div className="off-pers-save-error">{saveError}</div> : null}
-      <div className="off-pers-savebar">
-        <div className="off-pers-savebar-left">
-          {employee.kind === 'external' ? null : confirmingDelete ? (
-            <div className="off-pers-del-confirm">
-              <span>Delete {employee.name}? This cannot be undone.</span>
+      {tab === 'profile' || tab === 'appearance' ? (
+        <>
+          {saveError ? <div className="off-pers-save-error">{saveError}</div> : null}
+          <div className="off-pers-savebar">
+            <div className="off-pers-savebar-left">
+              {employee.kind === 'external' ? null : confirmingDelete ? (
+                <div className="off-pers-del-confirm">
+                  <span>Delete {employee.name}? This cannot be undone.</span>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => {
+                      void onDelete();
+                      setConfirmingDelete(false);
+                    }}
+                  >
+                    Delete
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setConfirmingDelete(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <Button variant="destructive" size="sm" onClick={() => setConfirmingDelete(true)}>
+                  Delete
+                </Button>
+              )}
+            </div>
+            <div className="flex items-center gap-[var(--off-sp-3)]">
               <Button
-                variant="destructive"
+                variant="outline"
                 size="sm"
-                onClick={() => {
-                  void onDelete();
-                  setConfirmingDelete(false);
-                }}
+                disabled={!isDirty || isSaving}
+                onClick={onReset}
               >
-                Delete
+                Reset
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setConfirmingDelete(false)}>
-                Cancel
+              <Button size="sm" disabled={!canSave} onClick={() => void onSave()}>
+                {isSaving ? 'Saving…' : 'Save'}
               </Button>
             </div>
-          ) : (
-            <Button variant="destructive" size="sm" onClick={() => setConfirmingDelete(true)}>
-              Delete
-            </Button>
-          )}
-        </div>
-        <div className="flex items-center gap-[var(--off-sp-3)]">
-          <Button variant="outline" size="sm" disabled={!isDirty || isSaving} onClick={onReset}>
-            Reset
-          </Button>
-          <Button size="sm" disabled={!canSave} onClick={() => void onSave()}>
-            {isSaving ? 'Saving…' : 'Save'}
-          </Button>
-        </div>
-      </div>
+          </div>
+        </>
+      ) : null}
     </>
   );
 }

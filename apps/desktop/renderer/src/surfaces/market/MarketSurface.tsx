@@ -296,6 +296,10 @@ export function MarketSurface() {
     [],
   );
 
+  // Same connection check as the Browse "No marketplace connected" hero below: when no
+  // registry is configured, catalog-only controls (kind chips, sort, Contribute) are inert.
+  const registryNotConnected = registryConnection.data?.reason === 'registry-config-missing';
+
   return (
     <div className={cn('off-market', detailOpen && 'is-detail-mode')}>
       <div className="off-mkt-fbar">
@@ -337,34 +341,40 @@ export function MarketSurface() {
             }}
           />
           {/* Sort (explore only) collapses into a dropdown, pushed right. */}
-          {mode === 'explore' ? (
+          {mode === 'explore' && !registryNotConnected ? (
             <SortMenu sort={sort} onChange={setSort} className="ml-auto" />
           ) : null}
           {/* Import + Publish are expert/low-frequency — grouped under Contribute. */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="md" variant="outline" className={mode === 'explore' ? '' : 'ml-auto'}>
-                <Icon icon={CloudUpload} size="sm" />
-                Contribute
-                <Icon icon={ChevronDown} size="sm" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onSelect={() => fileInputRef.current?.click()}
-                disabled={importPackageFile.isPending}
-              >
-                <Icon icon={importPackageFile.isPending ? Loader2 : Upload} size="sm" />
-                Import package…
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setPublishOpen(true)}>
-                <Icon icon={CloudUpload} size="sm" />
-                Publish…
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {registryNotConnected ? null : (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="md"
+                  variant="outline"
+                  className={mode === 'explore' ? '' : 'ml-auto'}
+                >
+                  <Icon icon={CloudUpload} size="sm" />
+                  Contribute
+                  <Icon icon={ChevronDown} size="sm" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onSelect={() => fileInputRef.current?.click()}
+                  disabled={importPackageFile.isPending}
+                >
+                  <Icon icon={importPackageFile.isPending ? Loader2 : Upload} size="sm" />
+                  Import package…
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setPublishOpen(true)}>
+                  <Icon icon={CloudUpload} size="sm" />
+                  Publish…
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
-        {mode === 'explore' ? (
+        {mode === 'explore' && !registryNotConnected ? (
           <div className="off-mkt-fbar-sub">
             <SegmentedControl
               options={KIND_FILTERS}
@@ -404,7 +414,7 @@ export function MarketSurface() {
           <SkeletonGrid />
         ) : listings.isError ? (
           <MarketErrorState error={listings.error} onRetry={() => listings.refetch()} />
-        ) : registryConnection.data?.reason === 'registry-config-missing' ? (
+        ) : registryNotConnected ? (
           // No registry configured (the default desktop build): show an honest
           // not-connected state with local import, not a fabricated storefront.
           <MarketNotConnected

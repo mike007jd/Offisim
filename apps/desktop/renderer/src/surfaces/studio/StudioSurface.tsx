@@ -793,26 +793,36 @@ export function StudioSurface() {
           />
         </div>
         <div className="off-studio-panel-body">
-          {zones.map((zone) => (
-            <button
-              key={zone.id}
-              type="button"
-              className={cn(
-                'off-studio-zone off-focusable',
-                zone.id === selectedZoneId && 'is-sel',
-              )}
-              onClick={() => {
-                setSelectedZoneId(zone.id);
-                setSelectedPrefabId(null);
-              }}
-            >
-              <Icon icon={LayoutGrid} size="sm" />
-              <span className="off-studio-zone-name">{zone.label}</span>
-              <span className="off-studio-zone-kind">
-                {ZONE_KIND_LABEL[zone.kind] ?? zone.kind}
-              </span>
-            </button>
-          ))}
+          {zones.map((zone) => {
+            const kindLabel = ZONE_KIND_LABEL[zone.kind] ?? zone.kind;
+            // Skip the kind tag when the zone label already names it (e.g. "Focus Pods" + "Focus pods").
+            // Word-boundary match so short kinds ("Rest") don't hit substrings ("Interest").
+            const kindPattern = new RegExp(
+              `\\b${kindLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`,
+              'i',
+            );
+            const kindIsRedundant = kindPattern.test(zone.label);
+            return (
+              <button
+                key={zone.id}
+                type="button"
+                className={cn(
+                  'off-studio-zone off-focusable',
+                  zone.id === selectedZoneId && 'is-sel',
+                )}
+                onClick={() => {
+                  setSelectedZoneId(zone.id);
+                  setSelectedPrefabId(null);
+                }}
+              >
+                <Icon icon={LayoutGrid} size="sm" />
+                <span className="off-studio-zone-name">{zone.label}</span>
+                {kindIsRedundant ? null : (
+                  <span className="off-studio-zone-kind">{kindLabel}</span>
+                )}
+              </button>
+            );
+          })}
         </div>
         {selectedPrefab ? (
           <div className="off-studio-props">
