@@ -128,7 +128,7 @@ export function employeeToVm(row: EmployeeRowLike): Employee {
   return {
     id: row.employee_id,
     name: row.name,
-    role: humanizeRole(row.role_slug),
+    role: discipline,
     kind: row.is_external === 1 ? 'external' : 'internal',
     brandLabel: row.brand_key ?? undefined,
     online: row.enabled === 1,
@@ -180,10 +180,31 @@ export function threadToVm(row: ChatThreadRowLike): ChatThread {
   };
 }
 
+const ROLE_ACRONYMS = new Set([
+  'qa',
+  'ux',
+  'ui',
+  'ai',
+  'pm',
+  'hr',
+  'it',
+  'ml',
+  'api',
+  'sre',
+  'dba',
+  'sdk',
+  'vp',
+  'cto',
+  'ceo',
+  'cpo',
+]);
+
 function humanizeRole(slug: string): string {
   return slug
     .split(/[-_]/)
     .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .map((w) =>
+      ROLE_ACRONYMS.has(w.toLowerCase()) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1),
+    )
     .join(' ');
 }

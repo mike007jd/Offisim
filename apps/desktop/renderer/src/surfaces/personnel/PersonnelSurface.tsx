@@ -214,7 +214,9 @@ function RosterRow({
             {employee.disabled ? <span className="off-pers-emp-dis">disabled</span> : null}
           </span>
           <span className="off-pers-emp-meta">
-            <span className="off-pers-emp-role">{employee.role}</span>
+            {employee.role.toLowerCase() !== employee.name.toLowerCase() ? (
+              <span className="off-pers-emp-role">{employee.role}</span>
+            ) : null}
             {employee.kind === 'external' && employee.brandLabel ? (
               <span className="off-pers-emp-brand">{employee.brandLabel}</span>
             ) : null}
@@ -336,7 +338,11 @@ function RosterRail({
 }
 
 function DetailHeader({ employee }: { employee: Employee }) {
-  const roleLine = [employee.role, employee.zoneLabel, employee.deskLabel]
+  const roleLine = [
+    employee.role.toLowerCase() === employee.name.toLowerCase() ? null : employee.role,
+    employee.zoneLabel,
+    employee.deskLabel,
+  ]
     .filter(Boolean)
     .join(' · ');
   return (

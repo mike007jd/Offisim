@@ -156,7 +156,7 @@ export interface ContactDetail {
   decisionStyle: string;
   openChats: string;
   source: string;
-  /** Group the contact sorts under (zone / discipline). */
+  /** Group the contact sorts under (zone, or 'Unassigned'). */
   group: string;
 }
 
@@ -945,7 +945,7 @@ async function loadContactDetails(
   for (const e of employees) {
     const zone = zoneByEmp.get(e.id) ?? e.zoneLabel ?? '';
     const directChats = chatByEmp.get(e.id) ?? 0;
-    const group = zone || e.discipline || 'Team';
+    const group = zone || 'Unassigned';
     out[e.id] = {
       presence: e.online ? 'idle' : 'offline',
       zone: zone || '—',

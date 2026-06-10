@@ -48,16 +48,18 @@ export function ContactsApp() {
     return list.filter((e) => e.name.toLowerCase().includes(q) || e.role.toLowerCase().includes(q));
   }, [list, query]);
 
-  // Group by the contact's directory group (zone / discipline / external).
+  // Group by the contact's zone; people without a workstation sink to 'Unassigned'.
   const groups = useMemo(() => {
     const map = new Map<string, Employee[]>();
     for (const e of filtered) {
-      const group = detailById[e.id]?.group ?? e.discipline ?? 'Team';
+      const group = detailById[e.id]?.group ?? 'Unassigned';
       const arr = map.get(group) ?? [];
       arr.push(e);
       map.set(group, arr);
     }
-    return [...map.entries()];
+    return [...map.entries()].sort(([a], [b]) =>
+      a === 'Unassigned' ? 1 : b === 'Unassigned' ? -1 : a.localeCompare(b),
+    );
   }, [filtered, detailById]);
 
   const activeId =
@@ -71,6 +73,14 @@ export function ContactsApp() {
     if (!active) return null;
     return conversations.data?.find((item) => item.employeeId === active.id)?.id ?? null;
   }, [active, conversations.data]);
+  const profileSubtitle = active
+    ? [
+        active.role.toLowerCase() !== active.name.toLowerCase() ? active.role : null,
+        activeDetail ? `${activeDetail.zone.split(' (')[0]} zone` : null,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : '';
 
   return (
     <>
@@ -128,7 +138,9 @@ export function ContactsApp() {
                     </span>
                     <span className="off-ws-row-copy">
                       <span className="off-ws-ct-nm">{e.name}</span>
-                      <span className="off-ws-ct-role">{e.role}</span>
+                      {e.role.toLowerCase() !== e.name.toLowerCase() ? (
+                        <span className="off-ws-ct-role">{e.role}</span>
+                      ) : null}
                     </span>
                   </button>
                 );
@@ -153,10 +165,7 @@ export function ContactsApp() {
               />
               <div className="off-ws-ct-prof-id">
                 <div className="off-ws-ct-prof-nm">{active.name}</div>
-                <div className="off-ws-ct-prof-rl">
-                  {active.role}
-                  {activeDetail ? ` · ${activeDetail.zone.split(' (')[0]} zone` : ''}
-                </div>
+                <div className="off-ws-ct-prof-rl">{profileSubtitle}</div>
               </div>
               <span className={cn('off-ws-ct-prof-st', PRESENCE_PILL[presence].cls)}>
                 {PRESENCE_PILL[presence].label}

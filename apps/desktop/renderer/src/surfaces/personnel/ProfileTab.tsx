@@ -233,7 +233,7 @@ export function ProfileTab({
                 {employee.zoneLabel
                   ? `${employee.zoneLabel}${employee.deskLabel ? ` · ${employee.deskLabel}` : ''}`
                   : employee.workstationId
-                    ? 'Assigned'
+                    ? (employee.deskLabel ?? `Workstation ${employee.workstationId.slice(0, 8)}`)
                     : 'Unassigned'}
               </div>
               <p className="off-field-hint">
