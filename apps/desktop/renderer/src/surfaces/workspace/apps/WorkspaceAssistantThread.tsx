@@ -29,7 +29,7 @@ import {
 import { Download, FileText, MessageSquarePlus, Paperclip, SendHorizontal } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import type { WsConversation, WsMessage } from '../workspace-data.js';
+import { dayLabelFrom, type WsConversation, type WsMessage } from '../workspace-data.js';
 import {
   persistWorkspaceMessage,
   usePersistedWorkspaceMessages,
@@ -285,7 +285,6 @@ function MessageRow({
 export function WorkspaceAssistantThread({
   active,
   messages,
-  daySep,
   byId,
   projectId,
   companyId,
@@ -293,7 +292,6 @@ export function WorkspaceAssistantThread({
 }: {
   active: WsConversation;
   messages: WsMessage[];
-  daySep: string;
   byId: Map<string, Employee>;
   projectId: string | null;
   companyId: string | null;
@@ -314,6 +312,12 @@ export function WorkspaceAssistantThread({
     () => mergeWorkspaceMessages(messages, persistedMessages.data ?? [], drafts),
     [messages, persistedMessages.data, drafts],
   );
+  // Day separator follows the first rendered message's real timestamp. Messages
+  // without one (fixtures, just-sent drafts) are "now"-shaped, so 'Today' holds.
+  // Scope: one separator per thread (labels the conversation start), not
+  // per-day boundaries between message groups.
+  const firstMessageAt = runtimeMessages[0]?.at;
+  const daySepLabel = firstMessageAt ? dayLabelFrom(firstMessageAt, Date.now()) : 'Today';
 
   useEffect(() => {
     if (!persistedMessages.error) return;
@@ -541,7 +545,7 @@ export function WorkspaceAssistantThread({
             />
           ) : (
             <section className="off-ws-messages">
-              <span className="off-ws-day-sep">{daySep}</span>
+              <span className="off-ws-day-sep">{daySepLabel}</span>
               <ThreadPrimitive.Messages>
                 {({ message }) => {
                   const custom = message.metadata?.custom as unknown as WsMessage | undefined;

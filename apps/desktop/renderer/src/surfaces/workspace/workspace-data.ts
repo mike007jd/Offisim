@@ -75,13 +75,14 @@ export interface WsMessage {
   /** Role chip shown next to employee name. */
   role?: string;
   timeLabel: string;
+  /** Epoch ms the message was created. Set on persisted rows; fixtures omit it. */
+  at?: number;
   body: string;
   attachment?: WsAttachment;
   deliverable?: WsDeliverableCard;
 }
 
 export interface WsThread {
-  daySep: string;
   messages: WsMessage[];
 }
 
@@ -284,7 +285,6 @@ const conversations: WsConversation[] = [
 
 const threadsById: Record<string, WsThread> = {
   'th-team': {
-    daySep: 'Today',
     messages: [
       {
         id: 't-m1',
@@ -349,7 +349,6 @@ const threadsById: Record<string, WsThread> = {
     ],
   },
   'th-mara': {
-    daySep: 'Today',
     messages: [
       {
         id: 'd-m1',
@@ -718,7 +717,7 @@ export function useWsThread(conversationId: string | null) {
       // Release: the message stream is the persisted agent_events feed rendered
       // by WorkspaceAssistantThread. Return an honest empty seed — no fabricated
       // messages on top of the real persisted ones.
-      return { daySep: 'Today', messages: [] };
+      return { messages: [] };
     },
     enabled: conversationId !== null,
   });
@@ -756,6 +755,20 @@ function ageLabelFrom(createdAtMs: number, now: number): string {
   if (diff < hour) return `${Math.floor(diff / min)}m`;
   if (diff < day) return `${Math.floor(diff / hour)}h`;
   return `${Math.floor(diff / day)}d`;
+}
+
+/** Day separator label for a message timestamp: Today / Yesterday / "Jun 8". */
+export function dayLabelFrom(atMs: number, now: number): string {
+  const d = new Date(atMs);
+  const n = new Date(now);
+  if (d.toDateString() === n.toDateString()) return 'Today';
+  // Local-calendar yesterday (midnight minus a day), not now-24h: a flat
+  // 86400000ms offset lands on the wrong date across DST transitions.
+  const yest = new Date(now);
+  yest.setHours(0, 0, 0, 0);
+  yest.setDate(yest.getDate() - 1);
+  if (d.toDateString() === yest.toDateString()) return 'Yesterday';
+  return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(d);
 }
 
 // Maps an InteractionRequest (parsed from request_json) to a WsApproval. Fields

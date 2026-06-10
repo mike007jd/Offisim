@@ -327,7 +327,6 @@ export function MessengerApp() {
           key={active.id}
           active={active}
           messages={baseMessages}
-          daySep={thread.data?.daySep ?? 'Today'}
           byId={byId}
           projectId={projectId}
           companyId={companyId}

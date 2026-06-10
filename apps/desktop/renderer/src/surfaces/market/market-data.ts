@@ -439,9 +439,9 @@ function shortDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat(undefined, {
-    month: 'numeric',
+    month: 'short',
     day: 'numeric',
-    year: '2-digit',
+    year: 'numeric',
   }).format(date);
 }
 
@@ -576,7 +576,7 @@ const marketListings: MarketListing[] = [
     installs: 3200,
     version: '1.2.0',
     versions: ['1.2.0', '1.1.0', '1.0.0'],
-    publishedLabel: '4/02/26',
+    publishedLabel: 'Apr 2, 2026',
     tags: ['frontend', 'react', 'design-system'],
     license: 'MIT',
     avatarA: UI_DATA_COLORS.blue4,
@@ -596,7 +596,7 @@ const marketListings: MarketListing[] = [
     changelog: [
       {
         version: '1.2.0',
-        date: '4/02/26',
+        date: 'Apr 2, 2026',
         entries: [
           { kind: 'breaking', text: 'filesystem_scope widened from none to workspace' },
           { kind: 'added', text: 'Accessibility audit sub-pass before sign-off' },
@@ -605,7 +605,7 @@ const marketListings: MarketListing[] = [
       },
       {
         version: '1.1.0',
-        date: '3/01/26',
+        date: 'Mar 1, 2026',
         entries: [{ kind: 'added', text: 'Design-token review checklist' }],
       },
     ],
@@ -635,7 +635,7 @@ const marketListings: MarketListing[] = [
     installs: 980,
     version: '0.4.0',
     versions: ['0.4.0', '0.3.0', '0.2.1'],
-    publishedLabel: '3/14/26',
+    publishedLabel: 'Mar 14, 2026',
     tags: ['analysis', 'growth', 'research'],
     license: 'MIT',
     installed: false,
@@ -651,7 +651,7 @@ const marketListings: MarketListing[] = [
     changelog: [
       {
         version: '0.4.0',
-        date: '3/14/26',
+        date: 'Mar 14, 2026',
         entries: [
           { kind: 'added', text: 'Adjacent-competitor enumeration pass' },
           { kind: 'fixed', text: 'Pricing-tier extraction misses' },
@@ -691,7 +691,7 @@ const marketListings: MarketListing[] = [
     installs: 12000,
     version: '2.0.0',
     versions: ['2.0.0', '1.4.0'],
-    publishedLabel: '2/11/26',
+    publishedLabel: 'Feb 11, 2026',
     tags: ['workflow', 'delivery', 'release'],
     license: 'Apache-2.0',
     installed: false,
@@ -707,7 +707,7 @@ const marketListings: MarketListing[] = [
     changelog: [
       {
         version: '2.0.0',
-        date: '2/11/26',
+        date: 'Feb 11, 2026',
         entries: [{ kind: 'breaking', text: 'Release gate now requires sign-off role' }],
       },
     ],
@@ -729,7 +729,7 @@ const marketListings: MarketListing[] = [
     installs: 5400,
     version: '1.3.0',
     versions: ['1.3.0', '1.2.0'],
-    publishedLabel: '4/18/26',
+    publishedLabel: 'Apr 18, 2026',
     tags: ['studio', 'blueprint', 'product'],
     license: 'MIT',
     installed: false,
@@ -739,7 +739,7 @@ const marketListings: MarketListing[] = [
     changelog: [
       {
         version: '1.3.0',
-        date: '4/18/26',
+        date: 'Apr 18, 2026',
         entries: [{ kind: 'added', text: 'Ops role + breakout zone' }],
       },
     ],
@@ -761,7 +761,7 @@ const marketListings: MarketListing[] = [
     installs: 760,
     version: '1.0.0',
     versions: ['1.0.0'],
-    publishedLabel: '1/22/26',
+    publishedLabel: 'Jan 22, 2026',
     tags: ['layout', 'open-plan', 'pitch-hall'],
     license: 'CC-BY-4.0',
     installed: false,
@@ -771,7 +771,7 @@ const marketListings: MarketListing[] = [
     changelog: [
       {
         version: '1.0.0',
-        date: '1/22/26',
+        date: 'Jan 22, 2026',
         entries: [{ kind: 'added', text: 'Initial release' }],
       },
     ],
@@ -793,7 +793,7 @@ const marketListings: MarketListing[] = [
     installs: 410,
     version: '0.9.0',
     versions: ['0.9.0'],
-    publishedLabel: '1/30/26',
+    publishedLabel: 'Jan 30, 2026',
     tags: ['prefab', 'desk', 'pod'],
     license: 'CC-BY-4.0',
     installed: false,
@@ -801,7 +801,7 @@ const marketListings: MarketListing[] = [
     requirements: { capabilities: [], mcps: [], models: [], runtime: '>=0.6.0', schema: 1 },
     lineage: { origin: 'props-bay/desk-cluster', forkedFrom: null },
     changelog: [
-      { version: '0.9.0', date: '1/30/26', entries: [{ kind: 'added', text: 'Initial release' }] },
+      { version: '0.9.0', date: 'Jan 30, 2026', entries: [{ kind: 'added', text: 'Initial release' }] },
     ],
     screenshots: [SHOT_B],
     bindings: [],
@@ -821,7 +821,7 @@ const marketListings: MarketListing[] = [
     installs: 120,
     version: '0.2.0',
     versions: ['0.2.0', '0.1.0'],
-    publishedLabel: '5/01/26',
+    publishedLabel: 'May 1, 2026',
     tags: ['bundle', 'launch', 'indie'],
     license: 'MIT',
     installed: false,
@@ -829,7 +829,7 @@ const marketListings: MarketListing[] = [
     requirements: { capabilities: [], mcps: [], models: [], runtime: '>=0.7.0', schema: 1 },
     lineage: { origin: 'indie-maker/launch-kit', forkedFrom: null },
     changelog: [
-      { version: '0.2.0', date: '5/01/26', entries: [{ kind: 'added', text: 'Launch checklist' }] },
+      { version: '0.2.0', date: 'May 1, 2026', entries: [{ kind: 'added', text: 'Launch checklist' }] },
     ],
     screenshots: [SHOT_C],
     bindings: [],
@@ -849,7 +849,7 @@ const marketListings: MarketListing[] = [
     installs: 2100,
     version: '1.0.0',
     versions: ['1.0.0'],
-    publishedLabel: '4/28/26',
+    publishedLabel: 'Apr 28, 2026',
     tags: ['qa', 'testing', 'regression'],
     license: 'MIT',
     avatarA: UI_DATA_COLORS.marketGreen,
@@ -867,7 +867,7 @@ const marketListings: MarketListing[] = [
     },
     lineage: { origin: 'offisim-labs/qa-automation-lead', forkedFrom: null },
     changelog: [
-      { version: '1.0.0', date: '4/28/26', entries: [{ kind: 'added', text: 'Initial release' }] },
+      { version: '1.0.0', date: 'Apr 28, 2026', entries: [{ kind: 'added', text: 'Initial release' }] },
     ],
     screenshots: [SHOT_B, SHOT_A],
     bindings: [
@@ -895,7 +895,7 @@ const marketListings: MarketListing[] = [
     installs: 540,
     version: '0.6.0',
     versions: ['0.6.0', '0.5.0'],
-    publishedLabel: '4/05/26',
+    publishedLabel: 'Apr 5, 2026',
     tags: ['review', 'code', 'severity'],
     license: 'MIT',
     installed: false,
@@ -909,7 +909,7 @@ const marketListings: MarketListing[] = [
     },
     lineage: { origin: 'dx-labs/pr-review-pass', forkedFrom: null },
     changelog: [
-      { version: '0.6.0', date: '4/05/26', entries: [{ kind: 'fixed', text: 'Dedup false hits' }] },
+      { version: '0.6.0', date: 'Apr 5, 2026', entries: [{ kind: 'fixed', text: 'Dedup false hits' }] },
     ],
     screenshots: [SHOT_A, SHOT_C],
     bindings: [
@@ -937,7 +937,7 @@ const marketListings: MarketListing[] = [
     installs: 230,
     version: '0.3.0',
     versions: ['0.3.0'],
-    publishedLabel: '2/28/26',
+    publishedLabel: 'Feb 28, 2026',
     tags: ['prefab', 'stage', 'pitch'],
     license: 'CC-BY-4.0',
     installed: false,
@@ -945,7 +945,7 @@ const marketListings: MarketListing[] = [
     requirements: { capabilities: [], mcps: [], models: [], runtime: '>=0.6.0', schema: 1 },
     lineage: { origin: 'props-bay/pitch-hall-stage', forkedFrom: null },
     changelog: [
-      { version: '0.3.0', date: '2/28/26', entries: [{ kind: 'added', text: 'AV rack' }] },
+      { version: '0.3.0', date: 'Feb 28, 2026', entries: [{ kind: 'added', text: 'AV rack' }] },
     ],
     screenshots: [SHOT_B],
     bindings: [],
@@ -957,7 +957,7 @@ const installedPackagesFixture: InstalledPackage[] = [
     id: 'inst-fe',
     packageId: 'offisim-labs/frontend-engineer',
     version: '1.1.0',
-    installedLabel: '4/02/26',
+    installedLabel: 'Apr 2, 2026',
     originListingId: 'lst-fe-engineer',
     latestVersion: '1.2.0',
     checkState: 'idle',
@@ -966,7 +966,7 @@ const installedPackagesFixture: InstalledPackage[] = [
     id: 'inst-teardown',
     packageId: 'growth-tools/teardown',
     version: '0.4.0',
-    installedLabel: '3/20/26',
+    installedLabel: 'Mar 20, 2026',
     originListingId: 'lst-teardown',
     latestVersion: null,
     checkState: 'idle',
@@ -975,7 +975,7 @@ const installedPackagesFixture: InstalledPackage[] = [
     id: 'inst-launch-kit',
     packageId: 'ops-collective/launch-kit',
     version: '2.0.0',
-    installedLabel: '2/11/26',
+    installedLabel: 'Feb 11, 2026',
     originListingId: 'lst-indie-kit',
     latestVersion: null,
     checkState: 'idle',
@@ -984,7 +984,7 @@ const installedPackagesFixture: InstalledPackage[] = [
     id: 'inst-desk-cluster',
     packageId: 'props-bay/desk-cluster',
     version: '0.9.0',
-    installedLabel: '1/30/26',
+    installedLabel: 'Jan 30, 2026',
     originListingId: 'lst-desk-cluster',
     latestVersion: null,
     checkState: 'error',
@@ -993,7 +993,7 @@ const installedPackagesFixture: InstalledPackage[] = [
     id: 'inst-sideload',
     packageId: 'sideloaded/local-pack',
     version: '0.1.0',
-    installedLabel: '5/01/26',
+    installedLabel: 'May 1, 2026',
     originListingId: null,
     latestVersion: null,
     checkState: 'idle',
@@ -1006,7 +1006,7 @@ const previewPublishedDrafts: PublishedDraft[] = [
     title: 'Senior Frontend Engineer',
     summary: 'React 19 specialist employee package',
     kind: 'employee',
-    updatedLabel: '5/12/26',
+    updatedLabel: 'May 12, 2026',
     status: 'approved',
   },
   {
@@ -1014,7 +1014,7 @@ const previewPublishedDrafts: PublishedDraft[] = [
     title: 'Competitive Teardown',
     summary: 'Market analysis skill',
     kind: 'skill',
-    updatedLabel: '5/09/26',
+    updatedLabel: 'May 9, 2026',
     status: 'submitted',
   },
   {
@@ -1022,7 +1022,7 @@ const previewPublishedDrafts: PublishedDraft[] = [
     title: 'Untitled draft',
     summary: null,
     kind: 'employee',
-    updatedLabel: '5/14/26',
+    updatedLabel: 'May 14, 2026',
     status: 'draft',
   },
   {
@@ -1030,7 +1030,7 @@ const previewPublishedDrafts: PublishedDraft[] = [
     title: 'QA Automation Lead',
     summary: 'Regression-first QA persona',
     kind: 'employee',
-    updatedLabel: '4/28/26',
+    updatedLabel: 'Apr 28, 2026',
     status: 'rejected',
   },
 ];

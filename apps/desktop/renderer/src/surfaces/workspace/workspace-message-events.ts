@@ -46,7 +46,11 @@ export async function loadPersistedWorkspaceMessages(threadId: string): Promise<
       };
     },
   );
-  return entries.sort((a, b) => a.createdAtMs - b.createdAtMs).map((entry) => entry.message);
+  return entries
+    .sort((a, b) => a.createdAtMs - b.createdAtMs)
+    .map((entry) =>
+      entry.createdAtMs > 0 ? { ...entry.message, at: entry.createdAtMs } : entry.message,
+    );
 }
 
 export function usePersistedWorkspaceMessages(threadId: string | null) {
