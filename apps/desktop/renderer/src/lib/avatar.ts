@@ -97,13 +97,11 @@ function pick<T extends string>(seed: string, palette: readonly T[], salt: strin
  *  int like 9262372) to bare `rrggbb` hex. */
 function toHexColor(value: string | number): string {
   if (typeof value === 'number') {
-    return Math.max(0, Math.min(0xffffff, Math.trunc(value))).toString(16).padStart(6, '0');
+    return Math.max(0, Math.min(0xffffff, Math.trunc(value)))
+      .toString(16)
+      .padStart(6, '0');
   }
   return value.replace(/^#/, '');
-}
-
-function stripHash(hex: string | number): string {
-  return toHexColor(hex);
 }
 
 const HAIR_STYLES: readonly HairStyle[] = [
@@ -171,9 +169,9 @@ export function employeeAvatarUri(seed: string, appearance?: EmployeeAppearance)
     seed,
     radius: 0,
     backgroundColor: ['transparent'],
-    skinColor: [stripHash(appearance?.skinColor ?? pick(seed, SKIN_TONES, 'skin'))],
-    hairColor: [stripHash(appearance?.hairColor ?? pick(seed, HAIR_COLORS, 'hair'))],
-    clothesColor: [stripHash(appearance?.clothingColor ?? pick(seed, OUTFIT_COLORS, 'outfit'))],
+    skinColor: [toHexColor(appearance?.skinColor ?? pick(seed, SKIN_TONES, 'skin'))],
+    hairColor: [toHexColor(appearance?.hairColor ?? pick(seed, HAIR_COLORS, 'hair'))],
+    clothesColor: [toHexColor(appearance?.clothingColor ?? pick(seed, OUTFIT_COLORS, 'outfit'))],
     top: [top],
     ...(isBald ? { topProbability: 0 } : {}),
   }).toDataUri();

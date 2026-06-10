@@ -7,6 +7,12 @@
  */
 
 import { RoundedBox } from '@react-three/drei';
+import {
+  WORKSTATION_CHAIR_FORWARD,
+  WORKSTATION_DESK_DEPTH,
+  WORKSTATION_DUAL_LANES,
+  WORKSTATION_SINGLE_LANES,
+} from '../../workstation-geometry.js';
 import { hashStringToInt } from '../scene-hash.js';
 import { EmissiveMaterial, SceneMaterial } from '../scene-materials.js';
 import { useSceneColors } from '../use-scene-colors.js';
@@ -259,7 +265,7 @@ export function WorkstationUnit3D({
   const isCompact = variant === 'compact';
   const isDual = variant === 'dual';
   const deskWidth = isCompact ? 1.45 : 2.1;
-  const deskDepth = isCompact ? 1.05 : 1.25;
+  const deskDepth = WORKSTATION_DESK_DEPTH[variant];
   const laptopPositions = isDual
     ? ([
         [-0.35, 0.12, 0.08],
@@ -310,9 +316,12 @@ export function WorkstationUnit3D({
         <Laptop key={`unit-laptop-${x}`} position={[x, 0.78, z]} rotation={[0, rot, 0]} />
       ))}
       {/* One chair per seat lane — employees sit into these (scene-layout
-          anchors sitting placements to the same offsets). */}
-      {(isDual ? [-0.56, 0.56] : [0]).map((lane) => (
-        <OfficeChair key={`unit-chair-${lane}`} position={[lane, 0, deskDepth / 2 + 0.5]} />
+          anchors sitting placements via the same workstation-geometry constants). */}
+      {(isDual ? WORKSTATION_DUAL_LANES : WORKSTATION_SINGLE_LANES).map((lane) => (
+        <OfficeChair
+          key={`unit-chair-${lane}`}
+          position={[lane, 0, deskDepth / 2 + WORKSTATION_CHAIR_FORWARD]}
+        />
       ))}
     </group>
   );

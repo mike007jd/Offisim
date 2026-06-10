@@ -1,5 +1,11 @@
 import type { Employee, ZoneKind } from '@/data/types.js';
 import { SCENE_CONTENT_SCALE } from './r3d/scene-art-direction.js';
+import {
+  WORKSTATION_DESK_DEPTH,
+  WORKSTATION_DUAL_LANES,
+  WORKSTATION_SEAT_FORWARD,
+  WORKSTATION_SINGLE_LANES,
+} from './workstation-geometry.js';
 
 /** A resolved zone in scene coordinates, shared by the 2D and 3D office scenes
  *  so both render the same floor plan, zones, and seating from one source. */
@@ -175,7 +181,9 @@ function prefabsForZone(
     );
 }
 
-function rotateLocal(x: number, z: number, rotation: number): [number, number] {
+/** Rotate a prefab-local (x, z) offset by a rotation in degrees. Shared with
+ *  the 3D scene's render-time layout normalization. */
+export function rotateLocal(x: number, z: number, rotation: number): [number, number] {
   const rad = (rotation * Math.PI) / 180;
   const cos = Math.cos(rad);
   const sin = Math.sin(rad);
@@ -260,21 +268,20 @@ function workstationAnchorSeats(
   const out: SeatCandidate[] = [];
   for (const prefab of zonePrefabs.filter(isWorkstation)) {
     const id = prefab.definition.prefabId ?? prefab.instance.prefab_id;
-    // Chair-aligned sitting seats. The chair in WorkstationUnit3D sits at
-    // deskDepth/2 + 0.5 in prefab-local space; the prefab group renders under
-    // SCENE_CONTENT_SCALE, so the world-space offset scales with it. Seats land
-    // a touch in front of the chair centre so the character "sits into" it.
-    const deskDepth = id === 'workstation-compact' ? 1.05 : 1.25;
-    const lanes = id === 'workstation-dual' ? [-0.56, 0.56] : [0];
-    const forward = (deskDepth / 2 + 0.46) * SCENE_CONTENT_SCALE;
+    // Chair-aligned sitting seats, anchored to the chairs WorkstationUnit3D
+    // renders (constants shared via workstation-geometry). The prefab group
+    // renders under SCENE_CONTENT_SCALE, so the world-space offset scales with it.
+    const deskDepth =
+      id === 'workstation-compact'
+        ? WORKSTATION_DESK_DEPTH.compact
+        : WORKSTATION_DESK_DEPTH.standard;
+    const lanes = id === 'workstation-dual' ? WORKSTATION_DUAL_LANES : WORKSTATION_SINGLE_LANES;
+    const forward = (deskDepth / 2 + WORKSTATION_SEAT_FORWARD) * SCENE_CONTENT_SCALE;
     const facing = normalizeRotation(prefab.instance.rotation + 180);
     for (const lane of lanes) {
       const [dx, dz] = rotateLocal(lane * SCENE_CONTENT_SCALE, forward, prefab.instance.rotation);
       out.push({
-        point: [
-          prefab.instance.position_x + dx,
-          prefab.instance.position_y + dz,
-        ],
+        point: [prefab.instance.position_x + dx, prefab.instance.position_y + dz],
         anchor: prefab,
         rotation: facing,
         posture: 'sitting',

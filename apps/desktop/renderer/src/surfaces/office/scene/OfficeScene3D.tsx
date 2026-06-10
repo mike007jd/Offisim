@@ -2,10 +2,14 @@ import { useUiState } from '@/app/ui-state.js';
 import { useEmployees, useOfficeLayout, useReassignEmployee, useThreads } from '@/data/queries.js';
 import type { Employee } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
-import { extractZoneSlug, type PrefabDefinition, type PrefabInstanceRow } from '@offisim/shared-types';
+import {
+  type PrefabDefinition,
+  type PrefabInstanceRow,
+  extractZoneSlug,
+} from '@offisim/shared-types';
 import { Html, OrbitControls } from '@react-three/drei';
 import { Canvas, useThree } from '@react-three/fiber';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, memo, useEffect, useMemo, useRef, useState } from 'react';
 import { ACESFilmicToneMapping, type Camera, Plane, Raycaster, Vector2, Vector3 } from 'three';
 import { BlockCharacter } from './BlockCharacter.js';
 import { RoomShell } from './r3d/RoomShell.js';
@@ -29,6 +33,7 @@ import {
   type ZoneDef,
   employeePlacements,
   defaultEmployeeZone as resolveDefaultEmployeeZone,
+  rotateLocal,
   zoneDefsFromLayout,
 } from './scene-layout.js';
 
@@ -265,14 +270,14 @@ function interiorFacingRotation(
  *  than exact-coordinate refresh rules, which rot as seeds evolve. */
 const COFFEE_TABLE_GROUPED_DISTANCE = 2.6;
 
-function nestleCoffeeTables(items: readonly ScenePrefabItem[]): ScenePrefabItem[] {
+function nestleCoffeeTables(items: readonly ScenePrefabItem[]): readonly ScenePrefabItem[] {
   const sofaByZone = new Map<string, ScenePrefabItem>();
   for (const item of items) {
     if (prefabDefinitionId(item) === 'sofa-set') {
       sofaByZone.set(extractZoneSlug(item.instance.zone_id), item);
     }
   }
-  if (sofaByZone.size === 0) return [...items];
+  if (sofaByZone.size === 0) return items;
   return items.map((item) => {
     if (prefabDefinitionId(item) !== 'coffee-table') return item;
     const sofa = sofaByZone.get(extractZoneSlug(item.instance.zone_id));
@@ -282,9 +287,7 @@ function nestleCoffeeTables(items: readonly ScenePrefabItem[]): ScenePrefabItem[
     if (Math.hypot(dx, dz) <= COFFEE_TABLE_GROUPED_DISTANCE) return item;
     // Centre of the sofa's L-opening in its local frame (clears the built-in
     // ottoman and both seat arms of RestAreaMesh3D).
-    const rad = (sofa.instance.rotation * Math.PI) / 180;
-    const ox = -0.2 * Math.cos(rad) + 0.55 * Math.sin(rad);
-    const oz = 0.55 * Math.cos(rad) + 0.2 * Math.sin(rad);
+    const [ox, oz] = rotateLocal(-0.2, 0.55, sofa.instance.rotation);
     return {
       ...item,
       instance: {
@@ -708,8 +711,10 @@ function ExternalPlacementController({
 }
 
 /** Suspended linear luminaire over each zone — gives the room a ceiling line
- *  and per-zone identity without any actual light cost (emissive only). */
-function ZoneCeilingLight({ zone }: { zone: ZoneDef }) {
+ *  and per-zone identity without any actual light cost (emissive only).
+ *  Memoized: `zone` is referentially stable, and drag pointermoves re-render
+ *  the whole Canvas tree per event. */
+const ZoneCeilingLight = memo(function ZoneCeilingLight({ zone }: { zone: ZoneDef }) {
   const length = Math.min(zone.w * 0.55, 7.2);
   // No castShadow anywhere here: a shadow-casting bar at y≈3.7 would paint a
   // hard dark stripe across the zone floor.
@@ -733,10 +738,14 @@ function ZoneCeilingLight({ zone }: { zone: ZoneDef }) {
       </mesh>
     </group>
   );
-}
+});
 
-/** Evenly spread `count` standing positions inside a zone footprint. */
-function ZoneRug({ zone, highlight = false }: { zone: ZoneDef; highlight?: boolean }) {
+/** Zone floor rug, border strips, and label. Memoized like ZoneCeilingLight —
+ *  only the zone being hovered/highlighted re-renders during drags. */
+const ZoneRug = memo(function ZoneRug({
+  zone,
+  highlight = false,
+}: { zone: ZoneDef; highlight?: boolean }) {
   const borderOpacity = highlight ? 0.86 : 0.42;
   const rugOpacity = highlight ? 0.48 : zone.archetype === 'server' ? 0.62 : 0.56;
   const showGlass =
@@ -808,7 +817,7 @@ function ZoneRug({ zone, highlight = false }: { zone: ZoneDef; highlight?: boole
       </Html>
     </group>
   );
-}
+});
 
 function EmployeeUnit({
   employee,
@@ -862,6 +871,8 @@ function EmployeeUnit({
   const labelText = compactSceneEmployeeName(employee.name);
   const labelInteractive = active || running;
   const characterRotation = (rotation * Math.PI) / 180;
+  // One desk-depth-ish step along the character's facing (prefab-local +z).
+  const fallbackDeskOffset = rotateLocal(0, 0.99, rotation);
 
   useEffect(
     () => () => {
@@ -1024,7 +1035,7 @@ function EmployeeUnit({
         // Fallback desk sits in front of the character (along their facing) and
         // turns its chair side toward them, so they read as seated at it.
         <WorkstationUnit3D
-          position={[Math.sin(characterRotation) * 0.99, 0, Math.cos(characterRotation) * 0.99]}
+          position={[fallbackDeskOffset[0], 0, fallbackDeskOffset[1]]}
           rotation={rotation + 180}
           variant="compact"
         />
@@ -1299,7 +1310,7 @@ export function OfficeScene3D({
       <RoomShell onFloorClick={placementEnabled ? undefined : closeThread} />
 
       {zoneDefs.map((zone) => (
-        <group key={zone.id}>
+        <Fragment key={zone.id}>
           <ZoneRug
             zone={zone}
             highlight={
@@ -1309,7 +1320,7 @@ export function OfficeScene3D({
             }
           />
           <ZoneCeilingLight zone={zone} />
-        </group>
+        </Fragment>
       ))}
 
       {placementEnabled && onPlacementPoint ? (

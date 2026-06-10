@@ -112,14 +112,11 @@ function applyCharacterPose(
   const sitting = posture === 'sitting' && action !== 'dragging';
   const baseY = sitting ? SIT_LIFT : 0;
 
-  // Neutral base each frame.
+  // Neutral base each frame — only the channels some branch leaves untouched
+  // (every branch fully sets spine, head, and both arms itself).
   rig.root.position.set(0, baseY, 0);
   rig.root.rotation.set(0, 0, 0);
   rig.hips.rotation.set(0, 0, 0);
-  rig.spine.rotation.set(0, 0, 0);
-  rig.head.rotation.set(0, 0, 0);
-  rig.leftArm.rotation.set(-0.1, 0, -0.12);
-  rig.rightArm.rotation.set(-0.1, 0, 0.12);
   rig.leftLeg.rotation.set(0, 0, 0.03);
   rig.rightLeg.rotation.set(0, 0, -0.03);
 
@@ -539,14 +536,14 @@ function TypingDots({
   const dotRefs = [useRef<Mesh>(null), useRef<Mesh>(null), useRef<Mesh>(null)];
   useFrame((state) => {
     const t = state.clock.elapsedTime + phase;
-    dotRefs.forEach((ref, index) => {
-      const mesh = ref.current;
-      if (!mesh) return;
+    // Plain loop: this runs every frame for every working character.
+    for (let index = 0; index < dotRefs.length; index += 1) {
+      const mesh = dotRefs[index]?.current;
+      if (!mesh) continue;
       const bounce = Math.max(0, Math.sin(t * 5.4 - index * 0.85));
       mesh.position.y = bounce * 0.07;
-      const scale = 0.85 + bounce * 0.45;
-      mesh.scale.setScalar(scale);
-    });
+      mesh.scale.setScalar(0.85 + bounce * 0.45);
+    }
   });
   return (
     <group position={[0, posture === 'sitting' ? 1.96 : 1.78, 0]}>
