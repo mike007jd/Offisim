@@ -2032,6 +2032,7 @@
   background: color-mix(in srgb, var(--off-surface-1) 94%, transparent);
   box-shadow: var(--off-elev-2);
   z-index: var(--off-z-overlay);
+  /* re-enables events killed by `.off-banner-slot` (shell.css) on the row */
   pointer-events: auto;
   backdrop-filter: blur(12px);
 }
@@ -2068,8 +2069,12 @@
   font-size: var(--off-fs-micro);
   font-weight: 620;
   white-space: nowrap;
+}
+.off-resume-chip-text {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .off-resume-chip.is-blocked {
   border-color: var(--off-warn-line-soft);

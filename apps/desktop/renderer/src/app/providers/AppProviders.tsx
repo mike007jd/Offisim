@@ -28,7 +28,7 @@ export function AppProviders({ children }: AppProvidersProps) {
         <TooltipProvider>{children}</TooltipProvider>
         <Toaster
           closeButton
-          position="top-right"
+          position="bottom-right"
           toastOptions={{
             classNames: {
               toast: 'off-toast',

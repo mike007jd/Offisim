@@ -4,21 +4,28 @@
   height: 100vh;
   margin: 0;
   display: grid;
-  grid-template-rows: var(--off-toolbar) 1fr;
+  grid-template-rows: var(--off-toolbar) auto 1fr;
   overflow: hidden;
   background: var(--off-bg);
 }
 
-/* Floating resume tray. It is positioned outside the grid so it cannot become
-   a second topbar or steal a vertical axis from the active surface. */
+/* Resume tray row between the topbar and the surface host. A real grid row so
+   it can never overlap surface controls (e.g. the Office thread search). The
+   empty-state rule collapses it to zero height when there is no banner.
+   pointer-events none keeps the row from blocking clicks while a banner is
+   showing; `.off-resume` (office.css) re-enables events on the widget itself. */
 .off-banner-slot {
-  position: absolute;
-  top: calc(var(--off-toolbar) + var(--off-sp-3));
-  right: var(--off-sp-5);
-  z-index: var(--off-z-float);
   min-width: 0;
-  max-width: min(620px, calc(100% - 32px));
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--off-sp-2) var(--off-sp-5) 0;
   pointer-events: none;
+}
+
+/* :empty only fires when React renders null into the slot (no DOM node at
+   all). Whitespace, comments, or wrapper nodes inside the slot defeat it. */
+.off-banner-slot:empty {
+  padding: 0;
 }
 
 .off-topbar {

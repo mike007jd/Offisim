@@ -66,17 +66,23 @@ export function ResumeBar() {
       <Icon icon={History} size="sm" className="off-resume-glyph" />
       <span className="off-resume-text">{summary}</span>
       <span className="off-resume-chips">
-        {visibleItems.map((item) => (
-          <button
-            key={item.threadId}
-            type="button"
-            className={cn('off-resume-chip off-focusable', `is-${item.state}`)}
-            onClick={() => go(item)}
-          >
-            {item.state === 'blocked' ? 'Review' : 'Resume'} {item.name}
-            <Icon icon={ArrowRight} size="sm" />
-          </button>
-        ))}
+        {visibleItems.map((item) => {
+          const action = item.state === 'blocked' ? 'Review' : 'Resume';
+          return (
+            <button
+              key={item.threadId}
+              type="button"
+              className={cn('off-resume-chip off-focusable', `is-${item.state}`)}
+              title={`${action} ${item.name}`}
+              onClick={() => go(item)}
+            >
+              <span className="off-resume-chip-text">
+                {action} {item.name}
+              </span>
+              <Icon icon={ArrowRight} size="sm" />
+            </button>
+          );
+        })}
         {extraCount > 0 ? (
           <span
             className="off-resume-overflow"
