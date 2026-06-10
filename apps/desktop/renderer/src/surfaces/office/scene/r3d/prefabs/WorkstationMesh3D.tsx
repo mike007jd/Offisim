@@ -309,7 +309,11 @@ export function WorkstationUnit3D({
       {laptopPositions.map(([x, z, rot]) => (
         <Laptop key={`unit-laptop-${x}`} position={[x, 0.78, z]} rotation={[0, rot, 0]} />
       ))}
-      {!isCompact && <OfficeChair position={[0, 0, deskDepth / 2 + 0.5]} />}
+      {/* One chair per seat lane — employees sit into these (scene-layout
+          anchors sitting placements to the same offsets). */}
+      {(isDual ? [-0.56, 0.56] : [0]).map((lane) => (
+        <OfficeChair key={`unit-chair-${lane}`} position={[lane, 0, deskDepth / 2 + 0.5]} />
+      ))}
     </group>
   );
 }

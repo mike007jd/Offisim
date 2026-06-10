@@ -2,7 +2,7 @@ import type { ZonePresetPrefab } from './zone-presets.js';
 import { extractZoneSlug } from './zone-resolution.js';
 import type { SystemZoneTemplate, Zone, ZoneArchetype } from './zone.js';
 
-export const SYSTEM_PREFAB_LAYOUT_VERSION = 2026060801;
+export const SYSTEM_PREFAB_LAYOUT_VERSION = 2026061001;
 
 export interface SystemZonePrefabLayoutInput {
   readonly slug?: string;
@@ -58,7 +58,8 @@ function workspaceLayout(
     return [
       ...PRODUCT_WORKSTATIONS.slice(0, targetWorkstations),
       placement('standing-table', 0, 2.8, 180),
-      placement('status-board', 4.8, -2.85, 180),
+      // Wall-adjacent boards face the zone interior (rotation 0 = +z).
+      placement('status-board', 4.8, -2.85, 0),
       placement('plant-large', -5.05, 2.75),
     ];
   }
@@ -66,7 +67,7 @@ function workspaceLayout(
     return [
       ...ART_WORKSTATIONS.slice(0, targetWorkstations),
       placement('standing-table', -0.1, 2.75, 180),
-      placement('status-board', 4.8, -2.85, 180),
+      placement('status-board', 4.8, -2.85, 0),
       placement('plant-large', -5.05, 2.65),
     ];
   }
@@ -93,15 +94,16 @@ function utilityLayout(archetype: ZoneArchetype | null): readonly ZonePresetPref
     case 'rest':
       return [
         placement('sofa-set', -2.8, -0.75, 0),
-        placement('coffee-table', 1.45, -0.75, 0),
-        placement('water-cooler', 5.15, -2.75, 180),
+        // Coffee table nests in the sofa's L-opening.
+        placement('coffee-table', -1.05, 0.55, 0),
+        placement('water-cooler', 5.15, -2.75, 0),
         placement('plant-large', -5.45, -2.85),
       ];
     case 'meeting':
       return [
         placement('meeting-table-8', 0, 0.5, 0),
         placement('whiteboard', 0, -2.9, 0),
-        placement('status-board', 5.45, 2.45, 180),
+        placement('status-board', 5.45, 2.45, 270),
         placement('plant-large', -5.45, 2.45),
       ];
     case 'server':

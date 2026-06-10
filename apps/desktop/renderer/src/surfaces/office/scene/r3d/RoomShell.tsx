@@ -398,6 +398,51 @@ function BackWallPanels() {
   );
 }
 
+/** Window bands on the side walls: a soft emissive "sky" plane recessed behind
+ *  framed glass. Reads as daylight without adding a real light source. */
+function SideWallWindows({ side }: { side: 1 | -1 }) {
+  const sc = useSceneColors();
+  const wallX = side * (OFFICE_ROOM.width / 2 - 0.12);
+  return (
+    <>
+      {[-11, 0, 11].map((z) => (
+        <group key={`window-${side}-${z}`} position={[wallX, 2.5, z]}>
+          <mesh position={[side * 0.1, 0, 0]} rotation={[0, (-side * Math.PI) / 2, 0]}>
+            <planeGeometry args={[8.6, 2.8]} />
+            <EmissiveMaterial color={sc.windowSky} tier="accent" intensity={0.55} />
+          </mesh>
+          <mesh rotation={[0, (-side * Math.PI) / 2, 0]}>
+            <planeGeometry args={[8.4, 2.6]} />
+            <SceneMaterial
+              materialClass="glass"
+              color={sc.partition}
+              overrides={{ transparent: true, opacity: 0.18, roughness: 0.06, thickness: 0.04 }}
+            />
+          </mesh>
+          {/* Frame: top/bottom rails + mullions */}
+          {[-1.32, 1.32].map((dy) => (
+            <mesh key={`rail-${dy}`} position={[-side * 0.04, dy, 0]} castShadow>
+              <boxGeometry args={[0.1, 0.12, 8.6]} />
+              <SceneMaterial materialClass="metal" color={sc.wallTrim} />
+            </mesh>
+          ))}
+          {[-4.25, -1.42, 1.42, 4.25].map((dz) => (
+            <mesh key={`mullion-${dz}`} position={[-side * 0.04, 0, dz]} castShadow>
+              <boxGeometry args={[0.1, 2.76, 0.12]} />
+              <SceneMaterial materialClass="metal" color={sc.wallTrim} />
+            </mesh>
+          ))}
+          {/* Sill */}
+          <mesh position={[-side * 0.16, -1.45, 0]} castShadow>
+            <boxGeometry args={[0.3, 0.07, 8.8]} />
+            <SceneMaterial materialClass="wood" color={sc.deskEdge} />
+          </mesh>
+        </group>
+      ))}
+    </>
+  );
+}
+
 export function RoomShell({ onFloorClick }: { onFloorClick?: () => void }) {
   const sc = useSceneColors();
 
@@ -415,18 +460,30 @@ export function RoomShell({ onFloorClick }: { onFloorClick?: () => void }) {
       <FloorBands />
       <FloorLineGrid />
       <InteriorPartitions />
+      {/* Walls are single-sided planes (normals face the room) so the free
+          orbit camera sees through them from outside instead of a grey slab. */}
       <mesh position={[0, OFFICE_ROOM.wallHeight / 2, -OFFICE_ROOM.depth / 2]} receiveShadow>
-        <boxGeometry args={[OFFICE_ROOM.width, OFFICE_ROOM.wallHeight, 0.3]} />
+        <planeGeometry args={[OFFICE_ROOM.width, OFFICE_ROOM.wallHeight]} />
         <SceneMaterial materialClass="plastic" color={sc.wallShell} />
       </mesh>
-      <mesh position={[-OFFICE_ROOM.width / 2, OFFICE_ROOM.wallHeight / 2, 0]} receiveShadow>
-        <boxGeometry args={[0.3, OFFICE_ROOM.wallHeight, OFFICE_ROOM.depth]} />
+      <mesh
+        position={[-OFFICE_ROOM.width / 2, OFFICE_ROOM.wallHeight / 2, 0]}
+        rotation={[0, Math.PI / 2, 0]}
+        receiveShadow
+      >
+        <planeGeometry args={[OFFICE_ROOM.depth, OFFICE_ROOM.wallHeight]} />
         <SceneMaterial materialClass="plastic" color={sc.wallShadow} />
       </mesh>
-      <mesh position={[OFFICE_ROOM.width / 2, OFFICE_ROOM.wallHeight / 2, 0]} receiveShadow>
-        <boxGeometry args={[0.3, OFFICE_ROOM.wallHeight, OFFICE_ROOM.depth]} />
+      <mesh
+        position={[OFFICE_ROOM.width / 2, OFFICE_ROOM.wallHeight / 2, 0]}
+        rotation={[0, -Math.PI / 2, 0]}
+        receiveShadow
+      >
+        <planeGeometry args={[OFFICE_ROOM.depth, OFFICE_ROOM.wallHeight]} />
         <SceneMaterial materialClass="plastic" color={sc.wallShadow} />
       </mesh>
+      <SideWallWindows side={-1} />
+      <SideWallWindows side={1} />
       <BackWallPanels />
     </group>
   );

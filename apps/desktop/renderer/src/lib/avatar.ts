@@ -14,6 +14,8 @@ export type AccentVariant = 'vest' | 'jacket' | 'scarf';
 
 export interface EmployeeAppearance {
   hairStyle?: HairStyle;
+  /** Colors are `#rrggbb`/`rrggbb` strings (adapters normalize legacy packed
+   *  ints at the data boundary; the helpers below stay tolerant at runtime). */
   skinColor?: string;
   hairColor?: string;
   clothingColor?: string;
@@ -91,8 +93,17 @@ function pick<T extends string>(seed: string, palette: readonly T[], salt: strin
   return palette[paletteIndex(`${seed}:${salt}`, palette.length)] ?? (palette[0] as T);
 }
 
-function stripHash(hex: string): string {
-  return String(hex).replace(/^#/, '');
+/** Normalize a stored color (string `#rrggbb`/`rrggbb`, or a legacy packed
+ *  int like 9262372) to bare `rrggbb` hex. */
+function toHexColor(value: string | number): string {
+  if (typeof value === 'number') {
+    return Math.max(0, Math.min(0xffffff, Math.trunc(value))).toString(16).padStart(6, '0');
+  }
+  return value.replace(/^#/, '');
+}
+
+function stripHash(hex: string | number): string {
+  return toHexColor(hex);
 }
 
 const HAIR_STYLES: readonly HairStyle[] = [
@@ -125,10 +136,7 @@ export function resolveAppearance(
   seed: string,
   appearance?: EmployeeAppearance,
 ): ResolvedAppearance {
-  const withHash = (hex: string) => {
-    const s = String(hex);
-    return s.startsWith('#') ? s : `#${s}`;
-  };
+  const withHash = (hex: string | number) => `#${toHexColor(hex)}`;
   const clothing = withHash(appearance?.clothingColor ?? pick(seed, OUTFIT_COLORS, 'outfit'));
   let accent = withHash(appearance?.accentColor ?? pick(seed, OUTFIT_COLORS, 'accent'));
   if (accent.toLowerCase() === clothing.toLowerCase()) {

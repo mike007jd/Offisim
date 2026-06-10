@@ -101,6 +101,30 @@ export function BookshelfMesh3D({
 
   return (
     <group position={position} rotation={[0, rotY, 0]}>
+      {/* Solid carcass: back panel + sides + top/bottom so the shelf reads as a
+          real cabinet instead of floating boards. */}
+      <mesh position={[0, 1.24, -0.24]} castShadow receiveShadow>
+        <boxGeometry args={[shelfWidth + 0.16, 2.45, 0.06]} />
+        <SceneMaterial materialClass="wood" color={sc.furniture} />
+      </mesh>
+      {[-1, 1].map((side) => (
+        <mesh
+          key={`shelf-side-${side}`}
+          position={[side * (shelfWidth / 2 + 0.05), 1.24, 0]}
+          castShadow
+        >
+          <boxGeometry args={[0.06, 2.45, 0.54]} />
+          <SceneMaterial materialClass="wood" color={sc.furniture} />
+        </mesh>
+      ))}
+      <mesh position={[0, 2.48, 0]} castShadow>
+        <boxGeometry args={[shelfWidth + 0.16, 0.06, 0.56]} />
+        <SceneMaterial materialClass="wood" color={sc.furniture} />
+      </mesh>
+      <mesh position={[0, 0.08, 0]} castShadow>
+        <boxGeometry args={[shelfWidth + 0.16, 0.16, 0.56]} />
+        <SceneMaterial materialClass="wood" color={sc.furnitureDark} />
+      </mesh>
       {[0.42, 1.02, 1.62, 2.22].map((y, shelfIndex) => (
         <group key={`shelf-layer-${y}`}>
           <mesh position={[0, y, 0]} castShadow>
@@ -127,19 +151,6 @@ export function BookshelfMesh3D({
             ))}
         </group>
       ))}
-      <RoundedBox
-        args={[shelfWidth + 0.22, 2.45, 0.62]}
-        position={[0, 1.24, 0]}
-        radius={0.025}
-        smoothness={4}
-        castShadow
-      >
-        <SceneMaterial
-          materialClass="wood"
-          color={sc.furniture}
-          overrides={{ transparent: true, opacity: 0.22 }}
-        />
-      </RoundedBox>
       {template === undefined && (
         <>
           <BookshelfMesh3D template="reading-table" position={[-2.4, 0, 2.05]} />

@@ -264,7 +264,7 @@
 .off-scene-tag.is-running {
   border-color: var(--off-accent-ring);
   background: color-mix(in oklab, var(--off-surface-glass) 78%, transparent);
-  box-shadow: 0 5px 14px rgb(15 23 42 / 10%);
+  box-shadow: var(--off-elev-1);
   color: var(--off-accent);
   opacity: 0.9;
   scale: 1;
@@ -286,7 +286,7 @@
   border: 1px solid color-mix(in oklab, var(--off-line) 72%, transparent);
   border-radius: var(--off-r-xs);
   background: color-mix(in oklab, var(--off-surface-glass-strong) 82%, transparent);
-  box-shadow: 0 5px 12px rgb(15 23 42 / 8%);
+  box-shadow: var(--off-elev-1);
   font-size: var(--off-fs-micro);
   letter-spacing: 0;
   font-weight: 700;

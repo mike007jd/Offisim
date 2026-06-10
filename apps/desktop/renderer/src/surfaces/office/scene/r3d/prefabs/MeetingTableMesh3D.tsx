@@ -139,7 +139,7 @@ export function MeetingTableMesh3D({
         castShadow
         receiveShadow
       >
-        <SceneMaterial materialClass="wood" color={sc.furniture} />
+        <SceneMaterial materialClass="wood" color={sc.desk} />
       </RoundedBox>
       <mesh
         position={[0, isStanding ? 1.085 : 0.815, 0]}

@@ -14,12 +14,12 @@ export function SceneLighting() {
     <>
       <hemisphereLight
         args={[SCENE_LIGHTING_COLORS.hemisphereSky, SCENE_LIGHTING_COLORS.hemisphereGround, 0.32]}
-        intensity={0.28}
+        intensity={0.34}
       />
       <directionalLight
         castShadow
         position={[10, 20, 12]}
-        intensity={1.12}
+        intensity={1.28}
         color={SCENE_LIGHTING_COLORS.key}
         shadow-mapSize={[2048, 2048]}
         shadow-bias={-0.0003}
@@ -54,8 +54,8 @@ export function SceneLighting() {
         color={SCENE_LIGHTING_COLORS.bounceBack}
         decay={1.5}
       />
-      <ambientLight intensity={0.045} />
-      <fog attach="fog" args={[sc.sceneBackground, 60, 180]} />
+      <ambientLight intensity={0.05} />
+      <fog attach="fog" args={[sc.sceneBackground, 52, 135]} />
     </>
   );
 }

@@ -37,6 +37,7 @@ export interface Scene3DColors {
   whiteboardMarker: readonly [string, string, string];
   accentWarm: string;
   accentCool: string;
+  windowSky: string;
   floorTile: string;
   floorTileAlt: string;
   floorGrid: string;
@@ -62,8 +63,8 @@ export interface Scene3DColors {
 }
 
 export const LIGHT_SCENE_3D: Scene3DColors = {
-  floor: '#c8cbc6',
-  desk: '#b8aa91',
+  floor: '#cfcabc',
+  desk: '#c0a781',
   deskEdge: '#6f6759',
   furniture: '#b9c1c6',
   furnitureDark: '#59656f',
@@ -83,8 +84,8 @@ export const LIGHT_SCENE_3D: Scene3DColors = {
   text: '#0f172a',
   textMuted: '#4f5a62',
   selectionRing: '#3f6f9e',
-  sceneBackground: '#e2e7eb',
-  wallShell: '#c8d0d5',
+  sceneBackground: '#e7e3da',
+  wallShell: '#dad4c7',
   bookSpine: ['#4b8b68', '#5f7e65', '#7c8e6a', '#6f8f9a', '#8c7b65'],
   cableChannel: '#3f7583',
   vendingScreen: '#a98342',
@@ -93,19 +94,20 @@ export const LIGHT_SCENE_3D: Scene3DColors = {
   whiteboardMarker: ['#3a8d94', '#59656f', '#a8795f'],
   accentWarm: '#a8795f',
   accentCool: '#3a8d94',
-  floorTile: '#d3d2ca',
-  floorTileAlt: '#c4cbc6',
-  floorGrid: '#aab0aa',
+  windowSky: '#cfe3ee',
+  floorTile: '#ddd6c8',
+  floorTileAlt: '#cec7b6',
+  floorGrid: '#b2a996',
   floorBorder: '#9c8b70',
-  wallPanel: '#d7ddd9',
-  wallTrim: '#9aa3a4',
-  wallShadow: '#8b979d',
+  wallPanel: '#e4dfd4',
+  wallTrim: '#a39e92',
+  wallShadow: '#a59e90',
   zoneRug: '#dde4df',
-  zoneWorkspace: '#cdd8df',
-  zoneMeeting: '#d8d3dc',
-  zoneRest: '#d9dfd2',
-  zoneLibrary: '#d5dfd0',
-  zoneServer: '#d9d2c4',
+  zoneWorkspace: '#c0d3e2',
+  zoneMeeting: '#d6cbe0',
+  zoneRest: '#d1e0c3',
+  zoneLibrary: '#cfdec6',
+  zoneServer: '#ded0b6',
   zoneLabelBg: 'rgba(241,243,239,0.9)',
   zoneLabelText: '#24303a',
   labelGlow: '#3a8d94',

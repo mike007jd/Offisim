@@ -1,4 +1,5 @@
 import type { Employee, ZoneKind } from '@/data/types.js';
+import { SCENE_CONTENT_SCALE } from './r3d/scene-art-direction.js';
 
 /** A resolved zone in scene coordinates, shared by the 2D and 3D office scenes
  *  so both render the same floor plan, zones, and seating from one source. */
@@ -96,16 +97,23 @@ export interface SeatAnchorPrefab {
   };
 }
 
+export type EmployeePosture = 'sitting' | 'standing';
+
 export interface EmployeeScenePlacement {
   readonly x: number;
   readonly z: number;
   /** Facing angle in degrees. 0 faces +z, 180 faces -z. */
   readonly rotation: number;
+  /** Sitting = parked on a workstation chair; standing = free-floor placement. */
+  readonly posture: EmployeePosture;
 }
 
 interface SeatCandidate {
   readonly point: [number, number];
   readonly anchor?: SeatAnchorPrefab;
+  /** Exact facing for anchored seats (chair-aligned); overrides the heuristic. */
+  readonly rotation?: number;
+  readonly posture?: EmployeePosture;
 }
 
 /** Build ZoneDefs from a real office layout, or fall back to the synthetic
@@ -246,24 +254,30 @@ function obstacleRadius(prefab: SeatAnchorPrefab): number {
 }
 
 function workstationAnchorSeats(
-  zone: ZoneDef,
   count: number,
   zonePrefabs: readonly SeatAnchorPrefab[],
 ): SeatCandidate[] {
   const out: SeatCandidate[] = [];
   for (const prefab of zonePrefabs.filter(isWorkstation)) {
     const id = prefab.definition.prefabId ?? prefab.instance.prefab_id;
+    // Chair-aligned sitting seats. The chair in WorkstationUnit3D sits at
+    // deskDepth/2 + 0.5 in prefab-local space; the prefab group renders under
+    // SCENE_CONTENT_SCALE, so the world-space offset scales with it. Seats land
+    // a touch in front of the chair centre so the character "sits into" it.
+    const deskDepth = id === 'workstation-compact' ? 1.05 : 1.25;
     const lanes = id === 'workstation-dual' ? [-0.56, 0.56] : [0];
-    const forward = id === 'workstation-compact' ? 1.48 : 1.86;
+    const forward = (deskDepth / 2 + 0.46) * SCENE_CONTENT_SCALE;
+    const facing = normalizeRotation(prefab.instance.rotation + 180);
     for (const lane of lanes) {
-      const [dx, dz] = rotateLocal(lane, forward, prefab.instance.rotation);
+      const [dx, dz] = rotateLocal(lane * SCENE_CONTENT_SCALE, forward, prefab.instance.rotation);
       out.push({
-        point: clampSeat(
-          zone,
-          prefab.instance.position_x - zone.cx + dx,
-          prefab.instance.position_y - zone.cz + dz,
-        ),
+        point: [
+          prefab.instance.position_x + dx,
+          prefab.instance.position_y + dz,
+        ],
         anchor: prefab,
+        rotation: facing,
+        posture: 'sitting',
       });
       if (out.length >= count) return out;
     }
@@ -391,6 +405,12 @@ function settleSeats(
   const out: [number, number][] = [];
 
   seats.forEach((seat, index) => {
+    // Chair-anchored sitting seats are exact by construction — settling them
+    // away from the chair would leave the character hovering beside it.
+    if (seat.posture === 'sitting') {
+      out.push(seat.point);
+      return;
+    }
     let next = nudgeSeatAwayFromObstacles(zone, seat.point, obstacles, seat.anchor, index + 1);
     for (let pass = 0; pass < 3; pass += 1) {
       for (const previous of out) {
@@ -508,14 +528,17 @@ export function employeePlacements(
   const placements = new Map<string, EmployeeScenePlacement>();
   for (const { zone, employees } of byZone.values()) {
     const zonePrefabs = prefabsForZone(zone, prefabs);
-    const anchored = workstationAnchorSeats(zone, employees.length, zonePrefabs);
-    const seats = settleSeats(zone, mergedSeats(zone, employees.length, anchored), zonePrefabs);
+    const anchored = workstationAnchorSeats(employees.length, zonePrefabs);
+    const candidates = mergedSeats(zone, employees.length, anchored);
+    const seats = settleSeats(zone, candidates, zonePrefabs);
     employees.forEach((employee, index) => {
       const seat = seats[index] ?? [zone.cx, zone.cz];
+      const candidate = candidates[index];
       placements.set(employee.id, {
         x: seat[0],
         z: seat[1],
-        rotation: placementRotation(zone, seat, zonePrefabs),
+        rotation: candidate?.rotation ?? placementRotation(zone, seat, zonePrefabs),
+        posture: candidate?.posture ?? 'standing',
       });
     });
   }
