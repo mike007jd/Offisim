@@ -141,7 +141,16 @@ export function OfficeScene2D() {
       // employees — real roster, seated by the shared layout helper
       hitsRef.current = [];
       const r = Math.max(16, scale * 0.42);
-      for (const employee of roster) {
+      const placedLabels: Array<{ x0: number; x1: number; y0: number; y1: number }> = [];
+      // The selected employee draws first so its name label always wins a slot.
+      const selectedEmployeeId = threadList?.find((t) => t.id === selectedThreadId)?.employeeId;
+      const ordered =
+        selectedEmployeeId == null
+          ? roster
+          : [...roster].sort((a, b) =>
+              a.id === selectedEmployeeId ? -1 : b.id === selectedEmployeeId ? 1 : 0,
+            );
+      for (const employee of ordered) {
         const pos = positions.get(employee.id);
         if (!pos) continue;
         const thread = threadList?.find((t) => t.employeeId === employee.id);
@@ -181,12 +190,37 @@ export function OfficeScene2D() {
           employee.kind === 'external' ? OFFICE_SCENE_2D_COLORS.externalSkin : colors.skin;
         ctx.fill();
 
-        // name
-        ctx.fillStyle = OFFICE_SCENE_2D_COLORS.name;
+        // name — collision-aware: flip above the dot if the below-slot is taken,
+        // drop the label entirely if both slots collide (dot + selection ring
+        // still identify; the selected employee draws first so it always keeps
+        // its label).
+        const labelText = compactSceneEmployeeName(employee.name);
         ctx.font = CANVAS_FONT_TOKENS.officeSceneLabel;
-        ctx.textAlign = 'center';
-        ctx.fillText(compactSceneEmployeeName(employee.name), sx, sy + r + 18);
-        ctx.textAlign = 'left';
+        const labelW = ctx.measureText(labelText).width;
+        const slots = [sy + r + 18, sy - r - 8];
+        const slot = slots.find((ly) => {
+          const box = {
+            x0: sx - labelW / 2 - 2,
+            x1: sx + labelW / 2 + 2,
+            y0: ly - 10,
+            y1: ly + 4,
+          };
+          return !placedLabels.some(
+            (p) => box.x0 < p.x1 && box.x1 > p.x0 && box.y0 < p.y1 && box.y1 > p.y0,
+          );
+        });
+        if (slot !== undefined) {
+          placedLabels.push({
+            x0: sx - labelW / 2 - 2,
+            x1: sx + labelW / 2 + 2,
+            y0: slot - 10,
+            y1: slot + 4,
+          });
+          ctx.fillStyle = OFFICE_SCENE_2D_COLORS.name;
+          ctx.textAlign = 'center';
+          ctx.fillText(labelText, sx, slot);
+          ctx.textAlign = 'left';
+        }
 
         if (thread) hitsRef.current.push({ threadId: thread.id, sx, sy, r: r + 6 });
       }

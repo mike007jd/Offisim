@@ -293,21 +293,33 @@ function workstationAnchorSeats(
 }
 
 function workspaceSeatsInZone(zone: ZoneDef, count: number): [number, number][] {
-  const rows = count <= 3 ? 1 : count <= 8 ? 2 : 3;
-  const perRow = Math.ceil(count / rows);
+  const usableWidth = Math.max(1.6, zone.w - 3.5);
+  // 2D label legibility: a seat column narrower than ~0.9 world units makes
+  // name labels collide, so cap how many seats share a row. Seats spread across
+  // usableWidth with (cols - 1) gaps, so cols <= floor(width / span) + 1 keeps
+  // every gap >= minSeatSpan.
+  const minSeatSpan = 0.9;
+  const fitPerRow = Math.max(1, Math.floor(usableWidth / minSeatSpan) + 1);
+  const naturalRows = count <= 3 ? 1 : count <= 8 ? 2 : 3;
+  const effectivePerRow = Math.min(Math.ceil(count / naturalRows), fitPerRow);
+  const rows = Math.ceil(count / effectivePerRow);
   const rowOffsets =
     rows === 1
       ? [0]
       : rows === 2
         ? [-zone.d * 0.18, zone.d * 0.23]
-        : [-zone.d * 0.28, 0, zone.d * 0.28];
-  const usableWidth = Math.max(1.6, zone.w - 3.5);
+        : rows === 3
+          ? [-zone.d * 0.28, 0, zone.d * 0.28]
+          : Array.from(
+              { length: rows },
+              (_, row) => -zone.d * 0.3 + (row / (rows - 1)) * zone.d * 0.6,
+            );
   const out: [number, number][] = [];
 
   for (let i = 0; i < count; i += 1) {
-    const row = Math.floor(i / perRow);
-    const col = i % perRow;
-    const colsInRow = Math.min(perRow, count - row * perRow);
+    const row = Math.floor(i / effectivePerRow);
+    const col = i % effectivePerRow;
+    const colsInRow = Math.min(effectivePerRow, count - row * effectivePerRow);
     const x =
       colsInRow === 1 ? 0 : -usableWidth / 2 + (col / Math.max(1, colsInRow - 1)) * usableWidth;
     const stagger = rows > 1 && row % 2 === 1 ? Math.min(0.7, usableWidth / 12) : 0;
