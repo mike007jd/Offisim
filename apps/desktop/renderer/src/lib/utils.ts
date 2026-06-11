@@ -5,6 +5,21 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/** "note-reader" / "qa_engineer" → "Note Reader" / "Qa Engineer" — plain
+ *  title-cased words from a kebab/snake slug (no acronym handling). */
+export function titleizeSlug(slug: string): string {
+  return slug
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+/** Escape a literal string for embedding in a RegExp pattern. */
+export function escapeRegExp(literal: string): string {
+  return literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /** Two-letter initials from a display name. */
 export function initialsOf(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);

@@ -216,3 +216,9 @@ function humanizeRole(slug: string): string {
     )
     .join(' ');
 }
+
+/** Role line for an employee row/header, or null when it just echoes the name
+ *  (seed employees like "YOLO Master" get role === name after humanizing). */
+export function displayRole(employee: Pick<Employee, 'name' | 'role'>): string | null {
+  return employee.role.toLowerCase() === employee.name.toLowerCase() ? null : employee.role;
+}

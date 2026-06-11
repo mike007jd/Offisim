@@ -1,6 +1,6 @@
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
-import { cn } from '@/lib/utils.js';
+import { cn, titleizeSlug } from '@/lib/utils.js';
 import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
 import { ExternalLink, KeyRound, Loader2, Store, UploadCloud } from 'lucide-react';
 import {
@@ -17,12 +17,7 @@ import {
  *  stays visible on a secondary mono line. */
 function humanizePackageId(packageId: string): string {
   const tail = packageId.split('.').pop() ?? packageId;
-  const name = tail
-    .split(/[-_]/)
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
-  return name || packageId;
+  return titleizeSlug(tail) || packageId;
 }
 
 interface MarketManageProps {

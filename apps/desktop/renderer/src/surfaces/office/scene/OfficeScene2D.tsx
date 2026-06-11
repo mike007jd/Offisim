@@ -197,25 +197,21 @@ export function OfficeScene2D() {
         const labelText = compactSceneEmployeeName(employee.name);
         ctx.font = CANVAS_FONT_TOKENS.officeSceneLabel;
         const labelW = ctx.measureText(labelText).width;
+        const boxAt = (ly: number) => ({
+          x0: sx - labelW / 2 - 2,
+          x1: sx + labelW / 2 + 2,
+          y0: ly - 10,
+          y1: ly + 4,
+        });
         const slots = [sy + r + 18, sy - r - 8];
         const slot = slots.find((ly) => {
-          const box = {
-            x0: sx - labelW / 2 - 2,
-            x1: sx + labelW / 2 + 2,
-            y0: ly - 10,
-            y1: ly + 4,
-          };
+          const box = boxAt(ly);
           return !placedLabels.some(
             (p) => box.x0 < p.x1 && box.x1 > p.x0 && box.y0 < p.y1 && box.y1 > p.y0,
           );
         });
         if (slot !== undefined) {
-          placedLabels.push({
-            x0: sx - labelW / 2 - 2,
-            x1: sx + labelW / 2 + 2,
-            y0: slot - 10,
-            y1: slot + 4,
-          });
+          placedLabels.push(boxAt(slot));
           ctx.fillStyle = OFFICE_SCENE_2D_COLORS.name;
           ctx.textAlign = 'center';
           ctx.fillText(labelText, sx, slot);

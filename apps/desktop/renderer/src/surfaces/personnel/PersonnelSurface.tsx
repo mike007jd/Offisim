@@ -1,5 +1,5 @@
 import { useUiState } from '@/app/ui-state.js';
-import { isTauriRuntime, reposOrNull } from '@/data/adapters.js';
+import { displayRole, isTauriRuntime, reposOrNull } from '@/data/adapters.js';
 import { useCompanies, useEmployees } from '@/data/queries.js';
 import type { Employee, EmployeeAppearance } from '@/data/types.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
@@ -18,7 +18,7 @@ import {
 } from '@/design-system/primitives/dialog.js';
 import { Input } from '@/design-system/primitives/input.js';
 import { Tabs, TabsList, TabsTrigger } from '@/design-system/primitives/tabs.js';
-import { cn } from '@/lib/utils.js';
+import { cn, titleizeSlug } from '@/lib/utils.js';
 import { PANEL_SIZE_TOKENS } from '@/styles/visual-tokens.js';
 import {
   clearDiscardConfirm,
@@ -99,14 +99,6 @@ function roleSlug(role: string): RoleSlug {
   return 'developer';
 }
 
-function titleizeRole(slug: string): string {
-  return slug
-    .split(/[-_]/)
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-}
-
 /** Tool-permission vocabulary SSOT: the three approval levels and how each maps
  *  between the UI editor enums and the runtime policy enum ('auto' / 'always_ask'
  *  / 'deny'). One table here keeps the two from drifting. */
@@ -164,7 +156,7 @@ function newEmployeePersona(role: string): Record<string, unknown> {
       communication: 'Concise',
       risk: 'balanced',
       decisionStyle: 'Ask when scope changes',
-      customInstructions: `${titleizeRole(role)} hired from Personnel.`,
+      customInstructions: `${titleizeSlug(role)} hired from Personnel.`,
     },
   };
 }
@@ -214,7 +206,7 @@ function RosterRow({
             {employee.disabled ? <span className="off-pers-emp-dis">disabled</span> : null}
           </span>
           <span className="off-pers-emp-meta">
-            {employee.role.toLowerCase() !== employee.name.toLowerCase() ? (
+            {displayRole(employee) ? (
               <span className="off-pers-emp-role">{employee.role}</span>
             ) : null}
             {employee.kind === 'external' && employee.brandLabel ? (
@@ -338,11 +330,7 @@ function RosterRail({
 }
 
 function DetailHeader({ employee }: { employee: Employee }) {
-  const roleLine = [
-    employee.role.toLowerCase() === employee.name.toLowerCase() ? null : employee.role,
-    employee.zoneLabel,
-    employee.deskLabel,
-  ]
+  const roleLine = [displayRole(employee), employee.zoneLabel, employee.deskLabel]
     .filter(Boolean)
     .join(' · ');
   return (

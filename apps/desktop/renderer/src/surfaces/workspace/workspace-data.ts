@@ -757,6 +757,8 @@ function ageLabelFrom(createdAtMs: number, now: number): string {
   return `${Math.floor(diff / day)}d`;
 }
 
+const DAY_LABEL_FMT = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
+
 /** Day separator label for a message timestamp: Today / Yesterday / "Jun 8". */
 export function dayLabelFrom(atMs: number, now: number): string {
   const d = new Date(atMs);
@@ -768,7 +770,7 @@ export function dayLabelFrom(atMs: number, now: number): string {
   yest.setHours(0, 0, 0, 0);
   yest.setDate(yest.getDate() - 1);
   if (d.toDateString() === yest.toDateString()) return 'Yesterday';
-  return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(d);
+  return DAY_LABEL_FMT.format(d);
 }
 
 // Maps an InteractionRequest (parsed from request_json) to a WsApproval. Fields

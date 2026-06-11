@@ -376,7 +376,6 @@ export function McpServersPane() {
                   size="md"
                   onClick={() => {
                     form.reset(MCP_SERVER_DEFAULTS);
-                    setSubmitting(false);
                     setShowForm(false);
                   }}
                 >

@@ -17,7 +17,7 @@ import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import { Input } from '@/design-system/primitives/input.js';
 import { safeErrorMessage } from '@/lib/provider-bridge.js';
-import { cn } from '@/lib/utils.js';
+import { cn, escapeRegExp } from '@/lib/utils.js';
 import {
   OfficeScene3D,
   type ScenePlacementPoint,
@@ -86,6 +86,14 @@ const ZONE_KIND_LABEL: Record<string, string> = {
   rest: 'Rest',
   lounge: 'Lounge',
 };
+
+/** Kind tag for a zone row, or null when the label already names the kind
+ *  (word-boundary match so short kinds like "Rest" don't hit "Interest"). */
+function zoneKindTag(zone: { kind: string; label: string }): string | null {
+  const kindLabel = ZONE_KIND_LABEL[zone.kind] ?? zone.kind;
+  const redundant = new RegExp(`\\b${escapeRegExp(kindLabel)}\\b`, 'i').test(zone.label);
+  return redundant ? null : kindLabel;
+}
 
 const EDITABLE_ZONE_ARCHETYPES: ReadonlySet<ZoneArchetype> = new Set([
   'workspace',
@@ -794,14 +802,7 @@ export function StudioSurface() {
         </div>
         <div className="off-studio-panel-body">
           {zones.map((zone) => {
-            const kindLabel = ZONE_KIND_LABEL[zone.kind] ?? zone.kind;
-            // Skip the kind tag when the zone label already names it (e.g. "Focus Pods" + "Focus pods").
-            // Word-boundary match so short kinds ("Rest") don't hit substrings ("Interest").
-            const kindPattern = new RegExp(
-              `\\b${kindLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`,
-              'i',
-            );
-            const kindIsRedundant = kindPattern.test(zone.label);
+            const kindTag = zoneKindTag(zone);
             return (
               <button
                 key={zone.id}
@@ -817,9 +818,7 @@ export function StudioSurface() {
               >
                 <Icon icon={LayoutGrid} size="sm" />
                 <span className="off-studio-zone-name">{zone.label}</span>
-                {kindIsRedundant ? null : (
-                  <span className="off-studio-zone-kind">{kindLabel}</span>
-                )}
+                {kindTag ? <span className="off-studio-zone-kind">{kindTag}</span> : null}
               </button>
             );
           })}

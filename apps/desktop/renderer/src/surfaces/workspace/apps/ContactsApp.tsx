@@ -4,6 +4,7 @@ import type { Employee } from '@/data/types.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { SearchInput } from '@/design-system/grammar/SearchInput.js';
 import { Icon } from '@/design-system/icons/Icon.js';
+import { displayRole } from '@/data/adapters.js';
 import { cn } from '@/lib/utils.js';
 import { EmptyState, ErrorState, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
 import { Building2, MessageSquare, SquarePen, UserPlus, Users } from 'lucide-react';
@@ -75,7 +76,7 @@ export function ContactsApp() {
   }, [active, conversations.data]);
   const profileSubtitle = active
     ? [
-        active.role.toLowerCase() !== active.name.toLowerCase() ? active.role : null,
+        displayRole(active),
         activeDetail ? `${activeDetail.zone.split(' (')[0]} zone` : null,
       ]
         .filter(Boolean)
@@ -138,9 +139,7 @@ export function ContactsApp() {
                     </span>
                     <span className="off-ws-row-copy">
                       <span className="off-ws-ct-nm">{e.name}</span>
-                      {e.role.toLowerCase() !== e.name.toLowerCase() ? (
-                        <span className="off-ws-ct-role">{e.role}</span>
-                      ) : null}
+                      {displayRole(e) ? <span className="off-ws-ct-role">{e.role}</span> : null}
                     </span>
                   </button>
                 );

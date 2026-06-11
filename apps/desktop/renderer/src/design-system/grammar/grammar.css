@@ -300,12 +300,13 @@
 }
 
 .off-command-dialog {
-  /* !important: .off-motion-dialog-content[data-state] (styles/motion.css)
-     re-centers vertically with translate(-50%, -50%) at higher specificity;
-     without these the tall unfiltered list (including the search input)
-     gets pushed above the window top on initial render. */
-  top: var(--off-command-dialog-top) !important;
-  bottom: auto !important;
+  /* transform !important: .off-motion-dialog-content[data-state]
+     (styles/motion.css) re-centers vertically with translate(-50%, -50%) at
+     higher specificity; without it the tall unfiltered list (including the
+     search input) gets pushed above the window top on initial render.
+     top/bottom have no higher-specificity competitors and win normally. */
+  top: var(--off-command-dialog-top);
+  bottom: auto;
   max-width: var(--off-dialog-max-w-command);
   transform: translate(-50%, 0) !important;
   gap: 0;

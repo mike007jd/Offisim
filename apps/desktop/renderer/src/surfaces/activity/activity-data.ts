@@ -1,4 +1,5 @@
 import { isTauriRuntime } from '@/data/adapters.js';
+import { escapeRegExp } from '@/lib/utils.js';
 import { resolveAsync } from '@/lib/platform.js';
 import { getTauriDb } from '@/lib/tauri-db.js';
 import { useQuery } from '@tanstack/react-query';
@@ -389,8 +390,9 @@ export function getDisplaySummary(record: ActivityRecord): { actor: string | nul
   const label = getDisplayLabel(record);
   const actor = record.actor ?? null;
   if (!actor) return { actor: null, label };
-  // Some labels already name the actor (e.g. "Skill installed by Maya Chen") — don't repeat it.
-  if (label.toLowerCase().includes(actor.toLowerCase())) return { actor: null, label };
+  // Some labels already name the actor (e.g. "Skill installed by Maya Chen") — don't
+  // repeat it. Word-boundary match so short actors ("Sam") don't hit substrings ("Sample").
+  if (new RegExp(`\\b${escapeRegExp(actor)}\\b`, 'i').test(label)) return { actor: null, label };
   // Strip the generic "Employee " / "Agent " prefix when an actor name replaces it.
   const trimmed = label.replace(/^(?:Agent|Employee)\s+/i, '');
   return { actor, label: trimmed };
