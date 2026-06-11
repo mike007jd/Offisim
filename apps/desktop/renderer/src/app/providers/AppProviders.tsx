@@ -1,4 +1,5 @@
 import { TooltipProvider } from '@/design-system/primitives/tooltip.js';
+import { useNativeEscapeBridge } from '@/lib/native-escape-bridge.js';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MotionConfig } from 'motion/react';
 import { type ReactNode, useState } from 'react';
@@ -21,6 +22,8 @@ export function AppProviders({ children }: AppProvidersProps) {
         },
       }),
   );
+
+  useNativeEscapeBridge();
 
   return (
     <QueryClientProvider client={queryClient}>

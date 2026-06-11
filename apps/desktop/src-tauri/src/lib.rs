@@ -4,6 +4,8 @@ mod builtin_tools;
 mod claude_agent_host;
 mod codex_agent_host;
 mod deep_link;
+#[cfg(target_os = "macos")]
+mod escape_forwarder;
 mod git;
 mod in_flight;
 mod llm_transport;
@@ -238,6 +240,11 @@ pub fn run() {
             {
                 ensure_main_window(app.handle()).map_err(|e| format!("main window init: {e}"))?;
             }
+
+            // Forward bare Escape past wry's swallowed keyDown (must run on
+            // the main thread; Tauri's setup hook already does).
+            #[cfg(target_os = "macos")]
+            escape_forwarder::install(app.handle().clone());
 
             // Open devtools on launch. Only compiled into debug builds or
             // live-verify builds made with `--features devtools`; the ship
