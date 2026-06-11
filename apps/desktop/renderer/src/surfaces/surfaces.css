@@ -87,6 +87,24 @@
   border-radius: var(--off-r-sm) !important;
 }
 
+/* WKWebView (WebKit 26 / macOS Tahoe) can skip painting sonner's fixed
+   toast list when toasts enter through an offscreen translateY transition:
+   DOM and CSSOM stay correct (mounted, opacity 1, right rect) but the
+   layer never composites — ship-channel finding, 2026-06-11 live
+   acceptance. Pin the list onto its own stable compositing layer and make
+   toast entry a pure fade from its final position, so no
+   offscreen-to-onscreen transform path exists for WebKit to lose.
+   Mounted-state stacking offsets (--y on [data-mounted='true']) are
+   untouched. */
+[data-sonner-toaster] {
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+[data-sonner-toast]:not([data-mounted='true']) {
+  --y: translateY(0) !important;
+}
+
 .off-error-boundary {
   position: fixed;
   inset: 0;

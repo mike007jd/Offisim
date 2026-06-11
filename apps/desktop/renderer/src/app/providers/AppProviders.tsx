@@ -29,11 +29,10 @@ export function AppProviders({ children }: AppProvidersProps) {
     <QueryClientProvider client={queryClient}>
       <MotionConfig reducedMotion="user">
         <TooltipProvider>{children}</TooltipProvider>
-        {/* top-right: WKWebView (macOS 26) fails to paint sonner's bottom-anchored
-            slide-in layer even though the DOM/CSSOM is correct (toast mounts with
-            opacity 1 at the right rect but never composites). Top-anchored toasts
-            paint fine. The banner now owns a real layout row (shell.css), so
-            top-right toasts no longer stack onto persistent controls. */}
+        {/* top-right kept from 4b5a1b79 (banner owns a real layout row now, no
+            stacking conflict). WKWebView (WebKit 26) can drop sonner's compositing
+            layer entirely in ship builds — surfaces.css pins [data-sonner-toaster]
+            to a stable layer and converts entry to an in-place fade. */}
         <Toaster
           closeButton
           position="top-right"
