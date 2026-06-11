@@ -12,6 +12,7 @@ import type {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   companyToVm,
+  displayThreadTitle,
   employeeToVm,
   isTauriRuntime,
   projectToVm,
@@ -385,7 +386,7 @@ export function useUnfinishedThreads() {
         threadId: row.thread_id,
         companyId: row.company_id,
         projectId: row.project_id ?? '',
-        name: titles[i]?.title?.trim() || 'Untitled conversation',
+        name: displayThreadTitle(titles[i]?.title),
         state: row.status === 'blocked' ? 'blocked' : 'running',
       }));
     },

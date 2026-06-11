@@ -1,5 +1,5 @@
 import { useUiState } from '@/app/ui-state.js';
-import { employeeToVm, isTauriRuntime, reposOrNull } from '@/data/adapters.js';
+import { displayThreadTitle, employeeToVm, isTauriRuntime, reposOrNull } from '@/data/adapters.js';
 import type { Employee } from '@/data/types.js';
 import { resolveAsync } from '@/lib/platform.js';
 import { getTauriDb } from '@/lib/tauri-db.js';
@@ -696,7 +696,7 @@ export function useWsConversations() {
       return rows.map((row) => ({
         id: row.thread_id,
         kind: row.employee_id ? 'direct' : 'group',
-        title: row.title?.trim() || 'New thread',
+        title: displayThreadTitle(row.title),
         employeeId: row.employee_id ?? null,
         snippet: row.summary ?? '',
         timeLabel: Number.isFinite(Date.parse(row.updated_at))
@@ -1104,6 +1104,6 @@ export const GATE_LABEL: Record<GateKind, string> = {
 export const GATE_HEAD_LABEL: Record<GateKind, string> = {
   permission: 'Permission gate',
   plan: 'Plan review',
-  ask: 'Agent question',
+  ask: 'Employee question',
   install: 'Skill install',
 };

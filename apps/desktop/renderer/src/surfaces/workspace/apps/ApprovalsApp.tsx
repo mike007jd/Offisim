@@ -33,7 +33,7 @@ const TYPE_CLASS: Record<GateKind, string> = {
 
 const SCOPE_LABEL: Record<GrantScope, string> = {
   once: 'once',
-  thread: 'thread',
+  thread: 'conversation',
   session: 'session',
 };
 

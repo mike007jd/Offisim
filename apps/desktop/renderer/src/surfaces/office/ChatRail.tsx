@@ -174,7 +174,7 @@ export function ChatRail() {
           title: activeWorkspaceConversation.title,
           subtitle:
             activeWorkspaceConversation.kind === 'group'
-              ? `Team thread · ${activeWorkspaceConversation.members ?? 0} members`
+              ? `Team conversation · ${activeWorkspaceConversation.members ?? 0} members`
               : activeWorkspaceConversation.snippet,
           runState: 'idle' as const,
           employeeId: activeWorkspaceConversation.employeeId,
@@ -195,7 +195,7 @@ export function ChatRail() {
       <header className="off-chat-head">
         <IconButton
           icon={ChevronLeft}
-          label="Back to threads"
+          label="Back to conversations"
           variant="ghost"
           size="icon"
           onClick={closeThread}

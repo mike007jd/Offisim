@@ -285,10 +285,10 @@ export function TeamDock() {
     },
     onSuccess: (threadId) => {
       openThread(threadId);
-      toast.success('Employee thread opened');
+      toast.success('Conversation opened');
     },
     onError: (error) => {
-      toast.error('Employee thread failed', {
+      toast.error('Could not open the conversation', {
         description: error instanceof Error ? error.message : 'Unknown error',
       });
     },

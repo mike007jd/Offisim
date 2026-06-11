@@ -192,7 +192,7 @@ function OfficeComposer({
           <span className="off-composer-context" title={projectName}>
             {projectName}
           </span>
-          <div className="off-thread-pitbar" aria-label="Thread outputs and follow-up">
+          <div className="off-thread-pitbar" aria-label="Conversation outputs and follow-up">
             <MeetingTray />
             <ConvOutputs deliverables={deliverables} employeesById={employeesById} />
           </div>

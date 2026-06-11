@@ -334,8 +334,10 @@ export function getEventLevel(type: string): ActivityLevel {
 /* ── Display label ───────────────────────────────────────────────────────── */
 
 const KNOWN_TOPIC_LABELS: Record<string, string> = {
-  'agent.action': 'Agent completed an action',
-  'agent.decision': 'Agent recorded a decision',
+  'agent.action': 'Employee completed an action',
+  'agent.decision': 'Employee recorded a decision',
+  'agent.workspace_chat.message': 'Workspace chat message',
+  'agent.direct_chat.message': 'Direct chat message',
   'boss.route.decided': 'Boss routed the task',
   'pm-preflight-cancelled': 'Preflight was cancelled',
 };
@@ -344,7 +346,7 @@ function titleFromTopic(type: string): string {
   if (KNOWN_TOPIC_LABELS[type]) return KNOWN_TOPIC_LABELS[type];
 
   const words = type
-    .replace(/^agent[._-]/, 'agent ')
+    .replace(/^agent[._-]/, '')
     .replace(/^boss[._-]/, 'boss ')
     .replaceAll('.', ' ')
     .replaceAll('_', ' ')
@@ -371,7 +373,7 @@ export function getDisplayLabel(record: ActivityRecord): string {
   }
   if (type === 'agent.error') {
     if (payload?.message === 'pm-preflight-cancelled') return 'Preflight was cancelled';
-    return 'Agent hit an error';
+    return 'Employee hit an error';
   }
   if (KNOWN_TOPIC_LABELS[type]) return KNOWN_TOPIC_LABELS[type];
 
@@ -389,8 +391,8 @@ export function getDisplaySummary(record: ActivityRecord): { actor: string | nul
   if (!actor) return { actor: null, label };
   // Some labels already name the actor (e.g. "Skill installed by Maya Chen") — don't repeat it.
   if (label.toLowerCase().includes(actor.toLowerCase())) return { actor: null, label };
-  // Strip the generic "Agent " prefix when an actor name replaces it.
-  const trimmed = label.replace(/^Agent\s+/i, '');
+  // Strip the generic "Employee " / "Agent " prefix when an actor name replaces it.
+  const trimmed = label.replace(/^(?:Agent|Employee)\s+/i, '');
   return { actor, label: trimmed };
 }
 

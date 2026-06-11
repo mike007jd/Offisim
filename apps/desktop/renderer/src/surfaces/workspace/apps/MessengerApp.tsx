@@ -293,7 +293,7 @@ export function MessengerApp() {
             <span className="off-ws-crumb-title">{active.title}</span>
             <span className="off-ws-crumb-sub">
               {active.kind === 'group'
-                ? active.snippet.trim() || 'Team thread'
+                ? active.snippet.trim() || 'Team conversation'
                 : `Direct · ${activeEmployee?.role ?? '—'}`}
             </span>
           </div>

@@ -214,7 +214,7 @@ export function CalendarApp() {
                   }}
                 >
                   <Icon icon={MessageSquare} size="sm" />
-                  Open meeting thread
+                  Open meeting conversation
                 </button>
               </div>
             </div>

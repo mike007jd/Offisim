@@ -167,12 +167,20 @@ interface ChatThreadRowLike {
   summary: string | null;
   updated_at: string;
 }
+/** Render-layer thread title. The persisted default stays 'New thread' (DB
+ *  schema default + core auto-title fallback contract); the product vocabulary
+ *  shows it as a conversation. */
+export function displayThreadTitle(title: string | null | undefined): string {
+  const trimmed = title?.trim();
+  return !trimmed || trimmed === 'New thread' ? 'New conversation' : trimmed;
+}
+
 export function threadToVm(row: ChatThreadRowLike): ChatThread {
   return {
     id: row.thread_id,
     projectId: row.project_id,
-    title: row.title,
-    subtitle: row.summary ?? 'Team thread',
+    title: displayThreadTitle(row.title),
+    subtitle: row.summary ?? 'Team conversation',
     scope: row.employee_id ? 'direct' : 'team',
     employeeId: row.employee_id ?? null,
     updatedAt: Date.parse(row.updated_at) || Date.now(),

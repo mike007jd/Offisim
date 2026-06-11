@@ -541,7 +541,7 @@ export function WorkspaceAssistantThread({
             <EmptyState
               icon={MessageSquarePlus}
               title="No messages yet"
-              description="Write a message below to start this thread."
+              description="Write a message below to start this conversation."
             />
           ) : (
             <section className="off-ws-messages">

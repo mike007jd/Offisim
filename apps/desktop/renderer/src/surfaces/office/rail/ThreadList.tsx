@@ -26,22 +26,22 @@ export function ThreadList() {
   const [query, setQuery] = useState('');
   const createThread = useMutation({
     mutationFn: async () => {
-      if (!projectId) throw new Error('Select a project before creating a thread.');
+      if (!projectId) throw new Error('Select a project before creating a conversation.');
       const repos = await reposOrNull();
-      if (!repos) throw new Error('Thread creation requires the desktop runtime.');
+      if (!repos) throw new Error('Creating a conversation requires the desktop runtime.');
       return repos.chatThreads.create({
         thread_id: generateId('thread'),
         project_id: projectId,
-        title: 'New thread',
+        title: 'New thread', // DB default — displayThreadTitle() shows it as 'New conversation'
       });
     },
     onSuccess: async (thread) => {
       await queryClient.invalidateQueries({ queryKey: ['threads', projectId] });
       openThread(thread.thread_id);
-      toast.success('Thread created');
+      toast.success('Conversation created');
     },
     onError: (error) => {
-      toast.error('Thread creation failed', {
+      toast.error('Could not create the conversation', {
         description: error instanceof Error ? error.message : 'Unknown error',
       });
     },
@@ -59,10 +59,10 @@ export function ThreadList() {
   return (
     <>
       <div className="off-conv-list-head">
-        <SearchInput value={query} onChange={setQuery} placeholder="Search threads" />
+        <SearchInput value={query} onChange={setQuery} placeholder="Search conversations" />
         <IconButton
           icon={Plus}
-          label="New thread"
+          label="New conversation"
           variant="subtle"
           size="icon"
           disabled={createThread.isPending || !projectId}
@@ -72,7 +72,7 @@ export function ThreadList() {
 
       {threads.isError ? (
         <ErrorState
-          title="Couldn't load threads"
+          title="Couldn't load conversations"
           detail={errorDetail(threads.error, 'Conversations failed to load.')}
           onRetry={() => void threads.refetch()}
         />
@@ -81,7 +81,7 @@ export function ThreadList() {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={MessagesSquare}
-          title={query ? 'No matching threads' : 'No threads yet'}
+          title={query ? 'No matching conversations' : 'No conversations yet'}
           description={query ? 'Try a different search term.' : 'Message the team or one employee.'}
         />
       ) : (

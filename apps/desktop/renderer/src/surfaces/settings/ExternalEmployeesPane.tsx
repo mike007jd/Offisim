@@ -129,7 +129,7 @@ export function ExternalEmployeesPane() {
       invalidateExternalEmployees();
       toast.success(`Refreshed ${card.name}`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not refresh agent card');
+      toast.error(err instanceof Error ? err.message : 'Could not refresh A2A card');
     } finally {
       setRefreshingId(null);
     }
@@ -172,13 +172,13 @@ export function ExternalEmployeesPane() {
         <div>
           <div className="off-set-panetitle">External Employees</div>
           <div className="off-set-panedesc">
-            External A2A agents connected to this company.
+            External employees connected over A2A.
           </div>
         </div>
         {sorted.length > 0 ? (
           <Button size="md" onClick={() => setInstallOpen(true)}>
             <Icon icon={Plug} size="sm" />
-            Connect agent
+            Connect employee
           </Button>
         ) : null}
       </div>
@@ -189,10 +189,10 @@ export function ExternalEmployeesPane() {
             <Icon icon={Users} size="md" />
           </div>
           <div className="off-set-ee-t">No external employees connected</div>
-          <div className="off-set-ee-d">Connect an A2A agent by its card URL.</div>
+          <div className="off-set-ee-d">Connect an external employee by its A2A card URL.</div>
           <Button size="md" className="mt-[var(--off-sp-5)]" onClick={() => setInstallOpen(true)}>
             <Icon icon={Plus} size="sm" />
-            Connect agent
+            Connect employee
           </Button>
         </div>
       ) : (
@@ -233,7 +233,7 @@ export function ExternalEmployeesPane() {
                   />
                   <IconButton
                     icon={RefreshCw}
-                    label="Refresh agent card"
+                    label="Refresh A2A card"
                     size="iconSm"
                     variant="outline"
                     disabled={refreshingId === employee.id}

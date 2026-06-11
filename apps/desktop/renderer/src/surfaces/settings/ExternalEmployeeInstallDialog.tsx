@@ -72,7 +72,7 @@ export function ExternalEmployeeInstallDialog({
       setCard(result);
       setDiscoveredUrl(url);
     } catch (err) {
-      setDiscoverError(err instanceof Error ? err.message : 'Could not reach agent card');
+      setDiscoverError(err instanceof Error ? err.message : 'Could not reach A2A card');
     } finally {
       setDiscovering(false);
     }
@@ -187,7 +187,7 @@ export function ExternalEmployeeInstallDialog({
                 size="sm"
                 className={connecting ? 'animate-spin' : undefined}
               />
-              {connecting ? 'Connecting…' : 'Connect agent'}
+              {connecting ? 'Connecting…' : 'Connect employee'}
             </Button>
           </div>
         </div>
