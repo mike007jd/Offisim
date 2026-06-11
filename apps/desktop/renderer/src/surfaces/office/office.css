@@ -223,19 +223,25 @@
   min-width: 40px;
   max-width: 64px;
   min-height: 18px;
-  padding: 2px 7px;
+  padding: 2px var(--off-sp-3);
   border: 1px solid transparent;
   border-radius: var(--off-r-pill);
   background: transparent;
   box-shadow: none;
-  color: var(--off-ink-3);
+  color: var(--off-ink-2);
+  /* 1px white outline so the name stays legible over the light floor */
+  text-shadow:
+    -1px 0 rgba(255, 255, 255, 0.85),
+    1px 0 rgba(255, 255, 255, 0.85),
+    0 -1px rgba(255, 255, 255, 0.85),
+    0 1px rgba(255, 255, 255, 0.85);
   font-size: var(--off-fs-micro);
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   transform: translateY(-100%);
-  opacity: 0.24;
+  opacity: 0.8;
   scale: 0.86;
   pointer-events: none;
 }
@@ -282,7 +288,7 @@
   display: inline-flex;
   align-items: center;
   min-height: 18px;
-  padding: 0 7px;
+  padding: 0 var(--off-sp-3);
   border: 1px solid color-mix(in oklab, var(--off-line) 72%, transparent);
   border-radius: var(--off-r-xs);
   background: color-mix(in oklab, var(--off-surface-glass-strong) 82%, transparent);
@@ -345,7 +351,7 @@
   border-top: 0;
   border-radius: 0 0 var(--off-r-md) var(--off-r-md);
   background: var(--off-surface-glass-strong);
-  backdrop-filter: blur(6px);
+  backdrop-filter: blur(var(--off-blur-sm));
   box-shadow: var(--off-elev-2);
   z-index: var(--off-z-float);
 }
@@ -411,7 +417,7 @@
   border: 1px solid var(--off-line);
   border-radius: var(--off-r-pill);
   background: var(--off-surface-glass-weak);
-  backdrop-filter: blur(6px);
+  backdrop-filter: blur(var(--off-blur-sm));
   box-shadow: var(--off-elev-1);
   color: var(--off-ink-4);
   transition: color var(--off-motion-fast) var(--off-motion-ease), border-color
@@ -444,7 +450,7 @@
   border: 1px solid var(--off-line);
   border-radius: var(--off-r-pill);
   background: var(--off-surface-glass-weak);
-  backdrop-filter: blur(6px);
+  backdrop-filter: blur(var(--off-blur-sm));
   box-shadow: var(--off-elev-1);
   color: var(--off-ink-3);
   font-size: var(--off-fs-meta);
@@ -1550,7 +1556,7 @@
   border: 1px solid var(--off-accent-ring);
   border-radius: var(--off-r-pill);
   background: var(--off-surface-glass-xstrong);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(var(--off-blur-sm));
   box-shadow: var(--off-elev-2);
   font-size: var(--off-fs-meta);
 }
@@ -2034,7 +2040,7 @@
   z-index: var(--off-z-overlay);
   /* re-enables events killed by `.off-banner-slot` (shell.css) on the row */
   pointer-events: auto;
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(var(--off-blur-lg));
 }
 .off-resume-glyph {
   color: var(--off-accent);

@@ -756,7 +756,7 @@
 
 .off-wiz-tag {
   height: 18px;
-  padding: 0 7px;
+  padding: 0 var(--off-sp-3);
   display: inline-flex;
   align-items: center;
   border-radius: var(--off-r-xs);

@@ -128,6 +128,8 @@
   --off-z-dialog: 50;
   --off-z-emergency: 99999;
   --off-blur-dialog: 2px;
+  --off-blur-sm: 6px;
+  --off-blur-lg: 12px;
 
   --off-topbar-bg: rgba(255, 255, 255, 0.92);
   --off-overlay: rgba(18, 28, 50, 0.42);

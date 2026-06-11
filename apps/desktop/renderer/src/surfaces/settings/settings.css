@@ -369,11 +369,11 @@
   font-size: var(--off-fs-meta);
   font-weight: 540;
   line-height: 1.45;
-  padding: 7px 10px;
+  padding: var(--off-sp-3) 10px;
   border-radius: var(--off-r-sm);
   display: flex;
   align-items: flex-start;
-  gap: 7px;
+  gap: var(--off-sp-3);
 }
 
 .off-set-callout .off-icon {
@@ -422,7 +422,7 @@
   color: var(--off-ink-1);
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: var(--off-sp-3);
 }
 
 .off-set-pv-meta {
@@ -584,7 +584,7 @@
 .off-set-catalog-err {
   margin-top: var(--off-sp-3);
   font-size: var(--off-fs-meta);
-  padding: 6px 9px;
+  padding: 6px var(--off-sp-3);
   border-radius: var(--off-r-xs);
   background: var(--off-warn-surface);
   color: var(--off-warn);
@@ -635,7 +635,7 @@
   color: var(--off-ink-1);
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: var(--off-sp-3);
 }
 
 .off-set-vault-sub {
@@ -715,7 +715,7 @@
   grid-template-columns: 1fr auto;
   align-items: center;
   gap: var(--off-sp-4);
-  padding: 9px var(--off-sp-3);
+  padding: var(--off-sp-3);
   border-radius: var(--off-r-sm);
   transition: background var(--off-motion-fast) var(--off-motion-ease);
 }
@@ -936,7 +936,7 @@
   color: var(--off-violet);
   background: var(--off-violet-surface);
   border: 1px solid var(--off-violet-line-soft);
-  padding: 1px 7px;
+  padding: 1px var(--off-sp-3);
   border-radius: var(--off-r-pill);
   font-weight: 720;
   text-transform: uppercase;

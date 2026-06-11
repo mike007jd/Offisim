@@ -51,7 +51,7 @@
 .off-act-search input {
   width: 100%;
   height: 32px;
-  padding: 0 11px 0 30px;
+  padding: 0 var(--off-sp-5) 0 var(--off-sp-10);
   border: 1px solid var(--off-line);
   border-radius: var(--off-r-md);
   background: var(--off-surface-1);
@@ -105,7 +105,7 @@
 
 .off-act-noresults-secondary {
   height: 28px;
-  padding: 0 11px;
+  padding: 0 var(--off-sp-5);
   border: 1px solid var(--off-line);
   border-radius: var(--off-r-md);
   background: var(--off-surface-1);
@@ -145,7 +145,7 @@
 }
 
 .off-tl-cnt {
-  padding: 1px 7px;
+  padding: 1px var(--off-sp-3);
   border-radius: var(--off-r-pill);
   background: var(--off-surface-1);
   color: var(--off-ink-4);
@@ -288,7 +288,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 11px var(--off-sp-7);
+  padding: var(--off-sp-5) var(--off-sp-7);
   border-bottom: 1px solid var(--off-line-soft);
 }
 
@@ -348,7 +348,7 @@
 .off-ad-lvl {
   display: inline-flex;
   align-items: center;
-  padding: 2px 9px;
+  padding: 2px var(--off-sp-3);
   border-radius: var(--off-r-xs);
   font-size: var(--off-fs-meta);
   font-weight: 600;

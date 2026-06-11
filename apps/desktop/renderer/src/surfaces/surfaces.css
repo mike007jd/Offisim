@@ -99,7 +99,7 @@
   gap: var(--off-sp-3);
   max-width: 560px;
   margin: 0 auto;
-  padding: 48px 32px;
+  padding: 48px 32px; /* page-level inset */
   background: var(--off-surface-1);
   color: var(--off-ink-1);
   font-size: var(--off-fs-base);
