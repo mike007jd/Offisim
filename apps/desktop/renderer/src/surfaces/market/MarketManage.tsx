@@ -13,6 +13,18 @@ import {
   useRegistryConnection,
 } from './market-data.js';
 
+/** "com.acme.note-reader" → "Note Reader" — readable card title; the raw id
+ *  stays visible on a secondary mono line. */
+function humanizePackageId(packageId: string): string {
+  const tail = packageId.split('.').pop() ?? packageId;
+  const name = tail
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+  return name || packageId;
+}
+
 interface MarketManageProps {
   view: ManageView;
   companyId: string | null;
@@ -118,8 +130,9 @@ function InstalledItem({
   return (
     <div className="off-mng-item">
       <div className="off-mng-top">
-        <div>
-          <div className="off-mng-name">{pkg.packageId}</div>
+        <div className="off-mng-id-wrap">
+          <div className="off-mng-name">{humanizePackageId(pkg.packageId)}</div>
+          <div className="off-mng-id">{pkg.packageId}</div>
           <div className="off-mng-ver">
             v{pkg.version} · {pkg.installedLabel}
           </div>

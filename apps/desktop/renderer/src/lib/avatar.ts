@@ -173,6 +173,12 @@ export function employeeAvatarUri(seed: string, appearance?: EmployeeAppearance)
     hairColor: [toHexColor(appearance?.hairColor ?? pick(seed, HAIR_COLORS, 'hair'))],
     clothesColor: [toHexColor(appearance?.clothingColor ?? pick(seed, OUTFIT_COLORS, 'outfit'))],
     top: [top],
+    // Friendly expressions only — DiceBear still samples per-seed within these
+    // sets, so the same seed keeps the same face. Without this constraint the
+    // full avataaars pool includes concerned/sad/screamOpen/angry variants.
+    eyebrows: ['default', 'defaultNatural', 'raisedExcited'],
+    eyes: ['default', 'happy', 'wink'],
+    mouth: ['default', 'smile', 'twinkle'],
     ...(isBald ? { topProbability: 0 } : {}),
   }).toDataUri();
 

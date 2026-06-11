@@ -417,13 +417,8 @@
   width: 24px;
   height: 24px;
   flex: none;
-  display: grid;
-  place-items: center;
   border-radius: var(--off-r-sm);
-  background: linear-gradient(135deg, var(--off-csp-avatar-a), var(--off-csp-avatar-b));
-  color: var(--off-accent-fg);
-  font-size: var(--off-fs-micro);
-  font-weight: 800;
+  background: var(--off-surface-2);
 }
 
 .off-csp-roster-copy {

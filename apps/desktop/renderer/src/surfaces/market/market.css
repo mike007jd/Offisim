@@ -1656,10 +1656,21 @@
   justify-content: space-between;
   gap: 10px;
 }
+.off-mng-id-wrap {
+  min-width: 0;
+}
 .off-mng-name {
   font-size: var(--off-fs-sm);
   font-weight: 660;
   color: var(--off-ink-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.off-mng-id {
+  margin-top: 1px;
+  font-size: var(--off-fs-meta);
+  color: var(--off-ink-4);
   font-family: var(--off-font-mono);
   overflow: hidden;
   text-overflow: ellipsis;

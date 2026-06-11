@@ -8,11 +8,11 @@ import {
 } from '@/data/queries.js';
 import type { Company, Employee } from '@/data/types.js';
 import { Icon } from '@/design-system/icons/Icon.js';
+import { employeeAvatarUri } from '@/lib/avatar.js';
 import { cn } from '@/lib/utils.js';
 import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
 import { Archive, ArrowRight, Building2, FolderPlus, Pencil } from 'lucide-react';
 import { motion } from 'motion/react';
-import type { CSSProperties } from 'react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { CompanyPortalPreview } from './CompanyPortalPreview.js';
@@ -296,17 +296,12 @@ function CompanyRoster({ employees }: { employees: Employee[] }) {
       <div className="off-csp-roster-list">
         {employees.slice(0, ROSTER_PREVIEW_LIMIT).map((employee) => (
           <div key={employee.id} className="off-csp-roster-row">
-            <span
+            <img
               className="off-csp-roster-avatar"
-              style={
-                {
-                  '--off-csp-avatar-a': employee.avatarA,
-                  '--off-csp-avatar-b': employee.avatarB,
-                } as CSSProperties
-              }
-            >
-              {employee.name.slice(0, 1)}
-            </span>
+              src={employeeAvatarUri(employee.id, employee.appearance)}
+              alt=""
+              aria-hidden
+            />
             <span className="off-csp-roster-copy">
               <span className="off-csp-roster-name">{employee.name}</span>
               <span className="off-csp-roster-role">{employee.role}</span>
