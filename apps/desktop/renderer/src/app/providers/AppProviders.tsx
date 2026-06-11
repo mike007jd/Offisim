@@ -26,9 +26,14 @@ export function AppProviders({ children }: AppProvidersProps) {
     <QueryClientProvider client={queryClient}>
       <MotionConfig reducedMotion="user">
         <TooltipProvider>{children}</TooltipProvider>
+        {/* top-right: WKWebView (macOS 26) fails to paint sonner's bottom-anchored
+            slide-in layer even though the DOM/CSSOM is correct (toast mounts with
+            opacity 1 at the right rect but never composites). Top-anchored toasts
+            paint fine. The banner now owns a real layout row (shell.css), so
+            top-right toasts no longer stack onto persistent controls. */}
         <Toaster
           closeButton
-          position="bottom-right"
+          position="top-right"
           toastOptions={{
             classNames: {
               toast: 'off-toast',
