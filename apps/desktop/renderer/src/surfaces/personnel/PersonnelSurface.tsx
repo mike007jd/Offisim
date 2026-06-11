@@ -900,7 +900,7 @@ export function PersonnelSurface() {
               <EmptyState
                 icon={UsersRound}
                 title="Select an employee"
-                description="Select an employee to edit."
+                description="Pick someone from the roster to view and edit their profile."
               />
             </div>
           )}

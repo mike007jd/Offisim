@@ -113,20 +113,22 @@ export function CompanyCreationWizard({
   const isCustom = selected?.id === 'create-your-own';
   const zones = selected ? templateZones(selected.id) : [];
 
-  // Dirty = name typed OR template moved off the default (index 0).
-  const isDirty = companyName.trim().length > 0 || description.trim().length > 0 || safeIndex !== 0;
+  // Dirty = the user typed something (name or description). Browsing template
+  // cards is not a draft — guarding it made Esc look broken (it armed a discard
+  // toast instead of exiting), so template selection alone never blocks dismiss.
+  const hasTypedContent = companyName.trim().length > 0 || description.trim().length > 0;
 
   // Close attempt (button or Esc) routes through one dirty guard: clean closes
   // immediately, dirty arms (or re-arms) the single discard confirm rather than
   // force-closing the wizard.
   const attemptDismiss = useCallback(() => {
     if (busy || !dismissible) return;
-    if (!isDirty) {
+    if (!hasTypedContent) {
       onDismiss();
       return;
     }
     showDiscardConfirm({ onDiscard: onDismiss });
-  }, [busy, dismissible, isDirty, onDismiss]);
+  }, [busy, dismissible, hasTypedContent, onDismiss]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {

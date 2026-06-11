@@ -348,12 +348,6 @@ export function ProviderPane({
             </div>
           )}
           <div className="mt-[var(--off-sp-4)] flex flex-col gap-[var(--off-sp-2)]">
-            {active.isThinking ? (
-              <div className="off-set-callout is-warn">
-                <Icon icon={AlertTriangle} size="sm" />
-                Thinking model — keep max tokens at 1024+.
-              </div>
-            ) : null}
             {isHostResolved ? (
               <div className="off-set-callout is-info">
                 <Icon icon={Info} size="sm" />
@@ -409,6 +403,12 @@ export function ProviderPane({
               </>
             )}
           </FieldRow>
+          {active.isThinking ? (
+            <div className="off-set-callout is-warn mt-[var(--off-sp-3)]">
+              <Icon icon={AlertTriangle} size="sm" />
+              This model reasons before answering — set max output tokens to 1024 or higher.
+            </div>
+          ) : null}
         </CardBlock>
       </section>
 

@@ -111,7 +111,7 @@ export async function loadRunCost(): Promise<RunCost> {
       hasUnknownUsage && tokens === 0
         ? 'Usage unknown'
         : hasUnknownUsage
-          ? `${formatCostLabel(cost)}+`
+          ? `≥ ${formatCostLabel(cost)}`
           : formatCostLabel(cost);
     return { tokens, costLabel, live: calls.length > 0 };
   } catch {
