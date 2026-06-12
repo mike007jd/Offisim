@@ -1,6 +1,9 @@
 /* ══════════ Activity Log surface ══════════
    ActivityFilterBar (top) + content grid (timeline XOR split with detail).
-   1:1 with Docs/design/offisim-activity-prototype.html, tokens only. */
+   Based on Docs/design/offisim-activity-prototype.html, tokens only.
+   Intentional deviations from the prototype (2026-06-12 visual audit): timeline
+   card is capped to the wide content column and content-bound in height, and
+   the trailing per-row level bar is gone (left border is the only indicator). */
 
 .off-act {
   position: absolute;
@@ -121,6 +124,14 @@
 /* ── Timeline ── */
 .off-act-tl {
   min-width: 0;
+  width: 100%;
+  max-width: var(--off-content-col-wide);
+  margin-inline: auto;
+  /* Content-bound card: the default grid stretch would pin the card to the full
+     track and leave a visible empty tail under short timelines; max-height
+     keeps overflow-y scrolling once content exceeds the track. */
+  align-self: start;
+  max-height: 100%;
   overflow-y: auto;
   border: 1px solid var(--off-line-soft);
   border-radius: var(--off-r-md);
@@ -233,8 +244,12 @@
   color: var(--off-ink-3);
 }
 
+/* Inline inside .off-ev-label so the ×N count sits next to the event it
+   describes instead of being flexed out to the far timestamp edge. */
 .off-ev-x {
-  flex: none;
+  display: inline-flex;
+  margin-left: var(--off-sp-3);
+  vertical-align: middle;
   padding: 1px 8px;
   border-radius: var(--off-r-pill);
   background: var(--off-surface-sunken);
@@ -250,22 +265,6 @@
   font-size: var(--off-fs-meta);
   color: var(--off-ink-4);
   font-variant-numeric: tabular-nums;
-}
-
-.off-ev-bar {
-  width: 3px;
-  height: 20px;
-  border-radius: var(--off-r-pill);
-  flex: none;
-  background: transparent;
-}
-
-.off-ev-bar.is-warn {
-  background: var(--off-warn);
-}
-
-.off-ev-bar.is-err {
-  background: var(--off-danger);
 }
 
 /* ── Event detail panel ── */

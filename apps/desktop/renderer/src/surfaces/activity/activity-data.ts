@@ -343,6 +343,9 @@ const KNOWN_TOPIC_LABELS: Record<string, string> = {
   'pm-preflight-cancelled': 'Preflight was cancelled',
 };
 
+/** Topic words that read as acronyms — naive Title-Case would render "Mcp". */
+const TOPIC_ACRONYMS = new Set(['mcp', 'llm', 'hr', 'a2a', 'api', 'pdf']);
+
 function titleFromTopic(type: string): string {
   if (KNOWN_TOPIC_LABELS[type]) return KNOWN_TOPIC_LABELS[type];
 
@@ -355,7 +358,20 @@ function titleFromTopic(type: string): string {
     .trim()
     .split(/\s+/);
   if (words.length === 0) return type;
-  return words.map((word) => word[0]?.toUpperCase() + word.slice(1)).join(' ');
+  return words
+    .map((word) =>
+      TOPIC_ACRONYMS.has(word) ? word.toUpperCase() : word[0]?.toUpperCase() + word.slice(1),
+    )
+    .join(' ');
+}
+
+/** Raw machine-syntax payload messages (dotted-topic prefixes, " — " metadata
+ *  joins, "x: a → b" pipes) read as log lines, not sentences. Rows fall back to
+ *  the topic title and let the entity suffix carry the specifics. */
+function isMachineFormattedMessage(message: string): boolean {
+  if (/^[a-z][\w-]*(?:\.[\w-]+)+/.test(message)) return true;
+  if (message.includes(' — ')) return true;
+  return /^[^:\n]+: [^\n]*→/.test(message);
 }
 
 /** Resolve the human label shown on a row. Dedicated formatters win, then the
@@ -376,11 +392,30 @@ export function getDisplayLabel(record: ActivityRecord): string {
     if (payload?.message === 'pm-preflight-cancelled') return 'Preflight was cancelled';
     return 'Employee hit an error';
   }
+  if (type === 'plan.step.advanced') {
+    const from = typeof payload?.from === 'string' ? payload.from : null;
+    const to = typeof payload?.to === 'string' ? payload.to : null;
+    return from && to ? `Plan step advanced: ${from} → ${to}` : 'Plan step advanced';
+  }
+  if (type === 'handoff.completed') {
+    // No actor in the label — getDisplaySummary leads with WHO (the `from` side).
+    const to = typeof payload?.to === 'string' ? payload.to : null;
+    return to ? `Handed off to ${to}` : 'Handoff completed';
+  }
+  // Deliverable names live on the entity; the row suffixes them already.
+  if (type === 'deliverable.created') return 'Deliverable created';
+  if (type === 'deliverable.persisted') return 'Deliverable saved';
+  if (type.startsWith('deliverable.export.')) {
+    const outcome = type.slice('deliverable.export.'.length).replaceAll(/[._-]+/g, ' ');
+    return outcome === 'completed' ? 'Deliverable exported' : `Deliverable export ${outcome}`;
+  }
   if (KNOWN_TOPIC_LABELS[type]) return KNOWN_TOPIC_LABELS[type];
 
   if (payload) {
     const message = payload.message ?? payload.nodeName ?? payload.employeeName ?? payload.name;
-    if (typeof message === 'string' && message.length > 0) return message;
+    if (typeof message === 'string' && message.length > 0 && !isMachineFormattedMessage(message)) {
+      return message;
+    }
   }
   return titleFromTopic(type);
 }
@@ -633,7 +668,7 @@ function buildFixtures(now: number): ActivityRecord[] {
       at: now - 1 * MIN,
       entity: { label: 'Q3 microsite plan', type: 'plan', id: 'pln_30a1' },
       actor: 'Boss',
-      payload: { message: 'plan / step: drafting → review', from: 'drafting', to: 'review' },
+      payload: { message: 'Plan step advanced: drafting → review', from: 'drafting', to: 'review' },
     },
     {
       id: 'evt-emp-maya-hero',
@@ -641,7 +676,7 @@ function buildFixtures(now: number): ActivityRecord[] {
       at: now - 2 * MIN,
       entity: { label: 'Maya Chen', type: 'employee', id: 'emp_4f1a' },
       actor: 'Maya Chen',
-      payload: { message: 'Maya Chen — building hero section', employeeName: 'Maya Chen' },
+      payload: { message: 'Building the hero section', employeeName: 'Maya Chen' },
     },
     {
       id: 'evt-reroute-1',
@@ -719,7 +754,7 @@ function buildFixtures(now: number): ActivityRecord[] {
       entity: { label: 'design review', type: 'handoff', id: 'hnd_91' },
       actor: 'Maya Chen',
       payload: {
-        message: 'handoff: Maya Chen → Aria Kim (design review)',
+        message: 'Handed off to Aria Kim',
         from: 'Maya Chen',
         to: 'Aria Kim',
       },
@@ -730,7 +765,7 @@ function buildFixtures(now: number): ActivityRecord[] {
       at: now - 50 * MIN,
       entity: { label: 'launch-brief.md', type: 'deliverable', id: 'dlv_9c2f71' },
       actor: 'Maya Chen',
-      payload: { message: 'deliverable.created — launch-brief.md', name: 'launch-brief.md' },
+      payload: { message: 'Deliverable created', name: 'launch-brief.md' },
     },
     {
       id: 'evt-deliverable-persisted',

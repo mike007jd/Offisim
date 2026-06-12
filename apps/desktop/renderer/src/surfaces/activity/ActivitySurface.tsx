@@ -300,19 +300,14 @@ export function ActivitySurface() {
                       {summary.actor ? <b className="off-ev-actor">{summary.actor}</b> : null}
                       {summary.actor ? ' · ' : ''}
                       {summary.label}
-                      {record.entity?.label && record.entity.label !== record.actor ? (
+                      {collapsedCount ? <span className="off-ev-x">×{collapsedCount}</span> : null}
+                      {record.entity?.label &&
+                      record.entity.label !== record.actor &&
+                      record.entity.label !== summary.label ? (
                         <span className="off-ev-entity"> — {record.entity.label}</span>
                       ) : null}
                     </span>
-                    {collapsedCount ? <span className="off-ev-x">×{collapsedCount}</span> : null}
                     <span className="off-ev-ts">{formatRelativeTimestamp(record.at)}</span>
-                    <span
-                      className={cn(
-                        'off-ev-bar',
-                        level === 'warning' && 'is-warn',
-                        level === 'error' && 'is-err',
-                      )}
-                    />
                   </button>
                 );
               })}
