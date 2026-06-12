@@ -220,23 +220,27 @@ export function ApprovalsApp() {
                 <div className="off-ws-oa-card-h">Reason</div>
                 <p className="off-ws-oa-reason">{active.reason}</p>
               </div>
-            </div>
 
-            <div className="off-ws-oa-foot">
               {active.status === 'pending' ? (
                 // Gates are resolved inline in the run that raised them (the
                 // InteractionService pending is thread/run-scoped, not a cross-
                 // company queue). This is an honest triage/review view — the
-                // requested options are listed above; respond in the run.
-                <p className="off-ws-oa-foot-note">
+                // requested options are listed above; respond in the run. The
+                // hint lives in-flow right after the request content so it is
+                // not separated from it by the panel's 1fr body track.
+                <p className="off-ws-oa-inline-note">
                   Respond to this request in the conversation where it was raised.
                 </p>
-              ) : (
+              ) : null}
+            </div>
+
+            {active.status !== 'pending' ? (
+              <div className="off-ws-oa-foot">
                 <span className="off-ws-oa-foot-note">
                   Resolved · {SCOPE_LABEL[active.scope]} scope
                 </span>
-              )}
-            </div>
+              </div>
+            ) : null}
           </>
         ) : (
           <EmptyState

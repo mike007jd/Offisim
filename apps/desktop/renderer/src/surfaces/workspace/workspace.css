@@ -713,20 +713,6 @@
   color: var(--off-ink-3);
 }
 
-.off-ws-dlv-fmt {
-  height: 24px;
-  padding: 0 6px;
-  border: 1px solid var(--off-line);
-  border-radius: var(--off-r-xs);
-  background: var(--off-surface-1);
-  color: var(--off-ink-3);
-  font-size: var(--off-fs-micro);
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
 .off-ws-act-entries {
   display: grid;
   gap: 5px;
@@ -1229,6 +1215,15 @@
   color: var(--off-ink-3);
 }
 
+/* Pending-gate hint rendered in-flow after the request cards (not in the
+ * pinned footer, which would float it across the body's 1fr remainder). */
+.off-ws-oa-inline-note {
+  margin: 0;
+  padding-top: var(--off-sp-2);
+  font-size: var(--off-fs-meta);
+  color: var(--off-ink-3);
+}
+
 .off-ws-oa-actions {
   flex: 1;
   display: flex;
@@ -1386,6 +1381,11 @@
   padding: var(--off-sp-8);
   display: flex;
   flex-direction: column;
+  /* Bound the reading column so the centered hero and the left-anchored kv
+   * table share one axis instead of the full detail-panel width. */
+  max-width: var(--off-content-col);
+  width: 100%;
+  margin-inline: auto;
 }
 
 .off-ws-ct-prof {
@@ -1767,6 +1767,12 @@
 /* ── Workplace launcher ──────────────────────────────────────────────────── */
 .off-ws-wp {
   padding: var(--off-sp-8);
+  /* Bound the launcher (hero/stats/activity) so margin-left:auto timestamps in
+   * .off-ws-act-entry stay within reading distance of their summaries; the
+   * shared entry rules are reused by Messenger and must stay untouched. */
+  max-width: var(--off-content-col);
+  width: 100%;
+  margin-inline: auto;
 }
 
 .off-ws-wp-hero {

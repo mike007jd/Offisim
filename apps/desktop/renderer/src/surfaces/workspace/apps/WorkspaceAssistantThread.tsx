@@ -154,7 +154,9 @@ function DeliverableInline({
         <div className="off-ws-dlv-main">
           <div className="off-ws-dlv-titlerow">
             <span className="off-ws-dlv-title">{card.title}</span>
-            <span className="off-ws-dlv-meta">{card.meta}</span>
+            <span className="off-ws-dlv-meta" title="Export format">
+              {card.meta} · {card.format}
+            </span>
           </div>
           <div className="off-ws-dlv-stack">
             {card.contributorIds.map((id) => {
@@ -186,9 +188,6 @@ function DeliverableInline({
         >
           {busyAction === 'open' ? 'Opening...' : 'Open'}
         </button>
-        <span className="off-ws-dlv-fmt" title="Export format">
-          {card.format}
-        </span>
         <button
           type="button"
           className="off-ws-dlv-btn off-focusable"
