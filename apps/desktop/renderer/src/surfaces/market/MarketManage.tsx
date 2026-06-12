@@ -81,9 +81,7 @@ function InstalledList({
         icon={Store}
         title={view === 'updates' ? 'No updates available' : 'No installed packages'}
         description={
-          view === 'updates'
-            ? 'Everything is up to date.'
-            : 'Packages you install appear here.'
+          view === 'updates' ? 'Everything is up to date.' : 'Packages you install appear here.'
         }
       />
     );
@@ -94,18 +92,21 @@ function InstalledList({
       {view === 'updates' ? (
         <div className="off-mng-note">Packages with available updates</div>
       ) : null}
-      <div className="off-mng-wrap">
+      <div className={cn('off-mng-wrap', view === 'updates' && 'is-rows')}>
         {visible.map((pkg) => (
           <InstalledItem key={pkg.id} pkg={pkg} onOpenListing={onOpenListing} />
         ))}
-      </div>
-      {view === 'installed' ? (
-        <div className="off-mng-browse">
-          <Button variant="subtle" size="sm" onClick={onBrowseExplore}>
+        {view === 'installed' ? (
+          <button
+            type="button"
+            className="off-mng-item is-cta off-focusable"
+            onClick={onBrowseExplore}
+          >
+            <Icon icon={Store} size="sm" />
             Browse marketplace
-          </Button>
-        </div>
-      ) : null}
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -136,8 +137,10 @@ function InstalledItem({
       </div>
       {hasUpdate ? <div className="off-mng-latest">→ latest {pkg.latestVersion}</div> : null}
       {pkg.checkState === 'error' ? <div className="off-mng-err">Update check failed</div> : null}
-      {originId ? (
-        <div className="off-mng-acts">
+      {/* Always render the action slot so equal-height grid cards keep their
+          bottom row aligned; sideloaded packages state why there is no action. */}
+      <div className="off-mng-acts">
+        {originId ? (
           <Button
             size="sm"
             variant={hasUpdate ? 'default' : 'outline'}
@@ -146,8 +149,10 @@ function InstalledItem({
             <Icon icon={ExternalLink} size="sm" />
             {hasUpdate ? 'Update' : 'Open listing'}
           </Button>
-        </div>
-      ) : null}
+        ) : (
+          <span className="off-mng-action-state">Local package</span>
+        )}
+      </div>
     </div>
   );
 }

@@ -91,8 +91,10 @@ const SORTS: ReadonlyArray<SegmentedOption<SortKey>> = [
   { value: 'installs', label: 'Installs' },
 ];
 
+// First option reads "All" so it never duplicates the adjacent top-level
+// "Installed" mode tab (value stays 'installed' — store/routing unchanged).
 const MANAGE_VIEWS: ReadonlyArray<SegmentedOption<ManageView>> = [
-  { value: 'installed', label: 'Installed', icon: <Icon icon={Layers} size="sm" /> },
+  { value: 'installed', label: 'All', icon: <Icon icon={Layers} size="sm" /> },
   { value: 'updates', label: 'Updates' },
   { value: 'published', label: 'Published' },
 ];
@@ -318,7 +320,6 @@ export function MarketSurface() {
           />
           {mode === 'manage' ? (
             <div className="off-mkt-manage-inline">
-              <span className="off-mkt-fbar-lbl">View</span>
               <SegmentedControl
                 options={MANAGE_VIEWS}
                 value={manageView}
@@ -348,11 +349,7 @@ export function MarketSurface() {
           {registryNotConnected ? null : (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  size="md"
-                  variant="outline"
-                  className={mode === 'explore' ? '' : 'ml-auto'}
-                >
+                <Button size="md" variant="outline" className={mode === 'explore' ? '' : 'ml-auto'}>
                   <Icon icon={CloudUpload} size="sm" />
                   Contribute
                   <Icon icon={ChevronDown} size="sm" />

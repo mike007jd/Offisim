@@ -57,14 +57,6 @@
   min-width: 0;
 }
 
-.off-mkt-fbar-lbl {
-  font-size: var(--off-fs-micro);
-  text-transform: uppercase;
-  letter-spacing: 0;
-  color: var(--off-ink-4);
-  font-weight: 680;
-}
-
 .off-mkt-search {
   flex: 1;
   max-width: 360px;
@@ -152,9 +144,11 @@
   border-top-right-radius: var(--off-r-md);
 }
 
+/* 84px = 28px reserved badge band (pills sit at y9..28) + 44px viz row + 12px
+   breathing room; .off-kv starts below the band so badges never cover content. */
 .off-mc-cover {
   position: relative;
-  height: 60px;
+  height: 84px;
   flex: none;
   border-bottom: 1px solid var(--off-line-soft);
   overflow: hidden;
@@ -255,7 +249,9 @@
   line-height: 1.4;
   color: var(--off-ink-3);
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  /* Single line: the 84px cover (badge clearance) eats body height inside the
+     fixed 180px card, leaving room for handle+title+one line+stats. */
+  -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -303,7 +299,8 @@
 /* ── Cover viz (.off-kv-*) ────────────────────────────────────────────── */
 .off-kv {
   position: absolute;
-  inset: 8px 10px;
+  /* top 32px clears the absolute badge/installed pills (y9..28). */
+  inset: 32px 10px 8px;
   display: flex;
   align-items: center;
   gap: var(--off-sp-3);
@@ -565,7 +562,7 @@
   box-shadow: var(--off-elev-1);
 }
 .off-mkt-skel-cover {
-  height: 60px;
+  height: 84px;
   background: var(--off-surface-sunken);
   border-bottom: 1px solid var(--off-line-soft);
 }
@@ -806,6 +803,10 @@
 /* shots */
 .off-md-shots {
   order: -1;
+  /* flex:none — overflow:hidden makes the auto min-height resolve to 0, so any
+     flex squeeze in the scrolling body would collapse this block entirely;
+     its height must come from the 16/9 frame alone. */
+  flex: none;
   overflow: hidden;
   border: 1px solid var(--off-line-soft);
   border-radius: var(--off-r-md);
@@ -999,17 +1000,6 @@
 .off-md-mono {
   font-family: var(--off-font-mono);
   color: var(--off-ink-1);
-}
-.off-md-runtime {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: var(--off-fs-meta);
-  color: var(--off-ink-3);
-}
-.off-md-rt-v {
-  color: var(--off-ink-1);
-  font-family: var(--off-font-mono);
 }
 
 .off-chip-mono {
@@ -1418,11 +1408,20 @@
 }
 
 /* ── Publish dialog ───────────────────────────────────────────────────── */
+/* The form clamps overall height; only the grid scrolls so the footer stays
+   pinned below the scroll region (same pattern as .off-mkt-dlg-body/foot). */
+.off-pub-form {
+  display: flex;
+  flex-direction: column;
+  max-height: 72vh;
+  min-height: 0;
+}
 .off-pub-grid {
   display: grid;
   grid-template-columns: 1.2fr 0.8fr;
   gap: 24px;
-  max-height: 72vh;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
 }
 .off-pub-main {
@@ -1490,7 +1489,6 @@
   font-family: var(--off-font-mono);
 }
 .off-pub-foot {
-  grid-column: 1 / -1;
   display: flex;
   justify-content: flex-end;
   gap: var(--off-sp-3);
@@ -1631,6 +1629,12 @@
   padding: var(--off-sp-5);
   align-content: start;
 }
+/* Updates is an action list (few rows, full package ids must read) — single
+   full-width rows instead of auto-fill columns that lock cards at ~260px. */
+.off-mng-wrap.is-rows {
+  grid-template-columns: 1fr;
+  max-width: var(--off-content-col);
+}
 .off-mng-note {
   padding: var(--off-sp-4) var(--off-sp-5) 0;
   font-size: var(--off-fs-label);
@@ -1712,6 +1716,9 @@
   color: var(--off-danger);
 }
 .off-mng-acts {
+  /* Pin to the card bottom: grid stretch equalizes row heights, so without
+     this the action row floats up on cards lacking the latest/error lines. */
+  margin-top: auto;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1729,10 +1736,26 @@
   font-size: var(--off-fs-meta);
   font-weight: 680;
 }
-.off-mng-browse {
+/* Browse CTA rendered as a grid tile so it shares the card column/row metrics
+   instead of floating alone under the grid. */
+.off-mng-item.is-cta {
+  border-style: dashed;
+  border-color: var(--off-line);
+  background: var(--off-surface-sunken);
   display: flex;
-  justify-content: flex-start;
-  padding: 0 var(--off-sp-5) var(--off-sp-5);
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: var(--off-sp-2);
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-sm);
+  font-weight: 620;
+  cursor: pointer;
+  box-shadow: none;
+}
+.off-mng-item.is-cta:hover {
+  color: var(--off-ink-1);
+  border-color: var(--off-line-strong);
 }
 .off-mng-loading {
   display: flex;

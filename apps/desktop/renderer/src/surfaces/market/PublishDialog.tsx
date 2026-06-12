@@ -219,162 +219,166 @@ export function PublishDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={onSubmit} className="off-pub-grid">
-          <div className="off-pub-main">
-            {/* Account connection is a prerequisite shown as an inline banner only
+        {/* Only the grid scrolls; the footer is a non-scrolling sibling so the
+            actions stay pinned (submit stays inside the form for Enter-to-submit). */}
+        <form onSubmit={onSubmit} className="off-pub-form">
+          <div className="off-pub-grid">
+            <div className="off-pub-main">
+              {/* Account connection is a prerequisite shown as an inline banner only
                 when not connected — it no longer leads the form as a token field. */}
-            {!registry?.connected ? (
-              <div className="off-pub-connect">
-                <span className="off-alert is-warn">
-                  <Icon icon={KeyRound} size="sm" />
-                  {canConnect ? 'Connect your account to publish.' : registryCopy}
-                </span>
-                {canConnect ? (
-                  <Button size="sm" variant="outline" type="button" onClick={onConnectRegistry}>
-                    Connect
-                  </Button>
-                ) : null}
-              </div>
-            ) : null}
+              {!registry?.connected ? (
+                <div className="off-pub-connect">
+                  <span className="off-alert is-warn">
+                    <Icon icon={KeyRound} size="sm" />
+                    {canConnect ? 'Connect your account to publish.' : registryCopy}
+                  </span>
+                  {canConnect ? (
+                    <Button size="sm" variant="outline" type="button" onClick={onConnectRegistry}>
+                      Connect
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null}
 
-            {showKindSelect ? (
-              <FieldRow label="Kind">
-                {({ id }) => (
-                  <Select
-                    id={id}
-                    value={kind}
-                    onChange={(e) => pickKind(e.target.value as 'employee' | 'skill')}
-                    options={[
-                      { value: 'employee', label: 'Employee' },
-                      { value: 'skill', label: 'Skill' },
-                    ]}
-                  />
-                )}
-              </FieldRow>
-            ) : null}
-
-            <FieldRow label="Source">
-              {({ id }) => (
-                <div className="off-src-picker" id={id}>
-                  {hasSourceOptions ? (
-                    sourceList.map((s) => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        className={cn(
-                          'off-src-opt off-focusable',
-                          s.id === sourceId && 'is-active',
-                        )}
-                        onClick={() => pickSource(s.id)}
-                        disabled={!s.publishable}
-                        title={s.unavailableReason}
-                      >
-                        <span className="off-src-i">
-                          <Icon icon={s.kind === 'employee' ? UserRound : Sparkles} size="sm" />
-                        </span>
-                        <span className="off-src-c">
-                          <span className="off-src-n">{s.name}</span>
-                          <span className="off-src-d">
-                            {s.publishable ? s.slug : (s.unavailableReason ?? s.slug)}
-                          </span>
-                        </span>
-                      </button>
-                    ))
-                  ) : (
-                    <div className="off-src-empty">
-                      Select or create a company employee or skill before publishing.
-                    </div>
+              {showKindSelect ? (
+                <FieldRow label="Kind">
+                  {({ id }) => (
+                    <Select
+                      id={id}
+                      value={kind}
+                      onChange={(e) => pickKind(e.target.value as 'employee' | 'skill')}
+                      options={[
+                        { value: 'employee', label: 'Employee' },
+                        { value: 'skill', label: 'Skill' },
+                      ]}
+                    />
                   )}
-                </div>
-              )}
-            </FieldRow>
+                </FieldRow>
+              ) : null}
 
-            <div className="off-pub-2col">
-              <FieldRow label="Title" hint={errors.title?.message} warn={!!errors.title}>
-                {({ id }) => <Input id={id} {...form.register('title')} />}
-              </FieldRow>
-              <FieldRow label="Version" hint={errors.version?.message} warn={!!errors.version}>
-                {({ id }) => <Input id={id} {...form.register('version')} />}
-              </FieldRow>
-            </div>
-
-            <FieldRow label="Summary" hint={errors.summary?.message} warn={!!errors.summary}>
-              {({ id }) => (
-                <Input
-                  id={id}
-                  placeholder="One-line marketplace summary"
-                  {...form.register('summary')}
-                />
-              )}
-            </FieldRow>
-
-            <FieldRow label="Tags">
-              {({ id }) => (
-                <div className="off-taginput">
-                  {tags.map((t) => (
-                    <span key={t} className="off-tag">
-                      {t}
-                      <button
-                        type="button"
-                        aria-label={`Remove ${t}`}
-                        onClick={() => setTags((cur) => cur.filter((x) => x !== t))}
-                      >
-                        <Icon icon={X} size="sm" />
-                      </button>
-                    </span>
-                  ))}
-                  <input
-                    id={id}
-                    value={tagDraft}
-                    onChange={(e) => setTagDraft(e.target.value)}
-                    onKeyDown={onTagKey}
-                    onBlur={() => addTag(tagDraft)}
-                    placeholder={tags.length === 0 ? 'Add a tag…' : ''}
-                  />
-                </div>
-              )}
-            </FieldRow>
-
-            <div className="off-pub-2col">
-              <FieldRow label="License">
+              <FieldRow label="Source">
                 {({ id }) => (
-                  <ControlledSelectField
+                  <div className="off-src-picker" id={id}>
+                    {hasSourceOptions ? (
+                      sourceList.map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          className={cn(
+                            'off-src-opt off-focusable',
+                            s.id === sourceId && 'is-active',
+                          )}
+                          onClick={() => pickSource(s.id)}
+                          disabled={!s.publishable}
+                          title={s.unavailableReason}
+                        >
+                          <span className="off-src-i">
+                            <Icon icon={s.kind === 'employee' ? UserRound : Sparkles} size="sm" />
+                          </span>
+                          <span className="off-src-c">
+                            <span className="off-src-n">{s.name}</span>
+                            <span className="off-src-d">
+                              {s.publishable ? s.slug : (s.unavailableReason ?? s.slug)}
+                            </span>
+                          </span>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="off-src-empty">
+                        Select or create a company employee or skill before publishing.
+                      </div>
+                    )}
+                  </div>
+                )}
+              </FieldRow>
+
+              <div className="off-pub-2col">
+                <FieldRow label="Title" hint={errors.title?.message} warn={!!errors.title}>
+                  {({ id }) => <Input id={id} {...form.register('title')} />}
+                </FieldRow>
+                <FieldRow label="Version" hint={errors.version?.message} warn={!!errors.version}>
+                  {({ id }) => <Input id={id} {...form.register('version')} />}
+                </FieldRow>
+              </div>
+
+              <FieldRow label="Summary" hint={errors.summary?.message} warn={!!errors.summary}>
+                {({ id }) => (
+                  <Input
                     id={id}
-                    control={form.control}
-                    name="license"
-                    options={LICENSES}
+                    placeholder="One-line marketplace summary"
+                    {...form.register('summary')}
                   />
                 )}
               </FieldRow>
-              <FieldRow label="Risk class">
+
+              <FieldRow label="Tags">
                 {({ id }) => (
-                  <ControlledSelectField
+                  <div className="off-taginput">
+                    {tags.map((t) => (
+                      <span key={t} className="off-tag">
+                        {t}
+                        <button
+                          type="button"
+                          aria-label={`Remove ${t}`}
+                          onClick={() => setTags((cur) => cur.filter((x) => x !== t))}
+                        >
+                          <Icon icon={X} size="sm" />
+                        </button>
+                      </span>
+                    ))}
+                    <input
+                      id={id}
+                      value={tagDraft}
+                      onChange={(e) => setTagDraft(e.target.value)}
+                      onKeyDown={onTagKey}
+                      onBlur={() => addTag(tagDraft)}
+                      placeholder={tags.length === 0 ? 'Add a tag…' : ''}
+                    />
+                  </div>
+                )}
+              </FieldRow>
+
+              <div className="off-pub-2col">
+                <FieldRow label="License">
+                  {({ id }) => (
+                    <ControlledSelectField
+                      id={id}
+                      control={form.control}
+                      name="license"
+                      options={LICENSES}
+                    />
+                  )}
+                </FieldRow>
+                <FieldRow label="Risk class">
+                  {({ id }) => (
+                    <ControlledSelectField
+                      id={id}
+                      control={form.control}
+                      name="riskClass"
+                      options={RISK_CLASSES}
+                    />
+                  )}
+                </FieldRow>
+              </div>
+
+              <FieldRow label="Description / README">
+                {({ id }) => (
+                  <Textarea
                     id={id}
-                    control={form.control}
-                    name="riskClass"
-                    options={RISK_CLASSES}
+                    placeholder="What this package includes, who it is for, and setup notes."
+                    {...form.register('readme')}
                   />
                 )}
               </FieldRow>
             </div>
 
-            <FieldRow label="Description / README">
-              {({ id }) => (
-                <Textarea
-                  id={id}
-                  placeholder="What this package includes, who it is for, and setup notes."
-                  {...form.register('readme')}
-                />
-              )}
-            </FieldRow>
+            <aside className="off-pub-aside">
+              <div>
+                <p className="off-pub-aside-l">Recent drafts</p>
+                <DraftHistory registry={registry} drafts={drafts} loading={draftsLoading} />
+              </div>
+            </aside>
           </div>
-
-          <aside className="off-pub-aside">
-            <div>
-              <p className="off-pub-aside-l">Recent drafts</p>
-              <DraftHistory registry={registry} drafts={drafts} loading={draftsLoading} />
-            </div>
-          </aside>
 
           <div className="off-pub-foot">
             <Button variant="outline" size="md" type="button" onClick={() => onOpenChange(false)}>
@@ -416,11 +420,13 @@ function DraftHistory({
   }
 
   if (!registry.connected) {
+    // The connection diagnosis lives in the form's connect banner; this aside
+    // only states the local consequence to avoid repeating the same string.
     return (
       <ul className="off-pub-recent">
         <li className="is-info">
-          <p>{registryStatusCopy(registry)}</p>
-          <p className="is-mono">draft history unavailable</p>
+          <p>Draft history unavailable</p>
+          <p className="is-mono">connect to view submissions</p>
         </li>
       </ul>
     );

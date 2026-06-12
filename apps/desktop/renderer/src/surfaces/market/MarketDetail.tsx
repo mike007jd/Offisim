@@ -175,36 +175,39 @@ export function MarketDetail({ listing, installed, onClose, onInstall }: MarketD
           <p>{listing.description}</p>
         </section>
 
-        {hasRequirements(listing) ? (
-          <section className="off-md-sec">
-            <CapsLabel>Requirements</CapsLabel>
-            {listing.requirements.capabilities.length > 0 ? (
-              <ReqRow label="Capabilities">
-                {listing.requirements.capabilities.map((c) => (
-                  <Chip key={c}>{c}</Chip>
-                ))}
-              </ReqRow>
-            ) : null}
-            {listing.requirements.mcps.length > 0 ? (
-              <ReqRow label="MCPs">
-                {listing.requirements.mcps.map((m) => (
-                  <Chip key={m} className="off-chip-mono">
-                    {m}
-                  </Chip>
-                ))}
-              </ReqRow>
-            ) : null}
-            {listing.requirements.models.length > 0 ? (
-              <ReqRow label="Models">
-                {listing.requirements.models.map((m) => (
-                  <Chip key={m} className="off-chip-mono">
-                    {m}
-                  </Chip>
-                ))}
-              </ReqRow>
-            ) : null}
-          </section>
-        ) : null}
+        {/* Always rendered: runtime is a required field, so the section never
+            ends up empty even when the three optional lists are. */}
+        <section className="off-md-sec">
+          <CapsLabel>Requirements</CapsLabel>
+          {listing.requirements.capabilities.length > 0 ? (
+            <ReqRow label="Capabilities">
+              {listing.requirements.capabilities.map((c) => (
+                <Chip key={c}>{c}</Chip>
+              ))}
+            </ReqRow>
+          ) : null}
+          {listing.requirements.mcps.length > 0 ? (
+            <ReqRow label="MCPs">
+              {listing.requirements.mcps.map((m) => (
+                <Chip key={m} className="off-chip-mono">
+                  {m}
+                </Chip>
+              ))}
+            </ReqRow>
+          ) : null}
+          {listing.requirements.models.length > 0 ? (
+            <ReqRow label="Models">
+              {listing.requirements.models.map((m) => (
+                <Chip key={m} className="off-chip-mono">
+                  {m}
+                </Chip>
+              ))}
+            </ReqRow>
+          ) : null}
+          <ReqRow label="Runtime">
+            <span className="off-md-mono">{listing.requirements.runtime}</span>
+          </ReqRow>
+        </section>
 
         <section className="off-md-sec">
           <CapsLabel>Lineage</CapsLabel>
@@ -244,11 +247,6 @@ export function MarketDetail({ listing, installed, onClose, onInstall }: MarketD
             </div>
           </section>
         ) : null}
-
-        <div className="off-md-runtime">
-          <span>Runtime</span>
-          <span className="off-md-rt-v">{listing.requirements.runtime}</span>
-        </div>
       </div>
     </motion.aside>
   );
@@ -280,13 +278,5 @@ function ReqRow({ label, children }: { label: string; children: React.ReactNode 
       <span className="off-md-req-k">{label}</span>
       <span className="off-md-req-v">{children}</span>
     </div>
-  );
-}
-
-function hasRequirements(l: MarketListing): boolean {
-  return (
-    l.requirements.capabilities.length > 0 ||
-    l.requirements.mcps.length > 0 ||
-    l.requirements.models.length > 0
   );
 }
