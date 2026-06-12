@@ -42,6 +42,7 @@ export const REPLAY_SCENARIO_IDS = [
   'gateway-lane-attachments-system-preface',
   'historical-thread-attachments-readable',
   'company-startup-providerless-no-fake-work',
+  'studio-prefab-layouts-do-not-overlap',
   'completion-natural-production-artifact-intent-emits-deliverable',
   'project-null-workspace-text-work-stays-productive',
   'install-materialization-rolls-back-partial-production-assets',

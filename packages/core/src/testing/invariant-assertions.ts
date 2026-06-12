@@ -1,12 +1,19 @@
-import type {
-  DeliverableCreatedPayload,
-  RuntimeEvent,
+import { type InstallPlan, materialize } from '@offisim/install-core';
+import type { DeliverableCreatedPayload, RuntimeEvent } from '@offisim/shared-types';
+import {
+  BUILTIN_PREFAB_FOOTPRINTS,
+  SYSTEM_ZONE_TEMPLATES,
+  findPrefabPlacementOverlaps,
+  getSystemZoneDefaultPrefabs,
+  prefabFitsWithinZone,
+  resolveNonOverlappingPrefabOffsets,
 } from '@offisim/shared-types';
-import { materialize, type InstallPlan } from '@offisim/install-core';
 import type { OffisimGraphState } from '../graph/state.js';
 import type { RuntimeRepositories } from '../runtime/repositories.js';
 import type { RunConversationStateSnapshot } from '../runtime/run-conversation-state.js';
 import { mapPayloadToRow } from '../services/deliverable-persistence-service.js';
+import { listTemplates as listCompanyTemplates } from '../templates/index.js';
+import type { TemplateZoneBlueprint } from '../templates/index.js';
 import type { ScenarioAssertionReport } from './trace-recorder.js';
 
 export type ScenarioAssertion =
@@ -143,7 +150,8 @@ export type ScenarioAssertion =
   | {
       readonly kind: 'harnessGapCasePassed';
       readonly caseId: string;
-    };
+    }
+  | { readonly kind: 'systemPrefabLayoutsDoNotOverlap' };
 
 export interface ScenarioAssertionContext {
   readonly scenarioId: string;
@@ -256,6 +264,59 @@ async function evaluateAssertion(
       return assertInstallMaterializationRollback(ctx);
     case 'harnessGapCasePassed':
       return assertHarnessGapCasePassed(ctx.events, assertion.caseId);
+    case 'systemPrefabLayoutsDoNotOverlap':
+      return assertSystemPrefabLayoutsDoNotOverlap();
+  }
+}
+
+function assertSystemPrefabLayoutsDoNotOverlap(): void {
+  const footprintMap = BUILTIN_PREFAB_FOOTPRINTS as Readonly<Record<string, unknown>>;
+  const allZones: { label: string; zones: readonly TemplateZoneBlueprint[] }[] = [
+    { label: 'system', zones: SYSTEM_ZONE_TEMPLATES as readonly TemplateZoneBlueprint[] },
+    ...listCompanyTemplates().map((template) => ({
+      label: template.id,
+      zones: (template.zones ?? SYSTEM_ZONE_TEMPLATES) as readonly TemplateZoneBlueprint[],
+    })),
+  ];
+
+  for (const group of allZones) {
+    for (const zone of group.zones) {
+      const prefabs =
+        zone.defaultPrefabs && zone.defaultPrefabs.length > 0
+          ? resolveNonOverlappingPrefabOffsets(zone.defaultPrefabs, zone)
+          : getSystemZoneDefaultPrefabs(zone);
+      const placements = prefabs.map((prefab, index) => ({
+        id: `${group.label}:${zone.slug}:${index}`,
+        prefabId: prefab.prefabId,
+        x: prefab.offsetX,
+        z: prefab.offsetZ,
+        rotation: prefab.rotation ?? 0,
+      }));
+
+      for (const placement of placements) {
+        if (!footprintMap[placement.prefabId]) {
+          throw new Error(`Missing prefab footprint for ${placement.prefabId}`);
+        }
+        if (!prefabFitsWithinZone(placement, { cx: 0, cz: 0, w: zone.w, d: zone.d })) {
+          throw new Error(
+            `${group.label}/${zone.slug} places ${placement.prefabId} outside its zone bounds`,
+          );
+        }
+      }
+
+      for (let index = 0; index < placements.length; index++) {
+        const placement = placements[index];
+        if (!placement) continue;
+        const overlaps = findPrefabPlacementOverlaps(placement, placements.slice(index + 1));
+        if (overlaps.length > 0) {
+          throw new Error(
+            `${group.label}/${zone.slug} overlaps ${placement.prefabId} with ${overlaps
+              .map((overlap) => overlap.prefabId)
+              .join(', ')}`,
+          );
+        }
+      }
+    }
   }
 }
 
@@ -453,9 +514,7 @@ async function assertProjectWorkspaceRoot(
   }
 }
 
-async function assertInstallMaterializationRollback(
-  ctx: ScenarioAssertionContext,
-): Promise<void> {
+async function assertInstallMaterializationRollback(ctx: ScenarioAssertionContext): Promise<void> {
   const packageId = `rollback-${ctx.scenarioId}`;
   const manifest: InstallPlan['manifest'] = {
     spec_version: '1.0.0',
@@ -533,12 +592,12 @@ async function assertInstallMaterializationRollback(
   }
 
   const snapshot = ctx.repos.snapshot?.() as
-      | {
-          installedAssets?: unknown[];
-          employees?: unknown[];
-          companyTemplates?: unknown[];
-          prefabInstances?: unknown[];
-        }
+    | {
+        installedAssets?: unknown[];
+        employees?: unknown[];
+        companyTemplates?: unknown[];
+        prefabInstances?: unknown[];
+      }
     | undefined;
   assertNoSnapshotRows(snapshot?.installedAssets, packageId, 'installed assets');
   assertNoSnapshotRows(snapshot?.employees, `company-${ctx.scenarioId}`, 'employees');

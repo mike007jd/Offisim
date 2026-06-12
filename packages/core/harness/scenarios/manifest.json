@@ -701,6 +701,14 @@
       ]
     },
     {
+      "id": "studio-prefab-layouts-do-not-overlap",
+      "category": "studio-layout",
+      "invariants": [
+        "studio.prefab_has_bounding_box",
+        "studio.default_prefab_layouts_do_not_overlap"
+      ]
+    },
+    {
       "id": "completion-natural-production-artifact-intent-emits-deliverable",
       "category": "long-running-runtime",
       "invariants": [

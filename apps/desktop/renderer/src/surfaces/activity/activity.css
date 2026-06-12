@@ -35,6 +35,51 @@
   background-color: var(--off-surface-1);
 }
 
+/* ── Overview stats ── date-window dashboard strip above the timeline */
+.off-act-stats {
+  flex: none;
+  width: 100%;
+  max-width: var(--off-content-col-wide);
+  margin: var(--off-sp-5) auto 0;
+  padding: 0 var(--off-sp-5);
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--off-sp-3);
+}
+
+.off-act-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--off-sp-4) var(--off-sp-5);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-md);
+  background: var(--off-surface-1);
+  min-width: 0;
+}
+
+.off-act-stat-v {
+  font-size: var(--off-fs-lg);
+  font-weight: 680;
+  color: var(--off-ink-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.off-act-stat-v.is-text {
+  font-size: var(--off-fs-md);
+}
+
+.off-act-stat-l {
+  font-size: var(--off-fs-label);
+  color: var(--off-ink-4);
+}
+
+.off-act-stat.is-warn .off-act-stat-v {
+  color: var(--off-warn);
+}
+
 .off-act-search {
   position: relative;
   min-width: 0;

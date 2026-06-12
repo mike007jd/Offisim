@@ -5,6 +5,7 @@ import {
   extractZoneSlug,
   getSystemZoneDefaultPrefabs,
   normalizeZoneId,
+  resolveNonOverlappingPrefabOffsets,
   resolveZoneForRole,
   templateToZone,
 } from '@offisim/shared-types';
@@ -14,10 +15,7 @@ import type { EventBus } from '../events/event-bus.js';
 import { employeeCreated } from '../events/event-factories.js';
 import type { PrefabInstanceRepository } from '../repos/prefab-instance-repository.js';
 import type { ZoneRepository } from '../repos/zone-repository.js';
-import type {
-  EmployeeRepository,
-  OfficeLayoutRepository,
-} from '../runtime/repositories.js';
+import type { EmployeeRepository, OfficeLayoutRepository } from '../runtime/repositories.js';
 import type { CompanyTemplate, TemplateZoneBlueprint } from '../templates/index.js';
 import { getTemplate, listTemplates as listAllTemplates } from '../templates/index.js';
 import { ZoneService } from './zone-service.js';
@@ -96,7 +94,7 @@ function buildDefaultPrefabInstances(
     const center = getZoneCenter(zoneTemplates, zoneTemplate.slug);
 
     if (zoneTemplate.defaultPrefabs && zoneTemplate.defaultPrefabs.length > 0) {
-      for (const prefab of zoneTemplate.defaultPrefabs) {
+      for (const prefab of resolveNonOverlappingPrefabOffsets(zoneTemplate.defaultPrefabs, zoneTemplate)) {
         prefabInstances.push(
           createPrefabInstance({
             companyId,
@@ -116,7 +114,7 @@ function buildDefaultPrefabInstances(
       continue;
     }
 
-    const defaults = getSystemZoneDefaultPrefabs(zoneTemplate);
+    const defaults = resolveNonOverlappingPrefabOffsets(getSystemZoneDefaultPrefabs(zoneTemplate), zoneTemplate);
     for (const prefab of defaults) {
       prefabInstances.push(
         createPrefabInstance({
@@ -154,8 +152,11 @@ function buildWorkspacePrefabInstances(
     const count = zoneCounts.get(zoneId) ?? zoneTemplate.deskSlots;
     const defaults =
       zoneTemplate.defaultPrefabs && zoneTemplate.defaultPrefabs.length > 0
-        ? zoneTemplate.defaultPrefabs
-        : getSystemZoneDefaultPrefabs(zoneTemplate, { occupiedSeats: count });
+        ? resolveNonOverlappingPrefabOffsets(zoneTemplate.defaultPrefabs, zoneTemplate)
+        : resolveNonOverlappingPrefabOffsets(
+            getSystemZoneDefaultPrefabs(zoneTemplate, { occupiedSeats: count }),
+            zoneTemplate,
+          );
 
     for (const prefab of defaults) {
       prefabInstances.push(

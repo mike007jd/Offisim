@@ -376,14 +376,20 @@
   gap: var(--off-sp-6);
 }
 
+/* Content pages follow the centered-column philosophy: the scroll column
+   itself carries the readable width cap, so children inherit it without a
+   wildcard that would squeeze future full-bleed elements. */
+.off-pers-tab-scroll {
+  width: 100%;
+  max-width: calc(var(--off-form-col-max) + 2 * var(--off-sp-7));
+  margin-inline: auto;
+}
+
 /* ── Profile tab ──────────────────────────────── */
 .off-pers-prof-grid {
   display: flex;
   flex-direction: column;
   gap: var(--off-sp-7);
-  /* Inspector context: left-aligned (no centering like Settings), but the
-     form column shares the same system-wide readable width cap. */
-  max-width: var(--off-form-col-max);
 }
 
 .off-pers-prof-sec {

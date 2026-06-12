@@ -22,7 +22,7 @@ import { z } from 'zod';
 
 // ───────────────────────── Provider ─────────────────────────
 
-export type ProviderHealth = 'active' | 'reachable' | 'stale' | 'unused' | 'no-key';
+export type ProviderHealth = 'active' | 'reachable' | 'no-key';
 
 export interface ProviderConfig {
   readonly id: string;
@@ -63,30 +63,13 @@ export const ACCESS_MODE_OPTIONS = [
 
 export const PROVIDER_CONFIGS: readonly [ProviderConfig, ...ProviderConfig[]] = [
   {
-    id: 'minimax',
-    product: 'minimax',
-    displayName: 'MiniMax Global',
-    logoMark: 'M',
-    logoGradient: [UI_DATA_COLORS.blue, UI_DATA_COLORS.blueViolet],
-    model: '',
-    health: 'no-key',
-    accessMode: 'global-key',
-    lane: 'gateway',
-    region: 'global',
-    endpointKind: 'messages',
-    credentialDestination: 'https://api.minimax.io/anthropic',
-    hasStoredKey: false,
-    isThinking: true,
-    hostResolved: false,
-  },
-  {
     id: 'openai-backup',
     product: 'openai',
     displayName: 'OpenAI',
     logoMark: 'O',
     logoGradient: [UI_DATA_COLORS.green, UI_DATA_COLORS.green2],
     model: '',
-    health: 'stale',
+    health: 'no-key',
     accessMode: 'global-key',
     lane: 'gateway',
     region: 'global',
@@ -103,7 +86,7 @@ export const PROVIDER_CONFIGS: readonly [ProviderConfig, ...ProviderConfig[]] = 
     logoMark: 'R',
     logoGradient: [UI_DATA_COLORS.amber3, UI_DATA_COLORS.amber4],
     model: '',
-    health: 'unused',
+    health: 'no-key',
     accessMode: 'global-key',
     lane: 'gateway',
     region: 'global',
@@ -111,6 +94,23 @@ export const PROVIDER_CONFIGS: readonly [ProviderConfig, ...ProviderConfig[]] = 
     credentialDestination: 'https://openrouter.ai',
     hasStoredKey: false,
     isThinking: false,
+    hostResolved: false,
+  },
+  {
+    id: 'minimax',
+    product: 'minimax',
+    displayName: 'MiniMax Global',
+    logoMark: 'M',
+    logoGradient: [UI_DATA_COLORS.blue, UI_DATA_COLORS.blueViolet],
+    model: '',
+    health: 'no-key',
+    accessMode: 'global-key',
+    lane: 'gateway',
+    region: 'global',
+    endpointKind: 'messages',
+    credentialDestination: 'https://api.minimax.io/anthropic',
+    hasStoredKey: false,
+    isThinking: true,
     hostResolved: false,
   },
   {
@@ -169,8 +169,6 @@ export const PROVIDER_CONFIGS: readonly [ProviderConfig, ...ProviderConfig[]] = 
 export const PROVIDER_HEALTH_LABELS: Record<ProviderHealth, string> = {
   active: 'Active',
   reachable: 'Reachable',
-  stale: 'Stale key',
-  unused: 'Unused',
   'no-key': 'No key',
 };
 

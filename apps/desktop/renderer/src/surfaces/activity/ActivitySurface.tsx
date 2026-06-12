@@ -85,19 +85,45 @@ export function ActivitySurface() {
     [datePreset, eventType, actor, search],
   );
 
+  // One date-window pass shared by the stats strip and the list pipeline —
+  // type/actor/search narrow the list below, not the overview numbers.
+  const dateRecords = useMemo(
+    () =>
+      filterRecords(allRecords, { datePreset, eventType: 'all', actor: 'all', search: '' }),
+    [allRecords, datePreset],
+  );
+
+  const windowStats = useMemo(() => {
+    const actorCounts = new Map<string, number>();
+    let issues = 0;
+    for (const record of dateRecords) {
+      const level = getEventLevel(record.type);
+      if (level === 'warning' || level === 'error') issues += 1;
+      const actorLabel = getDisplaySummary(record).actor ?? record.actor;
+      if (actorLabel) actorCounts.set(actorLabel, (actorCounts.get(actorLabel) ?? 0) + 1);
+    }
+    const topActor = [...actorCounts.entries()].sort((a, b) => b[1] - a[1])[0] ?? null;
+    return {
+      total: dateRecords.length,
+      actors: actorCounts.size,
+      issues,
+      topActor: topActor ? `${topActor[0]} · ${topActor[1]}` : '—',
+    };
+  }, [dateRecords]);
+
   const actorOptions = useMemo<ReadonlyArray<SelectOption>>(
     () => [{ value: 'all', label: 'All actors' }, ...getAvailableActorFilters(allRecords)],
     [allRecords],
   );
 
-  // Pipeline: date → type → actor → search → group → collapse.
+  // Pipeline: (shared date pass) → type → actor → search → group → collapse.
   const groups = useMemo(() => {
-    const filtered = filterRecords(allRecords, filters);
+    const filtered = filterRecords(dateRecords, { ...filters, datePreset: 'all' });
     return groupByTime(filtered).map((group) => ({
       ...group,
       rows: collapseReroutes(group.records),
     }));
-  }, [allRecords, filters]);
+  }, [dateRecords, filters]);
 
   const items = useMemo<TimelineItem[]>(() => {
     const flat: TimelineItem[] = [];
@@ -208,6 +234,27 @@ export function ActivitySurface() {
           />
         </div>
       </div>
+
+      {allRecords.length > 0 ? (
+        <div className="off-act-stats" aria-label="Activity overview">
+          <div className="off-act-stat">
+            <span className="off-act-stat-v">{windowStats.total}</span>
+            <span className="off-act-stat-l">Events</span>
+          </div>
+          <div className="off-act-stat">
+            <span className="off-act-stat-v">{windowStats.actors}</span>
+            <span className="off-act-stat-l">Actors</span>
+          </div>
+          <div className={cn('off-act-stat', windowStats.issues > 0 && 'is-warn')}>
+            <span className="off-act-stat-v">{windowStats.issues}</span>
+            <span className="off-act-stat-l">Warnings &amp; errors</span>
+          </div>
+          <div className="off-act-stat">
+            <span className="off-act-stat-v is-text">{windowStats.topActor}</span>
+            <span className="off-act-stat-l">Most active</span>
+          </div>
+        </div>
+      ) : null}
 
       {records.isError && allRecords.length === 0 ? (
         <div className="off-act-empty-wrap">

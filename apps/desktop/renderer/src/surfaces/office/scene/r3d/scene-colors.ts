@@ -27,6 +27,8 @@ export interface Scene3DColors {
   text: string;
   textMuted: string;
   selectionRing: string;
+  ghostValid: string;
+  ghostBlocked: string;
   sceneBackground: string;
   wallShell: string;
   bookSpine: readonly [string, string, string, string, string];
@@ -84,6 +86,8 @@ export const LIGHT_SCENE_3D: Scene3DColors = {
   text: '#0f172a',
   textMuted: '#4f5a62',
   selectionRing: '#3f6f9e',
+  ghostValid: '#37b26c',
+  ghostBlocked: '#d6453d',
   sceneBackground: '#e7e3da',
   wallShell: '#dad4c7',
   bookSpine: ['#4b8b68', '#5f7e65', '#7c8e6a', '#6f8f9a', '#8c7b65'],

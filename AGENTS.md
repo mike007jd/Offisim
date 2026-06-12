@@ -10,6 +10,11 @@
 - 模型调用不是 SDK lane：默认 `offisim-core` harness 可以直接通过自己的 model transport / provider adapter 调模型；SDK 只允许作为底层 transport 实现细节，或作为完整 SDK-native employee runtime profile，不存在“普通 SDK lane”产品路线。
 - 当前已验证的本地文件 / shell / workspace 任务必须走默认 Offisim harness / gateway 工具路径；未来 tool-capable employee profile 或主 harness driver/replacement 必须先有独立 capability profile、审计、checkpoint/rollback 和 release `.app` 证据。external A2A 和未验证的 model transport 不能冒充本机工具执行者。
 
+# AI Provider 硬规则
+- OpenRouter 允许保留在 provider list / catalog 中，并允许用户在 Settings 手动保存 key；不得从 `OPENROUTER_*` 环境变量自动生成 runtime profile 或读取 key，不得默认推荐 OpenRouter 模型。
+- 测试 “OpenAI” / “Anthropic” 一律走 z.ai 或 MiniMax 的 openai-compatible / anthropic-compatible 端点（两家都有官方 compat 文档），不得用真实 OpenAI/Anthropic key，也不得建议购买。
+- Settings 的 provider 展示以 OpenAI 形态为先（门面），实际聊天路由按凭证可用性走 z.ai / MiniMax。
+
 # 当前架构决策（2026-05-18）
 - 开源前结构目标是生产级可维护拆分。
 - Offisim 只保留 Tauri v2 桌面产品；不要新增独立 web、browser runtime 或 launcher 产品工作。
@@ -46,7 +51,7 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **Offisim** (15415 symbols, 26860 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **Offisim** (15523 symbols, 27093 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

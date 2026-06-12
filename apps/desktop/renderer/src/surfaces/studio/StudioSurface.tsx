@@ -1,228 +1,43 @@
 import { useUiState } from '@/app/ui-state.js';
-import { UI_DATA_COLORS } from '@/data/color-palette.js';
 import {
   useCreatePrefabInstance,
   useCreateZone,
   useDeletePrefabInstance,
   useDeleteZone,
   useOfficeLayout,
-  useOfficeScene,
   useUpdatePrefabInstance,
   useUpdateZone,
 } from '@/data/queries.js';
-import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
-import { IconButton } from '@/design-system/grammar/IconButton.js';
-import { SegmentedControl } from '@/design-system/grammar/SegmentedControl.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
-import { Input } from '@/design-system/primitives/input.js';
 import { safeErrorMessage } from '@/lib/provider-bridge.js';
-import { cn } from '@/lib/utils.js';
+import { clampPrefabCenter } from '@/surfaces/office/scene/scene-ground.js';
 import {
-  OfficeScene3D,
-  type ScenePlacementPoint,
-  type ScenePlacementProbe,
-  type ScenePrefabMove,
-} from '@/surfaces/office/scene/OfficeScene3D.js';
-import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
-import { type ZoneArchetype, findOverlaps } from '@offisim/shared-types';
-import {
-  Armchair,
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
-  ArrowUp,
-  Box,
-  Info,
-  LayoutGrid,
-  Library,
-  type LucideIcon,
-  Move3d,
-  PanelTop,
-  Plus,
-  RotateCcw,
-  RotateCw,
-  Save,
-  Server,
-  Sofa,
-  Sprout,
-  Trash2,
-} from 'lucide-react';
-import {
-  type CSSProperties,
-  type MouseEvent as ReactMouseEvent,
-  type PointerEvent as ReactPointerEvent,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+  type PrefabInstanceRow,
+  type SemanticCategory,
+  findOverlaps,
+  findZonePreset,
+} from '@offisim/shared-types';
+import { ChevronRight, Info, X } from 'lucide-react';
+import { useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
+import { PrefabBrowser } from './PrefabBrowser.js';
+import { SceneTreePanel } from './SceneTreePanel.js';
+import { type ZonePatch, StudioInspector } from './StudioInspector.js';
+import {
+  type StudioObjectMove,
+  type StudioPlacementCommit,
+  StudioScene3D,
+  type StudioZoneDrag,
+} from './StudioScene3D.js';
+import { useStudioStore } from './studio-store.js';
 
-const PALETTE = [
-  { id: 'desk', label: 'Desk cluster', icon: PanelTop, prefabId: 'workstation-standard' },
-  { id: 'seating', label: 'Seating', icon: Armchair, prefabId: 'chair-standalone' },
-  { id: 'lounge', label: 'Lounge', icon: Sofa, prefabId: 'sofa-set' },
-  { id: 'plant', label: 'Plant', icon: Sprout, prefabId: 'plant-small' },
-  { id: 'prop', label: 'Whiteboard', icon: Box, prefabId: 'whiteboard' },
-];
-const PALETTE_DRAG_THRESHOLD_PX = 6;
-const PALETTE_DRAG_SETTLE_MS = 160;
-
-type PaletteItem = (typeof PALETTE)[number];
-
-interface PaletteDragState {
-  itemId: string;
-  label: string;
-  clientX: number;
-  clientY: number;
-  active: boolean;
-  commitId: string | null;
-}
-
-const ZONE_KIND_LABEL: Record<string, string> = {
-  workspace: 'Workspace',
-  meeting: 'Meeting',
-  server: 'Server',
-  library: 'Library',
-  rest: 'Rest',
-  lounge: 'Lounge',
-};
-
-/** Leading icon carries the zone kind so every list row keeps the same
- *  single-column structure; the kind word lives in Properties → Type. */
-const ZONE_KIND_ICON: Record<ZoneArchetype, LucideIcon> = {
-  workspace: LayoutGrid,
-  meeting: PanelTop,
-  server: Server,
-  library: Library,
-  rest: Sofa,
-};
-
-const EDITABLE_ZONE_ARCHETYPES: ReadonlySet<ZoneArchetype> = new Set([
-  'workspace',
-  'meeting',
-  'server',
-  'library',
-  'rest',
-]);
-
-function colorHexToNumber(color: string): number {
-  return Number.parseInt(color.replace('#', ''), 16);
-}
-
-const DEFAULT_ZONE_FLOOR = colorHexToNumber(UI_DATA_COLORS.ink4);
-
-interface StudioZone {
-  id: string;
-  label: string;
-  kind: ZoneArchetype;
-  cx: number;
-  cz: number;
-  w: number;
-  d: number;
-  accentColor: string;
-  floorColor: number;
-  deskSlots: number;
-  sortOrder: number;
-  prefabCount: number;
-}
-
-interface StudioZoneDraft {
-  label: string;
-  cx: number;
-  cz: number;
-  w: number;
-  d: number;
-}
-
-function toStudioZoneKind(kind: string | null | undefined): ZoneArchetype {
-  if (kind === 'meeting' || kind === 'server' || kind === 'library' || kind === 'rest') {
-    return kind;
-  }
-  if (kind === 'lounge') return 'rest';
-  return 'workspace';
-}
-
-function zoneDraftFrom(zone: StudioZone): StudioZoneDraft {
-  return {
-    label: zone.label,
-    cx: zone.cx,
-    cz: zone.cz,
-    w: zone.w,
-    d: zone.d,
-  };
-}
-
-function zoneDraftDirty(zone: StudioZone, draft: StudioZoneDraft | null): boolean {
-  if (!draft) return false;
-  return (
-    draft.label.trim() !== zone.label ||
-    draft.cx !== zone.cx ||
-    draft.cz !== zone.cz ||
-    draft.w !== zone.w ||
-    draft.d !== zone.d
-  );
-}
-
-function setDraftNumber(
-  draft: StudioZoneDraft | null,
-  key: 'cx' | 'cz' | 'w' | 'd',
-  value: string,
-): StudioZoneDraft | null {
-  if (!draft) return draft;
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return draft;
-  return { ...draft, [key]: parsed };
-}
-
-/**
- * Two-step destructive button: first click arms (turns red, swaps to "Confirm
- * delete" and reveals Cancel), second click runs the action. The `armed` state
- * lives in the caller so each delete target keeps its own arm flag.
- */
-function ConfirmDeleteButton({
-  armed,
-  label,
-  busy,
-  onClick,
-  onCancel,
-}: {
-  armed: boolean;
-  label: string;
-  busy: boolean;
-  onClick: () => void;
-  onCancel: () => void;
-}) {
-  return (
-    <>
-      <Button
-        variant={armed ? 'destructive' : 'outline'}
-        size="sm"
-        disabled={busy}
-        onClick={onClick}
-      >
-        <Icon icon={Trash2} size="sm" />
-        {armed ? 'Confirm delete' : label}
-      </Button>
-      {armed ? (
-        <Button variant="ghost" size="sm" onClick={onCancel}>
-          Cancel
-        </Button>
-      ) : null}
-    </>
-  );
-}
-
+/** Unity/Godot-style office editor: Scene hierarchy (left) · viewport with a
+ *  UE-style prefab content browser under it (center) · inspector (right).
+ *  Overview level edits zones as whole units; focusing a zone edits its
+ *  furniture with the catalog filtered to that zone's allowed categories. */
 export function StudioSurface() {
-  const zoneLabelInputId = useId();
-  const zoneXInputId = useId();
-  const zoneZInputId = useId();
-  const zoneWidthInputId = useId();
-  const zoneDepthInputId = useId();
   const companyId = useUiState((s) => s.companyId);
-  const fallbackScene = useOfficeScene();
   const layout = useOfficeLayout(companyId);
   const createZone = useCreateZone();
   const updateZone = useUpdateZone();
@@ -230,65 +45,30 @@ export function StudioSurface() {
   const createPrefab = useCreatePrefabInstance();
   const updatePrefab = useUpdatePrefabInstance();
   const deletePrefab = useDeletePrefabInstance();
-  const [tool, setTool] = useState<'select' | 'place'>('select');
-  const [placing, setPlacing] = useState<string | null>(null);
-  const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
-  const [selectedPrefabId, setSelectedPrefabId] = useState<string | null>(null);
-  const [zoneDraft, setZoneDraft] = useState<StudioZoneDraft | null>(null);
-  const [deleteArmed, setDeleteArmed] = useState(false);
-  const [objectDeleteArmed, setObjectDeleteArmed] = useState(false);
-  const [paletteDrag, setPaletteDrag] = useState<PaletteDragState | null>(null);
-  const suppressPaletteClickRef = useRef(false);
-  const dragClearTimerRef = useRef<number | null>(null);
-  const paletteDragCleanupRef = useRef<(() => void) | null>(null);
-  const layoutData = layout.data;
 
-  const zones = useMemo<StudioZone[]>(() => {
-    // When a real layout is loaded (release/Tauri), always edit IT — even when
-    // it has zero zones — so the editor never masks an empty real scene with a
-    // synthetic one. An empty layout renders an empty zone list; the always-on
-    // "Create zone" button seeds the first real zone. The synthetic fixture
-    // below is reached only in browser preview (layout.data === null), matching
-    // OfficeScene3D's `real`-truthiness gate.
-    if (layoutData) {
-      const prefabCounts = new Map<string, number>();
-      for (const prefab of layoutData.prefabs) {
-        const zoneId = prefab.instance.zone_id;
-        prefabCounts.set(zoneId, (prefabCounts.get(zoneId) ?? 0) + 1);
-      }
-      return layoutData.zones.map((zone) => ({
-        id: zone.zone_id,
-        label: zone.label,
-        kind: toStudioZoneKind(zone.archetype),
-        cx: zone.cx,
-        cz: zone.cz,
-        w: zone.w,
-        d: zone.d,
-        accentColor: zone.accent_color,
-        floorColor: zone.floor_color,
-        deskSlots: zone.desk_slots,
-        sortOrder: zone.sort_order,
-        prefabCount: prefabCounts.get(zone.zone_id) ?? 0,
-      }));
-    }
-    return (fallbackScene.data?.zones ?? []).map((zone) => ({
-      ...zone,
-      kind: toStudioZoneKind(zone.kind),
-      accentColor: UI_DATA_COLORS.ink6,
-      floorColor: DEFAULT_ZONE_FLOOR,
-      deskSlots: 0,
-      sortOrder: 0,
-      prefabCount: 0,
-    }));
-  }, [fallbackScene.data?.zones, layoutData]);
-  const selectedZone = zones.find((z) => z.id === selectedZoneId) ?? null;
-  const selectedPrefab =
-    layout.data?.prefabs.find((prefab) => prefab.instance.instance_id === selectedPrefabId) ?? null;
-  const selectedPrefabZone =
-    zones.find((zone) => zone.id === selectedPrefab?.instance.zone_id) ?? null;
-  const selectedZonePersisted = Boolean(
-    layout.data?.zones.some((zone) => zone.zone_id === selectedZoneId),
+  const focusZoneId = useStudioStore((s) => s.focusZoneId);
+  const selection = useStudioStore((s) => s.selection);
+  const placement = useStudioStore((s) => s.placement);
+  const setFocusZone = useStudioStore((s) => s.setFocusZone);
+  const select = useStudioStore((s) => s.select);
+  const rotatePlacement = useStudioStore((s) => s.rotatePlacement);
+  const endPlacement = useStudioStore((s) => s.endPlacement);
+
+  const zones = useMemo(() => layout.data?.zones ?? [], [layout.data?.zones]);
+  const prefabs = useMemo(() => layout.data?.prefabs ?? [], [layout.data?.prefabs]);
+  const zoneRects = useMemo(
+    () =>
+      zones.map((candidate) => ({
+        id: candidate.zone_id,
+        label: candidate.label,
+        cx: candidate.cx,
+        cz: candidate.cz,
+        w: candidate.w,
+        d: candidate.d,
+      })),
+    [zones],
   );
+  const editable = Boolean(layout.data);
   const busy =
     createZone.isPending ||
     updateZone.isPending ||
@@ -296,136 +76,202 @@ export function StudioSurface() {
     createPrefab.isPending ||
     updatePrefab.isPending ||
     deletePrefab.isPending;
-  const dirty = Boolean(selectedZone && zoneDraftDirty(selectedZone, zoneDraft));
-  const validation = useMemo(() => {
-    if (!selectedZone || !zoneDraft)
-      return { errors: [] as string[], overlaps: [] as StudioZone[] };
-    const errors: string[] = [];
-    if (!zoneDraft.label.trim()) errors.push('Zone name is required');
-    if (zoneDraft.w < 3 || zoneDraft.d < 3) errors.push('Footprint must be at least 3 x 3');
-    if (zoneDraft.w > 30 || zoneDraft.d > 30) errors.push('Footprint must stay within 30 x 30');
-    const overlaps = findOverlaps({ id: selectedZone.id, ...zoneDraft }, zones);
-    if (overlaps.length > 0) {
-      errors.push(`Overlaps ${overlaps.map((zone) => zone.label).join(', ')}`);
-    }
-    return { errors, overlaps };
-  }, [selectedZone, zoneDraft, zones]);
-  const canSaveDraft =
-    Boolean(selectedZonePersisted && selectedZone && zoneDraft && dirty) &&
-    validation.errors.length === 0 &&
-    !busy;
-  const placementProbe = useMemo<ScenePlacementProbe | null>(
-    () =>
-      paletteDrag
-        ? {
-            clientX: paletteDrag.clientX,
-            clientY: paletteDrag.clientY,
-            active: paletteDrag.active,
-            commitId: paletteDrag.commitId,
-          }
-        : null,
-    [paletteDrag],
-  );
-  const dragGhostItem = paletteDrag ? PALETTE.find((item) => item.id === paletteDrag.itemId) : null;
-  const dragGhostStyle = paletteDrag
-    ? ({
-        '--off-drag-x': `${paletteDrag.clientX}px`,
-        '--off-drag-y': `${paletteDrag.clientY}px`,
-      } as CSSProperties)
-    : undefined;
 
-  useEffect(
-    () => () => {
-      paletteDragCleanupRef.current?.();
-      paletteDragCleanupRef.current = null;
-      if (dragClearTimerRef.current !== null) {
-        window.clearTimeout(dragClearTimerRef.current);
+  const focusedZone = zones.find((zone) => zone.zone_id === focusZoneId) ?? null;
+
+  // Drop stale state when the underlying rows disappear (deletes, company swap).
+  useEffect(() => {
+    if (focusZoneId && !zones.some((zone) => zone.zone_id === focusZoneId)) {
+      setFocusZone(null);
+    }
+  }, [focusZoneId, zones, setFocusZone]);
+  useEffect(() => {
+    if (!selection) return;
+    const alive =
+      selection.kind === 'zone'
+        ? zones.some((zone) => zone.zone_id === selection.id)
+        : prefabs.some((vm) => vm.instance.instance_id === selection.id);
+    if (!alive) select(null);
+  }, [selection, zones, prefabs, select]);
+
+  /** The focused zone's allowed furniture categories from the stored row JSON;
+   *  null (missing/invalid/empty) means the full catalog. */
+  const allowedCategories = useMemo<readonly SemanticCategory[] | null>(() => {
+    if (!focusedZone) return null;
+    if (focusedZone.allowed_categories_json) {
+      try {
+        const parsed = JSON.parse(focusedZone.allowed_categories_json);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed as SemanticCategory[];
+      } catch {
+        // Fall through to the preset-derived set.
       }
-      document.body.style.cursor = '';
-    },
-    [],
-  );
-
-  useEffect(() => {
-    setZoneDraft(selectedZone ? zoneDraftFrom(selectedZone) : null);
-    setDeleteArmed(false);
-  }, [selectedZone]);
-
-  useEffect(() => {
-    if (!selectedPrefabId || !layout.data) return;
-    if (!layout.data.prefabs.some((prefab) => prefab.instance.instance_id === selectedPrefabId)) {
-      setSelectedPrefabId(null);
     }
-  }, [layout.data, selectedPrefabId]);
+    return null;
+  }, [focusedZone]);
 
-  function resetZoneDraft() {
-    setZoneDraft(selectedZone ? zoneDraftFrom(selectedZone) : null);
-  }
+  // ── Mutations ────────────────────────────────────────────────────
 
-  function nextZoneArchetype(): StudioZone['kind'] {
-    if (selectedZone && EDITABLE_ZONE_ARCHETYPES.has(selectedZone.kind)) return selectedZone.kind;
-    return 'workspace';
-  }
-
-  async function createWorkspaceZone() {
-    if (!companyId) {
-      toast.error('Select a company first');
-      return;
-    }
-    if (!layout.data) return;
-    const base = selectedZone ?? zones.at(-1);
-    const nextIndex = zones.length + 1;
-    const candidate = {
-      cx: (base?.cx ?? 0) + 4,
-      cz: base?.cz ?? 0,
-      w: base?.w ?? 8,
-      d: base?.d ?? 6,
-    };
-    while (
-      findOverlaps({ id: 'zone-new-candidate', ...candidate }, zones).length > 0 &&
-      candidate.cx < 36
-    ) {
-      candidate.cx += 4;
-      candidate.cz += 2;
-    }
+  async function commitPlacement(point: StudioPlacementCommit) {
+    if (!placement || !layout.data) return;
     try {
+      if (placement.kind === 'prefab') {
+        if (!focusedZone) return;
+        const result = await createPrefab.mutateAsync({
+          zoneId: focusedZone.zone_id,
+          prefabId: placement.prefabId,
+          x: point.x,
+          z: point.z,
+          rotation: placement.rotation,
+        });
+        if (result.persisted && result.instanceId) {
+          select({ kind: 'object', id: result.instanceId });
+        }
+        return;
+      }
+      const preset = findZonePreset(placement.presetId);
+      if (!preset) return;
+      const sortOrder = Math.max(0, ...zones.map((zone) => zone.sort_order)) + 1;
+      const label = placement.blank ? `${preset.label} (blank)` : preset.label;
       const result = await createZone.mutateAsync({
-        label: `Workspace ${nextIndex}`,
-        archetype: nextZoneArchetype(),
-        accentColor: base?.accentColor ?? UI_DATA_COLORS.ink6,
-        floorColor: base?.floorColor ?? DEFAULT_ZONE_FLOOR,
-        cx: candidate.cx,
-        cz: candidate.cz,
-        w: candidate.w,
-        d: candidate.d,
-        deskSlots: 0,
-        sortOrder: Math.max(0, ...zones.map((zone) => zone.sortOrder)) + 1,
+        label,
+        archetype: preset.archetype,
+        accentColor: preset.accentColor,
+        floorColor: preset.floorColor,
+        cx: point.x,
+        cz: point.z,
+        w: preset.w,
+        d: preset.d,
+        deskSlots: preset.deskSlots,
+        sortOrder,
+        allowedCategories: preset.allowedCategories,
+        activityTypes: preset.activityTypes,
       });
       if (result.persisted && result.zoneId) {
-        setSelectedZoneId(result.zoneId);
-        toast.success('Zone created');
+        if (!placement.blank) {
+          await Promise.all(
+            preset.prefabs.map((p) =>
+              createPrefab.mutateAsync({
+                zoneId: result.zoneId as string,
+                prefabId: p.prefabId,
+                x: point.x + p.offsetX,
+                z: point.z + p.offsetZ,
+                rotation: p.rotation ?? 0,
+              }),
+            ),
+          );
+        }
+        select({ kind: 'zone', id: result.zoneId });
+        toast.success('Zone added', { description: label });
       }
     } catch (error) {
-      toast.error('Zone creation failed', { description: safeErrorMessage(error) });
+      toast.error('Placement failed', { description: safeErrorMessage(error) });
     }
   }
 
-  async function deleteSelectedZone() {
-    if (!selectedZone || !selectedZonePersisted) return;
-    if (!deleteArmed) {
-      setDeleteArmed(true);
+  async function moveObject(move: StudioObjectMove) {
+    try {
+      const result = await updatePrefab.mutateAsync({
+        instanceId: move.instanceId,
+        fields: { zone_id: move.zoneId, position_x: move.x, position_y: move.z },
+      });
+      if (result.persisted) select({ kind: 'object', id: move.instanceId });
+    } catch (error) {
+      toast.error('Object move failed', { description: safeErrorMessage(error) });
+    }
+  }
+
+  /** Whole-zone translation: the rug and every object inside move together. */
+  async function shiftZone(zoneId: string, dx: number, dz: number) {
+    const zone = zones.find((candidate) => candidate.zone_id === zoneId);
+    if (!zone || (dx === 0 && dz === 0)) return;
+    const nextCx = Math.round((zone.cx + dx) * 2) / 2;
+    const nextCz = Math.round((zone.cz + dz) * 2) / 2;
+    const overlaps = findOverlaps(
+      { id: zone.zone_id, cx: nextCx, cz: nextCz, w: zone.w, d: zone.d },
+      zoneRects,
+    );
+    if (overlaps.length > 0) {
+      toast.error('Zone move blocked', {
+        description: `Overlaps ${overlaps.map((other) => other.label ?? other.id).join(', ')}`,
+      });
+      return;
+    }
+    const realDx = nextCx - zone.cx;
+    const realDz = nextCz - zone.cz;
+    try {
+      const zonePrefabs = prefabs.filter((vm) => vm.instance.zone_id === zoneId);
+      // Independent row writes — run the zone update and object translations together.
+      const [result] = await Promise.all([
+        updateZone.mutateAsync({ zoneId, fields: { cx: nextCx, cz: nextCz } }),
+        ...zonePrefabs.map((vm) =>
+          updatePrefab.mutateAsync({
+            instanceId: vm.instance.instance_id,
+            fields: {
+              position_x: vm.instance.position_x + realDx,
+              position_y: vm.instance.position_y + realDz,
+            },
+          }),
+        ),
+      ]);
+      if (result.persisted) select({ kind: 'zone', id: zoneId });
+    } catch (error) {
+      toast.error('Zone move failed', { description: safeErrorMessage(error) });
+    }
+  }
+
+  async function patchZone(zoneId: string, patch: ZonePatch) {
+    const overlapMessage = zoneGeometryOverlapMessage(zoneId, patch);
+    if (overlapMessage) {
+      toast.error('Zone update blocked', { description: overlapMessage });
       return;
     }
     try {
-      const result = await deleteZone.mutateAsync({ zoneId: selectedZone.id });
-      setSelectedZoneId(null);
-      setDeleteArmed(false);
+      const result = await updateZone.mutateAsync({ zoneId, fields: { ...patch } });
+      if (result.persisted && patch.label) {
+        toast.success('Zone renamed', { description: patch.label });
+      }
+    } catch (error) {
+      toast.error('Zone update failed', { description: safeErrorMessage(error) });
+    }
+  }
+
+  function zoneGeometryOverlapMessage(zoneId: string, patch: ZonePatch): string | null {
+    if (
+      patch.cx === undefined &&
+      patch.cz === undefined &&
+      patch.w === undefined &&
+      patch.d === undefined
+    ) {
+      return null;
+    }
+    const zone = zones.find((candidate) => candidate.zone_id === zoneId);
+    if (!zone) return null;
+    const overlaps = findOverlaps(
+      {
+        id: zone.zone_id,
+        cx: patch.cx ?? zone.cx,
+        cz: patch.cz ?? zone.cz,
+        w: patch.w ?? zone.w,
+        d: patch.d ?? zone.d,
+      },
+      zoneRects,
+    );
+    if (overlaps.length === 0) return null;
+    return `Overlaps ${overlaps.map((other) => other.label ?? other.id).join(', ')}`;
+  }
+
+  async function removeZone(zoneId: string) {
+    const zone = zones.find((candidate) => candidate.zone_id === zoneId);
+    try {
+      const result = await deleteZone.mutateAsync({ zoneId });
       if (result.persisted) {
+        if (focusZoneId === zoneId) setFocusZone(null);
+        select(null);
         toast.success('Zone deleted', {
           description:
             result.deletedObjects > 0
               ? `${result.deletedObjects} objects removed`
-              : selectedZone.label,
+              : (zone?.label ?? zoneId),
         });
       }
     } catch (error) {
@@ -433,326 +279,112 @@ export function StudioSurface() {
     }
   }
 
-  async function saveZoneDraft() {
-    if (!selectedZone || !selectedZonePersisted || !zoneDraft) return;
-    if (validation.errors.length > 0) {
-      toast.error('Zone has invalid edits', { description: validation.errors[0] });
-      return;
-    }
-    if (!dirty) return;
+  /** Rotation never rejects: if the rotated bounds poke out of the zone, the
+   *  object slides back inside (clamp). */
+  async function rotateObject(instanceId: string) {
+    const vm = prefabs.find((candidate) => candidate.instance.instance_id === instanceId);
+    const zone = zones.find((candidate) => candidate.zone_id === vm?.instance.zone_id);
+    if (!vm || !zone) return;
+    const nextRotation = ((vm.instance.rotation + 90) % 360) as PrefabInstanceRow['rotation'];
+    const clamped = clampPrefabCenter(
+      vm.instance.position_x,
+      vm.instance.position_y,
+      { prefabId: vm.definition.prefabId, rotation: nextRotation, gridSize: vm.definition.gridSize },
+      zone,
+    );
     try {
-      const result = await updateZone.mutateAsync({
-        zoneId: selectedZone.id,
-        fields: {
-          label: zoneDraft.label.trim(),
-          cx: zoneDraft.cx,
-          cz: zoneDraft.cz,
-          w: zoneDraft.w,
-          d: zoneDraft.d,
-        },
+      await updatePrefab.mutateAsync({
+        instanceId,
+        fields: { rotation: nextRotation, position_x: clamped.x, position_y: clamped.z },
       });
-      if (result.persisted) {
-        toast.success('Zone saved', { description: zoneDraft.label.trim() });
-      }
-    } catch (error) {
-      toast.error('Zone save failed', { description: safeErrorMessage(error) });
-    }
-  }
-
-  function moveZone(dx: number, dz: number) {
-    if (!selectedZone || !selectedZonePersisted || !zoneDraft) return;
-    setZoneDraft({ ...zoneDraft, cx: zoneDraft.cx + dx, cz: zoneDraft.cz + dz });
-  }
-
-  function resizeZone(dw: number, dd: number) {
-    if (!selectedZone || !selectedZonePersisted || !zoneDraft) return;
-    setZoneDraft({
-      ...zoneDraft,
-      w: Math.max(3, zoneDraft.w + dw),
-      d: Math.max(3, zoneDraft.d + dd),
-    });
-  }
-
-  async function addPrefab(
-    item: PaletteItem,
-    targetZone: StudioZone | null = selectedZone,
-    point?: Pick<ScenePlacementPoint, 'x' | 'z'>,
-  ) {
-    if (!layout.data || !targetZone) return;
-    const targetZonePersisted = layout.data.zones.some((zone) => zone.zone_id === targetZone.id);
-    if (!targetZonePersisted) {
-      toast.error('Save the zone first, then add objects.');
-      return;
-    }
-    try {
-      const spread = point ? 0 : Math.min(2, targetZone.prefabCount * 0.6);
-      const result = await createPrefab.mutateAsync({
-        zoneId: targetZone.id,
-        prefabId: item.prefabId,
-        x: point?.x ?? targetZone.cx + spread,
-        z: point?.z ?? targetZone.cz + spread,
-      });
-      if (result.persisted) {
-        setSelectedZoneId(targetZone.id);
-        setSelectedPrefabId(result.instanceId);
-        setObjectDeleteArmed(false);
-        toast.success(`Added ${item.label}`, { description: targetZone.label });
-      }
-    } catch (error) {
-      toast.error('Object placement failed', { description: safeErrorMessage(error) });
-    }
-  }
-
-  function placeOnCanvas(point: ScenePlacementPoint) {
-    const itemId = paletteDrag?.itemId ?? placing;
-    const item = PALETTE.find((candidate) => candidate.id === itemId);
-    if (!item) return;
-    const targetZone = zones.find((zone) => zone.id === point.zoneId) ?? null;
-    if (!targetZone) {
-      toast.error('Pick a zone footprint');
-      return;
-    }
-    void addPrefab(item, targetZone, point);
-    if (paletteDrag?.itemId) {
-      setTool('select');
-      setPlacing(null);
-    }
-  }
-
-  function beginPaletteDrag(
-    item: PaletteItem,
-    event: ReactPointerEvent<HTMLButtonElement> | ReactMouseEvent<HTMLButtonElement>,
-    input: 'pointer' | 'mouse',
-  ) {
-    if (!layout.data || busy || event.button !== 0) return;
-    event.preventDefault();
-    const startX = event.clientX;
-    const startY = event.clientY;
-    let dragging = false;
-    let cleared = false;
-    paletteDragCleanupRef.current?.();
-    paletteDragCleanupRef.current = null;
-
-    const clearListeners = () => {
-      if (cleared) return;
-      cleared = true;
-      if (input === 'pointer') {
-        window.removeEventListener('pointermove', onPointerMove);
-        window.removeEventListener('pointerup', onPointerUp);
-        window.removeEventListener('pointercancel', onPointerCancel);
-      } else {
-        window.removeEventListener('mousemove', onMouseMove);
-        window.removeEventListener('mouseup', onMouseUp);
-        document.removeEventListener('mouseup', onMouseUp);
-      }
-      if (paletteDragCleanupRef.current === clearListeners) {
-        paletteDragCleanupRef.current = null;
-      }
-      document.body.style.cursor = '';
-    };
-    const settleSuppress = () => {
-      if (dragClearTimerRef.current !== null) {
-        window.clearTimeout(dragClearTimerRef.current);
-      }
-      dragClearTimerRef.current = window.setTimeout(() => {
-        setPaletteDrag(null);
-        suppressPaletteClickRef.current = false;
-      }, PALETTE_DRAG_SETTLE_MS);
-    };
-    const updateDrag = (moveEvent: PointerEvent | MouseEvent) => {
-      if (
-        !dragging &&
-        Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY) <=
-          PALETTE_DRAG_THRESHOLD_PX
-      ) {
-        return;
-      }
-      if (!dragging) {
-        dragging = true;
-        suppressPaletteClickRef.current = true;
-        setTool('place');
-        setPlacing(item.id);
-      }
-      document.body.style.cursor = 'grabbing';
-      setPaletteDrag({
-        itemId: item.id,
-        label: item.label,
-        clientX: moveEvent.clientX,
-        clientY: moveEvent.clientY,
-        active: true,
-        commitId: null,
-      });
-    };
-    const finishDrag = (upEvent: PointerEvent | MouseEvent) => {
-      clearListeners();
-      if (!dragging) {
-        suppressPaletteClickRef.current = false;
-        return;
-      }
-      suppressPaletteClickRef.current = true;
-      setPaletteDrag({
-        itemId: item.id,
-        label: item.label,
-        clientX: upEvent.clientX,
-        clientY: upEvent.clientY,
-        active: false,
-        commitId: crypto.randomUUID(),
-      });
-      settleSuppress();
-    };
-    const onPointerMove = (moveEvent: PointerEvent) => updateDrag(moveEvent);
-    const onMouseMove = (moveEvent: MouseEvent) => updateDrag(moveEvent);
-    const onPointerUp = (upEvent: PointerEvent) => finishDrag(upEvent);
-    const onMouseUp = (upEvent: MouseEvent) => finishDrag(upEvent);
-    const onPointerCancel = () => {
-      clearListeners();
-      setPaletteDrag(null);
-      if (dragging) {
-        setTool('select');
-        setPlacing(null);
-      }
-      suppressPaletteClickRef.current = false;
-    };
-
-    if (input === 'pointer') {
-      window.addEventListener('pointermove', onPointerMove);
-      window.addEventListener('pointerup', onPointerUp);
-      window.addEventListener('pointercancel', onPointerCancel);
-    } else {
-      window.addEventListener('mousemove', onMouseMove);
-      window.addEventListener('mouseup', onMouseUp);
-      document.addEventListener('mouseup', onMouseUp);
-    }
-    paletteDragCleanupRef.current = clearListeners;
-  }
-
-  function selectPrefab(instanceId: string) {
-    const prefab = layout.data?.prefabs.find((item) => item.instance.instance_id === instanceId);
-    setSelectedPrefabId(instanceId);
-    setSelectedZoneId(prefab?.instance.zone_id ?? selectedZoneId);
-    setObjectDeleteArmed(false);
-    setTool('select');
-    setPlacing(null);
-  }
-
-  async function movePrefab(move: ScenePrefabMove) {
-    const zone = zones.find((candidate) => candidate.id === move.zoneId);
-    try {
-      const result = await updatePrefab.mutateAsync({
-        instanceId: move.instanceId,
-        fields: {
-          zone_id: move.zoneId,
-          position_x: move.x,
-          position_y: move.z,
-        },
-      });
-      if (result.persisted) {
-        setSelectedPrefabId(move.instanceId);
-        setSelectedZoneId(move.zoneId);
-        toast.success('Object moved', { description: zone?.label ?? move.zoneId });
-      }
-    } catch (error) {
-      toast.error('Object move failed', { description: safeErrorMessage(error) });
-    }
-  }
-
-  async function rotateSelectedObject() {
-    if (!selectedPrefab) return;
-    const turns = [0, 90, 180, 270] as const;
-    const currentIndex = Math.max(0, turns.indexOf(selectedPrefab.instance.rotation));
-    const nextRotation = turns[(currentIndex + 1) % turns.length];
-    try {
-      const result = await updatePrefab.mutateAsync({
-        instanceId: selectedPrefab.instance.instance_id,
-        fields: { rotation: nextRotation },
-      });
-      if (result.persisted) {
-        toast.success('Object rotated', { description: `${nextRotation}°` });
-      }
     } catch (error) {
       toast.error('Object rotation failed', { description: safeErrorMessage(error) });
     }
   }
 
-  async function deleteSelectedObject() {
-    if (!selectedPrefab) return;
-    if (!objectDeleteArmed) {
-      setObjectDeleteArmed(true);
-      return;
-    }
+  async function removeObject(instanceId: string) {
+    const vm = prefabs.find((candidate) => candidate.instance.instance_id === instanceId);
     try {
-      const result = await deletePrefab.mutateAsync({
-        instanceId: selectedPrefab.instance.instance_id,
-      });
+      const result = await deletePrefab.mutateAsync({ instanceId });
       if (result.persisted) {
-        toast.success('Object deleted', { description: selectedPrefab.definition.name });
-        setSelectedPrefabId(null);
-        setObjectDeleteArmed(false);
+        select(null);
+        toast.success('Object deleted', { description: vm?.definition.name });
       }
     } catch (error) {
       toast.error('Object deletion failed', { description: safeErrorMessage(error) });
     }
   }
 
+  // ── Editor keys: W select, E/R rotate (ghost first, then selection),
+  //    F focus, 1-7 jump-focus zones, Esc steps back, Delete removes. ──
+  // biome-ignore lint/correctness/useExhaustiveDependencies: registers against the latest render closure on purpose
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+      ) {
+        return;
+      }
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const zoneDigit = /^Digit([1-7])$/.exec(event.code)?.[1];
+      if (zoneDigit) {
+        const ordered = [...zones].sort((a, b) => a.sort_order - b.sort_order);
+        const zone = ordered[Number(zoneDigit) - 1];
+        if (zone) {
+          event.preventDefault();
+          setFocusZone(focusZoneId === zone.zone_id ? null : zone.zone_id);
+        }
+        return;
+      }
+      switch (event.code) {
+        case 'KeyW':
+          endPlacement();
+          break;
+        case 'KeyE':
+        case 'KeyR':
+          event.preventDefault();
+          if (placement?.kind === 'prefab') {
+            rotatePlacement();
+          } else if (selection?.kind === 'object' && !busy) {
+            void rotateObject(selection.id);
+          }
+          break;
+        case 'KeyF':
+          if (selection?.kind === 'zone') {
+            event.preventDefault();
+            setFocusZone(selection.id);
+          }
+          break;
+        case 'Escape':
+          if (placement) {
+            endPlacement();
+          } else if (focusZoneId) {
+            setFocusZone(null);
+          } else {
+            select(null);
+          }
+          break;
+        case 'Delete':
+        case 'Backspace':
+          if (selection?.kind === 'object' && !busy) {
+            event.preventDefault();
+            void removeObject(selection.id);
+          }
+          break;
+        default:
+          break;
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  });
+
   return (
     <div className="off-studio">
-      {paletteDrag?.active && dragGhostItem ? (
-        <div className="off-studio-drag-ghost" style={dragGhostStyle}>
-          <Icon icon={dragGhostItem.icon} size="sm" />
-          {paletteDrag.label}
-        </div>
-      ) : null}
       <aside className="off-studio-panel is-left">
-        <div className="off-studio-panel-head">
-          <CapsLabel>Objects</CapsLabel>
-        </div>
-        <div className="off-studio-panel-body">
-          {PALETTE.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={cn('off-studio-tool off-focusable', placing === item.id && 'is-on')}
-              disabled={!layout.data || busy}
-              draggable={false}
-              title={
-                layout.data
-                  ? `Place ${item.label} in scene`
-                  : 'Preview only — editing needs the desktop app'
-              }
-              onPointerDown={(event) => beginPaletteDrag(item, event, 'pointer')}
-              onMouseDown={(event) => {
-                if (paletteDragCleanupRef.current) return;
-                beginPaletteDrag(item, event, 'mouse');
-              }}
-              onDragStart={(event) => event.preventDefault()}
-              onClick={() => {
-                if (suppressPaletteClickRef.current) {
-                  suppressPaletteClickRef.current = false;
-                  return;
-                }
-                setTool('place');
-                setPlacing((current) => (current === item.id ? null : item.id));
-              }}
-            >
-              <Icon icon={item.icon} size="sm" />
-              {item.label}
-            </button>
-          ))}
-          <div className="off-studio-scene-stats">
-            <CapsLabel>Scene</CapsLabel>
-            <div className="off-about-row">
-              <span>Zones</span>
-              <span>{zones.length}</span>
-            </div>
-            <div className="off-about-row">
-              <span>Objects</span>
-              <span>{layout.data?.prefabs.length ?? 0}</span>
-            </div>
-          </div>
-        </div>
-        <div className="off-studio-panel-foot">
-          Drag an object onto a zone footprint, or click it, then click a zone.
-        </div>
+        <SceneTreePanel zones={zones} prefabs={prefabs} onEnterFocus={setFocusZone} />
       </aside>
 
       <section className="off-studio-stage">
@@ -774,315 +406,73 @@ export function StudioSurface() {
             Preview scene — Studio editing needs the desktop app, so changes here won't be saved.
           </div>
         ) : null}
+
         <div className="off-studio-toolbar">
-          <SegmentedControl
-            options={[
-              { value: 'select', label: 'Select', icon: <Icon icon={Move3d} size="sm" /> },
-              { value: 'place', label: 'Place', icon: <Icon icon={Box} size="sm" /> },
-            ]}
-            value={tool}
-            onChange={(v) => {
-              setTool(v);
-              if (v === 'select') setPlacing(null);
-            }}
-            ariaLabel="Studio tool"
-          />
+          <nav className="off-studio-crumb" aria-label="Edit level">
+            <button
+              type="button"
+              className="off-studio-crumb-seg off-focusable"
+              onClick={() => setFocusZone(null)}
+              disabled={!focusZoneId}
+            >
+              Plot
+            </button>
+            {focusedZone ? (
+              <>
+                <Icon icon={ChevronRight} size="sm" className="off-studio-crumb-sep" />
+                <span className="off-studio-crumb-seg is-current">{focusedZone.label}</span>
+              </>
+            ) : null}
+          </nav>
           <span className="off-studio-toolbar-hint">
-            {paletteDrag?.active
-              ? `Drop on a zone footprint to place ${paletteDrag.label}`
-              : tool === 'place' && placing
-                ? `Click a zone footprint to place ${PALETTE.find((item) => item.id === placing)?.label ?? 'object'}`
-                : `${zones.length} zones · ${layout.data?.prefabs.length ?? 0} objects`}
+            {placement
+              ? placement.kind === 'prefab'
+                ? 'Click to place · R rotate · right-click / Esc stop'
+                : 'Click open floor to add the zone · right-click / Esc cancel'
+              : focusedZone
+                ? 'Drag objects to move · E/R rotate · Delete remove · Esc back to plot'
+                : 'Click a zone to select · drag to move it · double-click / F to edit inside'}
           </span>
+          {focusedZone ? (
+            <Button variant="outline" size="sm" onClick={() => setFocusZone(null)}>
+              <Icon icon={X} size="sm" />
+              Exit zone edit
+            </Button>
+          ) : null}
         </div>
+
         <div className="off-studio-canvas-host">
-          <OfficeScene3D
-            placementEnabled={tool === 'place' && Boolean(placing) && Boolean(layout.data) && !busy}
-            placementProbe={placementProbe}
-            onPlacementPoint={placeOnCanvas}
-            selectedPrefabId={selectedPrefabId}
-            onPrefabSelect={selectPrefab}
-            onPrefabMove={busy ? undefined : movePrefab}
+          <StudioScene3D
+            layout={layout.data ?? null}
+            prefabs={prefabs}
+            editable={editable && !busy}
+            onCommitPlacement={(point) => void commitPlacement(point)}
+            onMoveObject={(move) => void moveObject(move)}
+            onMoveZone={(move: StudioZoneDrag) => void shiftZone(move.zoneId, move.dx, move.dz)}
+            onEnterFocus={setFocusZone}
           />
         </div>
+
+        <PrefabBrowser
+          focusActive={Boolean(focusedZone)}
+          allowedCategories={allowedCategories}
+          disabled={!editable || busy}
+        />
       </section>
 
       <aside className="off-studio-panel is-right">
-        <div className="off-studio-panel-head">
-          <CapsLabel>Zones</CapsLabel>
-          <IconButton
-            icon={Plus}
-            label="Create zone"
-            size="iconSm"
-            variant="outline"
-            disabled={!layout.data || busy}
-            onClick={() => void createWorkspaceZone()}
-          />
-        </div>
-        <div className="off-studio-panel-body">
-          {zones.map((zone) => (
-            <button
-              key={zone.id}
-              type="button"
-              className={cn('off-studio-zone off-focusable', zone.id === selectedZoneId && 'is-sel')}
-              onClick={() => {
-                setSelectedZoneId(zone.id);
-                setSelectedPrefabId(null);
-              }}
-            >
-              <Icon icon={ZONE_KIND_ICON[zone.kind]} size="sm" />
-              <span className="off-studio-zone-name">{zone.label}</span>
-            </button>
-          ))}
-        </div>
-        {selectedPrefab ? (
-          <div className="off-studio-props">
-            <CapsLabel>Object</CapsLabel>
-            <div className="off-about-row">
-              <span>Name</span>
-              <span>{selectedPrefab.definition.name}</span>
-            </div>
-            <div className="off-about-row">
-              <span>Zone</span>
-              <span>{selectedPrefabZone?.label ?? selectedPrefab.instance.zone_id}</span>
-            </div>
-            <div className="off-about-row">
-              <span>Position</span>
-              <span>
-                {selectedPrefab.instance.position_x.toFixed(1)},{' '}
-                {selectedPrefab.instance.position_y.toFixed(1)}
-              </span>
-            </div>
-            <div className="off-about-row">
-              <span>Rotation</span>
-              <span>{selectedPrefab.instance.rotation}°</span>
-            </div>
-            <div className="off-studio-size-actions">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={busy}
-                onClick={() => void rotateSelectedObject()}
-              >
-                <Icon icon={RotateCw} size="sm" />
-                Rotate
-              </Button>
-              <ConfirmDeleteButton
-                armed={objectDeleteArmed}
-                label="Delete"
-                busy={busy}
-                onClick={() => void deleteSelectedObject()}
-                onCancel={() => setObjectDeleteArmed(false)}
-              />
-            </div>
-          </div>
-        ) : null}
-        {selectedZone ? (
-          <div className="off-studio-props">
-            <CapsLabel>Properties</CapsLabel>
-            <div className="off-studio-field">
-              <label htmlFor={zoneLabelInputId}>Label</label>
-              <div className={cn('off-studio-inline', dirty && 'is-dirty')}>
-                <Input
-                  id={zoneLabelInputId}
-                  value={zoneDraft?.label ?? ''}
-                  onChange={(event) =>
-                    setZoneDraft(zoneDraft ? { ...zoneDraft, label: event.target.value } : null)
-                  }
-                  disabled={!selectedZonePersisted || busy}
-                  aria-label="Zone label"
-                />
-                {dirty ? (
-                  <span className="off-studio-dirty-chip" title="Unsaved zone edits">
-                    Unsaved
-                  </span>
-                ) : null}
-                <IconButton
-                  icon={Save}
-                  label="Save zone edits"
-                  size="iconSm"
-                  variant="outline"
-                  disabled={!canSaveDraft}
-                  onClick={() => void saveZoneDraft()}
-                />
-                <IconButton
-                  icon={RotateCcw}
-                  label="Reset zone edits"
-                  size="iconSm"
-                  variant="outline"
-                  disabled={!dirty || busy}
-                  onClick={resetZoneDraft}
-                />
-              </div>
-            </div>
-            {validation.errors.length > 0 ? (
-              <div className="off-studio-invalid">{validation.errors[0]}</div>
-            ) : null}
-            <div className="off-about-row">
-              <span>Type</span>
-              <span>{ZONE_KIND_LABEL[selectedZone.kind] ?? selectedZone.kind}</span>
-            </div>
-            <div className="off-about-row">
-              <span>Objects</span>
-              <span>{selectedZone.prefabCount}</span>
-            </div>
-            <div className="off-about-row">
-              <span>Footprint</span>
-              <span>
-                {zoneDraft?.w ?? selectedZone.w} × {zoneDraft?.d ?? selectedZone.d}
-              </span>
-            </div>
-            <div className="off-studio-nudge">
-              <CapsLabel>Position</CapsLabel>
-              <div className="off-studio-numeric-pair">
-                <label htmlFor={zoneXInputId}>
-                  X
-                  <Input
-                    id={zoneXInputId}
-                    type="number"
-                    value={zoneDraft?.cx ?? selectedZone.cx}
-                    disabled={!selectedZonePersisted || busy}
-                    onChange={(event) =>
-                      setZoneDraft(setDraftNumber(zoneDraft, 'cx', event.target.value))
-                    }
-                  />
-                </label>
-                <label htmlFor={zoneZInputId}>
-                  Z
-                  <Input
-                    id={zoneZInputId}
-                    type="number"
-                    value={zoneDraft?.cz ?? selectedZone.cz}
-                    disabled={!selectedZonePersisted || busy}
-                    onChange={(event) =>
-                      setZoneDraft(setDraftNumber(zoneDraft, 'cz', event.target.value))
-                    }
-                  />
-                </label>
-              </div>
-              <div className="off-studio-nudge-grid">
-                <span />
-                <IconButton
-                  icon={ArrowUp}
-                  label="Move zone up"
-                  size="iconSm"
-                  variant="outline"
-                  disabled={!selectedZonePersisted || busy}
-                  onClick={() => void moveZone(0, -1)}
-                />
-                <span />
-                <IconButton
-                  icon={ArrowLeft}
-                  label="Move zone left"
-                  size="iconSm"
-                  variant="outline"
-                  disabled={!selectedZonePersisted || busy}
-                  onClick={() => void moveZone(-1, 0)}
-                />
-                <div className="off-studio-pos">
-                  {zoneDraft?.cx ?? selectedZone.cx}, {zoneDraft?.cz ?? selectedZone.cz}
-                </div>
-                <IconButton
-                  icon={ArrowRight}
-                  label="Move zone right"
-                  size="iconSm"
-                  variant="outline"
-                  disabled={!selectedZonePersisted || busy}
-                  onClick={() => void moveZone(1, 0)}
-                />
-                <span />
-                <IconButton
-                  icon={ArrowDown}
-                  label="Move zone down"
-                  size="iconSm"
-                  variant="outline"
-                  disabled={!selectedZonePersisted || busy}
-                  onClick={() => void moveZone(0, 1)}
-                />
-                <span />
-              </div>
-            </div>
-            <div className="off-studio-nudge">
-              <CapsLabel>Size</CapsLabel>
-              <div className="off-studio-numeric-pair">
-                <label htmlFor={zoneWidthInputId}>
-                  W
-                  <Input
-                    id={zoneWidthInputId}
-                    type="number"
-                    min={3}
-                    max={30}
-                    value={zoneDraft?.w ?? selectedZone.w}
-                    disabled={!selectedZonePersisted || busy}
-                    onChange={(event) =>
-                      setZoneDraft(setDraftNumber(zoneDraft, 'w', event.target.value))
-                    }
-                  />
-                </label>
-                <label htmlFor={zoneDepthInputId}>
-                  D
-                  <Input
-                    id={zoneDepthInputId}
-                    type="number"
-                    min={3}
-                    max={30}
-                    value={zoneDraft?.d ?? selectedZone.d}
-                    disabled={!selectedZonePersisted || busy}
-                    onChange={(event) =>
-                      setZoneDraft(setDraftNumber(zoneDraft, 'd', event.target.value))
-                    }
-                  />
-                </label>
-              </div>
-              <div className="off-studio-size-actions">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!selectedZonePersisted || busy}
-                  onClick={() => resizeZone(1, 1)}
-                >
-                  Grow
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!selectedZonePersisted || busy}
-                  onClick={() => resizeZone(-1, -1)}
-                >
-                  Shrink
-                </Button>
-              </div>
-            </div>
-            {selectedZonePersisted ? (
-              <div className="off-studio-danger">
-                <ConfirmDeleteButton
-                  armed={deleteArmed}
-                  label="Delete zone"
-                  busy={busy}
-                  onClick={() => void deleteSelectedZone()}
-                  onCancel={() => setDeleteArmed(false)}
-                />
-              </div>
-            ) : null}
-          </div>
-        ) : zones.length === 0 && layout.data ? (
-          <div className="off-studio-props">
-            <EmptyState
-              icon={LayoutGrid}
-              title="Empty scene"
-              description="This office has no zones yet. Create the first zone to start laying out the floor."
-              action={{ label: 'Create first zone', onClick: () => void createWorkspaceZone() }}
-            />
-          </div>
-        ) : (
-          <div className="off-studio-props">
-            <EmptyState
-              icon={Move3d}
-              title="No selection"
-              description="Pick a zone to edit it, or place an object from the palette."
-            />
-          </div>
-        )}
+        <StudioInspector
+          zones={zones}
+          prefabs={prefabs}
+          busy={busy}
+          onZonePatch={(zoneId, patch) => void patchZone(zoneId, patch)}
+          onZoneShift={(zoneId, dx, dz) => void shiftZone(zoneId, dx, dz)}
+          onZoneDelete={(zoneId) => void removeZone(zoneId)}
+          onEnterFocus={setFocusZone}
+          onExitFocus={() => setFocusZone(null)}
+          onObjectRotate={(instanceId) => void rotateObject(instanceId)}
+          onObjectDelete={(instanceId) => void removeObject(instanceId)}
+        />
       </aside>
     </div>
   );

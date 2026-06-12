@@ -4,8 +4,10 @@ import { resolveAsync } from '@/lib/platform.js';
 import { getTauriDb } from '@/lib/tauri-db.js';
 import { getBuiltinPrefab } from '@offisim/renderer';
 import type {
+  ActivityType,
   PrefabDefinition,
   PrefabInstanceRow,
+  SemanticCategory,
   ZoneArchetype,
   ZoneRow,
 } from '@offisim/shared-types';
@@ -437,6 +439,8 @@ interface ZoneCreateFields {
   d: number;
   deskSlots: number;
   sortOrder: number;
+  allowedCategories?: readonly SemanticCategory[];
+  activityTypes?: readonly ActivityType[];
 }
 
 export function useUpdateZone() {
@@ -479,8 +483,14 @@ export function useCreateZone() {
         w: fields.w,
         d: fields.d,
         target_roles_json: null,
-        allowed_categories_json: null,
-        activity_types_json: null,
+        allowed_categories_json:
+          fields.allowedCategories && fields.allowedCategories.length > 0
+            ? JSON.stringify(fields.allowedCategories)
+            : null,
+        activity_types_json:
+          fields.activityTypes && fields.activityTypes.length > 0
+            ? JSON.stringify(fields.activityTypes)
+            : null,
         desk_slots: fields.deskSlots,
         sort_order: fields.sortOrder,
       });

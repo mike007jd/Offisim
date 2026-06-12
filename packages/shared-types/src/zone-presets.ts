@@ -224,7 +224,6 @@ const BREAK_CORNER: ZonePreset = {
   activityTypes: ['rest'],
   prefabs: [
     { prefabId: 'sofa-set', offsetX: -1, offsetZ: -0.5 },
-    { prefabId: 'coffee-table', offsetX: 2.5, offsetZ: 0 },
     { prefabId: 'vending-machine', offsetX: -3, offsetZ: -2 },
     { prefabId: 'plant-small', offsetX: 3.5, offsetZ: -2.5 },
   ],
@@ -246,7 +245,6 @@ const LOUNGE: ZonePreset = {
   activityTypes: ['rest'],
   prefabs: [
     { prefabId: 'sofa-set', offsetX: -2, offsetZ: -1 },
-    { prefabId: 'coffee-table', offsetX: 1, offsetZ: -1 },
     { prefabId: 'vending-machine', offsetX: 4, offsetZ: -3 },
     { prefabId: 'water-cooler', offsetX: 4, offsetZ: 1 },
     { prefabId: 'plant-large', offsetX: -5, offsetZ: -3 },

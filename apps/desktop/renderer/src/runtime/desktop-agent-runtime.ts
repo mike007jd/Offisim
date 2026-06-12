@@ -53,7 +53,7 @@ import { getRepos, runtimeEventBus } from './repos.js';
 function toCoreProvider(provider: string): LlmProvider {
   if (provider === 'anthropic') return 'anthropic';
   if (provider === 'openai') return 'openai';
-  // Everything else (minimax, openrouter, kimi, gemini, local, …) speaks the
+  // Everything else (minimax, openrouter, zai, kimi, gemini, local, …) speaks the
   // OpenAI-compatible chat shape via its own baseURL.
   return 'openai-compat';
 }

@@ -367,6 +367,22 @@ export type {
   PrefabAnchor,
   PrefabAnchorSet,
   PrefabSpatialSpec,
+  BuiltinPrefabId,
+  PrefabPlacementBoundsInput,
+  PrefabPlacementBounds,
+  PrefabPlacementZoneBounds,
+  PrefabOffsetPlacement,
+} from './prefab-spatial.js';
+export {
+  BUILTIN_PREFAB_IDS,
+  BUILTIN_PREFAB_FOOTPRINTS,
+  getBuiltinPrefabFootprint,
+  prefabPlacementBounds,
+  prefabBoundsToRect,
+  prefabBoundsOverlap,
+  findPrefabPlacementOverlaps,
+  prefabFitsWithinZone,
+  resolveNonOverlappingPrefabOffsets,
 } from './prefab-spatial.js';
 
 export type { ZoneRect } from './zone-overlap.js';

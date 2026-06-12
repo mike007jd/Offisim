@@ -560,6 +560,47 @@
   border-color: var(--off-accent-ring);
 }
 
+.off-ws-bubble.is-thinking {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+}
+
+.off-ws-thinking-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.off-ws-thinking-dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--off-r-round);
+  background: var(--off-ink-4);
+  animation: off-ws-thinking-bounce var(--off-motion-loop-fast) var(--off-motion-loop-soft) infinite;
+}
+
+.off-ws-thinking-dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.off-ws-thinking-dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes off-ws-thinking-bounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  30% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}
+
 .off-ws-attachment {
   border: 1px solid var(--off-line);
   border-radius: var(--off-r-sm);
@@ -793,55 +834,55 @@
   font-size: var(--off-fs-meta);
 }
 
-.off-ws-composer-input {
-  min-height: 34px;
-  max-height: 78px;
-  resize: none;
+.off-ws-composer-shell {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--off-sp-2);
   border: 1px solid var(--off-line-strong);
-  border-radius: var(--off-r-md);
+  border-radius: var(--off-r-lg);
   background: var(--off-surface-1);
-  padding: var(--off-sp-3) var(--off-sp-4);
-  font-size: var(--off-fs-sm);
-  line-height: 1.3;
-  color: var(--off-ink-1);
-  outline: none;
-  overflow-y: auto;
+  padding: var(--off-sp-2);
   transition: border-color var(--off-motion-fast) var(--off-motion-ease), box-shadow
     var(--off-motion-fast) var(--off-motion-ease);
 }
 
-.off-ws-composer-input:hover {
-  border-color: var(--off-accent-ring);
-}
-
-.off-ws-composer-input:focus-visible {
+.off-ws-composer-shell:focus-within {
   border-color: var(--off-accent);
   box-shadow: 0 0 0 3px var(--off-accent-ring);
 }
 
-.off-ws-composer-tools {
-  display: flex;
-  align-items: center;
-  gap: var(--off-sp-2);
+.off-ws-composer-attach {
+  flex: none;
+  align-self: flex-end;
 }
 
-.off-ws-composer-tools .off-grow {
+.off-ws-composer-input {
   flex: 1;
+  min-width: 0;
+  min-height: 28px;
+  max-height: 120px;
+  resize: none;
+  border: 0;
+  background: transparent;
+  padding: var(--off-sp-2) var(--off-sp-2);
+  font-size: var(--off-fs-sm);
+  line-height: 1.4;
+  color: var(--off-ink-1);
+  outline: none;
+  overflow-y: auto;
 }
 
 .off-ws-send {
+  flex: none;
+  width: 30px;
   height: 30px;
-  padding: 0 14px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--off-sp-3);
   border: 0;
-  border-radius: var(--off-r-sm);
+  border-radius: var(--off-r-round);
   background: var(--off-accent);
   color: var(--off-accent-fg);
-  font-size: var(--off-fs-sm);
-  font-weight: 660;
   transition: background var(--off-motion-fast) var(--off-motion-ease);
 }
 

@@ -2,15 +2,11 @@ import { useUiState } from '@/app/ui-state.js';
 import { useEmployees, useOfficeLayout, useReassignEmployee, useThreads } from '@/data/queries.js';
 import type { Employee } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
-import {
-  type PrefabDefinition,
-  type PrefabInstanceRow,
-  extractZoneSlug,
-} from '@offisim/shared-types';
+import type { PrefabDefinition, PrefabInstanceRow } from '@offisim/shared-types';
 import { Html, OrbitControls } from '@react-three/drei';
 import { Canvas, useThree } from '@react-three/fiber';
-import { Fragment, memo, useEffect, useMemo, useRef, useState } from 'react';
-import { ACESFilmicToneMapping, type Camera, Plane, Raycaster, Vector2, Vector3 } from 'three';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { ACESFilmicToneMapping } from 'three';
 import { BlockCharacter } from './BlockCharacter.js';
 import { RoomShell } from './r3d/RoomShell.js';
 import { SceneEnvironment } from './r3d/SceneEnvironment.js';
@@ -24,9 +20,10 @@ import { RestAreaMesh3D } from './r3d/prefabs/RestAreaMesh3D.js';
 import { ServerRackUnit3D } from './r3d/prefabs/ServerRackMesh3D.js';
 import { WhiteboardMesh3D } from './r3d/prefabs/WhiteboardMesh3D.js';
 import { WorkstationUnit3D } from './r3d/prefabs/WorkstationMesh3D.js';
+import { ZoneCeilingLight, ZoneRug } from './r3d/ZoneDressing.js';
 import { OFFICE_CAMERA_PRESET, SCENE_CONTENT_SCALE } from './r3d/scene-art-direction.js';
 import { LIGHT_SCENE_3D } from './r3d/scene-colors.js';
-import { EmissiveMaterial, SceneMaterial } from './r3d/scene-materials.js';
+import { type ScenePlacementPoint, groundPointFromClient } from './scene-ground.js';
 import { compactSceneEmployeeName } from './scene-labels.js';
 import {
   type EmployeePosture,
@@ -36,19 +33,6 @@ import {
   rotateLocal,
   zoneDefsFromLayout,
 } from './scene-layout.js';
-
-export interface ScenePlacementPoint {
-  readonly x: number;
-  readonly z: number;
-  readonly zoneId: string | null;
-}
-
-export interface ScenePrefabMove {
-  readonly instanceId: string;
-  readonly x: number;
-  readonly z: number;
-  readonly zoneId: string;
-}
 
 interface SceneEmployeeDrop {
   readonly zoneId: string | null;
@@ -77,747 +61,28 @@ interface SceneDropNotice {
   readonly message: string;
 }
 
-export interface ScenePlacementProbe {
-  readonly clientX: number;
-  readonly clientY: number;
-  readonly active: boolean;
-  readonly commitId: string | null;
-}
-
-interface OfficeScene3DProps {
-  readonly placementEnabled?: boolean;
-  readonly placementProbe?: ScenePlacementProbe | null;
-  readonly onPlacementPoint?: (point: ScenePlacementPoint) => void;
-  readonly selectedPrefabId?: string | null;
-  readonly onPrefabSelect?: (instanceId: string) => void;
-  readonly onPrefabMove?: (move: ScenePrefabMove) => void;
-}
-
-const ZONE_TINT: Record<string, string> = {
-  workspace: LIGHT_SCENE_3D.zoneWorkspace,
-  meeting: LIGHT_SCENE_3D.zoneMeeting,
-  rest: LIGHT_SCENE_3D.zoneRest,
-  lounge: LIGHT_SCENE_3D.zoneRest,
-  library: LIGHT_SCENE_3D.zoneLibrary,
-  server: LIGHT_SCENE_3D.zoneServer,
-};
-
-function zoneTint(archetype: string): string {
-  return ZONE_TINT[archetype] ?? LIGHT_SCENE_3D.zoneWorkspace;
-}
-
-type ScenePrefabItem = { instance: PrefabInstanceRow; definition: PrefabDefinition };
-
-interface LegacyPrefabRefreshRule {
-  readonly prefabId: string;
-  readonly from: readonly [number, number];
-  readonly to?: readonly [number, number];
-  readonly fromRotation?: PrefabInstanceRow['rotation'];
-  readonly toRotation?: PrefabInstanceRow['rotation'];
-}
-
-const LEGACY_POSITION_EPSILON = 0.08;
-const WORKSTATION_PREFAB_IDS = new Set([
-  'workstation-standard',
-  'workstation-compact',
-  'workstation-dual',
-]);
-
-const WORKSPACE_SCENE_SLOTS: Readonly<
-  Record<string, readonly { x: number; z: number; rotation: PrefabInstanceRow['rotation'] }[]>
-> = {
-  'zone-dev': [
-    { x: -3.8, z: -1.35, rotation: 0 },
-    { x: 2.75, z: 1.55, rotation: 180 },
-  ],
-  'zone-product': [
-    { x: -3.25, z: -1.25, rotation: 0 },
-    { x: 2.65, z: 1.65, rotation: 180 },
-  ],
-  'zone-art': [
-    { x: -3.2, z: -1.25, rotation: 0 },
-    { x: 2.85, z: 1.65, rotation: 180 },
-  ],
-};
-
-const LEGACY_SYSTEM_PREFAB_REFRESH: Readonly<Record<string, readonly LegacyPrefabRefreshRule[]>> = {
-  'zone-dev': [
-    { prefabId: 'workstation-dual', from: [-4.6, -1.9], to: [-3.8, -1.35] },
-    { prefabId: 'workstation-dual', from: [-4.35, -1.75], to: [-3.8, -1.35] },
-    {
-      prefabId: 'workstation-standard',
-      from: [-1.45, -1.9],
-      to: [2.75, 1.55],
-      toRotation: 180,
-    },
-    {
-      prefabId: 'workstation-standard',
-      from: [0.15, -1.75],
-      to: [2.75, 1.55],
-      toRotation: 180,
-    },
-    { prefabId: 'workstation-standard', from: [1.75, -1.9] },
-    { prefabId: 'workstation-dual', from: [4.9, -1.9] },
-    { prefabId: 'workstation-dual', from: [4.95, 2.55] },
-    { prefabId: 'workstation-standard', from: [-2.25, 2.7] },
-    { prefabId: 'workstation-standard', from: [2.45, 2.7] },
-    { prefabId: 'standing-table', from: [-5.1, 2.9], to: [-0.9, 2.85] },
-    { prefabId: 'standing-table', from: [-5.15, 2.85], to: [-0.9, 2.85] },
-    { prefabId: 'network-switch', from: [5.3, 2.8], to: [5.15, -2.85] },
-    { prefabId: 'network-switch', from: [5.35, -3.05], to: [5.15, -2.85] },
-    { prefabId: 'plant-large', from: [5.5, -3.0], to: [-5.35, 2.9] },
-    { prefabId: 'plant-large', from: [-5.45, -3.05], to: [-5.35, 2.9] },
-  ],
-  'zone-product': [
-    { prefabId: 'workstation-standard', from: [-3.7, -1.35], to: [-3.25, -1.25] },
-    { prefabId: 'workstation-standard', from: [-3.75, -1.45], to: [-3.25, -1.25] },
-    { prefabId: 'workstation-standard', from: [-0.7, -1.35] },
-    {
-      prefabId: 'workstation-standard',
-      from: [2.3, -1.35],
-      to: [2.65, 1.65],
-      toRotation: 180,
-    },
-    {
-      prefabId: 'workstation-standard',
-      from: [1.45, -1.45],
-      to: [2.65, 1.65],
-      toRotation: 180,
-    },
-    { prefabId: 'workstation-compact', from: [4.9, 2.2] },
-    { prefabId: 'standing-table', from: [-2.6, 2.7], to: [0, 2.8] },
-    { prefabId: 'standing-table', from: [-3.35, 2.75], to: [0, 2.8] },
-    { prefabId: 'status-board', from: [4.6, -2.8], to: [4.8, -2.85] },
-    { prefabId: 'status-board', from: [4.75, 2.55], to: [4.8, -2.85] },
-    { prefabId: 'plant-large', from: [5.0, 2.9], to: [-5.05, 2.75] },
-    { prefabId: 'plant-large', from: [5.15, -2.95], to: [-5.05, 2.75] },
-  ],
-  'zone-art': [
-    { prefabId: 'workstation-dual', from: [-4.1, -1.45], to: [-3.2, -1.25] },
-    { prefabId: 'workstation-dual', from: [-4.0, -1.45], to: [-3.2, -1.25] },
-    { prefabId: 'workstation-standard', from: [-0.9, -1.45] },
-    { prefabId: 'workstation-standard', from: [2.4, -1.45] },
-    {
-      prefabId: 'workstation-dual',
-      from: [-1.1, 2.7],
-      to: [2.85, 1.65],
-      toRotation: 180,
-    },
-    {
-      prefabId: 'workstation-standard',
-      from: [1.45, -1.45],
-      to: [2.85, 1.65],
-      toRotation: 180,
-    },
-    { prefabId: 'standing-table', from: [3.8, 2.8], to: [-0.1, 2.75] },
-    { prefabId: 'standing-table', from: [3.75, 2.65], to: [-0.1, 2.75] },
-    { prefabId: 'status-board', from: [4.7, -2.8], to: [4.8, -2.85] },
-    { prefabId: 'plant-large', from: [-4.8, 2.9], to: [-5.05, 2.65] },
-    { prefabId: 'plant-large', from: [-4.95, 2.75], to: [-5.05, 2.65] },
-    { prefabId: 'plant-small', from: [4.7, -3.1] },
-  ],
-  'zone-library': [
-    { prefabId: 'bookshelf-double', from: [-4.9, -2.85], to: [-5.4, -2.55] },
-    { prefabId: 'bookshelf-double', from: [4.9, -2.85], to: [5.4, -2.55] },
-    { prefabId: 'reading-table', from: [0, 0.65], to: [0, 1.45] },
-    { prefabId: 'chair-standalone', from: [-1.05, 2.45], to: [-2.4, 2.85] },
-    { prefabId: 'chair-standalone', from: [1.05, 2.45], to: [2.4, 2.85] },
-    { prefabId: 'plant-large', from: [5.6, 2.65], to: [-5.4, 2.7] },
-  ],
-};
-
-/** Prefabs that have a clear "front" and live against walls/zone edges. When a
- *  stored rotation leaves them facing the wall (legacy seeds did), snap them to
- *  face the zone interior. Render-time only — stored data stays untouched. */
-const WALL_FACING_PREFAB_IDS = new Set([
-  'status-board',
-  'whiteboard',
-  'vending-machine',
-  'water-cooler',
-  'network-switch',
-  'patch-panel',
-  'cable-tray',
-  'bookshelf-single',
-  'bookshelf-double',
-  'filing-cabinet',
-  'server-rack-2u',
-  'server-rack-4u',
-  'gpu-cluster',
-]);
-
-const WALL_EDGE_THRESHOLD = 2.0;
-
-function interiorFacingRotation(
-  item: ScenePrefabItem,
-  zone: ZoneDef,
-): PrefabInstanceRow['rotation'] | null {
-  if (!WALL_FACING_PREFAB_IDS.has(prefabDefinitionId(item))) return null;
-  const localX = item.instance.position_x - zone.cx;
-  const localZ = item.instance.position_y - zone.cz;
-  const edges = [
-    { distance: zone.d / 2 + localZ, rotation: 0 }, // near -z edge → face +z
-    { distance: zone.d / 2 - localZ, rotation: 180 }, // near +z edge → face -z
-    { distance: zone.w / 2 + localX, rotation: 90 }, // near -x edge → face +x
-    { distance: zone.w / 2 - localX, rotation: 270 }, // near +x edge → face -x
-  ].sort((a, b) => a.distance - b.distance);
-  const nearest = edges[0];
-  if (!nearest || nearest.distance > WALL_EDGE_THRESHOLD) return null;
-  return nearest.rotation as PrefabInstanceRow['rotation'];
-}
-
-/** A coffee table stranded away from its zone's sofa gets nestled into the
- *  sofa's L-opening. Geometry-driven (works for every seed generation) rather
- *  than exact-coordinate refresh rules, which rot as seeds evolve. */
-const COFFEE_TABLE_GROUPED_DISTANCE = 2.6;
-
-function nestleCoffeeTables(items: readonly ScenePrefabItem[]): readonly ScenePrefabItem[] {
-  const sofaByZone = new Map<string, ScenePrefabItem>();
-  for (const item of items) {
-    if (prefabDefinitionId(item) === 'sofa-set') {
-      sofaByZone.set(extractZoneSlug(item.instance.zone_id), item);
-    }
-  }
-  if (sofaByZone.size === 0) return items;
-  return items.map((item) => {
-    if (prefabDefinitionId(item) !== 'coffee-table') return item;
-    const sofa = sofaByZone.get(extractZoneSlug(item.instance.zone_id));
-    if (!sofa) return item;
-    const dx = item.instance.position_x - sofa.instance.position_x;
-    const dz = item.instance.position_y - sofa.instance.position_y;
-    if (Math.hypot(dx, dz) <= COFFEE_TABLE_GROUPED_DISTANCE) return item;
-    // Centre of the sofa's L-opening in its local frame (clears the built-in
-    // ottoman and both seat arms of RestAreaMesh3D).
-    const [ox, oz] = rotateLocal(-0.2, 0.55, sofa.instance.rotation);
-    return {
-      ...item,
-      instance: {
-        ...item.instance,
-        position_x: sofa.instance.position_x + ox,
-        position_y: sofa.instance.position_y + oz,
-      },
-    };
-  });
-}
-
-function prefabDefinitionId({ instance, definition }: ScenePrefabItem): string {
-  return definition.prefabId ?? instance.prefab_id;
-}
-
-function isSceneWorkstation(item: ScenePrefabItem): boolean {
-  return WORKSTATION_PREFAB_IDS.has(prefabDefinitionId(item));
-}
-
-function near(a: number, b: number): boolean {
-  return Math.abs(a - b) <= LEGACY_POSITION_EPSILON;
-}
-
-function legacyRefreshRuleFor(
-  item: ScenePrefabItem,
-  zone: ZoneDef,
-): LegacyPrefabRefreshRule | null {
-  const rules = LEGACY_SYSTEM_PREFAB_REFRESH[extractZoneSlug(zone.id)];
-  if (!rules) return null;
-  const prefabId = prefabDefinitionId(item);
-  const localX = item.instance.position_x - zone.cx;
-  const localZ = item.instance.position_y - zone.cz;
-  const rotation = ((item.instance.rotation % 360) + 360) % 360;
-  return (
-    rules.find(
-      (rule) =>
-        rule.prefabId === prefabId &&
-        near(localX, rule.from[0]) &&
-        near(localZ, rule.from[1]) &&
-        (rule.fromRotation === undefined || rotation === rule.fromRotation),
-    ) ?? null
-  );
-}
-
-function relaxedScenePrefabs(
-  prefabs: readonly ScenePrefabItem[] | undefined,
-  zones: readonly ZoneDef[],
-): readonly ScenePrefabItem[] | undefined {
-  if (!prefabs) return undefined;
-  const zonesBySlug = new Map(zones.map((zone) => [extractZoneSlug(zone.id), zone]));
-  const refreshed: ScenePrefabItem[] = [];
-
-  for (const item of prefabs) {
-    const zone = zonesBySlug.get(extractZoneSlug(item.instance.zone_id));
-    if (!zone) {
-      refreshed.push(item);
-      continue;
-    }
-    const rule = legacyRefreshRuleFor(item, zone);
-    if (rule && !rule.to) {
-      continue;
-    }
-    const moved = rule?.to
-      ? {
-          ...item,
-          instance: {
-            ...item.instance,
-            position_x: zone.cx + rule.to[0],
-            position_y: zone.cz + rule.to[1],
-            rotation: rule.toRotation ?? item.instance.rotation,
-          },
-        }
-      : item;
-    const interiorRotation = interiorFacingRotation(moved, zone);
-    refreshed.push(
-      interiorRotation !== null && interiorRotation !== moved.instance.rotation
-        ? { ...moved, instance: { ...moved.instance, rotation: interiorRotation } }
-        : moved,
-    );
-  }
-
-  const nestled = nestleCoffeeTables(refreshed);
-
-  const denseWorkspaceSlugs = new Set<string>();
-  const workstationsBySlug = new Map<string, ScenePrefabItem[]>();
-  for (const item of nestled) {
-    const zone = zonesBySlug.get(extractZoneSlug(item.instance.zone_id));
-    if (!zone || zone.archetype !== 'workspace' || !isSceneWorkstation(item)) continue;
-    const slug = extractZoneSlug(zone.id);
-    const items = workstationsBySlug.get(slug) ?? [];
-    items.push(item);
-    workstationsBySlug.set(slug, items);
-  }
-
-  for (const [slug, items] of workstationsBySlug) {
-    if (items.length > (WORKSPACE_SCENE_SLOTS[slug]?.length ?? 2)) {
-      denseWorkspaceSlugs.add(slug);
-    }
-  }
-
-  if (denseWorkspaceSlugs.size === 0) return nestled;
-
-  const workstationRank = new Map<ScenePrefabItem, number>();
-  for (const slug of denseWorkspaceSlugs) {
-    const items = [...(workstationsBySlug.get(slug) ?? [])].sort(
-      (a, b) =>
-        a.instance.position_y - b.instance.position_y ||
-        a.instance.position_x - b.instance.position_x,
-    );
-    items.forEach((item, index) => workstationRank.set(item, index));
-  }
-
-  const out: ScenePrefabItem[] = [];
-  for (const item of nestled) {
-    const zone = zonesBySlug.get(extractZoneSlug(item.instance.zone_id));
-    const slug = zone ? extractZoneSlug(zone.id) : '';
-    const rank = workstationRank.get(item);
-    if (!zone || !denseWorkspaceSlugs.has(slug) || rank === undefined) {
-      out.push(item);
-      continue;
-    }
-    const slot = WORKSPACE_SCENE_SLOTS[slug]?.[rank];
-    if (!slot) continue;
-    out.push({
-      ...item,
-      instance: {
-        ...item.instance,
-        position_x: zone.cx + slot.x,
-        position_y: zone.cz + slot.z,
-        rotation: slot.rotation,
-      },
-    });
-  }
-
-  return out;
-}
-
-function hitTestZone(zones: ZoneDef[], x: number, z: number): ZoneDef | null {
-  for (const zone of zones) {
-    if (
-      x >= zone.cx - zone.w / 2 &&
-      x <= zone.cx + zone.w / 2 &&
-      z >= zone.cz - zone.d / 2 &&
-      z <= zone.cz + zone.d / 2
-    ) {
-      return zone;
-    }
-  }
-  return null;
-}
-
-function groundPointFromClient(
-  clientX: number,
-  clientY: number,
-  element: HTMLCanvasElement,
-  camera: Camera,
-  zones: ZoneDef[],
-): ScenePlacementPoint | null {
-  const rect = element.getBoundingClientRect();
-  if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {
-    return null;
-  }
-  const raycaster = new Raycaster();
-  const plane = new Plane(new Vector3(0, 1, 0), 0);
-  const pointer = new Vector2(
-    ((clientX - rect.left) / rect.width) * 2 - 1,
-    -((clientY - rect.top) / rect.height) * 2 + 1,
-  );
-  const hit = new Vector3();
-  raycaster.setFromCamera(pointer, camera);
-  if (!raycaster.ray.intersectPlane(plane, hit)) return null;
-  return { x: hit.x, z: hit.z, zoneId: hitTestZone(zones, hit.x, hit.z)?.id ?? null };
-}
-
+/** Display-only placed prefab. All editing now lives in StudioScene3D. */
 function ScenePrefabInstance3D({
   instance,
   definition,
-  zones,
-  selected,
-  onSelect,
-  onMove,
-  onHoverZone,
-  onDragState,
 }: {
   instance: PrefabInstanceRow;
   definition: PrefabDefinition;
-  zones: ZoneDef[];
-  selected: boolean;
-  onSelect?: (instanceId: string) => void;
-  onMove?: (move: ScenePrefabMove) => void;
-  onHoverZone: (zoneId: string | null) => void;
-  onDragState: (drag: { instanceId: string } | null) => void;
 }) {
-  const { camera, gl } = useThree();
-  const cleanupRef = useRef<(() => void) | null>(null);
-  const selectionRadius = Math.max(definition.gridSize[0], definition.gridSize[1]) * 0.55;
-
-  useEffect(
-    () => () => {
-      cleanupRef.current?.();
-    },
-    [],
-  );
-
-  const beginDrag = (event: PointerEvent) => {
-    if (!onMove) return;
-
-    cleanupRef.current?.();
-
-    const pointerId = event.pointerId;
-    const startX = event.clientX;
-    const startY = event.clientY;
-    let moved = false;
-    let complete = false;
-
-    const releasePointer = () => {
-      try {
-        gl.domElement.releasePointerCapture(pointerId);
-      } catch {
-        // Pointer capture is best-effort; Safari/WebView can already release it on pointerup.
-      }
-    };
-
-    const cleanup = () => {
-      if (complete) return;
-      complete = true;
-      window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerup', onPointerUp);
-      window.removeEventListener('pointercancel', onPointerCancel);
-      window.removeEventListener('mouseup', onMouseUp);
-      document.removeEventListener('pointerup', onPointerUp);
-      document.removeEventListener('pointercancel', onPointerCancel);
-      document.removeEventListener('mouseup', onMouseUp);
-      gl.domElement.removeEventListener('pointerup', onPointerUp);
-      gl.domElement.removeEventListener('pointercancel', onPointerCancel);
-      gl.domElement.removeEventListener('mouseup', onMouseUp);
-      releasePointer();
-      document.body.style.cursor = '';
-      onHoverZone(null);
-      onDragState(null);
-      cleanupRef.current = null;
-    };
-
-    const toGround = (e: PointerEvent | MouseEvent) =>
-      groundPointFromClient(e.clientX, e.clientY, gl.domElement, camera, zones);
-
-    const onPointerMove = (e: PointerEvent) => {
-      e.preventDefault();
-      if (Math.hypot(e.clientX - startX, e.clientY - startY) > 5) moved = true;
-      onHoverZone(moved ? (toGround(e)?.zoneId ?? null) : null);
-    };
-
-    const finishDrop = (e: PointerEvent | MouseEvent) => {
-      e.preventDefault();
-      const point = moved ? toGround(e) : null;
-      if (moved && point?.zoneId) {
-        onMove({
-          instanceId: instance.instance_id,
-          zoneId: point.zoneId,
-          x: point.x,
-          z: point.z,
-        });
-      }
-      cleanup();
-    };
-
-    const onPointerUp = (e: PointerEvent) => finishDrop(e);
-    const onMouseUp = (e: MouseEvent) => finishDrop(e);
-    const onPointerCancel = () => {
-      cleanup();
-    };
-
-    try {
-      gl.domElement.setPointerCapture(pointerId);
-    } catch {
-      // Pointer capture is best-effort; the window listeners still own the drag lifecycle.
-    }
-
-    onSelect?.(instance.instance_id);
-    onDragState({ instanceId: instance.instance_id });
-    document.body.style.cursor = 'grabbing';
-    cleanupRef.current = cleanup;
-    window.addEventListener('pointermove', onPointerMove, { passive: false });
-    window.addEventListener('pointerup', onPointerUp);
-    window.addEventListener('pointercancel', onPointerCancel);
-    window.addEventListener('mouseup', onMouseUp);
-    document.addEventListener('pointerup', onPointerUp);
-    document.addEventListener('pointercancel', onPointerCancel);
-    document.addEventListener('mouseup', onMouseUp);
-    gl.domElement.addEventListener('pointerup', onPointerUp);
-    gl.domElement.addEventListener('pointercancel', onPointerCancel);
-    gl.domElement.addEventListener('mouseup', onMouseUp);
-  };
-
   return (
     // SCENE_CONTENT_SCALE lives on the placement group (not a single scene-wide
     // root) on purpose: `position` stays in stored authoring coordinates while
-    // the drag/placement raycaster hits the world-space y=0 plane, so scaling
-    // here keeps stored coords == world coords. A shared scaled root would force
-    // every ground hit to be divided by the scale to round-trip into storage.
-    // biome-ignore lint/a11y/useKeyWithClickEvents: r3f raycaster on a 3D prefab; editable prefab selection is also reachable through Studio inspector controls
+    // ground raycasts hit the world-space y=0 plane, so scaling here keeps
+    // stored coords == world coords.
     <group
       position={[instance.position_x, 0, instance.position_y]}
       rotation={[0, (instance.rotation * Math.PI) / 180, 0]}
       scale={SCENE_CONTENT_SCALE}
-      onClick={(e) => {
-        if (!onSelect) return;
-        e.stopPropagation();
-        onSelect(instance.instance_id);
-      }}
-      onPointerDown={(e) => {
-        if (!onMove) return;
-        e.stopPropagation();
-        e.nativeEvent.stopImmediatePropagation();
-        e.nativeEvent.preventDefault();
-        beginDrag(e.nativeEvent);
-      }}
-      onPointerOver={(e) => {
-        if (!onSelect && !onMove) return;
-        e.stopPropagation();
-        document.body.style.cursor = onMove ? 'grab' : 'pointer';
-      }}
-      onPointerOut={() => {
-        if (!cleanupRef.current) document.body.style.cursor = '';
-      }}
     >
-      {selected ? (
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.065, 0]}>
-          <ringGeometry args={[selectionRadius, selectionRadius + 0.16, 56]} />
-          <meshBasicMaterial color={LIGHT_SCENE_3D.selectionRing} transparent opacity={0.78} />
-        </mesh>
-      ) : null}
       <Prefab3D definition={definition} />
     </group>
   );
 }
-
-function PlacementController({
-  zones,
-  onHover,
-  onPick,
-}: {
-  zones: ZoneDef[];
-  onHover: (zoneId: string | null) => void;
-  onPick: (point: ScenePlacementPoint) => void;
-}) {
-  const { camera, gl } = useThree();
-  useEffect(() => {
-    const el = gl.domElement;
-    const raycaster = new Raycaster();
-    const plane = new Plane(new Vector3(0, 1, 0), 0);
-    const pointer = new Vector2();
-    const hit = new Vector3();
-    let start: { x: number; y: number } | null = null;
-    const toGround = (e: PointerEvent): ScenePlacementPoint | null => {
-      const rect = el.getBoundingClientRect();
-      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-      raycaster.setFromCamera(pointer, camera);
-      if (!raycaster.ray.intersectPlane(plane, hit)) return null;
-      return { x: hit.x, z: hit.z, zoneId: hitTestZone(zones, hit.x, hit.z)?.id ?? null };
-    };
-    const onPointerDown = (e: PointerEvent) => {
-      start = { x: e.clientX, y: e.clientY };
-    };
-    const onPointerMove = (e: PointerEvent) => {
-      onHover(toGround(e)?.zoneId ?? null);
-    };
-    const onPointerUp = (e: PointerEvent) => {
-      if (!start || Math.hypot(e.clientX - start.x, e.clientY - start.y) > 5) return;
-      const point = toGround(e);
-      if (point) onPick(point);
-    };
-    el.addEventListener('pointerdown', onPointerDown);
-    el.addEventListener('pointermove', onPointerMove);
-    el.addEventListener('pointerup', onPointerUp);
-    el.style.cursor = 'crosshair';
-    return () => {
-      el.removeEventListener('pointerdown', onPointerDown);
-      el.removeEventListener('pointermove', onPointerMove);
-      el.removeEventListener('pointerup', onPointerUp);
-      el.style.cursor = '';
-      onHover(null);
-    };
-  }, [camera, gl, zones, onHover, onPick]);
-  return null;
-}
-
-function ExternalPlacementController({
-  zones,
-  probe,
-  onHover,
-  onPick,
-}: {
-  zones: ZoneDef[];
-  probe: ScenePlacementProbe | null;
-  onHover: (zoneId: string | null) => void;
-  onPick: (point: ScenePlacementPoint) => void;
-}) {
-  const { camera, gl } = useThree();
-  const lastCommitIdRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (!probe?.active) {
-      onHover(null);
-      return;
-    }
-    const point = groundPointFromClient(probe.clientX, probe.clientY, gl.domElement, camera, zones);
-    onHover(point?.zoneId ?? null);
-  }, [camera, gl, onHover, probe?.active, probe?.clientX, probe?.clientY, zones]);
-
-  useEffect(() => {
-    if (!probe?.commitId) return;
-    if (lastCommitIdRef.current === probe.commitId) return;
-    lastCommitIdRef.current = probe.commitId;
-    const point = groundPointFromClient(probe.clientX, probe.clientY, gl.domElement, camera, zones);
-    if (point) onPick(point);
-    onHover(null);
-  }, [camera, gl, onHover, onPick, probe?.commitId, probe, zones]);
-  return null;
-}
-
-/** Suspended linear luminaire over each zone — gives the room a ceiling line
- *  and per-zone identity without any actual light cost (emissive only).
- *  Memoized: `zone` is referentially stable, and drag pointermoves re-render
- *  the whole Canvas tree per event. */
-const ZoneCeilingLight = memo(function ZoneCeilingLight({ zone }: { zone: ZoneDef }) {
-  const length = Math.min(zone.w * 0.55, 7.2);
-  // No castShadow anywhere here: a shadow-casting bar at y≈3.7 would paint a
-  // hard dark stripe across the zone floor.
-  return (
-    <group position={[zone.cx, 0, zone.cz]}>
-      {[-1, 1].map((side) => (
-        <mesh key={`pendant-rod-${side}`} position={[side * length * 0.36, 4.34, 0]}>
-          <cylinderGeometry args={[0.014, 0.014, 1.32, 6]} />
-          <SceneMaterial materialClass="metal" color={LIGHT_SCENE_3D.wallTrim} />
-        </mesh>
-      ))}
-      <mesh position={[0, 3.7, 0]}>
-        <boxGeometry args={[length, 0.055, 0.24]} />
-        <SceneMaterial materialClass="metal" color={LIGHT_SCENE_3D.furnitureLight} />
-      </mesh>
-      {/* Glow tube proud of the housing on all faces, so the fixture reads lit
-          from above, the side, and below. */}
-      <mesh position={[0, 3.665, 0]}>
-        <boxGeometry args={[length * 0.94, 0.045, 0.16]} />
-        <EmissiveMaterial color={LIGHT_SCENE_3D.whiteboardSurface} tier="signage" intensity={0.8} />
-      </mesh>
-    </group>
-  );
-});
-
-/** Zone floor rug, border strips, and label. Memoized like ZoneCeilingLight —
- *  only the zone being hovered/highlighted re-renders during drags. */
-const ZoneRug = memo(function ZoneRug({
-  zone,
-  highlight = false,
-}: { zone: ZoneDef; highlight?: boolean }) {
-  const borderOpacity = highlight ? 0.86 : 0.42;
-  const rugOpacity = highlight ? 0.48 : zone.archetype === 'server' ? 0.62 : 0.56;
-  const showGlass =
-    zone.archetype === 'meeting' || zone.archetype === 'server' || zone.archetype === 'library';
-  const labelZ =
-    zone.archetype === 'meeting' || zone.archetype === 'server'
-      ? -zone.d / 2 + 0.68
-      : zone.d / 2 - 0.68;
-  const labelX =
-    zone.archetype === 'meeting' || zone.archetype === 'library'
-      ? -zone.w / 2 + 4.2
-      : -zone.w / 2 + 0.72;
-  const borderStrips: [number, number, number, number][] = [
-    [0, -zone.d / 2, zone.w, 0.07],
-    [0, zone.d / 2, zone.w, 0.07],
-    [-zone.w / 2, 0, 0.07, zone.d],
-    [zone.w / 2, 0, 0.07, zone.d],
-  ];
-  return (
-    <group position={[zone.cx, 0, zone.cz]}>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.022, 0]} receiveShadow>
-        <planeGeometry args={[zone.w, zone.d]} />
-        <SceneMaterial
-          materialClass={zone.archetype === 'server' ? 'rubber' : 'carpet'}
-          color={highlight ? LIGHT_SCENE_3D.selectionRing : zoneTint(zone.archetype)}
-          overrides={{
-            roughness: zone.archetype === 'server' ? 0.86 : 0.95,
-            transparent: true,
-            opacity: rugOpacity,
-          }}
-        />
-      </mesh>
-      {borderStrips.map(([x, z, w, d]) => (
-        <mesh key={`zone-border-${x}-${z}`} position={[x, 0.044, z]} receiveShadow>
-          <boxGeometry args={[w, 0.032, d]} />
-          <SceneMaterial
-            materialClass="rubber"
-            color={highlight ? LIGHT_SCENE_3D.selectionRing : LIGHT_SCENE_3D.floorBorder}
-            overrides={{ transparent: true, opacity: borderOpacity, roughness: 0.82 }}
-          />
-        </mesh>
-      ))}
-      {showGlass ? (
-        <mesh position={[0, 0.62, -zone.d / 2 + 0.1]} castShadow receiveShadow>
-          <boxGeometry args={[zone.w * 0.82, 1.18, 0.045]} />
-          <SceneMaterial
-            materialClass="glass"
-            color={LIGHT_SCENE_3D.partition}
-            overrides={{ transparent: true, opacity: 0.2, roughness: 0.16, thickness: 0.05 }}
-          />
-        </mesh>
-      ) : null}
-      {highlight ? (
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
-          <ringGeometry
-            args={[Math.min(zone.w, zone.d) / 2 - 0.3, Math.min(zone.w, zone.d) / 2, 48]}
-          />
-          <meshBasicMaterial color={LIGHT_SCENE_3D.selectionRing} transparent opacity={0.7} />
-        </mesh>
-      ) : null}
-      <Html
-        position={[labelX, 0.1, labelZ]}
-        center={false}
-        distanceFactor={12}
-        occlude={false}
-        className="off-scene-html-passive"
-      >
-        <span className="off-scene-zone-label">{zone.label}</span>
-      </Html>
-    </group>
-  );
-});
 
 function EmployeeUnit({
   employee,
@@ -1098,6 +363,7 @@ function EmployeeUnit({
           center
           distanceFactor={18}
           occlude={false}
+          zIndexRange={[2, 0]}
           className={labelInteractive ? 'off-scene-html-interactive' : 'off-scene-html-passive'}
         >
           {labelInteractive ? (
@@ -1184,6 +450,7 @@ function EmployeeDragGhost({ employee, drag }: { employee: Employee; drag: Scene
           center
           distanceFactor={17}
           occlude={false}
+          zIndexRange={[2, 0]}
           className="off-scene-html-passive"
         >
           <span className="off-scene-drag-chip">Move</span>
@@ -1200,6 +467,7 @@ function SceneDropNoticeLabel({ notice }: { notice: SceneDropNotice }) {
       center
       distanceFactor={18}
       occlude={false}
+      zIndexRange={[2, 0]}
       className="off-scene-html-passive"
     >
       <span className="off-scene-drop-note">{notice.message}</span>
@@ -1231,14 +499,7 @@ function FallbackFurniture() {
   );
 }
 
-export function OfficeScene3D({
-  placementEnabled = false,
-  placementProbe = null,
-  onPlacementPoint,
-  selectedPrefabId = null,
-  onPrefabSelect,
-  onPrefabMove,
-}: OfficeScene3DProps) {
+export function OfficeScene3D() {
   const companyId = useUiState((s) => s.companyId);
   const projectId = useUiState((s) => s.projectId);
   const selectedThreadId = useUiState((s) => s.selectedThreadId);
@@ -1250,9 +511,7 @@ export function OfficeScene3D({
   const layout = useOfficeLayout(companyId);
   const reassign = useReassignEmployee();
   const [employeeDrag, setEmployeeDrag] = useState<SceneEmployeeDrag | null>(null);
-  const [prefabDrag, setPrefabDrag] = useState<{ instanceId: string } | null>(null);
   const [hoveredZoneId, setHoveredZoneId] = useState<string | null>(null);
-  const [placementZoneId, setPlacementZoneId] = useState<string | null>(null);
   const [dropNotice, setDropNotice] = useState<SceneDropNotice | null>(null);
 
   const real = layout.data ?? null;
@@ -1265,10 +524,7 @@ export function OfficeScene3D({
   // OfficeStage owns the "No office layout yet" overlay (so Studio mounts of
   // this scene never see it); here zero zones just means zero seats.
   const emptyOffice = zoneDefs.length === 0;
-  const scenePrefabs = useMemo(
-    () => relaxedScenePrefabs(real?.prefabs, zoneDefs),
-    [real?.prefabs, zoneDefs],
-  );
+  const scenePrefabs = real?.prefabs;
 
   const defaultEmployeeZone = useMemo(() => resolveDefaultEmployeeZone(zoneDefs), [zoneDefs]);
 
@@ -1313,38 +569,17 @@ export function OfficeScene3D({
 
         <SceneLighting />
         <SceneEnvironment />
-        <RoomShell onFloorClick={placementEnabled ? undefined : closeThread} />
+        <RoomShell onFloorClick={closeThread} />
 
         {zoneDefs.map((zone) => (
           <Fragment key={zone.id}>
             <ZoneRug
               zone={zone}
-              highlight={
-                (employeeDrag !== null && hoveredZoneId === zone.id) ||
-                (prefabDrag !== null && hoveredZoneId === zone.id) ||
-                (placementEnabled && placementZoneId === zone.id)
-              }
+              highlight={employeeDrag !== null && hoveredZoneId === zone.id}
             />
             <ZoneCeilingLight zone={zone} />
           </Fragment>
         ))}
-
-        {placementEnabled && onPlacementPoint ? (
-          <PlacementController
-            zones={zoneDefs}
-            onHover={setPlacementZoneId}
-            onPick={onPlacementPoint}
-          />
-        ) : null}
-
-        {placementProbe && onPlacementPoint ? (
-          <ExternalPlacementController
-            zones={zoneDefs}
-            probe={placementProbe}
-            onHover={setPlacementZoneId}
-            onPick={onPlacementPoint}
-          />
-        ) : null}
 
         {real ? (
           scenePrefabs?.map(({ instance, definition }) => (
@@ -1352,12 +587,6 @@ export function OfficeScene3D({
               key={instance.instance_id}
               instance={instance}
               definition={definition}
-              zones={zoneDefs}
-              selected={selectedPrefabId === instance.instance_id}
-              onSelect={onPrefabSelect}
-              onMove={onPrefabMove}
-              onHoverZone={setHoveredZoneId}
-              onDragState={setPrefabDrag}
             />
           ))
         ) : (
@@ -1433,7 +662,7 @@ export function OfficeScene3D({
         <OrbitControls
           makeDefault
           target={OFFICE_CAMERA_PRESET.target}
-          enabled={!employeeDrag && !prefabDrag && !placementEnabled}
+          enabled={!employeeDrag}
           enableRotate
           enablePan
           enableDamping

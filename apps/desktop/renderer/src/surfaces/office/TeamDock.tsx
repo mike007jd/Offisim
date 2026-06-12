@@ -225,29 +225,37 @@ function EmployeeDockPopover({
           {employee.disabled ? 'Enable' : 'Disable'}
         </Button>
       </div>
-      <details className="off-team-zone-picker" aria-label="Move employee">
-        <summary className="off-team-zone-summary">
-          <span className="off-team-zone-title">
-            <Icon icon={MapPin} size="sm" />
-            Move to
-          </span>
-          <span className="off-team-zone-current">{currentZoneLabel ?? 'Unassigned'}</span>
-          <Icon icon={ChevronDown} size="sm" className="off-team-zone-caret" />
-        </summary>
-        <div className="off-team-zone-grid">
-          {zones.map((zone) => (
-            <Button
-              key={zone.id}
-              size="sm"
-              variant={zone.id === currentZoneId ? 'accentSoft' : 'outline'}
-              disabled={assigning}
-              onClick={() => onAssignZone(zone.id)}
-            >
-              {zone.label}
-            </Button>
-          ))}
-        </div>
-      </details>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            size="sm"
+            variant="outline"
+            className="off-team-zone-trigger"
+            disabled={assigning || zones.length === 0}
+            aria-label="Move employee"
+          >
+            <span className="off-team-zone-title">
+              <Icon icon={MapPin} size="sm" />
+              Move to
+            </span>
+            <span className="off-team-zone-current">{currentZoneLabel ?? 'Unassigned'}</span>
+            <Icon icon={ChevronDown} size="sm" className="off-team-zone-caret" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" sideOffset={6}>
+          <DropdownMenuLabel>Move to zone</DropdownMenuLabel>
+          <DropdownMenuRadioGroup
+            value={currentZoneId ?? ''}
+            onValueChange={(zoneId) => onAssignZone(zoneId)}
+          >
+            {zones.map((zone) => (
+              <DropdownMenuRadioItem key={zone.id} value={zone.id}>
+                {zone.label}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

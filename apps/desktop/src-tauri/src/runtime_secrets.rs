@@ -160,7 +160,6 @@ pub(crate) fn read_provider_secret(secret_ref: Option<&str>) -> Result<Option<St
     let env_name = match secret_ref {
         "minimax" => "MINIMAX_API_KEY",
         "zai" => "ZAI_API_KEY",
-        "openrouter" => "OPENROUTER_API_KEY",
         _ => return read_secret_raw(),
     };
     match env_or_local(env_name) {
@@ -396,15 +395,6 @@ pub fn runtime_provider_profiles() -> Result<Vec<RuntimeProviderProfile>, String
             "ZAI_MODEL",
             "ZAI_BASE_URL",
             "ZAI_API_KEY",
-            None,
-        ),
-        profile_from_env(
-            "openrouter",
-            "OpenRouter",
-            "openai-compat",
-            "OPENROUTER_MODEL",
-            "OPENROUTER_BASE_URL",
-            "OPENROUTER_API_KEY",
             None,
         ),
     ]

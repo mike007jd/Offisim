@@ -1,8 +1,9 @@
+import { resolveNonOverlappingPrefabOffsets } from './prefab-spatial.js';
 import type { ZonePresetPrefab } from './zone-presets.js';
 import { extractZoneSlug } from './zone-resolution.js';
 import type { SystemZoneTemplate, Zone, ZoneArchetype } from './zone.js';
 
-export const SYSTEM_PREFAB_LAYOUT_VERSION = 2026061001;
+export const SYSTEM_PREFAB_LAYOUT_VERSION = 2026061203;
 
 export interface SystemZonePrefabLayoutInput {
   readonly slug?: string;
@@ -80,9 +81,30 @@ function workspaceLayout(
   ];
 }
 
-function utilityLayout(archetype: ZoneArchetype | null): readonly ZonePresetPrefab[] {
+interface ZonePrefabLayoutBounds {
+  readonly w: number;
+  readonly d: number;
+}
+
+function compactZone(bounds: ZonePrefabLayoutBounds | null, minW: number, minD: number): boolean {
+  return Boolean(bounds && (bounds.w < minW || bounds.d < minD));
+}
+
+function utilityLayout(
+  archetype: ZoneArchetype | null,
+  bounds: ZonePrefabLayoutBounds | null,
+): readonly ZonePresetPrefab[] {
   switch (archetype) {
     case 'library':
+      if (compactZone(bounds, 10, 7)) {
+        return [
+          placement('bookshelf-double', -2.7, -2.05, 0),
+          placement('bookshelf-double', 2.7, -2.05, 0),
+          placement('reading-table', 0, 1.15, 0),
+          placement('chair-standalone', -2.1, 2.55, 0),
+          placement('chair-standalone', 2.1, 2.55, 0),
+        ];
+      }
       return [
         placement('bookshelf-double', -5.4, -2.55, 0),
         placement('bookshelf-double', 5.4, -2.55, 0),
@@ -92,14 +114,22 @@ function utilityLayout(archetype: ZoneArchetype | null): readonly ZonePresetPref
         placement('plant-large', -5.4, 2.7),
       ];
     case 'rest':
+      if (compactZone(bounds, 10, 7)) {
+        return [placement('sofa-set', -0.9, -0.75, 0), placement('water-cooler', 3.1, -2.15, 0)];
+      }
       return [
         placement('sofa-set', -2.8, -0.75, 0),
-        // Coffee table nests in the sofa's L-opening.
-        placement('coffee-table', -1.05, 0.55, 0),
         placement('water-cooler', 5.15, -2.75, 0),
         placement('plant-large', -5.45, -2.85),
       ];
     case 'meeting':
+      if (compactZone(bounds, 12, 7)) {
+        return [
+          placement('meeting-table-4', 0, 0.3, 0),
+          placement('whiteboard', 0, -2.7, 0),
+          placement('status-board', 3.1, 1.7, 270),
+        ];
+      }
       return [
         placement('meeting-table-8', 0, 0.5, 0),
         placement('whiteboard', 0, -2.9, 0),
@@ -107,6 +137,13 @@ function utilityLayout(archetype: ZoneArchetype | null): readonly ZonePresetPref
         placement('plant-large', -5.45, 2.45),
       ];
     case 'server':
+      if (compactZone(bounds, 8, 6)) {
+        return [
+          placement('server-rack-4u', -1.4, -0.7, 0),
+          placement('server-rack-2u', 1.4, -0.7, 0),
+          placement('network-switch', 0, 1.8, 0),
+        ];
+      }
       return [
         placement('server-rack-4u', -4.2, -0.4, 0),
         placement('server-rack-2u', 0, -0.4, 0),
@@ -119,10 +156,17 @@ function utilityLayout(archetype: ZoneArchetype | null): readonly ZonePresetPref
   }
 }
 
+function hasZoneBounds(
+  zone: SystemZoneTemplate | Zone | SystemZonePrefabLayoutInput,
+): zone is (SystemZoneTemplate | Zone) & { readonly w: number; readonly d: number } {
+  return 'w' in zone && typeof zone.w === 'number' && 'd' in zone && typeof zone.d === 'number';
+}
+
 export function getSystemZoneDefaultPrefabs(
   zone: SystemZoneTemplate | Zone | SystemZonePrefabLayoutInput,
   options: { occupiedSeats?: number } = {},
 ): readonly ZonePresetPrefab[] {
+  const bounds = hasZoneBounds(zone) ? zone : null;
   const slug =
     'slug' in zone && zone.slug
       ? zone.slug
@@ -130,7 +174,10 @@ export function getSystemZoneDefaultPrefabs(
         ? extractZoneSlug(zone.zoneId)
         : '';
   if (zone.archetype === 'workspace') {
-    return workspaceLayout(slug, zone.deskSlots ?? 4, options.occupiedSeats);
+    return resolveNonOverlappingPrefabOffsets(
+      workspaceLayout(slug, zone.deskSlots ?? 4, options.occupiedSeats),
+      bounds,
+    );
   }
-  return utilityLayout(zone.archetype);
+  return resolveNonOverlappingPrefabOffsets(utilityLayout(zone.archetype, bounds), bounds);
 }

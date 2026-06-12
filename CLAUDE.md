@@ -40,10 +40,23 @@ area; spacing belongs inside panels, rails, and toolbar regions.
   external A2A and unverified model transports must not masquerade as local
   tool executors.
 
+## AI Provider Policy (hard rule)
+
+- OpenRouter may stay visible in the provider list / catalog, and the user may
+  manually save an OpenRouter key in Settings. Do not auto-create runtime
+  profiles from `OPENROUTER_*` environment variables, do not read OpenRouter
+  keys from env, and do not recommend OpenRouter models by default.
+- Testing "OpenAI" or "Anthropic" lanes always goes through the
+  openai-compatible / anthropic-compatible endpoints of z.ai or MiniMax (both
+  publish official compat docs). Never test against real OpenAI/Anthropic keys
+  and never recommend buying them.
+- Settings provider presentation is OpenAI-first for polish; actual chat
+  routing stays credential-based (z.ai / MiniMax).
+
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **Offisim** (15415 symbols, 26860 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **Offisim** (15523 symbols, 27093 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

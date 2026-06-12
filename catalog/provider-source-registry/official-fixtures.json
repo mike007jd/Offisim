@@ -20,7 +20,9 @@
       "providerTransport": "anthropic",
       "authMode": "api-key",
       "defaultModel": "claude-opus-4-8",
-      "communityAliases": ["anthropic"],
+      "communityAliases": [
+        "anthropic"
+      ],
       "lastVerifiedAt": "2026-06-02",
       "sourceUrl": "https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions",
       "models": {
@@ -70,7 +72,9 @@
       "authMode": "api-key",
       "baseURL": "https://api.deepseek.com/v1",
       "defaultModel": "deepseek-v4-pro",
-      "communityAliases": ["deepseek"],
+      "communityAliases": [
+        "deepseek"
+      ],
       "lastVerifiedAt": "2026-06-02",
       "sourceUrl": "https://api-docs.deepseek.com/quick_start/pricing",
       "models": {
@@ -99,7 +103,9 @@
       "authMode": "api-key",
       "baseURL": "https://generativelanguage.googleapis.com/v1beta/openai",
       "defaultModel": "gemini-3.5-flash",
-      "communityAliases": ["gemini"],
+      "communityAliases": [
+        "gemini"
+      ],
       "lastVerifiedAt": "2026-06-02",
       "sourceUrl": "https://ai.google.dev/gemini-api/docs/models",
       "models": {
@@ -123,7 +129,9 @@
       "authMode": "api-key",
       "baseURL": "https://api.moonshot.cn/anthropic",
       "defaultModel": "kimi-k2.6",
-      "communityAliases": ["moonshot"],
+      "communityAliases": [
+        "moonshot"
+      ],
       "lastVerifiedAt": "2026-06-02",
       "sourceUrl": "https://platform.moonshot.cn/docs",
       "models": {
@@ -147,7 +155,9 @@
       "authMode": "api-key",
       "baseURL": "https://api.moonshot.cn/v1",
       "defaultModel": "kimi-k2.6",
-      "communityAliases": ["moonshot"],
+      "communityAliases": [
+        "moonshot"
+      ],
       "lastVerifiedAt": "2026-06-02",
       "sourceUrl": "https://platform.moonshot.cn/docs",
       "models": {
@@ -171,7 +181,9 @@
       "authMode": "api-key",
       "baseURL": "https://api.moonshot.ai/v1",
       "defaultModel": "kimi-k2.6",
-      "communityAliases": ["moonshot"],
+      "communityAliases": [
+        "moonshot"
+      ],
       "lastVerifiedAt": "2026-06-02",
       "sourceUrl": "https://platform.moonshot.ai/docs",
       "models": {
@@ -214,8 +226,12 @@
       "authMode": "api-key",
       "baseURL": "https://api.minimaxi.com/anthropic",
       "defaultModel": "MiniMax-M3",
-      "communityAliases": ["minimax"],
-      "supportedEndpoints": ["messages"],
+      "communityAliases": [
+        "minimax"
+      ],
+      "supportedEndpoints": [
+        "messages"
+      ],
       "lastVerifiedAt": "2026-06-02",
       "sourceUrl": "https://platform.minimaxi.com/document/text-anthropic-api",
       "models": {
@@ -239,8 +255,12 @@
       "authMode": "api-key",
       "baseURL": "https://api.minimax.io/anthropic",
       "defaultModel": "MiniMax-M3",
-      "communityAliases": ["minimax"],
-      "supportedEndpoints": ["messages"],
+      "communityAliases": [
+        "minimax"
+      ],
+      "supportedEndpoints": [
+        "messages"
+      ],
       "lastVerifiedAt": "2026-06-06",
       "sourceUrl": "https://platform.minimax.io/docs/api-reference/text-anthropic-api",
       "models": {
@@ -264,8 +284,13 @@
       "authMode": "api-key",
       "baseURL": "https://api.minimax.io/v1",
       "defaultModel": "MiniMax-M3",
-      "communityAliases": ["minimax"],
-      "supportedEndpoints": ["chat_completions", "responses"],
+      "communityAliases": [
+        "minimax"
+      ],
+      "supportedEndpoints": [
+        "chat_completions",
+        "responses"
+      ],
       "lastVerifiedAt": "2026-06-06",
       "sourceUrl": "https://platform.minimax.io/docs/token-plan/codex",
       "models": {
@@ -292,7 +317,9 @@
       "providerTransport": "openai",
       "authMode": "api-key",
       "defaultModel": "gpt-5.5",
-      "communityAliases": ["openai"],
+      "communityAliases": [
+        "openai"
+      ],
       "lastVerifiedAt": "2026-06-02",
       "sourceUrl": "https://developers.openai.com/api/docs/models/gpt-5.5",
       "models": {
@@ -320,7 +347,9 @@
       "authMode": "api-key",
       "baseURL": "https://openrouter.ai/api/v1",
       "defaultModel": "google/gemma-4-31b-it:free",
-      "communityAliases": ["openrouter"],
+      "communityAliases": [
+        "openrouter"
+      ],
       "lastVerifiedAt": "2026-06-02",
       "sourceUrl": "https://openrouter.ai/models",
       "models": {
@@ -344,23 +373,33 @@
       "authMode": "api-key",
       "baseURL": "https://api.z.ai/api/anthropic",
       "defaultModel": "glm-5.1",
-      "communityAliases": ["zai"],
-      "supportedEndpoints": ["messages"],
+      "communityAliases": [
+        "zai"
+      ],
+      "supportedEndpoints": [
+        "messages"
+      ],
       "lastVerifiedAt": "2026-06-06",
       "sourceUrl": "https://docs.z.ai/devpack/tool/claude",
       "models": {
         "glm-5.1": {
-          "communityAliases": ["glm-5.1"],
+          "communityAliases": [
+            "glm-5.1"
+          ],
           "displayName": "GLM 5.1",
           "status": "current"
         },
         "GLM-4.7": {
-          "communityAliases": ["glm-4.7"],
+          "communityAliases": [
+            "glm-4.7"
+          ],
           "displayName": "GLM 4.7 (legacy)",
           "status": "legacy"
         },
         "GLM-4.5-Air": {
-          "communityAliases": ["glm-4.5-air"],
+          "communityAliases": [
+            "glm-4.5-air"
+          ],
           "displayName": "GLM 4.5 Air (legacy)",
           "status": "legacy"
         }
@@ -376,8 +415,12 @@
       "authMode": "api-key",
       "baseURL": "https://api.z.ai/api/coding/paas/v4",
       "defaultModel": "glm-5.1",
-      "communityAliases": ["zai"],
-      "supportedEndpoints": ["chat_completions"],
+      "communityAliases": [
+        "zai"
+      ],
+      "supportedEndpoints": [
+        "chat_completions"
+      ],
       "lastVerifiedAt": "2026-06-06",
       "sourceUrl": "https://docs.z.ai/guides/llm/glm-5.1",
       "models": {
@@ -401,8 +444,12 @@
       "authMode": "api-key",
       "baseURL": "https://api.z.ai/api/paas/v4",
       "defaultModel": "glm-5.1",
-      "communityAliases": ["zai"],
-      "supportedEndpoints": ["chat_completions"],
+      "communityAliases": [
+        "zai"
+      ],
+      "supportedEndpoints": [
+        "chat_completions"
+      ],
       "lastVerifiedAt": "2026-06-06",
       "sourceUrl": "https://docs.z.ai/api-reference/llm/chat-completion",
       "models": {

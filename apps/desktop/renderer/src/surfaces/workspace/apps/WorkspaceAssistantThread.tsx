@@ -202,6 +202,36 @@ function DeliverableInline({
   );
 }
 
+/** Bouncing-dot typing indicator shown between send and the first streamed
+ *  token, shaped like an incoming employee message row. */
+function ThinkingRow({ employee }: { employee: Employee | null }) {
+  return (
+    <div className="off-ws-msg-row" aria-live="polite">
+      <div className="off-ws-msg-from">
+        {employee ? (
+          <EmployeeAvatar
+            seed={employee.id}
+            appearance={employee.appearance}
+            colorA={employee.avatarA}
+            colorB={employee.avatarB}
+            size={22}
+            brand={employee.kind === 'external'}
+          />
+        ) : null}
+        <span className="off-ws-msg-nm">{employee?.name ?? 'Team'}</span>
+        <span className="off-ws-msg-rl">thinking…</span>
+      </div>
+      <div className="off-ws-bubble is-thinking">
+        <span className="off-ws-thinking-dots" aria-label="Employee is thinking">
+          <i />
+          <i />
+          <i />
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function MessageRow({
   message,
   byId,
@@ -298,6 +328,8 @@ export function WorkspaceAssistantThread({
 }) {
   const [drafts, setDrafts] = useState<WsMessage[]>([]);
   const [isSending, setIsSending] = useState(false);
+  // True between send and the first streamed token — drives the typing indicator.
+  const [awaitingReply, setAwaitingReply] = useState(false);
   const requestIdRef = useRef<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -405,6 +437,7 @@ export function WorkspaceAssistantThread({
       const controller = new AbortController();
       abortControllerRef.current = controller;
       setIsSending(true);
+      setAwaitingReply(true);
       try {
         await persistWorkspaceMessage({
           threadId: active.id,
@@ -442,7 +475,8 @@ export function WorkspaceAssistantThread({
           timeLabel: workspaceTimeLabel(),
           body,
         });
-        const upsertDraft = (body: string, mode: 'append' | 'set') =>
+        const upsertDraft = (body: string, mode: 'append' | 'set') => {
+          setAwaitingReply(false);
           setDrafts((prev) => {
             const existing = prev.find((draft) => draft.id === streamDraftId);
             if (!existing) return [...prev, makeAssistantDraft(body)];
@@ -451,6 +485,7 @@ export function WorkspaceAssistantThread({
               draft.id === streamDraftId ? { ...draft, body: nextBody } : draft,
             );
           });
+        };
         const unsubscribe = subscribeReplyStream(runtimeEventBus, active.id, (chunk) =>
           upsertDraft(chunk, 'append'),
         );
@@ -502,6 +537,7 @@ export function WorkspaceAssistantThread({
           projectId,
         }).catch(() => undefined);
       } finally {
+        setAwaitingReply(false);
         if (!controller.signal.aborted) {
           requestIdRef.current = null;
           abortControllerRef.current = null;
@@ -523,6 +559,7 @@ export function WorkspaceAssistantThread({
   const onCancel = useCallback(async () => {
     abortInFlight();
     setIsSending(false);
+    setAwaitingReply(false);
   }, [abortInFlight]);
   const runtime = useExternalStoreRuntime({
     messages: runtimeMessages,
@@ -558,26 +595,19 @@ export function WorkspaceAssistantThread({
                   ) : null;
                 }}
               </ThreadPrimitive.Messages>
+              {awaitingReply ? (
+                <ThinkingRow
+                  employee={active.employeeId ? (byId.get(active.employeeId) ?? null) : null}
+                />
+              ) : null}
             </section>
           )}
         </ThreadPrimitive.Viewport>
 
         <SkillInstallConfirmBar companyId={companyId} threadId={active.id} />
         <ComposerPrimitive.Root className="off-ws-composer">
-          <ComposerPrimitive.Input
-            className="off-ws-composer-input"
-            placeholder="Write a message..."
-            rows={1}
-            submitOnEnter
-            disabled={!chatEnabled}
-            title={
-              chatEnabled
-                ? `Message ${active.title}`
-                : 'Workspace chat requires the release desktop runtime'
-            }
-          />
           <StagedAttachments />
-          <div className="off-ws-composer-tools">
+          <div className="off-ws-composer-shell">
             <input
               ref={fileInput}
               type="file"
@@ -591,20 +621,34 @@ export function WorkspaceAssistantThread({
             <IconButton
               icon={Paperclip}
               label="Attach file"
-              variant="subtle"
+              variant="ghost"
               size="iconSm"
+              className="off-ws-composer-attach"
               title={storageAvailable ? 'Attach file' : 'Attachment storage unavailable'}
               onClick={() => fileInput.current?.click()}
             />
-            <span className="off-grow" />
+            <ComposerPrimitive.Input
+              className="off-ws-composer-input"
+              placeholder={`Message ${active.title}…`}
+              rows={1}
+              submitOnEnter
+              disabled={!chatEnabled}
+              title={
+                chatEnabled
+                  ? `Message ${active.title}`
+                  : 'Workspace chat requires the release desktop runtime'
+              }
+            />
             <ComposerPrimitive.Send
               className="off-ws-send off-focusable"
+              aria-label="Send message"
               disabled={!chatEnabled || isSending}
               title={
-                chatEnabled ? undefined : 'Workspace chat requires the release desktop runtime'
+                chatEnabled
+                  ? 'Send message'
+                  : 'Workspace chat requires the release desktop runtime'
               }
             >
-              Send
               <Icon icon={SendHorizontal} size="sm" />
             </ComposerPrimitive.Send>
           </div>
