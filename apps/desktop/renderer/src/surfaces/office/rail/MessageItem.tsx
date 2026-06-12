@@ -143,10 +143,11 @@ export function MessageItem({ message, employeesById }: MessageItemProps) {
           <span className="off-att-icon">
             <Icon icon={FileText} size="sm" />
           </span>
-          <span>
+          <span className="off-att-text">
             <span className="off-att-name">{attachment.name}</span>
             <span className="off-att-meta">
-              {attachment.ext} · {attachment.sizeLabel}
+              <span className="off-fmt-tag">{attachment.ext}</span>
+              {attachment.sizeLabel}
             </span>
           </span>
         </div>

@@ -1,16 +1,17 @@
 import { Icon } from '@/design-system/icons/Icon.js';
-import { AlertTriangle, ChevronDown, X } from 'lucide-react';
+import { AlertTriangle, ChevronDown, RotateCcw, X } from 'lucide-react';
 import { useState } from 'react';
 import { useRunStore } from '../run-store.js';
 
 /**
  * In-thread recovery banner for a failed run. Surfaces only recovery paths that
- * write to shared run state instead of presenting model changes that cannot yet
- * be re-dispatched.
+ * write to shared run state: Retry appears only while the runtime has a real
+ * re-dispatch closure registered; seeded historical errors stay dismiss-only.
  */
 export function ChatErrorBanner() {
   const error = useRunStore((s) => s.error);
   const dismissError = useRunStore((s) => s.dismissError);
+  const retryHandler = useRunStore((s) => s.retryHandler);
   const [showDetails, setShowDetails] = useState(false);
 
   if (!error) return null;
@@ -31,17 +32,29 @@ export function ChatErrorBanner() {
           <Icon icon={X} size="sm" />
         </button>
       </div>
-      {error.technicalDetail ? (
+      {retryHandler || error.technicalDetail ? (
         <div className="off-errbanner-actions">
-          <button
-            type="button"
-            className="off-errbanner-act is-ghost off-focusable"
-            aria-expanded={showDetails}
-            onClick={() => setShowDetails((v) => !v)}
-          >
-            Details
-            <Icon icon={ChevronDown} size="sm" />
-          </button>
+          {retryHandler ? (
+            <button
+              type="button"
+              className="off-errbanner-act off-focusable"
+              onClick={retryHandler}
+            >
+              <Icon icon={RotateCcw} size="sm" />
+              Retry
+            </button>
+          ) : null}
+          {error.technicalDetail ? (
+            <button
+              type="button"
+              className="off-errbanner-act is-ghost off-focusable"
+              aria-expanded={showDetails}
+              onClick={() => setShowDetails((v) => !v)}
+            >
+              Details
+              <Icon icon={ChevronDown} size="sm" />
+            </button>
+          ) : null}
         </div>
       ) : null}
       {showDetails && error.technicalDetail ? (

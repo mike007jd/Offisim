@@ -9,7 +9,12 @@ import {
 } from '@/data/queries.js';
 import type { ChatAttachment, ChatMessage } from '@/data/types.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
-import { ErrorState, SkeletonRows, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
+import {
+  EmptyState,
+  ErrorState,
+  SkeletonRows,
+  errorDetail,
+} from '@/surfaces/shared/SurfaceStates.js';
 import {
   type WsAttachment,
   type WsConversation,
@@ -190,6 +195,22 @@ export function ChatRail() {
     );
   }
 
+  if (!selectedThreadId) {
+    // Thread mode without a selection is an empty state, not a loading state —
+    // skeletons would never resolve (no query is pending). No conversation
+    // header either: there is no thread to title or open in Inbox.
+    return (
+      <section className="off-rail" aria-label="Conversation">
+        <EmptyState
+          icon={Inbox}
+          title="No conversation open"
+          description="Pick a conversation to see its messages here."
+          action={{ label: 'Browse conversations', onClick: closeThread }}
+        />
+      </section>
+    );
+  }
+
   return (
     <section className="off-rail" aria-label="Conversation">
       <header className="off-chat-head">
@@ -212,16 +233,17 @@ export function ChatRail() {
           variant="ghost"
           size="icon"
           onClick={() => {
-            if (selectedThreadId) setWorkspaceApp('messenger', selectedThreadId);
+            setWorkspaceApp('messenger', selectedThreadId);
             setSurface('workspace');
           }}
         />
       </header>
 
-      {!selectedThreadId ||
-      (activeThread
-        ? messages.isLoading
-        : workspaceThread.isLoading || persistedWorkspaceMessages.isLoading) ? (
+      {(
+        activeThread
+          ? messages.isLoading
+          : workspaceThread.isLoading || persistedWorkspaceMessages.isLoading
+      ) ? (
         <SkeletonRows rows={4} />
       ) : (
           activeThread

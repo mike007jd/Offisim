@@ -19,8 +19,10 @@ export interface ZoneDef {
   d: number;
 }
 
-/** Synthetic fallback layout (non-Tauri/dev, or an empty backend). Both scenes
- *  fall back to this so dev/preview stays consistent across render modes. */
+/** Synthetic fallback layout for the no-backend case only (non-Tauri/dev
+ *  preview). Both scenes fall back to this so dev/preview stays consistent
+ *  across render modes. A real backend with zero zones does NOT use this —
+ *  it renders an honest empty office instead. */
 export const FALLBACK_ZONES: ZoneDef[] = [
   {
     id: 'zone-dev',
@@ -112,6 +114,9 @@ export interface EmployeeScenePlacement {
   readonly rotation: number;
   /** Sitting = parked on a workstation chair; standing = free-floor placement. */
   readonly posture: EmployeePosture;
+  /** Zone the seat resolved into (assigned zone, else the fallback), so the 2D
+   *  renderer can re-clamp the seat in screen space against the zone rect. */
+  readonly zoneId: string;
 }
 
 interface SeatCandidate {
@@ -122,10 +127,12 @@ interface SeatCandidate {
   readonly posture?: EmployeePosture;
 }
 
-/** Build ZoneDefs from a real office layout, or fall back to the synthetic
- *  layout when there is no real data (non-Tauri/dev or an empty backend). */
+/** Build ZoneDefs from a real office layout. The synthetic fallback covers
+ *  only the no-backend case (non-Tauri/dev preview, `real == null`). A real
+ *  backend that genuinely has no layout (`real.zones.length === 0`) returns []
+ *  so the scenes render an honest empty office instead of a fake floor plan. */
 export function zoneDefsFromLayout(real: { zones: RealZone[] } | null | undefined): ZoneDef[] {
-  if (!real || real.zones.length === 0) return FALLBACK_ZONES;
+  if (!real) return FALLBACK_ZONES;
   return real.zones.map((z) => ({
     id: z.zone_id,
     label: z.label,
@@ -138,7 +145,9 @@ export function zoneDefsFromLayout(real: { zones: RealZone[] } | null | undefine
 }
 
 /** The zone an unassigned employee defaults into (the workspace, else first).
- *  FALLBACK_ZONES is always non-empty, so a ZoneDef is always returned. */
+ *  FALLBACK_ZONES is always non-empty, so a ZoneDef is always returned. When
+ *  `zoneDefs` is [] (real backend, no layout) the returned fallback is only a
+ *  placeholder — employeePlacements seats nobody then, so it never renders. */
 export function defaultEmployeeZone(zoneDefs: ZoneDef[]): ZoneDef {
   return (zoneDefs.find((z) => z.archetype === 'workspace') ??
     zoneDefs[0] ??
@@ -536,6 +545,9 @@ export function employeePlacements(
   fallbackZone: ZoneDef,
   prefabs?: readonly SeatAnchorPrefab[],
 ): Map<string, EmployeeScenePlacement> {
+  // A real backend with no layout has no zones to seat anyone in: place no
+  // one, rather than parking the roster in a synthetic placeholder zone.
+  if (zones.length === 0) return new Map();
   const byZone = new Map<string, { zone: ZoneDef; employees: Employee[] }>();
   for (const employee of roster) {
     const zone = employeeZone(employee, zones, fallbackZone);
@@ -558,24 +570,11 @@ export function employeePlacements(
         z: seat[1],
         rotation: candidate?.rotation ?? placementRotation(zone, seat, zonePrefabs),
         posture: candidate?.posture ?? 'standing',
+        zoneId: zone.id,
       });
     });
   }
   return placements;
-}
-
-/** Deterministic seat coordinate per employee, grouped by their assigned zone. */
-export function employeePositions(
-  roster: Employee[],
-  zones: ZoneDef[],
-  fallbackZone: ZoneDef,
-  prefabs?: readonly SeatAnchorPrefab[],
-): Map<string, [number, number]> {
-  const positions = new Map<string, [number, number]>();
-  for (const [employeeId, placement] of employeePlacements(roster, zones, fallbackZone, prefabs)) {
-    positions.set(employeeId, [placement.x, placement.z]);
-  }
-  return positions;
 }
 
 /** Floor extent (origin-centered) that bounds every zone plus a margin, used by

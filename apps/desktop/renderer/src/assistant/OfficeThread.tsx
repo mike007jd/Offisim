@@ -53,10 +53,13 @@ function OfficeComposer({
   projectName,
   deliverables,
   employeesById,
+  employeeName,
 }: {
   projectName: string;
   deliverables: Deliverable[];
   employeesById: Map<string, Employee>;
+  /** Direct 1:1 threads address the employee by name; team threads stay generic. */
+  employeeName: string | null;
 }) {
   const stageFiles = useRunStore((s) => s.stageFiles);
   const storageAvailable = useRunStore((s) => s.storageAvailable);
@@ -165,7 +168,7 @@ function OfficeComposer({
       <div className="off-composer-shell">
         <ComposerPrimitive.Input
           className="off-composer-input"
-          placeholder="Message the team"
+          placeholder={employeeName ? `Message ${employeeName}` : 'Message the team'}
           rows={1}
           submitOnEnter
         />
@@ -189,15 +192,20 @@ function OfficeComposer({
             title={storageAvailable ? 'Attach file' : 'Attachment storage unavailable'}
             onClick={() => fileInput.current?.click()}
           />
-          <span className="off-composer-context" title={projectName}>
-            {projectName}
-          </span>
           <div className="off-thread-pitbar" aria-label="Conversation outputs and follow-up">
             <MeetingTray />
             <ConvOutputs deliverables={deliverables} employeesById={employeesById} />
           </div>
-          <span className="off-composer-mode" title="Direct execution mode">
-            Direct
+          {/* Passive meta labels stay adjacent (project · mode) so they never sit
+              between two interactive controls. */}
+          <span className="off-composer-meta">
+            <span className="off-composer-context" title={projectName}>
+              {projectName}
+            </span>
+            <span aria-hidden="true">·</span>
+            <span className="off-composer-mode" title="Direct execution mode">
+              Direct
+            </span>
           </span>
           <ComposerPrimitive.Send className="off-composer-send off-focusable" aria-label="Send">
             <span>Send</span>
@@ -285,6 +293,7 @@ export function OfficeThread({
           projectName={projectName}
           deliverables={deliverables}
           employeesById={employeesById}
+          employeeName={employeeId ? (employeesById.get(employeeId)?.name ?? null) : null}
         />
       </ThreadPrimitive.Root>
     </AssistantRuntimeProvider>

@@ -182,7 +182,7 @@ function DeliverableCard({
       >
         <Icon icon={FileCode2} size="sm" className="off-dlv-icon" />
         <span className="off-dlv-name">{deliverable.name}</span>
-        {deliverable.format ? <span className="off-dlv-fmt">{deliverable.format}</span> : null}
+        {deliverable.format ? <span className="off-fmt-tag">{deliverable.format}</span> : null}
         <Contributors ids={deliverable.contributorIds} employeesById={employeesById} />
         <Icon icon={ChevronDown} size="sm" className="off-dlv-caret" />
       </button>

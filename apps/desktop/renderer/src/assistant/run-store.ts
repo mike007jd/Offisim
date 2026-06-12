@@ -93,6 +93,15 @@ interface RunStore {
   /** Register (or clear) the active runtime's real abort handler. */
   setStopHandler: (handler: (() => void) | null) => void;
   /**
+   * Re-dispatch closure for the last failed send, registered by the active
+   * runtime alongside the error it surfaces. Null when the failure cannot be
+   * re-dispatched (e.g. a seeded historical error), in which case the banner
+   * honestly stays dismiss-only.
+   */
+  retryHandler: (() => void) | null;
+  /** Register (or clear) the runtime's retry closure for the surfaced error. */
+  setRetryHandler: (handler: (() => void) | null) => void;
+  /**
    * Request a stop from outside the runtime (the diegetic stage pill). Invokes
    * the registered runtime abort when present; otherwise flips the local
    * running flag so the control is never inert.
@@ -150,6 +159,7 @@ export const useRunStore = create<RunStore>((set, get) => ({
   staged: [],
   storageAvailable: true,
   stopHandler: null,
+  retryHandler: null,
   activity: [],
   activityTotal: 0,
 
@@ -158,8 +168,11 @@ export const useRunStore = create<RunStore>((set, get) => ({
     set({
       threadId,
       isRunning: running,
-      pipeline: running ? makePipeline('Provider response', null) : null,
+      pipeline: running ? makePipeline('Chat reply', null) : null,
       error: runState === 'error' ? seedError() : null,
+      // A seeded error has no re-dispatchable input; any prior thread's retry
+      // closure is stale here either way.
+      retryHandler: null,
       // No producer emits MeetingState yet, so this stays null and
       // MeetingTray/MeetingRegion render nothing rather than asserting a meeting.
       meeting: null,
@@ -172,8 +185,10 @@ export const useRunStore = create<RunStore>((set, get) => ({
   start: (title, assigneeId) => {
     set({
       isRunning: true,
-      pipeline: makePipeline(title ?? 'Provider response', assigneeId ?? null),
+      pipeline: makePipeline(title ?? 'Chat reply', assigneeId ?? null),
       error: null,
+      // A new attempt supersedes the previous failure's retry closure.
+      retryHandler: null,
       activity: [],
       activityTotal: 0,
     });
@@ -227,6 +242,8 @@ export const useRunStore = create<RunStore>((set, get) => ({
   },
 
   setStopHandler: (stopHandler) => set({ stopHandler }),
+
+  setRetryHandler: (retryHandler) => set({ retryHandler }),
 
   requestStop: () => {
     const handler = get().stopHandler;

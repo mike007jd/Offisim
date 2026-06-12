@@ -17,7 +17,6 @@
 .off-banner-slot {
   min-width: 0;
   display: flex;
-  justify-content: flex-end;
   padding: var(--off-sp-2) var(--off-sp-5) 0;
   pointer-events: none;
 }
@@ -48,8 +47,8 @@
 }
 
 /* --- Wordmark anchor (far left) --- */
-/* Quietest of the four clusters: a muted text anchor that returns to the
-   lifecycle front door. The loud chip-bar frame is reserved for the primary
+/* Quietest of the three clusters: a muted text anchor that returns to the
+   lifecycle front door. The loud chip-bar frame is reserved for the surface
    nav (.off-workspace-nav) alone, establishing the top-bar weight gradient. */
 .off-wordmark {
   flex: none;
@@ -184,20 +183,13 @@
   font-weight: 640;
 }
 
-/* --- Icon bar (right, frameless ghost utilities) --- */
-.off-iconbar {
-  height: 34px;
-  display: flex;
-  align-items: center;
-  margin-left: auto;
-  gap: 2px;
+/* Utility surfaces ride the same chip-bar as icon-only tabs, sharing the
+   `.is-active` grammar so the current surface is always visible here. */
+.off-workspace-nav button.is-icon {
+  padding: 0 var(--off-sp-3);
 }
 
-.off-iconbar-entry {
-  display: inline-flex;
-  align-items: center;
-}
-
+/* Divider between the primary text tabs and the utility icon tabs. */
 .off-iconbar-divider {
   width: 1px;
   height: var(--off-iconbar-divider-height);

@@ -124,9 +124,10 @@ export const OFFICE_SCENE_2D_COLORS = {
   zoneLounge: '#e1f3ea',
   floor: '#f7f9fc',
   floorLine: '#dde3ec',
-  grid: 'rgba(40,60,90,0.06)',
   zoneLabel: UI_DATA_COLORS.ink6,
-  desk: '#e9edf4',
+  /* Translucent ink so desks read as a darkening on the zone tint instead of
+   * opaque white plates punched into it. */
+  desk: 'rgba(40,60,90,0.08)',
   activeRing: UI_DATA_COLORS.blue,
   activeRingSoft: 'rgba(47,107,255,0.5)',
   externalClothing: UI_DATA_COLORS.ink5,

@@ -2,6 +2,7 @@ import { useUiState } from '@/app/ui-state.js';
 import { useEmployees, useOfficeLayout, useReassignEmployee, useThreads } from '@/data/queries.js';
 import type { Employee } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
+import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
 import {
   type PrefabDefinition,
   type PrefabInstanceRow,
@@ -9,6 +10,7 @@ import {
 } from '@offisim/shared-types';
 import { Html, OrbitControls } from '@react-three/drei';
 import { Canvas, useThree } from '@react-three/fiber';
+import { LayoutTemplate } from 'lucide-react';
 import { Fragment, memo, useEffect, useMemo, useRef, useState } from 'react';
 import { ACESFilmicToneMapping, type Camera, Plane, Raycaster, Vector2, Vector3 } from 'three';
 import { BlockCharacter } from './BlockCharacter.js';
@@ -1244,6 +1246,7 @@ export function OfficeScene3D({
   const selectedThreadId = useUiState((s) => s.selectedThreadId);
   const openThread = useUiState((s) => s.openThread);
   const closeThread = useUiState((s) => s.closeThread);
+  const setSurface = useUiState((s) => s.setSurface);
   const recordSceneDropDiagnostic = useUiState((s) => s.recordSceneDropDiagnostic);
   const employees = useEmployees();
   const threads = useThreads(projectId);
@@ -1260,6 +1263,12 @@ export function OfficeScene3D({
   const roster = employees.data ?? [];
 
   const zoneDefs: ZoneDef[] = useMemo(() => zoneDefsFromLayout(real), [real]);
+  // Only reachable with a real backend layout that has zero zones — the
+  // no-backend preview path always resolves to the non-empty FALLBACK_ZONES.
+  // Studio mounts (placement wiring present) suppress the overlay: the editor
+  // already owns its empty-layout guidance via the always-on "Create zone".
+  const emptyOffice = zoneDefs.length === 0;
+  const showEmptyState = emptyOffice && !onPlacementPoint;
   const scenePrefabs = useMemo(
     () => relaxedScenePrefabs(real?.prefabs, zoneDefs),
     [real?.prefabs, zoneDefs],
@@ -1290,150 +1299,166 @@ export function OfficeScene3D({
   }, [dropNotice]);
 
   return (
-    <Canvas
-      shadows="soft"
-      dpr={[1, 1.75]}
-      // Keep R3F's default `frameloop="always"`. We tried "demand" to save
-      // idle CPU but BlockCharacter.useFrame mutates `group.position.y`
-      // directly via refs (idle bob, walk bob) and never invalidates, so
-      // demand mode froze every employee's animation. ServerRack LOD checks
-      // similarly run in useFrame without setState. Re-enable demand only
-      // alongside an invalidate() in those useFrame consumers.
-      camera={{ position: OFFICE_CAMERA_PRESET.position, fov: OFFICE_CAMERA_PRESET.fov }}
-      gl={{ antialias: true, toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.02 }}
-      className="off-scene-canvas"
-    >
-      <color attach="background" args={[LIGHT_SCENE_3D.sceneBackground]} />
+    <>
+      <Canvas
+        shadows="soft"
+        dpr={[1, 1.75]}
+        // Keep R3F's default `frameloop="always"`. We tried "demand" to save
+        // idle CPU but BlockCharacter.useFrame mutates `group.position.y`
+        // directly via refs (idle bob, walk bob) and never invalidates, so
+        // demand mode froze every employee's animation. ServerRack LOD checks
+        // similarly run in useFrame without setState. Re-enable demand only
+        // alongside an invalidate() in those useFrame consumers.
+        camera={{ position: OFFICE_CAMERA_PRESET.position, fov: OFFICE_CAMERA_PRESET.fov }}
+        gl={{ antialias: true, toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.02 }}
+        className="off-scene-canvas"
+      >
+        <color attach="background" args={[LIGHT_SCENE_3D.sceneBackground]} />
 
-      <SceneLighting />
-      <SceneEnvironment />
-      <RoomShell onFloorClick={placementEnabled ? undefined : closeThread} />
+        <SceneLighting />
+        <SceneEnvironment />
+        <RoomShell onFloorClick={placementEnabled ? undefined : closeThread} />
 
-      {zoneDefs.map((zone) => (
-        <Fragment key={zone.id}>
-          <ZoneRug
-            zone={zone}
-            highlight={
-              (employeeDrag !== null && hoveredZoneId === zone.id) ||
-              (prefabDrag !== null && hoveredZoneId === zone.id) ||
-              (placementEnabled && placementZoneId === zone.id)
-            }
-          />
-          <ZoneCeilingLight zone={zone} />
-        </Fragment>
-      ))}
-
-      {placementEnabled && onPlacementPoint ? (
-        <PlacementController
-          zones={zoneDefs}
-          onHover={setPlacementZoneId}
-          onPick={onPlacementPoint}
-        />
-      ) : null}
-
-      {placementProbe && onPlacementPoint ? (
-        <ExternalPlacementController
-          zones={zoneDefs}
-          probe={placementProbe}
-          onHover={setPlacementZoneId}
-          onPick={onPlacementPoint}
-        />
-      ) : null}
-
-      {real ? (
-        scenePrefabs?.map(({ instance, definition }) => (
-          <ScenePrefabInstance3D
-            key={instance.instance_id}
-            instance={instance}
-            definition={definition}
-            zones={zoneDefs}
-            selected={selectedPrefabId === instance.instance_id}
-            onSelect={onPrefabSelect}
-            onMove={onPrefabMove}
-            onHoverZone={setHoveredZoneId}
-            onDragState={setPrefabDrag}
-          />
-        ))
-      ) : (
-        <FallbackFurniture />
-      )}
-
-      {roster.map((employee) => {
-        const placement = placementsByEmployee.get(employee.id) ?? {
-          x: defaultEmployeeZone.cx,
-          z: defaultEmployeeZone.cz,
-          rotation: 0,
-          posture: 'standing' as const,
-        };
-        const thread = threadByEmployee.get(employee.id);
-        const running =
-          thread?.runState === 'running' || (liveThread?.scope === 'team' && employee.online);
-        return (
-          <EmployeeUnit
-            key={employee.id}
-            employee={employee}
-            x={placement.x}
-            z={placement.z}
-            rotation={placement.rotation}
-            posture={!real ? 'sitting' : placement.posture}
-            withDesk={!real}
-            running={running}
-            active={Boolean(thread && thread.id === selectedThreadId)}
-            dragging={employeeDrag?.employeeId === employee.id}
-            zones={zoneDefs}
-            onSelect={() => thread && openThread(thread.id)}
-            onHoverZone={setHoveredZoneId}
-            onDragState={setEmployeeDrag}
-            onDrop={(result) => {
-              if (result.zoneId)
-                reassign.mutate({ employeeId: employee.id, zoneId: result.zoneId });
-              recordSceneDropDiagnostic({
-                id: `drop-${crypto.randomUUID()}`,
-                at: new Date().toISOString(),
-                employeeId: employee.id,
-                startX: result.startX,
-                startY: result.startY,
-                endX: result.endX,
-                endY: result.endY,
-                targetZoneId: result.zoneId,
-                decision: result.zoneId ? 'assigned' : result.moved ? 'missed' : 'not-moved',
-              });
-              if (result.moved && !result.zoneId) {
-                setDropNotice({
-                  id: `drop-note-${crypto.randomUUID()}`,
-                  x: result.x ?? placement.x,
-                  z: result.z ?? placement.z,
-                  message: 'Drop on a zone',
-                });
+        {zoneDefs.map((zone) => (
+          <Fragment key={zone.id}>
+            <ZoneRug
+              zone={zone}
+              highlight={
+                (employeeDrag !== null && hoveredZoneId === zone.id) ||
+                (prefabDrag !== null && hoveredZoneId === zone.id) ||
+                (placementEnabled && placementZoneId === zone.id)
               }
-            }}
+            />
+            <ZoneCeilingLight zone={zone} />
+          </Fragment>
+        ))}
+
+        {placementEnabled && onPlacementPoint ? (
+          <PlacementController
+            zones={zoneDefs}
+            onHover={setPlacementZoneId}
+            onPick={onPlacementPoint}
           />
-        );
-      })}
+        ) : null}
 
-      {employeeDrag && draggedEmployee ? (
-        <EmployeeDragGhost employee={draggedEmployee} drag={employeeDrag} />
-      ) : null}
-      {dropNotice ? <SceneDropNoticeLabel key={dropNotice.id} notice={dropNotice} /> : null}
+        {placementProbe && onPlacementPoint ? (
+          <ExternalPlacementController
+            zones={zoneDefs}
+            probe={placementProbe}
+            onHover={setPlacementZoneId}
+            onPick={onPlacementPoint}
+          />
+        ) : null}
 
-      {/* Free orbit camera: drag to rotate, two-finger / right-drag to pan,
+        {real ? (
+          scenePrefabs?.map(({ instance, definition }) => (
+            <ScenePrefabInstance3D
+              key={instance.instance_id}
+              instance={instance}
+              definition={definition}
+              zones={zoneDefs}
+              selected={selectedPrefabId === instance.instance_id}
+              onSelect={onPrefabSelect}
+              onMove={onPrefabMove}
+              onHoverZone={setHoveredZoneId}
+              onDragState={setPrefabDrag}
+            />
+          ))
+        ) : (
+          <FallbackFurniture />
+        )}
+
+        {roster.map((employee) => {
+          // Zero zones → zero seats: an honest empty office renders nobody, so
+          // the synthetic default-zone placement fallback below stays unused.
+          if (emptyOffice) return null;
+          const placement = placementsByEmployee.get(employee.id) ?? {
+            x: defaultEmployeeZone.cx,
+            z: defaultEmployeeZone.cz,
+            rotation: 0,
+            posture: 'standing' as const,
+          };
+          const thread = threadByEmployee.get(employee.id);
+          const running =
+            thread?.runState === 'running' || (liveThread?.scope === 'team' && employee.online);
+          return (
+            <EmployeeUnit
+              key={employee.id}
+              employee={employee}
+              x={placement.x}
+              z={placement.z}
+              rotation={placement.rotation}
+              posture={!real ? 'sitting' : placement.posture}
+              withDesk={!real}
+              running={running}
+              active={Boolean(thread && thread.id === selectedThreadId)}
+              dragging={employeeDrag?.employeeId === employee.id}
+              zones={zoneDefs}
+              onSelect={() => thread && openThread(thread.id)}
+              onHoverZone={setHoveredZoneId}
+              onDragState={setEmployeeDrag}
+              onDrop={(result) => {
+                if (result.zoneId)
+                  reassign.mutate({ employeeId: employee.id, zoneId: result.zoneId });
+                recordSceneDropDiagnostic({
+                  id: `drop-${crypto.randomUUID()}`,
+                  at: new Date().toISOString(),
+                  employeeId: employee.id,
+                  startX: result.startX,
+                  startY: result.startY,
+                  endX: result.endX,
+                  endY: result.endY,
+                  targetZoneId: result.zoneId,
+                  decision: result.zoneId ? 'assigned' : result.moved ? 'missed' : 'not-moved',
+                });
+                if (result.moved && !result.zoneId) {
+                  setDropNotice({
+                    id: `drop-note-${crypto.randomUUID()}`,
+                    x: result.x ?? placement.x,
+                    z: result.z ?? placement.z,
+                    message: 'Drop on a zone',
+                  });
+                }
+              }}
+            />
+          );
+        })}
+
+        {employeeDrag && draggedEmployee ? (
+          <EmployeeDragGhost employee={draggedEmployee} drag={employeeDrag} />
+        ) : null}
+        {dropNotice ? <SceneDropNoticeLabel key={dropNotice.id} notice={dropNotice} /> : null}
+
+        {/* Free orbit camera: drag to rotate, two-finger / right-drag to pan,
           scroll to zoom. Damped for a premium feel. Polar clamps keep the user
           above the floor plane; OrbitControls is suspended mid-drag so employee
           and prefab dragging keep the camera still. */}
-      <OrbitControls
-        makeDefault
-        target={OFFICE_CAMERA_PRESET.target}
-        enabled={!employeeDrag && !prefabDrag && !placementEnabled}
-        enableRotate
-        enablePan
-        enableDamping
-        dampingFactor={0.075}
-        minDistance={OFFICE_CAMERA_PRESET.minDistance}
-        maxDistance={OFFICE_CAMERA_PRESET.maxDistance}
-        minPolarAngle={OFFICE_CAMERA_PRESET.minPolarAngle}
-        maxPolarAngle={OFFICE_CAMERA_PRESET.maxPolarAngle}
-      />
-      <ScenePostFx />
-    </Canvas>
+        <OrbitControls
+          makeDefault
+          target={OFFICE_CAMERA_PRESET.target}
+          enabled={!employeeDrag && !prefabDrag && !placementEnabled}
+          enableRotate
+          enablePan
+          enableDamping
+          dampingFactor={0.075}
+          minDistance={OFFICE_CAMERA_PRESET.minDistance}
+          maxDistance={OFFICE_CAMERA_PRESET.maxDistance}
+          minPolarAngle={OFFICE_CAMERA_PRESET.minPolarAngle}
+          maxPolarAngle={OFFICE_CAMERA_PRESET.maxPolarAngle}
+        />
+        <ScenePostFx />
+      </Canvas>
+      {showEmptyState ? (
+        // Honest empty office: the room shell stays as a bare floor; the HTML
+        // overlay carries the guidance (simpler and crisper than WebGL text).
+        <EmptyState
+          icon={LayoutTemplate}
+          title="No office layout yet"
+          description="Open Studio to lay out your floor."
+          action={{ label: 'Open Studio', onClick: () => setSurface('studio') }}
+          className="off-scene-empty"
+        />
+      ) : null}
+    </>
   );
 }

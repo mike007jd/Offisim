@@ -1,6 +1,5 @@
 import { useUiState } from '@/app/ui-state.js';
 import type { ReactNode } from 'react';
-import { IconBar } from './IconBar.js';
 import { ScopeBar } from './ScopeBar.js';
 import { WorkspaceNav } from './WorkspaceNav.js';
 
@@ -30,7 +29,6 @@ export function AppFrame({ children, banner }: AppFrameProps) {
         </button>
         <ScopeBar />
         <WorkspaceNav />
-        <IconBar />
       </header>
       <div className="off-banner-slot">{banner}</div>
       <div className="off-surface-host">{children}</div>

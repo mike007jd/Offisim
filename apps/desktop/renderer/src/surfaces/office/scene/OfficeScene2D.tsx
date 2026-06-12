@@ -4,12 +4,14 @@ import { useEmployees, useOfficeLayout, useThreads } from '@/data/queries.js';
 import type { ZoneKind } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
 import { CANVAS_FONT_TOKENS } from '@/styles/visual-tokens.js';
+import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
+import { LayoutTemplate } from 'lucide-react';
 import { useEffect, useMemo, useRef } from 'react';
 import { compactSceneEmployeeName } from './scene-labels.js';
 import {
   archetypeToKind,
   defaultEmployeeZone,
-  employeePositions,
+  employeePlacements,
   floorBounds,
   zoneDefsFromLayout,
 } from './scene-layout.js';
@@ -44,6 +46,7 @@ export function OfficeScene2D() {
   const projectId = useUiState((s) => s.projectId);
   const selectedThreadId = useUiState((s) => s.selectedThreadId);
   const openThread = useUiState((s) => s.openThread);
+  const setSurface = useUiState((s) => s.setSurface);
   const employees = useEmployees();
   const threads = useThreads(projectId);
   // Same real source as the 3D scene — real zones + real roster, with the
@@ -57,10 +60,13 @@ export function OfficeScene2D() {
   // every render — `employees.data ?? []` is otherwise a fresh array each time.
   const roster = useMemo(() => employees.data ?? [], [employees.data]);
   const zoneDefs = useMemo(() => zoneDefsFromLayout(layout.data), [layout.data]);
+  // Only reachable with a real backend layout that has zero zones — the
+  // no-backend preview path always resolves to the non-empty FALLBACK_ZONES.
+  const emptyOffice = zoneDefs.length === 0;
   const { floorW, floorD } = useMemo(() => floorBounds(zoneDefs), [zoneDefs]);
   const fallbackZone = useMemo(() => defaultEmployeeZone(zoneDefs), [zoneDefs]);
   const positions = useMemo(
-    () => employeePositions(roster, zoneDefs, fallbackZone, layout.data?.prefabs),
+    () => employeePlacements(roster, zoneDefs, fallbackZone, layout.data?.prefabs),
     [roster, zoneDefs, fallbackZone, layout.data?.prefabs],
   );
 
@@ -101,21 +107,13 @@ export function OfficeScene2D() {
       ctx.strokeStyle = OFFICE_SCENE_2D_COLORS.floorLine;
       ctx.stroke();
 
-      // grid
-      ctx.strokeStyle = OFFICE_SCENE_2D_COLORS.grid;
-      ctx.lineWidth = 1;
-      for (let gx = -floorW / 2; gx <= floorW / 2; gx += 1) {
-        ctx.beginPath();
-        ctx.moveTo(wx(gx), wy(-floorD / 2));
-        ctx.lineTo(wx(gx), wy(floorD / 2));
-        ctx.stroke();
-      }
-      for (let gz = -floorD / 2; gz <= floorD / 2; gz += 1) {
-        ctx.beginPath();
-        ctx.moveTo(wx(-floorW / 2), wy(gz));
-        ctx.lineTo(wx(floorW / 2), wy(gz));
-        ctx.stroke();
-      }
+      // No canvas grid: the surrounding .off-stage already carries the ambient
+      // CSS grid texture; a second in-canvas grid double-textures at the host
+      // seam (different pitch + color source on each side of the border).
+
+      // Anything drawn opaquely registers a box here so later passes (name
+      // labels) can dodge it: zone titles first, then each employee's disc.
+      const occupied: Array<{ x0: number; x1: number; y0: number; y1: number }> = [];
 
       // zones
       ctx.font = CANVAS_FONT_TOKENS.officeSceneLabel;
@@ -131,17 +129,29 @@ export function OfficeScene2D() {
         );
         ctx.fill();
         ctx.fillStyle = OFFICE_SCENE_2D_COLORS.zoneLabel;
-        ctx.fillText(
-          zone.label.toUpperCase(),
-          wx(zone.cx - zone.w / 2) + 10,
-          wy(zone.cz - zone.d / 2) + 18,
-        );
+        const title = zone.label.toUpperCase();
+        const titleX = wx(zone.cx - zone.w / 2) + 10;
+        const titleY = wy(zone.cz - zone.d / 2) + 18;
+        ctx.fillText(title, titleX, titleY);
+        const titleW = ctx.measureText(title).width;
+        occupied.push({ x0: titleX - 2, x1: titleX + titleW + 2, y0: titleY - 10, y1: titleY + 4 });
       }
 
       // employees — real roster, seated by the shared layout helper
       hitsRef.current = [];
-      const r = Math.max(16, scale * 0.42);
-      const placedLabels: Array<{ x0: number; x1: number; y0: number; y1: number }> = [];
+      // Proportional to the floor scale with bounds, never a hard floor: a
+      // fixed px minimum decouples from the world-unit seat spacing/edge
+      // margins and overflows zone rects on narrow stages.
+      const r = Math.min(16, Math.max(9, scale * 0.42));
+      // The running ring draws at r + 5 with a 2.5px stroke.
+      const ringPad = 6;
+      // Zone title sits in the top 18px band (+ descenders); keeping discs
+      // below it means the title can never be painted over.
+      const titleBand = 22;
+      // Below-the-dot label box bottoms out at sy + r + 22 (slot + 4).
+      const labelBand = 16;
+      const clampSpan = (v: number, min: number, max: number) =>
+        min > max ? (min + max) / 2 : Math.min(max, Math.max(min, v));
       // The selected employee draws first so its name label always wins a slot.
       const selectedEmployeeId = threadList?.find((t) => t.id === selectedThreadId)?.employeeId;
       const ordered =
@@ -150,6 +160,7 @@ export function OfficeScene2D() {
           : [...roster].sort((a, b) =>
               a.id === selectedEmployeeId ? -1 : b.id === selectedEmployeeId ? 1 : 0,
             );
+      const zoneById = new Map(zoneDefs.map((zone) => [zone.id, zone]));
       for (const employee of ordered) {
         const pos = positions.get(employee.id);
         if (!pos) continue;
@@ -158,13 +169,33 @@ export function OfficeScene2D() {
           thread?.runState === 'running' || (liveThread?.scope === 'team' && employee.online);
         const active = Boolean(thread && thread.id === selectedThreadId);
         const colors = resolveAppearance(employee.id, employee.appearance);
-        const sx = wx(pos[0]);
-        const sy = wy(pos[1]);
+        let sx = wx(pos.x);
+        let sy = wy(pos.z);
 
-        // desk
-        ctx.fillStyle = OFFICE_SCENE_2D_COLORS.desk;
-        roundRect(ctx, sx - r * 1.1, sy + r * 0.5, r * 2.2, r * 0.9, 4);
-        ctx.fill();
+        // Screen-space re-clamp of the world clampSeat: the world margin only
+        // folds to ~margin*scale px, while the painted extent (disc + ring +
+        // label slots) is in fixed px, so on small stages seats must be pulled
+        // back inside their zone rect here.
+        const zone = zoneById.get(pos.zoneId);
+        if (zone) {
+          sx = clampSpan(
+            sx,
+            wx(zone.cx - zone.w / 2) + r + ringPad,
+            wx(zone.cx + zone.w / 2) - r - ringPad,
+          );
+          sy = clampSpan(
+            sy,
+            wy(zone.cz - zone.d / 2) + titleBand + r + ringPad,
+            wy(zone.cz + zone.d / 2) - r - ringPad - labelBand,
+          );
+        }
+
+        // desk — below ~14px/unit it is no longer legible as furniture
+        if (scale >= 14) {
+          ctx.fillStyle = OFFICE_SCENE_2D_COLORS.desk;
+          roundRect(ctx, sx - r * 1.1, sy + r * 0.5, r * 2.2, r * 0.9, 4);
+          ctx.fill();
+        }
 
         // running / active ring
         if (running || active) {
@@ -190,10 +221,11 @@ export function OfficeScene2D() {
           employee.kind === 'external' ? OFFICE_SCENE_2D_COLORS.externalSkin : colors.skin;
         ctx.fill();
 
-        // name — collision-aware: flip above the dot if the below-slot is taken,
-        // drop the label entirely if both slots collide (dot + selection ring
-        // still identify; the selected employee draws first so it always keeps
-        // its label).
+        // name — collision-aware against everything registered so far (zone
+        // titles, earlier discs, earlier labels): flip above the dot if the
+        // below-slot is taken, drop the label entirely if both slots collide
+        // (dot + selection ring still identify; the selected employee draws
+        // first so it always keeps its label).
         const labelText = compactSceneEmployeeName(employee.name);
         ctx.font = CANVAS_FONT_TOKENS.officeSceneLabel;
         const labelW = ctx.measureText(labelText).width;
@@ -206,17 +238,26 @@ export function OfficeScene2D() {
         const slots = [sy + r + 18, sy - r - 8];
         const slot = slots.find((ly) => {
           const box = boxAt(ly);
-          return !placedLabels.some(
+          return !occupied.some(
             (p) => box.x0 < p.x1 && box.x1 > p.x0 && box.y0 < p.y1 && box.y1 > p.y0,
           );
         });
         if (slot !== undefined) {
-          placedLabels.push(boxAt(slot));
+          occupied.push(boxAt(slot));
           ctx.fillStyle = OFFICE_SCENE_2D_COLORS.name;
           ctx.textAlign = 'center';
           ctx.fillText(labelText, sx, slot);
           ctx.textAlign = 'left';
         }
+        // Register the disc+ring footprint only after this employee's own
+        // label is placed — the above-slot box grazes the ring box by 2px and
+        // must not be blocked by the employee's own disc.
+        occupied.push({
+          x0: sx - r - ringPad,
+          x1: sx + r + ringPad,
+          y0: sy - r - ringPad,
+          y1: sy + r + ringPad,
+        });
 
         if (thread) hitsRef.current.push({ threadId: thread.id, sx, sy, r: r + 6 });
       }
@@ -229,17 +270,30 @@ export function OfficeScene2D() {
   }, [zoneDefs, floorW, floorD, positions, roster, threadList, selectedThreadId]);
 
   return (
-    // biome-ignore lint/a11y/useKeyWithClickEvents: canvas hit-test is a pointer convenience; employees are keyboard-selectable via the team dock and thread list
-    <canvas
-      ref={canvasRef}
-      className="off-scene-canvas"
-      onClick={(e) => {
-        const rect = e.currentTarget.getBoundingClientRect();
-        const px = e.clientX - rect.left;
-        const py = e.clientY - rect.top;
-        const hit = hitsRef.current.find((h) => Math.hypot(px - h.sx, py - h.sy) <= h.r);
-        if (hit) openThread(hit.threadId);
-      }}
-    />
+    <>
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: canvas hit-test is a pointer convenience; employees are keyboard-selectable via the team dock and thread list */}
+      <canvas
+        ref={canvasRef}
+        className="off-scene-canvas"
+        onClick={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const px = e.clientX - rect.left;
+          const py = e.clientY - rect.top;
+          const hit = hitsRef.current.find((h) => Math.hypot(px - h.sx, py - h.sy) <= h.r);
+          if (hit) openThread(hit.threadId);
+        }}
+      />
+      {emptyOffice ? (
+        // Honest empty office: the canvas keeps the bare floor slab; nobody is
+        // seated (employeePlacements returns no seats for zero zones).
+        <EmptyState
+          icon={LayoutTemplate}
+          title="No office layout yet"
+          description="Open Studio to lay out your floor."
+          action={{ label: 'Open Studio', onClick: () => setSurface('studio') }}
+          className="off-scene-empty"
+        />
+      ) : null}
+    </>
   );
 }

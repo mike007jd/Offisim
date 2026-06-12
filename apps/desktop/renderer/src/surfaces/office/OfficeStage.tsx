@@ -3,9 +3,16 @@ import { RunPipelinePill } from '@/assistant/parts/RunPipelinePill.js';
 import { useRunStore } from '@/assistant/run-store.js';
 import { useRunCost } from '@/data/queries.js';
 import { Icon } from '@/design-system/icons/Icon.js';
+import { Button } from '@/design-system/primitives/button.js';
+import { Popover, PopoverContent, PopoverTrigger } from '@/design-system/primitives/popover.js';
 import { cn } from '@/lib/utils.js';
-import { useActivityRecords } from '@/surfaces/activity/activity-data.js';
-import { Activity, Box, Coins, LayoutPanelTop } from 'lucide-react';
+import {
+  domainIcon,
+  formatRelativeTimestamp,
+  getDisplaySummary,
+  useActivityRecords,
+} from '@/surfaces/activity/activity-data.js';
+import { Activity, ArrowRight, Box, Coins, LayoutPanelTop, PanelLeft } from 'lucide-react';
 import { Suspense, useMemo } from 'react';
 import { OfficeScene2D } from './scene/OfficeScene2D.js';
 import { OfficeScene3D } from './scene/OfficeScene3D.js';
@@ -17,6 +24,8 @@ export function OfficeStage() {
   const companyId = useUiState((s) => s.companyId);
   const activityLastSeenAt = useUiState((s) => s.activityLastSeenAt);
   const markActivityRead = useUiState((s) => s.markActivityRead);
+  const wsPanelOverlayOpen = useUiState((s) => s.wsPanelOverlayOpen);
+  const toggleWsPanelOverlay = useUiState((s) => s.toggleWsPanelOverlay);
 
   const runCost = useRunCost();
   const isRunning = useRunStore((s) => s.isRunning);
@@ -34,8 +43,11 @@ export function OfficeStage() {
     }
     return { unreadCount: unread, newestAt: newest };
   }, [activityRecords.data, activityLastSeenAt]);
+  // The chip opens an in-place popover (surface jump is the explicit action
+  // inside it), so the label describes the peek, not navigation.
   const activityLabel =
-    unreadCount > 0 ? `Open Activity Log (${unreadCount} unread)` : 'Open Activity Log';
+    unreadCount > 0 ? `Recent activity (${unreadCount} unread)` : 'Recent activity';
+  const recentRecords = (activityRecords.data ?? []).slice(0, 5);
 
   return (
     <section className={cn('off-stage', isRunning && 'is-live')}>
@@ -70,6 +82,21 @@ export function OfficeStage() {
           <Icon icon={LayoutPanelTop} size="sm" />
           2D
         </button>
+        {/* CSS-gated to ≤1200px, where the workspace grid column is dropped:
+            reopens Files/Git as an overlay drawer. */}
+        <button
+          type="button"
+          className={cn(
+            'off-stage-mode-btn off-ws-reopen off-focusable',
+            wsPanelOverlayOpen && 'is-on',
+          )}
+          aria-label="Toggle workspace panel"
+          title="Workspace panel"
+          aria-pressed={wsPanelOverlayOpen}
+          onClick={toggleWsPanelOverlay}
+        >
+          <Icon icon={PanelLeft} size="sm" />
+        </button>
       </div>
 
       {/* Single diegetic cost/token readout on the scene border. */}
@@ -88,21 +115,58 @@ export function OfficeStage() {
             </>
           ) : null}
         </span>
-        <button
-          type="button"
-          className={cn('off-sc-notif off-focusable', unreadCount > 0 && 'has-unread')}
-          aria-label={activityLabel}
-          title={activityLabel}
-          onClick={() => {
-            // newestAt === 0 means no activity rows have arrived yet; skip the
-            // mark so a first incoming row can still surface as unread.
-            if (newestAt > 0) markActivityRead(newestAt);
-            setSurface('activity');
+        <Popover
+          onOpenChange={(open) => {
+            // Opening the peek is the "seen" moment. newestAt === 0 means no
+            // activity rows have arrived yet; skip the mark so a first
+            // incoming row can still surface as unread.
+            if (open && newestAt > 0) markActivityRead(newestAt);
           }}
         >
-          <Icon icon={Activity} size="sm" />
-          {unreadCount > 0 ? <span className="off-sc-notif-dot" aria-hidden /> : null}
-        </button>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className={cn('off-sc-notif off-focusable', unreadCount > 0 && 'has-unread')}
+              aria-label={activityLabel}
+              title={activityLabel}
+            >
+              <Icon icon={Activity} size="sm" />
+              {unreadCount > 0 ? <span className="off-sc-notif-dot" aria-hidden /> : null}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="off-sc-notif-pop">
+            {recentRecords.length > 0 ? (
+              recentRecords.map((record) => {
+                const summary = getDisplaySummary(record);
+                return (
+                  <div key={record.id} className="off-sc-pop-row">
+                    <Icon
+                      icon={domainIcon(record.type).icon}
+                      size="sm"
+                      className="off-sc-pop-icon"
+                    />
+                    <span className="off-sc-pop-label" title={summary.label}>
+                      {summary.actor ? <b>{summary.actor} · </b> : null}
+                      {summary.label}
+                    </span>
+                    <span className="off-sc-pop-time">{formatRelativeTimestamp(record.at)}</span>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="off-sc-pop-empty">No activity yet</div>
+            )}
+            <Button
+              variant="subtle"
+              size="sm"
+              className="off-sc-pop-open"
+              onClick={() => setSurface('activity')}
+            >
+              Open Activity Log
+              <Icon icon={ArrowRight} size="sm" />
+            </Button>
+          </PopoverContent>
+        </Popover>
       </div>
     </section>
   );

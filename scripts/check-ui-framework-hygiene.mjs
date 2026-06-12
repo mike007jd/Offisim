@@ -579,14 +579,10 @@ const requiredChecks = [
     ],
   },
   {
-    label: 'IconBar consumes the nav registry (utilities not hardcoded)',
-    file: 'apps/desktop/renderer/src/design-system/shell/IconBar.tsx',
-    patterns: [/UTILITY_NAV\.filter/, /visibleEntries\.map/],
-  },
-  {
-    label: 'WorkspaceNav consumes the nav registry (primary not hardcoded)',
+    // IconBar was folded into WorkspaceNav (one nav grammar, both tiers).
+    label: 'WorkspaceNav consumes the nav registry (both tiers, not hardcoded)',
     file: 'apps/desktop/renderer/src/design-system/shell/WorkspaceNav.tsx',
-    patterns: [/PRIMARY_NAV\.map/],
+    patterns: [/PRIMARY_NAV\.map/, /UTILITY_NAV\.map/],
   },
   {
     label: 'Command palette consumes the nav registry (no separate surface list)',

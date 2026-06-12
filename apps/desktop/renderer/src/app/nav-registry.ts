@@ -18,9 +18,10 @@ export interface NavEntry {
 }
 
 /**
- * Single source of truth for surface navigation. WorkspaceNav (primary),
- * IconBar (utility), and the command palette all render from this list, so
- * labels/icons/reachability never drift across the three entry points.
+ * Single source of truth for surface navigation. WorkspaceNav (both tiers:
+ * primary as text tabs, utility icon-only past the divider) and the command
+ * palette render from this list, so labels/icons/reachability never drift
+ * across the entry points.
  */
 export const NAV_ENTRIES: readonly NavEntry[] = [
   { key: 'office', label: 'Office', icon: BriefcaseBusiness, tier: 'primary' },

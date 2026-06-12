@@ -31,6 +31,12 @@ interface UiState {
   sceneRenderMode: SceneRenderMode;
   sceneDropDiagnostics: SceneDropDiagnostic[];
   resumeDismissed: boolean;
+  /**
+   * Narrow-tier (≤1200px) overlay visibility for the workspace panel. CSS
+   * drops the panel's grid column at that width, so this flag is the only way
+   * Files/Git stay reachable there; wide tiers ignore it.
+   */
+  wsPanelOverlayOpen: boolean;
 
   /** Personnel surface */
   selectedEmployeeId: string | null;
@@ -68,6 +74,7 @@ interface UiState {
   setSceneRenderMode: (mode: SceneRenderMode) => void;
   recordSceneDropDiagnostic: (event: SceneDropDiagnostic) => void;
   dismissResume: () => void;
+  toggleWsPanelOverlay: () => void;
 
   selectEmployee: (employeeId: string | null) => void;
   setPersonnelRailCollapsed: (collapsed: boolean) => void;
@@ -88,11 +95,14 @@ export const useUiState = create<UiState>((set) => ({
   companyId: '',
   projectId: '',
 
-  railMode: 'thread',
+  // First load has no selected thread; start in list mode so the rail shows
+  // real conversations instead of a permanent loading skeleton.
+  railMode: 'list',
   selectedThreadId: null,
   sceneRenderMode: '3d',
   sceneDropDiagnostics: [],
   resumeDismissed: false,
+  wsPanelOverlayOpen: false,
 
   selectedEmployeeId: null,
   personnelRailCollapsed: false,
@@ -117,6 +127,7 @@ export const useUiState = create<UiState>((set) => ({
   recordSceneDropDiagnostic: (event) =>
     set((s) => ({ sceneDropDiagnostics: [event, ...s.sceneDropDiagnostics].slice(0, 10) })),
   dismissResume: () => set({ resumeDismissed: true }),
+  toggleWsPanelOverlay: () => set((s) => ({ wsPanelOverlayOpen: !s.wsPanelOverlayOpen })),
 
   selectEmployee: (selectedEmployeeId) => set({ selectedEmployeeId }),
   setPersonnelRailCollapsed: (personnelRailCollapsed) => set({ personnelRailCollapsed }),

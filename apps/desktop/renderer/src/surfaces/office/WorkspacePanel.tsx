@@ -407,11 +407,22 @@ export function WorkspacePanel() {
         />
       ) : git.data ? (
         <GitTab workbench={git.data} />
+      ) : !project?.workspaceRoot ? (
+        // Same task as the Files empty state, so same copy + affordance.
+        <EmptyState
+          icon={FolderClosed}
+          title="No workspace bound"
+          description="Bind a local folder to give this project file context for runs."
+          action={{ label: 'Bind folder', onClick: () => void bindWorkspaceFolder() }}
+        />
       ) : (
+        // A folder is bound but the workbench resolved to null → it is not a
+        // git repository (useGitWorkbench folds both causes into null).
         <EmptyState
           icon={GitBranch}
-          title="No git workspace"
-          description="Bind a local folder with a git repository to use the workbench."
+          title="Not a git repository"
+          description="The bound folder has no git repository. Bind a folder that contains one."
+          action={{ label: 'Rebind folder', onClick: () => void bindWorkspaceFolder() }}
         />
       )}
     </aside>
