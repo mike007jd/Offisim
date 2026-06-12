@@ -39,6 +39,13 @@
   resize: vertical;
 }
 
+/* Compact textarea variant: opts out of the comfortable-area minimum for
+   single-row baselines (e.g. a footer row); the consumer owns the height. */
+.off-input[data-slot="textarea"].is-compact,
+.off-textarea.is-compact {
+  min-height: 0;
+}
+
 .off-input::placeholder {
   color: var(--off-ink-4);
 }
@@ -190,6 +197,18 @@
   border-color: var(--off-line-strong);
   background: var(--off-surface-sunken);
   color: var(--off-ink-1);
+}
+
+/* `outlineDanger` variant: resting danger ink on the outline chassis. Declared
+   after the outline hover so its hover wins on source order alone. */
+.off-button-outline-danger {
+  color: var(--off-danger);
+}
+
+.off-button-outline-danger:hover {
+  border-color: var(--off-danger-line);
+  background: var(--off-danger-surface);
+  color: var(--off-danger);
 }
 
 .off-button-subtle {

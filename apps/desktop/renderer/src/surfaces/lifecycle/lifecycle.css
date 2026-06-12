@@ -990,13 +990,11 @@
   transition: border-color var(--off-motion-fast) var(--off-motion-ease);
 }
 
-.off-wiz-desc textarea[data-slot='textarea'] {
+/* The textarea opts into the grammar's `.is-compact` variant (no comfortable
+   area minimum), so this rule only has to state the footer-row height. */
+.off-wiz-desc textarea[data-slot="textarea"] {
   width: 100%;
   height: var(--off-wiz-control-h);
-  /* grammar.css sets min-height 64px via .off-input[data-slot="textarea"]
-     (specificity 0,2,0); the attribute selector here keeps this override
-     winning the cascade so the 42px footer row holds. */
-  min-height: var(--off-wiz-control-h);
   padding: var(--off-sp-3) var(--off-sp-5);
   border: 1px solid var(--off-line-strong);
   border-radius: var(--off-r-sm);
@@ -1027,16 +1025,13 @@
 }
 
 /* Create error floats above the footer's top edge, anchored next to the CTA
-   that triggered it — out of flow, so the footer never jumps. */
-.off-wiz-error {
+   that triggered it — out of flow, so the footer never jumps. Composes the
+   shared `.off-alert.is-err` callout grammar (surfaces.css) for the danger
+   recipe; this only anchors it and bumps the type for the floating spot. */
+.off-alert.off-wiz-error {
   position: absolute;
   right: var(--off-sp-8);
   bottom: calc(100% + var(--off-sp-3));
-  padding: var(--off-sp-3) var(--off-sp-4);
-  background: var(--off-danger-surface);
-  border: 1px solid var(--off-danger);
-  border-radius: var(--off-r-sm);
-  color: var(--off-danger);
   font-size: var(--off-fs-sm);
   font-weight: 620;
 }

@@ -579,10 +579,11 @@ const requiredChecks = [
     ],
   },
   {
-    // IconBar was folded into WorkspaceNav (one nav grammar, both tiers).
+    // IconBar was folded into WorkspaceNav (one nav grammar, both tiers);
+    // a single registry map renders both tiers, keyed off `tier`.
     label: 'WorkspaceNav consumes the nav registry (both tiers, not hardcoded)',
     file: 'apps/desktop/renderer/src/design-system/shell/WorkspaceNav.tsx',
-    patterns: [/PRIMARY_NAV\.map/, /UTILITY_NAV\.map/],
+    patterns: [/NAV_ENTRIES\.map/, /tier === 'utility'/],
   },
   {
     label: 'Command palette consumes the nav registry (no separate surface list)',

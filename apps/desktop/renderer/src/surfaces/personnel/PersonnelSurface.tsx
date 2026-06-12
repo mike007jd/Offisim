@@ -424,14 +424,12 @@ function EmployeeDetail({
   useEffect(() => {
     if (guardPulse === lastGuardPulse.current) return;
     lastGuardPulse.current = guardPulse;
-    // Drop the class for one frame so a repeat block restarts the animation.
+    // Drop the class for one frame so a repeat block restarts the animation;
+    // the save bar's onAnimationEnd clears it when the CSS pulse finishes, so
+    // the duration lives only in personnel.css.
     setGuardPulsing(false);
     const raf = requestAnimationFrame(() => setGuardPulsing(true));
-    const timer = setTimeout(() => setGuardPulsing(false), 650);
-    return () => {
-      cancelAnimationFrame(raf);
-      clearTimeout(timer);
-    };
+    return () => cancelAnimationFrame(raf);
   }, [guardPulse]);
 
   const appearanceDirty = appearanceKey(appearance) !== appearanceKey(baselineAppearance.current);
@@ -592,7 +590,12 @@ function EmployeeDetail({
       {tab === 'profile' || tab === 'appearance' ? (
         <>
           {saveError ? <div className="off-pers-save-error">{saveError}</div> : null}
-          <div className={cn('off-pers-savebar', guardPulsing && 'is-guard-pulse')}>
+          <div
+            className={cn('off-pers-savebar', guardPulsing && 'is-guard-pulse')}
+            onAnimationEnd={(e) => {
+              if (e.animationName === 'off-pers-guard-pulse') setGuardPulsing(false);
+            }}
+          >
             <div className="off-pers-savebar-left">
               {employee.kind === 'external' ? null : confirmingDelete ? (
                 <div className="off-pers-del-confirm">
@@ -618,12 +621,7 @@ function EmployeeDetail({
               )}
             </div>
             <div className="flex items-center gap-[var(--off-sp-3)]">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!isDirty || isSaving}
-                onClick={onReset}
-              >
+              <Button variant="outline" size="sm" disabled={!isDirty || isSaving} onClick={onReset}>
                 Reset
               </Button>
               <Button size="sm" disabled={!canSave} onClick={() => void onSave()}>

@@ -171,9 +171,7 @@ export function ExternalEmployeesPane() {
       <div className="off-set-ext-head">
         <div>
           <div className="off-set-panetitle">External Employees</div>
-          <div className="off-set-panedesc">
-            External employees connected over A2A.
-          </div>
+          <div className="off-set-panedesc">External employees connected over A2A.</div>
         </div>
         {sorted.length > 0 ? (
           <Button size="md" onClick={() => setInstallOpen(true)}>
@@ -252,7 +250,7 @@ export function ExternalEmployeesPane() {
                     icon={Trash2}
                     label="Disconnect"
                     size="iconSm"
-                    variant="outline"
+                    variant="outlineDanger"
                     className="off-set-micro-danger"
                     disabled={busyId === employee.id}
                     onClick={() => void disconnect(employee)}

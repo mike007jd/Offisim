@@ -280,6 +280,14 @@ export interface RunError {
   message: string;
   /** Technical detail revealed under "Details". */
   technicalDetail: string;
+  /**
+   * Re-dispatch closure for the failed send, set by the runtime that surfaced
+   * the error. Absent when the failure cannot be re-dispatched (e.g. a seeded
+   * historical error), in which case the banner honestly stays dismiss-only.
+   * Riding on the error keeps the pair's lifecycle atomic: whatever replaces
+   * or clears the error replaces or clears the retry with it.
+   */
+  retry?: () => void;
 }
 
 /* --- Meetings ---------------------------------------------------------------*/

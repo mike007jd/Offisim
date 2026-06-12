@@ -244,11 +244,10 @@
   box-shadow: none;
   color: var(--off-ink-2);
   /* 1px white outline so the name stays legible over the light floor */
-  text-shadow:
-    -1px 0 color-mix(in oklab, var(--off-surface-1) 85%, transparent),
-    1px 0 color-mix(in oklab, var(--off-surface-1) 85%, transparent),
-    0 -1px color-mix(in oklab, var(--off-surface-1) 85%, transparent),
-    0 1px color-mix(in oklab, var(--off-surface-1) 85%, transparent);
+  text-shadow: -1px 0 color-mix(in oklab, var(--off-surface-1) 85%, transparent), 1px 0
+    color-mix(in oklab, var(--off-surface-1) 85%, transparent), 0 -1px
+    color-mix(in oklab, var(--off-surface-1) 85%, transparent), 0 1px
+    color-mix(in oklab, var(--off-surface-1) 85%, transparent);
   font-size: var(--off-fs-micro);
   font-weight: 600;
   white-space: nowrap;
@@ -441,11 +440,14 @@
 
 /* Diegetic cost readout */
 .off-scene-cost {
+  /* One height for the readout pill and the notif button, shared with the
+     lane-centering calc below so the cluster can never drift off-center. */
+  --off-sc-readout-h: 26px;
   position: absolute;
   right: var(--off-sp-7);
-  /* Center the 26px readout cluster inside the bottom stage lane so it never
+  /* Center the readout cluster inside the bottom stage lane so it never
      rides across the canvas bottom edge. */
-  bottom: calc((var(--off-stage-lane) - 26px) / 2);
+  bottom: calc((var(--off-stage-lane) - var(--off-sc-readout-h)) / 2);
   z-index: var(--off-z-float);
   display: flex;
   align-items: center;
@@ -454,8 +456,8 @@
 
 .off-sc-notif {
   position: relative;
-  width: 26px;
-  height: 26px;
+  width: var(--off-sc-readout-h);
+  height: var(--off-sc-readout-h);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -541,7 +543,7 @@
 }
 
 .off-sc-readout {
-  height: 26px;
+  height: var(--off-sc-readout-h);
   display: inline-flex;
   align-items: center;
   gap: var(--off-sp-2);

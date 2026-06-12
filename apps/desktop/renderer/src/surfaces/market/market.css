@@ -102,6 +102,18 @@
 }
 
 /* ── Inventory card ───────────────────────────────────────────────────── */
+/* Cover geometry contract. Badge/installed pills float at y9..28, so the viz
+   row starts below a reserved clearance band and the cover height derives from
+   the parts. Shared with the loading skeleton so the two cannot drift. */
+.off-mkt-card,
+.off-mkt-skel {
+  /* badge band (pills end y28) + 4px gap */
+  --off-mc-kv-top: 32px;
+  /* .off-kv viz row height (avatar / role tiles / tag stack) */
+  --off-mc-viz-h: 44px;
+  --off-mc-kv-bottom: 8px;
+  --off-mc-cover-h: calc(var(--off-mc-kv-top) + var(--off-mc-viz-h) + var(--off-mc-kv-bottom));
+}
 .off-mkt-card {
   --rc: var(--off-ink-3);
   --rcs: var(--off-surface-sunken);
@@ -144,11 +156,10 @@
   border-top-right-radius: var(--off-r-md);
 }
 
-/* 84px = 28px reserved badge band (pills sit at y9..28) + 44px viz row + 12px
-   breathing room; .off-kv starts below the band so badges never cover content. */
+/* .off-kv starts below the badge band so pills never cover content. */
 .off-mc-cover {
   position: relative;
-  height: 84px;
+  height: var(--off-mc-cover-h);
   flex: none;
   border-bottom: 1px solid var(--off-line-soft);
   overflow: hidden;
@@ -249,7 +260,7 @@
   line-height: 1.4;
   color: var(--off-ink-3);
   display: -webkit-box;
-  /* Single line: the 84px cover (badge clearance) eats body height inside the
+  /* Single line: the cover (badge clearance) eats body height inside the
      fixed 180px card, leaving room for handle+title+one line+stats. */
   -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
@@ -299,8 +310,7 @@
 /* ── Cover viz (.off-kv-*) ────────────────────────────────────────────── */
 .off-kv {
   position: absolute;
-  /* top 32px clears the absolute badge/installed pills (y9..28). */
-  inset: 32px 10px 8px;
+  inset: var(--off-mc-kv-top) 10px var(--off-mc-kv-bottom);
   display: flex;
   align-items: center;
   gap: var(--off-sp-3);
@@ -308,8 +318,8 @@
 
 /* employee */
 .off-kv-employee .off-kv-avatar {
-  width: 44px;
-  height: 44px;
+  width: var(--off-mc-viz-h);
+  height: var(--off-mc-viz-h);
   border-radius: var(--off-r-round);
   flex: none;
   background: linear-gradient(
@@ -332,7 +342,7 @@
   flex-wrap: wrap;
   gap: 4px;
   align-content: center;
-  max-height: 44px;
+  max-height: var(--off-mc-viz-h);
   overflow: hidden;
 }
 .off-kv-tag {
@@ -433,9 +443,9 @@
 }
 .off-kv-role {
   width: 34px;
-  /* Must fit the 44px viz box (.off-kv inset) — taller tiles centre-overflow
+  /* Must fit the viz box (.off-kv inset) — taller tiles centre-overflow
      upward into the reserved badge band. */
-  height: 44px;
+  height: var(--off-mc-viz-h);
   border-radius: var(--off-r-xs);
   background: var(--off-market-role);
   display: grid;
@@ -564,7 +574,7 @@
   box-shadow: var(--off-elev-1);
 }
 .off-mkt-skel-cover {
-  height: 84px;
+  height: var(--off-mc-cover-h);
   background: var(--off-surface-sunken);
   border-bottom: 1px solid var(--off-line-soft);
 }
@@ -1245,32 +1255,8 @@
   box-shadow: inset 0 0 0 1px var(--off-line);
 }
 
-/* alerts */
-.off-alert {
-  border-radius: var(--off-r-sm);
-  padding: 8px 10px;
-  font-size: var(--off-fs-meta);
-  line-height: 1.5;
-  display: flex;
-  gap: var(--off-sp-3);
-  align-items: flex-start;
-}
-.off-alert .off-icon {
-  flex: none;
-  margin-top: 1px;
-  width: 12px;
-  height: 12px;
-}
-.off-alert.is-warn {
-  border: 1px solid color-mix(in srgb, var(--off-warn) 40%, transparent);
-  background: var(--off-warn-surface);
-  color: var(--off-warn);
-}
-.off-alert.is-err {
-  border: 1px solid color-mix(in srgb, var(--off-danger) 40%, transparent);
-  background: var(--off-danger-surface);
-  color: var(--off-danger);
-}
+/* alerts: shared `.off-alert` grammar lives in surfaces.css; only the
+   market-local layout override below stays here. */
 
 /* bindings */
 .off-bind-head {

@@ -70,7 +70,6 @@ export function useOfficeRuntime({
   const finishRun = useRunStore((s) => s.finish);
   const stop = useRunStore((s) => s.stop);
   const setStopHandler = useRunStore((s) => s.setStopHandler);
-  const setRetryHandler = useRunStore((s) => s.setRetryHandler);
   const setRunError = useRunStore((s) => s.setError);
   const staged = useRunStore((s) => s.staged);
   const clearStaged = useRunStore((s) => s.clearStaged);
@@ -110,9 +109,7 @@ export function useOfficeRuntime({
       abortControllerRef.current = abortController;
       abortedRef.current = false;
       setIsSending(true);
-      // 'Chat reply' (not 'Provider response') so the pill title does not echo
-      // the 'Provider' stage label rendered next to it (M24).
-      startRun('Chat reply', assigneeId ?? null);
+      startRun(undefined, assigneeId ?? null);
       try {
         const materialized = await materializeChatTurn({
           text,
@@ -219,14 +216,15 @@ export function useOfficeRuntime({
           toast.error('Provider send failed', { description: messageText });
           // Route the real failure into shared run state so the in-thread
           // ChatErrorBanner becomes reachable (not just the toast/bubble).
-          setRunError(buildRunError(messageText));
-          // Pair the error with a re-dispatch closure so the banner can offer
-          // Retry. This onNew instance captured the failed turn's text and
-          // staged attachments, so the whole turn is re-sent as a new attempt
-          // (start() clears the handler when the retry kicks off).
-          setRetryHandler(() => {
-            useRunStore.getState().dismissError();
-            void onNew(message);
+          // The `retry` closure rides on the error so the banner can offer
+          // Retry: this onNew instance captured the failed turn's text and
+          // staged attachments, so the whole turn is re-sent as a new attempt.
+          setRunError({
+            ...buildRunError(messageText),
+            retry: () => {
+              useRunStore.getState().dismissError();
+              void onNew(message);
+            },
           });
           setDrafts((prev) => [
             ...prev,
@@ -267,7 +265,6 @@ export function useOfficeRuntime({
       finishRun,
       stop,
       setRunError,
-      setRetryHandler,
       persistRuntimeMessage,
       noteToolCalled,
       noteToolResult,
@@ -315,9 +312,15 @@ export function useOfficeRuntime({
 
   // The retry closure re-dispatches into this runtime's send pipeline, so it
   // must not outlive the mount (a sibling thread would re-send into the wrong
-  // thread). Seeded historical errors never register one — banner stays
-  // dismiss-only there.
-  useEffect(() => () => setRetryHandler(null), [setRetryHandler]);
+  // thread). Strip it from the surfaced error on unmount; the banner itself
+  // stays, just dismiss-only — same as a seeded historical error.
+  useEffect(
+    () => () => {
+      const store = useRunStore.getState();
+      if (store.error?.retry) store.setError({ ...store.error, retry: undefined });
+    },
+    [],
+  );
 
   useEffect(() => {
     return () => {

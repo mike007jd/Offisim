@@ -2,6 +2,7 @@ import { PREVIEW_TINTS } from '@/data/color-palette.js';
 import type { CompanyTemplate } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
 import { templateZones } from './lifecycle-data.js';
+import { FloorGridPattern } from './preview-svg.js';
 
 const PREVIEW_TINT_CYCLE = [
   PREVIEW_TINTS.workspace,
@@ -137,15 +138,7 @@ export function CyoBlueprint() {
       aria-label="Empty office plot, laid out later in Studio"
     >
       <defs>
-        <pattern id="off-wiz-bp-grid" width={24} height={24} patternUnits="userSpaceOnUse">
-          <path
-            d="M 24 0 L 0 0 0 24"
-            fill="none"
-            stroke="var(--off-line)"
-            strokeOpacity={0.5}
-            strokeWidth={1}
-          />
-        </pattern>
+        <FloorGridPattern id="off-wiz-bp-grid" />
       </defs>
       <rect
         x={4}

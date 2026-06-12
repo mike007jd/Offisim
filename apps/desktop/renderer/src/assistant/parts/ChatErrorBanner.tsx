@@ -5,13 +5,12 @@ import { useRunStore } from '../run-store.js';
 
 /**
  * In-thread recovery banner for a failed run. Surfaces only recovery paths that
- * write to shared run state: Retry appears only while the runtime has a real
- * re-dispatch closure registered; seeded historical errors stay dismiss-only.
+ * write to shared run state: Retry appears only while the error carries a real
+ * re-dispatch closure; seeded historical errors stay dismiss-only.
  */
 export function ChatErrorBanner() {
   const error = useRunStore((s) => s.error);
   const dismissError = useRunStore((s) => s.dismissError);
-  const retryHandler = useRunStore((s) => s.retryHandler);
   const [showDetails, setShowDetails] = useState(false);
 
   if (!error) return null;
@@ -32,14 +31,10 @@ export function ChatErrorBanner() {
           <Icon icon={X} size="sm" />
         </button>
       </div>
-      {retryHandler || error.technicalDetail ? (
+      {error.retry || error.technicalDetail ? (
         <div className="off-errbanner-actions">
-          {retryHandler ? (
-            <button
-              type="button"
-              className="off-errbanner-act off-focusable"
-              onClick={retryHandler}
-            >
+          {error.retry ? (
+            <button type="button" className="off-errbanner-act off-focusable" onClick={error.retry}>
               <Icon icon={RotateCcw} size="sm" />
               Retry
             </button>

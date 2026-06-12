@@ -3,29 +3,30 @@ import { Slot } from '@radix-ui/react-slot';
 import { type VariantProps, cva } from 'class-variance-authority';
 import type * as React from 'react';
 
-const buttonVariants = cva(
-  'off-focusable off-button',
-  {
-    variants: {
-      variant: {
-        default: 'off-button-default',
-        destructive: 'off-button-destructive',
-        outline: 'off-button-outline',
-        subtle: 'off-button-subtle',
-        ghost: 'off-button-ghost',
-        accentSoft: 'off-button-accent-soft',
-      },
-      size: {
-        sm: 'off-button-sm',
-        md: 'off-button-md',
-        lg: 'off-button-lg',
-        icon: 'off-button-icon',
-        iconSm: 'off-button-icon-sm',
-      },
+const buttonVariants = cva('off-focusable off-button', {
+  variants: {
+    variant: {
+      default: 'off-button-default',
+      destructive: 'off-button-destructive',
+      outline: 'off-button-outline',
+      // Destructive-intent outline: resting danger ink so the affordance
+      // reads before hover (full-strength `destructive` is for confirmed
+      // actions, not row-level delete icons).
+      outlineDanger: 'off-button-outline off-button-outline-danger',
+      subtle: 'off-button-subtle',
+      ghost: 'off-button-ghost',
+      accentSoft: 'off-button-accent-soft',
     },
-    defaultVariants: { variant: 'default', size: 'md' },
+    size: {
+      sm: 'off-button-sm',
+      md: 'off-button-md',
+      lg: 'off-button-lg',
+      icon: 'off-button-icon',
+      iconSm: 'off-button-icon-sm',
+    },
   },
-);
+  defaultVariants: { variant: 'default', size: 'md' },
+});
 
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,

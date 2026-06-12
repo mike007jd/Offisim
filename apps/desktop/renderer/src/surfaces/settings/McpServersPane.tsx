@@ -1,3 +1,4 @@
+import { isTauriRuntime } from '@/data/adapters.js';
 import {
   CapsLabel,
   CardBlock,
@@ -6,7 +7,6 @@ import {
   SegmentedControl,
   StatusPill,
 } from '@/design-system/grammar/index.js';
-import { isTauriRuntime } from '@/data/adapters.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import { Input } from '@/design-system/primitives/input.js';
@@ -22,11 +22,11 @@ import { McpStdioConfirmDialog } from './McpStdioConfirmDialog.js';
 import {
   MCP_SERVER_DEFAULTS,
   MCP_STATUS_LABELS,
-  connectMcpServer,
   type McpServer,
   type McpServerFormValues,
   type McpStatus,
   type McpTransport,
+  connectMcpServer,
   mcpServerSchema,
   registerMcpServer,
   unregisterMcpServer,
@@ -208,7 +208,7 @@ export function McpServersPane() {
                   icon={Trash2}
                   label={userOwned ? 'Delete server' : 'Managed by runtime source'}
                   size="iconSm"
-                  variant="outline"
+                  variant="outlineDanger"
                   className="off-set-micro-danger"
                   disabled={busy || !desktopAvailable || !userOwned}
                   onClick={() => {

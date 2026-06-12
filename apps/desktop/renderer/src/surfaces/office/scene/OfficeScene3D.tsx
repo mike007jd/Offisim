@@ -2,7 +2,6 @@ import { useUiState } from '@/app/ui-state.js';
 import { useEmployees, useOfficeLayout, useReassignEmployee, useThreads } from '@/data/queries.js';
 import type { Employee } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
-import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
 import {
   type PrefabDefinition,
   type PrefabInstanceRow,
@@ -10,7 +9,6 @@ import {
 } from '@offisim/shared-types';
 import { Html, OrbitControls } from '@react-three/drei';
 import { Canvas, useThree } from '@react-three/fiber';
-import { LayoutTemplate } from 'lucide-react';
 import { Fragment, memo, useEffect, useMemo, useRef, useState } from 'react';
 import { ACESFilmicToneMapping, type Camera, Plane, Raycaster, Vector2, Vector3 } from 'three';
 import { BlockCharacter } from './BlockCharacter.js';
@@ -1246,7 +1244,6 @@ export function OfficeScene3D({
   const selectedThreadId = useUiState((s) => s.selectedThreadId);
   const openThread = useUiState((s) => s.openThread);
   const closeThread = useUiState((s) => s.closeThread);
-  const setSurface = useUiState((s) => s.setSurface);
   const recordSceneDropDiagnostic = useUiState((s) => s.recordSceneDropDiagnostic);
   const employees = useEmployees();
   const threads = useThreads(projectId);
@@ -1265,10 +1262,9 @@ export function OfficeScene3D({
   const zoneDefs: ZoneDef[] = useMemo(() => zoneDefsFromLayout(real), [real]);
   // Only reachable with a real backend layout that has zero zones — the
   // no-backend preview path always resolves to the non-empty FALLBACK_ZONES.
-  // Studio mounts (placement wiring present) suppress the overlay: the editor
-  // already owns its empty-layout guidance via the always-on "Create zone".
+  // OfficeStage owns the "No office layout yet" overlay (so Studio mounts of
+  // this scene never see it); here zero zones just means zero seats.
   const emptyOffice = zoneDefs.length === 0;
-  const showEmptyState = emptyOffice && !onPlacementPoint;
   const scenePrefabs = useMemo(
     () => relaxedScenePrefabs(real?.prefabs, zoneDefs),
     [real?.prefabs, zoneDefs],
@@ -1368,61 +1364,62 @@ export function OfficeScene3D({
           <FallbackFurniture />
         )}
 
-        {roster.map((employee) => {
-          // Zero zones → zero seats: an honest empty office renders nobody, so
-          // the synthetic default-zone placement fallback below stays unused.
-          if (emptyOffice) return null;
-          const placement = placementsByEmployee.get(employee.id) ?? {
-            x: defaultEmployeeZone.cx,
-            z: defaultEmployeeZone.cz,
-            rotation: 0,
-            posture: 'standing' as const,
-          };
-          const thread = threadByEmployee.get(employee.id);
-          const running =
-            thread?.runState === 'running' || (liveThread?.scope === 'team' && employee.online);
-          return (
-            <EmployeeUnit
-              key={employee.id}
-              employee={employee}
-              x={placement.x}
-              z={placement.z}
-              rotation={placement.rotation}
-              posture={!real ? 'sitting' : placement.posture}
-              withDesk={!real}
-              running={running}
-              active={Boolean(thread && thread.id === selectedThreadId)}
-              dragging={employeeDrag?.employeeId === employee.id}
-              zones={zoneDefs}
-              onSelect={() => thread && openThread(thread.id)}
-              onHoverZone={setHoveredZoneId}
-              onDragState={setEmployeeDrag}
-              onDrop={(result) => {
-                if (result.zoneId)
-                  reassign.mutate({ employeeId: employee.id, zoneId: result.zoneId });
-                recordSceneDropDiagnostic({
-                  id: `drop-${crypto.randomUUID()}`,
-                  at: new Date().toISOString(),
-                  employeeId: employee.id,
-                  startX: result.startX,
-                  startY: result.startY,
-                  endX: result.endX,
-                  endY: result.endY,
-                  targetZoneId: result.zoneId,
-                  decision: result.zoneId ? 'assigned' : result.moved ? 'missed' : 'not-moved',
-                });
-                if (result.moved && !result.zoneId) {
-                  setDropNotice({
-                    id: `drop-note-${crypto.randomUUID()}`,
-                    x: result.x ?? placement.x,
-                    z: result.z ?? placement.z,
-                    message: 'Drop on a zone',
-                  });
-                }
-              }}
-            />
-          );
-        })}
+        {/* Zero zones → zero seats: an honest empty office renders nobody, so
+            the synthetic default-zone placement fallback below stays unused. */}
+        {emptyOffice
+          ? null
+          : roster.map((employee) => {
+              const placement = placementsByEmployee.get(employee.id) ?? {
+                x: defaultEmployeeZone.cx,
+                z: defaultEmployeeZone.cz,
+                rotation: 0,
+                posture: 'standing' as const,
+              };
+              const thread = threadByEmployee.get(employee.id);
+              const running =
+                thread?.runState === 'running' || (liveThread?.scope === 'team' && employee.online);
+              return (
+                <EmployeeUnit
+                  key={employee.id}
+                  employee={employee}
+                  x={placement.x}
+                  z={placement.z}
+                  rotation={placement.rotation}
+                  posture={!real ? 'sitting' : placement.posture}
+                  withDesk={!real}
+                  running={running}
+                  active={Boolean(thread && thread.id === selectedThreadId)}
+                  dragging={employeeDrag?.employeeId === employee.id}
+                  zones={zoneDefs}
+                  onSelect={() => thread && openThread(thread.id)}
+                  onHoverZone={setHoveredZoneId}
+                  onDragState={setEmployeeDrag}
+                  onDrop={(result) => {
+                    if (result.zoneId)
+                      reassign.mutate({ employeeId: employee.id, zoneId: result.zoneId });
+                    recordSceneDropDiagnostic({
+                      id: `drop-${crypto.randomUUID()}`,
+                      at: new Date().toISOString(),
+                      employeeId: employee.id,
+                      startX: result.startX,
+                      startY: result.startY,
+                      endX: result.endX,
+                      endY: result.endY,
+                      targetZoneId: result.zoneId,
+                      decision: result.zoneId ? 'assigned' : result.moved ? 'missed' : 'not-moved',
+                    });
+                    if (result.moved && !result.zoneId) {
+                      setDropNotice({
+                        id: `drop-note-${crypto.randomUUID()}`,
+                        x: result.x ?? placement.x,
+                        z: result.z ?? placement.z,
+                        message: 'Drop on a zone',
+                      });
+                    }
+                  }}
+                />
+              );
+            })}
 
         {employeeDrag && draggedEmployee ? (
           <EmployeeDragGhost employee={draggedEmployee} drag={employeeDrag} />
@@ -1448,17 +1445,6 @@ export function OfficeScene3D({
         />
         <ScenePostFx />
       </Canvas>
-      {showEmptyState ? (
-        // Honest empty office: the room shell stays as a bare floor; the HTML
-        // overlay carries the guidance (simpler and crisper than WebGL text).
-        <EmptyState
-          icon={LayoutTemplate}
-          title="No office layout yet"
-          description="Open Studio to lay out your floor."
-          action={{ label: 'Open Studio', onClick: () => setSurface('studio') }}
-          className="off-scene-empty"
-        />
-      ) : null}
     </>
   );
 }

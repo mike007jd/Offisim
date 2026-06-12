@@ -1,7 +1,7 @@
 import { useUiState } from '@/app/ui-state.js';
 import { RunPipelinePill } from '@/assistant/parts/RunPipelinePill.js';
 import { useRunStore } from '@/assistant/run-store.js';
-import { useRunCost } from '@/data/queries.js';
+import { useOfficeLayout, useRunCost } from '@/data/queries.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import { Popover, PopoverContent, PopoverTrigger } from '@/design-system/primitives/popover.js';
@@ -12,10 +12,20 @@ import {
   getDisplaySummary,
   useActivityRecords,
 } from '@/surfaces/activity/activity-data.js';
-import { Activity, ArrowRight, Box, Coins, LayoutPanelTop, PanelLeft } from 'lucide-react';
+import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
+import {
+  Activity,
+  ArrowRight,
+  Box,
+  Coins,
+  LayoutPanelTop,
+  LayoutTemplate,
+  PanelLeft,
+} from 'lucide-react';
 import { Suspense, useMemo } from 'react';
 import { OfficeScene2D } from './scene/OfficeScene2D.js';
 import { OfficeScene3D } from './scene/OfficeScene3D.js';
+import { zoneDefsFromLayout } from './scene/scene-layout.js';
 
 export function OfficeStage() {
   const sceneRenderMode = useUiState((s) => s.sceneRenderMode);
@@ -30,6 +40,12 @@ export function OfficeStage() {
   const runCost = useRunCost();
   const isRunning = useRunStore((s) => s.isRunning);
   const activityRecords = useActivityRecords(companyId);
+  // Zero zones is only reachable with a real backend layout (the no-backend
+  // preview path falls back to non-empty FALLBACK_ZONES). The stage owns the
+  // empty-office overlay so both render modes share one copy — and Studio,
+  // which mounts OfficeScene3D directly, never sees it.
+  const layout = useOfficeLayout(companyId);
+  const emptyOffice = zoneDefsFromLayout(layout.data).length === 0;
 
   // Unread = activity rows with `at` strictly newer than the last-seen stamp.
   // The scene readout owns this state so Office avoids generic header chrome.
@@ -59,6 +75,17 @@ export function OfficeStage() {
         ) : (
           <OfficeScene2D />
         )}
+        {emptyOffice ? (
+          // Honest empty office: the scene keeps its bare floor and seats
+          // nobody; this HTML overlay carries the guidance for both modes.
+          <EmptyState
+            icon={LayoutTemplate}
+            title="No office layout yet"
+            description="Open Studio to lay out your floor."
+            action={{ label: 'Open Studio', onClick: () => setSurface('studio') }}
+            className="off-scene-empty"
+          />
+        ) : null}
       </div>
 
       {/* Pipeline pill: always present while a run is live (Stop lives here). */}

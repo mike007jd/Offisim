@@ -1,3 +1,4 @@
+import { useUiState } from '@/app/ui-state.js';
 import {
   CapsLabel,
   CardBlock,
@@ -18,7 +19,6 @@ import {
   sendProviderText,
   setPreferredProviderId,
 } from '@/lib/provider-bridge.js';
-import { useUiState } from '@/app/ui-state.js';
 import {
   AlertTriangle,
   Check,
@@ -30,7 +30,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { type CSSProperties, useMemo, useState } from 'react';
-import type { UseFormReturn } from 'react-hook-form';
+import { type Control, type UseFormReturn, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import {
   ACCESS_MODE_OPTIONS,
@@ -155,7 +155,6 @@ export function ProviderPane({
   const companyId = useUiState((s) => s.companyId);
   const product = form.watch('product');
   const accessMode = form.watch('accessMode');
-  const modelValue = form.watch('model');
   const isManaged = accessMode === 'managed';
   const isHostResolved = accessMode === 'host-resolved' || accessMode === 'managed';
   const providerBridgeAvailable = isDesktopProviderBridgeAvailable();
@@ -227,9 +226,7 @@ export function ProviderPane({
     // the newly-selected provider (the runtime resolves the provider once at
     // assembly time).
     if (companyId) {
-      const { disposeDesktopAgentRuntime } = await import(
-        '@/runtime/desktop-agent-runtime.js'
-      );
+      const { disposeDesktopAgentRuntime } = await import('@/runtime/desktop-agent-runtime.js');
       await disposeDesktopAgentRuntime(companyId).catch(() => undefined);
     }
     toast.success(`${active.displayName} is now your chat provider`, {
@@ -418,12 +415,7 @@ export function ProviderPane({
           </FieldRow>
           {/* Provider-level reasoning flag, but only assert "this model" once a
               model id is actually filled in. */}
-          {active.isThinking && modelValue.trim() ? (
-            <div className="off-set-callout is-warn mt-[var(--off-sp-3)]">
-              <Icon icon={AlertTriangle} size="sm" />
-              This model reasons before answering — set max output tokens to 1024 or higher.
-            </div>
-          ) : null}
+          {active.isThinking ? <ThinkingModelCallout control={form.control} /> : null}
         </CardBlock>
       </section>
 
@@ -628,6 +620,20 @@ export function ProviderPane({
           </Button>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/** Isolates the per-keystroke `model` subscription: the pane itself stays
+ *  uncontrolled (RHF), so typing a model id re-renders only this callout
+ *  instead of the whole ProviderPane. */
+function ThinkingModelCallout({ control }: { control: Control<ProviderFormValues> }) {
+  const model = useWatch({ control, name: 'model' });
+  if (!model.trim()) return null;
+  return (
+    <div className="off-set-callout is-warn mt-[var(--off-sp-3)]">
+      <Icon icon={AlertTriangle} size="sm" />
+      This model reasons before answering — set max output tokens to 1024 or higher.
     </div>
   );
 }

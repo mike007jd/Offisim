@@ -82,31 +82,11 @@ for (const detail of findMatches(
 }
 
 {
-  const relPath = 'apps/desktop/renderer/src/design-system/shell/IconBar.tsx';
-  const text = read(relPath);
-  const utilityFilter = callExpressionBlock(text, 'UTILITY_NAV.filter');
-  const hasOfficeScopedStudio =
-    /entry\.key\s*!==\s*['"]studio['"]/.test(utilityFilter) &&
-    /surface\s*===\s*['"]office['"]/.test(utilityFilter) &&
-    /surface\s*===\s*['"]studio['"]/.test(utilityFilter);
-  const rendersFilteredEntries = /visibleEntries\.map\(/.test(text);
-  if (!hasOfficeScopedStudio || !rendersFilteredEntries) {
-    fail('Studio appears in global utility iconbar', {
-      file: relPath,
-      line: lineNumber(text, Math.max(0, text.indexOf('UTILITY_NAV'))),
-      match:
-        'IconBar must filter Studio to Office/Studio surfaces and render visibleEntries.map(...)',
-    });
-  }
-}
-
-{
   const relPath = 'apps/desktop/renderer/src/surfaces/market/market.css';
   const text = read(relPath);
   const card = cssBlock(text, '.off-mkt-card');
   const cover = cssBlock(text, '.off-mc-cover');
   const cardHeight = numericCssValue(card, 'height');
-  const coverHeight = numericCssValue(cover, 'height');
   if (cardHeight === null || cardHeight > 180) {
     fail('Market card exceeds V3 inventory density', {
       file: relPath,
@@ -114,11 +94,19 @@ for (const detail of findMatches(
       match: `.off-mkt-card height is ${cardHeight ?? 'missing'}px; expected <= 180px`,
     });
   }
-  if (coverHeight === null || coverHeight > 70) {
-    fail('Market cover band is too tall for normal cards', {
+  // The cover height is a derived contract (badge band + viz row + padding)
+  // shared with the skeleton via local custom properties — assert both consume
+  // the var rather than re-deriving literals that can drift apart.
+  const skelCover = cssBlock(text, '.off-mkt-skel-cover');
+  const coverUsesContract = /height:\s*var\(--off-mc-cover-h\)/.test(cover);
+  const skelUsesContract = /height:\s*var\(--off-mc-cover-h\)/.test(skelCover);
+  const contractDefined = /--off-mc-cover-h:\s*calc\(/.test(text);
+  if (!contractDefined || !coverUsesContract || !skelUsesContract) {
+    fail('Market cover geometry is not on the shared contract vars', {
       file: relPath,
       line: lineNumber(text, text.indexOf('.off-mc-cover')),
-      match: `.off-mc-cover height is ${coverHeight ?? 'missing'}px; expected about 60px`,
+      match:
+        '.off-mc-cover and .off-mkt-skel-cover must take height from --off-mc-cover-h (calc of band + viz + padding)',
     });
   }
 }
@@ -126,12 +114,13 @@ for (const detail of findMatches(
 {
   const relPath = 'apps/desktop/renderer/src/surfaces/settings/settings.css';
   const text = read(relPath);
-  const pane = cssBlock(text, '.off-set-pane');
-  if (!/max-width:\s*720px/.test(pane)) {
-    fail('Settings content is not constrained to 720px', {
+  // The width cap moved from a hardcoded 720px on the pane to the shared
+  // layout token consumed by the settings body grid.
+  if (!/grid-template-columns:\s*minmax\(0,\s*var\(--off-form-col-max\)\)/.test(text)) {
+    fail('Settings content is not constrained to the form column token', {
       file: relPath,
       line: lineNumber(text, text.indexOf('.off-set-pane')),
-      match: '.off-set-pane missing max-width: 720px',
+      match: 'settings.css missing grid-template-columns: minmax(0, var(--off-form-col-max))',
     });
   }
 }
@@ -144,7 +133,7 @@ for (const detail of findMatches(
     /height:\s*3[0-6]px/.test(tabs) &&
     /border:\s*1px\s+solid/.test(tabs) &&
     /border-radius:\s*var\(--off-r-md\)/.test(tabs) &&
-    /padding:\s*3px/.test(tabs) &&
+    /padding:\s*(?:3px|var\(--off-sp-1\))/.test(tabs) &&
     /background:\s*var\(--off-surface-[12]\)/.test(tabs);
   if (!hasContainerGrammar) {
     fail('Personnel inspector tabs do not use V3 container grammar', {

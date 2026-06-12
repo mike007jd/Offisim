@@ -101,7 +101,7 @@
   will-change: transform;
 }
 
-[data-sonner-toast]:not([data-mounted='true']) {
+[data-sonner-toast]:not([data-mounted="true"]) {
   --y: translateY(0) !important;
 }
 
@@ -265,4 +265,33 @@
   100% {
     background-position: -200% 0;
   }
+}
+
+/* The one inline callout grammar (warn/error), shared across surfaces —
+   compose with a surface-local class for placement, never re-derive the
+   danger/warn surface+border+ink recipe. */
+.off-alert {
+  border-radius: var(--off-r-sm);
+  padding: 8px 10px;
+  font-size: var(--off-fs-meta);
+  line-height: 1.5;
+  display: flex;
+  gap: var(--off-sp-3);
+  align-items: flex-start;
+}
+.off-alert .off-icon {
+  flex: none;
+  margin-top: 1px;
+  width: 12px;
+  height: 12px;
+}
+.off-alert.is-warn {
+  border: 1px solid color-mix(in srgb, var(--off-warn) 40%, transparent);
+  background: var(--off-warn-surface);
+  color: var(--off-warn);
+}
+.off-alert.is-err {
+  border: 1px solid color-mix(in srgb, var(--off-danger) 40%, transparent);
+  background: var(--off-danger-surface);
+  color: var(--off-danger);
 }

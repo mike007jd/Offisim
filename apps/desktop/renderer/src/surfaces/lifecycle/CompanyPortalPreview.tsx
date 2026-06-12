@@ -1,6 +1,7 @@
 import { UI_DATA_COLORS } from '@/data/color-palette.js';
 import type { Company } from '@/data/types.js';
 import type { CompanyBrief } from './lifecycle-data.js';
+import { FloorGridPattern } from './preview-svg.js';
 
 const ZONE_TINTS = [
   UI_DATA_COLORS.blue,
@@ -61,15 +62,7 @@ export function CompanyPortalPreview({
       aria-label={`${company.name} office preview`}
     >
       <defs>
-        <pattern id={gridId} width={24} height={24} patternUnits="userSpaceOnUse">
-          <path
-            d="M 24 0 L 0 0 0 24"
-            fill="none"
-            stroke="var(--off-line)"
-            strokeOpacity={0.5}
-            strokeWidth={1}
-          />
-        </pattern>
+        <FloorGridPattern id={gridId} />
       </defs>
       {/* Floor plate on surface-2 so it reads against the sunken card bg. */}
       <rect width={W} height={H} rx={14} fill="var(--off-surface-2)" />

@@ -260,7 +260,7 @@ export function CompanyCreationWizard({
         {/* Out-of-flow error anchored above the footer, CTA side — keeps the
             footer height stable (no whole-page jump when it appears). */}
         {createError ? (
-          <div className="off-wiz-error" role="alert">
+          <div className="off-alert is-err off-wiz-error" role="alert">
             {createError}
           </div>
         ) : null}
@@ -300,6 +300,7 @@ export function CompanyCreationWizard({
                 </label>
                 <Textarea
                   id="off-wiz-desc"
+                  className="is-compact"
                   rows={2}
                   placeholder="What does this company do?"
                   value={description}

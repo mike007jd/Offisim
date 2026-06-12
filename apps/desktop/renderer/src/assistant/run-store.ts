@@ -93,15 +93,6 @@ interface RunStore {
   /** Register (or clear) the active runtime's real abort handler. */
   setStopHandler: (handler: (() => void) | null) => void;
   /**
-   * Re-dispatch closure for the last failed send, registered by the active
-   * runtime alongside the error it surfaces. Null when the failure cannot be
-   * re-dispatched (e.g. a seeded historical error), in which case the banner
-   * honestly stays dismiss-only.
-   */
-  retryHandler: (() => void) | null;
-  /** Register (or clear) the runtime's retry closure for the surfaced error. */
-  setRetryHandler: (handler: (() => void) | null) => void;
-  /**
    * Request a stop from outside the runtime (the diegetic stage pill). Invokes
    * the registered runtime abort when present; otherwise flips the local
    * running flag so the control is never inert.
@@ -124,6 +115,10 @@ interface RunStore {
 
 type RunStoreSet = (partial: Partial<RunStore> | ((state: RunStore) => Partial<RunStore>)) => void;
 
+/** Default pipeline pill title. 'Chat reply' (not 'Provider response') so the
+ *  pill title does not echo the 'Provider' stage label rendered next to it (M24). */
+const DEFAULT_PIPELINE_TITLE = 'Chat reply';
+
 const ACTIVE_PROVIDER_STAGES: PipelineStage[] = [
   { id: 'provider-request', label: 'Provider', state: 'active' },
   { id: 'assistant-response', label: 'Response', state: 'pending' },
@@ -141,7 +136,8 @@ function makePipeline(title: string, assigneeId: string | null): RunPipeline {
 
 /** Seed an error banner for a thread persisted in the `error` state. The prior
  *  failure detail is not persisted per-thread, so this is an honest generic
- *  banner (no fabricated transport/auth specifics, no Details) until retried. */
+ *  banner (no fabricated transport/auth specifics, no Details, no `retry`
+ *  closure — the failed input is gone, so the banner stays dismiss-only). */
 function seedError(): RunError {
   return {
     id: 'thread-error',
@@ -159,7 +155,6 @@ export const useRunStore = create<RunStore>((set, get) => ({
   staged: [],
   storageAvailable: true,
   stopHandler: null,
-  retryHandler: null,
   activity: [],
   activityTotal: 0,
 
@@ -168,11 +163,8 @@ export const useRunStore = create<RunStore>((set, get) => ({
     set({
       threadId,
       isRunning: running,
-      pipeline: running ? makePipeline('Chat reply', null) : null,
+      pipeline: running ? makePipeline(DEFAULT_PIPELINE_TITLE, null) : null,
       error: runState === 'error' ? seedError() : null,
-      // A seeded error has no re-dispatchable input; any prior thread's retry
-      // closure is stale here either way.
-      retryHandler: null,
       // No producer emits MeetingState yet, so this stays null and
       // MeetingTray/MeetingRegion render nothing rather than asserting a meeting.
       meeting: null,
@@ -185,10 +177,10 @@ export const useRunStore = create<RunStore>((set, get) => ({
   start: (title, assigneeId) => {
     set({
       isRunning: true,
-      pipeline: makePipeline(title ?? 'Chat reply', assigneeId ?? null),
+      pipeline: makePipeline(title ?? DEFAULT_PIPELINE_TITLE, assigneeId ?? null),
+      // Clearing the error also drops its retry closure — a new attempt
+      // supersedes the previous failure wholesale.
       error: null,
-      // A new attempt supersedes the previous failure's retry closure.
-      retryHandler: null,
       activity: [],
       activityTotal: 0,
     });
@@ -218,7 +210,9 @@ export const useRunStore = create<RunStore>((set, get) => ({
       if (target < 0) return {};
       return {
         activity: s.activity.map((entry, i) =>
-          i === target ? { ...entry, state: success ? ('done' as const) : ('error' as const) } : entry,
+          i === target
+            ? { ...entry, state: success ? ('done' as const) : ('error' as const) }
+            : entry,
         ),
       };
     }),
@@ -242,8 +236,6 @@ export const useRunStore = create<RunStore>((set, get) => ({
   },
 
   setStopHandler: (stopHandler) => set({ stopHandler }),
-
-  setRetryHandler: (retryHandler) => set({ retryHandler }),
 
   requestStop: () => {
     const handler = get().stopHandler;

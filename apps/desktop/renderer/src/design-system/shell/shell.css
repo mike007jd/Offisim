@@ -190,9 +190,9 @@
 }
 
 /* Divider between the primary text tabs and the utility icon tabs. */
-.off-iconbar-divider {
+.off-nav-divider {
   width: 1px;
-  height: var(--off-iconbar-divider-height);
+  height: var(--off-nav-divider-height);
   margin: 0 3px;
   background: var(--off-line);
   flex: none;

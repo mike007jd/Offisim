@@ -4,12 +4,11 @@ import { useEmployees, useOfficeLayout, useThreads } from '@/data/queries.js';
 import type { ZoneKind } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
 import { CANVAS_FONT_TOKENS } from '@/styles/visual-tokens.js';
-import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
-import { LayoutTemplate } from 'lucide-react';
 import { useEffect, useMemo, useRef } from 'react';
 import { compactSceneEmployeeName } from './scene-labels.js';
 import {
   archetypeToKind,
+  clamp,
   defaultEmployeeZone,
   employeePlacements,
   floorBounds,
@@ -46,7 +45,6 @@ export function OfficeScene2D() {
   const projectId = useUiState((s) => s.projectId);
   const selectedThreadId = useUiState((s) => s.selectedThreadId);
   const openThread = useUiState((s) => s.openThread);
-  const setSurface = useUiState((s) => s.setSurface);
   const employees = useEmployees();
   const threads = useThreads(projectId);
   // Same real source as the 3D scene — real zones + real roster, with the
@@ -60,9 +58,6 @@ export function OfficeScene2D() {
   // every render — `employees.data ?? []` is otherwise a fresh array each time.
   const roster = useMemo(() => employees.data ?? [], [employees.data]);
   const zoneDefs = useMemo(() => zoneDefsFromLayout(layout.data), [layout.data]);
-  // Only reachable with a real backend layout that has zero zones — the
-  // no-backend preview path always resolves to the non-empty FALLBACK_ZONES.
-  const emptyOffice = zoneDefs.length === 0;
   const { floorW, floorD } = useMemo(() => floorBounds(zoneDefs), [zoneDefs]);
   const fallbackZone = useMemo(() => defaultEmployeeZone(zoneDefs), [zoneDefs]);
   const positions = useMemo(
@@ -150,8 +145,10 @@ export function OfficeScene2D() {
       const titleBand = 22;
       // Below-the-dot label box bottoms out at sy + r + 22 (slot + 4).
       const labelBand = 16;
+      // Like scene-layout's clamp, plus a degenerate-span midpoint (a zone
+      // narrower on screen than the disc's painted extent has min > max).
       const clampSpan = (v: number, min: number, max: number) =>
-        min > max ? (min + max) / 2 : Math.min(max, Math.max(min, v));
+        min > max ? (min + max) / 2 : clamp(v, min, max);
       // The selected employee draws first so its name label always wins a slot.
       const selectedEmployeeId = threadList?.find((t) => t.id === selectedThreadId)?.employeeId;
       const ordered =
@@ -269,31 +266,21 @@ export function OfficeScene2D() {
     return () => observer.disconnect();
   }, [zoneDefs, floorW, floorD, positions, roster, threadList, selectedThreadId]);
 
+  // A zero-zone (empty) office draws the bare floor slab with nobody seated —
+  // employeePlacements returns no seats for zero zones; OfficeStage owns the
+  // "No office layout yet" overlay for both render modes.
   return (
-    <>
-      {/* biome-ignore lint/a11y/useKeyWithClickEvents: canvas hit-test is a pointer convenience; employees are keyboard-selectable via the team dock and thread list */}
-      <canvas
-        ref={canvasRef}
-        className="off-scene-canvas"
-        onClick={(e) => {
-          const rect = e.currentTarget.getBoundingClientRect();
-          const px = e.clientX - rect.left;
-          const py = e.clientY - rect.top;
-          const hit = hitsRef.current.find((h) => Math.hypot(px - h.sx, py - h.sy) <= h.r);
-          if (hit) openThread(hit.threadId);
-        }}
-      />
-      {emptyOffice ? (
-        // Honest empty office: the canvas keeps the bare floor slab; nobody is
-        // seated (employeePlacements returns no seats for zero zones).
-        <EmptyState
-          icon={LayoutTemplate}
-          title="No office layout yet"
-          description="Open Studio to lay out your floor."
-          action={{ label: 'Open Studio', onClick: () => setSurface('studio') }}
-          className="off-scene-empty"
-        />
-      ) : null}
-    </>
+    // biome-ignore lint/a11y/useKeyWithClickEvents: canvas hit-test is a pointer convenience; employees are keyboard-selectable via the team dock and thread list
+    <canvas
+      ref={canvasRef}
+      className="off-scene-canvas"
+      onClick={(e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const px = e.clientX - rect.left;
+        const py = e.clientY - rect.top;
+        const hit = hitsRef.current.find((h) => Math.hypot(px - h.sx, py - h.sy) <= h.r);
+        if (hit) openThread(hit.threadId);
+      }}
+    />
   );
 }

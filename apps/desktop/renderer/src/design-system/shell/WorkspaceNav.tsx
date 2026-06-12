@@ -1,7 +1,8 @@
-import { PRIMARY_NAV, UTILITY_NAV } from '@/app/nav-registry.js';
+import { NAV_ENTRIES, UTILITY_NAV } from '@/app/nav-registry.js';
 import { useUiState } from '@/app/ui-state.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
+import { Fragment } from 'react';
 
 /**
  * The single surface-navigation cluster. Primary surfaces render as text tabs;
@@ -16,38 +17,26 @@ export function WorkspaceNav() {
 
   return (
     <nav className="off-workspace-nav" aria-label="Surfaces">
-      {PRIMARY_NAV.map((item) => {
+      {NAV_ENTRIES.map((item) => {
         const active = surface === item.key;
+        const isUtility = item.tier === 'utility';
         return (
-          <button
-            key={item.key}
-            type="button"
-            className={cn('off-focusable', active && 'is-active')}
-            aria-current={active ? 'page' : undefined}
-            aria-label={item.label}
-            title={item.label}
-            onClick={() => setSurface(item.key)}
-          >
-            <Icon icon={item.icon} size="sm" />
-            <span className="off-nav-label">{item.label}</span>
-          </button>
-        );
-      })}
-      <span className="off-iconbar-divider" aria-hidden />
-      {UTILITY_NAV.map((item) => {
-        const active = surface === item.key;
-        return (
-          <button
-            key={item.key}
-            type="button"
-            className={cn('off-focusable is-icon', active && 'is-active')}
-            aria-current={active ? 'page' : undefined}
-            aria-label={item.label}
-            title={item.label}
-            onClick={() => setSurface(item.key)}
-          >
-            <Icon icon={item.icon} size="sm" />
-          </button>
+          <Fragment key={item.key}>
+            {item.key === UTILITY_NAV[0]?.key ? (
+              <span className="off-nav-divider" aria-hidden />
+            ) : null}
+            <button
+              type="button"
+              className={cn('off-focusable', isUtility && 'is-icon', active && 'is-active')}
+              aria-current={active ? 'page' : undefined}
+              aria-label={item.label}
+              title={item.label}
+              onClick={() => setSurface(item.key)}
+            >
+              <Icon icon={item.icon} size="sm" />
+              {!isUtility && <span className="off-nav-label">{item.label}</span>}
+            </button>
+          </Fragment>
         );
       })}
     </nav>
