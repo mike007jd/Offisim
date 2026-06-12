@@ -79,7 +79,7 @@
 
 .off-set-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 720px);
+  grid-template-columns: minmax(0, var(--off-form-col-max));
   gap: 0;
   align-items: start;
   justify-content: center;
@@ -432,6 +432,27 @@
   margin-top: 2px;
 }
 
+/* Sticky commit bar — Provider's explicit save/discard, rendered only while
+   dirty/saving. Sticks to the scrollport bottom (.off-set-scroll) so the
+   actions stay adjacent to whichever field is being edited. */
+.off-set-savebar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--off-sp-3);
+  margin-top: var(--off-sp-6);
+  padding: var(--off-sp-4) 0;
+  border-top: 1px solid var(--off-line-soft);
+  background: var(--off-bg);
+}
+
+.off-set-savebar .off-set-callout {
+  flex: 1;
+  min-width: 0;
+}
+
 /* Route summary */
 .off-set-route-summary {
   display: flex;
@@ -614,7 +635,9 @@
 
 .off-set-vault-head {
   display: flex;
-  align-items: center;
+  /* Top-align: the text column holds title/sub/status/actions, so it is much
+     taller than the 30px icon. */
+  align-items: flex-start;
   gap: var(--off-sp-4);
 }
 
@@ -762,6 +785,15 @@
   color: var(--off-ink-4);
   padding: var(--off-sp-4) var(--off-sp-3);
   font-style: italic;
+}
+
+/* Resting danger ink + a gap from routine row actions, so the destructive
+   button reads as destructive before hover. Shared by MCP + external rows;
+   wins over .off-button-outline's ink via source order (settings.css loads
+   after grammar.css). */
+.off-set-micro-danger {
+  margin-left: var(--off-sp-2);
+  color: var(--off-danger);
 }
 
 .off-set-micro-danger:hover {
@@ -1044,7 +1076,7 @@
 
 @media (max-width: 1180px) {
   .off-set-workspace {
-    grid-template-columns: minmax(0, 720px);
+    grid-template-columns: minmax(0, var(--off-form-col-max));
   }
 
   .off-set-companion {

@@ -299,6 +299,15 @@ export function SettingsSurface() {
     [providerForm],
   );
 
+  const discardProvider = useCallback(() => {
+    providerForm.reset(
+      providerDefaults(resolveActiveProviderConfig(providerConfigs, activeConfigId)),
+    );
+    setProviderSave('idle');
+    setProviderSaveError(null);
+    toast('Provider changes discarded');
+  }, [activeConfigId, providerConfigs, providerForm]);
+
   const saveProvider = useCallback(async () => {
     if (!providerDirty || !providerValid) return;
     setProviderSave('saving');
@@ -387,25 +396,12 @@ export function SettingsSurface() {
         }
       }
       if (event.key === 'Escape' && tab === 'provider' && providerDirty) {
-        providerForm.reset(
-          providerDefaults(resolveActiveProviderConfig(providerConfigs, activeConfigId)),
-        );
-        setProviderSave('idle');
-        setProviderSaveError(null);
-        toast('Provider changes discarded');
+        discardProvider();
       }
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [
-    tab,
-    saveProvider,
-    providerDirty,
-    providerValid,
-    providerForm,
-    activeConfigId,
-    providerConfigs,
-  ]);
+  }, [tab, saveProvider, discardProvider, providerDirty, providerValid]);
 
   return (
     <div className="off-settings">
@@ -439,6 +435,7 @@ export function SettingsSurface() {
                   saved={providerSave === 'saved'}
                   saveError={providerSaveError}
                   onSave={() => void saveProvider()}
+                  onDiscard={discardProvider}
                 />
               ) : null}
               {tab === 'runtime' ? <RuntimePane form={runtimeForm} saved={runtimeSaved} /> : null}

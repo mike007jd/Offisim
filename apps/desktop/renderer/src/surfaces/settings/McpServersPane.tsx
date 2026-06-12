@@ -243,7 +243,7 @@ export function McpServersPane() {
         <div className="off-set-sec-head">
           <CapsLabel>Configured servers</CapsLabel>
           {showForm ? null : (
-            <Button size="sm" variant="outline" onClick={() => setShowForm(true)}>
+            <Button size="sm" onClick={() => setShowForm(true)}>
               <Icon icon={Plus} size="sm" />
               Add server
             </Button>

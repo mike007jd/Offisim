@@ -38,6 +38,11 @@ export function isDesktopProviderBridgeAvailable(): boolean {
 }
 
 export async function loadRuntimeProviderProfiles(): Promise<RuntimeProviderProfile[]> {
+  // Without this guard a non-Tauri caller surfaces the @tauri-apps/api
+  // internal TypeError ("reading 'invoke'") instead of an actionable message.
+  if (!isDesktopProviderBridgeAvailable()) {
+    throw new Error('Desktop runtime required for provider operations.');
+  }
   const { invoke } = await import('@tauri-apps/api/core');
   return invoke<RuntimeProviderProfile[]>('runtime_provider_profiles');
 }

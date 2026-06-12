@@ -6,7 +6,7 @@ import { Button } from '@/design-system/primitives/button.js';
 import { Input } from '@/design-system/primitives/input.js';
 import type { RoleSlug } from '@offisim/shared-types';
 import { useQueryClient } from '@tanstack/react-query';
-import { Pencil, Plug, Plus, RefreshCw, Trash2, Users } from 'lucide-react';
+import { KeyRound, Pencil, Plug, Plus, RefreshCw, Trash2, Users } from 'lucide-react';
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { ExternalEmployeeInstallDialog } from './ExternalEmployeeInstallDialog.js';
@@ -239,15 +239,15 @@ export function ExternalEmployeesPane() {
                     disabled={refreshingId === employee.id}
                     onClick={() => void refreshAgentCard(employee)}
                   />
-                  <Button
+                  <IconButton
+                    icon={KeyRound}
+                    label="Edit token"
+                    size="iconSm"
                     variant="outline"
-                    size="sm"
                     onClick={() =>
                       setTokenEditId((prev) => (prev === employee.id ? null : employee.id))
                     }
-                  >
-                    Edit token
-                  </Button>
+                  />
                   <IconButton
                     icon={Trash2}
                     label="Disconnect"

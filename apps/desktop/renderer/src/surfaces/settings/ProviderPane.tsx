@@ -52,6 +52,12 @@ interface ProviderPaneProps {
   saved: boolean;
   saveError: string | null;
   onSave: () => void;
+  onDiscard: () => void;
+}
+
+interface ProviderTestMessage {
+  tone: 'ok' | 'warn';
+  text: string;
 }
 
 function runtimeProfileMatches(config: ProviderConfig, profile: RuntimeProviderProfile): boolean {
@@ -136,18 +142,20 @@ export function ProviderPane({
   saved,
   saveError,
   onSave,
+  onDiscard,
 }: ProviderPaneProps) {
   const providerConfigsQuery = useProviderConfigs();
   const configs = providerConfigsQuery.data ?? [...PROVIDER_CONFIGS];
   const [revealKey, setRevealKey] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
-  const [testMessage, setTestMessage] = useState<string | null>(null);
+  const [testMessage, setTestMessage] = useState<ProviderTestMessage | null>(null);
   const [preferredProviderId, setPreferredProviderIdState] = useState<string | null>(() =>
     getPreferredProviderId(),
   );
   const companyId = useUiState((s) => s.companyId);
   const product = form.watch('product');
   const accessMode = form.watch('accessMode');
+  const modelValue = form.watch('model');
   const isManaged = accessMode === 'managed';
   const isHostResolved = accessMode === 'host-resolved' || accessMode === 'managed';
   const providerBridgeAvailable = isDesktopProviderBridgeAvailable();
@@ -174,7 +182,7 @@ export function ProviderPane({
 
   async function handleTestConnection() {
     setIsTesting(true);
-    setTestMessage('Testing desktop provider bridge...');
+    setTestMessage({ tone: 'ok', text: 'Testing desktop provider bridge…' });
     try {
       const profiles = await loadRuntimeProviderProfiles();
       const profile =
@@ -189,12 +197,15 @@ export function ProviderPane({
         requestId: createProviderTestRequestId(active.id),
         maxOutputTokens: 32,
       });
-      setTestMessage(`${active.displayName} reachable · ${response.slice(0, 80)}`);
+      setTestMessage({
+        tone: 'ok',
+        text: `${active.displayName} reachable · ${response.slice(0, 80)}`,
+      });
       toast.success(`${active.displayName} is reachable`, {
         description: response.slice(0, 120),
       });
     } catch (error) {
-      setTestMessage(`Test failed · ${safeErrorMessage(error)}`);
+      setTestMessage({ tone: 'warn', text: `Test failed · ${safeErrorMessage(error)}` });
       toast.error(`${active.displayName} test failed`, {
         description: safeErrorMessage(error),
       });
@@ -271,11 +282,7 @@ export function ProviderPane({
               </div>
             </div>
             <div className="flex items-center gap-[var(--off-sp-3)]">
-              {dirty || saving ? (
-                <Button variant="default" size="md" disabled={saving || !valid} onClick={onSave}>
-                  {saving ? 'Saving…' : 'Save'}
-                </Button>
-              ) : saved ? (
+              {saved ? (
                 <span className="inline-flex items-center gap-[var(--off-sp-1)] font-[600] text-[length:var(--off-fs-meta)] text-[color:var(--off-ok)]">
                   <Icon icon={Check} size="sm" />
                   Saved
@@ -289,7 +296,12 @@ export function ProviderPane({
               <Button
                 variant="outline"
                 size="md"
-                disabled={isTesting}
+                disabled={isTesting || !providerBridgeAvailable}
+                title={
+                  providerBridgeAvailable
+                    ? 'Send a one-line test request through the desktop provider bridge'
+                    : 'Provider connection tests are only available in the desktop runtime'
+                }
                 onClick={() => void handleTestConnection()}
               >
                 <Icon icon={RefreshCw} size="sm" />
@@ -297,14 +309,15 @@ export function ProviderPane({
               </Button>
             </div>
           </div>
-          {saveError ? (
-            <div className="off-set-callout is-warn mt-[var(--off-sp-3)]">
-              <Icon icon={AlertTriangle} size="sm" />
-              {saveError}
-            </div>
-          ) : null}
           {testMessage ? (
-            <div className="off-set-sec-hint mt-[var(--off-sp-3)]">{testMessage}</div>
+            <div
+              className={`off-set-callout mt-[var(--off-sp-3)] ${
+                testMessage.tone === 'warn' ? 'is-warn' : 'is-muted'
+              }`}
+            >
+              <Icon icon={testMessage.tone === 'warn' ? AlertTriangle : Info} size="sm" />
+              {testMessage.text}
+            </div>
           ) : null}
         </CardBlock>
       </section>
@@ -403,7 +416,9 @@ export function ProviderPane({
               </>
             )}
           </FieldRow>
-          {active.isThinking ? (
+          {/* Provider-level reasoning flag, but only assert "this model" once a
+              model id is actually filled in. */}
+          {active.isThinking && modelValue.trim() ? (
             <div className="off-set-callout is-warn mt-[var(--off-sp-3)]">
               <Icon icon={AlertTriangle} size="sm" />
               This model reasons before answering — set max output tokens to 1024 or higher.
@@ -420,11 +435,13 @@ export function ProviderPane({
         <CardBlock>
           <div className="off-set-route-summary">
             <span className="off-set-rs-name">{active.displayName}</span>
-            <span className="off-set-chip-mini">
-              {ACCESS_MODE_OPTIONS.find((o) => o.value === accessMode)?.label ?? 'Global API key'}
-            </span>
             <span className="off-set-route-trail">
-              {routeProtocolLabel(active)} · {active.endpointKind} · {active.region}
+              {[
+                ACCESS_MODE_OPTIONS.find((o) => o.value === accessMode)?.label ?? 'Global API key',
+                routeProtocolLabel(active),
+                active.endpointKind,
+                active.region,
+              ].join(' · ')}
             </span>
           </div>
         </CardBlock>
@@ -591,6 +608,26 @@ export function ProviderPane({
           </div>
         </details>
       </section>
+
+      {/* Dirty-state commit lives in a sticky bar near the edited fields instead
+          of the header card, so the header never reflows with form state.
+          ⌘S / Escape shortcuts (SettingsSurface) mirror these two actions. */}
+      {dirty || saving ? (
+        <div className="off-set-savebar">
+          {saveError ? (
+            <div className="off-set-callout is-warn">
+              <Icon icon={AlertTriangle} size="sm" />
+              {saveError}
+            </div>
+          ) : null}
+          <Button variant="outline" size="md" disabled={saving} onClick={onDiscard}>
+            Discard
+          </Button>
+          <Button variant="default" size="md" disabled={saving || !valid} onClick={onSave}>
+            {saving ? 'Saving…' : 'Save'}
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }

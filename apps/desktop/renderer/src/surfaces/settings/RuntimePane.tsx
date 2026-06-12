@@ -335,7 +335,9 @@ export function RuntimePane({ form, saved }: RuntimePaneProps) {
             <div className="off-set-sec-hint mb-[var(--off-sp-3)]">
               Auto-compress long conversations.
             </div>
-            <div className="off-set-grid-3">
+            {/* grid-4 (not field count) so column rails line up with the
+                Memory grid above; the fourth track stays empty. */}
+            <div className="off-set-grid-4">
               <FieldRow label="Enabled">
                 {({ id }) => (
                   <Select
@@ -384,49 +386,51 @@ export function RuntimePane({ form, saved }: RuntimePaneProps) {
           </summary>
           <div className="off-set-disclosure-body">
             <CardBlock className="off-set-vault-card">
+              {/* Status/actions/path live inside the head's text column so all
+                  card text shares the title's left edge (not the icon's). */}
               <div className="off-set-vault-head">
                 <span className="off-set-vault-ico">
                   <Icon icon={FolderOpen} size="sm" />
                 </span>
-                <div>
+                <div className="min-w-0 flex-1">
                   <div className="off-set-vault-title">
                     Local vault <span className="off-set-mode-tag">Desktop</span>
                   </div>
                   <div className="off-set-vault-sub">
                     Employee files are mirrored to a local folder.
                   </div>
+                  <div className="off-set-vault-status">
+                    {vaultQuery.isLoading ? (
+                      'Checking local vault…'
+                    ) : vaultQuery.isError ? (
+                      'Local vault status unavailable'
+                    ) : (
+                      <>
+                        {vaultStatus?.employees ?? 0} employees · {vaultStatus?.files ?? 0} markdown
+                        files · {vaultStatus?.size ?? '0 B'}
+                      </>
+                    )}
+                    <div className="off-set-vault-path">
+                      {vaultStatus?.displayPath ?? 'Desktop runtime unavailable'}
+                    </div>
+                  </div>
+                  <div className="off-set-vault-actions">
+                    <Button
+                      variant="outline"
+                      size="md"
+                      disabled={!canOpenVault}
+                      title={
+                        tauriAvailable
+                          ? 'Open the local vault folder in the OS file manager'
+                          : 'Local vault folder is only available in the desktop runtime'
+                      }
+                      onClick={handleOpenVaultFolder}
+                    >
+                      <Icon icon={FolderOpen} size="sm" />
+                      {openingVault ? 'Opening…' : 'Open folder'}
+                    </Button>
+                  </div>
                 </div>
-              </div>
-              <div className="off-set-vault-status">
-                {vaultQuery.isLoading ? (
-                  'Checking local vault…'
-                ) : vaultQuery.isError ? (
-                  'Local vault status unavailable'
-                ) : (
-                  <>
-                    {vaultStatus?.employees ?? 0} employees · {vaultStatus?.files ?? 0} markdown
-                    files · {vaultStatus?.size ?? '0 B'}
-                  </>
-                )}
-                <div className="off-set-vault-path">
-                  {vaultStatus?.displayPath ?? 'Desktop runtime unavailable'}
-                </div>
-              </div>
-              <div className="off-set-vault-actions">
-                <Button
-                  variant="outline"
-                  size="md"
-                  disabled={!canOpenVault}
-                  title={
-                    tauriAvailable
-                      ? 'Open the local vault folder in the OS file manager'
-                      : 'Local vault folder is only available in the desktop runtime'
-                  }
-                  onClick={handleOpenVaultFolder}
-                >
-                  <Icon icon={FolderOpen} size="sm" />
-                  {openingVault ? 'Opening…' : 'Open folder'}
-                </Button>
               </div>
             </CardBlock>
             <CardBlock className="off-set-vault-card">
@@ -434,40 +438,40 @@ export function RuntimePane({ form, saved }: RuntimePaneProps) {
                 <span className="off-set-vault-ico">
                   <Icon icon={FolderOpen} size="sm" />
                 </span>
-                <div>
+                <div className="min-w-0 flex-1">
                   <div className="off-set-vault-title">
                     Vault snapshot <span className="off-set-mode-tag">Desktop</span>
                   </div>
                   <div className="off-set-vault-sub">
                     Export a zip snapshot of the current vault for backup or handoff.
                   </div>
+                  <div className="off-set-vault-status">
+                    Exports write to Offisim's app-local exports folder with the current employee
+                    vault files.
+                  </div>
+                  <div className="off-set-vault-actions">
+                    <Button
+                      variant="outline"
+                      size="md"
+                      disabled={!canExportVaultZip}
+                      title={
+                        tauriAvailable
+                          ? 'Export the current local vault snapshot as a zip file'
+                          : 'Vault zip export is only available in the desktop runtime'
+                      }
+                      onClick={handleExportVaultZip}
+                    >
+                      <Icon icon={Package} size="sm" />
+                      {exportingVaultZip ? 'Exporting…' : 'Export zip'}
+                    </Button>
+                  </div>
+                  {lastVaultExport ? (
+                    <div className="off-set-vault-path">
+                      Last zip: {lastVaultExport.fileName} · {lastVaultExport.size}
+                    </div>
+                  ) : null}
                 </div>
               </div>
-              <div className="off-set-vault-status">
-                Exports write to Offisim's app-local exports folder with the current employee vault
-                files.
-              </div>
-              <div className="off-set-vault-actions">
-                <Button
-                  variant="outline"
-                  size="md"
-                  disabled={!canExportVaultZip}
-                  title={
-                    tauriAvailable
-                      ? 'Export the current local vault snapshot as a zip file'
-                      : 'Vault zip export is only available in the desktop runtime'
-                  }
-                  onClick={handleExportVaultZip}
-                >
-                  <Icon icon={Package} size="sm" />
-                  {exportingVaultZip ? 'Exporting…' : 'Export zip'}
-                </Button>
-              </div>
-              {lastVaultExport ? (
-                <div className="off-set-vault-path">
-                  Last zip: {lastVaultExport.fileName} · {lastVaultExport.size}
-                </div>
-              ) : null}
             </CardBlock>
           </div>
         </details>
