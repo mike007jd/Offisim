@@ -32,10 +32,13 @@ export function AppProviders({ children }: AppProvidersProps) {
         {/* top-right kept from 4b5a1b79 (banner owns a real layout row now, no
             stacking conflict). WKWebView (WebKit 26) can drop sonner's compositing
             layer entirely in ship builds — surfaces.css pins [data-sonner-toaster]
-            to a stable layer and converts entry to an in-place fade. */}
+            to a stable layer and converts entry to an in-place fade. The offset
+            clears the topbar so toasts never cover navigation (sonner writes the
+            string verbatim into --offset-top, so calc+var resolves at runtime). */}
         <Toaster
           closeButton
           position="top-right"
+          offset={{ top: 'calc(var(--off-toolbar) + var(--off-sp-3))', right: 'var(--off-sp-5)' }}
           toastOptions={{
             classNames: {
               toast: 'off-toast',

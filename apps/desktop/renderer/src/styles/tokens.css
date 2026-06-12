@@ -93,6 +93,14 @@
   --off-dialog-max-w-command: 560px;
   --off-dialog-max-w-market: 940px;
   --off-dialog-close: 26px;
+  /* Bounded content columns — without a shared width contract, full-bleed
+     rows split content from metadata and form widths drift per surface. */
+  --off-form-col-max: 720px;
+  --off-content-col: 760px;
+  --off-content-col-wide: 960px;
+  /* Office stage breathing lane above/below the scene canvas; lane-resident
+     controls centre against it instead of straddling the canvas edge. */
+  --off-stage-lane: 38px;
   --off-command-dialog-top: 14%;
   --off-command-input-h: 44px;
   --off-command-list-max-h: 340px;

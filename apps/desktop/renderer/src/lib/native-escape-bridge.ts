@@ -10,7 +10,7 @@ const SYNTHESIS_DELAY_MS = 50;
 
 /**
  * wry (<= 0.55.1) swallows bare Escape before it reaches WKWebView content
- * (upstream fix wry#1711 unmerged). The Rust shell mirrors the key as an
+ * (upstream wry PR 1711 unmerged). The Rust shell mirrors the key as an
  * `offisim-native-escape` event (escape_forwarder.rs); replay it as a DOM
  * keydown so every existing listener — Radix dismissable layers, cmdk,
  * wizard/settings window handlers — works unchanged. Skipped entirely in
