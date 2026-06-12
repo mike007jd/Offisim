@@ -990,11 +990,12 @@
   transition: border-color var(--off-motion-fast) var(--off-motion-ease);
 }
 
-.off-wiz-desc textarea {
+.off-wiz-desc textarea[data-slot='textarea'] {
   width: 100%;
   height: var(--off-wiz-control-h);
-  /* grammar.css gives data-slot=textarea min-height 64px; min-height always
-     beats height, so it must be re-declared here to hold the 42px row. */
+  /* grammar.css sets min-height 64px via .off-input[data-slot="textarea"]
+     (specificity 0,2,0); the attribute selector here keeps this override
+     winning the cascade so the 42px footer row holds. */
   min-height: var(--off-wiz-control-h);
   padding: var(--off-sp-3) var(--off-sp-5);
   border: 1px solid var(--off-line-strong);

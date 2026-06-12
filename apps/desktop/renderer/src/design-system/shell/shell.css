@@ -197,3 +197,13 @@
   background: var(--off-line);
   flex: none;
 }
+
+/* The absolutely-centred nav cluster (~457px with labels) collides with the
+   left breadcrumb below ~1280px viewport width. Collapse primary tabs to
+   icons there — every button keeps its title/aria-label, and the utility
+   tabs are icon-only already, so the whole bar degrades to one grammar. */
+@media (max-width: 1280px) {
+  .off-workspace-nav .off-nav-label {
+    display: none;
+  }
+}

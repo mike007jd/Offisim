@@ -433,7 +433,9 @@
 }
 .off-kv-role {
   width: 34px;
-  height: 56px;
+  /* Must fit the 44px viz box (.off-kv inset) — taller tiles centre-overflow
+     upward into the reserved badge band. */
+  height: 44px;
   border-radius: var(--off-r-xs);
   background: var(--off-market-role);
   display: grid;

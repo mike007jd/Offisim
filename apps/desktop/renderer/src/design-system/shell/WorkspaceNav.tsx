@@ -24,10 +24,12 @@ export function WorkspaceNav() {
             type="button"
             className={cn('off-focusable', active && 'is-active')}
             aria-current={active ? 'page' : undefined}
+            aria-label={item.label}
+            title={item.label}
             onClick={() => setSurface(item.key)}
           >
             <Icon icon={item.icon} size="sm" />
-            {item.label}
+            <span className="off-nav-label">{item.label}</span>
           </button>
         );
       })}
