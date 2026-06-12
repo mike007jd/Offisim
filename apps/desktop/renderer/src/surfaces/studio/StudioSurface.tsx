@@ -17,7 +17,7 @@ import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import { Input } from '@/design-system/primitives/input.js';
 import { safeErrorMessage } from '@/lib/provider-bridge.js';
-import { cn, escapeRegExp } from '@/lib/utils.js';
+import { cn } from '@/lib/utils.js';
 import {
   OfficeScene3D,
   type ScenePlacementPoint,
@@ -35,12 +35,15 @@ import {
   Box,
   Info,
   LayoutGrid,
+  Library,
+  type LucideIcon,
   Move3d,
   PanelTop,
   Plus,
   RotateCcw,
   RotateCw,
   Save,
+  Server,
   Sofa,
   Sprout,
   Trash2,
@@ -87,13 +90,15 @@ const ZONE_KIND_LABEL: Record<string, string> = {
   lounge: 'Lounge',
 };
 
-/** Kind tag for a zone row, or null when the label already names the kind
- *  (word-boundary match so short kinds like "Rest" don't hit "Interest"). */
-function zoneKindTag(zone: { kind: string; label: string }): string | null {
-  const kindLabel = ZONE_KIND_LABEL[zone.kind] ?? zone.kind;
-  const redundant = new RegExp(`\\b${escapeRegExp(kindLabel)}\\b`, 'i').test(zone.label);
-  return redundant ? null : kindLabel;
-}
+/** Leading icon carries the zone kind so every list row keeps the same
+ *  single-column structure; the kind word lives in Properties → Type. */
+const ZONE_KIND_ICON: Record<ZoneArchetype, LucideIcon> = {
+  workspace: LayoutGrid,
+  meeting: PanelTop,
+  server: Server,
+  library: Library,
+  rest: Sofa,
+};
 
 const EDITABLE_ZONE_ARCHETYPES: ReadonlySet<ZoneArchetype> = new Set([
   'workspace',
@@ -733,6 +738,20 @@ export function StudioSurface() {
               {item.label}
             </button>
           ))}
+          <div className="off-studio-scene-stats">
+            <CapsLabel>Scene</CapsLabel>
+            <div className="off-about-row">
+              <span>Zones</span>
+              <span>{zones.length}</span>
+            </div>
+            <div className="off-about-row">
+              <span>Objects</span>
+              <span>{layout.data?.prefabs.length ?? 0}</span>
+            </div>
+          </div>
+        </div>
+        <div className="off-studio-panel-foot">
+          Drag an object onto a zone footprint, or click it, then click a zone.
         </div>
       </aside>
 
@@ -801,27 +820,20 @@ export function StudioSurface() {
           />
         </div>
         <div className="off-studio-panel-body">
-          {zones.map((zone) => {
-            const kindTag = zoneKindTag(zone);
-            return (
-              <button
-                key={zone.id}
-                type="button"
-                className={cn(
-                  'off-studio-zone off-focusable',
-                  zone.id === selectedZoneId && 'is-sel',
-                )}
-                onClick={() => {
-                  setSelectedZoneId(zone.id);
-                  setSelectedPrefabId(null);
-                }}
-              >
-                <Icon icon={LayoutGrid} size="sm" />
-                <span className="off-studio-zone-name">{zone.label}</span>
-                {kindTag ? <span className="off-studio-zone-kind">{kindTag}</span> : null}
-              </button>
-            );
-          })}
+          {zones.map((zone) => (
+            <button
+              key={zone.id}
+              type="button"
+              className={cn('off-studio-zone off-focusable', zone.id === selectedZoneId && 'is-sel')}
+              onClick={() => {
+                setSelectedZoneId(zone.id);
+                setSelectedPrefabId(null);
+              }}
+            >
+              <Icon icon={ZONE_KIND_ICON[zone.kind]} size="sm" />
+              <span className="off-studio-zone-name">{zone.label}</span>
+            </button>
+          ))}
         </div>
         {selectedPrefab ? (
           <div className="off-studio-props">

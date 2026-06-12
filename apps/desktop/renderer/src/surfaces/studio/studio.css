@@ -70,6 +70,26 @@
   color: var(--off-ink-4);
 }
 
+.off-studio-scene-stats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--off-sp-2);
+  margin-top: var(--off-sp-4);
+  padding-top: var(--off-sp-4);
+  border-top: 1px solid var(--off-line);
+}
+
+/* margin-top: auto keeps the hint pinned to the rail tail even if the
+   palette body ever stops being the only flexible child. */
+.off-studio-panel-foot {
+  flex: none;
+  margin-top: auto;
+  padding: var(--off-sp-4) var(--off-sp-5);
+  border-top: 1px solid var(--off-line);
+  color: var(--off-ink-4);
+  font-size: var(--off-fs-meta);
+}
+
 .off-studio-stage {
   min-height: 0;
   display: flex;
@@ -212,16 +232,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.off-studio-zone-kind {
-  font-size: var(--off-fs-micro);
-  color: var(--off-ink-4);
-}
-
-.off-studio-zone.is-sel .off-studio-zone-kind {
-  color: var(--off-accent);
-  opacity: 0.78;
 }
 
 .off-studio-props {
