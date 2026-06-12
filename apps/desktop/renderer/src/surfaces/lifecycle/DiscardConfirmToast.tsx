@@ -58,7 +58,9 @@ export function showDiscardConfirm({ message, detail, onDiscard }: DiscardConfir
         </div>
       </div>
     ),
-    { duration: Number.POSITIVE_INFINITY, dismissible: false },
+    // bottom-center: the confirm bar sits on the same axis as the wizard
+    // footer / Esc affordance instead of the top-right notification corner.
+    { duration: Number.POSITIVE_INFINITY, dismissible: false, position: 'bottom-center' },
   );
 }
 

@@ -20,10 +20,17 @@ export function CompanyPortalPreview({
   const H = 480;
   const gridId = `csp-grid-${company.id}`;
 
+  const count = brief.zoneNames.length;
+
+  // Empty state lives in HTML, not in SVG <text> — the viewBox scale would
+  // shrink SVG copy to ~5px and make it unreadable.
+  if (count === 0) {
+    return <div className="off-csp-prev-empty">No office layout yet</div>;
+  }
+
   // Lay ALL zones out on a simple grid that scales with zone count, so the
   // preview never contradicts the "Zones" stat. The last zone stretches across
   // any leftover columns of its row.
-  const count = brief.zoneNames.length;
   const cols = count > 4 ? 3 : Math.min(Math.max(count, 1), 2);
   const rows = Math.ceil(count / cols) || 1;
   const PAD = 40;
@@ -64,7 +71,8 @@ export function CompanyPortalPreview({
           />
         </pattern>
       </defs>
-      <rect width={W} height={H} rx={14} fill="var(--off-surface-sunken)" />
+      {/* Floor plate on surface-2 so it reads against the sunken card bg. */}
+      <rect width={W} height={H} rx={14} fill="var(--off-surface-2)" />
       <rect width={W} height={H} rx={14} fill={`url(#${gridId})`} />
       {zones.map((z) => (
         <g key={z.name}>
@@ -84,18 +92,6 @@ export function CompanyPortalPreview({
           </text>
         </g>
       ))}
-      {zones.length === 0 ? (
-        <text
-          x={W / 2}
-          y={H / 2}
-          fill="var(--off-ink-4)"
-          fontSize={13}
-          textAnchor="middle"
-          dominantBaseline="middle"
-        >
-          No office layout yet
-        </text>
-      ) : null}
     </svg>
   );
 }

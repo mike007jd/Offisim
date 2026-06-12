@@ -77,10 +77,11 @@ export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps
     );
   }
 
+  // The surface switch itself is the feedback — no toast (it collides with
+  // the ResumeBar that appears in the same corner on entry).
   function enterCompany(company: Company) {
     setCompany(company.id);
     setSurface('office');
-    toast.success(`Entered ${company.name}`);
   }
 
   function archiveCompany(company: Company) {
@@ -226,6 +227,7 @@ function SelectedCompany({
   const employeesQuery = useCompanyEmployees(company.id);
   const projectsQuery = useProjects(company.id);
   const layoutQuery = useOfficeLayout(company.id);
+  const layoutPending = layoutQuery.isPending;
   const zoneNames = (layoutQuery.data?.zones ?? []).map((zone) => zone.label);
   const brief = companyBrief(company, {
     employeeCount: employeesQuery.data?.length,
@@ -256,13 +258,18 @@ function SelectedCompany({
       <div className="off-csp-stats">
         <Stat label="Employees" value={brief.employeeCount} />
         <Stat label="Projects" value={brief.projectCount} />
-        <Stat label="Zones" value={brief.zoneCount} />
+        {/* Zones shows '—' until the layout query settles, so a loading blink
+            never reads as an honest "0 zones". */}
+        <Stat label="Zones" value={layoutPending ? '—' : brief.zoneCount} />
       </div>
 
-      <section className="off-csp-prev-wrap">
-        <div className="off-csp-label">Floor plan</div>
+      <section className="off-csp-prev-card">
+        <div className="off-csp-card-h">
+          <span>Floor plan</span>
+          <span>{layoutPending ? '—' : brief.zoneCount}</span>
+        </div>
         <div className="off-csp-prev">
-          <CompanyPortalPreview company={company} brief={brief} />
+          {layoutPending ? null : <CompanyPortalPreview company={company} brief={brief} />}
         </div>
       </section>
 
@@ -290,7 +297,7 @@ const ROSTER_PREVIEW_LIMIT = 5;
 function CompanyRoster({ employees }: { employees: Employee[] }) {
   return (
     <div className="off-csp-roster">
-      <div className="off-csp-roster-h">
+      <div className="off-csp-card-h">
         <span>Employees</span>
         <span>{employees.length}</span>
       </div>
@@ -309,10 +316,8 @@ function CompanyRoster({ employees }: { employees: Employee[] }) {
                 <span className="off-csp-roster-role">{employee.role}</span>
               ) : null}
             </span>
-            <span
-              className={cn('off-csp-roster-dot', !employee.disabled && 'is-on')}
-              title={employee.disabled ? 'Disabled' : 'Enabled'}
-            />
+            {/* Exception-only status: enabled is the norm and gets no marker. */}
+            {employee.disabled ? <span className="off-csp-roster-status">Disabled</span> : null}
           </div>
         ))}
         {employees.length > ROSTER_PREVIEW_LIMIT ? (
@@ -325,7 +330,7 @@ function CompanyRoster({ employees }: { employees: Employee[] }) {
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="off-csp-stat">
       <div className="off-csp-stat-l">{label}</div>

@@ -9,8 +9,8 @@ import { ChevronDown, ChevronLeft, ChevronUp, Loader2, Wrench } from 'lucide-rea
 import { motion } from 'motion/react';
 import { type CSSProperties, useCallback, useEffect, useMemo, useState } from 'react';
 import { clearDiscardConfirm, showDiscardConfirm } from './DiscardConfirmToast.js';
-import { TemplatePreview } from './TemplatePreview.js';
-import { roleDot, roleLabel, templateZones } from './lifecycle-data.js';
+import { CyoBlueprint, TemplatePreview } from './TemplatePreview.js';
+import { roleDot, roleLabel } from './lifecycle-data.js';
 import { CREATE_YOUR_OWN_TEMPLATE, EMPLOYEE_BIOS, TEMPLATE_META } from './wizard-data.js';
 
 function roleAccentStyle(color: string): CSSProperties {
@@ -111,7 +111,6 @@ export function CompanyCreationWizard({
   const selected = templates[safeIndex] ?? null;
   const meta = selected ? TEMPLATE_META[selected.id] : null;
   const isCustom = selected?.id === 'create-your-own';
-  const zones = selected ? templateZones(selected.id) : [];
 
   // Dirty = the user typed something (name or description). Browsing template
   // cards is not a draft — guarding it made Esc look broken (it armed a discard
@@ -218,9 +217,17 @@ export function CompanyCreationWizard({
         <div className="off-wiz-stage">
           <div className="off-wiz-stage-frame">
             {isCustom ? (
-              <div className="off-wiz-studio-empty">
-                <Icon icon={Wrench} size="md" />
-                <p>Opens in Studio after you create it.</p>
+              <div className="off-wiz-cyo-stage">
+                <CyoBlueprint />
+                <div className="off-wiz-cyo-caps">
+                  {(meta?.capabilities ?? []).map((c) => (
+                    <span key={c} className="off-wiz-cyo-cap">
+                      <span className="off-wiz-cyo-dot" />
+                      {c}
+                    </span>
+                  ))}
+                </div>
+                <p className="off-wiz-cyo-note">Opens in Studio after you create it.</p>
               </div>
             ) : selected ? (
               <TemplatePreview
@@ -229,29 +236,12 @@ export function CompanyCreationWizard({
               />
             ) : null}
           </div>
-          {!isCustom && zones.length ? (
-            <div className="off-wiz-zonechips">
-              {zones.map((z) => (
-                <span key={z} className="off-wiz-zonechip">
-                  {z}
-                </span>
-              ))}
-            </div>
-          ) : null}
         </div>
 
         <aside className="off-wiz-side">
           {isCustom ? (
             <div className="off-wiz-cyo">
               <p>Build your office in the Studio editor.</p>
-              <div className="off-wiz-cyo-caps">
-                {(meta?.capabilities ?? []).map((c) => (
-                  <span key={c} className="off-wiz-cyo-cap">
-                    <span className="off-wiz-cyo-dot" />
-                    {c}
-                  </span>
-                ))}
-              </div>
             </div>
           ) : selected ? (
             <details className="off-wiz-team" open>
@@ -267,6 +257,13 @@ export function CompanyCreationWizard({
       </div>
 
       <div className="off-wiz-foot">
+        {/* Out-of-flow error anchored above the footer, CTA side — keeps the
+            footer height stable (no whole-page jump when it appears). */}
+        {createError ? (
+          <div className="off-wiz-error" role="alert">
+            {createError}
+          </div>
+        ) : null}
         {busy ? (
           <div className="off-wiz-building">
             <Loader2 className="off-wiz-spin" size={18} />
@@ -310,7 +307,6 @@ export function CompanyCreationWizard({
                   onChange={(e) => setDescription(e.target.value)}
                 />
               </div>
-              {createError ? <div className="off-wiz-error">{createError}</div> : null}
             </div>
             <button
               type="button"
