@@ -30,6 +30,41 @@ interface MemoryTabProps {
   employeeId: string;
 }
 
+/** Single importance control (visible "Importance" label → slider → value)
+ *  shared by the compose row and entry rows, so the two can't drift into
+ *  mirrored column orders again. */
+function ImportanceControl({
+  value,
+  onChange,
+  onCommit,
+}: {
+  value: number;
+  onChange: (next: number) => void;
+  /** Fired on pointer/key release so callers can defer persistence until the
+   *  drag settles instead of mutating on every tick. */
+  onCommit?: () => void;
+}) {
+  return (
+    <label className="off-pers-mem-imp">
+      Importance
+      <input
+        type="range"
+        className="off-pers-rng off-focusable"
+        min={0}
+        max={1}
+        step={0.1}
+        value={value}
+        aria-label="Importance"
+        onChange={(e) => onChange(Number(e.target.value))}
+        onPointerUp={onCommit}
+        onKeyUp={onCommit}
+        onBlur={onCommit}
+      />
+      <span className="off-pers-imp-val">{value.toFixed(1)}</span>
+    </label>
+  );
+}
+
 export function MemoryTab({ employeeId }: MemoryTabProps) {
   const query = useEmployeeMemories(employeeId);
   const createMemory = useCreateEmployeeMemory(employeeId);
@@ -167,19 +202,7 @@ export function MemoryTab({ employeeId }: MemoryTabProps) {
               if (e.key === 'Enter') addEntry();
             }}
           />
-          <label className="off-pers-imp-row">
-            <span className="off-pers-imp-val">{composeImportance.toFixed(1)}</span>
-            <input
-              type="range"
-              className="off-pers-rng off-focusable"
-              min={0}
-              max={1}
-              step={0.1}
-              value={composeImportance}
-              aria-label="Importance"
-              onChange={(e) => setComposeImportance(Number(e.target.value))}
-            />
-          </label>
+          <ImportanceControl value={composeImportance} onChange={setComposeImportance} />
           <Button
             variant="subtle"
             size="sm"
@@ -228,28 +251,16 @@ export function MemoryTab({ employeeId }: MemoryTabProps) {
                         }}
                       />
                       <div className="off-pers-mem-row">
-                        <label className="off-pers-mem-imp">
-                          Importance
-                          <input
-                            type="range"
-                            className="off-pers-rng off-focusable"
-                            min={0}
-                            max={1}
-                            step={0.1}
-                            value={importanceValue}
-                            aria-label="Importance"
-                            onChange={(e) =>
-                              setImportanceDrafts((prev) => ({
-                                ...prev,
-                                [entry.id]: Number(e.target.value),
-                              }))
-                            }
-                            onPointerUp={() => commitImportance(entry.id, entry.importance)}
-                            onKeyUp={() => commitImportance(entry.id, entry.importance)}
-                            onBlur={() => commitImportance(entry.id, entry.importance)}
-                          />
-                          <span className="off-pers-imp-val">{importanceValue.toFixed(1)}</span>
-                        </label>
+                        <ImportanceControl
+                          value={importanceValue}
+                          onChange={(next) =>
+                            setImportanceDrafts((prev) => ({
+                              ...prev,
+                              [entry.id]: next,
+                            }))
+                          }
+                          onCommit={() => commitImportance(entry.id, entry.importance)}
+                        />
                         <span>scope: {entry.scope}</span>
                         <span>reinforced: {entry.reinforced}</span>
                         <button

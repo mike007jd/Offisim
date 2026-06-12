@@ -381,6 +381,9 @@
   display: flex;
   flex-direction: column;
   gap: var(--off-sp-7);
+  /* Inspector context: left-aligned (no centering like Settings), but the
+     form column shares the same system-wide readable width cap. */
+  max-width: var(--off-form-col-max);
 }
 
 .off-pers-prof-sec {
@@ -610,6 +613,25 @@
   gap: var(--off-sp-3);
 }
 
+/* Fired by guardedSelect when switching employees is blocked by unsaved
+   edits: a one-shot accent pulse at the save bar gives the blocked click
+   local feedback (the discard toast alone is far from the click point). */
+.off-pers-savebar.is-guard-pulse {
+  animation: off-pers-guard-pulse 600ms var(--off-motion-ease);
+}
+
+@keyframes off-pers-guard-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--off-accent) 60%, transparent);
+  }
+  60% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--off-accent) 22%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
 .off-pers-savebar-left {
   flex: 1;
   display: flex;
@@ -837,6 +859,9 @@
   height: 100%;
 }
 
+/* Passive picture-in-picture backplate: translucent fill + soft border are
+   needed for contrast over the 3D canvas, but no elevation — it must read
+   as a tag pair with the bare "3D" label, not as a control. */
 .off-pers-prev-2d {
   position: absolute;
   right: var(--off-sp-4);
@@ -848,12 +873,11 @@
   border: 1px solid var(--off-line-soft);
   border-radius: var(--off-r-sm);
   background: color-mix(in srgb, var(--off-surface-1) 88%, transparent);
-  box-shadow: var(--off-elev-1);
 }
 
 .off-pers-prev-2d span {
   color: var(--off-ink-4);
-  font-size: var(--off-fs-micro);
+  font-size: var(--off-fs-label);
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -925,7 +949,9 @@
 /* ── Memory tab ───────────────────────────────── */
 .off-pers-mem-compose {
   display: grid;
-  grid-template-columns: 130px minmax(180px, 1fr) minmax(150px, 220px) 84px;
+  /* Third column hosts the shared ImportanceControl incl. its visible
+     "Importance" text label. */
+  grid-template-columns: 130px minmax(180px, 1fr) minmax(180px, 240px) 84px;
   gap: var(--off-sp-2);
   align-items: center;
 }
@@ -964,16 +990,6 @@
   box-shadow: 0 1px 2px var(--off-ink-shadow-xstrong);
 }
 
-.off-pers-imp-row {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: 30px minmax(0, 1fr);
-  align-items: center;
-  gap: var(--off-sp-2);
-  font-size: var(--off-fs-micro);
-  color: var(--off-ink-3);
-}
-
 .off-pers-mem-compose [data-slot="button"] {
   width: 100%;
   justify-content: center;
@@ -995,7 +1011,6 @@
 .off-pers-mem-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--off-sp-2);
 }
 
@@ -1046,19 +1061,27 @@
 
 .off-pers-mem-row {
   display: grid;
-  grid-template-columns: minmax(160px, 240px) auto auto minmax(70px, auto);
+  /* max-content meta columns + 1fr tail: free space pools in the last track
+     instead of being split across auto-max tracks (which would stretch the
+     Delete button to ~300px wide). */
+  grid-template-columns: minmax(160px, 240px) max-content max-content 1fr;
   align-items: center;
   gap: var(--off-sp-3);
   font-size: var(--off-fs-micro);
   color: var(--off-ink-4);
 }
 
+/* Shared ImportanceControl (compose row + entry rows): label → slider →
+   value. Owns its typography because the compose usage sits outside
+   .off-pers-mem-row. */
 .off-pers-mem-imp {
   min-width: 0;
   display: grid;
   grid-template-columns: auto minmax(90px, 1fr) 30px;
   align-items: center;
   gap: var(--off-sp-2);
+  font-size: var(--off-fs-micro);
+  color: var(--off-ink-4);
 }
 
 .off-pers-mem-imp .off-pers-rng {
@@ -1066,6 +1089,8 @@
 }
 
 .off-pers-mem-del {
+  justify-self: end;
+  width: max-content;
   height: 22px;
   padding: 0 8px;
   border: 1px solid var(--off-line);
@@ -1200,6 +1225,16 @@
 
 .off-pers-ver-row.is-sel .off-pers-ver-num {
   color: var(--off-accent);
+}
+
+/* Change-type badge right after the version number gets a fixed column so
+   the summary column starts at the same x on every row (Created / Updated /
+   Rollback differ in natural width; 72px fits the widest). The trailing
+   "current" badge is not matched and keeps content width. */
+.off-pers-ver-num + .off-pers-badge {
+  width: 72px;
+  justify-content: center;
+  flex: none;
 }
 
 .off-pers-ver-sum {

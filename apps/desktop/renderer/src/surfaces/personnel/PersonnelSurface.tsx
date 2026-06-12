@@ -387,12 +387,16 @@ function EmployeeDetail({
   tab,
   onTabChange,
   onDirtyChange,
+  guardPulse = 0,
 }: {
   employee: Employee;
   companyName: string;
   tab: InspectorTab;
   onTabChange: (tab: InspectorTab) => void;
   onDirtyChange?: (dirty: boolean) => void;
+  /** Counter bumped by the roster's guarded select when a switch is blocked
+   *  by unsaved edits; each bump pulses the save bar once. */
+  guardPulse?: number;
 }) {
   const queryClient = useQueryClient();
   const companyId = useUiState((s) => s.companyId);
@@ -412,6 +416,23 @@ function EmployeeDetail({
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [guardPulsing, setGuardPulsing] = useState(false);
+  // Initialize to the mount-time value so a remount (employee switch) doesn't
+  // replay a pulse from a previous block.
+  const lastGuardPulse = useRef(guardPulse);
+
+  useEffect(() => {
+    if (guardPulse === lastGuardPulse.current) return;
+    lastGuardPulse.current = guardPulse;
+    // Drop the class for one frame so a repeat block restarts the animation.
+    setGuardPulsing(false);
+    const raf = requestAnimationFrame(() => setGuardPulsing(true));
+    const timer = setTimeout(() => setGuardPulsing(false), 650);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(timer);
+    };
+  }, [guardPulse]);
 
   const appearanceDirty = appearanceKey(appearance) !== appearanceKey(baselineAppearance.current);
   const isDirty = form.formState.isDirty || toolPermissionsDirty || appearanceDirty;
@@ -571,7 +592,7 @@ function EmployeeDetail({
       {tab === 'profile' || tab === 'appearance' ? (
         <>
           {saveError ? <div className="off-pers-save-error">{saveError}</div> : null}
-          <div className="off-pers-savebar">
+          <div className={cn('off-pers-savebar', guardPulsing && 'is-guard-pulse')}>
             <div className="off-pers-savebar-left">
               {employee.kind === 'external' ? null : confirmingDelete ? (
                 <div className="off-pers-del-confirm">
@@ -733,6 +754,9 @@ export function PersonnelSurface() {
   const setCollapsed = useUiState((s) => s.setPersonnelRailCollapsed);
   const [tab, setTab] = useState<InspectorTab>('profile');
   const [hireOpen, setHireOpen] = useState(false);
+  // Bumped whenever guardedSelect blocks a switch, so the open detail can
+  // pulse its save bar — local feedback at the click side of the guard.
+  const [guardPulse, setGuardPulse] = useState(0);
   const listPanelRef = usePanelRef();
   // Tracks whether the open EmployeeDetail has unsaved edits, so switching the
   // selected employee can guard against silent data loss (PERS-03).
@@ -744,6 +768,7 @@ export function PersonnelSurface() {
   const guardedSelect = useCallback(
     (id: string) => {
       if (dirtyRef.current && id !== selectedEmployeeId) {
+        setGuardPulse((n) => n + 1);
         showDiscardConfirm({
           message: 'Discard unsaved changes?',
           detail: 'Switching employees will lose your edits to this profile.',
@@ -882,6 +907,7 @@ export function PersonnelSurface() {
               onDirtyChange={(d) => {
                 dirtyRef.current = d;
               }}
+              guardPulse={guardPulse}
             />
           ) : (
             <div className="off-pers-detail-empty">
