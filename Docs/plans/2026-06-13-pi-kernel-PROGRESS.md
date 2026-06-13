@@ -19,14 +19,27 @@ SSOT plan: `Docs/plans/2026-06-13-pi-kernel-replacement.md`
 - **门禁**：两包 typecheck 绿、build 绿（pi-ai dist 26 文件）。
 - **待办（需 live）**：streamFn 薄包装（在 Phase 2 建）；两 lane 真实流式验证（z.ai anthropic glm + MiniMax openai M2.7，text/thinking/toolcall 三 chunk）放到末尾批量 live；renderer bundle 无 AWS/Google/Mistral 符号验证（随 renderer build）。
 
-### ⏳ 待开发
-- Phase 0：聊天 UI Codex 式布局（独立先行）。
-- Phase 2：桥接层（streamFn 包装/agent registry/事件身份打标/threadLock/轮次守卫/预算改写到 pi 消息形状/AuditingToolExecutor→pi AgentTool/interaction await）。
-- Phase 3：新门禁（录制回放）。
-- Phase 4：持久化/续跑 + dangling toolCall 修补 + submit_deliverable。
-- Phase 5：boss 委派 + 多员工 + A2A。
-- Phase 6：切流抹除（删 graph/agents/testing/scenarios/12 脚本/2 表/3 依赖 + 文档重写）。
-- Phase 7：release `.app` 验收 + 记忆抹除。
+### ✅ Phase 0 — 聊天 UI Codex 式布局（commit `ec028138`）
+用户消息右气泡 + AI 左起全宽 + boss 也走 Markdown。MessageItem.tsx + office.css。
+
+### ✅ Phase 2 — 桥接层（commit `ec028138` + 桌面接线 `8aaf2ee2`）
+`packages/core/src/pi-bridge/`：pi-model / pi-message-convert（pi↔LlmMessage，复用预算服务）/ pi-tool-adapter（过 AuditingToolExecutor）/ pi-stream（凭证接缝薄包装）/ pi-agent-registry（whole-team abort）/ pi-event-bridge（身份打标，content+reasoning 通道）/ pi-budget（transformContext 复用 ConversationBudgetService）/ pi-orchestration-service（runWorker + threadLock + 轮次守卫）。桌面 `desktop-agent-runtime.ts` flag 门控（localStorage `offisim:pi-kernel` 或 VITE_PI_KERNEL）路由到 pi。renderer build 绿、pi bundle 0 AWS/Google/Mistral SDK。
+
+### ✅ Phase 4（deliverable 部分）— submit_deliverable + 持久化接线（commit `a5066aca`）
+显式 `submit_deliverable` virtual tool（替换意图猜测链）；桌面接 DeliverablePersistenceService（之前根本没接，事件飘空）。
+
+### ✅ Phase 5 — boss 委派 + 递归子 agent（commit `d7d7b009`）
+`delegate` virtual tool：本地员工递归 runWorker / 外包员工平移 employeeA2aExecutor（A2AClient.sendAndWait）。parallel 模式多员工并发；boss prompt 带 roster；parentSignal 传播。
+
+### ⏳ 待开发（live 验收后再做，避免 migration-startup 风险阻塞测试）
+- **下一步：先 live `.app` 验收 P1/P2/P4/P5 基础**（VITE_PI_KERNEL=1 烧进 release，单轮聊天+工具+deliverable+委派）。thinkingLevel 默认 off（z.ai glm thinking 格式兼容未验，先验 text+toolcall）。
+- Phase 4（剩）：per-message 持久化（新 `pi_messages` 表 + migration 0002 + 3 backend）+ dangling toolCall 合成修补 + ResumeBar 改源。
+- Phase 3：新门禁（基于 pi loop 的录制回放）。
+- Phase 6：切流抹除（删 graph/agents/testing/scenarios/12 脚本/2 表/3 依赖 + 文档重写 + 新写 HARNESS_ARCHITECTURE.md）。
+- Phase 7：release `.app` 全矩阵验收 + 记忆抹除。
+
+### Commits (main, 未 push)
+`ec028138` fork+bridge / `8aaf2ee2` 桌面接线 / `a5066aca` deliverable / `d7d7b009` delegate。
 
 ## 关键契约锚点（侦察实测，桥接层必须复刻）
 - LLM 传输：`apps/desktop/renderer/src/lib/tauri-llm-fetch.ts` `createTauriLlmFetch(profile)`；core `createGateway({ fetch })`（`gateway-factory.ts`）。
