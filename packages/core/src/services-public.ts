@@ -1,5 +1,6 @@
 export { AgentContextPackService } from './services/agent-context-pack-service.js';
 export { ConversationBudgetService } from './services/conversation-budget-service.js';
+export { DeliverablePersistenceService } from './services/deliverable-persistence-service.js';
 export { createRuntimeRollingJournal } from './services/conversation-budget/rolling-journal-runtime.js';
 export { FileHistoryService, FileHistoryToolExecutor } from './services/file-history-service.js';
 export { GitAutoCommitService } from './services/git-auto-commit-service.js';

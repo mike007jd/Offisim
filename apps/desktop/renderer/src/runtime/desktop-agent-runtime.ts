@@ -28,8 +28,13 @@ import {
   buildOffisimGraph,
   createPiStreamFn,
   createRuntimeContext,
+  createSubmitDeliverableTool,
 } from '@offisim/core/runtime';
-import { ConversationBudgetService, OrchestrationService } from '@offisim/core/services';
+import {
+  ConversationBudgetService,
+  DeliverablePersistenceService,
+  OrchestrationService,
+} from '@offisim/core/services';
 import { CompositeToolExecutor, createBuiltinTools } from '@offisim/core/tools';
 import type {
   InteractionResponse,
@@ -114,6 +119,8 @@ class DesktopAgentRuntimeImpl implements DesktopAgentRuntime {
     private readonly repos: RuntimeRepositories,
     /** pi agent-loop orchestration; used when the pi-kernel flag is on. */
     private readonly pi: PiOrchestrationService,
+    /** Persists deliverable.created events to the deliverables table. */
+    private readonly deliverablePersistence: DeliverablePersistenceService,
   ) {}
 
   async resolveInteraction(response: InteractionResponse): Promise<SkillInstallOutcomeKind | null> {
@@ -126,6 +133,7 @@ class DesktopAgentRuntimeImpl implements DesktopAgentRuntime {
       console.warn('[desktop-agent-runtime] MCP executor dispose failed', { err });
     });
     this.skillStagingManager.dispose();
+    this.deliverablePersistence.dispose();
   }
 
   async execute(input: DesktopAgentRunInput): Promise<string> {
@@ -438,6 +446,15 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
     checkpointSaver: checkpointer,
   });
 
+  // Persist `deliverable.created` events to the deliverables table. Wired here
+  // (it was previously unconstructed, so deliverable events fired into the void)
+  // — it serves BOTH the graph path and the pi path's explicit
+  // submit_deliverable tool. Idempotent insert keyed on deliverable_id.
+  const deliverablePersistence = new DeliverablePersistenceService({
+    eventBus: runtimeEventBus,
+    repo: repos.deliverables,
+  });
+
   // pi agent-loop orchestration (cut-over kernel). Shares the runtimeCtx, repos,
   // eventBus, audited toolExecutor, and modelResolver with the graph; uses its
   // own streamFn (the SAME credential-isolated transport fetch the gateway uses)
@@ -456,6 +473,10 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
       piProvider: coreProvider === 'anthropic' ? 'anthropic' : profile.provider,
     },
     thinkingLevel: piThinkingLevel(),
+    // Explicit deliverable tool (employee turns only). Replaces the deleted
+    // intent-guessing materialization — a deliverable now requires a tool call.
+    virtualToolProvider: (toolCtx, kind) =>
+      kind === 'employee' ? [createSubmitDeliverableTool(runtimeCtx, toolCtx)] : [],
   });
 
   return new DesktopAgentRuntimeImpl(
@@ -466,6 +487,7 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
     companyId,
     repos,
     piOrchestration,
+    deliverablePersistence,
   );
 }
 

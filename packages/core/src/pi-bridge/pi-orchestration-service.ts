@@ -64,11 +64,13 @@ export interface PiOrchestrationDeps {
   /** Runaway round guard. Default 200. */
   readonly maxToolRounds?: number;
   /**
-   * Extra virtual tools to expose to every agent (memory, submit_deliverable,
-   * delegate). Receives the per-agent tool context so tools can scope writes.
-   * Phase 4/5 supply submit_deliverable / delegate here.
+   * Virtual tools with their own `execute` (memory, submit_deliverable,
+   * delegate) — these do NOT route through the AuditingToolExecutor's
+   * builtin/MCP dispatch; they carry their own logic, matching pi's
+   * agent-as-tool model. Receives the per-agent tool context. Phase 4/5 supply
+   * submit_deliverable / delegate here.
    */
-  readonly virtualToolProvider?: (ctx: PiToolContext, agentKind: PiAgentKind) => ToolDef[];
+  readonly virtualToolProvider?: (ctx: PiToolContext, agentKind: PiAgentKind) => AgentTool[];
 }
 
 export type PiAgentKind = 'employee' | 'boss';
@@ -275,9 +277,15 @@ export class PiOrchestrationService {
         error: error instanceof Error ? error.message : String(error),
       });
     }
-    const virtualDefs = this.deps.virtualToolProvider?.(toolCtx, kind) ?? [];
-    const allDefs = dedupeByName([...builtinDefs, ...mcpDefs, ...virtualDefs]);
-    return toolDefsToAgentTools(allDefs, toolExecutor, toolCtx);
+    const virtualTools = this.deps.virtualToolProvider?.(toolCtx, kind) ?? [];
+    const virtualNames = new Set(virtualTools.map((t) => t.name));
+    // Virtual tools (their own execute) take precedence over any same-named
+    // builtin/MCP tool; the rest route through the audited executor.
+    const executorDefs = dedupeByName([...builtinDefs, ...mcpDefs]).filter(
+      (def) => !virtualNames.has(def.name),
+    );
+    const executorTools = toolDefsToAgentTools(executorDefs, toolExecutor, toolCtx);
+    return [...executorTools, ...virtualTools];
   }
 
   /**

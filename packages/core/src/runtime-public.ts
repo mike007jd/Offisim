@@ -28,7 +28,9 @@ export { Scratchpad } from './runtime/scratchpad.js';
 export {
   buildPiModel,
   createPiStreamFn,
+  createSubmitDeliverableTool,
   PiAgentRegistry,
+  type PiAgentKind,
   type PiExecuteInput,
   type PiExecuteResult,
   type PiModelMeta,
