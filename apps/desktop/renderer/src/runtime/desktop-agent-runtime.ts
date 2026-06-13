@@ -21,7 +21,14 @@ import {
 import { ModelResolver, createGateway } from '@offisim/core/llm';
 import { AuditingToolExecutor, McpToolExecutor } from '@offisim/core/mcp';
 import { LlmMiddlewareChain, SummarizationMiddleware } from '@offisim/core/middleware';
-import { HumanMessage, buildOffisimGraph, createRuntimeContext } from '@offisim/core/runtime';
+import {
+  HumanMessage,
+  PiAgentRegistry,
+  PiOrchestrationService,
+  buildOffisimGraph,
+  createPiStreamFn,
+  createRuntimeContext,
+} from '@offisim/core/runtime';
 import { ConversationBudgetService, OrchestrationService } from '@offisim/core/services';
 import { CompositeToolExecutor, createBuiltinTools } from '@offisim/core/tools';
 import type {
@@ -31,6 +38,7 @@ import type {
   SkillInstallOutcomeKind,
 } from '@offisim/shared-types';
 import { ensureProjectBoundForRun } from './ensure-default-workspace.js';
+import { isPiKernelEnabled, piThinkingLevel } from './pi-kernel-flag.js';
 import { getRepos, runtimeEventBus } from './repos.js';
 
 /**
@@ -104,6 +112,8 @@ class DesktopAgentRuntimeImpl implements DesktopAgentRuntime {
     private readonly skillStagingManager: SkillStagingManager,
     private readonly companyId: string,
     private readonly repos: RuntimeRepositories,
+    /** pi agent-loop orchestration; used when the pi-kernel flag is on. */
+    private readonly pi: PiOrchestrationService,
   ) {}
 
   async resolveInteraction(response: InteractionResponse): Promise<SkillInstallOutcomeKind | null> {
@@ -129,6 +139,27 @@ class DesktopAgentRuntimeImpl implements DesktopAgentRuntime {
       this.companyId,
       input.projectId,
     );
+
+    // pi kernel cut-over: route this turn through the pi agent loop instead of
+    // the LangGraph orchestration. One worker = one pi agent; deliverables are
+    // explicit tools, no intent guessing. (Multi-turn memory + resume arrive
+    // with the Phase 4 persistence layer; for now each turn is fresh-transcript.)
+    if (isPiKernelEnabled()) {
+      const result = await this.pi.execute({
+        companyId: this.companyId,
+        threadId: input.threadId,
+        employeeId: input.employeeId ?? undefined,
+        text: input.text,
+        projectId,
+        runScope: {
+          conversationKey: `${projectId ?? ''}::${input.threadId}::${input.employeeId ?? ''}`,
+          runId: `run-${crypto.randomUUID()}`,
+          threadId: input.threadId,
+        },
+      });
+      return result.finalText;
+    }
+
     const finalState = await this.orchestration.execute({
       entryMode: 'direct_chat',
       messages: [new HumanMessage(input.text)],
@@ -155,6 +186,10 @@ class DesktopAgentRuntimeImpl implements DesktopAgentRuntime {
   }
 
   abort(threadId: string): void {
+    if (isPiKernelEnabled()) {
+      this.pi.abortThread(threadId);
+      return;
+    }
     this.orchestration.abortExecution(threadId);
   }
 
@@ -402,6 +437,27 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
   const orchestration = new OrchestrationService(graph, runtimeCtx, {
     checkpointSaver: checkpointer,
   });
+
+  // pi agent-loop orchestration (cut-over kernel). Shares the runtimeCtx, repos,
+  // eventBus, audited toolExecutor, and modelResolver with the graph; uses its
+  // own streamFn (the SAME credential-isolated transport fetch the gateway uses)
+  // and its own budget service instance. Routed to when the pi-kernel flag is on.
+  const piOrchestration = new PiOrchestrationService({
+    runtimeCtx,
+    registry: new PiAgentRegistry(),
+    streamFn: createPiStreamFn({ fetch: transportFetch }),
+    budgetService: new ConversationBudgetService(),
+    modelResolver,
+    modelMeta: {
+      baseUrl: profile.baseUrl,
+      // The model may expose thinking; `thinkingLevel` gates whether it is
+      // actually requested (level 'off' sends no thinking params).
+      reasoning: true,
+      piProvider: coreProvider === 'anthropic' ? 'anthropic' : profile.provider,
+    },
+    thinkingLevel: piThinkingLevel(),
+  });
+
   return new DesktopAgentRuntimeImpl(
     orchestration,
     interactionService,
@@ -409,6 +465,7 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
     skillStagingManager,
     companyId,
     repos,
+    piOrchestration,
   );
 }
 

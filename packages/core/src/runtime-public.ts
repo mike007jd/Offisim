@@ -23,6 +23,20 @@ export { HookRegistry } from './runtime/hook-registry.js';
 export { ResumeCoordinator } from './runtime/resume-coordinator.js';
 export { createRuntimeContext, disposeRuntime } from './runtime/runtime-context.js';
 export { Scratchpad } from './runtime/scratchpad.js';
+
+// --- pi-bridge (pi agent-loop kernel; replaces LangGraph orchestration) ---
+export {
+  buildPiModel,
+  createPiStreamFn,
+  PiAgentRegistry,
+  type PiExecuteInput,
+  type PiExecuteResult,
+  type PiModelMeta,
+  PiOrchestrationService,
+  type PiOrchestrationDeps,
+  type PiToolContext,
+} from './pi-bridge/index.js';
+
 export {
   buildSkillUpdateValues,
   coerceSkillScope,
