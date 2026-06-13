@@ -1,0 +1,29 @@
+{
+  "name": "@offisim/pi-ai",
+  "version": "1.0.0-rc.1",
+  "private": true,
+  "type": "module",
+  "description": "Offisim vendored fork of @earendil-works/pi-ai, trimmed to the anthropic-messages and openai-completions lanes for the Tauri WebView.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "node ../../scripts/tsc-build-if-dist-missing.mjs --project tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.95.0",
+    "openai": "^6.36.0",
+    "partial-json": "0.1.7",
+    "typebox": "1.1.38"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  },
+  "license": "MIT"
+}

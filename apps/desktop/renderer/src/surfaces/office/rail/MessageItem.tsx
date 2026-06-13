@@ -122,14 +122,11 @@ export function MessageItem({ message, employeesById }: MessageItemProps) {
           {({ part }) =>
             part.type === 'text' ? (
               <span className="off-msg-text">
-                {/* The boss (user) message is plain text; employee/system
-                    replies render Markdown so synthesized deliverables and
-                    fenced code blocks read coherently instead of as raw text. */}
-                {message.author === 'boss' ? (
-                  <MessagePartPrimitive.Text />
-                ) : (
-                  <Markdown>{part.text}</Markdown>
-                )}
+                {/* Every author renders through Markdown so fenced code blocks,
+                    lists, and tables read coherently — the user's own message
+                    included (Codex-style unified rendering), not just employee
+                    deliverables. */}
+                <Markdown>{part.text}</Markdown>
                 <MessagePartPrimitive.InProgress>
                   <span className="off-msg-cursor">|</span>
                 </MessagePartPrimitive.InProgress>

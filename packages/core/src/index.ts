@@ -363,6 +363,34 @@ export type { LogLevel, LogEntry } from './services/logger.js';
 
 // --- Services ---
 export { OrchestrationService } from './services/orchestration-service.js';
+
+// --- pi-bridge (pi agent-loop kernel; replaces LangGraph orchestration) ---
+export {
+  buildPiModel,
+  createBudgetTransform,
+  createPiEventListener,
+  createPiStreamFn,
+  laneToPiApi,
+  llmToPiMessages,
+  PiAgentRegistry,
+  type PiAgentKind,
+  type PiBudgetDeps,
+  type PiEventBridgeHandlers,
+  type PiEventIdentity,
+  type PiExecuteInput,
+  type PiExecuteResult,
+  type PiModelInput,
+  type PiModelMeta,
+  PiOrchestrationService,
+  type PiOrchestrationDeps,
+  type PiStreamDeps,
+  type PiToolContext,
+  piToLlmMessage,
+  piToLlmMessages,
+  TAURI_MANAGED_API_KEY,
+  toolDefsToAgentTools,
+  toolDefToAgentTool,
+} from './pi-bridge/index.js';
 export { EmployeeVersionService } from './runtime/employee-version-service.js';
 export { ensureYoloMasterForActiveCompanies } from './runtime/ensure-yolo-master.js';
 export type { VersionDiff } from './runtime/employee-version-service.js';

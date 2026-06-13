@@ -1041,9 +1041,29 @@
   color: var(--off-ink-1);
 }
 
+/* Codex-style conversation: the user's own message is a right-aligned bubble;
+   AI replies flow left, full-width, with no bubble — the asymmetry is what
+   separates "what I asked" from "what the agent produced" at a glance. */
+.off-msg.is-boss {
+  align-items: flex-end;
+}
+
+.off-msg.is-boss .off-msg-head {
+  flex-direction: row-reverse;
+}
+
 .off-msg.is-boss .off-msg-body {
-  border-left: 2px solid var(--off-accent-ring);
-  padding-left: var(--off-sp-4);
+  max-width: 80%;
+  padding: var(--off-sp-3) var(--off-sp-4);
+  background: var(--off-accent-surface);
+  border: 1px solid var(--off-accent-line-soft);
+  border-radius: var(--off-r-lg);
+}
+
+/* The user bubble already sits on a tinted surface; drop the document-scale top
+   gap so short prompts don't float inside an oversized box. */
+.off-msg.is-boss .off-office-md {
+  font-size: var(--off-fs-sm);
 }
 
 .off-msg.is-system .off-msg-body {
