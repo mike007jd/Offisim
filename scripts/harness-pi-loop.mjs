@@ -292,6 +292,49 @@ async function scenarioBossDelegate() {
   check('boss final summarizes the real result', res.finalText.includes('RAN:echo delegated'), res.finalText);
 }
 
+async function scenarioMultiTurn() {
+  console.log('• multi-turn memory (persist + rehydrate)');
+  const repos = await seedRepos();
+  const audit = [];
+  const eventBus = new InMemoryEventBus();
+  const svc = buildService(repos, eventBus, audit, {
+    employee: [{ text: 'Turn one reply.' }, { text: 'Turn two reply.' }],
+  });
+  await svc.execute({ companyId: COMPANY_ID, threadId: 't-mt', employeeId: EMP_DEV, text: 'first' });
+  await svc.execute({ companyId: COMPANY_ID, threadId: 't-mt', employeeId: EMP_DEV, text: 'second' });
+  const rows = await repos.piMessages.listByThread('t-mt');
+  // Both turns persisted (user+assistant each), in seq order, owner stamped.
+  check('both turns persisted', rows.length === 4, `rows=${rows.length}`);
+  check('seqs are contiguous', rows.every((r, i) => r.seq === i));
+  check('owner employee stamped', rows.every((r) => r.employee_id === EMP_DEV));
+}
+
+async function scenarioResume() {
+  console.log('• resume an interrupted thread');
+  const repos = await seedRepos();
+  const audit = [];
+  const eventBus = new InMemoryEventBus();
+  const svc = buildService(repos, eventBus, audit, { employee: [{ text: 'Resumed reply.' }] });
+  // Simulate a crash mid-turn: a user message persisted with no assistant reply.
+  await repos.piMessages.append([
+    {
+      message_id: 'm0',
+      thread_id: 't-res',
+      company_id: COMPANY_ID,
+      employee_id: EMP_DEV,
+      seq: 0,
+      role: 'user',
+      message_json: JSON.stringify({ role: 'user', content: 'do the thing', timestamp: 1 }),
+      created_at: new Date().toISOString(),
+    },
+  ]);
+  const res = await svc.resume({ companyId: COMPANY_ID, threadId: 't-res', employeeId: EMP_DEV });
+  check('resume produced a continuation', !!res && res.finalText === 'Resumed reply.', res?.finalText);
+  // Resuming a completed thread (ends with assistant) is a clean no-op.
+  const noop = await svc.resume({ companyId: COMPANY_ID, threadId: 't-res', employeeId: EMP_DEV });
+  check('resume on completed thread no-ops', noop === null);
+}
+
 async function scenarioRegressionGuard() {
   console.log('• regression guard (this MUST be caught)');
   const repos = await seedRepos();
@@ -314,6 +357,8 @@ async function main() {
   await scenarioMultiRoundTools();
   await scenarioDeliverable();
   await scenarioBossDelegate();
+  await scenarioMultiTurn();
+  await scenarioResume();
   await scenarioRegressionGuard();
   if (failures.length > 0) {
     console.error(`\npi-loop gate FAILED: ${failures.length} check(s) — ${failures.join(', ')}`);
