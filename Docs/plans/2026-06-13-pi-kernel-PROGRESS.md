@@ -56,10 +56,16 @@ SSOT plan: `Docs/plans/2026-06-13-pi-kernel-replacement.md`
 - ⏳ **graph+agents 删除（最大剩余块，未做）**：graph/ 与 agents/ 互相依赖须**一次原子删**，且删前要先平移 agents/ 里被 kept 代码用的文件——`employee-builder`(pi 用 buildEmployeePrompt)/`employee-prompt-assembly`(llm adapter 用 PROMPT_CACHE_VOLATILE_MARKER)/`task-tool-intent`+`PendingAssignment` 类型(engine claude/codex lane 用)；再删 orchestration-service/resume-coordinator/ensure-yolo-master/node-summary-service/get-runtime/get-signal/active-context-snapshot + 改 desktop pi-only + 删 index/runtime-public/browser 的 graph 导出 + templates 去 yolo。错误尾巴长，需完整上下文一次做干净。
 - ⏳ @langchain 三依赖删除 / checkpoints+writes 表删 / 文档重写 + 新写 HARNESS_ARCHITECTURE.md。
 
-### P7（部分）
-- ✅ live 验收：boss delegate+子 agent 真执行+audit 落库全过（见上）。
-- ⏳ 完整矩阵（审批栏/取消/Activity-Chats-Calendar 数据面）+ 记忆抹除（MEMORY 已更新指向 executed 状态）。
-- 低优：boss/team 回复 UI 标签 'Employee' 应为 boss/team（cosmetic）。
+### ✅ P7 — release `.app` LIVE 验收矩阵全绿（2026-06-13 续作 session）
+`build:devtools` 重建 → computer-use 逐项 + 磁盘/DB 双取证。8 项全 PASS：
+- ✅ 直聊流式 / 工具真执行（bash 写盘）。deliverable 本 session live 再证：Maya `submit_deliverable` → deliverables 表 2→3 新行 "P7 Status Report" + contributors Maya Lin。
+- ✅ 审批栏 = **发现真 gap → 修复 → 验**。根因：`desktop-agent-runtime.ts` 的 `AuditingToolExecutor` 构造时 interactionService=undefined → shell 分类器 'ask' 短路自动放行 + 无 permission_request 渲染 UI。修法：① toolExecutor 构造移到 interactionService 之后并传入（不传 authorizer，只破坏性 bash 弹）② `defaultMode:'human_in_loop'` ③ 新建 `assistant/parts/PermissionApprovalBar.tsx` + `off-approvalbar` CSS + 挂 OfficeThread/WorkspaceAssistantThread。live：rm-rf/git-push 弹栏暂停 bash，Approve→执行（rm-rf 再被 Rust 深层 Deny）/ Reject→阻止，`mcp_audit_log.approved_by`=interaction:once/reject + tool_permission_approvals 落库。
+- ✅ boss 委派双员工并行：磁盘两文件 + audit 两 bash 各归 Maya/Marcus（非 boss）。
+- ✅ 取消（单+全队）：Stop→registry abort，文件过 30s 仍不存在（Rust 子进程真 kill），status=blocked，transcript toolCall↔toolResult(合成) 配对。
+- ✅ 数据面：Activity（mcp_audit_log+agent_events）live；Chats（agent_events，PONG 渲染证）；Calendar（meeting_sessions）= **WRITER-DEAD 诚实空态**（graph meeting subgraph 已删、`repos.meetings.create` 零调用方）→ 决策**可接受**（§7 meeting 未来 agent-as-tool 重建、保表留后路，非回归）。
+- ✅ 续跑：sleep 40 中 `pkill` app → 重启 → ResumeBar → Resume → pi.resume + patchDanglingToolCalls(合成 isError toolResult) + continue → 新终态 assistant + status→completed。
+- ✅ 记忆抹除：MEMORY.md 顶部条目 + executed topic 文件更新到 P7 完成；LangGraph-as-live 叙述上 session ⚠️ 已作废，带日期 topic 文件为正确历史记录。
+- 低优 cosmetic：boss/team 回复 UI 标签 'Employee' 应为 boss/team；resume 后已打开线程视图未即时刷新（重开即显）。
 
 ### Commits (main, 未 push)
 `ec028138` fork+bridge / `8aaf2ee2` 桌面接线 / `a5066aca` deliverable / `d7d7b009` delegate / `7aa5a2e5` 自审整改+P4持久化 / `00cc30c7`+gate / `7aa5a2e5`.. audit-FK fix。
