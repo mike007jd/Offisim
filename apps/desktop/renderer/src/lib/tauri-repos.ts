@@ -15,6 +15,7 @@ import { createLlmTauriRepos } from './tauri-repos/llm';
 import { createMemorySystemTauriRepos } from './tauri-repos/memory-system';
 import { createOrchestrationTauriRepos } from './tauri-repos/orchestration';
 import { createPermissionsTauriRepos } from './tauri-repos/permissions';
+import { createPiMessagesTauriRepos } from './tauri-repos/pi-messages';
 import { createProjectsTauriRepos } from './tauri-repos/projects';
 import { createSkillsTauriRepos } from './tauri-repos/skills';
 import { createWorkspaceTauriRepos } from './tauri-repos/workspace';
@@ -47,6 +48,7 @@ export function createTauriRepositories(
     ...createAgentEventsTauriRepos(db),
     ...createDeliverablesTauriRepos(db),
     ...createSkillsTauriRepos(db),
+    ...createPiMessagesTauriRepos(db),
     // Real atomic transactions on desktop: every drizzle .run() inside fn() is
     // queued and committed atomically via `local_db_execute_transaction`. The
     // Rust side validates each statement against the SQL allowlist (E/C1).

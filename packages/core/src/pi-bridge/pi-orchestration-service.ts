@@ -33,6 +33,7 @@ import { createDelegateTool } from './pi-delegate-tool.js';
 import { createPiEventListener } from './pi-event-bridge.js';
 import { buildPiModel } from './pi-model.js';
 import type { PiAgentRegistry } from './pi-agent-registry.js';
+import type { PiMessageStore } from './pi-message-store.js';
 import type { StreamFn } from '@offisim/pi-agent';
 import { type PiToolContext, toolDefsToAgentTools } from './pi-tool-adapter.js';
 
@@ -66,6 +67,12 @@ export interface PiOrchestrationDeps {
   readonly maxToolRounds?: number;
   /** Give boss agents the `delegate` tool. Default true. */
   readonly enableDelegation?: boolean;
+  /**
+   * Per-message transcript persistence. When set, the top-level turn loads its
+   * prior transcript (with the dangling-toolCall resume patch) and every finished
+   * message is appended. Delegated sub-agents do NOT persist to the thread.
+   */
+  readonly messageStore?: PiMessageStore;
   /**
    * Virtual tools with their own `execute` (memory, submit_deliverable,
    * delegate) — these do NOT route through the AuditingToolExecutor's
@@ -112,6 +119,8 @@ interface WorkerParams {
   readonly history?: readonly AgentMessage[];
   /** When set, this is a delegated sub-agent; aborting it follows the parent. */
   readonly parentSignal?: AbortSignal;
+  /** Resume an interrupted run by continuing the transcript instead of prompting. */
+  readonly continueRun?: boolean;
 }
 
 export class PiOrchestrationService {
@@ -122,6 +131,49 @@ export class PiOrchestrationService {
   /** Run one chat turn for the targeted worker; serialized per thread. */
   async execute(input: PiExecuteInput): Promise<PiExecuteResult> {
     return this.withThreadLock(input.threadId, () => this.runTurn(input));
+  }
+
+  /**
+   * Resume an interrupted run: load the persisted transcript (dangling-toolCall
+   * patched) and continue the loop if it ends mid-turn. Returns null when there
+   * is no persisted transcript or the last turn already completed (so a caller
+   * can fall back to an honest "nothing to resume").
+   */
+  async resume(input: {
+    companyId: string;
+    threadId: string;
+    employeeId?: string;
+    projectId?: string | null;
+    runScope?: RunScope | null;
+  }): Promise<PiExecuteResult | null> {
+    const store = this.deps.messageStore;
+    if (!store) return null;
+    const transcript = await store.loadTranscript(input.threadId);
+    const last = transcript[transcript.length - 1];
+    // Empty, or a completed turn (ends with an assistant message) → nothing to resume.
+    if (!last || last.role === 'assistant') return null;
+    return this.withThreadLock(input.threadId, async () => {
+      const { runtimeCtx } = this.deps;
+      // Resume as the worker that owned this thread (persisted per row); the
+      // caller's employeeId hint wins when provided.
+      const ownerId = input.employeeId ?? (await store.threadOwnerEmployeeId(input.threadId));
+      const kind: PiAgentKind = ownerId ? 'employee' : 'boss';
+      const employee = ownerId ? await runtimeCtx.repos.employees.findById(ownerId) : null;
+      const company = await runtimeCtx.repos.companies.findById(input.companyId);
+      if (!company) throw new Error(`Company ${input.companyId} not found`);
+      return this.runWorker({
+        companyId: input.companyId,
+        threadId: input.threadId,
+        kind,
+        employee,
+        company,
+        text: '',
+        projectId: input.projectId ?? null,
+        runScope: input.runScope ?? null,
+        history: transcript,
+        continueRun: true,
+      });
+    });
   }
 
   /** Abort every agent on a thread (whole-team cancel). */
@@ -196,13 +248,24 @@ export class PiOrchestrationService {
     };
     const tools = await this.assembleTools(params, toolCtx, kind);
 
+    // The budget service keys compaction/synopsis state on ctx.threadId — pass
+    // the PER-RUN thread, not the company-level placeholder baked into the base
+    // runtimeCtx, or every thread shares one synopsis/baseline row.
     const transformContext = createBudgetTransform({
       budgetService: this.deps.budgetService,
-      runtimeCtx,
+      runtimeCtx: { ...runtimeCtx, threadId },
       model: resolved.model,
       systemPrompt,
       maxTokens: resolved.maxTokens,
     });
+
+    // Top-level turns rehydrate their transcript from the store (with the
+    // dangling-toolCall patch); delegated sub-agents always start fresh.
+    const history =
+      params.history ??
+      (this.deps.messageStore && !params.parentSignal
+        ? await this.deps.messageStore.loadTranscript(threadId)
+        : undefined);
 
     const agent = new Agent({
       initialState: {
@@ -210,7 +273,7 @@ export class PiOrchestrationService {
         model,
         thinkingLevel: this.deps.thinkingLevel ?? 'off',
         tools,
-        messages: params.history ? [...params.history] : [],
+        messages: history ? [...history] : [],
       },
       streamFn: this.deps.streamFn,
       transformContext,
@@ -218,10 +281,13 @@ export class PiOrchestrationService {
     });
 
     // Propagate the parent's abort to this sub-agent so cancelling the boss
-    // (or whole-team abort) tears down the delegated employees too.
+    // (or whole-team abort) tears down the delegated employees too. The handler
+    // is removed in the finally block so a completed sub-agent does not stay
+    // pinned to the parent signal.
+    const onParentAbort = () => agent.abort();
     if (params.parentSignal) {
       if (params.parentSignal.aborted) agent.abort();
-      else params.parentSignal.addEventListener('abort', () => agent.abort(), { once: true });
+      else params.parentSignal.addEventListener('abort', onParentAbort);
     }
 
     // Round guard: count completed turns; abort on runaway. Replaces
@@ -230,7 +296,12 @@ export class PiOrchestrationService {
     let rounds = 0;
     let hitRoundLimit = false;
 
-    const nodeName = kind === 'boss' ? 'boss_summary' : 'employee';
+    // A delegated sub-agent (parentSignal set) must NOT stream into the boss's
+    // chat bubble — its output reaches the user only through the boss's summary.
+    // Give it a nodeName the renderer's STREAM_REPLY_NODES does not surface.
+    const isDelegatedSubAgent = !!params.parentSignal;
+    const nodeName =
+      kind === 'boss' ? 'boss_summary' : isDelegatedSubAgent ? 'employee_subtask' : 'employee';
     const listener = createPiEventListener(
       runtimeCtx.eventBus,
       {
@@ -265,11 +336,18 @@ export class PiOrchestrationService {
       if (!params.parentSignal) {
         await runtimeCtx.repos.threads.updateStatus(threadId, 'running').catch(() => {});
       }
-      await agent.prompt(params.text);
+      if (params.continueRun) {
+        // Resume: the transcript (loaded as history, dangling-toolCalls patched)
+        // already ends with a user/toolResult, so continue the interrupted loop.
+        await agent.continue();
+      } else {
+        await agent.prompt(params.text);
+      }
       await agent.waitForIdle();
     } finally {
       unsubscribe();
       unregister();
+      params.parentSignal?.removeEventListener('abort', onParentAbort);
     }
 
     const messages = agent.state.messages;
@@ -331,7 +409,12 @@ export class PiOrchestrationService {
     if (kind === 'employee' && employee) {
       return buildEmployeePrompt(employee, company, taskInput);
     }
-    // Boss prompt: the delegate tool dispatches to the roster employees.
+    // Boss prompt: an orchestrator that assigns work via the `delegate` tool.
+    // The hard tool-use discipline below mirrors the employee prompt's "use the
+    // tool, do not narrate" rules — without it a compat model will fabricate a
+    // delegation result instead of calling `delegate` (the disease this kernel
+    // exists to kill). The user's request is NOT embedded here; it arrives as
+    // the user message, so the system prompt stays stable across turns.
     const rosterLines = roster
       .filter((e) => e.enabled === 1)
       .map(
@@ -340,17 +423,27 @@ export class PiOrchestrationService {
             e.is_external === 1 ? ', external' : ''
           })`,
       );
+    const hasRoster = rosterLines.length > 0;
     return [
-      `You are the founder and boss of ${company.name}.`,
-      'You can answer the user directly, or assign work to an employee with the',
-      '`delegate` tool (pass the employee id and a clear, self-contained task). The',
-      'employee does the work with its own tools and returns the result. Delegate',
-      'real work; answer trivial questions yourself. Never fabricate results.',
-      rosterLines.length
-        ? `\nYour employees:\n${rosterLines.join('\n')}`
-        : '\nYou have no employees yet — answer directly.',
+      `You are the founder and boss of ${company.name}. You run the company by`,
+      'assigning work to your employees — you do NOT do hands-on work yourself.',
       '',
-      `User request:\n${taskInput}`,
+      'Rules you must follow exactly:',
+      '- When the request needs ANY real work — running commands, reading or writing',
+      '  files, producing a document, searching, analysis — you MUST assign it to an',
+      '  employee by calling the `delegate` tool with that employee id and a clear,',
+      '  self-contained task. Example: delegate(employee_id: "<id from the roster>",',
+      '  task: "Run `ls` in the project and report the file names").',
+      '- You may state that an employee did something ONLY AFTER its `delegate` tool',
+      '  result has come back, and you must report what that result actually said.',
+      '  NEVER write that an employee "completed", "ran", "found", or produced any',
+      '  result unless a `delegate` tool result for it exists in this conversation.',
+      '  Inventing or guessing a result is strictly forbidden.',
+      '- Answer directly (without delegating) ONLY for trivial conversational',
+      '  questions that need no command, no file, and no employee.',
+      hasRoster
+        ? `\nYour employees (delegate by id):\n${rosterLines.join('\n')}`
+        : '\nYou have no employees yet — answer directly and say so.',
     ].join('\n');
   }
 
@@ -370,10 +463,11 @@ export class PiOrchestrationService {
         error: error instanceof Error ? error.message : String(error),
       });
     }
+    const isBoss = kind === 'boss';
     const virtualTools = [...(this.deps.virtualToolProvider?.(toolCtx, kind) ?? [])];
     // The delegate tool is orchestration-internal (it recurses into runWorker),
     // so it is added here rather than via the external virtualToolProvider.
-    if (kind === 'boss' && this.deps.enableDelegation !== false) {
+    if (isBoss && this.deps.enableDelegation !== false) {
       virtualTools.push(
         createDelegateTool({
           runtimeCtx,
@@ -384,11 +478,14 @@ export class PiOrchestrationService {
       );
     }
     const virtualNames = new Set(virtualTools.map((t) => t.name));
-    // Virtual tools (their own execute) take precedence over any same-named
-    // builtin/MCP tool; the rest route through the audited executor.
-    const executorDefs = dedupeByName([...builtinDefs, ...mcpDefs]).filter(
-      (def) => !virtualNames.has(def.name),
-    );
+    // The boss is a pure orchestrator: it gets `delegate` only, NOT bash / write /
+    // MCP execution tools. Those belong to the employee that does the work — and
+    // a boss has no employeeId, so any direct executor call would mis-attribute
+    // its audit row to 'unknown' and dilute the model away from delegating. The
+    // employee gets the full audited executor set.
+    const executorDefs = isBoss
+      ? []
+      : dedupeByName([...builtinDefs, ...mcpDefs]).filter((def) => !virtualNames.has(def.name));
     const executorTools = toolDefsToAgentTools(executorDefs, toolExecutor, toolCtx);
     return [...executorTools, ...virtualTools];
   }
@@ -398,8 +495,24 @@ export class PiOrchestrationService {
    * append granularity). Until the persistence layer lands this is a no-op so
    * the loop runs end-to-end with in-memory transcript only.
    */
-  private async persistMessage(_params: WorkerParams, _message: PiMessage): Promise<void> {
-    // intentionally empty until the per-message persistence layer wires PiMessageStore
+  private async persistMessage(params: WorkerParams, message: PiMessage): Promise<void> {
+    // Only the top-level turn owns the thread transcript; a delegated sub-agent's
+    // internal messages must not interleave into the boss thread's history.
+    if (params.parentSignal || !this.deps.messageStore) return;
+    try {
+      await this.deps.messageStore.append(
+        params.threadId,
+        params.companyId,
+        [message],
+        new Date().toISOString(),
+        params.employee?.employee_id ?? null,
+      );
+    } catch (error) {
+      logger.warn('persistMessage failed', {
+        threadId: params.threadId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   private async withThreadLock<T>(threadId: string, run: () => Promise<T>): Promise<T> {

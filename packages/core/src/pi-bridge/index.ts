@@ -14,6 +14,7 @@ export {
   type PiEventIdentity,
 } from './pi-event-bridge.js';
 export { buildPiModel, laneToPiApi, type PiModelInput } from './pi-model.js';
+export { PiMessageStore, patchDanglingToolCalls } from './pi-message-store.js';
 export {
   llmToPiMessages,
   piToLlmMessage,

@@ -37,10 +37,28 @@ export function laneToPiApi(provider: LlmProvider): 'anthropic-messages' | 'open
   return provider === 'anthropic' ? 'anthropic-messages' : 'openai-completions';
 }
 
+/**
+ * pi's openai-completions auto-detect (detectCompat) has no MiniMax branch, so
+ * MiniMax inherits generic-OpenAI defaults that its API rejects: it expects
+ * `max_tokens` (not `max_completion_tokens`) and does not implement `store`, the
+ * `developer` role, `reasoning_effort`, or strict-mode tool schemas. Pin those.
+ */
+const MINIMAX_COMPAT = {
+  maxTokensField: 'max_tokens',
+  supportsStore: false,
+  supportsDeveloperRole: false,
+  supportsReasoningEffort: false,
+  supportsStrictMode: false,
+} as const;
+
+function isMiniMax(input: PiModelInput): boolean {
+  return /minimax/i.test(input.piProvider ?? '') || /minimax/i.test(input.baseUrl);
+}
+
 export function buildPiModel(input: PiModelInput): Model<'anthropic-messages' | 'openai-completions'> {
   const api = laneToPiApi(input.provider);
   const piProvider = input.piProvider ?? (api === 'anthropic-messages' ? 'anthropic' : 'openai');
-  return {
+  const model: Model<'anthropic-messages' | 'openai-completions'> = {
     id: input.model,
     name: input.model,
     api,
@@ -52,4 +70,8 @@ export function buildPiModel(input: PiModelInput): Model<'anthropic-messages' | 
     contextWindow: input.contextWindow && input.contextWindow > 0 ? input.contextWindow : 128000,
     maxTokens: input.maxTokens && input.maxTokens > 0 ? input.maxTokens : 8192,
   };
+  if (api === 'openai-completions' && isMiniMax(input)) {
+    return { ...model, compat: { ...MINIMAX_COMPAT } } as Model<'openai-completions'>;
+  }
+  return model;
 }

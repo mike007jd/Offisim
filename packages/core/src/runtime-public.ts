@@ -30,6 +30,7 @@ export {
   createPiStreamFn,
   createSubmitDeliverableTool,
   PiAgentRegistry,
+  PiMessageStore,
   type PiAgentKind,
   type PiExecuteInput,
   type PiExecuteResult,

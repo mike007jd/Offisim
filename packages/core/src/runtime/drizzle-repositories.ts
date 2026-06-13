@@ -11,6 +11,7 @@ import { createLlmDrizzleRepos } from './repos/llm/drizzle.js';
 import { createMemorySystemDrizzleRepos } from './repos/memory-system/drizzle.js';
 import { createOrchestrationDrizzleRepos } from './repos/orchestration/drizzle.js';
 import { createPermissionsDrizzleRepos } from './repos/permissions/drizzle.js';
+import { createPiMessagesDrizzleRepo } from './repos/pi-messages/drizzle.js';
 import { createProjectsDrizzleRepos } from './repos/projects/drizzle.js';
 import { createSkillsDrizzleRepos } from './repos/skills/drizzle.js';
 import { createWorkspaceDrizzleRepos } from './repos/workspace/drizzle.js';
@@ -59,6 +60,7 @@ export function createDrizzleRepositories(db: Db, _eventBus?: EventBus): Runtime
     ...createAgentEventsDrizzleRepos(db),
     ...createDeliverablesDrizzleRepos(db),
     ...createSkillsDrizzleRepos(db),
+    piMessages: createPiMessagesDrizzleRepo(db),
     transact: makeTransact(db),
     asyncTransact: makeAsyncTransact(),
   };

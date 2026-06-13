@@ -53,21 +53,42 @@ export function piToLlmMessage(msg: PiMessage): LlmMessage {
       ...(toolCalls.length ? { toolCalls } : {}),
     };
   }
-  // toolResult
-  return { role: 'tool', content: blocksToText(msg.content), toolCallId: msg.toolCallId };
+  if (msg.role === 'toolResult') {
+    return { role: 'tool', content: blocksToText(msg.content), toolCallId: msg.toolCallId };
+  }
+  // Defensive: a custom/unknown AgentMessage kind injected at runtime (pi's
+  // documented extension point). Represent it as a user note rather than
+  // mis-coercing it into a tool result with an undefined toolCallId.
+  const fallbackContent = (msg as { content?: unknown }).content;
+  return { role: 'user', content: typeof fallbackContent === 'string' ? fallbackContent : '' };
 }
 
 export function piToLlmMessages(messages: readonly PiMessage[]): LlmMessage[] {
   return messages.map(piToLlmMessage);
 }
 
+/** djb2 — cheap, stable content digest so distinct messages don't collide. */
+function cheapHash(s: string): string {
+  let h = 5381;
+  for (let i = 0; i < s.length; i += 1) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+
 /** Stable correlation key so a pruned `LlmMessage` can be matched to its pi origin. */
 function correlationKey(msg: LlmMessage): string {
-  if (msg.role === 'tool') return `tool:${msg.toolCallId ?? ''}`;
+  if (msg.role === 'tool') {
+    // An empty tool-call id is not correlatable — give it a unique key so it can
+    // never match a real original (it is always head-synthesized instead).
+    return msg.toolCallId
+      ? `tool:${msg.toolCallId}`
+      : `tool:uncorrelated:${cheapHash(msg.content)}`;
+  }
   if (msg.role === 'assistant' && msg.toolCalls?.length) {
     return `asst:${msg.toolCalls.map((t) => t.id).join(',')}`;
   }
-  return `${msg.role}:${msg.content.slice(0, 64)}`;
+  // length + full-content hash, not a 64-char prefix, so two messages sharing a
+  // prefix (templated prompts, repeated 'continue') do not collide.
+  return `${msg.role}:${msg.content.length}:${cheapHash(msg.content)}`;
 }
 
 function llmMessageToPi(msg: LlmMessage, now: number): PiMessage {
@@ -114,6 +135,31 @@ function llmMessageToPi(msg: LlmMessage, now: number): PiMessage {
 }
 
 /**
+ * Rebuild a pi message preserving the original's structure (tool ids, error
+ * flag, thinking/tool-call blocks) but substituting compacted text content.
+ */
+function rebuildWithContent(orig: PiMessage, content: string, now: number): PiMessage {
+  if (orig.role === 'toolResult') {
+    return {
+      role: 'toolResult',
+      toolCallId: orig.toolCallId,
+      toolName: orig.toolName,
+      content: [{ type: 'text', text: content }],
+      isError: orig.isError,
+      details: orig.details,
+      timestamp: orig.timestamp,
+    };
+  }
+  if (orig.role === 'assistant') {
+    const blocks: AssistantMessage['content'] = orig.content.filter(
+      (c) => c.type === 'thinking' || c.type === 'toolCall',
+    );
+    return { ...orig, content: [{ type: 'text', text: content }, ...blocks] };
+  }
+  return { role: 'user', content: [{ type: 'text', text: content }], timestamp: now };
+}
+
+/**
  * Reconstruct pi messages from a pruned `LlmMessage[]`, preserving the original
  * pi messages (and their thinking signatures) for the surviving tail and
  * materializing any newly-injected leading summary message.
@@ -133,7 +179,14 @@ export function llmToPiMessages(
     const pMsg = pruned[pr - 1];
     if (oMsg && pMsg && correlationKey(oMsg) === correlationKey(pMsg)) {
       const orig = original[pi - 1];
-      if (orig) tail.unshift(orig);
+      if (orig) {
+        // If the budget service compacted this message's content (tool-result
+        // capping / micro-compact), keep the COMPACTED text the model is meant
+        // to see — restoring the original would silently revert the compaction.
+        tail.unshift(
+          pMsg.content !== oMsg.content ? rebuildWithContent(orig, pMsg.content, now) : orig,
+        );
+      }
       pi -= 1;
       pr -= 1;
     } else {

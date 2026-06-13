@@ -24,6 +24,7 @@ import { LlmMiddlewareChain, SummarizationMiddleware } from '@offisim/core/middl
 import {
   HumanMessage,
   PiAgentRegistry,
+  PiMessageStore,
   PiOrchestrationService,
   buildOffisimGraph,
   createPiStreamFn,
@@ -202,6 +203,21 @@ class DesktopAgentRuntimeImpl implements DesktopAgentRuntime {
   }
 
   async resume(threadId: string): Promise<void> {
+    if (isPiKernelEnabled()) {
+      // Pi resume loads the persisted transcript (dangling-toolCall patched),
+      // resumes as the worker that owned the thread, and continues the loop.
+      // Returns null (clean no-op) when there is nothing to resume.
+      await this.pi.resume({
+        companyId: this.companyId,
+        threadId,
+        runScope: {
+          conversationKey: `::${threadId}::`,
+          runId: `resume-${crypto.randomUUID()}`,
+          threadId,
+        },
+      });
+      return;
+    }
     await this.orchestration.resumePlan(threadId);
   }
 }
@@ -459,12 +475,17 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
   // eventBus, audited toolExecutor, and modelResolver with the graph; uses its
   // own streamFn (the SAME credential-isolated transport fetch the gateway uses)
   // and its own budget service instance. Routed to when the pi-kernel flag is on.
+  // Per-message transcript persistence (multi-turn memory + resume). Backed by
+  // the pi_messages table via repos.piMessages.
+  const piMessageStore = repos.piMessages ? new PiMessageStore(repos.piMessages) : undefined;
+
   const piOrchestration = new PiOrchestrationService({
     runtimeCtx,
     registry: new PiAgentRegistry(),
     streamFn: createPiStreamFn({ fetch: transportFetch }),
     budgetService: new ConversationBudgetService(),
     modelResolver,
+    ...(piMessageStore ? { messageStore: piMessageStore } : {}),
     modelMeta: {
       baseUrl: profile.baseUrl,
       // The model may expose thinking; `thinkingLevel` gates whether it is

@@ -1123,3 +1123,26 @@ export const writes = sqliteTable(
     }),
   ],
 );
+
+// ---------------------------------------------------------------------------
+// pi kernel — per-message transcript persistence (replaces checkpoints/writes
+// for the pi agent loop). Append-only per thread; standalone (no graph FK).
+// ---------------------------------------------------------------------------
+
+export const piMessages = sqliteTable(
+  'pi_messages',
+  {
+    message_id: text('message_id').primaryKey(),
+    thread_id: text('thread_id').notNull(),
+    company_id: text('company_id').notNull(),
+    employee_id: text('employee_id'),
+    seq: integer('seq').notNull(),
+    role: text('role').notNull(),
+    message_json: text('message_json').notNull(),
+    created_at: text('created_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('pi_messages_thread_seq').on(table.thread_id, table.seq),
+    index('idx_pi_messages_thread').on(table.thread_id, table.seq),
+  ],
+);

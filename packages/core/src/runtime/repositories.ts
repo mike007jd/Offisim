@@ -1074,6 +1074,28 @@ export interface RecoveryKnowledgeRepository {
   findAll(opts?: { limit?: number }): Promise<RecoveryKnowledgeRow[]>;
 }
 
+/** A persisted pi-kernel transcript message row (table `pi_messages`). */
+export interface PiMessageRow {
+  message_id: string;
+  thread_id: string;
+  company_id: string;
+  /** Worker that owns this thread turn (null = boss). Used to resume as the right worker. */
+  employee_id: string | null;
+  seq: number;
+  role: string;
+  message_json: string;
+  created_at: string;
+}
+
+/** Per-message persistence for the pi agent loop (replaces graph checkpoints). */
+export interface PiMessageRepository {
+  listByThread(threadId: string): Promise<PiMessageRow[]>;
+  append(rows: readonly PiMessageRow[]): Promise<void>;
+  /** Highest persisted seq for the thread, or -1 when empty. */
+  maxSeq(threadId: string): Promise<number>;
+  deleteByThread(threadId: string): Promise<void>;
+}
+
 /** Aggregated access point */
 export interface RuntimeRepositories {
   companies: CompanyRepository;
@@ -1139,4 +1161,7 @@ export interface RuntimeRepositories {
    * - In-memory: no-op — calls fn() directly.
    */
   asyncTransact?<T>(fn: (txRepos?: RuntimeRepositories) => Promise<T>): Promise<T>;
+
+  /** pi-kernel per-message transcript persistence. */
+  piMessages?: PiMessageRepository;
 }

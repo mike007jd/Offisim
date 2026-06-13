@@ -686,3 +686,20 @@ CREATE INDEX IF NOT EXISTS idx_tool_perm_approval_company_lookup
   ON tool_permission_approvals(company_id, thread_id, employee_id, server_name, tool_name, policy_hash);
 CREATE INDEX IF NOT EXISTS idx_meeting_sessions_mode
   ON meeting_sessions(interaction_mode);
+
+-- pi kernel per-message transcript persistence (replaces LangGraph checkpoints/
+-- writes for the pi agent loop). One row per pi message, append-only per thread.
+-- No FK to graph_threads: pi threads are standalone and survive independent of
+-- the legacy graph thread lifecycle.
+CREATE TABLE IF NOT EXISTS pi_messages (
+  message_id TEXT PRIMARY KEY,
+  thread_id TEXT NOT NULL,
+  company_id TEXT NOT NULL,
+  employee_id TEXT,
+  seq INTEGER NOT NULL CHECK (seq >= 0),
+  role TEXT NOT NULL,
+  message_json TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  UNIQUE(thread_id, seq)
+);
+CREATE INDEX IF NOT EXISTS idx_pi_messages_thread ON pi_messages(thread_id, seq);

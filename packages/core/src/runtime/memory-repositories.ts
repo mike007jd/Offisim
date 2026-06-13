@@ -11,6 +11,7 @@ import { createMemorySystemMemoryRepos } from './repos/memory-system/memory.js';
 import type { MemoryRepositoriesSnapshot, MemoryRepositorySeed } from './repos/memory-types.js';
 import { createOrchestrationMemoryRepos } from './repos/orchestration/memory.js';
 import { createPermissionsMemoryRepos } from './repos/permissions/memory.js';
+import { createPiMessagesMemoryRepo } from './repos/pi-messages/memory.js';
 import { createProjectsMemoryRepos } from './repos/projects/memory.js';
 import { createSkillsMemoryRepos } from './repos/skills/memory.js';
 import { createWorkspaceMemoryRepos } from './repos/workspace/memory.js';
@@ -118,6 +119,7 @@ export function createMemoryRepositories(
     ...agentEventsFamily,
     ...deliverablesFamily,
     ...skillsFamily,
+    piMessages: createPiMessagesMemoryRepo(),
     // In-memory repos have no transactional boundary — every write is already
     // applied to the snapshot Map. asyncTransact is a passthrough so that
     // shared code can call it without branching on backend type.
