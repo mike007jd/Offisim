@@ -1,6 +1,6 @@
 import type { ConversationCompactCompletedPayload } from '@offisim/shared-types';
 import { conversationCompactCompleted } from '../../events/event-factories.js';
-import type { CompactBaselineState } from '../../graph/state.js';
+import type { CompactBaselineState } from './compact-baseline.js';
 import type { LlmRequest } from '../../llm/gateway.js';
 import type { RuntimeContext } from '../../runtime/runtime-context.js';
 import { generateId } from '../../utils/generate-id.js';

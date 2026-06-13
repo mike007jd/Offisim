@@ -1,4 +1,4 @@
-import type { CompactBaselineState } from '../../graph/state.js';
+import type { CompactBaselineState } from './compact-baseline.js';
 import type { LlmRequest, LlmResponse } from '../../llm/gateway.js';
 
 type LlmMessage = LlmRequest['messages'][number];

@@ -1,4 +1,4 @@
-import type { RunScope } from '../graph/state.js';
+import type { RunScope } from '@offisim/shared-types';
 import type { ToolDef } from '../llm/gateway.js';
 
 export interface ToolCallRequest {

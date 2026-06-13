@@ -13,7 +13,7 @@ import {
   interactionRestored,
   skillInstallOutcome,
 } from '../events/event-factories.js';
-import type { RunScope } from '../graph/state.js';
+import type { RunScope } from '@offisim/shared-types';
 import type { HookRegistry } from '../runtime/hook-registry.js';
 import type {
   ActiveInteractionRepository,

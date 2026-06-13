@@ -1,6 +1,6 @@
 import { isCapacityError, isContextOverflowError } from '../errors.js';
 import { llmCallStarted, llmStreamChunk } from '../events/event-factories.js';
-import type { RunScope } from '../graph/state.js';
+import type { RunScope } from '@offisim/shared-types';
 import type { LlmCallContext, LlmCallMeta } from '../middleware/types.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { Logger } from '../services/logger.js';

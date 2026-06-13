@@ -1,5 +1,5 @@
-import type { CompactBaselineState } from '../graph/state.js';
-import { parseCompactBaseline } from '../graph/state.js';
+import type { CompactBaselineState } from './conversation-budget/compact-baseline.js';
+import { parseCompactBaseline } from './conversation-budget/compact-baseline.js';
 import type { LlmRequest } from '../llm/gateway.js';
 import { pruneLlmMessages } from '../llm/prune-messages.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
