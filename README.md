@@ -138,7 +138,7 @@ Current application/package shape:
 - Local SQLite schema → `packages/db-local/src/schema.ts` + `packages/db-local/src/schema.sql`
 - Platform Postgres schema → `packages/db-platform/src/schema.ts`
 - A2A JSON-RPC → `packages/core/src/a2a/`
-- LangGraph kernel state → `packages/core/src/graph/state.ts`
+- Agent-loop kernel (pi) → `packages/core/src/pi-bridge/pi-orchestration-service.ts` (architecture: `Docs/HARNESS_ARCHITECTURE.md`)
 
 ### Working notes (evolving, not authoritative)
 
