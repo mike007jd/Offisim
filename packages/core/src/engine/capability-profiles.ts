@@ -8,7 +8,7 @@ import type {
   RuntimeEvidenceClass,
   RuntimePolicyConfig,
 } from '@offisim/shared-types';
-import type { TaskToolIntent } from '../agents/task-tool-intent.js';
+import type { TaskToolIntent } from './task-tool-intent.js';
 
 export interface RuntimeEngineProfileResolution {
   readonly profile: RuntimeEngineCapabilityProfile;

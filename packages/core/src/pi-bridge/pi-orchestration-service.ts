@@ -27,7 +27,7 @@ import type { RuntimeContext } from '../runtime/runtime-context.js';
 import type { ToolExecutor } from '../runtime/tool-executor.js';
 import type { ConversationBudgetService } from '../services/conversation-budget-service.js';
 import { Logger } from '../services/logger.js';
-import { buildEmployeePrompt } from '../agents/employee-builder.js';
+import { buildEmployeePrompt } from './employee-builder.js';
 import { createBudgetTransform } from './pi-budget.js';
 import { createDelegateTool } from './pi-delegate-tool.js';
 import { createPiEventListener } from './pi-event-bridge.js';

@@ -6,22 +6,22 @@ import type {
   SkillInstallSourceKind,
 } from '@offisim/shared-types';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
-import type { SkillInstallSource } from '../skills/skill-loader.js';
+import type { SkillInstallSource } from './skill-loader.js';
 import {
   SkillFrontmatterError,
   parseSelfAuthoredSkillMd,
   parseSkillMd,
-} from '../skills/skill-md.js';
-import { resolveClaudeCodeSync } from '../skills/skill-source-resolvers/claude-code.js';
-import { resolveCodexSync } from '../skills/skill-source-resolvers/codex.js';
-import { resolveGitSource } from '../skills/skill-source-resolvers/git.js';
+} from './skill-md.js';
+import { resolveClaudeCodeSync } from './skill-source-resolvers/claude-code.js';
+import { resolveCodexSync } from './skill-source-resolvers/codex.js';
+import { resolveGitSource } from './skill-source-resolvers/git.js';
 import {
   type ScannedSkill,
   type VirtualTree,
   isResolverError,
-} from '../skills/skill-source-resolvers/types.js';
-import { resolveUploadSource } from '../skills/skill-source-resolvers/upload.js';
-import { skillSlug } from '../skills/skill-slug.js';
+} from './skill-source-resolvers/types.js';
+import { resolveUploadSource } from './skill-source-resolvers/upload.js';
+import { skillSlug } from './skill-slug.js';
 import { byteLength } from '../utils/byte-length.js';
 
 import type { SkillInstallStructuredError } from './skill-install/errors.js';

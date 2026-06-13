@@ -3,7 +3,6 @@
 // --- Types ---
 export type {
   RuntimeContext,
-  MeetingInterruptBox,
   InteractionBox,
   DisposableRuntime,
 } from './runtime/runtime-context.js';
@@ -107,7 +106,6 @@ export type {
   LlmStreamChunk,
 } from './llm/gateway.js';
 export type { EventBus, EventHandler } from './events/event-bus.js';
-export type { ResumeSnapshot, LatestCheckpointSaver } from './runtime/resume-coordinator.js';
 export type {
   EngineAdapter,
   EngineAdapterRegistry,
@@ -127,28 +125,11 @@ export {
   TOOL_PERMISSION_DENIED,
   TOOL_PERMISSION_REQUIRED,
 } from './runtime/tool-executor.js';
-export type {
-  OffisimGraphState,
-  PendingAssignment,
-  TaskPlan,
-  PlanStep,
-  PlanTask,
-  ManagerDirective,
-  StepTaskOutput,
-  StepResult,
-  CitationRef,
-} from './graph/state.js';
-export type { BuildGraphOptions } from './graph/main-graph.js';
 export type { RetryConfig } from './llm/retry.js';
 export type { TeeResult } from './llm/stream-tee.js';
-export type { SerializedExecutionState } from './services/orchestration-service.js';
 
 // --- Factories ---
-export { buildOffisimGraph } from './graph/main-graph.js';
 export { createRuntimeContext, disposeRuntime } from './runtime/runtime-context.js';
-export { resolveActiveContextSnapshot } from './runtime/active-context-snapshot.js';
-export type { ActiveContextSnapshot } from './runtime/active-context-snapshot.js';
-export { ResumeCoordinator } from './runtime/resume-coordinator.js';
 export { RunConversationState } from './runtime/run-conversation-state.js';
 export type {
   RunActiveContextSnapshot,
@@ -164,7 +145,6 @@ export type {
 } from './runtime/run-conversation-state.js';
 export { HookRegistry } from './runtime/hook-registry.js';
 export { Scratchpad } from './runtime/scratchpad.js';
-export { createCheckpointSaver, createMemoryCheckpointSaver } from './graph/checkpoint-saver.js';
 export {
   createMemoryRepositories,
   MemoryCompactSummaryRepository,
@@ -361,10 +341,7 @@ export {
 export { Logger, setLogHandler, resetLogHandler } from './services/logger.js';
 export type { LogLevel, LogEntry } from './services/logger.js';
 
-// --- Services ---
-export { OrchestrationService } from './services/orchestration-service.js';
-
-// --- pi-bridge (pi agent-loop kernel; replaces LangGraph orchestration) ---
+// --- pi-bridge (the pi agent-loop chat kernel) ---
 export {
   buildPiModel,
   createBudgetTransform,
@@ -394,13 +371,11 @@ export {
   toolDefToAgentTool,
 } from './pi-bridge/index.js';
 export { EmployeeVersionService } from './runtime/employee-version-service.js';
-export { ensureYoloMasterForActiveCompanies } from './runtime/ensure-yolo-master.js';
 export type { VersionDiff } from './runtime/employee-version-service.js';
 export { RackSlotService } from './services/rack-slot-service.js';
 export type { RackWithSlots } from './services/rack-slot-service.js';
 export { WorkstationToolResolver } from './services/workstation-tool-resolver.js';
 export type { WorkstationToolResolverDeps } from './services/workstation-tool-resolver.js';
-export { NodeSummaryService } from './services/node-summary-service.js';
 export { LibraryService } from './services/library-service.js';
 export type { CitationEntry } from './services/library-service.js';
 export { CompanyTemplateService } from './services/company-template-service.js';
@@ -440,27 +415,6 @@ export type {
   ToolApprovalMode,
   ToolPermissionPolicy,
 } from './mcp/types.js';
-
-// --- Agent Nodes ---
-export { bossNode } from './agents/boss-node.js';
-export { managerNode } from './agents/manager-node.js';
-export { employeeNode, extractUsedCitations } from './agents/employee-node.js';
-export { employeeDirectSetupNode } from './agents/employee-direct-setup-node.js';
-export { errorHandlerNode } from './agents/error-handler-node.js';
-export { bossSummaryNode } from './agents/boss-summary-node.js';
-export { buildEmployeePrompt } from './agents/employee-builder.js';
-
-// --- Meeting ---
-export {
-  meetingStartNode,
-  participantTurnNode,
-  meetingTurnCheck,
-  meetingEndNode,
-  meetingPausedNode,
-  meetingResumeNode,
-  meetingInjectNode,
-} from './graph/meeting-subgraph.js';
-export type { MeetingInterrupt, MeetingInterruptType } from './graph/state.js';
 
 // --- A2A (Agent-to-Agent Protocol) ---
 export { A2AClient } from './a2a/index.js';
@@ -581,8 +535,8 @@ export {
   buildSkillInstallTools,
   handleSkillInstallTool,
   isSkillInstallTool,
-} from './agents/skill-install-tools.js';
-export type { SkillInstallToolName } from './agents/skill-install-tools.js';
+} from './skills/skill-install-tools.js';
+export type { SkillInstallToolName } from './skills/skill-install-tools.js';
 export type {
   SkillInstallConfirmHandler,
   SkillInstallConfirmOutcome,

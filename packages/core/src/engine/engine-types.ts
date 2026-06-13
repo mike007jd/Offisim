@@ -7,7 +7,21 @@ import type {
   RuntimeEngineToolModel,
   RuntimeEvidenceClass,
 } from '@offisim/shared-types';
-import type { PendingAssignment } from '../graph/state.js';
+export type AssignmentTargetKind = 'employee';
+
+/**
+ * A task assignment handed to an engine adapter. Formerly defined in the
+ * (deleted) graph state module; the engine subsystem now owns it.
+ */
+export interface PendingAssignment {
+  taskType: string;
+  employeeId: string;
+  assigneeKind?: AssignmentTargetKind;
+  assigneeName?: string;
+  inputJson: Record<string, unknown>;
+  taskRunId?: string;
+  stepIndex?: number;
+}
 
 export type {
   EmployeeRuntimeBinding,

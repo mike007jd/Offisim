@@ -11,8 +11,6 @@
 
 // --- Types (all type-only, zero runtime cost) ---
 export type { RuntimeContext, InteractionBox } from './runtime/runtime-context.js';
-export type { ActiveContextSnapshot } from './runtime/active-context-snapshot.js';
-export { resolveActiveContextSnapshot } from './runtime/active-context-snapshot.js';
 export type { HookEvent, HookDefinition } from './runtime/hook-registry.js';
 export type { ScratchpadEntry } from './runtime/scratchpad.js';
 export type {
@@ -154,17 +152,6 @@ export type {
   ToolPermissionGrantMatch,
   ToolPermissionGrantResolver,
 } from './services/interaction-service.js';
-export type {
-  OffisimGraphState,
-  PendingAssignment,
-  TaskPlan,
-  PlanStep,
-  PlanTask,
-  ManagerDirective,
-  StepTaskOutput,
-  StepResult,
-  CitationRef,
-} from './graph/state.js';
 export type { RetryConfig } from './llm/retry.js';
 export type { TeeResult } from './llm/stream-tee.js';
 export type { VersionDiff } from './runtime/employee-version-service.js';
@@ -319,7 +306,6 @@ export { listTemplates, getTemplate } from './templates/index.js';
 export { DEFAULT_COST_RATES, seedDefaultCostRates } from './runtime/default-cost-rates.js';
 export { WorkstationAssignmentService } from './runtime/workstation-assignment-service.js';
 export { WorkstationToolResolver } from './services/workstation-tool-resolver.js';
-export { NodeSummaryService } from './services/node-summary-service.js';
 export { GitAutoCommitService } from './services/git-auto-commit-service.js';
 export type {
   GitExec,
@@ -506,8 +492,8 @@ export {
   buildSkillInstallTools,
   handleSkillInstallTool,
   isSkillInstallTool,
-} from './agents/skill-install-tools.js';
-export type { SkillInstallToolName } from './agents/skill-install-tools.js';
+} from './skills/skill-install-tools.js';
+export type { SkillInstallToolName } from './skills/skill-install-tools.js';
 export type {
   SkillInstallConfirmHandler,
   SkillInstallConfirmOutcome,

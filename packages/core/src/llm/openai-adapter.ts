@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { PROMPT_CACHE_VOLATILE_MARKER } from '../agents/employee-prompt-assembly.js';
+import { PROMPT_CACHE_VOLATILE_MARKER } from './prompt-cache-marker.js';
 import { LlmError } from '../errors.js';
 import { extractErrorText, isCapacityErrorText } from './error-utils.js';
 import type {

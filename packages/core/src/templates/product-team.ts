@@ -1,5 +1,4 @@
 import { createZoneBlueprint } from '@offisim/shared-types';
-import { YOLO_MASTER_EMPLOYEE } from '../agents/yolo-master-persona.js';
 import type { CompanyTemplate } from './index.js';
 
 /**
@@ -108,7 +107,6 @@ export const productTeamTemplate: CompanyTemplate = {
         maxTokens: 3072,
       }),
     },
-    YOLO_MASTER_EMPLOYEE,
   ],  layoutPreset: 'product-hub',
   zones: [
     createZoneBlueprint({

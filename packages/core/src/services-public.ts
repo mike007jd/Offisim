@@ -6,8 +6,6 @@ export { FileHistoryService, FileHistoryToolExecutor } from './services/file-his
 export { GitAutoCommitService } from './services/git-auto-commit-service.js';
 export { InteractionService } from './services/interaction-service.js';
 export { MemoryService } from './services/memory-service.js';
-export { OrchestrationService } from './services/orchestration-service.js';
 export { ToolTelemetryService } from './services/tool-telemetry-service.js';
 export type { FileSnapshotAdapter } from './services/file-history-service.js';
 export type { GitExec } from './services/git-auto-commit-service.js';
-export type { SerializedExecutionState } from './services/orchestration-service.js';

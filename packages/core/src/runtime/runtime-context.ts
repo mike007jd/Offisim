@@ -1,7 +1,6 @@
 import type { InteractionRequest, RuntimePolicyConfig } from '@offisim/shared-types';
 import type { EngineAdapterRegistry } from '../engine/engine-adapter.js';
 import type { EventBus } from '../events/event-bus.js';
-import type { MeetingInterrupt } from '../graph/state.js';
 import type { LlmGateway } from '../llm/gateway.js';
 import type { ModelRegistry } from '../llm/model-registry.js';
 import type { ModelResolver } from '../llm/model-resolver.js';
@@ -20,22 +19,10 @@ import type { BuiltinTool } from '../tools/builtin/types.js';
 import type { AttachmentStoreBridge } from './attachment-store-bridge.js';
 import { HookRegistry } from './hook-registry.js';
 import type { RuntimeRepositories } from './repositories.js';
-import type { ResumeCoordinator } from './resume-coordinator.js';
 import { RunConversationState } from './run-conversation-state.js';
 import type { RunConversationState as RunConversationStateType } from './run-conversation-state.js';
 import { Scratchpad } from './scratchpad.js';
 import type { ToolExecutor } from './tool-executor.js';
-
-/**
- * Mutable container for meeting interrupts, keyed by threadId so concurrent
- * meetings on different threads (the RuntimeContext is per-runtime, shared
- * across threads) cannot consume each other's boss commands.
- * Set by boss via OrchestrationService.interruptMeeting(threadId, …),
- * consumed by participantTurnNode for its own thread after each LLM turn.
- */
-export interface MeetingInterruptBox {
-  pending: Map<string, MeetingInterrupt>;
-}
 
 export interface InteractionBox {
   pending: InteractionRequest | null;
@@ -67,8 +54,6 @@ export interface RuntimeContext {
   readonly memoryService?: MemoryService;
   /** PRD 2.3: Workstation-scoped tool resolver. */
   readonly workstationToolResolver?: WorkstationToolResolver;
-  /** Mutable box for boss meeting interrupts. Nodes read + clear this. */
-  readonly meetingInterruptBox: MeetingInterruptBox;
   /** Mutable box for user-visible decision requests. */
   readonly interactionBox: InteractionBox;
   /** Optional middleware chain for LLM call pre/post processing. */
@@ -95,9 +80,7 @@ export interface RuntimeContext {
   readonly interactionService?: InteractionService;
   /** Long-running thread journal with a stable first user objective anchor. */
   readonly rollingJournal?: RollingJournal;
-  /** Reloads latest checkpoint snapshots after reconnects or host restarts. */
-  readonly resumeCoordinator?: ResumeCoordinator;
-  /** Optional lifecycle hook registry for graph/task/interaction instrumentation. */
+  /** Optional lifecycle hook registry for task/interaction instrumentation. */
   readonly hookRegistry: HookRegistry;
   /** Run-scoped conversation state for default harness turns. */
   readonly conversationState: RunConversationStateType;
@@ -159,7 +142,6 @@ export function createRuntimeContext(deps: {
   runtimePolicy?: RuntimePolicyConfig;
   memoryService?: MemoryService;
   workstationToolResolver?: WorkstationToolResolver;
-  meetingInterruptBox?: MeetingInterruptBox;
   interactionBox?: InteractionBox;
   middlewareChain?: LlmMiddlewareChain;
   modelRegistry?: ModelRegistry;
@@ -171,7 +153,6 @@ export function createRuntimeContext(deps: {
   engineAdapters?: EngineAdapterRegistry;
   interactionService?: InteractionService;
   rollingJournal?: RollingJournal;
-  resumeCoordinator?: ResumeCoordinator;
   hookRegistry?: HookRegistry;
   conversationState?: RunConversationStateType;
   scratchpad?: Scratchpad;
@@ -182,7 +163,6 @@ export function createRuntimeContext(deps: {
   determinism?: RuntimeDeterminism;
 }): RuntimeContext {
   const {
-    meetingInterruptBox,
     interactionBox,
     hookRegistry,
     conversationState,
@@ -192,7 +172,6 @@ export function createRuntimeContext(deps: {
   } = deps;
   return Object.freeze({
     ...rest,
-    meetingInterruptBox: meetingInterruptBox ?? { pending: new Map() },
     interactionBox: interactionBox ?? { pending: null },
     hookRegistry: hookRegistry ?? new HookRegistry(),
     conversationState: conversationState ?? new RunConversationState(),
