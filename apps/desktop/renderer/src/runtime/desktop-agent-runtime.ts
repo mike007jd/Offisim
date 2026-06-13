@@ -9,7 +9,6 @@ import { loadRegisteredStdioMcpConfigs } from '@/lib/tauri-mcp-config.js';
 import { createTauriProjectFsAdapter } from '@/lib/tauri-project-fs-adapter.js';
 import { createTauriShellExecAdapter } from '@/lib/tauri-shell-exec-adapter.js';
 import { createTauriVaultFileSystem } from '@/lib/tauri-vault-fs.js';
-import { createTauriCheckpointSaver } from '@/runtime/tauri-checkpoint-saver.js';
 import {
   InteractionService,
   type RuntimeRepositories,
@@ -22,11 +21,9 @@ import { ModelResolver, createGateway } from '@offisim/core/llm';
 import { AuditingToolExecutor, McpToolExecutor } from '@offisim/core/mcp';
 import { LlmMiddlewareChain, SummarizationMiddleware } from '@offisim/core/middleware';
 import {
-  HumanMessage,
   PiAgentRegistry,
   PiMessageStore,
   PiOrchestrationService,
-  buildOffisimGraph,
   createPiStreamFn,
   createRuntimeContext,
   createSubmitDeliverableTool,
@@ -34,7 +31,6 @@ import {
 import {
   ConversationBudgetService,
   DeliverablePersistenceService,
-  OrchestrationService,
 } from '@offisim/core/services';
 import { CompositeToolExecutor, createBuiltinTools } from '@offisim/core/tools';
 import type {
@@ -44,23 +40,24 @@ import type {
   SkillInstallOutcomeKind,
 } from '@offisim/shared-types';
 import { ensureProjectBoundForRun } from './ensure-default-workspace.js';
-import { isPiKernelEnabled, piThinkingLevel } from './pi-kernel-flag.js';
+import { piThinkingLevel } from './pi-kernel-flag.js';
 import { getRepos, runtimeEventBus } from './repos.js';
 
 /**
- * The real LangGraph agent runtime that backs desktop chat. This is now the
- * ONLY chat path on desktop — the single-shot direct-provider completion was
- * retired in slice 3 (flag removed; Office + Workspace both run through here).
+ * The pi agent-loop runtime that backs desktop chat. This is the ONLY chat path
+ * on desktop — the LangGraph orchestration and the single-shot direct-provider
+ * completion before it were both retired in the pi-kernel cut-over (P6).
  *
- * It assembles the same graph/orchestration/runtime-context stack the test
- * harness drives (`packages/core/src/testing/scenario-runner.ts`) but with the
- * real credential-isolated Tauri transport, the real Drizzle-backed repos, the
- * sandboxed `project_*` file tools, and the sandboxed `bash_execute` shell. A
- * direct chat to one employee enters at `employee_direct_setup → employee`, the
- * employee node resolves the active provider model and calls the gateway, and
- * the builtin read/write/bash/glob/grep tools are reachable, plus the tools of
- * any registered stdio MCP server. Every tool call — builtin and MCP — is
- * recorded in `mcp_audit_log` via the AuditingToolExecutor wrapper.
+ * It assembles the runtime-context stack (credential-isolated Tauri transport,
+ * Drizzle-backed repos, sandboxed `project_*` file tools, sandboxed
+ * `bash_execute` shell) and drives one pi agent per worker: a boss agent
+ * delegates to employee sub-agents via the explicit `delegate` tool; each
+ * sub-agent resolves the active provider model, calls the gateway, and reaches
+ * the builtin read/write/bash/glob/grep tools plus any registered stdio MCP
+ * server. Deliverables are an explicit `submit_deliverable` tool (no intent
+ * guessing). Every tool call — builtin and MCP — is recorded in `mcp_audit_log`
+ * via the AuditingToolExecutor wrapper. Per-message transcripts persist to the
+ * `pi_messages` table for multi-turn memory + resume.
  */
 
 /** Map a (possibly wider) provider profile string onto the core LlmProvider union. */
@@ -112,13 +109,12 @@ export interface DesktopAgentRuntime {
 
 class DesktopAgentRuntimeImpl implements DesktopAgentRuntime {
   constructor(
-    private readonly orchestration: OrchestrationService,
     private readonly interactionService: InteractionService,
     private readonly mcpExecutor: McpToolExecutor,
     private readonly skillStagingManager: SkillStagingManager,
     private readonly companyId: string,
     private readonly repos: RuntimeRepositories,
-    /** pi agent-loop orchestration; used when the pi-kernel flag is on. */
+    /** pi agent-loop orchestration; the only chat path on desktop. */
     private readonly pi: PiOrchestrationService,
     /** Persists deliverable.created events to the deliverables table. */
     private readonly deliverablePersistence: DeliverablePersistenceService,
@@ -149,31 +145,15 @@ class DesktopAgentRuntimeImpl implements DesktopAgentRuntime {
       input.projectId,
     );
 
-    // pi kernel cut-over: route this turn through the pi agent loop instead of
-    // the LangGraph orchestration. One worker = one pi agent; deliverables are
-    // explicit tools, no intent guessing. (Multi-turn memory + resume arrive
-    // with the Phase 4 persistence layer; for now each turn is fresh-transcript.)
-    if (isPiKernelEnabled()) {
-      const result = await this.pi.execute({
-        companyId: this.companyId,
-        threadId: input.threadId,
-        employeeId: input.employeeId ?? undefined,
-        text: input.text,
-        projectId,
-        runScope: {
-          conversationKey: `${projectId ?? ''}::${input.threadId}::${input.employeeId ?? ''}`,
-          runId: `run-${crypto.randomUUID()}`,
-          threadId: input.threadId,
-        },
-      });
-      return result.finalText;
-    }
-
-    const finalState = await this.orchestration.execute({
-      entryMode: 'direct_chat',
-      messages: [new HumanMessage(input.text)],
-      targetEmployeeId: input.employeeId ?? null,
+    // The pi agent loop is the only chat path. One worker = one pi agent;
+    // the boss delegates to employee sub-agents and deliverables are explicit
+    // tools (no intent guessing). Per-message transcript persistence backs
+    // multi-turn memory + resume via the pi_messages table.
+    const result = await this.pi.execute({
+      companyId: this.companyId,
       threadId: input.threadId,
+      employeeId: input.employeeId ?? undefined,
+      text: input.text,
       projectId,
       runScope: {
         // Convention: `<projectId>::<threadId>::<employeeId?>`.
@@ -182,62 +162,31 @@ class DesktopAgentRuntimeImpl implements DesktopAgentRuntime {
         threadId: input.threadId,
       },
     });
-
-    // The direct-chat path ends at boss_summary, which (for a single employee
-    // result) short-circuits and emits the employee's own reply as the last
-    // AIMessage — no extra LLM call. Prefer that message; fall back to the
-    // employee step output if message extraction comes up empty.
-    const fromMessages = lastAiText(finalState.messages);
-    if (fromMessages) return fromMessages;
-    const outputs = finalState.currentStepOutputs ?? [];
-    const lastOutput = outputs[outputs.length - 1];
-    return lastOutput?.content?.trim() ?? '';
+    return result.finalText;
   }
 
   abort(threadId: string): void {
-    if (isPiKernelEnabled()) {
-      this.pi.abortThread(threadId);
-      return;
-    }
-    this.orchestration.abortExecution(threadId);
+    this.pi.abortThread(threadId);
   }
 
   async resume(threadId: string): Promise<void> {
-    if (isPiKernelEnabled()) {
-      // Pi resume loads the persisted transcript (dangling-toolCall patched),
-      // resumes as the worker that owned the thread, and continues the loop.
-      // Returns null (clean no-op) when there is nothing to resume.
-      await this.pi.resume({
-        companyId: this.companyId,
+    // Pi resume loads the persisted transcript (dangling-toolCall patched),
+    // resumes as the worker that owned the thread, and continues the loop.
+    // Returns null (clean no-op) when there is nothing to resume.
+    await this.pi.resume({
+      companyId: this.companyId,
+      threadId,
+      runScope: {
+        conversationKey: `::${threadId}::`,
+        runId: `resume-${crypto.randomUUID()}`,
         threadId,
-        runScope: {
-          conversationKey: `::${threadId}::`,
-          runId: `resume-${crypto.randomUUID()}`,
-          threadId,
-        },
-      });
-      return;
-    }
-    await this.orchestration.resumePlan(threadId);
+      },
+    });
   }
-}
-
-function lastAiText(messages: unknown): string | null {
-  if (!Array.isArray(messages)) return null;
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i] as { _getType?: () => string; content?: unknown } | undefined;
-    if (message?._getType?.() !== 'ai') continue;
-    const content = message.content;
-    if (typeof content === 'string') {
-      const trimmed = content.trim();
-      if (trimmed) return trimmed;
-    }
-  }
-  return null;
 }
 
 /**
- * Assemble the runtime for a company. The OrchestrationService is long-lived
+ * Assemble the runtime for a company. The PiOrchestrationService is long-lived
  * across threads (it overrides `runtimeCtx.threadId` per `execute` call), so a
  * single instance per company is correct; the threadId is passed per run, not
  * baked into the context. The placeholder threadId in the base context is only
@@ -253,7 +202,7 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
   }
 
   const repos: RuntimeRepositories = await getRepos();
-  // Fail loud rather than silently degrade — the graph nodes read the full repo
+  // Fail loud rather than silently degrade — the pi agents read the full repo
   // set (employees, threads, llm_calls, deliverables, …) and tool execution now
   // audits every call through `mcpAudit`, so it is required, not optional.
   for (const required of [
@@ -271,7 +220,7 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
   }
 
   // Placeholder thread id for the company-scoped runtime context / audit
-  // executor / interaction service. OrchestrationService.execute() overrides
+  // executor / interaction service. PiOrchestrationService.execute() overrides
   // the per-run ctx threadId; the interaction service routes by the request's
   // own threadId, so this only labels company-scoped scaffolding.
   const baseThreadId = `desktop-agent-${companyId}`;
@@ -442,7 +391,7 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
     toolExecutor,
     middlewareChain,
     companyId,
-    // Placeholder — OrchestrationService.execute() overrides this per run.
+    // Placeholder — PiOrchestrationService.execute() overrides this per run.
     threadId: baseThreadId,
     builtinTools,
     llmToolCallsEnabled: true,
@@ -452,31 +401,19 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
     interactionService,
   });
 
-  // Persistent checkpoints: the SAME saver instance feeds the graph (so steps
-  // are written) and the OrchestrationService (so resume can read the latest
-  // checkpoint). Survives restart — `checkpoints`/`writes` rows persist in
-  // offisim.db, unlike the in-memory saver the harness uses.
-  const checkpointer = createTauriCheckpointSaver();
-  const graph = buildOffisimGraph({ checkpointer });
-  const orchestration = new OrchestrationService(graph, runtimeCtx, {
-    checkpointSaver: checkpointer,
-  });
-
-  // Persist `deliverable.created` events to the deliverables table. Wired here
-  // (it was previously unconstructed, so deliverable events fired into the void)
-  // — it serves BOTH the graph path and the pi path's explicit
-  // submit_deliverable tool. Idempotent insert keyed on deliverable_id.
+  // Persist `deliverable.created` events to the deliverables table. Serves the
+  // pi path's explicit submit_deliverable tool. Idempotent insert keyed on
+  // deliverable_id.
   const deliverablePersistence = new DeliverablePersistenceService({
     eventBus: runtimeEventBus,
     repo: repos.deliverables,
   });
 
-  // pi agent-loop orchestration (cut-over kernel). Shares the runtimeCtx, repos,
-  // eventBus, audited toolExecutor, and modelResolver with the graph; uses its
-  // own streamFn (the SAME credential-isolated transport fetch the gateway uses)
-  // and its own budget service instance. Routed to when the pi-kernel flag is on.
-  // Per-message transcript persistence (multi-turn memory + resume). Backed by
-  // the pi_messages table via repos.piMessages.
+  // pi agent-loop orchestration (the only chat kernel). Owns the runtimeCtx,
+  // repos, eventBus, audited toolExecutor, and modelResolver; uses its own
+  // streamFn (the credential-isolated transport fetch the gateway uses) and its
+  // own budget service instance. Per-message transcript persistence (multi-turn
+  // memory + resume) is backed by the pi_messages table via repos.piMessages.
   const piMessageStore = repos.piMessages ? new PiMessageStore(repos.piMessages) : undefined;
 
   const piOrchestration = new PiOrchestrationService({
@@ -501,7 +438,6 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
   });
 
   return new DesktopAgentRuntimeImpl(
-    orchestration,
     interactionService,
     mcpExecutor,
     skillStagingManager,
@@ -516,7 +452,7 @@ const runtimeCache = new Map<string, Promise<DesktopAgentRuntime>>();
 
 /**
  * Get (or lazily assemble) the desktop agent runtime for a company. Cached per
- * companyId so the OrchestrationService + its per-thread locks/aborts persist
+ * companyId so the PiOrchestrationService + its per-thread locks/aborts persist
  * across turns. A failed assembly is not cached, so the next call retries.
  */
 export function getDesktopAgentRuntime(companyId: string): Promise<DesktopAgentRuntime> {
