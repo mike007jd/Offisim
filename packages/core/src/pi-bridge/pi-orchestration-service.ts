@@ -333,8 +333,11 @@ export class PiOrchestrationService {
 
     try {
       // Only the top-level turn owns the thread status; sub-agents share it.
+      // Ensure the graph_threads row exists — pi threads otherwise have no row,
+      // and mcp_audit_log.thread_id REFERENCES graph_threads(thread_id), so every
+      // tool audit insert (e.g. a delegated sub-agent's bash) would fail the FK.
       if (!params.parentSignal) {
-        await runtimeCtx.repos.threads.updateStatus(threadId, 'running').catch(() => {});
+        await this.ensureThreadRow(params).catch(() => {});
       }
       if (params.continueRun) {
         // Resume: the transcript (loaded as history, dangling-toolCalls patched)
@@ -370,6 +373,29 @@ export class PiOrchestrationService {
     // boss auto-title rewrite emits it with reason 'title'.
 
     return { finalText, messages, stopReason };
+  }
+
+  /**
+   * Ensure a graph_threads row exists for this thread before any audited tool
+   * runs. pi reuses graph_threads as the session/thread registry (status reads,
+   * the audit FK, ResumeBar). `updateStatus` is a bare UPDATE that no-ops on a
+   * missing row, so a fresh pi thread must be created here.
+   */
+  private async ensureThreadRow(params: WorkerParams): Promise<void> {
+    const { runtimeCtx } = this.deps;
+    const existing = await runtimeCtx.repos.threads.findById(params.threadId);
+    if (existing) {
+      await runtimeCtx.repos.threads.updateStatus(params.threadId, 'running');
+      return;
+    }
+    await runtimeCtx.repos.threads.create({
+      thread_id: params.threadId,
+      company_id: params.companyId,
+      entry_mode: params.kind === 'boss' ? 'boss_chat' : 'direct_chat',
+      root_task_id: null,
+      status: 'running',
+      project_id: params.projectId ?? null,
+    });
   }
 
   /** delegate → local employee sub-agent. Recurses into `runWorker`. */
