@@ -5,6 +5,3 @@ packages:
 
 onlyBuiltDependencies:
   - better-sqlite3
-
-patchedDependencies:
-  '@langchain/langgraph@1.3.0': patches/@langchain__langgraph@1.3.0.patch
