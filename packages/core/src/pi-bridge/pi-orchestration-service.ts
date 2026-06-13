@@ -29,6 +29,7 @@ import type { ConversationBudgetService } from '../services/conversation-budget-
 import { Logger } from '../services/logger.js';
 import { buildEmployeePrompt } from '../agents/employee-builder.js';
 import { createBudgetTransform } from './pi-budget.js';
+import { createDelegateTool } from './pi-delegate-tool.js';
 import { createPiEventListener } from './pi-event-bridge.js';
 import { buildPiModel } from './pi-model.js';
 import type { PiAgentRegistry } from './pi-agent-registry.js';
@@ -63,6 +64,8 @@ export interface PiOrchestrationDeps {
   readonly thinkingLevel?: ThinkingLevel;
   /** Runaway round guard. Default 200. */
   readonly maxToolRounds?: number;
+  /** Give boss agents the `delegate` tool. Default true. */
+  readonly enableDelegation?: boolean;
   /**
    * Virtual tools with their own `execute` (memory, submit_deliverable,
    * delegate) — these do NOT route through the AuditingToolExecutor's
@@ -93,6 +96,22 @@ export interface PiExecuteResult {
   readonly finalText: string;
   readonly messages: readonly AgentMessage[];
   readonly stopReason: 'completed' | 'aborted' | 'error' | 'round-limit';
+}
+
+/** Resolved inputs for a single worker run (top-level turn or delegated sub-agent). */
+interface WorkerParams {
+  readonly companyId: string;
+  readonly threadId: string;
+  readonly kind: PiAgentKind;
+  readonly employee: EmployeeRow | null;
+  readonly company: CompanyRow;
+  readonly text: string;
+  readonly projectId?: string | null;
+  readonly runScope?: RunScope | null;
+  readonly chatThreadId?: string | null;
+  readonly history?: readonly AgentMessage[];
+  /** When set, this is a delegated sub-agent; aborting it follows the parent. */
+  readonly parentSignal?: AbortSignal;
 }
 
 export class PiOrchestrationService {
@@ -130,7 +149,33 @@ export class PiOrchestrationService {
       throw new Error(`Employee ${input.employeeId} not found`);
     }
 
-    const systemPrompt = this.buildSystemPrompt(kind, employee, company, input.text);
+    return this.runWorker({
+      companyId: input.companyId,
+      threadId: input.threadId,
+      kind,
+      employee,
+      company,
+      text: input.text,
+      projectId: input.projectId ?? null,
+      runScope: input.runScope ?? null,
+      chatThreadId: input.chatThreadId ?? null,
+      history: input.history,
+    });
+  }
+
+  /**
+   * Run one worker (boss or employee) as a pi agent to completion. Reused by the
+   * top-level turn and recursively by `delegate` for local sub-agents — the
+   * sub-agent registers under the SAME thread so whole-team abort reaches it, and
+   * streams under the employee's identity.
+   */
+  private async runWorker(params: WorkerParams): Promise<PiExecuteResult> {
+    const { runtimeCtx } = this.deps;
+    const { kind, employee, company, threadId, companyId } = params;
+
+    const roster =
+      kind === 'boss' ? await runtimeCtx.repos.employees.findByCompany(companyId) : [];
+    const systemPrompt = this.buildSystemPrompt(kind, employee, company, params.text, roster);
     const resolved = this.deps.modelResolver.resolve(null, employee?.role_slug);
     const model = buildPiModel({
       provider: resolved.provider,
@@ -143,13 +188,13 @@ export class PiOrchestrationService {
     });
 
     const toolCtx: PiToolContext = {
-      threadId: input.threadId,
-      companyId: input.companyId,
-      employeeId: input.employeeId,
-      projectId: input.projectId ?? null,
-      runScope: input.runScope ?? null,
+      threadId,
+      companyId,
+      employeeId: employee?.employee_id,
+      projectId: params.projectId ?? null,
+      runScope: params.runScope ?? null,
     };
-    const tools = await this.assembleTools(input, toolCtx, kind);
+    const tools = await this.assembleTools(params, toolCtx, kind);
 
     const transformContext = createBudgetTransform({
       budgetService: this.deps.budgetService,
@@ -165,12 +210,19 @@ export class PiOrchestrationService {
         model,
         thinkingLevel: this.deps.thinkingLevel ?? 'off',
         tools,
-        messages: input.history ? [...input.history] : [],
+        messages: params.history ? [...params.history] : [],
       },
       streamFn: this.deps.streamFn,
       transformContext,
       toolExecution: 'sequential',
     });
+
+    // Propagate the parent's abort to this sub-agent so cancelling the boss
+    // (or whole-team abort) tears down the delegated employees too.
+    if (params.parentSignal) {
+      if (params.parentSignal.aborted) agent.abort();
+      else params.parentSignal.addEventListener('abort', () => agent.abort(), { once: true });
+    }
 
     // Round guard: count completed turns; abort on runaway. Replaces
     // MAX_TOOL_ROUNDS / recursion-limit, which vanished with the graph.
@@ -182,14 +234,14 @@ export class PiOrchestrationService {
     const listener = createPiEventListener(
       runtimeCtx.eventBus,
       {
-        companyId: input.companyId,
-        threadId: input.threadId,
+        companyId,
+        threadId,
         nodeName,
-        employeeId: input.employeeId,
-        runScope: input.runScope ?? null,
+        ...(employee?.employee_id ? { employeeId: employee.employee_id } : {}),
+        runScope: params.runScope ?? null,
       },
       {
-        onMessageEnd: (message) => this.persistMessage(input, message),
+        onMessageEnd: (message) => this.persistMessage(params, message),
       },
     );
     const roundCounter = (event: AgentEvent) => {
@@ -197,10 +249,7 @@ export class PiOrchestrationService {
         rounds += 1;
         if (rounds >= maxRounds && !hitRoundLimit) {
           hitRoundLimit = true;
-          logger.warn('round guard tripped; aborting agent', {
-            threadId: input.threadId,
-            rounds,
-          });
+          logger.warn('round guard tripped; aborting agent', { threadId, rounds });
           agent.abort();
         }
       }
@@ -209,11 +258,14 @@ export class PiOrchestrationService {
       await listener(event);
       roundCounter(event);
     });
-    const unregister = this.deps.registry.register(input.threadId, agent);
+    const unregister = this.deps.registry.register(threadId, agent);
 
     try {
-      await runtimeCtx.repos.threads.updateStatus(input.threadId, 'running').catch(() => {});
-      await agent.prompt(input.text);
+      // Only the top-level turn owns the thread status; sub-agents share it.
+      if (!params.parentSignal) {
+        await runtimeCtx.repos.threads.updateStatus(threadId, 'running').catch(() => {});
+      }
+      await agent.prompt(params.text);
       await agent.waitForIdle();
     } finally {
       unsubscribe();
@@ -230,14 +282,43 @@ export class PiOrchestrationService {
           : 'error'
         : 'completed';
 
-    await runtimeCtx.repos.threads
-      .updateStatus(input.threadId, stopReason === 'completed' ? 'completed' : 'blocked')
-      .catch(() => {});
+    if (!params.parentSignal) {
+      await runtimeCtx.repos.threads
+        .updateStatus(threadId, stopReason === 'completed' ? 'completed' : 'blocked')
+        .catch(() => {});
+    }
     // Note: `chat_thread.updated` is a metadata event (title / archive), not a
     // per-message signal — the renderer streams via `llm.stream.chunk`. The
-    // boss auto-title rewrite (Phase 4) emits it with reason 'title'.
+    // boss auto-title rewrite emits it with reason 'title'.
 
     return { finalText, messages, stopReason };
+  }
+
+  /** delegate → local employee sub-agent. Recurses into `runWorker`. */
+  private async runDelegated(
+    employeeId: string,
+    task: string,
+    parent: WorkerParams,
+    parentSignal?: AbortSignal,
+  ): Promise<string> {
+    const employee = await this.deps.runtimeCtx.repos.employees.findById(employeeId);
+    if (!employee) {
+      throw new Error(`No employee with id ${employeeId}`);
+    }
+    const result = await this.runWorker({
+      companyId: parent.companyId,
+      threadId: parent.threadId,
+      kind: 'employee',
+      employee,
+      company: parent.company,
+      text: task,
+      projectId: parent.projectId ?? null,
+      runScope: parent.runScope ?? null,
+      chatThreadId: parent.chatThreadId ?? null,
+      history: [],
+      ...(parentSignal ? { parentSignal } : {}),
+    });
+    return result.finalText;
   }
 
   private buildSystemPrompt(
@@ -245,24 +326,36 @@ export class PiOrchestrationService {
     employee: EmployeeRow | null,
     company: CompanyRow,
     taskInput: string,
+    roster: readonly EmployeeRow[],
   ): string {
     if (kind === 'employee' && employee) {
       return buildEmployeePrompt(employee, company, taskInput);
     }
-    // Boss direct-reply prompt. Phase 5 layers the delegate tool on top so the
-    // boss can dispatch to employees; here it answers directly.
+    // Boss prompt: the delegate tool dispatches to the roster employees.
+    const rosterLines = roster
+      .filter((e) => e.enabled === 1)
+      .map(
+        (e) =>
+          `- ${e.name} (id: ${e.employee_id}, role: ${e.role_slug}${
+            e.is_external === 1 ? ', external' : ''
+          })`,
+      );
     return [
       `You are the founder and boss of ${company.name}.`,
-      'Answer the user directly, helpfully, and concisely. Use the available tools',
-      'when a task requires real work (reading or writing files, running commands,',
-      'searching). Never fabricate results you did not produce with a tool.',
+      'You can answer the user directly, or assign work to an employee with the',
+      '`delegate` tool (pass the employee id and a clear, self-contained task). The',
+      'employee does the work with its own tools and returns the result. Delegate',
+      'real work; answer trivial questions yourself. Never fabricate results.',
+      rosterLines.length
+        ? `\nYour employees:\n${rosterLines.join('\n')}`
+        : '\nYou have no employees yet — answer directly.',
       '',
       `User request:\n${taskInput}`,
     ].join('\n');
   }
 
   private async assembleTools(
-    input: PiExecuteInput,
+    params: WorkerParams,
     toolCtx: PiToolContext,
     kind: PiAgentKind,
   ): Promise<AgentTool[]> {
@@ -271,13 +364,25 @@ export class PiOrchestrationService {
     const builtinDefs: ToolDef[] = [...(runtimeCtx.builtinTools?.values() ?? [])].map((t) => t.def);
     let mcpDefs: ToolDef[] = [];
     try {
-      mcpDefs = await toolExecutor.listAvailable(input.companyId);
+      mcpDefs = await toolExecutor.listAvailable(params.companyId);
     } catch (error) {
       logger.warn('listAvailable failed; continuing with builtin tools only', {
         error: error instanceof Error ? error.message : String(error),
       });
     }
-    const virtualTools = this.deps.virtualToolProvider?.(toolCtx, kind) ?? [];
+    const virtualTools = [...(this.deps.virtualToolProvider?.(toolCtx, kind) ?? [])];
+    // The delegate tool is orchestration-internal (it recurses into runWorker),
+    // so it is added here rather than via the external virtualToolProvider.
+    if (kind === 'boss' && this.deps.enableDelegation !== false) {
+      virtualTools.push(
+        createDelegateTool({
+          runtimeCtx,
+          toolCtx,
+          runLocalEmployee: (employeeId, task, signal) =>
+            this.runDelegated(employeeId, task, params, signal),
+        }),
+      );
+    }
     const virtualNames = new Set(virtualTools.map((t) => t.name));
     // Virtual tools (their own execute) take precedence over any same-named
     // builtin/MCP tool; the rest route through the audited executor.
@@ -293,8 +398,8 @@ export class PiOrchestrationService {
    * append granularity). Until the persistence layer lands this is a no-op so
    * the loop runs end-to-end with in-memory transcript only.
    */
-  private async persistMessage(_input: PiExecuteInput, _message: PiMessage): Promise<void> {
-    // intentionally empty until Phase 4 wires PiMessageStore
+  private async persistMessage(_params: WorkerParams, _message: PiMessage): Promise<void> {
+    // intentionally empty until the per-message persistence layer wires PiMessageStore
   }
 
   private async withThreadLock<T>(threadId: string, run: () => Promise<T>): Promise<T> {
@@ -303,17 +408,15 @@ export class PiOrchestrationService {
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
-    this.threadLocks.set(
-      threadId,
-      prev.then(() => gate),
-    );
+    const chained = prev.then(() => gate);
+    this.threadLocks.set(threadId, chained);
     await prev.catch(() => {});
     try {
       return await run();
     } finally {
       release();
-      if (this.threadLocks.get(threadId) === prev.then(() => gate)) {
-        // best-effort cleanup; a newer waiter may have replaced the entry
+      // Only clear the map entry if no newer waiter has replaced ours.
+      if (this.threadLocks.get(threadId) === chained) {
         this.threadLocks.delete(threadId);
       }
     }

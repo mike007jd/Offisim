@@ -6,6 +6,7 @@
 
 export { PiAgentRegistry } from './pi-agent-registry.js';
 export { createBudgetTransform, type PiBudgetDeps } from './pi-budget.js';
+export { createDelegateTool, type DelegateToolDeps } from './pi-delegate-tool.js';
 export { createSubmitDeliverableTool } from './pi-deliverable-tool.js';
 export {
   createPiEventListener,
