@@ -8,7 +8,6 @@ import type {
   EmployeeRow,
   EmployeeVersionRow,
   FileHistoryRow,
-  GraphCheckpointRow,
   GraphThreadRow,
   HandoffEventRow,
   InteractionActiveRow,
@@ -49,7 +48,6 @@ export interface MemoryRepositoriesSnapshot extends MemoryInstallRepositoriesSna
   toolCalls: ToolCallRow[];
   handoffs: HandoffEventRow[];
   meetings: MeetingSessionRow[];
-  checkpoints: GraphCheckpointRow[];
   events: NewRuntimeEvent[];
   llmCalls: LlmCallRow[];
   memories: ReturnType<InMemoryMemoryRepository['snapshot']>;

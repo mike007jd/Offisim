@@ -132,15 +132,6 @@ export interface MeetingSessionRow {
   updated_at: string;
 }
 
-export interface GraphCheckpointRow {
-  checkpoint_id: string;
-  thread_id: string;
-  checkpoint_seq: number;
-  checkpoint_kind: string;
-  payload_json: string;
-  created_at: string;
-}
-
 export interface RuntimeEventRow {
   event_id: string;
   company_id: string;
@@ -197,7 +188,6 @@ export type NewTaskRun = Omit<TaskRunRow, 'finished_at'>;
 export type NewToolCall = Omit<ToolCallRow, 'finished_at'>;
 export type NewHandoffEvent = Omit<HandoffEventRow, never>;
 export type NewMeetingSession = Omit<MeetingSessionRow, never>;
-export type NewGraphCheckpoint = Omit<GraphCheckpointRow, never>;
 export type NewRuntimeEvent = Omit<RuntimeEventRow, never>;
 
 /** Repository interfaces */
@@ -293,24 +283,6 @@ export interface MeetingRepository {
   findById(meetingId: string): Promise<MeetingSessionRow | null>;
   findByCompany(companyId: string): Promise<MeetingSessionRow[]>;
   updateStatus(meetingId: string, status: string, summaryJson?: string | null): Promise<void>;
-}
-
-/**
- * @reserved Phase 3+ — Business-level execution snapshots.
- *
- * Maps to `graph_checkpoints` table. Stores business milestones
- * (meeting_turn, task_boundary, install_gate), NOT LangGraph internal state.
- *
- * LangGraph checkpoint persistence is handled by SqliteSaver
- * (via createCheckpointSaver in graph/checkpoint-saver.ts).
- *
- * This interface and its implementations (Drizzle + Memory) are retained
- * for Phase 3 when execution snapshot writing is implemented.
- */
-export interface CheckpointRepository {
-  save(checkpoint: NewGraphCheckpoint): Promise<void>;
-  findLatest(threadId: string): Promise<GraphCheckpointRow | null>;
-  findBySeq(threadId: string, seq: number): Promise<GraphCheckpointRow | null>;
 }
 
 export interface EventRepository {
@@ -1105,7 +1077,6 @@ export interface RuntimeRepositories {
   toolCalls: ToolCallRepository;
   handoffs: HandoffRepository;
   meetings: MeetingRepository;
-  checkpoints: CheckpointRepository;
   events: EventRepository;
   llmCalls: LlmCallRepository;
   installTransactions: InstallTransactionRepository;

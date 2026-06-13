@@ -150,15 +150,6 @@ CREATE TABLE IF NOT EXISTS asset_bindings (
   updated_at TEXT NOT NULL,
   CHECK (installed_asset_id IS NOT NULL OR install_txn_id IS NOT NULL)
 );
-CREATE TABLE IF NOT EXISTS graph_checkpoints (
-  checkpoint_id TEXT PRIMARY KEY,
-  thread_id TEXT NOT NULL REFERENCES graph_threads(thread_id) ON DELETE CASCADE,
-  checkpoint_seq INTEGER NOT NULL CHECK (checkpoint_seq >= 0),
-  checkpoint_kind TEXT NOT NULL CHECK (checkpoint_kind IN ('thread_boundary', 'task_boundary', 'meeting_turn', 'tool_return', 'install_gate')),
-  payload_json TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  UNIQUE(thread_id, checkpoint_seq)
-);
 CREATE TABLE IF NOT EXISTS task_runs (
   task_run_id TEXT PRIMARY KEY,
   thread_id TEXT NOT NULL REFERENCES graph_threads(thread_id) ON DELETE CASCADE,
@@ -235,27 +226,6 @@ CREATE TABLE IF NOT EXISTS llm_calls (
   response_hash TEXT,
   recording_mode TEXT,
   created_at    TEXT NOT NULL DEFAULT (datetime('now'))
-);
-CREATE TABLE IF NOT EXISTS checkpoints (
-  thread_id TEXT NOT NULL,
-  checkpoint_ns TEXT NOT NULL DEFAULT '',
-  checkpoint_id TEXT NOT NULL,
-  parent_checkpoint_id TEXT,
-  type TEXT,
-  checkpoint BLOB,
-  metadata BLOB,
-  PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id)
-);
-CREATE TABLE IF NOT EXISTS writes (
-  thread_id TEXT NOT NULL,
-  checkpoint_ns TEXT NOT NULL DEFAULT '',
-  checkpoint_id TEXT NOT NULL,
-  task_id TEXT NOT NULL,
-  idx INTEGER NOT NULL,
-  channel TEXT NOT NULL,
-  type TEXT,
-  value BLOB,
-  PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id, task_id, idx)
 );
 CREATE TABLE IF NOT EXISTS employee_versions (
   version_id    TEXT PRIMARY KEY,
@@ -580,7 +550,6 @@ CREATE INDEX IF NOT EXISTS idx_install_transactions_company ON install_transacti
 CREATE INDEX IF NOT EXISTS idx_installed_packages_company ON installed_packages(company_id);
 CREATE INDEX IF NOT EXISTS idx_installed_assets_pkg ON installed_assets(installed_package_id);
 CREATE INDEX IF NOT EXISTS idx_asset_bindings_txn ON asset_bindings(install_txn_id);
-CREATE INDEX IF NOT EXISTS idx_graph_checkpoints_thread ON graph_checkpoints(thread_id, checkpoint_seq);
 CREATE INDEX IF NOT EXISTS idx_task_runs_thread ON task_runs(thread_id);
 CREATE INDEX IF NOT EXISTS idx_tool_calls_task ON tool_calls(task_run_id);
 CREATE INDEX IF NOT EXISTS idx_runtime_events_company_time ON runtime_events(company_id, created_at);
@@ -687,8 +656,8 @@ CREATE INDEX IF NOT EXISTS idx_tool_perm_approval_company_lookup
 CREATE INDEX IF NOT EXISTS idx_meeting_sessions_mode
   ON meeting_sessions(interaction_mode);
 
--- pi kernel per-message transcript persistence (replaces LangGraph checkpoints/
--- writes for the pi agent loop). One row per pi message, append-only per thread.
+-- pi kernel per-message transcript persistence for the pi agent loop.
+-- One row per pi message, append-only per thread.
 -- No FK to graph_threads: pi threads are standalone and survive independent of
 -- the legacy graph thread lifecycle.
 CREATE TABLE IF NOT EXISTS pi_messages (

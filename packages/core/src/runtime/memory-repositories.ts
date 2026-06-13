@@ -53,7 +53,6 @@ export {
   MemoryNodeSummaryRepository,
 } from './repos/memory-system/memory.js';
 export {
-  MemoryCheckpointRepository,
   MemoryCompanyRepository,
   MemoryEventRepository,
   MemoryTaskRunRepository,
@@ -132,7 +131,6 @@ export function createMemoryRepositories(
         companies: orchestration.companies.snapshot(),
         threads: orchestration.threads.snapshot(),
         taskRuns: orchestration.taskRuns.snapshot(),
-        checkpoints: orchestration.checkpoints.snapshot(),
         events: orchestration.events.snapshot(),
         employees: employeesFamily.employees.snapshot(),
         employeeVersions: employeesFamily.employeeVersions.snapshot(),

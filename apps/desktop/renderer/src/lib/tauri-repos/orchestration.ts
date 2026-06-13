@@ -1,11 +1,8 @@
 import type {
-  CheckpointRepository,
   CompanyRepository,
   CompanyRow,
   EventRepository,
-  GraphCheckpointRow,
   GraphThreadRow,
-  NewGraphCheckpoint,
   NewGraphThread,
   NewRuntimeEvent,
   NewTaskRun,
@@ -26,7 +23,6 @@ export interface OrchestrationTauriRepos {
   companies: CompanyRepository;
   threads: ThreadRepository;
   taskRuns: TaskRunRepository;
-  checkpoints: CheckpointRepository;
   events: EventRepository;
 }
 
@@ -217,33 +213,6 @@ export function createOrchestrationTauriRepos(db: TauriDrizzleDb): Orchestration
     },
   };
 
-  const checkpoints: CheckpointRepository = {
-    async save(c: NewGraphCheckpoint) {
-      await db.insert(schema.graphCheckpoints).values(c);
-    },
-    async findLatest(threadId) {
-      const rows = await db
-        .select()
-        .from(schema.graphCheckpoints)
-        .where(eq(schema.graphCheckpoints.thread_id, threadId))
-        .orderBy(desc(schema.graphCheckpoints.checkpoint_seq))
-        .limit(1);
-      return (rows[0] as GraphCheckpointRow | undefined) ?? null;
-    },
-    async findBySeq(threadId, seq) {
-      const rows = await db
-        .select()
-        .from(schema.graphCheckpoints)
-        .where(
-          and(
-            eq(schema.graphCheckpoints.thread_id, threadId),
-            eq(schema.graphCheckpoints.checkpoint_seq, seq),
-          ),
-        );
-      return (rows[0] as GraphCheckpointRow | undefined) ?? null;
-    },
-  };
-
   const events: EventRepository = {
     async insert(e: NewRuntimeEvent) {
       await db.insert(schema.runtimeEvents).values(e);
@@ -257,5 +226,5 @@ export function createOrchestrationTauriRepos(db: TauriDrizzleDb): Orchestration
     },
   };
 
-  return { companies, threads, taskRuns, checkpoints, events };
+  return { companies, threads, taskRuns, events };
 }

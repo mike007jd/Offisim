@@ -365,24 +365,6 @@ export const projectAssignments = sqliteTable(
   ],
 );
 
-export const graphCheckpoints = sqliteTable(
-  'graph_checkpoints',
-  {
-    checkpoint_id: text('checkpoint_id').primaryKey(),
-    thread_id: text('thread_id')
-      .notNull()
-      .references(() => graphThreads.thread_id, { onDelete: 'cascade' }),
-    checkpoint_seq: integer('checkpoint_seq').notNull(),
-    checkpoint_kind: text('checkpoint_kind').notNull(),
-    payload_json: text('payload_json').notNull(),
-    created_at: text('created_at').notNull(),
-  },
-  (table) => [
-    uniqueIndex('graph_checkpoints_thread_seq').on(table.thread_id, table.checkpoint_seq),
-    index('idx_graph_checkpoints_thread').on(table.thread_id, table.checkpoint_seq),
-  ],
-);
-
 export const taskRuns = sqliteTable(
   'task_runs',
   {
@@ -1077,56 +1059,8 @@ export const zones = sqliteTable(
 );
 
 // ---------------------------------------------------------------------------
-// LangGraph checkpoints — mirrors the SqliteSaver DDL already in schema.sql.
-// The `checkpoint` / `metadata` / `value` payload columns are BLOB-affinity in
-// schema.sql; on desktop the renderer's TauriCheckpointSaver is the SOLE reader
-// + writer and stores base64-encoded serde payloads as text, so the
-// tauri-plugin-sql proxy round-trips them as strings (no binary-fidelity risk).
-// Declared `text()` here to bind/read as strings accordingly.
-// ---------------------------------------------------------------------------
-
-export const checkpoints = sqliteTable(
-  'checkpoints',
-  {
-    thread_id: text('thread_id').notNull(),
-    checkpoint_ns: text('checkpoint_ns').notNull().default(''),
-    checkpoint_id: text('checkpoint_id').notNull(),
-    parent_checkpoint_id: text('parent_checkpoint_id'),
-    type: text('type'),
-    checkpoint: text('checkpoint'),
-    metadata: text('metadata'),
-  },
-  (table) => [primaryKey({ columns: [table.thread_id, table.checkpoint_ns, table.checkpoint_id] })],
-);
-
-export const writes = sqliteTable(
-  'writes',
-  {
-    thread_id: text('thread_id').notNull(),
-    checkpoint_ns: text('checkpoint_ns').notNull().default(''),
-    checkpoint_id: text('checkpoint_id').notNull(),
-    task_id: text('task_id').notNull(),
-    idx: integer('idx').notNull(),
-    channel: text('channel').notNull(),
-    type: text('type'),
-    value: text('value'),
-  },
-  (table) => [
-    primaryKey({
-      columns: [
-        table.thread_id,
-        table.checkpoint_ns,
-        table.checkpoint_id,
-        table.task_id,
-        table.idx,
-      ],
-    }),
-  ],
-);
-
-// ---------------------------------------------------------------------------
-// pi kernel — per-message transcript persistence (replaces checkpoints/writes
-// for the pi agent loop). Append-only per thread; standalone (no graph FK).
+// pi kernel — per-message transcript persistence for the pi agent loop.
+// Append-only per thread; standalone (no graph FK).
 // ---------------------------------------------------------------------------
 
 export const piMessages = sqliteTable(

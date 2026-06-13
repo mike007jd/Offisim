@@ -2,12 +2,9 @@ import * as schema from '@offisim/db-local/dist/schema.js';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type {
-  CheckpointRepository,
   CompanyRepository,
   EventRepository,
-  GraphCheckpointRow,
   GraphThreadRow,
-  NewGraphCheckpoint,
   NewGraphThread,
   NewRuntimeEvent,
   NewTaskRun,
@@ -27,7 +24,6 @@ export interface OrchestrationDrizzleRepos {
   companies: CompanyRepository;
   threads: ThreadRepository;
   taskRuns: TaskRunRepository;
-  checkpoints: CheckpointRepository;
   events: EventRepository;
 }
 
@@ -229,35 +225,6 @@ export function createOrchestrationDrizzleRepos(db: Db): OrchestrationDrizzleRep
     },
   };
 
-  const checkpoints: CheckpointRepository = {
-    async save(c: NewGraphCheckpoint) {
-      db.insert(schema.graphCheckpoints).values(c).run();
-    },
-    async findLatest(threadId) {
-      const rows = db
-        .select()
-        .from(schema.graphCheckpoints)
-        .where(eq(schema.graphCheckpoints.thread_id, threadId))
-        .orderBy(desc(schema.graphCheckpoints.checkpoint_seq))
-        .limit(1)
-        .all();
-      return (rows[0] as GraphCheckpointRow | undefined) ?? null;
-    },
-    async findBySeq(threadId, seq) {
-      const rows = db
-        .select()
-        .from(schema.graphCheckpoints)
-        .where(
-          and(
-            eq(schema.graphCheckpoints.thread_id, threadId),
-            eq(schema.graphCheckpoints.checkpoint_seq, seq),
-          ),
-        )
-        .all();
-      return (rows[0] as GraphCheckpointRow | undefined) ?? null;
-    },
-  };
-
   const events: EventRepository = {
     async insert(e: NewRuntimeEvent) {
       db.insert(schema.runtimeEvents).values(e).run();
@@ -272,5 +239,5 @@ export function createOrchestrationDrizzleRepos(db: Db): OrchestrationDrizzleRep
     },
   };
 
-  return { companies, threads, taskRuns, checkpoints, events };
+  return { companies, threads, taskRuns, events };
 }

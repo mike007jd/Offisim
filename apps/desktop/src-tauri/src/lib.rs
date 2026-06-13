@@ -13,7 +13,6 @@ mod local_db;
 mod local_paths;
 mod mcp_bridge;
 mod redaction;
-mod resume;
 mod runtime_secrets;
 mod sessions;
 mod shell_classifier;
@@ -168,7 +167,6 @@ pub fn run() {
             local_paths::export_runtime_vault_zip,
             local_paths::export_scene_drop_diagnostic,
             local_paths::save_deliverable_to_local,
-            resume::resume_conversation,
             sessions::get_session,
             sessions::set_session_mode,
             mcp_bridge::commands::mcp_list_registered_servers,

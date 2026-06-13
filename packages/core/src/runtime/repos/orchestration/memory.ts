@@ -1,11 +1,8 @@
 import type {
-  CheckpointRepository,
   CompanyRepository,
   CompanyRow,
   EventRepository,
-  GraphCheckpointRow,
   GraphThreadRow,
-  NewGraphCheckpoint,
   NewGraphThread,
   NewRuntimeEvent,
   NewTaskRun,
@@ -249,39 +246,6 @@ export class MemoryTaskRunRepository implements TaskRunRepository {
   }
 }
 
-export class MemoryCheckpointRepository implements CheckpointRepository {
-  private readonly rows = new Map<string, GraphCheckpointRow>();
-
-  constructor(initial?: Iterable<GraphCheckpointRow>) {
-    if (initial) {
-      for (const row of initial) this.rows.set(row.checkpoint_id, { ...row });
-    }
-  }
-
-  async save(c: NewGraphCheckpoint): Promise<void> {
-    const row: GraphCheckpointRow = { ...c };
-    this.rows.set(row.checkpoint_id, row);
-  }
-
-  async findLatest(threadId: string): Promise<GraphCheckpointRow | null> {
-    const matching = [...this.rows.values()]
-      .filter((c) => c.thread_id === threadId)
-      .sort((a, b) => b.checkpoint_seq - a.checkpoint_seq);
-    return matching[0] ?? null;
-  }
-
-  async findBySeq(threadId: string, seq: number): Promise<GraphCheckpointRow | null> {
-    return (
-      [...this.rows.values()].find((c) => c.thread_id === threadId && c.checkpoint_seq === seq) ??
-      null
-    );
-  }
-
-  snapshot(): GraphCheckpointRow[] {
-    return cloneRows(this.rows.values());
-  }
-}
-
 export class MemoryEventRepository implements EventRepository {
   private readonly store: NewRuntimeEvent[] = [];
 
@@ -308,7 +272,6 @@ export interface OrchestrationMemoryRepos {
   companies: MemoryCompanyRepository;
   threads: MemoryThreadRepository;
   taskRuns: MemoryTaskRunRepository;
-  checkpoints: MemoryCheckpointRepository;
   events: MemoryEventRepository;
 }
 
@@ -318,7 +281,6 @@ export function createOrchestrationMemoryRepos(
   const companies = new MemoryCompanyRepository(snapshot?.companies);
   const threads = new MemoryThreadRepository(snapshot?.threads);
   const taskRuns = new MemoryTaskRunRepository(snapshot?.taskRuns, threads);
-  const checkpoints = new MemoryCheckpointRepository(snapshot?.checkpoints);
   const events = new MemoryEventRepository(snapshot?.events);
-  return { companies, threads, taskRuns, checkpoints, events };
+  return { companies, threads, taskRuns, events };
 }
