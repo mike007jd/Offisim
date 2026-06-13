@@ -1,26 +1,22 @@
 # @offisim/core
 
-LangGraph kernel, agents, services, repos (Node.js). 浏览器代码必须用 `@offisim/core/browser` subpath。
+pi agent-loop kernel (`pi-bridge`), services, repos (Node.js)。浏览器代码必须用 `@offisim/core/browser` subpath。内核架构详见 `Docs/HARNESS_ARCHITECTURE.md`（LangGraph graph/agents 已于 P6 抹除）。
 
 ## Gotchas
 
-- `HookRegistry` (**同步串行**, `await emit()` 阻塞流控用) ≠ `EventBus` (**异步 fire-and-forget**, 前缀订阅 UI 推送), 不要合并。图节点常常两个都 emit
+- `HookRegistry` (**同步串行**, `await emit()` 阻塞流控用) ≠ `EventBus` (**异步 fire-and-forget**, 前缀订阅 UI 推送), 不要合并。pi 运行时常常两个都 emit
 - `Scratchpad` per-runtime 临时存储, 持久化用 `MemoryService`
-- Boss node JSON 路由 **三层** 防御: (1) `BOSS_SYSTEM_PROMPT` 常量 (2) `TASK_KEYWORDS` 正则兜底 (3) `targetEmployeeId` 有效性校验。修改时三层同步
+- Boss = delegate-only 编排器（`pi-bridge/pi-orchestration-service.ts`）：boss 系统提示是硬工具纪律，只发 `delegate` 一个工具，**绝不能编造员工结果**——只有 `delegate` 工具结果回到对话后才能转述。employee 子 agent 才拿全套 builtin/MCP 工具（boss 无 `employeeId`，直接执行会让 audit 归属错乱）
 - `NodeContextMiddleware` 共享 1800 char budget (summary 1000 + pack 700), 两半独立查询独立截断, 不要加独立 middleware
 - `InstallService.planCache` 是实例属性, `dispose()` 清理, 不要模块层缓存
 - Employee repo `create()` 可选 `employee_id`, `transact()` 中必须用预生成 ID (非 `void promise.then()`)
-- `createCheckpointSaver()` 是 async, `SqliteSaver` 懒加载避免 browser 拉 Node 依赖
 - 外部 agent 接入统一走 A2A (`packages/core/src/a2a/`)。核心 runtime 的模型调用通过 `gateway`（`anthropic-adapter` / `openai-adapter`）、`claude-agent-sdk`（`ClaudeAgentSdkAdapter`）、`codex-agent-sdk`（`CodexAgentSdkAdapter`，sidecar 走 `apps/desktop/src-tauri/resources/codex-agent-host.mjs`）和 `openai-agents-sdk`（`OpenAiAgentsSdkAdapter`，native OpenAI first，compat 仅允许 verified / harness-explicit 路径）这些 model transport binding；它们不是产品级普通 SDK lane。
 - `AnthropicAdapter` 非官方 endpoint 自动 CORS-friendly (Bearer 替 x-api-key, strip telemetry, `messages.create({stream:true})` 替 `.stream()`)
 - **Tauri 模式 credential-isolated bridge 分四条 transport**：`gateway` 走 Rust-side `llm_fetch` command；`claude-agent-sdk` 走 Rust-side `claude_agent_execute` trusted-host bridge（local Node sidecar + provider secret env 注入，credential 不越 Rust→JS 边界）；`codex-agent-sdk` 同模式走 `codex_agent_execute` + `codex_agent_host.mjs` sidecar；`openai-agents-sdk` 复用 Rust-side `llm_fetch` 作为 OpenAI SDK transport override。`gateway` lane 的 credential-isolated `fetch` 由 `apps/desktop/renderer/src/lib/tauri-llm-fetch.ts` 的 `createTauriLlmFetch(profile)` 构造（把 SDK 请求桥到 Rust `llm_fetch` Channel），并在 `apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts` 里通过 `createGateway({ fetch })` 组装成 `runtimeCtx.llmGateway`。`GatewayConfig.fetch` / `AnthropicAdapterOptions.fetch` / `OpenAiAdapterOptions.fetch` / `OpenAiAgentsSdkAdapterOptions.fetch` 是 HTTP/OpenAI transport 的唯一注入口。non-Tauri product mode is removed; desktop uses explicit transport overrides
 - **2026-05-09 runtime boundary correction**：默认 `offisim-core` harness 可以直接通过 model transport / provider adapter 调模型；调用模型不等于进入 SDK lane。未验证的 `claude-agent-sdk` / `codex-agent-sdk` / `openai-agents-sdk` transport 必须设置 `llmToolCallsEnabled=false`，不暴露 file/shell/memory/todo/skill/MCP/builtin tool schema；adapter 收到任何 tool request 必须失败关闭，不能假装已执行。SDK-native full-power 必须是单独 employee runtime / driver / replacement profile，并有 release `.app` 证据。
 - `read_attachment` 是唯一允许 AI 读 chat attachment 的 builtin：只在 gateway lane 进入 tool pool，执行时必须拿到当前 `companyId + RunScope.threadId`，并且 `vaultRef` 里的 company/thread 必须完全匹配；缺 scope、跨 company、跨 thread 都返回 `attachment-forbidden`，不要 fallback 到全局 store 或 graph thread。
-- **本地工具路由硬规则**：本地工具意图判定的 SSOT 在 `packages/core/src/agents/task-tool-intent.ts`（`detectTaskToolIntent` + `evidenceToolsForIntent` + 命名 vocabulary 集合）。Boss / Manager / PM preflight / direct setup / yolo entry 在入口处算一次，存入 `state.taskToolIntent`；下游消费者（manager / direct-setup / completion verifier）**只读 state field，禁止再 grep 文本**。`requiresLocalTools=true` 时只选 enabled internal employee；external A2A 员工没有本机工作区能力，不能作为证据来源；直聊 external A2A 做本地工具任务必须 fail fast。bare-noun（`file` / `命令` / `workspace` 等）和 narrative prose（"describe the workspace" / "file a bug"）不触发；只接 verb+object pairs / 显式 tool tokens / 中文 imperative。
-- **路由 rebind 必须 observable**：manager-node 把 LLM 选 external 的 assignment 过滤掉时、`pm-planner/sanitize-rebind.ts` 把缺失/disabled 员工换成 planner-recommended 时，都必须 emit `task.assignment.rerouted` 事件 + `logger.info` 镜像，原始 `requestedEmployeeId` / `resolvedEmployeeId` / `reason` 进 payload。reason union: `'requires-local-tools' | 'employee-not-found' | 'employee-disabled' | 'no-recommendation-fallback'`。`sanitizePlanEmployees` fallback 优先取 `LlmPlan.recommendedEmployees` 或 `ManagerDirective.recommendedEmployees`，最后才退到 `validEmployees[0]`（并标记 `no-recommendation-fallback`）。
-- **completion verifier = advisory，不再是 user-facing 闸**（2026-06-03 改）：`verifyTaskCompletion` 仍按意图算证据缺口（读→`read_file`/写→`write_file`/命令→`bash`/显式 verification→默认验证工具），缺证据时**仅**做两件事——发 `completion-blocked` 诊断事件 + 抑制 deliverable 物化；**绝不**再用 "Task blocked: …Human review is required" 替换员工回复、也不再把任务标 `blocked`/`review_ready`。员工自己的回复（工具失败后它本就会老实解释）永远直达用户。理由：completion 闸不属于「破坏性/花钱/生产/共享状态」必要提醒，旧硬拦会把诚实回复一起牺牲（易用性优先）。仍不得为过关伪造工具证据——这是模型 prompt 的责任，不靠拦截。
-- Deterministic harness scenarios must not assert mock LLM text as proof of success. `scripts/harness-contract.mjs` rejects any `finalOutputContains` assertion that exactly equals an `llmTurns[].content` value during load.
-- Boss employee context SSOT lives in `packages/core/src/agents/boss-node.ts`: both routing and direct-reply prompts must receive the active company roster from `repos.employees.findByCompany(companyId)` with at least `employee_id + name + role_slug`; if DB rows are non-empty but injected count is zero, emit `boss.employee-context.empty` once per company session.
+- pi 内核 record/replay 门禁是 `scripts/harness-pi-loop.mjs`（接入 `pnpm validate` 的 `harness:pi-loop`）：确定性 faux StreamFn 驱动真 `PiOrchestrationService`，断言 boss 真 delegate、employee 真执行工具、多轮持久化、resume、回归守卫。不得用 mock LLM 文本当成功证据。
+- Boss roster 注入 SSOT 在 `pi-bridge/pi-orchestration-service.ts` 的 boss 系统提示装配：从 `repos.employees.findByCompany(companyId)` 取 **enabled internal** 员工（至少 `employee_id + name + role_slug`）按 id 注入；external A2A 员工无本机工作区能力。
 - Runtime workspace binding SSOT for file/shell tools is the active graph thread's project: carry `threadId` through `ToolCallRequest` into builtin adapters, resolve `graph_threads.project_id` first, then legacy `projects.thread_id`; if selected project has no usable `workspace_root`, emit `workspace-binding.unavailable` once per `(companyId, projectId)` session from the runtime-context layer.
 - Skill install runtime guards are typed chat outcomes, not toast crashes: Web `sync_from_claude_code` returns `desktop-only-tool` and renders `This skill source requires the desktop app.`; `create_skill_from_scratch` with a non-caller `targetEmployeeId` renders `Skill author must match the active chat employee.` and must not stage a preview.
 - Claude Code skill sync in desktop must scan both home and project-local `.claude/skills` through the Tauri install environment. Project-local reads under the bound repo root must go through `project_list_dir` / `project_read_file`, not browser plugin-fs. A single filter match may stage directly; multiple matches return candidates.
@@ -34,7 +30,6 @@ LangGraph kernel, agents, services, repos (Node.js). 浏览器代码必须用 `@
 - zones 约束: 必须有 `rest`+`meeting` archetype, role 不可多 zone, 所有 role 需匹配
 - `companies.description_json` 存公司描述 JSON(2026-05-29 从 `default_model_policy_json` rename — pre-launch 单基线 schema 允许 rename)
 - Role 统一 `RoleSlug` branded type (shared-types/roles.ts)
-- `step_dispatcher` / `step_advance` 终态必须共同认 `areAllPlanStepsTerminal()`；所有 step terminal 后只能进 `boss_summary`，不能再在 dispatcher/advance 间自循环。未来若又撞 LangGraph recursion limit，先看 `plan.dispatcher.recursion_limit` runtime event payload。
 - Marketplace 安装：employee 已物化；skill 作为一等 asset（T2.1 `add-skills-foundation-two-tier-schema`）schema + SkillLoader + 两层 scope + publish/install/fork/edit 主路径已落地；剩余主要是 UX 和 evidence 收口。company_template / office_layout / prefab 仍未完成。Skill 不再嵌入 `employee.config_json.runtimeSkill`（该字段已删）
 - `GitAutoCommitService` 桌面端专用, 浏览器 no-op
 
@@ -56,8 +51,7 @@ LangGraph kernel, agents, services, repos (Node.js). 浏览器代码必须用 `@
   - Tier 3 `loadSkillAsset(skillId, relPath)` — 只允许 `scripts/` / `references/` / `assets/` 前缀；IO 前拒 `..` / 绝对路径
 - `slug`：`skillSlug(name, id)` kebab-case name + 纯非 ASCII fallback `skill-{id前8字符}`（注：`employeeSlug` 已改为纯 id 派生，见 Vault 段，两者不再同策略）
 - DB 表 `skills` 属于当前单基线 SQLite schema；`UNIQUE` 用两条 partial index（`WHERE employee_id IS NULL` / `IS NOT NULL`），让 `(companyId, null, slug)` 跨 company-scope 行碰撞
-- 员工 prompt 装配：`employee-prompt-assembly.ts` 在 skillLoader 可用时注入 `## Available skills` 块（description 截 200 UTF-16）；列表空则整段不输出。**本次不注册 `activate_skill` 工具**（纯 tier-1 informational）
-- `employee-tool-kit.ts` 在 `skillStagingManager` + `skillLoader` 可用时注册 skill install/fork/edit 工具；skills 本体仍通过 prompt 的 `## Available skills` 暴露，不走 activation tool
+- 员工 prompt 由 `pi-bridge/employee-builder.ts` 的 `buildEmployeePrompt` 装配（persona + 公司 + 任务）。**graph 时代的 `## Available skills` prompt 注入 + skill install/fork/edit 工具注册（旧 `employee-prompt-assembly` / `employee-tool-kit`）随 `agents/` 删除，pi 尚未重接**——skill install API 本体仍在 `skills/skill-install-tools.ts`（公共导出保留），重接进 pi 工具池是独立后续
 - `create_skill_from_scratch` 是 self-authoring 唯一入口：LLM 产完整 SKILL.md → `parseSelfAuthoredSkillMd` 白名单 → staging preview (`action='create'`) → `SkillInstallCommitter` → employee-scope vault + `skills.source_kind='self-authored'` / `source_ref='llm-author:<modelKey>'`。self-authored 禁 company scope。
 - **Fork + edit API（T2.3）**：
   - `installSkill` 加 `source: { kind: 'fork', parentSkillId, parentVersion }` 变体 — 同 `installSkill` 入口，`scope='company' + source.kind='fork'` 会抛 `scope-target-conflict`（spec skill-fork-and-edit scenario 2）；`source_kind='forked'` + `source_ref='company-skill:<pid>@<pver>'`

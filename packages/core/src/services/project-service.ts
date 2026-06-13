@@ -15,7 +15,7 @@ export class ProjectService {
   /**
    * Create a new project with one default chat_threads row.
    * Runtime `graph_threads` rows are created lazily via
-   * `OrchestrationService.ensureGraphThread()` on first chat send.
+   * `PiOrchestrationService.ensureThreadRow()` on first chat send.
    */
   async createProject(input: CreateProjectInput): Promise<{
     project: ProjectRow;

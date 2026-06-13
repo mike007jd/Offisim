@@ -130,10 +130,11 @@ export function useOfficeRuntime({
           prev.map((draft) => (draft.id === userMessageId ? userMessage : draft)),
         );
         await persistRuntimeMessage(userMessage);
-        // The chat always runs through the real LangGraph agent runtime; the
-        // single-shot direct-provider path was retired with the flag in slice 3.
-        // A chat without an active company cannot assemble a runtime — fail
-        // honestly rather than silently degrade onto a removed path.
+        // The chat always runs through the pi agent-loop runtime; the LangGraph
+        // orchestration and the single-shot direct-provider path before it were
+        // both retired in the pi-kernel cut-over. A chat without an active
+        // company cannot assemble a runtime — fail honestly rather than silently
+        // degrade onto a removed path.
         if (!companyId) {
           throw new Error('Cannot send this message: no active company is bound to this chat.');
         }

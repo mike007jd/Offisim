@@ -2,11 +2,11 @@
  * @offisim/core/browser — Browser-safe barrel export.
  *
  * This subpath exports ONLY modules that are safe to import in browser bundles
- * without pulling in heavy server-side dependencies (LangGraph, OpenAI SDK,
- * Anthropic SDK, checkpoint-sqlite, MCP SDK).
+ * without pulling in heavy server-side dependencies (the pi agent-loop kernel,
+ * OpenAI SDK, Anthropic SDK, MCP SDK).
  *
  * Use `@offisim/core/browser` in UI packages and browser-only code.
- * Use `@offisim/core` for the full runtime (graphs, LLM adapters, MCP, etc.).
+ * Use `@offisim/core` for the full runtime (pi kernel, LLM adapters, MCP, etc.).
  */
 
 // --- Types (all type-only, zero runtime cost) ---
