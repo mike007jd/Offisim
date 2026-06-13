@@ -38,8 +38,25 @@ SSOT plan: `Docs/plans/2026-06-13-pi-kernel-replacement.md`
 - Phase 6：切流抹除（删 graph/agents/testing/scenarios/12 脚本/2 表/3 依赖 + 文档重写 + 新写 HARNESS_ARCHITECTURE.md）。
 - Phase 7：release `.app` 全矩阵验收 + 记忆抹除。
 
+### ✅ 自审 + 整改 + P3 门禁 + P4 持久化 + live 验收（2026-06-13 续）
+**对抗式自审**（4 路 agent + 复验，8 confirmed high/med，0 误报）→ 全部整改：
+- **boss 假装执行根因修复**：boss prompt 加硬工具纪律（必须 delegate、禁编造）；boss 改 delegate-only（不再给 bash/write/MCP）。
+- bridge bug：budget per-run threadId / 压缩保形尾对齐 / correlationKey 抗碰撞 / MiniMax compat（max_tokens）/ delegated 子 agent nodeName `employee_subtask` 不串台 / parent-abort leak。
+- **P4 持久化完成**：`pi_messages` 表（+employee_id owner，migration 0002）+ 3 backend + PiMessageStore 接线（history 加载带 dangling-toolCall 修补 / per-message append）+ pi resume（按 owner 续跑）。
+- **P3 门禁**：`scripts/harness-pi-loop.mjs`（faux StreamFn 确定性回放：直聊/多轮工具/deliverable/boss-delegate/多轮记忆/resume/回归守卫）接入 `validate`。
+
+**🎯 LIVE 验收（release `.app` + computer-use + devtools + DB 实证）**：
+- ✅ **boss 现在真 delegate**（pi_messages seq1=delegate toolCall → toolResult → summary，不再编造）。
+- ✅ **delegated 子 agent 真执行工具**（devtools console 见 `date +%s%N`→真时间戳、`ls`→真文件，归属 Maya）。**假装执行病根已根除**。
+- ⚠️ **发现并修复 audit-FK bug**：`mcp_audit_log.thread_id REFERENCES graph_threads(thread_id)`，pi 线程无 graph_threads 行（updateStatus 是裸 UPDATE 不建行）→ 每条工具 audit insert 失败（工具照常执行+结果回流，只是证据链丢行）。修复=`ensureThreadRow` 开 turn 时建行。**待最终 rebuild 验收 audit 行落库**。
+
+### 待办
+- **P6 切流抹除**（旧 graph 还在；删 graph/agents/testing/scenarios/12 脚本/@langchain 三依赖/checkpoints+writes 表 + 文档重写 + 新写 HARNESS_ARCHITECTURE.md + pi 设默认）。**最大剩余块**，需谨慎不破坏构建。
+- **P7** 最终 release 验收（audit 行落库确认）+ 记忆抹除。
+- 低优：boss/team 回复 UI 标签显示 'Employee' 应为 boss/team（cosmetic）。
+
 ### Commits (main, 未 push)
-`ec028138` fork+bridge / `8aaf2ee2` 桌面接线 / `a5066aca` deliverable / `d7d7b009` delegate。
+`ec028138` fork+bridge / `8aaf2ee2` 桌面接线 / `a5066aca` deliverable / `d7d7b009` delegate / `7aa5a2e5` 自审整改+P4持久化 / `00cc30c7`+gate / `7aa5a2e5`.. audit-FK fix。
 
 ## 关键契约锚点（侦察实测，桥接层必须复刻）
 - LLM 传输：`apps/desktop/renderer/src/lib/tauri-llm-fetch.ts` `createTauriLlmFetch(profile)`；core `createGateway({ fetch })`（`gateway-factory.ts`）。
