@@ -1,5 +1,5 @@
 import * as schema from '@offisim/db-local/dist/schema.js';
-import { asc, eq, sql } from 'drizzle-orm';
+import { asc, desc, eq, sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type { PiMessageRepository, PiMessageRow } from '../../repositories.js';
 
@@ -28,6 +28,16 @@ export function createPiMessagesDrizzleRepo(db: Db): PiMessageRepository {
         .where(eq(schema.piMessages.thread_id, threadId))
         .get();
       return row?.m ?? -1;
+    },
+    async lastEmployeeId(threadId: string): Promise<string | null> {
+      const row = db
+        .select({ employee_id: schema.piMessages.employee_id })
+        .from(schema.piMessages)
+        .where(eq(schema.piMessages.thread_id, threadId))
+        .orderBy(desc(schema.piMessages.seq))
+        .limit(1)
+        .get();
+      return row?.employee_id ?? null;
     },
     async deleteByThread(threadId: string): Promise<void> {
       db.delete(schema.piMessages).where(eq(schema.piMessages.thread_id, threadId)).run();

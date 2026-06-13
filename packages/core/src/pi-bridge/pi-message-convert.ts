@@ -169,24 +169,23 @@ export function llmToPiMessages(
   original: readonly PiMessage[],
   now: number,
 ): PiMessage[] {
-  const originalLlm = original.map(piToLlmMessage);
-  // Tail-align: walk both lists from the end while keys match.
+  // Tail-align: walk both lists from the end while keys match. Convert each
+  // original message lazily — compaction drops a leading prefix, so only the
+  // surviving tail ever needs the pi→Llm conversion.
   let pi = original.length;
   let pr = pruned.length;
   const tail: PiMessage[] = [];
   while (pi > 0 && pr > 0) {
-    const oMsg = originalLlm[pi - 1];
+    const orig = original[pi - 1];
     const pMsg = pruned[pr - 1];
-    if (oMsg && pMsg && correlationKey(oMsg) === correlationKey(pMsg)) {
-      const orig = original[pi - 1];
-      if (orig) {
-        // If the budget service compacted this message's content (tool-result
-        // capping / micro-compact), keep the COMPACTED text the model is meant
-        // to see — restoring the original would silently revert the compaction.
-        tail.unshift(
-          pMsg.content !== oMsg.content ? rebuildWithContent(orig, pMsg.content, now) : orig,
-        );
-      }
+    const oMsg = orig ? piToLlmMessage(orig) : undefined;
+    if (orig && oMsg && pMsg && correlationKey(oMsg) === correlationKey(pMsg)) {
+      // If the budget service compacted this message's content (tool-result
+      // capping / micro-compact), keep the COMPACTED text the model is meant
+      // to see — restoring the original would silently revert the compaction.
+      tail.unshift(
+        pMsg.content !== oMsg.content ? rebuildWithContent(orig, pMsg.content, now) : orig,
+      );
       pi -= 1;
       pr -= 1;
     } else {

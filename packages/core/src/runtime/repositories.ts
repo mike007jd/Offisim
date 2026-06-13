@@ -1065,6 +1065,8 @@ export interface PiMessageRepository {
   append(rows: readonly PiMessageRow[]): Promise<void>;
   /** Highest persisted seq for the thread, or -1 when empty. */
   maxSeq(threadId: string): Promise<number>;
+  /** `employee_id` of the thread's last row (null = boss / empty) — for resume. */
+  lastEmployeeId(threadId: string): Promise<string | null>;
   deleteByThread(threadId: string): Promise<void>;
 }
 

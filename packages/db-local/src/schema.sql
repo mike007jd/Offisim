@@ -669,6 +669,7 @@ CREATE TABLE IF NOT EXISTS pi_messages (
   role TEXT NOT NULL,
   message_json TEXT NOT NULL,
   created_at TEXT NOT NULL,
+  -- UNIQUE on (thread_id, seq) also backs every thread-scoped ordering / MAX(seq)
+  -- / last-row lookup, so no separate index is needed.
   UNIQUE(thread_id, seq)
 );
-CREATE INDEX IF NOT EXISTS idx_pi_messages_thread ON pi_messages(thread_id, seq);

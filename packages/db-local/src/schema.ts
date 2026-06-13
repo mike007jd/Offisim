@@ -1075,8 +1075,7 @@ export const piMessages = sqliteTable(
     message_json: text('message_json').notNull(),
     created_at: text('created_at').notNull(),
   },
-  (table) => [
-    uniqueIndex('pi_messages_thread_seq').on(table.thread_id, table.seq),
-    index('idx_pi_messages_thread').on(table.thread_id, table.seq),
-  ],
+  // UNIQUE(thread_id, seq) also backs thread-scoped ordering / MAX(seq) / last-row
+  // lookups — no separate index needed.
+  (table) => [uniqueIndex('pi_messages_thread_seq').on(table.thread_id, table.seq)],
 );

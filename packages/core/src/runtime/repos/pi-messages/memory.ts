@@ -18,6 +18,11 @@ export function createPiMessagesMemoryRepo(): PiMessageRepository {
       if (!list || list.length === 0) return -1;
       return list.reduce((m, r) => (r.seq > m ? r.seq : m), -1);
     },
+    async lastEmployeeId(threadId: string): Promise<string | null> {
+      const list = byThread.get(threadId);
+      if (!list || list.length === 0) return null;
+      return list.reduce((a, b) => (b.seq > a.seq ? b : a)).employee_id ?? null;
+    },
     async deleteByThread(threadId: string): Promise<void> {
       byThread.delete(threadId);
     },

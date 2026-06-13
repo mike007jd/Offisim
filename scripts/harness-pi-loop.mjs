@@ -44,6 +44,11 @@ const COMPANY_ID = 'co-test';
 const EMP_DEV = 'emp-dev';
 const EMP_FE = 'emp-fe';
 
+/** Scripted tool-call literal for a faux turn (explicit id keeps the gate deterministic). */
+function toolCall(id, name, args) {
+  return { id, name, arguments: args };
+}
+
 function emptyUsage() {
   return {
     input: 0,
@@ -171,11 +176,20 @@ function buildService(repos, eventBus, audit, scripts) {
     streamFn: createFauxStreamFn(scripts),
     budgetService: { async prepareRequest(_ctx, req) { return req; } },
     modelResolver,
-    messageStore: repos.piMessages ? new PiMessageStore(repos.piMessages) : undefined,
+    messageStore: new PiMessageStore(repos.piMessages),
     modelMeta: { baseUrl: 'https://faux.local' },
     virtualToolProvider: (toolCtx, kind) =>
       kind === 'employee' ? [createSubmitDeliverableTool(runtimeCtx, toolCtx)] : [],
   });
+}
+
+/** Seed repos + fresh per-scenario event/audit state and wire up the service. */
+async function setup(scripts) {
+  const repos = await seedRepos();
+  const audit = [];
+  const eventBus = new InMemoryEventBus();
+  const svc = buildService(repos, eventBus, audit, scripts);
+  return { svc, repos, audit, eventBus };
 }
 
 const failures = [];
@@ -190,10 +204,7 @@ function check(name, cond, detail) {
 
 async function scenarioDirectChat() {
   console.log('• direct chat (text)');
-  const repos = await seedRepos();
-  const audit = [];
-  const eventBus = new InMemoryEventBus();
-  const svc = buildService(repos, eventBus, audit, {
+  const { svc, audit } = await setup({
     employee: [{ text: 'Hello from Dev One.' }],
   });
   const res = await svc.execute({
@@ -208,12 +219,9 @@ async function scenarioDirectChat() {
 
 async function scenarioMultiRoundTools() {
   console.log('• multi-round tools (bash → text)');
-  const repos = await seedRepos();
-  const audit = [];
-  const eventBus = new InMemoryEventBus();
-  const svc = buildService(repos, eventBus, audit, {
+  const { svc, audit } = await setup({
     employee: [
-      { toolCalls: [{ id: 'tc1', name: 'bash', arguments: { command: 'echo hi' } }] },
+      { toolCalls: [toolCall('tc1', 'bash', { command: 'echo hi' })] },
       { text: 'The command printed RAN:echo hi' },
     ],
   });
@@ -230,26 +238,19 @@ async function scenarioMultiRoundTools() {
 
 async function scenarioDeliverable() {
   console.log('• explicit deliverable submission');
-  const repos = await seedRepos();
-  const audit = [];
-  const eventBus = new InMemoryEventBus();
-  let deliverableEvent = null;
-  eventBus.on('deliverable.created', (e) => {
-    deliverableEvent = e;
-  });
-  const svc = buildService(repos, eventBus, audit, {
+  const { svc, eventBus } = await setup({
     employee: [
       {
         toolCalls: [
-          {
-            id: 'd1',
-            name: 'submit_deliverable',
-            arguments: { title: 'Report', content: 'body text' },
-          },
+          toolCall('d1', 'submit_deliverable', { title: 'Report', content: 'body text' }),
         ],
       },
       { text: 'Submitted.' },
     ],
+  });
+  let deliverableEvent = null;
+  eventBus.on('deliverable.created', (e) => {
+    deliverableEvent = e;
   });
   await svc.execute({
     companyId: COMPANY_ID,
@@ -268,16 +269,13 @@ async function scenarioDeliverable() {
 
 async function scenarioBossDelegate() {
   console.log('• boss → delegate → employee sub-agent → tool (the headline mechanism)');
-  const repos = await seedRepos();
-  const audit = [];
-  const eventBus = new InMemoryEventBus();
-  const svc = buildService(repos, eventBus, audit, {
+  const { svc, audit } = await setup({
     boss: [
-      { toolCalls: [{ id: 'dg1', name: 'delegate', arguments: { employee_id: EMP_FE, task: 'run echo' } }] },
+      { toolCalls: [toolCall('dg1', 'delegate', { employee_id: EMP_FE, task: 'run echo' })] },
       { text: 'Fe Two reported: RAN:echo delegated' },
     ],
     employee: [
-      { toolCalls: [{ id: 'b1', name: 'bash', arguments: { command: 'echo delegated' } }] },
+      { toolCalls: [toolCall('b1', 'bash', { command: 'echo delegated' })] },
       { text: 'Done: RAN:echo delegated' },
     ],
   });
@@ -294,10 +292,7 @@ async function scenarioBossDelegate() {
 
 async function scenarioMultiTurn() {
   console.log('• multi-turn memory (persist + rehydrate)');
-  const repos = await seedRepos();
-  const audit = [];
-  const eventBus = new InMemoryEventBus();
-  const svc = buildService(repos, eventBus, audit, {
+  const { svc, repos } = await setup({
     employee: [{ text: 'Turn one reply.' }, { text: 'Turn two reply.' }],
   });
   await svc.execute({ companyId: COMPANY_ID, threadId: 't-mt', employeeId: EMP_DEV, text: 'first' });
@@ -311,10 +306,7 @@ async function scenarioMultiTurn() {
 
 async function scenarioResume() {
   console.log('• resume an interrupted thread');
-  const repos = await seedRepos();
-  const audit = [];
-  const eventBus = new InMemoryEventBus();
-  const svc = buildService(repos, eventBus, audit, { employee: [{ text: 'Resumed reply.' }] });
+  const { svc, repos } = await setup({ employee: [{ text: 'Resumed reply.' }] });
   // Simulate a crash mid-turn: a user message persisted with no assistant reply.
   await repos.piMessages.append([
     {
@@ -337,10 +329,7 @@ async function scenarioResume() {
 
 async function scenarioRegressionGuard() {
   console.log('• regression guard (this MUST be caught)');
-  const repos = await seedRepos();
-  const audit = [];
-  const eventBus = new InMemoryEventBus();
-  const svc = buildService(repos, eventBus, audit, { employee: [{ text: 'actual' }] });
+  const { svc } = await setup({ employee: [{ text: 'actual' }] });
   const res = await svc.execute({
     companyId: COMPANY_ID,
     threadId: 't-reg',
@@ -352,14 +341,18 @@ async function scenarioRegressionGuard() {
   check('harness flags a wrong expectation', caught);
 }
 
+const SCENARIOS = [
+  scenarioDirectChat,
+  scenarioMultiRoundTools,
+  scenarioDeliverable,
+  scenarioBossDelegate,
+  scenarioMultiTurn,
+  scenarioResume,
+  scenarioRegressionGuard,
+];
+
 async function main() {
-  await scenarioDirectChat();
-  await scenarioMultiRoundTools();
-  await scenarioDeliverable();
-  await scenarioBossDelegate();
-  await scenarioMultiTurn();
-  await scenarioResume();
-  await scenarioRegressionGuard();
+  for (const scenario of SCENARIOS) await scenario();
   if (failures.length > 0) {
     console.error(`\npi-loop gate FAILED: ${failures.length} check(s) — ${failures.join(', ')}`);
     process.exit(1);

@@ -12,6 +12,7 @@
 
 import type { Model } from '@offisim/pi-ai';
 import type { LlmProvider } from '@offisim/shared-types';
+import { DEFAULT_CONTEXT_WINDOW_TOKENS } from '../services/conversation-budget/options-resolver.js';
 
 const ZERO_COST = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } as const;
 
@@ -67,7 +68,10 @@ export function buildPiModel(input: PiModelInput): Model<'anthropic-messages' | 
     reasoning: input.reasoning ?? false,
     input: ['text', 'image'],
     cost: { ...ZERO_COST },
-    contextWindow: input.contextWindow && input.contextWindow > 0 ? input.contextWindow : 128000,
+    contextWindow:
+      input.contextWindow && input.contextWindow > 0
+        ? input.contextWindow
+        : DEFAULT_CONTEXT_WINDOW_TOKENS,
     maxTokens: input.maxTokens && input.maxTokens > 0 ? input.maxTokens : 8192,
   };
   if (api === 'openai-completions' && isMiniMax(input)) {

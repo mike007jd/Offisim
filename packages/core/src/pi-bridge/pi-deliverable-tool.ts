@@ -80,7 +80,8 @@ export function createSubmitDeliverableTool(
     executionMode: 'sequential',
     execute: async (_toolCallId: string, params: unknown): Promise<AgentToolResult<unknown>> => {
       const args = (params ?? {}) as SubmitDeliverableArgs;
-      if (!args.title?.trim() || !args.content?.trim()) {
+      const title = args.title?.trim();
+      if (!title || !args.content?.trim()) {
         throw new Error('submit_deliverable requires a non-empty title and content');
       }
       const employee = toolCtx.employeeId
@@ -105,7 +106,7 @@ export function createSubmitDeliverableTool(
           toolCtx.companyId,
           deliverableId,
           toolCtx.threadId,
-          args.title.trim(),
+          title,
           args.content,
           [contributor],
           {
@@ -126,7 +127,7 @@ export function createSubmitDeliverableTool(
         content: [
           {
             type: 'text',
-            text: `Deliverable "${args.title.trim()}" saved to the library (id ${deliverableId}).`,
+            text: `Deliverable "${title}" saved to the library (id ${deliverableId}).`,
           },
         ],
         details: { deliverableId },

@@ -1,12 +1,10 @@
 import { Button } from '@/design-system/primitives/button.js';
-import { runtimeEventBus } from '@/runtime/repos.js';
 import {
-  type InteractionRequest,
   type SkillInstallConfirmInteractionContext,
   skillInstallOutcomeLabel,
 } from '@offisim/shared-types';
-import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { usePendingInteraction } from './usePendingInteraction.js';
 
 /**
  * In-thread confirm bar for a pending `skill_install_confirm` interaction
@@ -17,9 +15,9 @@ import { toast } from 'sonner';
  * SkillInstallCommitter writes the SKILL.md to the vault + inserts the skills
  * row. It self-hides when there is no pending skill confirm for this thread.
  *
- * The runtime is per-company and labels interaction events with a placeholder
- * threadId, so this bar routes by the request's OWN `threadId` (carried in the
- * event's request object), not the event's top-level threadId.
+ * The shared `usePendingInteraction` hook routes the request by its OWN
+ * `threadId` (the runtime stamps events with a placeholder); on Confirm this bar
+ * surfaces the install outcome as a toast.
  */
 export function SkillInstallConfirmBar({
   companyId,
@@ -28,49 +26,18 @@ export function SkillInstallConfirmBar({
   companyId: string | null;
   threadId: string;
 }) {
-  const [pending, setPending] = useState<InteractionRequest | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    // A thread switch remounts this with a new threadId; drop any stale request.
-    setPending(null);
-    const readRequest = (event: { payload: unknown }): InteractionRequest | null => {
-      const request = (event.payload as { request?: InteractionRequest }).request;
-      return request ?? null;
-    };
-    const offRequested = runtimeEventBus.on('interaction.requested', (event) => {
-      const request = readRequest(event);
-      if (!request || request.kind !== 'skill_install_confirm') return;
-      if (request.threadId !== threadId) return;
-      setPending(request);
-    });
-    const offResolved = runtimeEventBus.on('interaction.resolved', (event) => {
-      const request = readRequest(event);
-      if (!request || request.threadId !== threadId) return;
-      setPending((current) => (current?.interactionId === request.interactionId ? null : current));
-    });
-    return () => {
-      offRequested();
-      offResolved();
-    };
-  }, [threadId]);
+  const { pending, submitting, resolve } = usePendingInteraction(
+    'skill_install_confirm',
+    threadId,
+    companyId,
+  );
 
   if (!pending || pending.context?.type !== 'skill_install_confirm' || !companyId) return null;
   const context = pending.context as SkillInstallConfirmInteractionContext;
 
-  const resolve = async (optionId: string) => {
-    if (submitting) return;
-    setSubmitting(true);
-    const interactionId = pending.interactionId;
+  const handleResolve = async (optionId: string) => {
     try {
-      const { getDesktopAgentRuntime } = await import('@/runtime/desktop-agent-runtime.js');
-      const runtime = await getDesktopAgentRuntime(companyId);
-      const outcome = await runtime.resolveInteraction({
-        interactionId,
-        selectedOptionId: optionId,
-        respondedAt: Date.now(),
-      });
-      setPending(null);
+      const outcome = await resolve(optionId);
       if (optionId === 'confirm' && outcome) {
         if (outcome.kind === 'error') {
           toast.error('Skill install failed', { description: outcome.message });
@@ -82,8 +49,6 @@ export function SkillInstallConfirmBar({
       toast.error('Skill confirm failed', {
         description: error instanceof Error ? error.message : String(error),
       });
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -129,7 +94,7 @@ export function SkillInstallConfirmBar({
             size="sm"
             variant={option.id === 'confirm' ? 'default' : 'outline'}
             disabled={submitting}
-            onClick={() => resolve(option.id)}
+            onClick={() => handleResolve(option.id)}
           >
             {option.label}
           </Button>

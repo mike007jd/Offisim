@@ -1,41 +1,29 @@
-// Builds the Node runtime dependency packages that the desktop `.app` bundles
-// (asset-schema → shared-types → install-core → db-local → doc-engine → core).
-// Run as the `build:runtime-deps` step of the desktop `build:frontend` chain.
+// Builds the Node runtime dependency packages that the desktop `.app` bundles,
+// in dependency order. Run as the `build:runtime-deps` step of the desktop
+// `build:frontend` chain.
 //
 // Formerly imported `ensureRuntimeBuild` from the (deleted) `harness-lib.mjs`;
 // inlined here so the build does not depend on the erased test infrastructure.
+//
+// Always a clean build: the `.app` ships these dist artifacts, so stale
+// incremental output must never leak into a release — clear each package's
+// tsbuildinfo, then build in order.
 import { spawn } from 'node:child_process';
-import { existsSync, rmSync } from 'node:fs';
+import { rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
-const REQUIRED_BUILD_ARTIFACTS = [
-  'packages/asset-schema/dist/index.js',
-  'packages/shared-types/dist/index.js',
-  'packages/install-core/dist/index.js',
-  'packages/db-local/dist/index.js',
-  'packages/doc-engine/dist/index.js',
-  'packages/core/dist/index.js',
+// Ordered: asset-schema → shared-types → install-core → db-local → doc-engine → core.
+const RUNTIME_PACKAGES = [
+  { dir: 'asset-schema', pkg: '@offisim/asset-schema' },
+  { dir: 'shared-types', pkg: '@offisim/shared-types' },
+  { dir: 'install-core', pkg: '@offisim/install-core' },
+  { dir: 'db-local', pkg: '@offisim/db-local' },
+  { dir: 'doc-engine', pkg: '@offisim/doc-engine' },
+  { dir: 'core', pkg: '@offisim/core' },
 ];
-
-const RUNTIME_BUILD_PACKAGES = [
-  '@offisim/asset-schema',
-  '@offisim/shared-types',
-  '@offisim/install-core',
-  '@offisim/db-local',
-  '@offisim/doc-engine',
-  '@offisim/core',
-];
-
-function rootPath(...parts) {
-  return resolve(ROOT, ...parts);
-}
-
-function pathExists(path) {
-  return existsSync(rootPath(path));
-}
 
 function run(command, args) {
   return new Promise((resolvePromise, rejectPromise) => {
@@ -57,21 +45,10 @@ function run(command, args) {
   });
 }
 
-function clearIncrementalState() {
-  for (const pkg of ['asset-schema', 'shared-types', 'install-core', 'db-local', 'doc-engine', 'core']) {
-    rmSync(rootPath('packages', pkg, 'tsconfig.tsbuildinfo'), { force: true });
-  }
+for (const { dir } of RUNTIME_PACKAGES) {
+  rmSync(resolve(ROOT, 'packages', dir, 'tsconfig.tsbuildinfo'), { force: true });
 }
-
-async function ensureRuntimeBuild(options = {}) {
-  const force = Boolean(options.force);
-  const hasArtifacts = REQUIRED_BUILD_ARTIFACTS.every(pathExists);
-  if (!force && hasArtifacts) return;
-  clearIncrementalState();
-  for (const pkg of RUNTIME_BUILD_PACKAGES) {
-    await run('pnpm', ['--filter', pkg, 'build']);
-  }
+for (const { pkg } of RUNTIME_PACKAGES) {
+  await run('pnpm', ['--filter', pkg, 'build']);
 }
-
-await ensureRuntimeBuild({ force: true });
-console.log(JSON.stringify({ ok: true, built: RUNTIME_BUILD_PACKAGES }, null, 2));
+console.log(JSON.stringify({ ok: true, built: RUNTIME_PACKAGES.map((p) => p.pkg) }, null, 2));

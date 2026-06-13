@@ -62,9 +62,7 @@ export class PiMessageStore {
 
   /** The worker that owns this thread (null = boss / not found) — for resume. */
   async threadOwnerEmployeeId(threadId: string): Promise<string | null> {
-    const rows = await this.repo.listByThread(threadId);
-    const last = rows[rows.length - 1];
-    return last?.employee_id ?? null;
+    return this.repo.lastEmployeeId(threadId);
   }
 
   async clear(threadId: string): Promise<void> {

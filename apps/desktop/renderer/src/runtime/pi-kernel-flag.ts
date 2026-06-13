@@ -8,15 +8,9 @@
 
 const PI_THINKING_LEVEL_KEY = 'offisim:pi-thinking-level';
 
-type ThinkingLevel = 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
-const THINKING_LEVELS: ReadonlySet<string> = new Set([
-  'off',
-  'minimal',
-  'low',
-  'medium',
-  'high',
-  'xhigh',
-]);
+// Single source: the type and the runtime membership check both derive from this.
+const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const;
+type ThinkingLevel = (typeof THINKING_LEVELS)[number];
 
 function readLocalStorage(key: string): string | null {
   try {
@@ -29,6 +23,8 @@ function readLocalStorage(key: string): string | null {
 /** Reasoning level requested from thinking-capable models on the pi path. */
 export function piThinkingLevel(): ThinkingLevel {
   const stored = readLocalStorage(PI_THINKING_LEVEL_KEY);
-  if (stored && THINKING_LEVELS.has(stored)) return stored as ThinkingLevel;
+  if (stored && (THINKING_LEVELS as readonly string[]).includes(stored)) {
+    return stored as ThinkingLevel;
+  }
   return 'off';
 }

@@ -1,6 +1,6 @@
 import type { PiMessageRepository, PiMessageRow } from '@offisim/core/browser';
 import * as schema from '@offisim/db-local';
-import { asc, eq, sql } from 'drizzle-orm';
+import { asc, desc, eq, sql } from 'drizzle-orm';
 import type { TauriDrizzleDb } from '../tauri-drizzle';
 
 export interface PiMessagesTauriRepos {
@@ -10,12 +10,11 @@ export interface PiMessagesTauriRepos {
 export function createPiMessagesTauriRepos(db: TauriDrizzleDb): PiMessagesTauriRepos {
   const piMessages: PiMessageRepository = {
     async listByThread(threadId: string): Promise<PiMessageRow[]> {
-      const rows = (await db
+      return (await db
         .select()
         .from(schema.piMessages)
         .where(eq(schema.piMessages.thread_id, threadId))
         .orderBy(asc(schema.piMessages.seq))) as PiMessageRow[];
-      return rows;
     },
     async append(rows: readonly PiMessageRow[]): Promise<void> {
       if (rows.length === 0) return;
@@ -27,6 +26,15 @@ export function createPiMessagesTauriRepos(db: TauriDrizzleDb): PiMessagesTauriR
         .from(schema.piMessages)
         .where(eq(schema.piMessages.thread_id, threadId))) as Array<{ m: number | null }>;
       return rows[0]?.m ?? -1;
+    },
+    async lastEmployeeId(threadId: string): Promise<string | null> {
+      const rows = (await db
+        .select({ employee_id: schema.piMessages.employee_id })
+        .from(schema.piMessages)
+        .where(eq(schema.piMessages.thread_id, threadId))
+        .orderBy(desc(schema.piMessages.seq))
+        .limit(1)) as Array<{ employee_id: string | null }>;
+      return rows[0]?.employee_id ?? null;
     },
     async deleteByThread(threadId: string): Promise<void> {
       await db.delete(schema.piMessages).where(eq(schema.piMessages.thread_id, threadId));

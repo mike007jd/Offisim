@@ -19,6 +19,7 @@
 import type { RunScope } from '@offisim/shared-types';
 import { Agent, type AgentEvent, type AgentMessage, type AgentTool, type ThinkingLevel } from '@offisim/pi-agent';
 import type { Message as PiMessage } from '@offisim/pi-ai';
+import { toErrorMessage } from '../errors.js';
 import { executionAborted } from '../events/orchestration-events.js';
 import type { ToolDef } from '../llm/gateway.js';
 import type { ModelResolver } from '../llm/model-resolver.js';
@@ -40,7 +41,7 @@ import { type PiToolContext, toolDefsToAgentTools } from './pi-tool-adapter.js';
 const logger = new Logger('pi-orchestration');
 
 /** Runaway backstop — the model is expected to stop emitting tool calls long before this. */
-const DEFAULT_MAX_TOOL_ROUNDS = 200;
+const MAX_TOOL_ROUNDS = 200;
 
 export interface PiModelMeta {
   /** Canonical endpoint base (the Rust transport rewrites the path per lane). */
@@ -63,10 +64,6 @@ export interface PiOrchestrationDeps {
   readonly modelMeta: PiModelMeta;
   /** Reasoning level for models that support it. Default 'off'. */
   readonly thinkingLevel?: ThinkingLevel;
-  /** Runaway round guard. Default 200. */
-  readonly maxToolRounds?: number;
-  /** Give boss agents the `delegate` tool. Default true. */
-  readonly enableDelegation?: boolean;
   /**
    * Per-message transcript persistence. When set, the top-level turn loads its
    * prior transcript (with the dangling-toolCall resume patch) and every finished
@@ -225,8 +222,30 @@ export class PiOrchestrationService {
     const { runtimeCtx } = this.deps;
     const { kind, employee, company, threadId, companyId } = params;
 
-    const roster =
-      kind === 'boss' ? await runtimeCtx.repos.employees.findByCompany(companyId) : [];
+    const toolCtx: PiToolContext = {
+      threadId,
+      companyId,
+      employeeId: employee?.employee_id,
+      projectId: params.projectId ?? null,
+      runScope: params.runScope ?? null,
+    };
+
+    // Three independent I/O sources — the boss roster (for the system prompt),
+    // the tool set (builtin defs + MCP listAvailable), and the prior transcript
+    // (top-level turns rehydrate with the dangling-toolCall patch; delegated
+    // sub-agents always start fresh). Run them concurrently rather than serially.
+    const [roster, tools, history] = await Promise.all([
+      kind === 'boss'
+        ? runtimeCtx.repos.employees.findByCompany(companyId)
+        : Promise.resolve<readonly EmployeeRow[]>([]),
+      this.assembleTools(params, toolCtx, kind),
+      params.history !== undefined
+        ? Promise.resolve(params.history)
+        : this.deps.messageStore && !params.parentSignal
+          ? this.deps.messageStore.loadTranscript(threadId)
+          : Promise.resolve(undefined),
+    ]);
+
     const systemPrompt = this.buildSystemPrompt(kind, employee, company, params.text, roster);
     const resolved = this.deps.modelResolver.resolve(null, employee?.role_slug);
     const model = buildPiModel({
@@ -239,15 +258,6 @@ export class PiOrchestrationService {
       piProvider: this.deps.modelMeta.piProvider,
     });
 
-    const toolCtx: PiToolContext = {
-      threadId,
-      companyId,
-      employeeId: employee?.employee_id,
-      projectId: params.projectId ?? null,
-      runScope: params.runScope ?? null,
-    };
-    const tools = await this.assembleTools(params, toolCtx, kind);
-
     // The budget service keys compaction/synopsis state on ctx.threadId — pass
     // the PER-RUN thread, not the company-level placeholder baked into the base
     // runtimeCtx, or every thread shares one synopsis/baseline row.
@@ -258,14 +268,6 @@ export class PiOrchestrationService {
       systemPrompt,
       maxTokens: resolved.maxTokens,
     });
-
-    // Top-level turns rehydrate their transcript from the store (with the
-    // dangling-toolCall patch); delegated sub-agents always start fresh.
-    const history =
-      params.history ??
-      (this.deps.messageStore && !params.parentSignal
-        ? await this.deps.messageStore.loadTranscript(threadId)
-        : undefined);
 
     const agent = new Agent({
       initialState: {
@@ -292,16 +294,14 @@ export class PiOrchestrationService {
 
     // Round guard: count completed turns; abort on runaway. Replaces
     // MAX_TOOL_ROUNDS / recursion-limit, which vanished with the graph.
-    const maxRounds = this.deps.maxToolRounds ?? DEFAULT_MAX_TOOL_ROUNDS;
     let rounds = 0;
     let hitRoundLimit = false;
 
     // A delegated sub-agent (parentSignal set) must NOT stream into the boss's
     // chat bubble — its output reaches the user only through the boss's summary.
     // Give it a nodeName the renderer's STREAM_REPLY_NODES does not surface.
-    const isDelegatedSubAgent = !!params.parentSignal;
     const nodeName =
-      kind === 'boss' ? 'boss_summary' : isDelegatedSubAgent ? 'employee_subtask' : 'employee';
+      kind === 'boss' ? 'boss_summary' : params.parentSignal ? 'employee_subtask' : 'employee';
     const listener = createPiEventListener(
       runtimeCtx.eventBus,
       {
@@ -318,7 +318,7 @@ export class PiOrchestrationService {
     const roundCounter = (event: AgentEvent) => {
       if (event.type === 'turn_end') {
         rounds += 1;
-        if (rounds >= maxRounds && !hitRoundLimit) {
+        if (rounds >= MAX_TOOL_ROUNDS && !hitRoundLimit) {
           hitRoundLimit = true;
           logger.warn('round guard tripped; aborting agent', { threadId, rounds });
           agent.abort();
@@ -398,17 +398,17 @@ export class PiOrchestrationService {
     });
   }
 
-  /** delegate → local employee sub-agent. Recurses into `runWorker`. */
+  /**
+   * delegate → local employee sub-agent. Recurses into `runWorker`. The employee
+   * row is resolved + validated by the delegate tool, so it is passed in here
+   * rather than re-fetched.
+   */
   private async runDelegated(
-    employeeId: string,
+    employee: EmployeeRow,
     task: string,
     parent: WorkerParams,
     parentSignal?: AbortSignal,
   ): Promise<string> {
-    const employee = await this.deps.runtimeCtx.repos.employees.findById(employeeId);
-    if (!employee) {
-      throw new Error(`No employee with id ${employeeId}`);
-    }
     const result = await this.runWorker({
       companyId: parent.companyId,
       threadId: parent.threadId,
@@ -486,20 +486,20 @@ export class PiOrchestrationService {
       mcpDefs = await toolExecutor.listAvailable(params.companyId);
     } catch (error) {
       logger.warn('listAvailable failed; continuing with builtin tools only', {
-        error: error instanceof Error ? error.message : String(error),
+        error: toErrorMessage(error),
       });
     }
     const isBoss = kind === 'boss';
     const virtualTools = [...(this.deps.virtualToolProvider?.(toolCtx, kind) ?? [])];
     // The delegate tool is orchestration-internal (it recurses into runWorker),
     // so it is added here rather than via the external virtualToolProvider.
-    if (isBoss && this.deps.enableDelegation !== false) {
+    if (isBoss) {
       virtualTools.push(
         createDelegateTool({
           runtimeCtx,
           toolCtx,
-          runLocalEmployee: (employeeId, task, signal) =>
-            this.runDelegated(employeeId, task, params, signal),
+          runLocalEmployee: (employee, task, signal) =>
+            this.runDelegated(employee, task, params, signal),
         }),
       );
     }
@@ -536,7 +536,7 @@ export class PiOrchestrationService {
     } catch (error) {
       logger.warn('persistMessage failed', {
         threadId: params.threadId,
-        error: error instanceof Error ? error.message : String(error),
+        error: toErrorMessage(error),
       });
     }
   }

@@ -72,16 +72,16 @@ function toCoreProvider(provider: string): LlmProvider {
 export interface DesktopAgentRunInput {
   /** User message text for this turn. */
   text: string;
-  /** Runtime/graph thread id (per-run, not per-singleton). */
+  /** Runtime thread id (per-run, not per-singleton). */
   threadId: string;
-  /** Employee that holds this direct chat. Routes the graph to its node. */
+  /** Employee that holds this direct chat; null routes the turn to the boss. */
   employeeId: string | null;
   /** Active project id for workspace-scoped tools; null for unscoped chats. */
   projectId: string | null;
 }
 
 export interface DesktopAgentRuntime {
-  /** Run one direct-chat turn through the graph; resolves to the assistant text. */
+  /** Run one direct-chat turn through the pi kernel; resolves to the assistant text. */
   execute(input: DesktopAgentRunInput): Promise<string>;
   /** Abort the in-flight run on a thread (Stop). */
   abort(threadId: string): void;
@@ -94,9 +94,10 @@ export interface DesktopAgentRuntime {
    */
   resolveInteraction(response: InteractionResponse): Promise<SkillInstallOutcomeKind | null>;
   /**
-   * Resume an unfinished plan on a thread from its latest persisted checkpoint.
-   * Fire-and-forget from the ResumeBar; the graph picks up at the next pending
-   * step (it does not replay from step 0). Throws if no checkpoint exists.
+   * Resume an interrupted turn on a thread from its persisted transcript.
+   * Fire-and-forget from the ResumeBar; the pi loop continues the saved
+   * transcript (dangling tool calls patched) rather than replaying from the
+   * start. No-ops when there is nothing to resume.
    */
   resume(threadId: string): Promise<void>;
   /**
@@ -390,8 +391,11 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
   // conversations (≥80 messages / ≥60k tokens), so short chats pay no extra LLM
   // call. This is desktop-only — the deterministic harness (scenario-runner)
   // intentionally runs without it, so the contract replay is unaffected.
+  // One budget service shared by the gateway middleware chain and the pi
+  // orchestration — it is stateless (per-thread compaction state lives in the DB).
+  const budgetService = new ConversationBudgetService();
   const middlewareChain = new LlmMiddlewareChain();
-  middlewareChain.register(new SummarizationMiddleware(new ConversationBudgetService()));
+  middlewareChain.register(new SummarizationMiddleware(budgetService));
 
   const runtimeCtx = createRuntimeContext({
     repos,
@@ -421,8 +425,8 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
 
   // pi agent-loop orchestration (the only chat kernel). Owns the runtimeCtx,
   // repos, eventBus, audited toolExecutor, and modelResolver; uses its own
-  // streamFn (the credential-isolated transport fetch the gateway uses) and its
-  // own budget service instance. Per-message transcript persistence (multi-turn
+  // streamFn (the credential-isolated transport fetch the gateway uses) and the
+  // shared budget service. Per-message transcript persistence (multi-turn
   // memory + resume) is backed by the pi_messages table via repos.piMessages.
   const piMessageStore = repos.piMessages ? new PiMessageStore(repos.piMessages) : undefined;
 
@@ -430,7 +434,7 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
     runtimeCtx,
     registry: new PiAgentRegistry(),
     streamFn: createPiStreamFn({ fetch: transportFetch }),
-    budgetService: new ConversationBudgetService(),
+    budgetService,
     modelResolver,
     ...(piMessageStore ? { messageStore: piMessageStore } : {}),
     modelMeta: {

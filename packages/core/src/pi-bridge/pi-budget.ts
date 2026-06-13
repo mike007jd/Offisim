@@ -14,6 +14,7 @@
  */
 
 import type { AgentMessage } from '@offisim/pi-agent';
+import { toErrorMessage } from '../errors.js';
 import type { LlmMessage, LlmRequest } from '../llm/gateway.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import type { ConversationBudgetService } from '../services/conversation-budget-service.js';
@@ -58,18 +59,14 @@ export function createBudgetTransform(
       const prunedTranscript = pruned.messages.filter(
         (m) => !(m.role === 'system' && m.content === deps.systemPrompt),
       );
-      return llmToPiMessages(prunedTranscript, messages, isoNow());
+      // The synthesized-message timestamp only orders compaction artifacts and
+      // is not persisted as canonical history; use the injected clock seam.
+      return llmToPiMessages(prunedTranscript, messages, deps.runtimeCtx.determinism.nowMs());
     } catch (error) {
       logger.warn('budget transform failed; passing transcript through', {
-        error: error instanceof Error ? error.message : String(error),
+        error: toErrorMessage(error),
       });
       return messages;
     }
   };
-}
-
-function isoNow(): number {
-  // Wall-clock ms; the synthesized-message timestamp only orders compaction
-  // artifacts and is not persisted as canonical history.
-  return Date.now();
 }

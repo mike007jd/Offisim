@@ -47,19 +47,21 @@ export interface DelegateToolDeps {
   readonly runtimeCtx: RuntimeContext;
   readonly toolCtx: PiToolContext;
   /**
-   * Run a LOCAL employee as a sub-agent and resolve to its final reply text.
-   * Supplied by the orchestration (it recurses into `runWorker`). The signal is
-   * the boss's tool-call abort signal, so cancelling the boss cancels the child.
+   * Run a LOCAL employee (already resolved from the roster) as a sub-agent and
+   * resolve to its final reply text. Supplied by the orchestration (it recurses
+   * into `runWorker`); passing the resolved row avoids a second `findById`. The
+   * signal is the boss's tool-call abort signal, so cancelling the boss cancels
+   * the child.
    */
   readonly runLocalEmployee: (
-    employeeId: string,
+    employee: EmployeeRow,
     task: string,
     signal?: AbortSignal,
   ) => Promise<string>;
 }
 
 export function createDelegateTool(deps: DelegateToolDeps): AgentTool {
-  const { runtimeCtx } = deps;
+  const { runtimeCtx, runLocalEmployee } = deps;
   return {
     name: 'delegate',
     label: 'Delegate to employee',
@@ -94,7 +96,7 @@ export function createDelegateTool(deps: DelegateToolDeps): AgentTool {
         };
       }
 
-      const text = await deps.runLocalEmployee(employee.employee_id, args.task, signal);
+      const text = await runLocalEmployee(employee, args.task, signal);
       return {
         content: [{ type: 'text', text }],
         details: { employeeId: employee.employee_id, external: false },
