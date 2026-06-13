@@ -50,10 +50,16 @@ SSOT plan: `Docs/plans/2026-06-13-pi-kernel-replacement.md`
 - ✅ **delegated 子 agent 真执行工具**（devtools console 见 `date +%s%N`→真时间戳、`ls`→真文件，归属 Maya）。**假装执行病根已根除**。
 - ⚠️ **发现并修复 audit-FK bug**：`mcp_audit_log.thread_id REFERENCES graph_threads(thread_id)`，pi 线程无 graph_threads 行（updateStatus 是裸 UPDATE 不建行）→ 每条工具 audit insert 失败（工具照常执行+结果回流，只是证据链丢行）。修复=`ensureThreadRow` 开 turn 时建行。**待最终 rebuild 验收 audit 行落库**。
 
-### 待办
-- **P6 切流抹除**（旧 graph 还在；删 graph/agents/testing/scenarios/12 脚本/@langchain 三依赖/checkpoints+writes 表 + 文档重写 + 新写 HARNESS_ARCHITECTURE.md + pi 设默认）。**最大剩余块**，需谨慎不破坏构建。
-- **P7** 最终 release 验收（audit 行落库确认）+ 记忆抹除。
-- 低优：boss/team 回复 UI 标签显示 'Employee' 应为 boss/team（cosmetic）。
+### P6 抹除（进行中，全程绿 + 增量提交）
+- ✅ **解耦**（`5c63c521`）：RunScope→shared-types、CompactBaseline→budget 模块（kept 文件不再 import graph/state 取这俩）。
+- ✅ **旧测试基建抹除**（`24583f51`）：删 testing/(24)+scenarios/(98 JSON)+19 死 harness 脚本+package.json 条目（runtime 不依赖 testing/，干净）。留 pi-loop/doc-engine/chat-attachment/security:harness。
+- ⏳ **graph+agents 删除（最大剩余块，未做）**：graph/ 与 agents/ 互相依赖须**一次原子删**，且删前要先平移 agents/ 里被 kept 代码用的文件——`employee-builder`(pi 用 buildEmployeePrompt)/`employee-prompt-assembly`(llm adapter 用 PROMPT_CACHE_VOLATILE_MARKER)/`task-tool-intent`+`PendingAssignment` 类型(engine claude/codex lane 用)；再删 orchestration-service/resume-coordinator/ensure-yolo-master/node-summary-service/get-runtime/get-signal/active-context-snapshot + 改 desktop pi-only + 删 index/runtime-public/browser 的 graph 导出 + templates 去 yolo。错误尾巴长，需完整上下文一次做干净。
+- ⏳ @langchain 三依赖删除 / checkpoints+writes 表删 / 文档重写 + 新写 HARNESS_ARCHITECTURE.md。
+
+### P7（部分）
+- ✅ live 验收：boss delegate+子 agent 真执行+audit 落库全过（见上）。
+- ⏳ 完整矩阵（审批栏/取消/Activity-Chats-Calendar 数据面）+ 记忆抹除（MEMORY 已更新指向 executed 状态）。
+- 低优：boss/team 回复 UI 标签 'Employee' 应为 boss/team（cosmetic）。
 
 ### Commits (main, 未 push)
 `ec028138` fork+bridge / `8aaf2ee2` 桌面接线 / `a5066aca` deliverable / `d7d7b009` delegate / `7aa5a2e5` 自审整改+P4持久化 / `00cc30c7`+gate / `7aa5a2e5`.. audit-FK fix。
