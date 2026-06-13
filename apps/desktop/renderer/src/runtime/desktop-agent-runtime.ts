@@ -306,22 +306,10 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
   const compositeExecutor = new CompositeToolExecutor(builtinTools, mcpExecutor, {
     companyId,
   });
-  // Wrap the composite in the AuditingToolExecutor so EVERY tool call — builtin
-  // included — lands in `mcp_audit_log` (the Slice-1 gap: the composite
-  // dispatched builtins directly, bypassing the audit decorator). Audit-only for
-  // now: no authorizer / interactionService / hookRegistry — builtins run as
-  // they do today, but recorded. The bash-tool's own shell classifier still
-  // gates destructive commands. Mirrors `scenario-runner.ts` wiring.
-  const toolExecutor = new AuditingToolExecutor(
-    compositeExecutor,
-    repos.mcpAudit,
-    runtimeEventBus,
-    companyId,
-    baseThreadId,
-    undefined,
-    undefined,
-    undefined,
-  );
+  // The AuditingToolExecutor wraps the composite so EVERY tool call lands in
+  // `mcp_audit_log`, AND routes the shell classifier's destructive-command gate
+  // through the InteractionService for a real HITL approval. It is constructed
+  // below — after the InteractionService it depends on.
 
   // --- Skill subsystem (fork / edit / create_skill_from_scratch) ---
   // The skill-mutation tools unlock as soon as a staging manager + loader are
@@ -361,6 +349,10 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
     eventBus: runtimeEventBus,
     companyId,
     threadId: baseThreadId,
+    // Desktop is a single human-present session: surface a HITL approval for
+    // genuinely destructive shell commands (the shell classifier only asks for
+    // rm -rf / git push / dd / mkfs / …). Everything else runs uninterrupted.
+    defaultMode: 'human_in_loop',
     permissionApprovals: repos.toolPermissionApprovals,
     skillInstallConfirmHandler: new SkillInstallCommitter({
       companyId,
@@ -370,6 +362,24 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
       eventBus: runtimeEventBus,
     }),
   });
+
+  // Wrap the composite in the AuditingToolExecutor so EVERY tool call — builtin
+  // included — lands in `mcp_audit_log`. The InteractionService is wired in so
+  // the shell classifier's destructive-command gate surfaces a real HITL
+  // approval bar via `requestAndWait` on the pi loop; without it the 'ask' path
+  // silently short-circuits. No permissionAuthorizer: MCP tools are not
+  // permission-gated here, so only genuinely destructive bash prompts —
+  // non-destructive work never interrupts the flow. hookRegistry stays unset.
+  const toolExecutor = new AuditingToolExecutor(
+    compositeExecutor,
+    repos.mcpAudit,
+    runtimeEventBus,
+    companyId,
+    baseThreadId,
+    undefined,
+    interactionService,
+    undefined,
+  );
 
   // Long-horizon context management. Without a middleware chain the runtime
   // fell back to a crude fixed message trim AND rethrew any context-overflow

@@ -12,6 +12,7 @@ import { type DragEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { StagedAttachments } from './composer/StagedAttachments.js';
 import { ChatErrorBanner } from './parts/ChatErrorBanner.js';
 import { RunActivityStrip } from './parts/RunActivityStrip.js';
+import { PermissionApprovalBar } from './parts/PermissionApprovalBar.js';
 import { SkillInstallConfirmBar } from './parts/SkillInstallConfirmBar.js';
 import { MeetingTray } from './parts/Meeting.js';
 import { useRunStore } from './run-store.js';
@@ -287,6 +288,7 @@ export function OfficeThread({
             </ThreadPrimitive.Messages>
           </div>
           <ChatErrorBanner />
+          <PermissionApprovalBar companyId={companyId} threadId={threadId} />
           <SkillInstallConfirmBar companyId={companyId} threadId={threadId} />
         </ThreadPrimitive.Viewport>
         <OfficeComposer

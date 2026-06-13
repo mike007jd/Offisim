@@ -1974,6 +1974,46 @@
   justify-content: flex-end;
   gap: var(--off-sp-2);
 }
+/* === HITL permission approval bar (destructive-command gate) ============== */
+.off-approvalbar {
+  margin: var(--off-sp-3);
+  padding: var(--off-sp-4);
+  border: 1px solid var(--off-warn-line, var(--off-line));
+  border-radius: var(--off-r-md);
+  background: var(--off-warn-surface, var(--off-surface-2));
+}
+.off-approvalbar-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--off-sp-2);
+  margin-bottom: var(--off-sp-2);
+}
+.off-approvalbar-badge {
+  padding: 2px var(--off-sp-2);
+  border-radius: var(--off-r-xs);
+  background: var(--off-warn, var(--off-accent));
+  color: var(--off-warn-fg, var(--off-accent-fg, #fff));
+  font-size: var(--off-fs-meta);
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.off-approvalbar-title {
+  font-size: var(--off-fs-base);
+  font-weight: 650;
+  color: var(--off-ink-1);
+}
+.off-approvalbar-reason {
+  margin: 0 0 var(--off-sp-3);
+  font-size: var(--off-fs-sm);
+  color: var(--off-ink-2);
+}
+.off-approvalbar-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--off-sp-2);
+}
 /* === Meeting region ======================================================= */
 .off-meeting-panel {
   margin: var(--off-sp-3) 0;
