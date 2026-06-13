@@ -9,6 +9,7 @@ export { Scratchpad } from './runtime/scratchpad.js';
 export {
   buildPiModel,
   createPiStreamFn,
+  createSkillInstallTools,
   createSubmitDeliverableTool,
   PiAgentRegistry,
   PiMessageStore,

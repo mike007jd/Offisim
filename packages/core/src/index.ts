@@ -344,6 +344,7 @@ export {
   createBudgetTransform,
   createPiEventListener,
   createPiStreamFn,
+  createSkillInstallTools,
   createSubmitDeliverableTool,
   laneToPiApi,
   llmToPiMessages,

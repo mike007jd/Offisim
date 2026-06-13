@@ -4,7 +4,7 @@
  * This replaces the deleted intent-guessing chain (task-tool-intent →
  * completion-verifier-evidence → employee-completion). A worker produces a
  * deliverable ONLY by calling this tool; a normal conversational reply is never
- * mistaken for one. The tool emits `deliverable.created`, which the wired
+ * mistaken for one. The tool emits `deliverable.created`, which the
  * `DeliverablePersistenceService` writes to the `deliverables` table with a
  * row shape (including contributor brand fields for avatar propagation) that is
  * byte-compatible with the old path's `mapPayloadToRow`.

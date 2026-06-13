@@ -26,6 +26,7 @@ import {
   PiOrchestrationService,
   createPiStreamFn,
   createRuntimeContext,
+  createSkillInstallTools,
   createSubmitDeliverableTool,
 } from '@offisim/core/runtime';
 import {
@@ -365,7 +366,7 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
   });
 
   // Wrap the composite in the AuditingToolExecutor so EVERY tool call — builtin
-  // included — lands in `mcp_audit_log`. The InteractionService is wired in so
+  // included — lands in `mcp_audit_log`. The InteractionService is passed in so
   // the shell classifier's destructive-command gate surfaces a real HITL
   // approval bar via `requestAndWait` on the pi loop; without it the 'ask' path
   // silently short-circuits. No permissionAuthorizer: MCP tools are not
@@ -445,10 +446,22 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
       piProvider: coreProvider === 'anthropic' ? 'anthropic' : profile.provider,
     },
     thinkingLevel: piThinkingLevel(),
-    // Explicit deliverable tool (employee turns only). Replaces the deleted
-    // intent-guessing materialization — a deliverable now requires a tool call.
+    // Employee-turn virtual tools (boss is delegate-only). The explicit
+    // deliverable tool replaces the deleted intent-guessing materialization, and
+    // the skill-mutation tools (create/fork/edit/install/sync) route through the
+    // InteractionService's `skill_install_confirm` approval path — without them
+    // the employee prompt asks the model to call skill tools that do not exist.
     virtualToolProvider: (toolCtx, kind) =>
-      kind === 'employee' ? [createSubmitDeliverableTool(runtimeCtx, toolCtx)] : [],
+      kind === 'employee'
+        ? [
+            createSubmitDeliverableTool(runtimeCtx, toolCtx),
+            ...createSkillInstallTools(
+              runtimeCtx,
+              toolCtx,
+              `${coreProvider}/${profile.model}`,
+            ),
+          ]
+        : [],
   });
 
   return new DesktopAgentRuntimeImpl(

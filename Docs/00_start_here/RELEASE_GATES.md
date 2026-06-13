@@ -28,10 +28,10 @@ when the list changes.
 | Gate | Command | Proves |
 |------|---------|--------|
 | Types | `pnpm typecheck` | all 21 workspace packages compile (`tsc --noEmit`) |
-| Validate | `pnpm validate` | `typecheck` + provider catalog freshness |
-| Provider catalog | `pnpm provider:check` | no retired/dangling default model; offline/deterministic |
+| Validate | `pnpm validate` | `typecheck` + pi-loop record/replay (`harness:pi-loop`) + provider catalog freshness (`provider:check`) |
+| pi-loop harness | `pnpm harness:pi-loop` | pi kernel record/replay: boss delegates, employee runs tools, multi-turn persistence, resume, regression guards (also run inside `validate`) |
+| Provider catalog | `pnpm provider:check` | no retired/dangling default model; offline/deterministic (also run inside `validate`) |
 | UI hygiene | `pnpm check:ui-hygiene` | no stale/dead UI copy, no hardcoded provider copy outside settings, design-token discipline |
-| Deterministic harness | `pnpm harness:deterministic` | graph/runtime/permission/planner/LLM replay invariants (`contract` + `replay` + `provider-adapter`) |
 | Security harness | `pnpm security:harness` | platform auth/body-limit, doc-engine CSV, git-source tarball cap/zip-bomb, registry-client, web fetch/search boundaries |
 | Desktop Rust | `cargo test` in `apps/desktop/src-tauri` | path containment, shell classifier, redaction, attachment store, local db migration chain |
 | Supply chain | `pnpm audit --prod --audit-level high` | no unresolved high/critical advisories in the prod tree (transitive highs are pinned via root `pnpm.overrides`) |
@@ -62,15 +62,15 @@ pnpm platform:auth-harness      # auth boundary harness (also run inside securit
 
 | Area | Command |
 |------|---------|
+| pi kernel (delegation, tools, persistence, resume) | `pnpm harness:pi-loop` |
 | Doc-engine parsers | `pnpm harness:doc-engine` |
 | Chat attachments | `pnpm harness:chat-attachment-roundtrip` |
-| MCP lifecycle | `pnpm harness:mcp-lifecycle` |
-| Resume / checkpoints | `pnpm harness:resume` |
-| Streaming tool calls | `pnpm harness:stream-tools` |
-| Context budget | `pnpm harness:context` |
 
 The full harness inventory is the `harness:*` scripts in the root
-`package.json`.
+`package.json`. The LangGraph-era harnesses (`harness:deterministic`,
+`harness:mcp-lifecycle`, `harness:resume`, `harness:stream-tools`,
+`harness:context`) were removed in the P6 pi-kernel cut-over; the pi-loop
+record/replay gate is the deterministic kernel gate now.
 
 ## Release `.app` live verification (required for desktop runtime behavior)
 
@@ -92,7 +92,7 @@ the bundle id).
 
 ## Evidence rule
 
-Release evidence must name the specific gate (deterministic harness scenario,
+Release evidence must name the specific gate (pi-loop harness scenario,
 Rust check, platform drift, build, or live `.app` observation) that actually
 proved the behavior. Do not reintroduce broad `vitest` / Playwright / `pnpm
 test` suites as product gates.

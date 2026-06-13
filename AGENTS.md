@@ -33,7 +33,7 @@
 
 # 验证 / 测试准则
 - 不在 `packages/core/src/**/*.test.mjs` 新增或保留 runtime / graph / product 行为测试。
-- 新的 graph、runtime、permission、planner、LLM replay 不变量必须走 deterministic harness：`packages/core/harness/scenarios/*.json` + `packages/core/src/testing/invariant-assertions.ts`，并按需加入 `manifest.json` / replay 或 soak 列表。
+- pi 内核（runtime / 委派 / 工具执行 / 持久化 / resume / permission / LLM replay）的新不变量必须走 pi-loop record/replay 门禁 `scripts/harness-pi-loop.mjs`（`pnpm harness:pi-loop`，已接入 `pnpm validate`）：确定性 faux StreamFn 驱动真 `PiOrchestrationService`，断言真实行为，不得用 mock LLM 文本当成功证据。LangGraph 时代的 `packages/core/harness/scenarios/*.json` + `packages/core/src/testing/invariant-assertions.ts` 已在 P6 抹除，不要再往那些路径写不变量。
 - 临时 `node --test` 只允许作为本地探索，不进 git；不要通过给 `packages/core/package.json` 加 `test` script 或 CI gate 来恢复普通 product 自动测试。
 - 如果 review 发现源内 `.test.mjs` 和 harness 重复，优先删除源内测试，把仍有价值的不变量迁到 harness。
 

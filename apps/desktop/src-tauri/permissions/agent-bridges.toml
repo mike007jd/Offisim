@@ -29,7 +29,6 @@ commands.allow = [
   "export_runtime_vault_zip",
   "export_scene_drop_diagnostic",
   "save_deliverable_to_local",
-  "resume_conversation",
   "get_session",
   "set_session_mode",
   "mcp_list_registered_servers",

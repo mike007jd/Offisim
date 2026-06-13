@@ -523,9 +523,18 @@ const requiredChecks = [
     ],
   },
   {
+    // The Office rail intentionally renders every author's text through
+    // `<Markdown>` (unified Codex-style rendering) rather than the plain
+    // `MessagePartPrimitive.Text`, so we assert the streaming-progress primitive
+    // instead — the assistant-ui message-primitive integration the gate exists
+    // to enforce (Root + Parts + a part-level primitive) is still intact.
     label: 'Office assistant-ui message primitives',
     file: 'apps/desktop/renderer/src/surfaces/office/rail/MessageItem.tsx',
-    patterns: [/MessagePrimitive\.Root/, /MessagePrimitive\.Parts/, /MessagePartPrimitive\.Text/],
+    patterns: [
+      /MessagePrimitive\.Root/,
+      /MessagePrimitive\.Parts/,
+      /MessagePartPrimitive\.InProgress/,
+    ],
   },
   {
     label: 'Workspace assistant-ui thread primitives',

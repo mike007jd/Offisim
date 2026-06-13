@@ -296,6 +296,10 @@ export class PiOrchestrationService {
     // MAX_TOOL_ROUNDS / recursion-limit, which vanished with the graph.
     let rounds = 0;
     let hitRoundLimit = false;
+    // First transcript-persistence failure on a top-level turn. A failed append
+    // means multi-turn memory + resume lose this turn's history, so we surface it
+    // as a failed run (thread → blocked) rather than swallowing it as a warning.
+    let persistError: unknown = null;
 
     // A delegated sub-agent (parentSignal set) must NOT stream into the boss's
     // chat bubble — its output reaches the user only through the boss's summary.
@@ -312,7 +316,13 @@ export class PiOrchestrationService {
         runScope: params.runScope ?? null,
       },
       {
-        onMessageEnd: (message) => this.persistMessage(params, message),
+        onMessageEnd: async (message) => {
+          try {
+            await this.persistMessage(params, message);
+          } catch (error) {
+            persistError ??= error;
+          }
+        },
       },
     );
     const roundCounter = (event: AgentEvent) => {
@@ -337,7 +347,18 @@ export class PiOrchestrationService {
       // and mcp_audit_log.thread_id REFERENCES graph_threads(thread_id), so every
       // tool audit insert (e.g. a delegated sub-agent's bash) would fail the FK.
       if (!params.parentSignal) {
-        await this.ensureThreadRow(params).catch(() => {});
+        // The graph_threads row is a hard precondition: mcp_audit_log.thread_id
+        // REFERENCES graph_threads(thread_id), so without it every audited tool
+        // call would fail the FK and the "tool ran → audit row" contract would
+        // silently break. Fail the whole turn loudly rather than swallowing it
+        // and running tools whose audit inserts cannot land.
+        try {
+          await this.ensureThreadRow(params);
+        } catch (error) {
+          throw new Error(
+            `Cannot start run: failed to create the thread row required for tool audit (${toErrorMessage(error)})`,
+          );
+        }
       }
       if (params.continueRun) {
         // Resume: the transcript (loaded as history, dangling-toolCalls patched)
@@ -355,13 +376,14 @@ export class PiOrchestrationService {
 
     const messages = agent.state.messages;
     const finalText = extractFinalAssistantText(messages);
-    const stopReason: PiExecuteResult['stopReason'] = hitRoundLimit
-      ? 'round-limit'
-      : agent.state.errorMessage
-        ? agent.signal?.aborted
-          ? 'aborted'
-          : 'error'
-        : 'completed';
+    let stopReason: PiExecuteResult['stopReason'] = 'completed';
+    if (hitRoundLimit) {
+      stopReason = 'round-limit';
+    } else if (agent.state.errorMessage) {
+      stopReason = agent.signal?.aborted ? 'aborted' : 'error';
+    } else if (persistError) {
+      stopReason = 'error';
+    }
 
     if (!params.parentSignal) {
       await runtimeCtx.repos.threads
@@ -538,6 +560,10 @@ export class PiOrchestrationService {
         threadId: params.threadId,
         error: toErrorMessage(error),
       });
+      // Rethrow so the run records the failure (see `persistError` in runWorker)
+      // and marks the thread blocked — losing transcript history silently would
+      // corrupt multi-turn memory + resume.
+      throw error;
     }
   }
 

@@ -1993,7 +1993,7 @@
   padding: 2px var(--off-sp-2);
   border-radius: var(--off-r-xs);
   background: var(--off-warn, var(--off-accent));
-  color: var(--off-warn-fg, var(--off-accent-fg, #fff));
+  color: var(--off-accent-fg);
   font-size: var(--off-fs-meta);
   font-weight: 650;
   text-transform: uppercase;
