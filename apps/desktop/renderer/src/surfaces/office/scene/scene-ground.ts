@@ -1,4 +1,3 @@
-import { prefabPlacementBounds } from '@offisim/shared-types';
 import { type Camera, Plane, Raycaster, Vector2, Vector3 } from 'three';
 import type { ZoneDef } from './scene-layout.js';
 
@@ -56,30 +55,4 @@ export function groundPointFromClient(
   if (!SCRATCH_RAYCASTER.ray.intersectPlane(SCRATCH_FLOOR, SCRATCH_HIT)) return null;
   const { x, z } = SCRATCH_HIT;
   return { x, z, zoneId: hitTestZone(zones, x, z)?.id ?? null };
-}
-
-/** Clamp a prefab center so its placement bounds stay inside the zone rect —
- *  moving an object never rejects, it pins at the zone edge. Overlap between
- *  placed objects is the editor's choice. */
-export function clampPrefabCenter(
-  x: number,
-  z: number,
-  prefab: { prefabId: string; rotation: 0 | 90 | 180 | 270; gridSize?: readonly [number, number] },
-  zone: Pick<ZoneDef, 'cx' | 'cz' | 'w' | 'd'>,
-): { x: number; z: number } {
-  const bounds = prefabPlacementBounds({
-    prefabId: prefab.prefabId,
-    x,
-    z,
-    rotation: prefab.rotation,
-    gridSize: prefab.gridSize,
-  });
-  const minX = zone.cx - zone.w / 2 + (x - bounds.minX);
-  const maxX = zone.cx + zone.w / 2 - (bounds.maxX - x);
-  const minZ = zone.cz - zone.d / 2 + (z - bounds.minZ);
-  const maxZ = zone.cz + zone.d / 2 - (bounds.maxZ - z);
-  return {
-    x: minX > maxX ? zone.cx : Math.min(maxX, Math.max(minX, x)),
-    z: minZ > maxZ ? zone.cz : Math.min(maxZ, Math.max(minZ, z)),
-  };
 }

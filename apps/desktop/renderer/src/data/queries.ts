@@ -276,7 +276,11 @@ export function useMessages(threadId: string | null) {
 
 const TEMP_DELIVERABLE_RE = /(^|[/\\])(?:tmp|temp|\.tmp)([/\\]|$)|ui-tool-deliverable/i;
 
-function deliverableFormat(title: string, fileName: string | null, mimeType: string | null): string {
+function deliverableFormat(
+  title: string,
+  fileName: string | null,
+  mimeType: string | null,
+): string {
   const source = fileName?.trim() || title.trim();
   const [, ext] = /\.([^.]+)$/.exec(source) ?? [];
   if (ext) return ext.toUpperCase();
@@ -286,7 +290,11 @@ function deliverableFormat(title: string, fileName: string | null, mimeType: str
   return 'TXT';
 }
 
-function deliverableVisible(input: { title: string; fileName?: string | null; kind?: string | null }) {
+function deliverableVisible(input: {
+  title: string;
+  fileName?: string | null;
+  kind?: string | null;
+}) {
   const title = input.title.trim();
   const fileName = input.fileName?.trim() ?? '';
   if (!title) return false;
@@ -524,17 +532,27 @@ export function useDeleteZone() {
   });
 }
 
+/** Cache value shape produced by useOfficeLayout — the optimistic mutations
+ *  below patch it in place so a placed/moved object is visible to the very next
+ *  collision probe instead of waiting for the post-commit refetch. */
+type OfficeLayoutData = {
+  zones: ZoneRow[];
+  prefabs: { instance: PrefabInstanceRow; definition: PrefabDefinition }[];
+};
+
 export function useCreatePrefabInstance() {
   const queryClient = useQueryClient();
   const companyId = useUiState((s) => s.companyId);
   return useMutation({
     mutationFn: async ({
+      instanceId,
       zoneId,
       prefabId,
       x,
       z,
       rotation = 0,
     }: {
+      instanceId: string;
       zoneId: string;
       prefabId: string;
       x: number;
@@ -546,7 +564,6 @@ export function useCreatePrefabInstance() {
       if (!companyId)
         throw new Error('Select or create a company before editing the office layout');
       const ts = new Date().toISOString();
-      const instanceId = crypto.randomUUID();
       await repos.prefabInstances.create({
         instance_id: instanceId,
         company_id: companyId,
@@ -563,7 +580,40 @@ export function useCreatePrefabInstance() {
       });
       return { persisted: true, instanceId };
     },
-    onSuccess: () => {
+    // Optimistically insert the new object so the next placement click probes
+    // collisions against it (closes the rapid repeat-click overlap window).
+    onMutate: async ({ instanceId, zoneId, prefabId, x, z, rotation = 0 }) => {
+      const definition = getBuiltinPrefab(prefabId);
+      if (!companyId || !definition) return { previous: undefined };
+      const key = ['office-layout', companyId];
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<OfficeLayoutData | null>(key);
+      const ts = new Date().toISOString();
+      const instance: PrefabInstanceRow = {
+        instance_id: instanceId,
+        company_id: companyId,
+        prefab_id: prefabId,
+        zone_id: zoneId,
+        position_x: x,
+        position_y: z,
+        rotation,
+        bindings_json: null,
+        config_json: null,
+        enabled: 1,
+        created_at: ts,
+        updated_at: ts,
+      };
+      queryClient.setQueryData<OfficeLayoutData | null>(key, (current) =>
+        current ? { ...current, prefabs: [...current.prefabs, { instance, definition }] } : current,
+      );
+      return { previous };
+    },
+    onError: (_error, _vars, context) => {
+      if (context?.previous !== undefined) {
+        queryClient.setQueryData(['office-layout', companyId], context.previous);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['office-layout', companyId] });
     },
   });
@@ -589,7 +639,33 @@ export function useUpdatePrefabInstance() {
       await repos.prefabInstances.update(instanceId, fields);
       return { persisted: true };
     },
-    onSuccess: () => {
+    // Optimistically patch position/rotation/zone so a moved object stays under
+    // the cursor across the DB round-trip instead of snapping back then jumping.
+    onMutate: async ({ instanceId, fields }) => {
+      if (!companyId) return { previous: undefined };
+      const key = ['office-layout', companyId];
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<OfficeLayoutData | null>(key);
+      queryClient.setQueryData<OfficeLayoutData | null>(key, (current) =>
+        current
+          ? {
+              ...current,
+              prefabs: current.prefabs.map((p) =>
+                p.instance.instance_id === instanceId
+                  ? { ...p, instance: { ...p.instance, ...fields } }
+                  : p,
+              ),
+            }
+          : current,
+      );
+      return { previous };
+    },
+    onError: (_error, _vars, context) => {
+      if (context?.previous !== undefined) {
+        queryClient.setQueryData(['office-layout', companyId], context.previous);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['office-layout', companyId] });
     },
   });

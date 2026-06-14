@@ -1,28 +1,25 @@
-import { ZoneCeilingLight, ZoneRug } from '@/surfaces/office/scene/r3d/ZoneDressing.js';
 import { RoomShell } from '@/surfaces/office/scene/r3d/RoomShell.js';
 import { SceneEnvironment } from '@/surfaces/office/scene/r3d/SceneEnvironment.js';
 import { SceneLighting } from '@/surfaces/office/scene/r3d/SceneLighting.js';
 import { ScenePostFx } from '@/surfaces/office/scene/r3d/ScenePostFx.js';
+import { ZoneCeilingLight, ZoneRug } from '@/surfaces/office/scene/r3d/ZoneDressing.js';
 import { Prefab3D } from '@/surfaces/office/scene/r3d/prefabs/Prefab3D.js';
 import {
   OFFICE_CAMERA_PRESET,
   SCENE_CONTENT_SCALE,
 } from '@/surfaces/office/scene/r3d/scene-art-direction.js';
 import { LIGHT_SCENE_3D } from '@/surfaces/office/scene/r3d/scene-colors.js';
-import {
-  clampPrefabCenter,
-  groundPointFromClient,
-  snapToGrid,
-} from '@/surfaces/office/scene/scene-ground.js';
+import { groundPointFromClient, snapToGrid } from '@/surfaces/office/scene/scene-ground.js';
 import { type ZoneDef, zoneDefsFromLayout } from '@/surfaces/office/scene/scene-layout.js';
 import { getBuiltinPrefab } from '@offisim/renderer';
 import {
   type PrefabDefinition,
   type PrefabInstanceRow,
+  type PrefabPlacementObstacle,
+  evaluatePrefabPlacement,
   findOverlaps,
   findZonePreset,
   prefabBoundsToRect,
-  prefabFitsWithinZone,
   prefabPlacementBounds,
 } from '@offisim/shared-types';
 import { OrbitControls } from '@react-three/drei';
@@ -62,6 +59,10 @@ interface StudioScene3DProps {
   readonly onMoveObject: (move: StudioObjectMove) => void;
   readonly onMoveZone: (move: StudioZoneDrag) => void;
   readonly onEnterFocus: (zoneId: string) => void;
+  /** A drag/placement landed somewhere the object can't go — surface the reason
+   *  (the gesture itself reverts; nothing is persisted). */
+  readonly onMoveRejected: (reason: string) => void;
+  readonly onPlacementRejected: (reason: string) => void;
 }
 
 const FRAME_THICKNESS = 0.07;
@@ -310,28 +311,36 @@ function ZoneHitPlane({
   );
 }
 
-/** Focus-mode editable prefab: live drag (snap + zone clamp), bbox frame on
- *  selection. Display-only outside the focused zone. */
+/** Focus-mode editable prefab: the object tracks the cursor 1:1 (no clamp — it
+ *  never jumps to a "nearby" cell), the bbox frame turns red the instant the
+ *  live spot leaves the zone or overlaps another object, and an invalid release
+ *  reverts without persisting. Display-only outside the focused zone. */
 function EditablePrefab({
   vm,
   zone,
+  obstacles,
   selected,
   editable,
   onSelect,
   onMove,
+  onMoveRejected,
   onDragState,
 }: {
   vm: StudioPrefabVM;
   zone: ZoneDef | null;
+  obstacles: readonly PrefabPlacementObstacle[];
   selected: boolean;
   editable: boolean;
   onSelect: () => void;
   onMove: (move: StudioObjectMove) => void;
+  onMoveRejected: (reason: string) => void;
   onDragState: (dragging: boolean) => void;
 }) {
   const { camera, gl } = useThree();
   const cleanupRef = useRef<(() => void) | null>(null);
   const [dragPos, setDragPos] = useState<{ x: number; z: number } | null>(null);
+  // null = not dragging; true/false = live drop validity (drives frame color).
+  const [dragValid, setDragValid] = useState<boolean | null>(null);
   const { instance, definition } = vm;
 
   useEffect(
@@ -344,7 +353,7 @@ function EditablePrefab({
   const x = dragPos?.x ?? instance.position_x;
   const z = dragPos?.z ?? instance.position_y;
   const frameBounds = useMemo(() => {
-    if (!selected) return null;
+    if (!selected && dragValid === null) return null;
     return prefabBoundsToRect(
       prefabPlacementBounds({
         prefabId: definition.prefabId,
@@ -354,31 +363,44 @@ function EditablePrefab({
         gridSize: definition.gridSize,
       }),
     );
-  }, [selected, definition, x, z, instance.rotation]);
+  }, [selected, dragValid, definition, x, z, instance.rotation]);
 
   const beginDrag = (event: PointerEvent) => {
     if (!editable || !zone) return;
     cleanupRef.current?.();
-    let livePos: { x: number; z: number } | null = null;
+    let last: { x: number; z: number } | null = null;
 
-    const trackLive = (e: PointerEvent) => {
+    // One probe = floor hit → grid snap → shared collision verdict. Returns null
+    // only when the pointer is off-canvas / the ray misses the floor plane.
+    const probe = (e: PointerEvent) => {
       const point = groundPointFromClient(e.clientX, e.clientY, gl.domElement, camera, [zone]);
-      if (!point) return;
-      const clamped = clampPrefabCenter(
-        snapToGrid(point.x),
-        snapToGrid(point.z),
+      if (!point) return null;
+      // Snap to grid but DON'T clamp into the zone — the object follows the
+      // cursor 1:1 so it never feels like it teleports to an empty cell.
+      const x = snapToGrid(point.x);
+      const z = snapToGrid(point.z);
+      const verdict = evaluatePrefabPlacement(
         {
+          id: instance.instance_id,
           prefabId: definition.prefabId,
+          x,
+          z,
           rotation: instance.rotation,
           gridSize: definition.gridSize,
         },
         zone,
+        obstacles,
       );
-      // Snap means most pointer events resolve to the same cell — skip the
-      // re-render when nothing changed.
-      if (livePos && livePos.x === clamped.x && livePos.z === clamped.z) return;
-      livePos = clamped;
-      setDragPos(clamped);
+      return { x, z, valid: verdict.valid, reason: verdict.reason };
+    };
+
+    const trackLive = (e: PointerEvent) => {
+      const next = probe(e);
+      if (!next) return; // off-canvas: hold the last on-floor spot (no teleport)
+      if (last && last.x === next.x && last.z === next.z) return;
+      last = { x: next.x, z: next.z };
+      setDragPos({ x: next.x, z: next.z });
+      setDragValid(next.valid);
     };
 
     onSelect();
@@ -387,18 +409,31 @@ function EditablePrefab({
       onDragMove: trackLive,
       onDrop: (e, moved) => {
         if (!moved) return;
-        trackLive(e);
-        if (livePos) {
-          onMove({ instanceId: instance.instance_id, zoneId: zone.id, ...livePos });
+        // Evaluate the ACTUAL release point — never a stale tracked value. An
+        // off-canvas release (null) just reverts, mirroring the placement ghost.
+        const release = probe(e);
+        if (!release) return;
+        if (release.valid) {
+          onMove({ instanceId: instance.instance_id, zoneId: zone.id, x: release.x, z: release.z });
+        } else {
+          onMoveRejected(release.reason ?? "Can't move the object here");
         }
       },
       onCleanup: () => {
         onDragState(false);
         setDragPos(null);
+        setDragValid(null);
         cleanupRef.current = null;
       },
     });
   };
+
+  const frameColor =
+    dragValid === false
+      ? LIGHT_SCENE_3D.ghostBlocked
+      : dragValid === true
+        ? LIGHT_SCENE_3D.ghostValid
+        : LIGHT_SCENE_3D.selectionRing;
 
   return (
     <>
@@ -430,9 +465,7 @@ function EditablePrefab({
       >
         <Prefab3D definition={definition} />
       </group>
-      {frameBounds ? (
-        <SelectionFrame {...frameBounds} color={LIGHT_SCENE_3D.selectionRing} />
-      ) : null}
+      {frameBounds ? <SelectionFrame {...frameBounds} color={frameColor} /> : null}
     </>
   );
 }
@@ -442,6 +475,8 @@ interface GhostState {
   readonly x: number;
   readonly z: number;
   readonly valid: boolean;
+  /** Why the current spot is blocked (toasted on commit, not on hover). */
+  readonly reason: string | null;
   readonly overCanvas: boolean;
 }
 
@@ -453,6 +488,8 @@ export function StudioScene3D({
   onMoveObject,
   onMoveZone,
   onEnterFocus,
+  onMoveRejected,
+  onPlacementRejected,
 }: StudioScene3DProps) {
   const focusZoneId = useStudioStore((s) => s.focusZoneId);
   const selection = useStudioStore((s) => s.selection);
@@ -465,6 +502,23 @@ export function StudioScene3D({
     () => zoneDefs.find((zone) => zone.id === focusZoneId) ?? null,
     [zoneDefs, focusZoneId],
   );
+  // Every other object in the focused zone, as collision obstacles. Drag and
+  // placement both probe against this so the live preview and the commit gate
+  // share one verdict.
+  const focusZoneObstacles = useMemo<PrefabPlacementObstacle[]>(() => {
+    if (!focusZoneId) return [];
+    return prefabs
+      .filter((vm) => vm.instance.zone_id === focusZoneId)
+      .map((vm) => ({
+        id: vm.instance.instance_id,
+        prefabId: vm.definition.prefabId,
+        x: vm.instance.position_x,
+        z: vm.instance.position_y,
+        rotation: vm.instance.rotation,
+        gridSize: vm.definition.gridSize,
+        label: vm.definition.name,
+      }));
+  }, [prefabs, focusZoneId]);
   const [dragging, setDragging] = useState(false);
 
   return (
@@ -517,10 +571,12 @@ export function StudioScene3D({
             key={vm.instance.instance_id}
             vm={vm}
             zone={inFocusZone ? focusZone : null}
+            obstacles={focusZoneObstacles}
             selected={selection?.kind === 'object' && selection.id === vm.instance.instance_id}
             editable={editable && inFocusZone && !placement}
             onSelect={() => select({ kind: 'object', id: vm.instance.instance_id })}
             onMove={onMoveObject}
+            onMoveRejected={onMoveRejected}
             onDragState={setDragging}
           />
         );
@@ -530,7 +586,9 @@ export function StudioScene3D({
         <PlacementGhostController
           zoneDefs={zoneDefs}
           focusZone={focusZone}
+          obstacles={focusZoneObstacles}
           onCommit={onCommitPlacement}
+          onReject={onPlacementRejected}
           onEnd={endPlacement}
         />
       ) : null}
@@ -560,12 +618,16 @@ export function StudioScene3D({
 function PlacementGhostController({
   zoneDefs,
   focusZone,
+  obstacles,
   onCommit,
+  onReject,
   onEnd,
 }: {
   zoneDefs: readonly ZoneDef[];
   focusZone: ZoneDef | null;
+  obstacles: readonly PrefabPlacementObstacle[];
   onCommit: (point: StudioPlacementCommit) => void;
+  onReject: (reason: string) => void;
   onEnd: () => void;
 }) {
   const placement = useStudioStore((s) => s.placement);
@@ -611,34 +673,41 @@ function PlacementGhostController({
       const x = snapToGrid(point.x);
       const z = snapToGrid(point.z);
       let valid: boolean;
+      let reason: string | null;
       if (ghostShape.kind === 'prefab') {
-        valid = Boolean(
-          focusZone &&
-            prefabFitsWithinZone(
-              {
-                prefabId: ghostShape.definition.prefabId,
-                x,
-                z,
-                rotation: ghostShape.rotation,
-                gridSize: ghostShape.definition.gridSize,
-              },
-              focusZone,
-            ),
+        // Same evaluator the focused-zone drag uses: zone fit + overlap, so a
+        // green ghost can never become a silently-rejected commit.
+        const verdict = evaluatePrefabPlacement(
+          {
+            prefabId: ghostShape.definition.prefabId,
+            x,
+            z,
+            rotation: ghostShape.rotation,
+            gridSize: ghostShape.definition.gridSize,
+          },
+          focusZone,
+          obstacles,
         );
+        valid = verdict.valid;
+        reason = verdict.reason;
       } else {
-        valid =
-          findOverlaps(
-            { id: 'zone-ghost', cx: x, cz: z, w: ghostShape.w, d: ghostShape.d },
-            zoneDefs.map((zone) => ({
-              id: zone.id,
-              cx: zone.cx,
-              cz: zone.cz,
-              w: zone.w,
-              d: zone.d,
-            })),
-          ).length === 0;
+        const hits = findOverlaps(
+          { id: 'zone-ghost', cx: x, cz: z, w: ghostShape.w, d: ghostShape.d },
+          zoneDefs.map((zone) => ({
+            id: zone.id,
+            label: zone.label,
+            cx: zone.cx,
+            cz: zone.cz,
+            w: zone.w,
+            d: zone.d,
+          })),
+        );
+        valid = hits.length === 0;
+        reason = valid
+          ? null
+          : `Overlaps ${hits.map((other) => other.label ?? other.id).join(', ')}`;
       }
-      return { x, z, valid, overCanvas: true };
+      return { x, z, valid, reason, overCanvas: true };
     };
 
     const onPointerMove = (e: PointerEvent) => {
@@ -655,12 +724,14 @@ function PlacementGhostController({
       if (placement.mode !== 'drag') return;
       const state = evaluate(e.clientX, e.clientY);
       if (state?.valid) onCommit({ x: state.x, z: state.z });
+      else if (state?.reason) onReject(state.reason);
       onEnd();
     };
     const onClick = (e: MouseEvent) => {
       if (placement.mode !== 'click') return;
       const state = evaluate(e.clientX, e.clientY);
       if (state?.valid) onCommit({ x: state.x, z: state.z });
+      else if (state?.reason) onReject(state.reason);
     };
     const onContextMenu = (e: MouseEvent) => {
       e.preventDefault();
@@ -679,7 +750,18 @@ function PlacementGhostController({
       gl.domElement.removeEventListener('click', onClick);
       gl.domElement.removeEventListener('contextmenu', onContextMenu);
     };
-  }, [placement, ghostShape, zoneDefs, focusZone, camera, gl, onCommit, onEnd]);
+  }, [
+    placement,
+    ghostShape,
+    zoneDefs,
+    focusZone,
+    obstacles,
+    camera,
+    gl,
+    onCommit,
+    onReject,
+    onEnd,
+  ]);
 
   if (!ghost || !ghostShape) return null;
   const color = ghost.valid ? LIGHT_SCENE_3D.ghostValid : LIGHT_SCENE_3D.ghostBlocked;

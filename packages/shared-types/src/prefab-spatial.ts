@@ -233,6 +233,41 @@ export function prefabFitsWithinZone(
   );
 }
 
+/** An already-placed prefab the candidate must not collide with. `id` lets the
+ *  evaluator skip the candidate itself when moving/rotating; `label` feeds the
+ *  human-readable rejection reason. */
+export interface PrefabPlacementObstacle extends PrefabPlacementBoundsInput {
+  readonly label?: string;
+}
+
+export interface PrefabPlacementVerdict {
+  readonly valid: boolean;
+  /** Human-readable cause when blocked (e.g. `Overlaps Desk 3`); null when valid. */
+  readonly reason: string | null;
+}
+
+/**
+ * Single source of truth for "can this prefab sit here?" — shared by the
+ * placement ghost, object drag, and rotation so the live preview and the commit
+ * gate can never disagree. Zone containment is checked first, then AABB overlap
+ * against every other prefab in the zone. It never relocates the candidate;
+ * callers decide whether to block, revert, or toast the returned reason.
+ */
+export function evaluatePrefabPlacement(
+  candidate: PrefabPlacementBoundsInput,
+  zone: PrefabPlacementZoneBounds | null,
+  obstacles: readonly PrefabPlacementObstacle[],
+): PrefabPlacementVerdict {
+  if (!zone) return { valid: false, reason: 'No zone in focus' };
+  if (!prefabFitsWithinZone(candidate, zone)) return { valid: false, reason: 'Outside the zone' };
+  const overlaps = findPrefabPlacementOverlaps(candidate, obstacles);
+  if (overlaps.length > 0) {
+    const names = overlaps.map((other) => other.label ?? other.prefabId).join(', ');
+    return { valid: false, reason: `Overlaps ${names}` };
+  }
+  return { valid: true, reason: null };
+}
+
 function offsetPlacementToBoundsInput(
   placement: PrefabOffsetPlacement,
   index: number,

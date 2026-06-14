@@ -372,6 +372,8 @@ export type {
   PrefabPlacementBounds,
   PrefabPlacementZoneBounds,
   PrefabOffsetPlacement,
+  PrefabPlacementObstacle,
+  PrefabPlacementVerdict,
 } from './prefab-spatial.js';
 export {
   BUILTIN_PREFAB_IDS,
@@ -382,6 +384,7 @@ export {
   prefabBoundsOverlap,
   findPrefabPlacementOverlaps,
   prefabFitsWithinZone,
+  evaluatePrefabPlacement,
   resolveNonOverlappingPrefabOffsets,
 } from './prefab-spatial.js';
 

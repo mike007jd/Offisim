@@ -11,10 +11,11 @@ import {
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import { safeErrorMessage } from '@/lib/provider-bridge.js';
-import { clampPrefabCenter } from '@/surfaces/office/scene/scene-ground.js';
 import {
   type PrefabInstanceRow,
+  type PrefabPlacementObstacle,
   type SemanticCategory,
+  evaluatePrefabPlacement,
   findOverlaps,
   findZonePreset,
 } from '@offisim/shared-types';
@@ -23,7 +24,7 @@ import { useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { PrefabBrowser } from './PrefabBrowser.js';
 import { SceneTreePanel } from './SceneTreePanel.js';
-import { type ZonePatch, StudioInspector } from './StudioInspector.js';
+import { StudioInspector, type ZonePatch } from './StudioInspector.js';
 import {
   type StudioObjectMove,
   type StudioPlacementCommit,
@@ -117,6 +118,7 @@ export function StudioSurface() {
       if (placement.kind === 'prefab') {
         if (!focusedZone) return;
         const result = await createPrefab.mutateAsync({
+          instanceId: crypto.randomUUID(),
           zoneId: focusedZone.zone_id,
           prefabId: placement.prefabId,
           x: point.x,
@@ -151,6 +153,7 @@ export function StudioSurface() {
           await Promise.all(
             preset.prefabs.map((p) =>
               createPrefab.mutateAsync({
+                instanceId: crypto.randomUUID(),
                 zoneId: result.zoneId as string,
                 prefabId: p.prefabId,
                 x: point.x + p.offsetX,
@@ -279,24 +282,43 @@ export function StudioSurface() {
     }
   }
 
-  /** Rotation never rejects: if the rotated bounds poke out of the zone, the
-   *  object slides back inside (clamp). */
+  /** Rotation happens in place — it never slides the object to a new cell. If
+   *  the rotated footprint would leave the zone or hit another object, the spin
+   *  is blocked and the reason is toasted (no silent relocate). */
   async function rotateObject(instanceId: string) {
     const vm = prefabs.find((candidate) => candidate.instance.instance_id === instanceId);
     const zone = zones.find((candidate) => candidate.zone_id === vm?.instance.zone_id);
     if (!vm || !zone) return;
     const nextRotation = ((vm.instance.rotation + 90) % 360) as PrefabInstanceRow['rotation'];
-    const clamped = clampPrefabCenter(
-      vm.instance.position_x,
-      vm.instance.position_y,
-      { prefabId: vm.definition.prefabId, rotation: nextRotation, gridSize: vm.definition.gridSize },
-      zone,
+    const obstacles: PrefabPlacementObstacle[] = prefabs
+      .filter((candidate) => candidate.instance.zone_id === zone.zone_id)
+      .map((candidate) => ({
+        id: candidate.instance.instance_id,
+        prefabId: candidate.definition.prefabId,
+        x: candidate.instance.position_x,
+        z: candidate.instance.position_y,
+        rotation: candidate.instance.rotation,
+        gridSize: candidate.definition.gridSize,
+        label: candidate.definition.name,
+      }));
+    const verdict = evaluatePrefabPlacement(
+      {
+        id: instanceId,
+        prefabId: vm.definition.prefabId,
+        x: vm.instance.position_x,
+        z: vm.instance.position_y,
+        rotation: nextRotation,
+        gridSize: vm.definition.gridSize,
+      },
+      { cx: zone.cx, cz: zone.cz, w: zone.w, d: zone.d },
+      obstacles,
     );
+    if (!verdict.valid) {
+      toast.error('Rotation blocked', { description: verdict.reason ?? undefined });
+      return;
+    }
     try {
-      await updatePrefab.mutateAsync({
-        instanceId,
-        fields: { rotation: nextRotation, position_x: clamped.x, position_y: clamped.z },
-      });
+      await updatePrefab.mutateAsync({ instanceId, fields: { rotation: nextRotation } });
     } catch (error) {
       toast.error('Object rotation failed', { description: safeErrorMessage(error) });
     }
@@ -450,6 +472,10 @@ export function StudioSurface() {
             onMoveObject={(move) => void moveObject(move)}
             onMoveZone={(move: StudioZoneDrag) => void shiftZone(move.zoneId, move.dx, move.dz)}
             onEnterFocus={setFocusZone}
+            onMoveRejected={(reason) => toast.error('Move blocked', { description: reason })}
+            onPlacementRejected={(reason) =>
+              toast.error("Can't place here", { description: reason })
+            }
           />
         </div>
 
