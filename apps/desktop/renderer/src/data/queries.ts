@@ -358,12 +358,16 @@ export function useRunCost() {
   return useQuery({ queryKey: ['run-cost'], queryFn: loadRunCost });
 }
 
-// graph_threads.status values that are NOT terminal — these are the runs the
-// ResumeBar can pick back up (a persisted checkpoint exists for them).
-const NON_TERMINAL_THREAD_STATUSES = new Set(['queued', 'running', 'blocked', 'paused']);
-// Only conversational entry modes are resumable from the ResumeBar; background
-// sync / install flows are not user-facing conversations.
-const RESUMABLE_ENTRY_MODES = new Set(['direct_chat', 'boss_chat', 'meeting']);
+const NON_TERMINAL_THREAD_STATUSES = ['queued', 'running', 'blocked', 'paused'] as const;
+const RESUMABLE_ENTRY_MODES = ['direct_chat', 'boss_chat', 'meeting'] as const;
+
+interface UnfinishedThreadRow {
+  thread_id: string;
+  company_id: string;
+  project_id: string | null;
+  status: string;
+  title: string | null;
+}
 
 export function useUnfinishedThreads() {
   return useQuery({
@@ -373,30 +377,29 @@ export function useUnfinishedThreads() {
       // Browser preview has no repos — resolve the fixture.
       if (!repos) return resolveAsync(unfinishedThreads);
 
-      // Real backend: surface non-terminal conversational graph threads across
-      // all active companies, named by their chat-thread title. These are reads
-      // (not serialized by the tauri write-chain mutex), so fan them out:
-      // per-company thread lists in parallel, then one parallel batch of title
-      // lookups over only the surviving non-terminal threads (no per-row await).
-      const companies = (await repos.companies.findAll()).filter((c) => c.status !== 'archived');
-      const threadsByCompany = await Promise.all(
-        companies.map((company) => repos.threads.findByCompany(company.company_id)),
+      const db = await getTauriDb();
+      const rows = await db.select<UnfinishedThreadRow[]>(
+        `SELECT gt.thread_id,
+                gt.company_id,
+                gt.project_id,
+                gt.status,
+                ct.title
+           FROM graph_threads gt
+           JOIN companies c ON c.company_id = gt.company_id
+      LEFT JOIN chat_threads ct ON ct.thread_id = gt.thread_id
+          WHERE c.status <> 'archived'
+            AND gt.status IN (${NON_TERMINAL_THREAD_STATUSES.map((_, i) => `$${i + 1}`).join(', ')})
+            AND gt.entry_mode IN (${RESUMABLE_ENTRY_MODES.map(
+              (_, i) => `$${NON_TERMINAL_THREAD_STATUSES.length + i + 1}`,
+            ).join(', ')})
+       ORDER BY gt.created_at DESC`,
+        [...NON_TERMINAL_THREAD_STATUSES, ...RESUMABLE_ENTRY_MODES],
       );
-      const candidates = threadsByCompany
-        .flat()
-        .filter(
-          (row) =>
-            NON_TERMINAL_THREAD_STATUSES.has(row.status) &&
-            RESUMABLE_ENTRY_MODES.has(row.entry_mode),
-        );
-      const titles = await Promise.all(
-        candidates.map((row) => repos.chatThreads.findById(row.thread_id).catch(() => null)),
-      );
-      return candidates.map((row, i) => ({
+      return rows.map((row) => ({
         threadId: row.thread_id,
         companyId: row.company_id,
         projectId: row.project_id ?? '',
-        name: displayThreadTitle(titles[i]?.title),
+        name: displayThreadTitle(row.title),
         state: row.status === 'blocked' ? 'blocked' : 'running',
       }));
     },

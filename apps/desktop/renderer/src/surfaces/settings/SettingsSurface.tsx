@@ -88,7 +88,9 @@ function SettingsCompanion({
             </div>
             <div>
               <dt>Execution lane</dt>
-              <dd>{runtime.defaultRuntime === 'gateway' ? 'Desktop lane' : runtime.defaultRuntime}</dd>
+              <dd>
+                {runtime.defaultRuntime === 'gateway' ? 'Desktop lane' : runtime.defaultRuntime}
+              </dd>
             </div>
           </dl>
           <div className="off-set-comp-note">
@@ -198,9 +200,10 @@ function providerBaseUrl(config: ProviderConfig, values: ProviderFormValues): st
 
 async function persistProviderProfile(config: ProviderConfig, values: ProviderFormValues) {
   const { invoke } = await import('@tauri-apps/api/core');
+  const secretRef = config.secretRef ?? config.id;
   const secret = values.apiKey.trim();
   if (secret) {
-    await invoke('runtime_secret_set', { secret });
+    await invoke('runtime_secret_set', { secret, secretRef });
   }
   const baseUrl = providerBaseUrl(config, values);
   await invoke('runtime_provider_profile_upsert', {
@@ -210,7 +213,7 @@ async function persistProviderProfile(config: ProviderConfig, values: ProviderFo
       provider: providerProtocol(config, values.product),
       model: values.model.trim(),
       baseUrl,
-      secretRef: config.secretRef ?? config.id,
+      secretRef,
       localEndpoint: isLoopbackEndpoint(baseUrl),
     },
   });

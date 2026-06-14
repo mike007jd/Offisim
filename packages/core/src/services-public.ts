@@ -2,10 +2,5 @@ export { AgentContextPackService } from './services/agent-context-pack-service.j
 export { ConversationBudgetService } from './services/conversation-budget-service.js';
 export { DeliverablePersistenceService } from './services/deliverable-persistence-service.js';
 export { createRuntimeRollingJournal } from './services/conversation-budget/rolling-journal-runtime.js';
-export { FileHistoryService, FileHistoryToolExecutor } from './services/file-history-service.js';
-export { GitAutoCommitService } from './services/git-auto-commit-service.js';
 export { InteractionService } from './services/interaction-service.js';
 export { MemoryService } from './services/memory-service.js';
-export { ToolTelemetryService } from './services/tool-telemetry-service.js';
-export type { FileSnapshotAdapter } from './services/file-history-service.js';
-export type { GitExec } from './services/git-auto-commit-service.js';

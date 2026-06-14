@@ -19,12 +19,11 @@ export function createRuntimeRollingJournal(
   opts: RuntimeRollingJournalOptions = {},
 ): RollingJournal {
   const synopsisGenerator = new SynopsisGenerator();
-  let latestMessages: readonly LlmMessage[] = [];
 
   return new RollingJournal({
     everyNTurns: opts.everyNTurns ?? DEFAULT_ROLLING_JOURNAL_TURNS,
     summarize: async (messages) => {
-      latestMessages = nonSystemMessages(messages);
+      const latestMessages = nonSystemMessages(messages);
       const ctx = getCtx();
       const thread = await ctx.repos.threads.findById(ctx.threadId);
       const existing = synopsisGenerator.parseExisting(thread?.synopsis_json ?? null);
@@ -35,7 +34,8 @@ export function createRuntimeRollingJournal(
         })) ?? ''
       );
     },
-    write: async (summary) => {
+    write: async (summary, messages) => {
+      const latestMessages = nonSystemMessages(messages);
       const ctx = getCtx();
       const thread = await ctx.repos.threads.findById(ctx.threadId);
       const existing = synopsisGenerator.parseExisting(thread?.synopsis_json ?? null);

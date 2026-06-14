@@ -2,7 +2,7 @@ import type { LlmMessage } from '../../llm/gateway.js';
 
 export interface RollingJournalOptions {
   readonly everyNTurns: number;
-  readonly write: (text: string) => Promise<void>;
+  readonly write: (text: string, messages: readonly LlmMessage[]) => Promise<void>;
   readonly summarize: (messages: readonly LlmMessage[]) => Promise<string>;
 }
 
@@ -27,7 +27,7 @@ export class RollingJournal {
 
     const summary = await this.opts.summarize(messages);
     if (summary.trim().length === 0) return;
-    await this.opts.write(summary);
+    await this.opts.write(summary, messages);
   }
 
   anchorText(): string | null {

@@ -256,10 +256,6 @@ export type {
 } from './services/interaction-service.js';
 export { InteractionService } from './services/interaction-service.js';
 
-export { ToolTelemetryService } from './services/tool-telemetry-service.js';
-export { FileHistoryService, FileHistoryToolExecutor } from './services/file-history-service.js';
-export type { FileSnapshotAdapter } from './services/file-history-service.js';
-
 // --- Utilities ---
 export { extractJsonFromLlm } from './utils/extract-json.js';
 export { generateId } from './utils/generate-id.js';
@@ -374,8 +370,6 @@ export { RackSlotService } from './services/rack-slot-service.js';
 export type { RackWithSlots } from './services/rack-slot-service.js';
 export { WorkstationToolResolver } from './services/workstation-tool-resolver.js';
 export type { WorkstationToolResolverDeps } from './services/workstation-tool-resolver.js';
-export { LibraryService } from './services/library-service.js';
-export type { CitationEntry } from './services/library-service.js';
 export { CompanyTemplateService } from './services/company-template-service.js';
 export type {
   CompanyTemplate,

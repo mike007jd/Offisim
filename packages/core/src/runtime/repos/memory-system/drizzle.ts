@@ -90,9 +90,7 @@ export function createMemorySystemDrizzleRepos(db: Db): MemorySystemDrizzleRepos
         // that match a later word but not the first, so the DB candidate set
         // would diverge from the post-filter / memory backend.
         const wordMatch = or(
-          ...queryWords.map(
-            (w) => sql`lower(${schema.memoryEntries.content}) LIKE ${`%${w}%`}`,
-          ),
+          ...queryWords.map((w) => sql`lower(${schema.memoryEntries.content}) LIKE ${`%${w}%`}`),
         );
         if (wordMatch) conditions.push(wordMatch);
       }
@@ -119,8 +117,10 @@ export function createMemorySystemDrizzleRepos(db: Db): MemorySystemDrizzleRepos
     },
     async findByOwner(ownerId, opts) {
       const conditions = [eq(schema.memoryEntries.owner_id, ownerId)];
+      if (opts?.companyId) conditions.push(eq(schema.memoryEntries.company_id, opts.companyId));
+      if (opts?.scope) conditions.push(eq(schema.memoryEntries.scope, opts.scope));
       if (opts?.category) conditions.push(eq(schema.memoryEntries.category, opts.category));
-      const rows = db
+      let query = db
         .select()
         .from(schema.memoryEntries)
         .where(and(...conditions))
@@ -128,10 +128,11 @@ export function createMemorySystemDrizzleRepos(db: Db): MemorySystemDrizzleRepos
           desc(schema.memoryEntries.importance),
           desc(schema.memoryEntries.confidence),
           desc(schema.memoryEntries.last_reinforced_at),
-        )
-        .limit(opts?.limit ?? 50)
-        .all();
-      return rows as MemoryEntryRow[];
+        );
+      if (opts?.limit !== null) {
+        query = query.limit(opts?.limit ?? 50) as typeof query;
+      }
+      return query.all() as MemoryEntryRow[];
     },
     async reinforce(memoryId, patch) {
       const existing = await memories.findById(memoryId);

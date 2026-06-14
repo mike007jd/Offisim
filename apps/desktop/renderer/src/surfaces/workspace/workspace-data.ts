@@ -1,5 +1,5 @@
 import { useUiState } from '@/app/ui-state.js';
-import { displayThreadTitle, employeeToVm, isTauriRuntime, reposOrNull } from '@/data/adapters.js';
+import { displayThreadTitle, isTauriRuntime, reposOrNull } from '@/data/adapters.js';
 import type { Employee } from '@/data/types.js';
 import { resolveAsync } from '@/lib/platform.js';
 import { getTauriDb } from '@/lib/tauri-db.js';
@@ -914,7 +914,7 @@ interface DirectChatCountRow {
  */
 async function loadContactDetails(
   companyId: string | null,
-  employees: Employee[],
+  employees: readonly Employee[],
 ): Promise<Record<string, ContactDetail>> {
   if (employees.length === 0) return {};
   const db = await getTauriDb();
@@ -968,17 +968,14 @@ async function loadContactDetails(
   return out;
 }
 
-export function useWsContactDetails() {
+export function useWsContactDetails(employees: readonly Employee[] = []) {
   const companyId = useUiState((s) => s.companyId);
+  const employeeIds = employees.map((employee) => employee.id).join('|');
   return useQuery({
-    queryKey: ['ws', 'contact-details', companyId],
+    queryKey: ['ws', 'contact-details', companyId, employeeIds],
     queryFn: async (): Promise<Record<string, ContactDetail>> => {
       // Browser preview (no Tauri runtime / repos): keep the demo fixture.
       if (!isTauriRuntime()) return resolveAsync(contactDetails);
-      const repos = await reposOrNull();
-      if (!repos) return resolveAsync(contactDetails);
-      const rows = await repos.employees.findByCompany(companyId ?? '');
-      const employees = rows.map(employeeToVm);
       return loadContactDetails(companyId, employees);
     },
   });
@@ -1034,15 +1031,15 @@ function meetingRowToVm(row: MeetingSessionRow): WsMeeting {
 
 export function useWsMeetings() {
   const companyId = useUiState((s) => s.companyId);
-  return useQuery({
-    queryKey: ['ws', 'meetings', companyId],
-    queryFn: async (): Promise<WsMeeting[]> => {
+  return useQuery<MeetingSessionRow[], Error, WsMeeting[]>({
+    queryKey: ['ws', 'meeting-rows', companyId],
+    queryFn: async (): Promise<MeetingSessionRow[]> => {
       const repos = await reposOrNull();
-      if (!repos) return resolveAsync(meetings);
+      if (!repos) return [];
       if (!companyId) return [];
-      const rows = await repos.meetings.findByCompany(companyId);
-      return rows.map(meetingRowToVm);
+      return repos.meetings.findByCompany(companyId);
     },
+    select: (rows) => (isTauriRuntime() ? rows.map(meetingRowToVm) : meetings),
   });
 }
 
@@ -1082,15 +1079,15 @@ function meetingsToAgenda(rows: MeetingSessionRow[]): AgendaDay[] {
 
 export function useWsAgenda() {
   const companyId = useUiState((s) => s.companyId);
-  return useQuery({
-    queryKey: ['ws', 'agenda', companyId],
-    queryFn: async (): Promise<AgendaDay[]> => {
+  return useQuery<MeetingSessionRow[], Error, AgendaDay[]>({
+    queryKey: ['ws', 'meeting-rows', companyId],
+    queryFn: async (): Promise<MeetingSessionRow[]> => {
       const repos = await reposOrNull();
-      if (!repos) return resolveAsync(agenda);
+      if (!repos) return [];
       if (!companyId) return [];
-      const rows = await repos.meetings.findByCompany(companyId);
-      return meetingsToAgenda(rows);
+      return repos.meetings.findByCompany(companyId);
     },
+    select: (rows) => (isTauriRuntime() ? meetingsToAgenda(rows) : agenda),
   });
 }
 

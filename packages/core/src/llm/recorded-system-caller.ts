@@ -1,8 +1,8 @@
 /**
  * RecordedSystemLlmCaller — lightweight recorded wrapper for system services.
  *
- * System services (MemoryService, EventConsolidator, ConversationBudgetService)
- * need to call LLMs for background tasks but don't have a full RuntimeContext.
+ * System services (MemoryService, ConversationBudgetService) need to call LLMs
+ * for background tasks but don't have a full RuntimeContext.
  * This caller provides the same audit semantics as
  * `recordedLlmCall()` without requiring the full runtime graph.
  *

@@ -1,5 +1,4 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { PROMPT_CACHE_VOLATILE_MARKER } from './prompt-cache-marker.js';
 import { LlmError } from '../errors.js';
 import { extractErrorText, isCapacityErrorText } from './error-utils.js';
 import type {
@@ -11,8 +10,10 @@ import type {
   ToolCallResult,
   ToolDef,
 } from './gateway.js';
+import { PROMPT_CACHE_VOLATILE_MARKER } from './prompt-cache-marker.js';
 import { createScopedRequestSignal } from './request-timeout.js';
 import { DEFAULT_RETRY_CONFIG, type RetryConfig, withRetry } from './retry.js';
+import { parseToolArguments } from './tool-arguments.js';
 
 export interface AnthropicAdapterOptions {
   /** Custom base URL for Anthropic-compatible providers. */
@@ -437,15 +438,11 @@ export class AnthropicAdapter implements LlmGateway {
           const toolCalls: ToolCallResult[] = [];
           for (const tc of streamToolCalls.values()) {
             const jsonStr = tc.jsonChunks.join('');
-            try {
-              toolCalls.push({
-                id: tc.id,
-                name: tc.name,
-                arguments: jsonStr ? (JSON.parse(jsonStr) as Record<string, unknown>) : {},
-              });
-            } catch {
-              toolCalls.push({ id: tc.id, name: tc.name, arguments: {} });
-            }
+            toolCalls.push({
+              id: tc.id,
+              name: tc.name,
+              arguments: parseToolArguments(jsonStr),
+            });
           }
 
           yield {

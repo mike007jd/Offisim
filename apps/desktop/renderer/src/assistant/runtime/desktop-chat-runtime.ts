@@ -1,7 +1,7 @@
 import type { ChatAttachment, RunError, StagedAttachment } from '@/data/types.js';
-import { sha256Hex } from '@/lib/utils.js';
 import type { AppendMessage } from '@assistant-ui/react';
 import type { EventBus } from '@offisim/core/browser';
+import { sha256Hex } from '@offisim/install-core';
 import {
   type AttachmentKind,
   type AttachmentMeta,
@@ -154,7 +154,10 @@ function attachmentPromptLines(
   return [header, 'Readable content:', '```', inline, '```'];
 }
 
-function inlineAttachmentText(attachment: StagedAttachment, bytes: Uint8Array | undefined): string | null {
+function inlineAttachmentText(
+  attachment: StagedAttachment,
+  bytes: Uint8Array | undefined,
+): string | null {
   if (!bytes) return null;
   const kind = attachment.kind ?? 'other';
   const mime = attachment.mimeType ?? '';

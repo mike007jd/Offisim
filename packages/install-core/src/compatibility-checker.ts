@@ -40,6 +40,24 @@ export function compareVersions(a: number[], b: number[]): -1 | 0 | 1 {
   return 0;
 }
 
+export function parseLooseVersion(version: string): number[] | null {
+  const match = version.trim().match(/^v?(\d+)(?:\.(\d+))?(?:\.(\d+))?/u);
+  if (!match) return null;
+  return [
+    Number.parseInt(match[1] ?? '0', 10),
+    Number.parseInt(match[2] ?? '0', 10),
+    Number.parseInt(match[3] ?? '0', 10),
+  ];
+}
+
+export function isLooseVersionNewer(latest: string, current: string): boolean {
+  const latestParts = parseLooseVersion(latest);
+  const currentParts = parseLooseVersion(current);
+  return (
+    latestParts !== null && currentParts !== null && compareVersions(latestParts, currentParts) > 0
+  );
+}
+
 /** Parsed version range with optional gte and lt bounds. */
 interface VersionRange {
   gte?: number[];

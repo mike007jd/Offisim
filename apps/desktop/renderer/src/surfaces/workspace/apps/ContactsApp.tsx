@@ -1,10 +1,10 @@
 import { useUiState } from '@/app/ui-state.js';
+import { displayRole } from '@/data/adapters.js';
 import { useEmployees } from '@/data/queries.js';
 import type { Employee } from '@/data/types.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { SearchInput } from '@/design-system/grammar/SearchInput.js';
 import { Icon } from '@/design-system/icons/Icon.js';
-import { displayRole } from '@/data/adapters.js';
 import { cn } from '@/lib/utils.js';
 import { EmptyState, ErrorState, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
 import { Building2, MessageSquare, SquarePen, UserPlus, Users } from 'lucide-react';
@@ -32,7 +32,7 @@ const PRESENCE_DOT: Record<Presence, string> = {
 
 export function ContactsApp() {
   const employees = useEmployees();
-  const details = useWsContactDetails();
+  const details = useWsContactDetails(employees.data ?? []);
   const conversations = useWsConversations();
   const selectedId = useUiState((s) => s.workspaceSelectedId);
   const selectItem = useUiState((s) => s.selectWorkspaceItem);
@@ -75,10 +75,7 @@ export function ContactsApp() {
     return conversations.data?.find((item) => item.employeeId === active.id)?.id ?? null;
   }, [active, conversations.data]);
   const profileSubtitle = active
-    ? [
-        displayRole(active),
-        activeDetail ? `${activeDetail.zone.split(' (')[0]} zone` : null,
-      ]
+    ? [displayRole(active), activeDetail ? `${activeDetail.zone.split(' (')[0]} zone` : null]
         .filter(Boolean)
         .join(' · ')
     : '';

@@ -1,3 +1,5 @@
+import { fetchOpenRouterModelsPayload } from './openrouter-source.mjs';
+
 /**
  * Default-drift detection — the automatic half of the freshness mechanism.
  *
@@ -165,15 +167,9 @@ export function detectDefaultDrift({ openRouterData, officialFixtures }) {
 
 /** Fetch the keyless OpenRouter model list. */
 export async function fetchOpenRouterModels(options = {}) {
-  const fetchImpl = options.fetchImpl ?? globalThis.fetch;
-  const url = options.modelsUrl ?? 'https://openrouter.ai/api/v1/models';
-  if (typeof fetchImpl !== 'function') {
-    throw new Error('fetch is unavailable; pass options.fetchImpl');
-  }
-  const response = await fetchImpl(url, { headers: { accept: 'application/json' } });
-  if (!response.ok) {
-    throw new Error(`Failed to fetch OpenRouter models: ${response.status}`);
-  }
-  const payload = await response.json();
+  const payload = await fetchOpenRouterModelsPayload({
+    ...options,
+    errorLabel: 'OpenRouter models',
+  });
   return Array.isArray(payload?.data) ? payload.data : [];
 }

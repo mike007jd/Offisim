@@ -1,14 +1,15 @@
-import type { CompactBaselineState } from './conversation-budget/compact-baseline.js';
-import { parseCompactBaseline } from './conversation-budget/compact-baseline.js';
 import type { LlmRequest } from '../llm/gateway.js';
 import { pruneLlmMessages } from '../llm/prune-messages.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
+import type { CompactBaselineState } from './conversation-budget/compact-baseline.js';
+import { parseCompactBaseline } from './conversation-budget/compact-baseline.js';
 import { FullCompactOrchestrator } from './conversation-budget/full-compact-orchestrator.js';
 import { buildRequestMessages, estimateTokens } from './conversation-budget/message-utils.js';
 import { microCompactMessages } from './conversation-budget/micro-compact.js';
 import type { ConversationBudgetServiceOptions } from './conversation-budget/options-resolver.js';
 import { resolveOptions } from './conversation-budget/options-resolver.js';
 import { SynopsisGenerator } from './conversation-budget/synopsis-generator.js';
+import { resolveEffectiveTailNonSystemMessages } from './conversation-budget/tail-window.js';
 
 export type { ConversationBudgetServiceOptions } from './conversation-budget/options-resolver.js';
 export type { ThreadSynopsisRecord } from './conversation-budget/synopsis-generator.js';
@@ -51,10 +52,10 @@ export class ConversationBudgetService {
         )
       : rawNonSystemMessages;
     const summaryCount = await ctx.repos.nodeSummaries.countByThread(ctx.threadId);
-    const effectiveTailNonSystemMessages =
-      summaryCount > 3
-        ? Math.max(options.tailNonSystemMessages - 10, 20)
-        : options.tailNonSystemMessages;
+    const effectiveTailNonSystemMessages = resolveEffectiveTailNonSystemMessages(
+      options,
+      summaryCount,
+    );
     const effectiveMaxNonSystemMessages = Math.min(
       options.maxNonSystemMessages,
       effectiveTailNonSystemMessages,

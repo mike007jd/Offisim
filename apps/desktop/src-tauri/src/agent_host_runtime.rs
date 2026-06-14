@@ -14,6 +14,32 @@ use tokio_util::sync::CancellationToken;
 
 use crate::sidecar_stderr::sanitized_stderr;
 
+const TRUSTED_HOST_ENV_WHITELIST: &[&str] = &[
+    "PATH",
+    "HOME",
+    "USER",
+    "LANG",
+    "TERM",
+    "SHELL",
+    "TMPDIR",
+    "LC_ALL",
+    "LC_CTYPE",
+    "XDG_CONFIG_HOME",
+    "XDG_DATA_HOME",
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "NO_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "all_proxy",
+    "no_proxy",
+    "SSL_CERT_FILE",
+    "SSL_CERT_DIR",
+    "NODE_EXTRA_CA_CERTS",
+    "REQUESTS_CA_BUNDLE",
+];
+
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct AgentHostLane {
     pub(crate) name: &'static str,
@@ -212,6 +238,25 @@ pub(crate) fn base_env(
             "OFFISIM_WORKSPACE_ROOT".into(),
             workspace_root.to_string_lossy().to_string(),
         );
+    }
+
+    env
+}
+
+pub(crate) fn trusted_host_env(
+    workspace_root: Option<&PathBuf>,
+    extra_allowlist: &[&str],
+    executable_env_name: &str,
+) -> HashMap<String, String> {
+    let mut allowlist = TRUSTED_HOST_ENV_WHITELIST.to_vec();
+    allowlist.extend_from_slice(extra_allowlist);
+    let mut env = base_env(&allowlist, workspace_root);
+
+    if let Ok(path) = std::env::var(executable_env_name) {
+        let trimmed = path.trim();
+        if !trimmed.is_empty() {
+            env.insert(executable_env_name.into(), trimmed.to_string());
+        }
     }
 
     env

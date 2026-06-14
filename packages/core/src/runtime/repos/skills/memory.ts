@@ -6,11 +6,8 @@ import type {
   SkillUpdate,
 } from '../../repositories.js';
 import type { MemoryRepositoriesSnapshot } from '../memory-types.js';
+import { cloneRow } from '../memory-utils.js';
 import { assertSkillScopeConsistency } from './shared.js';
-
-function cloneRow(row: SkillRow): SkillRow {
-  return { ...row };
-}
 
 export class MemorySkillRepository implements SkillRepository {
   private readonly byId = new Map<string, SkillRow>();

@@ -377,7 +377,7 @@ export interface MemoryRepository {
   delete(memoryId: string): Promise<void>;
   findByOwner(
     ownerId: string,
-    opts?: { category?: string; limit?: number },
+    opts?: { category?: string; companyId?: string; scope?: string; limit?: number | null },
   ): Promise<MemoryEntryRow[]>;
   reinforce(memoryId: string, patch: MemoryReinforcementPatch): Promise<MemoryEntryRow | null>;
   update(memoryId: string, patch: MemoryUpdatePatch): Promise<MemoryEntryRow | null>;
@@ -677,13 +677,30 @@ export interface CompanyTemplateAssetRepository {
 // Rack / Slot (MCP permissions)
 // ---------------------------------------------------------------------------
 
+export const RACK_STATUS = {
+  unbound: 'unbound',
+  bound: 'bound',
+  error: 'error',
+  disabled: 'disabled',
+} as const;
+
+export type RackStatus = (typeof RACK_STATUS)[keyof typeof RACK_STATUS];
+
+export const SLOT_STATUS = {
+  available: 'available',
+  reserved: 'reserved',
+  disabled: 'disabled',
+} as const;
+
+export type SlotStatus = (typeof SLOT_STATUS)[keyof typeof SLOT_STATUS];
+
 export interface RackRow {
   rack_id: string;
   company_id: string;
   provider_type: string;
   label: string;
   binding_profile_json: string | null;
-  status: string;
+  status: RackStatus;
   created_at: string;
   updated_at: string;
 }
@@ -695,7 +712,7 @@ export interface SlotRow {
   rack_id: string;
   capability_name: string;
   exposure_scope: string;
-  status: string;
+  status: SlotStatus;
   created_at: string;
   updated_at: string;
 }
@@ -706,14 +723,14 @@ export interface RackRepository {
   create(rack: NewRack): Promise<RackRow>;
   findById(rackId: string): Promise<RackRow | null>;
   findByCompany(companyId: string): Promise<RackRow[]>;
-  updateStatus(rackId: string, status: string): Promise<void>;
+  updateStatus(rackId: string, status: RackStatus): Promise<void>;
   delete(rackId: string): Promise<void>;
 }
 
 export interface SlotRepository {
   create(slot: NewSlot): Promise<SlotRow>;
   findByRack(rackId: string): Promise<SlotRow[]>;
-  updateStatus(slotId: string, status: string): Promise<void>;
+  updateStatus(slotId: string, status: SlotStatus): Promise<void>;
   delete(slotId: string): Promise<void>;
 }
 

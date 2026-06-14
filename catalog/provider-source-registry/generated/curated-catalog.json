@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-06T05:24:11.106Z",
+  "generatedAt": "2026-06-14T03:38:07.603Z",
   "providers": {
     "anthropic-default": {
       "authMode": "api-key",
@@ -10,11 +10,6 @@
       "communityDocsUrl": "https://docs.litellm.ai/docs/providers/anthropic",
       "compatibility": "native",
       "defaultModel": "claude-opus-4-8",
-      "executionLaneHints": {
-        "productExposed": [
-          "gateway"
-        ]
-      },
       "lastVerifiedAt": "2026-06-02",
       "models": {
         "claude-haiku-4-5": {
@@ -112,11 +107,6 @@
     "custom": {
       "authMode": "api-key",
       "compatibility": "openai-compatible",
-      "executionLaneHints": {
-        "productExposed": [
-          "gateway"
-        ]
-      },
       "models": {},
       "notes": "Custom endpoints stay gateway-only until a curated product profile exists.",
       "productName": "Custom (OpenAI-compatible)",
@@ -135,11 +125,6 @@
       "communityDocsUrl": "https://docs.litellm.ai/docs/providers/deepseek",
       "compatibility": "openai-compatible",
       "defaultModel": "deepseek-v4-pro",
-      "executionLaneHints": {
-        "productExposed": [
-          "gateway"
-        ]
-      },
       "lastVerifiedAt": "2026-06-02",
       "models": {
         "deepseek-reasoner": {
@@ -193,11 +178,6 @@
       "communityDocsUrl": "https://docs.litellm.ai/docs/providers/gemini",
       "compatibility": "openai-compatible",
       "defaultModel": "gemini-3.5-flash",
-      "executionLaneHints": {
-        "productExposed": [
-          "gateway"
-        ]
-      },
       "lastVerifiedAt": "2026-06-02",
       "models": {
         "gemini-2.5-flash": {
@@ -268,11 +248,6 @@
       "communityDocsUrl": "https://docs.litellm.ai/docs/providers/moonshot",
       "compatibility": "anthropic-compatible",
       "defaultModel": "kimi-k2.6",
-      "executionLaneHints": {
-        "productExposed": [
-          "gateway"
-        ]
-      },
       "lastVerifiedAt": "2026-06-02",
       "models": {
         "kimi-k2.5": {
@@ -328,11 +303,6 @@
       "communityDocsUrl": "https://docs.litellm.ai/docs/providers/moonshot",
       "compatibility": "openai-compatible",
       "defaultModel": "kimi-k2.6",
-      "executionLaneHints": {
-        "productExposed": [
-          "gateway"
-        ]
-      },
       "lastVerifiedAt": "2026-06-02",
       "models": {
         "kimi-k2.5": {
@@ -388,11 +358,6 @@
       "communityDocsUrl": "https://docs.litellm.ai/docs/providers/moonshot",
       "compatibility": "openai-compatible",
       "defaultModel": "kimi-k2.6",
-      "executionLaneHints": {
-        "productExposed": [
-          "gateway"
-        ]
-      },
       "lastVerifiedAt": "2026-06-02",
       "models": {
         "kimi-k2.5": {
@@ -443,11 +408,6 @@
       "baseURL": "http://localhost:1234/v1",
       "compatibility": "openai-compatible",
       "defaultModel": "qwen/qwen3.6-27b",
-      "executionLaneHints": {
-        "productExposed": [
-          "gateway"
-        ]
-      },
       "lastVerifiedAt": "2026-06-02",
       "models": {
         "qwen/qwen3.6-27b": {
@@ -472,11 +432,6 @@
       "communityDocsUrl": "https://docs.litellm.ai/docs/providers/minimax",
       "compatibility": "anthropic-compatible",
       "defaultModel": "MiniMax-M3",
-      "executionLaneHints": {
-        "productExposed": [
-          "gateway"
-        ]
-      },
       "lastVerifiedAt": "2026-06-02",
       "models": {
         "MiniMax-M2.7": {
@@ -484,7 +439,17 @@
           "status": "legacy"
         },
         "MiniMax-M3": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 512000,
           "displayName": "MiniMax M3",
+          "maxOutputTokens": 128000,
+          "pricing": {
+            "inputCostPerToken": 6e-7,
+            "outputCostPerToken": 0.0000024
+          },
           "status": "current"
         }
       },
@@ -508,12 +473,6 @@
       "communityDocsUrl": "https://docs.litellm.ai/docs/providers/minimax",
       "compatibility": "anthropic-compatible",
       "defaultModel": "MiniMax-M3",
-      "executionLaneHints": {
-        "productExposed": [
-          "gateway",
-          "claude-agent-sdk"
-        ]
-      },
       "lastVerifiedAt": "2026-06-06",
       "models": {
         "MiniMax-M2.7": {
@@ -521,11 +480,21 @@
           "status": "legacy"
         },
         "MiniMax-M3": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 512000,
           "displayName": "MiniMax M3",
+          "maxOutputTokens": 128000,
+          "pricing": {
+            "inputCostPerToken": 6e-7,
+            "outputCostPerToken": 0.0000024
+          },
           "status": "current"
         }
       },
-      "notes": "MiniMax Anthropic-compatible endpoint supports the Claude lane; verified with the current MiniMax-M3 model.",
+      "notes": "MiniMax Anthropic-compatible endpoint supports the Claude lane only through a verified runtime profile, not a generic product SDK lane.",
       "productName": "MiniMax Global",
       "providerTransport": "anthropic",
       "region": "intl",
@@ -546,12 +515,6 @@
       "communityDocsUrl": "https://docs.litellm.ai/docs/providers/minimax",
       "compatibility": "openai-compatible",
       "defaultModel": "MiniMax-M3",
-      "executionLaneHints": {
-        "productExposed": [
-          "gateway",
-          "codex-agent-sdk"
-        ]
-      },
       "lastVerifiedAt": "2026-06-06",
       "models": {
         "MiniMax-M2.7": {
@@ -563,11 +526,21 @@
           "status": "legacy"
         },
         "MiniMax-M3": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 512000,
           "displayName": "MiniMax M3",
+          "maxOutputTokens": 128000,
+          "pricing": {
+            "inputCostPerToken": 6e-7,
+            "outputCostPerToken": 0.0000024
+          },
           "status": "current"
         }
       },
-      "notes": "MiniMax OpenAI-compatible endpoint supports the Responses wire required by the Codex sidecar.",
+      "notes": "MiniMax OpenAI-compatible endpoint supports the Responses wire required by the Codex sidecar only through a verified runtime profile.",
       "productName": "MiniMax Global · OpenAI",
       "providerTransport": "openai-compat",
       "region": "intl",
@@ -588,11 +561,6 @@
       "communityDocsUrl": "https://docs.litellm.ai/docs/providers/openai",
       "compatibility": "native",
       "defaultModel": "gpt-5.5",
-      "executionLaneHints": {
-        "productExposed": [
-          "gateway"
-        ]
-      },
       "lastVerifiedAt": "2026-06-02",
       "models": {
         "gpt-4o-mini": {
@@ -690,11 +658,6 @@
       "communityDocsUrl": "https://openrouter.ai/docs",
       "compatibility": "openai-compatible",
       "defaultModel": "google/gemma-4-31b-it:free",
-      "executionLaneHints": {
-        "productExposed": [
-          "gateway"
-        ]
-      },
       "lastVerifiedAt": "2026-06-02",
       "models": {
         "ai21/jamba-large-1.7": {
@@ -904,6 +867,23 @@
           "pricing": {
             "inputCostPerToken": 8e-7,
             "outputCostPerToken": 0.000004
+          },
+          "supportedEndpoints": [
+            "chat_completions",
+            "responses"
+          ]
+        },
+        "anthropic/claude-fable-5": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 1000000,
+          "displayName": "Anthropic: Claude Fable 5",
+          "maxOutputTokens": 128000,
+          "pricing": {
+            "inputCostPerToken": 0.00001,
+            "outputCostPerToken": 0.00005
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -1142,30 +1122,6 @@
             "chat_completions"
           ]
         },
-        "arcee-ai/maestro-reasoning": {
-          "contextWindow": 131072,
-          "displayName": "Arcee AI: Maestro Reasoning",
-          "maxOutputTokens": 32000,
-          "pricing": {
-            "inputCostPerToken": 9e-7,
-            "outputCostPerToken": 0.0000033
-          },
-          "supportedEndpoints": [
-            "chat_completions"
-          ]
-        },
-        "arcee-ai/spotlight": {
-          "contextWindow": 131072,
-          "displayName": "Arcee AI: Spotlight",
-          "maxOutputTokens": 65537,
-          "pricing": {
-            "inputCostPerToken": 1.8e-7,
-            "outputCostPerToken": 1.8e-7
-          },
-          "supportedEndpoints": [
-            "chat_completions"
-          ]
-        },
         "arcee-ai/trinity-large-thinking": {
           "capabilities": {
             "functionCalling": true,
@@ -1210,23 +1166,6 @@
           "pricing": {
             "inputCostPerToken": 7.5e-7,
             "outputCostPerToken": 0.0000012
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
-        "baidu/ernie-4.5-vl-28b-a3b": {
-          "capabilities": {
-            "functionCalling": true,
-            "reasoning": true
-          },
-          "contextWindow": 131072,
-          "displayName": "Baidu: ERNIE 4.5 VL 28B A3B",
-          "maxOutputTokens": 8000,
-          "pricing": {
-            "inputCostPerToken": 1.4e-7,
-            "outputCostPerToken": 5.6e-7
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -1496,11 +1435,11 @@
           "capabilities": {
             "reasoning": true
           },
-          "contextWindow": 131072,
+          "contextWindow": 128000,
           "displayName": "DeepSeek: R1 Distill Llama 70B",
-          "maxOutputTokens": 16384,
+          "maxOutputTokens": 8192,
           "pricing": {
-            "inputCostPerToken": 7e-7,
+            "inputCostPerToken": 8e-7,
             "outputCostPerToken": 8e-7
           },
           "supportedEndpoints": [
@@ -1580,10 +1519,10 @@
           },
           "contextWindow": 1048576,
           "displayName": "DeepSeek: DeepSeek V4 Flash",
-          "maxOutputTokens": 131072,
+          "maxOutputTokens": 65536,
           "pricing": {
-            "inputCostPerToken": 9.83e-8,
-            "outputCostPerToken": 1.966e-7
+            "inputCostPerToken": 9e-8,
+            "outputCostPerToken": 1.8e-7
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -1888,8 +1827,8 @@
           "displayName": "Google: Gemma 3 12B",
           "maxOutputTokens": 16384,
           "pricing": {
-            "inputCostPerToken": 4e-8,
-            "outputCostPerToken": 1.3e-7
+            "inputCostPerToken": 5e-8,
+            "outputCostPerToken": 1.5e-7
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -1917,8 +1856,8 @@
           "displayName": "Google: Gemma 3 4B",
           "maxOutputTokens": 16384,
           "pricing": {
-            "inputCostPerToken": 4e-8,
-            "outputCostPerToken": 8e-8
+            "inputCostPerToken": 5e-8,
+            "outputCostPerToken": 1e-7
           },
           "supportedEndpoints": [
             "chat_completions"
@@ -1979,10 +1918,10 @@
           },
           "contextWindow": 262144,
           "displayName": "Google: Gemma 4 31B",
-          "maxOutputTokens": 8192,
+          "maxOutputTokens": 262144,
           "pricing": {
             "inputCostPerToken": 1.2e-7,
-            "outputCostPerToken": 3.6e-7
+            "outputCostPerToken": 3.5e-7
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -2240,10 +2179,9 @@
         "meta-llama/llama-3-8b-instruct": {
           "contextWindow": 8192,
           "displayName": "Meta: Llama 3 8B Instruct",
-          "maxOutputTokens": 8192,
           "pricing": {
-            "inputCostPerToken": 4e-8,
-            "outputCostPerToken": 4e-8
+            "inputCostPerToken": 1.4e-7,
+            "outputCostPerToken": 1.4e-7
           },
           "supportedEndpoints": [
             "chat_completions"
@@ -2286,8 +2224,8 @@
           "displayName": "Meta: Llama 3.2 11B Vision Instruct",
           "maxOutputTokens": 16384,
           "pricing": {
-            "inputCostPerToken": 2.45e-7,
-            "outputCostPerToken": 2.45e-7
+            "inputCostPerToken": 3.45e-7,
+            "outputCostPerToken": 3.45e-7
           },
           "supportedEndpoints": [
             "chat_completions"
@@ -2383,24 +2321,12 @@
           "displayName": "Meta: Llama 4 Scout",
           "maxOutputTokens": 16384,
           "pricing": {
-            "inputCostPerToken": 8e-8,
+            "inputCostPerToken": 1e-7,
             "outputCostPerToken": 3e-7
           },
           "supportedEndpoints": [
             "chat_completions",
             "responses"
-          ]
-        },
-        "meta-llama/llama-guard-3-8b": {
-          "contextWindow": 131072,
-          "displayName": "Llama Guard 3 8B",
-          "maxOutputTokens": 131072,
-          "pricing": {
-            "inputCostPerToken": 4.84e-7,
-            "outputCostPerToken": 3e-8
-          },
-          "supportedEndpoints": [
-            "chat_completions"
           ]
         },
         "meta-llama/llama-guard-4-12b": {
@@ -2536,7 +2462,7 @@
           "maxOutputTokens": 196608,
           "pricing": {
             "inputCostPerToken": 1.5e-7,
-            "outputCostPerToken": 0.00000115
+            "outputCostPerToken": 9e-7
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -2550,10 +2476,10 @@
           },
           "contextWindow": 204800,
           "displayName": "MiniMax: MiniMax M2.7",
-          "maxOutputTokens": 196608,
+          "maxOutputTokens": 131072,
           "pricing": {
-            "inputCostPerToken": 2.79e-7,
-            "outputCostPerToken": 0.0000012
+            "inputCostPerToken": 2.5e-7,
+            "outputCostPerToken": 0.000001
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -2924,8 +2850,8 @@
           "displayName": "MoonshotAI: Kimi K2.5",
           "maxOutputTokens": 262144,
           "pricing": {
-            "inputCostPerToken": 4e-7,
-            "outputCostPerToken": 0.0000019
+            "inputCostPerToken": 3.75e-7,
+            "outputCostPerToken": 0.000002025
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -2939,26 +2865,27 @@
           },
           "contextWindow": 262144,
           "displayName": "MoonshotAI: Kimi K2.6",
-          "maxOutputTokens": 262144,
+          "maxOutputTokens": 262142,
           "pricing": {
-            "inputCostPerToken": 6.84e-7,
-            "outputCostPerToken": 0.00000342
+            "inputCostPerToken": 6.8e-7,
+            "outputCostPerToken": 0.00000341
           },
           "supportedEndpoints": [
             "chat_completions",
             "responses"
           ]
         },
-        "moonshotai/kimi-k2.6:free": {
+        "moonshotai/kimi-k2.7-code": {
           "capabilities": {
             "functionCalling": true,
             "reasoning": true
           },
           "contextWindow": 262144,
-          "displayName": "MoonshotAI: Kimi K2.6 (free)",
+          "displayName": "MoonshotAI: Kimi K2.7 Code",
+          "maxOutputTokens": 262144,
           "pricing": {
-            "inputCostPerToken": 0,
-            "outputCostPerToken": 0
+            "inputCostPerToken": 7.5e-7,
+            "outputCostPerToken": 0.0000035
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -2989,16 +2916,17 @@
             "chat_completions"
           ]
         },
-        "nex-agi/deepseek-v3.1-nex-n1": {
+        "nex-agi/nex-n2-pro:free": {
           "capabilities": {
-            "functionCalling": true
+            "functionCalling": true,
+            "reasoning": true
           },
-          "contextWindow": 131072,
-          "displayName": "Nex AGI: DeepSeek V3.1 Nex N1",
-          "maxOutputTokens": 163840,
+          "contextWindow": 262144,
+          "displayName": "Nex AGI: Nex-N2-Pro (free)",
+          "maxOutputTokens": 262144,
           "pricing": {
-            "inputCostPerToken": 1.35e-7,
-            "outputCostPerToken": 5e-7
+            "inputCostPerToken": 0,
+            "outputCostPerToken": 0
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -3033,8 +2961,8 @@
           "displayName": "Nous: Hermes 3 70B Instruct",
           "maxOutputTokens": 16384,
           "pricing": {
-            "inputCostPerToken": 3e-7,
-            "outputCostPerToken": 3e-7
+            "inputCostPerToken": 7e-7,
+            "outputCostPerToken": 7e-7
           },
           "supportedEndpoints": [
             "chat_completions"
@@ -3077,7 +3005,7 @@
           "displayName": "NVIDIA: Llama 3.3 Nemotron Super 49B V1.5",
           "maxOutputTokens": 16384,
           "pricing": {
-            "inputCostPerToken": 1e-7,
+            "inputCostPerToken": 4e-7,
             "outputCostPerToken": 4e-7
           },
           "supportedEndpoints": [
@@ -3234,23 +3162,6 @@
             "responses"
           ]
         },
-        "nvidia/nemotron-nano-9b-v2": {
-          "capabilities": {
-            "functionCalling": true,
-            "reasoning": true
-          },
-          "contextWindow": 131072,
-          "displayName": "NVIDIA: Nemotron Nano 9B V2",
-          "maxOutputTokens": 16384,
-          "pricing": {
-            "inputCostPerToken": 4e-8,
-            "outputCostPerToken": 1.6e-7
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
         "nvidia/nemotron-nano-9b-v2:free": {
           "capabilities": {
             "functionCalling": true,
@@ -3337,22 +3248,6 @@
           "pricing": {
             "inputCostPerToken": 0.00003,
             "outputCostPerToken": 0.00006
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
-        "openai/gpt-4-1106-preview": {
-          "capabilities": {
-            "functionCalling": true
-          },
-          "contextWindow": 128000,
-          "displayName": "OpenAI: GPT-4 Turbo (older v1106)",
-          "maxOutputTokens": 4096,
-          "pricing": {
-            "inputCostPerToken": 0.00001,
-            "outputCostPerToken": 0.00003
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -4596,9 +4491,10 @@
         "qwen/qwen2.5-vl-72b-instruct": {
           "contextWindow": 131072,
           "displayName": "Qwen: Qwen2.5 VL 72B Instruct",
+          "maxOutputTokens": 128000,
           "pricing": {
-            "inputCostPerToken": 2.5e-7,
-            "outputCostPerToken": 7.5e-7
+            "inputCostPerToken": 8e-7,
+            "outputCostPerToken": 0.000001
           },
           "supportedEndpoints": [
             "chat_completions"
@@ -4646,7 +4542,7 @@
           "displayName": "Qwen: Qwen3 235B A22B Instruct 2507",
           "maxOutputTokens": 16384,
           "pricing": {
-            "inputCostPerToken": 7.1e-8,
+            "inputCostPerToken": 9e-8,
             "outputCostPerToken": 1e-7
           },
           "supportedEndpoints": [
@@ -4680,8 +4576,8 @@
           "displayName": "Qwen: Qwen3 30B A3B",
           "maxOutputTokens": 16384,
           "pricing": {
-            "inputCostPerToken": 9e-8,
-            "outputCostPerToken": 4.5e-7
+            "inputCostPerToken": 1.2e-7,
+            "outputCostPerToken": 5e-7
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -5122,9 +5018,9 @@
           },
           "contextWindow": 262144,
           "displayName": "Qwen: Qwen3.5-9B",
-          "maxOutputTokens": 81920,
+          "maxOutputTokens": 262144,
           "pricing": {
-            "inputCostPerToken": 4e-8,
+            "inputCostPerToken": 1e-7,
             "outputCostPerToken": 1.5e-7
           },
           "supportedEndpoints": [
@@ -5192,8 +5088,8 @@
           "displayName": "Qwen: Qwen3.6 27B",
           "maxOutputTokens": 262140,
           "pricing": {
-            "inputCostPerToken": 2.9e-7,
-            "outputCostPerToken": 0.0000032
+            "inputCostPerToken": 2.885e-7,
+            "outputCostPerToken": 0.00000317
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -5207,9 +5103,9 @@
           },
           "contextWindow": 262144,
           "displayName": "Qwen: Qwen3.6 35B A3B",
-          "maxOutputTokens": 262140,
+          "maxOutputTokens": 262144,
           "pricing": {
-            "inputCostPerToken": 1.4e-7,
+            "inputCostPerToken": 1.5e-7,
             "outputCostPerToken": 0.000001
           },
           "supportedEndpoints": [
@@ -5294,8 +5190,8 @@
           "displayName": "Qwen: Qwen3.7 Plus",
           "maxOutputTokens": 65536,
           "pricing": {
-            "inputCostPerToken": 4e-7,
-            "outputCostPerToken": 0.0000016
+            "inputCostPerToken": 3.2e-7,
+            "outputCostPerToken": 0.00000128
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -5701,21 +5597,6 @@
             "responses"
           ]
         },
-        "z-ai/glm-4-32b": {
-          "capabilities": {
-            "functionCalling": true
-          },
-          "contextWindow": 128000,
-          "displayName": "Z.ai: GLM 4 32B",
-          "pricing": {
-            "inputCostPerToken": 1e-7,
-            "outputCostPerToken": 1e-7
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
         "z-ai/glm-4.5": {
           "capabilities": {
             "functionCalling": true,
@@ -5744,23 +5625,6 @@
           "pricing": {
             "inputCostPerToken": 1.25e-7,
             "outputCostPerToken": 8.5e-7
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
-        "z-ai/glm-4.5-air:free": {
-          "capabilities": {
-            "functionCalling": true,
-            "reasoning": true
-          },
-          "contextWindow": 131072,
-          "displayName": "Z.ai: GLM 4.5 Air (free)",
-          "maxOutputTokens": 96000,
-          "pricing": {
-            "inputCostPerToken": 0,
-            "outputCostPerToken": 0
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -5808,7 +5672,7 @@
           },
           "contextWindow": 131072,
           "displayName": "Z.ai: GLM 4.6V",
-          "maxOutputTokens": 24000,
+          "maxOutputTokens": 32768,
           "pricing": {
             "inputCostPerToken": 3e-7,
             "outputCostPerToken": 9e-7
@@ -5874,7 +5738,7 @@
             "functionCalling": true,
             "reasoning": true
           },
-          "contextWindow": 202752,
+          "contextWindow": 262144,
           "displayName": "Z.ai: GLM 5 Turbo",
           "maxOutputTokens": 131072,
           "pricing": {
@@ -5902,17 +5766,17 @@
             "responses"
           ]
         },
-        "z-ai/glm-5v-turbo": {
+        "~anthropic/claude-fable-latest": {
           "capabilities": {
             "functionCalling": true,
             "reasoning": true
           },
-          "contextWindow": 202752,
-          "displayName": "Z.ai: GLM 5V Turbo",
-          "maxOutputTokens": 131072,
+          "contextWindow": 1000000,
+          "displayName": "Anthropic: Claude Fable Latest",
+          "maxOutputTokens": 128000,
           "pricing": {
-            "inputCostPerToken": 0.0000012,
-            "outputCostPerToken": 0.000004
+            "inputCostPerToken": 0.00001,
+            "outputCostPerToken": 0.00005
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -6011,10 +5875,10 @@
           },
           "contextWindow": 262144,
           "displayName": "MoonshotAI Kimi Latest",
-          "maxOutputTokens": 262144,
+          "maxOutputTokens": 262142,
           "pricing": {
-            "inputCostPerToken": 6.84e-7,
-            "outputCostPerToken": 0.00000342
+            "inputCostPerToken": 6.8e-7,
+            "outputCostPerToken": 0.00000341
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -6077,12 +5941,6 @@
       "communityDocsUrl": "https://docs.litellm.ai/docs/providers/zai",
       "compatibility": "anthropic-compatible",
       "defaultModel": "glm-5.1",
-      "executionLaneHints": {
-        "productExposed": [
-          "gateway",
-          "claude-agent-sdk"
-        ]
-      },
       "lastVerifiedAt": "2026-06-06",
       "models": {
         "GLM-4.5-Air": {
@@ -6126,7 +5984,7 @@
           "status": "current"
         }
       },
-      "notes": "Z.AI Anthropic-compatible endpoint supports the Claude lane; Z.AI OpenAI-compatible endpoints remain gateway-only because they are chat-completions only.",
+      "notes": "Z.AI Anthropic-compatible endpoint supports the Claude lane only through a verified runtime profile; Z.AI OpenAI-compatible endpoints remain gateway-only because they are chat-completions only.",
       "productName": "Z.AI · Claude Code",
       "providerTransport": "anthropic",
       "region": "shared",
@@ -6147,11 +6005,6 @@
       "communityDocsUrl": "https://docs.litellm.ai/docs/providers/zai",
       "compatibility": "openai-compatible",
       "defaultModel": "glm-5.1",
-      "executionLaneHints": {
-        "productExposed": [
-          "gateway"
-        ]
-      },
       "lastVerifiedAt": "2026-06-06",
       "models": {
         "glm-5": {
@@ -6194,11 +6047,6 @@
       "communityDocsUrl": "https://docs.litellm.ai/docs/providers/zai",
       "compatibility": "openai-compatible",
       "defaultModel": "glm-5.1",
-      "executionLaneHints": {
-        "productExposed": [
-          "gateway"
-        ]
-      },
       "lastVerifiedAt": "2026-06-06",
       "models": {
         "glm-4.5-air": {

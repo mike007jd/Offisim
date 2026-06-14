@@ -1,10 +1,10 @@
 import type { ConversationCompactCompletedPayload } from '@offisim/shared-types';
 import { conversationCompactCompleted } from '../../events/event-factories.js';
-import type { CompactBaselineState } from './compact-baseline.js';
 import type { LlmRequest } from '../../llm/gateway.js';
 import type { RuntimeContext } from '../../runtime/runtime-context.js';
 import { generateId } from '../../utils/generate-id.js';
-import { touchLru } from '../../utils/lru-map.js';
+import type { CompactBaselineState } from './compact-baseline.js';
+import { setTrackedThread } from './failure-tracking.js';
 import { normalizeSummary } from './message-utils.js';
 import type { ResolvedConversationBudgetOptions } from './options-resolver.js';
 import type { SynopsisGenerator, ThreadSynopsisRecord } from './synopsis-generator.js';
@@ -48,11 +48,6 @@ function sliceAfterCompactionBoundary(
   return messages.slice(toolPairSafeCutIndex(messages, requestedCut));
 }
 
-// Bound memory: the circuit-breaker maps are per-thread scratch state, not
-// durable storage. Without a cap they grow one entry per thread for the life of
-// the process across long multi-thread sessions.
-const MAX_TRACKED_THREADS = 200;
-
 export class FullCompactOrchestrator {
   // Insertion-ordered: the first key is the least-recently-updated thread, so
   // we can evict it when MAX_TRACKED_THREADS is exceeded.
@@ -73,18 +68,14 @@ export class FullCompactOrchestrator {
   private recordFailure(threadId: string, circuitOpen: boolean, rawMessageCount: number): number {
     const currentStreak = this.fullCompactFailureStreaks.get(threadId) ?? 0;
     const nextFailureStreak = circuitOpen ? currentStreak : currentStreak + 1;
-    this.setTrackedThread(this.fullCompactFailureStreaks, threadId, nextFailureStreak);
-    this.setTrackedThread(this.fullCompactFailureMessageCounts, threadId, rawMessageCount);
+    setTrackedThread(this.fullCompactFailureStreaks, threadId, nextFailureStreak);
+    setTrackedThread(this.fullCompactFailureMessageCounts, threadId, rawMessageCount);
     return nextFailureStreak;
   }
 
   private clearFailure(threadId: string): void {
     this.fullCompactFailureStreaks.delete(threadId);
     this.fullCompactFailureMessageCounts.delete(threadId);
-  }
-
-  private setTrackedThread(map: Map<string, number>, threadId: string, value: number): void {
-    touchLru(map, threadId, value, MAX_TRACKED_THREADS);
   }
 
   async tryInitialCompact(

@@ -9,14 +9,7 @@ import type { AssetBindingRepository } from '../../../repos/asset-binding-reposi
 import type { InstallTransactionRepository } from '../../../repos/install-transaction-repository.js';
 import type { InstalledAssetRepository } from '../../../repos/installed-asset-repository.js';
 import type { InstalledPackageRepository } from '../../../repos/installed-package-repository.js';
-
-function now(): string {
-  return new Date().toISOString();
-}
-
-function cloneRows<T extends object>(rows: Iterable<T>): T[] {
-  return [...rows].map((row) => ({ ...row }));
-}
+import { cloneRows, now } from '../memory-utils.js';
 
 export interface MemoryInstallRepositoriesSnapshot {
   installTransactions: InstallTransactionRow[];

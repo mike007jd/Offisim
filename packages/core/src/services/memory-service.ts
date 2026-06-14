@@ -8,6 +8,7 @@ import { memoryCreated } from '../events/event-factories.js';
 import type { LlmGateway, LlmRequest } from '../llm/gateway.js';
 import { pruneLlmMessages } from '../llm/prune-messages.js';
 import type { RecordedSystemLlmCaller } from '../llm/recorded-system-caller.js';
+import { normalizeMemoryDedupeKey } from '../runtime/repos/memory-system/patch.js';
 import type { MemoryEntryRow, MemoryRepository } from '../runtime/repositories.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { generateId } from '../utils/generate-id.js';
@@ -157,7 +158,7 @@ export class MemoryService {
     metadata?: Record<string, unknown>;
   }): Promise<string> {
     const content = this.normalizeContent(params.content);
-    const dedupeKey = this.buildDedupeKey(content);
+    const dedupeKey = normalizeMemoryDedupeKey(content);
     const ownerId = params.scope === 'employee' ? params.employeeId : params.companyId;
     const confidence = this.clampConfidence(
       params.confidence ?? this.deriveConfidence(params.category, params.importance),
@@ -254,9 +255,11 @@ export class MemoryService {
     // concurrent creates cannot over-delete past the budget.
     await this.queue.enqueue(`prune:${ownerId}:${params.scope}`, async () => {
       const maxFacts = this.policy.maxFacts;
-      const scopeMemories = (await this.memoryRepo.findByOwner(ownerId)).filter(
-        (m) => m.scope === params.scope,
-      );
+      const scopeMemories = await this.memoryRepo.findByOwner(ownerId, {
+        companyId: params.companyId,
+        scope: params.scope,
+        limit: null,
+      });
       if (scopeMemories.length <= maxFacts) return;
       const now = Date.now();
       // Most valuable last so the lowest-scoring rows are sliced off the front.
@@ -399,20 +402,11 @@ export class MemoryService {
     return content.replace(/\s+/g, ' ').trim();
   }
 
-  private buildDedupeKey(content: string): string {
-    const normalized = content.normalize('NFKC').toLowerCase();
-    const simplified = normalized
-      .replace(/[.,:;/，。：；、]+/gu, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-    return simplified || normalized.replace(/\s+/g, ' ').trim();
-  }
-
   /** Word-set Jaccard overlap of two memory bodies, in [0,1]. */
   private contentOverlap(a: string, b: string): number {
     const tokenize = (text: string): Set<string> =>
       new Set(
-        this.buildDedupeKey(text)
+        normalizeMemoryDedupeKey(text)
           .split(' ')
           .filter((t) => t.length > 0),
       );
@@ -442,9 +436,12 @@ export class MemoryService {
     content: string;
   }): Promise<MemoryEntryRow | null> {
     const OVERLAP_THRESHOLD = 0.7;
-    const candidates = (
-      await this.memoryRepo.findByOwner(params.ownerId, { category: params.category })
-    ).filter((m) => m.scope === params.scope && m.company_id === params.companyId);
+    const candidates = await this.memoryRepo.findByOwner(params.ownerId, {
+      category: params.category,
+      companyId: params.companyId,
+      scope: params.scope,
+      limit: null,
+    });
     let best: MemoryEntryRow | null = null;
     let bestOverlap = OVERLAP_THRESHOLD;
     for (const candidate of candidates) {

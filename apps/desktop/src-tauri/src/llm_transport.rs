@@ -29,9 +29,6 @@ enum AuthScheme {
 #[serde(rename_all = "kebab-case")]
 enum LlmEndpointKind {
     OpenAiChatCompletions,
-    OpenAiResponses,
-    OpenAiEmbeddings,
-    OpenAiModels,
     AnthropicMessages,
 }
 
@@ -308,9 +305,6 @@ fn endpoint_url(base_url: &str, endpoint_kind: &LlmEndpointKind) -> Result<Url, 
     }
     let path = match endpoint_kind {
         LlmEndpointKind::OpenAiChatCompletions => "chat/completions",
-        LlmEndpointKind::OpenAiResponses => "responses",
-        LlmEndpointKind::OpenAiEmbeddings => "embeddings",
-        LlmEndpointKind::OpenAiModels => "models",
         LlmEndpointKind::AnthropicMessages => "v1/messages",
     };
     base.join(path)

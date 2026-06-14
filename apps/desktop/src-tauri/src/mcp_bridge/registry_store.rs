@@ -9,6 +9,9 @@ use std::sync::Mutex;
 use tauri::{AppHandle, Manager, Wry};
 
 const REGISTRY_FILE: &str = "mcp-servers.json";
+const USER_CONFIG_SOURCE: &str = "user-config";
+const INSTALLED_ASSET_SOURCE: &str = "installed-asset";
+const DEVELOPER_RUNTIME_SOURCE: &str = "developer-runtime";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -203,10 +206,7 @@ impl RegisteredServerStore {
                     return Err("Command is required for stdio MCP servers".into());
                 }
                 let source = input.source.as_deref().map(str::trim).unwrap_or_default();
-                if !matches!(
-                    source,
-                    "user-config" | "installed-asset" | "developer-runtime"
-                ) {
+                if expected_stdio_request_surface(source).is_none() {
                     return Err("stdio MCP source must be user-config, installed-asset, or developer-runtime".into());
                 }
                 let surface = input
@@ -214,22 +214,8 @@ impl RegisteredServerStore {
                     .as_deref()
                     .map(str::trim)
                     .unwrap_or_default();
-                match source {
-                    "user-config" if surface != "settings" => {
-                        return Err(
-                            "user-config stdio MCP registration must originate from settings"
-                                .into(),
-                        );
-                    }
-                    "installed-asset" if surface != "installed-asset-runtime" => {
-                        return Err("installed-asset stdio MCP registration must originate from installed-asset-runtime".into());
-                    }
-                    "developer-runtime" if surface != "developer-runtime" => {
-                        return Err("developer-runtime stdio MCP registration must originate from developer-runtime".into());
-                    }
-                    _ => {}
-                }
-                if source == "installed-asset"
+                validate_stdio_request_surface(source, surface, "registration")?;
+                if source == INSTALLED_ASSET_SOURCE
                     && (input
                         .source_package_id
                         .as_deref()
@@ -306,6 +292,30 @@ fn normalize_optional(value: Option<&str>) -> Option<String> {
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(ToString::to_string)
+}
+
+pub(super) fn expected_stdio_request_surface(source: &str) -> Option<&'static str> {
+    match source {
+        USER_CONFIG_SOURCE => Some("settings"),
+        INSTALLED_ASSET_SOURCE => Some("installed-asset-runtime"),
+        DEVELOPER_RUNTIME_SOURCE => Some("developer-runtime"),
+        _ => None,
+    }
+}
+
+pub(super) fn validate_stdio_request_surface(
+    source: &str,
+    actual_surface: &str,
+    action: &str,
+) -> Result<(), String> {
+    if let Some(expected_surface) = expected_stdio_request_surface(source) {
+        if actual_surface != expected_surface {
+            return Err(format!(
+                "{source} stdio MCP {action} must originate from {expected_surface}"
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn command_fingerprint(

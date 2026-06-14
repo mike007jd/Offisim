@@ -67,8 +67,10 @@ export interface ModelRegistryOptions {
 
 export class ModelRegistry {
   private entries = new Map<string, ModelRegistryEntry>();
+  private entriesByModel = new Map<string, ModelRegistryEntry>();
   private gateways = new Map<string, LlmGateway>();
   private defaultId: string | null = null;
+  private capacityFallbackId: string | null = null;
   private capacityFailures = new Map<string, number>();
   private readonly capacityFailureThreshold = 2;
   private readonly transportFetch?: typeof fetch;
@@ -86,7 +88,10 @@ export class ModelRegistry {
     // Dispose previous gateways before clearing
     this.disposeAll();
     this.entries.clear();
+    this.entriesByModel.clear();
+    this.capacityFailures.clear();
     this.defaultId = null;
+    this.capacityFallbackId = null;
 
     for (const entry of config.models) {
       if (!entry.id || !entry.provider || !entry.model) {
@@ -99,8 +104,14 @@ export class ModelRegistry {
         apiKey: this.resolveEnvVars(entry.apiKey),
       };
       this.entries.set(resolved.id, resolved);
+      if (!this.entriesByModel.has(resolved.model)) {
+        this.entriesByModel.set(resolved.model, resolved);
+      }
       if (resolved.isDefault) {
         this.defaultId = resolved.id;
+      }
+      if (resolved.fallbackForCapacity === true && !this.capacityFallbackId) {
+        this.capacityFallbackId = resolved.id;
       }
     }
 
@@ -242,20 +253,22 @@ export class ModelRegistry {
   }
 
   private capacityFallbackEntry(modelId: string): ModelRegistryEntry | null {
-    const explicit = [...this.entries.values()].find(
-      (entry) => entry.id !== modelId && entry.fallbackForCapacity === true,
-    );
+    const explicit = this.capacityFallbackId ? this.entries.get(this.capacityFallbackId) : null;
+    if (explicit?.id === modelId) return this.defaultFallbackEntry(modelId);
     if (explicit) return explicit;
-    const defaultEntry = this.getDefault();
-    if (defaultEntry && defaultEntry.id !== modelId) return defaultEntry;
-    return [...this.entries.values()].find((entry) => entry.id !== modelId) ?? null;
+    return this.defaultFallbackEntry(modelId);
   }
 
   private entryByIdOrModel(modelId: string): ModelRegistryEntry | null {
-    return (
-      this.entries.get(modelId) ??
-      [...this.entries.values()].find((entry) => entry.model === modelId) ??
-      null
-    );
+    return this.entries.get(modelId) ?? this.entriesByModel.get(modelId) ?? null;
+  }
+
+  private defaultFallbackEntry(modelId: string): ModelRegistryEntry | null {
+    const defaultEntry = this.getDefault();
+    if (defaultEntry && defaultEntry.id !== modelId) return defaultEntry;
+    for (const entry of this.entries.values()) {
+      if (entry.id !== modelId) return entry;
+    }
+    return null;
   }
 }

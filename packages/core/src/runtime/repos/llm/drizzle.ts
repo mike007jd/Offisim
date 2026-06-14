@@ -1,6 +1,7 @@
 import * as schema from '@offisim/db-local/dist/schema.js';
 import { and, eq, inArray } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { globToRegex } from '../../../utils/glob-match.js';
 import type {
   LlmCallRepository,
   LlmCallRow,
@@ -65,17 +66,7 @@ export function createLlmDrizzleRepos(db: Db): LlmDrizzleRepos {
       .from(schema.modelCostRates)
       .where(eq(schema.modelCostRates.provider, provider))
       .all() as ModelCostRateRow[];
-    const compiled = rows.map((r) => {
-      // Escape regex metacharacters first, then translate glob wildcards (*
-      // → .*, ? → .). Without this, an unescaped '.' / '+' / '(' / '[' in
-      // model_pattern would be regex-meta and overmatch (e.g.
-      // 'gpt-4.5o-mini' would match 'gpt-4Xo-mini' and mis-bill).
-      const escaped = r.model_pattern
-        .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-        .replace(/\*/g, '.*')
-        .replace(/\?/g, '.');
-      return new RegExp(`^${escaped}$`, 'i');
-    });
+    const compiled = rows.map((r) => globToRegex(r.model_pattern));
     const entry = { rows, compiled };
     costRateRegexCache.set(provider, entry);
     return entry;

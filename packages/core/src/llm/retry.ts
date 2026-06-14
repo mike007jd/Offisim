@@ -10,7 +10,7 @@ export const DEFAULT_RETRY_CONFIG: RetryConfig = {
   maxDelayMs: 30000,
 };
 
-function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+export function abortableSleep(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
       reject(new DOMException('Aborted', 'AbortError'));
@@ -91,7 +91,7 @@ export async function withRetry<T>(
       }
       // Abortable backoff: if the signal fires during the (up to maxDelayMs)
       // wait, reject immediately instead of stalling for the full delay.
-      await sleep(computeDelay(attempt, config, error), signal);
+      await abortableSleep(computeDelay(attempt, config, error), signal);
     }
   }
 

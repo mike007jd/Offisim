@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { detectDefaultDrift } from './latest-models.mjs';
+import { fetchOpenRouterModelsPayload } from './openrouter-source.mjs';
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 export const CATALOG_DIR = resolve(ROOT, 'catalog/provider-source-registry');
@@ -417,9 +418,6 @@ export function normalizeCuratedOverridesSnapshot(curatedOverrides, source) {
     const provider = curatedOverrides.providers[providerId];
     if (!isRecord(provider)) continue;
     const providerSnapshot = ensureProviderSnapshot(snapshot, providerId);
-    if (isRecord(provider.executionLaneHints)) {
-      providerSnapshot.fields.executionLaneHints = clone(provider.executionLaneHints);
-    }
     if (typeof provider.notes === 'string' && provider.notes.trim()) {
       providerSnapshot.fields.notes = provider.notes.trim();
     }
@@ -746,22 +744,13 @@ export async function loadOpenRouterPayloads(source, options = {}) {
     };
   }
 
-  const fetchImpl = options.fetchImpl ?? globalThis.fetch;
-  if (typeof fetchImpl !== 'function') {
-    throw new Error('fetch is unavailable; pass options.fetchImpl or use fixtureDir');
-  }
-
-  const modelsUrl = source.config?.modelsUrl;
-  if (typeof modelsUrl !== 'string') {
-    throw new Error('openrouter-live source config must include modelsUrl');
-  }
-
-  const modelsResponse = await fetchImpl(modelsUrl);
-  if (!modelsResponse.ok) {
-    throw new Error(`Failed to fetch OpenRouter model catalog: ${modelsResponse.status}`);
-  }
-
-  return { modelsPayload: await modelsResponse.json() };
+  return {
+    modelsPayload: await fetchOpenRouterModelsPayload({
+      ...options,
+      source,
+      errorLabel: 'OpenRouter model catalog',
+    }),
+  };
 }
 
 function compareSources(left, right) {
@@ -834,7 +823,6 @@ export function mergeCatalog({ registry, snapshots, generatedAt }) {
         a.localeCompare(b),
       )) {
         applyField({
-          catalog,
           conflicts: catalog.conflicts,
           providerId,
           field,
@@ -850,7 +838,6 @@ export function mergeCatalog({ registry, snapshots, generatedAt }) {
           a.localeCompare(b),
         )) {
           applyField({
-            catalog,
             conflicts: catalog.conflicts,
             providerId,
             modelId,
@@ -1017,14 +1004,16 @@ export async function refreshProviderSourceRegistry(options = {}) {
     context.curatedOverrides,
     overrideSource,
   );
-  const liteLlmPayloads = await loadLiteLlmPayloads(litellmSource, options);
+  const [liteLlmPayloads, openRouterPayloads] = await Promise.all([
+    loadLiteLlmPayloads(litellmSource, options),
+    loadOpenRouterPayloads(openRouterSource, options),
+  ]);
   const communitySnapshot = normalizeLiteLlmSnapshot({
     officialFixtures: context.officialFixtures,
     models: liteLlmPayloads.models,
     providerSupport: liteLlmPayloads.providerSupport,
     source: litellmSource,
   });
-  const openRouterPayloads = await loadOpenRouterPayloads(openRouterSource, options);
   const openRouterSnapshot = normalizeOpenRouterSnapshot({
     modelsPayload: openRouterPayloads.modelsPayload,
     source: openRouterSource,

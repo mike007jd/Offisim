@@ -16,14 +16,7 @@ import type {
   ToolCallRow,
 } from '../../repositories.js';
 import type { MemoryRepositoriesSnapshot } from '../memory-types.js';
-
-function now(): string {
-  return new Date().toISOString();
-}
-
-function cloneRows<T extends object>(rows: Iterable<T>): T[] {
-  return [...rows].map((row) => ({ ...row }));
-}
+import { cloneRows, now } from '../memory-utils.js';
 
 export class MemoryToolCallRepository implements ToolCallRepository {
   private readonly rows = new Map<string, ToolCallRow>();

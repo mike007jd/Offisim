@@ -7,10 +7,8 @@ import type { ModelResolver } from '../llm/model-resolver.js';
 import type { RecordedSystemLlmCaller } from '../llm/recorded-system-caller.js';
 import type { LlmMiddlewareChain } from '../middleware/chain.js';
 import type { RollingJournal } from '../services/conversation-budget/rolling-journal.js';
-import type { FileHistoryService } from '../services/file-history-service.js';
 import type { InteractionService } from '../services/interaction-service.js';
 import type { MemoryService } from '../services/memory-service.js';
-import type { ToolTelemetryService } from '../services/tool-telemetry-service.js';
 import type { WorkstationToolResolver } from '../services/workstation-tool-resolver.js';
 import type { SkillInstallEnvironment } from '../skills/skill-install-environment.js';
 import type { SkillLoader } from '../skills/skill-loader.js';
@@ -62,8 +60,6 @@ export interface RuntimeContext {
   readonly modelRegistry?: ModelRegistry;
   /** Recorded caller for system services — provides audit trail for background LLM calls. */
   readonly systemCaller?: RecordedSystemLlmCaller;
-  /** Live tool execution telemetry buffer. */
-  readonly toolTelemetryService?: ToolTelemetryService;
   /**
    * Whether the active LLM transport can execute Offisim tool calls for this
    * runtime. Unverified SDK-backed model transports are not tool-capable;
@@ -72,8 +68,6 @@ export interface RuntimeContext {
   readonly llmToolCallsEnabled?: boolean;
   /** Desktop-trusted built-in file/shell tools exposed outside workstation MCP scoping. */
   readonly builtinTools?: ReadonlyMap<string, BuiltinTool>;
-  /** File mutation snapshot and rewind support for desktop-trusted runtimes. */
-  readonly fileHistoryService?: FileHistoryService;
   /** Trusted runtime engine adapters for per-employee engine mode. */
   readonly engineAdapters?: EngineAdapterRegistry;
   /** Human-in-the-loop interaction controller. */
@@ -146,10 +140,8 @@ export function createRuntimeContext(deps: {
   middlewareChain?: LlmMiddlewareChain;
   modelRegistry?: ModelRegistry;
   systemCaller?: RecordedSystemLlmCaller;
-  toolTelemetryService?: ToolTelemetryService;
   llmToolCallsEnabled?: boolean;
   builtinTools?: ReadonlyMap<string, BuiltinTool>;
-  fileHistoryService?: FileHistoryService;
   engineAdapters?: EngineAdapterRegistry;
   interactionService?: InteractionService;
   rollingJournal?: RollingJournal;
@@ -162,14 +154,8 @@ export function createRuntimeContext(deps: {
   attachmentStoreBridge?: AttachmentStoreBridge;
   determinism?: RuntimeDeterminism;
 }): RuntimeContext {
-  const {
-    interactionBox,
-    hookRegistry,
-    conversationState,
-    scratchpad,
-    determinism,
-    ...rest
-  } = deps;
+  const { interactionBox, hookRegistry, conversationState, scratchpad, determinism, ...rest } =
+    deps;
   return Object.freeze({
     ...rest,
     interactionBox: interactionBox ?? { pending: null },

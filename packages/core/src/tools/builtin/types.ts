@@ -1,5 +1,5 @@
-import type { EventBus } from '../../events/event-bus.js';
 import type { RunScope } from '@offisim/shared-types';
+import type { EventBus } from '../../events/event-bus.js';
 import type { ToolDef } from '../../llm/gateway.js';
 import type { AttachmentStoreBridge } from '../../runtime/attachment-store-bridge.js';
 

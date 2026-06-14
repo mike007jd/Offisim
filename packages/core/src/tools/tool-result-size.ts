@@ -27,7 +27,10 @@ interface SpillEntry {
   readonly scope?: ToolResultSpillScope;
 }
 
-function scopeMatches(entry: ToolResultSpillScope | undefined, requested: ToolResultSpillScope | undefined): boolean {
+function scopeMatches(
+  entry: ToolResultSpillScope | undefined,
+  requested: ToolResultSpillScope | undefined,
+): boolean {
   if (!entry?.companyId && !entry?.threadId) return true;
   return entry.companyId === requested?.companyId && entry.threadId === requested?.threadId;
 }

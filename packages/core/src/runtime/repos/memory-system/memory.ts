@@ -13,15 +13,8 @@ import type {
   NodeSummaryRow,
 } from '../../repositories.js';
 import type { MemoryRepositoriesSnapshot } from '../memory-types.js';
+import { cloneRows, now } from '../memory-utils.js';
 import { buildMemoryUpdatePatch, normalizeMemoryDedupeKey } from './patch.js';
-
-function cloneRows<T extends object>(rows: Iterable<T>): T[] {
-  return [...rows].map((row) => ({ ...row }));
-}
-
-function now(): string {
-  return new Date().toISOString();
-}
 
 /**
  * In-memory implementation of MemoryRepository.
@@ -114,15 +107,21 @@ export class InMemoryMemoryRepository implements MemoryRepository {
 
   async findByOwner(
     ownerId: string,
-    opts?: { category?: string; limit?: number },
+    opts?: { category?: string; companyId?: string; scope?: string; limit?: number | null },
   ): Promise<MemoryEntryRow[]> {
     let results = [...this.store.values()].filter((row) => row.owner_id === ownerId);
+    if (opts?.companyId) {
+      results = results.filter((row) => row.company_id === opts.companyId);
+    }
+    if (opts?.scope) {
+      results = results.filter((row) => row.scope === opts.scope);
+    }
     if (opts?.category) {
       results = results.filter((row) => row.category === opts.category);
     }
     results.sort((a, b) => b.importance - a.importance);
-    const limit = opts?.limit ?? 50;
-    return results.slice(0, limit);
+    if (opts?.limit === null) return results;
+    return results.slice(0, opts?.limit ?? 50);
   }
 
   async reinforce(

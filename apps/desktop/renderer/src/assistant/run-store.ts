@@ -8,7 +8,7 @@ import {
   type RunState,
   type StagedAttachment,
 } from '@/data/types.js';
-import { sha256Hex } from '@/lib/utils.js';
+import { sha256Hex } from '@offisim/install-core';
 import { CHAT_ATTACHMENT_MAX_BYTES, kindFromMime } from '@offisim/shared-types';
 import { create } from 'zustand';
 

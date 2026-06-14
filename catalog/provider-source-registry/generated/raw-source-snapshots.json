@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-06T05:24:11.106Z",
+  "generatedAt": "2026-06-14T03:38:07.603Z",
   "snapshots": {
     "litellm": {
       "meta": {
@@ -59,7 +59,7 @@
             "mappedProviderIds": [
               "anthropic-default"
             ],
-            "modelCount": 21,
+            "modelCount": 22,
             "providerDisplayName": "Anthropic (`anthropic`)"
           },
           {
@@ -79,6 +79,13 @@
             "mappedProviderIds": [],
             "modelCount": 0,
             "providerDisplayName": "Apertis (`apertis`)"
+          },
+          {
+            "alias": "apiserpent",
+            "docsUrl": "https://docs.litellm.ai/docs/search/apiserpent",
+            "mappedProviderIds": [],
+            "modelCount": 2,
+            "providerDisplayName": "APISerpent (`apiserpent`)"
           },
           {
             "alias": "assemblyai",
@@ -112,7 +119,7 @@
             "alias": "azure_ai",
             "docsUrl": "https://docs.litellm.ai/docs/providers/azure_ai",
             "mappedProviderIds": [],
-            "modelCount": 85,
+            "modelCount": 87,
             "providerDisplayName": "Azure AI (`azure_ai`)"
           },
           {
@@ -153,13 +160,13 @@
           {
             "alias": "bedrock_converse",
             "mappedProviderIds": [],
-            "modelCount": 126
+            "modelCount": 131
           },
           {
             "alias": "bedrock_mantle",
             "docsUrl": "https://docs.litellm.ai/docs/providers/bedrock",
             "mappedProviderIds": [],
-            "modelCount": 4,
+            "modelCount": 6,
             "providerDisplayName": "Bedrock Mantle (`bedrock_mantle`)"
           },
           {
@@ -377,7 +384,7 @@
             "alias": "fal_ai",
             "docsUrl": "https://docs.litellm.ai/docs/providers/fal_ai",
             "mappedProviderIds": [],
-            "modelCount": 12,
+            "modelCount": 14,
             "providerDisplayName": "Fal AI (`fal_ai`)"
           },
           {
@@ -514,6 +521,13 @@
             "providerDisplayName": "Hyperbolic (`hyperbolic`)"
           },
           {
+            "alias": "inception",
+            "docsUrl": "https://docs.litellm.ai/docs/providers/inception",
+            "mappedProviderIds": [],
+            "modelCount": 1,
+            "providerDisplayName": "Inception (`inception`)"
+          },
+          {
             "alias": "infinity",
             "docsUrl": "https://docs.litellm.ai/docs/providers/infinity",
             "mappedProviderIds": [],
@@ -533,6 +547,13 @@
             "mappedProviderIds": [],
             "modelCount": 20,
             "providerDisplayName": "Lambda AI (`lambda_ai`)"
+          },
+          {
+            "alias": "langflow",
+            "docsUrl": "https://docs.litellm.ai/docs/providers/langflow",
+            "mappedProviderIds": [],
+            "modelCount": 0,
+            "providerDisplayName": "LangFlow (`langflow`)"
           },
           {
             "alias": "langgraph",
@@ -619,14 +640,14 @@
               "minimax-intl-anthropic-coding",
               "minimax-intl-openai-general"
             ],
-            "modelCount": 9,
+            "modelCount": 10,
             "providerDisplayName": "Minimax (`minimax`)"
           },
           {
             "alias": "mistral",
             "docsUrl": "https://docs.litellm.ai/docs/providers/mistral",
             "mappedProviderIds": [],
-            "modelCount": 52,
+            "modelCount": 53,
             "providerDisplayName": "Mistral AI API (`mistral`)"
           },
           {
@@ -659,6 +680,13 @@
             "mappedProviderIds": [],
             "modelCount": 30,
             "providerDisplayName": "Nebius AI Studio (`nebius`)"
+          },
+          {
+            "alias": "neosantara",
+            "docsUrl": "https://docs.litellm.ai/docs/providers/neosantara",
+            "mappedProviderIds": [],
+            "modelCount": 0,
+            "providerDisplayName": "Neosantara (`neosantara`)"
           },
           {
             "alias": "nlp_cloud",
@@ -929,8 +957,15 @@
             "alias": "snowflake",
             "docsUrl": "https://docs.litellm.ai/docs/providers/snowflake",
             "mappedProviderIds": [],
-            "modelCount": 24,
+            "modelCount": 37,
             "providerDisplayName": "Snowflake (`snowflake`)"
+          },
+          {
+            "alias": "soniox",
+            "docsUrl": "https://docs.litellm.ai/docs/providers/soniox",
+            "mappedProviderIds": [],
+            "modelCount": 1,
+            "providerDisplayName": "Soniox (`soniox`)"
           },
           {
             "alias": "stability",
@@ -953,11 +988,23 @@
             "providerDisplayName": "Tavily (`tavily`)"
           },
           {
+            "alias": "tensormesh",
+            "docsUrl": "https://docs.litellm.ai/docs/providers/tensormesh",
+            "mappedProviderIds": [],
+            "modelCount": 0,
+            "providerDisplayName": "Tensormesh (`tensormesh`)"
+          },
+          {
             "alias": "text-completion-codestral",
             "docsUrl": "https://docs.litellm.ai/docs/providers/codestral",
             "mappedProviderIds": [],
             "modelCount": 2,
             "providerDisplayName": "Text Completion Codestral (`text-completion-codestral`)"
+          },
+          {
+            "alias": "text-completion-inception",
+            "mappedProviderIds": [],
+            "modelCount": 1
           },
           {
             "alias": "text-completion-openai",
@@ -1023,7 +1070,7 @@
           {
             "alias": "vertex_ai-anthropic_models",
             "mappedProviderIds": [],
-            "modelCount": 31
+            "modelCount": 33
           },
           {
             "alias": "vertex_ai-deepseek_models",
@@ -1068,7 +1115,7 @@
           {
             "alias": "vertex_ai-openai_models",
             "mappedProviderIds": [],
-            "modelCount": 2
+            "modelCount": 3
           },
           {
             "alias": "vertex_ai-qwen_models",
@@ -1161,6 +1208,13 @@
             "providerDisplayName": "Xinference (`xinference`)"
           },
           {
+            "alias": "you_com",
+            "docsUrl": "https://docs.litellm.ai/docs/search/you_com",
+            "mappedProviderIds": [],
+            "modelCount": 1,
+            "providerDisplayName": "You.com (`you_com`)"
+          },
+          {
             "alias": "zai",
             "docsUrl": "https://docs.litellm.ai/docs/providers/zai",
             "mappedProviderIds": [
@@ -1231,6 +1285,12 @@
             "providerDisplayName": "Apertis (`apertis`)"
           },
           {
+            "communityAlias": "apiserpent",
+            "docsUrl": "https://docs.litellm.ai/docs/search/apiserpent",
+            "modelCount": 2,
+            "providerDisplayName": "APISerpent (`apiserpent`)"
+          },
+          {
             "communityAlias": "assemblyai",
             "docsUrl": "https://docs.litellm.ai/docs/pass_through/assembly_ai",
             "modelCount": 2,
@@ -1257,7 +1317,7 @@
           {
             "communityAlias": "azure_ai",
             "docsUrl": "https://docs.litellm.ai/docs/providers/azure_ai",
-            "modelCount": 85,
+            "modelCount": 87,
             "providerDisplayName": "Azure AI (`azure_ai`)"
           },
           {
@@ -1292,12 +1352,12 @@
           },
           {
             "communityAlias": "bedrock_converse",
-            "modelCount": 126
+            "modelCount": 131
           },
           {
             "communityAlias": "bedrock_mantle",
             "docsUrl": "https://docs.litellm.ai/docs/providers/bedrock",
-            "modelCount": 4,
+            "modelCount": 6,
             "providerDisplayName": "Bedrock Mantle (`bedrock_mantle`)"
           },
           {
@@ -1476,7 +1536,7 @@
           {
             "communityAlias": "fal_ai",
             "docsUrl": "https://docs.litellm.ai/docs/providers/fal_ai",
-            "modelCount": 12,
+            "modelCount": 14,
             "providerDisplayName": "Fal AI (`fal_ai`)"
           },
           {
@@ -1586,6 +1646,12 @@
             "providerDisplayName": "Hyperbolic (`hyperbolic`)"
           },
           {
+            "communityAlias": "inception",
+            "docsUrl": "https://docs.litellm.ai/docs/providers/inception",
+            "modelCount": 1,
+            "providerDisplayName": "Inception (`inception`)"
+          },
+          {
             "communityAlias": "infinity",
             "docsUrl": "https://docs.litellm.ai/docs/providers/infinity",
             "modelCount": 0,
@@ -1602,6 +1668,12 @@
             "docsUrl": "https://docs.litellm.ai/docs/providers/lambda_ai",
             "modelCount": 20,
             "providerDisplayName": "Lambda AI (`lambda_ai`)"
+          },
+          {
+            "communityAlias": "langflow",
+            "docsUrl": "https://docs.litellm.ai/docs/providers/langflow",
+            "modelCount": 0,
+            "providerDisplayName": "LangFlow (`langflow`)"
           },
           {
             "communityAlias": "langgraph",
@@ -1672,7 +1744,7 @@
           {
             "communityAlias": "mistral",
             "docsUrl": "https://docs.litellm.ai/docs/providers/mistral",
-            "modelCount": 52,
+            "modelCount": 53,
             "providerDisplayName": "Mistral AI API (`mistral`)"
           },
           {
@@ -1691,6 +1763,12 @@
             "docsUrl": "https://docs.litellm.ai/docs/providers/nebius",
             "modelCount": 30,
             "providerDisplayName": "Nebius AI Studio (`nebius`)"
+          },
+          {
+            "communityAlias": "neosantara",
+            "docsUrl": "https://docs.litellm.ai/docs/providers/neosantara",
+            "modelCount": 0,
+            "providerDisplayName": "Neosantara (`neosantara`)"
           },
           {
             "communityAlias": "nlp_cloud",
@@ -1906,8 +1984,14 @@
           {
             "communityAlias": "snowflake",
             "docsUrl": "https://docs.litellm.ai/docs/providers/snowflake",
-            "modelCount": 24,
+            "modelCount": 37,
             "providerDisplayName": "Snowflake (`snowflake`)"
+          },
+          {
+            "communityAlias": "soniox",
+            "docsUrl": "https://docs.litellm.ai/docs/providers/soniox",
+            "modelCount": 1,
+            "providerDisplayName": "Soniox (`soniox`)"
           },
           {
             "communityAlias": "stability",
@@ -1927,10 +2011,20 @@
             "providerDisplayName": "Tavily (`tavily`)"
           },
           {
+            "communityAlias": "tensormesh",
+            "docsUrl": "https://docs.litellm.ai/docs/providers/tensormesh",
+            "modelCount": 0,
+            "providerDisplayName": "Tensormesh (`tensormesh`)"
+          },
+          {
             "communityAlias": "text-completion-codestral",
             "docsUrl": "https://docs.litellm.ai/docs/providers/codestral",
             "modelCount": 2,
             "providerDisplayName": "Text Completion Codestral (`text-completion-codestral`)"
+          },
+          {
+            "communityAlias": "text-completion-inception",
+            "modelCount": 1
           },
           {
             "communityAlias": "text-completion-openai",
@@ -1986,7 +2080,7 @@
           },
           {
             "communityAlias": "vertex_ai-anthropic_models",
-            "modelCount": 31
+            "modelCount": 33
           },
           {
             "communityAlias": "vertex_ai-deepseek_models",
@@ -2022,7 +2116,7 @@
           },
           {
             "communityAlias": "vertex_ai-openai_models",
-            "modelCount": 2
+            "modelCount": 3
           },
           {
             "communityAlias": "vertex_ai-qwen_models",
@@ -2099,6 +2193,12 @@
             "docsUrl": "https://docs.litellm.ai/docs/providers/xinference",
             "modelCount": 0,
             "providerDisplayName": "Xinference (`xinference`)"
+          },
+          {
+            "communityAlias": "you_com",
+            "docsUrl": "https://docs.litellm.ai/docs/search/you_com",
+            "modelCount": 1,
+            "providerDisplayName": "You.com (`you_com`)"
           }
         ]
       },
@@ -2184,6 +2284,20 @@
                 "pricing": {
                   "inputCostPerToken": 0.000003,
                   "outputCostPerToken": 0.000015
+                }
+              }
+            },
+            "claude-fable-5": {
+              "fields": {
+                "capabilities": {
+                  "functionCalling": true,
+                  "reasoning": true
+                },
+                "contextWindow": 1000000,
+                "maxOutputTokens": 128000,
+                "pricing": {
+                  "inputCostPerToken": 0.00001,
+                  "outputCostPerToken": 0.00005
                 }
               }
             },
@@ -4262,6 +4376,20 @@
                 }
               }
             },
+            "MiniMax-M3": {
+              "fields": {
+                "capabilities": {
+                  "functionCalling": true,
+                  "reasoning": true
+                },
+                "contextWindow": 512000,
+                "maxOutputTokens": 128000,
+                "pricing": {
+                  "inputCostPerToken": 6e-7,
+                  "outputCostPerToken": 0.0000024
+                }
+              }
+            },
             "speech-02-hd": {
               "fields": {
                 "supportedEndpoints": [
@@ -4373,6 +4501,20 @@
                 }
               }
             },
+            "MiniMax-M3": {
+              "fields": {
+                "capabilities": {
+                  "functionCalling": true,
+                  "reasoning": true
+                },
+                "contextWindow": 512000,
+                "maxOutputTokens": 128000,
+                "pricing": {
+                  "inputCostPerToken": 6e-7,
+                  "outputCostPerToken": 0.0000024
+                }
+              }
+            },
             "speech-02-hd": {
               "fields": {
                 "supportedEndpoints": [
@@ -4480,6 +4622,20 @@
                 "maxOutputTokens": 8192,
                 "pricing": {
                   "inputCostPerToken": 3e-7,
+                  "outputCostPerToken": 0.0000024
+                }
+              }
+            },
+            "MiniMax-M3": {
+              "fields": {
+                "capabilities": {
+                  "functionCalling": true,
+                  "reasoning": true
+                },
+                "contextWindow": 512000,
+                "maxOutputTokens": 128000,
+                "pricing": {
+                  "inputCostPerToken": 6e-7,
                   "outputCostPerToken": 0.0000024
                 }
               }
@@ -9424,171 +9580,38 @@
     },
     "offisim-curated-overrides": {
       "providers": {
-        "anthropic-default": {
-          "fields": {
-            "executionLaneHints": {
-              "productExposed": [
-                "gateway"
-              ]
-            }
-          },
-          "models": {}
-        },
         "custom": {
           "fields": {
-            "executionLaneHints": {
-              "productExposed": [
-                "gateway"
-              ]
-            },
             "notes": "Custom endpoints stay gateway-only until a curated product profile exists."
-          },
-          "models": {}
-        },
-        "deepseek-openai-general": {
-          "fields": {
-            "executionLaneHints": {
-              "productExposed": [
-                "gateway"
-              ]
-            }
-          },
-          "models": {}
-        },
-        "gemini-openai-general": {
-          "fields": {
-            "executionLaneHints": {
-              "productExposed": [
-                "gateway"
-              ]
-            }
-          },
-          "models": {}
-        },
-        "kimi-cn-anthropic-coding": {
-          "fields": {
-            "executionLaneHints": {
-              "productExposed": [
-                "gateway"
-              ]
-            }
-          },
-          "models": {}
-        },
-        "kimi-cn-openai-general": {
-          "fields": {
-            "executionLaneHints": {
-              "productExposed": [
-                "gateway"
-              ]
-            }
-          },
-          "models": {}
-        },
-        "kimi-intl-openai-general": {
-          "fields": {
-            "executionLaneHints": {
-              "productExposed": [
-                "gateway"
-              ]
-            }
-          },
-          "models": {}
-        },
-        "lmstudio": {
-          "fields": {
-            "executionLaneHints": {
-              "productExposed": [
-                "gateway"
-              ]
-            }
-          },
-          "models": {}
-        },
-        "minimax-cn-anthropic-coding": {
-          "fields": {
-            "executionLaneHints": {
-              "productExposed": [
-                "gateway"
-              ]
-            }
           },
           "models": {}
         },
         "minimax-intl-anthropic-coding": {
           "fields": {
-            "executionLaneHints": {
-              "productExposed": [
-                "gateway",
-                "claude-agent-sdk"
-              ]
-            },
-            "notes": "MiniMax Anthropic-compatible endpoint supports the Claude lane; verified with the current MiniMax-M3 model."
+            "notes": "MiniMax Anthropic-compatible endpoint supports the Claude lane only through a verified runtime profile, not a generic product SDK lane."
           },
           "models": {}
         },
         "minimax-intl-openai-general": {
           "fields": {
-            "executionLaneHints": {
-              "productExposed": [
-                "gateway",
-                "codex-agent-sdk"
-              ]
-            },
-            "notes": "MiniMax OpenAI-compatible endpoint supports the Responses wire required by the Codex sidecar."
-          },
-          "models": {}
-        },
-        "openai-default": {
-          "fields": {
-            "executionLaneHints": {
-              "productExposed": [
-                "gateway"
-              ]
-            }
-          },
-          "models": {}
-        },
-        "openrouter-openai-general": {
-          "fields": {
-            "executionLaneHints": {
-              "productExposed": [
-                "gateway"
-              ]
-            }
+            "notes": "MiniMax OpenAI-compatible endpoint supports the Responses wire required by the Codex sidecar only through a verified runtime profile."
           },
           "models": {}
         },
         "zai-shared-anthropic-coding": {
           "fields": {
-            "executionLaneHints": {
-              "productExposed": [
-                "gateway",
-                "claude-agent-sdk"
-              ]
-            },
-            "notes": "Z.AI Anthropic-compatible endpoint supports the Claude lane; Z.AI OpenAI-compatible endpoints remain gateway-only because they are chat-completions only."
+            "notes": "Z.AI Anthropic-compatible endpoint supports the Claude lane only through a verified runtime profile; Z.AI OpenAI-compatible endpoints remain gateway-only because they are chat-completions only."
           },
           "models": {}
         },
         "zai-shared-openai-coding": {
           "fields": {
-            "executionLaneHints": {
-              "productExposed": [
-                "gateway"
-              ]
-            },
             "notes": "Z.AI OpenAI-compatible coding endpoint is chat-completions only; do not route it through the Codex sidecar."
           },
           "models": {}
         },
         "zai-shared-openai-general": {
           "fields": {
-            "executionLaneHints": {
-              "productExposed": [
-                "gateway"
-              ]
-            },
             "notes": "Z.AI OpenAI-compatible general endpoint is chat-completions only; do not route it through the Codex sidecar."
           },
           "models": {}
@@ -9601,7 +9624,7 @@
     },
     "openrouter-live": {
       "meta": {
-        "routedModelCount": 344,
+        "routedModelCount": 337,
         "routedModelNamespaces": [
           "ai21",
           "aion-labs",
@@ -9914,6 +9937,25 @@
                 ]
               }
             },
+            "anthropic/claude-fable-5": {
+              "fields": {
+                "capabilities": {
+                  "functionCalling": true,
+                  "reasoning": true
+                },
+                "contextWindow": 1000000,
+                "displayName": "Anthropic: Claude Fable 5",
+                "maxOutputTokens": 128000,
+                "pricing": {
+                  "inputCostPerToken": 0.00001,
+                  "outputCostPerToken": 0.00005
+                },
+                "supportedEndpoints": [
+                  "chat_completions",
+                  "responses"
+                ]
+              }
+            },
             "anthropic/claude-haiku-4.5": {
               "fields": {
                 "capabilities": {
@@ -10174,34 +10216,6 @@
                 ]
               }
             },
-            "arcee-ai/maestro-reasoning": {
-              "fields": {
-                "contextWindow": 131072,
-                "displayName": "Arcee AI: Maestro Reasoning",
-                "maxOutputTokens": 32000,
-                "pricing": {
-                  "inputCostPerToken": 9e-7,
-                  "outputCostPerToken": 0.0000033
-                },
-                "supportedEndpoints": [
-                  "chat_completions"
-                ]
-              }
-            },
-            "arcee-ai/spotlight": {
-              "fields": {
-                "contextWindow": 131072,
-                "displayName": "Arcee AI: Spotlight",
-                "maxOutputTokens": 65537,
-                "pricing": {
-                  "inputCostPerToken": 1.8e-7,
-                  "outputCostPerToken": 1.8e-7
-                },
-                "supportedEndpoints": [
-                  "chat_completions"
-                ]
-              }
-            },
             "arcee-ai/trinity-large-thinking": {
               "fields": {
                 "capabilities": {
@@ -10251,25 +10265,6 @@
                 "pricing": {
                   "inputCostPerToken": 7.5e-7,
                   "outputCostPerToken": 0.0000012
-                },
-                "supportedEndpoints": [
-                  "chat_completions",
-                  "responses"
-                ]
-              }
-            },
-            "baidu/ernie-4.5-vl-28b-a3b": {
-              "fields": {
-                "capabilities": {
-                  "functionCalling": true,
-                  "reasoning": true
-                },
-                "contextWindow": 131072,
-                "displayName": "Baidu: ERNIE 4.5 VL 28B A3B",
-                "maxOutputTokens": 8000,
-                "pricing": {
-                  "inputCostPerToken": 1.4e-7,
-                  "outputCostPerToken": 5.6e-7
                 },
                 "supportedEndpoints": [
                   "chat_completions",
@@ -10575,11 +10570,11 @@
                 "capabilities": {
                   "reasoning": true
                 },
-                "contextWindow": 131072,
+                "contextWindow": 128000,
                 "displayName": "DeepSeek: R1 Distill Llama 70B",
-                "maxOutputTokens": 16384,
+                "maxOutputTokens": 8192,
                 "pricing": {
-                  "inputCostPerToken": 7e-7,
+                  "inputCostPerToken": 8e-7,
                   "outputCostPerToken": 8e-7
                 },
                 "supportedEndpoints": [
@@ -10669,10 +10664,10 @@
                 },
                 "contextWindow": 1048576,
                 "displayName": "DeepSeek: DeepSeek V4 Flash",
-                "maxOutputTokens": 131072,
+                "maxOutputTokens": 65536,
                 "pricing": {
-                  "inputCostPerToken": 9.83e-8,
-                  "outputCostPerToken": 1.966e-7
+                  "inputCostPerToken": 9e-8,
+                  "outputCostPerToken": 1.8e-7
                 },
                 "supportedEndpoints": [
                   "chat_completions",
@@ -11015,8 +11010,8 @@
                 "displayName": "Google: Gemma 3 12B",
                 "maxOutputTokens": 16384,
                 "pricing": {
-                  "inputCostPerToken": 4e-8,
-                  "outputCostPerToken": 1.3e-7
+                  "inputCostPerToken": 5e-8,
+                  "outputCostPerToken": 1.5e-7
                 },
                 "supportedEndpoints": [
                   "chat_completions",
@@ -11048,8 +11043,8 @@
                 "displayName": "Google: Gemma 3 4B",
                 "maxOutputTokens": 16384,
                 "pricing": {
-                  "inputCostPerToken": 4e-8,
-                  "outputCostPerToken": 8e-8
+                  "inputCostPerToken": 5e-8,
+                  "outputCostPerToken": 1e-7
                 },
                 "supportedEndpoints": [
                   "chat_completions"
@@ -11114,10 +11109,10 @@
                 },
                 "contextWindow": 262144,
                 "displayName": "Google: Gemma 4 31B",
-                "maxOutputTokens": 8192,
+                "maxOutputTokens": 262144,
                 "pricing": {
                   "inputCostPerToken": 1.2e-7,
-                  "outputCostPerToken": 3.6e-7
+                  "outputCostPerToken": 3.5e-7
                 },
                 "supportedEndpoints": [
                   "chat_completions",
@@ -11412,10 +11407,9 @@
               "fields": {
                 "contextWindow": 8192,
                 "displayName": "Meta: Llama 3 8B Instruct",
-                "maxOutputTokens": 8192,
                 "pricing": {
-                  "inputCostPerToken": 4e-8,
-                  "outputCostPerToken": 4e-8
+                  "inputCostPerToken": 1.4e-7,
+                  "outputCostPerToken": 1.4e-7
                 },
                 "supportedEndpoints": [
                   "chat_completions"
@@ -11464,8 +11458,8 @@
                 "displayName": "Meta: Llama 3.2 11B Vision Instruct",
                 "maxOutputTokens": 16384,
                 "pricing": {
-                  "inputCostPerToken": 2.45e-7,
-                  "outputCostPerToken": 2.45e-7
+                  "inputCostPerToken": 3.45e-7,
+                  "outputCostPerToken": 3.45e-7
                 },
                 "supportedEndpoints": [
                   "chat_completions"
@@ -11575,26 +11569,12 @@
                 "displayName": "Meta: Llama 4 Scout",
                 "maxOutputTokens": 16384,
                 "pricing": {
-                  "inputCostPerToken": 8e-8,
+                  "inputCostPerToken": 1e-7,
                   "outputCostPerToken": 3e-7
                 },
                 "supportedEndpoints": [
                   "chat_completions",
                   "responses"
-                ]
-              }
-            },
-            "meta-llama/llama-guard-3-8b": {
-              "fields": {
-                "contextWindow": 131072,
-                "displayName": "Llama Guard 3 8B",
-                "maxOutputTokens": 131072,
-                "pricing": {
-                  "inputCostPerToken": 4.84e-7,
-                  "outputCostPerToken": 3e-8
-                },
-                "supportedEndpoints": [
-                  "chat_completions"
                 ]
               }
             },
@@ -11750,7 +11730,7 @@
                 "maxOutputTokens": 196608,
                 "pricing": {
                   "inputCostPerToken": 1.5e-7,
-                  "outputCostPerToken": 0.00000115
+                  "outputCostPerToken": 9e-7
                 },
                 "supportedEndpoints": [
                   "chat_completions",
@@ -11766,10 +11746,10 @@
                 },
                 "contextWindow": 204800,
                 "displayName": "MiniMax: MiniMax M2.7",
-                "maxOutputTokens": 196608,
+                "maxOutputTokens": 131072,
                 "pricing": {
-                  "inputCostPerToken": 2.79e-7,
-                  "outputCostPerToken": 0.0000012
+                  "inputCostPerToken": 2.5e-7,
+                  "outputCostPerToken": 0.000001
                 },
                 "supportedEndpoints": [
                   "chat_completions",
@@ -12179,10 +12159,9 @@
                 },
                 "contextWindow": 262144,
                 "displayName": "MoonshotAI: Kimi K2.5",
-                "maxOutputTokens": 262144,
                 "pricing": {
-                  "inputCostPerToken": 4e-7,
-                  "outputCostPerToken": 0.0000019
+                  "inputCostPerToken": 3.75e-7,
+                  "outputCostPerToken": 0.000002025
                 },
                 "supportedEndpoints": [
                   "chat_completions",
@@ -12198,10 +12177,10 @@
                 },
                 "contextWindow": 262144,
                 "displayName": "MoonshotAI: Kimi K2.6",
-                "maxOutputTokens": 262144,
+                "maxOutputTokens": 262142,
                 "pricing": {
-                  "inputCostPerToken": 6.84e-7,
-                  "outputCostPerToken": 0.00000342
+                  "inputCostPerToken": 6.8e-7,
+                  "outputCostPerToken": 0.00000341
                 },
                 "supportedEndpoints": [
                   "chat_completions",
@@ -12209,17 +12188,18 @@
                 ]
               }
             },
-            "moonshotai/kimi-k2.6:free": {
+            "moonshotai/kimi-k2.7-code": {
               "fields": {
                 "capabilities": {
                   "functionCalling": true,
                   "reasoning": true
                 },
                 "contextWindow": 262144,
-                "displayName": "MoonshotAI: Kimi K2.6 (free)",
+                "displayName": "MoonshotAI: Kimi K2.7 Code",
+                "maxOutputTokens": 262144,
                 "pricing": {
-                  "inputCostPerToken": 0,
-                  "outputCostPerToken": 0
+                  "inputCostPerToken": 7.5e-7,
+                  "outputCostPerToken": 0.0000035
                 },
                 "supportedEndpoints": [
                   "chat_completions",
@@ -12255,17 +12235,18 @@
                 ]
               }
             },
-            "nex-agi/deepseek-v3.1-nex-n1": {
+            "nex-agi/nex-n2-pro:free": {
               "fields": {
                 "capabilities": {
-                  "functionCalling": true
+                  "functionCalling": true,
+                  "reasoning": true
                 },
-                "contextWindow": 131072,
-                "displayName": "Nex AGI: DeepSeek V3.1 Nex N1",
-                "maxOutputTokens": 163840,
+                "contextWindow": 262144,
+                "displayName": "Nex AGI: Nex-N2-Pro (free)",
+                "maxOutputTokens": 262144,
                 "pricing": {
-                  "inputCostPerToken": 1.35e-7,
-                  "outputCostPerToken": 5e-7
+                  "inputCostPerToken": 0,
+                  "outputCostPerToken": 0
                 },
                 "supportedEndpoints": [
                   "chat_completions",
@@ -12306,8 +12287,8 @@
                 "displayName": "Nous: Hermes 3 70B Instruct",
                 "maxOutputTokens": 16384,
                 "pricing": {
-                  "inputCostPerToken": 3e-7,
-                  "outputCostPerToken": 3e-7
+                  "inputCostPerToken": 7e-7,
+                  "outputCostPerToken": 7e-7
                 },
                 "supportedEndpoints": [
                   "chat_completions"
@@ -12356,7 +12337,7 @@
                 "displayName": "NVIDIA: Llama 3.3 Nemotron Super 49B V1.5",
                 "maxOutputTokens": 16384,
                 "pricing": {
-                  "inputCostPerToken": 1e-7,
+                  "inputCostPerToken": 4e-7,
                   "outputCostPerToken": 4e-7
                 },
                 "supportedEndpoints": [
@@ -12532,25 +12513,6 @@
                 ]
               }
             },
-            "nvidia/nemotron-nano-9b-v2": {
-              "fields": {
-                "capabilities": {
-                  "functionCalling": true,
-                  "reasoning": true
-                },
-                "contextWindow": 131072,
-                "displayName": "NVIDIA: Nemotron Nano 9B V2",
-                "maxOutputTokens": 16384,
-                "pricing": {
-                  "inputCostPerToken": 4e-8,
-                  "outputCostPerToken": 1.6e-7
-                },
-                "supportedEndpoints": [
-                  "chat_completions",
-                  "responses"
-                ]
-              }
-            },
             "nvidia/nemotron-nano-9b-v2:free": {
               "fields": {
                 "capabilities": {
@@ -12648,24 +12610,6 @@
                 "pricing": {
                   "inputCostPerToken": 0.00003,
                   "outputCostPerToken": 0.00006
-                },
-                "supportedEndpoints": [
-                  "chat_completions",
-                  "responses"
-                ]
-              }
-            },
-            "openai/gpt-4-1106-preview": {
-              "fields": {
-                "capabilities": {
-                  "functionCalling": true
-                },
-                "contextWindow": 128000,
-                "displayName": "OpenAI: GPT-4 Turbo (older v1106)",
-                "maxOutputTokens": 4096,
-                "pricing": {
-                  "inputCostPerToken": 0.00001,
-                  "outputCostPerToken": 0.00003
                 },
                 "supportedEndpoints": [
                   "chat_completions",
@@ -14060,9 +14004,10 @@
               "fields": {
                 "contextWindow": 131072,
                 "displayName": "Qwen: Qwen2.5 VL 72B Instruct",
+                "maxOutputTokens": 128000,
                 "pricing": {
-                  "inputCostPerToken": 2.5e-7,
-                  "outputCostPerToken": 7.5e-7
+                  "inputCostPerToken": 8e-7,
+                  "outputCostPerToken": 0.000001
                 },
                 "supportedEndpoints": [
                   "chat_completions"
@@ -14116,7 +14061,7 @@
                 "displayName": "Qwen: Qwen3 235B A22B Instruct 2507",
                 "maxOutputTokens": 16384,
                 "pricing": {
-                  "inputCostPerToken": 7.1e-8,
+                  "inputCostPerToken": 9e-8,
                   "outputCostPerToken": 1e-7
                 },
                 "supportedEndpoints": [
@@ -14154,8 +14099,8 @@
                 "displayName": "Qwen: Qwen3 30B A3B",
                 "maxOutputTokens": 16384,
                 "pricing": {
-                  "inputCostPerToken": 9e-8,
-                  "outputCostPerToken": 4.5e-7
+                  "inputCostPerToken": 1.2e-7,
+                  "outputCostPerToken": 5e-7
                 },
                 "supportedEndpoints": [
                   "chat_completions",
@@ -14650,9 +14595,9 @@
                 },
                 "contextWindow": 262144,
                 "displayName": "Qwen: Qwen3.5-9B",
-                "maxOutputTokens": 81920,
+                "maxOutputTokens": 262144,
                 "pricing": {
-                  "inputCostPerToken": 4e-8,
+                  "inputCostPerToken": 1e-7,
                   "outputCostPerToken": 1.5e-7
                 },
                 "supportedEndpoints": [
@@ -14728,8 +14673,8 @@
                 "displayName": "Qwen: Qwen3.6 27B",
                 "maxOutputTokens": 262140,
                 "pricing": {
-                  "inputCostPerToken": 2.9e-7,
-                  "outputCostPerToken": 0.0000032
+                  "inputCostPerToken": 2.885e-7,
+                  "outputCostPerToken": 0.00000317
                 },
                 "supportedEndpoints": [
                   "chat_completions",
@@ -14745,9 +14690,9 @@
                 },
                 "contextWindow": 262144,
                 "displayName": "Qwen: Qwen3.6 35B A3B",
-                "maxOutputTokens": 262140,
+                "maxOutputTokens": 262144,
                 "pricing": {
-                  "inputCostPerToken": 1.4e-7,
+                  "inputCostPerToken": 1.5e-7,
                   "outputCostPerToken": 0.000001
                 },
                 "supportedEndpoints": [
@@ -14842,8 +14787,8 @@
                 "displayName": "Qwen: Qwen3.7 Plus",
                 "maxOutputTokens": 65536,
                 "pricing": {
-                  "inputCostPerToken": 4e-7,
-                  "outputCostPerToken": 0.0000016
+                  "inputCostPerToken": 3.2e-7,
+                  "outputCostPerToken": 0.00000128
                 },
                 "supportedEndpoints": [
                   "chat_completions",
@@ -15303,23 +15248,6 @@
                 ]
               }
             },
-            "z-ai/glm-4-32b": {
-              "fields": {
-                "capabilities": {
-                  "functionCalling": true
-                },
-                "contextWindow": 128000,
-                "displayName": "Z.ai: GLM 4 32B",
-                "pricing": {
-                  "inputCostPerToken": 1e-7,
-                  "outputCostPerToken": 1e-7
-                },
-                "supportedEndpoints": [
-                  "chat_completions",
-                  "responses"
-                ]
-              }
-            },
             "z-ai/glm-4.5": {
               "fields": {
                 "capabilities": {
@@ -15351,25 +15279,6 @@
                 "pricing": {
                   "inputCostPerToken": 1.25e-7,
                   "outputCostPerToken": 8.5e-7
-                },
-                "supportedEndpoints": [
-                  "chat_completions",
-                  "responses"
-                ]
-              }
-            },
-            "z-ai/glm-4.5-air:free": {
-              "fields": {
-                "capabilities": {
-                  "functionCalling": true,
-                  "reasoning": true
-                },
-                "contextWindow": 131072,
-                "displayName": "Z.ai: GLM 4.5 Air (free)",
-                "maxOutputTokens": 96000,
-                "pricing": {
-                  "inputCostPerToken": 0,
-                  "outputCostPerToken": 0
                 },
                 "supportedEndpoints": [
                   "chat_completions",
@@ -15423,7 +15332,7 @@
                 },
                 "contextWindow": 131072,
                 "displayName": "Z.ai: GLM 4.6V",
-                "maxOutputTokens": 24000,
+                "maxOutputTokens": 32768,
                 "pricing": {
                   "inputCostPerToken": 3e-7,
                   "outputCostPerToken": 9e-7
@@ -15496,7 +15405,7 @@
                   "functionCalling": true,
                   "reasoning": true
                 },
-                "contextWindow": 202752,
+                "contextWindow": 262144,
                 "displayName": "Z.ai: GLM 5 Turbo",
                 "maxOutputTokens": 131072,
                 "pricing": {
@@ -15527,18 +15436,18 @@
                 ]
               }
             },
-            "z-ai/glm-5v-turbo": {
+            "~anthropic/claude-fable-latest": {
               "fields": {
                 "capabilities": {
                   "functionCalling": true,
                   "reasoning": true
                 },
-                "contextWindow": 202752,
-                "displayName": "Z.ai: GLM 5V Turbo",
-                "maxOutputTokens": 131072,
+                "contextWindow": 1000000,
+                "displayName": "Anthropic: Claude Fable Latest",
+                "maxOutputTokens": 128000,
                 "pricing": {
-                  "inputCostPerToken": 0.0000012,
-                  "outputCostPerToken": 0.000004
+                  "inputCostPerToken": 0.00001,
+                  "outputCostPerToken": 0.00005
                 },
                 "supportedEndpoints": [
                   "chat_completions",
@@ -15649,10 +15558,10 @@
                 },
                 "contextWindow": 262144,
                 "displayName": "MoonshotAI Kimi Latest",
-                "maxOutputTokens": 262144,
+                "maxOutputTokens": 262142,
                 "pricing": {
-                  "inputCostPerToken": 6.84e-7,
-                  "outputCostPerToken": 0.00000342
+                  "inputCostPerToken": 6.8e-7,
+                  "outputCostPerToken": 0.00000341
                 },
                 "supportedEndpoints": [
                   "chat_completions",

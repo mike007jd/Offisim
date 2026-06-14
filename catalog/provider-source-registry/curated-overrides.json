@@ -1,125 +1,22 @@
 {
   "version": 1,
   "providers": {
-    "anthropic-default": {
-      "executionLaneHints": {
-        "productExposed": [
-          "gateway"
-        ]
-      }
-    },
     "custom": {
-      "executionLaneHints": {
-        "productExposed": [
-          "gateway"
-        ]
-      },
       "notes": "Custom endpoints stay gateway-only until a curated product profile exists."
     },
-    "deepseek-openai-general": {
-      "executionLaneHints": {
-        "productExposed": [
-          "gateway"
-        ]
-      }
-    },
-    "gemini-openai-general": {
-      "executionLaneHints": {
-        "productExposed": [
-          "gateway"
-        ]
-      }
-    },
-    "kimi-cn-anthropic-coding": {
-      "executionLaneHints": {
-        "productExposed": [
-          "gateway"
-        ]
-      }
-    },
-    "kimi-cn-openai-general": {
-      "executionLaneHints": {
-        "productExposed": [
-          "gateway"
-        ]
-      }
-    },
-    "kimi-intl-openai-general": {
-      "executionLaneHints": {
-        "productExposed": [
-          "gateway"
-        ]
-      }
-    },
-    "lmstudio": {
-      "executionLaneHints": {
-        "productExposed": [
-          "gateway"
-        ]
-      }
-    },
-    "minimax-cn-anthropic-coding": {
-      "executionLaneHints": {
-        "productExposed": [
-          "gateway"
-        ]
-      }
-    },
     "minimax-intl-anthropic-coding": {
-      "executionLaneHints": {
-        "productExposed": [
-          "gateway",
-          "claude-agent-sdk"
-        ]
-      },
-      "notes": "MiniMax Anthropic-compatible endpoint supports the Claude lane; verified with the current MiniMax-M3 model."
+      "notes": "MiniMax Anthropic-compatible endpoint supports the Claude lane only through a verified runtime profile, not a generic product SDK lane."
     },
     "minimax-intl-openai-general": {
-      "executionLaneHints": {
-        "productExposed": [
-          "gateway",
-          "codex-agent-sdk"
-        ]
-      },
-      "notes": "MiniMax OpenAI-compatible endpoint supports the Responses wire required by the Codex sidecar."
-    },
-    "openai-default": {
-      "executionLaneHints": {
-        "productExposed": [
-          "gateway"
-        ]
-      }
-    },
-    "openrouter-openai-general": {
-      "executionLaneHints": {
-        "productExposed": [
-          "gateway"
-        ]
-      }
+      "notes": "MiniMax OpenAI-compatible endpoint supports the Responses wire required by the Codex sidecar only through a verified runtime profile."
     },
     "zai-shared-anthropic-coding": {
-      "executionLaneHints": {
-        "productExposed": [
-          "gateway",
-          "claude-agent-sdk"
-        ]
-      },
-      "notes": "Z.AI Anthropic-compatible endpoint supports the Claude lane; Z.AI OpenAI-compatible endpoints remain gateway-only because they are chat-completions only."
+      "notes": "Z.AI Anthropic-compatible endpoint supports the Claude lane only through a verified runtime profile; Z.AI OpenAI-compatible endpoints remain gateway-only because they are chat-completions only."
     },
     "zai-shared-openai-coding": {
-      "executionLaneHints": {
-        "productExposed": [
-          "gateway"
-        ]
-      },
       "notes": "Z.AI OpenAI-compatible coding endpoint is chat-completions only; do not route it through the Codex sidecar."
     },
     "zai-shared-openai-general": {
-      "executionLaneHints": {
-        "productExposed": [
-          "gateway"
-        ]
-      },
       "notes": "Z.AI OpenAI-compatible general endpoint is chat-completions only; do not route it through the Codex sidecar."
     }
   }

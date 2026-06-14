@@ -1,6 +1,13 @@
 import type { EventBus } from '../events/event-bus.js';
 import { rackBound, rackUnbound, slotAssigned, slotRemoved } from '../events/event-factories.js';
-import type { RackRepository, RackRow, SlotRepository, SlotRow } from '../runtime/repositories.js';
+import {
+  RACK_STATUS,
+  type RackRepository,
+  type RackRow,
+  SLOT_STATUS,
+  type SlotRepository,
+  type SlotRow,
+} from '../runtime/repositories.js';
 
 export interface RackWithSlots extends RackRow {
   slots: SlotRow[];
@@ -28,7 +35,7 @@ export class RackSlotService {
       provider_type: providerType,
       label,
       binding_profile_json: null,
-      status: 'unbound',
+      status: RACK_STATUS.unbound,
     });
     return rackId;
   }
@@ -36,14 +43,14 @@ export class RackSlotService {
   async bindRack(rackId: string, _bindingProfile: Record<string, unknown>): Promise<void> {
     const rack = await this.rackRepo.findById(rackId);
     if (!rack) throw new Error(`Rack not found: ${rackId}`);
-    await this.rackRepo.updateStatus(rackId, 'bound');
+    await this.rackRepo.updateStatus(rackId, RACK_STATUS.bound);
     this.eventBus.emit(rackBound(rack.company_id, rackId, rack.provider_type, rack.label));
   }
 
   async unbindRack(rackId: string): Promise<void> {
     const rack = await this.rackRepo.findById(rackId);
     if (!rack) throw new Error(`Rack not found: ${rackId}`);
-    await this.rackRepo.updateStatus(rackId, 'unbound');
+    await this.rackRepo.updateStatus(rackId, RACK_STATUS.unbound);
     this.eventBus.emit(rackUnbound(rack.company_id, rackId));
   }
 
@@ -60,7 +67,7 @@ export class RackSlotService {
       rack_id: rackId,
       capability_name: capabilityName,
       exposure_scope: exposureScope,
-      status: 'available',
+      status: SLOT_STATUS.available,
     });
     this.eventBus.emit(
       slotAssigned(rack.company_id, slotId, rackId, capabilityName, exposureScope),
@@ -80,11 +87,11 @@ export class RackSlotService {
 
   async getAvailableCapabilities(companyId: string): Promise<SlotRow[]> {
     const racks = await this.rackRepo.findByCompany(companyId);
-    const boundRacks = racks.filter((r) => r.status === 'bound');
+    const boundRacks = racks.filter((r) => r.status === RACK_STATUS.bound);
     const allSlots: SlotRow[] = [];
     for (const rack of boundRacks) {
       const slots = await this.slotRepo.findByRack(rack.rack_id);
-      allSlots.push(...slots.filter((s) => s.status === 'available'));
+      allSlots.push(...slots.filter((s) => s.status === SLOT_STATUS.available));
     }
     return allSlots;
   }

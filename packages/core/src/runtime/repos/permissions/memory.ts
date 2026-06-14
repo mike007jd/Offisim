@@ -8,8 +8,10 @@ import type {
   NewWorkstationRack,
   RackRepository,
   RackRow,
+  RackStatus,
   SlotRepository,
   SlotRow,
+  SlotStatus,
   ToolPermissionApprovalLookup,
   ToolPermissionApprovalRepository,
   ToolPermissionApprovalRow,
@@ -17,10 +19,7 @@ import type {
   WorkstationRackRow,
 } from '../../repositories.js';
 import type { MemoryRepositoriesSnapshot } from '../memory-types.js';
-
-function cloneRows<T extends object>(rows: Iterable<T>): T[] {
-  return [...rows].map((row) => ({ ...row }));
-}
+import { cloneRows } from '../memory-utils.js';
 
 export class MemoryRackRepository implements RackRepository {
   private readonly store = new Map<string, RackRow>();
@@ -47,7 +46,7 @@ export class MemoryRackRepository implements RackRepository {
   async findByCompany(companyId: string): Promise<RackRow[]> {
     return [...this.store.values()].filter((r) => r.company_id === companyId);
   }
-  async updateStatus(rackId: string, status: string): Promise<void> {
+  async updateStatus(rackId: string, status: RackStatus): Promise<void> {
     const row = this.store.get(rackId);
     if (row) this.store.set(rackId, { ...row, status, updated_at: new Date().toISOString() });
   }
@@ -82,7 +81,7 @@ export class MemorySlotRepository implements SlotRepository {
   async findByRack(rackId: string): Promise<SlotRow[]> {
     return [...this.store.values()].filter((s) => s.rack_id === rackId);
   }
-  async updateStatus(slotId: string, status: string): Promise<void> {
+  async updateStatus(slotId: string, status: SlotStatus): Promise<void> {
     const row = this.store.get(slotId);
     if (row) this.store.set(slotId, { ...row, status, updated_at: new Date().toISOString() });
   }

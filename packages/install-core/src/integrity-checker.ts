@@ -24,7 +24,6 @@ export async function checkIntegrity(
   extracted: ExtractedPackage,
   expectedHash?: string,
 ): Promise<IntegrityResult> {
-  const fileHashErrors: string[] = [];
   let packageHashMatch = true;
 
   // 1. Verify package hash against external expectation
@@ -37,21 +36,19 @@ export async function checkIntegrity(
     }
   }
 
-  // 2. Verify per-file hashes from manifest.integrity.files
   const declaredFiles = extracted.manifest.integrity.files;
-  if (declaredFiles) {
-    for (const entry of declaredFiles) {
-      const fileData = extracted.files.get(entry.path);
-      if (!fileData) {
-        fileHashErrors.push(entry.path);
-        continue;
-      }
-      const actualHash = await sha256Hex(fileData);
-      if (actualHash !== entry.sha256.toLowerCase()) {
-        fileHashErrors.push(entry.path);
-      }
-    }
-  }
+  const fileHashErrors = declaredFiles
+    ? (
+        await Promise.all(
+          declaredFiles.map(async (entry) => {
+            const fileData = extracted.files.get(entry.path);
+            if (!fileData) return entry.path;
+            const actualHash = await sha256Hex(fileData);
+            return actualHash === entry.sha256.toLowerCase() ? null : entry.path;
+          }),
+        )
+      ).filter((path): path is string => path !== null)
+    : [];
 
   const valid = packageHashMatch && fileHashErrors.length === 0;
 

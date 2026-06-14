@@ -10,12 +10,12 @@ import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import { Input } from '@/design-system/primitives/input.js';
 import {
-  CHAT_PROVIDER_ID_PRIORITY,
   type RuntimeProviderProfile,
   getPreferredProviderId,
   isDesktopProviderBridgeAvailable,
   loadRuntimeProviderProfiles,
   safeErrorMessage,
+  selectDefaultChatProvider,
   sendProviderText,
   setPreferredProviderId,
 } from '@/lib/provider-bridge.js';
@@ -105,24 +105,11 @@ function createProviderTestRequestId(profileId: string): string {
   return `provider-test-${profileId}-${crypto.randomUUID()}`;
 }
 
-/**
- * The provider config the chat runtime will actually pick, mirroring
- * `findDefaultChatProviderProfile`: explicit user choice first, then a local
- * endpoint, then z.ai, then MiniMax, then any credentialed profile. Used to
- * badge "In use for chat" on the right card.
- */
 function resolveEffectiveChatConfigId(
   configs: readonly ProviderConfig[],
   preferredId: string | null,
 ): string | null {
-  const cred = (id: string) => configs.find((c) => c.hasStoredKey && c.id === id)?.id;
-  return (
-    (preferredId ? cred(preferredId) : undefined) ??
-    configs.find((c) => c.hasStoredKey && c.hostResolved)?.id ??
-    CHAT_PROVIDER_ID_PRIORITY.map(cred).find(Boolean) ??
-    configs.find((c) => c.hasStoredKey)?.id ??
-    null
-  );
+  return selectDefaultChatProvider(configs, preferredId)?.id ?? null;
 }
 
 function providerLogoStyle(config: ProviderConfig): CSSProperties {
@@ -154,12 +141,11 @@ export function ProviderPane({
   );
   const companyId = useUiState((s) => s.companyId);
   const product = form.watch('product');
-  const accessMode = form.watch('accessMode');
-  const isManaged = accessMode === 'managed';
-  const isHostResolved = accessMode === 'host-resolved' || accessMode === 'managed';
   const providerBridgeAvailable = isDesktopProviderBridgeAvailable();
 
   const active = resolveActiveProviderConfig(configs, activeConfigId);
+  const isManaged = active.accessMode === 'managed';
+  const isHostResolved = active.accessMode === 'host-resolved' || active.accessMode === 'managed';
   const effectiveChatConfigId = resolveEffectiveChatConfigId(configs, preferredProviderId);
   const inUseForChat = effectiveChatConfigId === active.id;
   const modelSuggestions = useMemo(() => modelSuggestionsFromConfigs(configs), [configs]);
@@ -429,7 +415,8 @@ export function ProviderPane({
             <span className="off-set-rs-name">{active.displayName}</span>
             <span className="off-set-route-trail">
               {[
-                ACCESS_MODE_OPTIONS.find((o) => o.value === accessMode)?.label ?? 'Global API key',
+                ACCESS_MODE_OPTIONS.find((o) => o.value === active.accessMode)?.label ??
+                  'Global API key',
                 routeProtocolLabel(active),
                 active.endpointKind,
                 active.region,
@@ -505,8 +492,8 @@ export function ProviderPane({
                   <Select
                     id={id}
                     options={ACCESS_MODE_OPTIONS}
-                    value={accessMode}
-                    {...form.register('accessMode')}
+                    value={active.accessMode}
+                    disabled
                   />
                 )}
               </FieldRow>

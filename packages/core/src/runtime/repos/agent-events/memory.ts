@@ -7,10 +7,7 @@ import type {
   RecoveryKnowledgeRow,
 } from '../../repositories.js';
 import type { MemoryRepositoriesSnapshot } from '../memory-types.js';
-
-function cloneRows<T extends object>(rows: Iterable<T>): T[] {
-  return [...rows].map((row) => ({ ...row }));
-}
+import { cloneRows } from '../memory-utils.js';
 
 export class MemoryAgentEventRepository implements AgentEventRepository {
   private readonly rows: AgentEventRow[] = [];

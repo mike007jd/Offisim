@@ -21,6 +21,7 @@ import {
   type RuntimeEnvironment,
   artifactBytesToBase64,
   buildPackageArtifact,
+  isLooseVersionNewer,
   readPackageFile,
 } from '@offisim/install-core';
 import {
@@ -297,37 +298,49 @@ function createInstallEvents(): InstallEventEmitter {
   };
 }
 
-function manifestKindToListingKind(kind: ManifestAssetKind): ListingKind {
+function packageKindToListingKind(kind: ManifestAssetKind | ListingSummary['kind']): ListingKind {
   if (kind === 'company_template') return 'template';
   if (kind === 'office_layout') return 'layout';
   return kind;
 }
 
-function manifestRiskToListingRisk(risk: PackageManifest['permissions']['risk_class']): RiskClass {
+function packageRiskToListingRisk(
+  risk?: PackageManifest['permissions']['risk_class'] | ListingDetail['permissions']['risk_class'],
+): RiskClass {
   if (risk === 'logic_asset') return 'logic';
   if (risk === 'privileged_asset') return 'system';
   return 'data';
 }
 
-function manifestFsToListingScope(
-  scope: PackageManifest['permissions']['filesystem_scope'],
+function packageFsToListingScope(
+  scope:
+    | PackageManifest['permissions']['filesystem_scope']
+    | ListingDetail['permissions']['filesystem_scope']
+    | undefined,
+  fallback: FsScope,
 ): FsScope {
   if (scope === 'none') return 'none';
   if (scope === 'workspace' || scope === 'project') return 'workspace';
-  return 'system';
+  if (scope === 'custom_path') return 'system';
+  return fallback;
 }
 
-function manifestNetToListingScope(
-  scope: PackageManifest['permissions']['network_scope'],
+function packageNetToListingScope(
+  scope:
+    | PackageManifest['permissions']['network_scope']
+    | ListingDetail['permissions']['network_scope']
+    | undefined,
+  fallback: NetScope,
 ): NetScope {
   if (scope === 'none') return 'none';
   if (scope === 'limited') return 'read';
-  return 'full';
+  if (scope === 'unrestricted') return 'full';
+  return fallback;
 }
 
 function installedAssetKind(manifest: PackageManifest): ListingKind {
   const firstMaterialAsset = manifest.assets.find((asset) => asset.kind !== 'bundle');
-  return manifestKindToListingKind(firstMaterialAsset?.kind ?? manifest.package.kind);
+  return packageKindToListingKind(firstMaterialAsset?.kind ?? manifest.package.kind);
 }
 
 function planToMarketListing(plan: InstallPlan, sourceRef: string): MarketListing {
@@ -365,9 +378,9 @@ function planToMarketListing(plan: InstallPlan, sourceRef: string): MarketListin
     coverTags: tags.slice(0, 3),
     installed: false,
     permissions: {
-      risk: manifestRiskToListingRisk(manifest.permissions.risk_class),
-      filesystem: manifestFsToListingScope(manifest.permissions.filesystem_scope),
-      network: manifestNetToListingScope(manifest.permissions.network_scope),
+      risk: packageRiskToListingRisk(manifest.permissions.risk_class),
+      filesystem: packageFsToListingScope(manifest.permissions.filesystem_scope, 'system'),
+      network: packageNetToListingScope(manifest.permissions.network_scope, 'full'),
       secrets: manifest.permissions.declares_secrets || secretCount > 0 ? 'declared' : 'none',
     },
     requirements: {
@@ -449,6 +462,7 @@ const NO_REGISTRY_UPDATE: {
   latestVersion: string | null;
   checkState?: InstalledPackage['checkState'];
 } = { latestVersion: null };
+const REGISTRY_INSTALL_LOOKUP_CONCURRENCY = 4;
 
 function installedPackageToVm(
   row: InstalledPackageRow,
@@ -470,27 +484,6 @@ function installedPackageToVm(
   };
 }
 
-function comparableVersion(value: string): [number, number, number] | null {
-  const match = value.trim().match(/^v?(\d+)(?:\.(\d+))?(?:\.(\d+))?/u);
-  if (!match) return null;
-  return [
-    Number.parseInt(match[1] ?? '0', 10),
-    Number.parseInt(match[2] ?? '0', 10),
-    Number.parseInt(match[3] ?? '0', 10),
-  ];
-}
-
-function isNewerVersion(latest: string, current: string): boolean {
-  const latestParts = comparableVersion(latest);
-  const currentParts = comparableVersion(current);
-  if (!latestParts || !currentParts) return false;
-  for (const i of [0, 1, 2] as const) {
-    if (latestParts[i] > currentParts[i]) return true;
-    if (latestParts[i] < currentParts[i]) return false;
-  }
-  return false;
-}
-
 function uniqueStrings(values: Array<string | null | undefined>): string[] {
   return Array.from(new Set(values.map((value) => value?.trim()).filter(Boolean) as string[]));
 }
@@ -500,25 +493,42 @@ function registryLookupSlugs(row: InstalledPackageRow): string[] {
   return uniqueStrings(candidates.flatMap((value) => [value, value.replace(/\//gu, '.')]));
 }
 
+interface RegistryLookupCache {
+  listingIds: Map<string, Promise<ListingDetail | null>>;
+  slugs: Map<string, Promise<ListingDetail | null>>;
+}
+
+function cachedRegistryDetail(
+  cache: Map<string, Promise<ListingDetail | null>>,
+  key: string,
+  load: () => Promise<ListingDetail>,
+): Promise<ListingDetail | null> {
+  let cached = cache.get(key);
+  if (!cached) {
+    cached = load().catch(() => null);
+    cache.set(key, cached);
+  }
+  return cached;
+}
+
 async function lookupInstalledRegistryDetail(
   client: RegistryClient,
   row: InstalledPackageRow,
+  cache: RegistryLookupCache,
 ): Promise<ListingDetail | null> {
   const listingIds = uniqueStrings([row.origin_listing_id, row.source_ref]);
   for (const listingId of listingIds) {
-    try {
-      return await client.getListingDetail(listingId);
-    } catch {
-      // Try the next durable identifier before surfacing the row as unchecked.
-    }
+    const detail = await cachedRegistryDetail(cache.listingIds, listingId, () =>
+      client.getListingDetail(listingId),
+    );
+    if (detail) return detail;
   }
 
   for (const slug of registryLookupSlugs(row)) {
-    try {
-      return await client.getListingBySlug(slug);
-    } catch {
-      // Registry migrations can change either slug or listing id; keep probing.
-    }
+    const detail = await cachedRegistryDetail(cache.slugs, slug, () =>
+      client.getListingBySlug(slug),
+    );
+    if (detail) return detail;
   }
 
   return null;
@@ -527,20 +537,41 @@ async function lookupInstalledRegistryDetail(
 async function installedPackageToVmWithRegistry(
   row: InstalledPackageRow,
   client: RegistryClient,
+  cache: RegistryLookupCache,
 ): Promise<InstalledPackage> {
   const base = installedPackageToVm(row);
   if (row.source_type !== 'registry' && !row.origin_listing_id && !row.origin_package_version_id) {
     return base;
   }
 
-  const detail = await lookupInstalledRegistryDetail(client, row);
+  const detail = await lookupInstalledRegistryDetail(client, row, cache);
   if (!detail) return { ...base, checkState: 'error' };
   const latestVersion = detail.version.version;
   return {
     ...base,
-    latestVersion: isNewerVersion(latestVersion, row.version) ? latestVersion : null,
+    latestVersion: isLooseVersionNewer(latestVersion, row.version) ? latestVersion : null,
     checkState: 'idle',
   };
+}
+
+async function mapWithConcurrency<T, U>(
+  items: readonly T[],
+  concurrency: number,
+  mapper: (item: T) => Promise<U>,
+): Promise<U[]> {
+  const results = new Array<U>(items.length);
+  let nextIndex = 0;
+  const workerCount = Math.min(Math.max(1, concurrency), items.length);
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      while (nextIndex < items.length) {
+        const index = nextIndex;
+        nextIndex += 1;
+        results[index] = await mapper(items[index] as T);
+      }
+    }),
+  );
+  return results;
 }
 
 async function installedPackagesToVm(
@@ -549,7 +580,10 @@ async function installedPackagesToVm(
   const config = registryConfig();
   if (!config) return rows.map((row) => installedPackageToVm(row));
   const client = registryClient(config);
-  return Promise.all(rows.map((row) => installedPackageToVmWithRegistry(row, client)));
+  const cache: RegistryLookupCache = { listingIds: new Map(), slugs: new Map() };
+  return mapWithConcurrency(rows, REGISTRY_INSTALL_LOOKUP_CONCURRENCY, (row) =>
+    installedPackageToVmWithRegistry(row, client, cache),
+  );
 }
 
 /* ----------------------------------------------------------------------------
@@ -801,7 +835,11 @@ const marketListings: MarketListing[] = [
     requirements: { capabilities: [], mcps: [], models: [], runtime: '>=0.6.0', schema: 1 },
     lineage: { origin: 'props-bay/desk-cluster', forkedFrom: null },
     changelog: [
-      { version: '0.9.0', date: 'Jan 30, 2026', entries: [{ kind: 'added', text: 'Initial release' }] },
+      {
+        version: '0.9.0',
+        date: 'Jan 30, 2026',
+        entries: [{ kind: 'added', text: 'Initial release' }],
+      },
     ],
     screenshots: [SHOT_B],
     bindings: [],
@@ -829,7 +867,11 @@ const marketListings: MarketListing[] = [
     requirements: { capabilities: [], mcps: [], models: [], runtime: '>=0.7.0', schema: 1 },
     lineage: { origin: 'indie-maker/launch-kit', forkedFrom: null },
     changelog: [
-      { version: '0.2.0', date: 'May 1, 2026', entries: [{ kind: 'added', text: 'Launch checklist' }] },
+      {
+        version: '0.2.0',
+        date: 'May 1, 2026',
+        entries: [{ kind: 'added', text: 'Launch checklist' }],
+      },
     ],
     screenshots: [SHOT_C],
     bindings: [],
@@ -867,7 +909,11 @@ const marketListings: MarketListing[] = [
     },
     lineage: { origin: 'offisim-labs/qa-automation-lead', forkedFrom: null },
     changelog: [
-      { version: '1.0.0', date: 'Apr 28, 2026', entries: [{ kind: 'added', text: 'Initial release' }] },
+      {
+        version: '1.0.0',
+        date: 'Apr 28, 2026',
+        entries: [{ kind: 'added', text: 'Initial release' }],
+      },
     ],
     screenshots: [SHOT_B, SHOT_A],
     bindings: [
@@ -909,7 +955,11 @@ const marketListings: MarketListing[] = [
     },
     lineage: { origin: 'dx-labs/pr-review-pass', forkedFrom: null },
     changelog: [
-      { version: '0.6.0', date: 'Apr 5, 2026', entries: [{ kind: 'fixed', text: 'Dedup false hits' }] },
+      {
+        version: '0.6.0',
+        date: 'Apr 5, 2026',
+        entries: [{ kind: 'fixed', text: 'Dedup false hits' }],
+      },
     ],
     screenshots: [SHOT_A, SHOT_C],
     bindings: [
@@ -1140,34 +1190,6 @@ function installReposWithVault<T extends object>(
   return { ...repos, vault: createTauriVaultFileSystem() };
 }
 
-function registryKindToListingKind(kind: ListingSummary['kind']): ListingKind {
-  if (kind === 'company_template') return 'template';
-  if (kind === 'office_layout') return 'layout';
-  return kind;
-}
-
-function registryRiskToListingRisk(risk?: ListingDetail['permissions']['risk_class']): RiskClass {
-  if (risk === 'logic_asset') return 'logic';
-  if (risk === 'privileged_asset') return 'system';
-  return 'data';
-}
-
-function registryFsToListingScope(
-  scope?: ListingDetail['permissions']['filesystem_scope'],
-): FsScope {
-  if (scope === 'workspace' || scope === 'project') return 'workspace';
-  if (scope === 'custom_path') return 'system';
-  return 'none';
-}
-
-function registryNetToListingScope(
-  scope?: ListingDetail['permissions']['network_scope'],
-): NetScope {
-  if (scope === 'limited') return 'read';
-  if (scope === 'unrestricted') return 'full';
-  return 'none';
-}
-
 function publishRiskToManifestRisk(risk: RiskClass): BuildPackageArtifactInput['riskClass'] {
   if (risk === 'system') return 'privileged_asset';
   if (risk === 'logic') return 'logic_asset';
@@ -1302,7 +1324,7 @@ function registryListingToVm(
   const artifact = detail.artifact ?? null;
   return {
     id: detail.listing_id,
-    kind: registryKindToListingKind(detail.kind),
+    kind: packageKindToListingKind(detail.kind),
     slug: detail.slug,
     name: detail.title,
     summary: detail.summary,
@@ -1334,9 +1356,9 @@ function registryListingToVm(
       installedRows,
     ),
     permissions: {
-      risk: registryRiskToListingRisk(permissions.risk_class),
-      filesystem: registryFsToListingScope(permissions.filesystem_scope),
-      network: registryNetToListingScope(permissions.network_scope),
+      risk: packageRiskToListingRisk(permissions.risk_class),
+      filesystem: packageFsToListingScope(permissions.filesystem_scope, 'none'),
+      network: packageNetToListingScope(permissions.network_scope, 'none'),
       secrets: permissions.declares_secrets ? 'declared' : 'none',
     },
     requirements: {
@@ -1396,7 +1418,7 @@ function draftToVm(draft: PublishDraft): PublishedDraft {
     id: draft.draft_id,
     title: draft.title ?? 'Untitled draft',
     summary: draft.summary ?? null,
-    kind: registryKindToListingKind((draft.kind ?? 'employee') as ListingSummary['kind']),
+    kind: packageKindToListingKind((draft.kind ?? 'employee') as ListingSummary['kind']),
     updatedLabel: shortDate(draft.updated_at),
     status: draft.status,
   };

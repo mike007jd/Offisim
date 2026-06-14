@@ -16,10 +16,7 @@ import type {
   ProjectRepository,
 } from '../../repositories.js';
 import type { MemoryRepositoriesSnapshot } from '../memory-types.js';
-
-function cloneRows<T extends object>(rows: Iterable<T>): T[] {
-  return [...rows].map((row) => ({ ...row }));
-}
+import { cloneRows } from '../memory-utils.js';
 
 export class MemoryProjectRepository implements ProjectRepository {
   private readonly store = new Map<string, ProjectRow>();

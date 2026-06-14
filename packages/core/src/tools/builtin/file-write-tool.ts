@@ -1,4 +1,4 @@
-import { isBuiltinToolReadOnly, type BuiltinTool, type BuiltinToolConfig } from './types.js';
+import { type BuiltinTool, type BuiltinToolConfig, isBuiltinToolReadOnly } from './types.js';
 
 export function createFileWriteTool(config: BuiltinToolConfig): BuiltinTool | null {
   if (config.executionMode === 'browser-limited' || !config.fs) return null;

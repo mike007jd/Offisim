@@ -296,20 +296,11 @@ export {
 // --- Services (browser-safe, no LLM/graph deps) ---
 export { EmployeeVersionService } from './runtime/employee-version-service.js';
 export { RackSlotService } from './services/rack-slot-service.js';
-export { LibraryService } from './services/library-service.js';
-export type { CitationEntry } from './services/library-service.js';
 export { CompanyTemplateService } from './services/company-template-service.js';
 export { listTemplates, getTemplate } from './templates/index.js';
 export { DEFAULT_COST_RATES, seedDefaultCostRates } from './runtime/default-cost-rates.js';
 export { WorkstationAssignmentService } from './runtime/workstation-assignment-service.js';
 export { WorkstationToolResolver } from './services/workstation-tool-resolver.js';
-export { GitAutoCommitService } from './services/git-auto-commit-service.js';
-export type {
-  GitExec,
-  GitExecResult,
-  GitAutoCommitResult,
-} from './services/git-auto-commit-service.js';
-export { ToolTelemetryService } from './services/tool-telemetry-service.js';
 export {
   DeliverablePersistenceService,
   mapPayloadToRow as mapDeliverablePayloadToRow,

@@ -351,7 +351,10 @@ mod tests {
         ensure_schema(&pool, LOCAL_SCHEMA_VERSION, LOCAL_SCHEMA_SQL, MIGRATIONS)
             .await
             .expect("fresh bootstrap");
-        assert_eq!(read_user_version(&pool).await.unwrap(), LOCAL_SCHEMA_VERSION);
+        assert_eq!(
+            read_user_version(&pool).await.unwrap(),
+            LOCAL_SCHEMA_VERSION
+        );
         let companies: i64 =
             sqlx::query_scalar("SELECT count(*) FROM sqlite_master WHERE name = 'companies'")
                 .fetch_one(&pool)
@@ -368,11 +371,13 @@ mod tests {
     async fn pre_versioning_database_is_adopted_and_migrated() {
         let pool = memory_pool().await;
         // Simulate a database created before user_version stamping existed.
-        raw_sql("CREATE TABLE companies (company_id TEXT PRIMARY KEY); \
-                 INSERT INTO companies VALUES ('c1');")
-            .execute(&pool)
-            .await
-            .unwrap();
+        raw_sql(
+            "CREATE TABLE companies (company_id TEXT PRIMARY KEY); \
+                 INSERT INTO companies VALUES ('c1');",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
         ensure_schema(
             &pool,
             2,
@@ -397,7 +402,9 @@ mod tests {
             .execute(&pool)
             .await
             .unwrap();
-        let err = ensure_schema(&pool, 3, "", &[(3, "SELECT 1")]).await.unwrap_err();
+        let err = ensure_schema(&pool, 3, "", &[(3, "SELECT 1")])
+            .await
+            .unwrap_err();
         assert!(err.contains("gap"), "got: {err}");
     }
 
@@ -415,7 +422,10 @@ mod tests {
     #[tokio::test]
     async fn newer_database_is_refused_by_older_app() {
         let pool = memory_pool().await;
-        raw_sql("PRAGMA user_version = 99").execute(&pool).await.unwrap();
+        raw_sql("PRAGMA user_version = 99")
+            .execute(&pool)
+            .await
+            .unwrap();
         let err = ensure_schema(&pool, LOCAL_SCHEMA_VERSION, LOCAL_SCHEMA_SQL, MIGRATIONS)
             .await
             .unwrap_err();

@@ -103,7 +103,6 @@
       "trustTier": "override",
       "refreshMode": "manual",
       "ownedFields": [
-        "provider.executionLaneHints",
         "provider.notes",
         "model.notes"
       ],

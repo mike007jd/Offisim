@@ -1,7 +1,7 @@
 use crate::mcp_bridge::error::McpBridgeError;
 use crate::mcp_bridge::process_manager::ManagedProcess;
 use crate::mcp_bridge::registry_store::{
-    McpServerRegistrationInput, McpTransport, RegisteredServerStore,
+    validate_stdio_request_surface, McpServerRegistrationInput, McpTransport, RegisteredServerStore,
 };
 use crate::mcp_bridge::types::*;
 use std::collections::HashMap;
@@ -178,25 +178,8 @@ pub async fn mcp_connect_registered(
     match server.transport {
         McpTransport::Stdio => {
             let source = server.source.as_deref().unwrap_or_default();
-            match source {
-                "user-config" if request.request_surface != "settings" => {
-                    return Err(McpBridgeError::Registry(
-                        "user-config stdio MCP startup must originate from settings".into(),
-                    ));
-                }
-                "installed-asset" if request.request_surface != "installed-asset-runtime" => {
-                    return Err(McpBridgeError::Registry(
-                        "installed-asset stdio MCP startup must originate from installed-asset-runtime".into(),
-                    ));
-                }
-                "developer-runtime" if request.request_surface != "developer-runtime" => {
-                    return Err(McpBridgeError::Registry(
-                        "developer-runtime stdio MCP startup must originate from developer-runtime"
-                            .into(),
-                    ));
-                }
-                _ => {}
-            }
+            validate_stdio_request_surface(source, &request.request_surface, "startup")
+                .map_err(McpBridgeError::Registry)?;
             if source == "installed-asset"
                 && (server.source_package_id != request.source_package_id
                     || server.source_package_version != request.source_package_version

@@ -1,6 +1,6 @@
 //! Runtime secret storage for desktop.
 //!
-//! The credential lives in a Rust-only plaintext file inside the app's local
+//! Credentials live in Rust-only plaintext files inside the app's local
 //! data directory (`~/Library/Application Support/com.offisim.desktop/` on
 //! macOS). File mode is 0600. This module is the sole writer/reader; the
 //! webview can only ask for existence (`runtime_secret_status`) / set / clear
@@ -25,6 +25,7 @@ use tauri::Manager;
 static STORAGE_DIR: OnceCell<PathBuf> = OnceCell::new();
 static LOCAL_ENV: OnceCell<HashMap<String, String>> = OnceCell::new();
 const SECRET_FILE_NAME: &str = "runtime_secret.txt";
+const PROVIDER_SECRETS_DIR_NAME: &str = "runtime_provider_secrets";
 const PROVIDER_PROFILES_FILE_NAME: &str = "runtime_provider_profiles.json";
 const PROVIDER_PROFILE_AUDIT_FILE_NAME: &str = "runtime_provider_profile_audit.jsonl";
 
@@ -55,6 +56,38 @@ fn secret_path() -> Result<PathBuf, String> {
         .ok_or_else(|| "runtime_secrets storage not initialised".to_string())
 }
 
+fn provider_secrets_dir() -> Result<PathBuf, String> {
+    STORAGE_DIR
+        .get()
+        .map(|d| d.join(PROVIDER_SECRETS_DIR_NAME))
+        .ok_or_else(|| "runtime_secrets storage not initialised".to_string())
+}
+
+fn sanitize_secret_ref(secret_ref: &str) -> Result<String, String> {
+    let sanitized = secret_ref
+        .trim()
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.') {
+                ch
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>()
+        .trim_matches(['.', '_'])
+        .to_string();
+    if sanitized.is_empty() {
+        Err("secretRef cannot be empty".into())
+    } else {
+        Ok(sanitized)
+    }
+}
+
+fn provider_secret_path(secret_ref: &str) -> Result<PathBuf, String> {
+    Ok(provider_secrets_dir()?.join(format!("{}.txt", sanitize_secret_ref(secret_ref)?)))
+}
+
 #[cfg(unix)]
 fn set_file_mode_600(path: &Path) -> std::io::Result<()> {
     use std::os::unix::fs::PermissionsExt;
@@ -70,6 +103,10 @@ fn set_file_mode_600(_path: &Path) -> std::io::Result<()> {
 
 pub(crate) fn read_secret_raw() -> Result<Option<String>, String> {
     let path = secret_path()?;
+    read_secret_file(&path)
+}
+
+fn read_secret_file(path: &Path) -> Result<Option<String>, String> {
     match fs::read_to_string(&path) {
         Ok(s) => {
             let trimmed = s.trim();
@@ -81,6 +118,22 @@ pub(crate) fn read_secret_raw() -> Result<Option<String>, String> {
         }
         Err(e) if e.kind() == ErrorKind::NotFound => Ok(None),
         Err(e) => Err(format!("read secret file: {e}")),
+    }
+}
+
+fn read_keyed_secret(secret_ref: &str) -> Result<Option<String>, String> {
+    let path = provider_secret_path(secret_ref)?;
+    read_secret_file(&path)
+}
+
+fn any_keyed_secret_exists() -> Result<bool, String> {
+    let dir = provider_secrets_dir()?;
+    match fs::read_dir(&dir) {
+        Ok(mut entries) => {
+            Ok(entries.any(|entry| entry.map(|entry| entry.path().is_file()).unwrap_or(false)))
+        }
+        Err(err) if err.kind() == ErrorKind::NotFound => Ok(false),
+        Err(err) => Err(format!("read provider secret directory: {err}")),
     }
 }
 
@@ -158,14 +211,16 @@ pub(crate) fn read_provider_secret(secret_ref: Option<&str>) -> Result<Option<St
         return read_secret_raw();
     };
     let env_name = match secret_ref {
-        "minimax" => "MINIMAX_API_KEY",
-        "zai" => "ZAI_API_KEY",
-        _ => return read_secret_raw(),
+        "minimax" => Some("MINIMAX_API_KEY"),
+        "zai" => Some("ZAI_API_KEY"),
+        _ => None,
     };
-    match env_or_local(env_name) {
-        Some(secret) => Ok(Some(secret)),
-        None => read_secret_raw(),
+    if let Some(env_name) = env_name {
+        if let Some(secret) = env_or_local(env_name) {
+            return Ok(Some(secret));
+        }
     }
+    read_keyed_secret(secret_ref)?.map_or_else(read_secret_raw, |secret| Ok(Some(secret)))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -468,17 +523,31 @@ pub fn runtime_provider_profile_upsert(
 #[tauri::command]
 pub fn runtime_secret_status() -> Result<RuntimeSecretStatus, String> {
     Ok(RuntimeSecretStatus {
-        has_secret: read_secret_raw()?.is_some(),
+        has_secret: read_secret_raw()?.is_some() || any_keyed_secret_exists()?,
     })
 }
 
 #[tauri::command]
-pub fn runtime_secret_set(secret: String) -> Result<(), String> {
+pub fn runtime_secret_set(secret: String, secret_ref: Option<String>) -> Result<(), String> {
     let trimmed = secret.trim();
     if trimmed.is_empty() {
         return Err("Secret cannot be empty".into());
     }
-    let path = secret_path()?;
+    let path = match secret_ref
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        Some(secret_ref) => provider_secret_path(secret_ref)?,
+        None => secret_path()?,
+    };
+    write_secret_file(&path, trimmed)
+}
+
+fn write_secret_file(path: &Path, secret: &str) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("create secret directory: {e}"))?;
+    }
     // Write atomically via a sibling tmp file + rename so a crashed write
     // cannot leave a half-written secret on disk.
     let tmp = path.with_extension("txt.tmp");
@@ -497,18 +566,25 @@ pub fn runtime_secret_set(secret: String) -> Result<(), String> {
         let mut f = opts
             .open(&tmp)
             .map_err(|e| format!("open tmp secret file: {e}"))?;
-        f.write_all(trimmed.as_bytes())
+        f.write_all(secret.as_bytes())
             .map_err(|e| format!("write secret: {e}"))?;
         f.sync_all().map_err(|e| format!("fsync secret: {e}"))?;
     }
-    fs::rename(&tmp, &path).map_err(|e| format!("rename secret file: {e}"))?;
-    set_file_mode_600(&path).map_err(|e| format!("chmod 600 final: {e}"))?;
+    fs::rename(&tmp, path).map_err(|e| format!("rename secret file: {e}"))?;
+    set_file_mode_600(path).map_err(|e| format!("chmod 600 final: {e}"))?;
     Ok(())
 }
 
 #[tauri::command]
-pub fn runtime_secret_clear() -> Result<(), String> {
-    let path = secret_path()?;
+pub fn runtime_secret_clear(secret_ref: Option<String>) -> Result<(), String> {
+    let path = match secret_ref
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        Some(secret_ref) => provider_secret_path(secret_ref)?,
+        None => secret_path()?,
+    };
     match fs::remove_file(&path) {
         Ok(()) => Ok(()),
         Err(e) if e.kind() == ErrorKind::NotFound => Ok(()),

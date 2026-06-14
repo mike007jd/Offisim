@@ -18,10 +18,14 @@ import { detectDefaultDrift, fetchOpenRouterModels } from './lib/latest-models.m
 const asJson = process.argv.includes('--json');
 
 const officialFixtures = await readJson(resolve(CATALOG_DIR, 'official-fixtures.json'));
+const sourceRegistry = await readJson(resolve(CATALOG_DIR, 'sources.json'));
+const openRouterSource = sourceRegistry.sources?.find(
+  (source) => source.sourceId === 'openrouter-live',
+);
 
 let openRouterData;
 try {
-  openRouterData = await fetchOpenRouterModels();
+  openRouterData = await fetchOpenRouterModels({ source: openRouterSource });
 } catch (error) {
   console.error(`provider:latest — could not reach OpenRouter: ${error.message}`);
   process.exit(asJson ? 1 : 0);

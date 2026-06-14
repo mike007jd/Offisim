@@ -86,6 +86,42 @@ export const CHAT_PROVIDER_ID_PRIORITY = [
   'minimax-openai',
 ] as const;
 
+interface ChatProviderCandidate {
+  id: string;
+  displayName: string;
+  hasCredential?: boolean;
+  hasStoredKey?: boolean;
+  localEndpoint?: boolean;
+  hostResolved?: boolean;
+}
+
+function candidateHasCredential(candidate: ChatProviderCandidate): boolean {
+  return candidate.hasCredential === true || candidate.hasStoredKey === true;
+}
+
+export function selectDefaultChatProvider<T extends ChatProviderCandidate>(
+  profiles: readonly T[],
+  preferredId: string | null,
+): T | null {
+  const credentialed = (id: string) =>
+    profiles.find((candidate) => candidateHasCredential(candidate) && candidate.id === id);
+  return (
+    (preferredId ? credentialed(preferredId) : undefined) ??
+    profiles.find(
+      (candidate) =>
+        candidateHasCredential(candidate) && (candidate.localEndpoint || candidate.hostResolved),
+    ) ??
+    CHAT_PROVIDER_ID_PRIORITY.map(credentialed).find(Boolean) ??
+    profiles.find(
+      (candidate) =>
+        candidateHasCredential(candidate) &&
+        candidate.displayName.toLowerCase().includes('minimax'),
+    ) ??
+    profiles.find(candidateHasCredential) ??
+    null
+  );
+}
+
 /**
  * Pick the chat provider profile. Priority:
  *   1. the user's explicit choice (Settings → "Use for chat"), if it has a key
@@ -97,20 +133,7 @@ export const CHAT_PROVIDER_ID_PRIORITY = [
 export function findDefaultChatProviderProfile(
   profiles: readonly RuntimeProviderProfile[],
 ): RuntimeProviderProfile | null {
-  const credentialed = (id: string) =>
-    profiles.find((candidate) => candidate.hasCredential && candidate.id === id);
-  const preferredId = getPreferredProviderId();
-  return (
-    (preferredId ? credentialed(preferredId) : undefined) ??
-    profiles.find((candidate) => candidate.hasCredential && candidate.localEndpoint) ??
-    CHAT_PROVIDER_ID_PRIORITY.map(credentialed).find(Boolean) ??
-    profiles.find(
-      (candidate) =>
-        candidate.hasCredential && candidate.displayName.toLowerCase().includes('minimax'),
-    ) ??
-    profiles.find((candidate) => candidate.hasCredential) ??
-    null
-  );
+  return selectDefaultChatProvider(profiles, getPreferredProviderId());
 }
 
 function headersFor(profile: RuntimeProviderProfile): Array<[string, string]> {

@@ -24,13 +24,12 @@ export function createGlobTool(config: BuiltinToolConfig): BuiltinTool | null {
     async execute(args, context) {
       const root = (args.path as string | undefined) ?? '.';
       const regex = globToRegex(args.pattern as string);
-      const entries = await walk(listDir, root, context?.threadId);
-      return (
-        entries
-          .filter((entry) => regex.test(entry))
-          .slice(0, MAX_RESULTS)
-          .join('\n') || '(no matches)'
-      );
+      const matches: string[] = [];
+      await visitFiles(listDir, root, context?.threadId, async (file) => {
+        if (regex.test(file)) matches.push(file);
+        return matches.length < MAX_RESULTS;
+      });
+      return matches.join('\n') || '(no matches)';
     },
   };
 }
@@ -65,7 +64,6 @@ export function createGrepTool(config: BuiltinToolConfig): BuiltinTool | null {
       } catch (err) {
         return `Invalid regex pattern: ${err instanceof Error ? err.message : String(err)}`;
       }
-      const files = await walk(listDir, root, context?.threadId);
       // ReDoS guard: cap the total time spent in regex.test across the whole
       // grep call, and skip individual lines that exceed the per-line size
       // cap. JS RegExp is V8-backtracking; a malicious pattern like
@@ -77,9 +75,7 @@ export function createGrepTool(config: BuiltinToolConfig): BuiltinTool | null {
       const MAX_LINE_LEN_FOR_REGEX = 4096;
       const results: string[] = [];
       let budgetExhausted = false;
-      for (const file of files) {
-        if (results.length >= MAX_RESULTS) break;
-        if (budgetExhausted) break;
+      await visitFiles(listDir, root, context?.threadId, async (file) => {
         let text = '';
         try {
           text = await fs.readFile(
@@ -87,7 +83,7 @@ export function createGrepTool(config: BuiltinToolConfig): BuiltinTool | null {
             context?.threadId ? { threadId: context.threadId } : undefined,
           );
         } catch {
-          continue;
+          return true;
         }
         const lines = text.split(/\r?\n/u);
         for (let index = 0; index < lines.length; index++) {
@@ -102,36 +98,41 @@ export function createGrepTool(config: BuiltinToolConfig): BuiltinTool | null {
             results.push(`${file}:${index + 1}:${line}`);
           }
         }
-      }
+        return results.length < MAX_RESULTS && !budgetExhausted;
+      });
       const body = results.join('\n') || '(no matches)';
       return budgetExhausted ? `${body}\n(grep stopped: regex budget exhausted)` : body;
     },
   };
 }
 
-async function walk(
+async function visitFiles(
   listDir: NonNullable<NonNullable<BuiltinToolConfig['fs']>['listDir']>,
   root: string,
   threadId: string | undefined,
-): Promise<string[]> {
-  const output: string[] = [];
+  visit: (file: string) => Promise<boolean>,
+): Promise<void> {
   const queue = [root];
-  while (queue.length > 0 && output.length < MAX_RESULTS * 5) {
-    const current = queue.shift()!;
+  let visitedFiles = 0;
+  while (queue.length > 0 && visitedFiles < MAX_RESULTS * 5) {
+    const current = queue.shift();
+    if (current === undefined) break;
     const entries = await listDir(current, threadId ? { threadId } : undefined);
     for (const entry of entries) {
       if (entry.isDirectory) queue.push(entry.path);
-      if (entry.isFile) output.push(entry.path);
+      if (!entry.isFile) continue;
+      visitedFiles += 1;
+      const shouldContinue = await visit(entry.path);
+      if (!shouldContinue || visitedFiles >= MAX_RESULTS * 5) return;
     }
   }
-  return output;
 }
 
 function globToRegex(pattern: string): RegExp {
   const parts: string[] = ['^'];
   for (let index = 0; index < pattern.length; index += 1) {
-    const char = pattern[index]!;
-    const next = pattern[index + 1];
+    const char = pattern.charAt(index);
+    const next = pattern.charAt(index + 1);
     if (char === '*' && next === '*') {
       parts.push('.*');
       index += 1;

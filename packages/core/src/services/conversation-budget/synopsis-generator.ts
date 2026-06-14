@@ -3,8 +3,10 @@ import { conversationSynopsisUpdated } from '../../events/event-factories.js';
 import type { LlmRequest } from '../../llm/gateway.js';
 import type { RuntimeContext } from '../../runtime/runtime-context.js';
 import { generateId } from '../../utils/generate-id.js';
+import { setTrackedThread } from './failure-tracking.js';
 import { estimateTokens, normalizeSummary } from './message-utils.js';
 import type { ResolvedConversationBudgetOptions } from './options-resolver.js';
+import { resolveEffectiveTailNonSystemMessages } from './tail-window.js';
 
 type LlmMessage = LlmRequest['messages'][number];
 
@@ -28,6 +30,10 @@ Do not add speculation. Output plain text only.`;
 
 export class SynopsisGenerator {
   private readonly synopsisFailureStreaks = new Map<string, number>();
+
+  dispose(): void {
+    this.synopsisFailureStreaks.clear();
+  }
 
   parseExisting(raw: string | null): ThreadSynopsisRecord | null {
     if (!raw) return null;
@@ -80,10 +86,10 @@ export class SynopsisGenerator {
   ): Promise<SynopsisGenerateResult | null> {
     const { nonSystemMessages, existing, options } = input;
     const summaryCount = await ctx.repos.nodeSummaries.countByThread(ctx.threadId);
-    const effectiveTailNonSystemMessages =
-      summaryCount > 3
-        ? Math.max(options.tailNonSystemMessages - 10, 20)
-        : options.tailNonSystemMessages;
+    const effectiveTailNonSystemMessages = resolveEffectiveTailNonSystemMessages(
+      options,
+      summaryCount,
+    );
     const overflowCount = Math.max(0, nonSystemMessages.length - effectiveTailNonSystemMessages);
     const sourceMessages =
       overflowCount > 0 ? nonSystemMessages.slice(0, overflowCount) : nonSystemMessages;
@@ -102,7 +108,7 @@ export class SynopsisGenerator {
         this.synopsisFailureStreaks.delete(ctx.threadId);
       } catch (error) {
         failureStreak += 1;
-        this.synopsisFailureStreaks.set(ctx.threadId, failureStreak);
+        setTrackedThread(this.synopsisFailureStreaks, ctx.threadId, failureStreak);
         summarySource =
           failureStreak >= options.synopsisFailureThreshold ? 'circuit_breaker' : 'heuristic';
         summary = this.buildHeuristicSummary(existing, sourceMessages);

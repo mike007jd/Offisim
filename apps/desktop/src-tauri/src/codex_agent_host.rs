@@ -6,43 +6,14 @@ use tauri::{ipc::Channel, AppHandle};
 use tokio_util::sync::CancellationToken;
 
 use crate::agent_host_runtime::{
-    append_sidecar_audit, base_env, dev_workspace_root, project_workspace_root,
-    resolved_request_cwd, run_sidecar_json, sidecar_script_path, AgentHostLane, HostError,
+    append_sidecar_audit, dev_workspace_root, project_workspace_root, resolved_request_cwd,
+    run_sidecar_json, sidecar_script_path, trusted_host_env, AgentHostLane, HostError,
     SidecarAudit,
 };
 use crate::in_flight::InFlightRegistry;
 use crate::runtime_secrets;
 
-// `OPENAI_API_KEY` / `OPENAI_BASE_URL` are deliberately NOT in the whitelist:
-// ambient process env must never reach the sidecar. The provider secret comes
-// through `runtime_secrets::read_provider_secret` and is injected at spawn
-// time only — mirroring the Claude host.
-const ENV_WHITELIST: &[&str] = &[
-    "PATH",
-    "HOME",
-    "USER",
-    "LANG",
-    "TERM",
-    "SHELL",
-    "TMPDIR",
-    "LC_ALL",
-    "LC_CTYPE",
-    "XDG_CONFIG_HOME",
-    "XDG_DATA_HOME",
-    "HTTP_PROXY",
-    "HTTPS_PROXY",
-    "ALL_PROXY",
-    "NO_PROXY",
-    "http_proxy",
-    "https_proxy",
-    "all_proxy",
-    "no_proxy",
-    "SSL_CERT_FILE",
-    "SSL_CERT_DIR",
-    "NODE_EXTRA_CA_CERTS",
-    "REQUESTS_CA_BUNDLE",
-    "CODEX_HOME",
-];
+const CODEX_ENV_EXTRAS: &[&str] = &["CODEX_HOME"];
 
 const CODEX_LANE: AgentHostLane = AgentHostLane {
     name: "Codex",
@@ -84,14 +55,7 @@ fn build_env(
     secret: Option<&str>,
     base_url: Option<&str>,
 ) -> HashMap<String, String> {
-    let mut env = base_env(ENV_WHITELIST, workspace_root);
-
-    if let Ok(path) = std::env::var("OFFISIM_CODEX_EXECUTABLE") {
-        let trimmed = path.trim();
-        if !trimmed.is_empty() {
-            env.insert("OFFISIM_CODEX_EXECUTABLE".into(), trimmed.to_string());
-        }
-    }
+    let mut env = trusted_host_env(workspace_root, CODEX_ENV_EXTRAS, "OFFISIM_CODEX_EXECUTABLE");
 
     if let Some(secret) = secret {
         env.insert("OPENAI_API_KEY".into(), secret.to_string());

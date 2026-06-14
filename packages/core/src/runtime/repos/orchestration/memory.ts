@@ -12,14 +12,7 @@ import type {
   ThreadRepository,
 } from '../../repositories.js';
 import type { MemoryRepositoriesSnapshot } from '../memory-types.js';
-
-function now(): string {
-  return new Date().toISOString();
-}
-
-function cloneRows<T extends object>(rows: Iterable<T>): T[] {
-  return [...rows].map((row) => ({ ...row }));
-}
+import { cloneRows, now } from '../memory-utils.js';
 
 export class MemoryCompanyRepository implements CompanyRepository {
   private readonly rows = new Map<string, CompanyRow>();
@@ -46,10 +39,7 @@ export class MemoryCompanyRepository implements CompanyRepository {
   async update(
     companyId: string,
     fields: Partial<
-      Pick<
-        CompanyRow,
-        'name' | 'status' | 'template_id' | 'template_label' | 'description_json'
-      >
+      Pick<CompanyRow, 'name' | 'status' | 'template_id' | 'template_label' | 'description_json'>
     >,
   ): Promise<void> {
     const row = this.rows.get(companyId);

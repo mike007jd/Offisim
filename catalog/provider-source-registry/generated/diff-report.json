@@ -1102,7 +1102,7 @@
         },
         "value": {
           "inputCostPerToken": 1.5e-7,
-          "outputCostPerToken": 0.00000115
+          "outputCostPerToken": 9e-7
         }
       }
     },
@@ -1362,8 +1362,8 @@
           "trustTier": "community"
         },
         "value": {
-          "inputCostPerToken": 4e-7,
-          "outputCostPerToken": 0.0000019
+          "inputCostPerToken": 3.75e-7,
+          "outputCostPerToken": 0.000002025
         }
       }
     },
@@ -2025,6 +2025,34 @@
           "trustTier": "community"
         },
         "value": 16384
+      }
+    },
+    {
+      "field": "pricing",
+      "loser": {
+        "provenance": {
+          "sourceId": "litellm",
+          "sourceKind": "community-aggregator",
+          "trustTier": "community"
+        },
+        "value": {
+          "inputCostPerToken": 7.1e-8,
+          "outputCostPerToken": 1e-7
+        }
+      },
+      "modelId": "qwen/qwen3-235b-a22b-2507",
+      "providerId": "openrouter-openai-general",
+      "scope": "model",
+      "winner": {
+        "provenance": {
+          "sourceId": "openrouter-live",
+          "sourceKind": "provider-live-api",
+          "trustTier": "community"
+        },
+        "value": {
+          "inputCostPerToken": 9e-8,
+          "outputCostPerToken": 1e-7
+        }
       }
     },
     {
@@ -2963,11 +2991,12 @@
     "providers": [
       {
         "defaultModel": "claude-opus-4-8",
-        "latestCreated": "2026-05-27",
-        "latestLeafId": "anthropic/claude-opus-4.8",
+        "latestCreated": "2026-06-09",
+        "latestLeafId": "anthropic/claude-fable-5",
         "pinnedCreated": "2026-05-27",
         "providerId": "anthropic-default",
-        "status": "current",
+        "reason": "newer in-family leaf \"anthropic/claude-fable-5\" shipped after pinned default",
+        "status": "behind",
         "vendor": "anthropic"
       },
       {
@@ -2990,29 +3019,32 @@
       },
       {
         "defaultModel": "kimi-k2.6",
-        "latestCreated": "2026-04-20",
-        "latestLeafId": "moonshotai/kimi-k2.6",
+        "latestCreated": "2026-06-12",
+        "latestLeafId": "moonshotai/kimi-k2.7-code",
         "pinnedCreated": "2026-04-20",
         "providerId": "kimi-cn-anthropic-coding",
-        "status": "current",
+        "reason": "newer in-family leaf \"moonshotai/kimi-k2.7-code\" shipped after pinned default",
+        "status": "behind",
         "vendor": "kimi"
       },
       {
         "defaultModel": "kimi-k2.6",
-        "latestCreated": "2026-04-20",
-        "latestLeafId": "moonshotai/kimi-k2.6",
+        "latestCreated": "2026-06-12",
+        "latestLeafId": "moonshotai/kimi-k2.7-code",
         "pinnedCreated": "2026-04-20",
         "providerId": "kimi-cn-openai-general",
-        "status": "current",
+        "reason": "newer in-family leaf \"moonshotai/kimi-k2.7-code\" shipped after pinned default",
+        "status": "behind",
         "vendor": "kimi"
       },
       {
         "defaultModel": "kimi-k2.6",
-        "latestCreated": "2026-04-20",
-        "latestLeafId": "moonshotai/kimi-k2.6",
+        "latestCreated": "2026-06-12",
+        "latestLeafId": "moonshotai/kimi-k2.7-code",
         "pinnedCreated": "2026-04-20",
         "providerId": "kimi-intl-openai-general",
-        "status": "current",
+        "reason": "newer in-family leaf \"moonshotai/kimi-k2.7-code\" shipped after pinned default",
+        "status": "behind",
         "vendor": "kimi"
       },
       {
@@ -3094,14 +3126,14 @@
       }
     ],
     "summary": {
-      "behind": 0,
-      "current": 13,
+      "behind": 4,
+      "current": 9,
       "manual": 2,
       "providerCount": 15,
       "unverifiable": 0
     }
   },
-  "generatedAt": "2026-06-06T05:24:11.106Z",
+  "generatedAt": "2026-06-14T03:38:07.603Z",
   "newModels": [
     {
       "modelId": "claude-3-7-sonnet-20250219",
@@ -3125,6 +3157,11 @@
     },
     {
       "modelId": "claude-4-sonnet-20250514",
+      "providerId": "anthropic-default",
+      "sourceId": "litellm"
+    },
+    {
+      "modelId": "claude-fable-5",
       "providerId": "anthropic-default",
       "sourceId": "litellm"
     },
@@ -5544,6 +5581,11 @@
       "sourceId": "openrouter-live"
     },
     {
+      "modelId": "anthropic/claude-fable-5",
+      "providerId": "openrouter-openai-general",
+      "sourceId": "openrouter-live"
+    },
+    {
       "modelId": "anthropic/claude-haiku-4.5",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
@@ -5614,16 +5656,6 @@
       "sourceId": "openrouter-live"
     },
     {
-      "modelId": "arcee-ai/maestro-reasoning",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "arcee-ai/spotlight",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
       "modelId": "arcee-ai/trinity-large-thinking",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
@@ -5635,11 +5667,6 @@
     },
     {
       "modelId": "arcee-ai/virtuoso-large",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "baidu/ernie-4.5-vl-28b-a3b",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
     },
@@ -6024,11 +6051,6 @@
       "sourceId": "openrouter-live"
     },
     {
-      "modelId": "meta-llama/llama-guard-3-8b",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
       "modelId": "meta-llama/llama-guard-4-12b",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
@@ -6209,7 +6231,7 @@
       "sourceId": "openrouter-live"
     },
     {
-      "modelId": "moonshotai/kimi-k2.6:free",
+      "modelId": "moonshotai/kimi-k2.7-code",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
     },
@@ -6224,7 +6246,7 @@
       "sourceId": "openrouter-live"
     },
     {
-      "modelId": "nex-agi/deepseek-v3.1-nex-n1",
+      "modelId": "nex-agi/nex-n2-pro:free",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
     },
@@ -6304,11 +6326,6 @@
       "sourceId": "openrouter-live"
     },
     {
-      "modelId": "nvidia/nemotron-nano-9b-v2",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
       "modelId": "nvidia/nemotron-nano-9b-v2:free",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
@@ -6335,11 +6352,6 @@
     },
     {
       "modelId": "openai/gpt-4",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "openai/gpt-4-1106-preview",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
     },
@@ -7084,22 +7096,12 @@
       "sourceId": "openrouter-live"
     },
     {
-      "modelId": "z-ai/glm-4-32b",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
       "modelId": "z-ai/glm-4.5",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
     },
     {
       "modelId": "z-ai/glm-4.5-air",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
-      "modelId": "z-ai/glm-4.5-air:free",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
     },
@@ -7144,7 +7146,7 @@
       "sourceId": "openrouter-live"
     },
     {
-      "modelId": "z-ai/glm-5v-turbo",
+      "modelId": "~anthropic/claude-fable-latest",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
     },
@@ -7248,6 +7250,12 @@
       "providerDisplayName": "Apertis (`apertis`)"
     },
     {
+      "communityAlias": "apiserpent",
+      "docsUrl": "https://docs.litellm.ai/docs/search/apiserpent",
+      "modelCount": 2,
+      "providerDisplayName": "APISerpent (`apiserpent`)"
+    },
+    {
       "communityAlias": "assemblyai",
       "docsUrl": "https://docs.litellm.ai/docs/pass_through/assembly_ai",
       "modelCount": 2,
@@ -7274,7 +7282,7 @@
     {
       "communityAlias": "azure_ai",
       "docsUrl": "https://docs.litellm.ai/docs/providers/azure_ai",
-      "modelCount": 85,
+      "modelCount": 87,
       "providerDisplayName": "Azure AI (`azure_ai`)"
     },
     {
@@ -7309,12 +7317,12 @@
     },
     {
       "communityAlias": "bedrock_converse",
-      "modelCount": 126
+      "modelCount": 131
     },
     {
       "communityAlias": "bedrock_mantle",
       "docsUrl": "https://docs.litellm.ai/docs/providers/bedrock",
-      "modelCount": 4,
+      "modelCount": 6,
       "providerDisplayName": "Bedrock Mantle (`bedrock_mantle`)"
     },
     {
@@ -7493,7 +7501,7 @@
     {
       "communityAlias": "fal_ai",
       "docsUrl": "https://docs.litellm.ai/docs/providers/fal_ai",
-      "modelCount": 12,
+      "modelCount": 14,
       "providerDisplayName": "Fal AI (`fal_ai`)"
     },
     {
@@ -7603,6 +7611,12 @@
       "providerDisplayName": "Hyperbolic (`hyperbolic`)"
     },
     {
+      "communityAlias": "inception",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/inception",
+      "modelCount": 1,
+      "providerDisplayName": "Inception (`inception`)"
+    },
+    {
       "communityAlias": "infinity",
       "docsUrl": "https://docs.litellm.ai/docs/providers/infinity",
       "modelCount": 0,
@@ -7619,6 +7633,12 @@
       "docsUrl": "https://docs.litellm.ai/docs/providers/lambda_ai",
       "modelCount": 20,
       "providerDisplayName": "Lambda AI (`lambda_ai`)"
+    },
+    {
+      "communityAlias": "langflow",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/langflow",
+      "modelCount": 0,
+      "providerDisplayName": "LangFlow (`langflow`)"
     },
     {
       "communityAlias": "langgraph",
@@ -7689,7 +7709,7 @@
     {
       "communityAlias": "mistral",
       "docsUrl": "https://docs.litellm.ai/docs/providers/mistral",
-      "modelCount": 52,
+      "modelCount": 53,
       "providerDisplayName": "Mistral AI API (`mistral`)"
     },
     {
@@ -7708,6 +7728,12 @@
       "docsUrl": "https://docs.litellm.ai/docs/providers/nebius",
       "modelCount": 30,
       "providerDisplayName": "Nebius AI Studio (`nebius`)"
+    },
+    {
+      "communityAlias": "neosantara",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/neosantara",
+      "modelCount": 0,
+      "providerDisplayName": "Neosantara (`neosantara`)"
     },
     {
       "communityAlias": "nlp_cloud",
@@ -7923,8 +7949,14 @@
     {
       "communityAlias": "snowflake",
       "docsUrl": "https://docs.litellm.ai/docs/providers/snowflake",
-      "modelCount": 24,
+      "modelCount": 37,
       "providerDisplayName": "Snowflake (`snowflake`)"
+    },
+    {
+      "communityAlias": "soniox",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/soniox",
+      "modelCount": 1,
+      "providerDisplayName": "Soniox (`soniox`)"
     },
     {
       "communityAlias": "stability",
@@ -7944,10 +7976,20 @@
       "providerDisplayName": "Tavily (`tavily`)"
     },
     {
+      "communityAlias": "tensormesh",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/tensormesh",
+      "modelCount": 0,
+      "providerDisplayName": "Tensormesh (`tensormesh`)"
+    },
+    {
       "communityAlias": "text-completion-codestral",
       "docsUrl": "https://docs.litellm.ai/docs/providers/codestral",
       "modelCount": 2,
       "providerDisplayName": "Text Completion Codestral (`text-completion-codestral`)"
+    },
+    {
+      "communityAlias": "text-completion-inception",
+      "modelCount": 1
     },
     {
       "communityAlias": "text-completion-openai",
@@ -8003,7 +8045,7 @@
     },
     {
       "communityAlias": "vertex_ai-anthropic_models",
-      "modelCount": 31
+      "modelCount": 33
     },
     {
       "communityAlias": "vertex_ai-deepseek_models",
@@ -8039,7 +8081,7 @@
     },
     {
       "communityAlias": "vertex_ai-openai_models",
-      "modelCount": 2
+      "modelCount": 3
     },
     {
       "communityAlias": "vertex_ai-qwen_models",
@@ -8116,12 +8158,18 @@
       "docsUrl": "https://docs.litellm.ai/docs/providers/xinference",
       "modelCount": 0,
       "providerDisplayName": "Xinference (`xinference`)"
+    },
+    {
+      "communityAlias": "you_com",
+      "docsUrl": "https://docs.litellm.ai/docs/search/you_com",
+      "modelCount": 1,
+      "providerDisplayName": "You.com (`you_com`)"
     }
   ],
   "summary": {
-    "conflictCount": 118,
-    "newModelCount": 817,
-    "newProviderAliasCount": 162,
+    "conflictCount": 119,
+    "newModelCount": 811,
+    "newProviderAliasCount": 170,
     "providerCount": 16
   },
   "version": 1

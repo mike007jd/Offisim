@@ -1,5 +1,4 @@
 import OpenAI from 'openai';
-import { PROMPT_CACHE_VOLATILE_MARKER } from './prompt-cache-marker.js';
 import { LlmError } from '../errors.js';
 import { extractErrorText, isCapacityErrorText } from './error-utils.js';
 import type {
@@ -12,8 +11,16 @@ import type {
   ToolCallResult,
   ToolDef,
 } from './gateway.js';
+import { PROMPT_CACHE_VOLATILE_MARKER } from './prompt-cache-marker.js';
 import { createScopedRequestSignal } from './request-timeout.js';
-import { DEFAULT_RETRY_CONFIG, type RetryConfig, withRetry } from './retry.js';
+import {
+  DEFAULT_RETRY_CONFIG,
+  type RetryConfig,
+  abortableSleep,
+  computeDelay,
+  withRetry,
+} from './retry.js';
+import { parseToolArguments } from './tool-arguments.js';
 
 export interface OpenAiAdapterOptions {
   /** Custom base URL for OpenAI-compatible endpoints (e.g. OpenRouter, Kimi, Gemini compat) */
@@ -41,28 +48,6 @@ type CompatDelta = {
   reasoning_content?: string | null;
   tool_calls?: OpenAI.Chat.Completions.ChatCompletionChunk.Choice.Delta.ToolCall[];
 };
-
-/**
- * Sleep that rejects with AbortError immediately when the signal aborts,
- * instead of completing the full timeout window. Used by chatStream's retry
- * backoff so user Stop doesn't have to wait out a 30s delay.
- */
-function abortableSleep(ms: number, signal: AbortSignal | undefined): Promise<void> {
-  if (signal?.aborted) {
-    return Promise.reject(new DOMException('Aborted', 'AbortError'));
-  }
-  return new Promise<void>((resolve, reject) => {
-    const onAbort = () => {
-      clearTimeout(timer);
-      reject(new DOMException('Aborted', 'AbortError'));
-    };
-    const timer = setTimeout(() => {
-      signal?.removeEventListener('abort', onAbort);
-      resolve();
-    }, ms);
-    signal?.addEventListener('abort', onAbort, { once: true });
-  });
-}
 
 /** Convert our ToolDef to OpenAI's tool format */
 function mapToolDefs(
@@ -229,8 +214,8 @@ export class OpenAiAdapter implements LlmGateway {
         if (emittedVisibleChunk) throw err;
         if (!(err instanceof LlmError) || !err.recoverable) throw err;
         if (attempt >= config.maxRetries) throw err;
+        const delayMs = computeDelay(attempt, config, err);
         attempt += 1;
-        const delayMs = Math.min(config.baseDelayMs * 2 ** (attempt - 1), config.maxDelayMs);
         await abortableSleep(delayMs, request.signal);
       }
     }
@@ -307,15 +292,11 @@ export class OpenAiAdapter implements LlmGateway {
           const toolCalls: ToolCallResult[] = [];
           for (const tc of streamToolCalls.values()) {
             const jsonStr = tc.argChunks.join('');
-            try {
-              toolCalls.push({
-                id: tc.id,
-                name: tc.name,
-                arguments: jsonStr ? (JSON.parse(jsonStr) as Record<string, unknown>) : {},
-              });
-            } catch {
-              toolCalls.push({ id: tc.id, name: tc.name, arguments: {} });
-            }
+            toolCalls.push({
+              id: tc.id,
+              name: tc.name,
+              arguments: parseToolArguments(jsonStr),
+            });
           }
 
           yield {
@@ -354,16 +335,11 @@ export class OpenAiAdapter implements LlmGateway {
     if (choice?.message?.tool_calls) {
       for (const tc of choice.message.tool_calls) {
         if (tc.type === 'function') {
-          try {
-            toolCalls.push({
-              id: tc.id,
-              name: tc.function.name,
-              arguments: JSON.parse(tc.function.arguments) as Record<string, unknown>,
-            });
-          } catch {
-            // Malformed JSON from LLM — treat as empty arguments
-            toolCalls.push({ id: tc.id, name: tc.function.name, arguments: {} });
-          }
+          toolCalls.push({
+            id: tc.id,
+            name: tc.function.name,
+            arguments: parseToolArguments(tc.function.arguments),
+          });
         }
       }
     }

@@ -1102,7 +1102,7 @@
         },
         "value": {
           "inputCostPerToken": 1.5e-7,
-          "outputCostPerToken": 0.00000115
+          "outputCostPerToken": 9e-7
         }
       }
     },
@@ -1362,8 +1362,8 @@
           "trustTier": "community"
         },
         "value": {
-          "inputCostPerToken": 4e-7,
-          "outputCostPerToken": 0.0000019
+          "inputCostPerToken": 3.75e-7,
+          "outputCostPerToken": 0.000002025
         }
       }
     },
@@ -2025,6 +2025,34 @@
           "trustTier": "community"
         },
         "value": 16384
+      }
+    },
+    {
+      "field": "pricing",
+      "loser": {
+        "provenance": {
+          "sourceId": "litellm",
+          "sourceKind": "community-aggregator",
+          "trustTier": "community"
+        },
+        "value": {
+          "inputCostPerToken": 7.1e-8,
+          "outputCostPerToken": 1e-7
+        }
+      },
+      "modelId": "qwen/qwen3-235b-a22b-2507",
+      "providerId": "openrouter-openai-general",
+      "scope": "model",
+      "winner": {
+        "provenance": {
+          "sourceId": "openrouter-live",
+          "sourceKind": "provider-live-api",
+          "trustTier": "community"
+        },
+        "value": {
+          "inputCostPerToken": 9e-8,
+          "outputCostPerToken": 1e-7
+        }
       }
     },
     {
@@ -2958,7 +2986,7 @@
       }
     }
   ],
-  "generatedAt": "2026-06-06T05:24:11.106Z",
+  "generatedAt": "2026-06-14T03:38:07.603Z",
   "providers": {
     "anthropic-default": {
       "fields": {
@@ -3011,18 +3039,6 @@
             "trustTier": "official"
           },
           "value": "claude-opus-4-8"
-        },
-        "executionLaneHints": {
-          "provenance": {
-            "sourceId": "offisim-curated-overrides",
-            "sourceKind": "curated-override",
-            "trustTier": "override"
-          },
-          "value": {
-            "productExposed": [
-              "gateway"
-            ]
-          }
         },
         "lastVerifiedAt": {
           "provenance": {
@@ -3303,6 +3319,48 @@
               "value": {
                 "inputCostPerToken": 0.000003,
                 "outputCostPerToken": 0.000015
+              }
+            }
+          }
+        },
+        "claude-fable-5": {
+          "fields": {
+            "capabilities": {
+              "provenance": {
+                "sourceId": "litellm",
+                "sourceKind": "community-aggregator",
+                "trustTier": "community"
+              },
+              "value": {
+                "functionCalling": true,
+                "reasoning": true
+              }
+            },
+            "contextWindow": {
+              "provenance": {
+                "sourceId": "litellm",
+                "sourceKind": "community-aggregator",
+                "trustTier": "community"
+              },
+              "value": 1000000
+            },
+            "maxOutputTokens": {
+              "provenance": {
+                "sourceId": "litellm",
+                "sourceKind": "community-aggregator",
+                "trustTier": "community"
+              },
+              "value": 128000
+            },
+            "pricing": {
+              "provenance": {
+                "sourceId": "litellm",
+                "sourceKind": "community-aggregator",
+                "trustTier": "community"
+              },
+              "value": {
+                "inputCostPerToken": 0.00001,
+                "outputCostPerToken": 0.00005
               }
             }
           }
@@ -4111,18 +4169,6 @@
           },
           "value": "openai-compatible"
         },
-        "executionLaneHints": {
-          "provenance": {
-            "sourceId": "offisim-curated-overrides",
-            "sourceKind": "curated-override",
-            "trustTier": "override"
-          },
-          "value": {
-            "productExposed": [
-              "gateway"
-            ]
-          }
-        },
         "notes": {
           "provenance": {
             "sourceId": "offisim-curated-overrides",
@@ -4233,18 +4279,6 @@
             "trustTier": "official"
           },
           "value": "deepseek-v4-pro"
-        },
-        "executionLaneHints": {
-          "provenance": {
-            "sourceId": "offisim-curated-overrides",
-            "sourceKind": "curated-override",
-            "trustTier": "override"
-          },
-          "value": {
-            "productExposed": [
-              "gateway"
-            ]
-          }
         },
         "lastVerifiedAt": {
           "provenance": {
@@ -4712,18 +4746,6 @@
             "trustTier": "official"
           },
           "value": "gemini-3.5-flash"
-        },
-        "executionLaneHints": {
-          "provenance": {
-            "sourceId": "offisim-curated-overrides",
-            "sourceKind": "curated-override",
-            "trustTier": "override"
-          },
-          "value": {
-            "productExposed": [
-              "gateway"
-            ]
-          }
         },
         "lastVerifiedAt": {
           "provenance": {
@@ -7050,18 +7072,6 @@
           },
           "value": "kimi-k2.6"
         },
-        "executionLaneHints": {
-          "provenance": {
-            "sourceId": "offisim-curated-overrides",
-            "sourceKind": "curated-override",
-            "trustTier": "override"
-          },
-          "value": {
-            "productExposed": [
-              "gateway"
-            ]
-          }
-        },
         "lastVerifiedAt": {
           "provenance": {
             "sourceId": "official-fixtures",
@@ -8123,18 +8133,6 @@
             "trustTier": "official"
           },
           "value": "kimi-k2.6"
-        },
-        "executionLaneHints": {
-          "provenance": {
-            "sourceId": "offisim-curated-overrides",
-            "sourceKind": "curated-override",
-            "trustTier": "override"
-          },
-          "value": {
-            "productExposed": [
-              "gateway"
-            ]
-          }
         },
         "lastVerifiedAt": {
           "provenance": {
@@ -9198,18 +9196,6 @@
           },
           "value": "kimi-k2.6"
         },
-        "executionLaneHints": {
-          "provenance": {
-            "sourceId": "offisim-curated-overrides",
-            "sourceKind": "curated-override",
-            "trustTier": "override"
-          },
-          "value": {
-            "productExposed": [
-              "gateway"
-            ]
-          }
-        },
         "lastVerifiedAt": {
           "provenance": {
             "sourceId": "official-fixtures",
@@ -10246,18 +10232,6 @@
           },
           "value": "qwen/qwen3.6-27b"
         },
-        "executionLaneHints": {
-          "provenance": {
-            "sourceId": "offisim-curated-overrides",
-            "sourceKind": "curated-override",
-            "trustTier": "override"
-          },
-          "value": {
-            "productExposed": [
-              "gateway"
-            ]
-          }
-        },
         "lastVerifiedAt": {
           "provenance": {
             "sourceId": "official-fixtures",
@@ -10397,18 +10371,6 @@
             "trustTier": "official"
           },
           "value": "MiniMax-M3"
-        },
-        "executionLaneHints": {
-          "provenance": {
-            "sourceId": "offisim-curated-overrides",
-            "sourceKind": "curated-override",
-            "trustTier": "override"
-          },
-          "value": {
-            "productExposed": [
-              "gateway"
-            ]
-          }
         },
         "lastVerifiedAt": {
           "provenance": {
@@ -10710,6 +10672,25 @@
         },
         "MiniMax-M3": {
           "fields": {
+            "capabilities": {
+              "provenance": {
+                "sourceId": "litellm",
+                "sourceKind": "community-aggregator",
+                "trustTier": "community"
+              },
+              "value": {
+                "functionCalling": true,
+                "reasoning": true
+              }
+            },
+            "contextWindow": {
+              "provenance": {
+                "sourceId": "litellm",
+                "sourceKind": "community-aggregator",
+                "trustTier": "community"
+              },
+              "value": 512000
+            },
             "displayName": {
               "provenance": {
                 "sourceId": "official-fixtures",
@@ -10717,6 +10698,25 @@
                 "trustTier": "official"
               },
               "value": "MiniMax M3"
+            },
+            "maxOutputTokens": {
+              "provenance": {
+                "sourceId": "litellm",
+                "sourceKind": "community-aggregator",
+                "trustTier": "community"
+              },
+              "value": 128000
+            },
+            "pricing": {
+              "provenance": {
+                "sourceId": "litellm",
+                "sourceKind": "community-aggregator",
+                "trustTier": "community"
+              },
+              "value": {
+                "inputCostPerToken": 6e-7,
+                "outputCostPerToken": 0.0000024
+              }
             },
             "status": {
               "provenance": {
@@ -10846,19 +10846,6 @@
           },
           "value": "MiniMax-M3"
         },
-        "executionLaneHints": {
-          "provenance": {
-            "sourceId": "offisim-curated-overrides",
-            "sourceKind": "curated-override",
-            "trustTier": "override"
-          },
-          "value": {
-            "productExposed": [
-              "gateway",
-              "claude-agent-sdk"
-            ]
-          }
-        },
         "lastVerifiedAt": {
           "provenance": {
             "sourceId": "official-fixtures",
@@ -10873,7 +10860,7 @@
             "sourceKind": "curated-override",
             "trustTier": "override"
           },
-          "value": "MiniMax Anthropic-compatible endpoint supports the Claude lane; verified with the current MiniMax-M3 model."
+          "value": "MiniMax Anthropic-compatible endpoint supports the Claude lane only through a verified runtime profile, not a generic product SDK lane."
         },
         "productName": {
           "provenance": {
@@ -11167,6 +11154,25 @@
         },
         "MiniMax-M3": {
           "fields": {
+            "capabilities": {
+              "provenance": {
+                "sourceId": "litellm",
+                "sourceKind": "community-aggregator",
+                "trustTier": "community"
+              },
+              "value": {
+                "functionCalling": true,
+                "reasoning": true
+              }
+            },
+            "contextWindow": {
+              "provenance": {
+                "sourceId": "litellm",
+                "sourceKind": "community-aggregator",
+                "trustTier": "community"
+              },
+              "value": 512000
+            },
             "displayName": {
               "provenance": {
                 "sourceId": "official-fixtures",
@@ -11174,6 +11180,25 @@
                 "trustTier": "official"
               },
               "value": "MiniMax M3"
+            },
+            "maxOutputTokens": {
+              "provenance": {
+                "sourceId": "litellm",
+                "sourceKind": "community-aggregator",
+                "trustTier": "community"
+              },
+              "value": 128000
+            },
+            "pricing": {
+              "provenance": {
+                "sourceId": "litellm",
+                "sourceKind": "community-aggregator",
+                "trustTier": "community"
+              },
+              "value": {
+                "inputCostPerToken": 6e-7,
+                "outputCostPerToken": 0.0000024
+              }
             },
             "status": {
               "provenance": {
@@ -11303,19 +11328,6 @@
           },
           "value": "MiniMax-M3"
         },
-        "executionLaneHints": {
-          "provenance": {
-            "sourceId": "offisim-curated-overrides",
-            "sourceKind": "curated-override",
-            "trustTier": "override"
-          },
-          "value": {
-            "productExposed": [
-              "gateway",
-              "codex-agent-sdk"
-            ]
-          }
-        },
         "lastVerifiedAt": {
           "provenance": {
             "sourceId": "official-fixtures",
@@ -11330,7 +11342,7 @@
             "sourceKind": "curated-override",
             "trustTier": "override"
           },
-          "value": "MiniMax OpenAI-compatible endpoint supports the Responses wire required by the Codex sidecar."
+          "value": "MiniMax OpenAI-compatible endpoint supports the Responses wire required by the Codex sidecar only through a verified runtime profile."
         },
         "productName": {
           "provenance": {
@@ -11645,6 +11657,25 @@
         },
         "MiniMax-M3": {
           "fields": {
+            "capabilities": {
+              "provenance": {
+                "sourceId": "litellm",
+                "sourceKind": "community-aggregator",
+                "trustTier": "community"
+              },
+              "value": {
+                "functionCalling": true,
+                "reasoning": true
+              }
+            },
+            "contextWindow": {
+              "provenance": {
+                "sourceId": "litellm",
+                "sourceKind": "community-aggregator",
+                "trustTier": "community"
+              },
+              "value": 512000
+            },
             "displayName": {
               "provenance": {
                 "sourceId": "official-fixtures",
@@ -11652,6 +11683,25 @@
                 "trustTier": "official"
               },
               "value": "MiniMax M3"
+            },
+            "maxOutputTokens": {
+              "provenance": {
+                "sourceId": "litellm",
+                "sourceKind": "community-aggregator",
+                "trustTier": "community"
+              },
+              "value": 128000
+            },
+            "pricing": {
+              "provenance": {
+                "sourceId": "litellm",
+                "sourceKind": "community-aggregator",
+                "trustTier": "community"
+              },
+              "value": {
+                "inputCostPerToken": 6e-7,
+                "outputCostPerToken": 0.0000024
+              }
             },
             "status": {
               "provenance": {
@@ -11772,18 +11822,6 @@
             "trustTier": "official"
           },
           "value": "gpt-5.5"
-        },
-        "executionLaneHints": {
-          "provenance": {
-            "sourceId": "offisim-curated-overrides",
-            "sourceKind": "curated-override",
-            "trustTier": "override"
-          },
-          "value": {
-            "productExposed": [
-              "gateway"
-            ]
-          }
         },
         "lastVerifiedAt": {
           "provenance": {
@@ -19131,18 +19169,6 @@
           },
           "value": "google/gemma-4-31b-it:free"
         },
-        "executionLaneHints": {
-          "provenance": {
-            "sourceId": "offisim-curated-overrides",
-            "sourceKind": "curated-override",
-            "trustTier": "override"
-          },
-          "value": {
-            "productExposed": [
-              "gateway"
-            ]
-          }
-        },
         "lastVerifiedAt": {
           "provenance": {
             "sourceId": "official-fixtures",
@@ -20110,6 +20136,67 @@
             }
           }
         },
+        "anthropic/claude-fable-5": {
+          "fields": {
+            "capabilities": {
+              "provenance": {
+                "sourceId": "openrouter-live",
+                "sourceKind": "provider-live-api",
+                "trustTier": "community"
+              },
+              "value": {
+                "functionCalling": true,
+                "reasoning": true
+              }
+            },
+            "contextWindow": {
+              "provenance": {
+                "sourceId": "openrouter-live",
+                "sourceKind": "provider-live-api",
+                "trustTier": "community"
+              },
+              "value": 1000000
+            },
+            "displayName": {
+              "provenance": {
+                "sourceId": "openrouter-live",
+                "sourceKind": "provider-live-api",
+                "trustTier": "community"
+              },
+              "value": "Anthropic: Claude Fable 5"
+            },
+            "maxOutputTokens": {
+              "provenance": {
+                "sourceId": "openrouter-live",
+                "sourceKind": "provider-live-api",
+                "trustTier": "community"
+              },
+              "value": 128000
+            },
+            "pricing": {
+              "provenance": {
+                "sourceId": "openrouter-live",
+                "sourceKind": "provider-live-api",
+                "trustTier": "community"
+              },
+              "value": {
+                "inputCostPerToken": 0.00001,
+                "outputCostPerToken": 0.00005
+              }
+            },
+            "supportedEndpoints": {
+              "provenance": {
+                "sourceId": "openrouter-live",
+                "sourceKind": "provider-live-api",
+                "trustTier": "community"
+              },
+              "value": [
+                "chat_completions",
+                "responses"
+              ]
+            }
+          }
+        },
         "anthropic/claude-haiku-4.5": {
           "fields": {
             "capabilities": {
@@ -20944,104 +21031,6 @@
             }
           }
         },
-        "arcee-ai/maestro-reasoning": {
-          "fields": {
-            "contextWindow": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": 131072
-            },
-            "displayName": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": "Arcee AI: Maestro Reasoning"
-            },
-            "maxOutputTokens": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": 32000
-            },
-            "pricing": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": {
-                "inputCostPerToken": 9e-7,
-                "outputCostPerToken": 0.0000033
-              }
-            },
-            "supportedEndpoints": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": [
-                "chat_completions"
-              ]
-            }
-          }
-        },
-        "arcee-ai/spotlight": {
-          "fields": {
-            "contextWindow": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": 131072
-            },
-            "displayName": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": "Arcee AI: Spotlight"
-            },
-            "maxOutputTokens": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": 65537
-            },
-            "pricing": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": {
-                "inputCostPerToken": 1.8e-7,
-                "outputCostPerToken": 1.8e-7
-              }
-            },
-            "supportedEndpoints": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": [
-                "chat_completions"
-              ]
-            }
-          }
-        },
         "arcee-ai/trinity-large-thinking": {
           "fields": {
             "capabilities": {
@@ -21209,67 +21198,6 @@
               "value": {
                 "inputCostPerToken": 7.5e-7,
                 "outputCostPerToken": 0.0000012
-              }
-            },
-            "supportedEndpoints": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": [
-                "chat_completions",
-                "responses"
-              ]
-            }
-          }
-        },
-        "baidu/ernie-4.5-vl-28b-a3b": {
-          "fields": {
-            "capabilities": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": {
-                "functionCalling": true,
-                "reasoning": true
-              }
-            },
-            "contextWindow": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": 131072
-            },
-            "displayName": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": "Baidu: ERNIE 4.5 VL 28B A3B"
-            },
-            "maxOutputTokens": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": 8000
-            },
-            "pricing": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": {
-                "inputCostPerToken": 1.4e-7,
-                "outputCostPerToken": 5.6e-7
               }
             },
             "supportedEndpoints": {
@@ -22268,7 +22196,7 @@
                 "sourceKind": "provider-live-api",
                 "trustTier": "community"
               },
-              "value": 131072
+              "value": 128000
             },
             "displayName": {
               "provenance": {
@@ -22284,7 +22212,7 @@
                 "sourceKind": "provider-live-api",
                 "trustTier": "community"
               },
-              "value": 16384
+              "value": 8192
             },
             "pricing": {
               "provenance": {
@@ -22293,7 +22221,7 @@
                 "trustTier": "community"
               },
               "value": {
-                "inputCostPerToken": 7e-7,
+                "inputCostPerToken": 8e-7,
                 "outputCostPerToken": 8e-7
               }
             },
@@ -22586,7 +22514,7 @@
                 "sourceKind": "provider-live-api",
                 "trustTier": "community"
               },
-              "value": 131072
+              "value": 65536
             },
             "pricing": {
               "provenance": {
@@ -22595,8 +22523,8 @@
                 "trustTier": "community"
               },
               "value": {
-                "inputCostPerToken": 9.83e-8,
-                "outputCostPerToken": 1.966e-7
+                "inputCostPerToken": 9e-8,
+                "outputCostPerToken": 1.8e-7
               }
             },
             "supportedEndpoints": {
@@ -23811,8 +23739,8 @@
                 "trustTier": "community"
               },
               "value": {
-                "inputCostPerToken": 4e-8,
-                "outputCostPerToken": 1.3e-7
+                "inputCostPerToken": 5e-8,
+                "outputCostPerToken": 1.5e-7
               }
             },
             "supportedEndpoints": {
@@ -23921,8 +23849,8 @@
                 "trustTier": "community"
               },
               "value": {
-                "inputCostPerToken": 4e-8,
-                "outputCostPerToken": 8e-8
+                "inputCostPerToken": 5e-8,
+                "outputCostPerToken": 1e-7
               }
             },
             "supportedEndpoints": {
@@ -24147,7 +24075,7 @@
                 "sourceKind": "provider-live-api",
                 "trustTier": "community"
               },
-              "value": 8192
+              "value": 262144
             },
             "pricing": {
               "provenance": {
@@ -24157,7 +24085,7 @@
               },
               "value": {
                 "inputCostPerToken": 1.2e-7,
-                "outputCostPerToken": 3.6e-7
+                "outputCostPerToken": 3.5e-7
               }
             },
             "supportedEndpoints": {
@@ -25147,14 +25075,6 @@
               },
               "value": "Meta: Llama 3 8B Instruct"
             },
-            "maxOutputTokens": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": 8192
-            },
             "pricing": {
               "provenance": {
                 "sourceId": "openrouter-live",
@@ -25162,8 +25082,8 @@
                 "trustTier": "community"
               },
               "value": {
-                "inputCostPerToken": 4e-8,
-                "outputCostPerToken": 4e-8
+                "inputCostPerToken": 1.4e-7,
+                "outputCostPerToken": 1.4e-7
               }
             },
             "supportedEndpoints": {
@@ -25331,8 +25251,8 @@
                 "trustTier": "community"
               },
               "value": {
-                "inputCostPerToken": 2.45e-7,
-                "outputCostPerToken": 2.45e-7
+                "inputCostPerToken": 3.45e-7,
+                "outputCostPerToken": 3.45e-7
               }
             },
             "supportedEndpoints": {
@@ -25701,7 +25621,7 @@
                 "trustTier": "community"
               },
               "value": {
-                "inputCostPerToken": 8e-8,
+                "inputCostPerToken": 1e-7,
                 "outputCostPerToken": 3e-7
               }
             },
@@ -25714,55 +25634,6 @@
               "value": [
                 "chat_completions",
                 "responses"
-              ]
-            }
-          }
-        },
-        "meta-llama/llama-guard-3-8b": {
-          "fields": {
-            "contextWindow": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": 131072
-            },
-            "displayName": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": "Llama Guard 3 8B"
-            },
-            "maxOutputTokens": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": 131072
-            },
-            "pricing": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": {
-                "inputCostPerToken": 4.84e-7,
-                "outputCostPerToken": 3e-8
-              }
-            },
-            "supportedEndpoints": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": [
-                "chat_completions"
               ]
             }
           }
@@ -26289,7 +26160,7 @@
               },
               "value": {
                 "inputCostPerToken": 1.5e-7,
-                "outputCostPerToken": 0.00000115
+                "outputCostPerToken": 9e-7
               }
             },
             "supportedEndpoints": {
@@ -26340,7 +26211,7 @@
                 "sourceKind": "provider-live-api",
                 "trustTier": "community"
               },
-              "value": 196608
+              "value": 131072
             },
             "pricing": {
               "provenance": {
@@ -26349,8 +26220,8 @@
                 "trustTier": "community"
               },
               "value": {
-                "inputCostPerToken": 2.79e-7,
-                "outputCostPerToken": 0.0000012
+                "inputCostPerToken": 2.5e-7,
+                "outputCostPerToken": 0.000001
               }
             },
             "supportedEndpoints": {
@@ -27731,8 +27602,8 @@
                 "trustTier": "community"
               },
               "value": {
-                "inputCostPerToken": 4e-7,
-                "outputCostPerToken": 0.0000019
+                "inputCostPerToken": 3.75e-7,
+                "outputCostPerToken": 0.000002025
               }
             },
             "supportedEndpoints": {
@@ -27783,7 +27654,7 @@
                 "sourceKind": "provider-live-api",
                 "trustTier": "community"
               },
-              "value": 262144
+              "value": 262142
             },
             "pricing": {
               "provenance": {
@@ -27792,8 +27663,8 @@
                 "trustTier": "community"
               },
               "value": {
-                "inputCostPerToken": 6.84e-7,
-                "outputCostPerToken": 0.00000342
+                "inputCostPerToken": 6.8e-7,
+                "outputCostPerToken": 0.00000341
               }
             },
             "supportedEndpoints": {
@@ -27809,7 +27680,7 @@
             }
           }
         },
-        "moonshotai/kimi-k2.6:free": {
+        "moonshotai/kimi-k2.7-code": {
           "fields": {
             "capabilities": {
               "provenance": {
@@ -27836,7 +27707,15 @@
                 "sourceKind": "provider-live-api",
                 "trustTier": "community"
               },
-              "value": "MoonshotAI: Kimi K2.6 (free)"
+              "value": "MoonshotAI: Kimi K2.7 Code"
+            },
+            "maxOutputTokens": {
+              "provenance": {
+                "sourceId": "openrouter-live",
+                "sourceKind": "provider-live-api",
+                "trustTier": "community"
+              },
+              "value": 262144
             },
             "pricing": {
               "provenance": {
@@ -27845,8 +27724,8 @@
                 "trustTier": "community"
               },
               "value": {
-                "inputCostPerToken": 0,
-                "outputCostPerToken": 0
+                "inputCostPerToken": 7.5e-7,
+                "outputCostPerToken": 0.0000035
               }
             },
             "supportedEndpoints": {
@@ -27960,7 +27839,7 @@
             }
           }
         },
-        "nex-agi/deepseek-v3.1-nex-n1": {
+        "nex-agi/nex-n2-pro:free": {
           "fields": {
             "capabilities": {
               "provenance": {
@@ -27969,7 +27848,8 @@
                 "trustTier": "community"
               },
               "value": {
-                "functionCalling": true
+                "functionCalling": true,
+                "reasoning": true
               }
             },
             "contextWindow": {
@@ -27978,7 +27858,7 @@
                 "sourceKind": "provider-live-api",
                 "trustTier": "community"
               },
-              "value": 131072
+              "value": 262144
             },
             "displayName": {
               "provenance": {
@@ -27986,7 +27866,7 @@
                 "sourceKind": "provider-live-api",
                 "trustTier": "community"
               },
-              "value": "Nex AGI: DeepSeek V3.1 Nex N1"
+              "value": "Nex AGI: Nex-N2-Pro (free)"
             },
             "maxOutputTokens": {
               "provenance": {
@@ -27994,7 +27874,7 @@
                 "sourceKind": "provider-live-api",
                 "trustTier": "community"
               },
-              "value": 163840
+              "value": 262144
             },
             "pricing": {
               "provenance": {
@@ -28003,8 +27883,8 @@
                 "trustTier": "community"
               },
               "value": {
-                "inputCostPerToken": 1.35e-7,
-                "outputCostPerToken": 5e-7
+                "inputCostPerToken": 0,
+                "outputCostPerToken": 0
               }
             },
             "supportedEndpoints": {
@@ -28143,8 +28023,8 @@
                 "trustTier": "community"
               },
               "value": {
-                "inputCostPerToken": 3e-7,
-                "outputCostPerToken": 3e-7
+                "inputCostPerToken": 7e-7,
+                "outputCostPerToken": 7e-7
               }
             },
             "supportedEndpoints": {
@@ -28305,7 +28185,7 @@
                 "trustTier": "community"
               },
               "value": {
-                "inputCostPerToken": 1e-7,
+                "inputCostPerToken": 4e-7,
                 "outputCostPerToken": 4e-7
               }
             },
@@ -28853,67 +28733,6 @@
             }
           }
         },
-        "nvidia/nemotron-nano-9b-v2": {
-          "fields": {
-            "capabilities": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": {
-                "functionCalling": true,
-                "reasoning": true
-              }
-            },
-            "contextWindow": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": 131072
-            },
-            "displayName": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": "NVIDIA: Nemotron Nano 9B V2"
-            },
-            "maxOutputTokens": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": 16384
-            },
-            "pricing": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": {
-                "inputCostPerToken": 4e-8,
-                "outputCostPerToken": 1.6e-7
-              }
-            },
-            "supportedEndpoints": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": [
-                "chat_completions",
-                "responses"
-              ]
-            }
-          }
-        },
         "nvidia/nemotron-nano-9b-v2:free": {
           "fields": {
             "capabilities": {
@@ -29241,66 +29060,6 @@
               "value": {
                 "inputCostPerToken": 0.00003,
                 "outputCostPerToken": 0.00006
-              }
-            },
-            "supportedEndpoints": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": [
-                "chat_completions",
-                "responses"
-              ]
-            }
-          }
-        },
-        "openai/gpt-4-1106-preview": {
-          "fields": {
-            "capabilities": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": {
-                "functionCalling": true
-              }
-            },
-            "contextWindow": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": 128000
-            },
-            "displayName": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": "OpenAI: GPT-4 Turbo (older v1106)"
-            },
-            "maxOutputTokens": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": 4096
-            },
-            "pricing": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": {
-                "inputCostPerToken": 0.00001,
-                "outputCostPerToken": 0.00003
               }
             },
             "supportedEndpoints": {
@@ -33912,6 +33671,14 @@
               },
               "value": "Qwen: Qwen2.5 VL 72B Instruct"
             },
+            "maxOutputTokens": {
+              "provenance": {
+                "sourceId": "openrouter-live",
+                "sourceKind": "provider-live-api",
+                "trustTier": "community"
+              },
+              "value": 128000
+            },
             "pricing": {
               "provenance": {
                 "sourceId": "openrouter-live",
@@ -33919,8 +33686,8 @@
                 "trustTier": "community"
               },
               "value": {
-                "inputCostPerToken": 2.5e-7,
-                "outputCostPerToken": 7.5e-7
+                "inputCostPerToken": 8e-7,
+                "outputCostPerToken": 0.000001
               }
             },
             "supportedEndpoints": {
@@ -34095,12 +33862,12 @@
             },
             "pricing": {
               "provenance": {
-                "sourceId": "litellm",
-                "sourceKind": "community-aggregator",
+                "sourceId": "openrouter-live",
+                "sourceKind": "provider-live-api",
                 "trustTier": "community"
               },
               "value": {
-                "inputCostPerToken": 7.1e-8,
+                "inputCostPerToken": 9e-8,
                 "outputCostPerToken": 1e-7
               }
             },
@@ -34222,8 +33989,8 @@
                 "trustTier": "community"
               },
               "value": {
-                "inputCostPerToken": 9e-8,
-                "outputCostPerToken": 4.5e-7
+                "inputCostPerToken": 1.2e-7,
+                "outputCostPerToken": 5e-7
               }
             },
             "supportedEndpoints": {
@@ -35838,7 +35605,7 @@
                 "sourceKind": "provider-live-api",
                 "trustTier": "community"
               },
-              "value": 81920
+              "value": 262144
             },
             "pricing": {
               "provenance": {
@@ -35847,7 +35614,7 @@
                 "trustTier": "community"
               },
               "value": {
-                "inputCostPerToken": 4e-8,
+                "inputCostPerToken": 1e-7,
                 "outputCostPerToken": 1.5e-7
               }
             },
@@ -36091,8 +35858,8 @@
                 "trustTier": "community"
               },
               "value": {
-                "inputCostPerToken": 2.9e-7,
-                "outputCostPerToken": 0.0000032
+                "inputCostPerToken": 2.885e-7,
+                "outputCostPerToken": 0.00000317
               }
             },
             "supportedEndpoints": {
@@ -36143,7 +35910,7 @@
                 "sourceKind": "provider-live-api",
                 "trustTier": "community"
               },
-              "value": 262140
+              "value": 262144
             },
             "pricing": {
               "provenance": {
@@ -36152,7 +35919,7 @@
                 "trustTier": "community"
               },
               "value": {
-                "inputCostPerToken": 1.4e-7,
+                "inputCostPerToken": 1.5e-7,
                 "outputCostPerToken": 0.000001
               }
             },
@@ -36457,8 +36224,8 @@
                 "trustTier": "community"
               },
               "value": {
-                "inputCostPerToken": 4e-7,
-                "outputCostPerToken": 0.0000016
+                "inputCostPerToken": 3.2e-7,
+                "outputCostPerToken": 0.00000128
               }
             },
             "supportedEndpoints": {
@@ -37998,58 +37765,6 @@
             }
           }
         },
-        "z-ai/glm-4-32b": {
-          "fields": {
-            "capabilities": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": {
-                "functionCalling": true
-              }
-            },
-            "contextWindow": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": 128000
-            },
-            "displayName": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": "Z.ai: GLM 4 32B"
-            },
-            "pricing": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": {
-                "inputCostPerToken": 1e-7,
-                "outputCostPerToken": 1e-7
-              }
-            },
-            "supportedEndpoints": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": [
-                "chat_completions",
-                "responses"
-              ]
-            }
-          }
-        },
         "z-ai/glm-4.5": {
           "fields": {
             "capabilities": {
@@ -38157,67 +37872,6 @@
               "value": {
                 "inputCostPerToken": 1.25e-7,
                 "outputCostPerToken": 8.5e-7
-              }
-            },
-            "supportedEndpoints": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": [
-                "chat_completions",
-                "responses"
-              ]
-            }
-          }
-        },
-        "z-ai/glm-4.5-air:free": {
-          "fields": {
-            "capabilities": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": {
-                "functionCalling": true,
-                "reasoning": true
-              }
-            },
-            "contextWindow": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": 131072
-            },
-            "displayName": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": "Z.ai: GLM 4.5 Air (free)"
-            },
-            "maxOutputTokens": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": 96000
-            },
-            "pricing": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": {
-                "inputCostPerToken": 0,
-                "outputCostPerToken": 0
               }
             },
             "supportedEndpoints": {
@@ -38432,7 +38086,7 @@
                 "sourceKind": "provider-live-api",
                 "trustTier": "community"
               },
-              "value": 24000
+              "value": 32768
             },
             "pricing": {
               "provenance": {
@@ -38660,7 +38314,7 @@
                 "sourceKind": "provider-live-api",
                 "trustTier": "community"
               },
-              "value": 202752
+              "value": 262144
             },
             "displayName": {
               "provenance": {
@@ -38755,7 +38409,7 @@
             }
           }
         },
-        "z-ai/glm-5v-turbo": {
+        "~anthropic/claude-fable-latest": {
           "fields": {
             "capabilities": {
               "provenance": {
@@ -38774,7 +38428,7 @@
                 "sourceKind": "provider-live-api",
                 "trustTier": "community"
               },
-              "value": 202752
+              "value": 1000000
             },
             "displayName": {
               "provenance": {
@@ -38782,7 +38436,7 @@
                 "sourceKind": "provider-live-api",
                 "trustTier": "community"
               },
-              "value": "Z.ai: GLM 5V Turbo"
+              "value": "Anthropic: Claude Fable Latest"
             },
             "maxOutputTokens": {
               "provenance": {
@@ -38790,7 +38444,7 @@
                 "sourceKind": "provider-live-api",
                 "trustTier": "community"
               },
-              "value": 131072
+              "value": 128000
             },
             "pricing": {
               "provenance": {
@@ -38799,8 +38453,8 @@
                 "trustTier": "community"
               },
               "value": {
-                "inputCostPerToken": 0.0000012,
-                "outputCostPerToken": 0.000004
+                "inputCostPerToken": 0.00001,
+                "outputCostPerToken": 0.00005
               }
             },
             "supportedEndpoints": {
@@ -39156,7 +38810,7 @@
                 "sourceKind": "provider-live-api",
                 "trustTier": "community"
               },
-              "value": 262144
+              "value": 262142
             },
             "pricing": {
               "provenance": {
@@ -39165,8 +38819,8 @@
                 "trustTier": "community"
               },
               "value": {
-                "inputCostPerToken": 6.84e-7,
-                "outputCostPerToken": 0.00000342
+                "inputCostPerToken": 6.8e-7,
+                "outputCostPerToken": 0.00000341
               }
             },
             "supportedEndpoints": {
@@ -39366,19 +39020,6 @@
           },
           "value": "glm-5.1"
         },
-        "executionLaneHints": {
-          "provenance": {
-            "sourceId": "offisim-curated-overrides",
-            "sourceKind": "curated-override",
-            "trustTier": "override"
-          },
-          "value": {
-            "productExposed": [
-              "gateway",
-              "claude-agent-sdk"
-            ]
-          }
-        },
         "lastVerifiedAt": {
           "provenance": {
             "sourceId": "official-fixtures",
@@ -39393,7 +39034,7 @@
             "sourceKind": "curated-override",
             "trustTier": "override"
           },
-          "value": "Z.AI Anthropic-compatible endpoint supports the Claude lane; Z.AI OpenAI-compatible endpoints remain gateway-only because they are chat-completions only."
+          "value": "Z.AI Anthropic-compatible endpoint supports the Claude lane only through a verified runtime profile; Z.AI OpenAI-compatible endpoints remain gateway-only because they are chat-completions only."
         },
         "productName": {
           "provenance": {
@@ -40054,18 +39695,6 @@
           },
           "value": "glm-5.1"
         },
-        "executionLaneHints": {
-          "provenance": {
-            "sourceId": "offisim-curated-overrides",
-            "sourceKind": "curated-override",
-            "trustTier": "override"
-          },
-          "value": {
-            "productExposed": [
-              "gateway"
-            ]
-          }
-        },
         "lastVerifiedAt": {
           "provenance": {
             "sourceId": "official-fixtures",
@@ -40694,18 +40323,6 @@
             "trustTier": "official"
           },
           "value": "glm-5.1"
-        },
-        "executionLaneHints": {
-          "provenance": {
-            "sourceId": "offisim-curated-overrides",
-            "sourceKind": "curated-override",
-            "trustTier": "override"
-          },
-          "value": {
-            "productExposed": [
-              "gateway"
-            ]
-          }
         },
         "lastVerifiedAt": {
           "provenance": {

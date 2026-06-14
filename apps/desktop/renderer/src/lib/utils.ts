@@ -37,19 +37,6 @@ const RELATIVE_UNITS: ReadonlyArray<[Intl.RelativeTimeFormatUnit, number]> = [
   ['minute', 60_000],
 ];
 
-/** Lowercase hex SHA-256 of the given bytes. */
-export async function sha256Hex(bytes: Uint8Array): Promise<string> {
-  // `bytes` is typed Uint8Array<ArrayBufferLike>; copy into a plain ArrayBuffer
-  // so digest's BufferSource type is satisfied under TS 5.7+ (no SharedArrayBuffer).
-  const digest = await crypto.subtle.digest(
-    'SHA-256',
-    Uint8Array.from(bytes).buffer as ArrayBuffer,
-  );
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('');
-}
-
 /** Compact relative time label, e.g. "2h ago", "Just now". */
 export function relativeTime(at: number, from = Date.now()): string {
   const diff = at - from;

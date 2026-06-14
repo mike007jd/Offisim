@@ -287,16 +287,44 @@ async function readRegistryJson<T = unknown>(response: Response): Promise<T> {
 }
 
 async function readRegistryTextWithLimit(response: Response, maxBytes: number): Promise<string> {
+  return readResponseTextWithLimit(response, maxBytes, {
+    missingBodyMessage: 'Registry response did not expose a readable stream',
+    tooLargeMessage: `Registry response exceeded ${maxBytes} bytes`,
+  });
+}
+
+export interface ReadResponseTextWithLimitOptions {
+  abortController?: AbortController;
+  allowTextFallback?: boolean;
+  missingBodyMessage?: string;
+  tooLargeMessage?: string;
+}
+
+export async function readResponseTextWithLimit(
+  response: Response,
+  maxBytes: number,
+  options: ReadResponseTextWithLimitOptions = {},
+): Promise<string> {
+  const tooLargeMessage = options.tooLargeMessage ?? `Response exceeded ${maxBytes} bytes`;
   const contentLength = response.headers.get('content-length');
   if (contentLength) {
     const parsed = Number.parseInt(contentLength, 10);
     if (Number.isFinite(parsed) && parsed > maxBytes) {
-      throw new Error(`Registry response exceeded ${maxBytes} bytes`);
+      options.abortController?.abort();
+      throw new Error(tooLargeMessage);
     }
   }
 
   if (!response.body) {
-    throw new Error('Registry response did not expose a readable stream');
+    if (!options.allowTextFallback) {
+      throw new Error(options.missingBodyMessage ?? 'Response did not expose a readable stream');
+    }
+    const text = await response.text();
+    if (new TextEncoder().encode(text).byteLength > maxBytes) {
+      options.abortController?.abort();
+      throw new Error(tooLargeMessage);
+    }
+    return text;
   }
 
   const reader = response.body.getReader();
@@ -309,7 +337,8 @@ async function readRegistryTextWithLimit(response: Response, maxBytes: number): 
       if (!value) continue;
       total += value.byteLength;
       if (total > maxBytes) {
-        throw new Error(`Registry response exceeded ${maxBytes} bytes`);
+        options.abortController?.abort();
+        throw new Error(tooLargeMessage);
       }
       chunks.push(value);
     }

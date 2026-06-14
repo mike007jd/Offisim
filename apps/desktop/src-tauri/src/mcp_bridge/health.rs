@@ -104,7 +104,9 @@ pub async fn health_monitor_loop(
         } else {
             bound_handle = Some(process_handle.clone());
         }
-        let mut process = process_handle.lock().await;
+        let Ok(mut process) = process_handle.try_lock() else {
+            continue;
+        };
 
         // Signal 1: Process liveness
         if !is_process_alive(&mut process) {

@@ -6,10 +6,7 @@ import type {
   NewLibraryDocument,
 } from '../../repositories.js';
 import type { MemoryRepositoriesSnapshot } from '../memory-types.js';
-
-function cloneRows<T extends object>(rows: Iterable<T>): T[] {
-  return [...rows].map((row) => ({ ...row }));
-}
+import { cloneRows } from '../memory-utils.js';
 
 export class MemoryFileHistoryRepository implements FileHistoryRepository {
   private readonly rows: FileHistoryRow[] = [];

@@ -10,14 +10,7 @@ import type {
   OfficeLayoutRow,
 } from '../../repositories.js';
 import type { MemoryRepositoriesSnapshot } from '../memory-types.js';
-
-function now(): string {
-  return new Date().toISOString();
-}
-
-function cloneRows<T extends object>(rows: Iterable<T>): T[] {
-  return [...rows].map((row) => ({ ...row }));
-}
+import { cloneRows, now } from '../memory-utils.js';
 
 export class MemoryOfficeLayoutRepository implements OfficeLayoutRepository {
   private readonly store = new Map<string, OfficeLayoutRow>();

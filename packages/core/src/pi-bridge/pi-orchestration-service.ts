@@ -16,9 +16,16 @@
  * Phase 4. This file keeps explicit seams for both.
  */
 
-import type { RunScope } from '@offisim/shared-types';
-import { Agent, type AgentEvent, type AgentMessage, type AgentTool, type ThinkingLevel } from '@offisim/pi-agent';
+import {
+  Agent,
+  type AgentEvent,
+  type AgentMessage,
+  type AgentTool,
+  type ThinkingLevel,
+} from '@offisim/pi-agent';
+import type { StreamFn } from '@offisim/pi-agent';
 import type { Message as PiMessage } from '@offisim/pi-ai';
+import type { RunScope } from '@offisim/shared-types';
 import { toErrorMessage } from '../errors.js';
 import { executionAborted } from '../events/orchestration-events.js';
 import type { ToolDef } from '../llm/gateway.js';
@@ -29,13 +36,12 @@ import type { ToolExecutor } from '../runtime/tool-executor.js';
 import type { ConversationBudgetService } from '../services/conversation-budget-service.js';
 import { Logger } from '../services/logger.js';
 import { buildEmployeePrompt } from './employee-builder.js';
+import type { PiAgentRegistry } from './pi-agent-registry.js';
 import { createBudgetTransform } from './pi-budget.js';
 import { createDelegateTool } from './pi-delegate-tool.js';
 import { createPiEventListener } from './pi-event-bridge.js';
-import { buildPiModel } from './pi-model.js';
-import type { PiAgentRegistry } from './pi-agent-registry.js';
 import type { PiMessageStore } from './pi-message-store.js';
-import type { StreamFn } from '@offisim/pi-agent';
+import { buildPiModel } from './pi-model.js';
 import { type PiToolContext, toolDefsToAgentTools } from './pi-tool-adapter.js';
 
 const logger = new Logger('pi-orchestration');
@@ -501,16 +507,6 @@ export class PiOrchestrationService {
     kind: PiAgentKind,
   ): Promise<AgentTool[]> {
     const { runtimeCtx } = this.deps;
-    const toolExecutor: ToolExecutor = runtimeCtx.toolExecutor;
-    const builtinDefs: ToolDef[] = [...(runtimeCtx.builtinTools?.values() ?? [])].map((t) => t.def);
-    let mcpDefs: ToolDef[] = [];
-    try {
-      mcpDefs = await toolExecutor.listAvailable(params.companyId);
-    } catch (error) {
-      logger.warn('listAvailable failed; continuing with builtin tools only', {
-        error: toErrorMessage(error),
-      });
-    }
     const isBoss = kind === 'boss';
     const virtualTools = [...(this.deps.virtualToolProvider?.(toolCtx, kind) ?? [])];
     // The delegate tool is orchestration-internal (it recurses into runWorker),
@@ -524,25 +520,32 @@ export class PiOrchestrationService {
             this.runDelegated(employee, task, params, signal),
         }),
       );
+      return virtualTools;
     }
     const virtualNames = new Set(virtualTools.map((t) => t.name));
+    const toolExecutor: ToolExecutor = runtimeCtx.toolExecutor;
+    const builtinDefs: ToolDef[] = [...(runtimeCtx.builtinTools?.values() ?? [])].map((t) => t.def);
+    let mcpDefs: ToolDef[] = [];
+    try {
+      mcpDefs = await toolExecutor.listAvailable(params.companyId);
+    } catch (error) {
+      logger.warn('listAvailable failed; continuing with builtin tools only', {
+        error: toErrorMessage(error),
+      });
+    }
     // The boss is a pure orchestrator: it gets `delegate` only, NOT bash / write /
     // MCP execution tools. Those belong to the employee that does the work — and
     // a boss has no employeeId, so any direct executor call would mis-attribute
     // its audit row to 'unknown' and dilute the model away from delegating. The
     // employee gets the full audited executor set.
-    const executorDefs = isBoss
-      ? []
-      : dedupeByName([...builtinDefs, ...mcpDefs]).filter((def) => !virtualNames.has(def.name));
+    const executorDefs = dedupeByName([...builtinDefs, ...mcpDefs]).filter(
+      (def) => !virtualNames.has(def.name),
+    );
     const executorTools = toolDefsToAgentTools(executorDefs, toolExecutor, toolCtx);
     return [...executorTools, ...virtualTools];
   }
 
-  /**
-   * Phase 4 seam: persist each finished pi message to SQLite (per-message
-   * append granularity). Until the persistence layer lands this is a no-op so
-   * the loop runs end-to-end with in-memory transcript only.
-   */
+  /** Persist top-level pi messages to the thread transcript. */
   private async persistMessage(params: WorkerParams, message: PiMessage): Promise<void> {
     // Only the top-level turn owns the thread transcript; a delegated sub-agent's
     // internal messages must not interleave into the boss thread's history.

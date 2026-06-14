@@ -1,31 +1,13 @@
-import type { CommunicationFrequency, DecisionStyle, RiskPreference } from '@offisim/shared-types';
+import { parseEmployeePersona } from '@offisim/shared-types';
 import type { CompanyRow, EmployeeRow } from '../runtime/repositories.js';
 import { sanitizeForPrompt } from '../utils/sanitize-prompt.js';
-
-interface Persona {
-  expertise?: string;
-  style?: string;
-  customInstructions?: string;
-  communicationFrequency?: CommunicationFrequency;
-  riskPreference?: RiskPreference;
-  decisionStyle?: DecisionStyle;
-}
-
-function parsePersona(json: string | null): Persona {
-  if (!json) return {};
-  try {
-    return JSON.parse(json) as Persona;
-  } catch {
-    return {};
-  }
-}
 
 export function buildEmployeePrompt(
   employee: EmployeeRow,
   company: CompanyRow,
   taskInput: string,
 ): string {
-  const persona = parsePersona(employee.persona_json);
+  const persona = parseEmployeePersona(employee.persona_json);
 
   const lines: string[] = [`You are ${employee.name}, a ${employee.role_slug} at ${company.name}.`];
 

@@ -4,6 +4,13 @@ use tauri::Runtime;
 
 use crate::local_db::get_offisim_pool;
 
+const SESSION_SELECT_SQL: &str = r#"
+SELECT meeting_id, interaction_mode, status, topic, updated_at
+FROM meeting_sessions
+WHERE meeting_id = ?
+LIMIT 1
+"#;
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionSnapshot {
@@ -41,25 +48,25 @@ fn decode_session(row: sqlx::sqlite::SqliteRow) -> Result<SessionSnapshot, Strin
     })
 }
 
+async fn fetch_session(
+    pool: &sqlx::SqlitePool,
+    id: &str,
+) -> Result<Option<SessionSnapshot>, String> {
+    let row = sqlx::query(SESSION_SELECT_SQL)
+        .bind(id)
+        .fetch_optional(pool)
+        .await
+        .map_err(|err| format!("select session: {err}"))?;
+    row.map(decode_session).transpose()
+}
+
 #[tauri::command]
 pub async fn get_session<R: Runtime>(
     app: tauri::AppHandle<R>,
     id: String,
 ) -> Result<Option<SessionSnapshot>, String> {
     let pool = get_offisim_pool(&app)?;
-    let row = sqlx::query(
-        r#"
-        SELECT meeting_id, interaction_mode, status, topic, updated_at
-        FROM meeting_sessions
-        WHERE meeting_id = ?
-        LIMIT 1
-        "#,
-    )
-    .bind(&id)
-    .fetch_optional(&pool)
-    .await
-    .map_err(|err| format!("select session: {err}"))?;
-    row.map(decode_session).transpose()
+    fetch_session(&pool, &id).await
 }
 
 #[tauri::command]
@@ -83,17 +90,5 @@ pub async fn set_session_mode<R: Runtime>(
     .await
     .map_err(|err| format!("update session mode: {err}"))?;
 
-    let row = sqlx::query(
-        r#"
-        SELECT meeting_id, interaction_mode, status, topic, updated_at
-        FROM meeting_sessions
-        WHERE meeting_id = ?
-        LIMIT 1
-        "#,
-    )
-    .bind(&id)
-    .fetch_optional(&pool)
-    .await
-    .map_err(|err| format!("select session: {err}"))?;
-    row.map(decode_session).transpose()
+    fetch_session(&pool, &id).await
 }

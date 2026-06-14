@@ -17,6 +17,7 @@ import {
   loadRuntimeProviderProfiles,
 } from '@/lib/provider-bridge.js';
 import type { EmployeeRow } from '@offisim/core/browser';
+import { readResponseTextWithLimit } from '@offisim/registry-client';
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 
@@ -173,9 +174,7 @@ export const PROVIDER_HEALTH_LABELS: Record<ProviderHealth, string> = {
 };
 
 export const providerFormSchema = z.object({
-  configId: z.string().min(1),
   product: z.string().min(1, 'Required'),
-  accessMode: z.string().min(1, 'Required'),
   model: z.string().min(1, 'Model is required'),
   apiKey: z.string(),
   endpointOverride: z.string(),
@@ -184,9 +183,7 @@ export type ProviderFormValues = z.infer<typeof providerFormSchema>;
 
 export function providerDefaults(config: ProviderConfig): ProviderFormValues {
   return {
-    configId: config.id,
     product: config.product,
-    accessMode: config.accessMode,
     model: config.model,
     apiKey: '',
     endpointOverride: '',
@@ -745,43 +742,6 @@ function brandGradient(seed: string): readonly [string, string] {
   return pairs[pairIndex] ?? fallbackPair;
 }
 
-/** Read a response body up to `cap` bytes, aborting the request as soon as the
- *  cap is exceeded so we never buffer an unbounded (possibly spoofed) body. */
-async function readBodyWithCap(
-  response: Response,
-  controller: AbortController,
-  cap: number,
-): Promise<string> {
-  const reader = response.body?.getReader();
-  if (!reader) {
-    // No streaming body available (e.g. a polyfilled fetch) — buffer and
-    // enforce the cap on the decoded text instead.
-    const text = await response.text();
-    if (new Blob([text]).size > cap) throw new Error('Agent card is too large');
-    return text;
-  }
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (!value) continue;
-    total += value.byteLength;
-    if (total > cap) {
-      controller.abort();
-      throw new Error('Agent card is too large');
-    }
-    chunks.push(value);
-  }
-  const merged = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    merged.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return new TextDecoder().decode(merged);
-}
-
 export async function discoverAgentCard(url: string): Promise<DiscoveredCard> {
   const trimmed = url.trim();
   if (trimmed.length === 0) {
@@ -808,16 +768,11 @@ export async function discoverAgentCard(url: string): Promise<DiscoveredCard> {
     throw new Error(`Agent card returned HTTP ${response.status}`);
   }
 
-  // Early-out on an honest Content-Length, but never trust it as the gate:
-  // stream the body and abort once the real byte count exceeds the cap, so a
-  // spoofed/absent header cannot make us buffer an unbounded response.
-  const contentLength = Number(response.headers.get('content-length') ?? 0);
-  if (Number.isFinite(contentLength) && contentLength > MAX_AGENT_CARD_BYTES) {
-    controller.abort();
-    throw new Error('Agent card is too large');
-  }
-
-  const text = await readBodyWithCap(response, controller, MAX_AGENT_CARD_BYTES);
+  const text = await readResponseTextWithLimit(response, MAX_AGENT_CARD_BYTES, {
+    abortController: controller,
+    allowTextFallback: true,
+    tooLargeMessage: 'Agent card is too large',
+  });
 
   const card = asRecord(JSON.parse(text));
   if (!card) throw new Error('Agent card must be a JSON object');

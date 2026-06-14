@@ -43,6 +43,7 @@ export {
 // Manifest loader
 // ---------------------------------------------------------------------------
 export { extractPackage } from './manifest-loader.js';
+export { sha256Hex } from './hash.js';
 
 // ---------------------------------------------------------------------------
 // Integrity checker
@@ -54,6 +55,7 @@ export { checkIntegrity } from './integrity-checker.js';
 // ---------------------------------------------------------------------------
 export {
   checkCompatibility,
+  isLooseVersionNewer,
   parseVersionRange,
   compareVersions,
 } from './compatibility-checker.js';

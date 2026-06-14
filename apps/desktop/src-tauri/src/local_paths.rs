@@ -85,8 +85,7 @@ pub async fn ensure_company_workspace<R: Runtime>(
     let dir = base
         .join("workspaces")
         .join(sanitize_workspace_component(company_id));
-    fs::create_dir_all(&dir)
-        .map_err(|err| format!("Failed to create company workspace: {err}"))?;
+    fs::create_dir_all(&dir).map_err(|err| format!("Failed to create company workspace: {err}"))?;
     dir.canonicalize()
         .map_err(|err| format!("Resolve company workspace: {err}"))
         .map(|canonical| canonical.to_string_lossy().to_string())

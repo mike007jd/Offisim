@@ -1,7 +1,7 @@
 /**
  * pi-bridge — the layer that runs Offisim workers on the vendored pi agent loop
  * (`@offisim/pi-agent` / `@offisim/pi-ai`) in place of the LangGraph
- * orchestration. Coexists with the old graph until the Phase 6 cut-over.
+ * orchestration.
  */
 
 export { PiAgentRegistry } from './pi-agent-registry.js';

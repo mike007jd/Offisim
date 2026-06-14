@@ -8,6 +8,7 @@ import type {
   SlotRepository,
   WorkstationRackRepository,
 } from '../runtime/repositories.js';
+import { RACK_STATUS, SLOT_STATUS } from '../runtime/repositories.js';
 import type { ToolExecutor } from '../runtime/tool-executor.js';
 
 export interface WorkstationToolResolverDeps {
@@ -76,16 +77,18 @@ export class WorkstationToolResolver {
       return [];
     }
 
-    // Collect allowed capability names from bound racks' available slots
+    const boundRackIds = new Set(workstationRackBindings.map((binding) => binding.rack_id));
+    const racks = await this.racks.findByCompany(companyId);
+    const slotGroups = await Promise.all(
+      racks
+        .filter((rack) => boundRackIds.has(rack.rack_id) && rack.status === RACK_STATUS.bound)
+        .map((rack) => this.slots.findByRack(rack.rack_id)),
+    );
+
     const allowedCapabilities = new Set<string>();
-
-    for (const binding of workstationRackBindings) {
-      const rack = await this.racks.findById(binding.rack_id);
-      if (!rack || rack.status !== 'bound') continue;
-
-      const slots = await this.slots.findByRack(rack.rack_id);
+    for (const slots of slotGroups) {
       for (const slot of slots) {
-        if (slot.status === 'available') {
+        if (slot.status === SLOT_STATUS.available) {
           allowedCapabilities.add(slot.capability_name);
         }
       }
