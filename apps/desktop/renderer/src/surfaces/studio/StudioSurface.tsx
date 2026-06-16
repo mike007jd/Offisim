@@ -339,7 +339,6 @@ export function StudioSurface() {
 
   // ── Editor keys: W select, E/R rotate (ghost first, then selection),
   //    F focus, 1-7 jump-focus zones, Esc steps back, Delete removes. ──
-  // biome-ignore lint/correctness/useExhaustiveDependencies: registers against the latest render closure on purpose
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;

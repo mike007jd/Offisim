@@ -89,17 +89,12 @@ export function safeUnzipSync(
 
     entryCount += 1;
     if (entryCount > cfg.maxEntryCount) {
-      captured = new ZipBombError(
-        `Archive contains too many entries (> ${cfg.maxEntryCount})`,
-      );
+      captured = new ZipBombError(`Archive contains too many entries (> ${cfg.maxEntryCount})`);
       return;
     }
 
     // Early reject when the local header already declares an oversize entry.
-    if (
-      typeof file.originalSize === 'number' &&
-      file.originalSize > cfg.maxEntryBytes
-    ) {
+    if (typeof file.originalSize === 'number' && file.originalSize > cfg.maxEntryBytes) {
       captured = new ZipBombError(
         `Entry "${file.name}" declares ${file.originalSize} bytes, exceeding per-entry cap ${cfg.maxEntryBytes}`,
       );
@@ -183,7 +178,8 @@ export interface SafeGunzipLimits {
  * a gzip bomb entirely in memory first.
  */
 export function safeGunzipSync(bytes: Uint8Array, limits: SafeGunzipLimits = {}): Uint8Array {
-  const maxCompressedBytes = limits.maxCompressedBytes ?? DEFAULT_SAFE_UNZIP_LIMITS.maxCompressedBytes;
+  const maxCompressedBytes =
+    limits.maxCompressedBytes ?? DEFAULT_SAFE_UNZIP_LIMITS.maxCompressedBytes;
   const maxDecompressedBytes =
     limits.maxDecompressedBytes ?? DEFAULT_SAFE_UNZIP_LIMITS.maxDecompressedBytes;
 

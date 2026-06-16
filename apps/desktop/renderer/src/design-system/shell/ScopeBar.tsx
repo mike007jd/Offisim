@@ -22,6 +22,7 @@ import {
 } from '@/design-system/primitives/dropdown-menu.js';
 import { Input } from '@/design-system/primitives/input.js';
 import { pickWorkspaceFolder } from '@/lib/desktop-dialog.js';
+import { overbroadWorkspaceReason } from '@/lib/workspace-root-guard.js';
 import { useQueryClient } from '@tanstack/react-query';
 import { Building2, Check, ChevronDown, FolderGit2, FolderOpen, Pencil, Plus } from 'lucide-react';
 import { type CSSProperties, useEffect, useId, useState } from 'react';
@@ -71,8 +72,16 @@ function ProjectDialog({
       toast.error('Project name is required');
       return;
     }
+    const cleanWorkspaceRoot = trimToNull(workspaceRoot);
     setSaving(true);
     try {
+      const overbroad = cleanWorkspaceRoot
+        ? await overbroadWorkspaceReason(cleanWorkspaceRoot)
+        : null;
+      if (overbroad) {
+        toast.error(overbroad);
+        return;
+      }
       const repos = await reposOrNull();
       if (!repos) {
         throw new Error('Project editing requires the desktop runtime');
@@ -84,7 +93,7 @@ function ProjectDialog({
       if (mode === 'edit' && project) {
         await repos.projects.update(project.id, {
           name: cleanName,
-          workspace_root: trimToNull(workspaceRoot),
+          workspace_root: cleanWorkspaceRoot,
         });
         toast.success('Project updated');
       } else {
@@ -95,7 +104,7 @@ function ProjectDialog({
           name: cleanName,
           description: null,
           status: 'planning',
-          workspace_root: trimToNull(workspaceRoot),
+          workspace_root: cleanWorkspaceRoot,
         });
         toast.success('Project created');
       }
@@ -119,7 +128,13 @@ function ProjectDialog({
   async function chooseWorkspaceFolder() {
     try {
       const folder = await pickWorkspaceFolder('Select project workspace folder');
-      if (folder) setWorkspaceRoot(folder);
+      if (!folder) return;
+      const overbroad = await overbroadWorkspaceReason(folder);
+      if (overbroad) {
+        toast.error(overbroad);
+        return;
+      }
+      setWorkspaceRoot(folder);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Folder picker failed');
     }

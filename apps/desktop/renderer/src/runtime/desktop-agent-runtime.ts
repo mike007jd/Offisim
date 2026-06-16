@@ -29,10 +29,7 @@ import {
   createSkillInstallTools,
   createSubmitDeliverableTool,
 } from '@offisim/core/runtime';
-import {
-  ConversationBudgetService,
-  DeliverablePersistenceService,
-} from '@offisim/core/services';
+import { ConversationBudgetService, DeliverablePersistenceService } from '@offisim/core/services';
 import { CompositeToolExecutor, createBuiltinTools } from '@offisim/core/tools';
 import type {
   InteractionResponse,
@@ -141,11 +138,7 @@ class DesktopAgentRuntimeImpl implements DesktopAgentRuntime {
     // place when it is unbound (keeps thread scoping stable), else falls back to
     // the company default workspace project. In the common case the bootstrap
     // already selected a bound project, so this resolves to input.projectId.
-    const projectId = await ensureProjectBoundForRun(
-      this.repos,
-      this.companyId,
-      input.projectId,
-    );
+    const projectId = await ensureProjectBoundForRun(this.repos, this.companyId, input.projectId);
 
     // The pi agent loop is the only chat path. One worker = one pi agent;
     // the boss delegates to employee sub-agents and deliverables are explicit
@@ -455,11 +448,7 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
       kind === 'employee'
         ? [
             createSubmitDeliverableTool(runtimeCtx, toolCtx),
-            ...createSkillInstallTools(
-              runtimeCtx,
-              toolCtx,
-              `${coreProvider}/${profile.model}`,
-            ),
+            ...createSkillInstallTools(runtimeCtx, toolCtx, `${coreProvider}/${profile.model}`),
           ]
         : [],
   });

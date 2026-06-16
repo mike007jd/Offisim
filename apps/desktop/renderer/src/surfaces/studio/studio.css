@@ -403,7 +403,7 @@
   gap: var(--off-sp-2);
 }
 
-.off-studio-size-actions [data-slot='button'] {
+.off-studio-size-actions [data-slot="button"] {
   flex: 1;
 }
 

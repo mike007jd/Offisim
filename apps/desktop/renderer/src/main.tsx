@@ -6,9 +6,7 @@ import { ErrorBoundary } from './app/ErrorBoundary.js';
 import { recordLastError } from './app/last-error.js';
 import { AppProviders } from './app/providers/AppProviders.js';
 
-window.addEventListener('error', (e) =>
-  recordLastError('window.error', e.error ?? e.message),
-);
+window.addEventListener('error', (e) => recordLastError('window.error', e.error ?? e.message));
 window.addEventListener('unhandledrejection', (e) =>
   recordLastError('unhandledrejection', e.reason),
 );

@@ -11,10 +11,10 @@
  * each sub-agent registers under the same thread so whole-team abort reaches it.
  */
 
-import type { TSchema } from '@offisim/pi-ai';
 import type { AgentTool, AgentToolResult } from '@offisim/pi-agent';
-import { A2AClient } from '../a2a/index.js';
+import type { TSchema } from '@offisim/pi-ai';
 import type { A2APeer, A2ATask } from '../a2a/a2a-types.js';
+import { A2AClient } from '../a2a/index.js';
 import type { EmployeeRow } from '../runtime/repositories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { Logger } from '../services/logger.js';

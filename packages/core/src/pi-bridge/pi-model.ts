@@ -56,7 +56,9 @@ function isMiniMax(input: PiModelInput): boolean {
   return /minimax/i.test(input.piProvider ?? '') || /minimax/i.test(input.baseUrl);
 }
 
-export function buildPiModel(input: PiModelInput): Model<'anthropic-messages' | 'openai-completions'> {
+export function buildPiModel(
+  input: PiModelInput,
+): Model<'anthropic-messages' | 'openai-completions'> {
   const api = laneToPiApi(input.provider);
   const piProvider = input.piProvider ?? (api === 'anthropic-messages' ? 'anthropic' : 'openai');
   const model: Model<'anthropic-messages' | 'openai-completions'> = {

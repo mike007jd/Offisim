@@ -17,10 +17,7 @@ export function PopoverContent({
       <PopoverPrimitive.Content
         align={align}
         sideOffset={sideOffset}
-        className={cn(
-          'off-motion-popover off-popover-content',
-          className,
-        )}
+        className={cn('off-motion-popover off-popover-content', className)}
         {...props}
       />
     </PopoverPrimitive.Portal>

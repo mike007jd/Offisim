@@ -75,9 +75,7 @@ const SKILL_OUTCOME_ERROR_MAX = 120;
 
 function truncateLabel(text: string, maxLength: number): string {
   const codePoints = Array.from(text);
-  return codePoints.length > maxLength
-    ? `${codePoints.slice(0, maxLength - 1).join('')}…`
-    : text;
+  return codePoints.length > maxLength ? `${codePoints.slice(0, maxLength - 1).join('')}…` : text;
 }
 
 /**

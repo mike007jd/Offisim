@@ -104,6 +104,37 @@ type ChatCompletionToolWithCacheControl = OpenAI.Chat.Completions.ChatCompletion
   cache_control?: OpenAICompatCacheControl;
 };
 
+type ChatCompletionStreamingParamsWithCompat = Omit<
+  OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming,
+  'max_tokens' | 'reasoning_effort'
+> & {
+  chat_template_kwargs?: {
+    enable_thinking: boolean;
+    preserve_thinking: boolean;
+  };
+  enable_thinking?: boolean;
+  max_tokens?: number | null;
+  provider?: unknown;
+  providerOptions?: { gateway: Record<string, string[]> };
+  reasoning?: unknown;
+  reasoning_effort?: string;
+  stream_options?: { include_usage: boolean };
+  thinking?: unknown;
+  tool_stream?: boolean;
+};
+
+type ChoiceWithUsage = ChatCompletionChunk.Choice & {
+  usage?: ChatCompletionChunk['usage'];
+};
+
+type DeltaWithReasoningDetails = ChatCompletionChunk.Choice.Delta & {
+  reasoning_details?: Array<{
+    data?: unknown;
+    id?: string;
+    type?: string;
+  }>;
+};
+
 export const streamOpenAICompletions: StreamFunction<
   'openai-completions',
   OpenAICompletionsOptions
@@ -153,7 +184,7 @@ export const streamOpenAICompletions: StreamFunction<
       let params = buildParams(model, context, options, compat, cacheRetention);
       const nextParams = await options?.onPayload?.(params, model);
       if (nextParams !== undefined) {
-        params = nextParams as OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming;
+        params = nextParams as ChatCompletionStreamingParamsWithCompat;
       }
       const requestOptions = {
         ...(options?.signal ? { signal: options.signal } : {}),
@@ -161,7 +192,10 @@ export const streamOpenAICompletions: StreamFunction<
         maxRetries: options?.maxRetries ?? 0,
       };
       const { data: openaiStream, response } = await client.chat.completions
-        .create(params, requestOptions)
+        .create(
+          params as unknown as OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming,
+          requestOptions,
+        )
         .withResponse();
       await options?.onResponse?.(
         { status: response.status, headers: headersToRecord(response.headers) },
@@ -314,8 +348,9 @@ export const streamOpenAICompletions: StreamFunction<
 
         // Fallback: some providers (e.g., Moonshot) return usage
         // in choice.usage instead of the standard chunk.usage
-        if (!chunk.usage && (choice as any).usage) {
-          output.usage = parseChunkUsage((choice as any).usage, model);
+        const choiceWithUsage = choice as ChoiceWithUsage;
+        if (!chunk.usage && choiceWithUsage.usage) {
+          output.usage = parseChunkUsage(choiceWithUsage.usage, model);
         }
 
         if (choice.finish_reason) {
@@ -401,7 +436,7 @@ export const streamOpenAICompletions: StreamFunction<
             }
           }
 
-          const reasoningDetails = (choice.delta as any).reasoning_details;
+          const reasoningDetails = (choice.delta as DeltaWithReasoningDetails).reasoning_details;
           if (reasoningDetails && Array.isArray(reasoningDetails)) {
             for (const detail of reasoningDetails) {
               if (detail.type === 'reasoning.encrypted' && detail.id && detail.data) {
@@ -560,7 +595,7 @@ function buildParams(
   const messages = convertMessages(model, context, compat);
   const cacheControl = getCompatCacheControl(compat, cacheRetention);
 
-  const params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming = {
+  const params: ChatCompletionStreamingParamsWithCompat = {
     model: model.id,
     messages,
     stream: true,
@@ -574,7 +609,7 @@ function buildParams(
   };
 
   if (compat.supportsUsageInStreaming !== false) {
-    (params as any).stream_options = { include_usage: true };
+    params.stream_options = { include_usage: true };
   }
 
   if (compat.supportsStore) {
@@ -583,7 +618,7 @@ function buildParams(
 
   if (options?.maxTokens) {
     if (compat.maxTokensField === 'max_tokens') {
-      (params as any).max_tokens = options.maxTokens;
+      params.max_tokens = options.maxTokens;
     } else {
       params.max_completion_tokens = options.maxTokens;
     }
@@ -596,7 +631,7 @@ function buildParams(
   if (context.tools && context.tools.length > 0) {
     params.tools = convertTools(context.tools, compat);
     if (compat.zaiToolStream) {
-      (params as any).tool_stream = true;
+      params.tool_stream = true;
     }
   } else if (hasToolHistory(context.messages)) {
     // Anthropic (via LiteLLM/proxy) requires tools param when conversation has tool_calls/tool_results
@@ -615,16 +650,16 @@ function buildParams(
     const zaiParams = params as typeof params & { thinking?: { type: 'enabled' | 'disabled' } };
     zaiParams.thinking = { type: options?.reasoningEffort ? 'enabled' : 'disabled' };
   } else if (compat.thinkingFormat === 'qwen' && model.reasoning) {
-    (params as any).enable_thinking = !!options?.reasoningEffort;
+    params.enable_thinking = !!options?.reasoningEffort;
   } else if (compat.thinkingFormat === 'qwen-chat-template' && model.reasoning) {
-    (params as any).chat_template_kwargs = {
+    params.chat_template_kwargs = {
       enable_thinking: !!options?.reasoningEffort,
       preserve_thinking: true,
     };
   } else if (compat.thinkingFormat === 'deepseek' && model.reasoning) {
-    (params as any).thinking = { type: options?.reasoningEffort ? 'enabled' : 'disabled' };
+    params.thinking = { type: options?.reasoningEffort ? 'enabled' : 'disabled' };
     if (options?.reasoningEffort && compat.supportsReasoningEffort) {
-      (params as any).reasoning_effort =
+      params.reasoning_effort =
         model.thinkingLevelMap?.[options.reasoningEffort] ?? options.reasoningEffort;
     }
   } else if (compat.thinkingFormat === 'openrouter' && model.reasoning) {
@@ -662,18 +697,18 @@ function buildParams(
     }
   } else if (options?.reasoningEffort && model.reasoning && compat.supportsReasoningEffort) {
     // OpenAI-style reasoning_effort
-    (params as any).reasoning_effort =
+    params.reasoning_effort =
       model.thinkingLevelMap?.[options.reasoningEffort] ?? options.reasoningEffort;
   } else if (!options?.reasoningEffort && model.reasoning && compat.supportsReasoningEffort) {
     const offValue = model.thinkingLevelMap?.off;
     if (typeof offValue === 'string') {
-      (params as any).reasoning_effort = offValue;
+      params.reasoning_effort = offValue;
     }
   }
 
   // OpenRouter provider routing preferences
   if (model.compat?.openRouterRouting) {
-    (params as any).provider = model.compat.openRouterRouting;
+    params.provider = model.compat.openRouterRouting;
   }
 
   // Vercel AI Gateway provider routing preferences
@@ -683,7 +718,7 @@ function buildParams(
       const gatewayOptions: Record<string, string[]> = {};
       if (routing.only) gatewayOptions.only = routing.only;
       if (routing.order) gatewayOptions.order = routing.order;
-      (params as any).providerOptions = { gateway: gatewayOptions };
+      params.providerOptions = { gateway: gatewayOptions };
     }
   }
 
@@ -928,9 +963,9 @@ export function convertMessages(
             signature = 'reasoning_content';
           }
           if (signature && signature.length > 0) {
-            (assistantMsg as any)[signature] = nonEmptyThinkingBlocks
-              .map((block) => block.thinking)
-              .join('\n');
+            (assistantMsg as ChatCompletionAssistantMessageParam & Record<string, unknown>)[
+              signature
+            ] = nonEmptyThinkingBlocks.map((block) => block.thinking).join('\n');
           }
         }
       } else if (assistantText.length > 0) {
@@ -952,18 +987,19 @@ export function convertMessages(
             arguments: JSON.stringify(tc.arguments),
           },
         }));
-        const reasoningDetails = toolCalls
-          .filter((tc) => tc.thoughtSignature)
-          .map((tc) => {
-            try {
-              return JSON.parse(tc.thoughtSignature!);
-            } catch {
-              return null;
-            }
-          })
-          .filter(Boolean);
+        const reasoningDetails = toolCalls.flatMap((tc) => {
+          const { thoughtSignature } = tc;
+          if (!thoughtSignature) return [];
+          try {
+            return [JSON.parse(thoughtSignature) as unknown];
+          } catch {
+            return [];
+          }
+        });
         if (reasoningDetails.length > 0) {
-          (assistantMsg as any).reasoning_details = reasoningDetails;
+          (
+            assistantMsg as ChatCompletionAssistantMessageParam & { reasoning_details?: unknown[] }
+          ).reasoning_details = reasoningDetails;
         }
       }
       if (
@@ -1009,7 +1045,8 @@ export function convertMessages(
           tool_call_id: toolMsg.toolCallId,
         };
         if (compat.requiresToolResultName && toolMsg.toolName) {
-          (toolResultMsg as any).name = toolMsg.toolName;
+          (toolResultMsg as ChatCompletionToolMessageParam & { name?: string }).name =
+            toolMsg.toolName;
         }
         params.push(toolResultMsg);
 
@@ -1069,7 +1106,8 @@ function convertTools(
     function: {
       name: tool.name,
       description: tool.description,
-      parameters: tool.parameters as any, // TypeBox already generates JSON Schema
+      parameters:
+        tool.parameters as OpenAI.Chat.Completions.ChatCompletionFunctionTool['function']['parameters'], // TypeBox already generates JSON Schema
       // Only include strict if provider supports it. Some reject unknown fields.
       ...(compat.supportsStrictMode !== false && { strict: false }),
     },

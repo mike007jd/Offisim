@@ -25,7 +25,7 @@ export function SegmentedControl<T extends string>({
   ariaLabel,
 }: SegmentedControlProps<T>) {
   return (
-    <div role="group" className={cn('off-seg', wrap && 'is-wrap', className)} aria-label={ariaLabel}>
+    <fieldset className={cn('off-seg', wrap && 'is-wrap', className)} aria-label={ariaLabel}>
       {options.map((option) => (
         <button
           key={option.value}
@@ -38,6 +38,6 @@ export function SegmentedControl<T extends string>({
           {option.label}
         </button>
       ))}
-    </div>
+    </fieldset>
   );
 }

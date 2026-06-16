@@ -2,7 +2,8 @@ const DEFAULT_OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models';
 
 export async function fetchOpenRouterModelsPayload(options = {}) {
   const fetchImpl = options.fetchImpl ?? globalThis.fetch;
-  const url = options.modelsUrl ?? options.source?.config?.modelsUrl ?? DEFAULT_OPENROUTER_MODELS_URL;
+  const url =
+    options.modelsUrl ?? options.source?.config?.modelsUrl ?? DEFAULT_OPENROUTER_MODELS_URL;
   if (typeof fetchImpl !== 'function') {
     throw new Error('fetch is unavailable; pass options.fetchImpl or use fixtureDir');
   }

@@ -16,10 +16,7 @@ async function loadPdfjs(): Promise<typeof import('pdfjs-dist/legacy/build/pdf.m
   return pdfjs;
 }
 
-export async function parsePdf(
-  bytes: Uint8Array,
-  signal?: AbortSignal,
-): Promise<ParsedAttachment> {
+export async function parsePdf(bytes: Uint8Array, signal?: AbortSignal): Promise<ParsedAttachment> {
   if (signal?.aborted) {
     return { kind: 'unsupported', reason: 'aborted' };
   }

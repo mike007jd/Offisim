@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import {
+  REGISTRY_CLIENT_MAX_JSON_BYTES,
   RegistryApiError,
   RegistryClient,
-  REGISTRY_CLIENT_MAX_JSON_BYTES,
 } from '../packages/registry-client/src/index.ts';
 
 function createClient(fetchImpl: typeof globalThis.fetch): RegistryClient {

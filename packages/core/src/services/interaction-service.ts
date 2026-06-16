@@ -5,6 +5,7 @@ import type {
   InteractionScope,
   SkillInstallOutcomeKind,
 } from '@offisim/shared-types';
+import type { RunScope } from '@offisim/shared-types';
 import type { EventBus } from '../events/event-bus.js';
 import {
   interactionModeChanged,
@@ -13,7 +14,6 @@ import {
   interactionRestored,
   skillInstallOutcome,
 } from '../events/event-factories.js';
-import type { RunScope } from '@offisim/shared-types';
 import type { HookRegistry } from '../runtime/hook-registry.js';
 import type {
   ActiveInteractionRepository,

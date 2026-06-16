@@ -153,10 +153,6 @@ export function renderRelationshipsMd(
     relationships: [],
     updated_at: row.updated_at,
   };
-  const body = [
-    '# Relationships',
-    '',
-    '_No relationship entries recorded yet._',
-  ].join('\n');
+  const body = ['# Relationships', '', '_No relationship entries recorded yet._'].join('\n');
   return serializeDocument(frontmatter, body);
 }

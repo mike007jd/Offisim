@@ -2329,7 +2329,7 @@
           "sourceKind": "provider-live-api",
           "trustTier": "community"
         },
-        "value": 262144
+        "value": 81920
       }
     },
     {
@@ -2361,6 +2361,28 @@
       }
     },
     {
+      "field": "contextWindow",
+      "loser": {
+        "provenance": {
+          "sourceId": "litellm",
+          "sourceKind": "community-aggregator",
+          "trustTier": "community"
+        },
+        "value": 262144
+      },
+      "modelId": "qwen/qwen3.5-397b-a17b",
+      "providerId": "openrouter-openai-general",
+      "scope": "model",
+      "winner": {
+        "provenance": {
+          "sourceId": "openrouter-live",
+          "sourceKind": "provider-live-api",
+          "trustTier": "community"
+        },
+        "value": 256000
+      }
+    },
+    {
       "field": "pricing",
       "loser": {
         "provenance": {
@@ -2383,8 +2405,8 @@
           "trustTier": "community"
         },
         "value": {
-          "inputCostPerToken": 3.9e-7,
-          "outputCostPerToken": 0.00000234
+          "inputCostPerToken": 3.85e-7,
+          "outputCostPerToken": 0.00000245
         }
       }
     },
@@ -2986,7 +3008,7 @@
       }
     }
   ],
-  "generatedAt": "2026-06-14T03:38:07.603Z",
+  "generatedAt": "2026-06-16T12:47:07.413Z",
   "providers": {
     "anthropic-default": {
       "fields": {
@@ -3038,7 +3060,7 @@
             "sourceKind": "official-static",
             "trustTier": "official"
           },
-          "value": "claude-opus-4-8"
+          "value": "claude-fable-5"
         },
         "lastVerifiedAt": {
           "provenance": {
@@ -3046,7 +3068,7 @@
             "sourceKind": "official-static",
             "trustTier": "official"
           },
-          "value": "2026-06-02"
+          "value": "2026-06-17"
         },
         "productName": {
           "provenance": {
@@ -3078,7 +3100,7 @@
             "sourceKind": "official-static",
             "trustTier": "official"
           },
-          "value": "https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions"
+          "value": "https://platform.claude.com/docs/en/about-claude/models/overview"
         },
         "supportedEndpoints": {
           "provenance": {
@@ -3344,6 +3366,14 @@
               },
               "value": 1000000
             },
+            "displayName": {
+              "provenance": {
+                "sourceId": "official-fixtures",
+                "sourceKind": "official-static",
+                "trustTier": "official"
+              },
+              "value": "Claude Fable 5"
+            },
             "maxOutputTokens": {
               "provenance": {
                 "sourceId": "litellm",
@@ -3362,6 +3392,14 @@
                 "inputCostPerToken": 0.00001,
                 "outputCostPerToken": 0.00005
               }
+            },
+            "status": {
+              "provenance": {
+                "sourceId": "official-fixtures",
+                "sourceKind": "official-static",
+                "trustTier": "official"
+              },
+              "value": "current"
             }
           }
         },
@@ -7070,7 +7108,7 @@
             "sourceKind": "official-static",
             "trustTier": "official"
           },
-          "value": "kimi-k2.6"
+          "value": "kimi-k2.7-code"
         },
         "lastVerifiedAt": {
           "provenance": {
@@ -7078,7 +7116,7 @@
             "sourceKind": "official-static",
             "trustTier": "official"
           },
-          "value": "2026-06-02"
+          "value": "2026-06-17"
         },
         "productName": {
           "provenance": {
@@ -7110,7 +7148,7 @@
             "sourceKind": "official-static",
             "trustTier": "official"
           },
-          "value": "https://platform.moonshot.cn/docs"
+          "value": "https://platform.kimi.com/docs/guide/agent-support"
         },
         "supportedEndpoints": {
           "provenance": {
@@ -7436,7 +7474,7 @@
                 "sourceKind": "official-static",
                 "trustTier": "official"
               },
-              "value": "Kimi K2.6"
+              "value": "Kimi K2.6 (legacy)"
             },
             "maxOutputTokens": {
               "provenance": {
@@ -7456,6 +7494,46 @@
                 "inputCostPerToken": 9.5e-7,
                 "outputCostPerToken": 0.000004
               }
+            },
+            "status": {
+              "provenance": {
+                "sourceId": "official-fixtures",
+                "sourceKind": "official-static",
+                "trustTier": "official"
+              },
+              "value": "legacy"
+            }
+          }
+        },
+        "kimi-k2.7-code": {
+          "fields": {
+            "displayName": {
+              "provenance": {
+                "sourceId": "official-fixtures",
+                "sourceKind": "official-static",
+                "trustTier": "official"
+              },
+              "value": "Kimi K2.7 Code"
+            },
+            "status": {
+              "provenance": {
+                "sourceId": "official-fixtures",
+                "sourceKind": "official-static",
+                "trustTier": "official"
+              },
+              "value": "current"
+            }
+          }
+        },
+        "kimi-k2.7-code-highspeed": {
+          "fields": {
+            "displayName": {
+              "provenance": {
+                "sourceId": "official-fixtures",
+                "sourceKind": "official-static",
+                "trustTier": "official"
+              },
+              "value": "Kimi K2.7 Code Highspeed"
             },
             "status": {
               "provenance": {
@@ -8132,7 +8210,7 @@
             "sourceKind": "official-static",
             "trustTier": "official"
           },
-          "value": "kimi-k2.6"
+          "value": "kimi-k2.7-code"
         },
         "lastVerifiedAt": {
           "provenance": {
@@ -8140,7 +8218,7 @@
             "sourceKind": "official-static",
             "trustTier": "official"
           },
-          "value": "2026-06-02"
+          "value": "2026-06-17"
         },
         "productName": {
           "provenance": {
@@ -8172,7 +8250,7 @@
             "sourceKind": "official-static",
             "trustTier": "official"
           },
-          "value": "https://platform.moonshot.cn/docs"
+          "value": "https://platform.kimi.com/docs/api/chat"
         },
         "supportedEndpoints": {
           "provenance": {
@@ -8498,7 +8576,7 @@
                 "sourceKind": "official-static",
                 "trustTier": "official"
               },
-              "value": "Kimi K2.6"
+              "value": "Kimi K2.6 (legacy)"
             },
             "maxOutputTokens": {
               "provenance": {
@@ -8518,6 +8596,46 @@
                 "inputCostPerToken": 9.5e-7,
                 "outputCostPerToken": 0.000004
               }
+            },
+            "status": {
+              "provenance": {
+                "sourceId": "official-fixtures",
+                "sourceKind": "official-static",
+                "trustTier": "official"
+              },
+              "value": "legacy"
+            }
+          }
+        },
+        "kimi-k2.7-code": {
+          "fields": {
+            "displayName": {
+              "provenance": {
+                "sourceId": "official-fixtures",
+                "sourceKind": "official-static",
+                "trustTier": "official"
+              },
+              "value": "Kimi K2.7 Code"
+            },
+            "status": {
+              "provenance": {
+                "sourceId": "official-fixtures",
+                "sourceKind": "official-static",
+                "trustTier": "official"
+              },
+              "value": "current"
+            }
+          }
+        },
+        "kimi-k2.7-code-highspeed": {
+          "fields": {
+            "displayName": {
+              "provenance": {
+                "sourceId": "official-fixtures",
+                "sourceKind": "official-static",
+                "trustTier": "official"
+              },
+              "value": "Kimi K2.7 Code Highspeed"
             },
             "status": {
               "provenance": {
@@ -9194,7 +9312,7 @@
             "sourceKind": "official-static",
             "trustTier": "official"
           },
-          "value": "kimi-k2.6"
+          "value": "kimi-k2.7-code"
         },
         "lastVerifiedAt": {
           "provenance": {
@@ -9202,7 +9320,7 @@
             "sourceKind": "official-static",
             "trustTier": "official"
           },
-          "value": "2026-06-02"
+          "value": "2026-06-17"
         },
         "productName": {
           "provenance": {
@@ -9234,7 +9352,7 @@
             "sourceKind": "official-static",
             "trustTier": "official"
           },
-          "value": "https://platform.moonshot.ai/docs"
+          "value": "https://platform.kimi.com/docs/api/chat"
         },
         "supportedEndpoints": {
           "provenance": {
@@ -9560,7 +9678,7 @@
                 "sourceKind": "official-static",
                 "trustTier": "official"
               },
-              "value": "Kimi K2.6"
+              "value": "Kimi K2.6 (legacy)"
             },
             "maxOutputTokens": {
               "provenance": {
@@ -9580,6 +9698,46 @@
                 "inputCostPerToken": 9.5e-7,
                 "outputCostPerToken": 0.000004
               }
+            },
+            "status": {
+              "provenance": {
+                "sourceId": "official-fixtures",
+                "sourceKind": "official-static",
+                "trustTier": "official"
+              },
+              "value": "legacy"
+            }
+          }
+        },
+        "kimi-k2.7-code": {
+          "fields": {
+            "displayName": {
+              "provenance": {
+                "sourceId": "official-fixtures",
+                "sourceKind": "official-static",
+                "trustTier": "official"
+              },
+              "value": "Kimi K2.7 Code"
+            },
+            "status": {
+              "provenance": {
+                "sourceId": "official-fixtures",
+                "sourceKind": "official-static",
+                "trustTier": "official"
+              },
+              "value": "current"
+            }
+          }
+        },
+        "kimi-k2.7-code-highspeed": {
+          "fields": {
+            "displayName": {
+              "provenance": {
+                "sourceId": "official-fixtures",
+                "sourceKind": "official-static",
+                "trustTier": "official"
+              },
+              "value": "Kimi K2.7 Code Highspeed"
             },
             "status": {
               "provenance": {
@@ -22237,65 +22395,6 @@
             }
           }
         },
-        "deepseek/deepseek-r1-distill-qwen-32b": {
-          "fields": {
-            "capabilities": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": {
-                "reasoning": true
-              }
-            },
-            "contextWindow": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": 128000
-            },
-            "displayName": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": "DeepSeek: R1 Distill Qwen 32B"
-            },
-            "maxOutputTokens": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": 32768
-            },
-            "pricing": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": {
-                "inputCostPerToken": 2.9e-7,
-                "outputCostPerToken": 2.9e-7
-              }
-            },
-            "supportedEndpoints": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": [
-                "chat_completions"
-              ]
-            }
-          }
-        },
         "deepseek/deepseek-v3.1-terminus": {
           "fields": {
             "capabilities": {
@@ -22508,14 +22607,6 @@
               },
               "value": "DeepSeek: DeepSeek V4 Flash"
             },
-            "maxOutputTokens": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": 65536
-            },
             "pricing": {
               "provenance": {
                 "sourceId": "openrouter-live",
@@ -22523,8 +22614,8 @@
                 "trustTier": "community"
               },
               "value": {
-                "inputCostPerToken": 9e-8,
-                "outputCostPerToken": 1.8e-7
+                "inputCostPerToken": 9.8e-8,
+                "outputCostPerToken": 1.96e-7
               }
             },
             "supportedEndpoints": {
@@ -32656,7 +32747,7 @@
                 "sourceKind": "provider-live-api",
                 "trustTier": "community"
               },
-              "value": 128000
+              "value": 1000000
             },
             "displayName": {
               "provenance": {
@@ -35483,7 +35574,7 @@
                 "sourceKind": "provider-live-api",
                 "trustTier": "community"
               },
-              "value": 262144
+              "value": 81920
             },
             "pricing": {
               "provenance": {
@@ -35524,11 +35615,11 @@
             },
             "contextWindow": {
               "provenance": {
-                "sourceId": "litellm",
-                "sourceKind": "community-aggregator",
+                "sourceId": "openrouter-live",
+                "sourceKind": "provider-live-api",
                 "trustTier": "community"
               },
-              "value": 262144
+              "value": 256000
             },
             "displayName": {
               "provenance": {
@@ -35553,8 +35644,8 @@
                 "trustTier": "community"
               },
               "value": {
-                "inputCostPerToken": 3.9e-7,
-                "outputCostPerToken": 0.00000234
+                "inputCostPerToken": 3.85e-7,
+                "outputCostPerToken": 0.00000245
               }
             },
             "supportedEndpoints": {
@@ -36937,6 +37028,14 @@
               },
               "value": "Tencent: Hy3 preview"
             },
+            "maxOutputTokens": {
+              "provenance": {
+                "sourceId": "openrouter-live",
+                "sourceKind": "provider-live-api",
+                "trustTier": "community"
+              },
+              "value": 262144
+            },
             "pricing": {
               "provenance": {
                 "sourceId": "openrouter-live",
@@ -36944,8 +37043,8 @@
                 "trustTier": "community"
               },
               "value": {
-                "inputCostPerToken": 6.3e-8,
-                "outputCostPerToken": 2.1e-7
+                "inputCostPerToken": 6.6e-8,
+                "outputCostPerToken": 2.6e-7
               }
             },
             "supportedEndpoints": {
@@ -37460,8 +37559,8 @@
                 "trustTier": "community"
               },
               "value": {
-                "inputCostPerToken": 0.000002,
-                "outputCostPerToken": 0.000006
+                "inputCostPerToken": 0.00000125,
+                "outputCostPerToken": 0.0000025
               }
             },
             "supportedEndpoints": {
@@ -37861,7 +37960,7 @@
                 "sourceKind": "provider-live-api",
                 "trustTier": "community"
               },
-              "value": 131070
+              "value": 98304
             },
             "pricing": {
               "provenance": {
@@ -37870,7 +37969,7 @@
                 "trustTier": "community"
               },
               "value": {
-                "inputCostPerToken": 1.25e-7,
+                "inputCostPerToken": 1.3e-7,
                 "outputCostPerToken": 8.5e-7
               }
             },

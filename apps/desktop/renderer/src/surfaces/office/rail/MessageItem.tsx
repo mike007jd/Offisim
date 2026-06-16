@@ -103,53 +103,55 @@ export function MessageItem({ message, employeesById }: MessageItemProps) {
   return (
     <MessagePrimitive.Root asChild>
       <article className={cn('off-msg', `is-${message.author}`)}>
-      <header className="off-msg-head">
-        {meta.employee ? (
-          <EmployeeAvatar
-            seed={meta.employee.id}
-            appearance={meta.employee.appearance}
-            colorA={meta.employee.avatarA}
-            colorB={meta.employee.avatarB}
-            size={20}
-            brand={meta.employee.kind === 'external'}
-          />
-        ) : null}
-        <span className="off-msg-author">{meta.name}</span>
-        <span className="off-msg-time">{relativeTime(message.at)}</span>
-      </header>
-      <div className="off-msg-body">
-        <MessagePrimitive.Parts>
-          {({ part }) =>
-            part.type === 'text' ? (
-              <span className="off-msg-text">
-                {/* Every author renders through Markdown so fenced code blocks,
+        <header className="off-msg-head">
+          {meta.employee ? (
+            <EmployeeAvatar
+              seed={meta.employee.id}
+              appearance={meta.employee.appearance}
+              colorA={meta.employee.avatarA}
+              colorB={meta.employee.avatarB}
+              size={20}
+              brand={meta.employee.kind === 'external'}
+            />
+          ) : null}
+          <span className="off-msg-author">{meta.name}</span>
+          <span className="off-msg-time">{relativeTime(message.at)}</span>
+        </header>
+        <div className="off-msg-body">
+          <MessagePrimitive.Parts>
+            {({ part }) =>
+              part.type === 'text' ? (
+                <span className="off-msg-text">
+                  {/* Every author renders through Markdown so fenced code blocks,
                     lists, and tables read coherently — the user's own message
                     included (Codex-style unified rendering), not just employee
                     deliverables. */}
-                <Markdown>{part.text}</Markdown>
-                <MessagePartPrimitive.InProgress>
-                  <span className="off-msg-cursor">|</span>
-                </MessagePartPrimitive.InProgress>
-              </span>
-            ) : null
-          }
-        </MessagePrimitive.Parts>
-      </div>
-      {message.attachments?.map((attachment) => (
-        <div key={attachment.id} className="off-attachment">
-          <span className="off-att-icon">
-            <Icon icon={FileText} size="sm" />
-          </span>
-          <span className="off-att-text">
-            <span className="off-att-name">{attachment.name}</span>
-            <span className="off-att-meta">
-              <span className="off-fmt-tag">{attachment.ext}</span>
-              {attachment.sizeLabel}
-            </span>
-          </span>
+                  <Markdown>{part.text}</Markdown>
+                  <MessagePartPrimitive.InProgress>
+                    <span className="off-msg-cursor">|</span>
+                  </MessagePartPrimitive.InProgress>
+                </span>
+              ) : null
+            }
+          </MessagePrimitive.Parts>
         </div>
-      ))}
-      {message.runRecord ? <RunRecordCard record={message.runRecord} byId={employeesById} /> : null}
+        {message.attachments?.map((attachment) => (
+          <div key={attachment.id} className="off-attachment">
+            <span className="off-att-icon">
+              <Icon icon={FileText} size="sm" />
+            </span>
+            <span className="off-att-text">
+              <span className="off-att-name">{attachment.name}</span>
+              <span className="off-att-meta">
+                <span className="off-fmt-tag">{attachment.ext}</span>
+                {attachment.sizeLabel}
+              </span>
+            </span>
+          </div>
+        ))}
+        {message.runRecord ? (
+          <RunRecordCard record={message.runRecord} byId={employeesById} />
+        ) : null}
       </article>
     </MessagePrimitive.Root>
   );

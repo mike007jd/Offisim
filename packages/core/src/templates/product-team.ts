@@ -107,7 +107,8 @@ export const productTeamTemplate: CompanyTemplate = {
         maxTokens: 3072,
       }),
     },
-  ],  layoutPreset: 'product-hub',
+  ],
+  layoutPreset: 'product-hub',
   zones: [
     createZoneBlueprint({
       slug: 'zone-product',

@@ -14,7 +14,7 @@ import {
 import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { gateCwd, RELEASE_GATES } from './release-gates.mjs';
+import { RELEASE_GATES, gateCwd } from './release-gates.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');

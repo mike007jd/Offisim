@@ -1,6 +1,8 @@
 import { open } from '@tauri-apps/plugin-dialog';
 
-export async function pickWorkspaceFolder(title = 'Select workspace folder'): Promise<string | null> {
+export async function pickWorkspaceFolder(
+  title = 'Select workspace folder',
+): Promise<string | null> {
   if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) {
     throw new Error('Folder picker requires the desktop runtime');
   }

@@ -10,8 +10,8 @@
  * byte-compatible with the old path's `mapPayloadToRow`.
  */
 
-import type { TSchema } from '@offisim/pi-ai';
 import type { AgentTool, AgentToolResult } from '@offisim/pi-agent';
+import type { TSchema } from '@offisim/pi-ai';
 import { deliverableCreated } from '../events/task-events.js';
 import { type DeliverableKind, employeeBrandFields } from '../runtime/repositories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';

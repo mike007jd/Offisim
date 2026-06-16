@@ -94,7 +94,10 @@ function buildDefaultPrefabInstances(
     const center = getZoneCenter(zoneTemplates, zoneTemplate.slug);
 
     if (zoneTemplate.defaultPrefabs && zoneTemplate.defaultPrefabs.length > 0) {
-      for (const prefab of resolveNonOverlappingPrefabOffsets(zoneTemplate.defaultPrefabs, zoneTemplate)) {
+      for (const prefab of resolveNonOverlappingPrefabOffsets(
+        zoneTemplate.defaultPrefabs,
+        zoneTemplate,
+      )) {
         prefabInstances.push(
           createPrefabInstance({
             companyId,
@@ -114,7 +117,10 @@ function buildDefaultPrefabInstances(
       continue;
     }
 
-    const defaults = resolveNonOverlappingPrefabOffsets(getSystemZoneDefaultPrefabs(zoneTemplate), zoneTemplate);
+    const defaults = resolveNonOverlappingPrefabOffsets(
+      getSystemZoneDefaultPrefabs(zoneTemplate),
+      zoneTemplate,
+    );
     for (const prefab of defaults) {
       prefabInstances.push(
         createPrefabInstance({

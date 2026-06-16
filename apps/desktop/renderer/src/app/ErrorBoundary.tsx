@@ -61,8 +61,8 @@ export class ErrorBoundary extends Component<Props, State> {
       <div className="off-error-boundary">
         <div className="off-error-boundary__title">Something went wrong</div>
         <p className="off-error-boundary__msg">
-          This view hit an unexpected error. Try again — if it keeps happening, copy the
-          details so we can look into it.
+          This view hit an unexpected error. Try again — if it keeps happening, copy the details so
+          we can look into it.
         </p>
         <div className="off-error-boundary__actions">
           <button type="button" className="off-error-boundary__reset" onClick={this.reset}>

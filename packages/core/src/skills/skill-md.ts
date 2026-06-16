@@ -1,5 +1,6 @@
 import { SkillMdParseError } from '@offisim/shared-types';
 import yaml from 'js-yaml';
+import { toErrorMessage } from '../errors.js';
 import { VaultParseError, parseDocument } from '../vault/codec.js';
 
 const ALLOWED_FRONTMATTER_KEYS = new Set([
@@ -157,10 +158,7 @@ function mapParseError(err: unknown): SkillFrontmatterError {
         return new SkillFrontmatterError('invalid-yaml', err.message, err.field);
     }
   }
-  return new SkillFrontmatterError(
-    'invalid-yaml',
-    err instanceof Error ? err.message : String(err),
-  );
+  return new SkillFrontmatterError('invalid-yaml', toErrorMessage(err));
 }
 
 export function parseSelfAuthoredSkillMd(raw: string): ParsedSkillMd {
@@ -173,9 +171,10 @@ export function parseSelfAuthoredSkillMd(raw: string): ParsedSkillMd {
 
   const unknownKey = Object.keys(parsed.unknownFields)[0];
   if (unknownKey) {
+    const isForbiddenNamespace = unknownKey.startsWith('offisim.');
     throw new SkillFrontmatterError(
-      unknownKey.startsWith('offisim.') ? 'forbidden-namespace' : 'unknown-field',
-      unknownKey.startsWith('offisim.')
+      isForbiddenNamespace ? 'forbidden-namespace' : 'unknown-field',
+      isForbiddenNamespace
         ? `Forbidden namespace: ${unknownKey}`
         : `Unknown frontmatter field: ${unknownKey}`,
       unknownKey,

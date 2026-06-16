@@ -7,6 +7,9 @@ use tauri::Manager;
 use tauri::Runtime;
 use tokio::process::Command;
 
+pub(crate) const OVERBROAD_WORKSPACE_ROOT_ERROR: &str =
+    "workspace_root is too broad; bind a specific project folder";
+
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeVaultStatus {
@@ -111,6 +114,47 @@ fn sanitize_workspace_component(raw: &str) -> String {
     } else {
         trimmed
     }
+}
+
+pub(crate) fn is_overbroad_workspace_root(path: &Path) -> bool {
+    if let Some(home) = dirs::home_dir().and_then(|home| home.canonicalize().ok()) {
+        if path == home || home.parent().is_some_and(|parent| path == parent) {
+            return true;
+        }
+    }
+    let normals: Vec<_> = path
+        .components()
+        .filter_map(|component| match component {
+            Component::Normal(name) => Some(name),
+            _ => None,
+        })
+        .collect();
+    if normals.len() < 2 {
+        return true;
+    }
+    // macOS canonicalize maps single-component privileged roots to /private/*
+    // aliases. Only those aliases are overbroad; /private/my-project can still
+    // be a concrete workspace.
+    normals.len() == 2
+        && normals[0] == std::ffi::OsStr::new("private")
+        && matches!(
+            normals[1].to_str(),
+            Some("tmp" | "var" | "etc")
+        )
+}
+
+pub(crate) fn resolve_project_workspace_root_path(raw_path: impl Into<PathBuf>) -> Result<PathBuf, String> {
+    let raw_path = raw_path.into();
+    if is_overbroad_workspace_root(&raw_path) {
+        return Err(OVERBROAD_WORKSPACE_ROOT_ERROR.to_string());
+    }
+    let root = raw_path
+        .canonicalize()
+        .map_err(|err| format!("Resolve project workspace: {err}"))?;
+    if is_overbroad_workspace_root(&root) {
+        return Err(OVERBROAD_WORKSPACE_ROOT_ERROR.to_string());
+    }
+    Ok(root)
 }
 
 #[tauri::command]
@@ -649,10 +693,7 @@ pub(crate) async fn project_workspace_root_with<R: Runtime>(
     let raw: String = row
         .try_get("workspace_root")
         .map_err(|err| format!("decode workspace_root: {err}"))?;
-    let root = PathBuf::from(raw)
-        .canonicalize()
-        .map_err(|err| format!("Resolve project workspace: {err}"))?;
-    Ok(root)
+    resolve_project_workspace_root_path(raw)
 }
 
 fn resolve_relative_target(root: &Path, relative: &str) -> Result<PathBuf, String> {
@@ -702,6 +743,45 @@ mod tests {
         let root = temp_root();
         assert!(resolve_relative_target(&root, "/tmp/outside").is_err());
         assert!(resolve_relative_target(&root, "../outside").is_err());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn workspace_root_guard_rejects_overbroad_roots() {
+        assert!(is_overbroad_workspace_root(Path::new("/")));
+        assert!(is_overbroad_workspace_root(Path::new("/Users")));
+        assert!(is_overbroad_workspace_root(Path::new("/tmp")));
+        assert!(is_overbroad_workspace_root(Path::new("/private/tmp")));
+        assert!(is_overbroad_workspace_root(Path::new("/private/var")));
+        assert!(is_overbroad_workspace_root(Path::new("/private/etc")));
+        assert!(!is_overbroad_workspace_root(Path::new("/private/offisim-project")));
+        if let Some(home) = dirs::home_dir().and_then(|home| home.canonicalize().ok()) {
+            assert!(is_overbroad_workspace_root(&home));
+            if let Some(parent) = home.parent() {
+                assert!(is_overbroad_workspace_root(parent));
+            }
+        }
+    }
+
+    #[test]
+    fn workspace_root_resolver_rejects_raw_and_canonical_overbroad_roots() {
+        assert_eq!(
+            resolve_project_workspace_root_path(PathBuf::from("/tmp")).unwrap_err(),
+            OVERBROAD_WORKSPACE_ROOT_ERROR
+        );
+        assert_eq!(
+            resolve_project_workspace_root_path(PathBuf::from("/private/tmp")).unwrap_err(),
+            OVERBROAD_WORKSPACE_ROOT_ERROR
+        );
+    }
+
+    #[test]
+    fn workspace_root_resolver_accepts_specific_project_folder() {
+        let root = temp_root();
+        let project = root.join("project");
+        std::fs::create_dir_all(&project).unwrap();
+        let resolved = resolve_project_workspace_root_path(&project).unwrap();
+        assert_eq!(resolved, project.canonicalize().unwrap());
         std::fs::remove_dir_all(root).unwrap();
     }
 

@@ -3,7 +3,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { readPlatformJsonBody } from '../lib/body-limit.js';
-import { requireAuth, requireApiTokenScope } from '../middleware/auth.js';
+import { requireApiTokenScope, requireAuth } from '../middleware/auth.js';
 import { ReviewCreateSchema } from '../schemas/index.js';
 import type { PlatformEnv } from '../types.js';
 

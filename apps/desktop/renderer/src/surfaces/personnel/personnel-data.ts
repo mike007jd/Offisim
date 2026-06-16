@@ -22,10 +22,10 @@ import type {
 } from '@/lib/avatar.js';
 import { resolveAsync } from '@/lib/platform.js';
 import {
+  type EmployeeVersionRow,
   EmployeeVersionService,
   InMemoryEventBus,
   type MemoryEntryRow,
-  type EmployeeVersionRow,
 } from '@offisim/core/browser';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
@@ -113,11 +113,7 @@ export function profileDefaults(employee: Employee): ProfileFormValues {
 }
 
 const COMMUNICATION_VALUES = new Set<ProfileFormValues['communication']>(['low', 'medium', 'high']);
-const RISK_VALUES = new Set<ProfileFormValues['risk']>([
-  'conservative',
-  'balanced',
-  'aggressive',
-]);
+const RISK_VALUES = new Set<ProfileFormValues['risk']>(['conservative', 'balanced', 'aggressive']);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -146,7 +142,9 @@ export function profileDefaultsFromRecord(
     ...base,
     expertise: str(profile.expertise, base.expertise),
     workingStyle: str(profile.workingStyle, base.workingStyle),
-    communication: COMMUNICATION_VALUES.has(profile.communication as ProfileFormValues['communication'])
+    communication: COMMUNICATION_VALUES.has(
+      profile.communication as ProfileFormValues['communication'],
+    )
       ? (profile.communication as ProfileFormValues['communication'])
       : base.communication,
     risk: RISK_VALUES.has(profile.risk as ProfileFormValues['risk'])
@@ -639,9 +637,7 @@ function diffSnapshots(selectedSnapshot: string, currentSnapshot: string): Versi
   const current = JSON.parse(currentSnapshot) as Record<string, unknown>;
   const keys = new Set([...Object.keys(selected), ...Object.keys(current)]);
   return [...keys]
-    .filter(
-      (key) => summarizeSnapshotValue(selected[key]) !== summarizeSnapshotValue(current[key]),
-    )
+    .filter((key) => summarizeSnapshotValue(selected[key]) !== summarizeSnapshotValue(current[key]))
     .map((key) => ({
       field: key,
       kind:

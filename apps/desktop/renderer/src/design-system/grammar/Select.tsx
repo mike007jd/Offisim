@@ -24,7 +24,10 @@ function toChangeEvent(name: string | undefined, value: string): ChangeEvent<HTM
   } as ChangeEvent<HTMLSelectElement>;
 }
 
-function toFocusEvent(name: string | undefined, value: string | undefined): FocusEvent<HTMLSelectElement> {
+function toFocusEvent(
+  name: string | undefined,
+  value: string | undefined,
+): FocusEvent<HTMLSelectElement> {
   return {
     target: { name, value },
     currentTarget: { name, value },
@@ -71,10 +74,18 @@ export function Select({
         </SelectPrimitive.Icon>
       </SelectPrimitive.Trigger>
       <SelectPrimitive.Portal>
-        <SelectPrimitive.Content className="off-select-content off-motion-popover" position="popper" sideOffset={6}>
+        <SelectPrimitive.Content
+          className="off-select-content off-motion-popover"
+          position="popper"
+          sideOffset={6}
+        >
           <SelectPrimitive.Viewport className="off-select-viewport">
             {options.map((option) => (
-              <SelectPrimitive.Item key={option.value} value={option.value} className="off-select-item">
+              <SelectPrimitive.Item
+                key={option.value}
+                value={option.value}
+                className="off-select-item"
+              >
                 <SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText>
                 <SelectPrimitive.ItemIndicator className="off-select-check">
                   <Check size={13} />

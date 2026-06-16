@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/design-system/primiti
 import { safeErrorMessage } from '@/lib/provider-bridge.js';
 import { cn } from '@/lib/utils.js';
 import { ChevronDown, Copy, FileCode2, FolderOpen, Save } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 const MAX_FACES = 3;
@@ -37,9 +37,7 @@ function Contributors({
   ids: string[];
   employeesById: Map<string, Employee>;
 }) {
-  const resolved = ids
-    .map((id) => employeesById.get(id))
-    .filter((e): e is Employee => Boolean(e));
+  const resolved = ids.map((id) => employeesById.get(id)).filter((e): e is Employee => Boolean(e));
   const faces = resolved.slice(0, MAX_FACES);
   const overflow = resolved.length - faces.length;
   return (
@@ -76,13 +74,20 @@ function DeliverableCard({
   const [savedPath, setSavedPath] = useState<string | null>(null);
   const [body, setBody] = useState<string | null>(deliverable.preview ?? null);
   const [bodyLoading, setBodyLoading] = useState(false);
+  const deliverableReset = useMemo(
+    () => ({
+      body: deliverable.preview ?? null,
+      key: `${deliverable.id}\u0000${deliverable.name}\u0000${deliverable.preview ?? ''}`,
+    }),
+    [deliverable.id, deliverable.name, deliverable.preview],
+  );
   // The card persists across in-place deliverable updates (keyed by id), so a
   // cached savedPath/body can outlive the row they point at — drop it when the
   // identity or content changes so Open re-saves the current output.
   useEffect(() => {
     setSavedPath(null);
-    setBody(deliverable.preview ?? null);
-  }, [deliverable.id, deliverable.preview, deliverable.name]);
+    setBody(deliverableReset.body);
+  }, [deliverableReset]);
   const format = deliverable.format?.trim().toUpperCase() ?? 'TXT';
   const extension = TEXT_OUTPUT_EXTENSIONS[format] ?? null;
   const outputBody = body ?? deliverable.preview ?? '';
@@ -94,8 +99,8 @@ function DeliverableCard({
       : !extension
         ? 'Unsupported text format'
         : !hasOutputBody
-        ? 'No text to save'
-        : null;
+          ? 'No text to save'
+          : null;
 
   function outputFileName() {
     const cleanName = deliverable.name.trim() || deliverable.id;

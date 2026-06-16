@@ -1,6 +1,6 @@
+import type { RunScope } from '@offisim/shared-types';
 import { isCapacityError, isContextOverflowError } from '../errors.js';
 import { llmCallStarted, llmStreamChunk } from '../events/event-factories.js';
-import type { RunScope } from '@offisim/shared-types';
 import type { LlmCallContext, LlmCallMeta } from '../middleware/types.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { Logger } from '../services/logger.js';
@@ -102,13 +102,10 @@ async function callStreamWithCapacityFallback(
   let emittedVisibleChunk = false;
 
   try {
-    const result = await teeStream(
-      gatewayForRequest(ctx, request).chatStream(request),
-      (chunk) => {
-        if (hasVisibleStreamChunk(chunk)) emittedVisibleChunk = true;
-        onChunk(chunk);
-      },
-    );
+    const result = await teeStream(gatewayForRequest(ctx, request).chatStream(request), (chunk) => {
+      if (hasVisibleStreamChunk(chunk)) emittedVisibleChunk = true;
+      onChunk(chunk);
+    });
     registry?.recordSuccess?.(request.model);
     return { request, result };
   } catch (error) {

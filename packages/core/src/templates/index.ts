@@ -1,8 +1,4 @@
-import type {
-  RoleSlug,
-  SystemZoneTemplate,
-  ZonePresetPrefab,
-} from '@offisim/shared-types';
+import type { RoleSlug, SystemZoneTemplate, ZonePresetPrefab } from '@offisim/shared-types';
 
 import { agencyLiteTemplate } from './agency-lite.js';
 import { aiStartupTemplate } from './ai-startup.js';

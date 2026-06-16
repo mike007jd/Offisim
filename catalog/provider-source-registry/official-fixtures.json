@@ -1,7 +1,7 @@
 {
   "version": 1,
   "verification": {
-    "checkedAt": "2026-06-02",
+    "checkedAt": "2026-06-17",
     "staleAfterDays": 90,
     "note": "Default models and leaf model ids below were verified against each provider's official model list / API docs / deprecation notice on `checkedAt`. Do not trust these as 'latest/recommended/usable' once `checkedAt` is older than `staleAfterDays`, or once any model's `retiresOn` is reached — re-verify against the live source first. `pnpm provider:check` gates this (fails on a retired default or a passed `retiresOn`; warns on staleness). `pnpm provider:refresh` re-pulls community context-window/pricing from litellm + openrouter; provider-tier default ids stay hand-verified here.",
     "modelStatus": {
@@ -19,13 +19,17 @@
       "surface": "general",
       "providerTransport": "anthropic",
       "authMode": "api-key",
-      "defaultModel": "claude-opus-4-8",
+      "defaultModel": "claude-fable-5",
       "communityAliases": [
         "anthropic"
       ],
-      "lastVerifiedAt": "2026-06-02",
-      "sourceUrl": "https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions",
+      "lastVerifiedAt": "2026-06-17",
+      "sourceUrl": "https://platform.claude.com/docs/en/about-claude/models/overview",
       "models": {
+        "claude-fable-5": {
+          "displayName": "Claude Fable 5",
+          "status": "current"
+        },
         "claude-opus-4-8": {
           "displayName": "Claude Opus 4.8",
           "status": "current"
@@ -128,16 +132,24 @@
       "providerTransport": "anthropic",
       "authMode": "api-key",
       "baseURL": "https://api.moonshot.cn/anthropic",
-      "defaultModel": "kimi-k2.6",
+      "defaultModel": "kimi-k2.7-code",
       "communityAliases": [
         "moonshot"
       ],
-      "lastVerifiedAt": "2026-06-02",
-      "sourceUrl": "https://platform.moonshot.cn/docs",
+      "lastVerifiedAt": "2026-06-17",
+      "sourceUrl": "https://platform.kimi.com/docs/guide/agent-support",
       "models": {
-        "kimi-k2.6": {
-          "displayName": "Kimi K2.6",
+        "kimi-k2.7-code": {
+          "displayName": "Kimi K2.7 Code",
           "status": "current"
+        },
+        "kimi-k2.7-code-highspeed": {
+          "displayName": "Kimi K2.7 Code Highspeed",
+          "status": "current"
+        },
+        "kimi-k2.6": {
+          "displayName": "Kimi K2.6 (legacy)",
+          "status": "legacy"
         },
         "kimi-k2.5": {
           "displayName": "Kimi K2.5 (legacy)",
@@ -154,16 +166,24 @@
       "providerTransport": "openai-compat",
       "authMode": "api-key",
       "baseURL": "https://api.moonshot.cn/v1",
-      "defaultModel": "kimi-k2.6",
+      "defaultModel": "kimi-k2.7-code",
       "communityAliases": [
         "moonshot"
       ],
-      "lastVerifiedAt": "2026-06-02",
-      "sourceUrl": "https://platform.moonshot.cn/docs",
+      "lastVerifiedAt": "2026-06-17",
+      "sourceUrl": "https://platform.kimi.com/docs/api/chat",
       "models": {
-        "kimi-k2.6": {
-          "displayName": "Kimi K2.6",
+        "kimi-k2.7-code": {
+          "displayName": "Kimi K2.7 Code",
           "status": "current"
+        },
+        "kimi-k2.7-code-highspeed": {
+          "displayName": "Kimi K2.7 Code Highspeed",
+          "status": "current"
+        },
+        "kimi-k2.6": {
+          "displayName": "Kimi K2.6 (legacy)",
+          "status": "legacy"
         },
         "kimi-k2.5": {
           "displayName": "Kimi K2.5 (legacy)",
@@ -180,16 +200,24 @@
       "providerTransport": "openai-compat",
       "authMode": "api-key",
       "baseURL": "https://api.moonshot.ai/v1",
-      "defaultModel": "kimi-k2.6",
+      "defaultModel": "kimi-k2.7-code",
       "communityAliases": [
         "moonshot"
       ],
-      "lastVerifiedAt": "2026-06-02",
-      "sourceUrl": "https://platform.moonshot.ai/docs",
+      "lastVerifiedAt": "2026-06-17",
+      "sourceUrl": "https://platform.kimi.com/docs/api/chat",
       "models": {
-        "kimi-k2.6": {
-          "displayName": "Kimi K2.6",
+        "kimi-k2.7-code": {
+          "displayName": "Kimi K2.7 Code",
           "status": "current"
+        },
+        "kimi-k2.7-code-highspeed": {
+          "displayName": "Kimi K2.7 Code Highspeed",
+          "status": "current"
+        },
+        "kimi-k2.6": {
+          "displayName": "Kimi K2.6 (legacy)",
+          "status": "legacy"
         },
         "kimi-k2.5": {
           "displayName": "Kimi K2.5 (legacy)",

@@ -89,12 +89,7 @@ export function DropdownMenuLabel({
   className,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Label>) {
-  return (
-    <DropdownMenuPrimitive.Label
-      className={cn('off-menu-label', className)}
-      {...props}
-    />
-  );
+  return <DropdownMenuPrimitive.Label className={cn('off-menu-label', className)} {...props} />;
 }
 
 export function DropdownMenuSeparator({
@@ -102,10 +97,7 @@ export function DropdownMenuSeparator({
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Separator>) {
   return (
-    <DropdownMenuPrimitive.Separator
-      className={cn('off-menu-separator', className)}
-      {...props}
-    />
+    <DropdownMenuPrimitive.Separator className={cn('off-menu-separator', className)} {...props} />
   );
 }
 
@@ -113,12 +105,7 @@ export function DropdownMenuShortcut({
   className,
   ...props
 }: React.HTMLAttributes<HTMLSpanElement>) {
-  return (
-    <span
-      className={cn('off-menu-shortcut', className)}
-      {...props}
-    />
-  );
+  return <span className={cn('off-menu-shortcut', className)} {...props} />;
 }
 
 export function DropdownMenuSubTrigger({
@@ -129,12 +116,7 @@ export function DropdownMenuSubTrigger({
 }: React.ComponentProps<typeof DropdownMenuPrimitive.SubTrigger> & { inset?: boolean }) {
   return (
     <DropdownMenuPrimitive.SubTrigger
-      className={cn(
-        itemBase,
-        'off-menu-subtrigger',
-        inset && 'off-menu-inset',
-        className,
-      )}
+      className={cn(itemBase, 'off-menu-subtrigger', inset && 'off-menu-inset', className)}
       {...props}
     >
       {children}

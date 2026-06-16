@@ -4,8 +4,8 @@ import type {
   CompanyStartupFailedPayload,
   CompanyStartupRequestedPayload,
   CompanyStartupSkippedPayload,
-  CompanyStartupStartedPayload,
   CompanyStartupSource,
+  CompanyStartupStartedPayload,
   RuntimeEvent,
 } from '@offisim/shared-types';
 

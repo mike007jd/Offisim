@@ -12,8 +12,8 @@
  * those, so re-emitting would double-count.
  */
 
-import type { RunScope } from '@offisim/shared-types';
 import type { AgentEvent, AgentMessage } from '@offisim/pi-agent';
+import type { RunScope } from '@offisim/shared-types';
 import type { EventBus } from '../events/event-bus.js';
 import { llmStreamChunk } from '../events/llm-events.js';
 

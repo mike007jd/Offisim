@@ -1,5 +1,5 @@
-import type { CompactBaselineState } from './compact-baseline.js';
 import type { LlmRequest, LlmResponse } from '../../llm/gateway.js';
+import type { CompactBaselineState } from './compact-baseline.js';
 
 type LlmMessage = LlmRequest['messages'][number];
 const encoder = new TextEncoder();

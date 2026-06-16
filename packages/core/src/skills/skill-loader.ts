@@ -5,6 +5,7 @@ import {
   type SkillRow,
   type SkillSourceKind,
 } from '@offisim/shared-types';
+import { toErrorMessage } from '../errors.js';
 import type {
   EmployeeRepository,
   RuntimeRepositories,
@@ -163,6 +164,10 @@ function encodeSourceSegment(segment: string): string {
   return segment.replace(/[:@#]/gu, (ch) => `%${ch.charCodeAt(0).toString(16).toUpperCase()}`);
 }
 
+function appendSubpathIfPresent(base: string, subpath: string | undefined): string {
+  return subpath ? `${base}#${encodeSourceSegment(subpath)}` : base;
+}
+
 export function encodeSkillSourceRef(source: SkillInstallSource): string {
   switch (source.kind) {
     case 'marketplace':
@@ -170,11 +175,11 @@ export function encodeSkillSourceRef(source: SkillInstallSource): string {
     case 'git': {
       const url = encodeSourceSegment(source.url);
       const base = source.ref ? `git:${url}@${encodeSourceSegment(source.ref)}` : `git:${url}`;
-      return source.subpath ? `${base}#${encodeSourceSegment(source.subpath)}` : base;
+      return appendSubpathIfPresent(base, source.subpath);
     }
     case 'upload': {
       const base = `upload:${encodeSourceSegment(source.filename)}`;
-      return source.subpath ? `${base}#${encodeSourceSegment(source.subpath)}` : base;
+      return appendSubpathIfPresent(base, source.subpath);
     }
     case 'claude-code':
       return `claude-code:${encodeSourceSegment(source.path)}`;
@@ -193,17 +198,18 @@ function sourceKindForInsert(source: SkillInstallSource): SkillSourceKind {
 }
 
 function validateAssetPath(relPath: string): void {
-  if (relPath.includes('..')) {
-    throw new SkillAssetError(
-      'path-traversal',
-      `Skill asset path "${relPath}" contains parent-directory segments`,
-      relPath,
-    );
-  }
   if (relPath.startsWith('/') || /^[A-Za-z]:[\\/]/.test(relPath)) {
     throw new SkillAssetError(
       'absolute-path-forbidden',
       `Skill asset path "${relPath}" must be a relative path`,
+      relPath,
+    );
+  }
+  const segments = relPath.split('/');
+  if (segments.some((seg) => seg === '' || seg === '.' || seg === '..')) {
+    throw new SkillAssetError(
+      'path-traversal',
+      `Skill asset path "${relPath}" contains parent-directory segments`,
       relPath,
     );
   }
@@ -598,7 +604,7 @@ export class SkillLoader {
     } catch (err) {
       throw new SkillEditError(
         'skill-md-invalid',
-        `editSkillBody: SKILL.md at ${row.vault_path} could not be parsed: ${err instanceof Error ? err.message : String(err)}`,
+        `editSkillBody: SKILL.md at ${row.vault_path} could not be parsed: ${toErrorMessage(err)}`,
         args.skillId,
       );
     }
@@ -698,7 +704,7 @@ function isDirectoryReadError(err: unknown): boolean {
   if (code === 'EISDIR') return true;
   const name = (err as { name?: unknown } | null)?.name;
   if (name === 'TypeMismatchError') return true;
-  const message = err instanceof Error ? err.message : String(err);
+  const message = toErrorMessage(err);
   return /\bis a directory\b|EISDIR/iu.test(message);
 }
 

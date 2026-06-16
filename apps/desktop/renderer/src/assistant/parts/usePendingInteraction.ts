@@ -1,5 +1,9 @@
 import { runtimeEventBus } from '@/runtime/repos.js';
-import type { InteractionKind, InteractionRequest, SkillInstallOutcomeKind } from '@offisim/shared-types';
+import type {
+  InteractionKind,
+  InteractionRequest,
+  SkillInstallOutcomeKind,
+} from '@offisim/shared-types';
 import { useEffect, useState } from 'react';
 
 /**

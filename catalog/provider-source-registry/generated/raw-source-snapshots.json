@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-14T03:38:07.603Z",
+  "generatedAt": "2026-06-16T12:47:07.413Z",
   "snapshots": {
     "litellm": {
       "meta": {
@@ -9017,16 +9017,22 @@
               "anthropic"
             ],
             "compatibility": "native",
-            "defaultModel": "claude-opus-4-8",
-            "lastVerifiedAt": "2026-06-02",
+            "defaultModel": "claude-fable-5",
+            "lastVerifiedAt": "2026-06-17",
             "productName": "Anthropic",
             "providerTransport": "anthropic",
             "region": "shared",
-            "sourceUrl": "https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions",
+            "sourceUrl": "https://platform.claude.com/docs/en/about-claude/models/overview",
             "surface": "general",
             "vendor": "anthropic"
           },
           "models": {
+            "claude-fable-5": {
+              "fields": {
+                "displayName": "Claude Fable 5",
+                "status": "current"
+              }
+            },
             "claude-haiku-4-5": {
               "fields": {
                 "displayName": "Claude Haiku 4.5",
@@ -9154,12 +9160,12 @@
               "moonshot"
             ],
             "compatibility": "anthropic-compatible",
-            "defaultModel": "kimi-k2.6",
-            "lastVerifiedAt": "2026-06-02",
+            "defaultModel": "kimi-k2.7-code",
+            "lastVerifiedAt": "2026-06-17",
             "productName": "Kimi CN · Claude Code",
             "providerTransport": "anthropic",
             "region": "cn",
-            "sourceUrl": "https://platform.moonshot.cn/docs",
+            "sourceUrl": "https://platform.kimi.com/docs/guide/agent-support",
             "surface": "coding-plan",
             "vendor": "kimi"
           },
@@ -9172,7 +9178,19 @@
             },
             "kimi-k2.6": {
               "fields": {
-                "displayName": "Kimi K2.6",
+                "displayName": "Kimi K2.6 (legacy)",
+                "status": "legacy"
+              }
+            },
+            "kimi-k2.7-code": {
+              "fields": {
+                "displayName": "Kimi K2.7 Code",
+                "status": "current"
+              }
+            },
+            "kimi-k2.7-code-highspeed": {
+              "fields": {
+                "displayName": "Kimi K2.7 Code Highspeed",
                 "status": "current"
               }
             }
@@ -9186,12 +9204,12 @@
               "moonshot"
             ],
             "compatibility": "openai-compatible",
-            "defaultModel": "kimi-k2.6",
-            "lastVerifiedAt": "2026-06-02",
+            "defaultModel": "kimi-k2.7-code",
+            "lastVerifiedAt": "2026-06-17",
             "productName": "Kimi CN · General API",
             "providerTransport": "openai-compat",
             "region": "cn",
-            "sourceUrl": "https://platform.moonshot.cn/docs",
+            "sourceUrl": "https://platform.kimi.com/docs/api/chat",
             "surface": "general",
             "vendor": "kimi"
           },
@@ -9204,7 +9222,19 @@
             },
             "kimi-k2.6": {
               "fields": {
-                "displayName": "Kimi K2.6",
+                "displayName": "Kimi K2.6 (legacy)",
+                "status": "legacy"
+              }
+            },
+            "kimi-k2.7-code": {
+              "fields": {
+                "displayName": "Kimi K2.7 Code",
+                "status": "current"
+              }
+            },
+            "kimi-k2.7-code-highspeed": {
+              "fields": {
+                "displayName": "Kimi K2.7 Code Highspeed",
                 "status": "current"
               }
             }
@@ -9218,12 +9248,12 @@
               "moonshot"
             ],
             "compatibility": "openai-compatible",
-            "defaultModel": "kimi-k2.6",
-            "lastVerifiedAt": "2026-06-02",
+            "defaultModel": "kimi-k2.7-code",
+            "lastVerifiedAt": "2026-06-17",
             "productName": "Kimi Intl · General API",
             "providerTransport": "openai-compat",
             "region": "intl",
-            "sourceUrl": "https://platform.moonshot.ai/docs",
+            "sourceUrl": "https://platform.kimi.com/docs/api/chat",
             "surface": "general",
             "vendor": "kimi"
           },
@@ -9236,7 +9266,19 @@
             },
             "kimi-k2.6": {
               "fields": {
-                "displayName": "Kimi K2.6",
+                "displayName": "Kimi K2.6 (legacy)",
+                "status": "legacy"
+              }
+            },
+            "kimi-k2.7-code": {
+              "fields": {
+                "displayName": "Kimi K2.7 Code",
+                "status": "current"
+              }
+            },
+            "kimi-k2.7-code-highspeed": {
+              "fields": {
+                "displayName": "Kimi K2.7 Code Highspeed",
                 "status": "current"
               }
             }
@@ -9624,7 +9666,7 @@
     },
     "openrouter-live": {
       "meta": {
-        "routedModelCount": 337,
+        "routedModelCount": 336,
         "routedModelNamespaces": [
           "ai21",
           "aion-labs",
@@ -10582,23 +10624,6 @@
                 ]
               }
             },
-            "deepseek/deepseek-r1-distill-qwen-32b": {
-              "fields": {
-                "capabilities": {
-                  "reasoning": true
-                },
-                "contextWindow": 128000,
-                "displayName": "DeepSeek: R1 Distill Qwen 32B",
-                "maxOutputTokens": 32768,
-                "pricing": {
-                  "inputCostPerToken": 2.9e-7,
-                  "outputCostPerToken": 2.9e-7
-                },
-                "supportedEndpoints": [
-                  "chat_completions"
-                ]
-              }
-            },
             "deepseek/deepseek-v3.1-terminus": {
               "fields": {
                 "capabilities": {
@@ -10664,10 +10689,9 @@
                 },
                 "contextWindow": 1048576,
                 "displayName": "DeepSeek: DeepSeek V4 Flash",
-                "maxOutputTokens": 65536,
                 "pricing": {
-                  "inputCostPerToken": 9e-8,
-                  "outputCostPerToken": 1.8e-7
+                  "inputCostPerToken": 9.8e-8,
+                  "outputCostPerToken": 1.96e-7
                 },
                 "supportedEndpoints": [
                   "chat_completions",
@@ -13707,7 +13731,7 @@
             },
             "openrouter/fusion": {
               "fields": {
-                "contextWindow": 128000,
+                "contextWindow": 1000000,
                 "displayName": "OpenRouter: Fusion",
                 "pricing": {
                   "inputCostPerToken": -1,
@@ -14557,7 +14581,7 @@
                 },
                 "contextWindow": 262144,
                 "displayName": "Qwen: Qwen3.5-35B-A3B",
-                "maxOutputTokens": 262144,
+                "maxOutputTokens": 81920,
                 "pricing": {
                   "inputCostPerToken": 1.4e-7,
                   "outputCostPerToken": 0.000001
@@ -14574,12 +14598,11 @@
                   "functionCalling": true,
                   "reasoning": true
                 },
-                "contextWindow": 262144,
+                "contextWindow": 256000,
                 "displayName": "Qwen: Qwen3.5 397B A17B",
-                "maxOutputTokens": 65536,
                 "pricing": {
-                  "inputCostPerToken": 3.9e-7,
-                  "outputCostPerToken": 0.00000234
+                  "inputCostPerToken": 3.85e-7,
+                  "outputCostPerToken": 0.00000245
                 },
                 "supportedEndpoints": [
                   "chat_completions",
@@ -15001,9 +15024,10 @@
                 },
                 "contextWindow": 262144,
                 "displayName": "Tencent: Hy3 preview",
+                "maxOutputTokens": 262144,
                 "pricing": {
-                  "inputCostPerToken": 6.3e-8,
-                  "outputCostPerToken": 2.1e-7
+                  "inputCostPerToken": 6.6e-8,
+                  "outputCostPerToken": 2.6e-7
                 },
                 "supportedEndpoints": [
                   "chat_completions",
@@ -15147,8 +15171,8 @@
                 "contextWindow": 2000000,
                 "displayName": "xAI: Grok 4.20 Multi-Agent",
                 "pricing": {
-                  "inputCostPerToken": 0.000002,
-                  "outputCostPerToken": 0.000006
+                  "inputCostPerToken": 0.00000125,
+                  "outputCostPerToken": 0.0000025
                 },
                 "supportedEndpoints": [
                   "chat_completions"
@@ -15275,9 +15299,9 @@
                 },
                 "contextWindow": 131072,
                 "displayName": "Z.ai: GLM 4.5 Air",
-                "maxOutputTokens": 131070,
+                "maxOutputTokens": 98304,
                 "pricing": {
-                  "inputCostPerToken": 1.25e-7,
+                  "inputCostPerToken": 1.3e-7,
                   "outputCostPerToken": 8.5e-7
                 },
                 "supportedEndpoints": [

@@ -1,4 +1,5 @@
 import { ZipBombError, safeGunzipSync, safeUnzipSync } from '@offisim/install-core';
+import { toErrorMessage } from '../../errors.js';
 import { scanSkillDir } from '../skill-scanner.js';
 import { firstLevelDirs, subtreeOf } from '../virtual-tree-utils.js';
 import { normalizeArchiveEntryPath, untarToTree } from './tar.js';
@@ -95,7 +96,7 @@ export function resolveUploadSource(
     }
     return {
       kind: 'upload-unsupported-format',
-      message: `Failed to decompress "${filename}": ${err instanceof Error ? err.message : String(err)}`,
+      message: `Failed to decompress "${filename}": ${toErrorMessage(err)}`,
       sourceRef: filename,
     };
   }

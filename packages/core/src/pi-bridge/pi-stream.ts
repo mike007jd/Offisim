@@ -8,8 +8,8 @@
  * `pi-budget.ts`), not here — this wrapper only does transport wiring.
  */
 
-import { streamSimple } from '@offisim/pi-ai';
 import type { StreamFn } from '@offisim/pi-agent';
+import { streamSimple } from '@offisim/pi-ai';
 
 /** Placeholder key sent to the provider SDK; the Rust transport replaces it. */
 export const TAURI_MANAGED_API_KEY = 'offisim-tauri-managed';

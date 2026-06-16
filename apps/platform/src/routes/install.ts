@@ -13,13 +13,13 @@ import { installReceipts, listings, packageVersions } from '@offisim/db-platform
 import { and, eq, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
+import type { PlatformDb } from '../db.js';
 import { readPlatformJsonBody } from '../lib/body-limit.js';
-import { requireAuth, requireApiTokenScope } from '../middleware/auth.js';
+import { requireApiTokenScope, requireAuth } from '../middleware/auth.js';
 import { installRateLimit } from '../middleware/rate-limit.js';
 import { InstallReceiptSchema } from '../schemas/index.js';
 import { getSeededArtifact } from '../seed/artifact-store.js';
 import { getRegistryArtifact } from '../services/artifacts.js';
-import type { PlatformDb } from '../db.js';
 import type { PlatformEnv } from '../types.js';
 
 const installRoute = new Hono<PlatformEnv>();
@@ -97,7 +97,9 @@ installRoute.post(
           .returning({ listing_id: listings.listing_id });
 
         if (installCountRows.length === 0) {
-          throw new HTTPException(409, { message: 'Listing state changed before receipt recording' });
+          throw new HTTPException(409, {
+            message: 'Listing state changed before receipt recording',
+          });
         }
 
         return 'recorded' as const;
@@ -177,7 +179,11 @@ installRoute.get('/artifacts/:versionId', async (c) => {
   // persisted artifact has been corrupted or swapped, refuse to serve it
   // instead of paying the hash cost and ignoring the result. (Seeded artifacts
   // are built in-memory from trusted source at boot and carry no sha256.)
-  if ('sha256' in artifact && version.artifact_sha256 && artifact.sha256 !== version.artifact_sha256) {
+  if (
+    'sha256' in artifact &&
+    version.artifact_sha256 &&
+    artifact.sha256 !== version.artifact_sha256
+  ) {
     return c.json(
       { error: { code: 'ARTIFACT_INTEGRITY', message: 'Stored artifact failed integrity check' } },
       502,

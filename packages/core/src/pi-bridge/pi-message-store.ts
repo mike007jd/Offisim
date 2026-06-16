@@ -12,8 +12,8 @@
  * its assistant message, preserving the provider's tool_use → tool_result order.
  */
 
-import type { AssistantMessage, Message as PiMessage, ToolResultMessage } from '@offisim/pi-ai';
 import type { AgentMessage } from '@offisim/pi-agent';
+import type { AssistantMessage, Message as PiMessage, ToolResultMessage } from '@offisim/pi-ai';
 import type { PiMessageRepository, PiMessageRow } from '../runtime/repositories.js';
 import { generateId } from '../utils/generate-id.js';
 

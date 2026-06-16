@@ -42,20 +42,6 @@ function numericCssValue(block, property) {
   return match ? Number(match[1]) : null;
 }
 
-function callExpressionBlock(text, marker) {
-  const start = text.indexOf(marker);
-  if (start < 0) return '';
-  const bodyStart = text.indexOf('(', start);
-  if (bodyStart < 0) return '';
-  let depth = 0;
-  for (let i = bodyStart; i < text.length; i += 1) {
-    if (text[i] === '(') depth += 1;
-    if (text[i] === ')') depth -= 1;
-    if (depth === 0) return text.slice(start, i + 1);
-  }
-  return text.slice(start);
-}
-
 const failures = [];
 const warnings = [];
 

@@ -35,14 +35,16 @@ function buildPackBlock(pack: AgentContextPack, maxChars: number): string {
 
   if (pack.recommendedFocus) {
     const line = `Focus: ${pack.recommendedFocus}\n`;
-    if (content.length + line.length > maxChars) return content === heading ? '' : content.trimEnd();
+    if (content.length + line.length > maxChars)
+      return content === heading ? '' : content.trimEnd();
     content += line;
   }
 
   if (pack.pendingInteraction) {
     const pi = pack.pendingInteraction;
     const line = `Pending: [${pi.kind}] ${pi.title}${pi.severity === 'high' ? ' (HIGH)' : ''}\n`;
-    if (content.length + line.length > maxChars) return content === heading ? '' : content.trimEnd();
+    if (content.length + line.length > maxChars)
+      return content === heading ? '' : content.trimEnd();
     content += line;
   }
 

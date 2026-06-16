@@ -5,13 +5,14 @@ import type {
   SkillInstallConfirmParent,
   SkillInstallSourceKind,
 } from '@offisim/shared-types';
+import { toErrorMessage } from '../errors.js';
+import type { SkillRepository } from '../runtime/repositories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
-import type { SkillInstallSource } from './skill-loader.js';
-import {
-  SkillFrontmatterError,
-  parseSelfAuthoredSkillMd,
-  parseSkillMd,
-} from './skill-md.js';
+import type { InteractionService } from '../services/interaction-service.js';
+import { byteLength } from '../utils/byte-length.js';
+import type { SkillInstallSource, SkillLoader } from './skill-loader.js';
+import { SkillFrontmatterError, parseSelfAuthoredSkillMd, parseSkillMd } from './skill-md.js';
+import { skillSlug } from './skill-slug.js';
 import { resolveClaudeCodeSync } from './skill-source-resolvers/claude-code.js';
 import { resolveCodexSync } from './skill-source-resolvers/codex.js';
 import { resolveGitSource } from './skill-source-resolvers/git.js';
@@ -21,15 +22,13 @@ import {
   isResolverError,
 } from './skill-source-resolvers/types.js';
 import { resolveUploadSource } from './skill-source-resolvers/upload.js';
-import { skillSlug } from './skill-slug.js';
-import { byteLength } from '../utils/byte-length.js';
+import type { SkillStagingManager } from './skill-staging.js';
 
 import type { SkillInstallStructuredError } from './skill-install/errors.js';
 import type { SkillInstallToolName } from './skill-install/tool-defs.js';
 export {
   SKILL_INSTALL_TOOL_DEFS,
   SKILL_INSTALL_TOOL_NAMES,
-  buildSkillInstallTools,
   isSkillInstallTool,
 } from './skill-install/tool-defs.js';
 export type { SkillInstallToolName } from './skill-install/tool-defs.js';
@@ -210,6 +209,38 @@ function buildSkillInstallConfirmCopy(args: {
   }
 }
 
+type StagingServices =
+  | { ok: true; stagingManager: SkillStagingManager; interactionService: InteractionService }
+  | { ok: false; err: { kind: string; message: string } };
+
+/**
+ * Shared null-guard for the staging + interaction services that every
+ * `stage*AndEmit` path requires before it can stage a preview.
+ */
+function validateStagingServices(ctx: RuntimeContext): StagingServices {
+  const stagingManager = ctx.skillStagingManager;
+  if (!stagingManager) {
+    return {
+      ok: false,
+      err: {
+        kind: 'skill-install-not-configured',
+        message: 'Skill install staging is not available on this runtime.',
+      },
+    };
+  }
+  const interactionService = ctx.interactionService;
+  if (!interactionService) {
+    return {
+      ok: false,
+      err: {
+        kind: 'skill-install-not-configured',
+        message: 'Interaction service required for skill install preview.',
+      },
+    };
+  }
+  return { ok: true, stagingManager, interactionService };
+}
+
 async function stageAndEmit(args: {
   ctx: RuntimeContext;
   tree: VirtualTree;
@@ -229,20 +260,9 @@ async function stageAndEmit(args: {
   | { kind: string; message: string }
 > {
   const { ctx, tree, scan } = args;
-  const stagingManager = ctx.skillStagingManager;
-  if (!stagingManager) {
-    return {
-      kind: 'skill-install-not-configured',
-      message: 'Skill install staging is not available on this runtime.',
-    };
-  }
-  const interactionService = ctx.interactionService;
-  if (!interactionService) {
-    return {
-      kind: 'skill-install-not-configured',
-      message: 'Interaction service required for skill install preview.',
-    };
-  }
+  const services = validateStagingServices(ctx);
+  if (!services.ok) return services.err;
+  const { stagingManager, interactionService } = services;
 
   const skillMdFile = tree.files.find((f) => f.path === scan.skillMdPath);
   if (!skillMdFile) {
@@ -265,7 +285,7 @@ async function stageAndEmit(args: {
     logForkEditError('stageAndEmit/parseSkillMd', err);
     return {
       kind: 'skill-md-invalid',
-      message: `SKILL.md could not be parsed: ${err instanceof Error ? err.message : String(err)}`,
+      message: `SKILL.md could not be parsed: ${toErrorMessage(err)}`,
     };
   }
 
@@ -378,20 +398,9 @@ async function stageEditAndEmit(args: {
   | { kind: string; message: string }
 > {
   const { ctx } = args;
-  const stagingManager = ctx.skillStagingManager;
-  if (!stagingManager) {
-    return {
-      kind: 'skill-install-not-configured',
-      message: 'Skill install staging is not available on this runtime.',
-    };
-  }
-  const interactionService = ctx.interactionService;
-  if (!interactionService) {
-    return {
-      kind: 'skill-install-not-configured',
-      message: 'Interaction service required for skill install preview.',
-    };
-  }
+  const services = validateStagingServices(ctx);
+  if (!services.ok) return services.err;
+  const { stagingManager, interactionService } = services;
 
   let staged: { stagingRef: string };
   try {
@@ -596,7 +605,7 @@ export async function handleSkillInstallTool(
     logForkEditError(`handleSkillInstallTool/${toolName}`, err);
     return JSON.stringify({
       kind: 'skill-install-crashed',
-      message: err instanceof Error ? err.message : String(err),
+      message: toErrorMessage(err),
     });
   }
 }
@@ -844,10 +853,7 @@ async function handleCreateSkillFromScratch(
     const frontmatterError =
       err instanceof SkillFrontmatterError
         ? err
-        : new SkillFrontmatterError(
-            'invalid-yaml',
-            err instanceof Error ? err.message : String(err),
-          );
+        : new SkillFrontmatterError('invalid-yaml', toErrorMessage(err));
     const emitted = await emitSelfAuthoringFrontmatterError({
       ctx,
       skillBody,
@@ -883,24 +889,87 @@ async function handleCreateSkillFromScratch(
   );
 }
 
+type SkillMutationContext =
+  | { ok: true; skillLoader: SkillLoader; skillsRepo: SkillRepository; skillId: string }
+  | { ok: false; errorJson: string };
+
+/**
+ * Shared prelude for `fork_skill` / `edit_skill_body`: resolve the skill
+ * runtime (loader + repo) and require a non-empty `skillId`. Both checks sit at
+ * the top of each handler in the same order, so extracting them preserves the
+ * original error precedence.
+ */
+function resolveSkillMutationContext(
+  rawArgs: Record<string, unknown>,
+  ctx: RuntimeContext,
+): SkillMutationContext {
+  const skillLoader = ctx.skillLoader;
+  const skillsRepo = ctx.repos.skills;
+  if (!skillLoader || !skillsRepo) {
+    return {
+      ok: false,
+      errorJson: JSON.stringify({
+        kind: 'skill-install-not-configured',
+        message: 'Skill runtime not available.',
+      }),
+    };
+  }
+  const skillId = typeof rawArgs.skillId === 'string' ? rawArgs.skillId.trim() : '';
+  if (!skillId) {
+    return {
+      ok: false,
+      errorJson: JSON.stringify({ kind: 'missing-argument', message: 'skillId is required.' }),
+    };
+  }
+  return { ok: true, skillLoader, skillsRepo, skillId };
+}
+
+type SkillRowLookup =
+  | { ok: true; row: NonNullable<Awaited<ReturnType<SkillRepository['findById']>>> }
+  | { ok: false; errorJson: string };
+
+/**
+ * Load a skill row for a fork/edit mutation and enforce existence + company
+ * ownership — the contiguous lookup+guard block shared by both handlers. The
+ * scope-specific checks (fork vs edit) stay inline in each caller.
+ */
+async function loadSkillForMutation(
+  skillsRepo: SkillRepository,
+  skillId: string,
+  companyId: string,
+  errScope: string,
+): Promise<SkillRowLookup> {
+  let row: Awaited<ReturnType<SkillRepository['findById']>>;
+  try {
+    row = await skillsRepo.findById(skillId);
+  } catch (err) {
+    logForkEditError(`${errScope}/skillsRepo.findById`, err);
+    throw err;
+  }
+  if (!row) {
+    return { ok: false, errorJson: JSON.stringify({ kind: 'skill-not-found', skillId }) };
+  }
+  if (row.company_id !== companyId) {
+    return {
+      ok: false,
+      errorJson: JSON.stringify({
+        kind: 'skill-not-found',
+        skillId,
+        message: 'Skill belongs to a different company.',
+      }),
+    };
+  }
+  return { ok: true, row };
+}
+
 async function handleForkSkill(
   rawArgs: Record<string, unknown>,
   ctx: RuntimeContext,
   callerEmployeeId: string,
 ): Promise<string> {
-  const skillLoader = ctx.skillLoader;
-  const skillsRepo = ctx.repos.skills;
-  if (!skillLoader || !skillsRepo) {
-    return JSON.stringify({
-      kind: 'skill-install-not-configured',
-      message: 'Skill runtime not available.',
-    });
-  }
-
-  const skillId = typeof rawArgs.skillId === 'string' ? rawArgs.skillId.trim() : '';
-  if (!skillId) {
-    return JSON.stringify({ kind: 'missing-argument', message: 'skillId is required.' });
-  }
+  const mutationCtx = resolveSkillMutationContext(rawArgs, ctx);
+  if (!mutationCtx.ok) return mutationCtx.errorJson;
+  const { skillLoader, skillsRepo, skillId } = mutationCtx;
 
   const targetEmployeeIdRaw =
     typeof rawArgs.targetEmployeeId === 'string' ? rawArgs.targetEmployeeId.trim() : '';
@@ -911,23 +980,14 @@ async function handleForkSkill(
     });
   }
 
-  let parentRow: Awaited<ReturnType<typeof skillsRepo.findById>>;
-  try {
-    parentRow = await skillsRepo.findById(skillId);
-  } catch (err) {
-    logForkEditError('handleForkSkill/skillsRepo.findById', err);
-    throw err;
-  }
-  if (!parentRow) {
-    return JSON.stringify({ kind: 'skill-not-found', skillId });
-  }
-  if (parentRow.company_id !== ctx.companyId) {
-    return JSON.stringify({
-      kind: 'skill-not-found',
-      skillId,
-      message: 'Skill belongs to a different company.',
-    });
-  }
+  const parentLookup = await loadSkillForMutation(
+    skillsRepo,
+    skillId,
+    ctx.companyId,
+    'handleForkSkill',
+  );
+  if (!parentLookup.ok) return parentLookup.errorJson;
+  const parentRow = parentLookup.row;
   if (parentRow.scope !== 'company') {
     return JSON.stringify({
       kind: 'fork-parent-not-company',
@@ -943,7 +1003,7 @@ async function handleForkSkill(
     logForkEditError('handleForkSkill/readSkillDirectory', err);
     return JSON.stringify({
       kind: 'skill-md-invalid',
-      message: `Failed to read parent skill: ${err instanceof Error ? err.message : String(err)}`,
+      message: `Failed to read parent skill: ${toErrorMessage(err)}`,
       skillId,
     });
   }
@@ -1007,19 +1067,9 @@ async function handleEditSkillBody(
   ctx: RuntimeContext,
   callerEmployeeId: string,
 ): Promise<string> {
-  const skillLoader = ctx.skillLoader;
-  const skillsRepo = ctx.repos.skills;
-  if (!skillLoader || !skillsRepo) {
-    return JSON.stringify({
-      kind: 'skill-install-not-configured',
-      message: 'Skill runtime not available.',
-    });
-  }
-
-  const skillId = typeof rawArgs.skillId === 'string' ? rawArgs.skillId.trim() : '';
-  if (!skillId) {
-    return JSON.stringify({ kind: 'missing-argument', message: 'skillId is required.' });
-  }
+  const mutationCtx = resolveSkillMutationContext(rawArgs, ctx);
+  if (!mutationCtx.ok) return mutationCtx.errorJson;
+  const { skillLoader, skillsRepo, skillId } = mutationCtx;
   const newBody = typeof rawArgs.newBody === 'string' ? rawArgs.newBody : '';
 
   const byteLen = byteLength(newBody);
@@ -1046,23 +1096,14 @@ async function handleEditSkillBody(
     });
   }
 
-  let row: Awaited<ReturnType<typeof skillsRepo.findById>>;
-  try {
-    row = await skillsRepo.findById(skillId);
-  } catch (err) {
-    logForkEditError('handleEditSkillBody/skillsRepo.findById', err);
-    throw err;
-  }
-  if (!row) {
-    return JSON.stringify({ kind: 'skill-not-found', skillId });
-  }
-  if (row.company_id !== ctx.companyId) {
-    return JSON.stringify({
-      kind: 'skill-not-found',
-      skillId,
-      message: 'Skill belongs to a different company.',
-    });
-  }
+  const rowLookup = await loadSkillForMutation(
+    skillsRepo,
+    skillId,
+    ctx.companyId,
+    'handleEditSkillBody',
+  );
+  if (!rowLookup.ok) return rowLookup.errorJson;
+  const row = rowLookup.row;
   if (row.scope === 'company') {
     return JSON.stringify({
       kind: 'company-scope-forbidden',
@@ -1085,7 +1126,7 @@ async function handleEditSkillBody(
     logForkEditError('handleEditSkillBody/loadSkillBody', err);
     return JSON.stringify({
       kind: 'skill-md-invalid',
-      message: `Failed to read existing body: ${err instanceof Error ? err.message : String(err)}`,
+      message: `Failed to read existing body: ${toErrorMessage(err)}`,
       skillId,
     });
   }

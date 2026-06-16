@@ -524,7 +524,6 @@ export type { SkillInstallCommitterDeps } from './skills/skill-install-committer
 export {
   SKILL_INSTALL_TOOL_NAMES,
   SKILL_INSTALL_TOOL_DEFS,
-  buildSkillInstallTools,
   handleSkillInstallTool,
   isSkillInstallTool,
 } from './skills/skill-install-tools.js';

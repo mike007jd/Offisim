@@ -6,10 +6,6 @@ export function Textarea({
   ...props
 }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
-    <textarea
-      data-slot="textarea"
-      className={cn('off-input off-textarea', className)}
-      {...props}
-    />
+    <textarea data-slot="textarea" className={cn('off-input off-textarea', className)} {...props} />
   );
 }

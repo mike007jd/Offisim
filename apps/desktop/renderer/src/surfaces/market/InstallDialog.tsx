@@ -51,7 +51,6 @@ export function InstallDialog({ listing, open, onOpenChange, onInstall }: Instal
   // access, no MCP servers, and has no bindings installs in one step (straight
   // to installing). Listings with bindings (but no sensitive perms) jump to
   // Configure; only sensitive permissions surface the full Review screen.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: startInstall reads the current listing via closure; re-run only when the dialog opens for a listing.
   useLayoutEffect(() => {
     if (!open || !listing) return;
     setBindingValues({});

@@ -4,12 +4,7 @@ import { Search } from 'lucide-react';
 import type * as React from 'react';
 
 export function Command({ className, ...props }: React.ComponentProps<typeof CommandPrimitive>) {
-  return (
-    <CommandPrimitive
-      className={cn('off-command', className)}
-      {...props}
-    />
-  );
+  return <CommandPrimitive className={cn('off-command', className)} {...props} />;
 }
 
 export function CommandInput({
@@ -19,10 +14,7 @@ export function CommandInput({
   return (
     <div className="off-command-input-wrap">
       <Search className="off-command-search-icon" />
-      <CommandPrimitive.Input
-        className={cn('off-command-input', className)}
-        {...props}
-      />
+      <CommandPrimitive.Input className={cn('off-command-input', className)} {...props} />
     </div>
   );
 }
@@ -31,45 +23,25 @@ export function CommandList({
   className,
   ...props
 }: React.ComponentProps<typeof CommandPrimitive.List>) {
-  return (
-    <CommandPrimitive.List
-      className={cn('off-command-list', className)}
-      {...props}
-    />
-  );
+  return <CommandPrimitive.List className={cn('off-command-list', className)} {...props} />;
 }
 
 export function CommandEmpty(props: React.ComponentProps<typeof CommandPrimitive.Empty>) {
-  return (
-    <CommandPrimitive.Empty
-      className="off-command-empty"
-      {...props}
-    />
-  );
+  return <CommandPrimitive.Empty className="off-command-empty" {...props} />;
 }
 
 export function CommandGroup({
   className,
   ...props
 }: React.ComponentProps<typeof CommandPrimitive.Group>) {
-  return (
-    <CommandPrimitive.Group
-      className={cn('off-command-group', className)}
-      {...props}
-    />
-  );
+  return <CommandPrimitive.Group className={cn('off-command-group', className)} {...props} />;
 }
 
 export function CommandItem({
   className,
   ...props
 }: React.ComponentProps<typeof CommandPrimitive.Item>) {
-  return (
-    <CommandPrimitive.Item
-      className={cn('off-command-item', className)}
-      {...props}
-    />
-  );
+  return <CommandPrimitive.Item className={cn('off-command-item', className)} {...props} />;
 }
 
 export function CommandSeparator({
@@ -77,18 +49,10 @@ export function CommandSeparator({
   ...props
 }: React.ComponentProps<typeof CommandPrimitive.Separator>) {
   return (
-    <CommandPrimitive.Separator
-      className={cn('off-command-separator', className)}
-      {...props}
-    />
+    <CommandPrimitive.Separator className={cn('off-command-separator', className)} {...props} />
   );
 }
 
 export function CommandShortcut({ className, ...props }: React.HTMLAttributes<HTMLSpanElement>) {
-  return (
-    <span
-      className={cn('off-command-shortcut', className)}
-      {...props}
-    />
-  );
+  return <span className={cn('off-command-shortcut', className)} {...props} />;
 }

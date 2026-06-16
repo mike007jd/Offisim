@@ -2329,7 +2329,7 @@
           "sourceKind": "provider-live-api",
           "trustTier": "community"
         },
-        "value": 262144
+        "value": 81920
       }
     },
     {
@@ -2361,6 +2361,28 @@
       }
     },
     {
+      "field": "contextWindow",
+      "loser": {
+        "provenance": {
+          "sourceId": "litellm",
+          "sourceKind": "community-aggregator",
+          "trustTier": "community"
+        },
+        "value": 262144
+      },
+      "modelId": "qwen/qwen3.5-397b-a17b",
+      "providerId": "openrouter-openai-general",
+      "scope": "model",
+      "winner": {
+        "provenance": {
+          "sourceId": "openrouter-live",
+          "sourceKind": "provider-live-api",
+          "trustTier": "community"
+        },
+        "value": 256000
+      }
+    },
+    {
       "field": "pricing",
       "loser": {
         "provenance": {
@@ -2383,8 +2405,8 @@
           "trustTier": "community"
         },
         "value": {
-          "inputCostPerToken": 3.9e-7,
-          "outputCostPerToken": 0.00000234
+          "inputCostPerToken": 3.85e-7,
+          "outputCostPerToken": 0.00000245
         }
       }
     },
@@ -2990,13 +3012,12 @@
     "generatedFrom": "openrouter-live",
     "providers": [
       {
-        "defaultModel": "claude-opus-4-8",
+        "defaultModel": "claude-fable-5",
         "latestCreated": "2026-06-09",
         "latestLeafId": "anthropic/claude-fable-5",
-        "pinnedCreated": "2026-05-27",
+        "pinnedCreated": "2026-06-09",
         "providerId": "anthropic-default",
-        "reason": "newer in-family leaf \"anthropic/claude-fable-5\" shipped after pinned default",
-        "status": "behind",
+        "status": "current",
         "vendor": "anthropic"
       },
       {
@@ -3018,33 +3039,30 @@
         "vendor": "google"
       },
       {
-        "defaultModel": "kimi-k2.6",
+        "defaultModel": "kimi-k2.7-code",
         "latestCreated": "2026-06-12",
         "latestLeafId": "moonshotai/kimi-k2.7-code",
-        "pinnedCreated": "2026-04-20",
+        "pinnedCreated": "2026-06-12",
         "providerId": "kimi-cn-anthropic-coding",
-        "reason": "newer in-family leaf \"moonshotai/kimi-k2.7-code\" shipped after pinned default",
-        "status": "behind",
+        "status": "current",
         "vendor": "kimi"
       },
       {
-        "defaultModel": "kimi-k2.6",
+        "defaultModel": "kimi-k2.7-code",
         "latestCreated": "2026-06-12",
         "latestLeafId": "moonshotai/kimi-k2.7-code",
-        "pinnedCreated": "2026-04-20",
+        "pinnedCreated": "2026-06-12",
         "providerId": "kimi-cn-openai-general",
-        "reason": "newer in-family leaf \"moonshotai/kimi-k2.7-code\" shipped after pinned default",
-        "status": "behind",
+        "status": "current",
         "vendor": "kimi"
       },
       {
-        "defaultModel": "kimi-k2.6",
+        "defaultModel": "kimi-k2.7-code",
         "latestCreated": "2026-06-12",
         "latestLeafId": "moonshotai/kimi-k2.7-code",
-        "pinnedCreated": "2026-04-20",
+        "pinnedCreated": "2026-06-12",
         "providerId": "kimi-intl-openai-general",
-        "reason": "newer in-family leaf \"moonshotai/kimi-k2.7-code\" shipped after pinned default",
-        "status": "behind",
+        "status": "current",
         "vendor": "kimi"
       },
       {
@@ -3126,14 +3144,14 @@
       }
     ],
     "summary": {
-      "behind": 4,
-      "current": 9,
+      "behind": 0,
+      "current": 13,
       "manual": 2,
       "providerCount": 15,
       "unverifiable": 0
     }
   },
-  "generatedAt": "2026-06-14T03:38:07.603Z",
+  "generatedAt": "2026-06-16T12:47:07.413Z",
   "newModels": [
     {
       "modelId": "claude-3-7-sonnet-20250219",
@@ -3157,11 +3175,6 @@
     },
     {
       "modelId": "claude-4-sonnet-20250514",
-      "providerId": "anthropic-default",
-      "sourceId": "litellm"
-    },
-    {
-      "modelId": "claude-fable-5",
       "providerId": "anthropic-default",
       "sourceId": "litellm"
     },
@@ -5761,11 +5774,6 @@
       "sourceId": "openrouter-live"
     },
     {
-      "modelId": "deepseek/deepseek-r1-distill-qwen-32b",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
       "modelId": "deepseek/deepseek-v3.1-terminus",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
@@ -8167,8 +8175,8 @@
     }
   ],
   "summary": {
-    "conflictCount": 119,
-    "newModelCount": 811,
+    "conflictCount": 120,
+    "newModelCount": 809,
     "newProviderAliasCount": 170,
     "providerCount": 16
   },

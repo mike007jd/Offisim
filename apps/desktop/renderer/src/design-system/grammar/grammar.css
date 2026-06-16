@@ -827,7 +827,9 @@
   width: fit-content;
   align-items: center;
   gap: 2px;
+  margin: 0;
   padding: 3px;
+  min-inline-size: 0;
   border: 1px solid var(--off-line);
   border-radius: var(--off-r-sm);
   background: var(--off-surface-2);

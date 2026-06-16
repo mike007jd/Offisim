@@ -30,7 +30,7 @@ import {
 import { Download, FileText, MessageSquarePlus, Paperclip, SendHorizontal } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { dayLabelFrom, type WsConversation, type WsMessage } from '../workspace-data.js';
+import { type WsConversation, type WsMessage, dayLabelFrom } from '../workspace-data.js';
 import {
   persistWorkspaceMessage,
   usePersistedWorkspaceMessages,
@@ -646,9 +646,7 @@ export function WorkspaceAssistantThread({
               aria-label="Send message"
               disabled={!chatEnabled || isSending}
               title={
-                chatEnabled
-                  ? 'Send message'
-                  : 'Workspace chat requires the release desktop runtime'
+                chatEnabled ? 'Send message' : 'Workspace chat requires the release desktop runtime'
               }
             >
               <Icon icon={SendHorizontal} size="sm" />

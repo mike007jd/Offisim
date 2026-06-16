@@ -1,7 +1,7 @@
 import {
+  WEB_FETCH_MAX_BODY_BYTES,
   readWebFetchTextWithLimit,
   validateWebFetchUrl,
-  WEB_FETCH_MAX_BODY_BYTES,
 } from '../packages/core/src/tools/builtin/web-fetch-tool.js';
 
 const deniedUrls = [

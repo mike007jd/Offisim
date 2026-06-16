@@ -1,7 +1,7 @@
 import { isTauriRuntime } from '@/data/adapters.js';
-import { escapeRegExp } from '@/lib/utils.js';
 import { resolveAsync } from '@/lib/platform.js';
 import { getTauriDb } from '@/lib/tauri-db.js';
+import { escapeRegExp } from '@/lib/utils.js';
 import { useQuery } from '@tanstack/react-query';
 import {
   Activity,

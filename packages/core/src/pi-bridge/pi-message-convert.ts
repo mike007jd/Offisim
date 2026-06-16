@@ -24,9 +24,7 @@ type PiContentBlock = AssistantMessage['content'][number];
 
 function blocksToText(content: string | (TextContent | ImageContent)[]): string {
   if (typeof content === 'string') return content;
-  return content
-    .map((block) => (block.type === 'text' ? block.text : '[image]'))
-    .join('\n');
+  return content.map((block) => (block.type === 'text' ? block.text : '[image]')).join('\n');
 }
 
 /** Convert a single pi message to the flat `LlmMessage` shape. */

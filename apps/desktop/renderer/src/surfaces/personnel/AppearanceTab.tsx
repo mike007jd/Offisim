@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils.js';
 import { OrbitControls } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
 import { Lock } from 'lucide-react';
-import { useId, type CSSProperties } from 'react';
+import { type CSSProperties, useId } from 'react';
 import { BlockCharacter } from '../office/scene/BlockCharacter.js';
 import {
   ACCENT_SWATCHES,

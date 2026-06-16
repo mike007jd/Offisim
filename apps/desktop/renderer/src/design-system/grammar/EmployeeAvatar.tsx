@@ -2,7 +2,7 @@ import { Icon } from '@/design-system/icons/Icon.js';
 import { type EmployeeAppearance, employeeAvatarUri } from '@/lib/avatar.js';
 import { cn } from '@/lib/utils.js';
 import { Bot } from 'lucide-react';
-import { useMemo, type CSSProperties } from 'react';
+import { type CSSProperties, useMemo } from 'react';
 
 interface EmployeeAvatarProps {
   seed: string;
@@ -36,11 +36,7 @@ export function EmployeeAvatar({
   } as CSSProperties;
 
   return (
-    <span
-      className={cn('off-av', className)}
-      style={avatarStyle}
-      aria-hidden
-    >
+    <span className={cn('off-av', className)} style={avatarStyle} aria-hidden>
       {uri ? (
         <img className="off-av-img" src={uri} alt="" draggable={false} />
       ) : (

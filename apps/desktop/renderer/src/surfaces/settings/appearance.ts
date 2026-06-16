@@ -19,7 +19,9 @@ export function isDensityValue(value: unknown): value is DensityValue {
   return value === 'compact' || value === 'normal' || value === 'spacious';
 }
 
-export function parsePersistedRuntimeSettings(value: string | null): PersistedRuntimeSettings | null {
+export function parsePersistedRuntimeSettings(
+  value: string | null,
+): PersistedRuntimeSettings | null {
   if (!value) return null;
   try {
     const raw = JSON.parse(value) as Partial<PersistedRuntimeSettings>;
@@ -100,7 +102,9 @@ export function useLoadPersistedAppearance(): void {
     async function load() {
       const repos = await reposOrNull();
       if (!repos?.settings || cancelled) return;
-      const persisted = parsePersistedRuntimeSettings(await repos.settings.get(RUNTIME_SETTINGS_KEY));
+      const persisted = parsePersistedRuntimeSettings(
+        await repos.settings.get(RUNTIME_SETTINGS_KEY),
+      );
       if (!persisted || cancelled) return;
       applyAppearance(persisted.theme, persisted.density);
       if (

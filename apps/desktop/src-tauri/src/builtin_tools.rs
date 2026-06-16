@@ -10,6 +10,7 @@ use tokio::process::Command;
 use tokio::time::{timeout, Duration};
 
 use crate::local_db::get_offisim_pool;
+use crate::local_paths::is_overbroad_workspace_root;
 
 const DEFAULT_MAX_OUTPUT_BYTES: usize = 1024 * 1024;
 const MAX_READ_BYTES: u64 = 8 * 1024 * 1024;
@@ -153,28 +154,6 @@ fn resolve_candidate(path: &str, cwd: Option<&str>) -> Result<PathBuf, String> {
         return Err("parent-directory path segments are not allowed".to_string());
     }
     Ok(candidate)
-}
-
-fn is_overbroad_workspace_root(path: &Path) -> bool {
-    if let Some(home) = dirs::home_dir().and_then(|home| home.canonicalize().ok()) {
-        if path == home || home.parent().is_some_and(|parent| path == parent) {
-            return true;
-        }
-    }
-    let normals: Vec<_> = path
-        .components()
-        .filter_map(|component| match component {
-            Component::Normal(name) => Some(name),
-            _ => None,
-        })
-        .collect();
-    if normals.len() < 2 {
-        return true;
-    }
-    // macOS canonicalize maps /tmp -> /private/tmp, /var -> /private/var, etc.,
-    // so a 2-component /private/<name> path is the canonical form of a
-    // single-component privileged root.
-    normals.len() == 2 && normals[0] == std::ffi::OsStr::new("private")
 }
 
 fn relativize_for_error(path: &Path, roots: &[PathBuf]) -> String {

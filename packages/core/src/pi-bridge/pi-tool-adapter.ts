@@ -9,9 +9,9 @@
  * "throw on failure" tool contract.
  */
 
+import type { AgentTool, AgentToolResult } from '@offisim/pi-agent';
 import type { Static, TSchema } from '@offisim/pi-ai';
 import type { RunScope } from '@offisim/shared-types';
-import type { AgentTool, AgentToolResult } from '@offisim/pi-agent';
 import type { ToolDef } from '../llm/gateway.js';
 import type { ToolExecutor } from '../runtime/tool-executor.js';
 

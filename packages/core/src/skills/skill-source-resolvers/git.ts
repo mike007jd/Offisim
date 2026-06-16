@@ -1,4 +1,5 @@
 import { ZipBombError, safeGunzipSync } from '@offisim/install-core';
+import { toErrorMessage } from '../../errors.js';
 import { scanSkillDir } from '../skill-scanner.js';
 import { firstLevelDirs, subtreeOf } from '../virtual-tree-utils.js';
 import { untarToTree } from './tar.js';
@@ -135,7 +136,7 @@ export async function resolveGitSource(
     } catch (err) {
       return {
         kind: 'git-fetch-failed',
-        message: `git clone failed: ${err instanceof Error ? err.message : String(err)}`,
+        message: `git clone failed: ${toErrorMessage(err)}`,
         sourceRef: input.url,
       };
     }
@@ -208,7 +209,7 @@ export async function resolveGitSource(
   } catch (err) {
     return {
       kind: 'git-fetch-failed',
-      message: `Tarball read failed: ${err instanceof Error ? err.message : String(err)}`,
+      message: `Tarball read failed: ${toErrorMessage(err)}`,
       sourceRef: input.url,
     };
   }
@@ -246,7 +247,7 @@ export async function resolveGitSource(
     }
     return {
       kind: 'git-fetch-failed',
-      message: `Tarball gunzip failed: ${err instanceof Error ? err.message : String(err)}`,
+      message: `Tarball gunzip failed: ${toErrorMessage(err)}`,
       sourceRef: input.url,
     };
   }
@@ -257,7 +258,7 @@ export async function resolveGitSource(
   } catch (err) {
     return {
       kind: 'git-fetch-failed',
-      message: `Tarball extract failed: ${err instanceof Error ? err.message : String(err)}`,
+      message: `Tarball extract failed: ${toErrorMessage(err)}`,
       sourceRef: input.url,
     };
   }

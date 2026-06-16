@@ -194,10 +194,6 @@ export const SKILL_INSTALL_TOOL_DEFS: readonly ToolDef[] = Object.freeze([
   },
 ]);
 
-export function buildSkillInstallTools(): ToolDef[] {
-  return SKILL_INSTALL_TOOL_DEFS as ToolDef[];
-}
-
 export function isSkillInstallTool(name: string): name is SkillInstallToolName {
   return (SKILL_INSTALL_TOOL_NAMES as readonly string[]).includes(name);
 }

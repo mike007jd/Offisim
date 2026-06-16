@@ -1,6 +1,6 @@
+import { chmod, copyFile, mkdir, readdir, rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chmod, copyFile, mkdir, readdir, rm } from 'node:fs/promises';
 import { buildAgentHost } from './build-agent-host-lib.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));

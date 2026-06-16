@@ -81,7 +81,9 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
     await db
       .update(publishDrafts)
       .set({ status: 'rejected', updated_at: new Date() })
-      .where(and(eq(publishDrafts.draft_id, draft.draft_id), eq(publishDrafts.status, 'submitted')));
+      .where(
+        and(eq(publishDrafts.draft_id, draft.draft_id), eq(publishDrafts.status, 'submitted')),
+      );
     return;
   }
 
@@ -99,7 +101,9 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
     await db
       .update(publishDrafts)
       .set({ status: 'rejected', updated_at: new Date() })
-      .where(and(eq(publishDrafts.draft_id, draft.draft_id), eq(publishDrafts.status, 'submitted')));
+      .where(
+        and(eq(publishDrafts.draft_id, draft.draft_id), eq(publishDrafts.status, 'submitted')),
+      );
     return;
   }
 
@@ -125,7 +129,9 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
       await db
         .update(publishDrafts)
         .set({ status: 'rejected', updated_at: new Date() })
-        .where(and(eq(publishDrafts.draft_id, draft.draft_id), eq(publishDrafts.status, 'submitted')));
+        .where(
+          and(eq(publishDrafts.draft_id, draft.draft_id), eq(publishDrafts.status, 'submitted')),
+        );
       return;
     }
   }
@@ -275,7 +281,9 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
     await db
       .update(publishDrafts)
       .set({ status: 'draft', updated_at: new Date() })
-      .where(and(eq(publishDrafts.draft_id, draft.draft_id), eq(publishDrafts.status, 'submitted')));
+      .where(
+        and(eq(publishDrafts.draft_id, draft.draft_id), eq(publishDrafts.status, 'submitted')),
+      );
     return;
   }
 

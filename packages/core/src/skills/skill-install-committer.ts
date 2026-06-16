@@ -1,4 +1,5 @@
 import type { InteractionRequest, InteractionResponse } from '@offisim/shared-types';
+import { toErrorMessage } from '../errors.js';
 import type { EventBus } from '../events/event-bus.js';
 import { errorOccurred } from '../events/event-factories.js';
 import type {
@@ -55,10 +56,11 @@ export class SkillInstallCommitter implements SkillInstallConfirmHandler {
       }
       return await this.commitInstallOrFork(staged);
     } catch (err) {
+      const message = toErrorMessage(err);
       logger.warn('skill mutation failed after user confirm', {
         stagingRef: context.stagingRef,
         action: staged.action,
-        error: err instanceof Error ? err.message : String(err),
+        error: message,
       });
       const maybeKind = (err as { kind?: unknown } | null)?.kind;
       const errorKind =
@@ -68,20 +70,17 @@ export class SkillInstallCommitter implements SkillInstallConfirmHandler {
             ? 'edit-failed'
             : 'install-failed';
       this.deps.eventBus?.emit(
-        errorOccurred(
-          this.deps.companyId,
-          errorKind,
-          err instanceof Error ? err.message : String(err),
-          false,
-          'skill-install-committer',
-          { threadId: this.deps.threadId },
-        ),
+        errorOccurred(this.deps.companyId, errorKind, message, false, 'skill-install-committer', {
+          threadId: this.deps.threadId,
+        }),
       );
       return {
         kind: 'error',
         errorKind,
-        message: err instanceof Error ? err.message : String(err),
+        message,
       };
+    } finally {
+      await this.tryCleanup(staged);
     }
   }
 
@@ -110,13 +109,6 @@ export class SkillInstallCommitter implements SkillInstallConfirmHandler {
         assets,
       },
     });
-    if (staged.cleanup) {
-      try {
-        await staged.cleanup();
-      } catch {
-        /* best-effort */
-      }
-    }
     return {
       kind: staged.action === 'create' ? 'created' : 'installed',
       skillId: row.skill_id,
@@ -131,7 +123,14 @@ export class SkillInstallCommitter implements SkillInstallConfirmHandler {
     const { row } = await this.deps.skillLoader.editSkillBody({
       skillId: staged.skillId,
       newBody: staged.newBody,
+      expectedCompanyId: staged.companyId,
+      expectedEmployeeId: staged.employeeId,
     });
+    return { kind: 'edited', skillId: row.skill_id, skillSlug: row.slug };
+  }
+
+  /** Best-effort cleanup of a staged mutation's temp resources; never throws. */
+  private async tryCleanup(staged: StagedSkill): Promise<void> {
     if (staged.cleanup) {
       try {
         await staged.cleanup();
@@ -139,6 +138,5 @@ export class SkillInstallCommitter implements SkillInstallConfirmHandler {
         /* best-effort */
       }
     }
-    return { kind: 'edited', skillId: row.skill_id, skillSlug: row.slug };
   }
 }

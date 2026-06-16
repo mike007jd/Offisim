@@ -12,6 +12,7 @@ import { RoomShell } from './r3d/RoomShell.js';
 import { SceneEnvironment } from './r3d/SceneEnvironment.js';
 import { SceneLighting } from './r3d/SceneLighting.js';
 import { ScenePostFx } from './r3d/ScenePostFx.js';
+import { ZoneCeilingLight, ZoneRug } from './r3d/ZoneDressing.js';
 import { BookshelfMesh3D } from './r3d/prefabs/BookshelfMesh3D.js';
 import { DecorativeMesh3D } from './r3d/prefabs/DecorativeMesh3D.js';
 import { MeetingTableMesh3D } from './r3d/prefabs/MeetingTableMesh3D.js';
@@ -20,7 +21,6 @@ import { RestAreaMesh3D } from './r3d/prefabs/RestAreaMesh3D.js';
 import { ServerRackUnit3D } from './r3d/prefabs/ServerRackMesh3D.js';
 import { WhiteboardMesh3D } from './r3d/prefabs/WhiteboardMesh3D.js';
 import { WorkstationUnit3D } from './r3d/prefabs/WorkstationMesh3D.js';
-import { ZoneCeilingLight, ZoneRug } from './r3d/ZoneDressing.js';
 import { OFFICE_CAMERA_PRESET, SCENE_CONTENT_SCALE } from './r3d/scene-art-direction.js';
 import { LIGHT_SCENE_3D } from './r3d/scene-colors.js';
 import { type ScenePlacementPoint, groundPointFromClient } from './scene-ground.js';
@@ -573,10 +573,7 @@ export function OfficeScene3D() {
 
         {zoneDefs.map((zone) => (
           <Fragment key={zone.id}>
-            <ZoneRug
-              zone={zone}
-              highlight={employeeDrag !== null && hoveredZoneId === zone.id}
-            />
+            <ZoneRug zone={zone} highlight={employeeDrag !== null && hoveredZoneId === zone.id} />
             <ZoneCeilingLight zone={zone} />
           </Fragment>
         ))}

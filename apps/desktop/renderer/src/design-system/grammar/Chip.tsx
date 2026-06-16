@@ -25,10 +25,7 @@ export function Chip({
     className,
   );
   const dot = dotColor ? (
-    <span
-      className="off-chip-dot"
-      style={{ '--off-chip-dot': dotColor } as CSSProperties}
-    />
+    <span className="off-chip-dot" style={{ '--off-chip-dot': dotColor } as CSSProperties} />
   ) : null;
 
   if (as === 'button') {

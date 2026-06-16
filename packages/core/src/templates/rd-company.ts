@@ -212,5 +212,6 @@ export const rdCompanyTemplate: CompanyTemplate = {
         maxTokens: 4096,
       }),
     },
-  ],  layoutPreset: 'rd-office',
+  ],
+  layoutPreset: 'rd-office',
 };

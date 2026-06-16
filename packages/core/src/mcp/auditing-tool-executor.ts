@@ -280,7 +280,10 @@ export class AuditingToolExecutor implements ToolExecutor {
     if (!response.success) return response;
     const tool = (await loadTools()).find((item) => item.name === call.name);
     return tool
-      ? { ...response, result: await capToolResultForModel(tool.maxResultSizeChars, response.result) }
+      ? {
+          ...response,
+          result: await capToolResultForModel(tool.maxResultSizeChars, response.result),
+        }
       : response;
   }
 

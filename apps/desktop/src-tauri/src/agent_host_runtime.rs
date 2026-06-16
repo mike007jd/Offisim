@@ -158,9 +158,11 @@ pub(crate) async fn project_workspace_root<R: tauri::Runtime>(
     let raw: String = row
         .try_get("workspace_root")
         .map_err(|err| HostError::Request(format!("decode workspace_root: {err}")))?;
-    PathBuf::from(raw)
-        .canonicalize()
-        .map_err(|err| HostError::Request(format!("Resolve project workspace: {err}")))
+    resolve_host_workspace_root(raw)
+}
+
+fn resolve_host_workspace_root(raw: String) -> Result<PathBuf, HostError> {
+    crate::local_paths::resolve_project_workspace_root_path(raw).map_err(HostError::Request)
 }
 
 pub(crate) fn default_host_cwd(workspace_root: &Path) -> PathBuf {
@@ -543,5 +545,16 @@ mod tests {
 
         assert_eq!(output.bytes, b"abcd");
         assert!(!output.exceeded_cap);
+    }
+
+    #[test]
+    fn host_workspace_root_rejects_overbroad_raw_path() {
+        let err = resolve_host_workspace_root("/tmp".to_string()).unwrap_err();
+        match err {
+            HostError::Request(message) => {
+                assert_eq!(message, crate::local_paths::OVERBROAD_WORKSPACE_ROOT_ERROR);
+            }
+            other => panic!("expected request error, got {other:?}"),
+        }
     }
 }

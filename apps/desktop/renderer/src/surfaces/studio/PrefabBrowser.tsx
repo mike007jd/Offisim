@@ -2,21 +2,8 @@ import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 import { getAllBuiltinPrefabs } from '@offisim/renderer';
-import {
-  type SemanticCategory,
-  ZONE_PRESET_GROUPS,
-  type ZonePreset,
-} from '@offisim/shared-types';
-import {
-  Box,
-  BookOpen,
-  Cpu,
-  type LucideIcon,
-  PanelTop,
-  Sprout,
-  Users,
-  Wrench,
-} from 'lucide-react';
+import { type SemanticCategory, ZONE_PRESET_GROUPS, type ZonePreset } from '@offisim/shared-types';
+import { BookOpen, Box, Cpu, type LucideIcon, PanelTop, Sprout, Users, Wrench } from 'lucide-react';
 import { Fragment, type PointerEvent as ReactPointerEvent, useMemo, useRef } from 'react';
 import { type StudioPlacement, useStudioStore } from './studio-store.js';
 import { ZONE_ARCHETYPE_ICON } from './zone-archetype-icons.js';

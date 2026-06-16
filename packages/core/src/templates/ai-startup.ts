@@ -161,7 +161,8 @@ export const aiStartupTemplate: CompanyTemplate = {
         maxTokens: 4096,
       } satisfies EmployeeConfig),
     },
-  ],  layoutPreset: 'ai-lab',
+  ],
+  layoutPreset: 'ai-lab',
   zones: [
     createZoneBlueprint({
       slug: 'zone-dev',

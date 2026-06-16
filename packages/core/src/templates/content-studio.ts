@@ -131,7 +131,8 @@ export const contentStudioTemplate: CompanyTemplate = {
         maxTokens: 4096,
       }),
     },
-  ],  layoutPreset: 'content-lab',
+  ],
+  layoutPreset: 'content-lab',
   zones: [
     createZoneBlueprint({
       slug: 'zone-dev',

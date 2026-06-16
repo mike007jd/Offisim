@@ -88,8 +88,7 @@ export function ActivitySurface() {
   // One date-window pass shared by the stats strip and the list pipeline —
   // type/actor/search narrow the list below, not the overview numbers.
   const dateRecords = useMemo(
-    () =>
-      filterRecords(allRecords, { datePreset, eventType: 'all', actor: 'all', search: '' }),
+    () => filterRecords(allRecords, { datePreset, eventType: 'all', actor: 'all', search: '' }),
     [allRecords, datePreset],
   );
 

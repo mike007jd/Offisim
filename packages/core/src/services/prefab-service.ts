@@ -79,9 +79,7 @@ export class PrefabService {
 
     const created = await this.repo.create(row);
 
-    this.eventBus.emit(
-      this.buildStateEvent(row.instance_id, companyId, prefabId, '', 'created'),
-    );
+    this.eventBus.emit(this.buildStateEvent(row.instance_id, companyId, prefabId, '', 'created'));
 
     return created;
   }

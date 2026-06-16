@@ -136,7 +136,8 @@ export const agencyLiteTemplate: CompanyTemplate = {
         maxTokens: 3072,
       }),
     },
-  ],  layoutPreset: 'agency-studio',
+  ],
+  layoutPreset: 'agency-studio',
   zones: [
     createZoneBlueprint({
       slug: 'zone-product',

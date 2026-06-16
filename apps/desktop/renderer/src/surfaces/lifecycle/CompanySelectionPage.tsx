@@ -1,4 +1,5 @@
 import { useUiState } from '@/app/ui-state.js';
+import { displayRole } from '@/data/adapters.js';
 import {
   useCompanies,
   useCompanyEmployees,
@@ -9,7 +10,6 @@ import {
 import type { Company, Employee } from '@/data/types.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { employeeAvatarUri } from '@/lib/avatar.js';
-import { displayRole } from '@/data/adapters.js';
 import { cn } from '@/lib/utils.js';
 import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
 import { Archive, ArrowRight, Building2, FolderPlus, Pencil } from 'lucide-react';

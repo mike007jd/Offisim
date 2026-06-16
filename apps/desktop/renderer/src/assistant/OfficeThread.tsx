@@ -11,10 +11,10 @@ import { MessageSquarePlus, Paperclip, SendHorizontal } from 'lucide-react';
 import { type DragEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { StagedAttachments } from './composer/StagedAttachments.js';
 import { ChatErrorBanner } from './parts/ChatErrorBanner.js';
-import { RunActivityStrip } from './parts/RunActivityStrip.js';
-import { PermissionApprovalBar } from './parts/PermissionApprovalBar.js';
-import { SkillInstallConfirmBar } from './parts/SkillInstallConfirmBar.js';
 import { MeetingTray } from './parts/Meeting.js';
+import { PermissionApprovalBar } from './parts/PermissionApprovalBar.js';
+import { RunActivityStrip } from './parts/RunActivityStrip.js';
+import { SkillInstallConfirmBar } from './parts/SkillInstallConfirmBar.js';
 import { useRunStore } from './run-store.js';
 import { useOfficeRuntime } from './runtime/useOfficeRuntime.js';
 

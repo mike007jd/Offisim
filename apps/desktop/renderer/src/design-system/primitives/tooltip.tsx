@@ -27,10 +27,7 @@ export function TooltipContent({
     <TooltipPrimitive.Portal>
       <TooltipPrimitive.Content
         sideOffset={sideOffset}
-        className={cn(
-          'off-motion-tooltip off-tooltip-content',
-          className,
-        )}
+        className={cn('off-motion-tooltip off-tooltip-content', className)}
         {...props}
       >
         {children}

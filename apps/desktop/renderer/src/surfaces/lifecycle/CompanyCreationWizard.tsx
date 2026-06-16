@@ -188,16 +188,23 @@ export function CompanyCreationWizard({
           const active = i === safeIndex;
           const isCyo = t.id === 'create-your-own';
           return (
-            <button
+            <label
               key={t.id}
-              type="button"
-              role="radio"
-              aria-checked={active}
-              className={cn('off-wiz-card off-focusable', active && 'is-active')}
+              className={cn(
+                'off-wiz-card off-focusable',
+                active && 'is-active',
+                busy && 'is-disabled',
+              )}
               style={active ? roleAccentStyle(m?.accentHex ?? UI_DATA_COLORS.blue2) : undefined}
-              disabled={busy}
-              onClick={() => setIndex(i)}
             >
+              <input
+                type="radio"
+                name="off-company-template"
+                className="off-wiz-card-radio"
+                checked={active}
+                disabled={busy}
+                onChange={() => setIndex(i)}
+              />
               <span
                 className="off-wiz-card-ic"
                 style={roleAccentStyle(m?.accentHex ?? UI_DATA_COLORS.ink3)}
@@ -208,7 +215,7 @@ export function CompanyCreationWizard({
               <span className="off-wiz-card-meta">
                 {isCyo ? 'Build in Studio' : `${t.employees.length} people`}
               </span>
-            </button>
+            </label>
           );
         })}
       </div>
