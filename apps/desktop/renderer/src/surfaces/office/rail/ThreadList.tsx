@@ -16,14 +16,17 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { MessagesSquare, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { ConversationActionsMenu } from './ConversationActionsMenu.js';
 
 export function ThreadList() {
+  const companyId = useUiState((s) => s.companyId);
   const projectId = useUiState((s) => s.projectId);
   const selectedThreadId = useUiState((s) => s.selectedThreadId);
   const openThread = useUiState((s) => s.openThread);
   const threads = useThreads(projectId);
   const queryClient = useQueryClient();
   const [query, setQuery] = useState('');
+  const [contextMenuThreadId, setContextMenuThreadId] = useState<string | null>(null);
   const createThread = useMutation({
     mutationFn: async () => {
       if (!projectId) throw new Error('Select a project before creating a conversation.');
@@ -87,21 +90,38 @@ export function ThreadList() {
       ) : (
         <div className="off-conv-list">
           {filtered.map((thread) => (
-            <button
-              type="button"
+            <div
               key={thread.id}
               className={cn(
                 'off-thread-row off-focusable',
                 thread.id === selectedThreadId && 'is-active',
               )}
-              onClick={() => openThread(thread.id)}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                setContextMenuThreadId(thread.id);
+              }}
             >
-              <span className="off-thread-info">
-                <span className="off-thread-name">{thread.title}</span>
-                <span className="off-thread-sub">{thread.subtitle}</span>
-              </span>
-              <RunStatePill state={thread.runState} />
-            </button>
+              <button
+                type="button"
+                className="off-thread-main"
+                onClick={() => openThread(thread.id)}
+              >
+                <span className="off-thread-info">
+                  <span className="off-thread-name">{thread.title}</span>
+                  <span className="off-thread-sub">{thread.subtitle}</span>
+                </span>
+                <RunStatePill state={thread.runState} />
+              </button>
+              <ConversationActionsMenu
+                thread={thread}
+                projectId={projectId}
+                companyId={companyId}
+                open={contextMenuThreadId === thread.id ? true : undefined}
+                onOpenChange={(open) => {
+                  if (!open && contextMenuThreadId === thread.id) setContextMenuThreadId(null);
+                }}
+              />
+            </div>
           ))}
         </div>
       )}

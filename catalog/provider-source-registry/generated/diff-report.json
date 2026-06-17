@@ -3117,41 +3117,44 @@
       },
       {
         "defaultModel": "glm-5.1",
-        "latestCreated": "2026-04-07",
-        "latestLeafId": "z-ai/glm-5.1",
+        "latestCreated": "2026-06-16",
+        "latestLeafId": "z-ai/glm-5.2",
         "pinnedCreated": "2026-04-07",
         "providerId": "zai-shared-anthropic-coding",
-        "status": "current",
+        "reason": "newer in-family leaf \"z-ai/glm-5.2\" shipped after pinned default",
+        "status": "behind",
         "vendor": "zai"
       },
       {
         "defaultModel": "glm-5.1",
-        "latestCreated": "2026-04-07",
-        "latestLeafId": "z-ai/glm-5.1",
+        "latestCreated": "2026-06-16",
+        "latestLeafId": "z-ai/glm-5.2",
         "pinnedCreated": "2026-04-07",
         "providerId": "zai-shared-openai-coding",
-        "status": "current",
+        "reason": "newer in-family leaf \"z-ai/glm-5.2\" shipped after pinned default",
+        "status": "behind",
         "vendor": "zai"
       },
       {
         "defaultModel": "glm-5.1",
-        "latestCreated": "2026-04-07",
-        "latestLeafId": "z-ai/glm-5.1",
+        "latestCreated": "2026-06-16",
+        "latestLeafId": "z-ai/glm-5.2",
         "pinnedCreated": "2026-04-07",
         "providerId": "zai-shared-openai-general",
-        "status": "current",
+        "reason": "newer in-family leaf \"z-ai/glm-5.2\" shipped after pinned default",
+        "status": "behind",
         "vendor": "zai"
       }
     ],
     "summary": {
-      "behind": 0,
-      "current": 13,
+      "behind": 3,
+      "current": 10,
       "manual": 2,
       "providerCount": 15,
       "unverifiable": 0
     }
   },
-  "generatedAt": "2026-06-16T12:47:07.413Z",
+  "generatedAt": "2026-06-17T10:25:18.162Z",
   "newModels": [
     {
       "modelId": "claude-3-7-sonnet-20250219",
@@ -3194,6 +3197,11 @@
       "sourceId": "litellm"
     },
     {
+      "modelId": "claude-opus-4-20250514",
+      "providerId": "anthropic-default",
+      "sourceId": "litellm"
+    },
+    {
       "modelId": "claude-opus-4-5",
       "providerId": "anthropic-default",
       "sourceId": "litellm"
@@ -3220,6 +3228,11 @@
     },
     {
       "modelId": "claude-opus-4-7-20260416",
+      "providerId": "anthropic-default",
+      "sourceId": "litellm"
+    },
+    {
+      "modelId": "claude-sonnet-4-20250514",
       "providerId": "anthropic-default",
       "sourceId": "litellm"
     },
@@ -7154,6 +7167,11 @@
       "sourceId": "openrouter-live"
     },
     {
+      "modelId": "z-ai/glm-5.2",
+      "providerId": "openrouter-openai-general",
+      "sourceId": "openrouter-live"
+    },
+    {
       "modelId": "~anthropic/claude-fable-latest",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
@@ -8176,7 +8194,7 @@
   ],
   "summary": {
     "conflictCount": 120,
-    "newModelCount": 809,
+    "newModelCount": 812,
     "newProviderAliasCount": 170,
     "providerCount": 16
   },

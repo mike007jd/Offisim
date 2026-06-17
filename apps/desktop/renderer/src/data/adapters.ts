@@ -3,7 +3,7 @@ import { initialsOf } from '@/lib/utils.js';
 import { getRepos } from '@/runtime/repos.js';
 import type { RuntimeRepositories } from '@offisim/core/browser';
 import { ACCENT_PAIRS } from './color-palette.js';
-import type { ChatThread, Company, Employee, Project } from './types.js';
+import type { ChatThread, Company, Employee, Project, RunState } from './types.js';
 
 /**
  * Real-backend adapters: map SQLite repo rows → renderer view-model types so the
@@ -166,6 +166,7 @@ interface ChatThreadRowLike {
   title: string;
   summary: string | null;
   updated_at: string;
+  run_status?: string | null;
 }
 /** Render-layer thread title. The persisted default stays 'New thread' (DB
  *  schema default + core auto-title fallback contract); the product vocabulary
@@ -173,6 +174,14 @@ interface ChatThreadRowLike {
 export function displayThreadTitle(title: string | null | undefined): string {
   const trimmed = title?.trim();
   return !trimmed || trimmed === 'New thread' ? 'New conversation' : trimmed;
+}
+
+function runStateFromGraphStatus(status: string | null | undefined): RunState {
+  if (status === 'queued' || status === 'running') return 'running';
+  if (status === 'paused') return 'paused';
+  if (status === 'blocked' || status === 'failed' || status === 'error') return 'error';
+  if (status === 'completed') return 'done';
+  return 'idle';
 }
 
 export function threadToVm(row: ChatThreadRowLike): ChatThread {
@@ -184,7 +193,7 @@ export function threadToVm(row: ChatThreadRowLike): ChatThread {
     scope: row.employee_id ? 'direct' : 'team',
     employeeId: row.employee_id ?? null,
     updatedAt: Date.parse(row.updated_at) || Date.now(),
-    runState: 'idle',
+    runState: runStateFromGraphStatus(row.run_status),
   };
 }
 

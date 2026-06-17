@@ -251,22 +251,43 @@ export function subscribeReplyStream(
 export function subscribeRunActivity(
   eventBus: EventBus,
   handlers: {
-    onCalled: (tool: string) => void;
-    onResult: (tool: string, success: boolean) => void;
+    threadId: string;
+    onCalled: (tool: string, detail?: string) => void;
+    onResult: (tool: string, success: boolean, detail?: string, durationMs?: number) => void;
   },
 ): () => void {
+  const detailFromTelemetry = (payload: ToolExecutionTelemetryPayload): string | undefined => {
+    if (payload.errorType) return payload.errorType;
+    const parts = [payload.serverName, payload.nodeName, payload.toolType].filter(Boolean);
+    return parts.length > 0 ? parts.join(' · ') : undefined;
+  };
   const offTelemetry = eventBus.on('tool.execution.telemetry', (event) => {
     const payload = event.payload as ToolExecutionTelemetryPayload | undefined;
     if (!payload?.toolName) return;
+    if (payload.threadId !== handlers.threadId && event.threadId !== handlers.threadId) return;
     if (payload.status === 'started') {
-      handlers.onCalled(payload.toolName);
+      handlers.onCalled(payload.toolName, detailFromTelemetry(payload));
       return;
     }
-    handlers.onResult(payload.toolName, payload.status === 'completed');
+    handlers.onResult(
+      payload.toolName,
+      payload.status === 'completed',
+      detailFromTelemetry(payload),
+      payload.durationMs,
+    );
   });
   const offResult = eventBus.on('mcp.tool.result', (event) => {
-    const payload = event.payload as { toolName?: string; success?: boolean } | undefined;
-    if (payload?.toolName) handlers.onResult(payload.toolName, payload.success !== false);
+    const payload = event.payload as
+      | { toolName?: string; success?: boolean; error?: string; latencyMs?: number }
+      | undefined;
+    if (event.threadId !== handlers.threadId) return;
+    if (payload?.toolName)
+      handlers.onResult(
+        payload.toolName,
+        payload.success !== false,
+        payload.error,
+        payload.latencyMs,
+      );
   });
   return () => {
     offTelemetry();

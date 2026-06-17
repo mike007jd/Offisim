@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Copy } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import type { ActivityPayloadValue } from './activity-data.js';
 
@@ -17,6 +17,26 @@ function PrimitiveValue({ value }: { value: ActivityPayloadValue }) {
     return <span className="off-pv-val is-null">null</span>;
   }
   return <span className="off-pv-val">{String(value)}</span>;
+}
+
+function CopyPrimitiveValue({ value }: { value: ActivityPayloadValue }) {
+  const copyable =
+    typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
+  return (
+    <span className="off-pv-val-wrap">
+      <PrimitiveValue value={value} />
+      {copyable ? (
+        <button
+          type="button"
+          className="off-pv-copy off-focusable"
+          aria-label="Copy value"
+          onClick={() => void navigator.clipboard?.writeText(String(value))}
+        >
+          <Copy aria-hidden />
+        </button>
+      ) : null}
+    </span>
+  );
 }
 
 interface CollapsibleProps {
@@ -119,10 +139,25 @@ export function ActivityPayloadView({
   if (entries.length === 0) {
     return <p className="off-pv-empty">Empty payload</p>;
   }
-  // Summary = up to four top-level scalar fields that actually have a value.
-  const summary = entries
-    .filter(([, value]) => value !== null && value !== undefined && typeof value !== 'object')
-    .slice(0, 4);
+  const scalarEntries = entries.filter(
+    ([, value]) => value !== null && value !== undefined && typeof value !== 'object',
+  );
+  const priorityKeys = [
+    'message',
+    'command',
+    'errorSummary',
+    'error',
+    'tool',
+    'server',
+    'latencyMs',
+    'threadId',
+  ];
+  const summary = [
+    ...priorityKeys
+      .map((key) => scalarEntries.find(([entryKey]) => entryKey === key))
+      .filter((entry): entry is [string, ActivityPayloadValue] => Boolean(entry)),
+    ...scalarEntries.filter(([key]) => !priorityKeys.includes(key)),
+  ].slice(0, 6);
   return (
     <div className="off-pv">
       {summary.length > 0 ? (
@@ -130,7 +165,7 @@ export function ActivityPayloadView({
           {summary.map(([key, value]) => (
             <div key={key} className="off-pv-row">
               <span className="off-pv-key">{key}</span>
-              <PrimitiveValue value={value} />
+              <CopyPrimitiveValue value={value} />
             </div>
           ))}
         </div>

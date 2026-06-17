@@ -925,7 +925,6 @@
   background: transparent;
   color: var(--off-ink-2);
   font-size: var(--off-fs-sm);
-  text-align: left;
   transition: background var(--off-motion-fast) var(--off-motion-ease), color var(--off-motion-fast)
     var(--off-motion-ease), border-color var(--off-motion-fast) var(--off-motion-ease);
 }
@@ -939,6 +938,39 @@
   border-color: var(--off-accent-ring);
   background: var(--off-accent-surface);
   color: var(--off-accent);
+}
+
+.off-thread-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+.off-thread-action {
+  flex: none;
+  opacity: 0.68;
+}
+
+.off-thread-row:hover .off-thread-action,
+.off-thread-action:focus-visible {
+  opacity: 1;
+}
+
+.off-thread-menu {
+  min-width: 210px;
+}
+
+.off-thread-menu-note {
+  max-width: 220px;
+  white-space: normal;
+  line-height: 1.35;
 }
 
 .off-thread-info {
@@ -973,7 +1005,7 @@
 .off-chat-head {
   height: 48px;
   display: grid;
-  grid-template-columns: 30px 1fr auto;
+  grid-template-columns: 30px 1fr auto auto;
   align-items: center;
   gap: var(--off-sp-2);
   padding: 0 var(--off-sp-3) 0 var(--off-sp-2);
@@ -1558,14 +1590,29 @@
 /* Live tool-activity strip (RunActivityStrip): builtin/MCP tool calls shown in
    the chat column as the agent works. Token-only type/radius/colour. */
 .off-run-activity {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  display: grid;
   gap: var(--off-sp-2);
   margin-bottom: var(--off-sp-2);
-  padding: var(--off-sp-1) var(--off-sp-2);
+  padding: var(--off-sp-2);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-sunken);
   font-size: var(--off-fs-meta);
   color: var(--off-ink-3);
+}
+.off-run-act-summary {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--off-sp-2);
+  min-width: 0;
+  color: inherit;
+  text-align: left;
+}
+.off-run-act-summary svg {
+  width: var(--off-icon-sm);
+  height: var(--off-icon-sm);
+  color: var(--off-ink-4);
 }
 .off-run-act-lead {
   font-weight: 620;
@@ -1573,8 +1620,21 @@
   text-transform: uppercase;
   color: var(--off-ink-4);
 }
+.off-run-act-current {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--off-ink-2);
+}
 .off-run-act-more {
   color: var(--off-ink-4);
+}
+.off-run-act-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--off-sp-2);
 }
 .off-run-act {
   display: inline-flex;
@@ -1587,6 +1647,15 @@
   background: var(--off-surface-1);
   font-family: var(--off-font-mono);
   color: var(--off-ink-2);
+}
+.off-run-act-name {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.off-run-act-ms {
+  color: var(--off-ink-4);
 }
 .off-run-act-dot {
   width: 5px;
@@ -1606,6 +1675,36 @@
 }
 .off-run-act.is-error .off-run-act-dot {
   background: var(--off-danger);
+}
+.off-run-act-detail {
+  display: grid;
+  gap: 2px;
+  padding-top: var(--off-sp-1);
+  border-top: 1px solid var(--off-line-soft);
+}
+.off-run-act-detail-row {
+  display: grid;
+  grid-template-columns: minmax(92px, 0.38fr) minmax(0, 1fr);
+  gap: var(--off-sp-2);
+  min-width: 0;
+}
+.off-run-act-detail-tool {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--off-font-mono);
+  color: var(--off-ink-2);
+}
+.off-run-act-detail-copy {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--off-ink-3);
+}
+.off-run-act-detail-row.is-error .off-run-act-detail-copy {
+  color: var(--off-danger);
 }
 
 .off-thread-pit {

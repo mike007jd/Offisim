@@ -174,6 +174,7 @@ export function useOfficeRuntime({
         // Surface tool calls live (builtin + MCP) so a long run shows the agent
         // working instead of a blank streaming bubble.
         const unsubscribeActivity = subscribeRunActivity(runtimeEventBus, {
+          threadId,
           onCalled: noteToolCalled,
           onResult: noteToolResult,
         });
@@ -227,17 +228,23 @@ export function useOfficeRuntime({
               void onNew(message);
             },
           });
-          setDrafts((prev) => [
-            ...prev,
-            {
-              id: newDraftId('provider-error'),
+          const systemMessage: ChatMessage = {
+            id: newDraftId('provider-error'),
+            threadId,
+            author: 'system',
+            employeeId: null,
+            body: `Run failed before completion: ${messageText}\n\nOpen Activity Log for the tool command and raw error details.`,
+            at: Date.now(),
+          };
+          setDrafts((prev) => [...prev, systemMessage]);
+          try {
+            await persistRuntimeMessage(systemMessage);
+          } catch (persistError) {
+            console.warn('[useOfficeRuntime] failed to persist run failure message', {
               threadId,
-              author: 'system',
-              employeeId: null,
-              body: `Provider bridge failed: ${messageText}`,
-              at: Date.now(),
-            },
-          ]);
+              persistError,
+            });
+          }
         }
       } finally {
         if (abortControllerRef.current === abortController) {

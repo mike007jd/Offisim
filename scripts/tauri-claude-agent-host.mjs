@@ -32,6 +32,17 @@ function injectedApiKeyOrUndefined() {
   );
 }
 
+function injectedApiKey() {
+  const apiKey = injectedApiKeyOrUndefined();
+  if (!apiKey) {
+    throw Object.assign(
+      new Error('No Anthropic credential was injected into the trusted Claude lane host.'),
+      { code: 'no-credential' },
+    );
+  }
+  return apiKey;
+}
+
 async function loadClaudeAdapter(workspaceRoot) {
   const adapterUrl = pathToFileURL(
     resolve(workspaceRoot, 'packages/core/dist/llm/claude-agent-sdk-adapter.js'),
@@ -51,7 +62,9 @@ async function main() {
   }
 
   const ClaudeAgentSdkAdapter = await loadClaudeAdapter(workspaceRoot);
-  const adapter = new ClaudeAgentSdkAdapter(injectedApiKeyOrUndefined(), {
+  const credentialMode = payload.credentialMode === 'local-auth' ? 'local-auth' : 'api-key';
+  const apiKey = credentialMode === 'local-auth' ? undefined : injectedApiKey();
+  const adapter = new ClaudeAgentSdkAdapter(apiKey, {
     baseURL: asNonEmptyString(process.env.ANTHROPIC_BASE_URL),
     cwd: asNonEmptyString(payload.cwd) ?? workspaceRoot,
     pathToClaudeCodeExecutable: asNonEmptyString(process.env.OFFISIM_CLAUDE_CODE_EXECUTABLE),

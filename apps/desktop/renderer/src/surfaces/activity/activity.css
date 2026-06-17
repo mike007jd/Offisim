@@ -450,6 +450,34 @@
   word-break: break-all;
 }
 
+.off-pv-val-wrap {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+}
+
+.off-pv-copy {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-xs);
+  color: var(--off-ink-4);
+}
+
+.off-pv-copy:hover {
+  background: var(--off-surface-sunken);
+  color: var(--off-ink-1);
+}
+
+.off-pv-copy svg {
+  width: var(--off-icon-sm);
+  height: var(--off-icon-sm);
+}
+
 .off-pv-val.is-null {
   font-style: italic;
   color: var(--off-ink-4);

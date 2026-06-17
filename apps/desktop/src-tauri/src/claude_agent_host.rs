@@ -62,6 +62,7 @@ fn build_env(
     base_url: Option<&str>,
 ) -> HashMap<String, String> {
     let mut env = trusted_host_env(workspace_root, &[], "OFFISIM_CLAUDE_CODE_EXECUTABLE");
+    env.insert("CLAUDE_CODE_DISABLE_AUTO_MEMORY".into(), "1".into());
 
     if let Some(secret) = secret {
         if let Some(base_url) = base_url.and_then(|value| {
@@ -87,6 +88,22 @@ fn assert_claude_provider(provider: Option<&str>) -> Result<(), HostError> {
     }
 }
 
+fn assert_local_auth_profile(
+    profile: Option<&runtime_secrets::RuntimeProviderProfile>,
+) -> Result<(), HostError> {
+    let Some(profile) = profile else {
+        return Err(HostError::Request(
+            "Claude local-auth requires a runtime provider profile.".into(),
+        ));
+    };
+    if profile.execution_lane != "claude-agent-sdk" || profile.auth_mode != "local-auth" {
+        return Err(HostError::Request(
+            "Claude local-auth requires a claude-agent-sdk/local-auth runtime profile.".into(),
+        ));
+    }
+    Ok(())
+}
+
 async fn do_execute<R: tauri::Runtime>(
     app: &AppHandle<R>,
     req: ClaudeAgentExecuteRequest,
@@ -105,6 +122,9 @@ async fn do_execute<R: tauri::Runtime>(
             .as_ref()
             .map(|profile| profile.provider.as_str()),
     )?;
+    if credential_mode == ClaudeCredentialMode::LocalAuth {
+        assert_local_auth_profile(provider_profile.as_ref())?;
+    }
     let secret = if credential_mode == ClaudeCredentialMode::ApiKey {
         Some(
             runtime_secrets::read_provider_secret(
@@ -130,7 +150,7 @@ async fn do_execute<R: tauri::Runtime>(
             project_id: req.project_id.as_deref(),
             employee_id: req.employee_id.as_deref(),
             provider_profile_id: req.provider_profile_id.as_deref(),
-            credential_recorded: false,
+            credential_recorded: credential_mode == ClaudeCredentialMode::ApiKey,
         },
         &cwd,
         "started",
@@ -141,6 +161,10 @@ async fn do_execute<R: tauri::Runtime>(
     let payload = serde_json::json!({
         "request": req.request,
         "cwd": cwd.to_string_lossy().to_string(),
+        "credentialMode": match credential_mode {
+            ClaudeCredentialMode::ApiKey => "api-key",
+            ClaudeCredentialMode::LocalAuth => "local-auth",
+        },
     });
     let env = build_env(
         Some(&workspace_root),

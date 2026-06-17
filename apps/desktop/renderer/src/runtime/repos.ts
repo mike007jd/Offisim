@@ -1,21 +1,17 @@
 import { createTauriDrizzleDb } from '@/lib/tauri-drizzle.js';
 import { createTauriRepositories } from '@/lib/tauri-repos.js';
 import {
-  CompanyTemplateService,
   InMemoryEventBus,
   type RuntimeRepositories,
-  listTemplates,
   seedDefaultCostRates,
 } from '@offisim/core/browser';
-import { ensureCompanyWorkspaceProjectId } from './ensure-default-workspace.js';
 import { repairPersistedPrefabLayouts } from './repair-prefab-layouts.js';
 
 /**
  * Real backend access for the renderer: Drizzle (sqlite-proxy over
  * tauri-plugin-sql) → RuntimeRepositories. No preview-fixture data — this is the single
- * door to `<appDataDir>/offisim.db`. On first run, seeds one company from the
- * first built-in template (employees + workspace layout + prefab instances) so the
- * office has real data to render.
+ * door to `<appDataDir>/offisim.db`. First-run company creation is owned by the
+ * lifecycle surface so deleting every company leaves an honest empty state.
  */
 
 export const runtimeEventBus = new InMemoryEventBus();
@@ -27,7 +23,6 @@ export function getRepos(): Promise<RuntimeRepositories> {
     reposPromise = (async () => {
       const db = createTauriDrizzleDb();
       const repos = createTauriRepositories(db, runtimeEventBus);
-      await ensureSeededCompany(repos);
       await repairPersistedPrefabLayouts(repos);
       // Seed default model cost rates once so the cost UI reports real spend
       // instead of $0 out of the box (the model_cost_rates table is otherwise
@@ -44,41 +39,4 @@ export function getRepos(): Promise<RuntimeRepositories> {
     });
   }
   return reposPromise;
-}
-
-async function ensureSeededCompany(repos: RuntimeRepositories): Promise<void> {
-  const existing = await repos.companies.findAll();
-  if (existing.some((c) => c.status !== 'archived')) return;
-
-  const template = listTemplates()[0];
-  if (!template) return;
-
-  const companyId = crypto.randomUUID();
-  const now = new Date().toISOString();
-  await repos.companies.create({
-    company_id: companyId,
-    name: template.name,
-    status: 'active',
-    template_id: template.id,
-    template_label: template.name,
-    workspace_root: null,
-    description_json: null,
-    created_at: now,
-    updated_at: now,
-  });
-
-  const service = new CompanyTemplateService(
-    repos.employees,
-    repos.officeLayouts,
-    runtimeEventBus,
-    repos.prefabInstances,
-    undefined,
-    repos.zones,
-  );
-  await service.materializeTemplate(template.id, companyId);
-
-  // Bind a default workspace directory so the seeded company can run file/shell
-  // tools out of the box (best-effort: a provisioning failure must not block
-  // first-run seeding — the runtime re-ensures this lazily on first chat).
-  await ensureCompanyWorkspaceProjectId(repos, companyId).catch(() => undefined);
 }

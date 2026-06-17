@@ -140,12 +140,17 @@ export function ProviderPane({
     getPreferredProviderId(),
   );
   const companyId = useUiState((s) => s.companyId);
+  const projectId = useUiState((s) => s.projectId);
   const product = form.watch('product');
   const providerBridgeAvailable = isDesktopProviderBridgeAvailable();
 
   const active = resolveActiveProviderConfig(configs, activeConfigId);
+  const isClaudeLocalAuth =
+    active.authMode === 'local-auth' && active.executionLane === 'claude-agent-sdk';
   const isManaged = active.accessMode === 'managed';
-  const isHostResolved = active.accessMode === 'host-resolved' || active.accessMode === 'managed';
+  const credentialsManagedByHost = isManaged || isClaudeLocalAuth;
+  const isHostResolved =
+    active.accessMode === 'host-resolved' || active.accessMode === 'managed' || isClaudeLocalAuth;
   const effectiveChatConfigId = resolveEffectiveChatConfigId(configs, preferredProviderId);
   const inUseForChat = effectiveChatConfigId === active.id;
   const modelSuggestions = useMemo(() => modelSuggestionsFromConfigs(configs), [configs]);
@@ -160,8 +165,9 @@ export function ProviderPane({
     ? safeErrorMessage(providerConfigsQuery.error)
     : null;
 
-  const effectiveEndpoint =
-    active.endpointKind === 'messages'
+  const effectiveEndpoint = isClaudeLocalAuth
+    ? 'Claude Code local account'
+    : active.endpointKind === 'messages'
       ? `${active.credentialDestination.replace(/\/$/u, '')}/v1/messages`
       : `${active.credentialDestination.replace(/\/$/u, '')}/v1/chat/completions`;
 
@@ -181,6 +187,7 @@ export function ProviderPane({
         text: 'Reply with exactly: ok',
         requestId: createProviderTestRequestId(active.id),
         maxOutputTokens: 32,
+        projectId,
       });
       setTestMessage({
         tone: 'ok',
@@ -200,6 +207,12 @@ export function ProviderPane({
   }
 
   async function handleUseForChat() {
+    if (isClaudeLocalAuth) {
+      toast.error('Claude Code local account is text-only in Settings', {
+        description: 'Main chat still uses stored-key gateway profiles.',
+      });
+      return;
+    }
     if (!active.hasStoredKey) {
       toast.error(`${active.displayName} has no stored key`, {
         description: 'Save an API key for this provider before using it for chat.',
@@ -253,8 +266,8 @@ export function ProviderPane({
             <div className="min-w-0">
               <div className="off-set-pv-name">
                 {active.displayName}
-                <StatusPill tone={active.hasStoredKey ? 'ok' : 'muted'}>
-                  {active.hasStoredKey ? 'Connected' : 'No key'}
+                <StatusPill tone={active.hasStoredKey || isClaudeLocalAuth ? 'ok' : 'muted'}>
+                  {isClaudeLocalAuth ? 'Local auth' : active.hasStoredKey ? 'Connected' : 'No key'}
                 </StatusPill>
                 {inUseForChat ? <StatusPill tone="accent">In use for chat</StatusPill> : null}
               </div>
@@ -311,10 +324,12 @@ export function ProviderPane({
           <CapsLabel>Credentials</CapsLabel>
         </div>
         <CardBlock>
-          {isManaged ? (
+          {credentialsManagedByHost ? (
             <div className="off-set-callout is-muted">
               <Icon icon={Info} size="sm" />
-              Credentials managed by host.
+              {isClaudeLocalAuth
+                ? 'Uses the signed-in Claude Code account on this Mac. No API key is stored.'
+                : 'Credentials managed by host.'}
             </div>
           ) : (
             <div className="off-field">

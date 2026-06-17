@@ -18,6 +18,7 @@ commands.allow = [
   "git_exec",
   "open_local_path",
   "ensure_company_workspace",
+  "delete_company_workspace",
   "runtime_vault_status",
   "open_runtime_vault_folder",
   "runtime_vault_read_file",

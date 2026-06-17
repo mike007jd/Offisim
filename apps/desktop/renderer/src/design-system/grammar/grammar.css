@@ -422,6 +422,19 @@
   color: var(--off-ink-1);
 }
 
+.off-menu-item.is-danger {
+  color: var(--off-danger);
+}
+
+.off-menu-item.is-danger svg {
+  color: var(--off-danger);
+}
+
+.off-menu-item.is-danger[data-highlighted] {
+  background: var(--off-danger-surface);
+  color: var(--off-danger);
+}
+
 .off-menu-item[data-disabled] {
   pointer-events: none;
   opacity: 0.5;

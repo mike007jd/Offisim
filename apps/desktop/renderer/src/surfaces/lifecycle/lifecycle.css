@@ -174,7 +174,7 @@
 .off-csp-row-acts {
   display: flex;
   align-items: center;
-  gap: var(--off-sp-2);
+  gap: var(--off-sp-1);
   flex: none;
   min-width: 24px;
   justify-content: flex-end;
@@ -213,6 +213,16 @@
 .off-csp-pencil:hover {
   background: var(--off-surface-sunken);
   color: var(--off-ink-1);
+}
+
+.off-csp-menu-btn {
+  color: var(--off-ink-3);
+}
+
+.off-csp-menu-btn:hover,
+.off-csp-menu-btn[data-state="open"] {
+  color: var(--off-ink-1);
+  background: var(--off-surface-sunken);
 }
 
 .off-csp-active {
@@ -277,9 +287,9 @@
 
 .off-csp-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: var(--off-sp-5);
+  gap: var(--off-sp-2);
 }
 
 .off-csp-hero-id {

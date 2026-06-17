@@ -11,6 +11,9 @@ export interface RuntimeProviderProfile {
   model: string;
   baseUrl: string;
   secretRef: string;
+  authScheme?: string;
+  executionLane?: string;
+  authMode?: string;
   localEndpoint: boolean;
   hasCredential: boolean;
 }
@@ -97,6 +100,10 @@ interface ChatProviderCandidate {
 
 function candidateHasCredential(candidate: ChatProviderCandidate): boolean {
   return candidate.hasCredential === true || candidate.hasStoredKey === true;
+}
+
+function isClaudeLocalAuthProfile(profile: RuntimeProviderProfile): boolean {
+  return profile.executionLane === 'claude-agent-sdk' && profile.authMode === 'local-auth';
 }
 
 export function selectDefaultChatProvider<T extends ChatProviderCandidate>(
@@ -232,6 +239,18 @@ export function extractProviderUsage(raw: string): ProviderUsage | null {
 export function safeErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === 'string') return error;
+  if (error && typeof error === 'object') {
+    const record = error as Record<string, unknown>;
+    for (const key of ['message', 'error', 'reason', 'detail']) {
+      const value = record[key];
+      if (typeof value === 'string' && value.trim()) return value;
+    }
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return String(error);
+    }
+  }
   return 'Unknown provider error';
 }
 
@@ -240,12 +259,14 @@ export async function sendProviderText({
   text,
   requestId,
   maxOutputTokens,
+  projectId,
   signal,
 }: {
   profile: RuntimeProviderProfile;
   text: string;
   requestId: string;
   maxOutputTokens: number;
+  projectId?: string | null;
   signal?: AbortSignal;
 }): Promise<string> {
   const result = await sendProviderTextDetailed({
@@ -253,9 +274,152 @@ export async function sendProviderText({
     text,
     requestId,
     maxOutputTokens,
+    projectId,
     signal,
   });
   return result.text;
+}
+
+type ClaudeAgentHostEvent =
+  | { kind: 'result'; response: unknown }
+  | { kind: 'error'; code: string; message: string };
+
+function providerUsageFromLlmUsage(rawUsage: unknown): ProviderUsage | null {
+  if (!rawUsage || typeof rawUsage !== 'object') return null;
+  const usage = rawUsage as Record<string, unknown>;
+  return {
+    inputTokens: numberField(usage.inputTokens ?? usage.input_tokens),
+    outputTokens: numberField(usage.outputTokens ?? usage.output_tokens),
+    cacheReadInputTokens: numberField(usage.cacheReadInputTokens ?? usage.cache_read_input_tokens),
+    cacheCreationInputTokens: numberField(
+      usage.cacheCreationInputTokens ?? usage.cache_creation_input_tokens,
+    ),
+    raw: rawUsage,
+  };
+}
+
+function claudeAgentResponseEnvelope(response: unknown): {
+  text: string;
+  usage: ProviderUsage | null;
+  raw: string;
+} {
+  const raw = JSON.stringify(response);
+  if (!response || typeof response !== 'object') {
+    throw new Error('Claude Code local account returned an invalid response.');
+  }
+  const envelope = response as {
+    ok?: boolean;
+    response?: unknown;
+    error?: { message?: string; code?: string };
+  };
+  if (envelope.ok === false) {
+    throw new Error(
+      envelope.error?.message || envelope.error?.code || 'Claude Code local account failed.',
+    );
+  }
+  const body = envelope.response ?? response;
+  if (!body || typeof body !== 'object') {
+    throw new Error('Claude Code local account returned an empty response.');
+  }
+  const llm = body as { content?: unknown; usage?: unknown };
+  const text = typeof llm.content === 'string' ? llm.content.trim() : '';
+  return {
+    text: text || 'Provider returned an empty response.',
+    usage: providerUsageFromLlmUsage(llm.usage),
+    raw,
+  };
+}
+
+async function sendClaudeAgentTextDetailed({
+  profile,
+  text,
+  requestId,
+  maxOutputTokens,
+  projectId,
+  signal,
+}: {
+  profile: RuntimeProviderProfile;
+  text: string;
+  requestId: string;
+  maxOutputTokens: number;
+  projectId?: string | null;
+  signal?: AbortSignal;
+}): Promise<ProviderSendResult> {
+  if (!projectId?.trim()) {
+    throw new Error('Enter a company workspace before testing Claude Code local account.');
+  }
+  if (signal?.aborted) {
+    throw new DOMException('Aborted', 'AbortError');
+  }
+
+  const { Channel, invoke } = await import('@tauri-apps/api/core');
+  const abortClaudeAgent = () => {
+    void invoke('claude_agent_abort', { requestId }).catch(() => undefined);
+  };
+
+  const response = await new Promise<unknown>((resolve, reject) => {
+    let settled = false;
+    let onAbort: (() => void) | null = null;
+    const cleanup = () => {
+      if (onAbort && signal) {
+        signal.removeEventListener('abort', onAbort);
+        onAbort = null;
+      }
+    };
+    const settle = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      fn();
+    };
+
+    const onEvent = new Channel<ClaudeAgentHostEvent>((event) => {
+      if (event.kind === 'result') {
+        settle(() => resolve(event.response));
+        return;
+      }
+      settle(() => reject(new Error(event.message)));
+    });
+
+    if (signal) {
+      onAbort = () => {
+        abortClaudeAgent();
+        settle(() => reject(new DOMException('Aborted', 'AbortError')));
+      };
+      signal.addEventListener('abort', onAbort, { once: true });
+      if (signal.aborted) {
+        onAbort();
+        return;
+      }
+    }
+
+    void invoke('claude_agent_execute', {
+      req: {
+        requestId,
+        providerProfileId: profile.id,
+        projectId,
+        credentialMode: 'local-auth',
+        request: {
+          messages: [{ role: 'user', content: text }],
+          model: profile.model,
+          maxTokens: maxOutputTokens,
+          tools: [],
+          timeoutMs: 120000,
+        },
+      },
+      onEvent,
+    }).catch((error) => {
+      settle(() => reject(new Error(safeErrorMessage(error))));
+    });
+  });
+
+  const parsed = claudeAgentResponseEnvelope(response);
+  return {
+    text: parsed.text,
+    raw: parsed.raw,
+    status: 200,
+    usage: parsed.usage,
+  };
 }
 
 export async function sendProviderTextDetailed({
@@ -263,14 +427,26 @@ export async function sendProviderTextDetailed({
   text,
   requestId,
   maxOutputTokens,
+  projectId,
   signal,
 }: {
   profile: RuntimeProviderProfile;
   text: string;
   requestId: string;
   maxOutputTokens: number;
+  projectId?: string | null;
   signal?: AbortSignal;
 }): Promise<ProviderSendResult> {
+  if (isClaudeLocalAuthProfile(profile)) {
+    return sendClaudeAgentTextDetailed({
+      profile,
+      text,
+      requestId,
+      maxOutputTokens,
+      projectId,
+      signal,
+    });
+  }
   if (!profile.hasCredential) {
     throw new Error('No provider credential stored on this device.');
   }

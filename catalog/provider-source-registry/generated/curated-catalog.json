@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-16T12:47:07.413Z",
+  "generatedAt": "2026-06-17T10:25:18.162Z",
   "providers": {
     "anthropic-default": {
       "authMode": "api-key",
@@ -40,22 +40,6 @@
           },
           "status": "current"
         },
-        "claude-opus-4-20250514": {
-          "capabilities": {
-            "functionCalling": true,
-            "reasoning": true
-          },
-          "contextWindow": 200000,
-          "displayName": "Claude Opus 4 (retiring)",
-          "maxOutputTokens": 32000,
-          "pricing": {
-            "inputCostPerToken": 0.000015,
-            "outputCostPerToken": 0.000075
-          },
-          "retiresOn": "2026-06-15",
-          "sourceUrl": "https://platform.claude.com/docs/en/about-claude/model-deprecations",
-          "status": "retired"
-        },
         "claude-opus-4-8": {
           "capabilities": {
             "functionCalling": true,
@@ -69,22 +53,6 @@
             "outputCostPerToken": 0.000025
           },
           "status": "current"
-        },
-        "claude-sonnet-4-20250514": {
-          "capabilities": {
-            "functionCalling": true,
-            "reasoning": true
-          },
-          "contextWindow": 1000000,
-          "displayName": "Claude Sonnet 4 (retiring)",
-          "maxOutputTokens": 64000,
-          "pricing": {
-            "inputCostPerToken": 0.000003,
-            "outputCostPerToken": 0.000015
-          },
-          "retiresOn": "2026-06-15",
-          "sourceUrl": "https://platform.claude.com/docs/en/about-claude/model-deprecations",
-          "status": "retired"
         },
         "claude-sonnet-4-6": {
           "capabilities": {
@@ -1542,9 +1510,10 @@
           },
           "contextWindow": 1048576,
           "displayName": "DeepSeek: DeepSeek V4 Flash",
+          "maxOutputTokens": 65536,
           "pricing": {
-            "inputCostPerToken": 9.8e-8,
-            "outputCostPerToken": 1.96e-7
+            "inputCostPerToken": 9e-8,
+            "outputCostPerToken": 1.8e-7
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -2904,9 +2873,9 @@
           },
           "contextWindow": 262144,
           "displayName": "MoonshotAI: Kimi K2.7 Code",
-          "maxOutputTokens": 262144,
+          "maxOutputTokens": 16384,
           "pricing": {
-            "inputCostPerToken": 7.5e-7,
+            "inputCostPerToken": 7.4e-7,
             "outputCostPerToken": 0.0000035
           },
           "supportedEndpoints": [
@@ -3128,7 +3097,7 @@
           "maxOutputTokens": 16384,
           "pricing": {
             "inputCostPerToken": 5e-7,
-            "outputCostPerToken": 0.0000025
+            "outputCostPerToken": 0.0000022
           },
           "supportedEndpoints": [
             "chat_completions",
@@ -5783,6 +5752,23 @@
           "pricing": {
             "inputCostPerToken": 9.8e-7,
             "outputCostPerToken": 0.00000308
+          },
+          "supportedEndpoints": [
+            "chat_completions",
+            "responses"
+          ]
+        },
+        "z-ai/glm-5.2": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 1048576,
+          "displayName": "Z.ai: GLM 5.2",
+          "maxOutputTokens": 262144,
+          "pricing": {
+            "inputCostPerToken": 0.0000014,
+            "outputCostPerToken": 0.0000044
           },
           "supportedEndpoints": [
             "chat_completions",

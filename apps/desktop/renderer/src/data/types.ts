@@ -365,5 +365,7 @@ export interface UnfinishedThread {
   companyId: string;
   projectId: string;
   name: string;
+  companyName?: string;
+  projectName?: string;
   state: UnfinishedThreadState;
 }

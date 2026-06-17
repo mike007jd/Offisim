@@ -233,6 +233,10 @@ pub struct RuntimeProviderProfile {
     pub(crate) base_url: String,
     pub(crate) secret_ref: String,
     pub(crate) auth_scheme: String,
+    #[serde(default = "default_execution_lane")]
+    pub(crate) execution_lane: String,
+    #[serde(default = "default_auth_mode")]
+    pub(crate) auth_mode: String,
     pub(crate) allowed_host: String,
     pub(crate) local_endpoint: bool,
     #[serde(default)]
@@ -251,6 +255,18 @@ pub struct RuntimeProviderProfileUpsertRequest {
     secret_ref: Option<String>,
     #[serde(default)]
     local_endpoint: Option<bool>,
+    #[serde(default)]
+    execution_lane: Option<String>,
+    #[serde(default)]
+    auth_mode: Option<String>,
+}
+
+fn default_execution_lane() -> String {
+    "gateway".to_string()
+}
+
+fn default_auth_mode() -> String {
+    "api-key".to_string()
 }
 
 fn provider_profiles_path() -> Result<PathBuf, String> {
@@ -288,7 +304,10 @@ fn is_local_endpoint_url(base_url: &str) -> bool {
         .unwrap_or(false)
 }
 
-fn auth_scheme_for(provider: &str, base_url: &str) -> String {
+fn auth_scheme_for(provider: &str, base_url: &str, auth_mode: &str) -> String {
+    if auth_mode == "local-auth" {
+        return "local-auth".into();
+    }
     if provider == "anthropic" {
         if let Ok(parsed) = url::Url::parse(base_url) {
             if parsed
@@ -303,12 +322,37 @@ fn auth_scheme_for(provider: &str, base_url: &str) -> String {
     "bearer".into()
 }
 
+fn normalize_execution_lane(value: &str) -> Result<String, String> {
+    let trimmed = value.trim();
+    match trimmed {
+        "" | "gateway" => Ok("gateway".into()),
+        "claude-agent-sdk" | "codex-agent-sdk" | "openai-agents-sdk" => Ok(trimmed.into()),
+        _ => Err(format!(
+            "provider profile executionLane is unsupported: {trimmed}"
+        )),
+    }
+}
+
+fn normalize_auth_mode(value: &str) -> Result<String, String> {
+    let trimmed = value.trim();
+    match trimmed {
+        "" | "api-key" => Ok("api-key".into()),
+        "local-auth" => Ok("local-auth".into()),
+        _ => Err(format!("provider profile authMode is unsupported: {trimmed}")),
+    }
+}
+
 fn normalize_profile(
     mut profile: RuntimeProviderProfile,
 ) -> Result<RuntimeProviderProfile, String> {
     let base_url = profile.base_url.trim().trim_end_matches('/').to_string();
     if base_url.is_empty() {
         return Err("provider baseURL cannot be empty".into());
+    }
+    let execution_lane = normalize_execution_lane(&profile.execution_lane)?;
+    let auth_mode = normalize_auth_mode(&profile.auth_mode)?;
+    if auth_mode == "local-auth" && execution_lane != "claude-agent-sdk" {
+        return Err("local-auth provider profiles must use the claude-agent-sdk lane".into());
     }
     let allowed_host = host_from_base_url(&base_url)?;
     let parsed =
@@ -323,13 +367,19 @@ fn normalize_profile(
         return Err("local provider profiles must use localhost or loopback host".into());
     }
     profile.base_url = base_url;
+    profile.execution_lane = execution_lane;
+    profile.auth_mode = auth_mode;
     profile.allowed_host = allowed_host;
     profile.local_endpoint = local_endpoint;
-    profile.auth_scheme = auth_scheme_for(&profile.provider, &profile.base_url);
-    profile.has_credential = read_provider_secret(Some(&profile.secret_ref))
-        .ok()
-        .flatten()
-        .is_some();
+    profile.auth_scheme = auth_scheme_for(&profile.provider, &profile.base_url, &profile.auth_mode);
+    profile.has_credential = if profile.auth_mode == "local-auth" {
+        false
+    } else {
+        read_provider_secret(Some(&profile.secret_ref))
+            .ok()
+            .flatten()
+            .is_some()
+    };
     Ok(profile)
 }
 
@@ -406,6 +456,8 @@ fn profile_from_env(
         base_url,
         secret_ref: secret_ref.unwrap_or(id).into(),
         auth_scheme: String::new(),
+        execution_lane: default_execution_lane(),
+        auth_mode: default_auth_mode(),
         allowed_host: String::new(),
         local_endpoint: false,
         has_credential: false,
@@ -413,9 +465,27 @@ fn profile_from_env(
     .ok()
 }
 
+fn claude_code_local_profile() -> Result<RuntimeProviderProfile, String> {
+    normalize_profile(RuntimeProviderProfile {
+        id: "claude-code-local".into(),
+        display_name: "Claude Code Local Account".into(),
+        provider: "anthropic".into(),
+        model: "claude-sonnet-4-6".into(),
+        base_url: "https://api.anthropic.com".into(),
+        secret_ref: "claude-code-local".into(),
+        auth_scheme: String::new(),
+        execution_lane: "claude-agent-sdk".into(),
+        auth_mode: "local-auth".into(),
+        allowed_host: String::new(),
+        local_endpoint: false,
+        has_credential: false,
+    })
+}
+
 #[tauri::command]
 pub fn runtime_provider_profiles() -> Result<Vec<RuntimeProviderProfile>, String> {
-    let mut profiles: Vec<RuntimeProviderProfile> = [
+    let mut profiles: Vec<RuntimeProviderProfile> = vec![claude_code_local_profile()?];
+    profiles.extend([
         profile_from_env(
             "minimax",
             "MiniMax",
@@ -454,8 +524,7 @@ pub fn runtime_provider_profiles() -> Result<Vec<RuntimeProviderProfile>, String
         ),
     ]
     .into_iter()
-    .flatten()
-    .collect();
+    .flatten());
 
     for stored in read_stored_provider_profiles()? {
         if let Some(existing) = profiles.iter_mut().find(|profile| profile.id == stored.id) {
@@ -496,6 +565,8 @@ pub fn runtime_provider_profile_upsert(
         base_url: req.base_url.trim().to_string(),
         secret_ref: req.secret_ref.unwrap_or_else(|| id.to_string()),
         auth_scheme: String::new(),
+        execution_lane: req.execution_lane.unwrap_or_else(default_execution_lane),
+        auth_mode: req.auth_mode.unwrap_or_else(default_auth_mode),
         allowed_host: String::new(),
         local_endpoint: req.local_endpoint.unwrap_or(false),
         has_credential: false,

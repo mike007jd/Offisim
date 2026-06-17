@@ -19,6 +19,8 @@ const SDK_ERROR_STATUS: Record<SDKAssistantMessageError, number | undefined> = {
   unknown: undefined,
   max_output_tokens: 400,
   oauth_org_not_allowed: 403,
+  overloaded: 529,
+  model_not_found: 404,
 };
 
 export interface ClaudeAgentSdkAdapterOptions {
@@ -225,12 +227,15 @@ export class ClaudeAgentSdkAdapter implements LlmGateway {
           settingSources: [],
           systemPrompt,
           tools: [],
+          mcpServers: {},
+          strictMcpConfig: true,
           pathToClaudeCodeExecutable: this.options.pathToClaudeCodeExecutable,
           spawnClaudeCodeProcess: (spawnOptions) =>
             spawn(spawnOptions.command, spawnOptions.args, {
               cwd: spawnOptions.cwd,
               env: {
                 ...spawnOptions.env,
+                CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1',
                 ...buildSdkEnv(this.apiKey, this.options.baseURL),
               },
               signal: spawnOptions.signal,

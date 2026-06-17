@@ -1,18 +1,46 @@
 import { useUiState } from '@/app/ui-state.js';
-import { displayRole } from '@/data/adapters.js';
+import { displayRole, reposOrNull } from '@/data/adapters.js';
 import {
   useCompanies,
   useCompanyEmployees,
+  useDeleteCompany,
   useOfficeLayout,
   useProjects,
   useUpdateCompany,
 } from '@/data/queries.js';
 import type { Company, Employee } from '@/data/types.js';
 import { Icon } from '@/design-system/icons/Icon.js';
+import { Button } from '@/design-system/primitives/button.js';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/design-system/primitives/dialog.js';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/design-system/primitives/dropdown-menu.js';
 import { employeeAvatarUri } from '@/lib/avatar.js';
+import { safeErrorMessage } from '@/lib/provider-bridge.js';
 import { cn } from '@/lib/utils.js';
+import { ensureCompanyWorkspaceProjectId } from '@/runtime/ensure-default-workspace.js';
 import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
-import { Archive, ArrowRight, Building2, FolderPlus, Pencil } from 'lucide-react';
+import {
+  Archive,
+  ArrowRight,
+  Building2,
+  FolderPlus,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+} from 'lucide-react';
 import { motion } from 'motion/react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -29,7 +57,9 @@ interface CompanySelectionPageProps {
 export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps) {
   const companiesQuery = useCompanies();
   const updateCompany = useUpdateCompany();
+  const deleteCompany = useDeleteCompany();
   const setCompany = useUiState((s) => s.setCompany);
+  const setProject = useUiState((s) => s.setProject);
   const setSurface = useUiState((s) => s.setSurface);
   const activeCompanyId = useUiState((s) => s.companyId);
 
@@ -37,6 +67,7 @@ export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps
   const [renameDraft, setRenameDraft] = useState('');
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [confirmArchiveId, setConfirmArchiveId] = useState<string | null>(null);
+  const [enteringId, setEnteringId] = useState<string | null>(null);
 
   const visible = companiesQuery.data ?? [];
 
@@ -77,25 +108,57 @@ export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps
     );
   }
 
-  // The surface switch itself is the feedback — no toast (it collides with
-  // the ResumeBar that appears in the same corner on entry).
-  function enterCompany(company: Company) {
-    setCompany(company.id);
-    setSurface('office');
+  function startRename(company: Company) {
+    setRenameDraft(company.name);
+    setRenamingId(company.id);
   }
 
-  function archiveCompany(company: Company) {
-    if (confirmArchiveId !== company.id) {
+  // The surface switch itself is the feedback — no toast (it collides with
+  // the ResumeBar that appears in the same corner on entry).
+  async function enterCompany(company: Company) {
+    if (enteringId) return;
+    setEnteringId(company.id);
+    try {
+      const repos = await reposOrNull();
+      let projectId: string | null = null;
+      if (repos) {
+        projectId = await ensureCompanyWorkspaceProjectId(repos, company.id);
+      }
+      setCompany(company.id);
+      if (repos) setProject(projectId ?? '');
+      setSurface('office');
+    } catch (error) {
+      toast.error('Project workspace unavailable', {
+        description: error instanceof Error ? error.message : 'Could not bind a project.',
+      });
+    } finally {
+      setEnteringId(null);
+    }
+  }
+
+  function leaveDeletedOrArchivedCompany(company: Company) {
+    const next = visible.find((candidate) => candidate.id !== company.id) ?? null;
+    setPreviewId(next?.id ?? null);
+    setConfirmArchiveId(null);
+    if (activeCompanyId === company.id) {
+      setCompany(next?.id ?? '');
+      setProject('');
+      setSurface('lifecycle');
+    }
+  }
+
+  function archiveCompany(company: Company, requireConfirm = true) {
+    if (requireConfirm && confirmArchiveId !== company.id) {
       setConfirmArchiveId(company.id);
       return;
     }
     setConfirmArchiveId(null);
-    setPreviewId(null);
     updateCompany.mutate(
       { companyId: company.id, fields: { status: 'archived' } },
       {
         onSuccess: (result) => {
           if (result.persisted) {
+            leaveDeletedOrArchivedCompany(company);
             toast.success('Company archived', {
               description: `${company.name} left the active list.`,
             });
@@ -105,6 +168,35 @@ export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps
         },
         onError: () => {
           toast.error('Archive failed');
+        },
+      },
+    );
+  }
+
+  function deleteCompanyNow(company: Company) {
+    deleteCompany.mutate(
+      { companyId: company.id },
+      {
+        onSuccess: (result) => {
+          if (!result.persisted) {
+            toast.error("Can't save in this build.");
+            return;
+          }
+          leaveDeletedOrArchivedCompany(company);
+          if (result.workspaceCleanupError) {
+            toast.warning('Company deleted', {
+              description: `Database records were cleared. App-local workspace cleanup failed: ${result.workspaceCleanupError}`,
+            });
+          } else {
+            toast.success('Company deleted', {
+              description: `${company.name} and its Offisim-managed local history were cleared.`,
+            });
+          }
+        },
+        onError: (error) => {
+          toast.error('Delete failed', {
+            description: safeErrorMessage(error),
+          });
         },
       },
     );
@@ -148,7 +240,6 @@ export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps
                         className="off-csp-rename"
                         value={renameDraft}
                         aria-label={`Rename ${company.name}`}
-                        maxLength={60}
                         // biome-ignore lint/a11y/noAutofocus: rename input must take focus on open
                         autoFocus
                         onChange={(e) => setRenameDraft(e.target.value)}
@@ -180,13 +271,17 @@ export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps
                           type="button"
                           aria-label={`Rename ${company.name}`}
                           className="off-csp-pencil off-focusable"
-                          onClick={() => {
-                            setRenameDraft(company.name);
-                            setRenamingId(company.id);
-                          }}
+                          onClick={() => startRename(company)}
                         >
                           <Icon icon={Pencil} size="sm" />
                         </button>
+                        <CompanyActionsMenu
+                          company={company}
+                          onRename={() => startRename(company)}
+                          onArchive={() => archiveCompany(company, false)}
+                          onDelete={() => deleteCompanyNow(company)}
+                          busy={deleteCompany.isPending || updateCompany.isPending}
+                        />
                       </div>
                     ) : null}
                   </div>
@@ -202,8 +297,13 @@ export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps
           <SelectedCompany
             company={selected}
             confirmArchive={confirmArchiveId === selected.id}
-            onEnter={() => enterCompany(selected)}
+            onEnter={() => void enterCompany(selected)}
+            onRename={() => startRename(selected)}
             onArchive={() => archiveCompany(selected)}
+            onArchiveImmediate={() => archiveCompany(selected, false)}
+            onDelete={() => deleteCompanyNow(selected)}
+            busy={deleteCompany.isPending || updateCompany.isPending}
+            entering={enteringId === selected.id}
           />
         ) : (
           <div className="off-csp-no-sel">Select a company, or create one.</div>
@@ -217,12 +317,22 @@ function SelectedCompany({
   company,
   confirmArchive,
   onEnter,
+  onRename,
   onArchive,
+  onArchiveImmediate,
+  onDelete,
+  busy,
+  entering,
 }: {
   company: Company;
   confirmArchive: boolean;
   onEnter: () => void;
+  onRename: () => void;
   onArchive: () => void;
+  onArchiveImmediate: () => void;
+  onDelete: () => void;
+  busy: boolean;
+  entering: boolean;
 }) {
   const employeesQuery = useCompanyEmployees(company.id);
   const projectsQuery = useProjects(company.id);
@@ -249,10 +359,22 @@ function SelectedCompany({
             <div className="off-csp-brief-tp">{company.templateLabel}</div>
           </div>
         </div>
-        <button type="button" className="off-csp-cta off-focusable" onClick={onEnter}>
-          Enter company
+        <button
+          type="button"
+          className="off-csp-cta off-focusable"
+          onClick={onEnter}
+          disabled={busy || entering}
+        >
+          {entering ? 'Opening…' : 'Enter company'}
           <Icon icon={ArrowRight} size="sm" />
         </button>
+        <CompanyActionsMenu
+          company={company}
+          onRename={onRename}
+          onArchive={onArchiveImmediate}
+          onDelete={onDelete}
+          busy={busy}
+        />
       </header>
 
       <div className="off-csp-stats">
@@ -289,6 +411,92 @@ function SelectedCompany({
         ) : null}
       </div>
     </div>
+  );
+}
+
+function CompanyActionsMenu({
+  company,
+  onRename,
+  onArchive,
+  onDelete,
+  busy,
+}: {
+  company: Company;
+  onRename: () => void;
+  onArchive: () => void;
+  onDelete: () => void;
+  busy: boolean;
+}) {
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="iconSm"
+            className="off-csp-menu-btn"
+            aria-label={`Company actions for ${company.name}`}
+          >
+            <MoreHorizontal />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuLabel>Company</DropdownMenuLabel>
+          <DropdownMenuItem
+            onSelect={(event) => {
+              event.preventDefault();
+              onRename();
+            }}
+          >
+            <Pencil />
+            Rename
+          </DropdownMenuItem>
+          <DropdownMenuItem disabled={busy} onSelect={onArchive}>
+            <Archive />
+            Archive
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            disabled={busy}
+            className="is-danger"
+            onSelect={(event) => {
+              event.preventDefault();
+              setDeleteOpen(true);
+            }}
+          >
+            <Trash2 />
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="off-dialog-w-sm" title="Delete company">
+          <DialogHeader>
+            <DialogTitle>Delete company?</DialogTitle>
+            <DialogDescription>
+              This removes the company, employees, projects, conversations, local run history, and
+              Offisim-managed app-local workspace. External project folders are not deleted.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDeleteOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={busy}
+              onClick={() => {
+                setDeleteOpen(false);
+                onDelete();
+              }}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

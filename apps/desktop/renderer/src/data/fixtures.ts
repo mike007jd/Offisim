@@ -311,6 +311,8 @@ export const unfinishedThreads: UnfinishedThread[] = [
     companyId: 'co-northwind',
     projectId: 'pj-relay',
     name: 'Relay Launch · Team',
+    companyName: 'Northwind AI',
+    projectName: 'Relay Launch',
     state: 'running',
   },
   {
@@ -318,6 +320,8 @@ export const unfinishedThreads: UnfinishedThread[] = [
     companyId: 'co-northwind',
     projectId: 'pj-relay',
     name: 'Orion Audit',
+    companyName: 'Northwind AI',
+    projectName: 'Relay Launch',
     state: 'blocked',
   },
 ];

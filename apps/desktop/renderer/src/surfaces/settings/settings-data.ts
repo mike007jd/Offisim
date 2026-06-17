@@ -43,6 +43,8 @@ export interface ProviderConfig {
   readonly isThinking: boolean;
   readonly hostResolved: boolean;
   readonly secretRef?: string;
+  readonly authMode?: string;
+  readonly executionLane?: string;
 }
 
 export const PRODUCT_OPTIONS = [
@@ -198,6 +200,9 @@ function productForRuntimeProfile(profile: RuntimeProviderProfile): string {
   const name = `${profile.id} ${profile.displayName}`.toLowerCase();
   if (name.includes('minimax')) return 'minimax';
   if (name.includes('z.ai') || name.includes('zai')) return 'zai';
+  if (profile.authMode === 'local-auth' && profile.executionLane === 'claude-agent-sdk') {
+    return 'anthropic';
+  }
   if (name.includes('openrouter')) return 'openrouter';
   if (profile.provider === 'openai') return 'openai';
   if (profile.provider === 'anthropic') return 'anthropic';
@@ -213,6 +218,7 @@ function baseConfigForRuntimeProfile(
   profile: RuntimeProviderProfile,
 ): ProviderConfig {
   const product = productForRuntimeProfile(profile);
+  const hostResolved = profile.localEndpoint || profile.authMode === 'local-auth';
   const fallbackBase = baseConfigs[0] ?? PROVIDER_CONFIGS[0];
   const base =
     baseConfigs.find((candidate) => candidate.id === profile.id) ??
@@ -224,10 +230,13 @@ function baseConfigForRuntimeProfile(
     product,
     displayName: profile.displayName || profile.id,
     logoMark: logoMarkForRuntimeProfile(profile),
-    region: profile.localEndpoint ? 'local' : 'custom',
+    region: hostResolved ? 'local' : 'custom',
+    lane: profile.executionLane || base.lane,
     credentialDestination: profile.baseUrl || base.credentialDestination,
     isThinking: product === 'minimax' || base.isThinking,
     secretRef: profile.secretRef,
+    authMode: profile.authMode,
+    executionLane: profile.executionLane,
   };
 }
 
@@ -235,22 +244,29 @@ function providerConfigFromRuntime(
   base: ProviderConfig,
   profile: RuntimeProviderProfile,
 ): ProviderConfig {
-  const health: ProviderHealth = profile.hasCredential
-    ? profile.localEndpoint
+  const hostResolved = profile.localEndpoint || profile.authMode === 'local-auth';
+  const health: ProviderHealth =
+    profile.authMode === 'local-auth'
       ? 'reachable'
-      : 'active'
-    : 'no-key';
+      : profile.hasCredential
+        ? hostResolved
+          ? 'reachable'
+          : 'active'
+        : 'no-key';
   return {
     ...base,
     displayName: profile.displayName || base.displayName,
     model: profile.model || base.model,
     health,
-    accessMode: profile.localEndpoint ? 'host-resolved' : base.accessMode,
+    accessMode: hostResolved ? 'host-resolved' : base.accessMode,
+    lane: profile.executionLane || base.lane,
     endpointKind: endpointKindForRuntimeProfile(profile),
     credentialDestination: profile.baseUrl || base.credentialDestination,
-    hasStoredKey: profile.hasCredential,
-    hostResolved: profile.localEndpoint,
+    hasStoredKey: profile.authMode === 'local-auth' ? false : profile.hasCredential,
+    hostResolved,
     secretRef: profile.secretRef,
+    authMode: profile.authMode,
+    executionLane: profile.executionLane,
   };
 }
 

@@ -31,10 +31,12 @@ export function ResumeBar() {
   const visibleItems = items.slice(0, 2);
   const overflowItems = items.slice(visibleItems.length);
   const extraCount = overflowItems.length;
+  const scopeText = (item: (typeof items)[number]) =>
+    [item.companyName, item.projectName].filter(Boolean).join(' · ');
   const summary = only
     ? only.state === 'blocked'
-      ? `Review ${only.name}`
-      : `Resume ${only.name}`
+      ? `Review failure: ${only.name}${scopeText(only) ? ` · ${scopeText(only)}` : ''}`
+      : `Resume ${only.name}${scopeText(only) ? ` · ${scopeText(only)}` : ''}`
     : `${items.length} conversations need attention${blocked ? ` · ${blocked} blocked` : ''}`;
 
   function go(item: (typeof items)[number]) {
@@ -46,12 +48,12 @@ export function ResumeBar() {
     if (surface !== 'office') setSurface('office');
     openThread(item.threadId);
     setOverflowOpen(false);
-    dismissResume();
     // A running/queued/paused thread has an unfinished plan — kick the graph to
     // resume from its latest persisted checkpoint (fire-and-forget; the run
     // surfaces through the stage pill + activity log). Blocked threads await
     // human review, so they only navigate.
     if (item.state !== 'blocked') {
+      dismissResume();
       void import('@/runtime/desktop-agent-runtime.js')
         .then(({ getDesktopAgentRuntime }) => getDesktopAgentRuntime(item.companyId))
         .then((runtime) => runtime.resume(item.threadId))
@@ -67,13 +69,13 @@ export function ResumeBar() {
       <span className="off-resume-text">{summary}</span>
       <span className="off-resume-chips">
         {visibleItems.map((item) => {
-          const action = item.state === 'blocked' ? 'Review' : 'Resume';
+          const action = item.state === 'blocked' ? 'Review failure' : 'Resume';
           return (
             <button
               key={item.threadId}
               type="button"
               className={cn('off-resume-chip off-focusable', `is-${item.state}`)}
-              title={`${action} ${item.name}`}
+              title={`${action} ${item.name}${scopeText(item) ? ` · ${scopeText(item)}` : ''}`}
               onClick={() => go(item)}
             >
               <span className="off-resume-chip-text">
@@ -111,9 +113,12 @@ export function ResumeBar() {
                     onClick={() => go(item)}
                   >
                     <span className="off-resume-menu-action">
-                      {item.state === 'blocked' ? 'Review' : 'Resume'}
+                      {item.state === 'blocked' ? 'Review failure' : 'Resume'}
                     </span>
-                    <span className="off-resume-menu-name">{item.name}</span>
+                    <span className="off-resume-menu-name">
+                      {item.name}
+                      {scopeText(item) ? ` · ${scopeText(item)}` : ''}
+                    </span>
                     <Icon icon={ArrowRight} size="sm" />
                   </button>
                 ))}

@@ -7,7 +7,7 @@ import {
   useProjects,
   useThreads,
 } from '@/data/queries.js';
-import type { ChatAttachment, ChatMessage } from '@/data/types.js';
+import type { ChatAttachment, ChatMessage, ChatThread } from '@/data/types.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import {
   EmptyState,
@@ -28,6 +28,7 @@ import {
 } from '@/surfaces/workspace/workspace-message-events.js';
 import { ChevronLeft, Inbox } from 'lucide-react';
 import { useMemo } from 'react';
+import { ConversationActionsMenu } from './rail/ConversationActionsMenu.js';
 import { ThreadList } from './rail/ThreadList.js';
 
 function extensionFromName(name: string): string {
@@ -171,18 +172,21 @@ export function ChatRail() {
         : undefined,
     [activeThread, activeWorkspaceConversation, companyId, projectId, selectedThreadId],
   );
-  const displayThread =
+  const displayThread: ChatThread | null =
     activeThread ??
     (activeWorkspaceConversation && selectedThreadId
       ? {
           id: selectedThreadId,
+          projectId: projectId ?? '',
           title: activeWorkspaceConversation.title,
           subtitle:
             activeWorkspaceConversation.kind === 'group'
               ? `Team conversation · ${activeWorkspaceConversation.members ?? 0} members`
               : activeWorkspaceConversation.snippet,
+          scope: activeWorkspaceConversation.kind === 'group' ? 'team' : 'direct',
           runState: 'idle' as const,
           employeeId: activeWorkspaceConversation.employeeId,
+          updatedAt: Date.now(),
         }
       : null);
   const projectName = projects.data?.find((p) => p.id === projectId)?.name ?? 'Project';
@@ -237,6 +241,15 @@ export function ChatRail() {
             setSurface('workspace');
           }}
         />
+        {activeThread ? (
+          <ConversationActionsMenu
+            thread={activeThread}
+            projectId={projectId}
+            companyId={companyId}
+            onArchived={closeThread}
+            onDeleted={closeThread}
+          />
+        ) : null}
       </header>
 
       {(

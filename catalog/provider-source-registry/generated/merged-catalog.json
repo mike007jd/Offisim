@@ -3008,7 +3008,7 @@
       }
     }
   ],
-  "generatedAt": "2026-06-16T12:47:07.413Z",
+  "generatedAt": "2026-06-17T10:25:18.162Z",
   "providers": {
     "anthropic-default": {
       "fields": {
@@ -3608,14 +3608,6 @@
               },
               "value": 200000
             },
-            "displayName": {
-              "provenance": {
-                "sourceId": "official-fixtures",
-                "sourceKind": "official-static",
-                "trustTier": "official"
-              },
-              "value": "Claude Opus 4 (retiring)"
-            },
             "maxOutputTokens": {
               "provenance": {
                 "sourceId": "litellm",
@@ -3634,30 +3626,6 @@
                 "inputCostPerToken": 0.000015,
                 "outputCostPerToken": 0.000075
               }
-            },
-            "retiresOn": {
-              "provenance": {
-                "sourceId": "official-fixtures",
-                "sourceKind": "official-static",
-                "trustTier": "official"
-              },
-              "value": "2026-06-15"
-            },
-            "sourceUrl": {
-              "provenance": {
-                "sourceId": "official-fixtures",
-                "sourceKind": "official-static",
-                "trustTier": "official"
-              },
-              "value": "https://platform.claude.com/docs/en/about-claude/model-deprecations"
-            },
-            "status": {
-              "provenance": {
-                "sourceId": "official-fixtures",
-                "sourceKind": "official-static",
-                "trustTier": "official"
-              },
-              "value": "retired"
             }
           }
         },
@@ -3992,14 +3960,6 @@
               },
               "value": 1000000
             },
-            "displayName": {
-              "provenance": {
-                "sourceId": "official-fixtures",
-                "sourceKind": "official-static",
-                "trustTier": "official"
-              },
-              "value": "Claude Sonnet 4 (retiring)"
-            },
             "maxOutputTokens": {
               "provenance": {
                 "sourceId": "litellm",
@@ -4018,30 +3978,6 @@
                 "inputCostPerToken": 0.000003,
                 "outputCostPerToken": 0.000015
               }
-            },
-            "retiresOn": {
-              "provenance": {
-                "sourceId": "official-fixtures",
-                "sourceKind": "official-static",
-                "trustTier": "official"
-              },
-              "value": "2026-06-15"
-            },
-            "sourceUrl": {
-              "provenance": {
-                "sourceId": "official-fixtures",
-                "sourceKind": "official-static",
-                "trustTier": "official"
-              },
-              "value": "https://platform.claude.com/docs/en/about-claude/model-deprecations"
-            },
-            "status": {
-              "provenance": {
-                "sourceId": "official-fixtures",
-                "sourceKind": "official-static",
-                "trustTier": "official"
-              },
-              "value": "retired"
             }
           }
         },
@@ -22607,6 +22543,14 @@
               },
               "value": "DeepSeek: DeepSeek V4 Flash"
             },
+            "maxOutputTokens": {
+              "provenance": {
+                "sourceId": "openrouter-live",
+                "sourceKind": "provider-live-api",
+                "trustTier": "community"
+              },
+              "value": 65536
+            },
             "pricing": {
               "provenance": {
                 "sourceId": "openrouter-live",
@@ -22614,8 +22558,8 @@
                 "trustTier": "community"
               },
               "value": {
-                "inputCostPerToken": 9.8e-8,
-                "outputCostPerToken": 1.96e-7
+                "inputCostPerToken": 9e-8,
+                "outputCostPerToken": 1.8e-7
               }
             },
             "supportedEndpoints": {
@@ -27806,7 +27750,7 @@
                 "sourceKind": "provider-live-api",
                 "trustTier": "community"
               },
-              "value": 262144
+              "value": 16384
             },
             "pricing": {
               "provenance": {
@@ -27815,7 +27759,7 @@
                 "trustTier": "community"
               },
               "value": {
-                "inputCostPerToken": 7.5e-7,
+                "inputCostPerToken": 7.4e-7,
                 "outputCostPerToken": 0.0000035
               }
             },
@@ -28627,7 +28571,7 @@
               },
               "value": {
                 "inputCostPerToken": 5e-7,
-                "outputCostPerToken": 0.0000025
+                "outputCostPerToken": 0.0000022
               }
             },
             "supportedEndpoints": {
@@ -38493,6 +38437,67 @@
               "value": {
                 "inputCostPerToken": 9.8e-7,
                 "outputCostPerToken": 0.00000308
+              }
+            },
+            "supportedEndpoints": {
+              "provenance": {
+                "sourceId": "openrouter-live",
+                "sourceKind": "provider-live-api",
+                "trustTier": "community"
+              },
+              "value": [
+                "chat_completions",
+                "responses"
+              ]
+            }
+          }
+        },
+        "z-ai/glm-5.2": {
+          "fields": {
+            "capabilities": {
+              "provenance": {
+                "sourceId": "openrouter-live",
+                "sourceKind": "provider-live-api",
+                "trustTier": "community"
+              },
+              "value": {
+                "functionCalling": true,
+                "reasoning": true
+              }
+            },
+            "contextWindow": {
+              "provenance": {
+                "sourceId": "openrouter-live",
+                "sourceKind": "provider-live-api",
+                "trustTier": "community"
+              },
+              "value": 1048576
+            },
+            "displayName": {
+              "provenance": {
+                "sourceId": "openrouter-live",
+                "sourceKind": "provider-live-api",
+                "trustTier": "community"
+              },
+              "value": "Z.ai: GLM 5.2"
+            },
+            "maxOutputTokens": {
+              "provenance": {
+                "sourceId": "openrouter-live",
+                "sourceKind": "provider-live-api",
+                "trustTier": "community"
+              },
+              "value": 262144
+            },
+            "pricing": {
+              "provenance": {
+                "sourceId": "openrouter-live",
+                "sourceKind": "provider-live-api",
+                "trustTier": "community"
+              },
+              "value": {
+                "inputCostPerToken": 0.0000014,
+                "outputCostPerToken": 0.0000044
               }
             },
             "supportedEndpoints": {

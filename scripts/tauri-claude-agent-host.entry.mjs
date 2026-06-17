@@ -68,8 +68,10 @@ async function main() {
       code: 'invalid-request',
     });
   }
+  const credentialMode = payload.credentialMode === 'local-auth' ? 'local-auth' : 'api-key';
+  const apiKey = credentialMode === 'local-auth' ? undefined : injectedApiKey();
 
-  const adapter = new ClaudeAgentSdkAdapter(injectedApiKey(), {
+  const adapter = new ClaudeAgentSdkAdapter(apiKey, {
     baseURL: asNonEmptyString(process.env.ANTHROPIC_BASE_URL),
     cwd: asNonEmptyString(payload.cwd) ?? process.cwd(),
     pathToClaudeCodeExecutable: resolveClaudeCodeExecutable(),

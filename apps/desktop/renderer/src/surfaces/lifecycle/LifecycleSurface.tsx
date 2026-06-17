@@ -1,6 +1,7 @@
 import { useUiState } from '@/app/ui-state.js';
 import { reposOrNull } from '@/data/adapters.js';
 import { useCompanies } from '@/data/queries.js';
+import { ensureCompanyWorkspaceProjectId } from '@/runtime/ensure-default-workspace.js';
 import { runtimeEventBus } from '@/runtime/repos.js';
 import { ErrorState, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
 import { CompanyTemplateService } from '@offisim/core/browser';
@@ -18,6 +19,7 @@ type LifecycleMode = 'portal' | 'create';
  *  the selection page. A user action (new / dismiss) overrides the derived mode. */
 export function LifecycleSurface() {
   const setCompany = useUiState((s) => s.setCompany);
+  const setProject = useUiState((s) => s.setProject);
   const setSurface = useUiState((s) => s.setSurface);
   const intent = useUiState((s) => s.lifecycleIntent);
   const queryClient = useQueryClient();
@@ -91,10 +93,14 @@ export function LifecycleSurface() {
       throw error;
     }
 
+    const projectId = await ensureCompanyWorkspaceProjectId(repos, companyId);
+
     await queryClient.invalidateQueries({ queryKey: ['companies'] });
     await queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
+    await queryClient.invalidateQueries({ queryKey: ['projects', companyId] });
 
     setCompany(companyId);
+    setProject(projectId ?? '');
     setOverride('portal');
     setSurface(request.openStudio ? 'studio' : 'office');
 

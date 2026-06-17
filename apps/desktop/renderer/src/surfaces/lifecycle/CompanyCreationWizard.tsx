@@ -297,7 +297,6 @@ export function CompanyCreationWizard({
                   placeholder="My AI Company"
                   value={companyName}
                   disabled={busy}
-                  maxLength={60}
                   onChange={(e) => setCompanyName(e.target.value)}
                 />
               </div>

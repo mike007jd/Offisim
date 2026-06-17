@@ -81,17 +81,68 @@ pub async fn ensure_company_workspace<R: Runtime>(
     if company_id.is_empty() {
         return Err("companyId is required".into());
     }
-    let base = app
-        .path()
-        .app_local_data_dir()
-        .map_err(|err| format!("Resolve app local data directory: {err}"))?;
-    let dir = base
-        .join("workspaces")
-        .join(sanitize_workspace_component(company_id));
+    let dir = company_workspace_dir(&app, company_id)?;
     fs::create_dir_all(&dir).map_err(|err| format!("Failed to create company workspace: {err}"))?;
     dir.canonicalize()
         .map_err(|err| format!("Resolve company workspace: {err}"))
         .map(|canonical| canonical.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub async fn delete_company_workspace<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    company_id: String,
+) -> Result<(), String> {
+    let company_id = company_id.trim();
+    if company_id.is_empty() {
+        return Err("companyId is required".into());
+    }
+
+    let parent = company_workspace_parent(&app)?;
+    if !parent.exists() {
+        return Ok(());
+    }
+    let canonical_parent = parent
+        .canonicalize()
+        .map_err(|err| format!("Resolve company workspaces directory: {err}"))?;
+    let dir = company_workspace_dir(&app, company_id)?;
+    if !dir.exists() {
+        return Ok(());
+    }
+
+    let metadata = fs::symlink_metadata(&dir)
+        .map_err(|err| format!("Inspect company workspace before delete: {err}"))?;
+    if metadata.file_type().is_symlink() {
+        return Err("company workspace is a symlink; refusing to delete".into());
+    }
+    let canonical_dir = dir
+        .canonicalize()
+        .map_err(|err| format!("Resolve company workspace before delete: {err}"))?;
+    if canonical_dir == canonical_parent || !canonical_dir.starts_with(&canonical_parent) {
+        return Err("company workspace is outside app data; refusing to delete".into());
+    }
+
+    if metadata.is_dir() {
+        fs::remove_dir_all(&dir).map_err(|err| format!("Delete company workspace: {err}"))?;
+    } else {
+        fs::remove_file(&dir).map_err(|err| format!("Delete company workspace file: {err}"))?;
+    }
+    Ok(())
+}
+
+fn company_workspace_parent<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
+    let base = app
+        .path()
+        .app_local_data_dir()
+        .map_err(|err| format!("Resolve app local data directory: {err}"))?;
+    Ok(base.join("workspaces"))
+}
+
+fn company_workspace_dir<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    company_id: &str,
+) -> Result<PathBuf, String> {
+    Ok(company_workspace_parent(app)?.join(sanitize_workspace_component(company_id)))
 }
 
 /// Reduce a company id to a safe single path component (alphanumerics, `-`, `_`).
@@ -137,13 +188,12 @@ pub(crate) fn is_overbroad_workspace_root(path: &Path) -> bool {
     // be a concrete workspace.
     normals.len() == 2
         && normals[0] == std::ffi::OsStr::new("private")
-        && matches!(
-            normals[1].to_str(),
-            Some("tmp" | "var" | "etc")
-        )
+        && matches!(normals[1].to_str(), Some("tmp" | "var" | "etc"))
 }
 
-pub(crate) fn resolve_project_workspace_root_path(raw_path: impl Into<PathBuf>) -> Result<PathBuf, String> {
+pub(crate) fn resolve_project_workspace_root_path(
+    raw_path: impl Into<PathBuf>,
+) -> Result<PathBuf, String> {
     let raw_path = raw_path.into();
     if is_overbroad_workspace_root(&raw_path) {
         return Err(OVERBROAD_WORKSPACE_ROOT_ERROR.to_string());
@@ -754,7 +804,9 @@ mod tests {
         assert!(is_overbroad_workspace_root(Path::new("/private/tmp")));
         assert!(is_overbroad_workspace_root(Path::new("/private/var")));
         assert!(is_overbroad_workspace_root(Path::new("/private/etc")));
-        assert!(!is_overbroad_workspace_root(Path::new("/private/offisim-project")));
+        assert!(!is_overbroad_workspace_root(Path::new(
+            "/private/offisim-project"
+        )));
         if let Some(home) = dirs::home_dir().and_then(|home| home.canonicalize().ok()) {
             assert!(is_overbroad_workspace_root(&home));
             if let Some(parent) = home.parent() {

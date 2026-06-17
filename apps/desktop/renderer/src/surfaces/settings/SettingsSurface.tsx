@@ -215,6 +215,8 @@ async function persistProviderProfile(config: ProviderConfig, values: ProviderFo
       baseUrl,
       secretRef,
       localEndpoint: isLoopbackEndpoint(baseUrl),
+      executionLane: config.executionLane ?? config.lane,
+      authMode: config.authMode ?? 'api-key',
     },
   });
 }

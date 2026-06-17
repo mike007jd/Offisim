@@ -134,6 +134,27 @@ function entityFromPayload(
   };
 }
 
+function stringField(
+  payload: Record<string, ActivityPayloadValue>,
+  keys: readonly string[],
+): string | null {
+  for (const key of keys) {
+    const value = payload[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return null;
+}
+
+function firstLine(value: string | null): string | null {
+  if (!value) return null;
+  const line = value.split(/\r?\n/).find((part) => part.trim());
+  return line?.trim() ?? null;
+}
+
+function commandFromMcpArguments(args: Record<string, ActivityPayloadValue>): string | null {
+  return stringField(args, ['command', 'cmd', 'script', 'input', 'query', 'path']);
+}
+
 async function loadRuntimeActivityRecords(companyId: string): Promise<ActivityRecord[]> {
   const db = await getTauriDb();
   const [runtimeRows, agentRows, mcpRows] = await Promise.all([
@@ -200,20 +221,27 @@ async function loadRuntimeActivityRecords(companyId: string): Promise<ActivityRe
   const mcpRecords: ActivityRecord[] = mcpRows.map((row) => {
     const args = parsePayload(row.arguments_json);
     const result = parsePayload(row.result_json);
+    const command = commandFromMcpArguments(args);
+    const errorSummary = firstLine(row.error);
+    const failureLabel = errorSummary
+      ? `${row.tool_name} failed: ${errorSummary}`
+      : `${row.tool_name} failed`;
     return {
       id: row.audit_id,
       type: row.error ? 'mcp.tool.error' : 'mcp.tool.invoked',
       at: toEventTime(row.created_at),
       actor: row.employee_id,
       entity: {
-        label: `${row.server_name} · ${row.tool_name}`,
+        label: row.error
+          ? `${row.tool_name} failed · ${row.server_name}`
+          : `${row.server_name} · ${row.tool_name}`,
         type: 'mcp-tool',
         id: row.audit_id,
       },
       payload: {
-        message: row.error
-          ? `MCP ${row.tool_name} failed on ${row.server_name}`
-          : `MCP ${row.tool_name} invoked on ${row.server_name}`,
+        message: row.error ? failureLabel : `MCP ${row.tool_name} invoked on ${row.server_name}`,
+        command,
+        errorSummary,
         threadId: row.thread_id,
         employeeId: row.employee_id,
         server: row.server_name,

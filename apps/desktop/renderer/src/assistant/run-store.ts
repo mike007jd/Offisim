@@ -53,6 +53,8 @@ export interface RunToolActivity {
   id: string;
   tool: string;
   state: 'running' | 'done' | 'error';
+  detail?: string;
+  durationMs?: number;
 }
 
 /** Cap on retained `activity` entries. Only the last few ever render, so a long
@@ -99,9 +101,9 @@ interface RunStore {
    */
   requestStop: () => void;
   /** Record that a tool call started (appends a `running` activity entry). */
-  noteToolCalled: (tool: string) => void;
+  noteToolCalled: (tool: string, detail?: string) => void;
   /** Resolve the most recent `running` entry for a tool to done/error. */
-  noteToolResult: (tool: string, success: boolean) => void;
+  noteToolResult: (tool: string, success: boolean, detail?: string, durationMs?: number) => void;
   /** Surface a real run failure into the in-thread error banner. */
   setError: (error: RunError) => void;
   /** Clear the error banner. */
@@ -186,18 +188,18 @@ export const useRunStore = create<RunStore>((set, get) => ({
     });
   },
 
-  noteToolCalled: (tool) =>
+  noteToolCalled: (tool, detail) =>
     set((s) => {
       const total = s.activityTotal + 1;
       // Id is keyed off the monotonic total so it stays unique past eviction.
       const activity = [
         ...s.activity,
-        { id: `act-${total}-${tool}`, tool, state: 'running' as const },
+        { id: `act-${total}-${tool}`, tool, state: 'running' as const, detail },
       ].slice(-MAX_ACTIVITY_ENTRIES);
       return { activity, activityTotal: total };
     }),
 
-  noteToolResult: (tool, success) =>
+  noteToolResult: (tool, success, detail, durationMs) =>
     set((s) => {
       // Resolve the latest still-running entry for this tool name.
       let target = -1;
@@ -211,7 +213,12 @@ export const useRunStore = create<RunStore>((set, get) => ({
       return {
         activity: s.activity.map((entry, i) =>
           i === target
-            ? { ...entry, state: success ? ('done' as const) : ('error' as const) }
+            ? {
+                ...entry,
+                state: success ? ('done' as const) : ('error' as const),
+                detail: detail ?? entry.detail,
+                durationMs,
+              }
             : entry,
         ),
       };

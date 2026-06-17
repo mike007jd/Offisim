@@ -41,18 +41,6 @@
         "claude-haiku-4-5": {
           "displayName": "Claude Haiku 4.5",
           "status": "current"
-        },
-        "claude-sonnet-4-20250514": {
-          "displayName": "Claude Sonnet 4 (retiring)",
-          "status": "retired",
-          "retiresOn": "2026-06-15",
-          "sourceUrl": "https://platform.claude.com/docs/en/about-claude/model-deprecations"
-        },
-        "claude-opus-4-20250514": {
-          "displayName": "Claude Opus 4 (retiring)",
-          "status": "retired",
-          "retiresOn": "2026-06-15",
-          "sourceUrl": "https://platform.claude.com/docs/en/about-claude/model-deprecations"
         }
       }
     },

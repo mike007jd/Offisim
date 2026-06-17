@@ -156,6 +156,7 @@ pub fn run() {
             git::git_exec,
             local_paths::open_local_path,
             local_paths::ensure_company_workspace,
+            local_paths::delete_company_workspace,
             local_paths::runtime_vault_status,
             local_paths::open_runtime_vault_folder,
             local_paths::runtime_vault_read_file,
