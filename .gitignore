@@ -54,6 +54,7 @@ Docs/design/.audit-*.png
 test-*.mjs
 apps/desktop/src-tauri/resources/claude-agent-host.mjs
 apps/desktop/src-tauri/resources/claude-code-native/
+apps/desktop/src-tauri/resources/node/
 .gitnexus
 
 # Review/feedback dumps (local-only, not shared)
