@@ -151,11 +151,11 @@ export class PiOrchestrationService {
   }): Promise<PiExecuteResult | null> {
     const store = this.deps.messageStore;
     if (!store) return null;
-    const transcript = await store.loadTranscript(input.threadId);
-    const last = transcript[transcript.length - 1];
-    // Empty, or a completed turn (ends with an assistant message) → nothing to resume.
-    if (!last || last.role === 'assistant') return null;
     return this.withThreadLock(input.threadId, async () => {
+      const transcript = await store.loadTranscript(input.threadId);
+      const last = transcript[transcript.length - 1];
+      // Empty, or a completed turn (ends with an assistant message) → nothing to resume.
+      if (!last || last.role === 'assistant') return null;
       const { runtimeCtx } = this.deps;
       // Resume as the worker that owned this thread (persisted per row); the
       // caller's employeeId hint wins when provided.
@@ -164,6 +164,12 @@ export class PiOrchestrationService {
       const employee = ownerId ? await runtimeCtx.repos.employees.findById(ownerId) : null;
       const company = await runtimeCtx.repos.companies.findById(input.companyId);
       if (!company) throw new Error(`Company ${input.companyId} not found`);
+      if (ownerId && !employee) {
+        throw new Error(`Employee ${ownerId} not found`);
+      }
+      if (employee && employee.company_id !== input.companyId) {
+        throw new Error(`Employee ${ownerId} does not belong to company ${input.companyId}`);
+      }
       return this.runWorker({
         companyId: input.companyId,
         threadId: input.threadId,
@@ -202,6 +208,9 @@ export class PiOrchestrationService {
     }
     if (input.employeeId && !employee) {
       throw new Error(`Employee ${input.employeeId} not found`);
+    }
+    if (employee && employee.company_id !== input.companyId) {
+      throw new Error(`Employee ${input.employeeId} does not belong to company ${input.companyId}`);
     }
 
     return this.runWorker({
@@ -285,7 +294,7 @@ export class PiOrchestrationService {
       },
       streamFn: this.deps.streamFn,
       transformContext,
-      toolExecution: 'sequential',
+      toolExecution: 'parallel',
     });
 
     // Propagate the parent's abort to this sub-agent so cancelling the boss
@@ -413,7 +422,14 @@ export class PiOrchestrationService {
     const { runtimeCtx } = this.deps;
     const existing = await runtimeCtx.repos.threads.findById(params.threadId);
     if (existing) {
+      if (existing.company_id !== params.companyId) {
+        throw new Error(`Thread ${params.threadId} does not belong to company ${params.companyId}`);
+      }
       await runtimeCtx.repos.threads.updateStatus(params.threadId, 'running');
+      const nextProjectId = params.projectId ?? null;
+      if ((existing.project_id ?? null) !== nextProjectId) {
+        await runtimeCtx.repos.threads.updateProject(params.threadId, nextProjectId);
+      }
       return;
     }
     await runtimeCtx.repos.threads.create({

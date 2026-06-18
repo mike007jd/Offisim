@@ -1,6 +1,6 @@
 import type { PiMessageRepository, PiMessageRow } from '@offisim/core/browser';
 import * as schema from '@offisim/db-local';
-import { asc, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, lte, sql } from 'drizzle-orm';
 import type { TauriDrizzleDb } from '../tauri-drizzle';
 
 export interface PiMessagesTauriRepos {
@@ -35,6 +35,22 @@ export function createPiMessagesTauriRepos(db: TauriDrizzleDb): PiMessagesTauriR
         .orderBy(desc(schema.piMessages.seq))
         .limit(1)) as Array<{ employee_id: string | null }>;
       return rows[0]?.employee_id ?? null;
+    },
+    async deleteFirstByThread(threadId: string, count: number): Promise<void> {
+      if (count <= 0) return;
+      const prefix = (await db
+        .select({ seq: schema.piMessages.seq })
+        .from(schema.piMessages)
+        .where(eq(schema.piMessages.thread_id, threadId))
+        .orderBy(asc(schema.piMessages.seq))
+        .limit(count)) as Array<{ seq: number }>;
+      const cutoffSeq = prefix.at(-1)?.seq;
+      if (cutoffSeq === undefined) return;
+      await db
+        .delete(schema.piMessages)
+        .where(
+          and(eq(schema.piMessages.thread_id, threadId), lte(schema.piMessages.seq, cutoffSeq)),
+        );
     },
     async deleteByThread(threadId: string): Promise<void> {
       await db.delete(schema.piMessages).where(eq(schema.piMessages.thread_id, threadId));

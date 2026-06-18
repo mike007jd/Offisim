@@ -2,8 +2,11 @@ import { useUiState } from '@/app/ui-state.js';
 import { useUnfinishedThreads } from '@/data/queries.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
+import { ensureProjectBoundForRun } from '@/runtime/ensure-default-workspace.js';
+import { getRepos } from '@/runtime/repos.js';
 import { ArrowRight, History, X } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { toast } from 'sonner';
 
 /**
  * Top-of-window banner that surfaces unfinished work from a previous session.
@@ -13,13 +16,13 @@ import { useState } from 'react';
  */
 export function ResumeBar() {
   const [overflowOpen, setOverflowOpen] = useState(false);
+  const resumeSeq = useRef(0);
   const unfinished = useUnfinishedThreads();
   const dismissed = useUiState((s) => s.resumeDismissed);
   const dismissResume = useUiState((s) => s.dismissResume);
   const surface = useUiState((s) => s.surface);
   const setSurface = useUiState((s) => s.setSurface);
-  const setCompany = useUiState((s) => s.setCompany);
-  const setProject = useUiState((s) => s.setProject);
+  const setScope = useUiState((s) => s.setScope);
   const openThread = useUiState((s) => s.openThread);
 
   const items = unfinished.data ?? [];
@@ -39,28 +42,70 @@ export function ResumeBar() {
       : `Resume ${only.name}${scopeText(only) ? ` · ${scopeText(only)}` : ''}`
     : `${items.length} conversations need attention${blocked ? ` · ${blocked} blocked` : ''}`;
 
+  async function resolveResumeProjectId(item: (typeof items)[number]): Promise<string | null> {
+    const repos = await getRepos();
+    const company = await repos.companies.findById(item.companyId);
+    if (!company) throw new Error('Company no longer exists.');
+    if (item.state === 'blocked') {
+      const projectId = item.projectId.trim() || null;
+      if (!projectId) return null;
+      const project = await repos.projects.findById(projectId);
+      if (!project) throw new Error('Project no longer exists.');
+      if (project.company_id !== item.companyId) {
+        throw new Error('Project does not belong to company.');
+      }
+      return projectId;
+    }
+    return ensureProjectBoundForRun(repos, item.companyId, item.projectId || null);
+  }
+
   function go(item: (typeof items)[number]) {
-    // Point breadcrumbs at the thread's own scope before opening it, so the
-    // top bar doesn't read the wrong company/project. setProject clears the
-    // thread selection, so openThread must follow it.
-    setCompany(item.companyId);
-    setProject(item.projectId);
-    if (surface !== 'office') setSurface('office');
-    openThread(item.threadId);
+    // Point breadcrumbs at the thread's own scope before opening it, then open
+    // the thread after setScope clears any stale selection.
+    const seq = ++resumeSeq.current;
     setOverflowOpen(false);
+    void resolveResumeProjectId(item)
+      .then((projectId) => {
+        if (seq !== resumeSeq.current) return;
+        setScope(item.companyId, projectId ?? '');
+        if (surface !== 'office') setSurface('office');
+        openThread(item.threadId);
+        if (item.state === 'blocked') return;
+        void import('@/runtime/desktop-agent-runtime.js')
+          .then(({ getDesktopAgentRuntime }) => getDesktopAgentRuntime(item.companyId))
+          .then(async (runtime) => {
+            const result = await runtime.resume(item.threadId, projectId);
+            if (seq !== resumeSeq.current) return;
+            dismissResume();
+            if (!result) {
+              toast('Conversation already completed', {
+                description: 'The saved run had no unfinished turn to resume.',
+              });
+            }
+          })
+          .catch((err: unknown) => {
+            if (seq !== resumeSeq.current) return;
+            console.warn('[ResumeBar] resume failed', { threadId: item.threadId, err });
+            toast.error('Conversation resume failed', {
+              description: err instanceof Error ? err.message : 'Could not restart the run.',
+            });
+            void unfinished.refetch();
+          });
+      })
+      .catch((err: unknown) => {
+        if (seq !== resumeSeq.current) return;
+        console.warn('[ResumeBar] could not resolve resume project', {
+          threadId: item.threadId,
+          err,
+        });
+        toast.error("Conversation can't resume", {
+          description: err instanceof Error ? err.message : 'Could not bind a project.',
+        });
+      });
     // A running/queued/paused thread has an unfinished plan — kick the graph to
     // resume from its latest persisted checkpoint (fire-and-forget; the run
     // surfaces through the stage pill + activity log). Blocked threads await
     // human review, so they only navigate.
-    if (item.state !== 'blocked') {
-      dismissResume();
-      void import('@/runtime/desktop-agent-runtime.js')
-        .then(({ getDesktopAgentRuntime }) => getDesktopAgentRuntime(item.companyId))
-        .then((runtime) => runtime.resume(item.threadId))
-        .catch((err: unknown) => {
-          console.warn('[ResumeBar] resume failed', { threadId: item.threadId, err });
-        });
-    }
   }
 
   return (

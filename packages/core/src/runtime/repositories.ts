@@ -1084,6 +1084,8 @@ export interface PiMessageRepository {
   maxSeq(threadId: string): Promise<number>;
   /** `employee_id` of the thread's last row (null = boss / empty) — for resume. */
   lastEmployeeId(threadId: string): Promise<string | null>;
+  /** Delete the oldest persisted rows for a thread, preserving seq values of the remaining tail. */
+  deleteFirstByThread(threadId: string, count: number): Promise<void>;
   deleteByThread(threadId: string): Promise<void>;
 }
 

@@ -1,4 +1,9 @@
-import { type BuiltinTool, type BuiltinToolConfig, isBuiltinToolReadOnly } from './types.js';
+import {
+  type BuiltinTool,
+  type BuiltinToolConfig,
+  fsAdapterOptions,
+  isBuiltinToolReadOnly,
+} from './types.js';
 
 export function createFileWriteTool(config: BuiltinToolConfig): BuiltinTool | null {
   if (config.executionMode === 'browser-limited' || !config.fs) return null;
@@ -30,22 +35,16 @@ export function createFileWriteTool(config: BuiltinToolConfig): BuiltinTool | nu
       }
       const path = args.path as string;
       const content = args.content as string;
-      if (await fs.exists(path, context?.threadId ? { threadId: context.threadId } : undefined)) {
-        const current = await fs.readFile(
-          path,
-          context?.threadId ? { threadId: context.threadId } : undefined,
-        );
+      const options = fsAdapterOptions(context);
+      if (await fs.exists(path, options)) {
+        const current = await fs.readFile(path, options);
         if (args.expectedPreviousContent !== current) {
           throw new Error(
             '[WRITE_REQUIRES_READ_BEFORE_WRITE] Existing file content does not match expectedPreviousContent.',
           );
         }
       }
-      await fs.writeFile(
-        path,
-        content,
-        context?.threadId ? { threadId: context.threadId } : undefined,
-      );
+      await fs.writeFile(path, content, options);
       return `Successfully wrote ${content.length} bytes to ${path}`;
     },
   };

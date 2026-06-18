@@ -1,6 +1,14 @@
-import type { BuiltinTool, BuiltinToolConfig } from './types.js';
+import {
+  type BuiltinTool,
+  type BuiltinToolConfig,
+  type FsAdapterOptions,
+  fsAdapterOptions,
+} from './types.js';
 
 const MAX_RESULTS = 200;
+const MAX_VISITED_FILES = MAX_RESULTS * 5;
+const MAX_VISITED_DIRS = MAX_RESULTS * 5;
+const MAX_TRAVERSAL_MS = 5_000;
 
 export function createGlobTool(config: BuiltinToolConfig): BuiltinTool | null {
   const listDirCandidate = config.fs?.listDir;
@@ -25,7 +33,7 @@ export function createGlobTool(config: BuiltinToolConfig): BuiltinTool | null {
       const root = (args.path as string | undefined) ?? '.';
       const regex = globToRegex(args.pattern as string);
       const matches: string[] = [];
-      await visitFiles(listDir, root, context?.threadId, async (file) => {
+      await visitFiles(listDir, root, fsAdapterOptions(context), async (file) => {
         if (regex.test(file)) matches.push(file);
         return matches.length < MAX_RESULTS;
       });
@@ -75,13 +83,11 @@ export function createGrepTool(config: BuiltinToolConfig): BuiltinTool | null {
       const MAX_LINE_LEN_FOR_REGEX = 4096;
       const results: string[] = [];
       let budgetExhausted = false;
-      await visitFiles(listDir, root, context?.threadId, async (file) => {
+      const options = fsAdapterOptions(context);
+      await visitFiles(listDir, root, options, async (file) => {
         let text = '';
         try {
-          text = await fs.readFile(
-            file,
-            context?.threadId ? { threadId: context.threadId } : undefined,
-          );
+          text = await fs.readFile(file, options);
         } catch {
           return true;
         }
@@ -109,21 +115,31 @@ export function createGrepTool(config: BuiltinToolConfig): BuiltinTool | null {
 async function visitFiles(
   listDir: NonNullable<NonNullable<BuiltinToolConfig['fs']>['listDir']>,
   root: string,
-  threadId: string | undefined,
+  options: FsAdapterOptions | undefined,
   visit: (file: string) => Promise<boolean>,
 ): Promise<void> {
   const queue = [root];
+  let queueIndex = 0;
   let visitedFiles = 0;
-  while (queue.length > 0 && visitedFiles < MAX_RESULTS * 5) {
-    const current = queue.shift();
+  let visitedDirs = 0;
+  const startedAt = Date.now();
+  while (
+    queueIndex < queue.length &&
+    visitedFiles < MAX_VISITED_FILES &&
+    visitedDirs < MAX_VISITED_DIRS &&
+    Date.now() - startedAt <= MAX_TRAVERSAL_MS
+  ) {
+    const current = queue[queueIndex];
+    queueIndex += 1;
     if (current === undefined) break;
-    const entries = await listDir(current, threadId ? { threadId } : undefined);
+    visitedDirs += 1;
+    const entries = await listDir(current, options);
     for (const entry of entries) {
-      if (entry.isDirectory) queue.push(entry.path);
+      if (entry.isDirectory && queue.length < MAX_VISITED_DIRS) queue.push(entry.path);
       if (!entry.isFile) continue;
       visitedFiles += 1;
       const shouldContinue = await visit(entry.path);
-      if (!shouldContinue || visitedFiles >= MAX_RESULTS * 5) return;
+      if (!shouldContinue || visitedFiles >= MAX_VISITED_FILES) return;
     }
   }
 }

@@ -66,14 +66,24 @@ export function OfficeScene2D() {
   );
 
   const threadList = threads.data;
+  const threadByEmployee = useMemo(() => {
+    const map = new Map<string, NonNullable<typeof threadList>[number]>();
+    for (const thread of threadList ?? []) {
+      if (thread.employeeId && !map.has(thread.employeeId)) map.set(thread.employeeId, thread);
+    }
+    return map;
+  }, [threadList]);
+  const selectedEmployeeId = useMemo(
+    () => threadList?.find((t) => t.id === selectedThreadId)?.employeeId,
+    [selectedThreadId, threadList],
+  );
+  const liveThread = useMemo(() => threadList?.find((t) => t.runState === 'running'), [threadList]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-
-    const liveThread = threadList?.find((t) => t.runState === 'running');
 
     const draw = () => {
       const parent = canvas.parentElement;
@@ -150,7 +160,6 @@ export function OfficeScene2D() {
       const clampSpan = (v: number, min: number, max: number) =>
         min > max ? (min + max) / 2 : clamp(v, min, max);
       // The selected employee draws first so its name label always wins a slot.
-      const selectedEmployeeId = threadList?.find((t) => t.id === selectedThreadId)?.employeeId;
       const ordered =
         selectedEmployeeId == null
           ? roster
@@ -161,7 +170,7 @@ export function OfficeScene2D() {
       for (const employee of ordered) {
         const pos = positions.get(employee.id);
         if (!pos) continue;
-        const thread = threadList?.find((t) => t.employeeId === employee.id);
+        const thread = threadByEmployee.get(employee.id);
         const running =
           thread?.runState === 'running' || (liveThread?.scope === 'team' && employee.online);
         const active = Boolean(thread && thread.id === selectedThreadId);
@@ -264,7 +273,17 @@ export function OfficeScene2D() {
     const observer = new ResizeObserver(draw);
     if (canvas.parentElement) observer.observe(canvas.parentElement);
     return () => observer.disconnect();
-  }, [zoneDefs, floorW, floorD, positions, roster, threadList, selectedThreadId]);
+  }, [
+    zoneDefs,
+    floorW,
+    floorD,
+    positions,
+    roster,
+    threadByEmployee,
+    selectedEmployeeId,
+    selectedThreadId,
+    liveThread,
+  ]);
 
   // A zero-zone (empty) office draws the bare floor slab with nobody seated —
   // employeePlacements returns no seats for zero zones; OfficeStage owns the

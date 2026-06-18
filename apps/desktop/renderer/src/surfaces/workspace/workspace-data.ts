@@ -1,5 +1,6 @@
 import { useUiState } from '@/app/ui-state.js';
 import { displayThreadTitle, isTauriRuntime, reposOrNull } from '@/data/adapters.js';
+import { loadProjectChatThreadRows, projectChatThreadRowsQueryKey } from '@/data/queries.js';
 import type { Employee } from '@/data/types.js';
 import { resolveAsync } from '@/lib/platform.js';
 import { getTauriDb } from '@/lib/tauri-db.js';
@@ -687,12 +688,10 @@ const meetings: WsMeeting[] = [
 export function useWsConversations() {
   const projectId = useUiState((s) => s.projectId);
   return useQuery({
-    queryKey: ['ws', 'conversations', projectId],
-    queryFn: async (): Promise<WsConversation[]> => {
-      const repos = await reposOrNull();
-      if (!repos) return resolveAsync(conversations); // browser preview only
-      if (!projectId) return [];
-      const rows = await repos.chatThreads.listByProject(projectId);
+    queryKey: projectChatThreadRowsQueryKey(projectId),
+    queryFn: () => loadProjectChatThreadRows(projectId),
+    select: (rows): WsConversation[] => {
+      if (!isTauriRuntime()) return conversations;
       return rows.map((row) => ({
         id: row.thread_id,
         kind: row.employee_id ? 'direct' : 'group',

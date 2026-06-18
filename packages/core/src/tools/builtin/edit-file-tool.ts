@@ -1,4 +1,9 @@
-import { type BuiltinTool, type BuiltinToolConfig, isBuiltinToolReadOnly } from './types.js';
+import {
+  type BuiltinTool,
+  type BuiltinToolConfig,
+  fsAdapterOptions,
+  isBuiltinToolReadOnly,
+} from './types.js';
 
 export function createEditFileTool(config: BuiltinToolConfig): BuiltinTool | null {
   if (config.executionMode === 'browser-limited' || !config.fs) return null;
@@ -27,7 +32,7 @@ export function createEditFileTool(config: BuiltinToolConfig): BuiltinTool | nul
       const oldString = args.oldString as string;
       const newString = args.newString as string;
       const replaceAll = args.replaceAll === true;
-      const options = context?.threadId ? { threadId: context.threadId } : undefined;
+      const options = fsAdapterOptions(context);
       const current = await fs.readFile(path, options);
       const matches = countMatches(current, oldString);
       if (matches === 0) throw new Error('[EDIT_TARGET_NOT_FOUND] oldString was not found.');

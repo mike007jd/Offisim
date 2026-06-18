@@ -84,6 +84,9 @@ export function createDelegateTool(deps: DelegateToolDeps): AgentTool {
       if (!employee) {
         throw new Error(`No employee with id ${args.employee_id}`);
       }
+      if (employee.company_id !== deps.toolCtx.companyId) {
+        throw new Error(`Employee ${args.employee_id} does not belong to this company`);
+      }
       if (employee.enabled !== 1) {
         throw new Error(`Employee ${employee.name} is disabled and cannot take work`);
       }

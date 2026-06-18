@@ -1,3 +1,4 @@
+import { useUiState } from '@/app/ui-state.js';
 import { reposOrNull } from '@/data/adapters.js';
 import { CapsLabel } from '@/design-system/grammar/index.js';
 import { Icon } from '@/design-system/icons/Icon.js';
@@ -24,6 +25,7 @@ import {
   PROVIDER_CONFIGS,
   type ProviderConfig,
   type ProviderFormValues,
+  type ProviderProtocol,
   RUNTIME_DEFAULTS,
   type RuntimeFormValues,
   type ThemeValue,
@@ -148,11 +150,11 @@ function SettingsCompanion({
         </div>
         <dl className="off-set-comp-list">
           <div>
-            <dt>Model</dt>
-            <dd>{provider.model}</dd>
+            <dt>Account</dt>
+            <dd>{provider.hostResolved ? 'Host-managed' : 'Gateway key'}</dd>
           </div>
           <div>
-            <dt>Endpoint</dt>
+            <dt>Route</dt>
             <dd>{provider.endpointKind}</dd>
           </div>
           <div>
@@ -169,18 +171,29 @@ function SettingsCompanion({
   );
 }
 
-function providerProtocol(
-  config: ProviderConfig,
-  product: string,
-): 'anthropic' | 'openai' | 'openai-compat' {
+function providerProtocol(config: ProviderConfig, product: string): ProviderProtocol {
+  if (product === config.product && config.providerProtocol) return config.providerProtocol;
   if (product !== config.product) {
     if (product === 'anthropic' || product === 'minimax') return 'anthropic';
-    if (product === 'openai') return 'openai';
     return 'openai-compat';
   }
   if (config.endpointKind === 'messages') return 'anthropic';
-  if (product === 'openai') return 'openai';
   return 'openai-compat';
+}
+
+function blockedNativeProviderEndpoint(baseUrl: string): string | null {
+  try {
+    const host = new URL(baseUrl).hostname.toLowerCase();
+    if (host === 'api.openai.com') {
+      return 'OpenAI facade routes through the configured compatible gateway, not api.openai.com.';
+    }
+    if (host === 'api.anthropic.com') {
+      return 'Anthropic facade routes through the configured compatible gateway, not api.anthropic.com.';
+    }
+  } catch {
+    return null;
+  }
+  return null;
 }
 
 function isLoopbackEndpoint(baseUrl: string): boolean {
@@ -202,21 +215,28 @@ async function persistProviderProfile(config: ProviderConfig, values: ProviderFo
   const { invoke } = await import('@tauri-apps/api/core');
   const secretRef = config.secretRef ?? config.id;
   const secret = values.apiKey.trim();
-  if (secret) {
-    await invoke('runtime_secret_set', { secret, secretRef });
-  }
   const baseUrl = providerBaseUrl(config, values);
-  await invoke('runtime_provider_profile_upsert', {
+  const localAuth = config.authMode === 'local-auth' && config.executionLane === 'claude-agent-sdk';
+  const model = values.model.trim() || config.model.trim();
+  const blockedEndpoint = blockedNativeProviderEndpoint(baseUrl);
+  if (blockedEndpoint) {
+    throw new Error(blockedEndpoint);
+  }
+  if (!localAuth && !model) {
+    throw new Error('Set a model override in Advanced before saving this API-key profile.');
+  }
+  await invoke('runtime_provider_profile_save', {
     req: {
       id: config.id,
       displayName: config.displayName,
       provider: providerProtocol(config, values.product),
-      model: values.model.trim(),
+      model,
       baseUrl,
       secretRef,
       localEndpoint: isLoopbackEndpoint(baseUrl),
       executionLane: config.executionLane ?? config.lane,
       authMode: config.authMode ?? 'api-key',
+      secret: secret || null,
     },
   });
 }
@@ -272,6 +292,7 @@ export function SettingsSurface() {
   const appearanceDirty = theme !== savedTheme || density !== savedDensity;
   const runtimeValues = runtimeForm.watch();
   const activeProviderConfig = resolveActiveProviderConfig(providerConfigs, activeConfigId);
+  const companyId = useUiState((s) => s.companyId);
 
   useEffect(() => {
     let cancelled = false;
@@ -322,6 +343,10 @@ export function SettingsSurface() {
       const config = resolveActiveProviderConfig(providerConfigs, activeConfigId);
       await persistProviderProfile(config, values);
       await queryClient.invalidateQueries({ queryKey: ['settings', 'provider-configs'] });
+      if (companyId) {
+        const { disposeDesktopAgentRuntime } = await import('@/runtime/desktop-agent-runtime.js');
+        await disposeDesktopAgentRuntime(companyId).catch(() => undefined);
+      }
       providerForm.reset(providerForm.getValues());
       setProviderSave('saved');
       if (providerFlashTimer.current !== null) window.clearTimeout(providerFlashTimer.current);
@@ -336,7 +361,15 @@ export function SettingsSurface() {
       setProviderSave('idle');
       toast.error('Provider save failed', { description: message });
     }
-  }, [activeConfigId, providerConfigs, providerDirty, providerForm, providerValid, queryClient]);
+  }, [
+    activeConfigId,
+    companyId,
+    providerConfigs,
+    providerDirty,
+    providerForm,
+    providerValid,
+    queryClient,
+  ]);
 
   const persistRuntime = useCallback(async () => {
     const repos = await reposOrNull();
@@ -439,6 +472,7 @@ export function SettingsSurface() {
                   saving={providerSave === 'saving'}
                   saved={providerSave === 'saved'}
                   saveError={providerSaveError}
+                  providerConfigsQuery={providerConfigsQuery}
                   onSave={() => void saveProvider()}
                   onDiscard={discardProvider}
                 />

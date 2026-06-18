@@ -720,28 +720,6 @@
       }
     },
     {
-      "field": "maxOutputTokens",
-      "loser": {
-        "provenance": {
-          "sourceId": "litellm",
-          "sourceKind": "community-aggregator",
-          "trustTier": "community"
-        },
-        "value": 65535
-      },
-      "modelId": "google/gemini-3-flash-preview",
-      "providerId": "openrouter-openai-general",
-      "scope": "model",
-      "winner": {
-        "provenance": {
-          "sourceId": "openrouter-live",
-          "sourceKind": "provider-live-api",
-          "trustTier": "community"
-        },
-        "value": 65536
-      }
-    },
-    {
       "field": "supportedEndpoints",
       "loser": {
         "provenance": {
@@ -2495,28 +2473,6 @@
       }
     },
     {
-      "field": "maxOutputTokens",
-      "loser": {
-        "provenance": {
-          "sourceId": "litellm",
-          "sourceKind": "community-aggregator",
-          "trustTier": "community"
-        },
-        "value": 16384
-      },
-      "modelId": "xiaomi/mimo-v2-flash",
-      "providerId": "openrouter-openai-general",
-      "scope": "model",
-      "winner": {
-        "provenance": {
-          "sourceId": "openrouter-live",
-          "sourceKind": "provider-live-api",
-          "trustTier": "community"
-        },
-        "value": 65536
-      }
-    },
-    {
       "field": "pricing",
       "loser": {
         "provenance": {
@@ -3008,7 +2964,7 @@
       }
     }
   ],
-  "generatedAt": "2026-06-17T10:25:18.162Z",
+  "generatedAt": "2026-06-18T01:29:46.896Z",
   "providers": {
     "anthropic-default": {
       "fields": {
@@ -21918,6 +21874,67 @@
             }
           }
         },
+        "cohere/north-mini-code:free": {
+          "fields": {
+            "capabilities": {
+              "provenance": {
+                "sourceId": "openrouter-live",
+                "sourceKind": "provider-live-api",
+                "trustTier": "community"
+              },
+              "value": {
+                "functionCalling": true,
+                "reasoning": true
+              }
+            },
+            "contextWindow": {
+              "provenance": {
+                "sourceId": "openrouter-live",
+                "sourceKind": "provider-live-api",
+                "trustTier": "community"
+              },
+              "value": 256000
+            },
+            "displayName": {
+              "provenance": {
+                "sourceId": "openrouter-live",
+                "sourceKind": "provider-live-api",
+                "trustTier": "community"
+              },
+              "value": "Cohere: North Mini Code (free)"
+            },
+            "maxOutputTokens": {
+              "provenance": {
+                "sourceId": "openrouter-live",
+                "sourceKind": "provider-live-api",
+                "trustTier": "community"
+              },
+              "value": 64000
+            },
+            "pricing": {
+              "provenance": {
+                "sourceId": "openrouter-live",
+                "sourceKind": "provider-live-api",
+                "trustTier": "community"
+              },
+              "value": {
+                "inputCostPerToken": 0,
+                "outputCostPerToken": 0
+              }
+            },
+            "supportedEndpoints": {
+              "provenance": {
+                "sourceId": "openrouter-live",
+                "sourceKind": "provider-live-api",
+                "trustTier": "community"
+              },
+              "value": [
+                "chat_completions",
+                "responses"
+              ]
+            }
+          }
+        },
         "deepcogito/cogito-v2.1-671b": {
           "fields": {
             "capabilities": {
@@ -22814,7 +22831,7 @@
                 "sourceKind": "provider-live-api",
                 "trustTier": "community"
               },
-              "value": 32768
+              "value": 8192
             },
             "pricing": {
               "provenance": {
@@ -23175,11 +23192,11 @@
             },
             "maxOutputTokens": {
               "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
+                "sourceId": "litellm",
+                "sourceKind": "community-aggregator",
                 "trustTier": "community"
               },
-              "value": 65536
+              "value": 65535
             },
             "pricing": {
               "provenance": {
@@ -24171,7 +24188,7 @@
                 "sourceKind": "provider-live-api",
                 "trustTier": "community"
               },
-              "value": 32768
+              "value": 8192
             },
             "pricing": {
               "provenance": {
@@ -31841,7 +31858,7 @@
                 "sourceKind": "provider-live-api",
                 "trustTier": "community"
               },
-              "value": 8192
+              "value": 32768
             },
             "pricing": {
               "provenance": {
@@ -37646,21 +37663,13 @@
               },
               "value": 262144
             },
-            "displayName": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": "Xiaomi: MiMo-V2-Flash"
-            },
             "maxOutputTokens": {
               "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
+                "sourceId": "litellm",
+                "sourceKind": "community-aggregator",
                 "trustTier": "community"
               },
-              "value": 65536
+              "value": 16384
             },
             "pricing": {
               "provenance": {
@@ -37672,17 +37681,6 @@
                 "inputCostPerToken": 1e-7,
                 "outputCostPerToken": 3e-7
               }
-            },
-            "supportedEndpoints": {
-              "provenance": {
-                "sourceId": "openrouter-live",
-                "sourceKind": "provider-live-api",
-                "trustTier": "community"
-              },
-              "value": [
-                "chat_completions",
-                "responses"
-              ]
             }
           }
         },
@@ -39122,7 +39120,7 @@
             "sourceKind": "official-static",
             "trustTier": "official"
           },
-          "value": "glm-5.1"
+          "value": "glm-5.2[1m]"
         },
         "lastVerifiedAt": {
           "provenance": {
@@ -39130,7 +39128,7 @@
             "sourceKind": "official-static",
             "trustTier": "official"
           },
-          "value": "2026-06-06"
+          "value": "2026-06-18"
         },
         "notes": {
           "provenance": {
@@ -39725,7 +39723,37 @@
                 "sourceKind": "official-static",
                 "trustTier": "official"
               },
-              "value": "GLM 5.1"
+              "value": "GLM 5.1 (legacy)"
+            },
+            "status": {
+              "provenance": {
+                "sourceId": "official-fixtures",
+                "sourceKind": "official-static",
+                "trustTier": "official"
+              },
+              "value": "legacy"
+            }
+          }
+        },
+        "glm-5.2[1m]": {
+          "fields": {
+            "communityAliases": {
+              "provenance": {
+                "sourceId": "official-fixtures",
+                "sourceKind": "official-static",
+                "trustTier": "official"
+              },
+              "value": [
+                "glm-5.2[1m]"
+              ]
+            },
+            "displayName": {
+              "provenance": {
+                "sourceId": "official-fixtures",
+                "sourceKind": "official-static",
+                "trustTier": "official"
+              },
+              "value": "GLM 5.2 (1M context)"
             },
             "status": {
               "provenance": {
@@ -39797,7 +39825,7 @@
             "sourceKind": "official-static",
             "trustTier": "official"
           },
-          "value": "glm-5.1"
+          "value": "glm-5.2"
         },
         "lastVerifiedAt": {
           "provenance": {
@@ -39805,7 +39833,7 @@
             "sourceKind": "official-static",
             "trustTier": "official"
           },
-          "value": "2026-06-06"
+          "value": "2026-06-18"
         },
         "notes": {
           "provenance": {
@@ -39845,7 +39873,7 @@
             "sourceKind": "official-static",
             "trustTier": "official"
           },
-          "value": "https://docs.z.ai/guides/llm/glm-5.1"
+          "value": "https://docs.z.ai/devpack/tool/others"
         },
         "supportedEndpoints": {
           "provenance": {
@@ -40354,7 +40382,27 @@
                 "sourceKind": "official-static",
                 "trustTier": "official"
               },
-              "value": "GLM 5.1"
+              "value": "GLM 5.1 (legacy)"
+            },
+            "status": {
+              "provenance": {
+                "sourceId": "official-fixtures",
+                "sourceKind": "official-static",
+                "trustTier": "official"
+              },
+              "value": "legacy"
+            }
+          }
+        },
+        "glm-5.2": {
+          "fields": {
+            "displayName": {
+              "provenance": {
+                "sourceId": "official-fixtures",
+                "sourceKind": "official-static",
+                "trustTier": "official"
+              },
+              "value": "GLM 5.2"
             },
             "status": {
               "provenance": {
@@ -40426,7 +40474,7 @@
             "sourceKind": "official-static",
             "trustTier": "official"
           },
-          "value": "glm-5.1"
+          "value": "glm-5.2"
         },
         "lastVerifiedAt": {
           "provenance": {
@@ -40434,7 +40482,7 @@
             "sourceKind": "official-static",
             "trustTier": "official"
           },
-          "value": "2026-06-06"
+          "value": "2026-06-18"
         },
         "notes": {
           "provenance": {
@@ -40792,7 +40840,7 @@
                 "sourceKind": "official-static",
                 "trustTier": "official"
               },
-              "value": "GLM 4.5V"
+              "value": "GLM 4.5V (legacy)"
             },
             "maxOutputTokens": {
               "provenance": {
@@ -40819,7 +40867,7 @@
                 "sourceKind": "official-static",
                 "trustTier": "official"
               },
-              "value": "current"
+              "value": "legacy"
             }
           }
         },
@@ -40999,7 +41047,27 @@
                 "sourceKind": "official-static",
                 "trustTier": "official"
               },
-              "value": "GLM 5.1"
+              "value": "GLM 5.1 (legacy)"
+            },
+            "status": {
+              "provenance": {
+                "sourceId": "official-fixtures",
+                "sourceKind": "official-static",
+                "trustTier": "official"
+              },
+              "value": "legacy"
+            }
+          }
+        },
+        "glm-5.2": {
+          "fields": {
+            "displayName": {
+              "provenance": {
+                "sourceId": "official-fixtures",
+                "sourceKind": "official-static",
+                "trustTier": "official"
+              },
+              "value": "GLM 5.2"
             },
             "status": {
               "provenance": {

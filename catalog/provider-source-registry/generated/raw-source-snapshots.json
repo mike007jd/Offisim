@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-17T10:25:18.162Z",
+  "generatedAt": "2026-06-18T01:29:46.896Z",
   "snapshots": {
     "litellm": {
       "meta": {
@@ -9480,8 +9480,8 @@
               "zai"
             ],
             "compatibility": "anthropic-compatible",
-            "defaultModel": "glm-5.1",
-            "lastVerifiedAt": "2026-06-06",
+            "defaultModel": "glm-5.2[1m]",
+            "lastVerifiedAt": "2026-06-18",
             "productName": "Z.AI · Claude Code",
             "providerTransport": "anthropic",
             "region": "shared",
@@ -9516,7 +9516,16 @@
                 "communityAliases": [
                   "glm-5.1"
                 ],
-                "displayName": "GLM 5.1",
+                "displayName": "GLM 5.1 (legacy)",
+                "status": "legacy"
+              }
+            },
+            "glm-5.2[1m]": {
+              "fields": {
+                "communityAliases": [
+                  "glm-5.2[1m]"
+                ],
+                "displayName": "GLM 5.2 (1M context)",
                 "status": "current"
               }
             }
@@ -9530,12 +9539,12 @@
               "zai"
             ],
             "compatibility": "openai-compatible",
-            "defaultModel": "glm-5.1",
-            "lastVerifiedAt": "2026-06-06",
+            "defaultModel": "glm-5.2",
+            "lastVerifiedAt": "2026-06-18",
             "productName": "Z.AI · Coding API",
             "providerTransport": "openai-compat",
             "region": "shared",
-            "sourceUrl": "https://docs.z.ai/guides/llm/glm-5.1",
+            "sourceUrl": "https://docs.z.ai/devpack/tool/others",
             "supportedEndpoints": [
               "chat_completions"
             ],
@@ -9551,7 +9560,13 @@
             },
             "glm-5.1": {
               "fields": {
-                "displayName": "GLM 5.1",
+                "displayName": "GLM 5.1 (legacy)",
+                "status": "legacy"
+              }
+            },
+            "glm-5.2": {
+              "fields": {
+                "displayName": "GLM 5.2",
                 "status": "current"
               }
             }
@@ -9565,8 +9580,8 @@
               "zai"
             ],
             "compatibility": "openai-compatible",
-            "defaultModel": "glm-5.1",
-            "lastVerifiedAt": "2026-06-06",
+            "defaultModel": "glm-5.2",
+            "lastVerifiedAt": "2026-06-18",
             "productName": "Z.AI · General API",
             "providerTransport": "openai-compat",
             "region": "shared",
@@ -9586,13 +9601,19 @@
             },
             "glm-4.5v": {
               "fields": {
-                "displayName": "GLM 4.5V",
-                "status": "current"
+                "displayName": "GLM 4.5V (legacy)",
+                "status": "legacy"
               }
             },
             "glm-5.1": {
               "fields": {
-                "displayName": "GLM 5.1",
+                "displayName": "GLM 5.1 (legacy)",
+                "status": "legacy"
+              }
+            },
+            "glm-5.2": {
+              "fields": {
+                "displayName": "GLM 5.2",
                 "status": "current"
               }
             }
@@ -10482,6 +10503,25 @@
                 ]
               }
             },
+            "cohere/north-mini-code:free": {
+              "fields": {
+                "capabilities": {
+                  "functionCalling": true,
+                  "reasoning": true
+                },
+                "contextWindow": 256000,
+                "displayName": "Cohere: North Mini Code (free)",
+                "maxOutputTokens": 64000,
+                "pricing": {
+                  "inputCostPerToken": 0,
+                  "outputCostPerToken": 0
+                },
+                "supportedEndpoints": [
+                  "chat_completions",
+                  "responses"
+                ]
+              }
+            },
             "deepcogito/cogito-v2.1-671b": {
               "fields": {
                 "capabilities": {
@@ -10743,7 +10783,7 @@
               "fields": {
                 "contextWindow": 32768,
                 "displayName": "Google: Nano Banana (Gemini 2.5 Flash Image)",
-                "maxOutputTokens": 32768,
+                "maxOutputTokens": 8192,
                 "pricing": {
                   "inputCostPerToken": 3e-7,
                   "outputCostPerToken": 0.0000025
@@ -10856,7 +10896,7 @@
                 },
                 "contextWindow": 1048576,
                 "displayName": "Google: Gemini 3 Flash Preview",
-                "maxOutputTokens": 65536,
+                "maxOutputTokens": 65535,
                 "pricing": {
                   "inputCostPerToken": 5e-7,
                   "outputCostPerToken": 0.000003
@@ -11137,7 +11177,7 @@
                 },
                 "contextWindow": 262144,
                 "displayName": "Google: Gemma 4 31B (free)",
-                "maxOutputTokens": 32768,
+                "maxOutputTokens": 8192,
                 "pricing": {
                   "inputCostPerToken": 0,
                   "outputCostPerToken": 0
@@ -13447,7 +13487,7 @@
                 },
                 "contextWindow": 131072,
                 "displayName": "OpenAI: gpt-oss-20b (free)",
-                "maxOutputTokens": 8192,
+                "maxOutputTokens": 32768,
                 "pricing": {
                   "inputCostPerToken": 0,
                   "outputCostPerToken": 0
@@ -15193,25 +15233,6 @@
                 "pricing": {
                   "inputCostPerToken": 0.000001,
                   "outputCostPerToken": 0.000002
-                },
-                "supportedEndpoints": [
-                  "chat_completions",
-                  "responses"
-                ]
-              }
-            },
-            "xiaomi/mimo-v2-flash": {
-              "fields": {
-                "capabilities": {
-                  "functionCalling": true,
-                  "reasoning": true
-                },
-                "contextWindow": 262144,
-                "displayName": "Xiaomi: MiMo-V2-Flash",
-                "maxOutputTokens": 65536,
-                "pricing": {
-                  "inputCostPerToken": 1e-7,
-                  "outputCostPerToken": 3e-7
                 },
                 "supportedEndpoints": [
                   "chat_completions",

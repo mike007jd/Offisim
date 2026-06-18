@@ -1,4 +1,4 @@
-import type { BuiltinTool, BuiltinToolConfig } from './types.js';
+import { type BuiltinTool, type BuiltinToolConfig, fsAdapterOptions } from './types.js';
 
 export function createFileReadTool(config: BuiltinToolConfig): BuiltinTool | null {
   if (config.executionMode === 'browser-limited' || !config.fs) return null;
@@ -27,16 +27,23 @@ export function createFileReadTool(config: BuiltinToolConfig): BuiltinTool | nul
     },
     async execute(args, context) {
       const path = args.path as string;
-      const text = await fs.readFile(
-        path,
-        context?.threadId ? { threadId: context.threadId } : undefined,
-      );
-      if (args.raw === true) return text;
       const offset = typeof args.offset === 'number' ? Math.max(1, Math.floor(args.offset)) : 1;
       const limit =
         typeof args.limit === 'number' ? Math.max(1, Math.floor(args.limit)) : undefined;
-      const lines = text.split(/\r?\n/u);
-      const selected = lines.slice(offset - 1, limit ? offset - 1 + limit : undefined);
+      const baseOptions = fsAdapterOptions(context);
+      if (args.raw === true || !fs.readFileLines) {
+        const text = await fs.readFile(path, baseOptions);
+        if (args.raw === true) return text;
+        const lines = text.split(/\r?\n/u);
+        const selected = lines.slice(offset - 1, limit ? offset - 1 + limit : undefined);
+        return selected.map((line, index) => `${offset + index}\t${line}`).join('\n');
+      }
+      const text = await fs.readFileLines(path, {
+        ...baseOptions,
+        offset,
+        ...(limit ? { limit } : {}),
+      });
+      const selected = text.length > 0 && text.endsWith('\n') ? text.slice(0, -1).split(/\n/u) : [];
       return selected.map((line, index) => `${offset + index}\t${line}`).join('\n');
     },
   };

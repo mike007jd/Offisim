@@ -220,7 +220,7 @@ pub(crate) fn read_provider_secret(secret_ref: Option<&str>) -> Result<Option<St
             return Ok(Some(secret));
         }
     }
-    read_keyed_secret(secret_ref)?.map_or_else(read_secret_raw, |secret| Ok(Some(secret)))
+    read_keyed_secret(secret_ref)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -259,6 +259,8 @@ pub struct RuntimeProviderProfileUpsertRequest {
     execution_lane: Option<String>,
     #[serde(default)]
     auth_mode: Option<String>,
+    #[serde(default)]
+    secret: Option<String>,
 }
 
 fn default_execution_lane() -> String {
@@ -304,20 +306,9 @@ fn is_local_endpoint_url(base_url: &str) -> bool {
         .unwrap_or(false)
 }
 
-fn auth_scheme_for(provider: &str, base_url: &str, auth_mode: &str) -> String {
+fn auth_scheme_for(auth_mode: &str) -> String {
     if auth_mode == "local-auth" {
         return "local-auth".into();
-    }
-    if provider == "anthropic" {
-        if let Ok(parsed) = url::Url::parse(base_url) {
-            if parsed
-                .host_str()
-                .map(|host| host.ends_with("api.anthropic.com"))
-                .unwrap_or(false)
-            {
-                return "x-api-key".into();
-            }
-        }
     }
     "bearer".into()
 }
@@ -338,7 +329,9 @@ fn normalize_auth_mode(value: &str) -> Result<String, String> {
     match trimmed {
         "" | "api-key" => Ok("api-key".into()),
         "local-auth" => Ok("local-auth".into()),
-        _ => Err(format!("provider profile authMode is unsupported: {trimmed}")),
+        _ => Err(format!(
+            "provider profile authMode is unsupported: {trimmed}"
+        )),
     }
 }
 
@@ -371,7 +364,7 @@ fn normalize_profile(
     profile.auth_mode = auth_mode;
     profile.allowed_host = allowed_host;
     profile.local_endpoint = local_endpoint;
-    profile.auth_scheme = auth_scheme_for(&profile.provider, &profile.base_url, &profile.auth_mode);
+    profile.auth_scheme = auth_scheme_for(&profile.auth_mode);
     profile.has_credential = if profile.auth_mode == "local-auth" {
         false
     } else {
@@ -389,7 +382,21 @@ fn read_stored_provider_profiles() -> Result<Vec<RuntimeProviderProfile>, String
         Ok(raw) => {
             let profiles: Vec<RuntimeProviderProfile> = serde_json::from_str(&raw)
                 .map_err(|err| format!("parse provider profiles: {err}"))?;
-            profiles.into_iter().map(normalize_profile).collect()
+            Ok(profiles
+                .into_iter()
+                .filter_map(|profile| {
+                    match normalize_profile(profile).and_then(|profile| {
+                        reject_native_provider_endpoint(&profile)?;
+                        Ok(profile)
+                    }) {
+                        Ok(profile) => Some(profile),
+                        Err(err) => {
+                            eprintln!("[runtime_secrets] skipped invalid provider profile: {err}");
+                            None
+                        }
+                    }
+                })
+                .collect())
         }
         Err(err) if err.kind() == ErrorKind::NotFound => Ok(Vec::new()),
         Err(err) => Err(format!("read provider profiles: {err}")),
@@ -448,7 +455,7 @@ fn profile_from_env(
     let model = env_or_local(model_env)?;
     let base_url = env_or_local(base_url_env)?;
     let _secret = env_or_local(secret_env)?;
-    normalize_profile(RuntimeProviderProfile {
+    let profile = normalize_profile(RuntimeProviderProfile {
         id: id.into(),
         display_name: display_name.into(),
         provider: provider.into(),
@@ -462,7 +469,9 @@ fn profile_from_env(
         local_endpoint: false,
         has_credential: false,
     })
-    .ok()
+    .ok()?;
+    reject_native_provider_endpoint(&profile).ok()?;
+    Some(profile)
 }
 
 fn claude_code_local_profile() -> Result<RuntimeProviderProfile, String> {
@@ -470,14 +479,14 @@ fn claude_code_local_profile() -> Result<RuntimeProviderProfile, String> {
         id: "claude-code-local".into(),
         display_name: "Claude Code Local Account".into(),
         provider: "anthropic".into(),
-        model: "claude-sonnet-4-6".into(),
-        base_url: "https://api.anthropic.com".into(),
+        model: String::new(),
+        base_url: "http://localhost".into(),
         secret_ref: "claude-code-local".into(),
         auth_scheme: String::new(),
         execution_lane: "claude-agent-sdk".into(),
         auth_mode: "local-auth".into(),
         allowed_host: String::new(),
-        local_endpoint: false,
+        local_endpoint: true,
         has_credential: false,
     })
 }
@@ -485,46 +494,48 @@ fn claude_code_local_profile() -> Result<RuntimeProviderProfile, String> {
 #[tauri::command]
 pub fn runtime_provider_profiles() -> Result<Vec<RuntimeProviderProfile>, String> {
     let mut profiles: Vec<RuntimeProviderProfile> = vec![claude_code_local_profile()?];
-    profiles.extend([
-        profile_from_env(
-            "minimax",
-            "MiniMax",
-            "anthropic",
-            "MINIMAX_MODEL",
-            "MINIMAX_BASE_URL",
-            "MINIMAX_API_KEY",
-            None,
-        ),
-        profile_from_env(
-            "minimax-openai",
-            "MiniMax Codex",
-            "openai-compat",
-            "MINIMAX_OPENAI_MODEL",
-            "MINIMAX_OPENAI_BASE_URL",
-            "MINIMAX_API_KEY",
-            Some("minimax"),
-        ),
-        profile_from_env(
-            "zai-anthropic",
-            "Z.AI Claude Code",
-            "anthropic",
-            "ZAI_ANTHROPIC_MODEL",
-            "ZAI_ANTHROPIC_BASE_URL",
-            "ZAI_API_KEY",
-            Some("zai"),
-        ),
-        profile_from_env(
-            "zai",
-            "Z.AI",
-            "openai-compat",
-            "ZAI_MODEL",
-            "ZAI_BASE_URL",
-            "ZAI_API_KEY",
-            None,
-        ),
-    ]
-    .into_iter()
-    .flatten());
+    profiles.extend(
+        [
+            profile_from_env(
+                "minimax",
+                "MiniMax",
+                "anthropic",
+                "MINIMAX_MODEL",
+                "MINIMAX_BASE_URL",
+                "MINIMAX_API_KEY",
+                None,
+            ),
+            profile_from_env(
+                "minimax-openai",
+                "MiniMax Codex",
+                "openai-compat",
+                "MINIMAX_OPENAI_MODEL",
+                "MINIMAX_OPENAI_BASE_URL",
+                "MINIMAX_API_KEY",
+                Some("minimax"),
+            ),
+            profile_from_env(
+                "zai-anthropic",
+                "Z.AI Claude Code",
+                "anthropic",
+                "ZAI_ANTHROPIC_MODEL",
+                "ZAI_ANTHROPIC_BASE_URL",
+                "ZAI_API_KEY",
+                Some("zai"),
+            ),
+            profile_from_env(
+                "zai",
+                "Z.AI",
+                "openai-compat",
+                "ZAI_MODEL",
+                "ZAI_BASE_URL",
+                "ZAI_API_KEY",
+                None,
+            ),
+        ]
+        .into_iter()
+        .flatten(),
+    );
 
     for stored in read_stored_provider_profiles()? {
         if let Some(existing) = profiles.iter_mut().find(|profile| profile.id == stored.id) {
@@ -549,6 +560,48 @@ pub(crate) fn resolve_runtime_provider_profile(
 pub fn runtime_provider_profile_upsert(
     req: RuntimeProviderProfileUpsertRequest,
 ) -> Result<RuntimeProviderProfile, String> {
+    let profile = profile_from_upsert_request(&req)?;
+    upsert_stored_provider_profile(profile)
+}
+
+#[tauri::command]
+pub fn runtime_provider_profile_save(
+    req: RuntimeProviderProfileUpsertRequest,
+) -> Result<RuntimeProviderProfile, String> {
+    let mut profile = profile_from_upsert_request(&req)?;
+    let secret = req
+        .secret
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let mut secret_rollback: Option<(PathBuf, Option<String>)> = None;
+    if let Some(secret) = secret {
+        let path = provider_secret_path(&profile.secret_ref)?;
+        let previous_secret = read_secret_file(&path)?;
+        write_secret_file(&path, secret)?;
+        secret_rollback = Some((path, previous_secret));
+        if profile.auth_mode != "local-auth" {
+            profile.has_credential = true;
+        }
+    }
+    match upsert_stored_provider_profile(profile) {
+        Ok(profile) => Ok(profile),
+        Err(err) => {
+            if let Some((path, previous_secret)) = secret_rollback {
+                if let Err(rollback_err) = restore_secret_file(&path, previous_secret) {
+                    return Err(format!(
+                        "{err}; rollback provider secret failed: {rollback_err}"
+                    ));
+                }
+            }
+            Err(err)
+        }
+    }
+}
+
+fn profile_from_upsert_request(
+    req: &RuntimeProviderProfileUpsertRequest,
+) -> Result<RuntimeProviderProfile, String> {
     let id = req.id.trim();
     if id.is_empty() {
         return Err("provider profile id cannot be empty".into());
@@ -563,18 +616,42 @@ pub fn runtime_provider_profile_upsert(
         provider: provider.to_string(),
         model: req.model.trim().to_string(),
         base_url: req.base_url.trim().to_string(),
-        secret_ref: req.secret_ref.unwrap_or_else(|| id.to_string()),
+        secret_ref: req.secret_ref.clone().unwrap_or_else(|| id.to_string()),
         auth_scheme: String::new(),
-        execution_lane: req.execution_lane.unwrap_or_else(default_execution_lane),
-        auth_mode: req.auth_mode.unwrap_or_else(default_auth_mode),
+        execution_lane: req
+            .execution_lane
+            .clone()
+            .unwrap_or_else(default_execution_lane),
+        auth_mode: req.auth_mode.clone().unwrap_or_else(default_auth_mode),
         allowed_host: String::new(),
         local_endpoint: req.local_endpoint.unwrap_or(false),
         has_credential: false,
     })?;
-    if profile.display_name.is_empty() || profile.model.is_empty() {
+    reject_native_provider_endpoint(&profile)?;
+    if profile.display_name.is_empty()
+        || (profile.model.is_empty() && profile.auth_mode != "local-auth")
+    {
         return Err("provider profile displayName and model are required".into());
     }
+    Ok(profile)
+}
 
+fn reject_native_provider_endpoint(profile: &RuntimeProviderProfile) -> Result<(), String> {
+    if profile.auth_mode == "local-auth" {
+        return Ok(());
+    }
+    if profile.allowed_host == "api.openai.com" {
+        return Err("OpenAI facade must use a configured compatible gateway endpoint.".into());
+    }
+    if profile.allowed_host == "api.anthropic.com" {
+        return Err("Anthropic facade must use a configured compatible gateway endpoint.".into());
+    }
+    Ok(())
+}
+
+fn upsert_stored_provider_profile(
+    profile: RuntimeProviderProfile,
+) -> Result<RuntimeProviderProfile, String> {
     let mut profiles = read_stored_provider_profiles()?;
     let action = if let Some(existing) = profiles
         .iter_mut()
@@ -587,7 +664,9 @@ pub fn runtime_provider_profile_upsert(
         "created"
     };
     write_stored_provider_profiles(&profiles)?;
-    append_provider_profile_audit(&profile, action)?;
+    if let Err(err) = append_provider_profile_audit(&profile, action) {
+        eprintln!("[runtime_secrets] provider profile audit failed: {err}");
+    }
     Ok(profile)
 }
 
@@ -644,6 +723,17 @@ fn write_secret_file(path: &Path, secret: &str) -> Result<(), String> {
     fs::rename(&tmp, path).map_err(|e| format!("rename secret file: {e}"))?;
     set_file_mode_600(path).map_err(|e| format!("chmod 600 final: {e}"))?;
     Ok(())
+}
+
+fn restore_secret_file(path: &Path, previous_secret: Option<String>) -> Result<(), String> {
+    if let Some(secret) = previous_secret {
+        return write_secret_file(path, &secret);
+    }
+    match fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(format!("restore secret file: {e}")),
+    }
 }
 
 #[tauri::command]

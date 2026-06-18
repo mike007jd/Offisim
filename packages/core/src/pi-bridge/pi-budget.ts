@@ -18,6 +18,7 @@ import { toErrorMessage } from '../errors.js';
 import type { LlmMessage, LlmRequest } from '../llm/gateway.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import type { ConversationBudgetService } from '../services/conversation-budget-service.js';
+import { parseCompactBaseline } from '../services/conversation-budget/compact-baseline.js';
 import { Logger } from '../services/logger.js';
 import { llmToPiMessages, piToLlmMessages } from './pi-message-convert.js';
 
@@ -59,6 +60,7 @@ export function createBudgetTransform(
       const prunedTranscript = pruned.messages.filter(
         (m) => !(m.role === 'system' && m.content === deps.systemPrompt),
       );
+      await rebasePersistedCompactionPrefix(deps, messages);
       // The synthesized-message timestamp only orders compaction artifacts and
       // is not persisted as canonical history; use the injected clock seam.
       return llmToPiMessages(prunedTranscript, messages, deps.runtimeCtx.determinism.nowMs());
@@ -69,4 +71,50 @@ export function createBudgetTransform(
       return messages;
     }
   };
+}
+
+async function rebasePersistedCompactionPrefix(
+  deps: PiBudgetDeps,
+  messages: AgentMessage[],
+): Promise<void> {
+  const threadId = deps.runtimeCtx.threadId;
+  const piMessages = deps.runtimeCtx.repos.piMessages;
+  if (!piMessages) return;
+  const thread = await deps.runtimeCtx.repos.threads.findById(threadId);
+  const baseline = parseCompactBaseline(thread?.compact_baseline_json ?? null);
+  const compactedPrefix = baseline?.compactedNonSystemMessageCount ?? 0;
+  if (!baseline || compactedPrefix <= 0 || messages.length === 0) return;
+
+  // Keep at least one live message in memory if the persisted baseline ever
+  // claims the whole transcript; the remaining compacted count continues to
+  // protect the next transform from replaying that message beside the summary.
+  const dropCount = Math.min(compactedPrefix, Math.max(0, messages.length - 1));
+  if (dropCount <= 0) return;
+
+  const rebasedBaseline = {
+    ...baseline,
+    compactedNonSystemMessageCount: compactedPrefix - dropCount,
+  };
+  try {
+    const rebasedBaselineJson = JSON.stringify(rebasedBaseline);
+    if (deps.runtimeCtx.repos.asyncTransact) {
+      await deps.runtimeCtx.repos.asyncTransact(async (txRepos) => {
+        const repos = txRepos ?? deps.runtimeCtx.repos;
+        const txPiMessages = repos.piMessages;
+        if (!txPiMessages) return;
+        await repos.threads.updateCompactBaseline(threadId, rebasedBaselineJson);
+        await txPiMessages.deleteFirstByThread(threadId, dropCount);
+      });
+    } else {
+      await deps.runtimeCtx.repos.threads.updateCompactBaseline(threadId, rebasedBaselineJson);
+      await piMessages.deleteFirstByThread(threadId, dropCount);
+    }
+    messages.splice(0, dropCount);
+  } catch (error) {
+    logger.warn('failed to rebase compacted pi transcript prefix', {
+      threadId,
+      dropCount,
+      error: toErrorMessage(error),
+    });
+  }
 }

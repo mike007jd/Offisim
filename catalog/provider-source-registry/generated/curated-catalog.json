@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-17T10:25:18.162Z",
+  "generatedAt": "2026-06-18T01:29:46.896Z",
   "providers": {
     "anthropic-default": {
       "authMode": "api-key",
@@ -1340,6 +1340,23 @@
             "chat_completions"
           ]
         },
+        "cohere/north-mini-code:free": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 256000,
+          "displayName": "Cohere: North Mini Code (free)",
+          "maxOutputTokens": 64000,
+          "pricing": {
+            "inputCostPerToken": 0,
+            "outputCostPerToken": 0
+          },
+          "supportedEndpoints": [
+            "chat_completions",
+            "responses"
+          ]
+        },
         "deepcogito/cogito-v2.1-671b": {
           "capabilities": {
             "reasoning": true
@@ -1572,7 +1589,7 @@
         "google/gemini-2.5-flash-image": {
           "contextWindow": 32768,
           "displayName": "Google: Nano Banana (Gemini 2.5 Flash Image)",
-          "maxOutputTokens": 32768,
+          "maxOutputTokens": 8192,
           "pricing": {
             "inputCostPerToken": 3e-7,
             "outputCostPerToken": 0.0000025
@@ -1673,7 +1690,7 @@
           },
           "contextWindow": 1048576,
           "displayName": "Google: Gemini 3 Flash Preview",
-          "maxOutputTokens": 65536,
+          "maxOutputTokens": 65535,
           "pricing": {
             "inputCostPerToken": 5e-7,
             "outputCostPerToken": 0.000003
@@ -1926,7 +1943,7 @@
           },
           "contextWindow": 262144,
           "displayName": "Gemma 4 31B Instruct (free)",
-          "maxOutputTokens": 32768,
+          "maxOutputTokens": 8192,
           "pricing": {
             "inputCostPerToken": 0,
             "outputCostPerToken": 0
@@ -3982,7 +3999,7 @@
           },
           "contextWindow": 131072,
           "displayName": "OpenAI: gpt-oss-20b (free)",
-          "maxOutputTokens": 8192,
+          "maxOutputTokens": 32768,
           "pricing": {
             "inputCostPerToken": 0,
             "outputCostPerToken": 0
@@ -5538,23 +5555,6 @@
             "responses"
           ]
         },
-        "xiaomi/mimo-v2-flash": {
-          "capabilities": {
-            "functionCalling": true,
-            "reasoning": true
-          },
-          "contextWindow": 262144,
-          "displayName": "Xiaomi: MiMo-V2-Flash",
-          "maxOutputTokens": 65536,
-          "pricing": {
-            "inputCostPerToken": 1e-7,
-            "outputCostPerToken": 3e-7
-          },
-          "supportedEndpoints": [
-            "chat_completions",
-            "responses"
-          ]
-        },
         "xiaomi/mimo-v2.5": {
           "capabilities": {
             "functionCalling": true,
@@ -5949,8 +5949,8 @@
       "communityDisplayName": "Z.AI (Zhipu AI) (`zai`)",
       "communityDocsUrl": "https://docs.litellm.ai/docs/providers/zai",
       "compatibility": "anthropic-compatible",
-      "defaultModel": "glm-5.1",
-      "lastVerifiedAt": "2026-06-06",
+      "defaultModel": "glm-5.2[1m]",
+      "lastVerifiedAt": "2026-06-18",
       "models": {
         "GLM-4.5-Air": {
           "capabilities": {
@@ -5989,7 +5989,14 @@
           "communityAliases": [
             "glm-5.1"
           ],
-          "displayName": "GLM 5.1",
+          "displayName": "GLM 5.1 (legacy)",
+          "status": "legacy"
+        },
+        "glm-5.2[1m]": {
+          "communityAliases": [
+            "glm-5.2[1m]"
+          ],
+          "displayName": "GLM 5.2 (1M context)",
           "status": "current"
         }
       },
@@ -6013,8 +6020,8 @@
       "communityDisplayName": "Z.AI (Zhipu AI) (`zai`)",
       "communityDocsUrl": "https://docs.litellm.ai/docs/providers/zai",
       "compatibility": "openai-compatible",
-      "defaultModel": "glm-5.1",
-      "lastVerifiedAt": "2026-06-06",
+      "defaultModel": "glm-5.2",
+      "lastVerifiedAt": "2026-06-18",
       "models": {
         "glm-5": {
           "capabilities": {
@@ -6031,7 +6038,11 @@
           "status": "legacy"
         },
         "glm-5.1": {
-          "displayName": "GLM 5.1",
+          "displayName": "GLM 5.1 (legacy)",
+          "status": "legacy"
+        },
+        "glm-5.2": {
+          "displayName": "GLM 5.2",
           "status": "current"
         }
       },
@@ -6039,7 +6050,7 @@
       "productName": "Z.AI · Coding API",
       "providerTransport": "openai-compat",
       "region": "shared",
-      "sourceUrl": "https://docs.z.ai/guides/llm/glm-5.1",
+      "sourceUrl": "https://docs.z.ai/devpack/tool/others",
       "supportedEndpoints": [
         "chat_completions"
       ],
@@ -6055,8 +6066,8 @@
       "communityDisplayName": "Z.AI (Zhipu AI) (`zai`)",
       "communityDocsUrl": "https://docs.litellm.ai/docs/providers/zai",
       "compatibility": "openai-compatible",
-      "defaultModel": "glm-5.1",
-      "lastVerifiedAt": "2026-06-06",
+      "defaultModel": "glm-5.2",
+      "lastVerifiedAt": "2026-06-18",
       "models": {
         "glm-4.5-air": {
           "capabilities": {
@@ -6076,16 +6087,20 @@
             "functionCalling": true
           },
           "contextWindow": 128000,
-          "displayName": "GLM 4.5V",
+          "displayName": "GLM 4.5V (legacy)",
           "maxOutputTokens": 32000,
           "pricing": {
             "inputCostPerToken": 6e-7,
             "outputCostPerToken": 0.0000018
           },
-          "status": "current"
+          "status": "legacy"
         },
         "glm-5.1": {
-          "displayName": "GLM 5.1",
+          "displayName": "GLM 5.1 (legacy)",
+          "status": "legacy"
+        },
+        "glm-5.2": {
+          "displayName": "GLM 5.2",
           "status": "current"
         }
       },
@@ -6102,7 +6117,7 @@
     }
   },
   "verification": {
-    "checkedAt": "2026-06-17",
+    "checkedAt": "2026-06-18",
     "modelStatus": {
       "current": "Verified available and a sensible default on checkedAt.",
       "legacy": "Still callable but superseded — kept for compatibility, not default-recommended.",

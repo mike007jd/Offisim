@@ -6,9 +6,9 @@ use tauri::{ipc::Channel, AppHandle};
 use tokio_util::sync::CancellationToken;
 
 use crate::agent_host_runtime::{
-    append_sidecar_audit, dev_workspace_root, project_workspace_root, resolved_request_cwd,
-    run_sidecar_json, sidecar_script_path, trusted_host_env, AgentHostLane, HostError,
-    SidecarAudit,
+    append_sidecar_audit, dev_workspace_root, project_workspace_root, required_text,
+    resolved_request_cwd, run_sidecar_json, sidecar_script_path, trusted_host_env, AgentHostLane,
+    HostError, SidecarAudit,
 };
 use crate::in_flight::InFlightRegistry;
 use crate::runtime_secrets;
@@ -23,7 +23,7 @@ const CODEX_LANE: AgentHostLane = AgentHostLane {
     aborted_message: "Codex lane request aborted",
     no_credential_message:
         "No provider credential stored on this device for the trusted Codex lane.",
-    output_cap_bytes: None,
+    output_cap_bytes: Some(16 * 1024 * 1024),
 };
 
 static IN_FLIGHT: InFlightRegistry = InFlightRegistry::new("codex_agent_host");
@@ -35,6 +35,8 @@ pub struct CodexAgentExecuteRequest {
     request: serde_json::Value,
     #[serde(default)]
     provider_profile_id: Option<String>,
+    #[serde(default)]
+    company_id: Option<String>,
     #[serde(default)]
     cwd: Option<String>,
     #[serde(default)]
@@ -80,21 +82,19 @@ fn is_codex_responses_incompatible_base_url(base_url: &str) -> bool {
 }
 
 fn assert_codex_provider(
-    profile: Option<&runtime_secrets::RuntimeProviderProfile>,
+    profile: &runtime_secrets::RuntimeProviderProfile,
 ) -> Result<(), HostError> {
-    match profile.map(|profile| profile.provider.as_str()) {
-        Some("openai") | Some("openai-compat") | None => Ok(()),
-        Some(provider) => Err(HostError::Request(format!(
+    match profile.provider.as_str() {
+        "openai" | "openai-compat" => Ok(()),
+        provider => Err(HostError::Request(format!(
             "Trusted Codex lane requires an OpenAI-compatible provider profile; received '{provider}'."
         ))),
     }?;
-    if let Some(profile) = profile {
-        if is_codex_responses_incompatible_base_url(&profile.base_url) {
-            return Err(HostError::Request(
-                "Z.AI OpenAI-compatible endpoints are chat-completions only. Use the gateway runtime profile, or use the Z.AI Anthropic endpoint for the Claude lane."
-                    .into(),
-            ));
-        }
+    if is_codex_responses_incompatible_base_url(&profile.base_url) {
+        return Err(HostError::Request(
+            "Z.AI OpenAI-compatible endpoints are chat-completions only. Use the gateway runtime profile, or use the Z.AI Anthropic endpoint for the Claude lane."
+                .into(),
+        ));
     }
     Ok(())
 }
@@ -108,22 +108,22 @@ async fn do_execute<R: tauri::Runtime>(
     // Resolve provider profile + secret from runtime_secrets (mirrors the
     // Claude host). Fail-closed: if no providerProfileId or no stored secret,
     // we don't try to fall back to ambient env.
-    let provider_profile = req
-        .provider_profile_id
-        .as_deref()
-        .map(runtime_secrets::resolve_runtime_provider_profile)
-        .transpose()
+    let provider_profile_id = required_text(
+        req.provider_profile_id.as_ref(),
+        "providerProfileId",
+        CODEX_LANE,
+    )?;
+    let company_id = required_text(req.company_id.as_ref(), "companyId", CODEX_LANE)?;
+    let provider_profile = runtime_secrets::resolve_runtime_provider_profile(provider_profile_id)
         .map_err(HostError::Request)?;
-    assert_codex_provider(provider_profile.as_ref())?;
-    let secret = runtime_secrets::read_provider_secret(
-        provider_profile
-            .as_ref()
-            .map(|profile| profile.secret_ref.as_str()),
-    )
-    .map_err(HostError::Request)?
-    .ok_or(HostError::NoCredential)?;
+    assert_codex_provider(&provider_profile)?;
+    let secret = runtime_secrets::read_provider_secret(Some(provider_profile.secret_ref.as_str()))
+        .map_err(HostError::Request)?
+        .ok_or(HostError::NoCredential)?;
 
-    let workspace_root = project_workspace_root(app, req.project_id.as_deref(), CODEX_LANE).await?;
+    let workspace_root =
+        project_workspace_root(app, Some(company_id), req.project_id.as_deref(), CODEX_LANE)
+            .await?;
     let cwd = resolved_request_cwd(req.cwd.as_deref(), &workspace_root, CODEX_LANE)?;
     append_sidecar_audit(
         app,
@@ -132,7 +132,7 @@ async fn do_execute<R: tauri::Runtime>(
             request_id: &req.request_id,
             project_id: req.project_id.as_deref(),
             employee_id: req.employee_id.as_deref(),
-            provider_profile_id: req.provider_profile_id.as_deref(),
+            provider_profile_id: Some(provider_profile_id),
             credential_recorded: true,
         },
         &cwd,
@@ -148,9 +148,7 @@ async fn do_execute<R: tauri::Runtime>(
     let env = build_env(
         Some(&workspace_root),
         Some(secret.as_str()),
-        provider_profile
-            .as_ref()
-            .map(|profile| profile.base_url.as_str()),
+        Some(provider_profile.base_url.as_str()),
     );
     let response = run_sidecar_json(CODEX_LANE, &script_path, &cwd, env, payload, token).await?;
 
@@ -259,7 +257,7 @@ mod tests {
     #[test]
     fn codex_provider_gate_rejects_anthropic_profile() {
         let profile = provider_profile("anthropic", "https://api.minimax.io/anthropic");
-        let err = assert_codex_provider(Some(&profile)).expect_err("wrong provider should fail");
+        let err = assert_codex_provider(&profile).expect_err("wrong provider should fail");
         assert!(
             matches!(err, HostError::Request(message) if message.contains("OpenAI-compatible"))
         );
@@ -272,7 +270,7 @@ mod tests {
             "https://api.z.ai/api/coding/paas/v4/",
         ] {
             let profile = provider_profile("openai-compat", base_url);
-            let err = assert_codex_provider(Some(&profile))
+            let err = assert_codex_provider(&profile)
                 .expect_err("chat-completions-only Z.AI base URL should fail");
             assert!(
                 matches!(err, HostError::Request(message) if message.contains("chat-completions only"))
@@ -283,6 +281,6 @@ mod tests {
     #[test]
     fn codex_provider_gate_accepts_minimax_openai_base_url() {
         let profile = provider_profile("openai-compat", "https://api.minimax.io/v1");
-        assert_codex_provider(Some(&profile)).expect("MiniMax OpenAI-compatible base is accepted");
+        assert_codex_provider(&profile).expect("MiniMax OpenAI-compatible base is accepted");
     }
 }

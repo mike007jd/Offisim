@@ -23,6 +23,7 @@ import {
 import { Input } from '@/design-system/primitives/input.js';
 import { pickWorkspaceFolder } from '@/lib/desktop-dialog.js';
 import { overbroadWorkspaceReason } from '@/lib/workspace-root-guard.js';
+import { activateCompanyScope } from '@/runtime/activate-company-scope.js';
 import { useQueryClient } from '@tanstack/react-query';
 import { Building2, Check, ChevronDown, FolderGit2, FolderOpen, Pencil, Plus } from 'lucide-react';
 import { type CSSProperties, useEffect, useId, useState } from 'react';
@@ -190,13 +191,14 @@ function ProjectDialog({
 export function ScopeBar() {
   const companyId = useUiState((s) => s.companyId);
   const projectId = useUiState((s) => s.projectId);
-  const setCompany = useUiState((s) => s.setCompany);
+  const setScope = useUiState((s) => s.setScope);
   const setProject = useUiState((s) => s.setProject);
   const openLifecycle = useUiState((s) => s.openLifecycle);
 
   const companies = useCompanies();
   const projects = useProjects(companyId);
   const [projectDialog, setProjectDialog] = useState<'new' | 'edit' | null>(null);
+  const [switchingCompanyId, setSwitchingCompanyId] = useState<string | null>(null);
 
   const activeCompany = companies.data?.find((c) => c.id === companyId);
   const activeProject = projects.data?.find((p) => p.id === projectId);
@@ -219,6 +221,18 @@ export function ScopeBar() {
     }
   }
 
+  async function switchCompany(nextCompanyId: string) {
+    if (switchingCompanyId) return;
+    setSwitchingCompanyId(nextCompanyId);
+    try {
+      await activateCompanyScope({ companyId: nextCompanyId, setScope });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Company switch failed');
+    } finally {
+      setSwitchingCompanyId(null);
+    }
+  }
+
   return (
     <div className="off-scope-bar">
       <DropdownMenu>
@@ -234,7 +248,11 @@ export function ScopeBar() {
         <DropdownMenuContent align="start">
           <DropdownMenuLabel>Companies</DropdownMenuLabel>
           {companies.data?.map((company) => (
-            <DropdownMenuItem key={company.id} onSelect={() => setCompany(company.id)}>
+            <DropdownMenuItem
+              key={company.id}
+              disabled={switchingCompanyId !== null}
+              onSelect={() => void switchCompany(company.id)}
+            >
               <span className="off-scope-badge" style={companyBadgeStyle(company)}>
                 {company.initials}
               </span>

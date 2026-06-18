@@ -24,6 +24,7 @@ import { z } from 'zod';
 // ───────────────────────── Provider ─────────────────────────
 
 export type ProviderHealth = 'active' | 'reachable' | 'no-key';
+export type ProviderProtocol = 'anthropic' | 'openai' | 'openai-compat';
 
 export interface ProviderConfig {
   readonly id: string;
@@ -31,7 +32,7 @@ export interface ProviderConfig {
   readonly displayName: string;
   readonly logoMark: string;
   readonly logoGradient: readonly [string, string];
-  /** User-configured model id. Empty until the user sets one — no presumptuous default. */
+  /** Optional runtime override. Pi Agent can leave account-managed profiles empty. */
   readonly model: string;
   readonly health: ProviderHealth;
   readonly accessMode: string;
@@ -45,6 +46,7 @@ export interface ProviderConfig {
   readonly secretRef?: string;
   readonly authMode?: string;
   readonly executionLane?: string;
+  readonly providerProtocol?: ProviderProtocol;
 }
 
 export const PRODUCT_OPTIONS = [
@@ -71,16 +73,18 @@ export const PROVIDER_CONFIGS: readonly [ProviderConfig, ...ProviderConfig[]] = 
     displayName: 'OpenAI',
     logoMark: 'O',
     logoGradient: [UI_DATA_COLORS.green, UI_DATA_COLORS.green2],
-    model: '',
+    model: 'glm-5.2',
     health: 'no-key',
     accessMode: 'global-key',
     lane: 'gateway',
     region: 'global',
     endpointKind: 'chat/completions',
-    credentialDestination: 'https://api.openai.com',
+    credentialDestination: 'https://api.z.ai/api/paas/v4',
     hasStoredKey: false,
     isThinking: false,
     hostResolved: false,
+    secretRef: 'zai',
+    providerProtocol: 'openai-compat',
   },
   {
     id: 'openrouter',
@@ -94,7 +98,7 @@ export const PROVIDER_CONFIGS: readonly [ProviderConfig, ...ProviderConfig[]] = 
     lane: 'gateway',
     region: 'global',
     endpointKind: 'chat/completions',
-    credentialDestination: 'https://openrouter.ai',
+    credentialDestination: 'https://openrouter.ai/api/v1',
     hasStoredKey: false,
     isThinking: false,
     hostResolved: false,
@@ -105,7 +109,7 @@ export const PROVIDER_CONFIGS: readonly [ProviderConfig, ...ProviderConfig[]] = 
     displayName: 'MiniMax Global',
     logoMark: 'M',
     logoGradient: [UI_DATA_COLORS.blue, UI_DATA_COLORS.blueViolet],
-    model: '',
+    model: 'MiniMax-M3',
     health: 'no-key',
     accessMode: 'global-key',
     lane: 'gateway',
@@ -122,16 +126,18 @@ export const PROVIDER_CONFIGS: readonly [ProviderConfig, ...ProviderConfig[]] = 
     displayName: 'Anthropic',
     logoMark: 'A',
     logoGradient: [UI_DATA_COLORS.violet, UI_DATA_COLORS.blue3],
-    model: '',
+    model: 'MiniMax-M3',
     health: 'no-key',
     accessMode: 'global-key',
     lane: 'gateway',
     region: 'global',
     endpointKind: 'messages',
-    credentialDestination: 'https://api.anthropic.com',
+    credentialDestination: 'https://api.minimax.io/anthropic',
     hasStoredKey: false,
-    isThinking: false,
+    isThinking: true,
     hostResolved: false,
+    secretRef: 'minimax',
+    providerProtocol: 'anthropic',
   },
   {
     id: 'google',
@@ -144,8 +150,8 @@ export const PROVIDER_CONFIGS: readonly [ProviderConfig, ...ProviderConfig[]] = 
     accessMode: 'global-key',
     lane: 'gateway',
     region: 'global',
-    endpointKind: 'generateContent',
-    credentialDestination: 'https://generativelanguage.googleapis.com',
+    endpointKind: 'chat/completions',
+    credentialDestination: 'https://generativelanguage.googleapis.com/v1beta/openai',
     hasStoredKey: false,
     isThinking: false,
     hostResolved: false,
@@ -162,7 +168,7 @@ export const PROVIDER_CONFIGS: readonly [ProviderConfig, ...ProviderConfig[]] = 
     lane: 'gateway',
     region: 'local',
     endpointKind: 'chat',
-    credentialDestination: 'http://localhost:11434',
+    credentialDestination: 'http://localhost:11434/v1',
     hasStoredKey: false,
     isThinking: false,
     hostResolved: true,
@@ -177,7 +183,7 @@ export const PROVIDER_HEALTH_LABELS: Record<ProviderHealth, string> = {
 
 export const providerFormSchema = z.object({
   product: z.string().min(1, 'Required'),
-  model: z.string().min(1, 'Model is required'),
+  model: z.string(),
   apiKey: z.string(),
   endpointOverride: z.string(),
 });
@@ -194,6 +200,11 @@ export function providerDefaults(config: ProviderConfig): ProviderFormValues {
 
 function endpointKindForRuntimeProfile(profile: RuntimeProviderProfile): string {
   return profile.provider === 'anthropic' ? 'messages' : 'chat/completions';
+}
+
+function providerProtocolForRuntimeProfile(profile: RuntimeProviderProfile): ProviderProtocol {
+  if (profile.provider === 'anthropic') return 'anthropic';
+  return profile.provider === 'openai' ? 'openai' : 'openai-compat';
 }
 
 function productForRuntimeProfile(profile: RuntimeProviderProfile): string {
@@ -237,6 +248,7 @@ function baseConfigForRuntimeProfile(
     secretRef: profile.secretRef,
     authMode: profile.authMode,
     executionLane: profile.executionLane,
+    providerProtocol: providerProtocolForRuntimeProfile(profile),
   };
 }
 
@@ -267,14 +279,8 @@ function providerConfigFromRuntime(
     secretRef: profile.secretRef,
     authMode: profile.authMode,
     executionLane: profile.executionLane,
+    providerProtocol: providerProtocolForRuntimeProfile(profile),
   };
-}
-
-function baseRuntimeProfileMatch(base: ProviderConfig, candidate: RuntimeProviderProfile): boolean {
-  if (base.product !== 'minimax') return false;
-  return (
-    candidate.provider === 'anthropic' && candidate.displayName.toLowerCase().includes('minimax')
-  );
 }
 
 function mergeRuntimeProviderConfigs(
@@ -282,9 +288,7 @@ function mergeRuntimeProviderConfigs(
   runtimeProfiles: readonly RuntimeProviderProfile[],
 ): ProviderConfig[] {
   const merged = baseConfigs.map((base) => {
-    const profile =
-      runtimeProfiles.find((candidate) => candidate.id === base.id) ??
-      runtimeProfiles.find((candidate) => baseRuntimeProfileMatch(base, candidate));
+    const profile = runtimeProfiles.find((candidate) => candidate.id === base.id);
     return profile ? providerConfigFromRuntime(base, profile) : base;
   });
   const seen = new Set(merged.map((config) => config.id));

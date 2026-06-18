@@ -52,6 +52,9 @@ export async function ensureCompanyWorkspaceProjectId(
   repos: RuntimeRepositories,
   companyId: string,
 ): Promise<string | null> {
+  const company = await repos.companies.findById(companyId);
+  if (!company) throw new Error(`Company ${companyId} not found.`);
+
   const projects = await repos.projects.findByCompany(companyId);
   const bound = projects.find((p) => hasBoundRoot(p.workspace_root));
   if (bound) return bound.project_id;
@@ -92,6 +95,9 @@ export async function ensureProjectBoundForRun(
   if (requestedProjectId) {
     const project = await repos.projects.findById(requestedProjectId);
     if (project) {
+      if (project.company_id !== companyId) {
+        throw new Error(`Project ${requestedProjectId} does not belong to company ${companyId}.`);
+      }
       if (hasBoundRoot(project.workspace_root)) return requestedProjectId;
       const root = await provisionCompanyWorkspaceDir(companyId);
       if (root) {

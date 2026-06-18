@@ -27,6 +27,7 @@ import {
   ThreadPrimitive,
   useExternalStoreRuntime,
 } from '@assistant-ui/react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Download, FileText, MessageSquarePlus, Paperclip, SendHorizontal } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -335,6 +336,7 @@ export function WorkspaceAssistantThread({
   const abortControllerRef = useRef<AbortController | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const chatEnabled = isTauriRuntime();
+  const queryClient = useQueryClient();
   const staged = useRunStore((s) => s.staged);
   const stageFiles = useRunStore((s) => s.stageFiles);
   const clearStaged = useRunStore((s) => s.clearStaged);
@@ -394,6 +396,24 @@ export function WorkspaceAssistantThread({
     };
   }, [clearStaged, abortInFlight]);
 
+  const persistMessage = useCallback(
+    async (message: WsMessage) => {
+      await persistWorkspaceMessage({
+        threadId: active.id,
+        message,
+        companyId,
+        projectId,
+      });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['messages', active.id] }),
+        queryClient.invalidateQueries({
+          queryKey: ['ws', 'persisted-thread-messages', active.id],
+        }),
+      ]);
+    },
+    [active.id, companyId, projectId, queryClient],
+  );
+
   function stageFileList(fileList: FileList | null) {
     const files = Array.from(fileList ?? []).map((f) => ({
       name: f.name,
@@ -440,12 +460,7 @@ export function WorkspaceAssistantThread({
       setIsSending(true);
       setAwaitingReply(true);
       try {
-        await persistWorkspaceMessage({
-          threadId: active.id,
-          message: userMessage,
-          companyId,
-          projectId,
-        });
+        await persistMessage(userMessage);
         // Every workspace chat runs through the real LangGraph agent runtime
         // (the single-shot direct-provider path was retired in slice 3). A chat
         // with no active company cannot assemble a runtime — fail honestly.
@@ -505,12 +520,7 @@ export function WorkspaceAssistantThread({
         // A late-resolving cancel: keep whatever already streamed into the draft.
         if (controller.signal.aborted) return;
         const assistantMessage = makeAssistantDraft(response);
-        await persistWorkspaceMessage({
-          threadId: active.id,
-          message: assistantMessage,
-          companyId,
-          projectId,
-        });
+        await persistMessage(assistantMessage);
         // Replace the streamed draft with the authoritative final reply (or
         // create it when the reply did not stream).
         upsertDraft(response, 'set');
@@ -531,12 +541,7 @@ export function WorkspaceAssistantThread({
           body: `Workspace chat failed: ${messageText}`,
         };
         setDrafts((prev) => [...prev, failureMessage]);
-        void persistWorkspaceMessage({
-          threadId: active.id,
-          message: failureMessage,
-          companyId,
-          projectId,
-        }).catch(() => undefined);
+        void persistMessage(failureMessage).catch(() => undefined);
       } finally {
         setAwaitingReply(false);
         if (!controller.signal.aborted) {
@@ -554,6 +559,7 @@ export function WorkspaceAssistantThread({
       clearStaged,
       staged,
       companyId,
+      persistMessage,
       projectId,
     ],
   );

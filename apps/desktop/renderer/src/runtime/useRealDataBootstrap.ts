@@ -2,7 +2,7 @@ import { useUiState } from '@/app/ui-state.js';
 import { reposOrNull } from '@/data/adapters.js';
 import { useEffect } from 'react';
 import { toast } from 'sonner';
-import { ensureCompanyWorkspaceProjectId } from './ensure-default-workspace.js';
+import { resolveCompanyScopeProjectId } from './activate-company-scope.js';
 
 /**
  * On the real desktop backend, pre-select the first company/project from SQLite
@@ -12,8 +12,7 @@ import { ensureCompanyWorkspaceProjectId } from './ensure-default-workspace.js';
  * repository failures must be visible.
  */
 export function useRealDataBootstrap(): void {
-  const setCompany = useUiState((s) => s.setCompany);
-  const setProject = useUiState((s) => s.setProject);
+  const setScope = useUiState((s) => s.setScope);
 
   useEffect(() => {
     let cancelled = false;
@@ -23,12 +22,11 @@ export function useRealDataBootstrap(): void {
       const companies = (await repos.companies.findAll()).filter((c) => c.status !== 'archived');
       const company = companies[0];
       if (!company || cancelled) return;
-      setCompany(company.company_id);
       // Guarantee a project bound to a real workspace dir so the agent's
       // file/shell tools work the instant the user enters a chat (otherwise a
       // fresh company has no project and every tool fails closed).
-      const projectId = await ensureCompanyWorkspaceProjectId(repos, company.company_id);
-      if (projectId && !cancelled) setProject(projectId);
+      const projectId = await resolveCompanyScopeProjectId(repos, company.company_id);
+      if (!cancelled) setScope(company.company_id, projectId);
     })().catch((error: unknown) => {
       console.error('[offisim] desktop repository bootstrap failed', error);
       toast.error('Desktop data source unavailable', {
@@ -38,5 +36,5 @@ export function useRealDataBootstrap(): void {
     return () => {
       cancelled = true;
     };
-  }, [setCompany, setProject]);
+  }, [setScope]);
 }

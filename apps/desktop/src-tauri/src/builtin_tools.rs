@@ -5,7 +5,7 @@ use std::io::Write;
 use std::path::{Component, Path, PathBuf};
 use std::process::Stdio;
 use tauri::{Manager, Runtime};
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncReadExt, BufReader};
 use tokio::process::Command;
 use tokio::time::{timeout, Duration};
 
@@ -156,6 +156,24 @@ fn resolve_candidate(path: &str, cwd: Option<&str>) -> Result<PathBuf, String> {
     Ok(candidate)
 }
 
+fn resolve_project_candidate(
+    path: &str,
+    cwd: Option<&str>,
+    roots: &[PathBuf],
+) -> Result<PathBuf, String> {
+    if Path::new(path).is_absolute() || cwd.is_some() {
+        return resolve_candidate(path, cwd);
+    }
+    let input = Path::new(path);
+    if has_parent_dir(input) {
+        return Err("parent-directory path segments are not allowed".to_string());
+    }
+    if roots.len() == 1 {
+        return Ok(roots[0].join(input));
+    }
+    resolve_candidate(path, cwd)
+}
+
 fn relativize_for_error(path: &Path, roots: &[PathBuf]) -> String {
     for root in roots {
         if path.starts_with(root) {
@@ -208,6 +226,46 @@ fn ensure_write_size(size: usize, path: &Path, roots: &[PathBuf]) -> Result<(), 
         ));
     }
     Ok(())
+}
+
+fn line_window_size_error(kind: &str, path: &Path, roots: &[PathBuf]) -> String {
+    format!(
+        "project file line {kind} exceeds {} bytes: {}",
+        MAX_READ_BYTES,
+        relativize_for_error(path, roots)
+    )
+}
+
+fn push_line_window(
+    line_no: u32,
+    start_line: u32,
+    line: &mut Vec<u8>,
+    selected: &mut Vec<String>,
+    retained_bytes: &mut u64,
+    max_lines: Option<usize>,
+    path: &Path,
+    roots: &[PathBuf],
+) -> Result<bool, String> {
+    if line_no < start_line {
+        line.clear();
+        return Ok(false);
+    }
+    *retained_bytes = retained_bytes.saturating_add(line.len() as u64);
+    if *retained_bytes > MAX_READ_BYTES {
+        return Err(line_window_size_error("window", path, roots));
+    }
+    while line.ends_with(b"\n") || line.ends_with(b"\r") {
+        line.pop();
+    }
+    let bytes = std::mem::take(line);
+    let text = String::from_utf8(bytes).map_err(|_| {
+        format!(
+            "project file line window contains invalid UTF-8: {}",
+            relativize_for_error(path, roots)
+        )
+    })?;
+    selected.push(text);
+    Ok(max_lines.is_some_and(|limit| selected.len() >= limit))
 }
 
 fn deepest_existing_ancestor(path: &Path) -> Result<PathBuf, String> {
@@ -362,7 +420,7 @@ pub async fn project_read_file_preview<R: Runtime>(
     project_id: Option<String>,
 ) -> Result<ProjectFilePreview, String> {
     let roots = workspace_roots(&app, project_id.as_deref()).await?;
-    let candidate = resolve_candidate(&path, cwd.as_deref())?;
+    let candidate = resolve_project_candidate(&path, cwd.as_deref(), &roots)?;
     let canonical = candidate
         .canonicalize()
         .map_err(|err| fs_resolve_error("resolve project file", &candidate, err))?;
@@ -408,7 +466,7 @@ pub async fn project_read_file<R: Runtime>(
     project_id: Option<String>,
 ) -> Result<String, String> {
     let roots = workspace_roots(&app, project_id.as_deref()).await?;
-    let candidate = resolve_candidate(&path, cwd.as_deref())?;
+    let candidate = resolve_project_candidate(&path, cwd.as_deref(), &roots)?;
     let canonical = candidate
         .canonicalize()
         .map_err(|err| fs_resolve_error("resolve project file", &candidate, err))?;
@@ -423,6 +481,110 @@ pub async fn project_read_file<R: Runtime>(
 }
 
 #[tauri::command]
+pub async fn project_read_file_lines<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    path: String,
+    cwd: Option<String>,
+    project_id: Option<String>,
+    offset: u32,
+    limit: Option<u32>,
+) -> Result<String, String> {
+    let roots = workspace_roots(&app, project_id.as_deref()).await?;
+    let candidate = resolve_project_candidate(&path, cwd.as_deref(), &roots)?;
+    let canonical = candidate
+        .canonicalize()
+        .map_err(|err| fs_resolve_error("resolve project file", &candidate, err))?;
+    ensure_inside_workspace(&canonical, &roots)?;
+
+    let file = tokio::fs::File::open(&canonical)
+        .await
+        .map_err(|err| fs_op_error("open project file", &canonical, &roots, err))?;
+    let mut reader = BufReader::new(file);
+    let start_line = offset.max(1);
+    let max_lines = limit.map(|value| value.max(1) as usize);
+    let mut line_no = 1_u32;
+    let mut selected = Vec::new();
+    let mut retained_bytes = 0_u64;
+
+    let mut scanned_bytes = 0_u64;
+    let mut line = Vec::new();
+    let mut buf = [0_u8; 8192];
+    loop {
+        let read = reader
+            .read(&mut buf)
+            .await
+            .map_err(|err| fs_op_error("read project file lines", &canonical, &roots, err))?;
+        if read == 0 {
+            if !line.is_empty()
+                && push_line_window(
+                    line_no,
+                    start_line,
+                    &mut line,
+                    &mut selected,
+                    &mut retained_bytes,
+                    max_lines,
+                    &canonical,
+                    &roots,
+                )?
+            {
+                break;
+            }
+            break;
+        }
+        scanned_bytes = scanned_bytes.saturating_add(read as u64);
+        if scanned_bytes > MAX_READ_BYTES {
+            return Err(line_window_size_error("scan", &canonical, &roots));
+        }
+        for byte in &buf[..read] {
+            line.push(*byte);
+            if line.len() as u64 > MAX_READ_BYTES {
+                return Err(line_window_size_error("record", &canonical, &roots));
+            }
+            if *byte == b'\n' {
+                if push_line_window(
+                    line_no,
+                    start_line,
+                    &mut line,
+                    &mut selected,
+                    &mut retained_bytes,
+                    max_lines,
+                    &canonical,
+                    &roots,
+                )? {
+                    return Ok(format!("{}\n", selected.join("\n")));
+                }
+                line_no = line_no.saturating_add(1);
+            }
+        }
+    }
+
+    if selected.is_empty() {
+        Ok(String::new())
+    } else {
+        Ok(format!("{}\n", selected.join("\n")))
+    }
+}
+
+#[tauri::command]
+pub async fn project_exists<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    path: String,
+    cwd: Option<String>,
+    project_id: Option<String>,
+) -> Result<bool, String> {
+    let roots = workspace_roots(&app, project_id.as_deref()).await?;
+    let candidate = resolve_project_candidate(&path, cwd.as_deref(), &roots)?;
+    let canonical = match candidate.canonicalize() {
+        Ok(path) => path,
+        Err(_) => return Ok(false),
+    };
+    if ensure_inside_workspace(&canonical, &roots).is_err() {
+        return Ok(false);
+    }
+    Ok(tokio::fs::metadata(&canonical).await.is_ok())
+}
+
+#[tauri::command]
 pub async fn project_list_dir<R: Runtime>(
     app: tauri::AppHandle<R>,
     path: String,
@@ -430,18 +592,7 @@ pub async fn project_list_dir<R: Runtime>(
     project_id: Option<String>,
 ) -> Result<Vec<ProjectDirEntry>, String> {
     let roots = workspace_roots(&app, project_id.as_deref()).await?;
-    let candidate = if PathBuf::from(&path).is_relative() && cwd.is_none() {
-        let root = roots
-            .first()
-            .ok_or_else(|| "no project workspace root is bound".to_string())?;
-        let candidate = root.join(&path);
-        if has_parent_dir(&candidate) {
-            return Err("parent-directory path segments are not allowed".to_string());
-        }
-        candidate
-    } else {
-        resolve_candidate(&path, cwd.as_deref())?
-    };
+    let candidate = resolve_project_candidate(&path, cwd.as_deref(), &roots)?;
     let canonical = candidate
         .canonicalize()
         .map_err(|err| fs_resolve_error("resolve project directory", &candidate, err))?;
@@ -497,7 +648,7 @@ pub async fn project_write_file<R: Runtime>(
     project_id: Option<String>,
 ) -> Result<(), String> {
     let roots = workspace_roots(&app, project_id.as_deref()).await?;
-    let candidate = resolve_candidate(&path, cwd.as_deref())?;
+    let candidate = resolve_project_candidate(&path, cwd.as_deref(), &roots)?;
     ensure_write_size(content.len(), &candidate, &roots)?;
     let target = resolve_write_target(&candidate, &roots)?;
     ensure_inside_workspace(&target, &roots)?;

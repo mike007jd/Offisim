@@ -540,6 +540,13 @@ function EmployeeDetail({
     try {
       const repos = await reposOrNull();
       if (!repos) throw new Error('Employee deletion requires the desktop runtime');
+      const row = await repos.employees.findById(employee.id);
+      if (!row) {
+        useUiState.getState().selectEmployee(null);
+        await queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
+        toast.error('Employee no longer exists');
+        return;
+      }
       await repos.employees.delete(employee.id);
       useUiState.getState().selectEmployee(null);
       await queryClient.invalidateQueries({ queryKey: ['employees', companyId] });

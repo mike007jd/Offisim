@@ -6,9 +6,9 @@ use tauri::{ipc::Channel, AppHandle};
 use tokio_util::sync::CancellationToken;
 
 use crate::agent_host_runtime::{
-    append_sidecar_audit, dev_workspace_root, project_workspace_root, resolved_request_cwd,
-    run_sidecar_json, sidecar_script_path, trusted_host_env, AgentHostLane, HostError,
-    SidecarAudit,
+    append_sidecar_audit, dev_workspace_root, project_workspace_root, required_text,
+    resolved_request_cwd, run_sidecar_json, sidecar_script_path, trusted_host_env, AgentHostLane,
+    HostError, SidecarAudit,
 };
 use crate::in_flight::InFlightRegistry;
 use crate::runtime_secrets;
@@ -32,6 +32,8 @@ pub struct ClaudeAgentExecuteRequest {
     request: serde_json::Value,
     #[serde(default)]
     provider_profile_id: Option<String>,
+    #[serde(default)]
+    company_id: Option<String>,
     #[serde(default)]
     cwd: Option<String>,
     #[serde(default)]
@@ -79,10 +81,10 @@ fn build_env(
     env
 }
 
-fn assert_claude_provider(provider: Option<&str>) -> Result<(), HostError> {
+fn assert_claude_provider(provider: &str) -> Result<(), HostError> {
     match provider {
-        Some("anthropic") | None => Ok(()),
-        Some(provider) => Err(HostError::Request(format!(
+        "anthropic" => Ok(()),
+        provider => Err(HostError::Request(format!(
             "Trusted Claude lane requires an anthropic provider profile; received '{provider}'."
         ))),
     }
@@ -111,36 +113,35 @@ async fn do_execute<R: tauri::Runtime>(
     token: CancellationToken,
 ) -> Result<(), HostError> {
     let credential_mode = req.credential_mode.unwrap_or(ClaudeCredentialMode::ApiKey);
-    let provider_profile = req
-        .provider_profile_id
-        .as_deref()
-        .map(runtime_secrets::resolve_runtime_provider_profile)
-        .transpose()
-        .map_err(HostError::Request)?;
-    assert_claude_provider(
-        provider_profile
-            .as_ref()
-            .map(|profile| profile.provider.as_str()),
+    let provider_profile_id = required_text(
+        req.provider_profile_id.as_ref(),
+        "providerProfileId",
+        CLAUDE_LANE,
     )?;
+    let company_id = required_text(req.company_id.as_ref(), "companyId", CLAUDE_LANE)?;
+    let provider_profile = runtime_secrets::resolve_runtime_provider_profile(provider_profile_id)
+        .map_err(HostError::Request)?;
+    assert_claude_provider(provider_profile.provider.as_str())?;
     if credential_mode == ClaudeCredentialMode::LocalAuth {
-        assert_local_auth_profile(provider_profile.as_ref())?;
+        assert_local_auth_profile(Some(&provider_profile))?;
     }
     let secret = if credential_mode == ClaudeCredentialMode::ApiKey {
         Some(
-            runtime_secrets::read_provider_secret(
-                provider_profile
-                    .as_ref()
-                    .map(|profile| profile.secret_ref.as_str()),
-            )
-            .map_err(HostError::Request)?
-            .ok_or(HostError::NoCredential)?,
+            runtime_secrets::read_provider_secret(Some(provider_profile.secret_ref.as_str()))
+                .map_err(HostError::Request)?
+                .ok_or(HostError::NoCredential)?,
         )
     } else {
         None
     };
 
-    let workspace_root =
-        project_workspace_root(app, req.project_id.as_deref(), CLAUDE_LANE).await?;
+    let workspace_root = project_workspace_root(
+        app,
+        Some(company_id),
+        req.project_id.as_deref(),
+        CLAUDE_LANE,
+    )
+    .await?;
     let cwd = resolved_request_cwd(req.cwd.as_deref(), &workspace_root, CLAUDE_LANE)?;
     append_sidecar_audit(
         app,
@@ -149,7 +150,7 @@ async fn do_execute<R: tauri::Runtime>(
             request_id: &req.request_id,
             project_id: req.project_id.as_deref(),
             employee_id: req.employee_id.as_deref(),
-            provider_profile_id: req.provider_profile_id.as_deref(),
+            provider_profile_id: Some(provider_profile_id),
             credential_recorded: credential_mode == ClaudeCredentialMode::ApiKey,
         },
         &cwd,
@@ -169,9 +170,7 @@ async fn do_execute<R: tauri::Runtime>(
     let env = build_env(
         Some(&workspace_root),
         secret.as_deref(),
-        provider_profile
-            .as_ref()
-            .map(|profile| profile.base_url.as_str()),
+        Some(provider_profile.base_url.as_str()),
     );
     let response = run_sidecar_json(CLAUDE_LANE, &script_path, &cwd, env, payload, token).await?;
 
@@ -278,8 +277,7 @@ mod tests {
 
     #[test]
     fn claude_provider_gate_rejects_openai_compat_profile() {
-        let err =
-            assert_claude_provider(Some("openai-compat")).expect_err("wrong provider should fail");
+        let err = assert_claude_provider("openai-compat").expect_err("wrong provider should fail");
         assert!(
             matches!(err, HostError::Request(message) if message.contains("requires an anthropic"))
         );

@@ -614,6 +614,12 @@
   gap: 6px;
 }
 
+.off-set-runtime-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--off-sp-4);
+}
+
 /* ───────────── Runtime binding control ───────────── */
 .off-set-rbc-resolved {
   display: inline-flex;

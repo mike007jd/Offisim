@@ -6,6 +6,46 @@ mod codex_agent_host;
 mod deep_link;
 #[cfg(target_os = "macos")]
 mod escape_forwarder;
+#[cfg(target_os = "macos")]
+mod macos_window_activation {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::{NSApplication, NSWindow};
+
+    pub fn raise_webview_window<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) {
+        let Ok(ns_window) = window.ns_window() else {
+            return;
+        };
+        raise_ns_window(ns_window);
+    }
+
+    pub fn raise_window<R: tauri::Runtime>(window: &tauri::Window<R>) {
+        let Ok(ns_window) = window.ns_window() else {
+            return;
+        };
+        raise_ns_window(ns_window);
+    }
+
+    fn raise_ns_window(ns_window: *mut std::ffi::c_void) {
+        if ns_window.is_null() {
+            return;
+        }
+        let Some(main_thread) = MainThreadMarker::new() else {
+            return;
+        };
+        unsafe {
+            let app = NSApplication::sharedApplication(main_thread);
+            // SAFETY: `ns_window` came from Tauri's `ns_window()` for a live window.
+            let ns_window = &*ns_window.cast::<NSWindow>();
+            // `activate` alone can leave Tauri windows occluded until the first
+            // real click; this call makes the release app immediately visible
+            // to macOS accessibility tools and Computer Use.
+            #[allow(deprecated)]
+            app.activateIgnoringOtherApps(true);
+            ns_window.makeKeyAndOrderFront(None);
+            ns_window.orderFrontRegardless();
+        }
+    }
+}
 mod git;
 mod in_flight;
 mod llm_transport;
@@ -69,14 +109,18 @@ fn create_main_window_with_label<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     label: &str,
 ) -> tauri::Result<tauri::WebviewWindow<R>> {
-    tauri::WebviewWindowBuilder::new(app, label, tauri::WebviewUrl::App("index.html".into()))
-        .title("Offisim")
-        .inner_size(1280.0, 800.0)
-        .min_inner_size(1024.0, 700.0)
-        .visible(true)
-        .focused(true)
-        .center()
-        .build()
+    let window =
+        tauri::WebviewWindowBuilder::new(app, label, tauri::WebviewUrl::App("index.html".into()))
+            .title("Offisim")
+            .inner_size(1280.0, 800.0)
+            .min_inner_size(1024.0, 700.0)
+            .visible(true)
+            .focused(true)
+            .center()
+            .build()?;
+    #[cfg(target_os = "macos")]
+    macos_window_activation::raise_webview_window(&window);
+    Ok(window)
 }
 
 fn create_main_window<R: tauri::Runtime>(
@@ -93,6 +137,8 @@ fn restore_main_window<R: tauri::Runtime>(
     let _ = window.unminimize();
     let _ = window.show();
     let _ = window.set_focus();
+    #[cfg(target_os = "macos")]
+    macos_window_activation::raise_webview_window(window);
     window.is_visible().unwrap_or(false)
 }
 
@@ -141,9 +187,12 @@ pub fn run() {
             runtime_secrets::runtime_secret_clear,
             runtime_secrets::runtime_provider_profiles,
             runtime_secrets::runtime_provider_profile_upsert,
+            runtime_secrets::runtime_provider_profile_save,
             local_db::local_db_execute_transaction,
             builtin_tools::project_read_file,
+            builtin_tools::project_read_file_lines,
             builtin_tools::project_read_file_preview,
+            builtin_tools::project_exists,
             builtin_tools::project_list_dir,
             builtin_tools::project_write_file,
             builtin_tools::bash_execute,
@@ -220,6 +269,8 @@ pub fn run() {
                 let _ = window.unminimize();
                 let _ = window.show();
                 let _ = window.set_focus();
+                #[cfg(target_os = "macos")]
+                macos_window_activation::raise_window(&window);
             }
         })
         .setup(|app| {

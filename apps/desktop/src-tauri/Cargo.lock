@@ -2708,6 +2708,7 @@ dependencies = [
  "futures-util",
  "hex",
  "libc",
+ "objc2",
  "objc2-app-kit",
  "once_cell",
  "rand 0.8.5",

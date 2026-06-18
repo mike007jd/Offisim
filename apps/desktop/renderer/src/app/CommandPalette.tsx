@@ -11,8 +11,12 @@ import {
   CommandSeparator,
 } from '@/design-system/primitives/command.js';
 import { Dialog, DialogContent } from '@/design-system/primitives/dialog.js';
+import { activateCompanyScope } from '@/runtime/activate-company-scope.js';
 import { BriefcaseBusiness, FolderGit2, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
+
+let commandCompanyActivationSeq = 0;
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
@@ -77,7 +81,7 @@ export function CommandPalette() {
 function CommandDataGroups({ run }: { run: (action: () => void) => void }) {
   const companyId = useUiState((s) => s.companyId);
   const setSurface = useUiState((s) => s.setSurface);
-  const setCompany = useUiState((s) => s.setCompany);
+  const setScope = useUiState((s) => s.setScope);
   const setProject = useUiState((s) => s.setProject);
 
   const companies = useCompanies();
@@ -91,7 +95,20 @@ function CommandDataGroups({ run }: { run: (action: () => void) => void }) {
           <CommandItem
             key={company.id}
             value={`company ${company.name}`}
-            onSelect={() => run(() => setCompany(company.id))}
+            onSelect={() =>
+              run(() => {
+                const seq = ++commandCompanyActivationSeq;
+                void activateCompanyScope({
+                  companyId: company.id,
+                  setScope,
+                  shouldCommit: () => seq === commandCompanyActivationSeq,
+                }).catch((error) => {
+                  if (seq === commandCompanyActivationSeq) {
+                    toast.error(error instanceof Error ? error.message : 'Company switch failed');
+                  }
+                });
+              })
+            }
           >
             <BriefcaseBusiness />
             {company.name}

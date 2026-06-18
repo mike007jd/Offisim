@@ -66,7 +66,7 @@ interface UiState {
   setSurface: (surface: SurfaceKey) => void;
   /** Navigate to the lifecycle front door with an explicit initial intent. */
   openLifecycle: (intent: 'select' | 'create') => void;
-  setCompany: (companyId: string) => void;
+  setScope: (companyId: string, projectId: string) => void;
   setProject: (projectId: string) => void;
 
   openThread: (threadId: string) => void;
@@ -118,11 +118,12 @@ export const useUiState = create<UiState>((set) => ({
 
   setSurface: (surface) => set({ surface }),
   openLifecycle: (intent) => set({ surface: 'lifecycle', lifecycleIntent: intent }),
-  setCompany: (companyId) => set({ companyId }),
+  setScope: (companyId, projectId) =>
+    set({ companyId, projectId, selectedThreadId: null, railMode: 'list' }),
   setProject: (projectId) => set({ projectId, selectedThreadId: null, railMode: 'list' }),
 
   openThread: (threadId) => set({ selectedThreadId: threadId, railMode: 'thread' }),
-  closeThread: () => set({ railMode: 'list' }),
+  closeThread: () => set({ selectedThreadId: null, railMode: 'list' }),
   setSceneRenderMode: (sceneRenderMode) => set({ sceneRenderMode }),
   recordSceneDropDiagnostic: (event) =>
     set((s) => ({ sceneDropDiagnostics: [event, ...s.sceneDropDiagnostics].slice(0, 10) })),

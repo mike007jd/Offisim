@@ -1,52 +1,80 @@
 import type { FsAdapter } from '@offisim/core/tools';
 
+interface TauriFsAdapterOptions {
+  threadId?: string;
+  projectId?: string | null;
+}
+
 /**
  * `FsAdapter` backed by the sandboxed Tauri `project_*` commands.
  *
  * All project file access on desktop MUST go through these commands — they
  * canonicalize every path and enforce that it resolves inside a bound project
  * `workspace_root` (see `apps/desktop/src-tauri/src/builtin_tools.rs`). We do
- * NOT pass a `projectId`; when omitted the Rust side resolves against the union
- * of every bound project workspace root, which is the right behavior for a
- * direct chat that is not pinned to a single project.
+ * Pass the active `projectId` whenever the tool context has one; omitting it is
+ * reserved for conversations that are genuinely not pinned to a single project.
  *
  * Tauri converts the Rust snake_case `project_id` argument to camelCase
  * `projectId` over IPC, so the JS arg names below match the Rust signatures
- * (`path` / `cwd` / `content`).
+ * (`path` / `cwd` / `content` / `projectId`).
  *
  * Hard size ceilings live Rust-side (`MAX_READ_BYTES` = 8 MB,
  * `MAX_WRITE_BYTES` = 8 MB); this adapter never tries to bypass them.
  */
+function commandArgs(
+  path: string,
+  options?: TauriFsAdapterOptions,
+  extra?: Record<string, unknown>,
+): Record<string, unknown> {
+  const projectId = options?.projectId?.trim();
+  if (!projectId) {
+    throw new Error(
+      'File tools need a bound project workspace. Bind a project folder to this chat before reading or writing files.',
+    );
+  }
+  return {
+    path,
+    projectId,
+    ...(extra ?? {}),
+  };
+}
+
 export function createTauriProjectFsAdapter(): FsAdapter {
   return {
-    async readFile(path: string): Promise<string> {
+    async readFile(path: string, options?: TauriFsAdapterOptions): Promise<string> {
       const { invoke } = await import('@tauri-apps/api/core');
-      return invoke<string>('project_read_file', { path });
+      return invoke<string>('project_read_file', commandArgs(path, options));
     },
 
-    async writeFile(path: string, content: string): Promise<void> {
+    async readFileLines(
+      path: string,
+      options: TauriFsAdapterOptions & { offset: number; limit?: number },
+    ): Promise<string> {
       const { invoke } = await import('@tauri-apps/api/core');
-      await invoke<void>('project_write_file', { path, content });
+      return invoke<string>(
+        'project_read_file_lines',
+        commandArgs(path, options, {
+          offset: options.offset,
+          ...(options.limit ? { limit: options.limit } : {}),
+        }),
+      );
     },
 
-    async exists(path: string): Promise<boolean> {
+    async writeFile(path: string, content: string, options?: TauriFsAdapterOptions): Promise<void> {
       const { invoke } = await import('@tauri-apps/api/core');
-      // No dedicated exists command; a successful read proves existence.
-      // Any sandbox/IO error (missing file, out-of-bounds path) is treated as
-      // "does not exist" for the purposes of this predicate.
-      try {
-        await invoke<string>('project_read_file', { path });
-        return true;
-      } catch {
-        return false;
-      }
+      await invoke<void>('project_write_file', commandArgs(path, options, { content }));
     },
 
-    async listDir(path: string) {
+    async exists(path: string, options?: TauriFsAdapterOptions): Promise<boolean> {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return invoke<boolean>('project_exists', commandArgs(path, options));
+    },
+
+    async listDir(path: string, options?: TauriFsAdapterOptions) {
       const { invoke } = await import('@tauri-apps/api/core');
       const rows = await invoke<
         Array<{ name: string; path: string; isFile: boolean; isDirectory: boolean }>
-      >('project_list_dir', { path });
+      >('project_list_dir', commandArgs(path, options));
       return rows.map((row) => ({
         name: row.name,
         path: row.path,

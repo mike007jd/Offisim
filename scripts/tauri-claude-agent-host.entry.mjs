@@ -28,6 +28,27 @@ function injectedApiKey() {
   return apiKey;
 }
 
+function assertLlmRequest(request) {
+  if (!request || typeof request !== 'object' || !Array.isArray(request.messages)) {
+    throw Object.assign(new Error('Trusted host request must include a messages array.'), {
+      code: 'invalid-request',
+    });
+  }
+  for (const message of request.messages) {
+    if (
+      !message ||
+      typeof message !== 'object' ||
+      typeof message.role !== 'string' ||
+      typeof message.content !== 'string'
+    ) {
+      throw Object.assign(
+        new Error('Trusted host request messages must include string role and content fields.'),
+        { code: 'invalid-request' },
+      );
+    }
+  }
+}
+
 function executablePath(candidate) {
   if (!candidate) return undefined;
   try {
@@ -68,6 +89,7 @@ async function main() {
       code: 'invalid-request',
     });
   }
+  assertLlmRequest(payload.request);
   const credentialMode = payload.credentialMode === 'local-auth' ? 'local-auth' : 'api-key';
   const apiKey = credentialMode === 'local-auth' ? undefined : injectedApiKey();
 

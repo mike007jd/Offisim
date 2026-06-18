@@ -10,7 +10,6 @@ import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import { Input } from '@/design-system/primitives/input.js';
 import {
-  type RuntimeProviderProfile,
   getPreferredProviderId,
   isDesktopProviderBridgeAvailable,
   loadRuntimeProviderProfiles,
@@ -29,8 +28,8 @@ import {
   Key,
   RefreshCw,
 } from 'lucide-react';
-import { type CSSProperties, useMemo, useState } from 'react';
-import { type Control, type UseFormReturn, useWatch } from 'react-hook-form';
+import { type CSSProperties, useState } from 'react';
+import type { UseFormReturn } from 'react-hook-form';
 import { toast } from 'sonner';
 import {
   ACCESS_MODE_OPTIONS,
@@ -39,7 +38,7 @@ import {
   type ProviderConfig,
   type ProviderFormValues,
   resolveActiveProviderConfig,
-  useProviderConfigs,
+  type useProviderConfigs,
 } from './settings-data.js';
 
 interface ProviderPaneProps {
@@ -51,6 +50,7 @@ interface ProviderPaneProps {
   saving: boolean;
   saved: boolean;
   saveError: string | null;
+  providerConfigsQuery: ReturnType<typeof useProviderConfigs>;
   onSave: () => void;
   onDiscard: () => void;
 }
@@ -60,25 +60,15 @@ interface ProviderTestMessage {
   text: string;
 }
 
-function runtimeProfileMatches(config: ProviderConfig, profile: RuntimeProviderProfile): boolean {
-  const providerMatches =
-    config.endpointKind === 'messages'
-      ? profile.provider === 'anthropic'
-      : profile.provider === 'openai' || profile.provider === 'openai-compat';
-  if (!providerMatches) return false;
-
-  const normalizedName = profile.displayName.toLowerCase();
-  if (config.product === 'minimax') return normalizedName.includes('minimax');
-  return normalizedName.includes(config.displayName.toLowerCase());
-}
-
 function routeProtocolLabel(config: ProviderConfig): string {
+  if (config.providerProtocol === 'anthropic') return 'anthropic-compat';
+  if (config.providerProtocol === 'openai-compat') return 'openai-compat';
+  if (config.providerProtocol === 'openai') return 'openai';
   if (config.endpointKind === 'messages') return 'anthropic-compat';
-  if (config.product === 'openai') return 'openai';
   return 'openai-compat';
 }
 
-function formatCatalogSyncTime(timestamp: number): string {
+function formatRuntimeProfileSyncTime(timestamp: number): string {
   if (!timestamp) return 'Not synced in this session';
   return new Intl.DateTimeFormat(undefined, {
     month: 'short',
@@ -88,16 +78,23 @@ function formatCatalogSyncTime(timestamp: number): string {
   }).format(new Date(timestamp));
 }
 
-function modelSuggestionsFromConfigs(configs: readonly ProviderConfig[]): string[] {
-  return [...new Set(configs.map((config) => config.model).filter(Boolean))];
+function isClaudeLocalAuthConfig(config: ProviderConfig): boolean {
+  return config.authMode === 'local-auth' && config.executionLane === 'claude-agent-sdk';
 }
 
-function catalogSourcesFromConfigs(configs: readonly ProviderConfig[]) {
+function modelOverrideLabel(config: ProviderConfig): string {
+  const model = config.model.trim();
+  if (model) return model;
+  return isClaudeLocalAuthConfig(config) ? 'Account default' : 'Not set';
+}
+
+function runtimeProfileSourcesFromConfigs(configs: readonly ProviderConfig[]) {
   return configs.map((config) => ({
     label: config.displayName,
-    summary: [config.model, config.hasStoredKey || config.hostResolved ? 'ready' : 'needs key']
-      .filter(Boolean)
-      .join(' · '),
+    summary: [
+      modelOverrideLabel(config),
+      config.hasStoredKey || config.hostResolved ? 'ready' : 'needs key',
+    ].join(' · '),
   }));
 }
 
@@ -128,10 +125,10 @@ export function ProviderPane({
   saving,
   saved,
   saveError,
+  providerConfigsQuery,
   onSave,
   onDiscard,
 }: ProviderPaneProps) {
-  const providerConfigsQuery = useProviderConfigs();
   const configs = providerConfigsQuery.data ?? [...PROVIDER_CONFIGS];
   const [revealKey, setRevealKey] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
@@ -145,40 +142,35 @@ export function ProviderPane({
   const providerBridgeAvailable = isDesktopProviderBridgeAvailable();
 
   const active = resolveActiveProviderConfig(configs, activeConfigId);
-  const isClaudeLocalAuth =
-    active.authMode === 'local-auth' && active.executionLane === 'claude-agent-sdk';
+  const isClaudeLocalAuth = isClaudeLocalAuthConfig(active);
   const isManaged = active.accessMode === 'managed';
   const credentialsManagedByHost = isManaged || isClaudeLocalAuth;
-  const isHostResolved =
-    active.accessMode === 'host-resolved' || active.accessMode === 'managed' || isClaudeLocalAuth;
   const effectiveChatConfigId = resolveEffectiveChatConfigId(configs, preferredProviderId);
   const inUseForChat = effectiveChatConfigId === active.id;
-  const modelSuggestions = useMemo(() => modelSuggestionsFromConfigs(configs), [configs]);
-  const catalogSources = useMemo(() => catalogSourcesFromConfigs(configs), [configs]);
+  const runtimeProfileSources = runtimeProfileSourcesFromConfigs(configs);
   const runtimeProfileRefreshLabel = providerBridgeAvailable
-    ? formatCatalogSyncTime(providerConfigsQuery.dataUpdatedAt)
+    ? formatRuntimeProfileSyncTime(providerConfigsQuery.dataUpdatedAt)
     : 'Desktop runtime required';
   const runtimeProfileScopeSummary = providerBridgeAvailable
-    ? 'Desktop runtime profiles only'
-    : 'Browser preview uses curated fallback rows only';
-  const catalogError = providerConfigsQuery.isError
+    ? 'Pi Agent runtime profiles'
+    : 'Desktop runtime required';
+  const runtimeProfileError = providerConfigsQuery.isError
     ? safeErrorMessage(providerConfigsQuery.error)
     : null;
 
+  const endpointBase = active.credentialDestination.replace(/\/$/u, '');
   const effectiveEndpoint = isClaudeLocalAuth
     ? 'Claude Code local account'
     : active.endpointKind === 'messages'
-      ? `${active.credentialDestination.replace(/\/$/u, '')}/v1/messages`
-      : `${active.credentialDestination.replace(/\/$/u, '')}/v1/chat/completions`;
+      ? `${endpointBase}/v1/messages`
+      : `${endpointBase}/chat/completions`;
 
   async function handleTestConnection() {
     setIsTesting(true);
     setTestMessage({ tone: 'ok', text: 'Testing desktop provider bridge…' });
     try {
       const profiles = await loadRuntimeProviderProfiles();
-      const profile =
-        profiles.find((candidate) => candidate.id === active.id) ??
-        profiles.find((candidate) => runtimeProfileMatches(active, candidate));
+      const profile = profiles.find((candidate) => candidate.id === active.id);
       if (!profile) {
         throw new Error('Provider profile is not saved in the desktop runtime.');
       }
@@ -187,6 +179,7 @@ export function ProviderPane({
         text: 'Reply with exactly: ok',
         requestId: createProviderTestRequestId(active.id),
         maxOutputTokens: 32,
+        companyId,
         projectId,
       });
       setTestMessage({
@@ -233,7 +226,7 @@ export function ProviderPane({
     });
   }
 
-  async function handleRefreshCatalog() {
+  async function handleRefreshRuntimeProfiles() {
     if (!providerBridgeAvailable) {
       toast.error('Runtime profile refresh requires the desktop runtime');
       return;
@@ -252,8 +245,8 @@ export function ProviderPane({
   return (
     <div className="off-set-pane">
       <div className="off-set-panehead">
-        <div className="off-set-panetitle">Provider</div>
-        <div className="off-set-panedesc">The AI provider your employees use.</div>
+        <div className="off-set-panetitle">Pi Agent Runtime</div>
+        <div className="off-set-panedesc">Account and transport used by Pi Agent.</div>
       </div>
 
       {/* Active provider */}
@@ -272,7 +265,11 @@ export function ProviderPane({
                 {inUseForChat ? <StatusPill tone="accent">In use for chat</StatusPill> : null}
               </div>
               <div className="off-set-pv-meta">
-                {[active.model, `${active.lane} lane`, active.region, active.endpointKind]
+                {[
+                  isClaudeLocalAuth ? 'Claude Code account' : `${active.lane} lane`,
+                  active.region,
+                  active.endpointKind,
+                ]
                   .filter(Boolean)
                   .join(' · ')}
               </div>
@@ -328,7 +325,7 @@ export function ProviderPane({
             <div className="off-set-callout is-muted">
               <Icon icon={Info} size="sm" />
               {isClaudeLocalAuth
-                ? 'Uses the signed-in Claude Code account on this Mac. No API key is stored.'
+                ? 'Uses the signed-in Claude Code account on this Mac. Offisim stores no API key or OAuth token.'
                 : 'Credentials managed by host.'}
             </div>
           ) : (
@@ -358,65 +355,31 @@ export function ProviderPane({
               </span>
             </div>
           )}
-          <div className="mt-[var(--off-sp-4)] flex flex-col gap-[var(--off-sp-2)]">
-            {isHostResolved ? (
-              <div className="off-set-callout is-info">
-                <Icon icon={Info} size="sm" />
-                Local/host-managed providers need a running host.
-              </div>
-            ) : null}
-          </div>
         </CardBlock>
       </section>
 
-      {/* Model — the primary edit */}
+      {/* Runtime — primary status, no model catalog on the main path. */}
       <section className="off-set-sec">
         <div className="off-set-sec-head">
-          <CapsLabel>Model</CapsLabel>
+          <CapsLabel>Runtime</CapsLabel>
         </div>
         <CardBlock>
-          <FieldRow
-            label="Model"
-            hint={
-              form.formState.errors.model?.message ??
-              'Type any model id; suggestions come from your provider profiles.'
-            }
-            warn={!!form.formState.errors.model}
-          >
-            {({ id }) => (
-              <>
-                <Input
-                  id={id}
-                  className="off-mono"
-                  placeholder="model-name"
-                  {...form.register('model')}
-                />
-                {modelSuggestions.length > 0 ? (
-                  <div className="off-set-model-suggestions" aria-label="Model suggestions">
-                    {modelSuggestions.map((model) => (
-                      <button
-                        key={model}
-                        type="button"
-                        className="off-set-model-chip off-focusable"
-                        onClick={() =>
-                          form.setValue('model', model, {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                            shouldValidate: true,
-                          })
-                        }
-                      >
-                        {model}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </>
-            )}
-          </FieldRow>
-          {/* Provider-level reasoning flag, but only assert "this model" once a
-              model id is actually filled in. */}
-          {active.isThinking ? <ThinkingModelCallout control={form.control} /> : null}
+          <div className="off-set-runtime-grid">
+            <div>
+              <div className="off-set-cr-t">Kernel</div>
+              <div className="off-set-cr-meta">Pi Agent</div>
+            </div>
+            <div>
+              <div className="off-set-cr-t">Connection</div>
+              <div className="off-set-cr-meta">
+                {isClaudeLocalAuth ? 'Claude Code local account' : routeProtocolLabel(active)}
+              </div>
+            </div>
+            <div>
+              <div className="off-set-cr-t">Model override</div>
+              <div className="off-set-cr-meta">{modelOverrideLabel(active)}</div>
+            </div>
+          </div>
         </CardBlock>
       </section>
 
@@ -457,9 +420,7 @@ export function ProviderPane({
                   id={id}
                   options={configs.map((config) => ({
                     value: config.id,
-                    label: config.model
-                      ? `${config.displayName} · ${config.model}`
-                      : config.displayName,
+                    label: config.displayName,
                   }))}
                   value={activeConfigId}
                   onChange={(event) => {
@@ -484,13 +445,41 @@ export function ProviderPane({
             <span className="off-set-chev">
               <Icon icon={ChevronRight} size="sm" />
             </span>
+            Model override
+          </summary>
+          <div className="off-set-disclosure-body">
+            <FieldRow
+              label={
+                <>
+                  Override model id <span className="off-set-opt">· optional</span>
+                </>
+              }
+              hint={
+                form.formState.errors.model?.message ??
+                'Leave empty for the account/runtime default.'
+              }
+              warn={!!form.formState.errors.model}
+            >
+              {({ id }) => (
+                <Input
+                  id={id}
+                  className="off-mono"
+                  placeholder={isClaudeLocalAuth ? 'account default' : active.model || 'model id'}
+                  {...form.register('model')}
+                />
+              )}
+            </FieldRow>
+          </div>
+        </details>
+
+        <details className="off-set-disclosure">
+          <summary>
+            <span className="off-set-chev">
+              <Icon icon={ChevronRight} size="sm" />
+            </span>
             Connection details
           </summary>
           <div className="off-set-disclosure-body">
-            <p className="off-set-sec-hint mb-[var(--off-sp-4)] mt-0">
-              How {active.displayName} is reached. Product and access mode follow the configuration
-              you pick above; override them only for a custom transport.
-            </p>
             <div className="off-set-grid-2">
               <FieldRow label="Product">
                 {({ id }) => (
@@ -525,7 +514,7 @@ export function ProviderPane({
                   <Input
                     id={id}
                     className="off-mono"
-                    placeholder={`${active.credentialDestination}/v1`}
+                    placeholder={active.credentialDestination}
                     {...form.register('endpointOverride')}
                   />
                 )}
@@ -554,7 +543,7 @@ export function ProviderPane({
             <span className="off-set-chev">
               <Icon icon={ChevronRight} size="sm" />
             </span>
-            Runtime profile models
+            Runtime profiles
           </summary>
           <div className="off-set-disclosure-body">
             <div className="off-set-catalog-row">
@@ -570,10 +559,10 @@ export function ProviderPane({
                 disabled={!providerBridgeAvailable || providerConfigsQuery.isFetching}
                 title={
                   providerBridgeAvailable
-                    ? 'Refresh model suggestions from desktop runtime provider profiles'
+                    ? 'Refresh desktop runtime provider profiles'
                     : 'Runtime profile refresh is only available in the desktop runtime'
                 }
-                onClick={() => void handleRefreshCatalog()}
+                onClick={() => void handleRefreshRuntimeProfiles()}
               >
                 <Icon icon={RefreshCw} size="sm" />
                 {providerConfigsQuery.isFetching ? 'Refreshing' : 'Refresh profiles'}
@@ -582,21 +571,21 @@ export function ProviderPane({
             <div className="mb-[var(--off-sp-3)] flex items-center gap-[var(--off-sp-3)]">
               <span className="off-set-chip-mini">Agent scoped</span>
               <span className="text-[length:var(--off-fs-meta)] text-[color:var(--off-ink-3)]">
-                {modelSuggestions.length} model suggestions from the active provider profiles.
+                {configs.length} runtime profiles available.
               </span>
             </div>
             <div className="off-set-catalog-srcs">
-              {catalogSources.map((src) => (
+              {runtimeProfileSources.map((src) => (
                 <div key={src.label} className="off-set-catalog-src">
                   <div className="off-set-cs-label">{src.label}</div>
                   <div className="off-set-cs-sum">{src.summary}</div>
                 </div>
               ))}
             </div>
-            {catalogError ? (
+            {runtimeProfileError ? (
               <div className="off-set-catalog-err">
                 <Icon icon={AlertTriangle} size="sm" />
-                {catalogError}
+                {runtimeProfileError}
               </div>
             ) : null}
           </div>
@@ -622,20 +611,6 @@ export function ProviderPane({
           </Button>
         </div>
       ) : null}
-    </div>
-  );
-}
-
-/** Isolates the per-keystroke `model` subscription: the pane itself stays
- *  uncontrolled (RHF), so typing a model id re-renders only this callout
- *  instead of the whole ProviderPane. */
-function ThinkingModelCallout({ control }: { control: Control<ProviderFormValues> }) {
-  const model = useWatch({ control, name: 'model' });
-  if (!model.trim()) return null;
-  return (
-    <div className="off-set-callout is-warn mt-[var(--off-sp-3)]">
-      <Icon icon={AlertTriangle} size="sm" />
-      This model reasons before answering — set max output tokens to 1024 or higher.
     </div>
   );
 }

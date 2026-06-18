@@ -24,13 +24,22 @@ export interface ShellExecResult {
   timedOut: boolean;
 }
 
+export interface FsAdapterOptions {
+  threadId?: string;
+  projectId?: string | null;
+}
+
 export interface FsAdapter {
-  readFile(path: string, options?: { threadId?: string }): Promise<string>;
-  writeFile(path: string, content: string, options?: { threadId?: string }): Promise<void>;
-  exists(path: string, options?: { threadId?: string }): Promise<boolean>;
+  readFile(path: string, options?: FsAdapterOptions): Promise<string>;
+  readFileLines?(
+    path: string,
+    options: FsAdapterOptions & { offset: number; limit?: number },
+  ): Promise<string>;
+  writeFile(path: string, content: string, options?: FsAdapterOptions): Promise<void>;
+  exists(path: string, options?: FsAdapterOptions): Promise<boolean>;
   listDir?(
     path: string,
-    options?: { threadId?: string },
+    options?: FsAdapterOptions,
   ): Promise<ReadonlyArray<{ name: string; path: string; isFile: boolean; isDirectory: boolean }>>;
 }
 
@@ -84,4 +93,14 @@ export function isBuiltinToolReadOnly(
   context?: BuiltinToolExecutionContext,
 ): boolean {
   return config.readOnly === true || context?.runScope?.toolPolicy?.readOnly === true;
+}
+
+export function fsAdapterOptions(
+  context?: Pick<BuiltinToolExecutionContext, 'threadId' | 'projectId'>,
+): FsAdapterOptions | undefined {
+  if (!context?.threadId && context?.projectId === undefined) return undefined;
+  return {
+    ...(context.threadId ? { threadId: context.threadId } : {}),
+    ...(context.projectId !== undefined ? { projectId: context.projectId } : {}),
+  };
 }

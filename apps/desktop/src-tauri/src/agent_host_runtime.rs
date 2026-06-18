@@ -40,6 +40,8 @@ const TRUSTED_HOST_ENV_WHITELIST: &[&str] = &[
     "REQUESTS_CA_BUNDLE",
 ];
 
+const BUNDLED_NODE_RELATIVE_TO_RESOURCES: &str = "node/bin/node";
+
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct AgentHostLane {
     pub(crate) name: &'static str,
@@ -89,6 +91,23 @@ impl HostError {
     }
 }
 
+pub(crate) fn required_text<'a>(
+    value: Option<&'a String>,
+    field_name: &str,
+    lane: AgentHostLane,
+) -> Result<&'a str, HostError> {
+    value
+        .map(String::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            HostError::Request(format!(
+                "{field_name} is required for trusted {} lane requests.",
+                lane.name
+            ))
+        })
+}
+
 #[derive(Debug, Deserialize)]
 struct SidecarEnvelope {
     ok: bool,
@@ -106,6 +125,10 @@ struct SidecarError {
 }
 
 pub(crate) fn dev_workspace_root() -> Option<PathBuf> {
+    if !cfg!(debug_assertions) {
+        return None;
+    }
+
     if let Ok(path) = std::env::var("OFFISIM_WORKSPACE_ROOT") {
         let candidate = PathBuf::from(path);
         if candidate.exists() {
@@ -122,9 +145,19 @@ pub(crate) fn dev_workspace_root() -> Option<PathBuf> {
 
 pub(crate) async fn project_workspace_root<R: tauri::Runtime>(
     app: &AppHandle<R>,
+    company_id: Option<&str>,
     project_id: Option<&str>,
     lane: AgentHostLane,
 ) -> Result<PathBuf, HostError> {
+    let company_id = company_id
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            HostError::Request(format!(
+                "companyId is required for trusted {} lane workspace binding.",
+                lane.name
+            ))
+        })?;
     let project_id = project_id
         .map(str::trim)
         .filter(|value| !value.is_empty())
@@ -141,11 +174,13 @@ pub(crate) async fn project_workspace_root<R: tauri::Runtime>(
         SELECT workspace_root
         FROM projects
         WHERE project_id = ?
+          AND company_id = ?
           AND workspace_root IS NOT NULL
           AND trim(workspace_root) <> ''
         "#,
     )
     .bind(project_id)
+    .bind(company_id)
     .fetch_optional(&pool)
     .await
     .map_err(|err| HostError::Request(format!("project workspace lookup failed: {err}")))?
@@ -219,7 +254,7 @@ pub(crate) fn sidecar_script_path<R: tauri::Runtime>(
         .map(|path| path.display().to_string())
         .unwrap_or_else(|| "<unresolved resource path>".into());
     Err(HostError::HostUnavailable(format!(
-        "Trusted {} lane host script not found in bundled resources ({bundled_hint}) or the local workspace checkout.",
+        "Trusted {} lane host script not found in bundled resources ({bundled_hint}).",
         lane.name
     )))
 }
@@ -295,6 +330,59 @@ pub(crate) fn append_sidecar_audit<R: tauri::Runtime>(
     }
 }
 
+fn executable_path(candidate: PathBuf) -> Option<PathBuf> {
+    candidate.is_file().then_some(candidate)
+}
+
+fn node_binary_name() -> &'static str {
+    if cfg!(windows) {
+        "node.exe"
+    } else {
+        "node"
+    }
+}
+
+fn path_node_executable() -> Option<PathBuf> {
+    let path = std::env::var_os("PATH")?;
+    std::env::split_paths(&path)
+        .map(|dir| dir.join(node_binary_name()))
+        .find_map(executable_path)
+}
+
+fn common_node_executable() -> Option<PathBuf> {
+    [
+        "/opt/homebrew/bin/node",
+        "/usr/local/bin/node",
+        "/usr/bin/node",
+    ]
+    .into_iter()
+    .map(PathBuf::from)
+    .find_map(executable_path)
+}
+
+fn bundled_node_executable(script_path: &Path) -> Option<PathBuf> {
+    script_path
+        .parent()
+        .map(|resources_dir| resources_dir.join(BUNDLED_NODE_RELATIVE_TO_RESOURCES))
+        .and_then(executable_path)
+}
+
+fn resolve_node_executable(script_path: &Path) -> PathBuf {
+    if let Some(path) = std::env::var_os("OFFISIM_NODE_EXECUTABLE")
+        .map(PathBuf::from)
+        .and_then(executable_path)
+    {
+        return path;
+    }
+    if let Some(path) = bundled_node_executable(script_path) {
+        return path;
+    }
+    if let Some(path) = path_node_executable() {
+        return path;
+    }
+    common_node_executable().unwrap_or_else(|| PathBuf::from(node_binary_name()))
+}
+
 pub(crate) async fn run_sidecar_json(
     lane: AgentHostLane,
     script_path: &Path,
@@ -303,8 +391,7 @@ pub(crate) async fn run_sidecar_json(
     payload: serde_json::Value,
     token: CancellationToken,
 ) -> Result<serde_json::Value, HostError> {
-    let node_executable =
-        std::env::var("OFFISIM_NODE_EXECUTABLE").unwrap_or_else(|_| "node".to_string());
+    let node_executable = resolve_node_executable(script_path);
     let mut command = Command::new(&node_executable);
     command
         .arg(script_path)
@@ -318,7 +405,9 @@ pub(crate) async fn run_sidecar_json(
     let mut child = command.spawn().map_err(|e| {
         HostError::Spawn(format!(
             "Failed to spawn trusted {} lane host via `{}`: {}",
-            lane.name, node_executable, e
+            lane.name,
+            node_executable.display(),
+            e
         ))
     })?;
 
@@ -522,6 +611,7 @@ fn parse_sidecar_response(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[tokio::test]
     async fn capped_reader_retains_cap_and_marks_exceeded() {
@@ -556,5 +646,22 @@ mod tests {
             }
             other => panic!("expected request error, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn bundled_node_is_resolved_next_to_bundled_sidecar() {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock before epoch")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("offisim-node-runtime-{suffix}"));
+        let node = root.join(BUNDLED_NODE_RELATIVE_TO_RESOURCES);
+        std::fs::create_dir_all(node.parent().expect("node parent")).expect("create node dir");
+        std::fs::write(&node, b"node").expect("write node marker");
+
+        let script = root.join("claude-agent-host.mjs");
+        assert_eq!(bundled_node_executable(&script), Some(node));
+
+        let _ = std::fs::remove_dir_all(root);
     }
 }

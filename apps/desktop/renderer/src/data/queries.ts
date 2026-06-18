@@ -39,6 +39,7 @@ import { gitErrorMessage, isNonGitWorkspace, loadGitWorkbench } from './git-work
 import { loadRunCost } from './run-cost.js';
 import type {
   ChatMessage,
+  ChatThread,
   Deliverable,
   Employee,
   FileNode,
@@ -133,10 +134,76 @@ interface PersistenceResult {
 
 interface DeleteCompanyResult extends PersistenceResult {
   workspaceCleanupError?: string;
+  missing?: boolean;
 }
 
 interface ThreadMutationResult extends PersistenceResult {
   missing?: boolean;
+}
+
+interface CompanyMutationResult extends PersistenceResult {
+  missing?: boolean;
+}
+
+interface StoredAttachmentMeta {
+  attachmentId: string;
+  companyId: string;
+  threadId: string;
+}
+
+export interface ProjectChatThreadRow {
+  thread_id: string;
+  project_id: string;
+  employee_id?: string | null;
+  title: string;
+  summary: string | null;
+  updated_at: string;
+  run_status?: string | null;
+}
+
+export const projectChatThreadRowsQueryKey = (projectId: string | null) =>
+  ['threads', projectId] as const;
+
+function fixtureThreadToRow(thread: ChatThread): ProjectChatThreadRow {
+  return {
+    thread_id: thread.id,
+    project_id: thread.projectId,
+    employee_id: thread.employeeId,
+    title: thread.title,
+    summary: thread.subtitle,
+    updated_at: new Date(thread.updatedAt).toISOString(),
+    run_status:
+      thread.runState === 'running'
+        ? 'running'
+        : thread.runState === 'paused'
+          ? 'paused'
+          : thread.runState === 'error'
+            ? 'failed'
+            : thread.runState === 'done'
+              ? 'completed'
+              : 'idle',
+  };
+}
+
+export async function loadProjectChatThreadRows(
+  projectId: string | null,
+): Promise<ProjectChatThreadRow[]> {
+  const repos = await reposOrNull();
+  if (!repos) {
+    return resolveAsync(
+      threads.filter((thread) => thread.projectId === projectId).map(fixtureThreadToRow),
+    );
+  }
+  const rows = (await repos.chatThreads.listByProject(projectId ?? '')) as ProjectChatThreadRow[];
+  if (rows.length === 0) return [];
+  const db = await getTauriDb();
+  const placeholders = rows.map((_, index) => `$${index + 1}`).join(', ');
+  const statusRows = await db.select<Array<{ thread_id: string; status: string }>>(
+    `SELECT thread_id, status FROM graph_threads WHERE thread_id IN (${placeholders})`,
+    rows.map((row) => row.thread_id),
+  );
+  const statusByThread = new Map(statusRows.map((row) => [row.thread_id, row.status]));
+  return rows.map((row) => ({ ...row, run_status: statusByThread.get(row.thread_id) ?? null }));
 }
 
 function localDbTransaction(statements: LocalDbTransactionStatement[]): Promise<void> {
@@ -155,11 +222,32 @@ async function deleteCompanyWorkspace(companyId: string): Promise<void> {
   await invoke('delete_company_workspace', { companyId });
 }
 
-async function deleteConversationDeep(threadId: string): Promise<void> {
+function attachmentVaultRef(meta: StoredAttachmentMeta): string {
+  return `attachment://${meta.companyId}/${meta.threadId}/${meta.attachmentId}`;
+}
+
+async function deleteThreadAttachments(
+  threadId: string,
+  companyId: string | null | undefined,
+): Promise<void> {
+  if (!isTauriRuntime()) return;
+  const metas = companyId
+    ? await invoke<StoredAttachmentMeta[]>('attachment_list', { companyId, threadId })
+    : (await invoke<StoredAttachmentMeta[]>('attachment_list_all')).filter(
+        (meta) => meta.threadId === threadId,
+      );
+  await Promise.all(
+    metas.map((meta) => invoke('attachment_delete', { vaultRef: attachmentVaultRef(meta) })),
+  );
+}
+
+async function deleteConversationDeep(threadId: string, companyId?: string | null): Promise<void> {
+  await deleteThreadAttachments(threadId, companyId);
   await localDbTransaction([
     { sql: 'DELETE FROM tool_permission_approvals WHERE thread_id = $1', params: [threadId] },
     { sql: 'DELETE FROM compact_summaries WHERE thread_id = $1', params: [threadId] },
     { sql: 'DELETE FROM node_summaries WHERE thread_id = $1', params: [threadId] },
+    { sql: 'DELETE FROM file_history WHERE thread_id = $1', params: [threadId] },
     { sql: 'DELETE FROM interaction_history WHERE thread_id = $1', params: [threadId] },
     { sql: 'DELETE FROM active_thread_interactions WHERE thread_id = $1', params: [threadId] },
     { sql: 'DELETE FROM agent_events WHERE thread_id = $1', params: [threadId] },
@@ -331,10 +419,6 @@ async function deleteCompanyDeep(companyId: string): Promise<DeleteCompanyResult
     { sql: 'DELETE FROM library_documents WHERE company_id = $1', params: [companyId] },
     { sql: 'DELETE FROM prefab_instances WHERE company_id = $1', params: [companyId] },
     { sql: 'DELETE FROM zones WHERE company_id = $1', params: [companyId] },
-    {
-      sql: "DELETE FROM settings WHERE key LIKE '%' || $1 || '%' OR value LIKE '%' || $1 || '%'",
-      params: [companyId],
-    },
     { sql: 'DELETE FROM companies WHERE company_id = $1', params: [companyId] },
   ]);
 
@@ -358,9 +442,11 @@ export function useUpdateCompany() {
     }: {
       companyId: string;
       fields: CompanyUpdateFields;
-    }) => {
+    }): Promise<CompanyMutationResult> => {
       const repos = await reposOrNull();
       if (!repos) return { persisted: false };
+      const existing = await repos.companies.findById(companyId);
+      if (!existing) return { persisted: false, missing: true };
       await repos.companies.update(companyId, fields);
       return { persisted: true };
     },
@@ -376,6 +462,8 @@ export function useDeleteCompany() {
     mutationFn: async ({ companyId }: { companyId: string }) => {
       const repos = await reposOrNull();
       if (!repos) return { persisted: false };
+      const existing = await repos.companies.findById(companyId);
+      if (!existing) return { persisted: false, missing: true };
       return deleteCompanyDeep(companyId);
     },
     onSuccess: async () => {
@@ -498,24 +586,10 @@ export function useEmployeeSkills(employeeId: string | null) {
 
 export function useThreads(projectId: string | null) {
   return useQuery({
-    queryKey: ['threads', projectId],
-    queryFn: async () => {
-      const repos = await reposOrNull();
-      if (!repos) return resolveAsync(threads.filter((t) => t.projectId === projectId));
-      const rows = await repos.chatThreads.listByProject(projectId ?? '');
-      if (rows.length === 0) return [];
-      const db = await getTauriDb();
-      const placeholders = rows.map((_, index) => `$${index + 1}`).join(', ');
-      const statusRows = await db.select<Array<{ thread_id: string; status: string }>>(
-        `SELECT thread_id, status FROM graph_threads WHERE thread_id IN (${placeholders})`,
-        rows.map((row) => row.thread_id),
-      );
-      const statusByThread = new Map(statusRows.map((row) => [row.thread_id, row.status]));
-      return rows.map((row) =>
-        threadToVm({ ...row, run_status: statusByThread.get(row.thread_id) ?? null }),
-      );
-    },
+    queryKey: projectChatThreadRowsQueryKey(projectId),
+    queryFn: () => loadProjectChatThreadRows(projectId),
     enabled: projectId !== null,
+    select: (rows) => rows.map(threadToVm),
   });
 }
 
@@ -573,7 +647,8 @@ export function useDeleteConversation(projectId: string | null, companyId: strin
       if (!repos) return { persisted: false };
       const existing = await repos.chatThreads.findById(threadId);
       if (!existing) return { persisted: false, missing: true };
-      await deleteConversationDeep(threadId);
+      const project = await repos.projects.findById(existing.project_id);
+      await deleteConversationDeep(threadId, project?.company_id ?? companyId);
       return { persisted: true };
     },
     onSuccess: async (_result, vars) => {
@@ -711,15 +786,17 @@ export function useUnfinishedThreads() {
       const rows = await db.select<UnfinishedThreadRow[]>(
         `SELECT gt.thread_id,
                 gt.company_id,
-                gt.project_id,
+                COALESCE(gtp.project_id, ctp.project_id) AS project_id,
                 gt.status,
                 ct.title,
                 c.name AS company_name,
                 p.name AS project_name
            FROM graph_threads gt
            JOIN companies c ON c.company_id = gt.company_id
-      LEFT JOIN projects p ON p.project_id = gt.project_id
+      LEFT JOIN projects gtp ON gtp.project_id = gt.project_id AND gtp.company_id = gt.company_id
       LEFT JOIN chat_threads ct ON ct.thread_id = gt.thread_id
+      LEFT JOIN projects ctp ON ctp.project_id = ct.project_id AND ctp.company_id = gt.company_id
+      LEFT JOIN projects p ON p.project_id = COALESCE(gtp.project_id, ctp.project_id)
           WHERE c.status <> 'archived'
             AND gt.status IN (${NON_TERMINAL_THREAD_STATUSES.map((_, i) => `$${i + 1}`).join(', ')})
             AND gt.entry_mode IN (${RESUMABLE_ENTRY_MODES.map(

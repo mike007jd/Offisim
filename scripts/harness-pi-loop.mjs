@@ -21,6 +21,7 @@ import {
   SkillInstallCommitter,
   SkillLoader,
   SkillStagingManager,
+  createBudgetTransform,
   createMemoryRepositories,
   createRuntimeContext,
   createSubmitDeliverableTool,
@@ -525,6 +526,130 @@ async function scenarioResume() {
   check('resume on completed thread no-ops', noop === null);
 }
 
+async function scenarioCompactedTranscriptRebase() {
+  console.log('• compacted transcript storage rebase');
+  const repos = await seedRepos();
+  const originalAsyncTransact = repos.asyncTransact.bind(repos);
+  let rebaseTransactionUsed = false;
+  repos.asyncTransact = async (fn) =>
+    originalAsyncTransact(async (txRepos) => {
+      rebaseTransactionUsed = true;
+      return fn(txRepos);
+    });
+  const eventBus = new InMemoryEventBus();
+  const modelResolver = new ModelResolver({
+    default: { profileName: 'faux', provider: 'openai-compat', model: 'faux-model' },
+  });
+  await repos.threads.create({
+    thread_id: 't-compact',
+    company_id: COMPANY_ID,
+    entry_mode: 'direct_chat',
+    root_task_id: null,
+    status: 'running',
+    project_id: null,
+    compact_baseline_json: JSON.stringify({
+      compactId: 'fcb-test',
+      compactVersion: 1,
+      compactedAt: '2026-06-18T00:00:00.000Z',
+      summaryText: 'Older work is summarized.',
+      compactedNonSystemMessageCount: 2,
+      keptTailNonSystemMessageCount: 2,
+    }),
+  });
+  const storedMessages = [
+    { role: 'user', content: 'old user', timestamp: 1 },
+    {
+      role: 'assistant',
+      content: [{ type: 'text', text: 'old assistant' }],
+      api: 'openai-completions',
+      provider: 'openai',
+      model: 'faux-model',
+      usage: emptyUsage(),
+      stopReason: 'stop',
+      timestamp: 2,
+    },
+    { role: 'user', content: 'tail user', timestamp: 3 },
+    {
+      role: 'assistant',
+      content: [{ type: 'text', text: 'tail assistant' }],
+      api: 'openai-completions',
+      provider: 'openai',
+      model: 'faux-model',
+      usage: emptyUsage(),
+      stopReason: 'stop',
+      timestamp: 4,
+    },
+  ];
+  await repos.piMessages.append(
+    storedMessages.map((message, i) => ({
+      message_id: `pim-${i}`,
+      thread_id: 't-compact',
+      company_id: COMPANY_ID,
+      employee_id: EMP_DEV,
+      seq: i,
+      role: message.role,
+      message_json: JSON.stringify(message),
+      created_at: '2026-06-18T00:00:00.000Z',
+    })),
+  );
+  const runtimeCtx = createRuntimeContext({
+    repos,
+    eventBus,
+    llmGateway: { chat: async () => ({}), chatStream: async function* () {}, dispose() {} },
+    modelResolver,
+    toolExecutor: createRecordingToolExecutor([]),
+    companyId: COMPANY_ID,
+    threadId: 't-compact',
+    builtinTools: new Map(),
+    llmToolCallsEnabled: true,
+  });
+  const transform = createBudgetTransform({
+    runtimeCtx,
+    model: 'faux-model',
+    systemPrompt: 'system',
+    budgetService: {
+      async prepareRequest(_ctx, req) {
+        return {
+          ...req,
+          messages: [
+            req.messages[0],
+            { role: 'system', content: '## Compact baseline\nOlder work is summarized.' },
+            ...req.messages.slice(3),
+          ],
+        };
+      },
+    },
+  });
+  const liveMessages = [...storedMessages];
+  const transformed = await transform(liveMessages);
+  const rows = await repos.piMessages.listByThread('t-compact');
+  const thread = await repos.threads.findById('t-compact');
+  const rebased = JSON.parse(thread.compact_baseline_json);
+  check(
+    'compaction rebase prunes persisted prefix',
+    rows.length === 2 && rows[0]?.seq === 2 && rows[1]?.seq === 3,
+    rows.map((row) => row.seq).join(','),
+  );
+  check('compaction rebase uses repository transaction', rebaseTransactionUsed);
+  check(
+    'compaction rebase resets compacted count',
+    rebased.compactedNonSystemMessageCount === 0,
+    String(rebased.compactedNonSystemMessageCount),
+  );
+  check(
+    'compaction rebase mutates live agent state to tail',
+    liveMessages.length === 2 && liveMessages[0]?.content === 'tail user',
+    JSON.stringify(liveMessages),
+  );
+  check(
+    'compaction transform still injects summary for the active call',
+    transformed.length === 3 &&
+      transformed[0]?.role === 'user' &&
+      transformed[0]?.content?.[0]?.text?.includes('Older work is summarized'),
+    JSON.stringify(transformed[0]),
+  );
+}
+
 async function scenarioExportedAgentLoopFailureStreams() {
   console.log('• exported agentLoop failure streams');
   const prompt = { role: 'user', content: [{ type: 'text', text: 'hi' }], timestamp: 1 };
@@ -740,6 +865,7 @@ const SCENARIOS = [
   scenarioBossDelegate,
   scenarioMultiTurn,
   scenarioResume,
+  scenarioCompactedTranscriptRebase,
   scenarioExportedAgentLoopFailureStreams,
   scenarioSkillConfirmCleanup,
   scenarioSkillCancelAndExpiryCleanup,

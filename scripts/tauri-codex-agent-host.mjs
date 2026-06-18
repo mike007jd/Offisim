@@ -8,6 +8,74 @@ function asUtf8String(chunk) {
   return Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk);
 }
 
+const MAX_CODEX_TEXT_BYTES = 8 * 1024 * 1024;
+const MAX_CODEX_REASONING_BYTES = 2 * 1024 * 1024;
+const MAX_CODEX_RUNTIME_EVENTS = 500;
+const MAX_CODEX_APP_SERVER_STDERR_BYTES = 2 * 1024 * 1024;
+const TRUNCATED_SUFFIX = '\n[truncated by Offisim host output cap]';
+const STDERR_TRUNCATED_PREFIX = '[stderr truncated by Offisim host cap]\n';
+
+function clampUtf8String(value, maxBytes) {
+  const text = typeof value === 'string' ? value : String(value ?? '');
+  if (Buffer.byteLength(text, 'utf8') <= maxBytes) return text;
+  const suffixBytes = Buffer.byteLength(TRUNCATED_SUFFIX, 'utf8');
+  const keepBytes = Math.max(0, maxBytes - suffixBytes);
+  return Buffer.from(text, 'utf8').subarray(0, keepBytes).toString('utf8') + TRUNCATED_SUFFIX;
+}
+
+function appendCappedText(current, delta, maxBytes) {
+  return clampUtf8String(`${current}${typeof delta === 'string' ? delta : ''}`, maxBytes);
+}
+
+function pushRuntimeEvent(events, event) {
+  if (!event) return;
+  if (events.length < MAX_CODEX_RUNTIME_EVENTS) {
+    events.push(event);
+    return;
+  }
+  const alreadyMarked = events.some(
+    (candidate) =>
+      candidate?.kind === 'partial_state' && candidate?.failureType === 'runtime_events_truncated',
+  );
+  if (!alreadyMarked) {
+    events.push({
+      kind: 'partial_state',
+      failureType: 'runtime_events_truncated',
+      detail: `Codex runtime events exceeded ${MAX_CODEX_RUNTIME_EVENTS}; remaining events were truncated.`,
+    });
+  }
+}
+
+function pushRuntimeEvents(events, nextEvents) {
+  for (const event of nextEvents ?? []) {
+    pushRuntimeEvent(events, event);
+  }
+}
+
+function appendCappedStderr(state, chunk) {
+  const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk));
+  if (buffer.length === 0) return;
+  state.chunks.push(buffer);
+  state.bytes += buffer.length;
+  while (state.bytes > MAX_CODEX_APP_SERVER_STDERR_BYTES && state.chunks.length > 0) {
+    const overflow = state.bytes - MAX_CODEX_APP_SERVER_STDERR_BYTES;
+    const first = state.chunks[0];
+    if (first.length <= overflow) {
+      state.chunks.shift();
+      state.bytes -= first.length;
+    } else {
+      state.chunks[0] = first.subarray(overflow);
+      state.bytes -= overflow;
+    }
+    state.truncated = true;
+  }
+}
+
+function cappedStderrText(state) {
+  const text = Buffer.concat(state.chunks).toString('utf8').trim();
+  return state.truncated ? `${STDERR_TRUNCATED_PREFIX}${text}`.trim() : text;
+}
+
 async function readPayloadFromStdin() {
   let raw = '';
   for await (const chunk of process.stdin) {
@@ -451,11 +519,11 @@ function reasoningSummaryText(item) {
 function createJsonRpcClient(child) {
   let requestCounter = 0;
   const pending = new Map();
-  const stderrChunks = [];
+  const stderr = { chunks: [], bytes: 0, truncated: false };
   let closed = false;
 
   child.stderr.on('data', (chunk) => {
-    stderrChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
+    appendCappedStderr(stderr, chunk);
   });
 
   const reader = createInterface({
@@ -479,9 +547,7 @@ function createJsonRpcClient(child) {
 
   child.once('exit', (code, signal) => {
     if (closed) return;
-    closeError(
-      unexpectedExitMessage(Buffer.concat(stderrChunks).toString('utf8').trim(), code, signal),
-    );
+    closeError(unexpectedExitMessage(cappedStderrText(stderr), code, signal));
   });
 
   function sendRaw(payload) {
@@ -520,7 +586,7 @@ function createJsonRpcClient(child) {
     sendNotification,
     sendRaw,
     close,
-    stderrText: () => Buffer.concat(stderrChunks).toString('utf8').trim(),
+    stderrText: () => cappedStderrText(stderr),
   };
 }
 
@@ -718,16 +784,9 @@ async function collectLifecycleVerificationEvents(
     return events;
   }
 
-  const checkpointId = `${forkThreadId}:post-turn`;
-  events.push({
-    kind: 'checkpoint_created',
-    checkpointId,
-    label: 'Codex app-server fork checkpoint',
-    detail: forkThreadId,
-  });
   events.push({
     kind: 'rollback_started',
-    checkpointId,
+    checkpointId: forkThreadId,
     label: 'Codex app-server fork rollback',
     detail: forkThreadId,
   });
@@ -735,7 +794,7 @@ async function collectLifecycleVerificationEvents(
     await client.send('thread/rollback', { threadId: forkThreadId, numTurns: 1 });
     events.push({
       kind: 'rollback_completed',
-      checkpointId,
+      checkpointId: forkThreadId,
       label: 'Codex app-server fork rollback',
       detail: forkThreadId,
     });
@@ -848,9 +907,7 @@ async function runCodexTurn(payload) {
             pendingToolCalls,
             completedToolCalls,
           );
-          if (runtimeEvent) {
-            runtimeEvents.push(runtimeEvent);
-          }
+          pushRuntimeEvent(runtimeEvents, runtimeEvent);
         }
 
         switch (message?.method) {
@@ -874,7 +931,7 @@ async function runCodexTurn(payload) {
             break;
           case 'item/agentMessage/delta':
             if (turnMatches(turnId, message.params)) {
-              finalText += message.params?.delta ?? '';
+              finalText = appendCappedText(finalText, message.params?.delta, MAX_CODEX_TEXT_BYTES);
             }
             break;
           case 'item/completed':
@@ -886,13 +943,13 @@ async function runCodexTurn(payload) {
               message.params?.item?.type === 'agentMessage' &&
               typeof message.params.item.text === 'string'
             ) {
-              finalText = message.params.item.text;
+              finalText = clampUtf8String(message.params.item.text, MAX_CODEX_TEXT_BYTES);
             }
 
             {
               const nextReasoningText = reasoningSummaryText(message.params?.item);
               if (nextReasoningText) {
-                reasoningText = nextReasoningText;
+                reasoningText = clampUtf8String(nextReasoningText, MAX_CODEX_REASONING_BYTES);
               }
             }
             break;
@@ -916,14 +973,15 @@ async function runCodexTurn(payload) {
               if (allowNativeTools && shouldCollectLifecycleVerificationEvents(request)) {
                 const lifecycleThreadId = message.params?.threadId ?? turn?.threadId ?? threadId;
                 if (typeof lifecycleThreadId === 'string' && lifecycleThreadId) {
-                  runtimeEvents.push(
-                    ...(await collectLifecycleVerificationEvents(
+                  pushRuntimeEvents(
+                    runtimeEvents,
+                    await collectLifecycleVerificationEvents(
                       client,
                       lifecycleThreadId,
                       request,
                       cwd,
                       allowNativeTools,
-                    )),
+                    ),
                   );
                 }
               }

@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dirname, relative, resolve } from 'node:path';
 
@@ -26,6 +26,26 @@ export function formatOutfile(outfile, root) {
   }
 }
 
+const GENERATED_CONST_NAMES = [
+  'MAX_CODEX_TEXT_BYTES',
+  'MAX_CODEX_REASONING_BYTES',
+  'MAX_CODEX_RUNTIME_EVENTS',
+  'MAX_CODEX_APP_SERVER_STDERR_BYTES',
+  'TRUNCATED_SUFFIX',
+  'STDERR_TRUNCATED_PREFIX',
+];
+
+async function normalizeGeneratedConstants(outfile) {
+  let text = await readFile(outfile, 'utf8');
+  const before = text;
+  for (const name of GENERATED_CONST_NAMES) {
+    text = text.replace(new RegExp(`^var ${name} =`, 'm'), `const ${name} =`);
+  }
+  if (text !== before) {
+    await writeFile(outfile, text);
+  }
+}
+
 export async function buildAgentHost({ root, entry, outfile }) {
   const { build } = loadEsbuild(root);
   await mkdir(dirname(outfile), { recursive: true });
@@ -40,5 +60,6 @@ export async function buildAgentHost({ root, entry, outfile }) {
     legalComments: 'none',
     banner: { js: '#!/usr/bin/env node' },
   });
+  await normalizeGeneratedConstants(outfile);
   formatOutfile(outfile, root);
 }

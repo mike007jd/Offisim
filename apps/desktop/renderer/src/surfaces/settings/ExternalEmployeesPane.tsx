@@ -30,6 +30,7 @@ function externalRoleSlug(role: string): RoleSlug {
 
 export function ExternalEmployeesPane() {
   const companyId = useUiState((s) => s.companyId);
+  const hasCompany = companyId.trim().length > 0;
   const setSurface = useUiState((s) => s.setSurface);
   const selectEmployee = useUiState((s) => s.selectEmployee);
   const queryClient = useQueryClient();
@@ -55,6 +56,9 @@ export function ExternalEmployeesPane() {
   }
 
   async function handleInstalled(card: DiscoveredCard) {
+    if (!hasCompany) {
+      throw new Error('Create or select a company before connecting an external employee.');
+    }
     const repos = await reposOrNull();
     if (!repos) {
       throw new Error('External employee install requires the release desktop app.');
@@ -97,9 +101,17 @@ export function ExternalEmployeesPane() {
         toast.error('External employee changes require the release desktop app.');
         return;
       }
+      const existing = await repos.employees.findById(employee.id);
+      if (!existing) {
+        toast.error('External employee no longer exists.');
+        invalidateExternalEmployees();
+        return;
+      }
       await repos.employees.delete(employee.id);
       invalidateExternalEmployees();
       toast.success('External employee disconnected');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'External employee disconnect failed');
     } finally {
       setBusyId(null);
     }
@@ -108,11 +120,16 @@ export function ExternalEmployeesPane() {
   async function refreshAgentCard(employee: ExternalEmployee) {
     setRefreshingId(employee.id);
     try {
-      const card = await discoverAgentCard(employee.cardUrl || employee.url);
       const repos = await reposOrNull();
       if (!repos) {
         throw new Error('External employee changes require the release desktop app.');
       }
+      const existing = await repos.employees.findById(employee.id);
+      if (!existing) {
+        invalidateExternalEmployees();
+        throw new Error('External employee no longer exists.');
+      }
+      const card = await discoverAgentCard(employee.cardUrl || employee.url);
       await repos.employees.update(employee.id, {
         name: card.name,
         role_slug: externalRoleSlug(card.roleDefault),
@@ -145,6 +162,12 @@ export function ExternalEmployeesPane() {
         toast.error('External employee token changes require the release desktop app.');
         return;
       }
+      const existing = await repos.employees.findById(employee.id);
+      if (!existing) {
+        toast.error('External employee no longer exists.');
+        invalidateExternalEmployees();
+        return;
+      }
       await repos.employees.update(employee.id, { a2a_token: token || null });
       invalidateExternalEmployees();
       toast.success('Token saved');
@@ -154,6 +177,8 @@ export function ExternalEmployeesPane() {
         delete next[employee.id];
         return next;
       });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'External employee token save failed');
     } finally {
       setBusyId(null);
     }
@@ -174,7 +199,7 @@ export function ExternalEmployeesPane() {
           <div className="off-set-panedesc">External employees connected over A2A.</div>
         </div>
         {sorted.length > 0 ? (
-          <Button size="md" onClick={() => setInstallOpen(true)}>
+          <Button size="md" disabled={!hasCompany} onClick={() => setInstallOpen(true)}>
             <Icon icon={Plug} size="sm" />
             Connect employee
           </Button>
@@ -188,7 +213,12 @@ export function ExternalEmployeesPane() {
           </div>
           <div className="off-set-ee-t">No external employees connected</div>
           <div className="off-set-ee-d">Connect an external employee by its A2A card URL.</div>
-          <Button size="md" className="mt-[var(--off-sp-5)]" onClick={() => setInstallOpen(true)}>
+          <Button
+            size="md"
+            className="mt-[var(--off-sp-5)]"
+            disabled={!hasCompany}
+            onClick={() => setInstallOpen(true)}
+          >
             <Icon icon={Plus} size="sm" />
             Connect employee
           </Button>

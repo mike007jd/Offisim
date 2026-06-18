@@ -11,6 +11,7 @@ import { createTauriShellExecAdapter } from '@/lib/tauri-shell-exec-adapter.js';
 import { createTauriVaultFileSystem } from '@/lib/tauri-vault-fs.js';
 import {
   InteractionService,
+  type PiMessageRow,
   type RuntimeRepositories,
   SkillInstallCommitter,
   type SkillInstallEnvironment,
@@ -22,6 +23,7 @@ import { AuditingToolExecutor, McpToolExecutor } from '@offisim/core/mcp';
 import { LlmMiddlewareChain, SummarizationMiddleware } from '@offisim/core/middleware';
 import {
   PiAgentRegistry,
+  type PiExecuteResult,
   PiMessageStore,
   PiOrchestrationService,
   createPiStreamFn,
@@ -67,6 +69,43 @@ function toCoreProvider(provider: string): LlmProvider {
   return 'openai-compat';
 }
 
+function parsePiMessageRow(row: PiMessageRow): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(row.message_json);
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function classifyNoopResume(
+  repos: RuntimeRepositories,
+  threadId: string,
+): Promise<'completed' | 'blocked'> {
+  const rows = await repos.piMessages?.listByThread(threadId);
+  if (!rows?.length) return 'blocked';
+  const lastRow = rows.at(-1);
+  if (!lastRow) return 'blocked';
+  const last = parsePiMessageRow(lastRow);
+  if (last?.role !== 'assistant') return 'blocked';
+  const stopReason = typeof last.stopReason === 'string' ? last.stopReason : null;
+  const errorMessage = typeof last.errorMessage === 'string' ? last.errorMessage.trim() : '';
+  if (errorMessage) return 'blocked';
+  if (stopReason && stopReason !== 'stop') return 'blocked';
+  return 'completed';
+}
+
+async function validCompanyProjectId(
+  repos: RuntimeRepositories,
+  companyId: string,
+  projectId: string | null | undefined,
+): Promise<string | null> {
+  const trimmed = projectId?.trim();
+  if (!trimmed) return null;
+  const project = await repos.projects.findById(trimmed);
+  return project?.company_id === companyId ? trimmed : null;
+}
+
 export interface DesktopAgentRunInput {
   /** User message text for this turn. */
   text: string;
@@ -95,9 +134,9 @@ export interface DesktopAgentRuntime {
    * Resume an interrupted turn on a thread from its persisted transcript.
    * Fire-and-forget from the ResumeBar; the pi loop continues the saved
    * transcript (dangling tool calls patched) rather than replaying from the
-   * start. No-ops when there is nothing to resume.
+   * start. Returns null when the persisted transcript has no unfinished turn.
    */
-  resume(threadId: string): Promise<void>;
+  resume(threadId: string, projectId?: string | null): Promise<PiExecuteResult | null>;
   /**
    * Tear down company-scoped resources: kill every MCP child process and stop
    * the skill-staging GC timer. Called on company switch / app teardown via
@@ -164,19 +203,39 @@ class DesktopAgentRuntimeImpl implements DesktopAgentRuntime {
     this.pi.abortThread(threadId);
   }
 
-  async resume(threadId: string): Promise<void> {
+  async resume(threadId: string, projectId?: string | null): Promise<PiExecuteResult | null> {
     // Pi resume loads the persisted transcript (dangling-toolCall patched),
     // resumes as the worker that owned the thread, and continues the loop.
     // Returns null (clean no-op) when there is nothing to resume.
-    await this.pi.resume({
+    const thread = await this.repos.threads.findById(threadId);
+    const chatThread = await this.repos.chatThreads.findById(threadId);
+    const requestedProjectId =
+      (await validCompanyProjectId(this.repos, this.companyId, projectId)) ??
+      (await validCompanyProjectId(this.repos, this.companyId, thread?.project_id)) ??
+      (await validCompanyProjectId(this.repos, this.companyId, chatThread?.project_id));
+    const resolvedProjectId = await ensureProjectBoundForRun(
+      this.repos,
+      this.companyId,
+      requestedProjectId,
+    );
+    const result = await this.pi.resume({
       companyId: this.companyId,
       threadId,
+      projectId: resolvedProjectId,
       runScope: {
-        conversationKey: `::${threadId}::`,
+        conversationKey: `${resolvedProjectId ?? ''}::${threadId}::`,
         runId: `resume-${crypto.randomUUID()}`,
         threadId,
       },
     });
+    if (!result && thread && ['queued', 'running', 'paused'].includes(thread.status)) {
+      if ((await classifyNoopResume(this.repos, threadId)) === 'blocked') {
+        await this.repos.threads.updateStatus(threadId, 'blocked');
+        throw new Error('Cannot resume: this run has no resumable transcript.');
+      }
+      await this.repos.threads.updateStatus(threadId, 'completed');
+    }
+    return result;
   }
 }
 
@@ -259,6 +318,7 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
     shellExec: createTauriShellExecAdapter({
       resolveProjectRoot: async (projectId) => {
         const project = await repos.projects.findById(projectId);
+        if (project?.company_id !== companyId) return null;
         return project?.workspace_root ?? null;
       },
     }),

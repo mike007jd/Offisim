@@ -52,5 +52,11 @@ regex = "1"
 unicode-normalization = "0.1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2-app-kit = { version = "0.3", features = ["NSEvent", "block2"] }
+objc2-app-kit = { version = "0.3", features = [
+  "NSApplication",
+  "NSEvent",
+  "NSWindow",
+  "block2",
+] }
+objc2 = "0.6"
 block2 = "0.6"

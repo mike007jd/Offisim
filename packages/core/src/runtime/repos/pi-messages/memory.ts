@@ -23,6 +23,16 @@ export function createPiMessagesMemoryRepo(): PiMessageRepository {
       if (!list || list.length === 0) return null;
       return list.reduce((a, b) => (b.seq > a.seq ? b : a)).employee_id ?? null;
     },
+    async deleteFirstByThread(threadId: string, count: number): Promise<void> {
+      if (count <= 0) return;
+      const list = [...(byThread.get(threadId) ?? [])].sort((a, b) => a.seq - b.seq);
+      const cutoffSeq = list.at(count - 1)?.seq;
+      if (cutoffSeq === undefined) return;
+      byThread.set(
+        threadId,
+        list.filter((row) => row.seq > cutoffSeq),
+      );
+    },
     async deleteByThread(threadId: string): Promise<void> {
       byThread.delete(threadId);
     },

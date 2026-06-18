@@ -17,7 +17,11 @@ import type { AssistantMessage, Message as PiMessage, ToolResultMessage } from '
 import type { PiMessageRepository, PiMessageRow } from '../runtime/repositories.js';
 import { generateId } from '../utils/generate-id.js';
 
+const MAX_SEQ_CACHE_THREADS = 512;
+
 export class PiMessageStore {
+  private readonly nextSeqByThread = new Map<string, number>();
+
   constructor(private readonly repo: PiMessageRepository) {}
 
   /**
@@ -46,7 +50,48 @@ export class PiMessageStore {
     employeeId: string | null = null,
   ): Promise<void> {
     if (messages.length === 0) return;
-    const start = (await this.repo.maxSeq(threadId)) + 1;
+    const cachedStart = this.nextSeqByThread.get(threadId);
+    const start = cachedStart ?? (await this.repo.maxSeq(threadId)) + 1;
+    try {
+      await this.appendAt(threadId, companyId, messages, createdAt, employeeId, start);
+      this.rememberNextSeq(threadId, start + messages.length);
+    } catch (error) {
+      if (cachedStart === undefined) throw error;
+      this.nextSeqByThread.delete(threadId);
+      const retryStart = (await this.repo.maxSeq(threadId)) + 1;
+      await this.appendAt(threadId, companyId, messages, createdAt, employeeId, retryStart);
+      this.rememberNextSeq(threadId, retryStart + messages.length);
+    }
+  }
+
+  /** The worker that owns this thread (null = boss / not found) — for resume. */
+  async threadOwnerEmployeeId(threadId: string): Promise<string | null> {
+    return this.repo.lastEmployeeId(threadId);
+  }
+
+  async clear(threadId: string): Promise<void> {
+    this.nextSeqByThread.delete(threadId);
+    await this.repo.deleteByThread(threadId);
+  }
+
+  private rememberNextSeq(threadId: string, nextSeq: number): void {
+    this.nextSeqByThread.delete(threadId);
+    this.nextSeqByThread.set(threadId, nextSeq);
+    while (this.nextSeqByThread.size > MAX_SEQ_CACHE_THREADS) {
+      const oldest = this.nextSeqByThread.keys().next().value;
+      if (!oldest) break;
+      this.nextSeqByThread.delete(oldest);
+    }
+  }
+
+  private async appendAt(
+    threadId: string,
+    companyId: string,
+    messages: readonly PiMessage[],
+    createdAt: string,
+    employeeId: string | null,
+    start: number,
+  ): Promise<void> {
     const rows: PiMessageRow[] = messages.map((message, i) => ({
       message_id: generateId('pim'),
       thread_id: threadId,
@@ -58,15 +103,6 @@ export class PiMessageStore {
       created_at: createdAt,
     }));
     await this.repo.append(rows);
-  }
-
-  /** The worker that owns this thread (null = boss / not found) — for resume. */
-  async threadOwnerEmployeeId(threadId: string): Promise<string | null> {
-    return this.repo.lastEmployeeId(threadId);
-  }
-
-  async clear(threadId: string): Promise<void> {
-    await this.repo.deleteByThread(threadId);
   }
 }
 

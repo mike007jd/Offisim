@@ -720,28 +720,6 @@
       }
     },
     {
-      "field": "maxOutputTokens",
-      "loser": {
-        "provenance": {
-          "sourceId": "litellm",
-          "sourceKind": "community-aggregator",
-          "trustTier": "community"
-        },
-        "value": 65535
-      },
-      "modelId": "google/gemini-3-flash-preview",
-      "providerId": "openrouter-openai-general",
-      "scope": "model",
-      "winner": {
-        "provenance": {
-          "sourceId": "openrouter-live",
-          "sourceKind": "provider-live-api",
-          "trustTier": "community"
-        },
-        "value": 65536
-      }
-    },
-    {
       "field": "supportedEndpoints",
       "loser": {
         "provenance": {
@@ -2495,28 +2473,6 @@
       }
     },
     {
-      "field": "maxOutputTokens",
-      "loser": {
-        "provenance": {
-          "sourceId": "litellm",
-          "sourceKind": "community-aggregator",
-          "trustTier": "community"
-        },
-        "value": 16384
-      },
-      "modelId": "xiaomi/mimo-v2-flash",
-      "providerId": "openrouter-openai-general",
-      "scope": "model",
-      "winner": {
-        "provenance": {
-          "sourceId": "openrouter-live",
-          "sourceKind": "provider-live-api",
-          "trustTier": "community"
-        },
-        "value": 65536
-      }
-    },
-    {
       "field": "pricing",
       "loser": {
         "provenance": {
@@ -3116,45 +3072,42 @@
         "vendor": "openrouter"
       },
       {
-        "defaultModel": "glm-5.1",
+        "defaultModel": "glm-5.2[1m]",
         "latestCreated": "2026-06-16",
         "latestLeafId": "z-ai/glm-5.2",
-        "pinnedCreated": "2026-04-07",
         "providerId": "zai-shared-anthropic-coding",
-        "reason": "newer in-family leaf \"z-ai/glm-5.2\" shipped after pinned default",
-        "status": "behind",
+        "reason": "pinned default not found on OpenRouter (native-only id or retired) — verify manually",
+        "status": "unverifiable",
         "vendor": "zai"
       },
       {
-        "defaultModel": "glm-5.1",
+        "defaultModel": "glm-5.2",
         "latestCreated": "2026-06-16",
         "latestLeafId": "z-ai/glm-5.2",
-        "pinnedCreated": "2026-04-07",
+        "pinnedCreated": "2026-06-16",
         "providerId": "zai-shared-openai-coding",
-        "reason": "newer in-family leaf \"z-ai/glm-5.2\" shipped after pinned default",
-        "status": "behind",
+        "status": "current",
         "vendor": "zai"
       },
       {
-        "defaultModel": "glm-5.1",
+        "defaultModel": "glm-5.2",
         "latestCreated": "2026-06-16",
         "latestLeafId": "z-ai/glm-5.2",
-        "pinnedCreated": "2026-04-07",
+        "pinnedCreated": "2026-06-16",
         "providerId": "zai-shared-openai-general",
-        "reason": "newer in-family leaf \"z-ai/glm-5.2\" shipped after pinned default",
-        "status": "behind",
+        "status": "current",
         "vendor": "zai"
       }
     ],
     "summary": {
-      "behind": 3,
-      "current": 10,
+      "behind": 0,
+      "current": 12,
       "manual": 2,
       "providerCount": 15,
-      "unverifiable": 0
+      "unverifiable": 1
     }
   },
-  "generatedAt": "2026-06-17T10:25:18.162Z",
+  "generatedAt": "2026-06-18T01:29:46.896Z",
   "newModels": [
     {
       "modelId": "claude-3-7-sonnet-20250219",
@@ -5752,6 +5705,11 @@
       "sourceId": "openrouter-live"
     },
     {
+      "modelId": "cohere/north-mini-code:free",
+      "providerId": "openrouter-openai-general",
+      "sourceId": "openrouter-live"
+    },
+    {
       "modelId": "deepcogito/cogito-v2.1-671b",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
@@ -7102,11 +7060,6 @@
       "sourceId": "openrouter-live"
     },
     {
-      "modelId": "xiaomi/mimo-v2-flash",
-      "providerId": "openrouter-openai-general",
-      "sourceId": "openrouter-live"
-    },
-    {
       "modelId": "xiaomi/mimo-v2.5",
       "providerId": "openrouter-openai-general",
       "sourceId": "openrouter-live"
@@ -8193,7 +8146,7 @@
     }
   ],
   "summary": {
-    "conflictCount": 120,
+    "conflictCount": 118,
     "newModelCount": 812,
     "newProviderAliasCount": 170,
     "providerCount": 16

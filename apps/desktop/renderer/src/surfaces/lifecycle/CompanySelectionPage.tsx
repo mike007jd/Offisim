@@ -1,5 +1,5 @@
 import { useUiState } from '@/app/ui-state.js';
-import { displayRole, reposOrNull } from '@/data/adapters.js';
+import { displayRole } from '@/data/adapters.js';
 import {
   useCompanies,
   useCompanyEmployees,
@@ -30,7 +30,7 @@ import {
 import { employeeAvatarUri } from '@/lib/avatar.js';
 import { safeErrorMessage } from '@/lib/provider-bridge.js';
 import { cn } from '@/lib/utils.js';
-import { ensureCompanyWorkspaceProjectId } from '@/runtime/ensure-default-workspace.js';
+import { activateCompanyScope } from '@/runtime/activate-company-scope.js';
 import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
 import {
   Archive,
@@ -58,8 +58,7 @@ export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps
   const companiesQuery = useCompanies();
   const updateCompany = useUpdateCompany();
   const deleteCompany = useDeleteCompany();
-  const setCompany = useUiState((s) => s.setCompany);
-  const setProject = useUiState((s) => s.setProject);
+  const setScope = useUiState((s) => s.setScope);
   const setSurface = useUiState((s) => s.setSurface);
   const activeCompanyId = useUiState((s) => s.companyId);
 
@@ -97,6 +96,8 @@ export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps
         onSuccess: (result) => {
           if (result.persisted) {
             toast.success('Company renamed');
+          } else if (result.missing) {
+            toast.error('Company no longer exists.');
           } else {
             toast.error("Can't save in this build.");
           }
@@ -119,14 +120,12 @@ export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps
     if (enteringId) return;
     setEnteringId(company.id);
     try {
-      const repos = await reposOrNull();
-      let projectId: string | null = null;
-      if (repos) {
-        projectId = await ensureCompanyWorkspaceProjectId(repos, company.id);
-      }
-      setCompany(company.id);
-      if (repos) setProject(projectId ?? '');
-      setSurface('office');
+      await activateCompanyScope({
+        companyId: company.id,
+        setScope,
+        setSurface,
+        surface: 'office',
+      });
     } catch (error) {
       toast.error('Project workspace unavailable', {
         description: error instanceof Error ? error.message : 'Could not bind a project.',
@@ -141,8 +140,7 @@ export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps
     setPreviewId(next?.id ?? null);
     setConfirmArchiveId(null);
     if (activeCompanyId === company.id) {
-      setCompany(next?.id ?? '');
-      setProject('');
+      setScope(next?.id ?? '', '');
       setSurface('lifecycle');
     }
   }
@@ -162,6 +160,9 @@ export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps
             toast.success('Company archived', {
               description: `${company.name} left the active list.`,
             });
+          } else if (result.missing) {
+            leaveDeletedOrArchivedCompany(company);
+            toast.error('Company no longer exists.');
           } else {
             toast.error("Can't save in this build.");
           }
@@ -179,7 +180,12 @@ export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps
       {
         onSuccess: (result) => {
           if (!result.persisted) {
-            toast.error("Can't save in this build.");
+            if (result.missing) {
+              leaveDeletedOrArchivedCompany(company);
+              toast.error('Company no longer exists.');
+            } else {
+              toast.error("Can't save in this build.");
+            }
             return;
           }
           leaveDeletedOrArchivedCompany(company);

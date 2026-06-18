@@ -1,6 +1,9 @@
 import { useUiState } from '@/app/ui-state.js';
 import { reposOrNull } from '@/data/adapters.js';
 import {
+  type ProjectChatThreadRow,
+  loadProjectChatThreadRows,
+  projectChatThreadRowsQueryKey,
   useEmployees,
   useMessages,
   useOfficeLayout,
@@ -276,9 +279,20 @@ export function TeamDock() {
   const directThread = useMutation({
     mutationFn: async (employee: Employee) => {
       if (!projectId) throw new Error('Select a project before messaging an employee.');
-      const currentThreads = queryClient.getQueryData<ChatThread[]>(['threads', projectId]);
-      const existing = currentThreads?.find((thread) => thread.employeeId === employee.id);
-      if (existing) return existing.id;
+      const existingThread = threads.data?.find((thread) => thread.employeeId === employee.id);
+      if (existingThread) return existingThread.id;
+      const cachedRows = queryClient.getQueryData<ProjectChatThreadRow[]>(
+        projectChatThreadRowsQueryKey(projectId),
+      );
+      const cachedExisting = cachedRows?.find((thread) => thread.employee_id === employee.id);
+      if (cachedExisting) return cachedExisting.thread_id;
+      const currentRows = await queryClient.fetchQuery({
+        queryKey: projectChatThreadRowsQueryKey(projectId),
+        queryFn: () => loadProjectChatThreadRows(projectId),
+        staleTime: 5_000,
+      });
+      const existing = currentRows.find((thread) => thread.employee_id === employee.id);
+      if (existing) return existing.thread_id;
 
       const repos = await reposOrNull();
       if (!repos) throw new Error('Employee messaging requires the desktop runtime.');
@@ -316,6 +330,13 @@ export function TeamDock() {
       ),
     [threads.data],
   );
+  const threadByEmployee = useMemo(() => {
+    const map = new Map<string, ChatThread>();
+    for (const thread of threads.data ?? []) {
+      if (thread.employeeId && !map.has(thread.employeeId)) map.set(thread.employeeId, thread);
+    }
+    return map;
+  }, [threads.data]);
   const roster = useMemo(() => {
     const q = query.trim().toLowerCase();
     const list = (employees.data ?? []).filter((employee) => {
@@ -363,7 +384,7 @@ export function TeamDock() {
 
       <div className="off-dock-strip">
         {roster.map((employee) => {
-          const thread = threads.data?.find((t) => t.employeeId === employee.id);
+          const thread = threadByEmployee.get(employee.id);
           const running = thread?.runState === 'running';
           const active = Boolean(thread && thread.id === selectedThreadId);
           const presence = presenceFor(employee, running);

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "verification": {
-    "checkedAt": "2026-06-17",
+    "checkedAt": "2026-06-18",
     "staleAfterDays": 90,
     "note": "Default models and leaf model ids below were verified against each provider's official model list / API docs / deprecation notice on `checkedAt`. Do not trust these as 'latest/recommended/usable' once `checkedAt` is older than `staleAfterDays`, or once any model's `retiresOn` is reached — re-verify against the live source first. `pnpm provider:check` gates this (fails on a retired default or a passed `retiresOn`; warns on staleness). `pnpm provider:refresh` re-pulls community context-window/pricing from litellm + openrouter; provider-tier default ids stay hand-verified here.",
     "modelStatus": {
@@ -388,22 +388,29 @@
       "providerTransport": "anthropic",
       "authMode": "api-key",
       "baseURL": "https://api.z.ai/api/anthropic",
-      "defaultModel": "glm-5.1",
+      "defaultModel": "glm-5.2[1m]",
       "communityAliases": [
         "zai"
       ],
       "supportedEndpoints": [
         "messages"
       ],
-      "lastVerifiedAt": "2026-06-06",
+      "lastVerifiedAt": "2026-06-18",
       "sourceUrl": "https://docs.z.ai/devpack/tool/claude",
       "models": {
+        "glm-5.2[1m]": {
+          "communityAliases": [
+            "glm-5.2[1m]"
+          ],
+          "displayName": "GLM 5.2 (1M context)",
+          "status": "current"
+        },
         "glm-5.1": {
           "communityAliases": [
             "glm-5.1"
           ],
-          "displayName": "GLM 5.1",
-          "status": "current"
+          "displayName": "GLM 5.1 (legacy)",
+          "status": "legacy"
         },
         "GLM-4.7": {
           "communityAliases": [
@@ -430,19 +437,23 @@
       "providerTransport": "openai-compat",
       "authMode": "api-key",
       "baseURL": "https://api.z.ai/api/coding/paas/v4",
-      "defaultModel": "glm-5.1",
+      "defaultModel": "glm-5.2",
       "communityAliases": [
         "zai"
       ],
       "supportedEndpoints": [
         "chat_completions"
       ],
-      "lastVerifiedAt": "2026-06-06",
-      "sourceUrl": "https://docs.z.ai/guides/llm/glm-5.1",
+      "lastVerifiedAt": "2026-06-18",
+      "sourceUrl": "https://docs.z.ai/devpack/tool/others",
       "models": {
-        "glm-5.1": {
-          "displayName": "GLM 5.1",
+        "glm-5.2": {
+          "displayName": "GLM 5.2",
           "status": "current"
+        },
+        "glm-5.1": {
+          "displayName": "GLM 5.1 (legacy)",
+          "status": "legacy"
         },
         "glm-5": {
           "displayName": "GLM 5 (legacy)",
@@ -459,27 +470,31 @@
       "providerTransport": "openai-compat",
       "authMode": "api-key",
       "baseURL": "https://api.z.ai/api/paas/v4",
-      "defaultModel": "glm-5.1",
+      "defaultModel": "glm-5.2",
       "communityAliases": [
         "zai"
       ],
       "supportedEndpoints": [
         "chat_completions"
       ],
-      "lastVerifiedAt": "2026-06-06",
+      "lastVerifiedAt": "2026-06-18",
       "sourceUrl": "https://docs.z.ai/api-reference/llm/chat-completion",
       "models": {
-        "glm-5.1": {
-          "displayName": "GLM 5.1",
+        "glm-5.2": {
+          "displayName": "GLM 5.2",
           "status": "current"
+        },
+        "glm-5.1": {
+          "displayName": "GLM 5.1 (legacy)",
+          "status": "legacy"
         },
         "glm-4.5-air": {
           "displayName": "GLM 4.5 Air (legacy)",
           "status": "legacy"
         },
         "glm-4.5v": {
-          "displayName": "GLM 4.5V",
-          "status": "current"
+          "displayName": "GLM 4.5V (legacy)",
+          "status": "legacy"
         }
       }
     }

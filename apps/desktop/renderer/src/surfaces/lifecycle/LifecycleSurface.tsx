@@ -18,8 +18,7 @@ type LifecycleMode = 'portal' | 'create';
  *  companies it opens the creation wizard directly; with one or more it opens
  *  the selection page. A user action (new / dismiss) overrides the derived mode. */
 export function LifecycleSurface() {
-  const setCompany = useUiState((s) => s.setCompany);
-  const setProject = useUiState((s) => s.setProject);
+  const setScope = useUiState((s) => s.setScope);
   const setSurface = useUiState((s) => s.setSurface);
   const intent = useUiState((s) => s.lifecycleIntent);
   const queryClient = useQueryClient();
@@ -56,6 +55,7 @@ export function LifecycleSurface() {
     // company row — every company-scoped child (the created event, employees,
     // office layout, zones, prefab instances) is FK `ON DELETE CASCADE`, so the
     // delete rolls the whole create back — then rethrow so the user sees it.
+    let projectId = '';
     try {
       await repos.events.insert({
         event_id: crypto.randomUUID(),
@@ -84,6 +84,8 @@ export function LifecycleSurface() {
         );
         await templateService.materializeTemplate(request.template.id, companyId);
       }
+
+      projectId = (await ensureCompanyWorkspaceProjectId(repos, companyId)) ?? '';
     } catch (error) {
       try {
         await repos.companies.delete(companyId);
@@ -93,14 +95,11 @@ export function LifecycleSurface() {
       throw error;
     }
 
-    const projectId = await ensureCompanyWorkspaceProjectId(repos, companyId);
-
     await queryClient.invalidateQueries({ queryKey: ['companies'] });
     await queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
     await queryClient.invalidateQueries({ queryKey: ['projects', companyId] });
 
-    setCompany(companyId);
-    setProject(projectId ?? '');
+    setScope(companyId, projectId);
     setOverride('portal');
     setSurface(request.openStudio ? 'studio' : 'office');
 

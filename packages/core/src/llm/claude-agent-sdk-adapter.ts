@@ -220,7 +220,7 @@ export class ClaudeAgentSdkAdapter implements LlmGateway {
         const { result, assistantError } = await collectQueryResult(prompt, {
           abortController,
           cwd: this.options.cwd,
-          model: request.model,
+          model: request.model?.trim() ? request.model.trim() : undefined,
           maxTurns: 1,
           persistSession: false,
           permissionMode: 'dontAsk',

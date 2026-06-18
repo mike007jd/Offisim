@@ -92,6 +92,9 @@ export const CHAT_PROVIDER_ID_PRIORITY = [
 interface ChatProviderCandidate {
   id: string;
   displayName: string;
+  product?: string;
+  provider?: string;
+  baseUrl?: string;
   hasCredential?: boolean;
   hasStoredKey?: boolean;
   localEndpoint?: boolean;
@@ -100,6 +103,24 @@ interface ChatProviderCandidate {
 
 function candidateHasCredential(candidate: ChatProviderCandidate): boolean {
   return candidate.hasCredential === true || candidate.hasStoredKey === true;
+}
+
+function isOpenRouterCandidate(candidate: ChatProviderCandidate): boolean {
+  const host = (() => {
+    try {
+      return candidate.baseUrl ? new URL(candidate.baseUrl).hostname.toLowerCase() : '';
+    } catch {
+      return '';
+    }
+  })();
+  return (
+    candidate.id.toLowerCase().includes('openrouter') ||
+    candidate.displayName.toLowerCase().includes('openrouter') ||
+    candidate.product === 'openrouter' ||
+    candidate.provider === 'openrouter' ||
+    host === 'openrouter.ai' ||
+    host.endsWith('.openrouter.ai')
+  );
 }
 
 function isClaudeLocalAuthProfile(profile: RuntimeProviderProfile): boolean {
@@ -112,19 +133,19 @@ export function selectDefaultChatProvider<T extends ChatProviderCandidate>(
 ): T | null {
   const credentialed = (id: string) =>
     profiles.find((candidate) => candidateHasCredential(candidate) && candidate.id === id);
+  const autoEligible = (candidate: T) =>
+    candidateHasCredential(candidate) && !isOpenRouterCandidate(candidate);
   return (
     (preferredId ? credentialed(preferredId) : undefined) ??
     profiles.find(
-      (candidate) =>
-        candidateHasCredential(candidate) && (candidate.localEndpoint || candidate.hostResolved),
+      (candidate) => autoEligible(candidate) && (candidate.localEndpoint || candidate.hostResolved),
     ) ??
     CHAT_PROVIDER_ID_PRIORITY.map(credentialed).find(Boolean) ??
     profiles.find(
       (candidate) =>
-        candidateHasCredential(candidate) &&
-        candidate.displayName.toLowerCase().includes('minimax'),
+        autoEligible(candidate) && candidate.displayName.toLowerCase().includes('minimax'),
     ) ??
-    profiles.find(candidateHasCredential) ??
+    profiles.find(autoEligible) ??
     null
   );
 }
@@ -135,7 +156,7 @@ export function selectDefaultChatProvider<T extends ChatProviderCandidate>(
  *   2. a credentialed local endpoint (ollama-style)
  *   3. CHAT_PROVIDER_ID_PRIORITY by id (z.ai's Anthropic lane first, then MiniMax)
  *   4. MiniMax by display name
- *   5. any profile with a stored credential
+ *   5. any non-OpenRouter profile with a stored credential
  */
 export function findDefaultChatProviderProfile(
   profiles: readonly RuntimeProviderProfile[],
@@ -160,17 +181,24 @@ function requestBodyFor(profile: RuntimeProviderProfile, text: string, maxOutput
   };
 }
 
-export function extractProviderText(raw: string): string {
-  let parsed: {
-    content?: Array<{ type?: string; text?: string }>;
-    choices?: Array<{ message?: { content?: string }; text?: string }>;
-    output_text?: string;
-  };
+interface ProviderResponsePayload {
+  content?: Array<{ type?: string; text?: string }>;
+  choices?: Array<{ message?: { content?: string }; text?: string }>;
+  output_text?: string;
+  usage?: Record<string, unknown>;
+}
+
+function parseProviderResponse(raw: string): ProviderResponsePayload | null {
   try {
-    parsed = JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? (parsed as ProviderResponsePayload) : null;
   } catch {
-    return 'Provider returned a malformed response.';
+    return null;
   }
+}
+
+function extractProviderTextFromParsed(parsed: ProviderResponsePayload | null): string {
+  if (!parsed) return 'Provider returned a malformed response.';
   if (typeof parsed.output_text === 'string' && parsed.output_text.trim()) {
     return parsed.output_text.trim();
   }
@@ -189,18 +217,18 @@ export function extractProviderText(raw: string): string {
   return 'Provider returned an empty response.';
 }
 
+export function extractProviderText(raw: string): string {
+  return extractProviderTextFromParsed(parseProviderResponse(raw));
+}
+
 function numberField(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
 }
 
-export function extractProviderUsage(raw: string): ProviderUsage | null {
-  let parsed: { usage?: Record<string, unknown> };
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return null;
-  }
-  const usage = parsed.usage;
+function extractProviderUsageFromParsed(
+  parsed: ProviderResponsePayload | null,
+): ProviderUsage | null {
+  const usage = parsed?.usage;
   if (!usage || typeof usage !== 'object') return null;
 
   if ('prompt_tokens' in usage || 'completion_tokens' in usage) {
@@ -236,6 +264,10 @@ export function extractProviderUsage(raw: string): ProviderUsage | null {
   };
 }
 
+export function extractProviderUsage(raw: string): ProviderUsage | null {
+  return extractProviderUsageFromParsed(parseProviderResponse(raw));
+}
+
 export function safeErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === 'string') return error;
@@ -259,6 +291,7 @@ export async function sendProviderText({
   text,
   requestId,
   maxOutputTokens,
+  companyId,
   projectId,
   signal,
 }: {
@@ -266,6 +299,7 @@ export async function sendProviderText({
   text: string;
   requestId: string;
   maxOutputTokens: number;
+  companyId?: string | null;
   projectId?: string | null;
   signal?: AbortSignal;
 }): Promise<string> {
@@ -274,6 +308,7 @@ export async function sendProviderText({
     text,
     requestId,
     maxOutputTokens,
+    companyId,
     projectId,
     signal,
   });
@@ -335,6 +370,7 @@ async function sendClaudeAgentTextDetailed({
   text,
   requestId,
   maxOutputTokens,
+  companyId,
   projectId,
   signal,
 }: {
@@ -342,9 +378,13 @@ async function sendClaudeAgentTextDetailed({
   text: string;
   requestId: string;
   maxOutputTokens: number;
+  companyId?: string | null;
   projectId?: string | null;
   signal?: AbortSignal;
 }): Promise<ProviderSendResult> {
+  if (!companyId?.trim()) {
+    throw new Error('Enter a company workspace before testing Claude Code local account.');
+  }
   if (!projectId?.trim()) {
     throw new Error('Enter a company workspace before testing Claude Code local account.');
   }
@@ -397,11 +437,12 @@ async function sendClaudeAgentTextDetailed({
       req: {
         requestId,
         providerProfileId: profile.id,
+        companyId,
         projectId,
         credentialMode: 'local-auth',
         request: {
           messages: [{ role: 'user', content: text }],
-          model: profile.model,
+          ...(profile.model.trim() ? { model: profile.model.trim() } : {}),
           maxTokens: maxOutputTokens,
           tools: [],
           timeoutMs: 120000,
@@ -427,6 +468,7 @@ export async function sendProviderTextDetailed({
   text,
   requestId,
   maxOutputTokens,
+  companyId,
   projectId,
   signal,
 }: {
@@ -434,6 +476,7 @@ export async function sendProviderTextDetailed({
   text: string;
   requestId: string;
   maxOutputTokens: number;
+  companyId?: string | null;
   projectId?: string | null;
   signal?: AbortSignal;
 }): Promise<ProviderSendResult> {
@@ -443,6 +486,7 @@ export async function sendProviderTextDetailed({
       text,
       requestId,
       maxOutputTokens,
+      companyId,
       projectId,
       signal,
     });
@@ -525,10 +569,11 @@ export async function sendProviderTextDetailed({
   if (status >= 400) {
     throw new Error(`Provider request failed with HTTP ${status}.`);
   }
+  const parsed = parseProviderResponse(raw);
   return {
-    text: extractProviderText(raw),
+    text: extractProviderTextFromParsed(parsed),
     raw,
     status,
-    usage: extractProviderUsage(raw),
+    usage: extractProviderUsageFromParsed(parsed),
   };
 }
