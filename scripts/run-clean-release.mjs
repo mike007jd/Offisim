@@ -24,9 +24,9 @@ const appPath = path.join(root, 'apps/desktop/src-tauri/target/release/bundle/ma
 const rendererLogPath = path.join(root, 'output/run-action-renderer-dev.log');
 const platformLogPath = path.join(root, 'output/run-action-platform-dev.log');
 
-// Release gates are mandatory (PRELAUNCH_AUDIT_2026-06-10 B1). `--skip-gates`
-// exists for fast local iteration only — the evidence summary records the skip
-// and the run does not count as release evidence.
+// Release gates are mandatory; see Docs/00_start_here/RELEASE_GATES.md.
+// `--skip-gates` exists for fast local iteration only — the evidence summary
+// records the skip and the run does not count as release evidence.
 const skipGates = process.argv.includes('--skip-gates');
 
 function run(command, args, options = {}) {

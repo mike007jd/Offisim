@@ -148,6 +148,7 @@ export interface ChatMessage {
   author: MessageAuthor;
   employeeId: string | null;
   body: string;
+  reasoning?: string;
   at: number;
   attachments?: ChatAttachment[];
   runRecord?: RunRecord;

@@ -64,6 +64,7 @@ function wsMessageToChatMessage(message: WsMessage, threadId: string): Workspace
     author: message.author,
     employeeId: message.employeeId,
     body: message.body,
+    reasoning: message.reasoning,
     at: workspaceMessageAt(message),
     attachments: wsAttachmentToChatAttachment(message),
     workspaceDeliverable: message.deliverable,
@@ -84,6 +85,7 @@ function chatMessageToWsMessage(message: ChatMessage): WsMessage {
     timeLabel: workspaceTimeLabel(new Date(message.at)),
     at: message.at,
     body: message.body,
+    reasoning: message.reasoning,
     deliverable,
     attachment: firstAttachment
       ? {

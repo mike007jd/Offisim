@@ -6,6 +6,15 @@ import {
   SessionManager,
   createAgentSession,
 } from '@earendil-works/pi-coding-agent';
+import {
+  errorLine,
+  messageDeltaLine,
+  messageEndLine,
+  readyLine,
+  resultLine,
+  startedLine,
+  toolLine,
+} from './pi-agent-host-wire.mjs';
 
 const MAX_TEXT_BYTES = 8 * 1024 * 1024;
 const TRUNCATED_SUFFIX = '\n[truncated by Offisim Pi host output cap]';
@@ -40,7 +49,7 @@ function fail(error) {
       : 'pi-agent-host';
   const rawMessage = error instanceof Error ? error.message : String(error ?? 'Unknown Pi error');
   const message = normalizePiErrorMessage(rawMessage);
-  emit({ kind: 'error', code, message });
+  emit(errorLine({ code, message }));
   process.exit(1);
 }
 
@@ -65,9 +74,24 @@ function contentText(content) {
     .join('');
 }
 
+function thinkingText(content) {
+  if (!Array.isArray(content)) return '';
+  return content
+    .map((part) => {
+      if (part?.type === 'thinking') return part.thinking ?? part.text ?? '';
+      return '';
+    })
+    .join('');
+}
+
 function messageText(message) {
   if (!message || typeof message !== 'object') return '';
   return contentText(message.content);
+}
+
+function messageThinking(message) {
+  if (!message || typeof message !== 'object') return '';
+  return thinkingText(message.content);
 }
 
 function modelSummary(model) {
@@ -252,6 +276,14 @@ function selectedModel(modelRegistry, override) {
   return modelRegistry.getAll().find((model) => model.id === raw);
 }
 
+function lastAssistantMessage(session) {
+  const messages = Array.isArray(session?.messages) ? session.messages : [];
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index]?.role === 'assistant') return messages[index];
+  }
+  return undefined;
+}
+
 function piStatus(payload) {
   const { agentDir, authPath, modelsPath, authStorage, modelRegistry } = createPiRegistries(
     asNonEmptyString(payload.agentDir),
@@ -264,9 +296,8 @@ function piStatus(payload) {
     displayName: modelRegistry.getProviderDisplayName(provider),
     auth: modelRegistry.getProviderAuthStatus(provider),
   }));
-  emit({
-    kind: 'result',
-    response: {
+  emit(
+    resultLine({
       ok: true,
       authProviders: authStorage.list().sort(),
       providerStatus,
@@ -279,8 +310,8 @@ function piStatus(payload) {
       },
       modelsConfig: modelsConfigSummary(modelsPath, modelRegistry),
       checkedAt: new Date().toISOString(),
-    },
-  });
+    }),
+  );
 }
 
 async function runPrompt(payload) {
@@ -317,86 +348,107 @@ async function runPrompt(payload) {
   });
 
   let latestText = '';
+  let activeReasoningText = '';
+  let latestReasoningText = '';
+  let emittedReasoning = false;
   const unsubscribe = session.subscribe((event) => {
     if (event.type === 'agent_start') {
-      emit({
-        kind: 'started',
-        sessionId: session.sessionId,
-        sessionFile: session.sessionFile,
-        model: session.model ? modelSummary(session.model) : undefined,
-        modelFallbackMessage,
-      });
+      emit(
+        startedLine({
+          sessionId: session.sessionId,
+          sessionFile: session.sessionFile,
+          model: session.model ? modelSummary(session.model) : undefined,
+          modelFallbackMessage,
+        }),
+      );
       return;
     }
     if (event.type === 'message_update') {
       const streamEvent = event.assistantMessageEvent;
       if (streamEvent?.type === 'text_delta' && streamEvent.delta) {
-        emit({
-          kind: 'messageDelta',
-          channel: 'content',
-          delta: clampText(streamEvent.delta),
-        });
+        emit(messageDeltaLine({ channel: 'content', delta: clampText(streamEvent.delta) }));
+      }
+      if (streamEvent?.type === 'thinking_delta' && streamEvent.delta) {
+        activeReasoningText += streamEvent.delta;
+        emittedReasoning = true;
+        emit(messageDeltaLine({ channel: 'reasoning', delta: clampText(streamEvent.delta) }));
       }
       return;
     }
     if (event.type === 'message_end') {
       if (event.message?.role === 'assistant') {
+        const reasoningText = clampText(messageThinking(event.message) || activeReasoningText);
+        if (reasoningText && !activeReasoningText.trim()) {
+          emittedReasoning = true;
+          emit(messageDeltaLine({ channel: 'reasoning', delta: reasoningText }));
+        }
+        latestReasoningText = reasoningText;
+        activeReasoningText = '';
         latestText = clampText(messageText(event.message));
-        emit({
-          kind: 'messageEnd',
-          text: latestText,
-          stopReason: event.message.stopReason,
-          errorMessage: event.message.errorMessage,
-        });
+        emit(
+          messageEndLine({
+            text: latestText,
+            stopReason: event.message.stopReason,
+            errorMessage: event.message.errorMessage,
+          }),
+        );
       }
       return;
     }
     if (event.type === 'tool_execution_start') {
-      emit({
-        kind: 'tool',
-        status: 'started',
-        toolCallId: event.toolCallId,
-        toolName: event.toolName,
-        detail: event.args ? clampText(JSON.stringify(event.args), 4096) : undefined,
-      });
+      emit(
+        toolLine({
+          status: 'started',
+          toolCallId: event.toolCallId,
+          toolName: event.toolName,
+          detail: event.args ? clampText(JSON.stringify(event.args), 4096) : undefined,
+        }),
+      );
       return;
     }
     if (event.type === 'tool_execution_update') {
-      emit({
-        kind: 'tool',
-        status: 'running',
-        toolCallId: event.toolCallId,
-        toolName: event.toolName,
-        detail: event.partialResult
-          ? clampText(JSON.stringify(event.partialResult), 4096)
-          : undefined,
-      });
+      emit(
+        toolLine({
+          status: 'running',
+          toolCallId: event.toolCallId,
+          toolName: event.toolName,
+          detail: event.partialResult
+            ? clampText(JSON.stringify(event.partialResult), 4096)
+            : undefined,
+        }),
+      );
       return;
     }
     if (event.type === 'tool_execution_end') {
-      emit({
-        kind: 'tool',
-        status: event.isError ? 'failed' : 'completed',
-        toolCallId: event.toolCallId,
-        toolName: event.toolName,
-        detail: event.result ? clampText(JSON.stringify(event.result), 4096) : undefined,
-      });
+      emit(
+        toolLine({
+          status: event.isError ? 'failed' : 'completed',
+          toolCallId: event.toolCallId,
+          toolName: event.toolName,
+          detail: event.result ? clampText(JSON.stringify(event.result), 4096) : undefined,
+        }),
+      );
     }
   });
 
   try {
     await session.prompt(text);
+    const fallbackReasoning = clampText(messageThinking(lastAssistantMessage(session)));
+    const finalReasoning = clampText(latestReasoningText || fallbackReasoning);
+    if (fallbackReasoning && !emittedReasoning) {
+      emit(messageDeltaLine({ channel: 'reasoning', delta: fallbackReasoning }));
+    }
     const finalText = clampText(session.getLastAssistantText() ?? latestText);
-    emit({
-      kind: 'result',
-      response: {
+    emit(
+      resultLine({
         ok: true,
         text: finalText,
+        reasoning: finalReasoning || undefined,
         sessionId: session.sessionId,
         sessionFile: session.sessionFile,
         model: session.model ? modelSummary(session.model) : undefined,
-      },
-    });
+      }),
+    );
   } finally {
     unsubscribe();
     session.dispose();
@@ -406,6 +458,9 @@ async function runPrompt(payload) {
 async function main() {
   const raw = await readStdin();
   const payload = raw.trim() ? JSON.parse(raw) : {};
+  // Protocol handshake first: lets the Rust host detect a stale bundled host
+  // before it processes any event line.
+  emit(readyLine());
   if (payload.mode === 'status') {
     piStatus(payload);
     return;

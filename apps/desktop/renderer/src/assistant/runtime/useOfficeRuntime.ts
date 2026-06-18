@@ -164,7 +164,41 @@ export function useOfficeRuntime({
               draft.id === streamDraftId ? { ...draft, body: draft.body + chunk } : draft,
             );
           });
-        const unsubscribe = subscribeReplyStream(runtimeEventBus, threadId, appendChunk);
+        const appendReasoningChunk = (chunk: string) => {
+          if (!chunk) return;
+          setDrafts((prev) => {
+            const existing = prev.find((draft) => draft.id === streamDraftId);
+            if (!existing) {
+              return [
+                ...prev,
+                {
+                  id: streamDraftId,
+                  threadId,
+                  author: 'employee',
+                  employeeId: assigneeId ?? null,
+                  body: '',
+                  reasoning: chunk,
+                  at: Date.now(),
+                },
+              ];
+            }
+            return prev.map((draft) =>
+              draft.id === streamDraftId
+                ? { ...draft, reasoning: `${draft.reasoning ?? ''}${chunk}` }
+                : draft,
+            );
+          });
+        };
+        let reasoningText = '';
+        const unsubscribe = subscribeReplyStream(
+          runtimeEventBus,
+          threadId,
+          appendChunk,
+          (chunk) => {
+            reasoningText += chunk;
+            appendReasoningChunk(chunk);
+          },
+        );
         // Surface tool calls live (builtin + MCP) so a long run shows the agent
         // working instead of a blank streaming bubble.
         const unsubscribeActivity = subscribeRunActivity(runtimeEventBus, {
@@ -172,7 +206,7 @@ export function useOfficeRuntime({
           onCalled: noteToolCalled,
           onResult: noteToolResult,
         });
-        let response: string;
+        let response: Awaited<ReturnType<typeof runtime.execute>>;
         try {
           response = await runtime.execute({
             text: materialized.promptText,
@@ -188,12 +222,14 @@ export function useOfficeRuntime({
         // A late-resolving Stop: keep whatever already streamed into the draft
         // (do not overwrite with the authoritative response, do not persist).
         if (abortedRef.current) return;
+        const reasoning = (response.reasoning || reasoningText).trim();
         const assistantMessage: ChatMessage = {
           id: streamDraftId,
           threadId,
           author: 'employee',
           employeeId: assigneeId ?? null,
-          body: response,
+          body: response.text,
+          ...(reasoning ? { reasoning } : {}),
           at: Date.now(),
         };
         // Replace the streamed draft with the authoritative final reply (or

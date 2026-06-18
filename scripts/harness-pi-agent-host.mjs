@@ -27,6 +27,14 @@ assert(
   'validate must include the Pi Agent host harness',
 );
 assert(
+  rootPackage.scripts['check:pi-wire-contract'] === 'node scripts/check-pi-wire-contract.mjs',
+  'root package must run the Pi Agent wire-contract gate',
+);
+assert(
+  rootPackage.scripts.validate.includes('pnpm check:pi-wire-contract'),
+  'validate must include the Pi Agent wire-contract gate',
+);
+assert(
   desktopPackage.scripts['build:frontend'].includes('build:pi-agent-host'),
   'desktop build must bundle the Pi Agent host',
 );

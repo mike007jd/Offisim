@@ -1,5 +1,5 @@
-# Minimal enforced gate set (PRELAUNCH_AUDIT_2026-06-10 B1). The gate list is
-# defined once in scripts/release-gates.mjs and shared with `pnpm release:run`.
+# Minimal enforced gate set. The gate list is defined once in
+# scripts/release-gates.mjs and shared with `pnpm release:run`.
 name: CI
 
 on:

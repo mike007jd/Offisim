@@ -1,6 +1,6 @@
 # Offisim Platform Deployment Gates
 
-Last reviewed: 2026-06-01
+Last reviewed: 2026-06-18
 
 Deployment gates that are valid for the current Tauri desktop + Hono platform
 architecture. The 1.0 platform ships as a single Node process.

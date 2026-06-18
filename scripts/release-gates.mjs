@@ -6,11 +6,10 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-// Single source of truth for the core release gates (PRELAUNCH_AUDIT_2026-06-10
-// B1). Consumed with evidence logging by run-clean-release.mjs and executed
-// directly by .github/workflows/ci.yml (`--lane=node` on ubuntu, `--lane=rust`
-// on macos). The prose table in Docs/00_start_here/RELEASE_GATES.md describes
-// this list.
+// Single source of truth for the core release gates. Consumed with evidence
+// logging by run-clean-release.mjs and executed directly by
+// .github/workflows/ci.yml (`--lane=node` on ubuntu, `--lane=rust` on macos).
+// The prose table in Docs/00_start_here/RELEASE_GATES.md describes this list.
 export const RELEASE_GATES = [
   // `validate` already runs typecheck plus the Pi-only runtime guards, Studio
   // placement check, and official Pi Agent Host harness.

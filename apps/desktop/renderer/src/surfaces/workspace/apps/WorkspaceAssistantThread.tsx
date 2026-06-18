@@ -247,6 +247,7 @@ function MessageRow({
 }) {
   const employee = message.employeeId ? byId.get(message.employeeId) : null;
   const isMe = message.author === 'boss';
+  const reasoning = !isMe ? message.reasoning?.trim() : '';
   return (
     <MessagePrimitive.Root asChild>
       <div className={cn('off-ws-msg-row', isMe && 'is-me')}>
@@ -273,6 +274,12 @@ function MessageRow({
           <span className="off-ws-msg-tm">{message.timeLabel}</span>
         </div>
         <div className={cn('off-ws-bubble', isMe && 'is-me')}>
+          {reasoning ? (
+            <details className="off-ws-reasoning" open={!message.body.trim()}>
+              <summary>Reasoning</summary>
+              <div className="off-ws-reasoning-body">{reasoning}</div>
+            </details>
+          ) : null}
           <MessagePrimitive.Parts>
             {({ part }) =>
               part.type === 'text' ? (
@@ -344,6 +351,10 @@ export function WorkspaceAssistantThread({
   const runtimeMessages = useMemo(
     () => mergeWorkspaceMessages(messages, persistedMessages.data ?? [], drafts),
     [messages, persistedMessages.data, drafts],
+  );
+  const runtimeMessageById = useMemo(
+    () => new Map(runtimeMessages.map((message) => [message.id, message])),
+    [runtimeMessages],
   );
   // Day separator follows the first rendered message's real timestamp. Messages
   // without one (fixtures, just-sent drafts) are "now"-shaped, so 'Today' holds.
@@ -465,13 +476,14 @@ export function WorkspaceAssistantThread({
         // runtime): append Pi Agent visible text chunks for this thread. The
         // authoritative response overwrites it afterward.
         const streamDraftId = newDraftId('workspace-assistant');
-        const makeAssistantDraft = (body: string): WsMessage => ({
+        const makeAssistantDraft = (body: string, reasoning?: string): WsMessage => ({
           id: streamDraftId,
           author: 'employee',
           employeeId: active.employeeId,
           role: active.kind === 'group' ? 'workspace' : undefined,
           timeLabel: workspaceTimeLabel(),
           body,
+          ...(reasoning?.trim() ? { reasoning } : {}),
         });
         const upsertDraft = (body: string, mode: 'append' | 'set') => {
           setAwaitingReply(false);
@@ -484,10 +496,30 @@ export function WorkspaceAssistantThread({
             );
           });
         };
-        const unsubscribe = subscribeReplyStream(runtimeEventBus, active.id, (chunk) =>
-          upsertDraft(chunk, 'append'),
+        const upsertReasoningDraft = (chunk: string) => {
+          if (!chunk) return;
+          setAwaitingReply(false);
+          setDrafts((prev) => {
+            const existing = prev.find((draft) => draft.id === streamDraftId);
+            if (!existing) return [...prev, makeAssistantDraft('', chunk)];
+            return prev.map((draft) =>
+              draft.id === streamDraftId
+                ? { ...draft, reasoning: `${draft.reasoning ?? ''}${chunk}` }
+                : draft,
+            );
+          });
+        };
+        let reasoningText = '';
+        const unsubscribe = subscribeReplyStream(
+          runtimeEventBus,
+          active.id,
+          (chunk) => upsertDraft(chunk, 'append'),
+          (chunk) => {
+            reasoningText += chunk;
+            upsertReasoningDraft(chunk);
+          },
         );
-        let response: string;
+        let response: Awaited<ReturnType<typeof runtime.execute>>;
         try {
           response = await runtime.execute({
             text: materialized.promptText,
@@ -501,11 +533,18 @@ export function WorkspaceAssistantThread({
         }
         // A late-resolving cancel: keep whatever already streamed into the draft.
         if (controller.signal.aborted) return;
-        const assistantMessage = makeAssistantDraft(response);
+        if (!reasoningText.trim() && response.reasoning) {
+          reasoningText = response.reasoning;
+        }
+        const assistantMessage = makeAssistantDraft(response.text, reasoningText);
         await persistMessage(assistantMessage);
-        // Replace the streamed draft with the authoritative final reply (or
-        // create it when the reply did not stream).
-        upsertDraft(response, 'set');
+        // Replace the streamed draft with the authoritative final reply and
+        // preserve final reasoning even when it arrived via the command return.
+        setDrafts((prev) =>
+          prev.some((draft) => draft.id === streamDraftId)
+            ? prev.map((draft) => (draft.id === streamDraftId ? assistantMessage : draft))
+            : [...prev, assistantMessage],
+        );
       } catch (error) {
         // An aborted request (cancel or conversation switch) is not a failure;
         // skip the error draft and toast so it does not surface as a bridge error.
@@ -572,7 +611,9 @@ export function WorkspaceAssistantThread({
               <span className="off-ws-day-sep">{daySepLabel}</span>
               <ThreadPrimitive.Messages>
                 {({ message }) => {
-                  const custom = message.metadata?.custom as unknown as WsMessage | undefined;
+                  const custom =
+                    runtimeMessageById.get(message.id) ??
+                    (message.metadata?.custom as unknown as WsMessage | undefined);
                   return custom ? (
                     <MessageRow
                       message={custom}

@@ -131,6 +131,14 @@ Current application/package shape:
 
 - `CLAUDE.md` — primary AI working instructions (root + per-package under `packages/*/CLAUDE.md`, `apps/*/CLAUDE.md`)
 
+### Maintained system docs
+
+- `Docs/SYSTEM_FRAMEWORK.md` — architecture, runtime layers, persistence, flows, and verification map
+- `Docs/FEATURES.md` — maintained feature catalog with owner paths and gates
+- `Docs/CODEBASE_MAP.md` — package/code ownership map and cleanup rules
+- `Docs/HARNESS_ARCHITECTURE.md` — current Pi Agent Host runtime architecture
+- `Docs/architecture/2026-06-18-pi-agent-only-runtime.md` — active runtime decision record
+
 ### Live contracts (code is the source of truth)
 
 - Package manifest schema → `packages/asset-schema/src/schema/manifest-1.0.0.json` + `packages/asset-schema/src/manifest.types.ts`
@@ -141,7 +149,7 @@ Current application/package shape:
 - A2A JSON-RPC → `packages/core/src/a2a/`
 - Desktop AI runtime → `apps/desktop/src-tauri/src/pi_agent_host.rs` + `scripts/tauri-pi-agent-host.entry.mjs` (architecture: `Docs/HARNESS_ARCHITECTURE.md`)
 
-### Working notes (evolving, not authoritative)
+### Design source files
 
 - `Docs/UI_FRAMEWORK_STACK.md` — the approved renderer UI stack (source of truth for new UI work)
 - `Docs/design/` — per-surface HTML prototype specs (Office, Settings, Market, Personnel, Activity, Workspace, lifecycle, states)
@@ -151,8 +159,9 @@ Current application/package shape:
 
 1. `README.md`
 2. `CLAUDE.md` (root + relevant package CLAUDE.md)
-3. Code paths listed under **Live contracts** for the affected surface
-4. `packages/db-local/src/schema.sql` or `packages/db-platform/src/schema.ts` when the task touches persistence
+3. `Docs/SYSTEM_FRAMEWORK.md`, `Docs/FEATURES.md`, and `Docs/CODEBASE_MAP.md`
+4. Code paths listed under **Live contracts** for the affected surface
+5. `packages/db-local/src/schema.sql` or `packages/db-platform/src/schema.ts` when the task touches persistence
 
 ## Document precedence
 
@@ -160,7 +169,8 @@ When two sources overlap, use this order:
 
 1. Code + `git log` — the only live truth
 2. `CLAUDE.md` (root and per-package)
-3. `Docs/` working notes (informational only, do not treat as contracts)
+3. `Docs/SYSTEM_FRAMEWORK.md`, `Docs/FEATURES.md`, `Docs/CODEBASE_MAP.md`, and area-specific docs
+4. Design prototypes in `Docs/design/` when the task touches UI appearance
 
 ## Task routing
 

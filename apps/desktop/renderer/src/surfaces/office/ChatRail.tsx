@@ -77,6 +77,7 @@ function wsMessageToChatMessage(message: WsMessage, threadId: string, index: num
     author: message.author,
     employeeId: message.employeeId,
     body: message.body,
+    reasoning: message.reasoning,
     at: wsMessageTime(message.timeLabel, index),
     attachments: attachments.length ? attachments : undefined,
   };
@@ -101,6 +102,7 @@ function chatMessageToWsMessage(message: ChatMessage, conversation: WsConversati
     role: conversation.kind === 'group' ? 'workspace' : undefined,
     timeLabel: workspaceTimeLabel(new Date(message.at)),
     body: message.body,
+    reasoning: message.reasoning,
     attachment: firstAttachment
       ? {
           id: firstAttachment.id,

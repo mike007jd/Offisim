@@ -1073,6 +1073,30 @@
   color: var(--off-ink-1);
 }
 
+.off-msg-reasoning {
+  margin-bottom: var(--off-sp-3);
+  border-left: 2px solid var(--off-line-strong);
+  padding-left: var(--off-sp-3);
+  color: var(--off-ink-3);
+}
+
+.off-msg-reasoning summary {
+  cursor: pointer;
+  width: fit-content;
+  font-size: var(--off-fs-micro);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  color: var(--off-ink-3);
+}
+
+.off-msg-reasoning-body {
+  margin-top: var(--off-sp-2);
+  font-size: var(--off-fs-sm);
+  line-height: 1.55;
+  color: var(--off-ink-3);
+}
+
 /* Codex-style conversation: the user's own message is a right-aligned bubble;
    AI replies flow left, full-width, with no bubble — the asymmetry is what
    separates "what I asked" from "what the agent produced" at a glance. */

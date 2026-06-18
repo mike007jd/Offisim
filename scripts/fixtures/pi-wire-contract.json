@@ -1,0 +1,39 @@
+[
+  { "kind": "ready", "protocolVersion": 1 },
+  {
+    "kind": "started",
+    "sessionId": "sess_1",
+    "sessionFile": "/tmp/offisim/sess_1.jsonl",
+    "modelFallbackMessage": "Selected model unavailable; using the default model."
+  },
+  { "kind": "messageDelta", "channel": "content", "delta": "Listing the workspace" },
+  { "kind": "messageDelta", "channel": "reasoning", "delta": "I should inspect the workspace first." },
+  {
+    "kind": "tool",
+    "status": "started",
+    "toolCallId": "call_1",
+    "toolName": "bash",
+    "detail": "{\"command\":\"ls -la\"}"
+  },
+  { "kind": "tool", "status": "running", "toolCallId": "call_1", "toolName": "bash" },
+  {
+    "kind": "tool",
+    "status": "completed",
+    "toolCallId": "call_1",
+    "toolName": "bash",
+    "detail": "{\"exitCode\":0}",
+    "durationMs": 42
+  },
+  { "kind": "messageEnd", "text": "Listed 3 files.", "stopReason": "end_turn" },
+  {
+    "kind": "result",
+    "response": {
+      "ok": true,
+      "text": "Listed 3 files.",
+      "reasoning": "I should inspect the workspace first.",
+      "sessionId": "sess_1",
+      "sessionFile": "/tmp/offisim/sess_1.jsonl"
+    }
+  },
+  { "kind": "error", "code": "upstream", "message": "Pi Agent host failed: upstream boom" }
+]

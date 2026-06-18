@@ -25,6 +25,24 @@ const PI_LANE: AgentHostLane = AgentHostLane {
 
 static IN_FLIGHT: InFlightRegistry = InFlightRegistry::new("pi_agent_host");
 
+/// Wire-contract version negotiated with the bundled Node host via the `ready`
+/// handshake. Must stay in lockstep with `PI_HOST_PROTOCOL_VERSION` in
+/// scripts/pi-agent-host-wire.mjs; bump both when a line's required shape changes.
+const PI_HOST_PROTOCOL_VERSION: u32 = 1;
+
+/// Wire kinds the Rust bridge knows how to decode. A line with an unknown kind is
+/// skipped (forward-compatible with newer hosts); a malformed line on a KNOWN kind
+/// is surfaced as a protocol error rather than silently dropped.
+const PI_KNOWN_WIRE_KINDS: &[&str] = &[
+    "ready",
+    "started",
+    "messageDelta",
+    "messageEnd",
+    "tool",
+    "result",
+    "error",
+];
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PiAgentExecuteRequest {
@@ -70,6 +88,8 @@ pub struct PiModelSummary {
 pub struct PiAgentHostResponse {
     text: String,
     #[serde(default)]
+    reasoning: Option<String>,
+    #[serde(default)]
     session_id: Option<String>,
     #[serde(default)]
     session_file: Option<String>,
@@ -78,7 +98,11 @@ pub struct PiAgentHostResponse {
 }
 
 #[derive(Debug, Clone, Serialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum PiAgentHostEvent {
     Started {
         #[serde(default)]
@@ -188,8 +212,15 @@ pub struct PiAgentModelsConfig {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 enum PiSidecarLine {
+    Ready {
+        protocol_version: u32,
+    },
     Started {
         #[serde(default)]
         session_id: Option<String>,
@@ -228,6 +259,20 @@ enum PiSidecarLine {
         code: String,
         message: String,
     },
+}
+
+impl PiSidecarLine {
+    fn kind_name(&self) -> &'static str {
+        match self {
+            Self::Ready { .. } => "ready",
+            Self::Started { .. } => "started",
+            Self::MessageDelta { .. } => "messageDelta",
+            Self::MessageEnd { .. } => "messageEnd",
+            Self::Tool { .. } => "tool",
+            Self::Result { .. } => "result",
+            Self::Error { .. } => "error",
+        }
+    }
 }
 
 fn pi_env(workspace_root: Option<&PathBuf>) -> HashMap<String, String> {
@@ -321,6 +366,8 @@ fn send_sidecar_event(
     line: PiSidecarLine,
 ) -> Result<Option<serde_json::Value>, HostError> {
     match line {
+        // The handshake is consumed by the stream loop before this point; never forwarded.
+        PiSidecarLine::Ready { .. } => Ok(None),
         PiSidecarLine::Started {
             session_id,
             session_file,
@@ -399,6 +446,59 @@ fn send_sidecar_event(
     }
 }
 
+/// Decode one JSONL line from the Pi host. Unknown wire kinds are skipped (so a
+/// newer host that adds an event type does not abort the run), while a malformed
+/// line on a KNOWN kind is surfaced as a protocol error instead of being lost.
+fn decode_sidecar_line(raw: &str) -> Result<Option<PiSidecarLine>, HostError> {
+    match serde_json::from_str::<PiSidecarLine>(raw) {
+        Ok(line) => Ok(Some(line)),
+        Err(strict_err) => {
+            let kind = serde_json::from_str::<serde_json::Value>(raw)
+                .ok()
+                .and_then(|value| {
+                    value
+                        .get("kind")
+                        .and_then(|kind| kind.as_str().map(str::to_owned))
+                });
+            match kind {
+                Some(kind) if PI_KNOWN_WIRE_KINDS.contains(&kind.as_str()) => {
+                    Err(HostError::Protocol(format!(
+                        "Pi Agent host emitted a malformed \"{kind}\" line: {strict_err}; line: {raw}"
+                    )))
+                }
+                Some(kind) => {
+                    eprintln!(
+                        "[pi-agent-host] skipping unknown wire kind \"{kind}\" (forward-compat); line: {raw}"
+                    );
+                    Ok(None)
+                }
+                None => Err(HostError::Protocol(format!(
+                    "Pi Agent host returned invalid JSONL: {strict_err}; line: {raw}"
+                ))),
+            }
+        }
+    }
+}
+
+fn consume_ready_handshake(saw_ready: &mut bool, line: &PiSidecarLine) -> Result<bool, HostError> {
+    if let PiSidecarLine::Ready { protocol_version } = line {
+        if *protocol_version != PI_HOST_PROTOCOL_VERSION {
+            return Err(HostError::Protocol(format!(
+                "Pi Agent host protocol version {protocol_version} does not match runtime {PI_HOST_PROTOCOL_VERSION}; rebuild the bundled host (pnpm build:pi-agent-host)"
+            )));
+        }
+        *saw_ready = true;
+        return Ok(true);
+    }
+    if !*saw_ready {
+        return Err(HostError::Protocol(format!(
+            "Pi Agent host did not emit the required ready handshake before \"{}\"; rebuild the bundled host (pnpm build:pi-agent-host)",
+            line.kind_name()
+        )));
+    }
+    Ok(false)
+}
+
 async fn run_pi_sidecar_jsonl(
     script_path: &Path,
     cwd: &Path,
@@ -442,6 +542,7 @@ async fn run_pi_sidecar_jsonl(
     let stderr_task = tokio::spawn(read_stderr(stderr));
     let mut lines = BufReader::new(stdout).lines();
     let mut final_response: Option<serde_json::Value> = None;
+    let mut saw_ready = false;
 
     loop {
         tokio::select! {
@@ -457,9 +558,12 @@ async fn run_pi_sidecar_jsonl(
                 if trimmed.is_empty() {
                     continue;
                 }
-                let parsed: PiSidecarLine = serde_json::from_str(trimmed).map_err(|err| {
-                    HostError::Protocol(format!("Pi Agent host returned invalid JSONL: {err}; line: {trimmed}"))
-                })?;
+                let Some(parsed) = decode_sidecar_line(trimmed)? else {
+                    continue;
+                };
+                if consume_ready_handshake(&mut saw_ready, &parsed)? {
+                    continue;
+                }
                 if let Some(response) = send_sidecar_event(on_event, parsed)? {
                     final_response = Some(response);
                 }
@@ -495,7 +599,7 @@ async fn do_execute<R: tauri::Runtime>(
     req: PiAgentExecuteRequest,
     on_event: &Channel<PiAgentHostEvent>,
     token: CancellationToken,
-) -> Result<(), HostError> {
+) -> Result<PiAgentHostResponse, HostError> {
     let company_id = required_text(Some(&req.company_id), "companyId", PI_LANE)?;
     let thread_id = required_text(Some(&req.thread_id), "threadId", PI_LANE)?;
     let workspace_root =
@@ -530,9 +634,11 @@ async fn do_execute<R: tauri::Runtime>(
     .await?;
     let response = parse_response(response)?;
     on_event
-        .send(PiAgentHostEvent::Result { response })
+        .send(PiAgentHostEvent::Result {
+            response: response.clone(),
+        })
         .map_err(|err| HostError::Request(format!("Send Pi result event: {err}")))?;
-    Ok(())
+    Ok(response)
 }
 
 #[tauri::command]
@@ -540,15 +646,21 @@ pub async fn pi_agent_execute(
     app: AppHandle,
     req: PiAgentExecuteRequest,
     on_event: Channel<PiAgentHostEvent>,
-) -> Result<(), String> {
+) -> Result<PiAgentHostResponse, String> {
     let request_id = req.request_id.clone();
     let token = IN_FLIGHT.register(&request_id);
     let result = do_execute(&app, req, &on_event, token.clone()).await;
     IN_FLIGHT.clear(&request_id);
 
     match result {
-        Ok(()) => Ok(()),
-        Err(HostError::Aborted) => Ok(()),
+        Ok(response) => Ok(response),
+        Err(HostError::Aborted) => Ok(PiAgentHostResponse {
+            text: String::new(),
+            reasoning: None,
+            session_id: None,
+            session_file: None,
+            model: None,
+        }),
         Err(error) => {
             let (code, message) = error.into_code_message(PI_LANE);
             let _ = on_event.send(PiAgentHostEvent::Error {
@@ -572,8 +684,7 @@ pub fn pi_agent_abort(request_id: String) -> Result<(), String> {
 pub async fn pi_agent_open_config_folder(app: AppHandle) -> Result<(), String> {
     let dir = app_pi_agent_dir(&app)
         .ok_or_else(|| "Resolve Pi Agent config folder: home directory unavailable".to_string())?;
-    std::fs::create_dir_all(&dir)
-        .map_err(|err| format!("Create Pi Agent config folder: {err}"))?;
+    std::fs::create_dir_all(&dir).map_err(|err| format!("Create Pi Agent config folder: {err}"))?;
 
     #[cfg(target_os = "macos")]
     let mut command = {
@@ -662,5 +773,199 @@ mod tests {
         let err = resolved_request_cwd(Some(outside.to_string_lossy().as_ref()), &root, PI_LANE)
             .expect_err("outside cwd should fail");
         assert!(matches!(err, HostError::Request(message) if message.contains("outside")));
+    }
+
+    // Wire-contract guards. The Node host (scripts/tauri-pi-agent-host.entry.mjs) emits
+    // camelCase keys and the renderer reads camelCase (desktop-agent-runtime.ts). The
+    // `tag`/`rename_all` pair only renames variant tags, NOT struct-variant fields, so
+    // without `rename_all_fields = "camelCase"` the required `tool_call_id`/`tool_name`
+    // hard-fail decode on the first tool event (and optionals silently drop to None).
+    // These round-trip tests are the gate that `harness:pi-agent-host` (status-only) lacked.
+    #[test]
+    fn pi_sidecar_tool_line_decodes_camel_case_wire() {
+        let line = r#"{"kind":"tool","status":"started","toolCallId":"call_1","toolName":"bash","durationMs":12}"#;
+        match serde_json::from_str::<PiSidecarLine>(line).expect("decode camelCase tool line") {
+            PiSidecarLine::Tool {
+                status,
+                tool_call_id,
+                tool_name,
+                duration_ms,
+                ..
+            } => {
+                assert_eq!(status, "started");
+                assert_eq!(tool_call_id, "call_1");
+                assert_eq!(tool_name, "bash");
+                assert_eq!(duration_ms, Some(12));
+            }
+            other => panic!("expected Tool variant, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn pi_sidecar_started_line_decodes_camel_case_optionals() {
+        let line = r#"{"kind":"started","sessionId":"s1","sessionFile":"/tmp/s1.json","modelFallbackMessage":"fell back"}"#;
+        match serde_json::from_str::<PiSidecarLine>(line).expect("decode camelCase started line") {
+            PiSidecarLine::Started {
+                session_id,
+                session_file,
+                model_fallback_message,
+                ..
+            } => {
+                assert_eq!(session_id.as_deref(), Some("s1"));
+                assert_eq!(session_file.as_deref(), Some("/tmp/s1.json"));
+                assert_eq!(model_fallback_message.as_deref(), Some("fell back"));
+            }
+            other => panic!("expected Started variant, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn pi_agent_host_event_serializes_camel_case_for_renderer() {
+        let event = PiAgentHostEvent::Tool {
+            status: "completed".into(),
+            tool_call_id: "call_9".into(),
+            tool_name: "write_file".into(),
+            detail: None,
+            duration_ms: Some(7),
+        };
+        let json = serde_json::to_string(&event).expect("serialize tool event");
+        assert!(
+            json.contains(r#""toolCallId":"call_9""#),
+            "expected camelCase toolCallId, got: {json}"
+        );
+        assert!(
+            json.contains(r#""toolName":"write_file""#),
+            "expected camelCase toolName, got: {json}"
+        );
+        assert!(
+            json.contains(r#""durationMs":7"#),
+            "expected camelCase durationMs, got: {json}"
+        );
+        assert!(
+            !json.contains("tool_call_id"),
+            "snake_case key leaked to the renderer Channel: {json}"
+        );
+    }
+
+    #[test]
+    fn pi_wire_fixture_decodes_across_languages() {
+        // The SAME fixture is validated by scripts/check-pi-wire-contract.mjs on the
+        // Node side, so the Node emitter and the Rust decoder cannot drift apart.
+        let fixture_path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../../scripts/fixtures/pi-wire-contract.json"
+        );
+        let raw = std::fs::read_to_string(fixture_path)
+            .unwrap_or_else(|err| panic!("read wire fixture {fixture_path}: {err}"));
+        let lines: Vec<serde_json::Value> =
+            serde_json::from_str(&raw).expect("fixture is a JSON array");
+        assert!(!lines.is_empty(), "fixture must not be empty");
+
+        let mut saw_ready = false;
+        let mut saw_tool = false;
+        for value in &lines {
+            // Tie the Rust known-kinds list to the shared fixture. The JS gate proves the
+            // fixture exercises every PI_WIRE_KINDS entry, so asserting each fixture kind is
+            // in PI_KNOWN_WIRE_KINDS transitively catches Rust/Node kind-list drift (a kind
+            // the Rust decoder would otherwise treat as unknown and silently skip).
+            let kind = value
+                .get("kind")
+                .and_then(|kind| kind.as_str())
+                .unwrap_or_else(|| panic!("fixture line missing a string kind: {value}"));
+            assert!(
+                PI_KNOWN_WIRE_KINDS.contains(&kind),
+                "fixture kind \"{kind}\" is missing from PI_KNOWN_WIRE_KINDS (Rust and Node kind lists drifted)"
+            );
+            let decoded: PiSidecarLine = serde_json::from_value(value.clone())
+                .unwrap_or_else(|err| panic!("decode fixture line {value}: {err}"));
+            match decoded {
+                PiSidecarLine::Ready { protocol_version } => {
+                    saw_ready = true;
+                    assert_eq!(
+                        protocol_version, PI_HOST_PROTOCOL_VERSION,
+                        "fixture ready handshake must match the runtime protocol version"
+                    );
+                }
+                PiSidecarLine::Tool {
+                    tool_call_id,
+                    tool_name,
+                    ..
+                } => {
+                    saw_tool = true;
+                    assert!(!tool_call_id.is_empty());
+                    assert!(!tool_name.is_empty());
+                }
+                _ => {}
+            }
+        }
+        assert!(saw_ready, "fixture must exercise the ready handshake");
+        assert!(saw_tool, "fixture must exercise a tool event");
+    }
+
+    #[test]
+    fn decode_sidecar_line_skips_unknown_kind() {
+        let line = r#"{"kind":"telemetry","foo":"bar"}"#;
+        let decoded = decode_sidecar_line(line).expect("unknown kind is forward-compatible");
+        assert!(
+            decoded.is_none(),
+            "unknown kind should be skipped, not decoded"
+        );
+    }
+
+    #[test]
+    fn decode_sidecar_line_surfaces_malformed_known_kind() {
+        // A `tool` line missing the required toolName is a real contract break.
+        let line = r#"{"kind":"tool","status":"started","toolCallId":"call_1"}"#;
+        let err = decode_sidecar_line(line).expect_err("malformed known kind must error");
+        assert!(matches!(err, HostError::Protocol(message) if message.contains("tool")));
+    }
+
+    #[test]
+    fn decode_sidecar_line_validates_ready_handshake() {
+        let line = format!(r#"{{"kind":"ready","protocolVersion":{PI_HOST_PROTOCOL_VERSION}}}"#);
+        match decode_sidecar_line(&line)
+            .expect("ready decodes")
+            .expect("ready present")
+        {
+            PiSidecarLine::Ready { protocol_version } => {
+                assert_eq!(protocol_version, PI_HOST_PROTOCOL_VERSION)
+            }
+            other => panic!("expected Ready, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn consume_ready_handshake_rejects_version_mismatch() {
+        let mut saw_ready = false;
+        let line = PiSidecarLine::Ready {
+            protocol_version: PI_HOST_PROTOCOL_VERSION + 1,
+        };
+        let err = consume_ready_handshake(&mut saw_ready, &line)
+            .expect_err("mismatched ready must error");
+        assert!(
+            matches!(err, HostError::Protocol(message) if message.contains("does not match runtime"))
+        );
+        assert!(!saw_ready);
+    }
+
+    #[test]
+    fn consume_ready_handshake_requires_ready_before_business_event() {
+        let mut saw_ready = false;
+        let line: PiSidecarLine =
+            serde_json::from_str(r#"{"kind":"result","response":{"ok":true,"text":"done"}}"#)
+                .expect("decode result line");
+        let err = consume_ready_handshake(&mut saw_ready, &line)
+            .expect_err("business event before ready must error");
+        assert!(
+            matches!(err, HostError::Protocol(message) if message.contains("required ready handshake"))
+        );
+        assert!(!saw_ready);
+    }
+
+    #[test]
+    fn pi_sidecar_line_kind_name_matches_wire_kind() {
+        let line = r#"{"kind":"result","response":{"ok":true,"text":"done"}}"#;
+        let decoded: PiSidecarLine = serde_json::from_str(line).expect("decode result line");
+        assert_eq!(decoded.kind_name(), "result");
     }
 }

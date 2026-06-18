@@ -100,6 +100,7 @@ interface MessageItemProps {
 /** One message in the Office rail timeline: author, body, attachments, run record. */
 export function MessageItem({ message, employeesById }: MessageItemProps) {
   const meta = authorMeta(message, employeesById);
+  const reasoning = message.author !== 'boss' ? message.reasoning?.trim() : '';
   return (
     <MessagePrimitive.Root asChild>
       <article className={cn('off-msg', `is-${message.author}`)}>
@@ -118,6 +119,14 @@ export function MessageItem({ message, employeesById }: MessageItemProps) {
           <span className="off-msg-time">{relativeTime(message.at)}</span>
         </header>
         <div className="off-msg-body">
+          {reasoning ? (
+            <details className="off-msg-reasoning">
+              <summary>Reasoning</summary>
+              <div className="off-msg-reasoning-body">
+                <Markdown>{reasoning}</Markdown>
+              </div>
+            </details>
+          ) : null}
           <MessagePrimitive.Parts>
             {({ part }) =>
               part.type === 'text' ? (

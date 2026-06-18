@@ -79,6 +79,7 @@ export interface WsMessage {
   /** Epoch ms the message was created. Set on persisted rows; fixtures omit it. */
   at?: number;
   body: string;
+  reasoning?: string;
   attachment?: WsAttachment;
   deliverable?: WsDeliverableCard;
 }

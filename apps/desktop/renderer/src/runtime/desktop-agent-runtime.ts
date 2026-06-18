@@ -13,6 +13,11 @@ export interface DesktopAgentRunInput {
   projectId: string | null;
 }
 
+export interface DesktopAgentRunResult {
+  text: string;
+  reasoning?: string;
+}
+
 export interface PiAgentModelSummary {
   provider?: string;
   id?: string;
@@ -26,6 +31,7 @@ export interface PiAgentModelSummary {
 
 interface PiAgentHostResponse {
   text: string;
+  reasoning?: string;
   sessionId?: string;
   sessionFile?: string;
   model?: PiAgentModelSummary;
@@ -39,7 +45,7 @@ type PiAgentHostEvent =
       model?: PiAgentModelSummary;
       modelFallbackMessage?: string;
     }
-  | { kind: 'messageDelta'; delta: string; channel?: string }
+  | { kind: 'messageDelta'; delta: string; channel?: 'content' | 'reasoning' }
   | { kind: 'messageEnd'; text: string; stopReason?: string; errorMessage?: string }
   | {
       kind: 'tool';
@@ -52,8 +58,30 @@ type PiAgentHostEvent =
   | { kind: 'result'; response: PiAgentHostResponse }
   | { kind: 'error'; code: string; message: string };
 
+// Wire-contract typecheck guard. These canonical events must stay assignable to
+// PiAgentHostEvent; `satisfies` makes tsc fail here if the renderer union drifts
+// from the camelCase wire contract shared with the Rust host (pi_agent_host.rs)
+// and the Node emitter (scripts/pi-agent-host-wire.mjs). The runtime round-trip is
+// gated by check:pi-wire-contract and the cargo fixture test.
+export const PI_WIRE_CONTRACT_EXAMPLES = [
+  { kind: 'started', sessionId: 's', sessionFile: '/f', modelFallbackMessage: 'm' },
+  { kind: 'messageDelta', delta: 'x', channel: 'content' },
+  { kind: 'messageDelta', delta: 'r', channel: 'reasoning' },
+  { kind: 'messageEnd', text: 't', stopReason: 'end_turn', errorMessage: 'e' },
+  {
+    kind: 'tool',
+    status: 'completed',
+    toolCallId: 'c',
+    toolName: 'bash',
+    detail: 'd',
+    durationMs: 1,
+  },
+  { kind: 'result', response: { text: 't', reasoning: 'r', sessionId: 's', sessionFile: '/f' } },
+  { kind: 'error', code: 'upstream', message: 'm' },
+] satisfies PiAgentHostEvent[];
+
 export interface DesktopAgentRuntime {
-  execute(input: DesktopAgentRunInput): Promise<string>;
+  execute(input: DesktopAgentRunInput): Promise<DesktopAgentRunResult>;
   abort(threadId: string): void;
   resolveInteraction(response: InteractionResponse): Promise<SkillInstallOutcomeKind | null>;
   resume(threadId: string, projectId?: string | null): Promise<{ finalText: string } | null>;
@@ -86,23 +114,28 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     private readonly repos: RuntimeRepositories,
   ) {}
 
-  async execute(input: DesktopAgentRunInput): Promise<string> {
+  async execute(input: DesktopAgentRunInput): Promise<DesktopAgentRunResult> {
     const projectId = await ensureProjectBoundForRun(this.repos, this.companyId, input.projectId);
     const runScope = piRunScope(projectId, input.threadId, input.employeeId);
     const requestId = newRequestId('pi-agent');
     const startedAtByTool = new Map<string, number>();
     let finalText = '';
+    let reasoningText = '';
     let channelError: Error | null = null;
     const onEvent = new Channel<PiAgentHostEvent>();
     onEvent.onmessage = (event) => {
-      if (event.kind === 'messageDelta' && event.delta && event.channel !== 'reasoning') {
+      if (event.kind === 'messageDelta' && event.delta) {
+        const channel = event.channel === 'reasoning' ? 'reasoning' : 'content';
+        if (channel === 'reasoning') {
+          reasoningText += event.delta;
+        }
         runtimeEventBus.emit(
           llmStreamChunk(
             this.companyId,
             input.threadId,
             'pi_agent',
             event.delta,
-            'content',
+            channel,
             runScope,
           ),
         );
@@ -151,7 +184,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
 
     this.inFlightByThread.set(input.threadId, requestId);
     try {
-      await invoke('pi_agent_execute', {
+      const commandResponse = (await invoke('pi_agent_execute', {
         req: {
           requestId,
           text: input.text,
@@ -162,9 +195,23 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           model: readPiModelOverride() || undefined,
         },
         onEvent,
-      });
+      })) as PiAgentHostResponse;
+      if (commandResponse.reasoning && !reasoningText.trim()) {
+        runtimeEventBus.emit(
+          llmStreamChunk(
+            this.companyId,
+            input.threadId,
+            'pi_agent',
+            commandResponse.reasoning,
+            'reasoning',
+            runScope,
+          ),
+        );
+      }
+      finalText = commandResponse.text || finalText;
       if (channelError) throw channelError;
-      return finalText;
+      const reasoning = (commandResponse.reasoning || reasoningText).trim();
+      return { text: finalText, ...(reasoning ? { reasoning } : {}) };
     } finally {
       if (this.inFlightByThread.get(input.threadId) === requestId) {
         this.inFlightByThread.delete(input.threadId);
@@ -185,13 +232,13 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     const chatThread = await this.repos.chatThreads.findById(threadId);
     const requestedProjectId = projectId ?? thread?.project_id ?? chatThread?.project_id ?? null;
     const text = 'Continue the current Pi Agent session from the last saved state.';
-    const finalText = await this.execute({
+    const result = await this.execute({
       text,
       threadId,
       employeeId: null,
       projectId: requestedProjectId,
     });
-    return { finalText };
+    return { finalText: result.text };
   }
 
   async resolveInteraction(

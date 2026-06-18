@@ -204,6 +204,7 @@ export function subscribeReplyStream(
   eventBus: EventBus,
   threadId: string,
   onContentChunk: (chunk: string) => void,
+  onReasoningChunk?: (chunk: string) => void,
 ): () => void {
   return eventBus.on('llm.stream.chunk', (event) => {
     const payload = event.payload as {
@@ -212,10 +213,14 @@ export function subscribeReplyStream(
       channel?: 'content' | 'reasoning';
       chatThreadId?: string;
     };
-    if (payload.channel !== 'content') return;
     if ((payload.chatThreadId || event.threadId) !== threadId) return;
     if (payload.nodeName !== 'pi_agent') return;
     if (!payload.content) return;
+    if (payload.channel === 'reasoning') {
+      onReasoningChunk?.(payload.content);
+      return;
+    }
+    if (payload.channel !== 'content') return;
     onContentChunk(payload.content);
   });
 }
