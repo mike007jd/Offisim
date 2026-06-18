@@ -28,9 +28,9 @@ when the list changes.
 | Gate | Command | Proves |
 |------|---------|--------|
 | Types | `pnpm typecheck` | all 21 workspace packages compile (`tsc --noEmit`) |
-| Validate | `pnpm validate` | `typecheck` + pi-loop record/replay (`harness:pi-loop`) + provider catalog freshness (`provider:check`) |
-| pi-loop harness | `pnpm harness:pi-loop` | pi kernel record/replay: boss delegates, employee runs tools, multi-turn persistence, resume, regression guards (also run inside `validate`) |
-| Provider catalog | `pnpm provider:check` | no retired/dangling default model; offline/deterministic (also run inside `validate`) |
+| Validate | `pnpm validate` | `typecheck` + Pi-only runtime guards + Studio placement + Pi Agent Host harness |
+| Pi-only runtime guards | `pnpm harness:review-fixes` | old provider catalog, ProviderPane, Claude/Codex/OpenAI SDK lanes, and raw LLM Tauri commands stay removed |
+| Pi Agent Host | `pnpm harness:pi-agent-host` | official Pi SDK host wiring, Pi AuthStorage/ModelRegistry status path, release resources, and validate script shape |
 | UI hygiene | `pnpm check:ui-hygiene` | no stale/dead UI copy, no hardcoded provider copy outside settings, design-token discipline |
 | Security harness | `pnpm security:harness` | platform auth/body-limit, doc-engine CSV, git-source tarball cap/zip-bomb, registry-client, web fetch/search boundaries |
 | Desktop Rust | `cargo test` in `apps/desktop/src-tauri` | path containment, shell classifier, redaction, attachment store, local db migration chain |
@@ -62,15 +62,14 @@ pnpm platform:auth-harness      # auth boundary harness (also run inside securit
 
 | Area | Command |
 |------|---------|
-| pi kernel (delegation, tools, persistence, resume) | `pnpm harness:pi-loop` |
+| Pi Agent host / runtime cutover | `pnpm harness:pi-agent-host` |
 | Doc-engine parsers | `pnpm harness:doc-engine` |
 | Chat attachments | `pnpm harness:chat-attachment-roundtrip` |
 
 The full harness inventory is the `harness:*` scripts in the root
-`package.json`. The LangGraph-era harnesses (`harness:deterministic`,
-`harness:mcp-lifecycle`, `harness:resume`, `harness:stream-tools`,
-`harness:context`) were removed in the P6 pi-kernel cut-over; the pi-loop
-record/replay gate is the deterministic kernel gate now.
+`package.json`. LangGraph-era and self-owned provider/model runtime gates are
+not release evidence for the current product route; Pi Agent Host is the active
+runtime gate.
 
 ## Release `.app` live verification (required for desktop runtime behavior)
 

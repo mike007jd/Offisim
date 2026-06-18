@@ -2,17 +2,14 @@ import { useUiState } from '@/app/ui-state.js';
 import { reposOrNull } from '@/data/adapters.js';
 import { CapsLabel } from '@/design-system/grammar/index.js';
 import { Icon } from '@/design-system/icons/Icon.js';
-import { safeErrorMessage } from '@/lib/provider-bridge.js';
 import { cn } from '@/lib/utils.js';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useQueryClient } from '@tanstack/react-query';
-import { Bot, CheckCircle2, Cpu, Plug, Route, ShieldCheck, Users } from 'lucide-react';
+import { Bot, CheckCircle2, Cpu, Plug, ShieldCheck, Users } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { toast } from 'sonner';
 import { ExternalEmployeesPane } from './ExternalEmployeesPane.js';
 import { McpServersPane } from './McpServersPane.js';
-import { ProviderPane } from './ProviderPane.js';
+import { PiAgentPane } from './PiAgentPane.js';
 import { RuntimePane } from './RuntimePane.js';
 import {
   type PersistedRuntimeSettings,
@@ -22,24 +19,16 @@ import {
 } from './appearance.js';
 import {
   type DensityValue,
-  PROVIDER_CONFIGS,
-  type ProviderConfig,
-  type ProviderFormValues,
-  type ProviderProtocol,
   RUNTIME_DEFAULTS,
   type RuntimeFormValues,
   type ThemeValue,
-  providerDefaults,
-  providerFormSchema,
-  resolveActiveProviderConfig,
   runtimeFormSchema,
-  useProviderConfigs,
 } from './settings-data.js';
 
-type SettingsTab = 'provider' | 'runtime' | 'mcp' | 'external';
+type SettingsTab = 'pi-agent' | 'runtime' | 'mcp' | 'external';
 
 const NAV: ReadonlyArray<{ key: SettingsTab; label: string; icon: typeof Bot }> = [
-  { key: 'provider', label: 'Provider', icon: Bot },
+  { key: 'pi-agent', label: 'Pi Agent', icon: Bot },
   { key: 'runtime', label: 'Runtime', icon: Cpu },
   { key: 'mcp', label: 'MCP', icon: Plug },
   { key: 'external', label: 'External Employees', icon: Users },
@@ -57,17 +46,11 @@ const RUN_MODE_LABELS: Record<string, string> = {
 
 function SettingsCompanion({
   tab,
-  provider,
   runtime,
-  providerDirty,
-  providerSaved,
   runtimeSaved,
 }: {
   tab: SettingsTab;
-  provider: ProviderConfig;
   runtime: RuntimeFormValues;
-  providerDirty: boolean;
-  providerSaved: boolean;
   runtimeSaved: boolean;
 }) {
   if (tab === 'runtime') {
@@ -89,10 +72,8 @@ function SettingsCompanion({
               <dd>{runtime.gitAutoCommit === 'enabled' ? 'Enabled' : 'Disabled'}</dd>
             </div>
             <div>
-              <dt>Execution lane</dt>
-              <dd>
-                {runtime.defaultRuntime === 'gateway' ? 'Desktop lane' : runtime.defaultRuntime}
-              </dd>
+              <dt>Runtime engine</dt>
+              <dd>Pi Agent</dd>
             </div>
           </dl>
           <div className="off-set-comp-note">
@@ -111,11 +92,10 @@ function SettingsCompanion({
           <div className="off-set-comp-k">Tool layer</div>
           <div className="off-set-comp-main">
             <Icon icon={Plug} size="sm" />
-            Local MCP registry
+            Pi tools plus MCP
           </div>
           <p className="off-set-comp-copy">
-            Stdio servers require command review. SSE servers stay registered here and connect from
-            the web runtime.
+            MCP remains a project tool layer. The agent loop and tool protocol are owned by Pi.
           </p>
         </div>
       </aside>
@@ -126,14 +106,13 @@ function SettingsCompanion({
     return (
       <aside className="off-set-companion" aria-label="External employees summary">
         <div className="off-set-comp-card">
-          <div className="off-set-comp-k">Extension lane</div>
+          <div className="off-set-comp-k">Visual roles</div>
           <div className="off-set-comp-main">
             <Icon icon={Users} size="sm" />
             External employees
           </div>
           <p className="off-set-comp-copy">
-            Installed employees appear in Personnel and use the same workspace, memory, and runtime
-            boundaries as first-party staff.
+            Employees shape context and theater presentation; they do not own separate model lanes.
           </p>
         </div>
       </aside>
@@ -141,158 +120,66 @@ function SettingsCompanion({
   }
 
   return (
-    <aside className="off-set-companion" aria-label="Provider summary">
+    <aside className="off-set-companion" aria-label="Pi Agent summary">
       <div className="off-set-comp-card">
-        <div className="off-set-comp-k">Current route</div>
+        <div className="off-set-comp-k">Current engine</div>
         <div className="off-set-comp-main">
           <Icon icon={Bot} size="sm" />
-          {provider.displayName}
+          Pi Agent
         </div>
         <dl className="off-set-comp-list">
           <div>
-            <dt>Account</dt>
-            <dd>{provider.hostResolved ? 'Host-managed' : 'Gateway key'}</dd>
+            <dt>Auth</dt>
+            <dd>Pi AuthStorage</dd>
           </div>
           <div>
-            <dt>Route</dt>
-            <dd>{provider.endpointKind}</dd>
+            <dt>Models</dt>
+            <dd>Pi ModelRegistry</dd>
           </div>
           <div>
-            <dt>Region</dt>
-            <dd>{provider.region}</dd>
+            <dt>Sessions</dt>
+            <dd>Pi SessionManager</dd>
           </div>
         </dl>
         <div className="off-set-comp-note">
-          <Icon icon={providerDirty ? Route : CheckCircle2} size="sm" />
-          {providerDirty ? 'Pending provider edits' : providerSaved ? 'Provider saved' : 'Ready'}
+          <Icon icon={CheckCircle2} size="sm" />
+          Single runtime
         </div>
       </div>
     </aside>
   );
 }
 
-function providerProtocol(config: ProviderConfig, product: string): ProviderProtocol {
-  if (product === config.product && config.providerProtocol) return config.providerProtocol;
-  if (product !== config.product) {
-    if (product === 'anthropic' || product === 'minimax') return 'anthropic';
-    return 'openai-compat';
-  }
-  if (config.endpointKind === 'messages') return 'anthropic';
-  return 'openai-compat';
-}
-
-function blockedNativeProviderEndpoint(baseUrl: string): string | null {
-  try {
-    const host = new URL(baseUrl).hostname.toLowerCase();
-    if (host === 'api.openai.com') {
-      return 'OpenAI facade routes through the configured compatible gateway, not api.openai.com.';
-    }
-    if (host === 'api.anthropic.com') {
-      return 'Anthropic facade routes through the configured compatible gateway, not api.anthropic.com.';
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
-
-function isLoopbackEndpoint(baseUrl: string): boolean {
-  try {
-    const host = new URL(baseUrl).hostname;
-    return host === 'localhost' || host === '127.0.0.1' || host === '::1';
-  } catch {
-    return false;
-  }
-}
-
-function providerBaseUrl(config: ProviderConfig, values: ProviderFormValues): string {
-  const override = values.endpointOverride.trim();
-  if (override) return override.replace(/\/$/u, '');
-  return config.credentialDestination.replace(/\/$/u, '');
-}
-
-async function persistProviderProfile(config: ProviderConfig, values: ProviderFormValues) {
-  const { invoke } = await import('@tauri-apps/api/core');
-  const secretRef = config.secretRef ?? config.id;
-  const secret = values.apiKey.trim();
-  const baseUrl = providerBaseUrl(config, values);
-  const localAuth = config.authMode === 'local-auth' && config.executionLane === 'claude-agent-sdk';
-  const model = values.model.trim() || config.model.trim();
-  const blockedEndpoint = blockedNativeProviderEndpoint(baseUrl);
-  if (blockedEndpoint) {
-    throw new Error(blockedEndpoint);
-  }
-  if (!localAuth && !model) {
-    throw new Error('Set a model override in Advanced before saving this API-key profile.');
-  }
-  await invoke('runtime_provider_profile_save', {
-    req: {
-      id: config.id,
-      displayName: config.displayName,
-      provider: providerProtocol(config, values.product),
-      model,
-      baseUrl,
-      secretRef,
-      localEndpoint: isLoopbackEndpoint(baseUrl),
-      executionLane: config.executionLane ?? config.lane,
-      authMode: config.authMode ?? 'api-key',
-      secret: secret || null,
-    },
-  });
-}
-
 export function SettingsSurface() {
-  const queryClient = useQueryClient();
-  const [tab, setTab] = useState<SettingsTab>('provider');
-  const [activeConfigId, setActiveConfigId] = useState(PROVIDER_CONFIGS[0].id);
-  const providerConfigsQuery = useProviderConfigs();
-  const providerConfigs = providerConfigsQuery.data ?? [...PROVIDER_CONFIGS];
+  const [tab, setTab] = useState<SettingsTab>('pi-agent');
   const [theme, setTheme] = useState<ThemeValue>('system');
   const [density, setDensity] = useState<DensityValue>('normal');
-  // Apply the current (possibly unsaved) appearance to the document live, so
-  // editing Theme/Density reflects immediately rather than only after save.
   useApplyAppearance(theme, density);
   const [savedTheme, setSavedTheme] = useState<ThemeValue>('system');
   const [savedDensity, setSavedDensity] = useState<DensityValue>('normal');
-
-  // Save model: Provider is an explicit commit (it writes a credential, and a
-  // half-typed key auto-saved would clobber the stored one). Runtime and
-  // Appearance are preferences and auto-save on change. There is no global save
-  // bar — each pane owns its own persistence.
-  const [providerSave, setProviderSave] = useState<'idle' | 'saving' | 'saved'>('idle');
-  const [providerSaveError, setProviderSaveError] = useState<string | null>(null);
   const [runtimeSaved, setRuntimeSaved] = useState(false);
-  const providerFlashTimer = useRef<number | null>(null);
   const runtimeFlashTimer = useRef<number | null>(null);
   const runtimeSaveTimer = useRef<number | null>(null);
-  useEffect(
-    () => () => {
-      if (providerFlashTimer.current !== null) window.clearTimeout(providerFlashTimer.current);
-      if (runtimeFlashTimer.current !== null) window.clearTimeout(runtimeFlashTimer.current);
-      if (runtimeSaveTimer.current !== null) window.clearTimeout(runtimeSaveTimer.current);
-    },
-    [],
-  );
+  const companyId = useUiState((s) => s.companyId);
 
-  const providerForm = useForm<ProviderFormValues>({
-    resolver: zodResolver(providerFormSchema),
-    defaultValues: providerDefaults(PROVIDER_CONFIGS[0]),
-    mode: 'onChange',
-  });
   const runtimeForm = useForm<RuntimeFormValues>({
     resolver: zodResolver(runtimeFormSchema),
     defaultValues: RUNTIME_DEFAULTS,
     mode: 'onChange',
   });
 
-  const providerDirty = providerForm.formState.isDirty;
-  const providerValid = providerForm.formState.isValid;
   const runtimeDirty = runtimeForm.formState.isDirty;
   const runtimeValid = runtimeForm.formState.isValid;
   const appearanceDirty = theme !== savedTheme || density !== savedDensity;
   const runtimeValues = runtimeForm.watch();
-  const activeProviderConfig = resolveActiveProviderConfig(providerConfigs, activeConfigId);
-  const companyId = useUiState((s) => s.companyId);
+
+  useEffect(
+    () => () => {
+      if (runtimeFlashTimer.current !== null) window.clearTimeout(runtimeFlashTimer.current);
+      if (runtimeSaveTimer.current !== null) window.clearTimeout(runtimeSaveTimer.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -315,65 +202,9 @@ export function SettingsSurface() {
     };
   }, [runtimeForm]);
 
-  const onSelectConfig = useCallback(
-    (config: ProviderConfig) => {
-      setActiveConfigId(config.id);
-      providerForm.reset(providerDefaults(config));
-      setProviderSave('idle');
-      setProviderSaveError(null);
-    },
-    [providerForm],
-  );
-
-  const discardProvider = useCallback(() => {
-    providerForm.reset(
-      providerDefaults(resolveActiveProviderConfig(providerConfigs, activeConfigId)),
-    );
-    setProviderSave('idle');
-    setProviderSaveError(null);
-    toast('Provider changes discarded');
-  }, [activeConfigId, providerConfigs, providerForm]);
-
-  const saveProvider = useCallback(async () => {
-    if (!providerDirty || !providerValid) return;
-    setProviderSave('saving');
-    setProviderSaveError(null);
-    try {
-      const values = providerForm.getValues();
-      const config = resolveActiveProviderConfig(providerConfigs, activeConfigId);
-      await persistProviderProfile(config, values);
-      await queryClient.invalidateQueries({ queryKey: ['settings', 'provider-configs'] });
-      if (companyId) {
-        const { disposeDesktopAgentRuntime } = await import('@/runtime/desktop-agent-runtime.js');
-        await disposeDesktopAgentRuntime(companyId).catch(() => undefined);
-      }
-      providerForm.reset(providerForm.getValues());
-      setProviderSave('saved');
-      if (providerFlashTimer.current !== null) window.clearTimeout(providerFlashTimer.current);
-      providerFlashTimer.current = window.setTimeout(() => {
-        providerFlashTimer.current = null;
-        setProviderSave((current) => (current === 'saved' ? 'idle' : current));
-      }, 1400);
-      toast.success('Provider saved');
-    } catch (error) {
-      const message = safeErrorMessage(error);
-      setProviderSaveError(message);
-      setProviderSave('idle');
-      toast.error('Provider save failed', { description: message });
-    }
-  }, [
-    activeConfigId,
-    companyId,
-    providerConfigs,
-    providerDirty,
-    providerForm,
-    providerValid,
-    queryClient,
-  ]);
-
   const persistRuntime = useCallback(async () => {
     const repos = await reposOrNull();
-    if (!repos?.settings) return; // preview build has nothing to persist to
+    if (!repos?.settings) return;
     await repos.settings.set(
       RUNTIME_SETTINGS_KEY,
       JSON.stringify({
@@ -386,16 +217,17 @@ export function SettingsSurface() {
     setSavedTheme(theme);
     setSavedDensity(density);
     setRuntimeSaved(true);
+    if (companyId) {
+      const { disposeDesktopAgentRuntime } = await import('@/runtime/desktop-agent-runtime.js');
+      await disposeDesktopAgentRuntime(companyId).catch(() => undefined);
+    }
     if (runtimeFlashTimer.current !== null) window.clearTimeout(runtimeFlashTimer.current);
     runtimeFlashTimer.current = window.setTimeout(() => {
       runtimeFlashTimer.current = null;
       setRuntimeSaved(false);
     }, 1400);
-  }, [density, runtimeForm, theme]);
+  }, [companyId, density, runtimeForm, theme]);
 
-  // Auto-save runtime + appearance, debounced. A stable serialized snapshot is
-  // the trigger so unrelated re-renders (e.g. provider editing) don't keep
-  // resetting the timer.
   const runtimeAutosaveSnapshot = JSON.stringify({
     runtime: runtimeForm.watch(),
     theme,
@@ -418,29 +250,6 @@ export function SettingsSurface() {
     };
   }, [runtimeAutosaveSnapshot, runtimeDirty, appearanceDirty, runtimeValid, persistRuntime]);
 
-  // ⌘S commits the Provider pane; Escape discards its pending edits. Runtime
-  // auto-saves, so neither shortcut applies there.
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
-        if (tab === 'provider') {
-          event.preventDefault();
-          if (!providerDirty) return;
-          if (!providerValid) {
-            toast.error('Fix the highlighted provider fields before saving');
-            return;
-          }
-          void saveProvider();
-        }
-      }
-      if (event.key === 'Escape' && tab === 'provider' && providerDirty) {
-        discardProvider();
-      }
-    }
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [tab, saveProvider, discardProvider, providerDirty, providerValid]);
-
   return (
     <div className="off-settings">
       <nav className="off-settings-nav" aria-label="Settings sections">
@@ -462,33 +271,12 @@ export function SettingsSurface() {
         <div className="off-set-scroll">
           <div className="off-set-workspace">
             <div className="off-set-primary">
-              {tab === 'provider' ? (
-                <ProviderPane
-                  form={providerForm}
-                  activeConfigId={activeConfigId}
-                  onSelectConfig={onSelectConfig}
-                  dirty={providerDirty}
-                  valid={providerValid}
-                  saving={providerSave === 'saving'}
-                  saved={providerSave === 'saved'}
-                  saveError={providerSaveError}
-                  providerConfigsQuery={providerConfigsQuery}
-                  onSave={() => void saveProvider()}
-                  onDiscard={discardProvider}
-                />
-              ) : null}
+              {tab === 'pi-agent' ? <PiAgentPane /> : null}
               {tab === 'runtime' ? <RuntimePane form={runtimeForm} saved={runtimeSaved} /> : null}
               {tab === 'mcp' ? <McpServersPane /> : null}
               {tab === 'external' ? <ExternalEmployeesPane /> : null}
             </div>
-            <SettingsCompanion
-              tab={tab}
-              provider={activeProviderConfig}
-              runtime={runtimeValues}
-              providerDirty={providerDirty}
-              providerSaved={providerSave === 'saved'}
-              runtimeSaved={runtimeSaved}
-            />
+            <SettingsCompanion tab={tab} runtime={runtimeValues} runtimeSaved={runtimeSaved} />
           </div>
         </div>
       </div>

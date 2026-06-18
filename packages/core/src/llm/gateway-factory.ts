@@ -18,11 +18,9 @@ export interface GatewayConfig {
   /** Allow browser-side API calls (required for the Tauri WebView) */
   dangerouslyAllowBrowser?: boolean;
   /**
-   * Custom fetch implementation for credential-isolated transports. When set,
-   * Anthropic/OpenAI SDK clients are constructed with `{ fetch }` so every
-   * outbound request routes through it. Tauri desktop uses this to tunnel
-   * traffic through the Rust-side `llm_fetch` command; web mode leaves it
-   * undefined and the SDK's default transport applies.
+   * Custom fetch implementation for legacy credential-isolated transports.
+   * The active desktop runtime uses the official Pi Agent Host; this option
+   * remains only for tests and historical gateway adapters.
    */
   fetch?: typeof fetch;
 }

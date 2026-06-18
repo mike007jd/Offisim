@@ -52,15 +52,14 @@ export interface ModelRegistryEntry {
 export interface ModelRegistryOptions {
   /**
    * Credential-isolated transport that every gateway built by `getGateway`
-   * MUST use. On desktop this is the Rust-side `llm_fetch`-backed fetch so the
-   * provider apiKey never crosses the Rust→JS boundary. When omitted,
-   * `getGateway` refuses to build a real gateway (fails closed) — this prevents
-   * the latent credential-leak footgun where a production wiring would
-   * otherwise create an SDK client holding the raw apiKey on a default fetch.
+   * MUST use. This is legacy testing/factory infrastructure; the active
+   * desktop product now delegates provider auth/model execution to the
+   * official Pi Agent Host. When omitted, `getGateway` refuses to build a real
+   * gateway (fails closed), preventing accidental raw-key SDK clients in any
+   * remaining compatibility path.
    *
-   * This class is testing/factory infrastructure: production runtime leaves
-   * `ctx.modelRegistry` undefined (see the INVARIANT note in recorded-call.ts).
-   * Any future production wiring must pass `transportFetch` here.
+   * Any future production wiring for this legacy registry must pass
+   * `transportFetch` here.
    */
   transportFetch?: typeof fetch;
 }

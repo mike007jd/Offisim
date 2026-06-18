@@ -11,7 +11,7 @@ import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import { Input } from '@/design-system/primitives/input.js';
 import { Textarea } from '@/design-system/primitives/textarea.js';
-import { safeErrorMessage } from '@/lib/provider-bridge.js';
+import { safeErrorMessage } from '@/lib/error-message.js';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { Globe, Plus, RefreshCw, Terminal, Trash2 } from 'lucide-react';

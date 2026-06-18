@@ -1,7 +1,7 @@
+import { isTauriRuntime } from '@/data/adapters.js';
 import type { ChatMessage, Deliverable, Employee, RunState } from '@/data/types.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { Icon } from '@/design-system/icons/Icon.js';
-import { isDesktopProviderBridgeAvailable } from '@/lib/provider-bridge.js';
 import { ConvOutputs } from '@/surfaces/office/rail/ConvOutputs.js';
 import { MessageItem } from '@/surfaces/office/rail/MessageItem.js';
 import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
@@ -115,7 +115,7 @@ function OfficeComposer({
   useEffect(() => {
     // Native file-drop forwarding is a Tauri-only event bridge. Guard it so the
     // browser preview (no `__TAURI_INTERNALS__`) does not throw inside `listen`.
-    if (!isDesktopProviderBridgeAvailable()) return;
+    if (!isTauriRuntime()) return;
     let disposed = false;
     let unlisten: (() => void) | undefined;
     void listen<NativeDroppedFilesPayload>('offisim-native-file-drop', (event) => {

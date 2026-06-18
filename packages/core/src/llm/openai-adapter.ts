@@ -31,10 +31,9 @@ export interface OpenAiAdapterOptions {
   /** Allow browser-side API calls (required for the Tauri WebView) */
   dangerouslyAllowBrowser?: boolean;
   /**
-   * Custom fetch implementation. When set, the OpenAI SDK client is
-   * constructed with this transport — Tauri desktop uses this to tunnel
-   * outbound traffic through the Rust-side `llm_fetch` command so the
-   * credential never enters the webview.
+   * Custom fetch implementation for legacy gateway adapters. The active
+   * desktop runtime uses the official Pi Agent Host instead of constructing
+   * provider SDK clients in the WebView.
    */
   fetch?: typeof fetch;
 }

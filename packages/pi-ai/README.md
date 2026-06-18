@@ -9,6 +9,11 @@ Vendored, trimmed fork of [`@earendil-works/pi-ai`](https://github.com/earendil-
 
 ## Why a vendored fork
 
+This package is legacy migration code. As of 2026-06-18 the desktop product
+uses the official `@earendil-works/pi-coding-agent` host as the active runtime;
+Offisim no longer maintains this trimmed provider transport as the main AI
+path. Keep the fork only while older adapters/tests are being retired.
+
 Offisim runs inside a Tauri WebView (browser JS, no Node sidecar). The upstream
 package registers nine provider families and pulls AWS/Smithy/Google/Mistral
 SDKs that are Node-only and break the WebView bundle. Lazy `import()` does not
@@ -37,14 +42,14 @@ fixes are cherry-picked by hand.
 - Env API-key sourcing (`env-api-keys.ts`, `withEnvApiKey`), OAuth, image models,
   `session-resources`, the CLI, and the Node HTTP proxy helper.
 
-## Credential seam (Offisim addition)
+## Legacy credential seam (Offisim addition)
 
 `StreamOptions.fetch?: typeof fetch` was added and threaded into both provider
-SDK clients (`new Anthropic({ fetch })` / `new OpenAI({ fetch })`). Offisim
-passes `createTauriLlmFetch(profile)`; the `apiKey` stays a placeholder while the
-Rust `llm_fetch` command attaches the real credential header. The secret never
-crosses the JS boundary. See `providers/anthropic.ts`, `providers/openai-completions.ts`,
-`providers/simple-options.ts`, and `types.ts`.
+SDK clients (`new Anthropic({ fetch })` / `new OpenAI({ fetch })`). This was the
+old desktop credential isolation mechanism; the active Pi Agent Host now owns
+provider auth/model/session state directly. See `providers/anthropic.ts`,
+`providers/openai-completions.ts`, `providers/simple-options.ts`, and `types.ts`
+only when maintaining this legacy fork.
 
 ## Updating from upstream
 

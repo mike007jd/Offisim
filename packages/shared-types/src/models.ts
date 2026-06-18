@@ -46,12 +46,8 @@ export interface ModelProfile {
 /** Runtime execution mode advertised by the local policy surface. */
 export type RuntimeExecutionMode = 'auto' | 'desktop-trusted' | 'browser-limited';
 
-/** Concrete LLM execution path bound to a provider config. */
-export type LlmExecutionLane =
-  | 'gateway'
-  | 'claude-agent-sdk'
-  | 'codex-agent-sdk'
-  | 'openai-agents-sdk';
+/** Concrete AI execution path. Offisim currently exposes only Pi Agent. */
+export type LlmExecutionLane = 'pi-agent';
 
 /** External runtime engines that can execute a single Offisim-dispatched employee task. */
 export const ENGINE_IDS = ['codex-engine', 'claude-engine', 'openai-engine'] as const;

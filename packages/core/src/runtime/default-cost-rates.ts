@@ -9,13 +9,9 @@ import type { ModelCostRateRepository, SettingsRepository } from './repositories
  * silently reports $0 / 'unknown' out of the box because the table is empty.
  * Users can override rates via the UI or direct DB edits.
  *
- * Freshness: this is a small hand-verified bootstrap (rates current as of
- * 2026-06-02). Patterns are globs scored by length, so a `*-4*` family pattern
- * keeps matching newer leaf ids at the family list price. The broader,
- * continuously-synced pricing source is the provider-source-registry catalog
- * (`catalog/provider-source-registry`, refreshed from litellm via
- * `pnpm provider:refresh`); models without a row here fall back to that or to
- * 'unknown' rather than a fabricated price.
+ * Freshness: this is a small legacy bootstrap (rates last checked 2026-06-02).
+ * The active Pi Agent runtime owns model discovery; models without a row here
+ * should fall back to 'unknown' rather than a fabricated price.
  */
 export const DEFAULT_COST_RATES: Array<{
   provider: string;

@@ -7,13 +7,10 @@
 - 不允许在“部分实现 / 大部分 task 勾选 / 编译通过 / harness 通过 / 找到 blocker 但未闭环”时声称完成。
 - 如果遇到凭证、外部服务、设备不可达、破坏性风险或产品决策无法合理推断等真实阻塞，必须明确标成“未完整交付”，保留未勾 task / tag gate / archive gate，不得用 known limitation 或口头解释替代验收。
 - 发现额外真实 blocker 时，先修能修的部分并记录证据；不能修的要直接 surface 根因和下一步所需条件，不要缩小 scope 后交付。
-- 模型调用不是 SDK lane：默认 `offisim-core` harness 可以直接通过自己的 model transport / provider adapter 调模型；SDK 只允许作为底层 transport 实现细节，或作为完整 SDK-native employee runtime profile，不存在“普通 SDK lane”产品路线。
-- 当前已验证的本地文件 / shell / workspace 任务必须走默认 Offisim harness / gateway 工具路径；未来 tool-capable employee profile 或主 harness driver/replacement 必须先有独立 capability profile、审计、checkpoint/rollback 和 release `.app` 证据。external A2A 和未验证的 model transport 不能冒充本机工具执行者。
-
-# AI Provider 硬规则
-- OpenRouter 允许保留在 provider list / catalog 中，并允许用户在 Settings 手动保存 key；不得从 `OPENROUTER_*` 环境变量自动生成 runtime profile 或读取 key，不得默认推荐 OpenRouter 模型。
-- 测试 “OpenAI” / “Anthropic” 一律走 z.ai 或 MiniMax 的 openai-compatible / anthropic-compatible 端点（两家都有官方 compat 文档），不得用真实 OpenAI/Anthropic key，也不得建议购买。
-- Settings 的 provider 展示以 OpenAI 形态为先（门面），实际聊天路由按凭证可用性走 z.ai / MiniMax。
+- 当前产品定义：Offisim 是 Pi Agent 的桌面 GUI + assistant-ui 聊天界面 + 3D 工作演绎层 + 公司/项目/会话/归档壳。真实 AI 工作、模型/Provider 登录、工具循环、stream/event protocol、session/compaction 归 Pi Agent。
+- 只保留一个 active runtime：Pi Agent。不得恢复 Offisim provider/model catalog、Claude Code SDK lane、Codex sidecar lane、OpenAI Agents SDK lane 或 runtime provider profile 作为主路径。
+- Settings 只能表达 `Pi Agent` account/runtime/model config 状态；必须透出 Pi 的 `~/.pi/agent/auth.json` / `models.json` 配置入口和安全摘要。模型只允许作为 Pi 的高级 override，不再做 Offisim 自维护 model catalog。
+- 未来 Claude/Codex 若回归，必须是互斥的完整 runtime engine 替换，并有独立 release `.app` 证据；不能作为 Pi 里的 provider lane。
 
 # 当前架构决策（2026-05-18）
 - 开源前结构目标是生产级可维护拆分。
@@ -33,7 +30,7 @@
 
 # 验证 / 测试准则
 - 不在 `packages/core/src/**/*.test.mjs` 新增或保留 runtime / graph / product 行为测试。
-- pi 内核（runtime / 委派 / 工具执行 / 持久化 / resume / permission / LLM replay）的新不变量必须走 pi-loop record/replay 门禁 `scripts/harness-pi-loop.mjs`（`pnpm harness:pi-loop`，已接入 `pnpm validate`）：确定性 faux StreamFn 驱动真 `PiOrchestrationService`，断言真实行为，不得用 mock LLM 文本当成功证据。LangGraph 时代的 `packages/core/harness/scenarios/*.json` + `packages/core/src/testing/invariant-assertions.ts` 已在 P6 抹除，不要再往那些路径写不变量。
+- Pi runtime 新不变量必须走 `scripts/harness-pi-agent-host.mjs`（`pnpm harness:pi-agent-host`，已接入 `pnpm validate`）：验证官方 Pi SDK host、Tauri bridge、Pi event projection 和旧 lane 不回流。LangGraph / 自研 pi-loop 时代的 runtime gate 不再作为主路径验收。
 - 临时 `node --test` 只允许作为本地探索，不进 git；不要通过给 `packages/core/package.json` 加 `test` script 或 CI gate 来恢复普通 product 自动测试。
 - 如果 review 发现源内 `.test.mjs` 和 harness 重复，优先删除源内测试，把仍有价值的不变量迁到 harness。
 

@@ -2,10 +2,11 @@
  * Offisim fork of pi-ai `stream.ts`.
  *
  * The upstream module reads provider API keys from process.env via
- * `withEnvApiKey`. Offisim never sources credentials from env in the WebView —
- * the API key is a placeholder and the real secret is attached by the Rust
- * `llm_fetch` transport — so the env-key path is removed entirely. The
- * `register-builtins` side-effect import registers the two retained lanes.
+ * `withEnvApiKey`. Offisim no longer uses this trimmed provider transport as
+ * the desktop runtime; the active path is the official Pi Agent Host, which
+ * owns provider auth/model/session state. This legacy fork keeps env-key
+ * sourcing removed so old adapter code cannot silently revive process.env
+ * credentials.
  */
 
 import './providers/register-builtins.js';

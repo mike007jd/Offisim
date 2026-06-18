@@ -171,20 +171,8 @@ export { AnthropicAdapter } from './llm/anthropic-adapter.js';
 export type { AnthropicAdapterOptions } from './llm/anthropic-adapter.js';
 export { OpenAiAdapter } from './llm/openai-adapter.js';
 export type { OpenAiAdapterOptions } from './llm/openai-adapter.js';
-export { ClaudeAgentSdkAdapter } from './llm/claude-agent-sdk-adapter.js';
-export type { ClaudeAgentSdkAdapterOptions } from './llm/claude-agent-sdk-adapter.js';
-export { OpenAiAgentsSdkAdapter } from './llm/openai-agents-sdk-adapter.js';
-export type { OpenAiAgentsSdkAdapterOptions } from './llm/openai-agents-sdk-adapter.js';
-export {
-  VERIFIED_OPENAI_AGENTS_SDK_COMPAT_PRESET_IDS,
-  assertOpenAiAgentsSdkLaneSupported,
-  isVerifiedOpenAiAgentsSdkCompatPreset,
-} from './llm/openai-agents-sdk-lane-policy.js';
-export type { OpenAiAgentsSdkLanePolicyInput } from './llm/openai-agents-sdk-lane-policy.js';
 export { createGateway } from './llm/gateway-factory.js';
 export type { GatewayConfig } from './llm/gateway-factory.js';
-export { createExecutionAdapter } from './llm/execution-adapter-factory.js';
-export type { ExecutionAdapterConfig } from './llm/execution-adapter-factory.js';
 export { ModelResolver } from './llm/model-resolver.js';
 export { ModelRegistry } from './llm/model-registry.js';
 export type { ModelRegistryConfig, ModelRegistryEntry } from './llm/model-registry.js';

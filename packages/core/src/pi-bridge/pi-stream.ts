@@ -1,17 +1,15 @@
 /**
- * The pi `StreamFn` thin wrapper — the credential seam at the agent boundary.
+ * Historical pi `StreamFn` thin wrapper.
  *
- * It calls pi-ai's `streamSimple` with the Offisim transport `fetch` injected
- * (and a placeholder `apiKey`). The real credential is attached by the Rust
- * `llm_fetch` command inside that fetch, so it never crosses the JS boundary.
- * Budget compaction is handled by the loop's `transformContext` hook (see
- * `pi-budget.ts`), not here — this wrapper only does transport wiring.
+ * The active desktop runtime now uses the official Pi Agent Host. This wrapper
+ * remains for legacy harness code that still calls the trimmed `@offisim/pi-ai`
+ * stream helper with an injected fetch.
  */
 
 import type { StreamFn } from '@offisim/pi-agent';
 import { streamSimple } from '@offisim/pi-ai';
 
-/** Placeholder key sent to the provider SDK; the Rust transport replaces it. */
+/** Placeholder key sent to legacy provider SDK clients. */
 export const TAURI_MANAGED_API_KEY = 'offisim-tauri-managed';
 
 export interface PiStreamDeps {

@@ -26,7 +26,7 @@ export function newDraftId(prefix: string): string {
 export function buildRunError(message: string): RunError {
   return {
     id: newDraftId('run-error'),
-    message: 'Provider send failed.',
+    message: 'Pi Agent run failed.',
     technicalDetail: message,
   };
 }
@@ -72,7 +72,7 @@ export async function materializeChatTurn({
     text,
     '',
     '## Current turn attachments',
-    'The user attached files to this turn. Text/data excerpts below are readable context. Binary or metadata-only attachments are not readable in this direct provider turn; do not claim to have inspected their contents.',
+    'The user attached files to this turn. Text/data excerpts below are readable context. Binary or metadata-only attachments are not readable in this Pi Agent turn; do not claim to have inspected their contents.',
   ];
 
   for (const attachment of attached) {
@@ -150,7 +150,7 @@ function attachmentPromptLines(
   const ref = chatAttachment.vaultRef ? `, ref=${chatAttachment.vaultRef}` : '';
   const header = `[attachment ${chatAttachment.name}, ${mime}, ${chatAttachment.byteLength ?? 0} bytes, kind=${kind}${ref}]`;
   const inline = inlineAttachmentText(staged, bytes);
-  if (!inline) return [header, 'Readable content: unavailable in this direct provider call.'];
+  if (!inline) return [header, 'Readable content: unavailable in this Pi Agent turn.'];
   return [header, 'Readable content:', '```', inline, '```'];
 }
 
@@ -196,26 +196,9 @@ async function materializeAttachmentBytes(
 }
 
 /**
- * Graph nodes whose streamed `content` is the user-visible reply for a chat
- * surface. Shared by the Office runtime and the Workspace messenger so both
- * filter `llm.stream.chunk` events identically: a direct chat ends at the
- * `employee` node (boss_summary short-circuits its reply without a new LLM
- * call); `boss_summary`/`hr` cover the summary and HR reply paths. `boss` /
- * `manager` routing chatter is intentionally excluded so it never leaks into
- * the bubble.
- */
-export const STREAM_REPLY_NODES: ReadonlySet<string> = new Set(['employee', 'boss_summary', 'hr']);
-
-/**
- * Subscribe to the graph's `llm.stream.chunk` events for one chat thread and
- * forward each user-visible content chunk to `onContentChunk`. Shared by the
- * Office runtime and the Workspace messenger so both filter identically: drop
- * the reasoning channel (MiniMax emits it), match this thread by the run-scope
- * `chatThreadId` (falling back to the event's `threadId`), and accept only the
- * reply nodes in `STREAM_REPLY_NODES` (boss/manager routing chatter is excluded).
- *
- * Returns the unsubscribe function — the InMemoryEventBus has no auto-cleanup,
- * so callers MUST release it (e.g. in a `finally`).
+ * Subscribe to Pi Agent visible text chunks for one chat thread. Pi Agent is
+ * now the protocol boundary, so the UI consumes `message_update` projection
+ * directly instead of guessing which graph node is the final assistant reply.
  */
 export function subscribeReplyStream(
   eventBus: EventBus,
@@ -223,8 +206,6 @@ export function subscribeReplyStream(
   onContentChunk: (chunk: string) => void,
 ): () => void {
   return eventBus.on('llm.stream.chunk', (event) => {
-    // `LlmStreamChunkPayload` does not declare `chatThreadId` in shared-types;
-    // the event factory still sets it from the run scope. Cast locally.
     const payload = event.payload as {
       nodeName?: string;
       content?: string;
@@ -233,7 +214,7 @@ export function subscribeReplyStream(
     };
     if (payload.channel !== 'content') return;
     if ((payload.chatThreadId || event.threadId) !== threadId) return;
-    if (!payload.nodeName || !STREAM_REPLY_NODES.has(payload.nodeName)) return;
+    if (payload.nodeName !== 'pi_agent') return;
     if (!payload.content) return;
     onContentChunk(payload.content);
   });

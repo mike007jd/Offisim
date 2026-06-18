@@ -14,7 +14,7 @@ import type { Employee } from '@/data/types.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { Icon } from '@/design-system/icons/Icon.js';
-import { safeErrorMessage } from '@/lib/provider-bridge.js';
+import { safeErrorMessage } from '@/lib/error-message.js';
 import { cn } from '@/lib/utils.js';
 import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
 import {
@@ -332,7 +332,6 @@ export function WorkspaceAssistantThread({
   const [isSending, setIsSending] = useState(false);
   // True between send and the first streamed token — drives the typing indicator.
   const [awaitingReply, setAwaitingReply] = useState(false);
-  const requestIdRef = useRef<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const chatEnabled = isTauriRuntime();
@@ -360,34 +359,22 @@ export function WorkspaceAssistantThread({
     });
   }, [persistedMessages.error]);
 
-  // Aborts any in-flight provider request and resets the local request state.
+  // Aborts any in-flight Pi Agent request and resets the local request state.
   // Shared by the cancel action and the unmount cleanup so a conversation
   // switch (which remounts this keyed component) never orphans a live request.
   const abortInFlight = useCallback(() => {
     abortControllerRef.current?.abort();
     abortControllerRef.current = null;
-    // Cancel the in-flight graph execution for this conversation. The
-    // orchestration abort signals the running graph stream; the underlying
-    // `llm_fetch` is cancelled through the run's AbortSignal. Harmless no-op
-    // when nothing is in flight.
     if (companyId) {
       void import('@/runtime/desktop-agent-runtime.js')
         .then(({ getDesktopAgentRuntime }) => getDesktopAgentRuntime(companyId))
         .then((runtime) => runtime.abort(active.id))
         .catch(() => undefined);
     }
-    const requestId = requestIdRef.current;
-    if (requestId) {
-      void import('@tauri-apps/api/core').then(({ invoke }) =>
-        invoke('llm_fetch_abort', { requestId }).catch(() => undefined),
-      );
-    }
-    requestIdRef.current = null;
   }, [companyId, active.id]);
 
   useEffect(() => {
     setDrafts([]);
-    requestIdRef.current = null;
     abortControllerRef.current = null;
     setIsSending(false);
     clearStaged();
@@ -453,17 +440,14 @@ export function WorkspaceAssistantThread({
       };
       setDrafts((prev) => [...prev, userMessage]);
       clearStaged();
-      const requestId = newDraftId('workspace-provider');
-      requestIdRef.current = requestId;
       const controller = new AbortController();
       abortControllerRef.current = controller;
       setIsSending(true);
       setAwaitingReply(true);
       try {
         await persistMessage(userMessage);
-        // Every workspace chat runs through the real LangGraph agent runtime
-        // (the single-shot direct-provider path was retired in slice 3). A chat
-        // with no active company cannot assemble a runtime — fail honestly.
+        // Every workspace chat runs through Pi Agent. A chat with no active
+        // company cannot assemble a project-scoped runtime, so fail honestly.
         if (!companyId) {
           throw new Error('Cannot send: no active company is bound to this workspace.');
         }
@@ -478,10 +462,8 @@ export function WorkspaceAssistantThread({
         const runtime = await getDesktopAgentRuntime(companyId);
 
         // Stream the reply into a single assistant draft (mirrors the Office
-        // runtime): append the graph's `content` channel for this thread's reply
-        // nodes. The draft is created lazily on the first chunk (a provider error
-        // before any token leaves no empty bubble); the authoritative response
-        // overwrites it afterward.
+        // runtime): append Pi Agent visible text chunks for this thread. The
+        // authoritative response overwrites it afterward.
         const streamDraftId = newDraftId('workspace-assistant');
         const makeAssistantDraft = (body: string): WsMessage => ({
           id: streamDraftId,
@@ -531,9 +513,9 @@ export function WorkspaceAssistantThread({
           return;
         }
         const messageText = safeErrorMessage(error);
-        toast.error('Workspace chat send failed', { description: messageText });
+        toast.error('Pi Agent workspace chat failed', { description: messageText });
         const failureMessage: WsMessage = {
-          id: newDraftId('workspace-provider-error'),
+          id: newDraftId('workspace-pi-agent-error'),
           author: 'employee',
           employeeId: active.employeeId,
           role: 'runtime',
@@ -545,7 +527,6 @@ export function WorkspaceAssistantThread({
       } finally {
         setAwaitingReply(false);
         if (!controller.signal.aborted) {
-          requestIdRef.current = null;
           abortControllerRef.current = null;
           setIsSending(false);
         }

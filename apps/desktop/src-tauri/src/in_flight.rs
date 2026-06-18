@@ -1,12 +1,8 @@
 //! Per-lane registry of in-flight request cancellation tokens.
 //!
-//! Each model-transport lane (`llm_transport` gateway, `claude_agent_host`,
-//! `codex_agent_host`) owns ONE `InFlightRegistry` static. Keeping a separate
-//! map per lane is deliberate isolation — a lane's abort command must only
-//! cancel that lane's own requests, never another lane's. This module shares
-//! the register/clear/pluck logic so a change to the cancellation strategy
-//! (TTL cleanup, metrics, poison recovery) happens in one place instead of
-//! three character-identical copies.
+//! The Pi Agent host owns one `InFlightRegistry` static. Keeping cancellation
+//! behind this module prevents UI aborts from reaching unrelated local commands
+//! while still sharing register/clear/pluck logic in one place.
 
 use std::collections::HashMap;
 use std::sync::{Mutex, MutexGuard};

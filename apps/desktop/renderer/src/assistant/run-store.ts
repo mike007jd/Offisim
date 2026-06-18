@@ -79,17 +79,16 @@ interface RunStore {
 
   /** Bind the store to the active thread; seeds run/error/meeting from its state. */
   syncThread: (threadId: string, runState: RunState) => void;
-  /** Begin a real in-flight provider/runtime request. */
+  /** Begin a real in-flight Pi Agent request. */
   start: (title?: string, assigneeId?: string | null) => void;
-  /** Mark the current provider/runtime request complete. */
+  /** Mark the current Pi Agent request complete. */
   finish: () => void;
   /** Stop the live run (assistant-ui Cancel). */
   stop: () => void;
   /**
-   * Real provider-abort handler registered by the active thread's runtime
-   * (AbortController + llm_fetch_abort). The stage pill lives outside the
-   * runtime tree, so it requests a stop through the store rather than holding
-   * the handler directly. Null when no run is mounted.
+   * Real Pi abort handler registered by the active thread's runtime. The stage
+   * pill lives outside the runtime tree, so it requests a stop through the store
+   * rather than holding the handler directly. Null when no run is mounted.
    */
   stopHandler: (() => void) | null;
   /** Register (or clear) the active runtime's real abort handler. */

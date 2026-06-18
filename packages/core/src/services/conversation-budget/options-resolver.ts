@@ -20,11 +20,10 @@ export interface ConversationBudgetServiceOptions {
   reservedOutputTokens?: number;
   fullCompactTriggerRatio?: number;
   /**
-   * Resolve the active model's real context window from a continuously-updated
-   * source (provider-source-registry catalog). Injected by the runtime so the
-   * budget trigger scales with the real model window instead of a fixed
-   * constant. Returns `undefined` when the source has no entry (caller falls
-   * back to the conservative default).
+   * Resolve the active model's real context window from the owning runtime.
+   * The Pi Agent runtime owns model/session state; legacy callers can still
+   * inject a resolver for compatibility. Returns `undefined` when the source
+   * has no entry, so the caller falls back to the conservative default.
    */
   contextWindowResolver?: (model: string) => number | undefined;
 }

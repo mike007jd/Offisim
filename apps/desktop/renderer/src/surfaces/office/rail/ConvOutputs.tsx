@@ -6,7 +6,7 @@ import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Popover, PopoverContent, PopoverTrigger } from '@/design-system/primitives/popover.js';
-import { safeErrorMessage } from '@/lib/provider-bridge.js';
+import { safeErrorMessage } from '@/lib/error-message.js';
 import { cn } from '@/lib/utils.js';
 import { ChevronDown, Copy, FileCode2, FolderOpen, Save } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';

@@ -230,13 +230,13 @@ const checks = [
       /Registry auth unavailable; (update checks|package updates|draft editing|draft submission|draft deletion)|Registry authentication is not connected in this build|PR unavailable|Commit unavailable|Delegate unavailable|Meeting creation requires the calendar scheduling backend|Action item completion needs (calendar|meeting) persistence|Run retry needs persisted redispatch state|Person swap needs persisted redispatch state|Stage-level stop needs provider abort support|Provider profile creation requires the runtime profile editor flow|off-md-install is-installed" disabled|<Button[\s\S]{0,80}disabled[\s\S]{0,30}Close|Approval resolution requires a connected runtime interaction target|Grant scope changes need approval-resolution persistence|Runtime binding needs employee runtime-profile persistence|Browser vault mounting is unavailable in the desktop release|No browser vault directory is mounted/,
   },
   {
-    label: 'provider registry static/pending fallback',
+    label: 'old provider registry static/pending fallback',
     dirs: ['apps/desktop/renderer/src/surfaces/settings'],
     pattern:
       /Runtime profile editor pending|PROVIDER_CONFIGS\.find\(\s*\([^)]*\)\s*=>[\s\S]{0,160}activeConfigId[\s\S]{0,160}runtime_provider_profile_upsert/,
   },
   {
-    label: 'visible provider-source catalog ingestion copy',
+    label: 'visible old provider-source catalog ingestion copy',
     dirs: ['apps/desktop/renderer/src/surfaces/settings', 'Docs/design'],
     pattern:
       /provider-source|provider source|source-registry|source registry|catalog ingestion|remote catalog/i,
@@ -444,14 +444,14 @@ const checks = [
       /provider\/model|openai\/gpt|anthropic\/claude|google\/gemini|gpt-4o|claude-sonnet|gemini-2\.5/i,
   },
   {
-    label: 'settings runtime provider-branded lane copy',
+    label: 'settings old SDK lane copy',
     dirs: [
       'apps/desktop/renderer/src/surfaces/settings/RuntimePane.tsx',
       'apps/desktop/renderer/src/surfaces/settings/settings-data.ts',
       'Docs/design/offisim-settings-prototype.html',
     ],
     pattern:
-      /Claude engine|Codex engine|claude-agent-sdk:driver|codex-agent-sdk:replacement|Unavailable until release evidence/,
+      /Claude engine|Codex engine|OpenAI engine|claude-agent-sdk|codex-agent-sdk|openai-agents-sdk|Unavailable until release evidence/,
   },
   {
     label: 'stale design-source window.confirm copy',

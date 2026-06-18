@@ -47,6 +47,7 @@
       "*.sql",
       "*.json",
       "apps/desktop/renderer/public/pdf.worker.min.mjs",
+      "apps/desktop/src-tauri/resources/pi-agent-host.mjs",
       "openspec/changes/archive",
       "packages/asset-schema/src/schema/manifest-validator.generated.js"
     ]

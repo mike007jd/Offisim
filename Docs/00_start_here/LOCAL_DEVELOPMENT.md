@@ -24,14 +24,14 @@ corepack prepare pnpm@10.15.1 --activate
 ```bash
 git clone https://github.com/mike007jd/Offisim.git
 cd Offisim
-cp .env.example .env.local   # fill in only the keys you need (one model provider is enough)
+cp .env.example .env.local
 pnpm install
 ```
 
 `.env.local` notes:
 
-- You only need **one** model provider key to drive a real chat. See
-  `catalog/provider-source-registry` for the current verified model ids.
+- Pi Agent owns provider auth/model registry/session state. Offisim no longer
+  reads provider keys from `.env.local` or maintains a provider-source catalog.
 - Platform-backed features (`DATABASE_URL`, `BETTER_AUTH_SECRET`, `CORS_ORIGINS`)
   are only required if you run `apps/platform`.
 
@@ -65,12 +65,12 @@ pnpm --filter @offisim/desktop build
 The release bundle for live verification is the exact worktree path
 `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`.
 
-## Credential isolation (desktop)
+## Pi Agent runtime (desktop)
 
-Provider secrets never cross the Rust→JS boundary. They are stored at
-`<app_local_data_dir>/runtime_secret.txt` (mode `0600`, atomic write) and the
-LLM transport runs Rust-side via `llm_fetch`. See
-`apps/desktop/CLAUDE.md` → "Credential isolation".
+AI execution goes through the Pi Agent Host bundled with the Tauri app. Offisim
+passes the active project workspace as the Pi session cwd and projects Pi
+events into chat/3D state. Provider auth, models, sessions, and compaction stay
+inside Pi-owned storage.
 
 ## Local SQLite
 

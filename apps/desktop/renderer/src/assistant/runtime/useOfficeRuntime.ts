@@ -1,6 +1,5 @@
 import { persistChatMessage } from '@/data/chat-message-events.js';
 import type { ChatAttachment, ChatMessage } from '@/data/types.js';
-import { safeErrorMessage } from '@/lib/provider-bridge.js';
 import {
   type AppendMessage,
   type ThreadMessageLike,
@@ -19,6 +18,10 @@ import {
   subscribeRunActivity,
 } from './desktop-chat-runtime.js';
 
+function safeErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error ?? 'Unknown error');
+}
+
 /** Map an Offisim chat message into the assistant-ui thread model. The original
  *  message is carried in metadata.custom so the V3 rail keeps full fidelity. */
 function convertMessage(message: ChatMessage): ThreadMessageLike {
@@ -33,8 +36,8 @@ function convertMessage(message: ChatMessage): ThreadMessageLike {
 
 /**
  * The Office conversation runtime. assistant-ui owns the thread/composer state
- * over Offisim's external message store. Desktop sends go through the Tauri
- * provider bridge so credentials stay outside the webview.
+ * over Offisim's external message store. Desktop sends go through the Pi Agent
+ * host; credentials, model registry, session state, and tool loop stay inside Pi.
  */
 export function useOfficeRuntime({
   threadId,
@@ -54,7 +57,6 @@ export function useOfficeRuntime({
 }) {
   const [drafts, setDrafts] = useState<ChatMessage[]>([]);
   const [isSending, setIsSending] = useState(false);
-  const requestIdRef = useRef<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const abortedRef = useRef(false);
   const messages = useMemo(() => [...seedMessages, ...drafts], [seedMessages, drafts]);
@@ -103,9 +105,7 @@ export function useOfficeRuntime({
         },
       ]);
       clearStaged();
-      const requestId = newDraftId('provider');
       const abortController = new AbortController();
-      requestIdRef.current = requestId;
       abortControllerRef.current = abortController;
       abortedRef.current = false;
       setIsSending(true);
@@ -130,11 +130,9 @@ export function useOfficeRuntime({
           prev.map((draft) => (draft.id === userMessageId ? userMessage : draft)),
         );
         await persistRuntimeMessage(userMessage);
-        // The chat always runs through the pi agent-loop runtime; the LangGraph
-        // orchestration and the single-shot direct-provider path before it were
-        // both retired in the pi-kernel cut-over. A chat without an active
-        // company cannot assemble a runtime — fail honestly rather than silently
-        // degrade onto a removed path.
+        // The chat always runs through Pi Agent. Offisim owns the UI/thread
+        // store; Pi owns model auth, model selection, session state, tools,
+        // retries, and compaction.
         if (!companyId) {
           throw new Error('Cannot send this message: no active company is bound to this chat.');
         }
@@ -142,13 +140,9 @@ export function useOfficeRuntime({
         const { runtimeEventBus } = await import('@/runtime/repos.js');
         const runtime = await getDesktopAgentRuntime(companyId);
 
-        // Stream the employee's reply into a single assistant draft so the bubble
-        // fills chunk-by-chunk instead of popping in whole. The graph emits
-        // `llm.stream.chunk` on the shared runtimeEventBus; we append the
-        // `content` channel for this thread's reply nodes. The draft is created
-        // lazily on the first chunk (so a provider error before any token leaves
-        // no empty bubble — just the error), and the authoritative `response`
-        // from execute() overwrites it afterward — never a second message.
+        // Stream Pi Agent text into a single assistant draft. The authoritative
+        // final response still overwrites that draft afterward, so there is
+        // never a duplicate final message.
         const streamDraftId = newDraftId('assistant');
         const appendChunk = (chunk: string) =>
           setDrafts((prev) => {
@@ -215,7 +209,7 @@ export function useOfficeRuntime({
         // That is a cancel, not a failure — skip the error toast/bubble.
         if (!abortedRef.current) {
           const messageText = safeErrorMessage(error);
-          toast.error('Provider send failed', { description: messageText });
+          toast.error('Pi Agent run failed', { description: messageText });
           // Route the real failure into shared run state so the in-thread
           // ChatErrorBanner becomes reachable (not just the toast/bubble).
           // The `retry` closure rides on the error so the banner can offer
@@ -229,7 +223,7 @@ export function useOfficeRuntime({
             },
           });
           const systemMessage: ChatMessage = {
-            id: newDraftId('provider-error'),
+            id: newDraftId('pi-agent-error'),
             threadId,
             author: 'system',
             employeeId: null,
@@ -249,9 +243,6 @@ export function useOfficeRuntime({
       } finally {
         if (abortControllerRef.current === abortController) {
           abortControllerRef.current = null;
-        }
-        if (requestIdRef.current === requestId) {
-          requestIdRef.current = null;
         }
         setIsSending(false);
         // An aborted run is stopped (not "done"); only a settled request completes.
@@ -279,19 +270,11 @@ export function useOfficeRuntime({
     ],
   );
 
-  // Shared by the diegetic Stop, the composer Stop, and the unmount cleanup so
-  // a thread switch (ChatRail mounts OfficeThread keyed on selectedThreadId, so
-  // switching unmounts this runtime) never orphans a live `llm_fetch`: marks the
-  // run aborted, aborts the controller, tells the Rust side to drop the request,
-  // and stops the store. Fire-and-forget — the abort failure is logged, never
-  // surfaced as a cancel toast.
+  // Shared by the diegetic Stop, the composer Stop, and unmount cleanup so a
+  // thread switch never leaves the Pi host running after the UI has moved on.
   const abortInFlight = useCallback(async () => {
     abortedRef.current = true;
     abortControllerRef.current?.abort();
-    // Cancel the in-flight graph execution for this thread. The orchestration
-    // abort signals the running graph stream; the underlying `llm_fetch` is then
-    // cancelled through the run's AbortSignal. (Harmless no-op when no run is in
-    // flight for this thread.)
     if (companyId) {
       void import('@/runtime/desktop-agent-runtime.js')
         .then(({ getDesktopAgentRuntime }) => getDesktopAgentRuntime(companyId))
@@ -300,18 +283,10 @@ export function useOfficeRuntime({
           console.warn('[useOfficeRuntime] agent runtime abort failed', { threadId, err });
         });
     }
-    const requestId = requestIdRef.current;
-    if (requestId) {
-      void import('@tauri-apps/api/core').then(({ invoke }) =>
-        invoke('llm_fetch_abort', { requestId }).catch((err: unknown) => {
-          console.warn('[useOfficeRuntime] llm_fetch_abort failed', { requestId, err });
-        }),
-      );
-    }
     stop();
   }, [stop, companyId, threadId]);
 
-  // Register the real provider abort as the store's stop handler while mounted,
+  // Register the real Pi abort as the store's stop handler while mounted,
   // so the out-of-tree diegetic Stop pill cancels exactly like the composer Stop.
   useEffect(() => {
     setStopHandler(abortInFlight);

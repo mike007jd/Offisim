@@ -74,8 +74,8 @@ export function resolveMainHarnessMode(
   const overrideRecord = selectOverride(policy?.overrides ?? [], input.scope, input.scopeId);
   if (!overrideRecord) {
     const ignoredSelectors = [
-      input.providerLane && input.providerLane !== 'gateway'
-        ? `provider lane "${input.providerLane}"`
+      input.providerLane && input.providerLane !== 'pi-agent'
+        ? `runtime lane "${input.providerLane}"`
         : '',
       input.employeeRuntimeBinding?.mode === 'engine'
         ? `employee engine "${input.employeeRuntimeBinding.engineId}"`

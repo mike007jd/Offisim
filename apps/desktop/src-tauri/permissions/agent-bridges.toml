@@ -1,21 +1,13 @@
 [[permission]]
 identifier = "agent-bridges"
-description = "Allow trusted local agent, provider secret, runtime session, and MCP bridge commands."
+description = "Allow Pi Agent host, runtime session, project workspace, and MCP bridge commands."
 commands.allow = [
-  "runtime_secret_status",
-  "runtime_secret_set",
-  "runtime_secret_clear",
-  "runtime_provider_profiles",
-  "runtime_provider_profile_upsert",
-  "runtime_provider_profile_save",
   "local_db_execute_transaction",
   "trusted_host_product_status",
-  "claude_agent_execute",
-  "claude_agent_abort",
-  "codex_agent_execute",
-  "codex_agent_abort",
-  "llm_fetch",
-  "llm_fetch_abort",
+  "pi_agent_execute",
+  "pi_agent_abort",
+  "pi_agent_open_config_folder",
+  "pi_agent_status",
   "git_exec",
   "open_local_path",
   "ensure_company_workspace",

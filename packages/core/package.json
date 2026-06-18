@@ -65,20 +65,19 @@
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "0.3.179",
     "@anthropic-ai/sdk": "^0.95.0",
+    "@earendil-works/pi-coding-agent": "0.79.6",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@offisim/db-local": "workspace:*",
     "@offisim/doc-engine": "workspace:*",
     "@offisim/install-core": "workspace:*",
+    "@offisim/pi-agent": "workspace:*",
+    "@offisim/pi-ai": "workspace:*",
     "@offisim/shared-types": "workspace:*",
-    "@openai/agents": "0.9.1",
     "fflate": "^0.8.2",
     "js-yaml": "^4.1.1",
     "openai": "^6.36.0",
-    "zod": "^4.3.6",
-    "@offisim/pi-ai": "workspace:*",
-    "@offisim/pi-agent": "workspace:*"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

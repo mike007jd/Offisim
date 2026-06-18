@@ -8,8 +8,8 @@ import { useRunStore } from '../run-store.js';
 /**
  * The diegetic run-status pill floating on the Office stage while a run is active:
  * the work title, who holds it, a step progress bar, the 5-stage ceremony, and a
- * real Stop control that routes through the run store into the active runtime's
- * provider abort (AbortController + llm_fetch_abort).
+ * real Stop control that routes through the run store into the active Pi host
+ * abort.
  */
 export function RunPipelinePill() {
   const isRunning = useRunStore((s) => s.isRunning);

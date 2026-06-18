@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dirname, relative, resolve } from 'node:path';
 
@@ -11,7 +11,12 @@ export function loadEsbuild(root) {
   return requireFromEsbuild('esbuild');
 }
 
-export function formatOutfile(outfile, root) {
+const MAX_BIOME_FORMAT_BYTES = 1_000_000;
+
+export async function formatOutfile(outfile, root) {
+  const { size } = await stat(outfile);
+  if (size > MAX_BIOME_FORMAT_BYTES) return;
+
   const result = spawnSync(
     'pnpm',
     ['exec', 'biome', 'format', '--write', '--no-errors-on-unmatched', relative(root, outfile)],
@@ -58,8 +63,14 @@ export async function buildAgentHost({ root, entry, outfile }) {
     target: ['node20'],
     sourcemap: false,
     legalComments: 'none',
-    banner: { js: '#!/usr/bin/env node' },
+    banner: {
+      js: [
+        '#!/usr/bin/env node',
+        'import { createRequire as __offisimCreateRequire } from "node:module";',
+        'const require = __offisimCreateRequire(import.meta.url);',
+      ].join('\n'),
+    },
   });
   await normalizeGeneratedConstants(outfile);
-  formatOutfile(outfile, root);
+  await formatOutfile(outfile, root);
 }

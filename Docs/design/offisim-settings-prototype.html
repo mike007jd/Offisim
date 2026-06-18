@@ -343,7 +343,7 @@
     .ctl-btn.danger { border-color: rgba(214,69,61,0.4); color: #b8352e; background: var(--surface-1); }
     .ctl-btn.danger:hover { background: var(--danger-surface); }
 
-    /* Provider header card (compressed inside card-block; no --r-lg) */
+    /* Pi Agent header card (compressed inside card-block; no --r-lg) */
     .pv-row { display: grid; grid-template-columns: 36px 1fr auto; gap: var(--sp-5); align-items: center; }
     .pv-logo {
       width: 36px; height: 36px; border-radius: var(--r-sm);
@@ -851,7 +851,7 @@
     }
     .rbc-resolved b { color: var(--ink-1); font-weight: 620; }
 
-    /* Provider mini-card grid (rarity row) */
+    /* Pi Agent mini-card grid (rarity row) */
     .pv-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-3); }
     .pv-mini {
       display: grid; grid-template-columns: 28px 1fr auto;
@@ -983,7 +983,7 @@
     <div class="settings">
       <aside class="set-nav reveal d1">
         <div class="set-nav-title">Settings</div>
-        <button class="set-tab active" data-pane="provider"><svg class="ico sm"><use href="#i-bot"/></svg>Provider</button>
+        <button class="set-tab active" data-pane="pi-agent"><svg class="ico sm"><use href="#i-bot"/></svg>Pi Agent</button>
         <button class="set-tab" data-pane="runtime"><svg class="ico sm"><use href="#i-cpu"/></svg>Runtime</button>
         <button class="set-tab" data-pane="mcp"><svg class="ico sm"><use href="#i-plug"/></svg>MCP</button>
         <button class="set-tab" data-pane="external"><svg class="ico sm"><use href="#i-users"/></svg>External Employees</button>
@@ -991,45 +991,45 @@
 
       <div class="set-main">
         <div class="set-scroll">
-          <!-- ══════ Provider ══════ -->
-          <div class="set-pane active" id="pane-provider">
+          <!-- ══════ Pi Agent ══════ -->
+          <div class="set-pane active" id="pane-pi-agent">
             <div class="pane-head">
-              <div class="pane-title">Provider</div>
-              <div class="pane-desc">The model vendor every employee uses. Offisim calls the vendor API directly — there is no proxy. Product + access mode resolve the route; the execution lane decides whether Offisim tools are exposed.</div>
+              <div class="pane-title">Pi Agent</div>
+              <div class="pane-desc">The single runtime every employee uses. Pi owns model auth, registry, sessions, tools, and compaction; Offisim shows status and binds the active project workspace.</div>
             </div>
 
             <div class="sec">
               <div class="card-block">
                 <div class="pv-row">
-                  <div class="pv-logo">M</div>
+                  <div class="pv-logo">P</div>
                   <div>
-                    <div class="pv-name">MiniMax Global <span class="pill ok">Connected</span></div>
-                    <div class="pv-meta">MiniMax-M3 · gateway lane · global · chat/completions</div>
+                    <div class="pv-name">Pi Agent Host <span class="pill ok">Running</span></div>
+                    <div class="pv-meta">SDK runtime · single engine · project cwd scoped</div>
                   </div>
-                  <button class="ctl-btn"><svg class="ico sm"><use href="#i-refresh"/></svg>Test connection</button>
+                  <button class="ctl-btn"><svg class="ico sm"><use href="#i-refresh"/></svg>Refresh status</button>
                 </div>
               </div>
             </div>
 
             <div class="sec">
-              <div class="sec-head"><div><div class="label">Route</div></div></div>
+              <div class="sec-head"><div><div class="label">Runtime</div></div></div>
               <div class="card-block">
                 <div class="grid-2">
                   <div class="field">
-                    <span class="field-label">Product</span>
-                    <button class="sel" type="button"><span class="sv">MiniMax</span></button>
+                    <span class="field-label">Engine</span>
+                    <button class="sel" type="button"><span class="sv">Pi Agent</span></button>
                   </div>
                   <div class="field">
-                    <span class="field-label">Access mode</span>
-                    <button class="sel" type="button"><span class="sv">Global API key</span></button>
+                    <span class="field-label">Session mode</span>
+                    <button class="sel" type="button"><span class="sv">Project workspace</span></button>
                   </div>
                   <div class="field span-2">
                     <div class="route-summary">
-                      <span class="rs-name">MiniMax Global</span>
-                      <span class="chip-mini">Global API key</span>
-                      <span class="route-trail">openai-compat · chat/completions · global</span>
+                      <span class="rs-name">Pi Agent Host</span>
+                      <span class="chip-mini">AuthStorage</span>
+                      <span class="route-trail">ModelRegistry · SessionManager · tools/events</span>
                     </div>
-                    <span class="field-note" style="margin-top:6px">Direct key auth against the global MiniMax endpoint. No host resolver required.</span>
+                    <span class="field-note" style="margin-top:6px">Offisim passes the active project cwd and thread id; Pi resolves the rest.</span>
                   </div>
                 </div>
               </div>
@@ -1039,33 +1039,32 @@
               <div class="sec-head"><div><div class="label">Model</div></div></div>
               <div class="card-block">
                 <div class="field">
-                  <span class="field-label">Model</span>
-                  <div class="ctl mono"><input value="MiniMax-M3" placeholder="model-name" /></div>
+                  <span class="field-label">Model override</span>
+                  <div class="ctl mono"><input value="Pi default" placeholder="optional-model-id" /></div>
                   <div class="chip-row" style="margin-top:6px">
-                    <span class="chip-mini">MiniMax-M3</span>
-                    <span class="chip-mini">MiniMax-M2.7</span>
+                    <span class="chip-mini">Pi default</span>
+                    <span class="chip-mini">Advanced override only</span>
                   </div>
-                  <span class="field-note">Free-form id with suggestions rendered as product chips from the scoped catalog.</span>
+                  <span class="field-note">Normal chats use Pi's selected model. Offisim does not maintain a model catalog.</span>
                 </div>
               </div>
             </div>
 
             <div class="sec">
-              <div class="sec-head"><div><div class="label">Credentials</div></div></div>
+              <div class="sec-head"><div><div class="label">Account</div></div></div>
               <div class="card-block">
                 <div class="field">
-                  <span class="field-label">Secure API key</span>
+                  <span class="field-label">Account source</span>
                   <div class="ctl mono">
                     <span class="lead"><svg class="ico sm"><use href="#i-key"/></svg></span>
-                    <input type="password" placeholder="Stored credential; leave empty to keep" value="" />
-                    <span class="trail reveal-key" style="cursor:pointer"><svg class="ico sm"><use href="#i-eye"/></svg></span>
+                    <input value="Pi AuthStorage" readonly />
                   </div>
-                  <span class="field-note">Leave empty to keep the stored credential · Credential destination: <b>https://api.minimax.io</b></span>
-                  <div class="annot">When access mode ≠ API key: this field is replaced by "Credentials managed by host."</div>
+                  <span class="field-note">Credentials are managed by Pi. Offisim only displays status.</span>
+                  <div class="annot">No reveal field, no key paste field, no Offisim credential migration.</div>
                 </div>
                 <div style="margin-top:var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-2)">
-                  <div class="callout warn"><svg class="ico xs"><use href="#i-alert"/></svg>Thinking model — keep max tokens at 1024+. <span class="annot" style="margin:0">(shown when selected variant is a thinking provider)</span></div>
-                  <div class="callout info"><svg class="ico xs"><use href="#i-info"/></svg>Runtime binding activates only when a trusted host resolver is available. <span class="annot" style="margin:0">(shown for host-resolved products)</span></div>
+                  <div class="callout warn"><svg class="ico xs"><use href="#i-alert"/></svg>No available model until Pi login is complete. <span class="annot" style="margin:0">(shown when registry has zero usable entries)</span></div>
+                  <div class="callout info"><svg class="ico xs"><use href="#i-info"/></svg>Tool activity, chat messages, and 3D state are projected from Pi session events.</div>
                 </div>
               </div>
             </div>
@@ -1074,55 +1073,55 @@
               <div class="sec-head"><div><div class="label">Advanced</div></div></div>
 
               <details class="disclosure">
-                <summary><span class="chev"><svg class="ico sm"><use href="#i-chev-right"/></svg></span>Advanced model catalog</summary>
+                <summary><span class="chev"><svg class="ico sm"><use href="#i-chev-right"/></svg></span>Pi model registry</summary>
                 <div class="disclosure-body">
                   <div class="catalog-row">
                     <div>
-                      <div class="cr-t">模型目录更新</div>
-                      <div class="cr-meta">上次成功 2026-05-15 18:40 · Hermes Agent / OpenClaw scope, LiteLLM + OpenRouter model metadata</div>
+                      <div class="cr-t">Registry status</div>
+                      <div class="cr-meta">Read from Pi ModelRegistry. Offisim does not refresh or curate model ids.</div>
                     </div>
-                    <button class="ctl-btn sm"><svg class="ico xs"><use href="#i-refresh"/></svg>更新模型目录</button>
+                    <button class="ctl-btn sm"><svg class="ico xs"><use href="#i-refresh"/></svg>Refresh status</button>
                   </div>
                   <div style="display:flex;align-items:center;gap:var(--sp-3);margin-bottom:var(--sp-3)">
-                    <span class="chip-mini">Agent scoped</span>
-                    <span style="font-size:var(--fs-meta);color:var(--ink-3)">42 fresh model suggestions for MiniMax.</span>
+                    <span class="chip-mini">Pi scoped</span>
+                    <span style="font-size:var(--fs-meta);color:var(--ink-3)">975 known models · 0 available until login.</span>
                   </div>
                   <div class="catalog-srcs">
-                    <div class="catalog-src"><div class="cs-label">Hermes Agent</div><div class="cs-sum">12 providers / 42 models</div></div>
-                    <div class="catalog-src"><div class="cs-label">OpenClaw</div><div class="cs-sum">8 providers / 31 models</div></div>
+                    <div class="catalog-src"><div class="cs-label">Auth status</div><div class="cs-sum">Needs login</div></div>
+                    <div class="catalog-src"><div class="cs-label">Session storage</div><div class="cs-sum">Project/thread scoped</div></div>
                   </div>
-                  <div class="catalog-err"><svg class="ico xs"><use href="#i-alert"/></svg>Last refresh failed: network unreachable <span class="annot" style="margin:0">(error state)</span></div>
+                  <div class="catalog-err"><svg class="ico xs"><use href="#i-alert"/></svg>No usable model yet <span class="annot" style="margin:0">(auth state, not an Offisim refresh failure)</span></div>
                 </div>
               </details>
 
               <details class="disclosure" open>
-                <summary><span class="chev"><svg class="ico sm"><use href="#i-chev-right"/></svg></span>Advanced routing</summary>
+                <summary><span class="chev"><svg class="ico sm"><use href="#i-chev-right"/></svg></span>Advanced session binding</summary>
                 <div class="disclosure-body">
-                  <div class="sec-hint" style="margin:0 0 var(--sp-4)">MiniMax global key route. Variant and execution lane resolve the transport.</div>
+                  <div class="sec-hint" style="margin:0 0 var(--sp-4)">Pi Agent is the only active runtime. Offisim binds workspace context and projects Pi events into UI/3D.</div>
                   <div class="grid-2">
                     <div class="field">
-                      <span class="field-label">Provider variant <span class="annot" style="margin:0">(shown when &gt;1 variant)</span></span>
-                      <button class="sel" type="button"><span class="sv">MiniMax Global (default)</span></button>
+                      <span class="field-label">Workspace binding</span>
+                      <button class="sel" type="button"><span class="sv">Active project cwd</span></button>
                     </div>
                     <div class="field">
-                      <span class="field-label">Execution lane</span>
-                      <button class="sel" type="button"><span class="sv">Gateway</span></button>
-                      <span class="field-note">Gateway lane exposes Offisim tools when the runtime has a trusted host + workspace. The SDK options are <b>model-transport bindings only</b> — not a tools-capable product lane; file/shell/memory/skill work needs the gateway path or a verified SDK-native runtime profile. <b>Other lanes exist in metadata but cannot run on this host.</b></span>
+                      <span class="field-label">Execution engine</span>
+                      <button class="sel" type="button"><span class="sv">Pi Agent</span></button>
+                      <span class="field-note">No Claude/Codex/OpenAI sidecar lane is mixed into this runtime.</span>
                     </div>
                     <div class="field span-2">
-                      <span class="field-label">Endpoint override <span class="opt">· optional</span> <span class="annot" style="margin:0">(or <span class="req">required</span> per access mode; hidden when mode = hidden)</span></span>
-                      <div class="ctl mono"><input value="" placeholder="https://api.minimax.io/v1" /></div>
-                      <span class="field-note">Leave empty to use the product default.</span>
+                      <span class="field-label">Session directory</span>
+                      <div class="ctl mono"><input value="Application Support/com.offisim.desktop/pi-agent-sessions/{threadId}" readonly /></div>
+                      <span class="field-note">Offisim controls storage location; Pi owns session contents.</span>
                     </div>
                     <div class="field span-2">
-                      <span class="field-label">Default headers <span class="opt">· JSON</span></span>
-                      <div class="ctl area mono"><div class="primitive-textarea" data-primitive="Textarea" data-placeholder='{"HTTP-Referer":"https://example.com"}'></div></div>
-                      <span class="field-note">JSON merged into transport headers.</span>
+                      <span class="field-label">Event projection</span>
+                      <div class="ctl area mono"><div class="primitive-textarea" data-primitive="Textarea" data-placeholder="message_update · message_end · tool_execution_start/end/error"></div></div>
+                      <span class="field-note">assistant-ui and 3D consume projected Pi events only.</span>
                     </div>
                     <div class="field span-2">
-                      <span class="field-label">Effective endpoint</span>
-                      <div class="ctl mono ro"><input value="https://api.minimax.io/v1/text/chatcompletion_v2" readonly /></div>
-                      <span class="field-note">MiniMax global chat completion v2 endpoint. <span class="annot" style="margin:0">(+ selected variant notes when present)</span></span>
+                      <span class="field-label">Effective runtime</span>
+                      <div class="ctl mono ro"><input value="Pi Agent Host" readonly /></div>
+                      <span class="field-note">All chats route through the same Pi session runtime.</span>
                     </div>
                   </div>
                 </div>
@@ -1155,8 +1154,8 @@
                   </div>
                   <div class="field span-2" style="grid-column:1 / -1">
                     <span class="field-label">Default employee runtime</span>
-                    <button class="sel" type="button"><span class="sv">Offisim core (gateway)</span></button>
-                    <div class="annot">Real control = RuntimeBindingControl (company-scoped runtime profile picker), not a plain 2-option select.</div>
+                    <button class="sel" type="button"><span class="sv">Pi Agent</span></button>
+                    <div class="annot">Single active runtime. Employee/team selection changes context, not model transport.</div>
                   </div>
                 </div>
               </div>
@@ -1188,13 +1187,13 @@
               </div>
               <div class="card-block">
                 <div class="stat-grid" style="margin-top:0">
-                  <div class="stat-card"><div class="stat-k">Default owner</div><div class="stat-v">Offisim core</div></div>
-                  <div class="stat-card"><div class="stat-k">Driver profiles</div><div class="stat-v">1 verified</div></div>
-                  <div class="stat-card warn"><div class="stat-k">Replacement mode</div><div class="stat-v">Needs release proof</div></div>
+                  <div class="stat-card"><div class="stat-k">Default owner</div><div class="stat-v">Pi Agent</div></div>
+                  <div class="stat-card"><div class="stat-k">Runtime engines</div><div class="stat-v">1 active</div></div>
+                  <div class="stat-card warn"><div class="stat-k">Replacement mode</div><div class="stat-v">Deferred</div></div>
                 </div>
                 <div style="margin-top:var(--sp-4)">
-                  <div class="profile-row"><span class="pr-name">gateway-driver</span><span class="pr-ok">Verified</span></div>
-                  <div class="profile-row"><span class="pr-name">full-agent-driver</span><span class="pr-no">Needs proof</span></div>
+                  <div class="profile-row"><span class="pr-name">pi-agent</span><span class="pr-ok">Active</span></div>
+                  <div class="profile-row"><span class="pr-name">future engine replacement</span><span class="pr-no">Needs release proof</span></div>
                 </div>
               </div>
             </div>
@@ -1438,7 +1437,7 @@
         <div class="save-bar" id="saveBar">
           <div class="save-bar-inner">
             <button class="btn-save-full"><svg class="ico sm"><use href="#i-check"/></svg>Save changes</button>
-            <div class="save-tip">Tooltip carries state: "Save provider + runtime changes" / "No changes to save" / "Resolve validation issues before saving" / "Save failed — retry". On error, a banner with Retry appears above content; label → "Saving…" while saving; button disabled when no changes / validation fails.</div>
+            <div class="save-tip">Tooltip carries state: "Save runtime changes" / "No changes to save" / "Resolve validation issues before saving" / "Save failed — retry". On error, a banner with Retry appears above content; label → "Saving…" while saving; button disabled when no changes / validation fails.</div>
           </div>
         </div>
       </div>
@@ -1449,13 +1448,13 @@
   <div class="spec-suite">
     <div class="spec-suite-head">
       <h2>Settings · functional specimens</h2>
-      The window above is the canonical resting Settings (Provider tab, MiniMax connected, no dirty
+      The window above is the canonical resting Settings (Pi Agent tab, runtime status visible, no dirty
       state). Every specimen below is built 1:1 with the real React surface and its controlling hook —
       no invented controls, no dropped states. Settings is <b>not a wizard</b>, so every pane stays on
       the light surface; only Wizards may use <code>--wiz-*</code>. Specimens cover gaps the resting
       window cannot show: <b>External Employees</b> (empty + populated + install wizard), <b>MCP</b>
       (grouped list + add form + stdio confirm), <b>Runtime</b> (density/theme/switches/binding/
-      diagnostics), <b>Provider</b> (multi-config picker, key reveal, vault row), <b>save bar</b>
+      diagnostics), <b>Pi Agent</b> (auth status, model registry, session storage), <b>save bar</b>
       transitions, <b>discard toast</b>, <b>validation reject</b>, and desktop vault snapshot export.
     </div>
 
@@ -1836,7 +1835,7 @@
                 <div class="toggle-row">
                   <div>
                     <div class="tr-title">Stream LLM responses</div>
-                    <div class="tr-desc">Show partial chunks in chat bubbles as they arrive from the provider. Disable if you suspect a flicker bug.</div>
+                    <div class="tr-desc">Show partial chunks in chat bubbles as they arrive from Pi Agent events. Disable if you suspect a flicker bug.</div>
                   </div>
                   <button class="switch on" aria-pressed="true" aria-label="Streaming on"></button>
                 </div>
@@ -1870,17 +1869,17 @@
                 <div class="rbc">
                   <div class="rbc-seg">
                     <button>Inherit</button>
-                    <button class="active"><svg class="ico xs"><use href="#i-zap"/></svg>Provider gateway</button>
-                    <button>Verified driver</button>
-                    <button>Isolated driver</button>
+                    <button class="active"><svg class="ico xs"><use href="#i-zap"/></svg>Pi Agent</button>
+                    <button>Future engine</button>
+                    <button>Disabled</button>
                   </div>
                   <div class="rbc-resolved">
-                    Resolved: <b>Provider gateway (Offisim core)</b>
+                    Resolved: <b>Pi Agent</b>
                     <span style="color:var(--ink-4);font-family:var(--mono);font-size:var(--fs-meta)">· source: company override</span>
                   </div>
                   <div class="callout muted" style="margin-top:6px">
                     <svg class="ico xs"><use href="#i-info"/></svg>
-                    Non-gateway drivers stay gated until Main harness control shows verified proof.
+                    Future engine replacements stay gated until release proof exists.
                   </div>
                 </div>
               </div>
@@ -1918,87 +1917,73 @@
       </div>
     </div>
 
-    <!-- 6 · Provider tab — multi-config -->
+    <!-- 6 · Pi Agent tab — account/runtime -->
     <div class="spec-state">
-      <div class="spec-cap"><span class="n">6</span><span class="t">Provider tab — multi-config, key reveal, vault row</span>
-        <span class="d"><code>components/settings/ProviderPane.tsx</code> · <code>useProviderConfigs()</code> · key field uses <code>useReveal()</code></span></div>
+      <div class="spec-cap"><span class="n">6</span><span class="t">Pi Agent tab — account status, model registry, session storage</span>
+        <span class="d"><code>components/settings/PiAgentPane.tsx</code> · <code>pi_agent_status</code> · Pi owns auth/model/session state</span></div>
       <div class="spec-frame">
         <div class="spec-grid-2">
           <div>
             <div class="mini-pane">
-              <div class="mini-cap">Multiple provider configs — rarity-row picker</div>
+              <div class="mini-cap">Pi Agent runtime status</div>
               <div class="mini-bd">
                 <div class="pv-grid">
                   <div class="pv-mini active">
-                    <span class="pm-logo" style="background:linear-gradient(135deg,#2f6bff,#6b4dff)">M</span>
-                    <div><div class="pm-name">MiniMax Global</div><div class="pm-sub">MiniMax-M3 · default</div></div>
-                    <span class="pill ok">Active</span>
+                    <span class="pm-logo" style="background:linear-gradient(135deg,#2f6bff,#6b4dff)">P</span>
+                    <div><div class="pm-name">Pi Agent Host</div><div class="pm-sub">SDK runtime · single active engine</div></div>
+                    <span class="pill ok">Running</span>
                   </div>
                   <div class="pv-mini">
-                    <span class="pm-logo" style="background:linear-gradient(135deg,#1aa46a,#15824f)">O</span>
-                    <div><div class="pm-name">OpenAI</div><div class="pm-sub">gpt-5.4-mini · backup</div></div>
-                    <span class="pill muted">Stale key</span>
+                    <span class="pm-logo" style="background:linear-gradient(135deg,#1aa46a,#15824f)">A</span>
+                    <div><div class="pm-name">Auth storage</div><div class="pm-sub">Managed by Pi · no Offisim key vault</div></div>
+                    <span class="pill muted">Needs login</span>
                   </div>
                   <div class="pv-mini">
-                    <span class="pm-logo" style="background:linear-gradient(135deg,#c98410,#8a5a0c)">R</span>
-                    <div><div class="pm-name">OpenRouter</div><div class="pm-sub">google/gemma-4-31b-it:free</div></div>
-                    <span class="pill muted">Unused</span>
+                    <span class="pm-logo" style="background:linear-gradient(135deg,#c98410,#8a5a0c)">M</span>
+                    <div><div class="pm-name">Model registry</div><div class="pm-sub">975 known · 0 available until login</div></div>
+                    <span class="pill muted">Read only</span>
                   </div>
                   <div class="pv-mini">
-                    <span class="pm-logo" style="background:linear-gradient(135deg,#7c4ddb,#4d6bff)">A</span>
-                    <div><div class="pm-name">Anthropic</div><div class="pm-sub">claude-opus-4-8 · direct</div></div>
-                    <span class="pill muted">No key</span>
-                  </div>
-                  <div class="pv-mini">
-                    <span class="pm-logo" style="background:linear-gradient(135deg,#d6453d,#b8352e)">G</span>
-                    <div><div class="pm-name">Google</div><div class="pm-sub">gemini-3.5-flash</div></div>
-                    <span class="pill muted">No key</span>
-                  </div>
-                  <div class="pv-mini">
-                    <span class="pm-logo" style="background:linear-gradient(135deg,#647186,#3c4a60)">L</span>
-                    <div><div class="pm-name">Ollama</div><div class="pm-sub">qwen3.6:27b · local</div></div>
-                    <span class="pill ok">Reachable</span>
+                    <span class="pm-logo" style="background:linear-gradient(135deg,#647186,#3c4a60)">S</span>
+                    <div><div class="pm-name">Session storage</div><div class="pm-sub">Per project/thread cwd binding</div></div>
+                    <span class="pill ok">Ready</span>
                   </div>
                 </div>
-                <button class="ctl-btn" style="margin-top:var(--sp-4)"><svg class="ico sm"><use href="#i-plus"/></svg>Add provider config</button>
+                <button class="ctl-btn" style="margin-top:var(--sp-4)"><svg class="ico sm"><use href="#i-refresh"/></svg>Refresh Pi status</button>
               </div>
             </div>
-            <p class="annot-dark">Active config is the company default — clicking another card
-              promotes it. Pill encodes credential health: <b>Active</b> (in use), <b>Reachable</b>
-              (Ollama-style local probe), <b>Stale key</b> (older than 90d, soft warn),
-              <b>No key</b> (config present but unfunded).</p>
+            <p class="annot-dark">This page reports Pi-owned runtime state only. Offisim does not
+              save AI keys, promote backup engines, or maintain a model catalog; login and model
+              availability come from Pi.</p>
           </div>
           <div>
             <div class="mini-pane">
-              <div class="mini-cap">Unified model dropdown — Select primitive trigger</div>
+              <div class="mini-cap">Advanced model override — Pi registry value</div>
               <div class="mini-bd">
                 <div class="field" style="margin-bottom:var(--sp-4)">
-                  <span class="field-label">Model</span>
-                  <button class="sel" type="button"><span class="sv">MiniMax-M3</span></button>
-                  <span class="field-note">Select primitive trigger. Browser-default arrow chrome is not part of the component contract — DNA §11.</span>
+                  <span class="field-label">Model override</span>
+                  <button class="sel" type="button"><span class="sv">Pi default</span></button>
+                  <span class="field-note">Optional advanced override. Normal chats use Pi's selected default model.</span>
                 </div>
                 <div class="field" style="margin-bottom:var(--sp-4)">
-                  <span class="field-label">Secure API key</span>
+                  <span class="field-label">Account source</span>
                   <div class="ctl mono">
                     <span class="lead"><svg class="ico sm"><use href="#i-key"/></svg></span>
-                    <input type="password" placeholder="Stored credential; leave empty to keep" value="" />
-                    <span class="trail reveal-key" style="cursor:pointer" title="Reveal"><svg class="ico sm"><use href="#i-eye"/></svg></span>
+                    <input value="Pi AuthStorage" readonly />
                   </div>
-                  <span class="field-note">Mask on (eye reveals plaintext). Leave empty to keep stored credential. Credential destination: <b>https://api.minimax.io</b></span>
+                  <span class="field-note">Offisim shows status only. Credentials stay in Pi-managed storage.</span>
                 </div>
                 <div class="field">
-                  <span class="field-label">Preset hint</span>
+                  <span class="field-label">Runtime hint</span>
                   <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-                    <span class="chip-mini">MiniMax Global · openai-compat</span>
-                    <span style="font-size:var(--fs-meta);color:var(--ink-3)">prefilled endpoint, headers, model list</span>
+                    <span class="chip-mini">Pi Agent · SDK host</span>
+                    <span style="font-size:var(--fs-meta);color:var(--ink-3)">chat, tools, sessions, compaction</span>
                   </div>
                 </div>
               </div>
             </div>
-            <p class="annot-dark">Eye trigger flips <code>input.type</code> between <code>password</code>
-              and <code>text</code>. Select state uses the <code>.sel</code> primitive specimen
-              with the product chevron. Preset hint chip is informational only — clicking it does not
-              mutate (preset is set via product dropdown elsewhere).</p>
+            <p class="annot-dark">The model field is an override, not an Offisim catalog. The active
+              runtime still resolves through Pi and remains a single engine.</p>
           </div>
         </div>
 
@@ -2052,14 +2037,13 @@
               <div class="mini-bd flush">
                 <div class="save-bar dirty" style="position:relative">
                   <div class="save-bar-inner">
-                    <button class="btn-save-full"><svg class="ico sm"><use href="#i-check"/></svg>Save provider + runtime changes</button>
+                    <button class="btn-save-full"><svg class="ico sm"><use href="#i-check"/></svg>Save runtime changes</button>
                     <div class="save-tip">2 sections have unsaved changes · ⌘S to save</div>
                   </div>
                 </div>
               </div>
             </div>
-            <p class="annot-dark">Label reflects which panes are dirty: <code>"Save provider changes"</code>,
-              <code>"Save runtime changes"</code>, or both joined.</p>
+            <p class="annot-dark">Label reflects dirty panes, with Pi Agent status staying read-only.</p>
           </div>
         </div>
         <div class="spec-grid-2" style="margin-top:18px">
@@ -2085,13 +2069,13 @@
                 <div class="save-bar busy" style="position:relative">
                   <div class="save-bar-inner">
                     <button class="btn-save-full"><span class="spin-inline"></span>Saving… · Reinitializing runtime</button>
-                    <div class="save-tip">Reloading provider transport for in-flight threads</div>
+                    <div class="save-tip">Refreshing Pi runtime status for open threads</div>
                   </div>
                 </div>
               </div>
             </div>
-            <p class="annot-dark">Only fires when the dirty diff touches Provider or Runtime defaults.
-              Engine re-initialization can stall briefly while open threads quiesce.</p>
+            <p class="annot-dark">Only fires when the dirty diff touches Runtime defaults.
+              Pi Agent status refresh can stall briefly while open threads quiesce.</p>
           </div>
         </div>
         <div style="margin-top:18px">
@@ -2133,7 +2117,7 @@
               <span style="color:#aebfff"><svg class="ico sm"><use href="#i-alert"/></svg></span>
               <div>
                 <div class="tst-msg">Discard changes?</div>
-                <div style="font-size:var(--fs-meta);color:#9aa6b8;margin-top:2px">You have 2 unsaved sections · provider + runtime</div>
+                <div style="font-size:var(--fs-meta);color:#9aa6b8;margin-top:2px">You have unsaved runtime changes</div>
               </div>
               <div class="tst-acts">
                 <button class="tbtn">Keep editing</button>
@@ -2182,48 +2166,46 @@
       </div>
     </div>
 
-    <!-- 10 · Provider validation half-record reject -->
+    <!-- 10 · Pi Agent auth unavailable -->
     <div class="spec-state">
-      <div class="spec-cap"><span class="n">10</span><span class="t">Provider validation — half-record reject</span>
-        <span class="d"><code>components/settings/ProviderPane.tsx</code> · <code>useProviderValidation()</code> · save bar blocks until resolved</span></div>
+      <div class="spec-cap"><span class="n">10</span><span class="t">Pi Agent auth unavailable — chat is blocked until Pi has a login</span>
+        <span class="d"><code>components/settings/PiAgentPane.tsx</code> · <code>pi_agent_status</code> · save bar is not involved</span></div>
       <div class="spec-frame">
         <div class="mini-pane" style="max-width:620px;margin:0 auto">
-          <div class="mini-cap">Inline validation — missing apiKey, field highlight</div>
+          <div class="mini-cap">Inline status — no configured Pi auth</div>
           <div class="mini-bd">
             <div class="err-banner" style="margin-bottom:var(--sp-5)">
               <svg class="ico sm"><use href="#i-alert"/></svg>
               <div>
-                <div class="eb-t">Provider config incomplete</div>
-                <div class="eb-m">Missing required field: <b>apiKey</b>. Save is blocked until all required fields are present.</div>
+                <div class="eb-t">Pi Agent needs login</div>
+                <div class="eb-m">No available model is visible to Pi yet. Sign in through Pi, then refresh status.</div>
               </div>
             </div>
             <div class="field" style="margin-bottom:var(--sp-4)">
-              <span class="field-label">Product</span>
-              <button class="sel" type="button"><span class="sv">OpenAI</span></button>
+              <span class="field-label">Runtime</span>
+              <button class="sel" type="button"><span class="sv">Pi Agent</span></button>
             </div>
             <div class="field" style="margin-bottom:var(--sp-4)">
-              <span class="field-label">Model</span>
-              <div class="ctl mono"><input value="gpt-5.4-mini" /></div>
+              <span class="field-label">Available models</span>
+              <div class="ctl mono"><input value="0 available · 975 known in registry" readonly /></div>
             </div>
             <div class="field">
-              <span class="field-label">Secure API key <span class="req">*</span></span>
+              <span class="field-label">Account source</span>
               <div class="ctl mono invalid">
                 <span class="lead" style="color:#b8352e"><svg class="ico sm"><use href="#i-key"/></svg></span>
-                <input type="password" value="" placeholder="Stored securely after save" />
+                <input value="Pi AuthStorage" readonly />
               </div>
-              <span class="field-err"><svg class="ico xs"><use href="#i-alert"/></svg>API key is required for this product. Either paste a key or remove this provider config.</span>
+              <span class="field-err"><svg class="ico xs"><use href="#i-alert"/></svg>Offisim does not store AI credentials. Resolve login in Pi, then refresh.</span>
             </div>
             <div class="iw-actions">
-              <button class="ctl-btn">Remove config</button>
-              <button class="btn-save-inline" disabled style="opacity:.4;cursor:not-allowed">Save (1 issue)</button>
+              <button class="ctl-btn">Open Pi login</button>
+              <button class="btn-save-inline">Refresh status</button>
             </div>
           </div>
         </div>
-        <p class="annot-dark" style="max-width:620px;margin:0 auto">Half-record reject — a provider
-          config that is partially edited but missing required fields cannot be persisted. The save
-          bar also reflects this state with tip <code>"Resolve validation issues before saving"</code>
-          (specimen 7a variant). Removing the config dismisses the error; pasting the key clears the
-          field highlight reactively.</p>
+        <p class="annot-dark" style="max-width:620px;margin:0 auto">This is runtime status, not a
+          settings-save validation state. The rest of Settings can still save while Pi Agent clearly
+          reports that chat cannot run until a Pi login exposes at least one available model.</p>
       </div>
     </div>
   </div>

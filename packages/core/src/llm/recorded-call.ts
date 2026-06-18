@@ -74,17 +74,12 @@ async function callWithCapacityFallback<T>(
   }
 }
 
-// INVARIANT: when `ctx.modelRegistry` is populated, every gateway it returns
-// MUST use the same credential transport as `ctx.llmGateway`. On desktop both
-// must go through Rust `llm_fetch` (so OPENAI_API_KEY never crosses the
-// Rust→JS boundary). Today the desktop wiring in
-// `apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts` builds a single
-// `ctx.llmGateway` via `createGateway({ fetch: createTauriLlmFetch(...) })` and
-// leaves `ctx.modelRegistry` undefined, so the registry path isn't taken. The
-// enforcement now lives in `ModelRegistry` itself: `getGateway` fails closed
-// (returns null) unless the registry was constructed with a credential-isolated
-// `transportFetch`, so any future production wiring physically cannot leak the
-// raw apiKey onto a default fetch.
+// INVARIANT: this is legacy model-registry fallback infrastructure, not the
+// active desktop runtime. The desktop product now delegates provider auth/model
+// execution to the official Pi Agent Host. If a compatibility caller still
+// populates `ctx.modelRegistry`, every gateway must come from a registry
+// constructed with credential-isolated `transportFetch`; `ModelRegistry`
+// enforces this by failing closed when that transport is absent.
 function gatewayForRequest(ctx: RuntimeContext, request: LlmRequest) {
   return ctx.modelRegistry?.getGateway(request.model) ?? ctx.llmGateway;
 }

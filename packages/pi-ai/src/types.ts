@@ -90,12 +90,11 @@ export interface StreamOptions {
   signal?: AbortSignal;
   apiKey?: string;
   /**
-   * Offisim fork addition: custom fetch threaded into the underlying provider
-   * SDK client (`new Anthropic({ fetch })` / `new OpenAI({ fetch })`). Offisim
-   * injects `createTauriLlmFetch(profile)` here so the real credential never
-   * crosses the JS boundary — the Rust `llm_fetch` command attaches the API key
-   * header while `apiKey` stays a placeholder. When undefined, the SDK uses its
-   * default global fetch.
+   * Legacy Offisim fork addition: custom fetch threaded into the underlying
+   * provider SDK client (`new Anthropic({ fetch })` / `new OpenAI({ fetch })`).
+   * The active desktop runtime now uses the official Pi Agent Host instead of
+   * this trimmed provider transport; keep this option only for historical
+   * adapter compatibility.
    */
   fetch?: typeof fetch;
   /**

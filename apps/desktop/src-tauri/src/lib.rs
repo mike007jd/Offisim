@@ -1,8 +1,6 @@
 mod agent_host_runtime;
 mod attachment_store;
 mod builtin_tools;
-mod claude_agent_host;
-mod codex_agent_host;
 mod deep_link;
 #[cfg(target_os = "macos")]
 mod escape_forwarder;
@@ -48,12 +46,11 @@ mod macos_window_activation {
 }
 mod git;
 mod in_flight;
-mod llm_transport;
 mod local_db;
 mod local_paths;
 mod mcp_bridge;
+mod pi_agent_host;
 mod redaction;
-mod runtime_secrets;
 mod sessions;
 mod shell_classifier;
 mod sidecar_stderr;
@@ -182,12 +179,6 @@ pub fn run() {
             schedule_ensure_main_window(app);
         }))
         .invoke_handler(tauri::generate_handler![
-            runtime_secrets::runtime_secret_status,
-            runtime_secrets::runtime_secret_set,
-            runtime_secrets::runtime_secret_clear,
-            runtime_secrets::runtime_provider_profiles,
-            runtime_secrets::runtime_provider_profile_upsert,
-            runtime_secrets::runtime_provider_profile_save,
             local_db::local_db_execute_transaction,
             builtin_tools::project_read_file,
             builtin_tools::project_read_file_lines,
@@ -196,12 +187,10 @@ pub fn run() {
             builtin_tools::project_list_dir,
             builtin_tools::project_write_file,
             builtin_tools::bash_execute,
-            claude_agent_host::claude_agent_execute,
-            claude_agent_host::claude_agent_abort,
-            codex_agent_host::codex_agent_execute,
-            codex_agent_host::codex_agent_abort,
-            llm_transport::llm_fetch,
-            llm_transport::llm_fetch_abort,
+            pi_agent_host::pi_agent_execute,
+            pi_agent_host::pi_agent_abort,
+            pi_agent_host::pi_agent_open_config_folder,
+            pi_agent_host::pi_agent_status,
             git::git_exec,
             local_paths::open_local_path,
             local_paths::ensure_company_workspace,
@@ -277,11 +266,7 @@ pub fn run() {
             tauri::async_runtime::block_on(local_db::init_offisim_db_state(app.handle()))
                 .map_err(|e| format!("local_db init: {e}"))?;
 
-            // Resolve the plaintext secret-file location once so non-command
-            // callers (llm_transport) can read without an AppHandle.
             app.set_activation_policy(tauri::ActivationPolicy::Regular);
-            runtime_secrets::init_storage(app.handle())
-                .map_err(|e| format!("runtime_secrets init: {e}"))?;
 
             // macOS state restoration can relaunch the process without an
             // accessibility-visible main window after a previous close. Bring

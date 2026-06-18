@@ -1,4 +1,4 @@
-import { isDesktopProviderBridgeAvailable } from '@/lib/provider-bridge.js';
+import { isTauriRuntime } from '@/data/adapters.js';
 import { listen } from '@tauri-apps/api/event';
 import { useEffect } from 'react';
 
@@ -18,7 +18,7 @@ const SYNTHESIS_DELAY_MS = 50;
  */
 export function useNativeEscapeBridge() {
   useEffect(() => {
-    if (!isDesktopProviderBridgeAvailable()) return;
+    if (!isTauriRuntime()) return;
     let disposed = false;
     let unlisten: (() => void) | undefined;
     let pendingTimer: number | undefined;

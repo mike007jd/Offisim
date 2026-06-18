@@ -28,7 +28,7 @@ import {
   DropdownMenuTrigger,
 } from '@/design-system/primitives/dropdown-menu.js';
 import { employeeAvatarUri } from '@/lib/avatar.js';
-import { safeErrorMessage } from '@/lib/provider-bridge.js';
+import { safeErrorMessage } from '@/lib/error-message.js';
 import { cn } from '@/lib/utils.js';
 import { activateCompanyScope } from '@/runtime/activate-company-scope.js';
 import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';

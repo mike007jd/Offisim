@@ -10,7 +10,7 @@ import {
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import { Input } from '@/design-system/primitives/input.js';
-import { safeErrorMessage } from '@/lib/provider-bridge.js';
+import { safeErrorMessage } from '@/lib/error-message.js';
 import { useQuery } from '@tanstack/react-query';
 import { Check, ChevronRight, Download, FolderOpen, Package, Zap } from 'lucide-react';
 import { useState } from 'react';
@@ -23,7 +23,7 @@ import {
   type RuntimeFormValues,
 } from './settings-data.js';
 
-type EmployeeRuntimeValue = 'gateway' | 'claude' | 'codex';
+type EmployeeRuntimeValue = 'pi-agent';
 
 const EXECUTION_MODE_COPY: Record<string, string> = {
   plan: 'Draft a plan before work starts.',
@@ -243,20 +243,18 @@ export function RuntimePane({ form, saved }: RuntimePaneProps) {
               }}
               ariaLabel="Default employee runtime"
               options={[
-                { value: 'gateway', label: 'Desktop lane', icon: <Icon icon={Zap} size="sm" /> },
-                { value: 'claude', label: 'Verified driver' },
-                { value: 'codex', label: 'Isolated driver' },
+                { value: 'pi-agent', label: 'Pi Agent', icon: <Icon icon={Zap} size="sm" /> },
               ]}
             />
             <div className="off-set-rbc-resolved">
               Resolved:{' '}
               <b>
                 {DEFAULT_RUNTIME_OPTIONS.find((o) => o.value === defaultRuntime)?.label ??
-                  'Desktop lane'}
+                  'Pi Agent'}
               </b>
             </div>
             <span className="off-field-hint">
-              The execution lane employees use unless a company override applies.
+              All employees route through the same Pi Agent session runtime.
             </span>
           </div>
         </CardBlock>
@@ -277,8 +275,8 @@ export function RuntimePane({ form, saved }: RuntimePaneProps) {
           </summary>
           <div className="off-set-disclosure-body">
             <div className="off-set-sec-hint mb-[var(--off-sp-3)] mt-0">
-              Preferences are saved locally. This build still executes in Offisim's trusted desktop
-              lane while the full policy wiring lands.
+              Preferences are saved locally. Model auth, sessions, compaction, and tool protocol are
+              owned by Pi Agent.
             </div>
           </div>
         </details>

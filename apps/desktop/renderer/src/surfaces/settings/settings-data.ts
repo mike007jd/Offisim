@@ -1,321 +1,20 @@
 import { isTauriRuntime, reposOrNull } from '@/data/adapters.js';
+import { UI_DATA_COLORS } from '@/data/color-palette.js';
 /**
  * Settings-surface view-models, fixtures, and local query hooks.
  *
  * This file is the data SSOT for the Settings surface only. Every shape here is a
- * Settings-local view-model (provider configs, runtime defaults, MCP servers,
- * external employees, vault status). It deliberately does not reach into
+ * Settings-local view-model (runtime defaults, MCP servers, external employees,
+ * vault status). It deliberately does not reach into
  * `src/data/**` for visual contracts. External employees are the exception:
  * release builds read the real employee repository because A2A peers are part
  * of the company roster.
  */
-import { UI_DATA_COLORS } from '@/data/color-palette.js';
 import { resolveAsync } from '@/lib/platform.js';
-import {
-  type RuntimeProviderProfile,
-  isDesktopProviderBridgeAvailable,
-  loadRuntimeProviderProfiles,
-} from '@/lib/provider-bridge.js';
 import type { EmployeeRow } from '@offisim/core/browser';
 import { readResponseTextWithLimit } from '@offisim/registry-client';
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
-
-// ───────────────────────── Provider ─────────────────────────
-
-export type ProviderHealth = 'active' | 'reachable' | 'no-key';
-export type ProviderProtocol = 'anthropic' | 'openai' | 'openai-compat';
-
-export interface ProviderConfig {
-  readonly id: string;
-  readonly product: string;
-  readonly displayName: string;
-  readonly logoMark: string;
-  readonly logoGradient: readonly [string, string];
-  /** Optional runtime override. Pi Agent can leave account-managed profiles empty. */
-  readonly model: string;
-  readonly health: ProviderHealth;
-  readonly accessMode: string;
-  readonly lane: string;
-  readonly region: string;
-  readonly endpointKind: string;
-  readonly credentialDestination: string;
-  readonly hasStoredKey: boolean;
-  readonly isThinking: boolean;
-  readonly hostResolved: boolean;
-  readonly secretRef?: string;
-  readonly authMode?: string;
-  readonly executionLane?: string;
-  readonly providerProtocol?: ProviderProtocol;
-}
-
-export const PRODUCT_OPTIONS = [
-  { value: 'minimax', label: 'MiniMax' },
-  { value: 'zai', label: 'Z.AI' },
-  { value: 'openai', label: 'OpenAI' },
-  { value: 'openai-compatible', label: 'OpenAI-compatible' },
-  { value: 'openrouter', label: 'OpenRouter' },
-  { value: 'anthropic', label: 'Anthropic' },
-  { value: 'google', label: 'Google' },
-  { value: 'ollama', label: 'Ollama' },
-] as const;
-
-export const ACCESS_MODE_OPTIONS = [
-  { value: 'global-key', label: 'Global API key' },
-  { value: 'host-resolved', label: 'Host-resolved' },
-  { value: 'managed', label: 'Managed by host' },
-] as const;
-
-export const PROVIDER_CONFIGS: readonly [ProviderConfig, ...ProviderConfig[]] = [
-  {
-    id: 'openai-backup',
-    product: 'openai',
-    displayName: 'OpenAI',
-    logoMark: 'O',
-    logoGradient: [UI_DATA_COLORS.green, UI_DATA_COLORS.green2],
-    model: 'glm-5.2',
-    health: 'no-key',
-    accessMode: 'global-key',
-    lane: 'gateway',
-    region: 'global',
-    endpointKind: 'chat/completions',
-    credentialDestination: 'https://api.z.ai/api/paas/v4',
-    hasStoredKey: false,
-    isThinking: false,
-    hostResolved: false,
-    secretRef: 'zai',
-    providerProtocol: 'openai-compat',
-  },
-  {
-    id: 'openrouter',
-    product: 'openrouter',
-    displayName: 'OpenRouter',
-    logoMark: 'R',
-    logoGradient: [UI_DATA_COLORS.amber3, UI_DATA_COLORS.amber4],
-    model: '',
-    health: 'no-key',
-    accessMode: 'global-key',
-    lane: 'gateway',
-    region: 'global',
-    endpointKind: 'chat/completions',
-    credentialDestination: 'https://openrouter.ai/api/v1',
-    hasStoredKey: false,
-    isThinking: false,
-    hostResolved: false,
-  },
-  {
-    id: 'minimax',
-    product: 'minimax',
-    displayName: 'MiniMax Global',
-    logoMark: 'M',
-    logoGradient: [UI_DATA_COLORS.blue, UI_DATA_COLORS.blueViolet],
-    model: 'MiniMax-M3',
-    health: 'no-key',
-    accessMode: 'global-key',
-    lane: 'gateway',
-    region: 'global',
-    endpointKind: 'messages',
-    credentialDestination: 'https://api.minimax.io/anthropic',
-    hasStoredKey: false,
-    isThinking: true,
-    hostResolved: false,
-  },
-  {
-    id: 'anthropic',
-    product: 'anthropic',
-    displayName: 'Anthropic',
-    logoMark: 'A',
-    logoGradient: [UI_DATA_COLORS.violet, UI_DATA_COLORS.blue3],
-    model: 'MiniMax-M3',
-    health: 'no-key',
-    accessMode: 'global-key',
-    lane: 'gateway',
-    region: 'global',
-    endpointKind: 'messages',
-    credentialDestination: 'https://api.minimax.io/anthropic',
-    hasStoredKey: false,
-    isThinking: true,
-    hostResolved: false,
-    secretRef: 'minimax',
-    providerProtocol: 'anthropic',
-  },
-  {
-    id: 'google',
-    product: 'google',
-    displayName: 'Google',
-    logoMark: 'G',
-    logoGradient: [UI_DATA_COLORS.red3, UI_DATA_COLORS.red5],
-    model: '',
-    health: 'no-key',
-    accessMode: 'global-key',
-    lane: 'gateway',
-    region: 'global',
-    endpointKind: 'chat/completions',
-    credentialDestination: 'https://generativelanguage.googleapis.com/v1beta/openai',
-    hasStoredKey: false,
-    isThinking: false,
-    hostResolved: false,
-  },
-  {
-    id: 'ollama-local',
-    product: 'ollama',
-    displayName: 'Ollama',
-    logoMark: 'L',
-    logoGradient: [UI_DATA_COLORS.ink6, UI_DATA_COLORS.ink3],
-    model: '',
-    health: 'reachable',
-    accessMode: 'host-resolved',
-    lane: 'gateway',
-    region: 'local',
-    endpointKind: 'chat',
-    credentialDestination: 'http://localhost:11434/v1',
-    hasStoredKey: false,
-    isThinking: false,
-    hostResolved: true,
-  },
-];
-
-export const PROVIDER_HEALTH_LABELS: Record<ProviderHealth, string> = {
-  active: 'Active',
-  reachable: 'Reachable',
-  'no-key': 'No key',
-};
-
-export const providerFormSchema = z.object({
-  product: z.string().min(1, 'Required'),
-  model: z.string(),
-  apiKey: z.string(),
-  endpointOverride: z.string(),
-});
-export type ProviderFormValues = z.infer<typeof providerFormSchema>;
-
-export function providerDefaults(config: ProviderConfig): ProviderFormValues {
-  return {
-    product: config.product,
-    model: config.model,
-    apiKey: '',
-    endpointOverride: '',
-  };
-}
-
-function endpointKindForRuntimeProfile(profile: RuntimeProviderProfile): string {
-  return profile.provider === 'anthropic' ? 'messages' : 'chat/completions';
-}
-
-function providerProtocolForRuntimeProfile(profile: RuntimeProviderProfile): ProviderProtocol {
-  if (profile.provider === 'anthropic') return 'anthropic';
-  return profile.provider === 'openai' ? 'openai' : 'openai-compat';
-}
-
-function productForRuntimeProfile(profile: RuntimeProviderProfile): string {
-  const name = `${profile.id} ${profile.displayName}`.toLowerCase();
-  if (name.includes('minimax')) return 'minimax';
-  if (name.includes('z.ai') || name.includes('zai')) return 'zai';
-  if (profile.authMode === 'local-auth' && profile.executionLane === 'claude-agent-sdk') {
-    return 'anthropic';
-  }
-  if (name.includes('openrouter')) return 'openrouter';
-  if (profile.provider === 'openai') return 'openai';
-  if (profile.provider === 'anthropic') return 'anthropic';
-  return 'openai-compatible';
-}
-
-function logoMarkForRuntimeProfile(profile: RuntimeProviderProfile): string {
-  return (profile.displayName.trim()[0] ?? profile.id.trim()[0] ?? 'P').toUpperCase();
-}
-
-function baseConfigForRuntimeProfile(
-  baseConfigs: readonly ProviderConfig[],
-  profile: RuntimeProviderProfile,
-): ProviderConfig {
-  const product = productForRuntimeProfile(profile);
-  const hostResolved = profile.localEndpoint || profile.authMode === 'local-auth';
-  const fallbackBase = baseConfigs[0] ?? PROVIDER_CONFIGS[0];
-  const base =
-    baseConfigs.find((candidate) => candidate.id === profile.id) ??
-    baseConfigs.find((candidate) => candidate.product === product) ??
-    fallbackBase;
-  return {
-    ...base,
-    id: profile.id,
-    product,
-    displayName: profile.displayName || profile.id,
-    logoMark: logoMarkForRuntimeProfile(profile),
-    region: hostResolved ? 'local' : 'custom',
-    lane: profile.executionLane || base.lane,
-    credentialDestination: profile.baseUrl || base.credentialDestination,
-    isThinking: product === 'minimax' || base.isThinking,
-    secretRef: profile.secretRef,
-    authMode: profile.authMode,
-    executionLane: profile.executionLane,
-    providerProtocol: providerProtocolForRuntimeProfile(profile),
-  };
-}
-
-function providerConfigFromRuntime(
-  base: ProviderConfig,
-  profile: RuntimeProviderProfile,
-): ProviderConfig {
-  const hostResolved = profile.localEndpoint || profile.authMode === 'local-auth';
-  const health: ProviderHealth =
-    profile.authMode === 'local-auth'
-      ? 'reachable'
-      : profile.hasCredential
-        ? hostResolved
-          ? 'reachable'
-          : 'active'
-        : 'no-key';
-  return {
-    ...base,
-    displayName: profile.displayName || base.displayName,
-    model: profile.model || base.model,
-    health,
-    accessMode: hostResolved ? 'host-resolved' : base.accessMode,
-    lane: profile.executionLane || base.lane,
-    endpointKind: endpointKindForRuntimeProfile(profile),
-    credentialDestination: profile.baseUrl || base.credentialDestination,
-    hasStoredKey: profile.authMode === 'local-auth' ? false : profile.hasCredential,
-    hostResolved,
-    secretRef: profile.secretRef,
-    authMode: profile.authMode,
-    executionLane: profile.executionLane,
-    providerProtocol: providerProtocolForRuntimeProfile(profile),
-  };
-}
-
-function mergeRuntimeProviderConfigs(
-  baseConfigs: readonly ProviderConfig[],
-  runtimeProfiles: readonly RuntimeProviderProfile[],
-): ProviderConfig[] {
-  const merged = baseConfigs.map((base) => {
-    const profile = runtimeProfiles.find((candidate) => candidate.id === base.id);
-    return profile ? providerConfigFromRuntime(base, profile) : base;
-  });
-  const seen = new Set(merged.map((config) => config.id));
-  for (const profile of runtimeProfiles) {
-    if (seen.has(profile.id)) continue;
-    merged.push(
-      providerConfigFromRuntime(baseConfigForRuntimeProfile(baseConfigs, profile), profile),
-    );
-    seen.add(profile.id);
-  }
-  return merged;
-}
-
-/**
- * Resolve the active provider config from the merged runtime list by id. SSOT
- * for "which config the UI shows and saves" — the displayed pane and the save
- * path must both resolve through this so the persisted endpoint always matches
- * the runtime-profile-merged config on screen, not a static base.
- */
-export function resolveActiveProviderConfig(
-  configs: readonly ProviderConfig[],
-  activeConfigId: string,
-): ProviderConfig {
-  return (
-    configs.find((config) => config.id === activeConfigId) ?? configs[0] ?? PROVIDER_CONFIGS[0]
-  );
-}
 
 // ───────────────────────── Runtime ─────────────────────────
 
@@ -331,11 +30,7 @@ export const ENABLED_OPTIONS = [
   { value: 'disabled', label: 'Disabled' },
 ] as const;
 
-export const DEFAULT_RUNTIME_OPTIONS = [
-  { value: 'gateway', label: 'Desktop lane' },
-  { value: 'claude', label: 'Verified driver' },
-  { value: 'codex', label: 'Isolated driver' },
-] as const;
+export const DEFAULT_RUNTIME_OPTIONS = [{ value: 'pi-agent', label: 'Pi Agent' }] as const;
 
 export const THEME_OPTIONS = [
   { value: 'system', label: 'System' },
@@ -353,9 +48,7 @@ export type DensityValue = (typeof DENSITY_OPTIONS)[number]['value'];
 
 export const RUNTIME_BINDING_OPTIONS = [
   { value: 'inherit', label: 'Inherit' },
-  { value: 'gateway', label: 'Provider gateway' },
-  { value: 'claude', label: 'Verified driver' },
-  { value: 'codex', label: 'Isolated driver' },
+  { value: 'pi-agent', label: 'Pi Agent' },
 ] as const;
 export type RuntimeBindingValue = (typeof RUNTIME_BINDING_OPTIONS)[number]['value'];
 
@@ -379,8 +72,8 @@ export const RUNTIME_DEFAULTS: RuntimeFormValues = {
   executionMode: 'direct',
   toolSearch: 'enabled',
   gitAutoCommit: 'enabled',
-  defaultRuntime: 'gateway',
-  runtimeBinding: 'gateway',
+  defaultRuntime: 'pi-agent',
+  runtimeBinding: 'pi-agent',
   memoryEnabled: 'enabled',
   memoryInjection: 'enabled',
   memoryMaxFacts: 200,
@@ -841,22 +534,6 @@ function externalEmployeeFromRow(row: EmployeeRow): ExternalEmployee {
 }
 
 // ───────────────────────── Query hooks ─────────────────────────
-
-export function useProviderConfigs() {
-  return useQuery<ProviderConfig[]>({
-    queryKey: ['settings', 'provider-configs'],
-    queryFn: async () => {
-      if (!isDesktopProviderBridgeAvailable()) {
-        return mergeRuntimeProviderConfigs(PROVIDER_CONFIGS, []);
-      }
-      const profiles = await loadRuntimeProviderProfiles();
-      return mergeRuntimeProviderConfigs(PROVIDER_CONFIGS, profiles);
-    },
-    placeholderData: [...PROVIDER_CONFIGS],
-    refetchOnMount: 'always',
-    retry: 2,
-  });
-}
 
 export function useMcpServers() {
   return useQuery<McpServer[]>({

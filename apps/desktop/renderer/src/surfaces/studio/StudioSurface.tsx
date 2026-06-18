@@ -10,7 +10,7 @@ import {
 } from '@/data/queries.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
-import { safeErrorMessage } from '@/lib/provider-bridge.js';
+import { safeErrorMessage } from '@/lib/error-message.js';
 import {
   type PrefabInstanceRow,
   type PrefabPlacementObstacle,
