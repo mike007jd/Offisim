@@ -27,6 +27,11 @@ official `@earendil-works/pi-coding-agent` SDK:
 - `SessionManager`
 - `createAgentSession`
 
+SDK source check: on 2026-06-18 NZST, npm registry metadata for
+`@earendil-works/pi-coding-agent` showed `0.79.6` as both the local pinned
+version and the latest published version, with the package exporting
+`./dist/index.js` and CLI bin `pi`.
+
 Pi owns provider auth, model registry, sessions, compaction, tool loop,
 streaming protocol, and retries. Offisim does not maintain a provider catalog or
 parse model-provider SDK transports.
@@ -34,9 +39,8 @@ parse model-provider SDK transports.
 ## Superseded Runtime
 
 The old `packages/core/src/pi-bridge` loop and `packages/pi-ai` /
-`packages/pi-agent` fork are historical migration code. They are not the
-desktop main path and must not be reconnected to Settings or chat without a new
-architecture decision.
+`packages/pi-agent` fork have been removed. They must not be recreated or
+reconnected to Settings/chat without a new architecture decision.
 
 The following paths are retired from product runtime:
 

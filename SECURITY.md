@@ -46,22 +46,15 @@ For Offisim 1.0, the highest-priority reports are:
 Offisim desktop is the 1.0 reference runtime. The webview is not trusted to pick
 credential destinations or arbitrary local execution roots.
 
-- Provider secrets are stored and injected on the Rust side. Tauri LLM requests
-  identify a provider profile and endpoint kind; Rust resolves the canonical
-  base URL, allowed host, auth scheme, and localhost-only exception before
-  adding credentials. Credential-shaped response headers are filtered before
-  reaching the webview.
-- Provider secrets are persisted as a plaintext file with `0600` permissions
-  (atomic tmp+rename writes) under the app's local data directory, not in the
-  OS keychain. This is a deliberate trade-off: the threat model protects
-  against prompt-injected exfiltration across the Rust→JS boundary, not
-  against an attacker with local disk access under the same user account.
-  (The macOS keychain was rejected because code-sign rebuilds trigger ACL
-  prompts and the `keyring` crate dropped writes in CI/mock contexts.)
-- Trusted Claude/Codex sidecars are text/reasoning lanes only in Offisim 1.0.
-  File, shell, memory, todo, skill, MCP, and builtin Offisim tools must stay on
-  the gateway lane. Sidecars must run inside the bound workspace and write
-  audit events without credential bytes.
+- Pi Agent owns provider secrets, model registry, sessions, tool loop, and
+  compaction through `~/.pi/agent/auth.json` and `~/.pi/agent/models.json`.
+  Offisim does not store provider API keys or maintain a provider/model catalog.
+- The Tauri bridge launches the bundled Pi Agent Host, binds the selected
+  project workspace as the session cwd, forwards Pi JSONL events, and filters
+  credential-shaped process output before it reaches the webview.
+- Claude/Codex/OpenAI sidecar lanes are not active in Offisim 1.0. If one
+  returns, it must be a mutually exclusive runtime engine with separate release
+  evidence, not an additional provider lane inside Pi Agent.
 - Local path open/save, git, and shell commands are scoped to a project
   workspace. Shell execution scrubs inherited environment variables and records
   approval/network-policy metadata. Current network policy is disclosure plus

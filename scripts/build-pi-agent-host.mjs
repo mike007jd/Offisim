@@ -11,6 +11,9 @@ const NODE_OUTFILE = resolve(NODE_OUTDIR, 'node');
 
 async function copyNodeRuntime() {
   const source = process.execPath;
+  if (resolve(source) === NODE_OUTFILE) {
+    return NODE_OUTFILE;
+  }
   await rm(resolve(ROOT, 'apps/desktop/src-tauri/resources/node'), {
     recursive: true,
     force: true,

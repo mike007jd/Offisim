@@ -7,8 +7,8 @@
 - added legal and contributor-facing open source files
 - added GitHub issue templates, a pull request template, and a CI workflow
   (`.github/workflows/ci.yml`) that enforces the core release gates on every
-  push/PR: typecheck + provider catalog freshness, UI hygiene, deterministic
-  harness, security harness, supply-chain audit, and desktop Rust tests
+  push/PR: typecheck, Pi Agent Host validation, UI hygiene, security harness,
+  supply-chain audit, and desktop Rust tests
 - `pnpm release:run` runs the same gates before building, aborts on any
   failure, and writes release evidence (gate logs, git commit, bundle sha256)
   to `output/release-evidence/`
@@ -34,6 +34,6 @@
   manually (deliberate 1.0 trade-off, documented in DEPLOYMENT.md)
 - no automated release/CD workflow yet; releases are produced locally via
   `pnpm release:run`, which records gate + bundle evidence
-- desktop provider credentials are stored as a `0600` plaintext file outside
-  the webview boundary rather than in the OS keychain (documented trade-off,
-  see `SECURITY.md`)
+- AI provider credentials and model configuration are owned by Pi Agent under
+  `~/.pi/agent/`; Offisim does not maintain a provider catalog or store
+  provider API keys

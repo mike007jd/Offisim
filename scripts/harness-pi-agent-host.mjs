@@ -47,19 +47,20 @@ assert(
 const tempAgentDir = mkdtempSync(join(tmpdir(), 'offisim-pi-agent-host-'));
 writeFileSync(
   join(tempAgentDir, 'models.json'),
-  JSON.stringify({
-    providers: {
-      'local-test': {
-        baseUrl: 'http://127.0.0.1:11434/v1',
-        api: 'openai-completions',
-        apiKey: 'test',
-        models: [{ id: 'fixture-model' }],
-        modelOverrides: {
-          'builtin-model': { name: 'Fixture override' },
+  `{
+    // Pi models.json accepts JSONC comments and trailing commas.
+    "providers": {
+      "local-test": {
+        "baseUrl": "http://127.0.0.1:11434/v1",
+        "api": "openai-completions",
+        "apiKey": "test",
+        "models": [{ "id": "fixture-model" }],
+        "modelOverrides": {
+          "builtin-model": { "name": "Fixture override" },
         },
       },
     },
-  }),
+  }`,
 );
 
 let result;
@@ -90,8 +91,9 @@ try {
     result.response.modelsConfig?.exists === true &&
       result.response.modelsConfig.providerCount === 1 &&
       result.response.modelsConfig.modelCount === 1 &&
-      result.response.modelsConfig.overrideCount === 1,
-    'Pi Agent status response must expose a safe models.json configuration summary',
+      result.response.modelsConfig.overrideCount === 1 &&
+      !result.response.modelsConfig.parseError,
+    'Pi Agent status response must expose a safe JSONC models.json configuration summary',
   );
 } finally {
   rmSync(tempAgentDir, { recursive: true, force: true });

@@ -81,7 +81,7 @@ async function callWithCapacityFallback<T>(
 // constructed with credential-isolated `transportFetch`; `ModelRegistry`
 // enforces this by failing closed when that transport is absent.
 function gatewayForRequest(ctx: RuntimeContext, request: LlmRequest) {
-  return ctx.modelRegistry?.getGateway(request.model) ?? ctx.llmGateway;
+  return ctx.modelRegistry?.getGateway?.(request.model) ?? ctx.llmGateway;
 }
 
 function hasVisibleStreamChunk(chunk: LlmStreamChunk): boolean {

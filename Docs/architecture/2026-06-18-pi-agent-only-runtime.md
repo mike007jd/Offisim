@@ -1,6 +1,8 @@
 # Offisim = Pi Agent GUI + 3D Work Theater
 
 Checked at: 2026-06-18 NZST
+SDK registry check: `@earendil-works/pi-coding-agent@0.79.6` is the local pinned
+version and npm `latest`; published 2026-06-16T22:03:33.475Z.
 
 ## Decision
 

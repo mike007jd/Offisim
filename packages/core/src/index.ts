@@ -166,17 +166,9 @@ export {
   MemoryAssetBindingRepository,
 } from './runtime/repos/install/memory.js';
 
-// --- LLM ---
-export { AnthropicAdapter } from './llm/anthropic-adapter.js';
-export type { AnthropicAdapterOptions } from './llm/anthropic-adapter.js';
-export { OpenAiAdapter } from './llm/openai-adapter.js';
-export type { OpenAiAdapterOptions } from './llm/openai-adapter.js';
-export { createGateway } from './llm/gateway-factory.js';
-export type { GatewayConfig } from './llm/gateway-factory.js';
-export { ModelResolver } from './llm/model-resolver.js';
-export { ModelRegistry } from './llm/model-registry.js';
-export type { ModelRegistryConfig, ModelRegistryEntry } from './llm/model-registry.js';
-export { DEFAULT_RETRY_CONFIG, withRetry } from './llm/retry.js';
+// --- LLM-shaped support types/utilities ---
+// Offisim no longer exposes provider SDK adapters or a model catalog. Pi Agent
+// owns auth, model resolution, session lifecycle, and provider transport.
 export { teeStream } from './llm/stream-tee.js';
 export { recordedLlmCall, recordedLlmStream } from './llm/recorded-call.js';
 export { replayRequestHashes } from './llm/replay-request-hashes.js';
@@ -322,36 +314,6 @@ export {
 export { Logger, setLogHandler, resetLogHandler } from './services/logger.js';
 export type { LogLevel, LogEntry } from './services/logger.js';
 
-// --- pi-bridge (the pi agent-loop chat kernel) ---
-export {
-  buildPiModel,
-  createBudgetTransform,
-  createPiEventListener,
-  createPiStreamFn,
-  createSkillInstallTools,
-  createSubmitDeliverableTool,
-  laneToPiApi,
-  llmToPiMessages,
-  PiAgentRegistry,
-  PiMessageStore,
-  type PiAgentKind,
-  type PiBudgetDeps,
-  type PiEventBridgeHandlers,
-  type PiEventIdentity,
-  type PiExecuteInput,
-  type PiExecuteResult,
-  type PiModelInput,
-  type PiModelMeta,
-  PiOrchestrationService,
-  type PiOrchestrationDeps,
-  type PiStreamDeps,
-  type PiToolContext,
-  piToLlmMessage,
-  piToLlmMessages,
-  TAURI_MANAGED_API_KEY,
-  toolDefsToAgentTools,
-  toolDefToAgentTool,
-} from './pi-bridge/index.js';
 export { EmployeeVersionService } from './runtime/employee-version-service.js';
 export type { VersionDiff } from './runtime/employee-version-service.js';
 export { RackSlotService } from './services/rack-slot-service.js';

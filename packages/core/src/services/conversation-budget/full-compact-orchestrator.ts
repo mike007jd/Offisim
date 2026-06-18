@@ -248,7 +248,8 @@ export class FullCompactOrchestrator {
     const transcript = input.sourceMessages
       .map((message) => `${message.role.toUpperCase()}: ${message.content}`)
       .join('\n');
-    const compactModel = ctx.modelResolver.resolve(null, 'boss').model;
+    const compactModel = ctx.summaryModelSelector?.resolve(null, 'boss').model;
+    if (!compactModel) return null;
     const chatRequest: LlmRequest = {
       model: compactModel,
       temperature: 0.2,

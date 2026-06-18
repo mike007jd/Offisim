@@ -8,7 +8,7 @@ Hono platform/registry backend.
 
 | Tool | Version | Needed for |
 |------|---------|-----------|
-| Node.js | `>=20` (dev uses 25.x) | everything; enable `corepack` |
+| Node.js | `>=22.19.0` (release bundle uses 24.x) | everything; enable `corepack` |
 | pnpm | `10.15.1` (pinned in `packageManager`) | install/build/scripts |
 | Rust + Cargo | stable (dev uses 1.93.x) | the desktop app (`apps/desktop`) |
 | Tauri system deps | per OS ([tauri.app prerequisites](https://tauri.app/start/prerequisites/)) | desktop build (WebKit, Xcode CLT on macOS, etc.) |

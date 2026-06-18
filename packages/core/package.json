@@ -24,10 +24,6 @@
       "types": "./dist/harness-public.d.ts",
       "import": "./dist/harness-public.js"
     },
-    "./llm": {
-      "types": "./dist/llm-public.d.ts",
-      "import": "./dist/llm-public.js"
-    },
     "./mcp": {
       "types": "./dist/mcp-public.d.ts",
       "import": "./dist/mcp-public.js"
@@ -65,18 +61,13 @@
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.95.0",
-    "@earendil-works/pi-coding-agent": "0.79.6",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@offisim/db-local": "workspace:*",
     "@offisim/doc-engine": "workspace:*",
     "@offisim/install-core": "workspace:*",
-    "@offisim/pi-agent": "workspace:*",
-    "@offisim/pi-ai": "workspace:*",
     "@offisim/shared-types": "workspace:*",
     "fflate": "^0.8.2",
     "js-yaml": "^4.1.1",
-    "openai": "^6.36.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {

@@ -228,7 +228,8 @@ export class SynopsisGenerator {
     existing: ThreadSynopsisRecord | null,
     transcript: string,
   ): Promise<string | null> {
-    const synopsisModel = ctx.modelResolver.resolve(null, 'boss').model;
+    const synopsisModel = ctx.summaryModelSelector?.resolve(null, 'boss').model;
+    if (!synopsisModel) return null;
     const chatRequest: LlmRequest = {
       model: synopsisModel,
       temperature: 0.2,

@@ -4,7 +4,7 @@
 
 Required:
 
-- Node.js 20+
+- Node.js >=22.19.0
 - `corepack` enabled
 - `pnpm@10`
 

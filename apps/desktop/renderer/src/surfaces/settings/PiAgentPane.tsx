@@ -315,7 +315,7 @@ export function PiAgentPane() {
           {modelsConfig?.parseError ? (
             <div className="off-set-callout is-warn mt-[var(--off-sp-3)]">
               <Icon icon={TriangleAlert} size="sm" />
-              models.json is present but Pi could not parse it: {modelsConfig.parseError}
+              models.json is present but Pi could not load it: {modelsConfig.parseError}
             </div>
           ) : null}
           <div className="off-set-pi-actions mt-[var(--off-sp-3)]">

@@ -1,5 +1,7 @@
 # Pi kernel commit review - 2026-06-13
 
+> 历史存档，非当前 findings 清单（2026-06-18 复核）。本文审计的是旧 fork/bridge 阶段；当前产品路径已收口为官方 Pi Agent Host，旧 `pi-bridge`、vendored `packages/pi-*` 和 `harness:pi-loop` 已删除。当前 SSOT 是 `Docs/architecture/2026-06-18-pi-agent-only-runtime.md` 与 `Docs/HARNESS_ARCHITECTURE.md`。
+
 状态：**全部 8 项 findings 已于 2026-06-14 修复**（working tree，未提交）。详见文末「修复记录」。下方原始 findings 保留作审计存档。
 
 时间基准：2026-06-13 23:23 NZST 当前资料核对；二次审计时间：2026-06-13 23:48 NZST。范围为截图可见 22 个 commits：`ec028138..3e644c5c`，基线 `7ed0dceb`，不含截图外后续 `2e44e26a`。当前 HEAD 复核显示以下 findings 仍存在。

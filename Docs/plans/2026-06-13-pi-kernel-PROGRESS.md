@@ -1,5 +1,7 @@
 # pi 内核替换 — 执行进度（落盘，跨 session persist）
 
+> 历史存档，非当前执行计划（2026-06-18 复核）。本文记录的是旧 fork/bridge 迁移过程；当前产品路径已收口为官方 Pi Agent Host，`packages/pi-ai` / `packages/pi-agent` / `packages/core/src/pi-bridge` / `scripts/harness-pi-loop.mjs` 均已删除。当前 SSOT 是 `Docs/architecture/2026-06-18-pi-agent-only-runtime.md` 与 `Docs/HARNESS_ARCHITECTURE.md`。
+
 SSOT plan: `Docs/plans/2026-06-13-pi-kernel-replacement.md`
 开工 session: 2026-06-13。约束：先建后拆（旧 graph 在 Phase 6 前保持可用，全程门禁绿）。
 

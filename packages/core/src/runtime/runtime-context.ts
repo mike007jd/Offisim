@@ -2,8 +2,6 @@ import type { InteractionRequest, RuntimePolicyConfig } from '@offisim/shared-ty
 import type { EngineAdapterRegistry } from '../engine/engine-adapter.js';
 import type { EventBus } from '../events/event-bus.js';
 import type { LlmGateway } from '../llm/gateway.js';
-import type { ModelRegistry } from '../llm/model-registry.js';
-import type { ModelResolver } from '../llm/model-resolver.js';
 import type { RecordedSystemLlmCaller } from '../llm/recorded-system-caller.js';
 import type { LlmMiddlewareChain } from '../middleware/chain.js';
 import type { RollingJournal } from '../services/conversation-budget/rolling-journal.js';
@@ -26,6 +24,18 @@ export interface InteractionBox {
   pending: InteractionRequest | null;
 }
 
+export interface RuntimeSummaryModelSelector {
+  resolve(companyId: string | null, roleSlug: string | null): { model: string };
+}
+
+export interface RuntimeModelRegistry {
+  findById(modelId: string): { provider?: string; contextWindow?: number } | null;
+  getGateway?(modelId: string): LlmGateway | null;
+  recordCapacityError?(modelId: string): { id?: string; model: string } | null;
+  recordSuccess?(modelId: string): void;
+  disposeAll?(): void;
+}
+
 export interface RuntimeDeterminism {
   nowMs(): number;
   nowIso(): string;
@@ -44,7 +54,7 @@ export interface RuntimeContext {
   readonly repos: RuntimeRepositories;
   readonly eventBus: EventBus;
   readonly llmGateway: LlmGateway;
-  readonly modelResolver: ModelResolver;
+  readonly summaryModelSelector?: RuntimeSummaryModelSelector;
   readonly toolExecutor: ToolExecutor;
   readonly companyId: string;
   readonly threadId: string;
@@ -56,8 +66,8 @@ export interface RuntimeContext {
   readonly interactionBox: InteractionBox;
   /** Optional middleware chain for LLM call pre/post processing. */
   readonly middlewareChain?: LlmMiddlewareChain;
-  /** Config-driven model catalog. Registry owns gateway lifecycle for registered models. */
-  readonly modelRegistry?: ModelRegistry;
+  /** Legacy compatibility hook; active desktop model state is owned by Pi Agent. */
+  readonly modelRegistry?: RuntimeModelRegistry;
   /** Recorded caller for system services — provides audit trail for background LLM calls. */
   readonly systemCaller?: RecordedSystemLlmCaller;
   /**
@@ -108,13 +118,13 @@ export interface DisposableRuntime {
   readonly eventBus?: EventBus;
   readonly toolExecutor?: { dispose?: () => void | Promise<void> };
   readonly notificationBridge?: { deactivate: () => void };
-  readonly modelRegistry?: { disposeAll: () => void };
+  readonly modelRegistry?: { disposeAll?: () => void };
   readonly scratchpad?: { clear: () => void };
 }
 
 export function disposeRuntime(d: DisposableRuntime): void {
   d.llmGateway?.dispose();
-  d.modelRegistry?.disposeAll();
+  d.modelRegistry?.disposeAll?.();
   d.notificationBridge?.deactivate();
   if (d.toolExecutor && typeof d.toolExecutor.dispose === 'function') {
     // McpToolExecutor.dispose() is async but we fire-and-forget here —
@@ -129,7 +139,7 @@ export function createRuntimeContext(deps: {
   repos: RuntimeRepositories;
   eventBus: EventBus;
   llmGateway: LlmGateway;
-  modelResolver: ModelResolver;
+  summaryModelSelector?: RuntimeSummaryModelSelector;
   toolExecutor: ToolExecutor;
   companyId: string;
   threadId: string;
@@ -138,7 +148,7 @@ export function createRuntimeContext(deps: {
   workstationToolResolver?: WorkstationToolResolver;
   interactionBox?: InteractionBox;
   middlewareChain?: LlmMiddlewareChain;
-  modelRegistry?: ModelRegistry;
+  modelRegistry?: RuntimeModelRegistry;
   systemCaller?: RecordedSystemLlmCaller;
   llmToolCallsEnabled?: boolean;
   builtinTools?: ReadonlyMap<string, BuiltinTool>;

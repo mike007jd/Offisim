@@ -12,9 +12,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 // on macos). The prose table in Docs/00_start_here/RELEASE_GATES.md describes
 // this list.
 export const RELEASE_GATES = [
-  // `validate` already runs the pi-loop record/replay gate (`harness:pi-loop`)
-  // alongside typecheck + provider freshness, so the deterministic harness that
-  // the LangGraph kernel needed is no longer a separate gate (P6 erased it).
+  // `validate` already runs typecheck plus the Pi-only runtime guards, Studio
+  // placement check, and official Pi Agent Host harness.
   { name: 'validate', lane: 'node', command: 'pnpm', args: ['validate'] },
   { name: 'ui-hygiene', lane: 'node', command: 'pnpm', args: ['check:ui-hygiene'] },
   { name: 'security-harness', lane: 'node', command: 'pnpm', args: ['security:harness'] },

@@ -1,5 +1,7 @@
 # Harness 内核替换计划：自研编排 → pi 内核（裁剪型 fork）
 
+> 历史存档，非当前执行蓝本（2026-06-18 复核）。本文的裁剪 fork 方案已被后续官方 Pi Agent Host 路径取代；当前产品不得恢复 `packages/pi-ai` / `packages/pi-agent` / `packages/core/src/pi-bridge` 或旧 `harness:pi-loop`。当前 SSOT 是 `Docs/architecture/2026-06-18-pi-agent-only-runtime.md` 与 `Docs/HARNESS_ARCHITECTURE.md`。
+
 > 状态：已拍板，未动工。本文档是执行蓝本（自包含，开工 session 直接照此执行）。
 > 依据：2026-06-13 三路调查（pi 上游核查 / 候选横评 / 本地接缝面）+ 对抗式二次审计 + 老 harness 抹除盘点，全部按 2026-06-13 当前资料核对。
 > 最终目标：干净、全新、稳定、靠谱的 harness。老的自研编排从**功能、文档、配置、记忆**四个面抹除。

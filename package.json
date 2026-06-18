@@ -3,7 +3,7 @@
   "private": true,
   "packageManager": "pnpm@10.15.1",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.19.0"
   },
   "scripts": {
     "build": "turbo run build",
@@ -52,7 +52,9 @@
       "defu": "^6.1.5",
       "langsmith": "^0.6.0",
       "shell-quote": "^1.8.4",
-      "vite": "^6.4.2"
+      "vite": "^6.4.2",
+      "hono": "^4.12.25",
+      "ws": "^8.21.0"
     }
   },
   "dependencies": {

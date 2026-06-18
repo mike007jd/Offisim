@@ -91,7 +91,7 @@ the bundle id).
 
 ## Evidence rule
 
-Release evidence must name the specific gate (pi-loop harness scenario,
+Release evidence must name the specific gate (Pi Agent Host harness,
 Rust check, platform drift, build, or live `.app` observation) that actually
 proved the behavior. Do not reintroduce broad `vitest` / Playwright / `pnpm
 test` suites as product gates.

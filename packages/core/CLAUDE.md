@@ -10,14 +10,14 @@ Pi Agent Host (`apps/desktop/src-tauri/src/pi_agent_host.rs` +
 
 - `HookRegistry` (**同步串行**, `await emit()` 阻塞流控用) ≠ `EventBus` (**异步 fire-and-forget**, 前缀订阅 UI 推送), 不要合并。pi 运行时常常两个都 emit
 - `Scratchpad` per-runtime 临时存储, 持久化用 `MemoryService`
-- Boss = delegate-only 编排器（`pi-bridge/pi-orchestration-service.ts`）：boss 系统提示是硬工具纪律，只发 `delegate` 一个工具，**绝不能编造员工结果**——只有 `delegate` 工具结果回到对话后才能转述。employee 子 agent 才拿全套 builtin/MCP 工具（boss 无 `employeeId`，直接执行会让 audit 归属错乱）
+- Desktop AI 编排归 Pi Agent Host；core 只保留可审计的本地工具、repo、install、vault 和数据契约。不要在 core 内重建 boss/employee prompt loop。
 - `NodeContextMiddleware` 共享 1800 char budget (summary 1000 + pack 700), 两半独立查询独立截断, 不要加独立 middleware
 - `InstallService.planCache` 是实例属性, `dispose()` 清理, 不要模块层缓存
 - Employee repo `create()` 可选 `employee_id`, `transact()` 中必须用预生成 ID (非 `void promise.then()`)
 - 不要在 core 里恢复 Claude/Codex/OpenAI SDK lane、provider catalog、runtime provider profile、或新的模型 transport factory。Pi Agent owns auth/model/session/tool loop.
 - `read_attachment` 是唯一允许 AI 读 chat attachment 的 builtin：只在 gateway lane 进入 tool pool，执行时必须拿到当前 `companyId + RunScope.threadId`，并且 `vaultRef` 里的 company/thread 必须完全匹配；缺 scope、跨 company、跨 thread 都返回 `attachment-forbidden`，不要 fallback 到全局 store 或 graph thread。
-- Pi runtime 主门禁是 `scripts/harness-pi-agent-host.mjs`。旧 `pi-bridge` 代码只可作为迁移/历史代码，不可重新接回桌面主路径。
-- Boss roster 注入 SSOT 在 `pi-bridge/pi-orchestration-service.ts` 的 boss 系统提示装配：从 `repos.employees.findByCompany(companyId)` 取 **enabled internal** 员工（至少 `employee_id + name + role_slug`）按 id 注入；external A2A 员工无本机工作区能力。
+- Pi runtime 主门禁是 `scripts/harness-pi-agent-host.mjs`。旧 `pi-bridge` / vendored fork 已删除，不可重新接回桌面主路径。
+- Roster、模型选择、session lifecycle、tool loop、stream protocol、compaction 均由 Pi Agent runtime 决定；Offisim 只把 workspace、用户输入、配置路径和事件投影接到桌面壳。
 - Runtime workspace binding SSOT for file/shell tools is the active graph thread's project: carry `threadId` through `ToolCallRequest` into builtin adapters, resolve `graph_threads.project_id` first, then legacy `projects.thread_id`; if selected project has no usable `workspace_root`, emit `workspace-binding.unavailable` once per `(companyId, projectId)` session from the runtime-context layer.
 - Skill install runtime guards are typed chat outcomes, not toast crashes: Web `sync_from_claude_code` returns `desktop-only-tool` and renders `This skill source requires the desktop app.`; `create_skill_from_scratch` with a non-caller `targetEmployeeId` renders `Skill author must match the active chat employee.` and must not stage a preview.
 - Claude Code skill sync in desktop must scan both home and project-local `.claude/skills` through the Tauri install environment. Project-local reads under the bound repo root must go through `project_list_dir` / `project_read_file`, not browser plugin-fs. A single filter match may stage directly; multiple matches return candidates.
@@ -52,7 +52,7 @@ Pi Agent Host (`apps/desktop/src-tauri/src/pi_agent_host.rs` +
   - Tier 3 `loadSkillAsset(skillId, relPath)` — 只允许 `scripts/` / `references/` / `assets/` 前缀；IO 前拒 `..` / 绝对路径
 - `slug`：`skillSlug(name, id)` kebab-case name + 纯非 ASCII fallback `skill-{id前8字符}`（注：`employeeSlug` 已改为纯 id 派生，见 Vault 段，两者不再同策略）
 - DB 表 `skills` 属于当前单基线 SQLite schema；`UNIQUE` 用两条 partial index（`WHERE employee_id IS NULL` / `IS NOT NULL`），让 `(companyId, null, slug)` 跨 company-scope 行碰撞
-- 员工 prompt 由 `pi-bridge/employee-builder.ts` 的 `buildEmployeePrompt` 装配（persona + 公司 + 任务）。**graph 时代的 `## Available skills` prompt 注入 + skill install/fork/edit 工具注册（旧 `employee-prompt-assembly` / `employee-tool-kit`）随 `agents/` 删除，pi 尚未重接**——skill install API 本体仍在 `skills/skill-install-tools.ts`（公共导出保留），重接进 pi 工具池是独立后续
+- Skill install API 本体仍在 `skills/skill-install-tools.ts`（公共导出保留）。是否进入 Pi tool pool 是 Pi Agent runtime 集成问题，不要在 core 里重建旧 graph/pi prompt assembly。
 - `create_skill_from_scratch` 是 self-authoring 唯一入口：LLM 产完整 SKILL.md → `parseSelfAuthoredSkillMd` 白名单 → staging preview (`action='create'`) → `SkillInstallCommitter` → employee-scope vault + `skills.source_kind='self-authored'` / `source_ref='llm-author:<modelKey>'`。self-authored 禁 company scope。
 - **Fork + edit API（T2.3）**：
   - `installSkill` 加 `source: { kind: 'fork', parentSkillId, parentVersion }` 变体 — 同 `installSkill` 入口，`scope='company' + source.kind='fork'` 会抛 `scope-target-conflict`（spec skill-fork-and-edit scenario 2）；`source_kind='forked'` + `source_ref='company-skill:<pid>@<pver>'`

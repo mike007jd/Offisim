@@ -96,7 +96,90 @@ function safeObjectKeys(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? Object.keys(value) : [];
 }
 
-function modelsConfigSummary(modelsPath) {
+function stripJsoncComments(value) {
+  let output = '';
+  let inString = false;
+  let escaped = false;
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index];
+    const next = value[index + 1];
+    if (inString) {
+      output += char;
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (char === '"') {
+      inString = true;
+      output += char;
+      continue;
+    }
+    if (char === '/' && next === '/') {
+      while (index + 1 < value.length && !/[\r\n]/u.test(value[index + 1])) {
+        index += 1;
+      }
+      continue;
+    }
+    if (char === '/' && next === '*') {
+      index += 2;
+      while (index < value.length && !(value[index] === '*' && value[index + 1] === '/')) {
+        if (/[\r\n]/u.test(value[index])) output += value[index];
+        index += 1;
+      }
+      index += 1;
+      continue;
+    }
+    output += char;
+  }
+  return output;
+}
+
+function stripJsoncTrailingCommas(value) {
+  let output = '';
+  let inString = false;
+  let escaped = false;
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index];
+    if (inString) {
+      output += char;
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (char === '"') {
+      inString = true;
+      output += char;
+      continue;
+    }
+    if (char === ',') {
+      let cursor = index + 1;
+      while (cursor < value.length && /\s/u.test(value[cursor])) {
+        cursor += 1;
+      }
+      if (value[cursor] === '}' || value[cursor] === ']') {
+        continue;
+      }
+    }
+    output += char;
+  }
+  return output;
+}
+
+function parseJsonc(value) {
+  return JSON.parse(stripJsoncTrailingCommas(stripJsoncComments(value)));
+}
+
+function modelsConfigSummary(modelsPath, modelRegistry) {
   const path = asNonEmptyString(modelsPath);
   if (!path) {
     return {
@@ -117,9 +200,13 @@ function modelsConfigSummary(modelsPath) {
       providers: [],
     };
   }
+  const registryError =
+    modelRegistry && typeof modelRegistry.getError === 'function'
+      ? modelRegistry.getError()
+      : undefined;
   try {
     const raw = readFileSync(path, 'utf8');
-    const parsed = JSON.parse(raw);
+    const parsed = parseJsonc(raw);
     const providerEntries =
       parsed?.providers && typeof parsed.providers === 'object'
         ? Object.entries(parsed.providers)
@@ -139,6 +226,7 @@ function modelsConfigSummary(modelsPath) {
       modelCount,
       overrideCount,
       providers: providerEntries.map(([provider]) => provider).sort(),
+      ...(registryError ? { parseError: registryError } : {}),
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error ?? 'Invalid models.json');
@@ -149,7 +237,7 @@ function modelsConfigSummary(modelsPath) {
       modelCount: 0,
       overrideCount: 0,
       providers: [],
-      parseError: message,
+      parseError: registryError ?? message,
     };
   }
 }
@@ -189,7 +277,7 @@ function piStatus(payload) {
         authPath,
         modelsPath,
       },
-      modelsConfig: modelsConfigSummary(modelsPath),
+      modelsConfig: modelsConfigSummary(modelsPath, modelRegistry),
       checkedAt: new Date().toISOString(),
     },
   });
