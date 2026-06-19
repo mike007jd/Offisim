@@ -2,9 +2,12 @@ import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import {
   AuthStorage,
+  DefaultResourceLoader,
   ModelRegistry,
   SessionManager,
+  SettingsManager,
   createAgentSession,
+  isToolCallEventType,
 } from '@earendil-works/pi-coding-agent';
 import {
   errorLine,
@@ -15,6 +18,30 @@ import {
   startedLine,
   toolLine,
 } from './pi-agent-host-wire.mjs';
+import {
+  evaluateAutoBashCommand,
+  normalizePermissionMode,
+  toolAllowlistForMode,
+} from './pi-agent-permission-modes.mts';
+
+/**
+ * Build the inline Pi extension that enforces a permission mode at tool-call
+ * time, or `null` when no runtime gate is needed. Only Auto installs a gate
+ * (over bash); Plan is enforced by the static read-only tool allowlist and Full
+ * is unrestricted. Lives here — not in the pure decision module — because it
+ * needs the Pi SDK type guard.
+ */
+function buildPermissionGate(mode) {
+  if (mode !== 'auto') return null;
+  return (pi) => {
+    pi.on('tool_call', (event) => {
+      if (!isToolCallEventType('bash', event)) return undefined;
+      const command = typeof event.input?.command === 'string' ? event.input.command : '';
+      const verdict = evaluateAutoBashCommand(command);
+      return verdict.block ? { block: true, reason: verdict.reason } : undefined;
+    });
+  };
+}
 
 const MAX_TEXT_BYTES = 8 * 1024 * 1024;
 const TRUNCATED_SUFFIX = '\n[truncated by Offisim Pi host output cap]';
@@ -338,6 +365,25 @@ async function runPrompt(payload) {
     });
   }
 
+  // Per-conversation permission mode (plan / auto / full). Plan restricts the
+  // tool set to the read-only built-ins (no gate needed — bash/edit/write are
+  // never exposed); Auto keeps the full tool set but installs a bash gate that
+  // blocks the dangerous commands; Full leaves the session unrestricted.
+  const permissionMode = normalizePermissionMode(payload.permissionMode);
+  const tools = toolAllowlistForMode(permissionMode);
+  const gateFactory = buildPermissionGate(permissionMode);
+  let resourceLoader;
+  if (gateFactory) {
+    const settingsManager = SettingsManager.create(cwd, agentDir);
+    resourceLoader = new DefaultResourceLoader({
+      cwd,
+      agentDir,
+      settingsManager,
+      extensionFactories: [gateFactory],
+    });
+    await resourceLoader.reload();
+  }
+
   const { session, modelFallbackMessage } = await createAgentSession({
     cwd,
     agentDir,
@@ -345,6 +391,8 @@ async function runPrompt(payload) {
     modelRegistry,
     sessionManager,
     ...(model ? { model } : {}),
+    ...(tools ? { tools } : {}),
+    ...(resourceLoader ? { resourceLoader } : {}),
   });
 
   let latestText = '';

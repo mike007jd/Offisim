@@ -9,7 +9,7 @@ import { AssistantRuntimeProvider, ComposerPrimitive, ThreadPrimitive } from '@a
 import { listen } from '@tauri-apps/api/event';
 import { MessageSquarePlus, Paperclip, SendHorizontal, Square } from 'lucide-react';
 import { type DragEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ModelControl, ScopeControl } from './composer/ComposerControls.js';
+import { ModeControl, ModelControl, ScopeControl } from './composer/ComposerControls.js';
 import { ComposerTriggers } from './composer/ComposerTriggers.js';
 import { StagedAttachments } from './composer/StagedAttachments.js';
 import { ChatErrorBanner } from './parts/ChatErrorBanner.js';
@@ -230,6 +230,7 @@ function OfficeComposer({
                   employees={employees}
                 />
                 <ModelControl threadId={threadId} />
+                <ModeControl threadId={threadId} />
                 {isRunning ? (
                   <ComposerPrimitive.Cancel
                     className="off-composer-send is-stop off-focusable"

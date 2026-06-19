@@ -4,6 +4,7 @@ import type { RuntimeRepositories } from '@offisim/core/browser';
 import type { InteractionResponse, SkillInstallOutcomeKind } from '@offisim/shared-types';
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { readPiModelOverride } from './pi-agent-config.js';
+import { resolveThreadMode } from './pi-thread-mode-store.js';
 import { getRepos, runtimeEventBus } from './repos.js';
 
 export interface DesktopAgentRunInput {
@@ -17,6 +18,12 @@ export interface DesktopAgentRunInput {
    * resolves credentials and the real catalog; this only forwards the id.
    */
   model?: string;
+  /**
+   * Per-conversation permission mode (`plan` / `auto` / `full`). When omitted the
+   * runtime resolves the thread's stored mode (default `auto`). The host enforces
+   * it as Pi tool gating; this only forwards the string.
+   */
+  permissionMode?: string;
 }
 
 export interface DesktopAgentRunResult {
@@ -199,6 +206,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           projectId,
           employeeId: input.employeeId,
           model: input.model?.trim() || readPiModelOverride() || undefined,
+          permissionMode: input.permissionMode?.trim() || resolveThreadMode(input.threadId),
         },
         onEvent,
       })) as PiAgentHostResponse;

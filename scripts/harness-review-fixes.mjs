@@ -157,7 +157,7 @@ assertIncludesAll(
 const piAgentConfig = await source('apps/desktop/renderer/src/runtime/pi-agent-config.ts');
 assertIncludesAll(
   desktopRuntime + piAgentConfig,
-  ['offisim:pi-agent:model-override', 'model: readPiModelOverride() || undefined'],
+  ['offisim:pi-agent:model-override', 'input.model?.trim() || readPiModelOverride() || undefined'],
   'Desktop runtime must pass the Pi-owned advanced model override to the Pi host.',
 );
 assertNoMatch(

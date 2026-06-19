@@ -12,10 +12,33 @@ import {
   DropdownMenuTrigger,
 } from '@/design-system/primitives/dropdown-menu.js';
 import { readPiModelOverride } from '@/runtime/pi-agent-config.js';
+import {
+  DEFAULT_PERMISSION_MODE,
+  PERMISSION_MODES,
+  type PermissionMode,
+  usePiThreadModeStore,
+} from '@/runtime/pi-thread-mode-store.js';
 import { usePiThreadModelStore } from '@/runtime/pi-thread-model-store.js';
-import { Bot, ChevronDown, SlidersHorizontal, Sparkles, User, Users } from 'lucide-react';
+import {
+  Bot,
+  ChevronDown,
+  Eye,
+  type LucideIcon,
+  ShieldCheck,
+  SlidersHorizontal,
+  Sparkles,
+  User,
+  Users,
+  Zap,
+} from 'lucide-react';
 import { useMemo } from 'react';
 import { usePiAgentModels } from './usePiAgentModels.js';
+
+const MODE_META: Record<PermissionMode, { label: string; icon: LucideIcon; meta: string }> = {
+  plan: { label: 'Plan', icon: Eye, meta: 'Read-only — investigate, no changes' },
+  auto: { label: 'Auto', icon: ShieldCheck, meta: 'Autonomous — blocks destructive commands' },
+  full: { label: 'Full', icon: Zap, meta: 'No restrictions' },
+};
 
 function shortModelName(value: string): string {
   if (!value) return 'Auto';
@@ -171,6 +194,50 @@ export function ModelControl({ threadId }: { threadId: string }) {
           <Icon icon={SlidersHorizontal} size="sm" />
           Manage models…
         </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/**
+ * Per-conversation permission mode. Picks how much autonomy the agent has on
+ * this thread: Plan (read-only investigation), Auto (autonomous but blocks
+ * destructive commands — the default), or Full (no restrictions). The host
+ * enforces the choice as real Pi tool gating; this only stores and forwards it.
+ */
+export function ModeControl({ threadId }: { threadId: string }) {
+  const mode = usePiThreadModeStore((s) => s.byThread[threadId] ?? DEFAULT_PERMISSION_MODE);
+  const setThreadMode = usePiThreadModeStore((s) => s.setThreadMode);
+  const current = MODE_META[mode];
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="off-composer-chip off-focusable"
+          aria-label="Permission mode for this conversation"
+        >
+          <Icon icon={current.icon} size="sm" />
+          <span className="off-composer-chip-text">{current.label}</span>
+          <Icon icon={ChevronDown} size="sm" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="off-composer-menu off-composer-mode-menu">
+        <DropdownMenuLabel>Permission mode</DropdownMenuLabel>
+        <DropdownMenuRadioGroup
+          value={mode}
+          onValueChange={(value) => setThreadMode(threadId, value as PermissionMode)}
+        >
+          {PERMISSION_MODES.map((value) => (
+            <DropdownMenuRadioItem key={value} value={value}>
+              <span className="off-composer-menu-row">
+                <span className="off-composer-menu-name">{MODE_META[value].label}</span>
+                <span className="off-composer-menu-meta">{MODE_META[value].meta}</span>
+              </span>
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );

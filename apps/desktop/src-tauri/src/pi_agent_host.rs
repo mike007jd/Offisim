@@ -58,6 +58,10 @@ pub struct PiAgentExecuteRequest {
     employee_id: Option<String>,
     #[serde(default)]
     model: Option<String>,
+    /// Per-conversation permission mode (`plan` / `auto` / `full`). Forwarded to
+    /// the Node host, which turns it into Pi tool gating. Absent → host default.
+    #[serde(default)]
+    permission_mode: Option<String>,
     #[serde(default)]
     resume: bool,
 }
@@ -314,12 +318,15 @@ fn sidecar_payload<R: tauri::Runtime>(
     session_dir: &Path,
 ) -> serde_json::Value {
     serde_json::json!({
+        // `mode` is the host dispatch discriminator (execute vs status); the
+        // permission mode rides under a distinct key so it cannot collide.
         "mode": "execute",
         "text": req.text,
         "cwd": cwd.to_string_lossy().to_string(),
         "sessionDir": session_dir.to_string_lossy().to_string(),
         "agentDir": app_pi_agent_dir(app).map(|path| path.to_string_lossy().to_string()),
         "model": req.model,
+        "permissionMode": req.permission_mode,
         "resume": req.resume,
     })
 }
