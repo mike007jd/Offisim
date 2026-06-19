@@ -26,7 +26,7 @@ import {
  * shared flat type.
  */
 
-export type ActivityDomainColor =
+type ActivityDomainColor =
   | 'default'
   | 'hr'
   | 'mcp'
@@ -48,7 +48,7 @@ export type ActivityPayloadValue =
   | ActivityPayloadValue[]
   | { [key: string]: ActivityPayloadValue };
 
-export interface ActivityEntity {
+interface ActivityEntity {
   label: string;
   type?: string;
   id?: string;
@@ -523,7 +523,7 @@ export function getAvailableActorFilters(records: ActivityRecord[]): EventTypeOp
 
 /* ── Time grouping ───────────────────────────────────────────────────────── */
 
-export type TimeBucketKey = 'today' | 'yesterday' | 'this-week' | 'this-month' | 'older';
+type TimeBucketKey = 'today' | 'yesterday' | 'this-week' | 'this-month' | 'older';
 
 export interface TimeGroup {
   key: TimeBucketKey;

@@ -28,7 +28,7 @@ function buildGridGeometry(width: number, depth: number, step: number) {
   return geometry;
 }
 
-export function FloorLineGrid() {
+function FloorLineGrid() {
   const sc = useSceneColors();
   const minorGeometry = useMemo(
     () => buildGridGeometry(OFFICE_ROOM.width, OFFICE_ROOM.depth, ROOM_GRID.minorStep),

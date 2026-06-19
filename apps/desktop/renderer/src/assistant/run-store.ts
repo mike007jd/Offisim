@@ -49,7 +49,7 @@ interface StageFileInput {
 /** One tool call surfaced live while a run is in flight. Fed from the graph's
  *  `tool.execution.telemetry` stream so the user can see builtin, workstation,
  *  runtime-profile, and MCP tools actually working. */
-export interface RunToolActivity {
+interface RunToolActivity {
   id: string;
   tool: string;
   state: 'running' | 'done' | 'error';

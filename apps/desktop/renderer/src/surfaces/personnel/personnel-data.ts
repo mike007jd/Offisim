@@ -13,13 +13,7 @@
 import { reposOrNull } from '@/data/adapters.js';
 import { UI_DATA_COLORS } from '@/data/color-palette.js';
 import type { Employee } from '@/data/types.js';
-import type {
-  AccentVariant,
-  BodyType,
-  EmployeeAppearance,
-  Gender,
-  HairStyle,
-} from '@/lib/avatar.js';
+import type { BodyType, EmployeeAppearance, Gender, HairStyle } from '@/lib/avatar.js';
 import { resolveAsync } from '@/lib/platform.js';
 import {
   type EmployeeVersionRow,
@@ -37,14 +31,12 @@ export const COMMUNICATION_OPTIONS = [
   { value: 'medium', label: 'Medium' },
   { value: 'high', label: 'High' },
 ] as const;
-export type CommunicationFrequency = (typeof COMMUNICATION_OPTIONS)[number]['value'];
 
 export const RISK_OPTIONS = [
   { value: 'conservative', label: 'Conservative' },
   { value: 'balanced', label: 'Balanced' },
   { value: 'aggressive', label: 'Aggressive' },
 ] as const;
-export type RiskPreference = (typeof RISK_OPTIONS)[number]['value'];
 
 export const DECISION_STYLE_OPTIONS = [
   { value: 'collaborative', label: 'Collaborative' },
@@ -53,16 +45,10 @@ export const DECISION_STYLE_OPTIONS = [
   { value: 'autonomous', label: 'Autonomous' },
 ] as const;
 
-export const STATUS_OPTIONS = [
-  { value: 'enabled', label: 'Enabled' },
-  { value: 'disabled', label: 'Disabled' },
-] as const;
-
 export const MODEL_MODE_OPTIONS = [
   { value: 'inherit', label: 'Inherit unified setting' },
   { value: 'custom', label: 'Custom model' },
 ] as const;
-export type ModelMode = (typeof MODEL_MODE_OPTIONS)[number]['value'];
 
 export const MODEL_FAMILY_OPTIONS = [
   { value: 'configured', label: 'Configured validation models' },
@@ -312,12 +298,6 @@ export const GENDER_OPTIONS: ReadonlyArray<{ value: Gender; label: string }> = [
   { value: 'feminine', label: 'Fem' },
 ];
 
-export const ACCENT_VARIANT_OPTIONS: ReadonlyArray<{ value: AccentVariant; label: string }> = [
-  { value: 'vest', label: 'Vest' },
-  { value: 'jacket', label: 'Jacket' },
-  { value: 'scarf', label: 'Scarf' },
-];
-
 export type AppearanceDraft = EmployeeAppearance;
 
 export function appearanceDraftFor(employee: Employee): AppearanceDraft {
@@ -338,7 +318,7 @@ export function appearanceDraftFor(employee: Employee): AppearanceDraft {
 export const MEMORY_CATEGORIES = ['experience', 'decision', 'knowledge', 'preference'] as const;
 export type MemoryCategory = (typeof MEMORY_CATEGORIES)[number];
 
-export type MemoryScope = 'employee' | 'company';
+type MemoryScope = 'employee' | 'company';
 
 export interface MemoryEntry {
   id: string;
@@ -513,16 +493,16 @@ export interface EmployeeVersion {
   current: boolean;
 }
 
-export type DiffKind = 'add' | 'remove' | 'change';
+type DiffKind = 'add' | 'remove' | 'change';
 
-export interface VersionDiffRow {
+interface VersionDiffRow {
   field: string;
   kind: DiffKind;
   previous: string;
   current: string;
 }
 
-export interface ForkProvenance {
+interface ForkProvenance {
   sourceAssetId: string;
   packageId?: string;
   marketplaceUrl?: string;

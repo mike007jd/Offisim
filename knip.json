@@ -14,6 +14,9 @@
       ]
     },
     "apps/desktop/renderer": {
+      "entry": [
+        "src/design-system/**/*.{ts,tsx}"
+      ],
       "ignore": [
         "src/polyfills/**"
       ]

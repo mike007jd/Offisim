@@ -1,12 +1,12 @@
 import { generateId } from '@offisim/core/browser';
 import { create } from 'zustand';
 
-export type WorkspaceKey = 'office' | 'workspace' | 'market' | 'personnel';
-export type OverlaySurface = 'activity' | 'settings' | 'studio' | 'lifecycle';
+type WorkspaceKey = 'office' | 'workspace' | 'market' | 'personnel';
+type OverlaySurface = 'activity' | 'settings' | 'studio' | 'lifecycle';
 export type SurfaceKey = WorkspaceKey | OverlaySurface;
 
-export type SceneRenderMode = '3d' | '2d';
-export type RailMode = 'list' | 'thread';
+type SceneRenderMode = '3d' | '2d';
+type RailMode = 'list' | 'thread';
 export interface SceneDropDiagnostic {
   id: string;
   at: string;

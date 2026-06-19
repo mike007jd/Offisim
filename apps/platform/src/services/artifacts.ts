@@ -41,7 +41,7 @@ export function decodeRegistryArtifactBase64(raw: string): DecodedArtifact {
   };
 }
 
-export function sha256Hex(bytes: Uint8Array): string {
+function sha256Hex(bytes: Uint8Array): string {
   return createHash('sha256').update(bytes).digest('hex');
 }
 

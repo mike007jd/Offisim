@@ -40,7 +40,7 @@ export function compareVersions(a: number[], b: number[]): -1 | 0 | 1 {
   return 0;
 }
 
-export function parseLooseVersion(version: string): number[] | null {
+function parseLooseVersion(version: string): number[] | null {
   const match = version.trim().match(/^v?(\d+)(?:\.(\d+))?(?:\.(\d+))?/u);
   if (!match) return null;
   return [

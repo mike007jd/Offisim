@@ -16,7 +16,7 @@ export interface InfrastructureMesh3DProps {
 }
 
 /** Flat 1U network switch box with indicator LEDs and port holes. */
-export function NetworkSwitchMesh3D({
+function NetworkSwitchMesh3D({
   position = [0, 0, 0],
   rotation = 0,
   state: _state,
@@ -48,7 +48,7 @@ export function NetworkSwitchMesh3D({
 }
 
 /** Horizontal cable tray / cable channel on the floor. */
-export function CableTrayMesh3D({
+function CableTrayMesh3D({
   position = [0, 0, 0],
   rotation = 0,
   state: _state,
@@ -72,7 +72,7 @@ export function CableTrayMesh3D({
   );
 }
 
-export function PatchPanelMesh3D({
+function PatchPanelMesh3D({
   position = [0, 0, 0],
   rotation = 0,
   state: _state,

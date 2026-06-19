@@ -129,7 +129,7 @@ export function getFaceTexture(expression: FaceExpression): THREE.CanvasTexture 
   return tex;
 }
 
-export function disposeFaceTextureCache(): void {
+function disposeFaceTextureCache(): void {
   for (const tex of cache.values()) tex.dispose();
   cache.clear();
 }

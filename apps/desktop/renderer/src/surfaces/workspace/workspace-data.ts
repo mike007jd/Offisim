@@ -23,7 +23,7 @@ import { useQuery } from '@tanstack/react-query';
 
 /* ── Messenger conversation list ─────────────────────────────────────────── */
 
-export type ConvKind = 'group' | 'direct' | 'system' | 'external';
+type ConvKind = 'group' | 'direct' | 'system' | 'external';
 export type Presence = 'working' | 'idle' | 'blocked' | 'offline';
 
 export interface WsConversation {
@@ -58,7 +58,7 @@ export interface WsAttachment {
   meta: string;
 }
 
-export interface WsDeliverableCard {
+interface WsDeliverableCard {
   id: string;
   title: string;
   meta: string;
@@ -94,7 +94,7 @@ export interface WsThread {
 export type SysLevel = 'info' | 'success' | 'warning' | 'error';
 export type SysSource = 'runtime' | 'hr' | 'market' | 'install';
 
-export interface SysAction {
+interface SysAction {
   id: string;
   label: string;
   primary?: boolean;
@@ -131,7 +131,7 @@ export interface ContactDetail {
 
 /* ── Calendar agenda ─────────────────────────────────────────────────────── */
 
-export type EventKind = 'meeting' | 'run' | 'ceremony' | 'deadline';
+type EventKind = 'meeting' | 'run' | 'ceremony' | 'deadline';
 
 export interface AgendaEvent {
   id: string;
@@ -151,7 +151,7 @@ export interface AgendaDay {
 
 /* ── Meetings + action items ─────────────────────────────────────────────── */
 
-export interface WsActionItem {
+interface WsActionItem {
   id: string;
   text: string;
   ownerId: string | null;
@@ -175,7 +175,7 @@ export interface WsMeeting {
  *   emp-mara (Engineering Lead), emp-devin (Product Designer),
  *   emp-sela (QA Analyst), emp-orion (Security Review · external). */
 
-export const SYSTEM_CONV_ID = 'sys-channel';
+const SYSTEM_CONV_ID = 'sys-channel';
 
 const conversations: WsConversation[] = [
   {

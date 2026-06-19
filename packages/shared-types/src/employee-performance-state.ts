@@ -25,7 +25,7 @@ export interface EmployeePerformanceState {
   readonly startupId?: string | null;
 }
 
-export type EmployeePerformanceSingleAction =
+type EmployeePerformanceSingleAction =
   | {
       readonly type: 'set';
       readonly employeeId: string;

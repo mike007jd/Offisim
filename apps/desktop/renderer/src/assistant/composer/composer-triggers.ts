@@ -125,9 +125,6 @@ export function extractMentionedEmployeeIds(
   return ids;
 }
 
-/** Stable id set for the `/` command rows so the renderer can pick an icon. */
-export type SlashCommandId = 'new' | 'inbox' | 'activity' | 'settings';
-
 /**
  * `/` commands. Each maps to a real `ui-state` action — no placeholder
  * commands. Read fresh state inside `execute` so the action always targets the

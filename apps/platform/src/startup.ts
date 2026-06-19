@@ -1,9 +1,9 @@
-export const DEV_AUTH_SECRET = 'offisim-dev-secret-change-in-production';
+const DEV_AUTH_SECRET = 'offisim-dev-secret-change-in-production';
 
 // CORS allowlist for the platform server. `tauri://localhost` is required for
 // the desktop release `.app` to call platform endpoints (Invariant B:
 // Tauri release `.app` CSP `connect-src` SHALL include platform listen origins).
-// Drift on this constant is enforced by `scripts/check-platform-tauri-origin-sync.mjs`.
+/** @public — drift enforced by scripts/check-platform-tauri-origin-sync.mjs (content match, not import). */
 export const DEV_DEFAULT_ORIGINS = [
   'http://localhost:3000',
   'http://localhost:5176',

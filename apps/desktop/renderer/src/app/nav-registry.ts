@@ -34,5 +34,6 @@ export const NAV_ENTRIES: readonly NavEntry[] = [
   { key: 'studio', label: 'Studio', icon: LayoutGrid, tier: 'utility' },
 ];
 
+/** @public — asserted by scripts/check-ui-framework-hygiene.mjs (content match, not import). */
 export const PRIMARY_NAV = NAV_ENTRIES.filter((e) => e.tier === 'primary');
 export const UTILITY_NAV = NAV_ENTRIES.filter((e) => e.tier === 'utility');

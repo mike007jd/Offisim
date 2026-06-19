@@ -120,7 +120,7 @@ function MeetingPanel({ meeting }: { meeting: MeetingState }) {
 
 /** Meeting region for the conversation: a live panel while the meeting runs, or
  *  just the follow-up action items once it ends (idle). */
-export function MeetingRegion() {
+function MeetingRegion() {
   const meeting = useRunStore((s) => s.meeting);
   if (!meeting) return null;
   if (meeting.status === 'idle') return <MeetingActionItems meeting={meeting} />;

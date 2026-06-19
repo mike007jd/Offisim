@@ -32,25 +32,19 @@ export const ENABLED_OPTIONS = [
 
 export const DEFAULT_RUNTIME_OPTIONS = [{ value: 'pi-agent', label: 'Pi Agent' }] as const;
 
-export const THEME_OPTIONS = [
+const THEME_OPTIONS = [
   { value: 'system', label: 'System' },
   { value: 'light', label: 'Light' },
   { value: 'dark', label: 'Dark' },
 ] as const;
 export type ThemeValue = (typeof THEME_OPTIONS)[number]['value'];
 
-export const DENSITY_OPTIONS = [
+const DENSITY_OPTIONS = [
   { value: 'compact', label: 'Compact' },
   { value: 'normal', label: 'Normal' },
   { value: 'spacious', label: 'Spacious' },
 ] as const;
 export type DensityValue = (typeof DENSITY_OPTIONS)[number]['value'];
-
-export const RUNTIME_BINDING_OPTIONS = [
-  { value: 'inherit', label: 'Inherit' },
-  { value: 'pi-agent', label: 'Pi Agent' },
-] as const;
-export type RuntimeBindingValue = (typeof RUNTIME_BINDING_OPTIONS)[number]['value'];
 
 export const runtimeFormSchema = z.object({
   executionMode: z.string().min(1),
@@ -87,12 +81,7 @@ export const RUNTIME_DEFAULTS: RuntimeFormValues = {
 
 export type McpTransport = 'stdio' | 'sse';
 export type McpStatus = 'connected' | 'disconnected' | 'connecting' | 'registered';
-export type McpSource =
-  | 'user-config'
-  | 'workspace'
-  | 'defaults'
-  | 'installed-asset'
-  | 'developer-runtime';
+type McpSource = 'user-config' | 'workspace' | 'defaults' | 'installed-asset' | 'developer-runtime';
 
 export interface McpServer {
   readonly id: string;
@@ -239,7 +228,7 @@ function approvalIdFor(values: Pick<McpServerFormValues, 'name' | 'approvalId'>)
   return values.approvalId.trim() || `mcp.${values.name.trim()}.default`;
 }
 
-export async function loadMcpServers(): Promise<McpServer[]> {
+async function loadMcpServers(): Promise<McpServer[]> {
   if (!isTauriRuntime()) return resolveAsync([]);
   const { invoke } = await import('@tauri-apps/api/core');
   const [registered, runtimeStatuses] = await Promise.all([
@@ -315,7 +304,7 @@ export interface ExternalEmployee {
   readonly installedAt: number;
 }
 
-export const EXTERNAL_EMPLOYEES_FIXTURE: readonly ExternalEmployee[] = [
+const EXTERNAL_EMPLOYEES_FIXTURE: readonly ExternalEmployee[] = [
   {
     id: 'otto',
     name: 'Otto Reeves',

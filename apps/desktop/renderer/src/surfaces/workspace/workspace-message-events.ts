@@ -128,7 +128,7 @@ export async function persistWorkspaceMessage({
   });
 }
 
-export async function loadPersistedWorkspaceMessages(threadId: string): Promise<WsMessage[]> {
+async function loadPersistedWorkspaceMessages(threadId: string): Promise<WsMessage[]> {
   const [chatMessages, legacyEntries] = await Promise.all([
     loadPersistedChatMessages(threadId),
     loadThreadMessageEvents<{ message: WsMessage; createdAtMs: number }>(

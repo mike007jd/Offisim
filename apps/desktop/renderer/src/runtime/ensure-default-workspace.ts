@@ -19,11 +19,11 @@ import type { RuntimeRepositories } from '@offisim/core/browser';
  */
 
 /** Stable name for the auto-provisioned default project, used for idempotency. */
-export const DEFAULT_WORKSPACE_PROJECT_NAME = 'Default Workspace';
+const DEFAULT_WORKSPACE_PROJECT_NAME = 'Default Workspace';
 
 /** Ask Rust to create + canonicalize the per-company scratch workspace dir.
  *  Returns null off-desktop or when the command is unavailable. */
-export async function provisionCompanyWorkspaceDir(companyId: string): Promise<string | null> {
+async function provisionCompanyWorkspaceDir(companyId: string): Promise<string | null> {
   try {
     const { invoke } = await import('@tauri-apps/api/core');
     const root = await invoke<string>('ensure_company_workspace', { companyId });

@@ -1,4 +1,4 @@
-export const PI_MODEL_OVERRIDE_STORAGE_KEY = 'offisim:pi-agent:model-override';
+const PI_MODEL_OVERRIDE_STORAGE_KEY = 'offisim:pi-agent:model-override';
 
 export function readPiModelOverride(): string {
   try {

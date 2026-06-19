@@ -44,7 +44,7 @@ export interface CompanyTemplate {
   employees: TemplateEmployee[];
 }
 
-export type EmployeeKind = 'internal' | 'external';
+type EmployeeKind = 'internal' | 'external';
 
 /** Live presence derived from the runtime: idle in office, executing a run,
  *  blocked on a gate, failed, or offline/asleep. */
@@ -76,7 +76,7 @@ export interface Employee {
   disabled?: boolean;
 }
 
-export type ThreadScope = 'team' | 'direct';
+type ThreadScope = 'team' | 'direct';
 
 export interface ChatThread {
   id: string;
@@ -89,7 +89,7 @@ export interface ChatThread {
   runState: RunState;
 }
 
-export type MessageAuthor = 'boss' | 'employee' | 'system';
+type MessageAuthor = 'boss' | 'employee' | 'system';
 
 export interface ChatAttachment {
   id: string;
@@ -103,7 +103,7 @@ export interface ChatAttachment {
   summary?: string;
 }
 
-export interface RunRecordStep {
+interface RunRecordStep {
   id: string;
   label: string;
   detail: string;
@@ -111,7 +111,7 @@ export interface RunRecordStep {
 }
 
 /** One Activity entry inside a sedimented run record (tool call / event). */
-export interface RunActivityEntry {
+interface RunActivityEntry {
   id: string;
   /** Tool / domain label e.g. "read", "edit", "bash". */
   tool: string;
@@ -122,7 +122,7 @@ export interface RunActivityEntry {
 }
 
 /** One Plan step inside a run record: who did what, role and cost. */
-export interface RunPlanStep {
+interface RunPlanStep {
   id: string;
   label: string;
   assigneeId: string | null;
@@ -184,7 +184,7 @@ export interface Deliverable {
 
 /* --- Git workbench (left workspace panel, Git tab) --------------------------*/
 
-export type GitFileStatus = 'added' | 'modified' | 'deleted' | 'renamed';
+type GitFileStatus = 'added' | 'modified' | 'deleted' | 'renamed';
 
 export interface GitFileChange {
   path: string;
@@ -194,9 +194,9 @@ export interface GitFileChange {
   removed: number;
 }
 
-export type GitCheckState = 'pass' | 'fail' | 'running';
+type GitCheckState = 'pass' | 'fail' | 'running';
 
-export interface GitCheck {
+interface GitCheck {
   id: string;
   label: string;
   state: GitCheckState;
@@ -227,33 +227,6 @@ export interface FileNode {
 
 export type ZoneKind = 'workspace' | 'meeting' | 'lounge';
 
-export interface OfficeZone {
-  id: string;
-  label: string;
-  kind: ZoneKind;
-  /** Centre + footprint in office units (top-down x/z plane). */
-  cx: number;
-  cz: number;
-  w: number;
-  d: number;
-}
-
-export interface OfficePlacement {
-  employeeId: string;
-  x: number;
-  z: number;
-  /** Facing angle in degrees (0 faces +z / toward camera). */
-  rotation: number;
-}
-
-export interface OfficeSceneLayout {
-  zones: OfficeZone[];
-  placements: OfficePlacement[];
-  /** Office floor footprint in office units. */
-  floorW: number;
-  floorD: number;
-}
-
 export interface Skill {
   id: string;
   name: string;
@@ -266,7 +239,7 @@ export interface Skill {
  * control, stage status readout and the chat error banner. The renderer
  * drives these states through the assistant-ui external-store runtime. */
 
-export type PipelineStageState = 'done' | 'active' | 'pending';
+type PipelineStageState = 'done' | 'active' | 'pending';
 
 /** One stage of the orchestration pipeline (Boss → Manager → PM → Employee →
  *  Summary). */
@@ -306,10 +279,10 @@ export interface RunError {
 
 /* --- Meetings ---------------------------------------------------------------*/
 
-export type MeetingStatus = 'running' | 'paused' | 'idle';
+type MeetingStatus = 'running' | 'paused' | 'idle';
 export type ActionItemPriority = 'high' | 'medium' | 'low';
 
-export interface MeetingActionItem {
+interface MeetingActionItem {
   id: string;
   description: string;
   assigneeId: string | null;
@@ -317,7 +290,7 @@ export interface MeetingActionItem {
   done: boolean;
 }
 
-export interface MeetingTranscriptLine {
+interface MeetingTranscriptLine {
   id: string;
   speakerId: string | null;
   text: string;
@@ -334,7 +307,7 @@ export interface MeetingState {
 
 /* --- Chat attachment staging ------------------------------------------------*/
 
-export type AttachmentStatus = 'attached' | 'error';
+type AttachmentStatus = 'attached' | 'error';
 
 /** Canonical staging failure reasons (size cap, dedupe, unsupported, etc.). */
 export type AttachmentFailReason =
@@ -372,7 +345,7 @@ export interface StagedAttachment {
 
 /* --- Cross-session resume ---------------------------------------------------*/
 
-export type UnfinishedThreadState = 'running' | 'blocked';
+type UnfinishedThreadState = 'running' | 'blocked';
 
 export interface UnfinishedThread {
   threadId: string;

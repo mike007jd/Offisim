@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type StudioSelection =
+type StudioSelection =
   | { readonly kind: 'zone'; readonly id: string }
   | { readonly kind: 'object'; readonly id: string }
   | null;

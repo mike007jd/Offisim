@@ -83,7 +83,7 @@ export function PlantMesh3D({
   );
 }
 
-export function CoffeeTableMesh3D({ position = [0, 0, 0], rotation = 0 }: PlantMesh3DProps) {
+function CoffeeTableMesh3D({ position = [0, 0, 0], rotation = 0 }: PlantMesh3DProps) {
   const sc = useSceneColors();
   const rotY = (rotation * Math.PI) / 180;
   return (
@@ -144,7 +144,7 @@ export function CoffeeTableMesh3D({ position = [0, 0, 0], rotation = 0 }: PlantM
   );
 }
 
-export function VendingMachineMesh3D({ position = [0, 0, 0], rotation = 0 }: PlantMesh3DProps) {
+function VendingMachineMesh3D({ position = [0, 0, 0], rotation = 0 }: PlantMesh3DProps) {
   const sc = useSceneColors();
   const rotY = (rotation * Math.PI) / 180;
   const productColors = [sc.ledCyan, sc.ledGreen, sc.ledAmber, sc.accentWarm];
@@ -202,7 +202,7 @@ export function VendingMachineMesh3D({ position = [0, 0, 0], rotation = 0 }: Pla
   );
 }
 
-export function WaterCoolerMesh3D({ position = [0, 0, 0], rotation = 0 }: PlantMesh3DProps) {
+function WaterCoolerMesh3D({ position = [0, 0, 0], rotation = 0 }: PlantMesh3DProps) {
   const sc = useSceneColors();
   const rotY = (rotation * Math.PI) / 180;
   return (
@@ -233,7 +233,7 @@ export function WaterCoolerMesh3D({ position = [0, 0, 0], rotation = 0 }: PlantM
   );
 }
 
-export function StatusBoardMesh3D({ position = [0, 0, 0], rotation = 0 }: PlantMesh3DProps) {
+function StatusBoardMesh3D({ position = [0, 0, 0], rotation = 0 }: PlantMesh3DProps) {
   const sc = useSceneColors();
   const rotY = (rotation * Math.PI) / 180;
   return (

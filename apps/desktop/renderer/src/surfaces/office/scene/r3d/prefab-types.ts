@@ -1,6 +1,6 @@
 /** Minimal prefab definition shape the 3D dispatcher needs (subset of the
  *  legacy shared-types PrefabDefinition). */
-export type SemanticCategory =
+type SemanticCategory =
   | 'workspace'
   | 'compute'
   | 'knowledge'

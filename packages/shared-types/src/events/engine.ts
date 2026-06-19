@@ -1,6 +1,6 @@
 import type { EngineId, RuntimeEvidenceClass } from '../models.js';
 
-export type EngineNativeActivityKind =
+type EngineNativeActivityKind =
   | 'mcp'
   | 'permission'
   | 'guardrail'

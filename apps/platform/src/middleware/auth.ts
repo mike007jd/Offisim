@@ -16,7 +16,7 @@ import type { PlatformEnv } from '../types.js';
  * 3. Unauthenticated — request continues without userId/userEmail
  */
 
-export const API_TOKEN_SCOPES = ['publish:write', 'install:receipt', 'reviews:write'] as const;
+const API_TOKEN_SCOPES = ['publish:write', 'install:receipt', 'reviews:write'] as const;
 export const MAX_API_TOKEN_EXPIRY_DAYS = 365;
 
 export type ApiTokenScope = (typeof API_TOKEN_SCOPES)[number];
@@ -315,10 +315,7 @@ export const requireLocalRuntimeAccess = createMiddleware<PlatformEnv>(async (c,
 // ---------------------------------------------------------------------------
 
 /** Find a creator's id by user_id. Shared between middleware and /me handler. */
-export async function findCreatorIdByUserId(
-  db: PlatformDb,
-  userId: string,
-): Promise<string | null> {
+async function findCreatorIdByUserId(db: PlatformDb, userId: string): Promise<string | null> {
   const [row] = await db
     .select({ creator_id: creators.creator_id })
     .from(creators)

@@ -35,7 +35,7 @@ export interface SafeArchiveLimits {
 
 // OOXML documents legitimately bundle many parts (slides, media, styles), so
 // the entry count is generous; the byte budgets are the real bomb guard.
-export const DEFAULT_DOC_ARCHIVE_LIMITS: Required<SafeArchiveLimits> = {
+const DEFAULT_DOC_ARCHIVE_LIMITS: Required<SafeArchiveLimits> = {
   maxCompressedBytes: 32 * 1024 * 1024, // 32 MB compressed input
   maxDecompressedBytes: 128 * 1024 * 1024, // 128 MB total inflated
   maxEntryBytes: 64 * 1024 * 1024, // 64 MB per part
@@ -43,7 +43,7 @@ export const DEFAULT_DOC_ARCHIVE_LIMITS: Required<SafeArchiveLimits> = {
 };
 
 /** Thrown when an archive trips a zip-bomb / resource cap. */
-export class ZipBombError extends Error {
+class ZipBombError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'ZipBombError';

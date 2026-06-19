@@ -54,19 +54,19 @@ export type MarketMode = 'explore' | 'manage';
 /** Manage sub-view. */
 export type ManageView = 'installed' | 'updates' | 'published';
 
-export type RiskClass = 'data' | 'logic' | 'system';
-export type FsScope = 'none' | 'workspace' | 'system';
-export type NetScope = 'none' | 'read' | 'full';
-export type SecretScope = 'none' | 'declared';
+type RiskClass = 'data' | 'logic' | 'system';
+type FsScope = 'none' | 'workspace' | 'system';
+type NetScope = 'none' | 'read' | 'full';
+type SecretScope = 'none' | 'declared';
 
-export interface ListingPermissions {
+interface ListingPermissions {
   risk: RiskClass;
   filesystem: FsScope;
   network: NetScope;
   secrets: SecretScope;
 }
 
-export interface ListingRequirements {
+interface ListingRequirements {
   capabilities: string[];
   mcps: string[];
   models: string[];
@@ -75,16 +75,16 @@ export interface ListingRequirements {
   schema: number;
 }
 
-export interface ListingLineage {
+interface ListingLineage {
   /** Origin slug, e.g. "growth-tools/teardown". */
   origin: string;
   /** Version this package was forked from, null when original. */
   forkedFrom: string | null;
 }
 
-export type ChangelogEntryKind = 'added' | 'fixed' | 'breaking' | 'note';
+type ChangelogEntryKind = 'added' | 'fixed' | 'breaking' | 'note';
 
-export interface ChangelogVersion {
+interface ChangelogVersion {
   version: string;
   date: string;
   entries: Array<{ kind: ChangelogEntryKind; text: string }>;

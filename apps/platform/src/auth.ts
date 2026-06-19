@@ -71,5 +71,3 @@ export const auth = betterAuth({
 
   trustedOrigins: resolveCorsOrigins(),
 });
-
-export type Auth = typeof auth;

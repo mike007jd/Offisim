@@ -11,11 +11,11 @@ export interface PersistedRuntimeSettings {
   density: DensityValue;
 }
 
-export function isThemeValue(value: unknown): value is ThemeValue {
+function isThemeValue(value: unknown): value is ThemeValue {
   return value === 'system' || value === 'light' || value === 'dark';
 }
 
-export function isDensityValue(value: unknown): value is DensityValue {
+function isDensityValue(value: unknown): value is DensityValue {
   return value === 'compact' || value === 'normal' || value === 'spacious';
 }
 
@@ -65,7 +65,7 @@ function resolveTheme(theme: ThemeValue): 'light' | 'dark' {
  * weight — but the persisted preference is genuinely applied to the document,
  * which is what the Settings hints promise.
  */
-export function applyAppearance(theme: ThemeValue, density: DensityValue): void {
+function applyAppearance(theme: ThemeValue, density: DensityValue): void {
   if (typeof document === 'undefined') return;
   const root = document.documentElement;
   root.setAttribute('data-theme', resolveTheme(theme));

@@ -6,7 +6,6 @@ import type {
   Deliverable,
   Employee,
   FileNode,
-  OfficeSceneLayout,
   Project,
   Skill,
   UnfinishedThread,
@@ -325,22 +324,6 @@ export const unfinishedThreads: UnfinishedThread[] = [
     state: 'blocked',
   },
 ];
-
-export const officeScene: OfficeSceneLayout = {
-  floorW: 16,
-  floorD: 12,
-  zones: [
-    { id: 'z-work', label: 'Workspace', kind: 'workspace', cx: -3.4, cz: 0, w: 8, d: 9 },
-    { id: 'z-meet', label: 'Meeting', kind: 'meeting', cx: 4.6, cz: -3, w: 6, d: 4 },
-    { id: 'z-lounge', label: 'Lounge', kind: 'lounge', cx: 4.6, cz: 3, w: 6, d: 4 },
-  ],
-  placements: [
-    { employeeId: 'emp-mara', x: -5, z: -2, rotation: 20 },
-    { employeeId: 'emp-devin', x: -2, z: -2, rotation: -20 },
-    { employeeId: 'emp-sela', x: -5, z: 2, rotation: 20 },
-    { employeeId: 'emp-orion', x: 4.6, z: -3, rotation: 180 },
-  ],
-};
 
 export const employeeSkills: Record<string, Skill[]> = {
   'emp-mara': [

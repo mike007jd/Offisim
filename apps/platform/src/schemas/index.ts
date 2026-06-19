@@ -30,7 +30,6 @@ export const ReviewCreateSchema = z.object({
   title: z.string().optional(),
   body: z.string().optional(),
 });
-export type ReviewCreateBody = z.infer<typeof ReviewCreateSchema>;
 
 // ── Publish: Draft ──
 
@@ -44,7 +43,6 @@ export const DraftCreateSchema = z.object({
   summary: z.string().optional(),
   listing_id: z.string().regex(UUID_REGEX, 'listing_id must be a valid UUID').optional(),
 });
-export type DraftCreateBody = z.infer<typeof DraftCreateSchema>;
 
 // ── Publish: Manifest upload ──
 
@@ -62,7 +60,6 @@ export const ManifestUploadSchema = z.object({
     })
     .optional(),
 });
-export type ManifestUploadBody = z.infer<typeof ManifestUploadSchema>;
 
 // ── Publish: Submit ──
 
@@ -70,7 +67,6 @@ export const SubmitDraftSchema = z.object({
   draft_id: z.string().min(1, 'draft_id is required'),
   submit_message: z.string().optional(),
 });
-export type SubmitDraftBody = z.infer<typeof SubmitDraftSchema>;
 
 // ── Install: Receipt ──
 
@@ -87,11 +83,10 @@ export const InstallReceiptSchema = z.object({
     errorMap: () => ({ message: 'install_source must be registry, url, or file' }),
   }),
 });
-export type InstallReceiptBody = z.infer<typeof InstallReceiptSchema>;
 
 // ── Report ──
 
-export const VALID_REPORT_REASONS = [
+const VALID_REPORT_REASONS = [
   'spam',
   'malicious_code',
   'copyright',
@@ -107,7 +102,6 @@ export const ReportCreateSchema = z.object({
   }),
   details: z.string().max(1000).optional(),
 });
-export type ReportCreateBody = z.infer<typeof ReportCreateSchema>;
 
 // ── Register Creator ──
 
@@ -125,7 +119,6 @@ export const RegisterCreatorSchema = z.object({
     .max(100, 'display_name must be at most 100 characters'),
   bio: z.string().max(500).optional(),
 });
-export type RegisterCreatorBody = z.infer<typeof RegisterCreatorSchema>;
 
 // ── Listing Status Patch ──
 
@@ -135,7 +128,6 @@ export const ListingStatusPatchSchema = z.object({
   }),
   reason: z.string().max(500).optional(),
 });
-export type ListingStatusPatchBody = z.infer<typeof ListingStatusPatchSchema>;
 
 // ── Search Params ──
 
@@ -148,4 +140,3 @@ export const SearchParamsSchema = z.object({
   page: z.coerce.number().int().min(1).max(10000).default(1),
   per_page: z.coerce.number().int().min(1).max(100).default(20),
 });
-export type SearchParams = z.infer<typeof SearchParamsSchema>;

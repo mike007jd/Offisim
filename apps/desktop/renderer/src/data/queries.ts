@@ -29,7 +29,6 @@ import {
   employeeSkills,
   employees,
   messages,
-  officeScene,
   projectFiles,
   projects,
   threads,
@@ -816,10 +815,6 @@ export function useUnfinishedThreads() {
       }));
     },
   });
-}
-
-export function useOfficeScene() {
-  return useQuery({ queryKey: ['office-scene'], queryFn: () => resolveAsync(officeScene) });
 }
 
 /** Real office layout: zones + enabled prefab instances (paired with catalog

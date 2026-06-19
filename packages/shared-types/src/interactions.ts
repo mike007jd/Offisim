@@ -35,9 +35,9 @@ export type InteractionKind =
 
 export type InteractionSeverity = 'normal' | 'high';
 
-export type InteractionScope = 'once' | 'thread' | 'session';
+type InteractionScope = 'once' | 'thread' | 'session';
 
-export interface InteractionOption {
+interface InteractionOption {
   readonly id: string;
   readonly label: string;
   readonly description?: string;
@@ -45,12 +45,12 @@ export interface InteractionOption {
   readonly recommended?: boolean;
 }
 
-export interface BossRecommendation {
+interface BossRecommendation {
   readonly optionId: string;
   readonly reason: string;
 }
 
-export interface PermissionInteractionContext {
+interface PermissionInteractionContext {
   readonly type: 'permission_request';
   readonly serverName: string;
   readonly toolName: string;
@@ -58,52 +58,46 @@ export interface PermissionInteractionContext {
   readonly policyHash?: string;
 }
 
-export interface PlanReviewInteractionContext {
+interface PlanReviewInteractionContext {
   readonly type: 'plan_review';
   readonly planId?: string | null;
 }
 
-export interface AgentQuestionInteractionContext {
+interface AgentQuestionInteractionContext {
   readonly type: 'agent_question';
   readonly questionKey?: string | null;
 }
 
-export type SkillInstallSourceKind =
-  | 'git'
-  | 'upload'
-  | 'claude-code'
-  | 'codex'
-  | 'fork'
-  | 'self-authored';
+type SkillInstallSourceKind = 'git' | 'upload' | 'claude-code' | 'codex' | 'fork' | 'self-authored';
 
 /** Mutation discriminator. Absent value = legacy install. */
-export type SkillMutationAction = 'install' | 'fork' | 'edit' | 'create';
+type SkillMutationAction = 'install' | 'fork' | 'edit' | 'create';
 
-export interface SkillInstallConfirmParent {
+interface SkillInstallConfirmParent {
   readonly skillId: string;
   readonly slug: string;
   readonly name: string;
   readonly version: string;
 }
 
-export interface SkillInstallConfirmBodyDiff {
+interface SkillInstallConfirmBodyDiff {
   readonly oldPreview: string;
   readonly newPreview: string;
 }
 
-export type SkillFrontmatterErrorReason =
+type SkillFrontmatterErrorReason =
   | 'missing-required'
   | 'forbidden-namespace'
   | 'unknown-field'
   | 'invalid-yaml';
 
-export interface SkillFrontmatterErrorPayload {
+interface SkillFrontmatterErrorPayload {
   readonly reason: SkillFrontmatterErrorReason;
   readonly detail: string;
   readonly field?: string;
 }
 
-export interface SkillInstallConfirmInteractionContext {
+interface SkillInstallConfirmInteractionContext {
   readonly type: 'skill_install_confirm';
   readonly stagingRef: string;
   readonly skillName: string;
@@ -137,7 +131,7 @@ export interface SkillInstallConfirmInteractionContext {
   readonly bodyDiff?: SkillInstallConfirmBodyDiff;
 }
 
-export type InteractionContext =
+type InteractionContext =
   | PermissionInteractionContext
   | PlanReviewInteractionContext
   | AgentQuestionInteractionContext

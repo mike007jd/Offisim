@@ -10,7 +10,7 @@ import { createAvatar } from '@dicebear/core';
 
 export type BodyType = 'slim' | 'normal' | 'stocky';
 export type Gender = 'masculine' | 'feminine' | 'neutral';
-export type AccentVariant = 'vest' | 'jacket' | 'scarf';
+type AccentVariant = 'vest' | 'jacket' | 'scarf';
 
 export interface EmployeeAppearance {
   hairStyle?: HairStyle;

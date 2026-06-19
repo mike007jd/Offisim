@@ -10,7 +10,7 @@ import type { EmployeeState, SemanticCategory, WorkspacePrefabState } from '@off
 // ── Transition Tables ───────────────────────────────────────────
 // Record<fromState, readonly toState[]>
 
-export const WORKSPACE_TRANSITIONS: Record<string, readonly string[]> = {
+const WORKSPACE_TRANSITIONS: Record<string, readonly string[]> = {
   empty: ['occupied'],
   occupied: ['working', 'thinking', 'searching', 'blocked', 'idle'],
   working: ['thinking', 'searching', 'blocked', 'idle', 'occupied'],
@@ -20,7 +20,7 @@ export const WORKSPACE_TRANSITIONS: Record<string, readonly string[]> = {
   idle: ['working', 'thinking', 'searching', 'blocked', 'occupied', 'empty'],
 };
 
-export const COMPUTE_TRANSITIONS: Record<string, readonly string[]> = {
+const COMPUTE_TRANSITIONS: Record<string, readonly string[]> = {
   offline: ['idle'],
   idle: ['processing', 'error', 'offline'],
   processing: ['idle', 'overloaded', 'error'],
@@ -28,7 +28,7 @@ export const COMPUTE_TRANSITIONS: Record<string, readonly string[]> = {
   error: ['idle', 'offline'],
 };
 
-export const KNOWLEDGE_TRANSITIONS: Record<string, readonly string[]> = {
+const KNOWLEDGE_TRANSITIONS: Record<string, readonly string[]> = {
   empty: ['stocked'],
   stocked: ['indexing', 'empty'],
   indexing: ['ready', 'error'],
@@ -37,7 +37,7 @@ export const KNOWLEDGE_TRANSITIONS: Record<string, readonly string[]> = {
   error: ['stocked', 'empty'],
 };
 
-export const COLLABORATION_TRANSITIONS: Record<string, readonly string[]> = {
+const COLLABORATION_TRANSITIONS: Record<string, readonly string[]> = {
   empty: ['scheduled'],
   scheduled: ['gathering', 'empty'],
   gathering: ['active', 'empty'],
@@ -46,7 +46,7 @@ export const COLLABORATION_TRANSITIONS: Record<string, readonly string[]> = {
   ended: ['empty'],
 };
 
-export const INFRASTRUCTURE_TRANSITIONS: Record<string, readonly string[]> = {
+const INFRASTRUCTURE_TRANSITIONS: Record<string, readonly string[]> = {
   disconnected: ['idle'],
   idle: ['transmitting', 'error', 'disconnected'],
   transmitting: ['idle', 'congested', 'error'],

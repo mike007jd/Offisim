@@ -11,12 +11,6 @@ interface DiscardConfirmOptions {
 
 let activeToastId: string | number | null = null;
 
-/** Whether the discard-confirm toast is currently armed. Used so Esc on the
- *  toast itself re-arms (never bypasses) instead of force-closing. */
-export function isDiscardToastArmed(): boolean {
-  return activeToastId !== null;
-}
-
 /** DiscardConfirmToast — the only path out of a dirty wizard. Renders the V3
  *  hard-dark `.discard-bar` grammar (matches the wizard surface) with
  *  Keep editing / Discard actions. Re-arming while shown is a no-op-replace so

@@ -1,11 +1,11 @@
 import type { InteractionMode } from '@offisim/shared-types';
 import type { PlatformDb } from './db.js';
 
-export interface PlatformResumeCoordinator {
+interface PlatformResumeCoordinator {
   resume(conversationId: string): Promise<{ state: unknown; lastCheckpointTs: number } | null>;
 }
 
-export interface PlatformSessionRow {
+interface PlatformSessionRow {
   id: string;
   mode: InteractionMode;
   status: string;
@@ -13,7 +13,7 @@ export interface PlatformSessionRow {
   updatedAt: string;
 }
 
-export interface PlatformSessionStore {
+interface PlatformSessionStore {
   getSession(id: string): Promise<PlatformSessionRow | null>;
   setSessionMode(id: string, mode: InteractionMode): Promise<PlatformSessionRow | null>;
 }

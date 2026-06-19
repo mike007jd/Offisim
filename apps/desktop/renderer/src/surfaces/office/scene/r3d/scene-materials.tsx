@@ -18,7 +18,7 @@ export type MaterialClass =
   | 'ceramic'
   | 'screen';
 
-export interface MaterialPreset {
+interface MaterialPreset {
   component: 'standard' | 'physical';
   roughness: number;
   metalness: number;
@@ -34,7 +34,7 @@ export interface MaterialPreset {
   normalScale?: number;
 }
 
-export const MATERIAL_PRESETS: Record<MaterialClass, MaterialPreset> = {
+const MATERIAL_PRESETS: Record<MaterialClass, MaterialPreset> = {
   wood: {
     component: 'physical',
     roughness: 0.45,
@@ -176,7 +176,7 @@ function pickStandardOverrides(
   return picked;
 }
 
-export function useMaterial(
+function useMaterial(
   materialClass: MaterialClass,
   color: string,
   overrides: MaterialOverrides = {},

@@ -191,7 +191,7 @@ export function OfficeChair({
   );
 }
 
-export function Laptop({
+function Laptop({
   position,
   rotation = [0, 0, 0],
 }: {
@@ -219,7 +219,7 @@ export function Laptop({
   );
 }
 
-export function WorkSurfaceAccent3D({
+function WorkSurfaceAccent3D({
   width,
   depth,
   opacity = 0.76,

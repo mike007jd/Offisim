@@ -50,16 +50,6 @@ export const SCENE_LAYER_Y = {
   dragGhost: 0.04,
 } as const;
 
-export const ZONE_ART = {
-  idleOpacity: 0.1,
-  activeOpacity: 0.16,
-  dragOpacity: 0.24,
-  hoverOpacity: 0.34,
-  borderIdleOpacity: 0.34,
-  borderDragOpacity: 0.62,
-  borderHoverOpacity: 0.9,
-} as const;
-
 export const FLOOR_BANDS = [
   {
     id: 'central-runway',

@@ -11,7 +11,7 @@ import type { Company } from '@/data/types.js';
 
 /** Maps a template/runtime role string to its display label. Falls back to the
  *  raw role when no canonical mapping exists. */
-export const ROLE_LABELS: Record<string, string> = {
+const ROLE_LABELS: Record<string, string> = {
   Developer: 'Lead Developer',
   Frontend: 'Frontend Engineer',
   Backend: 'Backend Engineer',
@@ -37,7 +37,7 @@ export function roleLabel(role: string): string {
 
 /** Status-dot color per role family — gives each employee card a colored
  *  presence dot that reads as a discipline cue (design spec: ROLE_DOT). */
-export const ROLE_DOT: Record<string, string> = {
+const ROLE_DOT: Record<string, string> = {
   Developer: UI_DATA_COLORS.blue2,
   Frontend: UI_DATA_COLORS.indigo,
   Backend: UI_DATA_COLORS.green3,
@@ -67,7 +67,7 @@ export function roleDot(role: string): string {
 
 /** Per-template office zone list — each template builds out a different floor
  *  plan, so the wizard "Zones · N" summary is template-driven. */
-export const TEMPLATE_ZONES: Record<string, string[]> = {
+const TEMPLATE_ZONES: Record<string, string[]> = {
   'rd-company': ['Dev Bay', 'Server Room', 'Library', 'Meeting', 'Rest'],
   'content-studio': ['Writers Room', 'Edit Desk', 'Library', 'Review', 'Lounge'],
   'product-team': ['Design Studio', 'Build Bay', 'War Room', 'Lounge'],

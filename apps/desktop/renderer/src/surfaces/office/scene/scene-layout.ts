@@ -23,7 +23,7 @@ export interface ZoneDef {
  *  preview). Both scenes fall back to this so dev/preview stays consistent
  *  across render modes. A real backend with zero zones does NOT use this —
  *  it renders an honest empty office instead. */
-export const FALLBACK_ZONES: ZoneDef[] = [
+const FALLBACK_ZONES: ZoneDef[] = [
   {
     id: 'zone-dev',
     label: 'DEVELOPMENT',

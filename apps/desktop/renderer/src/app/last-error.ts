@@ -10,7 +10,7 @@
 const STORAGE_KEY = 'offisim:lastError';
 const MAX_RECORDS = 10;
 
-export interface LastErrorRecord {
+interface LastErrorRecord {
   ts: number;
   source: string;
   message: string;

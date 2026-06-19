@@ -1,7 +1,7 @@
 import { appendThreadMessageEvent, loadThreadMessageEvents } from './thread-message-events.js';
 import type { ChatMessage } from './types.js';
 
-export const DIRECT_CHAT_MESSAGE_EVENT = 'direct_chat.message';
+const DIRECT_CHAT_MESSAGE_EVENT = 'direct_chat.message';
 
 export async function persistChatMessage({
   message,

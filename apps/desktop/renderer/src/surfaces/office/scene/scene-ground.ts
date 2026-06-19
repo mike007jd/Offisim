@@ -8,13 +8,13 @@ export interface ScenePlacementPoint {
   readonly zoneId: string | null;
 }
 
-export const GRID_SNAP = 0.5;
+const GRID_SNAP = 0.5;
 
 export function snapToGrid(value: number): number {
   return Math.round(value / GRID_SNAP) * GRID_SNAP;
 }
 
-export function hitTestZone(zones: readonly ZoneDef[], x: number, z: number): ZoneDef | null {
+function hitTestZone(zones: readonly ZoneDef[], x: number, z: number): ZoneDef | null {
   for (const zone of zones) {
     if (
       x >= zone.cx - zone.w / 2 &&
