@@ -30,9 +30,9 @@ const SPEC = {
     required: ['status', 'toolCallId', 'toolName'],
     allowed: ['status', 'toolCallId', 'toolName', 'detail', 'durationMs'],
   },
-  permissionRequest: {
-    required: ['toolCallId', 'toolName'],
-    allowed: ['toolCallId', 'toolName', 'command', 'reason'],
+  uiRequest: {
+    required: ['id', 'method', 'title'],
+    allowed: ['id', 'method', 'title', 'message', 'options', 'placeholder', 'prefill'],
   },
   result: { required: ['response'], allowed: ['response'] },
   error: { required: ['code', 'message'], allowed: ['code', 'message'] },

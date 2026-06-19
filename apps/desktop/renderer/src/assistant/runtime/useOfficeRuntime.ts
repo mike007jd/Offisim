@@ -19,7 +19,7 @@ import {
   displayAttachmentsFromStaged,
   materializeChatTurn,
   newDraftId,
-  subscribePermissionRequests,
+  subscribeAgentUiRequests,
   subscribeReplyStream,
   subscribeRunActivity,
   subscribeToolCalls,
@@ -281,14 +281,21 @@ export function useOfficeRuntime({
           onResult: noteToolResult,
         });
         const unsubscribeToolCalls = subscribeToolCalls(runtimeEventBus, threadId, upsertToolCall);
-        // Surface a paused destructive tool (Ask mode) into the run store so the
-        // PermissionApprovalBar can render Approve/Reject for this thread's run.
-        const unsubscribePermission = subscribePermissionRequests(runtimeEventBus, {
+        // Surface a paused mid-run agent prompt (Ask mode) into the run store so
+        // the PermissionApprovalBar can render Approve/Reject for this thread's
+        // run. Only `confirm` has Approve/Reject UI today; any other primitive
+        // (select / input / editor) is auto-cancelled so the host never hangs
+        // waiting on a dialog the renderer can't show yet.
+        const unsubscribeUiRequest = subscribeAgentUiRequests(runtimeEventBus, {
           threadId,
-          onRequest: ({ requestId, toolCallId, toolName, command, reason }) => {
-            useRunStore
-              .getState()
-              .setPendingApproval({ requestId, toolCallId, toolName, command, reason });
+          onRequest: ({ requestId, id, method, title, message }) => {
+            if (method === 'confirm') {
+              useRunStore
+                .getState()
+                .setPendingUiRequest({ requestId, id, method, title, message });
+              return;
+            }
+            runtime.answerUiRequest({ requestId, id, cancelled: true });
           },
         });
         let response: Awaited<ReturnType<typeof runtime.execute>>;
@@ -305,7 +312,7 @@ export function useOfficeRuntime({
           unsubscribe();
           unsubscribeActivity();
           unsubscribeToolCalls();
-          unsubscribePermission();
+          unsubscribeUiRequest();
         }
         // A late-resolving Stop: keep whatever already streamed into the draft
         // (do not overwrite with the authoritative response, do not persist).

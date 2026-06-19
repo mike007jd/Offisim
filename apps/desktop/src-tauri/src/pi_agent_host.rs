@@ -29,10 +29,11 @@ const PI_LANE: AgentHostLane = AgentHostLane {
 static IN_FLIGHT: InFlightRegistry = InFlightRegistry::new("pi_agent_host");
 
 /// Ask mode: live stdin writers for running Pi hosts, keyed by request id. While
-/// a host pauses a destructive tool awaiting approval, `pi_agent_permission_decision`
-/// looks the writer up here and writes a one-line decision back to the child's
-/// stdin. The entry is inserted when the run starts and removed when it ends,
-/// which drops the last handle and closes the child's stdin (EOF).
+/// a host pauses a tool awaiting the user's answer to a Pi extension-UI prompt,
+/// `pi_agent_ui_response` looks the writer up here and writes a one-line response
+/// back to the child's stdin. The entry is inserted when the run starts and
+/// removed when it ends, which drops the last handle and closes the child's
+/// stdin (EOF).
 static PI_STDIN: Lazy<Mutex<HashMap<String, Arc<AsyncMutex<ChildStdin>>>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
@@ -56,7 +57,7 @@ const PI_KNOWN_WIRE_KINDS: &[&str] = &[
     "messageDelta",
     "messageEnd",
     "tool",
-    "permissionRequest",
+    "uiRequest",
     "result",
     "error",
 ];
@@ -157,13 +158,18 @@ pub enum PiAgentHostEvent {
         #[serde(default)]
         duration_ms: Option<u64>,
     },
-    PermissionRequest {
-        tool_call_id: String,
-        tool_name: String,
+    UiRequest {
+        id: String,
+        method: String,
+        title: String,
         #[serde(default)]
-        command: Option<String>,
+        message: Option<String>,
         #[serde(default)]
-        reason: Option<String>,
+        options: Option<Vec<String>>,
+        #[serde(default)]
+        placeholder: Option<String>,
+        #[serde(default)]
+        prefill: Option<String>,
     },
     Result {
         response: PiAgentHostResponse,
@@ -282,13 +288,18 @@ enum PiSidecarLine {
         #[serde(default)]
         duration_ms: Option<u64>,
     },
-    PermissionRequest {
-        tool_call_id: String,
-        tool_name: String,
+    UiRequest {
+        id: String,
+        method: String,
+        title: String,
         #[serde(default)]
-        command: Option<String>,
+        message: Option<String>,
         #[serde(default)]
-        reason: Option<String>,
+        options: Option<Vec<String>>,
+        #[serde(default)]
+        placeholder: Option<String>,
+        #[serde(default)]
+        prefill: Option<String>,
     },
     Result {
         response: serde_json::Value,
@@ -307,7 +318,7 @@ impl PiSidecarLine {
             Self::MessageDelta { .. } => "messageDelta",
             Self::MessageEnd { .. } => "messageEnd",
             Self::Tool { .. } => "tool",
-            Self::PermissionRequest { .. } => "permissionRequest",
+            Self::UiRequest { .. } => "uiRequest",
             Self::Result { .. } => "result",
             Self::Error { .. } => "error",
         }
@@ -474,23 +485,27 @@ fn send_sidecar_event(
             }
             Ok(None)
         }
-        PiSidecarLine::PermissionRequest {
-            tool_call_id,
-            tool_name,
-            command,
-            reason,
+        PiSidecarLine::UiRequest {
+            id,
+            method,
+            title,
+            message,
+            options,
+            placeholder,
+            prefill,
         } => {
             if let Some(on_event) = on_event {
                 on_event
-                    .send(PiAgentHostEvent::PermissionRequest {
-                        tool_call_id,
-                        tool_name,
-                        command,
-                        reason,
+                    .send(PiAgentHostEvent::UiRequest {
+                        id,
+                        method,
+                        title,
+                        message,
+                        options,
+                        placeholder,
+                        prefill,
                     })
-                    .map_err(|err| {
-                        HostError::Request(format!("Send Pi permission request: {err}"))
-                    })?;
+                    .map_err(|err| HostError::Request(format!("Send Pi UI request: {err}")))?;
             }
             Ok(None)
         }
@@ -773,45 +788,59 @@ pub fn pi_agent_abort(request_id: String) -> Result<(), String> {
     Ok(())
 }
 
-/// The renderer→host decision line for a paused tool (Ask mode). The field names
+/// The renderer→host answer to a paused `uiRequest` (Ask mode). Mirrors Pi RPC's
+/// `extension_ui_response`: `confirmed` answers a confirm, `value` answers a
+/// select / input / editor, `cancelled` dismisses any of them. The field names
 /// are pinned to camelCase by serde so the inbound channel stays in lockstep with
-/// the host reader, the same way the outbound `PiSidecarLine` kinds are.
+/// the host reader, the same way the outbound `PiSidecarLine` kinds are. Absent
+/// fields are dropped so the host's `confirmed === true` / `cancelled` checks see
+/// exactly what the renderer set.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct PiPermissionDecision {
-    tool_call_id: String,
-    approved: bool,
+struct PiUiResponse {
+    id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    confirmed: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    value: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    cancelled: Option<bool>,
 }
 
-/// Ask mode: deliver the user's approve/reject verdict for a paused tool back to
-/// the running host by writing a one-line decision to its stdin. A missing
-/// request id means the run already ended (the verdict is moot) — not an error.
+/// Ask mode: deliver the user's answer to a paused Pi extension-UI prompt back to
+/// the running host by writing a one-line response to its stdin. `request_id`
+/// locates the run; `id` matches the host's `uiRequest`. A missing request id
+/// means the run already ended (the answer is moot) — not an error.
 #[tauri::command]
-pub async fn pi_agent_permission_decision(
+pub async fn pi_agent_ui_response(
     request_id: String,
-    tool_call_id: String,
-    approved: bool,
+    id: String,
+    confirmed: Option<bool>,
+    value: Option<String>,
+    cancelled: Option<bool>,
 ) -> Result<(), String> {
     let writer = pi_stdin_guard().get(&request_id).cloned();
     let Some(writer) = writer else {
         return Ok(());
     };
-    let decision = PiPermissionDecision {
-        tool_call_id,
-        approved,
+    let response = PiUiResponse {
+        id,
+        confirmed,
+        value,
+        cancelled,
     };
-    let mut line = serde_json::to_string(&decision)
-        .map_err(|err| format!("Serialize Pi permission decision: {err}"))?;
+    let mut line = serde_json::to_string(&response)
+        .map_err(|err| format!("Serialize Pi UI response: {err}"))?;
     line.push('\n');
     let mut stdin = writer.lock().await;
     stdin
         .write_all(line.as_bytes())
         .await
-        .map_err(|err| format!("Write Pi permission decision: {err}"))?;
+        .map_err(|err| format!("Write Pi UI response: {err}"))?;
     stdin
         .flush()
         .await
-        .map_err(|err| format!("Flush Pi permission decision: {err}"))?;
+        .map_err(|err| format!("Flush Pi UI response: {err}"))?;
     Ok(())
 }
 
@@ -984,25 +1013,30 @@ mod tests {
     }
 
     #[test]
-    fn pi_permission_decision_serializes_camel_case_for_host() {
-        // The inbound decision line the host reads must stay camelCase in lockstep
-        // with `resolveDecision(decision.toolCallId, decision.approved)` in the host.
-        let line = serde_json::to_string(&PiPermissionDecision {
-            tool_call_id: "call_3".into(),
-            approved: true,
+    fn pi_ui_response_serializes_camel_case_for_host() {
+        // The inbound response line the host reads must stay camelCase in lockstep
+        // with `resolveUiResponse(JSON.parse(line))` in the host, and must DROP the
+        // unset fields so the host's `confirmed === true` / `cancelled` checks see
+        // exactly what the renderer set (a serialized `confirmed: null` would not
+        // satisfy `=== true`, but an absent `value`/`cancelled` must stay absent).
+        let line = serde_json::to_string(&PiUiResponse {
+            id: "ui-1".into(),
+            confirmed: Some(true),
+            value: None,
+            cancelled: None,
         })
-        .expect("serialize decision");
+        .expect("serialize ui response");
         assert!(
-            line.contains(r#""toolCallId":"call_3""#),
-            "expected camelCase toolCallId, got: {line}"
+            line.contains(r#""id":"ui-1""#),
+            "expected the request id, got: {line}"
         );
         assert!(
-            line.contains(r#""approved":true"#),
-            "expected approved flag, got: {line}"
+            line.contains(r#""confirmed":true"#),
+            "expected confirmed flag, got: {line}"
         );
         assert!(
-            !line.contains("tool_call_id"),
-            "snake_case key would desync the host decision reader: {line}"
+            !line.contains("value") && !line.contains("cancelled"),
+            "unset response fields must be dropped, not serialized as null: {line}"
         );
     }
 

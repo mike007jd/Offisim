@@ -112,13 +112,22 @@ const chatRuntime = await source(
 );
 assertIncludesAll(
   chatRuntime,
-  ["payload.nodeName !== 'pi_agent'", 'Pi Agent run failed.'],
-  'assistant-ui projection must consume Pi Agent events directly.',
+  ['(payload.chatThreadId || event.threadId) !== threadId', 'Pi Agent run failed.'],
+  'assistant-ui projection must consume the thread-scoped agent stream directly.',
 );
 assertNoMatch(
   chatRuntime,
   /STREAM_REPLY_NODES|graph_reply|assistant_response|provider call/u,
   'assistant-ui projection must not guess graph-era stream nodes.',
+);
+// The reply stream must stay agent-agnostic: isolation is by thread, never by a
+// hard-coded backend id. A `nodeName === / !== 'pi_agent'` guard would silently
+// drop a second backend's tokens (the GUI is a fixed interface many agents plug
+// into), so forbid the filter from creeping back in.
+assertNoMatch(
+  chatRuntime,
+  /nodeName\s*[!=]==\s*['"]pi_agent['"]/u,
+  'reply stream must not filter on a backend id — keep it agent-agnostic.',
 );
 
 const settingsSurface = await source(

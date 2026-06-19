@@ -25,11 +25,11 @@
     "durationMs": 42
   },
   {
-    "kind": "permissionRequest",
-    "toolCallId": "call_2",
-    "toolName": "bash",
-    "command": "git push --force origin main",
-    "reason": "git force-push rewrites shared history — approve to proceed."
+    "kind": "uiRequest",
+    "id": "ui-1",
+    "method": "confirm",
+    "title": "Approve command?",
+    "message": "git force-push rewrites shared history — approve to proceed.\n\ngit push --force origin main"
   },
   { "kind": "messageEnd", "text": "Listed 3 files.", "stopReason": "end_turn" },
   {

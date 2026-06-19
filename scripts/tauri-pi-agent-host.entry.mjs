@@ -14,11 +14,11 @@ import {
   errorLine,
   messageDeltaLine,
   messageEndLine,
-  permissionRequestLine,
   readyLine,
   resultLine,
   startedLine,
   toolLine,
+  uiRequestLine,
 } from './pi-agent-host-wire.mjs';
 import {
   evaluateAskBashCommand,
@@ -27,32 +27,111 @@ import {
   toolAllowlistForMode,
 } from './pi-agent-permission-modes.mts';
 
-// Ask mode: permission prompts awaiting the user's verdict, keyed by toolCallId.
-// The gate's async `tool_call` handler parks here; an inbound decision line on
-// stdin (written by the Rust `pi_agent_permission_decision` command) resolves it.
-const pendingDecisions = new Map();
+// Ask mode pauses a tool call and asks the user through Pi's extension UI
+// (`ctx.ui.confirm`). Pi's TUI would render that dialog itself; the host is
+// headless, so we inject a custom `uiContext` (via `session.bindExtensions`) that
+// forwards every blocking prompt to the renderer as a `uiRequest` line and parks
+// the promise until a matching `uiResponse` line lands on stdin. The request id is
+// minted by the uiContext (not the tool-call id), so any Pi UI primitive —
+// confirm / select / input / editor — routes the same way. Mirrors Pi RPC's
+// `extension_ui_request` / `extension_ui_response` while staying on
+// `createAgentSession` (no persistent RPC sidecar).
+let uiRequestSeq = 0;
+const pendingUiRequests = new Map(); // request id -> settle(responseObject)
 
-function resolveDecision(toolCallId, approved) {
-  const resolve = pendingDecisions.get(toolCallId);
-  if (!resolve) return;
-  pendingDecisions.delete(toolCallId);
-  resolve(approved === true);
+function requestUiResponse(method, fields, opts) {
+  const id = `ui-${(uiRequestSeq += 1)}`;
+  emit(uiRequestLine({ id, method, ...fields }));
+  return new Promise((resolve) => {
+    const settle = (response) => {
+      if (!pendingUiRequests.delete(id)) return;
+      resolve(response);
+    };
+    pendingUiRequests.set(id, settle);
+    // ExtensionUIDialogOptions: a parked prompt can be cancelled by an abort
+    // signal or a timeout. Either way the primitive resolves to its "no answer"
+    // value (false / undefined) so the agent loop never hangs.
+    const signal = opts?.signal;
+    if (signal?.aborted) settle({ id, cancelled: true });
+    else if (signal)
+      signal.addEventListener('abort', () => settle({ id, cancelled: true }), { once: true });
+    const timeout = typeof opts?.timeout === 'number' ? opts.timeout : 0;
+    if (timeout > 0) setTimeout(() => settle({ id, cancelled: true }), timeout).unref?.();
+  });
 }
 
-/** stdin EOF / abort — unblock every parked prompt as rejected so the loop unwinds. */
-function rejectAllDecisions() {
-  for (const resolve of pendingDecisions.values()) resolve(false);
-  pendingDecisions.clear();
+function resolveUiResponse(response) {
+  if (!response || typeof response.id !== 'string') return;
+  const settle = pendingUiRequests.get(response.id);
+  if (settle) settle(response);
+}
+
+/** stdin EOF / abort — unblock every parked prompt as cancelled so the loop unwinds. */
+function rejectAllUiRequests() {
+  for (const settle of [...pendingUiRequests.values()]) settle({ cancelled: true });
+  pendingUiRequests.clear();
+}
+
+// A headless ExtensionUIContext: the four blocking primitives forward to the
+// renderer; everything else is a no-op (a faithful copy of Pi's own
+// `noOpUIContext`, which the SDK does not export). Injecting this — rather than
+// leaving the default no-op in place — flips `ctx.hasUI` to true so extensions
+// know their prompts are answerable.
+function createForwardingUiContext() {
+  return {
+    select: async (title, options, opts) => {
+      const r = await requestUiResponse('select', { title, options }, opts);
+      return r.cancelled ? undefined : r.value;
+    },
+    confirm: async (title, message, opts) => {
+      const r = await requestUiResponse('confirm', { title, message }, opts);
+      return r.confirmed === true;
+    },
+    input: async (title, placeholder, opts) => {
+      const r = await requestUiResponse('input', { title, placeholder }, opts);
+      return r.cancelled ? undefined : r.value;
+    },
+    editor: async (title, prefill) => {
+      const r = await requestUiResponse('editor', { title, prefill });
+      return r.cancelled ? undefined : r.value;
+    },
+    notify: () => {},
+    onTerminalInput: () => () => {},
+    setStatus: () => {},
+    setWorkingMessage: () => {},
+    setWorkingVisible: () => {},
+    setWorkingIndicator: () => {},
+    setHiddenThinkingLabel: () => {},
+    setWidget: () => {},
+    setFooter: () => {},
+    setHeader: () => {},
+    setTitle: () => {},
+    custom: async () => undefined,
+    pasteToEditor: () => {},
+    setEditorText: () => {},
+    getEditorText: () => '',
+    addAutocompleteProvider: () => {},
+    setEditorComponent: () => {},
+    getEditorComponent: () => undefined,
+    get theme() {
+      return undefined;
+    },
+    getAllThemes: () => [],
+    getTheme: () => undefined,
+    setTheme: () => ({ success: false, error: 'UI not available' }),
+    getToolsExpanded: () => false,
+    setToolsExpanded: () => {},
+  };
 }
 
 /**
  * Build the inline Pi extension that enforces a permission mode at tool-call
  * time, or `null` when no runtime gate is needed. Plan is enforced by the static
  * read-only tool allowlist; Full is unrestricted. Auto blocks dangerous bash
- * synchronously; Ask pauses on the destructive-but-recoverable band and awaits a
- * renderer verdict (the Pi SDK awaits an async `tool_call` handler before the
- * tool runs). Lives here — not in the pure decision module — because it needs
- * the Pi SDK type guard + the wire emit.
+ * synchronously; Ask pauses on the destructive-but-recoverable band and asks the
+ * user through Pi's `ctx.ui.confirm` (the SDK awaits an async `tool_call` handler
+ * before the tool runs). Lives here — not in the pure decision module — because
+ * it needs the Pi SDK type guard + the extension UI context.
  */
 function buildPermissionGate(mode) {
   if (mode === 'auto') {
@@ -67,24 +146,15 @@ function buildPermissionGate(mode) {
   }
   if (mode === 'ask') {
     return (pi) => {
-      pi.on('tool_call', async (event) => {
+      pi.on('tool_call', async (event, ctx) => {
         if (!isToolCallEventType('bash', event)) return undefined;
         const command = typeof event.input?.command === 'string' ? event.input.command : '';
         const verdict = evaluateAskBashCommand(command);
         if (verdict.action === 'allow') return undefined;
         if (verdict.action === 'deny') return { block: true, reason: verdict.reason };
-        // 'ask' → pause and wait for the user's verdict.
-        emit(
-          permissionRequestLine({
-            toolCallId: event.toolCallId,
-            toolName: 'bash',
-            command,
-            reason: verdict.reason,
-          }),
-        );
-        const approved = await new Promise((resolve) => {
-          pendingDecisions.set(event.toolCallId, resolve);
-        });
+        // 'ask' → pause through Pi's extension UI and wait for the user's verdict.
+        const message = verdict.reason ? `${verdict.reason}\n\n${command}` : command;
+        const approved = await ctx.ui.confirm('Approve command?', message);
         return approved
           ? undefined
           : {
@@ -441,6 +511,13 @@ async function runPrompt(payload) {
     ...(resourceLoader ? { resourceLoader } : {}),
   });
 
+  // Ask mode is the only path that prompts the user mid-run. Bind a forwarding
+  // UI context so the gate's `ctx.ui.confirm` routes through our stdin channel;
+  // other modes leave Pi's default no-op context in place.
+  if (permissionMode === 'ask') {
+    await session.bindExtensions({ uiContext: createForwardingUiContext(), mode: 'rpc' });
+  }
+
   let latestText = '';
   let activeReasoningText = '';
   let latestReasoningText = '';
@@ -553,9 +630,10 @@ async function runPrompt(payload) {
 }
 
 // The host is line-delimited on stdin: the FIRST line is the execute/status
-// payload, and (in Ask mode) every later line is a permission decision arriving
-// mid-run. stdin is read as a stream so the agent loop and decision delivery run
-// concurrently — the gate's awaited prompt resolves when its decision line lands.
+// payload, and (in Ask mode) every later line is a `uiResponse` answering a
+// `uiRequest` the host emitted mid-run. stdin is read as a stream so the agent
+// loop and response delivery run concurrently — the gate's awaited prompt
+// resolves when its matching response line lands.
 function main() {
   const rl = createInterface({ input: process.stdin, crlfDelay: Number.POSITIVE_INFINITY });
   let sawPayload = false;
@@ -594,17 +672,16 @@ function main() {
       runPrompt(payload).then(finishHost, fail);
       return;
     }
-    // Subsequent lines are permission decisions: { toolCallId, approved }.
+    // Subsequent lines answer a uiRequest: { id, confirmed? | value? | cancelled? }.
     try {
-      const decision = JSON.parse(trimmed);
-      resolveDecision(decision.toolCallId, decision.approved);
+      resolveUiResponse(JSON.parse(trimmed));
     } catch {
-      // Ignore malformed decision lines rather than crashing the run.
+      // Ignore malformed response lines rather than crashing the run.
     }
   });
 
   // Parent closed stdin (process teardown / abort) — release any parked prompts.
-  rl.on('close', rejectAllDecisions);
+  rl.on('close', rejectAllUiRequests);
 }
 
 main();

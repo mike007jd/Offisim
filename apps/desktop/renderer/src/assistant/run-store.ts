@@ -62,16 +62,18 @@ interface RunToolActivity {
  *  true count is preserved separately via `activityTotal`. */
 const MAX_ACTIVITY_ENTRIES = 12;
 
-/** A paused destructive tool waiting on the user's verdict (Ask permission mode).
- *  Single-slot: the gated host path runs one tool at a time, so there is never a
- *  second pending request for the active thread. The host blocks until the
- *  renderer answers via `pi_agent_permission_decision`. */
-interface PendingApproval {
+/** A mid-run prompt from the agent waiting on the user (Ask permission mode):
+ *  the agent paused to ask something through its UI bridge. Single-slot: the
+ *  gated host path runs one tool at a time, so there is never a second pending
+ *  prompt for the active thread. The host blocks until the renderer answers via
+ *  `pi_agent_ui_response`. `requestId` locates the run; `id` matches the prompt;
+ *  `method` is the UI primitive (confirm today — select / input / editor later). */
+interface PendingUiRequest {
   requestId: string;
-  toolCallId: string;
-  toolName: string;
-  command?: string;
-  reason?: string;
+  id: string;
+  method: string;
+  title: string;
+  message?: string;
 }
 
 interface RunStore {
@@ -82,8 +84,8 @@ interface RunStore {
   meeting: MeetingState | null;
   staged: StagedAttachment[];
   storageAvailable: boolean;
-  /** A destructive tool paused for the user's Approve/Reject (Ask mode), or null. */
-  pendingApproval: PendingApproval | null;
+  /** An agent prompt paused for the user's answer (Ask mode), or null. */
+  pendingUiRequest: PendingUiRequest | null;
   /** Live tool activity for the in-flight run (cleared when a new run starts).
    *  Capped to the last MAX_ACTIVITY_ENTRIES; older entries are dropped. */
   activity: RunToolActivity[];
@@ -121,10 +123,10 @@ interface RunStore {
   setError: (error: RunError) => void;
   /** Clear the error banner. */
   dismissError: () => void;
-  /** Surface a paused destructive tool prompt (Ask mode) for the active thread. */
-  setPendingApproval: (pending: NonNullable<RunStore['pendingApproval']>) => void;
-  /** Clear the pending approval prompt (after the verdict is delivered). */
-  clearPendingApproval: () => void;
+  /** Surface a paused mid-run agent prompt (Ask mode) for the active thread. */
+  setPendingUiRequest: (pending: NonNullable<RunStore['pendingUiRequest']>) => void;
+  /** Clear the pending prompt (after the answer is delivered). */
+  clearPendingUiRequest: () => void;
 
   stageFiles: (files: StageFileInput[]) => Promise<void>;
   removeStaged: (id: string) => void;
@@ -173,7 +175,7 @@ export const useRunStore = create<RunStore>((set, get) => ({
   meeting: null,
   staged: [],
   storageAvailable: true,
-  pendingApproval: null,
+  pendingUiRequest: null,
   stopHandler: null,
   activity: [],
   activityTotal: 0,
@@ -190,7 +192,7 @@ export const useRunStore = create<RunStore>((set, get) => ({
       meeting: null,
       staged: [],
       // A thread switch discards any approval prompt left over from another run.
-      pendingApproval: null,
+      pendingUiRequest: null,
       activity: [],
       activityTotal: 0,
     });
@@ -204,7 +206,7 @@ export const useRunStore = create<RunStore>((set, get) => ({
       // supersedes the previous failure wholesale.
       error: null,
       // A new run never inherits a stale prompt from the previous turn.
-      pendingApproval: null,
+      pendingUiRequest: null,
       activity: [],
       activityTotal: 0,
     });
@@ -251,7 +253,7 @@ export const useRunStore = create<RunStore>((set, get) => ({
     set({
       isRunning: false,
       // A settled run resolves or supersedes any prompt it raised.
-      pendingApproval: null,
+      pendingUiRequest: null,
       pipeline: current
         ? {
             ...current,
@@ -264,7 +266,7 @@ export const useRunStore = create<RunStore>((set, get) => ({
 
   stop: () => {
     // Aborting the run discards a still-open prompt; the host tears down too.
-    set({ isRunning: false, pendingApproval: null });
+    set({ isRunning: false, pendingUiRequest: null });
   },
 
   setStopHandler: (stopHandler) => set({ stopHandler }),
@@ -283,9 +285,9 @@ export const useRunStore = create<RunStore>((set, get) => ({
 
   dismissError: () => set({ error: null }),
 
-  setPendingApproval: (pendingApproval) => set({ pendingApproval }),
+  setPendingUiRequest: (pendingUiRequest) => set({ pendingUiRequest }),
 
-  clearPendingApproval: () => set({ pendingApproval: null }),
+  clearPendingUiRequest: () => set({ pendingUiRequest: null }),
 
   stageFiles: async (files) => {
     if (!get().storageAvailable) {

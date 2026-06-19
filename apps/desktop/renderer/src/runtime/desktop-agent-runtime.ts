@@ -69,11 +69,14 @@ type PiAgentHostEvent =
       durationMs?: number;
     }
   | {
-      kind: 'permissionRequest';
-      toolCallId: string;
-      toolName: string;
-      command?: string;
-      reason?: string;
+      kind: 'uiRequest';
+      id: string;
+      method: string;
+      title: string;
+      message?: string;
+      options?: string[];
+      placeholder?: string;
+      prefill?: string;
     }
   | { kind: 'result'; response: PiAgentHostResponse }
   | { kind: 'error'; code: string; message: string };
@@ -97,19 +100,33 @@ export const PI_WIRE_CONTRACT_EXAMPLES = [
     durationMs: 1,
   },
   {
-    kind: 'permissionRequest',
-    toolCallId: 'c2',
-    toolName: 'bash',
-    command: 'git push --force',
-    reason: 'force-push',
+    kind: 'uiRequest',
+    id: 'ui-1',
+    method: 'confirm',
+    title: 'Approve command?',
+    message: 'force-push\n\ngit push --force',
   },
   { kind: 'result', response: { text: 't', reasoning: 'r', sessionId: 's', sessionFile: '/f' } },
   { kind: 'error', code: 'upstream', message: 'm' },
 ] satisfies PiAgentHostEvent[];
 
+/** The user's answer to an `agent.ui.request`. `requestId` locates the paused run;
+ *  `id` matches the specific prompt. `confirmed` answers a confirm, `value`
+ *  answers select / input / editor, `cancelled` dismisses any of them. Generic so
+ *  the UI never names a backend — each runtime maps it to its own transport. */
+export interface AgentUiAnswer {
+  requestId: string;
+  id: string;
+  confirmed?: boolean;
+  value?: string;
+  cancelled?: boolean;
+}
+
 export interface DesktopAgentRuntime {
   execute(input: DesktopAgentRunInput): Promise<DesktopAgentRunResult>;
   abort(threadId: string): void;
+  /** Deliver the user's answer to a mid-run `agent.ui.request` back to the host. */
+  answerUiRequest(answer: AgentUiAnswer): void;
   resume(threadId: string, projectId?: string | null): Promise<{ finalText: string } | null>;
   dispose(): Promise<void>;
 }
@@ -118,32 +135,39 @@ function newRequestId(prefix: string): string {
   return `${prefix}-${crypto.randomUUID()}`;
 }
 
-/** Event name for the Ask-mode pause bridge — shared by the producer (here) and
- *  the consumer (`subscribePermissionRequests`) so the two can't drift on a typo. */
-export const PI_PERMISSION_REQUEST_EVENT = 'pi.permission.request';
+/** Event name for the agent's mid-run "ask the user something" bridge — shared by
+ *  the producer (here) and the consumer (`subscribeAgentUiRequests`) so the two
+ *  can't drift on a typo. Backend-neutral on purpose: any agent that pauses to
+ *  prompt the user (Pi today via `ctx.ui`, others later) routes through this. */
+export const AGENT_UI_REQUEST_EVENT = 'agent.ui.request';
 
-/** Payload shape for the `pi.permission.request` renderer event. The host pauses
- *  a destructive tool in Ask mode; the renderer needs `requestId` to deliver the
- *  verdict back through `pi_agent_permission_decision`. */
-export interface PiPermissionRequestPayload {
+/** Payload shape for the `agent.ui.request` renderer event. An agent paused
+ *  mid-run and asked the user something (confirm / select / input / editor). The
+ *  renderer needs `requestId` to route the answer back to the run's host and `id`
+ *  to match the specific prompt. Mirrors a Pi extension-UI request, but the shape
+ *  is generic so it isn't tied to any one backend. */
+export interface AgentUiRequestPayload {
   requestId: string;
-  toolCallId: string;
-  toolName: string;
-  command?: string;
-  reason?: string;
+  id: string;
+  method: string;
+  title: string;
+  message?: string;
+  options?: string[];
+  placeholder?: string;
+  prefill?: string;
 }
 
-/** Build a `pi.permission.request` RuntimeEvent inline (no core event factory —
- *  this is a renderer-only host→UI bridge). Matches the envelope shape the core
+/** Build an `agent.ui.request` RuntimeEvent inline (no core event factory — this
+ *  is a renderer-only host→UI bridge). Matches the envelope shape the core
  *  factories return so `runtimeEventBus.emit` typechecks against RuntimeEvent. */
-function piPermissionRequestEvent(
+function agentUiRequestEvent(
   companyId: string,
   threadId: string,
-  payload: PiPermissionRequestPayload,
-): RuntimeEvent<PiPermissionRequestPayload> {
+  payload: AgentUiRequestPayload,
+): RuntimeEvent<AgentUiRequestPayload> {
   return {
-    type: PI_PERMISSION_REQUEST_EVENT,
-    entityId: payload.toolCallId,
+    type: AGENT_UI_REQUEST_EVENT,
+    entityId: payload.id,
     entityType: 'runtime',
     companyId,
     threadId,
@@ -233,17 +257,20 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
         );
         return;
       }
-      if (event.kind === 'permissionRequest') {
-        // The host paused a destructive tool (Ask mode). Surface it to the UI
-        // carrying this run's requestId so the approval bar can answer the
-        // verdict through pi_agent_permission_decision.
+      if (event.kind === 'uiRequest') {
+        // The agent paused mid-run to ask the user something (Ask mode). Surface
+        // it to the UI carrying this run's requestId so the approval bar can
+        // answer it back through pi_agent_ui_response.
         runtimeEventBus.emit(
-          piPermissionRequestEvent(this.companyId, input.threadId, {
+          agentUiRequestEvent(this.companyId, input.threadId, {
             requestId,
-            toolCallId: event.toolCallId,
-            toolName: event.toolName,
-            command: event.command,
-            reason: event.reason,
+            id: event.id,
+            method: event.method,
+            title: event.title,
+            message: event.message,
+            options: event.options,
+            placeholder: event.placeholder,
+            prefill: event.prefill,
           }),
         );
         return;
@@ -300,6 +327,18 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     if (!requestId) return;
     void invoke('pi_agent_abort', { requestId }).catch((err: unknown) => {
       console.warn('[desktop-agent-runtime] Pi abort failed', { threadId, err });
+    });
+  }
+
+  answerUiRequest(answer: AgentUiAnswer): void {
+    void invoke('pi_agent_ui_response', {
+      requestId: answer.requestId,
+      id: answer.id,
+      confirmed: answer.confirmed,
+      value: answer.value,
+      cancelled: answer.cancelled,
+    }).catch((err: unknown) => {
+      console.warn('[desktop-agent-runtime] Pi UI answer failed', { err });
     });
   }
 

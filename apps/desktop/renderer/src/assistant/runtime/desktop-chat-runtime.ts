@@ -1,7 +1,7 @@
 import type { ChatAttachment, ChatToolCall, RunError, StagedAttachment } from '@/data/types.js';
 import {
-  PI_PERMISSION_REQUEST_EVENT,
-  type PiPermissionRequestPayload,
+  AGENT_UI_REQUEST_EVENT,
+  type AgentUiRequestPayload,
 } from '@/runtime/desktop-agent-runtime.js';
 import type { AppendMessage } from '@assistant-ui/react';
 import type { EventBus } from '@offisim/core/browser';
@@ -212,9 +212,12 @@ async function materializeAttachmentBytes(
 }
 
 /**
- * Subscribe to Pi Agent visible text chunks for one chat thread. Pi Agent is
- * now the protocol boundary, so the UI consumes `message_update` projection
- * directly instead of guessing which graph node is the final assistant reply.
+ * Subscribe to the agent's visible text chunks for one chat thread. The agent
+ * runtime is the protocol boundary and emits a single assistant stream per
+ * thread, so this consumes the thread-scoped `llm.stream.chunk` projection
+ * directly. It deliberately does NOT filter on a backend id (`nodeName`): the
+ * stream is already isolated by thread, and binding to one backend's name would
+ * silently drop a second backend's tokens — the GUI stays agent-agnostic.
  */
 export function subscribeReplyStream(
   eventBus: EventBus,
@@ -224,13 +227,11 @@ export function subscribeReplyStream(
 ): () => void {
   return eventBus.on('llm.stream.chunk', (event) => {
     const payload = event.payload as {
-      nodeName?: string;
       content?: string;
       channel?: 'content' | 'reasoning';
       chatThreadId?: string;
     };
     if ((payload.chatThreadId || event.threadId) !== threadId) return;
-    if (payload.nodeName !== 'pi_agent') return;
     if (!payload.content) return;
     if (payload.channel === 'reasoning') {
       onReasoningChunk?.(payload.content);
@@ -334,23 +335,24 @@ export function subscribeToolCalls(
 }
 
 /**
- * Subscribe to host permission prompts (Ask mode) for one thread. The host
- * pauses a destructive tool and the runtime re-emits it as `pi.permission.request`
- * carrying this run's `requestId`; the surface routes that into the run store so
- * the approval bar can render and answer the verdict. Returns an unsubscribe the
- * caller MUST release (InMemoryEventBus has no auto-cleanup).
+ * Subscribe to mid-run agent UI prompts (Ask mode) for one thread. The agent
+ * pauses and the runtime re-emits the prompt as `agent.ui.request` carrying this
+ * run's `requestId`; the surface routes that into the run store so the approval
+ * bar can render and answer it. Backend-neutral: any agent that asks the user
+ * something mid-run flows through here. Returns an unsubscribe the caller MUST
+ * release (InMemoryEventBus has no auto-cleanup).
  */
-export function subscribePermissionRequests(
+export function subscribeAgentUiRequests(
   eventBus: EventBus,
   handlers: {
     threadId: string;
-    onRequest: (request: PiPermissionRequestPayload) => void;
+    onRequest: (request: AgentUiRequestPayload) => void;
   },
 ): () => void {
-  return eventBus.on(PI_PERMISSION_REQUEST_EVENT, (event) => {
+  return eventBus.on(AGENT_UI_REQUEST_EVENT, (event) => {
     if (event.threadId !== handlers.threadId) return;
-    const payload = event.payload as PiPermissionRequestPayload | undefined;
-    if (!payload?.requestId || !payload.toolCallId) return;
+    const payload = event.payload as AgentUiRequestPayload | undefined;
+    if (!payload?.requestId || !payload.id) return;
     handlers.onRequest(payload);
   });
 }

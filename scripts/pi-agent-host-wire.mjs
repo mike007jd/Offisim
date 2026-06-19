@@ -19,7 +19,7 @@ export const PI_WIRE_KINDS = Object.freeze([
   'messageDelta',
   'messageEnd',
   'tool',
-  'permissionRequest',
+  'uiRequest',
   'result',
   'error',
 ]);
@@ -69,15 +69,20 @@ export function toolLine({ status, toolCallId, toolName, detail, durationMs } = 
   });
 }
 
-// Ask mode: the host pauses a destructive tool and asks the renderer to approve.
-// The renderer answers with a decision line written back to the host's stdin.
-export function permissionRequestLine({ toolCallId, toolName, command, reason } = {}) {
+// A Pi extension paused mid-run and asked the user something through `ctx.ui`
+// (confirm / select / input / editor). This forwards that request to the client;
+// the client answers with a `uiResponse` line written back to the host's stdin.
+// Mirrors Pi RPC's `extension_ui_request` so a future move to RPC mode is a rename.
+export function uiRequestLine({ id, method, title, message, options, placeholder, prefill } = {}) {
   return withoutUndefined({
-    kind: 'permissionRequest',
-    toolCallId,
-    toolName,
-    command,
-    reason,
+    kind: 'uiRequest',
+    id,
+    method,
+    title,
+    message,
+    options,
+    placeholder,
+    prefill,
   });
 }
 
@@ -97,7 +102,7 @@ export const PI_WIRE_BUILDERS = Object.freeze({
   messageDelta: messageDeltaLine,
   messageEnd: messageEndLine,
   tool: toolLine,
-  permissionRequest: permissionRequestLine,
+  uiRequest: uiRequestLine,
   result: (line) => resultLine(line.response),
   error: errorLine,
 });

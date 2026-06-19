@@ -189,7 +189,7 @@ pub fn run() {
             builtin_tools::bash_execute,
             pi_agent_host::pi_agent_execute,
             pi_agent_host::pi_agent_abort,
-            pi_agent_host::pi_agent_permission_decision,
+            pi_agent_host::pi_agent_ui_response,
             pi_agent_host::pi_agent_open_config_folder,
             pi_agent_host::pi_agent_status,
             git::git_exec,

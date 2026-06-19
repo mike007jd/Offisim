@@ -1,43 +1,46 @@
-import { isTauriRuntime } from '@/data/adapters.js';
+import { useUiState } from '@/app/ui-state.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
-import { invoke } from '@tauri-apps/api/core';
+import { getDesktopAgentRuntime } from '@/runtime/desktop-agent-runtime.js';
 import { ShieldAlert } from 'lucide-react';
 import { useState } from 'react';
 import { useRunStore } from '../run-store.js';
 
 /**
- * In-thread approval bar for the "Ask" permission mode. When the host pauses a
- * destructive tool it raises a `pendingApproval` in the run store; this bar
- * surfaces the tool/command + reason and routes the user's verdict back to the
- * paused host through `pi_agent_permission_decision`. It lives in the chat
- * column next to RunActivityStrip and self-hides when there is no pending
- * prompt. Single-slot by construction: the gated host path runs one tool at a
- * time, so only the active thread's run can have an open prompt.
+ * In-thread approval bar for the "Ask" permission mode. When the agent pauses
+ * mid-run to ask the user something it raises a `pendingUiRequest` in the run
+ * store; this bar surfaces the prompt's title/message and routes the user's
+ * answer back to the paused host through the agent runtime
+ * (`runtime.answerUiRequest`) — never a backend-specific command, so the bar
+ * stays agent-agnostic. It lives in the chat column next to RunActivityStrip and
+ * self-hides when there is no pending prompt. Single-slot by construction: the
+ * gated host path runs one tool at a time, so only the active thread's run can
+ * have an open prompt.
+ *
+ * Only `confirm` prompts get Approve/Reject UI today; other UI primitives
+ * (select / input / editor) are auto-cancelled upstream so the host never hangs.
  */
 export function PermissionApprovalBar() {
-  const pending = useRunStore((s) => s.pendingApproval);
-  const clearPendingApproval = useRunStore((s) => s.clearPendingApproval);
+  const companyId = useUiState((s) => s.companyId);
+  const pending = useRunStore((s) => s.pendingUiRequest);
+  const clearPendingUiRequest = useRunStore((s) => s.clearPendingUiRequest);
   const [deciding, setDeciding] = useState(false);
 
   if (!pending) return null;
 
-  const decide = async (approved: boolean) => {
+  const decide = async (confirmed: boolean) => {
     setDeciding(true);
     try {
-      // The decision command is a privileged Tauri invoke; in the browser
-      // preview there is no host to answer, so just dismiss the prompt.
-      if (isTauriRuntime()) {
-        await invoke('pi_agent_permission_decision', {
-          requestId: pending.requestId,
-          toolCallId: pending.toolCallId,
-          approved,
-        });
+      // In the browser preview there is no company-bound runtime/host to answer;
+      // just dismiss the prompt. The runtime swallows transport errors itself.
+      if (companyId) {
+        const runtime = await getDesktopAgentRuntime(companyId);
+        runtime.answerUiRequest({ requestId: pending.requestId, id: pending.id, confirmed });
       }
     } catch (err) {
-      console.warn('[PermissionApprovalBar] permission decision failed', err);
+      console.warn('[PermissionApprovalBar] UI answer failed', err);
     } finally {
-      clearPendingApproval();
+      clearPendingUiRequest();
       setDeciding(false);
     }
   };
@@ -47,9 +50,9 @@ export function PermissionApprovalBar() {
       <div className="off-permission-head">
         <Icon icon={ShieldAlert} size="sm" className="off-permission-icon" />
         <span className="off-permission-lead">Approval needed</span>
-        <code className="off-permission-tool">{pending.command ?? pending.toolName}</code>
+        <code className="off-permission-tool">{pending.title}</code>
       </div>
-      {pending.reason ? <p className="off-permission-reason">{pending.reason}</p> : null}
+      {pending.message ? <p className="off-permission-reason">{pending.message}</p> : null}
       <div className="off-permission-actions">
         <Button
           variant="destructive"
