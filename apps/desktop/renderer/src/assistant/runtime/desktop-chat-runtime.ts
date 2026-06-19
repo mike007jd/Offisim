@@ -1,4 +1,5 @@
 import type { ChatAttachment, ChatToolCall, RunError, StagedAttachment } from '@/data/types.js';
+import type { PiPermissionRequestPayload } from '@/runtime/desktop-agent-runtime.js';
 import type { AppendMessage } from '@assistant-ui/react';
 import type { EventBus } from '@offisim/core/browser';
 import { sha256Hex } from '@offisim/install-core';
@@ -326,5 +327,27 @@ export function subscribeToolCalls(
       status,
       durationMs: payload.durationMs,
     });
+  });
+}
+
+/**
+ * Subscribe to host permission prompts (Ask mode) for one thread. The host
+ * pauses a destructive tool and the runtime re-emits it as `pi.permission.request`
+ * carrying this run's `requestId`; the surface routes that into the run store so
+ * the approval bar can render and answer the verdict. Returns an unsubscribe the
+ * caller MUST release (InMemoryEventBus has no auto-cleanup).
+ */
+export function subscribePermissionRequests(
+  eventBus: EventBus,
+  handlers: {
+    threadId: string;
+    onRequest: (request: PiPermissionRequestPayload) => void;
+  },
+): () => void {
+  return eventBus.on('pi.permission.request', (event) => {
+    if (event.threadId !== handlers.threadId) return;
+    const payload = event.payload as PiPermissionRequestPayload | undefined;
+    if (!payload?.requestId || !payload.toolCallId) return;
+    handlers.onRequest(payload);
   });
 }

@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { createInterface } from 'node:readline';
 import {
   AuthStorage,
   DefaultResourceLoader,
@@ -13,46 +14,91 @@ import {
   errorLine,
   messageDeltaLine,
   messageEndLine,
+  permissionRequestLine,
   readyLine,
   resultLine,
   startedLine,
   toolLine,
 } from './pi-agent-host-wire.mjs';
 import {
+  evaluateAskBashCommand,
   evaluateAutoBashCommand,
   normalizePermissionMode,
   toolAllowlistForMode,
 } from './pi-agent-permission-modes.mts';
 
+// Ask mode: permission prompts awaiting the user's verdict, keyed by toolCallId.
+// The gate's async `tool_call` handler parks here; an inbound decision line on
+// stdin (written by the Rust `pi_agent_permission_decision` command) resolves it.
+const pendingDecisions = new Map();
+
+function resolveDecision(toolCallId, approved) {
+  const resolve = pendingDecisions.get(toolCallId);
+  if (!resolve) return;
+  pendingDecisions.delete(toolCallId);
+  resolve(approved === true);
+}
+
+/** stdin EOF / abort — unblock every parked prompt as rejected so the loop unwinds. */
+function rejectAllDecisions() {
+  for (const resolve of pendingDecisions.values()) resolve(false);
+  pendingDecisions.clear();
+}
+
 /**
  * Build the inline Pi extension that enforces a permission mode at tool-call
- * time, or `null` when no runtime gate is needed. Only Auto installs a gate
- * (over bash); Plan is enforced by the static read-only tool allowlist and Full
- * is unrestricted. Lives here — not in the pure decision module — because it
- * needs the Pi SDK type guard.
+ * time, or `null` when no runtime gate is needed. Plan is enforced by the static
+ * read-only tool allowlist; Full is unrestricted. Auto blocks dangerous bash
+ * synchronously; Ask pauses on the destructive-but-recoverable band and awaits a
+ * renderer verdict (the Pi SDK awaits an async `tool_call` handler before the
+ * tool runs). Lives here — not in the pure decision module — because it needs
+ * the Pi SDK type guard + the wire emit.
  */
 function buildPermissionGate(mode) {
-  if (mode !== 'auto') return null;
-  return (pi) => {
-    pi.on('tool_call', (event) => {
-      if (!isToolCallEventType('bash', event)) return undefined;
-      const command = typeof event.input?.command === 'string' ? event.input.command : '';
-      const verdict = evaluateAutoBashCommand(command);
-      return verdict.block ? { block: true, reason: verdict.reason } : undefined;
-    });
-  };
+  if (mode === 'auto') {
+    return (pi) => {
+      pi.on('tool_call', (event) => {
+        if (!isToolCallEventType('bash', event)) return undefined;
+        const command = typeof event.input?.command === 'string' ? event.input.command : '';
+        const verdict = evaluateAutoBashCommand(command);
+        return verdict.block ? { block: true, reason: verdict.reason } : undefined;
+      });
+    };
+  }
+  if (mode === 'ask') {
+    return (pi) => {
+      pi.on('tool_call', async (event) => {
+        if (!isToolCallEventType('bash', event)) return undefined;
+        const command = typeof event.input?.command === 'string' ? event.input.command : '';
+        const verdict = evaluateAskBashCommand(command);
+        if (verdict.action === 'allow') return undefined;
+        if (verdict.action === 'deny') return { block: true, reason: verdict.reason };
+        // 'ask' → pause and wait for the user's verdict.
+        emit(
+          permissionRequestLine({
+            toolCallId: event.toolCallId,
+            toolName: 'bash',
+            command,
+            reason: verdict.reason,
+          }),
+        );
+        const approved = await new Promise((resolve) => {
+          pendingDecisions.set(event.toolCallId, resolve);
+        });
+        return approved
+          ? undefined
+          : {
+              block: true,
+              reason: 'Rejected by operator — switch to Full mode to run without asking.',
+            };
+      });
+    };
+  }
+  return null;
 }
 
 const MAX_TEXT_BYTES = 8 * 1024 * 1024;
 const TRUNCATED_SUFFIX = '\n[truncated by Offisim Pi host output cap]';
-
-async function readStdin() {
-  const chunks = [];
-  for await (const chunk of process.stdin) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
-  }
-  return Buffer.concat(chunks).toString('utf8');
-}
 
 function asNonEmptyString(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
@@ -506,17 +552,62 @@ async function runPrompt(payload) {
   }
 }
 
-async function main() {
-  const raw = await readStdin();
-  const payload = raw.trim() ? JSON.parse(raw) : {};
-  // Protocol handshake first: lets the Rust host detect a stale bundled host
-  // before it processes any event line.
-  emit(readyLine());
-  if (payload.mode === 'status') {
-    piStatus(payload);
-    return;
-  }
-  await runPrompt(payload);
+// The host is line-delimited on stdin: the FIRST line is the execute/status
+// payload, and (in Ask mode) every later line is a permission decision arriving
+// mid-run. stdin is read as a stream so the agent loop and decision delivery run
+// concurrently — the gate's awaited prompt resolves when its decision line lands.
+function main() {
+  const rl = createInterface({ input: process.stdin, crlfDelay: Number.POSITIVE_INFINITY });
+  let sawPayload = false;
+  let runDone;
+  const runComplete = new Promise((resolve) => {
+    runDone = resolve;
+  });
+
+  rl.on('line', (raw) => {
+    const trimmed = raw.trim();
+    if (!trimmed) return;
+    if (!sawPayload) {
+      sawPayload = true;
+      let payload;
+      try {
+        payload = JSON.parse(trimmed);
+      } catch (error) {
+        fail(error);
+        return;
+      }
+      // Protocol handshake first: lets the Rust host detect a stale bundled host
+      // before it processes any event line.
+      emit(readyLine());
+      if (payload.mode === 'status') {
+        try {
+          piStatus(payload);
+        } catch (error) {
+          fail(error);
+          return;
+        }
+        runDone();
+        return;
+      }
+      runPrompt(payload).then(runDone, fail);
+      return;
+    }
+    // Subsequent lines are permission decisions: { toolCallId, approved }.
+    try {
+      const decision = JSON.parse(trimmed);
+      resolveDecision(decision.toolCallId, decision.approved);
+    } catch {
+      // Ignore malformed decision lines rather than crashing the run.
+    }
+  });
+
+  // Parent closed stdin (process teardown / abort) — release any parked prompts.
+  rl.on('close', rejectAllDecisions);
+
+  runComplete.then(() => {
+    rl.close();
+    process.exit(0);
+  });
 }
 
-main().catch(fail);
+main();

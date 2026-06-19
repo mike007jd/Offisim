@@ -8,9 +8,9 @@ import { create } from 'zustand';
  * explicit pick simply runs autonomous-with-guard. The host turns the forwarded
  * string into real Pi tool gating; this only stores and forwards it.
  */
-export type PermissionMode = 'plan' | 'auto' | 'full';
+export type PermissionMode = 'plan' | 'ask' | 'auto' | 'full';
 
-export const PERMISSION_MODES: readonly PermissionMode[] = ['plan', 'auto', 'full'];
+export const PERMISSION_MODES: readonly PermissionMode[] = ['plan', 'ask', 'auto', 'full'];
 
 /** Autonomous with a catastrophe guard — the sane leave-it-on default. */
 export const DEFAULT_PERMISSION_MODE: PermissionMode = 'auto';

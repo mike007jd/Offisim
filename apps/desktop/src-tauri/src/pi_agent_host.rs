@@ -1,10 +1,13 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use tauri::{ipc::Channel, AppHandle, Manager};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
-use tokio::process::{Child, Command};
+use tokio::process::{Child, ChildStdin, Command};
+use tokio::sync::Mutex as AsyncMutex;
 use tokio_util::sync::CancellationToken;
 
 use crate::agent_host_runtime::{
@@ -25,6 +28,20 @@ const PI_LANE: AgentHostLane = AgentHostLane {
 
 static IN_FLIGHT: InFlightRegistry = InFlightRegistry::new("pi_agent_host");
 
+/// Ask mode: live stdin writers for running Pi hosts, keyed by request id. While
+/// a host pauses a destructive tool awaiting approval, `pi_agent_permission_decision`
+/// looks the writer up here and writes a one-line decision back to the child's
+/// stdin. The entry is inserted when the run starts and removed when it ends,
+/// which drops the last handle and closes the child's stdin (EOF).
+static PI_STDIN: Lazy<Mutex<HashMap<String, Arc<AsyncMutex<ChildStdin>>>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
+
+fn pi_stdin_guard() -> std::sync::MutexGuard<'static, HashMap<String, Arc<AsyncMutex<ChildStdin>>>> {
+    PI_STDIN
+        .lock()
+        .unwrap_or_else(|_| panic!("pi_agent_host PI_STDIN poisoned"))
+}
+
 /// Wire-contract version negotiated with the bundled Node host via the `ready`
 /// handshake. Must stay in lockstep with `PI_HOST_PROTOCOL_VERSION` in
 /// scripts/pi-agent-host-wire.mjs; bump both when a line's required shape changes.
@@ -39,6 +56,7 @@ const PI_KNOWN_WIRE_KINDS: &[&str] = &[
     "messageDelta",
     "messageEnd",
     "tool",
+    "permissionRequest",
     "result",
     "error",
 ];
@@ -138,6 +156,14 @@ pub enum PiAgentHostEvent {
         detail: Option<String>,
         #[serde(default)]
         duration_ms: Option<u64>,
+    },
+    PermissionRequest {
+        tool_call_id: String,
+        tool_name: String,
+        #[serde(default)]
+        command: Option<String>,
+        #[serde(default)]
+        reason: Option<String>,
     },
     Result {
         response: PiAgentHostResponse,
@@ -256,6 +282,14 @@ enum PiSidecarLine {
         #[serde(default)]
         duration_ms: Option<u64>,
     },
+    PermissionRequest {
+        tool_call_id: String,
+        tool_name: String,
+        #[serde(default)]
+        command: Option<String>,
+        #[serde(default)]
+        reason: Option<String>,
+    },
     Result {
         response: serde_json::Value,
     },
@@ -273,6 +307,7 @@ impl PiSidecarLine {
             Self::MessageDelta { .. } => "messageDelta",
             Self::MessageEnd { .. } => "messageEnd",
             Self::Tool { .. } => "tool",
+            Self::PermissionRequest { .. } => "permissionRequest",
             Self::Result { .. } => "result",
             Self::Error { .. } => "error",
         }
@@ -331,20 +366,22 @@ fn sidecar_payload<R: tauri::Runtime>(
     })
 }
 
-async fn write_payload(
-    mut stdin: tokio::process::ChildStdin,
-    payload: &serde_json::Value,
-) -> Result<(), HostError> {
-    let payload_json = serde_json::to_vec(payload)
+/// Write the execute/status payload as the FIRST newline-delimited line on the
+/// child's stdin. The host reads this first line as its request; in Ask mode any
+/// later lines are permission decisions. stdin is left OPEN — the caller decides
+/// whether to keep it (execute, for decisions) or close it (status, single-shot).
+async fn write_payload(stdin: &mut ChildStdin, payload: &serde_json::Value) -> Result<(), HostError> {
+    let mut payload_json = serde_json::to_vec(payload)
         .map_err(|err| HostError::Request(format!("Serialize Pi Agent payload: {err}")))?;
+    payload_json.push(b'\n');
     stdin
         .write_all(&payload_json)
         .await
         .map_err(|err| HostError::Request(format!("Write Pi Agent payload: {err}")))?;
     stdin
-        .shutdown()
+        .flush()
         .await
-        .map_err(|err| HostError::Request(format!("Close Pi Agent stdin: {err}")))?;
+        .map_err(|err| HostError::Request(format!("Flush Pi Agent payload: {err}")))?;
     Ok(())
 }
 
@@ -437,6 +474,26 @@ fn send_sidecar_event(
             }
             Ok(None)
         }
+        PiSidecarLine::PermissionRequest {
+            tool_call_id,
+            tool_name,
+            command,
+            reason,
+        } => {
+            if let Some(on_event) = on_event {
+                on_event
+                    .send(PiAgentHostEvent::PermissionRequest {
+                        tool_call_id,
+                        tool_name,
+                        command,
+                        reason,
+                    })
+                    .map_err(|err| {
+                        HostError::Request(format!("Send Pi permission request: {err}"))
+                    })?;
+            }
+            Ok(None)
+        }
         PiSidecarLine::Result { response } => Ok(Some(response)),
         PiSidecarLine::Error { code, message } => {
             if let Some(on_event) = on_event {
@@ -506,6 +563,18 @@ fn consume_ready_handshake(saw_ready: &mut bool, line: &PiSidecarLine) -> Result
     Ok(false)
 }
 
+/// Removes a request's live stdin writer from `PI_STDIN` on any exit path
+/// (normal end, abort, error, panic), dropping the last handle → child EOF.
+struct StdinGuard(Option<String>);
+
+impl Drop for StdinGuard {
+    fn drop(&mut self) {
+        if let Some(id) = self.0.take() {
+            pi_stdin_guard().remove(&id);
+        }
+    }
+}
+
 async fn run_pi_sidecar_jsonl(
     script_path: &Path,
     cwd: &Path,
@@ -513,6 +582,7 @@ async fn run_pi_sidecar_jsonl(
     payload: serde_json::Value,
     token: CancellationToken,
     on_event: Option<&Channel<PiAgentHostEvent>>,
+    register_stdin: Option<&str>,
 ) -> Result<serde_json::Value, HostError> {
     let node_executable = resolve_node_executable(script_path);
     let mut command = Command::new(&node_executable);
@@ -532,7 +602,7 @@ async fn run_pi_sidecar_jsonl(
             err
         ))
     })?;
-    let stdin = child
+    let mut stdin = child
         .stdin
         .take()
         .ok_or_else(|| HostError::Spawn("Pi Agent host is missing stdin".into()))?;
@@ -545,7 +615,22 @@ async fn run_pi_sidecar_jsonl(
         .take()
         .ok_or_else(|| HostError::Spawn("Pi Agent host is missing stderr".into()))?;
 
-    write_payload(stdin, &payload).await?;
+    write_payload(&mut stdin, &payload).await?;
+    // Execute runs keep stdin open as a decision channel (Ask mode) and register
+    // the writer; status runs are single-shot, so close stdin immediately.
+    let _stdin_guard = match register_stdin {
+        Some(request_id) => {
+            pi_stdin_guard().insert(request_id.to_string(), Arc::new(AsyncMutex::new(stdin)));
+            StdinGuard(Some(request_id.to_string()))
+        }
+        None => {
+            stdin
+                .shutdown()
+                .await
+                .map_err(|err| HostError::Request(format!("Close Pi Agent stdin: {err}")))?;
+            StdinGuard(None)
+        }
+    };
     let stderr_task = tokio::spawn(read_stderr(stderr));
     let mut lines = BufReader::new(stdout).lines();
     let mut final_response: Option<serde_json::Value> = None;
@@ -637,6 +722,7 @@ async fn do_execute<R: tauri::Runtime>(
         payload,
         token,
         Some(on_event),
+        Some(&req.request_id),
     )
     .await?;
     let response = parse_response(response)?;
@@ -684,6 +770,34 @@ pub fn pi_agent_abort(request_id: String) -> Result<(), String> {
     if let Some(token) = IN_FLIGHT.pluck(&request_id) {
         token.cancel();
     }
+    Ok(())
+}
+
+/// Ask mode: deliver the user's approve/reject verdict for a paused tool back to
+/// the running host by writing a one-line decision to its stdin. A missing
+/// request id means the run already ended (the verdict is moot) — not an error.
+#[tauri::command]
+pub async fn pi_agent_permission_decision(
+    request_id: String,
+    tool_call_id: String,
+    approved: bool,
+) -> Result<(), String> {
+    let writer = pi_stdin_guard().get(&request_id).cloned();
+    let Some(writer) = writer else {
+        return Ok(());
+    };
+    let mut line =
+        serde_json::json!({ "toolCallId": tool_call_id, "approved": approved }).to_string();
+    line.push('\n');
+    let mut stdin = writer.lock().await;
+    stdin
+        .write_all(line.as_bytes())
+        .await
+        .map_err(|err| format!("Write Pi permission decision: {err}"))?;
+    stdin
+        .flush()
+        .await
+        .map_err(|err| format!("Flush Pi permission decision: {err}"))?;
     Ok(())
 }
 
@@ -744,6 +858,7 @@ pub async fn pi_agent_status(app: AppHandle) -> Result<PiAgentStatusResponse, St
         pi_env(None),
         payload,
         CancellationToken::new(),
+        None,
         None,
     )
     .await

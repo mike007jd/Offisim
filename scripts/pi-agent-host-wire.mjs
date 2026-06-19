@@ -19,6 +19,7 @@ export const PI_WIRE_KINDS = Object.freeze([
   'messageDelta',
   'messageEnd',
   'tool',
+  'permissionRequest',
   'result',
   'error',
 ]);
@@ -68,6 +69,18 @@ export function toolLine({ status, toolCallId, toolName, detail, durationMs } = 
   });
 }
 
+// Ask mode: the host pauses a destructive tool and asks the renderer to approve.
+// The renderer answers with a decision line written back to the host's stdin.
+export function permissionRequestLine({ toolCallId, toolName, command, reason } = {}) {
+  return withoutUndefined({
+    kind: 'permissionRequest',
+    toolCallId,
+    toolName,
+    command,
+    reason,
+  });
+}
+
 export function resultLine(response) {
   return { kind: 'result', response };
 }
@@ -84,6 +97,7 @@ export const PI_WIRE_BUILDERS = Object.freeze({
   messageDelta: messageDeltaLine,
   messageEnd: messageEndLine,
   tool: toolLine,
+  permissionRequest: permissionRequestLine,
   result: (line) => resultLine(line.response),
   error: errorLine,
 });

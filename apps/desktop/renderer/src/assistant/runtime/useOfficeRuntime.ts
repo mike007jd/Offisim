@@ -19,6 +19,7 @@ import {
   displayAttachmentsFromStaged,
   materializeChatTurn,
   newDraftId,
+  subscribePermissionRequests,
   subscribeReplyStream,
   subscribeRunActivity,
   subscribeToolCalls,
@@ -280,6 +281,16 @@ export function useOfficeRuntime({
           onResult: noteToolResult,
         });
         const unsubscribeToolCalls = subscribeToolCalls(runtimeEventBus, threadId, upsertToolCall);
+        // Surface a paused destructive tool (Ask mode) into the run store so the
+        // PermissionApprovalBar can render Approve/Reject for this thread's run.
+        const unsubscribePermission = subscribePermissionRequests(runtimeEventBus, {
+          threadId,
+          onRequest: ({ requestId, toolCallId, toolName, command, reason }) => {
+            useRunStore
+              .getState()
+              .setPendingApproval({ requestId, toolCallId, toolName, command, reason });
+          },
+        });
         let response: Awaited<ReturnType<typeof runtime.execute>>;
         try {
           response = await runtime.execute({
@@ -294,6 +305,7 @@ export function useOfficeRuntime({
           unsubscribe();
           unsubscribeActivity();
           unsubscribeToolCalls();
+          unsubscribePermission();
         }
         // A late-resolving Stop: keep whatever already streamed into the draft
         // (do not overwrite with the authoritative response, do not persist).

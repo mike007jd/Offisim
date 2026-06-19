@@ -7,8 +7,10 @@
  */
 import assert from 'node:assert/strict';
 import {
+  type AskAction,
   DEFAULT_PERMISSION_MODE,
   PLAN_TOOL_ALLOWLIST,
+  evaluateAskBashCommand,
   evaluateAutoBashCommand,
   isGitForcePush,
   normalizePermissionMode,
@@ -39,6 +41,12 @@ function expectAutoAllow(command: string): void {
   });
 }
 
+function expectAsk(command: string, action: AskAction): void {
+  check(`ask ${action} \`${command}\``, () => {
+    assert.equal(evaluateAskBashCommand(command).action, action);
+  });
+}
+
 // --- normalize -------------------------------------------------------------
 check('normalize valid', () => {
   assert.equal(normalizePermissionMode('plan'), 'plan');
@@ -64,6 +72,10 @@ check('plan allowlist is read-only — no bash/edit/write', () => {
 check('auto/full keep the default tool set', () => {
   assert.equal(toolAllowlistForMode('auto'), undefined);
   assert.equal(toolAllowlistForMode('full'), undefined);
+});
+check('ask normalizes + keeps the default tool set', () => {
+  assert.equal(normalizePermissionMode('ask'), 'ask');
+  assert.equal(toolAllowlistForMode('ask'), undefined);
 });
 
 // --- force-push detection --------------------------------------------------
@@ -105,6 +117,31 @@ for (const cmd of [
   'cat README.md',
 ]) {
   expectAutoAllow(cmd);
+}
+
+// --- ask: hard-deny the catastrophic, prompt the destructive-but-recoverable,
+//     allow the benign (the supervised middle ground) -------------------------
+for (const cmd of [
+  'rm -rf /',
+  'rm -rf ~',
+  ':(){ :|:& };:',
+  'sᵤdo rm -rf /',
+  'mkfs.ext4 /dev/sda',
+]) {
+  expectAsk(cmd, 'deny');
+}
+for (const cmd of [
+  'git push',
+  'git push origin main',
+  'git push --force',
+  'rm -rf ./build',
+  'git reset --hard HEAD~1',
+  'chmod 777 file',
+]) {
+  expectAsk(cmd, 'ask');
+}
+for (const cmd of ['cat README.md', 'npm test', 'ls -la', 'echo hi']) {
+  expectAsk(cmd, 'allow');
 }
 
 if (failures.length > 0) {

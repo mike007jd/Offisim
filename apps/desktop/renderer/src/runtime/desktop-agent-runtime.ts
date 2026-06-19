@@ -1,6 +1,7 @@
 import { ensureProjectBoundForRun } from '@/runtime/ensure-default-workspace.js';
 import { llmStreamChunk, toolExecutionTelemetry } from '@offisim/core/browser';
 import type { RuntimeRepositories } from '@offisim/core/browser';
+import type { RuntimeEvent } from '@offisim/shared-types';
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { readPiModelOverride } from './pi-agent-config.js';
 import { resolveThreadMode } from './pi-thread-mode-store.js';
@@ -67,6 +68,13 @@ type PiAgentHostEvent =
       detail?: string;
       durationMs?: number;
     }
+  | {
+      kind: 'permissionRequest';
+      toolCallId: string;
+      toolName: string;
+      command?: string;
+      reason?: string;
+    }
   | { kind: 'result'; response: PiAgentHostResponse }
   | { kind: 'error'; code: string; message: string };
 
@@ -88,6 +96,13 @@ export const PI_WIRE_CONTRACT_EXAMPLES = [
     detail: 'd',
     durationMs: 1,
   },
+  {
+    kind: 'permissionRequest',
+    toolCallId: 'c2',
+    toolName: 'bash',
+    command: 'git push --force',
+    reason: 'force-push',
+  },
   { kind: 'result', response: { text: 't', reasoning: 'r', sessionId: 's', sessionFile: '/f' } },
   { kind: 'error', code: 'upstream', message: 'm' },
 ] satisfies PiAgentHostEvent[];
@@ -101,6 +116,36 @@ export interface DesktopAgentRuntime {
 
 function newRequestId(prefix: string): string {
   return `${prefix}-${crypto.randomUUID()}`;
+}
+
+/** Payload shape for the `pi.permission.request` renderer event. The host pauses
+ *  a destructive tool in Ask mode; the renderer needs `requestId` to deliver the
+ *  verdict back through `pi_agent_permission_decision`. */
+export interface PiPermissionRequestPayload {
+  requestId: string;
+  toolCallId: string;
+  toolName: string;
+  command?: string;
+  reason?: string;
+}
+
+/** Build a `pi.permission.request` RuntimeEvent inline (no core event factory —
+ *  this is a renderer-only host→UI bridge). Matches the envelope shape the core
+ *  factories return so `runtimeEventBus.emit` typechecks against RuntimeEvent. */
+function piPermissionRequestEvent(
+  companyId: string,
+  threadId: string,
+  payload: PiPermissionRequestPayload,
+): RuntimeEvent<PiPermissionRequestPayload> {
+  return {
+    type: 'pi.permission.request',
+    entityId: payload.toolCallId,
+    entityType: 'runtime',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload,
+  };
 }
 
 function piRunScope(projectId: string | null, threadId: string, employeeId: string | null) {
@@ -180,6 +225,21 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
             errorType: event.status === 'failed' ? (event.detail ?? 'pi_tool_failed') : undefined,
             chatConversationKey: runScope.conversationKey,
             chatRunId: runScope.runId,
+          }),
+        );
+        return;
+      }
+      if (event.kind === 'permissionRequest') {
+        // The host paused a destructive tool (Ask mode). Surface it to the UI
+        // carrying this run's requestId so the approval bar can answer the
+        // verdict through pi_agent_permission_decision.
+        runtimeEventBus.emit(
+          piPermissionRequestEvent(this.companyId, input.threadId, {
+            requestId,
+            toolCallId: event.toolCallId,
+            toolName: event.toolName,
+            command: event.command,
+            reason: event.reason,
           }),
         );
         return;

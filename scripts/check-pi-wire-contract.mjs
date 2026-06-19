@@ -30,6 +30,10 @@ const SPEC = {
     required: ['status', 'toolCallId', 'toolName'],
     allowed: ['status', 'toolCallId', 'toolName', 'detail', 'durationMs'],
   },
+  permissionRequest: {
+    required: ['toolCallId', 'toolName'],
+    allowed: ['toolCallId', 'toolName', 'command', 'reason'],
+  },
   result: { required: ['response'], allowed: ['response'] },
   error: { required: ['code', 'message'], allowed: ['code', 'message'] },
 };

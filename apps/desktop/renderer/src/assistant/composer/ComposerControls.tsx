@@ -24,6 +24,7 @@ import {
   ChevronDown,
   Eye,
   type LucideIcon,
+  MessageCircleQuestion,
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
@@ -36,6 +37,11 @@ import { usePiAgentModels } from './usePiAgentModels.js';
 
 const MODE_META: Record<PermissionMode, { label: string; icon: LucideIcon; meta: string }> = {
   plan: { label: 'Plan', icon: Eye, meta: 'Read-only — investigate, no changes' },
+  ask: {
+    label: 'Ask',
+    icon: MessageCircleQuestion,
+    meta: 'Pauses for your approval on destructive commands',
+  },
   auto: { label: 'Auto', icon: ShieldCheck, meta: 'Autonomous — blocks destructive commands' },
   full: { label: 'Full', icon: Zap, meta: 'No restrictions' },
 };

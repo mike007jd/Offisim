@@ -28,9 +28,9 @@
  */
 import { classifyShellCommand } from '../packages/core/src/tools/builtin/shell-command-classifier.ts';
 
-export type PermissionMode = 'plan' | 'auto' | 'full';
+export type PermissionMode = 'plan' | 'ask' | 'auto' | 'full';
 
-const PERMISSION_MODES: readonly PermissionMode[] = ['plan', 'auto', 'full'];
+const PERMISSION_MODES: readonly PermissionMode[] = ['plan', 'ask', 'auto', 'full'];
 
 /** When a conversation has not picked a mode, run autonomous-with-guard. */
 export const DEFAULT_PERMISSION_MODE: PermissionMode = 'auto';
@@ -101,4 +101,38 @@ export function evaluateAutoBashCommand(command: string): BashGateVerdict {
     };
   }
   return { block: false };
+}
+
+export type AskAction = 'allow' | 'ask' | 'deny';
+
+export interface AskGateVerdict {
+  action: AskAction;
+  reason?: string;
+}
+
+/**
+ * The Ask-mode bash gate decision — the supervised middle ground between Auto
+ * and Plan. It runs Auto's allow-list but PAUSES for the user's approval on the
+ * destructive-but-recoverable band that Auto waves through unsupervised:
+ *
+ * - `deny` (catastrophic + unsafe-target recursive delete) → hard block, NO
+ *   prompt. A fork bomb / `mkfs` / `rm -rf /` is never an "are you sure?".
+ * - the classifier's `ask` band (normal `git push`, `rm -rf ./dir`, `chmod`,
+ *   `git reset/clean/rebase`, `dd of=`) OR git force-push → pause and ask.
+ * - everything else (reads, `npm test`, benign writes) → allow, no prompt.
+ *
+ * Reuses the same hardened `classifyShellCommand` + `isGitForcePush` primitives
+ * as Auto, so NFKC-fold / sudo-peel / `$(...)`-scan hardening is inherited.
+ */
+export function evaluateAskBashCommand(command: string): AskGateVerdict {
+  const verdict = classifyShellCommand(command);
+  if (verdict.decision === 'deny') return { action: 'deny', reason: verdict.reason };
+  if (verdict.decision === 'ask') return { action: 'ask', reason: verdict.reason };
+  if (isGitForcePush(command)) {
+    return {
+      action: 'ask',
+      reason: 'git force-push rewrites shared history — approve to proceed.',
+    };
+  }
+  return { action: 'allow' };
 }

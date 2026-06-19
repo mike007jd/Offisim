@@ -14,6 +14,7 @@ import { ComposerTriggers } from './composer/ComposerTriggers.js';
 import { StagedAttachments } from './composer/StagedAttachments.js';
 import { ChatErrorBanner } from './parts/ChatErrorBanner.js';
 import { MeetingTray } from './parts/Meeting.js';
+import { PermissionApprovalBar } from './parts/PermissionApprovalBar.js';
 import { RunActivityStrip } from './parts/RunActivityStrip.js';
 import { useRunStore } from './run-store.js';
 import { useOfficeRuntime } from './runtime/useOfficeRuntime.js';
@@ -186,6 +187,7 @@ function OfficeComposer({
             stageFileList(event.dataTransfer.files);
           }}
         >
+          <PermissionApprovalBar />
           <RunActivityStrip />
           <div className="off-composer-shell">
             <ComposerPrimitive.Input

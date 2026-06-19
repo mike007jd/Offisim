@@ -2011,6 +2011,55 @@
   color: var(--off-danger);
 }
 
+.off-permission-bar {
+  display: grid;
+  gap: var(--off-sp-2);
+  margin-bottom: var(--off-sp-2);
+  padding: var(--off-sp-3);
+  border: 1px solid var(--off-danger);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-sunken);
+  font-size: var(--off-fs-meta);
+  color: var(--off-ink-2);
+}
+.off-permission-head {
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+  min-width: 0;
+}
+.off-permission-icon {
+  color: var(--off-danger);
+  flex: none;
+}
+.off-permission-lead {
+  font-weight: 620;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--off-danger);
+}
+.off-permission-tool {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 var(--off-sp-2);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-pill);
+  background: var(--off-surface-1);
+  font-family: var(--off-font-mono);
+  color: var(--off-ink-1);
+}
+.off-permission-reason {
+  margin: 0;
+  color: var(--off-ink-3);
+}
+.off-permission-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--off-sp-2);
+}
+
 .off-thread-pit {
   height: 26px;
   display: inline-flex;
