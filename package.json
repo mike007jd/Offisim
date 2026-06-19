@@ -20,7 +20,7 @@
     "security:harness": "pnpm platform:auth-harness && pnpm --filter @offisim/platform exec tsx ../../scripts/harness-platform-body-limit-security.mts && pnpm --filter @offisim/platform exec tsx ../../scripts/harness-doc-engine-csv-security.mts && pnpm --filter @offisim/platform exec tsx ../../scripts/harness-git-source-security.mts && pnpm --filter @offisim/platform exec tsx ../../scripts/harness-registry-client-security.mts && pnpm --filter @offisim/platform exec tsx ../../scripts/harness-web-fetch-security.mts && pnpm --filter @offisim/platform exec tsx ../../scripts/harness-web-search-security.mts && pnpm harness:pi-permission",
     "harness:review-fixes": "node scripts/harness-review-fixes.mjs",
     "harness:studio-placement": "node scripts/harness-studio-placement.mjs",
-    "validate": "pnpm typecheck && pnpm harness:review-fixes && pnpm harness:studio-placement && pnpm harness:pi-agent-host && pnpm check:pi-wire-contract && pnpm harness:pi-permission",
+    "validate": "pnpm typecheck && pnpm harness:review-fixes && pnpm harness:studio-placement && pnpm harness:pi-agent-host && pnpm check:pi-wire-contract && pnpm harness:pi-permission && pnpm check:deadcode",
     "typecheck": "turbo run typecheck",
     "harness:pi-agent-host": "node scripts/harness-pi-agent-host.mjs",
     "check:pi-wire-contract": "node scripts/check-pi-wire-contract.mjs",
@@ -28,10 +28,12 @@
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
     "clean": "turbo run clean && rm -rf node_modules",
-    "release:run": "node scripts/run-clean-release.mjs"
+    "release:run": "node scripts/run-clean-release.mjs",
+    "check:deadcode": "knip"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.0",
+    "knip": "^6.17.1",
     "turbo": "^2.4.0",
     "typescript": "^5.7.0"
   },

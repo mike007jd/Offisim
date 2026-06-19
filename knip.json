@@ -1,0 +1,50 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": [
+        "scripts/**/*.{mjs,mts,cjs}",
+        ".gitnexus/run.cjs"
+      ],
+      "project": [
+        "scripts/**/*.{mjs,mts,cjs}"
+      ],
+      "ignore": [
+        "apps/desktop/src-tauri/resources/**"
+      ]
+    },
+    "apps/desktop/renderer": {
+      "ignore": [
+        "src/polyfills/**"
+      ]
+    },
+    "apps/platform": {
+      "entry": [
+        "src/seed/**/*.ts"
+      ]
+    },
+    "packages/doc-engine": {
+      "entry": [
+        "harness/generate-fixtures.mjs"
+      ]
+    }
+  },
+  "ignoreBinaries": [
+    "lsof",
+    "osascript",
+    "pgrep"
+  ],
+  "rules": {
+    "files": "error",
+    "dependencies": "error",
+    "unlisted": "error",
+    "binaries": "error",
+    "unresolved": "error",
+    "exports": "warn",
+    "types": "warn",
+    "nsExports": "warn",
+    "nsTypes": "warn",
+    "enumMembers": "warn",
+    "duplicates": "warn"
+  }
+}
