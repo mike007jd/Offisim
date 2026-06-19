@@ -19,8 +19,6 @@ Pi Agent Host (`apps/desktop/src-tauri/src/pi_agent_host.rs` +
 - Pi runtime 主门禁是 `scripts/harness-pi-agent-host.mjs`。旧 `pi-bridge` / vendored fork 已删除，不可重新接回桌面主路径。
 - Roster、模型选择、session lifecycle、tool loop、stream protocol、compaction 均由 Pi Agent runtime 决定；Offisim 只把 workspace、用户输入、配置路径和事件投影接到桌面壳。
 - Runtime workspace binding SSOT for file/shell tools is the active graph thread's project: carry `threadId` through `ToolCallRequest` into builtin adapters, resolve `graph_threads.project_id` first, then legacy `projects.thread_id`; if selected project has no usable `workspace_root`, emit `workspace-binding.unavailable` once per `(companyId, projectId)` session from the runtime-context layer.
-- Skill install runtime guards are typed chat outcomes, not toast crashes: Web `sync_from_claude_code` returns `desktop-only-tool` and renders `This skill source requires the desktop app.`; `create_skill_from_scratch` with a non-caller `targetEmployeeId` renders `Skill author must match the active chat employee.` and must not stage a preview.
-- Claude Code skill sync in desktop must scan both home and project-local `.claude/skills` through the Tauri install environment. Project-local reads under the bound repo root must go through `project_list_dir` / `project_read_file`, not browser plugin-fs. A single filter match may stage directly; multiple matches return candidates.
 
 ## Data Model & Zones
 
@@ -31,7 +29,7 @@ Pi Agent Host (`apps/desktop/src-tauri/src/pi_agent_host.rs` +
 - zones 约束: 必须有 `rest`+`meeting` archetype, role 不可多 zone, 所有 role 需匹配
 - `companies.description_json` 存公司描述 JSON(2026-05-29 从 `default_model_policy_json` rename — pre-launch 单基线 schema 允许 rename)
 - Role 统一 `RoleSlug` branded type (shared-types/roles.ts)
-- Marketplace 安装：employee 已物化；skill 作为一等 asset（T2.1 `add-skills-foundation-two-tier-schema`）schema + SkillLoader + 两层 scope + publish/install/fork/edit 主路径已落地；剩余主要是 UX 和 evidence 收口。company_template / office_layout / prefab 仍未完成。Skill 不再嵌入 `employee.config_json.runtimeSkill`（该字段已删）
+- Marketplace 安装：employee 已物化；skill 作为一等 asset（两层 schema）已落地——`install-core` materializer 写 `skills` DB 行 + vault SKILL.md，DB-backed UI 读取。**「agent 自助装/fork/写技能」整链已删**（2026-06-19 `fdc7acdc`，死代码，见 Skills 段）。company_template / office_layout / prefab 仍未完成。Skill 不嵌入 `employee.config_json.runtimeSkill`（字段已删）
 - `GitAutoCommitService` 桌面端专用, 浏览器 no-op
 
 ## Repository 三后端同步
@@ -40,25 +38,17 @@ Pi Agent Host (`apps/desktop/src-tauri/src/pi_agent_host.rs` +
 
 ## Skills (SKILL.md open standard, vault-authoritative)
 
-`packages/core/src/skills/` — 两层 schema（company-global + employee-specific）skill 体系，和 `memory` 方向相反：**SKILL.md 在 vault 是源真相，`skills` DB 表只做索引**（listing 零磁盘 IO）。
+`packages/core/src/skills/` — 两层 schema（company-global + employee-specific）skill 体系：**SKILL.md 在 vault 是源真相，`skills` DB 表只做索引**（listing 零磁盘 IO）。
 
-- SKILL.md 字段（严格标准）：frontmatter `name`（kebab-case）+ `description` 必填；可选 `allowedTools` / `license` / `version`；禁 `offisim.*` 私有命名空间。Body 自由 markdown。Parser / serializer 在 `skill-md.ts`。
+- SKILL.md 字段（严格标准）：frontmatter `name`（kebab-case）+ `description` 必填；可选 `allowedTools` / `license` / `version`；禁 `offisim.*` 私有命名空间。Body 自由 markdown。
 - 磁盘布局（`VaultFileSystem` 一致 desktop / web）：
   - 全局：`companies/{cid}/skills/{slug}/SKILL.md`（+ 可选 `scripts/` `references/` `assets/`）
   - 员工专属：`companies/{cid}/employees/{employeeSlug}/skills/{slug}/SKILL.md`
-- `SkillLoader` 三层 progressive disclosure：
-  - Tier 1 `listSkillsForEmployee(companyId, employeeId)` — DB-only 合并（employee 覆盖 company，slug dedupe），零磁盘 IO
-  - Tier 2 `loadSkillBody(skillId)` — 读 SKILL.md 返回 body（frontmatter 剥离）
-  - Tier 3 `loadSkillAsset(skillId, relPath)` — 只允许 `scripts/` / `references/` / `assets/` 前缀；IO 前拒 `..` / 绝对路径
-- `slug`：`skillSlug(name, id)` kebab-case name + 纯非 ASCII fallback `skill-{id前8字符}`（注：`employeeSlug` 已改为纯 id 派生，见 Vault 段，两者不再同策略）
-- DB 表 `skills` 属于当前单基线 SQLite schema；`UNIQUE` 用两条 partial index（`WHERE employee_id IS NULL` / `IS NOT NULL`），让 `(companyId, null, slug)` 跨 company-scope 行碰撞
-- Skill install API 本体仍在 `skills/skill-install-tools.ts`（公共导出保留）。是否进入 Pi tool pool 是 Pi Agent runtime 集成问题，不要在 core 里重建旧 graph/pi prompt assembly。
-- `create_skill_from_scratch` 是 self-authoring 唯一入口：LLM 产完整 SKILL.md → `parseSelfAuthoredSkillMd` 白名单 → staging preview (`action='create'`) → `SkillInstallCommitter` → employee-scope vault + `skills.source_kind='self-authored'` / `source_ref='llm-author:<modelKey>'`。self-authored 禁 company scope。
-- **Fork + edit API（T2.3）**：
-  - `installSkill` 加 `source: { kind: 'fork', parentSkillId, parentVersion }` 变体 — 同 `installSkill` 入口，`scope='company' + source.kind='fork'` 会抛 `scope-target-conflict`（spec skill-fork-and-edit scenario 2）；`source_kind='forked'` + `source_ref='company-skill:<pid>@<pver>'`
-  - `readSkillDirectory(skillId)` 批量读 SKILL.md + `scripts/`/`references/`/`assets/` 全树（深度遍历），fork 用来 snapshot parent
-  - `editSkillBody({ skillId, newBody })` 独立入口：不走 installSkill，不改 slug / scope / source_kind / source_ref / vault_path，只重写 body + bump `version` 小位（`bumpPatch` module-level helper，非 semver 输入返 `null` → 抛 `SkillEditError` kind `version-bump-failed`）。Loader 层不做 ownership 校验（generic write API，后续 T2.5 / T2.6 复用）
-  - **Fork provenance DB-only**：SKILL.md frontmatter 不扩 `offisim.*`，保 Anthropic 开放标准 portability。parent slug / version 只进 `skills` row（`source_kind` + `source_ref`）
+- DB 表 `skills` 属于当前单基线 SQLite schema；`UNIQUE` 用两条 partial index（`WHERE employee_id IS NULL` / `IS NOT NULL`），让 `(companyId, null, slug)` 跨 company-scope 行碰撞。repo 三后端：`runtime/repos/skills/{drizzle,memory}.ts` + `tauri-repos/skills.ts`。
+- **唯一 live 安装路径 = marketplace 包导入**：`packages/install-core/src/materializer.ts` 的 `case 'skill'` 写 `skills` DB 行 + vault SKILL.md（自带内联 SKILL.md 解析，独立于已删的 agent 链）。
+- **唯一 live 读取路径 = DB-backed UI**：`useEmployeeSkills`（renderer `data/queries.ts`）按 company/employee 两层 scope 直读 `skills` 表喂 `SkillsTab`；marketplace publish 读 `repos.skills.listByCompany`。
+- **⚠️ 已删（2026-06-19 `fdc7acdc`，死代码，勿重建）**：`SkillLoader` 三层 progressive disclosure（`listSkillsForEmployee`/`loadSkillBody`/`loadSkillAsset`）、`skill-install-tools.ts`（`create_skill_from_scratch`/`fork_skill`/`edit_skill_body`）、`SkillInstallCommitter`、`skill-staging`、`skill-md.ts`/`skill-slug.ts`/`skill-path.ts`、claude-code/codex/local-sync 同步 resolver。这套「agent 自助装/fork/写/读技能」从没接进 Pi 工具池，整链删除。要重做 agent skill 集成就在上面 live 的 DB/vault 上新建，别复活旧链。
+- 安全原语保留（`scripts/harness-git-source-security.mts` 在 `security:harness` 用）：`skill-source-resolvers/{git,upload,types}.ts` + `tar.ts` + `skill-scanner.ts` + `virtual-tree-utils.ts`（SSRF / zip-bomb / path-traversal 防护）。
 
 ## Employee Vault (Obsidian-style, Phase 1)
 
