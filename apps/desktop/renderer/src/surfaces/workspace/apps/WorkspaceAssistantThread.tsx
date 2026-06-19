@@ -1,7 +1,5 @@
 import { StagedAttachments } from '@/assistant/composer/StagedAttachments.js';
 import { AssistantMessageParts } from '@/assistant/parts/AssistantMessageParts.js';
-import { PermissionApprovalBar } from '@/assistant/parts/PermissionApprovalBar.js';
-import { SkillInstallConfirmBar } from '@/assistant/parts/SkillInstallConfirmBar.js';
 import {
   assembleAssistantContent,
   isReasoningStreaming,
@@ -656,8 +654,6 @@ export function WorkspaceAssistantThread({
           )}
         </ThreadPrimitive.Viewport>
 
-        <PermissionApprovalBar companyId={companyId} threadId={active.id} />
-        <SkillInstallConfirmBar companyId={companyId} threadId={active.id} />
         <ComposerPrimitive.Root className="off-ws-composer">
           <StagedAttachments />
           <div className="off-ws-composer-shell">

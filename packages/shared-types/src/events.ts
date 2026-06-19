@@ -21,7 +21,6 @@ export * from './events/graph.js';
 export * from './events/handoff.js';
 export * from './events/hr.js';
 export * from './events/install.js';
-export * from './events/interaction.js';
 export * from './events/llm.js';
 export * from './events/meeting.js';
 export * from './events/memory.js';

@@ -37,9 +37,6 @@ export type InteractionSeverity = 'normal' | 'high';
 
 export type InteractionScope = 'once' | 'thread' | 'session';
 
-export const PLAN_REVIEW_REQUIRED = 'PLAN_REVIEW_REQUIRED';
-export const AGENT_QUESTION_REQUIRED = 'AGENT_QUESTION_REQUIRED';
-
 export interface InteractionOption {
   readonly id: string;
   readonly label: string;
@@ -163,11 +160,4 @@ export interface InteractionRequest {
   readonly taskRunId?: string | null;
   readonly context?: InteractionContext;
   readonly createdAt: number;
-}
-
-export interface InteractionResponse {
-  readonly interactionId: string;
-  readonly selectedOptionId: string;
-  readonly freeformResponse?: string;
-  readonly respondedAt: number;
 }

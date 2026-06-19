@@ -210,9 +210,7 @@ export class SynopsisGenerator {
     await ctx.repos.nodeSummaries.trimByThread(ctx.threadId, options.postCompactKeepNodeSummaries);
     const compactedAt = Date.parse(compactedAtIso);
     if (!Number.isFinite(compactedAt)) return;
-    if (ctx.interactionService) {
-      await ctx.interactionService.clearPendingBefore(compactedAt);
-    } else if (ctx.interactionBox.pending && ctx.interactionBox.pending.createdAt < compactedAt) {
+    if (ctx.interactionBox.pending && ctx.interactionBox.pending.createdAt < compactedAt) {
       ctx.interactionBox.pending = null;
     }
   }

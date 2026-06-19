@@ -5,12 +5,8 @@ import type { LlmGateway } from '../llm/gateway.js';
 import type { RecordedSystemLlmCaller } from '../llm/recorded-system-caller.js';
 import type { LlmMiddlewareChain } from '../middleware/chain.js';
 import type { RollingJournal } from '../services/conversation-budget/rolling-journal.js';
-import type { InteractionService } from '../services/interaction-service.js';
 import type { MemoryService } from '../services/memory-service.js';
 import type { WorkstationToolResolver } from '../services/workstation-tool-resolver.js';
-import type { SkillInstallEnvironment } from '../skills/skill-install-environment.js';
-import type { SkillLoader } from '../skills/skill-loader.js';
-import type { SkillStagingManager } from '../skills/skill-staging.js';
 import type { BuiltinTool } from '../tools/builtin/types.js';
 import type { AttachmentStoreBridge } from './attachment-store-bridge.js';
 import { HookRegistry } from './hook-registry.js';
@@ -80,8 +76,6 @@ export interface RuntimeContext {
   readonly builtinTools?: ReadonlyMap<string, BuiltinTool>;
   /** Trusted runtime engine adapters for per-employee engine mode. */
   readonly engineAdapters?: EngineAdapterRegistry;
-  /** Human-in-the-loop interaction controller. */
-  readonly interactionService?: InteractionService;
   /** Long-running thread journal with a stable first user objective anchor. */
   readonly rollingJournal?: RollingJournal;
   /** Optional lifecycle hook registry for task/interaction instrumentation. */
@@ -90,16 +84,6 @@ export interface RuntimeContext {
   readonly conversationState: RunConversationStateType;
   /** Shared in-memory scratchpad for cross-node planning notes. */
   readonly scratchpad: Scratchpad;
-  /** Progressive-disclosure skill loader; optional until the skill foundation is available. */
-  readonly skillLoader?: SkillLoader;
-  /** Process-scoped staging for in-flight agent-mediated skill installs. */
-  readonly skillStagingManager?: SkillStagingManager;
-  /**
-   * Runtime environment for the four skill-install tools (git / upload /
-   * claude-code / codex). Web leaves `clone` / `localDir` undefined so
-   * desktop-only paths gracefully return `not-supported-in-web`.
-   */
-  readonly skillInstallEnvironment?: SkillInstallEnvironment;
   /**
    * Read-only bridge to the platform attachment store. When present AND
    * `llmToolCallsEnabled !== false`, the verified attachment-capable
@@ -153,14 +137,10 @@ export function createRuntimeContext(deps: {
   llmToolCallsEnabled?: boolean;
   builtinTools?: ReadonlyMap<string, BuiltinTool>;
   engineAdapters?: EngineAdapterRegistry;
-  interactionService?: InteractionService;
   rollingJournal?: RollingJournal;
   hookRegistry?: HookRegistry;
   conversationState?: RunConversationStateType;
   scratchpad?: Scratchpad;
-  skillLoader?: SkillLoader;
-  skillStagingManager?: SkillStagingManager;
-  skillInstallEnvironment?: SkillInstallEnvironment;
   attachmentStoreBridge?: AttachmentStoreBridge;
   determinism?: RuntimeDeterminism;
 }): RuntimeContext {

@@ -5,7 +5,6 @@ import type { ChatToolCall, Employee } from '@/data/types.js';
 import { resolveAsync } from '@/lib/platform.js';
 import { getTauriDb } from '@/lib/tauri-db.js';
 import type { MeetingSessionRow } from '@offisim/core/browser';
-import type { InteractionRequest } from '@offisim/shared-types';
 import { useQuery } from '@tanstack/react-query';
 
 /**
@@ -109,40 +108,6 @@ export interface SysCard {
   timeLabel: string;
   message: string;
   actions: SysAction[];
-}
-
-/* ── Approvals (the four real AI run-gates) ──────────────────────────────── */
-
-export type GateKind = 'permission' | 'plan' | 'ask' | 'install';
-export type GateStatus = 'pending' | 'approved' | 'denied';
-export type GrantScope = 'once' | 'thread' | 'session';
-
-export interface ApprovalKV {
-  label: string;
-  value: string;
-  mono?: boolean;
-}
-
-export interface WsApproval {
-  id: string;
-  kind: GateKind;
-  status: GateStatus;
-  /** List-row title + detail-head title. */
-  title: string;
-  requesterId: string;
-  requesterRole: string;
-  /** Originating thread name. */
-  threadName: string;
-  ageLabel: string;
-  expiresLabel?: string;
-  /** Structured "Request" KV rows. */
-  request: ApprovalKV[];
-  /** Optional command code block (permission gates). */
-  command?: string;
-  /** "Why it's asking" prose. */
-  reason: string;
-  /** Resolved grant scope (for resolved rows) / default for pending. */
-  scope: GrantScope;
 }
 
 /* ── Contacts (the employee directory KV view) ───────────────────────────── */
@@ -442,88 +407,6 @@ const systemCards: SysCard[] = [
   },
 ];
 
-const approvals: WsApproval[] = [
-  {
-    id: 'gate-perm',
-    kind: 'permission',
-    status: 'pending',
-    title: 'Run bash outside workspace root',
-    requesterId: 'emp-mara',
-    requesterRole: 'developer',
-    threadName: 'Relay Launch · edge cases',
-    ageLabel: '2m',
-    expiresLabel: 'expires in 5m',
-    request: [
-      { label: 'Tool', value: 'bash · builtin sandbox', mono: true },
-      { label: 'Decision', value: 'policy = ask (source: runtime)' },
-      { label: 'Risk class', value: 'medium — writes outside the bound folder' },
-      { label: 'Employee', value: 'Mara Quinn (developer)' },
-      { label: 'Thread', value: 'Relay Launch · edge cases' },
-    ],
-    command: 'rm -rf ./.cache && pnpm clean\n# clears turbo cache + node_modules in the project',
-    reason:
-      'The path ./.cache resolves above the workspace root bound to this project, so the builtin sandbox cannot auto-allow it. Cache rebuild is cheap and the command is scoped to the project folder.',
-    scope: 'thread',
-  },
-  {
-    id: 'gate-plan',
-    kind: 'plan',
-    status: 'pending',
-    title: 'Approve 7-step plan for "Attachment pipeline"',
-    requesterId: 'emp-orion',
-    requesterRole: 'manager',
-    threadName: 'Relay Launch · Team',
-    ageLabel: '8m',
-    request: [
-      { label: 'Steps', value: '7 (3 done · 1 blocked · 3 queued)' },
-      { label: 'Owners', value: 'Devin · Mara · Sela' },
-      { label: 'Est. cost', value: '$0.11' },
-      { label: 'Thread', value: 'Relay Launch · Team' },
-    ],
-    reason:
-      'The manager assembled a multi-step plan that spans three employees and exceeds the auto-approve cost threshold for this session. Review the step breakdown and approve, reject, or modify before the team executes.',
-    scope: 'session',
-  },
-  {
-    id: 'gate-ask',
-    kind: 'ask',
-    status: 'pending',
-    title: 'Which export format should the report ship as?',
-    requesterId: 'emp-sela',
-    requesterRole: 'writer',
-    threadName: 'Relay Launch · spec',
-    ageLabel: '15m',
-    request: [
-      { label: 'Options', value: 'DOCX · PDF · HTML' },
-      { label: 'Default', value: 'DOCX' },
-      { label: 'Employee', value: 'Sela Ortiz (writer)' },
-      { label: 'Thread', value: 'Relay Launch · spec' },
-    ],
-    reason:
-      'The writer reached a branch in the plan that needs a human decision: the verification report can ship in several formats and the choice affects downstream distribution. Pick an option or reply with a freeform answer.',
-    scope: 'once',
-  },
-  {
-    id: 'gate-install',
-    kind: 'install',
-    status: 'approved',
-    title: 'Install skill "PDF Table Extractor"',
-    requesterId: 'emp-mara',
-    requesterRole: 'developer',
-    threadName: 'Relay Launch · Team',
-    ageLabel: '1h',
-    request: [
-      { label: 'Skill', value: 'PDF Table Extractor v1.4.2' },
-      { label: 'Permissions', value: 'read_file · network (fetch)' },
-      { label: 'Assets', value: '2 bundled scripts · 1 model ref' },
-      { label: 'Source', value: 'Market · atlas' },
-    ],
-    reason:
-      'Installing a skill grants its declared permissions and bundled assets to your employees’ tool pool. Review the disclosure, then Install, Fork, or Edit before it becomes available.',
-    scope: 'session',
-  },
-];
-
 /** Contact KV detail keyed by employee id (joined against `useEmployees()`). */
 const contactDetails: Record<string, ContactDetail> = {
   'emp-mara': {
@@ -739,15 +622,6 @@ export function useWsSystemCards() {
   });
 }
 
-/* ── Approvals real-bind (active_thread_interactions + interaction_history) ── */
-
-const INTERACTION_KIND_TO_GATE: Record<string, GateKind> = {
-  permission_request: 'permission',
-  plan_review: 'plan',
-  agent_question: 'ask',
-  skill_install_confirm: 'install',
-};
-
 function ageLabelFrom(createdAtMs: number, now: number): string {
   const diff = Math.max(0, now - createdAtMs);
   const min = 60_000;
@@ -773,128 +647,6 @@ export function dayLabelFrom(atMs: number, now: number): string {
   yest.setDate(yest.getDate() - 1);
   if (d.toDateString() === yest.toDateString()) return 'Yesterday';
   return DAY_LABEL_FMT.format(d);
-}
-
-// Maps an InteractionRequest (parsed from request_json) to a WsApproval. Fields
-// with no real source on the interaction record are blanked ('—') / omitted,
-// never fabricated (requesterRole, threadName, expiresLabel).
-function interactionToApproval(
-  req: InteractionRequest,
-  opts: { status: GateStatus; scope: GrantScope; threadName: string },
-  now: number,
-): WsApproval {
-  const kind = INTERACTION_KIND_TO_GATE[req.kind] ?? 'ask';
-  const ctx = req.context;
-
-  const request: ApprovalKV[] = [];
-  if (ctx?.type === 'permission_request') {
-    request.push({ label: 'Tool', value: `${ctx.serverName} · ${ctx.toolName}`, mono: true });
-    if (ctx.policyHash) request.push({ label: 'Policy', value: ctx.policyHash, mono: true });
-  } else if (ctx?.type === 'skill_install_confirm') {
-    request.push({ label: 'Skill', value: ctx.skillName });
-    if (ctx.allowedTools.length)
-      request.push({ label: 'Permissions', value: ctx.allowedTools.join(' · '), mono: true });
-    request.push({ label: 'Scope', value: ctx.resolvedScope });
-    request.push({ label: 'Source', value: `${ctx.sourceKind} · ${ctx.sourceRef}` });
-  } else if (ctx?.type === 'plan_review' && ctx.planId) {
-    request.push({ label: 'Plan', value: ctx.planId, mono: true });
-  } else if (ctx?.type === 'agent_question' && ctx.questionKey) {
-    request.push({ label: 'Question', value: ctx.questionKey });
-  }
-  if (req.options.length)
-    request.push({ label: 'Options', value: req.options.map((o) => o.label).join(' · ') });
-
-  // No raw shell command is persisted — show the tool ref, never an invented line.
-  const command =
-    ctx?.type === 'permission_request' ? `${ctx.serverName}/${ctx.toolName}` : undefined;
-  const reason = req.recommendation?.reason ?? req.prompt ?? '—';
-
-  return {
-    id: req.interactionId,
-    kind,
-    status: opts.status,
-    title: req.title,
-    requesterId: req.employeeId ?? '',
-    requesterRole: '—',
-    threadName: opts.threadName,
-    ageLabel: ageLabelFrom(req.createdAt, now),
-    request,
-    command,
-    reason,
-    scope: opts.scope,
-  };
-}
-
-function resolveStatusAndScope(
-  req: InteractionRequest,
-  selectedOptionId: string | null,
-  historyStatus: string,
-): { status: GateStatus; scope: GrantScope } {
-  if (historyStatus === 'cancelled' || historyStatus === 'superseded') {
-    return { status: 'denied', scope: 'once' };
-  }
-  const opt = req.options.find((o) => o.id === selectedOptionId);
-  const isReject = !opt || /reject|deny|cancel|no/i.test(opt.id);
-  return { status: isReject ? 'denied' : 'approved', scope: (opt?.scope as GrantScope) ?? 'once' };
-}
-
-function defaultScope(req: InteractionRequest): GrantScope {
-  const rec = req.recommendation
-    ? req.options.find((o) => o.id === req.recommendation?.optionId)
-    : undefined;
-  return (rec?.scope as GrantScope) ?? 'once';
-}
-
-function safeParseRequest(json: string): InteractionRequest | null {
-  try {
-    return JSON.parse(json) as InteractionRequest;
-  } catch {
-    return null;
-  }
-}
-
-export function useWsApprovals(companyId: string | null) {
-  return useQuery({
-    queryKey: ['ws', 'approvals', companyId],
-    enabled: companyId !== null,
-    queryFn: async (): Promise<WsApproval[]> => {
-      const repos = await reposOrNull();
-      // Browser preview (no Tauri repos): keep the demo fixture.
-      if (!repos) return resolveAsync(approvals);
-
-      const cid = companyId ?? '';
-      const [active, history] = await Promise.all([
-        repos.activeInteractions.findByCompany(cid),
-        repos.interactionHistory.listByCompany(cid, { limit: 100 }),
-      ]);
-      const now = Date.now();
-
-      const pending = active
-        .map((row) => {
-          const req = safeParseRequest(row.request_json);
-          if (!req) return null;
-          return interactionToApproval(
-            req,
-            { status: 'pending', scope: defaultScope(req), threadName: '—' },
-            now,
-          );
-        })
-        .filter((a): a is WsApproval => a !== null);
-
-      const resolved = history
-        .map((row) => {
-          const req = safeParseRequest(row.request_json);
-          if (!req) return null;
-          const { status, scope } = resolveStatusAndScope(req, row.selected_option_id, row.status);
-          // The resolved-row age tracks resolved_at, not the original createdAt.
-          const ageReq = { ...req, createdAt: Date.parse(row.resolved_at) || req.createdAt };
-          return interactionToApproval(ageReq, { status, scope, threadName: '—' }, now);
-        })
-        .filter((a): a is WsApproval => a !== null);
-
-      return [...pending, ...resolved];
-    },
-  });
 }
 
 /* ── Contacts detail real-bind (employee row + workstation zone + chat count) ─ */
@@ -1092,19 +844,3 @@ export function useWsAgenda() {
     select: (rows) => (isTauriRuntime() ? meetingsToAgenda(rows) : agenda),
   });
 }
-
-/* ── Shared label maps ───────────────────────────────────────────────────── */
-
-export const GATE_LABEL: Record<GateKind, string> = {
-  permission: 'Permission',
-  plan: 'Plan review',
-  ask: 'Question',
-  install: 'Install',
-};
-
-export const GATE_HEAD_LABEL: Record<GateKind, string> = {
-  permission: 'Permission gate',
-  plan: 'Plan review',
-  ask: 'Employee question',
-  install: 'Skill install',
-};

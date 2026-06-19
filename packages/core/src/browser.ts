@@ -139,16 +139,6 @@ export type {
   RuntimeActivityEvent,
 } from './engine/engine-types.js';
 export type { ToolExecutor, ToolCallRequest, ToolCallResponse } from './runtime/tool-executor.js';
-export type {
-  ToolPermissionAuthorizer,
-  ToolPermissionDecision,
-  ToolPermissionRequest,
-} from './permissions/tool-permission-engine.js';
-export type {
-  ToolPermissionGrantRequest,
-  ToolPermissionGrantMatch,
-  ToolPermissionGrantResolver,
-} from './services/interaction-service.js';
 export type { RetryConfig } from './llm/retry.js';
 export type { TeeResult } from './llm/stream-tee.js';
 export type { VersionDiff } from './runtime/employee-version-service.js';
@@ -198,7 +188,6 @@ export {
   installStateChanged,
   bindingStateChanged,
   marketListingInstalled,
-  skillInstallOutcome,
   planCreated,
   planStepStarted,
   planStepCompleted,
@@ -226,10 +215,6 @@ export {
   employeeVersionCreated,
   bossEmployeeContextEmpty,
   bossRosterDivergence,
-  interactionRequested,
-  interactionRestored,
-  interactionResolved,
-  interactionModeChanged,
   chatThreadUpdated,
 } from './events/event-factories.js';
 
@@ -311,7 +296,6 @@ export { byteLength, clampUtf8 } from './utils/byte-length.js';
 export { canonicalJson } from './utils/canonical-json.js';
 export { sha256Text } from './utils/hash.js';
 export { idbRequestToPromise, idbTransactionDone } from './utils/idb-promise.js';
-export { InteractionService } from './services/interaction-service.js';
 export { AgentContextPackService } from './services/agent-context-pack-service.js';
 export type { AgentContextPackDeps } from './services/agent-context-pack-service.js';
 
@@ -329,7 +313,6 @@ export { OffisimError, LlmError, GraphError, DataError } from './errors.js';
 // --- Runtime (browser-safe parts) ---
 export { WORKSTATION_ACCESS_DENIED } from './runtime/tool-executor.js';
 export { TOOL_PERMISSION_DENIED, TOOL_PERMISSION_REQUIRED } from './runtime/tool-executor.js';
-export { ToolPermissionEngine } from './permissions/tool-permission-engine.js';
 export { HookRegistry } from './runtime/hook-registry.js';
 export { RunConversationState } from './runtime/run-conversation-state.js';
 export type {
@@ -409,44 +392,9 @@ export type {
 export { employeeSlug } from './vault/slug.js';
 
 // --- Skills (two-tier schema: company-global + employee-specific) ---
-export {
-  SkillLoader,
-  SkillInstallError,
-  SkillScopeError,
-  encodeSkillSourceRef,
-} from './skills/skill-loader.js';
-export type {
-  SkillLoaderDeps,
-  InstallSkillArgs,
-  InstallSkillResult,
-  SkillInstallAsset,
-  SkillInstallSource,
-  SkillInstallSourceGit,
-  SkillInstallSourceUpload,
-  SkillInstallSourceClaudeCode,
-  SkillInstallSourceCodex,
-  SkillInstallSourceSelfAuthored,
-  SkillInstallSourceMarketplace,
-} from './skills/skill-loader.js';
-export {
-  parseSkillMd,
-  parseSelfAuthoredSkillMd,
-  serializeSkillMd,
-  SkillFrontmatterError,
-} from './skills/skill-md.js';
-export type {
-  ParsedSkillMd,
-  SerializeInput,
-  SkillFrontmatterErrorReason,
-} from './skills/skill-md.js';
-export { skillSlug } from './skills/skill-slug.js';
-export { resolveSkillPath } from './skills/skill-path.js';
-export type { ResolveSkillPathArgs, ResolvedSkillPath } from './skills/skill-path.js';
 export { scanSkillDir } from './skills/skill-scanner.js';
 export { resolveUploadSource } from './skills/skill-source-resolvers/upload.js';
 export { resolveGitSource } from './skills/skill-source-resolvers/git.js';
-export { resolveClaudeCodeSync } from './skills/skill-source-resolvers/claude-code.js';
-export { resolveCodexSync } from './skills/skill-source-resolvers/codex.js';
 export { isResolverError } from './skills/skill-source-resolvers/types.js';
 export type {
   ScannedSkill,
@@ -460,31 +408,6 @@ export type {
   GitHttpFetch,
   GitLocalFsAdapter,
 } from './skills/skill-source-resolvers/git.js';
-export type {
-  LocalDirAdapter,
-  SyncCandidate,
-  SyncResolverDeps,
-  SyncResolverResult,
-} from './skills/skill-source-resolvers/local-sync.js';
-export { SkillStagingManager } from './skills/skill-staging.js';
-export type { StagedSkill, SkillStagingManagerOpts } from './skills/skill-staging.js';
-export type {
-  SkillInstallEnvironment,
-  UploadRefResolver,
-} from './skills/skill-install-environment.js';
-export { SkillInstallCommitter } from './skills/skill-install-committer.js';
-export type { SkillInstallCommitterDeps } from './skills/skill-install-committer.js';
-export {
-  SKILL_INSTALL_TOOL_NAMES,
-  SKILL_INSTALL_TOOL_DEFS,
-  handleSkillInstallTool,
-  isSkillInstallTool,
-} from './skills/skill-install-tools.js';
-export type { SkillInstallToolName } from './skills/skill-install-tools.js';
-export type {
-  SkillInstallConfirmHandler,
-  SkillInstallConfirmOutcome,
-} from './services/interaction-service.js';
 export type {
   SkillRepository,
   SettingsRepository,

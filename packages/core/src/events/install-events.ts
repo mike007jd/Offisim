@@ -10,9 +10,7 @@ import type {
   InstallStatePayload,
   MarketListingInstalledPayload,
   RuntimeEvent,
-  SkillInstallOutcomePayload,
 } from '@offisim/shared-types';
-import { SKILL_INSTALL_OUTCOME } from '@offisim/shared-types';
 
 export function installStateChanged(
   companyId: string,
@@ -63,22 +61,6 @@ export function marketListingInstalled(
       ...(extras?.packageId !== undefined ? { packageId: extras.packageId } : {}),
       ...(extras?.version !== undefined ? { version: extras.version } : {}),
     },
-  };
-}
-
-export function skillInstallOutcome(
-  companyId: string,
-  threadId: string,
-  payload: SkillInstallOutcomePayload,
-): RuntimeEvent<SkillInstallOutcomePayload> {
-  return {
-    type: SKILL_INSTALL_OUTCOME,
-    entityId: payload.interactionId,
-    entityType: 'install',
-    companyId,
-    threadId,
-    timestamp: Date.now(),
-    payload,
   };
 }
 

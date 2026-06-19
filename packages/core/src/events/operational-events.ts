@@ -10,27 +10,16 @@ import type {
   HrAssessmentCompletedPayload,
   HrAssessmentStartedPayload,
   HrRecommendationPayload,
-  InteractionModeChangedPayload,
-  InteractionRequestedPayload,
-  InteractionResolvedPayload,
-  InteractionRestoredPayload,
   MemoryCreatedPayload,
   NotificationDismissedPayload,
   NotificationPayload,
   RackBoundPayload,
   RackUnboundPayload,
-  RunScope,
   RuntimeEvent,
   SlotAssignedPayload,
   SlotRemovedPayload,
 } from '@offisim/shared-types';
-import { chatScopeFields } from '@offisim/shared-types';
 import type { RoleSlug } from '@offisim/shared-types';
-import type {
-  InteractionMode,
-  InteractionRequest,
-  InteractionResponse,
-} from '@offisim/shared-types';
 
 export function errorOccurred(
   companyId: string,
@@ -278,80 +267,5 @@ export function notificationDismissed(
     companyId,
     timestamp: Date.now(),
     payload: { notificationId },
-  };
-}
-
-export function interactionRequested(
-  companyId: string,
-  threadId: string,
-  request: InteractionRequest,
-  runScope?: RunScope | null,
-): RuntimeEvent<InteractionRequestedPayload> {
-  return {
-    type: 'interaction.requested',
-    entityId: request.interactionId,
-    entityType: 'runtime',
-    companyId,
-    threadId,
-    timestamp: Date.now(),
-    payload: {
-      request,
-      ...chatScopeFields(runScope),
-    },
-  };
-}
-
-export function interactionResolved(
-  companyId: string,
-  threadId: string,
-  request: InteractionRequest,
-  response: InteractionResponse,
-  runScope?: RunScope | null,
-): RuntimeEvent<InteractionResolvedPayload> {
-  return {
-    type: 'interaction.resolved',
-    entityId: request.interactionId,
-    entityType: 'runtime',
-    companyId,
-    threadId,
-    timestamp: Date.now(),
-    payload: {
-      request,
-      response,
-      ...chatScopeFields(runScope),
-    },
-  };
-}
-
-export function interactionRestored(
-  companyId: string,
-  threadId: string,
-  request: InteractionRequest,
-): RuntimeEvent<InteractionRestoredPayload> {
-  return {
-    type: 'interaction.restored',
-    entityId: request.interactionId,
-    entityType: 'runtime',
-    companyId,
-    threadId,
-    timestamp: Date.now(),
-    payload: { request },
-  };
-}
-
-export function interactionModeChanged(
-  companyId: string,
-  threadId: string,
-  previousMode: InteractionMode,
-  nextMode: InteractionMode,
-): RuntimeEvent<InteractionModeChangedPayload> {
-  return {
-    type: 'interaction.mode.changed',
-    entityId: threadId,
-    entityType: 'runtime',
-    companyId,
-    threadId,
-    timestamp: Date.now(),
-    payload: { previousMode, nextMode },
   };
 }

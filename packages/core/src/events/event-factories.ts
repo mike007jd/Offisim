@@ -91,7 +91,6 @@ export {
   installStateChanged,
   bindingStateChanged,
   marketListingInstalled,
-  skillInstallOutcome,
 } from './install-events.js';
 
 export {
@@ -108,8 +107,4 @@ export {
   hrRecommendation,
   notificationCreated,
   notificationDismissed,
-  interactionRequested,
-  interactionRestored,
-  interactionResolved,
-  interactionModeChanged,
 } from './operational-events.js';

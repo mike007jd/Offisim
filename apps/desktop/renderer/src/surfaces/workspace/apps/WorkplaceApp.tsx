@@ -9,7 +9,7 @@ import {
 } from '@/surfaces/activity/activity-data.js';
 import { SkeletonRows } from '@/surfaces/shared/SurfaceStates.js';
 import { ArrowRight } from 'lucide-react';
-import { useWsApprovals, useWsMeetings } from '../workspace-data.js';
+import { useWsMeetings } from '../workspace-data.js';
 
 /** Workplace is an overview home — not a launcher. The "Suite apps" and
  *  "Workspaces" tile grids duplicated the rail and the top nav, and the Recent
@@ -22,7 +22,6 @@ export function WorkplaceApp() {
   const companies = useCompanies();
   const projects = useProjects(companyId);
   const employees = useEmployees();
-  const approvals = useWsApprovals(companyId);
   const meetings = useWsMeetings();
   const runCost = useRunCost();
   const activity = useActivityRecords(companyId);
@@ -30,7 +29,6 @@ export function WorkplaceApp() {
   const company = companies.data?.find((c) => c.id === companyId) ?? null;
   const project = projects.data?.find((p) => p.id === projectId) ?? projects.data?.[0] ?? null;
   const headcount = employees.data?.length ?? 0;
-  const toApprove = approvals.data?.filter((a) => a.status === 'pending').length ?? 0;
   const activeRuns = meetings.data?.filter((m) => m.status === 'live').length ?? 0;
   const spend = runCost.data?.costLabel ?? '$0.00';
   const recent = (activity.data ?? []).slice(0, 6);
@@ -39,7 +37,6 @@ export function WorkplaceApp() {
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
   const stats = [
-    { label: 'To approve', value: String(toApprove), alert: toApprove > 0 },
     { label: 'Active runs', value: String(activeRuns), alert: false },
     { label: 'Spend today', value: spend, alert: false },
   ];

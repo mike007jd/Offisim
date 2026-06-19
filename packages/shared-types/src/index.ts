@@ -58,15 +58,9 @@ export type {
   WorkspaceBindingUnavailablePayload,
   ExecutionResumedPayload,
   ExecutionAbortedPayload,
-  InteractionRequestedPayload,
-  InteractionRestoredPayload,
-  InteractionResolvedPayload,
-  InteractionModeChangedPayload,
   InstallStatePayload,
   BindingStatePayload,
   MarketListingInstalledPayload,
-  SkillInstallOutcomeKind,
-  SkillInstallOutcomePayload,
   PlanCreatedPayload,
   PlanStepStartedPayload,
   PlanStepCompletedPayload,
@@ -130,7 +124,6 @@ export type {
   ChatThreadUpdatedPayload,
 } from './events.js';
 export { TASK_ASSIGNMENT_REROUTED } from './events/task.js';
-export { SKILL_INSTALL_OUTCOME, skillInstallOutcomeLabel } from './events/install.js';
 
 export type {
   AttachmentKind,
@@ -196,22 +189,7 @@ export type {
   InteractionMode,
   InteractionKind,
   InteractionSeverity,
-  InteractionScope,
-  InteractionOption,
-  BossRecommendation,
-  PermissionInteractionContext,
-  PlanReviewInteractionContext,
-  AgentQuestionInteractionContext,
-  SkillInstallSourceKind,
-  SkillMutationAction,
-  SkillInstallConfirmParent,
-  SkillInstallConfirmBodyDiff,
-  SkillFrontmatterErrorReason,
-  SkillFrontmatterErrorPayload,
-  SkillInstallConfirmInteractionContext,
-  InteractionContext,
   InteractionRequest,
-  InteractionResponse,
 } from './interactions.js';
 export {
   DEFAULT_INTERACTION_MODE,
@@ -220,7 +198,6 @@ export {
   INTERACTION_MODES,
   isInteractionMode,
 } from './interactions.js';
-export { AGENT_QUESTION_REQUIRED, PLAN_REVIEW_REQUIRED } from './interactions.js';
 export type { ChatRuntimeOutcomeKind } from './chat-outcomes.js';
 export {
   ATTACHMENTS_REQUIRE_GATEWAY_LANE,

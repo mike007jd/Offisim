@@ -1,7 +1,6 @@
 import { ensureProjectBoundForRun } from '@/runtime/ensure-default-workspace.js';
 import { llmStreamChunk, toolExecutionTelemetry } from '@offisim/core/browser';
 import type { RuntimeRepositories } from '@offisim/core/browser';
-import type { InteractionResponse, SkillInstallOutcomeKind } from '@offisim/shared-types';
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { readPiModelOverride } from './pi-agent-config.js';
 import { resolveThreadMode } from './pi-thread-mode-store.js';
@@ -96,7 +95,6 @@ export const PI_WIRE_CONTRACT_EXAMPLES = [
 export interface DesktopAgentRuntime {
   execute(input: DesktopAgentRunInput): Promise<DesktopAgentRunResult>;
   abort(threadId: string): void;
-  resolveInteraction(response: InteractionResponse): Promise<SkillInstallOutcomeKind | null>;
   resume(threadId: string, projectId?: string | null): Promise<{ finalText: string } | null>;
   dispose(): Promise<void>;
 }
@@ -253,12 +251,6 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       projectId: requestedProjectId,
     });
     return { finalText: result.text };
-  }
-
-  async resolveInteraction(
-    _response: InteractionResponse,
-  ): Promise<SkillInstallOutcomeKind | null> {
-    return null;
   }
 
   async dispose(): Promise<void> {

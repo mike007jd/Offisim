@@ -223,18 +223,6 @@ export { LlmMiddlewareChain } from './middleware/chain.js';
 export type { LlmMiddleware, LlmCallContext, LlmCallMeta } from './middleware/types.js';
 export { SummarizationMiddleware } from './middleware/builtin/summarization-middleware.js';
 export { NodeContextMiddleware } from './middleware/builtin/node-context-middleware.js';
-export type {
-  ToolPermissionAuthorizer,
-  ToolPermissionDecision,
-  ToolPermissionRequest,
-} from './permissions/tool-permission-engine.js';
-export { ToolPermissionEngine } from './permissions/tool-permission-engine.js';
-export type {
-  ToolPermissionGrantRequest,
-  ToolPermissionGrantMatch,
-  ToolPermissionGrantResolver,
-} from './services/interaction-service.js';
-export { InteractionService } from './services/interaction-service.js';
 
 // --- Utilities ---
 export { extractJsonFromLlm } from './utils/extract-json.js';
@@ -267,7 +255,6 @@ export {
   installStateChanged,
   bindingStateChanged,
   marketListingInstalled,
-  skillInstallOutcome,
   planCreated,
   planStepStarted,
   planStepCompleted,
@@ -304,10 +291,6 @@ export {
   hrRecommendation,
   notificationCreated,
   notificationDismissed,
-  interactionRequested,
-  interactionRestored,
-  interactionResolved,
-  interactionModeChanged,
 } from './events/event-factories.js';
 
 // --- Logger ---
@@ -335,7 +318,6 @@ export { WorkstationAssignmentService } from './runtime/workstation-assignment-s
 
 // --- MCP ---
 export { McpToolExecutor } from './mcp/mcp-tool-executor.js';
-export { AuditingToolExecutor } from './mcp/auditing-tool-executor.js';
 export { McpConfigLoader } from './mcp/mcp-config-loader.js';
 export type {
   McpConfigFile,
@@ -406,44 +388,9 @@ export type {
 } from './tools/tool-registry.js';
 
 // --- Skills (two-tier: company-global + employee-specific) ---
-export {
-  SkillLoader,
-  SkillInstallError,
-  SkillScopeError,
-  encodeSkillSourceRef,
-} from './skills/skill-loader.js';
-export type {
-  SkillLoaderDeps,
-  InstallSkillArgs,
-  InstallSkillResult,
-  SkillInstallAsset,
-  SkillInstallSource,
-  SkillInstallSourceGit,
-  SkillInstallSourceUpload,
-  SkillInstallSourceClaudeCode,
-  SkillInstallSourceCodex,
-  SkillInstallSourceSelfAuthored,
-  SkillInstallSourceMarketplace,
-} from './skills/skill-loader.js';
-export {
-  parseSkillMd,
-  parseSelfAuthoredSkillMd,
-  serializeSkillMd,
-  SkillFrontmatterError,
-} from './skills/skill-md.js';
-export type {
-  ParsedSkillMd,
-  SerializeInput,
-  SkillFrontmatterErrorReason,
-} from './skills/skill-md.js';
-export { skillSlug } from './skills/skill-slug.js';
-export { resolveSkillPath } from './skills/skill-path.js';
-export type { ResolveSkillPathArgs, ResolvedSkillPath } from './skills/skill-path.js';
 export { scanSkillDir } from './skills/skill-scanner.js';
 export { resolveUploadSource } from './skills/skill-source-resolvers/upload.js';
 export { resolveGitSource } from './skills/skill-source-resolvers/git.js';
-export { resolveClaudeCodeSync } from './skills/skill-source-resolvers/claude-code.js';
-export { resolveCodexSync } from './skills/skill-source-resolvers/codex.js';
 export { isResolverError } from './skills/skill-source-resolvers/types.js';
 export type {
   ScannedSkill,
@@ -457,31 +404,6 @@ export type {
   GitHttpFetch,
   GitLocalFsAdapter,
 } from './skills/skill-source-resolvers/git.js';
-export type {
-  LocalDirAdapter,
-  SyncCandidate,
-  SyncResolverDeps,
-  SyncResolverResult,
-} from './skills/skill-source-resolvers/local-sync.js';
-export { SkillStagingManager } from './skills/skill-staging.js';
-export type { StagedSkill, SkillStagingManagerOpts } from './skills/skill-staging.js';
-export type {
-  SkillInstallEnvironment,
-  UploadRefResolver,
-} from './skills/skill-install-environment.js';
-export { SkillInstallCommitter } from './skills/skill-install-committer.js';
-export type { SkillInstallCommitterDeps } from './skills/skill-install-committer.js';
-export {
-  SKILL_INSTALL_TOOL_NAMES,
-  SKILL_INSTALL_TOOL_DEFS,
-  handleSkillInstallTool,
-  isSkillInstallTool,
-} from './skills/skill-install-tools.js';
-export type { SkillInstallToolName } from './skills/skill-install-tools.js';
-export type {
-  SkillInstallConfirmHandler,
-  SkillInstallConfirmOutcome,
-} from './services/interaction-service.js';
 export type {
   SkillRepository,
   SkillUpdate,
