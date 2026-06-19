@@ -1663,37 +1663,69 @@
   min-width: 0;
 }
 
-/* Context + mode are passive labels, not controls — plain muted text, no pill
-   chrome, grouped into one cluster so the footer reads as interactive controls
-   on each end with quiet metadata between them. `margin-left: auto` carries the
-   row's spring, keeping the cluster pinned next to Send. */
-.off-composer-meta {
+/* Right-aligned cluster pinned next to Send: quiet project label + scope and
+   model chips. `margin-left: auto` carries the row's spring. */
+.off-composer-controls {
   margin-left: auto;
   display: inline-flex;
   align-items: center;
   flex: 0 1 auto;
   gap: var(--off-sp-2);
   min-width: 0;
-  color: var(--off-ink-4);
-  font-size: var(--off-fs-meta);
-  font-weight: 580;
 }
 
 .off-composer-context {
-  max-width: 150px;
+  max-width: 132px;
   height: 26px;
   display: inline-flex;
   align-items: center;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--off-ink-4);
+  font-size: var(--off-fs-meta);
+  font-weight: 580;
 }
 
-.off-composer-mode {
+/* Scope + model chips read as quiet metadata until hovered/opened. */
+.off-composer-chip {
   height: 26px;
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
-  flex: 0 0 auto;
+  gap: 4px;
+  max-width: 168px;
+  padding: 0 var(--off-sp-2);
+  border: 1px solid var(--off-line-strong);
+  border-radius: var(--off-r-pill);
+  background: var(--off-surface-2);
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-meta);
+  font-weight: 600;
+  transition: background var(--off-motion-fast) var(--off-motion-ease), border-color
+    var(--off-motion-fast) var(--off-motion-ease);
+}
+
+.off-composer-chip:hover {
+  background: var(--off-accent-surface);
+  border-color: var(--off-accent);
+}
+
+.off-composer-chip.is-static {
+  cursor: default;
+  background: transparent;
+  border-color: transparent;
+  color: var(--off-ink-4);
+}
+
+.off-composer-chip-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.off-composer-chip-flag {
+  color: var(--off-accent);
 }
 
 .off-composer-send {
@@ -1724,6 +1756,139 @@
 .off-composer-send:disabled {
   opacity: 0.45;
   pointer-events: none;
+}
+
+/* Send morphs to Stop while a run is in flight. */
+.off-composer-send.is-stop {
+  background: var(--off-surface-2);
+  color: var(--off-ink-1);
+  border: 1px solid var(--off-line-strong);
+}
+
+.off-composer-send.is-stop:hover {
+  background: var(--off-accent-surface);
+  border-color: var(--off-accent);
+}
+
+/* Positioning context for the `@` / `/` trigger popovers, which float above
+   the input. The composer itself owns its drop-overlay positioning. */
+.off-composer-trigger-host {
+  position: relative;
+  display: block;
+}
+
+/* Trigger popover (listbox): rendered inline only while open, floated above the
+   composer like a typeahead. assistant-ui owns open/close and keyboard nav. */
+.off-trigger-pop {
+  position: absolute;
+  left: var(--off-sp-4);
+  right: var(--off-sp-4);
+  bottom: calc(100% + var(--off-sp-1));
+  z-index: var(--off-z-overlay);
+  max-height: 248px;
+  overflow-y: auto;
+  padding: var(--off-sp-1);
+  border: 1px solid var(--off-line-strong);
+  border-radius: var(--off-r-md);
+  background: var(--off-surface-1);
+  box-shadow: var(--off-elev-2);
+}
+
+.off-trigger-list {
+  display: grid;
+  gap: 2px;
+}
+
+.off-trigger-item {
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+  width: 100%;
+  padding: 6px var(--off-sp-2);
+  border: 0;
+  border-radius: var(--off-r-sm);
+  background: transparent;
+  color: var(--off-ink-1);
+  text-align: left;
+  cursor: pointer;
+}
+
+.off-trigger-item:hover,
+.off-trigger-item[data-highlighted] {
+  background: var(--off-accent-surface);
+}
+
+.off-trigger-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  border-radius: var(--off-r-xs);
+  background: var(--off-surface-2);
+  color: var(--off-ink-3);
+}
+
+.off-trigger-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--off-sp-2);
+  min-width: 0;
+}
+
+.off-trigger-name {
+  font-size: var(--off-fs-sm);
+  font-weight: 620;
+  white-space: nowrap;
+}
+
+.off-trigger-meta {
+  font-size: var(--off-fs-meta);
+  color: var(--off-ink-4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.off-trigger-empty {
+  padding: var(--off-sp-2);
+  font-size: var(--off-fs-meta);
+  color: var(--off-ink-4);
+}
+
+/* Scope / model dropdown rows. */
+.off-composer-menu {
+  min-width: 200px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.off-composer-model-menu {
+  min-width: 232px;
+}
+
+.off-composer-menu-provider {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: var(--off-fs-2xs);
+  color: var(--off-ink-4);
+}
+
+.off-composer-menu-row {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--off-sp-2);
+  min-width: 0;
+}
+
+.off-composer-menu-name {
+  font-weight: 600;
+}
+
+.off-composer-menu-meta {
+  font-size: var(--off-fs-meta);
+  color: var(--off-ink-4);
 }
 
 /* Live tool-activity strip (RunActivityStrip): builtin/MCP tool calls shown in

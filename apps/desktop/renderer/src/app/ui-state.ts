@@ -88,6 +88,12 @@ interface UiState {
   openDraftThread: (employeeId?: string | null) => string;
   /** Clear the draft flag once its first message has materialized the row. */
   markDraftPersisted: () => void;
+  /**
+   * Retarget the active draft conversation's scope before its first message:
+   * pass an `employeeId` for a direct (1:1) draft, or `null` for a team draft.
+   * No-op once the draft has been persisted (scope is fixed at materialization).
+   */
+  setDraftEmployee: (employeeId: string | null) => void;
   closeThread: () => void;
   setSceneRenderMode: (mode: SceneRenderMode) => void;
   recordSceneDropDiagnostic: (event: SceneDropDiagnostic) => void;
@@ -154,6 +160,8 @@ export const useUiState = create<UiState>((set) => ({
     return id;
   },
   markDraftPersisted: () => set({ draftThread: null }),
+  setDraftEmployee: (employeeId) =>
+    set((s) => (s.draftThread ? { draftThread: { ...s.draftThread, employeeId } } : {})),
   closeThread: () => set({ selectedThreadId: null, draftThread: null, railMode: 'list' }),
   setSceneRenderMode: (sceneRenderMode) => set({ sceneRenderMode }),
   recordSceneDropDiagnostic: (event) =>

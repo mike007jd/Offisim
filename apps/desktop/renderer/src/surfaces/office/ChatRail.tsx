@@ -348,6 +348,7 @@ export function ChatRail() {
           employeesById={employeesById}
           deliverables={deliverables.data ?? []}
           employeeId={displayThread?.employeeId ?? null}
+          isDraft={isDraft}
           projectName={projectName}
           persistMessage={persistWorkspaceChatMessage}
           materializeThread={isDraft ? materializeThread : undefined}

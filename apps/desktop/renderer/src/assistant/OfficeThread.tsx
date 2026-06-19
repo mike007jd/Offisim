@@ -7,8 +7,10 @@ import { MessageItem } from '@/surfaces/office/rail/MessageItem.js';
 import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
 import { AssistantRuntimeProvider, ComposerPrimitive, ThreadPrimitive } from '@assistant-ui/react';
 import { listen } from '@tauri-apps/api/event';
-import { MessageSquarePlus, Paperclip, SendHorizontal } from 'lucide-react';
-import { type DragEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { MessageSquarePlus, Paperclip, SendHorizontal, Square } from 'lucide-react';
+import { type DragEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ModelControl, ScopeControl } from './composer/ComposerControls.js';
+import { ComposerTriggers } from './composer/ComposerTriggers.js';
 import { StagedAttachments } from './composer/StagedAttachments.js';
 import { ChatErrorBanner } from './parts/ChatErrorBanner.js';
 import { MeetingTray } from './parts/Meeting.js';
@@ -46,6 +48,8 @@ interface OfficeThreadProps {
   deliverables: Deliverable[];
   /** Employee holding this conversation's run (direct thread), shown on the pill. */
   employeeId: string | null;
+  /** A draft (pre-first-message) thread whose scope can still be retargeted. */
+  isDraft: boolean;
   projectName: string;
   persistMessage?: (message: ChatMessage) => Promise<void>;
   /**
@@ -57,17 +61,27 @@ interface OfficeThreadProps {
 }
 
 function OfficeComposer({
+  threadId,
   projectName,
   deliverables,
   employeesById,
   employeeName,
+  scopeEmployeeId,
+  isDraft,
 }: {
+  threadId: string;
   projectName: string;
   deliverables: Deliverable[];
   employeesById: Map<string, Employee>;
   /** Direct 1:1 threads address the employee by name; team threads stay generic. */
   employeeName: string | null;
+  /** Current conversation scope target (null = team thread). */
+  scopeEmployeeId: string | null;
+  /** A draft (pre-first-message) thread can still retarget its scope. */
+  isDraft: boolean;
 }) {
+  const employees = useMemo(() => Array.from(employeesById.values()), [employeesById]);
+  const isRunning = useRunStore((s) => s.isRunning && s.threadId === threadId);
   const stageFiles = useRunStore((s) => s.stageFiles);
   const storageAvailable = useRunStore((s) => s.storageAvailable);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -143,88 +157,108 @@ function OfficeComposer({
   }, [nativeDropHitsComposer, stageNativeFiles]);
 
   return (
-    <ComposerPrimitive.Root
-      ref={composerRef}
-      className={`off-composer${dragActive ? ' is-drop-active' : ''}`}
-      onDragEnter={(event) => {
-        if (!dragHasFiles(event)) return;
-        event.preventDefault();
-        dragDepth.current += 1;
-        setDragActive(true);
-      }}
-      onDragOver={(event) => {
-        if (!dragHasFiles(event)) return;
-        event.preventDefault();
-        event.dataTransfer.dropEffect = storageAvailable ? 'copy' : 'none';
-      }}
-      onDragLeave={(event) => {
-        if (!dragHasFiles(event)) return;
-        event.preventDefault();
-        dragDepth.current = Math.max(0, dragDepth.current - 1);
-        if (dragDepth.current === 0) setDragActive(false);
-      }}
-      onDrop={(event) => {
-        if (!dragHasFiles(event)) return;
-        event.preventDefault();
-        dragDepth.current = 0;
-        setDragActive(false);
-        stageFileList(event.dataTransfer.files);
-      }}
-    >
-      <RunActivityStrip />
-      <div className="off-composer-shell">
-        <ComposerPrimitive.Input
-          className="off-composer-input"
-          placeholder={employeeName ? `Message ${employeeName}` : 'Message the team'}
-          rows={1}
-          submitOnEnter
-        />
-        <StagedAttachments />
-        <div className="off-composer-footer">
-          <input
-            ref={fileInput}
-            type="file"
-            multiple
-            hidden
-            onChange={(e) => {
-              stageFileList(e.target.files);
-              e.target.value = '';
-            }}
-          />
-          <IconButton
-            icon={Paperclip}
-            label="Attach file"
-            variant="subtle"
-            size="iconSm"
-            title={storageAvailable ? 'Attach file' : 'Attachment storage unavailable'}
-            onClick={() => fileInput.current?.click()}
-          />
-          <div className="off-thread-pitbar" aria-label="Conversation outputs and follow-up">
-            <MeetingTray />
-            <ConvOutputs deliverables={deliverables} employeesById={employeesById} />
+    <ComposerPrimitive.Unstable_TriggerPopoverRoot>
+      <div className="off-composer-trigger-host">
+        <ComposerTriggers employees={employees} />
+        <ComposerPrimitive.Root
+          ref={composerRef}
+          className={`off-composer${dragActive ? ' is-drop-active' : ''}`}
+          onDragEnter={(event) => {
+            if (!dragHasFiles(event)) return;
+            event.preventDefault();
+            dragDepth.current += 1;
+            setDragActive(true);
+          }}
+          onDragOver={(event) => {
+            if (!dragHasFiles(event)) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = storageAvailable ? 'copy' : 'none';
+          }}
+          onDragLeave={(event) => {
+            if (!dragHasFiles(event)) return;
+            event.preventDefault();
+            dragDepth.current = Math.max(0, dragDepth.current - 1);
+            if (dragDepth.current === 0) setDragActive(false);
+          }}
+          onDrop={(event) => {
+            if (!dragHasFiles(event)) return;
+            event.preventDefault();
+            dragDepth.current = 0;
+            setDragActive(false);
+            stageFileList(event.dataTransfer.files);
+          }}
+        >
+          <RunActivityStrip />
+          <div className="off-composer-shell">
+            <ComposerPrimitive.Input
+              className="off-composer-input"
+              placeholder={employeeName ? `Message ${employeeName}` : 'Message the team'}
+              rows={1}
+              submitOnEnter
+            />
+            <StagedAttachments />
+            <div className="off-composer-footer">
+              <input
+                ref={fileInput}
+                type="file"
+                multiple
+                hidden
+                onChange={(e) => {
+                  stageFileList(e.target.files);
+                  e.target.value = '';
+                }}
+              />
+              <IconButton
+                icon={Paperclip}
+                label="Attach file"
+                variant="subtle"
+                size="iconSm"
+                title={storageAvailable ? 'Attach file' : 'Attachment storage unavailable'}
+                onClick={() => fileInput.current?.click()}
+              />
+              <div className="off-thread-pitbar" aria-label="Conversation outputs and follow-up">
+                <MeetingTray />
+                <ConvOutputs deliverables={deliverables} employeesById={employeesById} />
+              </div>
+              <div className="off-composer-controls">
+                <span className="off-composer-context" title={projectName}>
+                  {projectName}
+                </span>
+                <ScopeControl
+                  isDraft={isDraft}
+                  scopeEmployeeId={scopeEmployeeId}
+                  employees={employees}
+                />
+                <ModelControl threadId={threadId} />
+                {isRunning ? (
+                  <ComposerPrimitive.Cancel
+                    className="off-composer-send is-stop off-focusable"
+                    aria-label="Stop run"
+                  >
+                    <span>Stop</span>
+                    <Icon icon={Square} size="sm" />
+                  </ComposerPrimitive.Cancel>
+                ) : (
+                  <ComposerPrimitive.Send
+                    className="off-composer-send off-focusable"
+                    aria-label="Send"
+                  >
+                    <span>Send</span>
+                    <Icon icon={SendHorizontal} size="sm" />
+                  </ComposerPrimitive.Send>
+                )}
+              </div>
+            </div>
           </div>
-          {/* Passive meta labels stay adjacent (project · mode) so they never sit
-              between two interactive controls. */}
-          <span className="off-composer-meta">
-            <span className="off-composer-context" title={projectName}>
-              {projectName}
+          <div className="off-composer-drop-overlay" aria-hidden={!dragActive}>
+            <Icon icon={Paperclip} size="sm" />
+            <span>
+              {storageAvailable ? 'Drop files to attach' : 'Attachment vault unavailable'}
             </span>
-            <span aria-hidden="true">·</span>
-            <span className="off-composer-mode" title="Direct execution mode">
-              Direct
-            </span>
-          </span>
-          <ComposerPrimitive.Send className="off-composer-send off-focusable" aria-label="Send">
-            <span>Send</span>
-            <Icon icon={SendHorizontal} size="sm" />
-          </ComposerPrimitive.Send>
-        </div>
+          </div>
+        </ComposerPrimitive.Root>
       </div>
-      <div className="off-composer-drop-overlay" aria-hidden={!dragActive}>
-        <Icon icon={Paperclip} size="sm" />
-        <span>{storageAvailable ? 'Drop files to attach' : 'Attachment vault unavailable'}</span>
-      </div>
-    </ComposerPrimitive.Root>
+    </ComposerPrimitive.Unstable_TriggerPopoverRoot>
   );
 }
 
@@ -237,6 +271,7 @@ export function OfficeThread({
   employeesById,
   deliverables,
   employeeId,
+  isDraft,
   projectName,
   persistMessage,
   materializeThread,
@@ -249,6 +284,7 @@ export function OfficeThread({
     projectId,
     persistMessage,
     materializeThread,
+    employeesById,
   });
   const syncThread = useRunStore((s) => s.syncThread);
 
@@ -300,10 +336,13 @@ export function OfficeThread({
           <SkillInstallConfirmBar companyId={companyId} threadId={threadId} />
         </ThreadPrimitive.Viewport>
         <OfficeComposer
+          threadId={threadId}
           projectName={projectName}
           deliverables={deliverables}
           employeesById={employeesById}
           employeeName={employeeId ? (employeesById.get(employeeId)?.name ?? null) : null}
+          scopeEmployeeId={employeeId}
+          isDraft={isDraft}
         />
       </ThreadPrimitive.Root>
     </AssistantRuntimeProvider>

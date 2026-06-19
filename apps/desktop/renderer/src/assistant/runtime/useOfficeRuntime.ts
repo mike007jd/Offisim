@@ -1,6 +1,7 @@
 import { autoTitleThreadFromFirstMessage } from '@/data/auto-title.js';
 import { persistChatMessage } from '@/data/chat-message-events.js';
-import type { ChatAttachment, ChatMessage, ChatToolCall } from '@/data/types.js';
+import type { ChatAttachment, ChatMessage, ChatToolCall, Employee } from '@/data/types.js';
+import { resolveThreadModel } from '@/runtime/pi-thread-model-store.js';
 import {
   type AppendMessage,
   type ThreadMessageLike,
@@ -9,6 +10,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { extractMentionedEmployeeIds, toMentionRoster } from '../composer/composer-triggers.js';
 import { assembleAssistantContent } from '../parts/assistant-message-parts.js';
 import { useRunStore } from '../run-store.js';
 import {
@@ -54,6 +56,7 @@ export function useOfficeRuntime({
   projectId,
   persistMessage,
   materializeThread,
+  employeesById,
 }: {
   threadId: string;
   seedMessages: ChatMessage[];
@@ -67,6 +70,8 @@ export function useOfficeRuntime({
    * to create the `chat_threads` row (titled) before that message is persisted.
    */
   materializeThread?: (firstUserText: string) => Promise<void>;
+  /** Roster for resolving `@`-mentions to a per-turn routing target. */
+  employeesById: Map<string, Employee>;
 }) {
   const [drafts, setDrafts] = useState<ChatMessage[]>([]);
   const [isSending, setIsSending] = useState(false);
@@ -103,6 +108,11 @@ export function useOfficeRuntime({
     async (message: AppendMessage) => {
       const text = appendText(message);
       if (!text) return;
+      // A leading/inline `@teammate` routes this turn to that employee, overriding
+      // the thread's default assignee. The `@Name` text stays in the prompt so the
+      // intent survives even if the host treats routing as a soft hint.
+      const roster = toMentionRoster(employeesById.values());
+      const turnEmployeeId = extractMentionedEmployeeIds(text, roster)[0] ?? assigneeId ?? null;
       const stagedForTurn = staged.filter((a) => a.status === 'attached');
       const attachments: ChatAttachment[] = displayAttachmentsFromStaged(stagedForTurn);
       const userMessageId = newDraftId('boss');
@@ -123,7 +133,7 @@ export function useOfficeRuntime({
       abortControllerRef.current = abortController;
       abortedRef.current = false;
       setIsSending(true);
-      startRun(undefined, assigneeId ?? null);
+      startRun(undefined, turnEmployeeId);
       try {
         const materialized = await materializeChatTurn({
           text,
@@ -190,7 +200,7 @@ export function useOfficeRuntime({
                   id: streamDraftId,
                   threadId,
                   author: 'employee',
-                  employeeId: assigneeId ?? null,
+                  employeeId: turnEmployeeId,
                   body: chunk,
                   at: Date.now(),
                 },
@@ -211,7 +221,7 @@ export function useOfficeRuntime({
                   id: streamDraftId,
                   threadId,
                   author: 'employee',
-                  employeeId: assigneeId ?? null,
+                  employeeId: turnEmployeeId,
                   body: '',
                   reasoning: chunk,
                   at: Date.now(),
@@ -240,7 +250,7 @@ export function useOfficeRuntime({
                   id: streamDraftId,
                   threadId,
                   author: 'employee',
-                  employeeId: assigneeId ?? null,
+                  employeeId: turnEmployeeId,
                   body: '',
                   toolCalls: snapshot,
                   at: Date.now(),
@@ -275,8 +285,9 @@ export function useOfficeRuntime({
           response = await runtime.execute({
             text: materialized.promptText,
             threadId,
-            employeeId: assigneeId ?? null,
+            employeeId: turnEmployeeId,
             projectId,
+            model: resolveThreadModel(threadId),
           });
         } finally {
           // InMemoryEventBus has no auto-cleanup — always release these handlers.
@@ -292,7 +303,7 @@ export function useOfficeRuntime({
           id: streamDraftId,
           threadId,
           author: 'employee',
-          employeeId: assigneeId ?? null,
+          employeeId: turnEmployeeId,
           body: response.text,
           ...(reasoning ? { reasoning } : {}),
           ...(toolCalls.length ? { toolCalls: [...toolCalls] } : {}),
@@ -371,6 +382,7 @@ export function useOfficeRuntime({
       noteToolResult,
       queryClient,
       materializeThread,
+      employeesById,
     ],
   );
 

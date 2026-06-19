@@ -11,6 +11,12 @@ export interface DesktopAgentRunInput {
   threadId: string;
   employeeId: string | null;
   projectId: string | null;
+  /**
+   * Per-turn Pi registry model id (provider/model). When omitted the runtime
+   * falls back to the global Settings override, then to Pi's default. Pi still
+   * resolves credentials and the real catalog; this only forwards the id.
+   */
+  model?: string;
 }
 
 export interface DesktopAgentRunResult {
@@ -192,7 +198,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           threadId: input.threadId,
           projectId,
           employeeId: input.employeeId,
-          model: readPiModelOverride() || undefined,
+          model: input.model?.trim() || readPiModelOverride() || undefined,
         },
         onEvent,
       })) as PiAgentHostResponse;
