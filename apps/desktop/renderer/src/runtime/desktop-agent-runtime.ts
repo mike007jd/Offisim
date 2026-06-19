@@ -118,6 +118,10 @@ function newRequestId(prefix: string): string {
   return `${prefix}-${crypto.randomUUID()}`;
 }
 
+/** Event name for the Ask-mode pause bridge — shared by the producer (here) and
+ *  the consumer (`subscribePermissionRequests`) so the two can't drift on a typo. */
+export const PI_PERMISSION_REQUEST_EVENT = 'pi.permission.request';
+
 /** Payload shape for the `pi.permission.request` renderer event. The host pauses
  *  a destructive tool in Ask mode; the renderer needs `requestId` to deliver the
  *  verdict back through `pi_agent_permission_decision`. */
@@ -138,7 +142,7 @@ function piPermissionRequestEvent(
   payload: PiPermissionRequestPayload,
 ): RuntimeEvent<PiPermissionRequestPayload> {
   return {
-    type: 'pi.permission.request',
+    type: PI_PERMISSION_REQUEST_EVENT,
     entityId: payload.toolCallId,
     entityType: 'runtime',
     companyId,

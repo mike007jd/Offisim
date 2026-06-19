@@ -559,10 +559,12 @@ async function runPrompt(payload) {
 function main() {
   const rl = createInterface({ input: process.stdin, crlfDelay: Number.POSITIVE_INFINITY });
   let sawPayload = false;
-  let runDone;
-  const runComplete = new Promise((resolve) => {
-    runDone = resolve;
-  });
+  // The run settled (status emitted or prompt resolved): readline keeps stdin
+  // open as a decision channel, so exit explicitly rather than waiting for EOF.
+  const finishHost = () => {
+    rl.close();
+    process.exit(0);
+  };
 
   rl.on('line', (raw) => {
     const trimmed = raw.trim();
@@ -586,10 +588,10 @@ function main() {
           fail(error);
           return;
         }
-        runDone();
+        finishHost();
         return;
       }
-      runPrompt(payload).then(runDone, fail);
+      runPrompt(payload).then(finishHost, fail);
       return;
     }
     // Subsequent lines are permission decisions: { toolCallId, approved }.
@@ -603,11 +605,6 @@ function main() {
 
   // Parent closed stdin (process teardown / abort) — release any parked prompts.
   rl.on('close', rejectAllDecisions);
-
-  runComplete.then(() => {
-    rl.close();
-    process.exit(0);
-  });
 }
 
 main();

@@ -1,5 +1,8 @@
 import type { ChatAttachment, ChatToolCall, RunError, StagedAttachment } from '@/data/types.js';
-import type { PiPermissionRequestPayload } from '@/runtime/desktop-agent-runtime.js';
+import {
+  PI_PERMISSION_REQUEST_EVENT,
+  type PiPermissionRequestPayload,
+} from '@/runtime/desktop-agent-runtime.js';
 import type { AppendMessage } from '@assistant-ui/react';
 import type { EventBus } from '@offisim/core/browser';
 import { sha256Hex } from '@offisim/install-core';
@@ -344,7 +347,7 @@ export function subscribePermissionRequests(
     onRequest: (request: PiPermissionRequestPayload) => void;
   },
 ): () => void {
-  return eventBus.on('pi.permission.request', (event) => {
+  return eventBus.on(PI_PERMISSION_REQUEST_EVENT, (event) => {
     if (event.threadId !== handlers.threadId) return;
     const payload = event.payload as PiPermissionRequestPayload | undefined;
     if (!payload?.requestId || !payload.toolCallId) return;

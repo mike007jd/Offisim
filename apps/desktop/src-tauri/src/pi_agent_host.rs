@@ -773,6 +773,16 @@ pub fn pi_agent_abort(request_id: String) -> Result<(), String> {
     Ok(())
 }
 
+/// The renderer→host decision line for a paused tool (Ask mode). The field names
+/// are pinned to camelCase by serde so the inbound channel stays in lockstep with
+/// the host reader, the same way the outbound `PiSidecarLine` kinds are.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PiPermissionDecision {
+    tool_call_id: String,
+    approved: bool,
+}
+
 /// Ask mode: deliver the user's approve/reject verdict for a paused tool back to
 /// the running host by writing a one-line decision to its stdin. A missing
 /// request id means the run already ended (the verdict is moot) — not an error.
@@ -786,8 +796,12 @@ pub async fn pi_agent_permission_decision(
     let Some(writer) = writer else {
         return Ok(());
     };
-    let mut line =
-        serde_json::json!({ "toolCallId": tool_call_id, "approved": approved }).to_string();
+    let decision = PiPermissionDecision {
+        tool_call_id,
+        approved,
+    };
+    let mut line = serde_json::to_string(&decision)
+        .map_err(|err| format!("Serialize Pi permission decision: {err}"))?;
     line.push('\n');
     let mut stdin = writer.lock().await;
     stdin
@@ -966,6 +980,29 @@ mod tests {
         assert!(
             !json.contains("tool_call_id"),
             "snake_case key leaked to the renderer Channel: {json}"
+        );
+    }
+
+    #[test]
+    fn pi_permission_decision_serializes_camel_case_for_host() {
+        // The inbound decision line the host reads must stay camelCase in lockstep
+        // with `resolveDecision(decision.toolCallId, decision.approved)` in the host.
+        let line = serde_json::to_string(&PiPermissionDecision {
+            tool_call_id: "call_3".into(),
+            approved: true,
+        })
+        .expect("serialize decision");
+        assert!(
+            line.contains(r#""toolCallId":"call_3""#),
+            "expected camelCase toolCallId, got: {line}"
+        );
+        assert!(
+            line.contains(r#""approved":true"#),
+            "expected approved flag, got: {line}"
+        );
+        assert!(
+            !line.contains("tool_call_id"),
+            "snake_case key would desync the host decision reader: {line}"
         );
     }
 
