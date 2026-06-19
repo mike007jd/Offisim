@@ -1,12 +1,15 @@
+import { autoTitleThreadFromFirstMessage } from '@/data/auto-title.js';
 import { persistChatMessage } from '@/data/chat-message-events.js';
-import type { ChatAttachment, ChatMessage } from '@/data/types.js';
+import type { ChatAttachment, ChatMessage, ChatToolCall } from '@/data/types.js';
 import {
   type AppendMessage,
   type ThreadMessageLike,
   useExternalStoreRuntime,
 } from '@assistant-ui/react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { assembleAssistantContent } from '../parts/assistant-message-parts.js';
 import { useRunStore } from '../run-store.js';
 import {
   appendText,
@@ -16,6 +19,8 @@ import {
   newDraftId,
   subscribeReplyStream,
   subscribeRunActivity,
+  subscribeToolCalls,
+  upsertChatToolCall,
 } from './desktop-chat-runtime.js';
 
 function safeErrorMessage(error: unknown): string {
@@ -23,11 +28,13 @@ function safeErrorMessage(error: unknown): string {
 }
 
 /** Map an Offisim chat message into the assistant-ui thread model. The original
- *  message is carried in metadata.custom so the V3 rail keeps full fidelity. */
+ *  message is carried in metadata.custom so the V3 rail keeps full fidelity;
+ *  content parts (reasoning → tools → answer) come from the shared
+ *  `assembleAssistantContent` so both chat surfaces stay on one part contract. */
 function convertMessage(message: ChatMessage): ThreadMessageLike {
   return {
     role: message.author === 'boss' ? 'user' : 'assistant',
-    content: [{ type: 'text', text: message.body }],
+    content: assembleAssistantContent(message),
     id: message.id,
     createdAt: new Date(message.at),
     metadata: { custom: message as unknown as Record<string, unknown> },
@@ -46,6 +53,7 @@ export function useOfficeRuntime({
   companyId,
   projectId,
   persistMessage,
+  materializeThread,
 }: {
   threadId: string;
   seedMessages: ChatMessage[];
@@ -54,6 +62,11 @@ export function useOfficeRuntime({
   companyId: string | null;
   projectId: string | null;
   persistMessage?: (message: ChatMessage) => Promise<void>;
+  /**
+   * Present only for an unsaved draft thread: called with the first message text
+   * to create the `chat_threads` row (titled) before that message is persisted.
+   */
+  materializeThread?: (firstUserText: string) => Promise<void>;
 }) {
   const [drafts, setDrafts] = useState<ChatMessage[]>([]);
   const [isSending, setIsSending] = useState(false);
@@ -77,6 +90,7 @@ export function useOfficeRuntime({
   const clearStaged = useRunStore((s) => s.clearStaged);
   const noteToolCalled = useRunStore((s) => s.noteToolCalled);
   const noteToolResult = useRunStore((s) => s.noteToolResult);
+  const queryClient = useQueryClient();
   const persistRuntimeMessage = useCallback(
     (message: ChatMessage) =>
       persistMessage
@@ -129,7 +143,29 @@ export function useOfficeRuntime({
         setDrafts((prev) =>
           prev.map((draft) => (draft.id === userMessageId ? userMessage : draft)),
         );
+        // Deferred conversation creation: a draft thread has no DB row yet.
+        // Materialize it (titled from this first message) BEFORE persisting the
+        // message, so the row exists for the message's thread reference and the
+        // conversation lands in the sidebar already titled — never as an empty
+        // "New conversation". Must await: the persist below depends on the row.
+        if (materializeThread) {
+          await materializeThread(text);
+        }
         await persistRuntimeMessage(userMessage);
+        // For an existing thread still on the default title (e.g. a legacy
+        // empty row), derive one from this first message. A freshly materialized
+        // draft is already titled, so skip the redundant read. Fire-and-forget:
+        // never gate the reply on it; it self-skips an already-titled thread.
+        if (!materializeThread) {
+          void autoTitleThreadFromFirstMessage({
+            threadId,
+            projectId,
+            firstUserText: text,
+            queryClient,
+          }).catch((err: unknown) => {
+            console.warn('[useOfficeRuntime] auto-title failed', { threadId, err });
+          });
+        }
         // The chat always runs through Pi Agent. Offisim owns the UI/thread
         // store; Pi owns model auth, model selection, session state, tools,
         // retries, and compaction.
@@ -189,6 +225,33 @@ export function useOfficeRuntime({
             );
           });
         };
+        // Accumulate tool steps into the same draft so they render inline as
+        // native assistant-ui `tool-call` parts (a working agent visibly runs
+        // its tools inside the reply, not only in the composer strip).
+        const toolCalls: ChatToolCall[] = [];
+        const upsertToolCall = (call: ChatToolCall) => {
+          const snapshot = upsertChatToolCall(toolCalls, call);
+          setDrafts((prev) => {
+            const existing = prev.find((draft) => draft.id === streamDraftId);
+            if (!existing) {
+              return [
+                ...prev,
+                {
+                  id: streamDraftId,
+                  threadId,
+                  author: 'employee',
+                  employeeId: assigneeId ?? null,
+                  body: '',
+                  toolCalls: snapshot,
+                  at: Date.now(),
+                },
+              ];
+            }
+            return prev.map((draft) =>
+              draft.id === streamDraftId ? { ...draft, toolCalls: snapshot } : draft,
+            );
+          });
+        };
         let reasoningText = '';
         const unsubscribe = subscribeReplyStream(
           runtimeEventBus,
@@ -206,6 +269,7 @@ export function useOfficeRuntime({
           onCalled: noteToolCalled,
           onResult: noteToolResult,
         });
+        const unsubscribeToolCalls = subscribeToolCalls(runtimeEventBus, threadId, upsertToolCall);
         let response: Awaited<ReturnType<typeof runtime.execute>>;
         try {
           response = await runtime.execute({
@@ -218,6 +282,7 @@ export function useOfficeRuntime({
           // InMemoryEventBus has no auto-cleanup — always release these handlers.
           unsubscribe();
           unsubscribeActivity();
+          unsubscribeToolCalls();
         }
         // A late-resolving Stop: keep whatever already streamed into the draft
         // (do not overwrite with the authoritative response, do not persist).
@@ -230,6 +295,7 @@ export function useOfficeRuntime({
           employeeId: assigneeId ?? null,
           body: response.text,
           ...(reasoning ? { reasoning } : {}),
+          ...(toolCalls.length ? { toolCalls: [...toolCalls] } : {}),
           at: Date.now(),
         };
         // Replace the streamed draft with the authoritative final reply (or
@@ -303,6 +369,8 @@ export function useOfficeRuntime({
       persistRuntimeMessage,
       noteToolCalled,
       noteToolResult,
+      queryClient,
+      materializeThread,
     ],
   );
 

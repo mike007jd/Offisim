@@ -566,28 +566,6 @@
   min-height: 34px;
 }
 
-.off-ws-reasoning {
-  margin-bottom: var(--off-sp-2);
-  border-bottom: 1px solid var(--off-line-soft);
-  padding-bottom: var(--off-sp-2);
-  color: var(--off-ink-3);
-}
-
-.off-ws-reasoning summary {
-  cursor: pointer;
-  user-select: none;
-  font-size: var(--off-fs-xs);
-  font-weight: 680;
-  color: var(--off-ink-4);
-}
-
-.off-ws-reasoning-body {
-  margin-top: var(--off-sp-2);
-  white-space: pre-wrap;
-  font-size: var(--off-fs-sm);
-  line-height: 1.45;
-}
-
 .off-ws-thinking-dots {
   display: inline-flex;
   align-items: center;

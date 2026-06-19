@@ -438,7 +438,10 @@ async function runPrompt(payload) {
     if (fallbackReasoning && !emittedReasoning) {
       emit(messageDeltaLine({ channel: 'reasoning', delta: fallbackReasoning }));
     }
-    const finalText = clampText(session.getLastAssistantText() ?? latestText);
+    // Fall back to the streamed messageEnd text when the SDK returns an empty
+    // final string — `??` would keep the empty string (only null/undefined are
+    // nullish), surfacing a blank result line.
+    const finalText = clampText(session.getLastAssistantText() || latestText);
     emit(
       resultLine({
         ok: true,

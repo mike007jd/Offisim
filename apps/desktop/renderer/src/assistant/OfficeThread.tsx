@@ -48,6 +48,12 @@ interface OfficeThreadProps {
   employeeId: string | null;
   projectName: string;
   persistMessage?: (message: ChatMessage) => Promise<void>;
+  /**
+   * Present only for an unsaved draft conversation: invoked with the first
+   * message text to materialize the `chat_threads` row before that message is
+   * persisted (deferred conversation creation).
+   */
+  materializeThread?: (firstUserText: string) => Promise<void>;
 }
 
 function OfficeComposer({
@@ -233,6 +239,7 @@ export function OfficeThread({
   employeeId,
   projectName,
   persistMessage,
+  materializeThread,
 }: OfficeThreadProps) {
   const runtime = useOfficeRuntime({
     threadId,
@@ -241,6 +248,7 @@ export function OfficeThread({
     companyId,
     projectId,
     persistMessage,
+    materializeThread,
   });
   const syncThread = useRunStore((s) => s.syncThread);
 

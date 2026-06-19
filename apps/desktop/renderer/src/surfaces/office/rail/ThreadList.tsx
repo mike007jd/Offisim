@@ -1,5 +1,4 @@
 import { useUiState } from '@/app/ui-state.js';
-import { reposOrNull } from '@/data/adapters.js';
 import { useThreads } from '@/data/queries.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { RunStatePill } from '@/design-system/grammar/RunStatePill.js';
@@ -11,11 +10,8 @@ import {
   SkeletonRows,
   errorDetail,
 } from '@/surfaces/shared/SurfaceStates.js';
-import { generateId } from '@offisim/core/browser';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { MessagesSquare, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { toast } from 'sonner';
 import { ConversationActionsMenu } from './ConversationActionsMenu.js';
 
 export function ThreadList() {
@@ -23,32 +19,12 @@ export function ThreadList() {
   const projectId = useUiState((s) => s.projectId);
   const selectedThreadId = useUiState((s) => s.selectedThreadId);
   const openThread = useUiState((s) => s.openThread);
+  // "New conversation" opens a draft (no DB row) instead of inserting an empty
+  // thread — the row is created from the first message (ChatRail.materializeThread).
+  const openDraftThread = useUiState((s) => s.openDraftThread);
   const threads = useThreads(projectId);
-  const queryClient = useQueryClient();
   const [query, setQuery] = useState('');
   const [contextMenuThreadId, setContextMenuThreadId] = useState<string | null>(null);
-  const createThread = useMutation({
-    mutationFn: async () => {
-      if (!projectId) throw new Error('Select a project before creating a conversation.');
-      const repos = await reposOrNull();
-      if (!repos) throw new Error('Creating a conversation requires the desktop runtime.');
-      return repos.chatThreads.create({
-        thread_id: generateId('thread'),
-        project_id: projectId,
-        title: 'New thread', // DB default — displayThreadTitle() shows it as 'New conversation'
-      });
-    },
-    onSuccess: async (thread) => {
-      await queryClient.invalidateQueries({ queryKey: ['threads', projectId] });
-      openThread(thread.thread_id);
-      toast.success('Conversation created');
-    },
-    onError: (error) => {
-      toast.error('Could not create the conversation', {
-        description: error instanceof Error ? error.message : 'Unknown error',
-      });
-    },
-  });
 
   const filtered = useMemo(() => {
     const list = threads.data ?? [];
@@ -68,8 +44,8 @@ export function ThreadList() {
           label="New conversation"
           variant="subtle"
           size="icon"
-          disabled={createThread.isPending || !projectId}
-          onClick={() => createThread.mutate()}
+          disabled={!projectId}
+          onClick={() => openDraftThread()}
         />
       </div>
 

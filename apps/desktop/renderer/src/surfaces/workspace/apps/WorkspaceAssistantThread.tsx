@@ -1,16 +1,24 @@
 import { StagedAttachments } from '@/assistant/composer/StagedAttachments.js';
+import { AssistantMessageParts } from '@/assistant/parts/AssistantMessageParts.js';
 import { PermissionApprovalBar } from '@/assistant/parts/PermissionApprovalBar.js';
 import { SkillInstallConfirmBar } from '@/assistant/parts/SkillInstallConfirmBar.js';
+import {
+  assembleAssistantContent,
+  isReasoningStreaming,
+} from '@/assistant/parts/assistant-message-parts.js';
 import { useRunStore } from '@/assistant/run-store.js';
 import {
   appendText,
   materializeChatTurn,
   newDraftId,
   subscribeReplyStream,
+  subscribeToolCalls,
+  upsertChatToolCall,
 } from '@/assistant/runtime/desktop-chat-runtime.js';
 import { isTauriRuntime } from '@/data/adapters.js';
+import { autoTitleThreadFromFirstMessage } from '@/data/auto-title.js';
 import { UI_DATA_COLORS } from '@/data/color-palette.js';
-import type { Employee } from '@/data/types.js';
+import type { ChatToolCall, Employee } from '@/data/types.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { Icon } from '@/design-system/icons/Icon.js';
@@ -21,7 +29,6 @@ import {
   type AppendMessage,
   AssistantRuntimeProvider,
   ComposerPrimitive,
-  MessagePartPrimitive,
   MessagePrimitive,
   type ThreadMessageLike,
   ThreadPrimitive,
@@ -74,7 +81,7 @@ function wsMessageToAssistant(message: WsMessage): ThreadMessageLike {
   return {
     id: message.id,
     role: message.author === 'boss' ? 'user' : 'assistant',
-    content: [{ type: 'text', text: message.body }],
+    content: assembleAssistantContent(message),
     createdAt: new Date(),
     metadata: { custom: message as unknown as Record<string, unknown> },
   };
@@ -247,7 +254,7 @@ function MessageRow({
 }) {
   const employee = message.employeeId ? byId.get(message.employeeId) : null;
   const isMe = message.author === 'boss';
-  const reasoning = !isMe ? message.reasoning?.trim() : '';
+  const reasoningStreaming = isReasoningStreaming(message);
   return (
     <MessagePrimitive.Root asChild>
       <div className={cn('off-ws-msg-row', isMe && 'is-me')}>
@@ -274,24 +281,7 @@ function MessageRow({
           <span className="off-ws-msg-tm">{message.timeLabel}</span>
         </div>
         <div className={cn('off-ws-bubble', isMe && 'is-me')}>
-          {reasoning ? (
-            <details className="off-ws-reasoning" open={!message.body.trim()}>
-              <summary>Reasoning</summary>
-              <div className="off-ws-reasoning-body">{reasoning}</div>
-            </details>
-          ) : null}
-          <MessagePrimitive.Parts>
-            {({ part }) =>
-              part.type === 'text' ? (
-                <span>
-                  <MessagePartPrimitive.Text />
-                  <MessagePartPrimitive.InProgress>
-                    <span className="off-msg-cursor">|</span>
-                  </MessagePartPrimitive.InProgress>
-                </span>
-              ) : null
-            }
-          </MessagePrimitive.Parts>
+          <AssistantMessageParts reasoningStreaming={reasoningStreaming} />
         </div>
         {message.attachment ? (
           <div className="off-ws-attachment">
@@ -457,6 +447,20 @@ export function WorkspaceAssistantThread({
       setAwaitingReply(true);
       try {
         await persistMessage(userMessage);
+        // Title the conversation from its first user message so the messenger
+        // list stops showing "New conversation". Fire-and-forget and self-
+        // skipping once the thread is already titled (auto or manual rename).
+        void autoTitleThreadFromFirstMessage({
+          threadId: active.id,
+          projectId,
+          firstUserText: text,
+          queryClient,
+        }).catch((err: unknown) => {
+          console.warn('[WorkspaceAssistantThread] auto-title failed', {
+            threadId: active.id,
+            err,
+          });
+        });
         // Every workspace chat runs through Pi Agent. A chat with no active
         // company cannot assemble a project-scoped runtime, so fail honestly.
         if (!companyId) {
@@ -509,6 +513,19 @@ export function WorkspaceAssistantThread({
             );
           });
         };
+        // Accumulate tool steps into the same draft → native inline tool-call parts.
+        const toolCalls: ChatToolCall[] = [];
+        const upsertToolCall = (call: ChatToolCall) => {
+          const snapshot = upsertChatToolCall(toolCalls, call);
+          setAwaitingReply(false);
+          setDrafts((prev) => {
+            const existing = prev.find((draft) => draft.id === streamDraftId);
+            if (!existing) return [...prev, { ...makeAssistantDraft(''), toolCalls: snapshot }];
+            return prev.map((draft) =>
+              draft.id === streamDraftId ? { ...draft, toolCalls: snapshot } : draft,
+            );
+          });
+        };
         let reasoningText = '';
         const unsubscribe = subscribeReplyStream(
           runtimeEventBus,
@@ -519,6 +536,7 @@ export function WorkspaceAssistantThread({
             upsertReasoningDraft(chunk);
           },
         );
+        const unsubscribeToolCalls = subscribeToolCalls(runtimeEventBus, active.id, upsertToolCall);
         let response: Awaited<ReturnType<typeof runtime.execute>>;
         try {
           response = await runtime.execute({
@@ -528,15 +546,19 @@ export function WorkspaceAssistantThread({
             projectId,
           });
         } finally {
-          // InMemoryEventBus has no auto-cleanup — always release this handler.
+          // InMemoryEventBus has no auto-cleanup — always release these handlers.
           unsubscribe();
+          unsubscribeToolCalls();
         }
         // A late-resolving cancel: keep whatever already streamed into the draft.
         if (controller.signal.aborted) return;
         if (!reasoningText.trim() && response.reasoning) {
           reasoningText = response.reasoning;
         }
-        const assistantMessage = makeAssistantDraft(response.text, reasoningText);
+        const assistantMessage: WsMessage = {
+          ...makeAssistantDraft(response.text, reasoningText),
+          ...(toolCalls.length ? { toolCalls: [...toolCalls] } : {}),
+        };
         await persistMessage(assistantMessage);
         // Replace the streamed draft with the authoritative final reply and
         // preserve final reasoning even when it arrived via the command return.
@@ -581,6 +603,7 @@ export function WorkspaceAssistantThread({
       companyId,
       persistMessage,
       projectId,
+      queryClient,
     ],
   );
   const onCancel = useCallback(async () => {

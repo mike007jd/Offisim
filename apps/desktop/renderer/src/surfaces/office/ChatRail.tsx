@@ -1,5 +1,7 @@
 import { useUiState } from '@/app/ui-state.js';
 import { OfficeThread } from '@/assistant/OfficeThread.js';
+import { reposOrNull } from '@/data/adapters.js';
+import { deriveThreadTitle } from '@/data/auto-title.js';
 import {
   useDeliverables,
   useEmployees,
@@ -26,8 +28,10 @@ import {
   persistWorkspaceMessage,
   usePersistedWorkspaceMessages,
 } from '@/surfaces/workspace/workspace-message-events.js';
+import { useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, Inbox } from 'lucide-react';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
+import { toast } from 'sonner';
 import { ConversationActionsMenu } from './rail/ConversationActionsMenu.js';
 import { ThreadList } from './rail/ThreadList.js';
 
@@ -121,9 +125,12 @@ export function ChatRail() {
   const companyId = useUiState((s) => s.companyId);
   const projectId = useUiState((s) => s.projectId);
   const selectedThreadId = useUiState((s) => s.selectedThreadId);
+  const draftThread = useUiState((s) => s.draftThread);
+  const markDraftPersisted = useUiState((s) => s.markDraftPersisted);
   const closeThread = useUiState((s) => s.closeThread);
   const setSurface = useUiState((s) => s.setSurface);
   const setWorkspaceApp = useUiState((s) => s.setWorkspaceApp);
+  const queryClient = useQueryClient();
 
   const threads = useThreads(projectId);
   const projects = useProjects(companyId);
@@ -138,6 +145,41 @@ export function ChatRail() {
   );
 
   const activeThread = threads.data?.find((t) => t.id === selectedThreadId);
+  const isDraft = !!draftThread && draftThread.id === selectedThreadId && !activeThread;
+  const draftEmployee = draftThread?.employeeId
+    ? employeesById.get(draftThread.employeeId)
+    : undefined;
+
+  // Materialize a draft conversation on its first message: insert the
+  // `chat_threads` row (titled from that message for a team draft, or after the
+  // employee for a direct draft), drop the draft flag, and refresh the list so
+  // the now-real conversation appears — already titled, never as an empty
+  // "New conversation". Guarded against double-send via a fresh store read.
+  const materializeThread = useCallback(
+    async (firstUserText: string) => {
+      if (!projectId || !selectedThreadId) return;
+      const draft = useUiState.getState().draftThread;
+      if (!draft || draft.id !== selectedThreadId) return;
+      const repos = await reposOrNull();
+      if (!repos) return;
+      if (!(await repos.chatThreads.findById(selectedThreadId))) {
+        const title = draft.employeeId
+          ? `Chat with ${employeesById.get(draft.employeeId)?.name ?? 'teammate'}`
+          : (deriveThreadTitle(firstUserText) ?? 'New thread');
+        await repos.chatThreads.create({
+          thread_id: selectedThreadId,
+          project_id: projectId,
+          employee_id: draft.employeeId,
+          title,
+        });
+      }
+      markDraftPersisted();
+      await queryClient.invalidateQueries({ queryKey: ['threads', projectId] });
+      toast.success('Conversation created');
+    },
+    [projectId, selectedThreadId, employeesById, markDraftPersisted, queryClient],
+  );
+
   const activeWorkspaceConversation = workspaceConversations.data?.find(
     (c) => c.id === selectedThreadId && c.kind !== 'system',
   );
@@ -174,8 +216,22 @@ export function ChatRail() {
         : undefined,
     [activeThread, activeWorkspaceConversation, companyId, projectId, selectedThreadId],
   );
+  const draftDisplayThread: ChatThread | null =
+    isDraft && selectedThreadId
+      ? {
+          id: selectedThreadId,
+          projectId: projectId ?? '',
+          title: draftEmployee ? `Chat with ${draftEmployee.name}` : 'New conversation',
+          subtitle: draftEmployee ? (draftEmployee.role ?? 'Direct message') : 'Team conversation',
+          scope: draftEmployee ? 'direct' : 'team',
+          runState: 'idle' as const,
+          employeeId: draftThread?.employeeId ?? null,
+          updatedAt: Date.now(),
+        }
+      : null;
   const displayThread: ChatThread | null =
     activeThread ??
+    draftDisplayThread ??
     (activeWorkspaceConversation && selectedThreadId
       ? {
           id: selectedThreadId,
@@ -294,6 +350,7 @@ export function ChatRail() {
           employeeId={displayThread?.employeeId ?? null}
           projectName={projectName}
           persistMessage={persistWorkspaceChatMessage}
+          materializeThread={isDraft ? materializeThread : undefined}
         />
       )}
     </section>

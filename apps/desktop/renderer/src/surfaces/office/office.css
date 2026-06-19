@@ -1073,16 +1073,29 @@
   color: var(--off-ink-1);
 }
 
-.off-msg-reasoning {
+/* Reasoning panel (assistant-ui native reasoning UX): a left-railed disclosure
+   that, while the model is thinking, auto-expands into a bounded bottom-pinned
+   peek so the reasoning is visibly streamed without a wall of text, then
+   auto-collapses to a one-line "Thought for Xs" summary when the answer starts. */
+.off-reasoning {
   margin-bottom: var(--off-sp-3);
   border-left: 2px solid var(--off-line-strong);
   padding-left: var(--off-sp-3);
-  color: var(--off-ink-3);
 }
 
-.off-msg-reasoning summary {
-  cursor: pointer;
+.off-reasoning.is-streaming {
+  border-left-color: var(--off-accent);
+}
+
+.off-reasoning-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--off-sp-1);
   width: fit-content;
+  cursor: pointer;
+  background: none;
+  border: 0;
+  padding: 0;
   font-size: var(--off-fs-micro);
   font-weight: 700;
   text-transform: uppercase;
@@ -1090,11 +1103,113 @@
   color: var(--off-ink-3);
 }
 
-.off-msg-reasoning-body {
+.off-reasoning.is-streaming .off-reasoning-trigger {
+  color: var(--off-accent);
+}
+
+.off-reasoning.is-streaming .off-reasoning-label {
+  animation: off-reasoning-think 1.4s ease-in-out infinite;
+}
+
+.off-reasoning-caret {
+  flex: none;
+  transition: transform 0.15s ease;
+}
+
+.off-reasoning.is-open .off-reasoning-caret {
+  transform: rotate(90deg);
+}
+
+.off-reasoning-scroll {
   margin-top: var(--off-sp-2);
+  max-height: 8.5rem;
+  overflow-y: auto;
   font-size: var(--off-fs-sm);
   line-height: 1.55;
   color: var(--off-ink-3);
+}
+
+/* Live peek: hide the scrollbar and fade the top edge so the streaming tail
+   reads as the "current" thought rather than a clipped block. */
+.off-reasoning.is-streaming .off-reasoning-scroll {
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 1.75rem);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 1.75rem);
+}
+
+.off-reasoning.is-streaming .off-reasoning-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes off-reasoning-think {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .off-reasoning.is-streaming .off-reasoning-label {
+    animation: none;
+  }
+}
+
+/* Inline tool steps: a working agent's tool calls rendered as compact chips in
+   the reply (native assistant-ui tool-call parts), not just the composer strip. */
+.off-msg-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+  margin: var(--off-sp-1) 0;
+  padding: 2px var(--off-sp-2);
+  width: fit-content;
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-sm);
+  font-size: var(--off-fs-xs);
+  color: var(--off-ink-3);
+}
+
+.off-msg-tool-icon {
+  color: var(--off-ink-4);
+}
+
+.off-msg-tool-name {
+  font-weight: 600;
+}
+
+.off-msg-tool-status,
+.off-msg-tool-dur {
+  color: var(--off-ink-4);
+}
+
+.off-msg-tool-ok {
+  color: var(--off-ok);
+}
+
+.off-msg-tool-fail {
+  color: var(--off-danger);
+}
+
+.off-msg-tool.is-running {
+  border-color: var(--off-accent-line-soft);
+}
+
+.off-msg-tool.is-running .off-msg-tool-status {
+  color: var(--off-accent);
+  animation: off-reasoning-think 1.4s ease-in-out infinite;
+}
+
+.off-msg-tool.is-failed {
+  border-color: var(--off-danger-line);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .off-msg-tool.is-running .off-msg-tool-status {
+    animation: none;
+  }
 }
 
 /* Codex-style conversation: the user's own message is a right-aligned bubble;

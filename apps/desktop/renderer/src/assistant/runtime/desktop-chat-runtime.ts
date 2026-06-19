@@ -1,4 +1,4 @@
-import type { ChatAttachment, RunError, StagedAttachment } from '@/data/types.js';
+import type { ChatAttachment, ChatToolCall, RunError, StagedAttachment } from '@/data/types.js';
 import type { AppendMessage } from '@assistant-ui/react';
 import type { EventBus } from '@offisim/core/browser';
 import { sha256Hex } from '@offisim/install-core';
@@ -11,6 +11,18 @@ import {
 } from '@offisim/shared-types';
 
 const INLINE_ATTACHMENT_MAX_CHARS = 48_000;
+
+/**
+ * Upsert a streamed tool-call into a per-run accumulator (replace-by-id, never
+ * mutate an entry in place) and return a fresh snapshot array. Shared by both
+ * chat runtimes so a working agent's inline tool steps accumulate identically.
+ */
+export function upsertChatToolCall(list: ChatToolCall[], call: ChatToolCall): ChatToolCall[] {
+  const index = list.findIndex((entry) => entry.id === call.id);
+  if (index === -1) list.push(call);
+  else list[index] = { ...list[index], ...call };
+  return [...list];
+}
 
 export function appendText(message: AppendMessage): string {
   return message.content
@@ -279,4 +291,40 @@ export function subscribeRunActivity(
     offTelemetry();
     offResult();
   };
+}
+
+/**
+ * Subscribe to the per-tool-call lifecycle for one thread and project each
+ * transition as a `ChatToolCall` so the surface can accumulate tool steps into
+ * the streaming assistant draft and render them as native assistant-ui
+ * `tool-call` content parts. Keyed on `toolCallId` so the caller can upsert
+ * started → completed/failed. Returns an unsubscribe the caller MUST release.
+ */
+export function subscribeToolCalls(
+  eventBus: EventBus,
+  threadId: string,
+  onToolCall: (call: {
+    id: string;
+    name: string;
+    status: 'running' | 'completed' | 'failed';
+    durationMs?: number;
+  }) => void,
+): () => void {
+  return eventBus.on('tool.execution.telemetry', (event) => {
+    const payload = event.payload as ToolExecutionTelemetryPayload | undefined;
+    if (!payload?.toolName || !payload.toolCallId) return;
+    if (payload.threadId !== threadId && event.threadId !== threadId) return;
+    const status =
+      payload.status === 'started'
+        ? 'running'
+        : payload.status === 'completed'
+          ? 'completed'
+          : 'failed';
+    onToolCall({
+      id: payload.toolCallId,
+      name: payload.toolName,
+      status,
+      durationMs: payload.durationMs,
+    });
+  });
 }

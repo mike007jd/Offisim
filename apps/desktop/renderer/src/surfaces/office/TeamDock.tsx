@@ -1,5 +1,4 @@
 import { useUiState } from '@/app/ui-state.js';
-import { reposOrNull } from '@/data/adapters.js';
 import {
   type ProjectChatThreadRow,
   loadProjectChatThreadRows,
@@ -29,7 +28,6 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/design-system/primitives/popover.js';
 import { cn } from '@/lib/utils.js';
 import { useEmployeeMemories } from '@/surfaces/personnel/personnel-data.js';
-import { generateId } from '@offisim/core/browser';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ChevronDown,
@@ -268,6 +266,7 @@ export function TeamDock() {
   const projectId = useUiState((s) => s.projectId);
   const selectedThreadId = useUiState((s) => s.selectedThreadId);
   const openThread = useUiState((s) => s.openThread);
+  const openDraftThread = useUiState((s) => s.openDraftThread);
   const setSurface = useUiState((s) => s.setSurface);
   const selectEmployee = useUiState((s) => s.selectEmployee);
   const queryClient = useQueryClient();
@@ -277,37 +276,32 @@ export function TeamDock() {
   const assignZone = useReassignEmployee();
   const updateEnabled = useUpdateEmployeeEnabled();
   const directThread = useMutation({
-    mutationFn: async (employee: Employee) => {
+    mutationFn: async (
+      employee: Employee,
+    ): Promise<{ kind: 'existing'; threadId: string } | { kind: 'draft'; employeeId: string }> => {
       if (!projectId) throw new Error('Select a project before messaging an employee.');
       const existingThread = threads.data?.find((thread) => thread.employeeId === employee.id);
-      if (existingThread) return existingThread.id;
+      if (existingThread) return { kind: 'existing', threadId: existingThread.id };
       const cachedRows = queryClient.getQueryData<ProjectChatThreadRow[]>(
         projectChatThreadRowsQueryKey(projectId),
       );
       const cachedExisting = cachedRows?.find((thread) => thread.employee_id === employee.id);
-      if (cachedExisting) return cachedExisting.thread_id;
+      if (cachedExisting) return { kind: 'existing', threadId: cachedExisting.thread_id };
       const currentRows = await queryClient.fetchQuery({
         queryKey: projectChatThreadRowsQueryKey(projectId),
         queryFn: () => loadProjectChatThreadRows(projectId),
         staleTime: 5_000,
       });
       const existing = currentRows.find((thread) => thread.employee_id === employee.id);
-      if (existing) return existing.thread_id;
+      if (existing) return { kind: 'existing', threadId: existing.thread_id };
 
-      const repos = await reposOrNull();
-      if (!repos) throw new Error('Employee messaging requires the desktop runtime.');
-      const row = await repos.chatThreads.create({
-        thread_id: generateId('thread'),
-        project_id: projectId,
-        employee_id: employee.id,
-        title: `Chat with ${employee.name}`,
-      });
-      await queryClient.invalidateQueries({ queryKey: ['threads', projectId] });
-      return row.thread_id;
+      // No thread for this employee yet — open a draft instead of inserting an
+      // empty row. The "Chat with …" row is materialized from the first message.
+      return { kind: 'draft', employeeId: employee.id };
     },
-    onSuccess: (threadId) => {
-      openThread(threadId);
-      toast.success('Conversation opened');
+    onSuccess: (result) => {
+      if (result.kind === 'existing') openThread(result.threadId);
+      else openDraftThread(result.employeeId);
     },
     onError: (error) => {
       toast.error('Could not open the conversation', {

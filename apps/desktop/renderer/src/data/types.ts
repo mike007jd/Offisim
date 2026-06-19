@@ -142,6 +142,17 @@ export interface RunRecord {
   plan?: RunPlanStep[];
 }
 
+/** A single tool invocation surfaced inline in the assistant message stream
+ *  (rendered as a native assistant-ui `tool-call` content part). The Pi host
+ *  does not forward tool args/output to the renderer bus yet, so only the tool
+ *  identity, lifecycle status, and duration are carried. */
+export interface ChatToolCall {
+  id: string;
+  name: string;
+  status: 'running' | 'completed' | 'failed';
+  durationMs?: number;
+}
+
 export interface ChatMessage {
   id: string;
   threadId: string;
@@ -149,6 +160,8 @@ export interface ChatMessage {
   employeeId: string | null;
   body: string;
   reasoning?: string;
+  /** Live + in-session tool steps; not persisted (lost on reload by design). */
+  toolCalls?: ChatToolCall[];
   at: number;
   attachments?: ChatAttachment[];
   runRecord?: RunRecord;

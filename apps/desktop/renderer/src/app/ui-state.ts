@@ -1,3 +1,4 @@
+import { generateId } from '@offisim/core/browser';
 import { create } from 'zustand';
 
 export type WorkspaceKey = 'office' | 'workspace' | 'market' | 'personnel';
@@ -28,6 +29,15 @@ interface UiState {
   /** Office surface */
   railMode: RailMode;
   selectedThreadId: string | null;
+  /**
+   * A composed-but-not-yet-persisted conversation. Clicking "New conversation"
+   * (or messaging an employee with no existing thread) opens a draft instead of
+   * inserting an empty `chat_threads` row — the row is materialized only when
+   * the first message is sent (see ChatRail's `materializeThread`). The draft's
+   * id is also the `selectedThreadId` while it is the active conversation, so it
+   * never appears in the sidebar list (which reads persisted rows) until then.
+   */
+  draftThread: { id: string; employeeId: string | null } | null;
   sceneRenderMode: SceneRenderMode;
   sceneDropDiagnostics: SceneDropDiagnostic[];
   resumeDismissed: boolean;
@@ -70,6 +80,14 @@ interface UiState {
   setProject: (projectId: string) => void;
 
   openThread: (threadId: string) => void;
+  /**
+   * Open a fresh draft conversation (no DB row yet). Returns the generated
+   * thread id so callers can address the not-yet-persisted thread. Pass an
+   * `employeeId` for a direct (1:1) draft; omit for a team draft.
+   */
+  openDraftThread: (employeeId?: string | null) => string;
+  /** Clear the draft flag once its first message has materialized the row. */
+  markDraftPersisted: () => void;
   closeThread: () => void;
   setSceneRenderMode: (mode: SceneRenderMode) => void;
   recordSceneDropDiagnostic: (event: SceneDropDiagnostic) => void;
@@ -99,6 +117,7 @@ export const useUiState = create<UiState>((set) => ({
   // real conversations instead of a permanent loading skeleton.
   railMode: 'list',
   selectedThreadId: null,
+  draftThread: null,
   sceneRenderMode: '3d',
   sceneDropDiagnostics: [],
   resumeDismissed: false,
@@ -119,11 +138,23 @@ export const useUiState = create<UiState>((set) => ({
   setSurface: (surface) => set({ surface }),
   openLifecycle: (intent) => set({ surface: 'lifecycle', lifecycleIntent: intent }),
   setScope: (companyId, projectId) =>
-    set({ companyId, projectId, selectedThreadId: null, railMode: 'list' }),
-  setProject: (projectId) => set({ projectId, selectedThreadId: null, railMode: 'list' }),
+    set({ companyId, projectId, selectedThreadId: null, draftThread: null, railMode: 'list' }),
+  setProject: (projectId) =>
+    set({ projectId, selectedThreadId: null, draftThread: null, railMode: 'list' }),
 
-  openThread: (threadId) => set({ selectedThreadId: threadId, railMode: 'thread' }),
-  closeThread: () => set({ selectedThreadId: null, railMode: 'list' }),
+  openThread: (threadId) =>
+    set({ selectedThreadId: threadId, draftThread: null, railMode: 'thread' }),
+  openDraftThread: (employeeId = null) => {
+    const id = generateId('thread');
+    set({
+      selectedThreadId: id,
+      draftThread: { id, employeeId: employeeId ?? null },
+      railMode: 'thread',
+    });
+    return id;
+  },
+  markDraftPersisted: () => set({ draftThread: null }),
+  closeThread: () => set({ selectedThreadId: null, draftThread: null, railMode: 'list' }),
   setSceneRenderMode: (sceneRenderMode) => set({ sceneRenderMode }),
   recordSceneDropDiagnostic: (event) =>
     set((s) => ({ sceneDropDiagnostics: [event, ...s.sceneDropDiagnostics].slice(0, 10) })),

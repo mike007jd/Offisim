@@ -1,7 +1,7 @@
 import { useUiState } from '@/app/ui-state.js';
 import { displayThreadTitle, isTauriRuntime, reposOrNull } from '@/data/adapters.js';
 import { loadProjectChatThreadRows, projectChatThreadRowsQueryKey } from '@/data/queries.js';
-import type { Employee } from '@/data/types.js';
+import type { ChatToolCall, Employee } from '@/data/types.js';
 import { resolveAsync } from '@/lib/platform.js';
 import { getTauriDb } from '@/lib/tauri-db.js';
 import type { MeetingSessionRow } from '@offisim/core/browser';
@@ -80,6 +80,8 @@ export interface WsMessage {
   at?: number;
   body: string;
   reasoning?: string;
+  /** Live + in-session tool steps; not persisted (lost on reload by design). */
+  toolCalls?: ChatToolCall[];
   attachment?: WsAttachment;
   deliverable?: WsDeliverableCard;
 }
