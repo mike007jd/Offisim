@@ -5,6 +5,7 @@ import type { RuntimeEvent } from '@offisim/shared-types';
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { readPiModelOverride } from './pi-agent-config.js';
 import { resolveThreadMode } from './pi-thread-mode-store.js';
+import { resolveThreadThinkingOverride } from './pi-thread-thinking-store.js';
 import { getRepos, runtimeEventBus } from './repos.js';
 
 export interface DesktopAgentRunInput {
@@ -19,11 +20,19 @@ export interface DesktopAgentRunInput {
    */
   model?: string;
   /**
-   * Per-conversation permission mode (`plan` / `auto` / `full`). When omitted the
-   * runtime resolves the thread's stored mode (default `auto`). The host enforces
-   * it as Pi tool gating; this only forwards the string.
+   * Per-conversation permission mode (`plan` / `ask` / `auto` / `full`). When
+   * omitted the runtime resolves the thread's stored mode (default `auto`). The
+   * host enforces it as Pi tool gating; this only forwards the string.
    */
   permissionMode?: string;
+  /**
+   * Per-conversation thinking level / reasoning effort (`off` / `minimal` /
+   * `low` / `medium` / `high` / `xhigh`). When omitted the runtime forwards the
+   * thread's explicit override if one was set, else nothing — so Pi applies its
+   * own default/session level. A generic agent capability — the host clamps it to
+   * the model's reasoning capabilities; this only forwards the string.
+   */
+  thinkingLevel?: string;
 }
 
 export interface DesktopAgentRunResult {
@@ -126,7 +135,7 @@ export interface DesktopAgentRuntime {
   execute(input: DesktopAgentRunInput): Promise<DesktopAgentRunResult>;
   abort(threadId: string): void;
   /** Deliver the user's answer to a mid-run `agent.ui.request` back to the host. */
-  answerUiRequest(answer: AgentUiAnswer): void;
+  answerUiRequest(answer: AgentUiAnswer): Promise<void>;
   resume(threadId: string, projectId?: string | null): Promise<{ finalText: string } | null>;
   dispose(): Promise<void>;
 }
@@ -296,6 +305,11 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           employeeId: input.employeeId,
           model: input.model?.trim() || readPiModelOverride() || undefined,
           permissionMode: input.permissionMode?.trim() || resolveThreadMode(input.threadId),
+          // Like `model`: forward only an explicit override, else `undefined` so
+          // the host omits it and Pi resolves its own default/session level
+          // rather than Offisim pinning every run to `medium`.
+          thinkingLevel:
+            input.thinkingLevel?.trim() || resolveThreadThinkingOverride(input.threadId),
         },
         onEvent,
       })) as PiAgentHostResponse;
@@ -330,15 +344,13 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     });
   }
 
-  answerUiRequest(answer: AgentUiAnswer): void {
-    void invoke('pi_agent_ui_response', {
+  async answerUiRequest(answer: AgentUiAnswer): Promise<void> {
+    await invoke('pi_agent_ui_response', {
       requestId: answer.requestId,
       id: answer.id,
       confirmed: answer.confirmed,
       value: answer.value,
       cancelled: answer.cancelled,
-    }).catch((err: unknown) => {
-      console.warn('[desktop-agent-runtime] Pi UI answer failed', { err });
     });
   }
 

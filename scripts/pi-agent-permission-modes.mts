@@ -10,6 +10,9 @@
  *   `write`, so the agent can read and search to propose a plan but cannot run
  *   commands or mutate anything. Enforced purely by the tool allowlist — no
  *   runtime gate needed because the dangerous tools are never exposed.
+ * - `ask` — supervised execution. The full tool set is enabled; catastrophic
+ *   commands are hard-blocked, and recoverable destructive commands pause on
+ *   Pi's extension UI until the renderer sends an approval response.
  * - `auto` — autonomous, with a catastrophe guard. The full tool set is enabled;
  *   a bash gate blocks only the irreversible/dangerous variants (catastrophic
  *   system damage, recursive deletes against unsafe targets, git force-push) and
@@ -24,7 +27,7 @@
  *
  * This module is deliberately free of any Pi SDK import so it stays runnable
  * under plain `tsx` (the gate test) — the SDK-coupled `tool_call` handler that
- * turns the Auto decision into a real Pi extension lives in the host entry.
+ * turns the Auto/Ask decisions into a real Pi extension lives in the host entry.
  */
 import { classifyShellCommand } from '../packages/core/src/tools/builtin/shell-command-classifier.ts';
 
@@ -50,7 +53,7 @@ export function normalizePermissionMode(value: unknown): PermissionMode {
 
 /**
  * The explicit tool allowlist for a mode, or `undefined` to keep Pi's default
- * tool set. Only Plan restricts; Auto/Full run the full built-in tools.
+ * tool set. Only Plan restricts; Ask/Auto/Full run the full built-in tools.
  */
 export function toolAllowlistForMode(mode: PermissionMode): string[] | undefined {
   return mode === 'plan' ? [...PLAN_TOOL_ALLOWLIST] : undefined;

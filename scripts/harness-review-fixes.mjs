@@ -106,6 +106,47 @@ assertNoMatch(
   /PiOrchestrationService|createGateway|ModelResolver|provider-bridge|tauri-llm-fetch|llm_fetch|claude_agent_|codex_agent_/u,
   'DesktopAgentRuntime must not rebuild the old provider/model/sidecar path.',
 );
+assertIncludesAll(
+  desktopRuntime,
+  ['answerUiRequest(answer: AgentUiAnswer): Promise<void>', "await invoke('pi_agent_ui_response'"],
+  'Agent UI answers must be awaited and failures surfaced to the approval bar.',
+);
+const answerUiRequestStart = desktopRuntime.indexOf('async answerUiRequest');
+const answerUiRequestEnd = desktopRuntime.indexOf('\n  async resume', answerUiRequestStart);
+assert(
+  answerUiRequestStart >= 0 && answerUiRequestEnd > answerUiRequestStart,
+  'DesktopAgentRuntime must expose a class-level async answerUiRequest method.',
+);
+const answerUiRequestMethod = desktopRuntime.slice(answerUiRequestStart, answerUiRequestEnd);
+assertNoMatch(
+  answerUiRequestMethod,
+  /void invoke\('pi_agent_ui_response'/u,
+  'answerUiRequest must not fire-and-forget Pi UI responses.',
+);
+assertNoMatch(
+  answerUiRequestMethod,
+  /\.catch\(/u,
+  'answerUiRequest must not swallow Pi UI response failures.',
+);
+
+const permissionBar = await source(
+  'apps/desktop/renderer/src/assistant/parts/PermissionApprovalBar.tsx',
+);
+assertIncludesAll(
+  permissionBar,
+  [
+    'await runtime.answerUiRequest',
+    'clearPendingUiRequest();',
+    'setDecisionError',
+    'Could not deliver approval. Retry or stop the run.',
+  ],
+  'Approval bar must keep failed UI responses visible and retryable.',
+);
+assertNoMatch(
+  permissionBar,
+  /finally\s*\{[\s\S]{0,120}clearPendingUiRequest\(\)/u,
+  'Approval bar must not clear the prompt from a finally block after failed delivery.',
+);
 
 const chatRuntime = await source(
   'apps/desktop/renderer/src/assistant/runtime/desktop-chat-runtime.ts',

@@ -37,7 +37,8 @@ static IN_FLIGHT: InFlightRegistry = InFlightRegistry::new("pi_agent_host");
 static PI_STDIN: Lazy<Mutex<HashMap<String, Arc<AsyncMutex<ChildStdin>>>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
-fn pi_stdin_guard() -> std::sync::MutexGuard<'static, HashMap<String, Arc<AsyncMutex<ChildStdin>>>> {
+fn pi_stdin_guard() -> std::sync::MutexGuard<'static, HashMap<String, Arc<AsyncMutex<ChildStdin>>>>
+{
     PI_STDIN
         .lock()
         .unwrap_or_else(|_| panic!("pi_agent_host PI_STDIN poisoned"))
@@ -77,10 +78,17 @@ pub struct PiAgentExecuteRequest {
     employee_id: Option<String>,
     #[serde(default)]
     model: Option<String>,
-    /// Per-conversation permission mode (`plan` / `auto` / `full`). Forwarded to
-    /// the Node host, which turns it into Pi tool gating. Absent → host default.
+    /// Per-conversation permission mode (`plan` / `ask` / `auto` / `full`).
+    /// Forwarded to the Node host, which turns it into Pi tool gating. Absent →
+    /// host default.
     #[serde(default)]
     permission_mode: Option<String>,
+    /// Per-conversation thinking level / reasoning effort (`off` / `minimal` /
+    /// `low` / `medium` / `high` / `xhigh`). An opaque forwarded string — the
+    /// Node host validates it and clamps it to the model's reasoning
+    /// capabilities. Absent → host default.
+    #[serde(default)]
+    thinking_level: Option<String>,
     #[serde(default)]
     resume: bool,
 }
@@ -373,15 +381,20 @@ fn sidecar_payload<R: tauri::Runtime>(
         "agentDir": app_pi_agent_dir(app).map(|path| path.to_string_lossy().to_string()),
         "model": req.model,
         "permissionMode": req.permission_mode,
+        "thinkingLevel": req.thinking_level,
         "resume": req.resume,
     })
 }
 
 /// Write the execute/status payload as the FIRST newline-delimited line on the
 /// child's stdin. The host reads this first line as its request; in Ask mode any
-/// later lines are permission decisions. stdin is left OPEN — the caller decides
-/// whether to keep it (execute, for decisions) or close it (status, single-shot).
-async fn write_payload(stdin: &mut ChildStdin, payload: &serde_json::Value) -> Result<(), HostError> {
+/// later lines are uiResponse records. stdin is left OPEN — the caller decides
+/// whether to keep it (execute, for extension UI responses) or close it (status,
+/// single-shot).
+async fn write_payload(
+    stdin: &mut ChildStdin,
+    payload: &serde_json::Value,
+) -> Result<(), HostError> {
     let mut payload_json = serde_json::to_vec(payload)
         .map_err(|err| HostError::Request(format!("Serialize Pi Agent payload: {err}")))?;
     payload_json.push(b'\n');
@@ -631,8 +644,9 @@ async fn run_pi_sidecar_jsonl(
         .ok_or_else(|| HostError::Spawn("Pi Agent host is missing stderr".into()))?;
 
     write_payload(&mut stdin, &payload).await?;
-    // Execute runs keep stdin open as a decision channel (Ask mode) and register
-    // the writer; status runs are single-shot, so close stdin immediately.
+    // Execute runs keep stdin open as an extension UI response channel (Ask mode)
+    // and register the writer; status runs are single-shot, so close stdin
+    // immediately.
     let _stdin_guard = match register_stdin {
         Some(request_id) => {
             pi_stdin_guard().insert(request_id.to_string(), Arc::new(AsyncMutex::new(stdin)));

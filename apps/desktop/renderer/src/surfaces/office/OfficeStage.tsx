@@ -3,26 +3,10 @@ import { RunPipelinePill } from '@/assistant/parts/RunPipelinePill.js';
 import { useRunStore } from '@/assistant/run-store.js';
 import { useOfficeLayout, useRunCost } from '@/data/queries.js';
 import { Icon } from '@/design-system/icons/Icon.js';
-import { Button } from '@/design-system/primitives/button.js';
-import { Popover, PopoverContent, PopoverTrigger } from '@/design-system/primitives/popover.js';
 import { cn } from '@/lib/utils.js';
-import {
-  domainIcon,
-  formatRelativeTimestamp,
-  getDisplaySummary,
-  useActivityRecords,
-} from '@/surfaces/activity/activity-data.js';
 import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
-import {
-  Activity,
-  ArrowRight,
-  Box,
-  Coins,
-  LayoutPanelTop,
-  LayoutTemplate,
-  PanelLeft,
-} from 'lucide-react';
-import { Suspense, useMemo } from 'react';
+import { Box, Coins, LayoutPanelTop, LayoutTemplate } from 'lucide-react';
+import { Suspense } from 'react';
 import { OfficeScene2D } from './scene/OfficeScene2D.js';
 import { OfficeScene3D } from './scene/OfficeScene3D.js';
 import { zoneDefsFromLayout } from './scene/scene-layout.js';
@@ -32,38 +16,15 @@ export function OfficeStage() {
   const setSceneRenderMode = useUiState((s) => s.setSceneRenderMode);
   const setSurface = useUiState((s) => s.setSurface);
   const companyId = useUiState((s) => s.companyId);
-  const activityLastSeenAt = useUiState((s) => s.activityLastSeenAt);
-  const markActivityRead = useUiState((s) => s.markActivityRead);
-  const wsPanelOverlayOpen = useUiState((s) => s.wsPanelOverlayOpen);
-  const toggleWsPanelOverlay = useUiState((s) => s.toggleWsPanelOverlay);
 
   const runCost = useRunCost();
   const isRunning = useRunStore((s) => s.isRunning);
-  const activityRecords = useActivityRecords(companyId);
   // Zero zones is only reachable with a real backend layout (the no-backend
   // preview path falls back to non-empty FALLBACK_ZONES). The stage owns the
   // empty-office overlay so both render modes share one copy — and Studio,
   // which mounts OfficeScene3D directly, never sees it.
   const layout = useOfficeLayout(companyId);
   const emptyOffice = zoneDefsFromLayout(layout.data).length === 0;
-
-  // Unread = activity rows with `at` strictly newer than the last-seen stamp.
-  // The scene readout owns this state so Office avoids generic header chrome.
-  const { unreadCount, newestAt } = useMemo(() => {
-    const rows = activityRecords.data ?? [];
-    let unread = 0;
-    let newest = 0;
-    for (const row of rows) {
-      if (row.at > activityLastSeenAt) unread += 1;
-      if (row.at > newest) newest = row.at;
-    }
-    return { unreadCount: unread, newestAt: newest };
-  }, [activityRecords.data, activityLastSeenAt]);
-  // The chip opens an in-place popover (surface jump is the explicit action
-  // inside it), so the label describes the peek, not navigation.
-  const activityLabel =
-    unreadCount > 0 ? `Recent activity (${unreadCount} unread)` : 'Recent activity';
-  const recentRecords = (activityRecords.data ?? []).slice(0, 5);
 
   return (
     <section className={cn('off-stage', isRunning && 'is-live')}>
@@ -109,21 +70,6 @@ export function OfficeStage() {
           <Icon icon={LayoutPanelTop} size="sm" />
           2D
         </button>
-        {/* CSS-gated to ≤1200px, where the workspace grid column is dropped:
-            reopens Files/Git as an overlay drawer. */}
-        <button
-          type="button"
-          className={cn(
-            'off-stage-mode-btn off-ws-reopen off-focusable',
-            wsPanelOverlayOpen && 'is-on',
-          )}
-          aria-label="Toggle workspace panel"
-          title="Workspace panel"
-          aria-pressed={wsPanelOverlayOpen}
-          onClick={toggleWsPanelOverlay}
-        >
-          <Icon icon={PanelLeft} size="sm" />
-        </button>
       </div>
 
       {/* Single diegetic cost/token readout on the scene border. */}
@@ -142,58 +88,6 @@ export function OfficeStage() {
             </>
           ) : null}
         </span>
-        <Popover
-          onOpenChange={(open) => {
-            // Opening the peek is the "seen" moment. newestAt === 0 means no
-            // activity rows have arrived yet; skip the mark so a first
-            // incoming row can still surface as unread.
-            if (open && newestAt > 0) markActivityRead(newestAt);
-          }}
-        >
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              className={cn('off-sc-notif off-focusable', unreadCount > 0 && 'has-unread')}
-              aria-label={activityLabel}
-              title={activityLabel}
-            >
-              <Icon icon={Activity} size="sm" />
-              {unreadCount > 0 ? <span className="off-sc-notif-dot" aria-hidden /> : null}
-            </button>
-          </PopoverTrigger>
-          <PopoverContent align="end" className="off-sc-notif-pop">
-            {recentRecords.length > 0 ? (
-              recentRecords.map((record) => {
-                const summary = getDisplaySummary(record);
-                return (
-                  <div key={record.id} className="off-sc-pop-row">
-                    <Icon
-                      icon={domainIcon(record.type).icon}
-                      size="sm"
-                      className="off-sc-pop-icon"
-                    />
-                    <span className="off-sc-pop-label" title={summary.label}>
-                      {summary.actor ? <b>{summary.actor} · </b> : null}
-                      {summary.label}
-                    </span>
-                    <span className="off-sc-pop-time">{formatRelativeTimestamp(record.at)}</span>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="off-sc-pop-empty">No activity yet</div>
-            )}
-            <Button
-              variant="subtle"
-              size="sm"
-              className="off-sc-pop-open"
-              onClick={() => setSurface('activity')}
-            >
-              Open Activity Log
-              <Icon icon={ArrowRight} size="sm" />
-            </Button>
-          </PopoverContent>
-        </Popover>
       </div>
     </section>
   );

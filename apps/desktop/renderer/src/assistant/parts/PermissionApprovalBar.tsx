@@ -25,22 +25,25 @@ export function PermissionApprovalBar() {
   const pending = useRunStore((s) => s.pendingUiRequest);
   const clearPendingUiRequest = useRunStore((s) => s.clearPendingUiRequest);
   const [deciding, setDeciding] = useState(false);
+  const [decisionError, setDecisionError] = useState<string | null>(null);
 
   if (!pending) return null;
 
   const decide = async (confirmed: boolean) => {
     setDeciding(true);
+    setDecisionError(null);
     try {
       // In the browser preview there is no company-bound runtime/host to answer;
-      // just dismiss the prompt. The runtime swallows transport errors itself.
+      // just dismiss the prompt. Real desktop runs must deliver the answer first.
       if (companyId) {
         const runtime = await getDesktopAgentRuntime(companyId);
-        runtime.answerUiRequest({ requestId: pending.requestId, id: pending.id, confirmed });
+        await runtime.answerUiRequest({ requestId: pending.requestId, id: pending.id, confirmed });
       }
+      clearPendingUiRequest();
     } catch (err) {
       console.warn('[PermissionApprovalBar] UI answer failed', err);
+      setDecisionError('Could not deliver approval. Retry or stop the run.');
     } finally {
-      clearPendingUiRequest();
       setDeciding(false);
     }
   };
@@ -53,6 +56,7 @@ export function PermissionApprovalBar() {
         <code className="off-permission-tool">{pending.title}</code>
       </div>
       {pending.message ? <p className="off-permission-reason">{pending.message}</p> : null}
+      {decisionError ? <p className="off-permission-error">{decisionError}</p> : null}
       <div className="off-permission-actions">
         <Button
           variant="destructive"

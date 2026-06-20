@@ -1,5 +1,5 @@
 /**
- * Gate test for the Pi agent permission modes (plan / auto / full).
+ * Gate test for the Pi agent permission modes (plan / ask / auto / full).
  *
  * Runs the pure decision logic from `pi-agent-permission-modes.mts` over a
  * matrix of commands so a regression in the host gate is caught without a

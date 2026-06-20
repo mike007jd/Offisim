@@ -307,12 +307,15 @@
 .off-pers-insp-tabs {
   flex: none;
   height: 36px;
-  width: fit-content;
-  max-width: calc(100% - var(--off-sp-5) - var(--off-sp-5));
+  /* Span the same centered column as the form body below
+     (.off-pers-tab-scroll) so the tab row and the fields read as one balanced
+     stack instead of a left-pinned pill. */
+  width: 100%;
+  max-width: calc(var(--off-form-col-max) + 2 * var(--off-sp-7));
   display: flex;
   align-items: center;
   gap: 2px;
-  margin: var(--off-sp-4) var(--off-sp-5) 0;
+  margin: var(--off-sp-4) auto 0;
   /* Extra inner gutter so a focused tab's outline isn't clipped by the
      horizontal scroll container (overflow-x:auto forces overflow-y:auto). */
   padding: var(--off-sp-1);
@@ -324,9 +327,12 @@
 }
 
 .off-pers-tab {
-  flex: none;
+  /* Even share of the row so the six tabs read as a balanced segmented control
+     spanning the form column, not a tight left cluster. */
+  flex: 1 1 0;
+  min-width: 0;
   height: 28px;
-  padding: 0 var(--off-sp-5);
+  padding: 0 var(--off-sp-4);
   border: 0;
   border-radius: var(--off-r-sm);
   background: transparent;
@@ -335,6 +341,7 @@
   font-weight: 580;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: var(--off-sp-2);
   transition: background var(--off-motion-fast) var(--off-motion-ease), color var(--off-motion-fast)
     var(--off-motion-ease);

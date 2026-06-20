@@ -27,6 +27,20 @@ import {
   toolAllowlistForMode,
 } from './pi-agent-permission-modes.mts';
 
+/**
+ * Pi thinking levels (reasoning effort), least → most. The renderer already
+ * constrains its picker to this closed set; the host re-validates request input
+ * before it reaches the SDK so an unknown string degrades to `undefined` (Pi
+ * falls back to its own default) rather than being silently clamped to `off`. A
+ * valid-but-unsupported level is left for Pi to clamp to the model's nearest
+ * capability inside `createAgentSession`.
+ */
+const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh'];
+
+function normalizeThinkingLevel(value) {
+  return typeof value === 'string' && THINKING_LEVELS.includes(value) ? value : undefined;
+}
+
 // Ask mode pauses a tool call and asks the user through Pi's extension UI
 // (`ctx.ui.confirm`). Pi's TUI would render that dialog itself; the host is
 // headless, so we inject a custom `uiContext` (via `session.bindExtensions`) that
@@ -481,12 +495,18 @@ async function runPrompt(payload) {
     });
   }
 
-  // Per-conversation permission mode (plan / auto / full). Plan restricts the
-  // tool set to the read-only built-ins (no gate needed — bash/edit/write are
-  // never exposed); Auto keeps the full tool set but installs a bash gate that
-  // blocks the dangerous commands; Full leaves the session unrestricted.
+  // Per-conversation permission mode (plan / ask / auto / full). Plan restricts
+  // the tool set to the read-only built-ins (no gate needed — bash/edit/write are
+  // never exposed); Ask pauses for recoverable destructive commands; Auto keeps
+  // the full tool set but blocks catastrophic commands; Full leaves the session
+  // unrestricted.
   const permissionMode = normalizePermissionMode(payload.permissionMode);
   const tools = toolAllowlistForMode(permissionMode);
+  // Per-conversation thinking level (reasoning effort). Forwarded as a native
+  // `createAgentSession` option; Pi clamps it to the model's capabilities (a
+  // non-reasoning model collapses every level to `off`). Unknown → undefined so
+  // Pi uses its settings/default level.
+  const thinkingLevel = normalizeThinkingLevel(payload.thinkingLevel);
   const gateFactory = buildPermissionGate(permissionMode);
   let resourceLoader;
   if (gateFactory) {
@@ -507,6 +527,7 @@ async function runPrompt(payload) {
     modelRegistry,
     sessionManager,
     ...(model ? { model } : {}),
+    ...(thinkingLevel ? { thinkingLevel } : {}),
     ...(tools ? { tools } : {}),
     ...(resourceLoader ? { resourceLoader } : {}),
   });
@@ -638,7 +659,8 @@ function main() {
   const rl = createInterface({ input: process.stdin, crlfDelay: Number.POSITIVE_INFINITY });
   let sawPayload = false;
   // The run settled (status emitted or prompt resolved): readline keeps stdin
-  // open as a decision channel, so exit explicitly rather than waiting for EOF.
+  // open as an extension UI response channel, so exit explicitly rather than
+  // waiting for EOF.
   const finishHost = () => {
     rl.close();
     process.exit(0);

@@ -2,9 +2,9 @@ import type { SurfaceKey } from '@/app/ui-state.js';
 import {
   Activity,
   BriefcaseBusiness,
-  LayoutGrid,
   type LucideIcon,
   MessagesSquare,
+  PencilRuler,
   Settings,
   Store,
   UsersRound,
@@ -31,7 +31,7 @@ export const NAV_ENTRIES: readonly NavEntry[] = [
   { key: 'personnel', label: 'Personnel', icon: UsersRound, tier: 'primary' },
   { key: 'activity', label: 'Activity', icon: Activity, tier: 'utility' },
   { key: 'settings', label: 'Settings', icon: Settings, tier: 'utility' },
-  { key: 'studio', label: 'Studio', icon: LayoutGrid, tier: 'utility' },
+  { key: 'studio', label: 'Studio', icon: PencilRuler, tier: 'utility' },
 ];
 
 /** @public — asserted by scripts/check-ui-framework-hygiene.mjs (content match, not import). */

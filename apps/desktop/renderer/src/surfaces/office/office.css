@@ -14,28 +14,10 @@
 
 @media (max-width: 1200px) {
   .off-office {
-    /* Drop the workspace panel first; keep the chat column prominent. */
-    grid-template-columns: minmax(0, 1fr) 480px;
-    grid-template-areas:
-      "stage chat"
-      "team  chat";
-  }
-  .off-office .off-ws-panel {
-    display: none;
-  }
-  /* Narrow tier keeps Files/Git reachable: the stage-mode float grows a
-     reopen toggle (rule lives next to its default, below) and the panel
-     returns as an overlay drawer. */
-  .off-office.is-ws-overlay .off-ws-panel {
-    display: flex;
-    position: absolute;
-    inset: 0 auto 0 0;
-    width: 288px;
-    /* One above z-panel so the scrim can take z-panel and still sit under the
-       drawer regardless of DOM order (drawer is the first child, scrim the
-       last). Stays below z-overlay/z-popover. */
-    z-index: calc(var(--off-z-panel) + 1);
-    box-shadow: var(--off-elev-3);
+    /* Keep all three columns (Files/Git stays a permanent column so it never
+       becomes unreachable); just trim the chat column so the stage keeps a
+       usable width when space is tight. */
+    grid-template-columns: 288px minmax(0, 1fr) 480px;
   }
 }
 
@@ -371,35 +353,8 @@
 
 .off-stage-mode {
   left: var(--off-sp-6);
-  /* Clip children to the container radius: the trailing narrow-tier reopen
-     button is display:none on wide screens but still counts for the
-     :first/:last-child radius rules below. */
+  /* Clip the two mode buttons to the container's rounded corners. */
   overflow: hidden;
-}
-
-/* Workspace-panel reopen toggle + drawer scrim: hidden on wide tiers where
-   the panel is a permanent grid column. The media overrides sit after these
-   defaults so they win by order (same specificity). */
-.off-ws-reopen,
-.off-office .off-ws-scrim {
-  display: none;
-}
-
-@media (max-width: 1200px) {
-  .off-ws-reopen {
-    display: inline-flex;
-  }
-  /* Strictly above stage floats (z-float) and strictly below the drawer
-     (z-panel + 1): no DOM-order tie-breaking involved. */
-  .off-office .off-ws-scrim {
-    display: block;
-    position: absolute;
-    inset: 0;
-    z-index: var(--off-z-panel);
-    border: 0;
-    padding: 0;
-    background: var(--off-overlay);
-  }
 }
 
 .off-stage-mode-btn {
@@ -440,106 +395,18 @@
 
 /* Diegetic cost readout */
 .off-scene-cost {
-  /* One height for the readout pill and the notif button, shared with the
-     lane-centering calc below so the cluster can never drift off-center. */
+  /* Readout pill height, shared with the lane-centering calc below so the
+     pill can never drift off-center in the bottom stage lane. */
   --off-sc-readout-h: 26px;
   position: absolute;
   right: var(--off-sp-7);
-  /* Center the readout cluster inside the bottom stage lane so it never
-     rides across the canvas bottom edge. */
+  /* Center the readout inside the bottom stage lane so it never rides across
+     the canvas bottom edge. */
   bottom: calc((var(--off-stage-lane) - var(--off-sc-readout-h)) / 2);
   z-index: var(--off-z-float);
   display: flex;
   align-items: center;
   gap: var(--off-sp-3);
-}
-
-.off-sc-notif {
-  position: relative;
-  width: var(--off-sc-readout-h);
-  height: var(--off-sc-readout-h);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--off-line);
-  border-radius: var(--off-r-pill);
-  background: var(--off-surface-glass-weak);
-  backdrop-filter: blur(var(--off-blur-sm));
-  box-shadow: var(--off-elev-1);
-  color: var(--off-ink-4);
-  transition: color var(--off-motion-fast) var(--off-motion-ease), border-color
-    var(--off-motion-fast) var(--off-motion-ease);
-}
-
-.off-sc-notif:hover,
-.off-sc-notif.has-unread {
-  color: var(--off-accent);
-  border-color: var(--off-accent-ring);
-}
-
-.off-sc-notif-dot {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 6px;
-  height: 6px;
-  border-radius: var(--off-r-round);
-  background: var(--off-danger);
-  box-shadow: 0 0 0 2px var(--off-surface-1);
-}
-
-/* Recent-activity popover anchored to the scene notification chip. */
-.off-sc-notif-pop {
-  width: 320px;
-}
-
-.off-sc-pop-row {
-  display: flex;
-  align-items: center;
-  gap: var(--off-sp-3);
-  padding: var(--off-sp-2) 0;
-  font-size: var(--off-fs-sm);
-  color: var(--off-ink-2);
-}
-
-.off-sc-pop-row + .off-sc-pop-row {
-  border-top: 1px solid var(--off-line-soft);
-}
-
-.off-sc-pop-icon {
-  flex: none;
-  color: var(--off-ink-4);
-}
-
-.off-sc-pop-label {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.off-sc-pop-label b {
-  font-weight: 640;
-  color: var(--off-ink-1);
-}
-
-.off-sc-pop-time {
-  flex: none;
-  font-size: var(--off-fs-micro);
-  color: var(--off-ink-4);
-}
-
-.off-sc-pop-empty {
-  padding: var(--off-sp-4) 0;
-  font-size: var(--off-fs-sm);
-  color: var(--off-ink-4);
-  text-align: center;
-}
-
-.off-sc-pop-open {
-  width: 100%;
-  margin-top: var(--off-sp-3);
 }
 
 .off-sc-readout {
@@ -1724,10 +1591,6 @@
   white-space: nowrap;
 }
 
-.off-composer-chip-flag {
-  color: var(--off-accent);
-}
-
 .off-composer-send {
   height: var(--off-composer-send-h);
   flex: 0 0 auto;
@@ -2053,6 +1916,11 @@
 .off-permission-reason {
   margin: 0;
   color: var(--off-ink-3);
+}
+.off-permission-error {
+  margin: 0;
+  color: var(--off-danger);
+  font-weight: 650;
 }
 .off-permission-actions {
   display: flex;

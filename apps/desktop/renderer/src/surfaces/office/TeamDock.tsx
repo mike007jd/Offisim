@@ -33,11 +33,11 @@ import {
   ChevronDown,
   ChevronUp,
   ListChecks,
+  ListFilter,
   MapPin,
   MessageSquare,
   Power,
   Search,
-  SlidersHorizontal,
   Sparkles,
   UserPlus,
   UserRound,
@@ -268,6 +268,7 @@ export function TeamDock() {
   const openThread = useUiState((s) => s.openThread);
   const openDraftThread = useUiState((s) => s.openDraftThread);
   const setSurface = useUiState((s) => s.setSurface);
+  const requestHire = useUiState((s) => s.requestHire);
   const selectEmployee = useUiState((s) => s.selectEmployee);
   const queryClient = useQueryClient();
   const employees = useEmployees();
@@ -447,7 +448,7 @@ export function TeamDock() {
         <button
           type="button"
           className="off-team-add off-focusable"
-          onClick={() => setSurface('personnel')}
+          onClick={requestHire}
           aria-label="Hire employee"
         >
           <Icon icon={UserPlus} size="md" />
@@ -481,9 +482,9 @@ export function TeamDock() {
                 <Button
                   variant={showWorkingOnly || sortMode !== 'seat' ? 'subtle' : 'ghost'}
                   size="iconSm"
-                  aria-label="List options"
+                  aria-label="Filter and sort"
                 >
-                  <Icon icon={SlidersHorizontal} size="sm" />
+                  <Icon icon={ListFilter} size="sm" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">

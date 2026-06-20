@@ -46,12 +46,6 @@ interface UiState {
   sceneRenderMode: SceneRenderMode;
   sceneDropDiagnostics: SceneDropDiagnostic[];
   resumeDismissed: boolean;
-  /**
-   * Narrow-tier (≤1200px) overlay visibility for the workspace panel. CSS
-   * drops the panel's grid column at that width, so this flag is the only way
-   * Files/Git stay reachable there; wide tiers ignore it.
-   */
-  wsPanelOverlayOpen: boolean;
 
   /** Personnel surface */
   selectedEmployeeId: string | null;
@@ -72,15 +66,20 @@ interface UiState {
   lifecycleIntent: 'select' | 'create' | null;
 
   /**
-   * Highest activity-record timestamp the user has marked as seen. Office's
-   * scene readout compares this to the live activity feed to render an honest
-   * unread signal instead of the prior hardcoded "always lit" indicator.
+   * One-shot intent: the Office team dock's "Hire" card sets this while
+   * navigating to Personnel so the surface opens its Hire dialog on mount.
+   * Unlike the sticky `lifecycleIntent`, this is consumed and cleared once by
+   * PersonnelSurface so a later manual visit doesn't re-open the dialog.
    */
-  activityLastSeenAt: number;
+  pendingHire: boolean;
 
   setSurface: (surface: SurfaceKey) => void;
   /** Navigate to the lifecycle front door with an explicit initial intent. */
   openLifecycle: (intent: 'select' | 'create') => void;
+  /** Navigate to Personnel and flag the Hire dialog to open on arrival. */
+  requestHire: () => void;
+  /** Clear the one-shot Hire intent after the Personnel surface consumes it. */
+  consumePendingHire: () => void;
   setScope: (companyId: string, projectId: string) => void;
   setProject: (projectId: string) => void;
 
@@ -103,7 +102,6 @@ interface UiState {
   setSceneRenderMode: (mode: SceneRenderMode) => void;
   recordSceneDropDiagnostic: (event: SceneDropDiagnostic) => void;
   dismissResume: () => void;
-  toggleWsPanelOverlay: () => void;
 
   selectEmployee: (employeeId: string | null) => void;
   setPersonnelRailCollapsed: (collapsed: boolean) => void;
@@ -112,9 +110,6 @@ interface UiState {
 
   setWorkspaceApp: (app: WorkspaceApp, selectedId?: string | null) => void;
   selectWorkspaceItem: (id: string | null) => void;
-
-  /** Stamp the most recent seen activity timestamp (clears the scene unread signal). */
-  markActivityRead: (timestampMs: number) => void;
 }
 
 export const useUiState = create<UiState>((set) => ({
@@ -132,7 +127,6 @@ export const useUiState = create<UiState>((set) => ({
   sceneRenderMode: '3d',
   sceneDropDiagnostics: [],
   resumeDismissed: false,
-  wsPanelOverlayOpen: false,
 
   selectedEmployeeId: null,
   personnelRailCollapsed: false,
@@ -144,10 +138,12 @@ export const useUiState = create<UiState>((set) => ({
 
   lifecycleIntent: null,
 
-  activityLastSeenAt: 0,
+  pendingHire: false,
 
   setSurface: (surface) => set({ surface }),
   openLifecycle: (intent) => set({ surface: 'lifecycle', lifecycleIntent: intent }),
+  requestHire: () => set({ surface: 'personnel', pendingHire: true }),
+  consumePendingHire: () => set({ pendingHire: false }),
   setScope: (companyId, projectId) =>
     set({ companyId, projectId, selectedThreadId: null, draftThread: null, railMode: 'list' }),
   setProject: (projectId) =>
@@ -172,7 +168,6 @@ export const useUiState = create<UiState>((set) => ({
   recordSceneDropDiagnostic: (event) =>
     set((s) => ({ sceneDropDiagnostics: [event, ...s.sceneDropDiagnostics].slice(0, 10) })),
   dismissResume: () => set({ resumeDismissed: true }),
-  toggleWsPanelOverlay: () => set((s) => ({ wsPanelOverlayOpen: !s.wsPanelOverlayOpen })),
 
   selectEmployee: (selectedEmployeeId) => set({ selectedEmployeeId }),
   setPersonnelRailCollapsed: (personnelRailCollapsed) => set({ personnelRailCollapsed }),
@@ -182,7 +177,4 @@ export const useUiState = create<UiState>((set) => ({
   setWorkspaceApp: (workspaceApp, workspaceSelectedId = null) =>
     set({ workspaceApp, workspaceSelectedId }),
   selectWorkspaceItem: (workspaceSelectedId) => set({ workspaceSelectedId }),
-
-  markActivityRead: (timestampMs) =>
-    set((s) => ({ activityLastSeenAt: Math.max(s.activityLastSeenAt, timestampMs) })),
 }));

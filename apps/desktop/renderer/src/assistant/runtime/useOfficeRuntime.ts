@@ -290,12 +290,22 @@ export function useOfficeRuntime({
           threadId,
           onRequest: ({ requestId, id, method, title, message }) => {
             if (method === 'confirm') {
-              useRunStore
-                .getState()
-                .setPendingUiRequest({ requestId, id, method, title, message });
+              useRunStore.getState().setPendingUiRequest({ requestId, id, method, title, message });
               return;
             }
-            runtime.answerUiRequest({ requestId, id, cancelled: true });
+            void runtime
+              .answerUiRequest({ requestId, id, cancelled: true })
+              .catch((err: unknown) => {
+                console.warn(
+                  '[useOfficeRuntime] failed to auto-cancel unsupported agent UI request',
+                  {
+                    threadId,
+                    id,
+                    method,
+                    err,
+                  },
+                );
+              });
           },
         });
         let response: Awaited<ReturnType<typeof runtime.execute>>;

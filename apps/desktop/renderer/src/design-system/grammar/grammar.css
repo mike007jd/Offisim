@@ -94,6 +94,18 @@
   box-shadow: none;
 }
 
+/* The shared <Input> primitive always stamps data-slot="input" + .off-input,
+   so .off-input[data-slot="input"] (0,2,0) would otherwise out-specify the rule
+   above and force the field to 32px inside the 30px wrap with symmetric
+   padding — pushing the placeholder off-center against the (correctly centered)
+   leading icon. Match the specificity to restore the full-height transparent
+   field; line-height:normal hardens single-line centering under WKWebView. */
+.off-search-input.off-input {
+  height: 100%;
+  padding: 0 var(--off-sp-3) 0 0;
+  line-height: normal;
+}
+
 .off-search-input-wrap:hover {
   border-color: var(--off-line-strong);
 }

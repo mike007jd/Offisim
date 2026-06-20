@@ -20,14 +20,20 @@ import {
 } from '@/runtime/pi-thread-mode-store.js';
 import { usePiThreadModelStore } from '@/runtime/pi-thread-model-store.js';
 import {
+  DEFAULT_THINKING_LEVEL,
+  THINKING_LEVELS,
+  type ThinkingLevel,
+  usePiThreadThinkingStore,
+} from '@/runtime/pi-thread-thinking-store.js';
+import {
   Bot,
+  Brain,
   ChevronDown,
   Eye,
   type LucideIcon,
   MessageCircleQuestion,
   ShieldCheck,
   SlidersHorizontal,
-  Sparkles,
   User,
   Users,
   Zap,
@@ -44,6 +50,20 @@ const MODE_META: Record<PermissionMode, { label: string; icon: LucideIcon; meta:
   },
   auto: { label: 'Auto', icon: ShieldCheck, meta: 'Autonomous — blocks destructive commands' },
   full: { label: 'Full', icon: Zap, meta: 'No restrictions' },
+};
+
+/**
+ * Thinking-level labels + token-budget hints, mirroring Pi's own
+ * `LEVEL_DESCRIPTIONS` (the values are display-only labels, not enforced
+ * budgets — the provider decides the real budget per level).
+ */
+const THINKING_META: Record<ThinkingLevel, { label: string; meta: string }> = {
+  off: { label: 'Off', meta: 'No reasoning' },
+  minimal: { label: 'Minimal', meta: 'Very brief (~1k tokens)' },
+  low: { label: 'Low', meta: 'Light (~2k tokens)' },
+  medium: { label: 'Medium', meta: 'Moderate (~8k tokens)' },
+  high: { label: 'High', meta: 'Deep (~16k tokens)' },
+  xhigh: { label: 'Max', meta: 'Maximum (~32k tokens)' },
 };
 
 function shortModelName(value: string): string {
@@ -131,7 +151,7 @@ export function ModelControl({ threadId }: { threadId: string }) {
   // Derive the effective model + provider-grouped list once per change. The
   // composer subtree re-renders on every keystroke and run-state tick, so this
   // keeps the grouping (and the localStorage override read) off the hot path.
-  const { providers, effective, hasReasoning } = useMemo(() => {
+  const { providers, effective } = useMemo(() => {
     const list = models.data ?? [];
     const effectiveModel = perThread || readPiModelOverride();
     const groups = new Map<string, typeof list>();
@@ -142,7 +162,6 @@ export function ModelControl({ threadId }: { threadId: string }) {
     }
     return {
       effective: effectiveModel,
-      hasReasoning: list.find((option) => option.value === effectiveModel)?.reasoning ?? false,
       providers: [...groups].map(([provider, items]) => ({ provider, items })),
     };
   }, [perThread, models.data]);
@@ -157,9 +176,6 @@ export function ModelControl({ threadId }: { threadId: string }) {
         >
           <Icon icon={Bot} size="sm" />
           <span className="off-composer-chip-text">{shortModelName(effective)}</span>
-          {hasReasoning ? (
-            <Icon icon={Sparkles} size="sm" className="off-composer-chip-flag" />
-          ) : null}
           <Icon icon={ChevronDown} size="sm" />
         </button>
       </DropdownMenuTrigger>
@@ -207,9 +223,10 @@ export function ModelControl({ threadId }: { threadId: string }) {
 
 /**
  * Per-conversation permission mode. Picks how much autonomy the agent has on
- * this thread: Plan (read-only investigation), Auto (autonomous but blocks
- * destructive commands — the default), or Full (no restrictions). The host
- * enforces the choice as real Pi tool gating; this only stores and forwards it.
+ * this thread: Plan (read-only investigation), Ask (approval for recoverable
+ * destructive commands), Auto (autonomous with catastrophe guard — the default),
+ * or Full (no restrictions). The host enforces the choice as real Pi tool gating;
+ * this only stores and forwards it.
  */
 export function ModeControl({ threadId }: { threadId: string }) {
   const mode = usePiThreadModeStore((s) => s.byThread[threadId] ?? DEFAULT_PERMISSION_MODE);
@@ -240,6 +257,64 @@ export function ModeControl({ threadId }: { threadId: string }) {
               <span className="off-composer-menu-row">
                 <span className="off-composer-menu-name">{MODE_META[value].label}</span>
                 <span className="off-composer-menu-meta">{MODE_META[value].meta}</span>
+              </span>
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/**
+ * Per-conversation thinking level (reasoning effort). Only meaningful for models
+ * that support reasoning, so the chip hides itself for non-reasoning models —
+ * replacing the old passive "this model can think" Sparkles badge with a
+ * functional dial. Sticky per-thread (the single-shot host has no live session to
+ * retarget). The host clamps the chosen level to the model's real capabilities;
+ * this only stores and forwards the user's intent.
+ */
+export function ThinkingControl({ threadId }: { threadId: string }) {
+  const level = usePiThreadThinkingStore((s) => s.byThread[threadId] ?? DEFAULT_THINKING_LEVEL);
+  const setThreadThinking = usePiThreadThinkingStore((s) => s.setThreadThinking);
+  const perThreadModel = usePiThreadModelStore((s) => s.byThread[threadId] ?? '');
+  const models = usePiAgentModels();
+  // Gate on the effective model's reasoning flag, derived the same way the model
+  // picker resolves it (per-thread pick, else the global Settings override).
+  const supportsReasoning = useMemo(() => {
+    const effectiveModel = perThreadModel || readPiModelOverride();
+    return (
+      (models.data ?? []).find((option) => option.value === effectiveModel)?.reasoning ?? false
+    );
+  }, [perThreadModel, models.data]);
+
+  if (!supportsReasoning) return null;
+  const current = THINKING_META[level];
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="off-composer-chip off-focusable"
+          aria-label="Thinking level for this conversation"
+        >
+          <Icon icon={Brain} size="sm" />
+          <span className="off-composer-chip-text">{current.label}</span>
+          <Icon icon={ChevronDown} size="sm" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="off-composer-menu off-composer-thinking-menu">
+        <DropdownMenuLabel>Thinking level</DropdownMenuLabel>
+        <DropdownMenuRadioGroup
+          value={level}
+          onValueChange={(value) => setThreadThinking(threadId, value as ThinkingLevel)}
+        >
+          {THINKING_LEVELS.map((value) => (
+            <DropdownMenuRadioItem key={value} value={value}>
+              <span className="off-composer-menu-row">
+                <span className="off-composer-menu-name">{THINKING_META[value].label}</span>
+                <span className="off-composer-menu-meta">{THINKING_META[value].meta}</span>
               </span>
             </DropdownMenuRadioItem>
           ))}

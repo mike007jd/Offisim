@@ -757,6 +757,8 @@ export function PersonnelSurface() {
   const selectEmployee = useUiState((s) => s.selectEmployee);
   const collapsed = useUiState((s) => s.personnelRailCollapsed);
   const setCollapsed = useUiState((s) => s.setPersonnelRailCollapsed);
+  const pendingHire = useUiState((s) => s.pendingHire);
+  const consumePendingHire = useUiState((s) => s.consumePendingHire);
   const [tab, setTab] = useState<InspectorTab>('profile');
   const [hireOpen, setHireOpen] = useState(false);
   // Bumped whenever guardedSelect blocks a switch, so the open detail can
@@ -810,6 +812,16 @@ export function PersonnelSurface() {
     else listPanelRef.current?.collapse();
   };
   const canHire = isTauriRuntime();
+
+  // The Office "Hire" card navigates here with a one-shot intent; open the Hire
+  // dialog on arrival, then clear the flag so a later manual visit doesn't
+  // re-open it. SurfaceRouter remounts this surface per navigation, so the
+  // consume fires once per Hire click.
+  useEffect(() => {
+    if (!pendingHire) return;
+    consumePendingHire();
+    if (canHire) setHireOpen(true);
+  }, [pendingHire, canHire, consumePendingHire]);
 
   // Loading — rail skeleton.
   if (employees.isLoading) {
