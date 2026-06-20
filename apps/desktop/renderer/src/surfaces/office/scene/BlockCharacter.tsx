@@ -4,13 +4,13 @@ import { useFrame } from '@react-three/fiber';
 import { useMemo, useRef } from 'react';
 import type { Group } from 'three';
 import { alphaMaterial, darken, lighten } from './human-character-geometry.js';
+import { HumanHeadModel } from './human-character-head.js';
 import {
   ActionHalo,
   HumanClothingDetails,
   HUMAN_BODY_SHAPES,
   HUMAN_PRESENTATION_SHAPES,
   HumanHand,
-  HumanHead,
   HumanLimb,
   HumanPelvis,
   HumanShoe,
@@ -41,11 +41,11 @@ interface BlockCharacterProps {
 /**
  * Human-proportioned Offisim employee.
  *
- * This replaces the disconnected chibi block rig while preserving the scene's
- * placement, appearance and run-state contracts. The torso, pelvis, jaw and
- * limbs are custom sculpted surfaces; elbows/knees are articulated; the face,
- * five-finger hands, layered hair, clothing seams and accessories are physical
- * geometry rather than a billboard texture.
+ * The model preserves the existing placement, appearance and run-state
+ * contracts while replacing the disconnected chibi rig. Torso, pelvis, jaw
+ * and limbs are sculpted surfaces; elbows and knees articulate independently;
+ * eyes, eyelids, nose, mouth, ears, five-finger hands, hair and clothing layers
+ * are physical geometry.
  */
 export function BlockCharacter({
   appearance,
@@ -124,7 +124,11 @@ export function BlockCharacter({
             const thighRef = side === -1 ? leftThigh : rightThigh;
             const shinRef = side === -1 ? leftShin : rightShin;
             return (
-              <group key={`leg-${side}`} ref={thighRef} position={[side * hipX, HUMAN_DIMENSIONS.hipY, 0]}>
+              <group
+                key={`leg-${side}`}
+                ref={thighRef}
+                position={[side * hipX, HUMAN_DIMENSIONS.hipY, 0]}
+              >
                 <HumanLimb
                   cacheKey={`human-v3-thigh:${body.limb}`}
                   length={HUMAN_DIMENSIONS.thigh}
@@ -137,7 +141,11 @@ export function BlockCharacter({
                 <group ref={shinRef} position={[0, -HUMAN_DIMENSIONS.thigh, 0]}>
                   <mesh position={[0, -0.015, 0.035]} scale={[1, 0.82, 0.7]} castShadow>
                     <sphereGeometry args={[thighWidth * 0.7, 16, 12]} />
-                    <meshStandardMaterial color={pantsColor} roughness={0.75} {...alphaMaterial(opacity)} />
+                    <meshStandardMaterial
+                      color={pantsColor}
+                      roughness={0.75}
+                      {...alphaMaterial(opacity)}
+                    />
                   </mesh>
                   <HumanLimb
                     cacheKey={`human-v3-shin:${body.limb}`}
@@ -155,7 +163,12 @@ export function BlockCharacter({
           })}
 
           <group ref={pelvis} position={[0, HUMAN_DIMENSIONS.hipY, 0]}>
-            <HumanPelvis body={body} presentation={presentation} color={pantsColor} opacity={opacity} />
+            <HumanPelvis
+              body={body}
+              presentation={presentation}
+              color={pantsColor}
+              opacity={opacity}
+            />
             <mesh position={[0, HUMAN_DIMENSIONS.pelvis - 0.018, 0]} castShadow>
               <cylinderGeometry
                 args={[
@@ -165,7 +178,11 @@ export function BlockCharacter({
                   28,
                 ]}
               />
-              <meshStandardMaterial color={darken(pantsColor, 0.12)} roughness={0.62} {...alphaMaterial(opacity)} />
+              <meshStandardMaterial
+                color={darken(pantsColor, 0.12)}
+                roughness={0.62}
+                {...alphaMaterial(opacity)}
+              />
             </mesh>
             <RoundedBox
               args={[0.055, 0.04, 0.018]}
@@ -193,11 +210,15 @@ export function BlockCharacter({
               {([-1, 1] as const).map((side) => (
                 <mesh
                   key={`seam-${side}`}
-                  position={[side * shoulderX * 0.83, 0.25, 0.02]}
+                  position={[side * shoulderX * 0.83, 0.28, 0.02]}
                   rotation={[0, 0, side * 0.035]}
                 >
-                  <boxGeometry args={[0.006, 0.34, 0.008]} />
-                  <meshStandardMaterial color={seamColor} roughness={0.8} {...alphaMaterial(opacity)} />
+                  <boxGeometry args={[0.006, 0.38, 0.008]} />
+                  <meshStandardMaterial
+                    color={seamColor}
+                    roughness={0.8}
+                    {...alphaMaterial(opacity)}
+                  />
                 </mesh>
               ))}
 
@@ -252,7 +273,11 @@ export function BlockCharacter({
                         smoothness={3}
                         position={[0, -HUMAN_DIMENSIONS.forearm + 0.02, 0]}
                       >
-                        <meshStandardMaterial color={cuffColor} roughness={0.68} {...alphaMaterial(opacity)} />
+                        <meshStandardMaterial
+                          color={cuffColor}
+                          roughness={0.68}
+                          {...alphaMaterial(opacity)}
+                        />
                       </RoundedBox>
                       <group ref={handRef} position={[0, -HUMAN_DIMENSIONS.forearm - 0.015, 0]}>
                         <HumanHand side={side} appearance={appearance} opacity={opacity} />
@@ -263,11 +288,20 @@ export function BlockCharacter({
               })}
 
               <mesh position={[0, HUMAN_DIMENSIONS.torso + 0.055, -0.005]} castShadow>
-                <cylinderGeometry args={[0.073, 0.09, 0.15, 22]} />
-                <meshStandardMaterial color={appearance.skin} roughness={0.47} {...alphaMaterial(opacity)} />
+                <cylinderGeometry args={[0.07, 0.087, 0.145, 22]} />
+                <meshStandardMaterial
+                  color={appearance.skin}
+                  roughness={0.47}
+                  {...alphaMaterial(opacity)}
+                />
               </mesh>
               <group ref={head} position={[0, HUMAN_DIMENSIONS.headY, 0]}>
-                <HumanHead appearance={appearance} action={actionState} opacity={opacity} />
+                <HumanHeadModel
+                  appearance={appearance}
+                  action={actionState}
+                  opacity={opacity}
+                  phase={phase}
+                />
               </group>
             </group>
           </group>
