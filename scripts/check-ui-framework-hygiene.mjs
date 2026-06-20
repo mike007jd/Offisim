@@ -73,10 +73,14 @@ const checks = [
     excludeFiles: ['packages/doc-engine/CLAUDE.md'],
   },
   {
-    label: 'retired SOP/Kanban/Docs/Board surface',
+    // Kanban (the work Board) is a live workspace surface again as of the
+    // Board + Approvals rail work — so it's intentionally dropped from this
+    // guard. The guard still blocks the genuinely-retired SOP/Docs surfaces and
+    // the OLD board implementation's specific symbols, so neither creeps back.
+    label: 'retired SOP/Docs surface',
     dirs: SOURCE_DIRS,
     pattern:
-      /\b(SOP|Kanban|DocsApp|BoardView|BoardTask|useBoardTasks)\b|\bsop[-_]|\bkind:\s*['"]sop['"]|package_id:\s*['"][^'"]*\.sop\.|\/board|\/kanban|project board|queue board|hero board/i,
+      /\b(SOP|DocsApp|BoardView|BoardTask|useBoardTasks)\b|\bsop[-_]|\bkind:\s*['"]sop['"]|package_id:\s*['"][^'"]*\.sop\./i,
   },
   {
     label: 'retired Office Live run-axis surface',

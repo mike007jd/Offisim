@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils.js';
 import { CalendarDays, LayoutGrid, type LucideIcon, MessageSquare, Users } from 'lucide-react';
 import { CalendarApp } from './apps/CalendarApp.js';
 import { ContactsApp } from './apps/ContactsApp.js';
+import { KanbanApp } from './apps/KanbanApp.js';
 import { MessengerApp } from './apps/MessengerApp.js';
 import { WorkplaceApp } from './apps/WorkplaceApp.js';
 import { useWsAgenda, useWsConversations } from './workspace-data.js';
@@ -13,7 +14,9 @@ import { useWsAgenda, useWsConversations } from './workspace-data.js';
 type AppEntry = { key: WorkspaceApp; label: string; icon: LucideIcon };
 
 // Tiered rail: action apps (carry badges) lead, then browse apps, then the
-// overview at the bottom — so the rail reads by priority, not as six equals.
+// Workplace launcher at the bottom — so the rail reads by priority. Kanban is
+// NOT a rail tab: it is an app opened from inside the Workplace launcher, so the
+// rail stays a fixed surface set while the launcher grows with future apps.
 const APP_GROUPS: ReadonlyArray<ReadonlyArray<AppEntry>> = [
   [{ key: 'messenger', label: 'Chats', icon: MessageSquare }],
   [
@@ -56,11 +59,14 @@ function AppRail() {
             {groupIndex > 0 ? <span className="off-ws-rail-sep" aria-hidden /> : null}
             {group.map((item) => {
               const badge = badgeFor(item.key);
+              // The Workplace launcher stays highlighted while one of its apps
+              // (Kanban) is open, so the rail never looks like nothing is active.
+              const active = app === item.key || (item.key === 'workplace' && app === 'kanban');
               return (
                 <button
                   key={item.key}
                   type="button"
-                  className={cn('off-ws-rail-btn off-focusable', app === item.key && 'is-active')}
+                  className={cn('off-ws-rail-btn off-focusable', active && 'is-active')}
                   onClick={() => setApp(item.key)}
                 >
                   <span className="off-ws-rail-icon">
@@ -86,6 +92,7 @@ export function WorkspaceSurface() {
     <div className="off-ws">
       <AppRail />
       {app === 'messenger' ? <MessengerApp /> : null}
+      {app === 'kanban' ? <KanbanApp /> : null}
       {app === 'calendar' ? <CalendarApp /> : null}
       {app === 'contacts' ? <ContactsApp /> : null}
       {app === 'workplace' ? <WorkplaceApp /> : null}

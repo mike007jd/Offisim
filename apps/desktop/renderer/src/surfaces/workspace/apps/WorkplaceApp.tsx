@@ -1,5 +1,5 @@
 import { useUiState } from '@/app/ui-state.js';
-import { useCompanies, useEmployees, useProjects, useRunCost } from '@/data/queries.js';
+import { useCompanies, useEmployees, useRunCost } from '@/data/queries.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 import {
@@ -8,26 +8,26 @@ import {
   useActivityRecords,
 } from '@/surfaces/activity/activity-data.js';
 import { SkeletonRows } from '@/surfaces/shared/SurfaceStates.js';
-import { ArrowRight } from 'lucide-react';
-import { useWsMeetings } from '../workspace-data.js';
+import { ArrowRight, SquareKanban } from 'lucide-react';
+import { useActiveProject, useWsMeetings } from '../workspace-data.js';
 
-/** Workplace is an overview home — not a launcher. The "Suite apps" and
- *  "Workspaces" tile grids duplicated the rail and the top nav, and the Recent
- *  list was hardcoded fixtures; both are gone. It now shows the day's real stats
- *  and the live activity feed. */
+/** Workplace is the apps launcher (the Feishu-style 工作台): a day-stats banner,
+ *  the grid of workspace apps, and the live activity feed. The apps grid is the
+ *  only way into per-app surfaces like Kanban that are intentionally NOT rail
+ *  tabs — it grows as more apps land, while the rail stays a fixed surface set. */
 export function WorkplaceApp() {
   const companyId = useUiState((s) => s.companyId);
-  const projectId = useUiState((s) => s.projectId);
   const setSurface = useUiState((s) => s.setSurface);
+  const setApp = useUiState((s) => s.setWorkspaceApp);
   const companies = useCompanies();
-  const projects = useProjects(companyId);
   const employees = useEmployees();
   const meetings = useWsMeetings();
   const runCost = useRunCost();
   const activity = useActivityRecords(companyId);
 
   const company = companies.data?.find((c) => c.id === companyId) ?? null;
-  const project = projects.data?.find((p) => p.id === projectId) ?? projects.data?.[0] ?? null;
+  // Shared selector so the Kanban tile and the board it opens name one project.
+  const project = useActiveProject(companyId);
   const headcount = employees.data?.length ?? 0;
   const activeRuns = meetings.data?.filter((m) => m.status === 'live').length ?? 0;
   const spend = runCost.data?.costLabel ?? '$0.00';
@@ -59,6 +59,25 @@ export function WorkplaceApp() {
               </div>
             ))}
           </div>
+        </div>
+
+        <div className="off-ws-wp-sec-h">Apps</div>
+        <div className="off-ws-wp-apps">
+          <button
+            type="button"
+            className="off-ws-wp-app off-focusable"
+            onClick={() => setApp('kanban')}
+          >
+            <span className="off-ws-wp-app-ic">
+              <Icon icon={SquareKanban} size="md" />
+            </span>
+            <span className="off-ws-wp-app-tx">
+              <span className="off-ws-wp-app-nm">Kanban</span>
+              <span className="off-ws-wp-app-sub">
+                {project?.name ? `${project.name} board` : 'Project board'}
+              </span>
+            </span>
+          </button>
         </div>
 
         <div className="off-ws-wp-sec-h">
