@@ -1,6 +1,6 @@
 import { BufferGeometry, Color, Float32BufferAttribute } from 'three';
 
-export interface SculptRing {
+interface SculptRing {
   readonly y: number;
   readonly rx: number;
   readonly rz: number;
@@ -9,11 +9,7 @@ export interface SculptRing {
 
 const geometryCache = new Map<string, BufferGeometry>();
 
-/**
- * Build and cache a closed elliptical ring surface. The independent x/z radii
- * and per-ring forward offset let the character form a real jaw, rib cage,
- * waist, calf and forearm silhouette instead of scaling capsules.
- */
+/** Build and cache a closed elliptical ring surface for sculpted character parts. */
 export function sculptGeometry(
   key: string,
   rings: readonly SculptRing[],
@@ -31,11 +27,7 @@ export function sculptGeometry(
     for (let segment = 0; segment < radialSegments; segment += 1) {
       const t = segment / radialSegments;
       const angle = t * Math.PI * 2;
-      positions.push(
-        Math.cos(angle) * ring.rx,
-        ring.y,
-        (ring.z ?? 0) + Math.sin(angle) * ring.rz,
-      );
+      positions.push(Math.cos(angle) * ring.rx, ring.y, (ring.z ?? 0) + Math.sin(angle) * ring.rz);
       uvs.push(t, ringIndex / Math.max(1, rings.length - 1));
     }
   }
