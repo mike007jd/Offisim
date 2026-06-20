@@ -17,11 +17,12 @@ import {
 } from './composer/ComposerControls.js';
 import { ComposerTriggers } from './composer/ComposerTriggers.js';
 import { StagedAttachments } from './composer/StagedAttachments.js';
+import { useComposerAttachmentStore } from './composer/composer-attachment-store.js';
 import { ChatErrorBanner } from './parts/ChatErrorBanner.js';
 import { MeetingTray } from './parts/Meeting.js';
 import { PermissionApprovalBar } from './parts/PermissionApprovalBar.js';
 import { RunActivityStrip } from './parts/RunActivityStrip.js';
-import { useRunStore } from './run-store.js';
+import { isConversationRunActive, useConversationRun } from './runtime/conversation-run-react.js';
 import { useOfficeRuntime } from './runtime/useOfficeRuntime.js';
 
 function dragHasFiles(event: DragEvent<HTMLElement>) {
@@ -85,9 +86,10 @@ function OfficeComposer({
   isDraft: boolean;
 }) {
   const employees = useMemo(() => Array.from(employeesById.values()), [employeesById]);
-  const isRunning = useRunStore((s) => s.isRunning && s.threadId === threadId);
-  const stageFiles = useRunStore((s) => s.stageFiles);
-  const storageAvailable = useRunStore((s) => s.storageAvailable);
+  const run = useConversationRun(threadId);
+  const isRunning = isConversationRunActive(run.phase);
+  const stageFiles = useComposerAttachmentStore((s) => s.stageFiles);
+  const storageAvailable = useComposerAttachmentStore((s) => s.storageAvailable);
   const fileInput = useRef<HTMLInputElement>(null);
   const composerRef = useRef<HTMLFormElement>(null);
   const dragDepth = useRef(0);
@@ -192,8 +194,8 @@ function OfficeComposer({
             stageFileList(event.dataTransfer.files);
           }}
         >
-          <PermissionApprovalBar />
-          <RunActivityStrip />
+          <PermissionApprovalBar threadId={threadId} />
+          <RunActivityStrip threadId={threadId} />
           <div className="off-composer-shell">
             <ComposerPrimitive.Input
               className="off-composer-input"
@@ -273,7 +275,6 @@ export function OfficeThread({
   threadId,
   companyId,
   projectId,
-  runState,
   seedMessages,
   employeesById,
   deliverables,
@@ -293,25 +294,6 @@ export function OfficeThread({
     materializeThread,
     employeesById,
   });
-  const syncThread = useRunStore((s) => s.syncThread);
-
-  // Bind the shared run-state store to this thread: seeds the pipeline / error /
-  // meeting that the stage pill and error banner both read.
-  useEffect(() => {
-    syncThread(threadId, runState);
-  }, [threadId, runState, syncThread]);
-
-  // Stop the run when this conversation unmounts (e.g. navigating away mid-run)
-  // so it doesn't keep ticking into a store no component reads. Gate on the
-  // active threadId so unmounting thread A cannot clobber a sibling thread B
-  // that has already taken over the shared store.
-  useEffect(
-    () => () => {
-      if (useRunStore.getState().threadId === threadId) useRunStore.getState().stop();
-    },
-    [threadId],
-  );
-
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <ThreadPrimitive.Root className="off-thread">
@@ -338,7 +320,7 @@ export function OfficeThread({
               }}
             </ThreadPrimitive.Messages>
           </div>
-          <ChatErrorBanner />
+          <ChatErrorBanner threadId={threadId} />
         </ThreadPrimitive.Viewport>
         <OfficeComposer
           threadId={threadId}

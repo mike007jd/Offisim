@@ -160,6 +160,12 @@ export interface ChatMessage {
   employeeId: string | null;
   body: string;
   reasoning?: string;
+  /** Assistant reply target; lets retry/checkpoint projections replace one run response. */
+  replyToMessageId?: string;
+  /** Stable run attempt id emitted by the ConversationRunController. */
+  attemptId?: string;
+  /** Live persistence state for streamed checkpoints and interrupted runs. */
+  status?: 'streaming' | 'complete' | 'interrupted' | 'failed';
   /** Live + in-session tool steps; not persisted (lost on reload by design). */
   toolCalls?: ChatToolCall[];
   at: number;
@@ -234,33 +240,6 @@ export interface Skill {
   scope: 'global' | 'company' | 'employee';
 }
 
-/* --- Run-state layer (assistant-ui driven) ----------------------------------
- * The chat run is the source of truth for the Office pipeline pill, the Stop
- * control, stage status readout and the chat error banner. The renderer
- * drives these states through the assistant-ui external-store runtime. */
-
-type PipelineStageState = 'done' | 'active' | 'pending';
-
-/** One stage of the orchestration pipeline (Boss → Manager → PM → Employee →
- *  Summary). */
-export interface PipelineStage {
-  id: string;
-  label: string;
-  state: PipelineStageState;
-}
-
-/** The live run currently broadcasting over the stage. */
-export interface RunPipeline {
-  /** Short title of the work in flight, e.g. "Edge case review". */
-  title: string;
-  /** Employee currently holding the run. */
-  assigneeId: string | null;
-  stages: PipelineStage[];
-  /** Progress as completed/total tool steps. */
-  stepDone: number;
-  stepTotal: number;
-}
-
 /** A recoverable chat run failure. Drives the in-thread ErrorBanner. */
 export interface RunError {
   id: string;
@@ -275,34 +254,6 @@ export interface RunError {
    * or clears the error replaces or clears the retry with it.
    */
   retry?: () => void;
-}
-
-/* --- Meetings ---------------------------------------------------------------*/
-
-type MeetingStatus = 'running' | 'paused' | 'idle';
-export type ActionItemPriority = 'high' | 'medium' | 'low';
-
-interface MeetingActionItem {
-  id: string;
-  description: string;
-  assigneeId: string | null;
-  priority: ActionItemPriority;
-  done: boolean;
-}
-
-interface MeetingTranscriptLine {
-  id: string;
-  speakerId: string | null;
-  text: string;
-}
-
-export interface MeetingState {
-  status: MeetingStatus;
-  threadId: string;
-  title: string;
-  inRoomIds: string[];
-  transcript: MeetingTranscriptLine[];
-  actionItems: MeetingActionItem[];
 }
 
 /* --- Chat attachment staging ------------------------------------------------*/

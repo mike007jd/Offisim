@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils.js';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
-import { useRunStore } from '../run-store.js';
+import { isConversationRunActive, useConversationRun } from '../runtime/conversation-run-react.js';
 
 /**
  * A compact, in-thread strip showing the agent's tool calls as they happen
@@ -11,11 +11,12 @@ import { useRunStore } from '../run-store.js';
  * user is actually reading. Renders only while a run is in flight with at least
  * one tool call.
  */
-export function RunActivityStrip() {
+export function RunActivityStrip({ threadId }: { threadId: string }) {
   const [expanded, setExpanded] = useState(false);
-  const isRunning = useRunStore((s) => s.isRunning);
-  const activity = useRunStore((s) => s.activity);
-  const activityTotal = useRunStore((s) => s.activityTotal);
+  const run = useConversationRun(threadId);
+  const isRunning = isConversationRunActive(run.phase);
+  const activity = run.activity;
+  const activityTotal = run.activityTotal;
   if (!isRunning || activity.length === 0) return null;
   // Most recent calls, oldest→newest, capped so the strip stays one compact row.
   const recent = activity.slice(-6);

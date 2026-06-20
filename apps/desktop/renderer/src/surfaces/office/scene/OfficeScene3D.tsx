@@ -1,4 +1,5 @@
 import { useUiState } from '@/app/ui-state.js';
+import { useEmployeeRunStates } from '@/assistant/runtime/conversation-run-react.js';
 import { useEmployees, useOfficeLayout, useReassignEmployee, useThreads } from '@/data/queries.js';
 import type { Employee } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
@@ -508,6 +509,7 @@ export function OfficeScene3D() {
   const recordSceneDropDiagnostic = useUiState((s) => s.recordSceneDropDiagnostic);
   const employees = useEmployees();
   const threads = useThreads(projectId);
+  const employeeRunStates = useEmployeeRunStates(projectId);
   const layout = useOfficeLayout(companyId);
   const reassign = useReassignEmployee();
   const [employeeDrag, setEmployeeDrag] = useState<SceneEmployeeDrag | null>(null);
@@ -515,7 +517,6 @@ export function OfficeScene3D() {
   const [dropNotice, setDropNotice] = useState<SceneDropNotice | null>(null);
 
   const real = layout.data ?? null;
-  const liveThread = threads.data?.find((t) => t.runState === 'running');
   const roster = employees.data ?? [];
 
   const zoneDefs: ZoneDef[] = useMemo(() => zoneDefsFromLayout(real), [real]);
@@ -602,8 +603,7 @@ export function OfficeScene3D() {
                 posture: 'standing' as const,
               };
               const thread = threadByEmployee.get(employee.id);
-              const running =
-                thread?.runState === 'running' || (liveThread?.scope === 'team' && employee.online);
+              const running = employeeRunStates.has(employee.id);
               return (
                 <EmployeeUnit
                   key={employee.id}

@@ -1,0 +1,174 @@
+import {
+  ATTACHMENT_FAIL_MESSAGE,
+  type AttachmentFailReason,
+  type StagedAttachment,
+} from '@/data/types.js';
+import { sha256Hex } from '@offisim/install-core';
+import { CHAT_ATTACHMENT_MAX_BYTES, kindFromMime } from '@offisim/shared-types';
+import { create } from 'zustand';
+
+const MAX_ATTACHMENTS = 6;
+const SUPPORTED_EXT = new Set([
+  'pdf',
+  'md',
+  'txt',
+  'csv',
+  'json',
+  'png',
+  'jpg',
+  'jpeg',
+  'fig',
+  'docx',
+  'xlsx',
+]);
+
+interface StageFileInput {
+  name: string;
+  bytes: number;
+  type?: string;
+  file?: { arrayBuffer(): Promise<ArrayBuffer> };
+}
+
+interface ComposerAttachmentStore {
+  staged: StagedAttachment[];
+  storageAvailable: boolean;
+  stageFiles: (files: StageFileInput[]) => Promise<void>;
+  removeStaged: (id: string) => void;
+  clearStaged: () => void;
+  setStorageAvailable: (available: boolean) => void;
+}
+
+type StoreSet = (
+  partial:
+    | Partial<ComposerAttachmentStore>
+    | ((state: ComposerAttachmentStore) => Partial<ComposerAttachmentStore>),
+) => void;
+
+export const useComposerAttachmentStore = create<ComposerAttachmentStore>((set, get) => ({
+  staged: [],
+  storageAvailable: true,
+
+  stageFiles: async (files) => {
+    if (!get().storageAvailable) {
+      set((s) => ({
+        staged: [
+          ...s.staged,
+          errorChip('storage', files[0]?.name ?? 'file', 'storage-unavailable'),
+        ],
+      }));
+      return;
+    }
+    const prepared: StagedAttachment[] = [];
+    const hydrationTasks: Promise<void>[] = [];
+    const alreadyStaged = get().staged;
+    for (const file of files) {
+      const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+      const id = `att-${file.name}-${file.bytes}`;
+      let fail: AttachmentFailReason | null = null;
+      const existing = [...alreadyStaged, ...prepared];
+      if (existing.filter((a) => a.status !== 'error').length >= MAX_ATTACHMENTS) fail = 'too-many';
+      else if (file.bytes > CHAT_ATTACHMENT_MAX_BYTES) fail = 'too-large';
+      else if (existing.some((a) => a.id === id && a.status !== 'error')) fail = 'duplicate';
+      else if (ext && !SUPPORTED_EXT.has(ext)) fail = 'unsupported-type';
+      if (fail) {
+        prepared.push(errorChip(id, file.name, fail));
+        continue;
+      }
+      const mimeType = file.type || mimeFromExt(ext);
+      const kind = kindFromMime(mimeType);
+      const attachmentId = file.file ? crypto.randomUUID() : undefined;
+      if (file.file) {
+        hydrationTasks.push(hydrateStagedFile(id, attachmentId, file.name, file.file, set));
+      }
+      prepared.push({
+        id,
+        name: file.name,
+        ext,
+        sizeLabel: formatBytes(file.bytes),
+        status: 'attached',
+        mimeType,
+        byteLength: file.bytes,
+        attachmentId,
+        file: file.file,
+        kind,
+      });
+    }
+    if (prepared.length) set((s) => ({ staged: [...s.staged, ...prepared] }));
+    await Promise.all(hydrationTasks);
+  },
+
+  removeStaged: (id) => set((s) => ({ staged: s.staged.filter((a) => a.id !== id) })),
+  clearStaged: () => set({ staged: [] }),
+  setStorageAvailable: (storageAvailable) => set({ storageAvailable }),
+}));
+
+function errorChip(id: string, name: string, reason: AttachmentFailReason): StagedAttachment {
+  return {
+    id: `${id}-err`,
+    name,
+    ext: name.split('.').pop()?.toLowerCase() ?? '',
+    sizeLabel: ATTACHMENT_FAIL_MESSAGE[reason],
+    status: 'error',
+    failReason: reason,
+  };
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${bytes} B`;
+}
+
+function mimeFromExt(ext: string): string {
+  switch (ext) {
+    case 'md':
+      return 'text/markdown';
+    case 'txt':
+      return 'text/plain';
+    case 'csv':
+      return 'text/csv';
+    case 'json':
+      return 'application/json';
+    case 'pdf':
+      return 'application/pdf';
+    case 'png':
+      return 'image/png';
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg';
+    case 'docx':
+      return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    case 'xlsx':
+      return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    default:
+      return 'application/octet-stream';
+  }
+}
+
+async function hydrateStagedFile(
+  id: string,
+  attachmentId: string | undefined,
+  name: string,
+  file: { arrayBuffer(): Promise<ArrayBuffer> },
+  set: StoreSet,
+): Promise<void> {
+  try {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const sha256 = await sha256Hex(bytes);
+    set((s) => ({
+      staged: s.staged.map((attachment) =>
+        attachment.id === id && attachment.attachmentId === attachmentId
+          ? { ...attachment, bytes, sha256 }
+          : attachment,
+      ),
+    }));
+  } catch {
+    set((s) => ({
+      staged: s.staged.map((attachment) =>
+        attachment.id === id && attachment.attachmentId === attachmentId
+          ? errorChip(id, name, 'storage-unavailable')
+          : attachment,
+      ),
+    }));
+  }
+}

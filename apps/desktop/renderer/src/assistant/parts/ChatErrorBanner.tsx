@@ -1,16 +1,16 @@
 import { Icon } from '@/design-system/icons/Icon.js';
 import { AlertTriangle, ChevronDown, RotateCcw, X } from 'lucide-react';
 import { useState } from 'react';
-import { useRunStore } from '../run-store.js';
+import { conversationRunController } from '../runtime/conversation-run-controller.js';
+import { useConversationRun } from '../runtime/conversation-run-react.js';
 
 /**
  * In-thread recovery banner for a failed run. Surfaces only recovery paths that
  * write to shared run state: Retry appears only while the error carries a real
  * re-dispatch closure; seeded historical errors stay dismiss-only.
  */
-export function ChatErrorBanner() {
-  const error = useRunStore((s) => s.error);
-  const dismissError = useRunStore((s) => s.dismissError);
+export function ChatErrorBanner({ threadId }: { threadId: string }) {
+  const { error } = useConversationRun(threadId);
   const [showDetails, setShowDetails] = useState(false);
 
   if (!error) return null;
@@ -26,7 +26,7 @@ export function ChatErrorBanner() {
           type="button"
           className="off-errbanner-x off-focusable"
           aria-label="Dismiss"
-          onClick={dismissError}
+          onClick={() => conversationRunController.dismissError(threadId)}
         >
           <Icon icon={X} size="sm" />
         </button>

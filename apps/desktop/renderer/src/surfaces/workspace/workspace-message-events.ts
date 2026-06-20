@@ -42,15 +42,22 @@ function wsAttachmentToChatAttachment(message: WsMessage): ChatAttachment[] | un
 }
 
 function workspaceTimeLabel(date: Date): string {
+  if (!Number.isFinite(date.getTime())) return '--:--';
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
 
+function finiteTimestamp(value: unknown, fallback = Date.now()): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
 function workspaceMessageAt(message: WsMessage): number {
-  if (message.at && Number.isFinite(message.at)) return message.at;
+  if (typeof message.at === 'number' && Number.isFinite(message.at)) return message.at;
   const match = /^(\d{1,2}):(\d{2})$/.exec(message.timeLabel);
   const at = new Date();
   if (match) {
-    at.setHours(Number(match[1]), Number(match[2]), 0, 0);
+    const hours = Number(match[1] ?? 0);
+    const minutes = Number(match[2] ?? 0);
+    at.setHours(hours, minutes, 0, 0);
     if (at.getTime() > Date.now()) at.setDate(at.getDate() - 1);
     return at.getTime();
   }
@@ -74,6 +81,7 @@ function wsMessageToChatMessage(message: WsMessage, threadId: string): Workspace
 function chatMessageToWsMessage(message: ChatMessage): WsMessage {
   const workspaceMessage = message as WorkspaceChatMessage;
   const deliverable = workspaceMessage.workspaceDeliverable;
+  const at = finiteTimestamp(message.at);
   const firstAttachment =
     message.attachments?.find((attachment) => attachment.id !== deliverable?.id) ??
     (deliverable ? undefined : message.attachments?.[0]);
@@ -82,8 +90,8 @@ function chatMessageToWsMessage(message: ChatMessage): WsMessage {
     author: message.author === 'boss' ? 'boss' : 'employee',
     employeeId: message.author === 'boss' ? null : message.employeeId,
     role: message.author === 'system' ? 'runtime' : undefined,
-    timeLabel: workspaceTimeLabel(new Date(message.at)),
-    at: message.at,
+    timeLabel: workspaceTimeLabel(new Date(at)),
+    at,
     body: message.body,
     reasoning: message.reasoning,
     deliverable,
@@ -107,7 +115,9 @@ function mergeWorkspaceMessages(...sources: WsMessage[][]): WsMessage[] {
       merged.set(message.id, message);
     }
   }
-  return Array.from(merged.values()).sort((a, b) => (a.at ?? 0) - (b.at ?? 0));
+  return Array.from(merged.values()).sort(
+    (a, b) => finiteTimestamp(a.at, 0) - finiteTimestamp(b.at, 0),
+  );
 }
 
 export async function persistWorkspaceMessage({

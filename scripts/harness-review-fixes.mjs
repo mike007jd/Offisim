@@ -135,17 +135,17 @@ const permissionBar = await source(
 assertIncludesAll(
   permissionBar,
   [
-    'await runtime.answerUiRequest',
-    'clearPendingUiRequest();',
+    'conversationRunController.answerApproval',
+    'conversationRunController.dismissApproval',
     'setDecisionError',
     'Could not deliver approval. Retry or stop the run.',
   ],
-  'Approval bar must keep failed UI responses visible and retryable.',
+  'Approval bar must route decisions through the ConversationRunController and keep failed responses visible.',
 );
 assertNoMatch(
   permissionBar,
-  /finally\s*\{[\s\S]{0,120}clearPendingUiRequest\(\)/u,
-  'Approval bar must not clear the prompt from a finally block after failed delivery.',
+  /getDesktopAgentRuntime|runtime\.answerUiRequest|clearPendingUiRequest/u,
+  'Approval bar must not bypass the ConversationRunController.',
 );
 
 const chatRuntime = await source(
@@ -153,23 +153,45 @@ const chatRuntime = await source(
 );
 assertIncludesAll(
   chatRuntime,
-  ['(payload.chatThreadId || event.threadId) !== threadId', 'Pi Agent run failed.'],
-  'assistant-ui projection must consume the thread-scoped agent stream directly.',
+  ['Pi Agent run failed.', 'materializeChatTurn', 'displayAttachmentsFromStaged'],
+  'desktop chat helper must keep only shared message/attachment helpers.',
 );
 assertNoMatch(
   chatRuntime,
-  /STREAM_REPLY_NODES|graph_reply|assistant_response|provider call/u,
-  'assistant-ui projection must not guess graph-era stream nodes.',
+  /subscribeReplyStream|subscribeRunActivity|subscribeToolCalls|subscribeAgentUiRequests|runtimeEventBus|getDesktopAgentRuntime/u,
+  'stream/tool/UI subscriptions must live in ConversationRunController, not shared chat helpers.',
 );
-// The reply stream must stay agent-agnostic: isolation is by thread, never by a
-// hard-coded backend id. A `nodeName === / !== 'pi_agent'` guard would silently
-// drop a second backend's tokens (the GUI is a fixed interface many agents plug
-// into), so forbid the filter from creeping back in.
-assertNoMatch(
-  chatRuntime,
-  /nodeName\s*[!=]==\s*['"]pi_agent['"]/u,
-  'reply stream must not filter on a backend id — keep it agent-agnostic.',
+
+const conversationController = await source(
+  'apps/desktop/renderer/src/assistant/runtime/conversation-run-controller.ts',
 );
+assertIncludesAll(
+  conversationController,
+  [
+    'runId: run.attemptId',
+    "eventBus.on('llm.stream.chunk'",
+    "eventBus.on('tool.execution.telemetry'",
+    'AGENT_UI_REQUEST_EVENT',
+  ],
+  'ConversationRunController must own runId-scoped stream, tool, and UI request projection.',
+);
+
+for (const uiOwner of [
+  'apps/desktop/renderer/src/assistant/runtime/useOfficeRuntime.ts',
+  'apps/desktop/renderer/src/surfaces/workspace/apps/WorkspaceAssistantThread.tsx',
+]) {
+  const text = await source(uiOwner);
+  assertIncludesAll(
+    text,
+    ['conversationRunController.submit', 'useConversationRun'],
+    `${uiOwner} must submit through and read from ConversationRunController.`,
+  );
+  assertNoMatch(
+    text,
+    /getDesktopAgentRuntime|runtimeEventBus|subscribeReplyStream|subscribeRunActivity|subscribeToolCalls|subscribeAgentUiRequests|persistChatMessage/u,
+    `${uiOwner} must not own Pi runtime, runtime bus subscriptions, or direct chat persistence.`,
+  );
+}
 
 const settingsSurface = await source(
   'apps/desktop/renderer/src/surfaces/settings/SettingsSurface.tsx',

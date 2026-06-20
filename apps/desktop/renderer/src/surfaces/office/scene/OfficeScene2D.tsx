@@ -1,4 +1,5 @@
 import { useUiState } from '@/app/ui-state.js';
+import { useEmployeeRunStates } from '@/assistant/runtime/conversation-run-react.js';
 import { OFFICE_SCENE_2D_COLORS } from '@/data/color-palette.js';
 import { useEmployees, useOfficeLayout, useThreads } from '@/data/queries.js';
 import type { ZoneKind } from '@/data/types.js';
@@ -47,6 +48,7 @@ export function OfficeScene2D() {
   const openThread = useUiState((s) => s.openThread);
   const employees = useEmployees();
   const threads = useThreads(projectId);
+  const employeeRunStates = useEmployeeRunStates(projectId);
   // Same real source as the 3D scene — real zones + real roster, with the
   // synthetic fallback only when there is no backend (non-Tauri/dev preview).
   const layout = useOfficeLayout(companyId);
@@ -77,7 +79,6 @@ export function OfficeScene2D() {
     () => threadList?.find((t) => t.id === selectedThreadId)?.employeeId,
     [selectedThreadId, threadList],
   );
-  const liveThread = useMemo(() => threadList?.find((t) => t.runState === 'running'), [threadList]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -171,8 +172,7 @@ export function OfficeScene2D() {
         const pos = positions.get(employee.id);
         if (!pos) continue;
         const thread = threadByEmployee.get(employee.id);
-        const running =
-          thread?.runState === 'running' || (liveThread?.scope === 'team' && employee.online);
+        const running = employeeRunStates.has(employee.id);
         const active = Boolean(thread && thread.id === selectedThreadId);
         const colors = resolveAppearance(employee.id, employee.appearance);
         let sx = wx(pos.x);
@@ -282,7 +282,7 @@ export function OfficeScene2D() {
     threadByEmployee,
     selectedEmployeeId,
     selectedThreadId,
-    liveThread,
+    employeeRunStates,
   ]);
 
   // A zero-zone (empty) office draws the bare floor slab with nobody seated —

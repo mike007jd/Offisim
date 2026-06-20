@@ -54,7 +54,8 @@ let uiRequestSeq = 0;
 const pendingUiRequests = new Map(); // request id -> settle(responseObject)
 
 function requestUiResponse(method, fields, opts) {
-  const id = `ui-${(uiRequestSeq += 1)}`;
+  uiRequestSeq += 1;
+  const id = `ui-${uiRequestSeq}`;
   emit(uiRequestLine({ id, method, ...fields }));
   return new Promise((resolve) => {
     const settle = (response) => {

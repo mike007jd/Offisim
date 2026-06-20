@@ -1,14 +1,14 @@
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 import { AlertCircle, FileText, X } from 'lucide-react';
-import { useRunStore } from '../run-store.js';
+import { useComposerAttachmentStore } from './composer-attachment-store.js';
 
 /** Staged attachment chips shown between the composer input and its tool row.
  *  Each chip reflects truthful staging state; failed chips carry the canonical
  *  error string so size/dedupe/type rejection is never a silent no-op. */
 export function StagedAttachments() {
-  const staged = useRunStore((s) => s.staged);
-  const removeStaged = useRunStore((s) => s.removeStaged);
+  const staged = useComposerAttachmentStore((s) => s.staged);
+  const removeStaged = useComposerAttachmentStore((s) => s.removeStaged);
 
   if (staged.length === 0) return null;
 

@@ -1,6 +1,6 @@
 import { useUiState } from '@/app/ui-state.js';
 import { RunPipelinePill } from '@/assistant/parts/RunPipelinePill.js';
-import { useRunStore } from '@/assistant/run-store.js';
+import { useActiveConversationRuns } from '@/assistant/runtime/conversation-run-react.js';
 import { useOfficeLayout, useRunCost } from '@/data/queries.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
@@ -18,7 +18,7 @@ export function OfficeStage() {
   const companyId = useUiState((s) => s.companyId);
 
   const runCost = useRunCost();
-  const isRunning = useRunStore((s) => s.isRunning);
+  const isRunning = useActiveConversationRuns().activeRuns.length > 0;
   // Zero zones is only reachable with a real backend layout (the no-backend
   // preview path falls back to non-empty FALLBACK_ZONES). The stage owns the
   // empty-office overlay so both render modes share one copy — and Studio,

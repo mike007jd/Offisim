@@ -527,18 +527,16 @@ const requiredChecks = [
     ],
   },
   {
-    // The Office rail intentionally renders every author's text through
-    // `<Markdown>` (unified Codex-style rendering) rather than the plain
-    // `MessagePartPrimitive.Text`, so we assert the streaming-progress primitive
-    // instead — the assistant-ui message-primitive integration the gate exists
-    // to enforce (Root + Parts + a part-level primitive) is still intact.
+    // The Office rail owns message row identity, while the shared
+    // AssistantMessageParts component owns the assistant-ui part switch.
     label: 'Office assistant-ui message primitives',
     file: 'apps/desktop/renderer/src/surfaces/office/rail/MessageItem.tsx',
-    patterns: [
-      /MessagePrimitive\.Root/,
-      /MessagePrimitive\.Parts/,
-      /MessagePartPrimitive\.InProgress/,
-    ],
+    patterns: [/MessagePrimitive\.Root/, /AssistantMessageParts/],
+  },
+  {
+    label: 'Shared assistant-ui message parts primitives',
+    file: 'apps/desktop/renderer/src/assistant/parts/AssistantMessageParts.tsx',
+    patterns: [/MessagePrimitive\.Parts/, /MessagePartPrimitive\.InProgress/, /Markdown/],
   },
   {
     label: 'Workspace assistant-ui thread primitives',
@@ -549,8 +547,7 @@ const requiredChecks = [
       /ThreadPrimitive\.Root/,
       /ThreadPrimitive\.Messages/,
       /MessagePrimitive\.Root/,
-      /MessagePrimitive\.Parts/,
-      /MessagePartPrimitive\.Text/,
+      /AssistantMessageParts/,
       /ComposerPrimitive\.Root/,
       /ComposerPrimitive\.Input/,
       /ComposerPrimitive\.Send/,

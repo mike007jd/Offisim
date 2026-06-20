@@ -13,6 +13,8 @@ export interface DesktopAgentRunInput {
   threadId: string;
   employeeId: string | null;
   projectId: string | null;
+  /** Controller-owned run id used to isolate stream/tool/UI events per attempt. */
+  runId?: string;
   /**
    * Per-turn Pi registry model id (provider/model). When omitted the runtime
    * falls back to the global Settings override, then to Pi's default. Pi still
@@ -145,7 +147,7 @@ function newRequestId(prefix: string): string {
 }
 
 /** Event name for the agent's mid-run "ask the user something" bridge — shared by
- *  the producer (here) and the consumer (`subscribeAgentUiRequests`) so the two
+ *  the producer (here) and the ConversationRunController consumer so the two
  *  can't drift on a typo. Backend-neutral on purpose: any agent that pauses to
  *  prompt the user (Pi today via `ctx.ui`, others later) routes through this. */
 export const AGENT_UI_REQUEST_EVENT = 'agent.ui.request';
@@ -157,6 +159,7 @@ export const AGENT_UI_REQUEST_EVENT = 'agent.ui.request';
  *  is generic so it isn't tied to any one backend. */
 export interface AgentUiRequestPayload {
   requestId: string;
+  runId: string;
   id: string;
   method: string;
   title: string;
@@ -185,10 +188,15 @@ function agentUiRequestEvent(
   };
 }
 
-function piRunScope(projectId: string | null, threadId: string, employeeId: string | null) {
+function piRunScope(
+  projectId: string | null,
+  threadId: string,
+  employeeId: string | null,
+  runId?: string,
+) {
   return {
     conversationKey: `${projectId ?? ''}::${threadId}::${employeeId ?? ''}`,
-    runId: `pi-${crypto.randomUUID()}`,
+    runId: runId || `pi-${crypto.randomUUID()}`,
     threadId,
   };
 }
@@ -209,7 +217,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
 
   async execute(input: DesktopAgentRunInput): Promise<DesktopAgentRunResult> {
     const projectId = await ensureProjectBoundForRun(this.repos, this.companyId, input.projectId);
-    const runScope = piRunScope(projectId, input.threadId, input.employeeId);
+    const runScope = piRunScope(projectId, input.threadId, input.employeeId, input.runId);
     const requestId = newRequestId('pi-agent');
     const startedAtByTool = new Map<string, number>();
     let finalText = '';
@@ -273,6 +281,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
         runtimeEventBus.emit(
           agentUiRequestEvent(this.companyId, input.threadId, {
             requestId,
+            runId: runScope.runId,
             id: event.id,
             method: event.method,
             title: event.title,

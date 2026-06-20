@@ -975,12 +975,12 @@
 }
 
 .off-reasoning.is-streaming .off-reasoning-label {
-  animation: off-reasoning-think 1.4s ease-in-out infinite;
+  animation: off-reasoning-think var(--off-motion-loop-base) var(--off-motion-loop-ease) infinite;
 }
 
 .off-reasoning-caret {
   flex: none;
-  transition: transform 0.15s ease;
+  transition: transform var(--off-motion-fast) var(--off-motion-ease);
 }
 
 .off-reasoning.is-open .off-reasoning-caret {
@@ -1000,8 +1000,8 @@
    reads as the "current" thought rather than a clipped block. */
 .off-reasoning.is-streaming .off-reasoning-scroll {
   scrollbar-width: none;
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 1.75rem);
-  mask-image: linear-gradient(to bottom, transparent 0, #000 1.75rem);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 1.75rem);
+  mask-image: linear-gradient(to bottom, transparent 0, black 1.75rem);
 }
 
 .off-reasoning.is-streaming .off-reasoning-scroll::-webkit-scrollbar {
@@ -1066,7 +1066,7 @@
 
 .off-msg-tool.is-running .off-msg-tool-status {
   color: var(--off-accent);
-  animation: off-reasoning-think 1.4s ease-in-out infinite;
+  animation: off-reasoning-think var(--off-motion-loop-base) var(--off-motion-loop-ease) infinite;
 }
 
 .off-msg-tool.is-failed {

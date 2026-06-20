@@ -1,22 +1,23 @@
 import { StagedAttachments } from '@/assistant/composer/StagedAttachments.js';
+import { useComposerAttachmentStore } from '@/assistant/composer/composer-attachment-store.js';
 import { AssistantMessageParts } from '@/assistant/parts/AssistantMessageParts.js';
+import { ChatErrorBanner } from '@/assistant/parts/ChatErrorBanner.js';
+import { PermissionApprovalBar } from '@/assistant/parts/PermissionApprovalBar.js';
+import { RunActivityStrip } from '@/assistant/parts/RunActivityStrip.js';
 import {
   assembleAssistantContent,
   isReasoningStreaming,
 } from '@/assistant/parts/assistant-message-parts.js';
-import { useRunStore } from '@/assistant/run-store.js';
+import { conversationRunController } from '@/assistant/runtime/conversation-run-controller.js';
 import {
-  appendText,
-  materializeChatTurn,
-  newDraftId,
-  subscribeReplyStream,
-  subscribeToolCalls,
-  upsertChatToolCall,
-} from '@/assistant/runtime/desktop-chat-runtime.js';
+  isConversationRunActive,
+  useConversationRun,
+} from '@/assistant/runtime/conversation-run-react.js';
+import { appendText } from '@/assistant/runtime/desktop-chat-runtime.js';
 import { isTauriRuntime } from '@/data/adapters.js';
 import { autoTitleThreadFromFirstMessage } from '@/data/auto-title.js';
 import { UI_DATA_COLORS } from '@/data/color-palette.js';
-import type { ChatToolCall, Employee } from '@/data/types.js';
+import type { ChatAttachment, ChatMessage, Employee } from '@/data/types.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { Icon } from '@/design-system/icons/Icon.js';
@@ -33,14 +34,18 @@ import {
   useExternalStoreRuntime,
 } from '@assistant-ui/react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Download, FileText, MessageSquarePlus, Paperclip, SendHorizontal } from 'lucide-react';
+import {
+  Download,
+  FileText,
+  MessageSquarePlus,
+  Paperclip,
+  SendHorizontal,
+  Square,
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { type WsConversation, type WsMessage, dayLabelFrom } from '../workspace-data.js';
-import {
-  persistWorkspaceMessage,
-  usePersistedWorkspaceMessages,
-} from '../workspace-message-events.js';
+import { usePersistedWorkspaceMessages } from '../workspace-message-events.js';
 
 const DELIVERABLE_EXTENSION: Record<string, string> = {
   MD: 'md',
@@ -90,16 +95,43 @@ function workspaceTimeLabel(date = new Date()): string {
 }
 
 function mergeWorkspaceMessages(...sources: WsMessage[][]): WsMessage[] {
-  const seen = new Set<string>();
-  const merged: WsMessage[] = [];
+  const merged = new Map<string, WsMessage>();
   for (const source of sources) {
     for (const message of source) {
-      if (seen.has(message.id)) continue;
-      seen.add(message.id);
-      merged.push(message);
+      merged.set(message.id, message);
     }
   }
-  return merged;
+  return Array.from(merged.values()).sort((a, b) => (a.at ?? 0) - (b.at ?? 0));
+}
+
+function chatAttachmentToWorkspace(attachments: readonly ChatAttachment[] | undefined) {
+  const first = attachments?.[0];
+  if (!first) return undefined;
+  return {
+    id: first.id,
+    name: first.name,
+    meta:
+      attachments && attachments.length > 1
+        ? `${first.sizeLabel} · ${attachments.length} files staged`
+        : first.sizeLabel,
+  };
+}
+
+function chatMessageToWorkspaceMessage(message: ChatMessage, active: WsConversation): WsMessage {
+  const isBoss = message.author === 'boss';
+  return {
+    id: message.id,
+    author: isBoss ? 'boss' : 'employee',
+    employeeId: isBoss ? null : message.employeeId,
+    role:
+      message.author === 'system' ? 'runtime' : active.kind === 'group' ? 'workspace' : undefined,
+    timeLabel: workspaceTimeLabel(new Date(message.at)),
+    at: message.at,
+    body: message.body,
+    reasoning: message.reasoning,
+    toolCalls: message.toolCalls,
+    attachment: chatAttachmentToWorkspace(message.attachments),
+  };
 }
 
 function DeliverableInline({
@@ -323,27 +355,36 @@ export function WorkspaceAssistantThread({
   companyId: string | null;
   workspaceBound: boolean;
 }) {
-  const [drafts, setDrafts] = useState<WsMessage[]>([]);
-  const [isSending, setIsSending] = useState(false);
-  // True between send and the first streamed token — drives the typing indicator.
-  const [awaitingReply, setAwaitingReply] = useState(false);
-  const abortControllerRef = useRef<AbortController | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const chatEnabled = isTauriRuntime();
   const queryClient = useQueryClient();
-  const staged = useRunStore((s) => s.staged);
-  const stageFiles = useRunStore((s) => s.stageFiles);
-  const clearStaged = useRunStore((s) => s.clearStaged);
-  const storageAvailable = useRunStore((s) => s.storageAvailable);
+  const run = useConversationRun(active.id);
+  const staged = useComposerAttachmentStore((s) => s.staged);
+  const stageFiles = useComposerAttachmentStore((s) => s.stageFiles);
+  const clearStaged = useComposerAttachmentStore((s) => s.clearStaged);
+  const storageAvailable = useComposerAttachmentStore((s) => s.storageAvailable);
   const persistedMessages = usePersistedWorkspaceMessages(active.id);
+  const activeConversationId = active.id;
+  const liveMessages = useMemo(
+    () => run.liveMessages.map((message) => chatMessageToWorkspaceMessage(message, active)),
+    [active, run.liveMessages],
+  );
   const runtimeMessages = useMemo(
-    () => mergeWorkspaceMessages(messages, persistedMessages.data ?? [], drafts),
-    [messages, persistedMessages.data, drafts],
+    () => mergeWorkspaceMessages(messages, persistedMessages.data ?? [], liveMessages),
+    [messages, persistedMessages.data, liveMessages],
   );
   const runtimeMessageById = useMemo(
     () => new Map(runtimeMessages.map((message) => [message.id, message])),
     [runtimeMessages],
   );
+  const isRunning = isConversationRunActive(run.phase);
+  const awaitingReply =
+    isRunning &&
+    !run.liveMessages.some(
+      (message) =>
+        message.author !== 'boss' &&
+        (message.body.trim() || message.reasoning?.trim() || message.toolCalls?.length),
+    );
   // Day separator follows the first rendered message's real timestamp. Messages
   // without one (fixtures, just-sent drafts) are "now"-shaped, so 'Today' holds.
   // Scope: one separator per thread (labels the conversation start), not
@@ -358,47 +399,9 @@ export function WorkspaceAssistantThread({
     });
   }, [persistedMessages.error]);
 
-  // Aborts any in-flight Pi Agent request and resets the local request state.
-  // Shared by the cancel action and the unmount cleanup so a conversation
-  // switch (which remounts this keyed component) never orphans a live request.
-  const abortInFlight = useCallback(() => {
-    abortControllerRef.current?.abort();
-    abortControllerRef.current = null;
-    if (companyId) {
-      void import('@/runtime/desktop-agent-runtime.js')
-        .then(({ getDesktopAgentRuntime }) => getDesktopAgentRuntime(companyId))
-        .then((runtime) => runtime.abort(active.id))
-        .catch(() => undefined);
-    }
-  }, [companyId, active.id]);
-
   useEffect(() => {
-    setDrafts([]);
-    abortControllerRef.current = null;
-    setIsSending(false);
-    clearStaged();
-    return () => {
-      abortInFlight();
-    };
-  }, [clearStaged, abortInFlight]);
-
-  const persistMessage = useCallback(
-    async (message: WsMessage) => {
-      await persistWorkspaceMessage({
-        threadId: active.id,
-        message,
-        companyId,
-        projectId,
-      });
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['messages', active.id] }),
-        queryClient.invalidateQueries({
-          queryKey: ['ws', 'persisted-thread-messages', active.id],
-        }),
-      ]);
-    },
-    [active.id, companyId, projectId, queryClient],
-  );
+    if (activeConversationId) clearStaged();
+  }, [activeConversationId, clearStaged]);
 
   function stageFileList(fileList: FileList | null) {
     const files = Array.from(fileList ?? []).map((f) => ({
@@ -418,33 +421,13 @@ export function WorkspaceAssistantThread({
         toast.error('Workspace chat requires the release desktop runtime');
         return;
       }
+      if (!companyId) {
+        toast.error('Cannot send: no active company is bound to this workspace.');
+        return;
+      }
       const attached = staged.filter((attachment) => attachment.status === 'attached');
-      const firstAttachment = attached[0]
-        ? {
-            id: attached[0].attachmentId ?? attached[0].id,
-            name: attached[0].name,
-            meta:
-              attached.length > 1
-                ? `${attached[0].sizeLabel} · ${attached.length} files staged`
-                : attached[0].sizeLabel,
-          }
-        : undefined;
-      const userMessage: WsMessage = {
-        id: newDraftId('workspace-user'),
-        author: 'boss',
-        employeeId: null,
-        timeLabel: workspaceTimeLabel(),
-        body: text,
-        attachment: firstAttachment,
-      };
-      setDrafts((prev) => [...prev, userMessage]);
       clearStaged();
-      const controller = new AbortController();
-      abortControllerRef.current = controller;
-      setIsSending(true);
-      setAwaitingReply(true);
       try {
-        await persistMessage(userMessage);
         // Title the conversation from its first user message so the messenger
         // list stops showing "New conversation". Fire-and-forget and self-
         // skipping once the thread is already titled (auto or manual rename).
@@ -459,161 +442,38 @@ export function WorkspaceAssistantThread({
             err,
           });
         });
-        // Every workspace chat runs through Pi Agent. A chat with no active
-        // company cannot assemble a project-scoped runtime, so fail honestly.
-        if (!companyId) {
-          throw new Error('Cannot send: no active company is bound to this workspace.');
-        }
-        const materialized = await materializeChatTurn({
-          text,
+        await conversationRunController.submit({
           companyId,
+          projectId,
           threadId: active.id,
-          staged: attached,
-        });
-        const { getDesktopAgentRuntime } = await import('@/runtime/desktop-agent-runtime.js');
-        const { runtimeEventBus } = await import('@/runtime/repos.js');
-        const runtime = await getDesktopAgentRuntime(companyId);
-
-        // Stream the reply into a single assistant draft (mirrors the Office
-        // runtime): append Pi Agent visible text chunks for this thread. The
-        // authoritative response overwrites it afterward.
-        const streamDraftId = newDraftId('workspace-assistant');
-        const makeAssistantDraft = (body: string, reasoning?: string): WsMessage => ({
-          id: streamDraftId,
-          author: 'employee',
           employeeId: active.employeeId,
-          role: active.kind === 'group' ? 'workspace' : undefined,
-          timeLabel: workspaceTimeLabel(),
-          body,
-          ...(reasoning?.trim() ? { reasoning } : {}),
+          text,
+          stagedAttachments: attached,
+          source: 'workspace',
         });
-        const upsertDraft = (body: string, mode: 'append' | 'set') => {
-          setAwaitingReply(false);
-          setDrafts((prev) => {
-            const existing = prev.find((draft) => draft.id === streamDraftId);
-            if (!existing) return [...prev, makeAssistantDraft(body)];
-            const nextBody = mode === 'append' ? `${existing.body}${body}` : body;
-            return prev.map((draft) =>
-              draft.id === streamDraftId ? { ...draft, body: nextBody } : draft,
-            );
-          });
-        };
-        const upsertReasoningDraft = (chunk: string) => {
-          if (!chunk) return;
-          setAwaitingReply(false);
-          setDrafts((prev) => {
-            const existing = prev.find((draft) => draft.id === streamDraftId);
-            if (!existing) return [...prev, makeAssistantDraft('', chunk)];
-            return prev.map((draft) =>
-              draft.id === streamDraftId
-                ? { ...draft, reasoning: `${draft.reasoning ?? ''}${chunk}` }
-                : draft,
-            );
-          });
-        };
-        // Accumulate tool steps into the same draft → native inline tool-call parts.
-        const toolCalls: ChatToolCall[] = [];
-        const upsertToolCall = (call: ChatToolCall) => {
-          const snapshot = upsertChatToolCall(toolCalls, call);
-          setAwaitingReply(false);
-          setDrafts((prev) => {
-            const existing = prev.find((draft) => draft.id === streamDraftId);
-            if (!existing) return [...prev, { ...makeAssistantDraft(''), toolCalls: snapshot }];
-            return prev.map((draft) =>
-              draft.id === streamDraftId ? { ...draft, toolCalls: snapshot } : draft,
-            );
-          });
-        };
-        let reasoningText = '';
-        const unsubscribe = subscribeReplyStream(
-          runtimeEventBus,
-          active.id,
-          (chunk) => upsertDraft(chunk, 'append'),
-          (chunk) => {
-            reasoningText += chunk;
-            upsertReasoningDraft(chunk);
-          },
-        );
-        const unsubscribeToolCalls = subscribeToolCalls(runtimeEventBus, active.id, upsertToolCall);
-        let response: Awaited<ReturnType<typeof runtime.execute>>;
-        try {
-          response = await runtime.execute({
-            text: materialized.promptText,
-            threadId: active.id,
-            employeeId: active.employeeId,
-            projectId,
-          });
-        } finally {
-          // InMemoryEventBus has no auto-cleanup — always release these handlers.
-          unsubscribe();
-          unsubscribeToolCalls();
-        }
-        // A late-resolving cancel: keep whatever already streamed into the draft.
-        if (controller.signal.aborted) return;
-        if (!reasoningText.trim() && response.reasoning) {
-          reasoningText = response.reasoning;
-        }
-        const assistantMessage: WsMessage = {
-          ...makeAssistantDraft(response.text, reasoningText),
-          ...(toolCalls.length ? { toolCalls: [...toolCalls] } : {}),
-        };
-        await persistMessage(assistantMessage);
-        // Replace the streamed draft with the authoritative final reply and
-        // preserve final reasoning even when it arrived via the command return.
-        setDrafts((prev) =>
-          prev.some((draft) => draft.id === streamDraftId)
-            ? prev.map((draft) => (draft.id === streamDraftId ? assistantMessage : draft))
-            : [...prev, assistantMessage],
-        );
       } catch (error) {
-        // An aborted request (cancel or conversation switch) is not a failure;
-        // skip the error draft and toast so it does not surface as a bridge error.
-        if (controller.signal.aborted) {
-          return;
-        }
-        const messageText = safeErrorMessage(error);
-        toast.error('Pi Agent workspace chat failed', { description: messageText });
-        const failureMessage: WsMessage = {
-          id: newDraftId('workspace-pi-agent-error'),
-          author: 'employee',
-          employeeId: active.employeeId,
-          role: 'runtime',
-          timeLabel: workspaceTimeLabel(),
-          body: `Workspace chat failed: ${messageText}`,
-        };
-        setDrafts((prev) => [...prev, failureMessage]);
-        void persistMessage(failureMessage).catch(() => undefined);
-      } finally {
-        setAwaitingReply(false);
-        if (!controller.signal.aborted) {
-          abortControllerRef.current = null;
-          setIsSending(false);
-        }
+        toast.error('Pi Agent workspace chat failed', { description: safeErrorMessage(error) });
       }
     },
     [
       active.employeeId,
       active.id,
-      active.kind,
       chatEnabled,
       clearStaged,
       staged,
       companyId,
-      persistMessage,
       projectId,
       queryClient,
     ],
   );
   const onCancel = useCallback(async () => {
-    abortInFlight();
-    setIsSending(false);
-    setAwaitingReply(false);
-  }, [abortInFlight]);
+    conversationRunController.stop(active.id);
+  }, [active.id]);
   const runtime = useExternalStoreRuntime({
     messages: runtimeMessages,
     onNew,
     convertMessage: wsMessageToAssistant,
-    isRunning: isSending,
+    isRunning,
     onCancel,
   });
 
@@ -654,6 +514,11 @@ export function WorkspaceAssistantThread({
           )}
         </ThreadPrimitive.Viewport>
 
+        <div className="off-ws-run-status">
+          <PermissionApprovalBar threadId={active.id} />
+          <RunActivityStrip threadId={active.id} />
+          <ChatErrorBanner threadId={active.id} />
+        </div>
         <ComposerPrimitive.Root className="off-ws-composer">
           <StagedAttachments />
           <div className="off-ws-composer-shell">
@@ -688,16 +553,28 @@ export function WorkspaceAssistantThread({
                   : 'Workspace chat requires the release desktop runtime'
               }
             />
-            <ComposerPrimitive.Send
-              className="off-ws-send off-focusable"
-              aria-label="Send message"
-              disabled={!chatEnabled || isSending}
-              title={
-                chatEnabled ? 'Send message' : 'Workspace chat requires the release desktop runtime'
-              }
-            >
-              <Icon icon={SendHorizontal} size="sm" />
-            </ComposerPrimitive.Send>
+            {isRunning ? (
+              <ComposerPrimitive.Cancel
+                className="off-ws-send off-focusable"
+                aria-label="Stop run"
+                title="Stop run"
+              >
+                <Icon icon={Square} size="sm" />
+              </ComposerPrimitive.Cancel>
+            ) : (
+              <ComposerPrimitive.Send
+                className="off-ws-send off-focusable"
+                aria-label="Send message"
+                disabled={!chatEnabled}
+                title={
+                  chatEnabled
+                    ? 'Send message'
+                    : 'Workspace chat requires the release desktop runtime'
+                }
+              >
+                <Icon icon={SendHorizontal} size="sm" />
+              </ComposerPrimitive.Send>
+            )}
           </div>
         </ComposerPrimitive.Root>
       </ThreadPrimitive.Root>

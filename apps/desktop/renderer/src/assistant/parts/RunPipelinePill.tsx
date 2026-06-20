@@ -1,38 +1,70 @@
+import { useUiState } from '@/app/ui-state.js';
 import { useEmployees } from '@/data/queries.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { Progress } from '@/design-system/primitives/progress.js';
 import { cn } from '@/lib/utils.js';
 import { useMemo } from 'react';
-import { useRunStore } from '../run-store.js';
+import { conversationRunController } from '../runtime/conversation-run-controller.js';
+import {
+  useActiveConversationRuns,
+  usePendingConversationApprovals,
+} from '../runtime/conversation-run-react.js';
+
+type StageState = 'done' | 'active' | 'pending';
+
+function stageState(active: boolean, done: boolean): StageState {
+  if (active) return 'active';
+  return done ? 'done' : 'pending';
+}
 
 /**
- * The diegetic run-status pill floating on the Office stage while a run is active:
- * the work title, who holds it, a step progress bar, the 5-stage ceremony, and a
- * real Stop control that routes through the run store into the active Pi host
- * abort.
+ * The diegetic run-status pill floating on the Office stage while a run is
+ * active. It now reads the controller's global projection, so Office and
+ * Workspace runs share one Stop control and one progress surface.
  */
 export function RunPipelinePill() {
-  const isRunning = useRunStore((s) => s.isRunning);
-  const pipeline = useRunStore((s) => s.pipeline);
-  const requestStop = useRunStore((s) => s.requestStop);
+  const selectedThreadId = useUiState((s) => s.selectedThreadId);
+  const companyId = useUiState((s) => s.companyId);
+  usePendingConversationApprovals(companyId || null);
+  const runs = useActiveConversationRuns();
   const employees = useEmployees();
 
+  const run = useMemo(
+    () =>
+      runs.activeRuns.find((candidate) => candidate.threadId === selectedThreadId) ??
+      runs.activeRuns[0] ??
+      null,
+    [runs.activeRuns, selectedThreadId],
+  );
+
   const assignee = useMemo(
-    () => employees.data?.find((e) => e.id === pipeline?.assigneeId),
-    [employees.data, pipeline?.assigneeId],
+    () => employees.data?.find((e) => e.id === run?.employeeId),
+    [employees.data, run?.employeeId],
   );
 
-  if (!isRunning || !pipeline) return null;
+  if (!run) return null;
 
-  const progressValue = Math.min(
-    100,
-    Math.max(0, (pipeline.stepDone / Math.max(1, pipeline.stepTotal)) * 100),
-  );
+  const awaiting = run.phase === 'awaiting-approval';
+  const preparing = run.phase === 'preparing';
+  const running = run.phase === 'running';
+  const stages = [
+    { id: 'prepare', label: 'Prepare', state: stageState(preparing, !preparing) },
+    { id: 'agent', label: 'Pi Agent', state: stageState(running, awaiting) },
+    { id: 'approval', label: 'Approval', state: stageState(awaiting, false) },
+    { id: 'response', label: 'Response', state: 'pending' as StageState },
+  ];
+  const completedStages = stages.filter((stage) => stage.state === 'done').length;
+  const progressValue = Math.min(100, Math.max(0, (completedStages / stages.length) * 100));
+  const title = awaiting
+    ? 'Waiting for approval'
+    : run.source === 'workspace'
+      ? 'Workspace reply'
+      : 'Chat reply';
 
   return (
     <div className="off-pipe" aria-live="polite">
       <span className="off-pipe-flow">
-        {pipeline.stages.map((stage) => (
+        {stages.map((stage) => (
           <span key={stage.id} className={cn('off-pipe-stage', `is-${stage.state}`)}>
             <span className="off-pipe-dot" />
             {stage.label}
@@ -51,13 +83,17 @@ export function RunPipelinePill() {
             brand={assignee.kind === 'external'}
           />
         ) : null}
-        <span className="off-pipe-title">{pipeline.title}</span>
+        <span className="off-pipe-title">{title}</span>
         <span className="off-pipe-step">
-          {pipeline.stepDone}/{pipeline.stepTotal}
+          {completedStages}/{stages.length}
         </span>
       </span>
       <Progress className="off-pipe-progress" value={progressValue} aria-label="Run progress" />
-      <button type="button" className="off-pipe-stop off-focusable" onClick={requestStop}>
+      <button
+        type="button"
+        className="off-pipe-stop off-focusable"
+        onClick={() => conversationRunController.stop(run.threadId)}
+      >
         Stop
       </button>
     </div>

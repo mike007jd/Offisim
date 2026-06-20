@@ -1,45 +1,52 @@
 import { useUiState } from '@/app/ui-state.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
-import { getDesktopAgentRuntime } from '@/runtime/desktop-agent-runtime.js';
 import { ShieldAlert } from 'lucide-react';
-import { useState } from 'react';
-import { useRunStore } from '../run-store.js';
+import { useEffect, useState } from 'react';
+import { conversationRunController } from '../runtime/conversation-run-controller.js';
+import {
+  useConversationRun,
+  usePendingConversationApprovals,
+} from '../runtime/conversation-run-react.js';
 
 /**
- * In-thread approval bar for the "Ask" permission mode. When the agent pauses
- * mid-run to ask the user something it raises a `pendingUiRequest` in the run
- * store; this bar surfaces the prompt's title/message and routes the user's
- * answer back to the paused host through the agent runtime
- * (`runtime.answerUiRequest`) — never a backend-specific command, so the bar
- * stays agent-agnostic. It lives in the chat column next to RunActivityStrip and
- * self-hides when there is no pending prompt. Single-slot by construction: the
- * gated host path runs one tool at a time, so only the active thread's run can
- * have an open prompt.
- *
- * Only `confirm` prompts get Approve/Reject UI today; other UI primitives
- * (select / input / editor) are auto-cancelled upstream so the host never hangs.
+ * In-thread approval bar for Ask mode. The ConversationRunController owns the
+ * paused run and persists active/stale interactions; this component only
+ * renders the current thread's projection and submits the user's decision.
  */
-export function PermissionApprovalBar() {
+export function PermissionApprovalBar({ threadId }: { threadId: string }) {
   const companyId = useUiState((s) => s.companyId);
-  const pending = useRunStore((s) => s.pendingUiRequest);
-  const clearPendingUiRequest = useRunStore((s) => s.clearPendingUiRequest);
+  usePendingConversationApprovals(companyId || null);
+  const { approval } = useConversationRun(threadId);
   const [deciding, setDeciding] = useState(false);
   const [decisionError, setDecisionError] = useState<string | null>(null);
+  const approvalKey = approval
+    ? `${approval.attemptId}:${approval.uiRequestId}:${approval.state}`
+    : 'none';
 
-  if (!pending) return null;
+  // Clear any stale decision error whenever a different approval takes over the bar.
+  useEffect(() => {
+    setDecisionError(null);
+  }, [approvalKey]);
+
+  if (!approval) return null;
+
+  const stale = approval.state === 'stale';
+  const unsupported = approval.state === 'unsupported';
+  const canAnswer = approval.state === 'live' && approval.method === 'confirm';
+  const lead = stale ? 'Approval expired' : unsupported ? 'Unsupported request' : 'Approval needed';
 
   const decide = async (confirmed: boolean) => {
     setDeciding(true);
     setDecisionError(null);
     try {
-      // In the browser preview there is no company-bound runtime/host to answer;
-      // just dismiss the prompt. Real desktop runs must deliver the answer first.
-      if (companyId) {
-        const runtime = await getDesktopAgentRuntime(companyId);
-        await runtime.answerUiRequest({ requestId: pending.requestId, id: pending.id, confirmed });
-      }
-      clearPendingUiRequest();
+      await conversationRunController.answerApproval({
+        threadId,
+        attemptId: approval.attemptId,
+        hostRequestId: approval.hostRequestId,
+        uiRequestId: approval.uiRequestId,
+        confirmed,
+      });
     } catch (err) {
       console.warn('[PermissionApprovalBar] UI answer failed', err);
       setDecisionError('Could not deliver approval. Retry or stop the run.');
@@ -48,27 +55,57 @@ export function PermissionApprovalBar() {
     }
   };
 
+  const dismiss = () => {
+    void conversationRunController.dismissApproval(threadId).catch((err: unknown) => {
+      console.warn('[PermissionApprovalBar] dismiss failed', err);
+      setDecisionError('Could not dismiss this approval.');
+    });
+  };
+
   return (
     <div className="off-permission-bar" aria-live="assertive" aria-label="Permission request">
       <div className="off-permission-head">
         <Icon icon={ShieldAlert} size="sm" className="off-permission-icon" />
-        <span className="off-permission-lead">Approval needed</span>
-        <code className="off-permission-tool">{pending.title}</code>
+        <span className="off-permission-lead">{lead}</span>
+        <code className="off-permission-tool">{approval.title}</code>
       </div>
-      {pending.message ? <p className="off-permission-reason">{pending.message}</p> : null}
+      {approval.message ? <p className="off-permission-reason">{approval.message}</p> : null}
+      {unsupported ? (
+        <p className="off-permission-reason">
+          This Pi UI primitive was cancelled because Offisim only supports confirm prompts here.
+        </p>
+      ) : null}
+      {stale ? (
+        <p className="off-permission-reason">
+          This request was restored after restart and cannot be answered safely.
+        </p>
+      ) : null}
       {decisionError ? <p className="off-permission-error">{decisionError}</p> : null}
       <div className="off-permission-actions">
-        <Button
-          variant="destructive"
-          size="sm"
-          disabled={deciding}
-          onClick={() => void decide(false)}
-        >
-          Reject
-        </Button>
-        <Button variant="default" size="sm" disabled={deciding} onClick={() => void decide(true)}>
-          Approve
-        </Button>
+        {canAnswer ? (
+          <>
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={deciding}
+              onClick={() => void decide(false)}
+            >
+              Reject
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              disabled={deciding}
+              onClick={() => void decide(true)}
+            >
+              Approve
+            </Button>
+          </>
+        ) : (
+          <Button variant="outline" size="sm" disabled={deciding} onClick={dismiss}>
+            Dismiss
+          </Button>
+        )}
       </div>
     </div>
   );

@@ -149,4 +149,4 @@ if (failures.length > 0) {
   for (const f of failures) console.error(`  - ${f}`);
   process.exit(1);
 }
-console.log(`✓ pi-permission-modes: ${passed} checks passed`);
+console.log(`✓ pi-permission-modes: ${passed} checks passed, 0 failed`);

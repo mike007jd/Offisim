@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils.js';
 import { EmptyState, ErrorState, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
 import { Archive, ArchiveRestore, ArrowLeft, MessageSquare, SquareKanban } from 'lucide-react';
 import { useMemo } from 'react';
-import { useRunStore } from '../../../assistant/run-store.js';
+import { useActiveConversationRuns } from '../../../assistant/runtime/conversation-run-react.js';
 import {
   type BoardColumn,
   type WsBoardCard,
@@ -41,10 +41,7 @@ export function KanbanApp() {
   const project = useActiveProject(companyId);
   const board = useWsBoard(project?.id ?? null);
 
-  // Live overlay for the one in-flight thread (run store is single-slot).
-  const activeThreadId = useRunStore((s) => s.threadId);
-  const isRunning = useRunStore((s) => s.isRunning);
-  const pending = useRunStore((s) => s.pendingUiRequest);
+  const activeRuns = useActiveConversationRuns();
 
   const byId = useMemo(
     () => new Map((employees.data ?? []).map((e) => [e.id, e])),
@@ -52,6 +49,10 @@ export function KanbanApp() {
   );
 
   const cards = board.data ?? [];
+  const runByThread = useMemo(
+    () => new Map(activeRuns.activeRuns.map((run) => [run.threadId, run])),
+    [activeRuns.activeRuns],
+  );
 
   // Bucket each conversation into a column: `done` is durable (archived), the
   // active/waiting lanes are the live overlay for the one in-flight run. Cheap
@@ -65,9 +66,10 @@ export function KanbanApp() {
   for (const card of cards) {
     let col: BoardColumn = 'todo';
     if (card.archived) col = 'done';
-    else if (card.threadId === activeThreadId) {
-      if (pending) col = 'waiting';
-      else if (isRunning) col = 'active';
+    else {
+      const run = runByThread.get(card.threadId);
+      if (run?.phase === 'awaiting-approval') col = 'waiting';
+      else if (run) col = 'active';
     }
     grouped[col].push(card);
   }

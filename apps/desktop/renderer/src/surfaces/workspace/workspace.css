@@ -825,6 +825,18 @@
   padding: var(--off-sp-4) var(--off-sp-5);
 }
 
+.off-ws-run-status {
+  flex: none;
+  display: grid;
+  gap: var(--off-sp-1);
+  padding: 0 var(--off-sp-4) var(--off-sp-2);
+  background: var(--off-surface-2);
+}
+
+.off-ws-run-status:empty {
+  display: none;
+}
+
 .off-ws-readonly-note {
   display: inline-flex;
   align-items: center;
@@ -2021,7 +2033,7 @@
 
 /* A small status dot so the four lanes read at a glance. */
 .off-ws-kb-col-h::before {
-  content: '';
+  content: "";
   width: 8px;
   height: 8px;
   flex: none;
