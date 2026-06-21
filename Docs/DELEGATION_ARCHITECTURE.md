@@ -279,9 +279,13 @@ Rust `MIGRATIONS` array must be updated in lockstep, per
 
 ```sql
 -- 0003: agent_runs — multi-agent delegation run tree (version 2 → 3).
+-- thread_id is plain TEXT (no FK): the desktop chat path uses chat_threads and
+-- never creates a graph_threads row, so a graph_threads FK would silently reject
+-- every insert. Matches agent_events; cleaned up via company FK cascade +
+-- explicit per-thread deletes in local-data-deletion.
 CREATE TABLE IF NOT EXISTS agent_runs (
   run_id              TEXT PRIMARY KEY,
-  thread_id           TEXT NOT NULL REFERENCES graph_threads(thread_id) ON DELETE CASCADE,
+  thread_id           TEXT NOT NULL,
   company_id          TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   parent_run_id       TEXT REFERENCES agent_runs(run_id) ON DELETE SET NULL,
   root_run_id         TEXT NOT NULL,
@@ -302,13 +306,15 @@ CREATE INDEX IF NOT EXISTS idx_agent_runs_parent ON agent_runs(parent_run_id);
 
 `AgentRunsRepository` follows the existing repository pattern (interface in
 `packages/core/src/runtime/repositories.ts`; Drizzle + memory + Tauri backends in
-sync). Child run start/stop write a row; usage rolls up to the parent (Phase 2).
-`graph_threads` FK note: a Pi thread must have its `graph_threads` row (the same
-prerequisite the existing path already satisfies).
+sync). The root run + each child run write a row; subtree usage rolls up into the
+root's `usage_json` at finalize (Phase 2). Persistence is serialized on a
+per-runtime promise chain so a child's row is created before its terminal update.
+`thread_id` is plain TEXT (no `graph_threads` FK) — see the DDL note above.
 
-Roster delivery: Rust `sidecar_payload` carries the company roster (each employee's
-`persona_json` / model from `config_json` / allowed tools / access band) read via
-`EmployeeRepository.findByCompany`; the supervisor builds children locally from it.
+Roster delivery: the renderer builds the company roster (each employee's resolved
+persona via `buildDelegationContext` over `EmployeeRepository.findByCompany`) and
+forwards it in the execute request; Rust passes it through verbatim in
+`sidecar_payload` (thin pipe). The supervisor builds children locally from it.
 
 ---
 
@@ -317,8 +323,8 @@ Roster delivery: Rust `sidecar_payload` carries the company roster (each employe
 | Limit | Phase 1 | Phase 2 default | Enforced by |
 |---|---|---|---|
 | `maxDepth` | 1 (no recursion) | 2 | supervisor depth counter; over → tool `block` + reason |
-| `maxConcurrentChildren` | n/a (single) | 4 | supervisor concurrency queue |
-| `maxTotalChildren` | 1 | 16 | global counter per root run |
+| `maxConcurrentChildren` | n/a (single) | 4 | **per parallel fan-out** (`mapWithConcurrencyLimit`), not a global blocking semaphore — a parent awaiting children must not hold a slot a child needs (deadlock). Tree-wide instantaneous concurrency is bounded by `maxTotalChildren`. |
+| `maxTotalChildren` | 1 | 16 | global counter per root run — the tree-wide cap |
 | wall-clock timeout / child | — | 5 min | `AbortController` + timer |
 | token / cost budget | — | reuse `ConversationBudgetService` | budget check before each child |
 | per-child output cap | 50 KB | 50 KB | supervisor truncates (mirrors official example), **logs** the drop |

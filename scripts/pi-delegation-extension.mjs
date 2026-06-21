@@ -69,18 +69,13 @@ export function createDelegationExtensionFactory(supervisor) {
             isError: true,
           };
         }
-        // Phase 1: single mode. Run the first task and await its summary. (parallel
-        // / recursion arrive in Phase 2; extra tasks are ignored for now.)
-        const [task] = tasks;
-        const summary = await supervisor.runSingle(
-          { employeeId: task.employeeId, objective: task.objective, access: task.access },
-          signal,
-        );
-        const note =
-          tasks.length > 1
-            ? `\n\n(Note: ${tasks.length - 1} additional task(s) ignored — single mode in this build.)`
-            : '';
-        return { content: [{ type: 'text', text: `${summary}${note}` }] };
+        // parallel runs every task concurrently (capped by maxConcurrentChildren);
+        // single (default) awaits just the first task.
+        const parallel = params.mode === 'parallel' || tasks.length > 1;
+        const text = parallel
+          ? await supervisor.runParallel(tasks, signal)
+          : await supervisor.runSingle(tasks[0], signal);
+        return { content: [{ type: 'text', text }] };
       },
     });
   };

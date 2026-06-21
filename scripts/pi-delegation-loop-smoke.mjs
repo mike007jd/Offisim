@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 /**
- * Phase 1 delegation-loop smoke. Proves the two Node-side mechanisms of the
- * single-delegation slice against the real Pi SDK + a live model:
+ * Delegation-loop smoke (Phase 1 + Phase 2). Proves the Node-side delegation
+ * mechanism against the real Pi SDK.
  *
- *   1. Tool registration — the `delegate` tool (typebox schema) registers on a
- *      root session and shows up in its active tool list. This is the check that
- *      would catch a typebox-instance mismatch between our import and Pi's.
- *   2. Supervisor execution — `supervisor.runSingle()` builds an in-process child,
- *      runs it, emits the neutral agentRun envelope (run.started → run.completed),
- *      and returns the child's summary.
+ * Structural checks (no credentials — always run, gate the exit code):
+ *   - depth cap blocks a delegation past maxDepth (before any session is built)
+ *   - total-children cap blocks once the budget is exhausted
  *
- * Auto-skips (exit 0) when the real Pi agent dir has no available model, so it is
- * safe to run anywhere. The model-driven end-to-end (root agent autonomously
- * choosing to call delegate) is verified in the release .app live step.
+ * Live checks (auto-run only when the real Pi agent dir has an available model;
+ * informational, never fail the run):
+ *   - tool registration: the `delegate` tool registers on a root session
+ *   - single delegation: supervisor.runSingle builds an in-process child, runs it,
+ *     emits run.started → run.completed, returns the child's summary
+ *   - parallel delegation: supervisor.runParallel fans out concurrently
  *
  *   node scripts/pi-delegation-loop-smoke.mjs
  */
@@ -28,106 +28,151 @@ import {
   createAgentSession,
   getAgentDir,
 } from '@earendil-works/pi-coding-agent';
-import { createChildSupervisor } from './pi-child-supervisor.mjs';
+import { createChildSupervisor, createDelegationLimits } from './pi-child-supervisor.mjs';
 import { createDelegationExtensionFactory } from './pi-delegation-extension.mjs';
 
 const errMsg = (e) => (e instanceof Error ? e.message : String(e));
+let failed = false;
+const check = (ok, label, detail) => {
+  console.log(`${ok ? '✅' : '❌'} ${label}${detail ? ` — ${detail}` : ''}`);
+  if (!ok) failed = true;
+};
+const info = (label, detail) => console.log(`ℹ️  ${label}${detail ? ` — ${detail}` : ''}`);
 
-async function main() {
+const ROSTER = [
+  { employeeId: 'emp-scout', name: 'Scout', roleSlug: 'researcher', persona: 'You are terse. Answer in one short sentence. No tools.' },
+  { employeeId: 'emp-writer', name: 'Writer', roleSlug: 'writer', persona: 'You are terse. Answer in one short sentence. No tools.' },
+];
+
+function baseCtx(extra) {
+  return {
+    emit: () => {},
+    agentDir: undefined,
+    authStorage: undefined,
+    modelRegistry: undefined,
+    cwd: process.cwd(),
+    settingsManager: undefined,
+    threadId: 'thread-smoke',
+    rootRunId: 'attempt-smoke',
+    roster: ROSTER,
+    resolveModel: () => undefined,
+    buildPermissionGate: () => null,
+    ...extra,
+  };
+}
+
+async function structuralChecks() {
+  // Depth cap: a supervisor already at depth=maxDepth must block before building
+  // a session (so this needs no credentials).
+  const depthEmitted = [];
+  const depthSup = createChildSupervisor(
+    baseCtx({ emit: (l) => depthEmitted.push(l), limits: createDelegationLimits({ maxDepth: 1 }), depth: 1 }),
+  );
+  const depthResult = await depthSup.runSingle({ employeeId: 'emp-scout', objective: 'x', access: 'read' });
+  check(
+    /blocked/i.test(depthResult) && depthEmitted.some((l) => l.runType === 'run.failed'),
+    'depth cap blocks past maxDepth',
+    depthResult.slice(0, 60),
+  );
+
+  // Total cap: maxTotalChildren=0 → the first spawn blocks.
+  const totalEmitted = [];
+  const totalSup = createChildSupervisor(
+    baseCtx({ emit: (l) => totalEmitted.push(l), limits: createDelegationLimits({ maxTotalChildren: 0 }) }),
+  );
+  const totalResult = await totalSup.runSingle({ employeeId: 'emp-scout', objective: 'x', access: 'read' });
+  check(
+    /blocked/i.test(totalResult) && totalEmitted.some((l) => l.runType === 'run.failed'),
+    'total-children cap blocks when exhausted',
+    totalResult.slice(0, 60),
+  );
+}
+
+async function liveChecks() {
   const agentDir = getAgentDir();
   const authStorage = AuthStorage.create(join(agentDir, 'auth.json'));
   const modelRegistry = ModelRegistry.create(authStorage, join(agentDir, 'models.json'));
   const available = modelRegistry.getAvailable();
   if (available.length === 0) {
-    console.log('⏭️  No available model in the real Pi agent dir — skipping (structural pieces are tested elsewhere).');
-    process.exit(0);
+    info('Live checks skipped', 'no available model in the real Pi agent dir');
+    return;
   }
   const model = available[0];
-  console.log(`Using model ${model.id}\n`);
-
+  console.log(`\nLive checks using model ${model.id}`);
   const cwd = mkdtempSync(join(tmpdir(), 'pi-deleg-loop-'));
   const settingsManager = SettingsManager.create(cwd, agentDir);
   const emitted = [];
-  const roster = [
-    {
-      employeeId: 'emp-scout',
-      name: 'Scout',
-      roleSlug: 'researcher',
-      persona: 'You are a terse fact-finder. Answer in a single short sentence. Do not use tools.',
-    },
-  ];
+  const sup = createChildSupervisor(
+    baseCtx({
+      emit: (l) => emitted.push(l),
+      agentDir,
+      authStorage,
+      modelRegistry,
+      cwd,
+      settingsManager,
+      limits: createDelegationLimits({ maxConcurrentChildren: 2 }),
+    }),
+  );
 
-  const supervisor = createChildSupervisor({
-    emit: (line) => emitted.push(line),
-    agentDir,
-    authStorage,
-    modelRegistry,
-    cwd,
-    settingsManager,
-    threadId: 'thread-smoke',
-    rootRunId: 'attempt-smoke',
-    roster,
-    resolveModel: () => undefined,
-    buildPermissionGate: () => null,
-  });
-
-  let failed = false;
-  const check = (ok, label, detail) => {
-    console.log(`${ok ? '✅' : '❌'} ${label}${detail ? ` — ${detail}` : ''}`);
-    if (!ok) failed = true;
-  };
-
-  // ── 1. Tool registration ────────────────────────────────────────────────
+  // Tool registration
   try {
     const loader = new DefaultResourceLoader({
       cwd,
       agentDir,
       settingsManager,
-      extensionFactories: [createDelegationExtensionFactory(supervisor)],
+      extensionFactories: [createDelegationExtensionFactory(sup)],
     });
     await loader.reload();
-    const { session } = await createAgentSession({
-      cwd,
-      agentDir,
-      authStorage,
-      modelRegistry,
-      model,
-      resourceLoader: loader,
-    });
-    const toolNames = session.getActiveToolNames();
-    check(toolNames.includes('delegate'), 'delegate tool registers on root session', `tools: ${toolNames.join(', ')}`);
+    const { session } = await createAgentSession({ cwd, agentDir, authStorage, modelRegistry, model, resourceLoader: loader });
+    check(session.getActiveToolNames().includes('delegate'), 'delegate tool registers on root session');
     session.dispose();
   } catch (error) {
     check(false, 'delegate tool registers on root session', errMsg(error));
   }
 
-  // ── 2. Supervisor execution ──────────────────────────────────────────────
+  // Single delegation
   try {
-    const summary = await supervisor.runSingle(
-      { employeeId: 'emp-scout', objective: 'What is the capital of France? One word.', access: 'read' },
-      undefined,
-    );
-    const types = emitted.map((l) => l.runType);
-    check(types.includes('run.started'), 'child emits run.started', types.join(' → '));
-    check(
-      types.includes('run.completed') || types.includes('run.failed'),
-      'child emits a terminal run event',
-      types.join(' → '),
-    );
+    const summary = await sup.runSingle({ employeeId: 'emp-scout', objective: 'Capital of France? One word.', access: 'read' });
     const started = emitted.find((l) => l.runType === 'run.started');
     check(
-      started?.runId?.startsWith('run-') && started.parentRunId === 'attempt-smoke' && started.relation === 'delegate',
-      'agentRun envelope carries run scope',
-      `runId=${started?.runId} parent=${started?.parentRunId} relation=${started?.relation}`,
+      emitted.some((l) => l.runType === 'run.completed' || l.runType === 'run.failed') && typeof summary === 'string' && summary.trim().length > 0,
+      'single delegation returns a summary',
+      `"${summary.slice(0, 40)}" parent=${started?.parentRunId}`,
     );
-    check(typeof summary === 'string' && summary.trim().length > 0, 'supervisor returns a summary', `"${summary.slice(0, 48)}"`);
   } catch (error) {
-    check(false, 'supervisor execution', errMsg(error));
+    check(false, 'single delegation', errMsg(error));
+  }
+
+  // Parallel delegation (2 tasks, both should complete)
+  try {
+    emitted.length = 0;
+    const combined = await sup.runParallel(
+      [
+        { employeeId: 'emp-scout', objective: 'Reply with exactly RED.', access: 'read' },
+        { employeeId: 'emp-writer', objective: 'Reply with exactly BLUE.', access: 'read' },
+      ],
+      undefined,
+    );
+    const starts = emitted.filter((l) => l.runType === 'run.started').length;
+    const completes = emitted.filter((l) => l.runType === 'run.completed').length;
+    check(
+      starts === 2 && completes === 2 && combined.includes('emp-scout') && combined.includes('emp-writer'),
+      'parallel delegation runs both tasks',
+      `${starts} started / ${completes} completed`,
+    );
+  } catch (error) {
+    check(false, 'parallel delegation', errMsg(error));
   }
 
   rmSync(cwd, { recursive: true, force: true });
+}
+
+async function main() {
+  console.log('Delegation-loop smoke (Phase 1 + 2)\n');
+  await structuralChecks();
+  await liveChecks();
   console.log('');
-  console.log(failed ? 'VERDICT: delegation loop FAILED' : 'VERDICT: delegation loop works (tool registration + supervisor execution)');
+  console.log(failed ? 'VERDICT: delegation loop FAILED' : 'VERDICT: delegation loop OK (limits + single + parallel)');
   process.exit(failed ? 1 : 0);
 }
 

@@ -26,7 +26,7 @@ import {
   normalizePermissionMode,
   toolAllowlistForMode,
 } from './pi-agent-permission-modes.mts';
-import { createChildSupervisor } from './pi-child-supervisor.mjs';
+import { createChildSupervisor, createDelegationLimits } from './pi-child-supervisor.mjs';
 import { createDelegationExtensionFactory } from './pi-delegation-extension.mjs';
 
 /**
@@ -531,6 +531,8 @@ async function runPrompt(payload) {
     const extensionFactories = [];
     if (gateFactory) extensionFactories.push(gateFactory);
     if (delegationEnabled) {
+      // One shared limit budget for this whole user turn's delegation tree
+      // (depth / concurrency / total children / per-child timeout).
       const supervisor = createChildSupervisor({
         emit,
         agentDir,
@@ -543,6 +545,9 @@ async function runPrompt(payload) {
         roster,
         resolveModel: (modelId) => selectedModel(modelRegistry, modelId),
         buildPermissionGate,
+        limits: createDelegationLimits(),
+        depth: 0,
+        parentRunId: rootRunId,
       });
       extensionFactories.push(createDelegationExtensionFactory(supervisor));
     }

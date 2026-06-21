@@ -471,13 +471,36 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     if (!repo) return;
     const finishedAt = new Date().toISOString();
     try {
-      await repo.updateStatus(rootRunId, status, { finishedAt });
       const children = await repo.findByRoot(rootRunId);
+      // Roll the whole subtree's usage up into the root record, and reconcile any
+      // child left `running` — the case where a root abort killed the host before
+      // a child's terminal event (full abort-tree propagation rides the in-process
+      // host kill; here we just keep the DB honest).
+      const agg = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
+      const dangling: string[] = [];
       for (const child of children) {
-        if (child.run_id !== rootRunId && child.status === 'running') {
-          await repo.updateStatus(child.run_id, 'cancelled', { finishedAt });
+        if (child.run_id === rootRunId) continue;
+        if (child.usage_json) {
+          try {
+            const u = JSON.parse(child.usage_json) as Partial<typeof agg>;
+            agg.input += u.input ?? 0;
+            agg.output += u.output ?? 0;
+            agg.cacheRead += u.cacheRead ?? 0;
+            agg.cacheWrite += u.cacheWrite ?? 0;
+            agg.cost += u.cost ?? 0;
+            agg.turns += u.turns ?? 0;
+          } catch {
+            /* ignore a malformed usage blob */
+          }
         }
+        if (child.status === 'running') dangling.push(child.run_id);
       }
+      const usageJson =
+        agg.input || agg.output || agg.cost || agg.turns ? JSON.stringify(agg) : null;
+      await Promise.all([
+        repo.updateStatus(rootRunId, status, { finishedAt, usageJson }),
+        ...dangling.map((id) => repo.updateStatus(id, 'cancelled', { finishedAt })),
+      ]);
     } catch (err) {
       console.warn('[desktop-agent-runtime] finalize root agent_run failed', { rootRunId, err });
     }

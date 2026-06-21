@@ -4,7 +4,11 @@
 // calls createAgentSession again inside the same Node host (live-proven by
 // scripts/pi-delegation-smoke.mjs), reusing the host's auth/model registries and
 // permission machinery. Rust owns only the root host process; aborting the root
-// tears down the host and every child with it.
+// tears down the host and every descendant with it.
+//
+// Phase 2 adds parallel fan-out, deterministic limits (depth / concurrency /
+// total / wall-clock timeout / output cap), and controlled recursion — a child
+// itself receives a delegate tool (one level deeper), gated by the shared limits.
 //
 // The supervisor's only outward surface is the neutral `agentRun` wire line
 // (scope fields + runType + opaque payload) — no Pi-specific vocabulary leaks to
@@ -13,6 +17,7 @@
 import { randomUUID } from 'node:crypto';
 import { DefaultResourceLoader, SessionManager, createAgentSession } from '@earendil-works/pi-coding-agent';
 import { agentRunLine } from './pi-agent-host-wire.mjs';
+import { createDelegationExtensionFactory } from './pi-delegation-extension.mjs';
 
 // Capability band → child tool allowlist. `write` returns undefined so Pi enables
 // its full default tool set; the others are restrictive subsets.
@@ -26,6 +31,37 @@ const ACCESS_TOOLS = {
 // child that floods its summary back to the root would blow the root's context;
 // truncation is byte-aware and always announced (never a silent cap).
 const PER_CHILD_OUTPUT_CAP = 50 * 1024;
+
+// Deterministic host-policy defaults (Docs/DELEGATION_ARCHITECTURE.md §7). These
+// are the only constraints code enforces; everything else is the agent's call.
+export const DELEGATION_DEFAULTS = Object.freeze({
+  maxDepth: 2, // 1 = root's direct children only; 2 = one level of recursion
+  maxConcurrentChildren: 4, // per parallel fan-out
+  maxTotalChildren: 16, // across the whole tree for one root run
+  childTimeoutMs: 5 * 60 * 1000, // wall-clock per child
+});
+
+/**
+ * Shared, mutable limit state for one root run's whole delegation tree. The
+ * total-children counter is global (every supervisor level shares it); concurrency
+ * is enforced *locally* per parallel fan-out (no global blocking semaphore — a
+ * parent waiting on its children must never hold a slot a child needs, which would
+ * deadlock recursive delegation).
+ */
+export function createDelegationLimits(overrides = {}) {
+  const cfg = { ...DELEGATION_DEFAULTS, ...overrides };
+  let totalSpawned = 0;
+  return {
+    ...cfg,
+    maxConcurrentChildren: Math.max(1, cfg.maxConcurrentChildren),
+    /** Reserve one of the global total-children budget; false when exhausted. */
+    reserveTotal() {
+      if (totalSpawned >= cfg.maxTotalChildren) return false;
+      totalSpawned += 1;
+      return true;
+    },
+  };
+}
 
 function normalizeAccess(access) {
   return access === 'write' || access === 'review' ? access : 'read';
@@ -42,23 +78,50 @@ function capChildOutput(text) {
   return `${truncated}\n\n[Output truncated: ${dropped} bytes omitted (per-child ${PER_CHILD_OUTPUT_CAP / 1024} KB cap).]`;
 }
 
+/** Run items through fn with at most `limit` in flight (mirrors the official
+ *  example). Excess tasks queue and start as slots free — this is the visible
+ *  "exceeded maxConcurrentChildren → queue" behavior. */
+async function mapWithConcurrencyLimit(items, limit, fn) {
+  if (items.length === 0) return [];
+  const bound = Math.max(1, Math.min(limit, items.length));
+  const results = new Array(items.length);
+  let next = 0;
+  const workers = Array.from({ length: bound }, async () => {
+    while (true) {
+      const current = next++;
+      if (current >= items.length) return;
+      results[current] = await fn(items[current], current);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
 /**
  * @param {object} ctx
- * @param {(line: unknown) => void} ctx.emit            host stdout JSONL emitter
+ * @param {(line: unknown) => void} ctx.emit
  * @param {string|undefined} ctx.agentDir
- * @param {object} ctx.authStorage                       shared (read-only)
- * @param {object} ctx.modelRegistry                     shared (read-only)
+ * @param {object} ctx.authStorage
+ * @param {object} ctx.modelRegistry
  * @param {string} ctx.cwd
- * @param {object} ctx.settingsManager                   shared SettingsManager
+ * @param {object} ctx.settingsManager
  * @param {string} ctx.threadId
  * @param {string} ctx.rootRunId
  * @param {Array<{employeeId:string,name?:string,roleSlug?:string,persona?:string,model?:string}>} ctx.roster
  * @param {(modelId?: string) => object|undefined} ctx.resolveModel
  * @param {(mode: string) => ((pi: unknown) => void)|null} ctx.buildPermissionGate
+ * @param {object} ctx.limits           shared DelegationLimits (createDelegationLimits)
+ * @param {number} [ctx.depth]          this supervisor's level (0 = root). Default 0.
+ * @param {string} [ctx.parentRunId]    run that owns this supervisor (default rootRunId)
  */
 export function createChildSupervisor(ctx) {
   const roster = Array.isArray(ctx.roster) ? ctx.roster : [];
-  const rosterById = new Map(roster.map((entry) => [entry.employeeId, entry]));
+  // Built once at the root and threaded down through ctx — the roster is immutable
+  // for the whole run, so recursive supervisors reuse the same lookup Map.
+  const rosterById = ctx.rosterById ?? new Map(roster.map((entry) => [entry.employeeId, entry]));
+  const depth = ctx.depth ?? 0;
+  const parentRunId = ctx.parentRunId ?? ctx.rootRunId;
+  const limits = ctx.limits;
 
   function emitRun(runId, employeeId, runType, payload) {
     ctx.emit(
@@ -66,14 +129,20 @@ export function createChildSupervisor(ctx) {
         threadId: ctx.threadId,
         rootRunId: ctx.rootRunId,
         runId,
-        // maxDepth=1 in Phase 1: every child hangs directly off the root run.
-        parentRunId: ctx.rootRunId,
+        parentRunId,
         employeeId,
         relation: 'delegate',
         runType,
         payload,
       }),
     );
+  }
+
+  /** Emit a never-started block as a terminal failure so it's visible (GUI +
+   *  tool result) — caps are never silent. */
+  function blocked(runId, employeeId, reason) {
+    emitRun(runId, employeeId, 'run.failed', { status: 'failed', summary: reason });
+    return `Delegation blocked: ${reason}`;
   }
 
   async function runSingle(task, signal) {
@@ -84,18 +153,38 @@ export function createChildSupervisor(ctx) {
 
     if (!employee) {
       const available = roster.map((entry) => entry.employeeId).join(', ') || 'none';
-      const summary = `Unknown teammate "${task.employeeId}". Available: ${available}.`;
-      emitRun(runId, task.employeeId, 'run.failed', { status: 'failed', summary });
-      return `Delegation failed: ${summary}`;
+      return blocked(runId, task.employeeId, `Unknown teammate "${task.employeeId}". Available: ${available}.`);
     }
     if (!objective) {
-      const summary = 'Delegation needs a non-empty objective.';
-      emitRun(runId, employee.employeeId, 'run.failed', { status: 'failed', summary });
-      return summary;
+      return blocked(runId, employee.employeeId, 'Delegation needs a non-empty objective.');
+    }
+    // Start the run now (valid teammate + objective) so even a policy-cap block
+    // below leaves a durable agent_runs row — caps are never silent, at the DB
+    // layer too. (Invalid-input blocks above stay event-only: their employeeId may
+    // not exist, which would fail the row's employee FK.)
+    emitRun(runId, employee.employeeId, 'run.started', { objective, access });
+    // Depth cap — a child still carries a delegate tool, but spawning past maxDepth
+    // is blocked with a reason (the plan's controlled-recursion contract).
+    if (depth + 1 > limits.maxDepth) {
+      return blocked(
+        runId,
+        employee.employeeId,
+        `Max delegation depth (${limits.maxDepth}) reached — cannot delegate further.`,
+      );
+    }
+    // Global total-children cap across the whole tree for this root run.
+    if (!limits.reserveTotal()) {
+      return blocked(
+        runId,
+        employee.employeeId,
+        `Max total delegated agents (${limits.maxTotalChildren}) reached for this run.`,
+      );
     }
 
-    emitRun(runId, employee.employeeId, 'run.started', { objective, access });
+    return runChildSession(runId, employee, objective, access, signal);
+  }
 
+  async function runChildSession(runId, employee, objective, access, signal) {
     const tools = ACCESS_TOOLS[access];
     const persona =
       typeof employee.persona === 'string' && employee.persona.trim()
@@ -103,31 +192,54 @@ export function createChildSupervisor(ctx) {
         : undefined;
     const model = ctx.resolveModel(employee.model);
 
-    // Children always run under the Auto gate: it's a no-op for read access (no
-    // bash tool) and blocks catastrophic bash for review/write — without needing
-    // a UI binding the headless child can't satisfy. Ask-mode prompting stays a
-    // root-only capability in Phase 1.
+    // Children always run under the Auto gate: a no-op for read access (no bash
+    // tool) and a catastrophic-bash block for review/write — without needing a UI
+    // binding the headless child can't satisfy.
     const gateFactory = ctx.buildPermissionGate ? ctx.buildPermissionGate('auto') : null;
-    const extensionFactories = gateFactory ? [gateFactory] : [];
-    const resourceLoader = new DefaultResourceLoader({
-      cwd: ctx.cwd,
-      agentDir: ctx.agentDir,
-      settingsManager: ctx.settingsManager,
-      ...(extensionFactories.length > 0 ? { extensionFactories } : {}),
-      ...(persona ? { appendSystemPrompt: [persona] } : {}),
+    // Controlled recursion: the child receives its own delegate tool, one level
+    // deeper, parented at this child's runId. The depth cap in runSingle stops it
+    // going past maxDepth.
+    const childSupervisor = createChildSupervisor({
+      ...ctx,
+      rosterById,
+      depth: depth + 1,
+      parentRunId: runId,
     });
-    await resourceLoader.reload();
+    const childDelegationFactory = createDelegationExtensionFactory(childSupervisor);
+    const extensionFactories = [gateFactory, childDelegationFactory].filter(Boolean);
 
-    const { session } = await createAgentSession({
-      cwd: ctx.cwd,
-      agentDir: ctx.agentDir,
-      authStorage: ctx.authStorage,
-      modelRegistry: ctx.modelRegistry,
-      sessionManager: SessionManager.inMemory(ctx.cwd),
-      ...(model ? { model } : {}),
-      ...(tools ? { tools } : {}),
-      resourceLoader,
-    });
+    // Session build can throw (loader reload / model resolution). run.started has
+    // already fired, so a build failure MUST still emit a terminal event — and
+    // runChildSession must never throw, so runParallel's Promise.all can't be
+    // aborted by one child losing its siblings' terminals.
+    let session;
+    try {
+      const resourceLoader = new DefaultResourceLoader({
+        cwd: ctx.cwd,
+        agentDir: ctx.agentDir,
+        settingsManager: ctx.settingsManager,
+        extensionFactories,
+        ...(persona ? { appendSystemPrompt: [persona] } : {}),
+      });
+      await resourceLoader.reload();
+      ({ session } = await createAgentSession({
+        cwd: ctx.cwd,
+        agentDir: ctx.agentDir,
+        authStorage: ctx.authStorage,
+        modelRegistry: ctx.modelRegistry,
+        sessionManager: SessionManager.inMemory(ctx.cwd),
+        ...(model ? { model } : {}),
+        ...(tools ? { tools } : {}),
+        resourceLoader,
+      }));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      emitRun(runId, employee.employeeId, 'run.failed', {
+        status: 'failed',
+        summary: `Failed to start: ${message}`,
+      });
+      return `Delegation failed: ${message}`;
+    }
 
     const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
     const unsubscribe = session.subscribe((event) => {
@@ -161,6 +273,7 @@ export function createChildSupervisor(ctx) {
     });
 
     let aborted = false;
+    let timedOut = false;
     const onAbort = () => {
       aborted = true;
       void session.abort();
@@ -169,10 +282,23 @@ export function createChildSupervisor(ctx) {
       if (signal.aborted) onAbort();
       else signal.addEventListener('abort', onAbort, { once: true });
     }
+    const timer =
+      limits.childTimeoutMs > 0
+        ? setTimeout(() => {
+            timedOut = true;
+            void session.abort();
+          }, limits.childTimeoutMs)
+        : null;
+    timer?.unref?.();
 
     try {
       await session.prompt(objective);
       const summary = capChildOutput((session.getLastAssistantText() || '').trim() || '(no output)');
+      if (timedOut) {
+        const reason = `Timed out after ${Math.round(limits.childTimeoutMs / 1000)}s`;
+        emitRun(runId, employee.employeeId, 'run.failed', { status: 'failed', summary: reason, usage });
+        return `Delegation failed: ${reason}`;
+      }
       if (aborted) {
         emitRun(runId, employee.employeeId, 'run.cancelled', { status: 'cancelled', summary, usage });
         return `Delegation cancelled: ${summary}`;
@@ -181,19 +307,36 @@ export function createChildSupervisor(ctx) {
       return summary;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      const status = aborted ? 'cancelled' : 'failed';
-      emitRun(runId, employee.employeeId, aborted ? 'run.cancelled' : 'run.failed', {
+      // timedOut wins over aborted (a timeout calls session.abort() internally, so
+      // both flags can be set in the race) — consistent with the try-branch which
+      // checks timedOut first. A bare abort is a cancel; anything else is a failure.
+      const status = timedOut ? 'failed' : aborted ? 'cancelled' : 'failed';
+      emitRun(runId, employee.employeeId, status === 'cancelled' ? 'run.cancelled' : 'run.failed', {
         status,
         summary: message,
         usage,
       });
       return `Delegation ${status}: ${message}`;
     } finally {
+      if (timer) clearTimeout(timer);
       unsubscribe();
       session.dispose();
       if (signal) signal.removeEventListener('abort', onAbort);
     }
   }
 
-  return { runSingle, roster };
+  /** Run multiple tasks concurrently, capped at maxConcurrentChildren (excess
+   *  queues). Returns a combined, per-teammate summary for the calling agent. */
+  async function runParallel(tasks, signal) {
+    const summaries = await mapWithConcurrencyLimit(
+      tasks,
+      limits.maxConcurrentChildren,
+      (task) => runSingle(task, signal),
+    );
+    return tasks
+      .map((task, i) => `### ${task.employeeId}\n${summaries[i] ?? '(no output)'}`)
+      .join('\n\n---\n\n');
+  }
+
+  return { runSingle, runParallel, roster };
 }
