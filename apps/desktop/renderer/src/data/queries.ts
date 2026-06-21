@@ -12,7 +12,6 @@ import type {
   ZoneRow,
 } from '@offisim/shared-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
 import {
   companyToVm,
   employeeToVm,
@@ -33,6 +32,7 @@ import {
   threads,
 } from './fixtures.js';
 import { gitErrorMessage, isNonGitWorkspace, loadGitWorkbench } from './git-workbench.js';
+import { deleteCompanyDeep, deleteConversationDeep } from './local-data-deletion.js';
 import { loadRunCost } from './run-cost.js';
 import type {
   ChatMessage,
@@ -119,11 +119,6 @@ type CompanyUpdateFields = Partial<{
   description_json: string | null;
 }>;
 
-interface LocalDbTransactionStatement {
-  sql: string;
-  params?: unknown[];
-}
-
 interface PersistenceResult {
   persisted: boolean;
 }
@@ -139,12 +134,6 @@ interface ThreadMutationResult extends PersistenceResult {
 
 interface CompanyMutationResult extends PersistenceResult {
   missing?: boolean;
-}
-
-interface StoredAttachmentMeta {
-  attachmentId: string;
-  companyId: string;
-  threadId: string;
 }
 
 export interface ProjectChatThreadRow {
@@ -202,233 +191,6 @@ export async function loadProjectChatThreadRows(
   return rows.map((row) => ({ ...row, run_status: statusByThread.get(row.thread_id) ?? null }));
 }
 
-function localDbTransaction(statements: LocalDbTransactionStatement[]): Promise<void> {
-  if (statements.length === 0) return Promise.resolve();
-  return invoke('local_db_execute_transaction', { statements });
-}
-
-function localErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message.trim()) return error.message;
-  if (typeof error === 'string' && error.trim()) return error;
-  return 'Unknown error';
-}
-
-async function deleteCompanyWorkspace(companyId: string): Promise<void> {
-  if (!isTauriRuntime()) return;
-  await invoke('delete_company_workspace', { companyId });
-}
-
-function attachmentVaultRef(meta: StoredAttachmentMeta): string {
-  return `attachment://${meta.companyId}/${meta.threadId}/${meta.attachmentId}`;
-}
-
-async function deleteThreadAttachments(
-  threadId: string,
-  companyId: string | null | undefined,
-): Promise<void> {
-  if (!isTauriRuntime()) return;
-  const metas = companyId
-    ? await invoke<StoredAttachmentMeta[]>('attachment_list', { companyId, threadId })
-    : (await invoke<StoredAttachmentMeta[]>('attachment_list_all')).filter(
-        (meta) => meta.threadId === threadId,
-      );
-  await Promise.all(
-    metas.map((meta) => invoke('attachment_delete', { vaultRef: attachmentVaultRef(meta) })),
-  );
-}
-
-async function deleteConversationDeep(threadId: string, companyId?: string | null): Promise<void> {
-  await deleteThreadAttachments(threadId, companyId);
-  await localDbTransaction([
-    { sql: 'DELETE FROM tool_permission_approvals WHERE thread_id = $1', params: [threadId] },
-    { sql: 'DELETE FROM compact_summaries WHERE thread_id = $1', params: [threadId] },
-    { sql: 'DELETE FROM node_summaries WHERE thread_id = $1', params: [threadId] },
-    { sql: 'DELETE FROM file_history WHERE thread_id = $1', params: [threadId] },
-    { sql: 'DELETE FROM interaction_history WHERE thread_id = $1', params: [threadId] },
-    { sql: 'DELETE FROM active_thread_interactions WHERE thread_id = $1', params: [threadId] },
-    { sql: 'DELETE FROM agent_events WHERE thread_id = $1', params: [threadId] },
-    {
-      sql: 'DELETE FROM deliverables WHERE thread_id = $1 OR chat_thread_id = $1',
-      params: [threadId],
-    },
-    { sql: 'DELETE FROM pi_messages WHERE thread_id = $1', params: [threadId] },
-    { sql: 'DELETE FROM runtime_events WHERE thread_id = $1', params: [threadId] },
-    { sql: 'DELETE FROM meeting_sessions WHERE thread_id = $1', params: [threadId] },
-    { sql: 'DELETE FROM mcp_audit_log WHERE thread_id = $1', params: [threadId] },
-    { sql: 'DELETE FROM handoff_events WHERE thread_id = $1', params: [threadId] },
-    {
-      sql: `DELETE FROM llm_calls
-            WHERE thread_id = $1
-               OR task_run_id IN (
-                    SELECT task_run_id FROM task_runs WHERE thread_id = $1
-                  )`,
-      params: [threadId],
-    },
-    {
-      sql: `DELETE FROM memory_entries
-            WHERE source_thread_id = $1
-               OR source_task_run_id IN (
-                    SELECT task_run_id FROM task_runs WHERE thread_id = $1
-                  )`,
-      params: [threadId],
-    },
-    {
-      sql: `DELETE FROM tool_calls
-            WHERE task_run_id IN (
-                    SELECT task_run_id FROM task_runs WHERE thread_id = $1
-                  )`,
-      params: [threadId],
-    },
-    { sql: 'DELETE FROM task_runs WHERE thread_id = $1', params: [threadId] },
-    { sql: 'DELETE FROM graph_threads WHERE thread_id = $1', params: [threadId] },
-    { sql: 'DELETE FROM chat_threads WHERE thread_id = $1', params: [threadId] },
-  ]);
-}
-
-async function deleteCompanyDeep(companyId: string): Promise<DeleteCompanyResult> {
-  await localDbTransaction([
-    { sql: 'DELETE FROM tool_permission_approvals WHERE company_id = $1', params: [companyId] },
-    { sql: 'DELETE FROM skills WHERE company_id = $1', params: [companyId] },
-    { sql: 'DELETE FROM compact_summaries WHERE company_id = $1', params: [companyId] },
-    { sql: 'DELETE FROM node_summaries WHERE company_id = $1', params: [companyId] },
-    { sql: 'DELETE FROM file_history WHERE company_id = $1', params: [companyId] },
-    { sql: 'DELETE FROM interaction_history WHERE company_id = $1', params: [companyId] },
-    { sql: 'DELETE FROM active_thread_interactions WHERE company_id = $1', params: [companyId] },
-    { sql: 'DELETE FROM agent_events WHERE company_id = $1', params: [companyId] },
-    { sql: 'DELETE FROM pi_messages WHERE company_id = $1', params: [companyId] },
-    { sql: 'DELETE FROM memory_entries WHERE company_id = $1', params: [companyId] },
-    { sql: 'DELETE FROM runtime_events WHERE company_id = $1', params: [companyId] },
-    { sql: 'DELETE FROM deliverables WHERE company_id = $1', params: [companyId] },
-    { sql: 'DELETE FROM meeting_sessions WHERE company_id = $1', params: [companyId] },
-    {
-      sql: `DELETE FROM mcp_audit_log
-            WHERE thread_id IN (
-                    SELECT thread_id FROM graph_threads WHERE company_id = $1
-                  )`,
-      params: [companyId],
-    },
-    {
-      sql: `DELETE FROM handoff_events
-            WHERE thread_id IN (
-                    SELECT thread_id FROM graph_threads WHERE company_id = $1
-                  )`,
-      params: [companyId],
-    },
-    {
-      sql: `DELETE FROM llm_calls
-            WHERE thread_id IN (
-                    SELECT thread_id FROM graph_threads WHERE company_id = $1
-                  )
-               OR task_run_id IN (
-                    SELECT tr.task_run_id
-                      FROM task_runs tr
-                      JOIN graph_threads gt ON gt.thread_id = tr.thread_id
-                     WHERE gt.company_id = $1
-                  )`,
-      params: [companyId],
-    },
-    {
-      sql: `DELETE FROM tool_calls
-            WHERE task_run_id IN (
-                    SELECT tr.task_run_id
-                      FROM task_runs tr
-                      JOIN graph_threads gt ON gt.thread_id = tr.thread_id
-                     WHERE gt.company_id = $1
-                  )`,
-      params: [companyId],
-    },
-    {
-      sql: `DELETE FROM task_runs
-            WHERE thread_id IN (
-                    SELECT thread_id FROM graph_threads WHERE company_id = $1
-                  )`,
-      params: [companyId],
-    },
-    {
-      sql: `DELETE FROM chat_threads
-            WHERE project_id IN (
-                    SELECT project_id FROM projects WHERE company_id = $1
-                  )`,
-      params: [companyId],
-    },
-    {
-      sql: `DELETE FROM project_assignments
-            WHERE project_id IN (
-                    SELECT project_id FROM projects WHERE company_id = $1
-                  )`,
-      params: [companyId],
-    },
-    { sql: 'DELETE FROM projects WHERE company_id = $1', params: [companyId] },
-    { sql: 'DELETE FROM graph_threads WHERE company_id = $1', params: [companyId] },
-    {
-      sql: `DELETE FROM employee_versions
-            WHERE employee_id IN (
-                    SELECT employee_id FROM employees WHERE company_id = $1
-                  )`,
-      params: [companyId],
-    },
-    { sql: 'DELETE FROM employees WHERE company_id = $1', params: [companyId] },
-    {
-      sql: `DELETE FROM workstation_racks
-            WHERE workstation_id IN (
-                    SELECT workstation_id FROM workstations WHERE company_id = $1
-                  )
-               OR rack_id IN (
-                    SELECT rack_id FROM racks WHERE company_id = $1
-                  )`,
-      params: [companyId],
-    },
-    {
-      sql: `DELETE FROM slots
-            WHERE rack_id IN (
-                    SELECT rack_id FROM racks WHERE company_id = $1
-                  )`,
-      params: [companyId],
-    },
-    { sql: 'DELETE FROM workstations WHERE company_id = $1', params: [companyId] },
-    { sql: 'DELETE FROM racks WHERE company_id = $1', params: [companyId] },
-    {
-      sql: `DELETE FROM asset_bindings
-            WHERE install_txn_id IN (
-                    SELECT install_txn_id FROM install_transactions WHERE company_id = $1
-                  )
-               OR installed_asset_id IN (
-                    SELECT ia.installed_asset_id
-                      FROM installed_assets ia
-                      JOIN installed_packages ip
-                        ON ip.installed_package_id = ia.installed_package_id
-                     WHERE ip.company_id = $1
-                  )`,
-      params: [companyId],
-    },
-    {
-      sql: `DELETE FROM installed_assets
-            WHERE installed_package_id IN (
-                    SELECT installed_package_id FROM installed_packages WHERE company_id = $1
-                  )`,
-      params: [companyId],
-    },
-    { sql: 'DELETE FROM installed_packages WHERE company_id = $1', params: [companyId] },
-    { sql: 'DELETE FROM install_transactions WHERE company_id = $1', params: [companyId] },
-    { sql: 'DELETE FROM company_template_assets WHERE company_id = $1', params: [companyId] },
-    { sql: 'DELETE FROM office_layouts WHERE company_id = $1', params: [companyId] },
-    { sql: 'DELETE FROM library_documents WHERE company_id = $1', params: [companyId] },
-    { sql: 'DELETE FROM prefab_instances WHERE company_id = $1', params: [companyId] },
-    { sql: 'DELETE FROM zones WHERE company_id = $1', params: [companyId] },
-    { sql: 'DELETE FROM companies WHERE company_id = $1', params: [companyId] },
-  ]);
-
-  try {
-    await deleteCompanyWorkspace(companyId);
-    return { persisted: true };
-  } catch (error) {
-    return {
-      persisted: true,
-      workspaceCleanupError: localErrorMessage(error),
-    };
-  }
-}
-
 export function useUpdateCompany() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -455,7 +217,7 @@ export function useUpdateCompany() {
 export function useDeleteCompany() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ companyId }: { companyId: string }) => {
+    mutationFn: async ({ companyId }: { companyId: string }): Promise<DeleteCompanyResult> => {
       const repos = await reposOrNull();
       if (!repos) return { persisted: false };
       const existing = await repos.companies.findById(companyId);
@@ -464,9 +226,7 @@ export function useDeleteCompany() {
     },
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['companies'] }),
-        queryClient.invalidateQueries({ queryKey: ['unfinished-threads'] }),
-        queryClient.invalidateQueries({ queryKey: ['activity-records'] }),
+        queryClient.invalidateQueries({ queryKey: ['companies'] }),        queryClient.invalidateQueries({ queryKey: ['activity-records'] }),
         queryClient.invalidateQueries({ queryKey: ['threads'] }),
         queryClient.invalidateQueries({ queryKey: ['messages'] }),
         queryClient.invalidateQueries({ queryKey: ['deliverables'] }),
@@ -608,9 +368,7 @@ export function useRenameThread(projectId: string | null) {
     },
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['threads', projectId] }),
-        queryClient.invalidateQueries({ queryKey: ['unfinished-threads'] }),
-      ]);
+        queryClient.invalidateQueries({ queryKey: ['threads', projectId] }),      ]);
     },
   });
 }
@@ -628,9 +386,7 @@ export function useArchiveThread(projectId: string | null) {
     },
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['threads', projectId] }),
-        queryClient.invalidateQueries({ queryKey: ['unfinished-threads'] }),
-      ]);
+        queryClient.invalidateQueries({ queryKey: ['threads', projectId] }),      ]);
     },
   });
 }
@@ -651,9 +407,7 @@ export function useDeleteConversation(projectId: string | null, companyId: strin
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['threads', projectId] }),
         queryClient.invalidateQueries({ queryKey: ['messages', vars.threadId] }),
-        queryClient.invalidateQueries({ queryKey: ['deliverables', companyId, vars.threadId] }),
-        queryClient.invalidateQueries({ queryKey: ['unfinished-threads'] }),
-        queryClient.invalidateQueries({ queryKey: ['activity-records', companyId ?? ''] }),
+        queryClient.invalidateQueries({ queryKey: ['deliverables', companyId, vars.threadId] }),        queryClient.invalidateQueries({ queryKey: ['activity-records', companyId ?? ''] }),
       ]);
     },
   });
