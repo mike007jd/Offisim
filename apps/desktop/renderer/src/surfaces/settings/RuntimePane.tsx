@@ -1,36 +1,13 @@
 import { type SceneDropDiagnostic, useUiState } from '@/app/ui-state.js';
 import { isTauriRuntime } from '@/data/adapters.js';
-import {
-  CapsLabel,
-  CardBlock,
-  FieldRow,
-  SegmentedControl,
-  Select,
-} from '@/design-system/grammar/index.js';
+import { CapsLabel, CardBlock } from '@/design-system/grammar/index.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
-import { Input } from '@/design-system/primitives/input.js';
 import { safeErrorMessage } from '@/lib/error-message.js';
 import { useQuery } from '@tanstack/react-query';
-import { Check, ChevronRight, Download, FolderOpen, Package, Zap } from 'lucide-react';
+import { Check, ChevronRight, Download, FolderOpen, Package } from 'lucide-react';
 import { useState } from 'react';
-import type { UseFormReturn } from 'react-hook-form';
 import { toast } from 'sonner';
-import {
-  DEFAULT_RUNTIME_OPTIONS,
-  ENABLED_OPTIONS,
-  EXECUTION_MODE_OPTIONS,
-  type RuntimeFormValues,
-} from './settings-data.js';
-
-type EmployeeRuntimeValue = 'pi-agent';
-
-const EXECUTION_MODE_COPY: Record<string, string> = {
-  plan: 'Draft a plan before work starts.',
-  human_loop: 'Ask before sensitive or high-impact actions.',
-  direct: 'Run normal tasks without extra ceremony.',
-  yolo: 'Use maximum autonomy and minimal interruption.',
-};
 
 interface RuntimeVaultStatus {
   readonly path: string;
@@ -80,18 +57,15 @@ function sceneDiagnosticPayload(events: SceneDropDiagnostic[]): string {
   );
 }
 
-interface RuntimePaneProps {
-  form: UseFormReturn<RuntimeFormValues>;
-  saved: boolean;
-}
-
-export function RuntimePane({ form, saved }: RuntimePaneProps) {
-  const defaultRuntime = form.watch('defaultRuntime') as EmployeeRuntimeValue;
-  const executionMode = form.watch('executionMode');
-  const toolSearch = form.watch('toolSearch');
-  const gitAutoCommit = form.watch('gitAutoCommit');
+/**
+ * Runtime settings pane. The autonomy level (Plan / Ask / Auto / Full), model,
+ * and thinking level are all chosen per conversation from the composer — they
+ * are the only runtime knobs the Pi Agent session actually reads — so this pane
+ * carries no global runtime form. It surfaces the honest Pi-owned wiring plus
+ * the genuinely local actions: the vault folder and scene diagnostics export.
+ */
+export function RuntimePane() {
   const sceneDropDiagnostics = useUiState((s) => s.sceneDropDiagnostics);
-  const errors = form.formState.errors;
   const [openingVault, setOpeningVault] = useState(false);
   const [exportingVaultZip, setExportingVaultZip] = useState(false);
   const [exportingSceneDiagnostic, setExportingSceneDiagnostic] = useState(false);
@@ -158,222 +132,42 @@ export function RuntimePane({ form, saved }: RuntimePaneProps) {
   return (
     <div className="off-set-pane">
       <div className="off-set-panehead">
-        <div className="off-set-panetitle">
-          Runtime
-          {saved ? (
-            <span className="off-set-saved-flash">
-              <Icon icon={Check} size="sm" />
-              Saved
-            </span>
-          ) : null}
-        </div>
+        <div className="off-set-panetitle">Runtime</div>
         <div className="off-set-panedesc">How employees plan, ask, and execute work.</div>
       </div>
 
-      {/* General — execution behavior */}
+      {/* General — the real runtime knobs live in the composer, per conversation. */}
       <section className="off-set-sec">
         <div className="off-set-sec-head">
           <CapsLabel>How employees run</CapsLabel>
         </div>
-        <div className="off-set-sec-hint mb-[var(--off-sp-3)] mt-0">
-          Choose the default autonomy level for employee runs.
-        </div>
         <CardBlock>
-          <div className="off-set-grid-3">
-            <FieldRow label="Run mode">
-              {({ id }) => (
-                <Select
-                  id={id}
-                  options={EXECUTION_MODE_OPTIONS}
-                  name="executionMode"
-                  value={executionMode}
-                  onChange={(event) =>
-                    form.setValue('executionMode', event.target.value, {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    })
-                  }
-                />
-              )}
-            </FieldRow>
-            <FieldRow label="Tool discovery">
-              {({ id }) => (
-                <Select
-                  id={id}
-                  options={ENABLED_OPTIONS}
-                  name="toolSearch"
-                  value={toolSearch}
-                  onChange={(event) =>
-                    form.setValue('toolSearch', event.target.value, {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    })
-                  }
-                />
-              )}
-            </FieldRow>
-            <FieldRow label="Auto-commit">
-              {({ id }) => (
-                <Select
-                  id={id}
-                  options={ENABLED_OPTIONS}
-                  name="gitAutoCommit"
-                  value={gitAutoCommit}
-                  onChange={(event) =>
-                    form.setValue('gitAutoCommit', event.target.value, {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    })
-                  }
-                />
-              )}
-            </FieldRow>
-          </div>
-          <div className="off-set-mode-copy">
-            {EXECUTION_MODE_COPY[executionMode] ?? EXECUTION_MODE_COPY.direct}
+          <div className="off-field">
+            <span className="off-field-label">Run mode, model &amp; thinking</span>
+            <span className="off-field-hint">
+              Chosen per conversation from the composer. The autonomy level (Plan / Ask / Auto /
+              Full), the model, and the thinking level apply to that conversation only — there is no
+              global override to keep in sync.
+            </span>
           </div>
           <div className="off-field mt-[var(--off-sp-6)]">
-            <span className="off-field-label">Default employee runtime</span>
-            <SegmentedControl<EmployeeRuntimeValue>
-              wrap
-              value={defaultRuntime}
-              onChange={(value) => {
-                form.setValue('defaultRuntime', value, { shouldDirty: true });
-                form.setValue('runtimeBinding', value, { shouldDirty: true });
-              }}
-              ariaLabel="Default employee runtime"
-              options={[
-                { value: 'pi-agent', label: 'Pi Agent', icon: <Icon icon={Zap} size="sm" /> },
-              ]}
-            />
+            <span className="off-field-label">Runtime engine</span>
             <div className="off-set-rbc-resolved">
-              Resolved:{' '}
-              <b>
-                {DEFAULT_RUNTIME_OPTIONS.find((o) => o.value === defaultRuntime)?.label ??
-                  'Pi Agent'}
-              </b>
+              Resolved: <b>Pi Agent</b>
             </div>
             <span className="off-field-hint">
-              All employees route through the same Pi Agent session runtime.
+              All employees route through the same Pi Agent session runtime. Model auth, sessions,
+              compaction, and the tool protocol are owned by Pi Agent.
             </span>
           </div>
         </CardBlock>
       </section>
 
-      {/* Advanced */}
+      {/* Advanced — genuinely local actions only. */}
       <section className="off-set-sec">
         <div className="off-set-sec-head">
           <CapsLabel>Advanced</CapsLabel>
         </div>
-
-        <details className="off-set-disclosure">
-          <summary>
-            <span className="off-set-chev">
-              <Icon icon={ChevronRight} size="sm" />
-            </span>
-            Runtime wiring status
-          </summary>
-          <div className="off-set-disclosure-body">
-            <div className="off-set-sec-hint mb-[var(--off-sp-3)] mt-0">
-              Preferences are saved locally. Model auth, sessions, compaction, and tool protocol are
-              owned by Pi Agent.
-            </div>
-          </div>
-        </details>
-
-        <details className="off-set-disclosure">
-          <summary>
-            <span className="off-set-chev">
-              <Icon icon={ChevronRight} size="sm" />
-            </span>
-            Conversation memory &amp; summarization
-          </summary>
-          <div className="off-set-disclosure-body">
-            <div className="off-set-subhead">Memory</div>
-            <div className="off-set-grid-4">
-              <FieldRow label="Enabled">
-                {({ id }) => (
-                  <Select id={id} options={ENABLED_OPTIONS} {...form.register('memoryEnabled')} />
-                )}
-              </FieldRow>
-              <FieldRow label="Prompt injection">
-                {({ id }) => (
-                  <Select id={id} options={ENABLED_OPTIONS} {...form.register('memoryInjection')} />
-                )}
-              </FieldRow>
-              <FieldRow
-                label="Max facts"
-                hint={errors.memoryMaxFacts?.message}
-                warn={!!errors.memoryMaxFacts}
-              >
-                {({ id }) => (
-                  <Input
-                    id={id}
-                    type="number"
-                    {...form.register('memoryMaxFacts', { valueAsNumber: true })}
-                  />
-                )}
-              </FieldRow>
-              <FieldRow
-                label="Confidence"
-                hint={errors.memoryConfidence?.message}
-                warn={!!errors.memoryConfidence}
-              >
-                {({ id }) => (
-                  <Input
-                    id={id}
-                    type="number"
-                    step="0.1"
-                    {...form.register('memoryConfidence', { valueAsNumber: true })}
-                  />
-                )}
-              </FieldRow>
-            </div>
-            <div className="off-set-subhead mt-[var(--off-sp-6)]">Summarization</div>
-            <div className="off-set-sec-hint mb-[var(--off-sp-3)]">
-              Auto-compress long conversations.
-            </div>
-            {/* grid-4 (not field count) so column rails line up with the
-                Memory grid above; the fourth track stays empty. */}
-            <div className="off-set-grid-4">
-              <FieldRow label="Enabled">
-                {({ id }) => (
-                  <Select
-                    id={id}
-                    options={ENABLED_OPTIONS}
-                    {...form.register('summarizationEnabled')}
-                  />
-                )}
-              </FieldRow>
-              <FieldRow
-                label="Trigger tokens"
-                hint={errors.summarizationTrigger?.message}
-                warn={!!errors.summarizationTrigger}
-              >
-                {({ id }) => (
-                  <Input
-                    id={id}
-                    type="number"
-                    {...form.register('summarizationTrigger', { valueAsNumber: true })}
-                  />
-                )}
-              </FieldRow>
-              <FieldRow
-                label="Keep recent"
-                hint={errors.summarizationKeepRecent?.message}
-                warn={!!errors.summarizationKeepRecent}
-              >
-                {({ id }) => (
-                  <Input
-                    id={id}
-                    type="number"
-                    {...form.register('summarizationKeepRecent', { valueAsNumber: true })}
-                  />
-                )}
-              </FieldRow>
-            </div>
-          </div>
-        </details>
 
         <details className="off-set-disclosure">
           <summary>

@@ -197,21 +197,27 @@ const settingsSurface = await source(
   'apps/desktop/renderer/src/surfaces/settings/SettingsSurface.tsx',
 );
 const settingsData = await source('apps/desktop/renderer/src/surfaces/settings/settings-data.ts');
+const runtimePane = await source('apps/desktop/renderer/src/surfaces/settings/RuntimePane.tsx');
 const piAgentPane = await source('apps/desktop/renderer/src/surfaces/settings/PiAgentPane.tsx');
 assertIncludesAll(
   settingsSurface,
-  ['PiAgentPane', 'Pi Agent', 'disposeDesktopAgentRuntime(companyId)'],
-  'Settings must present Pi Agent runtime settings.',
+  ['PiAgentPane', 'RuntimePane', 'Pi Agent'],
+  'Settings must present the Pi Agent and Runtime panes.',
+);
+assertNoMatch(
+  settingsSurface,
+  /disposeDesktopAgentRuntime/u,
+  'Saving Settings must not dispose the Pi runtime: runtime settings no longer feed Pi, so a save has nothing to reload.',
+);
+assertNoMatch(
+  settingsData,
+  /runtimeFormSchema|executionMode|summarizationTrigger|memoryMaxFacts|runtimeBinding/u,
+  'Settings must not keep a runtime form of fake controls that never reach the Pi request.',
 );
 assertIncludesAll(
-  settingsData,
-  [
-    "value: 'pi-agent'",
-    "label: 'Pi Agent'",
-    "defaultRuntime: 'pi-agent'",
-    "runtimeBinding: 'pi-agent'",
-  ],
-  'Settings runtime defaults must collapse to Pi Agent.',
+  runtimePane,
+  ['Resolved: ', 'Pi Agent', 'per conversation'],
+  'Runtime pane must state runtime knobs are chosen per conversation and resolve to Pi Agent.',
 );
 assertIncludesAll(
   piAgentPane,

@@ -1,12 +1,10 @@
 import { reposOrNull } from '@/data/adapters.js';
 import { useEffect } from 'react';
-import { runtimeFormSchema } from './settings-data.js';
-import type { DensityValue, RuntimeFormValues, ThemeValue } from './settings-data.js';
+import type { DensityValue, ThemeValue } from './settings-data.js';
 
 export const RUNTIME_SETTINGS_KEY = 'settings.runtime.v1';
 
 export interface PersistedRuntimeSettings {
-  runtime: RuntimeFormValues;
   theme: ThemeValue;
   density: DensityValue;
 }
@@ -25,16 +23,7 @@ export function parsePersistedRuntimeSettings(
   if (!value) return null;
   try {
     const raw = JSON.parse(value) as Partial<PersistedRuntimeSettings>;
-    const runtime = runtimeFormSchema.safeParse(raw.runtime);
-    if (!runtime.success) return null;
-    const executionMode =
-      runtime.data.executionMode === 'auto'
-        ? 'direct'
-        : runtime.data.executionMode === 'manual' || runtime.data.executionMode === 'review'
-          ? 'human_loop'
-          : runtime.data.executionMode;
     return {
-      runtime: { ...runtime.data, executionMode },
       theme: isThemeValue(raw.theme) ? raw.theme : 'system',
       density: isDensityValue(raw.density) ? raw.density : 'normal',
     };

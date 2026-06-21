@@ -16,21 +16,7 @@ import { readResponseTextWithLimit } from '@offisim/registry-client';
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 
-// ───────────────────────── Runtime ─────────────────────────
-
-export const EXECUTION_MODE_OPTIONS = [
-  { value: 'plan', label: 'Plan' },
-  { value: 'human_loop', label: 'Human-in-loop' },
-  { value: 'direct', label: 'Direct' },
-  { value: 'yolo', label: 'YOLO' },
-] as const;
-
-export const ENABLED_OPTIONS = [
-  { value: 'enabled', label: 'Enabled' },
-  { value: 'disabled', label: 'Disabled' },
-] as const;
-
-export const DEFAULT_RUNTIME_OPTIONS = [{ value: 'pi-agent', label: 'Pi Agent' }] as const;
+// ───────────────────────── Appearance ─────────────────────────
 
 const THEME_OPTIONS = [
   { value: 'system', label: 'System' },
@@ -45,37 +31,6 @@ const DENSITY_OPTIONS = [
   { value: 'spacious', label: 'Spacious' },
 ] as const;
 export type DensityValue = (typeof DENSITY_OPTIONS)[number]['value'];
-
-export const runtimeFormSchema = z.object({
-  executionMode: z.string().min(1),
-  toolSearch: z.string().min(1),
-  gitAutoCommit: z.string().min(1),
-  defaultRuntime: z.string().min(1),
-  runtimeBinding: z.string().min(1),
-  memoryEnabled: z.string().min(1),
-  memoryInjection: z.string().min(1),
-  memoryMaxFacts: z.number().int().min(0, 'Must be ≥ 0'),
-  memoryConfidence: z.number().min(0).max(1, 'Between 0 and 1'),
-  summarizationEnabled: z.string().min(1),
-  summarizationTrigger: z.number().int().min(0, 'Must be ≥ 0'),
-  summarizationKeepRecent: z.number().int().min(0, 'Must be ≥ 0'),
-});
-export type RuntimeFormValues = z.infer<typeof runtimeFormSchema>;
-
-export const RUNTIME_DEFAULTS: RuntimeFormValues = {
-  executionMode: 'direct',
-  toolSearch: 'enabled',
-  gitAutoCommit: 'enabled',
-  defaultRuntime: 'pi-agent',
-  runtimeBinding: 'pi-agent',
-  memoryEnabled: 'enabled',
-  memoryInjection: 'enabled',
-  memoryMaxFacts: 200,
-  memoryConfidence: 0.6,
-  summarizationEnabled: 'enabled',
-  summarizationTrigger: 48000,
-  summarizationKeepRecent: 12,
-};
 
 // ───────────────────────── MCP ─────────────────────────
 
