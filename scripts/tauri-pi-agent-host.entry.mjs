@@ -26,6 +26,8 @@ import {
   normalizePermissionMode,
   toolAllowlistForMode,
 } from './pi-agent-permission-modes.mts';
+import { createChildSupervisor } from './pi-child-supervisor.mjs';
+import { createDelegationExtensionFactory } from './pi-delegation-extension.mjs';
 
 /**
  * Pi thinking levels (reasoning effort), least → most. The renderer already
@@ -514,14 +516,41 @@ async function runPrompt(payload) {
   // DefaultResourceLoader whenever there's a permission gate OR a persona, and
   // merge both into it so Pi receives a single loader.
   const systemPromptAppend = asNonEmptyString(payload.systemPromptAppend);
+  // Delegation (Phase 1): when the renderer supplies a root run id + thread id +
+  // a non-empty company roster, register the `delegate` tool so the root agent
+  // can hand bounded subtasks to teammates. Children are built in-process by the
+  // supervisor (see Docs/DELEGATION_ARCHITECTURE.md). Children themselves do not
+  // get the delegate tool — maxDepth=1 in this phase.
+  const rootRunId = asNonEmptyString(payload.rootRunId);
+  const threadId = asNonEmptyString(payload.threadId);
+  const roster = Array.isArray(payload.roster) ? payload.roster : [];
+  const delegationEnabled = Boolean(rootRunId && threadId && roster.length > 0);
   let resourceLoader;
-  if (gateFactory || systemPromptAppend) {
+  if (gateFactory || systemPromptAppend || delegationEnabled) {
     const settingsManager = SettingsManager.create(cwd, agentDir);
+    const extensionFactories = [];
+    if (gateFactory) extensionFactories.push(gateFactory);
+    if (delegationEnabled) {
+      const supervisor = createChildSupervisor({
+        emit,
+        agentDir,
+        authStorage,
+        modelRegistry,
+        cwd,
+        settingsManager,
+        threadId,
+        rootRunId,
+        roster,
+        resolveModel: (modelId) => selectedModel(modelRegistry, modelId),
+        buildPermissionGate,
+      });
+      extensionFactories.push(createDelegationExtensionFactory(supervisor));
+    }
     resourceLoader = new DefaultResourceLoader({
       cwd,
       agentDir,
       settingsManager,
-      ...(gateFactory ? { extensionFactories: [gateFactory] } : {}),
+      ...(extensionFactories.length > 0 ? { extensionFactories } : {}),
       ...(systemPromptAppend ? { appendSystemPrompt: [systemPromptAppend] } : {}),
     });
     await resourceLoader.reload();

@@ -22,6 +22,9 @@ importers:
       '@earendil-works/pi-coding-agent':
         specifier: 0.79.8
         version: 0.79.8(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+      typebox:
+        specifier: 1.1.38
+        version: 1.1.38
     devDependencies:
       '@biomejs/biome':
         specifier: ^1.9.0

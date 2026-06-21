@@ -172,6 +172,25 @@ export {
 
 export type { RunScope, RunToolPolicy } from './run-scope.js';
 export { chatScopeFields } from './run-scope.js';
+
+export type {
+  AgentRunAccess,
+  AgentRunApprovalPayload,
+  AgentRunArtifactPayload,
+  AgentRunDeltaPayload,
+  AgentRunEvent,
+  AgentRunEventType,
+  AgentRunFinishedPayload,
+  AgentRunRecord,
+  AgentRunRelation,
+  AgentRunScopeFields,
+  AgentRunStartedPayload,
+  AgentRunStatus,
+  AgentRunToolPayload,
+  AgentRunUsage,
+  DelegateTaskInput,
+  DelegateToolInput,
+} from './events/agent-run.js';
 export type {
   EmployeePerformanceAction,
   EmployeePerformanceDomain,

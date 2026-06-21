@@ -1,0 +1,58 @@
+import type { AgentRunRepository, AgentRunRow, NewAgentRun } from '@offisim/core/browser';
+import * as schema from '@offisim/db-local';
+import { asc, eq } from 'drizzle-orm';
+import type { TauriDrizzleDb } from '../tauri-drizzle';
+
+function now(): string {
+  return new Date().toISOString();
+}
+
+export interface AgentRunsTauriRepos {
+  agentRuns: AgentRunRepository;
+}
+
+export function createAgentRunsTauriRepos(db: TauriDrizzleDb): AgentRunsTauriRepos {
+  const agentRuns: AgentRunRepository = {
+    async create(run: NewAgentRun) {
+      const row: AgentRunRow = {
+        ...run,
+        usage_json: run.usage_json ?? null,
+        result_summary_json: run.result_summary_json ?? null,
+        started_at: run.started_at ?? now(),
+        finished_at: run.finished_at ?? null,
+      };
+      await db.insert(schema.agentRuns).values(row);
+      return row;
+    },
+    async findById(runId) {
+      const rows = (await db
+        .select()
+        .from(schema.agentRuns)
+        .where(eq(schema.agentRuns.run_id, runId))) as AgentRunRow[];
+      return rows[0] ?? null;
+    },
+    async findByThread(threadId) {
+      return (await db
+        .select()
+        .from(schema.agentRuns)
+        .where(eq(schema.agentRuns.thread_id, threadId))
+        .orderBy(asc(schema.agentRuns.started_at))) as AgentRunRow[];
+    },
+    async findByRoot(rootRunId) {
+      return (await db
+        .select()
+        .from(schema.agentRuns)
+        .where(eq(schema.agentRuns.root_run_id, rootRunId))
+        .orderBy(asc(schema.agentRuns.started_at))) as AgentRunRow[];
+    },
+    async updateStatus(runId, status, opts) {
+      const patch: Partial<AgentRunRow> = { status };
+      if (opts?.resultSummaryJson !== undefined) patch.result_summary_json = opts.resultSummaryJson;
+      if (opts?.usageJson !== undefined) patch.usage_json = opts.usageJson;
+      if (opts?.finishedAt !== undefined) patch.finished_at = opts.finishedAt;
+      await db.update(schema.agentRuns).set(patch).where(eq(schema.agentRuns.run_id, runId));
+    },
+  };
+
+  return { agentRuns };
+}

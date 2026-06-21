@@ -9,7 +9,13 @@ import {
 } from '@/runtime/desktop-agent-runtime.js';
 import { getRepos, runtimeEventBus } from '@/runtime/repos.js';
 import type { EventBus, RuntimeRepositories } from '@offisim/core/browser';
-import type { RuntimeEvent, ToolExecutionTelemetryPayload } from '@offisim/shared-types';
+import type {
+  AgentRunEvent,
+  AgentRunFinishedPayload,
+  AgentRunStartedPayload,
+  RuntimeEvent,
+  ToolExecutionTelemetryPayload,
+} from '@offisim/shared-types';
 import {
   buildRunError,
   displayAttachmentsFromStaged,
@@ -42,6 +48,17 @@ interface RunToolActivity {
   durationMs?: number;
 }
 
+/** A delegation this run spawned — the root agent handed a bounded task to a
+ *  teammate's child run. `runId` is the child's id; the tree grafts under this
+ *  run because the child's `rootRunId` equals this run's `attemptId`. */
+interface RunDelegation {
+  runId: string;
+  employeeId: string | null;
+  objective: string;
+  state: 'running' | 'done' | 'failed' | 'cancelled';
+  summary?: string;
+}
+
 export interface PendingApproval {
   threadId: string;
   attemptId: string;
@@ -65,6 +82,7 @@ export interface ConversationRunSnapshot {
   liveMessages: readonly ChatMessage[];
   activity: readonly RunToolActivity[];
   activityTotal: number;
+  delegations: readonly RunDelegation[];
   approval: PendingApproval | null;
   error: RunError | null;
 }
@@ -142,6 +160,7 @@ interface ActiveRun {
   toolCalls: ChatToolCall[];
   activity: RunToolActivity[];
   activityTotal: number;
+  delegations: RunDelegation[];
   runtime: DesktopAgentRuntime | null;
   stopped: boolean;
   lastCheckpointAt: number;
@@ -161,6 +180,7 @@ function defaultSnapshot(threadId: string): ConversationRunSnapshot {
     liveMessages: [],
     activity: [],
     activityTotal: 0,
+    delegations: [],
     approval: null,
     error: null,
   };
@@ -309,6 +329,7 @@ export class ConversationRunController {
       toolCalls: [],
       activity: [],
       activityTotal: 0,
+      delegations: [],
       runtime: null,
       stopped: false,
       lastCheckpointAt: 0,
@@ -327,6 +348,7 @@ export class ConversationRunController {
       liveMessages: [userMessage],
       activity: [],
       activityTotal: 0,
+      delegations: [],
       approval: null,
       error: null,
     });
@@ -604,7 +626,59 @@ export class ConversationRunController {
       });
     });
 
-    return [offStream, offTool, offUi];
+    // Delegation run-tree events graft onto this run when the child's rootRunId
+    // equals this run's attemptId (the agentRun envelope carries the child runId
+    // in payload.runId, not the root, so matchesRun's attemptId check won't fit).
+    const offAgentRun = this.deps.eventBus.on('agent.run', (event) => {
+      const payload = event.payload as AgentRunEvent;
+      if (payload?.rootRunId !== run.attemptId || payload.threadId !== run.threadId) return;
+      this.noteDelegation(run, payload);
+    });
+
+    return [offStream, offTool, offUi, offAgentRun];
+  }
+
+  private noteDelegation(run: ActiveRun, evt: AgentRunEvent): void {
+    const existing = run.delegations.find((d) => d.runId === evt.runId);
+    if (evt.type === 'run.started') {
+      if (existing) return;
+      const payload = evt.payload as AgentRunStartedPayload;
+      run.delegations = [
+        ...run.delegations,
+        {
+          runId: evt.runId,
+          employeeId: evt.employeeId ?? null,
+          objective: payload.objective,
+          state: 'running',
+        },
+      ];
+    } else if (
+      evt.type === 'run.completed' ||
+      evt.type === 'run.failed' ||
+      evt.type === 'run.cancelled'
+    ) {
+      const payload = evt.payload as AgentRunFinishedPayload;
+      const state =
+        evt.type === 'run.completed' ? 'done' : evt.type === 'run.failed' ? 'failed' : 'cancelled';
+      run.delegations = existing
+        ? run.delegations.map((d) =>
+            d.runId === evt.runId ? { ...d, state, summary: payload.summary } : d,
+          )
+        : [
+            ...run.delegations,
+            {
+              runId: evt.runId,
+              employeeId: evt.employeeId ?? null,
+              objective: '',
+              state,
+              summary: payload.summary,
+            },
+          ];
+    } else {
+      // tool.* / run.delta — not tracked at delegation-card granularity in Phase 1.
+      return;
+    }
+    this.patchSnapshot(run.threadId, { delegations: run.delegations });
   }
 
   private matchesRun(

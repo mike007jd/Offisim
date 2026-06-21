@@ -6,6 +6,7 @@ import type { EventBus, RuntimeRepositories } from '@offisim/core/browser';
 import type { TauriDrizzleDb } from './tauri-drizzle';
 import { withTauriSqlTransaction } from './tauri-drizzle';
 import { createAgentEventsTauriRepos } from './tauri-repos/agent-events';
+import { createAgentRunsTauriRepos } from './tauri-repos/agent-runs';
 import { createConversationsTauriRepos } from './tauri-repos/conversations';
 import { createDeliverablesTauriRepos } from './tauri-repos/deliverables';
 import { createEmployeesTauriRepos } from './tauri-repos/employees';
@@ -46,6 +47,7 @@ export function createTauriRepositories(
     ...createWorkspaceTauriRepos(db),
     ...createProjectsTauriRepos(db),
     ...createAgentEventsTauriRepos(db),
+    ...createAgentRunsTauriRepos(db),
     ...createDeliverablesTauriRepos(db),
     ...createSkillsTauriRepos(db),
     ...createPiMessagesTauriRepos(db),

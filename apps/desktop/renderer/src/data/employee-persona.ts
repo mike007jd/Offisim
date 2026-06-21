@@ -1,5 +1,5 @@
 import { titleizeSlug } from '@/lib/utils.js';
-import type { RuntimeRepositories } from '@offisim/core/browser';
+import type { EmployeeRow, RuntimeRepositories } from '@offisim/core/browser';
 
 /**
  * Canonical employee system prompt.
@@ -62,29 +62,13 @@ function readProfile(personaJson: string | null | undefined): Record<string, unk
   }
 }
 
-/**
- * Resolve the persisted persona for an employee into the system-prompt text Pi
- * receives. Reads the saved employee row (persona_json) plus the company name.
- * Returns `null` only when the employee row is missing, so even a freshly hired
- * default employee gets a real identity prompt.
- */
-export async function resolveEmployeeSystemPrompt(
-  repos: RuntimeRepositories,
-  companyId: string,
-  employeeId: string,
-): Promise<string | null> {
-  // The employee and company rows are independent reads — fetch them together.
-  // A company-lookup failure degrades to an unnamed company, never a failed run.
-  const [employee, company] = await Promise.all([
-    repos.employees.findById(employeeId),
-    repos.companies.findById(companyId).catch(() => null),
-  ]);
-  if (!employee) return null;
+/** Build the system-prompt text for an already-loaded employee row + company name. */
+function personaFromRow(employee: EmployeeRow, companyName: string): string {
   const profile = readProfile(employee.persona_json);
   return buildEmployeeSystemPrompt({
     name: employee.name ?? '',
     role: titleizeSlug(employee.role_slug),
-    companyName: company?.name ?? '',
+    companyName,
     expertise: asPersonaText(profile.expertise),
     workingStyle: asPersonaText(profile.workingStyle),
     communication: asPersonaText(profile.communication) || 'medium',
@@ -92,4 +76,60 @@ export async function resolveEmployeeSystemPrompt(
     decisionStyle: asPersonaText(profile.decisionStyle) || 'collaborative',
     customInstructions: asPersonaText(profile.customInstructions),
   });
+}
+
+/** A teammate the root agent may delegate to. Opaque on the wire; the Node host's
+ *  supervisor builds an in-process child session from it. Excludes the acting
+ *  employee and external (A2A) employees — those aren't in-process Pi children. */
+interface DelegationRosterEntry {
+  employeeId: string;
+  name: string;
+  roleSlug: string;
+  persona: string;
+}
+
+/** Everything a turn needs to brief the root agent and its potential teammates:
+ *  the acting employee's own persona (Pi's `appendSystemPrompt`) plus the
+ *  delegation roster. */
+export interface DelegationContext {
+  /** The acting employee's system prompt, or null (→ Pi base prompt) if absent. */
+  systemPromptAppend: string | null;
+  roster: DelegationRosterEntry[];
+}
+
+/**
+ * Build a turn's full delegation context in ONE pass: a single `findByCompany`
+ * (all employee rows) + a single company read derives both the acting employee's
+ * persona and the roster of delegable teammates — no per-employee re-read, and no
+ * second fetch of the company row. The acting employee's persona resolves even if
+ * disabled/external (matches the previous by-id lookup); the roster excludes the
+ * acting employee and external (A2A) employees.
+ */
+export async function buildDelegationContext(
+  repos: RuntimeRepositories,
+  companyId: string,
+  actingEmployeeId: string | null,
+): Promise<DelegationContext> {
+  const [employees, company] = await Promise.all([
+    repos.employees.findByCompany(companyId),
+    repos.companies.findById(companyId).catch(() => null),
+  ]);
+  const companyName = company?.name ?? '';
+  const acting = actingEmployeeId
+    ? (employees.find((e) => e.employee_id === actingEmployeeId) ?? null)
+    : null;
+  const roster = employees
+    .filter(
+      (e) => e.enabled === 1 && e.is_external !== 1 && e.employee_id !== actingEmployeeId,
+    )
+    .map((e) => ({
+      employeeId: e.employee_id,
+      name: e.name ?? e.employee_id,
+      roleSlug: e.role_slug,
+      persona: personaFromRow(e, companyName),
+    }));
+  return {
+    systemPromptAppend: acting ? personaFromRow(acting, companyName) : null,
+    roster,
+  };
 }

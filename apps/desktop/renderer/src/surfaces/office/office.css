@@ -1874,6 +1874,52 @@
   color: var(--off-danger);
 }
 
+/* Delegation run-tree lines: "→ Delegated · objective · state". Phase 1 renders a
+   flat list; Phase 3 grows this into the nested run tree. */
+.off-run-delegations {
+  display: grid;
+  gap: var(--off-sp-1);
+  margin-top: var(--off-sp-1);
+}
+.off-run-delegation {
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+  min-width: 0;
+  font-size: var(--off-fs-1);
+  color: var(--off-ink-3);
+}
+.off-run-delegation-arrow {
+  color: var(--off-accent);
+  flex: none;
+}
+.off-run-delegation-label {
+  color: var(--off-ink-2);
+  flex: none;
+}
+.off-run-delegation-objective {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.off-run-delegation-state {
+  margin-left: auto;
+  flex: none;
+  font-family: var(--off-font-mono);
+  color: var(--off-ink-3);
+}
+.off-run-delegation.is-running .off-run-delegation-state {
+  color: var(--off-accent);
+}
+.off-run-delegation.is-done .off-run-delegation-state {
+  color: var(--off-ok);
+}
+.off-run-delegation.is-failed .off-run-delegation-state,
+.off-run-delegation.is-cancelled .off-run-delegation-state {
+  color: var(--off-danger);
+}
+
 .off-permission-bar {
   display: grid;
   gap: var(--off-sp-2);

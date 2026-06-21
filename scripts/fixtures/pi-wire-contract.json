@@ -1,5 +1,5 @@
 [
-  { "kind": "ready", "protocolVersion": 1 },
+  { "kind": "ready", "protocolVersion": 2 },
   {
     "kind": "started",
     "sessionId": "sess_1",
@@ -30,6 +30,25 @@
     "method": "confirm",
     "title": "Approve command?",
     "message": "git force-push rewrites shared history — approve to proceed.\n\ngit push --force origin main"
+  },
+  {
+    "kind": "agentRun",
+    "threadId": "thread_1",
+    "rootRunId": "attempt_1",
+    "runId": "run_child_1",
+    "parentRunId": "attempt_1",
+    "employeeId": "emp_dev_1",
+    "relation": "delegate",
+    "runType": "run.started",
+    "payload": { "objective": "Investigate the failing test", "access": "read" }
+  },
+  {
+    "kind": "agentRun",
+    "threadId": "thread_1",
+    "rootRunId": "attempt_1",
+    "runId": "run_child_1",
+    "runType": "run.completed",
+    "payload": { "status": "completed", "summary": "Found the flaky timer." }
   },
   { "kind": "messageEnd", "text": "Listed 3 files.", "stopReason": "end_turn" },
   {

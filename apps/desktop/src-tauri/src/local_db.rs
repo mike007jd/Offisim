@@ -12,7 +12,7 @@ const LOCAL_SCHEMA_SQL: &str = include_str!("../../../../packages/db-local/src/s
 /// Any shipped schema change must (a) update `schema.sql` + `schema.ts`,
 /// (b) bump this constant by 1, and (c) add a matching upgrade entry to
 /// `MIGRATIONS` so existing user databases have an upgrade path.
-const LOCAL_SCHEMA_VERSION: i64 = 2;
+const LOCAL_SCHEMA_VERSION: i64 = 3;
 
 /// Ordered upgrade chain for existing user databases: `(target_version, sql)`
 /// where each entry upgrades `target_version - 1` → `target_version`. Each
@@ -21,10 +21,16 @@ const LOCAL_SCHEMA_VERSION: i64 = 2;
 ///
 /// Example entry:
 /// `(2, include_str!("../../../../packages/db-local/src/migrations/0002_add_x.sql")),`
-const MIGRATIONS: &[(i64, &str)] = &[(
-    2,
-    include_str!("../../../../packages/db-local/src/migrations/0002_add_pi_messages.sql"),
-)];
+const MIGRATIONS: &[(i64, &str)] = &[
+    (
+        2,
+        include_str!("../../../../packages/db-local/src/migrations/0002_add_pi_messages.sql"),
+    ),
+    (
+        3,
+        include_str!("../../../../packages/db-local/src/migrations/0003_agent_runs.sql"),
+    ),
+];
 
 pub struct OffisimDbState {
     pool: SqlitePool,

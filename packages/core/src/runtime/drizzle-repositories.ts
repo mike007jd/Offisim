@@ -2,6 +2,7 @@ import type * as schema from '@offisim/db-local/dist/schema.js';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type { EventBus } from '../events/event-bus.js';
 import { createAgentEventsDrizzleRepos } from './repos/agent-events/drizzle.js';
+import { createAgentRunsDrizzleRepos } from './repos/agent-runs/drizzle.js';
 import { createConversationsDrizzleRepos } from './repos/conversations/drizzle.js';
 import { createDeliverablesDrizzleRepos } from './repos/deliverables/drizzle.js';
 import { createEmployeesDrizzleRepos } from './repos/employees/drizzle.js';
@@ -58,6 +59,7 @@ export function createDrizzleRepositories(db: Db, _eventBus?: EventBus): Runtime
     ...createWorkspaceDrizzleRepos(db),
     ...createProjectsDrizzleRepos(db),
     ...createAgentEventsDrizzleRepos(db),
+    ...createAgentRunsDrizzleRepos(db),
     ...createDeliverablesDrizzleRepos(db),
     ...createSkillsDrizzleRepos(db),
     piMessages: createPiMessagesDrizzleRepo(db),

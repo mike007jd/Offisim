@@ -34,6 +34,19 @@ const SPEC = {
     required: ['id', 'method', 'title'],
     allowed: ['id', 'method', 'title', 'message', 'options', 'placeholder', 'prefill'],
   },
+  agentRun: {
+    required: ['threadId', 'rootRunId', 'runId', 'runType', 'payload'],
+    allowed: [
+      'threadId',
+      'rootRunId',
+      'runId',
+      'parentRunId',
+      'employeeId',
+      'relation',
+      'runType',
+      'payload',
+    ],
+  },
   result: { required: ['response'], allowed: ['response'] },
   error: { required: ['code', 'message'], allowed: ['code', 'message'] },
 };

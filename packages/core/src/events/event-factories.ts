@@ -93,6 +93,8 @@ export {
   marketListingInstalled,
 } from './install-events.js';
 
+export { agentRunEvent } from './agent-run-events.js';
+
 export {
   errorOccurred,
   handoffInitiated,

@@ -64,6 +64,24 @@ export interface TaskRunRow {
   finished_at: string | null;
 }
 
+/** A single delegation run (root or child) in the multi-agent run tree. */
+export interface AgentRunRow {
+  run_id: string;
+  thread_id: string;
+  company_id: string;
+  parent_run_id: string | null;
+  root_run_id: string;
+  employee_id: string | null;
+  relation: string | null;
+  objective: string | null;
+  access: string | null;
+  status: string;
+  usage_json: string | null;
+  result_summary_json: string | null;
+  started_at: string;
+  finished_at: string | null;
+}
+
 export interface EmployeeRow {
   employee_id: string;
   company_id: string;
@@ -185,6 +203,18 @@ export type NewGraphThread = Omit<
   compact_baseline_json?: string | null;
 };
 export type NewTaskRun = Omit<TaskRunRow, 'finished_at'>;
+
+/** Insert shape for an agent run. Lifecycle/usage columns default at write time;
+ *  a fresh run carries only its scope + objective. */
+export type NewAgentRun = Omit<
+  AgentRunRow,
+  'started_at' | 'finished_at' | 'usage_json' | 'result_summary_json'
+> & {
+  started_at?: string;
+  finished_at?: string | null;
+  usage_json?: string | null;
+  result_summary_json?: string | null;
+};
 export type NewToolCall = Omit<ToolCallRow, 'finished_at'>;
 export type NewHandoffEvent = Omit<HandoffEventRow, never>;
 export type NewMeetingSession = Omit<MeetingSessionRow, never>;
@@ -236,6 +266,24 @@ export interface TaskRunRepository {
     opts?: { statuses?: string[]; limit?: number },
   ): Promise<TaskRunRow[]>;
   countByStatus(companyId: string): Promise<Record<string, number>>;
+}
+
+/** Run tree for multi-agent delegation; the tree rebuilds from parent/root ids. */
+export interface AgentRunRepository {
+  create(run: NewAgentRun): Promise<AgentRunRow>;
+  findById(runId: string): Promise<AgentRunRow | null>;
+  findByThread(threadId: string): Promise<AgentRunRow[]>;
+  /** All runs under a root (the children of one user turn). */
+  findByRoot(rootRunId: string): Promise<AgentRunRow[]>;
+  updateStatus(
+    runId: string,
+    status: string,
+    opts?: {
+      resultSummaryJson?: string | null;
+      usageJson?: string | null;
+      finishedAt?: string | null;
+    },
+  ): Promise<void>;
 }
 
 /** Updatable fields for an employee. */
@@ -1156,4 +1204,6 @@ export interface RuntimeRepositories {
 
   /** pi-kernel per-message transcript persistence. */
   piMessages?: PiMessageRepository;
+  /** Multi-agent delegation run tree — optional for backward compatibility. */
+  agentRuns?: AgentRunRepository;
 }

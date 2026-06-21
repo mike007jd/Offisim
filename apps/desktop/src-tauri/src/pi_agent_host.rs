@@ -47,7 +47,7 @@ fn pi_stdin_guard() -> std::sync::MutexGuard<'static, HashMap<String, Arc<AsyncM
 /// Wire-contract version negotiated with the bundled Node host via the `ready`
 /// handshake. Must stay in lockstep with `PI_HOST_PROTOCOL_VERSION` in
 /// scripts/pi-agent-host-wire.mjs; bump both when a line's required shape changes.
-const PI_HOST_PROTOCOL_VERSION: u32 = 1;
+const PI_HOST_PROTOCOL_VERSION: u32 = 2;
 
 /// Wire kinds the Rust bridge knows how to decode. A line with an unknown kind is
 /// skipped (forward-compatible with newer hosts); a malformed line on a KNOWN kind
@@ -59,6 +59,7 @@ const PI_KNOWN_WIRE_KINDS: &[&str] = &[
     "messageEnd",
     "tool",
     "uiRequest",
+    "agentRun",
     "result",
     "error",
 ];
@@ -94,6 +95,16 @@ pub struct PiAgentExecuteRequest {
     /// host hands it to the resource loader. Absent → Pi uses its base prompt.
     #[serde(default)]
     system_prompt_append: Option<String>,
+    /// Root run id for this user turn (the renderer's controller attemptId). The
+    /// delegation supervisor stamps every child `agentRun` event with it so the
+    /// renderer can graft children under the root. Absent → no delegation scope.
+    #[serde(default)]
+    root_run_id: Option<String>,
+    /// Company roster (opaque, forwarded verbatim): each employee the root agent
+    /// may delegate to, with persona / model / access / tools. Built renderer-side
+    /// from `employees.findByCompany`; Rust does not interpret it.
+    #[serde(default)]
+    roster: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -181,6 +192,19 @@ pub enum PiAgentHostEvent {
         placeholder: Option<String>,
         #[serde(default)]
         prefill: Option<String>,
+    },
+    AgentRun {
+        thread_id: String,
+        root_run_id: String,
+        run_id: String,
+        #[serde(default)]
+        parent_run_id: Option<String>,
+        #[serde(default)]
+        employee_id: Option<String>,
+        #[serde(default)]
+        relation: Option<String>,
+        run_type: String,
+        payload: serde_json::Value,
     },
     Result {
         response: PiAgentHostResponse,
@@ -312,6 +336,19 @@ enum PiSidecarLine {
         #[serde(default)]
         prefill: Option<String>,
     },
+    AgentRun {
+        thread_id: String,
+        root_run_id: String,
+        run_id: String,
+        #[serde(default)]
+        parent_run_id: Option<String>,
+        #[serde(default)]
+        employee_id: Option<String>,
+        #[serde(default)]
+        relation: Option<String>,
+        run_type: String,
+        payload: serde_json::Value,
+    },
     Result {
         response: serde_json::Value,
     },
@@ -330,6 +367,7 @@ impl PiSidecarLine {
             Self::MessageEnd { .. } => "messageEnd",
             Self::Tool { .. } => "tool",
             Self::UiRequest { .. } => "uiRequest",
+            Self::AgentRun { .. } => "agentRun",
             Self::Result { .. } => "result",
             Self::Error { .. } => "error",
         }
@@ -386,6 +424,13 @@ fn sidecar_payload<R: tauri::Runtime>(
         "permissionMode": req.permission_mode,
         "thinkingLevel": req.thinking_level,
         "systemPromptAppend": req.system_prompt_append,
+        // Delegation scope (Phase 1): the root run id + thread id let the host's
+        // supervisor stamp child agentRun events, and the roster tells it which
+        // employees the root agent may delegate to. All forwarded verbatim.
+        "threadId": req.thread_id,
+        "companyId": req.company_id,
+        "rootRunId": req.root_run_id,
+        "roster": req.roster,
     })
 }
 
@@ -522,6 +567,32 @@ fn send_sidecar_event(
                         prefill,
                     })
                     .map_err(|err| HostError::Request(format!("Send Pi UI request: {err}")))?;
+            }
+            Ok(None)
+        }
+        PiSidecarLine::AgentRun {
+            thread_id,
+            root_run_id,
+            run_id,
+            parent_run_id,
+            employee_id,
+            relation,
+            run_type,
+            payload,
+        } => {
+            if let Some(on_event) = on_event {
+                on_event
+                    .send(PiAgentHostEvent::AgentRun {
+                        thread_id,
+                        root_run_id,
+                        run_id,
+                        parent_run_id,
+                        employee_id,
+                        relation,
+                        run_type,
+                        payload,
+                    })
+                    .map_err(|err| HostError::Request(format!("Send Pi agent run event: {err}")))?;
             }
             Ok(None)
         }
@@ -1025,6 +1096,60 @@ mod tests {
         );
         assert!(
             !json.contains("tool_call_id"),
+            "snake_case key leaked to the renderer Channel: {json}"
+        );
+    }
+
+    #[test]
+    fn pi_sidecar_agent_run_line_round_trips_camel_case() {
+        // Decode the neutral delegation envelope from camelCase wire, then
+        // re-serialize the renderer-facing event and assert it stays camelCase
+        // (incl. runType / rootRunId) with the opaque payload preserved.
+        let line = r#"{"kind":"agentRun","threadId":"t1","rootRunId":"r1","runId":"c1","parentRunId":"r1","employeeId":"e1","relation":"delegate","runType":"run.started","payload":{"objective":"scout","access":"read"}}"#;
+        match serde_json::from_str::<PiSidecarLine>(line).expect("decode agentRun line") {
+            PiSidecarLine::AgentRun {
+                thread_id,
+                root_run_id,
+                run_id,
+                relation,
+                run_type,
+                payload,
+                ..
+            } => {
+                assert_eq!(thread_id, "t1");
+                assert_eq!(root_run_id, "r1");
+                assert_eq!(run_id, "c1");
+                assert_eq!(relation.as_deref(), Some("delegate"));
+                assert_eq!(run_type, "run.started");
+                assert_eq!(
+                    payload.get("objective").and_then(|v| v.as_str()),
+                    Some("scout")
+                );
+            }
+            other => panic!("expected AgentRun variant, got {other:?}"),
+        }
+
+        let event = PiAgentHostEvent::AgentRun {
+            thread_id: "t1".into(),
+            root_run_id: "r1".into(),
+            run_id: "c1".into(),
+            parent_run_id: Some("r1".into()),
+            employee_id: Some("e1".into()),
+            relation: Some("delegate".into()),
+            run_type: "run.completed".into(),
+            payload: serde_json::json!({ "status": "completed" }),
+        };
+        let json = serde_json::to_string(&event).expect("serialize agentRun event");
+        assert!(
+            json.contains(r#""rootRunId":"r1""#),
+            "expected camelCase rootRunId, got: {json}"
+        );
+        assert!(
+            json.contains(r#""runType":"run.completed""#),
+            "expected camelCase runType, got: {json}"
+        );
+        assert!(
+            !json.contains("root_run_id") && !json.contains("run_type"),
             "snake_case key leaked to the renderer Channel: {json}"
         );
     }

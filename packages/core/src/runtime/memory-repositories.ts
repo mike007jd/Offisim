@@ -1,5 +1,6 @@
 import type { EventBus } from '../events/event-bus.js';
 import { createAgentEventsMemoryRepos } from './repos/agent-events/memory.js';
+import { createAgentRunsMemoryRepos } from './repos/agent-runs/memory.js';
 import { createConversationsMemoryRepos } from './repos/conversations/memory.js';
 import type { DeliverableContentLoader } from './repos/deliverables/memory.js';
 import { createDeliverablesMemoryRepos } from './repos/deliverables/memory.js';
@@ -92,6 +93,7 @@ export function createMemoryRepositories(
   const workspaceFamily = createWorkspaceMemoryRepos(snapshot);
   const projectsFamily = createProjectsMemoryRepos(snapshot);
   const agentEventsFamily = createAgentEventsMemoryRepos(snapshot);
+  const agentRunsFamily = createAgentRunsMemoryRepos();
   const deliverablesFamily = createDeliverablesMemoryRepos(snapshot, deliverableContentLoader);
   const skillsFamily = createSkillsMemoryRepos(snapshot);
 
@@ -116,6 +118,7 @@ export function createMemoryRepositories(
     ...workspaceFamily,
     ...projectsFamily,
     ...agentEventsFamily,
+    ...agentRunsFamily,
     ...deliverablesFamily,
     ...skillsFamily,
     piMessages: createPiMessagesMemoryRepo(),

@@ -17,7 +17,10 @@ export function RunActivityStrip({ threadId }: { threadId: string }) {
   const isRunning = isConversationRunActive(run.phase);
   const activity = run.activity;
   const activityTotal = run.activityTotal;
-  if (!isRunning || activity.length === 0) return null;
+  const delegations = run.delegations;
+  // Render while active if there's either direct tool work or a delegation — a
+  // run that only delegates has no tool calls of its own.
+  if (!isRunning || (activity.length === 0 && delegations.length === 0)) return null;
   // Most recent calls, oldest→newest, capped so the strip stays one compact row.
   const recent = activity.slice(-6);
   const latest = recent[recent.length - 1];
@@ -48,6 +51,26 @@ export function RunActivityStrip({ threadId }: { threadId: string }) {
         </span>
         {hidden > 0 ? <span className="off-run-act-more">+{hidden}</span> : null}
       </button>
+      {delegations.length > 0 ? (
+        <div className="off-run-delegations">
+          {delegations.map((d) => (
+            <div
+              key={d.runId}
+              className={cn('off-run-delegation', `is-${d.state}`)}
+              title={d.employeeId ?? undefined}
+            >
+              <span className="off-run-delegation-arrow" aria-hidden>
+                →
+              </span>
+              <span className="off-run-delegation-label">Delegated</span>
+              <span className="off-run-delegation-objective">
+                {d.objective || d.summary || 'teammate task'}
+              </span>
+              <span className="off-run-delegation-state">{d.state}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
       <div className="off-run-act-list">
         {recent.map((entry) => (
           <span key={entry.id} className={cn('off-run-act', `is-${entry.state}`)}>

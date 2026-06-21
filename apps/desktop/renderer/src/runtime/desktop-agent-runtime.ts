@@ -1,8 +1,13 @@
-import { resolveEmployeeSystemPrompt } from '@/data/employee-persona.js';
+import { buildDelegationContext } from '@/data/employee-persona.js';
 import { ensureProjectBoundForRun } from '@/runtime/ensure-default-workspace.js';
-import { llmStreamChunk, toolExecutionTelemetry } from '@offisim/core/browser';
+import { agentRunEvent, llmStreamChunk, toolExecutionTelemetry } from '@offisim/core/browser';
 import type { RuntimeRepositories } from '@offisim/core/browser';
-import type { RuntimeEvent } from '@offisim/shared-types';
+import type {
+  AgentRunEvent,
+  AgentRunFinishedPayload,
+  AgentRunStartedPayload,
+  RuntimeEvent,
+} from '@offisim/shared-types';
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { readPiModelOverride } from './pi-agent-config.js';
 import { resolveThreadMode } from './pi-thread-mode-store.js';
@@ -90,6 +95,17 @@ type PiAgentHostEvent =
       placeholder?: string;
       prefill?: string;
     }
+  | {
+      kind: 'agentRun';
+      threadId: string;
+      rootRunId: string;
+      runId: string;
+      parentRunId?: string;
+      employeeId?: string;
+      relation?: string;
+      runType: string;
+      payload: unknown;
+    }
   | { kind: 'result'; response: PiAgentHostResponse }
   | { kind: 'error'; code: string; message: string };
 
@@ -117,6 +133,17 @@ export const PI_WIRE_CONTRACT_EXAMPLES = [
     method: 'confirm',
     title: 'Approve command?',
     message: 'force-push\n\ngit push --force',
+  },
+  {
+    kind: 'agentRun',
+    threadId: 'th',
+    rootRunId: 'attempt-1',
+    runId: 'run-1',
+    parentRunId: 'attempt-1',
+    employeeId: 'emp-1',
+    relation: 'delegate',
+    runType: 'run.started',
+    payload: { objective: 'scout', access: 'read' },
   },
   { kind: 'result', response: { text: 't', reasoning: 'r', sessionId: 's', sessionFile: '/f' } },
   { kind: 'error', code: 'upstream', message: 'm' },
@@ -209,11 +236,22 @@ function toolStatus(status: PiAgentHostEvent & { kind: 'tool' }) {
 
 class DesktopPiAgentRuntime implements DesktopAgentRuntime {
   private readonly inFlightByThread = new Map<string, string>();
+  // Serializes all agent_runs writes in event-arrival order. agentRun events
+  // stream in order on the Channel, but each persist is async — chaining them
+  // guarantees a child's run.started row is created before its run.completed
+  // update (and the root row before any child), instead of racing as bare
+  // fire-and-forget writes would. Each step self-guards, so one failure never
+  // breaks the chain or the live run.
+  private persistQueue: Promise<void> = Promise.resolve();
 
   constructor(
     private readonly companyId: string,
     private readonly repos: RuntimeRepositories,
   ) {}
+
+  private enqueuePersist(work: () => Promise<void>): void {
+    this.persistQueue = this.persistQueue.then(work);
+  }
 
   async execute(input: DesktopAgentRunInput): Promise<DesktopAgentRunResult> {
     const projectId = await ensureProjectBoundForRun(this.repos, this.companyId, input.projectId);
@@ -293,6 +331,24 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
         );
         return;
       }
+      if (event.kind === 'agentRun') {
+        // A delegation run-tree event. Rebuild the neutral AgentRunEvent, fan it
+        // onto the bus (run-tree projection + chat/office consume it), and persist
+        // the run's start/finish to agent_runs.
+        const agentEvt = {
+          threadId: event.threadId,
+          rootRunId: event.rootRunId,
+          runId: event.runId,
+          ...(event.parentRunId ? { parentRunId: event.parentRunId } : {}),
+          ...(event.employeeId ? { employeeId: event.employeeId } : {}),
+          ...(event.relation ? { relation: event.relation } : {}),
+          type: event.runType,
+          payload: event.payload,
+        } as AgentRunEvent;
+        runtimeEventBus.emit(agentRunEvent(this.companyId, agentEvt));
+        this.enqueuePersist(() => this.persistAgentRun(agentEvt));
+        return;
+      }
       if (event.kind === 'result') {
         finalText = event.response.text || finalText;
         return;
@@ -302,13 +358,26 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       }
     };
 
-    // Resolve the employee's persona into the system prompt their Pi sessions
-    // receive (forwarded as `appendSystemPrompt`). A generic agent capability —
-    // an extra system prompt — so it travels on a neutral wire field, not a
-    // Pi-specific control. Absent employee → no addendum, Pi uses its base prompt.
-    const systemPromptAppend = input.employeeId
-      ? await resolveEmployeeSystemPrompt(this.repos, this.companyId, input.employeeId)
-      : null;
+    // Resolve, in one DB pass, the acting employee's persona (forwarded as Pi's
+    // `appendSystemPrompt` — a generic agent capability, an extra system prompt)
+    // plus the delegation roster (the teammates this root agent may delegate to).
+    // Both are built renderer-side (we own the employee repo) and forwarded
+    // verbatim. A failure must never fail the run, so it degrades to no persona
+    // addendum + no delegation.
+    const { systemPromptAppend, roster } = await buildDelegationContext(
+      this.repos,
+      this.companyId,
+      input.employeeId,
+    ).catch(() => ({ systemPromptAppend: null, roster: [] }));
+
+    // When delegation is possible (a non-empty roster), the root run gets its own
+    // agent_runs row — it's the tree root, and child rows reference it via
+    // parent_run_id (FK). Created before the invoke so it commits ahead of any
+    // child's run.started write on the serialized persist chain.
+    const delegationRoot = roster.length > 0;
+    if (delegationRoot) {
+      this.enqueuePersist(() => this.createRootRun(runScope.runId, input));
+    }
 
     this.inFlightByThread.set(input.threadId, requestId);
     try {
@@ -328,6 +397,11 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           thinkingLevel:
             input.thinkingLevel?.trim() || resolveThreadThinkingOverride(input.threadId),
           systemPromptAppend: systemPromptAppend ?? undefined,
+          // Delegation scope: the root run id lets the host stamp child agentRun
+          // events; the roster tells it who can be delegated to. Empty roster →
+          // the host registers no delegate tool.
+          rootRunId: runScope.runId,
+          roster,
         },
         onEvent,
       })) as PiAgentHostResponse;
@@ -346,11 +420,105 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       finalText = commandResponse.text || finalText;
       if (channelError) throw channelError;
       const reasoning = (commandResponse.reasoning || reasoningText).trim();
+      if (delegationRoot) {
+        this.enqueuePersist(() => this.finalizeRootRun(runScope.runId, 'completed'));
+      }
       return { text: finalText, ...(reasoning ? { reasoning } : {}) };
+    } catch (err) {
+      if (delegationRoot) {
+        this.enqueuePersist(() => this.finalizeRootRun(runScope.runId, 'failed'));
+      }
+      throw err;
     } finally {
       if (this.inFlightByThread.get(input.threadId) === requestId) {
         this.inFlightByThread.delete(input.threadId);
       }
+    }
+  }
+
+  /** Create the root run's agent_runs row — the delegation tree root that child
+   *  rows reference via parent_run_id. Self-guarding. */
+  private async createRootRun(rootRunId: string, input: DesktopAgentRunInput): Promise<void> {
+    const repo = this.repos.agentRuns;
+    if (!repo) return;
+    try {
+      await repo.create({
+        run_id: rootRunId,
+        thread_id: input.threadId,
+        company_id: this.companyId,
+        parent_run_id: null,
+        root_run_id: rootRunId,
+        employee_id: input.employeeId,
+        relation: null,
+        objective: null,
+        access: null,
+        status: 'running',
+      });
+    } catch (err) {
+      console.warn('[desktop-agent-runtime] create root agent_run failed', { rootRunId, err });
+    }
+  }
+
+  /** Mark the root run terminal and reconcile any child left in `running` — the
+   *  case where a root abort killed the host before a child's terminal event
+   *  could be emitted (full abort-tree propagation lands in Phase 2). On a normal
+   *  finish every child is already terminal, so the reconciliation is a no-op. */
+  private async finalizeRootRun(
+    rootRunId: string,
+    status: 'completed' | 'failed' | 'cancelled',
+  ): Promise<void> {
+    const repo = this.repos.agentRuns;
+    if (!repo) return;
+    const finishedAt = new Date().toISOString();
+    try {
+      await repo.updateStatus(rootRunId, status, { finishedAt });
+      const children = await repo.findByRoot(rootRunId);
+      for (const child of children) {
+        if (child.run_id !== rootRunId && child.status === 'running') {
+          await repo.updateStatus(child.run_id, 'cancelled', { finishedAt });
+        }
+      }
+    } catch (err) {
+      console.warn('[desktop-agent-runtime] finalize root agent_run failed', { rootRunId, err });
+    }
+  }
+
+  /** Persist a delegation run's lifecycle to agent_runs. Runs on the serialized
+   *  persist chain — a DB write failure logs but never breaks the live run. Only
+   *  the start/finish events carry persistable state; tool/delta events stay
+   *  transient. */
+  private async persistAgentRun(evt: AgentRunEvent): Promise<void> {
+    const repo = this.repos.agentRuns;
+    if (!repo) return;
+    try {
+      if (evt.type === 'run.started') {
+        const payload = evt.payload as AgentRunStartedPayload;
+        await repo.create({
+          run_id: evt.runId,
+          thread_id: evt.threadId,
+          company_id: this.companyId,
+          parent_run_id: evt.parentRunId ?? null,
+          root_run_id: evt.rootRunId,
+          employee_id: evt.employeeId ?? null,
+          relation: evt.relation ?? null,
+          objective: payload.objective ?? null,
+          access: payload.access ?? null,
+          status: 'running',
+        });
+      } else if (
+        evt.type === 'run.completed' ||
+        evt.type === 'run.failed' ||
+        evt.type === 'run.cancelled'
+      ) {
+        const payload = evt.payload as AgentRunFinishedPayload;
+        await repo.updateStatus(evt.runId, payload.status, {
+          resultSummaryJson: payload.summary ? JSON.stringify({ summary: payload.summary }) : null,
+          usageJson: payload.usage ? JSON.stringify(payload.usage) : null,
+          finishedAt: new Date().toISOString(),
+        });
+      }
+    } catch (err) {
+      console.warn('[desktop-agent-runtime] persist agent_run failed', { runId: evt.runId, err });
     }
   }
 

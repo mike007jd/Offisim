@@ -11,7 +11,7 @@
 // host validates the `ready` handshake against its own copy of this constant and
 // refuses a stale bundled host.
 
-export const PI_HOST_PROTOCOL_VERSION = 1;
+export const PI_HOST_PROTOCOL_VERSION = 2;
 
 export const PI_WIRE_KINDS = Object.freeze([
   'ready',
@@ -20,6 +20,7 @@ export const PI_WIRE_KINDS = Object.freeze([
   'messageEnd',
   'tool',
   'uiRequest',
+  'agentRun',
   'result',
   'error',
 ]);
@@ -86,6 +87,35 @@ export function uiRequestLine({ id, method, title, message, options, placeholder
   });
 }
 
+// A delegation run-tree event (root agent delegated to a child, child progress,
+// child finished). The neutral envelope: scope fields + `runType` (the
+// AgentRunEvent.type) + an opaque `payload`. The renderer rebuilds the
+// `AgentRunEvent` and emits it on the bus as a single `agent.run` family event.
+// `runType` (not `type`) sidesteps the Rust `type` keyword; `payload` stays
+// opaque so the wire is stable as new run-event types are added.
+export function agentRunLine({
+  threadId,
+  rootRunId,
+  runId,
+  parentRunId,
+  employeeId,
+  relation,
+  runType,
+  payload,
+} = {}) {
+  return withoutUndefined({
+    kind: 'agentRun',
+    threadId,
+    rootRunId,
+    runId,
+    parentRunId,
+    employeeId,
+    relation,
+    runType,
+    payload,
+  });
+}
+
 export function resultLine(response) {
   return { kind: 'result', response };
 }
@@ -103,6 +133,7 @@ export const PI_WIRE_BUILDERS = Object.freeze({
   messageEnd: messageEndLine,
   tool: toolLine,
   uiRequest: uiRequestLine,
+  agentRun: agentRunLine,
   result: (line) => resultLine(line.response),
   error: errorLine,
 });

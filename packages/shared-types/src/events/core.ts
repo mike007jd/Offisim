@@ -57,6 +57,7 @@ export type EventFamily =
   | 'employee.deleted'
   | 'engine.activity'
   | 'engine.proposal.created'
+  | 'agent.run'
   | 'error.occurred'
   | 'deliverable.created'
   | 'direct.chat.started'

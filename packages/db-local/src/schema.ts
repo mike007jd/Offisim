@@ -389,6 +389,39 @@ export const taskRuns = sqliteTable(
   (table) => [index('idx_task_runs_thread').on(table.thread_id)],
 );
 
+export const agentRuns = sqliteTable(
+  'agent_runs',
+  {
+    run_id: text('run_id').primaryKey(),
+    thread_id: text('thread_id')
+      .notNull()
+      .references(() => graphThreads.thread_id, { onDelete: 'cascade' }),
+    company_id: text('company_id')
+      .notNull()
+      .references(() => companies.company_id, { onDelete: 'cascade' }),
+    parent_run_id: text('parent_run_id').references((): AnySQLiteColumn => agentRuns.run_id, {
+      onDelete: 'set null',
+    }),
+    root_run_id: text('root_run_id').notNull(),
+    employee_id: text('employee_id').references(() => employees.employee_id, {
+      onDelete: 'set null',
+    }),
+    relation: text('relation'),
+    objective: text('objective'),
+    access: text('access'),
+    status: text('status').notNull(),
+    usage_json: text('usage_json'),
+    result_summary_json: text('result_summary_json'),
+    started_at: text('started_at').notNull(),
+    finished_at: text('finished_at'),
+  },
+  (table) => [
+    index('idx_agent_runs_thread').on(table.thread_id),
+    index('idx_agent_runs_root').on(table.root_run_id),
+    index('idx_agent_runs_parent').on(table.parent_run_id),
+  ],
+);
+
 export const toolCalls = sqliteTable(
   'tool_calls',
   {
