@@ -187,6 +187,26 @@ function buildPermissionGate(mode) {
 const MAX_TEXT_BYTES = 8 * 1024 * 1024;
 const TRUNCATED_SUFFIX = '\n[truncated by Offisim Pi host output cap]';
 
+// Fixed-flow guidance (Phase 4): a prompt-template "skill" appended to the root
+// agent's system prompt when delegation is available. It shapes the
+// manager-as-tools loop into research → plan → implement → review → revise and
+// tells the agent when to stop iterating — without a new scheduler or graph
+// engine. Bounded by the supervisor's deterministic caps (depth / total / token
+// budget); this only guides the order.
+const DELEGATION_FLOW_GUIDANCE = [
+  '## Working with your team',
+  'You can hand bounded subtasks to teammates with the `delegate` tool, then',
+  'synthesize their results into your own answer — you keep the conversation with',
+  'the user. For a non-trivial goal, structure delegation as a flow and iterate:',
+  '1. Research — delegate fact-finding / investigation (access: read).',
+  '2. Plan — decide the approach from what you learned.',
+  '3. Implement — delegate the concrete work (access: write); run independent',
+  '   tasks in parallel (one delegate call, mode "parallel", multiple tasks).',
+  '4. Review — delegate a check of the result (access: review); revise if needed.',
+  'Iterate only while it moves the goal forward. Stop when the goal is met or the',
+  'result is good enough — do not delegate busywork.',
+].join('\n');
+
 function asNonEmptyString(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
@@ -516,11 +536,12 @@ async function runPrompt(payload) {
   // DefaultResourceLoader whenever there's a permission gate OR a persona, and
   // merge both into it so Pi receives a single loader.
   const systemPromptAppend = asNonEmptyString(payload.systemPromptAppend);
-  // Delegation (Phase 1): when the renderer supplies a root run id + thread id +
-  // a non-empty company roster, register the `delegate` tool so the root agent
-  // can hand bounded subtasks to teammates. Children are built in-process by the
-  // supervisor (see Docs/DELEGATION_ARCHITECTURE.md). Children themselves do not
-  // get the delegate tool — maxDepth=1 in this phase.
+  // Delegation: when the renderer supplies a root run id + thread id + a non-empty
+  // company roster, register the `delegate` tool so the root agent can hand bounded
+  // subtasks to teammates. Children are built in-process by the supervisor (see
+  // Docs/DELEGATION_ARCHITECTURE.md), bounded by deterministic caps (depth /
+  // concurrency / total / token budget), and may recursively delegate up to
+  // maxDepth. When delegation is on, the fixed-flow guidance is appended too.
   const rootRunId = asNonEmptyString(payload.rootRunId);
   const threadId = asNonEmptyString(payload.threadId);
   const roster = Array.isArray(payload.roster) ? payload.roster : [];
@@ -551,12 +572,17 @@ async function runPrompt(payload) {
       });
       extensionFactories.push(createDelegationExtensionFactory(supervisor));
     }
+    // Append the employee persona and, when delegation is on, the fixed-flow
+    // guidance — both are generic appended system prompts (Pi's official option).
+    const appendSystemPrompt = [];
+    if (systemPromptAppend) appendSystemPrompt.push(systemPromptAppend);
+    if (delegationEnabled) appendSystemPrompt.push(DELEGATION_FLOW_GUIDANCE);
     resourceLoader = new DefaultResourceLoader({
       cwd,
       agentDir,
       settingsManager,
       ...(extensionFactories.length > 0 ? { extensionFactories } : {}),
-      ...(systemPromptAppend ? { appendSystemPrompt: [systemPromptAppend] } : {}),
+      ...(appendSystemPrompt.length > 0 ? { appendSystemPrompt } : {}),
     });
     await resourceLoader.reload();
   }

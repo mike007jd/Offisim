@@ -86,6 +86,20 @@ async function structuralChecks() {
     'total-children cap blocks when exhausted',
     totalResult.slice(0, 60),
   );
+
+  // Token budget (Phase 4): once spend crosses the budget, the next round blocks.
+  const budgetEmitted = [];
+  const budgetLimits = createDelegationLimits({ maxTotalTokens: 10 });
+  budgetLimits.recordTokens({ input: 100, output: 100 }); // push spend past the budget
+  const budgetSup = createChildSupervisor(
+    baseCtx({ emit: (l) => budgetEmitted.push(l), limits: budgetLimits }),
+  );
+  const budgetResult = await budgetSup.runSingle({ employeeId: 'emp-scout', objective: 'x', access: 'read' });
+  check(
+    /budget/i.test(budgetResult) && budgetEmitted.some((l) => l.runType === 'run.failed'),
+    'token budget blocks when exhausted',
+    budgetResult.slice(0, 60),
+  );
 }
 
 async function liveChecks() {

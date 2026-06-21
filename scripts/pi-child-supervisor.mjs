@@ -39,6 +39,11 @@ export const DELEGATION_DEFAULTS = Object.freeze({
   maxConcurrentChildren: 4, // per parallel fan-out
   maxTotalChildren: 16, // across the whole tree for one root run
   childTimeoutMs: 5 * 60 * 1000, // wall-clock per child
+  // Token budget across the whole delegation tree for one root run — the
+  // loop-until-budget backstop for goal-directed iteration. Cost is unreliable
+  // (some providers report 0), so the budget is token-based (input + output).
+  // Generous by default (a runaway guard, not a tight cap); override per turn.
+  maxTotalTokens: 2_000_000,
 });
 
 /**
@@ -51,6 +56,7 @@ export const DELEGATION_DEFAULTS = Object.freeze({
 export function createDelegationLimits(overrides = {}) {
   const cfg = { ...DELEGATION_DEFAULTS, ...overrides };
   let totalSpawned = 0;
+  let spentTokens = 0;
   return {
     ...cfg,
     maxConcurrentChildren: Math.max(1, cfg.maxConcurrentChildren),
@@ -59,6 +65,18 @@ export function createDelegationLimits(overrides = {}) {
       if (totalSpawned >= cfg.maxTotalChildren) return false;
       totalSpawned += 1;
       return true;
+    },
+    /** Fold a finished child's token usage into the tree-global running total. */
+    recordTokens(usage) {
+      spentTokens += (usage?.input || 0) + (usage?.output || 0);
+    },
+    /** True once the tree's token spend has crossed the budget — gates the next
+     *  delegation round so goal-directed loops terminate on budget. */
+    budgetExceeded() {
+      return spentTokens >= cfg.maxTotalTokens;
+    },
+    spentTokens() {
+      return spentTokens;
     },
   };
 }
@@ -170,6 +188,15 @@ export function createChildSupervisor(ctx) {
         runId,
         employee.employeeId,
         `Max delegation depth (${limits.maxDepth}) reached — cannot delegate further.`,
+      );
+    }
+    // Token budget across the whole tree — the loop-until-budget backstop. Checked
+    // before spawning so a goal-directed loop stops cleanly once spend crosses it.
+    if (limits.budgetExceeded()) {
+      return blocked(
+        runId,
+        employee.employeeId,
+        `Delegation token budget (${limits.maxTotalTokens}) exhausted for this run.`,
       );
     }
     // Global total-children cap across the whole tree for this root run.
@@ -327,6 +354,9 @@ export function createChildSupervisor(ctx) {
       unsubscribe();
       session.dispose();
       if (signal) signal.removeEventListener('abort', onAbort);
+      // Fold this child's token spend into the tree budget (whatever the outcome),
+      // so the next delegation round sees it.
+      limits.recordTokens(usage);
     }
   }
 
