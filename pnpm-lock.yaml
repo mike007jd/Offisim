@@ -225,9 +225,6 @@ importers:
       '@offisim/renderer':
         specifier: workspace:*
         version: link:../../packages/renderer
-      '@offisim/shared-types':
-        specifier: workspace:*
-        version: link:../../packages/shared-types
       better-auth:
         specifier: ^1.5.5
         version: 1.5.5(better-sqlite3@12.6.2)(drizzle-kit@0.31.9)(drizzle-orm@0.45.2(@opentelemetry/api@1.9.0)(@types/better-sqlite3@7.6.13)(better-sqlite3@12.6.2)(gel@2.2.0)(kysely@0.28.17)(postgres@3.4.8))(mongodb@7.1.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(vitest@4.1.4(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jsdom@26.1.0)(msw@2.14.6(@types/node@25.3.5)(typescript@5.9.3))(vite@8.0.16(@types/node@25.3.5)(esbuild@0.25.12)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)))

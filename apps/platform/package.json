@@ -17,7 +17,6 @@
     "@offisim/db-platform": "workspace:*",
     "@offisim/install-core": "workspace:*",
     "@offisim/renderer": "workspace:*",
-    "@offisim/shared-types": "workspace:*",
     "@hono/node-server": "^1.14.0",
     "better-auth": "^1.5.5",
     "drizzle-orm": "^0.45.1",

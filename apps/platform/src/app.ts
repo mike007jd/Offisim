@@ -15,19 +15,11 @@ import { installRoute } from './routes/install.js';
 import { market } from './routes/market.js';
 import { meRoute } from './routes/me.js';
 import { publish } from './routes/publish.js';
-import { resumeRoute } from './routes/resume.js';
 import { reviewsRoute } from './routes/reviews.js';
-import { sessionsRoute } from './routes/sessions.js';
 import { assertProxyTrustConfig, resolveCorsOrigins } from './startup.js';
 import type { PlatformEnv } from './types.js';
 
-export function createApp(
-  platformDb: PlatformDb = db,
-  opts?: {
-    resumeCoordinator?: PlatformEnv['Variables']['resumeCoordinator'];
-    sessionStore?: PlatformEnv['Variables']['sessionStore'];
-  },
-) {
+export function createApp(platformDb: PlatformDb = db) {
   const corsOrigins = resolveCorsOrigins();
   // Warn (once, at app construction) if a production deployment behind a proxy
   // would silently collapse per-IP rate limiting. See assertProxyTrustConfig.
@@ -63,12 +55,6 @@ export function createApp(
   app.use('*', generalRateLimit);
   app.use('*', async (c, next) => {
     c.set('db', platformDb);
-    if (opts?.resumeCoordinator) {
-      c.set('resumeCoordinator', opts.resumeCoordinator);
-    }
-    if (opts?.sessionStore) {
-      c.set('sessionStore', opts.sessionStore);
-    }
     await next();
   });
   app.use('/api/auth/*', authRateLimit);
@@ -87,8 +73,6 @@ export function createApp(
   app.route('/v1/publish', publish);
   app.route('/v1/install', installRoute);
   app.route('/v1/me', meRoute);
-  app.route('/', resumeRoute);
-  app.route('/', sessionsRoute);
 
   return app;
 }

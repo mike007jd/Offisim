@@ -8,7 +8,6 @@ import {
   parseApiTokenExpiryDays,
   parseApiTokenScopes,
   requireApiTokenScope,
-  requireLocalRuntimeAccess,
   requireSessionAuth,
 } from '../apps/platform/src/middleware/auth.js';
 import { _resetRateLimitStore, rateLimit } from '../apps/platform/src/middleware/rate-limit.js';
@@ -19,7 +18,6 @@ function makeContext(input: {
   authKind?: string;
   scopes?: readonly string[];
   userId?: string;
-  localRuntimeToken?: string;
   headers?: Record<string, string>;
 }) {
   const values = new Map<string, unknown>();
@@ -32,10 +30,7 @@ function makeContext(input: {
   if (input.userId) values.set('userId', input.userId);
   return {
     req: {
-      header: (name: string) =>
-        name.toLowerCase() === 'x-offisim-local-runtime-token'
-          ? input.localRuntimeToken
-          : headers.get(name.toLowerCase()),
+      header: (name: string) => headers.get(name.toLowerCase()),
     },
     get: (key: string) => values.get(key),
     set: (key: string, value: unknown) => values.set(key, value),
@@ -123,36 +118,6 @@ function expectTokenCreationExpiryValidation() {
     return;
   }
   throw new Error('API token expiry above the maximum was accepted');
-}
-
-async function expectLocalRouteSessionAllowed() {
-  const { nextCalled, response } = await runMiddleware(
-    requireLocalRuntimeAccess as never,
-    makeContext({ userId: 'user-1' }),
-  );
-  if (!nextCalled || response) {
-    throw new Error('authenticated session was rejected on a local runtime route');
-  }
-}
-
-async function expectLoopbackWithoutTokenRejected() {
-  process.env.OFFISIM_LOCAL_RUNTIME_TOKEN = 'local-secret';
-  const { nextCalled, response } = await runMiddleware(
-    requireLocalRuntimeAccess as never,
-    makeContext({}),
-  );
-  if (nextCalled || response?.status !== 401) {
-    throw new Error('local runtime route allowed unauthenticated request without token');
-  }
-}
-
-async function expectLocalTokenAllowed() {
-  process.env.OFFISIM_LOCAL_RUNTIME_TOKEN = 'local-secret';
-  const { nextCalled, response } = await runMiddleware(
-    requireLocalRuntimeAccess as never,
-    makeContext({ localRuntimeToken: 'local-secret' }),
-  );
-  if (!nextCalled || response) throw new Error('local runtime token was not allowed');
 }
 
 async function expectForwardedForIgnoredByDefault() {
@@ -394,9 +359,6 @@ await expectTokenManagementAllowsSessionAuth();
 await expectUnknownStoredScopesIgnored();
 expectTokenCreationScopeValidation();
 expectTokenCreationExpiryValidation();
-await expectLocalRouteSessionAllowed();
-await expectLoopbackWithoutTokenRejected();
-await expectLocalTokenAllowed();
 await expectForwardedForIgnoredByDefault();
 expectMigrationDriftFailure();
 expectMarketplaceVisibilityGuards();

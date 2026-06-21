@@ -275,41 +275,6 @@ export function requireApiTokenScope(scope: string) {
   });
 }
 
-/**
- * Gate for local-runtime bridge routes (sessions / resume). Accepts either an
- * authenticated user session OR a matching `OFFISIM_LOCAL_RUNTIME_TOKEN`.
- *
- * OWNERSHIP CAVEAT: this only proves the caller is *some* authenticated
- * principal, not that they own the `:id` resource the route addresses. Today
- * the session/resume stores are local single-user desktop infrastructure (the
- * multi-user market deployment does not attach a sessionStore/resumeCoordinator
- * — those routes 503 there), so there is no cross-tenant exposure. If
- * multi-user session hosting is ever enabled, the route handlers MUST add a
- * per-resource ownership check (the session record must belong to the
- * authenticated user) to avoid an IDOR on `:id`.
- */
-export const requireLocalRuntimeAccess = createMiddleware<PlatformEnv>(async (c, next) => {
-  if (c.get('userId')) {
-    await next();
-    return;
-  }
-  const expected = process.env.OFFISIM_LOCAL_RUNTIME_TOKEN?.trim();
-  const provided = c.req.header('x-offisim-local-runtime-token')?.trim();
-  if (expected && provided && provided === expected) {
-    await next();
-    return;
-  }
-  return c.json(
-    {
-      error: {
-        code: 'LOCAL_RUNTIME_AUTH_REQUIRED',
-        message: 'Local runtime route requires a session or local runtime token.',
-      },
-    },
-    401,
-  );
-});
-
 // ---------------------------------------------------------------------------
 // Creator middleware — ensures authenticated user has a creator profile
 // ---------------------------------------------------------------------------
