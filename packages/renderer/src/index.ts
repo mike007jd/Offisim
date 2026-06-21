@@ -1,19 +1,11 @@
-// @offisim/renderer — pure logic: prefab catalog, state machines, layout engine.
-// No rendering engine dependency (PixiJS removed; 3D = Three.js, 2D = SVG).
+// @offisim/renderer — pure logic: prefab catalog, state machines, default
+// layouts. No rendering engine dependency (PixiJS removed; 3D = Three.js,
+// 2D = SVG).
 //
 // (H/C1) The legacy `tokens/` subtree (colors / motion / state-feedback /
 // departments) was dropped: no consumer outside this package imports those
 // symbols. If you bring back any of them, re-export from here and update the
 // package-level compatibility notes.
-
-// Layout engine — pure algorithm
-export { computeFloorPlan, computeRestAreaSeats } from './layout/zone-layout-engine.js';
-export type {
-  OfficeFloorPlan,
-  ZoneBounds,
-  DeskPosition,
-  FloorPlanOptions,
-} from './layout/zone-layout-engine.js';
 
 // Prefab system — catalog, state machines, event router, default layouts
 export * from './prefab/index.js';

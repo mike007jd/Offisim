@@ -1,10 +1,11 @@
 /**
  * Browser polyfill for node:async_hooks AsyncLocalStorage.
  *
- * LangChain/LangGraph use AsyncLocalStorage for context propagation.
- * In the browser, we provide a synchronous fallback that uses a simple stack.
- * This works because browser JS is single-threaded — no concurrent async
- * contexts can interleave within the same microtask.
+ * Bundled node-only deps reached through `@offisim/core/browser` reference
+ * AsyncLocalStorage for context propagation; the webview has no node:async_hooks
+ * implementation. We provide a synchronous fallback over a single value. This
+ * works because browser JS is single-threaded — no concurrent async contexts
+ * can interleave within the same microtask.
  */
 export class AsyncLocalStorage<T> {
   private store: T | undefined;

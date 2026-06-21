@@ -12,9 +12,9 @@ export default defineConfig(({ command }) => ({
   resolve: {
     alias: [
       { find: '@', replacement: path.resolve(here, 'src') },
-      // @offisim/core/browser pulls LangGraph/LangChain, which import
-      // node:async_hooks (AsyncLocalStorage) + node-only sqlite deps. In the
-      // WebKit webview these have no implementation, so alias them to browser
+      // `@offisim/core/browser` and the provider/db SDKs it bundles reference
+      // node-only built-ins (node:async_hooks / better-sqlite3 / node:fs|path)
+      // that have no implementation in the WebKit webview. Alias them to browser
       // polyfills / empty stubs — otherwise module eval throws and the app
       // renders a blank white screen.
       {
