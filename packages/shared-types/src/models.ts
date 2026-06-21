@@ -78,7 +78,6 @@ export interface RuntimeEngineCapabilityMatrix {
   readonly sessions: RuntimeEngineCapabilityStatus;
   readonly resume: RuntimeEngineCapabilityStatus;
   readonly fork: RuntimeEngineCapabilityStatus;
-  readonly subagents: RuntimeEngineCapabilityStatus;
   readonly handoffs: RuntimeEngineCapabilityStatus;
   readonly hooksGuardrails: RuntimeEngineCapabilityStatus;
   readonly cancellation: RuntimeEngineCapabilityStatus;
@@ -136,7 +135,6 @@ export interface RuntimeEngineCapabilityProfile {
   readonly nativeCapabilities: {
     readonly tools: boolean;
     readonly mcp: boolean;
-    readonly subagents: boolean;
     readonly handoffs: boolean;
     readonly sessionResume: boolean;
   };

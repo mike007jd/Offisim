@@ -15,7 +15,6 @@ type EngineNativeActivityKind =
 
 export type EngineActivityKind =
   | 'run'
-  | 'subagent'
   | 'tool'
   | 'artifact'
   | 'approval'

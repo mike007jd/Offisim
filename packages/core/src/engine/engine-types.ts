@@ -106,13 +106,6 @@ export type RuntimeActivityEvent =
       readonly timestamp?: number;
     }
   | {
-      readonly kind: 'subagent_started' | 'subagent_completed';
-      readonly activityId?: string;
-      readonly label: string;
-      readonly detail?: string;
-      readonly timestamp?: number;
-    }
-  | {
       readonly kind: 'artifact_ready';
       readonly artifact: EngineArtifact;
       readonly timestamp?: number;

@@ -240,7 +240,6 @@ function textOnlyPreviewProfile(
     nativeCapabilities: {
       tools: false,
       mcp: false,
-      subagents: false,
       handoffs: false,
       sessionResume: false,
     },
@@ -303,7 +302,6 @@ function sdkNativeFullPowerBlockedProfile(
       sessions: 'blocked',
       resume: 'blocked',
       fork: 'blocked',
-      subagents: 'blocked',
       handoffs: 'blocked',
       hooksGuardrails: 'blocked',
       cancellation: 'blocked',
@@ -331,7 +329,6 @@ function sdkNativeFullPowerBlockedProfile(
     nativeCapabilities: {
       tools: true,
       mcp: true,
-      subagents: true,
       handoffs: true,
       sessionResume: true,
     },
@@ -392,7 +389,6 @@ function capabilityMatrix(
     sessions: 'unsupported',
     resume: 'unsupported',
     fork: 'unsupported',
-    subagents: 'unsupported',
     handoffs: 'unsupported',
     hooksGuardrails: 'unsupported',
     cancellation: 'unsupported',
