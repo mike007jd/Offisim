@@ -167,7 +167,10 @@ CREATE TABLE IF NOT EXISTS task_runs (
 -- (work items) — agent_runs are cognition instances of an employee identity.
 CREATE TABLE IF NOT EXISTS agent_runs (
   run_id              TEXT PRIMARY KEY,
-  thread_id           TEXT NOT NULL REFERENCES graph_threads(thread_id) ON DELETE CASCADE,
+  -- thread_id is the product-layer chat_threads.thread_id (no FK — chat threads
+  -- have no graph_threads row; matches agent_events). Cleaned up by company FK
+  -- cascade + explicit per-thread deletion in local-data-deletion.
+  thread_id           TEXT NOT NULL,
   company_id          TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   parent_run_id       TEXT REFERENCES agent_runs(run_id) ON DELETE SET NULL,
   root_run_id         TEXT NOT NULL,

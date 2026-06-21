@@ -76,6 +76,7 @@ export async function deleteConversationDeep(
     { sql: 'DELETE FROM interaction_history WHERE thread_id = $1', params: [threadId] },
     { sql: 'DELETE FROM active_thread_interactions WHERE thread_id = $1', params: [threadId] },
     { sql: 'DELETE FROM agent_events WHERE thread_id = $1', params: [threadId] },
+    { sql: 'DELETE FROM agent_runs WHERE thread_id = $1', params: [threadId] },
     {
       sql: 'DELETE FROM deliverables WHERE thread_id = $1 OR chat_thread_id = $1',
       params: [threadId],
@@ -124,6 +125,7 @@ export async function deleteCompanyDeep(companyId: string): Promise<DeleteCompan
     { sql: 'DELETE FROM interaction_history WHERE company_id = $1', params: [companyId] },
     { sql: 'DELETE FROM active_thread_interactions WHERE company_id = $1', params: [companyId] },
     { sql: 'DELETE FROM agent_events WHERE company_id = $1', params: [companyId] },
+    { sql: 'DELETE FROM agent_runs WHERE company_id = $1', params: [companyId] },
     { sql: 'DELETE FROM pi_messages WHERE company_id = $1', params: [companyId] },
     { sql: 'DELETE FROM memory_entries WHERE company_id = $1', params: [companyId] },
     { sql: 'DELETE FROM runtime_events WHERE company_id = $1', params: [companyId] },

@@ -393,9 +393,9 @@ export const agentRuns = sqliteTable(
   'agent_runs',
   {
     run_id: text('run_id').primaryKey(),
-    thread_id: text('thread_id')
-      .notNull()
-      .references(() => graphThreads.thread_id, { onDelete: 'cascade' }),
+    // thread_id is the product-layer chat_threads.thread_id (no FK — chat threads
+    // have no graph_threads row; matches agent_events).
+    thread_id: text('thread_id').notNull(),
     company_id: text('company_id')
       .notNull()
       .references(() => companies.company_id, { onDelete: 'cascade' }),

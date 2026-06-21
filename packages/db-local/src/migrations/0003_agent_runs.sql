@@ -5,7 +5,9 @@
 
 CREATE TABLE IF NOT EXISTS agent_runs (
   run_id              TEXT PRIMARY KEY,
-  thread_id           TEXT NOT NULL REFERENCES graph_threads(thread_id) ON DELETE CASCADE,
+  -- thread_id is the product-layer chat_threads.thread_id (no FK — chat threads
+  -- have no graph_threads row; matches agent_events).
+  thread_id           TEXT NOT NULL,
   company_id          TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   parent_run_id       TEXT REFERENCES agent_runs(run_id) ON DELETE SET NULL,
   root_run_id         TEXT NOT NULL,
