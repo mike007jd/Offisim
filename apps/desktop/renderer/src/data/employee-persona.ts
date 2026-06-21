@@ -73,20 +73,18 @@ export async function resolveEmployeeSystemPrompt(
   companyId: string,
   employeeId: string,
 ): Promise<string | null> {
-  const employee = await repos.employees.findById(employeeId);
+  // The employee and company rows are independent reads — fetch them together.
+  // A company-lookup failure degrades to an unnamed company, never a failed run.
+  const [employee, company] = await Promise.all([
+    repos.employees.findById(employeeId),
+    repos.companies.findById(companyId).catch(() => null),
+  ]);
   if (!employee) return null;
   const profile = readProfile(employee.persona_json);
-  let companyName = '';
-  try {
-    const company = await repos.companies.findById(companyId);
-    companyName = company?.name ?? '';
-  } catch {
-    companyName = '';
-  }
   return buildEmployeeSystemPrompt({
     name: employee.name ?? '',
     role: titleizeSlug(employee.role_slug),
-    companyName,
+    companyName: company?.name ?? '',
     expertise: asPersonaText(profile.expertise),
     workingStyle: asPersonaText(profile.workingStyle),
     communication: asPersonaText(profile.communication) || 'medium',
