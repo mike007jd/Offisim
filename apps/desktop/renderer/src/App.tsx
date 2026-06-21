@@ -1,6 +1,5 @@
 import { CommandPalette } from '@/app/CommandPalette.js';
 import { useUiState } from '@/app/ui-state.js';
-import { ResumeBar } from '@/assistant/parts/ResumeBar.js';
 import { AppFrame } from '@/design-system/shell/AppFrame.js';
 import { useRealDataBootstrap } from '@/runtime/useRealDataBootstrap.js';
 import { SurfaceRouter } from '@/surfaces/SurfaceRouter.js';
@@ -36,7 +35,7 @@ export function App() {
       {isLifecycle ? (
         <LifecycleSurface />
       ) : (
-        <AppFrame banner={<ResumeBar />}>
+        <AppFrame>
           <SurfaceRouter />
         </AppFrame>
       )}

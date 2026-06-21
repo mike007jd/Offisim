@@ -94,8 +94,6 @@ pub struct PiAgentExecuteRequest {
     /// host hands it to the resource loader. Absent → Pi uses its base prompt.
     #[serde(default)]
     system_prompt_append: Option<String>,
-    #[serde(default)]
-    resume: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -388,7 +386,6 @@ fn sidecar_payload<R: tauri::Runtime>(
         "permissionMode": req.permission_mode,
         "thinkingLevel": req.thinking_level,
         "systemPromptAppend": req.system_prompt_append,
-        "resume": req.resume,
     })
 }
 

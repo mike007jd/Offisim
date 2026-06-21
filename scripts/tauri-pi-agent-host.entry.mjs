@@ -485,10 +485,10 @@ async function runPrompt(payload) {
   const { authStorage, modelRegistry } = createPiRegistries(agentDir);
   const sessionDir = asNonEmptyString(payload.sessionDir);
   if (sessionDir) mkdirSync(sessionDir, { recursive: true });
-  const sessionManager =
-    payload.resume === true
-      ? SessionManager.continueRecent(cwd, sessionDir)
-      : SessionManager.continueRecent(cwd, sessionDir);
+  // Rust gives every threadId its own session directory, so continuing the most
+  // recent session here is simply "keep this conversation going". There is no
+  // separate resume mode — same thread, same Pi session.
+  const sessionManager = SessionManager.continueRecent(cwd, sessionDir);
   const model = selectedModel(modelRegistry, payload.model);
   if (payload.model && !model) {
     throw Object.assign(new Error(`Pi model override was not found: ${payload.model}`), {

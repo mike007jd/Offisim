@@ -112,7 +112,7 @@ assertIncludesAll(
   'Agent UI answers must be awaited and failures surfaced to the approval bar.',
 );
 const answerUiRequestStart = desktopRuntime.indexOf('async answerUiRequest');
-const answerUiRequestEnd = desktopRuntime.indexOf('\n  async resume', answerUiRequestStart);
+const answerUiRequestEnd = desktopRuntime.indexOf('\n  async dispose', answerUiRequestStart);
 assert(
   answerUiRequestStart >= 0 && answerUiRequestEnd > answerUiRequestStart,
   'DesktopAgentRuntime must expose a class-level async answerUiRequest method.',

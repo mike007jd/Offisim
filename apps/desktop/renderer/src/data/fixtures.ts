@@ -8,7 +8,6 @@ import type {
   FileNode,
   Project,
   Skill,
-  UnfinishedThread,
 } from './types.js';
 
 const HOUR = 3_600_000;
@@ -300,28 +299,6 @@ export const deliverables: Deliverable[] = [
     format: 'MD',
     preview:
       '# Verification report\n\n- TTL asserted at 30m sliding renewal\n- 2 onboarding edge cases reproduced and fixed',
-  },
-];
-
-/** Threads from a previous session that did not finish — drives the ResumeBar. */
-export const unfinishedThreads: UnfinishedThread[] = [
-  {
-    threadId: 'th-team',
-    companyId: 'co-northwind',
-    projectId: 'pj-relay',
-    name: 'Relay Launch · Team',
-    companyName: 'Northwind AI',
-    projectName: 'Relay Launch',
-    state: 'running',
-  },
-  {
-    threadId: 'th-audit',
-    companyId: 'co-northwind',
-    projectId: 'pj-relay',
-    name: 'Orion Audit',
-    companyName: 'Northwind AI',
-    projectName: 'Relay Launch',
-    state: 'blocked',
   },
 ];
 

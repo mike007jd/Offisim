@@ -293,17 +293,3 @@ export interface StagedAttachment {
   /** Present when status is "error". */
   failReason?: AttachmentFailReason;
 }
-
-/* --- Cross-session resume ---------------------------------------------------*/
-
-type UnfinishedThreadState = 'running' | 'blocked';
-
-export interface UnfinishedThread {
-  threadId: string;
-  companyId: string;
-  projectId: string;
-  name: string;
-  companyName?: string;
-  projectName?: string;
-  state: UnfinishedThreadState;
-}

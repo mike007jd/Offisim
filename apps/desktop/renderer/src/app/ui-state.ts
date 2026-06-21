@@ -45,7 +45,6 @@ interface UiState {
   draftThread: { id: string; employeeId: string | null } | null;
   sceneRenderMode: SceneRenderMode;
   sceneDropDiagnostics: SceneDropDiagnostic[];
-  resumeDismissed: boolean;
 
   /** Personnel surface */
   selectedEmployeeId: string | null;
@@ -101,7 +100,6 @@ interface UiState {
   closeThread: () => void;
   setSceneRenderMode: (mode: SceneRenderMode) => void;
   recordSceneDropDiagnostic: (event: SceneDropDiagnostic) => void;
-  dismissResume: () => void;
 
   selectEmployee: (employeeId: string | null) => void;
   setPersonnelRailCollapsed: (collapsed: boolean) => void;
@@ -126,7 +124,6 @@ export const useUiState = create<UiState>((set) => ({
   draftThread: null,
   sceneRenderMode: '3d',
   sceneDropDiagnostics: [],
-  resumeDismissed: false,
 
   selectedEmployeeId: null,
   personnelRailCollapsed: false,
@@ -167,7 +164,6 @@ export const useUiState = create<UiState>((set) => ({
   setSceneRenderMode: (sceneRenderMode) => set({ sceneRenderMode }),
   recordSceneDropDiagnostic: (event) =>
     set((s) => ({ sceneDropDiagnostics: [event, ...s.sceneDropDiagnostics].slice(0, 10) })),
-  dismissResume: () => set({ resumeDismissed: true }),
 
   selectEmployee: (selectedEmployeeId) => set({ selectedEmployeeId }),
   setPersonnelRailCollapsed: (personnelRailCollapsed) => set({ personnelRailCollapsed }),

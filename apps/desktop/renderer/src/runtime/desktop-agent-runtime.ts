@@ -139,7 +139,6 @@ export interface DesktopAgentRuntime {
   abort(threadId: string): void;
   /** Deliver the user's answer to a mid-run `agent.ui.request` back to the host. */
   answerUiRequest(answer: AgentUiAnswer): Promise<void>;
-  resume(threadId: string, projectId?: string | null): Promise<{ finalText: string } | null>;
   dispose(): Promise<void>;
 }
 
@@ -371,20 +370,6 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       value: answer.value,
       cancelled: answer.cancelled,
     });
-  }
-
-  async resume(threadId: string, projectId?: string | null): Promise<{ finalText: string } | null> {
-    const thread = await this.repos.threads.findById(threadId);
-    const chatThread = await this.repos.chatThreads.findById(threadId);
-    const requestedProjectId = projectId ?? thread?.project_id ?? chatThread?.project_id ?? null;
-    const text = 'Continue the current Pi Agent session from the last saved state.';
-    const result = await this.execute({
-      text,
-      threadId,
-      employeeId: null,
-      projectId: requestedProjectId,
-    });
-    return { finalText: result.text };
   }
 
   async dispose(): Promise<void> {

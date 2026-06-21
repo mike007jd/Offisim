@@ -6,10 +6,10 @@ import { WorkspaceNav } from './WorkspaceNav.js';
 interface AppFrameProps {
   children: ReactNode;
   /**
-   * Optional banner row rendered BETWEEN the topbar and the surface host (e.g.
-   * the ResumeBar). The surface host fills the rest with `position: absolute`
-   * surfaces, so a banner placed inside it would be covered — it needs its own
-   * grid row. The slot collapses to zero height when the banner renders nothing.
+   * Optional banner row rendered BETWEEN the topbar and the surface host. The
+   * surface host fills the rest with `position: absolute` surfaces, so a banner
+   * placed inside it would be covered — it needs its own grid row. The slot
+   * collapses to zero height when the banner renders nothing.
    */
   banner?: ReactNode;
 }

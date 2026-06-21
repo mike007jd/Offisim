@@ -15,7 +15,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { invoke } from '@tauri-apps/api/core';
 import {
   companyToVm,
-  displayThreadTitle,
   employeeToVm,
   isTauriRuntime,
   projectToVm,
@@ -32,7 +31,6 @@ import {
   projectFiles,
   projects,
   threads,
-  unfinishedThreads,
 } from './fixtures.js';
 import { gitErrorMessage, isNonGitWorkspace, loadGitWorkbench } from './git-workbench.js';
 import { loadRunCost } from './run-cost.js';
@@ -44,7 +42,6 @@ import type {
   FileNode,
   GitWorkbench,
   Skill,
-  UnfinishedThread,
 } from './types.js';
 
 /**
@@ -758,63 +755,6 @@ export async function loadDeliverableBody(deliverable: Deliverable): Promise<str
 
 export function useRunCost() {
   return useQuery({ queryKey: ['run-cost'], queryFn: loadRunCost });
-}
-
-const NON_TERMINAL_THREAD_STATUSES = ['queued', 'running', 'blocked', 'paused'] as const;
-const RESUMABLE_ENTRY_MODES = ['direct_chat', 'boss_chat', 'meeting'] as const;
-
-interface UnfinishedThreadRow {
-  thread_id: string;
-  company_id: string;
-  project_id: string | null;
-  status: string;
-  title: string | null;
-  company_name: string;
-  project_name: string | null;
-}
-
-export function useUnfinishedThreads() {
-  return useQuery({
-    queryKey: ['unfinished-threads'],
-    queryFn: async (): Promise<UnfinishedThread[]> => {
-      const repos = await reposOrNull();
-      // Browser preview has no repos — resolve the fixture.
-      if (!repos) return resolveAsync(unfinishedThreads);
-
-      const db = await getTauriDb();
-      const rows = await db.select<UnfinishedThreadRow[]>(
-        `SELECT gt.thread_id,
-                gt.company_id,
-                COALESCE(gtp.project_id, ctp.project_id) AS project_id,
-                gt.status,
-                ct.title,
-                c.name AS company_name,
-                p.name AS project_name
-           FROM graph_threads gt
-           JOIN companies c ON c.company_id = gt.company_id
-      LEFT JOIN projects gtp ON gtp.project_id = gt.project_id AND gtp.company_id = gt.company_id
-      LEFT JOIN chat_threads ct ON ct.thread_id = gt.thread_id
-      LEFT JOIN projects ctp ON ctp.project_id = ct.project_id AND ctp.company_id = gt.company_id
-      LEFT JOIN projects p ON p.project_id = COALESCE(gtp.project_id, ctp.project_id)
-          WHERE c.status <> 'archived'
-            AND gt.status IN (${NON_TERMINAL_THREAD_STATUSES.map((_, i) => `$${i + 1}`).join(', ')})
-            AND gt.entry_mode IN (${RESUMABLE_ENTRY_MODES.map(
-              (_, i) => `$${NON_TERMINAL_THREAD_STATUSES.length + i + 1}`,
-            ).join(', ')})
-       ORDER BY gt.created_at DESC`,
-        [...NON_TERMINAL_THREAD_STATUSES, ...RESUMABLE_ENTRY_MODES],
-      );
-      return rows.map((row) => ({
-        threadId: row.thread_id,
-        companyId: row.company_id,
-        projectId: row.project_id ?? '',
-        name: displayThreadTitle(row.title),
-        companyName: row.company_name,
-        projectName: row.project_name ?? undefined,
-        state: row.status === 'blocked' ? 'blocked' : 'running',
-      }));
-    },
-  });
 }
 
 /** Real office layout: zones + enabled prefab instances (paired with catalog

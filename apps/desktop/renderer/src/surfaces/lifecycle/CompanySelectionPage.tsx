@@ -114,8 +114,7 @@ export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps
     setRenamingId(company.id);
   }
 
-  // The surface switch itself is the feedback — no toast (it collides with
-  // the ResumeBar that appears in the same corner on entry).
+  // The surface switch itself is the feedback — no entry toast needed.
   async function enterCompany(company: Company) {
     if (enteringId) return;
     setEnteringId(company.id);
