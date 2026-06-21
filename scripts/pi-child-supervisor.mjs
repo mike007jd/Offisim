@@ -185,7 +185,12 @@ export function createChildSupervisor(ctx) {
   }
 
   async function runChildSession(runId, employee, objective, access, signal) {
-    const tools = ACCESS_TOOLS[access];
+    // The access band restricts WORK tools (read/write/bash). `delegate` is an
+    // orchestration capability, not a work tool, so it must survive the allowlist
+    // — otherwise a restricted-access child silently loses its delegate tool and
+    // can never recurse. `write` (undefined = all tools) already includes it.
+    const accessTools = ACCESS_TOOLS[access];
+    const tools = accessTools ? [...accessTools, 'delegate'] : accessTools;
     const persona =
       typeof employee.persona === 'string' && employee.persona.trim()
         ? employee.persona.trim()
