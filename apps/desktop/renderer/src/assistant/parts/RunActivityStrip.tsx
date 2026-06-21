@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils.js';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { isConversationRunActive, useConversationRun } from '../runtime/conversation-run-react.js';
 
 /**
@@ -18,6 +18,39 @@ export function RunActivityStrip({ threadId }: { threadId: string }) {
   const activity = run.activity;
   const activityTotal = run.activityTotal;
   const delegations = run.delegations;
+  const rootId = run.attemptId;
+  // Flatten the delegation forest into DFS order with depth, so the strip shows
+  // the real run tree (who delegated whom, nested) rather than a flat list. A
+  // direct child's parentRunId is the root run's attemptId; a nested child's is
+  // another delegation's runId. Memoized so it only rebuilds when delegations
+  // change, not on every activity/streaming tick. (Computed before the early
+  // return to satisfy the rules of hooks.)
+  const orderedDelegations = useMemo(() => {
+    type Delegation = (typeof delegations)[number];
+    const byParent = new Map<string, Delegation[]>();
+    for (const d of delegations) {
+      const key = d.parentRunId ?? '';
+      const siblings = byParent.get(key);
+      if (siblings) siblings.push(d);
+      else byParent.set(key, [d]);
+    }
+    const ordered: Array<{ d: Delegation; depth: number }> = [];
+    const seen = new Set<string>();
+    const visit = (parentId: string, depth: number) => {
+      for (const d of byParent.get(parentId) ?? []) {
+        if (seen.has(d.runId)) continue; // guard against cycles / duplicate ids
+        seen.add(d.runId);
+        ordered.push({ d, depth });
+        visit(d.runId, depth + 1);
+      }
+    };
+    visit(rootId ?? '', 0);
+    // Orphans (parent not in this tree, e.g. an out-of-order terminal) at depth 0.
+    for (const d of delegations) {
+      if (!seen.has(d.runId)) ordered.push({ d, depth: 0 });
+    }
+    return ordered;
+  }, [delegations, rootId]);
   // Render while active if there's either direct tool work or a delegation — a
   // run that only delegates has no tool calls of its own.
   if (!isRunning || (activity.length === 0 && delegations.length === 0)) return null;
@@ -51,12 +84,13 @@ export function RunActivityStrip({ threadId }: { threadId: string }) {
         </span>
         {hidden > 0 ? <span className="off-run-act-more">+{hidden}</span> : null}
       </button>
-      {delegations.length > 0 ? (
+      {orderedDelegations.length > 0 ? (
         <div className="off-run-delegations">
-          {delegations.map((d) => (
+          {orderedDelegations.map(({ d, depth }) => (
             <div
               key={d.runId}
               className={cn('off-run-delegation', `is-${d.state}`)}
+              style={{ paddingLeft: `calc(${depth} * var(--off-sp-3))` }}
               title={d.employeeId ?? undefined}
             >
               <span className="off-run-delegation-arrow" aria-hidden>

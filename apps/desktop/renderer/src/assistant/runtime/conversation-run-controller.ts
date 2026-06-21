@@ -48,11 +48,14 @@ interface RunToolActivity {
   durationMs?: number;
 }
 
-/** A delegation this run spawned — the root agent handed a bounded task to a
- *  teammate's child run. `runId` is the child's id; the tree grafts under this
- *  run because the child's `rootRunId` equals this run's `attemptId`. */
+/** A delegation in this run's tree — a teammate's child run. `runId` is the
+ *  child's id; `parentRunId` is who delegated it (the root's attemptId for a
+ *  direct child, or another child's runId for a nested delegation), so the strip
+ *  can render the tree. The child grafts under this run because its `rootRunId`
+ *  equals this run's `attemptId`. */
 interface RunDelegation {
   runId: string;
+  parentRunId: string | null;
   employeeId: string | null;
   objective: string;
   state: 'running' | 'done' | 'failed' | 'cancelled';
@@ -647,6 +650,7 @@ export class ConversationRunController {
         ...run.delegations,
         {
           runId: evt.runId,
+          parentRunId: evt.parentRunId ?? null,
           employeeId: evt.employeeId ?? null,
           objective: payload.objective,
           state: 'running',
@@ -668,6 +672,7 @@ export class ConversationRunController {
             ...run.delegations,
             {
               runId: evt.runId,
+              parentRunId: evt.parentRunId ?? null,
               employeeId: evt.employeeId ?? null,
               objective: '',
               state,
