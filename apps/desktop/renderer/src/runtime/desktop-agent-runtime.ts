@@ -1,3 +1,4 @@
+import { resolveEmployeeSystemPrompt } from '@/data/employee-persona.js';
 import { ensureProjectBoundForRun } from '@/runtime/ensure-default-workspace.js';
 import { llmStreamChunk, toolExecutionTelemetry } from '@offisim/core/browser';
 import type { RuntimeRepositories } from '@offisim/core/browser';
@@ -302,6 +303,14 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       }
     };
 
+    // Resolve the employee's persona into the system prompt their Pi sessions
+    // receive (forwarded as `appendSystemPrompt`). A generic agent capability —
+    // an extra system prompt — so it travels on a neutral wire field, not a
+    // Pi-specific control. Absent employee → no addendum, Pi uses its base prompt.
+    const systemPromptAppend = input.employeeId
+      ? await resolveEmployeeSystemPrompt(this.repos, this.companyId, input.employeeId)
+      : null;
+
     this.inFlightByThread.set(input.threadId, requestId);
     try {
       const commandResponse = (await invoke('pi_agent_execute', {
@@ -319,6 +328,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           // rather than Offisim pinning every run to `medium`.
           thinkingLevel:
             input.thinkingLevel?.trim() || resolveThreadThinkingOverride(input.threadId),
+          systemPromptAppend: systemPromptAppend ?? undefined,
         },
         onEvent,
       })) as PiAgentHostResponse;

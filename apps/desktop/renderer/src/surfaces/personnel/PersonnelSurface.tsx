@@ -47,9 +47,7 @@ import { SkillsTab } from './SkillsTab.js';
 import {
   type AppearanceDraft,
   type ProfileFormValues,
-  type ToolPermissions,
   appearanceDraftFor,
-  defaultToolPermissions,
   profileDefaults,
   profileDefaultsFromRecord,
   profileFormSchema,
@@ -99,55 +97,6 @@ function roleSlug(role: string): RoleSlug {
   return 'developer';
 }
 
-/** Tool-permission vocabulary SSOT: the three approval levels and how each maps
- *  between the UI editor enums and the runtime policy enum ('auto' / 'always_ask'
- *  / 'deny'). One table here keeps the two from drifting. */
-interface PermissionLevel {
-  readonly uiDefault: ToolPermissions['defaultMode'];
-  readonly uiState: 'allow' | 'ask' | 'deny';
-  readonly runtime: string;
-}
-const ASK_LEVEL: PermissionLevel = { uiDefault: 'ask-each', uiState: 'ask', runtime: 'always_ask' };
-const PERMISSION_LEVELS: readonly PermissionLevel[] = [
-  { uiDefault: 'auto-allow', uiState: 'allow', runtime: 'auto' },
-  ASK_LEVEL,
-  { uiDefault: 'deny-all', uiState: 'deny', runtime: 'deny' },
-];
-const levelByRuntime = (mode: unknown) =>
-  PERMISSION_LEVELS.find((level) => level.runtime === mode) ?? ASK_LEVEL;
-const levelByUiDefault = (mode: unknown) =>
-  PERMISSION_LEVELS.find((level) => level.uiDefault === mode) ?? ASK_LEVEL;
-const levelByUiState = (state: unknown) =>
-  PERMISSION_LEVELS.find((level) => level.uiState === state) ?? ASK_LEVEL;
-
-function toolPermissionsFromConfig(config: Record<string, unknown>): ToolPermissions {
-  const policy = config.toolPermissionPolicy;
-  if (!policy || typeof policy !== 'object' || Array.isArray(policy))
-    return defaultToolPermissions();
-  const raw = policy as { defaultMode?: unknown; overrides?: unknown };
-  const next = defaultToolPermissions();
-  next.defaultMode = levelByRuntime(raw.defaultMode).uiDefault;
-  if (Array.isArray(raw.overrides)) {
-    for (const override of raw.overrides) {
-      if (!override || typeof override !== 'object') continue;
-      const item = override as { pattern?: unknown; mode?: unknown };
-      if (typeof item.pattern !== 'string') continue;
-      next.overrides[item.pattern] = levelByRuntime(item.mode).uiState;
-    }
-  }
-  return next;
-}
-
-function toolPermissionPolicyFromUi(value: ToolPermissions) {
-  return {
-    defaultMode: levelByUiDefault(value.defaultMode).runtime,
-    overrides: Object.entries(value.overrides).map(([pattern, mode]) => ({
-      pattern,
-      mode: levelByUiState(mode).runtime,
-    })),
-  };
-}
-
 function newEmployeePersona(role: string): Record<string, unknown> {
   return {
     profile: {
@@ -158,18 +107,6 @@ function newEmployeePersona(role: string): Record<string, unknown> {
       decisionStyle: 'Ask when scope changes',
       customInstructions: `${titleizeSlug(role)} hired from Personnel.`,
     },
-  };
-}
-
-function newEmployeeConfig(): Record<string, unknown> {
-  return {
-    modelPreference: null,
-    modelSettings: {
-      family: 'default',
-      temperature: 0.4,
-      maxTokens: 2048,
-    },
-    toolPermissionPolicy: toolPermissionPolicyFromUi(defaultToolPermissions()),
   };
 }
 
@@ -406,12 +343,9 @@ function EmployeeDetail({
     mode: 'onChange',
   });
   const baselineProfile = useRef<ProfileFormValues>(profileDefaults(employee));
-  const baselineTools = useRef<ToolPermissions>(defaultToolPermissions());
-  // Held in a ref (like profile/tools) and advanced explicitly on save, so the
+  // Held in a ref (like profile) and advanced explicitly on save, so the
   // dirty/reset baseline doesn't lag behind the post-save query refetch.
   const baselineAppearance = useRef<AppearanceDraft>(appearanceDraftFor(employee));
-  const [toolPermissions, setToolPermissions] = useState<ToolPermissions>(defaultToolPermissions());
-  const [toolPermissionsDirty, setToolPermissionsDirty] = useState(false);
   const [appearance, setAppearance] = useState<AppearanceDraft>(appearanceDraftFor(employee));
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -433,7 +367,7 @@ function EmployeeDetail({
   }, [guardPulse]);
 
   const appearanceDirty = appearanceKey(appearance) !== appearanceKey(baselineAppearance.current);
-  const isDirty = form.formState.isDirty || toolPermissionsDirty || appearanceDirty;
+  const isDirty = form.formState.isDirty || appearanceDirty;
   const nameValid = form.watch('name').trim().length > 0;
   const canSave = isDirty && !isSaving && employee.kind !== 'external' && nameValid;
 
@@ -447,23 +381,16 @@ function EmployeeDetail({
   // biome-ignore lint/correctness/useExhaustiveDependencies: form is stable from useForm; re-hydrate only when switching employees.
   useEffect(() => {
     let cancelled = false;
-    setToolPermissions(defaultToolPermissions());
-    setToolPermissionsDirty(false);
     void (async () => {
       const repos = await reposOrNull();
       const row = repos ? await repos.employees.findById(employee.id) : null;
       if (cancelled || !row) return;
       const persona = safeJsonRecord(row.persona_json);
-      const config = safeJsonRecord(row.config_json);
       // Hydrate the form from the real saved persona so an untouched Save can't
       // overwrite it with the stub defaults; reset clears dirty state.
-      const hydrated = profileDefaultsFromRecord(employee, persona, config);
+      const hydrated = profileDefaultsFromRecord(employee, persona);
       baselineProfile.current = hydrated;
       form.reset(hydrated);
-      const tools = toolPermissionsFromConfig(config);
-      baselineTools.current = tools;
-      setToolPermissions(tools);
-      setToolPermissionsDirty(false);
     })();
     return () => {
       cancelled = true;
@@ -482,7 +409,6 @@ function EmployeeDetail({
       if (!row) throw new Error('Employee no longer exists');
 
       const persona = safeJsonRecord(row.persona_json);
-      const config = safeJsonRecord(row.config_json);
       persona.profile = {
         expertise: values.expertise,
         workingStyle: values.workingStyle,
@@ -492,32 +418,17 @@ function EmployeeDetail({
         customInstructions: values.customInstructions,
       };
       if (appearanceDirty) persona.appearance = appearancePayload(appearance);
-      config.modelPreference =
-        values.modelMode === 'custom' && values.modelOverride.trim()
-          ? values.modelOverride.trim()
-          : null;
-      config.modelSettings = {
-        family: values.modelFamily,
-        temperature: values.temperature,
-        maxTokens: values.maxTokens,
-      };
-      if (toolPermissionsDirty) {
-        config.toolPermissionPolicy = toolPermissionPolicyFromUi(toolPermissions);
-      }
 
       await repos.employees.update(employee.id, {
         name: values.name.trim(),
         role_slug: roleSlug(values.role),
         enabled: values.enabled ? 1 : 0,
         persona_json: JSON.stringify(persona),
-        config_json: JSON.stringify(config),
       });
       await queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
       baselineProfile.current = values;
-      baselineTools.current = toolPermissions;
       baselineAppearance.current = appearance;
       form.reset(values);
-      setToolPermissionsDirty(false);
       toast.success(`${employee.name} saved`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Employee save failed';
@@ -530,8 +441,6 @@ function EmployeeDetail({
 
   const onReset = () => {
     form.reset(baselineProfile.current);
-    setToolPermissions(baselineTools.current);
-    setToolPermissionsDirty(false);
     setAppearance(baselineAppearance.current);
     setSaveError(null);
   };
@@ -575,16 +484,7 @@ function EmployeeDetail({
       </Tabs>
       <div className="off-pers-insp-body">
         {tab === 'profile' ? (
-          <ProfileTab
-            employee={employee}
-            companyName={companyName}
-            form={form}
-            toolPermissions={toolPermissions}
-            onToolPermissionsChange={(next) => {
-              setToolPermissions(next);
-              setToolPermissionsDirty(true);
-            }}
-          />
+          <ProfileTab employee={employee} companyName={companyName} form={form} />
         ) : null}
         {tab === 'skills' ? <SkillsTab employeeId={employee.id} /> : null}
         {tab === 'memory' ? <MemoryTab employeeId={employee.id} /> : null}
@@ -682,7 +582,7 @@ function HireEmployeeDialog({
         source_asset_id: null,
         source_package_id: null,
         persona_json: JSON.stringify(newEmployeePersona(slug)),
-        config_json: JSON.stringify(newEmployeeConfig()),
+        config_json: '{}',
       });
       await queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
       useUiState.getState().selectEmployee(employee_id);

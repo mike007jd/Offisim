@@ -12,6 +12,7 @@
  */
 import { reposOrNull } from '@/data/adapters.js';
 import { UI_DATA_COLORS } from '@/data/color-palette.js';
+import { buildEmployeeSystemPrompt } from '@/data/employee-persona.js';
 import type { Employee } from '@/data/types.js';
 import type { BodyType, EmployeeAppearance, Gender, HairStyle } from '@/lib/avatar.js';
 import { resolveAsync } from '@/lib/platform.js';
@@ -45,16 +46,6 @@ export const DECISION_STYLE_OPTIONS = [
   { value: 'autonomous', label: 'Autonomous' },
 ] as const;
 
-export const MODEL_MODE_OPTIONS = [
-  { value: 'inherit', label: 'Inherit unified setting' },
-  { value: 'custom', label: 'Custom model' },
-] as const;
-
-export const MODEL_FAMILY_OPTIONS = [
-  { value: 'configured', label: 'Configured validation models' },
-  { value: 'custom', label: 'Custom' },
-] as const;
-
 export const profileFormSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   role: z.string().min(1, 'Role is required'),
@@ -65,17 +56,12 @@ export const profileFormSchema = z.object({
   communication: z.enum(['low', 'medium', 'high']),
   risk: z.enum(['conservative', 'balanced', 'aggressive']),
   decisionStyle: z.string().min(1),
-  modelMode: z.enum(['inherit', 'custom']),
-  modelFamily: z.string(),
-  modelOverride: z.string(),
-  temperature: z.number().min(0).max(2),
-  maxTokens: z.number().int().min(1, 'Must be ≥ 1'),
   customInstructions: z.string(),
 });
 export type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
-/** Seed the profile form from the thin employee view-model. The persona/model
- *  fields are stub defaults here; the real persisted persona is layered on by
+/** Seed the profile form from the thin employee view-model. The persona fields
+ *  are stub defaults here; the real persisted persona is layered on by
  *  {@link profileDefaultsFromRecord} once the full row is read at mount. Using
  *  the stubs alone would let an untouched Save overwrite the saved persona. */
 export function profileDefaults(employee: Employee): ProfileFormValues {
@@ -89,11 +75,6 @@ export function profileDefaults(employee: Employee): ProfileFormValues {
     communication: 'medium',
     risk: 'balanced',
     decisionStyle: 'collaborative',
-    modelMode: 'inherit',
-    modelFamily: 'configured',
-    modelOverride: '',
-    temperature: 0.7,
-    maxTokens: 4096,
     customInstructions: '',
   };
 }
@@ -107,23 +88,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 /** Hydrate the profile form from the persisted employee record so reopening an
  *  employee shows their real saved persona (not the stub defaults). Mirrors the
- *  exact shape that PersonnelSurface.onSave writes: persona_json.profile and
- *  config_json.modelSettings / modelPreference. Each field falls back to the
- *  stub when missing or malformed, so a partially-written record stays valid. */
+ *  exact shape that PersonnelSurface.onSave writes: persona_json.profile. Each
+ *  field falls back to the stub when missing or malformed, so a partially-
+ *  written record stays valid. */
 export function profileDefaultsFromRecord(
   employee: Employee,
   persona: Record<string, unknown>,
-  config: Record<string, unknown>,
 ): ProfileFormValues {
   const base = profileDefaults(employee);
   const profile = isRecord(persona.profile) ? persona.profile : {};
-  const modelSettings = isRecord(config.modelSettings) ? config.modelSettings : {};
-  const modelPreference =
-    typeof config.modelPreference === 'string' ? config.modelPreference.trim() : '';
   const str = (value: unknown, fallback: string) =>
     typeof value === 'string' && value ? value : fallback;
-  const num = (value: unknown, fallback: number) =>
-    typeof value === 'number' && Number.isFinite(value) ? value : fallback;
   return {
     ...base,
     expertise: str(profile.expertise, base.expertise),
@@ -138,102 +113,24 @@ export function profileDefaultsFromRecord(
       : base.risk,
     decisionStyle: str(profile.decisionStyle, base.decisionStyle),
     customInstructions: str(profile.customInstructions, base.customInstructions),
-    modelFamily: str(modelSettings.family, base.modelFamily),
-    temperature: num(modelSettings.temperature, base.temperature),
-    maxTokens: num(modelSettings.maxTokens, base.maxTokens),
-    modelMode: modelPreference ? 'custom' : base.modelMode,
-    modelOverride: modelPreference || base.modelOverride,
   };
 }
 
-/** Compose the read-only system-prompt preview from the live form state. */
+/** Compose the live system-prompt preview from the form state. Delegates to the
+ *  shared {@link buildEmployeeSystemPrompt} so the preview matches exactly what
+ *  the employee's Pi sessions receive as `appendSystemPrompt`. */
 export function buildSystemPrompt(values: ProfileFormValues, companyName: string): string {
-  const lines = [
-    `You are ${values.name || 'this employee'}, a ${values.role || 'teammate'} at ${companyName}.`,
-    '',
-    `Expertise: ${values.expertise || '—'}`,
-    `Working style: ${values.workingStyle || '—'}`,
-    `Communication frequency: ${values.communication} · Risk preference: ${values.risk}`,
-    `Decision style: ${values.decisionStyle}`,
-  ];
-  if (values.customInstructions.trim()) {
-    lines.push('', '## Custom instructions', values.customInstructions.trim());
-  }
-  lines.push(
-    '',
-    'Follow company playbooks. Produce reviewable, minimal diffs. Surface risks before',
-    'acting on irreversible changes.',
-  );
-  return lines.join('\n');
-}
-
-// ───────────────────────── Tool permissions ─────────────────────────
-
-export const TOOL_DEFAULT_MODE_OPTIONS = [
-  { value: 'auto-allow', label: 'Auto-allow' },
-  { value: 'ask-each', label: 'Ask each call' },
-  { value: 'deny-all', label: 'Deny all' },
-] as const;
-export type ToolDefaultMode = (typeof TOOL_DEFAULT_MODE_OPTIONS)[number]['value'];
-
-export type ToolPermissionState = 'allow' | 'ask' | 'deny';
-
-export interface BuiltinTool {
-  id: string;
-  name: string;
-  description: string;
-  icon: 'read' | 'write' | 'bash' | 'grep' | 'fetch';
-}
-
-export const BUILTIN_TOOLS: BuiltinTool[] = [
-  {
-    id: 'read_file',
-    name: 'read_file',
-    description: 'Read text/binary file within bound workspace_root',
-    icon: 'read',
-  },
-  {
-    id: 'write_file',
-    name: 'write_file',
-    description: 'Write/replace file content (8 MB cap)',
-    icon: 'write',
-  },
-  {
-    id: 'bash',
-    name: 'bash',
-    description: 'Execute shell command (1 MB stdout cap)',
-    icon: 'bash',
-  },
-  {
-    id: 'project_grep',
-    name: 'project_grep',
-    description: 'Search workspace files by regex/literal',
-    icon: 'grep',
-  },
-  {
-    id: 'web_fetch',
-    name: 'web_fetch',
-    description: 'HTTP fetch · subject to CSP allowlist',
-    icon: 'fetch',
-  },
-];
-
-export interface ToolPermissions {
-  defaultMode: ToolDefaultMode;
-  overrides: Record<string, ToolPermissionState>;
-}
-
-export function defaultToolPermissions(): ToolPermissions {
-  return {
-    defaultMode: 'ask-each',
-    overrides: {
-      read_file: 'allow',
-      write_file: 'ask',
-      bash: 'ask',
-      project_grep: 'allow',
-      web_fetch: 'deny',
-    },
-  };
+  return buildEmployeeSystemPrompt({
+    name: values.name,
+    role: values.role,
+    companyName,
+    expertise: values.expertise,
+    workingStyle: values.workingStyle,
+    communication: values.communication,
+    risk: values.risk,
+    decisionStyle: values.decisionStyle,
+    customInstructions: values.customInstructions,
+  });
 }
 
 // ───────────────────────── Appearance options ─────────────────────────

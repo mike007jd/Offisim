@@ -509,14 +509,20 @@ async function runPrompt(payload) {
   // Pi uses its settings/default level.
   const thinkingLevel = normalizeThinkingLevel(payload.thinkingLevel);
   const gateFactory = buildPermissionGate(permissionMode);
+  // Per-employee persona, forwarded as the session's appended system prompt
+  // (Pi's official `appendSystemPrompt` resource-loader option). Build one
+  // DefaultResourceLoader whenever there's a permission gate OR a persona, and
+  // merge both into it so Pi receives a single loader.
+  const systemPromptAppend = asNonEmptyString(payload.systemPromptAppend);
   let resourceLoader;
-  if (gateFactory) {
+  if (gateFactory || systemPromptAppend) {
     const settingsManager = SettingsManager.create(cwd, agentDir);
     resourceLoader = new DefaultResourceLoader({
       cwd,
       agentDir,
       settingsManager,
-      extensionFactories: [gateFactory],
+      ...(gateFactory ? { extensionFactories: [gateFactory] } : {}),
+      ...(systemPromptAppend ? { appendSystemPrompt: [systemPromptAppend] } : {}),
     });
     await resourceLoader.reload();
   }

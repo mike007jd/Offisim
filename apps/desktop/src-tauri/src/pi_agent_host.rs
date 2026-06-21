@@ -89,6 +89,11 @@ pub struct PiAgentExecuteRequest {
     /// capabilities. Absent → host default.
     #[serde(default)]
     thinking_level: Option<String>,
+    /// Employee persona forwarded as the Pi session's `appendSystemPrompt`. An
+    /// opaque string the renderer builds from the saved employee profile; the
+    /// host hands it to the resource loader. Absent → Pi uses its base prompt.
+    #[serde(default)]
+    system_prompt_append: Option<String>,
     #[serde(default)]
     resume: bool,
 }
@@ -382,6 +387,7 @@ fn sidecar_payload<R: tauri::Runtime>(
         "model": req.model,
         "permissionMode": req.permission_mode,
         "thinkingLevel": req.thinking_level,
+        "systemPromptAppend": req.system_prompt_append,
         "resume": req.resume,
     })
 }
