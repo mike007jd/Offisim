@@ -13,8 +13,8 @@ import {
   type PrefabInstanceRow,
   type RoleSlug,
   type StagingPrefab,
+  animationTempoForRole,
   applyDramaturgyMode,
-  defaultEmployeePerformanceProfile,
   projectOfficeStaging,
 } from '@offisim/shared-types';
 import { Html, OrbitControls } from '@react-three/drei';
@@ -170,7 +170,7 @@ function EmployeeUnit({
   );
   // Employee performance profile flavor — tempo scales animation speed only.
   const tempo = useMemo(
-    () => defaultEmployeePerformanceProfile((employee.roleSlug ?? 'developer') as RoleSlug).tempo,
+    () => animationTempoForRole((employee.roleSlug ?? 'developer') as RoleSlug),
     [employee.roleSlug],
   );
   const phase = useMemo(

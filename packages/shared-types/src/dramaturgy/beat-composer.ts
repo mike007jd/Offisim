@@ -28,6 +28,11 @@ import {
 } from '../events/agent-run.js';
 import type { InteractionAnchorKind } from './staging.js';
 
+/** Current dramaturgy version — the seed input baked into every variant hash, so
+ *  bumping it intentionally changes presentation while keeping a fixed event
+ *  stream + version byte-identical. */
+export const DRAMATURGY_VERSION = 'v1';
+
 /** A staged beat. Affordance is a target *kind*, not coordinates. */
 export type BeatKind =
   | 'receive-task'
@@ -80,7 +85,7 @@ export interface SceneBeat {
  * persist until resolved by a later event — a long finite TTL, not infinity, so
  * the value JSON-serializes for deterministic replay.
  */
-export function beatLifespanMs(kind: BeatKind): number {
+function beatLifespanMs(kind: BeatKind): number {
   switch (kind) {
     case 'approval':
     case 'failure':

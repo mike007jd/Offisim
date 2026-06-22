@@ -23,7 +23,6 @@ export const aiStartupTemplate: CompanyTemplateDefinition = {
     capabilities: ['ML research', 'Data & evaluation', 'AI product & UX'],
   },
   layoutPreset: 'ai-lab',
-  performance: { family: 'ai-lab', pace: 'deliberate', collaborationBias: 'mixed', motifWeights: {} },
   zones: [
     createZoneBlueprint({
       slug: 'zone-mllab',

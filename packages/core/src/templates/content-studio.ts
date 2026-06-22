@@ -24,7 +24,6 @@ export const contentStudioTemplate: CompanyTemplateDefinition = {
     capabilities: ['Article & blog writing', 'Design & illustration', 'Editorial workflow'],
   },
   layoutPreset: 'content-lab',
-  performance: { family: 'editorial', pace: 'deliberate', collaborationBias: 'pair', motifWeights: {} },
   zones: [
     createZoneBlueprint({
       slug: 'zone-writing',

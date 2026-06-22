@@ -26,7 +26,6 @@ export const rdCompanyTemplate: CompanyTemplateDefinition = {
     capabilities: ['Full-stack development', 'Code review & testing', 'Technical documentation'],
   },
   layoutPreset: 'rd-office',
-  performance: { family: 'engineering', pace: 'balanced', collaborationBias: 'mixed', motifWeights: {} },
   employees: [
     {
       key: 'alex-chen',

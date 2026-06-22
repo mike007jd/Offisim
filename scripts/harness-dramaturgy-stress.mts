@@ -1,16 +1,16 @@
 /**
- * Replay + performance gate (Phase 6, source plan §14 / §15).
+ * Dramaturgy performance + child-run stress gate (Phase 6, source plan §15).
  *
- * Three guarantees, all pure Node via tsx against shared-types source:
- *  1. REPLAY determinism — replayDramaturgy over a stored source (events +
- *     version) is byte-identical run-to-run and order-independent; bumping the
- *     dramaturgy version intentionally changes the output. Replay consumes only
- *     stored facts + version, never a generated action script.
- *  2. PERFORMANCE — a 30-employee, deep-tree run stays within a compute budget
- *     for one staging frame, and the office never stages more walkers than the
- *     active mode's cap (no movement spam).
- *  3. CHILD-RUN STRESS — deep nesting + wide fan-out produces a valid run
- *     hierarchy (every actor traces to root), with NO anchor double-booking.
+ * Two guarantees, pure Node via tsx against shared-types source:
+ *  1. PERFORMANCE — a 30-employee, deep-tree run's live staging pipeline
+ *     (compose → project → mode) stays within a per-frame compute budget so it
+ *     never blocks the render loop, and is byte-identical run-to-run.
+ *  2. CHILD-RUN STRESS — deep nesting + wide fan-out produces a valid run
+ *     hierarchy (every actor traces to root), with NO anchor double-booking and
+ *     the office walker cap honored (no movement spam).
+ *
+ * (Replay determinism moved out with the deleted pure-function replay module;
+ * the composer's byte-identical determinism is covered here + in harness-beat-composer.)
  */
 import {
   DRAMATURGY_VERSION,
@@ -18,10 +18,8 @@ import {
   type StagingPrefab,
   type TimedAgentRunEvent,
   applyDramaturgyMode,
-  captureReplaySource,
   composeBeats,
   projectOfficeStaging,
-  replayDramaturgy,
 } from '../packages/shared-types/src/index.js';
 
 let failures = 0;
@@ -94,6 +92,13 @@ office.push(prefab('m2', 'meeting-table-4', 4, 8));
 const OFFICE_MODE: DramaturgyModeOptions = { mode: 'office' };
 const CINEMATIC: DramaturgyModeOptions = { mode: 'cinematic' };
 
+/** The live staging pipeline the scene runs: compose beats → project onto the
+ *  office → apply the mode's walker density. */
+function stage(events: readonly TimedAgentRunEvent[], mode: DramaturgyModeOptions) {
+  const beats = composeBeats(events, { dramaturgyVersion: DRAMATURGY_VERSION });
+  return applyDramaturgyMode(projectOfficeStaging(beats, office), mode);
+}
+
 // ---- Build a deep, wide run: root → 6 leads (delegate) → each 4 workers
 // (delegate), workers do staggered work; several leads relocate (delegate/join).
 function buildStream(): TimedAgentRunEvent[] {
@@ -141,112 +146,32 @@ const totalEmployees = new Set(
   stream.filter((e) => e.employeeId && e.runId !== ROOT).map((e) => e.employeeId),
 ).size;
 
-console.log('dramaturgy replay + performance gate');
+console.log('dramaturgy stress + performance gate');
 console.log(`\n[scenario] ${totalEmployees} employees, ${stream.length} source events`);
 check('scenario has 30 employees (20-30 target)', totalEmployees === 30, `got ${totalEmployees}`);
 
-// ---- 1. REPLAY DETERMINISM ----
-console.log('\n[replay] deterministic from stored source + version');
-{
-  const source = captureReplaySource(stream);
-  check(
-    'captured source carries the active version',
-    source.dramaturgyVersion === DRAMATURGY_VERSION,
-  );
-  check(
-    'captured source copies the events (not a live ref)',
-    source.events !== stream && source.events.length === stream.length,
-  );
-
-  const r1 = replayDramaturgy(source, office, OFFICE_MODE);
-  const r2 = replayDramaturgy(source, office, OFFICE_MODE);
-  check('replay is byte-identical run-to-run', JSON.stringify(r1) === JSON.stringify(r2));
-
-  // Order-independence (smoke): a shuffled stored log replays to the same staging.
-  const shuffled = captureReplaySource([...stream].reverse());
-  const r3 = replayDramaturgy(shuffled, office, OFFICE_MODE);
-  check(
-    'replay is order-independent (shuffled source → same staging)',
-    JSON.stringify(r1.staging) === JSON.stringify(r3.staging),
-  );
-
-  // Order-independence (rigorous): the stress stream above has no two events at
-  // the SAME timestamp, so the reverse() smoke never exercises the discriminator
-  // tie-break — the exact path that keeps replay stable when real async events
-  // arrive same-millisecond in delivery order. Feed two same-timestamp
-  // delegations in BOTH arrival orders and require identical beats AND staging:
-  // only a canonical (arrival-order-independent) sort can satisfy this, and
-  // because both delegations relocate and contend for relocation anchors, an
-  // unstable order would assign anchors differently.
-  {
-    const TIE = 5000;
-    const tieRoot = started(0, { runId: ROOT });
-    const tieA = started(TIE, {
-      runId: 'tieA',
-      parentRunId: ROOT,
-      employeeId: 'tieEmpA',
-      relation: 'delegate',
-    });
-    const tieB = started(TIE, {
-      runId: 'tieB',
-      parentRunId: ROOT,
-      employeeId: 'tieEmpB',
-      relation: 'delegate',
-    });
-    const fwd = replayDramaturgy(captureReplaySource([tieRoot, tieA, tieB]), office, CINEMATIC);
-    const rev = replayDramaturgy(captureReplaySource([tieRoot, tieB, tieA]), office, CINEMATIC);
-    check(
-      'same-timestamp delegations both relocate (anchor contention exists)',
-      fwd.staging.length === 2 && fwd.staging.every((s) => s.staging !== null),
-      `staged ${fwd.staging.length}`,
-    );
-    check(
-      'same-timestamp events sort canonically — identical beats regardless of arrival order',
-      JSON.stringify(fwd.beats) === JSON.stringify(rev.beats),
-    );
-    check(
-      'same-timestamp events → identical anchor assignment regardless of arrival order',
-      JSON.stringify(fwd.staging) === JSON.stringify(rev.staging),
-    );
-  }
-
-  // Replay equals the live pipeline (replay is not a separate code path).
-  const liveBeats = composeBeats(stream, { dramaturgyVersion: DRAMATURGY_VERSION });
-  const liveStaging = applyDramaturgyMode(projectOfficeStaging(liveBeats, office), OFFICE_MODE);
-  check(
-    'replay matches the live pipeline output',
-    JSON.stringify(r1.staging) === JSON.stringify(liveStaging),
-  );
-
-  // Version is a real seed input: a different version changes the output. Guard
-  // first that the corpus actually produced beats, so a broken zero-beat
-  // composer fails THIS check loudly instead of making the version-bump pass or
-  // fail for the wrong reason.
-  check(
-    'corpus produced beats (version-bump premise holds)',
-    r1.beats.length > 0,
-    `${r1.beats.length} beats`,
-  );
-  const bumped = replayDramaturgy(
-    { dramaturgyVersion: 'v-future', events: stream },
-    office,
-    OFFICE_MODE,
-  );
-  check(
-    'bumping the version changes the projection',
-    JSON.stringify(bumped) !== JSON.stringify(r1),
-  );
-}
-
-// ---- 2. PERFORMANCE BUDGET ----
+// ---- 1. PERFORMANCE BUDGET + live determinism ----
 console.log('\n[performance] one staging frame within budget');
 {
-  const source = captureReplaySource(stream);
+  check(
+    'live staging is byte-identical run-to-run',
+    JSON.stringify(stage(stream, OFFICE_MODE)) === JSON.stringify(stage(stream, OFFICE_MODE)),
+  );
+  // The version is a real seed input baked into every variant hash, so bumping it
+  // intentionally restages. Guard the premise (corpus produced beats) first so a
+  // broken zero-beat composer fails loudly instead of making this pass trivially.
+  const baseBeats = composeBeats(stream, { dramaturgyVersion: DRAMATURGY_VERSION });
+  const bumpedBeats = composeBeats(stream, { dramaturgyVersion: 'v-future' });
+  check('corpus produced beats (version-bump premise holds)', baseBeats.length > 0, `${baseBeats.length} beats`);
+  check(
+    'bumping the dramaturgy version changes the beats',
+    JSON.stringify(baseBeats) !== JSON.stringify(bumpedBeats),
+  );
   // Warm up (JIT) then measure a representative batch of frames.
-  for (let i = 0; i < 5; i += 1) replayDramaturgy(source, office, CINEMATIC);
+  for (let i = 0; i < 5; i += 1) stage(stream, CINEMATIC);
   const FRAMES = 200;
   const t0 = process.hrtime.bigint();
-  for (let i = 0; i < FRAMES; i += 1) replayDramaturgy(source, office, CINEMATIC);
+  for (let i = 0; i < FRAMES; i += 1) stage(stream, CINEMATIC);
   const t1 = process.hrtime.bigint();
   const perFrameMs = Number(t1 - t0) / 1e6 / FRAMES;
   // Generous budget: the full 30-employee compose+project+mode must be well
@@ -254,7 +179,7 @@ console.log('\n[performance] one staging frame within budget');
   check(`per-frame compute < 8ms (got ${perFrameMs.toFixed(3)}ms)`, perFrameMs < 8);
 }
 
-// ---- 3. CHILD-RUN STRESS: hierarchy + no double-booking + walker cap ----
+// ---- 2. CHILD-RUN STRESS: hierarchy + no double-booking + walker cap ----
 console.log('\n[stress] valid hierarchy, no anchor collisions, no movement spam');
 {
   const beats = composeBeats(stream, { dramaturgyVersion: DRAMATURGY_VERSION });
@@ -311,9 +236,9 @@ console.log('\n[stress] valid hierarchy, no anchor collisions, no movement spam'
   }
 }
 
-console.log(`\ndramaturgy-replay: ${checks - failures}/${checks} checks passed`);
+console.log(`\ndramaturgy-stress: ${checks - failures}/${checks} checks passed`);
 if (failures > 0) {
-  console.error(`dramaturgy-replay gate FAILED with ${failures} failure(s)`);
+  console.error(`dramaturgy-stress gate FAILED with ${failures} failure(s)`);
   process.exit(1);
 }
-console.log('dramaturgy-replay gate PASSED');
+console.log('dramaturgy-stress gate PASSED');

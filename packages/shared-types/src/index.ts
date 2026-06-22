@@ -212,7 +212,12 @@ export type {
   SceneBeat,
   TimedAgentRunEvent,
 } from './dramaturgy/beat-composer.js';
-export { BEAT_PRIORITY, DEFAULT_TIMING, composeBeats } from './dramaturgy/beat-composer.js';
+export {
+  BEAT_PRIORITY,
+  DEFAULT_TIMING,
+  DRAMATURGY_VERSION,
+  composeBeats,
+} from './dramaturgy/beat-composer.js';
 export type {
   ActorStaging,
   InteractionAnchor,
@@ -239,22 +244,9 @@ export type {
 export { IDLE_PERFORMANCE, performanceForBeat } from './dramaturgy/performance.js';
 export type { EmployeeStaging } from './dramaturgy/office-projection.js';
 export { currentBeatsByEmployee, projectOfficeStaging } from './dramaturgy/office-projection.js';
-export type {
-  CollaborationBias,
-  CompanyFamily,
-  CompanyPace,
-  CompanyPerformanceProfile,
-  EmployeeArchetype,
-  EmployeePerformanceProfile,
-} from './dramaturgy/profiles.js';
-export {
-  DEFAULT_COMPANY_PERFORMANCE,
-  defaultEmployeePerformanceProfile,
-} from './dramaturgy/profiles.js';
+export { animationTempoForRole } from './dramaturgy/profiles.js';
 export type { DramaturgyMode, DramaturgyModeOptions } from './dramaturgy/modes.js';
 export { DEFAULT_MAX_WALKERS, applyDramaturgyMode } from './dramaturgy/modes.js';
-export type { DramaturgyReplayResult, DramaturgyReplaySource } from './dramaturgy/replay.js';
-export { DRAMATURGY_VERSION, captureReplaySource, replayDramaturgy } from './dramaturgy/replay.js';
 export type {
   EmployeePerformanceAction,
   EmployeePerformanceDomain,

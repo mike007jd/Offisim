@@ -10,12 +10,12 @@
  * Pure Node via tsx against shared-types source — no DOM, no renderer, no Pi.
  */
 import {
-  DEFAULT_COMPANY_PERFORMANCE,
+  type RoleSlug,
   type StagingPrefab,
   type TimedAgentRunEvent,
+  animationTempoForRole,
   applyDramaturgyMode,
   composeBeats,
-  defaultEmployeePerformanceProfile,
   projectOfficeStaging,
 } from '../packages/shared-types/src/index.js';
 
@@ -39,17 +39,13 @@ const prefab = (instanceId: string, prefabId: string, x = 0, z = 0): StagingPref
 
 console.log('dramaturgy-modes gate');
 
-// ── Role-derived employee performance profiles ──────────────────────────────
-console.log('\n[profiles] archetype derived from role');
-check('developer → builder', defaultEmployeePerformanceProfile('developer').archetype === 'builder');
-check('researcher → researcher', defaultEmployeePerformanceProfile('researcher').archetype === 'researcher');
-check('qa → reviewer', defaultEmployeePerformanceProfile('qa').archetype === 'reviewer');
-check('product_manager → coordinator', defaultEmployeePerformanceProfile('product_manager').archetype === 'coordinator');
-check('ux_designer → creative', defaultEmployeePerformanceProfile('ux_designer').archetype === 'creative');
-check('analyst → analyst', defaultEmployeePerformanceProfile('analyst').archetype === 'analyst');
-check('coordinator is outgoing + expressive', defaultEmployeePerformanceProfile('product_manager').socialStyle === 'outgoing' && defaultEmployeePerformanceProfile('product_manager').expressiveness === 2);
-check('researcher is quiet + subdued', defaultEmployeePerformanceProfile('researcher').socialStyle === 'quiet' && defaultEmployeePerformanceProfile('researcher').expressiveness === 0);
-check('default company profile is the neutral generic fallback', DEFAULT_COMPANY_PERFORMANCE.family === 'generic' && DEFAULT_COMPANY_PERFORMANCE.collaborationBias === 'mixed');
+// ── Role-derived animation tempo (the one kept profile field) ───────────────
+console.log('\n[tempo] animation tempo derived from role');
+check('coordinator role is brisk (1.2)', animationTempoForRole('product_manager') === 1.2);
+check('builder role is neutral (1)', animationTempoForRole('developer') === 1);
+check('researcher role is deliberate (0.8)', animationTempoForRole('researcher') === 0.8);
+check('reviewer role is neutral (1)', animationTempoForRole('qa') === 1);
+check('unknown role falls back to 1', animationTempoForRole('not-a-role' as RoleSlug) === 1);
 
 // ── Modes change movement density only ──────────────────────────────────────
 console.log('\n[modes] density only, truth preserved');

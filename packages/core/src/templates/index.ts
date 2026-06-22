@@ -1,8 +1,6 @@
 import type {
   CommunicationFrequency,
-  CompanyPerformanceProfile,
   EmployeeAppearance,
-  EmployeePerformanceProfile,
   RiskPreference,
   RoleSlug,
   SystemZoneTemplate,
@@ -63,8 +61,6 @@ export interface TemplateEmployeeDefinition {
   readonly capabilities: readonly string[];
   readonly persona: TemplateEmployeePersona;
   readonly homeZoneSlug?: string;
-  /** Dramaturgy-only flavor; absent → derived from role. Never enters Pi/Harness. */
-  readonly performance?: EmployeePerformanceProfile;
 }
 
 /** Wizard presentation metadata (renderer-agnostic; `icon` is a lucide name). */
@@ -94,8 +90,6 @@ export interface CompanyTemplateDefinition {
   /** Custom zones; when absent the company falls back to SYSTEM_ZONE_TEMPLATES. */
   readonly zones?: readonly TemplateZoneBlueprint[];
   readonly layoutPreset: string;
-  /** Company-level dramaturgy weighting; never enters Pi/Harness. */
-  readonly performance: CompanyPerformanceProfile;
 }
 
 const TEMPLATES: readonly CompanyTemplateDefinition[] = [
