@@ -1,4 +1,5 @@
 import type { ResolvedAppearance } from '@/lib/avatar.js';
+import type { CharacterPerformanceState } from '@offisim/shared-types';
 import { RoundedBox } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
@@ -125,7 +126,6 @@ function applyCharacterPose(
       applySittingLegs(rig, t);
       rig.root.position.y = baseY + Math.sin(t * 1.5) * 0.012;
       rig.spine.rotation.set(-0.06 + medium * 0.02, 0, slow * 0.02);
-      // Slow look-around: big, readable head turns instead of a micro-jitter.
       rig.head.rotation.set(0.04 + slow * 0.05, Math.sin(t * 0.42) * 0.38, 0);
       rig.leftArm.rotation.set(-0.78, 0.18, -0.1);
       rig.rightArm.rotation.set(-0.78, -0.18, 0.1);
@@ -142,7 +142,6 @@ function applyCharacterPose(
 
   if (action === 'working') {
     if (sitting) {
-      // Typing: lean in, head on the screen, hands hammering the keyboard.
       applySittingLegs(rig, t);
       rig.root.position.y = baseY + Math.sin(t * 3.4) * 0.01;
       rig.spine.rotation.set(-0.2 + medium * 0.015, 0, 0);
@@ -150,7 +149,6 @@ function applyCharacterPose(
       rig.leftArm.rotation.set(-1.12 + fast * 0.16, 0.16, -0.1 + medium * 0.03);
       rig.rightArm.rotation.set(-1.12 - fast * 0.16, -0.16, 0.1 - medium * 0.03);
     } else {
-      // Standing work: animated discussion/gesturing at a table or board.
       rig.root.position.y = baseY + Math.sin(t * 2.4) * 0.022;
       rig.spine.rotation.set(-0.1 + medium * 0.03, Math.sin(t * 0.8) * 0.08, 0);
       rig.head.rotation.set(0.12 + slow * 0.05, Math.sin(t * 0.9) * 0.18, 0);
@@ -161,7 +159,6 @@ function applyCharacterPose(
   }
 
   if (action === 'active') {
-    // Selected: swivel away from the desk to face the room and wave hello.
     const wave = Math.sin(t * 7.2);
     if (sitting) {
       applySittingLegs(rig, t);
@@ -174,7 +171,6 @@ function applyCharacterPose(
     rig.spine.rotation.set(-0.04, 0, -0.04);
     rig.head.rotation.set(-0.06 + slow * 0.03, Math.sin(t * 0.9) * 0.1, 0.05);
     rig.leftArm.rotation.set(-0.32, 0, -0.2);
-    // Big overhead wave.
     rig.rightArm.rotation.set(-2.5, 0, 0.5 + wave * 0.3);
     return;
   }
@@ -196,6 +192,147 @@ function expressionForAction(action: BlockCharacterAction): FaceExpression {
   if (action === 'active') return 'happy';
   if (action === 'dragging') return 'worried';
   return 'neutral';
+}
+
+/** Walking legs — alternating stride, used when locomotion is `walk`. */
+function applyWalkingLegs(rig: CharacterRig, t: number): void {
+  const stride = Math.sin(t * 6.4);
+  rig.leftLeg.rotation.set(stride * 0.5, 0, 0.04);
+  rig.rightLeg.rotation.set(-stride * 0.5, 0, -0.04);
+}
+
+/**
+ * Render a layered {@link CharacterPerformanceState} onto the rig. Locomotion,
+ * posture, work gesture and social gesture compose, so the V1 fragment set
+ * (idle / walk / sit / stand / type / read / note / inspect-terminal /
+ * write-board / point / annotate / handoff / listen / nod / discuss / wait /
+ * blocked / celebrate) is reachable from a small number of channels — and the
+ * 2D and 3D scenes drive it from the same state.
+ */
+function applyPerformancePose(rig: CharacterRig, perf: CharacterPerformanceState, t: number): void {
+  const slow = Math.sin(t * 1.5);
+  const medium = Math.sin(t * 2.6);
+  const fast = Math.sin(t * 8.6);
+  const sitting = perf.posture === 'sit';
+  const baseY = sitting ? SIT_LIFT : 0;
+  const tempo = 0.6 + perf.intensity * 0.45;
+
+  rig.root.position.set(0, baseY, 0);
+  rig.root.rotation.set(0, 0, 0);
+  rig.hips.rotation.set(0, 0, 0);
+  rig.leftLeg.rotation.set(0, 0, 0.03);
+  rig.rightLeg.rotation.set(0, 0, -0.03);
+
+  if (perf.locomotion === 'walk') {
+    applyWalkingLegs(rig, t);
+    rig.root.position.y = baseY + Math.abs(Math.sin(t * 6.4)) * 0.03;
+    rig.spine.rotation.set(0.04, 0, 0);
+    rig.head.rotation.set(0.02 + slow * 0.03, Math.sin(t * 0.6) * 0.12, 0);
+    rig.leftArm.rotation.set(Math.sin(t * 6.4) * 0.4, 0, -0.12);
+    rig.rightArm.rotation.set(-Math.sin(t * 6.4) * 0.4, 0, 0.12);
+    return;
+  }
+
+  if (sitting) applySittingLegs(rig, t);
+
+  // Base posture (overridden per work gesture below).
+  rig.root.position.y = baseY + slow * (sitting ? 0.012 : 0.02);
+  rig.spine.rotation.set(sitting ? -0.06 + medium * 0.02 : -0.02 + medium * 0.02, 0, 0);
+  rig.head.rotation.set(0.04 + slow * 0.05, Math.sin(t * 0.42) * 0.3, 0);
+  rig.leftArm.rotation.set(sitting ? -0.78 : -0.12, 0.16, -0.12);
+  rig.rightArm.rotation.set(sitting ? -0.78 : -0.12, -0.16, 0.12);
+
+  switch (perf.workGesture) {
+    case 'type':
+      rig.spine.rotation.set(-0.2 + medium * 0.015, 0, 0);
+      rig.head.rotation.set(0.26 + slow * 0.03, medium * 0.06, 0);
+      rig.leftArm.rotation.set(-1.12 + fast * 0.16 * tempo, 0.16, -0.1 + medium * 0.03);
+      rig.rightArm.rotation.set(-1.12 - fast * 0.16 * tempo, -0.16, 0.1 - medium * 0.03);
+      break;
+    case 'read':
+      // Hold a document up, head tilted down to it.
+      rig.spine.rotation.set(-0.12, 0, 0);
+      rig.head.rotation.set(0.34 + slow * 0.03, 0, 0);
+      rig.leftArm.rotation.set(-1.32 + slow * 0.03, 0.34, -0.18);
+      rig.rightArm.rotation.set(-1.32 - slow * 0.03, -0.34, 0.18);
+      break;
+    case 'note':
+      // One hand writing on a pad held by the other.
+      rig.spine.rotation.set(-0.16, 0.06, 0);
+      rig.head.rotation.set(0.3, 0.05, 0);
+      rig.leftArm.rotation.set(-1.2, 0.3, -0.1);
+      rig.rightArm.rotation.set(-1.05 + fast * 0.12 * tempo, -0.2, 0.18);
+      break;
+    case 'inspect-terminal':
+      // Lean toward a screen/rack, one hand pointing at it.
+      rig.spine.rotation.set(-0.12 + medium * 0.02, 0.08, 0);
+      rig.head.rotation.set(0.18 + slow * 0.04, 0.12, 0);
+      rig.leftArm.rotation.set(-0.4, 0.1, -0.18);
+      rig.rightArm.rotation.set(-1.35 + Math.sin(t * 1.8) * 0.1, -0.34, 0.2);
+      break;
+    case 'write-board':
+      // Reach up to a board, hand drawing.
+      rig.spine.rotation.set(-0.06, Math.sin(t * 0.8) * 0.06, 0);
+      rig.head.rotation.set(0.08 + slow * 0.04, 0.16, 0);
+      rig.leftArm.rotation.set(-0.5, 0.18, -0.24);
+      rig.rightArm.rotation.set(-2.3 + Math.sin(t * 2.6) * 0.18 * tempo, -0.1, 0.3);
+      break;
+    case 'point':
+      // Present / celebrate — arm extended toward the room.
+      rig.spine.rotation.set(-0.04, 0, -0.03);
+      rig.head.rotation.set(-0.02 + slow * 0.03, Math.sin(t * 0.9) * 0.12, 0);
+      rig.leftArm.rotation.set(-0.3, 0, -0.2);
+      rig.rightArm.rotation.set(-1.5 + Math.sin(t * 2.4) * 0.12, -0.2, 0.6);
+      break;
+    case 'annotate':
+      // Standing review — mark/gesture at a shared surface.
+      rig.spine.rotation.set(-0.1 + medium * 0.03, Math.sin(t * 0.8) * 0.08, 0);
+      rig.head.rotation.set(0.12 + slow * 0.05, Math.sin(t * 0.9) * 0.18, 0);
+      rig.leftArm.rotation.set(-0.7 + Math.sin(t * 2.2) * 0.2, 0.2, -0.3);
+      rig.rightArm.rotation.set(-1.2 - Math.sin(t * 2.2 + 0.9) * 0.22, -0.2, 0.34);
+      break;
+    case 'handoff':
+      // Offer a deliverable forward with both hands.
+      rig.spine.rotation.set(-0.08, 0, 0);
+      rig.head.rotation.set(0.06 + slow * 0.03, 0, 0);
+      rig.leftArm.rotation.set(-1.1 + slow * 0.03, 0.28, -0.12);
+      rig.rightArm.rotation.set(-1.1 - slow * 0.03, -0.28, 0.12);
+      break;
+    default:
+      // 'none' — resting arms set by the base above; add a little life.
+      if (!sitting) {
+        rig.hips.rotation.set(0, 0, Math.sin(t * 0.55) * 0.06);
+        rig.head.rotation.set(0.03 + slow * 0.04, Math.sin(t * 0.38) * 0.42, -slow * 0.02);
+        rig.leftArm.rotation.set(-0.12 + slow * 0.04, 0, -0.14);
+        rig.rightArm.rotation.set(-0.12 - slow * 0.04, 0, 0.14);
+      }
+      break;
+  }
+
+  // Social overlay (head/torso) layered on top of the work gesture.
+  if (perf.socialGesture === 'nod') {
+    rig.head.rotation.x += 0.12 + Math.abs(Math.sin(t * 3.2)) * 0.14;
+  } else if (perf.socialGesture === 'listen') {
+    rig.head.rotation.z += 0.16;
+    rig.head.rotation.y += Math.sin(t * 0.5) * 0.06;
+  } else if (perf.socialGesture === 'discuss') {
+    rig.head.rotation.y += Math.sin(t * 1.4) * 0.18;
+    rig.spine.rotation.y += Math.sin(t * 1.1) * 0.05;
+  }
+}
+
+function faceExpressionForPerformance(perf: CharacterPerformanceState): FaceExpression {
+  switch (perf.expression) {
+    case 'happy':
+      return 'happy';
+    case 'worried':
+      return 'worried';
+    case 'focus':
+    case 'thinking':
+      return 'focus';
+    default:
+      return 'neutral';
+  }
 }
 
 /** Face decal with periodic blinking (texture swap, no React state). */
@@ -493,6 +630,13 @@ interface BlockCharacterProps {
   action?: BlockCharacterAction;
   posture?: BlockCharacterPosture;
   running?: boolean;
+  /**
+   * Layered dramaturgy performance (Phase 3+). When provided it drives the body
+   * pose / face; when absent the pose is derived from the legacy `action` enum
+   * so existing call sites are unchanged. The `action` enum still drives the UI
+   * indicators (selection halo, working dots).
+   */
+  performance?: CharacterPerformanceState;
   /** Deterministic phase offset so idle bobs don't sync across the room. */
   phase?: number;
   opacity?: number;
@@ -567,10 +711,15 @@ export function BlockCharacter({
   action,
   posture = 'standing',
   running = false,
+  performance,
   phase = 0,
   opacity = 1,
 }: BlockCharacterProps) {
   const actionState: BlockCharacterAction = action ?? (running ? 'working' : 'idle');
+  // Layered performance drives the body pose + face when supplied (Phase 4
+  // beats); otherwise the legacy action enum drives the original poses
+  // unchanged. Dragging is always the legacy path (a UI state, not a beat).
+  const usePerformance = performance !== undefined && actionState !== 'dragging';
   const rig = useMemo(createCharacterRig, []);
   const body = BODY_TYPE_FACTORS[appearance.bodyType];
   const gender = GENDER_FACTORS[appearance.gender];
@@ -580,12 +729,17 @@ export function BlockCharacter({
   const legWidth = 0.135 * body.leg;
   const armX = upperTorsoWidth * 0.56 + armWidth * 0.4;
   const hasAccent = appearance.accent.toLowerCase() !== appearance.clothing.toLowerCase();
-  const expression = expressionForAction(actionState);
+  const expression =
+    usePerformance && performance
+      ? faceExpressionForPerformance(performance)
+      : expressionForAction(actionState);
 
   useEffect(() => () => rig.skeleton.dispose(), [rig]);
 
   useFrame((state) => {
-    applyCharacterPose(rig, actionState, posture, state.clock.elapsedTime + phase);
+    const t = state.clock.elapsedTime + phase;
+    if (usePerformance && performance) applyPerformancePose(rig, performance, t);
+    else applyCharacterPose(rig, actionState, posture, t);
   });
 
   return (
