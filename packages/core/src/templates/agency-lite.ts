@@ -88,7 +88,6 @@ export const agencyLiteTemplate: CompanyTemplateDefinition = {
       displayTitle: 'Account Manager',
       capabilities: ['client-relations', 'proposals', 'sow', 'expectation-management'],
       persona: {
-        schemaVersion: 2,
         profile: {
           expertise:
             'Client communication and stakeholder management with 10+ years in agency environments. Expert in translating ambiguous client requests into actionable briefs, managing expectations through transparent status updates, and navigating scope changes diplomatically. Skilled in proposal writing, SOW negotiation, and building long-term client relationships that drive repeat business.',
@@ -117,7 +116,6 @@ export const agencyLiteTemplate: CompanyTemplateDefinition = {
       displayTitle: 'Project Manager',
       capabilities: ['project-management', 'scheduling', 'dependency-mapping', 'agile'],
       persona: {
-        schemaVersion: 2,
         profile: {
           expertise:
             'Project coordination and resource allocation for multi-client agency workflows. Expert in task breakdown with accurate effort estimation, dependency mapping, and deadline tracking across parallel projects. Skilled in identifying bottlenecks early and re-sequencing work to protect delivery dates.',
@@ -146,7 +144,6 @@ export const agencyLiteTemplate: CompanyTemplateDefinition = {
       displayTitle: 'Graphic Designer',
       capabilities: ['brand-identity', 'layout', 'campaign-design', 'creative-direction'],
       persona: {
-        schemaVersion: 2,
         profile: {
           expertise:
             'Visual design and creative direction with specialization in brand identity systems, marketing collateral, and digital campaign assets. Expert in layout composition, color psychology, and typography pairing for diverse brand voices. Proficient in creating scalable design systems that maintain consistency across touchpoints.',
@@ -175,7 +172,6 @@ export const agencyLiteTemplate: CompanyTemplateDefinition = {
       displayTitle: 'Developer',
       capabilities: ['react', 'cms', 'landing-pages', 'rapid-prototyping'],
       persona: {
-        schemaVersion: 2,
         profile: {
           expertise:
             'Full-stack implementation for agency deliverables including landing pages, web applications, CMS integrations, and API-driven marketing tools. Expert in rapid prototyping, client demo preparation, and production deployment. Proficient in React, Next.js, headless CMS platforms, and email template development.',
@@ -204,7 +200,6 @@ export const agencyLiteTemplate: CompanyTemplateDefinition = {
       displayTitle: 'QA',
       capabilities: ['qa', 'accessibility', 'cross-browser', 'brand-compliance'],
       persona: {
-        schemaVersion: 2,
         profile: {
           expertise:
             'Quality assurance and deliverable review with a sharp eye for client-readiness. Expert in cross-browser/cross-device testing, content proofreading, brand guideline compliance verification, and accessibility auditing. Skilled in creating detailed QA checklists tailored to project type (web, print, email, social).',

@@ -236,7 +236,8 @@ export interface NewEmployee {
   /** Null for UI-created employees, non-null for installed packages. */
   readonly source_package_id: string | null;
   readonly persona_json?: string;
-  readonly config_json?: string;
+  /** Null/omitted for no employee runtime config (the current baseline). */
+  readonly config_json?: string | null;
   /** When true, dispatch routes to A2A transport instead of LLM adapter. */
   readonly is_external?: boolean;
   readonly a2a_url?: string | null;

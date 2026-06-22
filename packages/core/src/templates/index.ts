@@ -39,9 +39,8 @@ export interface TemplatePersonaProfile {
   readonly customInstructions: string;
 }
 
-/** v2 persona payload: profile (Pi prompt) + appearance (puppet). */
+/** Persona payload: profile (Pi prompt) + appearance (puppet). */
 export interface TemplateEmployeePersona {
-  readonly schemaVersion: 2;
   readonly profile: TemplatePersonaProfile;
   readonly appearance: EmployeeAppearance;
 }
@@ -118,20 +117,16 @@ export function getTemplate(id: string): CompanyTemplateDefinition | undefined {
 /**
  * Serialize a template employee's persona into the persisted `persona_json`.
  *
- * Top-level `displayTitle`/`capabilities`/`schemaVersion` sit alongside
- * `profile`/`appearance`; the Personnel editor's Save only overwrites
- * `profile`/`appearance`, so these survive edits. The Pi reader reads
- * `profile.*`; `employeeToVm` reads top-level `appearance`.
+ * Top-level `displayTitle`/`capabilities` sit alongside `profile`/`appearance`;
+ * the Personnel editor's Save only overwrites `profile`/`appearance`, so these
+ * survive edits. The Pi reader reads `profile.*`; `employeeToVm` reads top-level
+ * `appearance`.
  */
 export function serializeTemplatePersona(employee: TemplateEmployeeDefinition): string {
   return JSON.stringify({
-    schemaVersion: employee.persona.schemaVersion,
     displayTitle: employee.displayTitle,
     capabilities: employee.capabilities,
     profile: employee.persona.profile,
     appearance: employee.persona.appearance,
   });
 }
-
-/** Built-in templates no longer write legacy runtime config (source plan §4.3). */
-export const TEMPLATE_EMPLOYEE_CONFIG_JSON = '{}';

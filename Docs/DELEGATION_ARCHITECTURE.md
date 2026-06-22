@@ -271,14 +271,14 @@ the renderer semantic layer.
 
 ## 6. Persistence: `agent_runs` table
 
-Authored as migration `0003_agent_runs.sql` (the chain's next version: schema is
-currently at `LOCAL_SCHEMA_VERSION = 2`, last migration `0002_add_pi_messages.sql`).
-`schema.sql` is the authority (Rust `include_str!`); `schema.ts` (Drizzle) and the
-Rust `MIGRATIONS` array must be updated in lockstep, per
-`packages/db-local/src/migrations/README.md`.
+Part of the flattened prelaunch baseline: `agent_runs` ships whole in
+`schema.sql` (`LOCAL_SCHEMA_VERSION = 1`, empty `MIGRATIONS`). `schema.sql` is the
+authority (Rust `include_str!`); `schema.ts` (Drizzle) must stay in lockstep, per
+`packages/db-local/src/migrations/README.md`. The first post-launch schema change
+adds the first real migration.
 
 ```sql
--- 0003: agent_runs — multi-agent delegation run tree (version 2 → 3).
+-- agent_runs — multi-agent delegation run tree (part of the v1 baseline).
 -- thread_id is plain TEXT (no FK): the desktop chat path uses chat_threads and
 -- never creates a graph_threads row, so a graph_threads FK would silently reject
 -- every insert. Matches agent_events; cleaned up via company FK cascade +

@@ -35,7 +35,6 @@ export const rdCompanyTemplate: CompanyTemplateDefinition = {
       displayTitle: 'Lead Engineer',
       capabilities: ['system-design', 'typescript', 'architecture', 'code-review'],
       persona: {
-        schemaVersion: 2,
         profile: {
           expertise:
             'Full-stack development with 8+ years of experience in React, Node.js, and system architecture. Deep knowledge of design patterns, microservices, and event-driven architectures. Proficient in TypeScript, GraphQL, and WebSocket-based real-time systems. Experienced with CI/CD pipelines and infrastructure-as-code.',
@@ -64,7 +63,6 @@ export const rdCompanyTemplate: CompanyTemplateDefinition = {
       displayTitle: 'Frontend Engineer',
       capabilities: ['react', 'css-architecture', 'animation', 'accessibility'],
       persona: {
-        schemaVersion: 2,
         profile: {
           expertise:
             'Frontend specialist with deep expertise in CSS architecture, animation systems, and web accessibility (WCAG 2.1 AA). Mastery of React component patterns, state management with Zustand/Jotai, and performance optimization including bundle splitting and render profiling. Strong knowledge of design tokens and systematic UI development.',
@@ -93,7 +91,6 @@ export const rdCompanyTemplate: CompanyTemplateDefinition = {
       displayTitle: 'Backend Engineer',
       capabilities: ['postgresql', 'apis', 'devops', 'observability'],
       persona: {
-        schemaVersion: 2,
         profile: {
           expertise:
             'Backend systems engineer specializing in distributed computing, database optimization (PostgreSQL, Redis, SQLite), and DevOps automation. Expert in message queues, CQRS patterns, and event sourcing. Deep understanding of container orchestration, observability stacks (OpenTelemetry), and zero-downtime deployment strategies.',
@@ -122,7 +119,6 @@ export const rdCompanyTemplate: CompanyTemplateDefinition = {
       displayTitle: 'Full-stack Engineer',
       capabilities: ['typescript', 'api-design', 'monorepo', 'realtime'],
       persona: {
-        schemaVersion: 2,
         profile: {
           expertise:
             'Full-stack TypeScript developer with focus on API design, real-time systems (WebSockets, SSE), and developer tooling. Experienced in monorepo management with Turborepo, package publishing workflows, and cross-platform code sharing. Strong background in schema validation (Zod, AJV) and type-safe API contracts.',
@@ -151,7 +147,6 @@ export const rdCompanyTemplate: CompanyTemplateDefinition = {
       displayTitle: 'Product Manager',
       capabilities: ['product-strategy', 'user-research', 'roadmapping', 'prioritization'],
       persona: {
-        schemaVersion: 2,
         profile: {
           expertise:
             'Product strategy and user research with expertise in roadmapping, OKR frameworks, and data-driven prioritization. Skilled in competitive analysis, market sizing, and customer interview synthesis. Proficient with analytics platforms and A/B testing methodologies. Strong background in agile ceremonies and cross-functional alignment.',
@@ -180,7 +175,6 @@ export const rdCompanyTemplate: CompanyTemplateDefinition = {
       displayTitle: 'QA Engineer',
       capabilities: ['test-automation', 'regression', 'performance-testing', 'quality-assurance'],
       persona: {
-        schemaVersion: 2,
         profile: {
           expertise:
             'Quality assurance engineering with deep expertise in test strategy, regression suites, and end-to-end automation (Playwright, Vitest). Skilled in performance and load testing, flaky-test triage, and release gating. Experienced in writing reproducible bug reports with minimal repro cases and defining quality bars for ship-readiness.',
@@ -209,7 +203,6 @@ export const rdCompanyTemplate: CompanyTemplateDefinition = {
       displayTitle: 'UX Designer',
       capabilities: ['ux-research', 'design-systems', 'prototyping', 'information-architecture'],
       persona: {
-        schemaVersion: 2,
         profile: {
           expertise:
             'UI/UX design with mastery of design systems, component libraries, and prototyping tools (Figma, Framer). Deep understanding of information architecture, user flow mapping, and usability heuristics. Experienced in design token systems, responsive layout strategies, and cross-platform design adaptation (web, desktop, mobile).',
@@ -238,7 +231,6 @@ export const rdCompanyTemplate: CompanyTemplateDefinition = {
       displayTitle: 'UI / Motion Designer',
       capabilities: ['visual-design', 'motion-design', 'branding', 'iconography'],
       persona: {
-        schemaVersion: 2,
         profile: {
           expertise:
             'Visual design and motion design with specialization in iconography, illustration systems, and brand identity. Expert in color theory, typography hierarchies, and visual rhythm. Proficient in creating micro-interactions, loading states, and transition animations that reinforce brand personality. Skilled in SVG optimization and scalable visual asset pipelines.',

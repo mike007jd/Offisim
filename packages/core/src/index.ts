@@ -304,8 +304,6 @@ export type { RackWithSlots } from './services/rack-slot-service.js';
 export { WorkstationToolResolver } from './services/workstation-tool-resolver.js';
 export type { WorkstationToolResolverDeps } from './services/workstation-tool-resolver.js';
 export { CompanyTemplateService } from './services/company-template-service.js';
-export { backfillTemplateCompany } from './services/template-backfill.js';
-export type { TemplateBackfillResult } from './services/template-backfill.js';
 export type {
   CompanyTemplateDefinition,
   TemplateEmployeeDefinition,
@@ -318,7 +316,6 @@ export {
   listTemplates,
   getTemplate,
   serializeTemplatePersona,
-  TEMPLATE_EMPLOYEE_CONFIG_JSON,
 } from './templates/index.js';
 export { DEFAULT_COST_RATES, seedDefaultCostRates } from './runtime/default-cost-rates.js';
 

@@ -7,30 +7,25 @@ const LOCAL_SCHEMA_SQL: &str = include_str!("../../../../packages/db-local/src/s
 
 /// Schema version stamped into `PRAGMA user_version`.
 ///
-/// `schema.sql` always describes the LATEST end-state shape: fresh databases
-/// apply it directly and are stamped with this version, skipping the chain.
-/// Any shipped schema change must (a) update `schema.sql` + `schema.ts`,
+/// Offisim has not had a public release, so the local SQLite shape is a single
+/// flattened public baseline (version 1) — there is no prelaunch upgrade history
+/// to preserve. `schema.sql` always describes the LATEST end-state shape: fresh
+/// databases apply it directly and are stamped with this version.
+///
+/// The FIRST post-launch schema change must (a) update `schema.sql` + `schema.ts`,
 /// (b) bump this constant by 1, and (c) add a matching upgrade entry to
-/// `MIGRATIONS` so existing user databases have an upgrade path.
-const LOCAL_SCHEMA_VERSION: i64 = 3;
+/// `MIGRATIONS` so released user databases have an upgrade path. Public migration
+/// history starts only after the first public release baseline.
+const LOCAL_SCHEMA_VERSION: i64 = 1;
 
 /// Ordered upgrade chain for existing user databases: `(target_version, sql)`
-/// where each entry upgrades `target_version - 1` → `target_version`. Each
-/// entry runs in its own transaction together with the version stamp. SQL
-/// files live in `packages/db-local/src/migrations/` (see the README there).
+/// where each entry upgrades `target_version - 1` → `target_version`. Each entry
+/// runs in its own transaction together with the version stamp. SQL files live in
+/// `packages/db-local/src/migrations/` (see the README there).
 ///
-/// Example entry:
-/// `(2, include_str!("../../../../packages/db-local/src/migrations/0002_add_x.sql")),`
-const MIGRATIONS: &[(i64, &str)] = &[
-    (
-        2,
-        include_str!("../../../../packages/db-local/src/migrations/0002_add_pi_messages.sql"),
-    ),
-    (
-        3,
-        include_str!("../../../../packages/db-local/src/migrations/0003_agent_runs.sql"),
-    ),
-];
+/// Empty until the first post-launch schema change — the v1 baseline ships whole
+/// in `schema.sql`, so there is nothing to upgrade from yet.
+const MIGRATIONS: &[(i64, &str)] = &[];
 
 pub struct OffisimDbState {
     pool: SqlitePool,
@@ -185,8 +180,9 @@ async fn apply_schema(pool: &SqlitePool) -> Result<(), String> {
 
 /// Versioned schema bootstrap:
 /// - fresh database → apply the end-state baseline atomically, stamp `latest`
-/// - `user_version == 0` but tables exist (pre-versioning install, i.e. the
-///   1.0.0-rc baseline shape) → adopt as version 1, then run the chain
+/// - `user_version == 0` but tables exist → refuse: prelaunch ships a single
+///   flattened baseline, so an unstamped non-empty database is an unrecognized
+///   local dev artifact (delete and rebuild), not a pre-public shape to adopt
 /// - `user_version` in range → run pending migrations sequentially
 /// - `user_version > latest` → refuse to open (downgraded app on newer data)
 async fn ensure_schema(
@@ -208,13 +204,16 @@ async fn ensure_schema(
             apply_sql_and_stamp(pool, baseline_sql, latest, "offisim schema bootstrap").await?;
             return Ok(());
         }
-        // Pre-versioning install: the database predates user_version stamping
-        // and is on the version-1 baseline. Adopt it and let the chain run.
-        raw_sql("PRAGMA user_version = 1")
-            .execute(pool)
-            .await
-            .map_err(|err| format!("adopt pre-versioning offisim.db: {err}"))?;
-        version = 1;
+        // Prelaunch single-baseline: there is no pre-public SQLite shape to adopt.
+        // A non-empty database with no user_version stamp is an unrecognized local
+        // dev artifact — refuse rather than silently claim it matches the v1
+        // baseline (it may predate tables that now ship in the baseline). Deleting
+        // the local database rebuilds it cleanly.
+        return Err(
+            "offisim.db has tables but no user_version stamp; this build only \
+             supports a fresh baseline — delete the local database to rebuild"
+                .to_string(),
+        );
     }
 
     for (target, sql) in migrations {
@@ -374,37 +373,25 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn pre_versioning_database_is_adopted_and_migrated() {
+    async fn unstamped_database_with_tables_is_refused() {
         let pool = memory_pool().await;
-        // Simulate a database created before user_version stamping existed.
-        raw_sql(
-            "CREATE TABLE companies (company_id TEXT PRIMARY KEY); \
-                 INSERT INTO companies VALUES ('c1');",
-        )
-        .execute(&pool)
-        .await
-        .unwrap();
-        ensure_schema(
-            &pool,
-            2,
-            "CREATE TABLE companies (company_id TEXT PRIMARY KEY, display_name TEXT);",
-            &[(2, "ALTER TABLE companies ADD COLUMN display_name TEXT")],
-        )
-        .await
-        .expect("adopt + migrate");
-        assert_eq!(read_user_version(&pool).await.unwrap(), 2);
-        let preserved: String =
-            sqlx::query_scalar("SELECT company_id FROM companies WHERE display_name IS NULL")
-                .fetch_one(&pool)
-                .await
-                .expect("existing row survives the migration");
-        assert_eq!(preserved, "c1");
+        // Prelaunch ships a single flattened baseline: a non-empty database with no
+        // user_version stamp is an unrecognized local dev artifact, not a
+        // pre-public shape to adopt. Refuse rather than claim it is a clean v1.
+        raw_sql("CREATE TABLE companies (company_id TEXT PRIMARY KEY)")
+            .execute(&pool)
+            .await
+            .unwrap();
+        let err = ensure_schema(&pool, LOCAL_SCHEMA_VERSION, LOCAL_SCHEMA_SQL, MIGRATIONS)
+            .await
+            .unwrap_err();
+        assert!(err.contains("no user_version stamp"), "got: {err}");
     }
 
     #[tokio::test]
     async fn migration_chain_gap_is_rejected() {
         let pool = memory_pool().await;
-        raw_sql("CREATE TABLE companies (company_id TEXT PRIMARY KEY)")
+        raw_sql("CREATE TABLE companies (company_id TEXT PRIMARY KEY); PRAGMA user_version = 1")
             .execute(&pool)
             .await
             .unwrap();
@@ -417,7 +404,7 @@ mod tests {
     #[tokio::test]
     async fn incomplete_migration_chain_is_rejected() {
         let pool = memory_pool().await;
-        raw_sql("CREATE TABLE companies (company_id TEXT PRIMARY KEY)")
+        raw_sql("CREATE TABLE companies (company_id TEXT PRIMARY KEY); PRAGMA user_version = 1")
             .execute(&pool)
             .await
             .unwrap();

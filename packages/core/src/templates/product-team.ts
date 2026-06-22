@@ -100,7 +100,6 @@ export const productTeamTemplate: CompanyTemplateDefinition = {
       displayTitle: 'Product Manager',
       capabilities: ['prd-authoring', 'prioritization', 'user-stories', 'acceptance-criteria'],
       persona: {
-        schemaVersion: 2,
         profile: {
           expertise:
             'Product management and requirements engineering with deep expertise in user story mapping, acceptance criteria definition, and edge case identification. Skilled in competitive analysis, market sizing, and product-market fit assessment. Proficient in prioritization frameworks (RICE, MoSCoW, Kano) and stakeholder alignment. Experienced in writing PRDs that engineers actually read — structured, precise, and free of ambiguity.',
@@ -129,7 +128,6 @@ export const productTeamTemplate: CompanyTemplateDefinition = {
       displayTitle: 'Product Designer',
       capabilities: ['ux-research', 'prototyping', 'interaction-design', 'design-systems'],
       persona: {
-        schemaVersion: 2,
         profile: {
           expertise:
             'Product design across discovery and delivery: user research, journey mapping, wireframing, and high-fidelity interactive prototypes (Figma). Strong in interaction design, design systems, and validating flows with usability testing before engineering builds them.',
@@ -158,7 +156,6 @@ export const productTeamTemplate: CompanyTemplateDefinition = {
       displayTitle: 'Backend Engineer',
       capabilities: ['api-design', 'data-modeling', 'postgresql', 'architecture'],
       persona: {
-        schemaVersion: 2,
         profile: {
           expertise:
             'Systems architecture and API design with deep knowledge of data modeling, service boundaries, and distributed system patterns. Expert in PostgreSQL schema design, migration strategies, and query optimization. Proficient in RESTful and GraphQL API design with emphasis on backward compatibility and versioning. Strong background in event-driven architectures, CQRS, and eventual consistency patterns. Experienced in performance profiling and capacity planning.',
@@ -187,7 +184,6 @@ export const productTeamTemplate: CompanyTemplateDefinition = {
       displayTitle: 'Full-stack Engineer',
       capabilities: ['react', 'typescript', 'verification', 'testing'],
       persona: {
-        schemaVersion: 2,
         profile: {
           expertise:
             'Production-grade full-stack implementation with expertise in React component architecture, state management patterns, and server-side integration. Deep knowledge of TypeScript type system, generic patterns, and compile-time safety guarantees. Skilled in test-driven development with comprehensive unit, integration, and snapshot testing strategies. Proficient in error boundary patterns, graceful degradation, and defensive programming.',
@@ -216,7 +212,6 @@ export const productTeamTemplate: CompanyTemplateDefinition = {
       displayTitle: 'QA / Security Reviewer',
       capabilities: ['code-review', 'security-audit', 'performance', 'quality-assurance'],
       persona: {
-        schemaVersion: 2,
         profile: {
           expertise:
             'Code review and quality analysis with deep knowledge of security vulnerabilities (OWASP Top 10), performance anti-patterns, and architectural code smells. Expert in static analysis tooling, type-safety auditing, and dependency risk assessment. Skilled in structured critique that distinguishes between subjective style preferences and objective quality issues. Proficient in load testing, memory profiling, and bundle size analysis.',

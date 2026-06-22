@@ -5,24 +5,22 @@
  * built-in template into an in-memory backend and asserting the persisted rows
  * match the single canonical definition:
  *
- *  - unique id/name; non-empty capabilities; valid v2 persona profile;
- *  - persona_json carries the v2 `.profile` the live Pi reader consumes, plus
+ *  - unique id/name; non-empty capabilities; valid persona profile;
+ *  - persona_json carries the `.profile` the live Pi reader consumes, plus
  *    top-level appearance / displayTitle / capabilities;
  *  - NO legacy modelPreference / temperature / maxTokens;
+ *  - template employee config is null (no legacy runtime config placeholder);
  *  - materialized employees match the canonical roster (count, role, persona,
  *    appearance, displayTitle, capabilities);
  *  - every employee resolves to exactly one workspace-archetype zone via a
  *    home workstation (workstation id == zone id);
- *  - materialized zone labels == the canonical (preview) zone labels;
- *  - the backfill re-homes + upgrades a synthetic legacy company and is idempotent.
+ *  - materialized zone labels == the canonical (preview) zone labels.
  *
  * Pure Node via tsx against core source — no DOM, no three.js, no app.
  */
 import {
   CompanyTemplateService,
   InMemoryEventBus,
-  TEMPLATE_EMPLOYEE_CONFIG_JSON,
-  backfillTemplateCompany,
   createMemoryRepositories,
   getTemplate,
   listTemplates,
@@ -85,7 +83,6 @@ for (const t of templates) {
     const tag = `${t.id}/${e.key}`;
     check(`${tag}: non-empty capabilities`, Array.isArray(e.capabilities) && e.capabilities.length > 0);
     check(`${tag}: displayTitle present`, typeof e.displayTitle === 'string' && e.displayTitle.length > 0);
-    check(`${tag}: persona schemaVersion 2`, e.persona.schemaVersion === 2);
     check(`${tag}: profile.expertise non-empty`, typeof e.persona.profile.expertise === 'string' && e.persona.profile.expertise.length > 0);
     check(`${tag}: profile.workingStyle non-empty`, typeof e.persona.profile.workingStyle === 'string' && e.persona.profile.workingStyle.length > 0);
     check(`${tag}: communication valid`, COMMUNICATION.has(e.persona.profile.communication));
@@ -110,8 +107,6 @@ for (const t of templates) {
     );
   }
 }
-
-check('template config is empty (no legacy runtime config)', TEMPLATE_EMPLOYEE_CONFIG_JSON === '{}');
 
 // ── Materialization invariants ──────────────────────────────────────────────
 for (const t of templates) {
@@ -167,7 +162,7 @@ for (const t of templates) {
       continue;
     }
     check(`${tag}: role_slug matches`, row.role_slug === def.roleSlug, `${row.role_slug} vs ${def.roleSlug}`);
-    check(`${tag}: config has no legacy fields`, row.config_json === TEMPLATE_EMPLOYEE_CONFIG_JSON, row.config_json ?? 'null');
+    check(`${tag}: config is null (no legacy runtime config)`, row.config_json === null, row.config_json ?? 'null');
 
     const persona = parseJson(row.persona_json);
     const profile = (persona.profile ?? {}) as Record<string, unknown>;
@@ -185,68 +180,6 @@ for (const t of templates) {
       check(`${tag}: home zone is a workspace`, zone?.archetype === 'workspace', zone?.archetype ?? 'no-zone');
     }
   }
-}
-
-// ── Backfill invariants (legacy company → safe, idempotent repair) ───────────
-{
-  console.log('\n[backfill] legacy company repair');
-  const repos = createMemoryRepositories();
-  const eventBus = new InMemoryEventBus();
-  const companyId = 'co-legacy';
-  const nowIso = new Date().toISOString();
-  await repos.companies.create({
-    company_id: companyId,
-    name: 'Legacy Co',
-    status: 'active',
-    template_id: 'rd-company',
-    template_label: 'R&D Company',
-    workspace_root: null,
-    description_json: null,
-    created_at: nowIso,
-    updated_at: nowIso,
-  });
-  const service = new CompanyTemplateService(
-    repos.employees,
-    repos.officeLayouts,
-    eventBus,
-    repos.prefabInstances,
-    undefined,
-    repos.zones,
-    repos.workstations,
-  );
-  await service.materializeTemplate('rd-company', companyId);
-
-  // Downgrade two employees to the pre-v2 (flat persona, no workstation) shape.
-  const before = await repos.employees.findByCompany(companyId);
-  const victims = before.slice(0, 2);
-  for (const v of victims) {
-    await repos.employees.update(v.employee_id, {
-      workstation_id: null,
-      persona_json: JSON.stringify({
-        expertise: 'Legacy expertise text',
-        style: 'Legacy working style',
-        appearance: { skinColor: 0x111111 },
-      }),
-    });
-  }
-
-  const result = await backfillTemplateCompany(repos, companyId);
-  check('backfill: assigned 2 workstations', result.assignedWorkstations === 2, String(result.assignedWorkstations));
-  check('backfill: upgraded 2 personas', result.upgradedPersonas === 2, String(result.upgradedPersonas));
-
-  const after = await repos.employees.findByCompany(companyId);
-  for (const v of victims) {
-    const row = after.find((e) => e.employee_id === v.employee_id);
-    check(`backfill: ${v.name} re-homed`, typeof row?.workstation_id === 'string' && row.workstation_id.length > 0);
-    const persona = parseJson(row?.persona_json ?? null);
-    const profile = (persona.profile ?? {}) as Record<string, unknown>;
-    check(`backfill: ${v.name} persona upgraded to v2`, profile.expertise === 'Legacy expertise text');
-    check(`backfill: ${v.name} legacy flat keys removed`, !('expertise' in persona) && !('style' in persona));
-  }
-
-  const second = await backfillTemplateCompany(repos, companyId);
-  check('backfill: idempotent (no re-assign)', second.assignedWorkstations === 0, String(second.assignedWorkstations));
-  check('backfill: idempotent (no re-upgrade)', second.upgradedPersonas === 0, String(second.upgradedPersonas));
 }
 
 console.log(`\ntemplate-contract: ${checks - failures}/${checks} checks passed`);

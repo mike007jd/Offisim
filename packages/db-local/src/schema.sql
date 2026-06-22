@@ -1,9 +1,10 @@
 -- Offisim local SQLite schema — always the LATEST end-state shape.
--- Fresh databases apply this file directly and are stamped with
--- LOCAL_SCHEMA_VERSION (PRAGMA user_version); existing user databases are
--- upgraded through the ordered chain in src/migrations/ instead.
+-- Prelaunch: this is the single flattened public baseline (LOCAL_SCHEMA_VERSION
+-- = 1). Fresh databases apply this file directly and are stamped via
+-- PRAGMA user_version. src/migrations/ is empty until the first post-launch
+-- schema change (public migration history starts after the first release).
 --
--- Any schema change shipped after 1.0 must do all of:
+-- The first schema change shipped after 1.0 must do all of:
 --   1. update this file AND packages/db-local/src/schema.ts
 --   2. bump LOCAL_SCHEMA_VERSION in apps/desktop/src-tauri/src/local_db.rs
 --   3. add src/migrations/NNNN_<name>.sql and register it in MIGRATIONS there

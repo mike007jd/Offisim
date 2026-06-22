@@ -1,8 +1,4 @@
-import {
-  TEMPLATE_EMPLOYEE_CONFIG_JSON,
-  aiStartupTemplate,
-  serializeTemplatePersona,
-} from '@offisim/core/templates';
+import { aiStartupTemplate, serializeTemplatePersona } from '@offisim/core/templates';
 import type { OfficialSeedPayload } from '../types.js';
 
 const SLUG = 'offisim/sample-marketing-strategist';
@@ -81,7 +77,7 @@ const employeeAsset = {
   name: 'Sample Marketing Strategist',
   role_slug: ASSET_ID,
   persona_json: serializeTemplatePersona(sourceEmployee),
-  config_json: TEMPLATE_EMPLOYEE_CONFIG_JSON,
+  config_json: null,
 };
 
 export const employeeSeed: OfficialSeedPayload = {

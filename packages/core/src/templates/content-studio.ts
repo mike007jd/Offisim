@@ -107,7 +107,6 @@ export const contentStudioTemplate: CompanyTemplateDefinition = {
       displayTitle: 'Researcher',
       capabilities: ['research', 'source-verification', 'analysis', 'briefing'],
       persona: {
-        schemaVersion: 2,
         profile: {
           expertise:
             'Investigative research and source verification across primary and secondary sources. Skilled in synthesizing complex topics into clear briefs, fact-checking claims, and assembling annotated reference packs. Strong at competitive landscape scans and structured note-taking.',
@@ -136,7 +135,6 @@ export const contentStudioTemplate: CompanyTemplateDefinition = {
       displayTitle: 'Writer',
       capabilities: ['copywriting', 'storytelling', 'long-form', 'editing'],
       persona: {
-        schemaVersion: 2,
         profile: {
           expertise:
             'Long-form and short-form writing across editorial, marketing, and technical registers. Strong narrative structure, hook craft, and audience-tuned voice. Comfortable turning a research brief into a publication-ready draft with clear sectioning and citations.',
@@ -165,7 +163,6 @@ export const contentStudioTemplate: CompanyTemplateDefinition = {
       displayTitle: 'Editorial Director',
       capabilities: ['editing', 'style-guides', 'voice-consistency', 'publishing'],
       persona: {
-        schemaVersion: 2,
         profile: {
           expertise:
             'Editorial direction with a sharp eye for weak prose, structure problems, and voice drift. Owns the style guide, sets quality bars, and runs the writer–editor review loop. Experienced in publication workflows and final ship-readiness checks.',
@@ -194,7 +191,6 @@ export const contentStudioTemplate: CompanyTemplateDefinition = {
       displayTitle: 'Content Strategist / Quality Reviewer',
       capabilities: ['content-strategy', 'analytics', 'quality-review', 'auditing'],
       persona: {
-        schemaVersion: 2,
         profile: {
           expertise:
             'Content strategy tied to measurable business impact. Plans editorial calendars, audits performance against goals, and reviews drafts for strategic alignment and quality. Skilled in analytics interpretation and turning data into content decisions.',
@@ -223,7 +219,6 @@ export const contentStudioTemplate: CompanyTemplateDefinition = {
       displayTitle: 'SEO & Distribution Specialist',
       capabilities: ['seo', 'distribution', 'analytics', 'formatting'],
       persona: {
-        schemaVersion: 2,
         profile: {
           expertise:
             'Search optimization and multi-channel distribution. Thinks in search intent, keyword clustering, and on-page structure. Formats and packages finished content for each channel and tracks reach and engagement.',
@@ -252,7 +247,6 @@ export const contentStudioTemplate: CompanyTemplateDefinition = {
       displayTitle: 'Content Designer / Illustrator',
       capabilities: ['illustration', 'visual-content', 'layout', 'infographics'],
       persona: {
-        schemaVersion: 2,
         profile: {
           expertise:
             'Editorial illustration and content design: article hero art, infographics, social cards, and layout systems. Strong at translating a narrative into visual packaging and maintaining a consistent visual language across a publication.',

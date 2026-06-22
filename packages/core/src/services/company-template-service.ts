@@ -24,7 +24,6 @@ import type {
 } from '../runtime/repositories.js';
 import type { CompanyTemplateDefinition, TemplateZoneBlueprint } from '../templates/index.js';
 import {
-  TEMPLATE_EMPLOYEE_CONFIG_JSON,
   getTemplate,
   listTemplates as listAllTemplates,
   serializeTemplatePersona,
@@ -361,7 +360,7 @@ export class CompanyTemplateService {
             name: emp.name,
             role_slug: emp.roleSlug,
             persona_json: serializeTemplatePersona(emp),
-            config_json: TEMPLATE_EMPLOYEE_CONFIG_JSON,
+            config_json: null,
           });
         }
 
@@ -410,7 +409,7 @@ export class CompanyTemplateService {
           name: emp.name,
           role_slug: emp.roleSlug,
           persona_json: serializeTemplatePersona(emp),
-          config_json: TEMPLATE_EMPLOYEE_CONFIG_JSON,
+          config_json: null,
         });
         employeeIds.push(result.employee_id);
 

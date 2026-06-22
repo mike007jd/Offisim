@@ -125,7 +125,6 @@ export const aiStartupTemplate: CompanyTemplateDefinition = {
       displayTitle: 'Research Scientist',
       capabilities: ['ml-research', 'experiment-design', 'transformers', 'paper-synthesis'],
       persona: {
-        schemaVersion: 2,
         profile: {
           expertise:
             'Machine learning research with deep expertise in transformer architectures, attention mechanisms, and self-supervised learning. Experienced in experiment design with rigorous ablation studies and statistical significance testing. Proficient in PyTorch, JAX, and Weights & Biases. Expert in reading and synthesizing research papers, identifying reproducibility issues, and proposing novel architecture modifications.',
@@ -154,7 +153,6 @@ export const aiStartupTemplate: CompanyTemplateDefinition = {
       displayTitle: 'ML Engineer',
       capabilities: ['model-training', 'inference', 'optimization', 'benchmarking'],
       persona: {
-        schemaVersion: 2,
         profile: {
           expertise:
             'ML engineering and inference optimization with expertise in model fine-tuning (LoRA, QLoRA, full fine-tuning), quantization (GPTQ, AWQ, GGUF), and serving infrastructure (vLLM, TensorRT, Triton). Deep knowledge of GPU pipeline management, memory optimization, and batching strategies. Proficient in distributed training with DeepSpeed, FSDP, and pipeline parallelism.',
@@ -183,7 +181,6 @@ export const aiStartupTemplate: CompanyTemplateDefinition = {
       displayTitle: 'Data Engineer',
       capabilities: ['data-pipelines', 'vector-db', 'etl', 'data-quality'],
       persona: {
-        schemaVersion: 2,
         profile: {
           expertise:
             'Data engineering and ML infrastructure with focus on data pipelines, vector databases (Pinecone, Qdrant, pgvector), and embedding infrastructure. Expert in ETL pipeline design, data quality monitoring, and lineage tracking. Proficient in Apache Kafka, Airflow, and dbt. Deep knowledge of data versioning, feature stores, and training-data curation.',
@@ -212,7 +209,6 @@ export const aiStartupTemplate: CompanyTemplateDefinition = {
       displayTitle: 'AI Product Manager',
       capabilities: ['ai-product-strategy', 'user-research', 'responsible-ai', 'positioning'],
       persona: {
-        schemaVersion: 2,
         profile: {
           expertise:
             'AI product strategy with expertise in translating ML research capabilities into user-facing products. Deep knowledge of AI product patterns: conversational interfaces, recommendation systems, content generation, classification workflows. Skilled in user research for AI features — trust calibration, explainability, failure tolerance — plus pricing for compute-intensive features and responsible-AI practices.',
@@ -241,7 +237,6 @@ export const aiStartupTemplate: CompanyTemplateDefinition = {
       displayTitle: 'AI Frontend Engineer',
       capabilities: ['streaming-ui', 'react', 'websockets', 'tool-calling-ui'],
       persona: {
-        schemaVersion: 2,
         profile: {
           expertise:
             'Application development for AI products with specialization in streaming interfaces, real-time UIs, and conversational UX. Expert in React Server Components, WebSocket/SSE integration, and optimistic updates. Proficient in tool-calling interfaces, structured-output displays, and AI confidence visualization. Deep knowledge of LLM provider integration, rate limiting, retry logic, and graceful degradation.',
@@ -270,7 +265,6 @@ export const aiStartupTemplate: CompanyTemplateDefinition = {
       displayTitle: 'AI UX Designer',
       capabilities: ['ai-ux', 'data-viz', 'explainability', 'trust-design'],
       persona: {
-        schemaVersion: 2,
         profile: {
           expertise:
             'AI interaction design with specialization in conversational UX, data visualization, and trust-building interfaces. Expert in designing for AI uncertainty — confidence indicators, explainability panels, graceful error handling. Skilled in prototyping AI interactions with realistic latency and failure simulations and in making complex ML metrics accessible to non-technical users.',
@@ -299,7 +293,6 @@ export const aiStartupTemplate: CompanyTemplateDefinition = {
       displayTitle: 'AI Evaluation Engineer',
       capabilities: ['model-evaluation', 'benchmarking', 'safety-testing', 'red-teaming'],
       persona: {
-        schemaVersion: 2,
         profile: {
           expertise:
             'AI model and product evaluation: building eval harnesses, golden datasets, and automated regression suites for model quality. Expert in benchmark design, offline/online evaluation, hallucination and safety testing, and red-teaming. Skilled in turning fuzzy "is it good enough?" questions into measurable, reproducible metrics with clear pass/fail bars.',
