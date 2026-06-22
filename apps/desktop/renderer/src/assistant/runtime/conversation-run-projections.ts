@@ -102,7 +102,5 @@ export function projectEmployeeWorkloads(
 export function dominantBeatsFrom(
   workloads: ReadonlyMap<string, EmployeeWorkloadProjection>,
 ): SceneBeat[] {
-  return Array.from(workloads.values()).flatMap((w) =>
-    w.dominant?.beat ? [w.dominant.beat] : [],
-  );
+  return Array.from(workloads.values()).flatMap((w) => (w.dominant?.beat ? [w.dominant.beat] : []));
 }

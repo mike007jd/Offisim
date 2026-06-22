@@ -25,11 +25,7 @@ import {
 } from './desktop-chat-runtime.js';
 
 const CHECKPOINT_INTERVAL_MS = 3_000;
-const ACTIVE_PHASES = new Set<ConversationRunPhase>([
-  'preparing',
-  'running',
-  'awaiting-approval',
-]);
+const ACTIVE_PHASES = new Set<ConversationRunPhase>(['preparing', 'running', 'awaiting-approval']);
 
 export type ConversationRunPhase =
   | 'idle'

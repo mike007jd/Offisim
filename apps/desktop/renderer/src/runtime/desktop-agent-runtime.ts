@@ -503,9 +503,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       const aborted = this.abortedRequests.has(requestId);
       const status = aborted ? 'cancelled' : 'failed';
       const message = err instanceof Error ? err.message : String(err);
-      emitRootBus(
-        rootRun(aborted ? 'run.cancelled' : 'run.failed', { status, summary: message }),
-      );
+      emitRootBus(rootRun(aborted ? 'run.cancelled' : 'run.failed', { status, summary: message }));
       this.enqueuePersist(() => this.reconcileRoot(runScope.runId, status));
       throw err;
     } finally {

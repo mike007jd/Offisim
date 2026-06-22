@@ -54,11 +54,14 @@ function scheduleExpiry(): void {
     }
   }
   if (next !== Number.POSITIVE_INFINITY) {
-    expiryTimer = setTimeout(() => {
-      expiryTimer = null;
-      notify();
-      scheduleExpiry();
-    }, Math.max(0, next - now));
+    expiryTimer = setTimeout(
+      () => {
+        expiryTimer = null;
+        notify();
+        scheduleExpiry();
+      },
+      Math.max(0, next - now),
+    );
   }
 }
 

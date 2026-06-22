@@ -45,8 +45,18 @@ const check = (ok, label, detail) => {
 const info = (label, detail) => console.log(`ℹ️  ${label}${detail ? ` — ${detail}` : ''}`);
 
 const ROSTER = [
-  { employeeId: 'emp-scout', name: 'Scout', roleSlug: 'researcher', persona: 'You are terse. Answer in one short sentence. No tools.' },
-  { employeeId: 'emp-writer', name: 'Writer', roleSlug: 'writer', persona: 'You are terse. Answer in one short sentence. No tools.' },
+  {
+    employeeId: 'emp-scout',
+    name: 'Scout',
+    roleSlug: 'researcher',
+    persona: 'You are terse. Answer in one short sentence. No tools.',
+  },
+  {
+    employeeId: 'emp-writer',
+    name: 'Writer',
+    roleSlug: 'writer',
+    persona: 'You are terse. Answer in one short sentence. No tools.',
+  },
 ];
 
 function baseCtx(extra) {
@@ -71,9 +81,17 @@ async function structuralChecks() {
   // a session (so this needs no credentials).
   const depthEmitted = [];
   const depthSup = createChildSupervisor(
-    baseCtx({ emit: (l) => depthEmitted.push(l), limits: createDelegationLimits({ maxDepth: 1 }), depth: 1 }),
+    baseCtx({
+      emit: (l) => depthEmitted.push(l),
+      limits: createDelegationLimits({ maxDepth: 1 }),
+      depth: 1,
+    }),
   );
-  const depthResult = await depthSup.runSingle({ employeeId: 'emp-scout', objective: 'x', access: 'read' });
+  const depthResult = await depthSup.runSingle({
+    employeeId: 'emp-scout',
+    objective: 'x',
+    access: 'read',
+  });
   check(
     /blocked/i.test(depthResult) && depthEmitted.some((l) => l.runType === 'run.failed'),
     'depth cap blocks past maxDepth',
@@ -83,9 +101,16 @@ async function structuralChecks() {
   // Total cap: maxTotalChildren=0 → the first spawn blocks.
   const totalEmitted = [];
   const totalSup = createChildSupervisor(
-    baseCtx({ emit: (l) => totalEmitted.push(l), limits: createDelegationLimits({ maxTotalChildren: 0 }) }),
+    baseCtx({
+      emit: (l) => totalEmitted.push(l),
+      limits: createDelegationLimits({ maxTotalChildren: 0 }),
+    }),
   );
-  const totalResult = await totalSup.runSingle({ employeeId: 'emp-scout', objective: 'x', access: 'read' });
+  const totalResult = await totalSup.runSingle({
+    employeeId: 'emp-scout',
+    objective: 'x',
+    access: 'read',
+  });
   check(
     /blocked/i.test(totalResult) && totalEmitted.some((l) => l.runType === 'run.failed'),
     'total-children cap blocks when exhausted',
@@ -99,7 +124,11 @@ async function structuralChecks() {
   const budgetSup = createChildSupervisor(
     baseCtx({ emit: (l) => budgetEmitted.push(l), limits: budgetLimits }),
   );
-  const budgetResult = await budgetSup.runSingle({ employeeId: 'emp-scout', objective: 'x', access: 'read' });
+  const budgetResult = await budgetSup.runSingle({
+    employeeId: 'emp-scout',
+    objective: 'x',
+    access: 'read',
+  });
   check(
     /budget/i.test(budgetResult) && budgetEmitted.some((l) => l.runType === 'run.failed'),
     'token budget blocks when exhausted',
@@ -141,7 +170,9 @@ async function structuralChecks() {
   );
   // A child may write the heading and its content on the SAME line (mirroring the
   // guidance's "## Summary — …" format) — the trailing text must still bucket.
-  const sameLine = parseChildSummary('## Summary — fixed it\n## Artifacts — src/a.ts\n## Risks — timing only');
+  const sameLine = parseChildSummary(
+    '## Summary — fixed it\n## Artifacts — src/a.ts\n## Risks — timing only',
+  );
   check(
     sameLine.summary === 'fixed it' &&
       sameLine.artifacts[0] === 'src/a.ts' &&
@@ -190,8 +221,18 @@ async function liveChecks() {
       extensionFactories: [createDelegationExtensionFactory(sup)],
     });
     await loader.reload();
-    const { session } = await createAgentSession({ cwd, agentDir, authStorage, modelRegistry, model, resourceLoader: loader });
-    check(session.getActiveToolNames().includes('delegate'), 'delegate tool registers on root session');
+    const { session } = await createAgentSession({
+      cwd,
+      agentDir,
+      authStorage,
+      modelRegistry,
+      model,
+      resourceLoader: loader,
+    });
+    check(
+      session.getActiveToolNames().includes('delegate'),
+      'delegate tool registers on root session',
+    );
     session.dispose();
   } catch (error) {
     check(false, 'delegate tool registers on root session', errMsg(error));
@@ -199,10 +240,16 @@ async function liveChecks() {
 
   // Single delegation
   try {
-    const summary = await sup.runSingle({ employeeId: 'emp-scout', objective: 'Capital of France? One word.', access: 'read' });
+    const summary = await sup.runSingle({
+      employeeId: 'emp-scout',
+      objective: 'Capital of France? One word.',
+      access: 'read',
+    });
     const started = emitted.find((l) => l.runType === 'run.started');
     check(
-      emitted.some((l) => l.runType === 'run.completed' || l.runType === 'run.failed') && typeof summary === 'string' && summary.trim().length > 0,
+      emitted.some((l) => l.runType === 'run.completed' || l.runType === 'run.failed') &&
+        typeof summary === 'string' &&
+        summary.trim().length > 0,
       'single delegation returns a summary',
       `"${summary.slice(0, 40)}" parent=${started?.parentRunId}`,
     );
@@ -223,7 +270,10 @@ async function liveChecks() {
     const starts = emitted.filter((l) => l.runType === 'run.started').length;
     const completes = emitted.filter((l) => l.runType === 'run.completed').length;
     check(
-      starts === 2 && completes === 2 && combined.includes('emp-scout') && combined.includes('emp-writer'),
+      starts === 2 &&
+        completes === 2 &&
+        combined.includes('emp-scout') &&
+        combined.includes('emp-writer'),
       'parallel delegation runs both tasks',
       `${starts} started / ${completes} completed`,
     );
@@ -239,7 +289,11 @@ async function main() {
   await structuralChecks();
   await liveChecks();
   console.log('');
-  console.log(failed ? 'VERDICT: delegation loop FAILED' : 'VERDICT: delegation loop OK (limits + single + parallel)');
+  console.log(
+    failed
+      ? 'VERDICT: delegation loop FAILED'
+      : 'VERDICT: delegation loop OK (limits + single + parallel)',
+  );
   process.exit(failed ? 1 : 0);
 }
 

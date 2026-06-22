@@ -9,9 +9,13 @@ import { useEmployees, useOfficeLayout, useThreads } from '@/data/queries.js';
 import type { ZoneKind } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
 import { CANVAS_FONT_TOKENS } from '@/styles/visual-tokens.js';
-import { type StagingPrefab, applyDramaturgyMode, projectOfficeStaging } from '@offisim/shared-types';
-import { SCENE_CONTENT_SCALE } from './r3d/scene-art-direction.js';
+import {
+  type StagingPrefab,
+  applyDramaturgyMode,
+  projectOfficeStaging,
+} from '@offisim/shared-types';
 import { useEffect, useMemo, useRef } from 'react';
+import { SCENE_CONTENT_SCALE } from './r3d/scene-art-direction.js';
 import { compactSceneEmployeeName } from './scene-labels.js';
 import {
   archetypeToKind,

@@ -19,7 +19,8 @@ const DelegateParams = Type.Object({
       objective: Type.String({ description: 'The bounded task or question for the teammate' }),
       access: Type.Optional(
         Type.Union([Type.Literal('read'), Type.Literal('write'), Type.Literal('review')], {
-          description: 'Capability band. read = investigate; write = edit/run; review = read + run checks. Default: read.',
+          description:
+            'Capability band. read = investigate; write = edit/run; review = read + run checks. Default: read.',
         }),
       ),
       workKind: Type.Optional(
@@ -32,16 +33,15 @@ const DelegateParams = Type.Object({
         ),
       ),
       relation: Type.Optional(
-        Type.Union(
-          [Type.Literal('delegate'), Type.Literal('review'), Type.Literal('handoff')],
-          {
-            description:
-              'Parent-child relation. Default: review for review-like work (workKind/access review), else delegate.',
-          },
-        ),
+        Type.Union([Type.Literal('delegate'), Type.Literal('review'), Type.Literal('handoff')], {
+          description:
+            'Parent-child relation. Default: review for review-like work (workKind/access review), else delegate.',
+        }),
       ),
     }),
-    { description: 'Tasks to delegate. single mode requires exactly one; parallel allows several.' },
+    {
+      description: 'Tasks to delegate. single mode requires exactly one; parallel allows several.',
+    },
   ),
   executionMode: Type.Optional(
     Type.Union([Type.Literal('single'), Type.Literal('parallel')], {
@@ -84,7 +84,10 @@ export function createDelegationExtensionFactory(supervisor) {
         if (tasks.length === 0) {
           return {
             content: [
-              { type: 'text', text: 'delegate: provide at least one task { employeeId, objective }.' },
+              {
+                type: 'text',
+                text: 'delegate: provide at least one task { employeeId, objective }.',
+              },
             ],
             isError: true,
           };
@@ -109,7 +112,11 @@ export function createDelegationExtensionFactory(supervisor) {
         // other's files. Reject parallel with any write task — run write work as a
         // single task, or split it into sequential single delegations. (True
         // concurrent writers need git-worktree isolation, a separate feature.)
-        if (executionMode === 'parallel' && tasks.length > 1 && tasks.some((t) => t.access === 'write')) {
+        if (
+          executionMode === 'parallel' &&
+          tasks.length > 1 &&
+          tasks.some((t) => t.access === 'write')
+        ) {
           return {
             content: [
               {

@@ -70,5 +70,7 @@ export function useEmployeeWorkloads(
     const beatByRun = new Map<string, SceneBeat>();
     for (const beat of beats) beatByRun.set(beat.runId, beat);
     return projectEmployeeWorkloads(snapshot, projectId, (runId) => beatByRun.get(runId) ?? null);
-  }, [projectId, companyId, snapshot, beats]);
+    // companyId is not read in the body — `beats` (from useOfficeBeats(companyId))
+    // already re-derives when it changes, so listing companyId is redundant.
+  }, [projectId, snapshot, beats]);
 }
