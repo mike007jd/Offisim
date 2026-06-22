@@ -283,6 +283,9 @@ export function composeBeats(
   const runningChildren = new Map<string, Set<string>>();
   const actors = new Map<string, ActorState>();
   const beatIndexByKey = new Map<string, number>();
+  // Deterministic anti-repeat: the last variant emitted per (actor, beatKind),
+  // so consecutive same beats never reuse the same variant (no visible loop).
+  const lastVariantByKey = new Map<string, number>();
   const beats: SceneBeat[] = [];
 
   const actorOf = (id: string): ActorState => {
@@ -302,6 +305,10 @@ export function composeBeats(
     const seed = hashString(
       [config.dramaturgyVersion, signal.rootRunId, signal.runId, signal.employeeId ?? '', signal.kind, String(beatIndex)].join('|'),
     );
+    let variant = seed % variantCount;
+    const last = lastVariantByKey.get(idxKey);
+    if (variantCount > 1 && last === variant) variant = (variant + 1) % variantCount;
+    lastVariantByKey.set(idxKey, variant);
     beats.push({
       id: `${signal.runId}:${signal.kind}:${beatIndex}`,
       kind: signal.kind,
@@ -316,7 +323,7 @@ export function composeBeats(
       movement,
       parallel,
       interrupt: signal.interrupt,
-      variant: seed % variantCount,
+      variant,
       at: signal.at,
     });
     if (movement) actorOf(actorKey).lastMovementAt = signal.at;

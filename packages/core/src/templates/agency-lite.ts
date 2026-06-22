@@ -19,6 +19,7 @@ export const agencyLiteTemplate: CompanyTemplateDefinition = {
     capabilities: ['Fast turnaround', 'Multi-client support', 'Flexible roles'],
   },
   layoutPreset: 'agency-studio',
+  performance: { family: 'agency', pace: 'fast', collaborationBias: 'mixed', motifWeights: {} },
   zones: [
     createZoneBlueprint({
       slug: 'zone-client',

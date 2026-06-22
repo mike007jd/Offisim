@@ -21,6 +21,7 @@ export const productTeamTemplate: CompanyTemplateDefinition = {
     capabilities: ['User research', 'Product strategy', 'Design prototyping'],
   },
   layoutPreset: 'product-hub',
+  performance: { family: 'product', pace: 'balanced', collaborationBias: 'group', motifWeights: {} },
   zones: [
     createZoneBlueprint({
       slug: 'zone-product',

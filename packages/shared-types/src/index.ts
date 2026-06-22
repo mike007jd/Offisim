@@ -239,6 +239,20 @@ export { IDLE_PERFORMANCE, performanceForBeat } from './dramaturgy/performance.j
 export type { EmployeeStaging } from './dramaturgy/office-projection.js';
 export { currentBeatsByEmployee, projectOfficeStaging } from './dramaturgy/office-projection.js';
 export type {
+  CollaborationBias,
+  CompanyFamily,
+  CompanyPace,
+  CompanyPerformanceProfile,
+  EmployeeArchetype,
+  EmployeePerformanceProfile,
+} from './dramaturgy/profiles.js';
+export {
+  DEFAULT_COMPANY_PERFORMANCE,
+  defaultEmployeePerformanceProfile,
+} from './dramaturgy/profiles.js';
+export type { DramaturgyMode, DramaturgyModeOptions } from './dramaturgy/modes.js';
+export { DEFAULT_MAX_WALKERS, applyDramaturgyMode } from './dramaturgy/modes.js';
+export type {
   EmployeePerformanceAction,
   EmployeePerformanceDomain,
   EmployeePerformanceKind,
