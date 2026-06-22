@@ -20,7 +20,6 @@ import {
   reposOrNull,
   threadToVm,
 } from './adapters.js';
-import { companyTemplates } from './company-templates.js';
 import {
   companies,
   deliverables,
@@ -33,6 +32,7 @@ import {
 } from './fixtures.js';
 import { gitErrorMessage, isNonGitWorkspace, loadGitWorkbench } from './git-workbench.js';
 import { deleteCompanyDeep, deleteConversationDeep } from './local-data-deletion.js';
+import { buildWizardTemplates } from '@/surfaces/lifecycle/template-view.js';
 import { loadRunCost } from './run-cost.js';
 import type {
   ChatMessage,
@@ -64,7 +64,9 @@ export function useCompanies() {
 export function useCompanyTemplates() {
   return useQuery({
     queryKey: ['company-templates'],
-    queryFn: () => resolveAsync(companyTemplates),
+    // Templates are static, canonical core data — no I/O. Returns the 5 built-in
+    // templates; the wizard appends the renderer-only "Create your own" entry.
+    queryFn: () => resolveAsync(buildWizardTemplates()),
   });
 }
 

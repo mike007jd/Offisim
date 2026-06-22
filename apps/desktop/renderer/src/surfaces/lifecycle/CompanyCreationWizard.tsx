@@ -1,26 +1,40 @@
 import { UI_DATA_COLORS } from '@/data/color-palette.js';
 import { useCompanyTemplates } from '@/data/queries.js';
-import type { CompanyTemplate, TemplateEmployee } from '@/data/types.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Textarea } from '@/design-system/primitives/textarea.js';
 import { cn } from '@/lib/utils.js';
-import { ChevronDown, ChevronLeft, ChevronUp, Loader2, Wrench } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronUp, Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { type CSSProperties, useCallback, useEffect, useMemo, useState } from 'react';
 import { clearDiscardConfirm, showDiscardConfirm } from './DiscardConfirmToast.js';
 import { CyoBlueprint, TemplatePreview } from './TemplatePreview.js';
-import { roleDot, roleLabel } from './lifecycle-data.js';
-import { CREATE_YOUR_OWN_TEMPLATE, EMPLOYEE_BIOS, TEMPLATE_META } from './wizard-data.js';
+import { CREATE_YOUR_OWN_TEMPLATE, type WizardEmployee, type WizardTemplate } from './template-view.js';
 
 function roleAccentStyle(color: string): CSSProperties {
   return { '--off-wiz-role-accent': color } as CSSProperties;
 }
 
+/** Format a structured capability tag ('system-design') into a readable chip
+ *  label ('System design'). */
+function formatCapability(tag: string): string {
+  const words = tag.split('-').filter(Boolean);
+  const first = words[0];
+  if (!first) return tag;
+  return [first.charAt(0).toUpperCase() + first.slice(1), ...words.slice(1)].join(' ');
+}
+
+/** First sentence of the employee's working style — the collapsed one-liner. */
+function firstSentence(text: string): string {
+  const match = /^.*?[.!?](?:\s|$)/.exec(text.trim());
+  return (match ? match[0] : text).trim();
+}
+
 export interface CreateCompanyRequest {
   name: string;
   description: string | null;
-  template: CompanyTemplate;
+  /** createCompany only needs the template id + name. */
+  template: { id: string; name: string };
   openStudio: boolean;
 }
 
@@ -37,10 +51,13 @@ interface CompanyCreationWizardProps {
   dismissible?: boolean;
 }
 
-function EmployeeCard({ template, employee }: { template: string; employee: TemplateEmployee }) {
+function EmployeeCard({
+  templateId,
+  employee,
+}: { templateId: string; employee: WizardEmployee }) {
   const [expanded, setExpanded] = useState(false);
-  const bio = EMPLOYEE_BIOS[employee.name];
-  const dot = roleDot(employee.role);
+  const accent = employee.appearance?.accentColor ?? UI_DATA_COLORS.blue2;
+  const clothing = employee.appearance?.clothingColor ?? UI_DATA_COLORS.ink3;
   return (
     <div className="off-wiz-emp">
       <button
@@ -51,38 +68,33 @@ function EmployeeCard({ template, employee }: { template: string; employee: Temp
       >
         <span className="off-wiz-emp-av">
           <EmployeeAvatar
-            seed={`${template}:${employee.name}`}
+            seed={`${templateId}:${employee.name}`}
             appearance={employee.appearance}
-            colorA={employee.appearance.clothingColor ?? UI_DATA_COLORS.ink3}
-            colorB={
-              employee.appearance.accentColor ??
-              employee.appearance.clothingColor ??
-              UI_DATA_COLORS.ink2
-            }
+            colorA={clothing}
+            colorB={accent}
             size={40}
           />
-          <span className="off-wiz-emp-st" style={roleAccentStyle(dot)} />
+          <span className="off-wiz-emp-st" style={roleAccentStyle(accent)} />
         </span>
         <span className="off-wiz-emp-copy">
           <span className="off-wiz-emp-name">{employee.name}</span>
-          <span className="off-wiz-emp-role" style={roleAccentStyle(dot)}>
-            {roleLabel(employee.role)}
+          <span className="off-wiz-emp-role" style={roleAccentStyle(accent)}>
+            {employee.displayTitle}
           </span>
-          {bio ? <span className="off-wiz-emp-bio">{bio.bio}</span> : null}
+          <span className="off-wiz-emp-bio">{firstSentence(employee.workingStyle)}</span>
         </span>
         <Icon icon={expanded ? ChevronUp : ChevronDown} size="sm" className="off-wiz-emp-caret" />
       </button>
-      {expanded && bio ? (
+      {expanded ? (
         <div className="off-wiz-emp-detail">
           <div className="off-wiz-emp-tags">
-            {bio.expertise.map((tag) => (
-              <span key={tag} className="off-wiz-tag" style={roleAccentStyle(dot)}>
-                {tag}
+            {employee.capabilities.map((tag) => (
+              <span key={tag} className="off-wiz-tag" style={roleAccentStyle(accent)}>
+                {formatCapability(tag)}
               </span>
             ))}
-            <span className="off-wiz-tag is-neutral">{bio.style}</span>
           </div>
-          <p>{bio.helpsWith}</p>
+          <p>{employee.expertise}</p>
         </div>
       ) : null}
     </div>
@@ -96,7 +108,7 @@ export function CompanyCreationWizard({
 }: CompanyCreationWizardProps) {
   const templatesQuery = useCompanyTemplates();
 
-  const templates = useMemo<CompanyTemplate[]>(
+  const templates = useMemo<WizardTemplate[]>(
     () => [...(templatesQuery.data ?? []), CREATE_YOUR_OWN_TEMPLATE],
     [templatesQuery.data],
   );
@@ -109,8 +121,7 @@ export function CompanyCreationWizard({
 
   const safeIndex = templates.length ? Math.min(index, templates.length - 1) : 0;
   const selected = templates[safeIndex] ?? null;
-  const meta = selected ? TEMPLATE_META[selected.id] : null;
-  const isCustom = selected?.id === 'create-your-own';
+  const isCustom = selected?.isCustom === true;
 
   // Dirty = the user typed something (name or description). Browsing template
   // cards is not a draft — guarding it made Esc look broken (it armed a discard
@@ -152,7 +163,7 @@ export function CompanyCreationWizard({
       await onComplete({
         name,
         description: description.trim() || null,
-        template: selected,
+        template: { id: selected.id, name: selected.name },
         openStudio: isCustom,
       });
       clearDiscardConfirm();
@@ -184,9 +195,7 @@ export function CompanyCreationWizard({
           and selectable at once (no carousel / pager dots). */}
       <div className="off-wiz-track" role="radiogroup" aria-label="Company template">
         {templates.map((t, i) => {
-          const m = TEMPLATE_META[t.id];
           const active = i === safeIndex;
-          const isCyo = t.id === 'create-your-own';
           return (
             <label
               key={t.id}
@@ -195,7 +204,7 @@ export function CompanyCreationWizard({
                 active && 'is-active',
                 busy && 'is-disabled',
               )}
-              style={active ? roleAccentStyle(m?.accentHex ?? UI_DATA_COLORS.blue2) : undefined}
+              style={active ? roleAccentStyle(t.accentHex) : undefined}
             >
               <input
                 type="radio"
@@ -205,15 +214,12 @@ export function CompanyCreationWizard({
                 disabled={busy}
                 onChange={() => setIndex(i)}
               />
-              <span
-                className="off-wiz-card-ic"
-                style={roleAccentStyle(m?.accentHex ?? UI_DATA_COLORS.ink3)}
-              >
-                <Icon icon={m?.icon ?? Wrench} size="md" />
+              <span className="off-wiz-card-ic" style={roleAccentStyle(t.accentHex)}>
+                <Icon icon={t.icon} size="md" />
               </span>
               <span className="off-wiz-card-nm">{t.name}</span>
               <span className="off-wiz-card-meta">
-                {isCyo ? 'Build in Studio' : `${t.employees.length} people`}
+                {t.isCustom ? 'Build in Studio' : `${t.employees.length} people`}
               </span>
             </label>
           );
@@ -223,11 +229,11 @@ export function CompanyCreationWizard({
       <div className="off-wiz-body">
         <div className="off-wiz-stage">
           <div className="off-wiz-stage-frame">
-            {isCustom ? (
+            {isCustom && selected ? (
               <div className="off-wiz-cyo-stage">
                 <CyoBlueprint />
                 <div className="off-wiz-cyo-caps">
-                  {(meta?.capabilities ?? []).map((c) => (
+                  {selected.capabilities.map((c) => (
                     <span key={c} className="off-wiz-cyo-cap">
                       <span className="off-wiz-cyo-dot" />
                       {c}
@@ -237,10 +243,7 @@ export function CompanyCreationWizard({
                 <p className="off-wiz-cyo-note">Opens in Studio after you create it.</p>
               </div>
             ) : selected ? (
-              <TemplatePreview
-                template={selected}
-                accentHex={meta?.accentHex ?? UI_DATA_COLORS.blue3}
-              />
+              <TemplatePreview template={selected} accentHex={selected.accentHex} />
             ) : null}
           </div>
         </div>
@@ -255,7 +258,7 @@ export function CompanyCreationWizard({
               <summary>Team · {selected.employees.length}</summary>
               <div className="off-wiz-team-list">
                 {selected.employees.map((e) => (
-                  <EmployeeCard key={e.name} template={selected.id} employee={e} />
+                  <EmployeeCard key={e.key} templateId={selected.id} employee={e} />
                 ))}
               </div>
             </details>

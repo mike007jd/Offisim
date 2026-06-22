@@ -30,6 +30,7 @@ import type {
   ToolCallRow,
   ToolPermissionApprovalRow,
   WorkstationRackRow,
+  WorkstationRow,
 } from '../repositories.js';
 import type { MemoryInstallRepositoriesSnapshot } from './install/memory.js';
 import type { InMemoryMemoryRepository } from './memory-system/memory.js';
@@ -67,6 +68,7 @@ export interface MemoryRepositoriesSnapshot extends MemoryInstallRepositoriesSna
   libraryDocuments: LibraryDocumentRow[];
   officeLayouts: OfficeLayoutRow[];
   zones: ZoneRow[];
+  workstations?: WorkstationRow[];
   prefabInstances: ReturnType<ReturnType<typeof createMemoryPrefabRepository>['snapshot']>;
   projects: ProjectRow[];
   projectAssignments: ProjectAssignmentRow[];

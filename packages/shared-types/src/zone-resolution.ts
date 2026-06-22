@@ -114,3 +114,22 @@ export function resolveEmployeeZone(
 ): string {
   return resolveZoneForRole(agent.role, zones)?.zoneId ?? UNASSIGNED_ZONE_ID;
 }
+
+/**
+ * Resolve an employee's *home* zone: an explicit `homeZoneSlug` (matched by bare
+ * slug) wins; otherwise role→zone resolution decides. Returns the resolved
+ * {@link Zone} (or null if nothing matches).
+ *
+ * Single source of truth for home-zone placement so template materialization,
+ * the legacy backfill, and the wizard preview can never drift apart.
+ */
+export function resolveHomeZone(
+  employee: { role: RoleSlug; homeZoneSlug?: string | null },
+  zones: readonly Zone[],
+): Zone | null {
+  if (employee.homeZoneSlug) {
+    const bySlug = zones.find((zone) => extractZoneSlug(zone.zoneId) === employee.homeZoneSlug);
+    if (bySlug) return bySlug;
+  }
+  return resolveZoneForRole(employee.role, zones);
+}

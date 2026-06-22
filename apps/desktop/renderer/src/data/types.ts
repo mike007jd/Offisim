@@ -30,20 +30,6 @@ export interface Project {
   branch: string | null;
 }
 
-export interface TemplateEmployee {
-  name: string;
-  role: string;
-  appearance: EmployeeAppearance;
-}
-
-export interface CompanyTemplate {
-  id: string;
-  name: string;
-  description: string;
-  layoutPreset: string;
-  employees: TemplateEmployee[];
-}
-
 type EmployeeKind = 'internal' | 'external';
 
 /** Live presence derived from the runtime: idle in office, executing a run,

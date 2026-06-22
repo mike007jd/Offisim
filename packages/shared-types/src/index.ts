@@ -396,6 +396,7 @@ export {
   resolveZoneForPosition,
   resolveZoneForRole,
   resolveEmployeeZone,
+  resolveHomeZone,
 } from './zone-resolution.js';
 
 export type {

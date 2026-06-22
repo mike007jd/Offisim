@@ -6,8 +6,11 @@ import type {
   CompanyTemplateAssetRow,
   NewCompanyTemplateAsset,
   NewOfficeLayout,
+  NewWorkstation,
   OfficeLayoutRepository,
   OfficeLayoutRow,
+  WorkstationRepository,
+  WorkstationRow,
 } from '../../repositories.js';
 import type { MemoryRepositoriesSnapshot } from '../memory-types.js';
 import { cloneRows, now } from '../memory-utils.js';
@@ -233,11 +236,48 @@ export function createMemoryPrefabRepository(
   return new MemoryPrefabInstanceRepository(snapshot);
 }
 
+export class MemoryWorkstationRepository implements WorkstationRepository {
+  private readonly store = new Map<string, WorkstationRow>();
+
+  constructor(initialRows?: Iterable<WorkstationRow>) {
+    if (!initialRows) return;
+    for (const row of initialRows) {
+      this.store.set(row.workstation_id, { ...row });
+    }
+  }
+
+  async upsert(workstation: NewWorkstation): Promise<WorkstationRow> {
+    const existing = this.store.get(workstation.workstation_id);
+    const row: WorkstationRow = {
+      ...workstation,
+      // On conflict, DB backends keep the original company_id + created_at and
+      // only refresh the mutable fields; mirror that so test fidelity matches.
+      company_id: existing?.company_id ?? workstation.company_id,
+      created_at: existing?.created_at ?? workstation.created_at ?? now(),
+      updated_at: now(),
+    };
+    this.store.set(row.workstation_id, row);
+    return { ...row };
+  }
+  async findById(workstationId: string): Promise<WorkstationRow | null> {
+    const row = this.store.get(workstationId);
+    return row ? { ...row } : null;
+  }
+  async findByCompany(companyId: string): Promise<WorkstationRow[]> {
+    return [...this.store.values()].filter((w) => w.company_id === companyId);
+  }
+
+  snapshot(): WorkstationRow[] {
+    return cloneRows(this.store.values());
+  }
+}
+
 export interface WorkspaceMemoryRepos {
   companyTemplates: MemoryCompanyTemplateAssetRepository;
   officeLayouts: MemoryOfficeLayoutRepository;
   prefabInstances: MemoryPrefabInstanceRepository;
   zones: MemoryZoneRepository;
+  workstations: MemoryWorkstationRepository;
 }
 
 export function createWorkspaceMemoryRepos(
@@ -247,5 +287,6 @@ export function createWorkspaceMemoryRepos(
   const officeLayouts = new MemoryOfficeLayoutRepository(snapshot?.officeLayouts);
   const prefabInstances = createMemoryPrefabRepository(snapshot?.prefabInstances);
   const zones = new MemoryZoneRepository(snapshot?.zones);
-  return { companyTemplates, officeLayouts, prefabInstances, zones };
+  const workstations = new MemoryWorkstationRepository(snapshot?.workstations);
+  return { companyTemplates, officeLayouts, prefabInstances, zones, workstations };
 }

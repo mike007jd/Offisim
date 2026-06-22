@@ -18,6 +18,7 @@ export interface WorkspaceTauriRepos {
   officeLayouts: RuntimeRepositories['officeLayouts'];
   prefabInstances: RuntimeRepositories['prefabInstances'];
   zones: RuntimeRepositories['zones'];
+  workstations: RuntimeRepositories['workstations'];
 }
 
 export function createWorkspaceTauriRepos(db: TauriDrizzleDb): WorkspaceTauriRepos {
@@ -196,5 +197,47 @@ export function createWorkspaceTauriRepos(db: TauriDrizzleDb): WorkspaceTauriRep
     },
   };
 
-  return { companyTemplates, officeLayouts, prefabInstances, zones };
+  const workstations: RuntimeRepositories['workstations'] = {
+    async upsert(workstation) {
+      const ts = now();
+      const row = {
+        ...workstation,
+        created_at: workstation.created_at ?? ts,
+        updated_at: ts,
+      };
+      await db
+        .insert(schema.workstations)
+        .values(row)
+        .onConflictDoUpdate({
+          target: schema.workstations.workstation_id,
+          set: {
+            room_type: row.room_type,
+            label: row.label,
+            position_json: row.position_json,
+            seat_capacity: row.seat_capacity,
+            updated_at: ts,
+          },
+        });
+      return row;
+    },
+    async findById(workstationId) {
+      const rows = await db
+        .select()
+        .from(schema.workstations)
+        .where(eq(schema.workstations.workstation_id, workstationId));
+      return (rows[0] ?? null) as Awaited<
+        ReturnType<RuntimeRepositories['workstations']['findById']>
+      >;
+    },
+    async findByCompany(companyId) {
+      return (await db
+        .select()
+        .from(schema.workstations)
+        .where(eq(schema.workstations.company_id, companyId))) as Awaited<
+        ReturnType<RuntimeRepositories['workstations']['findByCompany']>
+      >;
+    },
+  };
+
+  return { companyTemplates, officeLayouts, prefabInstances, zones, workstations };
 }

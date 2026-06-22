@@ -806,6 +806,37 @@ export interface WorkstationRackRepository {
 }
 
 // ---------------------------------------------------------------------------
+// Workstations (employee desk/seat anchors; zone-level rows use the zone id)
+// ---------------------------------------------------------------------------
+
+export interface WorkstationRow {
+  workstation_id: string;
+  company_id: string;
+  room_type: string;
+  label: string;
+  position_json: string | null;
+  seat_capacity: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type NewWorkstation = Omit<WorkstationRow, 'created_at' | 'updated_at'> & {
+  created_at?: string;
+  updated_at?: string;
+};
+
+export interface WorkstationRepository {
+  /**
+   * Create or update a workstation. Zone-level home workstations use the zone id
+   * as the workstation id, so the office scene resolves an employee's seat by
+   * matching `employee.workstation_id === zone.zone_id`.
+   */
+  upsert(workstation: NewWorkstation): Promise<WorkstationRow>;
+  findById(workstationId: string): Promise<WorkstationRow | null>;
+  findByCompany(companyId: string): Promise<WorkstationRow[]>;
+}
+
+// ---------------------------------------------------------------------------
 // Library documents
 // ---------------------------------------------------------------------------
 
@@ -1170,6 +1201,8 @@ export interface RuntimeRepositories {
   officeLayouts: OfficeLayoutRepository;
   prefabInstances: PrefabInstanceRepository;
   zones: ZoneRepository;
+  /** Workstation rows (zone-level home seats + future desk anchors). */
+  workstations: WorkstationRepository;
   projects: ProjectRepository;
   projectAssignments: ProjectAssignmentRepository;
   chatThreads: ChatThreadRepository;

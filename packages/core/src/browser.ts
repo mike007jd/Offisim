@@ -146,8 +146,11 @@ export type { RetryConfig } from './llm/retry.js';
 export type { TeeResult } from './llm/stream-tee.js';
 export type { VersionDiff } from './runtime/employee-version-service.js';
 export type {
-  CompanyTemplate,
-  CompanyTemplateEmployee,
+  CompanyTemplateDefinition,
+  TemplateEmployeeDefinition,
+  TemplateEmployeePersona,
+  TemplatePersonaProfile,
+  TemplatePresentation,
   TemplateZoneBlueprint,
 } from './templates/index.js';
 export type {
@@ -286,7 +289,14 @@ export {
 export { EmployeeVersionService } from './runtime/employee-version-service.js';
 export { RackSlotService } from './services/rack-slot-service.js';
 export { CompanyTemplateService } from './services/company-template-service.js';
-export { listTemplates, getTemplate } from './templates/index.js';
+export { backfillTemplateCompany } from './services/template-backfill.js';
+export type { TemplateBackfillResult } from './services/template-backfill.js';
+export {
+  listTemplates,
+  getTemplate,
+  serializeTemplatePersona,
+  TEMPLATE_EMPLOYEE_CONFIG_JSON,
+} from './templates/index.js';
 export { DEFAULT_COST_RATES, seedDefaultCostRates } from './runtime/default-cost-rates.js';
 export { WorkstationAssignmentService } from './runtime/workstation-assignment-service.js';
 export { WorkstationToolResolver } from './services/workstation-tool-resolver.js';

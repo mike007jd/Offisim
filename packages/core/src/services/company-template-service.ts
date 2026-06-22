@@ -5,28 +5,39 @@ import {
   extractZoneSlug,
   getSystemZoneDefaultPrefabs,
   normalizeZoneId,
+  resolveHomeZone,
   resolveNonOverlappingPrefabOffsets,
   resolveZoneForRole,
   templateToZone,
 } from '@offisim/shared-types';
+import { buildZoneHomeWorkstation } from './home-workstation.js';
 import { dehydrateZone } from './zone-service.js';
 
 import type { EventBus } from '../events/event-bus.js';
 import { employeeCreated } from '../events/event-factories.js';
 import type { PrefabInstanceRepository } from '../repos/prefab-instance-repository.js';
 import type { ZoneRepository } from '../repos/zone-repository.js';
-import type { EmployeeRepository, OfficeLayoutRepository } from '../runtime/repositories.js';
-import type { CompanyTemplate, TemplateZoneBlueprint } from '../templates/index.js';
-import { getTemplate, listTemplates as listAllTemplates } from '../templates/index.js';
+import type {
+  EmployeeRepository,
+  OfficeLayoutRepository,
+  WorkstationRepository,
+} from '../runtime/repositories.js';
+import type { CompanyTemplateDefinition, TemplateZoneBlueprint } from '../templates/index.js';
+import {
+  TEMPLATE_EMPLOYEE_CONFIG_JSON,
+  getTemplate,
+  listTemplates as listAllTemplates,
+  serializeTemplatePersona,
+} from '../templates/index.js';
 import { ZoneService } from './zone-service.js';
 
-function getZoneTemplates(template: CompanyTemplate): readonly TemplateZoneBlueprint[] {
+function getZoneTemplates(template: CompanyTemplateDefinition): readonly TemplateZoneBlueprint[] {
   return template.zones ?? (SYSTEM_ZONE_TEMPLATES as readonly TemplateZoneBlueprint[]);
 }
 
 function buildAvailableZones(
   companyId: string,
-  template: CompanyTemplate,
+  template: CompanyTemplateDefinition,
   zoneTemplates = getZoneTemplates(template),
 ): Zone[] {
   return zoneTemplates.map((zoneTemplate) => templateToZone(zoneTemplate, companyId));
@@ -201,7 +212,7 @@ function buildPrefabInstances(
   ];
 }
 
-function validateTemplateZones(template: CompanyTemplate): void {
+function validateTemplateZones(template: CompanyTemplateDefinition): void {
   // Validate against the effective zones (custom `zones` or the system fallback),
   // so zone-less templates are not silently exempted from these invariants.
   const zoneTemplates = getZoneTemplates(template);
@@ -243,10 +254,10 @@ function validateTemplateZones(template: CompanyTemplate): void {
   }
 
   for (const employee of template.employees) {
-    const matchedZone = resolveZoneForRole(employee.role_slug, availableZones);
+    const matchedZone = resolveZoneForRole(employee.roleSlug, availableZones);
     if (!matchedZone || matchedZone.archetype !== 'workspace') {
       throw new Error(
-        `Template "${template.id}" has employee role "${employee.role_slug}" without a matching workspace zone`,
+        `Template "${template.id}" has employee role "${employee.roleSlug}" without a matching workspace zone`,
       );
     }
   }
@@ -272,24 +283,27 @@ export class CompanyTemplateService {
     private readonly prefabRepo?: PrefabInstanceRepository,
     private readonly transact?: <T>(fn: () => T) => T,
     zoneRepo?: ZoneRepository,
+    private readonly workstationRepo?: WorkstationRepository,
   ) {
     this.zoneRepo = zoneRepo ?? null;
     this.zoneService = zoneRepo ? new ZoneService(zoneRepo) : null;
   }
 
   /** List available built-in templates */
-  listTemplates(): readonly CompanyTemplate[] {
+  listTemplates(): readonly CompanyTemplateDefinition[] {
     return listAllTemplates();
   }
 
   /**
-   * Materialize a template into a real company with employees, layout, and
-   * (optionally) default prefab instances for each zone.
+   * Materialize a template into a real company with employees, layout, zones,
+   * home-zone workstations, and (optionally) default prefab instances.
    * Returns the IDs of all created entities.
    *
-   * When `transact` is provided (Drizzle/better-sqlite3 runtime), all DB writes
-   * are wrapped in a single SQLite transaction for atomicity. Event emissions
-   * happen after the transaction commits.
+   * When `transact` is provided (Drizzle/better-sqlite3 runtime), the employee /
+   * layout / zone / prefab writes are wrapped in a single SQLite transaction for
+   * atomicity. Home-workstation creation + employee workstation assignment run
+   * afterward as awaited, idempotent upserts (workstation id == zone id), so the
+   * office scene resolves every employee's seat by `workstation_id === zone_id`.
    */
   async materializeTemplate(
     templateId: string,
@@ -309,33 +323,28 @@ export class CompanyTemplateService {
     const zoneTemplates = getZoneTemplates(template);
     const availableZones = buildAvailableZones(companyId, template, zoneTemplates);
 
+    const employeeIds: string[] = [];
+    const createdEmployees: Array<{ role_slug: RoleSlug }> = template.employees.map((emp) => ({
+      role_slug: emp.roleSlug,
+    }));
+    let layoutId: string | null = null;
+    const prefabInstanceIds: string[] = [];
+
     if (this.transact) {
       // ── Drizzle path: all writes in one transaction ──────────────────────
       // Pre-generate all IDs so we don't need to await inside the sync callback.
       // Events are collected and fired after the transaction commits.
-
       type EmployeeEvent = { employeeId: string; name: string; roleSlug: RoleSlug };
       const pendingEvents: EmployeeEvent[] = [];
 
-      const employeeIds: string[] = [];
-      const createdEmployees: Array<{ role_slug: RoleSlug }> = [];
-
-      // Pre-generate employee IDs and pass them to the repo deterministically.
       for (const emp of template.employees) {
         const empId = crypto.randomUUID();
         employeeIds.push(empId);
-        createdEmployees.push({ role_slug: emp.role_slug });
-        pendingEvents.push({
-          employeeId: empId,
-          name: emp.name,
-          roleSlug: emp.role_slug,
-        });
+        pendingEvents.push({ employeeId: empId, name: emp.name, roleSlug: emp.roleSlug });
       }
 
-      const layoutId = `layout_${crypto.randomUUID()}`;
-      const prefabInstanceIds: string[] = [];
+      layoutId = `layout_${crypto.randomUUID()}`;
 
-      // Pre-build all prefab instances
       const prefabInstances = this.prefabRepo
         ? buildPrefabInstances(companyId, createdEmployees, zoneTemplates, availableZones, now)
         : [];
@@ -350,15 +359,15 @@ export class CompanyTemplateService {
             source_asset_id: null,
             source_package_id: null,
             name: emp.name,
-            role_slug: emp.role_slug,
-            persona_json: emp.persona_json,
-            config_json: emp.config_json,
+            role_slug: emp.roleSlug,
+            persona_json: serializeTemplatePersona(emp),
+            config_json: TEMPLATE_EMPLOYEE_CONFIG_JSON,
           });
         }
 
         // Layout
         void this.officeLayoutRepo.create({
-          layout_id: layoutId,
+          layout_id: layoutId as string,
           company_id: companyId,
           name: `${template.name} Layout`,
           layout_json: JSON.stringify({ preset: template.layoutPreset }),
@@ -371,8 +380,7 @@ export class CompanyTemplateService {
         // and the drizzle repo create is sync-bodied, a direct loop keeps every
         // write inside the same BEGIN...COMMIT span.
         if (this.zoneRepo) {
-          const templatesToSeed = zoneTemplates ?? SYSTEM_ZONE_TEMPLATES;
-          for (const t of templatesToSeed) {
+          for (const t of zoneTemplates) {
             void this.zoneRepo.create(dehydrateZone(templateToZone(t, companyId)));
           }
         }
@@ -391,71 +399,100 @@ export class CompanyTemplateService {
           employeeCreated(companyId, employeeIds[i] ?? ev.employeeId, ev.name, ev.roleSlug),
         );
       }
+    } else {
+      // ── Async/memory-repos path ────────────────────────────────────────────
 
-      return {
-        employeeIds,
-        layoutId,
-        prefabInstanceIds,
-      };
-    }
+      for (const emp of template.employees) {
+        const result = await this.employeeRepo.create({
+          company_id: companyId,
+          source_asset_id: null,
+          source_package_id: null,
+          name: emp.name,
+          role_slug: emp.roleSlug,
+          persona_json: serializeTemplatePersona(emp),
+          config_json: TEMPLATE_EMPLOYEE_CONFIG_JSON,
+        });
+        employeeIds.push(result.employee_id);
 
-    // ── Async/memory-repos path ──────────────────────────────────────────────
+        // Emit employee.created so SceneManager and UI hooks pick up the new employee
+        this.eventBus.emit(employeeCreated(companyId, result.employee_id, emp.name, emp.roleSlug));
+      }
 
-    // ── Create employees ───────────────────────────────────────────
-    const employeeIds: string[] = [];
-    const createdEmployees: Array<{ role_slug: RoleSlug }> = [];
-
-    for (const emp of template.employees) {
-      const result = await this.employeeRepo.create({
+      layoutId = `layout_${crypto.randomUUID()}`;
+      await this.officeLayoutRepo.create({
+        layout_id: layoutId,
         company_id: companyId,
-        source_asset_id: null,
-        source_package_id: null,
-        name: emp.name,
-        role_slug: emp.role_slug,
-        persona_json: emp.persona_json,
-        config_json: emp.config_json,
+        name: `${template.name} Layout`,
+        layout_json: JSON.stringify({ preset: template.layoutPreset }),
+        is_active: 1,
       });
-      employeeIds.push(result.employee_id);
-      createdEmployees.push({ role_slug: emp.role_slug });
 
-      // Emit employee.created so SceneManager and UI hooks pick up the new employee
-      this.eventBus.emit(employeeCreated(companyId, result.employee_id, emp.name, emp.role_slug));
-    }
+      if (this.zoneService) {
+        await this.zoneService.seedSystemZones(companyId, zoneTemplates);
+      }
 
-    // ── Create office layout ───────────────────────────────────────
-    let layoutId: string | null = null;
-    layoutId = `layout_${crypto.randomUUID()}`;
-    await this.officeLayoutRepo.create({
-      layout_id: layoutId,
-      company_id: companyId,
-      name: `${template.name} Layout`,
-      layout_json: JSON.stringify({ preset: template.layoutPreset }),
-      is_active: 1,
-    });
-
-    // ── Seed system zones ──────────────────────────────────────────
-    if (this.zoneService) {
-      await this.zoneService.seedSystemZones(companyId, zoneTemplates);
-    }
-
-    // ── Create default prefab instances (if repo provided) ─────────
-    const prefabInstanceIds: string[] = [];
-
-    if (this.prefabRepo) {
-      const prefabInstances = buildPrefabInstances(
-        companyId,
-        createdEmployees,
-        zoneTemplates,
-        availableZones,
-        now,
-      );
-
-      for (const instance of prefabInstances) {
-        await this.prefabRepo.create(instance);
-        prefabInstanceIds.push(instance.instance_id);
+      if (this.prefabRepo) {
+        const prefabInstances = buildPrefabInstances(
+          companyId,
+          createdEmployees,
+          zoneTemplates,
+          availableZones,
+          now,
+        );
+        for (const instance of prefabInstances) {
+          await this.prefabRepo.create(instance);
+          prefabInstanceIds.push(instance.instance_id);
+        }
       }
     }
 
+    // ── Home-zone workstations + employee assignment (shared, awaited) ────────
+    // Runs after the create work so the referenced zone rows already exist. The
+    // workstation row id equals the zone id; upserts are idempotent.
+    await this.assignHomeWorkstations(companyId, template, availableZones, employeeIds, now);
+
     return { employeeIds, layoutId, prefabInstanceIds };
+  }
+
+  /**
+   * Create one zone-level workstation per occupied home zone and point each
+   * employee's `workstation_id` at it. Skips silently if no workstation repo is
+   * wired (the employee still has no seat, matching the prior behavior).
+   */
+  private async assignHomeWorkstations(
+    companyId: string,
+    template: CompanyTemplateDefinition,
+    availableZones: readonly Zone[],
+    employeeIds: readonly string[],
+    now: string,
+  ): Promise<void> {
+    // No workstation repo → leave employees seatless rather than pointing
+    // `workstation_id` at a row that was never created (a dangling reference).
+    const workstationRepo = this.workstationRepo;
+    if (!workstationRepo) return;
+
+    const homeZoneByIndex = template.employees.map((emp) =>
+      resolveHomeZone({ role: emp.roleSlug, homeZoneSlug: emp.homeZoneSlug }, availableZones),
+    );
+
+    const seatZones = new Map<string, Zone>();
+    const counts = new Map<string, number>();
+    for (const zone of homeZoneByIndex) {
+      if (!zone) continue;
+      seatZones.set(zone.zoneId, zone);
+      counts.set(zone.zoneId, (counts.get(zone.zoneId) ?? 0) + 1);
+    }
+    for (const [zoneId, zone] of seatZones) {
+      await workstationRepo.upsert(
+        buildZoneHomeWorkstation(zone, companyId, counts.get(zoneId) ?? 1, now),
+      );
+    }
+
+    for (const [i, zone] of homeZoneByIndex.entries()) {
+      const employeeId = employeeIds[i];
+      if (zone && employeeId) {
+        await this.employeeRepo.update(employeeId, { workstation_id: zone.zoneId });
+      }
+    }
   }
 }

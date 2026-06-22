@@ -81,6 +81,7 @@ export function LifecycleSurface() {
           repos.prefabInstances,
           undefined,
           repos.zones,
+          repos.workstations,
         );
         await templateService.materializeTemplate(request.template.id, companyId);
       }

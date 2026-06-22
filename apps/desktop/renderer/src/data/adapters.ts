@@ -74,7 +74,7 @@ function toHex(value: unknown): string | undefined {
   return undefined;
 }
 
-function normalizeAppearance(raw: unknown): EmployeeAppearance | undefined {
+export function normalizeAppearance(raw: unknown): EmployeeAppearance | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
   const a = raw as Record<string, unknown>;
   const out: EmployeeAppearance = {};

@@ -1,4 +1,8 @@
-import { aiStartupTemplate } from '@offisim/core/templates';
+import {
+  TEMPLATE_EMPLOYEE_CONFIG_JSON,
+  aiStartupTemplate,
+  serializeTemplatePersona,
+} from '@offisim/core/templates';
 import type { OfficialSeedPayload } from '../types.js';
 
 const SLUG = 'offisim/sample-marketing-strategist';
@@ -14,15 +18,11 @@ if (!sourceEmployee) {
   throw new Error('ai-startup template is empty — cannot seed sample employee');
 }
 
-const persona = JSON.parse(sourceEmployee.persona_json) as {
-  expertise: string;
-  style: string;
-  characterConfig?: Record<string, unknown>;
-};
+const profile = sourceEmployee.persona.profile;
 
 const summary =
   'AI product strategist for market-facing workflows: turns ML capabilities into user-facing product plans, researches users and competitors, calibrates trust/explainability, and shapes pricing and responsible AI launch decisions.';
-const description = `${persona.expertise}\n\n**Working style.** ${persona.style}`;
+const description = `${profile.expertise}\n\n**Working style.** ${profile.workingStyle}`;
 
 const HERO_SVG = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" role="img" aria-label="Sample Marketing Strategist">
@@ -80,8 +80,8 @@ const screenshotBriefUri = `data:image/svg+xml;base64,${Buffer.from(SCREENSHOT_B
 const employeeAsset = {
   name: 'Sample Marketing Strategist',
   role_slug: ASSET_ID,
-  persona_json: sourceEmployee.persona_json,
-  config_json: sourceEmployee.config_json,
+  persona_json: serializeTemplatePersona(sourceEmployee),
+  config_json: TEMPLATE_EMPLOYEE_CONFIG_JSON,
 };
 
 export const employeeSeed: OfficialSeedPayload = {

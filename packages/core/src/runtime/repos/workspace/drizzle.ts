@@ -22,6 +22,7 @@ export interface WorkspaceDrizzleRepos {
   officeLayouts: RuntimeRepositories['officeLayouts'];
   prefabInstances: RuntimeRepositories['prefabInstances'];
   zones: RuntimeRepositories['zones'];
+  workstations: RuntimeRepositories['workstations'];
 }
 
 export function createWorkspaceDrizzleRepos(db: Db): WorkspaceDrizzleRepos {
@@ -213,5 +214,48 @@ export function createWorkspaceDrizzleRepos(db: Db): WorkspaceDrizzleRepos {
     },
   };
 
-  return { companyTemplates, officeLayouts, prefabInstances, zones };
+  const workstations: RuntimeRepositories['workstations'] = {
+    // NOTE: not `async` — see EmployeeRepository.create for rationale.
+    upsert(workstation) {
+      const ts = now();
+      const row = {
+        ...workstation,
+        created_at: workstation.created_at ?? ts,
+        updated_at: ts,
+      };
+      db.insert(schema.workstations)
+        .values(row)
+        .onConflictDoUpdate({
+          target: schema.workstations.workstation_id,
+          set: {
+            room_type: row.room_type,
+            label: row.label,
+            position_json: row.position_json,
+            seat_capacity: row.seat_capacity,
+            updated_at: ts,
+          },
+        })
+        .run();
+      return Promise.resolve(row);
+    },
+    async findById(workstationId) {
+      const rows = db
+        .select()
+        .from(schema.workstations)
+        .where(eq(schema.workstations.workstation_id, workstationId))
+        .all();
+      return (rows[0] ?? null) as Awaited<
+        ReturnType<RuntimeRepositories['workstations']['findById']>
+      >;
+    },
+    async findByCompany(companyId) {
+      return db
+        .select()
+        .from(schema.workstations)
+        .where(eq(schema.workstations.company_id, companyId))
+        .all() as Awaited<ReturnType<RuntimeRepositories['workstations']['findByCompany']>>;
+    },
+  };
+
+  return { companyTemplates, officeLayouts, prefabInstances, zones, workstations };
 }
