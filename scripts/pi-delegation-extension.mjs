@@ -10,6 +10,7 @@
 // recursion arrives in Phase 2).
 
 import { Type } from 'typebox';
+import { WORK_KINDS } from './pi-agent-host-wire.mjs';
 
 const DelegateParams = Type.Object({
   tasks: Type.Array(
@@ -21,12 +22,31 @@ const DelegateParams = Type.Object({
           description: 'Capability band. read = investigate; write = edit/run; review = read + run checks. Default: read.',
         }),
       ),
+      workKind: Type.Optional(
+        Type.Union(
+          WORK_KINDS.map((kind) => Type.Literal(kind)),
+          {
+            description:
+              'The kind of work: plan, research, design, implement, review, test, compute, publish, present, coordinate. Optional; shapes how the teammate is staged.',
+          },
+        ),
+      ),
+      relation: Type.Optional(
+        Type.Union(
+          [Type.Literal('delegate'), Type.Literal('review'), Type.Literal('handoff')],
+          {
+            description:
+              'Parent-child relation. Default: review for review-like work (workKind/access review), else delegate.',
+          },
+        ),
+      ),
     }),
-    { description: 'Tasks to delegate. Phase 1 runs the first task (single mode).' },
+    { description: 'Tasks to delegate. single mode requires exactly one; parallel allows several.' },
   ),
-  mode: Type.Optional(
+  executionMode: Type.Optional(
     Type.Union([Type.Literal('single'), Type.Literal('parallel')], {
-      description: 'single awaits one teammate; parallel (later) fans out. Default: single.',
+      description:
+        'single = exactly one task, awaited; parallel = fan out one or more concurrently. Default: single.',
     }),
   ),
 });
@@ -69,12 +89,25 @@ export function createDelegationExtensionFactory(supervisor) {
             isError: true,
           };
         }
-        // parallel runs every task concurrently (capped by maxConcurrentChildren);
-        // single (default) awaits just the first task.
-        const parallel = params.mode === 'parallel' || tasks.length > 1;
-        const text = parallel
-          ? await supervisor.runParallel(tasks, signal)
-          : await supervisor.runSingle(tasks[0], signal);
+        // executionMode is honest about the fan-out: single awaits exactly one
+        // teammate; parallel fans out one or more. An ambiguous call (multiple
+        // tasks without parallel) is rejected rather than silently coerced.
+        const executionMode = params.executionMode === 'parallel' ? 'parallel' : 'single';
+        if (executionMode === 'single' && tasks.length !== 1) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `delegate: single mode runs exactly one task (got ${tasks.length}). Use executionMode "parallel" to fan out, or send one task.`,
+              },
+            ],
+            isError: true,
+          };
+        }
+        const text =
+          executionMode === 'parallel'
+            ? await supervisor.runParallel(tasks, signal)
+            : await supervisor.runSingle(tasks[0], signal);
         return { content: [{ type: 'text', text }] };
       },
     });

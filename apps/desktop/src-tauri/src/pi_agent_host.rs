@@ -203,6 +203,8 @@ pub enum PiAgentHostEvent {
         employee_id: Option<String>,
         #[serde(default)]
         relation: Option<String>,
+        #[serde(default)]
+        work_kind: Option<String>,
         run_type: String,
         payload: serde_json::Value,
     },
@@ -346,6 +348,8 @@ enum PiSidecarLine {
         employee_id: Option<String>,
         #[serde(default)]
         relation: Option<String>,
+        #[serde(default)]
+        work_kind: Option<String>,
         run_type: String,
         payload: serde_json::Value,
     },
@@ -577,6 +581,7 @@ fn send_sidecar_event(
             parent_run_id,
             employee_id,
             relation,
+            work_kind,
             run_type,
             payload,
         } => {
@@ -589,6 +594,7 @@ fn send_sidecar_event(
                         parent_run_id,
                         employee_id,
                         relation,
+                        work_kind,
                         run_type,
                         payload,
                     })
@@ -1105,13 +1111,14 @@ mod tests {
         // Decode the neutral delegation envelope from camelCase wire, then
         // re-serialize the renderer-facing event and assert it stays camelCase
         // (incl. runType / rootRunId) with the opaque payload preserved.
-        let line = r#"{"kind":"agentRun","threadId":"t1","rootRunId":"r1","runId":"c1","parentRunId":"r1","employeeId":"e1","relation":"delegate","runType":"run.started","payload":{"objective":"scout","access":"read"}}"#;
+        let line = r#"{"kind":"agentRun","threadId":"t1","rootRunId":"r1","runId":"c1","parentRunId":"r1","employeeId":"e1","relation":"delegate","workKind":"research","runType":"run.started","payload":{"objective":"scout","access":"read"}}"#;
         match serde_json::from_str::<PiSidecarLine>(line).expect("decode agentRun line") {
             PiSidecarLine::AgentRun {
                 thread_id,
                 root_run_id,
                 run_id,
                 relation,
+                work_kind,
                 run_type,
                 payload,
                 ..
@@ -1120,6 +1127,7 @@ mod tests {
                 assert_eq!(root_run_id, "r1");
                 assert_eq!(run_id, "c1");
                 assert_eq!(relation.as_deref(), Some("delegate"));
+                assert_eq!(work_kind.as_deref(), Some("research"));
                 assert_eq!(run_type, "run.started");
                 assert_eq!(
                     payload.get("objective").and_then(|v| v.as_str()),
@@ -1136,6 +1144,7 @@ mod tests {
             parent_run_id: Some("r1".into()),
             employee_id: Some("e1".into()),
             relation: Some("delegate".into()),
+            work_kind: Some("research".into()),
             run_type: "run.completed".into(),
             payload: serde_json::json!({ "status": "completed" }),
         };
@@ -1143,6 +1152,10 @@ mod tests {
         assert!(
             json.contains(r#""rootRunId":"r1""#),
             "expected camelCase rootRunId, got: {json}"
+        );
+        assert!(
+            json.contains(r#""workKind":"research""#),
+            "expected camelCase workKind, got: {json}"
         );
         assert!(
             json.contains(r#""runType":"run.completed""#),

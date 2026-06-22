@@ -43,6 +43,7 @@ const SPEC = {
       'parentRunId',
       'employeeId',
       'relation',
+      'workKind',
       'runType',
       'payload',
     ],

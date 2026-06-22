@@ -39,6 +39,7 @@
     "parentRunId": "attempt_1",
     "employeeId": "emp_dev_1",
     "relation": "delegate",
+    "workKind": "research",
     "runType": "run.started",
     "payload": { "objective": "Investigate the failing test", "access": "read" }
   },

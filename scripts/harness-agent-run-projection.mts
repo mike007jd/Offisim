@@ -117,9 +117,9 @@ console.log('\n[parallel] team root + 3 parallel children running');
 {
   const stream: AgentRunEvent[] = [
     started({ runId: ROOT, workKind: 'plan' }, 'Ship the feature'),
-    started({ runId: 'c1', parentRunId: ROOT, employeeId: 'alex', relation: 'parallel', workKind: 'implement' }, 'Backend'),
-    started({ runId: 'c2', parentRunId: ROOT, employeeId: 'maya', relation: 'parallel', workKind: 'design' }, 'Frontend'),
-    started({ runId: 'c3', parentRunId: ROOT, employeeId: 'kai', relation: 'parallel', workKind: 'implement' }, 'Glue'),
+    started({ runId: 'c1', parentRunId: ROOT, employeeId: 'alex', relation: 'delegate', workKind: 'implement' }, 'Backend'),
+    started({ runId: 'c2', parentRunId: ROOT, employeeId: 'maya', relation: 'delegate', workKind: 'design' }, 'Frontend'),
+    started({ runId: 'c3', parentRunId: ROOT, employeeId: 'kai', relation: 'delegate', workKind: 'implement' }, 'Glue'),
     tool({ runId: 'c1', employeeId: 'alex' }, 'bash'),
     tool({ runId: 'c2', employeeId: 'maya' }, 'read_file'),
     artifact({ runId: 'c1', employeeId: 'alex' }, 'api.ts'),
@@ -238,8 +238,8 @@ console.log('\n[no-root] director root absent from the event stream');
   // Real shape: the root agent keeps its own stream, so AgentRunEvents carry
   // only the delegated children. rootRunId is known but has no node.
   const stream: AgentRunEvent[] = [
-    started({ runId: 'c1', parentRunId: ROOT, employeeId: 'alex', relation: 'parallel' }, 'A'),
-    started({ runId: 'c2', parentRunId: ROOT, employeeId: 'maya', relation: 'parallel' }, 'B'),
+    started({ runId: 'c1', parentRunId: ROOT, employeeId: 'alex', relation: 'delegate' }, 'A'),
+    started({ runId: 'c2', parentRunId: ROOT, employeeId: 'maya', relation: 'delegate' }, 'B'),
     tool({ runId: 'c1', employeeId: 'alex' }, 'write_file'),
   ];
   const p = projectAgentRun(stream);
@@ -255,7 +255,7 @@ console.log('\n[determinism] same stream → byte-identical projection');
 {
   const stream: AgentRunEvent[] = [
     started({ runId: ROOT, workKind: 'plan' }, 'x'),
-    started({ runId: 'c1', parentRunId: ROOT, employeeId: 'alex', relation: 'parallel' }, 'a'),
+    started({ runId: 'c1', parentRunId: ROOT, employeeId: 'alex', relation: 'delegate' }, 'a'),
     tool({ runId: 'c1', employeeId: 'alex' }, 'grep'),
     artifact({ runId: 'c1', employeeId: 'alex' }, 'out.txt'),
   ];

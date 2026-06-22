@@ -18,8 +18,16 @@
  * See `Docs/DELEGATION_ARCHITECTURE.md` for the full architecture.
  */
 
-/** How a child run relates to its parent. `handoff` is reserved (not v1). */
-export type AgentRunRelation = 'delegate' | 'parallel' | 'review' | 'handoff';
+/**
+ * How a run relates to its parent — a parent-child *relation*, never a fan-out
+ * shape. `delegate` hands off a bounded subtask; `review` is a check of prior
+ * work; `handoff` (reserved, not v1) transfers the user conversation. Parallel
+ * vs serial is {@link DelegateExecutionMode}, not a relation.
+ */
+export type AgentRunRelation = 'delegate' | 'review' | 'handoff';
+
+/** How a delegate tool call fans out: one awaited child, or several concurrent. */
+export type DelegateExecutionMode = 'single' | 'parallel';
 
 /** Terminal + in-flight states a run can be in. */
 export type AgentRunStatus = 'running' | 'completed' | 'failed' | 'cancelled';
@@ -203,8 +211,10 @@ export function classifyToolActivity(toolName: string): ActivityKind {
 }
 
 /**
- * Minimal delegation tool input (v1). `single` runs one child and awaits it;
- * `parallel` (Phase 2) fans out. The supervisor holds an async handle per child.
+ * Delegation tool input. `executionMode: 'single'` runs exactly one child and
+ * awaits it; `'parallel'` fans out one or more concurrently. `relation` is the
+ * parent-child semantics of each task (defaulting to `review` only for
+ * review-like tasks, else `delegate`) and is independent of the fan-out mode.
  */
 export interface DelegateTaskInput {
   readonly employeeId: string;
@@ -212,9 +222,11 @@ export interface DelegateTaskInput {
   readonly access: AgentRunAccess;
   /** Optional work semantics for the delegated run (flows to `AgentRunEvent.workKind`). */
   readonly workKind?: WorkKind;
+  /** Optional parent-child relation; resolved to a default when omitted. */
+  readonly relation?: AgentRunRelation;
 }
 
 export interface DelegateToolInput {
   readonly tasks: readonly DelegateTaskInput[];
-  readonly mode: 'single' | 'parallel';
+  readonly executionMode: DelegateExecutionMode;
 }

@@ -103,6 +103,7 @@ type PiAgentHostEvent =
       parentRunId?: string;
       employeeId?: string;
       relation?: string;
+      workKind?: string;
       runType: string;
       payload: unknown;
     }
@@ -142,6 +143,7 @@ export const PI_WIRE_CONTRACT_EXAMPLES = [
     parentRunId: 'attempt-1',
     employeeId: 'emp-1',
     relation: 'delegate',
+    workKind: 'research',
     runType: 'run.started',
     payload: { objective: 'scout', access: 'read' },
   },
@@ -236,6 +238,10 @@ function toolStatus(status: PiAgentHostEvent & { kind: 'tool' }) {
 
 class DesktopPiAgentRuntime implements DesktopAgentRuntime {
   private readonly inFlightByThread = new Map<string, string>();
+  // Request ids the user aborted. A Rust-side abort kills the host and resolves
+  // the invoke with empty text (not an error), so execute() consults this to
+  // classify the root run's terminal as cancelled rather than completed/failed.
+  private readonly abortedRequests = new Set<string>();
   // Serializes all agent_runs writes in event-arrival order. agentRun events
   // stream in order on the Channel, but each persist is async — chaining them
   // guarantees a child's run.started row is created before its run.completed
@@ -261,6 +267,32 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     let finalText = '';
     let reasoningText = '';
     let channelError: Error | null = null;
+
+    // The renderer is the AgentRunEventNormalizer for the ROOT run: it already
+    // sees every root fact as a legacy wire line (tool / uiRequest / result /
+    // error), so it synthesizes the root's neutral agent.run stream here — the
+    // SAME contract child runs arrive on from the host supervisor. The root's
+    // runId IS its rootRunId and it has no parent/relation. Every user run gets
+    // this stream (not only delegating ones), so a plain dev task drives the
+    // office dramaturgy + run projection just like delegated work.
+    const permissionMode = input.permissionMode?.trim() || resolveThreadMode(input.threadId);
+    const rootAccess: 'read' | 'write' = permissionMode === 'plan' ? 'read' : 'write';
+    const rootRun = (
+      type: AgentRunEvent['type'],
+      payload: AgentRunEvent['payload'],
+    ): AgentRunEvent =>
+      ({
+        threadId: input.threadId,
+        rootRunId: runScope.runId,
+        runId: runScope.runId,
+        ...(input.employeeId ? { employeeId: input.employeeId } : {}),
+        type,
+        payload,
+      }) as AgentRunEvent;
+    const emitRootBus = (evt: AgentRunEvent): void => {
+      runtimeEventBus.emit(agentRunEvent(this.companyId, evt));
+    };
+
     const onEvent = new Channel<PiAgentHostEvent>();
     onEvent.onmessage = (event) => {
       if (event.kind === 'messageDelta' && event.delta) {
@@ -310,6 +342,25 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
             chatRunId: runScope.runId,
           }),
         );
+        // Normalize the root's tool call onto the run stream (started → completed;
+        // the transient `running` update has no agentRun counterpart).
+        if (event.status === 'started') {
+          emitRootBus(
+            rootRun('tool.started', {
+              toolCallId: event.toolCallId,
+              toolName: event.toolName,
+              status: 'started',
+            }),
+          );
+        } else if (event.status === 'completed' || event.status === 'failed') {
+          emitRootBus(
+            rootRun('tool.completed', {
+              toolCallId: event.toolCallId,
+              toolName: event.toolName,
+              status: event.status,
+            }),
+          );
+        }
         return;
       }
       if (event.kind === 'uiRequest') {
@@ -329,6 +380,17 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
             prefill: event.prefill,
           }),
         );
+        // A confirm prompt is an approval request — surface it on the run stream
+        // so the office stages an approval beat (same contract as a child's).
+        if (event.method === 'confirm') {
+          emitRootBus(
+            rootRun('approval.requested', {
+              uiRequestId: event.id,
+              title: event.title,
+              message: event.message,
+            }),
+          );
+        }
         return;
       }
       if (event.kind === 'agentRun') {
@@ -342,6 +404,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           ...(event.parentRunId ? { parentRunId: event.parentRunId } : {}),
           ...(event.employeeId ? { employeeId: event.employeeId } : {}),
           ...(event.relation ? { relation: event.relation } : {}),
+          ...(event.workKind ? { workKind: event.workKind } : {}),
           type: event.runType,
           payload: event.payload,
         } as AgentRunEvent;
@@ -370,14 +433,13 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       input.employeeId,
     ).catch(() => ({ systemPromptAppend: null, roster: [] }));
 
-    // When delegation is possible (a non-empty roster), the root run gets its own
-    // agent_runs row — it's the tree root, and child rows reference it via
-    // parent_run_id (FK). Created before the invoke so it commits ahead of any
-    // child's run.started write on the serialized persist chain.
-    const delegationRoot = roster.length > 0;
-    if (delegationRoot) {
-      this.enqueuePersist(() => this.createRootRun(runScope.runId, input));
-    }
+    // Open the root run on the stream + persist its row BEFORE the invoke, so it
+    // commits ahead of any child's run.started write on the serialized persist
+    // chain (children reference it via parent_run_id FK). Unconditional: every
+    // run is a tree root, delegating or not.
+    const startedEvt = rootRun('run.started', { objective: input.text, access: rootAccess });
+    emitRootBus(startedEvt);
+    this.enqueuePersist(() => this.persistAgentRun(startedEvt));
 
     this.inFlightByThread.set(input.threadId, requestId);
     try {
@@ -390,7 +452,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           projectId,
           employeeId: input.employeeId,
           model: input.model?.trim() || readPiModelOverride() || undefined,
-          permissionMode: input.permissionMode?.trim() || resolveThreadMode(input.threadId),
+          permissionMode,
           // Like `model`: forward only an explicit override, else `undefined` so
           // the host omits it and Pi resolves its own default/session level
           // rather than Offisim pinning every run to `medium`.
@@ -420,50 +482,46 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       finalText = commandResponse.text || finalText;
       if (channelError) throw channelError;
       const reasoning = (commandResponse.reasoning || reasoningText).trim();
-      if (delegationRoot) {
-        this.enqueuePersist(() => this.finalizeRootRun(runScope.runId, 'completed'));
+      // A Rust abort resolves the invoke with empty text (not an error), so
+      // classify the terminal from the aborted-set: cancelled, not completed.
+      if (this.abortedRequests.has(requestId)) {
+        emitRootBus(rootRun('run.cancelled', { status: 'cancelled' }));
+        this.enqueuePersist(() => this.reconcileRoot(runScope.runId, 'cancelled'));
+      } else {
+        emitRootBus(
+          rootRun('run.completed', {
+            status: 'completed',
+            ...(finalText ? { summary: finalText } : {}),
+          }),
+        );
+        this.enqueuePersist(() => this.reconcileRoot(runScope.runId, 'completed'));
       }
       return { text: finalText, ...(reasoning ? { reasoning } : {}) };
     } catch (err) {
-      if (delegationRoot) {
-        this.enqueuePersist(() => this.finalizeRootRun(runScope.runId, 'failed'));
-      }
+      // A thrown invoke / channel error is a failure unless the user aborted —
+      // abort wins (it can surface as a throw on some teardown paths).
+      const aborted = this.abortedRequests.has(requestId);
+      const status = aborted ? 'cancelled' : 'failed';
+      const message = err instanceof Error ? err.message : String(err);
+      emitRootBus(
+        rootRun(aborted ? 'run.cancelled' : 'run.failed', { status, summary: message }),
+      );
+      this.enqueuePersist(() => this.reconcileRoot(runScope.runId, status));
       throw err;
     } finally {
+      this.abortedRequests.delete(requestId);
       if (this.inFlightByThread.get(input.threadId) === requestId) {
         this.inFlightByThread.delete(input.threadId);
       }
     }
   }
 
-  /** Create the root run's agent_runs row — the delegation tree root that child
-   *  rows reference via parent_run_id. Self-guarding. */
-  private async createRootRun(rootRunId: string, input: DesktopAgentRunInput): Promise<void> {
-    const repo = this.repos.agentRuns;
-    if (!repo) return;
-    try {
-      await repo.create({
-        run_id: rootRunId,
-        thread_id: input.threadId,
-        company_id: this.companyId,
-        parent_run_id: null,
-        root_run_id: rootRunId,
-        employee_id: input.employeeId,
-        relation: null,
-        objective: null,
-        access: null,
-        status: 'running',
-      });
-    } catch (err) {
-      console.warn('[desktop-agent-runtime] create root agent_run failed', { rootRunId, err });
-    }
-  }
-
   /** Mark the root run terminal and reconcile any child left in `running` — the
    *  case where a root abort killed the host before a child's terminal event
-   *  could be emitted (full abort-tree propagation lands in Phase 2). On a normal
-   *  finish every child is already terminal, so the reconciliation is a no-op. */
-  private async finalizeRootRun(
+   *  could be emitted. Also rolls the subtree's usage up into the root record.
+   *  On a normal finish every child is already terminal, so the reconciliation is
+   *  a no-op. The root row itself was opened by the synthesized run.started. */
+  private async reconcileRoot(
     rootRunId: string,
     status: 'completed' | 'failed' | 'cancelled',
   ): Promise<void> {
@@ -548,6 +606,10 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
   abort(threadId: string): void {
     const requestId = this.inFlightByThread.get(threadId);
     if (!requestId) return;
+    // Mark before invoking: a Rust abort resolves execute()'s invoke with empty
+    // text, and the flag is how execute() knows to classify the terminal as
+    // cancelled rather than completed.
+    this.abortedRequests.add(requestId);
     void invoke('pi_agent_abort', { requestId }).catch((err: unknown) => {
       console.warn('[desktop-agent-runtime] Pi abort failed', { threadId, err });
     });

@@ -16,7 +16,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { DefaultResourceLoader, SessionManager, createAgentSession } from '@earendil-works/pi-coding-agent';
-import { agentRunLine } from './pi-agent-host-wire.mjs';
+import { WORK_KINDS, agentRunLine } from './pi-agent-host-wire.mjs';
 import { createDelegationExtensionFactory } from './pi-delegation-extension.mjs';
 
 // Capability band → child tool allowlist. `write` returns undefined so Pi enables
@@ -85,6 +85,27 @@ function normalizeAccess(access) {
   return access === 'write' || access === 'review' ? access : 'read';
 }
 
+const WORK_KIND_SET = new Set(WORK_KINDS);
+
+/** Keep only a known WorkKind; an unknown value flows as undefined (never faked). */
+function normalizeWorkKind(workKind) {
+  return WORK_KIND_SET.has(workKind) ? workKind : undefined;
+}
+
+/**
+ * Resolve a run's parent-child relation. An explicit relation wins; otherwise a
+ * review-like task (review workKind or review access) defaults to `review`, and
+ * everything else to `delegate`. `parallel` is never a relation — it is the
+ * delegate tool's execution mode.
+ */
+function resolveRelation(task, access) {
+  if (task.relation === 'delegate' || task.relation === 'review' || task.relation === 'handoff') {
+    return task.relation;
+  }
+  if (normalizeWorkKind(task.workKind) === 'review' || access === 'review') return 'review';
+  return 'delegate';
+}
+
 function capChildOutput(text) {
   const bytes = Buffer.byteLength(text, 'utf8');
   if (bytes <= PER_CHILD_OUTPUT_CAP) return text;
@@ -141,25 +162,30 @@ export function createChildSupervisor(ctx) {
   const parentRunId = ctx.parentRunId ?? ctx.rootRunId;
   const limits = ctx.limits;
 
-  function emitRun(runId, employeeId, runType, payload) {
-    ctx.emit(
-      agentRunLine({
-        threadId: ctx.threadId,
-        rootRunId: ctx.rootRunId,
-        runId,
-        parentRunId,
-        employeeId,
-        relation: 'delegate',
-        runType,
-        payload,
-      }),
-    );
+  /** Build a per-run emitter that stamps this run's scope + relation + workKind
+   *  onto every neutral agentRun line. relation/workKind are constant for a run,
+   *  so they ride the closure rather than every call site. */
+  function makeEmit(runId, employeeId, relation, workKind) {
+    return (runType, payload) =>
+      ctx.emit(
+        agentRunLine({
+          threadId: ctx.threadId,
+          rootRunId: ctx.rootRunId,
+          runId,
+          parentRunId,
+          employeeId,
+          relation,
+          workKind,
+          runType,
+          payload,
+        }),
+      );
   }
 
   /** Emit a never-started block as a terminal failure so it's visible (GUI +
    *  tool result) — caps are never silent. */
-  function blocked(runId, employeeId, reason) {
-    emitRun(runId, employeeId, 'run.failed', { status: 'failed', summary: reason });
+  function blocked(emit, reason) {
+    emit('run.failed', { status: 'failed', summary: reason });
     return `Delegation blocked: ${reason}`;
   }
 
@@ -167,51 +193,42 @@ export function createChildSupervisor(ctx) {
     const runId = `run-${randomUUID()}`;
     const access = normalizeAccess(task.access);
     const objective = typeof task.objective === 'string' ? task.objective.trim() : '';
+    const relation = resolveRelation(task, access);
+    const workKind = normalizeWorkKind(task.workKind);
     const employee = rosterById.get(task.employeeId);
+    const emit = makeEmit(runId, task.employeeId, relation, workKind);
 
     if (!employee) {
       const available = roster.map((entry) => entry.employeeId).join(', ') || 'none';
-      return blocked(runId, task.employeeId, `Unknown teammate "${task.employeeId}". Available: ${available}.`);
+      return blocked(emit, `Unknown teammate "${task.employeeId}". Available: ${available}.`);
     }
     if (!objective) {
-      return blocked(runId, employee.employeeId, 'Delegation needs a non-empty objective.');
+      return blocked(emit, 'Delegation needs a non-empty objective.');
     }
     // Start the run now (valid teammate + objective) so even a policy-cap block
     // below leaves a durable agent_runs row — caps are never silent, at the DB
     // layer too. (Invalid-input blocks above stay event-only: their employeeId may
     // not exist, which would fail the row's employee FK.)
-    emitRun(runId, employee.employeeId, 'run.started', { objective, access });
+    emit('run.started', { objective, access });
     // Depth cap — a child still carries a delegate tool, but spawning past maxDepth
     // is blocked with a reason (the plan's controlled-recursion contract).
     if (depth + 1 > limits.maxDepth) {
-      return blocked(
-        runId,
-        employee.employeeId,
-        `Max delegation depth (${limits.maxDepth}) reached — cannot delegate further.`,
-      );
+      return blocked(emit, `Max delegation depth (${limits.maxDepth}) reached — cannot delegate further.`);
     }
     // Token budget across the whole tree — the loop-until-budget backstop. Checked
     // before spawning so a goal-directed loop stops cleanly once spend crosses it.
     if (limits.budgetExceeded()) {
-      return blocked(
-        runId,
-        employee.employeeId,
-        `Delegation token budget (${limits.maxTotalTokens}) exhausted for this run.`,
-      );
+      return blocked(emit, `Delegation token budget (${limits.maxTotalTokens}) exhausted for this run.`);
     }
     // Global total-children cap across the whole tree for this root run.
     if (!limits.reserveTotal()) {
-      return blocked(
-        runId,
-        employee.employeeId,
-        `Max total delegated agents (${limits.maxTotalChildren}) reached for this run.`,
-      );
+      return blocked(emit, `Max total delegated agents (${limits.maxTotalChildren}) reached for this run.`);
     }
 
-    return runChildSession(runId, employee, objective, access, signal);
+    return runChildSession(runId, emit, employee, objective, access, signal);
   }
 
-  async function runChildSession(runId, employee, objective, access, signal) {
+  async function runChildSession(runId, emit, employee, objective, access, signal) {
     // The access band restricts WORK tools (read/write/bash). `delegate` is an
     // orchestration capability, not a work tool, so it must survive the allowlist
     // — otherwise a restricted-access child silently loses its delegate tool and
@@ -266,7 +283,7 @@ export function createChildSupervisor(ctx) {
       }));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      emitRun(runId, employee.employeeId, 'run.failed', {
+      emit('run.failed', {
         status: 'failed',
         summary: `Failed to start: ${message}`,
       });
@@ -276,7 +293,7 @@ export function createChildSupervisor(ctx) {
     const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
     const unsubscribe = session.subscribe((event) => {
       if (event.type === 'tool_execution_start') {
-        emitRun(runId, employee.employeeId, 'tool.started', {
+        emit('tool.started', {
           toolCallId: event.toolCallId,
           toolName: event.toolName,
           status: 'started',
@@ -284,7 +301,7 @@ export function createChildSupervisor(ctx) {
         return;
       }
       if (event.type === 'tool_execution_end') {
-        emitRun(runId, employee.employeeId, 'tool.completed', {
+        emit('tool.completed', {
           toolCallId: event.toolCallId,
           toolName: event.toolName,
           status: event.isError ? 'failed' : 'completed',
@@ -328,14 +345,14 @@ export function createChildSupervisor(ctx) {
       const summary = capChildOutput((session.getLastAssistantText() || '').trim() || '(no output)');
       if (timedOut) {
         const reason = `Timed out after ${Math.round(limits.childTimeoutMs / 1000)}s`;
-        emitRun(runId, employee.employeeId, 'run.failed', { status: 'failed', summary: reason, usage });
+        emit('run.failed', { status: 'failed', summary: reason, usage });
         return `Delegation failed: ${reason}`;
       }
       if (aborted) {
-        emitRun(runId, employee.employeeId, 'run.cancelled', { status: 'cancelled', summary, usage });
+        emit('run.cancelled', { status: 'cancelled', summary, usage });
         return `Delegation cancelled: ${summary}`;
       }
-      emitRun(runId, employee.employeeId, 'run.completed', { status: 'completed', summary, usage });
+      emit('run.completed', { status: 'completed', summary, usage });
       return summary;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -343,7 +360,7 @@ export function createChildSupervisor(ctx) {
       // both flags can be set in the race) — consistent with the try-branch which
       // checks timedOut first. A bare abort is a cancel; anything else is a failure.
       const status = timedOut ? 'failed' : aborted ? 'cancelled' : 'failed';
-      emitRun(runId, employee.employeeId, status === 'cancelled' ? 'run.cancelled' : 'run.failed', {
+      emit(status === 'cancelled' ? 'run.cancelled' : 'run.failed', {
         status,
         summary: message,
         usage,

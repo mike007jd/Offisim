@@ -189,6 +189,7 @@ export type {
   AgentRunStatus,
   AgentRunToolPayload,
   AgentRunUsage,
+  DelegateExecutionMode,
   DelegateTaskInput,
   DelegateToolInput,
   WorkKind,

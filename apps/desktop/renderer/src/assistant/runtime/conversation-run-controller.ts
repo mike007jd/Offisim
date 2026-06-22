@@ -632,9 +632,13 @@ export class ConversationRunController {
     // Delegation run-tree events graft onto this run when the child's rootRunId
     // equals this run's attemptId (the agentRun envelope carries the child runId
     // in payload.runId, not the root, so matchesRun's attemptId check won't fit).
+    // The root now emits its OWN agent.run stream (runId === attemptId) so the
+    // office/projection see it; skip those here — the root is not a delegation of
+    // itself, it's the tree root the delegations hang under.
     const offAgentRun = this.deps.eventBus.on('agent.run', (event) => {
       const payload = event.payload as AgentRunEvent;
       if (payload?.rootRunId !== run.attemptId || payload.threadId !== run.threadId) return;
+      if (payload.runId === run.attemptId) return;
       this.noteDelegation(run, payload);
     });
 

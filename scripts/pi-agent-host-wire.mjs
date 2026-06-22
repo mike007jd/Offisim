@@ -25,6 +25,23 @@ export const PI_WIRE_KINDS = Object.freeze([
   'error',
 ]);
 
+// The WorkKind enum (mirror of packages/shared-types WorkKind) — the kinds the
+// delegate tool may stamp on a run. Single source for the host scripts so the
+// delegate schema (literal union) and the supervisor's guard can't drift; the
+// bundled .mjs host can't import the TS type, so the values live here.
+export const WORK_KINDS = Object.freeze([
+  'plan',
+  'research',
+  'design',
+  'implement',
+  'review',
+  'test',
+  'compute',
+  'publish',
+  'present',
+  'coordinate',
+]);
+
 // Drop undefined-valued keys so the builder's in-memory object matches the
 // on-wire JSON exactly. The production emit path would already strip them via
 // JSON.stringify; this matters for the contract gate, whose key-by-key deep-equal
@@ -100,6 +117,7 @@ export function agentRunLine({
   parentRunId,
   employeeId,
   relation,
+  workKind,
   runType,
   payload,
 } = {}) {
@@ -111,6 +129,7 @@ export function agentRunLine({
     parentRunId,
     employeeId,
     relation,
+    workKind,
     runType,
     payload,
   });

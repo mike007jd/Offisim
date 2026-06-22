@@ -35,6 +35,12 @@ function notify(): void {
 
 // Singleton subscription for the app lifetime — the office scene mounts/unmounts
 // but the rolling window should survive a surface switch.
+//
+// This INTENTIONALLY keeps the root's own run events (runId === rootRunId) — the
+// office stages the acting employee for every run, delegating or not. That is the
+// inverse of ConversationRunController.noteDelegation, which skips the root self
+// stream because the root is not a delegation of itself. Both are correct: the
+// office wants the root actor; the chat delegation list does not.
 runtimeEventBus.on('agent.run', (event) => {
   const payload = event.payload as AgentRunEvent | undefined;
   if (!payload?.runId || !event.companyId) return;

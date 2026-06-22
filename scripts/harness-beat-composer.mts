@@ -121,9 +121,9 @@ console.log('\n[parallel] fan-out flagged, director root invisible');
   const beats = composeBeats(
     [
       started(0, { runId: ROOT }), // director root, no employeeId
-      started(100, { runId: 'c1', parentRunId: ROOT, employeeId: 'alex', relation: 'parallel' }),
-      started(200, { runId: 'c2', parentRunId: ROOT, employeeId: 'maya', relation: 'parallel' }),
-      started(300, { runId: 'c3', parentRunId: ROOT, employeeId: 'kai', relation: 'parallel' }),
+      started(100, { runId: 'c1', parentRunId: ROOT, employeeId: 'alex', relation: 'delegate' }),
+      started(200, { runId: 'c2', parentRunId: ROOT, employeeId: 'maya', relation: 'delegate' }),
+      started(300, { runId: 'c3', parentRunId: ROOT, employeeId: 'kai', relation: 'delegate' }),
     ],
     CONFIG,
   );
@@ -155,8 +155,8 @@ console.log('\n[cooldown] movement cooldown downgrades, keeps the beat');
 console.log('\n[equal-ts] same-timestamp events resolve canonically');
 {
   const fwd: TimedAgentRunEvent[] = [
-    started(100, { runId: 'a', parentRunId: ROOT, employeeId: 'alex', relation: 'parallel' }),
-    started(100, { runId: 'b', parentRunId: ROOT, employeeId: 'maya', relation: 'parallel' }),
+    started(100, { runId: 'a', parentRunId: ROOT, employeeId: 'alex', relation: 'delegate' }),
+    started(100, { runId: 'b', parentRunId: ROOT, employeeId: 'maya', relation: 'delegate' }),
   ];
   const rev = [...fwd].reverse();
   const a = composeBeats(fwd, CONFIG);
@@ -206,8 +206,8 @@ console.log('\n[determinism] byte-identical beats for a fixed fixture');
 {
   const fixture: TimedAgentRunEvent[] = [
     started(0, { runId: ROOT, workKind: 'plan' }),
-    started(500, { runId: 'a', parentRunId: ROOT, employeeId: 'alex', relation: 'parallel', workKind: 'implement' }),
-    started(700, { runId: 'b', parentRunId: ROOT, employeeId: 'maya', relation: 'parallel', workKind: 'design' }),
+    started(500, { runId: 'a', parentRunId: ROOT, employeeId: 'alex', relation: 'delegate', workKind: 'implement' }),
+    started(700, { runId: 'b', parentRunId: ROOT, employeeId: 'maya', relation: 'delegate', workKind: 'design' }),
     tool(900, { runId: 'a', employeeId: 'alex' }, 'read_file'),
     tool(1100, { runId: 'a', employeeId: 'alex' }, 'grep'),
     tool(1300, { runId: 'b', employeeId: 'maya' }, 'write_file'),
