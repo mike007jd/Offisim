@@ -204,6 +204,15 @@ export type {
 } from './events/agent-run-projection.js';
 export { projectAgentRun } from './events/agent-run-projection.js';
 export type {
+  BeatAffordance,
+  BeatKind,
+  DramaturgyConfig,
+  DramaturgyTiming,
+  SceneBeat,
+  TimedAgentRunEvent,
+} from './dramaturgy/beat-composer.js';
+export { BEAT_PRIORITY, DEFAULT_TIMING, composeBeats } from './dramaturgy/beat-composer.js';
+export type {
   EmployeePerformanceAction,
   EmployeePerformanceDomain,
   EmployeePerformanceKind,
