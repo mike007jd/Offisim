@@ -1,10 +1,12 @@
 import { useUiState } from '@/app/ui-state.js';
 import { useEmployeeRunStates } from '@/assistant/runtime/conversation-run-react.js';
+import { useOfficeBeats } from '@/assistant/runtime/office-dramaturgy.js';
 import { OFFICE_SCENE_2D_COLORS } from '@/data/color-palette.js';
 import { useEmployees, useOfficeLayout, useThreads } from '@/data/queries.js';
 import type { ZoneKind } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
 import { CANVAS_FONT_TOKENS } from '@/styles/visual-tokens.js';
+import { type StagingPrefab, projectOfficeStaging } from '@offisim/shared-types';
 import { useEffect, useMemo, useRef } from 'react';
 import { compactSceneEmployeeName } from './scene-labels.js';
 import {
@@ -66,6 +68,27 @@ export function OfficeScene2D() {
     () => employeePlacements(roster, zoneDefs, fallbackZone, layout.data?.prefabs),
     [roster, zoneDefs, fallbackZone, layout.data?.prefabs],
   );
+
+  // Same live dramaturgy projection as the 3D scene → high-value movement beats
+  // relocate the dot to the reserved world anchor (drawn precisely, no zone
+  // clamp). 2D and 3D therefore agree on where each actor is.
+  const beats = useOfficeBeats(companyId);
+  const stagedById = useMemo(() => {
+    const prefabs: StagingPrefab[] = (layout.data?.prefabs ?? []).map((p) => ({
+      instanceId: p.instance.instance_id,
+      prefabId: p.instance.prefab_id,
+      x: p.instance.position_x,
+      z: p.instance.position_y,
+      rotation: p.instance.rotation,
+    }));
+    const map = new Map<string, { x: number; z: number }>();
+    for (const d of projectOfficeStaging(beats, prefabs)) {
+      if (d.staging?.x != null && d.staging.z != null) {
+        map.set(d.employeeId, { x: d.staging.x, z: d.staging.z });
+      }
+    }
+    return map;
+  }, [beats, layout.data?.prefabs]);
 
   const threadList = threads.data;
   const threadByEmployee = useMemo(() => {
@@ -175,14 +198,16 @@ export function OfficeScene2D() {
         const running = employeeRunStates.has(employee.id);
         const active = Boolean(thread && thread.id === selectedThreadId);
         const colors = resolveAppearance(employee.id, employee.appearance);
-        let sx = wx(pos.x);
-        let sy = wy(pos.z);
+        const staged = stagedById.get(employee.id);
+        let sx = wx(staged ? staged.x : pos.x);
+        let sy = wy(staged ? staged.z : pos.z);
 
         // Screen-space re-clamp of the world clampSeat: the world margin only
         // folds to ~margin*scale px, while the painted extent (disc + ring +
         // label slots) is in fixed px, so on small stages seats must be pulled
-        // back inside their zone rect here.
-        const zone = zoneById.get(pos.zoneId);
+        // back inside their zone rect here. Relocated actors sit at a precise
+        // cross-zone anchor, so they skip the home-zone clamp.
+        const zone = staged ? undefined : zoneById.get(pos.zoneId);
         if (zone) {
           sx = clampSpan(
             sx,
@@ -278,6 +303,7 @@ export function OfficeScene2D() {
     floorW,
     floorD,
     positions,
+    stagedById,
     roster,
     threadByEmployee,
     selectedEmployeeId,

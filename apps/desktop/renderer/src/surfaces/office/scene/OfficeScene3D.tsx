@@ -1,13 +1,20 @@
 import { useUiState } from '@/app/ui-state.js';
 import { useEmployeeRunStates } from '@/assistant/runtime/conversation-run-react.js';
+import { useOfficeBeats } from '@/assistant/runtime/office-dramaturgy.js';
 import { useEmployees, useOfficeLayout, useReassignEmployee, useThreads } from '@/data/queries.js';
 import type { Employee } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
-import type { PrefabDefinition, PrefabInstanceRow } from '@offisim/shared-types';
+import {
+  type CharacterPerformanceState,
+  type PrefabDefinition,
+  type PrefabInstanceRow,
+  type StagingPrefab,
+  projectOfficeStaging,
+} from '@offisim/shared-types';
 import { Html, OrbitControls } from '@react-three/drei';
-import { Canvas, useThree } from '@react-three/fiber';
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import { ACESFilmicToneMapping } from 'three';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { ACESFilmicToneMapping, type Group } from 'three';
 import { BlockCharacter } from './BlockCharacter.js';
 import { RoomShell } from './r3d/RoomShell.js';
 import { SceneEnvironment } from './r3d/SceneEnvironment.js';
@@ -95,6 +102,7 @@ function EmployeeUnit({
   running,
   active,
   dragging,
+  performance,
   zones,
   onSelect,
   onHoverZone,
@@ -110,6 +118,7 @@ function EmployeeUnit({
   running: boolean;
   active: boolean;
   dragging: boolean;
+  performance?: CharacterPerformanceState;
   zones: ZoneDef[];
   onSelect: () => void;
   onHoverZone: (zoneId: string | null) => void;
@@ -117,6 +126,33 @@ function EmployeeUnit({
   onDragState: (drag: SceneEmployeeDrag | null) => void;
 }) {
   const { camera, gl } = useThree();
+  // Smoothly glide to the target (home placement or a high-value staged anchor)
+  // rather than snapping; `walkingRef` flips on the walk locomotion in transit.
+  const unitRef = useRef<Group>(null);
+  const walkingRef = useRef(false);
+  const targetRef = useRef<[number, number]>([x, z]);
+  targetRef.current = [x, z];
+  useLayoutEffect(() => {
+    unitRef.current?.position.set(x, 0, z);
+    // Only seed the initial mount position; subsequent moves animate in useFrame.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useFrame((_, delta) => {
+    const group = unitRef.current;
+    if (!group) return;
+    const [tx, tz] = targetRef.current;
+    const dx = tx - group.position.x;
+    const dz = tz - group.position.z;
+    const dist = Math.hypot(dx, dz);
+    if (dist > 0.04) {
+      const step = Math.min(1, (1.9 * delta) / dist);
+      group.position.x += dx * step;
+      group.position.z += dz * step;
+      walkingRef.current = dist > 0.12;
+    } else {
+      walkingRef.current = false;
+    }
+  });
   const cleanupRef = useRef<(() => void) | null>(null);
   const appearance = useMemo(
     () => resolveAppearance(employee.id, employee.appearance),
@@ -296,7 +332,7 @@ function EmployeeUnit({
   return (
     // Scale the whole unit (character, selection ring, label, fallback desk)
     // together so they stay proportional; the seat position stays unscaled.
-    <group position={[x, 0, z]} scale={SCENE_CONTENT_SCALE}>
+    <group ref={unitRef} scale={SCENE_CONTENT_SCALE}>
       {withDesk ? (
         // Fallback desk sits in front of the character (along their facing) and
         // turns its chair side toward them, so they read as seated at it.
@@ -354,6 +390,8 @@ function EmployeeUnit({
             action={active ? 'active' : running ? 'working' : 'idle'}
             posture={posture}
             running={running}
+            performance={performance}
+            walkingRef={walkingRef}
             phase={phase}
           />
         ) : null}
@@ -534,6 +572,26 @@ export function OfficeScene3D() {
     [defaultEmployeeZone, roster, scenePrefabs, zoneDefs],
   );
 
+  // Live dramaturgy: the agent.run beat timeline → per-employee performance and
+  // (for high-value movement beats only) a reserved relocation anchor on the
+  // office's real prefab layout. Empty when nothing is running.
+  const beats = useOfficeBeats(companyId);
+  const stagingPrefabs = useMemo<StagingPrefab[]>(
+    () =>
+      (scenePrefabs ?? []).map((p) => ({
+        instanceId: p.instance.instance_id,
+        prefabId: p.instance.prefab_id,
+        x: p.instance.position_x,
+        z: p.instance.position_y,
+        rotation: p.instance.rotation,
+      })),
+    [scenePrefabs],
+  );
+  const dramaturgyByEmployee = useMemo(
+    () => new Map(projectOfficeStaging(beats, stagingPrefabs).map((d) => [d.employeeId, d])),
+    [beats, stagingPrefabs],
+  );
+
   const threadByEmployee = useMemo(() => {
     const map = new Map<string, NonNullable<typeof threads.data>[number]>();
     for (const t of threads.data ?? []) {
@@ -604,18 +662,33 @@ export function OfficeScene3D() {
               };
               const thread = threadByEmployee.get(employee.id);
               const running = employeeRunStates.has(employee.id);
+              // High-value movement beats relocate the actor to a reserved
+              // anchor; everything else stays at the home placement (and only
+              // the performance changes).
+              const dram = dramaturgyByEmployee.get(employee.id);
+              const anchor = dram?.staging;
+              const relocated = anchor != null && anchor.x != null && anchor.z != null;
+              const target = relocated
+                ? {
+                    x: anchor.x as number,
+                    z: anchor.z as number,
+                    rotation: anchor.facing ?? placement.rotation,
+                    posture: (anchor.posture ?? placement.posture) as EmployeePosture,
+                  }
+                : placement;
               return (
                 <EmployeeUnit
                   key={employee.id}
                   employee={employee}
-                  x={placement.x}
-                  z={placement.z}
-                  rotation={placement.rotation}
-                  posture={!real ? 'sitting' : placement.posture}
+                  x={target.x}
+                  z={target.z}
+                  rotation={target.rotation}
+                  posture={!real ? 'sitting' : target.posture}
                   withDesk={!real}
                   running={running}
                   active={Boolean(thread && thread.id === selectedThreadId)}
                   dragging={employeeDrag?.employeeId === employee.id}
+                  performance={dram?.performance}
                   zones={zoneDefs}
                   onSelect={() => thread && openThread(thread.id)}
                   onHoverZone={setHoveredZoneId}

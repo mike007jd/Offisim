@@ -637,6 +637,9 @@ interface BlockCharacterProps {
    * indicators (selection halo, working dots).
    */
   performance?: CharacterPerformanceState;
+  /** Per-frame relocation flag (set by the scene's lerp) → walk locomotion while
+   *  in transit, then the destination performance once arrived. */
+  walkingRef?: { readonly current: boolean };
   /** Deterministic phase offset so idle bobs don't sync across the room. */
   phase?: number;
   opacity?: number;
@@ -712,6 +715,7 @@ export function BlockCharacter({
   posture = 'standing',
   running = false,
   performance,
+  walkingRef,
   phase = 0,
   opacity = 1,
 }: BlockCharacterProps) {
@@ -738,8 +742,12 @@ export function BlockCharacter({
 
   useFrame((state) => {
     const t = state.clock.elapsedTime + phase;
-    if (usePerformance && performance) applyPerformancePose(rig, performance, t);
-    else applyCharacterPose(rig, actionState, posture, t);
+    if (usePerformance && performance) {
+      const walking = walkingRef?.current ?? false;
+      applyPerformancePose(rig, walking ? { ...performance, locomotion: 'walk' } : performance, t);
+    } else {
+      applyCharacterPose(rig, actionState, posture, t);
+    }
   });
 
   return (
