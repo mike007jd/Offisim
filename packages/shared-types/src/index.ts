@@ -174,6 +174,7 @@ export type { RunScope, RunToolPolicy } from './run-scope.js';
 export { chatScopeFields } from './run-scope.js';
 
 export type {
+  ActivityKind,
   AgentRunAccess,
   AgentRunApprovalPayload,
   AgentRunArtifactPayload,
@@ -190,7 +191,18 @@ export type {
   AgentRunUsage,
   DelegateTaskInput,
   DelegateToolInput,
+  WorkKind,
 } from './events/agent-run.js';
+export { classifyToolActivity } from './events/agent-run.js';
+export type {
+  ActivityEntry,
+  AgentRunNode,
+  AgentRunProjection,
+  ApprovalEntry,
+  ArtifactEntry,
+  EmployeeStateEntry,
+} from './events/agent-run-projection.js';
+export { projectAgentRun } from './events/agent-run-projection.js';
 export type {
   EmployeePerformanceAction,
   EmployeePerformanceDomain,

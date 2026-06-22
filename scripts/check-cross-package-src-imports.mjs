@@ -44,6 +44,7 @@ const ALLOWLIST = new Set([
   'scripts/harness-conversation-run-controller.mts::../packages/core/src/browser.js',
   'scripts/harness-template-contract.mts::../packages/core/src/browser.js',
   'scripts/harness-template-contract.mts::../packages/shared-types/src/index.js',
+  'scripts/harness-agent-run-projection.mts::../packages/shared-types/src/index.js',
 ]);
 
 // Matches an import/export/require specifier that reaches into a package's src,
