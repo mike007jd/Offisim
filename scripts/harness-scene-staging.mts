@@ -36,8 +36,8 @@ function check(name: string, condition: boolean, detail?: string): void {
   }
 }
 
-const prefab = (instanceId: string, prefabId: string, x = 0, z = 0, rotation: 0 | 90 | 180 | 270 = 0): StagingPrefab => ({ instanceId, prefabId, x, z, rotation });
-const req = (actorId: string, affordance: StagingRequest['affordance']): StagingRequest => ({ actorId, affordance });
+const prefab = (instanceId: string, prefabId: string, x = 0, z = 0, rotation: 0 | 90 | 180 | 270 = 0, scale?: number): StagingPrefab => ({ instanceId, prefabId, x, z, rotation, ...(scale !== undefined ? { scale } : {}) });
+const req = (actorId: string, affordance: StagingRequest['affordance'], priority = 50, at = 0, pos?: { x: number; z: number }): StagingRequest => ({ actorId, affordance, priority, at, ...(pos ? { x: pos.x, z: pos.z } : {}) });
 
 console.log('scene-staging gate');
 
@@ -123,12 +123,51 @@ console.log('\n[rotation] world anchors transform with prefab rotation');
   check('rot90: offset rotates to +x, facing 270', Math.abs((anchors90[0]?.x ?? 0) - 5.55) < 1e-9 && Math.abs((anchors90[0]?.z ?? 0) - 5) < 1e-9 && anchors90[0]?.facing === 270);
 }
 
+// ── Dual workstation seats two independent actors ───────────────────────────
+console.log('\n[dual] workstation-dual exposes two seats');
+{
+  const anchors = worldAnchorsFor([prefab('wd', 'workstation-dual', 0, 0)]);
+  check('workstation-dual has 2 workstation anchors', anchors.filter((w) => w.kind === 'workstation').length === 2);
+  const staged = reserveStaging([prefab('wd', 'workstation-dual', 0, 0)], [req('alex', 'workstation'), req('maya', 'workstation')]);
+  check('both actors seated at the dual desk', staged.every((s) => s.anchorId !== null));
+  check('the two seats are physically distinct', staged[0]?.x !== staged[1]?.x);
+}
+
+// ── Reservation favours high-priority actors for a scarce anchor ─────────────
+console.log('\n[priority] high-priority actor claims the scarce anchor first');
+{
+  const office = [prefab('wb', 'whiteboard', 0, 0)]; // single board-presenter anchor
+  // `zoe` sorts last by id but carries the higher priority — she must win the seat.
+  const staged = reserveStaging(office, [
+    req('alex', 'board-presenter', 60),
+    req('zoe', 'board-presenter', 100),
+  ]);
+  check('higher-priority actor (zoe) seated', staged.find((s) => s.actorId === 'zoe')?.anchorId !== null);
+  check('lower-priority actor (alex) stays home', staged.find((s) => s.actorId === 'alex')?.anchorId === null);
+}
+
+// ── Explicit prefab scale moves the anchor onto the scaled furniture ─────────
+console.log('\n[scale] anchor offset scales with the prefab');
+{
+  const unscaled = worldAnchorsFor([prefab('w', 'workstation-standard', 5, 5, 0)]);
+  const scaled = worldAnchorsFor([prefab('w', 'workstation-standard', 5, 5, 0, 2)]);
+  // local [0,0.55] → unscaled z=5.55; scale 2 → z = 5 + 0.55*2 = 6.1 (on the scaled desk).
+  check('unscaled anchor at offset 0.55', Math.abs((unscaled[0]?.z ?? 0) - 5.55) < 1e-9);
+  check('scaled anchor at offset 0.55*scale', Math.abs((scaled[0]?.z ?? 0) - 6.1) < 1e-9);
+  check('nearest-anchor: actor takes the closer of two free seats', (() => {
+    const office = [prefab('a', 'workstation-standard', 0, 0), prefab('b', 'workstation-standard', 10, 0)];
+    // one request positioned near prefab b → should take b's anchor, not a's.
+    const staged = reserveStaging(office, [req('alex', 'workstation', 50, 0, { x: 10, z: 0 })]);
+    return Math.abs((staged[0]?.x ?? -99) - 10) < 1e-9;
+  })());
+}
+
 // ── performanceForBeat totality + activity refinement ───────────────────────
 console.log('\n[performance] layered state for every beat kind');
 {
   const KINDS: SceneBeat['kind'][] = ['receive-task', 'plan', 'delegate', 'review', 'research', 'produce', 'compute', 'approval', 'failure', 'join', 'complete', 'activity'];
   const beat = (kind: SceneBeat['kind'], activityKind: SceneBeat['activityKind'] = null): SceneBeat => ({
-    id: 'b', kind, priority: 50, threadId: 't', rootRunId: 'r', runId: 'r', employeeId: 'e', workKind: null, activityKind, affordance: null, movement: false, parallel: false, interrupt: false, variant: 0, at: 0,
+    id: 'b', kind, priority: 50, threadId: 't', rootRunId: 'r', runId: 'r', employeeId: 'e', workKind: null, activityKind, affordance: null, movement: false, parallel: false, interrupt: false, variant: 0, at: 0, lifecycle: { startedAt: 0, endsAt: 1_000 },
   });
   const valid = (p: CharacterPerformanceState) => p.locomotion === 'idle' && (p.posture === 'sit' || p.posture === 'stand');
   check('every beat kind yields a valid at-anchor state', KINDS.every((k) => valid(performanceForBeat(beat(k)))));

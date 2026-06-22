@@ -104,6 +104,22 @@ export function createDelegationExtensionFactory(supervisor) {
             isError: true,
           };
         }
+        // Parallel write safety: every child shares the same working directory, so
+        // two concurrent writers (or a writer racing a reader) would stomp each
+        // other's files. Reject parallel with any write task — run write work as a
+        // single task, or split it into sequential single delegations. (True
+        // concurrent writers need git-worktree isolation, a separate feature.)
+        if (executionMode === 'parallel' && tasks.length > 1 && tasks.some((t) => t.access === 'write')) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: 'delegate: parallel write is unsafe — children share one working directory. Run the write task on its own (executionMode "single"), or sequence the writes as separate delegate calls. Parallel read/review fan-out is fine.',
+              },
+            ],
+            isError: true,
+          };
+        }
         const text =
           executionMode === 'parallel'
             ? await supervisor.runParallel(tasks, signal)

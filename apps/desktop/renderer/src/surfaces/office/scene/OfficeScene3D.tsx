@@ -107,6 +107,7 @@ function EmployeeUnit({
   withDesk,
   running,
   activeCount,
+  reducedMotion,
   active,
   dragging,
   performance,
@@ -124,6 +125,7 @@ function EmployeeUnit({
   withDesk: boolean;
   running: boolean;
   activeCount: number;
+  reducedMotion: boolean;
   active: boolean;
   dragging: boolean;
   performance?: CharacterPerformanceState;
@@ -403,6 +405,7 @@ function EmployeeUnit({
             action={active ? 'active' : running ? 'working' : 'idle'}
             posture={posture}
             running={running}
+            reducedMotion={reducedMotion}
             performance={performance}
             walkingRef={walkingRef}
             tempo={tempo}
@@ -610,6 +613,10 @@ export function OfficeScene3D() {
         x: p.instance.position_x,
         z: p.instance.position_y,
         rotation: p.instance.rotation,
+        // 3D draws each prefab in a SCENE_CONTENT_SCALE group, so anchor offsets
+        // scale with it — the actor lands on the scaled desk, matching the
+        // home-seat planner (which also scales). 2D scales identically below.
+        scale: SCENE_CONTENT_SCALE,
       })),
     [scenePrefabs],
   );
@@ -618,12 +625,15 @@ export function OfficeScene3D() {
   const dramaturgyByEmployee = useMemo(
     () =>
       new Map(
-        applyDramaturgyMode(projectOfficeStaging(dominantBeats, stagingPrefabs), {
-          mode: officeMode,
-          reducedMotion,
-        }).map((d) => [d.employeeId, d]),
+        applyDramaturgyMode(
+          projectOfficeStaging(dominantBeats, stagingPrefabs, placementsByEmployee),
+          {
+            mode: officeMode,
+            reducedMotion,
+          },
+        ).map((d) => [d.employeeId, d]),
       ),
-    [dominantBeats, stagingPrefabs, officeMode, reducedMotion],
+    [dominantBeats, stagingPrefabs, placementsByEmployee, officeMode, reducedMotion],
   );
 
   const threadByEmployee = useMemo(() => {
@@ -723,6 +733,7 @@ export function OfficeScene3D() {
                   withDesk={!real}
                   running={running}
                   activeCount={activeCount}
+                  reducedMotion={reducedMotion}
                   active={Boolean(thread && thread.id === selectedThreadId)}
                   dragging={employeeDrag?.employeeId === employee.id}
                   performance={dram?.performance}

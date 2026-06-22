@@ -78,6 +78,14 @@ console.log('\n[coalesce] read/search chatter → one stable activity');
   const research = byKind(beats, 'research');
   check('10 read/search tools → 1 research beat (not 10)', research.length === 1, `got ${research.length}`);
   check('the research beat is a micro-action (no movement)', research[0]?.movement === false);
+  check(
+    'beat carries a lifecycle starting at its event time',
+    research[0]?.lifecycle.startedAt === research[0]?.at,
+  );
+  check(
+    'activity beat lifespan is ~3s (deterministic, derived from at + TTL)',
+    research[0] ? research[0].lifecycle.endsAt - research[0].lifecycle.startedAt === 3_000 : false,
+  );
 }
 
 // ── Sustained relocation: long compute relocates once ───────────────────────
@@ -112,6 +120,10 @@ console.log('\n[interrupt] approval and failure preempt');
   check('approval priority is 100', appr?.priority === 100);
   check('approval is an interrupt', appr?.interrupt === true);
   check('approval emitted despite recent activity (bypass cooldown)', appr?.at === 300);
+  check(
+    'approval beat has a long until-resolved lifespan (not a short auto-expiry)',
+    appr ? appr.lifecycle.endsAt - appr.lifecycle.startedAt === 600_000 : false,
+  );
   check('failure beat emitted with priority 90 interrupt', fail?.priority === 90 && fail?.interrupt === true);
 }
 

@@ -631,6 +631,13 @@ interface BlockCharacterProps {
   posture?: BlockCharacterPosture;
   running?: boolean;
   /**
+   * Accessibility: when true the character holds a STATIC resting pose — no idle
+   * bob, typing sway, gesture loop, celebration jump, or walk. Status color,
+   * face expression, label, approval, and error info are preserved (they are not
+   * vestibular motion). Relocation is separately suppressed upstream (modes.ts).
+   */
+  reducedMotion?: boolean;
+  /**
    * Layered dramaturgy performance (Phase 3+). When provided it drives the body
    * pose / face; when absent the pose is derived from the legacy `action` enum
    * so existing call sites are unchanged. The `action` enum still drives the UI
@@ -681,7 +688,8 @@ function TypingDots({
   phase,
   opacity,
   posture,
-}: { phase: number; opacity: number; posture: BlockCharacterPosture }) {
+  reducedMotion = false,
+}: { phase: number; opacity: number; posture: BlockCharacterPosture; reducedMotion?: boolean }) {
   const dotRefs = [useRef<Mesh>(null), useRef<Mesh>(null), useRef<Mesh>(null)];
   useFrame((state) => {
     const t = state.clock.elapsedTime + phase;
@@ -689,6 +697,12 @@ function TypingDots({
     for (let index = 0; index < dotRefs.length; index += 1) {
       const mesh = dotRefs[index]?.current;
       if (!mesh) continue;
+      if (reducedMotion) {
+        // Static dots — the typing indicator stays as status, without the bounce.
+        mesh.position.y = 0;
+        mesh.scale.setScalar(1);
+        continue;
+      }
       const bounce = Math.max(0, Math.sin(t * 5.4 - index * 0.85));
       mesh.position.y = bounce * 0.07;
       mesh.scale.setScalar(0.85 + bounce * 0.45);
@@ -716,6 +730,7 @@ export function BlockCharacter({
   action,
   posture = 'standing',
   running = false,
+  reducedMotion = false,
   performance,
   walkingRef,
   tempo = 1,
@@ -744,11 +759,16 @@ export function BlockCharacter({
   useEffect(() => () => rig.skeleton.dispose(), [rig]);
 
   useFrame((state) => {
-    const baseT = state.clock.elapsedTime + phase;
+    // Reduced motion: freeze time so every Math.sin(t·…) oscillator collapses to
+    // its resting value — a static pose with no bob / typing sway / gesture loop /
+    // celebration jump, and no walk. The pose still reflects the current
+    // performance/action (status), just without continuous motion.
+    const baseT = reducedMotion ? 0 : state.clock.elapsedTime + phase;
     if (usePerformance && performance) {
-      // Tempo (employee performance profile) scales animation speed only.
+      // Tempo (employee performance profile) scales animation speed only; baseT is
+      // already 0 under reducedMotion, so t collapses to a static pose.
       const t = baseT * tempo;
-      const walking = walkingRef?.current ?? false;
+      const walking = reducedMotion ? false : (walkingRef?.current ?? false);
       applyPerformancePose(rig, walking ? { ...performance, locomotion: 'walk' } : performance, t);
     } else {
       applyCharacterPose(rig, actionState, posture, baseT);
@@ -759,7 +779,12 @@ export function BlockCharacter({
     <group>
       <ActionHalo action={actionState} opacity={opacity} />
       {actionState === 'working' ? (
-        <TypingDots phase={phase} opacity={opacity} posture={posture} />
+        <TypingDots
+          phase={phase}
+          opacity={opacity}
+          posture={posture}
+          reducedMotion={reducedMotion}
+        />
       ) : null}
       <primitive object={rig.root}>
         {([-1, 1] as const).map((side) => (

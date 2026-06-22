@@ -28,7 +28,12 @@ import {
   createAgentSession,
   getAgentDir,
 } from '@earendil-works/pi-coding-agent';
-import { createChildSupervisor, createDelegationLimits } from './pi-child-supervisor.mjs';
+import {
+  createChildSupervisor,
+  createDelegationLimits,
+  parseChildSummary,
+  renderChildSummary,
+} from './pi-child-supervisor.mjs';
 import { createDelegationExtensionFactory } from './pi-delegation-extension.mjs';
 
 const errMsg = (e) => (e instanceof Error ? e.message : String(e));
@@ -100,6 +105,54 @@ async function structuralChecks() {
     'token budget blocks when exhausted',
     budgetResult.slice(0, 60),
   );
+
+  // Structured child summary parser (Phase 4): deterministic, graceful fallback.
+  const headingFree = parseChildSummary('Did the thing.\nIt worked.');
+  check(
+    headingFree.summary === 'Did the thing.\nIt worked.' &&
+      headingFree.artifacts.length === 0 &&
+      headingFree.risks.length === 0,
+    'parseChildSummary: heading-free reply is summary-only (no fabricated sections)',
+  );
+  const structured = parseChildSummary(
+    [
+      '## Summary',
+      'Fixed the flaky test.',
+      '## Artifacts',
+      '- src/foo.ts',
+      '## Risks',
+      '- timing-dependent',
+      '**Verification:**',
+      '- ran the suite 10x',
+    ].join('\n'),
+  );
+  check(
+    structured.summary === 'Fixed the flaky test.' &&
+      structured.artifacts.length === 1 &&
+      structured.artifacts[0] === 'src/foo.ts' &&
+      structured.risks[0] === 'timing-dependent' &&
+      structured.verification[0] === 'ran the suite 10x',
+    'parseChildSummary: routes #/bold headings + bullets into the right buckets',
+  );
+  check(
+    renderChildSummary(structured).includes('Artifacts:') &&
+      renderChildSummary(structured).includes('- src/foo.ts'),
+    'renderChildSummary: emits a compact labeled block',
+  );
+  // A child may write the heading and its content on the SAME line (mirroring the
+  // guidance's "## Summary — …" format) — the trailing text must still bucket.
+  const sameLine = parseChildSummary('## Summary — fixed it\n## Artifacts — src/a.ts\n## Risks — timing only');
+  check(
+    sameLine.summary === 'fixed it' &&
+      sameLine.artifacts[0] === 'src/a.ts' &&
+      sameLine.risks[0] === 'timing only',
+    'parseChildSummary: same-line "## Heading — content" captures into the right bucket',
+  );
+  check(
+    parseChildSummary('Risks were mitigated and verification passed.').artifacts.length === 0 &&
+      parseChildSummary('Risks were mitigated.').risks.length === 0,
+    'parseChildSummary: a plain line starting with a keyword is not a false heading',
+  );
 }
 
 async function liveChecks() {
@@ -124,7 +177,7 @@ async function liveChecks() {
       modelRegistry,
       cwd,
       settingsManager,
-      limits: createDelegationLimits({ maxConcurrentChildren: 2 }),
+      limits: createDelegationLimits({ maxParallelPerDelegation: 2 }),
     }),
   );
 

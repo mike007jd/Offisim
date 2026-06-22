@@ -66,6 +66,39 @@ export interface SceneBeat {
   /** Deterministic, seed-derived variant index. */
   readonly variant: number;
   readonly at: number;
+  /**
+   * Beat lifetime so the office can expire a beat without waiting for a future
+   * event (an idle actor returns home). Pure: derived from `at` + a per-kind TTL,
+   * never wall-clock, so replay stays byte-identical. Approval/failure get a long
+   * TTL — they persist until a later event resolves them, not on a short timer.
+   */
+  readonly lifecycle: { readonly startedAt: number; readonly endsAt: number };
+}
+
+/**
+ * Per-kind beat lifetime in ms (source plan §9.3 durations). Approval/failure
+ * persist until resolved by a later event — a long finite TTL, not infinity, so
+ * the value JSON-serializes for deterministic replay.
+ */
+export function beatLifespanMs(kind: BeatKind): number {
+  switch (kind) {
+    case 'approval':
+    case 'failure':
+      return 600_000; // until a later event resolves the state
+    case 'delegate':
+    case 'review':
+    case 'join':
+      return 8_000; // 6-10s
+    case 'complete':
+      return 4_500; // 3-6s
+    case 'activity':
+    case 'research':
+    case 'produce':
+    case 'compute':
+      return 3_000; // micro action (coalesced tool work) 2.5-4s
+    default:
+      return 6_000; // receive-task / plan (phase)
+  }
 }
 
 /** Beat priority bands (source plan §9.2). */
@@ -325,6 +358,7 @@ export function composeBeats(
       interrupt: signal.interrupt,
       variant,
       at: signal.at,
+      lifecycle: { startedAt: signal.at, endsAt: signal.at + beatLifespanMs(signal.kind) },
     });
     if (movement) actorOf(actorKey).lastMovementAt = signal.at;
   };

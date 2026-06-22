@@ -27,10 +27,39 @@ const EMPTY_BEATS: readonly SceneBeat[] = Object.freeze([]);
 const buffers = new Map<string, TimedAgentRunEvent[]>();
 const listeners = new Set<() => void>();
 let version = 0;
+let expiryTimer: ReturnType<typeof setTimeout> | null = null;
 
 function notify(): void {
   version += 1;
   for (const listener of listeners) listener();
+}
+
+/**
+ * Arm a single timer at the soonest future beat expiry across all companies, so
+ * an idle actor returns home WITHOUT a new runtime event (the rolling buffer
+ * alone never re-fires once events stop). On fire it re-notifies — recomputing
+ * the staging with the expired beat filtered out — and reschedules.
+ */
+function scheduleExpiry(): void {
+  if (expiryTimer !== null) {
+    clearTimeout(expiryTimer);
+    expiryTimer = null;
+  }
+  const now = Date.now();
+  let next = Number.POSITIVE_INFINITY;
+  for (const events of buffers.values()) {
+    if (events.length === 0) continue;
+    for (const beat of composeBeats(events, { dramaturgyVersion: DRAMATURGY_VERSION })) {
+      if (beat.lifecycle.endsAt > now && beat.lifecycle.endsAt < next) next = beat.lifecycle.endsAt;
+    }
+  }
+  if (next !== Number.POSITIVE_INFINITY) {
+    expiryTimer = setTimeout(() => {
+      expiryTimer = null;
+      notify();
+      scheduleExpiry();
+    }, Math.max(0, next - now));
+  }
 }
 
 // Singleton subscription for the app lifetime — the office scene mounts/unmounts
@@ -52,6 +81,7 @@ runtimeEventBus.on('agent.run', (event) => {
     .slice(-MAX_EVENTS_PER_COMPANY);
   buffers.set(event.companyId, next);
   notify();
+  scheduleExpiry();
 });
 
 const officeDramaturgyStore = {
@@ -67,7 +97,13 @@ const officeDramaturgyStore = {
   beatsForCompany(companyId: string): readonly SceneBeat[] {
     const events = buffers.get(companyId);
     if (!events || events.length === 0) return EMPTY_BEATS;
-    return composeBeats(events, { dramaturgyVersion: DRAMATURGY_VERSION });
+    // Drop beats whose lifetime has elapsed so an idle actor returns home; the
+    // expiry timer re-notifies when the soonest endsAt passes.
+    const now = Date.now();
+    const beats = composeBeats(events, { dramaturgyVersion: DRAMATURGY_VERSION }).filter(
+      (beat) => beat.lifecycle.endsAt > now,
+    );
+    return beats.length > 0 ? beats : EMPTY_BEATS;
   },
 };
 

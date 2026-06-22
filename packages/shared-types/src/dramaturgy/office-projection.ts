@@ -37,14 +37,24 @@ export function currentBeatsByEmployee(beats: readonly SceneBeat[]): Map<string,
 export function projectOfficeStaging(
   beats: readonly SceneBeat[],
   prefabs: readonly StagingPrefab[],
+  actorPositions?: ReadonlyMap<string, { readonly x: number; readonly z: number }>,
 ): EmployeeStaging[] {
   const current = currentBeatsByEmployee(beats);
 
-  // Only high-value movement beats reserve a relocation anchor.
+  // Only high-value movement beats reserve a relocation anchor. Each request
+  // carries the beat's priority + time (so reservation favours high-priority
+  // actors) and the actor's current position (so it takes the nearest anchor).
   const movers: StagingRequest[] = [];
   for (const [employeeId, beat] of current) {
     if (beat.movement && beat.affordance) {
-      movers.push({ actorId: employeeId, affordance: beat.affordance });
+      const pos = actorPositions?.get(employeeId);
+      movers.push({
+        actorId: employeeId,
+        affordance: beat.affordance,
+        priority: beat.priority,
+        at: beat.at,
+        ...(pos ? { x: pos.x, z: pos.z } : {}),
+      });
     }
   }
   const reservedByActor = new Map(reserveStaging(prefabs, movers).map((s) => [s.actorId, s]));

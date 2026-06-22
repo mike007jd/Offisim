@@ -27,16 +27,19 @@ const ACCESS_TOOLS = {
   write: undefined,
 };
 
-// Per-child model-visible output cap (mirrors the official subagent example). A
-// child that floods its summary back to the root would blow the root's context;
-// truncation is byte-aware and always announced (never a silent cap).
-const PER_CHILD_OUTPUT_CAP = 50 * 1024;
+// Model-visible output caps. Full transcript / tool timeline / usage stay in the
+// telemetry events; only a bounded, structured summary reaches the root's model
+// context. Per child: 4-8 KB target, 8 KB hard cap. Combined delegate tool
+// result: 16-24 KB target, 24 KB hard cap. Truncation is byte-aware and always
+// announced (never a silent cap).
+const PER_CHILD_OUTPUT_CAP = 8 * 1024;
+const COMBINED_OUTPUT_CAP = 24 * 1024;
 
 // Deterministic host-policy defaults (Docs/DELEGATION_ARCHITECTURE.md §7). These
 // are the only constraints code enforces; everything else is the agent's call.
 export const DELEGATION_DEFAULTS = Object.freeze({
   maxDepth: 2, // 1 = root's direct children only; 2 = one level of recursion
-  maxConcurrentChildren: 4, // per parallel fan-out
+  maxParallelPerDelegation: 4, // per parallel fan-out (not a global run-tree cap)
   maxTotalChildren: 16, // across the whole tree for one root run
   childTimeoutMs: 5 * 60 * 1000, // wall-clock per child
   // Token budget across the whole delegation tree for one root run — the
@@ -59,7 +62,7 @@ export function createDelegationLimits(overrides = {}) {
   let spentTokens = 0;
   return {
     ...cfg,
-    maxConcurrentChildren: Math.max(1, cfg.maxConcurrentChildren),
+    maxParallelPerDelegation: Math.max(1, cfg.maxParallelPerDelegation),
     /** Reserve one of the global total-children budget; false when exhausted. */
     reserveTotal() {
       if (totalSpawned >= cfg.maxTotalChildren) return false;
@@ -106,20 +109,94 @@ function resolveRelation(task, access) {
   return 'delegate';
 }
 
-function capChildOutput(text) {
-  const bytes = Buffer.byteLength(text, 'utf8');
-  if (bytes <= PER_CHILD_OUTPUT_CAP) return text;
-  let truncated = text.slice(0, PER_CHILD_OUTPUT_CAP);
-  while (Buffer.byteLength(truncated, 'utf8') > PER_CHILD_OUTPUT_CAP) {
-    truncated = truncated.slice(0, -1);
+/** Byte-aware truncation to `cap`, always announced (never a silent cap). Cuts at
+ *  a UTF-8 codepoint boundary (backs off any partial trailing codepoint) so the
+ *  kept text never ends in a broken char. */
+function capBytes(text, cap, label) {
+  const buf = Buffer.from(text, 'utf8');
+  if (buf.length <= cap) return text;
+  let keep = cap;
+  // Continuation bytes are 0b10xxxxxx — back off so we don't split a codepoint.
+  while (keep > 0 && (buf[keep] & 0xc0) === 0x80) keep -= 1;
+  const truncated = buf.subarray(0, keep).toString('utf8');
+  return `${truncated}\n\n[Output truncated: ${buf.length - keep} bytes omitted (${label} ${cap / 1024} KB cap).]`;
+}
+
+// Structured child result. The child returns free-form text; this lifts a small
+// set of labeled sections into a scannable shape so the root sees a compact
+// result, not a raw transcript. Sections are optional — an unlabeled reply is
+// summary-only. Full transcript / tool timeline / usage stay in telemetry events.
+const RESULT_SECTION_KEYS = ['summary', 'artifacts', 'decisions', 'risks', 'verification'];
+
+const CHILD_RESULT_GUIDANCE = [
+  'When you finish, end your reply with a concise structured result the lead can',
+  'act on without reading your full transcript. Use these markdown headings, and',
+  'omit any section that is empty:',
+  '## Summary — 2-4 sentences on what you found or did.',
+  '## Artifacts — files or paths you created or changed.',
+  '## Decisions — choices you made and why.',
+  '## Risks — caveats or follow-ups the lead should know.',
+  '## Verification — how you checked the work.',
+].join('\n');
+
+/** Parse a child's reply into { summary, artifacts, decisions, risks, verification }.
+ *  Leading prose (and anything under a `Summary` heading) is the summary; bullets
+ *  under the other headings become list items. Heading-free replies stay
+ *  summary-only — never a fabricated section. */
+export function parseChildSummary(text) {
+  const buckets = { summary: [], artifacts: [], decisions: [], risks: [], verification: [] };
+  let current = 'summary';
+  for (const line of text.split('\n')) {
+    // A section header is a markdown heading (#…) or bold (**…**) that BEGINS with
+    // a known section keyword — requiring the marker avoids treating a plain
+    // content line like "Risks were mitigated" as a header. Any trailing text on
+    // the same line (the child may write "## Artifacts — src/foo.ts") is captured
+    // as that section's first item.
+    const header = line
+      .trim()
+      .match(/^(?:#{1,6}\s*|\*\*)\s*(summary|artifacts|decisions|risks|verification)\b[*:：—–\- ]*(.*?)\**\s*$/i);
+    if (header) {
+      current = header[1].toLowerCase();
+      const rest = header[2].trim();
+      if (rest) {
+        if (current === 'summary') buckets.summary.push(rest);
+        else buckets[current].push(rest.replace(/^[-*]\s*/, '').trim());
+      }
+      continue;
+    }
+    if (current === 'summary') {
+      buckets.summary.push(line);
+    } else {
+      const item = line.replace(/^\s*[-*]\s*/, '').trim();
+      if (item) buckets[current].push(item);
+    }
   }
-  const dropped = bytes - Buffer.byteLength(truncated, 'utf8');
-  return `${truncated}\n\n[Output truncated: ${dropped} bytes omitted (per-child ${PER_CHILD_OUTPUT_CAP / 1024} KB cap).]`;
+  return {
+    summary: buckets.summary.join('\n').trim() || text.trim(),
+    artifacts: buckets.artifacts,
+    decisions: buckets.decisions,
+    risks: buckets.risks,
+    verification: buckets.verification,
+  };
+}
+
+/** Render a structured summary back to compact text, capped per child. */
+export function renderChildSummary(structured) {
+  const parts = [structured.summary];
+  for (const key of RESULT_SECTION_KEYS) {
+    if (key === 'summary') continue;
+    const items = structured[key];
+    if (items.length > 0) {
+      const heading = key[0].toUpperCase() + key.slice(1);
+      parts.push(`${heading}:\n${items.map((i) => `- ${i}`).join('\n')}`);
+    }
+  }
+  return capBytes(parts.filter(Boolean).join('\n\n'), PER_CHILD_OUTPUT_CAP, 'per-child');
 }
 
 /** Run items through fn with at most `limit` in flight (mirrors the official
  *  example). Excess tasks queue and start as slots free — this is the visible
- *  "exceeded maxConcurrentChildren → queue" behavior. */
+ *  "exceeded maxParallelPerDelegation → queue" behavior. */
 async function mapWithConcurrencyLimit(items, limit, fn) {
   if (items.length === 0) return [];
   const bound = Math.max(1, Math.min(limit, items.length));
@@ -268,7 +345,8 @@ export function createChildSupervisor(ctx) {
         agentDir: ctx.agentDir,
         settingsManager: ctx.settingsManager,
         extensionFactories,
-        ...(persona ? { appendSystemPrompt: [persona] } : {}),
+        // Persona (if any) + the structured-result format the child should end on.
+        appendSystemPrompt: persona ? [persona, CHILD_RESULT_GUIDANCE] : [CHILD_RESULT_GUIDANCE],
       });
       await resourceLoader.reload();
       ({ session } = await createAgentSession({
@@ -342,7 +420,11 @@ export function createChildSupervisor(ctx) {
 
     try {
       await session.prompt(objective);
-      const summary = capChildOutput((session.getLastAssistantText() || '').trim() || '(no output)');
+      // Lift the child's reply into a bounded, structured result — the only thing
+      // the root model sees; the full transcript stays in telemetry.
+      const summary = renderChildSummary(
+        parseChildSummary((session.getLastAssistantText() || '').trim() || '(no output)'),
+      );
       if (timedOut) {
         const reason = `Timed out after ${Math.round(limits.childTimeoutMs / 1000)}s`;
         emit('run.failed', { status: 'failed', summary: reason, usage });
@@ -377,17 +459,20 @@ export function createChildSupervisor(ctx) {
     }
   }
 
-  /** Run multiple tasks concurrently, capped at maxConcurrentChildren (excess
-   *  queues). Returns a combined, per-teammate summary for the calling agent. */
+  /** Run multiple tasks concurrently, capped at maxParallelPerDelegation (excess
+   *  queues). Returns a combined, per-teammate summary for the calling agent,
+   *  bounded by the combined-result cap so a wide fan-out can't blow the root
+   *  context even though each child is already individually capped. */
   async function runParallel(tasks, signal) {
     const summaries = await mapWithConcurrencyLimit(
       tasks,
-      limits.maxConcurrentChildren,
+      limits.maxParallelPerDelegation,
       (task) => runSingle(task, signal),
     );
-    return tasks
+    const combined = tasks
       .map((task, i) => `### ${task.employeeId}\n${summaries[i] ?? '(no output)'}`)
       .join('\n\n---\n\n');
+    return capBytes(combined, COMBINED_OUTPUT_CAP, 'combined');
   }
 
   return { runSingle, runParallel, roster };

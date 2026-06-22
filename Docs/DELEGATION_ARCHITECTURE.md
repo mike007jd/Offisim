@@ -26,7 +26,7 @@ holds the user conversation; children do bounded work; the root agent synthesize
 the final answer. Fixed flows (research → plan → implement → review) are a **Pi
 Skill / prompt template** that guides the root agent to call the delegation tool —
 we do **not** rebuild a graph engine. Code enforces only the genuinely
-deterministic constraints (maxDepth / maxConcurrentChildren / maxTotalChildren /
+deterministic constraints (maxDepth / maxParallelPerDelegation / maxTotalChildren /
 timeout / budget / abort propagation / output cap).
 
 ---
@@ -156,7 +156,9 @@ This vocabulary is **agent-agnostic**: no `pi_agent_*` term crosses into the
 renderer or the Rust wire semantic layer (global constraint #1).
 
 ```ts
-export type AgentRunRelation = 'delegate' | 'parallel' | 'review' | 'handoff';
+// `parallel` is NOT a relation — fan-out is DelegateExecutionMode ('single' |
+// 'parallel'). Relation is parent-child semantics only.
+export type AgentRunRelation = 'delegate' | 'review' | 'handoff';
 
 export type AgentRunStatus = 'running' | 'completed' | 'failed' | 'cancelled';
 
@@ -179,6 +181,7 @@ export interface AgentRunScopeFields {
   readonly parentRunId?: string;    // omitted for the root
   readonly employeeId?: string;     // stable identity executing this run
   readonly relation?: AgentRunRelation;
+  readonly workKind?: WorkKind;     // semantic kind of work (delegate-stamped)
 }
 
 export interface AgentRunEvent extends AgentRunScopeFields {
@@ -225,8 +228,9 @@ export interface AgentRunRecord extends AgentRunScopeFields {
 
 ```ts
 delegate({
-  tasks: [{ employeeId, objective, access: 'read' | 'write' | 'review' }],
-  mode: 'single' | 'parallel',
+  tasks: [{ employeeId, objective, access: 'read' | 'write' | 'review',
+            workKind?, relation? }],
+  executionMode: 'single' | 'parallel',
 })
 ```
 
@@ -256,11 +260,12 @@ agent-agnostic.
   `rename_all_fields="camelCase"`). `payload` decodes to `serde_json::Value`
   (opaque, like `result.response`), so the wire stays stable while payloads grow.
 - **Fixture**: add ≥1 `agentRun` line to `scripts/fixtures/pi-wire-contract.json`.
-- **Gate**: add the `agentRun` spec (required: `threadId`, `rootRunId`, `runId`,
-  `type`, `payload`; allowed: + `parentRunId`, `employeeId`, `relation`) to
-  `scripts/check-pi-wire-contract.mjs`, and add a cargo round-trip test.
-- **Protocol version**: bump `PI_HOST_PROTOCOL_VERSION` **1 → 2** in both
-  `pi_agent_host.rs` and `pi-agent-host-wire.mjs`.
+- **Gate**: the `agentRun` spec (required: `threadId`, `rootRunId`, `runId`,
+  `runType`, `payload`; allowed: + `parentRunId`, `employeeId`, `relation`,
+  `workKind`) in `scripts/check-pi-wire-contract.mjs`, plus a cargo round-trip test.
+- **Protocol version**: `PI_HOST_PROTOCOL_VERSION = 2`. `workKind` was added as an
+  optional-additive field (no required-shape change), so it did NOT bump the
+  version — the wire convention bumps only when a line's *required* shape changes.
 
 The renderer's Channel `onmessage` (`apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts`)
 translates an `agentRun` line into a neutral `agent.run.*` bus event tagged with the
@@ -323,11 +328,13 @@ forwards it in the execute request; Rust passes it through verbatim in
 | Limit | Phase 1 | Phase 2 default | Enforced by |
 |---|---|---|---|
 | `maxDepth` | 1 (no recursion) | 2 | supervisor depth counter; over → tool `block` + reason |
-| `maxConcurrentChildren` | n/a (single) | 4 | **per parallel fan-out** (`mapWithConcurrencyLimit`), not a global blocking semaphore — a parent awaiting children must not hold a slot a child needs (deadlock). Tree-wide instantaneous concurrency is bounded by `maxTotalChildren`. |
+| `maxParallelPerDelegation` | n/a (single) | 4 | **per parallel fan-out** (`mapWithConcurrencyLimit`), not a global blocking semaphore — a parent awaiting children must not hold a slot a child needs (deadlock). Tree-wide instantaneous concurrency is bounded by `maxTotalChildren`. |
 | `maxTotalChildren` | 1 | 16 | global counter per root run — the tree-wide cap |
 | wall-clock timeout / child | — | 5 min | `AbortController` + timer |
 | token / cost budget | — | reuse `ConversationBudgetService` | budget check before each child |
-| per-child output cap | 50 KB | 50 KB | supervisor truncates (mirrors official example), **logs** the drop |
+| per-child output cap | 50 KB | **8 KB** | supervisor truncates the structured summary, **announces** the drop |
+| combined tool-result cap | — | **24 KB** | combined parallel result truncated + announced |
+| parallel write safety | — | reject | parallel + any `write` task is rejected (children share one cwd); run write as `single` or sequence it |
 | abort propagation | root only | whole subtree | root cancel → host kills all descendants |
 
 **No silent caps**: hitting any cap (dropped concurrency, truncated output, budget

@@ -10,6 +10,7 @@ import type { ZoneKind } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
 import { CANVAS_FONT_TOKENS } from '@/styles/visual-tokens.js';
 import { type StagingPrefab, applyDramaturgyMode, projectOfficeStaging } from '@offisim/shared-types';
+import { SCENE_CONTENT_SCALE } from './r3d/scene-art-direction.js';
 import { useEffect, useMemo, useRef } from 'react';
 import { compactSceneEmployeeName } from './scene-labels.js';
 import {
@@ -88,9 +89,12 @@ export function OfficeScene2D() {
       x: p.instance.position_x,
       z: p.instance.position_y,
       rotation: p.instance.rotation,
+      // Anchor offsets scale to match the home-seat planner (which scales in both
+      // render modes), so a relocated dot sits on the same seat in 2D and 3D.
+      scale: SCENE_CONTENT_SCALE,
     }));
     const map = new Map<string, { x: number; z: number }>();
-    const staged = applyDramaturgyMode(projectOfficeStaging(dominantBeats, prefabs), {
+    const staged = applyDramaturgyMode(projectOfficeStaging(dominantBeats, prefabs, positions), {
       mode: officeMode,
       reducedMotion,
     });
@@ -100,7 +104,7 @@ export function OfficeScene2D() {
       }
     }
     return map;
-  }, [dominantBeats, layout.data?.prefabs, officeMode, reducedMotion]);
+  }, [dominantBeats, layout.data?.prefabs, positions, officeMode, reducedMotion]);
 
   const threadList = threads.data;
   const threadByEmployee = useMemo(() => {
