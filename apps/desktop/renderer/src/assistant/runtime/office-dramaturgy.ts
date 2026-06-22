@@ -13,13 +13,13 @@
 import { runtimeEventBus } from '@/runtime/repos.js';
 import {
   type AgentRunEvent,
+  DRAMATURGY_VERSION,
   type SceneBeat,
   type TimedAgentRunEvent,
   composeBeats,
 } from '@offisim/shared-types';
 import { useMemo, useSyncExternalStore } from 'react';
 
-const DRAMATURGY_VERSION = 'v1';
 const MAX_EVENTS_PER_COMPANY = 400;
 const MAX_AGE_MS = 120_000;
 const EMPTY_BEATS: readonly SceneBeat[] = Object.freeze([]);

@@ -252,6 +252,8 @@ export {
 } from './dramaturgy/profiles.js';
 export type { DramaturgyMode, DramaturgyModeOptions } from './dramaturgy/modes.js';
 export { DEFAULT_MAX_WALKERS, applyDramaturgyMode } from './dramaturgy/modes.js';
+export type { DramaturgyReplayResult, DramaturgyReplaySource } from './dramaturgy/replay.js';
+export { DRAMATURGY_VERSION, captureReplaySource, replayDramaturgy } from './dramaturgy/replay.js';
 export type {
   EmployeePerformanceAction,
   EmployeePerformanceDomain,

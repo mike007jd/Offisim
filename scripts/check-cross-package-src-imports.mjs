@@ -49,6 +49,7 @@ const ALLOWLIST = new Set([
   'scripts/harness-scene-staging.mts::../packages/shared-types/src/index.js',
   'scripts/harness-office-projection.mts::../packages/shared-types/src/index.js',
   'scripts/harness-dramaturgy-modes.mts::../packages/shared-types/src/index.js',
+  'scripts/harness-dramaturgy-replay.mts::../packages/shared-types/src/index.js',
 ]);
 
 // Matches an import/export/require specifier that reaches into a package's src,
@@ -62,8 +63,7 @@ function walk(dir, files) {
     const full = join(dir, entry);
     const stats = statSync(full);
     if (stats.isDirectory()) walk(full, files);
-    else if (full !== SELF && SOURCE_EXTENSIONS.some((ext) => full.endsWith(ext)))
-      files.push(full);
+    else if (full !== SELF && SOURCE_EXTENSIONS.some((ext) => full.endsWith(ext))) files.push(full);
   }
 }
 
