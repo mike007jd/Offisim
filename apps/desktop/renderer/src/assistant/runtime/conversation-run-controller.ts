@@ -256,6 +256,11 @@ function globalFieldsChanged(
     prev.source !== next.source ||
     prev.activity !== next.activity ||
     prev.activityTotal !== next.activityTotal ||
+    // Delegation start/stop must re-notify the global snapshot: the office
+    // workload projection derives activeCount / dominant from delegations, so a
+    // child run starting or finishing has to invalidate it or the x2/x3 badge
+    // and parallel actor lighting go stale.
+    prev.delegations !== next.delegations ||
     prev.approval !== next.approval ||
     prev.error !== next.error
   );

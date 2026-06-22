@@ -1,3 +1,4 @@
+import type { SceneBeat } from '@offisim/shared-types';
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import {
   type ConversationRunSnapshot,
@@ -6,12 +7,15 @@ import {
   conversationRunController,
 } from './conversation-run-controller.js';
 import {
-  type EmployeeRunProjection,
+  type EmployeeWorkloadProjection,
+  dominantBeatsFrom,
   isConversationRunActive,
-  projectEmployeeRunStates,
+  projectEmployeeWorkloads,
 } from './conversation-run-projections.js';
+import { useOfficeBeats } from './office-dramaturgy.js';
 
-export { isConversationRunActive };
+export { isConversationRunActive, dominantBeatsFrom };
+export type { EmployeeWorkloadProjection };
 
 export function useConversationRun(threadId: string): ConversationRunSnapshot {
   return useSyncExternalStore(
@@ -49,7 +53,22 @@ export function usePendingConversationApprovals(
   }, [companyId, snapshot]);
 }
 
-export function useEmployeeRunStates(projectId: string | null): Map<string, EmployeeRunProjection> {
+/**
+ * One aggregated workload per employee — the single truth for office actor
+ * lighting (activeCount), the x2/x3 badge, and the dominant performance. Joins
+ * each dominant run's current scene beat from the live office timeline, so the
+ * office stages the dominant ACTIVE run (not a stale just-finished one).
+ */
+export function useEmployeeWorkloads(
+  projectId: string | null,
+  companyId: string | null,
+): Map<string, EmployeeWorkloadProjection> {
   const snapshot = useActiveConversationRuns();
-  return useMemo(() => projectEmployeeRunStates(snapshot, projectId), [projectId, snapshot]);
+  const beats = useOfficeBeats(companyId);
+  return useMemo(() => {
+    // Latest beat per runId — the dominant run's live scene direction.
+    const beatByRun = new Map<string, SceneBeat>();
+    for (const beat of beats) beatByRun.set(beat.runId, beat);
+    return projectEmployeeWorkloads(snapshot, projectId, (runId) => beatByRun.get(runId) ?? null);
+  }, [projectId, companyId, snapshot, beats]);
 }

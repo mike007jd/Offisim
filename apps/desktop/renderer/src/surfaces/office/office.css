@@ -279,6 +279,35 @@
   scale: 1;
 }
 
+/* Relative anchor for the active-count badge; the tag clips its own text, so the
+   badge rides this un-clipped wrapper instead. */
+.off-scene-actor {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Active-count badge — concurrent runs collapse to one actor, so the ×N count is
+   the only signal of parallel work. Pinned to the tag's top-right corner. */
+.off-scene-count-badge {
+  position: absolute;
+  top: -5px;
+  right: -7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: var(--off-r-pill);
+  background: var(--off-accent);
+  color: var(--off-surface-1);
+  font-size: var(--off-fs-micro);
+  font-weight: 700;
+  line-height: 1;
+  text-shadow: none;
+  pointer-events: none;
+}
+
 .off-scene-zone-label {
   display: inline-flex;
   align-items: center;

@@ -1,6 +1,9 @@
 import { useUiState } from '@/app/ui-state.js';
-import { useEmployeeRunStates } from '@/assistant/runtime/conversation-run-react.js';
-import { useOfficeBeats, usePrefersReducedMotion } from '@/assistant/runtime/office-dramaturgy.js';
+import {
+  dominantBeatsFrom,
+  useEmployeeWorkloads,
+} from '@/assistant/runtime/conversation-run-react.js';
+import { usePrefersReducedMotion } from '@/assistant/runtime/office-dramaturgy.js';
 import { useEmployees, useOfficeLayout, useReassignEmployee, useThreads } from '@/data/queries.js';
 import type { Employee } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
@@ -103,6 +106,7 @@ function EmployeeUnit({
   posture,
   withDesk,
   running,
+  activeCount,
   active,
   dragging,
   performance,
@@ -119,6 +123,7 @@ function EmployeeUnit({
   posture: EmployeePosture;
   withDesk: boolean;
   running: boolean;
+  activeCount: number;
   active: boolean;
   dragging: boolean;
   performance?: CharacterPerformanceState;
@@ -414,40 +419,49 @@ function EmployeeUnit({
           zIndexRange={[2, 0]}
           className={labelInteractive ? 'off-scene-html-interactive' : 'off-scene-html-passive'}
         >
-          {labelInteractive ? (
-            <button
-              type="button"
-              aria-label={`Open ${employee.name}`}
-              title={employee.name}
-              className={`off-scene-tag is-interactive${running ? ' is-running' : ''}${
-                active ? ' is-active' : ''
-              }`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelect();
-              }}
-              onPointerDown={(e) => {
-                e.stopPropagation();
-                e.nativeEvent.stopImmediatePropagation();
-                e.nativeEvent.preventDefault();
-                beginDrag(e.nativeEvent);
-              }}
-              onMouseDown={(e) => {
-                e.stopPropagation();
-                e.nativeEvent.stopImmediatePropagation();
-                e.nativeEvent.preventDefault();
-                beginDrag(e.nativeEvent);
-              }}
-              onDragStart={(e) => {
-                e.preventDefault();
-              }}
-              draggable={false}
-            >
-              {labelText}
-            </button>
-          ) : (
-            <span className="off-scene-tag">{labelText}</span>
-          )}
+          {/* Relative wrapper so the active-count badge can sit at the tag's
+              top-right corner without being clipped by the tag's overflow. */}
+          <div className="off-scene-actor">
+            {labelInteractive ? (
+              <button
+                type="button"
+                aria-label={`Open ${employee.name}`}
+                title={employee.name}
+                className={`off-scene-tag is-interactive${running ? ' is-running' : ''}${
+                  active ? ' is-active' : ''
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelect();
+                }}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  e.nativeEvent.stopImmediatePropagation();
+                  e.nativeEvent.preventDefault();
+                  beginDrag(e.nativeEvent);
+                }}
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  e.nativeEvent.stopImmediatePropagation();
+                  e.nativeEvent.preventDefault();
+                  beginDrag(e.nativeEvent);
+                }}
+                onDragStart={(e) => {
+                  e.preventDefault();
+                }}
+                draggable={false}
+              >
+                {labelText}
+              </button>
+            ) : (
+              <span className="off-scene-tag">{labelText}</span>
+            )}
+            {activeCount > 1 ? (
+              <span className="off-scene-count-badge" aria-label={`${activeCount} active runs`}>
+                {`×${activeCount}`}
+              </span>
+            ) : null}
+          </div>
         </Html>
       ) : null}
     </group>
@@ -556,7 +570,7 @@ export function OfficeScene3D() {
   const recordSceneDropDiagnostic = useUiState((s) => s.recordSceneDropDiagnostic);
   const employees = useEmployees();
   const threads = useThreads(projectId);
-  const employeeRunStates = useEmployeeRunStates(projectId);
+  const workloads = useEmployeeWorkloads(projectId, companyId);
   const layout = useOfficeLayout(companyId);
   const reassign = useReassignEmployee();
   const [employeeDrag, setEmployeeDrag] = useState<SceneEmployeeDrag | null>(null);
@@ -583,8 +597,11 @@ export function OfficeScene3D() {
 
   // Live dramaturgy: the agent.run beat timeline → per-employee performance and
   // (for high-value movement beats only) a reserved relocation anchor on the
-  // office's real prefab layout. Empty when nothing is running.
-  const beats = useOfficeBeats(companyId);
+  // office's real prefab layout. Empty when nothing is running. Staging reads the
+  // dominant beat of each employee's dominant ACTIVE run (the same workload truth
+  // that lights the ring + badge), so a just-finished run never stages over a
+  // still-running one, and 2D/3D agree on the staged target.
+  const dominantBeats = useMemo(() => dominantBeatsFrom(workloads), [workloads]);
   const stagingPrefabs = useMemo<StagingPrefab[]>(
     () =>
       (scenePrefabs ?? []).map((p) => ({
@@ -601,12 +618,12 @@ export function OfficeScene3D() {
   const dramaturgyByEmployee = useMemo(
     () =>
       new Map(
-        applyDramaturgyMode(projectOfficeStaging(beats, stagingPrefabs), {
+        applyDramaturgyMode(projectOfficeStaging(dominantBeats, stagingPrefabs), {
           mode: officeMode,
           reducedMotion,
         }).map((d) => [d.employeeId, d]),
       ),
-    [beats, stagingPrefabs, officeMode, reducedMotion],
+    [dominantBeats, stagingPrefabs, officeMode, reducedMotion],
   );
 
   const threadByEmployee = useMemo(() => {
@@ -678,7 +695,9 @@ export function OfficeScene3D() {
                 posture: 'standing' as const,
               };
               const thread = threadByEmployee.get(employee.id);
-              const running = employeeRunStates.has(employee.id);
+              const workload = workloads.get(employee.id);
+              const activeCount = workload?.activeCount ?? 0;
+              const running = activeCount > 0;
               // High-value movement beats relocate the actor to a reserved
               // anchor; everything else stays at the home placement (and only
               // the performance changes).
@@ -703,6 +722,7 @@ export function OfficeScene3D() {
                   posture={!real ? 'sitting' : target.posture}
                   withDesk={!real}
                   running={running}
+                  activeCount={activeCount}
                   active={Boolean(thread && thread.id === selectedThreadId)}
                   dragging={employeeDrag?.employeeId === employee.id}
                   performance={dram?.performance}

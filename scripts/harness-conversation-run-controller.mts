@@ -5,7 +5,7 @@ import {
   type ConversationRunController,
   createConversationRunController,
 } from '../apps/desktop/renderer/src/assistant/runtime/conversation-run-controller.js';
-import { projectEmployeeRunStates } from '../apps/desktop/renderer/src/assistant/runtime/conversation-run-projections.js';
+import { projectEmployeeWorkloads } from '../apps/desktop/renderer/src/assistant/runtime/conversation-run-projections.js';
 import type {
   ChatAttachment,
   ChatMessage,
@@ -679,15 +679,67 @@ const scenarios: Array<{
         () => env.controller.getSnapshot('team-thread').phase === 'running',
       );
       const global = env.controller.getGlobalSnapshot();
-      const employeeStates = projectEmployeeRunStates(global, 'prj');
+      const employeeStates = projectEmployeeWorkloads(global, 'prj');
       assert.equal(env.controller.getSnapshot('stale-thread').approval?.state, 'stale');
-      assert.equal(employeeStates.get('emp-1')?.state, 'working');
+      assert.equal(employeeStates.get('emp-1')?.dominant?.state, 'working');
+      assert.equal(employeeStates.get('emp-1')?.activeCount, 1);
       assert.equal(employeeStates.size, 1);
       return {
         staleApproval: env.controller.getSnapshot('stale-thread').approval?.state,
         employeeStates: Array.from(employeeStates.entries()),
         activeRuns: global.activeRuns.map((run) => [run.threadId, run.employeeId, run.phase]),
       };
+    },
+  },
+  {
+    name: 'same employee concurrent runs aggregate to one actor with activeCount',
+    criteria:
+      'Pass when two concurrent runs on one employee collapse to a single workload entry with activeCount = 2 and a working dominant — never a duplicated actor.',
+    run: async () => {
+      const env = makeEnv();
+      env.runtime.onExecute = async (input) => {
+        env.runtime.emitContent(input, `running ${input.threadId}`);
+        await new Promise(() => undefined);
+      };
+      await submitDefault(env.controller, { threadId: 'thread-a', employeeId: 'emp-1' });
+      await submitDefault(env.controller, { threadId: 'thread-b', employeeId: 'emp-1' });
+      await waitFor('a running', () => env.controller.getSnapshot('thread-a').phase === 'running');
+      await waitFor('b running', () => env.controller.getSnapshot('thread-b').phase === 'running');
+      const workloads = projectEmployeeWorkloads(env.controller.getGlobalSnapshot(), 'prj');
+      const emp = workloads.get('emp-1');
+      assert.equal(workloads.size, 1);
+      assert.equal(emp?.activeCount, 2);
+      assert.equal(emp?.waitingCount, 0);
+      assert.equal(emp?.dominant?.state, 'working');
+      assert.equal(emp?.activeRunIds.length, 2);
+      return { activeCount: emp?.activeCount, activeRunIds: [...(emp?.activeRunIds ?? [])] };
+    },
+  },
+  {
+    name: 'terminal run does not override a still-running run on the same employee',
+    criteria:
+      'Pass when a completed run B drops out of the workload and the still-running run A becomes the dominant — the office returns to active work, not the just-finished run.',
+    run: async () => {
+      const env = makeEnv();
+      env.runtime.onExecute = async (input) => {
+        if (input.threadId === 'thread-b') {
+          env.runtime.emitContent(input, 'done b');
+          return { text: 'done b' };
+        }
+        env.runtime.emitContent(input, 'running a');
+        await new Promise(() => undefined);
+      };
+      await submitDefault(env.controller, { threadId: 'thread-a', employeeId: 'emp-1' });
+      await submitDefault(env.controller, { threadId: 'thread-b', employeeId: 'emp-1' });
+      await waitFor('a running', () => env.controller.getSnapshot('thread-a').phase === 'running');
+      await waitFor('b completed', () => env.controller.getSnapshot('thread-b').phase === 'completed');
+      const attemptA = env.controller.getSnapshot('thread-a').attemptId;
+      const workloads = projectEmployeeWorkloads(env.controller.getGlobalSnapshot(), 'prj');
+      const emp = workloads.get('emp-1');
+      assert.equal(emp?.activeCount, 1);
+      assert.equal(emp?.dominant?.state, 'working');
+      assert.equal(emp?.dominant?.runId, attemptA);
+      return { activeCount: emp?.activeCount, dominantRunId: emp?.dominant?.runId, attemptA };
     },
   },
 ];

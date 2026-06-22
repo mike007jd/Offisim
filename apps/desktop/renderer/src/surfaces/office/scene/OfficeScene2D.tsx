@@ -1,6 +1,9 @@
 import { useUiState } from '@/app/ui-state.js';
-import { useEmployeeRunStates } from '@/assistant/runtime/conversation-run-react.js';
-import { useOfficeBeats, usePrefersReducedMotion } from '@/assistant/runtime/office-dramaturgy.js';
+import {
+  dominantBeatsFrom,
+  useEmployeeWorkloads,
+} from '@/assistant/runtime/conversation-run-react.js';
+import { usePrefersReducedMotion } from '@/assistant/runtime/office-dramaturgy.js';
 import { OFFICE_SCENE_2D_COLORS } from '@/data/color-palette.js';
 import { useEmployees, useOfficeLayout, useThreads } from '@/data/queries.js';
 import type { ZoneKind } from '@/data/types.js';
@@ -50,7 +53,7 @@ export function OfficeScene2D() {
   const openThread = useUiState((s) => s.openThread);
   const employees = useEmployees();
   const threads = useThreads(projectId);
-  const employeeRunStates = useEmployeeRunStates(projectId);
+  const workloads = useEmployeeWorkloads(projectId, companyId);
   // Same real source as the 3D scene — real zones + real roster, with the
   // synthetic fallback only when there is no backend (non-Tauri/dev preview).
   const layout = useOfficeLayout(companyId);
@@ -71,8 +74,11 @@ export function OfficeScene2D() {
 
   // Same live dramaturgy projection as the 3D scene → high-value movement beats
   // relocate the dot to the reserved world anchor (drawn precisely, no zone
-  // clamp). 2D and 3D therefore agree on where each actor is.
-  const beats = useOfficeBeats(companyId);
+  // clamp). 2D and 3D therefore agree on where each actor is. Staging reads the
+  // dominant beat of each employee's dominant ACTIVE run (one per actor), the
+  // same workload truth that lights the ring — not a separate latest-wins
+  // timeline that could stage a just-finished run over a still-running one.
+  const dominantBeats = useMemo(() => dominantBeatsFrom(workloads), [workloads]);
   const officeMode = useUiState((s) => s.officeMode);
   const reducedMotion = usePrefersReducedMotion();
   const stagedById = useMemo(() => {
@@ -84,7 +90,7 @@ export function OfficeScene2D() {
       rotation: p.instance.rotation,
     }));
     const map = new Map<string, { x: number; z: number }>();
-    const staged = applyDramaturgyMode(projectOfficeStaging(beats, prefabs), {
+    const staged = applyDramaturgyMode(projectOfficeStaging(dominantBeats, prefabs), {
       mode: officeMode,
       reducedMotion,
     });
@@ -94,7 +100,7 @@ export function OfficeScene2D() {
       }
     }
     return map;
-  }, [beats, layout.data?.prefabs, officeMode, reducedMotion]);
+  }, [dominantBeats, layout.data?.prefabs, officeMode, reducedMotion]);
 
   const threadList = threads.data;
   const threadByEmployee = useMemo(() => {
@@ -201,7 +207,9 @@ export function OfficeScene2D() {
         const pos = positions.get(employee.id);
         if (!pos) continue;
         const thread = threadByEmployee.get(employee.id);
-        const running = employeeRunStates.has(employee.id);
+        const workload = workloads.get(employee.id);
+        const activeCount = workload?.activeCount ?? 0;
+        const running = activeCount > 0;
         const active = Boolean(thread && thread.id === selectedThreadId);
         const colors = resolveAppearance(employee.id, employee.appearance);
         const staged = stagedById.get(employee.id);
@@ -243,6 +251,20 @@ export function OfficeScene2D() {
             : OFFICE_SCENE_2D_COLORS.activeRingSoft;
           ctx.lineWidth = running ? 2.5 : 1.5;
           ctx.stroke();
+        }
+
+        // active-count badge — multiple concurrent runs collapse to one actor,
+        // so the count (×2, ×3, …) is the only signal of parallel work. Drawn
+        // top-right of the disc and registered so name labels dodge it.
+        if (activeCount > 1) {
+          const bx = sx + r + 3;
+          const by = sy - r - 3;
+          ctx.font = CANVAS_FONT_TOKENS.officeSceneLabel;
+          ctx.textAlign = 'center';
+          ctx.fillStyle = OFFICE_SCENE_2D_COLORS.activeRing;
+          ctx.fillText(`×${activeCount}`, bx, by);
+          ctx.textAlign = 'left';
+          occupied.push({ x0: bx - 9, x1: bx + 9, y0: by - 9, y1: by + 5 });
         }
 
         // body (clothing) disc
@@ -314,7 +336,7 @@ export function OfficeScene2D() {
     threadByEmployee,
     selectedEmployeeId,
     selectedThreadId,
-    employeeRunStates,
+    workloads,
   ]);
 
   // A zero-zone (empty) office draws the bare floor slab with nobody seated —
