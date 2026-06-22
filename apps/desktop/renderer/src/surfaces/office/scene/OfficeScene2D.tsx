@@ -1,12 +1,12 @@
 import { useUiState } from '@/app/ui-state.js';
 import { useEmployeeRunStates } from '@/assistant/runtime/conversation-run-react.js';
-import { useOfficeBeats } from '@/assistant/runtime/office-dramaturgy.js';
+import { useOfficeBeats, usePrefersReducedMotion } from '@/assistant/runtime/office-dramaturgy.js';
 import { OFFICE_SCENE_2D_COLORS } from '@/data/color-palette.js';
 import { useEmployees, useOfficeLayout, useThreads } from '@/data/queries.js';
 import type { ZoneKind } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
 import { CANVAS_FONT_TOKENS } from '@/styles/visual-tokens.js';
-import { type StagingPrefab, projectOfficeStaging } from '@offisim/shared-types';
+import { type StagingPrefab, applyDramaturgyMode, projectOfficeStaging } from '@offisim/shared-types';
 import { useEffect, useMemo, useRef } from 'react';
 import { compactSceneEmployeeName } from './scene-labels.js';
 import {
@@ -73,6 +73,8 @@ export function OfficeScene2D() {
   // relocate the dot to the reserved world anchor (drawn precisely, no zone
   // clamp). 2D and 3D therefore agree on where each actor is.
   const beats = useOfficeBeats(companyId);
+  const officeMode = useUiState((s) => s.officeMode);
+  const reducedMotion = usePrefersReducedMotion();
   const stagedById = useMemo(() => {
     const prefabs: StagingPrefab[] = (layout.data?.prefabs ?? []).map((p) => ({
       instanceId: p.instance.instance_id,
@@ -82,13 +84,17 @@ export function OfficeScene2D() {
       rotation: p.instance.rotation,
     }));
     const map = new Map<string, { x: number; z: number }>();
-    for (const d of projectOfficeStaging(beats, prefabs)) {
+    const staged = applyDramaturgyMode(projectOfficeStaging(beats, prefabs), {
+      mode: officeMode,
+      reducedMotion,
+    });
+    for (const d of staged) {
       if (d.staging?.x != null && d.staging.z != null) {
         map.set(d.employeeId, { x: d.staging.x, z: d.staging.z });
       }
     }
     return map;
-  }, [beats, layout.data?.prefabs]);
+  }, [beats, layout.data?.prefabs, officeMode, reducedMotion]);
 
   const threadList = threads.data;
   const threadByEmployee = useMemo(() => {

@@ -137,6 +137,7 @@ export function employeeToVm(row: EmployeeRowLike): Employee {
     avatarB: b,
     appearance,
     discipline,
+    roleSlug: row.role_slug as Employee['roleSlug'],
     modelLabel,
     skillCount: 0,
     workstationId: row.workstation_id,

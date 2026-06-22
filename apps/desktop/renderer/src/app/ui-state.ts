@@ -1,4 +1,5 @@
 import { generateId } from '@offisim/core/browser';
+import type { DramaturgyMode } from '@offisim/shared-types';
 import { create } from 'zustand';
 
 type WorkspaceKey = 'office' | 'workspace' | 'market' | 'personnel';
@@ -44,6 +45,8 @@ interface UiState {
    */
   draftThread: { id: string; employeeId: string | null } | null;
   sceneRenderMode: SceneRenderMode;
+  /** Dramaturgy presentation density for the office scene. */
+  officeMode: DramaturgyMode;
   sceneDropDiagnostics: SceneDropDiagnostic[];
 
   /** Personnel surface */
@@ -99,6 +102,7 @@ interface UiState {
   setDraftEmployee: (employeeId: string | null) => void;
   closeThread: () => void;
   setSceneRenderMode: (mode: SceneRenderMode) => void;
+  setOfficeMode: (mode: DramaturgyMode) => void;
   recordSceneDropDiagnostic: (event: SceneDropDiagnostic) => void;
 
   selectEmployee: (employeeId: string | null) => void;
@@ -123,6 +127,7 @@ export const useUiState = create<UiState>((set) => ({
   selectedThreadId: null,
   draftThread: null,
   sceneRenderMode: '3d',
+  officeMode: 'office',
   sceneDropDiagnostics: [],
 
   selectedEmployeeId: null,
@@ -162,6 +167,7 @@ export const useUiState = create<UiState>((set) => ({
     set((s) => (s.draftThread ? { draftThread: { ...s.draftThread, employeeId } } : {})),
   closeThread: () => set({ selectedThreadId: null, draftThread: null, railMode: 'list' }),
   setSceneRenderMode: (sceneRenderMode) => set({ sceneRenderMode }),
+  setOfficeMode: (officeMode) => set({ officeMode }),
   recordSceneDropDiagnostic: (event) =>
     set((s) => ({ sceneDropDiagnostics: [event, ...s.sceneDropDiagnostics].slice(0, 10) })),
 

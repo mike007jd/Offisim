@@ -1,5 +1,5 @@
 import type { EmployeeAppearance } from '@/lib/avatar.js';
-import type { AttachmentKind, VaultRef } from '@offisim/shared-types';
+import type { AttachmentKind, RoleSlug, VaultRef } from '@offisim/shared-types';
 
 export type { EmployeeAppearance };
 
@@ -49,6 +49,8 @@ export interface Employee {
   avatarB: string;
   appearance?: EmployeeAppearance;
   discipline: string;
+  /** Canonical role family — drives dramaturgy performance flavor (tempo). */
+  roleSlug?: RoleSlug;
   modelLabel: string;
   skillCount: number;
   /** Office zone the workstation sits in, e.g. "Engineering Bay". */

@@ -5,7 +5,8 @@ import { useOfficeLayout, useRunCost } from '@/data/queries.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
-import { Box, Coins, LayoutPanelTop, LayoutTemplate } from 'lucide-react';
+import type { DramaturgyMode } from '@offisim/shared-types';
+import { Box, Clapperboard, Coins, Focus, LayoutPanelTop, LayoutTemplate, Users } from 'lucide-react';
 import { Suspense } from 'react';
 import { OfficeScene2D } from './scene/OfficeScene2D.js';
 import { OfficeScene3D } from './scene/OfficeScene3D.js';
@@ -14,6 +15,8 @@ import { zoneDefsFromLayout } from './scene/scene-layout.js';
 export function OfficeStage() {
   const sceneRenderMode = useUiState((s) => s.sceneRenderMode);
   const setSceneRenderMode = useUiState((s) => s.setSceneRenderMode);
+  const officeMode = useUiState((s) => s.officeMode);
+  const setOfficeMode = useUiState((s) => s.setOfficeMode);
   const setSurface = useUiState((s) => s.setSurface);
   const companyId = useUiState((s) => s.companyId);
 
@@ -70,6 +73,29 @@ export function OfficeStage() {
           <Icon icon={LayoutPanelTop} size="sm" />
           2D
         </button>
+      </div>
+
+      {/* dramaturgy mode (left, below render toggle): Focus / Office / Cinematic
+          presentation density. Same semantic truth in every mode. */}
+      <div className="off-stage-float off-stage-dram">
+        {(
+          [
+            { mode: 'focus', icon: Focus, label: 'Focus' },
+            { mode: 'office', icon: Users, label: 'Office' },
+            { mode: 'cinematic', icon: Clapperboard, label: 'Cinematic' },
+          ] as ReadonlyArray<{ mode: DramaturgyMode; icon: typeof Focus; label: string }>
+        ).map(({ mode, icon, label }) => (
+          <button
+            key={mode}
+            type="button"
+            className={cn('off-stage-mode-btn off-focusable', officeMode === mode && 'is-on')}
+            onClick={() => setOfficeMode(mode)}
+            title={`${label} presentation`}
+          >
+            <Icon icon={icon} size="sm" />
+            {label}
+          </button>
+        ))}
       </div>
 
       {/* Single diegetic cost/token readout on the scene border. */}

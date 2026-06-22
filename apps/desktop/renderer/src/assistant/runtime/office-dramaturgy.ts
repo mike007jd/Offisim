@@ -65,6 +65,19 @@ const officeDramaturgyStore = {
   },
 };
 
+/** Tracks the OS "reduce motion" accessibility setting (suppresses relocation). */
+export function usePrefersReducedMotion(): boolean {
+  return useSyncExternalStore(
+    (cb) => {
+      const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+      mq.addEventListener('change', cb);
+      return () => mq.removeEventListener('change', cb);
+    },
+    () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    () => false,
+  );
+}
+
 /** Live beat timeline for the active company's office (empty when idle). */
 export function useOfficeBeats(companyId: string | null): readonly SceneBeat[] {
   const version = useSyncExternalStore(

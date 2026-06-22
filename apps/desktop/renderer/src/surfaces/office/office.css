@@ -357,6 +357,16 @@
   overflow: hidden;
 }
 
+/* Dramaturgy presentation density (Focus / Office / Cinematic), stacked just
+   below the render-mode toggle on the left. */
+.off-stage-dram {
+  left: var(--off-sp-6);
+  top: 40px;
+  border-top: 1px solid var(--off-line);
+  border-radius: var(--off-r-md);
+  overflow: hidden;
+}
+
 .off-stage-mode-btn {
   height: 32px;
   padding: 0 var(--off-sp-6);

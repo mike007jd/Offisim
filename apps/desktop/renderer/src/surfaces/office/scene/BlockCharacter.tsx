@@ -640,6 +640,8 @@ interface BlockCharacterProps {
   /** Per-frame relocation flag (set by the scene's lerp) → walk locomotion while
    *  in transit, then the destination performance once arrived. */
   walkingRef?: { readonly current: boolean };
+  /** Performance-profile tempo (employee flavor); scales animation speed only. */
+  tempo?: number;
   /** Deterministic phase offset so idle bobs don't sync across the room. */
   phase?: number;
   opacity?: number;
@@ -716,6 +718,7 @@ export function BlockCharacter({
   running = false,
   performance,
   walkingRef,
+  tempo = 1,
   phase = 0,
   opacity = 1,
 }: BlockCharacterProps) {
@@ -741,12 +744,14 @@ export function BlockCharacter({
   useEffect(() => () => rig.skeleton.dispose(), [rig]);
 
   useFrame((state) => {
-    const t = state.clock.elapsedTime + phase;
+    const baseT = state.clock.elapsedTime + phase;
     if (usePerformance && performance) {
+      // Tempo (employee performance profile) scales animation speed only.
+      const t = baseT * tempo;
       const walking = walkingRef?.current ?? false;
       applyPerformancePose(rig, walking ? { ...performance, locomotion: 'walk' } : performance, t);
     } else {
-      applyCharacterPose(rig, actionState, posture, t);
+      applyCharacterPose(rig, actionState, posture, baseT);
     }
   });
 

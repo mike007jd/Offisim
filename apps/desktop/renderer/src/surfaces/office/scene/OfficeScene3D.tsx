@@ -1,6 +1,6 @@
 import { useUiState } from '@/app/ui-state.js';
 import { useEmployeeRunStates } from '@/assistant/runtime/conversation-run-react.js';
-import { useOfficeBeats } from '@/assistant/runtime/office-dramaturgy.js';
+import { useOfficeBeats, usePrefersReducedMotion } from '@/assistant/runtime/office-dramaturgy.js';
 import { useEmployees, useOfficeLayout, useReassignEmployee, useThreads } from '@/data/queries.js';
 import type { Employee } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
@@ -8,7 +8,10 @@ import {
   type CharacterPerformanceState,
   type PrefabDefinition,
   type PrefabInstanceRow,
+  type RoleSlug,
   type StagingPrefab,
+  applyDramaturgyMode,
+  defaultEmployeePerformanceProfile,
   projectOfficeStaging,
 } from '@offisim/shared-types';
 import { Html, OrbitControls } from '@react-three/drei';
@@ -157,6 +160,11 @@ function EmployeeUnit({
   const appearance = useMemo(
     () => resolveAppearance(employee.id, employee.appearance),
     [employee.id, employee.appearance],
+  );
+  // Employee performance profile flavor — tempo scales animation speed only.
+  const tempo = useMemo(
+    () => defaultEmployeePerformanceProfile((employee.roleSlug ?? 'developer') as RoleSlug).tempo,
+    [employee.roleSlug],
   );
   const phase = useMemo(
     () => (employee.id.charCodeAt(employee.id.length - 1) % 10) * 0.6,
@@ -392,6 +400,7 @@ function EmployeeUnit({
             running={running}
             performance={performance}
             walkingRef={walkingRef}
+            tempo={tempo}
             phase={phase}
           />
         ) : null}
@@ -587,9 +596,17 @@ export function OfficeScene3D() {
       })),
     [scenePrefabs],
   );
+  const officeMode = useUiState((s) => s.officeMode);
+  const reducedMotion = usePrefersReducedMotion();
   const dramaturgyByEmployee = useMemo(
-    () => new Map(projectOfficeStaging(beats, stagingPrefabs).map((d) => [d.employeeId, d])),
-    [beats, stagingPrefabs],
+    () =>
+      new Map(
+        applyDramaturgyMode(projectOfficeStaging(beats, stagingPrefabs), {
+          mode: officeMode,
+          reducedMotion,
+        }).map((d) => [d.employeeId, d]),
+      ),
+    [beats, stagingPrefabs, officeMode, reducedMotion],
   );
 
   const threadByEmployee = useMemo(() => {
