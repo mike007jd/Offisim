@@ -26,6 +26,7 @@ import {
   type WorkKind,
   classifyToolActivity,
 } from '../events/agent-run.js';
+import type { InteractionAnchorKind } from './staging.js';
 
 /** A staged beat. Affordance is a target *kind*, not coordinates. */
 export type BeatKind =
@@ -42,15 +43,8 @@ export type BeatKind =
   | 'complete'
   | 'activity';
 
-/** Interaction anchor kind a beat targets (resolved to real anchors in Phase 3). */
-export type BeatAffordance =
-  | 'workstation'
-  | 'meeting-seat'
-  | 'board-presenter'
-  | 'standing-review'
-  | 'reading-seat'
-  | 'server-inspect'
-  | 'social-seat';
+/** Interaction anchor kind a beat targets (resolved to real anchors via staging). */
+export type BeatAffordance = InteractionAnchorKind;
 
 export interface SceneBeat {
   readonly id: string;

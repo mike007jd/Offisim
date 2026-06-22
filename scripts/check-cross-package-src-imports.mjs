@@ -46,6 +46,7 @@ const ALLOWLIST = new Set([
   'scripts/harness-template-contract.mts::../packages/shared-types/src/index.js',
   'scripts/harness-agent-run-projection.mts::../packages/shared-types/src/index.js',
   'scripts/harness-beat-composer.mts::../packages/shared-types/src/index.js',
+  'scripts/harness-scene-staging.mts::../packages/shared-types/src/index.js',
 ]);
 
 // Matches an import/export/require specifier that reaches into a package's src,

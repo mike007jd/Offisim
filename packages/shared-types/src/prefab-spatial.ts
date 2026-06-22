@@ -147,6 +147,24 @@ export const BUILTIN_PREFAB_FOOTPRINTS = Object.freeze({
 
 const PREFAB_BOUNDS_EPSILON = 1e-6;
 
+/**
+ * Rotate a prefab-local (x, z) offset by `degrees` (0/90/180/270 etc.) into the
+ * prefab's placed orientation. Single source of truth for the local→world XZ
+ * rotation shared by collision bounds, scene seat layout, and dramaturgy
+ * affordance anchors, so 2D and 3D never diverge on placement.
+ */
+export function rotateLocalXZ(x: number, z: number, degrees: number): [number, number] {
+  const rad = (degrees * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  return [x * cos + z * sin, z * cos - x * sin];
+}
+
+/** Normalize a rotation in degrees to [0, 360). */
+export function normalizeRotation(degrees: number): number {
+  return ((degrees % 360) + 360) % 360;
+}
+
 export function getBuiltinPrefabFootprint(
   prefabId: string,
   gridSize?: readonly [number, number],
@@ -164,9 +182,7 @@ export function prefabPlacementBounds(input: PrefabPlacementBoundsInput): Prefab
   const rotated = input.rotation === 90 || input.rotation === 270;
   const halfW = (rotated ? base.halfD : base.halfW) + base.padding;
   const halfD = (rotated ? base.halfW : base.halfD) + base.padding;
-  const rotation = ((input.rotation ?? 0) * Math.PI) / 180;
-  const offsetX = base.offsetX * Math.cos(rotation) + base.offsetZ * Math.sin(rotation);
-  const offsetZ = base.offsetZ * Math.cos(rotation) - base.offsetX * Math.sin(rotation);
+  const [offsetX, offsetZ] = rotateLocalXZ(base.offsetX, base.offsetZ, input.rotation ?? 0);
   const cx = input.x + offsetX;
   const cz = input.z + offsetZ;
 

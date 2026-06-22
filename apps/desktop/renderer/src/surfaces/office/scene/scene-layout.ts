@@ -1,4 +1,5 @@
 import type { Employee, ZoneKind } from '@/data/types.js';
+import { normalizeRotation, rotateLocalXZ } from '@offisim/shared-types';
 import { SCENE_CONTENT_SCALE } from './r3d/scene-art-direction.js';
 import {
   WORKSTATION_DESK_DEPTH,
@@ -190,18 +191,10 @@ function prefabsForZone(
     );
 }
 
-/** Rotate a prefab-local (x, z) offset by a rotation in degrees. Shared with
- *  the 3D scene's render-time layout normalization. */
-export function rotateLocal(x: number, z: number, rotation: number): [number, number] {
-  const rad = (rotation * Math.PI) / 180;
-  const cos = Math.cos(rad);
-  const sin = Math.sin(rad);
-  return [x * cos + z * sin, z * cos - x * sin];
-}
-
-function normalizeRotation(rotation: number): number {
-  return ((rotation % 360) + 360) % 360;
-}
+/** Rotate a prefab-local (x, z) offset by a rotation in degrees. Re-exported
+ *  alias of the shared-types `rotateLocalXZ` so 2D/3D seat math, collision
+ *  bounds, and dramaturgy affordance anchors share one rotation source. */
+export const rotateLocal = rotateLocalXZ;
 
 function rotationToward(fromX: number, fromZ: number, toX: number, toZ: number): number {
   return normalizeRotation((Math.atan2(toX - fromX, toZ - fromZ) * 180) / Math.PI);

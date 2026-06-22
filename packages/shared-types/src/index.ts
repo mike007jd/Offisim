@@ -213,6 +213,30 @@ export type {
 } from './dramaturgy/beat-composer.js';
 export { BEAT_PRIORITY, DEFAULT_TIMING, composeBeats } from './dramaturgy/beat-composer.js';
 export type {
+  ActorStaging,
+  InteractionAnchor,
+  InteractionAnchorKind,
+  StagingPrefab,
+  StagingRequest,
+  WorldAnchor,
+} from './dramaturgy/staging.js';
+export {
+  BUILTIN_PREFAB_AFFORDANCES,
+  builtinPrefabAffordances,
+  reserveStaging,
+  worldAnchorsFor,
+} from './dramaturgy/staging.js';
+export type {
+  CharacterPerformanceState,
+  Expression,
+  Locomotion,
+  Posture,
+  Prop,
+  SocialGesture,
+  WorkGesture,
+} from './dramaturgy/performance.js';
+export { IDLE_PERFORMANCE, performanceForBeat } from './dramaturgy/performance.js';
+export type {
   EmployeePerformanceAction,
   EmployeePerformanceDomain,
   EmployeePerformanceKind,
@@ -403,6 +427,8 @@ export {
   prefabFitsWithinZone,
   evaluatePrefabPlacement,
   resolveNonOverlappingPrefabOffsets,
+  rotateLocalXZ,
+  normalizeRotation,
 } from './prefab-spatial.js';
 
 export type { ZoneRect } from './zone-overlap.js';
