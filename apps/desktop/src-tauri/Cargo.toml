@@ -37,6 +37,11 @@ tokio = { version = "1", features = ["process", "io-util", "sync", "time", "macr
 tokio-util = { version = "0.7", features = ["rt"] }
 thiserror = "1"
 rand = "0.8"
+# At-rest secret sealing for renderer-held tokens (local_secret.rs, S1/S2/S3).
+# chacha20poly1305 0.10.x is the current stable RustCrypto AEAD release
+# (0.11 is still an -rc as of 2026-06-24); base64 0.22 is the latest stable.
+chacha20poly1305 = "0.10.1"
+base64 = "0.22.1"
 libc = "0.2"
 # Reqwest pinned to 0.13 to reuse the copy Tauri already pulls transitively.
 # `default-features = false` strips native-tls and reqwest's default cookie /

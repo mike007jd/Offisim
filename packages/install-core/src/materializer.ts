@@ -145,10 +145,32 @@ const ASSET_MATERIALIZER_ORDER: readonly AssetKind[] = [
   'prefab',
 ];
 
-const SUPPORTED_ASSET_KINDS = new Set<AssetKind>(ASSET_MATERIALIZER_ORDER);
+/**
+ * Asset kinds with a finished, end-to-end materialization + runtime path.
+ * Only `employee` and `skill` are live today. `company_template`,
+ * `office_layout`, and `prefab` materialize into DB rows that have no render
+ * path and no install-time builtin-id validation (ST4 / decision D-4), so we
+ * BLOCK them at the gate below rather than silently writing dangling rows.
+ */
+const LIVE_ASSET_KINDS = new Set<AssetKind>(['employee', 'skill']);
+
+/**
+ * Kinds that are declared in the manifest schema and have materializer code,
+ * but are NOT finished for install. Per D-4 (default = block install with a
+ * clear error) these fail fast with a "not supported yet" message instead of
+ * partially materializing.
+ */
+const UNSUPPORTED_INSTALL_ASSET_KINDS = new Set<AssetKind>([
+  'company_template',
+  'office_layout',
+  'prefab',
+]);
 
 function assertSupportedAssetKind(kind: string): asserts kind is AssetKind {
-  if (!SUPPORTED_ASSET_KINDS.has(kind as AssetKind)) {
+  if (UNSUPPORTED_INSTALL_ASSET_KINDS.has(kind as AssetKind)) {
+    throw new Error(`Installing ${kind} packages is not supported yet`);
+  }
+  if (!LIVE_ASSET_KINDS.has(kind as AssetKind)) {
     throw new Error(`Unsupported asset kind '${kind}'`);
   }
 }

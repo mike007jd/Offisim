@@ -21,6 +21,7 @@ import {
   EmployeeVersionService,
   InMemoryEventBus,
   type MemoryEntryRow,
+  type RuntimeRepositories,
 } from '@offisim/core/browser';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
@@ -568,6 +569,58 @@ export function useEmployeeVersions(employeeId: string | null) {
     },
     enabled: employeeId !== null,
   });
+}
+
+/** Repo slice the version-on-save flow needs. A subset of {@link RuntimeRepositories}
+ *  so the pure helper can be unit-tested against an in-memory backend. */
+type VersionCapableRepos = Pick<
+  RuntimeRepositories,
+  'employees' | 'employeeVersions' | 'transact' | 'asyncTransact'
+>;
+
+/**
+ * Record an employee version around a profile/appearance save so the History
+ * tab reflects real edits (PE1). Uses the existing {@link EmployeeVersionService}
+ * contract — no new versioning mechanism.
+ *
+ * Ordering matters for a meaningful first-edit diff:
+ *  1. If no versions exist yet, snapshot a `create` baseline of the CURRENT
+ *     (pre-edit) employee state — this becomes v1.
+ *  2. Run the caller's `performUpdate` (the actual `employees.update`).
+ *  3. Snapshot an `update` version of the post-edit state — v2 on the first
+ *     save, vN+1 thereafter.
+ *
+ * On the first save this yields v1 (before) + v2 (after) so History shows a real
+ * diff instead of an empty "No changes yet" state. Version writes never abort the
+ * save: a failure to snapshot is swallowed so the employee edit still persists.
+ */
+export async function recordEmployeeVersionOnSave({
+  repos,
+  employeeId,
+  performUpdate,
+}: {
+  repos: VersionCapableRepos;
+  employeeId: string;
+  performUpdate: () => Promise<void>;
+}): Promise<void> {
+  const service = new EmployeeVersionService(
+    repos.employeeVersions,
+    repos.employees,
+    new InMemoryEventBus(),
+    repos.transact?.bind(repos),
+    repos.asyncTransact?.bind(repos),
+  );
+
+  // Capture the pre-edit baseline once, before the very first tracked save, so
+  // the first edit produces a real before/after diff rather than a lone row.
+  const latest = await repos.employeeVersions.getLatestVersionNum(employeeId);
+  if (latest === 0) {
+    await service.createVersion(employeeId, 'create');
+  }
+
+  await performUpdate();
+
+  await service.createVersion(employeeId, 'update');
 }
 
 export function useRollbackEmployeeVersion(employeeId: string | null) {

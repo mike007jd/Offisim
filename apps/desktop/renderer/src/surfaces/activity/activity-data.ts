@@ -2,7 +2,7 @@ import { isTauriRuntime } from '@/data/adapters.js';
 import { resolveAsync } from '@/lib/platform.js';
 import { getTauriDb } from '@/lib/tauri-db.js';
 import { escapeRegExp } from '@/lib/utils.js';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import {
   Activity,
   ArrowRightLeft,
@@ -155,107 +155,285 @@ function commandFromMcpArguments(args: Record<string, ActivityPayloadValue>): st
   return stringField(args, ['command', 'cmd', 'script', 'input', 'query', 'path']);
 }
 
-async function loadRuntimeActivityRecords(companyId: string): Promise<ActivityRecord[]> {
+/* ── AC2: MCP arg/result secret redaction + size cap ─────────────────────────
+ * MCP `arguments`/`result` JSON can carry whatever a tool was handed — including
+ * provider keys, bearer tokens, and large blobs. Before that data enters the UI
+ * payload (and the copy-to-clipboard / detail panel that renders it), strip
+ * obvious secrets and cap the serialized size so the detail panel can never leak
+ * a credential or choke on a megabyte of tool output. */
+
+/** Hard cap on the serialized size of a sanitized MCP arg/result value. */
+export const MAX_MCP_VALUE_CHARS = 4000;
+
+const SECRET_TOKEN_PATTERNS: ReadonlyArray<RegExp> = [
+  // Provider secret/restricted keys: sk-…, rk-… (>=16 chars after the prefix).
+  /\b[sr]k-[A-Za-z0-9_-]{16,}/g,
+  // GitHub PATs / OAuth tokens: ghp_/gho_/ghu_/ghs_/ghr_ + 20+ chars.
+  /\bgh[pohsr]_[A-Za-z0-9]{20,}/g,
+  // GitHub fine-grained PAT: github_pat_ + 20+ chars.
+  /\bgithub_pat_[A-Za-z0-9_]{20,}/g,
+  // Slack tokens: xoxb-/xoxa-/xoxp-/xoxr-/xoxs-…
+  /\bxox[baprs]-[A-Za-z0-9-]{10,}/g,
+  // AWS access key id.
+  /\bAKIA[0-9A-Z]{16}\b/g,
+  // JWTs: three base64url segments joined by dots, leading `ey…`.
+  /\bey[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g,
+];
+
+// https://user:pass@host → https://[REDACTED]@host (keep scheme + host).
+const URL_CREDENTIALS_RE = /\b([a-z][a-z0-9+.-]*:\/\/)[^/\s:@]+:[^/\s@]+@/gi;
+
+// key: value / key=value where the key names a credential. Capture the key +
+// separator so we keep the field name and only mask the value.
+const SECRET_ASSIGNMENT_RE =
+  /\b(authorization|bearer|token|api[_-]?key|secret|password|access[_-]?token)(\s*[:=]\s*)("?)([^"\s,;}]+)\3/gi;
+
+// An object key that names a credential — its VALUE is masked whole, regardless
+// of the value's shape, so a secret in a `password`/`token`/… field is caught
+// even when it's a plain word, a bare hex/base64 string, or a number that no
+// token pattern would match.
+const SECRET_KEY_NAME_RE =
+  /^(?:authorization|bearer|tokens?|api[_-]?keys?|secrets?|passwo?r?d|access[_-]?tokens?|client[_-]?secrets?|private[_-]?keys?|credentials?)$/i;
+
+/** Replace provider/secret tokens, URL creds, and key:value secrets in a string. */
+export function redactSecrets(text: string): string {
+  let out = text;
+  out = out.replace(URL_CREDENTIALS_RE, '$1[REDACTED]@');
+  out = out.replace(SECRET_ASSIGNMENT_RE, '$1$2[REDACTED]');
+  for (const pattern of SECRET_TOKEN_PATTERNS) {
+    out = out.replace(pattern, '[REDACTED]');
+  }
+  return out;
+}
+
+/** Recursively redact string leaves of a structured value (objects/arrays
+ *  recurse; non-strings pass through untouched) so JSON shape is preserved. */
+function redactStructured(value: ActivityPayloadValue): ActivityPayloadValue {
+  if (typeof value === 'string') return redactSecrets(value);
+  if (Array.isArray(value)) return value.map((item) => redactStructured(item));
+  if (value && typeof value === 'object') {
+    const out: { [key: string]: ActivityPayloadValue } = {};
+    for (const [key, child] of Object.entries(value)) {
+      // Redact the key itself (a secret can be used as a dynamic key), and mask
+      // the whole value when the key names a credential.
+      out[redactSecrets(key)] = SECRET_KEY_NAME_RE.test(key)
+        ? '[REDACTED]'
+        : redactStructured(child);
+    }
+    return out;
+  }
+  return value;
+}
+
+/** Redact secrets recursively, then cap by serialized size. Returns the redacted
+ *  structured value when it fits, or a capped string marker when it doesn't —
+ *  capping a string (never a half-serialized object) keeps the UI render safe. */
+export function sanitizeMcpActivityValue(value: ActivityPayloadValue): ActivityPayloadValue {
+  const redacted = redactStructured(value);
+  const serialized = JSON.stringify(redacted) ?? 'null';
+  if (serialized.length <= MAX_MCP_VALUE_CHARS) return redacted;
+  const head = serialized.slice(0, MAX_MCP_VALUE_CHARS);
+  const dropped = serialized.length - MAX_MCP_VALUE_CHARS;
+  return `${head}… [truncated ${dropped} chars]`;
+}
+
+/* ── AC1: cursor-paginated activity loader ───────────────────────────────────
+ * `created_at` is an ISO-8601 TEXT column, so lexicographic `<` is a valid time
+ * cursor. Each of the three sources pages independently; a single merged page
+ * is the newest `pageSize` rows across them, and `nextCursor` is the oldest
+ * `created_at` still in the page — unless every source returned `< pageSize`
+ * rows (then there is provably nothing older and the cursor is null). */
+
+const ACTIVITY_PAGE_SIZE = 200;
+
+/** One mapped record paired with its raw `created_at` cursor string. */
+interface ActivityCursorRow {
+  record: ActivityRecord;
+  /** Raw `created_at` TEXT value — the lexicographic cursor. */
+  createdAt: string;
+}
+
+/** A single source's page: its mapped rows plus whether it hit the page limit. */
+export interface ActivitySourcePage {
+  rows: ActivityCursorRow[];
+  /** True when this source returned a full page (more rows may exist below). */
+  saturated: boolean;
+}
+
+export interface ActivityPage {
+  records: ActivityRecord[];
+  /** Oldest `created_at` cursor to fetch the next page, or null at the end. */
+  nextCursor: string | null;
+}
+
+/**
+ * Pure merge of per-source pages into one descending-time page with a cursor.
+ * `nextCursor` is null only when NO source was saturated (nothing older exists);
+ * otherwise it is the oldest `created_at` present in this merged page, which the
+ * next round feeds back as `created_at < cursor` to each source.
+ */
+export function mergeActivityPage(sources: ActivitySourcePage[], _pageSize: number): ActivityPage {
+  const all = sources.flatMap((source) => source.rows);
+  all.sort((a, b) => b.record.at - a.record.at);
+  const records = all.map((row) => row.record);
+  const anySaturated = sources.some((source) => source.saturated);
+  if (!anySaturated || all.length === 0) {
+    return { records, nextCursor: null };
+  }
+  // Oldest cursor across the merged rows (string lexicographic min).
+  let oldest = all[0]?.createdAt ?? null;
+  for (const row of all) {
+    if (oldest === null || row.createdAt < oldest) oldest = row.createdAt;
+  }
+  return { records, nextCursor: oldest };
+}
+
+function runtimeRecordFromRow(row: RuntimeEventDbRow): ActivityRecord {
+  const payload = parsePayload(row.payload_json);
+  return {
+    id: row.event_id,
+    type: row.event_type,
+    at: toEventTime(row.created_at),
+    actor: typeof payload.actor === 'string' ? payload.actor : 'runtime',
+    entity: entityFromPayload(payload, {
+      label: row.event_type,
+      type: 'runtime-event',
+      id: row.thread_id ?? row.event_id,
+    }),
+    payload: { ...payload, severity: row.severity, threadId: row.thread_id ?? null },
+  };
+}
+
+function agentRecordFromRow(row: AgentEventDbRow): ActivityRecord {
+  const payload = parsePayload(row.payload_json);
+  return {
+    id: row.event_id,
+    type: `agent.${row.event_type}`,
+    at: toEventTime(row.created_at),
+    actor: row.agent_name,
+    entity: entityFromPayload(payload, {
+      label: row.agent_name,
+      type: 'agent-event',
+      id: row.thread_id,
+    }),
+    payload: { ...payload, threadId: row.thread_id, agentName: row.agent_name },
+  };
+}
+
+function mcpRecordFromRow(row: McpAuditDbRow): ActivityRecord {
+  const args = parsePayload(row.arguments_json);
+  const result = parsePayload(row.result_json);
+  // Run the same redaction over the derived command/error strings so the row
+  // headline can't leak a secret that the structured sanitize would have caught.
+  const rawCommand = commandFromMcpArguments(args);
+  const command = rawCommand ? redactSecrets(rawCommand) : rawCommand;
+  const rawError = firstLine(row.error);
+  const errorSummary = rawError ? redactSecrets(rawError) : rawError;
+  const failureLabel = errorSummary
+    ? `${row.tool_name} failed: ${errorSummary}`
+    : `${row.tool_name} failed`;
+  return {
+    id: row.audit_id,
+    type: row.error ? 'mcp.tool.error' : 'mcp.tool.invoked',
+    at: toEventTime(row.created_at),
+    actor: row.employee_id,
+    entity: {
+      label: row.error
+        ? `${row.tool_name} failed · ${row.server_name}`
+        : `${row.server_name} · ${row.tool_name}`,
+      type: 'mcp-tool',
+      id: row.audit_id,
+    },
+    payload: {
+      message: row.error ? failureLabel : `MCP ${row.tool_name} invoked on ${row.server_name}`,
+      command,
+      errorSummary,
+      threadId: row.thread_id,
+      employeeId: row.employee_id,
+      server: row.server_name,
+      tool: row.tool_name,
+      latencyMs: row.latency_ms,
+      approvedBy: row.approved_by,
+      arguments: sanitizeMcpActivityValue(args),
+      result: sanitizeMcpActivityValue(result),
+      error: row.error ? redactSecrets(row.error) : row.error,
+    },
+  };
+}
+
+/**
+ * AC1: cursor-paginated activity loader. Each of the three sources is fetched
+ * with the same `created_at < cursor` predicate (when a cursor is given) and the
+ * same `pageSize` limit, then merged into one descending-time page with the
+ * cursor for the next round.
+ */
+async function loadActivityPage(
+  companyId: string,
+  options: { before?: string; pageSize?: number } = {},
+): Promise<ActivityPage> {
+  const pageSize = options.pageSize ?? ACTIVITY_PAGE_SIZE;
+  const before = options.before ?? null;
   const db = await getTauriDb();
+
+  // Each query takes (companyId, cursor-or-sentinel, pageSize). A null cursor is
+  // passed as a value that sorts after any real ISO timestamp so the predicate
+  // `created_at < cursor` is a no-op on the first page.
+  const cursor = before ?? '~';
   const [runtimeRows, agentRows, mcpRows] = await Promise.all([
     db.select<RuntimeEventDbRow[]>(
       `select event_id, event_type, severity, payload_json, created_at, thread_id
        from runtime_events
-       where company_id = $1
+       where company_id = $1 and created_at < $2
        order by created_at desc
-       limit 200`,
-      [companyId],
+       limit $3`,
+      [companyId, cursor, pageSize],
     ),
     db.select<AgentEventDbRow[]>(
       `select event_id, event_type, payload_json, created_at, thread_id, agent_name
        from agent_events
-       where company_id = $1
+       where company_id = $1 and created_at < $2
        order by created_at desc
-       limit 200`,
-      [companyId],
+       limit $3`,
+      [companyId, cursor, pageSize],
     ),
     db.select<McpAuditDbRow[]>(
       `select a.audit_id, a.thread_id, a.employee_id, a.server_name, a.tool_name,
               a.arguments_json, a.result_json, a.error, a.latency_ms, a.approved_by, a.created_at
        from mcp_audit_log a
        join graph_threads t on t.thread_id = a.thread_id
-       where t.company_id = $1
+       where t.company_id = $1 and a.created_at < $2
        order by a.created_at desc
-       limit 200`,
-      [companyId],
+       limit $3`,
+      [companyId, cursor, pageSize],
     ),
   ]);
 
-  const runtimeRecords: ActivityRecord[] = runtimeRows.map((row) => {
-    const payload = parsePayload(row.payload_json);
-    return {
-      id: row.event_id,
-      type: row.event_type,
-      at: toEventTime(row.created_at),
-      actor: typeof payload.actor === 'string' ? payload.actor : 'runtime',
-      entity: entityFromPayload(payload, {
-        label: row.event_type,
-        type: 'runtime-event',
-        id: row.thread_id ?? row.event_id,
-      }),
-      payload: { ...payload, severity: row.severity, threadId: row.thread_id ?? null },
-    };
-  });
-
-  const agentRecords: ActivityRecord[] = agentRows.map((row) => {
-    const payload = parsePayload(row.payload_json);
-    return {
-      id: row.event_id,
-      type: `agent.${row.event_type}`,
-      at: toEventTime(row.created_at),
-      actor: row.agent_name,
-      entity: entityFromPayload(payload, {
-        label: row.agent_name,
-        type: 'agent-event',
-        id: row.thread_id,
-      }),
-      payload: { ...payload, threadId: row.thread_id, agentName: row.agent_name },
-    };
-  });
-
-  const mcpRecords: ActivityRecord[] = mcpRows.map((row) => {
-    const args = parsePayload(row.arguments_json);
-    const result = parsePayload(row.result_json);
-    const command = commandFromMcpArguments(args);
-    const errorSummary = firstLine(row.error);
-    const failureLabel = errorSummary
-      ? `${row.tool_name} failed: ${errorSummary}`
-      : `${row.tool_name} failed`;
-    return {
-      id: row.audit_id,
-      type: row.error ? 'mcp.tool.error' : 'mcp.tool.invoked',
-      at: toEventTime(row.created_at),
-      actor: row.employee_id,
-      entity: {
-        label: row.error
-          ? `${row.tool_name} failed · ${row.server_name}`
-          : `${row.server_name} · ${row.tool_name}`,
-        type: 'mcp-tool',
-        id: row.audit_id,
+  return mergeActivityPage(
+    [
+      {
+        rows: runtimeRows.map((row) => ({
+          record: runtimeRecordFromRow(row),
+          createdAt: row.created_at,
+        })),
+        saturated: runtimeRows.length >= pageSize,
       },
-      payload: {
-        message: row.error ? failureLabel : `MCP ${row.tool_name} invoked on ${row.server_name}`,
-        command,
-        errorSummary,
-        threadId: row.thread_id,
-        employeeId: row.employee_id,
-        server: row.server_name,
-        tool: row.tool_name,
-        latencyMs: row.latency_ms,
-        approvedBy: row.approved_by,
-        arguments: args,
-        result,
-        error: row.error,
+      {
+        rows: agentRows.map((row) => ({
+          record: agentRecordFromRow(row),
+          createdAt: row.created_at,
+        })),
+        saturated: agentRows.length >= pageSize,
       },
-    };
-  });
-
-  return [...runtimeRecords, ...agentRecords, ...mcpRecords].sort((a, b) => b.at - a.at);
+      {
+        rows: mcpRows.map((row) => ({
+          record: mcpRecordFromRow(row),
+          createdAt: row.created_at,
+        })),
+        saturated: mcpRows.length >= pageSize,
+      },
+    ],
+    pageSize,
+  );
 }
 
 /* ── Date presets ────────────────────────────────────────────────────────── */
@@ -892,12 +1070,23 @@ function buildFixtures(now: number): ActivityRecord[] {
 
 /* ── Query hook ──────────────────────────────────────────────────────────── */
 
+/**
+ * AC1: cursor-paginated activity feed. Page 0 fetches the newest rows; "Load
+ * older" walks `nextCursor` back through history so "All time" reaches rows past
+ * the per-source page wall. Browser preview returns the fixtures as a single
+ * terminal page. The Activity surface flattens `data.pages[*].records`.
+ */
 export function useActivityRecords(companyId: string) {
-  return useQuery({
+  return useInfiniteQuery<ActivityPage>({
     queryKey: ['activity-records', companyId],
-    queryFn: () =>
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam }) =>
       isTauriRuntime()
-        ? loadRuntimeActivityRecords(companyId)
-        : resolveAsync(buildFixtures(Date.now())),
+        ? loadActivityPage(companyId, { before: (pageParam as string | null) ?? undefined })
+        : resolveAsync<ActivityPage>({
+            records: buildFixtures(Date.now()),
+            nextCursor: null,
+          }),
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
   });
 }

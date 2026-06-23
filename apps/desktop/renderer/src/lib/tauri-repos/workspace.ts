@@ -84,6 +84,26 @@ export function createWorkspaceTauriRepos(db: TauriDrizzleDb): WorkspaceTauriRep
       return (rows[0] as OfficeLayoutRow | undefined) ?? null;
     },
     async setActive(companyId: string, layoutId: string) {
+      // O1 / contract C-A (tenant boundary): verify the layout exists for THIS
+      // company BEFORE mutating anything, so a foreign or non-existent layoutId
+      // rejects without first deactivating the company's layouts (which would
+      // leave it with zero active). The two writes are standalone, company-scoped
+      // updates (each serialized by the tauri-drizzle write mutex), NOT one
+      // transaction — it is the pre-check, not a rollback, that guarantees a
+      // rejected call mutates nothing. (The core backend uses a real txn instead;
+      // the W0-C contract asserts the same observable behavior on both.)
+      const target = (await db
+        .select()
+        .from(schema.officeLayouts)
+        .where(
+          and(
+            eq(schema.officeLayouts.layout_id, layoutId),
+            eq(schema.officeLayouts.company_id, companyId),
+          ),
+        )) as OfficeLayoutRow[];
+      if (target.length === 0) {
+        throw new Error(`Layout ${layoutId} not found for company ${companyId}`);
+      }
       await db
         .update(schema.officeLayouts)
         .set({ is_active: 0, updated_at: now() })
@@ -91,7 +111,12 @@ export function createWorkspaceTauriRepos(db: TauriDrizzleDb): WorkspaceTauriRep
       await db
         .update(schema.officeLayouts)
         .set({ is_active: 1, updated_at: now() })
-        .where(eq(schema.officeLayouts.layout_id, layoutId));
+        .where(
+          and(
+            eq(schema.officeLayouts.layout_id, layoutId),
+            eq(schema.officeLayouts.company_id, companyId),
+          ),
+        );
     },
     async update(layoutId: string, patch: Partial<Pick<OfficeLayoutRow, 'name' | 'layout_json'>>) {
       await db

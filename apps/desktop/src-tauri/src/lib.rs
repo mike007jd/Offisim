@@ -48,6 +48,7 @@ mod git;
 mod in_flight;
 mod local_db;
 mod local_paths;
+mod local_secret;
 mod mcp_bridge;
 mod pi_agent_host;
 mod redaction;
@@ -223,6 +224,8 @@ pub fn run() {
             attachment_store::attachment_list_all,
             attachment_store::attachment_delete,
             attachment_store::attachment_delete_company,
+            local_secret::secret_encrypt,
+            local_secret::secret_decrypt,
         ])
         .plugin(tauri_plugin_sql::Builder::default().build())
         .plugin(tauri_plugin_cors_fetch::init())

@@ -126,7 +126,12 @@ export type ParsedAttachment =
       readonly sheets: ReadonlyArray<{
         readonly name: string;
         readonly csv: string;
-        readonly rows: ReadonlyArray<ReadonlyArray<unknown>>;
+        /**
+         * Used-range row count per sheet (derived from the sheet's `!ref`, not a
+         * materialized 2D grid). The importer caps row/col/total-cell counts and
+         * rejects workbooks that exceed them; see `doc-engine/src/import/xlsx.ts`.
+         */
+        readonly rowCount: number;
       }>;
     }
   | { readonly kind: 'pptx'; readonly slides: readonly string[]; readonly text: string }
@@ -280,7 +285,7 @@ export function summaryFromParsed(parsed: ParsedAttachment): string {
     case 'docx':
       return `DOCX · ${pluralize(parsed.text.length, 'char')}`;
     case 'xlsx': {
-      const rows = parsed.sheets.reduce((acc, s) => acc + s.rows.length, 0);
+      const rows = parsed.sheets.reduce((acc, s) => acc + s.rowCount, 0);
       return `XLSX · ${pluralize(parsed.sheets.length, 'sheet')}, ${pluralize(rows, 'row')}`;
     }
     case 'pptx':

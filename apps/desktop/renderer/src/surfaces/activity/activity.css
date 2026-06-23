@@ -166,6 +166,33 @@
   background: var(--off-surface-sunken);
 }
 
+/* ── Load older (cursor pagination) ── */
+.off-act-loadmore {
+  display: flex;
+  justify-content: center;
+  padding: var(--off-sp-3) 0 var(--off-sp-4);
+}
+
+.off-act-loadmore-btn {
+  height: 28px;
+  padding: 0 var(--off-sp-5);
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-md);
+  background: var(--off-surface-1);
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-meta);
+  font-weight: 620;
+}
+
+.off-act-loadmore-btn:hover:not(:disabled) {
+  background: var(--off-surface-sunken);
+}
+
+.off-act-loadmore-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 /* ── Timeline ── */
 .off-act-tl {
   min-width: 0;

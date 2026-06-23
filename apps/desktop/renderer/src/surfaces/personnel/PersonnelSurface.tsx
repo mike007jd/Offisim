@@ -51,6 +51,7 @@ import {
   profileDefaults,
   profileDefaultsFromRecord,
   profileFormSchema,
+  recordEmployeeVersionOnSave,
 } from './personnel-data.js';
 
 const INSPECTOR_TABS = [
@@ -419,13 +420,23 @@ function EmployeeDetail({
       };
       if (appearanceDirty) persona.appearance = appearancePayload(appearance);
 
-      await repos.employees.update(employee.id, {
-        name: values.name.trim(),
-        role_slug: roleSlug(values.role),
-        enabled: values.enabled ? 1 : 0,
-        persona_json: JSON.stringify(persona),
+      // Snapshot a version around the save so the History tab reflects this
+      // real edit (PE1). The employee.update itself is the `performUpdate` body.
+      await recordEmployeeVersionOnSave({
+        repos,
+        employeeId: employee.id,
+        performUpdate: () =>
+          repos.employees.update(employee.id, {
+            name: values.name.trim(),
+            role_slug: roleSlug(values.role),
+            enabled: values.enabled ? 1 : 0,
+            persona_json: JSON.stringify(persona),
+          }),
       });
       await queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
+      await queryClient.invalidateQueries({
+        queryKey: ['personnel', 'versions', employee.id],
+      });
       baselineProfile.current = values;
       baselineAppearance.current = appearance;
       form.reset(values);

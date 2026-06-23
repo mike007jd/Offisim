@@ -31,7 +31,9 @@ export function WorkplaceApp() {
   const headcount = employees.data?.length ?? 0;
   const activeRuns = meetings.data?.filter((m) => m.status === 'live').length ?? 0;
   const spend = runCost.data?.costLabel ?? '$0.00';
-  const recent = (activity.data ?? []).slice(0, 6);
+  // useActivityRecords is cursor-paginated; the first page already holds far
+  // more than the 6 rows this "Recent activity" tile shows.
+  const recent = (activity.data?.pages.flatMap((page) => page.records) ?? []).slice(0, 6);
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';

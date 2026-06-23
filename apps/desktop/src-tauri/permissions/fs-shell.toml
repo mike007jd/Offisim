@@ -15,4 +15,6 @@ commands.allow = [
   "attachment_list_all",
   "attachment_delete",
   "attachment_delete_company",
+  "secret_encrypt",
+  "secret_decrypt",
 ]

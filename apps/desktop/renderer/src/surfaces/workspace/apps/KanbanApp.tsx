@@ -16,6 +16,11 @@ import {
   useWsBoard,
 } from '../workspace-data.js';
 
+// A2 (by design): this Kanban board is a read-only PROJECTION of conversations
+// (todo/active/done columns derived from live conversation + active-run state via
+// useWsBoard/useActiveConversationRuns), not a separately-persisted task board
+// with its own storage. The board reflects conversation state; it is intentional,
+// not an unfinished feature.
 const COLUMNS: ReadonlyArray<{ key: BoardColumn; label: string; hint: string }> = [
   { key: 'todo', label: 'To do', hint: 'Open conversations' },
   { key: 'active', label: 'In progress', hint: 'Working now' },

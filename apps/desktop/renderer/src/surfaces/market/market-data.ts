@@ -1,5 +1,6 @@
 import { reposOrNull } from '@/data/adapters.js';
 import { UI_DATA_COLORS } from '@/data/color-palette.js';
+import { secretDecrypt, secretEncrypt } from '@/lib/local-secret.js';
 import { resolveAsync } from '@/lib/platform.js';
 import { createTauriVaultFileSystem } from '@/lib/tauri-vault-fs.js';
 import { runtimeEventBus } from '@/runtime/repos.js';
@@ -577,7 +578,7 @@ async function mapWithConcurrency<T, U>(
 async function installedPackagesToVm(
   rows: readonly InstalledPackageRow[],
 ): Promise<InstalledPackage[]> {
-  const config = registryConfig();
+  const config = await registryConfig();
   if (!config) return rows.map((row) => installedPackageToVm(row));
   const client = registryClient(config);
   const cache: RegistryLookupCache = { listingIds: new Map(), slugs: new Map() };
@@ -1140,7 +1141,8 @@ function configuredRegistryBaseUrl(): string | null {
   );
 }
 
-function storedMarketplaceToken(): string | undefined {
+/** Raw localStorage value (still sealed). Empty/absent → undefined. */
+function rawStoredMarketplaceToken(): string | undefined {
   if (typeof window === 'undefined') return undefined;
   try {
     return window.localStorage.getItem(MARKETPLACE_TOKEN_STORAGE_KEY)?.trim() || undefined;
@@ -1149,16 +1151,36 @@ function storedMarketplaceToken(): string | undefined {
   }
 }
 
-export function marketplaceTokenConfigured(): boolean {
-  return storedMarketplaceToken() !== undefined;
+/**
+ * The usable (decrypted) marketplace token. The value is stored sealed at rest
+ * (S1/S2) via `secret_encrypt`; `secretDecrypt` passes legacy plaintext through
+ * unchanged, so this works for both old and new stored values. Async because it
+ * crosses the Tauri command boundary.
+ */
+async function storedMarketplaceToken(): Promise<string | undefined> {
+  const raw = rawStoredMarketplaceToken();
+  if (raw === undefined) return undefined;
+  const plaintext = (await secretDecrypt(raw)).trim();
+  return plaintext || undefined;
 }
 
-export function writeMarketplaceToken(token: string | null): void {
+/**
+ * Presence check only — does NOT need to decrypt. Whether the stored value is a
+ * sealed envelope or legacy plaintext, its existence means a token is set. Stays
+ * synchronous so render-path callers don't have to await.
+ */
+export function marketplaceTokenConfigured(): boolean {
+  return rawStoredMarketplaceToken() !== undefined;
+}
+
+export async function writeMarketplaceToken(token: string | null): Promise<void> {
   if (typeof window === 'undefined') return;
   try {
     const trimmed = token?.trim() ?? '';
     if (trimmed) {
-      window.localStorage.setItem(MARKETPLACE_TOKEN_STORAGE_KEY, trimmed);
+      // Seal before it ever touches localStorage (S1/S2).
+      const sealed = await secretEncrypt(trimmed);
+      window.localStorage.setItem(MARKETPLACE_TOKEN_STORAGE_KEY, sealed);
     } else {
       window.localStorage.removeItem(MARKETPLACE_TOKEN_STORAGE_KEY);
     }
@@ -1168,10 +1190,10 @@ export function writeMarketplaceToken(token: string | null): void {
   }
 }
 
-function registryConfig(): RegistryConfig | null {
+async function registryConfig(): Promise<RegistryConfig | null> {
   const baseUrl = configuredRegistryBaseUrl();
   if (!baseUrl) return null;
-  return { baseUrl, authToken: storedMarketplaceToken() };
+  return { baseUrl, authToken: await storedMarketplaceToken() };
 }
 
 function registryClient(config: RegistryConfig): RegistryClient {
@@ -1403,7 +1425,7 @@ function registryListingToVm(
 async function loadRegistryListings(
   companyId: string | null | undefined,
 ): Promise<MarketListing[] | null> {
-  const config = registryConfig();
+  const config = await registryConfig();
   if (!config) return null;
   const repos = await reposOrNull();
   const installedRows =
@@ -1462,7 +1484,7 @@ export function usePublishedDrafts(enabled = true) {
   return useQuery({
     queryKey: ['market-drafts'],
     queryFn: async () => {
-      const config = registryConfig();
+      const config = await registryConfig();
       if (config?.authToken) {
         const response = await registryClient(config).listMyDrafts();
         return response.drafts.map(draftToVm);
@@ -1480,7 +1502,7 @@ export function useRegistryConnection() {
     queryKey: ['market-registry-connection'],
     queryFn: async (): Promise<RegistryConnectionState> => {
       const repos = await reposOrNull();
-      const config = registryConfig();
+      const config = await registryConfig();
       if (!config) {
         return {
           connected: false,
@@ -1511,7 +1533,7 @@ export function usePublishPackage() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (request: PublishPackageRequest): Promise<PublishedPackageResult> => {
-      const config = registryConfig();
+      const config = await registryConfig();
       if (!config) {
         throw new Error('Set the desktop registry base URL before publishing.');
       }
@@ -1653,7 +1675,10 @@ function employeeToPublishSource(row: EmployeeRow): PublishSource {
       config_json: row.config_json,
       is_external: row.is_external === 1,
       a2a_url: row.a2a_url,
-      a2a_token: row.a2a_token,
+      // Never publish the publisher's live A2A bearer token into the package
+      // artifact / registry payload — the installer configures their own. (S3:
+      // the column is sealed at rest; this strips it from the publish path too.)
+      a2a_token: null,
       a2a_agent_id: row.a2a_agent_id,
       brand_key: row.brand_key,
       agent_card_json: row.agent_card_json,
@@ -1736,7 +1761,7 @@ async function reportRegistryInstallReceipt(
   const packageVersionId = pending.listing.packageVersionId;
   if (pending.listing.installSource !== 'registry' || !packageVersionId) return {};
 
-  const config = registryConfig();
+  const config = await registryConfig();
   if (!config?.authToken) return {};
 
   try {

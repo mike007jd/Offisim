@@ -270,6 +270,12 @@ export class ConversationRunAlreadyActiveError extends Error {
 }
 
 export class ConversationRunController {
+  // A1 (by design): in-flight run/snapshot/retry state is intentionally
+  // IN-MEMORY and per-session. Only completed messages are persisted (and loaded
+  // deterministically — see chat-message-events.ts P1). A reload abandons any
+  // in-flight run rather than resuming it; the Messenger surface reflects this
+  // live state, it is not a separately-persisted run store. Persisting active-run
+  // state was considered and accepted-as-is (no durable consumer needs it).
   private readonly snapshots = new Map<string, ConversationRunSnapshot>();
   private readonly idleSnapshots = new Map<string, ConversationRunSnapshot>();
   private readonly activeRuns = new Map<string, ActiveRun>();

@@ -107,7 +107,7 @@ function checkExpectations(parsed, scenario) {
         );
     }
     if (typeof e.totalRowsAtLeast === 'number') {
-      const total = parsed.sheets.reduce((acc, s) => acc + s.rows.length, 0);
+      const total = parsed.sheets.reduce((acc, s) => acc + s.rowCount, 0);
       if (total < e.totalRowsAtLeast)
         failures.push(`expected total rows >= ${e.totalRowsAtLeast}, got ${total}`);
     }

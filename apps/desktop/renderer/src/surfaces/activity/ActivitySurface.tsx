@@ -63,7 +63,10 @@ export function ActivitySurface() {
   // Once the user explicitly picks a date window, stop auto-widening it.
   const hasUserPickedDate = useRef(false);
 
-  const allRecords = useMemo(() => records.data ?? [], [records.data]);
+  const allRecords = useMemo<ActivityRecord[]>(
+    () => records.data?.pages.flatMap((page) => page.records) ?? [],
+    [records.data],
+  );
 
   // "Today" is the right resting default when today has activity — but on first
   // open it must not hide an entire non-empty history behind a false "no events"
@@ -358,6 +361,18 @@ export function ActivitySurface() {
                 );
               })}
             </div>
+            {records.hasNextPage ? (
+              <div className="off-act-loadmore">
+                <button
+                  type="button"
+                  className="off-act-loadmore-btn off-focusable"
+                  disabled={records.isFetchingNextPage}
+                  onClick={() => void records.fetchNextPage()}
+                >
+                  {records.isFetchingNextPage ? 'Loading…' : 'Load older'}
+                </button>
+              </div>
+            ) : null}
           </div>
 
           {selectedRecord ? (

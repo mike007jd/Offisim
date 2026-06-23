@@ -279,8 +279,10 @@ export function MarketSurface() {
     void queryClient.invalidateQueries({ queryKey: ['market-installed'] });
   }
 
-  function handleRegistryTokenSave(token: string | null) {
-    writeMarketplaceToken(token);
+  async function handleRegistryTokenSave(token: string | null) {
+    // Seal the token at rest before invalidating queries so the next
+    // connection check reads the freshly stored (encrypted) value.
+    await writeMarketplaceToken(token);
     refreshRegistryQueries();
     toast.success(token ? 'Registry token connected' : 'Registry token cleared', {
       description: token
