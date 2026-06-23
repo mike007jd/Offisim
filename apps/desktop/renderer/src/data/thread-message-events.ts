@@ -27,15 +27,30 @@ export async function appendThreadMessageEvent(opts: {
   });
 }
 
+/** Default per-thread row window for a single message-event type. */
+const DEFAULT_MESSAGE_EVENT_LIMIT = 500;
+/**
+ * When `paginateAll` is set, fetch the whole thread's message rows for this
+ * event type instead of the newest 500. A long single reply writes one row per
+ * streaming checkpoint, so the newest-500 window can be entirely consumed by one
+ * reply — evicting the older real messages from the result before the caller can
+ * even dedup them. The caller (`loadPersistedChatMessages`) dedups by message.id
+ * while decoding, so the in-memory cost stays bounded by *distinct* messages,
+ * not the (much larger) checkpoint-row count.
+ */
+const PAGINATE_ALL_LIMIT = 1_000_000;
+
 /** Load and decode the persisted message events for a thread. Malformed rows
  *  and decode rejects (returning null) are skipped; callers apply their sort. */
 export async function loadThreadMessageEvents<T>(
   threadId: string,
   eventType: string,
   decode: (payload: unknown, row: { payload_json: string; created_at: string }) => T | null,
+  opts?: { paginateAll?: boolean },
 ): Promise<T[]> {
   const repos = await reposOrNull();
-  const rows = (await repos?.agentEvents?.findByThread(threadId, { eventType, limit: 500 })) ?? [];
+  const limit = opts?.paginateAll ? PAGINATE_ALL_LIMIT : DEFAULT_MESSAGE_EVENT_LIMIT;
+  const rows = (await repos?.agentEvents?.findByThread(threadId, { eventType, limit })) ?? [];
   const out: T[] = [];
   for (const row of rows) {
     try {

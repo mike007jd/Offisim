@@ -22,6 +22,7 @@ const REQUIRED_COMMANDS = [
   'attachment_list',
   'attachment_list_all',
   'attachment_delete',
+  'attachment_delete_company',
 ];
 const REQUIRED_WINDOWS = ['main', 'main-live'];
 

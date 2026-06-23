@@ -422,16 +422,28 @@ export class ConversationRunController {
       value: input.value,
       cancelled: input.cancelled,
     });
-    await this.resolveActiveInteraction(run, approval, input.cancelled ? 'cancelled' : 'resolved', {
-      confirmed: input.confirmed,
-      value: input.value,
-      cancelled: input.cancelled,
-    });
-    this.setSnapshot(input.threadId, {
-      ...snapshot,
-      phase: 'running',
-      approval: null,
-    });
+    // The host has already received the answer, so this approval can never be
+    // re-answered. Clearing the local snapshot must therefore happen even if the
+    // DB write below throws — otherwise the pending banner stays stuck while the
+    // run continues, splitting host and local state. Clear in `finally`.
+    try {
+      await this.resolveActiveInteraction(
+        run,
+        approval,
+        input.cancelled ? 'cancelled' : 'resolved',
+        {
+          confirmed: input.confirmed,
+          value: input.value,
+          cancelled: input.cancelled,
+        },
+      );
+    } finally {
+      this.setSnapshot(input.threadId, {
+        ...this.currentSnapshot(input.threadId),
+        phase: 'running',
+        approval: null,
+      });
+    }
   }
 
   async dismissApproval(threadId: string): Promise<void> {
@@ -452,33 +464,41 @@ export class ConversationRunController {
   async hydrateStaleApprovals(companyId: string): Promise<void> {
     if (this.hydrationByCompany.has(companyId)) return;
     this.hydrationByCompany.add(companyId);
-    const repos = await this.deps.reposFactory();
-    const rows = (await repos.activeInteractions?.findByCompany(companyId)) ?? [];
-    for (const row of rows) {
-      let payload: Partial<PendingApproval> & { source?: string } = {};
-      try {
-        payload = JSON.parse(row.payload_json ?? '{}');
-      } catch {
-        payload = {};
+    // Hydration reads the DB, which can fail transiently (repos not ready, query
+    // error). If it throws, drop the company key so a later call re-attempts —
+    // leaving the key set would permanently block re-hydration for this company.
+    try {
+      const repos = await this.deps.reposFactory();
+      const rows = (await repos.activeInteractions?.findByCompany(companyId)) ?? [];
+      for (const row of rows) {
+        let payload: Partial<PendingApproval> & { source?: string } = {};
+        try {
+          payload = JSON.parse(row.payload_json ?? '{}');
+        } catch {
+          payload = {};
+        }
+        if (payload.source !== 'pi-ui-request') continue;
+        const approval: PendingApproval = {
+          threadId: row.thread_id,
+          attemptId: String(payload.attemptId ?? row.interaction_id),
+          hostRequestId: String(payload.hostRequestId ?? ''),
+          uiRequestId: String(payload.uiRequestId ?? row.interaction_id),
+          method: String(payload.method ?? 'confirm'),
+          title: String(payload.title ?? 'Approval needed'),
+          message: typeof payload.message === 'string' ? payload.message : undefined,
+          state: 'stale',
+          createdAt: Date.parse(row.created_at) || this.deps.now(),
+        };
+        this.patchSnapshot(row.thread_id, {
+          companyId,
+          phase: 'awaiting-approval',
+          attemptId: approval.attemptId,
+          approval,
+        });
       }
-      if (payload.source !== 'pi-ui-request') continue;
-      const approval: PendingApproval = {
-        threadId: row.thread_id,
-        attemptId: String(payload.attemptId ?? row.interaction_id),
-        hostRequestId: String(payload.hostRequestId ?? ''),
-        uiRequestId: String(payload.uiRequestId ?? row.interaction_id),
-        method: String(payload.method ?? 'confirm'),
-        title: String(payload.title ?? 'Approval needed'),
-        message: typeof payload.message === 'string' ? payload.message : undefined,
-        state: 'stale',
-        createdAt: Date.parse(row.created_at) || this.deps.now(),
-      };
-      this.patchSnapshot(row.thread_id, {
-        companyId,
-        phase: 'awaiting-approval',
-        attemptId: approval.attemptId,
-        approval,
-      });
+    } catch (error) {
+      this.hydrationByCompany.delete(companyId);
+      throw error;
     }
   }
 

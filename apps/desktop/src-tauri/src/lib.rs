@@ -222,6 +222,7 @@ pub fn run() {
             attachment_store::attachment_list,
             attachment_store::attachment_list_all,
             attachment_store::attachment_delete,
+            attachment_store::attachment_delete_company,
         ])
         .plugin(tauri_plugin_sql::Builder::default().build())
         .plugin(tauri_plugin_cors_fetch::init())

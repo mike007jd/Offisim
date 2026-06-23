@@ -44,6 +44,11 @@ async function deleteCompanyWorkspace(companyId: string): Promise<void> {
   await invoke('delete_company_workspace', { companyId });
 }
 
+async function deleteCompanyAttachments(companyId: string): Promise<void> {
+  if (!isTauriRuntime()) return;
+  await invoke('attachment_delete_company', { companyId });
+}
+
 function attachmentVaultRef(meta: StoredAttachmentMeta): string {
   return `attachment://${meta.companyId}/${meta.threadId}/${meta.attachmentId}`;
 }
@@ -67,7 +72,9 @@ export async function deleteConversationDeep(
   threadId: string,
   companyId?: string | null,
 ): Promise<void> {
-  await deleteThreadAttachments(threadId, companyId);
+  // Contract C-B (rows-first): delete the DB rows atomically FIRST, then clean up
+  // attachment blobs best-effort. The reverse order could delete the blobs and
+  // then fail the DB write, leaving rows that reference gone files (dangling refs).
   await localDbTransaction([
     { sql: 'DELETE FROM tool_permission_approvals WHERE thread_id = $1', params: [threadId] },
     { sql: 'DELETE FROM compact_summaries WHERE thread_id = $1', params: [threadId] },
@@ -113,6 +120,13 @@ export async function deleteConversationDeep(
     { sql: 'DELETE FROM graph_threads WHERE thread_id = $1', params: [threadId] },
     { sql: 'DELETE FROM chat_threads WHERE thread_id = $1', params: [threadId] },
   ]);
+  // Best-effort FS cleanup after the DB commit — a failure here orphans blobs the
+  // DB no longer references (collectible), never a dangling reference.
+  try {
+    await deleteThreadAttachments(threadId, companyId);
+  } catch {
+    // attachment blobs orphaned; surfaced via the desktop GC, not a hard failure
+  }
 }
 
 export async function deleteCompanyDeep(companyId: string): Promise<DeleteCompanyDeepResult> {
@@ -249,13 +263,19 @@ export async function deleteCompanyDeep(companyId: string): Promise<DeleteCompan
     { sql: 'DELETE FROM companies WHERE company_id = $1', params: [companyId] },
   ]);
 
+  // FS-after-DB (contract C-B): rows are gone; remove the company's attachment
+  // subtree + workspace dir best-effort. A failure here is a collectible orphan,
+  // never a dangling reference.
+  let cleanupError: string | undefined;
+  try {
+    await deleteCompanyAttachments(companyId);
+  } catch (error) {
+    cleanupError = localErrorMessage(error);
+  }
   try {
     await deleteCompanyWorkspace(companyId);
-    return { persisted: true };
   } catch (error) {
-    return {
-      persisted: true,
-      workspaceCleanupError: localErrorMessage(error),
-    };
+    cleanupError = cleanupError ?? localErrorMessage(error);
   }
+  return cleanupError ? { persisted: true, workspaceCleanupError: cleanupError } : { persisted: true };
 }

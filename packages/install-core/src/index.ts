@@ -85,7 +85,8 @@ export type { MaterializeResult } from './materializer.js';
 // ---------------------------------------------------------------------------
 // Rollback (reverse materialization on failure)
 // ---------------------------------------------------------------------------
-export { rollback } from './rollback.js';
+export { recordVaultRepairMarker, rollback, vaultRepairMarkerPath } from './rollback.js';
+export type { RollbackOutcome, VaultRepairRecord } from './rollback.js';
 
 // ---------------------------------------------------------------------------
 // Upgrade differ (PRD 3.5)

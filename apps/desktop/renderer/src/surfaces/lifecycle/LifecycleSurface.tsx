@@ -1,5 +1,6 @@
 import { useUiState } from '@/app/ui-state.js';
 import { reposOrNull } from '@/data/adapters.js';
+import { deleteCompanyDeep } from '@/data/local-data-deletion.js';
 import { useCompanies } from '@/data/queries.js';
 import { ensureCompanyWorkspaceProjectId } from '@/runtime/ensure-default-workspace.js';
 import { runtimeEventBus } from '@/runtime/repos.js';
@@ -50,11 +51,10 @@ export function LifecycleSurface() {
     });
 
     // The company row now exists. The remaining steps (event emit + template
-    // materialization) write additional company-scoped rows non-atomically, so a
-    // partial failure here would orphan the company. On any failure, delete the
-    // company row — every company-scoped child (the created event, employees,
-    // office layout, zones, prefab instances) is FK `ON DELETE CASCADE`, so the
-    // delete rolls the whole create back — then rethrow so the user sees it.
+    // materialization + workspace) write additional company-scoped rows
+    // non-atomically (the async Tauri backend has no single transaction across
+    // them), so a partial failure would orphan the company. C3: on any failure,
+    // roll the WHOLE company back with the deep delete below.
     let projectId = '';
     try {
       await repos.events.insert({
@@ -88,10 +88,17 @@ export function LifecycleSurface() {
 
       projectId = (await ensureCompanyWorkspaceProjectId(repos, companyId)) ?? '';
     } catch (error) {
+      // C3 compensation (saga): roll the whole company back with the deep delete
+      // (explicit multi-table delete + workspace + attachments), not just the
+      // companies row — so it does not depend on FK cascade being enabled on the
+      // connection. A compensation FAILURE is surfaced, not swallowed, so a
+      // half-created company never passes silently.
       try {
-        await repos.companies.delete(companyId);
-      } catch {
-        // Best-effort compensation; surface the original create failure below.
+        await deleteCompanyDeep(companyId);
+      } catch (cleanupError) {
+        throw new Error(
+          `Company creation failed and rollback also failed for ${companyId} (manual cleanup may be needed). Create error: ${errorDetail(error, 'unknown error')}. Rollback error: ${errorDetail(cleanupError, 'unknown error')}`,
+        );
       }
       throw error;
     }

@@ -432,6 +432,32 @@ pub async fn attachment_delete<R: Runtime>(
     attachment_delete_under_root(&root, &vault_ref).await
 }
 
+/// C1: remove an entire company's attachment subtree (`attachments/<companyId>`).
+/// Called best-effort AFTER the company's DB rows are deleted (FS-after-DB,
+/// contract C-B), so a leftover here is a collectible orphan, never a dangling
+/// reference. `assert_segment` keeps `company_id` inside the attachments root.
+pub async fn attachment_delete_company_under_root(
+    root: &Path,
+    company_id: &str,
+) -> Result<(), AttachmentError> {
+    assert_segment(company_id)?;
+    let dir = root.join(company_id);
+    match fs::remove_dir_all(&dir).await {
+        Ok(()) => Ok(()),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(err) => Err(AttachmentError::Io(format!("remove company dir: {err}"))),
+    }
+}
+
+#[tauri::command]
+pub async fn attachment_delete_company<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    company_id: String,
+) -> Result<(), AttachmentError> {
+    let root = attachments_root(&app)?;
+    attachment_delete_company_under_root(&root, &company_id).await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -625,6 +651,33 @@ mod tests {
             .expect("first delete");
         rt().block_on(attachment_delete_under_root(&root, &vault_ref))
             .expect("second delete is no-op");
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn delete_company_removes_subtree_is_idempotent_and_jails_path() {
+        let root = temp_root("delete-company");
+        let bytes = b"z".to_vec();
+        let mut meta = meta_for(&bytes, "88888888-8888-4888-9888-888888888888");
+        meta.company_id = "co-del".to_string();
+        meta.thread_id = "th-1".to_string();
+        rt().block_on(attachment_write_under_root(&root, meta, bytes))
+            .expect("write");
+        assert!(root.join("co-del").exists());
+
+        rt().block_on(attachment_delete_company_under_root(&root, "co-del"))
+            .expect("delete company");
+        assert!(!root.join("co-del").exists());
+
+        // Idempotent: a second delete of an absent company is a no-op.
+        rt().block_on(attachment_delete_company_under_root(&root, "co-del"))
+            .expect("second delete is a no-op");
+
+        // Path traversal is rejected before touching the filesystem.
+        assert!(matches!(
+            rt().block_on(attachment_delete_company_under_root(&root, "..")),
+            Err(AttachmentError::InvalidId)
+        ));
         std::fs::remove_dir_all(&root).ok();
     }
 

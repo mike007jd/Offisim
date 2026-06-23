@@ -75,7 +75,7 @@ export function parseApiTokenExpiryDays(value: unknown): number | null {
  * into an anonymous success — see PL1. `no-linked-user` preserves the prior
  * behavior of degrading to anonymous when a valid token has no Offisim user.
  */
-export type ApiTokenAuthResult =
+type ApiTokenAuthResult =
   | {
       kind: 'authenticated';
       userId: string;
@@ -88,7 +88,7 @@ export type ApiTokenAuthResult =
   | { kind: 'no-linked-user' }
   | { kind: 'backend-error' };
 
-export async function resolveApiTokenAuth(
+async function resolveApiTokenAuth(
   db: PlatformDb,
   rawToken: string,
 ): Promise<ApiTokenAuthResult> {

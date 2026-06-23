@@ -9,7 +9,7 @@ import {
   validateManifest,
 } from '@offisim/asset-schema';
 import { zipSync } from 'fflate';
-import { sha256Hex } from './hash.js';
+import { manifestFileDigestAnchor, sha256Hex } from './hash.js';
 
 export interface BuildPackageArtifactInput {
   readonly packageId: string;
@@ -149,6 +149,10 @@ export async function buildPackageArtifact(
     )
   ).sort((a, b) => a.path.localeCompare(b.path));
 
+  // Real content anchor over the declared file digests (see hash.ts). Replaces
+  // the former all-zeros placeholder so `package_sha256` is a verifiable anchor.
+  const packageContentAnchor = await manifestFileDigestAnchor(integrityFiles);
+
   const materializerPayloads = input.materializerPayload
     ? {
         [MATERIALIZER_PAYLOADS_KEY]: {
@@ -204,7 +208,7 @@ export async function buildPackageArtifact(
       },
     ],
     integrity: {
-      package_sha256: '0'.repeat(64),
+      package_sha256: packageContentAnchor,
       files: integrityFiles,
     },
     ...(input.lineage

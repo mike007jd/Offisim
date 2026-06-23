@@ -828,11 +828,30 @@ export async function materialize(
       // left orphaned installed_package / installed_asset / binding rows behind
       // a missing skill file. rollback() also removes any files already written
       // (it clears every result.skillVaultPaths) and swallows per-entity errors.
-      const { rollback } = await import('./rollback.js');
+      const { rollback, recordVaultRepairMarker } = await import('./rollback.js');
+      // Double failure = the flush failed AND the compensating rollback did NOT
+      // fully clean up (either it threw, or it reported per-entity failures). In
+      // that case the install is left inconsistent (committed rows + partially-
+      // written vault files), so record a DURABLE repair marker instead of
+      // dropping the inconsistency on the floor — a recovery pass can finish it.
+      let rollbackError: string | null = null;
       try {
-        await rollback(result, repos);
-      } catch {
-        // best-effort compensation
+        const outcome = await rollback(result, repos);
+        if (outcome.errors.length > 0) {
+          rollbackError = outcome.errors.join('; ');
+        }
+      } catch (caught) {
+        rollbackError = caught instanceof Error ? caught.message : String(caught);
+      }
+      if (rollbackError !== null) {
+        await recordVaultRepairMarker(repos.vault, {
+          kind: 'install-rollback-failure',
+          installTxnId,
+          recordedAt: nowIso(),
+          flushError: err instanceof Error ? err.message : String(err),
+          rollbackError,
+          orphaned: result,
+        });
       }
       throw err;
     }

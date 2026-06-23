@@ -627,8 +627,22 @@ export function useDeleteZone() {
       if (!companyId)
         throw new Error('Select or create a company before editing the office layout');
       const prefabs = await repos.prefabInstances.findByCompanyAndZone(companyId, zoneId);
-      await Promise.all(prefabs.map((prefab) => repos.prefabInstances.delete(prefab.instance_id)));
-      await repos.zones.delete(zoneId);
+      // ST3: deleting a zone removes its prefab instances too (there is no FK
+      // cascade from prefab_instances.zone_id). Those N deletes + the zone delete
+      // must be ONE transaction, else a mid-op failure orphans prefabs or leaves
+      // a deleted zone with leftover prefabs. Use the Tauri transaction when the
+      // backend provides it; other backends (single-process) run sequentially.
+      const asyncTransact = repos.asyncTransact?.bind(repos);
+      if (asyncTransact) {
+        await asyncTransact(async (tx) => {
+          if (!tx) throw new Error('zone delete requires a transactional repository');
+          await Promise.all(prefabs.map((prefab) => tx.prefabInstances.delete(prefab.instance_id)));
+          await tx.zones.delete(zoneId);
+        });
+      } else {
+        await Promise.all(prefabs.map((prefab) => repos.prefabInstances.delete(prefab.instance_id)));
+        await repos.zones.delete(zoneId);
+      }
       return { persisted: true, deletedObjects: prefabs.length };
     },
     onSuccess: () => {
