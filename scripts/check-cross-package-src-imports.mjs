@@ -42,6 +42,7 @@ const ALLOWLIST = new Set([
   'scripts/harness-doc-engine-csv-security.mts::../packages/doc-engine/src/export.js',
   'scripts/harness-web-search-security.mts::../packages/core/src/tools/builtin/web-search-tool.ts',
   'scripts/harness-conversation-run-controller.mts::../packages/core/src/browser.js',
+  'scripts/harness-workspace-repo-contract.mts::../packages/core/src/runtime/repos/workspace/drizzle.js',
   'scripts/harness-template-contract.mts::../packages/core/src/browser.js',
   'scripts/harness-template-contract.mts::../packages/shared-types/src/index.js',
   'scripts/harness-agent-run-projection.mts::../packages/shared-types/src/index.js',
