@@ -1,6 +1,9 @@
 use serde::Serialize;
 use std::path::{Component, Path, PathBuf};
+use std::process::Stdio;
+use std::time::Duration;
 use tauri::Runtime;
+use tokio::io::AsyncReadExt;
 use tokio::process::Command;
 
 /// Allowed git subcommands (whitelist for safety).
@@ -22,6 +25,10 @@ const BLOCKED_FLAGS: &[&str] = &["--no-verify", "--force", "-f", "--hard", "--am
 const CLONE_USAGE: &str =
     "git clone is restricted to: clone --depth 1 [--branch ref] <url> <destination>";
 const MAX_GIT_OUTPUT_BYTES: usize = 1024 * 1024;
+/// Wall-clock bound on a single `git` invocation. A hung clone (stalled network,
+/// credential prompt despite GIT_TERMINAL_PROMPT=0) is killed instead of blocking
+/// the IPC handler forever.
+const GIT_EXEC_TIMEOUT: Duration = Duration::from_secs(120);
 
 #[derive(Debug, Serialize)]
 pub struct GitResult {
@@ -95,20 +102,100 @@ pub async fn git_exec<R: Runtime>(
         None => root.clone(),
     };
 
-    let output = Command::new("git")
+    let mut command = Command::new("git");
+    command
         .args(&args)
         .current_dir(&cwd_path)
         .env_clear()
-        .envs(scrubbed_git_env())
-        .output()
-        .await
-        .map_err(|e| format!("Failed to execute git: {}", e))?;
+        .envs(scrubbed_git_env());
+    run_git_capped(command, GIT_EXEC_TIMEOUT, MAX_GIT_OUTPUT_BYTES).await
+}
 
-    Ok(GitResult {
-        ok: output.status.success(),
-        stdout: redacted_git_output(&output.stdout),
-        stderr: redacted_git_output(&output.stderr),
-    })
+/// G3: spawn git, stream stdout/stderr each capped at `max_bytes` (so a flood
+/// cannot balloon memory before truncation), and bound the whole run by `timeout`
+/// with `kill_on_drop` so a hung process is terminated rather than blocking.
+async fn run_git_capped(
+    mut command: Command,
+    timeout: Duration,
+    max_bytes: usize,
+) -> Result<GitResult, String> {
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true);
+    let mut child = command
+        .spawn()
+        .map_err(|e| format!("Failed to execute git: {}", e))?;
+    let mut stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| "git stdout pipe unavailable".to_string())?;
+    let mut stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| "git stderr pipe unavailable".to_string())?;
+
+    let collect = async {
+        let (out, err) = tokio::join!(
+            read_capped(&mut stdout, max_bytes),
+            read_capped(&mut stderr, max_bytes),
+        );
+        let status = child
+            .wait()
+            .await
+            .map_err(|e| format!("git wait failed: {}", e))?;
+        let out = out.map_err(|e| format!("git stdout read failed: {}", e))?;
+        let err = err.map_err(|e| format!("git stderr read failed: {}", e))?;
+        Ok::<((Vec<u8>, bool), (Vec<u8>, bool), std::process::ExitStatus), String>((out, err, status))
+    };
+
+    match tokio::time::timeout(timeout, collect).await {
+        Ok(result) => {
+            let ((out_bytes, out_trunc), (err_bytes, err_trunc), status) = result?;
+            Ok(GitResult {
+                ok: status.success(),
+                stdout: finalize_git_output(&out_bytes, out_trunc),
+                stderr: finalize_git_output(&err_bytes, err_trunc),
+            })
+        }
+        Err(_) => {
+            // The timed-out `collect` future has been dropped, releasing its borrow
+            // of `child`; kill the still-running git process promptly (kill_on_drop
+            // would also fire when `child` drops at end of scope).
+            let _ = child.start_kill();
+            Err(format!("git timed out after {}s", timeout.as_secs()))
+        }
+    }
+}
+
+/// Read `reader` to EOF, capturing at most `max_bytes`. Excess is drained and
+/// discarded (so the child never blocks on a full pipe) and flagged as truncated.
+async fn read_capped<R>(reader: &mut R, max_bytes: usize) -> std::io::Result<(Vec<u8>, bool)>
+where
+    R: tokio::io::AsyncRead + Unpin,
+{
+    let mut buf: Vec<u8> = Vec::new();
+    let mut chunk = [0u8; 8192];
+    let mut truncated = false;
+    loop {
+        let n = reader.read(&mut chunk).await?;
+        if n == 0 {
+            break;
+        }
+        if buf.len() >= max_bytes {
+            truncated = true;
+            continue;
+        }
+        let room = max_bytes - buf.len();
+        if n <= room {
+            buf.extend_from_slice(&chunk[..n]);
+        } else {
+            buf.extend_from_slice(&chunk[..room]);
+            truncated = true;
+        }
+    }
+    Ok((buf, truncated))
 }
 
 fn scrubbed_git_env() -> Vec<(String, String)> {
@@ -123,23 +210,15 @@ fn scrubbed_git_env() -> Vec<(String, String)> {
     env
 }
 
-fn truncate_git_output(bytes: &[u8]) -> String {
-    let capped = if bytes.len() > MAX_GIT_OUTPUT_BYTES {
-        &bytes[..MAX_GIT_OUTPUT_BYTES]
-    } else {
-        bytes
-    };
-    let mut text = String::from_utf8_lossy(capped).to_string();
-    if bytes.len() > MAX_GIT_OUTPUT_BYTES {
+/// Build the final stream text: lossy-decode the (already byte-capped) buffer,
+/// append the truncation marker when the stream overflowed, then redact. Git
+/// policy is stricter than shell: URL-credential redaction on + the extra
+/// `secret` keyword. The scan mechanism lives in `crate::redaction`.
+fn finalize_git_output(buf: &[u8], truncated: bool) -> String {
+    let mut text = String::from_utf8_lossy(buf).to_string();
+    if truncated {
         text.push_str("\n[OUTPUT TRUNCATED]");
     }
-    text
-}
-
-fn redacted_git_output(bytes: &[u8]) -> String {
-    let text = truncate_git_output(bytes);
-    // Git policy (stricter than shell): URL-credential redaction on + the extra
-    // `secret` keyword. The scan mechanism lives in `crate::redaction`.
     crate::redaction::redact_secret_tokens(&text, true, &["secret"])
 }
 
@@ -409,7 +488,61 @@ fn clone_destination_arg(args: &[String]) -> Result<&str, String> {
     if positionals.len() != 2 {
         return Err(CLONE_USAGE.into());
     }
+    validate_clone_source(positionals[0])?;
     Ok(positionals[1])
+}
+
+/// G2: restrict the clone SOURCE to safe remote forms. Without this, a source like
+/// `file:///etc/...`, an absolute/relative local path, or a `git://` URL would be
+/// handed to the local `git` binary and copied into the sandbox. Only `https://`,
+/// `ssh://`, and scp-like `[user@]host:path` remotes are allowed; everything else
+/// (local paths, `file://`, `http://`, `git://`, …) is rejected.
+fn validate_clone_source(source: &str) -> Result<(), String> {
+    let trimmed = source.trim();
+    if trimmed.is_empty() {
+        return Err("git clone source must not be empty".into());
+    }
+    if let Some(scheme_end) = trimmed.find("://") {
+        // A proper `scheme://authority/...` URL — IPv6 authorities like
+        // `ssh://[::1]/repo` are fine here because we only inspect the scheme.
+        let scheme = trimmed[..scheme_end].to_ascii_lowercase();
+        return if scheme == "https" || scheme == "ssh" {
+            Ok(())
+        } else {
+            Err(format!(
+                "git clone source scheme '{scheme}://' is not allowed; use an https:// or ssh:// remote"
+            ))
+        };
+    }
+    // No `scheme://` → the only allowed form is scp-like ssh `[user@]host:path`.
+    // Reject git's remote-helper transport syntax `transport::address` FIRST
+    // (e.g. `ext::sh -c …` runs an arbitrary shell command, `fd::N` reads a file
+    // descriptor) — the `::` separator never appears in a real https/ssh/scp
+    // remote without a `scheme://`, so it is a reliable transport-helper marker.
+    if trimmed.contains("::") {
+        return Err(format!(
+            "git clone source '{trimmed}' uses a disallowed remote-helper transport"
+        ));
+    }
+    // scp-like `[user@]host:path`: a host (with optional `user@`), then a path.
+    // The host must look like a hostname/IP (only [A-Za-z0-9._-]); this rejects
+    // bare local paths (`/etc/passwd`, `./repo`, `../x`), which either have no
+    // `:` or a path-shaped "host" segment.
+    if let Some(colon) = trimmed.find(':') {
+        let host_segment = &trimmed[..colon];
+        let path = &trimmed[colon + 1..];
+        let host = host_segment.rsplit('@').next().unwrap_or(host_segment);
+        let host_ok = !host.is_empty()
+            && host
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_'));
+        if host_ok && !path.is_empty() {
+            return Ok(());
+        }
+    }
+    Err(format!(
+        "git clone source '{trimmed}' is not an allowed remote; use https:// , ssh:// , or scp-like host:path (local paths, file://, and remote-helper transports are not allowed)"
+    ))
 }
 
 fn reject_option_like_value(value: &str, label: &str) -> Result<(), String> {
@@ -691,9 +824,10 @@ mod tests {
     }
 
     #[test]
-    fn redacted_git_output_removes_url_credentials_and_secret_tokens() {
-        let output = redacted_git_output(
+    fn finalize_git_output_removes_url_credentials_and_secret_tokens() {
+        let output = finalize_git_output(
             b"remote https://ghp_abcdefghijklmnopqrstuvwxyz123456@github.com/acme/repo.git\nsk-abcdefghijklmnopqrstuvwxyz123456\n",
+            false,
         );
         assert!(!output.contains("ghp_abcdefghijklmnopqrstuvwxyz123456"));
         assert!(!output.contains("sk-abcdefghijklmnopqrstuvwxyz123456"));
@@ -701,9 +835,135 @@ mod tests {
     }
 
     #[test]
-    fn redacted_git_output_truncates_large_output() {
-        let bytes = vec![b'a'; MAX_GIT_OUTPUT_BYTES + 1];
-        let output = redacted_git_output(&bytes);
-        assert!(output.ends_with("[OUTPUT TRUNCATED]"));
+    fn finalize_git_output_appends_truncation_marker() {
+        assert!(finalize_git_output(b"partial output", true).ends_with("[OUTPUT TRUNCATED]"));
+        assert!(!finalize_git_output(b"complete output", false).contains("[OUTPUT TRUNCATED]"));
+    }
+
+    // --- G2: clone source allowlist ---
+
+    #[test]
+    fn validate_clone_source_accepts_remote_forms() {
+        for source in [
+            "https://github.com/acme/repo.git",
+            "https://user:tok@example.test/acme/repo.git",
+            "ssh://git@github.com/acme/repo.git",
+            "git@github.com:acme/repo.git",
+        ] {
+            validate_clone_source(source).unwrap_or_else(|err| panic!("{source} rejected: {err}"));
+        }
+    }
+
+    #[test]
+    fn validate_clone_source_rejects_local_and_disallowed_schemes() {
+        for source in [
+            "file:///etc/passwd",
+            "file://localhost/etc/passwd",
+            "http://example.test/repo.git",
+            "git://example.test/repo.git",
+            "ftp://example.test/repo.git",
+            "/etc/passwd",
+            "./local-repo",
+            "../escape/repo",
+            "~/repo",
+            "",
+        ] {
+            assert!(
+                validate_clone_source(source).is_err(),
+                "{source} should be rejected as a clone source"
+            );
+        }
+    }
+
+    #[test]
+    fn validate_clone_source_rejects_remote_helper_transports() {
+        // git remote-helper transports run arbitrary commands / read fds — these
+        // must never pass the source allowlist.
+        for source in [
+            "ext::sh -c 'cp /etc/passwd /tmp/x'",
+            "ext::cat /etc/passwd",
+            "fd::17",
+            "transport::address",
+            "ext::ssh git@host /repo",
+        ] {
+            assert!(
+                validate_clone_source(source).is_err(),
+                "{source} (remote-helper transport) should be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn validate_clone_source_rejects_path_shaped_scp_hosts() {
+        // A "host:path" whose host segment is not hostname-shaped is a local path
+        // in disguise, not an scp remote.
+        for source in ["/etc:passwd", "./x:y", " :repo", "a/b:c"] {
+            assert!(
+                validate_clone_source(source).is_err(),
+                "{source} (path-shaped host) should be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn clone_destination_arg_rejects_file_url_source() {
+        let args = vec![
+            "clone".to_string(),
+            "--depth".to_string(),
+            "1".to_string(),
+            "file:///etc/passwd".to_string(),
+            ".offisim/tmp/repo".to_string(),
+        ];
+        let err = clone_destination_arg(&args).unwrap_err();
+        assert!(err.contains("not an allowed remote") || err.contains("scheme"));
+    }
+
+    // --- G3: streaming cap + timeout ---
+
+    #[tokio::test]
+    async fn read_capped_caps_and_flags_truncation() {
+        let mut source: &[u8] = b"abcdefghij";
+        let (buf, truncated) = read_capped(&mut source, 4).await.unwrap();
+        assert_eq!(buf, b"abcd");
+        assert!(truncated);
+
+        let mut small: &[u8] = b"hi";
+        let (buf, truncated) = read_capped(&mut small, 4).await.unwrap();
+        assert_eq!(buf, b"hi");
+        assert!(!truncated);
+    }
+
+    #[tokio::test]
+    async fn run_git_capped_returns_output_for_quick_command() {
+        let mut command = Command::new("sh");
+        command.arg("-c").arg("printf hello");
+        let result = run_git_capped(command, Duration::from_secs(10), MAX_GIT_OUTPUT_BYTES)
+            .await
+            .unwrap();
+        assert!(result.ok);
+        assert_eq!(result.stdout, "hello");
+    }
+
+    #[tokio::test]
+    async fn run_git_capped_truncates_large_output() {
+        let mut command = Command::new("sh");
+        command.arg("-c").arg("yes aaaaaaaa | head -c 50000");
+        let result = run_git_capped(command, Duration::from_secs(10), 1024)
+            .await
+            .unwrap();
+        assert!(result.stdout.ends_with("[OUTPUT TRUNCATED]"));
+        assert!(result.stdout.len() < 2048);
+    }
+
+    #[tokio::test]
+    async fn run_git_capped_times_out_on_hung_process() {
+        let mut command = Command::new("sh");
+        command.arg("-c").arg("sleep 30");
+        let started = std::time::Instant::now();
+        let err = run_git_capped(command, Duration::from_millis(300), MAX_GIT_OUTPUT_BYTES)
+            .await
+            .unwrap_err();
+        assert!(err.contains("timed out"));
+        assert!(started.elapsed() < Duration::from_secs(5), "timeout did not fire promptly");
     }
 }

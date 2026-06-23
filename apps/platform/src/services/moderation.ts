@@ -263,17 +263,38 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
       return versionId;
     });
   } catch (err) {
-    if (!isDuplicatePackageVersionDbError(err)) {
-      throw err;
+    if (isDuplicatePackageVersionDbError(err)) {
+      await db
+        .update(moderationJobs)
+        .set({
+          status: 'completed',
+          result: {
+            outcome: 'rejected',
+            code: 'duplicate_package_version',
+            reason: 'Duplicate package version for this listing',
+          },
+          completed_at: new Date(),
+        })
+        .where(claimedJobPredicate);
+      await db
+        .update(publishDrafts)
+        .set({ status: 'draft', updated_at: new Date() })
+        .where(
+          and(eq(publishDrafts.draft_id, draft.draft_id), eq(publishDrafts.status, 'submitted')),
+        );
+      return;
     }
+    // PL3: a generic in-tx failure must not strand the job in 'processing' (the
+    // claim gate only re-claims 'pending', so the job would never be retried) nor
+    // the draft in 'submitted' (the creator could not resubmit). Transition the
+    // job to 'failed' and the draft back to 'draft' before surfacing the error.
     await db
       .update(moderationJobs)
       .set({
-        status: 'completed',
+        status: 'failed',
         result: {
-          outcome: 'rejected',
-          code: 'duplicate_package_version',
-          reason: 'Duplicate package version for this listing',
+          outcome: 'error',
+          reason: err instanceof Error ? err.message : 'Moderation failed',
         },
         completed_at: new Date(),
       })
@@ -284,7 +305,7 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
       .where(
         and(eq(publishDrafts.draft_id, draft.draft_id), eq(publishDrafts.status, 'submitted')),
       );
-    return;
+    throw err;
   }
 
   // Phase 3: persist artifact bytes to disk now that DB is committed.

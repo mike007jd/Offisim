@@ -1,5 +1,6 @@
 import { apiTokens, creators, users } from '@offisim/db-platform';
 import { eq } from 'drizzle-orm';
+import type { Context } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { HTTPException } from 'hono/http-exception';
 import { auth } from '../auth.js';
@@ -66,71 +67,154 @@ export function parseApiTokenExpiryDays(value: unknown): number | null {
   return value;
 }
 
+/**
+ * Outcome of validating an `offisim_`-prefixed bearer token. Splitting the
+ * decision out of the middleware (a) makes the 401/503/anonymous matrix unit
+ * testable without a live Better Auth + Postgres, and (b) lets the middleware
+ * STOP swallowing a present-but-invalid token (or a DB outage during validation)
+ * into an anonymous success — see PL1. `no-linked-user` preserves the prior
+ * behavior of degrading to anonymous when a valid token has no Offisim user.
+ */
+export type ApiTokenAuthResult =
+  | {
+      kind: 'authenticated';
+      userId: string;
+      userEmail: string;
+      scopes: ApiTokenScope[];
+      tokenId: string;
+    }
+  | { kind: 'invalid' }
+  | { kind: 'expired' }
+  | { kind: 'no-linked-user' }
+  | { kind: 'backend-error' };
+
+export async function resolveApiTokenAuth(
+  db: PlatformDb,
+  rawToken: string,
+): Promise<ApiTokenAuthResult> {
+  let tokenRow: typeof apiTokens.$inferSelect | undefined;
+  try {
+    const hash = await sha256(rawToken);
+    [tokenRow] = await db
+      .select()
+      .from(apiTokens)
+      .where(eq(apiTokens.token_hash, hash))
+      .limit(1);
+  } catch {
+    // The lookup itself failed (DB unavailable) — do not degrade to anonymous.
+    return { kind: 'backend-error' };
+  }
+  // A token was presented but matches no issued row → invalid, not anonymous.
+  if (!tokenRow) return { kind: 'invalid' };
+  if (tokenRow.expires_at && tokenRow.expires_at < new Date()) return { kind: 'expired' };
+
+  let offisimUser: typeof users.$inferSelect | undefined;
+  try {
+    [offisimUser] = await db
+      .select()
+      .from(users)
+      .where(eq(users.ba_user_id, tokenRow.user_id))
+      .limit(1);
+  } catch {
+    return { kind: 'backend-error' };
+  }
+  if (!offisimUser) return { kind: 'no-linked-user' };
+  return {
+    kind: 'authenticated',
+    userId: offisimUser.user_id,
+    userEmail: offisimUser.email,
+    scopes: normalizeApiTokenScopes(tokenRow.scopes),
+    tokenId: tokenRow.token_id,
+  };
+}
+
+/**
+ * PL2 — decide whether a Better Auth session may bind to a pre-existing Offisim
+ * `users` row found by email. Adopting an UNLINKED row (`ba_user_id` null, e.g.
+ * the official-seed account or any legacy email) requires a verified email; else
+ * an attacker could register the seed/known address (email+password sign-ups are
+ * unverified by default) and take the account over. Re-linking the SAME ba user
+ * is idempotent; a row already linked to a DIFFERENT ba user is never overwritten.
+ */
+export type EmailAdoptionDecision = 'link' | 'refuse';
+
+export function decideEmailAdoption(
+  existing: { ba_user_id: string | null },
+  sessionUser: { id: string; emailVerified?: boolean | null },
+): EmailAdoptionDecision {
+  if (existing.ba_user_id) {
+    return existing.ba_user_id === sessionUser.id ? 'link' : 'refuse';
+  }
+  return sessionUser.emailVerified ? 'link' : 'refuse';
+}
+
+// PL1: a credentialed request whose auth backend threw (token lookup or session
+// store unavailable) gets 503 — never a silent degrade to anonymous success.
+function authBackendUnavailable(c: Context<PlatformEnv>) {
+  return c.json(
+    {
+      error: {
+        code: 'AUTH_BACKEND_UNAVAILABLE',
+        message: 'Authentication backend is unavailable. Please retry.',
+      },
+    },
+    503,
+  );
+}
+
 export const optionalAuth = createMiddleware<PlatformEnv>(async (c, next) => {
   const authHeader = c.req.header('authorization');
 
   // 1. Check for API token (offisim_ prefix)
   if (authHeader?.startsWith('Bearer offisim_')) {
     const rawToken = authHeader.slice(7); // remove "Bearer "
-    try {
-      const hash = await sha256(rawToken);
-      const db = c.get('db');
-      const [tokenRow] = await db
-        .select()
-        .from(apiTokens)
-        .where(eq(apiTokens.token_hash, hash))
-        .limit(1);
-
-      if (tokenRow) {
-        // Check expiry. Returning 401 instead of silently degrading to
-        // anonymous prevents an expired token from getting back a
-        // "successful" anonymous response — the client must explicitly
-        // re-auth. (G/I2 — `expired bearer` should not fall-through.)
-        if (tokenRow.expires_at && tokenRow.expires_at < new Date()) {
-          return c.json(
-            {
-              error: {
-                code: 'TOKEN_EXPIRED',
-                message: 'API token is expired.',
-              },
-            },
-            401,
-          );
-        }
-
-        // Look up the linked Offisim user
-        const [offisimUser] = await db
-          .select()
-          .from(users)
-          .where(eq(users.ba_user_id, tokenRow.user_id))
-          .limit(1);
-
-        if (offisimUser) {
-          c.set('userId', offisimUser.user_id);
-          c.set('userEmail', offisimUser.email);
-          c.set('authKind', 'api-token');
-          c.set('apiTokenScopes', normalizeApiTokenScopes(tokenRow.scopes));
-        }
-
+    const db = c.get('db');
+    const result = await resolveApiTokenAuth(db, rawToken);
+    switch (result.kind) {
+      case 'backend-error':
+        return authBackendUnavailable(c);
+      case 'invalid':
+        return c.json(
+          { error: { code: 'INVALID_TOKEN', message: 'API token is invalid.' } },
+          401,
+        );
+      case 'expired':
+        return c.json(
+          { error: { code: 'TOKEN_EXPIRED', message: 'API token is expired.' } },
+          401,
+        );
+      case 'authenticated':
+        c.set('userId', result.userId);
+        c.set('userEmail', result.userEmail);
+        c.set('authKind', 'api-token');
+        c.set('apiTokenScopes', result.scopes);
         // Update last_used_at (fire-and-forget)
         db.update(apiTokens)
           .set({ last_used_at: new Date() })
-          .where(eq(apiTokens.token_id, tokenRow.token_id))
+          .where(eq(apiTokens.token_id, result.tokenId))
           .then(() => {})
           .catch(() => {});
-      }
-    } catch {
-      // Invalid token — treat as unauthenticated
+        break;
+      case 'no-linked-user':
+        // Token is valid but maps to no Offisim user — continue anonymous.
+        break;
     }
     await next();
     return;
   }
 
   // 2. Better Auth session (cookie-based or bearer token)
+  let session: Awaited<ReturnType<typeof auth.api.getSession>>;
   try {
-    const session = await auth.api.getSession({ headers: c.req.raw.headers });
+    session = await auth.api.getSession({ headers: c.req.raw.headers });
+  } catch {
+    // The auth backend threw (e.g. session store unavailable) — surface 503
+    // instead of silently degrading a credentialed request to anonymous (PL1).
+    return authBackendUnavailable(c);
+  }
 
-    if (session?.user) {
+  if (session?.user) {
+    try {
       // Look up the linked Offisim user by ba_user_id
       const db = c.get('db');
       const [offisimUser] = await db
@@ -173,8 +257,9 @@ export const optionalAuth = createMiddleware<PlatformEnv>(async (c, next) => {
             .limit(1);
 
           if (existingByEmail) {
-            if (existingByEmail.ba_user_id && existingByEmail.ba_user_id !== session.user.id) {
-              // Email already linked to a different OAuth account — refuse to overwrite
+            if (decideEmailAdoption(existingByEmail, session.user) === 'refuse') {
+              // Linked elsewhere, or an unverified attempt to adopt an unlinked
+              // account — refuse to bind (PL2).
               c.set('authLinkConflict', true);
             } else {
               // Link existing Offisim user to Better Auth user
@@ -190,9 +275,14 @@ export const optionalAuth = createMiddleware<PlatformEnv>(async (c, next) => {
           }
         }
       }
+    } catch {
+      // Infra error while resolving/linking the session's Offisim user (the
+      // expected insert-on-conflict is handled by the inner catch above, so this
+      // only fires on a genuine DB failure). Surface 503 rather than silently
+      // dropping a valid session to anonymous (PL1; consistent with the platform
+      // "DB error → 503" convention and the api-token branch).
+      return authBackendUnavailable(c);
     }
-  } catch {
-    // Session check failed — proceed as unauthenticated
   }
 
   await next();

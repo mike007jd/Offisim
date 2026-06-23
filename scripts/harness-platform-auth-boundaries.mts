@@ -3,8 +3,10 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
+  decideEmailAdoption,
   MAX_API_TOKEN_EXPIRY_DAYS,
   normalizeApiTokenScopes,
+  optionalAuth,
   parseApiTokenExpiryDays,
   parseApiTokenScopes,
   requireApiTokenScope,
@@ -48,6 +50,124 @@ async function runMiddleware(
     nextCalled = true;
   });
   return { nextCalled, response: response as FakeResponse | undefined };
+}
+
+// --- PL1: API-token 401 / 503 / anonymous matrix ---
+
+type ApiTokenDbStep = { rows: unknown[] } | { throw: true };
+
+// Minimal drizzle-shaped mock: select/from/where chains resolve at `.limit()`,
+// consuming one planned step each; update/set/where supports the fire-and-forget
+// last_used_at write. Only `optionalAuth`'s api-token branch touches this.
+function makeApiTokenMockDb(plan: ApiTokenDbStep[]) {
+  let i = 0;
+  const builder: Record<string, unknown> = {};
+  Object.assign(builder, {
+    select: () => builder,
+    from: () => builder,
+    where: () => builder,
+    update: () => builder,
+    set: () => builder,
+    limit: () => {
+      const step = plan[i++];
+      if (!step) return Promise.resolve([]);
+      if ('throw' in step) return Promise.reject(new Error('platform db unavailable'));
+      return Promise.resolve(step.rows);
+    },
+    then: (onF: (value: unknown) => unknown) => {
+      onF?.(undefined);
+      return builder;
+    },
+    catch: () => builder,
+  });
+  return builder;
+}
+
+function makeApiTokenContext(plan: ApiTokenDbStep[]) {
+  const ctx = makeContext({ headers: { authorization: 'Bearer offisim_test-token' } });
+  ctx.set('db', makeApiTokenMockDb(plan));
+  return ctx;
+}
+
+const FUTURE = new Date(Date.now() + 86_400_000);
+const PAST = new Date(Date.now() - 86_400_000);
+const VALID_TOKEN_ROW = {
+  token_id: 't1',
+  token_hash: 'hash',
+  user_id: 'ba-1',
+  scopes: ['publish:write'],
+  expires_at: FUTURE,
+};
+const LINKED_USER_ROW = { user_id: 'u1', email: 'creator@example.test', ba_user_id: 'ba-1' };
+
+async function expectApiTokenValidAuthenticates() {
+  const ctx = makeApiTokenContext([{ rows: [VALID_TOKEN_ROW] }, { rows: [LINKED_USER_ROW] }]);
+  const { nextCalled, response } = await runMiddleware(optionalAuth as never, ctx);
+  if (!nextCalled || response) throw new Error('valid API token was not authenticated');
+  if (ctx.get('userId') !== 'u1' || ctx.get('authKind') !== 'api-token') {
+    throw new Error('valid API token did not populate auth context');
+  }
+}
+
+async function expectApiTokenInvalidReturns401() {
+  const ctx = makeApiTokenContext([{ rows: [] }]);
+  const { nextCalled, response } = await runMiddleware(optionalAuth as never, ctx);
+  if (nextCalled || response?.status !== 401) {
+    throw new Error('present-but-invalid API token did not return 401');
+  }
+}
+
+async function expectApiTokenExpiredReturns401() {
+  const ctx = makeApiTokenContext([{ rows: [{ ...VALID_TOKEN_ROW, expires_at: PAST }] }]);
+  const { nextCalled, response } = await runMiddleware(optionalAuth as never, ctx);
+  if (nextCalled || response?.status !== 401) {
+    throw new Error('expired API token did not return 401');
+  }
+}
+
+async function expectApiTokenBackendErrorReturns503() {
+  const ctx = makeApiTokenContext([{ throw: true }]);
+  const { nextCalled, response } = await runMiddleware(optionalAuth as never, ctx);
+  if (nextCalled || response?.status !== 503) {
+    throw new Error('auth-backend exception did not return 503 (degraded to anonymous?)');
+  }
+}
+
+// Note: the "absent credential → anonymous" leg of the matrix is the UNCHANGED
+// session-null path; it is not re-tested here because exercising it through the
+// middleware would invoke the real Better Auth `getSession` singleton (no DB in
+// this harness). The api-token cases above all return inside the api-token branch
+// before the session path, so they stay deterministic.
+
+// --- PL2: email-adoption requires a verified email ---
+
+function expectEmailAdoptionRequiresVerification() {
+  // Unlinked account + unverified email → refuse (the seed-takeover vector).
+  if (decideEmailAdoption({ ba_user_id: null }, { id: 'ba-x', emailVerified: false }) !== 'refuse') {
+    throw new Error('unverified email was allowed to adopt an unlinked account');
+  }
+  if (
+    decideEmailAdoption({ ba_user_id: null }, { id: 'ba-x', emailVerified: undefined }) !== 'refuse'
+  ) {
+    throw new Error('missing emailVerified was treated as verified');
+  }
+  // Unlinked account + verified email → link.
+  if (decideEmailAdoption({ ba_user_id: null }, { id: 'ba-x', emailVerified: true }) !== 'link') {
+    throw new Error('verified email was not allowed to adopt an unlinked account');
+  }
+  // Already linked to the SAME ba user → idempotent link.
+  if (
+    decideEmailAdoption({ ba_user_id: 'ba-x' }, { id: 'ba-x', emailVerified: false }) !== 'link'
+  ) {
+    throw new Error('idempotent re-link of the same ba user was refused');
+  }
+  // Linked to a DIFFERENT ba user → never overwrite.
+  if (
+    decideEmailAdoption({ ba_user_id: 'ba-other' }, { id: 'ba-x', emailVerified: true }) !==
+    'refuse'
+  ) {
+    throw new Error('adoption overwrote an account linked to a different ba user');
+  }
 }
 
 async function expectScopeDenied() {
@@ -352,6 +472,11 @@ function expectPrivateLibraryRouteIsSessionOnly() {
   }
 }
 
+await expectApiTokenValidAuthenticates();
+await expectApiTokenInvalidReturns401();
+await expectApiTokenExpiredReturns401();
+await expectApiTokenBackendErrorReturns503();
+expectEmailAdoptionRequiresVerification();
 await expectScopeDenied();
 await expectScopeAllowed();
 await expectTokenManagementRejectsApiTokenAuth();
