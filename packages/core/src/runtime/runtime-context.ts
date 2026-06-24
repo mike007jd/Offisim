@@ -1,5 +1,4 @@
 import type { InteractionRequest, RuntimePolicyConfig } from '@offisim/shared-types';
-import type { EngineAdapterRegistry } from '../engine/engine-adapter.js';
 import type { EventBus } from '../events/event-bus.js';
 import type { LlmGateway } from '../llm/gateway.js';
 import type { RecordedSystemLlmCaller } from '../llm/recorded-system-caller.js';
@@ -74,8 +73,6 @@ export interface RuntimeContext {
   readonly llmToolCallsEnabled?: boolean;
   /** Desktop-trusted built-in file/shell tools exposed outside workstation MCP scoping. */
   readonly builtinTools?: ReadonlyMap<string, BuiltinTool>;
-  /** Trusted runtime engine adapters for per-employee engine mode. */
-  readonly engineAdapters?: EngineAdapterRegistry;
   /** Long-running thread journal with a stable first user objective anchor. */
   readonly rollingJournal?: RollingJournal;
   /** Optional lifecycle hook registry for task/interaction instrumentation. */
@@ -136,7 +133,6 @@ export function createRuntimeContext(deps: {
   systemCaller?: RecordedSystemLlmCaller;
   llmToolCallsEnabled?: boolean;
   builtinTools?: ReadonlyMap<string, BuiltinTool>;
-  engineAdapters?: EngineAdapterRegistry;
   rollingJournal?: RollingJournal;
   hookRegistry?: HookRegistry;
   conversationState?: RunConversationStateType;

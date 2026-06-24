@@ -140,12 +140,6 @@ export function createOrchestrationDrizzleRepos(db: Db): OrchestrationDrizzleRep
         .where(eq(schema.graphThreads.thread_id, id))
         .run();
     },
-    async updateProject(id, projectId) {
-      db.update(schema.graphThreads)
-        .set({ project_id: projectId, updated_at: now() })
-        .where(eq(schema.graphThreads.thread_id, id))
-        .run();
-    },
   };
 
   const taskRuns: TaskRunRepository = {

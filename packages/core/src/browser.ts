@@ -128,19 +128,6 @@ export type {
   LlmStreamChunk,
 } from './llm/gateway.js';
 export type { EventBus, EventHandler } from './events/event-bus.js';
-export type {
-  EngineAdapter,
-  EngineAdapterRegistry,
-} from './engine/engine-adapter.js';
-export type {
-  EngineArtifact,
-  EngineProposal,
-  EngineRunContext,
-  EngineRunHandle,
-  EngineRunResult,
-  EngineTaskEnvelope,
-  RuntimeActivityEvent,
-} from './engine/engine-types.js';
 export type { ToolExecutor, ToolCallRequest, ToolCallResponse } from './runtime/tool-executor.js';
 export type { RetryConfig } from './llm/retry.js';
 export type { TeeResult } from './llm/stream-tee.js';
@@ -225,34 +212,6 @@ export {
   chatThreadUpdated,
 } from './events/event-factories.js';
 
-export {
-  DEFAULT_RUNTIME_ENGINE_CAPABILITY_PROFILES,
-  defaultRuntimeEngineProfileId,
-  evaluateRuntimeEngineTaskFit,
-  profileEvidenceClass,
-  profileToolTelemetryType,
-  resolveRuntimeEngineCapabilityProfile,
-} from './engine/capability-profiles.js';
-export type {
-  RuntimeEngineProfileResolution,
-  RuntimeEngineTaskFit,
-} from './engine/capability-profiles.js';
-export {
-  createAgentDriverProposal,
-  listMainHarnessRuntimeStatus,
-  resolveMainHarnessMode,
-} from './harness/main-harness-policy.js';
-export type {
-  AgentDriverProposal,
-  MainHarnessModeResolution,
-  MainHarnessResolutionInput,
-  MainHarnessRuntimeStatus,
-} from './harness/main-harness-policy.js';
-export {
-  resolveEmployeeRuntimeBinding,
-  resolveRuntimeBindingFromInput,
-  runtimeBindingsEqual,
-} from './engine/runtime-binding.js';
 
 // --- Memory Repositories (browser-safe, no Drizzle/sqlite) ---
 export {
@@ -330,7 +289,6 @@ export type {
   RunActiveContextSnapshot,
   RunBudgetSnapshot,
   RunCancellationSnapshot,
-  RunCheckpointIdentity,
   RunConversationStateSnapshot,
   RunDiscoveredToolRecord,
   RunDiscoveredToolSnapshot,

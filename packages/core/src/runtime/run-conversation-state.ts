@@ -15,7 +15,6 @@ export interface RunConversationStateSnapshot {
   readonly budget: RunBudgetSnapshot;
   readonly retry: RunRetrySnapshot;
   readonly cancellation: RunCancellationSnapshot;
-  readonly checkpointIdentity: RunCheckpointIdentity | null;
 }
 
 export interface RunToolResultRecord extends RecentToolResult {
@@ -65,12 +64,6 @@ export interface RunCancellationSnapshot {
   readonly reason: string | null;
 }
 
-export interface RunCheckpointIdentity {
-  readonly graphThreadId: string;
-  readonly taskRunId?: string;
-  readonly runScopeThreadId?: string;
-}
-
 const EMPTY_USAGE: LlmUsage = { inputTokens: 0, outputTokens: 0 };
 
 export class RunConversationState {
@@ -79,13 +72,11 @@ export class RunConversationState {
   beginRun(params: {
     readonly runId: string;
     readonly threadId: string;
-    readonly checkpointIdentity?: RunCheckpointIdentity | null;
   }): void {
     this.snapshot = {
       ...emptySnapshot(),
       runId: params.runId,
       threadId: params.threadId,
-      checkpointIdentity: params.checkpointIdentity ?? null,
     };
   }
 
@@ -199,6 +190,5 @@ function emptySnapshot(): RunConversationStateSnapshot {
       requested: false,
       reason: null,
     },
-    checkpointIdentity: null,
   };
 }

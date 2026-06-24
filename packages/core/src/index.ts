@@ -103,19 +103,6 @@ export type {
   LlmStreamChunk,
 } from './llm/gateway.js';
 export type { EventBus, EventHandler } from './events/event-bus.js';
-export type {
-  EngineAdapter,
-  EngineAdapterRegistry,
-} from './engine/engine-adapter.js';
-export type {
-  EngineArtifact,
-  EngineProposal,
-  EngineRunContext,
-  EngineRunHandle,
-  EngineRunResult,
-  EngineTaskEnvelope,
-  RuntimeActivityEvent,
-} from './engine/engine-types.js';
 export type { ToolExecutor, ToolCallRequest, ToolCallResponse } from './runtime/tool-executor.js';
 export {
   WORKSTATION_ACCESS_DENIED,
@@ -132,7 +119,6 @@ export type {
   RunActiveContextSnapshot,
   RunBudgetSnapshot,
   RunCancellationSnapshot,
-  RunCheckpointIdentity,
   RunConversationStateSnapshot,
   RunDiscoveredToolRecord,
   RunDiscoveredToolSnapshot,
@@ -180,43 +166,7 @@ export type {
   MicroCompactOptions,
   MicroCompactResult,
 } from './services/conversation-budget/micro-compact.js';
-export { verifyCompletion } from './runtime/completion-verifier.js';
-export type {
-  RecentToolResult,
-  VerifyCompletionInput,
-  VerifyCompletionOptions,
-  VerifyOutcome,
-} from './runtime/completion-verifier.js';
-
-// --- Runtime Engines ---
-export {
-  DEFAULT_RUNTIME_ENGINE_CAPABILITY_PROFILES,
-  defaultRuntimeEngineProfileId,
-  evaluateRuntimeEngineTaskFit,
-  profileEvidenceClass,
-  profileToolTelemetryType,
-  resolveRuntimeEngineCapabilityProfile,
-} from './engine/capability-profiles.js';
-export type {
-  RuntimeEngineProfileResolution,
-  RuntimeEngineTaskFit,
-} from './engine/capability-profiles.js';
-export {
-  createAgentDriverProposal,
-  listMainHarnessRuntimeStatus,
-  resolveMainHarnessMode,
-} from './harness/main-harness-policy.js';
-export type {
-  AgentDriverProposal,
-  MainHarnessModeResolution,
-  MainHarnessResolutionInput,
-  MainHarnessRuntimeStatus,
-} from './harness/main-harness-policy.js';
-export {
-  resolveEmployeeRuntimeBinding,
-  resolveRuntimeBindingFromInput,
-  runtimeBindingsEqual,
-} from './engine/runtime-binding.js';
+export type { RecentToolResult } from './runtime/completion-verifier.js';
 
 // --- Middleware ---
 export { LlmMiddlewareChain } from './middleware/chain.js';

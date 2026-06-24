@@ -20,10 +20,6 @@
       "types": "./dist/runtime-public.d.ts",
       "import": "./dist/runtime-public.js"
     },
-    "./harness": {
-      "types": "./dist/harness-public.d.ts",
-      "import": "./dist/harness-public.js"
-    },
     "./mcp": {
       "types": "./dist/mcp-public.d.ts",
       "import": "./dist/mcp-public.js"
@@ -31,10 +27,6 @@
     "./services": {
       "types": "./dist/services-public.d.ts",
       "import": "./dist/services-public.js"
-    },
-    "./engine": {
-      "types": "./dist/engine-public.d.ts",
-      "import": "./dist/engine-public.js"
     },
     "./tools": {
       "types": "./dist/tools-public.d.ts",

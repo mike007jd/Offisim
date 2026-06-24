@@ -151,13 +151,6 @@ export class MemoryThreadRepository implements ThreadRepository {
     }
   }
 
-  async updateProject(id: string, projectId: string | null): Promise<void> {
-    const row = this.rows.get(id);
-    if (row) {
-      this.rows.set(id, { ...row, project_id: projectId, updated_at: now() });
-    }
-  }
-
   snapshot(): GraphThreadRow[] {
     return cloneRows(this.rows.values());
   }
