@@ -70,5 +70,4 @@ Tauri release `.app` CSP `connect-src` 与 `apps/platform/src/startup.ts` `DEV_D
 | `mcp_bridge/` | desktop 专属 MCP bridge（web 没有） |
 | `git.rs` | workspace-scoped `git_exec` command |
 | `deep_link.rs` | `offisim://install` |
-| `sessions.rs` / `resume.rs` | session / resume bridge |
 | `sidecar_stderr.rs` | sidecar 日志收集 |

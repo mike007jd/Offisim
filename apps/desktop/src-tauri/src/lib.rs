@@ -52,7 +52,6 @@ mod local_secret;
 mod mcp_bridge;
 mod pi_agent_host;
 mod redaction;
-mod sessions;
 mod shell_classifier;
 mod sidecar_stderr;
 
@@ -208,16 +207,12 @@ pub fn run() {
             local_paths::export_runtime_vault_zip,
             local_paths::export_scene_drop_diagnostic,
             local_paths::save_deliverable_to_local,
-            sessions::get_session,
-            sessions::set_session_mode,
             mcp_bridge::commands::mcp_list_registered_servers,
             mcp_bridge::commands::mcp_register_server,
             mcp_bridge::commands::mcp_unregister_server,
             mcp_bridge::commands::mcp_connect_registered,
-            mcp_bridge::commands::mcp_call_tool,
             mcp_bridge::commands::mcp_kill,
             mcp_bridge::commands::mcp_list_servers,
-            mcp_bridge::commands::mcp_reconnect,
             attachment_store::attachment_write,
             attachment_store::attachment_read,
             attachment_store::attachment_list,

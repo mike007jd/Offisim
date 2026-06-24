@@ -10,13 +10,7 @@ pub struct McpProcessConfig {
     pub args: Vec<String>,
     #[serde(default)]
     pub env: HashMap<String, String>,
-    pub approval_id: Option<String>,
-    pub command_fingerprint: Option<String>,
-    pub project_id: Option<String>,
     pub source: Option<String>,
-    pub source_package_id: Option<String>,
-    pub source_package_version: Option<String>,
-    pub source_manifest_hash: Option<String>,
     /// Jailed working directory for the spawned child. Set by the connect
     /// command to an app-owned location so relative command/arg paths resolve
     /// inside a controlled directory instead of the process's ambient cwd.
@@ -32,20 +26,6 @@ pub struct McpConnectRequest {
     pub command_fingerprint: String,
     pub project_id: Option<String>,
     pub request_surface: String,
-    pub source_package_id: Option<String>,
-    pub source_package_version: Option<String>,
-    pub source_manifest_hash: Option<String>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct McpToolCallRequest {
-    pub server: String,
-    pub tool: String,
-    pub args: serde_json::Value,
-    pub approval_id: String,
-    pub command_fingerprint: String,
-    pub project_id: Option<String>,
     pub source_package_id: Option<String>,
     pub source_package_version: Option<String>,
     pub source_manifest_hash: Option<String>,

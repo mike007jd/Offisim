@@ -283,53 +283,6 @@ impl ManagedProcess {
         Ok(())
     }
 
-    /// Send a tools/call request and wait for response.
-    pub async fn call_tool(
-        &mut self,
-        tool_name: &str,
-        args: serde_json::Value,
-    ) -> Result<serde_json::Value, McpBridgeError> {
-        if self.state != ProcessState::Ready {
-            return Err(McpBridgeError::ServerNotReady(
-                self.config.name.clone(),
-                self.state.to_string(),
-            ));
-        }
-
-        // Register BEFORE write to avoid race condition
-        let call_id = self.tracker.next_id();
-        let rx = self.tracker.register(call_id);
-        let req = JsonRpcMessage::request(
-            call_id,
-            "tools/call",
-            serde_json::json!({
-                "name": tool_name,
-                "arguments": args,
-            }),
-        );
-
-        write_message(&mut self.stdin, &req).await?;
-
-        let resp = timeout(Duration::from_secs(30), rx)
-            .await
-            .map_err(|_| {
-                self.consecutive_failures += 1;
-                McpBridgeError::CallTimeout(30_000)
-            })?
-            .map_err(|_| McpBridgeError::ProcessExited(None))?;
-
-        if let Some(err) = &resp.error {
-            self.consecutive_failures += 1;
-            return Err(McpBridgeError::JsonRpcError {
-                code: err.code,
-                message: err.message.clone(),
-            });
-        }
-
-        self.consecutive_failures = 0;
-        Ok(resp.result.unwrap_or(serde_json::Value::Null))
-    }
-
     /// Graceful shutdown: SIGTERM → 5s wait → SIGKILL.
     pub async fn kill(&mut self) {
         if let Some(pid) = self.child.id() {
@@ -368,13 +321,7 @@ mod tests {
             command: command.into(),
             args: vec![],
             env: HashMap::new(),
-            approval_id: None,
-            command_fingerprint: None,
-            project_id: None,
             source: Some(source.into()),
-            source_package_id: None,
-            source_package_version: None,
-            source_manifest_hash: None,
             cwd,
         }
     }

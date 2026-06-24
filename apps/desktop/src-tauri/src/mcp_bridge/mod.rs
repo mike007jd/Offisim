@@ -20,10 +20,8 @@ pub fn init() -> TauriPlugin<Wry> {
             commands::mcp_register_server,
             commands::mcp_unregister_server,
             commands::mcp_connect_registered,
-            commands::mcp_call_tool,
             commands::mcp_kill,
             commands::mcp_list_servers,
-            commands::mcp_reconnect,
         ])
         .setup(|app, _api| {
             app.manage(ProcessRegistry::new());

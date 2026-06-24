@@ -3,7 +3,6 @@ identifier = "agent-bridges"
 description = "Allow Pi Agent host, runtime session, project workspace, and MCP bridge commands."
 commands.allow = [
   "local_db_execute_transaction",
-  "trusted_host_product_status",
   "pi_agent_execute",
   "pi_agent_abort",
   "pi_agent_ui_response",
@@ -24,14 +23,10 @@ commands.allow = [
   "export_runtime_vault_zip",
   "export_scene_drop_diagnostic",
   "save_deliverable_to_local",
-  "get_session",
-  "set_session_mode",
   "mcp_list_registered_servers",
   "mcp_register_server",
   "mcp_unregister_server",
   "mcp_connect_registered",
-  "mcp_call_tool",
   "mcp_kill",
   "mcp_list_servers",
-  "mcp_reconnect",
 ]

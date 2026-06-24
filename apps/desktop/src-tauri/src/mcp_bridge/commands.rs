@@ -220,13 +220,7 @@ pub async fn mcp_connect_registered(
                     command,
                     args: server.args.clone(),
                     env: HashMap::new(),
-                    approval_id: Some(request.approval_id.clone()),
-                    command_fingerprint: Some(request.command_fingerprint.clone()),
-                    project_id: request.project_id.clone(),
                     source: server.source.clone(),
-                    source_package_id: server.source_package_id.clone(),
-                    source_package_version: server.source_package_version.clone(),
-                    source_manifest_hash: server.source_manifest_hash.clone(),
                     cwd: Some(jail_dir),
                 },
                 process_registry,
@@ -255,64 +249,6 @@ pub async fn mcp_connect_registered(
             "SSE servers should connect directly from the web runtime".into(),
         )),
     }
-}
-
-#[tauri::command(async)]
-pub async fn mcp_call_tool(
-    app: AppHandle,
-    request: McpToolCallRequest,
-    registry: State<'_, ProcessRegistry>,
-) -> Result<serde_json::Value, McpBridgeError> {
-    let process = {
-        let servers = registry.servers.lock().await;
-        servers
-            .get(&request.server)
-            .cloned()
-            .ok_or_else(|| McpBridgeError::ServerNotFound(request.server.clone()))?
-    };
-    let mut process = process.lock().await;
-    if process.config.approval_id.as_deref() != Some(request.approval_id.as_str()) {
-        return Err(McpBridgeError::Registry(
-            "MCP stdio tool call approval id did not match startup approval".into(),
-        ));
-    }
-    if process.config.command_fingerprint.as_deref() != Some(request.command_fingerprint.as_str()) {
-        return Err(McpBridgeError::Registry(
-            "MCP stdio tool call command fingerprint did not match startup fingerprint".into(),
-        ));
-    }
-    if process.config.project_id != request.project_id {
-        return Err(McpBridgeError::Registry(
-            "MCP stdio tool call project scope did not match startup scope".into(),
-        ));
-    }
-    if process.config.source.as_deref() == Some("installed-asset")
-        && (process.config.source_package_id != request.source_package_id
-            || process.config.source_package_version != request.source_package_version
-            || process.config.source_manifest_hash != request.source_manifest_hash)
-    {
-        return Err(McpBridgeError::Registry(
-            "MCP stdio tool call source package metadata did not match startup scope".into(),
-        ));
-    }
-    let result = process.call_tool(&request.tool, request.args.clone()).await;
-    let _ = audit_event(
-        &app,
-        serde_json::json!({
-            "event": "mcp_tool_called",
-            "serverName": request.server,
-            "toolName": request.tool,
-            "approvalId": request.approval_id,
-            "commandFingerprint": request.command_fingerprint,
-            "projectId": request.project_id,
-            "source": process.config.source.clone(),
-            "sourcePackageId": process.config.source_package_id.clone(),
-            "sourcePackageVersion": process.config.source_package_version.clone(),
-            "sourceManifestHash": process.config.source_manifest_hash.clone(),
-            "inputKind": if result.is_ok() { "executed" } else { "error" },
-        }),
-    );
-    result
 }
 
 #[tauri::command(async)]
@@ -352,24 +288,4 @@ pub async fn mcp_list_servers(
         });
     }
     Ok(statuses)
-}
-
-#[tauri::command(async)]
-pub async fn mcp_reconnect(
-    server: String,
-    registry: State<'_, ProcessRegistry>,
-) -> Result<McpSpawnResult, McpBridgeError> {
-    let process = {
-        let mut servers = registry.servers.lock().await;
-        servers
-            .remove(&server)
-            .ok_or_else(|| McpBridgeError::ServerNotFound(server.clone()))?
-    };
-    let config = process.lock().await.config.clone();
-    tokio::spawn(async move {
-        process.lock().await.kill().await;
-    });
-
-    // Re-spawn
-    spawn_managed_process(config, registry).await
 }
