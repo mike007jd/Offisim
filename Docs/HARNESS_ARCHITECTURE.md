@@ -27,10 +27,9 @@ official `@earendil-works/pi-coding-agent` SDK:
 - `SessionManager`
 - `createAgentSession`
 
-SDK source check: on 2026-06-18 NZST, npm registry metadata for
-`@earendil-works/pi-coding-agent` showed `0.79.6` as both the local pinned
-version and the latest published version, with the package exporting
-`./dist/index.js` and CLI bin `pi`.
+SDK source check: npm registry metadata for
+`@earendil-works/pi-coding-agent` shows `0.79.8` as the local pinned
+version, with the package exporting `./dist/index.js` and CLI bin `pi`.
 
 Pi owns provider auth, model registry, sessions, compaction, tool loop,
 streaming protocol, and retries. Offisim does not maintain a provider catalog or

@@ -15,9 +15,10 @@
 - release desktop builds no longer ship WebView devtools; live-verify builds
   opt back in with `pnpm --filter @offisim/desktop build:devtools`
 - versioned the local SQLite schema: fresh installs bootstrap the end-state
-  schema and are stamped via `PRAGMA user_version`; existing user databases
-  upgrade through the ordered migration chain in
-  `packages/db-local/src/migrations/`
+  schema and are stamped via `PRAGMA user_version`; the ordered-migration
+  mechanism (`packages/db-local/src/migrations/`) is wired for existing user
+  databases, though the chain is empty at the 1.0 baseline until the first
+  post-launch schema change
 - added Docker support for the platform API and local Postgres
 - aligned package metadata for an open source release candidate
 - fixed the web `tauri-repos` import path so tests no longer depend on private `dist` paths

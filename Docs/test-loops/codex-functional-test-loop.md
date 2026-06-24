@@ -63,7 +63,7 @@ the loop a per-capability pass/fail signal.
 | **S1** | Renderer types + build (composer wiring, scene-layout data, thinking-level request plumbing, all TS) | `pnpm typecheck && pnpm build` | both exit 0; vite emits `apps/desktop/renderer/dist` |
 | **S2** | Permission-mode decision matrix — plan/ask/auto/full gating | `pnpm harness:pi-permission` | exit 0; report shows `0 failed` |
 | **S3** | Conversation orchestration — streaming, reasoning order, persistence, stop/abort, retry isolation, approval state machine, stale-approval hydration, tool-event strip | `pnpm harness:conversation-run-controller` | exit 0; `10/10` scenarios pass |
-| **S4** | Pi wire contract (Node emitter ↔ renderer union; reasoning-before-content shape; protocol v1) | `pnpm check:pi-wire-contract` | exit 0; all wire kinds exercised; `protocolVersion 1` |
+| **S4** | Pi wire contract (Node emitter ↔ renderer union; reasoning-before-content shape; protocol v2) | `pnpm check:pi-wire-contract` | exit 0; all wire kinds exercised; `protocolVersion 2` |
 | **S5** | Pi host status / Pi-owned model registry — model read, no secret leak, bundle excludes claude+codex sidecars | `pnpm harness:pi-agent-host` | exit 0; `result.ok`; `availableModels` non-empty; bundle assertions pass |
 | **S6** | Studio placement/collision geometry (placement = drag = rotate, one evaluator) | `pnpm harness:studio-placement` | exit 0; `9/9` checks |
 | **S7** | Rust sandbox + host bridge — path-jail, byte caps, symlink escape, secret redaction, env scrub, cross-language wire decode | `cd apps/desktop/src-tauri && cargo test --locked` | all tests pass (SKIP if `cargo` absent) |

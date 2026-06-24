@@ -80,8 +80,10 @@ right-click → Inspect on the `.app` must be made with
 means installing a newer build manually. This is intentional for the 1.0
 local-first scope: an update channel implies signed artifacts, an update
 server, and a rollback story — all post-1.0 work. User data survives manual
-reinstalls: the local SQLite schema is versioned (`PRAGMA user_version`) and
-newer builds upgrade existing `offisim.db` files through the migration chain in
-`packages/db-local/src/migrations/`.
+reinstalls: the local SQLite schema is versioned (`PRAGMA user_version`) and a
+versioned-migration mechanism (`packages/db-local/src/migrations/`) is wired and
+cargo-tested. The migration chain is currently empty — 1.0 ships a single
+baseline schema, and the first ordered migration is added only with the first
+post-launch schema change.
 
 See also: [LOCAL_DEVELOPMENT.md](./LOCAL_DEVELOPMENT.md) · [RELEASE_GATES.md](./RELEASE_GATES.md)

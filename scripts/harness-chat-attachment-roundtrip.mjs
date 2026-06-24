@@ -4,14 +4,14 @@ import { readFileSync } from 'node:fs';
  * Deterministic round-trip fixture for `add-chat-attachment-end-to-end`.
  *
  * Two assertions, both required by the change spec:
- *   1. A LangGraph-style checkpoint carrying `pendingAttachments: [refA, refB]`
+ *   1. A persistence record carrying `pendingAttachments: [refA, refB]`
  *      must serialize → parse → byte-equal.
  *   2. A `ChatMessage.attachments` array on the zustand replay path must
  *      survive the same JSON round-trip byte-equal.
  *
  * Anchored at the JSON serialization layer because that is the actual
- * persistence surface for both checkpoints (langgraph SqliteSaver writes
- * JSON columns) and `chat_session-store` snapshots (browser storage writes
+ * persistence surface for both the SQLite JSON columns that store chat
+ * attachment refs and `chat_session-store` snapshots (browser storage writes
  * `JSON.stringify(repos.snapshot())`). Any incompatibility in
  * `ChatAttachmentRef` (e.g. a Date / Map / Symbol slipping in) would fail
  * here and gate the build.

@@ -22,7 +22,7 @@ Hono API 服务端, Drizzle + PostgreSQL。
 - seed 会先 upsert 一条 `users` 行（email `official-seed@offisim.local`，auth_provider `system`），再建 creator + 5 条 listing + 5 条 version + 每条 ≥1 条 preview
 - **artifact 服务路径**：`GET /v1/install/artifacts/:versionId` 直接回 `artifact-store` 里的 zip bytes，`artifact_url` 指向这个 URL（`${PLATFORM_PUBLIC_URL ?? http://localhost:${PORT}}/v1/install/artifacts/<versionId>`）。用户自己 publish 的 listing 走原来的 `artifact_url`（外部 URL），Market 发过来的 versionId 若不在 seed 集合里就 404
 - **想强制 re-seed**：`psql -d offisim_platform -c "DELETE FROM creators WHERE handle='offisim';"` 级联清掉 5 条 listing / version / preview，重启 platform 即重新种。只删单条 listing 不会触发 re-seed（设计是整批一致性）
-- `seedOfficialResources` 的 payload 定义在 `apps/platform/src/seed/payloads/`，其中 `employee` / `company-template` / `prefab` / `office-layout` 直接 import 仓库已有 source-of-truth（templates、builtin-catalog、default-zone-layouts），`skill` 是手写 payload。`skill` 读 `skill-research-summary.md`，prod 模式需要把该文件拷到 `dist/seed/payloads/`（目前平台主要跑 tsx dev 模式，暂未配拷贝步骤）
+- `seedOfficialResources` 的 payload 定义在 `apps/platform/src/seed/payloads/`，其中 `employee` / `company-template` / `prefab` / `office-layout` 直接 import 仓库已有 source-of-truth（templates、builtin-catalog、default-zone-layouts），`skill` 是手写 payload。`skill` 读 `skill-research-summary.md`，prod 模式需要把该文件拷到 `dist/seed/payloads/`——`build` 脚本已配该拷贝步骤（`cp src/seed/payloads/*.md dist/seed/payloads/`，dev 仍走 tsx 直接读 source）
 
 ## 测试
 

@@ -108,7 +108,7 @@ Verification:
 ## Workspace Apps
 
 Purpose: provide focused operational views around a company workspace:
-Messenger, Approvals, Calendar, Contacts, Workplace, and Assistant Thread.
+Messenger, Calendar, Contacts, Workplace, and Assistant Thread.
 
 Owner paths:
 
@@ -233,9 +233,8 @@ recoverable.
 Owner paths:
 
 - `apps/desktop/renderer/src/surfaces/activity`
-- `apps/desktop/renderer/src/surfaces/workspace/apps/ApprovalsApp.tsx`
+- `apps/desktop/renderer/src/assistant/parts/PermissionApprovalBar.tsx`
 - `packages/core/src/mcp`
-- `packages/core/src/services/interaction-service.ts`
 - `apps/desktop/src-tauri/src/redaction.rs`
 
 Data/contracts:

@@ -1,65 +1,66 @@
-# Spacing Density
+# Spacing and Tokens
 
-Offisim now exposes shared spacing tokens through CSS variables on `:root`.
+Offisim exposes its design tokens as CSS variables on `:root` in
+`apps/desktop/renderer/src/styles/tokens.css`. They all live under the `--off-*`
+namespace. There is no `data-density` toggle and no per-density value set; the
+token values are fixed.
 
-## Tokens
+## Spacing scale
 
-Normal:
-- `--sp-xs`: 4px
-- `--sp-sm`: 8px
-- `--sp-md`: 12px
-- `--sp-lg`: 16px
-- `--sp-xl`: 20px
-- `--sp-xxl`: 24px
-- `--sp-xxxl`: 32px
+A linear spacing ramp drives padding, gaps, and margins:
 
-Compact:
-- `--sp-xs`: 2px
-- `--sp-sm`: 4px
-- `--sp-md`: 8px
-- `--sp-lg`: 12px
-- `--sp-xl`: 16px
-- `--sp-xxl`: 20px
-- `--sp-xxxl`: 24px
+- `--off-sp-1`: 4px
+- `--off-sp-2`: 6px
+- `--off-sp-3`: 8px
+- `--off-sp-4`: 10px
+- `--off-sp-5`: 12px
+- `--off-sp-6`: 14px
+- `--off-sp-7`: 16px
+- `--off-sp-8`: 20px
+- `--off-sp-9`: 24px
+- `--off-sp-10`: 28px
 
-Spacious:
-- `--sp-xs`: 6px
-- `--sp-sm`: 12px
-- `--sp-md`: 16px
-- `--sp-lg`: 20px
-- `--sp-xl`: 28px
-- `--sp-xxl`: 32px
-- `--sp-xxxl`: 40px
+## Surfaces and ink
 
-## Tailwind Mapping
+Backgrounds and text colors are layered so panels read against the shell:
 
-`apps/desktop/renderer/src/styles/index.css` maps these variables into Tailwind spacing tokens:
-- `p-sp-sm`
-- `px-sp-lg`
-- `gap-sp-md`
-- `mt-sp-xl`
+- Backgrounds: `--off-bg`, `--off-surface-0`, `--off-surface-1`,
+  `--off-surface-2`, `--off-surface-sunken`
+- Text: `--off-ink-1` (primary) through `--off-ink-5` (faintest)
+- Lines: `--off-line`, `--off-line-soft`, `--off-line-strong`
 
-When a component cannot express the layout cleanly with utility classes, use inline styles with the CSS variables directly, for example `style={{ padding: 'var(--sp-lg)' }}`.
+## Accent and status
 
-## Migration Guide
+- Accent: `--off-accent`, `--off-accent-strong`, `--off-accent-fg`,
+  `--off-accent-surface`, `--off-accent-ring`
+- Status: `--off-ok`, `--off-warn`, `--off-danger`, `--off-violet` (each paired
+  with a `*-surface` tint)
 
-Preferred replacements:
-- `p-2` -> `p-sp-sm`
-- `p-3` -> `p-sp-md`
-- `p-4` -> `p-sp-lg`
-- `gap-2` -> `gap-sp-sm`
-- `gap-3` -> `gap-sp-md`
-- `gap-4` -> `gap-sp-lg`
+## Radii
 
-Avoid introducing half-step spacing values like:
-- `p-0.5`
-- `p-1.5`
-- `gap-2.5`
+- `--off-r-2xs`: 4px
+- `--off-r-xs`: 5px
+- `--off-r-sm`: 7px
+- `--off-r-md`: 9px
+- `--off-r-lg`: 13px
+- `--off-r-pill`: 999px
+- `--off-r-round`: 50%
+- `--off-r-full`: alias of `--off-r-pill`
 
-## Verification Checklist
+## Elevation
 
-- Toggle density in Settings and confirm `data-density` changes on `document.documentElement`
-- Check Studio panels respond through `SP.*` getters
-- Check shell spacing in `AppLayout`, `Header`, `ChatDrawer`, `AgentPanel`, and `ChatPanel`
-- Verify compact mode does not clip controls
-- Verify spacious mode does not cause overflow in dialog layouts
+`--off-elev-1`, `--off-elev-2`, `--off-elev-3` are the three shadow tiers.
+
+## Type scale
+
+Six distinct sizes back twelve aliased names so call sites stay stable
+(`--off-fs-xs` 9px · `--off-fs-meta` 11px · `--off-fs-sm` 12px · `--off-fs-base`
+13px · `--off-fs-lg` 15px · `--off-fs-xl` 19px). Fonts: `--off-font-sans`,
+`--off-font-mono`.
+
+## Usage
+
+Reference tokens directly in CSS, for example
+`padding: var(--off-sp-5)` or `border-radius: var(--off-r-md)`. When a value is
+not covered by a token, prefer adding or reusing an `--off-*` token over a raw
+literal so the system stays consistent.
