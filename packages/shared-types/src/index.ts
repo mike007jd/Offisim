@@ -205,6 +205,34 @@ export type {
 } from './events/agent-run-projection.js';
 export { projectAgentRun } from './events/agent-run-projection.js';
 export type {
+  AgentRuntimeDriver,
+  RuntimeCapabilities,
+  RuntimeDescriptor,
+  RuntimeEventEnvelope,
+  RuntimeEventSink,
+  RuntimeEventType,
+  RuntimeInteraction,
+  RuntimeInteractionAnswer,
+  RuntimeInteractionMode,
+  RuntimeResumeReference,
+  RuntimeResumeRequest,
+  RuntimeRunHandle,
+  RuntimeRunReference,
+  RuntimeRunRequest,
+  DeterministicScript,
+  DeterministicTestDriverOptions,
+  ScriptAwaitInteractionStep,
+  ScriptCrashStep,
+  ScriptEmitStep,
+  ScriptStep,
+  ScriptTerminal,
+} from './runtime/index.js';
+export {
+  createDeterministicTestDriver,
+  DeterministicTestDriver,
+  DETERMINISTIC_TEST_CAPABILITIES,
+} from './runtime/index.js';
+export type {
   BeatAffordance,
   BeatKind,
   DramaturgyConfig,
