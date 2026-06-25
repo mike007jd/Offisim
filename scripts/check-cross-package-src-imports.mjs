@@ -78,6 +78,7 @@ const ALLOWLIST = new Set([
   'scripts/harness-mission-recovery.mts::../packages/core/src/runtime/mission/recovery/retry-safety.ts',
   'scripts/harness-mission-recovery.mts::../packages/core/src/runtime/mission/recovery/resume-plan.ts',
   'scripts/harness-mission-recovery.mts::../packages/core/src/runtime/mission/recovery/types.ts',
+  'scripts/harness-workspace-lease.mts::../packages/core/src/runtime/mission/workspace/lease-manager.ts',
 ]);
 
 // Matches an import/export/require specifier that reaches into a package's src,

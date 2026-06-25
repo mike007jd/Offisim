@@ -498,3 +498,27 @@ export type {
   ResumePlan,
   InterruptionFact,
 } from './runtime/mission/recovery/index.js';
+
+// --- Isolated Parallel Write (PRD §23 — WI-001..006) ---
+// Additive over the M2 Mission core. Deterministic WorkspaceLeaseManager over an
+// injected GitWorktreeOps: writable Git children get an isolated worktree+branch;
+// read/review/non-Git share the root read-only; conflicts surface at merge time
+// (no auto three-way merge, no silent overwrite). Production wraps git_exec; the
+// harness fakes it. Consumed by the renderer git-worktree adapter + the harness.
+export { createWorkspaceLeaseManager } from './runtime/mission/workspace/index.js';
+export type {
+  WorkspaceLeaseManager,
+  WorkspaceLeaseManagerDeps,
+  AcquireChildLeaseInput,
+  ReleaseLeaseOptions,
+  WorkspaceLease,
+  WorkspaceLeaseStatus,
+  WorkspaceAccess,
+  GitWorktreeOps,
+  MergeResult,
+  AcquireChildResult,
+  LeaseDiff,
+  IntegrationConflict,
+  IntegrationPlan,
+  IntegrationResult,
+} from './runtime/mission/workspace/index.js';
