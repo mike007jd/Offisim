@@ -19,6 +19,7 @@ import type {
   MissionAttemptRepository,
   MissionAttemptRow,
   MissionCriterionRepository,
+  MissionCriterionRow,
   MissionEvaluationRepository,
   MissionEventRepository,
   MissionRepository,
@@ -512,6 +513,23 @@ export class MissionService {
   async cancel(missionId: string, reason?: string): Promise<MissionRow> {
     const mission = await this.load(missionId);
     return this.transition(mission, 'cancelled', reason ? { reason } : {});
+  }
+
+  // -- reads (loop controller MS-004) --------------------------------------
+
+  /**
+   * Read the current mission row (throws `mission_not_found` if absent). The
+   * loop controller (MS-004) uses this to observe status without owning a repo
+   * handle — MissionService stays the single point of mission access, and is
+   * still the ONLY writer (§18.7). This method never mutates state.
+   */
+  async getMission(missionId: string): Promise<MissionRow> {
+    return this.load(missionId);
+  }
+
+  /** Read a mission's criteria (read-only; for the loop controller's gate). */
+  async listCriteria(missionId: string): Promise<MissionCriterionRow[]> {
+    return this.repos.missionCriteria.listByMission(missionId);
   }
 
   // -- internals -----------------------------------------------------------

@@ -62,6 +62,11 @@ const ALLOWLIST = new Set([
   'scripts/harness-mission-service.mts::../packages/core/src/runtime/mission/mission-service.ts',
   'scripts/harness-mission-evaluators.mts::../packages/core/src/runtime/mission/evaluators/registry.ts',
   'scripts/harness-mission-evaluators.mts::../packages/core/src/runtime/mission/evaluators/types.ts',
+  'scripts/harness-mission-loop-controller.mts::../packages/core/src/runtime/repos/mission/memory.ts',
+  'scripts/harness-mission-loop-controller.mts::../packages/core/src/runtime/mission/mission-service.ts',
+  'scripts/harness-mission-loop-controller.mts::../packages/core/src/runtime/mission/mission-loop-controller.ts',
+  'scripts/harness-mission-loop-controller.mts::../packages/core/src/runtime/mission/evaluators/registry.ts',
+  'scripts/harness-mission-loop-controller.mts::../packages/core/src/runtime/mission/evaluators/types.ts',
 ]);
 
 // Matches an import/export/require specifier that reaches into a package's src,

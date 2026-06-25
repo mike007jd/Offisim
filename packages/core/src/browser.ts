@@ -419,3 +419,28 @@ export {
   UnknownEvaluatorError,
   BUILTIN_EVALUATORS,
 } from './runtime/mission/evaluators/index.js';
+
+// --- Mission Loop Controller (PRD §19 — bounded deterministic mission loop) ---
+// Orchestrates MissionService (MS-002) + EvaluatorRegistry (MS-003) and delegates
+// runtime execution to an injected `runAttempt`. NEVER calls a model to decide
+// flow (§4). Additive at MS-004 — no live wiring yet (Pi bridge tools = MS-005).
+export {
+  createMissionLoopController,
+  DEFAULT_MISSION_LOOP_BUDGET,
+} from './runtime/mission/mission-loop-controller.js';
+export type {
+  AttemptExecution,
+  ControllerCriterion,
+  FailedCriterion,
+  FailurePacket,
+  MissionBudgetRemaining,
+  MissionLoopBudget,
+  MissionLoopController,
+  MissionLoopControllerDeps,
+  MissionLoopEvidence,
+  MissionLoopResult,
+  MissionLoopStatus,
+  MissionLoopStopReason,
+  AttemptEvidence,
+  RunAttemptInput,
+} from './runtime/mission/mission-loop-controller.js';
