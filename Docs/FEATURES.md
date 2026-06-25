@@ -108,7 +108,9 @@ Verification:
 ## Workspace Apps
 
 Purpose: provide focused operational views around a company workspace:
-Messenger, Calendar, Contacts, Workplace, and Assistant Thread.
+Messenger, Calendar, Contacts, Workplace, and Assistant Thread. Calendar is
+honest-empty in 1.0 — `meeting_sessions` is inert with no live writer (see
+`Docs/contracts/inert-storage-ledger.md`); it must not imply scheduled execution.
 
 Owner paths:
 
@@ -118,8 +120,9 @@ Owner paths:
 
 Data/contracts:
 
-- Activity and approvals mirror local runtime events, tool audit rows, and
-  interaction requests.
+- Activity and approvals mirror local runtime events via `agent_events` (Pi tool
+  activity surfaces there) and interaction requests via `interaction_history`. The
+  legacy `tool_calls` / `mcp_audit_log` tables are inert and are not the source.
 - Calendar and Contacts are local views; they must not imply hosted execution.
 
 Verification:

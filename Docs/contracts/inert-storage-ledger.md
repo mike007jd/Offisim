@@ -62,6 +62,11 @@ before any removal.
 
 ## Recommended follow-up (post-launch, behind a migration)
 
+> Direction now set by `Docs/architecture/2026-06-25-truth-closure.md` (VM-001):
+> `deliverables` → reuse-and-fix as the Artifact store, live writer in **VM-002**;
+> cost rollup → repoint off `llm_calls` to aggregated `agent_runs.usage_json` in
+> **VM-003** (the legacy `llm_calls` writer is **not** revived).
+
 1. Decide per table: drop, or re-wire its writer (e.g. `deliverables` / `llm_calls` if
    the Activity/Outputs and cost-rollup surfaces are meant to populate).
 2. The two LIVE-reader / dead-writer tables (`llm_calls`, `deliverables`) are the only

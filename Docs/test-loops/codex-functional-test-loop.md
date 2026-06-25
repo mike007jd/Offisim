@@ -183,9 +183,13 @@ bundle `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`. They ar
 - **M3** Personnel: hire-from-scratch writes a roster row; persona/skills/appearance save; dirty-guard on switch.
 - **M4** Market: import a local `.offisimpkg` → verify → install materializes into the roster (DB-on-disk).
 - **M5** Studio: place/move/rotate/delete zones+prefabs with red/green collision feedback; edits persist.
-- **M6** DB-on-disk evidence after a live run: rows land in `mcp_audit_log`,
-  `agent_events`, `chat_threads`, `interaction_history`, `llm_calls`
-  (e.g. `llm_calls` shows provider `anthropic` + `glm-4.6`, proving the z.ai compat lane).
+- **M6** DB-on-disk evidence after a live run: rows land in the **live** tables
+  `agent_runs`, `agent_events`, `chat_threads`, `interaction_history`, and
+  `agent_runs.usage_json` carries non-zero token usage (proving the z.ai compat lane
+  routed real provider traffic). Note: `llm_calls` (cost rollup) and `deliverables`
+  (Outputs) are reader-with-dead-writer feature gaps — empty until VM-002 / VM-003;
+  `mcp_audit_log` is inert (see `Docs/architecture/2026-06-25-truth-closure.md` and
+  `Docs/contracts/inert-storage-ledger.md`).
 
 ---
 
@@ -202,7 +206,8 @@ bundle `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`. They ar
 | Personnel / hiring / skills | S1 wiring · M3 |
 | Market / package import | security: S8 · import: M4 |
 | Studio editor / collision | S6 · visual: M5 |
-| Workspace apps (Kanban/Contacts/Messenger/Calendar) | data: S1 · live: M (Workspace) |
+| Workspace apps (Kanban/Contacts/Messenger) | data: S1 · live: M (Workspace) |
+| Calendar (Workspace app) | honest-empty — `meeting_sessions` inert, no live writer (S1 = typecheck/build only) |
 | Activity feed | data: S1 |
 | Settings / providers (z.ai/MiniMax) | S5 · live routing: S10/M6 |
 | File attachments | ref: S9 · staging: M2 |
@@ -212,7 +217,9 @@ bundle `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`. They ar
 | Dead-code / UI-stack hygiene / supply chain | S9 |
 
 **Deliberately NOT a scenario:** boss→employee delegation / parallel fan-out /
-cancel-whole-team. It does not exist in the current Pi runtime (removed with
-LangGraph). Testing it would loop forever. Re-add scenarios only if delegation is
-reintroduced.
-```
+cancel-whole-team. Delegation **is live** in the Pi runtime (`createChildSupervisor`
+at `scripts/tauri-pi-agent-host.entry.mjs`, the `delegate` tool, run tree via
+`agent_runs.parent_run_id`/`root_run_id`; see `Docs/DELEGATION_ARCHITECTURE.md`). It is
+excluded from this deterministic auto-loop because its fan-out/recursion is
+non-deterministic and unbounded for a headless oracle — verify it live (M-checklist),
+not in the loop.
