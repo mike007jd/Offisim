@@ -500,7 +500,10 @@ CREATE TABLE IF NOT EXISTS deliverables (
   file_name          TEXT,
   mime_type          TEXT,
   contributors_json  TEXT NOT NULL,
-  created_at         TEXT NOT NULL
+  created_at         TEXT NOT NULL,
+  run_id             TEXT,
+  content_hash       TEXT,
+  version            INTEGER NOT NULL DEFAULT 1
 );
 CREATE TABLE IF NOT EXISTS settings (
   key         TEXT PRIMARY KEY,
@@ -653,6 +656,8 @@ CREATE INDEX IF NOT EXISTS idx_deliverables_thread_time
   ON deliverables(thread_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_deliverables_chat_thread_time
   ON deliverables(chat_thread_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_deliverables_run_id
+  ON deliverables(run_id);
 CREATE INDEX IF NOT EXISTS idx_employees_is_external ON employees(is_external);
 CREATE INDEX IF NOT EXISTS idx_node_summaries_thread_created
   ON node_summaries(thread_id, created_at);

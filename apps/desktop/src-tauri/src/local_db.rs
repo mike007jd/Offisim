@@ -16,16 +16,19 @@ const LOCAL_SCHEMA_SQL: &str = include_str!("../../../../packages/db-local/src/s
 /// (b) bump this constant by 1, and (c) add a matching upgrade entry to
 /// `MIGRATIONS` so released user databases have an upgrade path. Public migration
 /// history starts only after the first public release baseline.
-const LOCAL_SCHEMA_VERSION: i64 = 1;
+const LOCAL_SCHEMA_VERSION: i64 = 2;
 
 /// Ordered upgrade chain for existing user databases: `(target_version, sql)`
 /// where each entry upgrades `target_version - 1` → `target_version`. Each entry
 /// runs in its own transaction together with the version stamp. SQL files live in
 /// `packages/db-local/src/migrations/` (see the README there).
 ///
-/// Empty until the first post-launch schema change — the v1 baseline ships whole
-/// in `schema.sql`, so there is nothing to upgrade from yet.
-const MIGRATIONS: &[(i64, &str)] = &[];
+/// The v1 baseline ships whole in `schema.sql`. Each entry upgrades an existing
+/// user database from `target_version - 1` to `target_version`.
+const MIGRATIONS: &[(i64, &str)] = &[(
+    2,
+    include_str!("../../../../packages/db-local/src/migrations/0002_artifact_provenance.sql"),
+)];
 
 pub struct OffisimDbState {
     pool: SqlitePool,

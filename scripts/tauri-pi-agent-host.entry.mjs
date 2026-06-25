@@ -28,6 +28,7 @@ import {
 } from './pi-agent-permission-modes.mts';
 import { createChildSupervisor, createDelegationLimits } from './pi-child-supervisor.mjs';
 import { createDelegationExtensionFactory } from './pi-delegation-extension.mjs';
+import { createPublishArtifactExtensionFactory } from './pi-publish-artifact-extension.mjs';
 
 /**
  * Pi thinking levels (reasoning effort), least → most. The renderer already
@@ -546,8 +547,15 @@ async function runPrompt(payload) {
   const threadId = asNonEmptyString(payload.threadId);
   const roster = Array.isArray(payload.roster) ? payload.roster : [];
   const delegationEnabled = Boolean(rootRunId && threadId && roster.length > 0);
+  // Publish-artifact: register the `publish_artifact` tool whenever the run has a
+  // root id + thread id (the scope fields the renderer needs to persist the
+  // deliverable row). Independent of having a roster — a soloing agent can still
+  // publish an artifact. Excluded from `plan` mode: planning is read-only, so the
+  // agent cannot have written a file to publish (a publish there would be a
+  // phantom row the renderer's workspace read rejects anyway).
+  const publishArtifactEnabled = Boolean(rootRunId && threadId) && permissionMode !== 'plan';
   let resourceLoader;
-  if (gateFactory || systemPromptAppend || delegationEnabled) {
+  if (gateFactory || systemPromptAppend || delegationEnabled || publishArtifactEnabled) {
     const settingsManager = SettingsManager.create(cwd, agentDir);
     const extensionFactories = [];
     if (gateFactory) extensionFactories.push(gateFactory);
@@ -571,6 +579,17 @@ async function runPrompt(payload) {
         parentRunId: rootRunId,
       });
       extensionFactories.push(createDelegationExtensionFactory(supervisor));
+    }
+    if (publishArtifactEnabled) {
+      extensionFactories.push(
+        createPublishArtifactExtensionFactory({
+          emit,
+          threadId,
+          rootRunId,
+          employeeId: asNonEmptyString(payload.employeeId),
+          cwd,
+        }),
+      );
     }
     // Append the employee persona and, when delegation is on, the fixed-flow
     // guidance — both are generic appended system prompts (Pi's official option).

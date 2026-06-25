@@ -1009,11 +1009,15 @@ export const deliverables = sqliteTable(
     mime_type: text('mime_type'),
     contributors_json: text('contributors_json').notNull(),
     created_at: text('created_at').notNull(),
+    run_id: text('run_id'),
+    content_hash: text('content_hash'),
+    version: integer('version').notNull().default(1),
   },
   (table) => [
     index('idx_deliverables_company_time').on(table.company_id, table.created_at),
     index('idx_deliverables_thread_time').on(table.thread_id, table.created_at),
     index('idx_deliverables_chat_thread_time').on(table.chat_thread_id, table.created_at),
+    index('idx_deliverables_run_id').on(table.run_id),
   ],
 );
 

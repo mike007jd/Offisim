@@ -3,6 +3,7 @@ import { ensureProjectBoundForRun } from '@/runtime/ensure-default-workspace.js'
 import { agentRunEvent, llmStreamChunk, toolExecutionTelemetry } from '@offisim/core/browser';
 import type { RuntimeRepositories } from '@offisim/core/browser';
 import type {
+  AgentRunArtifactPayload,
   AgentRunEvent,
   AgentRunFinishedPayload,
   AgentRunStartedPayload,
@@ -408,8 +409,16 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           type: event.runType,
           payload: event.payload,
         } as AgentRunEvent;
-        runtimeEventBus.emit(agentRunEvent(this.companyId, agentEvt));
-        this.enqueuePersist(() => this.persistAgentRun(agentEvt));
+        if (event.runType === 'artifact.created') {
+          // An artifact-publish event: persist the deliverable row FIRST, then emit
+          // the bus event — so the Outputs refetch only fires after the row exists.
+          // (persistArtifact reads + hashes the file and inserts; it emits the bus
+          // event itself on a successful insert.)
+          this.enqueuePersist(() => this.persistArtifact(agentEvt, projectId));
+        } else {
+          runtimeEventBus.emit(agentRunEvent(this.companyId, agentEvt));
+          this.enqueuePersist(() => this.persistAgentRun(agentEvt));
+        }
         return;
       }
       if (event.kind === 'result') {
@@ -599,6 +608,82 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     } catch (err) {
       console.warn('[desktop-agent-runtime] persist agent_run failed', { runId: evt.runId, err });
     }
+  }
+
+  /** Persist an `artifact.created` run event as a deliverable row, then emit the
+   *  bus event so the Outputs panel refetches AFTER the row is committed. The
+   *  agent published a workspace-relative path; we read it through the SAME
+   *  sandboxed Tauri command the file browser uses (`project_read_file`), so an
+   *  out-of-workspace path is rejected by Rust and no row is written (VM-002
+   *  acceptance-(c)). Runs on the serialized persist chain; never throws — a
+   *  failure logs and the row is simply skipped (mirrors persistAgentRun). */
+  private async persistArtifact(evt: AgentRunEvent, projectId: string | null): Promise<void> {
+    const payload = evt.payload as AgentRunArtifactPayload;
+    const path = payload.path?.trim();
+    const deliverableId = payload.deliverableId?.trim();
+    if (!path || !deliverableId) {
+      console.warn('[desktop-agent-runtime] artifact.created missing path/deliverableId — skipped', {
+        runId: evt.runId,
+      });
+      return;
+    }
+    // Read the file through the sandboxed workspace command. A workspace-jail
+    // violation or a missing file rejects here → no row, no bus event.
+    let content: string;
+    try {
+      content = (await invoke('project_read_file', { path, projectId })) as string;
+    } catch (err) {
+      console.warn(
+        '[desktop-agent-runtime] artifact.created path unreadable (out-of-workspace or missing) — no deliverable written',
+        { path, err },
+      );
+      return;
+    }
+    // Hex sha256 of the content for provenance.
+    let hash: string;
+    try {
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(content));
+      hash = Array.from(new Uint8Array(digest))
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+    } catch (err) {
+      console.warn('[desktop-agent-runtime] artifact hash failed', { path, err });
+      return;
+    }
+    const repo = this.repos.deliverables;
+    if (!repo) {
+      console.warn('[desktop-agent-runtime] deliverables repo unavailable — artifact not persisted');
+      return;
+    }
+    const basename = path.split(/[\\/]/).pop() || path;
+    try {
+      await repo.insert({
+        deliverable_id: deliverableId,
+        company_id: this.companyId,
+        thread_id: null,
+        chat_thread_id: evt.threadId,
+        title: payload.title,
+        content,
+        kind: payload.kind === 'file' ? 'file' : 'document',
+        file_name: basename,
+        mime_type: payload.mimeType ?? null,
+        contributors_json: '[]',
+        created_at: new Date().toISOString(),
+        run_id: evt.runId,
+        content_hash: hash,
+        version: 1,
+      });
+    } catch (err) {
+      console.warn('[desktop-agent-runtime] persist artifact failed', {
+        runId: evt.runId,
+        deliverableId,
+        err,
+      });
+      return;
+    }
+    // Row committed — now fan the run event onto the bus so the Outputs refetch
+    // (useDeliverableRefresh) sees artifact.created with the row already present.
+    runtimeEventBus.emit(agentRunEvent(this.companyId, evt));
   }
 
   abort(threadId: string): void {

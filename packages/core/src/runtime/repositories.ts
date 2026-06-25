@@ -1039,6 +1039,12 @@ export interface DeliverableRow {
   /** JSON-stringified DeliverableContributor[] */
   contributors_json: string;
   created_at: string;
+  /** Run that produced this deliverable (agent_runs.run_id), or null. */
+  run_id: string | null;
+  /** Hex sha256 of `content` at insert time, or null. */
+  content_hash: string | null;
+  /** Monotonic version for a logical artifact; starts at 1. */
+  version: number;
 }
 
 /** Full-row insert: caller supplies deliverable_id + created_at (backend does not stamp). */

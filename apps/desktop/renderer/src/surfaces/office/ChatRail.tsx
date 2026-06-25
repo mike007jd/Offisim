@@ -9,6 +9,7 @@ import {
   useProjects,
   useThreads,
 } from '@/data/queries.js';
+import { useDeliverableRefresh } from '@/data/use-deliverable-refresh.js';
 import type { ChatAttachment, ChatMessage, ChatThread } from '@/data/types.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import {
@@ -137,6 +138,7 @@ export function ChatRail() {
   const employees = useEmployees();
   const messages = useMessages(railMode === 'thread' ? selectedThreadId : null);
   const deliverables = useDeliverables(railMode === 'thread' ? selectedThreadId : null);
+  useDeliverableRefresh(railMode === 'thread' ? selectedThreadId : null);
   const workspaceConversations = useWsConversations();
 
   const employeesById = useMemo(

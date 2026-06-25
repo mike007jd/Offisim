@@ -34,6 +34,12 @@ export function mapPayloadToRow(event: RuntimeEvent<DeliverableCreatedPayload>):
     mime_type: payload.mimeType ?? null,
     contributors_json: JSON.stringify(payload.contributingEmployees ?? []),
     created_at: new Date(payload.createdAt).toISOString(),
+    // Artifact provenance (VM-002): this legacy event-driven producer carries no
+    // run/hash provenance, so default to none + version 1. The first-party
+    // `publish_artifact` path stamps these for real.
+    run_id: null,
+    content_hash: null,
+    version: 1,
   };
 }
 

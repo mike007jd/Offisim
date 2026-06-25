@@ -129,6 +129,12 @@ export interface AgentRunToolPayload {
 export interface AgentRunArtifactPayload {
   readonly title: string;
   readonly ref?: string;
+  readonly deliverableId?: string;
+  readonly path?: string;
+  readonly kind?: string;
+  readonly mimeType?: string;
+  readonly contentHash?: string;
+  readonly sizeBytes?: number;
 }
 
 export interface AgentRunApprovalPayload {

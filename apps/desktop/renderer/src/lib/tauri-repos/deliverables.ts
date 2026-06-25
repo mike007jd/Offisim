@@ -27,6 +27,9 @@ function rowToFull(row: {
   mime_type: string | null;
   contributors_json: string;
   created_at: string;
+  run_id?: string | null;
+  content_hash?: string | null;
+  version?: number | null;
 }): DeliverableRow {
   return {
     deliverable_id: row.deliverable_id,
@@ -40,6 +43,9 @@ function rowToFull(row: {
     mime_type: row.mime_type,
     contributors_json: row.contributors_json,
     created_at: row.created_at,
+    run_id: row.run_id ?? null,
+    content_hash: row.content_hash ?? null,
+    version: row.version ?? 1,
   };
 }
 
@@ -55,6 +61,9 @@ function rowToSummary(row: {
   contributors_json: string;
   created_at: string;
   content_size: number;
+  run_id?: string | null;
+  content_hash?: string | null;
+  version?: number | null;
 }): DeliverableSummaryRow {
   return {
     deliverable_id: row.deliverable_id,
@@ -68,6 +77,9 @@ function rowToSummary(row: {
     contributors_json: row.contributors_json,
     created_at: row.created_at,
     content_size: row.content_size ?? 0,
+    run_id: row.run_id ?? null,
+    content_hash: row.content_hash ?? null,
+    version: row.version ?? 1,
   };
 }
 
@@ -112,6 +124,9 @@ export function createDeliverablesTauriRepos(db: TauriDrizzleDb): DeliverablesTa
           mime_type: schema.deliverables.mime_type,
           contributors_json: schema.deliverables.contributors_json,
           created_at: schema.deliverables.created_at,
+          run_id: schema.deliverables.run_id,
+          content_hash: schema.deliverables.content_hash,
+          version: schema.deliverables.version,
           content_size: sql<number>`length(${schema.deliverables.content})`.as('content_size'),
         })
         .from(schema.deliverables)
