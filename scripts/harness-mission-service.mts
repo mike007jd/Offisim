@@ -22,7 +22,7 @@ import {
 } from '../packages/core/src/runtime/mission/mission-service.ts';
 
 let passed = 0;
-const TOTAL = 16;
+const TOTAL = 17;
 let failed = 0;
 
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
@@ -703,6 +703,41 @@ await check('A4: transition CAS throws even for a map-LEGAL edge when the row mo
   assert.equal(clobbered, false, 'map-legal but stale completed write missed the CAS');
   const final = await repos.missions.findById(created.mission_id);
   assert.equal(final?.status, 'repairing', 'the live repairing state was NOT clobbered by a stale completed');
+});
+
+// ---------------------------------------------------------------------------
+// M2/M3 live wiring: setRootRunId stamps the attempt's root agent run id.
+// ---------------------------------------------------------------------------
+
+await check('setRootRunId stamps root_run_id on the open attempt (was null), idempotent overwrite', async () => {
+  const repos = freshRepos();
+  const svc = createMissionService(repos, makeDeps());
+  const created = await svc.createMission(baseInput());
+  await svc.markReady(created.mission_id);
+  const running = await svc.startAttempt(created.mission_id, 'initial');
+  const attemptId = running.current_attempt_id!;
+
+  // Baseline: a freshly opened attempt has no root run id (the live runner sets it).
+  const before = await repos.missionAttempts.findById(attemptId);
+  assert.equal(before?.root_run_id, null, 'a new attempt starts with root_run_id = null');
+
+  // The live runner stamps it once it knows the agent run id (runId === attemptId).
+  await repos.missionAttempts.setRootRunId(attemptId, attemptId);
+  const after = await repos.missionAttempts.findById(attemptId);
+  assert.equal(after?.root_run_id, attemptId, 'setRootRunId records the agent run id on the attempt');
+  // It must not disturb the attempt's lifecycle fields.
+  assert.equal(after?.status, before?.status, 'setRootRunId leaves status untouched');
+  assert.equal(after?.finished_at, before?.finished_at, 'setRootRunId leaves finished_at untouched');
+
+  // A later overwrite (e.g. a retry on the same attempt id) takes the new value.
+  await repos.missionAttempts.setRootRunId(attemptId, 'run-override');
+  const overwritten = await repos.missionAttempts.findById(attemptId);
+  assert.equal(overwritten?.root_run_id, 'run-override', 'setRootRunId overwrites a prior value');
+
+  // Stamping a missing attempt is a safe no-op (no throw, nothing created).
+  await repos.missionAttempts.setRootRunId('no-such-attempt', 'x');
+  const ghost = await repos.missionAttempts.findById('no-such-attempt');
+  assert.equal(ghost, null, 'setRootRunId on a missing attempt creates nothing');
 });
 
 if (failed > 0) {

@@ -12,13 +12,16 @@
  */
 import {
   MISSION_EVALUATION_SUBMITTED_EVENT,
+  MISSION_STATUS_CHANGED_EVENT,
   type MissionEvaluationSubmittedPayload,
+  type MissionStatusChangedPayload,
 } from '@/runtime/mission/mission-events.js';
 import { runtimeEventBus } from '@/runtime/repos.js';
 import {
   type AgentRunEvent,
   DRAMATURGY_VERSION,
   type MissionBeatProjection,
+  type MissionLifecycleKind,
   type RuntimeEvent,
   type SceneBeat,
   type TimedAgentRunEvent,
@@ -197,6 +200,51 @@ runtimeEventBus.on(
       missionId: attemptRootRunId,
       threadId: event.threadId,
       rootRunId: attemptRootRunId,
+      at: now,
+    });
+    if (!projected) return;
+    const prior = missionBuffers.get(event.companyId) ?? [];
+    const next = [...prior, projected]
+      .filter((p) => now - p.beat.at <= MAX_AGE_MS)
+      .slice(-MAX_EVENTS_PER_COMPANY);
+    missionBuffers.set(event.companyId, next);
+    notifyMission();
+    scheduleMissionExpiry();
+  },
+);
+
+/**
+ * Map a mission STATUS string (the §18 vocabulary) to the staged office
+ * lifecycle kind. Statuses with no theatrical meaning (ready / draft / paused /
+ * cancelled / repairing) map to null and stage no beat — the projector never
+ * fabricates a beat for a status it does not own.
+ */
+const STATUS_TO_LIFECYCLE_KIND: Readonly<Record<string, MissionLifecycleKind | null>> = {
+  running: 'mission.running',
+  verifying: 'mission.verifying',
+  awaiting_user: 'mission.awaiting_user',
+  completed: 'mission.completed',
+  failed: 'mission.failed',
+  blocked: 'mission.failed', // a product-terminal block stages the failure beat
+};
+
+// M2/M3 live wiring: the MissionRunManager emits `mission.status.changed` at the
+// start of a run (`running`) and at its terminal status. Project those onto the
+// SAME beat vocabulary as the submit-for-evaluation signal — additive, byte-
+// identical when no mission runs. Status beats are keyed by the canonical
+// missionId (a stable per-mission key for the phase label).
+runtimeEventBus.on(
+  MISSION_STATUS_CHANGED_EVENT,
+  (event: RuntimeEvent<MissionStatusChangedPayload>) => {
+    if (!event.companyId || !event.threadId) return;
+    const kind = STATUS_TO_LIFECYCLE_KIND[event.payload.status];
+    if (!kind) return;
+    const now = event.timestamp;
+    const projected = projectMissionEventToBeat({
+      kind,
+      missionId: event.payload.missionId,
+      threadId: event.threadId,
+      ...(event.payload.rootRunId ? { rootRunId: event.payload.rootRunId } : {}),
       at: now,
     });
     if (!projected) return;

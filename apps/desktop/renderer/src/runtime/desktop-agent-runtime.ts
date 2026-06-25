@@ -73,6 +73,14 @@ export interface DesktopAgentRunInput {
 export interface DesktopAgentRunResult {
   text: string;
   reasoning?: string;
+  /**
+   * The root session's own token usage for this run, when the host reported it.
+   * Surfaced on the return (not only folded into the `agent_runs` row by
+   * `reconcileRoot`) so a synchronous caller — e.g. the Mission loop's token
+   * budget (§19.2) — can debit deterministically without racing the persist
+   * queue. Absent when the run threw before returning usage.
+   */
+  usage?: AgentRunUsage;
 }
 
 /** The user's answer to an `agent.ui.request`. `requestId` locates the paused run;
@@ -489,7 +497,11 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
         );
         this.enqueuePersist(() => this.reconcileRoot(runScope.runId, 'completed', rootUsage));
       }
-      return { text: finalText, ...(reasoning ? { reasoning } : {}) };
+      return {
+        text: finalText,
+        ...(reasoning ? { reasoning } : {}),
+        ...(rootUsage ? { usage: rootUsage } : {}),
+      };
     } catch (err) {
       // A thrown invoke / channel error is a failure unless the user aborted —
       // abort wins (it can surface as a throw on some teardown paths).

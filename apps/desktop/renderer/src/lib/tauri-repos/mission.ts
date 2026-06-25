@@ -166,6 +166,12 @@ export function createMissionTauriRepos(db: TauriDrizzleDb): MissionTauriRepos {
         .set(set)
         .where(eq(schema.missionAttempt.attempt_id, attemptId));
     },
+    async setRootRunId(attemptId, rootRunId) {
+      await db
+        .update(schema.missionAttempt)
+        .set({ root_run_id: rootRunId })
+        .where(eq(schema.missionAttempt.attempt_id, attemptId));
+    },
   };
 
   const missionEvaluations: MissionEvaluationRepository = {

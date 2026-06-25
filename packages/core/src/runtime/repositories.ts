@@ -1236,6 +1236,13 @@ export interface MissionAttemptRepository {
     status: string,
     opts?: { failureSignature?: string | null; finishedAt?: string | null },
   ): Promise<void>;
+  /**
+   * Stamp the attempt's root agent run id once the live runner knows it
+   * (M2/M3 live wiring). `runId === attemptId` by design, so this records the
+   * `agent_runs.run_id` that produced the attempt — enabling cross-table joins
+   * for usage/cost and future durable recovery. No-op if the attempt is absent.
+   */
+  setRootRunId(attemptId: string, rootRunId: string): Promise<void>;
 }
 
 export interface MissionEvaluationRepository {

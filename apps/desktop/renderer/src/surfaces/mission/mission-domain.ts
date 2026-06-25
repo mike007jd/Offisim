@@ -203,8 +203,12 @@ export function criterionStatusView(status: string): CriterionStatusView {
 // enforcement boundary; this is the affordance gate.
 // ---------------------------------------------------------------------------
 
-export type MissionControl = 'pause' | 'resume' | 'cancel';
+export type MissionControl = 'start' | 'pause' | 'resume' | 'cancel';
 
+// Only a freshly-ready mission is startable. Recovery states (interrupted /
+// ready_to_resume) are the M4 durable-recovery surface's territory, not a fresh
+// Start; paused uses Resume; terminal states have nothing to start.
+const STARTABLE: ReadonlySet<MissionStatus> = new Set(['ready']);
 const PAUSABLE: ReadonlySet<MissionStatus> = new Set([
   'ready',
   'running',
@@ -240,6 +244,10 @@ export function controlAvailability(
 ): ControlAvailability {
   const s = status as MissionStatus;
   switch (control) {
+    case 'start':
+      return STARTABLE.has(s)
+        ? { enabled: true }
+        : { enabled: false, reason: `Cannot start from '${status}'` };
     case 'pause':
       return PAUSABLE.has(s)
         ? { enabled: true }

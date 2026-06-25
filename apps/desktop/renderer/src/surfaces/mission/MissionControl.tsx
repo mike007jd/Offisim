@@ -2,6 +2,7 @@ import { useUiState } from '@/app/ui-state.js';
 import { useDeliverables } from '@/data/queries.js';
 import {
   type MissionTransition,
+  missionKeys,
   useMission,
   useMissionAttempts,
   useMissionCriteria,
@@ -13,7 +14,9 @@ import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import { safeErrorMessage } from '@/lib/error-message.js';
 import { cn } from '@/lib/utils.js';
+import { missionRunManager } from '@/runtime/mission/mission-run-manager.js';
 import { EmptyState, ErrorState, SkeletonRows, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   Ban,
@@ -29,13 +32,27 @@ import {
   Pause,
   Play,
   Loader2,
+  Rocket,
   ShieldAlert,
   Target,
   Wallet,
   XCircle,
 } from 'lucide-react';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
+
+/** Mission statuses where the run loop is live (drives query polling). */
+const ACTIVE_STATUSES = new Set(['running', 'verifying', 'repairing']);
+
+/** Subscribe to the MissionRunManager's in-flight set for THIS mission, so the
+ *  Start button reflects an in-flight run across navigation (the run lives in the
+ *  manager, not this component). */
+function useMissionRunning(missionId: string): boolean {
+  return useSyncExternalStore(
+    missionRunManager.subscribe,
+    () => missionRunManager.isRunning(missionId),
+  );
+}
 import {
   type CriterionStatusView,
   type MissionStatusView,
@@ -98,11 +115,32 @@ interface MissionControlProps {
 
 export function MissionControl({ missionId, onBack }: MissionControlProps) {
   const companyId = useUiState((s) => s.companyId);
-  const mission = useMission(missionId);
-  const criteria = useMissionCriteria(missionId);
-  const attempts = useMissionAttempts(missionId);
-  const evaluations = useMissionEvaluations(missionId);
+  const queryClient = useQueryClient();
+  const isRunning = useMissionRunning(missionId);
+  // Pass the in-memory run flag so the detail query starts polling the instant
+  // Start is clicked (before the first `running` row lands).
+  const mission = useMission(missionId, isRunning);
+  const missionStatus = mission.data?.status;
+  // Poll the loop-written rows while the run is live (in-memory flag OR an active
+  // DB status — the flag covers the gap before the first `running` row lands).
+  const active = isRunning || (missionStatus ? ACTIVE_STATUSES.has(missionStatus) : false);
+  const criteria = useMissionCriteria(missionId, active);
+  const attempts = useMissionAttempts(missionId, active);
+  const evaluations = useMissionEvaluations(missionId, active);
   const transition = useMissionTransition(companyId || null);
+
+  // On an actual running↔idle EDGE (not the initial mount or unrelated re-renders),
+  // refresh the mission + its rows: a fresh start flips the detail query off its
+  // cached `ready`, and the terminal status/rows land the moment the loop ends.
+  const prevIsRunning = useRef(isRunning);
+  useEffect(() => {
+    if (prevIsRunning.current === isRunning) return;
+    prevIsRunning.current = isRunning;
+    queryClient.invalidateQueries({ queryKey: missionKeys.detail(missionId) });
+    queryClient.invalidateQueries({ queryKey: missionKeys.attempts(missionId) });
+    queryClient.invalidateQueries({ queryKey: missionKeys.evaluations(missionId) });
+    queryClient.invalidateQueries({ queryKey: missionKeys.criteria(missionId) });
+  }, [isRunning, missionId, queryClient]);
 
   const threadId = mission.data?.thread_id ?? null;
   const deliverables = useDeliverables(threadId);
@@ -137,12 +175,31 @@ export function MissionControl({ missionId, onBack }: MissionControlProps) {
 
   async function runTransition(action: MissionTransition) {
     try {
+      if (action === 'cancel') {
+        // Nudge the in-flight agent run to return promptly so the spinner clears
+        // with the cancel rather than lingering until the agent finishes on its own.
+        missionRunManager.requestAbort(missionId);
+      }
       await transition.mutateAsync({ missionId, action });
       toast.success(
         action === 'pause' ? 'Mission paused' : action === 'resume' ? 'Mission resumed' : 'Mission cancelled',
       );
     } catch (error) {
       toast.error('Could not update mission', { description: safeErrorMessage(error) });
+    }
+  }
+
+  async function handleStart() {
+    if (!companyId) {
+      toast.error('Select a company first');
+      return;
+    }
+    try {
+      // Hands the run off to the manager (it continues off this component's
+      // lifecycle); the status badge + criteria then track it via the polling.
+      await missionRunManager.start(missionId, companyId);
+    } catch (error) {
+      toast.error('Could not start mission', { description: safeErrorMessage(error) });
     }
   }
 
@@ -167,6 +224,7 @@ export function MissionControl({ missionId, onBack }: MissionControlProps) {
   }
 
   const m = mission.data;
+  const startAvail = controlAvailability('start', m.status);
   const pauseAvail = controlAvailability('pause', m.status);
   const resumeAvail = controlAvailability('resume', m.status);
   const cancelAvail = controlAvailability('cancel', m.status);
@@ -184,6 +242,16 @@ export function MissionControl({ missionId, onBack }: MissionControlProps) {
         </div>
         <MissionStatusBadge view={statusView} />
         <div className="off-mission-controls">
+          <Button
+            variant="default"
+            size="sm"
+            disabled={!startAvail.enabled || isRunning}
+            title={isRunning ? 'Mission is running' : startAvail.reason}
+            onClick={() => void handleStart()}
+          >
+            <Icon icon={isRunning ? Loader2 : Rocket} size="sm" className={isRunning ? 'off-mission-spin' : undefined} />
+            {isRunning ? 'Running' : 'Start'}
+          </Button>
           <Button
             variant="subtle"
             size="sm"
@@ -381,11 +449,12 @@ export function MissionControl({ missionId, onBack }: MissionControlProps) {
         </div>
 
         {/* Honest empty if nothing has run */}
-        {(attempts.data?.length ?? 0) === 0 && m.status === 'ready' ? (
+        {(attempts.data?.length ?? 0) === 0 && m.status === 'ready' && !isRunning ? (
           <EmptyState
             icon={Target}
             title="Mission is ready"
-            description="Nothing has run yet. The mission run loop starts this mission live (M-pass)."
+            description="Nothing has run yet. Start the mission to run it against its acceptance criteria."
+            action={{ label: 'Start mission', onClick: () => void handleStart() }}
           />
         ) : null}
       </div>

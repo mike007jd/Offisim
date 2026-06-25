@@ -145,6 +145,12 @@ export class MemoryMissionAttemptRepository implements MissionAttemptRepository 
       finished_at: opts?.finishedAt !== undefined ? opts.finishedAt : row.finished_at,
     });
   }
+
+  async setRootRunId(attemptId: string, rootRunId: string): Promise<void> {
+    const row = this.store.get(attemptId);
+    if (!row) return;
+    this.store.set(attemptId, { ...row, root_run_id: rootRunId });
+  }
 }
 
 export class MemoryMissionEvaluationRepository implements MissionEvaluationRepository {

@@ -57,7 +57,7 @@ import type { TauriEvaluationContextInput } from '../apps/desktop/renderer/src/r
 
 let passed = 0;
 let failed = 0;
-const TOTAL = 4;
+const TOTAL = 5;
 
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
   try {
@@ -127,6 +127,9 @@ function makeFakeRuntime(
     submitSummary: (attemptNumber: number) => string;
     /** Set to throw on a given attempt → exercises the runtimeError path. */
     throwOnAttempt?: number;
+    /** Root token usage the host reports on the run return → feeds the §19.2
+     *  token budget. Omitted → the run reports no usage (loop debits nothing). */
+    usage?: { input: number; output: number };
   },
 ): { runtime: DesktopAgentRuntime; prompts: string[]; attempts: number } {
   const prompts: string[] = [];
@@ -160,7 +163,7 @@ function makeFakeRuntime(
         };
         eventBus.emit(event);
       }
-      return { text: 'done' };
+      return { text: 'done', ...(opts.usage ? { usage: opts.usage } : {}) };
     },
     abort() {},
     async answerUiRequest() {},
@@ -409,6 +412,67 @@ await check('runtime transport throw → blocked (infra), not a product FAIL', a
   assert.equal(result.status, 'blocked', 'a transport throw is infra → blocked');
   assert.equal(result.stopReason, 'runtime_incompatible', 'stop reason is runtime_incompatible');
   assert.equal(result.attempts, 1, 'blocked after the single failed attempt');
+});
+
+// ---------------------------------------------------------------------------
+// Scenario (d): §19.2 token budget + M2/M3 wiring. The authored tokenBudget is
+// fed into the loop and the host's reported run usage debits it, so an attempt
+// that exhausts the budget stops the loop with `token_budget` (instead of
+// repairing). Also asserts the attempt's root_run_id was stamped (== attemptId).
+//
+// Inject-proof (run manually, then revert): delete the `budget` spread in
+// runMission OR the `usage` surfacing in runAttempt → the loop never debits, so
+// the always-FAIL mission stops as STUCK/attempt-cap, not `token_budget`. That
+// confirms BOTH the budget parse and the usage channel are load-bearing.
+// ---------------------------------------------------------------------------
+
+await check('(d) token budget: reported usage debits the authored budget → stop token_budget; root_run_id stamped', async () => {
+  const eventBus = new InMemoryEventBus();
+  const { repos, mission } = makeRepos('/tmp/fake-ws');
+
+  const { missionId } = await createDevMission(repos, {
+    companyId: 'co-1',
+    threadId: 'thr-1',
+    projectId: 'proj-1',
+    goal: 'Burn the budget',
+    // A tiny token budget the first attempt's usage (10) blows past.
+    budgetJson: JSON.stringify({ tokenBudget: 1 }),
+    criteria: [
+      { description: 'tests pass', evaluatorId: 'command_exit_zero', evaluatorConfigJson: JSON.stringify({ command: 'pnpm test' }), required: true },
+    ],
+  });
+  const criteria = await mission.missionCriteria.listByMission(missionId);
+  const criterionId = criteria[0]!.criterion_id;
+
+  const { runtime } = makeFakeRuntime(eventBus, 'co-1', {
+    submitCriterionIds: [criterionId],
+    submitSummary: () => 'I tried',
+    usage: { input: 5, output: 5 }, // 10 tokens reported for the attempt
+  });
+  const attemptCell = { n: 0 };
+  // The command FAILs every attempt, so completion never short-circuits the
+  // budget check — the loop wants to repair but the budget is already spent.
+  const controller = createMissionRunController({
+    agentRuntime: runtime,
+    repos,
+    evaluatorRegistry: createDefaultEvaluatorRegistry(),
+    eventBus,
+    createEvaluationContext: makeFakeEvaluationContextFactory(() => 1, attemptCell),
+  });
+
+  const result = await controller.runMission(missionId);
+  assert.equal(result.stopReason, 'token_budget', 'the exhausted token budget stops the loop');
+  assert.equal(result.attempts, 1, 'stopped after the first (budget-blowing) attempt — no repair');
+
+  // M2/M3: the attempt row records which agent run produced it (runId === attemptId).
+  const attempts = await mission.missionAttempts.listByMission(missionId);
+  assert.equal(attempts.length, 1, 'exactly one attempt');
+  const attempt = attempts[0]!;
+  assert.equal(
+    attempt.root_run_id,
+    attempt.attempt_id,
+    'root_run_id stamped with the attempt id (the live runner sets runId === attemptId)',
+  );
 });
 
 // ---------------------------------------------------------------------------

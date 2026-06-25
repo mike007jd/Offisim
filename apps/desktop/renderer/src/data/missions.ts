@@ -27,6 +27,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 // Query keys
 // ---------------------------------------------------------------------------
 
+/**
+ * Mission statuses where the run loop is live, so the detail surface should poll
+ * for the attempt / evaluation / status rows the loop writes as it progresses.
+ * A terminal/idle status stops the polling (refetchInterval → false).
+ */
+const ACTIVE_MISSION_STATUSES = new Set(['running', 'verifying', 'repairing']);
+const ACTIVE_REFETCH_MS = 2_000;
+
 export const missionKeys = {
   /** All missions for a company (the list view). */
   list: (companyId: string | null) => ['missions', companyId] as const,
@@ -74,7 +82,7 @@ export function useMissions(companyId: string | null) {
   });
 }
 
-export function useMission(missionId: string | null) {
+export function useMission(missionId: string | null, active = false) {
   return useQuery<MissionRow | null>({
     queryKey: missionKeys.detail(missionId),
     queryFn: async () => {
@@ -84,10 +92,18 @@ export function useMission(missionId: string | null) {
       return repos.missions.findById(missionId);
     },
     enabled: missionId !== null,
+    // Poll while the loop is live so the status badge tracks running → verifying
+    // → completed without a manual refresh. `active` (the in-memory run flag)
+    // engages polling the instant Start is clicked — before the first `running`
+    // row lands — and the cached status keeps it polling until a terminal status.
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return active || (status && ACTIVE_MISSION_STATUSES.has(status)) ? ACTIVE_REFETCH_MS : false;
+    },
   });
 }
 
-export function useMissionCriteria(missionId: string | null) {
+export function useMissionCriteria(missionId: string | null, active = false) {
   return useQuery<MissionCriterionRow[]>({
     queryKey: missionKeys.criteria(missionId),
     queryFn: async () => {
@@ -97,10 +113,11 @@ export function useMissionCriteria(missionId: string | null) {
       return repos.missionCriteria.listByMission(missionId);
     },
     enabled: missionId !== null,
+    refetchInterval: active ? ACTIVE_REFETCH_MS : false,
   });
 }
 
-export function useMissionAttempts(missionId: string | null) {
+export function useMissionAttempts(missionId: string | null, active = false) {
   return useQuery<MissionAttemptRow[]>({
     queryKey: missionKeys.attempts(missionId),
     queryFn: async () => {
@@ -110,10 +127,11 @@ export function useMissionAttempts(missionId: string | null) {
       return repos.missionAttempts.listByMission(missionId);
     },
     enabled: missionId !== null,
+    refetchInterval: active ? ACTIVE_REFETCH_MS : false,
   });
 }
 
-export function useMissionEvaluations(missionId: string | null) {
+export function useMissionEvaluations(missionId: string | null, active = false) {
   return useQuery<MissionEvaluationRow[]>({
     queryKey: missionKeys.evaluations(missionId),
     queryFn: async () => {
@@ -123,6 +141,7 @@ export function useMissionEvaluations(missionId: string | null) {
       return repos.missionEvaluations.listByMission(missionId);
     },
     enabled: missionId !== null,
+    refetchInterval: active ? ACTIVE_REFETCH_MS : false,
   });
 }
 
