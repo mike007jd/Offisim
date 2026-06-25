@@ -7,6 +7,7 @@ import type {
   AgentRunEvent,
   AgentRunFinishedPayload,
   AgentRunStartedPayload,
+  AgentRunUsage,
   RuntimeEvent,
 } from '@offisim/shared-types';
 import { Channel, invoke } from '@tauri-apps/api/core';
@@ -66,6 +67,9 @@ interface PiAgentHostResponse {
   sessionId?: string;
   sessionFile?: string;
   model?: PiAgentModelSummary;
+  /** Root Pi session's own rolled-up usage; folded into the root agent_runs row
+   *  by reconcileRoot (the solo path otherwise records no root usage). */
+  usage?: AgentRunUsage;
 }
 
 type PiAgentHostEvent =
@@ -476,6 +480,10 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
         },
         onEvent,
       })) as PiAgentHostResponse;
+      // Root session's own usage — folded into the root agent_runs row by
+      // reconcileRoot (children come from their own rows). Only in scope in this
+      // try-branch; the catch branch's invoke threw before returning.
+      const rootUsage = commandResponse.usage;
       if (commandResponse.reasoning && !reasoningText.trim()) {
         runtimeEventBus.emit(
           llmStreamChunk(
@@ -495,15 +503,16 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       // classify the terminal from the aborted-set: cancelled, not completed.
       if (this.abortedRequests.has(requestId)) {
         emitRootBus(rootRun('run.cancelled', { status: 'cancelled' }));
-        this.enqueuePersist(() => this.reconcileRoot(runScope.runId, 'cancelled'));
+        this.enqueuePersist(() => this.reconcileRoot(runScope.runId, 'cancelled', rootUsage));
       } else {
         emitRootBus(
           rootRun('run.completed', {
             status: 'completed',
             ...(finalText ? { summary: finalText } : {}),
+            ...(rootUsage ? { usage: rootUsage } : {}),
           }),
         );
-        this.enqueuePersist(() => this.reconcileRoot(runScope.runId, 'completed'));
+        this.enqueuePersist(() => this.reconcileRoot(runScope.runId, 'completed', rootUsage));
       }
       return { text: finalText, ...(reasoning ? { reasoning } : {}) };
     } catch (err) {
@@ -513,7 +522,9 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       const status = aborted ? 'cancelled' : 'failed';
       const message = err instanceof Error ? err.message : String(err);
       emitRootBus(rootRun(aborted ? 'run.cancelled' : 'run.failed', { status, summary: message }));
-      this.enqueuePersist(() => this.reconcileRoot(runScope.runId, status));
+      // rootUsage isn't in scope here — the invoke threw before returning it, so
+      // there is no root usage to fold in. reconcileRoot still sums any children.
+      this.enqueuePersist(() => this.reconcileRoot(runScope.runId, status, undefined));
       throw err;
     } finally {
       this.abortedRequests.delete(requestId);
@@ -531,6 +542,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
   private async reconcileRoot(
     rootRunId: string,
     status: 'completed' | 'failed' | 'cancelled',
+    rootUsage?: AgentRunUsage,
   ): Promise<void> {
     const repo = this.repos.agentRuns;
     if (!repo) return;
@@ -560,6 +572,16 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
         }
         if (child.status === 'running') dangling.push(child.run_id);
       }
+      // Fold in the root's OWN usage (passed as a param, never read back from the
+      // root row — persistAgentRun doesn't write the root's run.completed). The
+      // loop above skipped the root row, so children + root sum with no
+      // double-count: children come from their rows, root from this param.
+      agg.input += rootUsage?.input ?? 0;
+      agg.output += rootUsage?.output ?? 0;
+      agg.cacheRead += rootUsage?.cacheRead ?? 0;
+      agg.cacheWrite += rootUsage?.cacheWrite ?? 0;
+      agg.cost += rootUsage?.cost ?? 0;
+      agg.turns += rootUsage?.turns ?? 0;
       const usageJson =
         agg.input || agg.output || agg.cost || agg.turns ? JSON.stringify(agg) : null;
       await Promise.all([

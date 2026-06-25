@@ -629,6 +629,10 @@ async function runPrompt(payload) {
   let activeReasoningText = '';
   let latestReasoningText = '';
   let emittedReasoning = false;
+  // Root session's own token/cost accounting, summed across assistant turns and
+  // returned on the result line. The renderer folds this into reconcileRoot — the
+  // solo (non-delegation) path otherwise records no root usage at all.
+  const rootUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
   const unsubscribe = session.subscribe((event) => {
     if (event.type === 'agent_start') {
       emit(
@@ -663,6 +667,17 @@ async function runPrompt(payload) {
         latestReasoningText = reasoningText;
         activeReasoningText = '';
         latestText = clampText(messageText(event.message));
+        // Accumulate this turn's usage (field names mirror the child supervisor's
+        // exactly; SDK usage.cost is an object → `.total`).
+        const u = event.message.usage;
+        if (u) {
+          rootUsage.input += u.input || 0;
+          rootUsage.output += u.output || 0;
+          rootUsage.cacheRead += u.cacheRead || 0;
+          rootUsage.cacheWrite += u.cacheWrite || 0;
+          rootUsage.cost += u.cost?.total || 0;
+          rootUsage.turns += 1;
+        }
         emit(
           messageEndLine({
             text: latestText,
@@ -728,6 +743,7 @@ async function runPrompt(payload) {
         sessionId: session.sessionId,
         sessionFile: session.sessionFile,
         model: session.model ? modelSummary(session.model) : undefined,
+        usage: rootUsage,
       }),
     );
   } finally {
