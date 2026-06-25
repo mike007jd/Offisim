@@ -462,3 +462,39 @@ export type {
   AttemptEvidence,
   RunAttemptInput,
 } from './runtime/mission/mission-loop-controller.js';
+
+// --- Durable Mission Recovery (PRD §22 — DR-001..006) ---
+// Additive over the M2 Mission core. Deterministic crash-recovery logic: safe
+// boundaries, runtime compatibility hash, startup reconciliation, retry-safety,
+// and the resume plan. Pure logic over injected repos/clock; the live resume +
+// crash `.app` test are the M-pass. Consumed by the recovery harness.
+export {
+  isSafeBoundary,
+  unmetSafeBoundaryReasons,
+  recordSafeBoundary,
+  computeCompatibilityHash,
+  isCompatible,
+  reconcileInterruptedMissions,
+  canAutoRetry,
+  evaluatorRetrySafety,
+  EVALUATOR_RETRY_SAFETY,
+  planResume,
+  unsafeOperationsInAutoReplay,
+} from './runtime/mission/recovery/index.js';
+export type {
+  SafeBoundaryInput,
+  RecordSafeBoundaryResult,
+  CompatibilityResources,
+  RuntimeExtensionRef,
+  ReconciliationRepos,
+  ReconcileInterruptedMissionsInput,
+  RecoveryCard,
+  RecoveryClassification,
+  ReconciliationResult,
+  SurfacedPendingInteraction,
+  UnfinishedOperation,
+  RetrySafety,
+  RetrySafetyMeta,
+  ResumePlan,
+  InterruptionFact,
+} from './runtime/mission/recovery/index.js';

@@ -1193,6 +1193,15 @@ export interface MissionRepository {
   insert(row: NewMission): Promise<void>;
   findById(missionId: string): Promise<MissionRow | null>;
   listByCompany(companyId: string, opts?: { limit?: number }): Promise<MissionRow[]>;
+  /**
+   * All missions for a company whose `status` is in `statuses`, UNBOUNDED (no
+   * default 100-row cap). Crash-recovery reconciliation (DR-003) uses this to
+   * fetch every non-terminal mission (running/verifying/repairing): a company
+   * with >100 missions must not silently drop a crashed one beyond the
+   * `listByCompany` default limit, or it would stay stuck forever. Order is
+   * unspecified — the caller reconciles each mission independently.
+   */
+  listByStatus(companyId: string, statuses: readonly string[]): Promise<MissionRow[]>;
   updateStatus(missionId: string, patch: MissionStatusUpdate): Promise<void>;
 }
 

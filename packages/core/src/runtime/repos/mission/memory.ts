@@ -48,6 +48,15 @@ export class MemoryMissionRepository implements MissionRepository {
       .map((r) => ({ ...r }));
   }
 
+  async listByStatus(companyId: string, statuses: readonly string[]): Promise<MissionRow[]> {
+    const wanted = new Set(statuses);
+    // Unbounded by design (DR-003): every non-terminal mission, no 100-row cap.
+    return [...this.store.values()]
+      .filter((r) => r.company_id === companyId && wanted.has(r.status))
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .map((r) => ({ ...r }));
+  }
+
   async updateStatus(missionId: string, patch: MissionStatusUpdate): Promise<void> {
     const row = this.store.get(missionId);
     if (!row) return;

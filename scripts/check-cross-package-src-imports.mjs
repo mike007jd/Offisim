@@ -70,6 +70,14 @@ const ALLOWLIST = new Set([
   'scripts/harness-mission-run-controller.mts::../packages/core/src/browser.js',
   'scripts/harness-mission-run-controller.mts::../packages/core/src/runtime/repos/mission/memory.ts',
   'scripts/harness-mission-run-controller.mts::../packages/core/src/runtime/repos/deliverables/memory.ts',
+  'scripts/harness-mission-recovery.mts::../packages/core/src/runtime/repos/mission/memory.ts',
+  'scripts/harness-mission-recovery.mts::../packages/core/src/runtime/mission/mission-service.ts',
+  'scripts/harness-mission-recovery.mts::../packages/core/src/runtime/mission/recovery/safe-boundary.ts',
+  'scripts/harness-mission-recovery.mts::../packages/core/src/runtime/mission/recovery/compatibility-hash.ts',
+  'scripts/harness-mission-recovery.mts::../packages/core/src/runtime/mission/recovery/reconciliation.ts',
+  'scripts/harness-mission-recovery.mts::../packages/core/src/runtime/mission/recovery/retry-safety.ts',
+  'scripts/harness-mission-recovery.mts::../packages/core/src/runtime/mission/recovery/resume-plan.ts',
+  'scripts/harness-mission-recovery.mts::../packages/core/src/runtime/mission/recovery/types.ts',
 ]);
 
 // Matches an import/export/require specifier that reaches into a package's src,

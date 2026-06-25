@@ -1,5 +1,5 @@
 import * as schema from '@offisim/db-local/dist/schema.js';
-import { asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type {
   MissionAttemptRepository,
@@ -59,6 +59,22 @@ export function createMissionDrizzleRepos(db: Db): MissionDrizzleRepos {
         .where(eq(schema.mission.company_id, companyId))
         .orderBy(desc(schema.mission.created_at))
         .limit(opts?.limit ?? DEFAULT_LIST_LIMIT)
+        .all() as MissionRow[];
+    },
+    async listByStatus(companyId, statuses) {
+      // Unbounded by design (DR-003): a status-filtered scan with no row cap, so
+      // crash recovery never drops a non-terminal mission beyond the 100 default.
+      if (statuses.length === 0) return [];
+      return db
+        .select()
+        .from(schema.mission)
+        .where(
+          and(
+            eq(schema.mission.company_id, companyId),
+            inArray(schema.mission.status, [...statuses]),
+          ),
+        )
+        .orderBy(desc(schema.mission.created_at))
         .all() as MissionRow[];
     },
     async updateStatus(missionId, patch: MissionStatusUpdate) {
@@ -189,10 +205,15 @@ export function createMissionDrizzleRepos(db: Db): MissionDrizzleRepos {
       return rows[0] ?? null;
     },
     async listByMission(missionId) {
+      // runtime_session_link rows are append-only (no UPDATE of identity columns),
+      // so SQLite `rowid` is a stable insertion-order anchor. Reconciliation reads
+      // the LAST element as the live link, so ordering must be deterministic — the
+      // table has no created_at column, and ORDER BY rowid needs no migration.
       return db
         .select()
         .from(schema.runtimeSessionLink)
         .where(eq(schema.runtimeSessionLink.mission_id, missionId))
+        .orderBy(asc(sql`rowid`))
         .all() as RuntimeSessionLinkRow[];
     },
     async update(runtimeSessionLinkId, patch) {
