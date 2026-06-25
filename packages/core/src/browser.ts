@@ -420,6 +420,30 @@ export {
   BUILTIN_EVALUATORS,
 } from './runtime/mission/evaluators/index.js';
 
+// --- Mission Playbook (PRD §25 — declarative Marketplace mission templates) ---
+// PB-002/003 validator is the §25.2 SAFETY GATE: a playbook that passes is pure
+// declarative data referencing only registered evaluators. PB-004 materializer
+// maps a validated playbook → runtime-native resource plan (no install; M-pass).
+export {
+  validatePlaybook,
+  capabilityIsAvailable,
+  KNOWN_CAPABILITY_KEYS,
+  FORBIDDEN_KEYS,
+  materializePlaybook,
+  UnsupportedRuntimeError,
+} from './runtime/mission/playbook/index.js';
+export type {
+  PlaybookValidationCode,
+  PlaybookValidationError,
+  PlaybookValidationResult,
+  ValidatedPlaybook,
+  ValidatePlaybookOptions,
+  MaterializedCriterion,
+  MaterializedPlaybook,
+  MaterializedSkillBinding,
+  PlaybookRuntimeId,
+} from './runtime/mission/playbook/index.js';
+
 // --- Mission Service (PRD §18 — the Verified Missions state machine) ---
 // The single authoritative writer of mission.status. Pure business state machine
 // (no model, no evaluator run). Connected live by MS-005 (the renderer

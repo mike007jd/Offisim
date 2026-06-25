@@ -247,6 +247,19 @@ export type {
   MissionEvent,
 } from './mission/index.js';
 export type {
+  MissionPlaybook,
+  PlaybookArtifactSpec,
+  PlaybookCriterion,
+  PlaybookCriterionVerdict,
+  PlaybookDefaultBudget,
+  PlaybookDefaultPolicy,
+  PlaybookMaterialization,
+  PlaybookPermissionMode,
+  PlaybookPiMaterialization,
+  PlaybookRuntimeRequirements,
+  PlaybookSkillMapping,
+} from './mission/playbook.js';
+export type {
   BeatAffordance,
   BeatKind,
   DramaturgyConfig,
