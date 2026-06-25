@@ -1076,6 +1076,166 @@ export interface DeliverableRepository {
 }
 
 // ---------------------------------------------------------------------------
+// Verified Missions core (PRD §17). Snake_case rows mirror the SQLite columns;
+// the camelCase domain model lives in `@offisim/shared-types` mission module.
+// Mission status/criteria truth is here (ADR 2026-06-25-truth-closure D4);
+// evaluation truth is `mission_evaluation`.
+// ---------------------------------------------------------------------------
+
+export interface MissionRow {
+  mission_id: string;
+  company_id: string;
+  project_id: string | null;
+  thread_id: string;
+  title: string;
+  goal: string;
+  status: string;
+  runtime_id: string;
+  runtime_policy_json: string;
+  budget_json: string;
+  expected_artifacts_json: string | null;
+  current_attempt_id: string | null;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+}
+
+export type NewMission = MissionRow;
+
+export interface MissionCriterionRow {
+  criterion_id: string;
+  mission_id: string;
+  description: string;
+  evaluator_id: string;
+  evaluator_config_json: string;
+  /** 0 | 1 — required criteria must pass for Mission completion. */
+  required: number;
+  order_index: number;
+  status: string;
+  last_evaluation_id: string | null;
+}
+
+export type NewMissionCriterion = MissionCriterionRow;
+
+export interface MissionAttemptRow {
+  attempt_id: string;
+  mission_id: string;
+  attempt_number: number;
+  root_run_id: string | null;
+  runtime_session_link_id: string | null;
+  trigger: string;
+  status: string;
+  failure_signature: string | null;
+  started_at: string;
+  finished_at: string | null;
+}
+
+export type NewMissionAttempt = MissionAttemptRow;
+
+export interface MissionEvaluationRow {
+  evaluation_id: string;
+  mission_id: string;
+  criterion_id: string;
+  attempt_id: string;
+  evaluator_id: string;
+  verdict: string;
+  summary: string;
+  evidence_refs_json: string;
+  duration_ms: number | null;
+  created_at: string;
+}
+
+export type NewMissionEvaluation = MissionEvaluationRow;
+
+export interface RuntimeSessionLinkRow {
+  runtime_session_link_id: string;
+  mission_id: string;
+  runtime_id: string;
+  runtime_version: string | null;
+  opaque_session_ref_json: string;
+  compatibility_hash: string | null;
+  workspace_lease_id: string | null;
+  last_safe_boundary: string | null;
+  status: string;
+}
+
+export type NewRuntimeSessionLink = RuntimeSessionLinkRow;
+
+export interface MissionEventRow {
+  mission_event_id: string;
+  mission_id: string;
+  attempt_id: string | null;
+  type: string;
+  data_json: string;
+  created_at: string;
+}
+
+export type NewMissionEvent = MissionEventRow;
+
+/** Patch for mission mutations driven by the future state machine. */
+export interface MissionStatusUpdate {
+  status: string;
+  /** ISO timestamp to stamp `updated_at`; caller supplies (backend does not auto-stamp). */
+  updatedAt: string;
+  currentAttemptId?: string | null;
+  completedAt?: string | null;
+}
+
+export interface MissionRepository {
+  /** Idempotent insert keyed on mission_id (INSERT OR IGNORE semantics). */
+  insert(row: NewMission): Promise<void>;
+  findById(missionId: string): Promise<MissionRow | null>;
+  listByCompany(companyId: string, opts?: { limit?: number }): Promise<MissionRow[]>;
+  updateStatus(missionId: string, patch: MissionStatusUpdate): Promise<void>;
+}
+
+export interface MissionCriterionRepository {
+  insert(row: NewMissionCriterion): Promise<void>;
+  findById(criterionId: string): Promise<MissionCriterionRow | null>;
+  listByMission(missionId: string): Promise<MissionCriterionRow[]>;
+  updateStatus(criterionId: string, status: string): Promise<void>;
+  setLastEvaluation(criterionId: string, evaluationId: string | null): Promise<void>;
+}
+
+export interface MissionAttemptRepository {
+  insert(row: NewMissionAttempt): Promise<void>;
+  findById(attemptId: string): Promise<MissionAttemptRow | null>;
+  listByMission(missionId: string): Promise<MissionAttemptRow[]>;
+  updateStatus(
+    attemptId: string,
+    status: string,
+    opts?: { failureSignature?: string | null; finishedAt?: string | null },
+  ): Promise<void>;
+}
+
+export interface MissionEvaluationRepository {
+  insert(row: NewMissionEvaluation): Promise<void>;
+  findById(evaluationId: string): Promise<MissionEvaluationRow | null>;
+  listByMission(missionId: string): Promise<MissionEvaluationRow[]>;
+  listByAttempt(attemptId: string): Promise<MissionEvaluationRow[]>;
+}
+
+export interface RuntimeSessionLinkRepository {
+  insert(row: NewRuntimeSessionLink): Promise<void>;
+  findById(runtimeSessionLinkId: string): Promise<RuntimeSessionLinkRow | null>;
+  listByMission(missionId: string): Promise<RuntimeSessionLinkRow[]>;
+  update(
+    runtimeSessionLinkId: string,
+    patch: Partial<
+      Pick<
+        RuntimeSessionLinkRow,
+        'status' | 'compatibility_hash' | 'workspace_lease_id' | 'last_safe_boundary'
+      >
+    >,
+  ): Promise<void>;
+}
+
+export interface MissionEventRepository {
+  insert(row: NewMissionEvent): Promise<void>;
+  listByMission(missionId: string, opts?: { limit?: number }): Promise<MissionEventRow[]>;
+}
+
+// ---------------------------------------------------------------------------
 // Settings (generic key-value for one-shot bootstrap markers)
 // ---------------------------------------------------------------------------
 
@@ -1238,4 +1398,11 @@ export interface RuntimeRepositories {
   piMessages?: PiMessageRepository;
   /** Multi-agent delegation run tree — optional for backward compatibility. */
   agentRuns?: AgentRunRepository;
+  /** Verified Missions core (PRD §17) — optional for backward compatibility. */
+  missions?: MissionRepository;
+  missionCriteria?: MissionCriterionRepository;
+  missionAttempts?: MissionAttemptRepository;
+  missionEvaluations?: MissionEvaluationRepository;
+  runtimeSessionLinks?: RuntimeSessionLinkRepository;
+  missionEvents?: MissionEventRepository;
 }

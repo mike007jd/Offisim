@@ -9,6 +9,7 @@ import { createFilesMemoryRepos } from './repos/files/memory.js';
 import { createMemoryInstallRepositories } from './repos/install/memory.js';
 import { createLlmMemoryRepos } from './repos/llm/memory.js';
 import { createMemorySystemMemoryRepos } from './repos/memory-system/memory.js';
+import { createMissionMemoryRepos } from './repos/mission/memory.js';
 import type { MemoryRepositoriesSnapshot, MemoryRepositorySeed } from './repos/memory-types.js';
 import { createOrchestrationMemoryRepos } from './repos/orchestration/memory.js';
 import { createPermissionsMemoryRepos } from './repos/permissions/memory.js';
@@ -24,6 +25,14 @@ export {
 } from './repos/agent-events/memory.js';
 export { MemoryDeliverableRepository } from './repos/deliverables/memory.js';
 export { MemorySkillRepository } from './repos/skills/memory.js';
+export {
+  MemoryMissionAttemptRepository,
+  MemoryMissionCriterionRepository,
+  MemoryMissionEvaluationRepository,
+  MemoryMissionEventRepository,
+  MemoryMissionRepository,
+  MemoryRuntimeSessionLinkRepository,
+} from './repos/mission/memory.js';
 export {
   MemoryActiveInteractionRepository,
   MemoryHandoffRepository,
@@ -96,6 +105,7 @@ export function createMemoryRepositories(
   const agentRunsFamily = createAgentRunsMemoryRepos();
   const deliverablesFamily = createDeliverablesMemoryRepos(snapshot, deliverableContentLoader);
   const skillsFamily = createSkillsMemoryRepos(snapshot);
+  const missionFamily = createMissionMemoryRepos();
 
   const seed: MemoryRepositorySeed = {
     employees(rows) {
@@ -121,6 +131,7 @@ export function createMemoryRepositories(
     ...agentRunsFamily,
     ...deliverablesFamily,
     ...skillsFamily,
+    ...missionFamily,
     piMessages: createPiMessagesMemoryRepo(),
     // In-memory repos have no transactional boundary — every write is already
     // applied to the snapshot Map. asyncTransact is a passthrough so that

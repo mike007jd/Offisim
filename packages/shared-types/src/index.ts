@@ -233,6 +233,20 @@ export {
   DETERMINISTIC_TEST_CAPABILITIES,
 } from './runtime/index.js';
 export type {
+  Mission,
+  MissionStatus,
+  MissionCriterion,
+  MissionCriterionStatus,
+  MissionAttempt,
+  MissionAttemptTrigger,
+  MissionAttemptStatus,
+  MissionEvaluation,
+  MissionEvaluationVerdict,
+  RuntimeSessionLink,
+  RuntimeSessionLinkStatus,
+  MissionEvent,
+} from './mission/index.js';
+export type {
   BeatAffordance,
   BeatKind,
   DramaturgyConfig,

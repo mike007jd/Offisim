@@ -65,11 +65,13 @@ A unified `runtime_usage_events` / per-request `llm_calls` table is only revisit
 per-provider-request diagnostics become a real product need (PRD §21.2) — out of scope
 for M0.
 
-### D4 — Evaluation truth = `mission_evaluations` (declared, built in M2)
+### D4 — Evaluation truth = `mission_evaluation` (schema in MS-001, writer in M2)
 
-Mission criterion verdicts will live in a new `mission_evaluations` table owned by the
-Evaluator service (PRD §17.4, §20). It does **not** exist yet and has no writer/reader
-today; it is declared here so no surface is later wired to a self-graded agent claim.
+Mission criterion verdicts live in the `mission_evaluation` table owned by the Evaluator
+service (PRD §17.4, §20). The schema landed in MS-001 (migration 0003, alongside the rest
+of the Mission core data layer); it has no live writer/reader yet — the EvaluatorRegistry +
+MissionService wire it in M2. Declared here so no surface is later wired to a self-graded
+agent claim.
 Deterministic evaluator verdict — never the root agent's "I'm done" — decides PASS
 (PRD §5, App-A D-003).
 

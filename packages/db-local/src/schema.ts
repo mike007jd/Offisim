@@ -1116,3 +1116,127 @@ export const piMessages = sqliteTable(
   // lookups — no separate index needed.
   (table) => [uniqueIndex('pi_messages_thread_seq').on(table.thread_id, table.seq)],
 );
+
+// ---------------------------------------------------------------------------
+// Verified Missions core (PRD §17). Mission status/criteria truth lives here;
+// evaluation truth is `mission_evaluation` (ADR 2026-06-25-truth-closure D4).
+// ---------------------------------------------------------------------------
+
+export const mission = sqliteTable(
+  'mission',
+  {
+    mission_id: text('mission_id').primaryKey(),
+    company_id: text('company_id')
+      .notNull()
+      .references(() => companies.company_id, { onDelete: 'cascade' }),
+    project_id: text('project_id'),
+    thread_id: text('thread_id').notNull(),
+    title: text('title').notNull(),
+    goal: text('goal').notNull(),
+    status: text('status').notNull(),
+    runtime_id: text('runtime_id').notNull(),
+    runtime_policy_json: text('runtime_policy_json').notNull(),
+    budget_json: text('budget_json').notNull(),
+    expected_artifacts_json: text('expected_artifacts_json'),
+    current_attempt_id: text('current_attempt_id'),
+    created_at: text('created_at').notNull(),
+    updated_at: text('updated_at').notNull(),
+    completed_at: text('completed_at'),
+  },
+  (table) => [
+    index('idx_mission_company_time').on(table.company_id, table.created_at),
+    index('idx_mission_status').on(table.status),
+  ],
+);
+
+export const missionCriterion = sqliteTable(
+  'mission_criterion',
+  {
+    criterion_id: text('criterion_id').primaryKey(),
+    mission_id: text('mission_id')
+      .notNull()
+      .references(() => mission.mission_id, { onDelete: 'cascade' }),
+    description: text('description').notNull(),
+    evaluator_id: text('evaluator_id').notNull(),
+    evaluator_config_json: text('evaluator_config_json').notNull(),
+    required: integer('required').notNull().default(1),
+    order_index: integer('order_index').notNull().default(0),
+    status: text('status').notNull().default('pending'),
+    last_evaluation_id: text('last_evaluation_id'),
+  },
+  (table) => [index('idx_mission_criterion_mission_order').on(table.mission_id, table.order_index)],
+);
+
+export const missionAttempt = sqliteTable(
+  'mission_attempt',
+  {
+    attempt_id: text('attempt_id').primaryKey(),
+    mission_id: text('mission_id')
+      .notNull()
+      .references(() => mission.mission_id, { onDelete: 'cascade' }),
+    attempt_number: integer('attempt_number').notNull(),
+    root_run_id: text('root_run_id'),
+    runtime_session_link_id: text('runtime_session_link_id'),
+    trigger: text('trigger').notNull(),
+    status: text('status').notNull(),
+    failure_signature: text('failure_signature'),
+    started_at: text('started_at').notNull(),
+    finished_at: text('finished_at'),
+  },
+  (table) => [index('idx_mission_attempt_mission_number').on(table.mission_id, table.attempt_number)],
+);
+
+export const missionEvaluation = sqliteTable(
+  'mission_evaluation',
+  {
+    evaluation_id: text('evaluation_id').primaryKey(),
+    mission_id: text('mission_id')
+      .notNull()
+      .references(() => mission.mission_id, { onDelete: 'cascade' }),
+    criterion_id: text('criterion_id').notNull(),
+    attempt_id: text('attempt_id').notNull(),
+    evaluator_id: text('evaluator_id').notNull(),
+    verdict: text('verdict').notNull(),
+    summary: text('summary').notNull(),
+    evidence_refs_json: text('evidence_refs_json').notNull(),
+    duration_ms: integer('duration_ms'),
+    created_at: text('created_at').notNull(),
+  },
+  (table) => [
+    index('idx_mission_evaluation_mission_criterion').on(table.mission_id, table.criterion_id),
+    index('idx_mission_evaluation_attempt').on(table.attempt_id),
+  ],
+);
+
+export const runtimeSessionLink = sqliteTable(
+  'runtime_session_link',
+  {
+    runtime_session_link_id: text('runtime_session_link_id').primaryKey(),
+    mission_id: text('mission_id')
+      .notNull()
+      .references(() => mission.mission_id, { onDelete: 'cascade' }),
+    runtime_id: text('runtime_id').notNull(),
+    runtime_version: text('runtime_version'),
+    opaque_session_ref_json: text('opaque_session_ref_json').notNull(),
+    compatibility_hash: text('compatibility_hash'),
+    workspace_lease_id: text('workspace_lease_id'),
+    last_safe_boundary: text('last_safe_boundary'),
+    status: text('status').notNull(),
+  },
+  (table) => [index('idx_runtime_session_link_mission').on(table.mission_id)],
+);
+
+export const missionEvent = sqliteTable(
+  'mission_event',
+  {
+    mission_event_id: text('mission_event_id').primaryKey(),
+    mission_id: text('mission_id')
+      .notNull()
+      .references(() => mission.mission_id, { onDelete: 'cascade' }),
+    attempt_id: text('attempt_id'),
+    type: text('type').notNull(),
+    data_json: text('data_json').notNull(),
+    created_at: text('created_at').notNull(),
+  },
+  (table) => [index('idx_mission_event_mission_time').on(table.mission_id, table.created_at)],
+);

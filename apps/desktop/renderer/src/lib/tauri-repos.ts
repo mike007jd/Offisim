@@ -14,6 +14,7 @@ import { createFilesTauriRepos } from './tauri-repos/files';
 import { createInstallTauriRepos } from './tauri-repos/install';
 import { createLlmTauriRepos } from './tauri-repos/llm';
 import { createMemorySystemTauriRepos } from './tauri-repos/memory-system';
+import { createMissionTauriRepos } from './tauri-repos/mission';
 import { createOrchestrationTauriRepos } from './tauri-repos/orchestration';
 import { createPermissionsTauriRepos } from './tauri-repos/permissions';
 import { createPiMessagesTauriRepos } from './tauri-repos/pi-messages';
@@ -50,6 +51,7 @@ export function createTauriRepositories(
     ...createAgentRunsTauriRepos(db),
     ...createDeliverablesTauriRepos(db),
     ...createSkillsTauriRepos(db),
+    ...createMissionTauriRepos(db),
     ...createPiMessagesTauriRepos(db),
     // Real atomic transactions on desktop: every drizzle .run() inside fn() is
     // queued and committed atomically via `local_db_execute_transaction`. The
