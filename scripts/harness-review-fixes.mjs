@@ -98,8 +98,8 @@ assertNoMatch(
 const desktopRuntime = await source('apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts');
 assertIncludesAll(
   desktopRuntime,
-  ["invoke('pi_agent_execute'", "invoke('pi_agent_abort'", "nodeName: 'pi_agent'"],
-  'DesktopAgentRuntime must be a thin Pi Agent host client.',
+  ["invoke('agent_runtime_execute'", "invoke('agent_runtime_abort'", "nodeName: 'pi_agent'"],
+  'DesktopAgentRuntime must be a thin runtime-gateway host client (generic agent_runtime_* commands, RD-002/003/004).',
 );
 assertNoMatch(
   desktopRuntime,
@@ -108,7 +108,7 @@ assertNoMatch(
 );
 assertIncludesAll(
   desktopRuntime,
-  ['answerUiRequest(answer: AgentUiAnswer): Promise<void>', "await invoke('pi_agent_ui_response'"],
+  ['answerUiRequest(answer: AgentUiAnswer): Promise<void>', "await invoke('agent_runtime_answer'"],
   'Agent UI answers must be awaited and failures surfaced to the approval bar.',
 );
 const answerUiRequestStart = desktopRuntime.indexOf('async answerUiRequest');
