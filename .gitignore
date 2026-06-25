@@ -37,6 +37,7 @@ blob-report/
 output/
 output/playwright/
 test-loop/
+test-loop-s*/
 apps/web/output/
 apps/*/dist/
 packages/*/dist/

@@ -44,7 +44,11 @@
     "format": "biome format --write .",
     "clean": "turbo run clean && rm -rf node_modules",
     "release:run": "node scripts/run-clean-release.mjs",
-    "check:deadcode": "knip"
+    "check:deadcode": "knip",
+    "qa:loop": "node scripts/run-functional-test-loop.mjs",
+    "harness:live-agent-run": "node scripts/harness-live-agent-run.mjs",
+    "harness:live-auto-gate": "node scripts/harness-live-auto-gate.mjs",
+    "harness:live-ask-gate": "node scripts/harness-live-ask-gate.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.0",
