@@ -294,7 +294,7 @@ export { Logger, setLogHandler, resetLogHandler } from './services/logger.js';
 // --- Utilities ---
 export { extractJsonFromLlm } from './utils/extract-json.js';
 export { generateId } from './utils/generate-id.js';
-export { globToRegex, matchCostRate } from './utils/glob-match.js';
+export { globToRegex, globToRegexPath, matchCostRate } from './utils/glob-match.js';
 
 // --- Errors ---
 export { OffisimError, LlmError, GraphError, DataError } from './errors.js';
@@ -402,3 +402,20 @@ export type {
   NewSkill,
   SkillUpdate,
 } from './runtime/repositories.js';
+
+// --- Mission Evaluators (PRD §20 — deterministic acceptance checks) ---
+// Pure logic over an injected capability context (no node fs/shell/git), so
+// browser-safe. Consumed by MS-004 (loop controller) + the evaluator harness.
+export type {
+  EvaluationContext,
+  EvaluationResult,
+  EvaluationVerdict,
+  MissionEvaluator,
+  EvaluatorRegistry,
+} from './runtime/mission/evaluators/index.js';
+export {
+  createEvaluatorRegistry,
+  createDefaultEvaluatorRegistry,
+  UnknownEvaluatorError,
+  BUILTIN_EVALUATORS,
+} from './runtime/mission/evaluators/index.js';

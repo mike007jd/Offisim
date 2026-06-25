@@ -34,6 +34,41 @@ export function globToRegex(pattern: string, options?: { caseSensitive?: boolean
 }
 
 /**
+ * Convert a PATH glob to a RegExp with SEGMENT-AWARE wildcards. Unlike
+ * {@link globToRegex} (whose greedy `*` → `.*` crosses every char including
+ * `/`), this scopes a single `*` to one path segment:
+ *
+ *  - `**` → `.*`     (matches across `/` — any number of segments)
+ *  - `*`  → `[^/]*`  (matches within ONE segment — never crosses `/`)
+ *  - `?`  → `.`
+ *  - every other regex metachar is escaped
+ *
+ * This is the correct matcher for a path-policy gate: `docs/*.md` must match
+ * `docs/foo.md` but NOT `docs/sub/foo.md` (a single star is one directory
+ * level). Using the greedy {@link globToRegex} there would silently widen the
+ * policy. Mirrors the segment semantics the `glob` search builtin
+ * (search-tools.ts) keeps for its own path patterns. Default case-insensitive.
+ */
+export function globToRegexPath(pattern: string, options?: { caseSensitive?: boolean }): RegExp {
+  const parts: string[] = ['^'];
+  for (let index = 0; index < pattern.length; index += 1) {
+    const char = pattern.charAt(index);
+    if (char === '*' && pattern.charAt(index + 1) === '*') {
+      parts.push('.*');
+      index += 1;
+    } else if (char === '*') {
+      parts.push('[^/]*');
+    } else if (char === '?') {
+      parts.push('.');
+    } else {
+      parts.push(char.replace(/[.+^${}()|[\]\\]/u, '\\$&'));
+    }
+  }
+  parts.push('$');
+  return new RegExp(parts.join(''), options?.caseSensitive ? 'u' : 'iu');
+}
+
+/**
  * Find the best-matching cost rate from an array, using glob pattern matching
  * on `model_pattern`. Returns the most specific match (longest pattern string)
  * or null if nothing matches.
