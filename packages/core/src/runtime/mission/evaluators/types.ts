@@ -80,8 +80,24 @@ export interface EvaluationContext {
   runCommand(
     command: string,
   ): Promise<{ exitCode: number; stdout: string; stderr: string; classifierBlocked?: boolean }>;
-  /** Paths changed in the working tree, relative to the workspace root. */
-  gitChangedPaths(): Promise<string[]>;
+  /**
+   * Paths changed in the working tree, relative to the workspace root.
+   *
+   * The empty array and a capability failure are DISTINCT outcomes and must not
+   * be conflated (a `[]`-means-clean read would make a `git_diff_policy`
+   * criterion falsely PASS when git is simply unavailable):
+   *   - `null`        → the capability could NOT serve the request (no bound
+   *                     project, git unavailable, or a non-git workspace). The
+   *                     evaluator maps this to ERROR — the diff is unknowable,
+   *                     never "clean".
+   *   - `[]`          → the read SUCCEEDED and the working tree is genuinely
+   *                     clean (no changes). This is a real PASS for a policy gate.
+   *   - non-empty arr → the read succeeded and these paths changed.
+   *
+   * Scope note: this reflects only UNCOMMITTED working-tree changes (the known
+   * boundary). A committed-baseline diff is Tier C, out of scope here.
+   */
+  gitChangedPaths(): Promise<string[] | null>;
   /** Artifacts published for this mission/attempt. */
   listArtifacts(): Promise<Array<{ kind: string; title: string; contentHash: string }>>;
   /**

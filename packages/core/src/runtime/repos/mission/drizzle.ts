@@ -81,7 +81,22 @@ export function createMissionDrizzleRepos(db: Db): MissionDrizzleRepos {
       const set: Partial<MissionRow> = { status: patch.status, updated_at: patch.updatedAt };
       if (patch.currentAttemptId !== undefined) set.current_attempt_id = patch.currentAttemptId;
       if (patch.completedAt !== undefined) set.completed_at = patch.completedAt;
-      db.update(schema.mission).set(set).where(eq(schema.mission.mission_id, missionId)).run();
+      // A4 compare-and-swap: when `expectedStatus` is set, add it to the WHERE so
+      // a concurrent status change makes this a no-op. `result.changes` is the
+      // authoritative count of rows matched-and-updated.
+      const result = db
+        .update(schema.mission)
+        .set(set)
+        .where(
+          and(
+            eq(schema.mission.mission_id, missionId),
+            patch.expectedStatus !== undefined
+              ? eq(schema.mission.status, patch.expectedStatus)
+              : undefined,
+          ),
+        )
+        .run();
+      return result.changes > 0;
     },
   };
 

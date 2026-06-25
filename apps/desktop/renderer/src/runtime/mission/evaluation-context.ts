@@ -195,19 +195,31 @@ export function createTauriEvaluationContext(input: TauriEvaluationContextInput)
       }
     },
 
-    async gitChangedPaths(): Promise<string[]> {
-      if (!projectId) return [];
+    async gitChangedPaths(): Promise<string[] | null> {
+      // Capability failure (no project, git_exec not ok, or a thrown invoke)
+      // returns the `null` sentinel — NOT `[]`. The empty array is reserved for
+      // a SUCCESSFUL read of a genuinely clean working tree; conflating the two
+      // would let `git_diff_policy` falsely PASS when git is merely unavailable.
+      // The evaluator maps `null` → ERROR (the diff is unknowable).
+      if (!projectId) return null;
       try {
         const result = await tauriInvoke<GitExecResult>('git_exec', {
           projectId,
           args: ['status', '--porcelain'],
           cwd: null,
         });
-        if (!result.ok) return [];
+        // git_exec failed (non-git workspace, git missing, repo error) — the
+        // changed set is unknowable, not empty.
+        if (!result.ok) return null;
+        // Success: porcelain covers only UNCOMMITTED working-tree changes (the
+        // known boundary). `[]` here means the tree is truly clean — a real
+        // outcome the evaluator treats as "no policy violation". A
+        // committed-baseline diff is Tier C and out of scope.
         return parsePorcelainPaths(result.stdout);
       } catch {
-        // Non-git workspace / git unavailable — no changed paths to report.
-        return [];
+        // Thrown invoke (git unavailable, classifier reject, etc.) — capability
+        // failure, so report `null` (unknowable), never `[]` (false-clean).
+        return null;
       }
     },
 

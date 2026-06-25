@@ -314,6 +314,27 @@ class MissionLoopControllerImpl implements MissionLoopController {
     const allCriteria = await this.loadControllerCriteria(missionId);
     const requiredCriteria = allCriteria.filter((c) => c.required);
 
+    // §18.1 A1: a mission with zero REQUIRED criteria must NEVER run to a vacuous
+    // completion. With no required criteria, `outcomes.every(PASS)` over an empty
+    // set is `true`, so the first attempt would "complete" having verified
+    // nothing. Refuse to enter the loop and block the mission with an explicit
+    // reason instead of relying on `[].every()`. (MissionService.createMission
+    // already rejects this up front; this is the loop's defense-in-depth so a
+    // mission that somehow reached `ready` un-gateable is parked, not falsely
+    // completed.)
+    if (requiredCriteria.length === 0) {
+      const missionRow = await svc.getMission(missionId);
+      // Only block from a state where `→ blocked` is a legal edge; a mission in
+      // draft/ready cannot transition straight to blocked, so we surface a hard
+      // error there. In the controller's actual entry contract the mission is in
+      // `ready`, so we report the un-gateable mission as a thrown invariant.
+      throw new MissionStateError(
+        'invariant_violation',
+        `Mission ${missionId} has zero required criteria — refusing to run a loop that would complete vacuously (§18.1). Status: ${missionRow.status}`,
+        { missionId },
+      );
+    }
+
     for (;;) {
       // §19.2 human cancel: a mission already cancelled aborts the loop. Cancel
       // is legal from any non-terminal state, and this short-circuits WITHOUT a
