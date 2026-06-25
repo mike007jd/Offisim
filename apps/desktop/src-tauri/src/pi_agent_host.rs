@@ -140,6 +140,12 @@ pub struct PiAgentHostResponse {
     session_file: Option<String>,
     #[serde(default)]
     model: Option<PiModelSummary>,
+    // Root-session token/cost usage (the Node host's `rootUsage` on the result
+    // line). Carried through as an opaque JSON object so the renderer can record
+    // it on the root agent_runs row — without this field serde silently drops it
+    // at the IPC boundary and solo-run usage_json stays null (the VM-003 path).
+    #[serde(default)]
+    usage: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -843,8 +849,12 @@ async fn do_execute<R: tauri::Runtime>(
     Ok(response)
 }
 
-#[tauri::command]
-pub async fn pi_agent_execute(
+/// Shared execute impl. Both the back-compat `pi_agent_execute` shim and the
+/// agent-agnostic `agent_runtime_execute` gateway command call this verbatim, so
+/// the generic command forwards to the identical Pi lane (same request/response
+/// types, same Channel, same IN_FLIGHT registration). No behavior diverges by
+/// entry point.
+async fn execute_impl(
     app: AppHandle,
     req: PiAgentExecuteRequest,
     on_event: Channel<PiAgentHostEvent>,
@@ -862,6 +872,7 @@ pub async fn pi_agent_execute(
             session_id: None,
             session_file: None,
             model: None,
+            usage: None,
         }),
         Err(error) => {
             let (code, message) = error.into_code_message(PI_LANE);
@@ -874,12 +885,48 @@ pub async fn pi_agent_execute(
     }
 }
 
-#[tauri::command]
-pub fn pi_agent_abort(request_id: String) -> Result<(), String> {
+/// Shared abort impl. Cancels the in-flight token for `request_id` (a missing id
+/// means the run already ended — not an error). Both `pi_agent_abort` and
+/// `agent_runtime_abort` call this.
+fn abort_impl(request_id: String) -> Result<(), String> {
     if let Some(token) = IN_FLIGHT.pluck(&request_id) {
         token.cancel();
     }
     Ok(())
+}
+
+#[tauri::command]
+pub async fn pi_agent_execute(
+    app: AppHandle,
+    req: PiAgentExecuteRequest,
+    on_event: Channel<PiAgentHostEvent>,
+) -> Result<PiAgentHostResponse, String> {
+    execute_impl(app, req, on_event).await
+}
+
+/// Agent-agnostic gateway command. Forwards verbatim to the Pi lane via
+/// `execute_impl` — the renderer's runtime-neutral DesktopAgentRuntime calls this
+/// instead of `pi_agent_execute`; the Pi-specific types ride in the host/driver.
+#[tauri::command]
+pub async fn agent_runtime_execute(
+    app: AppHandle,
+    req: PiAgentExecuteRequest,
+    on_event: Channel<PiAgentHostEvent>,
+) -> Result<PiAgentHostResponse, String> {
+    execute_impl(app, req, on_event).await
+}
+
+// agent_runtime_resume: deferred to M4 Durable recovery (no Pi resume lane yet)
+
+#[tauri::command]
+pub fn pi_agent_abort(request_id: String) -> Result<(), String> {
+    abort_impl(request_id)
+}
+
+/// Agent-agnostic gateway abort. Forwards verbatim to `abort_impl`.
+#[tauri::command]
+pub fn agent_runtime_abort(request_id: String) -> Result<(), String> {
+    abort_impl(request_id)
 }
 
 /// The renderer→host answer to a paused `uiRequest` (Ask mode). Mirrors Pi RPC's
@@ -901,12 +948,13 @@ struct PiUiResponse {
     cancelled: Option<bool>,
 }
 
-/// Ask mode: deliver the user's answer to a paused Pi extension-UI prompt back to
-/// the running host by writing a one-line response to its stdin. `request_id`
-/// locates the run; `id` matches the host's `uiRequest`. A missing request id
-/// means the run already ended (the answer is moot) — not an error.
-#[tauri::command]
-pub async fn pi_agent_ui_response(
+/// Shared interaction-answer impl. Ask mode: deliver the user's answer to a
+/// paused Pi extension-UI prompt back to the running host by writing a one-line
+/// response to its stdin. `request_id` locates the run; `id` matches the host's
+/// `uiRequest`. A missing request id means the run already ended (the answer is
+/// moot) — not an error. Both `pi_agent_ui_response` (back-compat) and
+/// `agent_runtime_answer` (gateway) call this verbatim.
+async fn ui_response_impl(
     request_id: String,
     id: String,
     confirmed: Option<bool>,
@@ -936,6 +984,31 @@ pub async fn pi_agent_ui_response(
         .await
         .map_err(|err| format!("Flush Pi UI response: {err}"))?;
     Ok(())
+}
+
+#[tauri::command]
+pub async fn pi_agent_ui_response(
+    request_id: String,
+    id: String,
+    confirmed: Option<bool>,
+    value: Option<String>,
+    cancelled: Option<bool>,
+) -> Result<(), String> {
+    ui_response_impl(request_id, id, confirmed, value, cancelled).await
+}
+
+/// Agent-agnostic gateway: the generic name for an interaction answer. Forwards
+/// verbatim to `ui_response_impl` — the runtime-neutral DesktopAgentRuntime calls
+/// this instead of `pi_agent_ui_response`.
+#[tauri::command]
+pub async fn agent_runtime_answer(
+    request_id: String,
+    id: String,
+    confirmed: Option<bool>,
+    value: Option<String>,
+    cancelled: Option<bool>,
+) -> Result<(), String> {
+    ui_response_impl(request_id, id, confirmed, value, cancelled).await
 }
 
 #[tauri::command]
@@ -976,8 +1049,9 @@ pub async fn pi_agent_open_config_folder(app: AppHandle) -> Result<(), String> {
     }
 }
 
-#[tauri::command]
-pub async fn pi_agent_status(app: AppHandle) -> Result<PiAgentStatusResponse, String> {
+/// Shared status impl. Both `pi_agent_status` (back-compat + the Pi settings
+/// pane) and `agent_runtime_status` (gateway) call this verbatim.
+async fn status_impl(app: AppHandle) -> Result<PiAgentStatusResponse, String> {
     let dev_root = dev_workspace_root();
     let script_path = sidecar_script_path(&app, dev_root.as_ref(), PI_LANE)
         .map_err(|err| err.into_code_message(PI_LANE).1)?;
@@ -1001,6 +1075,17 @@ pub async fn pi_agent_status(app: AppHandle) -> Result<PiAgentStatusResponse, St
     .await
     .map_err(|err| err.into_code_message(PI_LANE).1)?;
     parse_status(response).map_err(|err| err.into_code_message(PI_LANE).1)
+}
+
+#[tauri::command]
+pub async fn pi_agent_status(app: AppHandle) -> Result<PiAgentStatusResponse, String> {
+    status_impl(app).await
+}
+
+/// Agent-agnostic gateway status. Forwards verbatim to `status_impl`.
+#[tauri::command]
+pub async fn agent_runtime_status(app: AppHandle) -> Result<PiAgentStatusResponse, String> {
+    status_impl(app).await
 }
 
 #[cfg(test)]
@@ -1032,6 +1117,28 @@ mod tests {
         let err = resolved_request_cwd(Some(outside.to_string_lossy().as_ref()), &root, PI_LANE)
             .expect_err("outside cwd should fail");
         assert!(matches!(err, HostError::Request(message) if message.contains("outside")));
+    }
+
+    // Root-usage passthrough: the Node host puts `usage` on the result-line response;
+    // PiAgentHostResponse must carry it through parse + re-serialize, or solo-run
+    // usage_json stays null at the renderer (the field would be silently dropped by
+    // serde at the IPC boundary). Regression guard for the VM-003 root-usage path.
+    #[test]
+    fn pi_response_preserves_root_usage() {
+        let value = serde_json::json!({
+            "text": "done",
+            "usage": { "input": 10, "output": 5, "cost": 0.001, "turns": 1 }
+        });
+        let response = parse_response(value).expect("decode response with usage");
+        let usage = response
+            .usage
+            .as_ref()
+            .expect("usage must survive parse, not be dropped");
+        assert_eq!(usage["input"], serde_json::json!(10));
+        assert_eq!(usage["output"], serde_json::json!(5));
+        // And it must re-serialize back out to the renderer as camelCase `usage`.
+        let back = serde_json::to_value(&response).expect("re-serialize");
+        assert_eq!(back["usage"]["turns"], serde_json::json!(1));
     }
 
     // Wire-contract guards. The Node host (scripts/tauri-pi-agent-host.entry.mjs) emits
