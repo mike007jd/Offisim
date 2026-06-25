@@ -271,8 +271,19 @@ export {
   BEAT_PRIORITY,
   DEFAULT_TIMING,
   DRAMATURGY_VERSION,
+  beatLifespanMs,
   composeBeats,
 } from './dramaturgy/beat-composer.js';
+export type {
+  MissionBeatPhase,
+  MissionBeatProjection,
+  MissionLifecycleEvent,
+  MissionLifecycleKind,
+} from './dramaturgy/mission-projection.js';
+export {
+  projectMissionEventToBeat,
+  projectMissionEvents,
+} from './dramaturgy/mission-projection.js';
 export type {
   ActorStaging,
   InteractionAnchor,

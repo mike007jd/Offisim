@@ -433,6 +433,56 @@
 }
 
 /* Diegetic cost readout */
+/* Mission-phase pill (M3 UX-007, PRD §24.4): a static, animation-free label of
+   the current mission meaning, in the bottom-left stage lane (mirrors the
+   cost readout on the right). It is the reduced-motion / screen-reader semantic
+   surface — no motion, never an actor, never owns mission state. */
+.off-mission-phase {
+  --off-mp-h: 26px;
+  position: absolute;
+  left: var(--off-sp-7);
+  bottom: calc((var(--off-stage-lane) - var(--off-mp-h)) / 2);
+  z-index: var(--off-z-float);
+  height: var(--off-mp-h);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+  max-width: 320px;
+  padding: 0 var(--off-sp-4);
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-pill);
+  background: var(--off-surface-glass-weak);
+  backdrop-filter: blur(var(--off-blur-sm));
+  box-shadow: var(--off-elev-1);
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-meta);
+  font-weight: 580;
+  white-space: nowrap;
+}
+
+.off-mission-phase > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Phase tone: verification/completion read calm-accent; approval/failure read
+   attention. Color only — no animation (reduced-motion safe). */
+.off-mission-phase.is-verification,
+.off-mission-phase.is-planning,
+.off-mission-phase.is-completion {
+  border-color: var(--off-accent-ring);
+}
+
+.off-mission-phase.is-approval {
+  border-color: var(--off-warn-line);
+  color: var(--off-ink-1);
+}
+
+.off-mission-phase.is-failure {
+  border-color: var(--off-danger-line);
+  color: var(--off-ink-1);
+}
+
 .off-scene-cost {
   /* Readout pill height, shared with the lane-centering calc below so the
      pill can never drift off-center in the bottom stage lane. */

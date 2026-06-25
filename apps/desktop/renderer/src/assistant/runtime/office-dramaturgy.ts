@@ -10,13 +10,20 @@
  * The model never authors any of this — it is pure derivation from the same
  * facts the run tree is built from.
  */
+import {
+  MISSION_EVALUATION_SUBMITTED_EVENT,
+  type MissionEvaluationSubmittedPayload,
+} from '@/runtime/mission/mission-events.js';
 import { runtimeEventBus } from '@/runtime/repos.js';
 import {
   type AgentRunEvent,
   DRAMATURGY_VERSION,
+  type MissionBeatProjection,
+  type RuntimeEvent,
   type SceneBeat,
   type TimedAgentRunEvent,
   composeBeats,
+  projectMissionEventToBeat,
 } from '@offisim/shared-types';
 import { useMemo, useSyncExternalStore } from 'react';
 
@@ -109,6 +116,138 @@ const officeDramaturgyStore = {
     return beats.length > 0 ? beats : EMPTY_BEATS;
   },
 };
+
+// ── Mission beat source (M3 UX-007, PRD §24.4) ──────────────────────────────
+//
+// The Office Theater is a READ-ONLY projection of neutral events. Mission
+// lifecycle signals are projected onto the SAME beat vocabulary via the pure
+// `projectMissionEventToBeat`, then exposed as one more input the office can
+// surface (e.g. a verification phase label) — WITHOUT changing how the office
+// owns/renders the per-employee staging. The projector never writes mission
+// state; this store only buffers the projected beats.
+//
+// Today the one mission signal already on the renderer bus is
+// `mission.evaluation.submitted` (the agent's submit_for_evaluation → a
+// verification beat). The remaining mission STATUS transitions
+// (running / verifying / failed / completed / awaiting_user) are written to the
+// `mission_events` DB table by the core MissionService but are NOT yet broadcast
+// onto the renderer runtimeEventBus — broadcasting them (and the per-actor visual
+// staging of mission-level beats) is the per-release Computer-Use M-pass, not this
+// deterministic slice. When those transitions reach the bus, projecting them is a
+// one-line addition to this same subscription (the projector already maps every
+// kind). This subscription is additive: with no mission events, every buffer
+// stays empty and the office is byte-identical to before.
+const missionBuffers = new Map<string, MissionBeatProjection[]>();
+const missionListeners = new Set<() => void>();
+let missionVersion = 0;
+let missionExpiryTimer: ReturnType<typeof setTimeout> | null = null;
+const EMPTY_MISSION_BEATS: readonly MissionBeatProjection[] = Object.freeze([]);
+
+function notifyMission(): void {
+  missionVersion += 1;
+  for (const listener of missionListeners) listener();
+}
+
+/**
+ * Mirror of the agent-run {@link scheduleExpiry}: arm a single timer at the
+ * soonest future mission-beat expiry across all companies, so the phase pill
+ * disappears WHEN its beat's TTL elapses — without waiting for an unrelated
+ * runtime event. On fire it re-notifies (recomputing `beatsForCompany`, which
+ * filters the now-expired projection out) and reschedules. Only arms when a
+ * mission buffer is non-empty, so a no-mission session never sets a timer.
+ */
+function scheduleMissionExpiry(): void {
+  if (missionExpiryTimer !== null) {
+    clearTimeout(missionExpiryTimer);
+    missionExpiryTimer = null;
+  }
+  const now = Date.now();
+  let next = Number.POSITIVE_INFINITY;
+  for (const projections of missionBuffers.values()) {
+    for (const projection of projections) {
+      const endsAt = projection.beat.lifecycle.endsAt;
+      if (endsAt > now && endsAt < next) next = endsAt;
+    }
+  }
+  if (next !== Number.POSITIVE_INFINITY) {
+    missionExpiryTimer = setTimeout(
+      () => {
+        missionExpiryTimer = null;
+        notifyMission();
+        scheduleMissionExpiry();
+      },
+      Math.max(0, next - now),
+    );
+  }
+}
+
+runtimeEventBus.on(
+  MISSION_EVALUATION_SUBMITTED_EVENT,
+  (event: RuntimeEvent<MissionEvaluationSubmittedPayload>) => {
+    if (!event.companyId || !event.threadId) return;
+    const now = event.timestamp;
+    // submit_for_evaluation → a verification beat (the agent signaled a criterion
+    // ready; the deterministic evaluator over the real workspace is still the
+    // truth, §5 — this beat is presentation only). The submit payload carries the
+    // attempt's rootRunId, not the canonical missionId, so we scope the beat by
+    // rootRunId (a stable per-attempt key for the verification phase label).
+    const attemptRootRunId = event.payload.rootRunId;
+    const projected = projectMissionEventToBeat({
+      kind: 'mission.evaluation.submitted',
+      missionId: attemptRootRunId,
+      threadId: event.threadId,
+      rootRunId: attemptRootRunId,
+      at: now,
+    });
+    if (!projected) return;
+    const prior = missionBuffers.get(event.companyId) ?? [];
+    const next = [...prior, projected]
+      .filter((p) => now - p.beat.at <= MAX_AGE_MS)
+      .slice(-MAX_EVENTS_PER_COMPANY);
+    missionBuffers.set(event.companyId, next);
+    notifyMission();
+    scheduleMissionExpiry();
+  },
+);
+
+const missionDramaturgyStore = {
+  subscribe(listener: () => void): () => void {
+    missionListeners.add(listener);
+    return () => {
+      missionListeners.delete(listener);
+    };
+  },
+  getVersion(): number {
+    return missionVersion;
+  },
+  beatsForCompany(companyId: string): readonly MissionBeatProjection[] {
+    const projected = missionBuffers.get(companyId);
+    if (!projected || projected.length === 0) return EMPTY_MISSION_BEATS;
+    // Drop projections whose beat lifetime has elapsed so a stale phase label
+    // does not linger (the shared per-kind TTL, same as the agent-run beats).
+    const now = Date.now();
+    const live = projected.filter((p) => p.beat.lifecycle.endsAt > now);
+    return live.length > 0 ? live : EMPTY_MISSION_BEATS;
+  },
+};
+
+/**
+ * Live mission-beat projections for the active company's office (empty when no
+ * mission is signaling). READ-ONLY: each projection carries its `semanticLabel`
+ * + `phase` so reduced-motion / screen readers convey the meaning (planning /
+ * verification / failure / completion) without any animation (§24.4 / §29).
+ */
+export function useMissionBeats(companyId: string | null): readonly MissionBeatProjection[] {
+  const version = useSyncExternalStore(
+    missionDramaturgyStore.subscribe,
+    missionDramaturgyStore.getVersion,
+    missionDramaturgyStore.getVersion,
+  );
+  return useMemo(
+    () => (companyId ? missionDramaturgyStore.beatsForCompany(companyId) : EMPTY_MISSION_BEATS),
+    [companyId, version],
+  );
+}
 
 /** Tracks the OS "reduce motion" accessibility setting (suppresses relocation). */
 export function usePrefersReducedMotion(): boolean {

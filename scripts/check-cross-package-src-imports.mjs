@@ -56,6 +56,7 @@ const ALLOWLIST = new Set([
   'scripts/harness-beat-composer.mts::../packages/shared-types/src/index.js',
   'scripts/harness-scene-staging.mts::../packages/shared-types/src/index.js',
   'scripts/harness-office-projection.mts::../packages/shared-types/src/index.js',
+  'scripts/harness-mission-office-projection.mts::../packages/shared-types/src/index.js',
   'scripts/harness-dramaturgy-modes.mts::../packages/shared-types/src/index.js',
   'scripts/harness-dramaturgy-stress.mts::../packages/shared-types/src/index.js',
   'scripts/harness-mission-service.mts::../packages/core/src/runtime/repos/mission/memory.ts',

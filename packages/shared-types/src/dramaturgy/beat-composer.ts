@@ -85,7 +85,7 @@ export interface SceneBeat {
  * persist until resolved by a later event — a long finite TTL, not infinity, so
  * the value JSON-serializes for deterministic replay.
  */
-function beatLifespanMs(kind: BeatKind): number {
+export function beatLifespanMs(kind: BeatKind): number {
   switch (kind) {
     case 'approval':
     case 'failure':
