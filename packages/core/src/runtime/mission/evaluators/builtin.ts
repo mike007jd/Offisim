@@ -304,6 +304,17 @@ const gitDiffPolicy: MissionEvaluator = {
       };
     }
     const changed = await ctx.gitChangedPaths();
+    if (changed === null) {
+      // The git capability could NOT serve the diff (no bound project, git
+      // unavailable, or a non-git workspace). `[]`-means-clean would falsely
+      // PASS this gate, so a `null` is an ERROR (the diff is unknowable) — never
+      // a PASS or FAIL. (`[]` is a distinct, real "clean tree" → handled below.)
+      return {
+        verdict: 'ERROR',
+        summary: 'git_diff_policy could not evaluate: git capability unavailable (no diff)',
+        evidenceRefs: ['git:unavailable'],
+      };
+    }
     // Path globs MUST be segment-aware: a single `*` is one directory level
     // (`docs/*.md` allows `docs/foo.md`, NOT `docs/sub/foo.md`); `**` crosses
     // segments. Using the greedy globToRegex here would silently widen the gate.

@@ -456,7 +456,7 @@ export class CompanyTemplateService {
   /**
    * Create one zone-level workstation per occupied home zone and point each
    * employee's `workstation_id` at it. Skips silently if no workstation repo is
-   * wired (the employee still has no seat, matching the prior behavior).
+   * configured (the employee still has no seat, matching the prior behavior).
    */
   private async assignHomeWorkstations(
     companyId: string,

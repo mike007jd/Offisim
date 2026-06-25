@@ -57,9 +57,14 @@ export class MemoryMissionRepository implements MissionRepository {
       .map((r) => ({ ...r }));
   }
 
-  async updateStatus(missionId: string, patch: MissionStatusUpdate): Promise<void> {
+  async updateStatus(missionId: string, patch: MissionStatusUpdate): Promise<boolean> {
     const row = this.store.get(missionId);
-    if (!row) return;
+    if (!row) return false;
+    // A4 compare-and-swap: a guarded write whose expected status no longer
+    // matches is a no-op (a concurrent transition already moved the row).
+    if (patch.expectedStatus !== undefined && row.status !== patch.expectedStatus) {
+      return false;
+    }
     this.store.set(missionId, {
       ...row,
       status: patch.status,
@@ -68,6 +73,7 @@ export class MemoryMissionRepository implements MissionRepository {
         patch.currentAttemptId !== undefined ? patch.currentAttemptId : row.current_attempt_id,
       completed_at: patch.completedAt !== undefined ? patch.completedAt : row.completed_at,
     });
+    return true;
   }
 }
 

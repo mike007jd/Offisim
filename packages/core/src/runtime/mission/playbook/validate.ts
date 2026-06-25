@@ -38,6 +38,7 @@
 import type { MissionPlaybook } from '@offisim/shared-types';
 import type { RuntimeCapabilities } from '@offisim/shared-types';
 import type { EvaluatorRegistry } from '../evaluators/registry.js';
+import { EVALUATOR_RETRY_SAFETY } from '../recovery/retry-safety.js';
 
 // ---------------------------------------------------------------------------
 // PB-002 capability keys — the flattened, AUDITABLE set of RuntimeCapabilities
@@ -171,6 +172,8 @@ export type PlaybookValidationCode =
   | 'structure'
   | 'incompatible'
   | 'unregistered_evaluator'
+  | 'untrusted_evaluator'
+  | 'no_required_criterion'
   | 'forbidden_content';
 
 /** A single validation failure. `path` locates the offending value. */
@@ -190,6 +193,29 @@ export interface ValidatePlaybookOptions {
    * "is a known key" check (PB-002) runs.
    */
   readonly runtimeCapabilities?: RuntimeCapabilities;
+  /**
+   * Whether the playbook comes from a TRUSTED source (a first-party / local
+   * playbook the user authored or shipped with the product). DEFAULT `false` —
+   * absence means UNTRUSTED, so the conservative gate below always runs unless a
+   * caller has an affirmative reason to opt out.
+   *
+   * The B1 marketplace safety boundary (§25.2-adjacent): a Playbook installed from
+   * the Marketplace must NOT be able to make the runtime execute an arbitrary
+   * command or spend on a non-deterministic LLM reviewer simply by declaring a
+   * criterion. `command_exit_zero` runs an arbitrary command through
+   * `bash_execute` (`approvalId: null`) and `llm_rubric_review` calls a model;
+   * neither is retry-`safe` (see {@link EVALUATOR_RETRY_SAFETY}), and neither is
+   * appropriate for an asset whose author is not the user. When `!trustedSource`,
+   * every criterion's evaluator must be retry-`safe`; an `unknown`/unregistered-in-
+   * the-safety-table evaluator (e.g. `command_exit_zero`, `llm_rubric_review`) is
+   * rejected with `untrusted_evaluator`. A first-party playbook
+   * (`trustedSource: true`) keeps the full evaluator set — behavior unchanged.
+   *
+   * This is ADDITIVE to (not a replacement for) the §25.2 forbidden-content deep
+   * scan: that scan bans smuggled executable/install content under forbidden
+   * KEYS; this gate bans dangerous EVALUATORS even when declared legitimately.
+   */
+  readonly trustedSource?: boolean;
 }
 
 /**
@@ -474,6 +500,111 @@ function validateEvaluators(
 }
 
 // ---------------------------------------------------------------------------
+// §18.1 — at-least-one-required-gate check (validator/runtime consistency)
+// ---------------------------------------------------------------------------
+
+/**
+ * The EFFECTIVE `required` of a criterion — what {@link materializePlaybook}
+ * produces for `createMission`. This MUST stay byte-for-byte in sync with the
+ * default logic at `materialize.ts:117`:
+ *
+ *   required: criterion.required ?? criterion.evaluator !== 'llm_rubric_review'
+ *
+ * i.e. an explicit boolean wins; an ABSENT `required` defaults to a gate (`true`)
+ * for any deterministic evaluator but to advisory (`false`) for the
+ * non-deterministic `llm_rubric_review`. There is no shared helper to import
+ * (materialize.ts inlines this inside its `.map`), so it is MIRRORED here; if
+ * either side changes, the other must change with it — otherwise the validator
+ * and the runtime disagree about which criteria gate completion.
+ */
+function effectiveRequired(evaluator: string, required: unknown): boolean {
+  if (typeof required === 'boolean') return required;
+  return evaluator !== 'llm_rubric_review';
+}
+
+/**
+ * §18.1: a mission must gate on AT LEAST ONE required criterion, else completion
+ * verifies nothing. `createMission` ENFORCES this at runtime — it throws
+ * `invariant_violation` when `!input.criteria.some((c) => c.required)`
+ * (mission-service.ts). A playbook whose criteria all resolve to effective
+ * `required === false` (e.g. every criterion is `llm_rubric_review`, or every
+ * criterion sets `required: false`) would materialize into a zero-required
+ * `createMission` call and CRASH the runtime. Catch it here so the validator and
+ * the runtime agree: the validator must not pass a playbook the runtime will
+ * reject. The effective-required computation MIRRORS `materialize.ts:117` via
+ * {@link effectiveRequired}, so this gate fires on exactly the playbooks the
+ * runtime would.
+ */
+function validateRequiredGate(
+  playbook: Record<string, unknown>,
+  errors: PlaybookValidationError[],
+): void {
+  if (!Array.isArray(playbook.criteria) || playbook.criteria.length === 0) return; // structure already flagged.
+  const hasRequired = playbook.criteria.some((raw) => {
+    if (!isPlainObject(raw)) return false;
+    const evaluator = raw.evaluator;
+    if (typeof evaluator !== 'string' || evaluator.trim() === '') return false; // structure flagged.
+    return effectiveRequired(evaluator, raw.required);
+  });
+  if (!hasRequired) {
+    errors.push({
+      code: 'no_required_criterion',
+      message:
+        'a Playbook must have at least one REQUIRED criterion (§18.1): a mission that gates on nothing verifies nothing. Every criterion here resolves to required:false (e.g. all are llm_rubric_review, or all set required:false) — this would materialize into a zero-required createMission call and the runtime rejects it (invariant_violation). Make at least one deterministic criterion required',
+      path: 'criteria',
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// B1 — untrusted-source evaluator gate (marketplace safety boundary)
+// ---------------------------------------------------------------------------
+
+/**
+ * For an UNTRUSTED playbook (`!opts.trustedSource`), reject any criterion whose
+ * evaluator is not retry-`safe` per {@link EVALUATOR_RETRY_SAFETY}. The
+ * retry-safety table is the SINGLE source of truth for "is this evaluator a pure
+ * read of environment facts": `command_exit_zero` (runs an arbitrary command via
+ * `bash_execute`) and `llm_rubric_review` (calls a model, spends, is
+ * non-deterministic) are tagged `unknown` there — and an evaluator with no entry
+ * at all is treated as non-safe (conservative default). A Marketplace asset must
+ * not be able to execute commands or spend on a reviewer merely by declaring a
+ * criterion, so any non-`safe` evaluator is `untrusted_evaluator`.
+ *
+ * This is ADDITIVE to the §25.2 forbidden-content scan and to PB-003: the
+ * evaluator is still required to be a registered id with declarative config; this
+ * gate further restricts WHICH registered evaluators an untrusted source may use.
+ * A trusted (first-party / local) playbook skips this gate entirely — its full
+ * evaluator set, including `command_exit_zero`, stays available unchanged.
+ */
+function validateTrustedEvaluators(
+  playbook: Record<string, unknown>,
+  opts: ValidatePlaybookOptions,
+  errors: PlaybookValidationError[],
+): void {
+  if (opts.trustedSource === true) return; // first-party / local — full evaluator set allowed.
+  if (!Array.isArray(playbook.criteria)) return; // structure already flagged.
+  playbook.criteria.forEach((raw, index) => {
+    if (!isPlainObject(raw)) return;
+    const evaluator = raw.evaluator;
+    if (typeof evaluator !== 'string' || evaluator.trim() === '') return; // structure flagged.
+
+    // Not in the table → treated as non-safe (the `?? 'unknown'` conservative
+    // default). Anything that is not exactly 'safe' is rejected for an untrusted
+    // source — there is no `idempotent_with_key` evaluator, and even one would not
+    // belong in a marketplace asset.
+    const safety = EVALUATOR_RETRY_SAFETY[evaluator] ?? 'unknown';
+    if (safety !== 'safe') {
+      errors.push({
+        code: 'untrusted_evaluator',
+        message: `evaluator '${evaluator}' is not allowed in an untrusted (Marketplace) Playbook: it is '${safety}' (not retry-safe) — it would let an installed asset run an arbitrary command or spend on a non-deterministic reviewer. Only side-effect-free deterministic evaluators are permitted from an untrusted source (B1 / §25.2 marketplace boundary)`,
+        path: `criteria[${index}].evaluator`,
+      });
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Public entry
 // ---------------------------------------------------------------------------
 
@@ -486,9 +617,16 @@ function validateEvaluators(
  *
  * Guarantee on success: the playbook is pure declarative data that references
  * ONLY registered evaluators with declarative config and carries NO
- * executable/install content. The brand makes that guarantee load-bearing —
- * {@link materializePlaybook} only accepts a `ValidatedPlaybook`, so an
- * unvalidated object cannot reach materialization without a compile error.
+ * executable/install content. For an UNTRUSTED source (the default —
+ * `trustedSource` absent/false, e.g. a Marketplace install) it ALSO references
+ * only retry-`safe` (side-effect-free deterministic) evaluators (B1 boundary);
+ * pass `trustedSource: true` for a first-party / local playbook to keep the full
+ * evaluator set. It also gates on at least one REQUIRED criterion (§18.1) using
+ * the SAME effective-required default as `materialize.ts:117`, so a playbook the
+ * validator passes can never materialize into a zero-required `createMission`
+ * call that the runtime rejects. The brand makes the success guarantee
+ * load-bearing — {@link materializePlaybook} only accepts a `ValidatedPlaybook`,
+ * so an unvalidated object cannot reach materialization without a compile error.
  */
 export function validatePlaybook(
   playbook: unknown,
@@ -509,6 +647,8 @@ export function validatePlaybook(
   validateStructure(playbook, errors);
   validateCapabilities(playbook, opts, errors);
   validateEvaluators(playbook, opts, errors);
+  validateTrustedEvaluators(playbook, opts, errors);
+  validateRequiredGate(playbook, errors);
 
   if (errors.length > 0) {
     return { valid: false, errors };

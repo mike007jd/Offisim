@@ -76,7 +76,28 @@ export function createMissionTauriRepos(db: TauriDrizzleDb): MissionTauriRepos {
       const set: Partial<MissionRow> = { status: patch.status, updated_at: patch.updatedAt };
       if (patch.currentAttemptId !== undefined) set.current_attempt_id = patch.currentAttemptId;
       if (patch.completedAt !== undefined) set.completed_at = patch.completedAt;
+      // A4 compare-and-swap, read-before-update. The tauri-plugin-sql `.run()`
+      // proxy does not surface a rowsAffected count (it always resolves
+      // `{ rows: [] }`), so we cannot read drizzle's UPDATE result the way
+      // better-sqlite3 does. We must NOT infer the CAS outcome from a
+      // write-after-read: when the guard legitimately misses (expectedStatus !==
+      // current) but the row already happens to equal `patch.status` — reached
+      // from a DIFFERENT `from` by a concurrent transition — a post-write read
+      // would falsely report success. Instead, read the row FIRST, decide on the
+      // BEFORE status (exactly like the memory backend), then update only on a
+      // match. This makes the boolean independent of self-transitions and
+      // concurrency.
+      const before = (await db
+        .select()
+        .from(schema.mission)
+        .where(eq(schema.mission.mission_id, missionId))) as MissionRow[];
+      const current = before[0];
+      if (!current) return false;
+      const matched = patch.expectedStatus === undefined || current.status === patch.expectedStatus;
+      if (!matched) return false;
+      // Matched → update by id (the guard already held on the row we just read).
       await db.update(schema.mission).set(set).where(eq(schema.mission.mission_id, missionId));
+      return true;
     },
   };
 

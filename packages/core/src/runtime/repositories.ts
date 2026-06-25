@@ -1179,13 +1179,21 @@ export interface MissionEventRow {
 
 export type NewMissionEvent = MissionEventRow;
 
-/** Patch for mission mutations driven by the future state machine. */
+/** Patch for mission mutations driven by the state machine. */
 export interface MissionStatusUpdate {
   status: string;
   /** ISO timestamp to stamp `updated_at`; caller supplies (backend does not auto-stamp). */
   updatedAt: string;
   currentAttemptId?: string | null;
   completedAt?: string | null;
+  /**
+   * Compare-and-swap guard (A4). When set, the update only applies if the row's
+   * CURRENT `status` equals `expectedStatus`; otherwise it is a no-op. This
+   * closes the lost-update race where a concurrent cancel is silently
+   * overwritten by a stale verifying/repairing write. `undefined` → no guard
+   * (unconditional update, kept for non-racing callers).
+   */
+  expectedStatus?: string;
 }
 
 export interface MissionRepository {
@@ -1202,7 +1210,13 @@ export interface MissionRepository {
    * unspecified — the caller reconciles each mission independently.
    */
   listByStatus(companyId: string, statuses: readonly string[]): Promise<MissionRow[]>;
-  updateStatus(missionId: string, patch: MissionStatusUpdate): Promise<void>;
+  /**
+   * Apply a status patch. Returns `true` when a row was updated, `false` when
+   * the compare-and-swap guard (`patch.expectedStatus`) did not match the row's
+   * current status or the row does not exist (A4). With no `expectedStatus` the
+   * update is unconditional and returns `true` iff the row exists.
+   */
+  updateStatus(missionId: string, patch: MissionStatusUpdate): Promise<boolean>;
 }
 
 export interface MissionCriterionRepository {

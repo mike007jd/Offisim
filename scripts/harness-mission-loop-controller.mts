@@ -41,6 +41,7 @@ import {
 } from '../packages/core/src/runtime/mission/mission-loop-controller.ts';
 import {
   createMissionService,
+  MissionStateError,
   type CreateMissionInput,
   type MissionService,
   type MissionServiceDeps,
@@ -49,7 +50,7 @@ import { createMissionMemoryRepos } from '../packages/core/src/runtime/repos/mis
 
 let passed = 0;
 let failed = 0;
-const TOTAL = 11;
+const TOTAL = 13;
 
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
   try {
@@ -587,6 +588,132 @@ await check('evaluator BLOCKED (no product FAIL) → blocked (infra); repair cou
   // The recorded verdict was BLOCKED (the evaluator actually ran).
   const verdicts = result.evidence.attempts[0]!.verdicts;
   assert.equal(verdicts[0]?.verdict, 'BLOCKED', 'the manual_approval verdict is BLOCKED');
+});
+
+// ---------------------------------------------------------------------------
+// 11. A1: a mission with zero REQUIRED criteria must NOT run to a vacuous
+//     completion. createMission rejects it up front, so to drive the loop's
+//     defense-in-depth we insert a ready mission with ONLY an optional criterion
+//     straight through the repos (bypassing the service guard), then prove the
+//     loop refuses to complete it vacuously — it does NOT call completeMission.
+// ---------------------------------------------------------------------------
+
+await check('A1: zero required criteria → loop refuses to complete vacuously (no [].every PASS)', async () => {
+  const m = createMissionMemoryRepos();
+  const deps = makeDeps();
+  const svc = createMissionService(
+    {
+      missions: m.missions,
+      missionCriteria: m.missionCriteria,
+      missionAttempts: m.missionAttempts,
+      missionEvaluations: m.missionEvaluations,
+      missionEvents: m.missionEvents,
+    },
+    deps,
+  );
+  const ts = new Date(Date.UTC(2026, 0, 1)).toISOString();
+  // Insert a READY mission with only an OPTIONAL criterion (bypassing the
+  // createMission guard, which would otherwise reject zero-required up front).
+  await m.missions.insert({
+    mission_id: 'm-vac',
+    company_id: 'co-1',
+    project_id: null,
+    thread_id: 'thr-1',
+    title: 'vacuous',
+    goal: 'g',
+    status: 'ready',
+    runtime_id: 'pi',
+    runtime_policy_json: '{}',
+    budget_json: '{}',
+    expected_artifacts_json: null,
+    current_attempt_id: null,
+    created_at: ts,
+    updated_at: ts,
+    completed_at: null,
+  });
+  await m.missionCriteria.insert({
+    criterion_id: 'c-opt',
+    mission_id: 'm-vac',
+    description: 'optional only',
+    evaluator_id: 'command_exit_zero',
+    evaluator_config_json: JSON.stringify({ command: 'pnpm test' }),
+    required: 0,
+    order_index: 0,
+    status: 'pending',
+    last_evaluation_id: null,
+  });
+
+  let runAttemptCalled = false;
+  const controller = makeController(svc, deps, async () => {
+    runAttemptCalled = true;
+    return { evaluationContextFor: (criterion) => scriptedContext(criterion, 0) };
+  });
+
+  // The loop must throw (invariant_violation) BEFORE running an attempt; it must
+  // never reach completeMission via an empty-set every()===true.
+  await assert.rejects(
+    () => controller.run('m-vac'),
+    (err: unknown) => err instanceof MissionStateError && err.code === 'invariant_violation',
+    'a zero-required mission must not run a vacuous loop',
+  );
+  assert.equal(runAttemptCalled, false, 'no attempt was run for a zero-required mission');
+  const mission = await svc.getMission('m-vac');
+  assert.notEqual(mission.status, 'completed', 'the mission was NOT vacuously completed');
+});
+
+// ---------------------------------------------------------------------------
+// 12. A2 coordination: an evaluator ERROR verdict (infra, e.g. a capability
+//     failure) → mission blocked, and it does NOT consume a per-criterion
+//     repair. Distinct from a BLOCKED verdict (check 10) and a runtimeError
+//     (check 6): here a deterministic evaluator returns ERROR. We drive ERROR
+//     deterministically by giving command_exit_zero no `command` in its config
+//     (builtin maps a missing command to ERROR), so this is self-contained.
+// ---------------------------------------------------------------------------
+
+await check('A2: evaluator ERROR (infra) → blocked; repair counter does NOT move', async () => {
+  const { svc, deps } = freshService();
+  const missionId = await readyMission(svc, {
+    // command_exit_zero with NO command in config → the builtin returns ERROR
+    // (an un-runnable check / setup problem), which the controller treats as
+    // infra, NOT a product FAIL.
+    criteria: [
+      {
+        description: 'tests pass',
+        evaluatorId: 'command_exit_zero',
+        evaluatorConfigJson: '{}', // no `command` → ERROR
+        required: true,
+      },
+    ],
+  });
+
+  const controller = makeController(svc, deps, async () => ({
+    // The evaluator does not need to run a command (it ERRORs on the missing
+    // config first); supply a benign context.
+    evaluationContextFor: (criterion) => ({
+      criterion: { id: criterion.id, description: criterion.description, configJson: criterion.configJson },
+      workspaceReadFile: async () => null,
+      workspaceFileExists: async () => false,
+      workspaceHashFile: async () => null,
+      runCommand: async () => ({ exitCode: 0, stdout: '', stderr: '' }),
+      gitChangedPaths: async () => [],
+      listArtifacts: async () => [],
+      recordedApproval: async () => null,
+    }),
+  }));
+
+  const result = await controller.run(missionId);
+  assert.equal(result.status, 'blocked', 'evaluator ERROR with no product FAIL → blocked');
+  assert.equal(result.stopReason, 'runtime_incompatible', 'infra stop reason');
+  assert.equal(result.attempts, 1, 'a single attempt — an ERROR is not repaired');
+  assert.equal(result.finalMissionStatus, 'blocked', 'mission persisted as blocked');
+  assert.deepEqual(
+    result.evidence.repairCountsByCriterion,
+    {},
+    '§19.2/§5: an ERROR verdict consumes NO repair',
+  );
+  // The recorded verdict was ERROR (the evaluator actually ran and errored).
+  const verdicts = result.evidence.attempts[0]!.verdicts;
+  assert.equal(verdicts[0]?.verdict, 'ERROR', 'the recorded verdict is ERROR');
 });
 
 if (failed > 0) {

@@ -1975,7 +1975,7 @@
   align-items: center;
   gap: var(--off-sp-2);
   min-width: 0;
-  font-size: var(--off-fs-1);
+  font-size: var(--off-fs-meta);
   color: var(--off-ink-3);
 }
 .off-run-delegation-arrow {

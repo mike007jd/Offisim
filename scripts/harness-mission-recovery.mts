@@ -490,7 +490,11 @@ await check('DR-003: >100 interrupted missions all get a card (listByStatus is u
 
   const expectedIds = new Set<string>();
   for (let i = 0; i < N; i += 1) {
-    const missionId = await createMission(svc, { criteria: [] });
+    // Use the helper's default criteria (two required): a mission must gate on at
+    // least one required criterion (§18.1 / A1), so an empty-criteria mission is
+    // no longer creatable. This test only cares about the mission COUNT, not the
+    // criteria, so the default set is fine.
+    const missionId = await createMission(svc);
     await svc.markReady(missionId);
     await svc.startAttempt(missionId, 'initial'); // → running
     expectedIds.add(missionId);

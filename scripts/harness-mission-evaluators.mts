@@ -56,7 +56,10 @@ interface Fixture {
   files?: Record<string, string>;
   hashes?: Record<string, string>;
   commands?: Record<string, { exitCode: number; stdout?: string; stderr?: string; classifierBlocked?: boolean }>;
-  changedPaths?: string[];
+  // Explicit `null` = git capability failure (unknowable diff); `[]` = clean
+  // tree; omitted = default empty (clean). A `?? []` would swallow `null`, so the
+  // mapping below distinguishes `undefined` (default) from a deliberate `null`.
+  changedPaths?: string[] | null;
   artifacts?: Array<{ kind: string; title: string; contentHash: string }>;
   approval?: { approved: boolean; approver?: string } | null;
 }
@@ -74,7 +77,11 @@ function makeContext(fixture: Fixture): EvaluationContext {
       if (!r) return { exitCode: 127, stdout: '', stderr: 'not found' };
       return { exitCode: r.exitCode, stdout: r.stdout ?? '', stderr: r.stderr ?? '', classifierBlocked: r.classifierBlocked };
     },
-    gitChangedPaths: async () => fixture.changedPaths ?? [],
+    // Distinguish a deliberate `null` (capability failure) from omitted
+    // (`undefined` → default clean `[]`). `?? []` would collapse `null` → `[]`
+    // and hide the very case git_diff_policy must ERROR on.
+    gitChangedPaths: async () =>
+      fixture.changedPaths === undefined ? [] : fixture.changedPaths,
     listArtifacts: async () => fixture.artifacts ?? [],
     recordedApproval: async () => (fixture.approval === undefined ? null : fixture.approval),
   };
@@ -251,6 +258,62 @@ await check(
       changedPaths: ['docs/sub/foo.md', 'docs/a/b/c.md'],
     });
     assert.equal(doubleStar.verdict, 'PASS', '`docs/**/*.md` crosses segments → matches nested paths');
+  },
+);
+
+await check(
+  'git_diff_policy: (a) null diff → ERROR, (b) clean [] → PASS, (c) escapee → FAIL',
+  async () => {
+    // (a) A `null` from gitChangedPaths means the git capability could not serve
+    // the diff (no project / non-git workspace / git unavailable). It must ERROR
+    // — never silently PASS as if the tree were clean. allowedGlobs is irrelevant
+    // here: the diff is unknowable.
+    const unknowable = await run('git_diff_policy', {
+      configJson: JSON.stringify({ allowedGlobs: ['src/**'] }),
+      changedPaths: null,
+    });
+    assert.equal(
+      unknowable.verdict,
+      'ERROR',
+      'null diff (git capability unavailable) → ERROR, never a false PASS',
+    );
+    assert.notEqual(unknowable.verdict, 'PASS', 'a capability failure must not masquerade as clean');
+    // The verdict alone is NOT discriminating: deleting the explicit
+    // `if (changed === null)` guard makes `null.filter(...)` throw a TypeError
+    // that safeEvaluate ALSO catches as verdict 'ERROR' (but with evidenceRefs
+    // `[]` and a 'evaluator could not run:' summary). Assert the EXPLICIT guard's
+    // evidence marker — only the deliberate null→ERROR path emits it — so this
+    // case turns RED if the guard is removed (the TypeError fallback can't fake
+    // it). Without this, the inject-proof would be a tautology.
+    assert.ok(
+      unknowable.evidenceRefs.includes('git:unavailable'),
+      "explicit null-guard must emit evidenceRef 'git:unavailable'; the safeEvaluate TypeError fallback emits [], so this proves the guard (not the crash-catch) produced the ERROR",
+    );
+    assert.ok(
+      unknowable.summary.includes('git capability unavailable'),
+      "summary must come from the explicit guard, not safeEvaluate's 'evaluator could not run:' crash fallback",
+    );
+
+    // (b) A genuinely clean working tree (`[]`, a SUCCESSFUL read) is a real
+    // PASS regardless of the allowed globs — there is nothing to violate.
+    const cleanRestrictive = await run('git_diff_policy', {
+      configJson: JSON.stringify({ allowedGlobs: ['src/**'] }),
+      changedPaths: [],
+    });
+    assert.equal(cleanRestrictive.verdict, 'PASS', 'empty (clean) diff → PASS even under a strict glob');
+    const cleanNoGlobs = await run('git_diff_policy', {
+      configJson: JSON.stringify({ allowedGlobs: [] }),
+      changedPaths: [],
+    });
+    assert.equal(cleanNoGlobs.verdict, 'PASS', 'empty diff with no allowed globs is still clean → PASS');
+
+    // (c) A real out-of-policy change is a FAIL (distinct from the ERROR above).
+    const escapee = await run('git_diff_policy', {
+      configJson: JSON.stringify({ allowedGlobs: ['src/**'] }),
+      changedPaths: ['secrets/.env'],
+    });
+    assert.equal(escapee.verdict, 'FAIL', 'an out-of-policy change is a FAIL, not an ERROR');
+    assert.ok(escapee.summary.includes('secrets/.env'), 'FAIL summary names the offender');
   },
 );
 

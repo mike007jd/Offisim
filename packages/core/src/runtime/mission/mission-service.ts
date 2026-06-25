@@ -243,6 +243,18 @@ export class MissionService {
    * `mission.created` event. Returns the inserted row.
    */
   async createMission(input: CreateMissionInput): Promise<MissionRow> {
+    // §18.1 fail-fast: a Mission MUST gate on at least one REQUIRED criterion.
+    // Without one, completion (all-required-PASS) is vacuously true and the
+    // Mission would "complete" having verified nothing. Reject at creation so an
+    // un-gateable Mission can never exist.
+    if (!input.criteria.some((c) => c.required)) {
+      throw new MissionStateError(
+        'invariant_violation',
+        'Cannot create a mission with zero required criteria (§18.1): a mission must gate on at least one required criterion, else completion verifies nothing',
+        { missionId: '<unassigned>' },
+      );
+    }
+
     const ts = this.deps.now();
     const missionId = this.deps.newId();
 
@@ -422,6 +434,17 @@ export class MissionService {
     const mission = await this.load(missionId);
 
     const criteria = await this.repos.missionCriteria.listByMission(missionId);
+    const requiredCount = criteria.filter((c) => c.required === 1).length;
+    // §18.1 defense-in-depth: createMission already rejects zero-required
+    // missions, but a vacuous all-PASS-over-empty-set must NEVER be a completion
+    // path. Guard here too so the gate can never silently disappear.
+    if (requiredCount === 0) {
+      throw new MissionStateError(
+        'invariant_violation',
+        `Cannot complete mission ${missionId}: it has zero required criteria, so completion would verify nothing (§18.1)`,
+        { missionId, from: mission.status as MissionStatus, to: 'completed' },
+      );
+    }
     const unmetRequired = criteria.filter((c) => c.required === 1 && c.status !== 'pass');
     if (unmetRequired.length > 0) {
       throw new MissionStateError(
@@ -437,8 +460,8 @@ export class MissionService {
     return this.transition(
       mission,
       'completed',
-      { requiredCriteria: criteria.filter((c) => c.required === 1).length },
-      { completedAt: ts, timestamp: ts },
+      { requiredCriteria: requiredCount },
+      { completedAt: ts, timestamp: ts, finalizeAttempt: 'completed' },
     );
   }
 
@@ -453,7 +476,14 @@ export class MissionService {
     failureSignature: string,
   ): Promise<MissionRow> {
     const mission = await this.load(missionId);
-    return this.transition(mission, 'repairing', { prevAttemptId, failureSignature });
+    // A3: the just-failed attempt is being superseded by the upcoming repair
+    // attempt — close it out (status 'superseded') so it never lingers running.
+    return this.transition(
+      mission,
+      'repairing',
+      { prevAttemptId, failureSignature },
+      { finalizeAttempt: 'superseded' },
+    );
   }
 
   /** running|verifying → awaiting_user. */
@@ -482,13 +512,15 @@ export class MissionService {
   /** running|verifying → blocked (external blocker). */
   async toBlocked(missionId: string, reason: string): Promise<MissionRow> {
     const mission = await this.load(missionId);
-    return this.transition(mission, 'blocked', { reason });
+    // A3: blocked is terminal for this attempt — close it out.
+    return this.transition(mission, 'blocked', { reason }, { finalizeAttempt: 'blocked' });
   }
 
   /** running|verifying → failed (limits exhausted / stop guard). */
   async toFailed(missionId: string, reason: string): Promise<MissionRow> {
     const mission = await this.load(missionId);
-    return this.transition(mission, 'failed', { reason });
+    // A3: failed is terminal for this attempt — close it out.
+    return this.transition(mission, 'failed', { reason }, { finalizeAttempt: 'failed' });
   }
 
   /** Global bypass → paused. */
@@ -512,7 +544,15 @@ export class MissionService {
    */
   async cancel(missionId: string, reason?: string): Promise<MissionRow> {
     const mission = await this.load(missionId);
-    return this.transition(mission, 'cancelled', reason ? { reason } : {});
+    // A3: a cancel mid-attempt closes the in-flight attempt to 'cancelled'. When
+    // there is no current attempt (cancel from draft/ready), `transition` skips
+    // the attempt write.
+    return this.transition(
+      mission,
+      'cancelled',
+      reason ? { reason } : {},
+      { finalizeAttempt: 'cancelled' },
+    );
   }
 
   // -- reads (loop controller MS-004) --------------------------------------
@@ -546,9 +586,17 @@ export class MissionService {
 
   /**
    * The single chokepoint for status writes (§18.7). Validates `from → to`
-   * against {@link ALLOWED_TRANSITIONS}, persists via `missions.updateStatus`,
-   * appends a `mission_event`, and returns the updated row. Invariant checks
-   * specific to a target live in the public method that calls this.
+   * against {@link ALLOWED_TRANSITIONS}, persists via `missions.updateStatus`
+   * with an A4 compare-and-swap guard, optionally finalizes the in-flight
+   * attempt (A3), appends a `mission_event`, and returns the updated row.
+   * Invariant checks specific to a target live in the public method that calls
+   * this.
+   *
+   * A4 (lost-update guard): the status write is guarded by `expectedStatus =
+   * from`. If a concurrent transition already moved the row off `from` (e.g. a
+   * human cancel that landed first), the CAS misses and we raise
+   * `illegal_transition` instead of clobbering the newer state. This is what
+   * stops a stale `verifying`/`repairing` write from overwriting a cancel.
    */
   private async transition(
     mission: MissionRow,
@@ -559,6 +607,14 @@ export class MissionService {
       completedAt?: string;
       timestamp?: string;
       eventType?: MissionEventType;
+      /**
+       * A3: when set, the mission's CURRENT attempt is closed to this terminal
+       * status (with `finished_at`) atomically with the transition. Used by the
+       * terminal/repair edges so an attempt never lingers in `running` once its
+       * mission has moved on. NOT used by `startAttempt` (which is OPENING an
+       * attempt, not closing one).
+       */
+      finalizeAttempt?: MissionAttemptRow['status'];
     },
   ): Promise<MissionRow> {
     const from = mission.status as MissionStatus;
@@ -571,12 +627,33 @@ export class MissionService {
     }
 
     const ts = opts?.timestamp ?? this.deps.now();
-    await this.repos.missions.updateStatus(mission.mission_id, {
+    const applied = await this.repos.missions.updateStatus(mission.mission_id, {
       status: to,
       updatedAt: ts,
+      expectedStatus: from,
       ...(opts?.currentAttemptId !== undefined ? { currentAttemptId: opts.currentAttemptId } : {}),
       ...(opts?.completedAt !== undefined ? { completedAt: opts.completedAt } : {}),
     });
+    if (!applied) {
+      // A4: the CAS missed — the row is no longer in `from`. A concurrent
+      // transition (e.g. cancel) won; do not clobber it, surface a conflict.
+      throw new MissionStateError(
+        'illegal_transition',
+        `Concurrent mission transition conflict for ${mission.mission_id}: expected status '${from}' but it changed underfoot (attempted '${from}' → '${to}')`,
+        { missionId: mission.mission_id, from, to },
+      );
+    }
+
+    // A3: close the in-flight attempt to its terminal status, in the same logical
+    // step as the mission transition. Skipped when there is no current attempt
+    // (e.g. draft → ready before any attempt exists).
+    if (opts?.finalizeAttempt && mission.current_attempt_id) {
+      await this.repos.missionAttempts.updateStatus(
+        mission.current_attempt_id,
+        opts.finalizeAttempt,
+        { finishedAt: ts },
+      );
+    }
 
     const attemptId =
       opts?.currentAttemptId ?? mission.current_attempt_id ?? null;
