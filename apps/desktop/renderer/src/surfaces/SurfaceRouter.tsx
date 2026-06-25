@@ -9,6 +9,9 @@ const ActivitySurface = lazy(() =>
 const MarketSurface = lazy(() =>
   import('./market/MarketSurface.js').then((m) => ({ default: m.MarketSurface })),
 );
+const MissionSurface = lazy(() =>
+  import('./mission/MissionSurface.js').then((m) => ({ default: m.MissionSurface })),
+);
 const OfficeSurface = lazy(() =>
   import('./office/OfficeSurface.js').then((m) => ({ default: m.OfficeSurface })),
 );
@@ -31,6 +34,8 @@ function renderSurface(surface: SurfaceKey): ReactNode {
       return <WorkspaceSurface />;
     case 'market':
       return <MarketSurface />;
+    case 'mission':
+      return <MissionSurface />;
     case 'personnel':
       return <PersonnelSurface />;
     case 'activity':

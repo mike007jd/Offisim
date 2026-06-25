@@ -422,7 +422,7 @@ export {
 
 // --- Mission Service (PRD §18 — the Verified Missions state machine) ---
 // The single authoritative writer of mission.status. Pure business state machine
-// (no model, no evaluator run). Wired live by MS-005 (the renderer
+// (no model, no evaluator run). Connected live by MS-005 (the renderer
 // MissionRunController) + consumed by the dev-create-mission helper.
 export {
   MissionService,
@@ -441,7 +441,7 @@ export type {
 // --- Mission Loop Controller (PRD §19 — bounded deterministic mission loop) ---
 // Orchestrates MissionService (MS-002) + EvaluatorRegistry (MS-003) and delegates
 // runtime execution to an injected `runAttempt`. NEVER calls a model to decide
-// flow (§4). Wired live by MS-005 (the renderer MissionRunController).
+// flow (§4). Connected live by MS-005 (the renderer MissionRunController).
 export {
   createMissionLoopController,
   DEFAULT_MISSION_LOOP_BUDGET,

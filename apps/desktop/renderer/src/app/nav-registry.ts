@@ -7,6 +7,7 @@ import {
   PencilRuler,
   Settings,
   Store,
+  Target,
   UsersRound,
 } from 'lucide-react';
 
@@ -27,6 +28,7 @@ export const NAV_ENTRIES: readonly NavEntry[] = [
   { key: 'office', label: 'Office', icon: BriefcaseBusiness, tier: 'primary' },
   // 'Apps' disambiguates the suite from the Office surface (both once read "work…").
   { key: 'workspace', label: 'Apps', icon: MessagesSquare, tier: 'primary' },
+  { key: 'mission', label: 'Missions', icon: Target, tier: 'primary' },
   { key: 'market', label: 'Market', icon: Store, tier: 'primary' },
   { key: 'personnel', label: 'Personnel', icon: UsersRound, tier: 'primary' },
   { key: 'activity', label: 'Activity', icon: Activity, tier: 'utility' },

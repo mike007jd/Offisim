@@ -362,7 +362,7 @@ const llmRubricReview: MissionEvaluator = {
   evaluate: async () => ({
     verdict: 'SKIP',
     summary:
-      'llm_rubric_review is non-deterministic and not wired as a gate (PRD §20.2 default: not required)',
+      'llm_rubric_review is non-deterministic and not enabled as a gate (PRD §20.2 default: not required)',
     evidenceRefs: [],
   }),
 };

@@ -42,7 +42,7 @@ import {
  * prompt and runs it in the SAME thread (same `threadId` → the host's
  * `SessionManager.continueRecent` continues the same Pi session). Session-continuity
  * baseline: a same-thread continuation carrying the repair brief. True Pi `resume`
- * is not separately wired (the host has no resume mode — same thread is the
+ * is not separately exposed (the host has no resume mode — same thread is the
  * continuation), so the repair re-enters the same conversation with the failure
  * feedback, which is the MS-005/006 baseline.
  */
