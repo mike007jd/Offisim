@@ -159,6 +159,34 @@ export function createDeliverablesDrizzleRepos(db: Db): DeliverablesDrizzleRepos
         .all();
       return rows.map((r) => rowToFull(r as Parameters<typeof rowToFull>[0]));
     },
+    async listByRunId(runId, opts) {
+      const limit = opts?.limit ?? DEFAULT_LIST_LIMIT;
+      const rows = db
+        .select({
+          deliverable_id: schema.deliverables.deliverable_id,
+          company_id: schema.deliverables.company_id,
+          thread_id: schema.deliverables.thread_id,
+          chat_thread_id: schema.deliverables.chat_thread_id,
+          title: schema.deliverables.title,
+          kind: schema.deliverables.kind,
+          file_name: schema.deliverables.file_name,
+          mime_type: schema.deliverables.mime_type,
+          contributors_json: schema.deliverables.contributors_json,
+          created_at: schema.deliverables.created_at,
+          run_id: schema.deliverables.run_id,
+          content_hash: schema.deliverables.content_hash,
+          version: schema.deliverables.version,
+          content_size: sql<number>`length(CAST(${schema.deliverables.content} AS BLOB))`.as(
+            'content_size',
+          ),
+        })
+        .from(schema.deliverables)
+        .where(eq(schema.deliverables.run_id, runId))
+        .orderBy(desc(schema.deliverables.created_at))
+        .limit(limit)
+        .all();
+      return rows.map((r) => rowToSummary(r as Parameters<typeof rowToSummary>[0]));
+    },
   };
 
   return { deliverables };

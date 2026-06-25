@@ -67,6 +67,9 @@ const ALLOWLIST = new Set([
   'scripts/harness-mission-loop-controller.mts::../packages/core/src/runtime/mission/mission-loop-controller.ts',
   'scripts/harness-mission-loop-controller.mts::../packages/core/src/runtime/mission/evaluators/registry.ts',
   'scripts/harness-mission-loop-controller.mts::../packages/core/src/runtime/mission/evaluators/types.ts',
+  'scripts/harness-mission-run-controller.mts::../packages/core/src/browser.js',
+  'scripts/harness-mission-run-controller.mts::../packages/core/src/runtime/repos/mission/memory.ts',
+  'scripts/harness-mission-run-controller.mts::../packages/core/src/runtime/repos/deliverables/memory.ts',
 ]);
 
 // Matches an import/export/require specifier that reaches into a package's src,

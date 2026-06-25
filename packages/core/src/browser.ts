@@ -420,10 +420,28 @@ export {
   BUILTIN_EVALUATORS,
 } from './runtime/mission/evaluators/index.js';
 
+// --- Mission Service (PRD §18 — the Verified Missions state machine) ---
+// The single authoritative writer of mission.status. Pure business state machine
+// (no model, no evaluator run). Wired live by MS-005 (the renderer
+// MissionRunController) + consumed by the dev-create-mission helper.
+export {
+  MissionService,
+  MissionStateError,
+  createMissionService,
+} from './runtime/mission/mission-service.js';
+export type {
+  CreateMissionInput,
+  MissionCriterionInput,
+  MissionServiceDeps,
+  MissionServiceRepos,
+  MissionStatus,
+  RecordEvaluationInput,
+} from './runtime/mission/mission-service.js';
+
 // --- Mission Loop Controller (PRD §19 — bounded deterministic mission loop) ---
 // Orchestrates MissionService (MS-002) + EvaluatorRegistry (MS-003) and delegates
 // runtime execution to an injected `runAttempt`. NEVER calls a model to decide
-// flow (§4). Additive at MS-004 — no live wiring yet (Pi bridge tools = MS-005).
+// flow (§4). Wired live by MS-005 (the renderer MissionRunController).
 export {
   createMissionLoopController,
   DEFAULT_MISSION_LOOP_BUDGET,

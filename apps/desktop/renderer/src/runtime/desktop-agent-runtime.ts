@@ -11,8 +11,18 @@ import type {
   RuntimeEvent,
 } from '@offisim/shared-types';
 import { Channel, invoke } from '@tauri-apps/api/core';
+import {
+  MISSION_EVALUATION_SUBMITTED_EVENT,
+  type MissionEvaluationSubmittedPayload,
+} from './mission/mission-events.js';
 import { readPiModelOverride } from './pi-agent-config.js';
 import type { PiAgentHostEvent, PiAgentHostResponse } from './pi-runtime-driver.js';
+
+// Re-export the mission-bridge event vocabulary so existing importers of
+// desktop-agent-runtime keep working; the canonical definition lives in
+// mission/mission-events.ts (tauri-free, harness-importable).
+export { MISSION_EVALUATION_SUBMITTED_EVENT };
+export type { MissionEvaluationSubmittedPayload };
 import { resolveThreadMode } from './pi-thread-mode-store.js';
 import { resolveThreadThinkingOverride } from './pi-thread-thinking-store.js';
 import { getRepos, runtimeEventBus } from './repos.js';
@@ -44,6 +54,20 @@ export interface DesktopAgentRunInput {
    * the model's reasoning capabilities; this only forwards the string.
    */
   thinkingLevel?: string;
+  /**
+   * Verified Missions scope (MS-005). When the renderer's MissionRunController
+   * runs a mission attempt it sets these so the host registers the mission-bridge
+   * tools (`submit_for_evaluation` / `query_mission_state`) and the agent's prompt
+   * carries the goal/criteria. `missionContextJson` is the minimal context packet
+   * the host forwards to the bridge; `missionId` / `attemptId` are carried for
+   * symmetry + future Rust-side use. Absent on a plain chat — existing behavior
+   * is unchanged when no missionId is present. `runId` IS the attempt's run id
+   * (rootRunId), which is how the runtime correlates the agent's
+   * submit_for_evaluation events back to the attempt.
+   */
+  missionId?: string;
+  attemptId?: string;
+  missionContextJson?: string;
 }
 
 export interface DesktopAgentRunResult {
@@ -109,6 +133,24 @@ function agentUiRequestEvent(
   return {
     type: AGENT_UI_REQUEST_EVENT,
     entityId: payload.id,
+    entityType: 'runtime',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload,
+  };
+}
+
+/** Build a `mission.evaluation.submitted` RuntimeEvent inline (renderer-only
+ *  host→controller bridge — no core factory), mirroring agentUiRequestEvent. */
+function missionEvaluationSubmittedEvent(
+  companyId: string,
+  threadId: string,
+  payload: MissionEvaluationSubmittedPayload,
+): RuntimeEvent<MissionEvaluationSubmittedPayload> {
+  return {
+    type: MISSION_EVALUATION_SUBMITTED_EVENT,
+    entityId: payload.criterionId,
     entityType: 'runtime',
     companyId,
     threadId,
@@ -294,6 +336,39 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
         return;
       }
       if (event.kind === 'agentRun') {
+        // Mission-bridge signals (MS-005) ride the same `agentRun` wire kind but
+        // are NOT run-tree dramaturgy events — they are verification signals for
+        // the MissionRunController, not the AgentRunEvent union. Intercept them
+        // here and fan them onto the bus on their own channel; never persist them
+        // as agent_runs and never feed them to the office projection. The
+        // deterministic evaluator over the real workspace is still the truth (§5)
+        // — this is only the agent saying "criterion ready".
+        if (event.runType === 'evaluation_submitted') {
+          const p = (event.payload ?? {}) as {
+            criterionId?: string;
+            summary?: string;
+            evidenceRefs?: string[];
+          };
+          if (typeof p.criterionId === 'string' && p.criterionId.trim()) {
+            runtimeEventBus.emit(
+              missionEvaluationSubmittedEvent(this.companyId, event.threadId, {
+                runId: event.runId,
+                rootRunId: event.rootRunId,
+                criterionId: p.criterionId,
+                summary: typeof p.summary === 'string' ? p.summary : '',
+                evidenceRefs: Array.isArray(p.evidenceRefs)
+                  ? p.evidenceRefs.filter((r): r is string => typeof r === 'string')
+                  : [],
+              }),
+            );
+          }
+          return;
+        }
+        if (event.runType === 'mission_state_query') {
+          // A read-only audit ping; nothing to persist or project. The host
+          // already returned the context to the agent synchronously.
+          return;
+        }
         // A delegation run-tree event. Rebuild the neutral AgentRunEvent, fan it
         // onto the bus (run-tree projection + chat/office consume it), and persist
         // the run's start/finish to agent_runs.
@@ -372,6 +447,11 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           // the host registers no delegate tool.
           rootRunId: runScope.runId,
           roster,
+          // Mission scope (MS-005): present only on a mission attempt. When set,
+          // the host registers the mission-bridge tools; the bridge's events ride
+          // this run's rootRunId so the MissionRunController correlates them to the
+          // attempt. Undefined on a plain chat — host registers no mission bridge.
+          missionContextJson: input.missionContextJson?.trim() || undefined,
         },
         onEvent,
       })) as PiAgentHostResponse;

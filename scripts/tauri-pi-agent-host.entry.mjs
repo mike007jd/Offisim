@@ -28,6 +28,7 @@ import {
 } from './pi-agent-permission-modes.mts';
 import { createChildSupervisor, createDelegationLimits } from './pi-child-supervisor.mjs';
 import { createDelegationExtensionFactory } from './pi-delegation-extension.mjs';
+import { createMissionBridgeExtensionFactory } from './pi-mission-bridge-extension.mjs';
 import { createPublishArtifactExtensionFactory } from './pi-publish-artifact-extension.mjs';
 
 /**
@@ -554,8 +555,23 @@ async function runPrompt(payload) {
   // agent cannot have written a file to publish (a publish there would be a
   // phantom row the renderer's workspace read rejects anyway).
   const publishArtifactEnabled = Boolean(rootRunId && threadId) && permissionMode !== 'plan';
+  // Mission bridge (MS-005): register `submit_for_evaluation` + `query_mission_state`
+  // only when this run carries a mission context packet (the renderer's
+  // MissionRunController injects `missionContextJson` for an attempt). A plain chat
+  // never sets it, so existing behavior is unchanged. The bridge needs the run
+  // scope (rootRunId + threadId) to stamp its events so the renderer can correlate
+  // submissions to the current attempt. Unlike publish_artifact it is allowed in
+  // every mode — a mission run may legitimately submit a read-only criterion.
+  const missionContextJson = asNonEmptyString(payload.missionContextJson);
+  const missionEnabled = Boolean(rootRunId && threadId && missionContextJson);
   let resourceLoader;
-  if (gateFactory || systemPromptAppend || delegationEnabled || publishArtifactEnabled) {
+  if (
+    gateFactory ||
+    systemPromptAppend ||
+    delegationEnabled ||
+    publishArtifactEnabled ||
+    missionEnabled
+  ) {
     const settingsManager = SettingsManager.create(cwd, agentDir);
     const extensionFactories = [];
     if (gateFactory) extensionFactories.push(gateFactory);
@@ -588,6 +604,17 @@ async function runPrompt(payload) {
           rootRunId,
           employeeId: asNonEmptyString(payload.employeeId),
           cwd,
+        }),
+      );
+    }
+    if (missionEnabled) {
+      extensionFactories.push(
+        createMissionBridgeExtensionFactory({
+          emit,
+          threadId,
+          rootRunId,
+          employeeId: asNonEmptyString(payload.employeeId),
+          missionContextJson,
         }),
       );
     }

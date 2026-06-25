@@ -1073,6 +1073,13 @@ export interface DeliverableRepository {
     companyId: string,
     opts?: { threadId?: string; limit?: number },
   ): Promise<DeliverableRow[]>;
+  /**
+   * Deliverables published under a given run (the `run_id` column added in
+   * VM-002), newest first. Excludes `content`. Used by the Mission evaluation
+   * context (MS-005) to back the `artifact_published` evaluator with the
+   * attempt's published artifacts.
+   */
+  listByRunId(runId: string, opts?: { limit?: number }): Promise<DeliverableSummaryRow[]>;
 }
 
 // ---------------------------------------------------------------------------

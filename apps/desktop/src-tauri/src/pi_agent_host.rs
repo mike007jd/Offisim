@@ -105,6 +105,13 @@ pub struct PiAgentExecuteRequest {
     /// from `employees.findByCompany`; Rust does not interpret it.
     #[serde(default)]
     roster: Option<serde_json::Value>,
+    /// Verified Missions context packet (MS-005). A minimal JSON summary of the
+    /// mission goal + criteria the renderer's MissionRunController injects for a
+    /// mission attempt; the host hands it to the mission-bridge extension so
+    /// `query_mission_state` can return it. Opaque to Rust — never interpreted,
+    /// never persisted here. Absent on a plain chat (no mission bridge registered).
+    #[serde(default)]
+    mission_context_json: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -441,6 +448,9 @@ fn sidecar_payload<R: tauri::Runtime>(
         "companyId": req.company_id,
         "rootRunId": req.root_run_id,
         "roster": req.roster,
+        // Verified Missions context (MS-005): forwarded verbatim. The host
+        // registers the mission-bridge extension only when this is present.
+        "missionContextJson": req.mission_context_json,
     })
 }
 
