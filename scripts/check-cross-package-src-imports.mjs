@@ -84,6 +84,23 @@ const ALLOWLIST = new Set([
   'scripts/harness-playbook-validation.mts::../packages/core/src/runtime/mission/evaluators/registry.ts',
   'scripts/harness-playbook-validation.mts::../packages/core/src/runtime/mission/playbook/validate.ts',
   'scripts/harness-playbook-validation.mts::../packages/core/src/runtime/mission/playbook/materialize.ts',
+  'scripts/harness-loop-compiler.mts::../packages/shared-types/src/loops/ir.ts',
+  'scripts/harness-loop-compiler.mts::../packages/core/src/loops/index.ts',
+  'scripts/harness-loop-compiler.mts::../packages/core/src/loops/validate.ts',
+  'scripts/harness-loop-compiler.mts::../packages/core/src/loops/types.ts',
+  'scripts/harness-loop-repository.mts::../packages/core/src/runtime/memory-repositories.ts',
+  'scripts/harness-loop-repository.mts::../packages/core/src/loops/loop-service.ts',
+  'scripts/harness-loop-repository.mts::../packages/core/src/loops/types.ts',
+  'scripts/harness-loop-mission-adapter.mts::../packages/shared-types/src/loops/index.ts',
+  'scripts/harness-loop-mission-adapter.mts::../packages/core/src/loops/mission-adapter.ts',
+  'scripts/harness-loop-mission-adapter.mts::../packages/core/src/loops/index.ts',
+  'scripts/harness-loop-mission-adapter.mts::../packages/core/src/runtime/repos/mission/memory.ts',
+  'scripts/harness-loop-mission-adapter.mts::../packages/core/src/runtime/mission/mission-service.ts',
+  'scripts/harness-loop-mission-adapter.mts::../packages/core/src/loops/types.ts',
+  // PR-02 collaboration repo-contract harness (grandfathered alongside the loop
+  // harnesses; same build/gate-tooling pattern as the mission harnesses above).
+  'scripts/harness-collaboration-repo-contract.mts::../packages/core/src/runtime/repositories.js',
+  'scripts/harness-collaboration-repo-contract.mts::../packages/core/src/runtime/repos/collaboration/drizzle.js',
 ]);
 
 // Matches an import/export/require specifier that reaches into a package's src,

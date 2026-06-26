@@ -9,6 +9,7 @@ import { createEmployeesMemoryRepos } from './repos/employees/memory.js';
 import { createFilesMemoryRepos } from './repos/files/memory.js';
 import { createMemoryInstallRepositories } from './repos/install/memory.js';
 import { createLlmMemoryRepos } from './repos/llm/memory.js';
+import { createLoopMemoryRepos } from './repos/loops/memory.js';
 import { createMemorySystemMemoryRepos } from './repos/memory-system/memory.js';
 import { createMissionMemoryRepos } from './repos/mission/memory.js';
 import type { MemoryRepositoriesSnapshot, MemoryRepositorySeed } from './repos/memory-types.js';
@@ -34,6 +35,12 @@ export {
   MemoryMissionRepository,
   MemoryRuntimeSessionLinkRepository,
 } from './repos/mission/memory.js';
+export {
+  MemoryLoopDefinitionRepository,
+  MemoryLoopInvocationRepository,
+  MemoryLoopRevisionRepository,
+  MemoryLoopSkillBindingRepository,
+} from './repos/loops/memory.js';
 export {
   MemoryCollaborationMemberRepository,
   MemoryCollaborationMessageRepository,
@@ -113,6 +120,7 @@ export function createMemoryRepositories(
   const deliverablesFamily = createDeliverablesMemoryRepos(snapshot, deliverableContentLoader);
   const skillsFamily = createSkillsMemoryRepos(snapshot);
   const missionFamily = createMissionMemoryRepos();
+  const loopFamily = createLoopMemoryRepos();
   const collaborationFamily = createCollaborationMemoryRepos();
 
   const seed: MemoryRepositorySeed = {
@@ -140,6 +148,7 @@ export function createMemoryRepositories(
     ...deliverablesFamily,
     ...skillsFamily,
     ...missionFamily,
+    ...loopFamily,
     ...collaborationFamily,
     piMessages: createPiMessagesMemoryRepo(),
     // In-memory repos have no transactional boundary — every write is already

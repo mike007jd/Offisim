@@ -128,6 +128,19 @@ export type {
   MissionEventRepository,
   MissionEventRow,
   NewMissionEvent,
+  LoopDefinitionRepository,
+  LoopDefinitionRow,
+  NewLoopDefinition,
+  LoopDefinitionUpdate,
+  LoopRevisionRepository,
+  LoopRevisionRow,
+  NewLoopRevision,
+  LoopSkillBindingRepository,
+  LoopSkillBindingRow,
+  NewLoopSkillBinding,
+  LoopInvocationRepository,
+  LoopInvocationRow,
+  NewLoopInvocation,
   CollaborationThreadRepository,
   CollaborationThreadRow,
   NewCollaborationThread,
@@ -473,6 +486,49 @@ export type {
   MissionStatus,
   RecordEvaluationInput,
 } from './runtime/mission/mission-service.js';
+
+// --- Loop domain (PR-07 — saveable/versioned/reusable wrapper over Missions) ---
+// Natural language → generic LoopIR via compiler profiles (first: bundled
+// fleet-development-loop as software-development). Saving writes ONLY loop tables,
+// never a mission/thread/run. The compiler's model is INJECTED at the call site.
+// Consumed by PR-08 (UI) / PR-09 (graph) / PR-10 (Office Send → mission adapter).
+export {
+  LOOP_COMPILER_VERSION,
+  LOOP_LIMITS,
+  validateLoopIR,
+  defaultBudgetForTier,
+  repairOrReject,
+  DEFAULT_COMPILER_PROFILE_ID,
+  getCompilerProfile,
+  listCompilerProfiles,
+  SOFTWARE_DEVELOPMENT_PROFILE_ID,
+  softwareDevelopmentProfile,
+  FLEET_DEVELOPMENT_LOOP_VERSION,
+  buildLoopExecutionPacket,
+  createLoopService,
+  LoopServiceError,
+} from './loops/index.js';
+export type {
+  LoopCompileContext,
+  LoopCompileInput,
+  LoopCompileModel,
+  LoopCompileResult,
+  LoopCompilerProfile,
+  LoopModelOutput,
+  CompilerAsset,
+  ValidationFinding,
+  RepairOutcome,
+  LoopExecutionPacket,
+  CompiledMissionCriterion,
+  PacketSkillBinding,
+  LoopService,
+  LoopServiceRepos,
+  LoopServiceDeps,
+  CreateLoopInput,
+  SaveRevisionInput,
+  SaveRevisionResult,
+  SaveLoopSkill,
+} from './loops/index.js';
 
 // --- Collaboration Service (PR-02 — company-scoped daily chat aggregate) ---
 // Direct + group chat fully separate from project-scoped chat_threads. No public
