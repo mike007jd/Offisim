@@ -538,21 +538,9 @@ const requiredChecks = [
     file: 'apps/desktop/renderer/src/assistant/parts/AssistantMessageParts.tsx',
     patterns: [/MessagePrimitive\.Parts/, /MessagePartPrimitive\.InProgress/, /Markdown/],
   },
-  {
-    label: 'Workspace assistant-ui thread primitives',
-    file: 'apps/desktop/renderer/src/surfaces/workspace/apps/WorkspaceAssistantThread.tsx',
-    patterns: [
-      /AssistantRuntimeProvider/,
-      /useExternalStoreRuntime/,
-      /ThreadPrimitive\.Root/,
-      /ThreadPrimitive\.Messages/,
-      /MessagePrimitive\.Root/,
-      /AssistantMessageParts/,
-      /ComposerPrimitive\.Root/,
-      /ComposerPrimitive\.Input/,
-      /ComposerPrimitive\.Send/,
-    ],
-  },
+  // (Connect's old WorkspaceAssistantThread was removed in the Connect/Loops
+  // refactor — Connect chat is now MessengerApp over the collaboration aggregate,
+  // covered by harness-connect-chat-flow + harness-workspace-chat-presentation.)
   {
     label: 'Market registry install receipt',
     file: 'apps/desktop/renderer/src/surfaces/market/market-data.ts',

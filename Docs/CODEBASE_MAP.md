@@ -1,6 +1,6 @@
 # Codebase Map
 
-Checked at: 2026-06-18 NZST
+Checked at: 2026-06-26 NZST
 
 This map is for maintainers deciding where a change belongs. Keep it aligned
 with package ownership; do not use old audit or plan files as architecture
@@ -28,6 +28,29 @@ truth.
 | `@offisim/renderer` | Office scene/layout/prefab primitives |
 | `@offisim/shared-types` | Cross-package shared types |
 
+## Renderer Surfaces
+
+User-visible terms differ from internal route/surface keys; keep them mapped.
+
+| User-visible surface | Owner path | Internal key |
+|----------------------|------------|--------------|
+| Office (real AI work) | `apps/desktop/renderer/src/surfaces/office` | `office` |
+| Connect (company chat) | `apps/desktop/renderer/src/surfaces/workspace` | `workspace` (legacy) |
+| Loops (work-loop definitions) | `apps/desktop/renderer/src/surfaces/mission` | `mission` (legacy) |
+| Personnel / Settings / Market / Studio / Activity | `apps/desktop/renderer/src/surfaces/<name>` | matches name |
+
+Connect (collaboration) and Loops are isolated from Office's project chat and runtime:
+
+| Concern | Where it lives |
+|---------|----------------|
+| Connect renderer glue (collaboration aggregate) | `apps/desktop/renderer/src/surfaces/workspace/collaboration-data.ts` |
+| Connect no-tools runtime + turn controller | `apps/desktop/renderer/src/runtime/collaboration` |
+| Connect domain repository | `packages/core/src/runtime/collaboration/collaboration-service.ts` |
+| Connect host capability | `agent_runtime_collaborate` in `apps/desktop/src-tauri/src/pi_agent_host.rs` |
+| Loops editor / library / graph | `apps/desktop/renderer/src/surfaces/mission/loops` (graph in `loops/graph`, `LoopGraphPanel.tsx`) |
+| Loops domain (service, profiles, IR adapter) | `packages/core/src/loops` (+ `packages/shared-types/src/loops/ir.ts`) |
+| Versioned Prompt Enhance | `apps/desktop/renderer/src/assistant/enhance` |
+
 ## Script Families
 
 | Script family | Purpose |
@@ -37,6 +60,22 @@ truth.
 | `scripts/build-pi-agent-host.mjs` | Bundles official Pi Agent host and Node runtime into the desktop app |
 | `scripts/harness-*.mjs` / `*.mts` | Targeted retained harnesses; use only current root `package.json` scripts as release evidence |
 | `scripts/check-*.mjs` | Drift/hygiene checks for UI, platform/Tauri origin coupling, migrations, attachments |
+| `scripts/harness-collaboration-repo-contract.mts`, `scripts/harness-pi-collaboration-runtime.mts`, `scripts/harness-connect-chat-flow.mts` | Connect/collaboration domain, no-tools runtime, and chat-flow harnesses |
+| `scripts/harness-loop-*.mts`, `scripts/harness-prompt-enhance.mts` | Loop compiler/repository/mission-adapter/graph-projection/office-invocation/authoring + versioned Enhance harnesses |
+
+## Local SQLite Migrations
+
+Local schema is at `LOCAL_SCHEMA_VERSION = 6`. Migration files live in
+`packages/db-local/src/migrations/` (ledger: `packages/db-local/src/migrations/README.md`):
+
+| File | Version | Adds |
+|------|---------|------|
+| `0004_collaboration.sql` | v4 | Connect collaboration domain (`collaboration_threads` / `_thread_members` / `_messages` / `_read_state`) |
+| `0005_loop_core.sql` | v5 | Loop domain (`loop_definitions` / `loop_revisions` / `loop_skill_bindings` / `loop_invocations`) |
+| `0006_collaboration_turns.sql` | v6 | Connect AI-reply ledger (`collaboration_turns`) |
+
+All three are additive, DDL-only (no row migration, no better-sqlite3 native
+rebuild). End-state matches `packages/db-local/src/schema.sql`.
 
 ## Documentation Ownership
 
@@ -48,6 +87,10 @@ truth.
 | `Docs/CODEBASE_MAP.md` | Maintained package/code ownership map |
 | `Docs/HARNESS_ARCHITECTURE.md` | Pi Agent Host runtime architecture |
 | `Docs/architecture/2026-06-18-pi-agent-only-runtime.md` | Runtime boundary decision record |
+| `Docs/architecture/2026-06-26-collaboration-domain-boundary.md` | Connect collaboration domain + no-tools runtime ADR |
+| `Docs/architecture/2026-06-26-loop-domain-mission-adapter.md` | Loop IR / immutable revisions / Mission send-time adapter ADR |
+| `Docs/architecture/2026-06-26-enhance-profile-contract.md` | Versioned Prompt Enhance profile contract ADR |
+| `Docs/architecture/2026-06-26-loop-graph-react-flow-elk.md` | Loop nested-graph view (React Flow + ELK) ADR |
 | `Docs/00_start_here/LOCAL_DEVELOPMENT.md` | Local setup and dev entrypoints |
 | `Docs/00_start_here/DEPLOYMENT.md` | Platform/desktop deployment notes |
 | `Docs/00_start_here/RELEASE_GATES.md` | Release gates and evidence rules |

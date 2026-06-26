@@ -21,11 +21,7 @@
         "src/surfaces/mission/loops/graph/index.ts"
       ],
       "ignore": [
-        "src/polyfills/**",
-        "src/surfaces/workspace/apps/WorkspaceAssistantThread.tsx",
-        "src/surfaces/mission/MissionComposer.tsx",
-        "src/surfaces/mission/MissionControl.tsx",
-        "src/surfaces/mission/MissionList.tsx"
+        "src/polyfills/**"
       ]
     },
     "apps/platform": {

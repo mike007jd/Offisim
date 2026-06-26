@@ -176,10 +176,12 @@ assertIncludesAll(
   'ConversationRunController must own runId-scoped stream, tool, and UI request projection.',
 );
 
-for (const uiOwner of [
-  'apps/desktop/renderer/src/assistant/runtime/useOfficeRuntime.ts',
-  'apps/desktop/renderer/src/surfaces/workspace/apps/WorkspaceAssistantThread.tsx',
-]) {
+// The old Connect chat (WorkspaceAssistantThread) was removed in the Connect/
+// Loops refactor — Connect chat is now MessengerApp over the collaboration
+// aggregate and deliberately does NOT use ConversationRunController (it runs the
+// isolated PR-03 collaboration turn controller; guarded by harness-connect-chat-
+// flow + harness-pi-collaboration-runtime). Office's runtime is the lone owner.
+for (const uiOwner of ['apps/desktop/renderer/src/assistant/runtime/useOfficeRuntime.ts']) {
   const text = await source(uiOwner);
   assertIncludesAll(
     text,
