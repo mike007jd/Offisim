@@ -1,9 +1,9 @@
+import { useUiState } from '@/app/ui-state.js';
 import { openLoopInOffice } from '@/assistant/composer/open-loop-in-office.js';
 import { PromptEnhanceReview } from '@/assistant/enhance/PromptEnhanceReview.js';
-import { createTauriEnhanceTransport } from '@/assistant/enhance/tauri-enhance-transport.js';
 import { buildEnhanceRequest } from '@/assistant/enhance/service.js';
+import { createTauriEnhanceTransport } from '@/assistant/enhance/tauri-enhance-transport.js';
 import { useEnhance } from '@/assistant/enhance/useEnhance.js';
-import { useUiState } from '@/app/ui-state.js';
 import {
   compileLoopPreview,
   useLoop,
@@ -11,6 +11,7 @@ import {
   useSaveLoopRevision,
   useSelectLoopRevision,
 } from '@/data/loops.js';
+import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import {
   DropdownMenu,
@@ -19,7 +20,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/design-system/primitives/dropdown-menu.js';
-import { Icon } from '@/design-system/icons/Icon.js';
 import { LoopGraphPanel } from '@/surfaces/mission/loops/graph/index.js';
 import type { LoopValidationFinding } from '@offisim/shared-types';
 import {
@@ -35,10 +35,13 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { LoopAdvancedDrawer } from './LoopAdvancedDrawer.js';
+import { LoopQuestionCards } from './LoopQuestionCards.js';
+import { LoopVersionPanel } from './LoopVersionPanel.js';
 import {
   type CompiledRevisionView,
-  type LoopAuthoringModel,
   EMPTY_AUTHORING_MODEL,
+  type LoopAuthoringModel,
   canCompile,
   canSave,
   canUseInOffice,
@@ -47,9 +50,6 @@ import {
   isDirty,
   useBlockedReason,
 } from './loop-authoring-machine.js';
-import { LoopAdvancedDrawer } from './LoopAdvancedDrawer.js';
-import { LoopQuestionCards } from './LoopQuestionCards.js';
-import { LoopVersionPanel } from './LoopVersionPanel.js';
 import { parseLoopIr } from './loop-generated-details.js';
 
 /**
@@ -126,7 +126,8 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
   const model: LoopAuthoringModel = {
     ...EMPTY_AUTHORING_MODEL,
     prompt,
-    enhancing: enhanceOpen && (enhance.state.phase === 'loading' || enhance.state.phase === 'ready'),
+    enhancing:
+      enhanceOpen && (enhance.state.phase === 'loading' || enhance.state.phase === 'ready'),
     compiling,
     saving: saveRevision.isPending,
     errored,
@@ -136,10 +137,7 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
   const state = deriveAuthoringState(model);
   const dirty = isDirty(model);
 
-  const ir = useMemo(
-    () => (compiled ? parseLoopIr(compiled.compiledIrJson) : null),
-    [compiled],
-  );
+  const ir = useMemo(() => (compiled ? parseLoopIr(compiled.compiledIrJson) : null), [compiled]);
   const graphState = graphStateFor(state, compiled);
   const findings: LoopValidationFinding[] = compiled?.findings ?? [];
 
@@ -191,7 +189,8 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
           // so Use-in-Office is blocked until the preview is committed.
         });
         if (result.status === 'ready') toast.success('Compiled — review the graph, then Save');
-        else if (result.status === 'needs_input') toast.message('A few questions to finish this Loop');
+        else if (result.status === 'needs_input')
+          toast.message('A few questions to finish this Loop');
         else toast.error('The Loop has issues to resolve');
       } catch (err) {
         setErrored(true);
@@ -201,7 +200,17 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
         setCompiling(false);
       }
     },
-    [model, companyId, projectId, loop.data?.profileId, prompt, compiled, saveRevision.isPending, enhanceOpen],
+    [
+      // biome-ignore lint/correctness/useExhaustiveDependencies: model is a per-render derived object (not memoized); intentionally tracked so the compile callback stays current.
+      model,
+      companyId,
+      projectId,
+      loop.data?.profileId,
+      prompt,
+      compiled,
+      saveRevision.isPending,
+      enhanceOpen,
+    ],
   );
 
   // ── Save (persist the previewed compile as a NEW immutable revision) ──
@@ -235,7 +244,16 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
       setErrored(true);
       toast.error(err instanceof Error ? err.message : 'Save failed. Your prompt is kept.');
     }
-  }, [model, companyId, projectId, loopId, prompt, compiled, saveRevision]);
+  }, [
+    // biome-ignore lint/correctness/useExhaustiveDependencies: model is a per-render derived object (not memoized); intentionally tracked so the save callback stays current.
+    model,
+    companyId,
+    projectId,
+    loopId,
+    prompt,
+    compiled,
+    saveRevision,
+  ]);
 
   // ── Enhance (apply → still needs a Compile) ──
   function openEnhance() {
@@ -330,6 +348,7 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
       <div className="off-loop-editor-body">
         <div className="off-loop-editor-main">
           {dirty ? (
+            // biome-ignore lint/a11y/useSemanticElements: intentional ARIA live region (role=status)
             <div className="off-loop-stale" role="status">
               <Icon icon={TriangleAlert} size="sm" />
               Prompt changed — this graph is stale. Compile to update it.
@@ -420,18 +439,22 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
               onClick={() => void handleCompile()}
               disabled={!canCompile(model)}
             >
-              <Icon icon={compiling ? Loader2 : Hammer} size="sm" className={compiling ? 'off-spin' : undefined} />
+              <Icon
+                icon={compiling ? Loader2 : Hammer}
+                size="sm"
+                className={compiling ? 'off-spin' : undefined}
+              />
               {dirty ? 'Update graph' : compiled ? 'Recompile' : 'Compile'}
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={() => void handleSave()}
-              disabled={!canSave(model) || (compiled?.savedRevisionId !== undefined && !dirty && justSaved)}
+              disabled={
+                !canSave(model) || (compiled?.savedRevisionId !== undefined && !dirty && justSaved)
+              }
               title={
-                compiled
-                  ? 'Save this compile as a new immutable revision'
-                  : 'Compile before saving'
+                compiled ? 'Save this compile as a new immutable revision' : 'Compile before saving'
               }
             >
               <Icon

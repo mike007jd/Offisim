@@ -11,8 +11,8 @@
  */
 
 import { Channel, invoke } from '@tauri-apps/api/core';
-import type { PiAgentHostEvent, PiAgentHostResponse } from '../../runtime/pi-runtime-driver.js';
 import { readPiModelOverride } from '../../runtime/pi-agent-config.js';
+import type { PiAgentHostEvent, PiAgentHostResponse } from '../../runtime/pi-runtime-driver.js';
 import { resolveThreadThinkingOverride } from '../../runtime/pi-thread-thinking-store.js';
 import type { EnhanceTransport, EnhanceTransportResult } from './service.js';
 

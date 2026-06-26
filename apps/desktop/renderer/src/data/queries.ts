@@ -2,6 +2,7 @@ import { useUiState } from '@/app/ui-state.js';
 import { loadPersistedChatMessages } from '@/data/chat-message-events.js';
 import { resolveAsync } from '@/lib/platform.js';
 import { getTauriDb } from '@/lib/tauri-db.js';
+import { buildWizardTemplates } from '@/surfaces/lifecycle/template-view.js';
 import { getBuiltinPrefab } from '@offisim/renderer';
 import type {
   ActivityType,
@@ -32,7 +33,6 @@ import {
 } from './fixtures.js';
 import { gitErrorMessage, isNonGitWorkspace, loadGitWorkbench } from './git-workbench.js';
 import { deleteCompanyDeep, deleteConversationDeep } from './local-data-deletion.js';
-import { buildWizardTemplates } from '@/surfaces/lifecycle/template-view.js';
 import { loadRunCost } from './run-cost.js';
 import type {
   ChatMessage,
@@ -228,7 +228,8 @@ export function useDeleteCompany() {
     },
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['companies'] }),        queryClient.invalidateQueries({ queryKey: ['activity-records'] }),
+        queryClient.invalidateQueries({ queryKey: ['companies'] }),
+        queryClient.invalidateQueries({ queryKey: ['activity-records'] }),
         queryClient.invalidateQueries({ queryKey: ['threads'] }),
         queryClient.invalidateQueries({ queryKey: ['messages'] }),
         queryClient.invalidateQueries({ queryKey: ['deliverables'] }),
@@ -369,8 +370,7 @@ export function useRenameThread(projectId: string | null) {
       return { persisted: true };
     },
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['threads', projectId] }),      ]);
+      await Promise.all([queryClient.invalidateQueries({ queryKey: ['threads', projectId] })]);
     },
   });
 }
@@ -387,8 +387,7 @@ export function useArchiveThread(projectId: string | null) {
       return { persisted: true };
     },
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['threads', projectId] }),      ]);
+      await Promise.all([queryClient.invalidateQueries({ queryKey: ['threads', projectId] })]);
     },
   });
 }
@@ -409,7 +408,8 @@ export function useDeleteConversation(projectId: string | null, companyId: strin
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['threads', projectId] }),
         queryClient.invalidateQueries({ queryKey: ['messages', vars.threadId] }),
-        queryClient.invalidateQueries({ queryKey: ['deliverables', companyId, vars.threadId] }),        queryClient.invalidateQueries({ queryKey: ['activity-records', companyId ?? ''] }),
+        queryClient.invalidateQueries({ queryKey: ['deliverables', companyId, vars.threadId] }),
+        queryClient.invalidateQueries({ queryKey: ['activity-records', companyId ?? ''] }),
       ]);
     },
   });
@@ -640,7 +640,9 @@ export function useDeleteZone() {
           await tx.zones.delete(zoneId);
         });
       } else {
-        await Promise.all(prefabs.map((prefab) => repos.prefabInstances.delete(prefab.instance_id)));
+        await Promise.all(
+          prefabs.map((prefab) => repos.prefabInstances.delete(prefab.instance_id)),
+        );
         await repos.zones.delete(zoneId);
       }
       return { persisted: true, deletedObjects: prefabs.length };

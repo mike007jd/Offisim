@@ -24,15 +24,15 @@ import Database from 'better-sqlite3';
 import { drizzle as drizzleBetter } from 'drizzle-orm/better-sqlite3';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import {
-  createCollaborationService,
-  type CollaborationServiceDeps,
-} from '../packages/core/src/runtime/collaboration/collaboration-service.js';
-import { createCollaborationDrizzleRepos } from '../packages/core/src/runtime/repos/collaboration/drizzle.js';
-import {
+  type PresentationMessage,
   shouldShowPendingReply,
   visibleWorkspaceMessages,
-  type PresentationMessage,
 } from '../apps/desktop/renderer/src/surfaces/workspace/apps/workspace-chat-presentation.js';
+import {
+  type CollaborationServiceDeps,
+  createCollaborationService,
+} from '../packages/core/src/runtime/collaboration/collaboration-service.js';
+import { createCollaborationDrizzleRepos } from '../packages/core/src/runtime/repos/collaboration/drizzle.js';
 
 let passed = 0;
 let failed = 0;
@@ -153,8 +153,14 @@ function makeDeps(): CollaborationServiceDeps {
   let idSeq = 0;
   let clockSeq = 0;
   return {
-    newId: () => `id-${(idSeq += 1).toString().padStart(4, '0')}`,
-    now: () => new Date(Date.UTC(2026, 0, 1, 0, 0, 0, (clockSeq += 1))).toISOString(),
+    newId: () => {
+      idSeq += 1;
+      return `id-${idSeq.toString().padStart(4, '0')}`;
+    },
+    now: () => {
+      clockSeq += 1;
+      return new Date(Date.UTC(2026, 0, 1, 0, 0, 0, clockSeq)).toISOString();
+    },
   };
 }
 
@@ -221,21 +227,24 @@ async function main(): Promise<void> {
   });
 
   // ── (2) a Connect op surfaces as the new last-message / list state ─────────
-  await check('(2) appendMessage is observable through listThreads (invalidation re-read)', async () => {
-    const db = new Database(':memory:');
-    seed(db);
-    const svc = makeService(db);
-    const thread = await svc.getOrCreateDirect('co-1', 'emp-1');
-    // The query fn IS service.listThreads; after a send, re-reading it (what the
-    // invalidation triggers) must reflect the new last message + unread.
-    const before = await svc.listThreads('co-1');
-    assert.equal(before.find((t) => t.threadId === thread.threadId)?.lastMessage, null);
-    await svc.appendMessage({ threadId: thread.threadId, senderType: 'boss', body: 'ping' });
-    const after = await svc.listThreads('co-1');
-    const summary = after.find((t) => t.threadId === thread.threadId);
-    assert.equal(summary?.lastMessage?.body, 'ping', 'list re-read shows the new last message');
-    assert.equal(summary?.unreadCount, 1, 'unread reflects the appended message');
-  });
+  await check(
+    '(2) appendMessage is observable through listThreads (invalidation re-read)',
+    async () => {
+      const db = new Database(':memory:');
+      seed(db);
+      const svc = makeService(db);
+      const thread = await svc.getOrCreateDirect('co-1', 'emp-1');
+      // The query fn IS service.listThreads; after a send, re-reading it (what the
+      // invalidation triggers) must reflect the new last message + unread.
+      const before = await svc.listThreads('co-1');
+      assert.equal(before.find((t) => t.threadId === thread.threadId)?.lastMessage, null);
+      await svc.appendMessage({ threadId: thread.threadId, senderType: 'boss', body: 'ping' });
+      const after = await svc.listThreads('co-1');
+      const summary = after.find((t) => t.threadId === thread.threadId);
+      assert.equal(summary?.lastMessage?.body, 'ping', 'list re-read shows the new last message');
+      assert.equal(summary?.unreadCount, 1, 'unread reflects the appended message');
+    },
+  );
 
   // ── (3) THREAD ISOLATION: a Connect op never touches chat_threads ──────────
   await check('(3) a Connect direct-draft send never touches chat_threads', async () => {
@@ -311,7 +320,11 @@ async function main(): Promise<void> {
       if (selectedThreadCompany !== companyId) return null;
       return selectedId;
     }
-    assert.equal(resolveSelection('co-1', 'co-1', 't-1'), 't-1', 'selection holds within a company');
+    assert.equal(
+      resolveSelection('co-1', 'co-1', 't-1'),
+      't-1',
+      'selection holds within a company',
+    );
     assert.equal(
       resolveSelection('co-2', 'co-1', 't-1'),
       null,
@@ -355,7 +368,11 @@ async function main(): Promise<void> {
     // The thread SUMMARY's last message is now an EMPLOYEE reply — proving why
     // seeding the trigger from `lastMessage` (any author) would be wrong.
     const summary = (await svc.listThreads('co-1')).find((t) => t.threadId === group.threadId);
-    assert.equal(summary?.lastMessage?.senderType, 'employee', 'thread last message is an employee reply');
+    assert.equal(
+      summary?.lastMessage?.senderType,
+      'employee',
+      'thread last message is an employee reply',
+    );
 
     // The Messenger resolves the round/Continue trigger by scanning the persisted
     // transcript (oldest→newest) and keeping the LAST boss-authored message — the
@@ -372,9 +389,15 @@ async function main(): Promise<void> {
     const oldestFirst = [...page.messages].reverse();
     const trigger = resolveBossTrigger(oldestFirst);
     assert.ok(trigger, 'a boss trigger exists');
-    assert.equal(trigger?.messageId, boss.messageId, 'the trigger is the boss message, not an employee reply');
+    assert.equal(
+      trigger?.messageId,
+      boss.messageId,
+      'the trigger is the boss message, not an employee reply',
+    );
     // And explicitly: it is NOT either employee reply.
-    const employeeIds = oldestFirst.filter((m) => m.senderType === 'employee').map((m) => m.messageId);
+    const employeeIds = oldestFirst
+      .filter((m) => m.senderType === 'employee')
+      .map((m) => m.messageId);
     assert.ok(!employeeIds.includes(trigger!.messageId), 'trigger is never an employee reply');
   });
 
@@ -390,7 +413,11 @@ async function main(): Promise<void> {
       replyPolicy: 'roundtable',
     });
     // Only a system message exists (no boss-authored message yet).
-    await svc.appendMessage({ threadId: group.threadId, senderType: 'system', body: 'room created' });
+    await svc.appendMessage({
+      threadId: group.threadId,
+      senderType: 'system',
+      body: 'room created',
+    });
     const page = await svc.listMessages(group.threadId, null, 50);
     const hasBossTrigger = [...page.messages].some((m) => m.senderType === 'boss');
     assert.equal(hasBossTrigger, false, 'no boss trigger → the Continue round button is hidden');

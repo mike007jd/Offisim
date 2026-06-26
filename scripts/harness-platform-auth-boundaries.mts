@@ -3,8 +3,8 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-  decideEmailAdoption,
   MAX_API_TOKEN_EXPIRY_DAYS,
+  decideEmailAdoption,
   normalizeApiTokenScopes,
   optionalAuth,
   parseApiTokenExpiryDays,
@@ -74,6 +74,7 @@ function makeApiTokenMockDb(plan: ApiTokenDbStep[]) {
       if ('throw' in step) return Promise.reject(new Error('platform db unavailable'));
       return Promise.resolve(step.rows);
     },
+    // biome-ignore lint/suspicious/noThenProperty: intentional thenable mock to exercise the bare-await write path
     then: (onF: (value: unknown) => unknown) => {
       onF?.(undefined);
       return builder;
@@ -143,7 +144,9 @@ async function expectApiTokenBackendErrorReturns503() {
 
 function expectEmailAdoptionRequiresVerification() {
   // Unlinked account + unverified email → refuse (the seed-takeover vector).
-  if (decideEmailAdoption({ ba_user_id: null }, { id: 'ba-x', emailVerified: false }) !== 'refuse') {
+  if (
+    decideEmailAdoption({ ba_user_id: null }, { id: 'ba-x', emailVerified: false }) !== 'refuse'
+  ) {
     throw new Error('unverified email was allowed to adopt an unlinked account');
   }
   if (

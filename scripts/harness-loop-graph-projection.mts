@@ -18,24 +18,24 @@
 
 import assert from 'node:assert/strict';
 import ElkConstructor from 'elkjs/lib/elk.bundled.js';
-import type {
-  LoopIR,
-  LoopNode,
-  LoopEdge,
-  LoopValidationFinding,
-} from '../packages/shared-types/src/index.ts';
 import {
+  type LoopGraphProjection,
+  breadcrumbTrail,
   projectLoopGraph,
   selectVisibleSubset,
-  breadcrumbTrail,
-  type LoopGraphProjection,
 } from '../apps/desktop/renderer/src/surfaces/mission/loops/graph/loop-graph-adapter.ts';
 import {
-  layoutGraph,
-  directionForWidth,
-  LayoutCancelledError,
   type ElkLike,
+  LayoutCancelledError,
+  directionForWidth,
+  layoutGraph,
 } from '../apps/desktop/renderer/src/surfaces/mission/loops/graph/loop-graph-layout.ts';
+import type {
+  LoopEdge,
+  LoopIR,
+  LoopNode,
+  LoopValidationFinding,
+} from '../packages/shared-types/src/index.ts';
 
 let passed = 0;
 let failed = 0;
@@ -74,7 +74,13 @@ function baseCompletion(): LoopIR['completion'] {
   return {
     outcome: 'The loop reaches a verified result',
     acceptance: [
-      { id: 'a1', description: 'tests pass', oracle: 'deterministic', evaluatorId: 'command_exit_zero', required: true },
+      {
+        id: 'a1',
+        description: 'tests pass',
+        oracle: 'deterministic',
+        evaluatorId: 'command_exit_zero',
+        required: true,
+      },
       { id: 'a2', description: 'reviewer approves', oracle: 'review', required: false },
     ],
     exitStates: ['success', 'blocked-handoff'],
@@ -90,7 +96,9 @@ function makeIR(overrides: Partial<LoopIR>): LoopIR {
       { id: 'in1', label: 'Repository', type: 'repo', required: true },
       { id: 'in2', label: 'Notes', type: 'text', required: false },
     ],
-    outputs: overrides.outputs ?? [{ id: 'out1', label: 'Merged change', type: 'artifact', required: true }],
+    outputs: overrides.outputs ?? [
+      { id: 'out1', label: 'Merged change', type: 'artifact', required: true },
+    ],
     parameters: overrides.parameters ?? [],
     nodes: overrides.nodes ?? [],
     edges: overrides.edges ?? [],
@@ -112,14 +120,25 @@ function makeIR(overrides: Partial<LoopIR>): LoopIR {
   };
 }
 
-const n = (id: string, kind: LoopNode['kind'], label: string, extra: Partial<LoopNode> = {}): LoopNode => ({
+const n = (
+  id: string,
+  kind: LoopNode['kind'],
+  label: string,
+  extra: Partial<LoopNode> = {},
+): LoopNode => ({
   id,
   kind,
   label,
   ...extra,
 });
 
-const e = (id: string, from: string, to: string, kind: LoopEdge['kind'], extra: Partial<LoopEdge> = {}): LoopEdge => ({
+const e = (
+  id: string,
+  from: string,
+  to: string,
+  kind: LoopEdge['kind'],
+  extra: Partial<LoopEdge> = {},
+): LoopEdge => ({
   id,
   from,
   to,
@@ -181,7 +200,14 @@ function retryEscalateIR(): LoopIR {
       e('e3', 'act', 'gate', 'escalate', { label: 'too many retries' }),
       e('e4', 'gate', 'f', 'next'),
     ],
-    humanGates: [{ id: 'g1', nodeId: 'gate', prompt: 'Approve the risky deploy?', reason: 'irreversible production change' }],
+    humanGates: [
+      {
+        id: 'g1',
+        nodeId: 'gate',
+        prompt: 'Approve the risky deploy?',
+        reason: 'irreversible production change',
+      },
+    ],
   });
 }
 
@@ -295,7 +321,11 @@ function nestedRetryOnlyIR(): LoopIR {
       n('s', 'start', 'Start'),
       n('sub', 'subloop', 'Inner retrying loop', {
         childGraph: {
-          nodes: [n('cs', 'start', 'Inner start'), n('ca', 'action', 'Inner work'), n('cf', 'finish', 'Inner finish')],
+          nodes: [
+            n('cs', 'start', 'Inner start'),
+            n('ca', 'action', 'Inner work'),
+            n('cf', 'finish', 'Inner finish'),
+          ],
           edges: [
             e('ce1', 'cs', 'ca', 'next'),
             e('ce2', 'ca', 'ca', 'retry', { maxRetries: 4 }), // nested retry
@@ -379,16 +409,19 @@ async function run(): Promise<void> {
     assert.equal(p.findings.length, 0);
   });
 
-  await check('referenced subloop becomes a leaf reference node (no crash, no inline level)', () => {
-    const p = projectLoopGraph(referencedSubloopIR());
-    const sub = p.nodes.find((x) => x.kind === 'subloop');
-    assert.equal(sub?.referencedRevisionId, 'rev-xyz');
-    assert.equal(sub?.childGraphId, undefined);
-    // No phantom child level was created.
-    const childNodes = p.nodes.filter((x) => x.parentGraphId === sub?.id);
-    assert.equal(childNodes.length, 0);
-    assert.equal(p.findings.length, 0);
-  });
+  await check(
+    'referenced subloop becomes a leaf reference node (no crash, no inline level)',
+    () => {
+      const p = projectLoopGraph(referencedSubloopIR());
+      const sub = p.nodes.find((x) => x.kind === 'subloop');
+      assert.equal(sub?.referencedRevisionId, 'rev-xyz');
+      assert.equal(sub?.childGraphId, undefined);
+      // No phantom child level was created.
+      const childNodes = p.nodes.filter((x) => x.parentGraphId === sub?.id);
+      assert.equal(childNodes.length, 0);
+      assert.equal(p.findings.length, 0);
+    },
+  );
 
   await check('invalid/dangling ids degrade gracefully (findings, no throw)', () => {
     let p: LoopGraphProjection | undefined;
@@ -397,8 +430,14 @@ async function run(): Promise<void> {
     });
     assert.ok(p, 'projection produced');
     const codes = findingCodes(p!);
-    assert.ok(codes.includes('graph.dangling_edge'), `dangling finding present: ${codes.join(',')}`);
-    assert.ok(codes.includes('graph.duplicate_node_id'), `duplicate finding present: ${codes.join(',')}`);
+    assert.ok(
+      codes.includes('graph.dangling_edge'),
+      `dangling finding present: ${codes.join(',')}`,
+    );
+    assert.ok(
+      codes.includes('graph.duplicate_node_id'),
+      `duplicate finding present: ${codes.join(',')}`,
+    );
     // Both dangling edges dropped; only the two valid edges survive.
     assert.equal(p!.edges.length, 2, `surviving edges: ${p!.edges.map((x) => x.id).join(',')}`);
     // Duplicate node id collapsed to one.
@@ -429,7 +468,11 @@ async function run(): Promise<void> {
       `nested retry must surface, got: "${anyNode.inspector.retrySummary}"`,
     );
     assert.match(anyNode.inspector.retrySummary, /max 4/, 'nested maxRetries reflected');
-    assert.doesNotMatch(anyNode.inspector.retrySummary, /No retry edges/i, 'must not claim zero retries');
+    assert.doesNotMatch(
+      anyNode.inspector.retrySummary,
+      /No retry edges/i,
+      'must not claim zero retries',
+    );
   });
 
   await check('expand/collapse selects only the visible subset for a level', () => {
@@ -462,33 +505,33 @@ async function run(): Promise<void> {
   // option, ordering that ELK is sensitive to) shifts these and fails the case.
   const STRAIGHT_LAYOUT_SNAPSHOT = 'act@276,12|f@804,12|s@12,12|ver@540,12';
 
-  await check('STABLE layout: same IR → same node ids + positions (deterministic, snapshot)', async () => {
-    const elk = makeElk();
-    const ir = feedbackIR();
-    const p1 = projectLoopGraph(ir);
-    const p2 = projectLoopGraph(ir);
-    const sub1 = selectVisibleSubset(p1, '');
-    const sub2 = selectVisibleSubset(p2, '');
-    const l1 = await layoutGraph(elk, sub1.nodes, sub1.edges);
-    const l2 = await layoutGraph(elk, sub2.nodes, sub2.edges);
-    const key1 = positionsKey(l1);
-    const key2 = positionsKey(l2);
-    assert.equal(key1, key2, `layout not deterministic:\n  ${key1}\n  ${key2}`);
+  await check(
+    'STABLE layout: same IR → same node ids + positions (deterministic, snapshot)',
+    async () => {
+      const elk = makeElk();
+      const ir = feedbackIR();
+      const p1 = projectLoopGraph(ir);
+      const p2 = projectLoopGraph(ir);
+      const sub1 = selectVisibleSubset(p1, '');
+      const sub2 = selectVisibleSubset(p2, '');
+      const l1 = await layoutGraph(elk, sub1.nodes, sub1.edges);
+      const l2 = await layoutGraph(elk, sub2.nodes, sub2.edges);
+      const key1 = positionsKey(l1);
+      const key2 = positionsKey(l2);
+      assert.equal(key1, key2, `layout not deterministic:\n  ${key1}\n  ${key2}`);
 
-    // Frozen-snapshot guard: a known graph must land on known coordinates.
-    const straight = selectVisibleSubset(projectLoopGraph(straightIR()), '');
-    const ls = await layoutGraph(elk, straight.nodes, straight.edges);
-    assert.equal(
-      positionsKey(ls),
-      STRAIGHT_LAYOUT_SNAPSHOT,
-      `layout drifted from frozen snapshot:\n  got      ${positionsKey(ls)}\n  expected ${STRAIGHT_LAYOUT_SNAPSHOT}`,
-    );
-    // Node id set identical and matches projection.
-    assert.deepEqual(
-      l1.nodes.map((x) => x.id).sort(),
-      sub1.nodes.map((x) => x.id).sort(),
-    );
-  });
+      // Frozen-snapshot guard: a known graph must land on known coordinates.
+      const straight = selectVisibleSubset(projectLoopGraph(straightIR()), '');
+      const ls = await layoutGraph(elk, straight.nodes, straight.edges);
+      assert.equal(
+        positionsKey(ls),
+        STRAIGHT_LAYOUT_SNAPSHOT,
+        `layout drifted from frozen snapshot:\n  got      ${positionsKey(ls)}\n  expected ${STRAIGHT_LAYOUT_SNAPSHOT}`,
+      );
+      // Node id set identical and matches projection.
+      assert.deepEqual(l1.nodes.map((x) => x.id).sort(), sub1.nodes.map((x) => x.id).sort());
+    },
+  );
 
   await check('STABLE layout: insertion order of nodes does not change positions', async () => {
     const elk = makeElk();
@@ -506,70 +549,88 @@ async function run(): Promise<void> {
     assert.equal(positionsKey(la), positionsKey(lb), 'input order must not affect layout');
   });
 
-  await check('async cancellation (PRE-ELK guard): already-stale request never runs ELK', async () => {
-    const elk = makeElk();
-    const ir = feedbackIR();
-    const sub = selectVisibleSubset(projectLoopGraph(ir), '');
-    // Simulate a generation token bumped BEFORE layout starts: isCancelled is
-    // already true on entry, so the pre-ELK guard short-circuits.
-    let generation = 5;
-    const requested = 5;
-    const isCancelled = () => generation !== requested;
-    generation = 6; // bumped before the call → pre-check fires
-    let threw = false;
-    try {
-      await layoutGraph(elk, sub.nodes, sub.edges, {}, isCancelled);
-    } catch (err) {
-      threw = err instanceof LayoutCancelledError;
-    }
-    assert.ok(threw, 'pre-ELK guard throws LayoutCancelledError');
-  });
+  await check(
+    'async cancellation (PRE-ELK guard): already-stale request never runs ELK',
+    async () => {
+      const elk = makeElk();
+      const ir = feedbackIR();
+      const sub = selectVisibleSubset(projectLoopGraph(ir), '');
+      // Simulate a generation token bumped BEFORE layout starts: isCancelled is
+      // already true on entry, so the pre-ELK guard short-circuits.
+      let generation = 5;
+      const requested = 5;
+      const isCancelled = () => generation !== requested;
+      generation = 6; // bumped before the call → pre-check fires
+      let threw = false;
+      try {
+        await layoutGraph(elk, sub.nodes, sub.edges, {}, isCancelled);
+      } catch (err) {
+        threw = err instanceof LayoutCancelledError;
+      }
+      assert.ok(threw, 'pre-ELK guard throws LayoutCancelledError');
+    },
+  );
 
-  await check('async cancellation (POST-ELK guard): revision bumped DURING layout discards result', async () => {
-    // A fake ELK that flips the generation token WHILE its layout() is awaited.
-    // The request is current on entry (pre-check passes), so only the POST-ELK
-    // guard can catch it — proving the guard after `await elk.layout()` works.
-    let generation = 1;
-    const requested = 1;
-    const isCancelled = () => generation !== requested;
-    const fakeElk: ElkLike = {
-      async layout(graph) {
-        // Bump the generation mid-flight (the revision changed during layout).
-        generation = 2;
-        return {
-          width: 0,
-          height: 0,
-          children: (graph.children ?? []).map((c) => ({ id: c.id, x: 0, y: 0, width: c.width, height: c.height })),
-          edges: [],
-        };
-      },
-    };
-    const ir = feedbackIR();
-    const sub = selectVisibleSubset(projectLoopGraph(ir), '');
-    let threw = false;
-    try {
-      await layoutGraph(fakeElk, sub.nodes, sub.edges, {}, isCancelled);
-    } catch (err) {
-      threw = err instanceof LayoutCancelledError;
-    }
-    assert.ok(threw, 'post-ELK guard throws LayoutCancelledError when generation bumps during layout');
-  });
+  await check(
+    'async cancellation (POST-ELK guard): revision bumped DURING layout discards result',
+    async () => {
+      // A fake ELK that flips the generation token WHILE its layout() is awaited.
+      // The request is current on entry (pre-check passes), so only the POST-ELK
+      // guard can catch it — proving the guard after `await elk.layout()` works.
+      let generation = 1;
+      const requested = 1;
+      const isCancelled = () => generation !== requested;
+      const fakeElk: ElkLike = {
+        async layout(graph) {
+          // Bump the generation mid-flight (the revision changed during layout).
+          generation = 2;
+          return {
+            width: 0,
+            height: 0,
+            children: (graph.children ?? []).map((c) => ({
+              id: c.id,
+              x: 0,
+              y: 0,
+              width: c.width,
+              height: c.height,
+            })),
+            edges: [],
+          };
+        },
+      };
+      const ir = feedbackIR();
+      const sub = selectVisibleSubset(projectLoopGraph(ir), '');
+      let threw = false;
+      try {
+        await layoutGraph(fakeElk, sub.nodes, sub.edges, {}, isCancelled);
+      } catch (err) {
+        threw = err instanceof LayoutCancelledError;
+      }
+      assert.ok(
+        threw,
+        'post-ELK guard throws LayoutCancelledError when generation bumps during layout',
+      );
+    },
+  );
 
-  await check('large graph (250 nodes / ~500 edges-ish) layout completes under budget', async () => {
-    const elk = makeElk();
-    const ir = largeIR(250);
-    const p = projectLoopGraph(ir);
-    // No findings on a well-formed large graph.
-    assert.equal(p.findings.length, 0, `large graph findings: ${findingCodes(p).join(',')}`);
-    assert.ok(p.nodes.length >= 250, `node count ${p.nodes.length}`);
-    const sub = selectVisibleSubset(p, '');
-    const start = process.hrtime.bigint();
-    const laidOut = await layoutGraph(elk, sub.nodes, sub.edges);
-    const elapsedMs = Number(process.hrtime.bigint() - start) / 1e6;
-    assert.equal(laidOut.nodes.length, sub.nodes.length, 'all nodes laid out');
-    // Generous CI-safe ceiling; ELK layered on 250 nodes is well under this.
-    assert.ok(elapsedMs < 8000, `layout took ${elapsedMs.toFixed(0)}ms (budget 8000ms)`);
-  });
+  await check(
+    'large graph (250 nodes / ~500 edges-ish) layout completes under budget',
+    async () => {
+      const elk = makeElk();
+      const ir = largeIR(250);
+      const p = projectLoopGraph(ir);
+      // No findings on a well-formed large graph.
+      assert.equal(p.findings.length, 0, `large graph findings: ${findingCodes(p).join(',')}`);
+      assert.ok(p.nodes.length >= 250, `node count ${p.nodes.length}`);
+      const sub = selectVisibleSubset(p, '');
+      const start = process.hrtime.bigint();
+      const laidOut = await layoutGraph(elk, sub.nodes, sub.edges);
+      const elapsedMs = Number(process.hrtime.bigint() - start) / 1e6;
+      assert.equal(laidOut.nodes.length, sub.nodes.length, 'all nodes laid out');
+      // Generous CI-safe ceiling; ELK layered on 250 nodes is well under this.
+      assert.ok(elapsedMs < 8000, `layout took ${elapsedMs.toFixed(0)}ms (budget 8000ms)`);
+    },
+  );
 
   await check('keyboard / a11y label data present in the projection', () => {
     const p = projectLoopGraph(nestedInlineIR());

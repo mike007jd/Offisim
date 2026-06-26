@@ -33,9 +33,33 @@ function check(name: string, condition: boolean, detail?: string): void {
 const THREAD = 'thread-1';
 const ROOT = 'root-1';
 const CONFIG = { dramaturgyVersion: 'v1' };
-const started = (at: number, runId: string, employeeId: string): TimedAgentRunEvent => ({ threadId: THREAD, rootRunId: ROOT, runId, parentRunId: ROOT, employeeId, relation: 'delegate', type: 'run.started', payload: { objective: 'x', access: 'write' }, timestamp: at });
-const tool = (at: number, employeeId: string, toolName: string): TimedAgentRunEvent => ({ threadId: THREAD, rootRunId: ROOT, runId: `r-${employeeId}`, employeeId, type: 'tool.started', payload: { toolCallId: `${employeeId}:${at}`, toolName, status: 'started' }, timestamp: at });
-const prefab = (instanceId: string, prefabId: string, x = 0, z = 0): StagingPrefab => ({ instanceId, prefabId, x, z, rotation: 0 });
+const started = (at: number, runId: string, employeeId: string): TimedAgentRunEvent => ({
+  threadId: THREAD,
+  rootRunId: ROOT,
+  runId,
+  parentRunId: ROOT,
+  employeeId,
+  relation: 'delegate',
+  type: 'run.started',
+  payload: { objective: 'x', access: 'write' },
+  timestamp: at,
+});
+const tool = (at: number, employeeId: string, toolName: string): TimedAgentRunEvent => ({
+  threadId: THREAD,
+  rootRunId: ROOT,
+  runId: `r-${employeeId}`,
+  employeeId,
+  type: 'tool.started',
+  payload: { toolCallId: `${employeeId}:${at}`, toolName, status: 'started' },
+  timestamp: at,
+});
+const prefab = (instanceId: string, prefabId: string, x = 0, z = 0): StagingPrefab => ({
+  instanceId,
+  prefabId,
+  x,
+  z,
+  rotation: 0,
+});
 
 console.log('dramaturgy-modes gate');
 
@@ -51,29 +75,64 @@ check('unknown role falls back to 1', animationTempoForRole('not-a-role' as Role
 console.log('\n[modes] density only, truth preserved');
 {
   // 6 employees each freshly delegated → 6 movement beats; office has capacity.
-  const office: StagingPrefab[] = [prefab('m', 'meeting-table-8', 0, 0), prefab('w', 'workstation-standard', 5, 0)];
+  const office: StagingPrefab[] = [
+    prefab('m', 'meeting-table-8', 0, 0),
+    prefab('w', 'workstation-standard', 5, 0),
+  ];
   const ids = ['a', 'b', 'c', 'd', 'e', 'f'];
   const stream: TimedAgentRunEvent[] = [
-    { threadId: THREAD, rootRunId: ROOT, runId: ROOT, type: 'run.started', payload: { objective: 'root', access: 'write' }, timestamp: 0 },
+    {
+      threadId: THREAD,
+      rootRunId: ROOT,
+      runId: ROOT,
+      type: 'run.started',
+      payload: { objective: 'root', access: 'write' },
+      timestamp: 0,
+    },
     ...ids.map((id, i) => started(100 + i, `run-${id}`, id)),
   ];
   const base = projectOfficeStaging(composeBeats(stream, CONFIG), office);
   const movers = base.filter((s) => s.staging !== null).length;
 
   const focus = applyDramaturgyMode(base, { mode: 'focus' });
-  check('focus: nobody relocates', focus.every((s) => s.staging === null));
-  check('focus: actor set + performance preserved', focus.length === base.length && focus.every((s, i) => JSON.stringify(s.performance) === JSON.stringify(base[i]?.performance)));
+  check(
+    'focus: nobody relocates',
+    focus.every((s) => s.staging === null),
+  );
+  check(
+    'focus: actor set + performance preserved',
+    focus.length === base.length &&
+      focus.every((s, i) => JSON.stringify(s.performance) === JSON.stringify(base[i]?.performance)),
+  );
 
   const reduced = applyDramaturgyMode(base, { mode: 'cinematic', reducedMotion: true });
-  check('reduced-motion: nobody relocates (even cinematic)', reduced.every((s) => s.staging === null));
+  check(
+    'reduced-motion: nobody relocates (even cinematic)',
+    reduced.every((s) => s.staging === null),
+  );
 
   const cinematic = applyDramaturgyMode(base, { mode: 'cinematic' });
-  check('cinematic: keeps every base relocation', cinematic.filter((s) => s.staging !== null).length === movers);
+  check(
+    'cinematic: keeps every base relocation',
+    cinematic.filter((s) => s.staging !== null).length === movers,
+  );
 
   const officeMode = applyDramaturgyMode(base, { mode: 'office', maxWalkers: 4 });
-  check('office: caps walkers at 4', officeMode.filter((s) => s.staging !== null).length === Math.min(4, movers));
-  check('office: never invents a relocation', officeMode.filter((s) => s.staging !== null).length <= movers);
-  check('office: performance + actor set preserved', officeMode.length === base.length && officeMode.every((s, i) => JSON.stringify(s.performance) === JSON.stringify(base[i]?.performance)));
+  check(
+    'office: caps walkers at 4',
+    officeMode.filter((s) => s.staging !== null).length === Math.min(4, movers),
+  );
+  check(
+    'office: never invents a relocation',
+    officeMode.filter((s) => s.staging !== null).length <= movers,
+  );
+  check(
+    'office: performance + actor set preserved',
+    officeMode.length === base.length &&
+      officeMode.every(
+        (s, i) => JSON.stringify(s.performance) === JSON.stringify(base[i]?.performance),
+      ),
+  );
 }
 
 // ── Office cap picks highest-priority movers ────────────────────────────────
@@ -87,7 +146,14 @@ console.log('\n[modes] office cap keeps highest-priority movers');
     prefab('w3', 'workstation-compact', -9, 0),
   ];
   const stream: TimedAgentRunEvent[] = [
-    { threadId: THREAD, rootRunId: ROOT, runId: ROOT, type: 'run.started', payload: { objective: 'root', access: 'write' }, timestamp: 0 },
+    {
+      threadId: THREAD,
+      rootRunId: ROOT,
+      runId: ROOT,
+      type: 'run.started',
+      payload: { objective: 'root', access: 'write' },
+      timestamp: 0,
+    },
     started(10, 'r1', 'p1'),
     started(20, 'r2', 'p2'),
     started(30, 'r3', 'p3'),
@@ -96,18 +162,36 @@ console.log('\n[modes] office cap keeps highest-priority movers');
   const movers = base.filter((s) => s.staging !== null);
   if (movers.length >= 2) {
     const capped = applyDramaturgyMode(base, { mode: 'office', maxWalkers: 2 });
-    check('office cap=2 keeps exactly 2 movers', capped.filter((s) => s.staging !== null).length === 2, `got ${capped.filter((s) => s.staging !== null).length}`);
+    check(
+      'office cap=2 keeps exactly 2 movers',
+      capped.filter((s) => s.staging !== null).length === 2,
+      `got ${capped.filter((s) => s.staging !== null).length}`,
+    );
   } else {
-    check('office cap test has enough movers (setup)', movers.length >= 2, `only ${movers.length} movers`);
+    check(
+      'office cap test has enough movers (setup)',
+      movers.length >= 2,
+      `only ${movers.length} movers`,
+    );
   }
 }
 
 // ── Determinism of the mode transform ───────────────────────────────────────
 console.log('\n[modes] deterministic');
 {
-  const office: StagingPrefab[] = [prefab('w1', 'workstation-standard', 0, 0), prefab('w2', 'workstation-dual', 3, 0)];
+  const office: StagingPrefab[] = [
+    prefab('w1', 'workstation-standard', 0, 0),
+    prefab('w2', 'workstation-dual', 3, 0),
+  ];
   const stream: TimedAgentRunEvent[] = [
-    { threadId: THREAD, rootRunId: ROOT, runId: ROOT, type: 'run.started', payload: { objective: 'r', access: 'write' }, timestamp: 0 },
+    {
+      threadId: THREAD,
+      rootRunId: ROOT,
+      runId: ROOT,
+      type: 'run.started',
+      payload: { objective: 'r', access: 'write' },
+      timestamp: 0,
+    },
     started(10, 'r1', 'a'),
     started(20, 'r2', 'b'),
   ];

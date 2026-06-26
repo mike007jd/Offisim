@@ -199,7 +199,7 @@ export class MemoryCollaborationMessageRepository implements CollaborationMessag
   }
 
   async countSince(threadId: string, messageId: string | null): Promise<number> {
-    const boundary = messageId ? this.store.get(messageId) ?? null : null;
+    const boundary = messageId ? (this.store.get(messageId) ?? null) : null;
     return [...this.store.values()].filter((r) => {
       if (r.thread_id !== threadId) return false;
       if (!boundary) return true;
@@ -220,9 +220,7 @@ export class MemoryCollaborationMessageRepository implements CollaborationMessag
   }
 }
 
-export class MemoryCollaborationReadStateRepository
-  implements CollaborationReadStateRepository
-{
+export class MemoryCollaborationReadStateRepository implements CollaborationReadStateRepository {
   private readonly store = new Map<string, CollaborationReadStateRow>();
 
   async findByThread(threadId: string): Promise<CollaborationReadStateRow | null> {

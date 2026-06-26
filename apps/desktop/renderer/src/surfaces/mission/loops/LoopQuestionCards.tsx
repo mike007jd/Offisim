@@ -1,3 +1,4 @@
+import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import {
   DropdownMenu,
@@ -6,7 +7,6 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/design-system/primitives/dropdown-menu.js';
-import { Icon } from '@/design-system/icons/Icon.js';
 import type { LoopCompileQuestion } from '@offisim/shared-types';
 import { Check, ChevronDown, MessageCircleQuestion, Wand2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -36,6 +36,7 @@ export function LoopQuestionCards({ questions, busy, onAccept }: LoopQuestionCar
   const shown = questions.slice(0, 3);
 
   return (
+    // biome-ignore lint/a11y/useSemanticElements: intentional ARIA group for the question set
     <div className="off-loop-questions" role="group" aria-label="Clarifying questions">
       <div className="off-loop-questions-head">
         <Icon icon={MessageCircleQuestion} size="sm" />
@@ -74,19 +75,12 @@ export function LoopQuestionCards({ questions, busy, onAccept }: LoopQuestionCar
                 aria-label={q.question}
               />
             )}
-            <span className="off-loop-question-default">
-              Recommended: {q.recommendedDefault}
-            </span>
+            <span className="off-loop-question-default">Recommended: {q.recommendedDefault}</span>
           </li>
         ))}
       </ul>
       <div className="off-loop-questions-actions">
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={busy}
-          onClick={() => onAccept(defaults)}
-        >
+        <Button variant="outline" size="sm" disabled={busy} onClick={() => onAccept(defaults)}>
           <Icon icon={Wand2} size="sm" />
           Use defaults
         </Button>

@@ -33,18 +33,18 @@ import assert from 'node:assert/strict';
 import { createDefaultEvaluatorRegistry } from '../packages/core/src/runtime/mission/evaluators/registry.ts';
 import type { EvaluationContext } from '../packages/core/src/runtime/mission/evaluators/types.ts';
 import {
-  createMissionLoopController,
   type AttemptExecution,
   type ControllerCriterion,
   type MissionLoopControllerDeps,
   type RunAttemptInput,
+  createMissionLoopController,
 } from '../packages/core/src/runtime/mission/mission-loop-controller.ts';
 import {
-  createMissionService,
-  MissionStateError,
   type CreateMissionInput,
   type MissionService,
   type MissionServiceDeps,
+  MissionStateError,
+  createMissionService,
 } from '../packages/core/src/runtime/mission/mission-service.ts';
 import { createMissionMemoryRepos } from '../packages/core/src/runtime/repos/mission/memory.ts';
 
@@ -72,8 +72,14 @@ function makeDeps(): MissionServiceDeps {
   let idSeq = 0;
   let clockSeq = 0;
   return {
-    newId: () => `id-${(idSeq += 1).toString().padStart(4, '0')}`,
-    now: () => new Date(Date.UTC(2026, 0, 1, 0, 0, 0, (clockSeq += 1))).toISOString(),
+    newId: () => {
+      idSeq += 1;
+      return `id-${idSeq.toString().padStart(4, '0')}`;
+    },
+    now: () => {
+      clockSeq += 1;
+      return new Date(Date.UTC(2026, 0, 1, 0, 0, 0, clockSeq)).toISOString();
+    },
   };
 }
 
@@ -98,13 +104,14 @@ function freshService(): { svc: MissionService; deps: MissionServiceDeps } {
  * `runCommand` returns the exit code we want for this (attempt, criterion). The
  * evaluator does the real work — we only control the environment fact it reads.
  */
-function scriptedContext(
-  criterion: ControllerCriterion,
-  exitCode: number,
-): EvaluationContext {
+function scriptedContext(criterion: ControllerCriterion, exitCode: number): EvaluationContext {
   const command = JSON.parse(criterion.configJson).command as string;
   return {
-    criterion: { id: criterion.id, description: criterion.description, configJson: criterion.configJson },
+    criterion: {
+      id: criterion.id,
+      description: criterion.description,
+      configJson: criterion.configJson,
+    },
     workspaceReadFile: async () => null,
     workspaceFileExists: async () => false,
     workspaceHashFile: async () => null,
@@ -197,111 +204,127 @@ await check('happy path: criteria PASS on attempt 1 → completed in 1 attempt',
 //    happened and a FailurePacket exists for attempt 1.
 // ---------------------------------------------------------------------------
 
-await check('repair-then-complete: FAIL@1 → PASS@2 → completed in 2; toRepairing + FailurePacket@1', async () => {
-  const { svc, deps } = freshService();
-  const missionId = await readyMission(svc, {
-    criteria: [cmdCriterion('tests pass', 'pnpm test')],
-  });
+await check(
+  'repair-then-complete: FAIL@1 → PASS@2 → completed in 2; toRepairing + FailurePacket@1',
+  async () => {
+    const { svc, deps } = freshService();
+    const missionId = await readyMission(svc, {
+      criteria: [cmdCriterion('tests pass', 'pnpm test')],
+    });
 
-  let observedRepairPacket: RunAttemptInput['failurePacket'] | undefined;
-  const controller = makeController(svc, deps, async ({ attemptNumber, failurePacket }) => {
-    if (attemptNumber === 2) observedRepairPacket = failurePacket;
-    return {
-      // Attempt 1 fails (exit 1); attempt 2 passes (exit 0) — the scripted flip.
+    let observedRepairPacket: RunAttemptInput['failurePacket'] | undefined;
+    const controller = makeController(svc, deps, async ({ attemptNumber, failurePacket }) => {
+      if (attemptNumber === 2) observedRepairPacket = failurePacket;
+      return {
+        // Attempt 1 fails (exit 1); attempt 2 passes (exit 0) — the scripted flip.
+        evaluationContextFor: (criterion) =>
+          scriptedContext(criterion, attemptNumber === 1 ? 1 : 0),
+      } satisfies AttemptExecution;
+    });
+
+    const result = await controller.run(missionId);
+    assert.equal(result.status, 'completed', 'second attempt passes → completed');
+    assert.equal(result.attempts, 2, 'completed in exactly two attempts');
+
+    // The repair attempt must have received the FailurePacket from attempt 1.
+    assert.ok(observedRepairPacket, 'attempt 2 (repair) received a FailurePacket');
+    assert.equal(
+      observedRepairPacket!.failedCriteria.length,
+      1,
+      'packet lists the one failed criterion',
+    );
+    assert.equal(observedRepairPacket!.failedCriteria[0]!.verdict, 'FAIL', 'product FAIL recorded');
+    assert.equal(
+      observedRepairPacket!.remainingBudget.repairsRemainingByCriterion[
+        observedRepairPacket!.failedCriteria[0]!.criterionId
+      ],
+      2,
+      'after consuming 1 of 3 repairs, 2 remain',
+    );
+
+    // The controller evidence shows attempt 1 failed (has a signature) and there
+    // were exactly two attempts; the dedicated event-trail check below proves the
+    // mission.repairing transition (toRepairing) fired.
+    const attempt1Sig = result.evidence.attempts[0]?.failureSignature;
+    assert.ok(attempt1Sig, 'attempt 1 recorded a failure signature (it failed)');
+    assert.equal(result.evidence.attempts.length, 2, 'two attempts in evidence');
+  },
+);
+
+await check(
+  'repair-then-complete: a mission.repairing event is written for attempt 1',
+  async () => {
+    // Separate check with direct event-trail access via fresh repos we own.
+    const m = createMissionMemoryRepos();
+    const deps = makeDeps();
+    const svc = createMissionService(
+      {
+        missions: m.missions,
+        missionCriteria: m.missionCriteria,
+        missionAttempts: m.missionAttempts,
+        missionEvaluations: m.missionEvaluations,
+        missionEvents: m.missionEvents,
+      },
+      deps,
+    );
+    const missionId = await readyMission(svc, {
+      criteria: [cmdCriterion('tests pass', 'pnpm test')],
+    });
+    const controller = makeController(svc, deps, async ({ attemptNumber }) => ({
       evaluationContextFor: (criterion) => scriptedContext(criterion, attemptNumber === 1 ? 1 : 0),
-    } satisfies AttemptExecution;
-  });
+    }));
+    await controller.run(missionId);
 
-  const result = await controller.run(missionId);
-  assert.equal(result.status, 'completed', 'second attempt passes → completed');
-  assert.equal(result.attempts, 2, 'completed in exactly two attempts');
-
-  // The repair attempt must have received the FailurePacket from attempt 1.
-  assert.ok(observedRepairPacket, 'attempt 2 (repair) received a FailurePacket');
-  assert.equal(observedRepairPacket!.failedCriteria.length, 1, 'packet lists the one failed criterion');
-  assert.equal(observedRepairPacket!.failedCriteria[0]!.verdict, 'FAIL', 'product FAIL recorded');
-  assert.equal(
-    observedRepairPacket!.remainingBudget.repairsRemainingByCriterion[
-      observedRepairPacket!.failedCriteria[0]!.criterionId
-    ],
-    2,
-    'after consuming 1 of 3 repairs, 2 remain',
-  );
-
-  // The controller evidence shows attempt 1 failed (has a signature) and there
-  // were exactly two attempts; the dedicated event-trail check below proves the
-  // mission.repairing transition (toRepairing) fired.
-  const attempt1Sig = result.evidence.attempts[0]?.failureSignature;
-  assert.ok(attempt1Sig, 'attempt 1 recorded a failure signature (it failed)');
-  assert.equal(result.evidence.attempts.length, 2, 'two attempts in evidence');
-});
-
-await check('repair-then-complete: a mission.repairing event is written for attempt 1', async () => {
-  // Separate check with direct event-trail access via fresh repos we own.
-  const m = createMissionMemoryRepos();
-  const deps = makeDeps();
-  const svc = createMissionService(
-    {
-      missions: m.missions,
-      missionCriteria: m.missionCriteria,
-      missionAttempts: m.missionAttempts,
-      missionEvaluations: m.missionEvaluations,
-      missionEvents: m.missionEvents,
-    },
-    deps,
-  );
-  const missionId = await readyMission(svc, {
-    criteria: [cmdCriterion('tests pass', 'pnpm test')],
-  });
-  const controller = makeController(svc, deps, async ({ attemptNumber }) => ({
-    evaluationContextFor: (criterion) => scriptedContext(criterion, attemptNumber === 1 ? 1 : 0),
-  }));
-  await controller.run(missionId);
-
-  const events = await m.missionEvents.listByMission(missionId);
-  const types = events.map((e) => e.type);
-  assert.ok(types.includes('mission.repairing'), `expected a mission.repairing event, got ${JSON.stringify(types)}`);
-  assert.ok(types.includes('mission.completed'), 'mission completed after the repair');
-  const repairEvent = events.find((e) => e.type === 'mission.repairing')!;
-  const data = JSON.parse(repairEvent.data_json) as { failureSignature?: string };
-  assert.ok(data.failureSignature, '§18.4: repairing carries a failure signature');
-});
+    const events = await m.missionEvents.listByMission(missionId);
+    const types = events.map((e) => e.type);
+    assert.ok(
+      types.includes('mission.repairing'),
+      `expected a mission.repairing event, got ${JSON.stringify(types)}`,
+    );
+    assert.ok(types.includes('mission.completed'), 'mission completed after the repair');
+    const repairEvent = events.find((e) => e.type === 'mission.repairing')!;
+    const data = JSON.parse(repairEvent.data_json) as { failureSignature?: string };
+    assert.ok(data.failureSignature, '§18.4: repairing carries a failure signature');
+  },
+);
 
 // ---------------------------------------------------------------------------
 // 3. Per-criterion 3-repair cap: a criterion that FAILs every attempt stops
 //    after the cap with status failed.
 // ---------------------------------------------------------------------------
 
-await check('per-criterion 3-repair cap: always-FAIL → failed after the cap (repair_cap)', async () => {
-  const { svc, deps } = freshService();
-  const missionId = await readyMission(svc, {
-    criteria: [cmdCriterion('tests pass', 'pnpm test')],
-  });
+await check(
+  'per-criterion 3-repair cap: always-FAIL → failed after the cap (repair_cap)',
+  async () => {
+    const { svc, deps } = freshService();
+    const missionId = await readyMission(svc, {
+      criteria: [cmdCriterion('tests pass', 'pnpm test')],
+    });
 
-  // Each attempt fails differently so STUCK does not fire first — we isolate the
-  // repair cap. The summary differs by embedding the attempt number into a
-  // distinct command per attempt (different criterion summary → distinct sig).
-  let attemptSeen = 0;
-  const controller = makeController(svc, deps, async ({ attemptNumber }) => {
-    attemptSeen = attemptNumber;
-    return {
-      // Always FAIL, but vary the exit code per attempt so each summary (and thus
-      // each failure signature) differs — isolating the repair cap from STUCK.
-      evaluationContextFor: (criterion) =>
-        scriptedContext(criterion, attemptNumber + 1),
-    } satisfies AttemptExecution;
-  });
+    // Each attempt fails differently so STUCK does not fire first — we isolate the
+    // repair cap. The summary differs by embedding the attempt number into a
+    // distinct command per attempt (different criterion summary → distinct sig).
+    let attemptSeen = 0;
+    const controller = makeController(svc, deps, async ({ attemptNumber }) => {
+      attemptSeen = attemptNumber;
+      return {
+        // Always FAIL, but vary the exit code per attempt so each summary (and thus
+        // each failure signature) differs — isolating the repair cap from STUCK.
+        evaluationContextFor: (criterion) => scriptedContext(criterion, attemptNumber + 1),
+      } satisfies AttemptExecution;
+    });
 
-  const result = await controller.run(missionId);
-  assert.equal(result.status, 'failed', 'exhausting the repair cap → failed');
-  assert.equal(result.stopReason, 'repair_cap', 'stop reason is the per-criterion repair cap');
-  // 1 initial + 3 repairs = the 4th product FAIL trips the cap → 4 attempts.
-  assert.equal(result.attempts, 4, 'initial + 3 repairs = 4 attempts before the cap stops');
-  assert.equal(attemptSeen, 4, 'runAttempt was invoked for all 4 attempts');
-  assert.ok(result.failurePacket, 'a FailurePacket accompanies the failed stop');
-  const mission = await svc.getMission(missionId);
-  assert.equal(mission.status, 'failed', 'mission persisted as failed');
-});
+    const result = await controller.run(missionId);
+    assert.equal(result.status, 'failed', 'exhausting the repair cap → failed');
+    assert.equal(result.stopReason, 'repair_cap', 'stop reason is the per-criterion repair cap');
+    // 1 initial + 3 repairs = the 4th product FAIL trips the cap → 4 attempts.
+    assert.equal(result.attempts, 4, 'initial + 3 repairs = 4 attempts before the cap stops');
+    assert.equal(attemptSeen, 4, 'runAttempt was invoked for all 4 attempts');
+    assert.ok(result.failurePacket, 'a FailurePacket accompanies the failed stop');
+    const mission = await svc.getMission(missionId);
+    assert.equal(mission.status, 'failed', 'mission persisted as failed');
+  },
+);
 
 // ---------------------------------------------------------------------------
 // 4. 6-attempt global cap: never more than 6 attempts. Use criteria failing
@@ -396,7 +419,11 @@ await check('runtimeError → blocked (infra); repair counter does NOT move', as
 
   const result = await controller.run(missionId);
   assert.equal(result.status, 'blocked', 'runtimeError → blocked');
-  assert.equal(result.stopReason, 'runtime_incompatible', 'stop reason is the infra incompatibility');
+  assert.equal(
+    result.stopReason,
+    'runtime_incompatible',
+    'stop reason is the infra incompatibility',
+  );
   assert.equal(result.attempts, 1, 'a single attempt was run');
   assert.equal(result.finalMissionStatus, 'blocked', 'mission persisted as blocked');
 
@@ -416,57 +443,80 @@ await check('runtimeError → blocked (infra); repair counter does NOT move', as
 //    SKIP stays FAIL (the advisory result can never upgrade the FAIL).
 // ---------------------------------------------------------------------------
 
-await check('deterministic FAIL final: det FAIL + advisory llm_rubric SKIP stays FAIL', async () => {
-  const { svc, deps } = freshService();
-  // Two required criteria: a deterministic command_exit_zero that FAILs, plus an
-  // advisory llm_rubric_review (deterministic:false → always SKIP). The advisory
-  // SKIP must never satisfy the gate; the deterministic FAIL must be final, so
-  // the mission cannot complete and (FAILing identically twice) ends stuck/failed.
-  const missionId = await readyMission(svc, {
-    criteria: [
-      cmdCriterion('tests pass', 'pnpm test'),
-      {
-        description: 'tone is on-brand',
-        evaluatorId: 'llm_rubric_review',
-        evaluatorConfigJson: '{}',
-        required: true,
+await check(
+  'deterministic FAIL final: det FAIL + advisory llm_rubric SKIP stays FAIL',
+  async () => {
+    const { svc, deps } = freshService();
+    // Two required criteria: a deterministic command_exit_zero that FAILs, plus an
+    // advisory llm_rubric_review (deterministic:false → always SKIP). The advisory
+    // SKIP must never satisfy the gate; the deterministic FAIL must be final, so
+    // the mission cannot complete and (FAILing identically twice) ends stuck/failed.
+    const missionId = await readyMission(svc, {
+      criteria: [
+        cmdCriterion('tests pass', 'pnpm test'),
+        {
+          description: 'tone is on-brand',
+          evaluatorId: 'llm_rubric_review',
+          evaluatorConfigJson: '{}',
+          required: true,
+        },
+      ],
+    });
+
+    const controller = makeController(svc, deps, async () => ({
+      evaluationContextFor: (criterion) => {
+        if (criterion.evaluatorId === 'command_exit_zero') return scriptedContext(criterion, 1); // FAIL
+        // The advisory evaluator ignores its context; supply a benign one.
+        return {
+          criterion: {
+            id: criterion.id,
+            description: criterion.description,
+            configJson: criterion.configJson,
+          },
+          workspaceReadFile: async () => null,
+          workspaceFileExists: async () => false,
+          workspaceHashFile: async () => null,
+          runCommand: async () => ({ exitCode: 0, stdout: '', stderr: '' }),
+          gitChangedPaths: async () => [],
+          listArtifacts: async () => [],
+          recordedApproval: async () => null,
+        } satisfies EvaluationContext;
       },
-    ],
-  });
+    }));
 
-  const controller = makeController(svc, deps, async () => ({
-    evaluationContextFor: (criterion) => {
-      if (criterion.evaluatorId === 'command_exit_zero') return scriptedContext(criterion, 1); // FAIL
-      // The advisory evaluator ignores its context; supply a benign one.
-      return {
-        criterion: { id: criterion.id, description: criterion.description, configJson: criterion.configJson },
-        workspaceReadFile: async () => null,
-        workspaceFileExists: async () => false,
-        workspaceHashFile: async () => null,
-        runCommand: async () => ({ exitCode: 0, stdout: '', stderr: '' }),
-        gitChangedPaths: async () => [],
-        listArtifacts: async () => [],
-        recordedApproval: async () => null,
-      } satisfies EvaluationContext;
-    },
-  }));
+    const result = await controller.run(missionId);
+    // The advisory SKIP cannot make the mission complete; the deterministic FAIL
+    // governs. The mission must NOT be completed.
+    assert.notEqual(
+      result.status,
+      'completed',
+      'advisory SKIP must not complete a FAILing mission',
+    );
+    assert.equal(
+      result.finalMissionStatus !== 'completed',
+      true,
+      'mission not persisted as completed',
+    );
 
-  const result = await controller.run(missionId);
-  // The advisory SKIP cannot make the mission complete; the deterministic FAIL
-  // governs. The mission must NOT be completed.
-  assert.notEqual(result.status, 'completed', 'advisory SKIP must not complete a FAILing mission');
-  assert.equal(result.finalMissionStatus !== 'completed', true, 'mission not persisted as completed');
-
-  // The deterministic criterion's recorded verdict on attempt 1 is FAIL, and the
-  // advisory criterion's verdict is SKIP (never FAIL/PASS) — it did not gate.
-  const attempt1 = result.evidence.attempts[0]!;
-  const verdictByCrit = new Map(attempt1.verdicts.map((v) => [v.criterionId, v.verdict]));
-  const criteria = await svc.listCriteria(missionId);
-  const detCrit = criteria.find((c) => c.evaluator_id === 'command_exit_zero')!;
-  const advCrit = criteria.find((c) => c.evaluator_id === 'llm_rubric_review')!;
-  assert.equal(verdictByCrit.get(detCrit.criterion_id), 'FAIL', 'deterministic criterion is FAIL');
-  assert.equal(verdictByCrit.get(advCrit.criterion_id), 'SKIP', 'advisory criterion is SKIP (never gates)');
-});
+    // The deterministic criterion's recorded verdict on attempt 1 is FAIL, and the
+    // advisory criterion's verdict is SKIP (never FAIL/PASS) — it did not gate.
+    const attempt1 = result.evidence.attempts[0]!;
+    const verdictByCrit = new Map(attempt1.verdicts.map((v) => [v.criterionId, v.verdict]));
+    const criteria = await svc.listCriteria(missionId);
+    const detCrit = criteria.find((c) => c.evaluator_id === 'command_exit_zero')!;
+    const advCrit = criteria.find((c) => c.evaluator_id === 'llm_rubric_review')!;
+    assert.equal(
+      verdictByCrit.get(detCrit.criterion_id),
+      'FAIL',
+      'deterministic criterion is FAIL',
+    );
+    assert.equal(
+      verdictByCrit.get(advCrit.criterion_id),
+      'SKIP',
+      'advisory criterion is SKIP (never gates)',
+    );
+  },
+);
 
 // ---------------------------------------------------------------------------
 // 8. Token budget (§19.2): a runAttempt that reports usage exceeding the
@@ -475,43 +525,50 @@ await check('deterministic FAIL final: det FAIL + advisory llm_rubric SKIP stays
 //    AttemptExecution.usage), not a dead guard.
 // ---------------------------------------------------------------------------
 
-await check('token budget: usage exceeding tokenBudget → failed (token_budget), bounded', async () => {
-  const { svc, deps } = freshService();
-  const missionId = await readyMission(svc, {
-    criteria: [cmdCriterion('tests pass', 'pnpm test')],
-  });
+await check(
+  'token budget: usage exceeding tokenBudget → failed (token_budget), bounded',
+  async () => {
+    const { svc, deps } = freshService();
+    const missionId = await readyMission(svc, {
+      criteria: [cmdCriterion('tests pass', 'pnpm test')],
+    });
 
-  let attemptSeen = 0;
-  // tokenBudget = 100; each attempt FAILs (so the loop would otherwise repair)
-  // and reports 60 tokens. After attempt 1: 100 - 60 = 40 (> 0, repair). After
-  // attempt 2: 40 - 60 = -20 (<= 0) → stop on token_budget BEFORE a 3rd attempt.
-  // (Each attempt fails with a DISTINCT signature so STUCK does not pre-empt.)
-  const controller = makeController(
-    svc,
-    deps,
-    async ({ attemptNumber }) => {
-      attemptSeen = attemptNumber;
-      return {
-        evaluationContextFor: (criterion) => scriptedContext(criterion, attemptNumber + 1),
-        usage: { tokens: 60 },
-      } satisfies AttemptExecution;
-    },
-    { maxRepairsPerCriterion: 3, maxAttempts: 6, tokenBudget: 100 },
-  );
+    let attemptSeen = 0;
+    // tokenBudget = 100; each attempt FAILs (so the loop would otherwise repair)
+    // and reports 60 tokens. After attempt 1: 100 - 60 = 40 (> 0, repair). After
+    // attempt 2: 40 - 60 = -20 (<= 0) → stop on token_budget BEFORE a 3rd attempt.
+    // (Each attempt fails with a DISTINCT signature so STUCK does not pre-empt.)
+    const controller = makeController(
+      svc,
+      deps,
+      async ({ attemptNumber }) => {
+        attemptSeen = attemptNumber;
+        return {
+          evaluationContextFor: (criterion) => scriptedContext(criterion, attemptNumber + 1),
+          usage: { tokens: 60 },
+        } satisfies AttemptExecution;
+      },
+      { maxRepairsPerCriterion: 3, maxAttempts: 6, tokenBudget: 100 },
+    );
 
-  const result = await controller.run(missionId);
-  assert.equal(result.status, 'failed', 'exhausting the token budget → failed');
-  assert.equal(result.stopReason, 'token_budget', 'stop reason is the token budget');
-  assert.equal(result.attempts, 2, 'stopped after the attempt that pushed the budget non-positive');
-  assert.equal(attemptSeen, 2, 'no third attempt was started');
-  assert.ok(result.attempts < 6, 'token budget stopped well before the 6-cap');
-  assert.ok(
-    result.failurePacket!.remainingBudget.tokenBudgetRemaining! <= 0,
-    'the packet reports the exhausted (non-positive) token budget',
-  );
-  const mission = await svc.getMission(missionId);
-  assert.equal(mission.status, 'failed', 'mission persisted as failed');
-});
+    const result = await controller.run(missionId);
+    assert.equal(result.status, 'failed', 'exhausting the token budget → failed');
+    assert.equal(result.stopReason, 'token_budget', 'stop reason is the token budget');
+    assert.equal(
+      result.attempts,
+      2,
+      'stopped after the attempt that pushed the budget non-positive',
+    );
+    assert.equal(attemptSeen, 2, 'no third attempt was started');
+    assert.ok(result.attempts < 6, 'token budget stopped well before the 6-cap');
+    assert.ok(
+      result.failurePacket!.remainingBudget.tokenBudgetRemaining! <= 0,
+      'the packet reports the exhausted (non-positive) token budget',
+    );
+    const mission = await svc.getMission(missionId);
+    assert.equal(mission.status, 'failed', 'mission persisted as failed');
+  },
+);
 
 // ---------------------------------------------------------------------------
 // 9. Concurrent cancel race: a cancel that lands mid-attempt (after
@@ -520,31 +577,34 @@ await check('token budget: usage exceeding tokenBudget → failed (token_budget)
 //    'cancelled' result — no escaping throw.
 // ---------------------------------------------------------------------------
 
-await check('concurrent cancel mid-attempt → run() returns cancelled cleanly (no throw)', async () => {
-  const { svc, deps } = freshService();
-  const missionId = await readyMission(svc, {
-    criteria: [cmdCriterion('tests pass', 'pnpm test')],
-  });
+await check(
+  'concurrent cancel mid-attempt → run() returns cancelled cleanly (no throw)',
+  async () => {
+    const { svc, deps } = freshService();
+    const missionId = await readyMission(svc, {
+      criteria: [cmdCriterion('tests pass', 'pnpm test')],
+    });
 
-  // The scripted runAttempt cancels the mission WHILE the attempt is in flight
-  // (mission is 'running' here, set by startAttempt). The subsequent
-  // beginVerifying('running'→'verifying') is then illegal because the mission is
-  // 'cancelled' — the controller must convert that into a clean cancelled stop.
-  const controller = makeController(svc, deps, async () => {
-    await svc.cancel(missionId, 'user pressed stop mid-attempt');
-    return {
-      evaluationContextFor: (criterion) => scriptedContext(criterion, 0),
-    } satisfies AttemptExecution;
-  });
+    // The scripted runAttempt cancels the mission WHILE the attempt is in flight
+    // (mission is 'running' here, set by startAttempt). The subsequent
+    // beginVerifying('running'→'verifying') is then illegal because the mission is
+    // 'cancelled' — the controller must convert that into a clean cancelled stop.
+    const controller = makeController(svc, deps, async () => {
+      await svc.cancel(missionId, 'user pressed stop mid-attempt');
+      return {
+        evaluationContextFor: (criterion) => scriptedContext(criterion, 0),
+      } satisfies AttemptExecution;
+    });
 
-  // Must NOT throw — it returns a clean cancelled result.
-  const result = await controller.run(missionId);
-  assert.equal(result.status, 'cancelled', 'mid-attempt cancel → cancelled');
-  assert.equal(result.stopReason, 'cancelled', 'stop reason is cancelled');
-  assert.equal(result.finalMissionStatus, 'cancelled', 'mission persisted as cancelled');
-  const mission = await svc.getMission(missionId);
-  assert.equal(mission.status, 'cancelled', 'cancel is authoritative');
-});
+    // Must NOT throw — it returns a clean cancelled result.
+    const result = await controller.run(missionId);
+    assert.equal(result.status, 'cancelled', 'mid-attempt cancel → cancelled');
+    assert.equal(result.stopReason, 'cancelled', 'stop reason is cancelled');
+    assert.equal(result.finalMissionStatus, 'cancelled', 'mission persisted as cancelled');
+    const mission = await svc.getMission(missionId);
+    assert.equal(mission.status, 'cancelled', 'cancel is authoritative');
+  },
+);
 
 // ---------------------------------------------------------------------------
 // 10. Evaluator BLOCKED/ERROR (NOT a runtimeError) with no product FAIL →
@@ -553,42 +613,55 @@ await check('concurrent cancel mid-attempt → run() returns cancelled cleanly (
 //     returns a non-product verdict.
 // ---------------------------------------------------------------------------
 
-await check('evaluator BLOCKED (no product FAIL) → blocked (infra); repair counter untouched', async () => {
-  const { svc, deps } = freshService();
-  // manual_approval with no recorded approval → BLOCKED (a real evaluator run,
-  // not a runtimeError). No product FAIL anywhere → infra-only → blocked.
-  const missionId = await readyMission(svc, {
-    criteria: [
-      { description: 'human sign-off', evaluatorId: 'manual_approval', evaluatorConfigJson: '{}', required: true },
-    ],
-  });
+await check(
+  'evaluator BLOCKED (no product FAIL) → blocked (infra); repair counter untouched',
+  async () => {
+    const { svc, deps } = freshService();
+    // manual_approval with no recorded approval → BLOCKED (a real evaluator run,
+    // not a runtimeError). No product FAIL anywhere → infra-only → blocked.
+    const missionId = await readyMission(svc, {
+      criteria: [
+        {
+          description: 'human sign-off',
+          evaluatorId: 'manual_approval',
+          evaluatorConfigJson: '{}',
+          required: true,
+        },
+      ],
+    });
 
-  const controller = makeController(svc, deps, async () => ({
-    evaluationContextFor: (criterion) => ({
-      criterion: { id: criterion.id, description: criterion.description, configJson: criterion.configJson },
-      workspaceReadFile: async () => null,
-      workspaceFileExists: async () => false,
-      workspaceHashFile: async () => null,
-      runCommand: async () => ({ exitCode: 0, stdout: '', stderr: '' }),
-      gitChangedPaths: async () => [],
-      listArtifacts: async () => [],
-      recordedApproval: async () => null, // → manual_approval returns BLOCKED
-    } satisfies EvaluationContext),
-  }));
+    const controller = makeController(svc, deps, async () => ({
+      evaluationContextFor: (criterion) =>
+        ({
+          criterion: {
+            id: criterion.id,
+            description: criterion.description,
+            configJson: criterion.configJson,
+          },
+          workspaceReadFile: async () => null,
+          workspaceFileExists: async () => false,
+          workspaceHashFile: async () => null,
+          runCommand: async () => ({ exitCode: 0, stdout: '', stderr: '' }),
+          gitChangedPaths: async () => [],
+          listArtifacts: async () => [],
+          recordedApproval: async () => null, // → manual_approval returns BLOCKED
+        }) satisfies EvaluationContext,
+    }));
 
-  const result = await controller.run(missionId);
-  assert.equal(result.status, 'blocked', 'evaluator BLOCKED with no product FAIL → blocked');
-  assert.equal(result.stopReason, 'runtime_incompatible', 'infra stop reason');
-  assert.equal(result.attempts, 1, 'a single attempt — blocked is not repaired');
-  assert.deepEqual(
-    result.evidence.repairCountsByCriterion,
-    {},
-    '§19.2/§5: evaluator BLOCKED consumes NO repair',
-  );
-  // The recorded verdict was BLOCKED (the evaluator actually ran).
-  const verdicts = result.evidence.attempts[0]!.verdicts;
-  assert.equal(verdicts[0]?.verdict, 'BLOCKED', 'the manual_approval verdict is BLOCKED');
-});
+    const result = await controller.run(missionId);
+    assert.equal(result.status, 'blocked', 'evaluator BLOCKED with no product FAIL → blocked');
+    assert.equal(result.stopReason, 'runtime_incompatible', 'infra stop reason');
+    assert.equal(result.attempts, 1, 'a single attempt — blocked is not repaired');
+    assert.deepEqual(
+      result.evidence.repairCountsByCriterion,
+      {},
+      '§19.2/§5: evaluator BLOCKED consumes NO repair',
+    );
+    // The recorded verdict was BLOCKED (the evaluator actually ran).
+    const verdicts = result.evidence.attempts[0]!.verdicts;
+    assert.equal(verdicts[0]?.verdict, 'BLOCKED', 'the manual_approval verdict is BLOCKED');
+  },
+);
 
 // ---------------------------------------------------------------------------
 // 11. A1: a mission with zero REQUIRED criteria must NOT run to a vacuous
@@ -598,68 +671,71 @@ await check('evaluator BLOCKED (no product FAIL) → blocked (infra); repair cou
 //     loop refuses to complete it vacuously — it does NOT call completeMission.
 // ---------------------------------------------------------------------------
 
-await check('A1: zero required criteria → loop refuses to complete vacuously (no [].every PASS)', async () => {
-  const m = createMissionMemoryRepos();
-  const deps = makeDeps();
-  const svc = createMissionService(
-    {
-      missions: m.missions,
-      missionCriteria: m.missionCriteria,
-      missionAttempts: m.missionAttempts,
-      missionEvaluations: m.missionEvaluations,
-      missionEvents: m.missionEvents,
-    },
-    deps,
-  );
-  const ts = new Date(Date.UTC(2026, 0, 1)).toISOString();
-  // Insert a READY mission with only an OPTIONAL criterion (bypassing the
-  // createMission guard, which would otherwise reject zero-required up front).
-  await m.missions.insert({
-    mission_id: 'm-vac',
-    company_id: 'co-1',
-    project_id: null,
-    thread_id: 'thr-1',
-    title: 'vacuous',
-    goal: 'g',
-    status: 'ready',
-    runtime_id: 'pi',
-    runtime_policy_json: '{}',
-    budget_json: '{}',
-    expected_artifacts_json: null,
-    current_attempt_id: null,
-    created_at: ts,
-    updated_at: ts,
-    completed_at: null,
-  });
-  await m.missionCriteria.insert({
-    criterion_id: 'c-opt',
-    mission_id: 'm-vac',
-    description: 'optional only',
-    evaluator_id: 'command_exit_zero',
-    evaluator_config_json: JSON.stringify({ command: 'pnpm test' }),
-    required: 0,
-    order_index: 0,
-    status: 'pending',
-    last_evaluation_id: null,
-  });
+await check(
+  'A1: zero required criteria → loop refuses to complete vacuously (no [].every PASS)',
+  async () => {
+    const m = createMissionMemoryRepos();
+    const deps = makeDeps();
+    const svc = createMissionService(
+      {
+        missions: m.missions,
+        missionCriteria: m.missionCriteria,
+        missionAttempts: m.missionAttempts,
+        missionEvaluations: m.missionEvaluations,
+        missionEvents: m.missionEvents,
+      },
+      deps,
+    );
+    const ts = new Date(Date.UTC(2026, 0, 1)).toISOString();
+    // Insert a READY mission with only an OPTIONAL criterion (bypassing the
+    // createMission guard, which would otherwise reject zero-required up front).
+    await m.missions.insert({
+      mission_id: 'm-vac',
+      company_id: 'co-1',
+      project_id: null,
+      thread_id: 'thr-1',
+      title: 'vacuous',
+      goal: 'g',
+      status: 'ready',
+      runtime_id: 'pi',
+      runtime_policy_json: '{}',
+      budget_json: '{}',
+      expected_artifacts_json: null,
+      current_attempt_id: null,
+      created_at: ts,
+      updated_at: ts,
+      completed_at: null,
+    });
+    await m.missionCriteria.insert({
+      criterion_id: 'c-opt',
+      mission_id: 'm-vac',
+      description: 'optional only',
+      evaluator_id: 'command_exit_zero',
+      evaluator_config_json: JSON.stringify({ command: 'pnpm test' }),
+      required: 0,
+      order_index: 0,
+      status: 'pending',
+      last_evaluation_id: null,
+    });
 
-  let runAttemptCalled = false;
-  const controller = makeController(svc, deps, async () => {
-    runAttemptCalled = true;
-    return { evaluationContextFor: (criterion) => scriptedContext(criterion, 0) };
-  });
+    let runAttemptCalled = false;
+    const controller = makeController(svc, deps, async () => {
+      runAttemptCalled = true;
+      return { evaluationContextFor: (criterion) => scriptedContext(criterion, 0) };
+    });
 
-  // The loop must throw (invariant_violation) BEFORE running an attempt; it must
-  // never reach completeMission via an empty-set every()===true.
-  await assert.rejects(
-    () => controller.run('m-vac'),
-    (err: unknown) => err instanceof MissionStateError && err.code === 'invariant_violation',
-    'a zero-required mission must not run a vacuous loop',
-  );
-  assert.equal(runAttemptCalled, false, 'no attempt was run for a zero-required mission');
-  const mission = await svc.getMission('m-vac');
-  assert.notEqual(mission.status, 'completed', 'the mission was NOT vacuously completed');
-});
+    // The loop must throw (invariant_violation) BEFORE running an attempt; it must
+    // never reach completeMission via an empty-set every()===true.
+    await assert.rejects(
+      () => controller.run('m-vac'),
+      (err: unknown) => err instanceof MissionStateError && err.code === 'invariant_violation',
+      'a zero-required mission must not run a vacuous loop',
+    );
+    assert.equal(runAttemptCalled, false, 'no attempt was run for a zero-required mission');
+    const mission = await svc.getMission('m-vac');
+    assert.notEqual(mission.status, 'completed', 'the mission was NOT vacuously completed');
+  },
+);
 
 // ---------------------------------------------------------------------------
 // 12. A2 coordination: an evaluator ERROR verdict (infra, e.g. a capability
@@ -690,7 +766,11 @@ await check('A2: evaluator ERROR (infra) → blocked; repair counter does NOT mo
     // The evaluator does not need to run a command (it ERRORs on the missing
     // config first); supply a benign context.
     evaluationContextFor: (criterion) => ({
-      criterion: { id: criterion.id, description: criterion.description, configJson: criterion.configJson },
+      criterion: {
+        id: criterion.id,
+        description: criterion.description,
+        configJson: criterion.configJson,
+      },
       workspaceReadFile: async () => null,
       workspaceFileExists: async () => false,
       workspaceHashFile: async () => null,

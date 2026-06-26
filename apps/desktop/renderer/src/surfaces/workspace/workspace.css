@@ -2321,8 +2321,8 @@
   color: var(--off-ink-2);
   font-size: var(--off-fs-meta);
   font-weight: 600;
-  transition: border-color var(--off-motion-fast) var(--off-motion-ease), color var(--off-motion-fast)
-    var(--off-motion-ease);
+  transition: border-color var(--off-motion-fast) var(--off-motion-ease), color
+    var(--off-motion-fast) var(--off-motion-ease);
 }
 
 .off-connect-ask:hover:not(:disabled) {

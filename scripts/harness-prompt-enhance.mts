@@ -86,7 +86,11 @@ const ROSTER = [
   // The result must echo the resolved profileVersion (so a downstream consumer
   // can audit which instruction produced an enhancement).
   const def = getEnhanceProfile('office_instruction');
-  const req = buildEnhanceRequest({ profile: 'office_instruction', text: 'ship it', protectedSpans: [] });
+  const req = buildEnhanceRequest({
+    profile: 'office_instruction',
+    text: 'ship it',
+    protectedSpans: [],
+  });
   const result = assembleEnhanceResult(req, def, { text: 'Ship it by Friday with tests passing.' });
   check('result.profileVersion matches the profile', result.profileVersion === def.version);
 }
@@ -159,10 +163,17 @@ const ROSTER = [
 
   // All spans preserved → applyable.
   const keptText = `${text} — and add tests`;
-  const goodReq = buildEnhanceRequest({ profile: 'office_instruction', text, protectedSpans: spans });
+  const goodReq = buildEnhanceRequest({
+    profile: 'office_instruction',
+    text,
+    protectedSpans: spans,
+  });
   const good = assembleEnhanceResult(goodReq, def, { text: keptText });
   check('span-preserving enhance is applyable', resultIsApplyable(good));
-  check('span-preserving enhance has no span-lost warning', !good.warnings.includes(ENHANCE_SPAN_LOST_WARNING));
+  check(
+    'span-preserving enhance has no span-lost warning',
+    !good.warnings.includes(ENHANCE_SPAN_LOST_WARNING),
+  );
   check('preservedSpanIds covers every span', good.preservedSpanIds.length === spans.length);
 
   // Drop the mention → INVALID → Apply blocked.
@@ -177,23 +188,40 @@ const ROSTER = [
 
   // Lower-level validator agrees.
   const v = validateProtectedSpans(mangledText, spans);
-  check('validator reports the dropped span as lost', v.valid === false && v.lostSpanIds.length === 1);
+  check(
+    'validator reports the dropped span as lost',
+    v.valid === false && v.lostSpanIds.length === 1,
+  );
 
   // Multiplicity: two distinct spans sharing the same source. Dropping ONE
   // occurrence must mark exactly one span lost — a model cannot collapse
   // `{{deadline}} … {{deadline}}` to a single `{{deadline}}` and slip through.
   const dupText = 'Set {{deadline}} and reconfirm {{deadline}} with the team';
   const dupSpans = extractProtectedSpans(dupText, ROSTER);
-  check('duplicate-source extracts two distinct spans', dupSpans.filter((s) => s.source === '{{deadline}}').length === 2, String(dupSpans.length));
-  check('both occurrences present → valid', validateProtectedSpans(dupText, dupSpans).valid === true);
+  check(
+    'duplicate-source extracts two distinct spans',
+    dupSpans.filter((s) => s.source === '{{deadline}}').length === 2,
+    String(dupSpans.length),
+  );
+  check(
+    'both occurrences present → valid',
+    validateProtectedSpans(dupText, dupSpans).valid === true,
+  );
   const dupDropped = validateProtectedSpans('Set {{deadline}} with the team', dupSpans);
-  check('dropping one of two same-source spans is INVALID', dupDropped.valid === false && dupDropped.lostSpanIds.length === 1);
+  check(
+    'dropping one of two same-source spans is INVALID',
+    dupDropped.valid === false && dupDropped.lostSpanIds.length === 1,
+  );
 }
 
 // ── Scenario D: empty / very short / very long / multilingual ────────────────
 {
   const def = getEnhanceProfile('collaboration_message');
-  const short = buildEnhanceRequest({ profile: 'collaboration_message', text: 'ok', protectedSpans: [] });
+  const short = buildEnhanceRequest({
+    profile: 'collaboration_message',
+    text: 'ok',
+    protectedSpans: [],
+  });
   const shortRes = assembleEnhanceResult(short, def, { text: 'Sounds good.' });
   check('very short text enhances without spans', resultIsApplyable(shortRes));
 
@@ -205,7 +233,7 @@ const ROSTER = [
     protectedSpans: longSpans,
   });
   // Enhanced output keeps the mention → applyable even at length.
-  const longRes = assembleEnhanceResult(longReq, def, { text: `Reviewed. Thanks @Alice` });
+  const longRes = assembleEnhanceResult(longReq, def, { text: 'Reviewed. Thanks @Alice' });
   check('very long text still validates the mention span', resultIsApplyable(longRes));
 
   // Multilingual: a CJK message with a mention; the mention must still be guarded.
@@ -217,7 +245,11 @@ const ROSTER = [
       zhSpans.some((s) => s.kind === 'variable' && s.source === '{{需求}}'),
     JSON.stringify(zhSpans),
   );
-  const zhReq = buildEnhanceRequest({ profile: 'collaboration_message', text: zh, protectedSpans: zhSpans });
+  const zhReq = buildEnhanceRequest({
+    profile: 'collaboration_message',
+    text: zh,
+    protectedSpans: zhSpans,
+  });
   const zhDropped = assembleEnhanceResult(zhReq, def, { text: '请看一下文档' });
   check('multilingual span loss blocks Apply', !resultIsApplyable(zhDropped));
 }
@@ -235,7 +267,11 @@ const ROSTER = [
     '4. What are the inputs?',
     '5. What oracle verifies it?',
   ].join('\n');
-  const req = buildEnhanceRequest({ profile: 'loop_design', text: 'a review loop', protectedSpans: [] });
+  const req = buildEnhanceRequest({
+    profile: 'loop_design',
+    text: 'a review loop',
+    protectedSpans: [],
+  });
   const res = assembleEnhanceResult(req, def, { text: fiveQuestions });
   const questions = (res.structuredHints?.questions as string[] | undefined) ?? [];
   check('loop_design caps questions at 3', questions.length <= 3, `got ${questions.length}`);
@@ -249,7 +285,10 @@ const ROSTER = [
     'office prompt forbids unauthorized destructive permissions',
     office.includes('destructive') && office.includes('never') && office.includes('permission'),
   );
-  check('office prompt forbids inventing tools', office.includes('invent') && office.includes('tool'));
+  check(
+    'office prompt forbids inventing tools',
+    office.includes('invent') && office.includes('tool'),
+  );
 
   const collab = getEnhanceProfile('collaboration_message').systemPrompt.toLowerCase();
   check(
@@ -262,13 +301,19 @@ const ROSTER = [
   );
 
   const loop = getEnhanceProfile('loop_design').systemPrompt.toLowerCase();
-  check('loop prompt caps clarifying questions at 3', loop.includes('3') && loop.includes('question'));
+  check(
+    'loop prompt caps clarifying questions at 3',
+    loop.includes('3') && loop.includes('question'),
+  );
   check('loop prompt forbids raw evaluator JSON', loop.includes('json') && loop.includes('never'));
 
   // Every profile inherits the protected-span fidelity instruction.
   for (const def of allEnhanceProfiles()) {
     const p = def.systemPrompt.toLowerCase();
-    check(`${def.profile} prompt instructs span preservation`, p.includes('exactly') || p.includes('preserve'));
+    check(
+      `${def.profile} prompt instructs span preservation`,
+      p.includes('exactly') || p.includes('preserve'),
+    );
   }
 }
 
@@ -288,9 +333,7 @@ const ROSTER = [
 
 // ── Scenario H: HOST enhance path is isolated (no tools, no persistence) ─────
 {
-  const entryPath = fileURLToPath(
-    new URL('./tauri-pi-agent-host.entry.mjs', import.meta.url),
-  );
+  const entryPath = fileURLToPath(new URL('./tauri-pi-agent-host.entry.mjs', import.meta.url));
   const entry = readFileSync(entryPath, 'utf8');
   const enhanceStart = entry.indexOf('async function runEnhance(');
   // End the slice at the NEXT top-level function after runEnhance — NOT at
@@ -306,15 +349,26 @@ const ROSTER = [
   // Guard the slice boundaries: a missing anchor (-1) would make slice() capture
   // (nearly) the whole file and let the isolation checks below pass vacuously.
   check('runEnhance boundary found in host source', enhanceStart >= 0, String(enhanceStart));
-  check('next-function boundary found after runEnhance', enhanceEnd > enhanceStart, `${enhanceStart}..${enhanceEnd}`);
+  check(
+    'next-function boundary found after runEnhance',
+    enhanceEnd > enhanceStart,
+    `${enhanceStart}..${enhanceEnd}`,
+  );
   const enhanceFn = entry.slice(enhanceStart, enhanceEnd);
   // A real runEnhance body is ~5 KB; an 8 KB ceiling catches a runaway slice.
-  check('runEnhance slice is bounded (not the whole file)', enhanceFn.length < 8000, String(enhanceFn.length));
+  check(
+    'runEnhance slice is bounded (not the whole file)',
+    enhanceFn.length < 8000,
+    String(enhanceFn.length),
+  );
   // Test CODE, not prose: a sibling function's doc comment (e.g. runCollaboration
   // documenting "ZERO extensionFactories") can fall just inside this slice. Strip
   // comments so the isolation assertions reflect what runEnhance actually does.
   const enhanceCode = enhanceFn.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*/g, '');
-  check('host registers a dedicated enhance dispatch', entry.includes("payload.mode === 'enhance'"));
+  check(
+    'host registers a dedicated enhance dispatch',
+    entry.includes("payload.mode === 'enhance'"),
+  );
   check('host enhance uses noTools: all', /noTools:\s*'all'/.test(enhanceCode));
   check('host enhance passes an empty tool allowlist', /tools:\s*\[\]/.test(enhanceCode));
   check(

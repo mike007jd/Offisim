@@ -34,26 +34,26 @@
  */
 
 import assert from 'node:assert/strict';
+import type {
+  DesktopAgentRunInput,
+  DesktopAgentRunResult,
+  DesktopAgentRuntime,
+} from '../apps/desktop/renderer/src/runtime/desktop-agent-runtime.js';
+import { createDevMission } from '../apps/desktop/renderer/src/runtime/mission/dev-create-mission.js';
+import type { TauriEvaluationContextInput } from '../apps/desktop/renderer/src/runtime/mission/evaluation-context.js';
+import {
+  MISSION_EVALUATION_SUBMITTED_EVENT,
+  type MissionEvaluationSubmittedPayload,
+} from '../apps/desktop/renderer/src/runtime/mission/mission-events.js';
+import { createMissionRunController } from '../apps/desktop/renderer/src/runtime/mission/mission-run-controller.js';
 import {
   InMemoryEventBus,
   type RuntimeEvent,
   type RuntimeRepositories,
   createDefaultEvaluatorRegistry,
 } from '../packages/core/src/browser.js';
-import { createMissionMemoryRepos } from '../packages/core/src/runtime/repos/mission/memory.ts';
 import { createDeliverablesMemoryRepos } from '../packages/core/src/runtime/repos/deliverables/memory.ts';
-import type {
-  DesktopAgentRunInput,
-  DesktopAgentRunResult,
-  DesktopAgentRuntime,
-} from '../apps/desktop/renderer/src/runtime/desktop-agent-runtime.js';
-import {
-  MISSION_EVALUATION_SUBMITTED_EVENT,
-  type MissionEvaluationSubmittedPayload,
-} from '../apps/desktop/renderer/src/runtime/mission/mission-events.js';
-import { createMissionRunController } from '../apps/desktop/renderer/src/runtime/mission/mission-run-controller.js';
-import { createDevMission } from '../apps/desktop/renderer/src/runtime/mission/dev-create-mission.js';
-import type { TauriEvaluationContextInput } from '../apps/desktop/renderer/src/runtime/mission/evaluation-context.js';
+import { createMissionMemoryRepos } from '../packages/core/src/runtime/repos/mission/memory.ts';
 
 let passed = 0;
 let failed = 0;
@@ -189,7 +189,9 @@ function makeFakeRuntime(
 function makeFakeEvaluationContextFactory(
   commandScript: CommandScript,
   attemptCell: { n: number },
-): (input: TauriEvaluationContextInput) => import('../packages/core/src/browser.js').EvaluationContext {
+): (
+  input: TauriEvaluationContextInput,
+) => import('../packages/core/src/browser.js').EvaluationContext {
   return (input: TauriEvaluationContextInput) => ({
     criterion: {
       id: input.criterion.id,
@@ -214,112 +216,137 @@ function makeFakeEvaluationContextFactory(
 // Scenario (a): happy path — agent submits, evaluators PASS → completed.
 // ---------------------------------------------------------------------------
 
-await check('(a) happy path: agent submits, evaluators PASS over fake workspace → completed', async () => {
-  const eventBus = new InMemoryEventBus();
-  const { repos, mission } = makeRepos('/tmp/fake-ws');
+await check(
+  '(a) happy path: agent submits, evaluators PASS over fake workspace → completed',
+  async () => {
+    const eventBus = new InMemoryEventBus();
+    const { repos, mission } = makeRepos('/tmp/fake-ws');
 
-  const { missionId } = await createDevMission(repos, {
-    companyId: 'co-1',
-    threadId: 'thr-1',
-    projectId: 'proj-1',
-    goal: 'Make the tests pass',
-    criteria: [
-      { description: 'tests pass', evaluatorId: 'command_exit_zero', evaluatorConfigJson: JSON.stringify({ command: 'pnpm test' }), required: true },
-    ],
-  });
-  const criteria = await mission.missionCriteria.listByMission(missionId);
-  const criterionId = criteria[0]!.criterion_id;
+    const { missionId } = await createDevMission(repos, {
+      companyId: 'co-1',
+      threadId: 'thr-1',
+      projectId: 'proj-1',
+      goal: 'Make the tests pass',
+      criteria: [
+        {
+          description: 'tests pass',
+          evaluatorId: 'command_exit_zero',
+          evaluatorConfigJson: JSON.stringify({ command: 'pnpm test' }),
+          required: true,
+        },
+      ],
+    });
+    const criteria = await mission.missionCriteria.listByMission(missionId);
+    const criterionId = criteria[0]!.criterion_id;
 
-  const { runtime } = makeFakeRuntime(eventBus, 'co-1', {
-    submitCriterionIds: [criterionId],
-    submitSummary: () => 'tests green',
-  });
-  const attemptCell = { n: 0 };
-  const controller = createMissionRunController({
-    agentRuntime: runtime,
-    repos,
-    evaluatorRegistry: createDefaultEvaluatorRegistry(),
-    eventBus,
-    // Bump the attempt cell each runAttempt by hooking the factory: every
-    // criterion in an attempt shares the same attempt number, and exit 0 → PASS.
-    createEvaluationContext: makeFakeEvaluationContextFactory(() => 0, attemptCell),
-  });
+    const { runtime } = makeFakeRuntime(eventBus, 'co-1', {
+      submitCriterionIds: [criterionId],
+      submitSummary: () => 'tests green',
+    });
+    const attemptCell = { n: 0 };
+    const controller = createMissionRunController({
+      agentRuntime: runtime,
+      repos,
+      evaluatorRegistry: createDefaultEvaluatorRegistry(),
+      eventBus,
+      // Bump the attempt cell each runAttempt by hooking the factory: every
+      // criterion in an attempt shares the same attempt number, and exit 0 → PASS.
+      createEvaluationContext: makeFakeEvaluationContextFactory(() => 0, attemptCell),
+    });
 
-  const result = await controller.runMission(missionId);
-  assert.equal(result.status, 'completed', 'all required criteria PASS → completed');
-  assert.equal(result.attempts, 1, 'completed in one attempt');
-  const finalMission = await mission.missions.findById(missionId);
-  assert.equal(finalMission!.status, 'completed', 'MissionService persisted completed');
-});
+    const result = await controller.runMission(missionId);
+    assert.equal(result.status, 'completed', 'all required criteria PASS → completed');
+    assert.equal(result.attempts, 1, 'completed in one attempt');
+    const finalMission = await mission.missions.findById(missionId);
+    assert.equal(finalMission!.status, 'completed', 'MissionService persisted completed');
+  },
+);
 
 // ---------------------------------------------------------------------------
 // Scenario (b): repair (MS-006) — FAIL@1, repair brief in attempt 2's prompt,
 // PASS@2 → completed.
 // ---------------------------------------------------------------------------
 
-await check('(b) repair: FAIL@1 → repair brief reaches attempt 2 prompt → PASS@2 → completed', async () => {
-  const eventBus = new InMemoryEventBus();
-  const { repos, mission } = makeRepos('/tmp/fake-ws');
+await check(
+  '(b) repair: FAIL@1 → repair brief reaches attempt 2 prompt → PASS@2 → completed',
+  async () => {
+    const eventBus = new InMemoryEventBus();
+    const { repos, mission } = makeRepos('/tmp/fake-ws');
 
-  const { missionId } = await createDevMission(repos, {
-    companyId: 'co-1',
-    threadId: 'thr-1',
-    projectId: 'proj-1',
-    goal: 'Make the build pass',
-    criteria: [
-      { description: 'build ok', evaluatorId: 'command_exit_zero', evaluatorConfigJson: JSON.stringify({ command: 'pnpm build' }), required: true },
-    ],
-  });
-  const criteria = await mission.missionCriteria.listByMission(missionId);
-  const criterionId = criteria[0]!.criterion_id;
+    const { missionId } = await createDevMission(repos, {
+      companyId: 'co-1',
+      threadId: 'thr-1',
+      projectId: 'proj-1',
+      goal: 'Make the build pass',
+      criteria: [
+        {
+          description: 'build ok',
+          evaluatorId: 'command_exit_zero',
+          evaluatorConfigJson: JSON.stringify({ command: 'pnpm build' }),
+          required: true,
+        },
+      ],
+    });
+    const criteria = await mission.missionCriteria.listByMission(missionId);
+    const criterionId = criteria[0]!.criterion_id;
 
-  const fake = makeFakeRuntime(eventBus, 'co-1', {
-    submitCriterionIds: [criterionId],
-    submitSummary: () => 'I think the build works',
-  });
-  // attempt 1 → exit 1 (FAIL); attempt 2 → exit 0 (PASS). The attempt cell is
-  // bumped by the runtime stub (each execute = a new attempt) BEFORE the
-  // evaluator runs, because execute() resolves before evaluationContextFor.
-  const attemptCell = { n: 0 };
-  const wrappedRuntime: DesktopAgentRuntime = {
-    ...fake.runtime,
-    async execute(input) {
-      attemptCell.n += 1;
-      return fake.runtime.execute(input);
-    },
-  };
-  const controller = createMissionRunController({
-    agentRuntime: wrappedRuntime,
-    repos,
-    evaluatorRegistry: createDefaultEvaluatorRegistry(),
-    eventBus,
-    createEvaluationContext: makeFakeEvaluationContextFactory(
-      (_command, attemptNumber) => (attemptNumber === 1 ? 1 : 0),
-      attemptCell,
-    ),
-  });
+    const fake = makeFakeRuntime(eventBus, 'co-1', {
+      submitCriterionIds: [criterionId],
+      submitSummary: () => 'I think the build works',
+    });
+    // attempt 1 → exit 1 (FAIL); attempt 2 → exit 0 (PASS). The attempt cell is
+    // bumped by the runtime stub (each execute = a new attempt) BEFORE the
+    // evaluator runs, because execute() resolves before evaluationContextFor.
+    const attemptCell = { n: 0 };
+    const wrappedRuntime: DesktopAgentRuntime = {
+      ...fake.runtime,
+      async execute(input) {
+        attemptCell.n += 1;
+        return fake.runtime.execute(input);
+      },
+    };
+    const controller = createMissionRunController({
+      agentRuntime: wrappedRuntime,
+      repos,
+      evaluatorRegistry: createDefaultEvaluatorRegistry(),
+      eventBus,
+      createEvaluationContext: makeFakeEvaluationContextFactory(
+        (_command, attemptNumber) => (attemptNumber === 1 ? 1 : 0),
+        attemptCell,
+      ),
+    });
 
-  const result = await controller.runMission(missionId);
-  assert.equal(result.status, 'completed', 'second attempt passes → completed');
-  assert.equal(result.attempts, 2, 'completed in exactly two attempts');
+    const result = await controller.runMission(missionId);
+    assert.equal(result.status, 'completed', 'second attempt passes → completed');
+    assert.equal(result.attempts, 2, 'completed in exactly two attempts');
 
-  // MS-006: the repair attempt's prompt must carry the structured failure brief.
-  assert.equal(fake.prompts.length, 2, 'two attempts ran');
-  const repairPrompt = fake.prompts[1]!;
-  assert.ok(repairPrompt.includes('Mission repair'), 'attempt 2 prompt is a repair brief');
-  assert.ok(repairPrompt.includes(criterionId), 'repair brief names the failed criterion id');
-  assert.ok(repairPrompt.includes('build ok'), 'repair brief carries the failed criterion description');
-  // The deterministic failure summary line must be present (not the agent's note):
-  // command_exit_zero with exit 1 summarizes as "`pnpm build` exited 1", surfaced
-  // under the brief's "what was wrong:" line.
-  assert.ok(repairPrompt.includes('what was wrong:'), 'repair brief has the failure-summary line');
-  assert.ok(
-    repairPrompt.includes('exited 1'),
-    'repair brief carries the deterministic command-exit summary',
-  );
-  // And the first attempt's prompt was NOT a repair brief.
-  assert.ok(!fake.prompts[0]!.includes('Mission repair'), 'attempt 1 prompt is the initial brief');
-});
+    // MS-006: the repair attempt's prompt must carry the structured failure brief.
+    assert.equal(fake.prompts.length, 2, 'two attempts ran');
+    const repairPrompt = fake.prompts[1]!;
+    assert.ok(repairPrompt.includes('Mission repair'), 'attempt 2 prompt is a repair brief');
+    assert.ok(repairPrompt.includes(criterionId), 'repair brief names the failed criterion id');
+    assert.ok(
+      repairPrompt.includes('build ok'),
+      'repair brief carries the failed criterion description',
+    );
+    // The deterministic failure summary line must be present (not the agent's note):
+    // command_exit_zero with exit 1 summarizes as "`pnpm build` exited 1", surfaced
+    // under the brief's "what was wrong:" line.
+    assert.ok(
+      repairPrompt.includes('what was wrong:'),
+      'repair brief has the failure-summary line',
+    );
+    assert.ok(
+      repairPrompt.includes('exited 1'),
+      'repair brief carries the deterministic command-exit summary',
+    );
+    // And the first attempt's prompt was NOT a repair brief.
+    assert.ok(
+      !fake.prompts[0]!.includes('Mission repair'),
+      'attempt 1 prompt is the initial brief',
+    );
+  },
+);
 
 // ---------------------------------------------------------------------------
 // Scenario (c): §5 — the agent CLAIMS pass, but the evaluator FAILs over the
@@ -327,52 +354,68 @@ await check('(b) repair: FAIL@1 → repair brief reaches attempt 2 prompt → PA
 // agent's self-reported summary.
 // ---------------------------------------------------------------------------
 
-await check('(c) §5: agent claims PASS but command_exit_zero FAILs → mission does NOT complete', async () => {
-  const eventBus = new InMemoryEventBus();
-  const { repos, mission } = makeRepos('/tmp/fake-ws');
+await check(
+  '(c) §5: agent claims PASS but command_exit_zero FAILs → mission does NOT complete',
+  async () => {
+    const eventBus = new InMemoryEventBus();
+    const { repos, mission } = makeRepos('/tmp/fake-ws');
 
-  const { missionId } = await createDevMission(repos, {
-    companyId: 'co-1',
-    threadId: 'thr-1',
-    projectId: 'proj-1',
-    goal: 'Ship it',
-    criteria: [
-      { description: 'tests pass', evaluatorId: 'command_exit_zero', evaluatorConfigJson: JSON.stringify({ command: 'pnpm test' }), required: true },
-    ],
-  });
-  const criteria = await mission.missionCriteria.listByMission(missionId);
-  const criterionId = criteria[0]!.criterion_id;
+    const { missionId } = await createDevMission(repos, {
+      companyId: 'co-1',
+      threadId: 'thr-1',
+      projectId: 'proj-1',
+      goal: 'Ship it',
+      criteria: [
+        {
+          description: 'tests pass',
+          evaluatorId: 'command_exit_zero',
+          evaluatorConfigJson: JSON.stringify({ command: 'pnpm test' }),
+          required: true,
+        },
+      ],
+    });
+    const criteria = await mission.missionCriteria.listByMission(missionId);
+    const criterionId = criteria[0]!.criterion_id;
 
-  // The agent loudly claims success in every submission summary…
-  const { runtime } = makeFakeRuntime(eventBus, 'co-1', {
-    submitCriterionIds: [criterionId],
-    submitSummary: () => 'ALL TESTS PASS, mission complete!',
-  });
-  const attemptCell = { n: 0 };
-  // …but the fake workspace makes the command exit non-zero EVERY attempt → FAIL.
-  const controller = createMissionRunController({
-    agentRuntime: runtime,
-    repos,
-    evaluatorRegistry: createDefaultEvaluatorRegistry(),
-    eventBus,
-    createEvaluationContext: makeFakeEvaluationContextFactory(() => 1, attemptCell),
-    // Bound the loop so the always-FAIL doesn't run the full 6 attempts.
-  });
+    // The agent loudly claims success in every submission summary…
+    const { runtime } = makeFakeRuntime(eventBus, 'co-1', {
+      submitCriterionIds: [criterionId],
+      submitSummary: () => 'ALL TESTS PASS, mission complete!',
+    });
+    const attemptCell = { n: 0 };
+    // …but the fake workspace makes the command exit non-zero EVERY attempt → FAIL.
+    const controller = createMissionRunController({
+      agentRuntime: runtime,
+      repos,
+      evaluatorRegistry: createDefaultEvaluatorRegistry(),
+      eventBus,
+      createEvaluationContext: makeFakeEvaluationContextFactory(() => 1, attemptCell),
+      // Bound the loop so the always-FAIL doesn't run the full 6 attempts.
+    });
 
-  const result = await controller.runMission(missionId);
-  assert.notEqual(result.status, 'completed', 'the agent self-report must NOT yield completion (§5)');
-  // An always-FAIL command produces an identical failure signature each attempt,
-  // so the bounded loop stops as STUCK (which finalizes the mission as failed) —
-  // the point is it is a non-completion driven by the evaluator, never the agent's
-  // "ALL TESTS PASS" claim.
-  assert.ok(
-    result.status === 'failed' || result.status === 'stuck',
-    `expected a non-completion stop (failed/stuck), got ${result.status}`,
-  );
-  assert.equal(result.finalMissionStatus, 'failed', 'mission finalized as failed (not completed)');
-  const finalMission = await mission.missions.findById(missionId);
-  assert.notEqual(finalMission!.status, 'completed', 'MissionService never wrote completed');
-});
+    const result = await controller.runMission(missionId);
+    assert.notEqual(
+      result.status,
+      'completed',
+      'the agent self-report must NOT yield completion (§5)',
+    );
+    // An always-FAIL command produces an identical failure signature each attempt,
+    // so the bounded loop stops as STUCK (which finalizes the mission as failed) —
+    // the point is it is a non-completion driven by the evaluator, never the agent's
+    // "ALL TESTS PASS" claim.
+    assert.ok(
+      result.status === 'failed' || result.status === 'stuck',
+      `expected a non-completion stop (failed/stuck), got ${result.status}`,
+    );
+    assert.equal(
+      result.finalMissionStatus,
+      'failed',
+      'mission finalized as failed (not completed)',
+    );
+    const finalMission = await mission.missions.findById(missionId);
+    assert.notEqual(finalMission!.status, 'completed', 'MissionService never wrote completed');
+  },
+);
 
 // ---------------------------------------------------------------------------
 // Inject-proof: a runtime transport throw on attempt 1 is INFRA → blocked, with
@@ -390,7 +433,12 @@ await check('runtime transport throw → blocked (infra), not a product FAIL', a
     projectId: 'proj-1',
     goal: 'Whatever',
     criteria: [
-      { description: 'tests pass', evaluatorId: 'command_exit_zero', evaluatorConfigJson: JSON.stringify({ command: 'pnpm test' }), required: true },
+      {
+        description: 'tests pass',
+        evaluatorId: 'command_exit_zero',
+        evaluatorConfigJson: JSON.stringify({ command: 'pnpm test' }),
+        required: true,
+      },
     ],
   });
 
@@ -426,54 +474,66 @@ await check('runtime transport throw → blocked (infra), not a product FAIL', a
 // confirms BOTH the budget parse and the usage channel are load-bearing.
 // ---------------------------------------------------------------------------
 
-await check('(d) token budget: reported usage debits the authored budget → stop token_budget; root_run_id stamped', async () => {
-  const eventBus = new InMemoryEventBus();
-  const { repos, mission } = makeRepos('/tmp/fake-ws');
+await check(
+  '(d) token budget: reported usage debits the authored budget → stop token_budget; root_run_id stamped',
+  async () => {
+    const eventBus = new InMemoryEventBus();
+    const { repos, mission } = makeRepos('/tmp/fake-ws');
 
-  const { missionId } = await createDevMission(repos, {
-    companyId: 'co-1',
-    threadId: 'thr-1',
-    projectId: 'proj-1',
-    goal: 'Burn the budget',
-    // A tiny token budget the first attempt's usage (10) blows past.
-    budgetJson: JSON.stringify({ tokenBudget: 1 }),
-    criteria: [
-      { description: 'tests pass', evaluatorId: 'command_exit_zero', evaluatorConfigJson: JSON.stringify({ command: 'pnpm test' }), required: true },
-    ],
-  });
-  const criteria = await mission.missionCriteria.listByMission(missionId);
-  const criterionId = criteria[0]!.criterion_id;
+    const { missionId } = await createDevMission(repos, {
+      companyId: 'co-1',
+      threadId: 'thr-1',
+      projectId: 'proj-1',
+      goal: 'Burn the budget',
+      // A tiny token budget the first attempt's usage (10) blows past.
+      budgetJson: JSON.stringify({ tokenBudget: 1 }),
+      criteria: [
+        {
+          description: 'tests pass',
+          evaluatorId: 'command_exit_zero',
+          evaluatorConfigJson: JSON.stringify({ command: 'pnpm test' }),
+          required: true,
+        },
+      ],
+    });
+    const criteria = await mission.missionCriteria.listByMission(missionId);
+    const criterionId = criteria[0]!.criterion_id;
 
-  const { runtime } = makeFakeRuntime(eventBus, 'co-1', {
-    submitCriterionIds: [criterionId],
-    submitSummary: () => 'I tried',
-    usage: { input: 5, output: 5 }, // 10 tokens reported for the attempt
-  });
-  const attemptCell = { n: 0 };
-  // The command FAILs every attempt, so completion never short-circuits the
-  // budget check — the loop wants to repair but the budget is already spent.
-  const controller = createMissionRunController({
-    agentRuntime: runtime,
-    repos,
-    evaluatorRegistry: createDefaultEvaluatorRegistry(),
-    eventBus,
-    createEvaluationContext: makeFakeEvaluationContextFactory(() => 1, attemptCell),
-  });
+    const { runtime } = makeFakeRuntime(eventBus, 'co-1', {
+      submitCriterionIds: [criterionId],
+      submitSummary: () => 'I tried',
+      usage: { input: 5, output: 5 }, // 10 tokens reported for the attempt
+    });
+    const attemptCell = { n: 0 };
+    // The command FAILs every attempt, so completion never short-circuits the
+    // budget check — the loop wants to repair but the budget is already spent.
+    const controller = createMissionRunController({
+      agentRuntime: runtime,
+      repos,
+      evaluatorRegistry: createDefaultEvaluatorRegistry(),
+      eventBus,
+      createEvaluationContext: makeFakeEvaluationContextFactory(() => 1, attemptCell),
+    });
 
-  const result = await controller.runMission(missionId);
-  assert.equal(result.stopReason, 'token_budget', 'the exhausted token budget stops the loop');
-  assert.equal(result.attempts, 1, 'stopped after the first (budget-blowing) attempt — no repair');
+    const result = await controller.runMission(missionId);
+    assert.equal(result.stopReason, 'token_budget', 'the exhausted token budget stops the loop');
+    assert.equal(
+      result.attempts,
+      1,
+      'stopped after the first (budget-blowing) attempt — no repair',
+    );
 
-  // M2/M3: the attempt row records which agent run produced it (runId === attemptId).
-  const attempts = await mission.missionAttempts.listByMission(missionId);
-  assert.equal(attempts.length, 1, 'exactly one attempt');
-  const attempt = attempts[0]!;
-  assert.equal(
-    attempt.root_run_id,
-    attempt.attempt_id,
-    'root_run_id stamped with the attempt id (the live runner sets runId === attemptId)',
-  );
-});
+    // M2/M3: the attempt row records which agent run produced it (runId === attemptId).
+    const attempts = await mission.missionAttempts.listByMission(missionId);
+    assert.equal(attempts.length, 1, 'exactly one attempt');
+    const attempt = attempts[0]!;
+    assert.equal(
+      attempt.root_run_id,
+      attempt.attempt_id,
+      'root_run_id stamped with the attempt id (the live runner sets runId === attemptId)',
+    );
+  },
+);
 
 // ---------------------------------------------------------------------------
 

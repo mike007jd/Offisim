@@ -1,11 +1,7 @@
 import { useUiState } from '@/app/ui-state.js';
 import { openLoopInOffice } from '@/assistant/composer/open-loop-in-office.js';
-import {
-  useArchiveLoop,
-  useCreateLoop,
-  useDuplicateLoop,
-  useLoops,
-} from '@/data/loops.js';
+import { useArchiveLoop, useCreateLoop, useDuplicateLoop, useLoops } from '@/data/loops.js';
+import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import {
   DropdownMenu,
@@ -16,13 +12,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/design-system/primitives/dropdown-menu.js';
-import { Icon } from '@/design-system/icons/Icon.js';
-import { EmptyState, ErrorState, SkeletonRows, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
 import { cn } from '@/lib/utils.js';
 import {
-  DEFAULT_COMPILER_PROFILE_ID,
-  listCompilerProfiles,
-} from '@offisim/core/browser';
+  EmptyState,
+  ErrorState,
+  SkeletonRows,
+  errorDetail,
+} from '@/surfaces/shared/SurfaceStates.js';
+import { DEFAULT_COMPILER_PROFILE_ID, listCompilerProfiles } from '@offisim/core/browser';
 import type { LoopDefinition } from '@offisim/shared-types';
 import {
   Copy,

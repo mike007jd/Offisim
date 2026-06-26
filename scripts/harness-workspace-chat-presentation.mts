@@ -27,7 +27,10 @@ function emptyAssistantShell(
 }
 
 /** A run snapshot stub. */
-function run(phase: string, attemptId: string | null = ATTEMPT): {
+function run(
+  phase: string,
+  attemptId: string | null = ATTEMPT,
+): {
   phase: string;
   attemptId: string | null;
 } {
@@ -94,7 +97,10 @@ const scenarios: Array<{
       const merged = [boss('u1'), emptyAssistantShell('a-empty', { attemptId: ATTEMPT })];
       const r = render({ phase: 'running', merged });
       // The empty shell must NOT render and must NOT close the pending slot.
-      assert.equal(r.visible.some((m) => m.id === 'a-empty'), false);
+      assert.equal(
+        r.visible.some((m) => m.id === 'a-empty'),
+        false,
+      );
       assert.equal(r.visibleAssistantCount, 0);
       assert.equal(r.pendingRows, 1);
       assert.equal(r.assistantResponseSlots, 1);
@@ -136,7 +142,13 @@ const scenarios: Array<{
     run: () => {
       const merged: PresentationMessage[] = [
         boss('u1'),
-        { id: 'a1', author: 'employee', body: '', reasoning: 'checking context', attemptId: ATTEMPT },
+        {
+          id: 'a1',
+          author: 'employee',
+          body: '',
+          reasoning: 'checking context',
+          attemptId: ATTEMPT,
+        },
       ];
       const r = render({ phase: 'running', merged });
       assert.equal(r.pending, false);
@@ -186,7 +198,11 @@ const scenarios: Array<{
       // Exactly one entry for the shared id, and it is the live draft (real body).
       const sharedRows = merged.filter((m) => m.id === 'a-shared');
       assert.equal(sharedRows.length, 1, 'merge must collapse the shared id to one row');
-      assert.equal(sharedRows[0]!.body, 'live draft text', 'live draft must win over the empty shell');
+      assert.equal(
+        sharedRows[0]!.body,
+        'live draft text',
+        'live draft must win over the empty shell',
+      );
       const r = render({ phase: 'running', merged });
       assert.equal(r.visible.filter((m) => m.id === 'a-shared').length, 1);
       assert.equal(r.visibleAssistantCount, 1);
@@ -208,7 +224,10 @@ const scenarios: Array<{
       assert.equal(hasVisibleAssistantPayload(failedTerminal), true);
       const r = render({ phase: 'failed', merged: [boss('u1'), failedTerminal] });
       assert.equal(r.pending, false);
-      assert.equal(r.visible.some((m) => m.id === 'a-failed'), true);
+      assert.equal(
+        r.visible.some((m) => m.id === 'a-failed'),
+        true,
+      );
       assert.equal(r.assistantResponseSlots, 1);
       // Also prove a completed run with no assistant payload at all does not hang
       // a pending row (run no longer active).
@@ -253,7 +272,10 @@ const scenarios: Array<{
       assert.equal(hasVisibleAssistantPayload(interrupted), true);
       const r = render({ phase: 'interrupted', merged: [boss('u1'), interrupted] });
       assert.equal(r.pending, false);
-      assert.equal(r.visible.some((m) => m.id === 'a-int'), true);
+      assert.equal(
+        r.visible.some((m) => m.id === 'a-int'),
+        true,
+      );
       assert.equal(r.assistantResponseSlots, 1);
       // And a plain stop with no checkpoint at all: just no pending row.
       const bare = render({ phase: 'interrupted', merged: [boss('u1')] });
@@ -268,14 +290,19 @@ const scenarios: Array<{
     run: () => {
       const cases: Array<{ merged: PresentationMessage[]; phase: string }> = [
         { phase: 'preparing', merged: [boss('u1')] },
-        { phase: 'running', merged: [boss('u1'), emptyAssistantShell('e', { attemptId: ATTEMPT })] },
+        {
+          phase: 'running',
+          merged: [boss('u1'), emptyAssistantShell('e', { attemptId: ATTEMPT })],
+        },
         {
           phase: 'running',
           merged: [boss('u1'), { id: 'a', author: 'employee', body: 'hi', attemptId: ATTEMPT }],
         },
         { phase: 'awaiting-approval', merged: [boss('u1')] },
       ];
-      const slots = cases.map((c) => render({ phase: c.phase, merged: c.merged }).assistantResponseSlots);
+      const slots = cases.map(
+        (c) => render({ phase: c.phase, merged: c.merged }).assistantResponseSlots,
+      );
       for (const s of slots) assert.ok(s <= 1, `expected <=1 slot, got ${s}`);
       return { slots };
     },
@@ -315,11 +342,7 @@ for (const scenario of scenarios) {
 const failed = results.filter((result) => result.outcome === 'fail');
 console.log(JSON.stringify({ scenarioCount: scenarios.length, results }, null, 2));
 if (failed.length > 0) {
-  console.error(
-    `workspace-chat-presentation harness failed: ${failed.length}/${scenarios.length}`,
-  );
+  console.error(`workspace-chat-presentation harness failed: ${failed.length}/${scenarios.length}`);
   process.exit(1);
 }
-console.log(
-  `workspace-chat-presentation harness passed: ${scenarios.length}/${scenarios.length}`,
-);
+console.log(`workspace-chat-presentation harness passed: ${scenarios.length}/${scenarios.length}`);

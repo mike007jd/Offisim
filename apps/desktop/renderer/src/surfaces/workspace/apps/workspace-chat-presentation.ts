@@ -89,9 +89,7 @@ function hasNonEmpty(value: string | undefined): boolean {
   return !!value && value.trim().length > 0;
 }
 
-function hasPresentableToolCall(
-  toolCalls: readonly PresentationToolCall[] | undefined,
-): boolean {
+function hasPresentableToolCall(toolCalls: readonly PresentationToolCall[] | undefined): boolean {
   if (!toolCalls || toolCalls.length === 0) return false;
   // A tool call is presentable as soon as it has an identity — even a
   // still-running one is a real activity, so it must suppress the pending row.

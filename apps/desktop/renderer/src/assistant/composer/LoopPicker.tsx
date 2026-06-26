@@ -82,7 +82,8 @@ export function LoopPicker() {
                     <span className="off-loop-pick-row">
                       <span className="off-loop-pick-name">{loop.title}</span>
                       <span className="off-loop-pick-meta">
-                        {loop.profileId} · updated {relativeTime(Date.parse(loop.updatedAt) || Date.now())}
+                        {loop.profileId} · updated{' '}
+                        {relativeTime(Date.parse(loop.updatedAt) || Date.now())}
                       </span>
                     </span>
                   </CommandItem>
@@ -101,7 +102,9 @@ export function LoopPicker() {
                     <Repeat />
                     <span className="off-loop-pick-row">
                       <span className="off-loop-pick-name">{loop.title}</span>
-                      <span className="off-loop-pick-meta">{loop.status} · {loop.profileId}</span>
+                      <span className="off-loop-pick-meta">
+                        {loop.status} · {loop.profileId}
+                      </span>
                     </span>
                   </CommandItem>
                 ))}

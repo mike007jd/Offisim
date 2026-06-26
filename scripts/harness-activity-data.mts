@@ -119,15 +119,23 @@ console.log('AC2 sanitizeMcpActivityValue — recursive redact + cap');
   // must have its whole value masked even when the value is not token-shaped
   // (plain word, bare hex, or a number).
   const keyAndShapeless = sanitizeMcpActivityValue({
-    'ghp_keyAsObjectKey0123456789ab': true,
+    ghp_keyAsObjectKey0123456789ab: true,
     password: 'correct horse battery staple',
     api_key: '0123456789abcdef0123456789abcdef',
     token: 1234567890123456,
   });
   const ks = JSON.stringify(keyAndShapeless);
   check('secret object KEY redacted', !ks.includes('ghp_keyAsObjectKey0123456789ab'), ks);
-  check('credential-named plain-word value masked', !ks.includes('correct horse battery staple'), ks);
-  check('credential-named bare-hex value masked', !ks.includes('0123456789abcdef0123456789abcdef'), ks);
+  check(
+    'credential-named plain-word value masked',
+    !ks.includes('correct horse battery staple'),
+    ks,
+  );
+  check(
+    'credential-named bare-hex value masked',
+    !ks.includes('0123456789abcdef0123456789abcdef'),
+    ks,
+  );
   check('credential-named numeric value masked', !ks.includes('1234567890123456'), ks);
 
   // Oversized blob → capped string marker.

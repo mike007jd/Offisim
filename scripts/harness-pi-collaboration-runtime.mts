@@ -17,28 +17,28 @@
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { createCollaborationMemoryRepos } from '../packages/core/src/runtime/repos/collaboration/memory.js';
-import { createCollaborationService } from '../packages/core/src/runtime/collaboration/collaboration-service.js';
 import {
-  buildContextPacket,
-  parseMentions,
-  scheduleSpeakers,
-  clampRoundtableSpeakers,
-  recentWindow,
+  type CollaborationParticipant,
   FORBIDDEN_CONTEXT_MARKERS,
   ROUNDTABLE_HARD_CAP_SPEAKERS,
-  type CollaborationParticipant,
+  buildContextPacket,
+  clampRoundtableSpeakers,
+  parseMentions,
+  recentWindow,
+  scheduleSpeakers,
 } from '../apps/desktop/renderer/src/runtime/collaboration/collaboration-context.js';
-import {
-  createCollaborationTurnController,
-  emptyCollaborationSnapshot,
-  type CollaborationThreadContext,
-} from '../apps/desktop/renderer/src/runtime/collaboration/collaboration-turn-controller.js';
 import type {
   CollaborationTransport,
   CollaborationTurnRequest,
   CollaborationTurnResult,
 } from '../apps/desktop/renderer/src/runtime/collaboration/collaboration-transport.js';
+import {
+  type CollaborationThreadContext,
+  createCollaborationTurnController,
+  emptyCollaborationSnapshot,
+} from '../apps/desktop/renderer/src/runtime/collaboration/collaboration-turn-controller.js';
+import { createCollaborationService } from '../packages/core/src/runtime/collaboration/collaboration-service.js';
+import { createCollaborationMemoryRepos } from '../packages/core/src/runtime/repos/collaboration/memory.js';
 
 // Strip `//` line comments and `/* */` block comments so a NEGATIVE source scan
 // (asserting a forbidden token is ABSENT) checks the executable code, not the
@@ -46,9 +46,7 @@ import type {
 // (e.g. "deliberately does not call project_workspace_root"). Positive scans use
 // the raw source; negative scans use this.
 function stripComments(src: string): string {
-  return src
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/(^|[^:])\/\/.*$/gm, '$1');
+  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 }
 
 let failures = 0;
@@ -70,8 +68,14 @@ function makeDeps() {
   let idSeq = 0;
   let clockSeq = 0;
   return {
-    newId: () => `id-${(idSeq += 1).toString().padStart(4, '0')}`,
-    now: () => new Date(Date.UTC(2026, 0, 1, 0, 0, 0, (clockSeq += 1))).toISOString(),
+    newId: () => {
+      idSeq += 1;
+      return `id-${idSeq.toString().padStart(4, '0')}`;
+    },
+    now: () => {
+      clockSeq += 1;
+      return new Date(Date.UTC(2026, 0, 1, 0, 0, 0, clockSeq)).toISOString();
+    },
   };
 }
 
@@ -92,7 +96,10 @@ function makeFakeTransport(): FakeTransport {
   const t: FakeTransport = {
     requests: [],
     packets: [],
-    behavior: async (req) => ({ text: `reply from ${req.employeeId}`, usage: { input: 3, output: 5 } }),
+    behavior: async (req) => ({
+      text: `reply from ${req.employeeId}`,
+      usage: { input: 3, output: 5 },
+    }),
     async run(req, opts) {
       t.requests.push(req);
       t.packets.push(req.systemPromptAppend ?? '');
@@ -169,7 +176,10 @@ function groupCtx(replyPolicy: 'mentions_only' | 'roundtable'): CollaborationThr
 }
 
 // Seed the thread row into the service so appendMessage can touch it.
-async function seedThread(service: ReturnType<typeof createCollaborationService>, ctx: CollaborationThreadContext) {
+async function seedThread(
+  service: ReturnType<typeof createCollaborationService>,
+  ctx: CollaborationThreadContext,
+) {
   if (ctx.kind === 'direct') {
     await service.getOrCreateDirect(ctx.companyId, ctx.directEmployeeId!, { title: ctx.title });
   } else {
@@ -186,7 +196,11 @@ async function seedThread(service: ReturnType<typeof createCollaborationService>
 {
   // (6) mentions_only parsing.
   const m = parseMentions('hey @Kai and @Sophie can you look', PARTICIPANTS);
-  check('parseMentions extracts only mentioned members in order', m.map((p) => p.name).join(',') === 'Kai,Sophie', JSON.stringify(m.map((p) => p.name)));
+  check(
+    'parseMentions extracts only mentioned members in order',
+    m.map((p) => p.name).join(',') === 'Kai,Sophie',
+    JSON.stringify(m.map((p) => p.name)),
+  );
   check('parseMentions ignores unmentioned members', !m.some((p) => p.name === 'Alex'));
   const none = parseMentions('hey team can someone look', PARTICIPANTS);
   check('no @mention → no scheduled members', none.length === 0);
@@ -222,16 +236,35 @@ async function seedThread(service: ReturnType<typeof createCollaborationService>
     triggerMessageBody: 'please weigh in',
     priorRoundReplies: [{ speakerName: 'Kai', body: 'looks good' }],
   });
-  check('context packet states daily chat, no tools, no files', /no tools|no files|do not run commands/i.test(packet) && /Do not .*claim/i.test(packet));
-  check('context packet contains the company + thread title', packet.includes('Acme') && packet.includes('Team room'));
-  check('context packet includes prior round reply for inter-employee talk', packet.includes('Kai: looks good'));
+  check(
+    'context packet states daily chat, no tools, no files',
+    /no tools|no files|do not run commands/i.test(packet) && /Do not .*claim/i.test(packet),
+  );
+  check(
+    'context packet contains the company + thread title',
+    packet.includes('Acme') && packet.includes('Team room'),
+  );
+  check(
+    'context packet includes prior round reply for inter-employee talk',
+    packet.includes('Kai: looks good'),
+  );
   for (const marker of FORBIDDEN_CONTEXT_MARKERS) {
-    check(`context packet has no forbidden marker "${marker}"`, !packet.includes(marker), packet.slice(0, 80));
+    check(
+      `context packet has no forbidden marker "${marker}"`,
+      !packet.includes(marker),
+      packet.slice(0, 80),
+    );
   }
-  check('context packet has no workspace root', !/workspace_root|workspaceRoot|\/Users\/|cwd/i.test(packet));
+  check(
+    'context packet has no workspace root',
+    !/workspace_root|workspaceRoot|\/Users\/|cwd/i.test(packet),
+  );
   // A non-participating member's persona must not leak: only the speaker's persona
   // summary appears; others appear by name/role only.
-  check('only the speaker persona summary appears (no other persona body)', packet.includes('Expertise: backend') && !packet.includes('Expertise: UI'));
+  check(
+    'only the speaker persona summary appears (no other persona body)',
+    packet.includes('Expertise: backend') && !packet.includes('Expertise: UI'),
+  );
 }
 
 // ── (1) direct reply: projectId=null path, no default project/workspace ──────
@@ -241,29 +274,66 @@ await (async () => {
   const { controller, repos, service } = makeController(ctx, transport);
   await seedThread(service, ctx);
   const { message, scheduled } = await controller.sendBossMessage(ctx.threadId, 'hi alex');
-  check('(1) direct reply schedules exactly one turn', scheduled.turns.length === 1, String(scheduled.turns.length));
+  check(
+    '(1) direct reply schedules exactly one turn',
+    scheduled.turns.length === 1,
+    String(scheduled.turns.length),
+  );
   check('(1) the direct employee is the speaker', scheduled.turns[0]?.employeeId === 'e-alex');
-  check('(1) the transport request carries no project id (collaborationThreadId only)', !('projectId' in (transport.requests[0] ?? {})) && transport.requests[0]?.collaborationThreadId === ctx.threadId);
+  check(
+    '(1) the transport request carries no project id (collaborationThreadId only)',
+    !('projectId' in (transport.requests[0] ?? {})) &&
+      transport.requests[0]?.collaborationThreadId === ctx.threadId,
+  );
   // (5) stable-id streaming upsert: the visible message row id is the turn's, and
   // the final body is the canned reply (upserted, not duplicated).
   const turn = controller.getSnapshot(ctx.threadId).turns[0];
-  check('(5) turn streamed into a stable message id', turn.messageId.length > 0 && turn.phase === 'complete');
+  check(
+    '(5) turn streamed into a stable message id',
+    turn.messageId.length > 0 && turn.phase === 'complete',
+  );
   // getSnapshot MUST be reference-stable between emits or useSyncExternalStore
   // loops forever and the Connect surface crashes on mount (caught live in the
   // release .app; the deterministic gates can't see the React invariant).
-  check('(5) getSnapshot is reference-stable between changes', controller.getSnapshot(ctx.threadId) === controller.getSnapshot(ctx.threadId));
-  check('(5) getSnapshot on an untouched thread is reference-stable', controller.getSnapshot('untouched') === controller.getSnapshot('untouched'));
-  check('(5) emptyCollaborationSnapshot is reference-stable per threadId', emptyCollaborationSnapshot('x') === emptyCollaborationSnapshot('x'));
+  check(
+    '(5) getSnapshot is reference-stable between changes',
+    // biome-ignore lint/suspicious/noSelfCompare: two independent getSnapshot calls; intentional reference-stability assertion (instability crashed Connect in release — PR-11)
+    controller.getSnapshot(ctx.threadId) === controller.getSnapshot(ctx.threadId),
+  );
+  check(
+    '(5) getSnapshot on an untouched thread is reference-stable',
+    // biome-ignore lint/suspicious/noSelfCompare: two independent getSnapshot calls; intentional reference-stability assertion (instability crashed Connect in release — PR-11)
+    controller.getSnapshot('untouched') === controller.getSnapshot('untouched'),
+  );
+  check(
+    '(5) emptyCollaborationSnapshot is reference-stable per threadId',
+    // biome-ignore lint/suspicious/noSelfCompare: two independent emptyCollaborationSnapshot calls; intentional reference-stability assertion
+    emptyCollaborationSnapshot('x') === emptyCollaborationSnapshot('x'),
+  );
   const finalMsg = await repos.collaborationMessages.findById(turn.messageId);
-  check('(5) the stable message row was upserted to complete', finalMsg?.status === 'complete' && finalMsg?.body === 'reply from e-alex', JSON.stringify(finalMsg));
+  check(
+    '(5) the stable message row was upserted to complete',
+    finalMsg?.status === 'complete' && finalMsg?.body === 'reply from e-alex',
+    JSON.stringify(finalMsg),
+  );
   // Exactly two visible messages: boss + the single reply (no duplicate).
   const page = await service.listMessages(ctx.threadId, null, 50);
-  check('(5) no duplicate reply row (boss + one reply)', page.messages.length === 2, String(page.messages.length));
+  check(
+    '(5) no duplicate reply row (boss + one reply)',
+    page.messages.length === 2,
+    String(page.messages.length),
+  );
   check('(1) boss message persisted complete', message.status === 'complete');
   // (4) a turn ledger row exists and reached complete.
   const turns = await repos.collaborationTurns.listByThread(ctx.threadId);
-  check('(4) collaboration_turns ledger row written + complete', turns.length === 1 && turns[0].status === 'complete');
-  check('(4) ledger row carries usage + runtime_request_id', !!turns[0].usage_json && !!turns[0].runtime_request_id);
+  check(
+    '(4) collaboration_turns ledger row written + complete',
+    turns.length === 1 && turns[0].status === 'complete',
+  );
+  check(
+    '(4) ledger row carries usage + runtime_request_id',
+    !!turns[0].usage_json && !!turns[0].runtime_request_id,
+  );
 })();
 
 // ── (6) mentions_only: only mentioned members scheduled; no mention → none ───
@@ -273,7 +343,11 @@ await (async () => {
   const { controller, service } = makeController(ctx, transport);
   await seedThread(service, ctx);
   const r1 = await controller.sendBossMessage(ctx.threadId, 'hey @Kai please review');
-  check('(6) only the mentioned member is scheduled', r1.scheduled.turns.map((t) => t.employeeId).join(',') === 'e-kai', JSON.stringify(r1.scheduled.turns.map((t) => t.employeeId)));
+  check(
+    '(6) only the mentioned member is scheduled',
+    r1.scheduled.turns.map((t) => t.employeeId).join(',') === 'e-kai',
+    JSON.stringify(r1.scheduled.turns.map((t) => t.employeeId)),
+  );
 
   const transport2 = makeFakeTransport();
   const { controller: c2, service: s2 } = makeController(ctx, transport2);
@@ -282,9 +356,15 @@ await (async () => {
   check('(6) no mention → NO auto-fire of the whole group', r2.scheduled.turns.length === 0);
   // Ask team deterministically picks the first member.
   const ask = await c2.askTeam(ctx.threadId, r2.message);
-  check('(6) askTeam deterministically picks 1 (first roster member)', ask.turns.length === 1 && ask.turns[0].employeeId === 'e-alex');
+  check(
+    '(6) askTeam deterministically picks 1 (first roster member)',
+    ask.turns.length === 1 && ask.turns[0].employeeId === 'e-alex',
+  );
   const askChosen = await c2.askTeam(ctx.threadId, r2.message, ['e-sophie']);
-  check('(6) askTeam honors explicitly chosen responders', askChosen.turns.length === 1 && askChosen.turns[0].employeeId === 'e-sophie');
+  check(
+    '(6) askTeam honors explicitly chosen responders',
+    askChosen.turns.length === 1 && askChosen.turns[0].employeeId === 'e-sophie',
+  );
 })();
 
 // ── (7) roundtable: order + 3 default + 8 cap + 1 msg each + inter-speaker ctx ─
@@ -295,27 +375,63 @@ await (async () => {
   await seedThread(service, ctx);
   const boss = await controller.sendBossMessage(ctx.threadId, 'lets discuss the launch');
   check('(7) roundtable does NOT auto-fire on a boss message', boss.scheduled.turns.length === 0);
-  const round = await controller.startRound(ctx.threadId, boss.message, { mentionedFromBody: '@Sophie' });
+  const round = await controller.startRound(ctx.threadId, boss.message, {
+    mentionedFromBody: '@Sophie',
+  });
   // Default cap 3: 3 participants, all 3 speak (Sophie first by mention, then roster).
-  check('(7) startRound schedules up to the default cap (3)', round.turns.length === 3, String(round.turns.length));
-  check('(7) deterministic order: mention first then roster', round.turns.map((t) => t.employeeId).join(',') === 'e-sophie,e-alex,e-kai', JSON.stringify(round.turns.map((t) => t.employeeId)));
-  check('(7) each speaker produced at most one message', new Set(round.turns.map((t) => t.employeeId)).size === round.turns.length);
+  check(
+    '(7) startRound schedules up to the default cap (3)',
+    round.turns.length === 3,
+    String(round.turns.length),
+  );
+  check(
+    '(7) deterministic order: mention first then roster',
+    round.turns.map((t) => t.employeeId).join(',') === 'e-sophie,e-alex,e-kai',
+    JSON.stringify(round.turns.map((t) => t.employeeId)),
+  );
+  check(
+    '(7) each speaker produced at most one message',
+    new Set(round.turns.map((t) => t.employeeId)).size === round.turns.length,
+  );
   // Exact-fit round: all 3 eligible speakers spoke within the cap, so no speakers
   // remain — roundCompleted must be FALSE (no spurious "Continue round").
-  check('(7) exact-fit round (all members spoke) → roundCompleted false', round.roundCompleted === false, String(round.roundCompleted));
+  check(
+    '(7) exact-fit round (all members spoke) → roundCompleted false',
+    round.roundCompleted === false,
+    String(round.roundCompleted),
+  );
   // Inter-speaker context: the 2nd+ speakers' packets include prior speakers' replies.
   const secondPacket = transport.packets[1] ?? '';
-  check('(7) a later speaker sees prior speakers’ replies this round', secondPacket.includes('reply from e-sophie'));
+  check(
+    '(7) a later speaker sees prior speakers’ replies this round',
+    secondPacket.includes('reply from e-sophie'),
+  );
 
   // 8 hard cap: a bigger roster only schedules 8.
-  const bigParticipants: CollaborationParticipant[] = Array.from({ length: 12 }, (_, i) => ({ employeeId: `e-${i}`, name: `Emp${i}` }));
-  const bigCtx: CollaborationThreadContext = { ...groupCtx('roundtable'), participants: bigParticipants, roundSpeakerLimit: 99 };
+  const bigParticipants: CollaborationParticipant[] = Array.from({ length: 12 }, (_, i) => ({
+    employeeId: `e-${i}`,
+    name: `Emp${i}`,
+  }));
+  const bigCtx: CollaborationThreadContext = {
+    ...groupCtx('roundtable'),
+    participants: bigParticipants,
+    roundSpeakerLimit: 99,
+  };
   const bt = makeFakeTransport();
   const { controller: bc, service: bs } = makeController(bigCtx, bt);
-  await bs.createGroup({ companyId: bigCtx.companyId, title: bigCtx.title, employeeIds: bigParticipants.map((p) => p.employeeId), replyPolicy: 'roundtable' });
+  await bs.createGroup({
+    companyId: bigCtx.companyId,
+    title: bigCtx.title,
+    employeeIds: bigParticipants.map((p) => p.employeeId),
+    replyPolicy: 'roundtable',
+  });
   const bMsg = (await bc.sendBossMessage(bigCtx.threadId, 'go')).message;
   const bigRound = await bc.startRound(bigCtx.threadId, bMsg, { maxSpeakers: 99 });
-  check('(7) hard cap = 8 speakers even with 12 members', bigRound.turns.length === ROUNDTABLE_HARD_CAP_SPEAKERS, String(bigRound.turns.length));
+  check(
+    '(7) hard cap = 8 speakers even with 12 members',
+    bigRound.turns.length === ROUNDTABLE_HARD_CAP_SPEAKERS,
+    String(bigRound.turns.length),
+  );
   check('(7) hitting the cap returns roundCompleted', bigRound.roundCompleted === true);
 })();
 
@@ -328,7 +444,11 @@ await (async () => {
   const boss = (await controller.sendBossMessage(ctx.threadId, 'round one')).message;
   const r1 = await controller.startRound(ctx.threadId, boss, {});
   const r2 = await controller.continueRound(ctx.threadId, boss, {});
-  check('(8) continueRound mints a NEW round id', r1.roundId !== r2.roundId && !!r2.roundId, `${r1.roundId} vs ${r2.roundId}`);
+  check(
+    '(8) continueRound mints a NEW round id',
+    r1.roundId !== r2.roundId && !!r2.roundId,
+    `${r1.roundId} vs ${r2.roundId}`,
+  );
   const r1TurnIds = new Set(r1.turns.map((t) => t.turnId));
   const reused = r2.turns.some((t) => r1TurnIds.has(t.turnId));
   check('(8) continueRound never reuses a terminated turn id', !reused);
@@ -347,14 +467,24 @@ await (async () => {
   const { controller, repos, service } = makeController(ctx, transport);
   await seedThread(service, ctx);
   const boss = (await controller.sendBossMessage(ctx.threadId, 'go')).message;
-  const round = await controller.startRound(ctx.threadId, boss, { mentionedFromBody: '@Sophie @Alex @Kai' });
+  const round = await controller.startRound(ctx.threadId, boss, {
+    mentionedFromBody: '@Sophie @Alex @Kai',
+  });
   const byEmp = new Map(round.turns.map((t) => [t.employeeId, t]));
-  check('(9) partial failure: failed speaker is marked failed', byEmp.get('e-kai')?.phase === 'failed');
-  check('(9) partial failure: other speakers still completed', byEmp.get('e-sophie')?.phase === 'complete' && byEmp.get('e-alex')?.phase === 'complete');
+  check(
+    '(9) partial failure: failed speaker is marked failed',
+    byEmp.get('e-kai')?.phase === 'failed',
+  );
+  check(
+    '(9) partial failure: other speakers still completed',
+    byEmp.get('e-sophie')?.phase === 'complete' && byEmp.get('e-alex')?.phase === 'complete',
+  );
   // The failed turn's visible message is marked failed (not lost).
   const failedMsg = await repos.collaborationMessages.findById(byEmp.get('e-kai')!.messageId);
   check('(9) failed turn message row marked failed', failedMsg?.status === 'failed');
-  const failedTurnRow = (await repos.collaborationTurns.listByThread(ctx.threadId)).find((t) => t.employee_id === 'e-kai');
+  const failedTurnRow = (await repos.collaborationTurns.listByThread(ctx.threadId)).find(
+    (t) => t.employee_id === 'e-kai',
+  );
   check('(9) failed turn ledger carries an error summary', !!failedTurnRow?.error_summary);
 
   // retry: retrying the failed turn re-runs the same speaker into the same message id.
@@ -362,7 +492,10 @@ await (async () => {
   const retried = await controller.retry(ctx.threadId, byEmp.get('e-kai')!.turnId, boss);
   check('(9) retry re-runs the failed turn to complete', retried?.phase === 'complete');
   const retriedMsg = await repos.collaborationMessages.findById(byEmp.get('e-kai')!.messageId);
-  check('(9) retry upserts the SAME stable message id', retriedMsg?.body === 'retried e-kai' && retriedMsg?.status === 'complete');
+  check(
+    '(9) retry upserts the SAME stable message id',
+    retriedMsg?.body === 'retried e-kai' && retriedMsg?.status === 'complete',
+  );
 
   // stop: a slow turn aborted mid-flight is interrupted, keeping streamed text.
   const stopCtx = directCtx();
@@ -387,7 +520,11 @@ await (async () => {
   await os.getOrCreateDirect(other.companyId, 'e-kai', { title: 'Direct Kai' });
   await sc.sendBossMessage(stopCtx.threadId, 'a');
   await oc.sendBossMessage(other.threadId, 'b');
-  check('(9) thread switch: snapshots are per-thread independent', sc.getSnapshot(stopCtx.threadId).turns.length === 1 && sc.getSnapshot('t-other').turns.length === 0);
+  check(
+    '(9) thread switch: snapshots are per-thread independent',
+    sc.getSnapshot(stopCtx.threadId).turns.length === 1 &&
+      sc.getSnapshot('t-other').turns.length === 0,
+  );
 })();
 
 // ── (2)(3) HOST isolation: zero tools, no delegate/mission, streaming ────────
@@ -403,44 +540,120 @@ await (async () => {
   // away (or -1) and the isolation assertions below would scan the wrong/whole
   // file and pass vacuously. The real runCollaboration body is ~6 KB; the whole
   // host file is tens of KB, so an 8 KB ceiling catches a runaway slice.
-  check('(2) runCollaboration slice is bounded (not the whole file)', fn.length < 8000, String(fn.length));
+  check(
+    '(2) runCollaboration slice is bounded (not the whole file)',
+    fn.length < 8000,
+    String(fn.length),
+  );
   const fnCode = stripComments(fn);
-  check('(2) host registers a dedicated collaborate dispatch', entry.includes("payload.mode === 'collaborate'"));
+  check(
+    '(2) host registers a dedicated collaborate dispatch',
+    entry.includes("payload.mode === 'collaborate'"),
+  );
   check('(2) host collaborate uses noTools: all', /noTools:\s*'all'/.test(fn));
   check('(2) host collaborate passes an empty tool allowlist', /tools:\s*\[\]/.test(fn));
-  check('(3) host collaborate registers NO extension factories (no delegate/mission/publish)', !fnCode.includes('extensionFactories'));
-  check('(3) host collaborate never registers a delegate/mission bridge', !/createDelegationExtensionFactory|createMissionBridgeExtensionFactory|createPublishArtifactExtensionFactory|roster|missionContext/.test(fnCode));
-  check('(1) host collaborate never binds a project workspace', !fnCode.includes('ensureProjectBoundForRun') && !fnCode.includes('project_read_file') && !/project_workspace_root/.test(fnCode));
-  check('(2) host collaborate creates an ephemeral session (no session dir persistence)', /SessionManager\.create\(cwd\)/.test(fn) && !/sessionDir/.test(fnCode));
-  check('(4) host collaborate never writes agent_runs / chat_threads / mission tables', !/agent_runs|chat_threads|mission_/.test(fnCode));
-  check('(2) host collaborate throws on any tool execution (isolation breach guard)', fn.includes('isolation breach') || fn.includes('must not execute tools'));
+  check(
+    '(3) host collaborate registers NO extension factories (no delegate/mission/publish)',
+    !fnCode.includes('extensionFactories'),
+  );
+  check(
+    '(3) host collaborate never registers a delegate/mission bridge',
+    !/createDelegationExtensionFactory|createMissionBridgeExtensionFactory|createPublishArtifactExtensionFactory|roster|missionContext/.test(
+      fnCode,
+    ),
+  );
+  check(
+    '(1) host collaborate never binds a project workspace',
+    !fnCode.includes('ensureProjectBoundForRun') &&
+      !fnCode.includes('project_read_file') &&
+      !/project_workspace_root/.test(fnCode),
+  );
+  check(
+    '(2) host collaborate creates an ephemeral session (no session dir persistence)',
+    /SessionManager\.create\(cwd\)/.test(fn) && !/sessionDir/.test(fnCode),
+  );
+  check(
+    '(4) host collaborate never writes agent_runs / chat_threads / mission tables',
+    !/agent_runs|chat_threads|mission_/.test(fnCode),
+  );
+  check(
+    '(2) host collaborate throws on any tool execution (isolation breach guard)',
+    fn.includes('isolation breach') || fn.includes('must not execute tools'),
+  );
   // Streaming, unlike enhance: it must emit content deltas (messageDeltaLine).
-  check('(5) host collaborate STREAMS content deltas (messageDelta)', /messageDeltaLine\(\{\s*channel:\s*'content'/.test(fn));
+  check(
+    '(5) host collaborate STREAMS content deltas (messageDelta)',
+    /messageDeltaLine\(\{\s*channel:\s*'content'/.test(fn),
+  );
 
   // Rust host: a neutral cwd, no project bind, register_stdin None.
-  const rsPath = fileURLToPath(new URL('../apps/desktop/src-tauri/src/pi_agent_host.rs', import.meta.url));
+  const rsPath = fileURLToPath(
+    new URL('../apps/desktop/src-tauri/src/pi_agent_host.rs', import.meta.url),
+  );
   const rs = readFileSync(rsPath, 'utf8');
   const rstart = rs.indexOf('async fn do_collaborate');
   const rend = rs.indexOf('async fn collaborate_impl');
   check('(1) do_collaborate found in Rust host', rstart >= 0 && rend > rstart);
   const rfn = rs.slice(rstart, rend);
   const rfnCode = stripComments(rfn);
-  check('(1) Rust collaborate uses neutral_cwd (no project bind)', /neutral_cwd\(app\)/.test(rfnCode) && !/project_workspace_root/.test(rfnCode) && !/resolved_request_cwd/.test(rfnCode));
-  check('(2) Rust collaborate registers no stdin extension-UI channel (register_stdin None)', /run_pi_sidecar_jsonl\([\s\S]*?None,\s*\n\s*\)/.test(rfn) || rfn.includes('None,\n    )'));
-  check('(2) Rust collaborate carries no roster / missionContextJson field', !/roster|mission_context_json/.test(rfnCode));
+  check(
+    '(1) Rust collaborate uses neutral_cwd (no project bind)',
+    /neutral_cwd\(app\)/.test(rfnCode) &&
+      !/project_workspace_root/.test(rfnCode) &&
+      !/resolved_request_cwd/.test(rfnCode),
+  );
+  check(
+    '(2) Rust collaborate registers no stdin extension-UI channel (register_stdin None)',
+    /run_pi_sidecar_jsonl\([\s\S]*?None,\s*\n\s*\)/.test(rfn) || rfn.includes('None,\n    )'),
+  );
+  check(
+    '(2) Rust collaborate carries no roster / missionContextJson field',
+    !/roster|mission_context_json/.test(rfnCode),
+  );
 
   // Wire: a dedicated gateway command exists + is gated.
-  check('(2) agent_runtime_collaborate command exists', rs.includes('pub async fn agent_runtime_collaborate'));
-  const libRs = readFileSync(fileURLToPath(new URL('../apps/desktop/src-tauri/src/lib.rs', import.meta.url)), 'utf8');
-  check('(2) agent_runtime_collaborate registered in lib.rs handler', libRs.includes('pi_agent_host::agent_runtime_collaborate'));
-  const perm = readFileSync(fileURLToPath(new URL('../apps/desktop/src-tauri/permissions/agent-bridges.toml', import.meta.url)), 'utf8');
-  check('(2) agent_runtime_collaborate allowlisted in agent-bridges.toml', perm.includes('"agent_runtime_collaborate"'));
+  check(
+    '(2) agent_runtime_collaborate command exists',
+    rs.includes('pub async fn agent_runtime_collaborate'),
+  );
+  const libRs = readFileSync(
+    fileURLToPath(new URL('../apps/desktop/src-tauri/src/lib.rs', import.meta.url)),
+    'utf8',
+  );
+  check(
+    '(2) agent_runtime_collaborate registered in lib.rs handler',
+    libRs.includes('pi_agent_host::agent_runtime_collaborate'),
+  );
+  const perm = readFileSync(
+    fileURLToPath(
+      new URL('../apps/desktop/src-tauri/permissions/agent-bridges.toml', import.meta.url),
+    ),
+    'utf8',
+  );
+  check(
+    '(2) agent_runtime_collaborate allowlisted in agent-bridges.toml',
+    perm.includes('"agent_runtime_collaborate"'),
+  );
 
   // The transport invokes the dedicated command, NOT agent_runtime_execute.
-  const transportPath = fileURLToPath(new URL('../apps/desktop/renderer/src/runtime/collaboration/collaboration-transport.ts', import.meta.url));
+  const transportPath = fileURLToPath(
+    new URL(
+      '../apps/desktop/renderer/src/runtime/collaboration/collaboration-transport.ts',
+      import.meta.url,
+    ),
+  );
   const transportSrc = readFileSync(transportPath, 'utf8');
-  check('(4) collaboration transport invokes agent_runtime_collaborate (not _execute)', transportSrc.includes("invoke('agent_runtime_collaborate'") && !transportSrc.includes("invoke('agent_runtime_execute'"));
-  check('(4) collaboration transport never touches agent_runs / mission / chat_threads', !/agent_runs|mission|chat_thread|persistAgentRun|ensureProjectBoundForRun/.test(stripComments(transportSrc)));
+  check(
+    '(4) collaboration transport invokes agent_runtime_collaborate (not _execute)',
+    transportSrc.includes("invoke('agent_runtime_collaborate'") &&
+      !transportSrc.includes("invoke('agent_runtime_execute'"),
+  );
+  check(
+    '(4) collaboration transport never touches agent_runs / mission / chat_threads',
+    !/agent_runs|mission|chat_thread|persistAgentRun|ensureProjectBoundForRun/.test(
+      stripComments(transportSrc),
+    ),
+  );
 }
 
 // recentWindow sanity (context window bound).
@@ -454,7 +667,10 @@ await (async () => {
     createdAt: new Date(Date.UTC(2026, 0, 1, 0, 0, i)).toISOString(),
   }));
   const w = recentWindow(msgs, 12);
-  check('recentWindow bounds the message window', w.length === 12 && w[w.length - 1].messageId === 'm-029');
+  check(
+    'recentWindow bounds the message window',
+    w.length === 12 && w[w.length - 1].messageId === 'm-029',
+  );
 }
 
 console.log(`\npi-collaboration-runtime: ${checks - failures}/${checks} checks passed`);

@@ -21,7 +21,6 @@ import {
   ScopeControl,
   ThinkingControl,
 } from './composer/ComposerControls.js';
-import { OfficeEnhanceButton } from './enhance/OfficeEnhanceButton.js';
 import { ComposerLoopChip } from './composer/ComposerLoopChip.js';
 import { ComposerTriggers } from './composer/ComposerTriggers.js';
 import { LoopPicker } from './composer/LoopPicker.js';
@@ -31,6 +30,7 @@ import {
   loopReferenceToken,
   useComposerLoopReferenceStore,
 } from './composer/composer-loop-reference-store.js';
+import { OfficeEnhanceButton } from './enhance/OfficeEnhanceButton.js';
 import { ChatErrorBanner } from './parts/ChatErrorBanner.js';
 import { MeetingTray } from './parts/Meeting.js';
 import { PermissionApprovalBar } from './parts/PermissionApprovalBar.js';

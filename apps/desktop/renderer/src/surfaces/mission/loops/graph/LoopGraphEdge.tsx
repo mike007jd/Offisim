@@ -5,9 +5,9 @@
  * warning style. Pure VIEW over the projected edge data.
  */
 
-import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, type EdgeProps } from '@xyflow/react';
-import { EDGE_GRAMMAR } from './loop-graph-grammar.js';
+import { BaseEdge, EdgeLabelRenderer, type EdgeProps, getSmoothStepPath } from '@xyflow/react';
 import type { ProjectedEdge } from './loop-graph-adapter.js';
+import { EDGE_GRAMMAR } from './loop-graph-grammar.js';
 
 export interface LoopGraphEdgeData extends Record<string, unknown> {
   projected: ProjectedEdge;
@@ -62,7 +62,9 @@ export function LoopGraphEdge({
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
             }}
           >
-            {BadgeIcon ? <BadgeIcon className="off-loopedge-badge-icon" aria-hidden="true" /> : null}
+            {BadgeIcon ? (
+              <BadgeIcon className="off-loopedge-badge-icon" aria-hidden="true" />
+            ) : null}
             <span>{badgeText}</span>
             {kind === 'retry' && typeof projected?.maxRetries === 'number' ? (
               <span className="off-loopedge-badge-count">×{projected.maxRetries}</span>

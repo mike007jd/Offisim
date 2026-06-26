@@ -291,6 +291,7 @@ export function useMissionBeats(companyId: string | null): readonly MissionBeatP
     missionDramaturgyStore.getVersion,
     missionDramaturgyStore.getVersion,
   );
+  // biome-ignore lint/correctness/useExhaustiveDependencies: version is an external-store version/invalidation counter from useSyncExternalStore; the callback doesn't reference it directly but it must trigger recompute (removing would cause stale UI).
   return useMemo(
     () => (companyId ? missionDramaturgyStore.beatsForCompany(companyId) : EMPTY_MISSION_BEATS),
     [companyId, version],
@@ -317,6 +318,7 @@ export function useOfficeBeats(companyId: string | null): readonly SceneBeat[] {
     officeDramaturgyStore.getVersion,
     officeDramaturgyStore.getVersion,
   );
+  // biome-ignore lint/correctness/useExhaustiveDependencies: version is an external-store version/invalidation counter from useSyncExternalStore; the callback doesn't reference it directly but it must trigger recompute (removing would cause stale UI).
   return useMemo(
     () => (companyId ? officeDramaturgyStore.beatsForCompany(companyId) : EMPTY_BEATS),
     [companyId, version],

@@ -19,11 +19,6 @@ export const ChatComposerInput = forwardRef<
   React.TextareaHTMLAttributes<HTMLTextAreaElement>
 >(function ChatComposerInput({ className, rows = 1, ...props }, ref) {
   return (
-    <textarea
-      ref={ref}
-      rows={rows}
-      className={cn('off-ws-composer-input', className)}
-      {...props}
-    />
+    <textarea ref={ref} rows={rows} className={cn('off-ws-composer-input', className)} {...props} />
   );
 });

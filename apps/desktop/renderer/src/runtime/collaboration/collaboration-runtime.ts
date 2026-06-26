@@ -9,18 +9,18 @@
 // hidden system prompt and any non-participant private memory are FORBIDDEN from
 // the context packet (see collaboration-context.ts).
 
+import { titleizeSlug } from '@/lib/utils.js';
 import { createCollaborationService } from '@offisim/core/browser';
 import type { EmployeeRow, RuntimeRepositories } from '@offisim/core/browser';
 import type { CollaborationMessage } from '@offisim/shared-types';
-import { titleizeSlug } from '@/lib/utils.js';
 import { getRepos } from '../repos.js';
 import type { CollaborationParticipant } from './collaboration-context.js';
+import { createTauriCollaborationTransport } from './collaboration-transport.js';
 import {
   type CollaborationThreadContext,
   type CollaborationTurnController,
   createCollaborationTurnController,
 } from './collaboration-turn-controller.js';
-import { createTauriCollaborationTransport } from './collaboration-transport.js';
 
 /** A short, identity-only persona summary for the context packet. Reads the same
  *  persona profile as the Office prompt but emits ONLY a one/two-line summary —

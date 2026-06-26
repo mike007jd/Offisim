@@ -9,15 +9,12 @@ import type {
   RunAttemptInput,
   RuntimeRepositories,
 } from '@offisim/core/browser';
-import {
-  createMissionLoopController,
-  createMissionService,
-} from '@offisim/core/browser';
+import { createMissionLoopController, createMissionService } from '@offisim/core/browser';
 import type { RuntimeEvent } from '@offisim/shared-types';
 import type { DesktopAgentRunInput, DesktopAgentRuntime } from '../desktop-agent-runtime.js';
 import {
-  createTauriEvaluationContext,
   type TauriEvaluationContextInput,
+  createTauriEvaluationContext,
 } from './evaluation-context.js';
 import {
   MISSION_EVALUATION_SUBMITTED_EVENT,
@@ -75,12 +72,15 @@ export interface MissionRunController {
 interface MissionContextPacket {
   missionId: string;
   goal: string;
-  criteria: Array<{ criterionId: string; description: string; evaluatorId: string; required: boolean }>;
+  criteria: Array<{
+    criterionId: string;
+    description: string;
+    evaluatorId: string;
+    required: boolean;
+  }>;
 }
 
-export function createMissionRunController(
-  deps: MissionRunControllerDeps,
-): MissionRunController {
+export function createMissionRunController(deps: MissionRunControllerDeps): MissionRunController {
   const newId = deps.newId ?? (() => crypto.randomUUID());
   const now = deps.now ?? (() => new Date().toISOString());
   const makeEvaluationContext = deps.createEvaluationContext ?? createTauriEvaluationContext;
@@ -112,7 +112,7 @@ export function createMissionRunController(
     // attempt's EvaluationContext runs the bash builtin against it.
     const projectId = mission.project_id;
     const workspaceRoot = projectId
-      ? (await deps.repos.projects?.findById(projectId))?.workspace_root ?? null
+      ? ((await deps.repos.projects?.findById(projectId))?.workspace_root ?? null)
       : null;
 
     const missionContext: MissionContextPacket = {
@@ -168,8 +168,14 @@ export function createMissionRunController(
       workspaceRoot: string | null;
     },
   ): Promise<AttemptExecution> {
-    const { mission, missionContextJson, controllerCriteria, criterionById, projectId, workspaceRoot } =
-      ctx;
+    const {
+      mission,
+      missionContextJson,
+      controllerCriteria,
+      criterionById,
+      projectId,
+      workspaceRoot,
+    } = ctx;
     // `runId === attemptId` so the host stamps rootRunId = attemptId; the bridge's
     // submit_for_evaluation events then carry runId === attemptId, which is how we
     // correlate the agent's signals to THIS attempt.
@@ -215,8 +221,7 @@ export function createMissionRunController(
       // that ignored cache tokens would silently overshoot on cache-heavy runs.
       if (result.usage) {
         const u = result.usage;
-        usageTokens =
-          (u.input ?? 0) + (u.output ?? 0) + (u.cacheRead ?? 0) + (u.cacheWrite ?? 0);
+        usageTokens = (u.input ?? 0) + (u.output ?? 0) + (u.cacheRead ?? 0) + (u.cacheWrite ?? 0);
       }
     } catch (err) {
       // A thrown agent run is INFRA (transport / runtime) — the controller maps
@@ -316,12 +321,7 @@ function buildAttemptPrompt(
     lines.push('# Mission', '');
   }
 
-  lines.push(
-    '## Goal',
-    goal,
-    '',
-    '## Acceptance criteria (you must satisfy every required one)',
-  );
+  lines.push('## Goal', goal, '', '## Acceptance criteria (you must satisfy every required one)');
   for (const c of criteria) {
     lines.push(
       `- [${c.id}]${c.required ? ' (required)' : ' (optional)'} ${c.description} — checked by \`${c.evaluatorId}\``,

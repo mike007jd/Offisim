@@ -22,13 +22,13 @@
  */
 
 import type {
+  LoopChildGraph,
+  LoopEdge,
+  LoopEdgeKind,
+  LoopHumanGate,
   LoopIR,
   LoopNode,
   LoopNodeKind,
-  LoopEdge,
-  LoopEdgeKind,
-  LoopChildGraph,
-  LoopHumanGate,
   LoopSkillBindingRef,
   LoopValidationFinding,
 } from '@offisim/shared-types';
@@ -212,7 +212,11 @@ function buildInspector(
   };
 }
 
-function a11yFor(node: LoopNode, childCount: number | undefined, referenced: string | undefined): string {
+function a11yFor(
+  node: LoopNode,
+  childCount: number | undefined,
+  referenced: string | undefined,
+): string {
   const word = nodeKindWord(node.kind);
   if (node.kind === 'subloop') {
     if (referenced) {
@@ -456,7 +460,8 @@ export function selectVisibleSubset(
   );
   const visibleIds = new Set(nodes.map((n) => n.id));
   const edges = projection.edges.filter(
-    (e) => e.parentGraphId === currentGraphId && visibleIds.has(e.source) && visibleIds.has(e.target),
+    (e) =>
+      e.parentGraphId === currentGraphId && visibleIds.has(e.source) && visibleIds.has(e.target),
   );
   return { nodes, edges };
 }

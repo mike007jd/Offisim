@@ -73,5 +73,8 @@ const DISPLAY_LOOP_TOKEN_RE = /\[\[loop:[A-Za-z0-9._-]+\]\]/g;
 /** Remove loop tokens from text for display (collapsing the surrounding space). */
 function stripDisplayLoopTokens(text: string): string {
   if (!text.includes('[[loop:')) return text;
-  return text.replace(DISPLAY_LOOP_TOKEN_RE, '').replace(/\s{2,}/g, ' ').trim();
+  return text
+    .replace(DISPLAY_LOOP_TOKEN_RE, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }

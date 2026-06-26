@@ -59,7 +59,12 @@ function finished(
     threadId: THREAD,
     rootRunId: ROOT,
     ...s,
-    type: status === 'completed' ? 'run.completed' : status === 'failed' ? 'run.failed' : 'run.cancelled',
+    type:
+      status === 'completed'
+        ? 'run.completed'
+        : status === 'failed'
+          ? 'run.failed'
+          : 'run.cancelled',
     payload: { status, ...(summary ? { summary } : {}) },
   };
 }
@@ -69,7 +74,12 @@ function tool(s: Scope, toolName: string, activityKind?: ActivityKind): AgentRun
     rootRunId: ROOT,
     ...s,
     type: 'tool.started',
-    payload: { toolCallId: `${s.runId}:${toolName}`, toolName, status: 'started', ...(activityKind ? { activityKind } : {}) },
+    payload: {
+      toolCallId: `${s.runId}:${toolName}`,
+      toolName,
+      status: 'started',
+      ...(activityKind ? { activityKind } : {}),
+    },
   };
 }
 function artifact(s: Scope, title: string): AgentRunEvent {
@@ -109,7 +119,11 @@ const CLASSIFY: Array<[string, ActivityKind]> = [
   ['calls_metric', 'inspect'], // not 'search' via "ls"
 ];
 for (const [name, kind] of CLASSIFY) {
-  check(`classify ${name} → ${kind}`, classifyToolActivity(name) === kind, classifyToolActivity(name));
+  check(
+    `classify ${name} → ${kind}`,
+    classifyToolActivity(name) === kind,
+    classifyToolActivity(name),
+  );
 }
 
 // ── Scenario: team plan + 3 parallel children, in flight ────────────────────
@@ -117,9 +131,36 @@ console.log('\n[parallel] team root + 3 parallel children running');
 {
   const stream: AgentRunEvent[] = [
     started({ runId: ROOT, workKind: 'plan' }, 'Ship the feature'),
-    started({ runId: 'c1', parentRunId: ROOT, employeeId: 'alex', relation: 'delegate', workKind: 'implement' }, 'Backend'),
-    started({ runId: 'c2', parentRunId: ROOT, employeeId: 'maya', relation: 'delegate', workKind: 'design' }, 'Frontend'),
-    started({ runId: 'c3', parentRunId: ROOT, employeeId: 'kai', relation: 'delegate', workKind: 'implement' }, 'Glue'),
+    started(
+      {
+        runId: 'c1',
+        parentRunId: ROOT,
+        employeeId: 'alex',
+        relation: 'delegate',
+        workKind: 'implement',
+      },
+      'Backend',
+    ),
+    started(
+      {
+        runId: 'c2',
+        parentRunId: ROOT,
+        employeeId: 'maya',
+        relation: 'delegate',
+        workKind: 'design',
+      },
+      'Frontend',
+    ),
+    started(
+      {
+        runId: 'c3',
+        parentRunId: ROOT,
+        employeeId: 'kai',
+        relation: 'delegate',
+        workKind: 'implement',
+      },
+      'Glue',
+    ),
     tool({ runId: 'c1', employeeId: 'alex' }, 'bash'),
     tool({ runId: 'c2', employeeId: 'maya' }, 'read_file'),
     artifact({ runId: 'c1', employeeId: 'alex' }, 'api.ts'),
@@ -130,11 +171,26 @@ console.log('\n[parallel] team root + 3 parallel children running');
   check('root carries workKind=plan', p.runsById[ROOT]?.workKind === 'plan');
   check('director root is NOT an actor', !p.employeeStates.some((e) => e.runId === ROOT));
   check('3 employees working', p.employeeStates.filter((e) => e.state === 'working').length === 3);
-  check('alex is an actor', p.employeeStates.some((e) => e.employeeId === 'alex' && e.state === 'working'));
-  check('activity timeline has 2 tool entries in order', p.activity.length === 2 && p.activity[0]?.index === 0);
-  check('bash classified as shell', p.activity.find((a) => a.toolName === 'bash')?.activityKind === 'shell');
-  check('read_file classified as read', p.activity.find((a) => a.toolName === 'read_file')?.activityKind === 'read');
-  check('1 artifact attributed to alex', p.artifacts.length === 1 && p.artifacts[0]?.employeeId === 'alex');
+  check(
+    'alex is an actor',
+    p.employeeStates.some((e) => e.employeeId === 'alex' && e.state === 'working'),
+  );
+  check(
+    'activity timeline has 2 tool entries in order',
+    p.activity.length === 2 && p.activity[0]?.index === 0,
+  );
+  check(
+    'bash classified as shell',
+    p.activity.find((a) => a.toolName === 'bash')?.activityKind === 'shell',
+  );
+  check(
+    'read_file classified as read',
+    p.activity.find((a) => a.toolName === 'read_file')?.activityKind === 'read',
+  );
+  check(
+    '1 artifact attributed to alex',
+    p.artifacts.length === 1 && p.artifacts[0]?.employeeId === 'alex',
+  );
   check('no terminal status while running', p.terminalStatus === null);
 }
 
@@ -143,16 +199,34 @@ console.log('\n[review] nested delegation depth 2');
 {
   const stream: AgentRunEvent[] = [
     started({ runId: ROOT }, 'Build + review'),
-    started({ runId: 'w', parentRunId: ROOT, employeeId: 'kai', relation: 'delegate', workKind: 'implement' }, 'Write code'),
-    started({ runId: 'r', parentRunId: 'w', employeeId: 'raj', relation: 'review', workKind: 'review' }, 'Review code'),
+    started(
+      {
+        runId: 'w',
+        parentRunId: ROOT,
+        employeeId: 'kai',
+        relation: 'delegate',
+        workKind: 'implement',
+      },
+      'Write code',
+    ),
+    started(
+      { runId: 'r', parentRunId: 'w', employeeId: 'raj', relation: 'review', workKind: 'review' },
+      'Review code',
+    ),
     finished({ runId: 'r', employeeId: 'raj' }, 'completed', 'LGTM with nits'),
   ];
   const p = projectAgentRun(stream);
   check('w grafts under root', p.runsById[ROOT]?.childRunIds.includes('w') === true);
   check('r grafts under w (depth 2)', p.runsById.w?.childRunIds.includes('r') === true);
   check('reviewer relation=review', p.runsById.r?.relation === 'review');
-  check('completed reviewer is idle (not an actor)', !p.employeeStates.some((e) => e.runId === 'r'));
-  check('worker still working', p.employeeStates.some((e) => e.employeeId === 'kai' && e.state === 'working'));
+  check(
+    'completed reviewer is idle (not an actor)',
+    !p.employeeStates.some((e) => e.runId === 'r'),
+  );
+  check(
+    'worker still working',
+    p.employeeStates.some((e) => e.employeeId === 'kai' && e.state === 'working'),
+  );
   check('reviewer summary captured', p.runsById.r?.summary === 'LGTM with nits');
 }
 
@@ -165,8 +239,14 @@ console.log('\n[approval] employee waiting on approval');
     approval({ runId: ROOT, employeeId: 'alex' }, 'Approve rm -rf?'),
   ];
   const p = projectAgentRun(stream);
-  check('approval recorded', p.approvals.length === 1 && p.approvals[0]?.title === 'Approve rm -rf?');
-  check('employee is waiting (not working)', p.employeeStates.some((e) => e.employeeId === 'alex' && e.state === 'waiting'));
+  check(
+    'approval recorded',
+    p.approvals.length === 1 && p.approvals[0]?.title === 'Approve rm -rf?',
+  );
+  check(
+    'employee is waiting (not working)',
+    p.employeeStates.some((e) => e.employeeId === 'alex' && e.state === 'waiting'),
+  );
 }
 
 // ── Scenario: child failure + retry ─────────────────────────────────────────
@@ -174,14 +254,23 @@ console.log('\n[failure] child fails, retry child runs');
 {
   const stream: AgentRunEvent[] = [
     started({ runId: ROOT }, 'Task'),
-    started({ runId: 'a', parentRunId: ROOT, employeeId: 'kai', relation: 'delegate' }, 'Attempt 1'),
+    started(
+      { runId: 'a', parentRunId: ROOT, employeeId: 'kai', relation: 'delegate' },
+      'Attempt 1',
+    ),
     finished({ runId: 'a', employeeId: 'kai' }, 'failed', 'boom'),
-    started({ runId: 'b', parentRunId: ROOT, employeeId: 'kai', relation: 'delegate' }, 'Attempt 2'),
+    started(
+      { runId: 'b', parentRunId: ROOT, employeeId: 'kai', relation: 'delegate' },
+      'Attempt 2',
+    ),
   ];
   const p = projectAgentRun(stream);
   check('failed attempt status=failed', p.runsById.a?.status === 'failed');
   check('failed attempt not an actor', !p.employeeStates.some((e) => e.runId === 'a'));
-  check('retry attempt working', p.employeeStates.some((e) => e.runId === 'b' && e.state === 'working'));
+  check(
+    'retry attempt working',
+    p.employeeStates.some((e) => e.runId === 'b' && e.state === 'working'),
+  );
   check('root has both attempts as children', (p.runsById[ROOT]?.childRunIds.length ?? 0) === 2);
 }
 
@@ -221,14 +310,26 @@ console.log('\n[out-of-order] grafting without in-order events');
   // arrives before the parent ROOT's run.started. The tree must still rebuild.
   const stream: AgentRunEvent[] = [
     tool({ runId: 'c1', parentRunId: ROOT, employeeId: 'alex', relation: 'delegate' }, 'bash'),
-    started({ runId: 'c1', parentRunId: ROOT, employeeId: 'alex', relation: 'delegate' }, 'Backend'),
+    started(
+      { runId: 'c1', parentRunId: ROOT, employeeId: 'alex', relation: 'delegate' },
+      'Backend',
+    ),
     started({ runId: ROOT }, 'Root'),
   ];
   const p = projectAgentRun(stream);
-  check('child grafts under root despite out-of-order', p.runsById[ROOT]?.childRunIds.includes('c1') === true);
-  check('child scope seeded from first (tool) event', p.runsById.c1?.employeeId === 'alex' && p.runsById.c1?.relation === 'delegate');
+  check(
+    'child grafts under root despite out-of-order',
+    p.runsById[ROOT]?.childRunIds.includes('c1') === true,
+  );
+  check(
+    'child scope seeded from first (tool) event',
+    p.runsById.c1?.employeeId === 'alex' && p.runsById.c1?.relation === 'delegate',
+  );
   check('later run.started fills objective', p.runsById.c1?.objective === 'Backend');
-  check('pre-start tool still recorded', p.activity.some((a) => a.runId === 'c1' && a.toolName === 'bash'));
+  check(
+    'pre-start tool still recorded',
+    p.activity.some((a) => a.runId === 'c1' && a.toolName === 'bash'),
+  );
   check('root is the forest root', p.rootRunIds.length === 1 && p.rootRunIds[0] === ROOT);
 }
 
@@ -245,7 +346,10 @@ console.log('\n[no-root] director root absent from the event stream');
   const p = projectAgentRun(stream);
   check('rootRunId known from child scope', p.rootRunId === ROOT);
   check('no fabricated root node', p.runsById[ROOT] === undefined);
-  check('children are forest roots (parent absent)', p.rootRunIds.length === 2 && p.rootRunIds.includes('c1'));
+  check(
+    'children are forest roots (parent absent)',
+    p.rootRunIds.length === 2 && p.rootRunIds.includes('c1'),
+  );
   check('both children are actors', p.employeeStates.length === 2);
   check('terminalStatus null when root run absent', p.terminalStatus === null);
 }

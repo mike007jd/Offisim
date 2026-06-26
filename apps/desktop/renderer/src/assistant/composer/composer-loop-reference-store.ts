@@ -152,5 +152,8 @@ const LOOP_TOKEN_RE = /\[\[loop:[A-Za-z0-9._-]+\]\]/g;
  *  source of the loop reference — the token is appended exactly once at send time,
  *  never carried as user-typed text (even if a seed/paste introduced one). */
 export function stripLoopTokens(text: string): string {
-  return text.replace(LOOP_TOKEN_RE, '').replace(/\s{2,}/g, ' ').trim();
+  return text
+    .replace(LOOP_TOKEN_RE, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }

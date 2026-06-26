@@ -651,9 +651,12 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     const path = payload.path?.trim();
     const deliverableId = payload.deliverableId?.trim();
     if (!path || !deliverableId) {
-      console.warn('[desktop-agent-runtime] artifact.created missing path/deliverableId — skipped', {
-        runId: evt.runId,
-      });
+      console.warn(
+        '[desktop-agent-runtime] artifact.created missing path/deliverableId — skipped',
+        {
+          runId: evt.runId,
+        },
+      );
       return;
     }
     // Read the file through the sandboxed workspace command. A workspace-jail
@@ -681,7 +684,9 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     }
     const repo = this.repos.deliverables;
     if (!repo) {
-      console.warn('[desktop-agent-runtime] deliverables repo unavailable — artifact not persisted');
+      console.warn(
+        '[desktop-agent-runtime] deliverables repo unavailable — artifact not persisted',
+      );
       return;
     }
     const basename = path.split(/[\\/]/).pop() || path;

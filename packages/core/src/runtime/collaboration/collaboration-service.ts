@@ -21,6 +21,10 @@ import type {
   CollaborationThread,
   CreateGroupThreadInput,
 } from '@offisim/shared-types';
+import {
+  buildCollaborationMessageMetadata,
+  readSenderLabel,
+} from '../repos/collaboration/idempotency.js';
 import type { RuntimeRepositories } from '../repositories.js';
 import type {
   CollaborationMemberRepository,
@@ -31,10 +35,6 @@ import type {
   CollaborationThreadRepository,
   CollaborationThreadRow,
 } from '../repositories.js';
-import {
-  buildCollaborationMessageMetadata,
-  readSenderLabel,
-} from '../repos/collaboration/idempotency.js';
 
 const DEFAULT_REPLY_POLICY: CollaborationReplyPolicy = 'mentions_only';
 const DEFAULT_ROUND_SPEAKER_LIMIT = 3;
@@ -165,7 +165,10 @@ export class CollaborationService {
     if (existingActive) return threadRowToDomain(existingActive);
 
     // Restore an archived direct thread instead of creating a duplicate.
-    const archived = await this.repos.collaborationThreads.findArchivedDirect(companyId, employeeId);
+    const archived = await this.repos.collaborationThreads.findArchivedDirect(
+      companyId,
+      employeeId,
+    );
     if (archived) {
       const now = this.deps.now();
       await this.repos.collaborationThreads.update(archived.thread_id, {
@@ -527,9 +530,7 @@ export class CollaborationService {
    * The in-memory backend has no transactional boundary (writes apply on call),
    * so it runs `fn` directly with the same repos.
    */
-  private async runAtomic<T>(
-    fn: (repos: CollaborationServiceRepos) => Promise<T>,
-  ): Promise<T> {
+  private async runAtomic<T>(fn: (repos: CollaborationServiceRepos) => Promise<T>): Promise<T> {
     if (this.repos.asyncTransact) {
       return this.repos.asyncTransact((txRepos) => {
         const repos = (txRepos ?? this.repos) as unknown as CollaborationServiceRepos;

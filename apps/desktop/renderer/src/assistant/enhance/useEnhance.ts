@@ -9,11 +9,7 @@
 
 import { useCallback, useRef, useState } from 'react';
 import type { PromptEnhanceRequest, PromptEnhanceResult } from './contract.js';
-import {
-  EnhanceCancelledError,
-  type EnhanceTransport,
-  runEnhance,
-} from './service.js';
+import { EnhanceCancelledError, type EnhanceTransport, runEnhance } from './service.js';
 
 type EnhancePhase = 'idle' | 'loading' | 'ready' | 'error';
 

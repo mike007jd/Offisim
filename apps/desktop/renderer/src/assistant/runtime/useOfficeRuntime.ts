@@ -110,11 +110,7 @@ export function useOfficeRuntime({
       // text so the transcript renders the chip and the Enhance protected-span
       // pipeline (PR-06) already guards it. The title still derives from typed text.
       const token = loopReference ? loopReferenceToken(loopReference) : '';
-      const text = loopReference
-        ? typedText
-          ? `${typedText} ${token}`
-          : token
-        : typedText;
+      const text = loopReference ? (typedText ? `${typedText} ${token}` : token) : typedText;
       const titleSeed = typedText || (loopReference ? loopReference.titleSnapshot : text);
 
       const stagedForTurn = staged.filter((attachment) => attachment.status === 'attached');

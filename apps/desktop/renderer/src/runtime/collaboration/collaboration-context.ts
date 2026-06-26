@@ -11,10 +11,7 @@
 // workspace path, the Office hidden system prompt, mission criteria, and any
 // non-participating member's private memory.
 
-import type {
-  CollaborationMessage,
-  CollaborationReplyPolicy,
-} from '@offisim/shared-types';
+import type { CollaborationMessage, CollaborationReplyPolicy } from '@offisim/shared-types';
 
 /** A thread participant the controller may schedule + describe in the packet. */
 export interface CollaborationParticipant {
@@ -113,10 +110,7 @@ export function scheduleSpeakers(
  */
 export function clampRoundtableSpeakers(requested: number | undefined): number {
   if (requested == null || Number.isNaN(requested)) return ROUNDTABLE_DEFAULT_MAX_SPEAKERS;
-  return Math.min(
-    ROUNDTABLE_HARD_CAP_SPEAKERS,
-    Math.max(1, Math.trunc(requested)),
-  );
+  return Math.min(ROUNDTABLE_HARD_CAP_SPEAKERS, Math.max(1, Math.trunc(requested)));
 }
 
 /** A completed prior reply this round, fed to a later speaker as context. */
@@ -167,7 +161,9 @@ export function buildContextPacket(input: BuildContextPacketInput): string {
     lines.push(input.speaker.personaSummary.trim());
   }
   lines.push('');
-  lines.push(`This is the chat thread "${input.threadTitle}" (reply policy: ${input.replyPolicy}).`);
+  lines.push(
+    `This is the chat thread "${input.threadTitle}" (reply policy: ${input.replyPolicy}).`,
+  );
   lines.push(
     'This is everyday company chat — NOT project work. You have no tools, no files, and no workspace here. Do not run commands, do not claim to have edited or created any file, and do not invent task results. Just talk like a teammate in a group chat: concise and in character.',
   );

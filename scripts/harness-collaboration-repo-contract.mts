@@ -18,20 +18,20 @@
 
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
-import {
-  CollaborationError,
-  createCollaborationService,
-  readSenderLabel,
-  type CollaborationServiceDeps,
-  type CollaborationServiceRepos,
-} from '../packages/core/src/runtime/collaboration/collaboration-service.js';
-import type { NewCollaborationThread } from '../packages/core/src/runtime/repositories.js';
-import { createCollaborationDrizzleRepos } from '../packages/core/src/runtime/repos/collaboration/drizzle.js';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { drizzle as drizzleBetter } from 'drizzle-orm/better-sqlite3';
 import { drizzle as drizzleProxy } from 'drizzle-orm/sqlite-proxy';
 import type { TauriDrizzleDb } from '../apps/desktop/renderer/src/lib/tauri-drizzle.js';
 import { createCollaborationTauriRepos } from '../apps/desktop/renderer/src/lib/tauri-repos/collaboration.js';
+import {
+  CollaborationError,
+  type CollaborationServiceDeps,
+  type CollaborationServiceRepos,
+  createCollaborationService,
+  readSenderLabel,
+} from '../packages/core/src/runtime/collaboration/collaboration-service.js';
+import { createCollaborationDrizzleRepos } from '../packages/core/src/runtime/repos/collaboration/drizzle.js';
+import type { NewCollaborationThread } from '../packages/core/src/runtime/repositories.js';
 
 let passed = 0;
 let failed = 0;
@@ -152,8 +152,14 @@ function makeDeps(): CollaborationServiceDeps {
   let idSeq = 0;
   let clockSeq = 0;
   return {
-    newId: () => `id-${(idSeq += 1).toString().padStart(4, '0')}`,
-    now: () => new Date(Date.UTC(2026, 0, 1, 0, 0, 0, (clockSeq += 1))).toISOString(),
+    newId: () => {
+      idSeq += 1;
+      return `id-${idSeq.toString().padStart(4, '0')}`;
+    },
+    now: () => {
+      clockSeq += 1;
+      return new Date(Date.UTC(2026, 0, 1, 0, 0, 0, clockSeq)).toISOString();
+    },
   };
 }
 
@@ -166,7 +172,10 @@ function makeProxyDb(sqlite: Database.Database): TauriDrizzleDb {
       sqlite.prepare(sql).run(...bind);
       return { rows: [] };
     }
-    const rows = sqlite.prepare(sql).raw().all(...bind) as unknown[][];
+    const rows = sqlite
+      .prepare(sql)
+      .raw()
+      .all(...bind) as unknown[][];
     if (method === 'get') return { rows: rows[0] ?? [] };
     return { rows };
   });
@@ -221,24 +230,27 @@ async function runContract(make: () => Backend): Promise<void> {
   });
 
   // Case 2: two concurrent getOrCreateDirect → one active thread.
-  await check(`[${label}] case 2: concurrent getOrCreateDirect yields one active thread`, async () => {
-    const { db, repos } = make();
-    const svc = createCollaborationService(repos, makeDeps());
-    const [a, b] = await Promise.all([
-      svc.getOrCreateDirect('co-1', 'emp-1'),
-      svc.getOrCreateDirect('co-1', 'emp-1'),
-    ]);
-    assert.equal(a.threadId, b.threadId, 'both calls converge on the same thread id');
-    const activeDirects = db
-      .prepare(
-        "SELECT count(*) AS n FROM collaboration_threads WHERE kind='direct' AND direct_employee_id='emp-1' AND archived_at IS NULL",
-      )
-      .get() as { n: number };
-    assert.equal(activeDirects.n, 1, 'exactly one ACTIVE direct thread');
-    // Idempotent on a settled state too.
-    const again = await svc.getOrCreateDirect('co-1', 'emp-1');
-    assert.equal(again.threadId, a.threadId, 'repeat returns the same thread');
-  });
+  await check(
+    `[${label}] case 2: concurrent getOrCreateDirect yields one active thread`,
+    async () => {
+      const { db, repos } = make();
+      const svc = createCollaborationService(repos, makeDeps());
+      const [a, b] = await Promise.all([
+        svc.getOrCreateDirect('co-1', 'emp-1'),
+        svc.getOrCreateDirect('co-1', 'emp-1'),
+      ]);
+      assert.equal(a.threadId, b.threadId, 'both calls converge on the same thread id');
+      const activeDirects = db
+        .prepare(
+          "SELECT count(*) AS n FROM collaboration_threads WHERE kind='direct' AND direct_employee_id='emp-1' AND archived_at IS NULL",
+        )
+        .get() as { n: number };
+      assert.equal(activeDirects.n, 1, 'exactly one ACTIVE direct thread');
+      // Idempotent on a settled state too.
+      const again = await svc.getOrCreateDirect('co-1', 'emp-1');
+      assert.equal(again.threadId, a.threadId, 'repeat returns the same thread');
+    },
+  );
 
   // Case 2b: archived direct is restored, not duplicated.
   await check(`[${label}] case 2b: getOrCreateDirect restores an archived thread`, async () => {
@@ -258,63 +270,79 @@ async function runContract(make: () => Backend): Promise<void> {
   // SQLite driver, so we exercise the DB-level guard directly: a racing insert
   // of a duplicate active direct must THROW (the service catches this and rereads
   // the winner), and archiving the first must free the slot for a new one.
-  await check(`[${label}] case 2c: partial-unique index prevents a second active direct`, async () => {
-    const { db, repos } = make();
-    const svc = createCollaborationService(repos, makeDeps());
-    const first = await svc.getOrCreateDirect('co-1', 'emp-1');
-    const dup: NewCollaborationThread = {
-      thread_id: 'racing-dup',
-      company_id: 'co-1',
-      kind: 'direct',
-      title: 'Alex',
-      direct_employee_id: 'emp-1',
-      reply_policy: 'mentions_only',
-      round_speaker_limit: 3,
-      created_by: 'boss',
-      archived_at: null,
-      created_at: 't9',
-      updated_at: 't9',
-    };
-    const activeDirectCount = () =>
-      (db
-        .prepare(
-          "SELECT count(*) AS n FROM collaboration_threads WHERE kind='direct' AND direct_employee_id='emp-1' AND archived_at IS NULL",
-        )
-        .get() as { n: number }).n;
-    // A racing duplicate active-direct insert must NOT yield a second active row.
-    // Backends differ in HOW the partial-unique index stops it (better-sqlite3
-    // throws; the proxy/Tauri path no-ops via ON CONFLICT) — the service's
-    // getOrCreateDirect handles both (catch+reread, and post-insert resolve) — so
-    // the harness asserts the invariant that holds for both: still exactly one.
-    await repos.collaborationThreads.insert(dup).catch(() => undefined);
-    assert.equal(activeDirectCount(), 1, 'no second active direct row exists');
-    const converged = await svc.getOrCreateDirect('co-1', 'emp-1');
-    assert.equal(converged.threadId, first.threadId, 'service converges to the original winner');
-    // Archiving the winner frees the partial index (WHERE archived_at IS NULL),
-    // so a brand-new active direct can then be created.
-    await svc.archive(first.threadId);
-    await repos.collaborationThreads.insert(dup);
-    assert.equal(activeDirectCount(), 1, 'after archive the slot is reusable for one new active direct');
-    const active = await repos.collaborationThreads.findActiveDirect('co-1', 'emp-1');
-    assert.equal(active?.thread_id, 'racing-dup', 'the new active direct is the freshly inserted row');
-  });
+  await check(
+    `[${label}] case 2c: partial-unique index prevents a second active direct`,
+    async () => {
+      const { db, repos } = make();
+      const svc = createCollaborationService(repos, makeDeps());
+      const first = await svc.getOrCreateDirect('co-1', 'emp-1');
+      const dup: NewCollaborationThread = {
+        thread_id: 'racing-dup',
+        company_id: 'co-1',
+        kind: 'direct',
+        title: 'Alex',
+        direct_employee_id: 'emp-1',
+        reply_policy: 'mentions_only',
+        round_speaker_limit: 3,
+        created_by: 'boss',
+        archived_at: null,
+        created_at: 't9',
+        updated_at: 't9',
+      };
+      const activeDirectCount = () =>
+        (
+          db
+            .prepare(
+              "SELECT count(*) AS n FROM collaboration_threads WHERE kind='direct' AND direct_employee_id='emp-1' AND archived_at IS NULL",
+            )
+            .get() as { n: number }
+        ).n;
+      // A racing duplicate active-direct insert must NOT yield a second active row.
+      // Backends differ in HOW the partial-unique index stops it (better-sqlite3
+      // throws; the proxy/Tauri path no-ops via ON CONFLICT) — the service's
+      // getOrCreateDirect handles both (catch+reread, and post-insert resolve) — so
+      // the harness asserts the invariant that holds for both: still exactly one.
+      await repos.collaborationThreads.insert(dup).catch(() => undefined);
+      assert.equal(activeDirectCount(), 1, 'no second active direct row exists');
+      const converged = await svc.getOrCreateDirect('co-1', 'emp-1');
+      assert.equal(converged.threadId, first.threadId, 'service converges to the original winner');
+      // Archiving the winner frees the partial index (WHERE archived_at IS NULL),
+      // so a brand-new active direct can then be created.
+      await svc.archive(first.threadId);
+      await repos.collaborationThreads.insert(dup);
+      assert.equal(
+        activeDirectCount(),
+        1,
+        'after archive the slot is reusable for one new active direct',
+      );
+      const active = await repos.collaborationThreads.findActiveDirect('co-1', 'emp-1');
+      assert.equal(
+        active?.thread_id,
+        'racing-dup',
+        'the new active direct is the freshly inserted row',
+      );
+    },
+  );
 
   // Case 2d: a GROUP thread must not carry a direct_employee_id (data hygiene
   // CHECK). A direct thread with a NULL employee is legal (deleted employee), so
   // that case is intentionally NOT rejected — see case 6.
-  await check(`[${label}] case 2d: CHECK rejects a group thread carrying a direct_employee_id`, () => {
-    const { db } = make();
-    assert.throws(
-      () =>
-        db
-          .prepare(
-            "INSERT INTO collaboration_threads (thread_id, company_id, kind, title, direct_employee_id, created_at, updated_at) VALUES ('g-bad','co-1','group','G','emp-1','t','t')",
-          )
-          .run(),
-      /CHECK/i,
-      'group with a direct_employee_id must be rejected',
-    );
-  });
+  await check(
+    `[${label}] case 2d: CHECK rejects a group thread carrying a direct_employee_id`,
+    () => {
+      const { db } = make();
+      assert.throws(
+        () =>
+          db
+            .prepare(
+              "INSERT INTO collaboration_threads (thread_id, company_id, kind, title, direct_employee_id, created_at, updated_at) VALUES ('g-bad','co-1','group','G','emp-1','t','t')",
+            )
+            .run(),
+        /CHECK/i,
+        'group with a direct_employee_id must be rejected',
+      );
+    },
+  );
 
   // Case 3: list order uses real last message/update.
   await check(`[${label}] case 3: listThreads orders by real last activity`, async () => {
@@ -332,39 +360,43 @@ async function runContract(make: () => Backend): Promise<void> {
   });
 
   // Case 4: group membership add/remove transaction + constraints.
-  await check(`[${label}] case 4: group membership update is transactional + constrained`, async () => {
-    const { repos } = make();
-    const svc = createCollaborationService(repos, makeDeps());
-    const group = await svc.createGroup({
-      companyId: 'co-1',
-      title: 'Team',
-      employeeIds: ['emp-1'],
-    });
-    const members = await svc.listMembers(group.threadId);
-    const emp1Member = members.find((m) => m.employeeId === 'emp-1');
-    assert.ok(emp1Member, 'emp-1 is a member');
-    // Add emp-2, remove emp-1 in one transaction.
-    const after = await svc.updateMembers({
-      threadId: group.threadId,
-      addEmployeeIds: ['emp-2'],
-      removeMemberIds: [emp1Member!.memberId],
-    });
-    const employeeIds = after.filter((m) => m.actorType === 'employee').map((m) => m.employeeId);
-    assert.deepEqual(employeeIds, ['emp-2'], 'emp-1 removed, emp-2 added');
-    // Constraint: cannot remove the last employee member.
-    const emp2Member = after.find((m) => m.employeeId === 'emp-2');
-    await assert.rejects(
-      () => svc.updateMembers({ threadId: group.threadId, removeMemberIds: [emp2Member!.memberId] }),
-      (e: unknown) => e instanceof CollaborationError && e.code === 'members.min_employee',
-      'removing the last employee is rejected',
-    );
-    // Direct threads have fixed membership.
-    const direct = await svc.getOrCreateDirect('co-1', 'emp-3');
-    await assert.rejects(
-      () => svc.updateMembers({ threadId: direct.threadId, addEmployeeIds: ['emp-1'] }),
-      (e: unknown) => e instanceof CollaborationError && e.code === 'members.direct_fixed',
-    );
-  });
+  await check(
+    `[${label}] case 4: group membership update is transactional + constrained`,
+    async () => {
+      const { repos } = make();
+      const svc = createCollaborationService(repos, makeDeps());
+      const group = await svc.createGroup({
+        companyId: 'co-1',
+        title: 'Team',
+        employeeIds: ['emp-1'],
+      });
+      const members = await svc.listMembers(group.threadId);
+      const emp1Member = members.find((m) => m.employeeId === 'emp-1');
+      assert.ok(emp1Member, 'emp-1 is a member');
+      // Add emp-2, remove emp-1 in one transaction.
+      const after = await svc.updateMembers({
+        threadId: group.threadId,
+        addEmployeeIds: ['emp-2'],
+        removeMemberIds: [emp1Member!.memberId],
+      });
+      const employeeIds = after.filter((m) => m.actorType === 'employee').map((m) => m.employeeId);
+      assert.deepEqual(employeeIds, ['emp-2'], 'emp-1 removed, emp-2 added');
+      // Constraint: cannot remove the last employee member.
+      const emp2Member = after.find((m) => m.employeeId === 'emp-2');
+      await assert.rejects(
+        () =>
+          svc.updateMembers({ threadId: group.threadId, removeMemberIds: [emp2Member!.memberId] }),
+        (e: unknown) => e instanceof CollaborationError && e.code === 'members.min_employee',
+        'removing the last employee is rejected',
+      );
+      // Direct threads have fixed membership.
+      const direct = await svc.getOrCreateDirect('co-1', 'emp-3');
+      await assert.rejects(
+        () => svc.updateMembers({ threadId: direct.threadId, addEmployeeIds: ['emp-1'] }),
+        (e: unknown) => e instanceof CollaborationError && e.code === 'members.direct_fixed',
+      );
+    },
+  );
 
   // Case 5: company delete cascade.
   await check(`[${label}] case 5: company delete cascades collaboration rows`, async () => {
@@ -382,7 +414,8 @@ async function runContract(make: () => Backend): Promise<void> {
       'messages cascaded',
     );
     assert.equal(
-      (db.prepare('SELECT count(*) AS n FROM collaboration_thread_members').get() as { n: number }).n,
+      (db.prepare('SELECT count(*) AS n FROM collaboration_thread_members').get() as { n: number })
+        .n,
       0,
       'members cascaded',
     );
@@ -425,7 +458,11 @@ async function runContract(make: () => Backend): Promise<void> {
     await svc.archive(t.threadId);
     await svc.unarchive(t.threadId);
     await svc.markRead(t.threadId);
-    assert.equal(chatThreadCount(db), before, 'chat_threads count unchanged by any collaboration op');
+    assert.equal(
+      chatThreadCount(db),
+      before,
+      'chat_threads count unchanged by any collaboration op',
+    );
     assert.equal(before, 1, 'the pre-existing project chat row is intact');
   });
 
@@ -436,7 +473,11 @@ async function runContract(make: () => Backend): Promise<void> {
     const t = await svc.getOrCreateDirect('co-1', 'emp-1');
     const ids: string[] = [];
     for (let i = 0; i < 5; i += 1) {
-      const m = await svc.appendMessage({ threadId: t.threadId, senderType: 'boss', body: `m${i}` });
+      const m = await svc.appendMessage({
+        threadId: t.threadId,
+        senderType: 'boss',
+        body: `m${i}`,
+      });
       ids.push(m.messageId);
     }
     // Page size 2, walk to the end. Newest-first → reverse of insertion order.
@@ -461,8 +502,18 @@ async function runContract(make: () => Backend): Promise<void> {
     const svc = createCollaborationService(repos, makeDeps());
     const t = await svc.getOrCreateDirect('co-1', 'emp-1');
     const [m1, m2] = await Promise.all([
-      svc.appendMessage({ threadId: t.threadId, senderType: 'boss', body: 'once', idempotencyKey: 'k1' }),
-      svc.appendMessage({ threadId: t.threadId, senderType: 'boss', body: 'once', idempotencyKey: 'k1' }),
+      svc.appendMessage({
+        threadId: t.threadId,
+        senderType: 'boss',
+        body: 'once',
+        idempotencyKey: 'k1',
+      }),
+      svc.appendMessage({
+        threadId: t.threadId,
+        senderType: 'boss',
+        body: 'once',
+        idempotencyKey: 'k1',
+      }),
     ]);
     assert.equal(m1.messageId, m2.messageId, 'double send returns the single stored message');
     const page = await svc.listMessages(t.threadId);

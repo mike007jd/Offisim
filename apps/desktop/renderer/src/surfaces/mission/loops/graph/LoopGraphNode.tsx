@@ -7,10 +7,10 @@
  * stable a11y label.
  */
 
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Handle, type NodeProps, Position } from '@xyflow/react';
 import { ArrowRight } from 'lucide-react';
-import { NODE_GRAMMAR } from './loop-graph-grammar.js';
 import type { ProjectedNode } from './loop-graph-adapter.js';
+import { NODE_GRAMMAR } from './loop-graph-grammar.js';
 
 export interface LoopGraphNodeData extends Record<string, unknown> {
   projected: ProjectedNode;
@@ -22,7 +22,8 @@ export interface LoopGraphNodeData extends Record<string, unknown> {
 }
 
 export function LoopGraphNode({ data }: NodeProps) {
-  const { projected, selected, sourcePosition, targetPosition } = data as unknown as LoopGraphNodeData;
+  const { projected, selected, sourcePosition, targetPosition } =
+    data as unknown as LoopGraphNodeData;
   const grammar = NODE_GRAMMAR[projected.kind];
   const Icon = grammar.icon;
   const isSubloop = projected.kind === 'subloop';

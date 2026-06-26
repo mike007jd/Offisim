@@ -15,36 +15,36 @@
 import {
   Background,
   Controls,
-  MiniMap,
-  Position,
-  ReactFlow,
-  ReactFlowProvider,
   type Edge,
   type EdgeTypes,
+  MiniMap,
   type Node,
   type NodeTypes,
+  Position,
+  ReactFlow,
   type ReactFlowInstance,
+  ReactFlowProvider,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import type { LoopIR, LoopValidationFinding } from '@offisim/shared-types';
 import { ChevronRight, Loader2, TriangleAlert } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { LoopIR, LoopValidationFinding } from '@offisim/shared-types';
+import { LoopGraphEdge } from './LoopGraphEdge.js';
+import { LoopGraphNode } from './LoopGraphNode.js';
+import { LoopNodeInspector } from './LoopNodeInspector.js';
 import {
+  type LoopGraphProjection,
+  type ProjectedNode,
   breadcrumbTrail,
   projectLoopGraph,
   selectVisibleSubset,
-  type LoopGraphProjection,
-  type ProjectedNode,
 } from './loop-graph-adapter.js';
 import {
+  type ElkLike,
+  LayoutCancelledError,
   directionForWidth,
   layoutGraph,
-  LayoutCancelledError,
-  type ElkLike,
 } from './loop-graph-layout.js';
-import { LoopGraphNode } from './LoopGraphNode.js';
-import { LoopGraphEdge } from './LoopGraphEdge.js';
-import { LoopNodeInspector } from './LoopNodeInspector.js';
 import './loop-graph.css';
 
 export type LoopGraphPanelState = 'empty' | 'compiling' | 'ready' | 'invalid' | 'error';
@@ -117,6 +117,7 @@ function LoopGraphPanelInner({
   const [isLaying, setIsLaying] = useState(false);
 
   // Reset drilldown when the IR changes.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: ir is an intentionally tracked invalidation key; the callback resets UI state on IR identity change rather than referencing ir directly.
   useEffect(() => {
     setCurrentGraphId('');
     setCollapsedIds(new Set());
@@ -144,11 +145,13 @@ function LoopGraphPanelInner({
   // ── Layout effect (cancelable, generation-keyed). Re-runs ONLY when the
   //    visible graph subset changes — i.e. IR / level / collapse. Selection is
   //    intentionally NOT a dependency, so selecting a node never relayouts. ──
+  // biome-ignore lint/correctness/useExhaustiveDependencies: selectedNodeId is intentionally excluded — layout must not re-run on node selection (would cause relayout thrash); it is not referenced in this callback.
   useEffect(() => {
     if (visible.nodes.length === 0) {
       setLaidOut({ nodes: [], edges: [] });
       return;
     }
+    // biome-ignore lint/suspicious/noAssignInExpressions: generation counter for cancelable layout
     const gen = (layoutGenRef.current += 1);
     let cancelled = false;
     setIsLaying(true);
@@ -331,6 +334,7 @@ function LoopGraphPanelInner({
 
         {/* Invalid-findings overlay (non-blocking; the graph still renders). */}
         {(state === 'invalid' || errorFindings.length > 0) && errorFindings.length > 0 ? (
+          // biome-ignore lint/a11y/useSemanticElements: intentional ARIA live region (role=status) for invalid-findings announcement
           <div className="off-loopgraph-findings" role="status">
             <TriangleAlert className="off-loopgraph-findings-icon" aria-hidden="true" />
             <span>
@@ -346,7 +350,10 @@ function LoopGraphPanelInner({
           className="off-loopgraph-canvas"
           role="application"
           aria-label={`Loop graph, ${visible.nodes.length} nodes and ${visible.edges.length} edges at this level`}
-          tabIndex={0}
+          tabIndex={
+            // biome-ignore lint/a11y/noNoninteractiveTabindex: interactive graph canvas (react-flow), keyboard-focusable by design
+            0
+          }
           onKeyDown={onKeyDown}
         >
           {isLaying ? (

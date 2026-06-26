@@ -107,9 +107,7 @@ export function createEmployeesTauriRepos(db: TauriDrizzleDb): EmployeesTauriRep
     async update(employeeId, patch) {
       // Seal `a2a_token` if this patch touches it; leave all other fields as-is.
       const sealedPatch =
-        'a2a_token' in patch
-          ? { ...patch, a2a_token: await sealA2aToken(patch.a2a_token) }
-          : patch;
+        'a2a_token' in patch ? { ...patch, a2a_token: await sealA2aToken(patch.a2a_token) } : patch;
       await db
         .update(schema.employees)
         .set({ ...sealedPatch, updated_at: now() })

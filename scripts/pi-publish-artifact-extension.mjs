@@ -14,10 +14,10 @@
 // resourceLoader.extensionFactories. Enabled whenever there is a root run id +
 // thread id (the scope fields the renderer needs to persist and route the row).
 
-import { Type } from 'typebox';
-import { agentRunLine } from './pi-agent-host-wire.mjs';
 import { randomUUID } from 'node:crypto';
 import { resolve as resolvePath } from 'node:path';
+import { Type } from 'typebox';
+import { agentRunLine } from './pi-agent-host-wire.mjs';
 
 const PublishArtifactParams = Type.Object({
   path: Type.String({
@@ -33,7 +33,13 @@ const PublishArtifactParams = Type.Object({
  * host's raw wire emitter and this run's scope fields.
  * @param {{ emit: (line: object) => void, threadId: string, rootRunId: string, employeeId?: string, cwd?: string }} ctx
  */
-export function createPublishArtifactExtensionFactory({ emit, threadId, rootRunId, employeeId, cwd }) {
+export function createPublishArtifactExtensionFactory({
+  emit,
+  threadId,
+  rootRunId,
+  employeeId,
+  cwd,
+}) {
   return (pi) => {
     pi.registerTool({
       name: 'publish_artifact',
@@ -56,7 +62,8 @@ export function createPublishArtifactExtensionFactory({ emit, threadId, rootRunI
             isError: true,
           };
         }
-        const kind = typeof params.kind === 'string' && params.kind.trim() ? params.kind.trim() : 'document';
+        const kind =
+          typeof params.kind === 'string' && params.kind.trim() ? params.kind.trim() : 'document';
         const mimeType =
           typeof params.mimeType === 'string' && params.mimeType.trim()
             ? params.mimeType.trim()

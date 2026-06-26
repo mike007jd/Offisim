@@ -64,9 +64,7 @@ export function createLoopDrizzleRepos(db: Db): LoopDrizzleRepos {
         .run();
     },
     async delete(loopId) {
-      db.delete(schema.loopDefinitions)
-        .where(eq(schema.loopDefinitions.loop_id, loopId))
-        .run();
+      db.delete(schema.loopDefinitions).where(eq(schema.loopDefinitions.loop_id, loopId)).run();
     },
   };
 

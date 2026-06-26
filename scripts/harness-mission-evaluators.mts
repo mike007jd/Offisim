@@ -19,9 +19,9 @@
 
 import assert from 'node:assert/strict';
 import {
+  UnknownEvaluatorError,
   createDefaultEvaluatorRegistry,
   createEvaluatorRegistry,
-  UnknownEvaluatorError,
 } from '../packages/core/src/runtime/mission/evaluators/registry.ts';
 import type {
   EvaluationContext,
@@ -55,7 +55,10 @@ interface Fixture {
   configJson: string;
   files?: Record<string, string>;
   hashes?: Record<string, string>;
-  commands?: Record<string, { exitCode: number; stdout?: string; stderr?: string; classifierBlocked?: boolean }>;
+  commands?: Record<
+    string,
+    { exitCode: number; stdout?: string; stderr?: string; classifierBlocked?: boolean }
+  >;
   // Explicit `null` = git capability failure (unknowable diff); `[]` = clean
   // tree; omitted = default empty (clean). A `?? []` would swallow `null`, so the
   // mapping below distinguishes `undefined` (default) from a deliberate `null`.
@@ -75,13 +78,17 @@ function makeContext(fixture: Fixture): EvaluationContext {
     runCommand: async (command) => {
       const r = fixture.commands?.[command];
       if (!r) return { exitCode: 127, stdout: '', stderr: 'not found' };
-      return { exitCode: r.exitCode, stdout: r.stdout ?? '', stderr: r.stderr ?? '', classifierBlocked: r.classifierBlocked };
+      return {
+        exitCode: r.exitCode,
+        stdout: r.stdout ?? '',
+        stderr: r.stderr ?? '',
+        classifierBlocked: r.classifierBlocked,
+      };
     },
     // Distinguish a deliberate `null` (capability failure) from omitted
     // (`undefined` → default clean `[]`). `?? []` would collapse `null` → `[]`
     // and hide the very case git_diff_policy must ERROR on.
-    gitChangedPaths: async () =>
-      fixture.changedPaths === undefined ? [] : fixture.changedPaths,
+    gitChangedPaths: async () => (fixture.changedPaths === undefined ? [] : fixture.changedPaths),
     listArtifacts: async () => fixture.artifacts ?? [],
     recordedApproval: async () => (fixture.approval === undefined ? null : fixture.approval),
   };
@@ -115,7 +122,11 @@ await check('(a) command_exit_zero: classifierBlocked → ERROR, not FAIL', asyn
     configJson: JSON.stringify({ command: 'rm -rf /' }),
     commands: { 'rm -rf /': { exitCode: 1, classifierBlocked: true } },
   });
-  assert.equal(blocked.verdict, 'ERROR', 'a classifier block is a policy/setup ERROR, never a FAIL');
+  assert.equal(
+    blocked.verdict,
+    'ERROR',
+    'a classifier block is a policy/setup ERROR, never a FAIL',
+  );
   assert.notEqual(blocked.verdict, 'FAIL');
 });
 
@@ -147,22 +158,25 @@ await check('file_hash: match → PASS, mismatch → FAIL, absent → ERROR', as
   assert.equal(absent.verdict, 'ERROR', 'cannot hash an absent file → ERROR');
 });
 
-await check('text_contains: includes → PASS, missing marker → FAIL, absent file → FAIL', async () => {
-  const pass = await run('text_contains', {
-    configJson: JSON.stringify({ path: 'README.md', needle: 'DONE-MARKER' }),
-    files: { 'README.md': 'work complete: DONE-MARKER here' },
-  });
-  assert.equal(pass.verdict, 'PASS');
-  const fail = await run('text_contains', {
-    configJson: JSON.stringify({ path: 'README.md', needle: 'DONE-MARKER' }),
-    files: { 'README.md': 'nothing here' },
-  });
-  assert.equal(fail.verdict, 'FAIL');
-  const absent = await run('text_contains', {
-    configJson: JSON.stringify({ path: 'README.md', needle: 'DONE-MARKER' }),
-  });
-  assert.equal(absent.verdict, 'FAIL', 'absent file → marker definitively absent → FAIL');
-});
+await check(
+  'text_contains: includes → PASS, missing marker → FAIL, absent file → FAIL',
+  async () => {
+    const pass = await run('text_contains', {
+      configJson: JSON.stringify({ path: 'README.md', needle: 'DONE-MARKER' }),
+      files: { 'README.md': 'work complete: DONE-MARKER here' },
+    });
+    assert.equal(pass.verdict, 'PASS');
+    const fail = await run('text_contains', {
+      configJson: JSON.stringify({ path: 'README.md', needle: 'DONE-MARKER' }),
+      files: { 'README.md': 'nothing here' },
+    });
+    assert.equal(fail.verdict, 'FAIL');
+    const absent = await run('text_contains', {
+      configJson: JSON.stringify({ path: 'README.md', needle: 'DONE-MARKER' }),
+    });
+    assert.equal(absent.verdict, 'FAIL', 'absent file → marker definitively absent → FAIL');
+  },
+);
 
 await check('json_schema: valid → PASS, missing required → FAIL, parse error → ERROR', async () => {
   const schema = { type: 'object', required: ['name', 'version'] };
@@ -210,23 +224,26 @@ await check('artifact_published: matching kind → PASS, none → FAIL', async (
   assert.equal(anyKind.verdict, 'PASS', 'no kind filter → any artifact passes');
 });
 
-await check('git_diff_policy: all within policy → PASS, escapee → FAIL (reports offender)', async () => {
-  const pass = await run('git_diff_policy', {
-    configJson: JSON.stringify({ allowedGlobs: ['src/**', 'docs/*.md'] }),
-    changedPaths: ['src/a/b.ts', 'docs/x.md'],
-  });
-  assert.equal(pass.verdict, 'PASS');
-  const fail = await run('git_diff_policy', {
-    configJson: JSON.stringify({ allowedGlobs: ['src/**'] }),
-    changedPaths: ['src/a.ts', 'secrets/.env'],
-  });
-  assert.equal(fail.verdict, 'FAIL');
-  assert.ok(fail.summary.includes('secrets/.env'), 'FAIL summary names the offending path');
-  assert.ok(
-    fail.evidenceRefs.some((e) => e.includes('secrets/.env')),
-    'evidence carries the offending path',
-  );
-});
+await check(
+  'git_diff_policy: all within policy → PASS, escapee → FAIL (reports offender)',
+  async () => {
+    const pass = await run('git_diff_policy', {
+      configJson: JSON.stringify({ allowedGlobs: ['src/**', 'docs/*.md'] }),
+      changedPaths: ['src/a/b.ts', 'docs/x.md'],
+    });
+    assert.equal(pass.verdict, 'PASS');
+    const fail = await run('git_diff_policy', {
+      configJson: JSON.stringify({ allowedGlobs: ['src/**'] }),
+      changedPaths: ['src/a.ts', 'secrets/.env'],
+    });
+    assert.equal(fail.verdict, 'FAIL');
+    assert.ok(fail.summary.includes('secrets/.env'), 'FAIL summary names the offending path');
+    assert.ok(
+      fail.evidenceRefs.some((e) => e.includes('secrets/.env')),
+      'evidence carries the offending path',
+    );
+  },
+);
 
 await check(
   'git_diff_policy: SEGMENT-AWARE — single `*` is one dir level, `**` crosses segments',
@@ -235,7 +252,10 @@ await check(
     // is allowed; `docs/sub/foo.md` is NOT — a greedy `.*` matcher would
     // wrongly PASS the nested path and silently weaken the policy gate.
     const single = JSON.stringify({ allowedGlobs: ['docs/*.md'] });
-    const allowed = await run('git_diff_policy', { configJson: single, changedPaths: ['docs/foo.md'] });
+    const allowed = await run('git_diff_policy', {
+      configJson: single,
+      changedPaths: ['docs/foo.md'],
+    });
     assert.equal(allowed.verdict, 'PASS', '`docs/*.md` matches `docs/foo.md`');
 
     const nested = await run('git_diff_policy', {
@@ -257,7 +277,11 @@ await check(
       configJson: JSON.stringify({ allowedGlobs: ['docs/**/*.md'] }),
       changedPaths: ['docs/sub/foo.md', 'docs/a/b/c.md'],
     });
-    assert.equal(doubleStar.verdict, 'PASS', '`docs/**/*.md` crosses segments → matches nested paths');
+    assert.equal(
+      doubleStar.verdict,
+      'PASS',
+      '`docs/**/*.md` crosses segments → matches nested paths',
+    );
   },
 );
 
@@ -277,7 +301,11 @@ await check(
       'ERROR',
       'null diff (git capability unavailable) → ERROR, never a false PASS',
     );
-    assert.notEqual(unknowable.verdict, 'PASS', 'a capability failure must not masquerade as clean');
+    assert.notEqual(
+      unknowable.verdict,
+      'PASS',
+      'a capability failure must not masquerade as clean',
+    );
     // The verdict alone is NOT discriminating: deleting the explicit
     // `if (changed === null)` guard makes `null.filter(...)` throw a TypeError
     // that safeEvaluate ALSO catches as verdict 'ERROR' (but with evidenceRefs
@@ -300,12 +328,20 @@ await check(
       configJson: JSON.stringify({ allowedGlobs: ['src/**'] }),
       changedPaths: [],
     });
-    assert.equal(cleanRestrictive.verdict, 'PASS', 'empty (clean) diff → PASS even under a strict glob');
+    assert.equal(
+      cleanRestrictive.verdict,
+      'PASS',
+      'empty (clean) diff → PASS even under a strict glob',
+    );
     const cleanNoGlobs = await run('git_diff_policy', {
       configJson: JSON.stringify({ allowedGlobs: [] }),
       changedPaths: [],
     });
-    assert.equal(cleanNoGlobs.verdict, 'PASS', 'empty diff with no allowed globs is still clean → PASS');
+    assert.equal(
+      cleanNoGlobs.verdict,
+      'PASS',
+      'empty diff with no allowed globs is still clean → PASS',
+    );
 
     // (c) A real out-of-policy change is a FAIL (distinct from the ERROR above).
     const escapee = await run('git_diff_policy', {
@@ -337,7 +373,11 @@ await check('(b) manual_approval: no recorded approval → BLOCKED', async () =>
 
 await check('(d) llm_rubric_review: deterministic === false and returns SKIP', async () => {
   const evaluator = registry.get('llm_rubric_review');
-  assert.equal(evaluator.deterministic, false, 'llm_rubric_review must be flagged non-deterministic');
+  assert.equal(
+    evaluator.deterministic,
+    false,
+    'llm_rubric_review must be flagged non-deterministic',
+  );
   const result = await run('llm_rubric_review', { configJson: '{}' });
   assert.equal(result.verdict, 'SKIP', 'not wired as a gate in MS-003 → SKIP');
   // Every OTHER builtin must be deterministic.
@@ -347,23 +387,29 @@ await check('(d) llm_rubric_review: deterministic === false and returns SKIP', a
   }
 });
 
-await check('(c) registry: get() throws UnknownEvaluatorError on unknown id; has() false', async () => {
-  assert.equal(registry.has('command_exit_zero'), true);
-  assert.equal(registry.has('does_not_exist'), false);
-  assert.throws(
-    () => registry.get('does_not_exist'),
-    (err: unknown) => err instanceof UnknownEvaluatorError,
-    'unknown evaluator id must throw UnknownEvaluatorError',
-  );
-});
+await check(
+  '(c) registry: get() throws UnknownEvaluatorError on unknown id; has() false',
+  async () => {
+    assert.equal(registry.has('command_exit_zero'), true);
+    assert.equal(registry.has('does_not_exist'), false);
+    assert.throws(
+      () => registry.get('does_not_exist'),
+      (err: unknown) => err instanceof UnknownEvaluatorError,
+      'unknown evaluator id must throw UnknownEvaluatorError',
+    );
+  },
+);
 
-await check('registry: list() returns all 9 P0 evaluators; duplicate register() throws', async () => {
-  assert.equal(registry.list().length, 9, 'all 9 P0 evaluators registered');
-  const empty = createEvaluatorRegistry();
-  const fake = registry.get('file_exists');
-  empty.register(fake);
-  assert.throws(() => empty.register(fake), /already registered/, 'duplicate id rejected');
-});
+await check(
+  'registry: list() returns all 9 P0 evaluators; duplicate register() throws',
+  async () => {
+    assert.equal(registry.list().length, 9, 'all 9 P0 evaluators registered');
+    const empty = createEvaluatorRegistry();
+    const fake = registry.get('file_exists');
+    empty.register(fake);
+    assert.throws(() => empty.register(fake), /already registered/, 'duplicate id rejected');
+  },
+);
 
 const total = checks.length;
 if (failed > 0) {

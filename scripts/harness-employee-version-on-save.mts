@@ -23,8 +23,8 @@
  */
 import './harness-employee-version-on-save.loader-register.mjs';
 
-import { createMemoryRepositories } from '../packages/core/src/browser.js';
 import { recordEmployeeVersionOnSave } from '../apps/desktop/renderer/src/surfaces/personnel/personnel-data.js';
+import { createMemoryRepositories } from '../packages/core/src/browser.js';
 
 let failures = 0;
 let checks = 0;
@@ -78,7 +78,11 @@ async function main(): Promise<void> {
   });
 
   const afterFirst = await repos.employeeVersions.findByEmployee(employee_id);
-  check('first save records two versions (baseline + update)', afterFirst.length === 2, `got ${afterFirst.length}`);
+  check(
+    'first save records two versions (baseline + update)',
+    afterFirst.length === 2,
+    `got ${afterFirst.length}`,
+  );
 
   const sorted = [...afterFirst].sort((a, b) => a.version_num - b.version_num);
   const [v1, v2] = sorted;
@@ -90,7 +94,11 @@ async function main(): Promise<void> {
   // yet" at 1). The before/after snapshots must differ on the edited field.
   const v1Snap = parseSnapshot(v1!.snapshot_json);
   const v2Snap = parseSnapshot(v2!.snapshot_json);
-  check('baseline snapshot has the pre-edit name', v1Snap.name === 'Mara Quinn', String(v1Snap.name));
+  check(
+    'baseline snapshot has the pre-edit name',
+    v1Snap.name === 'Mara Quinn',
+    String(v1Snap.name),
+  );
   check('update snapshot has the post-edit name', v2Snap.name === 'Mara Q.', String(v2Snap.name));
   check('the real edit is visible as a name diff', v1Snap.name !== v2Snap.name);
   check(
@@ -112,16 +120,26 @@ async function main(): Promise<void> {
   });
 
   const afterSecond = await repos.employeeVersions.findByEmployee(employee_id);
-  check('second save appends exactly one version (no re-baseline)', afterSecond.length === 3, `got ${afterSecond.length}`);
+  check(
+    'second save appends exactly one version (no re-baseline)',
+    afterSecond.length === 3,
+    `got ${afterSecond.length}`,
+  );
   const createCount = afterSecond.filter((r) => r.change_type === 'create').length;
   check('still exactly one create baseline', createCount === 1, `got ${createCount}`);
 
   const latest = [...afterSecond].sort((a, b) => b.version_num - a.version_num)[0];
   check('latest is v3 update', latest?.version_num === 3 && latest.change_type === 'update');
   const latestSnap = parseSnapshot(latest!.snapshot_json);
-  check('latest snapshot reflects the persisted post-edit state (enabled=0)', latestSnap.enabled === 0, String(latestSnap.enabled));
+  check(
+    'latest snapshot reflects the persisted post-edit state (enabled=0)',
+    latestSnap.enabled === 0,
+    String(latestSnap.enabled),
+  );
 
-  console.log(`\n${failures === 0 ? 'PASS' : 'FAIL'} — ${checks - failures}/${checks} checks passed`);
+  console.log(
+    `\n${failures === 0 ? 'PASS' : 'FAIL'} — ${checks - failures}/${checks} checks passed`,
+  );
   if (failures > 0) process.exit(1);
 }
 

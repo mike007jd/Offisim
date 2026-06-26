@@ -21,13 +21,10 @@
 // injected so the harness is reproducible.
 
 import type {
-  CollaborationMessage,
-  CollaborationReplyPolicy,
-} from '@offisim/shared-types';
-import type {
   CollaborationMessageRepository,
   CollaborationTurnRepository,
 } from '@offisim/core/browser';
+import type { CollaborationMessage, CollaborationReplyPolicy } from '@offisim/shared-types';
 import {
   type CollaborationParticipant,
   type PriorRoundReply,
@@ -37,10 +34,7 @@ import {
   recentWindow,
   scheduleSpeakers,
 } from './collaboration-context.js';
-import type {
-  CollaborationTransport,
-  CollaborationTurnResult,
-} from './collaboration-transport.js';
+import type { CollaborationTransport, CollaborationTurnResult } from './collaboration-transport.js';
 
 /** Minimal slice of CollaborationService the controller needs. */
 interface CollaborationServiceSlice {
@@ -53,9 +47,9 @@ interface CollaborationServiceSlice {
     senderLabel?: string | null;
     idempotencyKey?: string;
   }): Promise<CollaborationMessage>;
-  listMembers(threadId: string): Promise<
-    Array<{ employeeId?: string | null; actorType: 'boss' | 'employee' }>
-  >;
+  listMembers(
+    threadId: string,
+  ): Promise<Array<{ employeeId?: string | null; actorType: 'boss' | 'employee' }>>;
 }
 
 /** What the controller knows about a thread to drive a turn (resolved by the caller). */
@@ -90,12 +84,7 @@ export interface CollaborationTurnControllerDeps {
   thinkingLevel?: () => string | undefined;
 }
 
-type CollaborationTurnPhase =
-  | 'pending'
-  | 'streaming'
-  | 'complete'
-  | 'interrupted'
-  | 'failed';
+type CollaborationTurnPhase = 'pending' | 'streaming' | 'complete' | 'interrupted' | 'failed';
 
 /** A live (in-memory) view of one scheduled speaker turn. */
 export interface CollaborationLiveTurn {
@@ -509,7 +498,10 @@ export class CollaborationTurnController {
     if (controller.signal.aborted) {
       // Stopped by the user: keep whatever streamed so far, mark interrupted.
       turn.phase = 'interrupted';
-      await this.deps.messages.update(turn.messageId, { status: 'interrupted', edited_at: finishedAt });
+      await this.deps.messages.update(turn.messageId, {
+        status: 'interrupted',
+        edited_at: finishedAt,
+      });
       await this.deps.turns.update(turn.turnId, { status: 'interrupted', finished_at: finishedAt });
       this.emit(ctx.threadId);
       return;

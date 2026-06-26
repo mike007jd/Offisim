@@ -155,6 +155,7 @@ console.log('\n[performance] one staging frame within budget');
 {
   check(
     'live staging is byte-identical run-to-run',
+    // biome-ignore lint/suspicious/noSelfCompare: two independent stage() calls; intentional run-to-run determinism assertion
     JSON.stringify(stage(stream, OFFICE_MODE)) === JSON.stringify(stage(stream, OFFICE_MODE)),
   );
   // The version is a real seed input baked into every variant hash, so bumping it
@@ -162,7 +163,11 @@ console.log('\n[performance] one staging frame within budget');
   // broken zero-beat composer fails loudly instead of making this pass trivially.
   const baseBeats = composeBeats(stream, { dramaturgyVersion: DRAMATURGY_VERSION });
   const bumpedBeats = composeBeats(stream, { dramaturgyVersion: 'v-future' });
-  check('corpus produced beats (version-bump premise holds)', baseBeats.length > 0, `${baseBeats.length} beats`);
+  check(
+    'corpus produced beats (version-bump premise holds)',
+    baseBeats.length > 0,
+    `${baseBeats.length} beats`,
+  );
   check(
     'bumping the dramaturgy version changes the beats',
     JSON.stringify(baseBeats) !== JSON.stringify(bumpedBeats),

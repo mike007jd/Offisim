@@ -67,6 +67,7 @@ function makeModerationMockDb() {
     // Makes `await db.update(...).set(...).where(...)` (the non-returning writes)
     // resolve; the claim's `.returning()` and the `.limit()` selects use real
     // promises above, so this thenable is only hit by the bare-await writes.
+    // biome-ignore lint/suspicious/noThenProperty: intentional thenable mock to exercise the bare-await write path
     then(onF: unknown, onR: unknown) {
       return Promise.resolve(undefined).then(onF as never, onR as never);
     },
@@ -99,12 +100,16 @@ async function expectGenericFailureMarksJobFailedAndDraftResubmittable() {
   }
   const statuses = writes.map((w) => w.status);
   if (!statuses.includes('failed')) {
-    throw new Error(`job was not transitioned to 'failed' (stuck processing). writes=${JSON.stringify(statuses)}`);
+    throw new Error(
+      `job was not transitioned to 'failed' (stuck processing). writes=${JSON.stringify(statuses)}`,
+    );
   }
   // The draft must be reset to a resubmittable 'draft' state, never left
   // 'submitted', and never marked 'approved'/'completed' on the failure path.
   if (!statuses.includes('draft')) {
-    throw new Error(`draft was not reset to 'draft' for resubmission. writes=${JSON.stringify(statuses)}`);
+    throw new Error(
+      `draft was not reset to 'draft' for resubmission. writes=${JSON.stringify(statuses)}`,
+    );
   }
   if (statuses.includes('completed') || statuses.includes('approved')) {
     throw new Error(`failure path wrote a success status. writes=${JSON.stringify(statuses)}`);

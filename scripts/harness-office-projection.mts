@@ -41,11 +41,45 @@ interface Scope {
   relation?: TimedAgentRunEvent['relation'];
   workKind?: TimedAgentRunEvent['workKind'];
 }
-const started = (at: number, s: Scope): TimedAgentRunEvent => ({ threadId: THREAD, rootRunId: ROOT, ...s, type: 'run.started', payload: { objective: 'x', access: 'write' }, timestamp: at });
-const finished = (at: number, s: Scope): TimedAgentRunEvent => ({ threadId: THREAD, rootRunId: ROOT, ...s, type: 'run.completed', payload: { status: 'completed' }, timestamp: at });
-const tool = (at: number, s: Scope, toolName: string): TimedAgentRunEvent => ({ threadId: THREAD, rootRunId: ROOT, ...s, type: 'tool.started', payload: { toolCallId: `${s.runId}:${at}`, toolName, status: 'started' }, timestamp: at });
-const approval = (at: number, s: Scope): TimedAgentRunEvent => ({ threadId: THREAD, rootRunId: ROOT, ...s, type: 'approval.requested', payload: { uiRequestId: `${s.runId}:a`, title: 'ok?' }, timestamp: at });
-const prefab = (instanceId: string, prefabId: string, x = 0, z = 0): StagingPrefab => ({ instanceId, prefabId, x, z, rotation: 0 });
+const started = (at: number, s: Scope): TimedAgentRunEvent => ({
+  threadId: THREAD,
+  rootRunId: ROOT,
+  ...s,
+  type: 'run.started',
+  payload: { objective: 'x', access: 'write' },
+  timestamp: at,
+});
+const finished = (at: number, s: Scope): TimedAgentRunEvent => ({
+  threadId: THREAD,
+  rootRunId: ROOT,
+  ...s,
+  type: 'run.completed',
+  payload: { status: 'completed' },
+  timestamp: at,
+});
+const tool = (at: number, s: Scope, toolName: string): TimedAgentRunEvent => ({
+  threadId: THREAD,
+  rootRunId: ROOT,
+  ...s,
+  type: 'tool.started',
+  payload: { toolCallId: `${s.runId}:${at}`, toolName, status: 'started' },
+  timestamp: at,
+});
+const approval = (at: number, s: Scope): TimedAgentRunEvent => ({
+  threadId: THREAD,
+  rootRunId: ROOT,
+  ...s,
+  type: 'approval.requested',
+  payload: { uiRequestId: `${s.runId}:a`, title: 'ok?' },
+  timestamp: at,
+});
+const prefab = (instanceId: string, prefabId: string, x = 0, z = 0): StagingPrefab => ({
+  instanceId,
+  prefabId,
+  x,
+  z,
+  rotation: 0,
+});
 
 console.log('office-projection gate');
 
@@ -83,31 +117,66 @@ const staging = projectOfficeStaging(beats, office);
 const byEmp = new Map(staging.map((s) => [s.employeeId, s]));
 
 console.log('\n[high-value movement]');
-check('mover (delegate) relocates', byEmp.get('mover')?.staging != null && byEmp.get('mover')?.beat.kind === 'delegate');
-check('finisher (join) relocates', byEmp.get('finisher')?.staging != null && byEmp.get('finisher')?.beat.kind === 'join');
+check(
+  'mover (delegate) relocates',
+  byEmp.get('mover')?.staging != null && byEmp.get('mover')?.beat.kind === 'delegate',
+);
+check(
+  'finisher (join) relocates',
+  byEmp.get('finisher')?.staging != null && byEmp.get('finisher')?.beat.kind === 'join',
+);
 
 console.log('\n[micro-action stays home]');
-check('worker (produce) does NOT relocate', byEmp.get('worker')?.staging === null && byEmp.get('worker')?.beat.kind === 'produce');
-check('researcher (research) does NOT relocate', byEmp.get('researcher')?.staging === null && byEmp.get('researcher')?.beat.kind === 'research');
-check('waiter (approval) reacts in place', byEmp.get('waiter')?.staging === null && byEmp.get('waiter')?.beat.kind === 'approval');
+check(
+  'worker (produce) does NOT relocate',
+  byEmp.get('worker')?.staging === null && byEmp.get('worker')?.beat.kind === 'produce',
+);
+check(
+  'researcher (research) does NOT relocate',
+  byEmp.get('researcher')?.staging === null && byEmp.get('researcher')?.beat.kind === 'research',
+);
+check(
+  'waiter (approval) reacts in place',
+  byEmp.get('waiter')?.staging === null && byEmp.get('waiter')?.beat.kind === 'approval',
+);
 
 console.log('\n[invariant] only movement beats relocate');
 {
   const staged = staging.filter((s) => s.staging !== null);
-  check('exactly the movement-beat employees are staged', staged.every((s) => s.beat.movement) && staged.length === 2, `staged ${staged.length}`);
+  check(
+    'exactly the movement-beat employees are staged',
+    staged.every((s) => s.beat.movement) && staged.length === 2,
+    `staged ${staged.length}`,
+  );
   check('director root is not an actor', !byEmp.has(ROOT));
 }
 
 console.log('\n[performance] matches performanceForBeat');
-check('worker performance is type (produce/write)', byEmp.get('worker')?.performance.workGesture === 'type');
-check('researcher performance is read', byEmp.get('researcher')?.performance.workGesture === 'read');
-check('waiter performance is worried (approval)', byEmp.get('waiter')?.performance.expression === 'worried');
-check('performance equals performanceForBeat(beat)', staging.every((s) => JSON.stringify(s.performance) === JSON.stringify(performanceForBeat(s.beat))));
+check(
+  'worker performance is type (produce/write)',
+  byEmp.get('worker')?.performance.workGesture === 'type',
+);
+check(
+  'researcher performance is read',
+  byEmp.get('researcher')?.performance.workGesture === 'read',
+);
+check(
+  'waiter performance is worried (approval)',
+  byEmp.get('waiter')?.performance.expression === 'worried',
+);
+check(
+  'performance equals performanceForBeat(beat)',
+  staging.every(
+    (s) => JSON.stringify(s.performance) === JSON.stringify(performanceForBeat(s.beat)),
+  ),
+);
 
 console.log('\n[determinism]');
 {
   const a = JSON.stringify(projectOfficeStaging(composeBeats(stream, CONFIG), office));
-  const b = JSON.stringify(projectOfficeStaging(composeBeats([...stream].reverse(), CONFIG), office));
+  const b = JSON.stringify(
+    projectOfficeStaging(composeBeats([...stream].reverse(), CONFIG), office),
+  );
   check('same stream → identical office projection (order-independent)', a === b);
 }
 

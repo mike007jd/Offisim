@@ -40,8 +40,7 @@ const ATTACHMENT_RE = /@@att:[A-Za-z0-9._-]+/g;
  * and a recognizable segment. Conservative on purpose — we only protect things
  * that clearly read as a path (contain a `/` or `\`), never a lone word.
  */
-const PATH_RE =
-  /(?:[A-Za-z]:\\|\.{0,2}\/)?(?:[\w.@~-]+[/\\])+[\w.@~-]+(?:\.[A-Za-z0-9]+)?/g;
+const PATH_RE = /(?:[A-Za-z]:\\|\.{0,2}\/)?(?:[\w.@~-]+[/\\])+[\w.@~-]+(?:\.[A-Za-z0-9]+)?/g;
 
 interface SpanHit {
   kind: ProtectedSpan['kind'];
@@ -50,12 +49,7 @@ interface SpanHit {
   end: number;
 }
 
-function pushMatches(
-  text: string,
-  re: RegExp,
-  kind: ProtectedSpan['kind'],
-  hits: SpanHit[],
-): void {
+function pushMatches(text: string, re: RegExp, kind: ProtectedSpan['kind'], hits: SpanHit[]): void {
   // Each detector gets a fresh lastIndex (the literals above are /g; clone-safe
   // because we never share a RegExp instance across calls concurrently).
   re.lastIndex = 0;

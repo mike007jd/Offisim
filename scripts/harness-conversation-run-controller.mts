@@ -565,7 +565,11 @@ const scenarios: Array<{
       );
       assert.equal(startCalls, 1, 'retry did NOT re-fire loopExecution.start (no re-materialize)');
       const snapshot = env.controller.getSnapshot('thread-1');
-      assert.equal(snapshot.liveMessages[1]?.body, 'plain retry reply', 'retry ran the plain agent');
+      assert.equal(
+        snapshot.liveMessages[1]?.body,
+        'plain retry reply',
+        'retry ran the plain agent',
+      );
       return { startCalls, retryPhase: snapshot.phase };
     },
   },
@@ -783,7 +787,10 @@ const scenarios: Array<{
       await submitDefault(env.controller, { threadId: 'thread-a', employeeId: 'emp-1' });
       await submitDefault(env.controller, { threadId: 'thread-b', employeeId: 'emp-1' });
       await waitFor('a running', () => env.controller.getSnapshot('thread-a').phase === 'running');
-      await waitFor('b completed', () => env.controller.getSnapshot('thread-b').phase === 'completed');
+      await waitFor(
+        'b completed',
+        () => env.controller.getSnapshot('thread-b').phase === 'completed',
+      );
       const attemptA = env.controller.getSnapshot('thread-a').attemptId;
       const workloads = projectEmployeeWorkloads(env.controller.getGlobalSnapshot(), 'prj');
       const emp = workloads.get('emp-1');

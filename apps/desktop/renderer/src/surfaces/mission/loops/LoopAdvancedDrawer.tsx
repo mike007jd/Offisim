@@ -49,6 +49,7 @@ export function LoopAdvancedDrawer({
         </div>
       ) : null}
       {warnFindings.length > 0 ? (
+        // biome-ignore lint/a11y/useSemanticElements: intentional ARIA live region (role=status)
         <div className="off-loop-details-findings is-warn" role="status">
           <Icon icon={Info} size="sm" />
           <ul>
@@ -78,6 +79,7 @@ export function LoopAdvancedDrawer({
               <h4 className="off-loop-details-sectiontitle">{section.title}</h4>
               <dl className="off-loop-details-rows">
                 {section.rows.map((row, i) => (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: static positional row list; rows are never reordered
                   <div key={i} className="off-loop-details-row">
                     <dt>{row.label}</dt>
                     <dd>{row.value}</dd>

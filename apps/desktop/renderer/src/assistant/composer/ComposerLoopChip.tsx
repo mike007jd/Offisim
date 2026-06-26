@@ -4,8 +4,8 @@ import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 import { useQuery } from '@tanstack/react-query';
 import { ExternalLink, Repeat, TriangleAlert, X } from 'lucide-react';
-import { updateLoopReferenceRevision } from './open-loop-in-office.js';
 import { useComposerLoopReferenceStore } from './composer-loop-reference-store.js';
+import { updateLoopReferenceRevision } from './open-loop-in-office.js';
 
 /**
  * The Loop reference chip (PR-10). A structured, pinned-revision reference shown
@@ -38,7 +38,11 @@ export function ComposerLoopChip({ threadId }: { threadId: string }) {
       const def = await getLoopDefinition(reference.loopId);
       if (def?.currentRevisionId && def.currentRevisionId !== reference.revisionId) {
         const current = await getLoopRevision(def.currentRevisionId);
-        if (current && current.compileStatus === 'ready' && current.revisionNumber > reference.revisionNumber) {
+        if (
+          current &&
+          current.compileStatus === 'ready' &&
+          current.revisionNumber > reference.revisionNumber
+        ) {
           return {
             kind: 'newer-available',
             currentRevisionId: current.revisionId,

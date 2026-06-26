@@ -3418,7 +3418,7 @@
   font-weight: 600;
 }
 
-.off-enhance-tab[data-state='active'] {
+.off-enhance-tab[data-state="active"] {
   background: var(--off-surface-1);
   color: var(--off-ink-1);
 }

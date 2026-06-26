@@ -95,9 +95,7 @@ export const CREATE_YOUR_OWN_TEMPLATE: WizardTemplate = {
 };
 
 /** Map a canonical template definition → the wizard view model. */
-function toWizardTemplate(
-  def: ReturnType<typeof listTemplates>[number],
-): WizardTemplate {
+function toWizardTemplate(def: ReturnType<typeof listTemplates>[number]): WizardTemplate {
   // Real preview zones: the template's custom zones, or the 7 system zones when
   // it materializes onto SYSTEM_ZONE_TEMPLATES. Sorted by sortOrder so the floor
   // plan reads in the same order it lays out in 3D.
@@ -112,9 +110,7 @@ function toWizardTemplate(
   }));
 
   // Hydrated Zone[] for role→zone resolution (same path the runtime uses).
-  const resolverZones = zoneTemplates.map((z) =>
-    templateToZone(z, WIZARD_PREVIEW_COMPANY_ID),
-  );
+  const resolverZones = zoneTemplates.map((z) => templateToZone(z, WIZARD_PREVIEW_COMPANY_ID));
 
   const employees: WizardEmployee[] = def.employees.map((emp) => {
     // Same resolver as runtime materialization, so the preview seat placement

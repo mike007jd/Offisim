@@ -369,7 +369,10 @@ export function createWorkspaceLeaseManager(
       // checkout — silent corruption).
       const lease = leases.get(planned.leaseId);
       if (!lease) {
-        skipped.push({ leaseId: planned.leaseId, reason: 'lease no longer tracked by the manager' });
+        skipped.push({
+          leaseId: planned.leaseId,
+          reason: 'lease no longer tracked by the manager',
+        });
         continue;
       }
       if (lease.status !== 'pending_merge') {
@@ -396,7 +399,11 @@ export function createWorkspaceLeaseManager(
         // lease conflicted, STOP, and surface it for repair/human (§23.3).
         lease.status = 'conflicted';
         lease.reason = `merge reported a conflict on [${result.conflicts.join(', ')}] — not overwritten (§23.3)`;
-        return { merged, skipped, conflicted: { lease: snapshot(lease), conflicts: result.conflicts } };
+        return {
+          merged,
+          skipped,
+          conflicted: { lease: snapshot(lease), conflicts: result.conflicts },
+        };
       }
       lease.status = 'merged';
       merged.push(snapshot(lease));

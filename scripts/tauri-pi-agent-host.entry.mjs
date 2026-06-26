@@ -804,9 +804,12 @@ async function runEnhance(payload) {
   }
   const systemPrompt = asNonEmptyString(payload.systemPrompt);
   if (!systemPrompt) {
-    throw Object.assign(new Error('Prompt enhance requests must include a profile system prompt.'), {
-      code: 'invalid-request',
-    });
+    throw Object.assign(
+      new Error('Prompt enhance requests must include a profile system prompt.'),
+      {
+        code: 'invalid-request',
+      },
+    );
   }
   // A neutral cwd (Rust passes a non-project dir). Never bind a workspace.
   const cwd = asNonEmptyString(payload.cwd) ?? process.cwd();
@@ -869,10 +872,9 @@ async function runEnhance(payload) {
       event.type === 'tool_execution_update' ||
       event.type === 'tool_execution_end'
     ) {
-      throw Object.assign(
-        new Error('Prompt enhance must not execute tools — isolation breach.'),
-        { code: 'enhance-isolation' },
-      );
+      throw Object.assign(new Error('Prompt enhance must not execute tools — isolation breach.'), {
+        code: 'enhance-isolation',
+      });
     }
   });
 
@@ -1036,10 +1038,9 @@ async function runCollaboration(payload) {
       event.type === 'tool_execution_update' ||
       event.type === 'tool_execution_end'
     ) {
-      throw Object.assign(
-        new Error('Collaboration must not execute tools — isolation breach.'),
-        { code: 'collaboration-isolation' },
-      );
+      throw Object.assign(new Error('Collaboration must not execute tools — isolation breach.'), {
+        code: 'collaboration-isolation',
+      });
     }
   });
 

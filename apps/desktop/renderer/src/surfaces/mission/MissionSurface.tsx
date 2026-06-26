@@ -1,11 +1,11 @@
 import { useUiState } from '@/app/ui-state.js';
 import { cn } from '@/lib/utils.js';
 import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
+import { Repeat } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { LoopEditor } from './loops/LoopEditor.js';
 import { LoopLibrary } from './loops/LoopLibrary.js';
 import { LoopRuns } from './loops/LoopRuns.js';
-import { Repeat } from 'lucide-react';
-import { useEffect, useState } from 'react';
 
 /**
  * The Loops surface root (PR-08). The internal surface key stays `mission` (a
@@ -54,10 +54,7 @@ export function MissionSurface() {
   if (view.kind === 'editor') {
     return (
       <div className="off-loops">
-        <LoopEditor
-          loopId={view.loopId}
-          onBack={() => setView({ kind: 'list', tab: 'library' })}
-        />
+        <LoopEditor loopId={view.loopId} onBack={() => setView({ kind: 'list', tab: 'library' })} />
       </div>
     );
   }

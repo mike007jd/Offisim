@@ -13,9 +13,9 @@
  * Pi. Mirrors the agent-run office-projection gate.
  */
 import {
-  beatLifespanMs,
   type MissionLifecycleEvent,
   type MissionLifecycleKind,
+  beatLifespanMs,
   projectMissionEventToBeat,
   projectMissionEvents,
 } from '../packages/shared-types/src/index.js';
@@ -111,7 +111,15 @@ console.log('\n[priority] interrupts preempt; reuses BEAT_PRIORITY bands');
   const planning = projectMissionEventToBeat(ev('mission.running', 30))?.beat;
   check('failure is an interrupt', fail?.interrupt === true);
   check('approval is an interrupt', approval?.interrupt === true);
-  check('approval outranks failure outranks planning', !!fail && !!approval && !!planning && approval.priority > fail.priority && fail.priority > planning.priority, `${approval?.priority}/${fail?.priority}/${planning?.priority}`);
+  check(
+    'approval outranks failure outranks planning',
+    !!fail &&
+      !!approval &&
+      !!planning &&
+      approval.priority > fail.priority &&
+      fail.priority > planning.priority,
+    `${approval?.priority}/${fail?.priority}/${planning?.priority}`,
+  );
   check('planning is NOT an interrupt', planning?.interrupt === false);
 }
 
@@ -128,7 +136,11 @@ console.log('\n[a11y] semantic label present for reduced-motion (§24.4 / §29)'
     'mission.completed',
   ];
   const projected = projectMissionEvents(allKinds.map((k, i) => ev(k, i)));
-  check('every staged mission kind yields a beat', projected.length === allKinds.length, `got ${projected.length}/${allKinds.length}`);
+  check(
+    'every staged mission kind yields a beat',
+    projected.length === allKinds.length,
+    `got ${projected.length}/${allKinds.length}`,
+  );
   check(
     'every beat carries a non-empty semantic label',
     projected.every((p) => typeof p.semanticLabel === 'string' && p.semanticLabel.length > 0),
@@ -140,7 +152,11 @@ console.log('\n[a11y] semantic label present for reduced-motion (§24.4 / §29)'
   // The label is independent of any relocation anchor: it lives on the projection,
   // not the staging, so reduced-motion (which only clears the anchor) keeps it.
   const completed = projectMissionEventToBeat(ev('mission.completed', 1));
-  check('completion label is human-legible', completed?.semanticLabel === 'The mission completed', completed?.semanticLabel);
+  check(
+    'completion label is human-legible',
+    completed?.semanticLabel === 'The mission completed',
+    completed?.semanticLabel,
+  );
 }
 
 // ── READ-ONLY: the projector never mutates the input event ──────────────────
@@ -151,7 +167,10 @@ console.log('\n[read-only] pure projection — never writes mission state');
   const out = projectMissionEventToBeat(event);
   const after = JSON.stringify(event);
   check('input mission event is not mutated', before === after);
-  check('projector returns a beat, not the mission record', !!out && 'beat' in out && 'semanticLabel' in out);
+  check(
+    'projector returns a beat, not the mission record',
+    !!out && 'beat' in out && 'semanticLabel' in out,
+  );
   // Frozen input must not throw — proves no write-back path exists.
   let threw = false;
   try {
@@ -185,7 +204,11 @@ console.log('\n[lifecycle] shared per-kind TTL, namespaced id, deterministic');
     'failure persists until resolved (long TTL, same as agent-run failure)',
     fail?.beat.lifecycle.endsAt === 1000 + beatLifespanMs('failure'),
   );
-  check('mission beat id is namespaced (no collision with run beats)', completed?.beat.id.startsWith('mission:'), completed?.beat.id);
+  check(
+    'mission beat id is namespaced (no collision with run beats)',
+    completed?.beat.id.startsWith('mission:'),
+    completed?.beat.id,
+  );
   // Deterministic: same event → byte-identical beat.
   const a = JSON.stringify(projectMissionEventToBeat(ev('mission.running', 1)));
   const b = JSON.stringify(projectMissionEventToBeat(ev('mission.running', 1)));

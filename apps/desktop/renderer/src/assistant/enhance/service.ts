@@ -13,11 +13,12 @@
  * PR-05 / PR-08 / PR-10 consume. Pure except for the injected transport — no React.
  */
 
-import { type PromptEnhanceProfile, type PromptEnhanceRequest, type PromptEnhanceResult } from './contract.js';
-import {
-  type EnhanceProfileDefinition,
-  getEnhanceProfile,
-} from './profiles.js';
+import type {
+  PromptEnhanceProfile,
+  PromptEnhanceRequest,
+  PromptEnhanceResult,
+} from './contract.js';
+import { type EnhanceProfileDefinition, getEnhanceProfile } from './profiles.js';
 import {
   type SpanValidation,
   spanLossWarnings,
@@ -101,9 +102,7 @@ export function assembleEnhanceResult(
     preservedSpanIds: validation.preservedSpanIds,
     warnings,
     profileVersion: profile.version,
-    ...(structuredHints && Object.keys(structuredHints).length > 0
-      ? { structuredHints }
-      : {}),
+    ...(structuredHints && Object.keys(structuredHints).length > 0 ? { structuredHints } : {}),
   };
 }
 

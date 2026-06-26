@@ -19,12 +19,7 @@
  * conveys the meaning — planning / verification / failure / completion are
  * legible without any animation.
  */
-import {
-  BEAT_PRIORITY,
-  type BeatKind,
-  type SceneBeat,
-  beatLifespanMs,
-} from './beat-composer.js';
+import { BEAT_PRIORITY, type BeatKind, type SceneBeat, beatLifespanMs } from './beat-composer.js';
 
 /**
  * The neutral mission lifecycle signal the office projects. A small, self-
@@ -53,12 +48,7 @@ export type MissionLifecycleKind =
   | 'mission.completed';
 
 /** The user-legible mission phase a beat represents (the §24.4 phase set). */
-export type MissionBeatPhase =
-  | 'planning'
-  | 'verification'
-  | 'approval'
-  | 'failure'
-  | 'completion';
+export type MissionBeatPhase = 'planning' | 'verification' | 'approval' | 'failure' | 'completion';
 
 /**
  * A neutral mission lifecycle event. Carries only its own identity + scope; it

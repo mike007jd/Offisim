@@ -169,10 +169,7 @@ export async function buildLoopPacketForSend(
 }
 
 /** The resolved-revision snapshot the run carries (frozen execution history). */
-function loopRunContext(
-  packet: LoopExecutionPacket,
-  revisionNumber: number,
-): LoopRunContext {
+function loopRunContext(packet: LoopExecutionPacket, revisionNumber: number): LoopRunContext {
   return {
     loopId: packet.loopId,
     revisionId: packet.revisionId,
@@ -233,7 +230,10 @@ export async function materializeLoopSend(
       // Fold the resolved-revision snapshot into the runtime policy the mission
       // carries (the policy already encodes profile + loop/revision ids from the
       // packet; add the human-readable snapshot so the run prompt is reproducible).
-      runtimePolicyJson: mergeRuntimePolicy(packet.missionDraft.runtimePolicyJson, runtimeContextJson),
+      runtimePolicyJson: mergeRuntimePolicy(
+        packet.missionDraft.runtimePolicyJson,
+        runtimeContextJson,
+      ),
       budgetJson: packet.missionDraft.budgetJson,
       criteria: packet.missionDraft.criteria.map((c) => ({
         description: c.description,

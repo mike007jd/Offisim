@@ -164,7 +164,10 @@ export function createLoopService(repos: LoopServiceRepos, deps: LoopServiceDeps
     async createLoop(input) {
       const profile = getCompilerProfile(input.profileId);
       if (!profile) {
-        throw new LoopServiceError(`compiler profile ${input.profileId} not found`, 'profile_not_found');
+        throw new LoopServiceError(
+          `compiler profile ${input.profileId} not found`,
+          'profile_not_found',
+        );
       }
       const ts = deps.now();
       const row: LoopDefinitionRow = {
@@ -195,7 +198,10 @@ export function createLoopService(repos: LoopServiceRepos, deps: LoopServiceDeps
       const loop = await requireLoop(input.loopId);
       const profile = getCompilerProfile(loop.profile_id);
       if (!profile) {
-        throw new LoopServiceError(`compiler profile ${loop.profile_id} not found`, 'profile_not_found');
+        throw new LoopServiceError(
+          `compiler profile ${loop.profile_id} not found`,
+          'profile_not_found',
+        );
       }
 
       // Compile (deterministic over an injected model). The compiler never throws.
@@ -300,7 +306,8 @@ export function createLoopService(repos: LoopServiceRepos, deps: LoopServiceDeps
 
     async getRevision(revisionId) {
       const row = await repos.loopRevisions.findById(revisionId);
-      if (!row) throw new LoopServiceError(`revision ${revisionId} not found`, 'revision_not_found');
+      if (!row)
+        throw new LoopServiceError(`revision ${revisionId} not found`, 'revision_not_found');
       return toRevision(row);
     },
 
@@ -320,7 +327,10 @@ export function createLoopService(repos: LoopServiceRepos, deps: LoopServiceDeps
       const loop = await requireLoop(loopId);
       const revision = await repos.loopRevisions.findById(revisionId);
       if (!revision || revision.loop_id !== loopId) {
-        throw new LoopServiceError(`revision ${revisionId} not found for loop ${loopId}`, 'revision_not_found');
+        throw new LoopServiceError(
+          `revision ${revisionId} not found for loop ${loopId}`,
+          'revision_not_found',
+        );
       }
       const ts = deps.now();
       // A ready revision flips the loop to ready; otherwise keep it as draft.
@@ -330,7 +340,12 @@ export function createLoopService(repos: LoopServiceRepos, deps: LoopServiceDeps
         status: nextStatus,
         updatedAt: ts,
       });
-      return toDefinition({ ...loop, current_revision_id: revisionId, status: nextStatus, updated_at: ts });
+      return toDefinition({
+        ...loop,
+        current_revision_id: revisionId,
+        status: nextStatus,
+        updated_at: ts,
+      });
     },
 
     async archiveLoop(loopId) {

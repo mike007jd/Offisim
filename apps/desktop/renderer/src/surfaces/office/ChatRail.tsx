@@ -9,8 +9,8 @@ import {
   useProjects,
   useThreads,
 } from '@/data/queries.js';
-import { useDeliverableRefresh } from '@/data/use-deliverable-refresh.js';
 import type { ChatAttachment, ChatMessage, ChatThread } from '@/data/types.js';
+import { useDeliverableRefresh } from '@/data/use-deliverable-refresh.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import {
   EmptyState,

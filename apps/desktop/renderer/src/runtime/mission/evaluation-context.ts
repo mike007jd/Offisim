@@ -84,7 +84,9 @@ const BASH_TIMEOUT_MS = 120_000;
  * capability is a thin adapter over the same sandboxed Tauri commands the file
  * browser / git workbench use.
  */
-export function createTauriEvaluationContext(input: TauriEvaluationContextInput): EvaluationContext {
+export function createTauriEvaluationContext(
+  input: TauriEvaluationContextInput,
+): EvaluationContext {
   const { projectId, workspaceRoot, criterion, attemptRunId, repos } = input;
 
   return {

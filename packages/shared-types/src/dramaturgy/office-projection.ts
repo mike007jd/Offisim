@@ -12,7 +12,12 @@
  */
 import type { SceneBeat } from './beat-composer.js';
 import { type CharacterPerformanceState, performanceForBeat } from './performance.js';
-import { type ActorStaging, type StagingPrefab, type StagingRequest, reserveStaging } from './staging.js';
+import {
+  type ActorStaging,
+  type StagingPrefab,
+  type StagingRequest,
+  reserveStaging,
+} from './staging.js';
 
 export interface EmployeeStaging {
   readonly employeeId: string;

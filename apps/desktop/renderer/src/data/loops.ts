@@ -1,9 +1,6 @@
-import { reposOrNull } from '@/data/adapters.js';
-import {
-  buildEnhanceRequest,
-  runEnhance,
-} from '@/assistant/enhance/service.js';
+import { buildEnhanceRequest, runEnhance } from '@/assistant/enhance/service.js';
 import { createTauriEnhanceTransport } from '@/assistant/enhance/tauri-enhance-transport.js';
+import { reposOrNull } from '@/data/adapters.js';
 import {
   type CreateLoopInput,
   type LoopCompileInput,
@@ -20,11 +17,7 @@ import {
   getCompilerProfile,
 } from '@offisim/core/browser';
 import type { LoopDefinition, LoopRevision } from '@offisim/shared-types';
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 /**
  * Renderer data layer over the Loop domain (PR-07 service). PR-08 (this PR) adds

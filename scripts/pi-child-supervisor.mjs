@@ -15,7 +15,11 @@
 // the renderer. The delegate tool (pi-delegation-extension.mjs) is its caller.
 
 import { randomUUID } from 'node:crypto';
-import { DefaultResourceLoader, SessionManager, createAgentSession } from '@earendil-works/pi-coding-agent';
+import {
+  DefaultResourceLoader,
+  SessionManager,
+  createAgentSession,
+} from '@earendil-works/pi-coding-agent';
 import { WORK_KINDS, agentRunLine } from './pi-agent-host-wire.mjs';
 import { createDelegationExtensionFactory } from './pi-delegation-extension.mjs';
 
@@ -154,7 +158,9 @@ export function parseChildSummary(text) {
     // as that section's first item.
     const header = line
       .trim()
-      .match(/^(?:#{1,6}\s*|\*\*)\s*(summary|artifacts|decisions|risks|verification)\b[*:：—–\- ]*(.*?)\**\s*$/i);
+      .match(
+        /^(?:#{1,6}\s*|\*\*)\s*(summary|artifacts|decisions|risks|verification)\b[*:：—–\- ]*(.*?)\**\s*$/i,
+      );
     if (header) {
       current = header[1].toLowerCase();
       const rest = header[2].trim();
@@ -290,16 +296,25 @@ export function createChildSupervisor(ctx) {
     // Depth cap — a child still carries a delegate tool, but spawning past maxDepth
     // is blocked with a reason (the plan's controlled-recursion contract).
     if (depth + 1 > limits.maxDepth) {
-      return blocked(emit, `Max delegation depth (${limits.maxDepth}) reached — cannot delegate further.`);
+      return blocked(
+        emit,
+        `Max delegation depth (${limits.maxDepth}) reached — cannot delegate further.`,
+      );
     }
     // Token budget across the whole tree — the loop-until-budget backstop. Checked
     // before spawning so a goal-directed loop stops cleanly once spend crosses it.
     if (limits.budgetExceeded()) {
-      return blocked(emit, `Delegation token budget (${limits.maxTotalTokens}) exhausted for this run.`);
+      return blocked(
+        emit,
+        `Delegation token budget (${limits.maxTotalTokens}) exhausted for this run.`,
+      );
     }
     // Global total-children cap across the whole tree for this root run.
     if (!limits.reserveTotal()) {
-      return blocked(emit, `Max total delegated agents (${limits.maxTotalChildren}) reached for this run.`);
+      return blocked(
+        emit,
+        `Max total delegated agents (${limits.maxTotalChildren}) reached for this run.`,
+      );
     }
 
     return runChildSession(runId, emit, employee, objective, access, signal);

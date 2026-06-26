@@ -2,8 +2,13 @@ import { useUiState } from '@/app/ui-state.js';
 import { useMissions } from '@/data/missions.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
-import { EmptyState, ErrorState, SkeletonRows, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
 import { missionStatusView } from '@/surfaces/mission/mission-domain.js';
+import {
+  EmptyState,
+  ErrorState,
+  SkeletonRows,
+  errorDetail,
+} from '@/surfaces/shared/SurfaceStates.js';
 import { History } from 'lucide-react';
 
 /**
@@ -35,9 +40,7 @@ export function LoopRuns() {
     <div className="off-loops-runs">
       <div className="off-loops-runs-intro">
         <Icon icon={History} size="sm" />
-        <span>
-          Legacy Runs — earlier Missions, kept for history. New work uses Loops.
-        </span>
+        <span>Legacy Runs — earlier Missions, kept for history. New work uses Loops.</span>
       </div>
       {missions.isError ? (
         <ErrorState

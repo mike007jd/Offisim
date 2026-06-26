@@ -61,7 +61,9 @@ function validateShape(ir: unknown, findings: LoopValidationFinding[]): ir is Lo
   }
   let ok = true;
   if (ir.schemaVersion !== '1') {
-    findings.push(err('ir.schema_version', `schemaVersion must be '1', got ${String(ir.schemaVersion)}`));
+    findings.push(
+      err('ir.schema_version', `schemaVersion must be '1', got ${String(ir.schemaVersion)}`),
+    );
     ok = false;
   }
   for (const key of ['title', 'outcome'] as const) {
@@ -70,7 +72,15 @@ function validateShape(ir: unknown, findings: LoopValidationFinding[]): ir is Lo
       ok = false;
     }
   }
-  for (const key of ['inputs', 'outputs', 'parameters', 'nodes', 'edges', 'humanGates', 'skillBindings'] as const) {
+  for (const key of [
+    'inputs',
+    'outputs',
+    'parameters',
+    'nodes',
+    'edges',
+    'humanGates',
+    'skillBindings',
+  ] as const) {
     if (!Array.isArray(ir[key])) {
       findings.push(err(`ir.${key}`, `${key} must be an array`));
       ok = false;
@@ -95,7 +105,9 @@ function walkGraph(
   findings: LoopValidationFinding[],
 ): void {
   if (depth > LOOP_LIMITS.maxSubloopDepth) {
-    findings.push(err('graph.too_deep', `inline subloop nesting exceeds ${LOOP_LIMITS.maxSubloopDepth}`));
+    findings.push(
+      err('graph.too_deep', `inline subloop nesting exceeds ${LOOP_LIMITS.maxSubloopDepth}`),
+    );
     return;
   }
 
@@ -110,12 +122,15 @@ function walkGraph(
     }
     nodeIds.add(node.id);
     if (!NODE_KINDS.has(node.kind)) {
-      findings.push(err('node.kind', `node ${node.id} has illegal kind ${String(node.kind)}`, node.id));
+      findings.push(
+        err('node.kind', `node ${node.id} has illegal kind ${String(node.kind)}`, node.id),
+      );
     }
     // subloop: exactly one of childGraph | subloopRevisionId.
     if (node.kind === 'subloop') {
       const hasChild = isObject(node.childGraph);
-      const hasRef = typeof node.subloopRevisionId === 'string' && node.subloopRevisionId.length > 0;
+      const hasRef =
+        typeof node.subloopRevisionId === 'string' && node.subloopRevisionId.length > 0;
       if (hasChild === hasRef) {
         findings.push(
           err(
@@ -128,13 +143,21 @@ function walkGraph(
       if (hasChild) {
         const child = node.childGraph as LoopChildGraph;
         if (!Array.isArray(child.nodes) || !Array.isArray(child.edges)) {
-          findings.push(err('subloop.child_shape', `subloop node ${node.id} child graph is malformed`, node.id));
+          findings.push(
+            err('subloop.child_shape', `subloop node ${node.id} child graph is malformed`, node.id),
+          );
         } else {
           walkGraph(child.nodes, child.edges, depth + 1, findings);
         }
       }
     } else if (node.childGraph !== undefined || node.subloopRevisionId !== undefined) {
-      findings.push(err('node.subloop_only', `node ${node.id} carries subloop fields but is kind ${node.kind}`, node.id));
+      findings.push(
+        err(
+          'node.subloop_only',
+          `node ${node.id} carries subloop fields but is kind ${node.kind}`,
+          node.id,
+        ),
+      );
     }
   }
 
@@ -150,19 +173,39 @@ function walkGraph(
     }
     edgeIds.add(edge.id);
     if (!EDGE_KINDS.has(edge.kind)) {
-      findings.push(err('edge.kind', `edge ${edge.id} has illegal kind ${String(edge.kind)}`, edge.id));
+      findings.push(
+        err('edge.kind', `edge ${edge.id} has illegal kind ${String(edge.kind)}`, edge.id),
+      );
     }
     if (typeof edge.from !== 'string' || !nodeIds.has(edge.from)) {
-      findings.push(err('edge.dangling_from', `edge ${edge.id} from ${String(edge.from)} references no node`, edge.id));
+      findings.push(
+        err(
+          'edge.dangling_from',
+          `edge ${edge.id} from ${String(edge.from)} references no node`,
+          edge.id,
+        ),
+      );
     }
     if (typeof edge.to !== 'string' || !nodeIds.has(edge.to)) {
-      findings.push(err('edge.dangling_to', `edge ${edge.id} to ${String(edge.to)} references no node`, edge.id));
+      findings.push(
+        err(
+          'edge.dangling_to',
+          `edge ${edge.id} to ${String(edge.to)} references no node`,
+          edge.id,
+        ),
+      );
     }
     // Unbounded retry is illegal — a retry edge must declare a positive bound.
     if (edge.kind === 'retry') {
       const max = edge.maxRetries;
       if (typeof max !== 'number' || !Number.isFinite(max) || max <= 0) {
-        findings.push(err('edge.unbounded_retry', `retry edge ${edge.id} must declare a positive maxRetries`, edge.id));
+        findings.push(
+          err(
+            'edge.unbounded_retry',
+            `retry edge ${edge.id} must declare a positive maxRetries`,
+            edge.id,
+          ),
+        );
       }
     }
   }
@@ -173,16 +216,22 @@ function validateTopology(ir: LoopIR, findings: LoopValidationFinding[]): void {
   const nodes = ir.nodes;
   const edges = ir.edges;
   if (nodes.length > LOOP_LIMITS.maxNodes) {
-    findings.push(err('graph.too_many_nodes', `node count ${nodes.length} exceeds ${LOOP_LIMITS.maxNodes}`));
+    findings.push(
+      err('graph.too_many_nodes', `node count ${nodes.length} exceeds ${LOOP_LIMITS.maxNodes}`),
+    );
   }
   if (edges.length > LOOP_LIMITS.maxEdges) {
-    findings.push(err('graph.too_many_edges', `edge count ${edges.length} exceeds ${LOOP_LIMITS.maxEdges}`));
+    findings.push(
+      err('graph.too_many_edges', `edge count ${edges.length} exceeds ${LOOP_LIMITS.maxEdges}`),
+    );
   }
 
   const starts = nodes.filter((n) => n.kind === 'start');
   const finishes = nodes.filter((n) => n.kind === 'finish');
   if (starts.length !== 1) {
-    findings.push(err('graph.entry', `IR must have exactly one start node (found ${starts.length})`));
+    findings.push(
+      err('graph.entry', `IR must have exactly one start node (found ${starts.length})`),
+    );
   }
   if (finishes.length < 1) {
     findings.push(err('graph.exit', 'IR must have at least one finish node'));
@@ -192,10 +241,14 @@ function validateTopology(ir: LoopIR, findings: LoopValidationFinding[]): void {
   // A start node must have no incoming edge; a finish node must have no outgoing.
   for (const e of edges) {
     if (start && e.to === start.id) {
-      findings.push(err('graph.entry_inbound', `start node ${start.id} must have no inbound edge`, e.id));
+      findings.push(
+        err('graph.entry_inbound', `start node ${start.id} must have no inbound edge`, e.id),
+      );
     }
     if (finishes.some((f) => f.id === e.from)) {
-      findings.push(err('graph.exit_outbound', `finish node ${e.from} must have no outbound edge`, e.id));
+      findings.push(
+        err('graph.exit_outbound', `finish node ${e.from} must have no outbound edge`, e.id),
+      );
     }
   }
 
@@ -256,18 +309,28 @@ function validateContracts(ir: LoopIR, findings: LoopValidationFinding[]): void 
       findings.push(err('completion.outcome', 'completion.outcome must be a non-empty string'));
     }
     if (!Array.isArray(c.acceptance) || c.acceptance.length === 0) {
-      findings.push(err('completion.acceptance', 'completion must declare at least one acceptance item'));
+      findings.push(
+        err('completion.acceptance', 'completion must declare at least one acceptance item'),
+      );
     } else {
       const requiredCount = c.acceptance.filter((a) => isObject(a) && a.required === true).length;
       if (requiredCount === 0) {
-        findings.push(err('completion.no_required', 'completion must have at least one REQUIRED acceptance item'));
+        findings.push(
+          err(
+            'completion.no_required',
+            'completion must have at least one REQUIRED acceptance item',
+          ),
+        );
       }
       for (const a of c.acceptance) {
         if (!isObject(a)) {
           findings.push(err('completion.item', 'an acceptance item is not an object'));
           continue;
         }
-        if (a.oracle === 'deterministic' && (typeof a.evaluatorId !== 'string' || a.evaluatorId.length === 0)) {
+        if (
+          a.oracle === 'deterministic' &&
+          (typeof a.evaluatorId !== 'string' || a.evaluatorId.length === 0)
+        ) {
           findings.push(
             warn(
               'completion.deterministic_no_evaluator',
@@ -279,7 +342,9 @@ function validateContracts(ir: LoopIR, findings: LoopValidationFinding[]): void 
       }
     }
     if (!Array.isArray(c.exitStates) || c.exitStates.length === 0) {
-      findings.push(err('completion.exit_states', 'completion must declare at least one exit state'));
+      findings.push(
+        err('completion.exit_states', 'completion must declare at least one exit state'),
+      );
     }
   }
 
@@ -295,7 +360,13 @@ function validateContracts(ir: LoopIR, findings: LoopValidationFinding[]): void 
       continue;
     }
     if (typeof g.nodeId !== 'string' || !gateNodeIds.has(g.nodeId)) {
-      findings.push(err('human_gate.ref', `human gate ${String(g.id)} references no human_gate node`, typeof g.id === 'string' ? g.id : undefined));
+      findings.push(
+        err(
+          'human_gate.ref',
+          `human gate ${String(g.id)} references no human_gate node`,
+          typeof g.id === 'string' ? g.id : undefined,
+        ),
+      );
     }
   }
 }
@@ -322,7 +393,9 @@ function validateBudget(budget: LoopBudgetContract, findings: LoopValidationFind
   }
   if (typeof budget.maxConcurrentAgents === 'number' && typeof budget.maxTotalAgents === 'number') {
     if (budget.maxConcurrentAgents > budget.maxTotalAgents) {
-      findings.push(err('budget.concurrency', 'maxConcurrentAgents must not exceed maxTotalAgents'));
+      findings.push(
+        err('budget.concurrency', 'maxConcurrentAgents must not exceed maxTotalAgents'),
+      );
     }
   }
 }

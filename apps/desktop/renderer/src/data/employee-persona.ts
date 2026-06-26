@@ -119,9 +119,7 @@ export async function buildDelegationContext(
     ? (employees.find((e) => e.employee_id === actingEmployeeId) ?? null)
     : null;
   const roster = employees
-    .filter(
-      (e) => e.enabled === 1 && e.is_external !== 1 && e.employee_id !== actingEmployeeId,
-    )
+    .filter((e) => e.enabled === 1 && e.is_external !== 1 && e.employee_id !== actingEmployeeId)
     .map((e) => ({
       employeeId: e.employee_id,
       name: e.name ?? e.employee_id,

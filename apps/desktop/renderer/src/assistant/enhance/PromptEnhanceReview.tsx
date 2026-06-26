@@ -79,6 +79,7 @@ export function PromptEnhanceReview({
         </div>
 
         {state.phase === 'loading' ? (
+          // biome-ignore lint/a11y/useSemanticElements: intentional ARIA live region (role=status) for the enhancing state
           <div className="off-enhance-loading" role="status">
             <Icon icon={Loader2} size="sm" className="off-spin" />
             <span>Enhancing…</span>
@@ -99,9 +100,9 @@ export function PromptEnhanceReview({
           <>
             {!applyable ? (
               <div className="off-set-callout is-warn off-enhance-invalid" role="alert">
-                <Icon icon={AlertTriangle} size="sm" />
-                A protected element (mention, code, path, or reference) was lost in the rewrite.
-                Apply is disabled — try Regenerate or keep the original.
+                <Icon icon={AlertTriangle} size="sm" />A protected element (mention, code, path, or
+                reference) was lost in the rewrite. Apply is disabled — try Regenerate or keep the
+                original.
               </div>
             ) : null}
 

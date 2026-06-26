@@ -54,9 +54,7 @@ export function buildGeneratedDetails(ir: LoopIR | null): GeneratedDetailSection
   if (ir.inputs.length > 0) {
     ioRows.push({
       label: 'Inputs',
-      value: ir.inputs
-        .map((p) => `${p.label}${p.required ? '' : ' (optional)'}`)
-        .join(', '),
+      value: ir.inputs.map((p) => `${p.label}${p.required ? '' : ' (optional)'}`).join(', '),
     });
   }
   if (ir.outputs.length > 0) {
@@ -93,7 +91,8 @@ export function buildGeneratedDetails(ir: LoopIR | null): GeneratedDetailSection
       { label: 'Fix waves per gate', value: String(b.maxFixWavesPerGate) },
     ];
     if (b.wallClockMinutes) rows.push({ label: 'Wall clock', value: `${b.wallClockMinutes} min` });
-    if (b.tokenCeiling) rows.push({ label: 'Token ceiling', value: b.tokenCeiling.toLocaleString() });
+    if (b.tokenCeiling)
+      rows.push({ label: 'Token ceiling', value: b.tokenCeiling.toLocaleString() });
     sections.push({ key: 'budget', title: 'Budget', rows });
   }
 

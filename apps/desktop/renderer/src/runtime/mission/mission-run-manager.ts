@@ -4,7 +4,7 @@ import {
   getDesktopAgentRuntime,
 } from '@/runtime/desktop-agent-runtime.js';
 import { getRepos, runtimeEventBus } from '@/runtime/repos.js';
-import { createDefaultEvaluatorRegistry, type MissionLoopResult } from '@offisim/core/browser';
+import { type MissionLoopResult, createDefaultEvaluatorRegistry } from '@offisim/core/browser';
 import type { RuntimeEvent } from '@offisim/shared-types';
 import { toast } from 'sonner';
 import {

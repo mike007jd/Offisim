@@ -15,17 +15,17 @@
  * Disabled while a run is in flight or the input is empty.
  */
 
-import { Icon } from '@/design-system/icons/Icon.js';
 import type { Employee } from '@/data/types.js';
+import { Icon } from '@/design-system/icons/Icon.js';
 import { useComposer, useComposerRuntime } from '@assistant-ui/react';
 import { Sparkles } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { toMentionRoster } from '../composer/composer-triggers.js';
-import { buildEnhanceRequest } from './service.js';
-import { extractProtectedSpans } from './protected-spans.js';
-import { createTauriEnhanceTransport } from './tauri-enhance-transport.js';
 import { PromptEnhanceReview } from './PromptEnhanceReview.js';
+import { extractProtectedSpans } from './protected-spans.js';
+import { buildEnhanceRequest } from './service.js';
+import { createTauriEnhanceTransport } from './tauri-enhance-transport.js';
 import { useEnhance } from './useEnhance.js';
 
 export function OfficeEnhanceButton({

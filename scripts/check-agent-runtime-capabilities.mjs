@@ -48,8 +48,7 @@ const missingFromHandler = REQUIRED_COMMANDS.filter(
 );
 if (missingFromHandler.length > 0) {
   fail(
-    `lib.rs generate_handler! is missing commands: ${missingFromHandler.join(', ')} ` +
-      `(add pi_agent_host::<command> to the invoke_handler list)`,
+    `lib.rs generate_handler! is missing commands: ${missingFromHandler.join(', ')} (add pi_agent_host::<command> to the invoke_handler list)`,
   );
 }
 

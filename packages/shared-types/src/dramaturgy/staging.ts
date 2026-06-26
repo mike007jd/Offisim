@@ -168,7 +168,9 @@ export function worldAnchorsFor(
   affordances: (prefabId: string) => readonly InteractionAnchor[] = builtinPrefabAffordances,
 ): WorldAnchor[] {
   const out: WorldAnchor[] = [];
-  const sorted = [...prefabs].sort((p, q) => (p.instanceId < q.instanceId ? -1 : p.instanceId > q.instanceId ? 1 : 0));
+  const sorted = [...prefabs].sort((p, q) =>
+    p.instanceId < q.instanceId ? -1 : p.instanceId > q.instanceId ? 1 : 0,
+  );
   for (const prefab of sorted) {
     // Anchor offsets scale with the prefab's visual scale so the actor sits on the
     // SCALED furniture (the 3D scene draws prefabs in a scaled group); 2D omits
@@ -231,16 +233,22 @@ export function reserveStaging(
       const w = anchors[i] as WorldAnchor;
       if (w.kind !== req.affordance || reserved.has(i)) continue;
       const key =
-        req.x !== undefined && req.z !== undefined
-          ? (w.x - req.x) ** 2 + (w.z - req.z) ** 2
-          : i;
+        req.x !== undefined && req.z !== undefined ? (w.x - req.x) ** 2 + (w.z - req.z) ** 2 : i;
       if (key < bestKey) {
         bestKey = key;
         bestIndex = i;
       }
     }
     if (bestIndex < 0) {
-      return { actorId: req.actorId, affordance: req.affordance, anchorId: null, x: null, z: null, facing: null, posture: null };
+      return {
+        actorId: req.actorId,
+        affordance: req.affordance,
+        anchorId: null,
+        x: null,
+        z: null,
+        facing: null,
+        posture: null,
+      };
     }
     reserved.add(bestIndex);
     const anchor = anchors[bestIndex] as WorldAnchor;

@@ -14,7 +14,7 @@
  * node ELK bundle and asserts deterministic positions headlessly.
  */
 
-import type { ProjectedNode, ProjectedEdge } from './loop-graph-adapter.js';
+import type { ProjectedEdge, ProjectedNode } from './loop-graph-adapter.js';
 
 /** A laid-out node: projected node + absolute position + measured size. */
 export interface LaidOutNode {
@@ -179,11 +179,7 @@ export async function layoutGraph(
   for (const e of result.edges ?? []) {
     const section = e.sections?.[0];
     if (!section) continue;
-    edgeSections[e.id] = [
-      section.startPoint,
-      ...(section.bendPoints ?? []),
-      section.endPoint,
-    ];
+    edgeSections[e.id] = [section.startPoint, ...(section.bendPoints ?? []), section.endPoint];
   }
 
   return {

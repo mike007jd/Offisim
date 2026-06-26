@@ -5,8 +5,8 @@
  * (PR-08). Pure presentation over projected data.
  */
 
-import { NODE_GRAMMAR } from './loop-graph-grammar.js';
 import type { ProjectedNode } from './loop-graph-adapter.js';
+import { NODE_GRAMMAR } from './loop-graph-grammar.js';
 
 export interface LoopNodeInspectorProps {
   node: ProjectedNode | null;
@@ -16,7 +16,9 @@ export function LoopNodeInspector({ node }: LoopNodeInspectorProps) {
   if (!node) {
     return (
       <aside className="off-loopinspector off-loopinspector--empty" aria-label="Node inspector">
-        <p className="off-loopinspector-hint">Select a node to inspect its instruction, ports, and gates.</p>
+        <p className="off-loopinspector-hint">
+          Select a node to inspect its instruction, ports, and gates.
+        </p>
       </aside>
     );
   }
@@ -45,7 +47,9 @@ export function LoopNodeInspector({ node }: LoopNodeInspectorProps) {
       {node.referencedRevisionId ? (
         <section className="off-loopinspector-section">
           <span className="off-loopinspector-key">References</span>
-          <p className="off-loopinspector-text off-loopinspector-mono">{node.referencedRevisionId}</p>
+          <p className="off-loopinspector-text off-loopinspector-mono">
+            {node.referencedRevisionId}
+          </p>
         </section>
       ) : null}
 
@@ -62,6 +66,7 @@ export function LoopNodeInspector({ node }: LoopNodeInspectorProps) {
           <span className="off-loopinspector-key">Completion</span>
           <ul className="off-loopinspector-list">
             {insp.completion.map((line, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: static positional display list; items are never reordered
               <li key={i} className="off-loopinspector-item">
                 {line}
               </li>
@@ -76,6 +81,7 @@ export function LoopNodeInspector({ node }: LoopNodeInspectorProps) {
           {insp.inputs.length > 0 ? (
             <ul className="off-loopinspector-chips">
               {insp.inputs.map((p, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: static positional display list; items are never reordered
                 <li key={i} className="off-loopinspector-chip">
                   {p}
                 </li>
@@ -90,6 +96,7 @@ export function LoopNodeInspector({ node }: LoopNodeInspectorProps) {
           {insp.outputs.length > 0 ? (
             <ul className="off-loopinspector-chips">
               {insp.outputs.map((p, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: static positional display list; items are never reordered
                 <li key={i} className="off-loopinspector-chip">
                   {p}
                 </li>
@@ -106,6 +113,7 @@ export function LoopNodeInspector({ node }: LoopNodeInspectorProps) {
           <span className="off-loopinspector-key">Skills</span>
           <ul className="off-loopinspector-chips">
             {insp.skills.map((s, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: static positional display list; items are never reordered
               <li key={i} className="off-loopinspector-chip off-loopinspector-mono">
                 {s}
               </li>

@@ -218,38 +218,122 @@ function normalize(event: TimedAgentRunEvent): WorkSignal | null {
       // child (a direct child's parentRunId IS the rootRunId — still a child).
       const isChild = event.runId !== event.rootRunId;
       if (event.workKind === 'plan') {
-        return { ...base, kind: 'plan', priority: BEAT_PRIORITY.phase, affordance: 'board-presenter', movement: true, interrupt: false, activityKind: null };
+        return {
+          ...base,
+          kind: 'plan',
+          priority: BEAT_PRIORITY.phase,
+          affordance: 'board-presenter',
+          movement: true,
+          interrupt: false,
+          activityKind: null,
+        };
       }
       if (event.relation === 'review') {
-        return { ...base, kind: 'review', priority: BEAT_PRIORITY.delegation, affordance: 'standing-review', movement: true, interrupt: false, activityKind: null };
+        return {
+          ...base,
+          kind: 'review',
+          priority: BEAT_PRIORITY.delegation,
+          affordance: 'standing-review',
+          movement: true,
+          interrupt: false,
+          activityKind: null,
+        };
       }
       if (isChild) {
-        return { ...base, kind: 'delegate', priority: BEAT_PRIORITY.delegation, affordance: 'workstation', movement: true, interrupt: false, activityKind: null };
+        return {
+          ...base,
+          kind: 'delegate',
+          priority: BEAT_PRIORITY.delegation,
+          affordance: 'workstation',
+          movement: true,
+          interrupt: false,
+          activityKind: null,
+        };
       }
-      return { ...base, kind: 'receive-task', priority: BEAT_PRIORITY.ambient, affordance: 'workstation', movement: false, interrupt: false, activityKind: null };
+      return {
+        ...base,
+        kind: 'receive-task',
+        priority: BEAT_PRIORITY.ambient,
+        affordance: 'workstation',
+        movement: false,
+        interrupt: false,
+        activityKind: null,
+      };
     }
     case 'tool.started': {
       // Activity category from tool facts (the tool name), consistent with the
       // run projection — never the model, never shell content.
-      const ak: ActivityKind = event.payload.activityKind ?? classifyToolActivity(event.payload.toolName);
+      const ak: ActivityKind =
+        event.payload.activityKind ?? classifyToolActivity(event.payload.toolName);
       const map = ACTIVITY_BEAT[ak];
-      const priority = ak === 'inspect' || ak === 'wait' ? BEAT_PRIORITY.ambient : BEAT_PRIORITY.sustained;
-      return { ...base, kind: map.kind, priority, affordance: map.affordance, movement: false, interrupt: false, relocates: map.relocates, activityKind: ak };
+      const priority =
+        ak === 'inspect' || ak === 'wait' ? BEAT_PRIORITY.ambient : BEAT_PRIORITY.sustained;
+      return {
+        ...base,
+        kind: map.kind,
+        priority,
+        affordance: map.affordance,
+        movement: false,
+        interrupt: false,
+        relocates: map.relocates,
+        activityKind: ak,
+      };
     }
     case 'artifact.created':
       // A delivered artifact is a milestone: always emit, never swallowed by an
       // adjacent produce/write/edit stream.
-      return { ...base, kind: 'produce', priority: BEAT_PRIORITY.sustained, affordance: 'workstation', movement: false, interrupt: false, milestone: true, activityKind: null };
+      return {
+        ...base,
+        kind: 'produce',
+        priority: BEAT_PRIORITY.sustained,
+        affordance: 'workstation',
+        movement: false,
+        interrupt: false,
+        milestone: true,
+        activityKind: null,
+      };
     case 'approval.requested':
-      return { ...base, kind: 'approval', priority: BEAT_PRIORITY.approval, affordance: null, movement: false, interrupt: true, activityKind: null };
+      return {
+        ...base,
+        kind: 'approval',
+        priority: BEAT_PRIORITY.approval,
+        affordance: null,
+        movement: false,
+        interrupt: true,
+        activityKind: null,
+      };
     case 'run.failed':
     case 'run.cancelled':
-      return { ...base, kind: 'failure', priority: BEAT_PRIORITY.failure, affordance: null, movement: false, interrupt: true, activityKind: null };
+      return {
+        ...base,
+        kind: 'failure',
+        priority: BEAT_PRIORITY.failure,
+        affordance: null,
+        movement: false,
+        interrupt: true,
+        activityKind: null,
+      };
     case 'run.completed': {
       const isChild = event.runId !== event.rootRunId;
       return isChild
-        ? { ...base, kind: 'join', priority: BEAT_PRIORITY.delegation, affordance: 'standing-review', movement: true, interrupt: false, activityKind: null }
-        : { ...base, kind: 'complete', priority: BEAT_PRIORITY.phase, affordance: 'board-presenter', movement: true, interrupt: false, activityKind: null };
+        ? {
+            ...base,
+            kind: 'join',
+            priority: BEAT_PRIORITY.delegation,
+            affordance: 'standing-review',
+            movement: true,
+            interrupt: false,
+            activityKind: null,
+          }
+        : {
+            ...base,
+            kind: 'complete',
+            priority: BEAT_PRIORITY.phase,
+            affordance: 'board-presenter',
+            movement: true,
+            interrupt: false,
+            activityKind: null,
+          };
     }
     default:
       // run.delta and tool.completed stage nothing on their own.
@@ -341,7 +425,14 @@ export function composeBeats(
     const beatIndex = beatIndexByKey.get(idxKey) ?? 0;
     beatIndexByKey.set(idxKey, beatIndex + 1);
     const seed = hashString(
-      [config.dramaturgyVersion, signal.rootRunId, signal.runId, signal.employeeId ?? '', signal.kind, String(beatIndex)].join('|'),
+      [
+        config.dramaturgyVersion,
+        signal.rootRunId,
+        signal.runId,
+        signal.employeeId ?? '',
+        signal.kind,
+        String(beatIndex),
+      ].join('|'),
     );
     let variant = seed % variantCount;
     const last = lastVariantByKey.get(idxKey);
@@ -385,7 +476,11 @@ export function composeBeats(
     return parallel;
   };
   const trackRunEnd = (event: TimedAgentRunEvent): void => {
-    if (event.type === 'run.completed' || event.type === 'run.failed' || event.type === 'run.cancelled') {
+    if (
+      event.type === 'run.completed' ||
+      event.type === 'run.failed' ||
+      event.type === 'run.cancelled'
+    ) {
       runningChildren.get(event.rootRunId)?.delete(event.runId);
     }
   };
@@ -436,7 +531,12 @@ export function composeBeats(
         continue;
       }
 
-      actor.activity = { kind: signal.kind, startedAt: signal.at, lastAt: signal.at, relocated: false };
+      actor.activity = {
+        kind: signal.kind,
+        startedAt: signal.at,
+        lastAt: signal.at,
+        relocated: false,
+      };
       emit(signal, false, false);
       continue;
     }

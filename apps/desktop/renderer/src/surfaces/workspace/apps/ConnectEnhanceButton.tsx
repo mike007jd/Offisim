@@ -10,14 +10,14 @@
 // It NEVER auto-triggers and NEVER replaces text without the preview. Apply swaps
 // the text and offers a single Undo (Sonner) that restores the original.
 
+import { toMentionRoster } from '@/assistant/composer/composer-triggers.js';
+import { PromptEnhanceReview } from '@/assistant/enhance/PromptEnhanceReview.js';
+import { extractProtectedSpans } from '@/assistant/enhance/protected-spans.js';
+import { buildEnhanceRequest } from '@/assistant/enhance/service.js';
+import { createTauriEnhanceTransport } from '@/assistant/enhance/tauri-enhance-transport.js';
+import { useEnhance } from '@/assistant/enhance/useEnhance.js';
 import type { Employee } from '@/data/types.js';
 import { Icon } from '@/design-system/icons/Icon.js';
-import { toMentionRoster } from '@/assistant/composer/composer-triggers.js';
-import { buildEnhanceRequest } from '@/assistant/enhance/service.js';
-import { extractProtectedSpans } from '@/assistant/enhance/protected-spans.js';
-import { createTauriEnhanceTransport } from '@/assistant/enhance/tauri-enhance-transport.js';
-import { PromptEnhanceReview } from '@/assistant/enhance/PromptEnhanceReview.js';
-import { useEnhance } from '@/assistant/enhance/useEnhance.js';
 import { Sparkles } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';

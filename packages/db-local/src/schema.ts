@@ -1183,7 +1183,9 @@ export const missionAttempt = sqliteTable(
     started_at: text('started_at').notNull(),
     finished_at: text('finished_at'),
   },
-  (table) => [index('idx_mission_attempt_mission_number').on(table.mission_id, table.attempt_number)],
+  (table) => [
+    index('idx_mission_attempt_mission_number').on(table.mission_id, table.attempt_number),
+  ],
 );
 
 export const missionEvaluation = sqliteTable(

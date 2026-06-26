@@ -1524,18 +1524,12 @@ export interface CollaborationThreadRepository {
    * by `getOrCreateDirect` to enforce the active-direct uniqueness invariant
    * before inserting.
    */
-  findActiveDirect(
-    companyId: string,
-    employeeId: string,
-  ): Promise<CollaborationThreadRow | null>;
+  findActiveDirect(companyId: string, employeeId: string): Promise<CollaborationThreadRow | null>;
   /**
    * The most-recently-archived direct thread for `(companyId, employeeId)`, or
    * null. `getOrCreateDirect` restores this instead of creating a duplicate.
    */
-  findArchivedDirect(
-    companyId: string,
-    employeeId: string,
-  ): Promise<CollaborationThreadRow | null>;
+  findArchivedDirect(companyId: string, employeeId: string): Promise<CollaborationThreadRow | null>;
   /** Non-archived threads for the company; caller orders by last activity. */
   listByCompany(companyId: string): Promise<CollaborationThreadRow[]>;
   update(threadId: string, patch: CollaborationThreadPatch): Promise<void>;

@@ -6,16 +6,16 @@
 // invalidates the Connect query keys after the turn settles so the persisted rows
 // the controller upserted become visible.
 
-import { useEffect, useRef, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import type { CollaborationMessage } from '@offisim/shared-types';
 import { useCollaborationTurns } from '@/runtime/collaboration/collaboration-react.js';
+import { getCollaborationTurnController } from '@/runtime/collaboration/collaboration-runtime.js';
 import type {
   CollaborationScheduleResult,
   CollaborationThreadSnapshot,
   CollaborationTurnController,
 } from '@/runtime/collaboration/collaboration-turn-controller.js';
-import { getCollaborationTurnController } from '@/runtime/collaboration/collaboration-runtime.js';
+import type { CollaborationMessage } from '@offisim/shared-types';
+import { useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef, useState } from 'react';
 import { invalidateConnectThread } from './collaboration-data.js';
 
 export interface ConnectRuntime {

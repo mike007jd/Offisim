@@ -261,7 +261,6 @@ export {
   chatThreadUpdated,
 } from './events/event-factories.js';
 
-
 // --- Memory Repositories (browser-safe, no Drizzle/sqlite) ---
 export {
   createMemoryRepositories,

@@ -118,14 +118,18 @@ export function createCollaborationTauriRepos(db: TauriDrizzleDb): Collaboration
             isNull(schema.collaborationThreadMembers.left_at),
           ),
         )
-        .orderBy(asc(schema.collaborationThreadMembers.joined_at))) as CollaborationThreadMemberRow[];
+        .orderBy(
+          asc(schema.collaborationThreadMembers.joined_at),
+        )) as CollaborationThreadMemberRow[];
     },
     async listAllByThread(threadId) {
       return (await db
         .select()
         .from(schema.collaborationThreadMembers)
         .where(eq(schema.collaborationThreadMembers.thread_id, threadId))
-        .orderBy(asc(schema.collaborationThreadMembers.joined_at))) as CollaborationThreadMemberRow[];
+        .orderBy(
+          asc(schema.collaborationThreadMembers.joined_at),
+        )) as CollaborationThreadMemberRow[];
     },
     async markLeft(memberId, leftAt) {
       await db
@@ -151,7 +155,9 @@ export function createCollaborationTauriRepos(db: TauriDrizzleDb): Collaboration
       const rows = (await db
         .select()
         .from(schema.collaborationMessages)
-        .where(eq(schema.collaborationMessages.message_id, messageId))) as CollaborationMessageRow[];
+        .where(
+          eq(schema.collaborationMessages.message_id, messageId),
+        )) as CollaborationMessageRow[];
       return rows[0] ?? null;
     },
     async findByIdempotencyKey(threadId, idempotencyKey) {
@@ -206,7 +212,9 @@ export function createCollaborationTauriRepos(db: TauriDrizzleDb): Collaboration
         ? ((await db
             .select()
             .from(schema.collaborationMessages)
-            .where(eq(schema.collaborationMessages.message_id, messageId))) as CollaborationMessageRow[])
+            .where(
+              eq(schema.collaborationMessages.message_id, messageId),
+            )) as CollaborationMessageRow[])
         : [];
       const boundary = boundaryRows[0] ?? null;
       const newerClause = boundary
@@ -221,9 +229,9 @@ export function createCollaborationTauriRepos(db: TauriDrizzleDb): Collaboration
       const rows = (await db
         .select({ n: sql<number>`count(*)` })
         .from(schema.collaborationMessages)
-        .where(
-          and(eq(schema.collaborationMessages.thread_id, threadId), newerClause),
-        )) as Array<{ n: number }>;
+        .where(and(eq(schema.collaborationMessages.thread_id, threadId), newerClause))) as Array<{
+        n: number;
+      }>;
       return rows[0]?.n ?? 0;
     },
     async update(messageId, patch: CollaborationMessagePatch) {
@@ -244,7 +252,9 @@ export function createCollaborationTauriRepos(db: TauriDrizzleDb): Collaboration
       const rows = (await db
         .select()
         .from(schema.collaborationReadState)
-        .where(eq(schema.collaborationReadState.thread_id, threadId))) as CollaborationReadStateRow[];
+        .where(
+          eq(schema.collaborationReadState.thread_id, threadId),
+        )) as CollaborationReadStateRow[];
       return rows[0] ?? null;
     },
     async upsert(row: CollaborationReadStateRow) {

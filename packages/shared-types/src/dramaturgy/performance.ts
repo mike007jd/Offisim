@@ -61,27 +61,96 @@ export function performanceForBeat(beat: SceneBeat): CharacterPerformanceState {
     case 'receive-task':
       return { ...IDLE_PERFORMANCE, expression: 'focus', intensity: 1 };
     case 'plan':
-      return { locomotion: 'idle', posture: 'stand', workGesture: 'write-board', socialGesture: 'none', expression: 'thinking', prop: 'pointer', intensity: 1 };
+      return {
+        locomotion: 'idle',
+        posture: 'stand',
+        workGesture: 'write-board',
+        socialGesture: 'none',
+        expression: 'thinking',
+        prop: 'pointer',
+        intensity: 1,
+      };
     case 'delegate':
-      return { locomotion: 'idle', posture: 'stand', workGesture: 'handoff', socialGesture: 'none', expression: 'focus', prop: 'document', intensity: 1 };
+      return {
+        locomotion: 'idle',
+        posture: 'stand',
+        workGesture: 'handoff',
+        socialGesture: 'none',
+        expression: 'focus',
+        prop: 'document',
+        intensity: 1,
+      };
     case 'review':
-      return { locomotion: 'idle', posture: 'stand', workGesture: 'annotate', socialGesture: 'discuss', expression: 'focus', prop: 'pointer', intensity: 1 };
+      return {
+        locomotion: 'idle',
+        posture: 'stand',
+        workGesture: 'annotate',
+        socialGesture: 'discuss',
+        expression: 'focus',
+        prop: 'pointer',
+        intensity: 1,
+      };
     case 'research':
-      return { locomotion: 'idle', posture: 'sit', workGesture: 'read', socialGesture: 'none', expression: 'focus', prop: 'document', intensity: 1 };
+      return {
+        locomotion: 'idle',
+        posture: 'sit',
+        workGesture: 'read',
+        socialGesture: 'none',
+        expression: 'focus',
+        prop: 'document',
+        intensity: 1,
+      };
     case 'compute':
-      return { locomotion: 'idle', posture: 'stand', workGesture: 'inspect-terminal', socialGesture: 'none', expression: 'focus', prop: 'terminal', intensity: 1 };
+      return {
+        locomotion: 'idle',
+        posture: 'stand',
+        workGesture: 'inspect-terminal',
+        socialGesture: 'none',
+        expression: 'focus',
+        prop: 'terminal',
+        intensity: 1,
+      };
     case 'produce':
       return performanceForActivity(beat);
     case 'activity':
       return performanceForActivity(beat);
     case 'approval':
-      return { locomotion: 'idle', posture: 'stand', workGesture: 'none', socialGesture: 'none', expression: 'worried', intensity: 1 };
+      return {
+        locomotion: 'idle',
+        posture: 'stand',
+        workGesture: 'none',
+        socialGesture: 'none',
+        expression: 'worried',
+        intensity: 1,
+      };
     case 'failure':
-      return { locomotion: 'idle', posture: 'stand', workGesture: 'none', socialGesture: 'none', expression: 'worried', intensity: 2 };
+      return {
+        locomotion: 'idle',
+        posture: 'stand',
+        workGesture: 'none',
+        socialGesture: 'none',
+        expression: 'worried',
+        intensity: 2,
+      };
     case 'join':
-      return { locomotion: 'idle', posture: 'stand', workGesture: 'handoff', socialGesture: 'nod', expression: 'neutral', prop: 'document', intensity: 1 };
+      return {
+        locomotion: 'idle',
+        posture: 'stand',
+        workGesture: 'handoff',
+        socialGesture: 'nod',
+        expression: 'neutral',
+        prop: 'document',
+        intensity: 1,
+      };
     case 'complete':
-      return { locomotion: 'idle', posture: 'stand', workGesture: 'point', socialGesture: 'none', expression: 'happy', intensity: 2 };
+      return {
+        locomotion: 'idle',
+        posture: 'stand',
+        workGesture: 'point',
+        socialGesture: 'none',
+        expression: 'happy',
+        intensity: 2,
+      };
     default:
       return IDLE_PERFORMANCE;
   }
@@ -92,17 +161,49 @@ function performanceForActivity(beat: SceneBeat): CharacterPerformanceState {
   switch (beat.activityKind) {
     case 'read':
     case 'search':
-      return { locomotion: 'idle', posture: 'sit', workGesture: 'read', socialGesture: 'none', expression: 'focus', prop: 'document', intensity: 1 };
+      return {
+        locomotion: 'idle',
+        posture: 'sit',
+        workGesture: 'read',
+        socialGesture: 'none',
+        expression: 'focus',
+        prop: 'document',
+        intensity: 1,
+      };
     case 'shell':
     case 'build':
     case 'test':
-      return { locomotion: 'idle', posture: 'stand', workGesture: 'inspect-terminal', socialGesture: 'none', expression: 'focus', prop: 'terminal', intensity: 1 };
+      return {
+        locomotion: 'idle',
+        posture: 'stand',
+        workGesture: 'inspect-terminal',
+        socialGesture: 'none',
+        expression: 'focus',
+        prop: 'terminal',
+        intensity: 1,
+      };
     case 'inspect':
-      return { locomotion: 'idle', posture: 'sit', workGesture: 'inspect-terminal', socialGesture: 'none', expression: 'focus', prop: 'terminal', intensity: 1 };
+      return {
+        locomotion: 'idle',
+        posture: 'sit',
+        workGesture: 'inspect-terminal',
+        socialGesture: 'none',
+        expression: 'focus',
+        prop: 'terminal',
+        intensity: 1,
+      };
     case 'wait':
       return { ...IDLE_PERFORMANCE, expression: 'thinking', intensity: 0 };
     default:
       // write / edit / artifact / unknown → typing at the workstation.
-      return { locomotion: 'idle', posture: 'sit', workGesture: 'type', socialGesture: 'none', expression: 'focus', prop: 'laptop', intensity: 1 };
+      return {
+        locomotion: 'idle',
+        posture: 'sit',
+        workGesture: 'type',
+        socialGesture: 'none',
+        expression: 'focus',
+        prop: 'laptop',
+        intensity: 1,
+      };
   }
 }

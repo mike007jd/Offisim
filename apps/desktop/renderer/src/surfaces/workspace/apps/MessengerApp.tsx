@@ -10,7 +10,6 @@
 // PR-01 single-pending invariant per active speaker turn; unread / archive / time.
 
 import { useUiState } from '@/app/ui-state.js';
-import { generateId } from '@offisim/core/browser';
 import { displayThreadTitle } from '@/data/adapters.js';
 import { useEmployees } from '@/data/queries.js';
 import type { Employee } from '@/data/types.js';
@@ -22,8 +21,9 @@ import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 import { parseMentions } from '@/runtime/collaboration/collaboration-context.js';
 import { EmptyState, ErrorState, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
-import type { CollaborationMessage, CollaborationReplyPolicy } from '@offisim/shared-types';
+import { generateId } from '@offisim/core/browser';
 import type { CollaborationThreadSummary } from '@offisim/core/browser';
+import type { CollaborationMessage, CollaborationReplyPolicy } from '@offisim/shared-types';
 import {
   Archive,
   ArchiveRestore,
@@ -100,7 +100,10 @@ function timeLabelFrom(iso: string): string {
 
 /* ── List row ─────────────────────────────────────────────────────────────── */
 
-function ThreadAvatar({ thread, employee }: { thread: CollaborationThreadSummary; employee: Employee | null }) {
+function ThreadAvatar({
+  thread,
+  employee,
+}: { thread: CollaborationThreadSummary; employee: Employee | null }) {
   if (thread.kind === 'group') {
     return (
       <span className="off-ws-im-av is-group">
@@ -159,7 +162,9 @@ function ThreadRow({
         </span>
         <span className="off-ws-im-l2">
           <span className="off-ws-im-snip">{snippet}</span>
-          {thread.unreadCount > 0 ? <span className="off-ws-im-nb">{thread.unreadCount}</span> : null}
+          {thread.unreadCount > 0 ? (
+            <span className="off-ws-im-nb">{thread.unreadCount}</span>
+          ) : null}
         </span>
       </span>
     </button>
@@ -189,7 +194,7 @@ function MessageRow({
   onStop?: () => void;
 }) {
   const isMe = row.author === 'boss';
-  const name = isMe ? 'You' : employee?.name ?? row.senderLabel ?? 'Teammate';
+  const name = isMe ? 'You' : (employee?.name ?? row.senderLabel ?? 'Teammate');
   if (row.pending) {
     return (
       <div className="off-ws-msg-row">
@@ -297,6 +302,7 @@ export function MessengerApp() {
   const markRead = useMarkRead(companyId);
 
   // Reset draft + selection on a company switch (the company key changes).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: companyId is an intentionally tracked invalidation key (reset on company switch); selectItem is an unmemoized function ref (not added to avoid render loops).
   useEffect(() => {
     setDraft(null);
     selectItem(null);
@@ -308,6 +314,7 @@ export function MessengerApp() {
   // an existing active direct thread → open it; none → open a fresh direct draft.
   // Wait until threads + employees have loaded so the existing-direct lookup is
   // accurate (a draft created before the list resolves would shadow a real thread).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: byId.get, list.find, consumePendingDirectChat, selectItem are function/method refs (not added to avoid render loops); companyId intentionally not re-listed (stable across the intent window).
   useEffect(() => {
     if (!pendingDirectChatEmployeeId) return;
     if (threads.isLoading || employees.isLoading) return;
@@ -338,6 +345,7 @@ export function MessengerApp() {
 
   // Mark the active persisted thread read when opened / when its latest changes.
   const latestId = activeThread?.lastMessage?.messageId ?? null;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: activeThread?.unreadCount is intentionally not re-added (covered by latestId change signal); markRead.mutate is an unmemoized method ref (not added to avoid render loops).
   useEffect(() => {
     if (activeThreadId && latestId && (activeThread?.unreadCount ?? 0) > 0) {
       markRead.mutate({ threadId: activeThreadId });
@@ -353,6 +361,7 @@ export function MessengerApp() {
     return displayThreadTitle(thread.title);
   };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: titleFor is an unmemoized function ref (not added to avoid render loops); byId is the memoized backing map already tracked.
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return list;
@@ -456,7 +465,7 @@ export function MessengerApp() {
     .map((m) => ({
       memberId: m.memberId,
       employeeId: m.employeeId ?? null,
-      name: m.employeeId ? byId.get(m.employeeId)?.name ?? 'Member' : 'Member',
+      name: m.employeeId ? (byId.get(m.employeeId)?.name ?? 'Member') : 'Member',
     }));
   const askTeamMembers = useConnectMembers(askTeamOpen ? activeThreadId : null);
   const askTeamEmployees = (askTeamMembers.data ?? [])
@@ -505,7 +514,9 @@ export function MessengerApp() {
               key={thread.threadId}
               thread={thread}
               title={titleFor(thread)}
-              employee={thread.directEmployeeId ? byId.get(thread.directEmployeeId) ?? null : null}
+              employee={
+                thread.directEmployeeId ? (byId.get(thread.directEmployeeId) ?? null) : null
+              }
               active={thread.threadId === selectedId}
               onSelect={() => {
                 setDraft(null);
@@ -522,7 +533,7 @@ export function MessengerApp() {
                   thread={thread}
                   title={titleFor(thread)}
                   employee={
-                    thread.directEmployeeId ? byId.get(thread.directEmployeeId) ?? null : null
+                    thread.directEmployeeId ? (byId.get(thread.directEmployeeId) ?? null) : null
                   }
                   active={thread.threadId === selectedId}
                   onSelect={() => {
@@ -581,7 +592,12 @@ export function MessengerApp() {
           onAsk={(responderEmployeeIds) => {
             const trigger = activeThread.lastMessage;
             setAskTeamOpen(false);
-            if (trigger) void runtime.askTeam(activeThread.threadId, toRuntimeMessage(trigger), responderEmployeeIds);
+            if (trigger)
+              void runtime.askTeam(
+                activeThread.threadId,
+                toRuntimeMessage(trigger),
+                responderEmployeeIds,
+              );
           }}
         />
       ) : null}
@@ -591,7 +607,9 @@ export function MessengerApp() {
 
 /** Project a persisted summary's last message into the controller's message shape
  *  (Ask team / round triggers reference the last boss message). */
-function toRuntimeMessage(message: NonNullable<CollaborationThreadSummary['lastMessage']>): CollaborationMessage {
+function toRuntimeMessage(
+  message: NonNullable<CollaborationThreadSummary['lastMessage']>,
+): CollaborationMessage {
   return message;
 }
 
@@ -707,13 +725,16 @@ function PersistedThreadDetail({
   }
   const hasBossTrigger = lastBossRef.current != null;
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: persisted.length and snapshot.turns are intentionally tracked derived values used to trigger scroll-to-bottom on message/turn changes (the callback doesn't reference them directly).
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [persisted.length, snapshot.turns]);
 
   const isGroup = thread.kind === 'group';
-  const directEmployee = thread.directEmployeeId ? byId.get(thread.directEmployeeId) ?? null : null;
+  const directEmployee = thread.directEmployeeId
+    ? (byId.get(thread.directEmployeeId) ?? null)
+    : null;
   const subtitle = isGroup
     ? `${policyLabel(thread.replyPolicy)} · group`
     : `Direct · ${directEmployee?.role ?? '—'}`;
@@ -755,7 +776,7 @@ function PersistedThreadDetail({
               <MessageRow
                 key={row.id}
                 row={row}
-                employee={row.employeeId ? byId.get(row.employeeId) ?? null : null}
+                employee={row.employeeId ? (byId.get(row.employeeId) ?? null) : null}
                 onStop={
                   row.turnId && (row.status === 'streaming' || row.pending)
                     ? () => runtime.stop(row.turnId as string)
@@ -765,7 +786,8 @@ function PersistedThreadDetail({
                   row.turnId && row.status === 'failed'
                     ? () => {
                         const trigger = lastBossRef.current;
-                        if (trigger) void runtime.retry(thread.threadId, row.turnId as string, trigger);
+                        if (trigger)
+                          void runtime.retry(thread.threadId, row.turnId as string, trigger);
                       }
                     : undefined
                 }
@@ -838,7 +860,7 @@ function DraftThreadDetail({
   onSend: (body: string) => Promise<void>;
 }) {
   const employeesList = useEmployees();
-  const directEmployee = draft.kind === 'direct' ? byId.get(draft.employeeId) ?? null : null;
+  const directEmployee = draft.kind === 'direct' ? (byId.get(draft.employeeId) ?? null) : null;
   const title = draft.kind === 'direct' ? draft.employeeName : draft.title;
   const subtitle =
     draft.kind === 'direct'
@@ -992,7 +1014,11 @@ function Composer({
       {error ? (
         <div className="off-connect-send-error">
           <span>{error}</span>
-          <button type="button" className="off-connect-retry off-focusable" onClick={() => void doSend()}>
+          <button
+            type="button"
+            className="off-connect-retry off-focusable"
+            onClick={() => void doSend()}
+          >
             <Icon icon={RotateCw} size="sm" />
             Retry
           </button>

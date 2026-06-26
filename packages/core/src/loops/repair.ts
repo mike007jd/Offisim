@@ -9,14 +9,16 @@
  * recommended default, capped at three).
  */
 
-import type { LoopBudgetContract, LoopCompileQuestion, LoopValidationFinding } from '@offisim/shared-types';
+import type {
+  LoopBudgetContract,
+  LoopCompileQuestion,
+  LoopValidationFinding,
+} from '@offisim/shared-types';
 import type { LoopCompileInput, LoopModelOutput } from './types.js';
 import { LOOP_LIMITS } from './types.js';
 
 /** Tier → default budget caps (mirrors fleet PARALLELISM.md tier table). */
-export function defaultBudgetForTier(
-  tier: LoopBudgetContract['tier'],
-): LoopBudgetContract {
+export function defaultBudgetForTier(tier: LoopBudgetContract['tier']): LoopBudgetContract {
   switch (tier) {
     case 'light':
       return {
@@ -34,7 +36,6 @@ export function defaultBudgetForTier(
         maxRecursionDepth: 3,
         maxFixWavesPerGate: 3,
       };
-    case 'standard':
     default:
       return {
         tier: 'standard',
@@ -81,19 +82,34 @@ export function repairOrReject(input: LoopCompileInput, model: LoopModelOutput):
   if (byteLength(input.sourcePrompt) > LOOP_LIMITS.maxSourcePromptBytes) {
     return {
       kind: 'reject',
-      findings: [reject('input.too_large', `source prompt exceeds ${LOOP_LIMITS.maxSourcePromptBytes} bytes`)],
+      findings: [
+        reject(
+          'input.too_large',
+          `source prompt exceeds ${LOOP_LIMITS.maxSourcePromptBytes} bytes`,
+        ),
+      ],
     };
   }
-  if (input.enhancedPrompt && byteLength(input.enhancedPrompt) > LOOP_LIMITS.maxEnhancedPromptBytes) {
+  if (
+    input.enhancedPrompt &&
+    byteLength(input.enhancedPrompt) > LOOP_LIMITS.maxEnhancedPromptBytes
+  ) {
     return {
       kind: 'reject',
-      findings: [reject('input.enhanced_too_large', `enhanced prompt exceeds ${LOOP_LIMITS.maxEnhancedPromptBytes} bytes`)],
+      findings: [
+        reject(
+          'input.enhanced_too_large',
+          `enhanced prompt exceeds ${LOOP_LIMITS.maxEnhancedPromptBytes} bytes`,
+        ),
+      ],
     };
   }
   if (model.structuredHints !== undefined && !isPlainObject(model.structuredHints)) {
     // A malformed draft is REPAIRED to "no hints", not rejected — the compiler can
     // still build a default IR from the prompt. Record a warning for traceability.
-    findings.push(warn('model.malformed_hints', 'model structuredHints was not an object — ignored'));
+    findings.push(
+      warn('model.malformed_hints', 'model structuredHints was not an object — ignored'),
+    );
   }
   const hints = isPlainObject(model.structuredHints) ? model.structuredHints : undefined;
 
@@ -116,14 +132,17 @@ export function repairOrReject(input: LoopCompileInput, model: LoopModelOutput):
   //     request is too thin to even name an observable outcome — no model
   //     acceptance items, no answer, AND no usable outcome signal (the profile can
   //     otherwise default to the verification matrix). Capped, with a default. ---
-  const hasAcceptance = Array.isArray(hints?.acceptance) && (hints.acceptance as unknown[]).length > 0;
-  const answeredAcceptance = typeof answers.acceptance === 'string' ? answers.acceptance.trim() : '';
+  const hasAcceptance =
+    Array.isArray(hints?.acceptance) && (hints.acceptance as unknown[]).length > 0;
+  const answeredAcceptance =
+    typeof answers.acceptance === 'string' ? answers.acceptance.trim() : '';
   const outcomeSignal = (typeof hints?.outcome === 'string' ? hints.outcome.trim() : '') || source;
   if (!hasAcceptance && answeredAcceptance.length === 0 && outcomeSignal.length < 8) {
     questions.push({
       id: 'acceptance',
       question: 'What is the observable "done" — the smallest demo that proves it works?',
-      recommendedDefault: 'The project verification matrix (tests, build, types) passes on the integrated change',
+      recommendedDefault:
+        'The project verification matrix (tests, build, types) passes on the integrated change',
     });
   }
 

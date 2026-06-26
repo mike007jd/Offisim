@@ -25,6 +25,7 @@ import type {
   LoopCompileModel,
   LoopCompileResult,
   LoopCompilerProfile,
+  LoopModelOutput,
   ValidationFinding,
 } from '../../types.js';
 import { LOOP_COMPILER_VERSION } from '../../types.js';
@@ -147,7 +148,8 @@ function buildIR(
   const profileData: Record<string, unknown> = {
     scope: hintString(hints, 'scope'),
     nonGoals: hintArray(hints, 'nonGoals'),
-    authority: hintString(hints, 'authority') || 'local-only; push/PR/deploy require explicit authority',
+    authority:
+      hintString(hints, 'authority') || 'local-only; push/PR/deploy require explicit authority',
     consumptionTier: budget.tier,
     exitStates: ['success', 'budget-exhausted', 'blocked-handoff'],
     repositoryEvidence: inspected
@@ -205,7 +207,11 @@ function buildAcceptance(hints: Record<string, unknown> | undefined): LoopAccept
         oracle,
         required: e.required !== false,
       };
-      if (oracle === 'deterministic' && typeof e.evaluatorId === 'string' && e.evaluatorId.length > 0) {
+      if (
+        oracle === 'deterministic' &&
+        typeof e.evaluatorId === 'string' &&
+        e.evaluatorId.length > 0
+      ) {
         item.evaluatorId = e.evaluatorId;
       }
       items.push(item);
@@ -218,7 +224,8 @@ function buildAcceptance(hints: Record<string, unknown> | undefined): LoopAccept
     // test/build/type matrix passes on the integrated revision.
     items.push({
       id: 'acc_matrix',
-      description: 'Project verification matrix (tests, build, types) passes on the integrated revision',
+      description:
+        'Project verification matrix (tests, build, types) passes on the integrated revision',
       oracle: 'deterministic',
       evaluatorId: 'command_exit_zero',
       required: true,
@@ -244,7 +251,7 @@ export const softwareDevelopmentProfile: LoopCompilerProfile = {
   async compile(input: LoopCompileInput, model: LoopCompileModel): Promise<LoopCompileResult> {
     // 1. Call the injected model. Bad/throwing model output must not crash —
     //    repairOrReject turns any failure into a deterministic invalid/needs_input.
-    let modelOutput;
+    let modelOutput: LoopModelOutput;
     try {
       modelOutput = await model(input);
     } catch (error) {
@@ -316,7 +323,8 @@ export const softwareDevelopmentProfile: LoopCompilerProfile = {
     const profileFindings = this.validateProfileData ? this.validateProfileData(ir) : [];
 
     const allFindings = [...generic.findings, ...allInfra, ...profileFindings];
-    const ok = generic.ok && allInfra.length === 0 && !profileFindings.some((f) => f.severity === 'error');
+    const ok =
+      generic.ok && allInfra.length === 0 && !profileFindings.some((f) => f.severity === 'error');
 
     if (!ok) {
       return {
@@ -340,7 +348,11 @@ export const softwareDevelopmentProfile: LoopCompilerProfile = {
     const findings: ValidationFinding[] = [];
     const data = ir.profileData;
     if (!data || typeof data !== 'object') {
-      findings.push({ code: 'profile.missing_data', message: 'software profileData missing', severity: 'error' });
+      findings.push({
+        code: 'profile.missing_data',
+        message: 'software profileData missing',
+        severity: 'error',
+      });
       return findings;
     }
     // Re-scan the built profileData for forbidden infra (defense in depth: a value

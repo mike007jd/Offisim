@@ -359,18 +359,14 @@ export function GroupMembersDialog({
   const [query, setQuery] = useState('');
   // Local edit set: start from the current active employee members.
   const initialActive = useMemo(
-    () =>
-      new Set(
-        members
-          .filter((m) => m.employeeId)
-          .map((m) => m.employeeId as string),
-      ),
+    () => new Set(members.filter((m) => m.employeeId).map((m) => m.employeeId as string)),
     [members],
   );
   const [active, setActive] = useState<Set<string>>(initialActive);
   // Re-sync the local edit set whenever the dialog opens or the underlying
   // membership changes (a member added/removed elsewhere while it was closed).
   const initialKey = [...initialActive].sort().join('|');
+  // biome-ignore lint/correctness/useExhaustiveDependencies: initialActive is an unmemoized Set ref (not added to avoid identity-churn loops); initialKey is an intentionally tracked derived value (stable string of membership) used to gate re-sync on real membership changes only.
   useEffect(() => {
     if (open) setActive(new Set(initialActive));
     // initialActive is derived from `members`; key the effect on the stable

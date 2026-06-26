@@ -35,7 +35,7 @@ const SHARED_PREAMBLE = [
   'You rewrite a user-authored message to make it clearer and more effective.',
   'You return ONLY the rewritten message text — never a preface, never your reasoning, never a system note inside it.',
   'Preserve every @mention, {{variable}}, fenced code block, file path, attachment id, and reference token EXACTLY as written; do not rephrase, translate, or reformat them.',
-  'Keep the user\'s original language and locale.',
+  "Keep the user's original language and locale.",
   'Do not pad length to seem more thorough. A short, clear message stays short.',
 ].join('\n');
 

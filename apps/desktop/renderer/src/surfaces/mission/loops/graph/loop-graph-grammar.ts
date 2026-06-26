@@ -5,19 +5,19 @@
  * harness, future tests, and the components share one source of truth.
  */
 
+import type { LoopEdgeKind, LoopNodeKind } from '@offisim/shared-types';
 import {
   AlertTriangle,
   CircleDot,
   Flag,
   GitBranch,
+  type LucideIcon,
   PlayCircle,
   Repeat,
   RotateCcw,
   ShieldCheck,
   UserCheck,
-  type LucideIcon,
 } from 'lucide-react';
-import type { LoopNodeKind, LoopEdgeKind } from '@offisim/shared-types';
 
 export interface NodeGrammar {
   icon: LucideIcon;
@@ -54,5 +54,11 @@ export const EDGE_GRAMMAR: Record<LoopEdgeKind, EdgeGrammar> = {
   next: { line: 'solid', emphasized: false },
   feedback: { icon: RotateCcw, line: 'loopback', emphasized: true, defaultLabel: 'feedback' },
   retry: { icon: Repeat, line: 'dashed', emphasized: false, defaultLabel: 'retry' },
-  escalate: { icon: AlertTriangle, line: 'solid', emphasized: true, defaultLabel: 'escalate', severity: 'warn' },
+  escalate: {
+    icon: AlertTriangle,
+    line: 'solid',
+    emphasized: true,
+    defaultLabel: 'escalate',
+    severity: 'warn',
+  },
 };

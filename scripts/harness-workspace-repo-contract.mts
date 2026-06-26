@@ -77,7 +77,10 @@ function makeProxyDb(sqlite: Database.Database): TauriDrizzleDb {
       sqlite.prepare(sql).run(...bind);
       return { rows: [] };
     }
-    const rows = sqlite.prepare(sql).raw().all(...bind) as unknown[][];
+    const rows = sqlite
+      .prepare(sql)
+      .raw()
+      .all(...bind) as unknown[][];
     if (method === 'get') {
       return { rows: rows[0] ?? [] };
     }
@@ -105,8 +108,9 @@ async function main(): Promise<void> {
   await runBackend(
     'better-sqlite3',
     (sqlite) =>
-      createWorkspaceDrizzleRepos(drizzleBetter(sqlite) as BetterSQLite3Database<Record<string, never>>)
-        .officeLayouts as unknown as OfficeLayoutsContractRepo,
+      createWorkspaceDrizzleRepos(
+        drizzleBetter(sqlite) as BetterSQLite3Database<Record<string, never>>,
+      ).officeLayouts as unknown as OfficeLayoutsContractRepo,
   );
 
   await runBackend(

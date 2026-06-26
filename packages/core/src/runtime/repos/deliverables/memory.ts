@@ -83,10 +83,7 @@ export class MemoryDeliverableRepository implements DeliverableRepository {
     );
   }
 
-  async listByRunId(
-    runId: string,
-    opts?: { limit?: number },
-  ): Promise<DeliverableSummaryRow[]> {
+  async listByRunId(runId: string, opts?: { limit?: number }): Promise<DeliverableSummaryRow[]> {
     const limit = opts?.limit ?? DEFAULT_LIST_LIMIT;
     const filtered = [...this.summaryStore.values()].filter((row) => row.run_id === runId);
     filtered.sort((a, b) => b.created_at.localeCompare(a.created_at));

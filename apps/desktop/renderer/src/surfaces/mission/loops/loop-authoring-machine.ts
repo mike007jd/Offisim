@@ -133,12 +133,7 @@ export function isDirty(model: LoopAuthoringModel): boolean {
  * already in flight.
  */
 export function canCompile(model: LoopAuthoringModel): boolean {
-  return (
-    model.prompt.trim().length > 0 &&
-    !model.compiling &&
-    !model.enhancing &&
-    !model.saving
-  );
+  return model.prompt.trim().length > 0 && !model.compiling && !model.enhancing && !model.saving;
 }
 
 /**

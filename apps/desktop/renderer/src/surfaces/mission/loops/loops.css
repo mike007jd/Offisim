@@ -122,8 +122,8 @@
   background: var(--off-surface-1);
   box-shadow: var(--off-elev-1);
   overflow: hidden;
-  transition: border-color var(--off-motion-fast) var(--off-motion-ease),
-    box-shadow var(--off-motion-fast) var(--off-motion-ease);
+  transition: border-color var(--off-motion-fast) var(--off-motion-ease), box-shadow
+    var(--off-motion-fast) var(--off-motion-ease);
 }
 .off-loop-card:hover {
   border-color: var(--off-line-strong);
@@ -262,24 +262,24 @@
   color: var(--off-ink-3);
   background: var(--off-surface-sunken);
 }
-.off-loop-editor-state[data-state='ready'],
-.off-loop-editor-state[data-state='saved'] {
+.off-loop-editor-state[data-state="ready"],
+.off-loop-editor-state[data-state="saved"] {
   color: var(--off-ok);
   background: var(--off-ok-surface);
 }
-.off-loop-editor-state[data-state='needs_input'],
-.off-loop-editor-state[data-state='dirty'] {
+.off-loop-editor-state[data-state="needs_input"],
+.off-loop-editor-state[data-state="dirty"] {
   color: var(--off-warn);
   background: var(--off-warn-surface);
 }
-.off-loop-editor-state[data-state='invalid'],
-.off-loop-editor-state[data-state='error'] {
+.off-loop-editor-state[data-state="invalid"],
+.off-loop-editor-state[data-state="error"] {
   color: var(--off-danger);
   background: var(--off-danger-surface);
 }
-.off-loop-editor-state[data-state='compiling'],
-.off-loop-editor-state[data-state='saving'],
-.off-loop-editor-state[data-state='enhancing'] {
+.off-loop-editor-state[data-state="compiling"],
+.off-loop-editor-state[data-state="saving"],
+.off-loop-editor-state[data-state="enhancing"] {
   color: var(--off-accent);
   background: var(--off-accent-surface);
 }
