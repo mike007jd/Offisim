@@ -46,6 +46,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { type WsConversation, type WsMessage, dayLabelFrom } from '../workspace-data.js';
 import { usePersistedWorkspaceMessages } from '../workspace-message-events.js';
+import {
+  type PresentationMessage,
+  mergePresentationMessages,
+  shouldShowPendingReply,
+  visibleWorkspaceMessages,
+} from './workspace-chat-presentation.js';
 
 const DELIVERABLE_EXTENSION: Record<string, string> = {
   MD: 'md',
@@ -95,13 +101,9 @@ function workspaceTimeLabel(date = new Date()): string {
 }
 
 function mergeWorkspaceMessages(...sources: WsMessage[][]): WsMessage[] {
-  const merged = new Map<string, WsMessage>();
-  for (const source of sources) {
-    for (const message of source) {
-      merged.set(message.id, message);
-    }
-  }
-  return Array.from(merged.values()).sort((a, b) => (a.at ?? 0) - (b.at ?? 0));
+  // De-dup + ordering live in the pure module so the presentation harness can
+  // prove the "live draft wins over a same-id persisted shell" guarantee.
+  return mergePresentationMessages(...sources);
 }
 
 function chatAttachmentToWorkspace(attachments: readonly ChatAttachment[] | undefined) {
@@ -241,11 +243,15 @@ function DeliverableInline({
   );
 }
 
-/** Bouncing-dot typing indicator shown between send and the first streamed
- *  token, shaped like an incoming employee message row. */
-function ThinkingRow({ employee }: { employee: Employee | null }) {
+/** The single synthetic pending row shown between send and the first visible
+ *  assistant payload, shaped like an incoming employee message row. Exactly one
+ *  bubble; it is the ONLY pending expression for an active attempt (empty
+ *  persisted shells are filtered out of the transcript). Direct chats label with
+ *  the employee name; group chats label with `Team` — never an empty
+ *  `Employee`. */
+function PendingAssistantRow({ employee }: { employee: Employee | null }) {
   return (
-    <div className="off-ws-msg-row" aria-live="polite">
+    <div className="off-ws-msg-row" role="status" aria-live="polite">
       <div className="off-ws-msg-from">
         {employee ? (
           <EmployeeAvatar
@@ -261,7 +267,10 @@ function ThinkingRow({ employee }: { employee: Employee | null }) {
         <span className="off-ws-msg-rl">thinking…</span>
       </div>
       <div className="off-ws-bubble is-thinking">
-        <span className="off-ws-thinking-dots" aria-label="Employee is thinking">
+        <span
+          className="off-ws-thinking-dots"
+          aria-label={`${employee?.name ?? 'Team'} is thinking`}
+        >
           <i />
           <i />
           <i />
@@ -369,22 +378,65 @@ export function WorkspaceAssistantThread({
     () => run.liveMessages.map((message) => chatMessageToWorkspaceMessage(message, active)),
     [active, run.liveMessages],
   );
-  const runtimeMessages = useMemo(
+  const mergedMessages = useMemo(
     () => mergeWorkspaceMessages(messages, persistedMessages.data ?? [], liveMessages),
     [messages, persistedMessages.data, liveMessages],
+  );
+  // Per-id attempt/status carried only by the live run (WsMessage drops them).
+  // Lets the pending invariant key on the CURRENT attempt and treat terminal
+  // (interrupted/failed) turns as a visible terminal state, not a hung shell.
+  const liveMetaById = useMemo(() => {
+    const meta = new Map<string, { attemptId: string | null; status?: string }>();
+    for (const message of run.liveMessages) {
+      meta.set(message.id, { attemptId: message.attemptId ?? null, status: message.status });
+    }
+    return meta;
+  }, [run.liveMessages]);
+  // Presentation projection used only by the frozen visibility invariant. Empty
+  // assistant shells (persisted legacy rows, just-created checkpoints with no
+  // payload yet) are filtered here so they never co-render with the pending row.
+  const presentationMessages = useMemo<PresentationMessage[]>(
+    () =>
+      mergedMessages.map((message) => {
+        const meta = liveMetaById.get(message.id);
+        return {
+          id: message.id,
+          author: message.author,
+          body: message.body,
+          reasoning: message.reasoning,
+          toolCalls: message.toolCalls,
+          attachment: message.attachment,
+          deliverable: message.deliverable,
+          attemptId: meta?.attemptId ?? null,
+          status: meta?.status,
+        };
+      }),
+    [mergedMessages, liveMetaById],
+  );
+  // Apply the visibility filter once; reuse it for both the rendered WsMessage
+  // rows (via id membership) and the pending-row decision.
+  const visiblePresentationMessages = useMemo(
+    () => visibleWorkspaceMessages(presentationMessages),
+    [presentationMessages],
+  );
+  const visibleIds = useMemo(
+    () => new Set(visiblePresentationMessages.map((message) => message.id)),
+    [visiblePresentationMessages],
+  );
+  const runtimeMessages = useMemo(
+    () => mergedMessages.filter((message) => visibleIds.has(message.id)),
+    [mergedMessages, visibleIds],
   );
   const runtimeMessageById = useMemo(
     () => new Map(runtimeMessages.map((message) => [message.id, message])),
     [runtimeMessages],
   );
   const isRunning = isConversationRunActive(run.phase);
-  const awaitingReply =
-    isRunning &&
-    !run.liveMessages.some(
-      (message) =>
-        message.author !== 'boss' &&
-        (message.body.trim() || message.reasoning?.trim() || message.toolCalls?.length),
-    );
+  const awaitingReply = shouldShowPendingReply({
+    run: { phase: run.phase, attemptId: run.attemptId },
+    visibleMessages: visiblePresentationMessages,
+    activeAttemptId: run.attemptId,
+  });
   // Day separator follows the first rendered message's real timestamp. Messages
   // without one (fixtures, just-sent drafts) are "now"-shaped, so 'Today' holds.
   // Scope: one separator per thread (labels the conversation start), not
@@ -481,7 +533,7 @@ export function WorkspaceAssistantThread({
     <AssistantRuntimeProvider runtime={runtime}>
       <ThreadPrimitive.Root className="off-ws-thread">
         <ThreadPrimitive.Viewport className="off-ws-conv-scroll">
-          {runtimeMessages.length === 0 ? (
+          {runtimeMessages.length === 0 && !awaitingReply ? (
             <EmptyState
               icon={MessageSquarePlus}
               title="No messages yet"
@@ -506,7 +558,7 @@ export function WorkspaceAssistantThread({
                 }}
               </ThreadPrimitive.Messages>
               {awaitingReply ? (
-                <ThinkingRow
+                <PendingAssistantRow
                   employee={active.employeeId ? (byId.get(active.employeeId) ?? null) : null}
                 />
               ) : null}
