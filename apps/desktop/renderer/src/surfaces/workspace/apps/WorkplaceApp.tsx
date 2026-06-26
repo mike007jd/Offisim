@@ -63,7 +63,7 @@ export function WorkplaceApp() {
           </div>
         </div>
 
-        <div className="off-ws-wp-sec-h">Apps</div>
+        <div className="off-ws-wp-sec-h">Tools</div>
         <div className="off-ws-wp-apps">
           <button
             type="button"

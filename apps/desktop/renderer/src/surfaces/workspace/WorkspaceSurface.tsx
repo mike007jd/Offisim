@@ -44,7 +44,7 @@ function AppRail() {
   }
 
   return (
-    <nav className="off-ws-rail" aria-label="Workspace apps">
+    <nav className="off-ws-rail" aria-label="Connect">
       <span className="off-ws-rail-id" title="You">
         <EmployeeAvatar
           seed="Boss"

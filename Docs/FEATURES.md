@@ -105,11 +105,23 @@ Verification:
 - `pnpm harness:chat-attachment-roundtrip` when attachment flow changes
 - release `.app` workspace panel checks when user flow changes
 
-## Workspace Apps
+## Connect
 
-Purpose: provide focused operational views around a company workspace:
-Messenger, Calendar, Contacts, Workplace, and Assistant Thread. Calendar is
-honest-empty in 1.0 — `meeting_sessions` is inert with no live writer (see
+Connect is the company's daily communication and collaboration space — chat,
+calendar, contacts, and tools — for people talking to each other and to their AI
+employees. It is not a generic app launcher and not a second entry point into
+Office's live project work; the two surfaces are semantically distinct. Office
+owns live 3D project execution against a project folder; Connect owns
+human-and-employee communication around the company.
+
+Connect's chat data is a separate domain from Office's per-project assistant
+threads (the Collaboration data domain landed in PR-02): a Connect conversation
+does not share state with, or reopen as, an Office project thread. The internal
+route/surface key remains `workspace` as a legacy identifier, but the
+user-visible surface is "Connect".
+
+Rail: Chats, Calendar, Contacts, Workplace. Calendar is honest-empty in 1.0 —
+`meeting_sessions` is inert with no live writer (see
 `Docs/contracts/inert-storage-ledger.md`); it must not imply scheduled execution.
 
 Owner paths:
