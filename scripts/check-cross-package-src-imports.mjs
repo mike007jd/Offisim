@@ -116,6 +116,11 @@ const ALLOWLIST = new Set([
   'scripts/harness-loop-office-invocation.mts::../packages/core/src/runtime/memory-repositories.ts',
   'scripts/harness-loop-office-invocation.mts::../packages/core/src/browser.ts',
   'scripts/harness-loop-office-invocation.mts::../packages/core/src/loops/types.ts',
+  // PR-08 Loops authoring-flow harness: drives the pure state machine + the
+  // model-adapter mapping over the in-memory loop repos (un-built, like its peers).
+  'scripts/harness-loop-authoring-flow.mts::../packages/core/src/runtime/memory-repositories.ts',
+  'scripts/harness-loop-authoring-flow.mts::../packages/core/src/browser.ts',
+  'scripts/harness-loop-authoring-flow.mts::../packages/core/src/loops/types.ts',
 ]);
 
 // Matches an import/export/require specifier that reaches into a package's src,
