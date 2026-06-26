@@ -31,6 +31,7 @@ import {
 } from '../apps/desktop/renderer/src/runtime/collaboration/collaboration-context.js';
 import {
   createCollaborationTurnController,
+  emptyCollaborationSnapshot,
   type CollaborationThreadContext,
 } from '../apps/desktop/renderer/src/runtime/collaboration/collaboration-turn-controller.js';
 import type {
@@ -247,6 +248,12 @@ await (async () => {
   // the final body is the canned reply (upserted, not duplicated).
   const turn = controller.getSnapshot(ctx.threadId).turns[0];
   check('(5) turn streamed into a stable message id', turn.messageId.length > 0 && turn.phase === 'complete');
+  // getSnapshot MUST be reference-stable between emits or useSyncExternalStore
+  // loops forever and the Connect surface crashes on mount (caught live in the
+  // release .app; the deterministic gates can't see the React invariant).
+  check('(5) getSnapshot is reference-stable between changes', controller.getSnapshot(ctx.threadId) === controller.getSnapshot(ctx.threadId));
+  check('(5) getSnapshot on an untouched thread is reference-stable', controller.getSnapshot('untouched') === controller.getSnapshot('untouched'));
+  check('(5) emptyCollaborationSnapshot is reference-stable per threadId', emptyCollaborationSnapshot('x') === emptyCollaborationSnapshot('x'));
   const finalMsg = await repos.collaborationMessages.findById(turn.messageId);
   check('(5) the stable message row was upserted to complete', finalMsg?.status === 'complete' && finalMsg?.body === 'reply from e-alex', JSON.stringify(finalMsg));
   // Exactly two visible messages: boss + the single reply (no duplicate).

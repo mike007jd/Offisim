@@ -131,12 +131,23 @@ export interface CollaborationScheduleResult {
   roundCompleted: boolean;
 }
 
-const EMPTY_SNAPSHOT = (threadId: string): CollaborationThreadSnapshot => ({
-  threadId,
-  turns: [],
-  running: false,
-  lastRound: null,
-});
+// Stable per-thread empty snapshots. The Connect hook renders this before the
+// controller resolves (controller === null); useSyncExternalStore needs the SAME
+// reference each call or it loops forever, so cache by threadId rather than
+// minting a fresh object per render.
+const EMPTY_SNAPSHOTS = new Map<string, CollaborationThreadSnapshot>();
+const EMPTY_SNAPSHOT = (threadId: string): CollaborationThreadSnapshot => {
+  const cached = EMPTY_SNAPSHOTS.get(threadId);
+  if (cached) return cached;
+  const snapshot: CollaborationThreadSnapshot = {
+    threadId,
+    turns: [],
+    running: false,
+    lastRound: null,
+  };
+  EMPTY_SNAPSHOTS.set(threadId, snapshot);
+  return snapshot;
+};
 
 export class CollaborationTurnController {
   // Per-thread live state (in-memory; the durable ledger is collaboration_turns).
@@ -147,19 +158,27 @@ export class CollaborationTurnController {
   // Active abort controllers keyed by turnId (stop affects only that turn).
   private readonly abortByTurn = new Map<string, AbortController>();
   private readonly listeners = new Map<string, Set<() => void>>();
+  // Cached per-thread snapshot. useSyncExternalStore requires getSnapshot to
+  // return a STABLE reference between changes (a fresh object every call is an
+  // infinite render loop / crash). emit() invalidates the thread's entry.
+  private readonly snapshotCache = new Map<string, CollaborationThreadSnapshot>();
 
   constructor(private readonly deps: CollaborationTurnControllerDeps) {}
 
   // ── Public store API (PR-05 consumes these) ────────────────────────────────
 
   getSnapshot(threadId: string): CollaborationThreadSnapshot {
+    const cached = this.snapshotCache.get(threadId);
+    if (cached) return cached;
     const turns = this.threadState.get(threadId) ?? [];
-    return {
+    const snapshot: CollaborationThreadSnapshot = {
       threadId,
       turns: turns.map((t) => ({ ...t })),
       running: turns.some((t) => t.phase === 'pending' || t.phase === 'streaming'),
       lastRound: this.lastRoundByThread.get(threadId) ?? null,
     };
+    this.snapshotCache.set(threadId, snapshot);
+    return snapshot;
   }
 
   subscribe(threadId: string, listener: () => void): () => void {
@@ -524,6 +543,9 @@ export class CollaborationTurnController {
   }
 
   private emit(threadId: string): void {
+    // Invalidate the cached snapshot so the next getSnapshot rebuilds with the
+    // new state, then notify subscribers (useSyncExternalStore re-reads).
+    this.snapshotCache.delete(threadId);
     for (const listener of this.listeners.get(threadId) ?? []) listener();
   }
 }
