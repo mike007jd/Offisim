@@ -122,10 +122,12 @@ export function createLoopDrizzleRepos(db: Db): LoopDrizzleRepos {
 
   const loopInvocations: LoopInvocationRepository = {
     async insert(row: NewLoopInvocation) {
-      db.insert(schema.loopInvocations)
-        .values(row)
-        .onConflictDoNothing({ target: schema.loopInvocations.invocation_id })
-        .run();
+      // No onConflictDoNothing: an invocation_id is a fresh UUID per send and the
+      // no-orphan compensation deletes-then-re-inserts with a NEW id, so insert is
+      // never idempotent by design. A duplicate id must surface as a PK violation
+      // (mirrors loop_definitions / loop_revisions in this file) — a silent skip
+      // would let a later setMissionId() link a new mission onto an OLD row.
+      db.insert(schema.loopInvocations).values(row).run();
     },
     async findById(invocationId) {
       const rows = db
@@ -154,6 +156,12 @@ export function createLoopDrizzleRepos(db: Db): LoopDrizzleRepos {
     async setMissionId(invocationId, missionId) {
       db.update(schema.loopInvocations)
         .set({ mission_id: missionId })
+        .where(eq(schema.loopInvocations.invocation_id, invocationId))
+        .run();
+    },
+    async deleteById(invocationId) {
+      // Send-time compensation only (PR-10): undo a just-inserted orphan invocation.
+      db.delete(schema.loopInvocations)
         .where(eq(schema.loopInvocations.invocation_id, invocationId))
         .run();
     },

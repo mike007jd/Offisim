@@ -105,6 +105,12 @@ const ALLOWLIST = new Set([
   // drives the controller against the in-memory collaboration repos + service.
   'scripts/harness-pi-collaboration-runtime.mts::../packages/core/src/runtime/repos/collaboration/memory.js',
   'scripts/harness-pi-collaboration-runtime.mts::../packages/core/src/runtime/collaboration/collaboration-service.js',
+  // PR-10 Loop → Office Send invocation harness (same build/gate-tooling pattern as
+  // the loop/mission harnesses): it drives the pure send-time materializer against
+  // the in-memory loop + mission repos and the real LoopService/MissionService.
+  'scripts/harness-loop-office-invocation.mts::../packages/core/src/runtime/memory-repositories.ts',
+  'scripts/harness-loop-office-invocation.mts::../packages/core/src/browser.ts',
+  'scripts/harness-loop-office-invocation.mts::../packages/core/src/loops/types.ts',
 ]);
 
 // Matches an import/export/require specifier that reaches into a package's src,

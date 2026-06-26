@@ -261,7 +261,7 @@ class FakeRepos {
   }
 }
 
-function makeEnv(): HarnessEnv {
+function makeEnv(options: { failPersistFirst?: boolean } = {}): HarnessEnv {
   const eventBus = new InMemoryEventBus();
   const runtime = new FakeRuntime(eventBus);
   const persisted: PersistCall[] = [];
@@ -269,6 +269,7 @@ function makeEnv(): HarnessEnv {
   const repos = new FakeRepos();
   let now = Date.parse('2026-06-20T00:00:00.000Z');
   let uuid = 0;
+  let persistCalls = 0;
   const controller = createConversationRunController({
     eventBus,
     runtimeFactory: async () => runtime,
@@ -290,6 +291,13 @@ function makeEnv(): HarnessEnv {
         ),
     }),
     persistMessage: async (call) => {
+      persistCalls += 1;
+      // Optionally fail the FIRST persist (the loop turn's user-message write, which
+      // runs AFTER loopExecution.start succeeded) so the controller falls into
+      // failRun → saveRetryRecord — the path the retry-strip scenario exercises.
+      if (options.failPersistFirst && persistCalls === 1) {
+        throw new Error('persist failed after loop materialization');
+      }
       persisted.push({
         ...call,
         message: JSON.parse(JSON.stringify(call.message)) as ChatMessage,
@@ -516,6 +524,49 @@ const scenarios: Array<{
         retryAttempt: snapshot.attemptId,
         finalBody: snapshot.liveMessages[1]?.body,
       };
+    },
+  },
+  {
+    name: 'PR-10: retry of a Loop-backed turn NEVER re-materializes (loopExecution stripped from retry record)',
+    criteria:
+      'Pass when a Loop turn whose message-persist fails AFTER loopExecution.start succeeded leaves a retry record with NO loopExecution: retry runs a plain agent (start called exactly once, no second invocation/mission), never a re-materialize.',
+    run: async () => {
+      // Persist fails on the first (loop) turn, AFTER start() already ran — so the
+      // controller falls into failRun → saveRetryRecord. The retry must not re-fire
+      // start (which would double-materialize) nor silently run a plain agent on a
+      // mission-linked message — it runs a clean plain retry because the record was
+      // stripped of loopExecution.
+      const env = makeEnv({ failPersistFirst: true });
+      let startCalls = 0;
+      env.runtime.onExecute = async (input) => {
+        env.runtime.emitContent(input, 'plain retry reply');
+        return { text: 'plain retry reply' };
+      };
+      await submitDefault(env.controller, {
+        loopExecution: {
+          start: async () => {
+            startCalls += 1;
+          },
+        },
+      });
+      await waitFor(
+        'loop turn failed on persist',
+        () => env.controller.getSnapshot('thread-1').phase === 'failed',
+      );
+      assert.equal(startCalls, 1, 'loopExecution.start ran once on the original send');
+      const failedSnapshot = env.controller.getSnapshot('thread-1');
+
+      // Retry the failed loop turn. It must run the plain agent path (executeAttempt),
+      // NOT re-fire start.
+      await env.controller.retry('thread-1', failedSnapshot.attemptId ?? '');
+      await waitFor(
+        'retry completed via plain agent',
+        () => env.controller.getSnapshot('thread-1').phase === 'completed',
+      );
+      assert.equal(startCalls, 1, 'retry did NOT re-fire loopExecution.start (no re-materialize)');
+      const snapshot = env.controller.getSnapshot('thread-1');
+      assert.equal(snapshot.liveMessages[1]?.body, 'plain retry reply', 'retry ran the plain agent');
+      return { startCalls, retryPhase: snapshot.phase };
     },
   },
   {

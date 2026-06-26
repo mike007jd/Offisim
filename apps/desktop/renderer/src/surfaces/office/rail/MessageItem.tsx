@@ -6,8 +6,20 @@ import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn, relativeTime } from '@/lib/utils.js';
 import { MessagePrimitive } from '@assistant-ui/react';
-import { ChevronRight, FileText, Terminal } from 'lucide-react';
+import { ChevronRight, FileText, Repeat, Terminal } from 'lucide-react';
 import { useState } from 'react';
+
+/** Parse Loop reference tokens (`[[loop:<revisionId>]]`) out of a message body so
+ *  the transcript can render them as Loop badges instead of raw token text. */
+const TRANSCRIPT_LOOP_TOKEN_RE = /\[\[loop:([A-Za-z0-9._-]+)\]\]/g;
+function loopRevisionIdsInBody(body: string): string[] {
+  const ids: string[] = [];
+  for (let m = TRANSCRIPT_LOOP_TOKEN_RE.exec(body); m; m = TRANSCRIPT_LOOP_TOKEN_RE.exec(body)) {
+    if (m[1] && !ids.includes(m[1])) ids.push(m[1]);
+  }
+  TRANSCRIPT_LOOP_TOKEN_RE.lastIndex = 0;
+  return ids;
+}
 
 /** Expanded run record: Activity (tool feed, with ×N collapse) + Plan (who did
  *  what, role + cost).
@@ -102,6 +114,7 @@ interface MessageItemProps {
 export function MessageItem({ message, employeesById }: MessageItemProps) {
   const meta = authorMeta(message, employeesById);
   const reasoningStreaming = isReasoningStreaming(message);
+  const loopRevisionIds = loopRevisionIdsInBody(message.body ?? '');
   return (
     <MessagePrimitive.Root asChild>
       <article className={cn('off-msg', `is-${message.author}`)}>
@@ -122,6 +135,12 @@ export function MessageItem({ message, employeesById }: MessageItemProps) {
         <div className="off-msg-body">
           <AssistantMessageParts reasoningStreaming={reasoningStreaming} />
         </div>
+        {loopRevisionIds.map((revisionId) => (
+          <div key={revisionId} className="off-msg-loop-ref">
+            <Icon icon={Repeat} size="sm" />
+            <span className="off-msg-loop-ref-label">Loop run</span>
+          </div>
+        ))}
         {message.attachments?.map((attachment) => (
           <div key={attachment.id} className="off-attachment">
             <span className="off-att-icon">

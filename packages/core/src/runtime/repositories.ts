@@ -1392,6 +1392,13 @@ export interface LoopInvocationRepository {
   countByLoop(loopId: string): Promise<number>;
   /** Stamp the Mission this invocation materialized into (PR-10). */
   setMissionId(invocationId: string, missionId: string): Promise<void>;
+  /**
+   * Hard-delete an invocation row (PR-10 send-time compensation). Used ONLY to undo
+   * a just-inserted invocation when the rest of the Send transaction (mission
+   * create / link) fails — so a failed send leaves NO orphan. Idempotent: deleting
+   * a missing id is a no-op.
+   */
+  deleteById(invocationId: string): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------

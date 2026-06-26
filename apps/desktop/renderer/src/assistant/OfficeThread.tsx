@@ -5,7 +5,13 @@ import { Icon } from '@/design-system/icons/Icon.js';
 import { ConvOutputs } from '@/surfaces/office/rail/ConvOutputs.js';
 import { MessageItem } from '@/surfaces/office/rail/MessageItem.js';
 import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
-import { AssistantRuntimeProvider, ComposerPrimitive, ThreadPrimitive } from '@assistant-ui/react';
+import {
+  AssistantRuntimeProvider,
+  ComposerPrimitive,
+  ThreadPrimitive,
+  useComposer,
+  useComposerRuntime,
+} from '@assistant-ui/react';
 import { listen } from '@tauri-apps/api/event';
 import { MessageSquarePlus, Paperclip, SendHorizontal, Square } from 'lucide-react';
 import { type DragEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -16,9 +22,15 @@ import {
   ThinkingControl,
 } from './composer/ComposerControls.js';
 import { OfficeEnhanceButton } from './enhance/OfficeEnhanceButton.js';
+import { ComposerLoopChip } from './composer/ComposerLoopChip.js';
 import { ComposerTriggers } from './composer/ComposerTriggers.js';
+import { LoopPicker } from './composer/LoopPicker.js';
 import { StagedAttachments } from './composer/StagedAttachments.js';
 import { useComposerAttachmentStore } from './composer/composer-attachment-store.js';
+import {
+  loopReferenceToken,
+  useComposerLoopReferenceStore,
+} from './composer/composer-loop-reference-store.js';
 import { ChatErrorBanner } from './parts/ChatErrorBanner.js';
 import { MeetingTray } from './parts/Meeting.js';
 import { PermissionApprovalBar } from './parts/PermissionApprovalBar.js';
@@ -64,6 +76,45 @@ interface OfficeThreadProps {
    * persisted (deferred conversation creation).
    */
   materializeThread?: (firstUserText: string) => Promise<void>;
+}
+
+/**
+ * Send affordance supporting a Loop-chip-only message (PR-10: "empty text + Loop
+ * chip → allow Send"). assistant-ui's `ComposerPrimitive.Send` disables on an empty
+ * composer, so when the only content is a Loop chip we render a small custom Send
+ * that seeds the loop token (clearing the non-empty gate) and sends; `onNew` strips
+ * the seeded token and re-appends it once. With typed text it defers to the
+ * standard `ComposerPrimitive.Send` (the no-Loop / has-text path is unchanged).
+ */
+function LoopAwareSend({ threadId }: { threadId: string }) {
+  const reference = useComposerLoopReferenceStore((s) => s.byThread[threadId]);
+  const text = useComposer((c) => c.text);
+  const composer = useComposerRuntime();
+
+  if (text.trim().length > 0 || !reference) {
+    return (
+      <ComposerPrimitive.Send className="off-composer-send off-focusable" aria-label="Send">
+        <span>Send</span>
+        <Icon icon={SendHorizontal} size="sm" />
+      </ComposerPrimitive.Send>
+    );
+  }
+
+  const chip = reference;
+  return (
+    <button
+      type="button"
+      className="off-composer-send off-focusable"
+      aria-label="Run Loop"
+      onClick={() => {
+        composer.setText(loopReferenceToken(chip));
+        composer.send();
+      }}
+    >
+      <span>Run Loop</span>
+      <Icon icon={SendHorizontal} size="sm" />
+    </button>
+  );
 }
 
 function OfficeComposer({
@@ -167,6 +218,7 @@ function OfficeComposer({
     <ComposerPrimitive.Unstable_TriggerPopoverRoot>
       <div className="off-composer-trigger-host">
         <ComposerTriggers employees={employees} />
+        <LoopPicker />
         <ComposerPrimitive.Root
           ref={composerRef}
           className={`off-composer${dragActive ? ' is-drop-active' : ''}`}
@@ -198,6 +250,7 @@ function OfficeComposer({
           <PermissionApprovalBar threadId={threadId} />
           <RunActivityStrip threadId={threadId} />
           <div className="off-composer-shell">
+            <ComposerLoopChip threadId={threadId} />
             <ComposerPrimitive.Input
               className="off-composer-input"
               placeholder={employeeName ? `Message ${employeeName}` : 'Message the team'}
@@ -255,13 +308,7 @@ function OfficeComposer({
                     <Icon icon={Square} size="sm" />
                   </ComposerPrimitive.Cancel>
                 ) : (
-                  <ComposerPrimitive.Send
-                    className="off-composer-send off-focusable"
-                    aria-label="Send"
-                  >
-                    <span>Send</span>
-                    <Icon icon={SendHorizontal} size="sm" />
-                  </ComposerPrimitive.Send>
+                  <LoopAwareSend threadId={threadId} />
                 )}
               </div>
             </div>

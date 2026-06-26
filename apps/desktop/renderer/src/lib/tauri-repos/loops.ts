@@ -111,10 +111,12 @@ export function createLoopTauriRepos(db: TauriDrizzleDb): LoopTauriRepos {
 
   const loopInvocations: LoopInvocationRepository = {
     async insert(row: NewLoopInvocation) {
-      await db
-        .insert(schema.loopInvocations)
-        .values(row)
-        .onConflictDoNothing({ target: schema.loopInvocations.invocation_id });
+      // No onConflictDoNothing: invocation ids are fresh per send and the no-orphan
+      // compensation deletes-then-re-inserts with a NEW id, so insert is never
+      // idempotent by design. A duplicate id must surface as a PK violation (mirrors
+      // loop_definitions / loop_revisions) — a silent skip would let a later
+      // setMissionId() link a new mission onto an OLD row.
+      await db.insert(schema.loopInvocations).values(row);
     },
     async findById(invocationId) {
       const rows = (await db
@@ -141,6 +143,13 @@ export function createLoopTauriRepos(db: TauriDrizzleDb): LoopTauriRepos {
       await db
         .update(schema.loopInvocations)
         .set({ mission_id: missionId })
+        .where(eq(schema.loopInvocations.invocation_id, invocationId));
+    },
+    async deleteById(invocationId) {
+      // Send-time compensation only (PR-10): undo a just-inserted orphan invocation
+      // when the rest of the Send transaction fails, so no orphan survives.
+      await db
+        .delete(schema.loopInvocations)
         .where(eq(schema.loopInvocations.invocation_id, invocationId));
     },
   };

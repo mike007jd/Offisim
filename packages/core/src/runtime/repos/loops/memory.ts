@@ -130,7 +130,14 @@ export class MemoryLoopInvocationRepository implements LoopInvocationRepository 
   private readonly store = new Map<string, LoopInvocationRow>();
 
   async insert(row: NewLoopInvocation): Promise<void> {
-    if (this.store.has(row.invocation_id)) return;
+    // A duplicate invocation_id is a real error, never a silent skip — invocation
+    // ids are fresh per send and the no-orphan compensation deletes-then-re-inserts
+    // with a NEW id, so insert is never idempotent. A silent no-op would let a later
+    // setMissionId() link a new mission onto an OLD row. Mirror the PK violation the
+    // persistent backends now raise (and loop_definitions / loop_revisions).
+    if (this.store.has(row.invocation_id)) {
+      throw new Error(`loop_invocations PRIMARY KEY violated: ${row.invocation_id}`);
+    }
     this.store.set(row.invocation_id, { ...row });
   }
 
@@ -158,6 +165,10 @@ export class MemoryLoopInvocationRepository implements LoopInvocationRepository 
     const row = this.store.get(invocationId);
     if (!row) return;
     this.store.set(invocationId, { ...row, mission_id: missionId });
+  }
+
+  async deleteById(invocationId: string): Promise<void> {
+    this.store.delete(invocationId);
   }
 }
 
