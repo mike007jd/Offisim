@@ -150,9 +150,14 @@ export type {
   NewCollaborationThreadMember,
   CollaborationMessageRepository,
   CollaborationMessageRow,
+  CollaborationMessagePatch,
   NewCollaborationMessage,
   CollaborationReadStateRepository,
   CollaborationReadStateRow,
+  CollaborationTurnRepository,
+  CollaborationTurnRow,
+  CollaborationTurnPatch,
+  NewCollaborationTurn,
 } from './runtime/repositories.js';
 export type { InstallTransactionRepository } from './repos/install-transaction-repository.js';
 export type { InstalledPackageRepository } from './repos/installed-package-repository.js';

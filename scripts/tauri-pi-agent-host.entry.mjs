@@ -897,6 +897,179 @@ async function runEnhance(payload) {
   }
 }
 
+// ── Collaboration capability profile (PR-03) ─────────────────────────────────
+//
+// Daily company chat: an AI employee replies to a Collaboration thread (direct,
+// a mentioned member, or a roundtable speaker). Like `runEnhance` it is HOST-
+// ENFORCED isolated — but unlike enhance it STREAMS (the renderer needs live
+// messageDelta to upsert the visible reply). It is NOT a work run: it must NEVER
+// register a tool, NEVER bind a project workspace, NEVER persist a transcript.
+//
+// Isolation, enforced three ways so a regression can't silently re-arm tools (the
+// same belt-and-suspenders as enhance):
+//   1. `noTools: 'all'`  — the SDK starts with NO tools enabled.
+//   2. `tools: []`       — the explicit allowlist enables nothing on top.
+//   3. resourceLoader carries ONLY `appendSystemPrompt` (the persona + collab
+//      context packet) and ZERO `extensionFactories` — no permission gate, no
+//      delegation, no publish, no mission bridge, no `ctx.ui` binding.
+//
+// The conversationKey (companyId + collaborationThreadId + employeeId) is the
+// session identity; it is NOT a project workspace. The persona and participant
+// roster ride in `systemPromptAppend` as identity CONTEXT only — never a delegate
+// roster (no `roster` is read here, and no delegate tool is ever registered).
+async function runCollaboration(payload) {
+  const text = asNonEmptyString(payload.text);
+  if (!text) {
+    throw Object.assign(new Error('Collaboration requests must include text.'), {
+      code: 'invalid-request',
+    });
+  }
+  // A neutral cwd (Rust passes a non-project dir). Never bind a workspace.
+  const cwd = asNonEmptyString(payload.cwd) ?? process.cwd();
+  const agentDir = asNonEmptyString(payload.agentDir);
+  const { authStorage, modelRegistry } = createPiRegistries(agentDir);
+  const model = selectedModel(modelRegistry, payload.model);
+  if (payload.model && !model) {
+    throw Object.assign(new Error(`Pi model override was not found: ${payload.model}`), {
+      code: 'model-not-found',
+    });
+  }
+  const thinkingLevel = normalizeThinkingLevel(payload.thinkingLevel);
+
+  // No SessionManager persistence: a fresh, ephemeral session with no session
+  // directory, so nothing is written to disk and no transcript survives. The
+  // renderer owns the persisted collaboration message / turn rows.
+  const sessionManager = SessionManager.create(cwd);
+  const settingsManager = SettingsManager.create(cwd, agentDir);
+  // The persona + collaboration context packet is the ONLY appended prompt; NO
+  // extension factories. `systemPromptAppend` is built renderer-side and carries
+  // the speaking employee's persona, the thread's reply policy, the participant
+  // identities, the recent message window, and the explicit "daily chat, no tools,
+  // no project work" instruction (the spec's Context packet).
+  const systemPromptAppend = asNonEmptyString(payload.systemPromptAppend);
+  const appendSystemPrompt = systemPromptAppend ? [systemPromptAppend] : [];
+  const resourceLoader = new DefaultResourceLoader({
+    cwd,
+    agentDir,
+    settingsManager,
+    ...(appendSystemPrompt.length > 0 ? { appendSystemPrompt } : {}),
+  });
+  await resourceLoader.reload();
+
+  const { session, modelFallbackMessage } = await createAgentSession({
+    cwd,
+    agentDir,
+    authStorage,
+    modelRegistry,
+    sessionManager,
+    resourceLoader,
+    // Belt-and-suspenders tool suppression — see the isolation note above.
+    noTools: 'all',
+    tools: [],
+    ...(model ? { model } : {}),
+    ...(thinkingLevel ? { thinkingLevel } : {}),
+  });
+
+  let latestText = '';
+  let activeReasoningText = '';
+  let latestReasoningText = '';
+  let emittedReasoning = false;
+  const rootUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
+  const unsubscribe = session.subscribe((event) => {
+    if (event.type === 'agent_start') {
+      emit(
+        startedLine({
+          sessionId: session.sessionId,
+          sessionFile: session.sessionFile,
+          model: session.model ? modelSummary(session.model) : undefined,
+          modelFallbackMessage,
+        }),
+      );
+      return;
+    }
+    if (event.type === 'message_update') {
+      const streamEvent = event.assistantMessageEvent;
+      if (streamEvent?.type === 'text_delta' && streamEvent.delta) {
+        emit(messageDeltaLine({ channel: 'content', delta: clampText(streamEvent.delta) }));
+      }
+      if (streamEvent?.type === 'thinking_delta' && streamEvent.delta) {
+        activeReasoningText += streamEvent.delta;
+        emittedReasoning = true;
+        emit(messageDeltaLine({ channel: 'reasoning', delta: clampText(streamEvent.delta) }));
+      }
+      return;
+    }
+    if (event.type === 'message_end') {
+      if (event.message?.role === 'assistant') {
+        const reasoningText = clampText(messageThinking(event.message) || activeReasoningText);
+        if (reasoningText && !activeReasoningText.trim()) {
+          emittedReasoning = true;
+          emit(messageDeltaLine({ channel: 'reasoning', delta: reasoningText }));
+        }
+        latestReasoningText = reasoningText;
+        activeReasoningText = '';
+        latestText = clampText(messageText(event.message));
+        const u = event.message.usage;
+        if (u) {
+          rootUsage.input += u.input || 0;
+          rootUsage.output += u.output || 0;
+          rootUsage.cacheRead += u.cacheRead || 0;
+          rootUsage.cacheWrite += u.cacheWrite || 0;
+          rootUsage.cost += u.cost?.total || 0;
+          rootUsage.turns += 1;
+        }
+        emit(
+          messageEndLine({
+            text: latestText,
+            stopReason: event.message.stopReason,
+            errorMessage: event.message.errorMessage,
+          }),
+        );
+      }
+      return;
+    }
+    // A tool event here would mean isolation broke. There is no tool registered,
+    // so this branch is unreachable; if it ever fires, surface it loudly rather
+    // than silently letting a tool run on the collaboration path.
+    if (
+      event.type === 'tool_execution_start' ||
+      event.type === 'tool_execution_update' ||
+      event.type === 'tool_execution_end'
+    ) {
+      throw Object.assign(
+        new Error('Collaboration must not execute tools — isolation breach.'),
+        { code: 'collaboration-isolation' },
+      );
+    }
+  });
+
+  try {
+    await session.prompt(text);
+    const fallbackReasoning = clampText(messageThinking(lastAssistantMessage(session)));
+    const finalReasoning = clampText(latestReasoningText || fallbackReasoning);
+    if (fallbackReasoning && !emittedReasoning) {
+      emit(messageDeltaLine({ channel: 'reasoning', delta: fallbackReasoning }));
+    }
+    const finalText = clampText(session.getLastAssistantText() || latestText);
+    emit(
+      resultLine({
+        ok: true,
+        // The reply rides the existing `result` line — no new wire kind, no
+        // protocol bump. The renderer knows it is a collaboration result by which
+        // Tauri command it invoked (`agent_runtime_collaborate`).
+        text: finalText,
+        reasoning: finalReasoning || undefined,
+        sessionId: session.sessionId,
+        model: session.model ? modelSummary(session.model) : undefined,
+        usage: rootUsage,
+      }),
+    );
+  } finally {
+    unsubscribe();
+    session.dispose();
+  }
+}
+
 // The host is line-delimited on stdin: the FIRST line is the execute/status
 // payload, and (in Ask mode) every later line is a `uiResponse` answering a
 // `uiRequest` the host emitted mid-run. stdin is read as a stream so the agent
@@ -942,6 +1115,13 @@ function main() {
         // Dedicated one-shot enhance path: no tools, no workspace, no persistence,
         // no extension-UI stdin channel. Single completion → finish.
         runEnhance(payload).then(finishHost, fail);
+        return;
+      }
+      if (payload.mode === 'collaborate') {
+        // Collaboration capability profile (PR-03): STREAMING (messageDelta) but
+        // host-enforced zero tools / no workspace / no persistence — daily company
+        // chat, never a work run. Single completion → finish.
+        runCollaboration(payload).then(finishHost, fail);
         return;
       }
       runPrompt(payload).then(finishHost, fail);

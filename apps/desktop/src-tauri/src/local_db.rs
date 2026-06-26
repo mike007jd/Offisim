@@ -16,7 +16,7 @@ const LOCAL_SCHEMA_SQL: &str = include_str!("../../../../packages/db-local/src/s
 /// (b) bump this constant by 1, and (c) add a matching upgrade entry to
 /// `MIGRATIONS` so released user databases have an upgrade path. Public migration
 /// history starts only after the first public release baseline.
-const LOCAL_SCHEMA_VERSION: i64 = 5;
+const LOCAL_SCHEMA_VERSION: i64 = 6;
 
 /// Ordered upgrade chain for existing user databases: `(target_version, sql)`
 /// where each entry upgrades `target_version - 1` → `target_version`. Each entry
@@ -41,6 +41,10 @@ const MIGRATIONS: &[(i64, &str)] = &[
     (
         5,
         include_str!("../../../../packages/db-local/src/migrations/0005_loop_core.sql"),
+    ),
+    (
+        6,
+        include_str!("../../../../packages/db-local/src/migrations/0006_collaboration_turns.sql"),
     ),
 ];
 
@@ -483,6 +487,62 @@ mod tests {
                 "fresh bootstrap missing {name}"
             );
         }
+    }
+
+    #[tokio::test]
+    async fn migration_0006_reaches_same_end_state_as_fresh_bootstrap() {
+        // Fresh bootstrap from schema.sql → end-state signature at v6 (the latest).
+        let fresh = memory_pool().await;
+        ensure_schema(&fresh, LOCAL_SCHEMA_VERSION, LOCAL_SCHEMA_SQL, MIGRATIONS)
+            .await
+            .expect("fresh bootstrap to v6");
+        assert_eq!(
+            read_user_version(&fresh).await.unwrap(),
+            LOCAL_SCHEMA_VERSION
+        );
+        let fresh_sig = schema_object_signature(&fresh).await;
+
+        // Same honest scope as the 0005 test: 0006_collaboration_turns is
+        // additive-only (one new table + one new index, CREATE ... IF NOT EXISTS),
+        // so we construct the v5-shaped database by seeding the end-state baseline,
+        // DROPping exactly the objects 0006 introduces, stamping v5, then running
+        // the chain — only 0006 applies — and asserting byte-identical end-state.
+        let migrated = memory_pool().await;
+        apply_sql_and_stamp(&migrated, LOCAL_SCHEMA_SQL, LOCAL_SCHEMA_VERSION, "seed v6 baseline")
+            .await
+            .expect("seed v6 baseline");
+        let drop_turns_objects = "DROP TABLE IF EXISTS collaboration_turns;";
+        apply_sql_and_stamp(&migrated, drop_turns_objects, 5, "rewind to v5 (drop turns objects)")
+            .await
+            .expect("rewind to v5");
+        assert_eq!(read_user_version(&migrated).await.unwrap(), 5);
+        let v5_sig = schema_object_signature(&migrated).await;
+        assert!(
+            !v5_sig.iter().any(|(_, name)| name == "collaboration_turns"),
+            "collaboration_turns must be absent at v5"
+        );
+
+        ensure_schema(&migrated, LOCAL_SCHEMA_VERSION, LOCAL_SCHEMA_SQL, MIGRATIONS)
+            .await
+            .expect("upgrade v5 → v6 via 0006_collaboration_turns");
+        assert_eq!(
+            read_user_version(&migrated).await.unwrap(),
+            LOCAL_SCHEMA_VERSION
+        );
+        let migrated_sig = schema_object_signature(&migrated).await;
+
+        assert_eq!(
+            fresh_sig, migrated_sig,
+            "0006 migration end-state must match fresh schema.sql bootstrap (collaboration_turns incl.)"
+        );
+        assert!(
+            migrated_sig.contains(&("table".to_string(), "collaboration_turns".to_string())),
+            "v5→v6 migration missing collaboration_turns"
+        );
+        assert!(
+            fresh_sig.contains(&("table".to_string(), "collaboration_turns".to_string())),
+            "fresh bootstrap missing collaboration_turns"
+        );
     }
 
     #[tokio::test]

@@ -971,3 +971,36 @@ CREATE INDEX IF NOT EXISTS idx_loop_invocations_revision
   ON loop_invocations(revision_id);
 CREATE INDEX IF NOT EXISTS idx_loop_invocations_company_created
   ON loop_invocations(company_id, created_at);
+
+-- ---------------------------------------------------------------------------
+-- Collaboration turns (PR-03). Ledger of each AI reply's lifecycle on a
+-- Collaboration thread: streaming / error / usage recovery — NOT a transcript
+-- copy (the visible message lives in `collaboration_messages`). One row per
+-- scheduled speaker turn (direct reply, a mentioned member, or a roundtable
+-- speaker). Company-scoped only, like the rest of the domain: no `project_id`,
+-- never an `agent_runs` / mission row.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS collaboration_turns (
+  turn_id            TEXT PRIMARY KEY,
+  thread_id          TEXT NOT NULL REFERENCES collaboration_threads(thread_id) ON DELETE CASCADE,
+  -- The message that scheduled this speaker. Not an FK (a turn stays readable for
+  -- recovery even if the trigger message is removed, and may reference a
+  -- not-yet-persisted id).
+  trigger_message_id TEXT,
+  -- SET NULL on delete keeps the turn (usage / error recovery) readable after the
+  -- employee is dismissed.
+  employee_id        TEXT REFERENCES employees(employee_id) ON DELETE SET NULL,
+  sequence_index     INTEGER NOT NULL,
+  status             TEXT NOT NULL DEFAULT 'pending'
+                       CHECK (status IN ('pending', 'streaming', 'complete', 'interrupted', 'failed')),
+  runtime_request_id TEXT,
+  usage_json         TEXT,
+  error_summary      TEXT,
+  started_at         TEXT,
+  finished_at        TEXT
+);
+
+-- turn scheduling / recovery lookup: a thread's turns in speaker order
+CREATE INDEX IF NOT EXISTS idx_collaboration_turns_thread_sequence
+  ON collaboration_turns(thread_id, sequence_index);

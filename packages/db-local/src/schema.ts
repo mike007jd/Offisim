@@ -1438,3 +1438,37 @@ export const loopInvocations = sqliteTable(
     index('idx_loop_invocations_company_created').on(table.company_id, table.created_at),
   ],
 );
+
+// ---------------------------------------------------------------------------
+// Collaboration turns (PR-03). Ledger of each AI reply's lifecycle on a
+// Collaboration thread: streaming / error / usage recovery — NOT a transcript
+// copy (the visible message lives in `collaboration_messages`). Company-scoped
+// only: no `project_id`, never an `agent_runs` / mission row. The real CHECK
+// constraint lives in schema.sql; this is the Drizzle typing layer only.
+// ---------------------------------------------------------------------------
+
+export const collaborationTurns = sqliteTable(
+  'collaboration_turns',
+  {
+    turn_id: text('turn_id').primaryKey(),
+    thread_id: text('thread_id')
+      .notNull()
+      .references(() => collaborationThreads.thread_id, { onDelete: 'cascade' }),
+    // Not an FK: a turn stays readable for recovery even if the trigger message
+    // is removed, and may reference a not-yet-persisted id.
+    trigger_message_id: text('trigger_message_id'),
+    employee_id: text('employee_id').references(() => employees.employee_id, {
+      onDelete: 'set null',
+    }),
+    sequence_index: integer('sequence_index').notNull(),
+    status: text('status').notNull().default('pending'),
+    runtime_request_id: text('runtime_request_id'),
+    usage_json: text('usage_json'),
+    error_summary: text('error_summary'),
+    started_at: text('started_at'),
+    finished_at: text('finished_at'),
+  },
+  (table) => [
+    index('idx_collaboration_turns_thread_sequence').on(table.thread_id, table.sequence_index),
+  ],
+);

@@ -101,6 +101,10 @@ const ALLOWLIST = new Set([
   // harnesses; same build/gate-tooling pattern as the mission harnesses above).
   'scripts/harness-collaboration-repo-contract.mts::../packages/core/src/runtime/repositories.js',
   'scripts/harness-collaboration-repo-contract.mts::../packages/core/src/runtime/repos/collaboration/drizzle.js',
+  // PR-03 collaboration runtime harness (same build/gate-tooling pattern): it
+  // drives the controller against the in-memory collaboration repos + service.
+  'scripts/harness-pi-collaboration-runtime.mts::../packages/core/src/runtime/repos/collaboration/memory.js',
+  'scripts/harness-pi-collaboration-runtime.mts::../packages/core/src/runtime/collaboration/collaboration-service.js',
 ]);
 
 // Matches an import/export/require specifier that reaches into a package's src,

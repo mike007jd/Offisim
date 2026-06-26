@@ -1,5 +1,6 @@
 import type {
   CollaborationMemberRepository,
+  CollaborationMessagePatch,
   CollaborationMessageRepository,
   CollaborationMessageRow,
   CollaborationReadStateRepository,
@@ -8,9 +9,13 @@ import type {
   CollaborationThreadPatch,
   CollaborationThreadRepository,
   CollaborationThreadRow,
+  CollaborationTurnPatch,
+  CollaborationTurnRepository,
+  CollaborationTurnRow,
   NewCollaborationMessage,
   NewCollaborationThread,
   NewCollaborationThreadMember,
+  NewCollaborationTurn,
 } from '@offisim/core/browser';
 import * as schema from '@offisim/db-local';
 import { and, asc, desc, eq, isNull, lt, or, sql } from 'drizzle-orm';
@@ -23,6 +28,7 @@ export interface CollaborationTauriRepos {
   collaborationMembers: CollaborationMemberRepository;
   collaborationMessages: CollaborationMessageRepository;
   collaborationReadState: CollaborationReadStateRepository;
+  collaborationTurns: CollaborationTurnRepository;
 }
 
 export function createCollaborationTauriRepos(db: TauriDrizzleDb): CollaborationTauriRepos {
@@ -220,6 +226,17 @@ export function createCollaborationTauriRepos(db: TauriDrizzleDb): Collaboration
         )) as Array<{ n: number }>;
       return rows[0]?.n ?? 0;
     },
+    async update(messageId, patch: CollaborationMessagePatch) {
+      const set: Partial<CollaborationMessageRow> = {};
+      if (patch.body !== undefined) set.body = patch.body;
+      if (patch.status !== undefined) set.status = patch.status;
+      if (patch.edited_at !== undefined) set.edited_at = patch.edited_at;
+      if (Object.keys(set).length === 0) return;
+      await db
+        .update(schema.collaborationMessages)
+        .set(set)
+        .where(eq(schema.collaborationMessages.message_id, messageId));
+    },
   };
 
   const collaborationReadState: CollaborationReadStateRepository = {
@@ -244,10 +261,48 @@ export function createCollaborationTauriRepos(db: TauriDrizzleDb): Collaboration
     },
   };
 
+  const collaborationTurns: CollaborationTurnRepository = {
+    async insert(row: NewCollaborationTurn) {
+      await db
+        .insert(schema.collaborationTurns)
+        .values(row)
+        .onConflictDoNothing({ target: schema.collaborationTurns.turn_id });
+    },
+    async findById(turnId) {
+      const rows = (await db
+        .select()
+        .from(schema.collaborationTurns)
+        .where(eq(schema.collaborationTurns.turn_id, turnId))) as CollaborationTurnRow[];
+      return rows[0] ?? null;
+    },
+    async listByThread(threadId) {
+      return (await db
+        .select()
+        .from(schema.collaborationTurns)
+        .where(eq(schema.collaborationTurns.thread_id, threadId))
+        .orderBy(asc(schema.collaborationTurns.sequence_index))) as CollaborationTurnRow[];
+    },
+    async update(turnId, patch: CollaborationTurnPatch) {
+      const set: Partial<CollaborationTurnRow> = {};
+      if (patch.status !== undefined) set.status = patch.status;
+      if (patch.runtime_request_id !== undefined) set.runtime_request_id = patch.runtime_request_id;
+      if (patch.usage_json !== undefined) set.usage_json = patch.usage_json;
+      if (patch.error_summary !== undefined) set.error_summary = patch.error_summary;
+      if (patch.started_at !== undefined) set.started_at = patch.started_at;
+      if (patch.finished_at !== undefined) set.finished_at = patch.finished_at;
+      if (Object.keys(set).length === 0) return;
+      await db
+        .update(schema.collaborationTurns)
+        .set(set)
+        .where(eq(schema.collaborationTurns.turn_id, turnId));
+    },
+  };
+
   return {
     collaborationThreads,
     collaborationMembers,
     collaborationMessages,
     collaborationReadState,
+    collaborationTurns,
   };
 }

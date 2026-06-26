@@ -21,6 +21,7 @@ const PERMISSION_FILE = resolve(ROOT, 'apps/desktop/src-tauri/permissions/agent-
 const REQUIRED_COMMANDS = [
   'agent_runtime_execute',
   'agent_runtime_enhance',
+  'agent_runtime_collaborate',
   'agent_runtime_abort',
   'agent_runtime_answer',
   'agent_runtime_status',

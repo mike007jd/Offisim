@@ -3,6 +3,7 @@ import { and, asc, desc, eq, isNull, lt, or, sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type {
   CollaborationMemberRepository,
+  CollaborationMessagePatch,
   CollaborationMessageRepository,
   CollaborationMessageRow,
   CollaborationReadStateRepository,
@@ -11,9 +12,13 @@ import type {
   CollaborationThreadPatch,
   CollaborationThreadRepository,
   CollaborationThreadRow,
+  CollaborationTurnPatch,
+  CollaborationTurnRepository,
+  CollaborationTurnRow,
   NewCollaborationMessage,
   NewCollaborationThread,
   NewCollaborationThreadMember,
+  NewCollaborationTurn,
 } from '../../repositories.js';
 
 type Db = BetterSQLite3Database<typeof schema>;
@@ -25,6 +30,7 @@ export interface CollaborationDrizzleRepos {
   collaborationMembers: CollaborationMemberRepository;
   collaborationMessages: CollaborationMessageRepository;
   collaborationReadState: CollaborationReadStateRepository;
+  collaborationTurns: CollaborationTurnRepository;
 }
 
 export function createCollaborationDrizzleRepos(db: Db): CollaborationDrizzleRepos {
@@ -235,6 +241,17 @@ export function createCollaborationDrizzleRepos(db: Db): CollaborationDrizzleRep
         .all() as Array<{ n: number }>;
       return rows[0]?.n ?? 0;
     },
+    async update(messageId, patch: CollaborationMessagePatch) {
+      const set: Partial<CollaborationMessageRow> = {};
+      if (patch.body !== undefined) set.body = patch.body;
+      if (patch.status !== undefined) set.status = patch.status;
+      if (patch.edited_at !== undefined) set.edited_at = patch.edited_at;
+      if (Object.keys(set).length === 0) return;
+      db.update(schema.collaborationMessages)
+        .set(set)
+        .where(eq(schema.collaborationMessages.message_id, messageId))
+        .run();
+    },
   };
 
   const collaborationReadState: CollaborationReadStateRepository = {
@@ -260,10 +277,50 @@ export function createCollaborationDrizzleRepos(db: Db): CollaborationDrizzleRep
     },
   };
 
+  const collaborationTurns: CollaborationTurnRepository = {
+    async insert(row: NewCollaborationTurn) {
+      db.insert(schema.collaborationTurns)
+        .values(row)
+        .onConflictDoNothing({ target: schema.collaborationTurns.turn_id })
+        .run();
+    },
+    async findById(turnId) {
+      const rows = db
+        .select()
+        .from(schema.collaborationTurns)
+        .where(eq(schema.collaborationTurns.turn_id, turnId))
+        .all() as CollaborationTurnRow[];
+      return rows[0] ?? null;
+    },
+    async listByThread(threadId) {
+      return db
+        .select()
+        .from(schema.collaborationTurns)
+        .where(eq(schema.collaborationTurns.thread_id, threadId))
+        .orderBy(asc(schema.collaborationTurns.sequence_index))
+        .all() as CollaborationTurnRow[];
+    },
+    async update(turnId, patch: CollaborationTurnPatch) {
+      const set: Partial<CollaborationTurnRow> = {};
+      if (patch.status !== undefined) set.status = patch.status;
+      if (patch.runtime_request_id !== undefined) set.runtime_request_id = patch.runtime_request_id;
+      if (patch.usage_json !== undefined) set.usage_json = patch.usage_json;
+      if (patch.error_summary !== undefined) set.error_summary = patch.error_summary;
+      if (patch.started_at !== undefined) set.started_at = patch.started_at;
+      if (patch.finished_at !== undefined) set.finished_at = patch.finished_at;
+      if (Object.keys(set).length === 0) return;
+      db.update(schema.collaborationTurns)
+        .set(set)
+        .where(eq(schema.collaborationTurns.turn_id, turnId))
+        .run();
+    },
+  };
+
   return {
     collaborationThreads,
     collaborationMembers,
     collaborationMessages,
     collaborationReadState,
+    collaborationTurns,
   };
 }

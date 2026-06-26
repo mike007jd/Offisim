@@ -1,5 +1,6 @@
 import type {
   CollaborationMemberRepository,
+  CollaborationMessagePatch,
   CollaborationMessageRepository,
   CollaborationMessageRow,
   CollaborationReadStateRepository,
@@ -8,9 +9,13 @@ import type {
   CollaborationThreadPatch,
   CollaborationThreadRepository,
   CollaborationThreadRow,
+  CollaborationTurnPatch,
+  CollaborationTurnRepository,
+  CollaborationTurnRow,
   NewCollaborationMessage,
   NewCollaborationThread,
   NewCollaborationThreadMember,
+  NewCollaborationTurn,
 } from '../../repositories.js';
 
 const DEFAULT_PAGE_LIMIT = 50;
@@ -202,6 +207,17 @@ export class MemoryCollaborationMessageRepository implements CollaborationMessag
       return r.created_at === boundary.created_at && r.message_id > boundary.message_id;
     }).length;
   }
+
+  async update(messageId: string, patch: CollaborationMessagePatch): Promise<void> {
+    const row = this.store.get(messageId);
+    if (!row) return;
+    this.store.set(messageId, {
+      ...row,
+      body: patch.body !== undefined ? patch.body : row.body,
+      status: patch.status !== undefined ? patch.status : row.status,
+      edited_at: patch.edited_at !== undefined ? patch.edited_at : row.edited_at,
+    });
+  }
 }
 
 export class MemoryCollaborationReadStateRepository
@@ -219,11 +235,48 @@ export class MemoryCollaborationReadStateRepository
   }
 }
 
+export class MemoryCollaborationTurnRepository implements CollaborationTurnRepository {
+  private readonly store = new Map<string, CollaborationTurnRow>();
+
+  async insert(row: NewCollaborationTurn): Promise<void> {
+    if (this.store.has(row.turn_id)) return;
+    this.store.set(row.turn_id, { ...row });
+  }
+
+  async findById(turnId: string): Promise<CollaborationTurnRow | null> {
+    const row = this.store.get(turnId);
+    return row ? { ...row } : null;
+  }
+
+  async listByThread(threadId: string): Promise<CollaborationTurnRow[]> {
+    return [...this.store.values()]
+      .filter((r) => r.thread_id === threadId)
+      .sort((a, b) => a.sequence_index - b.sequence_index)
+      .map((r) => ({ ...r }));
+  }
+
+  async update(turnId: string, patch: CollaborationTurnPatch): Promise<void> {
+    const row = this.store.get(turnId);
+    if (!row) return;
+    this.store.set(turnId, {
+      ...row,
+      status: patch.status !== undefined ? patch.status : row.status,
+      runtime_request_id:
+        patch.runtime_request_id !== undefined ? patch.runtime_request_id : row.runtime_request_id,
+      usage_json: patch.usage_json !== undefined ? patch.usage_json : row.usage_json,
+      error_summary: patch.error_summary !== undefined ? patch.error_summary : row.error_summary,
+      started_at: patch.started_at !== undefined ? patch.started_at : row.started_at,
+      finished_at: patch.finished_at !== undefined ? patch.finished_at : row.finished_at,
+    });
+  }
+}
+
 export interface CollaborationMemoryRepos {
   collaborationThreads: MemoryCollaborationThreadRepository;
   collaborationMembers: MemoryCollaborationMemberRepository;
   collaborationMessages: MemoryCollaborationMessageRepository;
   collaborationReadState: MemoryCollaborationReadStateRepository;
+  collaborationTurns: MemoryCollaborationTurnRepository;
 }
 
 export function createCollaborationMemoryRepos(): CollaborationMemoryRepos {
@@ -232,5 +285,6 @@ export function createCollaborationMemoryRepos(): CollaborationMemoryRepos {
     collaborationMembers: new MemoryCollaborationMemberRepository(),
     collaborationMessages: new MemoryCollaborationMessageRepository(),
     collaborationReadState: new MemoryCollaborationReadStateRepository(),
+    collaborationTurns: new MemoryCollaborationTurnRepository(),
   };
 }

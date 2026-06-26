@@ -27,11 +27,31 @@ import { resolveThreadMode } from './pi-thread-mode-store.js';
 import { resolveThreadThinkingOverride } from './pi-thread-thinking-store.js';
 import { getRepos, runtimeEventBus } from './repos.js';
 
+/**
+ * Frozen, additive capability profile for the agent runtime request (PR-03).
+ * `'work'` (default) is the existing execute path — byte-for-byte unchanged when
+ * the field is absent. `'collaboration'` routes to the HOST-ENFORCED no-tools /
+ * no-workspace / no-persistence streaming path (daily company chat). `'enhance'`
+ * stays its own dedicated one-shot Tauri command (PR-06), not a value here, and
+ * `'loop_compile'` is reserved for PR-07. Shaped so future profiles only ADD a
+ * branch; the work execute path never reads it.
+ */
+export type AgentCapabilityProfile = 'work' | 'collaboration';
+
 export interface DesktopAgentRunInput {
   text: string;
   threadId: string;
   employeeId: string | null;
   projectId: string | null;
+  /**
+   * Frozen capability enum (PR-03). Absent / `'work'` = the existing work execute
+   * path, unchanged. `'collaboration'` is NOT served through this `execute()` —
+   * the collaboration transport (runtime/collaboration) invokes the dedicated
+   * `agent_runtime_collaborate` command instead, so a work run can never silently
+   * acquire the collaboration profile and vice-versa. Carried on the input type so
+   * the wire contract is frozen in one place.
+   */
+  capabilityProfile?: AgentCapabilityProfile;
   /** Controller-owned run id used to isolate stream/tool/UI events per attempt. */
   runId?: string;
   /**

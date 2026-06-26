@@ -134,6 +134,43 @@ pub struct PiAgentEnhanceRequest {
     thinking_level: Option<String>,
 }
 
+/// Collaboration request (PR-03). The HOST-ENFORCED `collaboration` capability
+/// profile of the Pi Agent: daily company chat with NO project bind, ZERO tools,
+/// NO delegation, NO mission bridge, NO workspace cwd. Like enhance it never binds
+/// a workspace and never persists a transcript — but unlike enhance it STREAMS.
+///
+/// `capabilityProfile` is a frozen, additive request enum (default `'work'` is the
+/// existing execute path; `'collaboration'` routes here). It carries only the
+/// collaboration scope (company / thread / employee — the conversationKey, NOT a
+/// project workspace) plus the persona/context system prompt and optional
+/// model/thinking overrides. There is deliberately NO `project_id`, `roster`, or
+/// `mission_context_json`: collaboration never delegates and never runs a mission.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PiAgentCollaborateRequest {
+    request_id: String,
+    text: String,
+    /// Frozen capability enum. The renderer always sends `'collaboration'` here;
+    /// shaped so future profiles only ADD a branch. Opaque to Rust beyond routing.
+    #[serde(default)]
+    capability_profile: Option<String>,
+    company_id: String,
+    /// The Collaboration thread id (company-scoped daily chat) — NOT a project /
+    /// chat_thread id. Part of the conversationKey, never a workspace.
+    collaboration_thread_id: String,
+    #[serde(default)]
+    employee_id: Option<String>,
+    #[serde(default)]
+    model: Option<String>,
+    #[serde(default)]
+    thinking_level: Option<String>,
+    /// The speaking employee's persona + the collaboration context packet, built
+    /// renderer-side and forwarded as the Pi session's `appendSystemPrompt`. Opaque
+    /// to Rust. Carries identity context only — never a delegate roster.
+    #[serde(default)]
+    system_prompt_append: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PiModelSummary {
@@ -491,6 +528,31 @@ fn enhance_payload<R: tauri::Runtime>(
         "agentDir": app_pi_agent_dir(app).map(|path| path.to_string_lossy().to_string()),
         "model": req.model,
         "thinkingLevel": req.thinking_level,
+    })
+}
+
+/// Build the Collaboration sidecar payload (PR-03). `mode:'collaborate'` routes the
+/// host to its STREAMING isolated path — no project workspace, no tools, no
+/// persistence. The `cwd` is a NEUTRAL directory (never a project root). The scope
+/// fields (company / collaboration thread / employee) form the conversationKey, not
+/// a workspace; no `projectId`, `roster`, or `missionContextJson` is forwarded.
+fn collaborate_payload<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    req: &PiAgentCollaborateRequest,
+    cwd: &Path,
+) -> serde_json::Value {
+    serde_json::json!({
+        "mode": "collaborate",
+        "text": req.text,
+        "capabilityProfile": req.capability_profile,
+        "cwd": cwd.to_string_lossy().to_string(),
+        "agentDir": app_pi_agent_dir(app).map(|path| path.to_string_lossy().to_string()),
+        "companyId": req.company_id,
+        "collaborationThreadId": req.collaboration_thread_id,
+        "employeeId": req.employee_id,
+        "model": req.model,
+        "thinkingLevel": req.thinking_level,
+        "systemPromptAppend": req.system_prompt_append,
     })
 }
 
@@ -1015,6 +1077,84 @@ async fn enhance_impl(
     }
 }
 
+async fn do_collaborate<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    req: PiAgentCollaborateRequest,
+    on_event: &Channel<PiAgentHostEvent>,
+    token: CancellationToken,
+) -> Result<PiAgentHostResponse, HostError> {
+    let _ = required_text(Some(&req.request_id), "requestId", PI_LANE)?;
+    let _ = required_text(Some(&req.text), "text", PI_LANE)?;
+    let _ = required_text(Some(&req.company_id), "companyId", PI_LANE)?;
+    let _ = required_text(
+        Some(&req.collaboration_thread_id),
+        "collaborationThreadId",
+        PI_LANE,
+    )?;
+    // No project workspace, no session dir, no audit row: collaboration is
+    // ephemeral and company-scoped. Deliberately does NOT call
+    // `project_workspace_root` / `resolved_request_cwd`.
+    let cwd = neutral_cwd(app);
+    let dev_root = dev_workspace_root();
+    let script_path = sidecar_script_path(app, dev_root.as_ref(), PI_LANE)?;
+    let payload = collaborate_payload(app, &req, &cwd);
+    // `register_stdin: None` — collaboration registers zero tools, so there is no
+    // mid-run extension-UI prompt and thus no second stdin channel.
+    let response = run_pi_sidecar_jsonl(
+        &script_path,
+        &cwd,
+        pi_env(None),
+        payload,
+        token,
+        Some(on_event),
+        None,
+    )
+    .await?;
+    let response = parse_response(response)?;
+    on_event
+        .send(PiAgentHostEvent::Result {
+            response: response.clone(),
+        })
+        .map_err(|err| HostError::Request(format!("Send Pi collaboration result event: {err}")))?;
+    Ok(response)
+}
+
+/// Shared collaboration impl. The agent-agnostic `agent_runtime_collaborate` gateway
+/// command calls this. Same IN_FLIGHT registration as execute (so a collaboration
+/// turn is cancelable via `agent_runtime_abort` with the same request id), but
+/// routed to the isolated `do_collaborate` — no project bind, no tools, no
+/// persistence, no delegation, no mission bridge.
+async fn collaborate_impl(
+    app: AppHandle,
+    req: PiAgentCollaborateRequest,
+    on_event: Channel<PiAgentHostEvent>,
+) -> Result<PiAgentHostResponse, String> {
+    let request_id = req.request_id.clone();
+    let token = IN_FLIGHT.register(&request_id);
+    let result = do_collaborate(&app, req, &on_event, token.clone()).await;
+    IN_FLIGHT.clear(&request_id);
+
+    match result {
+        Ok(response) => Ok(response),
+        Err(HostError::Aborted) => Ok(PiAgentHostResponse {
+            text: String::new(),
+            reasoning: None,
+            session_id: None,
+            session_file: None,
+            model: None,
+            usage: None,
+        }),
+        Err(error) => {
+            let (code, message) = error.into_code_message(PI_LANE);
+            let _ = on_event.send(PiAgentHostEvent::Error {
+                code: code.clone(),
+                message: message.clone(),
+            });
+            Err(format!("{code}: {message}"))
+        }
+    }
+}
+
 /// Shared abort impl. Cancels the in-flight token for `request_id` (a missing id
 /// means the run already ended — not an error). Both `pi_agent_abort` and
 /// `agent_runtime_abort` call this.
@@ -1057,6 +1197,22 @@ pub async fn agent_runtime_enhance(
     on_event: Channel<PiAgentHostEvent>,
 ) -> Result<PiAgentHostResponse, String> {
     enhance_impl(app, req, on_event).await
+}
+
+/// Agent-agnostic gateway command for the Collaboration capability profile (PR-03).
+/// The HOST-ENFORCED no-tools / no-workspace / no-persistence STREAMING path for
+/// daily company chat. Forwards to `collaborate_impl`, which runs the Pi host with
+/// a neutral cwd, zero tools, and no extension factories. The renderer's
+/// collaboration transport calls this instead of `agent_runtime_execute`, so a
+/// collaboration reply NEVER takes the work execute path (no project bind, no
+/// agent_runs / mission persistence, no Office dramaturgy projection).
+#[tauri::command]
+pub async fn agent_runtime_collaborate(
+    app: AppHandle,
+    req: PiAgentCollaborateRequest,
+    on_event: Channel<PiAgentHostEvent>,
+) -> Result<PiAgentHostResponse, String> {
+    collaborate_impl(app, req, on_event).await
 }
 
 // agent_runtime_resume: deferred to M4 Durable recovery (no Pi resume lane yet)
