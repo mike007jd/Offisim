@@ -12,7 +12,7 @@
 
 import type { AgentRunUsage } from '@offisim/shared-types';
 
-export interface PiAgentModelSummary {
+interface PiAgentModelSummary {
   provider?: string;
   id?: string;
   name?: string;

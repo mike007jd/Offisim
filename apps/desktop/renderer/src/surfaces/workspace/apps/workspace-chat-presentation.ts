@@ -17,7 +17,7 @@
 
 /** A presentable tool call. We treat any tool call with an id as renderable —
  *  a started-but-unfinished tool is already a real activity (spec case 6). */
-export interface PresentationToolCall {
+interface PresentationToolCall {
   id?: string;
   name?: string;
   status?: string;

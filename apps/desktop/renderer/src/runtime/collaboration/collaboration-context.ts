@@ -32,10 +32,10 @@ export interface CollaborationParticipant {
 }
 
 /** The bounded recent-message window the packet includes (oldest → newest). */
-export const COLLABORATION_CONTEXT_MESSAGE_WINDOW = 12;
+const COLLABORATION_CONTEXT_MESSAGE_WINDOW = 12;
 
 /** Default + hard caps for roundtable speakers (the service also clamps 1–8). */
-export const ROUNDTABLE_DEFAULT_MAX_SPEAKERS = 3;
+const ROUNDTABLE_DEFAULT_MAX_SPEAKERS = 3;
 export const ROUNDTABLE_HARD_CAP_SPEAKERS = 8;
 
 /**

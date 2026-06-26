@@ -43,7 +43,7 @@ import type {
 } from './collaboration-transport.js';
 
 /** Minimal slice of CollaborationService the controller needs. */
-export interface CollaborationServiceSlice {
+interface CollaborationServiceSlice {
   appendMessage(input: {
     threadId: string;
     senderType: 'boss' | 'employee' | 'system';
@@ -90,7 +90,7 @@ export interface CollaborationTurnControllerDeps {
   thinkingLevel?: () => string | undefined;
 }
 
-export type CollaborationTurnPhase =
+type CollaborationTurnPhase =
   | 'pending'
   | 'streaming'
   | 'complete'

@@ -38,7 +38,7 @@ import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tansta
  * invalidation can never collide with the legacy `['ws', ...]` project-chat keys
  * or the `['threads', projectId]` Office keys.
  */
-export const connectKeys = {
+const connectKeys = {
   /** Active company threads (list view), newest activity first. */
   threads: (companyId: string | null) => ['connect', 'threads', companyId] as const,
   /** One thread's persisted message transcript (oldest → newest). */
@@ -82,7 +82,7 @@ function collaborationServiceRepos(repos: RuntimeRepositories): CollaborationSer
  * `newId()` keep the live path on the SAME deterministic contract the harness
  * exercises.
  */
-export async function getCollaborationService() {
+async function getCollaborationService() {
   const repos = await reposOrNull();
   if (!repos) return null;
   const subset = collaborationServiceRepos(repos);

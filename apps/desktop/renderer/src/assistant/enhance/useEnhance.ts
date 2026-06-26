@@ -15,7 +15,7 @@ import {
   runEnhance,
 } from './service.js';
 
-export type EnhancePhase = 'idle' | 'loading' | 'ready' | 'error';
+type EnhancePhase = 'idle' | 'loading' | 'ready' | 'error';
 
 export interface EnhanceState {
   phase: EnhancePhase;

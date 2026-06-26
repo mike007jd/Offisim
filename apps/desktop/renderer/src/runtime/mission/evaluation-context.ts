@@ -34,7 +34,7 @@ async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Prom
 
 /** A criterion in the controller's minimal view, narrowed to what the context
  *  needs (id / description / config). Matches `ControllerCriterion`'s shape. */
-export interface EvaluationCriterionView {
+interface EvaluationCriterionView {
   id: string;
   description: string;
   configJson: string;
