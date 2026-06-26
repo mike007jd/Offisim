@@ -293,36 +293,50 @@ const ROSTER = [
   );
   const entry = readFileSync(entryPath, 'utf8');
   const enhanceStart = entry.indexOf('async function runEnhance(');
-  const enhanceEnd = entry.indexOf('function main()');
-  // Guard the slice boundaries: a missing anchor (indexOf === -1) would make
-  // slice() capture (nearly) the whole file and let the isolation checks below
-  // pass vacuously. Fail loudly instead.
+  // End the slice at the NEXT top-level function after runEnhance — NOT at
+  // `function main()`. Other isolated host paths (e.g. runCollaboration) live
+  // between runEnhance and main(); anchoring on main() would over-capture their
+  // bodies and let an unrelated function's `extensionFactories` fail this
+  // enhance-only isolation check. The next `(async )?function ` boundary bounds
+  // the slice to runEnhance itself.
+  const nextFnRe = /\n(?:async )?function /g;
+  nextFnRe.lastIndex = enhanceStart + 1;
+  const nextFn = nextFnRe.exec(entry);
+  const enhanceEnd = nextFn ? nextFn.index : -1;
+  // Guard the slice boundaries: a missing anchor (-1) would make slice() capture
+  // (nearly) the whole file and let the isolation checks below pass vacuously.
   check('runEnhance boundary found in host source', enhanceStart >= 0, String(enhanceStart));
-  check('main() boundary found after runEnhance', enhanceEnd > enhanceStart, `${enhanceStart}..${enhanceEnd}`);
+  check('next-function boundary found after runEnhance', enhanceEnd > enhanceStart, `${enhanceStart}..${enhanceEnd}`);
   const enhanceFn = entry.slice(enhanceStart, enhanceEnd);
+  // A real runEnhance body is ~5 KB; an 8 KB ceiling catches a runaway slice.
+  check('runEnhance slice is bounded (not the whole file)', enhanceFn.length < 8000, String(enhanceFn.length));
+  // Test CODE, not prose: a sibling function's doc comment (e.g. runCollaboration
+  // documenting "ZERO extensionFactories") can fall just inside this slice. Strip
+  // comments so the isolation assertions reflect what runEnhance actually does.
+  const enhanceCode = enhanceFn.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*/g, '');
   check('host registers a dedicated enhance dispatch', entry.includes("payload.mode === 'enhance'"));
-  check('host enhance uses noTools: all', /noTools:\s*'all'/.test(enhanceFn));
-  check('host enhance passes an empty tool allowlist', /tools:\s*\[\]/.test(enhanceFn));
+  check('host enhance uses noTools: all', /noTools:\s*'all'/.test(enhanceCode));
+  check('host enhance passes an empty tool allowlist', /tools:\s*\[\]/.test(enhanceCode));
   check(
     'host enhance registers NO extension factories',
-    !enhanceFn.includes('extensionFactories'),
+    !enhanceCode.includes('extensionFactories'),
     'enhance must not pass extensionFactories',
   );
   check(
     'host enhance never binds a project workspace',
-    !enhanceFn.includes('ensureProjectBoundForRun') && !enhanceFn.includes('project_read_file'),
+    !enhanceCode.includes('ensureProjectBoundForRun') && !enhanceCode.includes('project_read_file'),
   );
   check(
     'host enhance creates an ephemeral session (no session dir persistence)',
-    /SessionManager\.create\(cwd\)/.test(enhanceFn) && !/sessionDir/.test(enhanceFn),
+    /SessionManager\.create\(cwd\)/.test(enhanceCode) && !/sessionDir/.test(enhanceCode),
   );
   check(
     'host enhance never writes agent_runs / chat_threads / mission tables',
-    !/agent_runs|chat_threads|collaboration_|mission_/.test(enhanceFn),
+    !/agent_runs|chat_threads|collaboration_|mission_/.test(enhanceCode),
   );
   check(
     'host enhance throws on any tool execution (isolation breach guard)',
-    enhanceFn.includes('isolation breach') || enhanceFn.includes('must not execute tools'),
+    enhanceCode.includes('isolation breach') || enhanceCode.includes('must not execute tools'),
   );
 }
 
