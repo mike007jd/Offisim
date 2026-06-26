@@ -1240,3 +1240,100 @@ export const missionEvent = sqliteTable(
   },
   (table) => [index('idx_mission_event_mission_time').on(table.mission_id, table.created_at)],
 );
+
+// ---------------------------------------------------------------------------
+// Collaboration (PR-02). Company-scoped daily chat (direct + group), FULLY
+// separate from project-scoped `chat_threads`: no `project_id`. The real
+// CHECK / partial-unique constraints are enforced by schema.sql; this is the
+// Drizzle typing layer only (see header).
+// ---------------------------------------------------------------------------
+
+export const collaborationThreads = sqliteTable(
+  'collaboration_threads',
+  {
+    thread_id: text('thread_id').primaryKey(),
+    company_id: text('company_id')
+      .notNull()
+      .references(() => companies.company_id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    title: text('title').notNull(),
+    direct_employee_id: text('direct_employee_id').references(() => employees.employee_id, {
+      onDelete: 'set null',
+    }),
+    reply_policy: text('reply_policy').notNull().default('mentions_only'),
+    round_speaker_limit: integer('round_speaker_limit').notNull().default(3),
+    created_by: text('created_by').notNull().default('boss'),
+    archived_at: text('archived_at'),
+    created_at: text('created_at').notNull(),
+    updated_at: text('updated_at').notNull(),
+  },
+  (table) => [
+    index('idx_collaboration_threads_company_updated').on(table.company_id, table.updated_at),
+    // At most one ACTIVE direct thread per (company, employee). Archived rows are
+    // excluded so an archived direct thread is restored, not duplicated.
+    uniqueIndex('idx_collaboration_threads_active_direct')
+      .on(table.company_id, table.direct_employee_id)
+      .where(sql`${table.kind} = 'direct' AND ${table.archived_at} IS NULL`),
+  ],
+);
+
+export const collaborationThreadMembers = sqliteTable(
+  'collaboration_thread_members',
+  {
+    member_id: text('member_id').primaryKey(),
+    thread_id: text('thread_id')
+      .notNull()
+      .references(() => collaborationThreads.thread_id, { onDelete: 'cascade' }),
+    actor_type: text('actor_type').notNull(),
+    employee_id: text('employee_id').references(() => employees.employee_id, {
+      onDelete: 'cascade',
+    }),
+    role: text('role').notNull(),
+    joined_at: text('joined_at').notNull(),
+    left_at: text('left_at'),
+  },
+  (table) => [
+    index('idx_collaboration_members_thread').on(table.thread_id),
+    index('idx_collaboration_members_employee').on(table.employee_id),
+  ],
+);
+
+export const collaborationMessages = sqliteTable(
+  'collaboration_messages',
+  {
+    message_id: text('message_id').primaryKey(),
+    thread_id: text('thread_id')
+      .notNull()
+      .references(() => collaborationThreads.thread_id, { onDelete: 'cascade' }),
+    sender_type: text('sender_type').notNull(),
+    sender_employee_id: text('sender_employee_id').references(() => employees.employee_id, {
+      onDelete: 'set null',
+    }),
+    body: text('body').notNull(),
+    reply_to_message_id: text('reply_to_message_id'),
+    status: text('status').notNull().default('complete'),
+    idempotency_key: text('idempotency_key'),
+    metadata_json: text('metadata_json'),
+    created_at: text('created_at').notNull(),
+    edited_at: text('edited_at'),
+  },
+  (table) => [
+    index('idx_collaboration_messages_thread_time').on(
+      table.thread_id,
+      table.created_at,
+      table.message_id,
+    ),
+    // Double-send dedup: at most one message per (thread, idempotency_key).
+    uniqueIndex('idx_collaboration_messages_idempotency')
+      .on(table.thread_id, table.idempotency_key)
+      .where(sql`${table.idempotency_key} IS NOT NULL`),
+  ],
+);
+
+export const collaborationReadState = sqliteTable('collaboration_read_state', {
+  thread_id: text('thread_id')
+    .primaryKey()
+    .references(() => collaborationThreads.thread_id, { onDelete: 'cascade' }),
+  last_read_message_id: text('last_read_message_id'),
+  updated_at: text('updated_at').notNull(),
+});

@@ -128,6 +128,18 @@ export type {
   MissionEventRepository,
   MissionEventRow,
   NewMissionEvent,
+  CollaborationThreadRepository,
+  CollaborationThreadRow,
+  NewCollaborationThread,
+  CollaborationThreadPatch,
+  CollaborationMemberRepository,
+  CollaborationThreadMemberRow,
+  NewCollaborationThreadMember,
+  CollaborationMessageRepository,
+  CollaborationMessageRow,
+  NewCollaborationMessage,
+  CollaborationReadStateRepository,
+  CollaborationReadStateRow,
 } from './runtime/repositories.js';
 export type { InstallTransactionRepository } from './repos/install-transaction-repository.js';
 export type { InstalledPackageRepository } from './repos/installed-package-repository.js';
@@ -461,6 +473,27 @@ export type {
   MissionStatus,
   RecordEvaluationInput,
 } from './runtime/mission/mission-service.js';
+
+// --- Collaboration Service (PR-02 — company-scoped daily chat aggregate) ---
+// Direct + group chat fully separate from project-scoped chat_threads. No public
+// method accepts a projectId. Consumed by PR-03 (runtime) / PR-05 (UI).
+export {
+  BOSS_ACTOR_ID,
+  CollaborationError,
+  CollaborationService,
+  createCollaborationService,
+  readSenderLabel,
+} from './runtime/collaboration/collaboration-service.js';
+export type {
+  CollaborationServiceDeps,
+  CollaborationServiceRepos,
+  CollaborationThreadSummary,
+  UpdateMembersInput,
+} from './runtime/collaboration/collaboration-service.js';
+export {
+  buildCollaborationMessageMetadata,
+  readMetadataString,
+} from './runtime/repos/collaboration/idempotency.js';
 
 // --- Mission Loop Controller (PRD §19 — bounded deterministic mission loop) ---
 // Orchestrates MissionService (MS-002) + EvaluatorRegistry (MS-003) and delegates

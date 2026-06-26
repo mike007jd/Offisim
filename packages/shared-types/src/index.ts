@@ -247,6 +247,22 @@ export type {
   MissionEvent,
 } from './mission/index.js';
 export type {
+  CollaborationThread,
+  CollaborationThreadKind,
+  CollaborationReplyPolicy,
+  CollaborationMember,
+  CollaborationActorType,
+  CollaborationMemberRole,
+  CollaborationMessage,
+  CollaborationSenderType,
+  CollaborationMessageStatus,
+  CreateDirectThreadInput,
+  CreateGroupThreadInput,
+  AppendCollaborationMessageInput,
+  CollaborationMessageCursor,
+  CollaborationMessagePage,
+} from './collaboration/index.js';
+export type {
   MissionPlaybook,
   PlaybookArtifactSpec,
   PlaybookCriterion,
