@@ -80,6 +80,15 @@ interface UiState {
   pendingHire: boolean;
 
   /**
+   * One-shot intent (PR-05): Contacts' "Message" sets the employee to start a
+   * direct Connect chat with. The Connect Messenger consumes it on mount —
+   * opening the existing active direct thread if there is one, else a fresh
+   * unpersisted direct draft. Cleared once consumed so a later manual visit
+   * doesn't re-open a draft.
+   */
+  pendingDirectChatEmployeeId: string | null;
+
+  /**
    * One-shot intent set by "Use in Office" (PR-10) when there is NO active project:
    * routes the user to an explicit project selection before a Loop draft can be
    * opened — never a hidden default project. Carries the loop+revision so the
@@ -95,6 +104,10 @@ interface UiState {
   requestHire: () => void;
   /** Clear the one-shot Hire intent after the Personnel surface consumes it. */
   consumePendingHire: () => void;
+  /** Open Connect Messenger and flag a direct chat to start with `employeeId`. */
+  requestDirectChat: (employeeId: string) => void;
+  /** Read + clear the one-shot direct-chat intent (Connect consumes it on mount). */
+  consumePendingDirectChat: () => string | null;
   /** Request an explicit project selection to resume a "Use in Office" Loop flow. */
   requestLoopProjectSelect: (intent: { loopId: string; revisionId: string }) => void;
   /** Clear the one-shot Loop project-select intent once it has been handled. */
@@ -162,12 +175,26 @@ export const useUiState = create<UiState>((set, get) => ({
 
   pendingHire: false,
 
+  pendingDirectChatEmployeeId: null,
+
   pendingLoopProjectSelect: null,
 
   setSurface: (surface) => set({ surface }),
   openLifecycle: (intent) => set({ surface: 'lifecycle', lifecycleIntent: intent }),
   requestHire: () => set({ surface: 'personnel', pendingHire: true }),
   consumePendingHire: () => set({ pendingHire: false }),
+  requestDirectChat: (employeeId) =>
+    set({
+      surface: 'workspace',
+      workspaceApp: 'messenger',
+      workspaceSelectedId: null,
+      pendingDirectChatEmployeeId: employeeId,
+    }),
+  consumePendingDirectChat: (): string | null => {
+    const id = get().pendingDirectChatEmployeeId;
+    if (id) set({ pendingDirectChatEmployeeId: null });
+    return id;
+  },
   requestLoopProjectSelect: (intent) =>
     set({ surface: 'office', railMode: 'list', pendingLoopProjectSelect: intent }),
   consumePendingLoopProjectSelect: (): { loopId: string; revisionId: string } | null => {

@@ -105,6 +105,11 @@ const ALLOWLIST = new Set([
   // drives the controller against the in-memory collaboration repos + service.
   'scripts/harness-pi-collaboration-runtime.mts::../packages/core/src/runtime/repos/collaboration/memory.js',
   'scripts/harness-pi-collaboration-runtime.mts::../packages/core/src/runtime/collaboration/collaboration-service.js',
+  // PR-05 Connect chat-flow harness (same build/gate-tooling pattern): it drives
+  // the real CollaborationService + drizzle repos against the actual SQL schema so
+  // chat_threads isolation is a DB-enforced fact.
+  'scripts/harness-connect-chat-flow.mts::../packages/core/src/runtime/collaboration/collaboration-service.js',
+  'scripts/harness-connect-chat-flow.mts::../packages/core/src/runtime/repos/collaboration/drizzle.js',
   // PR-10 Loop → Office Send invocation harness (same build/gate-tooling pattern as
   // the loop/mission harnesses): it drives the pure send-time materializer against
   // the in-memory loop + mission repos and the real LoopService/MissionService.

@@ -7,14 +7,9 @@ import { SearchInput } from '@/design-system/grammar/SearchInput.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 import { EmptyState, ErrorState, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
-import { Building2, MessageSquare, SquarePen, UserPlus, Users } from 'lucide-react';
+import { MessageSquare, SquarePen, UserPlus, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import {
-  type ContactDetail,
-  type Presence,
-  useWsContactDetails,
-  useWsConversations,
-} from '../workspace-data.js';
+import { type ContactDetail, type Presence, useWsContactDetails } from '../workspace-data.js';
 
 const PRESENCE_PILL: Record<Presence, { label: string; cls: string }> = {
   working: { label: 'Working', cls: 'is-working' },
@@ -33,12 +28,11 @@ const PRESENCE_DOT: Record<Presence, string> = {
 export function ContactsApp() {
   const employees = useEmployees();
   const details = useWsContactDetails(employees.data ?? []);
-  const conversations = useWsConversations();
   const selectedId = useUiState((s) => s.workspaceSelectedId);
   const selectItem = useUiState((s) => s.selectWorkspaceItem);
   const setSurface = useUiState((s) => s.setSurface);
-  const setApp = useUiState((s) => s.setWorkspaceApp);
   const selectEmployee = useUiState((s) => s.selectEmployee);
+  const requestDirectChat = useUiState((s) => s.requestDirectChat);
   const [query, setQuery] = useState('');
 
   const detailById = details.data ?? {};
@@ -70,10 +64,6 @@ export function ContactsApp() {
   const active = list.find((e) => e.id === activeId) ?? null;
   const activeDetail: ContactDetail | undefined = active ? detailById[active.id] : undefined;
   const presence: Presence = activeDetail?.presence ?? (active?.online ? 'idle' : 'offline');
-  const directConversationId = useMemo(() => {
-    if (!active) return null;
-    return conversations.data?.find((item) => item.employeeId === active.id)?.id ?? null;
-  }, [active, conversations.data]);
   const profileSubtitle = active
     ? [displayRole(active), activeDetail ? `${activeDetail.zone.split(' (')[0]} zone` : null]
         .filter(Boolean)
@@ -168,34 +158,19 @@ export function ContactsApp() {
                 {activeDetail?.presenceNote ? ` — ${activeDetail.presenceNote}` : ' now'}
               </span>
               <div className="off-ws-ct-cta">
-                {directConversationId ? (
-                  <button
-                    type="button"
-                    className="off-ws-oa-approve off-focusable"
-                    title={`Open ${active.name}'s direct chat`}
-                    onClick={() => {
-                      setApp('messenger', directConversationId);
-                    }}
-                  >
-                    <Icon icon={MessageSquare} size="sm" />
-                    Direct chat
-                  </button>
-                ) : (
-                  <output className="off-ws-ct-state" aria-label="Direct chat state">
-                    <Icon icon={MessageSquare} size="sm" />
-                    No chat yet
-                  </output>
-                )}
                 <button
                   type="button"
-                  className="off-ws-oa-deny off-focusable"
+                  className="off-ws-oa-approve off-focusable"
+                  title={`Message ${active.name}`}
+                  disabled={active.disabled}
                   onClick={() => {
-                    selectEmployee(active.id);
-                    setSurface('office');
+                    // Always a live CTA: Connect resolves an existing direct
+                    // thread or opens a fresh draft. Needs only an active company.
+                    requestDirectChat(active.id);
                   }}
                 >
-                  <Icon icon={Building2} size="sm" />
-                  Find in Office
+                  <Icon icon={MessageSquare} size="sm" />
+                  Message
                 </button>
                 <button
                   type="button"
