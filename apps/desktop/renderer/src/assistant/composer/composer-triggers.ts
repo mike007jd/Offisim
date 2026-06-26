@@ -64,9 +64,11 @@ function sortedRoster(roster: readonly MentionEmployee[]): MentionEmployee[] {
  * Split directive text into literal text + resolved `@employee` mentions by
  * matching against the known roster (longest match wins). Used both as the
  * adapter's `parse` (keeps assistant-ui's directive accounting consistent) and
- * as the basis for send-time id extraction.
+ * as the basis for send-time id extraction. Exported so the Prompt Enhance
+ * protected-span extractor (PR-06) reuses the SAME mention tokenizer the composer
+ * uses, instead of re-detecting `@Name` with a second, drift-prone parser.
  */
-function parseMentionSegments(
+export function parseMentionSegments(
   text: string,
   roster: readonly MentionEmployee[],
 ): Unstable_DirectiveSegment[] {

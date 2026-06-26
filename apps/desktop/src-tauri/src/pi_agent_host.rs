@@ -114,6 +114,26 @@ pub struct PiAgentExecuteRequest {
     mission_context_json: Option<String>,
 }
 
+/// Prompt Enhance request (PR-06). A DEDICATED, isolated one-shot — never a work
+/// run. It carries only what the no-tools, no-workspace, no-persistence enhance
+/// path needs: the user text, the selected profile's versioned system prompt, and
+/// optional model / thinking overrides. There is deliberately NO `project_id`,
+/// `company_id`, `thread_id`, `roster`, or `mission_context_json`: enhance never
+/// binds a workspace and never persists, so it has no scope fields at all.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PiAgentEnhanceRequest {
+    request_id: String,
+    text: String,
+    /// The selected enhance profile's versioned system instruction. Built
+    /// renderer-side from the frozen profile constants; opaque to Rust.
+    system_prompt: String,
+    #[serde(default)]
+    model: Option<String>,
+    #[serde(default)]
+    thinking_level: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PiModelSummary {
@@ -451,6 +471,26 @@ fn sidecar_payload<R: tauri::Runtime>(
         // Verified Missions context (MS-005): forwarded verbatim. The host
         // registers the mission-bridge extension only when this is present.
         "missionContextJson": req.mission_context_json,
+    })
+}
+
+/// Build the Prompt Enhance sidecar payload (PR-06). `mode:'enhance'` routes the
+/// host to its dedicated isolated path — no project workspace, no tools, no
+/// persistence. The `cwd` is a NEUTRAL directory (never a project root), and
+/// nothing scope-related is forwarded because enhance has no scope.
+fn enhance_payload<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    req: &PiAgentEnhanceRequest,
+    cwd: &Path,
+) -> serde_json::Value {
+    serde_json::json!({
+        "mode": "enhance",
+        "text": req.text,
+        "systemPrompt": req.system_prompt,
+        "cwd": cwd.to_string_lossy().to_string(),
+        "agentDir": app_pi_agent_dir(app).map(|path| path.to_string_lossy().to_string()),
+        "model": req.model,
+        "thinkingLevel": req.thinking_level,
     })
 }
 
@@ -895,6 +935,86 @@ async fn execute_impl(
     }
 }
 
+/// Resolve a NEUTRAL working directory for the enhance path — a dir that is NOT a
+/// project workspace. Mirrors `status_impl`'s cwd resolution (dev root, else home,
+/// else cwd). Enhance must never run with a project bound, so it deliberately does
+/// not call `project_workspace_root` / `resolved_request_cwd`.
+fn neutral_cwd<R: tauri::Runtime>(app: &AppHandle<R>) -> PathBuf {
+    dev_workspace_root()
+        .or_else(|| app.path().home_dir().ok())
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")))
+}
+
+async fn do_enhance<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    req: PiAgentEnhanceRequest,
+    on_event: &Channel<PiAgentHostEvent>,
+    token: CancellationToken,
+) -> Result<PiAgentHostResponse, HostError> {
+    let _ = required_text(Some(&req.request_id), "requestId", PI_LANE)?;
+    let _ = required_text(Some(&req.text), "text", PI_LANE)?;
+    let _ = required_text(Some(&req.system_prompt), "systemPrompt", PI_LANE)?;
+    // No project workspace, no session dir, no audit row: enhance is ephemeral.
+    let cwd = neutral_cwd(app);
+    let dev_root = dev_workspace_root();
+    let script_path = sidecar_script_path(app, dev_root.as_ref(), PI_LANE)?;
+    let payload = enhance_payload(app, &req, &cwd);
+    // `register_stdin: None` — enhance has no extension-UI response channel, so
+    // stdin is closed immediately after the single payload line (single-shot).
+    let response = run_pi_sidecar_jsonl(
+        &script_path,
+        &cwd,
+        pi_env(None),
+        payload,
+        token,
+        Some(on_event),
+        None,
+    )
+    .await?;
+    let response = parse_response(response)?;
+    on_event
+        .send(PiAgentHostEvent::Result {
+            response: response.clone(),
+        })
+        .map_err(|err| HostError::Request(format!("Send Pi enhance result event: {err}")))?;
+    Ok(response)
+}
+
+/// Shared enhance impl. The agent-agnostic `agent_runtime_enhance` gateway command
+/// calls this. Same IN_FLIGHT registration as execute (so an enhance is cancelable
+/// via `agent_runtime_abort` with the same request id), but routed to the isolated
+/// `do_enhance` — no project bind, no tools, no persistence.
+async fn enhance_impl(
+    app: AppHandle,
+    req: PiAgentEnhanceRequest,
+    on_event: Channel<PiAgentHostEvent>,
+) -> Result<PiAgentHostResponse, String> {
+    let request_id = req.request_id.clone();
+    let token = IN_FLIGHT.register(&request_id);
+    let result = do_enhance(&app, req, &on_event, token.clone()).await;
+    IN_FLIGHT.clear(&request_id);
+
+    match result {
+        Ok(response) => Ok(response),
+        Err(HostError::Aborted) => Ok(PiAgentHostResponse {
+            text: String::new(),
+            reasoning: None,
+            session_id: None,
+            session_file: None,
+            model: None,
+            usage: None,
+        }),
+        Err(error) => {
+            let (code, message) = error.into_code_message(PI_LANE);
+            let _ = on_event.send(PiAgentHostEvent::Error {
+                code: code.clone(),
+                message: message.clone(),
+            });
+            Err(format!("{code}: {message}"))
+        }
+    }
+}
+
 /// Shared abort impl. Cancels the in-flight token for `request_id` (a missing id
 /// means the run already ended — not an error). Both `pi_agent_abort` and
 /// `agent_runtime_abort` call this.
@@ -924,6 +1044,19 @@ pub async fn agent_runtime_execute(
     on_event: Channel<PiAgentHostEvent>,
 ) -> Result<PiAgentHostResponse, String> {
     execute_impl(app, req, on_event).await
+}
+
+/// Agent-agnostic gateway command for Prompt Enhance (PR-06). A DEDICATED,
+/// isolated one-shot — never the work path. Forwards to `enhance_impl`, which runs
+/// the Pi host with no project workspace, no tools, and no persistence. The
+/// renderer's enhance transport calls this instead of `agent_runtime_execute`.
+#[tauri::command]
+pub async fn agent_runtime_enhance(
+    app: AppHandle,
+    req: PiAgentEnhanceRequest,
+    on_event: Channel<PiAgentHostEvent>,
+) -> Result<PiAgentHostResponse, String> {
+    enhance_impl(app, req, on_event).await
 }
 
 // agent_runtime_resume: deferred to M4 Durable recovery (no Pi resume lane yet)

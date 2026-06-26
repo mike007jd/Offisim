@@ -3184,3 +3184,151 @@
 .off-scene-empty > * {
   pointer-events: auto;
 }
+
+/* ── Prompt Enhance (PR-06) ──────────────────────────────────────────────────
+   The Enhance trigger is a composer chip (inherits .off-composer-chip). Its accent
+   tint marks it as the one generative affordance among the otherwise neutral
+   controls. The review dialog reuses the shared .off-dialog surface. */
+.off-enhance-trigger {
+  color: var(--off-accent);
+}
+
+.off-enhance-trigger:not(:disabled):hover {
+  background: var(--off-accent-surface);
+  border-color: var(--off-accent);
+}
+
+.off-enhance-trigger:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.off-enhance-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--off-sp-3);
+}
+
+.off-enhance-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--off-sp-2);
+}
+
+.off-enhance-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  border-radius: var(--off-r-md);
+  background: var(--off-accent-surface);
+  color: var(--off-accent);
+}
+
+.off-enhance-close {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: var(--off-r-md);
+  background: transparent;
+  color: var(--off-ink-3);
+}
+
+.off-enhance-close:hover {
+  background: var(--off-surface-2);
+  color: var(--off-ink-1);
+}
+
+.off-enhance-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+  padding: var(--off-sp-3);
+  border-radius: var(--off-r-md);
+  background: var(--off-surface-2);
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-meta);
+}
+
+.off-enhance-loading > span {
+  flex: 1 1 auto;
+}
+
+/* The loading spinner reuses the existing token-based `.off-spin` (defined above),
+   which already carries the reduced-motion guard. No new keyframe needed. */
+
+.off-enhance-error {
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+  padding: var(--off-sp-3);
+  border-radius: var(--off-r-md);
+  background: var(--off-danger-surface, var(--off-surface-2));
+  color: var(--off-danger, var(--off-ink-1));
+  font-size: var(--off-fs-meta);
+}
+
+.off-enhance-invalid {
+  margin: 0;
+}
+
+.off-enhance-tablist {
+  display: inline-flex;
+  gap: var(--off-sp-1);
+  padding: 3px;
+  border-radius: var(--off-r-pill);
+  background: var(--off-surface-2);
+}
+
+.off-enhance-tab {
+  padding: 4px var(--off-sp-3);
+  border: 0;
+  border-radius: var(--off-r-pill);
+  background: transparent;
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-meta);
+  font-weight: 600;
+}
+
+.off-enhance-tab[data-state='active'] {
+  background: var(--off-surface-1);
+  color: var(--off-ink-1);
+}
+
+.off-enhance-panel {
+  margin-top: var(--off-sp-2);
+}
+
+.off-enhance-text {
+  max-height: 16rem;
+  overflow: auto;
+  margin: 0;
+  padding: var(--off-sp-3);
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-md);
+  background: var(--off-surface-1);
+  color: var(--off-ink-1);
+  font-family: inherit;
+  font-size: var(--off-fs-sm);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.off-enhance-text.is-muted {
+  color: var(--off-ink-3);
+}
+
+.off-enhance-rationale {
+  margin: 0;
+  padding-left: var(--off-sp-4);
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-meta);
+  line-height: 1.5;
+}

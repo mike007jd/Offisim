@@ -20,6 +20,7 @@ const LIB_RS = resolve(ROOT, 'apps/desktop/src-tauri/src/lib.rs');
 const PERMISSION_FILE = resolve(ROOT, 'apps/desktop/src-tauri/permissions/agent-bridges.toml');
 const REQUIRED_COMMANDS = [
   'agent_runtime_execute',
+  'agent_runtime_enhance',
   'agent_runtime_abort',
   'agent_runtime_answer',
   'agent_runtime_status',

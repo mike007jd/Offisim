@@ -15,6 +15,7 @@ import {
   ScopeControl,
   ThinkingControl,
 } from './composer/ComposerControls.js';
+import { OfficeEnhanceButton } from './enhance/OfficeEnhanceButton.js';
 import { ComposerTriggers } from './composer/ComposerTriggers.js';
 import { StagedAttachments } from './composer/StagedAttachments.js';
 import { useComposerAttachmentStore } from './composer/composer-attachment-store.js';
@@ -238,6 +239,12 @@ function OfficeComposer({
                 />
                 <ModelControl threadId={threadId} />
                 <ThinkingControl threadId={threadId} />
+                <OfficeEnhanceButton
+                  threadId={threadId}
+                  projectName={projectName}
+                  scopeEmployeeId={scopeEmployeeId}
+                  employees={employees}
+                />
                 <ModeControl threadId={threadId} />
                 {isRunning ? (
                   <ComposerPrimitive.Cancel

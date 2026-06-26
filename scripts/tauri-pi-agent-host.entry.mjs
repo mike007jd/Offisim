@@ -779,6 +779,124 @@ async function runPrompt(payload) {
   }
 }
 
+// ── Prompt Enhance (PR-06) ───────────────────────────────────────────────────
+//
+// A DEDICATED one-shot path, fully isolated from `runPrompt`. Enhance turns a
+// user-authored message into a clearer version under a versioned profile system
+// prompt. It is NOT a work run: it must NEVER register a tool, NEVER bind a
+// project workspace, and NEVER persist anything. The Rust `agent_runtime_enhance`
+// command resolves a NEUTRAL cwd (no project) and forwards `mode:'enhance'` here;
+// this function shares only the auth/model plumbing (the real Pi model call) with
+// the execute path, nothing else.
+//
+// Isolation, enforced three ways so a regression can't silently re-arm tools:
+//   1. `noTools: 'all'`  — the SDK starts with NO tools enabled.
+//   2. `tools: []`       — the explicit allowlist enables nothing on top.
+//   3. resourceLoader carries ONLY `appendSystemPrompt` (the profile prompt) and
+//      ZERO `extensionFactories` — no permission gate, no delegation, no publish,
+//      no mission bridge, no `ctx.ui` binding. There is no second stdin channel.
+async function runEnhance(payload) {
+  const text = asNonEmptyString(payload.text);
+  if (!text) {
+    throw Object.assign(new Error('Prompt enhance requests must include text.'), {
+      code: 'invalid-request',
+    });
+  }
+  const systemPrompt = asNonEmptyString(payload.systemPrompt);
+  if (!systemPrompt) {
+    throw Object.assign(new Error('Prompt enhance requests must include a profile system prompt.'), {
+      code: 'invalid-request',
+    });
+  }
+  // A neutral cwd (Rust passes a non-project dir). Never bind a workspace.
+  const cwd = asNonEmptyString(payload.cwd) ?? process.cwd();
+  const agentDir = asNonEmptyString(payload.agentDir);
+  const { authStorage, modelRegistry } = createPiRegistries(agentDir);
+  const model = selectedModel(modelRegistry, payload.model);
+  if (payload.model && !model) {
+    throw Object.assign(new Error(`Pi model override was not found: ${payload.model}`), {
+      code: 'model-not-found',
+    });
+  }
+  const thinkingLevel = normalizeThinkingLevel(payload.thinkingLevel);
+
+  // No SessionManager persistence: a fresh, ephemeral session per enhance with no
+  // session directory, so nothing is written to disk and no transcript survives.
+  const sessionManager = SessionManager.create(cwd);
+  const settingsManager = SettingsManager.create(cwd, agentDir);
+  // The profile system prompt is the ONLY appended prompt; NO extension factories.
+  const resourceLoader = new DefaultResourceLoader({
+    cwd,
+    agentDir,
+    settingsManager,
+    appendSystemPrompt: [systemPrompt],
+  });
+  await resourceLoader.reload();
+
+  const { session } = await createAgentSession({
+    cwd,
+    agentDir,
+    authStorage,
+    modelRegistry,
+    sessionManager,
+    resourceLoader,
+    // Belt-and-suspenders tool suppression — see the isolation note above.
+    noTools: 'all',
+    tools: [],
+    ...(model ? { model } : {}),
+    ...(thinkingLevel ? { thinkingLevel } : {}),
+  });
+
+  let latestText = '';
+  const unsubscribe = session.subscribe((event) => {
+    // Stream content deltas so the renderer can show a live, cancelable preview.
+    if (event.type === 'message_update') {
+      const streamEvent = event.assistantMessageEvent;
+      if (streamEvent?.type === 'text_delta' && streamEvent.delta) {
+        emit(messageDeltaLine({ channel: 'content', delta: clampText(streamEvent.delta) }));
+      }
+      return;
+    }
+    if (event.type === 'message_end' && event.message?.role === 'assistant') {
+      latestText = clampText(messageText(event.message));
+      return;
+    }
+    // A tool event here would mean isolation broke. There is no tool registered,
+    // so this branch is unreachable; if it ever fires, surface it loudly rather
+    // than silently letting a tool run on the enhance path.
+    if (
+      event.type === 'tool_execution_start' ||
+      event.type === 'tool_execution_update' ||
+      event.type === 'tool_execution_end'
+    ) {
+      throw Object.assign(
+        new Error('Prompt enhance must not execute tools — isolation breach.'),
+        { code: 'enhance-isolation' },
+      );
+    }
+  });
+
+  try {
+    await session.prompt(text);
+    const enhanced = clampText(session.getLastAssistantText() || latestText);
+    emit(
+      resultLine({
+        ok: true,
+        // The enhanced text rides the existing `result` line's `text` field, so no
+        // new wire kind and no protocol bump. The renderer distinguishes an enhance
+        // result by which Tauri command it invoked (`agent_runtime_enhance`), not by
+        // an in-band marker, so no discriminator field is added here.
+        text: enhanced,
+        sessionId: session.sessionId,
+        model: session.model ? modelSummary(session.model) : undefined,
+      }),
+    );
+  } finally {
+    unsubscribe();
+    session.dispose();
+  }
+}
+
 // The host is line-delimited on stdin: the FIRST line is the execute/status
 // payload, and (in Ask mode) every later line is a `uiResponse` answering a
 // `uiRequest` the host emitted mid-run. stdin is read as a stream so the agent
@@ -818,6 +936,12 @@ function main() {
           return;
         }
         finishHost();
+        return;
+      }
+      if (payload.mode === 'enhance') {
+        // Dedicated one-shot enhance path: no tools, no workspace, no persistence,
+        // no extension-UI stdin channel. Single completion → finish.
+        runEnhance(payload).then(finishHost, fail);
         return;
       }
       runPrompt(payload).then(finishHost, fail);
