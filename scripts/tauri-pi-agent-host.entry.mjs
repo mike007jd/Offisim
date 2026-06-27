@@ -29,6 +29,10 @@ import {
 } from './pi-agent-permission-modes.mts';
 import { createChildSupervisor, createDelegationLimits } from './pi-child-supervisor.mjs';
 import { createDelegationExtensionFactory } from './pi-delegation-extension.mjs';
+import {
+  createMcpBridgeExtensionFactory,
+  isWriteMcpTool,
+} from './pi-mcp-bridge-extension.mjs';
 import { createMissionBridgeExtensionFactory } from './pi-mission-bridge-extension.mjs';
 import { createPublishArtifactExtensionFactory } from './pi-publish-artifact-extension.mjs';
 
@@ -572,13 +576,24 @@ async function runPrompt(payload) {
   // every mode — a mission run may legitimately submit a read-only criterion.
   const missionContextJson = asNonEmptyString(payload.missionContextJson);
   const missionEnabled = Boolean(rootRunId && threadId && missionContextJson);
+  // MCP bridge (B3): register the 3 fixed meta tools (mcp_search_tools /
+  // mcp_describe_tool / mcp_call) when the renderer scoped any MCP tools to this
+  // run. Excluded from `plan` mode (planning is read-only investigation — no
+  // external tool execution). The token cost is constant (3 tools) regardless of
+  // how many MCP tools are scoped.
+  const mcpTools = Array.isArray(payload.mcpTools) ? payload.mcpTools : [];
+  const mcpEnabled = mcpTools.length > 0 && permissionMode !== 'plan';
+  // A write-class MCP tool pauses for ctx.ui.confirm, which needs the forwarding
+  // UI context bound — the same bind `ask` mode already does.
+  const mcpNeedsUi = mcpEnabled && mcpTools.some(isWriteMcpTool);
   let resourceLoader;
   if (
     gateFactory ||
     systemPromptAppend ||
     delegationEnabled ||
     publishArtifactEnabled ||
-    missionEnabled
+    missionEnabled ||
+    mcpEnabled
   ) {
     const settingsManager = SettingsManager.create(cwd, agentDir);
     const extensionFactories = [];
@@ -626,6 +641,14 @@ async function runPrompt(payload) {
         }),
       );
     }
+    if (mcpEnabled) {
+      extensionFactories.push(
+        createMcpBridgeExtensionFactory({
+          mcpTools,
+          requestMcpResult: mcpChannel.requestMcpResult,
+        }),
+      );
+    }
     // Append the employee persona and, when delegation is on, the fixed-flow
     // guidance — both are generic appended system prompts (Pi's official option).
     const appendSystemPrompt = [];
@@ -653,10 +676,11 @@ async function runPrompt(payload) {
     ...(resourceLoader ? { resourceLoader } : {}),
   });
 
-  // Ask mode is the only path that prompts the user mid-run. Bind a forwarding
-  // UI context so the gate's `ctx.ui.confirm` routes through our stdin channel;
-  // other modes leave Pi's default no-op context in place.
-  if (permissionMode === 'ask') {
+  // Bind a forwarding UI context so a mid-run `ctx.ui.confirm` routes through our
+  // stdin channel. Needed by Ask mode (the bash gate) AND by the MCP bridge when
+  // any scoped tool is write-class (its gate confirms before running). Other
+  // modes leave Pi's default no-op context in place.
+  if (permissionMode === 'ask' || mcpNeedsUi) {
     await session.bindExtensions({ uiContext: createForwardingUiContext(), mode: 'rpc' });
   }
 
