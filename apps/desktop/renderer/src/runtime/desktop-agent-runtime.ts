@@ -17,6 +17,7 @@ import {
 } from './mission/mission-events.js';
 import { readPiModelOverride } from './pi-agent-config.js';
 import type { PiAgentHostEvent, PiAgentHostResponse } from './pi-runtime-driver.js';
+import { aggregateSubtreeUsage } from './recovery/usage-aggregation.js';
 
 // Re-export the mission-bridge event vocabulary so existing importers of
 // desktop-agent-runtime keep working; the canonical definition lives in
@@ -559,38 +560,11 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       // Roll the whole subtree's usage up into the root record, and reconcile any
       // child left `running` — the case where a root abort killed the host before
       // a child's terminal event (full abort-tree propagation rides the in-process
-      // host kill; here we just keep the DB honest).
-      const agg = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
-      const dangling: string[] = [];
-      for (const child of children) {
-        if (child.run_id === rootRunId) continue;
-        if (child.usage_json) {
-          try {
-            const u = JSON.parse(child.usage_json) as Partial<typeof agg>;
-            agg.input += u.input ?? 0;
-            agg.output += u.output ?? 0;
-            agg.cacheRead += u.cacheRead ?? 0;
-            agg.cacheWrite += u.cacheWrite ?? 0;
-            agg.cost += u.cost ?? 0;
-            agg.turns += u.turns ?? 0;
-          } catch {
-            /* ignore a malformed usage blob */
-          }
-        }
-        if (child.status === 'running') dangling.push(child.run_id);
-      }
-      // Fold in the root's OWN usage (passed as a param, never read back from the
-      // root row — persistAgentRun doesn't write the root's run.completed). The
-      // loop above skipped the root row, so children + root sum with no
-      // double-count: children come from their rows, root from this param.
-      agg.input += rootUsage?.input ?? 0;
-      agg.output += rootUsage?.output ?? 0;
-      agg.cacheRead += rootUsage?.cacheRead ?? 0;
-      agg.cacheWrite += rootUsage?.cacheWrite ?? 0;
-      agg.cost += rootUsage?.cost ?? 0;
-      agg.turns += rootUsage?.turns ?? 0;
-      const usageJson =
-        agg.input || agg.output || agg.cost || agg.turns ? JSON.stringify(agg) : null;
+      // host kill; here we just keep the DB honest). The root's OWN usage comes
+      // from the param (persistAgentRun doesn't write the root's terminal event),
+      // so children + root sum with no double-count. Shared with the startup
+      // interrupted-run reconciler (DR-003).
+      const { usageJson, dangling } = aggregateSubtreeUsage(children, rootRunId, rootUsage);
       await Promise.all([
         repo.updateStatus(rootRunId, status, { finishedAt, usageJson }),
         ...dangling.map((id) => repo.updateStatus(id, 'cancelled', { finishedAt })),
