@@ -19,8 +19,10 @@ import {
   type AgentRunEvent,
   type AgentRunRelation,
   type AgentRunStatus,
+  type ToolRichDetail,
   type WorkKind,
   classifyToolActivity,
+  parseToolRichDetail,
 } from './agent-run.js';
 
 export interface AgentRunNode {
@@ -56,6 +58,9 @@ export interface ActivityEntry {
   readonly toolName: string;
   readonly activityKind: ActivityKind;
   readonly status: 'started' | 'completed' | 'failed';
+  /** Family-structured detail (terminal/file/search/generic) parsed from the
+   *  event's opaque `detail` — drives the rich per-tool work view (D1/D2). */
+  readonly richDetail: ToolRichDetail;
 }
 
 export interface ArtifactEntry {
@@ -153,6 +158,7 @@ export function projectAgentRun(events: readonly AgentRunEvent[]): AgentRunProje
           toolName: event.payload.toolName,
           activityKind: event.payload.activityKind ?? classifyToolActivity(event.payload.toolName),
           status: event.payload.status,
+          richDetail: parseToolRichDetail(event.payload.toolName, event.payload.detail),
         });
         break;
       }

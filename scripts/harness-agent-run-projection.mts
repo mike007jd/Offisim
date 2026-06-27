@@ -14,6 +14,7 @@ import {
   type ActivityKind,
   type AgentRunEvent,
   classifyToolActivity,
+  parseToolRichDetail,
   projectAgentRun,
 } from '../packages/shared-types/src/index.js';
 
@@ -352,6 +353,59 @@ console.log('\n[no-root] director root absent from the event stream');
   );
   check('both children are actors', p.employeeStates.length === 2);
   check('terminalStatus null when root run absent', p.terminalStatus === null);
+}
+
+// ── D1: rich tool detail by family ──────────────────────────────────────────
+// Inject-proof: break the family map (e.g. make 'shell' → 'file' in toolFamily)
+// → the terminal checks below fail; or drop the projection's richDetail field →
+// the projection checks fail. Both prove the rich detail is load-bearing.
+console.log('\n[D1] rich tool detail parsed by family');
+{
+  const term = parseToolRichDetail('bash', JSON.stringify({ command: 'ls -la', exitCode: 0 }));
+  check(
+    'terminal: command + exitCode parsed',
+    term.family === 'terminal' && term.command === 'ls -la' && term.exitCode === 0,
+  );
+  const file = parseToolRichDetail('write_file', JSON.stringify({ file_path: 'src/a.ts' }));
+  check('file: path resolved from file_path', file.family === 'file' && file.path === 'src/a.ts');
+  const search = parseToolRichDetail('grep', JSON.stringify({ pattern: 'TODO', matches: [1, 2, 3] }));
+  check(
+    'search: query + hitCount from matches[]',
+    search.family === 'search' && search.query === 'TODO' && search.hitCount === 3,
+  );
+  const gen = parseToolRichDetail('think', 'not json');
+  check('generic: unparseable detail degrades to generic family', gen.family === 'generic');
+  const empty = parseToolRichDetail('bash', undefined);
+  check(
+    'terminal: missing detail → empty fields, never throws',
+    empty.family === 'terminal' && empty.command === undefined && empty.exitCode === undefined,
+  );
+
+  // The richDetail flows onto every ActivityEntry through the projection.
+  const toolEv = (toolName: string, detail: string): AgentRunEvent => ({
+    threadId: THREAD,
+    rootRunId: ROOT,
+    runId: 'c1',
+    employeeId: 'alex',
+    type: 'tool.completed',
+    payload: { toolCallId: `c1:${toolName}`, toolName, status: 'completed', detail },
+  });
+  const p = projectAgentRun([
+    started({ runId: ROOT, workKind: 'plan' }, 'x'),
+    started({ runId: 'c1', parentRunId: ROOT, employeeId: 'alex', relation: 'delegate' }, 'a'),
+    toolEv('bash', JSON.stringify({ command: 'pnpm test', exitCode: 1 })),
+    toolEv('grep', JSON.stringify({ query: 'foo', count: 7 })),
+  ]);
+  const bashRd = p.activity.find((a) => a.toolName === 'bash')?.richDetail;
+  check(
+    'projection: bash activity carries terminal richDetail',
+    bashRd?.family === 'terminal' && bashRd.exitCode === 1,
+  );
+  const grepRd = p.activity.find((a) => a.toolName === 'grep')?.richDetail;
+  check(
+    'projection: grep activity carries search richDetail',
+    grepRd?.family === 'search' && grepRd.hitCount === 7,
+  );
 }
 
 // ── Determinism ─────────────────────────────────────────────────────────────

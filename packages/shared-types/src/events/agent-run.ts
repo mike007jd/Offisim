@@ -218,6 +218,120 @@ export function classifyToolActivity(toolName: string): ActivityKind {
   return 'inspect';
 }
 
+/** Coarse rendering family for a tool's rich detail view (D1). */
+export type ToolFamily = 'terminal' | 'file' | 'search' | 'generic';
+
+/** Map an {@link ActivityKind} to its rich-view {@link ToolFamily}. */
+export function toolFamily(kind: ActivityKind): ToolFamily {
+  switch (kind) {
+    case 'shell':
+    case 'build':
+    case 'test':
+      return 'terminal';
+    case 'read':
+    case 'write':
+    case 'edit':
+      return 'file';
+    case 'search':
+      return 'search';
+    default:
+      return 'generic';
+  }
+}
+
+/**
+ * Family-structured detail for a tool event, derived from the opaque `detail`
+ * blob so the renderer can show a per-family work view (terminal output / file
+ * diff / search hits) instead of a generic string.
+ */
+export type ToolRichDetail =
+  | {
+      readonly family: 'terminal';
+      readonly command?: string;
+      readonly exitCode?: number;
+      readonly outputSummary?: string;
+    }
+  | { readonly family: 'file'; readonly path?: string; readonly summary?: string }
+  | { readonly family: 'search'; readonly query?: string; readonly hitCount?: number }
+  | { readonly family: 'generic'; readonly text?: string };
+
+function parseDetailObject(detail?: string): Record<string, unknown> | null {
+  if (!detail) return null;
+  try {
+    const value: unknown = JSON.parse(detail);
+    return value && typeof value === 'object' && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function pickString(...values: unknown[]): string | undefined {
+  for (const v of values) {
+    if (typeof v === 'string' && v.length > 0) return v;
+  }
+  return undefined;
+}
+
+function pickNumber(...values: unknown[]): number | undefined {
+  for (const v of values) {
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
+  }
+  return undefined;
+}
+
+function summarize(value: unknown, max = 200): string | undefined {
+  const text = typeof value === 'string' ? value : value == null ? undefined : JSON.stringify(value);
+  if (!text) return undefined;
+  const firstLine = text.split('\n')[0] ?? text;
+  return firstLine.length > max ? `${firstLine.slice(0, max)}…` : firstLine;
+}
+
+/**
+ * Parse a tool event's opaque `detail` JSON (the host emits `JSON.stringify` of
+ * the tool args on `started` and the result on `completed`) into a
+ * family-structured {@link ToolRichDetail}. Pure, deterministic, defensive: an
+ * unparseable / key-absent detail degrades to the family with empty fields and
+ * never throws. Key names are matched loosely (command/cmd, path/file_path/…,
+ * pattern/query/…) because the exact tool arg/result shape varies by tool.
+ */
+export function parseToolRichDetail(toolName: string, detail?: string): ToolRichDetail {
+  const family = toolFamily(classifyToolActivity(toolName));
+  const d = parseDetailObject(detail);
+  if (family === 'terminal') {
+    return {
+      family,
+      command: d ? pickString(d.command, d.cmd) : undefined,
+      exitCode: d ? pickNumber(d.exitCode, d.exit_code, d.code) : undefined,
+      outputSummary: d ? summarize(d.stdout ?? d.output ?? d.result) : undefined,
+    };
+  }
+  if (family === 'file') {
+    return {
+      family,
+      path: d ? pickString(d.path, d.file_path, d.filePath, d.file) : undefined,
+      summary: d ? summarize(d.diff ?? d.summary ?? d.result) : undefined,
+    };
+  }
+  if (family === 'search') {
+    const hitCount = d
+      ? (pickNumber(d.count, d.hits) ??
+        (Array.isArray(d.matches)
+          ? d.matches.length
+          : Array.isArray(d.results)
+            ? d.results.length
+            : undefined))
+      : undefined;
+    return {
+      family,
+      query: d ? pickString(d.pattern, d.query, d.regex) : undefined,
+      hitCount,
+    };
+  }
+  return { family: 'generic', text: summarize(detail) };
+}
+
 /**
  * Delegation tool input. `executionMode: 'single'` runs exactly one child and
  * awaits it; `'parallel'` fans out one or more concurrently. `relation` is the

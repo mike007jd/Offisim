@@ -192,9 +192,11 @@ export type {
   DelegateExecutionMode,
   DelegateTaskInput,
   DelegateToolInput,
+  ToolFamily,
+  ToolRichDetail,
   WorkKind,
 } from './events/agent-run.js';
-export { classifyToolActivity } from './events/agent-run.js';
+export { classifyToolActivity, parseToolRichDetail, toolFamily } from './events/agent-run.js';
 export type {
   ActivityEntry,
   AgentRunNode,
