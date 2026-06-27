@@ -1,0 +1,450 @@
+/* ══════════ Loop graph panel (PR-09) ══════════
+   Read-only nested loop graph over a LoopIR. Tokens only; the panel fills its
+   parent and never adds renderer-root gutter — spacing lives inside the regions.
+   Visual grammar uses icon + label + line pattern, never color alone. */
+
+.off-loopgraph {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  background: var(--off-bg);
+  color: var(--off-ink-1);
+  overflow: hidden;
+}
+
+/* Non-ready states (empty / compiling / error). */
+.off-loopgraph--state {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--off-sp-3);
+}
+.off-loopgraph-state-text {
+  font-size: var(--off-fs-sm);
+  color: var(--off-ink-3);
+}
+.off-loopgraph-state-icon {
+  width: 28px;
+  height: 28px;
+  color: var(--off-warn);
+}
+.off-loopgraph-spin {
+  width: 22px;
+  height: 22px;
+  color: var(--off-accent);
+  animation: off-loopgraph-spin var(--off-motion-spin) var(--off-motion-linear) infinite;
+}
+@keyframes off-loopgraph-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.off-loopgraph-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* ── Breadcrumb ── */
+.off-loopgraph-crumbs {
+  flex: none;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--off-sp-1);
+  padding: var(--off-sp-2) var(--off-sp-3);
+  border-bottom: 1px solid var(--off-line-soft);
+}
+.off-loopgraph-crumb-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--off-sp-1);
+}
+.off-loopgraph-crumb {
+  font-size: var(--off-fs-sm);
+  color: var(--off-ink-3);
+  background: none;
+  border: none;
+  padding: 2px var(--off-sp-1);
+  border-radius: var(--off-r-xs);
+  cursor: pointer;
+}
+.off-loopgraph-crumb:hover {
+  color: var(--off-ink-1);
+  background: var(--off-surface-2);
+}
+.off-loopgraph-crumb--current {
+  color: var(--off-ink-1);
+  font-weight: 600;
+  cursor: default;
+}
+.off-loopgraph-crumb-sep {
+  width: 14px;
+  height: 14px;
+  color: var(--off-ink-4);
+}
+
+/* ── Invalid findings overlay (non-blocking banner) ── */
+.off-loopgraph-findings {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+  padding: var(--off-sp-2) var(--off-sp-3);
+  background: var(--off-warn-surface);
+  color: var(--off-warn);
+  border-bottom: 1px solid var(--off-warn-surface);
+  font-size: var(--off-fs-sm);
+}
+.off-loopgraph-findings-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+/* ── Canvas ── */
+.off-loopgraph-canvas {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+.off-loopgraph-canvas:focus-visible {
+  outline: var(--off-focus-ring-width, 2px) solid var(--off-accent-ring);
+  outline-offset: -2px;
+}
+.off-loopgraph-laying {
+  position: absolute;
+  top: var(--off-sp-2);
+  right: var(--off-sp-2);
+  z-index: var(--off-z-float);
+  pointer-events: none;
+}
+
+/* React Flow base surface tints to our tokens (it ships its own neutral CSS). */
+.off-loopgraph-canvas .react-flow {
+  background: var(--off-bg);
+}
+.off-loopgraph-canvas .react-flow__background {
+  color: var(--off-line-soft);
+}
+.off-loopgraph-minimap {
+  background: var(--off-surface-1);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-sm);
+}
+
+/* Screen-reader-only live region. */
+.off-loopgraph-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ══════════ Nodes ══════════ */
+.off-loopnode {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 200px;
+  padding: var(--off-sp-2) var(--off-sp-3);
+  background: var(--off-surface-1);
+  border: 1.5px solid var(--off-line);
+  border-radius: var(--off-r-md);
+  box-shadow: var(--off-elev-1);
+  font-size: var(--off-fs-sm);
+}
+.off-loopnode-head {
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-1);
+}
+.off-loopnode-icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+.off-loopnode-kind {
+  font-size: var(--off-fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--off-ink-3);
+}
+.off-loopnode-label {
+  font-weight: 600;
+  color: var(--off-ink-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.off-loopnode--selected {
+  border-color: var(--off-accent);
+  box-shadow: 0 0 0 2px var(--off-accent-ring), var(--off-elev-2);
+}
+.off-loopnode-handle {
+  width: 7px;
+  height: 7px;
+  background: var(--off-line-strong);
+  border: none;
+}
+
+/* Shape grammar — distinct silhouettes, not color-only. */
+.off-loopnode--terminal {
+  border-radius: var(--off-r-pill);
+  width: 168px;
+}
+.off-loopnode--terminal .off-loopnode-icon {
+  color: var(--off-accent);
+}
+.off-loopnode--card {
+  /* standard card — the default */
+}
+.off-loopnode--diamond {
+  border-style: solid;
+  /* decision: skewed left accent rail + diamond badge cue */
+  border-left: 4px solid var(--off-ink-3);
+}
+.off-loopnode--diamond .off-loopnode-icon {
+  color: var(--off-ink-2);
+}
+.off-loopnode--gate {
+  border-left: 4px solid var(--off-ok);
+}
+.off-loopnode--gate .off-loopnode-icon {
+  color: var(--off-ok);
+}
+.off-loopnode--approval {
+  border-left: 4px solid var(--off-warn);
+  border-style: dashed;
+}
+.off-loopnode--approval .off-loopnode-icon {
+  color: var(--off-warn);
+}
+.off-loopnode--loop {
+  border-width: 2px;
+  border-color: var(--off-accent);
+  background: var(--off-accent-surface);
+}
+.off-loopnode--loop .off-loopnode-icon {
+  color: var(--off-accent);
+}
+
+.off-loopnode-subfoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--off-sp-2);
+  margin-top: 2px;
+}
+.off-loopnode-count,
+.off-loopnode-ref {
+  font-size: var(--off-fs-xs);
+  color: var(--off-ink-3);
+}
+.off-loopnode-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: var(--off-fs-xs);
+  font-weight: 600;
+  color: var(--off-accent);
+  background: none;
+  border: none;
+  padding: 2px var(--off-sp-1);
+  border-radius: var(--off-r-xs);
+  cursor: pointer;
+}
+.off-loopnode-open:hover {
+  background: var(--off-surface-2);
+}
+.off-loopnode-open-icon {
+  width: 12px;
+  height: 12px;
+}
+
+/* ══════════ Edges ══════════ */
+.off-loopedge {
+  stroke: var(--off-line-strong);
+}
+.off-loopedge--feedback {
+  stroke: var(--off-accent);
+}
+.off-loopedge--retry {
+  stroke: var(--off-ink-3);
+}
+.off-loopedge--escalate {
+  stroke: var(--off-warn);
+}
+
+.off-loopedge-badge {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px var(--off-sp-1);
+  font-size: var(--off-fs-xs);
+  color: var(--off-ink-2);
+  background: var(--off-surface-1);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-pill);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.off-loopedge-badge-icon {
+  width: 11px;
+  height: 11px;
+}
+.off-loopedge-badge--feedback {
+  color: var(--off-accent);
+  border-color: var(--off-accent);
+}
+.off-loopedge-badge--retry {
+  color: var(--off-ink-3);
+  border-style: dashed;
+}
+.off-loopedge-badge--warn {
+  color: var(--off-warn);
+  background: var(--off-warn-surface);
+  border-color: var(--off-warn);
+}
+.off-loopedge-badge-count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* ══════════ Inspector ══════════ */
+.off-loopinspector {
+  flex: none;
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--off-sp-3);
+  padding: var(--off-sp-3);
+  border-left: 1px solid var(--off-line-soft);
+  background: var(--off-surface-1);
+  overflow-y: auto;
+}
+.off-loopinspector--empty {
+  justify-content: center;
+  align-items: center;
+}
+.off-loopinspector-hint {
+  font-size: var(--off-fs-sm);
+  color: var(--off-ink-3);
+  text-align: center;
+}
+.off-loopinspector-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--off-sp-2);
+}
+.off-loopinspector-icon {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  color: var(--off-accent);
+  flex: none;
+}
+.off-loopinspector-titles {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.off-loopinspector-kind {
+  font-size: var(--off-fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--off-ink-3);
+}
+.off-loopinspector-title {
+  font-size: var(--off-fs-lg);
+  font-weight: 600;
+  color: var(--off-ink-1);
+  margin: 0;
+}
+.off-loopinspector-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--off-sp-1);
+}
+.off-loopinspector-section--gate {
+  padding: var(--off-sp-2);
+  background: var(--off-warn-surface);
+  border-radius: var(--off-r-sm);
+}
+.off-loopinspector-key {
+  font-size: var(--off-fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--off-ink-3);
+}
+.off-loopinspector-text {
+  font-size: var(--off-fs-sm);
+  color: var(--off-ink-1);
+  margin: 0;
+}
+.off-loopinspector-sub {
+  font-size: var(--off-fs-xs);
+  color: var(--off-ink-3);
+  margin: 0;
+}
+.off-loopinspector-mono {
+  font-family: var(--off-font-mono, ui-monospace, monospace);
+}
+.off-loopinspector-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.off-loopinspector-item {
+  font-size: var(--off-fs-xs);
+  color: var(--off-ink-2);
+}
+.off-loopinspector-ports {
+  display: flex;
+  gap: var(--off-sp-3);
+}
+.off-loopinspector-ports .off-loopinspector-section {
+  flex: 1;
+  min-width: 0;
+}
+.off-loopinspector-chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--off-sp-1);
+}
+.off-loopinspector-chip {
+  font-size: var(--off-fs-xs);
+  color: var(--off-ink-2);
+  background: var(--off-surface-2);
+  border-radius: var(--off-r-xs);
+  padding: 1px var(--off-sp-1);
+}
+
+/* ── Reduced motion: kill spinners + edge/viewport transitions. ── */
+@media (prefers-reduced-motion: reduce) {
+  .off-loopgraph-spin {
+    animation: none;
+  }
+  .off-loopgraph-canvas .react-flow__edge-path,
+  .off-loopgraph-canvas .react-flow__node {
+    transition: none !important;
+  }
+}

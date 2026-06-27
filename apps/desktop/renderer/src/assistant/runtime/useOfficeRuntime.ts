@@ -10,11 +10,18 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { useComposerAttachmentStore } from '../composer/composer-attachment-store.js';
+import {
+  loopReferenceToken,
+  resolveLoopReference,
+  stripLoopTokens,
+  useComposerLoopReferenceStore,
+} from '../composer/composer-loop-reference-store.js';
 import { extractMentionedEmployeeIds, toMentionRoster } from '../composer/composer-triggers.js';
 import { assembleAssistantContent } from '../parts/assistant-message-parts.js';
 import { conversationRunController } from './conversation-run-controller.js';
 import { isConversationRunActive, useConversationRun } from './conversation-run-react.js';
 import { appendText } from './desktop-chat-runtime.js';
+import { buildLoopSendExecution } from './loop-send-execution.js';
 
 function safeErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error ?? 'Unknown error');
@@ -86,25 +93,52 @@ export function useOfficeRuntime({
 
   const onNew = useCallback(
     async (message: AppendMessage) => {
-      const text = appendText(message);
-      if (!text) return;
+      const loopReference = resolveLoopReference(threadId);
+      // Strip any loop token already present in the composed text (the custom Send
+      // affordance seeds the token to satisfy assistant-ui's non-empty gate), so the
+      // body is never doubled — the token is re-appended once below.
+      const typedText = stripLoopTokens(appendText(message)).trim();
+      // PR-10: a Loop chip alone is a valid send (the Loop IS the instruction), so a
+      // turn is allowed when there is typed text OR a Loop reference on this thread.
+      if (!typedText && !loopReference) return;
       if (!companyId) {
         toast.error('Cannot send this message: no active company is bound to this chat.');
         return;
       }
+
+      // The persisted/displayed body carries the [[loop:<id>]] token after the typed
+      // text so the transcript renders the chip and the Enhance protected-span
+      // pipeline (PR-06) already guards it. The title still derives from typed text.
+      const token = loopReference ? loopReferenceToken(loopReference) : '';
+      const text = loopReference ? (typedText ? `${typedText} ${token}` : token) : typedText;
+      const titleSeed = typedText || (loopReference ? loopReference.titleSnapshot : text);
 
       const stagedForTurn = staged.filter((attachment) => attachment.status === 'attached');
       clearStaged();
       try {
         const roster = toMentionRoster(employeesById.values());
         const turnEmployeeId = extractMentionedEmployeeIds(text, roster)[0] ?? assigneeId ?? null;
+
+        // Build the Loop-backed execution BEFORE submitting so a build failure (no
+        // desktop repos) is surfaced and the turn never half-sends. The controller
+        // calls `start(messageId)` which materializes invocation + Mission and runs
+        // it on THIS Office thread.
+        const loopExecution = loopReference
+          ? await buildLoopSendExecution({
+              reference: loopReference,
+              companyId,
+              projectId,
+              threadId,
+            })
+          : undefined;
+
         if (materializeThread) {
-          await materializeThread(text);
+          await materializeThread(titleSeed);
         } else {
           void autoTitleThreadFromFirstMessage({
             threadId,
             projectId,
-            firstUserText: text,
+            firstUserText: titleSeed,
             queryClient,
           }).catch((err: unknown) => {
             console.warn('[useOfficeRuntime] auto-title failed', { threadId, err });
@@ -120,9 +154,15 @@ export function useOfficeRuntime({
           model: resolveThreadModel(threadId),
           source: 'office',
           persistMessage,
+          ...(loopExecution ? { loopExecution } : {}),
         });
+        // Clear the chip only after a successful submit — a failed build/submit keeps
+        // the chip so the user can retry without re-inserting the Loop.
+        if (loopReference) useComposerLoopReferenceStore.getState().clearReference(threadId);
       } catch (error) {
-        toast.error('Pi Agent run failed', { description: safeErrorMessage(error) });
+        toast.error(loopReference ? 'Could not send this Loop run' : 'Pi Agent run failed', {
+          description: safeErrorMessage(error),
+        });
       }
     },
     [

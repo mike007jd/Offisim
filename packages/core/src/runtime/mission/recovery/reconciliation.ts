@@ -33,9 +33,9 @@ import type { MissionService } from '../mission-service.js';
 import { isCompatible } from './compatibility-hash.js';
 import { canAutoRetry, evaluatorRetrySafety } from './retry-safety.js';
 import type {
+  ReconciliationResult,
   RecoveryCard,
   RecoveryClassification,
-  ReconciliationResult,
   SurfacedPendingInteraction,
   UnfinishedOperation,
 } from './types.js';
@@ -257,7 +257,12 @@ async function collectUnfinishedOperations(
   for (const c of criteria) {
     // A criterion that already reached a terminal verdict (pass/fail/blocked/skip)
     // is finished; only `pending` / `error` criteria are unfinished work to re-run.
-    if (c.status === 'pass' || c.status === 'fail' || c.status === 'blocked' || c.status === 'skip') {
+    if (
+      c.status === 'pass' ||
+      c.status === 'fail' ||
+      c.status === 'blocked' ||
+      c.status === 'skip'
+    ) {
       continue;
     }
     const retrySafety = evaluatorRetrySafety(c.evaluator_id);

@@ -59,7 +59,15 @@ export type MissionStatus =
 const ALLOWED_TRANSITIONS: Readonly<Record<MissionStatus, readonly MissionStatus[]>> = {
   draft: ['ready', 'cancelled'],
   ready: ['running', 'cancelled', 'paused'],
-  running: ['verifying', 'awaiting_user', 'interrupted', 'blocked', 'failed', 'cancelled', 'paused'],
+  running: [
+    'verifying',
+    'awaiting_user',
+    'interrupted',
+    'blocked',
+    'failed',
+    'cancelled',
+    'paused',
+  ],
   verifying: [
     'completed',
     'repairing',
@@ -535,7 +543,12 @@ export class MissionService {
    */
   async resume(missionId: string, to: 'running' | 'ready' = 'running'): Promise<MissionRow> {
     const mission = await this.load(missionId);
-    return this.transition(mission, to, { resumedFrom: mission.status }, { eventType: 'mission.resumed' });
+    return this.transition(
+      mission,
+      to,
+      { resumedFrom: mission.status },
+      { eventType: 'mission.resumed' },
+    );
   }
 
   /**
@@ -547,12 +560,9 @@ export class MissionService {
     // A3: a cancel mid-attempt closes the in-flight attempt to 'cancelled'. When
     // there is no current attempt (cancel from draft/ready), `transition` skips
     // the attempt write.
-    return this.transition(
-      mission,
-      'cancelled',
-      reason ? { reason } : {},
-      { finalizeAttempt: 'cancelled' },
-    );
+    return this.transition(mission, 'cancelled', reason ? { reason } : {}, {
+      finalizeAttempt: 'cancelled',
+    });
   }
 
   // -- reads (loop controller MS-004) --------------------------------------
@@ -655,8 +665,7 @@ export class MissionService {
       );
     }
 
-    const attemptId =
-      opts?.currentAttemptId ?? mission.current_attempt_id ?? null;
+    const attemptId = opts?.currentAttemptId ?? mission.current_attempt_id ?? null;
     await this.writeEvent(
       mission.mission_id,
       attemptId,

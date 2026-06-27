@@ -69,7 +69,11 @@ const commandExitZero: MissionEvaluator = {
   evaluate: safeEvaluate(async (ctx) => {
     const { command } = parseConfig<{ command?: string }>(ctx);
     if (!command) {
-      return { verdict: 'ERROR', summary: 'command_exit_zero requires config.command', evidenceRefs: [] };
+      return {
+        verdict: 'ERROR',
+        summary: 'command_exit_zero requires config.command',
+        evidenceRefs: [],
+      };
     }
     const result = await ctx.runCommand(command);
     if (result.classifierBlocked) {
@@ -255,7 +259,11 @@ const jsonSchema: MissionEvaluator = {
         };
       }
     }
-    return { verdict: 'PASS', summary: `JSON valid against schema: ${path}`, evidenceRefs: [`path:${path}`] };
+    return {
+      verdict: 'PASS',
+      summary: `JSON valid against schema: ${path}`,
+      evidenceRefs: [`path:${path}`],
+    };
   }),
 };
 

@@ -169,6 +169,12 @@ export function createMissionDrizzleRepos(db: Db): MissionDrizzleRepos {
         .where(eq(schema.missionAttempt.attempt_id, attemptId))
         .run();
     },
+    async setRootRunId(attemptId, rootRunId) {
+      db.update(schema.missionAttempt)
+        .set({ root_run_id: rootRunId })
+        .where(eq(schema.missionAttempt.attempt_id, attemptId))
+        .run();
+    },
   };
 
   const missionEvaluations: MissionEvaluationRepository = {

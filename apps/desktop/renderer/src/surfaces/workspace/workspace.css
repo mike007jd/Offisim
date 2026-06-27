@@ -2261,3 +2261,363 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ── Connect (collaboration chat) — PR-05 ────────────────────────────────── */
+
+.off-connect-list-empty,
+.off-connect-thread-empty {
+  padding: var(--off-sp-6);
+  text-align: center;
+  color: var(--off-ink-4);
+  font-size: var(--off-fs-meta);
+}
+
+.off-connect-thread-empty {
+  margin: auto;
+}
+
+/* Composer extras (Enhance / Ask team / Stop / round bar / send error) */
+.off-connect-composer {
+  gap: var(--off-sp-2);
+}
+
+.off-connect-enhance {
+  flex: none;
+  align-self: flex-end;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--off-r-round);
+  background: transparent;
+  color: var(--off-ink-3);
+  transition: background var(--off-motion-fast) var(--off-motion-ease), color var(--off-motion-fast)
+    var(--off-motion-ease);
+}
+
+.off-connect-enhance:hover:not(:disabled) {
+  background: var(--off-surface-sunken);
+  color: var(--off-accent);
+}
+
+.off-connect-enhance:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.off-connect-ask {
+  flex: none;
+  align-self: flex-end;
+  height: 30px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--off-line-strong);
+  border-radius: var(--off-r-pill);
+  background: var(--off-surface-2);
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-meta);
+  font-weight: 600;
+  transition: border-color var(--off-motion-fast) var(--off-motion-ease), color
+    var(--off-motion-fast) var(--off-motion-ease);
+}
+
+.off-connect-ask:hover:not(:disabled) {
+  border-color: var(--off-accent);
+  color: var(--off-accent);
+}
+
+.off-connect-ask:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.off-connect-stop {
+  background: var(--off-surface-sunken);
+  color: var(--off-ink-2);
+}
+
+.off-connect-stop:hover {
+  background: var(--off-line);
+}
+
+.off-connect-turn-stop {
+  margin-left: var(--off-sp-2);
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--off-r-round);
+  background: var(--off-surface-1);
+  color: var(--off-ink-3);
+}
+
+.off-connect-turn-stop:hover {
+  color: var(--off-ink-1);
+}
+
+.off-connect-round-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--off-sp-3);
+  padding: 4px var(--off-sp-2);
+}
+
+.off-connect-round-info {
+  font-size: var(--off-fs-meta);
+  color: var(--off-ink-3);
+  font-weight: 560;
+}
+
+.off-connect-send-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--off-sp-3);
+  padding: 6px var(--off-sp-3);
+  border: 1px solid var(--off-warn-line-subtle);
+  border-radius: var(--off-r-sm);
+  background: var(--off-warn-surface);
+  color: var(--off-warn);
+  font-size: var(--off-fs-meta);
+}
+
+.off-connect-bubble-err {
+  border-color: var(--off-warn-line-subtle) !important;
+  background: var(--off-warn-surface) !important;
+  color: var(--off-warn) !important;
+}
+
+.off-connect-retry {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--off-line-strong);
+  border-radius: var(--off-r-pill);
+  background: var(--off-surface-1);
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-micro);
+  font-weight: 580;
+}
+
+.off-connect-retry:hover {
+  border-color: var(--off-accent);
+  color: var(--off-accent);
+}
+
+/* Dialogs (new chat / direct picker / new group / members / ask team) */
+.off-connect-dialog {
+  width: min(440px, calc(100vw - var(--off-sp-8)));
+  display: flex;
+  flex-direction: column;
+  gap: var(--off-sp-4);
+}
+
+.off-connect-dialog.is-group {
+  width: min(480px, calc(100vw - var(--off-sp-8)));
+}
+
+.off-connect-newtype {
+  display: grid;
+  gap: var(--off-sp-3);
+}
+
+.off-connect-newtype-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-4);
+  padding: var(--off-sp-4);
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-md);
+  background: var(--off-surface-1);
+  text-align: left;
+  transition: border-color var(--off-motion-fast) var(--off-motion-ease), background
+    var(--off-motion-fast) var(--off-motion-ease);
+}
+
+.off-connect-newtype-btn:hover {
+  border-color: var(--off-accent);
+  background: var(--off-accent-surface);
+}
+
+.off-connect-newtype-ic {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: var(--off-r-sm);
+  background: var(--off-accent-surface);
+  color: var(--off-accent);
+}
+
+.off-connect-newtype-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.off-connect-newtype-nm {
+  font-size: var(--off-fs-base);
+  font-weight: 640;
+  color: var(--off-ink-1);
+}
+
+.off-connect-newtype-sub {
+  font-size: var(--off-fs-meta);
+  color: var(--off-ink-3);
+}
+
+.off-connect-dialog-search {
+  flex: none;
+}
+
+.off-connect-pick-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-sm);
+  padding: 4px;
+}
+
+.off-connect-pick-row {
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-3);
+  padding: 6px var(--off-sp-3);
+  border-radius: var(--off-r-xs);
+  background: transparent;
+  text-align: left;
+  transition: background var(--off-motion-fast) var(--off-motion-ease);
+}
+
+.off-connect-pick-row:hover {
+  background: var(--off-surface-sunken);
+}
+
+.off-connect-pick-row.is-on {
+  background: var(--off-accent-surface);
+}
+
+.off-connect-pick-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.off-connect-pick-nm {
+  font-size: var(--off-fs-sm);
+  font-weight: 600;
+  color: var(--off-ink-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.off-connect-pick-rl {
+  font-size: var(--off-fs-micro);
+  color: var(--off-ink-3);
+}
+
+.off-connect-pick-check {
+  flex: none;
+  color: var(--off-accent);
+}
+
+.off-connect-pick-empty {
+  padding: var(--off-sp-5);
+  text-align: center;
+  color: var(--off-ink-4);
+  font-size: var(--off-fs-meta);
+}
+
+.off-connect-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--off-sp-2);
+}
+
+.off-connect-field-label {
+  font-size: var(--off-fs-meta);
+  font-weight: 620;
+  color: var(--off-ink-2);
+}
+
+.off-connect-field-hint {
+  font-size: var(--off-fs-micro);
+  color: var(--off-ink-3);
+}
+
+.off-connect-field-hint.is-warn {
+  color: var(--off-warn);
+}
+
+.off-connect-input {
+  height: 34px;
+  padding: 0 var(--off-sp-3);
+  border: 1px solid var(--off-line-strong);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-1);
+  color: var(--off-ink-1);
+  font-size: var(--off-fs-sm);
+  outline: none;
+  transition: border-color var(--off-motion-fast) var(--off-motion-ease), box-shadow
+    var(--off-motion-fast) var(--off-motion-ease);
+}
+
+.off-connect-input:focus {
+  border-color: var(--off-accent);
+  box-shadow: 0 0 0 3px var(--off-accent-ring);
+}
+
+.off-connect-members-meta {
+  font-size: var(--off-fs-meta);
+  color: var(--off-ink-3);
+}
+
+.off-connect-btn {
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--off-line-strong);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-1);
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-sm);
+  font-weight: 600;
+  transition: border-color var(--off-motion-fast) var(--off-motion-ease), background
+    var(--off-motion-fast) var(--off-motion-ease);
+}
+
+.off-connect-btn:hover:not(:disabled) {
+  border-color: var(--off-line-strong);
+  background: var(--off-surface-sunken);
+}
+
+.off-connect-btn.is-primary {
+  border-color: transparent;
+  background: var(--off-accent);
+  color: var(--off-accent-fg);
+}
+
+.off-connect-btn.is-primary:hover:not(:disabled) {
+  background: var(--off-accent-press);
+}
+
+.off-connect-btn:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}

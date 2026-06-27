@@ -88,18 +88,11 @@ type ApiTokenAuthResult =
   | { kind: 'no-linked-user' }
   | { kind: 'backend-error' };
 
-async function resolveApiTokenAuth(
-  db: PlatformDb,
-  rawToken: string,
-): Promise<ApiTokenAuthResult> {
+async function resolveApiTokenAuth(db: PlatformDb, rawToken: string): Promise<ApiTokenAuthResult> {
   let tokenRow: typeof apiTokens.$inferSelect | undefined;
   try {
     const hash = await sha256(rawToken);
-    [tokenRow] = await db
-      .select()
-      .from(apiTokens)
-      .where(eq(apiTokens.token_hash, hash))
-      .limit(1);
+    [tokenRow] = await db.select().from(apiTokens).where(eq(apiTokens.token_hash, hash)).limit(1);
   } catch {
     // The lookup itself failed (DB unavailable) — do not degrade to anonymous.
     return { kind: 'backend-error' };
@@ -174,15 +167,9 @@ export const optionalAuth = createMiddleware<PlatformEnv>(async (c, next) => {
       case 'backend-error':
         return authBackendUnavailable(c);
       case 'invalid':
-        return c.json(
-          { error: { code: 'INVALID_TOKEN', message: 'API token is invalid.' } },
-          401,
-        );
+        return c.json({ error: { code: 'INVALID_TOKEN', message: 'API token is invalid.' } }, 401);
       case 'expired':
-        return c.json(
-          { error: { code: 'TOKEN_EXPIRED', message: 'API token is expired.' } },
-          401,
-        );
+        return c.json({ error: { code: 'TOKEN_EXPIRED', message: 'API token is expired.' } }, 401);
       case 'authenticated':
         c.set('userId', result.userId);
         c.set('userEmail', result.userEmail);

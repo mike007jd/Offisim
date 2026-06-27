@@ -12,11 +12,12 @@
  */
 
 import assert from 'node:assert/strict';
-import { checkIntegrity } from '../packages/install-core/src/integrity-checker.ts';
-import { buildPackageArtifact } from '../packages/install-core/src/package-builder.ts';
-import { extractPackage } from '../packages/install-core/src/manifest-loader.ts';
 import { manifestFileDigestAnchor, sha256Hex } from '../packages/install-core/src/hash.ts';
+import { checkIntegrity } from '../packages/install-core/src/integrity-checker.ts';
+import { extractPackage } from '../packages/install-core/src/manifest-loader.ts';
 import { materialize } from '../packages/install-core/src/materializer.ts';
+import type { MaterializeResult } from '../packages/install-core/src/materializer.ts';
+import { buildPackageArtifact } from '../packages/install-core/src/package-builder.ts';
 import {
   recordVaultRepairMarker,
   rollback,
@@ -28,7 +29,6 @@ import type {
   InstallRepositories,
   InstallVaultFileSystem,
 } from '../packages/install-core/src/types.ts';
-import type { MaterializeResult } from '../packages/install-core/src/materializer.ts';
 
 const enc = new TextEncoder();
 
@@ -112,7 +112,9 @@ async function buildSampleArtifact() {
     'M2: legacy all-zeros anchor must pass when an external expectedHash gates the bytes',
   );
 
-  console.log('PASS M2: package_sha256 is a real, verified content anchor (tamper + bypass rejected)');
+  console.log(
+    'PASS M2: package_sha256 is a real, verified content anchor (tamper + bypass rejected)',
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -306,10 +308,7 @@ function makeSkillPlan(): InstallPlan {
     bindingIds: [],
   };
   const outcome = await rollback(fakeResult, repos);
-  assert.ok(
-    outcome.errors.length > 0,
-    'M4: rollback did not report its partial-cleanup failures',
-  );
+  assert.ok(outcome.errors.length > 0, 'M4: rollback did not report its partial-cleanup failures');
 
   const markerPath = await recordVaultRepairMarker(vault, {
     kind: 'install-rollback-failure',
@@ -375,7 +374,13 @@ function makeSkillPlan(): InstallPlan {
 /** Permissive in-memory repos: every create/insert succeeds, so the ONLY thing
  *  that can stop materialization is the kind gate itself. */
 function makeAllowAllRepos(): InstallRepositories & {
-  written: { employees: number; skills: number; templates: number; layouts: number; prefabs: number };
+  written: {
+    employees: number;
+    skills: number;
+    templates: number;
+    layouts: number;
+    prefabs: number;
+  };
 } {
   const written = { employees: 0, skills: 0, templates: 0, layouts: 0, prefabs: 0 };
   const noop = async () => {};
@@ -412,7 +417,11 @@ function makeAllowAllRepos(): InstallRepositories & {
       updateState: noop,
       finish: noop,
     },
-    installedPackages: { create: async (pkg) => pkg, findByPackageId: async () => [], delete: noop },
+    installedPackages: {
+      create: async (pkg) => pkg,
+      findByPackageId: async () => [],
+      delete: noop,
+    },
     installedAssets: { create: async (a) => a, delete: noop },
     assetBindings: {
       create: async (b) => b,
@@ -485,7 +494,9 @@ function makeSingleAssetPlan(
         filesystem_scope: 'none',
         network_scope: 'none',
       },
-      assets: [{ asset_id: `${kind}-asset`, kind, path: `assets/${kind}.json`, default_enabled: true }],
+      assets: [
+        { asset_id: `${kind}-asset`, kind, path: `assets/${kind}.json`, default_enabled: true },
+      ],
       integrity: { package_sha256: '0'.repeat(64), files: [] },
       previews: { readme_path: 'README.md' },
       custom,
@@ -499,69 +510,67 @@ function makeSingleAssetPlan(
   };
 }
 
-{
-  // Blocked kinds: each must fail fast with the clear "not supported yet" error
-  // and write ZERO kind-specific rows (no partial materialization).
-  for (const kind of ['prefab', 'office_layout', 'company_template'] as const) {
-    const repos = makeAllowAllRepos();
-    await assert.rejects(
-      () =>
-        materialize(makeSingleAssetPlan(kind), [], repos, 'company-1', `txn_${kind}`, {
-          asyncTransact: async (fn) => fn(),
-        }),
-      (err: unknown) => {
-        assert.ok(err instanceof Error, `ST4: ${kind} threw a non-Error`);
-        assert.equal(
-          err.message,
-          `Installing ${kind} packages is not supported yet`,
-          `ST4: ${kind} blocked with wrong message`,
-        );
-        return true;
-      },
-      `ST4: installing a ${kind} asset was NOT blocked`,
-    );
-    assert.equal(repos.written.templates, 0, `ST4: ${kind} install wrote a company_template row`);
-    assert.equal(repos.written.layouts, 0, `ST4: ${kind} install wrote an office_layout row`);
-    assert.equal(repos.written.prefabs, 0, `ST4: ${kind} install wrote a prefab row`);
-  }
-
-  // Live kind: employee still materializes successfully (no regression).
-  {
-    const repos = makeAllowAllRepos();
-    const result = await materialize(
-      makeSingleAssetPlan('employee'),
-      [],
-      repos,
-      'company-1',
-      'txn_employee',
-      { asyncTransact: async (fn) => fn() },
-    );
-    assert.equal(result.employeeIds.length, 1, 'ST4: employee install did not create an employee');
-    assert.equal(repos.written.employees, 1, 'ST4: employee row was not written');
-  }
-
-  // Live kind: skill still materializes successfully (no regression). Uses the
-  // asyncTransact + deferred-vault-flush path, the real install route for skills.
-  {
-    const repos = makeAllowAllRepos();
-    const result = await materialize(
-      makeSingleAssetPlan('skill', {
-        skill_slug: 'harness-st4-skill',
-        skill_md_content: '---\nname: harness-st4-skill\n---\nbody\n',
+// Blocked kinds: each must fail fast with the clear "not supported yet" error
+// and write ZERO kind-specific rows (no partial materialization).
+for (const kind of ['prefab', 'office_layout', 'company_template'] as const) {
+  const repos = makeAllowAllRepos();
+  await assert.rejects(
+    () =>
+      materialize(makeSingleAssetPlan(kind), [], repos, 'company-1', `txn_${kind}`, {
+        asyncTransact: async (fn) => fn(),
       }),
-      [],
-      repos,
-      'company-1',
-      'txn_skill',
-      { asyncTransact: async (fn) => fn() },
-    );
-    assert.equal(result.skillIds.length, 1, 'ST4: skill install did not create a skill');
-    assert.equal(repos.written.skills, 1, 'ST4: skill row was not written');
-  }
-
-  console.log(
-    'PASS ST4: prefab/office_layout/company_template installs are blocked; employee/skill still materialize',
+    (err: unknown) => {
+      assert.ok(err instanceof Error, `ST4: ${kind} threw a non-Error`);
+      assert.equal(
+        err.message,
+        `Installing ${kind} packages is not supported yet`,
+        `ST4: ${kind} blocked with wrong message`,
+      );
+      return true;
+    },
+    `ST4: installing a ${kind} asset was NOT blocked`,
   );
+  assert.equal(repos.written.templates, 0, `ST4: ${kind} install wrote a company_template row`);
+  assert.equal(repos.written.layouts, 0, `ST4: ${kind} install wrote an office_layout row`);
+  assert.equal(repos.written.prefabs, 0, `ST4: ${kind} install wrote a prefab row`);
 }
+
+// Live kind: employee still materializes successfully (no regression).
+{
+  const repos = makeAllowAllRepos();
+  const result = await materialize(
+    makeSingleAssetPlan('employee'),
+    [],
+    repos,
+    'company-1',
+    'txn_employee',
+    { asyncTransact: async (fn) => fn() },
+  );
+  assert.equal(result.employeeIds.length, 1, 'ST4: employee install did not create an employee');
+  assert.equal(repos.written.employees, 1, 'ST4: employee row was not written');
+}
+
+// Live kind: skill still materializes successfully (no regression). Uses the
+// asyncTransact + deferred-vault-flush path, the real install route for skills.
+{
+  const repos = makeAllowAllRepos();
+  const result = await materialize(
+    makeSingleAssetPlan('skill', {
+      skill_slug: 'harness-st4-skill',
+      skill_md_content: '---\nname: harness-st4-skill\n---\nbody\n',
+    }),
+    [],
+    repos,
+    'company-1',
+    'txn_skill',
+    { asyncTransact: async (fn) => fn() },
+  );
+  assert.equal(result.skillIds.length, 1, 'ST4: skill install did not create a skill');
+  assert.equal(repos.written.skills, 1, 'ST4: skill row was not written');
+}
+
+console.log(
+  'PASS ST4: prefab/office_layout/company_template installs are blocked; employee/skill still materialize',
+);
 
 console.log('\nAll install-core integrity harness checks passed.');

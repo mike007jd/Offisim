@@ -180,6 +180,7 @@ function parseMergeConflicts(stdout: string, stderr: string): string[] {
   const conflicts: string[] = [];
   const re = /Merge conflict in (.+)/g;
   let match: RegExpExecArray | null;
+  // biome-ignore lint/suspicious/noAssignInExpressions: canonical regex exec-loop idiom
   while ((match = re.exec(text)) !== null) {
     const path = match[1]?.trim();
     if (path) conflicts.push(path);

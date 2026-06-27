@@ -9,15 +9,12 @@ import type {
   RunAttemptInput,
   RuntimeRepositories,
 } from '@offisim/core/browser';
-import {
-  createMissionLoopController,
-  createMissionService,
-} from '@offisim/core/browser';
+import { createMissionLoopController, createMissionService } from '@offisim/core/browser';
 import type { RuntimeEvent } from '@offisim/shared-types';
 import type { DesktopAgentRunInput, DesktopAgentRuntime } from '../desktop-agent-runtime.js';
 import {
-  createTauriEvaluationContext,
   type TauriEvaluationContextInput,
+  createTauriEvaluationContext,
 } from './evaluation-context.js';
 import {
   MISSION_EVALUATION_SUBMITTED_EVENT,
@@ -75,12 +72,15 @@ export interface MissionRunController {
 interface MissionContextPacket {
   missionId: string;
   goal: string;
-  criteria: Array<{ criterionId: string; description: string; evaluatorId: string; required: boolean }>;
+  criteria: Array<{
+    criterionId: string;
+    description: string;
+    evaluatorId: string;
+    required: boolean;
+  }>;
 }
 
-export function createMissionRunController(
-  deps: MissionRunControllerDeps,
-): MissionRunController {
+export function createMissionRunController(deps: MissionRunControllerDeps): MissionRunController {
   const newId = deps.newId ?? (() => crypto.randomUUID());
   const now = deps.now ?? (() => new Date().toISOString());
   const makeEvaluationContext = deps.createEvaluationContext ?? createTauriEvaluationContext;
@@ -112,7 +112,7 @@ export function createMissionRunController(
     // attempt's EvaluationContext runs the bash builtin against it.
     const projectId = mission.project_id;
     const workspaceRoot = projectId
-      ? (await deps.repos.projects?.findById(projectId))?.workspace_root ?? null
+      ? ((await deps.repos.projects?.findById(projectId))?.workspace_root ?? null)
       : null;
 
     const missionContext: MissionContextPacket = {
@@ -126,6 +126,10 @@ export function createMissionRunController(
       })),
     };
     const missionContextJson = JSON.stringify(missionContext);
+
+    // §19.2: feed the authored token / attempt budget into the loop. The loop
+    // owns the defaults; we only override the caps the user set on the mission.
+    const budget = parseMissionBudgetJson(mission.budget_json);
 
     const controller = createMissionLoopController({
       missionService,
@@ -141,6 +145,7 @@ export function createMissionRunController(
         }),
       now,
       newId,
+      ...(budget ? { budget } : {}),
     });
 
     return controller.run(missionId);
@@ -163,8 +168,14 @@ export function createMissionRunController(
       workspaceRoot: string | null;
     },
   ): Promise<AttemptExecution> {
-    const { mission, missionContextJson, controllerCriteria, criterionById, projectId, workspaceRoot } =
-      ctx;
+    const {
+      mission,
+      missionContextJson,
+      controllerCriteria,
+      criterionById,
+      projectId,
+      workspaceRoot,
+    } = ctx;
     // `runId === attemptId` so the host stamps rootRunId = attemptId; the bridge's
     // submit_for_evaluation events then carry runId === attemptId, which is how we
     // correlate the agent's signals to THIS attempt.
@@ -199,11 +210,19 @@ export function createMissionRunController(
     };
 
     let runtimeError: AttemptExecution['runtimeError'];
+    let usageTokens: number | undefined;
     try {
-      await deps.agentRuntime.execute(runInput);
-      // The desktop runtime reports root usage on the agent_runs row, not on its
-      // return value; the loop's token budget is optional (this mission path does
-      // not set one), so leaving `usage` unset means the controller debits nothing.
+      const result = await deps.agentRuntime.execute(runInput);
+      // The host reports the run's own token usage on the return (deterministic —
+      // no persist-queue race). Surface it to the controller's §19.2 token budget;
+      // the loop debits `tokenBudget` by `usage.tokens` after the attempt. Sum ALL
+      // token fields (input + output + cache read/write) so the budget cap tracks
+      // the SAME total `reconcileRoot` rolls into agent_runs for cost — a budget
+      // that ignored cache tokens would silently overshoot on cache-heavy runs.
+      if (result.usage) {
+        const u = result.usage;
+        usageTokens = (u.input ?? 0) + (u.output ?? 0) + (u.cacheRead ?? 0) + (u.cacheWrite ?? 0);
+      }
     } catch (err) {
       // A thrown agent run is INFRA (transport / runtime) — the controller maps
       // runtimeError → BLOCKED without consuming a repair (§19.2 / §5). A product
@@ -214,6 +233,19 @@ export function createMissionRunController(
       };
     } finally {
       unsubscribe();
+    }
+
+    // Stamp the attempt's root agent run id (runId === attemptId by design) so the
+    // attempt row joins to its `agent_runs` row for usage/cost and future durable
+    // recovery — regardless of outcome (a failed/blocked attempt still produced a
+    // run). Best-effort: a write failure here must not fail the attempt.
+    try {
+      await deps.repos.missionAttempts?.setRootRunId(input.attemptId, attemptRunId);
+    } catch (err) {
+      console.warn('[mission-run-controller] setRootRunId failed', {
+        attemptId: input.attemptId,
+        err,
+      });
     }
 
     // Diagnostic only: the agent's submissions are advisory signals, not the
@@ -231,6 +263,7 @@ export function createMissionRunController(
 
     return {
       ...(runtimeError ? { runtimeError } : {}),
+      ...(usageTokens !== undefined ? { usage: { tokens: usageTokens } } : {}),
       evaluationContextFor: (criterion) =>
         makeEvaluationContext({
           projectId,
@@ -288,12 +321,7 @@ function buildAttemptPrompt(
     lines.push('# Mission', '');
   }
 
-  lines.push(
-    '## Goal',
-    goal,
-    '',
-    '## Acceptance criteria (you must satisfy every required one)',
-  );
+  lines.push('## Goal', goal, '', '## Acceptance criteria (you must satisfy every required one)');
   for (const c of criteria) {
     lines.push(
       `- [${c.id}]${c.required ? ' (required)' : ' (optional)'} ${c.description} — checked by \`${c.evaluatorId}\``,
@@ -308,6 +336,34 @@ function buildAttemptPrompt(
     '`publish_artifact` so the artifact criteria can see them.',
   );
   return lines.join('\n');
+}
+
+/**
+ * Parse the authored mission budget caps from `mission.budget_json` into the
+ * loop's {@link MissionLoopBudget} overrides. Only finite numbers are honored;
+ * anything else leaves the loop on its §19.2 defaults. Kept inline so the
+ * runtime layer does not depend on the UI surface that authors the budget.
+ */
+function parseMissionBudgetJson(
+  budgetJson: string | null | undefined,
+): { tokenBudget?: number; maxAttempts?: number } | null {
+  if (!budgetJson) return null;
+  let raw: unknown;
+  try {
+    raw = JSON.parse(budgetJson);
+  } catch {
+    return null;
+  }
+  if (!raw || typeof raw !== 'object') return null;
+  const obj = raw as { tokenBudget?: unknown; maxAttempts?: unknown };
+  const out: { tokenBudget?: number; maxAttempts?: number } = {};
+  if (typeof obj.tokenBudget === 'number' && Number.isFinite(obj.tokenBudget)) {
+    out.tokenBudget = obj.tokenBudget;
+  }
+  if (typeof obj.maxAttempts === 'number' && Number.isFinite(obj.maxAttempts)) {
+    out.maxAttempts = obj.maxAttempts;
+  }
+  return out.tokenBudget !== undefined || out.maxAttempts !== undefined ? out : null;
 }
 
 function requireRepo<K extends keyof RuntimeRepositories>(

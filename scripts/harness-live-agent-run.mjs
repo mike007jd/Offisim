@@ -79,7 +79,10 @@ async function main() {
       return;
     }
 
-    emitPass({ tools: tools.length, model: result.response.model.id ?? result.response.model.name });
+    emitPass({
+      tools: tools.length,
+      model: result.response.model.id ?? result.response.model.name,
+    });
   } finally {
     rmSync(workspace, { recursive: true, force: true });
   }

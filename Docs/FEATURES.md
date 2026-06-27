@@ -1,6 +1,6 @@
 # Feature Catalog
 
-Checked at: 2026-06-18 NZST
+Checked at: 2026-06-26 NZST
 
 This catalog documents the product features that are currently expected to be
 maintained for Offisim 1.0. Each feature entry names the user value, owner
@@ -105,30 +105,119 @@ Verification:
 - `pnpm harness:chat-attachment-roundtrip` when attachment flow changes
 - release `.app` workspace panel checks when user flow changes
 
-## Workspace Apps
+## Connect
 
-Purpose: provide focused operational views around a company workspace:
-Messenger, Calendar, Contacts, Workplace, and Assistant Thread. Calendar is
-honest-empty in 1.0 — `meeting_sessions` is inert with no live writer (see
+Connect is the company's daily communication and collaboration space — chat,
+calendar, contacts, and tools — for people talking to each other and to their AI
+employees. It is not a generic app launcher and not a second entry point into
+Office's live project work; the two surfaces are semantically distinct. Office
+owns live 3D project execution against a project folder; Connect owns
+human-and-employee communication around the company.
+
+Connect's chat data is a separate company-scoped domain from Office's per-project
+assistant threads (the Collaboration data domain landed in PR-02; turn ledger in
+PR-03): a Connect conversation does not share state with, or reopen as, an Office
+project thread. Collaboration lives in its own `collaboration_threads` /
+`collaboration_thread_members` / `collaboration_messages` / `collaboration_read_state`
+tables plus a `collaboration_turns` reply ledger — never `chat_threads`, never an
+`agent_runs` / Mission row, never bound to a project. The internal route/surface
+key remains `workspace` as a legacy identifier, but the user-visible surface is
+"Connect".
+
+Connect AI replies run on a dedicated host-enforced Pi "collaboration" capability
+(`agent_runtime_collaborate`) with zero tools, no project cwd bind, and no
+`agent_runs` writes — it is conversation only, not work execution. A direct /
+mentions / roundtable turn controller schedules which employees speak. See
+`Docs/architecture/2026-06-26-collaboration-domain-boundary.md`.
+
+Rail: Chats, Calendar, Contacts, Workplace. Calendar is honest-empty in 1.0 —
+`meeting_sessions` is inert with no live writer (see
 `Docs/contracts/inert-storage-ledger.md`); it must not imply scheduled execution.
 
 Owner paths:
 
-- `apps/desktop/renderer/src/surfaces/workspace`
-- `apps/desktop/renderer/src/surfaces/activity`
-- local repositories exposed through `apps/desktop/renderer/src/data`
+- `apps/desktop/renderer/src/surfaces/workspace` (Connect surface, apps, contacts)
+- `apps/desktop/renderer/src/surfaces/workspace/collaboration-data.ts` (renderer
+  query/service glue over the collaboration aggregate)
+- `apps/desktop/renderer/src/runtime/collaboration` (no-tools transport + turn
+  controller)
+- `packages/core/src/runtime/collaboration/collaboration-service.ts` (domain
+  repository over the collaboration tables)
+- `apps/desktop/src-tauri/src/pi_agent_host.rs` (`agent_runtime_collaborate`)
 
 Data/contracts:
 
-- Activity and approvals mirror local runtime events via `agent_events` (Pi tool
-  activity surfaces there) and interaction requests via `interaction_history`. The
-  legacy `tool_calls` / `mcp_audit_log` tables are inert and are not the source.
+- The collaboration aggregate is company-scoped and isolated from Office: no
+  `project_id`, no Mission/run, no crossover into the `chatThreads` repository.
+- `agent_runtime_collaborate` must stay tool-free and project-unbound; it must
+  not masquerade as a work runtime.
 - Calendar and Contacts are local views; they must not imply hosted execution.
 
 Verification:
 
 - `pnpm validate`
+- `pnpm harness:collaboration-repo-contract`
+- `pnpm harness:pi-collaboration-runtime`
+- `pnpm harness:connect-chat-flow`
 - release `.app` checks for user-visible state changes
+
+## Loops
+
+Loops are saveable, versioned, reusable work-loop definitions: a user describes a
+repeatable process in natural language, Enhance sharpens it, a compiler profile
+turns it into a generic Loop IR, the IR projects as a read-only nested graph, and
+Save stores an immutable revision. Loops are authoring artifacts — they describe
+how work should run, they do not run it. A Run (Mission) is created only when a
+Loop is used at Office Send (PR-10). The nav label is "Loops"; the internal
+route/surface key remains `mission` as a legacy identifier.
+
+Mission is the internal execution-compatibility engine, not a user-facing creation
+model: the user no longer creates a Mission directly. A Loop revision compiles to
+a generic `LoopIR` (business truth), and a `LoopExecutionPacket` adapter maps a
+pinned revision onto the existing Mission engine only at send time. See
+`Docs/architecture/2026-06-26-loop-domain-mission-adapter.md` and
+`Docs/architecture/2026-06-26-loop-graph-react-flow-elk.md` (graph view).
+
+Surface: Library (saved Loops) + a graph-centric NL editor (≤3 clarifying
+questions, immutable versions, "Use in Office") + Legacy Runs (read-only history
+of Missions, including those created from Loop sends).
+
+Owner paths:
+
+- `apps/desktop/renderer/src/surfaces/mission/loops` (Library, NL editor, version
+  panel, Legacy Runs, authoring machine)
+- `apps/desktop/renderer/src/surfaces/mission/loops/graph` (`LoopGraphPanel`,
+  read-only IR projection over `@xyflow/react` + `elkjs`)
+- `packages/core/src/loops` (loop service, compiler profiles, validate,
+  `mission-adapter.ts` → `LoopExecutionPacket`)
+- `packages/core/src/loops/compiler-profiles/software-development` (first built-in
+  profile, bundled from the fleet-development-loop assets)
+- `packages/shared-types/src/loops/ir.ts` (generic `LoopIR` v1 contract)
+- `apps/desktop/renderer/src/assistant/enhance` (versioned `loop_design` Enhance
+  profile)
+
+Data/contracts:
+
+- Loop state lives in `loop_definitions` / `loop_revisions` (immutable) /
+  `loop_skill_bindings` / `loop_invocations` (migration 0005). Save creates a
+  revision and never a Mission, thread, or run.
+- `loop_revisions.compiled_ir_json` is the stored business truth; the graph is a
+  pure read-only view and never written back.
+- `loop_invocations` is written only at Office Send materialization (PR-10),
+  which reuses the Office thread — no orphan thread or run.
+- Compiler profiles are pure: same IR for the same input + profile version.
+
+Verification:
+
+- `pnpm validate`
+- `pnpm harness:loop-compiler`
+- `pnpm harness:loop-repository`
+- `pnpm harness:loop-mission-adapter`
+- `pnpm harness:loop-graph-projection`
+- `pnpm harness:loop-office-invocation`
+- `pnpm harness:loop-authoring-flow`
+- `pnpm harness:prompt-enhance`
+- release `.app` Loops authoring + Use-in-Office check when user flow changes
 
 ## Personnel
 

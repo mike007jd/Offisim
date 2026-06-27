@@ -34,7 +34,7 @@ async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Prom
 
 /** A criterion in the controller's minimal view, narrowed to what the context
  *  needs (id / description / config). Matches `ControllerCriterion`'s shape. */
-export interface EvaluationCriterionView {
+interface EvaluationCriterionView {
   id: string;
   description: string;
   configJson: string;
@@ -84,7 +84,9 @@ const BASH_TIMEOUT_MS = 120_000;
  * capability is a thin adapter over the same sandboxed Tauri commands the file
  * browser / git workbench use.
  */
-export function createTauriEvaluationContext(input: TauriEvaluationContextInput): EvaluationContext {
+export function createTauriEvaluationContext(
+  input: TauriEvaluationContextInput,
+): EvaluationContext {
   const { projectId, workspaceRoot, criterion, attemptRunId, repos } = input;
 
   return {

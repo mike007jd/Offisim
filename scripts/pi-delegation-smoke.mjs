@@ -76,7 +76,12 @@ async function main() {
     record('A', 'SDK surface present', 'fail', `missing: ${missing.join(', ')}`);
     return finish();
   }
-  record('A', 'SDK surface present', 'pass', `${required.length} symbols + version ${pkg.VERSION ?? 'unknown'}`);
+  record(
+    'A',
+    'SDK surface present',
+    'pass',
+    `${required.length} symbols + version ${pkg.VERSION ?? 'unknown'}`,
+  );
 
   const { AuthStorage, ModelRegistry, SessionManager, createAgentSession, getAgentDir } = pkg;
 
@@ -87,7 +92,12 @@ async function main() {
   try {
     sharedAuth = AuthStorage.create(join(tmpRoot, 'auth.json'));
     sharedModels = ModelRegistry.create(sharedAuth, join(tmpRoot, 'models.json'));
-    record('B', 'Build shared registries', 'pass', `${sharedModels.getAll().length} catalog models`);
+    record(
+      'B',
+      'Build shared registries',
+      'pass',
+      `${sharedModels.getAll().length} catalog models`,
+    );
   } catch (error) {
     record('B', 'Build shared registries', 'fail', errMsg(error));
     return finish();
@@ -108,7 +118,10 @@ async function main() {
         modelRegistry: sharedModels,
         sessionManager: SessionManager.inMemory(cwd),
       });
-    const [a, b] = await Promise.all([buildSession(join(tmpRoot, 'a')), buildSession(join(tmpRoot, 'b'))]);
+    const [a, b] = await Promise.all([
+      buildSession(join(tmpRoot, 'a')),
+      buildSession(join(tmpRoot, 'b')),
+    ]);
     sessA = a.session;
     sessB = b.session;
   } catch (error) {
@@ -119,7 +132,9 @@ async function main() {
   const distinctObjects = sessA !== sessB;
   const distinctIds = typeof sessA.sessionId === 'string' && sessA.sessionId !== sessB.sessionId;
   const independentMessages =
-    Array.isArray(sessA.messages) && Array.isArray(sessB.messages) && sessA.messages !== sessB.messages;
+    Array.isArray(sessA.messages) &&
+    Array.isArray(sessB.messages) &&
+    sessA.messages !== sessB.messages;
   const hasInstanceApi = ['prompt', 'subscribe', 'dispose', 'abort'].every(
     (m) => typeof sessA[m] === 'function' && typeof sessB[m] === 'function',
   );
@@ -155,14 +170,17 @@ async function main() {
     const offB = sessB.subscribe(() => {
       bCount += 1;
     });
-    const independentUnsub = typeof offA === 'function' && typeof offB === 'function' && offA !== offB;
+    const independentUnsub =
+      typeof offA === 'function' && typeof offB === 'function' && offA !== offB;
     offA();
     offB();
     record(
       'D',
       'Per-session subscriptions independent',
       independentUnsub ? 'pass' : 'fail',
-      independentUnsub ? 'distinct unsubscribe closures' : 'subscribe returned non-distinct handles',
+      independentUnsub
+        ? 'distinct unsubscribe closures'
+        : 'subscribe returned non-distinct handles',
     );
     if (!independentUnsub) return finish();
   } catch (error) {
@@ -183,7 +201,12 @@ async function main() {
     const liveModels = ModelRegistry.create(liveAuth, join(realDir, 'models.json'));
     const available = liveModels.getAvailable();
     if (available.length === 0) {
-      record('E', 'Live concurrent isolation', 'skip', 'no available model in real Pi agent dir (structural checks suffice)');
+      record(
+        'E',
+        'Live concurrent isolation',
+        'skip',
+        'no available model in real Pi agent dir (structural checks suffice)',
+      );
     } else {
       const live = mkdtempSync(join(tmpdir(), 'pi-deleg-live-'));
       const run = async (marker, cwd) => {
@@ -203,7 +226,10 @@ async function main() {
           session.dispose();
         }
       };
-      const [a, b] = await Promise.all([run('ALPHA', join(live, 'a')), run('BETA', join(live, 'b'))]);
+      const [a, b] = await Promise.all([
+        run('ALPHA', join(live, 'a')),
+        run('BETA', join(live, 'b')),
+      ]);
       rmSync(live, { recursive: true, force: true });
       const aOk = a.includes('ALPHA') && !a.includes('BETA');
       const bOk = b.includes('BETA') && !b.includes('ALPHA');
@@ -232,16 +258,25 @@ function finish() {
   const failed = results.filter((r) => r.status === 'fail');
   console.log('');
   if (failed.length > 0) {
-    console.log(`VERDICT: ${failed.length} structural check(s) FAILED — in-process delegation is NOT viable on this build.`);
+    console.log(
+      `VERDICT: ${failed.length} structural check(s) FAILED — in-process delegation is NOT viable on this build.`,
+    );
     console.log('Fallback: child Node subprocess (mirror examples/extensions/subagent/index.ts).');
     process.exit(1);
   }
   console.log('VERDICT: in-process concurrent createAgentSession is viable and isolated.');
-  console.log('Decision: ChildAgentSupervisor builds children in-process; Rust owns only the root host process.');
+  console.log(
+    'Decision: ChildAgentSupervisor builds children in-process; Rust owns only the root host process.',
+  );
   process.exit(0);
 }
 
 main().catch((error) => {
-  record('?', 'Unhandled', 'fail', error instanceof Error ? error.stack || error.message : String(error));
+  record(
+    '?',
+    'Unhandled',
+    'fail',
+    error instanceof Error ? error.stack || error.message : String(error),
+  );
   finish();
 });

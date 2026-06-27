@@ -79,3 +79,7 @@ openspec/changes/**/evidence/
 openspec/changes/**/evidence.md
 /legacy/
 /legacy-a1c1110/
+
+# Dead-code cleanup loop quarantine (local-only, retrievable)
+/.trash/
+.trash-cleanup-worknotes.md

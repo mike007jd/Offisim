@@ -142,6 +142,7 @@ function EmployeeUnit({
   const walkingRef = useRef(false);
   const targetRef = useRef<[number, number]>([x, z]);
   targetRef.current = [x, z];
+  // biome-ignore lint/correctness/useExhaustiveDependencies: this effect only seeds the initial mount position on first render; x/z are intentionally excluded (subsequent moves animate via useFrame using targetRef). Adding x/z would re-snap the position every move, defeating the glide animation.
   useLayoutEffect(() => {
     unitRef.current?.position.set(x, 0, z);
     // Only seed the initial mount position; subsequent moves animate in useFrame.

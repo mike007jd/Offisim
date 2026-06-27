@@ -1236,6 +1236,13 @@ export interface MissionAttemptRepository {
     status: string,
     opts?: { failureSignature?: string | null; finishedAt?: string | null },
   ): Promise<void>;
+  /**
+   * Stamp the attempt's root agent run id once the live runner knows it
+   * (M2/M3 live wiring). `runId === attemptId` by design, so this records the
+   * `agent_runs.run_id` that produced the attempt — enabling cross-table joins
+   * for usage/cost and future durable recovery. No-op if the attempt is absent.
+   */
+  setRootRunId(attemptId: string, rootRunId: string): Promise<void>;
 }
 
 export interface MissionEvaluationRepository {
@@ -1263,6 +1270,334 @@ export interface RuntimeSessionLinkRepository {
 export interface MissionEventRepository {
   insert(row: NewMissionEvent): Promise<void>;
   listByMission(missionId: string, opts?: { limit?: number }): Promise<MissionEventRow[]>;
+}
+
+// ---------------------------------------------------------------------------
+// Loop domain (PR-07). A saveable, versioned, reusable wrapper around the Mission
+// engine. Snake_case rows mirror the SQLite columns; the camelCase domain model
+// lives in `@offisim/shared-types` loops module. Definitions point at an immutable
+// selected revision; every edit appends a `loop_revisions` row (INSERT-ONLY — the
+// repository exposes NO update/delete for a revision). SAVING a Loop writes ONLY
+// these tables, never mission / chat_threads / mission_attempt.
+// ---------------------------------------------------------------------------
+
+export interface LoopDefinitionRow {
+  loop_id: string;
+  company_id: string;
+  title: string;
+  summary: string;
+  profile_id: string;
+  current_revision_id: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type NewLoopDefinition = LoopDefinitionRow;
+
+export interface LoopRevisionRow {
+  revision_id: string;
+  loop_id: string;
+  revision_number: number;
+  source_prompt: string;
+  enhanced_prompt: string | null;
+  compiled_ir_json: string;
+  compiler_profile_id: string;
+  compiler_profile_version: string;
+  compiler_version: string;
+  compile_status: string;
+  questions_json: string;
+  validation_json: string;
+  created_at: string;
+}
+
+export type NewLoopRevision = LoopRevisionRow;
+
+export interface LoopSkillBindingRow {
+  binding_id: string;
+  revision_id: string;
+  skill_id: string;
+  skill_version: string;
+  order_index: number;
+  config_json: string;
+}
+
+export type NewLoopSkillBinding = LoopSkillBindingRow;
+
+export interface LoopInvocationRow {
+  invocation_id: string;
+  loop_id: string;
+  revision_id: string;
+  company_id: string;
+  project_id: string | null;
+  thread_id: string;
+  message_id: string;
+  mission_id: string | null;
+  status: string;
+  created_at: string;
+}
+
+export type NewLoopInvocation = LoopInvocationRow;
+
+/** Patch for the mutable definition fields (title/summary/status/selected revision). */
+export interface LoopDefinitionUpdate {
+  title?: string;
+  summary?: string;
+  status?: string;
+  /** `null` clears the selected revision; `undefined` leaves it unchanged. */
+  currentRevisionId?: string | null;
+  /** ISO timestamp to stamp `updated_at`; caller supplies. */
+  updatedAt: string;
+}
+
+export interface LoopDefinitionRepository {
+  /** Idempotent insert keyed on loop_id (INSERT OR IGNORE semantics). */
+  insert(row: NewLoopDefinition): Promise<void>;
+  findById(loopId: string): Promise<LoopDefinitionRow | null>;
+  listByCompany(companyId: string, opts?: { limit?: number }): Promise<LoopDefinitionRow[]>;
+  /** Patch the mutable definition fields (never the revisions — those are insert-only). */
+  update(loopId: string, patch: LoopDefinitionUpdate): Promise<void>;
+  /**
+   * Physically delete a definition. The SERVICE forbids this when invocation
+   * history exists (archive instead); the repo method itself is unconditional so
+   * the service owns the policy. Cascades revisions + bindings via FK.
+   */
+  delete(loopId: string): Promise<void>;
+}
+
+export interface LoopRevisionRepository {
+  /** Insert-only. There is intentionally NO update/delete for a revision. */
+  insert(row: NewLoopRevision): Promise<void>;
+  findById(revisionId: string): Promise<LoopRevisionRow | null>;
+  listByLoop(loopId: string): Promise<LoopRevisionRow[]>;
+  /**
+   * The highest `revision_number` for a loop, or 0 when none exist. Callers add 1
+   * for the next monotonic number; the UNIQUE(loop_id, revision_number) index is
+   * the authority that rejects a duplicate under a concurrent save.
+   */
+  maxRevisionNumber(loopId: string): Promise<number>;
+}
+
+export interface LoopSkillBindingRepository {
+  insert(row: NewLoopSkillBinding): Promise<void>;
+  listByRevision(revisionId: string): Promise<LoopSkillBindingRow[]>;
+}
+
+export interface LoopInvocationRepository {
+  /** Written ONLY at Office Send materialization (PR-10), never on Save/Use. */
+  insert(row: NewLoopInvocation): Promise<void>;
+  findById(invocationId: string): Promise<LoopInvocationRow | null>;
+  listByLoop(loopId: string): Promise<LoopInvocationRow[]>;
+  /** Count invocations for a loop — the service uses this to refuse a physical delete. */
+  countByLoop(loopId: string): Promise<number>;
+  /** Stamp the Mission this invocation materialized into (PR-10). */
+  setMissionId(invocationId: string, missionId: string): Promise<void>;
+  /**
+   * Hard-delete an invocation row (PR-10 send-time compensation). Used ONLY to undo
+   * a just-inserted invocation when the rest of the Send transaction (mission
+   * create / link) fails — so a failed send leaves NO orphan. Idempotent: deleting
+   * a missing id is a no-op.
+   */
+  deleteById(invocationId: string): Promise<void>;
+}
+
+// ---------------------------------------------------------------------------
+// Collaboration (PR-02). Company-scoped daily chat (direct + group), fully
+// separate from project-scoped `chat_threads`. Snake_case rows mirror the
+// SQLite columns; the camelCase domain model lives in `@offisim/shared-types`
+// collaboration module. NO method here accepts or returns `project_id`.
+// ---------------------------------------------------------------------------
+
+export interface CollaborationThreadRow {
+  thread_id: string;
+  company_id: string;
+  kind: string;
+  title: string;
+  direct_employee_id: string | null;
+  reply_policy: string;
+  round_speaker_limit: number;
+  created_by: string;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type NewCollaborationThread = CollaborationThreadRow;
+
+export interface CollaborationThreadMemberRow {
+  member_id: string;
+  thread_id: string;
+  actor_type: string;
+  employee_id: string | null;
+  role: string;
+  joined_at: string;
+  left_at: string | null;
+}
+
+export type NewCollaborationThreadMember = CollaborationThreadMemberRow;
+
+export interface CollaborationMessageRow {
+  message_id: string;
+  thread_id: string;
+  sender_type: string;
+  sender_employee_id: string | null;
+  body: string;
+  reply_to_message_id: string | null;
+  status: string;
+  /**
+   * Double-send idempotency key, deduped by a partial-unique index per thread.
+   * A dedicated column (not a metadata field) so a concurrent second append
+   * fails at the DB layer and the service catch-rereads the single winner.
+   */
+  idempotency_key: string | null;
+  metadata_json: string | null;
+  created_at: string;
+  edited_at: string | null;
+}
+
+export type NewCollaborationMessage = CollaborationMessageRow;
+
+export interface CollaborationReadStateRow {
+  thread_id: string;
+  last_read_message_id: string | null;
+  updated_at: string;
+}
+
+/**
+ * A collaboration turn ledger row (PR-03). Records one scheduled AI reply's
+ * lifecycle (streaming / error / usage recovery) — NOT a transcript copy. The
+ * visible message lives in `collaboration_messages`; this row exists so a stop /
+ * retry / recovery pass can reason about an in-flight speaker turn.
+ */
+export interface CollaborationTurnRow {
+  turn_id: string;
+  thread_id: string;
+  trigger_message_id: string | null;
+  employee_id: string | null;
+  sequence_index: number;
+  status: string;
+  runtime_request_id: string | null;
+  usage_json: string | null;
+  error_summary: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+}
+
+export type NewCollaborationTurn = CollaborationTurnRow;
+
+/** Patch for the mutable turn fields the controller advances over a turn's life. */
+export interface CollaborationTurnPatch {
+  status?: string;
+  runtime_request_id?: string | null;
+  usage_json?: string | null;
+  error_summary?: string | null;
+  started_at?: string | null;
+  finished_at?: string | null;
+}
+
+/**
+ * Patch for the mutable fields of an existing collaboration message (PR-03
+ * streaming upsert). Only `body` / `status` / `edited_at` are mutable; the keyset
+ * (`created_at`, `message_id`) is immutable so pagination never shifts.
+ */
+export interface CollaborationMessagePatch {
+  body?: string;
+  status?: string;
+  edited_at?: string | null;
+}
+
+/** Patch for the small set of mutable thread fields the service updates. */
+export interface CollaborationThreadPatch {
+  title?: string;
+  reply_policy?: string;
+  round_speaker_limit?: number;
+  archived_at?: string | null;
+  updated_at: string;
+}
+
+export interface CollaborationThreadRepository {
+  /** Idempotent insert keyed on thread_id (INSERT OR IGNORE semantics). */
+  insert(row: NewCollaborationThread): Promise<void>;
+  findById(threadId: string): Promise<CollaborationThreadRow | null>;
+  /**
+   * The single ACTIVE direct thread for `(companyId, employeeId)`, or null. Used
+   * by `getOrCreateDirect` to enforce the active-direct uniqueness invariant
+   * before inserting.
+   */
+  findActiveDirect(companyId: string, employeeId: string): Promise<CollaborationThreadRow | null>;
+  /**
+   * The most-recently-archived direct thread for `(companyId, employeeId)`, or
+   * null. `getOrCreateDirect` restores this instead of creating a duplicate.
+   */
+  findArchivedDirect(companyId: string, employeeId: string): Promise<CollaborationThreadRow | null>;
+  /** Non-archived threads for the company; caller orders by last activity. */
+  listByCompany(companyId: string): Promise<CollaborationThreadRow[]>;
+  update(threadId: string, patch: CollaborationThreadPatch): Promise<void>;
+}
+
+export interface CollaborationMemberRepository {
+  insert(row: NewCollaborationThreadMember): Promise<void>;
+  /** Active members (left_at IS NULL) of the thread. */
+  listActiveByThread(threadId: string): Promise<CollaborationThreadMemberRow[]>;
+  /** All members of the thread, including those that left. */
+  listAllByThread(threadId: string): Promise<CollaborationThreadMemberRow[]>;
+  /** Mark a member as left at `leftAt` (idempotent — no-op if already left). */
+  markLeft(memberId: string, leftAt: string): Promise<void>;
+}
+
+export interface CollaborationMessageRepository {
+  insert(row: NewCollaborationMessage): Promise<void>;
+  findById(messageId: string): Promise<CollaborationMessageRow | null>;
+  /**
+   * Look up a previously-appended message by its `idempotency_key` column value
+   * (a dedicated column deduped by a partial-unique index — NOT a metadata
+   * field), scoped to the thread. Backs append idempotency.
+   */
+  findByIdempotencyKey(
+    threadId: string,
+    idempotencyKey: string,
+  ): Promise<CollaborationMessageRow | null>;
+  /**
+   * One page of messages for the thread, NEWEST first, keyset-paginated by
+   * `(created_at, message_id)`. `before` returns rows strictly older than the
+   * cursor — no duplicates across pages, no gaps. `limit` rows are returned.
+   */
+  listByThread(
+    threadId: string,
+    opts?: {
+      limit?: number;
+      before?: { createdAt: string; messageId: string };
+    },
+  ): Promise<CollaborationMessageRow[]>;
+  /** The newest message in the thread, or null. Used for list ordering. */
+  findLatestByThread(threadId: string): Promise<CollaborationMessageRow | null>;
+  /** Count messages strictly newer than `messageId` — backs unread computation. */
+  countSince(threadId: string, messageId: string | null): Promise<number>;
+  /**
+   * Update an EXISTING message's mutable fields (PR-03 streaming upsert). The
+   * collaboration turn controller inserts a `streaming` placeholder under a stable
+   * `message_id`, then advances `body` / `status` / `edited_at` as the reply
+   * settles — so the visible row stays authoritative across stop / retry / failure
+   * without re-inserting. A no-op when the message id is absent. Never moves the
+   * keyset (`created_at` / `message_id` are immutable here).
+   */
+  update(messageId: string, patch: CollaborationMessagePatch): Promise<void>;
+}
+
+export interface CollaborationReadStateRepository {
+  findByThread(threadId: string): Promise<CollaborationReadStateRow | null>;
+  /** Upsert the last-read boundary for the thread. */
+  upsert(row: CollaborationReadStateRow): Promise<void>;
+}
+
+export interface CollaborationTurnRepository {
+  /** Idempotent insert keyed on turn_id (INSERT OR IGNORE semantics). */
+  insert(row: NewCollaborationTurn): Promise<void>;
+  findById(turnId: string): Promise<CollaborationTurnRow | null>;
+  /** The thread's turns in speaker order (ascending sequence_index). */
+  listByThread(threadId: string): Promise<CollaborationTurnRow[]>;
+  /** Advance a turn's lifecycle fields (status / usage / error / timestamps). */
+  update(turnId: string, patch: CollaborationTurnPatch): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -1435,4 +1770,15 @@ export interface RuntimeRepositories {
   missionEvaluations?: MissionEvaluationRepository;
   runtimeSessionLinks?: RuntimeSessionLinkRepository;
   missionEvents?: MissionEventRepository;
+  /** Loop domain (PR-07) — optional for backward compatibility. */
+  loopDefinitions?: LoopDefinitionRepository;
+  loopRevisions?: LoopRevisionRepository;
+  loopSkillBindings?: LoopSkillBindingRepository;
+  loopInvocations?: LoopInvocationRepository;
+  /** Company-scoped Collaboration chat (PR-02) — optional for backward compatibility. */
+  collaborationThreads?: CollaborationThreadRepository;
+  collaborationMembers?: CollaborationMemberRepository;
+  collaborationMessages?: CollaborationMessageRepository;
+  collaborationReadState?: CollaborationReadStateRepository;
+  collaborationTurns?: CollaborationTurnRepository;
 }

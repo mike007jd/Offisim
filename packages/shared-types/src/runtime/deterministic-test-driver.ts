@@ -188,7 +188,12 @@ export const DETERMINISTIC_TEST_CAPABILITIES: RuntimeCapabilities = {
   multiAgent: { children: true, nestedChildren: true, handoff: false, parallel: true },
   tools: { customTools: true, dynamicToolSet: false, preExecutionApproval: true },
   artifacts: { nativeReferences: false, binary: false, versioned: true },
-  observability: { usage: true, reasoningDelta: true, toolLifecycle: true, nativeTraceReference: false },
+  observability: {
+    usage: true,
+    reasoningDelta: true,
+    toolLifecycle: true,
+    nativeTraceReference: false,
+  },
   workspace: { customCwd: true, perChildCwd: false },
 };
 
@@ -275,8 +280,14 @@ export class DeterministicTestDriver implements AgentRuntimeDriver {
 
   answerInteraction(run: RuntimeRunReference, answer: RuntimeInteractionAnswer): Promise<void> {
     const active = this.runs.get(run.runId);
-    if (!active || active.phase !== 'awaiting' || active.pendingInteractionId !== answer.interactionId) {
-      return Promise.reject(new Error(`runtime.answerInteraction: no pending interaction ${answer.interactionId}`));
+    if (
+      !active ||
+      active.phase !== 'awaiting' ||
+      active.pendingInteractionId !== answer.interactionId
+    ) {
+      return Promise.reject(
+        new Error(`runtime.answerInteraction: no pending interaction ${answer.interactionId}`),
+      );
     }
     this.emit(
       active,
@@ -320,7 +331,9 @@ export class DeterministicTestDriver implements AgentRuntimeDriver {
       sink,
       steps: script.steps,
       terminal: script.terminal ?? 'run.completed',
-      terminalPayload: script.terminalPayload ?? { status: terminalStatusOf(script.terminal ?? 'run.completed') },
+      terminalPayload: script.terminalPayload ?? {
+        status: terminalStatusOf(script.terminal ?? 'run.completed'),
+      },
       cursor: 0,
       sequence: 0,
       phase: 'running',
@@ -343,8 +356,12 @@ export class DeterministicTestDriver implements AgentRuntimeDriver {
             interactionId: step.interactionId,
             kind: step.interaction.kind,
             title: step.interaction.title,
-            ...(step.interaction.message !== undefined ? { message: step.interaction.message } : {}),
-            ...(step.interaction.options !== undefined ? { options: step.interaction.options } : {}),
+            ...(step.interaction.message !== undefined
+              ? { message: step.interaction.message }
+              : {}),
+            ...(step.interaction.options !== undefined
+              ? { options: step.interaction.options }
+              : {}),
           },
           { employeeId: step.employeeId },
         );
@@ -410,7 +427,12 @@ export class DeterministicTestDriver implements AgentRuntimeDriver {
   private cancelRun(run: ActiveRun): void {
     // Cascade: every live child reaches a cancelled terminal first (no hanging child).
     for (const childRunId of run.liveChildren) {
-      this.emit(run, 'run.cancelled', { status: 'cancelled', cancelledChild: childRunId }, { runId: childRunId });
+      this.emit(
+        run,
+        'run.cancelled',
+        { status: 'cancelled', cancelledChild: childRunId },
+        { runId: childRunId },
+      );
     }
     run.liveChildren.clear();
     run.pendingInteractionId = undefined;

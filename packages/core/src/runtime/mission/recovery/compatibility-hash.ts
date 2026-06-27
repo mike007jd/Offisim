@@ -48,7 +48,17 @@ export interface CompatibilityResources {
 function canonicalize(resources: CompatibilityResources): string {
   const extensions = [...resources.extensions]
     .map((e) => ({ id: e.id, version: e.version }))
-    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : a.version < b.version ? -1 : a.version > b.version ? 1 : 0));
+    .sort((a, b) =>
+      a.id < b.id
+        ? -1
+        : a.id > b.id
+          ? 1
+          : a.version < b.version
+            ? -1
+            : a.version > b.version
+              ? 1
+              : 0,
+    );
   const canonical = {
     sdkId: resources.sdkId,
     sdkVersion: resources.sdkVersion,

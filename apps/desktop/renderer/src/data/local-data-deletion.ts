@@ -277,5 +277,7 @@ export async function deleteCompanyDeep(companyId: string): Promise<DeleteCompan
   } catch (error) {
     cleanupError = cleanupError ?? localErrorMessage(error);
   }
-  return cleanupError ? { persisted: true, workspaceCleanupError: cleanupError } : { persisted: true };
+  return cleanupError
+    ? { persisted: true, workspaceCleanupError: cleanupError }
+    : { persisted: true };
 }

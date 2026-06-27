@@ -14,7 +14,8 @@ import type { CompanyTemplateDefinition } from './index.js';
 export const aiStartupTemplate: CompanyTemplateDefinition = {
   id: 'ai-startup',
   name: 'AI Startup',
-  description: 'Research, build, evaluate, and ship AI: ML research, data, product, and evaluation.',
+  description:
+    'Research, build, evaluate, and ship AI: ML research, data, product, and evaluation.',
   presentation: {
     icon: 'Brain',
     accent: '#06b6d4',

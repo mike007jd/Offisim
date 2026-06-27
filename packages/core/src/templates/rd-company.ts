@@ -17,7 +17,8 @@ import type { CompanyTemplateDefinition } from './index.js';
 export const rdCompanyTemplate: CompanyTemplateDefinition = {
   id: 'rd-company',
   name: 'R&D Company',
-  description: 'A full engineering team that plans, builds, reviews, and ships software in parallel.',
+  description:
+    'A full engineering team that plans, builds, reviews, and ships software in parallel.',
   presentation: {
     icon: 'FlaskConical',
     accent: '#3b82f6',

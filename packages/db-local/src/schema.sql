@@ -803,3 +803,204 @@ CREATE INDEX IF NOT EXISTS idx_runtime_session_link_mission
   ON runtime_session_link(mission_id);
 CREATE INDEX IF NOT EXISTS idx_mission_event_mission_time
   ON mission_event(mission_id, created_at);
+
+-- ---------------------------------------------------------------------------
+-- Collaboration (PR-02). Company-scoped daily chat (direct + group), FULLY
+-- separate from project-scoped `chat_threads`: no `project_id`, never surfaced
+-- in Office work sessions, never crosses into the chatThreads repository.
+-- Additive only — no existing table is touched and no row is migrated.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS collaboration_threads (
+  thread_id          TEXT PRIMARY KEY,
+  company_id         TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+  kind               TEXT NOT NULL CHECK (kind IN ('direct', 'group')),
+  title              TEXT NOT NULL,
+  direct_employee_id TEXT REFERENCES employees(employee_id) ON DELETE SET NULL,
+  reply_policy       TEXT NOT NULL DEFAULT 'mentions_only'
+                       CHECK (reply_policy IN ('mentions_only', 'roundtable', 'silent')),
+  round_speaker_limit INTEGER NOT NULL DEFAULT 3,
+  created_by         TEXT NOT NULL DEFAULT 'boss',
+  archived_at        TEXT,
+  created_at         TEXT NOT NULL,
+  updated_at         TEXT NOT NULL,
+  -- A group thread must not carry a direct_employee_id (data hygiene; the
+  -- active-direct partial index already excludes non-direct rows). A direct
+  -- thread MAY have a null direct_employee_id after the employee is deleted
+  -- (ON DELETE SET NULL keeps the thread + message snapshots readable).
+  CHECK (kind = 'direct' OR direct_employee_id IS NULL)
+);
+
+CREATE TABLE IF NOT EXISTS collaboration_thread_members (
+  member_id    TEXT PRIMARY KEY,
+  thread_id    TEXT NOT NULL REFERENCES collaboration_threads(thread_id) ON DELETE CASCADE,
+  actor_type   TEXT NOT NULL CHECK (actor_type IN ('boss', 'employee')),
+  employee_id  TEXT REFERENCES employees(employee_id) ON DELETE CASCADE,
+  role         TEXT NOT NULL CHECK (role IN ('owner', 'member')),
+  joined_at    TEXT NOT NULL,
+  left_at      TEXT
+);
+
+CREATE TABLE IF NOT EXISTS collaboration_messages (
+  message_id          TEXT PRIMARY KEY,
+  thread_id           TEXT NOT NULL REFERENCES collaboration_threads(thread_id) ON DELETE CASCADE,
+  sender_type         TEXT NOT NULL CHECK (sender_type IN ('boss', 'employee', 'system')),
+  sender_employee_id  TEXT REFERENCES employees(employee_id) ON DELETE SET NULL,
+  body                TEXT NOT NULL,
+  reply_to_message_id TEXT,
+  status              TEXT NOT NULL DEFAULT 'complete'
+                        CHECK (status IN ('pending', 'streaming', 'complete', 'interrupted', 'failed')),
+  idempotency_key     TEXT,
+  metadata_json       TEXT,
+  created_at          TEXT NOT NULL,
+  edited_at           TEXT
+);
+-- idempotency_key: double-send dedup via the partial-unique index below; a
+-- concurrent second append fails at the DB layer so the service catch-rereads
+-- the single winner (a metadata-only key would race).
+
+-- No boss/user account id in the current product → last-read boundary per thread.
+-- Unread is COMPUTED from this boundary, never stored as a drifting counter.
+CREATE TABLE IF NOT EXISTS collaboration_read_state (
+  thread_id            TEXT PRIMARY KEY REFERENCES collaboration_threads(thread_id) ON DELETE CASCADE,
+  last_read_message_id TEXT,
+  updated_at           TEXT NOT NULL
+);
+
+-- company list ordered by recency
+CREATE INDEX IF NOT EXISTS idx_collaboration_threads_company_updated
+  ON collaboration_threads(company_id, updated_at DESC);
+-- at most one ACTIVE direct thread per (company, employee); archived rows are
+-- excluded so an archived direct thread can be restored instead of duplicated.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_collaboration_threads_active_direct
+  ON collaboration_threads(company_id, direct_employee_id)
+  WHERE kind = 'direct' AND archived_at IS NULL;
+-- message timeline / pagination cursor
+CREATE INDEX IF NOT EXISTS idx_collaboration_messages_thread_time
+  ON collaboration_messages(thread_id, created_at, message_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_collaboration_messages_idempotency
+  ON collaboration_messages(thread_id, idempotency_key)
+  WHERE idempotency_key IS NOT NULL;
+-- membership lookup (active members of a thread; reverse employee→threads)
+CREATE INDEX IF NOT EXISTS idx_collaboration_members_thread
+  ON collaboration_thread_members(thread_id);
+CREATE INDEX IF NOT EXISTS idx_collaboration_members_employee
+  ON collaboration_thread_members(employee_id);
+
+-- ---------------------------------------------------------------------------
+-- Loop domain (PR-07). A saveable, versioned, reusable wrapper around the
+-- Mission engine. `loop_definitions` point at a selected immutable revision;
+-- every edit appends a `loop_revisions` row (insert-only). SAVING a Loop writes
+-- ONLY these four tables — never mission / chat_threads / mission_attempt.
+-- `loop_invocations` is written ONLY at Office Send materialization (PR-10).
+-- Additive only — no existing table is touched and no row is migrated.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS loop_definitions (
+  loop_id             TEXT PRIMARY KEY,
+  company_id          TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+  title               TEXT NOT NULL,
+  summary             TEXT NOT NULL DEFAULT '',
+  profile_id          TEXT NOT NULL,
+  -- The selected live revision; set after the row exists, kept through archive.
+  current_revision_id TEXT,
+  status              TEXT NOT NULL DEFAULT 'draft'
+                        CHECK (status IN ('draft', 'ready', 'archived')),
+  created_at          TEXT NOT NULL,
+  updated_at          TEXT NOT NULL
+);
+
+-- Immutable: any edit appends a new revision; rows are never UPDATEd in place.
+CREATE TABLE IF NOT EXISTS loop_revisions (
+  revision_id              TEXT PRIMARY KEY,
+  loop_id                  TEXT NOT NULL REFERENCES loop_definitions(loop_id) ON DELETE CASCADE,
+  revision_number          INTEGER NOT NULL,
+  source_prompt            TEXT NOT NULL,
+  enhanced_prompt          TEXT,
+  compiled_ir_json         TEXT NOT NULL,
+  compiler_profile_id      TEXT NOT NULL,
+  compiler_profile_version TEXT NOT NULL,
+  compiler_version         TEXT NOT NULL,
+  compile_status           TEXT NOT NULL
+                             CHECK (compile_status IN ('ready', 'needs_input', 'invalid')),
+  questions_json           TEXT NOT NULL DEFAULT '[]',
+  validation_json          TEXT NOT NULL DEFAULT '{}',
+  created_at               TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS loop_skill_bindings (
+  binding_id    TEXT PRIMARY KEY,
+  revision_id   TEXT NOT NULL REFERENCES loop_revisions(revision_id) ON DELETE CASCADE,
+  skill_id      TEXT NOT NULL,
+  skill_version TEXT NOT NULL,
+  order_index   INTEGER NOT NULL DEFAULT 0,
+  config_json   TEXT NOT NULL DEFAULT '{}'
+);
+
+-- No FK to loop_revisions: an invocation must stay readable after a definition
+-- is archived. The service forbids physically deleting a definition that has
+-- invocation history (archive instead); there is no cascade from here.
+CREATE TABLE IF NOT EXISTS loop_invocations (
+  invocation_id TEXT PRIMARY KEY,
+  loop_id       TEXT NOT NULL,
+  revision_id   TEXT NOT NULL,
+  company_id    TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+  project_id    TEXT,
+  thread_id     TEXT NOT NULL,
+  message_id    TEXT NOT NULL,
+  mission_id    TEXT,
+  status        TEXT NOT NULL,
+  created_at    TEXT NOT NULL
+);
+
+-- company list ordered by recency
+CREATE INDEX IF NOT EXISTS idx_loop_definitions_company_updated
+  ON loop_definitions(company_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_loop_definitions_status
+  ON loop_definitions(status);
+-- monotonic revision numbering, unique per loop
+CREATE UNIQUE INDEX IF NOT EXISTS idx_loop_revisions_loop_number
+  ON loop_revisions(loop_id, revision_number);
+CREATE INDEX IF NOT EXISTS idx_loop_revisions_loop_created
+  ON loop_revisions(loop_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_loop_skill_bindings_revision_order
+  ON loop_skill_bindings(revision_id, order_index);
+CREATE INDEX IF NOT EXISTS idx_loop_invocations_loop
+  ON loop_invocations(loop_id);
+CREATE INDEX IF NOT EXISTS idx_loop_invocations_revision
+  ON loop_invocations(revision_id);
+CREATE INDEX IF NOT EXISTS idx_loop_invocations_company_created
+  ON loop_invocations(company_id, created_at);
+
+-- ---------------------------------------------------------------------------
+-- Collaboration turns (PR-03). Ledger of each AI reply's lifecycle on a
+-- Collaboration thread: streaming / error / usage recovery — NOT a transcript
+-- copy (the visible message lives in `collaboration_messages`). One row per
+-- scheduled speaker turn (direct reply, a mentioned member, or a roundtable
+-- speaker). Company-scoped only, like the rest of the domain: no `project_id`,
+-- never an `agent_runs` / mission row.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS collaboration_turns (
+  turn_id            TEXT PRIMARY KEY,
+  thread_id          TEXT NOT NULL REFERENCES collaboration_threads(thread_id) ON DELETE CASCADE,
+  -- The message that scheduled this speaker. Not an FK (a turn stays readable for
+  -- recovery even if the trigger message is removed, and may reference a
+  -- not-yet-persisted id).
+  trigger_message_id TEXT,
+  -- SET NULL on delete keeps the turn (usage / error recovery) readable after the
+  -- employee is dismissed.
+  employee_id        TEXT REFERENCES employees(employee_id) ON DELETE SET NULL,
+  sequence_index     INTEGER NOT NULL,
+  status             TEXT NOT NULL DEFAULT 'pending'
+                       CHECK (status IN ('pending', 'streaming', 'complete', 'interrupted', 'failed')),
+  runtime_request_id TEXT,
+  usage_json         TEXT,
+  error_summary      TEXT,
+  started_at         TEXT,
+  finished_at        TEXT
+);
+
+-- turn scheduling / recovery lookup: a thread's turns in speaker order
+CREATE INDEX IF NOT EXISTS idx_collaboration_turns_thread_sequence
+  ON collaboration_turns(thread_id, sequence_index);

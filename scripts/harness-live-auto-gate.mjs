@@ -96,9 +96,7 @@ async function main() {
     }
 
     emitFail(
-      `auto gate not proven: the catastrophic command was not attempted as a tool ` +
-        `(tools=${tools.length}); cannot distinguish a gate block from model self-refusal` +
-        `${stderr ? ` (stderr: ${stderr.slice(0, 200)})` : ''}`,
+      `auto gate not proven: the catastrophic command was not attempted as a tool (tools=${tools.length}); cannot distinguish a gate block from model self-refusal${stderr ? ` (stderr: ${stderr.slice(0, 200)})` : ''}`,
     );
   } finally {
     rmSync(workspace, { recursive: true, force: true });

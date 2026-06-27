@@ -21,7 +21,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, writeFileSync, appendFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { detectPiEnv } from './live-harness-shared.mjs';
 
@@ -129,7 +129,7 @@ function envFingerprint() {
 // stderr (falling back to stdout) line. STUCK detection compares these across
 // iterations, so it must be deterministic for an identical failure.
 function failureSignature(scenarioId, stdout, stderr) {
-  const source = (stderr && stderr.trim()) || (stdout && stdout.trim()) || '';
+  const source = stderr?.trim() || stdout?.trim() || '';
   const firstLine = source.split('\n').find((line) => line.trim()) ?? '';
   const hash = createHash('sha1').update(firstLine).digest('hex').slice(0, 10);
   return `${scenarioId}:${hash}`;
@@ -194,9 +194,10 @@ function runScenario(scenario, iter, fingerprint) {
   // Spawn-level error (ENOENT / command-not-found) → INFRA_FAIL/infra. spawnSync
   // sets `.error` on a spawn failure; status is null in that case.
   if (result.error) {
-    const message = result.error.code === 'ENOENT'
-      ? `command not found: ${scenario.argv?.[0] ?? scenario.shell}`
-      : String(result.error.message ?? result.error);
+    const message =
+      result.error.code === 'ENOENT'
+        ? `command not found: ${scenario.argv?.[0] ?? scenario.shell}`
+        : String(result.error.message ?? result.error);
     return finalize(scenario, {
       state: 'INFRA_FAIL',
       classification: 'infra',
@@ -301,7 +302,8 @@ function lastQaVerdict(stdout) {
 function finalize(scenario, record) {
   // Write the per-scenario evidence log (stdout + stderr).
   const evidenceAbs = join(process.cwd(), record.evidenceRel);
-  const body = `# ${scenario.id} — ${record.state} (${record.classification ?? 'n/a'})\n` +
+  const body =
+    `# ${scenario.id} — ${record.state} (${record.classification ?? 'n/a'})\n` +
     `# command: ${scenario.shell ?? scenario.argv.join(' ')}\n` +
     `# exitCode: ${record.exitCode}  durationMs: ${record.durationMs}\n\n` +
     `===== STDOUT =====\n${record.stdout}\n\n===== STDERR =====\n${record.stderr}\n`;

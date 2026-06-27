@@ -56,6 +56,10 @@ interface UiState {
   /** Market surface */
   selectedListingId: string | null;
 
+  /** Loops surface (PR-08 owns the page; PR-10 sets this to open a Loop's detail
+   *  from a composer chip's "open detail" affordance). */
+  selectedLoopId: string | null;
+
   /** Workspace suite */
   workspaceApp: WorkspaceApp;
   workspaceSelectedId: string | null;
@@ -75,6 +79,24 @@ interface UiState {
    */
   pendingHire: boolean;
 
+  /**
+   * One-shot intent (PR-05): Contacts' "Message" sets the employee to start a
+   * direct Connect chat with. The Connect Messenger consumes it on mount —
+   * opening the existing active direct thread if there is one, else a fresh
+   * unpersisted direct draft. Cleared once consumed so a later manual visit
+   * doesn't re-open a draft.
+   */
+  pendingDirectChatEmployeeId: string | null;
+
+  /**
+   * One-shot intent set by "Use in Office" (PR-10) when there is NO active project:
+   * routes the user to an explicit project selection before a Loop draft can be
+   * opened — never a hidden default project. Carries the loop+revision so the
+   * selector can resume the open flow once a project is chosen. Consumed + cleared
+   * by whoever fulfils it (the selector / ScopeBar).
+   */
+  pendingLoopProjectSelect: { loopId: string; revisionId: string } | null;
+
   setSurface: (surface: SurfaceKey) => void;
   /** Navigate to the lifecycle front door with an explicit initial intent. */
   openLifecycle: (intent: 'select' | 'create') => void;
@@ -82,6 +104,14 @@ interface UiState {
   requestHire: () => void;
   /** Clear the one-shot Hire intent after the Personnel surface consumes it. */
   consumePendingHire: () => void;
+  /** Open Connect Messenger and flag a direct chat to start with `employeeId`. */
+  requestDirectChat: (employeeId: string) => void;
+  /** Read + clear the one-shot direct-chat intent (Connect consumes it on mount). */
+  consumePendingDirectChat: () => string | null;
+  /** Request an explicit project selection to resume a "Use in Office" Loop flow. */
+  requestLoopProjectSelect: (intent: { loopId: string; revisionId: string }) => void;
+  /** Clear the one-shot Loop project-select intent once it has been handled. */
+  consumePendingLoopProjectSelect: () => { loopId: string; revisionId: string } | null;
   setScope: (companyId: string, projectId: string) => void;
   setProject: (projectId: string) => void;
 
@@ -109,12 +139,14 @@ interface UiState {
   setPersonnelRailCollapsed: (collapsed: boolean) => void;
 
   selectListing: (listingId: string | null) => void;
+  /** Open a Loop's detail on the Loops (mission) surface — used by a composer chip. */
+  openLoopDetail: (loopId: string) => void;
 
   setWorkspaceApp: (app: WorkspaceApp, selectedId?: string | null) => void;
   selectWorkspaceItem: (id: string | null) => void;
 }
 
-export const useUiState = create<UiState>((set) => ({
+export const useUiState = create<UiState>((set, get) => ({
   // Land on the lifecycle front door; LifecycleSurface derives create-vs-select
   // from the real company count. No seed fixtures — ids are assigned on entry.
   surface: 'lifecycle',
@@ -134,6 +166,7 @@ export const useUiState = create<UiState>((set) => ({
   personnelRailCollapsed: false,
 
   selectedListingId: null,
+  selectedLoopId: null,
 
   workspaceApp: 'messenger',
   workspaceSelectedId: null,
@@ -142,10 +175,33 @@ export const useUiState = create<UiState>((set) => ({
 
   pendingHire: false,
 
+  pendingDirectChatEmployeeId: null,
+
+  pendingLoopProjectSelect: null,
+
   setSurface: (surface) => set({ surface }),
   openLifecycle: (intent) => set({ surface: 'lifecycle', lifecycleIntent: intent }),
   requestHire: () => set({ surface: 'personnel', pendingHire: true }),
   consumePendingHire: () => set({ pendingHire: false }),
+  requestDirectChat: (employeeId) =>
+    set({
+      surface: 'workspace',
+      workspaceApp: 'messenger',
+      workspaceSelectedId: null,
+      pendingDirectChatEmployeeId: employeeId,
+    }),
+  consumePendingDirectChat: (): string | null => {
+    const id = get().pendingDirectChatEmployeeId;
+    if (id) set({ pendingDirectChatEmployeeId: null });
+    return id;
+  },
+  requestLoopProjectSelect: (intent) =>
+    set({ surface: 'office', railMode: 'list', pendingLoopProjectSelect: intent }),
+  consumePendingLoopProjectSelect: (): { loopId: string; revisionId: string } | null => {
+    const intent = get().pendingLoopProjectSelect;
+    if (intent) set({ pendingLoopProjectSelect: null });
+    return intent;
+  },
   setScope: (companyId, projectId) =>
     set({ companyId, projectId, selectedThreadId: null, draftThread: null, railMode: 'list' }),
   setProject: (projectId) =>
@@ -175,6 +231,7 @@ export const useUiState = create<UiState>((set) => ({
   setPersonnelRailCollapsed: (personnelRailCollapsed) => set({ personnelRailCollapsed }),
 
   selectListing: (selectedListingId) => set({ selectedListingId }),
+  openLoopDetail: (selectedLoopId) => set({ surface: 'mission', selectedLoopId }),
 
   setWorkspaceApp: (workspaceApp, workspaceSelectedId = null) =>
     set({ workspaceApp, workspaceSelectedId }),

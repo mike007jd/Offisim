@@ -76,26 +76,55 @@ for (const t of templates) {
   ids.add(t.id);
   check(`${t.id}: unique name`, !names.has(t.name), 'duplicate name');
   names.add(t.name);
-  check(`${t.id}: presentation.icon is a non-empty string`, typeof t.presentation.icon === 'string' && t.presentation.icon.length > 0);
+  check(
+    `${t.id}: presentation.icon is a non-empty string`,
+    typeof t.presentation.icon === 'string' && t.presentation.icon.length > 0,
+  );
   check(`${t.id}: has employees`, t.employees.length > 0);
 
   for (const e of t.employees) {
     const tag = `${t.id}/${e.key}`;
-    check(`${tag}: non-empty capabilities`, Array.isArray(e.capabilities) && e.capabilities.length > 0);
-    check(`${tag}: displayTitle present`, typeof e.displayTitle === 'string' && e.displayTitle.length > 0);
-    check(`${tag}: profile.expertise non-empty`, typeof e.persona.profile.expertise === 'string' && e.persona.profile.expertise.length > 0);
-    check(`${tag}: profile.workingStyle non-empty`, typeof e.persona.profile.workingStyle === 'string' && e.persona.profile.workingStyle.length > 0);
+    check(
+      `${tag}: non-empty capabilities`,
+      Array.isArray(e.capabilities) && e.capabilities.length > 0,
+    );
+    check(
+      `${tag}: displayTitle present`,
+      typeof e.displayTitle === 'string' && e.displayTitle.length > 0,
+    );
+    check(
+      `${tag}: profile.expertise non-empty`,
+      typeof e.persona.profile.expertise === 'string' && e.persona.profile.expertise.length > 0,
+    );
+    check(
+      `${tag}: profile.workingStyle non-empty`,
+      typeof e.persona.profile.workingStyle === 'string' &&
+        e.persona.profile.workingStyle.length > 0,
+    );
     check(`${tag}: communication valid`, COMMUNICATION.has(e.persona.profile.communication));
     check(`${tag}: risk valid`, RISK.has(e.persona.profile.risk));
-    check(`${tag}: decisionStyle present`, typeof e.persona.profile.decisionStyle === 'string' && e.persona.profile.decisionStyle.length > 0);
-    check(`${tag}: appearance.skinColor is a number`, typeof e.persona.appearance.skinColor === 'number');
+    check(
+      `${tag}: decisionStyle present`,
+      typeof e.persona.profile.decisionStyle === 'string' &&
+        e.persona.profile.decisionStyle.length > 0,
+    );
+    check(
+      `${tag}: appearance.skinColor is a number`,
+      typeof e.persona.appearance.skinColor === 'number',
+    );
 
     // Serialized persona = what gets persisted + read by Pi / Personnel / avatar.
     const serialized = parseJson(serializeTemplatePersona(e));
     const profile = (serialized.profile ?? {}) as Record<string, unknown>;
     const appearance = (serialized.appearance ?? {}) as Record<string, unknown>;
-    check(`${tag}: serialized .profile.expertise reaches Pi reader`, profile.expertise === e.persona.profile.expertise);
-    check(`${tag}: serialized top-level appearance for avatar`, appearance.skinColor === e.persona.appearance.skinColor);
+    check(
+      `${tag}: serialized .profile.expertise reaches Pi reader`,
+      profile.expertise === e.persona.profile.expertise,
+    );
+    check(
+      `${tag}: serialized top-level appearance for avatar`,
+      appearance.skinColor === e.persona.appearance.skinColor,
+    );
     check(`${tag}: serialized displayTitle preserved`, serialized.displayTitle === e.displayTitle);
     check(
       `${tag}: serialized capabilities preserved`,
@@ -144,7 +173,11 @@ for (const t of templates) {
   const zoneById = new Map(zones.map((z) => [z.zone_id, z]));
   const workstationIds = new Set(workstations.map((w) => w.workstation_id));
 
-  check(`${t.id}: materialized employee count`, employees.length === t.employees.length, `${employees.length} vs ${t.employees.length}`);
+  check(
+    `${t.id}: materialized employee count`,
+    employees.length === t.employees.length,
+    `${employees.length} vs ${t.employees.length}`,
+  );
 
   const expectedLabels = expectedZoneLabels(t.id).slice().sort();
   const actualLabels = zones.map((z) => z.label).sort();
@@ -161,14 +194,28 @@ for (const t of templates) {
       check(`${tag}: materialized row exists`, false, `no employee named ${def.name}`);
       continue;
     }
-    check(`${tag}: role_slug matches`, row.role_slug === def.roleSlug, `${row.role_slug} vs ${def.roleSlug}`);
-    check(`${tag}: config is null (no legacy runtime config)`, row.config_json === null, row.config_json ?? 'null');
+    check(
+      `${tag}: role_slug matches`,
+      row.role_slug === def.roleSlug,
+      `${row.role_slug} vs ${def.roleSlug}`,
+    );
+    check(
+      `${tag}: config is null (no legacy runtime config)`,
+      row.config_json === null,
+      row.config_json ?? 'null',
+    );
 
     const persona = parseJson(row.persona_json);
     const profile = (persona.profile ?? {}) as Record<string, unknown>;
     const appearance = (persona.appearance ?? {}) as Record<string, unknown>;
-    check(`${tag}: persisted .profile.expertise matches canonical`, profile.expertise === def.persona.profile.expertise);
-    check(`${tag}: persisted appearance matches canonical`, appearance.skinColor === def.persona.appearance.skinColor);
+    check(
+      `${tag}: persisted .profile.expertise matches canonical`,
+      profile.expertise === def.persona.profile.expertise,
+    );
+    check(
+      `${tag}: persisted appearance matches canonical`,
+      appearance.skinColor === def.persona.appearance.skinColor,
+    );
     check(`${tag}: persisted displayTitle matches`, persona.displayTitle === def.displayTitle);
 
     // Resolves to exactly one valid workspace via a home workstation.
@@ -177,7 +224,11 @@ for (const t of templates) {
     if (typeof wsId === 'string') {
       check(`${tag}: workstation row exists`, workstationIds.has(wsId));
       const zone = zoneById.get(wsId);
-      check(`${tag}: home zone is a workspace`, zone?.archetype === 'workspace', zone?.archetype ?? 'no-zone');
+      check(
+        `${tag}: home zone is a workspace`,
+        zone?.archetype === 'workspace',
+        zone?.archetype ?? 'no-zone',
+      );
     }
   }
 }

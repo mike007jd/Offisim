@@ -118,7 +118,7 @@ export function KanbanApp() {
           onClick={() => setApp('workplace')}
         >
           <Icon icon={ArrowLeft} size="sm" />
-          Apps
+          Workplace
         </button>
         <span className="off-ws-list-title">Board</span>
         {project ? <span className="off-ws-board-proj">{project.name}</span> : null}

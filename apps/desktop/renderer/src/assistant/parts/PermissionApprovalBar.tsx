@@ -25,6 +25,7 @@ export function PermissionApprovalBar({ threadId }: { threadId: string }) {
     : 'none';
 
   // Clear any stale decision error whenever a different approval takes over the bar.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: approvalKey is an intentionally tracked derived value (stable per approval identity); the callback doesn't reference it directly but must trigger reset on approval change.
   useEffect(() => {
     setDecisionError(null);
   }, [approvalKey]);

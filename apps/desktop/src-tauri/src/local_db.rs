@@ -16,7 +16,7 @@ const LOCAL_SCHEMA_SQL: &str = include_str!("../../../../packages/db-local/src/s
 /// (b) bump this constant by 1, and (c) add a matching upgrade entry to
 /// `MIGRATIONS` so released user databases have an upgrade path. Public migration
 /// history starts only after the first public release baseline.
-const LOCAL_SCHEMA_VERSION: i64 = 3;
+const LOCAL_SCHEMA_VERSION: i64 = 6;
 
 /// Ordered upgrade chain for existing user databases: `(target_version, sql)`
 /// where each entry upgrades `target_version - 1` → `target_version`. Each entry
@@ -33,6 +33,18 @@ const MIGRATIONS: &[(i64, &str)] = &[
     (
         3,
         include_str!("../../../../packages/db-local/src/migrations/0003_mission_core.sql"),
+    ),
+    (
+        4,
+        include_str!("../../../../packages/db-local/src/migrations/0004_collaboration.sql"),
+    ),
+    (
+        5,
+        include_str!("../../../../packages/db-local/src/migrations/0005_loop_core.sql"),
+    ),
+    (
+        6,
+        include_str!("../../../../packages/db-local/src/migrations/0006_collaboration_turns.sql"),
     ),
 ];
 
@@ -379,6 +391,158 @@ mod tests {
         ensure_schema(&pool, LOCAL_SCHEMA_VERSION, LOCAL_SCHEMA_SQL, MIGRATIONS)
             .await
             .expect("idempotent re-run");
+    }
+
+    /// Snapshot of the schema objects (tables + indexes) a database ends up with.
+    /// Used to prove that the migration chain reaches the SAME end-state as a fresh
+    /// `schema.sql` bootstrap — the 3-step ritual's "same end-state" invariant.
+    async fn schema_object_signature(pool: &SqlitePool) -> Vec<(String, String)> {
+        sqlx::query_as::<_, (String, String)>(
+            "SELECT type, name FROM sqlite_master \
+             WHERE type IN ('table', 'index') AND name NOT LIKE 'sqlite_%' \
+             ORDER BY type, name",
+        )
+        .fetch_all(pool)
+        .await
+        .expect("read sqlite_master signature")
+    }
+
+    #[tokio::test]
+    async fn migration_0005_reaches_same_end_state_as_fresh_bootstrap() {
+        // Fresh bootstrap from schema.sql → end-state signature at v5 (the latest).
+        let fresh = memory_pool().await;
+        ensure_schema(&fresh, LOCAL_SCHEMA_VERSION, LOCAL_SCHEMA_SQL, MIGRATIONS)
+            .await
+            .expect("fresh bootstrap to v5");
+        assert_eq!(
+            read_user_version(&fresh).await.unwrap(),
+            LOCAL_SCHEMA_VERSION
+        );
+        let fresh_sig = schema_object_signature(&fresh).await;
+
+        // What this test PROVES (honest scope): the 0005 migration applied to a
+        // v4-shaped database (the current schema minus exactly the loop objects)
+        // reaches the same end-state as a fresh v5 bootstrap. 0005_loop_core is
+        // additive-only (CREATE TABLE/INDEX IF NOT EXISTS on brand-new loop tables),
+        // so it cannot collide with 0002–0004 — running it on top of the prior
+        // shape is the entire risk surface this PR owns, and that is what we check.
+        //
+        // What it does NOT do: replay the FULL historical chain from a v1 baseline.
+        // schema.sql is the flattened latest end-state; the old per-version baselines
+        // are not preserved, and the historical ALTER-based migrations (e.g. 0002's
+        // `ADD COLUMN run_id`) collide when replayed against the v5 end-state shape.
+        // A true v1→0002→0003→0004→0005 replay is therefore infeasible here and is
+        // intentionally not attempted.
+        //
+        // We construct the v4-shaped database by applying the end-state baseline,
+        // DROPping exactly the objects 0005 introduces, and stamping v4. Then the
+        // chain runs — only 0005_loop_core applies — and the result must be
+        // byte-identical to a fresh v5 bootstrap.
+        let migrated = memory_pool().await;
+        apply_sql_and_stamp(&migrated, LOCAL_SCHEMA_SQL, LOCAL_SCHEMA_VERSION, "seed v5 baseline")
+            .await
+            .expect("seed v5 baseline");
+        let drop_loop_objects = "\
+            DROP TABLE IF EXISTS loop_invocations;\n\
+            DROP TABLE IF EXISTS loop_skill_bindings;\n\
+            DROP TABLE IF EXISTS loop_revisions;\n\
+            DROP TABLE IF EXISTS loop_definitions;";
+        apply_sql_and_stamp(&migrated, drop_loop_objects, 4, "rewind to v4 (drop loop objects)")
+            .await
+            .expect("rewind to v4");
+        assert_eq!(read_user_version(&migrated).await.unwrap(), 4);
+        // Sanity: the loop tables are gone at v4.
+        let v4_sig = schema_object_signature(&migrated).await;
+        assert!(
+            !v4_sig.iter().any(|(_, name)| name == "loop_definitions"),
+            "loop tables must be absent at v4"
+        );
+
+        ensure_schema(&migrated, LOCAL_SCHEMA_VERSION, LOCAL_SCHEMA_SQL, MIGRATIONS)
+            .await
+            .expect("upgrade v4 → v5 via 0005_loop_core");
+        assert_eq!(
+            read_user_version(&migrated).await.unwrap(),
+            LOCAL_SCHEMA_VERSION
+        );
+        let migrated_sig = schema_object_signature(&migrated).await;
+
+        assert_eq!(
+            fresh_sig, migrated_sig,
+            "0005 migration end-state must match fresh schema.sql bootstrap (loop tables incl.)"
+        );
+        // Spot-check the loop tables specifically landed in both paths.
+        for name in [
+            "loop_definitions",
+            "loop_revisions",
+            "loop_skill_bindings",
+            "loop_invocations",
+        ] {
+            assert!(
+                migrated_sig.contains(&("table".to_string(), name.to_string())),
+                "v4→v5 migration missing {name}"
+            );
+            assert!(
+                fresh_sig.contains(&("table".to_string(), name.to_string())),
+                "fresh bootstrap missing {name}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn migration_0006_reaches_same_end_state_as_fresh_bootstrap() {
+        // Fresh bootstrap from schema.sql → end-state signature at v6 (the latest).
+        let fresh = memory_pool().await;
+        ensure_schema(&fresh, LOCAL_SCHEMA_VERSION, LOCAL_SCHEMA_SQL, MIGRATIONS)
+            .await
+            .expect("fresh bootstrap to v6");
+        assert_eq!(
+            read_user_version(&fresh).await.unwrap(),
+            LOCAL_SCHEMA_VERSION
+        );
+        let fresh_sig = schema_object_signature(&fresh).await;
+
+        // Same honest scope as the 0005 test: 0006_collaboration_turns is
+        // additive-only (one new table + one new index, CREATE ... IF NOT EXISTS),
+        // so we construct the v5-shaped database by seeding the end-state baseline,
+        // DROPping exactly the objects 0006 introduces, stamping v5, then running
+        // the chain — only 0006 applies — and asserting byte-identical end-state.
+        let migrated = memory_pool().await;
+        apply_sql_and_stamp(&migrated, LOCAL_SCHEMA_SQL, LOCAL_SCHEMA_VERSION, "seed v6 baseline")
+            .await
+            .expect("seed v6 baseline");
+        let drop_turns_objects = "DROP TABLE IF EXISTS collaboration_turns;";
+        apply_sql_and_stamp(&migrated, drop_turns_objects, 5, "rewind to v5 (drop turns objects)")
+            .await
+            .expect("rewind to v5");
+        assert_eq!(read_user_version(&migrated).await.unwrap(), 5);
+        let v5_sig = schema_object_signature(&migrated).await;
+        assert!(
+            !v5_sig.iter().any(|(_, name)| name == "collaboration_turns"),
+            "collaboration_turns must be absent at v5"
+        );
+
+        ensure_schema(&migrated, LOCAL_SCHEMA_VERSION, LOCAL_SCHEMA_SQL, MIGRATIONS)
+            .await
+            .expect("upgrade v5 → v6 via 0006_collaboration_turns");
+        assert_eq!(
+            read_user_version(&migrated).await.unwrap(),
+            LOCAL_SCHEMA_VERSION
+        );
+        let migrated_sig = schema_object_signature(&migrated).await;
+
+        assert_eq!(
+            fresh_sig, migrated_sig,
+            "0006 migration end-state must match fresh schema.sql bootstrap (collaboration_turns incl.)"
+        );
+        assert!(
+            migrated_sig.contains(&("table".to_string(), "collaboration_turns".to_string())),
+            "v5→v6 migration missing collaboration_turns"
+        );
+        assert!(
+            fresh_sig.contains(&("table".to_string(), "collaboration_turns".to_string())),
+            "fresh bootstrap missing collaboration_turns"
+        );
     }
 
     #[tokio::test]

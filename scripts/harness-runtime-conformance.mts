@@ -17,7 +17,6 @@
  * certified (RD-004), not in this suite.
  */
 import {
-  createDeterministicTestDriver,
   DETERMINISTIC_TEST_CAPABILITIES,
   type DeterministicScript,
   type RuntimeCapabilities,
@@ -25,6 +24,7 @@ import {
   type RuntimeEventSink,
   type RuntimeResumeReference,
   type RuntimeRunRequest,
+  createDeterministicTestDriver,
 } from '../packages/shared-types/src/index.js';
 
 let failures = 0;
@@ -55,12 +55,7 @@ function capturingSink(): { sink: RuntimeEventSink; events: RuntimeEventEnvelope
   return { sink: { emit: (event) => events.push(event) }, events };
 }
 
-const TERMINALS = new Set([
-  'run.completed',
-  'run.failed',
-  'run.cancelled',
-  'run.interrupted',
-]);
+const TERMINALS = new Set(['run.completed', 'run.failed', 'run.cancelled', 'run.interrupted']);
 
 /**
  * Pair tool lifecycle envelopes by toolCallId. Returns the started ids and any
@@ -113,16 +108,25 @@ async function main(): Promise<void> {
     await driver.start(baseRequest(), sink);
 
     assert(events.length > 0, 'no events emitted');
-    assert(events[0]?.type === 'runtime.session.started', 'first event must be runtime.session.started');
+    assert(
+      events[0]?.type === 'runtime.session.started',
+      'first event must be runtime.session.started',
+    );
     assert(events[1]?.type === 'run.started', 'run.started must precede deltas');
     const terminals = events.filter((event) => TERMINALS.has(event.type));
     assert(terminals.length === 1, `expected exactly one terminal, got ${terminals.length}`);
-    assert(events[events.length - 1]?.type === 'run.completed', 'terminal must be last and completed');
+    assert(
+      events[events.length - 1]?.type === 'run.completed',
+      'terminal must be last and completed',
+    );
     const middleHasDeltas = events.some((event) => event.type === 'message.delta');
     assert(middleHasDeltas, 'expected message.delta in the middle');
     // sequence strictly monotonic
     for (let i = 1; i < events.length; i += 1) {
-      assert((events[i]?.sequence ?? -1) === (events[i - 1]?.sequence ?? -1) + 1, 'sequence not strictly monotonic');
+      assert(
+        (events[i]?.sequence ?? -1) === (events[i - 1]?.sequence ?? -1) + 1,
+        'sequence not strictly monotonic',
+      );
     }
   });
 
@@ -132,8 +136,16 @@ async function main(): Promise<void> {
     const paired = createDeterministicTestDriver({
       script: {
         steps: [
-          { kind: 'emit', type: 'tool.started', payload: { toolCallId: 't1', toolName: 'read_file' } },
-          { kind: 'emit', type: 'tool.completed', payload: { toolCallId: 't1', status: 'completed' } },
+          {
+            kind: 'emit',
+            type: 'tool.started',
+            payload: { toolCallId: 't1', toolName: 'read_file' },
+          },
+          {
+            kind: 'emit',
+            type: 'tool.completed',
+            payload: { toolCallId: 't1', status: 'completed' },
+          },
         ],
         terminal: 'run.completed',
       },
@@ -158,7 +170,11 @@ async function main(): Promise<void> {
     const orphaned = createDeterministicTestDriver({
       script: {
         steps: [
-          { kind: 'emit', type: 'tool.completed', payload: { toolCallId: 'orphan', status: 'completed' } },
+          {
+            kind: 'emit',
+            type: 'tool.completed',
+            payload: { toolCallId: 'orphan', status: 'completed' },
+          },
         ],
         terminal: 'run.completed',
       },
@@ -194,14 +210,20 @@ async function main(): Promise<void> {
     await driver.start(request, sink);
 
     // Paused: interaction.requested emitted, no terminal yet.
-    assert(events.some((event) => event.type === 'interaction.requested'), 'no interaction.requested');
+    assert(
+      events.some((event) => event.type === 'interaction.requested'),
+      'no interaction.requested',
+    );
     assert(!events.some((event) => TERMINALS.has(event.type)), 'must not terminate while paused');
 
     await driver.answerInteraction(
       { threadId: request.threadId, rootRunId: request.rootRunId, runId: request.runId },
       { interactionId: 'i1', approved: true },
     );
-    assert(events.some((event) => event.type === 'interaction.resolved'), 'no interaction.resolved');
+    assert(
+      events.some((event) => event.type === 'interaction.resolved'),
+      'no interaction.resolved',
+    );
     const terminal = events[events.length - 1];
     assert(terminal?.type === 'run.completed', 'run must complete after the interaction resolves');
     // Order: requested before resolved before terminal.
@@ -218,8 +240,18 @@ async function main(): Promise<void> {
     const driver2 = createDeterministicTestDriver({
       script: {
         steps: [
-          { kind: 'emit', type: 'child.started', payload: { objective: 'subtask' }, runId: 'c1', employeeId: 'maya' },
-          { kind: 'awaitInteraction', interactionId: 'hold', interaction: { kind: 'approval', title: 'hold' } },
+          {
+            kind: 'emit',
+            type: 'child.started',
+            payload: { objective: 'subtask' },
+            runId: 'c1',
+            employeeId: 'maya',
+          },
+          {
+            kind: 'awaitInteraction',
+            interactionId: 'hold',
+            interaction: { kind: 'approval', title: 'hold' },
+          },
           { kind: 'emit', type: 'message.delta', payload: { delta: 'should not happen' } },
         ],
         terminal: 'run.completed',
@@ -227,7 +259,10 @@ async function main(): Promise<void> {
     });
     const cap = capturingSink();
     const handle2 = await driver2.start(request, cap.sink);
-    assert(cap.events.some((event) => event.type === 'child.started'), 'child.started missing');
+    assert(
+      cap.events.some((event) => event.type === 'child.started'),
+      'child.started missing',
+    );
     assert(!cap.events.some((event) => TERMINALS.has(event.type)), 'run terminated before cancel');
 
     await handle2.cancel();
@@ -236,12 +271,24 @@ async function main(): Promise<void> {
     );
     assert(childCancel.length === 1, 'child run was not cancelled (hanging child)');
     const rootTerminal = cap.events[cap.events.length - 1];
-    assert(rootTerminal?.type === 'run.cancelled' && rootTerminal.runId === request.runId, 'root not cancelled last');
-    assert(!cap.events.some((event) => (event.payload as { delta?: string }).delta === 'should not happen'), 'event leaked after cancel');
+    assert(
+      rootTerminal?.type === 'run.cancelled' && rootTerminal.runId === request.runId,
+      'root not cancelled last',
+    );
+    assert(
+      !cap.events.some(
+        (event) => (event.payload as { delta?: string }).delta === 'should not happen',
+      ),
+      'event leaked after cancel',
+    );
 
     // No events emitted after a terminal: cancel again is a no-op.
     const countAfter = cap.events.length;
-    await driver2.cancel({ threadId: request.threadId, rootRunId: request.rootRunId, runId: request.runId });
+    await driver2.cancel({
+      threadId: request.threadId,
+      rootRunId: request.rootRunId,
+      runId: request.runId,
+    });
     assert(cap.events.length === countAfter, 'events emitted after terminal');
   });
 
@@ -250,21 +297,38 @@ async function main(): Promise<void> {
     const startScript: DeterministicScript = { steps: [], terminal: 'run.completed' };
     const driver = createDeterministicTestDriver({
       script: startScript,
-      resumeScript: { steps: [{ kind: 'emit', type: 'message.delta', payload: { delta: 'continuing' } }], terminal: 'run.completed' },
+      resumeScript: {
+        steps: [{ kind: 'emit', type: 'message.delta', payload: { delta: 'continuing' } }],
+        terminal: 'run.completed',
+      },
     });
     // First, get a valid opaque ref from a real start.
     const startCap = capturingSink();
     await driver.start(baseRequest(), startCap.sink);
-    const sessionStarted = startCap.events.find((event) => event.type === 'runtime.session.started');
+    const sessionStarted = startCap.events.find(
+      (event) => event.type === 'runtime.session.started',
+    );
     const opaqueRef = (sessionStarted?.payload as { runtimeSessionRef: string }).runtimeSessionRef;
     assert(typeof opaqueRef === 'string' && opaqueRef.length > 0, 'no opaque session ref produced');
 
-    const validRef: RuntimeResumeReference = { runtimeId: driver.id, opaqueSessionRefJson: opaqueRef };
+    const validRef: RuntimeResumeReference = {
+      runtimeId: driver.id,
+      opaqueSessionRefJson: opaqueRef,
+    };
     const resumeCap = capturingSink();
     await driver.resume(validRef, { feedback: 'try again' }, resumeCap.sink);
-    assert(resumeCap.events[0]?.type === 'runtime.session.resumed', 'resume must emit runtime.session.resumed first');
-    assert(resumeCap.events.some((event) => event.type === 'message.delta'), 'resume did not continue');
-    assert(resumeCap.events[resumeCap.events.length - 1]?.type === 'run.completed', 'resumed run did not complete');
+    assert(
+      resumeCap.events[0]?.type === 'runtime.session.resumed',
+      'resume must emit runtime.session.resumed first',
+    );
+    assert(
+      resumeCap.events.some((event) => event.type === 'message.delta'),
+      'resume did not continue',
+    );
+    assert(
+      resumeCap.events[resumeCap.events.length - 1]?.type === 'run.completed',
+      'resumed run did not complete',
+    );
 
     // Invalid ref must be rejected.
     let rejected = false;
@@ -310,7 +374,10 @@ async function main(): Promise<void> {
       provenance?: { runId?: string };
     };
     assert(typeof payload.title === 'string' && payload.title.length > 0, 'artifact missing title');
-    assert(typeof payload.contentHash === 'string' && payload.contentHash.includes(':'), 'artifact missing well-formed contentHash');
+    assert(
+      typeof payload.contentHash === 'string' && payload.contentHash.includes(':'),
+      'artifact missing well-formed contentHash',
+    );
     assert(typeof payload.version === 'number' && payload.version >= 1, 'artifact missing version');
     assert(payload.provenance?.runId === artifact.runId, 'artifact provenance runId mismatch');
   });
@@ -319,10 +386,29 @@ async function main(): Promise<void> {
   await rc('RC7', 'Child runs — parent/root relation rebuildable from envelopes', async () => {
     const script: DeterministicScript = {
       steps: [
-        { kind: 'emit', type: 'child.started', payload: { objective: 'A' }, runId: 'c1', employeeId: 'maya' },
-        { kind: 'emit', type: 'child.started', payload: { objective: 'B' }, runId: 'c2', employeeId: 'kai' },
+        {
+          kind: 'emit',
+          type: 'child.started',
+          payload: { objective: 'A' },
+          runId: 'c1',
+          employeeId: 'maya',
+        },
+        {
+          kind: 'emit',
+          type: 'child.started',
+          payload: { objective: 'B' },
+          runId: 'c2',
+          employeeId: 'kai',
+        },
         // grandchild under c1
-        { kind: 'emit', type: 'child.started', payload: { objective: 'A.1' }, runId: 'g1', parentRunId: 'c1', employeeId: 'raj' },
+        {
+          kind: 'emit',
+          type: 'child.started',
+          payload: { objective: 'A.1' },
+          runId: 'g1',
+          parentRunId: 'c1',
+          employeeId: 'raj',
+        },
       ],
       terminal: 'run.completed',
     };
@@ -338,7 +424,10 @@ async function main(): Promise<void> {
       assert(event.rootRunId === 'root-1', `child ${event.runId} lost rootRunId`);
       parentOf.set(event.runId, event.parentRunId);
     }
-    assert(parentOf.get('c1') === 'root-1' && parentOf.get('c2') === 'root-1', 'c1/c2 must parent to root');
+    assert(
+      parentOf.get('c1') === 'root-1' && parentOf.get('c2') === 'root-1',
+      'c1/c2 must parent to root',
+    );
     assert(parentOf.get('g1') === 'c1', 'grandchild must parent to c1 (depth 2 rebuildable)');
   });
 
@@ -360,41 +449,80 @@ async function main(): Promise<void> {
       .filter((event) => event.type === 'usage.updated')
       .map((event) => event.payload as { input: number; output: number; cost: number });
     const agg = updates.reduce(
-      (acc, u) => ({ input: acc.input + u.input, output: acc.output + u.output, cost: acc.cost + u.cost }),
+      (acc, u) => ({
+        input: acc.input + u.input,
+        output: acc.output + u.output,
+        cost: acc.cost + u.cost,
+      }),
       { input: 0, output: 0, cost: 0 },
     );
     const terminal = events[events.length - 1];
-    const declared = (terminal?.payload as { usage: { input: number; output: number; cost: number } }).usage;
-    assert(agg.input === declared.input, `input aggregate ${agg.input} != terminal ${declared.input}`);
-    assert(agg.output === declared.output, `output aggregate ${agg.output} != terminal ${declared.output}`);
-    assert(Math.abs(agg.cost - declared.cost) < 1e-9, `cost aggregate ${agg.cost} != terminal ${declared.cost}`);
+    const declared = (
+      terminal?.payload as { usage: { input: number; output: number; cost: number } }
+    ).usage;
+    assert(
+      agg.input === declared.input,
+      `input aggregate ${agg.input} != terminal ${declared.input}`,
+    );
+    assert(
+      agg.output === declared.output,
+      `output aggregate ${agg.output} != terminal ${declared.output}`,
+    );
+    assert(
+      Math.abs(agg.cost - declared.cost) < 1e-9,
+      `cost aggregate ${agg.cost} != terminal ${declared.cost}`,
+    );
   });
 
   // ── RC9 Crash recovery ─────────────────────────────────────────────────────
-  await rc('RC9', 'Crash recovery — interrupted (not completed), no unsafe tool repeated', async () => {
-    const script: DeterministicScript = {
-      steps: [
-        { kind: 'emit', type: 'tool.started', payload: { toolCallId: 'rm1', toolName: 'bash', detail: 'rm -rf x' } },
-        { kind: 'emit', type: 'tool.completed', payload: { toolCallId: 'rm1', status: 'completed' } },
-        { kind: 'crash', reason: 'process exited' },
-        // Anything past the crash must not be emitted (would re-run the unsafe tool).
-        { kind: 'emit', type: 'tool.started', payload: { toolCallId: 'rm1', toolName: 'bash', detail: 'rm -rf x' } },
-      ],
-      terminal: 'run.completed',
-    };
-    const driver = createDeterministicTestDriver({ script });
-    const { sink, events } = capturingSink();
-    await driver.start(baseRequest(), sink);
+  await rc(
+    'RC9',
+    'Crash recovery — interrupted (not completed), no unsafe tool repeated',
+    async () => {
+      const script: DeterministicScript = {
+        steps: [
+          {
+            kind: 'emit',
+            type: 'tool.started',
+            payload: { toolCallId: 'rm1', toolName: 'bash', detail: 'rm -rf x' },
+          },
+          {
+            kind: 'emit',
+            type: 'tool.completed',
+            payload: { toolCallId: 'rm1', status: 'completed' },
+          },
+          { kind: 'crash', reason: 'process exited' },
+          // Anything past the crash must not be emitted (would re-run the unsafe tool).
+          {
+            kind: 'emit',
+            type: 'tool.started',
+            payload: { toolCallId: 'rm1', toolName: 'bash', detail: 'rm -rf x' },
+          },
+        ],
+        terminal: 'run.completed',
+      };
+      const driver = createDeterministicTestDriver({ script });
+      const { sink, events } = capturingSink();
+      await driver.start(baseRequest(), sink);
 
-    const terminal = events[events.length - 1];
-    assert(terminal?.type === 'run.interrupted', `crash must yield run.interrupted, got ${terminal?.type}`);
-    assert(!events.some((event) => event.type === 'run.completed'), 'crashed run must NOT report completed');
-    // The unsafe tool (rm1) started exactly once — not auto-repeated post-crash.
-    const rmStarts = events.filter(
-      (event) => event.type === 'tool.started' && (event.payload as { toolCallId: string }).toolCallId === 'rm1',
-    );
-    assert(rmStarts.length === 1, `unsafe tool repeated ${rmStarts.length} times after crash`);
-  });
+      const terminal = events[events.length - 1];
+      assert(
+        terminal?.type === 'run.interrupted',
+        `crash must yield run.interrupted, got ${terminal?.type}`,
+      );
+      assert(
+        !events.some((event) => event.type === 'run.completed'),
+        'crashed run must NOT report completed',
+      );
+      // The unsafe tool (rm1) started exactly once — not auto-repeated post-crash.
+      const rmStarts = events.filter(
+        (event) =>
+          event.type === 'tool.started' &&
+          (event.payload as { toolCallId: string }).toolCallId === 'rm1',
+      );
+      assert(rmStarts.length === 1, `unsafe tool repeated ${rmStarts.length} times after crash`);
+    },
+  );
 
   // ── RC10 Capability fallback ───────────────────────────────────────────────
   await rc('RC10', 'Capability fallback — unsupported capability refused, not faked', async () => {
@@ -409,13 +537,22 @@ async function main(): Promise<void> {
       capabilities: noChildren,
       script: {
         steps: [
-          { kind: 'emit', type: 'child.started', payload: { objective: 'subtask' }, runId: 'c1', employeeId: 'maya' },
+          {
+            kind: 'emit',
+            type: 'child.started',
+            payload: { objective: 'subtask' },
+            runId: 'c1',
+            employeeId: 'maya',
+          },
         ],
         terminal: 'run.completed',
       },
     });
     const descriptor = await driver.inspect();
-    assert(descriptor.capabilities.multiAgent.children === false, 'driver must report children unsupported');
+    assert(
+      descriptor.capabilities.multiAgent.children === false,
+      'driver must report children unsupported',
+    );
 
     const { sink, events } = capturingSink();
     await driver.start(baseRequest(), sink);
@@ -442,24 +579,44 @@ async function main(): Promise<void> {
   });
 
   // ── RC11 Redaction ─────────────────────────────────────────────────────────
-  await rc('RC11', 'Redaction (SPI-level) — secret token scrubbed from emitted envelope', async () => {
-    const secret = 'sk-live-ABCD1234efgh5678IJKL';
-    const script: DeterministicScript = {
-      steps: [
-        { kind: 'emit', type: 'message.delta', payload: { delta: `here is the key ${secret} ok` } },
-        { kind: 'emit', type: 'tool.started', payload: { toolCallId: 't1', toolName: 'bash', detail: `export TOKEN=${secret}`, env: { API_KEY: secret } } },
-      ],
-      terminal: 'run.completed',
-    };
-    const driver = createDeterministicTestDriver({ script });
-    const { sink, events } = capturingSink();
-    await driver.start(baseRequest(), sink);
+  await rc(
+    'RC11',
+    'Redaction (SPI-level) — secret token scrubbed from emitted envelope',
+    async () => {
+      const secret = 'sk-live-ABCD1234efgh5678IJKL';
+      const script: DeterministicScript = {
+        steps: [
+          {
+            kind: 'emit',
+            type: 'message.delta',
+            payload: { delta: `here is the key ${secret} ok` },
+          },
+          {
+            kind: 'emit',
+            type: 'tool.started',
+            payload: {
+              toolCallId: 't1',
+              toolName: 'bash',
+              detail: `export TOKEN=${secret}`,
+              env: { API_KEY: secret },
+            },
+          },
+        ],
+        terminal: 'run.completed',
+      };
+      const driver = createDeterministicTestDriver({ script });
+      const { sink, events } = capturingSink();
+      await driver.start(baseRequest(), sink);
 
-    const serialized = JSON.stringify(events);
-    assert(!serialized.includes(secret), 'raw secret leaked into an emitted envelope');
-    assert(!/\bsk-[A-Za-z0-9_-]{8,}\b/.test(serialized), 'sk- token pattern leaked into envelopes');
-    assert(serialized.includes('[REDACTED]'), 'expected redaction marker in place of the secret');
-  });
+      const serialized = JSON.stringify(events);
+      assert(!serialized.includes(secret), 'raw secret leaked into an emitted envelope');
+      assert(
+        !/\bsk-[A-Za-z0-9_-]{8,}\b/.test(serialized),
+        'sk- token pattern leaked into envelopes',
+      );
+      assert(serialized.includes('[REDACTED]'), 'expected redaction marker in place of the secret');
+    },
+  );
 
   // ── RC12 Workspace jail ────────────────────────────────────────────────────
   await rc('RC12', 'Workspace jail (SPI-level) — out-of-bounds path refused', async () => {
@@ -467,11 +624,27 @@ async function main(): Promise<void> {
     const script: DeterministicScript = {
       steps: [
         // In-bounds: allowed.
-        { kind: 'emit', type: 'tool.started', payload: { toolCallId: 'ok', toolName: 'read_file', path: '/workspace/lease-1/src/app.ts' } },
+        {
+          kind: 'emit',
+          type: 'tool.started',
+          payload: {
+            toolCallId: 'ok',
+            toolName: 'read_file',
+            path: '/workspace/lease-1/src/app.ts',
+          },
+        },
         // Out-of-bounds absolute path: refused.
-        { kind: 'emit', type: 'tool.started', payload: { toolCallId: 'bad1', toolName: 'read_file', path: '/etc/passwd' } },
+        {
+          kind: 'emit',
+          type: 'tool.started',
+          payload: { toolCallId: 'bad1', toolName: 'read_file', path: '/etc/passwd' },
+        },
         // Traversal escape: refused.
-        { kind: 'emit', type: 'tool.started', payload: { toolCallId: 'bad2', toolName: 'read_file', path: 'src/../../secrets' } },
+        {
+          kind: 'emit',
+          type: 'tool.started',
+          payload: { toolCallId: 'bad2', toolName: 'read_file', path: 'src/../../secrets' },
+        },
       ],
       terminal: 'run.completed',
     };
@@ -481,10 +654,18 @@ async function main(): Promise<void> {
 
     // The in-bounds tool started; the two escapes became runtime.error, not tool.started.
     const toolStarts = events.filter((event) => event.type === 'tool.started');
-    assert(toolStarts.length === 1, `expected only the in-bounds tool to start, got ${toolStarts.length}`);
-    assert((toolStarts[0]?.payload as { toolCallId: string }).toolCallId === 'ok', 'wrong tool allowed through jail');
+    assert(
+      toolStarts.length === 1,
+      `expected only the in-bounds tool to start, got ${toolStarts.length}`,
+    );
+    assert(
+      (toolStarts[0]?.payload as { toolCallId: string }).toolCallId === 'ok',
+      'wrong tool allowed through jail',
+    );
     const jailErrors = events.filter(
-      (event) => event.type === 'runtime.error' && (event.payload as { code?: string }).code === 'workspace.jail.violation',
+      (event) =>
+        event.type === 'runtime.error' &&
+        (event.payload as { code?: string }).code === 'workspace.jail.violation',
     );
     assert(jailErrors.length === 2, `expected 2 jail violations refused, got ${jailErrors.length}`);
     // No escaping path string ever appears on a tool.started envelope.

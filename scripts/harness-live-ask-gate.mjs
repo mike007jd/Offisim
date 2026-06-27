@@ -15,13 +15,7 @@
 
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import {
-  detectPiEnv,
-  emitFail,
-  emitPass,
-  emitSkip,
-  runPiHost,
-} from './live-harness-shared.mjs';
+import { detectPiEnv, emitFail, emitPass, emitSkip, runPiHost } from './live-harness-shared.mjs';
 
 function makeScratch(workspace) {
   const scratchDir = join(workspace, 'scratch');

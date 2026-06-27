@@ -9,7 +9,11 @@ import { motion } from 'motion/react';
 import { type CSSProperties, useCallback, useEffect, useMemo, useState } from 'react';
 import { clearDiscardConfirm, showDiscardConfirm } from './DiscardConfirmToast.js';
 import { CyoBlueprint, TemplatePreview } from './TemplatePreview.js';
-import { CREATE_YOUR_OWN_TEMPLATE, type WizardEmployee, type WizardTemplate } from './template-view.js';
+import {
+  CREATE_YOUR_OWN_TEMPLATE,
+  type WizardEmployee,
+  type WizardTemplate,
+} from './template-view.js';
 
 function roleAccentStyle(color: string): CSSProperties {
   return { '--off-wiz-role-accent': color } as CSSProperties;
@@ -51,10 +55,7 @@ interface CompanyCreationWizardProps {
   dismissible?: boolean;
 }
 
-function EmployeeCard({
-  templateId,
-  employee,
-}: { templateId: string; employee: WizardEmployee }) {
+function EmployeeCard({ templateId, employee }: { templateId: string; employee: WizardEmployee }) {
   const [expanded, setExpanded] = useState(false);
   const accent = employee.appearance?.accentColor ?? UI_DATA_COLORS.blue2;
   const clothing = employee.appearance?.clothingColor ?? UI_DATA_COLORS.ink3;

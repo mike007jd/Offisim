@@ -358,7 +358,10 @@ function validateStructure(
       !Number.isInteger(budget.maxAttempts) ||
       budget.maxAttempts < 1
     ) {
-      structure('defaultBudget.maxAttempts must be a positive integer', 'defaultBudget.maxAttempts');
+      structure(
+        'defaultBudget.maxAttempts must be a positive integer',
+        'defaultBudget.maxAttempts',
+      );
     }
     if (
       budget.maxRepairsPerCriterion !== undefined &&
@@ -377,7 +380,10 @@ function validateStructure(
         !Number.isInteger(budget.tokenBudget) ||
         budget.tokenBudget < 0)
     ) {
-      structure('defaultBudget.tokenBudget must be a non-negative integer', 'defaultBudget.tokenBudget');
+      structure(
+        'defaultBudget.tokenBudget must be a non-negative integer',
+        'defaultBudget.tokenBudget',
+      );
     }
   }
 
@@ -492,7 +498,7 @@ function validateEvaluators(
       errors.push({
         code: 'structure',
         message:
-          "llm_rubric_review is non-deterministic and must not be a required gate (set required:false / omit it) — a deterministic FAIL can never be overridden by an LLM PASS (PRD §20.2, §34-Q7)",
+          'llm_rubric_review is non-deterministic and must not be a required gate (set required:false / omit it) — a deterministic FAIL can never be overridden by an LLM PASS (PRD §20.2, §34-Q7)',
         path: `${cPath}.required`,
       });
     }

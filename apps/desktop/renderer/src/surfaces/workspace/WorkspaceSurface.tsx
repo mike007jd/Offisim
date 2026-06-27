@@ -9,7 +9,8 @@ import { ContactsApp } from './apps/ContactsApp.js';
 import { KanbanApp } from './apps/KanbanApp.js';
 import { MessengerApp } from './apps/MessengerApp.js';
 import { WorkplaceApp } from './apps/WorkplaceApp.js';
-import { useWsAgenda, useWsConversations } from './workspace-data.js';
+import { useConnectThreads } from './collaboration-data.js';
+import { useWsAgenda } from './workspace-data.js';
 
 type AppEntry = { key: WorkspaceApp; label: string; icon: LucideIcon };
 
@@ -29,10 +30,13 @@ const APP_GROUPS: ReadonlyArray<ReadonlyArray<AppEntry>> = [
 function AppRail() {
   const app = useUiState((s) => s.workspaceApp);
   const setApp = useUiState((s) => s.setWorkspaceApp);
-  const conversations = useWsConversations();
+  const companyId = useUiState((s) => s.companyId) || null;
+  // Connect (collaboration) unread, not the legacy project-chat count — the Chats
+  // rail badge must reflect the same aggregate the Messenger list shows.
+  const threads = useConnectThreads(companyId);
   const agenda = useWsAgenda();
 
-  const unread = (conversations.data ?? []).reduce((sum, c) => sum + (c.unread ?? 0), 0);
+  const unread = (threads.data ?? []).reduce((sum, t) => sum + (t.unreadCount ?? 0), 0);
   // Real signal, not a hardcoded dot: only light Calendar when today actually
   // has events (shares the cached ['ws','agenda'] query with CalendarApp).
   const hasToday = (agenda.data ?? []).some((d) => d.today && d.events.length > 0);
@@ -44,7 +48,7 @@ function AppRail() {
   }
 
   return (
-    <nav className="off-ws-rail" aria-label="Workspace apps">
+    <nav className="off-ws-rail" aria-label="Connect">
       <span className="off-ws-rail-id" title="You">
         <EmployeeAvatar
           seed="Boss"

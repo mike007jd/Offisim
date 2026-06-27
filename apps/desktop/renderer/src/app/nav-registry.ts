@@ -26,9 +26,17 @@ export interface NavEntry {
  */
 export const NAV_ENTRIES: readonly NavEntry[] = [
   { key: 'office', label: 'Office', icon: BriefcaseBusiness, tier: 'primary' },
-  // 'Apps' disambiguates the suite from the Office surface (both once read "work…").
-  { key: 'workspace', label: 'Apps', icon: MessagesSquare, tier: 'primary' },
-  { key: 'mission', label: 'Missions', icon: Target, tier: 'primary' },
+  // 'Connect' is the company's daily communication space (chat / calendar /
+  // contacts / tools), distinct from Office's live 3D project work. The surface
+  // key stays 'workspace' as a legacy internal identifier so this rename does
+  // not ripple through routing/state — only the user-visible label changes.
+  { key: 'workspace', label: 'Connect', icon: MessagesSquare, tier: 'primary' },
+  // The Missions surface is now the prompt-first **Loops** product (PR-08). The
+  // internal surface key stays 'mission' as a compatibility alias so routing,
+  // ui-state, and the command palette do not ripple — only the user-visible
+  // label / aria / palette text becomes "Loops". Old Missions live on as Legacy
+  // Runs inside this surface.
+  { key: 'mission', label: 'Loops', icon: Target, tier: 'primary' },
   { key: 'market', label: 'Market', icon: Store, tier: 'primary' },
   { key: 'personnel', label: 'Personnel', icon: UsersRound, tier: 'primary' },
   { key: 'activity', label: 'Activity', icon: Activity, tier: 'utility' },

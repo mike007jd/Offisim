@@ -5,6 +5,7 @@ import type {
   Unstable_Mention,
   Unstable_SlashCommand,
 } from '@assistant-ui/react';
+import { openLoopPicker } from './loop-picker-store.js';
 
 /**
  * Composer trigger wiring for the Office thread.
@@ -64,9 +65,11 @@ function sortedRoster(roster: readonly MentionEmployee[]): MentionEmployee[] {
  * Split directive text into literal text + resolved `@employee` mentions by
  * matching against the known roster (longest match wins). Used both as the
  * adapter's `parse` (keeps assistant-ui's directive accounting consistent) and
- * as the basis for send-time id extraction.
+ * as the basis for send-time id extraction. Exported so the Prompt Enhance
+ * protected-span extractor (PR-06) reuses the SAME mention tokenizer the composer
+ * uses, instead of re-detecting `@Name` with a second, drift-prone parser.
  */
-function parseMentionSegments(
+export function parseMentionSegments(
   text: string,
   roster: readonly MentionEmployee[],
 ): Unstable_DirectiveSegment[] {
@@ -129,6 +132,10 @@ export function extractMentionedEmployeeIds(
  * `/` commands. Each maps to a real `ui-state` action — no placeholder
  * commands. Read fresh state inside `execute` so the action always targets the
  * currently-open conversation.
+ *
+ * `/loop` is the dedicated Loop reference path (PR-10) — it opens a searchable
+ * Loop picker that inserts a structured, pinned-revision chip. `@` stays
+ * people-only (employee mentions); the two never overload.
  */
 export function buildSlashCommands(): Unstable_SlashCommand[] {
   return [
@@ -137,6 +144,12 @@ export function buildSlashCommands(): Unstable_SlashCommand[] {
       label: 'New conversation',
       description: 'Start a fresh team conversation',
       execute: () => useUiState.getState().openDraftThread(),
+    },
+    {
+      id: 'loop',
+      label: 'Reference a Loop',
+      description: 'Insert a saved Loop to run when you Send',
+      execute: () => openLoopPicker(),
     },
     {
       id: 'inbox',

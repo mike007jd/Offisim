@@ -100,7 +100,9 @@ export interface AttemptExecution {
    * async). Production gathers per-criterion evidence from the runtime + bridge
    * tools; the harness returns a scripted context.
    */
-  evaluationContextFor(criterion: ControllerCriterion): EvaluationContext | Promise<EvaluationContext>;
+  evaluationContextFor(
+    criterion: ControllerCriterion,
+  ): EvaluationContext | Promise<EvaluationContext>;
   /** Set when the runtime itself failed to run (infra, not a product FAIL). */
   runtimeError?: { code: string; message: string };
   /**
@@ -155,12 +157,7 @@ export const DEFAULT_MISSION_LOOP_BUDGET: MissionLoopBudget = {
 // Outcome.
 // ---------------------------------------------------------------------------
 
-export type MissionLoopStatus =
-  | 'completed'
-  | 'failed'
-  | 'blocked'
-  | 'stuck'
-  | 'cancelled';
+export type MissionLoopStatus = 'completed' | 'failed' | 'blocked' | 'stuck' | 'cancelled';
 
 /** Stop reason vocabulary — why the loop stopped short of completion. */
 export type MissionLoopStopReason =
@@ -379,7 +376,6 @@ class MissionLoopControllerImpl implements MissionLoopController {
         previousFailureSignature = result.previousFailureSignature;
         pendingFailurePacket = result.pendingFailurePacket;
         tokenRemaining = result.tokenRemaining;
-        continue;
       } catch (error) {
         if (error instanceof MissionStateError && error.code === 'illegal_transition') {
           const after = await svc.getMission(missionId);
@@ -424,12 +420,7 @@ class MissionLoopControllerImpl implements MissionLoopController {
       }
   > {
     const svc = this.deps.missionService;
-    const {
-      missionId,
-      repairCounts,
-      attemptEvidence,
-      requiredCriteria,
-    } = state;
+    const { missionId, repairCounts, attemptEvidence, requiredCriteria } = state;
     let { attemptNumber, previousFailureSignature, pendingFailurePacket, tokenRemaining } = state;
 
     {
@@ -774,9 +765,14 @@ class MissionLoopControllerImpl implements MissionLoopController {
   private buildFailurePacket(
     missionId: string,
     attemptId: string,
-    failed: Array<Pick<CriterionOutcome, 'criterionId' | 'description' | 'summary' | 'evidenceRefs' | 'reproduction'> & {
-      verdict: EvalVerdict;
-    }>,
+    failed: Array<
+      Pick<
+        CriterionOutcome,
+        'criterionId' | 'description' | 'summary' | 'evidenceRefs' | 'reproduction'
+      > & {
+        verdict: EvalVerdict;
+      }
+    >,
     repairCounts: Map<string, number>,
     attemptNumber: number,
     tokenRemaining: number | undefined,

@@ -204,8 +204,7 @@ export function projectAgentRun(events: readonly AgentRunEvent[]): AgentRunProje
   }
 
   const rootNode = rootRunId ? runsById.get(rootRunId) : undefined;
-  const terminalStatus =
-    rootNode && rootNode.status !== 'running' ? rootNode.status : null;
+  const terminalStatus = rootNode && rootNode.status !== 'running' ? rootNode.status : null;
 
   return {
     threadId,

@@ -27,11 +27,31 @@ import { resolveThreadMode } from './pi-thread-mode-store.js';
 import { resolveThreadThinkingOverride } from './pi-thread-thinking-store.js';
 import { getRepos, runtimeEventBus } from './repos.js';
 
+/**
+ * Frozen, additive capability profile for the agent runtime request (PR-03).
+ * `'work'` (default) is the existing execute path — byte-for-byte unchanged when
+ * the field is absent. `'collaboration'` routes to the HOST-ENFORCED no-tools /
+ * no-workspace / no-persistence streaming path (daily company chat). `'enhance'`
+ * stays its own dedicated one-shot Tauri command (PR-06), not a value here, and
+ * `'loop_compile'` is reserved for PR-07. Shaped so future profiles only ADD a
+ * branch; the work execute path never reads it.
+ */
+export type AgentCapabilityProfile = 'work' | 'collaboration';
+
 export interface DesktopAgentRunInput {
   text: string;
   threadId: string;
   employeeId: string | null;
   projectId: string | null;
+  /**
+   * Frozen capability enum (PR-03). Absent / `'work'` = the existing work execute
+   * path, unchanged. `'collaboration'` is NOT served through this `execute()` —
+   * the collaboration transport (runtime/collaboration) invokes the dedicated
+   * `agent_runtime_collaborate` command instead, so a work run can never silently
+   * acquire the collaboration profile and vice-versa. Carried on the input type so
+   * the wire contract is frozen in one place.
+   */
+  capabilityProfile?: AgentCapabilityProfile;
   /** Controller-owned run id used to isolate stream/tool/UI events per attempt. */
   runId?: string;
   /**
@@ -73,6 +93,14 @@ export interface DesktopAgentRunInput {
 export interface DesktopAgentRunResult {
   text: string;
   reasoning?: string;
+  /**
+   * The root session's own token usage for this run, when the host reported it.
+   * Surfaced on the return (not only folded into the `agent_runs` row by
+   * `reconcileRoot`) so a synchronous caller — e.g. the Mission loop's token
+   * budget (§19.2) — can debit deterministically without racing the persist
+   * queue. Absent when the run threw before returning usage.
+   */
+  usage?: AgentRunUsage;
 }
 
 /** The user's answer to an `agent.ui.request`. `requestId` locates the paused run;
@@ -489,7 +517,11 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
         );
         this.enqueuePersist(() => this.reconcileRoot(runScope.runId, 'completed', rootUsage));
       }
-      return { text: finalText, ...(reasoning ? { reasoning } : {}) };
+      return {
+        text: finalText,
+        ...(reasoning ? { reasoning } : {}),
+        ...(rootUsage ? { usage: rootUsage } : {}),
+      };
     } catch (err) {
       // A thrown invoke / channel error is a failure unless the user aborted —
       // abort wins (it can surface as a throw on some teardown paths).
@@ -619,9 +651,12 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     const path = payload.path?.trim();
     const deliverableId = payload.deliverableId?.trim();
     if (!path || !deliverableId) {
-      console.warn('[desktop-agent-runtime] artifact.created missing path/deliverableId — skipped', {
-        runId: evt.runId,
-      });
+      console.warn(
+        '[desktop-agent-runtime] artifact.created missing path/deliverableId — skipped',
+        {
+          runId: evt.runId,
+        },
+      );
       return;
     }
     // Read the file through the sandboxed workspace command. A workspace-jail
@@ -649,7 +684,9 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     }
     const repo = this.repos.deliverables;
     if (!repo) {
-      console.warn('[desktop-agent-runtime] deliverables repo unavailable — artifact not persisted');
+      console.warn(
+        '[desktop-agent-runtime] deliverables repo unavailable — artifact not persisted',
+      );
       return;
     }
     const basename = path.split(/[\\/]/).pop() || path;

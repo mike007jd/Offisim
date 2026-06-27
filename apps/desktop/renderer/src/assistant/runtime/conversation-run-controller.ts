@@ -104,6 +104,18 @@ export interface SubmitConversationRun {
   thinkingLevel?: string;
   source: 'office' | 'workspace';
   persistMessage?: (message: ChatMessage) => Promise<void>;
+  /**
+   * PR-10: a Loop-backed turn. When present, this turn does NOT run a plain chat
+   * agent — instead the user message is persisted (the transcript shows the Loop
+   * chip + text) and `start(messageId)` materializes the loop_invocation + Mission
+   * (reusing THIS Office thread) and kicks off the Mission run, whose status
+   * surfaces in Office/Activity. The no-Loop path (this field absent) is unchanged.
+   * `start` must NOT throw on a successful hand-off; a thrown error fails the turn
+   * before any half message (the materializer is transactional + compensating).
+   */
+  loopExecution?: {
+    start: (messageId: string) => Promise<void>;
+  };
 }
 
 export interface ConversationRunHandle {
@@ -313,6 +325,17 @@ export class ConversationRunController {
     if (this.activeRuns.has(threadId)) throw new ConversationRunAlreadyActiveError(threadId);
     const record = this.retryRecords.get(attemptId);
     if (!record || record.input.threadId !== threadId) throw new Error('Cannot retry this run.');
+
+    // PR-10 safety net: a retry runs the PLAIN agent (executeAttempt), never the
+    // loop materialize branch. saveRetryRecord already strips loopExecution; this is
+    // the second guard — a retry must never re-materialize a Mission. If a record
+    // ever carried loopExecution (a regression), refuse rather than silently run a
+    // plain agent on a mission-linked message or double-materialize.
+    if ('loopExecution' in record.input && record.input.loopExecution) {
+      throw new Error(
+        'Cannot retry a Loop-backed turn as a chat run; its Mission owns re-runs. (loopExecution leaked into the retry record)',
+      );
+    }
 
     const nextAttemptId = `attempt-${this.deps.randomUUID()}`;
     const run = this.beginRun(record.input, nextAttemptId, record.userMessage, record.promptText);
@@ -554,6 +577,29 @@ export class ConversationRunController {
         ...run.userMessage,
         attachments: materialized.attachments?.length ? materialized.attachments : undefined,
       };
+
+      // PR-10 Loop-backed turn: materialize the loop_invocation + Mission BEFORE the
+      // user message is persisted, so a BLOCKED revision (deleted / not-ready) throws
+      // here and never leaves a half message (no persisted message, no orphan — the
+      // materializer is transactional + compensating). Only on success does the
+      // message land, the turn complete, and the Mission run drive status.
+      if (run.input.loopExecution) {
+        await run.input.loopExecution.start(run.userMessage.id);
+        if (!this.isActiveRun(run)) return;
+        this.patchSnapshot(run.threadId, { liveMessages: [run.userMessage] });
+        await this.persistRunMessage(run, run.userMessage);
+        this.cleanupRun(run);
+        this.activeRuns.delete(run.threadId);
+        // The user turn is complete; the Mission run now owns status (Office/Activity
+        // poll the mission row). No assistant chat reply is produced for a Loop send.
+        this.patchSnapshot(run.threadId, {
+          phase: 'completed',
+          approval: null,
+          liveMessages: [run.userMessage],
+        });
+        return;
+      }
+
       this.patchSnapshot(run.threadId, { liveMessages: [run.userMessage] });
       await this.persistRunMessage(run, run.userMessage);
       this.saveRetryRecord(run);
@@ -991,8 +1037,17 @@ export class ConversationRunController {
   }
 
   private saveRetryRecord(run: ActiveRun): void {
+    // A retry record must NEVER carry `loopExecution` (PR-10). The retry path runs
+    // `executeAttempt` directly (a plain Pi agent turn), not the runAttempt loop
+    // branch — so a retained `loopExecution` would either re-fire `start()` and
+    // double-materialize a second invocation+Mission, or be ignored and run a plain
+    // agent on a message already linked to a Mission. Once a loop turn's Mission has
+    // been materialized, that work is owned by the Mission lifecycle (re-run via the
+    // Mission surface), not chat-retry; stripping the field makes a plain retry the
+    // only — and safe — fallback, never a re-materialize.
+    const { loopExecution: _loopExecution, ...retryInput } = run.input;
     this.retryRecords.set(run.attemptId, {
-      input: run.input,
+      input: retryInput,
       userMessage: run.userMessage,
       promptText: run.promptText ?? run.input.text,
     });

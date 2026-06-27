@@ -2274,6 +2274,128 @@
 .off-staged-x:hover {
   color: var(--off-ink-1);
 }
+/* PR-10 Loop reference chip (composer) ------------------------------------- */
+.off-loop-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--off-sp-2);
+  padding: 0 var(--off-sp-2);
+}
+.off-loop-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+  height: 28px;
+  padding: 0 var(--off-sp-2) 0 var(--off-sp-3);
+  border: 1px solid var(--off-accent, var(--off-line));
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-2);
+  max-width: 280px;
+}
+.off-loop-chip.is-stale {
+  border-color: var(--off-warn-line, var(--off-line));
+}
+.off-loop-chip.is-invalid {
+  border-color: var(--off-danger);
+  background: var(--off-danger-surface);
+  color: var(--off-danger);
+}
+.off-loop-chip-icon {
+  display: inline-flex;
+  color: var(--off-accent, var(--off-ink-4));
+}
+.off-loop-chip.is-invalid .off-loop-chip-icon {
+  color: var(--off-danger);
+}
+.off-loop-chip-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.15;
+}
+.off-loop-chip-name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--off-sp-1);
+  font-size: var(--off-fs-micro);
+  font-weight: 600;
+  color: var(--off-ink-1);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  overflow: hidden;
+}
+.off-loop-chip-name > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.off-loop-chip-name:hover {
+  color: var(--off-accent, var(--off-ink-1));
+}
+.off-loop-chip-meta {
+  font-size: var(--off-fs-label);
+  color: var(--off-ink-4);
+}
+.off-loop-chip-stale {
+  color: var(--off-warn, var(--off-ink-4));
+}
+.off-loop-chip-warn {
+  color: var(--off-danger);
+}
+.off-loop-chip-update {
+  font-size: var(--off-fs-label);
+  font-weight: 600;
+  color: var(--off-accent, var(--off-ink-1));
+  background: none;
+  border: 0;
+  padding: 0 var(--off-sp-1);
+  cursor: pointer;
+}
+.off-loop-chip-x {
+  display: inline-flex;
+  color: var(--off-ink-4);
+  border-radius: var(--off-r-xs);
+}
+.off-loop-chip-x:hover {
+  color: var(--off-ink-1);
+}
+/* /loop picker rows */
+.off-loop-pick-row {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+.off-loop-pick-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.off-loop-pick-meta {
+  font-size: var(--off-fs-label);
+  color: var(--off-ink-4);
+}
+/* transcript Loop badge */
+.off-msg-loop-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--off-sp-1);
+  margin-top: var(--off-sp-1);
+  padding: 2px var(--off-sp-2);
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-xs);
+  background: var(--off-surface-2);
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-label);
+  width: fit-content;
+}
+.off-msg-loop-ref-label {
+  font-weight: 600;
+}
+
 .off-spin {
   animation: off-spin var(--off-motion-spin-fast) var(--off-motion-linear) infinite;
 }
@@ -3183,4 +3305,152 @@
 
 .off-scene-empty > * {
   pointer-events: auto;
+}
+
+/* ── Prompt Enhance (PR-06) ──────────────────────────────────────────────────
+   The Enhance trigger is a composer chip (inherits .off-composer-chip). Its accent
+   tint marks it as the one generative affordance among the otherwise neutral
+   controls. The review dialog reuses the shared .off-dialog surface. */
+.off-enhance-trigger {
+  color: var(--off-accent);
+}
+
+.off-enhance-trigger:not(:disabled):hover {
+  background: var(--off-accent-surface);
+  border-color: var(--off-accent);
+}
+
+.off-enhance-trigger:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.off-enhance-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--off-sp-3);
+}
+
+.off-enhance-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--off-sp-2);
+}
+
+.off-enhance-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  border-radius: var(--off-r-md);
+  background: var(--off-accent-surface);
+  color: var(--off-accent);
+}
+
+.off-enhance-close {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: var(--off-r-md);
+  background: transparent;
+  color: var(--off-ink-3);
+}
+
+.off-enhance-close:hover {
+  background: var(--off-surface-2);
+  color: var(--off-ink-1);
+}
+
+.off-enhance-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+  padding: var(--off-sp-3);
+  border-radius: var(--off-r-md);
+  background: var(--off-surface-2);
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-meta);
+}
+
+.off-enhance-loading > span {
+  flex: 1 1 auto;
+}
+
+/* The loading spinner reuses the existing token-based `.off-spin` (defined above),
+   which already carries the reduced-motion guard. No new keyframe needed. */
+
+.off-enhance-error {
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+  padding: var(--off-sp-3);
+  border-radius: var(--off-r-md);
+  background: var(--off-danger-surface, var(--off-surface-2));
+  color: var(--off-danger, var(--off-ink-1));
+  font-size: var(--off-fs-meta);
+}
+
+.off-enhance-invalid {
+  margin: 0;
+}
+
+.off-enhance-tablist {
+  display: inline-flex;
+  gap: var(--off-sp-1);
+  padding: 3px;
+  border-radius: var(--off-r-pill);
+  background: var(--off-surface-2);
+}
+
+.off-enhance-tab {
+  padding: 4px var(--off-sp-3);
+  border: 0;
+  border-radius: var(--off-r-pill);
+  background: transparent;
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-meta);
+  font-weight: 600;
+}
+
+.off-enhance-tab[data-state="active"] {
+  background: var(--off-surface-1);
+  color: var(--off-ink-1);
+}
+
+.off-enhance-panel {
+  margin-top: var(--off-sp-2);
+}
+
+.off-enhance-text {
+  max-height: 16rem;
+  overflow: auto;
+  margin: 0;
+  padding: var(--off-sp-3);
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-md);
+  background: var(--off-surface-1);
+  color: var(--off-ink-1);
+  font-family: inherit;
+  font-size: var(--off-fs-sm);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.off-enhance-text.is-muted {
+  color: var(--off-ink-3);
+}
+
+.off-enhance-rationale {
+  margin: 0;
+  padding-left: var(--off-sp-4);
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-meta);
+  line-height: 1.5;
 }

@@ -89,9 +89,10 @@ export function TemplatePreview({
   // Group employees by their home zone so each zone lays out its own seat grid.
   const bySlug = new Map<string, typeof template.employees>();
   for (const emp of template.employees) {
-    const slug = (emp.homeZoneSlug && rectBySlug.has(emp.homeZoneSlug)
-      ? emp.homeZoneSlug
-      : fallbackRect?.slug) ?? '';
+    const slug =
+      (emp.homeZoneSlug && rectBySlug.has(emp.homeZoneSlug)
+        ? emp.homeZoneSlug
+        : fallbackRect?.slug) ?? '';
     const list = bySlug.get(slug) ?? [];
     list.push(emp);
     bySlug.set(slug, list);

@@ -1183,7 +1183,9 @@ export const missionAttempt = sqliteTable(
     started_at: text('started_at').notNull(),
     finished_at: text('finished_at'),
   },
-  (table) => [index('idx_mission_attempt_mission_number').on(table.mission_id, table.attempt_number)],
+  (table) => [
+    index('idx_mission_attempt_mission_number').on(table.mission_id, table.attempt_number),
+  ],
 );
 
 export const missionEvaluation = sqliteTable(
@@ -1239,4 +1241,236 @@ export const missionEvent = sqliteTable(
     created_at: text('created_at').notNull(),
   },
   (table) => [index('idx_mission_event_mission_time').on(table.mission_id, table.created_at)],
+);
+
+// ---------------------------------------------------------------------------
+// Collaboration (PR-02). Company-scoped daily chat (direct + group), FULLY
+// separate from project-scoped `chat_threads`: no `project_id`. The real
+// CHECK / partial-unique constraints are enforced by schema.sql; this is the
+// Drizzle typing layer only (see header).
+// ---------------------------------------------------------------------------
+
+export const collaborationThreads = sqliteTable(
+  'collaboration_threads',
+  {
+    thread_id: text('thread_id').primaryKey(),
+    company_id: text('company_id')
+      .notNull()
+      .references(() => companies.company_id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    title: text('title').notNull(),
+    direct_employee_id: text('direct_employee_id').references(() => employees.employee_id, {
+      onDelete: 'set null',
+    }),
+    reply_policy: text('reply_policy').notNull().default('mentions_only'),
+    round_speaker_limit: integer('round_speaker_limit').notNull().default(3),
+    created_by: text('created_by').notNull().default('boss'),
+    archived_at: text('archived_at'),
+    created_at: text('created_at').notNull(),
+    updated_at: text('updated_at').notNull(),
+  },
+  (table) => [
+    index('idx_collaboration_threads_company_updated').on(table.company_id, table.updated_at),
+    // At most one ACTIVE direct thread per (company, employee). Archived rows are
+    // excluded so an archived direct thread is restored, not duplicated.
+    uniqueIndex('idx_collaboration_threads_active_direct')
+      .on(table.company_id, table.direct_employee_id)
+      .where(sql`${table.kind} = 'direct' AND ${table.archived_at} IS NULL`),
+  ],
+);
+
+export const collaborationThreadMembers = sqliteTable(
+  'collaboration_thread_members',
+  {
+    member_id: text('member_id').primaryKey(),
+    thread_id: text('thread_id')
+      .notNull()
+      .references(() => collaborationThreads.thread_id, { onDelete: 'cascade' }),
+    actor_type: text('actor_type').notNull(),
+    employee_id: text('employee_id').references(() => employees.employee_id, {
+      onDelete: 'cascade',
+    }),
+    role: text('role').notNull(),
+    joined_at: text('joined_at').notNull(),
+    left_at: text('left_at'),
+  },
+  (table) => [
+    index('idx_collaboration_members_thread').on(table.thread_id),
+    index('idx_collaboration_members_employee').on(table.employee_id),
+  ],
+);
+
+export const collaborationMessages = sqliteTable(
+  'collaboration_messages',
+  {
+    message_id: text('message_id').primaryKey(),
+    thread_id: text('thread_id')
+      .notNull()
+      .references(() => collaborationThreads.thread_id, { onDelete: 'cascade' }),
+    sender_type: text('sender_type').notNull(),
+    sender_employee_id: text('sender_employee_id').references(() => employees.employee_id, {
+      onDelete: 'set null',
+    }),
+    body: text('body').notNull(),
+    reply_to_message_id: text('reply_to_message_id'),
+    status: text('status').notNull().default('complete'),
+    idempotency_key: text('idempotency_key'),
+    metadata_json: text('metadata_json'),
+    created_at: text('created_at').notNull(),
+    edited_at: text('edited_at'),
+  },
+  (table) => [
+    index('idx_collaboration_messages_thread_time').on(
+      table.thread_id,
+      table.created_at,
+      table.message_id,
+    ),
+    // Double-send dedup: at most one message per (thread, idempotency_key).
+    uniqueIndex('idx_collaboration_messages_idempotency')
+      .on(table.thread_id, table.idempotency_key)
+      .where(sql`${table.idempotency_key} IS NOT NULL`),
+  ],
+);
+
+export const collaborationReadState = sqliteTable('collaboration_read_state', {
+  thread_id: text('thread_id')
+    .primaryKey()
+    .references(() => collaborationThreads.thread_id, { onDelete: 'cascade' }),
+  last_read_message_id: text('last_read_message_id'),
+  updated_at: text('updated_at').notNull(),
+});
+
+// ---------------------------------------------------------------------------
+// Loop domain (PR-07). A saveable, versioned, reusable wrapper around the
+// Mission engine. Definitions point at an immutable selected revision; every
+// edit appends a new revision. SAVING a Loop writes ONLY these tables — never a
+// mission / chat_thread / attempt / run. The real CHECK constraints live in
+// schema.sql; this is the Drizzle typing layer only.
+// ---------------------------------------------------------------------------
+
+export const loopDefinitions = sqliteTable(
+  'loop_definitions',
+  {
+    loop_id: text('loop_id').primaryKey(),
+    company_id: text('company_id')
+      .notNull()
+      .references(() => companies.company_id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    summary: text('summary').notNull().default(''),
+    profile_id: text('profile_id').notNull(),
+    // No FK: the selected revision is set after the row exists, and the column
+    // must survive an archive that keeps revisions with invocation history.
+    current_revision_id: text('current_revision_id'),
+    status: text('status').notNull().default('draft'),
+    created_at: text('created_at').notNull(),
+    updated_at: text('updated_at').notNull(),
+  },
+  (table) => [
+    index('idx_loop_definitions_company_updated').on(table.company_id, table.updated_at),
+    index('idx_loop_definitions_status').on(table.status),
+  ],
+);
+
+export const loopRevisions = sqliteTable(
+  'loop_revisions',
+  {
+    revision_id: text('revision_id').primaryKey(),
+    loop_id: text('loop_id')
+      .notNull()
+      .references(() => loopDefinitions.loop_id, { onDelete: 'cascade' }),
+    revision_number: integer('revision_number').notNull(),
+    source_prompt: text('source_prompt').notNull(),
+    enhanced_prompt: text('enhanced_prompt'),
+    compiled_ir_json: text('compiled_ir_json').notNull(),
+    compiler_profile_id: text('compiler_profile_id').notNull(),
+    compiler_profile_version: text('compiler_profile_version').notNull(),
+    compiler_version: text('compiler_version').notNull(),
+    compile_status: text('compile_status').notNull(),
+    questions_json: text('questions_json').notNull().default('[]'),
+    validation_json: text('validation_json').notNull().default('{}'),
+    created_at: text('created_at').notNull(),
+  },
+  (table) => [
+    // Monotonic revision numbering is enforced unique per loop.
+    uniqueIndex('idx_loop_revisions_loop_number').on(table.loop_id, table.revision_number),
+    index('idx_loop_revisions_loop_created').on(table.loop_id, table.created_at),
+  ],
+);
+
+export const loopSkillBindings = sqliteTable(
+  'loop_skill_bindings',
+  {
+    binding_id: text('binding_id').primaryKey(),
+    revision_id: text('revision_id')
+      .notNull()
+      .references(() => loopRevisions.revision_id, { onDelete: 'cascade' }),
+    skill_id: text('skill_id').notNull(),
+    skill_version: text('skill_version').notNull(),
+    order_index: integer('order_index').notNull().default(0),
+    config_json: text('config_json').notNull().default('{}'),
+  },
+  (table) => [
+    index('idx_loop_skill_bindings_revision_order').on(table.revision_id, table.order_index),
+  ],
+);
+
+// Written ONLY at Office Send materialization (PR-10), never on Save/Use. No FK
+// to loop_revisions: an invocation must remain readable even if a definition is
+// later archived; deletion of a definition with invocation history is forbidden
+// by the service, not by a cascade here.
+export const loopInvocations = sqliteTable(
+  'loop_invocations',
+  {
+    invocation_id: text('invocation_id').primaryKey(),
+    loop_id: text('loop_id').notNull(),
+    revision_id: text('revision_id').notNull(),
+    company_id: text('company_id')
+      .notNull()
+      .references(() => companies.company_id, { onDelete: 'cascade' }),
+    project_id: text('project_id'),
+    thread_id: text('thread_id').notNull(),
+    message_id: text('message_id').notNull(),
+    mission_id: text('mission_id'),
+    status: text('status').notNull(),
+    created_at: text('created_at').notNull(),
+  },
+  (table) => [
+    index('idx_loop_invocations_loop').on(table.loop_id),
+    index('idx_loop_invocations_revision').on(table.revision_id),
+    index('idx_loop_invocations_company_created').on(table.company_id, table.created_at),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Collaboration turns (PR-03). Ledger of each AI reply's lifecycle on a
+// Collaboration thread: streaming / error / usage recovery — NOT a transcript
+// copy (the visible message lives in `collaboration_messages`). Company-scoped
+// only: no `project_id`, never an `agent_runs` / mission row. The real CHECK
+// constraint lives in schema.sql; this is the Drizzle typing layer only.
+// ---------------------------------------------------------------------------
+
+export const collaborationTurns = sqliteTable(
+  'collaboration_turns',
+  {
+    turn_id: text('turn_id').primaryKey(),
+    thread_id: text('thread_id')
+      .notNull()
+      .references(() => collaborationThreads.thread_id, { onDelete: 'cascade' }),
+    // Not an FK: a turn stays readable for recovery even if the trigger message
+    // is removed, and may reference a not-yet-persisted id.
+    trigger_message_id: text('trigger_message_id'),
+    employee_id: text('employee_id').references(() => employees.employee_id, {
+      onDelete: 'set null',
+    }),
+    sequence_index: integer('sequence_index').notNull(),
+    status: text('status').notNull().default('pending'),
+    runtime_request_id: text('runtime_request_id'),
+    usage_json: text('usage_json'),
+    error_summary: text('error_summary'),
+    started_at: text('started_at'),
+    finished_at: text('finished_at'),
+  },
+  (table) => [
+    index('idx_collaboration_turns_thread_sequence').on(table.thread_id, table.sequence_index),
+  ],
 );

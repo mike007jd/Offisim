@@ -21,3 +21,25 @@ export interface MissionEvaluationSubmittedPayload {
   summary: string;
   evidenceRefs: string[];
 }
+
+/**
+ * Mission status-transition signal (M2/M3 live wiring). The renderer-side
+ * MissionRunManager emits this when it starts a run (`running`) and when the run
+ * loop reaches a terminal status — the ONE bus channel by which the Office
+ * Theater (office-dramaturgy.ts) animates mission lifecycle beats. It carries
+ * only the canonical mission identity + the new status string; the office maps
+ * the status to a staged beat (and ignores statuses with no theatrical meaning).
+ *
+ * The canonical mission status truth stays in the DB (written by the §18
+ * MissionService); this event is a presentation signal, never a state handle.
+ */
+export const MISSION_STATUS_CHANGED_EVENT = 'mission.status.changed';
+
+export interface MissionStatusChangedPayload {
+  /** The canonical mission id (not the attempt run id). */
+  missionId: string;
+  /** The new mission status string (e.g. running / verifying / completed). */
+  status: string;
+  /** The current attempt's run id when one exists (for per-attempt beat keying). */
+  rootRunId?: string;
+}

@@ -8,6 +8,7 @@
 @import "../surfaces/workspace/workspace.css";
 @import "../surfaces/market/market.css";
 @import "../surfaces/mission/mission.css";
+@import "../surfaces/mission/loops/loops.css";
 @import "../surfaces/personnel/personnel.css";
 @import "../surfaces/settings/settings.css";
 @import "../surfaces/activity/activity.css";

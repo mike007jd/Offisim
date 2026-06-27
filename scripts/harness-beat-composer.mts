@@ -41,26 +41,63 @@ interface Scope {
   workKind?: TimedAgentRunEvent['workKind'];
 }
 function started(at: number, s: Scope, objective = 'x'): TimedAgentRunEvent {
-  return { threadId: THREAD, rootRunId: ROOT, ...s, type: 'run.started', payload: { objective, access: 'write' }, timestamp: at };
-}
-function finished(at: number, s: Scope, status: 'completed' | 'failed' | 'cancelled'): TimedAgentRunEvent {
   return {
     threadId: THREAD,
     rootRunId: ROOT,
     ...s,
-    type: status === 'completed' ? 'run.completed' : status === 'failed' ? 'run.failed' : 'run.cancelled',
+    type: 'run.started',
+    payload: { objective, access: 'write' },
+    timestamp: at,
+  };
+}
+function finished(
+  at: number,
+  s: Scope,
+  status: 'completed' | 'failed' | 'cancelled',
+): TimedAgentRunEvent {
+  return {
+    threadId: THREAD,
+    rootRunId: ROOT,
+    ...s,
+    type:
+      status === 'completed'
+        ? 'run.completed'
+        : status === 'failed'
+          ? 'run.failed'
+          : 'run.cancelled',
     payload: { status },
     timestamp: at,
   };
 }
 function tool(at: number, s: Scope, toolName: string): TimedAgentRunEvent {
-  return { threadId: THREAD, rootRunId: ROOT, ...s, type: 'tool.started', payload: { toolCallId: `${s.runId}:${at}`, toolName, status: 'started' }, timestamp: at };
+  return {
+    threadId: THREAD,
+    rootRunId: ROOT,
+    ...s,
+    type: 'tool.started',
+    payload: { toolCallId: `${s.runId}:${at}`, toolName, status: 'started' },
+    timestamp: at,
+  };
 }
 function approval(at: number, s: Scope): TimedAgentRunEvent {
-  return { threadId: THREAD, rootRunId: ROOT, ...s, type: 'approval.requested', payload: { uiRequestId: `${s.runId}:appr`, title: 'Approve?' }, timestamp: at };
+  return {
+    threadId: THREAD,
+    rootRunId: ROOT,
+    ...s,
+    type: 'approval.requested',
+    payload: { uiRequestId: `${s.runId}:appr`, title: 'Approve?' },
+    timestamp: at,
+  };
 }
 function artifact(at: number, s: Scope, title = 'out.md'): TimedAgentRunEvent {
-  return { threadId: THREAD, rootRunId: ROOT, ...s, type: 'artifact.created', payload: { title }, timestamp: at };
+  return {
+    threadId: THREAD,
+    rootRunId: ROOT,
+    ...s,
+    type: 'artifact.created',
+    payload: { title },
+    timestamp: at,
+  };
 }
 const byKind = (beats: SceneBeat[], kind: string) => beats.filter((b) => b.kind === kind);
 
@@ -76,7 +113,11 @@ console.log('\n[coalesce] read/search chatter → one stable activity');
   }
   const beats = composeBeats(evts, CONFIG);
   const research = byKind(beats, 'research');
-  check('10 read/search tools → 1 research beat (not 10)', research.length === 1, `got ${research.length}`);
+  check(
+    '10 read/search tools → 1 research beat (not 10)',
+    research.length === 1,
+    `got ${research.length}`,
+  );
   check('the research beat is a micro-action (no movement)', research[0]?.movement === false);
   check(
     'beat carries a lifecycle starting at its event time',
@@ -97,10 +138,20 @@ console.log('\n[sustained] long compute relocates once');
   }
   const beats = composeBeats(evts, CONFIG);
   const compute = byKind(beats, 'compute');
-  check('long compute → exactly 2 beats (micro + 1 relocate)', compute.length === 2, `got ${compute.length}`);
+  check(
+    'long compute → exactly 2 beats (micro + 1 relocate)',
+    compute.length === 2,
+    `got ${compute.length}`,
+  );
   check('first compute beat is micro (no movement)', compute[0]?.movement === false);
-  check('second compute beat is the sustained relocation (movement)', compute[1]?.movement === true);
-  check('relocation targets server-inspect affordance', compute[1]?.affordance === 'server-inspect');
+  check(
+    'second compute beat is the sustained relocation (movement)',
+    compute[1]?.movement === true,
+  );
+  check(
+    'relocation targets server-inspect affordance',
+    compute[1]?.affordance === 'server-inspect',
+  );
 }
 
 // ── Priority / interrupt: approval + failure bypass cooldown ─────────────────
@@ -124,7 +175,10 @@ console.log('\n[interrupt] approval and failure preempt');
     'approval beat has a long until-resolved lifespan (not a short auto-expiry)',
     appr ? appr.lifecycle.endsAt - appr.lifecycle.startedAt === 600_000 : false,
   );
-  check('failure beat emitted with priority 90 interrupt', fail?.priority === 90 && fail?.interrupt === true);
+  check(
+    'failure beat emitted with priority 90 interrupt',
+    fail?.priority === 90 && fail?.interrupt === true,
+  );
 }
 
 // ── Parallel fan-out flag + invisible director root ─────────────────────────
@@ -142,7 +196,10 @@ console.log('\n[parallel] fan-out flagged, director root invisible');
   check('director root stages no beat', !beats.some((b) => b.runId === ROOT));
   const delegates = byKind(beats, 'delegate');
   check('3 delegate beats', delegates.length === 3, `got ${delegates.length}`);
-  check('first child not flagged parallel', delegates.find((b) => b.runId === 'c1')?.parallel === false);
+  check(
+    'first child not flagged parallel',
+    delegates.find((b) => b.runId === 'c1')?.parallel === false,
+  );
   check('second/third children flagged parallel', delegates.filter((b) => b.parallel).length === 2);
 }
 
@@ -173,28 +230,49 @@ console.log('\n[equal-ts] same-timestamp events resolve canonically');
   const rev = [...fwd].reverse();
   const a = composeBeats(fwd, CONFIG);
   const b = composeBeats(rev, CONFIG);
-  check('equal-ts children → identical beats regardless of input order', JSON.stringify(a) === JSON.stringify(b));
-  check('canonical: lower runId (a) not parallel, b parallel', a.find((x) => x.runId === 'a')?.parallel === false && a.find((x) => x.runId === 'b')?.parallel === true);
+  check(
+    'equal-ts children → identical beats regardless of input order',
+    JSON.stringify(a) === JSON.stringify(b),
+  );
+  check(
+    'canonical: lower runId (a) not parallel, b parallel',
+    a.find((x) => x.runId === 'a')?.parallel === false &&
+      a.find((x) => x.runId === 'b')?.parallel === true,
+  );
 
   // Same-run, same-ts start+complete must order start-before-terminal canonically.
   const order1 = composeBeats(
-    [started(100, { runId: 'c', parentRunId: ROOT, employeeId: 'kai' }), finished(100, { runId: 'c', parentRunId: ROOT, employeeId: 'kai' }, 'completed')],
+    [
+      started(100, { runId: 'c', parentRunId: ROOT, employeeId: 'kai' }),
+      finished(100, { runId: 'c', parentRunId: ROOT, employeeId: 'kai' }, 'completed'),
+    ],
     CONFIG,
   );
   const order2 = composeBeats(
-    [finished(100, { runId: 'c', parentRunId: ROOT, employeeId: 'kai' }, 'completed'), started(100, { runId: 'c', parentRunId: ROOT, employeeId: 'kai' })],
+    [
+      finished(100, { runId: 'c', parentRunId: ROOT, employeeId: 'kai' }, 'completed'),
+      started(100, { runId: 'c', parentRunId: ROOT, employeeId: 'kai' }),
+    ],
     CONFIG,
   );
-  check('equal-ts start+complete order identical regardless of arrival', JSON.stringify(order1) === JSON.stringify(order2));
+  check(
+    'equal-ts start+complete order identical regardless of arrival',
+    JSON.stringify(order1) === JSON.stringify(order2),
+  );
 }
 
 // ── Regression: relocation fires for realistic 0.8–2.5s tool loops ──────────
 console.log('\n[slow-loop] sustained relocation across micro-min-sized gaps');
 {
   const evts: TimedAgentRunEvent[] = [];
-  for (let i = 0; i <= 4; i += 1) evts.push(tool(i * 1500, { runId: 'c1', employeeId: 'kai' }, 'bash')); // 0..6000, gaps 1500
+  for (let i = 0; i <= 4; i += 1)
+    evts.push(tool(i * 1500, { runId: 'c1', employeeId: 'kai' }, 'bash')); // 0..6000, gaps 1500
   const compute = byKind(composeBeats(evts, CONFIG), 'compute');
-  check('1.5s-gap compute loop still relocates once', compute.length === 2 && compute[1]?.movement === true, `got ${compute.length}`);
+  check(
+    '1.5s-gap compute loop still relocates once',
+    compute.length === 2 && compute[1]?.movement === true,
+    `got ${compute.length}`,
+  );
 }
 
 // ── Regression: artifact milestone is never swallowed by a produce stream ───
@@ -209,8 +287,15 @@ console.log('\n[artifact] milestone always emits mid-stream');
     CONFIG,
   );
   const produce = byKind(beats, 'produce');
-  check('produce beats = 2 (write micro + artifact milestone)', produce.length === 2, `got ${produce.length}`);
-  check('artifact milestone has null activityKind (not a tool)', produce.some((b) => b.activityKind === null));
+  check(
+    'produce beats = 2 (write micro + artifact milestone)',
+    produce.length === 2,
+    `got ${produce.length}`,
+  );
+  check(
+    'artifact milestone has null activityKind (not a tool)',
+    produce.some((b) => b.activityKind === null),
+  );
 }
 
 // ── Determinism: identical beats across repeated runs ───────────────────────
@@ -218,8 +303,20 @@ console.log('\n[determinism] byte-identical beats for a fixed fixture');
 {
   const fixture: TimedAgentRunEvent[] = [
     started(0, { runId: ROOT, workKind: 'plan' }),
-    started(500, { runId: 'a', parentRunId: ROOT, employeeId: 'alex', relation: 'delegate', workKind: 'implement' }),
-    started(700, { runId: 'b', parentRunId: ROOT, employeeId: 'maya', relation: 'delegate', workKind: 'design' }),
+    started(500, {
+      runId: 'a',
+      parentRunId: ROOT,
+      employeeId: 'alex',
+      relation: 'delegate',
+      workKind: 'implement',
+    }),
+    started(700, {
+      runId: 'b',
+      parentRunId: ROOT,
+      employeeId: 'maya',
+      relation: 'delegate',
+      workKind: 'design',
+    }),
     tool(900, { runId: 'a', employeeId: 'alex' }, 'read_file'),
     tool(1100, { runId: 'a', employeeId: 'alex' }, 'grep'),
     tool(1300, { runId: 'b', employeeId: 'maya' }, 'write_file'),
@@ -232,10 +329,26 @@ console.log('\n[determinism] byte-identical beats for a fixed fixture');
   const run3 = JSON.stringify(composeBeats([...fixture].reverse().reverse(), CONFIG));
   check('two runs produce byte-identical beats', run1 === run2);
   check('a copy of the fixture produces byte-identical beats', run1 === run3);
-  check('variant is stable + bounded', JSON.parse(run1).every((b: SceneBeat) => b.variant >= 0 && b.variant < 3));
+  check(
+    'variant is stable + bounded',
+    JSON.parse(run1).every((b: SceneBeat) => b.variant >= 0 && b.variant < 3),
+  );
   // Out-of-order input is sorted deterministically by timestamp.
-  const shuffled = [fixture[3], fixture[0], fixture[8], fixture[1], fixture[6], fixture[2], fixture[7], fixture[4], fixture[5]].filter(Boolean) as TimedAgentRunEvent[];
-  check('timestamp-shuffled input → identical beats (stable sort)', JSON.stringify(composeBeats(shuffled, CONFIG)) === run1);
+  const shuffled = [
+    fixture[3],
+    fixture[0],
+    fixture[8],
+    fixture[1],
+    fixture[6],
+    fixture[2],
+    fixture[7],
+    fixture[4],
+    fixture[5],
+  ].filter(Boolean) as TimedAgentRunEvent[];
+  check(
+    'timestamp-shuffled input → identical beats (stable sort)',
+    JSON.stringify(composeBeats(shuffled, CONFIG)) === run1,
+  );
 }
 
 console.log(`\nbeat-composer: ${checks - failures}/${checks} checks passed`);

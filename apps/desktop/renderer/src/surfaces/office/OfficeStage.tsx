@@ -136,14 +136,13 @@ export function OfficeStage() {
           static label — legible under reduced motion, never moves an actor.
           Rendered only while a mission beat is live (additive). */}
       {missionPhase ? (
-        <div
+        <output
           className={cn('off-mission-phase', `is-${missionPhase.phase}`)}
-          role="status"
           aria-label={`Mission: ${missionPhase.semanticLabel}`}
         >
           <Icon icon={MISSION_PHASE_ICON[missionPhase.phase]} size="sm" />
           <span>{missionPhase.semanticLabel}</span>
-        </div>
+        </output>
       ) : null}
 
       {/* Single diegetic cost/token readout on the scene border. */}

@@ -1,6 +1,7 @@
 import type { EventBus } from '../events/event-bus.js';
 import { createAgentEventsMemoryRepos } from './repos/agent-events/memory.js';
 import { createAgentRunsMemoryRepos } from './repos/agent-runs/memory.js';
+import { createCollaborationMemoryRepos } from './repos/collaboration/memory.js';
 import { createConversationsMemoryRepos } from './repos/conversations/memory.js';
 import type { DeliverableContentLoader } from './repos/deliverables/memory.js';
 import { createDeliverablesMemoryRepos } from './repos/deliverables/memory.js';
@@ -8,9 +9,10 @@ import { createEmployeesMemoryRepos } from './repos/employees/memory.js';
 import { createFilesMemoryRepos } from './repos/files/memory.js';
 import { createMemoryInstallRepositories } from './repos/install/memory.js';
 import { createLlmMemoryRepos } from './repos/llm/memory.js';
+import { createLoopMemoryRepos } from './repos/loops/memory.js';
 import { createMemorySystemMemoryRepos } from './repos/memory-system/memory.js';
-import { createMissionMemoryRepos } from './repos/mission/memory.js';
 import type { MemoryRepositoriesSnapshot, MemoryRepositorySeed } from './repos/memory-types.js';
+import { createMissionMemoryRepos } from './repos/mission/memory.js';
 import { createOrchestrationMemoryRepos } from './repos/orchestration/memory.js';
 import { createPermissionsMemoryRepos } from './repos/permissions/memory.js';
 import { createPiMessagesMemoryRepo } from './repos/pi-messages/memory.js';
@@ -33,6 +35,18 @@ export {
   MemoryMissionRepository,
   MemoryRuntimeSessionLinkRepository,
 } from './repos/mission/memory.js';
+export {
+  MemoryLoopDefinitionRepository,
+  MemoryLoopInvocationRepository,
+  MemoryLoopRevisionRepository,
+  MemoryLoopSkillBindingRepository,
+} from './repos/loops/memory.js';
+export {
+  MemoryCollaborationMemberRepository,
+  MemoryCollaborationMessageRepository,
+  MemoryCollaborationReadStateRepository,
+  MemoryCollaborationThreadRepository,
+} from './repos/collaboration/memory.js';
 export {
   MemoryActiveInteractionRepository,
   MemoryHandoffRepository,
@@ -106,6 +120,8 @@ export function createMemoryRepositories(
   const deliverablesFamily = createDeliverablesMemoryRepos(snapshot, deliverableContentLoader);
   const skillsFamily = createSkillsMemoryRepos(snapshot);
   const missionFamily = createMissionMemoryRepos();
+  const loopFamily = createLoopMemoryRepos();
+  const collaborationFamily = createCollaborationMemoryRepos();
 
   const seed: MemoryRepositorySeed = {
     employees(rows) {
@@ -132,6 +148,8 @@ export function createMemoryRepositories(
     ...deliverablesFamily,
     ...skillsFamily,
     ...missionFamily,
+    ...loopFamily,
+    ...collaborationFamily,
     piMessages: createPiMessagesMemoryRepo(),
     // In-memory repos have no transactional boundary — every write is already
     // applied to the snapshot Map. asyncTransact is a passthrough so that
