@@ -273,6 +273,11 @@ impl ManagedProcess {
                                 .get("inputSchema")
                                 .cloned()
                                 .unwrap_or(serde_json::Value::Object(Default::default())),
+                            // Behavior hints (readOnly/destructive/…). Absent or
+                            // malformed annotations → None (advisory only).
+                            annotations: t.get("annotations").and_then(|a| {
+                                serde_json::from_value::<McpToolAnnotations>(a.clone()).ok()
+                            }),
                         })
                     })
                     .collect();
@@ -281,6 +286,44 @@ impl ManagedProcess {
 
         self.state = ProcessState::Ready;
         Ok(())
+    }
+
+    /// Invoke an MCP tool by name (`tools/call`). Returns the tool's content +
+    /// `isError` flag. A transport / protocol failure (process gone, timeout,
+    /// JSON-RPC error) surfaces as an `McpBridgeError`; a tool-level failure
+    /// comes back as a normal result with `is_error = true`.
+    pub async fn call_tool(
+        &mut self,
+        tool_name: &str,
+        arguments: serde_json::Value,
+    ) -> Result<McpToolCallResult, McpBridgeError> {
+        if self.state != ProcessState::Ready {
+            return Err(McpBridgeError::ServerNotReady(
+                self.config.name.clone(),
+                self.state.to_string(),
+            ));
+        }
+        // Register BEFORE write to avoid a response-before-register race (same
+        // ordering as initialize / tools/list).
+        let call_id = self.tracker.next_id();
+        let rx = self.tracker.register(call_id);
+        let req = JsonRpcMessage::request(
+            call_id,
+            "tools/call",
+            serde_json::json!({ "name": tool_name, "arguments": arguments }),
+        );
+        write_message(&mut self.stdin, &req).await?;
+        let resp = timeout(Duration::from_secs(60), rx)
+            .await
+            .map_err(|_| McpBridgeError::CallTimeout(60_000))?
+            .map_err(|_| McpBridgeError::ProcessExited(None))?;
+        if let Some(err) = &resp.error {
+            return Err(McpBridgeError::JsonRpcError {
+                code: err.code,
+                message: err.message.clone(),
+            });
+        }
+        Ok(parse_tool_call_result(resp.result.as_ref()))
     }
 
     /// Graceful shutdown: SIGTERM → 5s wait → SIGKILL.
@@ -307,6 +350,28 @@ impl ManagedProcess {
             }
         }
         self.state = ProcessState::Dead;
+    }
+}
+
+/// Pure parse of a `tools/call` JSON-RPC `result` into an McpToolCallResult.
+/// Missing `content` → empty array; missing/non-bool `isError` → false; a `None`
+/// result (no result object) → empty, non-error.
+pub fn parse_tool_call_result(result: Option<&serde_json::Value>) -> McpToolCallResult {
+    let Some(result) = result else {
+        return McpToolCallResult {
+            content: serde_json::Value::Array(vec![]),
+            is_error: false,
+        };
+    };
+    McpToolCallResult {
+        content: result
+            .get("content")
+            .cloned()
+            .unwrap_or_else(|| serde_json::Value::Array(vec![])),
+        is_error: result
+            .get("isError")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
     }
 }
 
@@ -357,5 +422,51 @@ mod tests {
         assert!(validate_spawn_command(&cfg("user-config", "/bin/sh", None)).is_ok());
         assert!(validate_spawn_command(&cfg("developer-runtime", "anything", None)).is_ok());
         assert!(validate_spawn_command(&cfg("", "anything", None)).is_ok());
+    }
+
+    #[test]
+    fn parse_tool_call_result_extracts_content_and_is_error() {
+        let ok = serde_json::json!({
+            "content": [{ "type": "text", "text": "hello" }],
+            "isError": false
+        });
+        let parsed = parse_tool_call_result(Some(&ok));
+        assert_eq!(parsed.is_error, false);
+        assert_eq!(parsed.content[0]["text"], "hello");
+
+        let err = serde_json::json!({
+            "content": [{ "type": "text", "text": "boom" }],
+            "isError": true
+        });
+        assert!(parse_tool_call_result(Some(&err)).is_error, "isError:true surfaces");
+    }
+
+    #[test]
+    fn parse_tool_call_result_defaults_missing_fields() {
+        // Missing content → empty array; missing isError → false.
+        let bare = serde_json::json!({});
+        let parsed = parse_tool_call_result(Some(&bare));
+        assert_eq!(parsed.content, serde_json::Value::Array(vec![]));
+        assert_eq!(parsed.is_error, false);
+        // No result object at all → empty, non-error (never a false PASS).
+        let none = parse_tool_call_result(None);
+        assert_eq!(none.content, serde_json::Value::Array(vec![]));
+        assert_eq!(none.is_error, false);
+    }
+
+    #[test]
+    fn tool_annotations_deserialize_camel_case_hints() {
+        // tools/list carries camelCase hints; absent ones stay None.
+        let value = serde_json::json!({
+            "readOnlyHint": true,
+            "destructiveHint": false
+        });
+        let ann: McpToolAnnotations = serde_json::from_value(value).unwrap();
+        assert_eq!(ann.read_only_hint, Some(true));
+        assert_eq!(ann.destructive_hint, Some(false));
+        assert_eq!(ann.idempotent_hint, None);
+        // An empty annotations object → all-None (no field is fabricated).
+        let empty: McpToolAnnotations = serde_json::from_value(serde_json::json!({})).unwrap();
+        assert_eq!(empty.read_only_hint, None);
     }
 }

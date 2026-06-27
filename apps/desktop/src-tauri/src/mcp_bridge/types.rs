@@ -63,6 +63,39 @@ pub struct McpToolInfo {
     pub name: String,
     pub description: String,
     pub input_schema: serde_json::Value,
+    /// MCP tool annotations (behavior hints). Optional — many servers omit them.
+    /// `read_only_hint` / `destructive_hint` drive whether a call needs approval.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub annotations: Option<McpToolAnnotations>,
+}
+
+/// MCP tool behavior hints (`tools/list` → tool.annotations). All optional; a
+/// hint is advisory, not a guarantee (the server self-declares them).
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct McpToolAnnotations {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub read_only_hint: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub destructive_hint: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub idempotent_hint: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub open_world_hint: Option<bool>,
+}
+
+/// Result of an MCP `tools/call`. `content` is the raw content-block array the
+/// tool returned (text/image/resource), forwarded verbatim. `is_error` is the
+/// MCP `isError` flag — a TOOL-level failure (distinct from a transport error,
+/// which surfaces as an `McpBridgeError`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct McpToolCallResult {
+    pub content: serde_json::Value,
+    #[serde(default)]
+    pub is_error: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]

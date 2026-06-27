@@ -217,6 +217,7 @@ pub fn run() {
             mcp_bridge::commands::mcp_register_server,
             mcp_bridge::commands::mcp_unregister_server,
             mcp_bridge::commands::mcp_connect_registered,
+            mcp_bridge::commands::mcp_call_tool,
             mcp_bridge::commands::mcp_kill,
             mcp_bridge::commands::mcp_list_servers,
             attachment_store::attachment_write,

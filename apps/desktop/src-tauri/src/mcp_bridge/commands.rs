@@ -264,6 +264,49 @@ pub async fn mcp_kill(
     Ok(())
 }
 
+/// Invoke a tool on a connected MCP server, addressed by its running-process
+/// name (the ProcessRegistry map key = `config.name`). Transport / protocol
+/// failures surface as errors; a tool-level failure returns with `is_error`.
+#[tauri::command(async)]
+pub async fn mcp_call_tool(
+    app: AppHandle,
+    server: String,
+    tool: String,
+    arguments: Option<serde_json::Value>,
+    registry: State<'_, ProcessRegistry>,
+) -> Result<McpToolCallResult, McpBridgeError> {
+    // Look up the process, then DROP the map lock before locking the process —
+    // ManagedProcess methods are async and must never hold the map lock across an
+    // await (mirrors mcp_kill).
+    let process = {
+        let servers = registry.servers.lock().await;
+        servers
+            .get(&server)
+            .map(Arc::clone)
+            .ok_or_else(|| McpBridgeError::ServerNotFound(server.clone()))?
+    };
+    let started = std::time::Instant::now();
+    let args = arguments.unwrap_or_else(|| serde_json::json!({}));
+    let result = process.lock().await.call_tool(&tool, args).await;
+    let latency_ms = started.elapsed().as_millis() as u64;
+    // File-based audit (the SQLite mcp_audit_log is the renderer's job — renderer
+    // is the only DB writer). Audit success and failure; a failed audit write
+    // never fails the call.
+    let _ = audit_event(
+        &app,
+        serde_json::json!({
+            "event": "mcp_tool_called",
+            "serverName": server,
+            "tool": tool,
+            "ok": result.is_ok(),
+            "isError": result.as_ref().map(|r| r.is_error).unwrap_or(false),
+            "latencyMs": latency_ms,
+            "error": result.as_ref().err().map(|e| e.to_string()),
+        }),
+    );
+    result
+}
+
 #[tauri::command(async)]
 pub async fn mcp_list_servers(
     registry: State<'_, ProcessRegistry>,
