@@ -106,7 +106,7 @@ function normalizeWorkKind(workKind) {
  * delegate tool's execution mode.
  */
 function resolveRelation(task, access) {
-  if (task.relation === 'delegate' || task.relation === 'review' || task.relation === 'handoff') {
+  if (task.relation === 'delegate' || task.relation === 'review') {
     return task.relation;
   }
   if (normalizeWorkKind(task.workKind) === 'review' || access === 'review') return 'review';

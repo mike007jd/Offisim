@@ -21,10 +21,12 @@
 /**
  * How a run relates to its parent — a parent-child *relation*, never a fan-out
  * shape. `delegate` hands off a bounded subtask; `review` is a check of prior
- * work; `handoff` (reserved, not v1) transfers the user conversation. Parallel
- * vs serial is {@link DelegateExecutionMode}, not a relation.
+ * work. Specialist takeover (transferring the user conversation) is a later epic
+ * and is intentionally NOT a relation value yet — exposing a `handoff` the
+ * runtime can't honor only misleads the model. Parallel vs serial is
+ * {@link DelegateExecutionMode}, not a relation.
  */
-export type AgentRunRelation = 'delegate' | 'review' | 'handoff';
+export type AgentRunRelation = 'delegate' | 'review';
 
 /** How a delegate tool call fans out: one awaited child, or several concurrent. */
 export type DelegateExecutionMode = 'single' | 'parallel';

@@ -33,7 +33,7 @@ const DelegateParams = Type.Object({
         ),
       ),
       relation: Type.Optional(
-        Type.Union([Type.Literal('delegate'), Type.Literal('review'), Type.Literal('handoff')], {
+        Type.Union([Type.Literal('delegate'), Type.Literal('review')], {
           description:
             'Parent-child relation. Default: review for review-like work (workKind/access review), else delegate.',
         }),

@@ -160,7 +160,7 @@ renderer or the Rust wire semantic layer (global constraint #1).
 ```ts
 // `parallel` is NOT a relation — fan-out is DelegateExecutionMode ('single' |
 // 'parallel'). Relation is parent-child semantics only.
-export type AgentRunRelation = 'delegate' | 'review' | 'handoff';
+export type AgentRunRelation = 'delegate' | 'review';
 
 export type AgentRunStatus = 'running' | 'completed' | 'failed' | 'cancelled';
 
@@ -238,8 +238,10 @@ delegate({
 
 The supervisor holds an async handle per child (`runId / events / result / abort()`).
 Future detached background agents only need to expose `spawn_agents` / `await_agents`
-on top — they do not overturn this layer. `handoff` stays a reserved
-`AgentRunRelation` value (not implemented in v1).
+on top — they do not overturn this layer. Specialist takeover (transferring the
+user conversation) is a later epic; until it is implemented, `handoff` is NOT an
+`AgentRunRelation` value — it was removed from the `delegate` tool schema so the
+model is not offered a relation the runtime can't honor.
 
 ---
 
