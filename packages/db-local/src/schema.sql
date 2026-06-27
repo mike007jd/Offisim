@@ -179,9 +179,13 @@ CREATE TABLE IF NOT EXISTS agent_runs (
   relation            TEXT,
   objective           TEXT,
   access              TEXT,
-  status              TEXT NOT NULL CHECK (status IN ('running', 'completed', 'failed', 'cancelled')),
+  -- `interrupted`: host died/was killed mid-run; startup reconcile parks the
+  -- dangling root here (running→interrupted), distinct from a clean cancel.
+  status              TEXT NOT NULL CHECK (status IN ('running', 'interrupted', 'completed', 'failed', 'cancelled')),
   usage_json          TEXT,
   result_summary_json TEXT,
+  -- Pi session JSONL path for durable resume (set when the session opens).
+  session_file        TEXT,
   started_at          TEXT NOT NULL,
   finished_at         TEXT
 );

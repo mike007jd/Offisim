@@ -13,6 +13,7 @@ export class MemoryAgentRunRepository implements AgentRunRepository {
       ...run,
       usage_json: run.usage_json ?? null,
       result_summary_json: run.result_summary_json ?? null,
+      session_file: run.session_file ?? null,
       started_at: run.started_at ?? new Date().toISOString(),
       finished_at: run.finished_at ?? null,
     };
@@ -33,6 +34,14 @@ export class MemoryAgentRunRepository implements AgentRunRepository {
   async findByRoot(rootRunId: string): Promise<AgentRunRow[]> {
     return [...this.store.values()]
       .filter((r) => r.root_run_id === rootRunId)
+      .sort((a, b) => a.started_at.localeCompare(b.started_at));
+  }
+
+  async findByStatus(companyId: string, statuses: string[]): Promise<AgentRunRow[]> {
+    if (statuses.length === 0) return [];
+    const wanted = new Set(statuses);
+    return [...this.store.values()]
+      .filter((r) => r.company_id === companyId && wanted.has(r.status))
       .sort((a, b) => a.started_at.localeCompare(b.started_at));
   }
 

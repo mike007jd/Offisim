@@ -78,6 +78,9 @@ export interface AgentRunRow {
   status: string;
   usage_json: string | null;
   result_summary_json: string | null;
+  // Path to the Pi session JSONL that holds this run's durable context. Set when
+  // the run's session is created; used by durable resume to re-continue context.
+  session_file: string | null;
   started_at: string;
   finished_at: string | null;
 }
@@ -208,12 +211,13 @@ export type NewTaskRun = Omit<TaskRunRow, 'finished_at'>;
  *  a fresh run carries only its scope + objective. */
 export type NewAgentRun = Omit<
   AgentRunRow,
-  'started_at' | 'finished_at' | 'usage_json' | 'result_summary_json'
+  'started_at' | 'finished_at' | 'usage_json' | 'result_summary_json' | 'session_file'
 > & {
   started_at?: string;
   finished_at?: string | null;
   usage_json?: string | null;
   result_summary_json?: string | null;
+  session_file?: string | null;
 };
 export type NewToolCall = Omit<ToolCallRow, 'finished_at'>;
 export type NewHandoffEvent = Omit<HandoffEventRow, never>;
@@ -268,6 +272,10 @@ export interface AgentRunRepository {
   findByThread(threadId: string): Promise<AgentRunRow[]>;
   /** All runs under a root (the children of one user turn). */
   findByRoot(rootRunId: string): Promise<AgentRunRow[]>;
+  /** Company-scoped runs filtered to the given statuses, oldest first. Used by
+   *  durable-resume reconciliation (find `running` → mark `interrupted`) and the
+   *  recovery board (list `interrupted`). Empty `statuses` yields no rows. */
+  findByStatus(companyId: string, statuses: string[]): Promise<AgentRunRow[]>;
   updateStatus(
     runId: string,
     status: string,

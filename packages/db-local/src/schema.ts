@@ -412,6 +412,8 @@ export const agentRuns = sqliteTable(
     status: text('status').notNull(),
     usage_json: text('usage_json'),
     result_summary_json: text('result_summary_json'),
+    // Pi session JSONL path for durable resume (nullable; set when session opens).
+    session_file: text('session_file'),
     started_at: text('started_at').notNull(),
     finished_at: text('finished_at'),
   },

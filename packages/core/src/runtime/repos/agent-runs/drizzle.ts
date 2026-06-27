@@ -1,5 +1,5 @@
 import * as schema from '@offisim/db-local/dist/schema.js';
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type { AgentRunRepository, AgentRunRow, NewAgentRun } from '../../repositories.js';
 
@@ -20,6 +20,7 @@ export function createAgentRunsDrizzleRepos(db: Db): AgentRunsDrizzleRepos {
         ...run,
         usage_json: run.usage_json ?? null,
         result_summary_json: run.result_summary_json ?? null,
+        session_file: run.session_file ?? null,
         started_at: run.started_at ?? now(),
         finished_at: run.finished_at ?? null,
       };
@@ -47,6 +48,20 @@ export function createAgentRunsDrizzleRepos(db: Db): AgentRunsDrizzleRepos {
         .select()
         .from(schema.agentRuns)
         .where(eq(schema.agentRuns.root_run_id, rootRunId))
+        .orderBy(asc(schema.agentRuns.started_at))
+        .all() as AgentRunRow[];
+    },
+    async findByStatus(companyId, statuses) {
+      if (statuses.length === 0) return [];
+      return db
+        .select()
+        .from(schema.agentRuns)
+        .where(
+          and(
+            eq(schema.agentRuns.company_id, companyId),
+            inArray(schema.agentRuns.status, statuses),
+          ),
+        )
         .orderBy(asc(schema.agentRuns.started_at))
         .all() as AgentRunRow[];
     },
