@@ -47,7 +47,7 @@ fn pi_stdin_guard() -> std::sync::MutexGuard<'static, HashMap<String, Arc<AsyncM
 /// Wire-contract version negotiated with the bundled Node host via the `ready`
 /// handshake. Must stay in lockstep with `PI_HOST_PROTOCOL_VERSION` in
 /// scripts/pi-agent-host-wire.mjs; bump both when a line's required shape changes.
-const PI_HOST_PROTOCOL_VERSION: u32 = 2;
+const PI_HOST_PROTOCOL_VERSION: u32 = 3;
 
 /// Wire kinds the Rust bridge knows how to decode. A line with an unknown kind is
 /// skipped (forward-compatible with newer hosts); a malformed line on a KNOWN kind
@@ -59,6 +59,7 @@ const PI_KNOWN_WIRE_KINDS: &[&str] = &[
     "messageEnd",
     "tool",
     "uiRequest",
+    "mcpCall",
     "agentRun",
     "result",
     "error",
@@ -423,6 +424,16 @@ enum PiSidecarLine {
         run_type: String,
         payload: serde_json::Value,
     },
+    /// The host's MCP bridge extension asked to invoke an MCP tool. Intercepted
+    /// in-process (NOT forwarded to the renderer): the Rust host calls
+    /// mcp_bridge::call_tool and writes a `mcpResult` line back to the host stdin.
+    McpCall {
+        id: String,
+        server: String,
+        tool: String,
+        #[serde(default)]
+        arguments: Option<serde_json::Value>,
+    },
     Result {
         response: serde_json::Value,
     },
@@ -441,6 +452,7 @@ impl PiSidecarLine {
             Self::MessageEnd { .. } => "messageEnd",
             Self::Tool { .. } => "tool",
             Self::UiRequest { .. } => "uiRequest",
+            Self::McpCall { .. } => "mcpCall",
             Self::AgentRun { .. } => "agentRun",
             Self::Result { .. } => "result",
             Self::Error { .. } => "error",
@@ -692,6 +704,9 @@ fn send_sidecar_event(
             }
             Ok(None)
         }
+        // mcpCall is intercepted in the stream loop (handled in-process, never
+        // forwarded). This arm is the defensive fallback if one ever reaches here.
+        PiSidecarLine::McpCall { .. } => Ok(None),
         PiSidecarLine::AgentRun {
             thread_id,
             root_run_id,
@@ -801,7 +816,94 @@ impl Drop for StdinGuard {
     }
 }
 
-async fn run_pi_sidecar_jsonl(
+/// Inbound `mcpResult` line written back to the host's stdin after the Rust host
+/// services an intercepted `mcpCall` (mirrors PiUiResponse / the uiResponse line).
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PiMcpResult {
+    id: String,
+    ok: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    content: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    is_error: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+}
+
+/// Service an intercepted `mcpCall`: invoke the tool through mcp_bridge in-process
+/// and write a matching `mcpResult` line back to the host's stdin. A missing
+/// registry or stdin channel yields an error mcpResult (or a silent drop if the
+/// run already ended) — never a panic, never a crash of the run.
+async fn handle_mcp_call<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    request_id: Option<&str>,
+    id: String,
+    server: String,
+    tool: String,
+    arguments: Option<serde_json::Value>,
+) -> Result<(), HostError> {
+    let Some(request_id) = request_id else {
+        eprintln!("[pi-agent-host] mcpCall on a lane with no stdin channel; dropping id={id}");
+        return Ok(());
+    };
+    let args = arguments.unwrap_or_else(|| serde_json::json!({}));
+    let response = match app.try_state::<crate::mcp_bridge::commands::ProcessRegistry>() {
+        Some(registry) => {
+            match crate::mcp_bridge::commands::invoke_mcp_tool(registry.inner(), &server, &tool, args)
+                .await
+            {
+                Ok(call) => PiMcpResult {
+                    id,
+                    ok: true,
+                    content: Some(call.content),
+                    is_error: Some(call.is_error),
+                    error: None,
+                },
+                Err(err) => PiMcpResult {
+                    id,
+                    ok: false,
+                    content: None,
+                    is_error: None,
+                    error: Some(err.to_string()),
+                },
+            }
+        }
+        None => PiMcpResult {
+            id,
+            ok: false,
+            content: None,
+            is_error: None,
+            error: Some("MCP bridge is not available".into()),
+        },
+    };
+    write_mcp_result(request_id, &response).await
+}
+
+/// Write an mcpResult line back to a running host's stdin (mirrors ui_response_impl).
+/// A missing writer means the run already ended — the result is moot, not an error.
+async fn write_mcp_result(request_id: &str, response: &PiMcpResult) -> Result<(), HostError> {
+    let writer = pi_stdin_guard().get(request_id).cloned();
+    let Some(writer) = writer else {
+        return Ok(());
+    };
+    let mut line = serde_json::to_string(response)
+        .map_err(|err| HostError::Request(format!("Serialize mcpResult: {err}")))?;
+    line.push('\n');
+    let mut stdin = writer.lock().await;
+    stdin
+        .write_all(line.as_bytes())
+        .await
+        .map_err(|err| HostError::Request(format!("Write mcpResult: {err}")))?;
+    stdin
+        .flush()
+        .await
+        .map_err(|err| HostError::Request(format!("Flush mcpResult: {err}")))?;
+    Ok(())
+}
+
+async fn run_pi_sidecar_jsonl<R: tauri::Runtime>(
+    app: &AppHandle<R>,
     script_path: &Path,
     cwd: &Path,
     env: HashMap<String, String>,
@@ -883,6 +985,28 @@ async fn run_pi_sidecar_jsonl(
                 if consume_ready_handshake(&mut saw_ready, &parsed)? {
                     continue;
                 }
+                // Intercept mcpCall in-process: invoke the MCP tool and write the
+                // result back to the host stdin, never forwarding it to the
+                // renderer. Cancellation-aware so an abort during a slow tool call
+                // still kills the run promptly (mirrors the outer select).
+                if let PiSidecarLine::McpCall {
+                    id,
+                    server,
+                    tool,
+                    arguments,
+                } = parsed
+                {
+                    tokio::select! {
+                        _ = token.cancelled() => {
+                            kill_child(&mut child).await;
+                            return Err(HostError::Aborted);
+                        }
+                        result = handle_mcp_call(app, register_stdin, id, server, tool, arguments) => {
+                            result?;
+                        }
+                    }
+                    continue;
+                }
                 if let Some(response) = send_sidecar_event(on_event, parsed)? {
                     final_response = Some(response);
                 }
@@ -943,6 +1067,7 @@ async fn do_execute<R: tauri::Runtime>(
     let script_path = sidecar_script_path(app, dev_root.as_ref(), PI_LANE)?;
     let payload = sidecar_payload(app, &req, &cwd, &session_dir);
     let response = run_pi_sidecar_jsonl(
+        app,
         &script_path,
         &cwd,
         pi_env(Some(&workspace_root)),
@@ -1024,6 +1149,7 @@ async fn do_enhance<R: tauri::Runtime>(
     // `register_stdin: None` — enhance has no extension-UI response channel, so
     // stdin is closed immediately after the single payload line (single-shot).
     let response = run_pi_sidecar_jsonl(
+        app,
         &script_path,
         &cwd,
         pi_env(None),
@@ -1101,6 +1227,7 @@ async fn do_collaborate<R: tauri::Runtime>(
     // `register_stdin: None` — collaboration registers zero tools, so there is no
     // mid-run extension-UI prompt and thus no second stdin channel.
     let response = run_pi_sidecar_jsonl(
+        app,
         &script_path,
         &cwd,
         pi_env(None),
@@ -1363,6 +1490,7 @@ async fn status_impl(app: AppHandle) -> Result<PiAgentStatusResponse, String> {
         "agentDir": app_pi_agent_dir(&app).map(|path| path.to_string_lossy().to_string()),
     });
     let response = run_pi_sidecar_jsonl(
+        &app,
         &script_path,
         &cwd,
         pi_env(None),
@@ -1617,6 +1745,7 @@ mod tests {
 
         let mut saw_ready = false;
         let mut saw_tool = false;
+        let mut saw_mcp_call = false;
         for value in &lines {
             // Tie the Rust known-kinds list to the shared fixture. The JS gate proves the
             // fixture exercises every PI_WIRE_KINDS entry, so asserting each fixture kind is
@@ -1649,11 +1778,20 @@ mod tests {
                     assert!(!tool_call_id.is_empty());
                     assert!(!tool_name.is_empty());
                 }
+                PiSidecarLine::McpCall {
+                    id, server, tool, ..
+                } => {
+                    saw_mcp_call = true;
+                    assert!(!id.is_empty(), "mcpCall id");
+                    assert!(!server.is_empty(), "mcpCall server");
+                    assert!(!tool.is_empty(), "mcpCall tool");
+                }
                 _ => {}
             }
         }
         assert!(saw_ready, "fixture must exercise the ready handshake");
         assert!(saw_tool, "fixture must exercise a tool event");
+        assert!(saw_mcp_call, "fixture must exercise an mcpCall line");
     }
 
     #[test]

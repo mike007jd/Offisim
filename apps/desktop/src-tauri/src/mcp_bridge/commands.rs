@@ -264,6 +264,31 @@ pub async fn mcp_kill(
     Ok(())
 }
 
+/// Look up a connected MCP process by name and invoke a tool. Shared by the
+/// `mcp_call_tool` command and the Pi host's in-process mcpCall interception
+/// (pi_agent_host.rs). Drops the map lock BEFORE locking the process — async
+/// ManagedProcess methods must never hold the map lock across an await (mirrors
+/// mcp_kill). Transport / protocol failures surface as errors; a tool-level
+/// failure returns with `is_error`.
+pub async fn invoke_mcp_tool(
+    registry: &ProcessRegistry,
+    server: &str,
+    tool: &str,
+    arguments: serde_json::Value,
+) -> Result<McpToolCallResult, McpBridgeError> {
+    let process = {
+        let servers = registry.servers.lock().await;
+        servers
+            .get(server)
+            .map(Arc::clone)
+            .ok_or_else(|| McpBridgeError::ServerNotFound(server.to_string()))?
+    };
+    // Bind the guard's result to a local so the MutexGuard temporary is dropped
+    // before `process` at the end of the function (avoids E0597).
+    let result = process.lock().await.call_tool(tool, arguments).await;
+    result
+}
+
 /// Invoke a tool on a connected MCP server, addressed by its running-process
 /// name (the ProcessRegistry map key = `config.name`). Transport / protocol
 /// failures surface as errors; a tool-level failure returns with `is_error`.
@@ -275,19 +300,9 @@ pub async fn mcp_call_tool(
     arguments: Option<serde_json::Value>,
     registry: State<'_, ProcessRegistry>,
 ) -> Result<McpToolCallResult, McpBridgeError> {
-    // Look up the process, then DROP the map lock before locking the process —
-    // ManagedProcess methods are async and must never hold the map lock across an
-    // await (mirrors mcp_kill).
-    let process = {
-        let servers = registry.servers.lock().await;
-        servers
-            .get(&server)
-            .map(Arc::clone)
-            .ok_or_else(|| McpBridgeError::ServerNotFound(server.clone()))?
-    };
     let started = std::time::Instant::now();
     let args = arguments.unwrap_or_else(|| serde_json::json!({}));
-    let result = process.lock().await.call_tool(&tool, args).await;
+    let result = invoke_mcp_tool(&registry, &server, &tool, args).await;
     let latency_ms = started.elapsed().as_millis() as u64;
     // File-based audit (the SQLite mcp_audit_log is the renderer's job — renderer
     // is the only DB writer). Audit success and failure; a failed audit write

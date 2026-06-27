@@ -20,6 +20,7 @@ import {
   toolLine,
   uiRequestLine,
 } from './pi-agent-host-wire.mjs';
+import { createMcpCallChannel } from './pi-host-mcp-channel.mjs';
 import {
   evaluateAskBashCommand,
   evaluateAutoBashCommand,
@@ -90,6 +91,13 @@ function rejectAllUiRequests() {
   for (const settle of [...pendingUiRequests.values()]) settle({ cancelled: true });
   pendingUiRequests.clear();
 }
+
+// MCP-call park-and-resume channel (B2). The Rust host intercepts the emitted
+// `mcpCall` lines (calling mcp_bridge::call_tool) and writes `mcpResult` back to
+// stdin; the renderer is never on this path. `mcpChannel.requestMcpResult` is
+// wired into the MCP bridge extension (B3); the host below only routes inbound
+// `mcpResult` lines (resolveMcpResult) and unwinds on stdin close.
+const mcpChannel = createMcpCallChannel(emit);
 
 // A headless ExtensionUIContext: the four blocking primitives forward to the
 // renderer; everything else is a no-op (a faithful copy of Pi's own
@@ -1128,16 +1136,26 @@ function main() {
       runPrompt(payload).then(finishHost, fail);
       return;
     }
-    // Subsequent lines answer a uiRequest: { id, confirmed? | value? | cancelled? }.
+    // Subsequent lines answer a uiRequest ({ id, confirmed?|value?|cancelled? })
+    // or an intercepted mcpCall ({ id, ok, content?|isError?|error? }). The `ui-`
+    // / `mcp-` id namespaces keep the two dispatch maps from colliding, so routing
+    // the same parsed line through both resolvers is safe (each is a no-op unless
+    // the id is in its own pending map).
     try {
-      resolveUiResponse(JSON.parse(trimmed));
+      const msg = JSON.parse(trimmed);
+      resolveUiResponse(msg);
+      mcpChannel.resolveMcpResult(msg);
     } catch {
       // Ignore malformed response lines rather than crashing the run.
     }
   });
 
-  // Parent closed stdin (process teardown / abort) — release any parked prompts.
-  rl.on('close', rejectAllUiRequests);
+  // Parent closed stdin (process teardown / abort) — release any parked prompts
+  // and fail any parked MCP calls so the loop unwinds.
+  rl.on('close', () => {
+    rejectAllUiRequests();
+    mcpChannel.rejectAllMcpCalls();
+  });
 }
 
 main();

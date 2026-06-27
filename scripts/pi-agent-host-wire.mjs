@@ -11,7 +11,7 @@
 // host validates the `ready` handshake against its own copy of this constant and
 // refuses a stale bundled host.
 
-export const PI_HOST_PROTOCOL_VERSION = 2;
+export const PI_HOST_PROTOCOL_VERSION = 3;
 
 export const PI_WIRE_KINDS = Object.freeze([
   'ready',
@@ -20,6 +20,7 @@ export const PI_WIRE_KINDS = Object.freeze([
   'messageEnd',
   'tool',
   'uiRequest',
+  'mcpCall',
   'agentRun',
   'result',
   'error',
@@ -104,6 +105,23 @@ export function uiRequestLine({ id, method, title, message, options, placeholder
   });
 }
 
+// The host's MCP bridge extension wants to invoke an MCP tool. Unlike every
+// other line, `mcpCall` is NOT forwarded to the renderer: the Rust host
+// intercepts it in-process, calls mcp_bridge::call_tool against the connected
+// MCP server, and writes a matching `mcpResult` line back to the host's stdin
+// (the inbound channel, like `uiResponse`). `id` correlates the call with its
+// result; `arguments` is the opaque tool-input object (free-form, not part of
+// the camelCase envelope contract).
+export function mcpCallLine({ id, server, tool, arguments: args } = {}) {
+  return withoutUndefined({
+    kind: 'mcpCall',
+    id,
+    server,
+    tool,
+    arguments: args,
+  });
+}
+
 // A delegation run-tree event (root agent delegated to a child, child progress,
 // child finished). The neutral envelope: scope fields + `runType` (the
 // AgentRunEvent.type) + an opaque `payload`. The renderer rebuilds the
@@ -152,6 +170,7 @@ export const PI_WIRE_BUILDERS = Object.freeze({
   messageEnd: messageEndLine,
   tool: toolLine,
   uiRequest: uiRequestLine,
+  mcpCall: mcpCallLine,
   agentRun: agentRunLine,
   result: (line) => resultLine(line.response),
   error: errorLine,

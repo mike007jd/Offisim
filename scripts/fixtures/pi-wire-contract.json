@@ -1,5 +1,5 @@
 [
-  { "kind": "ready", "protocolVersion": 2 },
+  { "kind": "ready", "protocolVersion": 3 },
   {
     "kind": "started",
     "sessionId": "sess_1",
@@ -30,6 +30,13 @@
     "method": "confirm",
     "title": "Approve command?",
     "message": "git force-push rewrites shared history — approve to proceed.\n\ngit push --force origin main"
+  },
+  {
+    "kind": "mcpCall",
+    "id": "mcp-1",
+    "server": "filesystem",
+    "tool": "read_file",
+    "arguments": { "path": "README.md" }
   },
   {
     "kind": "agentRun",
