@@ -17,6 +17,7 @@ import {
 } from './mission/mission-events.js';
 import { readPiModelOverride } from './pi-agent-config.js';
 import type { PiAgentHostEvent, PiAgentHostResponse } from './pi-runtime-driver.js';
+import { persistRunStartIfAbsent } from './recovery/persist-run-idempotency.js';
 import { aggregateSubtreeUsage } from './recovery/usage-aggregation.js';
 
 // Re-export the mission-bridge event vocabulary so existing importers of
@@ -584,7 +585,10 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     try {
       if (evt.type === 'run.started') {
         const payload = evt.payload as AgentRunStartedPayload;
-        await repo.create({
+        // Insert-if-absent: a resume replays run.started for an existing run; the
+        // existing row (already flipped interrupted→running with partial usage by
+        // the resume lane) must be left untouched, not re-created or clobbered.
+        await persistRunStartIfAbsent(repo, {
           run_id: evt.runId,
           thread_id: evt.threadId,
           company_id: this.companyId,

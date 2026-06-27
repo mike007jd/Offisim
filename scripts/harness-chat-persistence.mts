@@ -276,7 +276,11 @@ function makeFaultRepos(opts: FaultRepos): {
         title: 'Restored approval',
         message: 'from db',
       }),
-      created_at: '2026-06-20T00:00:00.000Z',
+      // Recent relative to the controller's now (2026-06-24): a freshly
+      // interrupted approval hydrates as `stale` (within the 24h expiry window).
+      // An older seed would now classify as `expired` (A3) and is exercised by
+      // the dedicated expiry scenario in harness-conversation-run-controller.
+      created_at: '2026-06-24T00:00:00.000Z',
     });
   }
   const repos = {

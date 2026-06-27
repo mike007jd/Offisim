@@ -238,7 +238,9 @@ class FakeRepos {
     attemptId: string;
     hostRequestId: string;
     uiRequestId: string;
+    createdAt?: string;
   }): void {
+    const createdAt = input.createdAt ?? '2026-06-20T00:00:00.000Z';
     this.activeRows.set(input.threadId, {
       thread_id: input.threadId,
       company_id: input.companyId,
@@ -255,8 +257,8 @@ class FakeRepos {
         title: 'Restarted approval',
         message: 'Restored from active_interactions.',
       }),
-      created_at: '2026-06-20T00:00:00.000Z',
-      updated_at: '2026-06-20T00:00:00.000Z',
+      created_at: createdAt,
+      updated_at: createdAt,
     });
   }
 }
@@ -744,6 +746,37 @@ const scenarios: Array<{
         employeeStates: Array.from(employeeStates.entries()),
         activeRuns: global.activeRuns.map((run) => [run.threadId, run.employeeId, run.phase]),
       };
+    },
+  },
+  {
+    name: 'hydrated approvals past the expiry window classify as expired (A3)',
+    criteria:
+      'Pass when a restored UI request older than the 24h expiry window hydrates as `expired` (dismiss-only), while a recent one hydrates as `stale`.',
+    run: async () => {
+      const env = makeEnv();
+      // Base now is 2026-06-20; an approval from 2026-06-17 is >24h old → expired.
+      env.repos.seedStaleApproval({
+        threadId: 'recent-thread',
+        companyId: 'co',
+        attemptId: 'attempt-recent',
+        hostRequestId: 'host-recent',
+        uiRequestId: 'ui-recent',
+        createdAt: '2026-06-20T00:00:00.000Z',
+      });
+      env.repos.seedStaleApproval({
+        threadId: 'old-thread',
+        companyId: 'co',
+        attemptId: 'attempt-old',
+        hostRequestId: 'host-old',
+        uiRequestId: 'ui-old',
+        createdAt: '2026-06-17T00:00:00.000Z',
+      });
+      await env.controller.hydrateStaleApprovals('co');
+      const recent = env.controller.getSnapshot('recent-thread').approval;
+      const old = env.controller.getSnapshot('old-thread').approval;
+      assert.equal(recent?.state, 'stale', 'a fresh restored request is stale');
+      assert.equal(old?.state, 'expired', 'a >24h restored request is expired');
+      return { recent: recent?.state, old: old?.state };
     },
   },
   {

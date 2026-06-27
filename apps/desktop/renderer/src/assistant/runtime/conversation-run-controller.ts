@@ -66,9 +66,18 @@ export interface PendingApproval {
   method: string;
   title: string;
   message?: string;
-  state: 'live' | 'stale' | 'unsupported';
+  // 'live' — the host is awaiting this answer now. 'stale' — restored after a
+  // restart (host gone; re-presented, not directly answerable). 'expired' — a
+  // restored request older than STALE_APPROVAL_EXPIRY_MS (too old to act on,
+  // dismiss only). 'unsupported' — a Pi UI primitive Offisim can't render.
+  state: 'live' | 'stale' | 'expired' | 'unsupported';
   createdAt: number;
 }
+
+/** A restored UI request older than this is `expired` (dismiss-only), not just
+ *  `stale`. The host that would consume the answer is long gone; after a day the
+ *  request is surfaced as expired so the user discards rather than waits on it. */
+const STALE_APPROVAL_EXPIRY_MS = 24 * 60 * 60 * 1000;
 
 export interface ConversationRunSnapshot {
   threadId: string;
@@ -507,6 +516,9 @@ export class ConversationRunController {
           payload = {};
         }
         if (payload.source !== 'pi-ui-request') continue;
+        const createdAt = Date.parse(row.created_at) || this.deps.now();
+        // A restored request past the expiry window can no longer be acted on.
+        const expired = this.deps.now() - createdAt > STALE_APPROVAL_EXPIRY_MS;
         const approval: PendingApproval = {
           threadId: row.thread_id,
           attemptId: String(payload.attemptId ?? row.interaction_id),
@@ -515,8 +527,8 @@ export class ConversationRunController {
           method: String(payload.method ?? 'confirm'),
           title: String(payload.title ?? 'Approval needed'),
           message: typeof payload.message === 'string' ? payload.message : undefined,
-          state: 'stale',
-          createdAt: Date.parse(row.created_at) || this.deps.now(),
+          state: expired ? 'expired' : 'stale',
+          createdAt,
         };
         this.patchSnapshot(row.thread_id, {
           companyId,

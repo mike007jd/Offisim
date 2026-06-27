@@ -33,9 +33,16 @@ export function PermissionApprovalBar({ threadId }: { threadId: string }) {
   if (!approval) return null;
 
   const stale = approval.state === 'stale';
+  const expired = approval.state === 'expired';
   const unsupported = approval.state === 'unsupported';
   const canAnswer = approval.state === 'live' && approval.method === 'confirm';
-  const lead = stale ? 'Approval expired' : unsupported ? 'Unsupported request' : 'Approval needed';
+  const lead = expired
+    ? 'Approval expired'
+    : stale
+      ? 'Approval restored'
+      : unsupported
+        ? 'Unsupported request'
+        : 'Approval needed';
 
   const decide = async (confirmed: boolean) => {
     setDeciding(true);
@@ -79,6 +86,11 @@ export function PermissionApprovalBar({ threadId }: { threadId: string }) {
       {stale ? (
         <p className="off-permission-reason">
           This request was restored after restart and cannot be answered safely.
+        </p>
+      ) : null}
+      {expired ? (
+        <p className="off-permission-reason">
+          This request expired and can no longer be answered. Dismiss it.
         </p>
       ) : null}
       {decisionError ? <p className="off-permission-error">{decisionError}</p> : null}

@@ -31,11 +31,12 @@
 import assert from 'node:assert/strict';
 import type { NewAgentRun } from '../packages/core/src/runtime/repositories.ts';
 import { MemoryAgentRunRepository } from '../packages/core/src/runtime/repos/agent-runs/memory.ts';
+import { persistRunStartIfAbsent } from '../apps/desktop/renderer/src/runtime/recovery/persist-run-idempotency.js';
 import { reconcileInterruptedRuns } from '../apps/desktop/renderer/src/runtime/recovery/reconcile-interrupted-runs.js';
 
 let passed = 0;
 let failed = 0;
-const TOTAL = 12;
+const TOTAL = 14;
 
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
   try {
@@ -173,6 +174,40 @@ async function main(): Promise<void> {
     assert.equal((await fresh.findByStatus(CO_A, [])).length, 0, 'empty statuses → []');
     const multi = await fresh.findByStatus(CO_A, ['running', 'completed']);
     assert.ok(multi.length > runningA.length, 'multi-status returns more rows');
+  });
+
+  // --- A3: insert-if-absent run.started persistence (resume-replay idempotency) ---
+
+  await check('(l) persistRunStartIfAbsent creates a fresh run (returns true)', async () => {
+    const repo2 = new MemoryAgentRunRepository();
+    const created = await persistRunStartIfAbsent(repo2, {
+      run_id: 'r-new', thread_id: 't', company_id: CO_A, parent_run_id: null,
+      root_run_id: 'r-new', employee_id: null, relation: null, objective: 'x', access: null,
+      status: 'running',
+    });
+    assert.equal(created, true, 'fresh run is created');
+    assert.equal((await repo2.findById('r-new'))?.status, 'running');
+  });
+
+  await check('(m) replay of an existing run is a no-op preserving resumed state', async () => {
+    const repo2 = new MemoryAgentRunRepository();
+    // Original run, then resume lane flips interrupted→running and aggregates usage.
+    await persistRunStartIfAbsent(repo2, {
+      run_id: 'r1', thread_id: 't', company_id: CO_A, parent_run_id: null,
+      root_run_id: 'r1', employee_id: null, relation: null, objective: 'x', access: null,
+      status: 'running',
+    });
+    await repo2.updateStatus('r1', 'running', { usageJson: JSON.stringify({ input: 7 }) });
+    // The host replays run.started for the SAME run (create-time data, no usage).
+    const created = await persistRunStartIfAbsent(repo2, {
+      run_id: 'r1', thread_id: 't', company_id: CO_A, parent_run_id: null,
+      root_run_id: 'r1', employee_id: null, relation: null, objective: 'x', access: null,
+      status: 'running',
+    });
+    assert.equal(created, false, 'replay does not create a second row');
+    const row = await repo2.findById('r1');
+    assert.ok(row?.usage_json, 'replay must NOT clobber the resumed row (usage preserved)');
+    assert.equal(JSON.parse(row!.usage_json!).input, 7);
   });
 
   console.log(`\n${passed}/${TOTAL} checks passed${failed ? `, ${failed} FAILED` : ''}.`);
