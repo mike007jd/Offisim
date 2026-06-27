@@ -59,6 +59,70 @@ export function toolAllowlistForMode(mode: PermissionMode): string[] | undefined
   return mode === 'plan' ? [...PLAN_TOOL_ALLOWLIST] : undefined;
 }
 
+// ── Collaboration profiles (Connect) — Epic E ───────────────────────────────
+//
+// Connect (company chat) runs isolated from Office work: `strict` is the
+// current zero-tools daily-chat profile. `collaboration_read` is a third profile
+// BETWEEN strict and full work mode — a read-only personal-assistant context that
+// may read/search + (E2) call read-only MCP connectors (calendar/inbox/memory/
+// web), but must NEVER write files, run shell, persist a mission/run, or publish
+// an artifact. This module defines the allowlist + the forbidden-tool invariant;
+// the live host wiring + read-only MCP + UI toggle land in E2.
+
+export type CollaborationProfile = 'strict' | 'collaboration_read';
+
+const COLLABORATION_PROFILES: readonly CollaborationProfile[] = ['strict', 'collaboration_read'];
+
+/** Default Connect profile: the existing zero-tools daily chat. */
+export const DEFAULT_COLLABORATION_PROFILE: CollaborationProfile = 'strict';
+
+/**
+ * Read-only built-in tools the `collaboration_read` profile may use. Mirrors the
+ * Plan allowlist (pure read/search). E2 appends read-only MCP tools to this set
+ * at scope time; this constant is the built-in floor and the invariant baseline.
+ */
+export const COLLABORATION_READ_TOOL_ALLOWLIST: readonly string[] = ['read', 'grep', 'find', 'ls'];
+
+/**
+ * Tools a collaboration profile may NEVER expose — the read-only invariant. Any
+ * intersection of a collaboration allowlist with this set is an isolation breach
+ * (write / shell / mission persistence / publish / run-spawning).
+ */
+export const COLLABORATION_FORBIDDEN_TOOLS: readonly string[] = [
+  'write',
+  'edit',
+  'bash',
+  'publish_artifact',
+  'submit_for_evaluation',
+  'query_mission_state',
+  'delegate',
+];
+
+export function normalizeCollaborationProfile(value: unknown): CollaborationProfile {
+  return typeof value === 'string' && (COLLABORATION_PROFILES as readonly string[]).includes(value)
+    ? (value as CollaborationProfile)
+    : DEFAULT_COLLABORATION_PROFILE;
+}
+
+/**
+ * The explicit tool allowlist for a collaboration profile. `strict` → `[]` (the
+ * current zero-tools Connect). `collaboration_read` → the read-only built-ins.
+ * Always an explicit list (never Pi's default set) — Connect never runs the full
+ * tool set.
+ */
+export function collaborationToolAllowlist(profile: CollaborationProfile): string[] {
+  return profile === 'collaboration_read' ? [...COLLABORATION_READ_TOOL_ALLOWLIST] : [];
+}
+
+/**
+ * The read-only invariant: a collaboration allowlist must not intersect the
+ * forbidden set. Returns the offending tools (empty when the allowlist is safe).
+ */
+export function collaborationForbiddenIntersection(tools: readonly string[]): string[] {
+  const forbidden = new Set(COLLABORATION_FORBIDDEN_TOOLS);
+  return tools.filter((t) => forbidden.has(t));
+}
+
 /**
  * Detect a git force-push in any segment of a command. `classifyShellCommand`
  * lumps every `git push` into a soft `ask`; Auto needs the finer line that

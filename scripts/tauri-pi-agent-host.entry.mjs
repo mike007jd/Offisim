@@ -22,8 +22,10 @@ import {
 } from './pi-agent-host-wire.mjs';
 import { createMcpCallChannel } from './pi-host-mcp-channel.mjs';
 import {
+  collaborationToolAllowlist,
   evaluateAskBashCommand,
   evaluateAutoBashCommand,
+  normalizeCollaborationProfile,
   normalizePermissionMode,
   toolAllowlistForMode,
 } from './pi-agent-permission-modes.mts';
@@ -997,9 +999,13 @@ async function runCollaboration(payload) {
     modelRegistry,
     sessionManager,
     resourceLoader,
-    // Belt-and-suspenders tool suppression — see the isolation note above.
+    // Belt-and-suspenders tool suppression — see the isolation note above. The
+    // tool list is the collaboration profile's allowlist; `strict` (the default)
+    // is the current zero-tools daily chat. `collaboration_read` (E2) relaxes
+    // noTools + the isolation throw to permit the read-only allowlist; in E1 the
+    // renderer never sets it, so this stays behavior-identical to `tools: []`.
     noTools: 'all',
-    tools: [],
+    tools: collaborationToolAllowlist(normalizeCollaborationProfile(payload.collaborationProfile)),
     ...(model ? { model } : {}),
     ...(thinkingLevel ? { thinkingLevel } : {}),
   });
