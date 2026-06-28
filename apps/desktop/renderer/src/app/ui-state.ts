@@ -3,7 +3,7 @@ import type { DramaturgyMode } from '@offisim/shared-types';
 import { create } from 'zustand';
 
 type WorkspaceKey = 'office' | 'workspace' | 'market' | 'personnel';
-type OverlaySurface = 'mission' | 'activity' | 'settings' | 'studio' | 'lifecycle';
+type OverlaySurface = 'mission' | 'activity' | 'tasks' | 'settings' | 'studio' | 'lifecycle';
 export type SurfaceKey = WorkspaceKey | OverlaySurface;
 
 type SceneRenderMode = '3d' | '2d';

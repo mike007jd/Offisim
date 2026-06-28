@@ -24,6 +24,9 @@ const SettingsSurface = lazy(() =>
 const StudioSurface = lazy(() =>
   import('./studio/StudioSurface.js').then((m) => ({ default: m.StudioSurface })),
 );
+const TaskBoardSurface = lazy(() =>
+  import('./tasks/TaskBoardSurface.js').then((m) => ({ default: m.TaskBoardSurface })),
+);
 const WorkspaceSurface = lazy(() =>
   import('./workspace/WorkspaceSurface.js').then((m) => ({ default: m.WorkspaceSurface })),
 );
@@ -40,6 +43,8 @@ function renderSurface(surface: SurfaceKey): ReactNode {
       return <PersonnelSurface />;
     case 'activity':
       return <ActivitySurface />;
+    case 'tasks':
+      return <TaskBoardSurface />;
     case 'settings':
       return <SettingsSurface />;
     case 'studio':

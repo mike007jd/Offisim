@@ -37,7 +37,7 @@ import { loadInterruptedRunRecoveryCards } from '../apps/desktop/renderer/src/ru
 
 let passed = 0;
 let failed = 0;
-const TOTAL = 16;
+const TOTAL = 17;
 
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
   try {
@@ -238,6 +238,26 @@ async function main(): Promise<void> {
     assert.equal(cards.length, 1);
     assert.equal(cards[0]?.runId, 'r-existing');
     assert.equal(cards[0]?.classification, 'resumable');
+  });
+
+  await check('(p) recovery loader can skip reconcile while a live run is active', async () => {
+    const repo2 = new MemoryAgentRunRepository();
+    await repo2.create({
+      run_id: 'r-live', thread_id: 't-live', company_id: CO_A, parent_run_id: null,
+      root_run_id: 'r-live', employee_id: null, relation: null, objective: 'still live',
+      access: null, status: 'running', started_at: '2026-06-27T10:00:00.000Z',
+      session_file: '/sessions/r-live.jsonl',
+    });
+    const cards = await loadInterruptedRunRecoveryCards({
+      repo: repo2,
+      companyId: CO_A,
+      now,
+      skipReconcile: true,
+    });
+    assert.equal(cards.length, 0, 'live running roots are not recovery cards');
+    const row = await repo2.findById('r-live');
+    assert.equal(row?.status, 'running', 'skipReconcile must not park a live run');
+    assert.equal(row?.finished_at, null);
   });
 
   console.log(`\n${passed}/${TOTAL} checks passed${failed ? `, ${failed} FAILED` : ''}.`);

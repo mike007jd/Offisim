@@ -1,5 +1,8 @@
 import { useUiState } from '@/app/ui-state.js';
-import { useInterruptedRunRecovery } from '@/assistant/runtime/conversation-run-react.js';
+import {
+  useActiveConversationRuns,
+  useInterruptedRunRecovery,
+} from '@/assistant/runtime/conversation-run-react.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 import { AlertTriangle, FileText, RotateCcw, Trash2 } from 'lucide-react';
@@ -33,7 +36,13 @@ function summarizeUsage(partialUsageJson: string | null): string {
 
 export function RecoveryPanel() {
   const companyId = useUiState((s) => s.companyId);
-  const { cards, resume, discard } = useInterruptedRunRecovery(companyId || null);
+  const activeRuns = useActiveConversationRuns();
+  const hasLiveActiveRun =
+    Boolean(companyId) &&
+    activeRuns.activeRuns.some((run) => run.companyId === companyId && run.attemptId);
+  const { cards, resume, discard } = useInterruptedRunRecovery(companyId || null, {
+    skipReconcile: hasLiveActiveRun,
+  });
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [busyRunId, setBusyRunId] = useState<string | null>(null);
 

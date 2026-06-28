@@ -26,8 +26,11 @@ export async function loadInterruptedRunRecoveryCards(input: {
   repo: AgentRunRepository;
   companyId: string;
   now: () => string;
+  skipReconcile?: boolean;
 }): Promise<InterruptedRunCard[]> {
-  const result = await reconcileInterruptedRuns(input);
+  const result = input.skipReconcile
+    ? { cards: [] }
+    : await reconcileInterruptedRuns(input);
   const merged = new Map<string, InterruptedRunCard>(
     result.cards.map((card) => [card.runId, card]),
   );
@@ -45,9 +48,28 @@ export function useInterruptedRunRecovery(companyId: string | null): {
   resume: (runId: string) => Promise<void>;
   discard: (runId: string) => Promise<void>;
   refetch: () => Promise<void>;
+};
+export function useInterruptedRunRecovery(
+  companyId: string | null,
+  options: { skipReconcile?: boolean },
+): {
+  cards: InterruptedRunCard[];
+  resume: (runId: string) => Promise<void>;
+  discard: (runId: string) => Promise<void>;
+  refetch: () => Promise<void>;
+};
+export function useInterruptedRunRecovery(
+  companyId: string | null,
+  options: { skipReconcile?: boolean } = {},
+): {
+  cards: InterruptedRunCard[];
+  resume: (runId: string) => Promise<void>;
+  discard: (runId: string) => Promise<void>;
+  refetch: () => Promise<void>;
 } {
+  const skipReconcile = options.skipReconcile === true;
   const [cards, setCards] = useState<InterruptedRunCard[]>(() =>
-    companyId ? (cardsByCompany.get(companyId) ?? []) : [],
+    companyId && !skipReconcile ? (cardsByCompany.get(companyId) ?? []) : [],
   );
 
   const load = useCallback(
@@ -56,11 +78,10 @@ export function useInterruptedRunRecovery(companyId: string | null): {
         setCards([]);
         return;
       }
-      if (!force && hydratedByCompany.has(companyId)) {
+      if (!skipReconcile && !force && hydratedByCompany.has(companyId)) {
         setCards(cardsByCompany.get(companyId) ?? []);
         return;
       }
-      hydratedByCompany.add(companyId);
       try {
         const repos = await getRepos();
         if (!repos.agentRuns) {
@@ -72,14 +93,16 @@ export function useInterruptedRunRecovery(companyId: string | null): {
           repo: repos.agentRuns,
           companyId,
           now: () => new Date().toISOString(),
+          skipReconcile,
         });
+        if (!skipReconcile) hydratedByCompany.add(companyId);
         setCards(cacheCards(companyId, loadedCards));
       } catch (err) {
         hydratedByCompany.delete(companyId);
         console.warn('[useInterruptedRunRecovery] recovery hydration failed', { companyId, err });
       }
     },
-    [companyId],
+    [companyId, skipReconcile],
   );
 
   useEffect(() => {
