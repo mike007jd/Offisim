@@ -57,7 +57,6 @@ interface PiAgentStatusResponse {
     exists: boolean;
     providerCount: number;
     modelCount: number;
-    overrideCount: number;
     providers: string[];
     parseError?: string;
   };
@@ -125,7 +124,7 @@ export function PiAgentPane() {
     : modelsConfig?.exists
       ? 'present'
       : 'not created';
-  const customProviders = modelsConfig?.providers ?? [];
+  const registryProviders = modelsConfig?.providers ?? [];
   const shownModels = useMemo(() => status?.availableModels.slice(0, 16) ?? [], [status]);
 
   const refresh = useCallback(async () => {
@@ -290,9 +289,8 @@ export function PiAgentPane() {
               </div>
               <div className="off-set-pi-config-meta">
                 <span>{modelsConfigState}</span>
-                <span>{modelsConfig?.providerCount ?? 0} custom providers</span>
-                <span>{modelsConfig?.modelCount ?? 0} custom models</span>
-                <span>{modelsConfig?.overrideCount ?? 0} overrides</span>
+                <span>{modelsConfig?.providerCount ?? 0} loaded providers</span>
+                <span>{modelsConfig?.modelCount ?? 0} registry models</span>
               </div>
             </div>
             <div className="off-set-catalog-src">
@@ -305,10 +303,10 @@ export function PiAgentPane() {
                 available
               </div>
               <div className="off-set-pi-config-meta">
-                {customProviders.slice(0, 4).map((provider) => (
+                {registryProviders.slice(0, 4).map((provider) => (
                   <span key={provider}>{provider}</span>
                 ))}
-                {customProviders.length ? null : <span>built-ins only</span>}
+                {registryProviders.length ? null : <span>built-ins only</span>}
               </div>
             </div>
           </div>
