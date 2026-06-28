@@ -82,7 +82,7 @@ export type PiAgentHostEvent =
 // from the camelCase wire contract shared with the Rust host (pi_agent_host.rs)
 // and the Node emitter (scripts/pi-agent-host-wire.mjs). The runtime round-trip is
 // gated by check:pi-wire-contract and the cargo fixture test.
-export const PI_WIRE_CONTRACT_EXAMPLES = [
+void ([
   { kind: 'started', sessionId: 's', sessionFile: '/f', modelFallbackMessage: 'm' },
   { kind: 'messageDelta', delta: 'x', channel: 'content' },
   { kind: 'messageDelta', delta: 'r', channel: 'reasoning' },
@@ -116,4 +116,4 @@ export const PI_WIRE_CONTRACT_EXAMPLES = [
   },
   { kind: 'result', response: { text: 't', reasoning: 'r', sessionId: 's', sessionFile: '/f' } },
   { kind: 'error', code: 'upstream', message: 'm' },
-] satisfies PiAgentHostEvent[];
+] satisfies PiAgentHostEvent[]);

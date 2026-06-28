@@ -40,18 +40,17 @@ area; spacing belongs inside panels, rails, and toolbar regions.
   external A2A and unverified model transports must not masquerade as local
   tool executors.
 
-## AI Provider Policy (hard rule)
+## AI Runtime Policy (hard rule)
 
-- OpenRouter may stay visible in the provider list / catalog, and the user may
-  manually save an OpenRouter key in Settings. Do not auto-create runtime
-  profiles from `OPENROUTER_*` environment variables, do not read OpenRouter
-  keys from env, and do not recommend OpenRouter models by default.
-- Testing "OpenAI" or "Anthropic" lanes always goes through the
-  openai-compatible / anthropic-compatible endpoints of z.ai or MiniMax (both
-  publish official compat docs). Never test against real OpenAI/Anthropic keys
-  and never recommend buying them.
-- Settings provider presentation is OpenAI-first for polish; actual chat
-  routing stays credential-based (z.ai / MiniMax).
+- Pi Agent is the only active runtime. Offisim must not restore a provider/model
+  catalog, runtime provider profiles, Claude/Codex sidecars, or OpenAI Agents SDK
+  lane as the main execution path.
+- Settings may only express Pi Agent account/runtime/model config state,
+  including safe summaries and entry points for Pi-owned `~/.pi/agent/auth.json`
+  and `models.json`.
+- Any future Claude/Codex return must be a mutually exclusive runtime-engine
+  replacement with independent release `.app` evidence, not a provider lane
+  inside Pi Agent.
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence

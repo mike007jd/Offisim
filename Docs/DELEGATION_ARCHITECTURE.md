@@ -128,7 +128,7 @@ Root Pi Host Process (Rust-spawned, still single-shot)
 
 Neutral event AgentRunEvent { threadId, rootRunId, runId, parentRunId?, employeeId?, relation?, type, payload }
    → Node host stdout (single `agentRun` wire kind)
-   → Rust wire (PiAgentHostEvent::AgentRun, protocol v2)
+   → Rust wire (PiAgentHostEvent::AgentRun, protocol v4)
    → renderer Channel onmessage → runtimeEventBus (neutral `agent.run.*`)
    → run-tree projection → chat (RunActivityStrip) + office (employee run states)
 
@@ -267,7 +267,7 @@ agent-agnostic.
 - **Gate**: the `agentRun` spec (required: `threadId`, `rootRunId`, `runId`,
   `runType`, `payload`; allowed: + `parentRunId`, `employeeId`, `relation`,
   `workKind`) in `scripts/check-pi-wire-contract.mjs`, plus a cargo round-trip test.
-- **Protocol version**: `PI_HOST_PROTOCOL_VERSION = 2`. `workKind` was added as an
+- **Protocol version**: `PI_HOST_PROTOCOL_VERSION = 4`. `workKind` was added as an
   optional-additive field (no required-shape change), so it did NOT bump the
   version — the wire convention bumps only when a line's *required* shape changes.
 

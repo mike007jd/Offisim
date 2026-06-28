@@ -93,27 +93,6 @@ export interface WsThread {
   messages: WsMessage[];
 }
 
-/* ── System notification channel ─────────────────────────────────────────── */
-
-export type SysLevel = 'info' | 'success' | 'warning' | 'error';
-export type SysSource = 'runtime' | 'hr' | 'market' | 'install';
-
-interface SysAction {
-  id: string;
-  label: string;
-  primary?: boolean;
-}
-
-export interface SysCard {
-  id: string;
-  level: SysLevel;
-  source: SysSource;
-  title: string;
-  timeLabel: string;
-  message: string;
-  actions: SysAction[];
-}
-
 /* ── Contacts (the employee directory KV view) ───────────────────────────── */
 
 export interface ContactDetail {
@@ -350,67 +329,6 @@ const threadsById: Record<string, WsThread> = {
   },
 };
 
-const systemCards: SysCard[] = [
-  {
-    id: 'sys-1',
-    level: 'success',
-    source: 'hr',
-    title: 'Assessment complete',
-    timeLabel: '14:18',
-    message:
-      'HR Bot finished assessing the Relay Launch needs and recommends 3 roles: QA Engineer, Tech Writer, Release Manager.',
-    actions: [
-      { id: 'sys-1-a', label: 'Review roles', primary: true },
-      { id: 'sys-1-b', label: 'Dismiss' },
-    ],
-  },
-  {
-    id: 'sys-2',
-    level: 'info',
-    source: 'market',
-    title: 'Skill installed',
-    timeLabel: '13:40',
-    message:
-      '“PDF Table Extractor” was installed and is now available to your employees’ tool pool.',
-    actions: [{ id: 'sys-2-a', label: 'Open in Market' }],
-  },
-  {
-    id: 'sys-3',
-    level: 'warning',
-    source: 'runtime',
-    title: 'Vault sync failed',
-    timeLabel: '12:02',
-    message:
-      "Couldn't sync Sela Ortiz's employee markdown to the vault — retried twice. Her latest persona edits may be unsaved.",
-    actions: [
-      { id: 'sys-3-a', label: 'Retry sync' },
-      { id: 'sys-3-b', label: 'View employee' },
-    ],
-  },
-  {
-    id: 'sys-4',
-    level: 'error',
-    source: 'runtime',
-    title: 'Run halted',
-    timeLabel: '11:31',
-    message:
-      '​A step in “Attachment pipeline” errored after 3 retries (provider timeout). The run is paused for your decision.',
-    actions: [
-      { id: 'sys-4-a', label: 'Open run', primary: true },
-      { id: 'sys-4-b', label: 'Retry' },
-    ],
-  },
-  {
-    id: 'sys-5',
-    level: 'info',
-    source: 'install',
-    title: 'Employee onboarded',
-    timeLabel: 'Mon',
-    message: 'Devin Park (devops) finished onboarding and was seated in the DevOps zone.',
-    actions: [],
-  },
-];
-
 /** Contact KV detail keyed by employee id (joined against `useEmployees()`). */
 const contactDetails: Record<string, ContactDetail> = {
   'emp-mara': {
@@ -612,20 +530,6 @@ export function useWsThread(conversationId: string | null) {
   });
 }
 
-export function useWsSystemCards() {
-  return useQuery({
-    queryKey: ['ws', 'system'],
-    queryFn: async (): Promise<SysCard[]> => {
-      // The real conversation list (chat_threads) produces no `system` row, so
-      // the System channel never opens in release — runtime / HR / market /
-      // install events live in the Activity Log. Return [] in release; keep the
-      // demo fixture for browser preview.
-      if (isTauriRuntime()) return [];
-      return resolveAsync(systemCards);
-    },
-  });
-}
-
 function ageLabelFrom(createdAtMs: number, now: number): string {
   const diff = Math.max(0, now - createdAtMs);
   const min = 60_000;
@@ -635,22 +539,6 @@ function ageLabelFrom(createdAtMs: number, now: number): string {
   if (diff < hour) return `${Math.floor(diff / min)}m`;
   if (diff < day) return `${Math.floor(diff / hour)}h`;
   return `${Math.floor(diff / day)}d`;
-}
-
-const DAY_LABEL_FMT = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
-
-/** Day separator label for a message timestamp: Today / Yesterday / "Jun 8". */
-export function dayLabelFrom(atMs: number, now: number): string {
-  const d = new Date(atMs);
-  const n = new Date(now);
-  if (d.toDateString() === n.toDateString()) return 'Today';
-  // Local-calendar yesterday (midnight minus a day), not now-24h: a flat
-  // 86400000ms offset lands on the wrong date across DST transitions.
-  const yest = new Date(now);
-  yest.setHours(0, 0, 0, 0);
-  yest.setDate(yest.getDate() - 1);
-  if (d.toDateString() === yest.toDateString()) return 'Yesterday';
-  return DAY_LABEL_FMT.format(d);
 }
 
 /* ── Contacts detail real-bind (employee row + workstation zone + chat count) ─ */

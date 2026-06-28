@@ -42,7 +42,7 @@ export interface ComposerLoopReference {
 
 /** Result of an insert attempt: `ok` carries the new ref; otherwise a reason the
  *  caller surfaces (the v1 single-primary rule, or a same-revision no-op). */
-export type InsertLoopReferenceResult =
+type InsertLoopReferenceResult =
   | { ok: true; reference: ComposerLoopReference }
   | { ok: false; reason: 'already-present'; existing: ComposerLoopReference };
 

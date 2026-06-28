@@ -86,17 +86,6 @@ export async function openLoopInOffice(
 }
 
 /**
- * Resume a "Use in Office" flow once a project has been chosen (called by whoever
- * fulfils `pendingLoopProjectSelect`). Re-enters `openLoopInOffice` now that a
- * project is active.
- */
-export async function resumeLoopInOfficeAfterProjectSelect(): Promise<void> {
-  const intent = useUiState.getState().consumePendingLoopProjectSelect();
-  if (!intent) return;
-  await openLoopInOffice(intent.loopId, intent.revisionId);
-}
-
-/**
  * Insert a Loop chip into the CURRENTLY-OPEN Office thread (the `/loop` picker
  * path — the user is already in a conversation). Shares the single-primary rule
  * and the same store as "Use in Office". Surfaces the v1 block as a toast.
@@ -119,8 +108,8 @@ export function insertLoopReferenceFromPicker(
 }
 
 /** The shared insert both entries funnel through (enforces the v1 single-primary
- *  rule via the store). Exported for the harness to assert the shared boundary. */
-export function applyLoopReference(threadId: string, input: InsertLoopReferenceInput) {
+ *  rule via the store). */
+function applyLoopReference(threadId: string, input: InsertLoopReferenceInput) {
   return useComposerLoopReferenceStore.getState().insertReference(threadId, input);
 }
 

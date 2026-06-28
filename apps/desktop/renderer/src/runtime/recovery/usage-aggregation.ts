@@ -9,7 +9,7 @@
 import type { AgentRunRow } from '@offisim/core/browser';
 import type { AgentRunUsage } from '@offisim/shared-types';
 
-export interface AggregatedUsage {
+interface AggregatedUsage {
   input: number;
   output: number;
   cacheRead: number;

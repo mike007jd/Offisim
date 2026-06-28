@@ -9,7 +9,7 @@ import { BaseEdge, EdgeLabelRenderer, type EdgeProps, getSmoothStepPath } from '
 import type { ProjectedEdge } from './loop-graph-adapter.js';
 import { EDGE_GRAMMAR } from './loop-graph-grammar.js';
 
-export interface LoopGraphEdgeData extends Record<string, unknown> {
+interface LoopGraphEdgeData extends Record<string, unknown> {
   projected: ProjectedEdge;
 }
 

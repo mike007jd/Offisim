@@ -7,7 +7,7 @@
 
 import type { LoopIR, LoopParameter } from '@offisim/shared-types';
 
-export interface GeneratedDetailRow {
+interface GeneratedDetailRow {
   label: string;
   value: string;
 }

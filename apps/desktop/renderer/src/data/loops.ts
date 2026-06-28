@@ -47,7 +47,7 @@ export function buildLoopService(repos: RuntimeRepositories): LoopService {
   });
 }
 
-export const loopKeys = {
+const loopKeys = {
   list: (companyId: string | null) => ['loops', companyId] as const,
   detail: (loopId: string | null) => ['loop', loopId] as const,
   revisions: (loopId: string | null) => ['loop-revisions', loopId] as const,
@@ -76,7 +76,7 @@ export const loopKeys = {
  * `answers` (prior clarifying-question responses, supplied on a recompile) are fed
  * to the enhance as a `feedback` steer so the model can resolve what it asked.
  */
-export function createLoopCompileModel(opts?: {
+function createLoopCompileModel(opts?: {
   /** Honor a conversation's model/thinking override (cosmetic for enhance). */
   threadId?: string;
   locale?: string;

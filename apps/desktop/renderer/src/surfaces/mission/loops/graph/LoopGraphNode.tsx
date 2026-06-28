@@ -12,7 +12,7 @@ import { ArrowRight } from 'lucide-react';
 import type { ProjectedNode } from './loop-graph-adapter.js';
 import { NODE_GRAMMAR } from './loop-graph-grammar.js';
 
-export interface LoopGraphNodeData extends Record<string, unknown> {
+interface LoopGraphNodeData extends Record<string, unknown> {
   projected: ProjectedNode;
   selected: boolean;
   onOpenSubloop: (graphId: string) => void;

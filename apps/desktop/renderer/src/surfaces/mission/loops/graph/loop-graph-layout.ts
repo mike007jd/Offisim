@@ -17,7 +17,7 @@
 import type { ProjectedEdge, ProjectedNode } from './loop-graph-adapter.js';
 
 /** A laid-out node: projected node + absolute position + measured size. */
-export interface LaidOutNode {
+interface LaidOutNode {
   id: string;
   x: number;
   y: number;
