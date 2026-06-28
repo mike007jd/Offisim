@@ -16,7 +16,7 @@ const LOCAL_SCHEMA_SQL: &str = include_str!("../../../../packages/db-local/src/s
 /// (b) bump this constant by 1, and (c) add a matching upgrade entry to
 /// `MIGRATIONS` so released user databases have an upgrade path. Public migration
 /// history starts only after the first public release baseline.
-const LOCAL_SCHEMA_VERSION: i64 = 7;
+const LOCAL_SCHEMA_VERSION: i64 = 8;
 
 /// Ordered upgrade chain for existing user databases: `(target_version, sql)`
 /// where each entry upgrades `target_version - 1` → `target_version`. Each entry
@@ -49,6 +49,10 @@ const MIGRATIONS: &[(i64, &str)] = &[
     (
         7,
         include_str!("../../../../packages/db-local/src/migrations/0007_agent_run_interrupted.sql"),
+    ),
+    (
+        8,
+        include_str!("../../../../packages/db-local/src/migrations/0008_mcp_tool_grants.sql"),
     ),
 ];
 
@@ -657,6 +661,117 @@ mod tests {
                 .await
                 .unwrap();
         assert_eq!(root_status, "interrupted");
+    }
+
+    #[tokio::test]
+    async fn migration_0008_adds_mcp_grants_and_drops_graph_thread_fks() {
+        let fresh = memory_pool().await;
+        ensure_schema(&fresh, LOCAL_SCHEMA_VERSION, LOCAL_SCHEMA_SQL, MIGRATIONS)
+            .await
+            .expect("fresh bootstrap to v8");
+        assert_eq!(
+            read_user_version(&fresh).await.unwrap(),
+            LOCAL_SCHEMA_VERSION
+        );
+        let fresh_sig = schema_object_signature(&fresh).await;
+
+        let migrated = memory_pool().await;
+        apply_sql_and_stamp(&migrated, LOCAL_SCHEMA_SQL, LOCAL_SCHEMA_VERSION, "seed v8 baseline")
+            .await
+            .expect("seed v8 baseline");
+        let rewind_to_v7 = "\
+            PRAGMA defer_foreign_keys = ON;\n\
+            DROP TABLE IF EXISTS mcp_tool_grants;\n\
+            DROP TABLE mcp_audit_log;\n\
+            CREATE TABLE mcp_audit_log (\n\
+              audit_id TEXT PRIMARY KEY,\n\
+              thread_id TEXT NOT NULL REFERENCES graph_threads(thread_id) ON DELETE CASCADE,\n\
+              task_run_id TEXT REFERENCES task_runs(task_run_id) ON DELETE SET NULL,\n\
+              employee_id TEXT NOT NULL,\n\
+              server_name TEXT NOT NULL,\n\
+              tool_name TEXT NOT NULL,\n\
+              arguments_json TEXT NOT NULL,\n\
+              result_json TEXT,\n\
+              error TEXT,\n\
+              latency_ms INTEGER NOT NULL,\n\
+              approved_by TEXT NOT NULL DEFAULT 'auto',\n\
+              created_at TEXT NOT NULL\n\
+            );\n\
+            DROP TABLE tool_permission_approvals;\n\
+            CREATE TABLE tool_permission_approvals (\n\
+              approval_id TEXT PRIMARY KEY,\n\
+              thread_id TEXT NOT NULL REFERENCES graph_threads(thread_id) ON DELETE CASCADE,\n\
+              company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,\n\
+              employee_id TEXT,\n\
+              server_name TEXT NOT NULL,\n\
+              tool_name TEXT NOT NULL,\n\
+              scope TEXT NOT NULL CHECK (scope IN ('once', 'thread')),\n\
+              approved_by TEXT NOT NULL,\n\
+              policy_hash TEXT NOT NULL,\n\
+              consumed_at TEXT,\n\
+              created_at TEXT NOT NULL,\n\
+              expires_at TEXT\n\
+            );\n\
+            CREATE INDEX idx_mcp_audit_thread ON mcp_audit_log(thread_id);\n\
+            CREATE INDEX idx_mcp_audit_employee ON mcp_audit_log(employee_id);\n\
+            CREATE INDEX idx_mcp_audit_server_tool ON mcp_audit_log(server_name, tool_name);\n\
+            CREATE INDEX idx_tool_perm_approval_lookup ON tool_permission_approvals(thread_id, employee_id, server_name, tool_name, policy_hash);\n\
+            CREATE INDEX idx_tool_perm_approval_company ON tool_permission_approvals(company_id, created_at);\n\
+            CREATE INDEX idx_tool_perm_approval_company_lookup ON tool_permission_approvals(company_id, thread_id, employee_id, server_name, tool_name, policy_hash);\n\
+            INSERT INTO companies (company_id, name, status, created_at, updated_at)\n\
+              VALUES ('co1', 'Co', 'active', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');\n\
+            INSERT INTO graph_threads (thread_id, company_id, entry_mode, root_task_id, status, interaction_mode, created_at, updated_at)\n\
+              VALUES ('graph-thread-1', 'co1', 'boss_chat', NULL, 'running', 'boss_proxy', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');\n\
+            INSERT INTO mcp_audit_log (audit_id, thread_id, employee_id, server_name, tool_name, arguments_json, result_json, error, latency_ms, approved_by, created_at)\n\
+              VALUES ('audit1', 'graph-thread-1', 'emp1', 'filesystem', 'read_file', '{}', '[]', NULL, 12, 'auto', '2026-01-01T00:00:00Z');\n\
+            INSERT INTO tool_permission_approvals (approval_id, thread_id, company_id, employee_id, server_name, tool_name, scope, approved_by, policy_hash, created_at)\n\
+              VALUES ('approval1', 'graph-thread-1', 'co1', 'emp1', 'filesystem', 'write_file', 'thread', 'boss', 'hash1', '2026-01-01T00:00:00Z');";
+        apply_sql_and_stamp(&migrated, rewind_to_v7, 7, "rewind mcp tables to v7 shape")
+            .await
+            .expect("rewind to v7");
+        assert_eq!(read_user_version(&migrated).await.unwrap(), 7);
+
+        ensure_schema(&migrated, LOCAL_SCHEMA_VERSION, LOCAL_SCHEMA_SQL, MIGRATIONS)
+            .await
+            .expect("upgrade v7 → v8 via 0008_mcp_tool_grants");
+        assert_eq!(
+            read_user_version(&migrated).await.unwrap(),
+            LOCAL_SCHEMA_VERSION
+        );
+        let migrated_sig = schema_object_signature(&migrated).await;
+        assert_eq!(
+            fresh_sig, migrated_sig,
+            "0008 migration end-state must match fresh schema.sql bootstrap"
+        );
+
+        raw_sql("PRAGMA foreign_keys = ON")
+            .execute(&migrated)
+            .await
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO mcp_tool_grants \
+             (grant_id, company_id, employee_id, server_name, tool_name, scope, project_id, granted_by, created_at) \
+             VALUES ('grant1', 'co1', 'emp1', 'filesystem', 'read_file', 'employee', NULL, 'boss', '2026-01-01T00:00:00Z')",
+        )
+        .execute(&migrated)
+        .await
+        .expect("mcp_tool_grants exists after 0008");
+        sqlx::query(
+            "INSERT INTO mcp_audit_log \
+             (audit_id, thread_id, employee_id, server_name, tool_name, arguments_json, result_json, error, latency_ms, approved_by, created_at) \
+             VALUES ('audit-chat-only', 'chat-thread-only', 'emp1', 'filesystem', 'read_file', '{}', '[]', NULL, 8, 'auto', '2026-01-01T00:00:00Z')",
+        )
+        .execute(&migrated)
+        .await
+        .expect("mcp audit must accept chat_threads ids without a graph_threads row");
+        sqlx::query(
+            "INSERT INTO tool_permission_approvals \
+             (approval_id, thread_id, company_id, employee_id, server_name, tool_name, scope, approved_by, policy_hash, created_at) \
+             VALUES ('approval-chat-only', 'chat-thread-only', 'co1', 'emp1', 'filesystem', 'write_file', 'thread', 'boss', 'hash2', '2026-01-01T00:00:00Z')",
+        )
+        .execute(&migrated)
+        .await
+        .expect("tool approvals must accept chat_threads ids without a graph_threads row");
     }
 
     #[tokio::test]

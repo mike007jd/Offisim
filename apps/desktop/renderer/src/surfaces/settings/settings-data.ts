@@ -11,7 +11,7 @@ import { UI_DATA_COLORS } from '@/data/color-palette.js';
  * of the company roster.
  */
 import { resolveAsync } from '@/lib/platform.js';
-import type { EmployeeRow } from '@offisim/core/browser';
+import type { EmployeeRow, McpToolGrantRow, NewMcpToolGrant } from '@offisim/core/browser';
 import { readResponseTextWithLimit } from '@offisim/registry-client';
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
@@ -115,12 +115,38 @@ interface McpServerStatusRow {
   name: string;
   state: string;
   toolCount: number;
+  tools?: McpToolInfo[];
 }
 
 interface McpSpawnResult {
   serverName: string;
   state: string;
-  tools: Array<{ name: string }>;
+  tools: McpToolInfo[];
+}
+
+export interface McpToolInfo {
+  name: string;
+  description: string;
+  inputSchema: unknown;
+  annotations?: {
+    title?: string;
+    readOnlyHint?: boolean;
+    destructiveHint?: boolean;
+    idempotentHint?: boolean;
+    openWorldHint?: boolean;
+  } | null;
+}
+
+export interface McpToolGrant {
+  readonly id: string;
+  readonly companyId: string;
+  readonly employeeId: string;
+  readonly serverName: string;
+  readonly toolName: string;
+  readonly scope: string;
+  readonly projectId: string | null;
+  readonly grantedBy: string;
+  readonly createdAt: string;
 }
 
 function normalizeMcpSource(source: string | null | undefined): McpSource {
@@ -241,6 +267,69 @@ export async function unregisterMcpServer(server: McpServer): Promise<void> {
     await invoke('mcp_kill', { server: server.name }).catch(() => undefined);
   }
   await invoke('mcp_unregister_server', { serverId: server.id });
+}
+
+function mcpToolGrantFromRow(row: McpToolGrantRow): McpToolGrant {
+  return {
+    id: row.grant_id,
+    companyId: row.company_id,
+    employeeId: row.employee_id,
+    serverName: row.server_name,
+    toolName: row.tool_name,
+    scope: row.scope,
+    projectId: row.project_id,
+    grantedBy: row.granted_by,
+    createdAt: row.created_at,
+  };
+}
+
+export async function loadMcpToolGrants(
+  companyId: string,
+  employeeId: string,
+): Promise<McpToolGrant[]> {
+  const repos = await reposOrNull();
+  if (!repos?.mcpToolGrants) return [];
+  const rows = await repos.mcpToolGrants.listByEmployee(companyId, employeeId);
+  return rows.map(mcpToolGrantFromRow);
+}
+
+export async function grantMcpTool(input: {
+  companyId: string;
+  employeeId: string;
+  serverName: string;
+  toolName: string;
+  projectId?: string | null;
+  grantedBy?: string;
+}): Promise<McpToolGrant> {
+  const repos = await reposOrNull();
+  if (!repos?.mcpToolGrants) throw new Error('MCP grants repository is unavailable.');
+  const row: NewMcpToolGrant = {
+    grant_id: crypto.randomUUID(),
+    company_id: input.companyId,
+    employee_id: input.employeeId,
+    server_name: input.serverName,
+    tool_name: input.toolName,
+    scope: input.projectId ? 'project' : 'employee',
+    project_id: input.projectId ?? null,
+    granted_by: input.grantedBy ?? 'boss',
+  };
+  return mcpToolGrantFromRow(await repos.mcpToolGrants.create(row));
+}
+
+export async function revokeMcpTool(input: {
+  companyId: string;
+  employeeId: string;
+  serverName: string;
+  toolName: string;
+}): Promise<void> {
+  const repos = await reposOrNull();
+  if (!repos?.mcpToolGrants) return;
+  await repos.mcpToolGrants.delete(
+    input.companyId,
+    input.employeeId,
+    input.serverName,
+    input.toolName,
+  );
 }
 
 // ───────────────────────── External Employees ─────────────────────────
@@ -485,6 +574,15 @@ export function useMcpServers() {
     queryFn: loadMcpServers,
     placeholderData: [],
     refetchOnMount: 'always',
+  });
+}
+
+export function useMcpToolGrants(companyId: string | null, employeeId: string | null) {
+  return useQuery<McpToolGrant[]>({
+    queryKey: ['settings', 'mcp-tool-grants', companyId, employeeId],
+    queryFn: () => loadMcpToolGrants(companyId ?? '', employeeId ?? ''),
+    enabled: Boolean(companyId && employeeId),
+    placeholderData: [],
   });
 }
 

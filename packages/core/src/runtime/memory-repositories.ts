@@ -12,6 +12,7 @@ import { createLlmMemoryRepos } from './repos/llm/memory.js';
 import { createLoopMemoryRepos } from './repos/loops/memory.js';
 import { createMemorySystemMemoryRepos } from './repos/memory-system/memory.js';
 import type { MemoryRepositoriesSnapshot, MemoryRepositorySeed } from './repos/memory-types.js';
+import { createMcpToolGrantsMemoryRepos } from './repos/mcp-tool-grants/memory.js';
 import { createMissionMemoryRepos } from './repos/mission/memory.js';
 import { createOrchestrationMemoryRepos } from './repos/orchestration/memory.js';
 import { createPermissionsMemoryRepos } from './repos/permissions/memory.js';
@@ -77,6 +78,9 @@ export {
   MemoryNodeSummaryRepository,
 } from './repos/memory-system/memory.js';
 export {
+  MemoryMcpToolGrantRepository,
+} from './repos/mcp-tool-grants/memory.js';
+export {
   MemoryCompanyRepository,
   MemoryEventRepository,
   MemoryTaskRunRepository,
@@ -111,6 +115,7 @@ export function createMemoryRepositories(
   const llmFamily = createLlmMemoryRepos(snapshot);
   const installFamily = createMemoryInstallRepositories(snapshot);
   const permissionsFamily = createPermissionsMemoryRepos(snapshot);
+  const mcpToolGrantsFamily = createMcpToolGrantsMemoryRepos(snapshot);
   const memorySystemFamily = createMemorySystemMemoryRepos(snapshot);
   const filesFamily = createFilesMemoryRepos(snapshot);
   const workspaceFamily = createWorkspaceMemoryRepos(snapshot);
@@ -139,6 +144,7 @@ export function createMemoryRepositories(
     ...llmFamily,
     ...installFamily,
     ...permissionsFamily,
+    ...mcpToolGrantsFamily,
     ...memorySystemFamily,
     ...filesFamily,
     ...workspaceFamily,
@@ -181,6 +187,7 @@ export function createMemoryRepositories(
         slots: permissionsFamily.slots.snapshot(),
         workstationRacks: permissionsFamily.workstationRacks.snapshot(),
         mcpAudit: permissionsFamily.mcpAudit.snapshot(),
+        mcpToolGrants: mcpToolGrantsFamily.mcpToolGrants.snapshot(),
         toolPermissionApprovals: permissionsFamily.toolPermissionApprovals.snapshot(),
         memories: memorySystemFamily.memories.snapshot(),
         nodeSummaries: memorySystemFamily.nodeSummaries.snapshot(),

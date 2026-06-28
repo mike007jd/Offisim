@@ -12,6 +12,7 @@ import { createInstallDrizzleRepos } from './repos/install/drizzle.js';
 import { createLlmDrizzleRepos } from './repos/llm/drizzle.js';
 import { createLoopDrizzleRepos } from './repos/loops/drizzle.js';
 import { createMemorySystemDrizzleRepos } from './repos/memory-system/drizzle.js';
+import { createMcpToolGrantsDrizzleRepos } from './repos/mcp-tool-grants/drizzle.js';
 import { createMissionDrizzleRepos } from './repos/mission/drizzle.js';
 import { createOrchestrationDrizzleRepos } from './repos/orchestration/drizzle.js';
 import { createPermissionsDrizzleRepos } from './repos/permissions/drizzle.js';
@@ -57,6 +58,7 @@ export function createDrizzleRepositories(db: Db, _eventBus?: EventBus): Runtime
     ...createLlmDrizzleRepos(db),
     ...createInstallDrizzleRepos(db),
     ...createPermissionsDrizzleRepos(db),
+    ...createMcpToolGrantsDrizzleRepos(db),
     ...createMemorySystemDrizzleRepos(db),
     ...createFilesDrizzleRepos(db),
     ...createWorkspaceDrizzleRepos(db),

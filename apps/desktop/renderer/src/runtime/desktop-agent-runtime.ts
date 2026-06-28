@@ -1,4 +1,4 @@
-import { buildDelegationContext } from '@/data/employee-persona.js';
+import { buildDelegationContext, buildMcpScope } from '@/data/employee-persona.js';
 import { ensureProjectBoundForRun } from '@/runtime/ensure-default-workspace.js';
 import { agentRunEvent, llmStreamChunk, toolExecutionTelemetry } from '@offisim/core/browser';
 import type { RuntimeRepositories } from '@offisim/core/browser';
@@ -410,6 +410,10 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
         return;
       }
       if (event.kind === 'agentRun') {
+        if (event.runType === 'mcp.tool.called') {
+          this.enqueuePersist(() => this.persistMcpToolCall(event, input.employeeId));
+          return;
+        }
         // Mission-bridge signals (MS-005) ride the same `agentRun` wire kind but
         // are NOT run-tree dramaturgy events — they are verification signals for
         // the MissionRunController, not the AgentRunEvent union. Intercept them
@@ -489,6 +493,12 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       this.companyId,
       input.employeeId,
     ).catch(() => ({ systemPromptAppend: null, roster: [] }));
+    const mcpTools = await buildMcpScope(
+      this.repos,
+      this.companyId,
+      input.employeeId,
+      projectId,
+    ).catch(() => []);
 
     // Open the root run on the stream + persist its row BEFORE the invoke, so it
     // commits ahead of any child's run.started write on the serialized persist
@@ -526,6 +536,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           // this run's rootRunId so the MissionRunController correlates them to the
           // attempt. Undefined on a plain chat — host registers no mission bridge.
           missionContextJson: input.missionContextJson?.trim() || undefined,
+          mcpTools,
         },
         onEvent,
       })) as PiAgentHostResponse;
@@ -740,6 +751,73 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     // Row committed — now fan the run event onto the bus so the Outputs refetch
     // (useDeliverableRefresh) sees artifact.created with the row already present.
     runtimeEventBus.emit(agentRunEvent(this.companyId, evt));
+  }
+
+  private async persistMcpToolCall(
+    event: Extract<PiAgentHostEvent, { kind: 'agentRun' }>,
+    fallbackEmployeeId: string | null,
+  ): Promise<void> {
+    const payload = (event.payload ?? {}) as {
+      server?: unknown;
+      tool?: unknown;
+      arguments?: unknown;
+      result?: unknown;
+      isError?: unknown;
+      error?: unknown;
+      latencyMs?: unknown;
+      write?: unknown;
+      approved?: unknown;
+    };
+    const server = typeof payload.server === 'string' ? payload.server : '';
+    const tool = typeof payload.tool === 'string' ? payload.tool : '';
+    if (!server || !tool) return;
+    const employeeId = event.employeeId ?? fallbackEmployeeId ?? 'unknown';
+    const createdAt = new Date().toISOString();
+    const isError = payload.isError === true;
+    try {
+      await this.repos.mcpAudit.create({
+        audit_id: crypto.randomUUID(),
+        thread_id: event.threadId,
+        task_run_id: null,
+        employee_id: employeeId,
+        server_name: server,
+        tool_name: tool,
+        arguments_json: JSON.stringify(payload.arguments ?? {}),
+        result_json: JSON.stringify(payload.result ?? null),
+        error:
+          typeof payload.error === 'string'
+            ? payload.error
+            : isError
+              ? 'mcp tool returned isError'
+              : null,
+        latency_ms: typeof payload.latencyMs === 'number' ? Math.max(0, payload.latencyMs) : 0,
+        approved_by: payload.approved === true ? 'boss' : 'auto',
+        created_at: createdAt,
+      });
+      if (payload.write === true && payload.approved === true) {
+        await this.repos.toolPermissionApprovals.create({
+          approval_id: crypto.randomUUID(),
+          thread_id: event.threadId,
+          company_id: this.companyId,
+          employee_id: employeeId,
+          server_name: server,
+          tool_name: tool,
+          scope: 'thread',
+          approved_by: 'boss',
+          policy_hash: `${server}:${tool}:write`,
+          consumed_at: null,
+          created_at: createdAt,
+          expires_at: null,
+        });
+      }
+    } catch (err) {
+      console.warn('[desktop-agent-runtime] persist MCP audit failed', {
+        server,
+        tool,
+        threadId: event.threadId,
+        err,
+      });
+    }
   }
 
   abort(threadId: string): void {

@@ -15,6 +15,7 @@ import type {
   LibraryDocumentRow,
   LlmCallRow,
   McpAuditRow,
+  McpToolGrantRow,
   MeetingSessionRow,
   ModelCostRateRow,
   NewRuntimeEvent,
@@ -53,6 +54,7 @@ export interface MemoryRepositoriesSnapshot extends MemoryInstallRepositoriesSna
   llmCalls: LlmCallRow[];
   memories: ReturnType<InMemoryMemoryRepository['snapshot']>;
   mcpAudit: McpAuditRow[];
+  mcpToolGrants: McpToolGrantRow[];
   toolPermissionApprovals: ToolPermissionApprovalRow[];
   nodeSummaries: NodeSummaryRow[];
   compactSummaries: CompactSummaryRow[];

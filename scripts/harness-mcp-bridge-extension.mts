@@ -23,7 +23,7 @@ import {
 
 let passed = 0;
 let failed = 0;
-const TOTAL = 10;
+const TOTAL = 11;
 
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
   try {
@@ -132,7 +132,47 @@ async function main(): Promise<void> {
     assert.notEqual(res.isError, true);
   });
 
-  await check('(6) mcp_call on an unknown tool errors WITHOUT invoking requestMcpResult', async () => {
+  await check('(6) mcp_call emits a neutral audit agentRun line', async () => {
+    const emitted: unknown[] = [];
+    const env = makeFakePi();
+    createMcpBridgeExtensionFactory({
+      mcpTools: [READ_TOOL],
+      requestMcpResult: async () => ({ ok: true, content: [{ type: 'text', text: 'file body' }] }),
+      emit: (line: unknown) => emitted.push(line),
+      threadId: 'thread-1',
+      rootRunId: 'run-1',
+      employeeId: 'emp-1',
+    } as never)(env.pi as never);
+    const tool = env.registered.find((t) => t.name === 'mcp_call') as Record<string, unknown> & {
+      execute: (id: string, p: unknown) => Promise<{ content: Array<{ text?: string }>; isError?: boolean }>;
+    };
+    await tool.execute('1', { name: 'read_file', arguments: { path: 'a' } });
+    assert.equal(emitted.length, 1);
+    assert.deepEqual(
+      emitted[0],
+      {
+        kind: 'agentRun',
+        threadId: 'thread-1',
+        rootRunId: 'run-1',
+        runId: 'run-1',
+        employeeId: 'emp-1',
+        runType: 'mcp.tool.called',
+        payload: {
+          server: 'filesystem',
+          tool: 'read_file',
+          arguments: { path: 'a' },
+          result: { content: [{ type: 'text', text: 'file body' }] },
+          isError: false,
+          error: null,
+          latencyMs: (emitted[0] as { payload: { latencyMs: number } }).payload.latencyMs,
+          write: false,
+          approved: true,
+        },
+      },
+    );
+  });
+
+  await check('(7) mcp_call on an unknown tool errors WITHOUT invoking requestMcpResult', async () => {
     let called = false;
     const req = async () => {
       called = true;
@@ -144,7 +184,7 @@ async function main(): Promise<void> {
     assert.equal(called, false, 'unknown tool must not reach the MCP server');
   });
 
-  await check('(7) gate: write tool pauses for confirm; DENY blocks it', async () => {
+  await check('(8) gate: write tool pauses for confirm; DENY blocks it', async () => {
     const { handler } = build([READ_TOOL, WRITE_TOOL], noop);
     let confirmed = false;
     const ctx = {
@@ -166,7 +206,7 @@ async function main(): Promise<void> {
     assert.equal(okVerdict, undefined, 'approve lets the call run');
   });
 
-  await check('(8) gate: read-only tool runs WITHOUT a prompt', async () => {
+  await check('(9) gate: read-only tool runs WITHOUT a prompt', async () => {
     const { handler } = build([READ_TOOL, WRITE_TOOL], noop);
     let confirmed = false;
     const verdict = await handler()!(
@@ -177,7 +217,7 @@ async function main(): Promise<void> {
     assert.equal(verdict, undefined);
   });
 
-  await check('(9) gate ignores non-mcp_call tool events', async () => {
+  await check('(10) gate ignores non-mcp_call tool events', async () => {
     const { handler } = build([WRITE_TOOL], noop);
     const verdict = await handler()!(
       { toolName: 'bash', input: { command: 'rm -rf /' } },
@@ -186,7 +226,7 @@ async function main(): Promise<void> {
     assert.equal(verdict, undefined, 'the MCP gate only governs mcp_call');
   });
 
-  await check('(10) isWriteMcpTool: explicit flag overrides; annotations fallback', () => {
+  await check('(11) isWriteMcpTool: explicit flag overrides; annotations fallback', () => {
     assert.equal(isWriteMcpTool({ write: false, annotations: { destructiveHint: true } }), false);
     assert.equal(isWriteMcpTool({ write: true, annotations: { readOnlyHint: true } }), true);
     assert.equal(isWriteMcpTool({ annotations: { readOnlyHint: false } }), true);

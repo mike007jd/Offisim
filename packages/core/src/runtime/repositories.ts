@@ -467,6 +467,29 @@ export interface McpAuditRepository {
   ): Promise<boolean>;
 }
 
+export interface McpToolGrantRow {
+  grant_id: string;
+  company_id: string;
+  employee_id: string;
+  server_name: string;
+  tool_name: string;
+  scope: string;
+  project_id: string | null;
+  granted_by: string;
+  created_at: string;
+}
+
+export type NewMcpToolGrant = Omit<McpToolGrantRow, 'created_at'> & {
+  created_at?: string;
+};
+
+export interface McpToolGrantRepository {
+  create(grant: NewMcpToolGrant): Promise<McpToolGrantRow>;
+  listByEmployee(companyId: string, employeeId: string): Promise<McpToolGrantRow[]>;
+  delete(companyId: string, employeeId: string, serverName: string, toolName: string): Promise<void>;
+  hasGrant(companyId: string, employeeId: string, serverName: string, toolName: string): Promise<boolean>;
+}
+
 export type ToolPermissionApprovalScope = 'once' | 'thread';
 
 export interface ToolPermissionApprovalRow {
@@ -1718,6 +1741,7 @@ export interface RuntimeRepositories {
   assetBindings: AssetBindingRepository;
   memories: MemoryRepository;
   mcpAudit: McpAuditRepository;
+  mcpToolGrants?: McpToolGrantRepository;
   toolPermissionApprovals: ToolPermissionApprovalRepository;
   nodeSummaries: NodeSummaryRepository;
   compactSummaries: CompactSummaryRepository;

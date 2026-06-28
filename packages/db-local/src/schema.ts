@@ -660,9 +660,7 @@ export const mcpAuditLog = sqliteTable(
   'mcp_audit_log',
   {
     audit_id: text('audit_id').primaryKey(),
-    thread_id: text('thread_id')
-      .notNull()
-      .references(() => graphThreads.thread_id, { onDelete: 'cascade' }),
+    thread_id: text('thread_id').notNull(),
     task_run_id: text('task_run_id').references(() => taskRuns.task_run_id, {
       onDelete: 'set null',
     }),
@@ -687,9 +685,7 @@ export const toolPermissionApprovals = sqliteTable(
   'tool_permission_approvals',
   {
     approval_id: text('approval_id').primaryKey(),
-    thread_id: text('thread_id')
-      .notNull()
-      .references(() => graphThreads.thread_id, { onDelete: 'cascade' }),
+    thread_id: text('thread_id').notNull(),
     company_id: text('company_id')
       .notNull()
       .references(() => companies.company_id, { onDelete: 'cascade' }),
@@ -720,6 +716,33 @@ export const toolPermissionApprovals = sqliteTable(
       table.policy_hash,
     ),
     index('idx_tool_perm_approval_company').on(table.company_id, table.created_at),
+  ],
+);
+
+export const mcpToolGrants = sqliteTable(
+  'mcp_tool_grants',
+  {
+    grant_id: text('grant_id').primaryKey(),
+    company_id: text('company_id')
+      .notNull()
+      .references(() => companies.company_id, { onDelete: 'cascade' }),
+    employee_id: text('employee_id').notNull(),
+    server_name: text('server_name').notNull(),
+    tool_name: text('tool_name').notNull(),
+    scope: text('scope').notNull().default('employee'),
+    project_id: text('project_id'),
+    granted_by: text('granted_by').notNull(),
+    created_at: text('created_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('idx_mcp_tool_grants_unique').on(
+      table.company_id,
+      table.employee_id,
+      table.server_name,
+      table.tool_name,
+    ),
+    index('idx_mcp_tool_grants_employee').on(table.company_id, table.employee_id),
+    index('idx_mcp_tool_grants_server_tool').on(table.server_name, table.tool_name),
   ],
 );
 

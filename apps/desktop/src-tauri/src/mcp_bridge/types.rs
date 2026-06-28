@@ -103,6 +103,7 @@ pub struct McpServerStatus {
     pub name: String,
     pub state: String,
     pub tool_count: u32,
+    pub tools: Vec<McpToolInfo>,
     pub consecutive_failures: u32,
     pub pid: Option<u32>,
 }

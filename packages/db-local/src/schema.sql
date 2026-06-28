@@ -442,7 +442,7 @@ CREATE TABLE IF NOT EXISTS interaction_history (
 );
 CREATE TABLE IF NOT EXISTS "mcp_audit_log" (
   audit_id TEXT PRIMARY KEY,
-  thread_id TEXT NOT NULL REFERENCES graph_threads(thread_id) ON DELETE CASCADE,
+  thread_id TEXT NOT NULL,
   task_run_id TEXT REFERENCES task_runs(task_run_id) ON DELETE SET NULL,
   employee_id TEXT NOT NULL,
   server_name TEXT NOT NULL,
@@ -453,6 +453,18 @@ CREATE TABLE IF NOT EXISTS "mcp_audit_log" (
   latency_ms INTEGER NOT NULL,
   approved_by TEXT NOT NULL DEFAULT 'auto',
   created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS mcp_tool_grants (
+  grant_id TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+  employee_id TEXT NOT NULL,
+  server_name TEXT NOT NULL,
+  tool_name TEXT NOT NULL,
+  scope TEXT NOT NULL DEFAULT 'employee',
+  project_id TEXT,
+  granted_by TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  UNIQUE(company_id, employee_id, server_name, tool_name)
 );
 CREATE TABLE IF NOT EXISTS zones (
   zone_id TEXT PRIMARY KEY,
@@ -561,7 +573,7 @@ CREATE TABLE IF NOT EXISTS "skills" (
 );
 CREATE TABLE IF NOT EXISTS tool_permission_approvals (
   approval_id TEXT PRIMARY KEY,
-  thread_id TEXT NOT NULL REFERENCES graph_threads(thread_id) ON DELETE CASCADE,
+  thread_id TEXT NOT NULL,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   employee_id TEXT,
   server_name TEXT NOT NULL,
@@ -645,6 +657,10 @@ CREATE INDEX IF NOT EXISTS idx_mcp_audit_employee
   ON mcp_audit_log(employee_id);
 CREATE INDEX IF NOT EXISTS idx_mcp_audit_server_tool
   ON mcp_audit_log(server_name, tool_name);
+CREATE INDEX IF NOT EXISTS idx_mcp_tool_grants_employee
+  ON mcp_tool_grants(company_id, employee_id);
+CREATE INDEX IF NOT EXISTS idx_mcp_tool_grants_server_tool
+  ON mcp_tool_grants(server_name, tool_name);
 CREATE INDEX IF NOT EXISTS idx_zones_company
   ON zones(company_id);
 CREATE INDEX IF NOT EXISTS idx_memory_scope_owner ON memory_entries(scope, owner_id);

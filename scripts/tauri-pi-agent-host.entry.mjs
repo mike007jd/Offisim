@@ -648,6 +648,10 @@ async function runPrompt(payload) {
         createMcpBridgeExtensionFactory({
           mcpTools,
           requestMcpResult: mcpChannel.requestMcpResult,
+          emit,
+          threadId,
+          rootRunId,
+          employeeId: asNonEmptyString(payload.employeeId),
         }),
       );
     }

@@ -20,6 +20,7 @@
 // surface only.
 
 import { Type } from 'typebox';
+import { agentRunLine } from './pi-agent-host-wire.mjs';
 
 const SearchParams = Type.Object({
   query: Type.Optional(
@@ -61,9 +62,16 @@ function textResult(text, isError = false) {
 
 /**
  * Build the MCP bridge extension factory.
- * @param {{ mcpTools: Array<{name:string, server:string, description?:string, inputSchema?:object, annotations?:object, write?:boolean}>, requestMcpResult: (server:string, tool:string, args:object) => Promise<{id:string, ok:boolean, content?:unknown, isError?:boolean, error?:string}> }} deps
+ * @param {{ mcpTools: Array<{name:string, server:string, description?:string, inputSchema?:object, annotations?:object, write?:boolean}>, requestMcpResult: (server:string, tool:string, args:object) => Promise<{id:string, ok:boolean, content?:unknown, isError?:boolean, error?:string}>, emit?: (line: object) => void, threadId?: string, rootRunId?: string, employeeId?: string }} deps
  */
-export function createMcpBridgeExtensionFactory({ mcpTools, requestMcpResult }) {
+export function createMcpBridgeExtensionFactory({
+  mcpTools,
+  requestMcpResult,
+  emit,
+  threadId,
+  rootRunId,
+  employeeId,
+}) {
   // Drop malformed entries up front (a tool needs a name + server to be
   // searchable / callable) so a bad payload entry can't crash search/describe.
   const tools = (Array.isArray(mcpTools) ? mcpTools : []).filter(
@@ -160,7 +168,22 @@ export function createMcpBridgeExtensionFactory({ mcpTools, requestMcpResult }) 
           !Array.isArray(params.arguments)
             ? params.arguments
             : {};
+        const startedAt = Date.now();
         const result = await requestMcpResult(tool.server, name, args);
+        const latencyMs = Math.max(0, Date.now() - startedAt);
+        emitMcpAuditLine({
+          emit,
+          threadId,
+          rootRunId,
+          employeeId,
+          server: tool.server,
+          toolName: name,
+          args,
+          result,
+          latencyMs,
+          write: isWriteMcpTool(tool),
+          approved: true,
+        });
         if (!result || result.ok !== true) {
           return textResult(`MCP call failed: ${result?.error ?? 'unknown error'}`, true);
         }
@@ -171,4 +194,40 @@ export function createMcpBridgeExtensionFactory({ mcpTools, requestMcpResult }) 
       },
     });
   };
+}
+
+function emitMcpAuditLine({
+  emit,
+  threadId,
+  rootRunId,
+  employeeId,
+  server,
+  toolName,
+  args,
+  result,
+  latencyMs,
+  write,
+  approved,
+}) {
+  if (typeof emit !== 'function' || !threadId || !rootRunId) return;
+  emit(
+    agentRunLine({
+      threadId,
+      rootRunId,
+      runId: rootRunId,
+      ...(employeeId ? { employeeId } : {}),
+      runType: 'mcp.tool.called',
+      payload: {
+        server,
+        tool: toolName,
+        arguments: args,
+        result: result?.ok === true ? { content: result.content ?? null } : null,
+        isError: result?.ok === true ? result.isError === true : true,
+        error: result?.ok === true ? null : (result?.error ?? 'unknown error'),
+        latencyMs,
+        write,
+        approved,
+      },
+    }),
+  );
 }

@@ -16,6 +16,7 @@ import { createInstallTauriRepos } from './tauri-repos/install';
 import { createLlmTauriRepos } from './tauri-repos/llm';
 import { createLoopTauriRepos } from './tauri-repos/loops';
 import { createMemorySystemTauriRepos } from './tauri-repos/memory-system';
+import { createMcpToolGrantsTauriRepos } from './tauri-repos/mcp-tool-grants';
 import { createMissionTauriRepos } from './tauri-repos/mission';
 import { createOrchestrationTauriRepos } from './tauri-repos/orchestration';
 import { createPermissionsTauriRepos } from './tauri-repos/permissions';
@@ -45,6 +46,7 @@ export function createTauriRepositories(
     ...createLlmTauriRepos(db),
     ...createInstallTauriRepos(db),
     ...createPermissionsTauriRepos(db),
+    ...createMcpToolGrantsTauriRepos(db),
     ...createMemorySystemTauriRepos(db),
     ...createFilesTauriRepos(db),
     ...createWorkspaceTauriRepos(db),

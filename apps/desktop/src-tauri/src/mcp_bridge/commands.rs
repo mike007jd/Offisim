@@ -341,6 +341,7 @@ pub async fn mcp_list_servers(
             name,
             state: process.state.to_string(),
             tool_count: process.tools.len() as u32,
+            tools: process.tools.clone(),
             consecutive_failures: process.consecutive_failures,
             pid: process.child.id(),
         });

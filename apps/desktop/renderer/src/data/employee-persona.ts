@@ -97,6 +97,29 @@ export interface DelegationContext {
   roster: DelegationRosterEntry[];
 }
 
+export interface McpScopedTool {
+  name: string;
+  server: string;
+  description?: string;
+  inputSchema?: unknown;
+  annotations?: Record<string, unknown>;
+  write?: boolean;
+}
+
+interface RuntimeMcpToolInfo {
+  name?: unknown;
+  description?: unknown;
+  inputSchema?: unknown;
+  input_schema?: unknown;
+  annotations?: unknown;
+}
+
+interface RuntimeMcpServerStatus {
+  name?: unknown;
+  state?: unknown;
+  tools?: RuntimeMcpToolInfo[];
+}
+
 /**
  * Build a turn's full delegation context in ONE pass: a single `findByCompany`
  * (all employee rows) + a single company read derives both the acting employee's
@@ -130,4 +153,72 @@ export async function buildDelegationContext(
     systemPromptAppend: acting ? personaFromRow(acting, companyName) : null,
     roster,
   };
+}
+
+export async function buildMcpScope(
+  repos: RuntimeRepositories,
+  companyId: string,
+  employeeId: string | null,
+  projectId?: string | null,
+  _missionId?: string | null,
+): Promise<McpScopedTool[]> {
+  if (!employeeId || !repos.mcpToolGrants) return [];
+  try {
+    const grants = await repos.mcpToolGrants.listByEmployee(companyId, employeeId);
+    if (grants.length === 0) return [];
+    const { invoke } = await import('@tauri-apps/api/core');
+    const statuses = await invoke<RuntimeMcpServerStatus[]>('mcp_list_servers');
+    const connected = new Map(
+      statuses
+        .filter((server) => server.state === 'ready' && typeof server.name === 'string')
+        .map((server) => [server.name as string, server] as const),
+    );
+    const scoped: McpScopedTool[] = [];
+    for (const grant of grants) {
+      if (grant.project_id && grant.project_id !== projectId) continue;
+      const server = connected.get(grant.server_name);
+      if (!server) continue;
+      const tool = (server.tools ?? []).find((candidate) => candidate.name === grant.tool_name);
+      scoped.push(toMcpScopedTool(grant.server_name, grant.tool_name, tool));
+    }
+    return scoped;
+  } catch {
+    return [];
+  }
+}
+
+function toMcpScopedTool(
+  serverName: string,
+  toolName: string,
+  tool?: RuntimeMcpToolInfo,
+): McpScopedTool {
+  const annotations =
+    tool?.annotations && typeof tool.annotations === 'object'
+      ? normalizeMcpAnnotations(tool.annotations as Record<string, unknown>)
+      : {};
+  return {
+    name: toolName,
+    server: serverName,
+    ...(typeof tool?.description === 'string' ? { description: tool.description } : {}),
+    inputSchema: tool?.inputSchema ?? tool?.input_schema ?? {},
+    annotations,
+    write: isWriteMcpGrant(toolName, annotations),
+  };
+}
+
+function normalizeMcpAnnotations(raw: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...raw,
+    readOnlyHint: raw.readOnlyHint ?? raw.read_only_hint,
+    destructiveHint: raw.destructiveHint ?? raw.destructive_hint,
+    idempotentHint: raw.idempotentHint ?? raw.idempotent_hint,
+    openWorldHint: raw.openWorldHint ?? raw.open_world_hint,
+  };
+}
+
+function isWriteMcpGrant(toolName: string, annotations: Record<string, unknown>): boolean {
+  if (annotations.readOnlyHint === false || annotations.destructiveHint === true) return true;
+  return /(^|_)(write|delete|remove|move|copy|create|edit|update|append|mkdir|touch)(_|$)/i.test(
+    toolName,
+  );
 }
