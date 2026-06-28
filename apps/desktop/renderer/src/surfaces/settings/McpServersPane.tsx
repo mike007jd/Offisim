@@ -18,6 +18,7 @@ import { Globe, Plus, RefreshCw, Terminal, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
+import { McpServerDetailPane } from './McpServerDetailPane.js';
 import { McpStdioConfirmDialog } from './McpStdioConfirmDialog.js';
 import {
   MCP_SERVER_DEFAULTS,
@@ -49,6 +50,7 @@ export function McpServersPane() {
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [busyServerId, setBusyServerId] = useState<string | null>(null);
+  const [selectedServerId, setSelectedServerId] = useState<string | null>(null);
 
   const form = useForm<McpServerFormValues>({
     resolver: zodResolver(mcpServerSchema),
@@ -62,6 +64,9 @@ export function McpServersPane() {
     const sse = servers.filter((s) => s.transport === 'sse');
     return { stdio, sse };
   }, [servers]);
+
+  const selectedServer =
+    selectedServerId === null ? null : servers.find((server) => server.id === selectedServerId);
 
   async function refreshServers() {
     await queryClient.invalidateQueries({ queryKey: ['settings', 'mcp-servers'] });
@@ -179,7 +184,19 @@ export function McpServersPane() {
                 ? 'Refresh tool list'
                 : 'Connect';
           return (
-            <div key={server.id} className="off-set-mcp-row">
+            <div
+              key={server.id}
+              className="off-set-mcp-row"
+              role="button"
+              tabIndex={0}
+              onClick={() => setSelectedServerId(server.id)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  setSelectedServerId(server.id);
+                }
+              }}
+            >
               <div className="min-w-0">
                 <div className="off-set-mcp-name-row">
                   <span className="off-set-mcp-name">{server.name}</span>
@@ -193,7 +210,12 @@ export function McpServersPane() {
                 </div>
                 <div className="off-set-mcp-cmd">{server.command}</div>
               </div>
-              <div className="off-set-row-actions">
+              <div
+                className="off-set-row-actions"
+                onClick={(event) => {
+                  event.stopPropagation();
+                }}
+              >
                 <IconButton
                   icon={RefreshCw}
                   label={connectLabel}
@@ -221,6 +243,20 @@ export function McpServersPane() {
         })}
       </div>
     );
+
+  if (selectedServer) {
+    return (
+      <McpServerDetailPane
+        server={selectedServer}
+        busy={busyServerId === selectedServer.id}
+        desktopAvailable={desktopAvailable}
+        onBack={() => setSelectedServerId(null)}
+        onReconnect={(server) => {
+          void reconnectServer(server);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="off-set-pane">

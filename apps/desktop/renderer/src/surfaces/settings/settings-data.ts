@@ -11,7 +11,12 @@ import { UI_DATA_COLORS } from '@/data/color-palette.js';
  * of the company roster.
  */
 import { resolveAsync } from '@/lib/platform.js';
-import type { EmployeeRow, McpToolGrantRow, NewMcpToolGrant } from '@offisim/core/browser';
+import type {
+  EmployeeRow,
+  McpToolGrantRow,
+  NewMcpAudit,
+  NewMcpToolGrant,
+} from '@offisim/core/browser';
 import { readResponseTextWithLimit } from '@offisim/registry-client';
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
@@ -48,6 +53,7 @@ export interface McpServer {
   readonly approvalId: string;
   readonly commandFingerprint?: string;
   readonly toolCount?: number;
+  readonly tools: readonly McpToolInfo[];
   readonly requestedTools: readonly string[];
   readonly riskyTools: readonly string[];
 }
@@ -124,6 +130,11 @@ interface McpSpawnResult {
   tools: McpToolInfo[];
 }
 
+interface McpToolCallResult {
+  content: unknown;
+  isError: boolean;
+}
+
 export interface McpToolInfo {
   name: string;
   description: string;
@@ -183,6 +194,7 @@ function mcpServerFromRegistered(
   statuses: ReadonlyMap<string, McpServerStatusRow>,
 ): McpServer {
   const runtime = statuses.get(server.name);
+  const tools = runtime?.tools ?? [];
   return {
     id: server.serverId,
     name: server.name,
@@ -192,10 +204,19 @@ function mcpServerFromRegistered(
     command: mcpDisplayCommand(server),
     approvalId: server.approvalId ?? '',
     commandFingerprint: server.commandFingerprint ?? undefined,
-    toolCount: runtime?.toolCount,
+    toolCount: runtime?.toolCount ?? tools.length,
+    tools,
     requestedTools: server.requestedTools ?? [],
     riskyTools: server.riskClass === 'high' ? (server.requestedTools ?? []) : [],
   };
+}
+
+export function isWriteMcpTool(tool: Pick<McpToolInfo, 'name' | 'annotations'>): boolean {
+  const annotations = tool.annotations ?? {};
+  if (annotations.readOnlyHint === false || annotations.destructiveHint === true) return true;
+  return /(^|_)(write|delete|remove|move|copy|create|edit|update|append|mkdir|touch)(_|$)/i.test(
+    tool.name,
+  );
 }
 
 function argsFromForm(value: string): string[] {
@@ -283,10 +304,7 @@ function mcpToolGrantFromRow(row: McpToolGrantRow): McpToolGrant {
   };
 }
 
-export async function loadMcpToolGrants(
-  companyId: string,
-  employeeId: string,
-): Promise<McpToolGrant[]> {
+async function loadMcpToolGrants(companyId: string, employeeId: string): Promise<McpToolGrant[]> {
   const repos = await reposOrNull();
   if (!repos?.mcpToolGrants) return [];
   const rows = await repos.mcpToolGrants.listByEmployee(companyId, employeeId);
@@ -330,6 +348,87 @@ export async function revokeMcpTool(input: {
     input.serverName,
     input.toolName,
   );
+}
+
+function parseToolArguments(value: string): unknown {
+  const trimmed = value
+    .replace(/[\u201c\u201d]/gu, '"')
+    .replace(/[\u2018\u2019]/gu, "'")
+    .trim();
+  if (!trimmed) return {};
+  const parsed = JSON.parse(trimmed) as unknown;
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('Tool arguments must be a JSON object.');
+  }
+  return parsed;
+}
+
+async function writeMcpTestAudit(input: {
+  employeeId: string;
+  serverName: string;
+  toolName: string;
+  argumentsValue: unknown;
+  resultValue: unknown;
+  error: string | null;
+  latencyMs: number;
+}): Promise<void> {
+  const repos = await reposOrNull();
+  if (!repos?.mcpAudit) return;
+  const row: NewMcpAudit = {
+    audit_id: crypto.randomUUID(),
+    thread_id: `settings:mcp-test:${input.serverName}`,
+    task_run_id: null,
+    employee_id: input.employeeId,
+    server_name: input.serverName,
+    tool_name: input.toolName,
+    arguments_json: JSON.stringify(input.argumentsValue),
+    result_json: JSON.stringify(input.resultValue),
+    error: input.error,
+    latency_ms: Math.max(0, Math.round(input.latencyMs)),
+    approved_by: 'boss',
+    created_at: new Date().toISOString(),
+  };
+  await repos.mcpAudit.create(row);
+}
+
+export async function testMcpTool(input: {
+  serverName: string;
+  toolName: string;
+  argsText: string;
+  employeeId?: string | null;
+}): Promise<McpToolCallResult> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  const argumentsValue = parseToolArguments(input.argsText);
+  const started = performance.now();
+  const employeeId = input.employeeId?.trim() || 'settings';
+  try {
+    const result = await invoke<McpToolCallResult>('mcp_call_tool', {
+      server: input.serverName,
+      tool: input.toolName,
+      arguments: argumentsValue,
+    });
+    await writeMcpTestAudit({
+      employeeId,
+      serverName: input.serverName,
+      toolName: input.toolName,
+      argumentsValue,
+      resultValue: result.content ?? null,
+      error: result.isError ? 'mcp tool returned isError' : null,
+      latencyMs: performance.now() - started,
+    });
+    return result;
+  } catch (error) {
+    await writeMcpTestAudit({
+      employeeId,
+      serverName: input.serverName,
+      toolName: input.toolName,
+      argumentsValue,
+      resultValue: null,
+      error: error instanceof Error ? error.message : String(error),
+      latencyMs: performance.now() - started,
+    });
+    throw error;
+  }
 }
 
 // ───────────────────────── External Employees ─────────────────────────

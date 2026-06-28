@@ -41,6 +41,7 @@ import { toast } from 'sonner';
 import { AppearanceTab } from './AppearanceTab.js';
 import { HistoryTab } from './HistoryTab.js';
 import { MemoryTab } from './MemoryTab.js';
+import { McpToolsTab } from './McpToolsTab.js';
 import { ProfileTab } from './ProfileTab.js';
 import { RuntimeTab } from './RuntimeTab.js';
 import { SkillsTab } from './SkillsTab.js';
@@ -57,6 +58,7 @@ import {
 const INSPECTOR_TABS = [
   { key: 'profile', label: 'Profile' },
   { key: 'skills', label: 'Skills' },
+  { key: 'tools', label: 'Tools' },
   { key: 'memory', label: 'Memory' },
   { key: 'appearance', label: 'Appearance' },
   { key: 'runtime', label: 'Runtime' },
@@ -498,6 +500,7 @@ function EmployeeDetail({
           <ProfileTab employee={employee} companyName={companyName} form={form} />
         ) : null}
         {tab === 'skills' ? <SkillsTab employeeId={employee.id} /> : null}
+        {tab === 'tools' ? <McpToolsTab employeeId={employee.id} /> : null}
         {tab === 'memory' ? <MemoryTab employeeId={employee.id} /> : null}
         {tab === 'appearance' ? (
           <AppearanceTab employee={employee} draft={appearance} onChange={setAppearance} />

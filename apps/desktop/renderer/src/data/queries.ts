@@ -343,6 +343,102 @@ export function useEmployeeSkills(employeeId: string | null) {
   });
 }
 
+interface RuntimeMcpToolInfo {
+  name?: unknown;
+  description?: unknown;
+  inputSchema?: unknown;
+  input_schema?: unknown;
+  annotations?: unknown;
+}
+
+interface RuntimeMcpServerStatus {
+  name?: unknown;
+  state?: unknown;
+  tools?: RuntimeMcpToolInfo[];
+}
+
+interface EmployeeMcpTool {
+  id: string;
+  serverName: string;
+  toolName: string;
+  title: string;
+  description: string;
+  readOnly: boolean;
+  grantedAt: string;
+}
+
+function normalizeMcpAnnotations(raw: unknown): Record<string, unknown> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const record = raw as Record<string, unknown>;
+  return {
+    ...record,
+    readOnlyHint: record.readOnlyHint ?? record.read_only_hint,
+    destructiveHint: record.destructiveHint ?? record.destructive_hint,
+    idempotentHint: record.idempotentHint ?? record.idempotent_hint,
+    openWorldHint: record.openWorldHint ?? record.open_world_hint,
+  };
+}
+
+function stringValue(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+}
+
+function isWriteMcpTool(toolName: string, annotations: Record<string, unknown>): boolean {
+  if (annotations.readOnlyHint === false || annotations.destructiveHint === true) return true;
+  return /(^|_)(write|delete|remove|move|copy|create|edit|update|append|mkdir|touch)(_|$)/i.test(
+    toolName,
+  );
+}
+
+export function useEmployeeMcpTools(employeeId: string | null) {
+  const companyId = useUiState((s) => s.companyId);
+  return useQuery<EmployeeMcpTool[]>({
+    queryKey: ['employee-mcp-tools', companyId, employeeId],
+    queryFn: async () => {
+      if (!companyId || !employeeId) return [];
+      const repos = await reposOrNull();
+      if (!repos?.mcpToolGrants || !isTauriRuntime()) return [];
+      const { invoke } = await import('@tauri-apps/api/core');
+      const [grants, statuses] = await Promise.all([
+        repos.mcpToolGrants.listByEmployee(companyId, employeeId),
+        invoke<RuntimeMcpServerStatus[]>('mcp_list_servers'),
+      ]);
+      const connected = new Map(
+        statuses
+          .filter((server) => server.state === 'ready' && stringValue(server.name))
+          .map((server) => [stringValue(server.name) ?? '', server] as const),
+      );
+      const tools: EmployeeMcpTool[] = [];
+      for (const grant of grants) {
+        const server = connected.get(grant.server_name);
+        if (!server) continue;
+        const tool = (server.tools ?? []).find((candidate) => candidate.name === grant.tool_name);
+        if (!tool) continue;
+        const annotations = normalizeMcpAnnotations(tool.annotations);
+        const title = stringValue(annotations.title) ?? grant.tool_name;
+        const description = stringValue(tool.description) ?? 'No description provided.';
+        tools.push({
+          id: `${grant.server_name}:${grant.tool_name}`,
+          serverName: grant.server_name,
+          toolName: grant.tool_name,
+          title,
+          description,
+          readOnly: !isWriteMcpTool(grant.tool_name, annotations),
+          grantedAt: grant.created_at,
+        });
+      }
+      return tools.sort((a, b) =>
+        a.serverName === b.serverName
+          ? a.toolName.localeCompare(b.toolName)
+          : a.serverName.localeCompare(b.serverName),
+      );
+    },
+    enabled: Boolean(companyId && employeeId),
+    placeholderData: [],
+    refetchOnMount: 'always',
+  });
+}
+
 export function useThreads(projectId: string | null) {
   return useQuery({
     queryKey: projectChatThreadRowsQueryKey(projectId),

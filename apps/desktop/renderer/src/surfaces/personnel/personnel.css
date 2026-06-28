@@ -762,6 +762,43 @@
   line-height: 1.5;
 }
 
+.off-pers-tool-tag {
+  height: 17px;
+  padding: 0 var(--off-sp-2);
+  border-radius: var(--off-r-pill);
+  border: 1px solid var(--off-line);
+  font-size: var(--off-fs-xs);
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.off-pers-tool-tag.is-read {
+  color: var(--off-ok);
+  background: var(--off-ok-surface);
+  border-color: var(--off-ok-line-soft);
+}
+
+.off-pers-tool-tag.is-write {
+  color: var(--off-warn);
+  background: var(--off-warn-surface);
+  border-color: var(--off-warn-line-subtle);
+}
+
+.off-pers-tool-code {
+  width: fit-content;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--off-font-mono);
+  font-size: var(--off-fs-meta);
+  color: var(--off-ink-4);
+}
+
 /* ── Appearance tab ───────────────────────────── */
 .off-pers-app-grid {
   display: grid;
