@@ -257,6 +257,34 @@ function clampText(value, maxBytes = MAX_TEXT_BYTES) {
   return Buffer.from(text, 'utf8').subarray(0, keepBytes).toString('utf8') + TRUNCATED_SUFFIX;
 }
 
+function isNonEmptyArray(value) {
+  return Array.isArray(value) && value.length > 0;
+}
+
+function hasRecordKeys(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length > 0;
+}
+
+function firstPresent(...values) {
+  return values.find((value) => {
+    if (value === undefined || value === null) return false;
+    if (Array.isArray(value)) return value.length > 0;
+    if (typeof value === 'object') return Object.keys(value).length > 0;
+    return true;
+  });
+}
+
+function toolDetailJson(parts) {
+  const detail = {};
+  if (parts.input !== undefined) detail.input = parts.input;
+  if (parts.arguments !== undefined) detail.arguments = parts.arguments;
+  if (parts.result !== undefined) detail.result = parts.result;
+  if (parts.partialResult !== undefined) detail.partialResult = parts.partialResult;
+  if (parts.details !== undefined) detail.details = parts.details;
+  if (parts.isError !== undefined) detail.isError = parts.isError;
+  return Object.keys(detail).length > 0 ? clampText(JSON.stringify(detail), 4096) : undefined;
+}
+
 function contentText(content) {
   if (typeof content === 'string') return content;
   if (!Array.isArray(content)) return '';
@@ -698,6 +726,7 @@ async function runPrompt(payload) {
   // returned on the result line. The renderer folds this into reconcileRoot — the
   // solo (non-delegation) path otherwise records no root usage at all.
   const rootUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
+  const toolInputsById = new Map();
   const unsubscribe = session.subscribe((event) => {
     if (event.type === 'agent_start') {
       emit(
@@ -753,39 +782,58 @@ async function runPrompt(payload) {
       }
       return;
     }
+    if (event.type === 'tool_call') {
+      if (hasRecordKeys(event.input) || isNonEmptyArray(event.input)) {
+        toolInputsById.set(event.toolCallId, event.input);
+      }
+      return;
+    }
     if (event.type === 'tool_execution_start') {
+      const input = firstPresent(event.input, event.args, event.arguments, toolInputsById.get(event.toolCallId));
+      if (input !== undefined) toolInputsById.set(event.toolCallId, input);
       emit(
         toolLine({
           status: 'started',
           toolCallId: event.toolCallId,
           toolName: event.toolName,
-          detail: event.args ? clampText(JSON.stringify(event.args), 4096) : undefined,
+          detail: toolDetailJson({ input, arguments: input }),
         }),
       );
       return;
     }
     if (event.type === 'tool_execution_update') {
+      const input = firstPresent(event.input, event.args, event.arguments, toolInputsById.get(event.toolCallId));
       emit(
         toolLine({
           status: 'running',
           toolCallId: event.toolCallId,
           toolName: event.toolName,
-          detail: event.partialResult
-            ? clampText(JSON.stringify(event.partialResult), 4096)
-            : undefined,
+          detail: toolDetailJson({
+            input,
+            arguments: input,
+            partialResult: event.partialResult,
+          }),
         }),
       );
       return;
     }
     if (event.type === 'tool_execution_end') {
+      const input = firstPresent(event.input, event.args, event.arguments, toolInputsById.get(event.toolCallId));
       emit(
         toolLine({
           status: event.isError ? 'failed' : 'completed',
           toolCallId: event.toolCallId,
           toolName: event.toolName,
-          detail: event.result ? clampText(JSON.stringify(event.result), 4096) : undefined,
+          detail: toolDetailJson({
+            input,
+            arguments: input,
+            result: event.result,
+            details: event.details,
+            isError: event.isError,
+          }),
         }),
       );
+      toolInputsById.delete(event.toolCallId);
     }
   });
 

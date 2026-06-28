@@ -255,13 +255,10 @@ export type ToolRichDetail =
   | { readonly family: 'search'; readonly query?: string; readonly hitCount?: number }
   | { readonly family: 'generic'; readonly text?: string };
 
-function parseDetailObject(detail?: string): Record<string, unknown> | null {
+function parseDetailValue(detail?: string): unknown {
   if (!detail) return null;
   try {
-    const value: unknown = JSON.parse(detail);
-    return value && typeof value === 'object' && !Array.isArray(value)
-      ? (value as Record<string, unknown>)
-      : null;
+    return JSON.parse(detail) as unknown;
   } catch {
     return null;
   }
@@ -274,6 +271,23 @@ function pickString(...values: unknown[]): string | undefined {
   return undefined;
 }
 
+function pickRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function pickRecordFrom(value: unknown): Record<string, unknown> | null {
+  const record = pickRecord(value);
+  if (record) return record;
+  if (!Array.isArray(value)) return null;
+  for (const item of value) {
+    const itemRecord = pickRecord(item);
+    if (itemRecord) return itemRecord;
+  }
+  return null;
+}
+
 function pickNumber(...values: unknown[]): number | undefined {
   for (const v of values) {
     if (typeof v === 'number' && Number.isFinite(v)) return v;
@@ -281,8 +295,34 @@ function pickNumber(...values: unknown[]): number | undefined {
   return undefined;
 }
 
+function contentTextFrom(value: unknown): string | undefined {
+  if (typeof value === 'string' && value.trim()) return value;
+  if (Array.isArray(value)) {
+    const text = value
+      .map((part) => {
+        if (typeof part === 'string') return part;
+        const record = pickRecord(part);
+        return record && typeof record.text === 'string' ? record.text : '';
+      })
+      .filter(Boolean)
+      .join('\n')
+      .trim();
+    return text || undefined;
+  }
+  const record = pickRecord(value);
+  if (!record) return undefined;
+  return pickString(
+    record.stdout,
+    record.output,
+    record.text,
+    record.content,
+    contentTextFrom(record.content),
+  );
+}
+
 function summarize(value: unknown, max = 200): string | undefined {
-  const text = typeof value === 'string' ? value : value == null ? undefined : JSON.stringify(value);
+  const text =
+    contentTextFrom(value) ?? (value == null ? undefined : JSON.stringify(value));
   if (!text) return undefined;
   const firstLine = text.split('\n')[0] ?? text;
   return firstLine.length > max ? `${firstLine.slice(0, max)}…` : firstLine;
@@ -298,20 +338,65 @@ function summarize(value: unknown, max = 200): string | undefined {
  */
 export function parseToolRichDetail(toolName: string, detail?: string): ToolRichDetail {
   const family = toolFamily(classifyToolActivity(toolName));
-  const d = parseDetailObject(detail);
+  const detailValue = parseDetailValue(detail);
+  const d = pickRecord(detailValue);
+  const input = pickRecordFrom(d?.input);
+  const argumentsValue = pickRecordFrom(d?.arguments ?? d?.args);
+  const result = pickRecord(d?.result);
+  const details = pickRecord(d?.details);
   if (family === 'terminal') {
     return {
       family,
-      command: d ? pickString(d.command, d.cmd) : undefined,
-      exitCode: d ? pickNumber(d.exitCode, d.exit_code, d.code) : undefined,
-      outputSummary: d ? summarize(d.stdout ?? d.output ?? d.result) : undefined,
+      command: d
+        ? pickString(
+            d.command,
+            d.cmd,
+            input?.command,
+            input?.cmd,
+            argumentsValue?.command,
+            argumentsValue?.cmd,
+          )
+        : undefined,
+      exitCode: d
+        ? pickNumber(
+            d.exitCode,
+            d.exit_code,
+            d.code,
+            input?.exitCode,
+            input?.exit_code,
+            result?.exitCode,
+            result?.exit_code,
+            result?.code,
+            details?.exitCode,
+            details?.exit_code,
+            details?.code,
+          )
+        : undefined,
+      outputSummary: d
+        ? summarize(d.stdout ?? d.output ?? d.result ?? d.text ?? d.content)
+        : undefined,
     };
   }
   if (family === 'file') {
     return {
       family,
-      path: d ? pickString(d.path, d.file_path, d.filePath, d.file) : undefined,
-      summary: d ? summarize(d.diff ?? d.summary ?? d.result) : undefined,
+      path: d
+        ? pickString(
+            d.path,
+            d.file_path,
+            d.filePath,
+            d.file,
+            input?.path,
+            input?.file_path,
+            input?.filePath,
+            input?.file,
+            argumentsValue?.path,
+            argumentsValue?.file_path,
+            argumentsValue?.filePath,
+            argumentsValue?.file,
+          )
+        : undefined,
+      summary: d ? summarize(d.diff ?? d.summary ?? d.result ?? d.text ?? d.content) : undefined,
     };
   }
   if (family === 'search') {
@@ -325,7 +410,19 @@ export function parseToolRichDetail(toolName: string, detail?: string): ToolRich
       : undefined;
     return {
       family,
-      query: d ? pickString(d.pattern, d.query, d.regex) : undefined,
+      query: d
+        ? pickString(
+            d.pattern,
+            d.query,
+            d.regex,
+            input?.pattern,
+            input?.query,
+            input?.regex,
+            argumentsValue?.pattern,
+            argumentsValue?.query,
+            argumentsValue?.regex,
+          )
+        : undefined,
       hitCount,
     };
   }

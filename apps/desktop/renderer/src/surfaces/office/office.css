@@ -210,6 +210,29 @@
   font-size: var(--off-fs-sm);
 }
 
+.off-scene-work-bench-peek {
+  position: absolute;
+  right: var(--off-sp-4);
+  bottom: var(--off-sp-4);
+  z-index: 2;
+  width: min(360px, calc(100% - (var(--off-sp-4) * 2)));
+  display: grid;
+  gap: var(--off-sp-1);
+  pointer-events: none;
+}
+
+.off-scene-work-bench-label {
+  justify-self: start;
+  padding: 2px var(--off-sp-2);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-xs);
+  background: color-mix(in oklab, var(--off-surface-1) 90%, transparent);
+  color: var(--off-ink-3);
+  font-family: var(--off-font-mono);
+  font-size: var(--off-fs-2xs);
+  box-shadow: var(--off-elev-1);
+}
+
 /* drei Html name tag floating over a character */
 .off-scene-tag {
   display: inline-flex;
@@ -2098,6 +2121,7 @@
   display: grid;
   grid-template-columns: minmax(92px, 0.38fr) minmax(0, 1fr);
   gap: var(--off-sp-2);
+  align-items: start;
   min-width: 0;
 }
 .off-run-act-detail-tool {
@@ -2117,6 +2141,141 @@
 }
 .off-run-act-detail-row.is-error .off-run-act-detail-copy {
   color: var(--off-danger);
+}
+
+.off-work-bench {
+  min-width: 0;
+  display: grid;
+  gap: var(--off-sp-2);
+  padding: var(--off-sp-2);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-sm);
+  background: color-mix(in oklab, var(--off-surface-1) 94%, transparent);
+  color: var(--off-ink-2);
+  box-shadow: inset 0 0 0 1px var(--off-white-line);
+}
+
+.off-work-bench.is-compact {
+  padding: var(--off-sp-2);
+  box-shadow: var(--off-elev-2);
+}
+
+.off-work-bench.is-error {
+  border-color: color-mix(in oklab, var(--off-danger) 34%, var(--off-line-soft));
+}
+
+.off-work-bench-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--off-sp-2);
+  min-width: 0;
+}
+
+.off-work-bench-family,
+.off-work-bench-status,
+.off-work-bench-exit,
+.off-work-bench-hits {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 var(--off-sp-2);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-pill);
+  background: var(--off-surface-2);
+  color: var(--off-ink-4);
+  font-size: var(--off-fs-2xs);
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
+.off-work-bench-status {
+  color: var(--off-ink-3);
+}
+
+.off-work-bench-exit.is-zero {
+  border-color: color-mix(in oklab, var(--off-ok) 38%, var(--off-line-soft));
+  color: var(--off-ok);
+}
+
+.off-work-bench-exit.is-nonzero {
+  border-color: color-mix(in oklab, var(--off-danger) 38%, var(--off-line-soft));
+  color: var(--off-danger);
+}
+
+.off-work-bench-body {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--off-sp-2);
+}
+
+.off-work-bench-command,
+.off-work-bench-path,
+.off-work-bench-query {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 3px var(--off-sp-2);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-xs);
+  background: var(--off-surface-sunken);
+  color: var(--off-ink-1);
+  font-family: var(--off-font-mono);
+  font-size: var(--off-fs-meta);
+}
+
+.off-work-bench-output,
+.off-work-bench-diff {
+  flex: 1 0 100%;
+  min-width: 0;
+  max-height: 108px;
+  overflow: hidden;
+  margin: 0;
+  padding: var(--off-sp-2);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-xs);
+  background: var(--off-surface-sunken);
+  color: var(--off-ink-2);
+  font-family: var(--off-font-mono);
+  font-size: var(--off-fs-meta);
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.off-work-bench-diff {
+  display: grid;
+  gap: 1px;
+}
+
+.off-work-bench-diff-line {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--off-ink-3);
+}
+
+.off-work-bench-diff-line.is-add {
+  color: var(--off-ok);
+}
+
+.off-work-bench-diff-line.is-remove {
+  color: var(--off-danger);
+}
+
+.off-work-bench-copy,
+.off-work-bench-muted,
+.off-work-bench-empty {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--off-ink-4);
 }
 
 /* Delegation run-tree lines: "→ Delegated · objective · state". Phase 1 renders a

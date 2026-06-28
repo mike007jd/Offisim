@@ -1,6 +1,7 @@
 import { useUiState } from '@/app/ui-state.js';
 import {
   dominantBeatsFrom,
+  useConversationRun,
   useEmployeeWorkloads,
 } from '@/assistant/runtime/conversation-run-react.js';
 import { usePrefersReducedMotion } from '@/assistant/runtime/office-dramaturgy.js';
@@ -39,6 +40,7 @@ import { OFFICE_CAMERA_PRESET, SCENE_CONTENT_SCALE } from './r3d/scene-art-direc
 import { LIGHT_SCENE_3D } from './r3d/scene-colors.js';
 import { type ScenePlacementPoint, groundPointFromClient } from './scene-ground.js';
 import { compactSceneEmployeeName } from './scene-labels.js';
+import { WorkBench } from './work-bench/WorkBench.js';
 import {
   type EmployeePosture,
   type ZoneDef,
@@ -575,6 +577,7 @@ export function OfficeScene3D() {
   const employees = useEmployees();
   const threads = useThreads(projectId);
   const workloads = useEmployeeWorkloads(projectId, companyId);
+  const selectedRun = useConversationRun(selectedThreadId ?? '');
   const layout = useOfficeLayout(companyId);
   const reassign = useReassignEmployee();
   const [employeeDrag, setEmployeeDrag] = useState<SceneEmployeeDrag | null>(null);
@@ -647,6 +650,10 @@ export function OfficeScene3D() {
   const draggedEmployee = employeeDrag
     ? (roster.find((employee) => employee.id === employeeDrag.employeeId) ?? null)
     : null;
+  const selectedWorkBenchEntry = useMemo(
+    () => [...selectedRun.activity].reverse().find((entry) => entry.richDetail) ?? null,
+    [selectedRun.activity],
+  );
 
   useEffect(() => {
     if (!dropNotice) return;
@@ -793,6 +800,16 @@ export function OfficeScene3D() {
         />
         <ScenePostFx />
       </Canvas>
+      {selectedThreadId && selectedWorkBenchEntry?.richDetail ? (
+        <div className="off-scene-work-bench-peek" aria-label="Selected employee work bench">
+          <div className="off-scene-work-bench-label">{selectedWorkBenchEntry.tool}</div>
+          <WorkBench
+            detail={selectedWorkBenchEntry.richDetail}
+            status={selectedWorkBenchEntry.state}
+            compact
+          />
+        </div>
+      ) : null}
     </>
   );
 }

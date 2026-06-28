@@ -9,6 +9,7 @@ import {
 } from '@/runtime/desktop-agent-runtime.js';
 import { getRepos, runtimeEventBus } from '@/runtime/repos.js';
 import type { EventBus, RuntimeRepositories } from '@offisim/core/browser';
+import { parseToolRichDetail, type ToolRichDetail } from '@offisim/shared-types';
 import type {
   AgentRunEvent,
   AgentRunFinishedPayload,
@@ -41,6 +42,7 @@ interface RunToolActivity {
   tool: string;
   state: 'running' | 'done' | 'error';
   detail?: string;
+  richDetail?: ToolRichDetail;
   durationMs?: number;
 }
 
@@ -226,6 +228,39 @@ function detailFromTelemetry(payload: ToolExecutionTelemetryPayload): string | u
   if (payload.errorType) return payload.errorType;
   const parts = [payload.serverName, payload.nodeName, payload.toolType].filter(Boolean);
   return parts.length > 0 ? parts.join(' · ') : undefined;
+}
+
+function mergeToolRichDetail(
+  previous: ToolRichDetail | undefined,
+  next: ToolRichDetail,
+): ToolRichDetail {
+  if (!previous || previous.family !== next.family) return next;
+  if (next.family === 'terminal' && previous.family === 'terminal') {
+    return {
+      family: 'terminal',
+      command: next.command ?? previous.command,
+      exitCode: next.exitCode ?? previous.exitCode,
+      outputSummary: next.outputSummary ?? previous.outputSummary,
+    };
+  }
+  if (next.family === 'file' && previous.family === 'file') {
+    return {
+      family: 'file',
+      path: next.path ?? previous.path,
+      summary: next.summary ?? previous.summary,
+    };
+  }
+  if (next.family === 'search' && previous.family === 'search') {
+    return {
+      family: 'search',
+      query: next.query ?? previous.query,
+      hitCount: next.hitCount ?? previous.hitCount,
+    };
+  }
+  if (next.family === 'generic' && previous.family === 'generic') {
+    return { family: 'generic', text: next.text ?? previous.text };
+  }
+  return next;
 }
 
 function eventThreadId(
@@ -839,6 +874,7 @@ export class ConversationRunController {
           tool: payload.toolName,
           state: 'running' as const,
           detail: detailFromTelemetry(payload),
+          richDetail: parseToolRichDetail(payload.toolName, payload.detail),
         },
       ].slice(-12);
     } else if (terminal) {
@@ -848,6 +884,10 @@ export class ConversationRunController {
               ...entry,
               state: terminal,
               detail: detailFromTelemetry(payload) ?? entry.detail,
+              richDetail: mergeToolRichDetail(
+                entry.richDetail,
+                parseToolRichDetail(payload.toolName, payload.detail),
+              ),
               durationMs: payload.durationMs,
             }
           : entry,

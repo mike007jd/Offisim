@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils.js';
+import { WorkBench } from '@/surfaces/office/scene/work-bench/WorkBench.js';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { isConversationRunActive, useConversationRun } from '../runtime/conversation-run-react.js';
@@ -124,9 +125,7 @@ export function RunActivityStrip({ threadId }: { threadId: string }) {
               className={cn('off-run-act-detail-row', `is-${entry.state}`)}
             >
               <span className="off-run-act-detail-tool">{entry.tool}</span>
-              <span className="off-run-act-detail-copy">
-                {entry.detail ?? (entry.state === 'running' ? 'Running' : 'No details')}
-              </span>
+              <WorkBench detail={entry.richDetail} status={entry.state} />
             </div>
           ))}
         </div>

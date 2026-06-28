@@ -163,6 +163,7 @@ class FakeRuntime {
     status: 'started' | 'completed' | 'error',
     toolCallId = 'tool-1',
     toolName = 'read_file',
+    detail?: string,
   ): void {
     const startedAt = Date.now();
     this.eventBus.emit(
@@ -178,6 +179,7 @@ class FakeRuntime {
         completedAt: status === 'started' ? undefined : startedAt + 12,
         durationMs: status === 'started' ? undefined : 12,
         status,
+        detail,
         chatConversationKey: `test::${input.threadId}`,
         chatRunId: input.runId ?? 'missing-run',
       }),
@@ -611,8 +613,23 @@ const scenarios: Array<{
     run: async () => {
       const env = makeEnv();
       env.runtime.onExecute = async (input) => {
-        env.runtime.emitTool(input, 'started', 'tool-read', 'read_file');
-        env.runtime.emitTool(input, 'completed', 'tool-read', 'read_file');
+        env.runtime.emitTool(
+          input,
+          'started',
+          'tool-shell',
+          'bash',
+          JSON.stringify({ input: { command: 'ls -la' } }),
+        );
+        env.runtime.emitTool(
+          input,
+          'completed',
+          'tool-shell',
+          'bash',
+          JSON.stringify({
+            result: [{ type: 'text', text: 'total 8\nhello.ts' }],
+            details: { exitCode: 0 },
+          }),
+        );
         env.runtime.emitContent(input, 'read complete');
         return { text: 'read complete' };
       };
@@ -623,6 +640,12 @@ const scenarios: Array<{
       );
       const snapshot = env.controller.getSnapshot('thread-1');
       assert.equal(snapshot.activity[0]?.state, 'done');
+      const richDetail = snapshot.activity[0]?.richDetail;
+      assert.equal(richDetail?.family, 'terminal');
+      if (richDetail?.family !== 'terminal') throw new Error('expected terminal rich detail');
+      assert.equal(richDetail.command, 'ls -la');
+      assert.equal(richDetail.exitCode, 0);
+      assert.equal(richDetail.outputSummary, 'total 8');
       assert.ok(env.appendedEvents.some((event) => event.eventType === 'conversation.run.tool'));
       assert.ok(env.persisted.every((call) => !('toolCalls' in call.message)));
       return {

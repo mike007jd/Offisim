@@ -353,6 +353,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
             durationMs:
               event.durationMs ?? (completedAt ? Math.max(0, completedAt - startedAt) : undefined),
             status: toolStatus(event),
+            detail: event.detail,
             errorType: event.status === 'failed' ? (event.detail ?? 'pi_tool_failed') : undefined,
             chatConversationKey: runScope.conversationKey,
             chatRunId: runScope.runId,
@@ -366,6 +367,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
               toolCallId: event.toolCallId,
               toolName: event.toolName,
               status: 'started',
+              detail: event.detail,
             }),
           );
         } else if (event.status === 'completed' || event.status === 'failed') {
@@ -374,6 +376,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
               toolCallId: event.toolCallId,
               toolName: event.toolName,
               status: event.status,
+              detail: event.detail,
             }),
           );
         }

@@ -361,7 +361,10 @@ console.log('\n[no-root] director root absent from the event stream');
 // the projection checks fail. Both prove the rich detail is load-bearing.
 console.log('\n[D1] rich tool detail parsed by family');
 {
-  const term = parseToolRichDetail('bash', JSON.stringify({ command: 'ls -la', exitCode: 0 }));
+  const term = parseToolRichDetail(
+    'bash',
+    JSON.stringify({ input: { command: 'ls -la' }, exitCode: 0 }),
+  );
   check(
     'terminal: command + exitCode parsed',
     term.family === 'terminal' && term.command === 'ls -la' && term.exitCode === 0,
