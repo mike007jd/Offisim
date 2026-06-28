@@ -23,7 +23,7 @@ import {
 
 let passed = 0;
 let failed = 0;
-const TOTAL = 11;
+const TOTAL = 12;
 
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
   try {
@@ -126,7 +126,7 @@ async function main(): Promise<void> {
       return { id: 'mcp-1', ok: true, content: [{ type: 'text', text: 'file body' }], isError: false };
     };
     const { tool } = build([READ_TOOL], req);
-    const res = await tool('mcp_call').execute('1', { name: 'read_file', arguments: { path: 'a' } });
+    const res = await tool('mcp_call').execute('1', { name: 'read_file', input: { path: 'a' } });
     assert.deepEqual(calls[0], ['filesystem', 'read_file', { path: 'a' }]);
     assert.equal(res.content[0].text, 'file body');
     assert.notEqual(res.isError, true);
@@ -146,7 +146,7 @@ async function main(): Promise<void> {
     const tool = env.registered.find((t) => t.name === 'mcp_call') as Record<string, unknown> & {
       execute: (id: string, p: unknown) => Promise<{ content: Array<{ text?: string }>; isError?: boolean }>;
     };
-    await tool.execute('1', { name: 'read_file', arguments: { path: 'a' } });
+    await tool.execute('1', { name: 'read_file', input: { path: 'a' } });
     assert.equal(emitted.length, 1);
     assert.deepEqual(
       emitted[0],
@@ -170,6 +170,18 @@ async function main(): Promise<void> {
         },
       },
     );
+  });
+
+  await check('(6b) mcp_call still accepts legacy arguments alias', async () => {
+    const calls: Array<[string, string, object]> = [];
+    const req = async (server: string, t: string, args: object) => {
+      calls.push([server, t, args]);
+      return { id: 'mcp-1', ok: true, content: [{ type: 'text', text: 'legacy' }], isError: false };
+    };
+    const { tool } = build([READ_TOOL], req);
+    const res = await tool('mcp_call').execute('1', { name: 'read_file', arguments: { path: 'legacy' } });
+    assert.deepEqual(calls[0], ['filesystem', 'read_file', { path: 'legacy' }]);
+    assert.equal(res.content[0].text, 'legacy');
   });
 
   await check('(7) mcp_call on an unknown tool errors WITHOUT invoking requestMcpResult', async () => {

@@ -24,6 +24,8 @@ export type CollaborationThreadKind = 'direct' | 'group';
  */
 export type CollaborationReplyPolicy = 'mentions_only' | 'roundtable' | 'silent';
 
+export type CollaborationProfile = 'strict' | 'collaboration_read';
+
 export interface CollaborationThread {
   threadId: string;
   companyId: string;
@@ -32,6 +34,7 @@ export interface CollaborationThread {
   /** Set iff `kind === 'direct'`; the single employee on the other side. */
   directEmployeeId?: string | null;
   replyPolicy: CollaborationReplyPolicy;
+  capabilityProfile: CollaborationProfile;
   /** Clamped to 1–8 by the service. */
   roundSpeakerLimit: number;
   createdBy: string;

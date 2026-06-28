@@ -1447,6 +1447,7 @@ export interface CollaborationThreadRow {
   title: string;
   direct_employee_id: string | null;
   reply_policy: string;
+  capability_profile: string;
   round_speaker_limit: number;
   created_by: string;
   archived_at: string | null;
@@ -1542,6 +1543,7 @@ export interface CollaborationMessagePatch {
 export interface CollaborationThreadPatch {
   title?: string;
   reply_policy?: string;
+  capability_profile?: string;
   round_speaker_limit?: number;
   archived_at?: string | null;
   updated_at: string;

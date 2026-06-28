@@ -252,6 +252,7 @@ export type {
   CollaborationThread,
   CollaborationThreadKind,
   CollaborationReplyPolicy,
+  CollaborationProfile,
   CollaborationMember,
   CollaborationActorType,
   CollaborationMemberRole,

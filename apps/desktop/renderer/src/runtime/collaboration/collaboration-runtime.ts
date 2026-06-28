@@ -10,9 +10,11 @@
 // the context packet (see collaboration-context.ts).
 
 import { titleizeSlug } from '@/lib/utils.js';
+import { buildMcpScope } from '@/data/employee-persona.js';
 import { createCollaborationService } from '@offisim/core/browser';
 import type { EmployeeRow, RuntimeRepositories } from '@offisim/core/browser';
 import type { CollaborationMessage } from '@offisim/shared-types';
+import type { PiAgentHostEvent } from '../pi-runtime-driver.js';
 import { getRepos } from '../repos.js';
 import type { CollaborationParticipant } from './collaboration-context.js';
 import { createTauriCollaborationTransport } from './collaboration-transport.js';
@@ -21,6 +23,45 @@ import {
   type CollaborationTurnController,
   createCollaborationTurnController,
 } from './collaboration-turn-controller.js';
+
+function persistCollaborationMcpAudit(
+  repos: RuntimeRepositories,
+  event: Extract<PiAgentHostEvent, { kind: 'agentRun' }>,
+): void {
+  if (event.runType !== 'mcp.tool.called' || !repos.mcpAudit) return;
+  const payload = (event.payload ?? {}) as {
+    server?: unknown;
+    tool?: unknown;
+    arguments?: unknown;
+    result?: unknown;
+    isError?: unknown;
+    error?: unknown;
+    latencyMs?: unknown;
+    approved?: unknown;
+  };
+  const server = typeof payload.server === 'string' ? payload.server : '';
+  const tool = typeof payload.tool === 'string' ? payload.tool : '';
+  if (!server || !tool) return;
+  void repos.mcpAudit.create({
+    audit_id: crypto.randomUUID(),
+    thread_id: event.threadId,
+    task_run_id: null,
+    employee_id: event.employeeId ?? 'unknown',
+    server_name: server,
+    tool_name: tool,
+    arguments_json: JSON.stringify(payload.arguments ?? {}),
+    result_json: JSON.stringify(payload.result ?? null),
+    error:
+      typeof payload.error === 'string'
+        ? payload.error
+        : payload.isError === true
+          ? 'mcp tool returned isError'
+          : null,
+    latency_ms: typeof payload.latencyMs === 'number' ? Math.max(0, payload.latencyMs) : 0,
+    approved_by: payload.approved === true ? 'boss' : 'auto',
+    created_at: new Date().toISOString(),
+  });
+}
 
 /** A short, identity-only persona summary for the context packet. Reads the same
  *  persona profile as the Office prompt but emits ONLY a one/two-line summary —
@@ -91,6 +132,8 @@ async function assembleController(): Promise<CollaborationTurnController> {
   const resolveThread = async (threadId: string): Promise<CollaborationThreadContext> => {
     const thread = await repos.collaborationThreads!.findById(threadId);
     if (!thread) throw new Error(`collaboration thread not found: ${threadId}`);
+    const capabilityProfile =
+      thread.capability_profile === 'collaboration_read' ? 'collaboration_read' : 'strict';
     const [company, members, allEmployees] = await Promise.all([
       repos.companies!.findById(thread.company_id).catch(() => null),
       repos.collaborationMembers!.listActiveByThread(threadId),
@@ -104,6 +147,19 @@ async function assembleController(): Promise<CollaborationTurnController> {
       .map((m) => byId.get(m.employee_id as string))
       .filter((e): e is EmployeeRow => e != null)
       .map(toParticipant);
+    const mcpToolsByEmployeeId =
+      capabilityProfile === 'collaboration_read'
+        ? new Map(
+            await Promise.all(
+              participants.map(async (participant) => [
+                participant.employeeId,
+                await buildMcpScope(repos, thread.company_id, participant.employeeId, null).catch(
+                  () => [],
+                ),
+              ] as const),
+            ),
+          )
+        : undefined;
     return {
       threadId,
       companyId: thread.company_id,
@@ -111,8 +167,14 @@ async function assembleController(): Promise<CollaborationTurnController> {
       title: thread.title,
       kind: thread.kind as 'direct' | 'group',
       replyPolicy: thread.reply_policy as CollaborationThreadContext['replyPolicy'],
+      capabilityProfile,
       directEmployeeId: thread.direct_employee_id,
       roundSpeakerLimit: thread.round_speaker_limit,
+      mcpTools:
+        capabilityProfile === 'collaboration_read' && thread.direct_employee_id
+          ? (mcpToolsByEmployeeId?.get(thread.direct_employee_id) ?? [])
+          : [],
+      mcpToolsByEmployeeId,
       participants,
     };
   };
@@ -123,7 +185,9 @@ async function assembleController(): Promise<CollaborationTurnController> {
   };
 
   return createCollaborationTurnController({
-    transport: createTauriCollaborationTransport(),
+    transport: createTauriCollaborationTransport({
+      onAgentRun: (event) => persistCollaborationMcpAudit(repos, event),
+    }),
     service: {
       appendMessage: (input) => service.appendMessage(input),
       listMembers: async (threadId) => {

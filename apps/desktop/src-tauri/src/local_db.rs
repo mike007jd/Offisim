@@ -16,7 +16,7 @@ const LOCAL_SCHEMA_SQL: &str = include_str!("../../../../packages/db-local/src/s
 /// (b) bump this constant by 1, and (c) add a matching upgrade entry to
 /// `MIGRATIONS` so released user databases have an upgrade path. Public migration
 /// history starts only after the first public release baseline.
-const LOCAL_SCHEMA_VERSION: i64 = 8;
+const LOCAL_SCHEMA_VERSION: i64 = 9;
 
 /// Ordered upgrade chain for existing user databases: `(target_version, sql)`
 /// where each entry upgrades `target_version - 1` → `target_version`. Each entry
@@ -53,6 +53,10 @@ const MIGRATIONS: &[(i64, &str)] = &[
     (
         8,
         include_str!("../../../../packages/db-local/src/migrations/0008_mcp_tool_grants.sql"),
+    ),
+    (
+        9,
+        include_str!("../../../../packages/db-local/src/migrations/0009_collaboration_profile.sql"),
     ),
 ];
 
@@ -454,7 +458,8 @@ mod tests {
             DROP TABLE IF EXISTS loop_invocations;\n\
             DROP TABLE IF EXISTS loop_skill_bindings;\n\
             DROP TABLE IF EXISTS loop_revisions;\n\
-            DROP TABLE IF EXISTS loop_definitions;";
+            DROP TABLE IF EXISTS loop_definitions;\n\
+            ALTER TABLE collaboration_threads DROP COLUMN capability_profile;";
         apply_sql_and_stamp(&migrated, drop_loop_objects, 4, "rewind to v4 (drop loop objects)")
             .await
             .expect("rewind to v4");
@@ -519,7 +524,9 @@ mod tests {
         apply_sql_and_stamp(&migrated, LOCAL_SCHEMA_SQL, LOCAL_SCHEMA_VERSION, "seed v6 baseline")
             .await
             .expect("seed v6 baseline");
-        let drop_turns_objects = "DROP TABLE IF EXISTS collaboration_turns;";
+        let drop_turns_objects = "\
+            DROP TABLE IF EXISTS collaboration_turns;\n\
+            ALTER TABLE collaboration_threads DROP COLUMN capability_profile;";
         apply_sql_and_stamp(&migrated, drop_turns_objects, 5, "rewind to v5 (drop turns objects)")
             .await
             .expect("rewind to v5");
@@ -578,6 +585,7 @@ mod tests {
             .expect("seed v7 baseline");
         let rewind_to_v6 = "\
             PRAGMA defer_foreign_keys = ON;\n\
+            ALTER TABLE collaboration_threads DROP COLUMN capability_profile;\n\
             DROP TABLE agent_runs;\n\
             CREATE TABLE agent_runs (\n\
               run_id              TEXT PRIMARY KEY,\n\
@@ -681,6 +689,7 @@ mod tests {
             .expect("seed v8 baseline");
         let rewind_to_v7 = "\
             PRAGMA defer_foreign_keys = ON;\n\
+            ALTER TABLE collaboration_threads DROP COLUMN capability_profile;\n\
             DROP TABLE IF EXISTS mcp_tool_grants;\n\
             DROP TABLE mcp_audit_log;\n\
             CREATE TABLE mcp_audit_log (\n\

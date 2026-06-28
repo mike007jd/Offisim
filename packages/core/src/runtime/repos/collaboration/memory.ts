@@ -107,6 +107,8 @@ export class MemoryCollaborationThreadRepository implements CollaborationThreadR
       ...row,
       title: patch.title !== undefined ? patch.title : row.title,
       reply_policy: patch.reply_policy !== undefined ? patch.reply_policy : row.reply_policy,
+      capability_profile:
+        patch.capability_profile !== undefined ? patch.capability_profile : row.capability_profile,
       round_speaker_limit:
         patch.round_speaker_limit !== undefined
           ? patch.round_speaker_limit

@@ -10,6 +10,7 @@
 // piece.
 
 import type { AgentRunUsage } from '@offisim/shared-types';
+import type { CollaborationProfile } from '@offisim/shared-types';
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { readPiModelOverride } from '../pi-agent-config.js';
 import type { PiAgentHostEvent, PiAgentHostResponse } from '../pi-runtime-driver.js';
@@ -28,6 +29,8 @@ export interface CollaborationTurnRequest {
   systemPromptAppend?: string;
   model?: string;
   thinkingLevel?: string;
+  collaborationProfile?: CollaborationProfile;
+  mcpTools?: unknown[];
 }
 
 export interface CollaborationTurnResult {
@@ -48,9 +51,15 @@ export interface CollaborationTransport {
   ): Promise<CollaborationTurnResult>;
 }
 
+export interface TauriCollaborationTransportOptions {
+  onAgentRun?: (event: Extract<PiAgentHostEvent, { kind: 'agentRun' }>) => void;
+}
+
 /** The production transport: invokes the isolated `agent_runtime_collaborate`
  *  gateway command and consumes the streaming Channel. */
-export function createTauriCollaborationTransport(): CollaborationTransport {
+export function createTauriCollaborationTransport(
+  transportOptions: TauriCollaborationTransportOptions = {},
+): CollaborationTransport {
   return {
     async run(req, opts) {
       const onEvent = new Channel<PiAgentHostEvent>();
@@ -64,6 +73,8 @@ export function createTauriCollaborationTransport(): CollaborationTransport {
             streamed += event.delta;
             opts?.onDelta?.(event.delta);
           }
+        } else if (event.kind === 'agentRun') {
+          transportOptions.onAgentRun?.(event);
         }
       };
 
@@ -90,6 +101,8 @@ export function createTauriCollaborationTransport(): CollaborationTransport {
             employeeId: req.employeeId,
             model: req.model?.trim() || readPiModelOverride() || undefined,
             thinkingLevel: req.thinkingLevel?.trim() || undefined,
+            collaborationProfile: req.collaborationProfile,
+            mcpTools: req.mcpTools,
             systemPromptAppend: req.systemPromptAppend?.trim() || undefined,
           },
           onEvent,

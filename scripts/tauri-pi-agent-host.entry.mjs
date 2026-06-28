@@ -22,6 +22,7 @@ import {
 } from './pi-agent-host-wire.mjs';
 import { createMcpCallChannel } from './pi-host-mcp-channel.mjs';
 import {
+  COLLABORATION_FORBIDDEN_TOOLS,
   collaborationToolAllowlist,
   evaluateAskBashCommand,
   evaluateAutoBashCommand,
@@ -1023,6 +1024,8 @@ async function runCollaboration(payload) {
     });
   }
   const thinkingLevel = normalizeThinkingLevel(payload.thinkingLevel);
+  const collaborationProfile = normalizeCollaborationProfile(payload.collaborationProfile);
+  const collaborationRead = collaborationProfile === 'collaboration_read';
 
   // No SessionManager persistence: a fresh, ephemeral session with no session
   // directory, so nothing is written to disk and no transcript survives. The
@@ -1036,13 +1039,32 @@ async function runCollaboration(payload) {
   // no project work" instruction (the spec's Context packet).
   const systemPromptAppend = asNonEmptyString(payload.systemPromptAppend);
   const appendSystemPrompt = systemPromptAppend ? [systemPromptAppend] : [];
+  const rawMcpTools = Array.isArray(payload.mcpTools) ? payload.mcpTools : [];
+  const mcpTools = collaborationRead ? rawMcpTools.filter((tool) => !isWriteMcpTool(tool)) : [];
+  const mcpEnabled = collaborationRead && mcpTools.length > 0;
+  const extensionFactories = [];
+  if (mcpEnabled) {
+    extensionFactories.push(
+      createMcpBridgeExtensionFactory({
+        mcpTools,
+        requestMcpResult: mcpChannel.requestMcpResult,
+        emit,
+        threadId: asNonEmptyString(payload.collaborationThreadId),
+        rootRunId: asNonEmptyString(payload.requestId),
+        employeeId: asNonEmptyString(payload.employeeId),
+      }),
+    );
+  }
   const resourceLoader = new DefaultResourceLoader({
     cwd,
     agentDir,
     settingsManager,
+    ...(extensionFactories.length > 0 ? { extensionFactories } : {}),
     ...(appendSystemPrompt.length > 0 ? { appendSystemPrompt } : {}),
   });
   await resourceLoader.reload();
+  const collaborationTools = collaborationToolAllowlist(collaborationProfile);
+  if (mcpEnabled) collaborationTools.push('mcp_search_tools', 'mcp_describe_tool', 'mcp_call');
 
   const { session, modelFallbackMessage } = await createAgentSession({
     cwd,
@@ -1056,11 +1078,14 @@ async function runCollaboration(payload) {
     // is the current zero-tools daily chat. `collaboration_read` (E2) relaxes
     // noTools + the isolation throw to permit the read-only allowlist; in E1 the
     // renderer never sets it, so this stays behavior-identical to `tools: []`.
-    noTools: 'all',
-    tools: collaborationToolAllowlist(normalizeCollaborationProfile(payload.collaborationProfile)),
+    ...(collaborationRead ? {} : { noTools: 'all' }),
+    tools: collaborationTools,
     ...(model ? { model } : {}),
     ...(thinkingLevel ? { thinkingLevel } : {}),
   });
+  if (collaborationRead && rawMcpTools.some(isWriteMcpTool)) {
+    await session.bindExtensions({ uiContext: createForwardingUiContext(), mode: 'rpc' });
+  }
 
   let latestText = '';
   let activeReasoningText = '';
@@ -1120,17 +1145,21 @@ async function runCollaboration(payload) {
       }
       return;
     }
-    // A tool event here would mean isolation broke. There is no tool registered,
-    // so this branch is unreachable; if it ever fires, surface it loudly rather
-    // than silently letting a tool run on the collaboration path.
+    // Strict remains zero-tools. collaboration_read allows only read/search and
+    // read-only MCP meta tools; any forbidden tool event is an isolation breach.
     if (
       event.type === 'tool_execution_start' ||
       event.type === 'tool_execution_update' ||
       event.type === 'tool_execution_end'
     ) {
-      throw Object.assign(new Error('Collaboration must not execute tools — isolation breach.'), {
-        code: 'collaboration-isolation',
-      });
+      const toolName = typeof event.toolName === 'string' ? event.toolName : '';
+      const forbidden = COLLABORATION_FORBIDDEN_TOOLS.includes(toolName);
+      if (!collaborationRead || forbidden) {
+        throw Object.assign(
+          new Error(`Collaboration must not execute tool "${toolName}" — isolation breach.`),
+          { code: 'collaboration-isolation' },
+        );
+      }
     }
   });
 

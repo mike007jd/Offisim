@@ -37,10 +37,23 @@ const DescribeParams = Type.Object({
 
 const CallParams = Type.Object({
   name: Type.String({ description: 'The MCP tool name to invoke (from mcp_search_tools).' }),
+  input: Type.Optional(
+    Type.Object(
+      {},
+      {
+        additionalProperties: true,
+        description: 'The tool input object — must match the tool inputSchema from mcp_describe_tool.',
+      },
+    ),
+  ),
   arguments: Type.Optional(
-    Type.Unknown({
-      description: 'The tool input object — must match the tool inputSchema from mcp_describe_tool.',
-    }),
+    Type.Object(
+      {},
+      {
+        additionalProperties: true,
+        description: 'Legacy alias for input. Prefer input because some tool-call runtimes reserve arguments.',
+      },
+    ),
   ),
 });
 
@@ -156,18 +169,19 @@ export function createMcpBridgeExtensionFactory({
       name: 'mcp_call',
       label: 'Call MCP tool',
       description:
-        'Invoke an MCP tool by name with its arguments (see mcp_describe_tool for the input shape). Write-class tools pause for the operator’s approval.',
+        'Invoke an MCP tool by name with input matching mcp_describe_tool. Write-class tools pause for the operator’s approval.',
       parameters: CallParams,
       async execute(_toolCallId, params) {
         const name = typeof params?.name === 'string' ? params.name : '';
         const tool = byName.get(name);
         if (!tool) return textResult(`Unknown MCP tool "${name}". Use mcp_search_tools first.`, true);
-        const args =
-          params?.arguments &&
-          typeof params.arguments === 'object' &&
-          !Array.isArray(params.arguments)
-            ? params.arguments
-            : {};
+        const rawInput =
+          params?.input !== undefined
+            ? params.input
+            : params?.arguments !== undefined
+              ? params.arguments
+              : {};
+        const args = rawInput && typeof rawInput === 'object' && !Array.isArray(rawInput) ? rawInput : {};
         const startedAt = Date.now();
         const result = await requestMcpResult(tool.server, name, args);
         const latencyMs = Math.max(0, Date.now() - startedAt);

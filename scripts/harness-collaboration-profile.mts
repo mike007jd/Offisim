@@ -23,7 +23,7 @@ import {
 
 let passed = 0;
 let failed = 0;
-const TOTAL = 7;
+const TOTAL = 8;
 
 function check(name: string, run: () => void): void {
   try {
@@ -80,6 +80,16 @@ check('(7) the read allowlist exposes no execution/mutation tool', () => {
       `read tool "${t}" must not be forbidden`,
     );
   }
+});
+
+check('(8) collaboration_read MCP meta tools still avoid the forbidden set', () => {
+  const withMcpMeta = [
+    ...collaborationToolAllowlist('collaboration_read'),
+    'mcp_search_tools',
+    'mcp_describe_tool',
+    'mcp_call',
+  ];
+  assert.deepEqual(collaborationForbiddenIntersection(withMcpMeta), []);
 });
 
 console.log(`\n${passed}/${TOTAL} checks passed${failed ? `, ${failed} FAILED` : ''}.`);

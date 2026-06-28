@@ -103,6 +103,8 @@ function threadRowToDomain(row: CollaborationThreadRow): CollaborationThread {
     title: row.title,
     directEmployeeId: row.direct_employee_id,
     replyPolicy: row.reply_policy as CollaborationReplyPolicy,
+    capabilityProfile:
+      row.capability_profile === 'collaboration_read' ? 'collaboration_read' : 'strict',
     roundSpeakerLimit: row.round_speaker_limit,
     createdBy: row.created_by,
     archivedAt: row.archived_at,
@@ -191,6 +193,7 @@ export class CollaborationService {
       title: opts?.title ?? `Direct ${employeeId}`,
       direct_employee_id: employeeId,
       reply_policy: opts?.replyPolicy ?? DEFAULT_REPLY_POLICY,
+      capability_profile: 'strict',
       round_speaker_limit: clampSpeakerLimit(opts?.roundSpeakerLimit),
       created_by: BOSS_ACTOR_ID,
       archived_at: null,
@@ -271,6 +274,7 @@ export class CollaborationService {
       title: input.title,
       direct_employee_id: null,
       reply_policy: input.replyPolicy ?? DEFAULT_REPLY_POLICY,
+      capability_profile: 'strict',
       round_speaker_limit: clampSpeakerLimit(input.roundSpeakerLimit),
       created_by: BOSS_ACTOR_ID,
       archived_at: null,
@@ -476,6 +480,16 @@ export class CollaborationService {
       await repos.collaborationThreads.update(input.threadId, { updated_at: now });
       const updated = await repos.collaborationMembers.listActiveByThread(input.threadId);
       return updated.map(memberRowToDomain);
+    });
+  }
+
+  async updateCapabilityProfile(
+    threadId: string,
+    capabilityProfile: CollaborationThread['capabilityProfile'],
+  ): Promise<void> {
+    await this.repos.collaborationThreads.update(threadId, {
+      capability_profile: capabilityProfile,
+      updated_at: this.deps.now(),
     });
   }
 

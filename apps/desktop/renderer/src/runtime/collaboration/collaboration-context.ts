@@ -11,7 +11,11 @@
 // workspace path, the Office hidden system prompt, mission criteria, and any
 // non-participating member's private memory.
 
-import type { CollaborationMessage, CollaborationReplyPolicy } from '@offisim/shared-types';
+import type {
+  CollaborationMessage,
+  CollaborationProfile,
+  CollaborationReplyPolicy,
+} from '@offisim/shared-types';
 
 /** A thread participant the controller may schedule + describe in the packet. */
 export interface CollaborationParticipant {
@@ -129,6 +133,10 @@ export interface BuildContextPacketInput {
   recentMessages: readonly CollaborationMessage[];
   /** The employee that is about to speak. */
   speaker: CollaborationParticipant;
+  /** Capability profile enforced by the host for this turn. Defaults to strict. */
+  capabilityProfile?: CollaborationProfile;
+  /** Read-only MCP tool names scoped to this speaker, if the host exposed any. */
+  mcpToolNames?: readonly string[];
   /** The boss/user message (or round anchor) that triggered this turn. */
   triggerMessageBody: string;
   /** Prior speakers' completed replies THIS round (so employees can talk to each other). */
@@ -164,9 +172,22 @@ export function buildContextPacket(input: BuildContextPacketInput): string {
   lines.push(
     `This is the chat thread "${input.threadTitle}" (reply policy: ${input.replyPolicy}).`,
   );
-  lines.push(
-    'This is everyday company chat — NOT project work. You have no tools, no files, and no workspace here. Do not run commands, do not claim to have edited or created any file, and do not invent task results. Just talk like a teammate in a group chat: concise and in character.',
-  );
+  const capabilityProfile = input.capabilityProfile ?? 'strict';
+  if (capabilityProfile === 'collaboration_read') {
+    lines.push(
+      'This is everyday company chat — NOT project work. You may use only read-only tools exposed for this chat, including MCP read/search tools when available. Do not run shell commands, do not write, edit, create, delete, publish, start missions, or claim to have modified any file. If the requested action requires write access, say that capability is unavailable. Reply like a teammate in a group chat: concise and in character.',
+    );
+    const mcpToolNames = [...new Set(input.mcpToolNames ?? [])].filter(Boolean).sort();
+    if (mcpToolNames.length > 0) {
+      lines.push(
+        `Available read-only MCP tools in this chat: ${mcpToolNames.join(', ')}. To use them, call mcp_search_tools, mcp_describe_tool, then mcp_call with { name, input }; do not substitute built-in file tools when the user explicitly asks for MCP.`,
+      );
+    }
+  } else {
+    lines.push(
+      'This is everyday company chat — NOT project work. You have no tools, no files, and no workspace here. Do not run commands, do not claim to have edited or created any file, and do not invent task results. Just talk like a teammate in a group chat: concise and in character.',
+    );
+  }
 
   const others = input.participants.filter((p) => p.employeeId !== input.speaker.employeeId);
   if (others.length > 0) {

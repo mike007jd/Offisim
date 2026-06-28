@@ -27,6 +27,7 @@ import type { CollaborationMessage, CollaborationReplyPolicy } from '@offisim/sh
 import {
   Archive,
   ArchiveRestore,
+  BookOpenCheck,
   MessageSquare,
   Plus,
   RotateCw,
@@ -46,6 +47,7 @@ import {
   useCreateGroup,
   useGetOrCreateDirect,
   useMarkRead,
+  useUpdateThreadProfile,
   useUpdateMembers,
 } from '../collaboration-data.js';
 import { useConnectRuntime } from '../use-connect-runtime.js';
@@ -299,6 +301,7 @@ export function MessengerApp() {
   const createGroup = useCreateGroup(companyId);
   const updateMembers = useUpdateMembers(companyId);
   const archive = useArchiveThread(companyId);
+  const updateThreadProfile = useUpdateThreadProfile(companyId);
   const markRead = useMarkRead(companyId);
 
   // Reset draft + selection on a company switch (the company key changes).
@@ -416,6 +419,15 @@ export function MessengerApp() {
           archive.mutate({
             threadId: activeThread.threadId,
             archived: !activeThread.archivedAt,
+          })
+        }
+        onProfileToggle={() =>
+          updateThreadProfile.mutate({
+            threadId: activeThread.threadId,
+            capabilityProfile:
+              activeThread.capabilityProfile === 'collaboration_read'
+                ? 'strict'
+                : 'collaboration_read',
           })
         }
         onOpenMembers={() => setMembersOpen(true)}
@@ -621,6 +633,7 @@ function PersistedThreadDetail({
   byId,
   runtime,
   onArchiveToggle,
+  onProfileToggle,
   onOpenMembers,
   onOpenAskTeam,
 }: {
@@ -629,6 +642,7 @@ function PersistedThreadDetail({
   byId: Map<string, Employee>;
   runtime: ReturnType<typeof useConnectRuntime>;
   onArchiveToggle: () => void;
+  onProfileToggle: () => void;
   onOpenMembers: () => void;
   onOpenAskTeam: () => void;
 }) {
@@ -735,9 +749,11 @@ function PersistedThreadDetail({
   const directEmployee = thread.directEmployeeId
     ? (byId.get(thread.directEmployeeId) ?? null)
     : null;
+  const profileLabel =
+    thread.capabilityProfile === 'collaboration_read' ? 'Read-only assistant' : 'Strict chat';
   const subtitle = isGroup
-    ? `${policyLabel(thread.replyPolicy)} · group`
-    : `Direct · ${directEmployee?.role ?? '—'}`;
+    ? `${policyLabel(thread.replyPolicy)} · group · ${profileLabel}`
+    : `Direct · ${directEmployee?.role ?? '—'} · ${profileLabel}`;
 
   return (
     <>
@@ -757,6 +773,17 @@ function PersistedThreadDetail({
               onClick={onOpenMembers}
             />
           ) : null}
+          <IconButton
+            icon={BookOpenCheck}
+            label={
+              thread.capabilityProfile === 'collaboration_read'
+                ? 'Use strict chat'
+                : 'Use read-only assistant'
+            }
+            variant={thread.capabilityProfile === 'collaboration_read' ? 'accentSoft' : 'ghost'}
+            size="iconSm"
+            onClick={onProfileToggle}
+          />
           <IconButton
             icon={thread.archivedAt ? ArchiveRestore : Archive}
             label={thread.archivedAt ? 'Unarchive' : 'Archive'}

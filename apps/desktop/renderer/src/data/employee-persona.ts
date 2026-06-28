@@ -120,6 +120,17 @@ interface RuntimeMcpServerStatus {
   tools?: RuntimeMcpToolInfo[];
 }
 
+interface RuntimeRegisteredMcpServer {
+  serverId?: unknown;
+  name?: unknown;
+  transport?: unknown;
+  approvalId?: unknown;
+  commandFingerprint?: unknown;
+  sourcePackageId?: unknown;
+  sourcePackageVersion?: unknown;
+  sourceManifestHash?: unknown;
+}
+
 /**
  * Build a turn's full delegation context in ONE pass: a single `findByCompany`
  * (all employee rows) + a single company read derives both the acting employee's
@@ -167,7 +178,7 @@ export async function buildMcpScope(
     const grants = await repos.mcpToolGrants.listByEmployee(companyId, employeeId);
     if (grants.length === 0) return [];
     const { invoke } = await import('@tauri-apps/api/core');
-    const statuses = await invoke<RuntimeMcpServerStatus[]>('mcp_list_servers');
+    const statuses = await ensureGrantedMcpServersConnected(invoke, grants);
     const connected = new Map(
       statuses
         .filter((server) => server.state === 'ready' && typeof server.name === 'string')
@@ -185,6 +196,52 @@ export async function buildMcpScope(
   } catch {
     return [];
   }
+}
+
+async function ensureGrantedMcpServersConnected(
+  invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>,
+  grants: readonly { server_name: string }[],
+): Promise<RuntimeMcpServerStatus[]> {
+  const statuses = await invoke<RuntimeMcpServerStatus[]>('mcp_list_servers');
+  const ready = new Set(
+    statuses
+      .filter((server) => server.state === 'ready' && typeof server.name === 'string')
+      .map((server) => server.name as string),
+  );
+  const needed = new Set(grants.map((grant) => grant.server_name).filter((name) => !ready.has(name)));
+  if (needed.size === 0) return statuses;
+
+  const registered = await invoke<RuntimeRegisteredMcpServer[]>('mcp_list_registered_servers');
+  await Promise.all(
+    registered
+      .filter((server) => typeof server.name === 'string' && needed.has(server.name))
+      .map(async (server) => {
+        if (
+          server.transport !== 'stdio' ||
+          typeof server.serverId !== 'string' ||
+          typeof server.approvalId !== 'string' ||
+          typeof server.commandFingerprint !== 'string'
+        ) {
+          return;
+        }
+        await invoke('mcp_connect_registered', {
+          request: {
+            serverId: server.serverId,
+            approvalId: server.approvalId,
+            commandFingerprint: server.commandFingerprint,
+            projectId: null,
+            requestSurface: 'connect',
+            sourcePackageId:
+              typeof server.sourcePackageId === 'string' ? server.sourcePackageId : null,
+            sourcePackageVersion:
+              typeof server.sourcePackageVersion === 'string' ? server.sourcePackageVersion : null,
+            sourceManifestHash:
+              typeof server.sourceManifestHash === 'string' ? server.sourceManifestHash : null,
+          },
+        }).catch(() => undefined);
+      }),
+  );
+  return invoke<RuntimeMcpServerStatus[]>('mcp_list_servers');
 }
 
 function toMcpScopedTool(

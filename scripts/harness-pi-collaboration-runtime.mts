@@ -240,6 +240,29 @@ async function seedThread(
     'context packet states daily chat, no tools, no files',
     /no tools|no files|do not run commands/i.test(packet) && /Do not .*claim/i.test(packet),
   );
+  const readPacket = buildContextPacket({
+    companyName: 'Acme',
+    threadTitle: 'Read room',
+    replyPolicy: 'mentions_only',
+    participants: PARTICIPANTS,
+    recentMessages: [],
+    speaker: PARTICIPANTS[0],
+    capabilityProfile: 'collaboration_read',
+    mcpToolNames: ['read_file'],
+    triggerMessageBody: 'read a file',
+  });
+  check(
+    'read profile packet allows only read-only tools',
+    /read-only tools/i.test(readPacket) &&
+      /MCP read\/search/i.test(readPacket) &&
+      /read_file/.test(readPacket) &&
+      /mcp_call/.test(readPacket),
+  );
+  check(
+    'read profile packet still forbids writes and shell commands',
+    /Do not run shell commands/i.test(readPacket) &&
+      /do not write, edit, create, delete, publish, start missions/i.test(readPacket),
+  );
   check(
     'context packet contains the company + thread title',
     packet.includes('Acme') && packet.includes('Team room'),
@@ -550,11 +573,20 @@ await (async () => {
     '(2) host registers a dedicated collaborate dispatch',
     entry.includes("payload.mode === 'collaborate'"),
   );
-  check('(2) host collaborate uses noTools: all', /noTools:\s*'all'/.test(fn));
-  check('(2) host collaborate passes an empty tool allowlist', /tools:\s*\[\]/.test(fn));
   check(
-    '(3) host collaborate registers NO extension factories (no delegate/mission/publish)',
-    !fnCode.includes('extensionFactories'),
+    '(2) host strict collaborate uses noTools: all',
+    /collaborationRead\s*\?\s*\{\}\s*:\s*\{\s*noTools:\s*'all'\s*\}/.test(fn),
+  );
+  check(
+    '(2) host strict collaborate can pass an empty allowlist',
+    /collaborationToolAllowlist\(collaborationProfile\)/.test(fn),
+  );
+  check(
+    '(3) host collaborate registers only MCP extension factories',
+    fnCode.includes('createMcpBridgeExtensionFactory') &&
+      !/createDelegationExtensionFactory|createMissionBridgeExtensionFactory|createPublishArtifactExtensionFactory/.test(
+        fnCode,
+      ),
   );
   check(
     '(3) host collaborate never registers a delegate/mission bridge',
@@ -577,8 +609,9 @@ await (async () => {
     !/agent_runs|chat_threads|mission_/.test(fnCode),
   );
   check(
-    '(2) host collaborate throws on any tool execution (isolation breach guard)',
-    fn.includes('isolation breach') || fn.includes('must not execute tools'),
+    '(2) host collaborate throws on strict or forbidden tool execution',
+    fn.includes('COLLABORATION_FORBIDDEN_TOOLS') &&
+      (fn.includes('isolation breach') || fn.includes('must not execute tool')),
   );
   // Streaming, unlike enhance: it must emit content deltas (messageDeltaLine).
   check(
@@ -603,8 +636,9 @@ await (async () => {
       !/resolved_request_cwd/.test(rfnCode),
   );
   check(
-    '(2) Rust collaborate registers no stdin extension-UI channel (register_stdin None)',
-    /run_pi_sidecar_jsonl\([\s\S]*?None,\s*\n\s*\)/.test(rfn) || rfn.includes('None,\n    )'),
+    '(2) Rust collaborate keeps stdin only for collaboration_read',
+    /collaboration_profile\.as_deref\(\)\s*==\s*Some\("collaboration_read"\)/.test(rfnCode) &&
+      /Some\(req\.request_id\.as_str\(\)\)/.test(rfnCode),
   );
   check(
     '(2) Rust collaborate carries no roster / missionContextJson field',

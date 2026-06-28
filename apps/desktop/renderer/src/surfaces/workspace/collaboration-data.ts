@@ -25,6 +25,7 @@ import type { RuntimeRepositories } from '@offisim/core/browser';
 import type {
   CollaborationMember,
   CollaborationMessage,
+  CollaborationProfile,
   CollaborationReplyPolicy,
 } from '@offisim/shared-types';
 import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -309,6 +310,27 @@ export function useArchiveThread(companyId: string | null) {
       if (!service) throw new Error('Archiving needs the desktop app.');
       if (archived) await service.archive(threadId);
       else await service.unarchive(threadId);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: connectKeys.threads(companyId) });
+    },
+  });
+}
+
+/** Switch a Connect thread between strict chat and read-only assistant mode. */
+export function useUpdateThreadProfile(companyId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      threadId,
+      capabilityProfile,
+    }: {
+      threadId: string;
+      capabilityProfile: CollaborationProfile;
+    }) => {
+      const service = await getCollaborationService();
+      if (!service) throw new Error('Updating chat mode needs the desktop app.');
+      await service.updateCapabilityProfile(threadId, capabilityProfile);
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: connectKeys.threads(companyId) });

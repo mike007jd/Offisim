@@ -91,6 +91,7 @@ export function createCollaborationTauriRepos(db: TauriDrizzleDb): Collaboration
       const set: Partial<CollaborationThreadRow> = { updated_at: patch.updated_at };
       if (patch.title !== undefined) set.title = patch.title;
       if (patch.reply_policy !== undefined) set.reply_policy = patch.reply_policy;
+      if (patch.capability_profile !== undefined) set.capability_profile = patch.capability_profile;
       if (patch.round_speaker_limit !== undefined)
         set.round_speaker_limit = patch.round_speaker_limit;
       if (patch.archived_at !== undefined) set.archived_at = patch.archived_at;

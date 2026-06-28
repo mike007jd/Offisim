@@ -1288,6 +1288,7 @@ export const collaborationThreads = sqliteTable(
       onDelete: 'set null',
     }),
     reply_policy: text('reply_policy').notNull().default('mentions_only'),
+    capability_profile: text('capability_profile').notNull().default('strict'),
     round_speaker_limit: integer('round_speaker_limit').notNull().default(3),
     created_by: text('created_by').notNull().default('boss'),
     archived_at: text('archived_at'),

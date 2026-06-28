@@ -25,6 +25,7 @@ import type {
   CollaborationTurnRepository,
 } from '@offisim/core/browser';
 import type { CollaborationMessage, CollaborationReplyPolicy } from '@offisim/shared-types';
+import type { CollaborationProfile } from '@offisim/shared-types';
 import {
   type CollaborationParticipant,
   type PriorRoundReply,
@@ -60,9 +61,12 @@ export interface CollaborationThreadContext {
   title: string;
   kind: 'direct' | 'group';
   replyPolicy: CollaborationReplyPolicy;
+  capabilityProfile?: CollaborationProfile;
   /** For a direct thread: the single employee on the other side (null if deleted). */
   directEmployeeId?: string | null;
   roundSpeakerLimit: number;
+  mcpTools?: unknown[];
+  mcpToolsByEmployeeId?: ReadonlyMap<string, unknown[]>;
   /** Active participants (identity context only), in stable roster order. */
   participants: readonly CollaborationParticipant[];
 }
@@ -456,6 +460,7 @@ export class CollaborationTurnController {
     this.emit(ctx.threadId);
 
     const recent = recentWindow(await this.deps.recentMessages(ctx.threadId));
+    const scopedMcpTools = ctx.mcpToolsByEmployeeId?.get(speaker.employeeId) ?? ctx.mcpTools ?? [];
     const systemPromptAppend = buildContextPacket({
       companyName: ctx.companyName,
       threadTitle: ctx.title,
@@ -463,6 +468,14 @@ export class CollaborationTurnController {
       participants: ctx.participants,
       recentMessages: recent,
       speaker,
+      capabilityProfile: ctx.capabilityProfile,
+      mcpToolNames: scopedMcpTools
+        .map((tool) =>
+          tool && typeof tool === 'object' && 'name' in tool
+            ? (tool as { name?: unknown }).name
+            : null,
+        )
+        .filter((name): name is string => typeof name === 'string' && name.length > 0),
       triggerMessageBody: triggerMessage.body,
       priorRoundReplies: priorReplies,
     });
@@ -480,6 +493,8 @@ export class CollaborationTurnController {
           systemPromptAppend,
           model: this.deps.model?.(),
           thinkingLevel: this.deps.thinkingLevel?.(),
+          collaborationProfile: ctx.capabilityProfile,
+          mcpTools: scopedMcpTools,
         },
         {
           onDelta: (delta) => {

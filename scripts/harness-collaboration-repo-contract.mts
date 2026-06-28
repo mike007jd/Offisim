@@ -75,6 +75,8 @@ CREATE TABLE collaboration_threads (
   direct_employee_id TEXT REFERENCES employees(employee_id) ON DELETE SET NULL,
   reply_policy       TEXT NOT NULL DEFAULT 'mentions_only'
                        CHECK (reply_policy IN ('mentions_only', 'roundtable', 'silent')),
+  capability_profile TEXT NOT NULL DEFAULT 'strict'
+                       CHECK (capability_profile IN ('strict', 'collaboration_read')),
   round_speaker_limit INTEGER NOT NULL DEFAULT 3,
   created_by         TEXT NOT NULL DEFAULT 'boss',
   archived_at        TEXT,
@@ -283,6 +285,7 @@ async function runContract(make: () => Backend): Promise<void> {
         title: 'Alex',
         direct_employee_id: 'emp-1',
         reply_policy: 'mentions_only',
+        capability_profile: 'strict',
         round_speaker_limit: 3,
         created_by: 'boss',
         archived_at: null,

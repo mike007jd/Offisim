@@ -155,6 +155,11 @@ pub struct PiAgentCollaborateRequest {
     /// shaped so future profiles only ADD a branch. Opaque to Rust beyond routing.
     #[serde(default)]
     capability_profile: Option<String>,
+    /// Connect permission profile (`strict` / `collaboration_read`). Opaque to
+    /// Rust except for deciding whether the sidecar stdin channel must stay open
+    /// for MCP results.
+    #[serde(default)]
+    collaboration_profile: Option<String>,
     company_id: String,
     /// The Collaboration thread id (company-scoped daily chat) — NOT a project /
     /// chat_thread id. Part of the conversationKey, never a workspace.
@@ -165,6 +170,8 @@ pub struct PiAgentCollaborateRequest {
     model: Option<String>,
     #[serde(default)]
     thinking_level: Option<String>,
+    #[serde(default)]
+    mcp_tools: Option<serde_json::Value>,
     /// The speaking employee's persona + the collaboration context packet, built
     /// renderer-side and forwarded as the Pi session's `appendSystemPrompt`. Opaque
     /// to Rust. Carries identity context only — never a delegate roster.
@@ -555,8 +562,11 @@ fn collaborate_payload<R: tauri::Runtime>(
 ) -> serde_json::Value {
     serde_json::json!({
         "mode": "collaborate",
+        "requestId": req.request_id,
         "text": req.text,
         "capabilityProfile": req.capability_profile,
+        "collaborationProfile": req.collaboration_profile,
+        "mcpTools": req.mcp_tools,
         "cwd": cwd.to_string_lossy().to_string(),
         "agentDir": app_pi_agent_dir(app).map(|path| path.to_string_lossy().to_string()),
         "companyId": req.company_id,
@@ -1224,8 +1234,14 @@ async fn do_collaborate<R: tauri::Runtime>(
     let dev_root = dev_workspace_root();
     let script_path = sidecar_script_path(app, dev_root.as_ref(), PI_LANE)?;
     let payload = collaborate_payload(app, &req, &cwd);
-    // `register_stdin: None` — collaboration registers zero tools, so there is no
-    // mid-run extension-UI prompt and thus no second stdin channel.
+    // Strict collaboration registers zero tools and closes stdin. Read-only
+    // collaboration keeps stdin open so the host can receive MCP results through
+    // the same JSONL response channel as work runs.
+    let register_stdin = if req.collaboration_profile.as_deref() == Some("collaboration_read") {
+        Some(req.request_id.as_str())
+    } else {
+        None
+    };
     let response = run_pi_sidecar_jsonl(
         app,
         &script_path,
@@ -1234,7 +1250,7 @@ async fn do_collaborate<R: tauri::Runtime>(
         payload,
         token,
         Some(on_event),
-        None,
+        register_stdin,
     )
     .await?;
     let response = parse_response(response)?;
