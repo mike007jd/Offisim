@@ -334,7 +334,64 @@ await check(
 );
 
 // ---------------------------------------------------------------------------
-// 5. Pinned revision does NOT follow the loop's current revision.
+// 5. G2: same project can materialize two top-level Loop missions on distinct threads.
+// ---------------------------------------------------------------------------
+
+await check(
+  'G2: two Loop runs in the same project materialize as distinct top-level missions/threads',
+  async () => {
+    const { repos, svc, materializerDeps } = freshSystem();
+    const loop = await seedReadyLoop(svc);
+    await repos.chatThreads.create({
+      thread_id: 'g2-thread-a',
+      project_id: PROJECT,
+      employee_id: null,
+      title: 'G2 parallel A',
+    });
+    await repos.chatThreads.create({
+      thread_id: 'g2-thread-b',
+      project_id: PROJECT,
+      employee_id: null,
+      title: 'G2 parallel B',
+    });
+
+    const first = await materializeLoopSend(materializerDeps, {
+      reference: { loopId: loop.loopId, revisionId: loop.revisionId },
+      companyId: COMPANY,
+      projectId: PROJECT,
+      threadId: 'g2-thread-a',
+      messageId: 'g2-message-a',
+    });
+    const second = await materializeLoopSend(materializerDeps, {
+      reference: { loopId: loop.loopId, revisionId: loop.revisionId },
+      companyId: COMPANY,
+      projectId: PROJECT,
+      threadId: 'g2-thread-b',
+      messageId: 'g2-message-b',
+    });
+
+    assert.notEqual(first.missionId, second.missionId, 'each start gets a distinct mission');
+    const missions = await repos.missions!.listByCompany(COMPANY, { limit: 100 });
+    const g2 = missions.filter((mission) =>
+      ['g2-thread-a', 'g2-thread-b'].includes(mission.thread_id),
+    );
+    assert.equal(g2.length, 2, 'both missions were persisted');
+    assert.deepEqual(
+      new Set(g2.map((mission) => mission.thread_id)),
+      new Set(['g2-thread-a', 'g2-thread-b']),
+      'parallel entries use distinct thread ids',
+    );
+    assert.equal(
+      new Set(g2.map((mission) => mission.project_id)).size,
+      1,
+      'both missions stay in the same project',
+    );
+    assert.equal(await repos.loopInvocations!.countByLoop(loop.loopId), 2);
+  },
+);
+
+// ---------------------------------------------------------------------------
+// 6. Pinned revision does NOT follow the loop's current revision.
 // ---------------------------------------------------------------------------
 
 await check(

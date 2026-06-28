@@ -1,4 +1,6 @@
 import { buildLoopService } from '@/data/loops.js';
+import { persistChatMessage } from '@/data/chat-message-events.js';
+import type { ChatMessage } from '@/data/types.js';
 import { missionRunManager } from '@/runtime/mission/mission-run-manager.js';
 import { getRepos } from '@/runtime/repos.js';
 import { createMissionService, generateId } from '@offisim/core/browser';
@@ -90,6 +92,87 @@ export async function buildLoopSendExecution(input: {
       }
     },
   };
+}
+
+export async function startLoopAsParallelProjectRun(input: {
+  loopId: string;
+  revisionId: string;
+  title: string;
+  companyId: string;
+  projectId: string;
+}): Promise<{ missionId: string; threadId: string }> {
+  const repos = await getRepos();
+  if (!repos.loopInvocations) {
+    throw new Error('Loop invocation storage is unavailable in this runtime.');
+  }
+
+  const threadId = generateId('thread');
+  const messageId = generateId('msg');
+  const title = input.title.trim() || 'Loop run';
+  const prompt = `Start Loop: ${title}`;
+
+  await repos.chatThreads.create({
+    thread_id: threadId,
+    project_id: input.projectId,
+    employee_id: null,
+    title,
+  });
+
+  const message: ChatMessage = {
+    id: messageId,
+    threadId,
+    author: 'boss',
+    employeeId: null,
+    body: prompt,
+    at: Date.now(),
+    status: 'complete',
+  };
+  await persistChatMessage({
+    message,
+    companyId: input.companyId,
+    projectId: input.projectId,
+  });
+
+  const loopService = buildLoopService(repos);
+  const missionService = createMissionService(
+    {
+      missions: requireRepo(repos, 'missions'),
+      missionCriteria: requireRepo(repos, 'missionCriteria'),
+      missionAttempts: requireRepo(repos, 'missionAttempts'),
+      missionEvaluations: requireRepo(repos, 'missionEvaluations'),
+      missionEvents: requireRepo(repos, 'missionEvents'),
+    },
+    { now: () => new Date().toISOString(), newId: () => generateId('mission') },
+  );
+  const missionCreator: LoopMissionCreator = {
+    async createReadyMission(createInput) {
+      const mission = await missionService.createMission(createInput);
+      await missionService.markReady(mission.mission_id);
+      return { missionId: mission.mission_id };
+    },
+  };
+
+  const loopInvocations = repos.loopInvocations;
+  const result = await materializeLoopSend(
+    {
+      loopService,
+      loopInvocations,
+      missionCreator,
+      compensateInvocation: (invocationId) => loopInvocations.deleteById(invocationId),
+      newId: () => generateId('loopinv'),
+      now: () => new Date().toISOString(),
+    },
+    {
+      reference: { loopId: input.loopId, revisionId: input.revisionId },
+      companyId: input.companyId,
+      projectId: input.projectId,
+      threadId,
+      messageId,
+    },
+  );
+
+  await missionRunManager.start(result.missionId, input.companyId);
+  return { missionId: result.missionId, threadId };
 }
 
 function requireRepo<K extends keyof Awaited<ReturnType<typeof getRepos>>>(

@@ -1,5 +1,6 @@
 import { useUiState } from '@/app/ui-state.js';
 import { openLoopInOffice } from '@/assistant/composer/open-loop-in-office.js';
+import { startLoopAsParallelProjectRun } from '@/assistant/runtime/loop-send-execution.js';
 import { useArchiveLoop, useCreateLoop, useDuplicateLoop, useLoops } from '@/data/loops.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
@@ -29,6 +30,7 @@ import {
   Repeat,
   Search,
   Send,
+  SquarePlay,
   SquareArrowOutUpRight,
   Trash2,
 } from 'lucide-react';
@@ -226,6 +228,8 @@ function LoopCard({
 }) {
   const duplicate = useDuplicateLoop(companyId);
   const archive = useArchiveLoop(companyId);
+  const projectId = useUiState((s) => s.projectId) || null;
+  const [starting, setStarting] = useState(false);
   const status = STATUS_VIEW[loop.status];
 
   async function handleUse() {
@@ -235,6 +239,25 @@ function LoopCard({
     }
     const result = await openLoopInOffice(loop.loopId, loop.currentRevisionId);
     if (result.ok) toast.success('Loop added to Office draft');
+  }
+
+  async function handleStartRun() {
+    if (!companyId || !projectId || !loop.currentRevisionId) return;
+    setStarting(true);
+    try {
+      await startLoopAsParallelProjectRun({
+        loopId: loop.loopId,
+        revisionId: loop.currentRevisionId,
+        title: loop.title,
+        companyId,
+        projectId,
+      });
+      toast.success('Loop run started');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not start the Loop run.');
+    } finally {
+      setStarting(false);
+    }
   }
 
   return (
@@ -274,6 +297,22 @@ function LoopCard({
         >
           <Icon icon={Send} size="sm" />
           Use in Office
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleStartRun}
+          disabled={!companyId || !projectId || !loop.currentRevisionId || starting}
+          title={
+            !projectId
+              ? 'Select a project first'
+              : loop.currentRevisionId
+                ? 'Start this Loop as a new project run'
+                : 'Compile + save this Loop first'
+          }
+        >
+          <Icon icon={SquarePlay} size="sm" />
+          Start run
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

@@ -203,6 +203,7 @@
   display: flex;
   align-items: center;
   gap: var(--off-sp-2);
+  flex-wrap: wrap;
   padding: var(--off-sp-3) var(--off-sp-4);
   border-top: 1px solid var(--off-line-soft);
   background: var(--off-surface-2);

@@ -2,10 +2,11 @@ import {
   useActiveConversationRuns,
 } from '@/assistant/runtime/conversation-run-react.js';
 import type { ConversationRunPhase } from '@/assistant/runtime/conversation-run-controller.js';
+import { missionRunManager } from '@/runtime/mission/mission-run-manager.js';
 import { getRepos } from '@/runtime/repos.js';
 import type { AgentRunRow } from '@offisim/core/browser';
 import { useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useMemo, useSyncExternalStore } from 'react';
 
 export type TaskBoardStatus = 'running' | 'interrupted' | 'completed' | 'failed' | 'cancelled';
 
@@ -123,6 +124,12 @@ export function useTaskBoard(companyId: string | null): TaskBoardView & {
   refetch: () => Promise<unknown>;
 } {
   const live = useActiveConversationRuns();
+  const activeMissionRuns = useSyncExternalStore(
+    missionRunManager.subscribe,
+    missionRunManager.getSnapshot,
+    missionRunManager.getSnapshot,
+  );
+  const hasLiveMissionRuns = activeMissionRuns.some((run) => run.companyId === companyId);
   const runs = useQuery({
     queryKey: ['task-board', companyId],
     queryFn: async () => {
@@ -133,7 +140,7 @@ export function useTaskBoard(companyId: string | null): TaskBoardView & {
       return rows.filter((row) => row.run_id === row.root_run_id).map(rowFromAgentRun);
     },
     enabled: Boolean(companyId),
-    refetchInterval: live.activeRuns.length > 0 ? 2_000 : false,
+    refetchInterval: live.activeRuns.length > 0 || hasLiveMissionRuns ? 2_000 : false,
   });
 
   const rows = useMemo(() => {

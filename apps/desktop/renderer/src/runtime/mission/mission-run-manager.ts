@@ -55,9 +55,17 @@ interface ActiveMissionRun {
   threadId: string | null;
 }
 
+interface ActiveMissionRunSnapshot {
+  missionId: string;
+  companyId: string;
+  startedAt: number;
+  threadId: string | null;
+}
+
 class MissionRunManager {
   private readonly activeRuns = new Map<string, ActiveMissionRun>();
   private readonly listeners = new Set<() => void>();
+  private snapshot: readonly ActiveMissionRunSnapshot[] = [];
 
   /**
    * Start a ready mission's run loop. Resolves once the loop has been handed off
@@ -115,6 +123,8 @@ class MissionRunManager {
     return this.activeRuns.has(missionId);
   }
 
+  getSnapshot = (): readonly ActiveMissionRunSnapshot[] => this.snapshot;
+
   /**
    * Best-effort: abort the in-flight agent run for a mission so a user cancel
    * makes the Pi call return promptly — otherwise `isRunning` would stay true (and
@@ -139,6 +149,12 @@ class MissionRunManager {
   };
 
   private notify(): void {
+    this.snapshot = Array.from(this.activeRuns.values(), (run) => ({
+      missionId: run.missionId,
+      companyId: run.companyId,
+      startedAt: run.startedAt,
+      threadId: run.threadId,
+    }));
     for (const listener of this.listeners) listener();
   }
 

@@ -5,6 +5,7 @@ import { useMissionBeats } from '@/assistant/runtime/office-dramaturgy.js';
 import { useOfficeLayout, useRunCost } from '@/data/queries.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
+import { missionRunManager } from '@/runtime/mission/mission-run-manager.js';
 import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
 import type { DramaturgyMode, MissionBeatPhase } from '@offisim/shared-types';
 import {
@@ -21,7 +22,7 @@ import {
   TriangleAlert,
   Users,
 } from 'lucide-react';
-import { Suspense } from 'react';
+import { Suspense, useSyncExternalStore } from 'react';
 import { RecoveryPanel } from './RecoveryPanel.js';
 import { OfficeScene2D } from './scene/OfficeScene2D.js';
 import { OfficeScene3D } from './scene/OfficeScene3D.js';
@@ -50,7 +51,15 @@ export function OfficeStage() {
   const companyId = useUiState((s) => s.companyId);
 
   const runCost = useRunCost();
-  const isRunning = useActiveConversationRuns().activeRuns.length > 0;
+  const conversationRuns = useActiveConversationRuns();
+  const activeMissionRuns = useSyncExternalStore(
+    missionRunManager.subscribe,
+    missionRunManager.getSnapshot,
+    missionRunManager.getSnapshot,
+  );
+  const isRunning =
+    conversationRuns.activeRuns.length > 0 ||
+    activeMissionRuns.some((run) => run.companyId === companyId);
   // Read-only mission projection (§24.4): the latest live mission beat's phase
   // label. Empty when no mission is signaling, so a plain chat renders nothing
   // extra. The pill is a static, animation-free label — the reduced-motion
