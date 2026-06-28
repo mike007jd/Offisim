@@ -2214,7 +2214,8 @@
 
 .off-work-bench-command,
 .off-work-bench-path,
-.off-work-bench-query {
+.off-work-bench-query,
+.off-work-bench-url {
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
@@ -2227,6 +2228,46 @@
   color: var(--off-ink-1);
   font-family: var(--off-font-mono);
   font-size: var(--off-fs-meta);
+}
+
+.off-work-bench-browser {
+  align-items: flex-start;
+}
+
+.off-work-bench-title {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--off-ink-1);
+  font-size: var(--off-fs-sm);
+  font-weight: 700;
+}
+
+.off-work-bench-shot,
+.off-work-bench-shot-ref {
+  flex: 1 0 100%;
+  width: 100%;
+  min-height: 88px;
+  max-height: 168px;
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-xs);
+  background: var(--off-surface-sunken);
+}
+
+.off-work-bench-shot {
+  object-fit: cover;
+  object-position: top center;
+}
+
+.off-work-bench-shot-ref {
+  display: grid;
+  place-items: center;
+  color: var(--off-ink-4);
+  font-size: var(--off-fs-meta);
+  font-weight: 650;
 }
 
 .off-work-bench-output,

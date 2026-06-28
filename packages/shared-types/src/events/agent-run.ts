@@ -219,7 +219,7 @@ export function classifyToolActivity(toolName: string): ActivityKind {
 }
 
 /** Coarse rendering family for a tool's rich detail view (D1). */
-export type ToolFamily = 'terminal' | 'file' | 'search' | 'generic';
+export type ToolFamily = 'terminal' | 'file' | 'search' | 'browser' | 'generic';
 
 /** Map an {@link ActivityKind} to its rich-view {@link ToolFamily}. */
 export function toolFamily(kind: ActivityKind): ToolFamily {
@@ -253,6 +253,12 @@ export type ToolRichDetail =
     }
   | { readonly family: 'file'; readonly path?: string; readonly summary?: string }
   | { readonly family: 'search'; readonly query?: string; readonly hitCount?: number }
+  | {
+      readonly family: 'browser';
+      readonly url?: string;
+      readonly title?: string;
+      readonly screenshot?: { readonly mimeType: string; readonly dataRef: string };
+    }
   | { readonly family: 'generic'; readonly text?: string };
 
 function parseDetailValue(detail?: string): unknown {
@@ -328,6 +334,74 @@ function summarize(value: unknown, max = 200): string | undefined {
   return firstLine.length > max ? `${firstLine.slice(0, max)}…` : firstLine;
 }
 
+function contentBlocksFrom(value: unknown): unknown[] | null {
+  if (Array.isArray(value)) return value;
+  const record = pickRecord(value);
+  if (!record) return null;
+  if (Array.isArray(record.content)) return record.content;
+  if (record.result !== undefined) return contentBlocksFrom(record.result);
+  if (record.partialResult !== undefined) return contentBlocksFrom(record.partialResult);
+  return null;
+}
+
+function isImageBlock(value: unknown): value is Record<string, unknown> {
+  const record = pickRecord(value);
+  return (
+    record?.type === 'image' &&
+    typeof record.mimeType === 'string' &&
+    record.mimeType.startsWith('image/')
+  );
+}
+
+function textBlocksFrom(blocks: readonly unknown[]): string[] {
+  return blocks
+    .map((block) => {
+      const record = pickRecord(block);
+      return record?.type === 'text' && typeof record.text === 'string' ? record.text.trim() : '';
+    })
+    .filter(Boolean);
+}
+
+function parseBrowserUrl(texts: readonly string[]): string | undefined {
+  const joined = texts.join('\n');
+  return joined.match(/https?:\/\/[^\s)"'<>]+/i)?.[0];
+}
+
+function parseBrowserTitle(texts: readonly string[], url?: string): string | undefined {
+  for (const text of texts) {
+    const parsed = pickRecord(parseDetailValue(text));
+    const fromJson = pickString(parsed?.title, parsed?.pageTitle);
+    if (fromJson) return fromJson;
+    for (const line of text.split('\n').map((l) => l.trim()).filter(Boolean)) {
+      const labelled = line.match(/^(?:title|pageTitle)\s*[:=-]\s*(.+)$/i)?.[1]?.trim();
+      if (labelled) return labelled;
+    }
+  }
+  return texts
+    .flatMap((text) => text.split('\n').map((line) => line.trim()).filter(Boolean))
+    .find((line) => line !== url && !/^https?:\/\//i.test(line) && line.length <= 160);
+}
+
+function browserDetailFrom(value: unknown): Extract<ToolRichDetail, { family: 'browser' }> | null {
+  const blocks = contentBlocksFrom(value);
+  if (!blocks) return null;
+  const image = blocks.find(isImageBlock);
+  if (!image) return null;
+  const texts = textBlocksFrom(blocks);
+  const url = parseBrowserUrl(texts);
+  const title = parseBrowserTitle(texts, url);
+  const mimeType = image.mimeType as string;
+  const data = typeof image.data === 'string' ? image.data : undefined;
+  const existingRef = pickString(image.dataRef, image.uri, image.url);
+  const dataRef = data ? `data:${mimeType};base64,${data}` : existingRef;
+  return {
+    family: 'browser',
+    ...(url ? { url } : {}),
+    ...(title ? { title } : {}),
+    ...(dataRef ? { screenshot: { mimeType, dataRef } } : {}),
+  };
+}
+
 /**
  * Parse a tool event's opaque `detail` JSON (the host emits `JSON.stringify` of
  * the tool args on `started` and the result on `completed`) into a
@@ -339,6 +413,8 @@ function summarize(value: unknown, max = 200): string | undefined {
 export function parseToolRichDetail(toolName: string, detail?: string): ToolRichDetail {
   const family = toolFamily(classifyToolActivity(toolName));
   const detailValue = parseDetailValue(detail);
+  const browser = browserDetailFrom(detailValue);
+  if (browser) return browser;
   const d = pickRecord(detailValue);
   const input = pickRecordFrom(d?.input);
   const argumentsValue = pickRecordFrom(d?.arguments ?? d?.args);

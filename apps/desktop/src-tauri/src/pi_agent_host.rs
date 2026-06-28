@@ -113,6 +113,12 @@ pub struct PiAgentExecuteRequest {
     /// never persisted here. Absent on a plain chat (no mission bridge registered).
     #[serde(default)]
     mission_context_json: Option<String>,
+    /// Employee-scoped MCP tool catalog. Built renderer-side from live grants and
+    /// connected MCP servers, then forwarded verbatim to the Node host so it can
+    /// register the fixed MCP meta tools (`mcp_search_tools` / `mcp_describe_tool`
+    /// / `mcp_call`). Opaque to Rust.
+    #[serde(default)]
+    mcp_tools: Option<serde_json::Value>,
 }
 
 /// Prompt Enhance request (PR-06). A DEDICATED, isolated one-shot — never a work
@@ -527,6 +533,7 @@ fn sidecar_payload<R: tauri::Runtime>(
         // Verified Missions context (MS-005): forwarded verbatim. The host
         // registers the mission-bridge extension only when this is present.
         "missionContextJson": req.mission_context_json,
+        "mcpTools": req.mcp_tools,
     })
 }
 

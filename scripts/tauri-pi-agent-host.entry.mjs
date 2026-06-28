@@ -202,6 +202,9 @@ function buildPermissionGate(mode) {
 }
 
 const MAX_TEXT_BYTES = 8 * 1024 * 1024;
+const MAX_TOOL_DETAIL_BYTES = 4096;
+const MAX_BROWSER_TOOL_DETAIL_BYTES = 2 * 1024 * 1024;
+const MAX_INLINE_IMAGE_BYTES = 768 * 1024;
 const TRUNCATED_SUFFIX = '\n[truncated by Offisim Pi host output cap]';
 
 // Fixed-flow guidance (Phase 4): a prompt-template "skill" appended to the root
@@ -275,15 +278,72 @@ function firstPresent(...values) {
   });
 }
 
+function isRecord(value) {
+  return value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function contentBlocksFrom(value) {
+  if (Array.isArray(value)) return value;
+  if (!isRecord(value)) return null;
+  if (Array.isArray(value.content)) return value.content;
+  if (value.result !== undefined) return contentBlocksFrom(value.result);
+  if (value.partialResult !== undefined) return contentBlocksFrom(value.partialResult);
+  return null;
+}
+
+function isMcpImageBlock(value) {
+  return (
+    isRecord(value) &&
+    value.type === 'image' &&
+    typeof value.mimeType === 'string' &&
+    value.mimeType.startsWith('image/')
+  );
+}
+
+function containsMcpImageContent(value) {
+  return contentBlocksFrom(value)?.some(isMcpImageBlock) === true;
+}
+
+function normalizeMcpContentBlock(value) {
+  if (!isMcpImageBlock(value)) return value;
+  const normalized = { ...value };
+  if (typeof normalized.data === 'string') {
+    const dataBytes = Buffer.byteLength(normalized.data, 'base64');
+    if (dataBytes > MAX_INLINE_IMAGE_BYTES) {
+      delete normalized.data;
+      normalized.dataRef = `${normalized.mimeType}:${dataBytes}b`;
+      normalized.dataBytes = dataBytes;
+    }
+  }
+  return normalized;
+}
+
+function normalizeToolDetailPart(value) {
+  if (Array.isArray(value)) return value.map(normalizeToolDetailPart);
+  if (!isRecord(value)) return value;
+  const normalized = { ...value };
+  if (Array.isArray(normalized.content)) {
+    normalized.content = normalized.content.map(normalizeMcpContentBlock);
+  }
+  if (normalized.result !== undefined) {
+    normalized.result = normalizeToolDetailPart(normalized.result);
+  }
+  if (normalized.partialResult !== undefined) {
+    normalized.partialResult = normalizeToolDetailPart(normalized.partialResult);
+  }
+  return normalized;
+}
+
 function toolDetailJson(parts) {
   const detail = {};
   if (parts.input !== undefined) detail.input = parts.input;
   if (parts.arguments !== undefined) detail.arguments = parts.arguments;
-  if (parts.result !== undefined) detail.result = parts.result;
-  if (parts.partialResult !== undefined) detail.partialResult = parts.partialResult;
+  if (parts.result !== undefined) detail.result = normalizeToolDetailPart(parts.result);
+  if (parts.partialResult !== undefined) detail.partialResult = normalizeToolDetailPart(parts.partialResult);
   if (parts.details !== undefined) detail.details = parts.details;
   if (parts.isError !== undefined) detail.isError = parts.isError;
-  return Object.keys(detail).length > 0 ? clampText(JSON.stringify(detail), 4096) : undefined;
+  const maxBytes = containsMcpImageContent(detail) ? MAX_BROWSER_TOOL_DETAIL_BYTES : MAX_TOOL_DETAIL_BYTES;
+  return Object.keys(detail).length > 0 ? clampText(JSON.stringify(detail), maxBytes) : undefined;
 }
 
 function contentText(content) {
@@ -569,7 +629,7 @@ async function runPrompt(payload) {
   // the full tool set but blocks catastrophic commands; Full leaves the session
   // unrestricted.
   const permissionMode = normalizePermissionMode(payload.permissionMode);
-  const tools = toolAllowlistForMode(permissionMode);
+  const baseTools = toolAllowlistForMode(permissionMode);
   // Per-conversation thinking level (reasoning effort). Forwarded as a native
   // `createAgentSession` option; Pi clamps it to the model's capabilities (a
   // non-reasoning model collapses every level to `off`). Unknown → undefined so
@@ -614,6 +674,17 @@ async function runPrompt(payload) {
   // how many MCP tools are scoped.
   const mcpTools = Array.isArray(payload.mcpTools) ? payload.mcpTools : [];
   const mcpEnabled = mcpTools.length > 0 && permissionMode !== 'plan';
+  const tools = mcpEnabled
+    ? [
+        ...(baseTools ?? ['read', 'write', 'edit', 'bash']),
+        ...(delegationEnabled ? ['delegate'] : []),
+        ...(publishArtifactEnabled ? ['publish_artifact'] : []),
+        ...(missionEnabled ? ['submit_for_evaluation', 'query_mission_state'] : []),
+        'mcp_search_tools',
+        'mcp_describe_tool',
+        'mcp_call',
+      ]
+    : baseTools;
   // A write-class MCP tool pauses for ctx.ui.confirm, which needs the forwarding
   // UI context bound — the same bind `ask` mode already does.
   const mcpNeedsUi = mcpEnabled && mcpTools.some(isWriteMcpTool);

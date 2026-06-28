@@ -36,6 +36,7 @@ export function WorkBench({
       {detail.family === 'terminal' ? <TerminalBench detail={detail} /> : null}
       {detail.family === 'file' ? <FileBench detail={detail} /> : null}
       {detail.family === 'search' ? <SearchBench detail={detail} /> : null}
+      {detail.family === 'browser' ? <BrowserBench detail={detail} /> : null}
       {detail.family === 'generic' ? <GenericBench detail={detail} /> : null}
     </div>
   );
@@ -96,6 +97,32 @@ function SearchBench({ detail }: { detail: Extract<ToolRichDetail, { family: 'se
         <span className="off-work-bench-hits">{detail.hitCount} hits</span>
       ) : (
         <span className="off-work-bench-muted">Waiting for search results</span>
+      )}
+    </div>
+  );
+}
+
+function BrowserBench({ detail }: { detail: Extract<ToolRichDetail, { family: 'browser' }> }) {
+  const dataRef = detail.screenshot?.dataRef;
+  const isInlineImage = dataRef?.startsWith('data:') === true;
+  return (
+    <div className="off-work-bench-body off-work-bench-browser">
+      {detail.title ? <span className="off-work-bench-title">{detail.title}</span> : null}
+      {detail.url ? <code className="off-work-bench-url">{detail.url}</code> : null}
+      {detail.screenshot ? (
+        isInlineImage ? (
+          <img
+            className="off-work-bench-shot"
+            src={dataRef}
+            alt={detail.title ?? detail.url ?? 'Browser screenshot'}
+          />
+        ) : (
+          <span className="off-work-bench-shot-ref">
+            {detail.screenshot.mimeType} screenshot
+          </span>
+        )
+      ) : (
+        <span className="off-work-bench-muted">Waiting for screenshot</span>
       )}
     </div>
   );

@@ -376,6 +376,28 @@ console.log('\n[D1] rich tool detail parsed by family');
     'search: query + hitCount from matches[]',
     search.family === 'search' && search.query === 'TODO' && search.hitCount === 3,
   );
+  const browser = parseToolRichDetail(
+    'mcp_call',
+    JSON.stringify({
+      content: [
+        { type: 'text', text: 'Title: Example Domain\nhttps://example.com' },
+        { type: 'image', mimeType: 'image/png', data: 'aGVsbG8=' },
+      ],
+    }),
+  );
+  check(
+    'browser: MCP image content yields URL/title/screenshot',
+    browser.family === 'browser' &&
+      browser.url === 'https://example.com' &&
+      browser.title === 'Example Domain' &&
+      browser.screenshot?.mimeType === 'image/png' &&
+      browser.screenshot.dataRef === 'data:image/png;base64,aGVsbG8=',
+  );
+  const textOnlyMcp = parseToolRichDetail(
+    'mcp_call',
+    JSON.stringify({ content: [{ type: 'text', text: 'https://example.com' }] }),
+  );
+  check('browser: text-only MCP detail degrades generic', textOnlyMcp.family === 'generic');
   const gen = parseToolRichDetail('think', 'not json');
   check('generic: unparseable detail degrades to generic family', gen.family === 'generic');
   const empty = parseToolRichDetail('bash', undefined);
@@ -398,6 +420,17 @@ console.log('\n[D1] rich tool detail parsed by family');
     started({ runId: 'c1', parentRunId: ROOT, employeeId: 'alex', relation: 'delegate' }, 'a'),
     toolEv('bash', JSON.stringify({ command: 'pnpm test', exitCode: 1 })),
     toolEv('grep', JSON.stringify({ query: 'foo', count: 7 })),
+    toolEv(
+      'mcp_call',
+      JSON.stringify({
+        result: {
+          content: [
+            { type: 'text', text: 'Title: Example Domain\nhttps://example.com' },
+            { type: 'image', mimeType: 'image/png', data: 'aGVsbG8=' },
+          ],
+        },
+      }),
+    ),
   ]);
   const bashRd = p.activity.find((a) => a.toolName === 'bash')?.richDetail;
   check(
@@ -408,6 +441,11 @@ console.log('\n[D1] rich tool detail parsed by family');
   check(
     'projection: grep activity carries search richDetail',
     grepRd?.family === 'search' && grepRd.hitCount === 7,
+  );
+  const browserRd = p.activity.find((a) => a.toolName === 'mcp_call')?.richDetail;
+  check(
+    'projection: mcp_call browser result carries browser richDetail',
+    browserRd?.family === 'browser' && browserRd.title === 'Example Domain',
   );
 }
 

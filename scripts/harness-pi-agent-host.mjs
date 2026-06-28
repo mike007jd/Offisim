@@ -16,6 +16,12 @@ function assert(condition, message) {
 const rootPackage = readJson('package.json');
 const desktopPackage = readJson('apps/desktop/package.json');
 const tauriConfig = readJson('apps/desktop/src-tauri/tauri.conf.json');
+const rustHostSource = readFileSync('apps/desktop/src-tauri/src/pi_agent_host.rs', 'utf8');
+const nodeHostSource = readFileSync('scripts/tauri-pi-agent-host.entry.mjs', 'utf8');
+const desktopRuntimeScopeSource = readFileSync(
+  'apps/desktop/renderer/src/data/employee-persona.ts',
+  'utf8',
+);
 
 assert(
   rootPackage.scripts['build:pi-agent-host'] === 'node scripts/build-pi-agent-host.mjs',
@@ -50,6 +56,34 @@ assert(
 assert(
   !tauriConfig.bundle.resources.some((resource) => /claude|codex/u.test(resource)),
   'release bundle must not include Claude/Codex sidecar resources',
+);
+assert(
+  /pub struct PiAgentExecuteRequest[\s\S]*mcp_tools: Option<serde_json::Value>/.test(
+    rustHostSource,
+  ),
+  'execute request must deserialize mcpTools so Office runs can receive employee MCP grants',
+);
+assert(
+  /fn sidecar_payload[\s\S]*"mode": "execute"[\s\S]*"mcpTools": req\.mcp_tools/.test(
+    rustHostSource,
+  ),
+  'execute sidecar payload must forward mcpTools to the Node Pi host',
+);
+assert(
+  /const baseTools = toolAllowlistForMode\(permissionMode\)/.test(nodeHostSource) &&
+    /const tools = mcpEnabled[\s\S]*\.\.\.\(baseTools \?\? \['read', 'write', 'edit', 'bash'\]\)[\s\S]*'mcp_search_tools'[\s\S]*'mcp_describe_tool'[\s\S]*'mcp_call'/.test(
+      nodeHostSource,
+    ),
+  'execute host must append MCP meta tools to an explicit Pi tool allowlist when mcpTools are scoped',
+);
+assert(
+  /const scopedGrants = grants\.filter/.test(desktopRuntimeScopeSource) &&
+    /requestSurface:\s*[\s\S]*server\.requestSurface[\s\S]*: 'settings'/.test(
+      desktopRuntimeScopeSource,
+    ) &&
+    /if \(!server\) \{[\s\S]*continue;[\s\S]*\}/.test(desktopRuntimeScopeSource) &&
+    /catch \{[\s\S]*return \[\];[\s\S]*\}/.test(desktopRuntimeScopeSource),
+  'desktop buildMcpScope must connect registered MCP servers with their approved surface and expose only ready tools',
 );
 
 const tempAgentDir = mkdtempSync(join(tmpdir(), 'offisim-pi-agent-host-'));

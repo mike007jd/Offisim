@@ -1,5 +1,5 @@
 import { titleizeSlug } from '@/lib/utils.js';
-import type { EmployeeRow, RuntimeRepositories } from '@offisim/core/browser';
+import type { EmployeeRow, McpToolGrantRow, RuntimeRepositories } from '@offisim/core/browser';
 
 /**
  * Canonical employee system prompt.
@@ -129,6 +129,7 @@ interface RuntimeRegisteredMcpServer {
   sourcePackageId?: unknown;
   sourcePackageVersion?: unknown;
   sourceManifestHash?: unknown;
+  requestSurface?: unknown;
 }
 
 /**
@@ -174,21 +175,28 @@ export async function buildMcpScope(
   _missionId?: string | null,
 ): Promise<McpScopedTool[]> {
   if (!employeeId || !repos.mcpToolGrants) return [];
+  let grants: McpToolGrantRow[];
   try {
-    const grants = await repos.mcpToolGrants.listByEmployee(companyId, employeeId);
-    if (grants.length === 0) return [];
+    grants = await repos.mcpToolGrants.listByEmployee(companyId, employeeId);
+  } catch {
+    return [];
+  }
+  const scopedGrants = grants.filter((grant) => !grant.project_id || grant.project_id === projectId);
+  if (scopedGrants.length === 0) return [];
+  try {
     const { invoke } = await import('@tauri-apps/api/core');
-    const statuses = await ensureGrantedMcpServersConnected(invoke, grants);
+    const statuses = await ensureGrantedMcpServersConnected(invoke, scopedGrants);
     const connected = new Map(
       statuses
         .filter((server) => server.state === 'ready' && typeof server.name === 'string')
         .map((server) => [server.name as string, server] as const),
     );
     const scoped: McpScopedTool[] = [];
-    for (const grant of grants) {
-      if (grant.project_id && grant.project_id !== projectId) continue;
+    for (const grant of scopedGrants) {
       const server = connected.get(grant.server_name);
-      if (!server) continue;
+      if (!server) {
+        continue;
+      }
       const tool = (server.tools ?? []).find((candidate) => candidate.name === grant.tool_name);
       scoped.push(toMcpScopedTool(grant.server_name, grant.tool_name, tool));
     }
@@ -230,7 +238,8 @@ async function ensureGrantedMcpServersConnected(
             approvalId: server.approvalId,
             commandFingerprint: server.commandFingerprint,
             projectId: null,
-            requestSurface: 'connect',
+            requestSurface:
+              typeof server.requestSurface === 'string' ? server.requestSurface : 'settings',
             sourcePackageId:
               typeof server.sourcePackageId === 'string' ? server.sourcePackageId : null,
             sourcePackageVersion:
