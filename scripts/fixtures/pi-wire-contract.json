@@ -1,5 +1,5 @@
 [
-  { "kind": "ready", "protocolVersion": 3 },
+  { "kind": "ready", "protocolVersion": 4 },
   {
     "kind": "started",
     "sessionId": "sess_1",
@@ -37,6 +37,15 @@
     "server": "filesystem",
     "tool": "read_file",
     "arguments": { "path": "README.md" }
+  },
+  {
+    "kind": "worktreeCall",
+    "id": "wt-1",
+    "op": "addWorktree",
+    "args": {
+      "branch": "offisim/lease/run-1-lease-1",
+      "path": "/tmp/project/.offisim/worktrees/lease-1"
+    }
   },
   {
     "kind": "agentRun",

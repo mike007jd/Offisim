@@ -4,16 +4,16 @@ use std::sync::{Arc, Mutex};
 
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use tauri::{ipc::Channel, AppHandle, Manager};
+use tauri::{AppHandle, Manager, ipc::Channel};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, Command};
 use tokio::sync::Mutex as AsyncMutex;
 use tokio_util::sync::CancellationToken;
 
 use crate::agent_host_runtime::{
-    append_sidecar_audit, dev_workspace_root, project_workspace_root, required_text,
-    resolve_node_executable, resolved_request_cwd, sidecar_script_path, trusted_host_env,
-    AgentHostLane, HostError, SidecarAudit,
+    AgentHostLane, HostError, SidecarAudit, append_sidecar_audit, dev_workspace_root,
+    project_workspace_root, required_text, resolve_node_executable, resolved_request_cwd,
+    sidecar_script_path, trusted_host_env,
 };
 use crate::in_flight::InFlightRegistry;
 use crate::sidecar_stderr::sanitized_stderr;
@@ -47,7 +47,7 @@ fn pi_stdin_guard() -> std::sync::MutexGuard<'static, HashMap<String, Arc<AsyncM
 /// Wire-contract version negotiated with the bundled Node host via the `ready`
 /// handshake. Must stay in lockstep with `PI_HOST_PROTOCOL_VERSION` in
 /// scripts/pi-agent-host-wire.mjs; bump both when a line's required shape changes.
-const PI_HOST_PROTOCOL_VERSION: u32 = 3;
+const PI_HOST_PROTOCOL_VERSION: u32 = 4;
 
 /// Wire kinds the Rust bridge knows how to decode. A line with an unknown kind is
 /// skipped (forward-compatible with newer hosts); a malformed line on a KNOWN kind
@@ -60,6 +60,7 @@ const PI_KNOWN_WIRE_KINDS: &[&str] = &[
     "tool",
     "uiRequest",
     "mcpCall",
+    "worktreeCall",
     "agentRun",
     "result",
     "error",
@@ -447,6 +448,12 @@ enum PiSidecarLine {
         #[serde(default)]
         arguments: Option<serde_json::Value>,
     },
+    WorktreeCall {
+        id: String,
+        op: String,
+        #[serde(default)]
+        args: Option<serde_json::Value>,
+    },
     Result {
         response: serde_json::Value,
     },
@@ -466,6 +473,7 @@ impl PiSidecarLine {
             Self::Tool { .. } => "tool",
             Self::UiRequest { .. } => "uiRequest",
             Self::McpCall { .. } => "mcpCall",
+            Self::WorktreeCall { .. } => "worktreeCall",
             Self::AgentRun { .. } => "agentRun",
             Self::Result { .. } => "result",
             Self::Error { .. } => "error",
@@ -724,6 +732,9 @@ fn send_sidecar_event(
         // mcpCall is intercepted in the stream loop (handled in-process, never
         // forwarded). This arm is the defensive fallback if one ever reaches here.
         PiSidecarLine::McpCall { .. } => Ok(None),
+        // worktreeCall follows the same in-process intercept pattern; never
+        // forward it to the renderer.
+        PiSidecarLine::WorktreeCall { .. } => Ok(None),
         PiSidecarLine::AgentRun {
             thread_id,
             root_run_id,
@@ -848,6 +859,17 @@ struct PiMcpResult {
     error: Option<String>,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PiWorktreeResult {
+    id: String,
+    ok: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    result: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+}
+
 /// Service an intercepted `mcpCall`: invoke the tool through mcp_bridge in-process
 /// and write a matching `mcpResult` line back to the host's stdin. A missing
 /// registry or stdin channel yields an error mcpResult (or a silent drop if the
@@ -867,8 +889,13 @@ async fn handle_mcp_call<R: tauri::Runtime>(
     let args = arguments.unwrap_or_else(|| serde_json::json!({}));
     let response = match app.try_state::<crate::mcp_bridge::commands::ProcessRegistry>() {
         Some(registry) => {
-            match crate::mcp_bridge::commands::invoke_mcp_tool(registry.inner(), &server, &tool, args)
-                .await
+            match crate::mcp_bridge::commands::invoke_mcp_tool(
+                registry.inner(),
+                &server,
+                &tool,
+                args,
+            )
+            .await
             {
                 Ok(call) => PiMcpResult {
                     id,
@@ -897,6 +924,192 @@ async fn handle_mcp_call<R: tauri::Runtime>(
     write_mcp_result(request_id, &response).await
 }
 
+async fn handle_worktree_call(
+    request_id: Option<&str>,
+    workspace_root: Option<&Path>,
+    id: String,
+    op: String,
+    args: Option<serde_json::Value>,
+) -> Result<(), HostError> {
+    let Some(request_id) = request_id else {
+        eprintln!("[pi-agent-host] worktreeCall on a lane with no stdin channel; dropping id={id}");
+        return Ok(());
+    };
+    let response = match workspace_root {
+        Some(root) => {
+            match run_worktree_op(root, &op, args.unwrap_or_else(|| serde_json::json!({}))).await {
+                Ok(result) => PiWorktreeResult {
+                    id,
+                    ok: true,
+                    result: Some(result),
+                    error: None,
+                },
+                Err(error) => PiWorktreeResult {
+                    id,
+                    ok: false,
+                    result: None,
+                    error: Some(error),
+                },
+            }
+        }
+        None => PiWorktreeResult {
+            id,
+            ok: false,
+            result: None,
+            error: Some("workspace root is not available for worktree operations".into()),
+        },
+    };
+    write_worktree_result(request_id, &response).await
+}
+
+async fn run_worktree_op(
+    root: &Path,
+    op: &str,
+    args: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    match op {
+        "isGitRepo" => {
+            let result = crate::git::run_git_validated(
+                vec!["rev-parse".into(), "--is-inside-work-tree".into()],
+                root,
+                Some(root),
+            )
+            .await?;
+            Ok(serde_json::Value::Bool(
+                result.ok && result.stdout.trim() == "true",
+            ))
+        }
+        "addWorktree" => {
+            let branch = worktree_arg(&args, "branch")?;
+            let path = worktree_arg(&args, "path")?;
+            let result = crate::git::run_git_validated(
+                vec!["worktree".into(), "add".into(), "-b".into(), branch, path],
+                root,
+                Some(root),
+            )
+            .await?;
+            if result.ok {
+                Ok(serde_json::json!({ "ok": true }))
+            } else {
+                Err(nonzero_git_error(result))
+            }
+        }
+        "removeWorktree" => {
+            let path = worktree_arg(&args, "path")?;
+            let result = crate::git::run_git_validated(
+                vec!["worktree".into(), "remove".into(), path],
+                root,
+                Some(root),
+            )
+            .await?;
+            if result.ok {
+                Ok(serde_json::json!({ "ok": true }))
+            } else {
+                Err(nonzero_git_error(result))
+            }
+        }
+        "worktreeChanged" => {
+            let path = worktree_arg(&args, "path")?;
+            let cwd = PathBuf::from(path);
+            let result = crate::git::run_git_validated(
+                vec!["status".into(), "--porcelain".into()],
+                root,
+                Some(&cwd),
+            )
+            .await?;
+            if result.ok {
+                Ok(serde_json::Value::Bool(!result.stdout.trim().is_empty()))
+            } else {
+                Err(nonzero_git_error(result))
+            }
+        }
+        "diff" => {
+            let path = worktree_arg(&args, "path")?;
+            let cwd = PathBuf::from(path);
+            let root_head = crate::git::run_git_validated(
+                vec!["rev-parse".into(), "HEAD".into()],
+                root,
+                Some(root),
+            )
+            .await?;
+            if !root_head.ok {
+                return Err(nonzero_git_error(root_head));
+            }
+            let base = root_head.stdout.trim().to_string();
+            let result = crate::git::run_git_validated(
+                vec!["diff".into(), "--name-only".into(), base, "HEAD".into()],
+                root,
+                Some(&cwd),
+            )
+            .await?;
+            if result.ok {
+                Ok(serde_json::json!(parse_line_paths(&result.stdout)))
+            } else {
+                Err(nonzero_git_error(result))
+            }
+        }
+        "merge" => {
+            let branch = worktree_arg(&args, "branch")?;
+            let result = crate::git::run_git_validated(
+                vec!["merge".into(), "--no-ff".into(), branch],
+                root,
+                Some(root),
+            )
+            .await?;
+            Ok(serde_json::json!({
+                "ok": result.ok,
+                "conflicts": if result.ok { Vec::<String>::new() } else { parse_conflict_paths(&result.stdout, &result.stderr) },
+            }))
+        }
+        other => Err(format!("unknown worktree operation '{other}'")),
+    }
+}
+
+fn worktree_arg(args: &serde_json::Value, name: &str) -> Result<String, String> {
+    args.get(name)
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .ok_or_else(|| format!("worktree operation requires string arg '{name}'"))
+}
+
+fn nonzero_git_error(result: crate::git::GitResult) -> String {
+    let stderr = result.stderr.trim();
+    if !stderr.is_empty() {
+        stderr.to_string()
+    } else {
+        result.stdout.trim().to_string()
+    }
+}
+
+fn parse_line_paths(stdout: &str) -> Vec<String> {
+    stdout
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(ToOwned::to_owned)
+        .collect()
+}
+
+fn parse_conflict_paths(stdout: &str, stderr: &str) -> Vec<String> {
+    let mut paths = Vec::new();
+    for line in stdout.lines().chain(stderr.lines()) {
+        if let Some(path) = line
+            .strip_prefix("CONFLICT")
+            .and_then(|value| value.rsplit(": ").next())
+        {
+            let trimmed = path.trim();
+            if !trimmed.is_empty() {
+                paths.push(trimmed.to_string());
+            }
+        }
+    }
+    paths.sort();
+    paths.dedup();
+    paths
+}
+
 /// Write an mcpResult line back to a running host's stdin (mirrors ui_response_impl).
 /// A missing writer means the run already ended — the result is moot, not an error.
 async fn write_mcp_result(request_id: &str, response: &PiMcpResult) -> Result<(), HostError> {
@@ -919,10 +1132,34 @@ async fn write_mcp_result(request_id: &str, response: &PiMcpResult) -> Result<()
     Ok(())
 }
 
+async fn write_worktree_result(
+    request_id: &str,
+    response: &PiWorktreeResult,
+) -> Result<(), HostError> {
+    let writer = pi_stdin_guard().get(request_id).cloned();
+    let Some(writer) = writer else {
+        return Ok(());
+    };
+    let mut line = serde_json::to_string(response)
+        .map_err(|err| HostError::Request(format!("Serialize worktreeResult: {err}")))?;
+    line.push('\n');
+    let mut stdin = writer.lock().await;
+    stdin
+        .write_all(line.as_bytes())
+        .await
+        .map_err(|err| HostError::Request(format!("Write worktreeResult: {err}")))?;
+    stdin
+        .flush()
+        .await
+        .map_err(|err| HostError::Request(format!("Flush worktreeResult: {err}")))?;
+    Ok(())
+}
+
 async fn run_pi_sidecar_jsonl<R: tauri::Runtime>(
     app: &AppHandle<R>,
     script_path: &Path,
     cwd: &Path,
+    workspace_root: Option<&Path>,
     env: HashMap<String, String>,
     payload: serde_json::Value,
     token: CancellationToken,
@@ -1024,6 +1261,18 @@ async fn run_pi_sidecar_jsonl<R: tauri::Runtime>(
                     }
                     continue;
                 }
+                if let PiSidecarLine::WorktreeCall { id, op, args } = parsed {
+                    tokio::select! {
+                        _ = token.cancelled() => {
+                            kill_child(&mut child).await;
+                            return Err(HostError::Aborted);
+                        }
+                        result = handle_worktree_call(register_stdin, workspace_root, id, op, args) => {
+                            result?;
+                        }
+                    }
+                    continue;
+                }
                 if let Some(response) = send_sidecar_event(on_event, parsed)? {
                     final_response = Some(response);
                 }
@@ -1087,6 +1336,7 @@ async fn do_execute<R: tauri::Runtime>(
         app,
         &script_path,
         &cwd,
+        Some(&workspace_root),
         pi_env(Some(&workspace_root)),
         payload,
         token,
@@ -1169,6 +1419,7 @@ async fn do_enhance<R: tauri::Runtime>(
         app,
         &script_path,
         &cwd,
+        None,
         pi_env(None),
         payload,
         token,
@@ -1253,6 +1504,7 @@ async fn do_collaborate<R: tauri::Runtime>(
         app,
         &script_path,
         &cwd,
+        None,
         pi_env(None),
         payload,
         token,
@@ -1526,6 +1778,7 @@ async fn status_impl(app: AppHandle) -> Result<PiAgentStatusResponse, String> {
         &app,
         &script_path,
         &cwd,
+        None,
         pi_env(None),
         payload,
         CancellationToken::new(),
@@ -1779,6 +2032,7 @@ mod tests {
         let mut saw_ready = false;
         let mut saw_tool = false;
         let mut saw_mcp_call = false;
+        let mut saw_worktree_call = false;
         for value in &lines {
             // Tie the Rust known-kinds list to the shared fixture. The JS gate proves the
             // fixture exercises every PI_WIRE_KINDS entry, so asserting each fixture kind is
@@ -1819,12 +2073,22 @@ mod tests {
                     assert!(!server.is_empty(), "mcpCall server");
                     assert!(!tool.is_empty(), "mcpCall tool");
                 }
+                PiSidecarLine::WorktreeCall { id, op, args } => {
+                    saw_worktree_call = true;
+                    assert!(!id.is_empty(), "worktreeCall id");
+                    assert!(!op.is_empty(), "worktreeCall op");
+                    assert!(args.is_some(), "worktreeCall args");
+                }
                 _ => {}
             }
         }
         assert!(saw_ready, "fixture must exercise the ready handshake");
         assert!(saw_tool, "fixture must exercise a tool event");
         assert!(saw_mcp_call, "fixture must exercise an mcpCall line");
+        assert!(
+            saw_worktree_call,
+            "fixture must exercise a worktreeCall line"
+        );
     }
 
     #[test]

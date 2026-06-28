@@ -74,7 +74,10 @@ export function createDelegationExtensionFactory(supervisor) {
         'Delegate a bounded task to one of your teammates. The teammate runs it with',
         'a fresh, isolated context and reports back a summary you then synthesize.',
         'Use this for well-scoped subtasks that benefit from a focused teammate',
-        '(research, drafting, review). You keep the conversation with the user.',
+        '(research, drafting, review, implementation). Parallel write tasks use',
+        'isolated git worktrees when the workspace is a git repository; non-git',
+        'workspaces serialize write access through the supervisor.',
+        'You keep the conversation with the user.',
         `Available teammates: ${teammates}.`,
       ].join(' '),
       parameters: DelegateParams,
@@ -102,26 +105,6 @@ export function createDelegationExtensionFactory(supervisor) {
               {
                 type: 'text',
                 text: `delegate: single mode runs exactly one task (got ${tasks.length}). Use executionMode "parallel" to fan out, or send one task.`,
-              },
-            ],
-            isError: true,
-          };
-        }
-        // Parallel write safety: every child shares the same working directory, so
-        // two concurrent writers (or a writer racing a reader) would stomp each
-        // other's files. Reject parallel with any write task — run write work as a
-        // single task, or split it into sequential single delegations. (True
-        // concurrent writers need git-worktree isolation, a separate feature.)
-        if (
-          executionMode === 'parallel' &&
-          tasks.length > 1 &&
-          tasks.some((t) => t.access === 'write')
-        ) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: 'delegate: parallel write is unsafe — children share one working directory. Run the write task on its own (executionMode "single"), or sequence the writes as separate delegate calls. Parallel read/review fan-out is fine.',
               },
             ],
             isError: true,

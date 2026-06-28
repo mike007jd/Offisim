@@ -18,6 +18,8 @@ const desktopPackage = readJson('apps/desktop/package.json');
 const tauriConfig = readJson('apps/desktop/src-tauri/tauri.conf.json');
 const rustHostSource = readFileSync('apps/desktop/src-tauri/src/pi_agent_host.rs', 'utf8');
 const nodeHostSource = readFileSync('scripts/tauri-pi-agent-host.entry.mjs', 'utf8');
+const childSupervisorSource = readFileSync('scripts/pi-child-supervisor.mjs', 'utf8');
+const wireSource = readFileSync('scripts/pi-agent-host-wire.mjs', 'utf8');
 const desktopRuntimeScopeSource = readFileSync(
   'apps/desktop/renderer/src/data/employee-persona.ts',
   'utf8',
@@ -84,6 +86,45 @@ assert(
     /if \(!server\) \{[\s\S]*continue;[\s\S]*\}/.test(desktopRuntimeScopeSource) &&
     /catch \{[\s\S]*return \[\];[\s\S]*\}/.test(desktopRuntimeScopeSource),
   'desktop buildMcpScope must connect registered MCP servers with their approved surface and expose only ready tools',
+);
+assert(
+  /PI_HOST_PROTOCOL_VERSION = 4/.test(wireSource) &&
+    /PI_HOST_PROTOCOL_VERSION: u32 = 4/.test(rustHostSource) &&
+    /'worktreeCall'/.test(wireSource) &&
+    /WorktreeCall/.test(rustHostSource),
+  'F2 must bump the Pi host wire to v4 and decode worktreeCall on both Node and Rust sides',
+);
+assert(
+  /createWorktreeCallChannel/.test(nodeHostSource) &&
+    /createWorkspaceLeaseManager/.test(nodeHostSource) &&
+    /leaseManager/.test(nodeHostSource) &&
+    /now:\s*\(\)\s*=>/.test(nodeHostSource) &&
+    /newId:\s*\(\)\s*=>/.test(nodeHostSource) &&
+    /confirmIntegration/.test(nodeHostSource),
+  'execute host must run the workspace lease manager host-side and gate integration review',
+);
+assert(
+  /handle_worktree_call/.test(rustHostSource) &&
+    /run_git_validated/.test(rustHostSource) &&
+    /write_worktree_result/.test(rustHostSource),
+  'Rust Pi host must intercept worktreeCall and answer with worktreeResult through stdin',
+);
+assert(
+  /finalAssistant\?\.stopReason === 'error'/.test(nodeHostSource) &&
+    /normalizePiErrorMessage/.test(nodeHostSource) &&
+    /code:\s*'upstream'/.test(nodeHostSource),
+  'execute host must surface Pi model error stops as upstream failures instead of empty completed replies',
+);
+assert(
+  /rootModel:\s*model/.test(nodeHostSource) &&
+    /const requestedModel = asNonEmptyString\(employee\.model\)/.test(childSupervisorSource) &&
+    /: ctx\.rootModel/.test(childSupervisorSource),
+  'delegated children must inherit the parent run model unless an employee model override is provided',
+);
+assert(
+  /finalAssistant\?\.stopReason === 'error'/.test(childSupervisorSource) &&
+    /Child completed without assistant output/.test(childSupervisorSource),
+  'delegated children must fail provider errors and empty outputs instead of reporting completed no-output work',
 );
 
 const tempAgentDir = mkdtempSync(join(tmpdir(), 'offisim-pi-agent-host-'));

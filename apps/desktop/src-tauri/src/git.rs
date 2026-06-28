@@ -18,6 +18,8 @@ const ALLOWED_SUBCOMMANDS: &[&str] = &[
     "remote",
     "init",
     "clone",
+    "worktree",
+    "merge",
 ];
 
 /// Blocked flags that could cause destructive operations.
@@ -77,8 +79,38 @@ fn is_allowed(args: &[String], root: &Path) -> Result<(), String> {
             clone_destination_arg(args)?;
             Ok(())
         }
+        "worktree" => validate_worktree(args, root),
+        "merge" => validate_merge(args),
         _ => Err(format!("Git subcommand '{}' is not allowed", subcommand)),
     }
+}
+
+pub(crate) async fn run_git_validated(
+    args: Vec<String>,
+    root: &Path,
+    cwd: Option<&Path>,
+) -> Result<GitResult, String> {
+    is_allowed(&args, root)?;
+    if args.first().map(String::as_str) == Some("clone") {
+        prepare_clone_destination(root, &args)?;
+    }
+    if args.first().map(String::as_str) == Some("worktree")
+        && args.get(1).map(String::as_str) == Some("add")
+    {
+        prepare_worktree_parent(root, &args)?;
+    }
+    let cwd_path = match cwd {
+        Some(value) => resolve_git_cwd(root, value.to_string_lossy().as_ref())?,
+        None => root.to_path_buf(),
+    };
+
+    let mut command = Command::new("git");
+    command
+        .args(&args)
+        .current_dir(&cwd_path)
+        .env_clear()
+        .envs(scrubbed_git_env());
+    run_git_capped(command, GIT_EXEC_TIMEOUT, MAX_GIT_OUTPUT_BYTES).await
 }
 
 #[tauri::command]
@@ -89,10 +121,6 @@ pub async fn git_exec<R: Runtime>(
     cwd: Option<String>,
 ) -> Result<GitResult, String> {
     let root = project_workspace_root(&app, &project_id).await?;
-    is_allowed(&args, &root)?;
-    if args.first().map(String::as_str) == Some("clone") {
-        prepare_clone_destination(&root, &args)?;
-    }
     let cwd_path = match cwd
         .as_deref()
         .map(str::trim)
@@ -101,14 +129,7 @@ pub async fn git_exec<R: Runtime>(
         Some(value) => resolve_git_cwd(&root, value)?,
         None => root.clone(),
     };
-
-    let mut command = Command::new("git");
-    command
-        .args(&args)
-        .current_dir(&cwd_path)
-        .env_clear()
-        .envs(scrubbed_git_env());
-    run_git_capped(command, GIT_EXEC_TIMEOUT, MAX_GIT_OUTPUT_BYTES).await
+    run_git_validated(args, &root, Some(&cwd_path)).await
 }
 
 /// G3: spawn git, stream stdout/stderr each capped at `max_bytes` (so a flood
@@ -147,7 +168,9 @@ async fn run_git_capped(
             .map_err(|e| format!("git wait failed: {}", e))?;
         let out = out.map_err(|e| format!("git stdout read failed: {}", e))?;
         let err = err.map_err(|e| format!("git stderr read failed: {}", e))?;
-        Ok::<((Vec<u8>, bool), (Vec<u8>, bool), std::process::ExitStatus), String>((out, err, status))
+        Ok::<((Vec<u8>, bool), (Vec<u8>, bool), std::process::ExitStatus), String>((
+            out, err, status,
+        ))
     };
 
     match tokio::time::timeout(timeout, collect).await {
@@ -237,6 +260,68 @@ fn validate_status(args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+fn validate_worktree(args: &[String], root: &Path) -> Result<(), String> {
+    match args.get(1).map(String::as_str) {
+        Some("add") => {
+            if args.len() != 5 || args.get(2).map(String::as_str) != Some("-b") {
+                return Err(
+                    "git worktree add is restricted to: worktree add -b <branch> <path-under-root>"
+                        .into(),
+                );
+            }
+            validate_git_ref(&args[3], "git worktree branch")?;
+            resolve_new_path_under_root(root, &args[4], "git worktree path")?;
+            Ok(())
+        }
+        Some("remove") => {
+            if args.len() != 3 {
+                return Err(
+                    "git worktree remove is restricted to: worktree remove <path-under-root>"
+                        .into(),
+                );
+            }
+            resolve_new_path_under_root(root, &args[2], "git worktree path")?;
+            Ok(())
+        }
+        Some(other) => Err(format!("git worktree subcommand '{other}' is not allowed")),
+        None => Err("git worktree requires a subcommand".into()),
+    }
+}
+
+fn prepare_worktree_parent(root: &Path, args: &[String]) -> Result<(), String> {
+    let path = args
+        .get(4)
+        .ok_or_else(|| "git worktree add requires a path".to_string())?;
+    let destination = resolve_new_path_under_root(root, path, "git worktree path")?;
+    if let Some(parent) = destination.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|err| format!("Create git worktree parent: {err}"))?;
+    }
+    ensure_offisim_excluded(root);
+    Ok(())
+}
+
+fn ensure_offisim_excluded(root: &Path) {
+    let exclude = root.join(".git/info/exclude");
+    let Ok(existing) = std::fs::read_to_string(&exclude) else {
+        return;
+    };
+    if existing.lines().any(|line| line.trim() == ".offisim/") {
+        return;
+    }
+    if let Ok(mut file) = std::fs::OpenOptions::new().append(true).open(&exclude) {
+        use std::io::Write;
+        let _ = writeln!(file, ".offisim/");
+    }
+}
+
+fn validate_merge(args: &[String]) -> Result<(), String> {
+    if args.len() != 3 || args.get(1).map(String::as_str) != Some("--no-ff") {
+        return Err("git merge is restricted to: merge --no-ff <branch>".into());
+    }
+    validate_git_ref(&args[2], "git merge branch")
+}
+
 fn validate_pathspec_command(args: &[String], root: &Path, label: &str) -> Result<(), String> {
     if args.len() < 2 {
         return Err(format!("{label} requires at least one path"));
@@ -284,6 +369,14 @@ fn validate_commit(args: &[String], root: &Path) -> Result<(), String> {
 }
 
 fn validate_diff(args: &[String], root: &Path) -> Result<(), String> {
+    let tail: Vec<&str> = args.iter().skip(1).map(String::as_str).collect();
+    if let ["--name-only", base, "HEAD"] = tail.as_slice() {
+        if is_full_git_sha(base) {
+            return Ok(());
+        }
+        return Err("git diff base revision must be a full hex commit id".into());
+    }
+
     let mut path_mode = false;
     for arg in args.iter().skip(1) {
         if arg == "--" {
@@ -304,6 +397,10 @@ fn validate_diff(args: &[String], root: &Path) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+fn is_full_git_sha(value: &str) -> bool {
+    value.len() == 40 && value.chars().all(|ch| ch.is_ascii_hexdigit())
 }
 
 fn validate_log(args: &[String], root: &Path) -> Result<(), String> {
@@ -552,6 +649,28 @@ fn reject_option_like_value(value: &str, label: &str) -> Result<(), String> {
     Ok(())
 }
 
+fn validate_git_ref(value: &str, label: &str) -> Result<(), String> {
+    reject_option_like_value(value, label)?;
+    if value.contains("..")
+        || value.contains('\\')
+        || value.ends_with('/')
+        || value.ends_with(".lock")
+        || value.contains("@{")
+        || value
+            .split('/')
+            .any(|part| part.is_empty() || part == "." || part == "..")
+    {
+        return Err(format!("{label} is not a safe git ref"));
+    }
+    if !value
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '/' | '.' | '_' | '-'))
+    {
+        return Err(format!("{label} contains unsupported characters"));
+    }
+    Ok(())
+}
+
 fn validate_git_pathspec(value: &str, root: &Path, label: &str) -> Result<(), String> {
     reject_option_like_value(value, label)?;
     let path = PathBuf::from(value);
@@ -647,6 +766,12 @@ mod tests {
                 "--untracked-files=all",
             ],
             vec!["diff", "--numstat"],
+            vec![
+                "diff",
+                "--name-only",
+                "0123456789abcdef0123456789abcdef01234567",
+                "HEAD",
+            ],
             vec!["diff", "--cached", "--", "src/main.ts"],
             vec!["remote", "get-url", "origin"],
             vec!["rev-parse", "--abbrev-ref", "HEAD"],
@@ -671,6 +796,63 @@ mod tests {
             vec!["add", "-A"],
             vec!["remote", "add", "origin", "https://example.test/repo.git"],
             vec!["diff", "--ext-diff"],
+            vec!["diff", "--name-only", "0123456", "HEAD"],
+            vec!["diff", "--name-only", "master", "HEAD"],
+            vec!["diff", "--name-only", "HEAD~1", "HEAD"],
+            vec![
+                "diff",
+                "--name-only",
+                "0123456789abcdef0123456789abcdef01234567..HEAD",
+                "HEAD",
+            ],
+        ];
+        for args in cases {
+            let owned = args.into_iter().map(String::from).collect::<Vec<_>>();
+            assert!(is_allowed(&owned, &root).is_err());
+        }
+        cleanup_root(root);
+    }
+
+    #[test]
+    fn is_allowed_accepts_f2_worktree_and_merge_shapes() {
+        let root = temp_root();
+        let worktree = root.join(".offisim/worktrees/lease-0001");
+        let cases = vec![
+            vec![
+                "worktree".to_string(),
+                "add".to_string(),
+                "-b".to_string(),
+                "offisim/lease/run-x-lease-0001".to_string(),
+                worktree.to_string_lossy().to_string(),
+            ],
+            vec![
+                "worktree".to_string(),
+                "remove".to_string(),
+                worktree.to_string_lossy().to_string(),
+            ],
+            vec![
+                "merge".to_string(),
+                "--no-ff".to_string(),
+                "offisim/lease/run-x-lease-0001".to_string(),
+            ],
+        ];
+        for args in cases {
+            is_allowed(&args, &root).unwrap();
+        }
+        cleanup_root(root);
+    }
+
+    #[test]
+    fn is_allowed_rejects_f2_worktree_and_merge_escape_shapes() {
+        let root = temp_root();
+        let cases = vec![
+            vec!["worktree", "prune"],
+            vec!["worktree", "remove", "--force", "x"],
+            vec!["worktree", "add", "-b", "branch", "/etc/x"],
+            vec!["worktree", "add", "-b", "../escape", ".offisim/worktrees/x"],
+            vec!["merge", "--no-ff", "../escape"],
+            vec!["merge", "--squash", "offisim/lease/x"],
+            vec!["rebase", "main"],
         ];
         for args in cases {
             let owned = args.into_iter().map(String::from).collect::<Vec<_>>();
@@ -964,6 +1146,9 @@ mod tests {
             .await
             .unwrap_err();
         assert!(err.contains("timed out"));
-        assert!(started.elapsed() < Duration::from_secs(5), "timeout did not fire promptly");
+        assert!(
+            started.elapsed() < Duration::from_secs(5),
+            "timeout did not fire promptly"
+        );
     }
 }

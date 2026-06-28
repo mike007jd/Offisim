@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -10,6 +11,7 @@ import {
   createAgentSession,
   isToolCallEventType,
 } from '@earendil-works/pi-coding-agent';
+import { createWorkspaceLeaseManager } from '../packages/core/dist/browser.js';
 import {
   errorLine,
   messageDeltaLine,
@@ -21,6 +23,7 @@ import {
   uiRequestLine,
 } from './pi-agent-host-wire.mjs';
 import { createMcpCallChannel } from './pi-host-mcp-channel.mjs';
+import { createWorktreeCallChannel } from './pi-host-worktree-channel.mjs';
 import {
   COLLABORATION_FORBIDDEN_TOOLS,
   collaborationToolAllowlist,
@@ -105,6 +108,45 @@ function rejectAllUiRequests() {
 // wired into the MCP bridge extension (B3); the host below only routes inbound
 // `mcpResult` lines (resolveMcpResult) and unwinds on stdin close.
 const mcpChannel = createMcpCallChannel(emit);
+const worktreeChannel = createWorktreeCallChannel(emit);
+
+function assertWorktreeOk(response, label) {
+  if (!response || response.ok !== true) {
+    throw new Error(`${label} failed: ${response?.error ?? 'unknown error'}`);
+  }
+  return response.result;
+}
+
+function createHostGitWorktreeOps(requestWorktreeResult) {
+  const call = async (op, args) => assertWorktreeOk(await requestWorktreeResult(op, args), op);
+  return {
+    async isGitRepo(root) {
+      return Boolean(await call('isGitRepo', { root }));
+    },
+    async addWorktree(branch, path) {
+      await call('addWorktree', { branch, path });
+    },
+    async removeWorktree(path) {
+      await call('removeWorktree', { path });
+    },
+    async worktreeChanged(path) {
+      return Boolean(await call('worktreeChanged', { path }));
+    },
+    async diff(path) {
+      const changedPaths = await call('diff', { path });
+      return Array.isArray(changedPaths) ? changedPaths.filter((p) => typeof p === 'string') : [];
+    },
+    async merge(branch) {
+      const result = await call('merge', { branch });
+      return {
+        ok: result?.ok === true,
+        conflicts: Array.isArray(result?.conflicts)
+          ? result.conflicts.filter((p) => typeof p === 'string')
+          : [],
+      };
+    },
+  };
+}
 
 // A headless ExtensionUIContext: the four blocking primitives forward to the
 // renderer; everything else is a no-op (a faithful copy of Pi's own
@@ -703,6 +745,41 @@ async function runPrompt(payload) {
     if (delegationEnabled) {
       // One shared limit budget for this whole user turn's delegation tree
       // (depth / concurrency / total children / per-child timeout).
+      const leaseManager = createWorkspaceLeaseManager({
+        gitOps: createHostGitWorktreeOps(worktreeChannel.requestWorktreeResult),
+        now: () => new Date().toISOString(),
+        newId: () => randomUUID(),
+      });
+      const rootLease = await leaseManager.acquireRootLease(cwd);
+      const confirmIntegration = async (plan) => {
+        const mergeable = Array.isArray(plan?.mergeable) ? plan.mergeable : [];
+        const reviewRows = await Promise.all(
+          mergeable.map(async (lease) => {
+            try {
+              const diff = await leaseManager.collectDiff(lease);
+              const changedPaths =
+                Array.isArray(diff.changedPaths) && diff.changedPaths.length > 0
+                  ? diff.changedPaths.join(', ')
+                  : '(no changed paths reported)';
+              return `- ${lease.runId}: ${lease.branch ?? '(no branch)'} at ${lease.cwd}\n  paths: ${changedPaths}`;
+            } catch (error) {
+              return `- ${lease.runId}: ${lease.branch ?? '(no branch)'} at ${lease.cwd}\n  paths: failed to collect diff (${error?.message ?? String(error)})`;
+            }
+          }),
+        );
+        const message = [
+          `Merge ${mergeable.length} delegated write worktree(s) into the root workspace?`,
+          '',
+          ...reviewRows,
+          '',
+          'Approve only after reviewing the listed worktree diffs.',
+        ].join('\n');
+        const response = await requestUiResponse('confirm', {
+          title: 'Approve delegated write merge?',
+          message,
+        });
+        return response.confirmed === true;
+      };
       const supervisor = createChildSupervisor({
         emit,
         agentDir,
@@ -713,9 +790,13 @@ async function runPrompt(payload) {
         threadId,
         rootRunId,
         roster,
+        rootModel: model,
         resolveModel: (modelId) => selectedModel(modelRegistry, modelId),
         buildPermissionGate,
         limits: createDelegationLimits(),
+        leaseManager,
+        rootLease,
+        confirmIntegration,
         depth: 0,
         parentRunId: rootRunId,
       });
@@ -911,7 +992,15 @@ async function runPrompt(payload) {
 
   try {
     await session.prompt(text);
-    const fallbackReasoning = clampText(messageThinking(lastAssistantMessage(session)));
+    const finalAssistant = lastAssistantMessage(session);
+    const assistantError = asNonEmptyString(finalAssistant?.errorMessage);
+    if (finalAssistant?.stopReason === 'error' || assistantError) {
+      const message = normalizePiErrorMessage(
+        assistantError ?? 'Pi Agent model returned an error stop without a message.',
+      );
+      throw Object.assign(new Error(message), { code: 'upstream' });
+    }
+    const fallbackReasoning = clampText(messageThinking(finalAssistant));
     const finalReasoning = clampText(latestReasoningText || fallbackReasoning);
     if (fallbackReasoning && !emittedReasoning) {
       emit(messageDeltaLine({ channel: 'reasoning', delta: fallbackReasoning }));
@@ -1327,6 +1416,7 @@ function main() {
       const msg = JSON.parse(trimmed);
       resolveUiResponse(msg);
       mcpChannel.resolveMcpResult(msg);
+      worktreeChannel.resolveWorktreeResult(msg);
     } catch {
       // Ignore malformed response lines rather than crashing the run.
     }
@@ -1337,6 +1427,7 @@ function main() {
   rl.on('close', () => {
     rejectAllUiRequests();
     mcpChannel.rejectAllMcpCalls();
+    worktreeChannel.rejectAllWorktreeCalls();
   });
 }
 

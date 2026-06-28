@@ -5,3 +5,14 @@ packages:
 
 onlyBuiltDependencies:
   - better-sqlite3
+
+overrides:
+  drizzle-orm: 0.45.2
+  kysely: ^0.28.17
+  fast-uri: ^3.1.2
+  defu: ^6.1.5
+  langsmith: ^0.6.0
+  shell-quote: ^1.8.4
+  vite: ^6.4.2
+  hono: ^4.12.25
+  ws: ^8.21.0

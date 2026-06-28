@@ -11,7 +11,7 @@
 // host validates the `ready` handshake against its own copy of this constant and
 // refuses a stale bundled host.
 
-export const PI_HOST_PROTOCOL_VERSION = 3;
+export const PI_HOST_PROTOCOL_VERSION = 4;
 
 export const PI_WIRE_KINDS = Object.freeze([
   'ready',
@@ -21,6 +21,7 @@ export const PI_WIRE_KINDS = Object.freeze([
   'tool',
   'uiRequest',
   'mcpCall',
+  'worktreeCall',
   'agentRun',
   'result',
   'error',
@@ -122,6 +123,19 @@ export function mcpCallLine({ id, server, tool, arguments: args } = {}) {
   });
 }
 
+// The host-side workspace lease manager needs git worktree I/O. Like mcpCall,
+// this is intercepted by Rust in-process and answered on stdin with a
+// worktreeResult; the renderer is not in the child-allocation path. `args` is an
+// opaque operation payload because paths/branches are validated by Rust git.rs.
+export function worktreeCallLine({ id, op, args } = {}) {
+  return withoutUndefined({
+    kind: 'worktreeCall',
+    id,
+    op,
+    args,
+  });
+}
+
 // A delegation run-tree event (root agent delegated to a child, child progress,
 // child finished). The neutral envelope: scope fields + `runType` (the
 // AgentRunEvent.type) + an opaque `payload`. The renderer rebuilds the
@@ -171,6 +185,7 @@ export const PI_WIRE_BUILDERS = Object.freeze({
   tool: toolLine,
   uiRequest: uiRequestLine,
   mcpCall: mcpCallLine,
+  worktreeCall: worktreeCallLine,
   agentRun: agentRunLine,
   result: (line) => resultLine(line.response),
   error: errorLine,

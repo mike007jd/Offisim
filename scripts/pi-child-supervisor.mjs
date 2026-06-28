@@ -132,6 +132,10 @@ function capBytes(text, cap, label) {
 // summary-only. Full transcript / tool timeline / usage stay in telemetry events.
 const RESULT_SECTION_KEYS = ['summary', 'artifacts', 'decisions', 'risks', 'verification'];
 
+function asNonEmptyString(value) {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
 const CHILD_RESULT_GUIDANCE = [
   'When you finish, end your reply with a concise structured result the lead can',
   'act on without reading your full transcript. Use these markdown headings, and',
@@ -226,11 +230,15 @@ async function mapWithConcurrencyLimit(items, limit, fn) {
  * @param {object} ctx.authStorage
  * @param {object} ctx.modelRegistry
  * @param {string} ctx.cwd
+ * @param {object} [ctx.leaseManager]
+ * @param {object} [ctx.rootLease]
+ * @param {(plan: object) => Promise<boolean>} [ctx.confirmIntegration]
  * @param {object} ctx.settingsManager
  * @param {string} ctx.threadId
  * @param {string} ctx.rootRunId
  * @param {Array<{employeeId:string,name?:string,roleSlug?:string,persona?:string,model?:string}>} ctx.roster
  * @param {(modelId?: string) => object|undefined} ctx.resolveModel
+ * @param {object|undefined} [ctx.rootModel] model explicitly selected for the parent run
  * @param {(mode: string) => ((pi: unknown) => void)|null} ctx.buildPermissionGate
  * @param {object} ctx.limits           shared DelegationLimits (createDelegationLimits)
  * @param {number} [ctx.depth]          this supervisor's level (0 = root). Default 0.
@@ -331,7 +339,8 @@ export function createChildSupervisor(ctx) {
       typeof employee.persona === 'string' && employee.persona.trim()
         ? employee.persona.trim()
         : undefined;
-    const model = ctx.resolveModel(employee.model);
+    const requestedModel = asNonEmptyString(employee.model);
+    const model = requestedModel ? (ctx.resolveModel(requestedModel) ?? ctx.rootModel) : ctx.rootModel;
 
     // Children always run under the Auto gate: a no-op for read access (no bash
     // tool) and a catastrophic-bash block for review/write — without needing a UI
@@ -348,6 +357,38 @@ export function createChildSupervisor(ctx) {
     });
     const childDelegationFactory = createDelegationExtensionFactory(childSupervisor);
     const extensionFactories = [gateFactory, childDelegationFactory].filter(Boolean);
+    let lease = null;
+    let childCwd = ctx.cwd;
+    if (ctx.leaseManager && ctx.rootLease) {
+      try {
+        const leaseResult = await ctx.leaseManager.acquireChildLease({
+          rootLease: ctx.rootLease,
+          runId,
+          access,
+        });
+        if (leaseResult?.outcome === 'blocked') {
+          return blocked(
+            emit,
+            `${leaseResult.reason} (blocked by ${leaseResult.blockedByRunId})`,
+          );
+        }
+        lease = leaseResult?.lease ?? null;
+        if (typeof lease?.cwd === 'string' && lease.cwd.trim()) {
+          childCwd = lease.cwd;
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return blocked(emit, `Workspace lease failed: ${message}`);
+      }
+    }
+    const effectiveObjective =
+      lease?.isolated && access === 'write'
+        ? [
+            objective,
+            '',
+            'Workspace note: you are running in an isolated git worktree for this delegated write task. After making file changes, run git status, stage the changed files, and create a local commit on this worktree branch so the lead can review and merge it.',
+          ].join('\n')
+        : objective;
 
     // Session build can throw (loader reload / model resolution). run.started has
     // already fired, so a build failure MUST still emit a terminal event — and
@@ -356,7 +397,7 @@ export function createChildSupervisor(ctx) {
     let session;
     try {
       const resourceLoader = new DefaultResourceLoader({
-        cwd: ctx.cwd,
+        cwd: childCwd,
         agentDir: ctx.agentDir,
         settingsManager: ctx.settingsManager,
         extensionFactories,
@@ -365,17 +406,18 @@ export function createChildSupervisor(ctx) {
       });
       await resourceLoader.reload();
       ({ session } = await createAgentSession({
-        cwd: ctx.cwd,
+        cwd: childCwd,
         agentDir: ctx.agentDir,
         authStorage: ctx.authStorage,
         modelRegistry: ctx.modelRegistry,
-        sessionManager: SessionManager.inMemory(ctx.cwd),
+        sessionManager: SessionManager.inMemory(childCwd),
         ...(model ? { model } : {}),
         ...(tools ? { tools } : {}),
         resourceLoader,
       }));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      if (lease) await ctx.leaseManager?.releaseLease?.(lease.leaseId).catch(() => undefined);
       emit('run.failed', {
         status: 'failed',
         summary: `Failed to start: ${message}`,
@@ -384,6 +426,7 @@ export function createChildSupervisor(ctx) {
     }
 
     const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
+    let finalAssistant;
     const unsubscribe = session.subscribe((event) => {
       if (event.type === 'tool_execution_start') {
         emit('tool.started', {
@@ -402,6 +445,7 @@ export function createChildSupervisor(ctx) {
         return;
       }
       if (event.type === 'message_end' && event.message?.role === 'assistant') {
+        finalAssistant = event.message;
         const u = event.message.usage;
         if (u) {
           usage.input += u.input || 0;
@@ -434,11 +478,23 @@ export function createChildSupervisor(ctx) {
     timer?.unref?.();
 
     try {
-      await session.prompt(objective);
+      await session.prompt(effectiveObjective);
+      const assistantError = asNonEmptyString(finalAssistant?.errorMessage);
+      if (finalAssistant?.stopReason === 'error' || assistantError) {
+        const message = assistantError ?? 'Pi Agent model returned an error stop without a message.';
+        emit('run.failed', { status: 'failed', summary: message, usage });
+        return `Delegation failed: ${message}`;
+      }
       // Lift the child's reply into a bounded, structured result — the only thing
       // the root model sees; the full transcript stays in telemetry.
+      const assistantText = (session.getLastAssistantText() || '').trim();
+      if (!assistantText) {
+        const reason = 'Child completed without assistant output.';
+        emit('run.failed', { status: 'failed', summary: reason, usage });
+        return `Delegation failed: ${reason}`;
+      }
       const summary = renderChildSummary(
-        parseChildSummary((session.getLastAssistantText() || '').trim() || '(no output)'),
+        parseChildSummary(assistantText),
       );
       if (timedOut) {
         const reason = `Timed out after ${Math.round(limits.childTimeoutMs / 1000)}s`;
@@ -468,6 +524,9 @@ export function createChildSupervisor(ctx) {
       unsubscribe();
       session.dispose();
       if (signal) signal.removeEventListener('abort', onAbort);
+      if (lease && !(lease.isolated && access === 'write')) {
+        await ctx.leaseManager?.releaseLease?.(lease.leaseId).catch(() => undefined);
+      }
       // Fold this child's token spend into the tree budget (whatever the outcome),
       // so the next delegation round sees it.
       limits.recordTokens(usage);
@@ -484,10 +543,58 @@ export function createChildSupervisor(ctx) {
       limits.maxParallelPerDelegation,
       (task) => runSingle(task, signal),
     );
+    const integration = await maybeIntegrateParallelWrites(tasks);
     const combined = tasks
       .map((task, i) => `### ${task.employeeId}\n${summaries[i] ?? '(no output)'}`)
+      .concat(integration ? [`### Integration\n${integration}`] : [])
       .join('\n\n---\n\n');
     return capBytes(combined, COMBINED_OUTPUT_CAP, 'combined');
+  }
+
+  async function maybeIntegrateParallelWrites(tasks) {
+    if (!ctx.leaseManager || !ctx.rootLease || !tasks.some((task) => task.access === 'write')) {
+      return '';
+    }
+    const writableLeases = ctx.leaseManager
+      .listLeases()
+      .filter((lease) => lease.access === 'write' && lease.status === 'active');
+    if (writableLeases.length === 0) return '';
+    const plan = await ctx.leaseManager.planIntegration(writableLeases);
+    if (plan.conflicts.length > 0) {
+      const leaseById = new Map(writableLeases.map((lease) => [lease.leaseId, lease]));
+      return [
+        'Parallel write integration found conflicts and did not merge automatically.',
+        ...plan.conflicts.flatMap((conflict) => {
+          const rows = [`- ${conflict.path}:`];
+          for (const leaseId of conflict.leaseIds) {
+            const lease = leaseById.get(leaseId);
+            rows.push(
+              lease
+                ? `  - ${leaseId}: ${lease.runId} ${lease.branch ?? '(no branch)'} at ${lease.cwd}`
+                : `  - ${leaseId}: (lease details unavailable)`,
+            );
+          }
+          return rows;
+        }),
+      ].join('\n');
+    }
+    if (plan.mergeable.length === 0) return 'No mergeable write leases were produced.';
+    const approved = ctx.confirmIntegration ? await ctx.confirmIntegration(plan) : false;
+    if (!approved) {
+      return `Merge review was not approved; ${plan.mergeable.length} worktree(s) retained for inspection.`;
+    }
+    const result = await ctx.leaseManager.integrate(plan);
+    for (const lease of result.merged) {
+      await ctx.leaseManager.releaseLease(lease.leaseId).catch(() => undefined);
+    }
+    if (result.conflicted) {
+      return `Integration stopped on merge conflict in lease ${result.conflicted.lease.leaseId}: ${result.conflicted.conflicts.join(', ')}`;
+    }
+    const skipped =
+      result.skipped.length > 0
+        ? ` Skipped: ${result.skipped.map((item) => `${item.leaseId} (${item.reason})`).join('; ')}.`
+        : '';
+    return `Merged ${result.merged.length} write lease(s) into the root workspace.${skipped}`;
   }
 
   return { runSingle, runParallel, roster };

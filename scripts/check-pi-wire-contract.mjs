@@ -38,6 +38,10 @@ const SPEC = {
     required: ['id', 'server', 'tool'],
     allowed: ['id', 'server', 'tool', 'arguments'],
   },
+  worktreeCall: {
+    required: ['id', 'op'],
+    allowed: ['id', 'op', 'args'],
+  },
   agentRun: {
     required: ['threadId', 'rootRunId', 'runId', 'runType', 'payload'],
     allowed: [
@@ -105,17 +109,17 @@ fixture.forEach((line, index) => {
   assert(PI_WIRE_KINDS.includes(kind), `${where}: unknown kind "${kind}"`);
   seenKinds.add(kind);
 
-  // No snake_case anywhere, at any nesting depth — EXCEPT an mcpCall's
-  // `arguments` value, which is the opaque, free-form MCP tool-input object (real
-  // tools use snake_case keys like file_path / max_lines). The envelope stays
-  // camelCase-only; arguments is only required to be a plain object.
-  if (kind === 'mcpCall') {
-    const { arguments: args, ...envelope } = line;
+  // No snake_case anywhere, at any nesting depth — EXCEPT opaque operation
+  // payloads (`mcpCall.arguments`, `worktreeCall.args`). The envelope stays
+  // camelCase-only; opaque args are only required to be plain objects.
+  if (kind === 'mcpCall' || kind === 'worktreeCall') {
+    const opaqueKey = kind === 'mcpCall' ? 'arguments' : 'args';
+    const { [opaqueKey]: args, ...envelope } = line;
     scanForSnakeCaseKeys(envelope, where);
     if (args !== undefined) {
       assert(
         args !== null && typeof args === 'object' && !Array.isArray(args),
-        `${where}: arguments must be a plain object`,
+        `${where}: ${opaqueKey} must be a plain object`,
       );
     }
   } else {

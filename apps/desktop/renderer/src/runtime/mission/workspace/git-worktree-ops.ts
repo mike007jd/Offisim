@@ -11,26 +11,9 @@ import type { GitWorktreeOps, MergeResult } from '@offisim/core/browser';
  * NOT directly execute workspace files / shell / git; Rust/Tauri is the final
  * boundary).
  *
- * ─────────────────────────────────────────────────────────────────────────────
- * ⚠️ M5 LIVE-PATH GAP — `git_exec` does NOT whitelist `worktree`, `merge`, or
- * `checkout`.
- *
- * `apps/desktop/src-tauri/src/git.rs` `ALLOWED_SUBCOMMANDS` is currently:
- *   status · add · commit · diff · log · rev-parse · branch · remote · init · clone
- *
- * The lease manager needs `git worktree add` / `git worktree remove`
- * (`addWorktree` / `removeWorktree`) and `git merge` (`merge`). Those subcommands
- * are NOT in the whitelist, so the live calls below will be REJECTED by the Rust
- * gate until a `worktree` (+ `merge`, + the `worktree`/`merge` flags they need)
- * whitelist entry is added in `git.rs`. That is a deliberate Rust security change
- * (new write-capable subcommands behind the path-jail) and is intentionally NOT
- * made here — it is flagged as the M5 LIVE GAP. The deterministic lease logic +
- * the in-memory harness are what M5 verifies now; this adapter is the wiring that
- * becomes live the moment `git.rs` grows the `worktree` / `merge` whitelist.
- *
- * `isGitRepo`, `worktreeChanged`, and `diff` use ALREADY-whitelisted subcommands
- * (`rev-parse` / `status` / `diff`) and work today.
- * ─────────────────────────────────────────────────────────────────────────────
+ * F2 makes `worktree` and `merge --no-ff` live in `git.rs` behind the same path
+ * jail. Per-child allocation now happens host-side; this adapter remains the
+ * renderer/review binding for explicit diff and integration surfaces.
  */
 
 interface GitExecResult {
@@ -83,23 +66,16 @@ export function createTauriGitWorktreeOps(input: TauriGitWorktreeOpsInput): GitW
     },
 
     async addWorktree(branch: string, path: string): Promise<void> {
-      // ⚠️ M5 LIVE GAP: `git worktree add -b <branch> <path>` — `worktree` is NOT
-      // whitelisted in git.rs, so this is rejected until that entry is added.
       const result = await run(['worktree', 'add', '-b', branch, path], null);
       if (!result.ok) {
-        throw new Error(
-          `git worktree add failed (note: 'worktree' may not be whitelisted in git_exec yet — M5 live gap): ${result.stderr.trim()}`,
-        );
+        throw new Error(`git worktree add failed: ${result.stderr.trim()}`);
       }
     },
 
     async removeWorktree(path: string): Promise<void> {
-      // ⚠️ M5 LIVE GAP: `git worktree remove <path>` — same `worktree` whitelist gap.
       const result = await run(['worktree', 'remove', path], null);
       if (!result.ok) {
-        throw new Error(
-          `git worktree remove failed (note: 'worktree' may not be whitelisted in git_exec yet — M5 live gap): ${result.stderr.trim()}`,
-        );
+        throw new Error(`git worktree remove failed: ${result.stderr.trim()}`);
       }
     },
 
@@ -131,19 +107,16 @@ export function createTauriGitWorktreeOps(input: TauriGitWorktreeOpsInput): GitW
     },
 
     async merge(branch: string): Promise<MergeResult> {
-      // ⚠️ M5 LIVE GAP: `git merge --no-ff <branch>` into the root — `merge` is NOT
-      // whitelisted in git.rs, so this is rejected until that entry is added. When
-      // it IS whitelisted: a non-ok result with conflict markers in stderr/stdout
-      // is reported as a conflict (NOT an overwrite — the manager surfaces it).
+      // A non-ok result with conflict markers in stderr/stdout is reported as a
+      // conflict (NOT an overwrite — the manager surfaces it).
       try {
         const result = await run(['merge', '--no-ff', branch], null);
         if (result.ok) return { ok: true, conflicts: [] };
         return { ok: false, conflicts: parseMergeConflicts(result.stdout, result.stderr) };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        // A thrown invoke (incl. the `merge` whitelist rejection) is reported as a
-        // conflict-less failure so the manager stops and surfaces it — never an
-        // overwrite.
+        // A thrown invoke is reported as a conflict-less failure so the manager
+        // stops and surfaces it — never an overwrite.
         return { ok: false, conflicts: [`merge failed: ${message}`] };
       }
     },
