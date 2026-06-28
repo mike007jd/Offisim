@@ -1,0 +1,131 @@
+{
+  "suiteVersion": "1",
+  "results": [
+    {
+      "taskId": "research-web",
+      "outcome": "fail",
+      "groundTruthMet": false,
+      "evidence": [
+        "checkedAt=2026-06-28T10:50:22.379Z",
+        "dbPath=/Users/haoshengli/Library/Application Support/com.offisim.desktop/offisim.db",
+        "db.user_version=9",
+        "workspaceRoot=/Users/haoshengli/Library/Application Support/com.offisim.desktop/workspaces/1d591a6d-42ed-4c9f-ae0d-71586baacde0",
+        "mcp_browser_audit_count=5",
+        "latest_browser_audit=d3-browser-puppeteer.puppeteer_screenshot@2026-06-28T07:11:19.868Z",
+        "tauri_cited_message_count=0"
+      ],
+      "notes": "Web tooling exists, but live DB has no cited Tauri-version summary to satisfy the file_content ground truth."
+    },
+    {
+      "taskId": "file-edit",
+      "outcome": "blocked",
+      "groundTruthMet": false,
+      "evidence": [
+        "checkedAt=2026-06-28T10:50:22.379Z",
+        "dbPath=/Users/haoshengli/Library/Application Support/com.offisim.desktop/offisim.db",
+        "db.user_version=9",
+        "workspaceRoot=/Users/haoshengli/Library/Application Support/com.offisim.desktop/workspaces/1d591a6d-42ed-4c9f-ae0d-71586baacde0",
+        "target=/Users/haoshengli/Library/Application Support/com.offisim.desktop/workspaces/1d591a6d-42ed-4c9f-ae0d-71586baacde0/src/index.ts",
+        "target_exists=false",
+        "target_first_line=\"\"",
+        "edit_audit_count=0",
+        "edit_tool_call_count=0"
+      ],
+      "notes": "The active workspace has no src/index.ts target file."
+    },
+    {
+      "taskId": "artifact-publish",
+      "outcome": "blocked",
+      "groundTruthMet": false,
+      "evidence": [
+        "checkedAt=2026-06-28T10:50:22.379Z",
+        "dbPath=/Users/haoshengli/Library/Application Support/com.offisim.desktop/offisim.db",
+        "db.user_version=9",
+        "workspaceRoot=/Users/haoshengli/Library/Application Support/com.offisim.desktop/workspaces/1d591a6d-42ed-4c9f-ae0d-71586baacde0",
+        "deliverables_count=0",
+        "latest_hashed_deliverable=none",
+        "resolved_file=none",
+        "resolved_file_readable=false"
+      ],
+      "notes": "No deliverables row with content_hash exists in live DB."
+    },
+    {
+      "taskId": "ask-approval",
+      "outcome": "blocked",
+      "groundTruthMet": false,
+      "evidence": [
+        "checkedAt=2026-06-28T10:50:22.379Z",
+        "dbPath=/Users/haoshengli/Library/Application Support/com.offisim.desktop/offisim.db",
+        "db.user_version=9",
+        "workspaceRoot=/Users/haoshengli/Library/Application Support/com.offisim.desktop/workspaces/1d591a6d-42ed-4c9f-ae0d-71586baacde0",
+        "interaction_history_count=0",
+        "tool_permission_approval_count=0",
+        "latest_interaction=none",
+        "latest_tool_permission=none"
+      ],
+      "notes": "No approval interaction or tool permission row exists."
+    },
+    {
+      "taskId": "abort-run",
+      "outcome": "pass",
+      "groundTruthMet": true,
+      "evidence": [
+        "checkedAt=2026-06-28T10:50:22.379Z",
+        "dbPath=/Users/haoshengli/Library/Application Support/com.offisim.desktop/offisim.db",
+        "db.user_version=9",
+        "workspaceRoot=/Users/haoshengli/Library/Application Support/com.offisim.desktop/workspaces/1d591a6d-42ed-4c9f-ae0d-71586baacde0",
+        "latest_cancelled_root=attempt-176a4c82-8898-4553-a584-544d16e146c7|root=attempt-176a4c82-8898-4553-a584-544d16e146c7|finished_at=2026-06-28T10:01:50.811Z|objective=\"G1 final stable cancel proof 2026-06-28T2200NZST. Write a deliberately long structured report of at least 3000 words abo\"",
+        "running_children_after_cancel=0"
+      ]
+    },
+    {
+      "taskId": "delegation-parallel",
+      "outcome": "fail",
+      "groundTruthMet": false,
+      "evidence": [
+        "checkedAt=2026-06-28T10:50:22.379Z",
+        "dbPath=/Users/haoshengli/Library/Application Support/com.offisim.desktop/offisim.db",
+        "db.user_version=9",
+        "workspaceRoot=/Users/haoshengli/Library/Application Support/com.offisim.desktop/workspaces/1d591a6d-42ed-4c9f-ae0d-71586baacde0",
+        "three_child_root=none",
+        "closest_delegation_root=attempt-05526a1d-ed73-4488-b679-fc8a5eb2c6d0|children=2|completed=2|started=2026-06-28T08:48:26.948Z"
+      ],
+      "notes": "Live delegation evidence exists, but no root has three completed child runs."
+    },
+    {
+      "taskId": "mission-evaluation",
+      "outcome": "pass",
+      "groundTruthMet": true,
+      "evidence": [
+        "checkedAt=2026-06-28T10:50:22.379Z",
+        "dbPath=/Users/haoshengli/Library/Application Support/com.offisim.desktop/offisim.db",
+        "db.user_version=9",
+        "workspaceRoot=/Users/haoshengli/Library/Application Support/com.offisim.desktop/workspaces/1d591a6d-42ed-4c9f-ae0d-71586baacde0",
+        "latest_pass_evaluation=mission-fd55083a-7512-4363-99ee-cad5ef7c19aa|verdict=PASS|summary=\"`cat done.txt` exited 0\"|completed_at=2026-06-26T00:28:31.700Z",
+        "g2_blocked_gate_mission_count=4"
+      ]
+    },
+    {
+      "taskId": "restart-recovery",
+      "outcome": "fail",
+      "groundTruthMet": false,
+      "evidence": [
+        "checkedAt=2026-06-28T10:50:22.379Z",
+        "dbPath=/Users/haoshengli/Library/Application Support/com.offisim.desktop/offisim.db",
+        "db.user_version=9",
+        "workspaceRoot=/Users/haoshengli/Library/Application Support/com.offisim.desktop/workspaces/1d591a6d-42ed-4c9f-ae0d-71586baacde0",
+        "interrupted_run_count=0",
+        "latest_recovery_like_run=attempt-9750c43a-1442-427e-bc0b-85afd3d0aa26|status=completed|started=2026-06-28T03:41:51.362Z|finished=2026-06-28T03:43:44.932Z|objective=\"Live recovery verification create a file named REPORT.md in the project workspace. First inspect the workspace files then write a short repo\"",
+        "duplicate_deliverable_hash_groups=0"
+      ],
+      "notes": "Recovery-like run evidence exists, but agent_runs has no interrupted row at scoring time."
+    }
+  ],
+  "summary": {
+    "total": 8,
+    "passed": 2,
+    "failed": 3,
+    "blocked": 3,
+    "skipped": 0
+  }
+}
