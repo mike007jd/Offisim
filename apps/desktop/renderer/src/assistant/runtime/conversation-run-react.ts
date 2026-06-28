@@ -16,6 +16,7 @@ import { useOfficeBeats } from './office-dramaturgy.js';
 
 export { isConversationRunActive, dominantBeatsFrom };
 export type { EmployeeWorkloadProjection };
+export { useInterruptedRunRecovery } from '@/runtime/recovery/useInterruptedRunRecovery.js';
 
 export function useConversationRun(threadId: string): ConversationRunSnapshot {
   return useSyncExternalStore(

@@ -22,6 +22,7 @@ import {
   Users,
 } from 'lucide-react';
 import { Suspense } from 'react';
+import { RecoveryPanel } from './RecoveryPanel.js';
 import { OfficeScene2D } from './scene/OfficeScene2D.js';
 import { OfficeScene3D } from './scene/OfficeScene3D.js';
 import { zoneDefsFromLayout } from './scene/scene-layout.js';
@@ -88,6 +89,7 @@ export function OfficeStage() {
 
       {/* Pipeline pill: always present while a run is live (Stop lives here). */}
       <RunPipelinePill />
+      <RecoveryPanel />
 
       {/* stage-mode (left): 3D / 2D render toggle. */}
       <div className="off-stage-float off-stage-mode">

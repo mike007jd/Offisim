@@ -283,6 +283,7 @@ export interface AgentRunRepository {
       resultSummaryJson?: string | null;
       usageJson?: string | null;
       finishedAt?: string | null;
+      sessionFile?: string | null;
     },
   ): Promise<void>;
 }

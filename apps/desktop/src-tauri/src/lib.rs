@@ -195,6 +195,7 @@ pub fn run() {
             pi_agent_host::agent_runtime_execute,
             pi_agent_host::agent_runtime_enhance,
             pi_agent_host::agent_runtime_collaborate,
+            pi_agent_host::agent_runtime_resume,
             pi_agent_host::agent_runtime_abort,
             pi_agent_host::agent_runtime_answer,
             pi_agent_host::agent_runtime_status,

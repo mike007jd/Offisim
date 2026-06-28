@@ -107,7 +107,7 @@ export async function reconcileInterruptedRuns(
           return repo.updateStatus(id, 'cancelled', { finishedAt });
         }),
       );
-      cards.push(buildCard(root, dangling, usageJson));
+      cards.push(buildInterruptedRunCard(root, dangling, usageJson));
     } catch (err) {
       console.warn('[reconcile-interrupted-runs] failed to park interrupted root', {
         rootRunId: root.run_id,
@@ -145,7 +145,7 @@ function parseUsage(usageJson: string | null): AgentRunUsage | undefined {
   }
 }
 
-function buildCard(
+export function buildInterruptedRunCard(
   root: AgentRunRow,
   cancelledChildRunIds: string[],
   partialUsageJson: string | null,

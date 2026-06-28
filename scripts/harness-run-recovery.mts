@@ -33,10 +33,11 @@ import type { NewAgentRun } from '../packages/core/src/runtime/repositories.ts';
 import { MemoryAgentRunRepository } from '../packages/core/src/runtime/repos/agent-runs/memory.ts';
 import { persistRunStartIfAbsent } from '../apps/desktop/renderer/src/runtime/recovery/persist-run-idempotency.js';
 import { reconcileInterruptedRuns } from '../apps/desktop/renderer/src/runtime/recovery/reconcile-interrupted-runs.js';
+import { loadInterruptedRunRecoveryCards } from '../apps/desktop/renderer/src/runtime/recovery/useInterruptedRunRecovery.js';
 
 let passed = 0;
 let failed = 0;
-const TOTAL = 14;
+const TOTAL = 16;
 
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
   try {
@@ -208,6 +209,35 @@ async function main(): Promise<void> {
     const row = await repo2.findById('r1');
     assert.ok(row?.usage_json, 'replay must NOT clobber the resumed row (usage preserved)');
     assert.equal(JSON.parse(row!.usage_json!).input, 7);
+  });
+
+  await check('(n) updateStatus can persist the Pi session_file without finishing', async () => {
+    const repo2 = new MemoryAgentRunRepository();
+    await persistRunStartIfAbsent(repo2, {
+      run_id: 'r-session', thread_id: 't', company_id: CO_A, parent_run_id: null,
+      root_run_id: 'r-session', employee_id: null, relation: null, objective: 'x', access: null,
+      status: 'running',
+    });
+    await repo2.updateStatus('r-session', 'running', {
+      sessionFile: '/sessions/r-session.jsonl',
+    });
+    const row = await repo2.findById('r-session');
+    assert.equal(row?.session_file, '/sessions/r-session.jsonl');
+    assert.equal(row?.finished_at, null, 'session_file write must not finish the run');
+  });
+
+  await check('(o) recovery loader lists already-interrupted roots', async () => {
+    const repo2 = new MemoryAgentRunRepository();
+    await repo2.create({
+      run_id: 'r-existing', thread_id: 't-existing', company_id: CO_A, parent_run_id: null,
+      root_run_id: 'r-existing', employee_id: null, relation: null, objective: 'resume me',
+      access: null, status: 'interrupted', started_at: '2026-06-27T10:00:00.000Z',
+      session_file: '/sessions/r-existing.jsonl',
+    });
+    const cards = await loadInterruptedRunRecoveryCards({ repo: repo2, companyId: CO_A, now });
+    assert.equal(cards.length, 1);
+    assert.equal(cards[0]?.runId, 'r-existing');
+    assert.equal(cards[0]?.classification, 'resumable');
   });
 
   console.log(`\n${passed}/${TOTAL} checks passed${failed ? `, ${failed} FAILED` : ''}.`);

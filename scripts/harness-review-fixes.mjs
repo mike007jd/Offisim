@@ -98,7 +98,13 @@ assertNoMatch(
 const desktopRuntime = await source('apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts');
 assertIncludesAll(
   desktopRuntime,
-  ["invoke('agent_runtime_execute'", "invoke('agent_runtime_abort'", "nodeName: 'pi_agent'"],
+  [
+    "return this.runPiTurn(input, 'agent_runtime_execute')",
+    "'agent_runtime_execute' | 'agent_runtime_resume'",
+    'await invoke(commandName',
+    "invoke('agent_runtime_abort'",
+    "nodeName: 'pi_agent'",
+  ],
   'DesktopAgentRuntime must be a thin runtime-gateway host client (generic agent_runtime_* commands, RD-002/003/004).',
 );
 assertNoMatch(

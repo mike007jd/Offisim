@@ -432,6 +432,162 @@
   background: var(--off-accent-surface);
 }
 
+.off-recovery {
+  position: absolute;
+  top: 88px;
+  left: var(--off-sp-6);
+  z-index: var(--off-z-float);
+  width: min(360px, calc(100% - (var(--off-sp-6) * 2)));
+  max-height: min(560px, calc(100% - 160px));
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--off-warn-line);
+  border-radius: var(--off-r-md);
+  background: var(--off-surface-glass-strong);
+  backdrop-filter: blur(var(--off-blur-md));
+  box-shadow: var(--off-elev-3);
+  overflow: hidden;
+}
+
+.off-recovery-head {
+  height: 34px;
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+  padding: 0 var(--off-sp-4);
+  border-bottom: 1px solid var(--off-line);
+  color: var(--off-ink-1);
+  font-size: var(--off-fs-sm);
+  font-weight: 700;
+}
+
+.off-recovery-count {
+  margin-left: auto;
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-meta);
+  font-family: var(--off-font-mono);
+}
+
+.off-recovery-list {
+  min-height: 0;
+  overflow: auto;
+}
+
+.off-recovery-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--off-sp-2) var(--off-sp-3);
+  padding: var(--off-sp-4);
+  border-bottom: 1px solid var(--off-line);
+}
+
+.off-recovery-card:last-child {
+  border-bottom: 0;
+}
+
+.off-recovery-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.off-recovery-title {
+  color: var(--off-ink-1);
+  font-size: var(--off-fs-sm);
+  font-weight: 680;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.off-recovery-meta,
+.off-recovery-reason,
+.off-recovery-copy {
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-meta);
+  line-height: 1.35;
+}
+
+.off-recovery-copy,
+.off-recovery-reason,
+.off-recovery-actions,
+.off-recovery-partial {
+  grid-column: 1 / -1;
+}
+
+.off-recovery-copy,
+.off-recovery-reason {
+  margin: 0;
+}
+
+.off-recovery-badge {
+  align-self: start;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--off-sp-2);
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-pill);
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-micro);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.off-recovery-badge.is-resumable {
+  border-color: var(--off-accent-ring);
+}
+
+.off-recovery-badge.is-needs_user_confirm {
+  border-color: var(--off-warn-line);
+}
+
+.off-recovery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--off-sp-2);
+}
+
+.off-recovery-btn {
+  min-width: 0;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--off-sp-2);
+  padding: 0 var(--off-sp-3);
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-glass-weak);
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-meta);
+  font-weight: 650;
+}
+
+.off-recovery-btn:hover:not(:disabled) {
+  color: var(--off-ink-1);
+  background: var(--off-surface-sunken);
+}
+
+.off-recovery-btn:disabled {
+  opacity: 0.55;
+}
+
+.off-recovery-partial {
+  display: grid;
+  gap: 3px;
+  padding: var(--off-sp-3);
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-sunken);
+  color: var(--off-ink-3);
+  font-family: var(--off-font-mono);
+  font-size: var(--off-fs-micro);
+  overflow-wrap: anywhere;
+}
+
 /* Diegetic cost readout */
 /* Mission-phase pill (M3 UX-007, PRD §24.4): a static, animation-free label of
    the current mission meaning, in the bottom-left stage lane (mirrors the

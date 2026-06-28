@@ -119,6 +119,7 @@ export interface AgentUiAnswer {
 
 export interface DesktopAgentRuntime {
   execute(input: DesktopAgentRunInput): Promise<DesktopAgentRunResult>;
+  resume(runId: string): Promise<DesktopAgentRunResult>;
   abort(threadId: string): void;
   /** Deliver the user's answer to a mid-run `agent.ui.request` back to the host. */
   answerUiRequest(answer: AgentUiAnswer): Promise<void>;
@@ -232,6 +233,39 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
   }
 
   async execute(input: DesktopAgentRunInput): Promise<DesktopAgentRunResult> {
+    return this.runPiTurn(input, 'agent_runtime_execute');
+  }
+
+  async resume(runId: string): Promise<DesktopAgentRunResult> {
+    const repo = this.repos.agentRuns;
+    if (!repo) throw new Error('Cannot resume Pi Agent run: agentRuns repo is unavailable.');
+    const row = await repo.findById(runId);
+    if (!row || row.company_id !== this.companyId) {
+      throw new Error('Cannot resume Pi Agent run: run not found for this company.');
+    }
+    if (row.status !== 'interrupted') {
+      throw new Error(`Cannot resume Pi Agent run: expected interrupted, got ${row.status}.`);
+    }
+    await repo.updateStatus(runId, 'running', { finishedAt: null });
+    return this.runPiTurn(
+      {
+        text: `Continue the interrupted task from its saved Pi session.\n\nOriginal objective:\n${
+          row.objective || 'Untitled run'
+        }`,
+        threadId: row.thread_id,
+        employeeId: row.employee_id,
+        projectId: null,
+        runId: row.run_id,
+        permissionMode: row.access === 'read' ? 'plan' : undefined,
+      },
+      'agent_runtime_resume',
+    );
+  }
+
+  private async runPiTurn(
+    input: DesktopAgentRunInput,
+    commandName: 'agent_runtime_execute' | 'agent_runtime_resume',
+  ): Promise<DesktopAgentRunResult> {
     const projectId = await ensureProjectBoundForRun(this.repos, this.companyId, input.projectId);
     const runScope = piRunScope(projectId, input.threadId, input.employeeId, input.runId);
     const requestId = newRequestId('pi-agent');
@@ -267,6 +301,16 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
 
     const onEvent = new Channel<PiAgentHostEvent>();
     onEvent.onmessage = (event) => {
+      if (event.kind === 'started') {
+        if (event.sessionFile) {
+          this.enqueuePersist(() =>
+            this.repos.agentRuns?.updateStatus(runScope.runId, 'running', {
+              sessionFile: event.sessionFile,
+            }) ?? Promise.resolve(),
+          );
+        }
+        return;
+      }
       if (event.kind === 'messageDelta' && event.delta) {
         const channel = event.channel === 'reasoning' ? 'reasoning' : 'content';
         if (channel === 'reasoning') {
@@ -456,7 +500,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
 
     this.inFlightByThread.set(input.threadId, requestId);
     try {
-      const commandResponse = (await invoke('agent_runtime_execute', {
+      const commandResponse = (await invoke(commandName, {
         req: {
           requestId,
           text: input.text,

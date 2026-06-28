@@ -70,6 +70,7 @@ export function createAgentRunsDrizzleRepos(db: Db): AgentRunsDrizzleRepos {
       if (opts?.resultSummaryJson !== undefined) patch.result_summary_json = opts.resultSummaryJson;
       if (opts?.usageJson !== undefined) patch.usage_json = opts.usageJson;
       if (opts?.finishedAt !== undefined) patch.finished_at = opts.finishedAt;
+      if (opts?.sessionFile !== undefined) patch.session_file = opts.sessionFile;
       db.update(schema.agentRuns).set(patch).where(eq(schema.agentRuns.run_id, runId)).run();
     },
   };

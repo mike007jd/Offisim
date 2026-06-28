@@ -1342,7 +1342,17 @@ pub async fn agent_runtime_collaborate(
     collaborate_impl(app, req, on_event).await
 }
 
-// agent_runtime_resume: deferred to M4 Durable recovery (no Pi resume lane yet)
+/// Agent-agnostic durable-resume gateway. Pi resumes by re-entering the same
+/// thread/session directory; the Node host's SessionManager continues the recent
+/// session automatically when the same sessionDir is supplied.
+#[tauri::command]
+pub async fn agent_runtime_resume(
+    app: AppHandle,
+    req: PiAgentExecuteRequest,
+    on_event: Channel<PiAgentHostEvent>,
+) -> Result<PiAgentHostResponse, String> {
+    execute_impl(app, req, on_event).await
+}
 
 #[tauri::command]
 pub fn pi_agent_abort(request_id: String) -> Result<(), String> {

@@ -11,6 +11,7 @@ commands.allow = [
   "agent_runtime_execute",
   "agent_runtime_enhance",
   "agent_runtime_collaborate",
+  "agent_runtime_resume",
   "agent_runtime_abort",
   "agent_runtime_answer",
   "agent_runtime_status",
