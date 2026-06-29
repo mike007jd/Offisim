@@ -69,6 +69,7 @@ function DeliverableCard({
   projectId: string | null;
   workspaceBound: boolean;
 }) {
+  const openStageView = useUiState((s) => s.openStageView);
   const [open, setOpen] = useState(false);
   const [busyAction, setBusyAction] = useState<'save' | 'open' | null>(null);
   const [savedPath, setSavedPath] = useState<string | null>(null);
@@ -183,6 +184,12 @@ function DeliverableCard({
           const nextOpen = !open;
           setOpen(nextOpen);
           if (nextOpen) void ensureOutputBody();
+          openStageView({
+            kind: 'output',
+            deliverableId: deliverable.id,
+            threadId: deliverable.threadId ?? null,
+            title: deliverable.name,
+          });
         }}
       >
         <Icon icon={FileCode2} size="sm" className="off-dlv-icon" />

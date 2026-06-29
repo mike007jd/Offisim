@@ -14,6 +14,8 @@ import { EmptyState, ErrorState, SkeletonRows } from '@/surfaces/shared/SurfaceS
 import { useQueryClient } from '@tanstack/react-query';
 import {
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   FileText,
   FolderClosed,
   FolderOpen,
@@ -49,6 +51,7 @@ function FilesTab({
   workspaceRoot: string | null;
   onBindFolder: () => void;
 }) {
+  const openStageView = useUiState((s) => s.openStageView);
   const files = useProjectFiles(projectId);
   const [query, setQuery] = useState('');
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
@@ -94,8 +97,14 @@ function FilesTab({
     setPreview(null);
     setPreviewError(null);
     if (node.kind === 'dir') return;
+    openStageView({ kind: 'file', path: node.path, loading: true });
     if (!isTauriRuntime()) {
       setPreviewError('File preview requires the desktop runtime.');
+      openStageView({
+        kind: 'file',
+        path: node.path,
+        error: 'File preview requires the desktop runtime.',
+      });
       return;
     }
     setPreviewLoading(true);
@@ -108,14 +117,22 @@ function FilesTab({
         projectId,
       });
       setPreview({ ...result, path: node.path });
+      openStageView({
+        kind: 'file',
+        path: node.path,
+        content: result.content,
+        truncated: result.truncated,
+        totalSize: result.totalSize,
+      });
     } catch (error) {
-      setPreviewError(
+      const message =
         error instanceof Error
           ? error.message
           : typeof error === 'string'
             ? error
-            : 'File preview failed.',
-      );
+            : 'File preview failed.';
+      setPreviewError(message);
+      openStageView({ kind: 'file', path: node.path, error: message });
     } finally {
       setPreviewLoading(false);
     }
@@ -211,6 +228,7 @@ function FilesTab({
 }
 
 function GitTab({ workbench }: { workbench: GitWorkbench }) {
+  const openStageView = useUiState((s) => s.openStageView);
   return (
     <div className="off-gw">
       <div className="off-gw-branch">
@@ -225,7 +243,12 @@ function GitTab({ workbench }: { workbench: GitWorkbench }) {
         <CapsLabel>Changes · {workbench.changes.length}</CapsLabel>
         <div className="off-gw-files">
           {workbench.changes.map((change) => (
-            <div key={change.path} className="off-gw-file">
+            <button
+              key={change.path}
+              type="button"
+              className="off-gw-file off-focusable"
+              onClick={() => openStageView({ kind: 'changes', path: change.path })}
+            >
               <span className={cn('off-gw-status', `is-${change.status}`)}>
                 {STATUS_GLYPH[change.status]}
               </span>
@@ -235,7 +258,7 @@ function GitTab({ workbench }: { workbench: GitWorkbench }) {
                 <span className="off-gw-add">+{change.added}</span>
                 <span className="off-gw-rem">−{change.removed}</span>
               </span>
-            </div>
+            </button>
           ))}
           {workbench.changes.length === 0 ? (
             <div className="off-gw-empty">No local changes</div>
@@ -274,6 +297,8 @@ function GitTab({ workbench }: { workbench: GitWorkbench }) {
 export function WorkspacePanel() {
   const companyId = useUiState((s) => s.companyId);
   const projectId = useUiState((s) => s.projectId);
+  const collapsed = useUiState((s) => s.officeLeftRailCollapsed);
+  const setCollapsed = useUiState((s) => s.setOfficeLeftRailCollapsed);
   const queryClient = useQueryClient();
   const projects = useProjects(companyId);
   const git = useGitWorkbench(projectId);
@@ -332,6 +357,45 @@ export function WorkspacePanel() {
     toast.success('Workspace refreshed');
   }
 
+  if (collapsed) {
+    return (
+      <aside className="off-ws-panel is-collapsed" aria-label="Workspace panel">
+        <button
+          type="button"
+          className="off-rail-collapse-btn off-focusable"
+          onClick={() => setCollapsed(false)}
+          title="Expand workspace"
+        >
+          <Icon icon={ChevronsRight} size="sm" />
+        </button>
+        <button
+          type="button"
+          className={cn('off-rail-icon-tab off-focusable', tab === 'files' && 'is-active')}
+          onClick={() => {
+            setTab('files');
+            setCollapsed(false);
+          }}
+          title="Files"
+        >
+          <Icon icon={FileText} size="sm" />
+          <span>Files</span>
+        </button>
+        <button
+          type="button"
+          className={cn('off-rail-icon-tab off-focusable', tab === 'git' && 'is-active')}
+          onClick={() => {
+            setTab('git');
+            setCollapsed(false);
+          }}
+          title="Git"
+        >
+          <Icon icon={GitBranch} size="sm" />
+          <span>Git</span>
+        </button>
+      </aside>
+    );
+  }
+
   return (
     <aside className="off-ws-panel">
       <div className="off-ws-head">
@@ -355,6 +419,12 @@ export function WorkspacePanel() {
             size="iconSm"
             onClick={() => void rescanWorkspace()}
             disabled={!project?.workspaceRoot || bindingFolder}
+          />
+          <IconButton
+            icon={ChevronsLeft}
+            label="Collapse workspace"
+            size="iconSm"
+            onClick={() => setCollapsed(true)}
           />
         </div>
       </div>

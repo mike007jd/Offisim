@@ -12,6 +12,7 @@ import {
 import type { ChatAttachment, ChatMessage, ChatThread } from '@/data/types.js';
 import { useDeliverableRefresh } from '@/data/use-deliverable-refresh.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
+import { Icon } from '@/design-system/icons/Icon.js';
 import {
   EmptyState,
   ErrorState,
@@ -30,7 +31,7 @@ import {
   usePersistedWorkspaceMessages,
 } from '@/surfaces/workspace/workspace-message-events.js';
 import { useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, Inbox } from 'lucide-react';
+import { ChevronLeft, ChevronsLeft, ChevronsRight, Inbox, MessageSquare, Plus } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { ConversationActionsMenu } from './rail/ConversationActionsMenu.js';
@@ -123,10 +124,13 @@ function chatMessageToWsMessage(message: ChatMessage, conversation: WsConversati
 
 export function ChatRail() {
   const railMode = useUiState((s) => s.railMode);
+  const collapsed = useUiState((s) => s.officeRightRailCollapsed);
+  const setCollapsed = useUiState((s) => s.setOfficeRightRailCollapsed);
   const companyId = useUiState((s) => s.companyId);
   const projectId = useUiState((s) => s.projectId);
   const selectedThreadId = useUiState((s) => s.selectedThreadId);
   const draftThread = useUiState((s) => s.draftThread);
+  const openDraftThread = useUiState((s) => s.openDraftThread);
   const markDraftPersisted = useUiState((s) => s.markDraftPersisted);
   const closeThread = useUiState((s) => s.closeThread);
   const setSurface = useUiState((s) => s.setSurface);
@@ -251,9 +255,53 @@ export function ChatRail() {
       : null);
   const projectName = projects.data?.find((p) => p.id === projectId)?.name ?? 'Project';
 
+  if (collapsed) {
+    return (
+      <section className="off-rail is-collapsed" aria-label="Conversations">
+        <button
+          type="button"
+          className="off-rail-collapse-btn off-focusable"
+          onClick={() => setCollapsed(false)}
+          title="Expand conversations"
+        >
+          <Icon icon={ChevronsLeft} size="sm" />
+        </button>
+        <button
+          type="button"
+          className="off-rail-icon-tab off-focusable is-active"
+          onClick={() => setCollapsed(false)}
+          title={railMode === 'thread' ? 'Open conversation' : 'Open conversations'}
+        >
+          <Icon icon={railMode === 'thread' ? MessageSquare : Inbox} size="sm" />
+          <span>{railMode === 'thread' ? 'Thread' : 'Chats'}</span>
+        </button>
+        <button
+          type="button"
+          className="off-rail-icon-tab off-focusable"
+          onClick={() => {
+            setCollapsed(false);
+            openDraftThread(null);
+          }}
+          title="New conversation"
+        >
+          <Icon icon={Plus} size="sm" />
+          <span>New</span>
+        </button>
+      </section>
+    );
+  }
+
   if (railMode === 'list') {
     return (
       <section className="off-rail is-list" aria-label="Conversations">
+        <button
+          type="button"
+          className="off-rail-collapse-edge off-focusable"
+          onClick={() => setCollapsed(true)}
+          title="Collapse conversations"
+        >
+          <Icon icon={ChevronsRight} size="sm" />
+        </button>
         <ThreadList />
       </section>
     );
@@ -265,6 +313,14 @@ export function ChatRail() {
     // header either: there is no thread to title or open in Inbox.
     return (
       <section className="off-rail" aria-label="Conversation">
+        <button
+          type="button"
+          className="off-rail-collapse-edge off-focusable"
+          onClick={() => setCollapsed(true)}
+          title="Collapse conversations"
+        >
+          <Icon icon={ChevronsRight} size="sm" />
+        </button>
         <EmptyState
           icon={Inbox}
           title="No conversation open"
@@ -277,6 +333,14 @@ export function ChatRail() {
 
   return (
     <section className="off-rail" aria-label="Conversation">
+      <button
+        type="button"
+        className="off-rail-collapse-edge off-focusable"
+        onClick={() => setCollapsed(true)}
+        title="Collapse conversations"
+      >
+        <Icon icon={ChevronsRight} size="sm" />
+      </button>
       <header className="off-chat-head">
         <IconButton
           icon={ChevronLeft}

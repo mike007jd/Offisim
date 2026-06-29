@@ -1,5 +1,5 @@
 import { generateId } from '@offisim/core/browser';
-import type { DramaturgyMode } from '@offisim/shared-types';
+import type { DramaturgyMode, ToolRichDetail } from '@offisim/shared-types';
 import { create } from 'zustand';
 
 type WorkspaceKey = 'office' | 'workspace' | 'market' | 'personnel';
@@ -7,7 +7,57 @@ type OverlaySurface = 'mission' | 'activity' | 'tasks' | 'settings' | 'studio' |
 export type SurfaceKey = WorkspaceKey | OverlaySurface;
 
 type SceneRenderMode = '3d' | '2d';
+export type StagePrimaryTab = 'game' | 'browser' | 'terminal' | 'review' | 'files';
 type RailMode = 'list' | 'thread';
+type StageToolStatus = 'running' | 'done' | 'error';
+
+export type StageViewTarget =
+  | { kind: 'scene' }
+  | { kind: 'output'; deliverableId: string; threadId: string | null; title?: string }
+  | {
+      kind: 'preview';
+      title?: string;
+      url?: string;
+      sourceId?: string;
+      threadId?: string | null;
+      deliverableId?: string;
+      detail?: Extract<ToolRichDetail, { family: 'browser' }>;
+    }
+  | { kind: 'changes'; path?: string | null }
+  | {
+      kind: 'logs';
+      title?: string;
+      tool?: string;
+      sourceId?: string;
+      status?: StageToolStatus;
+      detail?: ToolRichDetail;
+    }
+  | {
+      kind: 'file';
+      path: string;
+      content?: string;
+      truncated?: boolean;
+      totalSize?: number;
+      loading?: boolean;
+      error?: string;
+    };
+
+export function stageTabForTarget(target: StageViewTarget): StagePrimaryTab {
+  switch (target.kind) {
+    case 'preview':
+      return 'browser';
+    case 'logs':
+      return 'terminal';
+    case 'changes':
+      return 'review';
+    case 'file':
+    case 'output':
+      return 'files';
+    default:
+      return 'game';
+  }
+}
+
 export interface SceneDropDiagnostic {
   id: string;
   at: string;
@@ -45,6 +95,11 @@ interface UiState {
    */
   draftThread: { id: string; employeeId: string | null } | null;
   sceneRenderMode: SceneRenderMode;
+  stagePrimaryTab: StagePrimaryTab;
+  stageView: StageViewTarget;
+  officeLeftRailCollapsed: boolean;
+  officeRightRailCollapsed: boolean;
+  officeStageMaximized: boolean;
   /** Dramaturgy presentation density for the office scene. */
   officeMode: DramaturgyMode;
   sceneDropDiagnostics: SceneDropDiagnostic[];
@@ -132,6 +187,12 @@ interface UiState {
   setDraftEmployee: (employeeId: string | null) => void;
   closeThread: () => void;
   setSceneRenderMode: (mode: SceneRenderMode) => void;
+  setStagePrimaryTab: (tab: StagePrimaryTab) => void;
+  openStageView: (target: StageViewTarget) => void;
+  closeStageView: () => void;
+  setOfficeLeftRailCollapsed: (collapsed: boolean) => void;
+  setOfficeRightRailCollapsed: (collapsed: boolean) => void;
+  setOfficeStageMaximized: (maximized: boolean) => void;
   setOfficeMode: (mode: DramaturgyMode) => void;
   recordSceneDropDiagnostic: (event: SceneDropDiagnostic) => void;
 
@@ -159,6 +220,11 @@ export const useUiState = create<UiState>((set, get) => ({
   selectedThreadId: null,
   draftThread: null,
   sceneRenderMode: '3d',
+  stagePrimaryTab: 'game',
+  stageView: { kind: 'scene' },
+  officeLeftRailCollapsed: false,
+  officeRightRailCollapsed: false,
+  officeStageMaximized: false,
   officeMode: 'office',
   sceneDropDiagnostics: [],
 
@@ -203,26 +269,64 @@ export const useUiState = create<UiState>((set, get) => ({
     return intent;
   },
   setScope: (companyId, projectId) =>
-    set({ companyId, projectId, selectedThreadId: null, draftThread: null, railMode: 'list' }),
+    set({
+      companyId,
+      projectId,
+      selectedThreadId: null,
+      draftThread: null,
+      railMode: 'list',
+      stagePrimaryTab: 'game',
+      stageView: { kind: 'scene' },
+      officeStageMaximized: false,
+    }),
   setProject: (projectId) =>
-    set({ projectId, selectedThreadId: null, draftThread: null, railMode: 'list' }),
+    set({
+      projectId,
+      selectedThreadId: null,
+      draftThread: null,
+      railMode: 'list',
+      stagePrimaryTab: 'game',
+      stageView: { kind: 'scene' },
+      officeStageMaximized: false,
+    }),
 
   openThread: (threadId) =>
-    set({ selectedThreadId: threadId, draftThread: null, railMode: 'thread' }),
+    set({
+      selectedThreadId: threadId,
+      draftThread: null,
+      railMode: 'thread',
+      stagePrimaryTab: 'game',
+      stageView: { kind: 'scene' },
+    }),
   openDraftThread: (employeeId = null) => {
     const id = generateId('thread');
     set({
       selectedThreadId: id,
       draftThread: { id, employeeId: employeeId ?? null },
       railMode: 'thread',
+      stagePrimaryTab: 'game',
+      stageView: { kind: 'scene' },
     });
     return id;
   },
   markDraftPersisted: () => set({ draftThread: null }),
   setDraftEmployee: (employeeId) =>
     set((s) => (s.draftThread ? { draftThread: { ...s.draftThread, employeeId } } : {})),
-  closeThread: () => set({ selectedThreadId: null, draftThread: null, railMode: 'list' }),
+  closeThread: () =>
+    set({
+      selectedThreadId: null,
+      draftThread: null,
+      railMode: 'list',
+      stagePrimaryTab: 'game',
+      stageView: { kind: 'scene' },
+    }),
   setSceneRenderMode: (sceneRenderMode) => set({ sceneRenderMode }),
+  setStagePrimaryTab: (stagePrimaryTab) => set({ stagePrimaryTab }),
+  openStageView: (stageView) => set({ stageView, stagePrimaryTab: stageTabForTarget(stageView) }),
+  closeStageView: () => set({ stageView: { kind: 'scene' }, stagePrimaryTab: 'game' }),
+  setOfficeLeftRailCollapsed: (officeLeftRailCollapsed) => set({ officeLeftRailCollapsed }),
+  setOfficeRightRailCollapsed: (officeRightRailCollapsed) => set({ officeRightRailCollapsed }),
+  setOfficeStageMaximized: (officeStageMaximized) => set({ officeStageMaximized }),
   setOfficeMode: (officeMode) => set({ officeMode }),
   recordSceneDropDiagnostic: (event) =>
     set((s) => ({ sceneDropDiagnostics: [event, ...s.sceneDropDiagnostics].slice(0, 10) })),

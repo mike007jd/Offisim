@@ -86,8 +86,8 @@
 }
 
 .off-task-action.is-danger {
-  border-color: color-mix(in oklab, var(--off-danger, #c2410c) 40%, var(--off-line));
-  color: var(--off-danger, #c2410c);
+  border-color: color-mix(in oklab, var(--off-danger) 40%, var(--off-line));
+  color: var(--off-danger);
 }
 
 .off-task-refresh:hover:not(:disabled),
@@ -305,12 +305,12 @@
 }
 
 .off-task-badge.is-completed {
-  color: var(--off-success, #15803d);
+  color: var(--off-ok);
 }
 
 .off-task-badge.is-failed,
 .off-task-badge.is-cancelled {
-  color: var(--off-danger, #c2410c);
+  color: var(--off-danger);
 }
 
 .off-task-title,

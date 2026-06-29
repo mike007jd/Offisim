@@ -40,7 +40,6 @@ import { OFFICE_CAMERA_PRESET, SCENE_CONTENT_SCALE } from './r3d/scene-art-direc
 import { LIGHT_SCENE_3D } from './r3d/scene-colors.js';
 import { type ScenePlacementPoint, groundPointFromClient } from './scene-ground.js';
 import { compactSceneEmployeeName } from './scene-labels.js';
-import { WorkBench } from './work-bench/WorkBench.js';
 import {
   type EmployeePosture,
   type ZoneDef,
@@ -49,6 +48,7 @@ import {
   rotateLocal,
   zoneDefsFromLayout,
 } from './scene-layout.js';
+import { WorkBench } from './work-bench/WorkBench.js';
 
 interface SceneEmployeeDrop {
   readonly zoneId: string | null;
@@ -573,6 +573,7 @@ export function OfficeScene3D() {
   const selectedThreadId = useUiState((s) => s.selectedThreadId);
   const openThread = useUiState((s) => s.openThread);
   const closeThread = useUiState((s) => s.closeThread);
+  const openStageView = useUiState((s) => s.openStageView);
   const recordSceneDropDiagnostic = useUiState((s) => s.recordSceneDropDiagnostic);
   const employees = useEmployees();
   const threads = useThreads(projectId);
@@ -801,14 +802,40 @@ export function OfficeScene3D() {
         <ScenePostFx />
       </Canvas>
       {selectedThreadId && selectedWorkBenchEntry?.richDetail ? (
-        <div className="off-scene-work-bench-peek" aria-label="Selected employee work bench">
+        <button
+          type="button"
+          className="off-scene-work-bench-peek off-focusable"
+          aria-label="Open selected employee work bench"
+          onClick={() => {
+            const detail = selectedWorkBenchEntry.richDetail;
+            if (!detail) return;
+            if (detail.family === 'browser') {
+              openStageView({
+                kind: 'preview',
+                sourceId: selectedWorkBenchEntry.id,
+                title: detail.title ?? selectedWorkBenchEntry.tool,
+                url: detail.url,
+                detail,
+              });
+              return;
+            }
+            openStageView({
+              kind: 'logs',
+              sourceId: selectedWorkBenchEntry.id,
+              title: selectedWorkBenchEntry.tool,
+              tool: selectedWorkBenchEntry.tool,
+              status: selectedWorkBenchEntry.state,
+              detail,
+            });
+          }}
+        >
           <div className="off-scene-work-bench-label">{selectedWorkBenchEntry.tool}</div>
           <WorkBench
             detail={selectedWorkBenchEntry.richDetail}
             status={selectedWorkBenchEntry.state}
             compact
           />
-        </div>
+        </button>
       ) : null}
     </>
   );
