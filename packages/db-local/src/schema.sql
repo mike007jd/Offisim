@@ -173,6 +173,7 @@ CREATE TABLE IF NOT EXISTS agent_runs (
   -- cascade + explicit per-thread deletion in local-data-deletion.
   thread_id           TEXT NOT NULL,
   company_id          TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+  project_id          TEXT REFERENCES projects(project_id) ON DELETE SET NULL,
   parent_run_id       TEXT REFERENCES agent_runs(run_id) ON DELETE SET NULL,
   root_run_id         TEXT NOT NULL,
   employee_id         TEXT REFERENCES employees(employee_id) ON DELETE SET NULL,
@@ -186,6 +187,7 @@ CREATE TABLE IF NOT EXISTS agent_runs (
   result_summary_json TEXT,
   -- Pi session JSONL path for durable resume (set when the session opens).
   session_file        TEXT,
+  runtime_context_json TEXT,
   started_at          TEXT NOT NULL,
   finished_at         TEXT
 );
@@ -451,7 +453,9 @@ CREATE TABLE IF NOT EXISTS "mcp_audit_log" (
   result_json TEXT,
   error TEXT,
   latency_ms INTEGER NOT NULL,
-  approved_by TEXT NOT NULL DEFAULT 'auto',
+  approval_status TEXT NOT NULL DEFAULT 'not_required'
+    CHECK (approval_status IN ('not_required', 'human_approved', 'human_denied')),
+  approved_by TEXT,
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS mcp_tool_grants (
@@ -462,6 +466,11 @@ CREATE TABLE IF NOT EXISTS mcp_tool_grants (
   tool_name TEXT NOT NULL,
   scope TEXT NOT NULL DEFAULT 'employee',
   project_id TEXT,
+  risk_class TEXT NOT NULL DEFAULT 'write'
+    CHECK (risk_class IN ('read', 'write', 'destructive', 'open_world')),
+  risk_source TEXT NOT NULL DEFAULT 'human_override'
+    CHECK (risk_source IN ('server_annotation', 'name_heuristic', 'human_override', 'trusted_manifest')),
+  trusted_server_id TEXT,
   granted_by TEXT NOT NULL,
   created_at TEXT NOT NULL,
   UNIQUE(company_id, employee_id, server_name, tool_name)
@@ -596,6 +605,8 @@ CREATE INDEX IF NOT EXISTS idx_task_runs_thread ON task_runs(thread_id);
 CREATE INDEX IF NOT EXISTS idx_agent_runs_thread ON agent_runs(thread_id);
 CREATE INDEX IF NOT EXISTS idx_agent_runs_root ON agent_runs(root_run_id);
 CREATE INDEX IF NOT EXISTS idx_agent_runs_parent ON agent_runs(parent_run_id);
+CREATE INDEX IF NOT EXISTS idx_agent_runs_company_project_status
+  ON agent_runs(company_id, project_id, status);
 CREATE INDEX IF NOT EXISTS idx_tool_calls_task ON tool_calls(task_run_id);
 CREATE INDEX IF NOT EXISTS idx_runtime_events_company_time ON runtime_events(company_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_llm_calls_thread ON llm_calls(thread_id);

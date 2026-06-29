@@ -5,11 +5,10 @@
  * This is the host-side enforcement that turns that pick into real tool gating
  * on the live Pi session (`scripts/tauri-pi-agent-host.entry.mjs`). The modes:
  *
- * - `plan` — read-only investigation. The tool set is restricted to the
- *   read-only built-ins (`read`/`grep`/`find`/`ls`); there is no `bash`/`edit`/
- *   `write`, so the agent can read and search to propose a plan but cannot run
- *   commands or mutate anything. Enforced purely by the tool allowlist — no
- *   runtime gate needed because the dangerous tools are never exposed.
+ * - `plan` — read-only investigation. The tool set is restricted to read-only
+ *   built-ins plus read-class MCP meta tools when scoped; there is no `bash`/
+ *   `edit`/`write`, so the agent can research to propose a plan but cannot run
+ *   commands or mutate anything.
  * - `ask` — supervised execution. The full tool set is enabled; catastrophic
  *   commands are hard-blocked, and recoverable destructive commands pause on
  *   Pi's extension UI until the renderer sends an approval response.
@@ -77,11 +76,11 @@ const COLLABORATION_PROFILES: readonly CollaborationProfile[] = ['strict', 'coll
 export const DEFAULT_COLLABORATION_PROFILE: CollaborationProfile = 'strict';
 
 /**
- * Read-only built-in tools the `collaboration_read` profile may use. Mirrors the
- * Plan allowlist (pure read/search). E2 appends read-only MCP tools to this set
- * at scope time; this constant is the built-in floor and the invariant baseline.
+ * Built-in tools for `collaboration_read`. Empty until Offisim has an explicit
+ * folder/project source grant; read-only MCP connectors are appended at scope
+ * time. This prevents Connect from reading the neutral cwd by default.
  */
-export const COLLABORATION_READ_TOOL_ALLOWLIST: readonly string[] = ['read', 'grep', 'find', 'ls'];
+export const COLLABORATION_READ_TOOL_ALLOWLIST: readonly string[] = [];
 
 /**
  * Tools a collaboration profile may NEVER expose — the read-only invariant. Any

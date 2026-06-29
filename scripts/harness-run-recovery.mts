@@ -20,6 +20,8 @@
  *   (i) autoResumed is always false (never auto-resumes).
  *   (j) a company with no running runs → 0 cards, no throw.
  *   (k) findByStatus itself: company scoping + status filter + empty-statuses → [].
+ *   (l) run context: project/workspace are surfaced, missing workspace blocks resume.
+ *   (m) run context: host protocol mismatch is incompatible.
  *
  * Inject-proof (run manually, then revert):
  *   - park roots `cancelled` instead of `interrupted` → checks (a)/(f) fail.
@@ -32,12 +34,15 @@ import assert from 'node:assert/strict';
 import type { NewAgentRun } from '../packages/core/src/runtime/repositories.ts';
 import { MemoryAgentRunRepository } from '../packages/core/src/runtime/repos/agent-runs/memory.ts';
 import { persistRunStartIfAbsent } from '../apps/desktop/renderer/src/runtime/recovery/persist-run-idempotency.js';
-import { reconcileInterruptedRuns } from '../apps/desktop/renderer/src/runtime/recovery/reconcile-interrupted-runs.js';
+import {
+  buildInterruptedRunCard,
+  reconcileInterruptedRuns,
+} from '../apps/desktop/renderer/src/runtime/recovery/reconcile-interrupted-runs.js';
 import { loadInterruptedRunRecoveryCards } from '../apps/desktop/renderer/src/runtime/recovery/useInterruptedRunRecovery.js';
 
 let passed = 0;
 let failed = 0;
-const TOTAL = 17;
+const TOTAL = 20;
 
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
   try {
@@ -65,11 +70,11 @@ async function seedRepo(): Promise<MemoryAgentRunRepository> {
     // root1 carries its OWN partial usage so the no-double-count guard (root row
     // skipped in the child sum, folded in once as rootUsage) is load-bearing: the
     // aggregate must be children + root_own, each counted exactly once.
-    { run_id: 'root1', thread_id: 't1', company_id: CO_A, parent_run_id: null, root_run_id: 'root1', employee_id: null, relation: null, objective: 'Build feature X', access: null, status: 'running', started_at: '2026-06-27T10:00:00.000Z', session_file: null, usage_json: JSON.stringify({ input: 5, output: 5, cost: 0.05, turns: 1 }) },
+    { run_id: 'root1', thread_id: 't1', company_id: CO_A, project_id: 'proj-1', parent_run_id: null, root_run_id: 'root1', employee_id: null, relation: null, objective: 'Build feature X', access: null, status: 'running', started_at: '2026-06-27T10:00:00.000Z', session_file: null, runtime_context_json: JSON.stringify({ runtime: 'pi-agent', projectId: 'proj-1', workspaceRoot: '/tmp/offisim/proj-1', wireProtocolVersion: 4, piSdkVersion: '0.79.8', permissionMode: 'auto', model: null, thinkingLevel: null, createdAt: FIXED_NOW }), usage_json: JSON.stringify({ input: 5, output: 5, cost: 0.05, turns: 1 }) },
     { run_id: 'child1', thread_id: 't1', company_id: CO_A, parent_run_id: 'root1', root_run_id: 'root1', employee_id: null, relation: 'delegate', objective: 'sub a', access: null, status: 'running', started_at: '2026-06-27T10:01:00.000Z' },
     { run_id: 'child2', thread_id: 't1', company_id: CO_A, parent_run_id: 'root1', root_run_id: 'root1', employee_id: null, relation: 'delegate', objective: 'sub b', access: null, status: 'completed', started_at: '2026-06-27T10:02:00.000Z', usage_json: JSON.stringify({ input: 10, output: 20, cost: 0.5, turns: 2 }) },
     // co-A: crashed root WITH a session_file (resumable).
-    { run_id: 'root2', thread_id: 't2', company_id: CO_A, parent_run_id: null, root_run_id: 'root2', employee_id: null, relation: null, objective: 'Research Y', access: null, status: 'running', started_at: '2026-06-27T11:00:00.000Z', session_file: '/sessions/root2.jsonl' },
+    { run_id: 'root2', thread_id: 't2', company_id: CO_A, project_id: 'proj-2', parent_run_id: null, root_run_id: 'root2', employee_id: null, relation: null, objective: 'Research Y', access: null, status: 'running', started_at: '2026-06-27T11:00:00.000Z', session_file: '/sessions/root2.jsonl', runtime_context_json: JSON.stringify({ runtime: 'pi-agent', projectId: 'proj-2', workspaceRoot: '/tmp/offisim/proj-2', wireProtocolVersion: 4, piSdkVersion: '0.79.8', permissionMode: 'auto', model: null, thinkingLevel: null, createdAt: FIXED_NOW }) },
     // co-A: an orphan running child whose root already completed.
     { run_id: 'rootDone', thread_id: 't3', company_id: CO_A, parent_run_id: null, root_run_id: 'rootDone', employee_id: null, relation: null, objective: 'done', access: null, status: 'completed', started_at: '2026-06-27T09:00:00.000Z' },
     { run_id: 'orphan1', thread_id: 't3', company_id: CO_A, parent_run_id: 'rootDone', root_run_id: 'rootDone', employee_id: null, relation: 'delegate', objective: 'orphan', access: null, status: 'running', started_at: '2026-06-27T09:01:00.000Z' },
@@ -130,6 +135,8 @@ async function main(): Promise<void> {
     const card = result.cards.find((c) => c.runId === 'root2');
     assert.equal(card?.classification, 'resumable');
     assert.equal(card?.sessionFile, '/sessions/root2.jsonl');
+    assert.equal(card?.projectId, 'proj-2');
+    assert.equal(card?.workspaceRoot, '/tmp/offisim/proj-2');
     const root2 = await repo.findById('root2');
     assert.equal(root2?.status, 'interrupted');
   });
@@ -175,6 +182,79 @@ async function main(): Promise<void> {
     assert.equal((await fresh.findByStatus(CO_A, [])).length, 0, 'empty statuses → []');
     const multi = await fresh.findByStatus(CO_A, ['running', 'completed']);
     assert.ok(multi.length > runningA.length, 'multi-status returns more rows');
+  });
+
+  await check('(l) missing workspace blocks resume classification', async () => {
+    const repo2 = new MemoryAgentRunRepository();
+    await repo2.create({
+      run_id: 'r-missing-workspace',
+      thread_id: 't-missing',
+      company_id: CO_A,
+      project_id: 'proj-missing',
+      parent_run_id: null,
+      root_run_id: 'r-missing-workspace',
+      employee_id: null,
+      relation: null,
+      objective: 'resume safely',
+      access: 'write',
+      status: 'interrupted',
+      started_at: '2026-06-27T10:00:00.000Z',
+      session_file: '/sessions/r-missing-workspace.jsonl',
+      runtime_context_json: JSON.stringify({
+        runtime: 'pi-agent',
+        projectId: 'proj-missing',
+        workspaceRoot: '/tmp/offisim/missing',
+        wireProtocolVersion: 4,
+        piSdkVersion: '0.79.8',
+        permissionMode: 'auto',
+        model: null,
+        thinkingLevel: null,
+        createdAt: FIXED_NOW,
+      }),
+    });
+    const row = await repo2.findById('r-missing-workspace');
+    const card = buildInterruptedRunCard(row!, [], null, { workspaceExists: false });
+    assert.equal(card.classification, 'incompatible');
+    assert.match(card.classificationReasons.join(' '), /workspace folder is no longer accessible/);
+    assert.equal(card.projectId, 'proj-missing');
+    assert.equal(card.workspaceRoot, '/tmp/offisim/missing');
+  });
+
+  await check('(m) protocol mismatch marks recovery card incompatible', async () => {
+    const repo2 = new MemoryAgentRunRepository();
+    await repo2.create({
+      run_id: 'r-protocol',
+      thread_id: 't-protocol',
+      company_id: CO_A,
+      project_id: 'proj-protocol',
+      parent_run_id: null,
+      root_run_id: 'r-protocol',
+      employee_id: null,
+      relation: null,
+      objective: 'old protocol',
+      access: 'write',
+      status: 'interrupted',
+      started_at: '2026-06-27T10:00:00.000Z',
+      session_file: '/sessions/r-protocol.jsonl',
+      runtime_context_json: JSON.stringify({
+        runtime: 'pi-agent',
+        projectId: 'proj-protocol',
+        workspaceRoot: '/tmp/offisim/protocol',
+        wireProtocolVersion: 3,
+        piSdkVersion: '0.79.8',
+        permissionMode: 'auto',
+        model: null,
+        thinkingLevel: null,
+        createdAt: FIXED_NOW,
+      }),
+    });
+    const row = await repo2.findById('r-protocol');
+    const card = buildInterruptedRunCard(row!, [], null, {
+      workspaceExists: true,
+      currentWireProtocolVersion: 4,
+    });
+    assert.equal(card.classification, 'incompatible');
+    assert.match(card.classificationReasons.join(' '), /does not match current protocol/);
   });
 
   // --- A3: insert-if-absent run.started persistence (resume-replay idempotency) ---
@@ -226,13 +306,38 @@ async function main(): Promise<void> {
     assert.equal(row?.finished_at, null, 'session_file write must not finish the run');
   });
 
-  await check('(o) recovery loader lists already-interrupted roots', async () => {
+  await check('(o) updateRuntimeContext persists stream cursor without changing status', async () => {
+    const repo2 = new MemoryAgentRunRepository();
+    await persistRunStartIfAbsent(repo2, {
+      run_id: 'r-cursor', thread_id: 't', company_id: CO_A, parent_run_id: null,
+      root_run_id: 'r-cursor', employee_id: null, relation: null, objective: 'x', access: null,
+      status: 'completed',
+    });
+    await repo2.updateRuntimeContext('r-cursor', JSON.stringify({ runtime: 'pi-agent', streamCursor: 7 }));
+    const row = await repo2.findById('r-cursor');
+    assert.equal(row?.status, 'completed', 'cursor persistence must not reopen a terminal run');
+    assert.equal(JSON.parse(row!.runtime_context_json!).streamCursor, 7);
+  });
+
+  await check('(p) recovery loader lists already-interrupted roots', async () => {
     const repo2 = new MemoryAgentRunRepository();
     await repo2.create({
       run_id: 'r-existing', thread_id: 't-existing', company_id: CO_A, parent_run_id: null,
       root_run_id: 'r-existing', employee_id: null, relation: null, objective: 'resume me',
       access: null, status: 'interrupted', started_at: '2026-06-27T10:00:00.000Z',
+      project_id: 'proj-existing',
       session_file: '/sessions/r-existing.jsonl',
+      runtime_context_json: JSON.stringify({
+        runtime: 'pi-agent',
+        projectId: 'proj-existing',
+        workspaceRoot: '/tmp/offisim/existing',
+        wireProtocolVersion: 4,
+        piSdkVersion: '0.79.8',
+        permissionMode: 'auto',
+        model: null,
+        thinkingLevel: null,
+        createdAt: FIXED_NOW,
+      }),
     });
     const cards = await loadInterruptedRunRecoveryCards({ repo: repo2, companyId: CO_A, now });
     assert.equal(cards.length, 1);

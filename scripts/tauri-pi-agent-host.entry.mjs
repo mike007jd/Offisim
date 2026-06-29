@@ -35,10 +35,7 @@ import {
 } from './pi-agent-permission-modes.mts';
 import { createChildSupervisor, createDelegationLimits } from './pi-child-supervisor.mjs';
 import { createDelegationExtensionFactory } from './pi-delegation-extension.mjs';
-import {
-  createMcpBridgeExtensionFactory,
-  isWriteMcpTool,
-} from './pi-mcp-bridge-extension.mjs';
+import { createMcpBridgeExtensionFactory, isWriteMcpTool } from './pi-mcp-bridge-extension.mjs';
 import { createMissionBridgeExtensionFactory } from './pi-mission-bridge-extension.mjs';
 import { createPublishArtifactExtensionFactory } from './pi-publish-artifact-extension.mjs';
 
@@ -308,7 +305,9 @@ function isNonEmptyArray(value) {
 }
 
 function hasRecordKeys(value) {
-  return value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length > 0;
+  return (
+    value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length > 0
+  );
 }
 
 function firstPresent(...values) {
@@ -381,10 +380,13 @@ function toolDetailJson(parts) {
   if (parts.input !== undefined) detail.input = parts.input;
   if (parts.arguments !== undefined) detail.arguments = parts.arguments;
   if (parts.result !== undefined) detail.result = normalizeToolDetailPart(parts.result);
-  if (parts.partialResult !== undefined) detail.partialResult = normalizeToolDetailPart(parts.partialResult);
+  if (parts.partialResult !== undefined)
+    detail.partialResult = normalizeToolDetailPart(parts.partialResult);
   if (parts.details !== undefined) detail.details = parts.details;
   if (parts.isError !== undefined) detail.isError = parts.isError;
-  const maxBytes = containsMcpImageContent(detail) ? MAX_BROWSER_TOOL_DETAIL_BYTES : MAX_TOOL_DETAIL_BYTES;
+  const maxBytes = containsMcpImageContent(detail)
+    ? MAX_BROWSER_TOOL_DETAIL_BYTES
+    : MAX_TOOL_DETAIL_BYTES;
   return Object.keys(detail).length > 0 ? clampText(JSON.stringify(detail), maxBytes) : undefined;
 }
 
@@ -447,7 +449,9 @@ function modelsConfigSummary(modelsPath, modelRegistry) {
   const path = asNonEmptyString(modelsPath);
   const models = modelRegistry ? modelRegistry.getAll() : [];
   const providers = Array.from(
-    new Set(models.map((model) => model.provider).filter((provider) => typeof provider === 'string')),
+    new Set(
+      models.map((model) => model.provider).filter((provider) => typeof provider === 'string'),
+    ),
   ).sort();
   const registryError =
     modelRegistry && typeof modelRegistry.getError === 'function'
@@ -599,12 +603,13 @@ async function runPrompt(payload) {
   const missionContextJson = asNonEmptyString(payload.missionContextJson);
   const missionEnabled = Boolean(rootRunId && threadId && missionContextJson);
   // MCP bridge (B3): register the 3 fixed meta tools (mcp_search_tools /
-  // mcp_describe_tool / mcp_call) when the renderer scoped any MCP tools to this
-  // run. Excluded from `plan` mode (planning is read-only investigation — no
-  // external tool execution). The token cost is constant (3 tools) regardless of
-  // how many MCP tools are scoped.
+  // mcp_describe_tool / mcp_call) when the renderer scoped MCP tools to this run.
+  // Plan mode keeps only read-class MCP tools; write-class tools are filtered out
+  // before the meta tools become visible.
   const mcpTools = Array.isArray(payload.mcpTools) ? payload.mcpTools : [];
-  const mcpEnabled = mcpTools.length > 0 && permissionMode !== 'plan';
+  const scopedMcpTools =
+    permissionMode === 'plan' ? mcpTools.filter((tool) => !isWriteMcpTool(tool)) : mcpTools;
+  const mcpEnabled = scopedMcpTools.length > 0;
   const tools = mcpEnabled
     ? [
         ...(baseTools ?? ['read', 'write', 'edit', 'bash']),
@@ -618,7 +623,7 @@ async function runPrompt(payload) {
     : baseTools;
   // A write-class MCP tool pauses for ctx.ui.confirm, which needs the forwarding
   // UI context bound — the same bind `ask` mode already does.
-  const mcpNeedsUi = mcpEnabled && mcpTools.some(isWriteMcpTool);
+  const mcpNeedsUi = mcpEnabled && scopedMcpTools.some(isWriteMcpTool);
   let resourceLoader;
   if (
     gateFactory ||
@@ -675,6 +680,7 @@ async function runPrompt(payload) {
         authStorage,
         modelRegistry,
         cwd,
+        projectId,
         settingsManager,
         threadId,
         rootRunId,
@@ -716,7 +722,7 @@ async function runPrompt(payload) {
     if (mcpEnabled) {
       extensionFactories.push(
         createMcpBridgeExtensionFactory({
-          mcpTools,
+          mcpTools: scopedMcpTools,
           requestMcpResult: mcpChannel.requestMcpResult,
           emit,
           threadId,
@@ -831,7 +837,12 @@ async function runPrompt(payload) {
       return;
     }
     if (event.type === 'tool_execution_start') {
-      const input = firstPresent(event.input, event.args, event.arguments, toolInputsById.get(event.toolCallId));
+      const input = firstPresent(
+        event.input,
+        event.args,
+        event.arguments,
+        toolInputsById.get(event.toolCallId),
+      );
       if (input !== undefined) toolInputsById.set(event.toolCallId, input);
       emit(
         toolLine({
@@ -844,7 +855,12 @@ async function runPrompt(payload) {
       return;
     }
     if (event.type === 'tool_execution_update') {
-      const input = firstPresent(event.input, event.args, event.arguments, toolInputsById.get(event.toolCallId));
+      const input = firstPresent(
+        event.input,
+        event.args,
+        event.arguments,
+        toolInputsById.get(event.toolCallId),
+      );
       emit(
         toolLine({
           status: 'running',
@@ -860,7 +876,12 @@ async function runPrompt(payload) {
       return;
     }
     if (event.type === 'tool_execution_end') {
-      const input = firstPresent(event.input, event.args, event.arguments, toolInputsById.get(event.toolCallId));
+      const input = firstPresent(
+        event.input,
+        event.args,
+        event.arguments,
+        toolInputsById.get(event.toolCallId),
+      );
       emit(
         toolLine({
           status: event.isError ? 'failed' : 'completed',

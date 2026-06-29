@@ -3,9 +3,10 @@
  * boundary for Connect.
  *
  * Proves the contract that the Connect host enforces: `strict` is zero tools (the
- * current daily chat); `collaboration_read` is a read-only profile whose allowlist
- * NEVER intersects the forbidden set (write / shell / mission persistence /
- * publish / run-spawning). Pure — no Pi, no host process.
+ * current daily chat); `collaboration_read` exposes no filesystem built-ins by
+ * default and may append read-only MCP meta tools. It NEVER intersects the
+ * forbidden set (write / shell / mission persistence / publish / run-spawning).
+ * Pure — no Pi, no host process.
  *
  * Inject-proof (run manually, then revert): add 'write' to
  * COLLABORATION_READ_TOOL_ALLOWLIST → the invariant check (4) fails. That proves
@@ -43,8 +44,8 @@ check('(1) strict profile → zero tools (unchanged daily chat)', () => {
   assert.deepEqual(collaborationToolAllowlist('strict'), []);
 });
 
-check('(2) collaboration_read → read-only built-ins', () => {
-  assert.deepEqual(collaborationToolAllowlist('collaboration_read'), ['read', 'grep', 'find', 'ls']);
+check('(2) collaboration_read → no filesystem built-ins without a source grant', () => {
+  assert.deepEqual(collaborationToolAllowlist('collaboration_read'), []);
 });
 
 check('(3) normalize defaults unknown/undefined → strict', () => {

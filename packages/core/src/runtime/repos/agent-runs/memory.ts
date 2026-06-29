@@ -11,9 +11,11 @@ export class MemoryAgentRunRepository implements AgentRunRepository {
   async create(run: NewAgentRun): Promise<AgentRunRow> {
     const row: AgentRunRow = {
       ...run,
+      project_id: run.project_id ?? null,
       usage_json: run.usage_json ?? null,
       result_summary_json: run.result_summary_json ?? null,
       session_file: run.session_file ?? null,
+      runtime_context_json: run.runtime_context_json ?? null,
       started_at: run.started_at ?? new Date().toISOString(),
       finished_at: run.finished_at ?? null,
     };
@@ -65,6 +67,15 @@ export class MemoryAgentRunRepository implements AgentRunRepository {
       usage_json: opts?.usageJson !== undefined ? opts.usageJson : row.usage_json,
       finished_at: opts?.finishedAt !== undefined ? opts.finishedAt : row.finished_at,
       session_file: opts?.sessionFile !== undefined ? opts.sessionFile : row.session_file,
+    });
+  }
+
+  async updateRuntimeContext(runId: string, runtimeContextJson: string | null): Promise<void> {
+    const row = this.store.get(runId);
+    if (!row) return;
+    this.store.set(runId, {
+      ...row,
+      runtime_context_json: runtimeContextJson,
     });
   }
 }

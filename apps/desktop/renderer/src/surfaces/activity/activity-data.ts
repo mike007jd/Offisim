@@ -98,7 +98,8 @@ interface McpAuditDbRow {
   result_json: string | null;
   error: string | null;
   latency_ms: number;
-  approved_by: string;
+  approval_status: string;
+  approved_by: string | null;
   created_at: string;
 }
 
@@ -353,6 +354,7 @@ function mcpRecordFromRow(row: McpAuditDbRow): ActivityRecord {
       server: row.server_name,
       tool: row.tool_name,
       latencyMs: row.latency_ms,
+      approvalStatus: row.approval_status,
       approvedBy: row.approved_by,
       arguments: sanitizeMcpActivityValue(args),
       result: sanitizeMcpActivityValue(result),
@@ -398,7 +400,8 @@ async function loadActivityPage(
     ),
     db.select<McpAuditDbRow[]>(
       `select a.audit_id, a.thread_id, a.employee_id, a.server_name, a.tool_name,
-              a.arguments_json, a.result_json, a.error, a.latency_ms, a.approved_by, a.created_at
+              a.arguments_json, a.result_json, a.error, a.latency_ms,
+              a.approval_status, a.approved_by, a.created_at
        from mcp_audit_log a
        join graph_threads t on t.thread_id = a.thread_id
        where t.company_id = $1 and a.created_at < $2

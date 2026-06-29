@@ -184,12 +184,11 @@ bundle `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`. They ar
 - **M4** Market: import a local `.offisimpkg` → verify → install materializes into the roster (DB-on-disk).
 - **M5** Studio: place/move/rotate/delete zones+prefabs with red/green collision feedback; edits persist.
 - **M6** DB-on-disk evidence after a live run: rows land in the **live** tables
-  `agent_runs`, `agent_events`, `chat_threads`, `interaction_history`, and
-  `agent_runs.usage_json` carries non-zero token usage (proving the z.ai compat lane
-  routed real provider traffic). Note: `llm_calls` (cost rollup) and `deliverables`
-  (Outputs) are reader-with-dead-writer feature gaps — empty until VM-002 / VM-003;
-  `mcp_audit_log` is inert (see `Docs/architecture/2026-06-25-truth-closure.md` and
-  `Docs/contracts/inert-storage-ledger.md`).
+  `agent_runs`, `agent_events`, `mcp_audit_log`, `chat_threads`,
+  `interaction_history`, and `agent_runs.usage_json` carries non-zero token usage
+  (proving the z.ai compat lane routed real provider traffic). Note: `llm_calls`
+  (cost rollup) and `deliverables` (Outputs) are reader-with-dead-writer feature
+  gaps — empty until VM-002 / VM-003.
 
 ---
 

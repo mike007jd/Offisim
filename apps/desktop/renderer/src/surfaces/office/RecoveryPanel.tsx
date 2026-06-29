@@ -5,6 +5,7 @@ import {
 } from '@/assistant/runtime/conversation-run-react.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
+import type { InterruptedRunCard } from '@/runtime/recovery/reconcile-interrupted-runs.js';
 import { AlertTriangle, FileText, RotateCcw, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
@@ -70,6 +71,12 @@ export function RecoveryPanel() {
     }
   };
 
+  const confirmResume = (card: InterruptedRunCard): boolean =>
+    card.classification !== 'needs_user_confirm' ||
+    globalThis.confirm(
+      'No durable Pi session was recorded. Resume will restart this run from its objective.',
+    );
+
   return (
     <aside className="off-recovery" aria-label="Interrupted runs">
       <div className="off-recovery-head">
@@ -88,11 +95,16 @@ export function RecoveryPanel() {
               <div className="off-recovery-main">
                 <span className="off-recovery-title">{card.objective || 'Untitled run'}</span>
                 <span className="off-recovery-meta">
-                  {relativeTime(card.startedAt)} - {card.threadId.slice(0, 8)}
+                  {relativeTime(card.startedAt)} -{' '}
+                  {card.projectId?.slice(0, 8) ?? card.threadId.slice(0, 8)}
                 </span>
               </div>
               <span className={cn('off-recovery-badge', `is-${card.classification}`)}>
-                {card.classification === 'resumable' ? 'Resumable' : 'Confirm'}
+                {card.classification === 'resumable'
+                  ? 'Resumable'
+                  : card.classification === 'incompatible'
+                    ? 'Incompatible'
+                    : 'Confirm'}
               </span>
               <p className="off-recovery-copy">{card.whatResumeWillDo}</p>
               {card.classificationReasons.length > 0 ? (
@@ -102,8 +114,11 @@ export function RecoveryPanel() {
                 <button
                   type="button"
                   className="off-recovery-btn off-focusable"
-                  disabled={busy}
-                  onClick={() => void runAction(card.runId, () => resume(card.runId))}
+                  disabled={busy || card.classification === 'incompatible'}
+                  onClick={() => {
+                    if (!confirmResume(card)) return;
+                    void runAction(card.runId, () => resume(card.runId));
+                  }}
                 >
                   <Icon icon={RotateCcw} size="sm" />
                   Resume
@@ -130,6 +145,7 @@ export function RecoveryPanel() {
                 <div className="off-recovery-partial">
                   <span>{summarizeUsage(card.partialUsageJson)}</span>
                   <span>{card.cancelledChildRunIds.length} child runs parked</span>
+                  {card.workspaceRoot ? <span>{card.workspaceRoot}</span> : null}
                   {card.sessionFile ? <span>{card.sessionFile}</span> : null}
                 </div>
               ) : null}

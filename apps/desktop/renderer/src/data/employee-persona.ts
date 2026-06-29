@@ -104,6 +104,9 @@ export interface McpScopedTool {
   inputSchema?: unknown;
   annotations?: Record<string, unknown>;
   write?: boolean;
+  riskClass?: McpToolGrantRow['risk_class'];
+  riskSource?: McpToolGrantRow['risk_source'];
+  trustedServerId?: string | null;
 }
 
 interface RuntimeMcpToolInfo {
@@ -197,8 +200,8 @@ export async function buildMcpScope(
       if (!server) {
         continue;
       }
-      const tool = (server.tools ?? []).find((candidate) => candidate.name === grant.tool_name);
-      scoped.push(toMcpScopedTool(grant.server_name, grant.tool_name, tool));
+	      const tool = (server.tools ?? []).find((candidate) => candidate.name === grant.tool_name);
+	      scoped.push(toMcpScopedTool(grant, tool));
     }
     return scoped;
   } catch {
@@ -253,22 +256,22 @@ async function ensureGrantedMcpServersConnected(
   return invoke<RuntimeMcpServerStatus[]>('mcp_list_servers');
 }
 
-function toMcpScopedTool(
-  serverName: string,
-  toolName: string,
-  tool?: RuntimeMcpToolInfo,
-): McpScopedTool {
+function toMcpScopedTool(grant: McpToolGrantRow, tool?: RuntimeMcpToolInfo): McpScopedTool {
   const annotations =
     tool?.annotations && typeof tool.annotations === 'object'
       ? normalizeMcpAnnotations(tool.annotations as Record<string, unknown>)
       : {};
+  const effectiveRisk = grant.risk_class ?? inferMcpRiskClass(grant.tool_name, annotations);
   return {
-    name: toolName,
-    server: serverName,
+    name: grant.tool_name,
+    server: grant.server_name,
     ...(typeof tool?.description === 'string' ? { description: tool.description } : {}),
     inputSchema: tool?.inputSchema ?? tool?.input_schema ?? {},
     annotations,
-    write: isWriteMcpGrant(toolName, annotations),
+    write: effectiveRisk !== 'read',
+    riskClass: effectiveRisk,
+    riskSource: grant.risk_source ?? 'name_heuristic',
+    trustedServerId: grant.trusted_server_id ?? null,
   };
 }
 
@@ -282,9 +285,16 @@ function normalizeMcpAnnotations(raw: Record<string, unknown>): Record<string, u
   };
 }
 
-function isWriteMcpGrant(toolName: string, annotations: Record<string, unknown>): boolean {
-  if (annotations.readOnlyHint === false || annotations.destructiveHint === true) return true;
+function inferMcpRiskClass(
+  toolName: string,
+  annotations: Record<string, unknown>,
+): McpToolGrantRow['risk_class'] {
+  if (annotations.destructiveHint === true) return 'destructive';
+  if (annotations.openWorldHint === true) return 'open_world';
+  if (annotations.readOnlyHint === false) return 'write';
   return /(^|_)(write|delete|remove|move|copy|create|edit|update|append|mkdir|touch)(_|$)/i.test(
     toolName,
-  );
+  )
+    ? 'write'
+    : 'read';
 }

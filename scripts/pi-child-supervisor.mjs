@@ -242,6 +242,7 @@ async function mapWithConcurrencyLimit(items, limit, fn) {
  * @param {(mode: string) => ((pi: unknown) => void)|null} ctx.buildPermissionGate
  * @param {object} ctx.limits           shared DelegationLimits (createDelegationLimits)
  * @param {number} [ctx.depth]          this supervisor's level (0 = root). Default 0.
+ * @param {string|null} [ctx.projectId] project owning the workspace, when known
  * @param {string} [ctx.parentRunId]    run that owns this supervisor (default rootRunId)
  */
 export function createChildSupervisor(ctx) {
@@ -252,6 +253,51 @@ export function createChildSupervisor(ctx) {
   const depth = ctx.depth ?? 0;
   const parentRunId = ctx.parentRunId ?? ctx.rootRunId;
   const limits = ctx.limits;
+
+  async function workspaceLeaseSnapshotPayload(lease, phase, extra = {}) {
+    let changedPaths = [];
+    if (lease?.access === 'write' && ctx.leaseManager?.collectDiff) {
+      try {
+        const diff = await ctx.leaseManager.collectDiff(lease);
+        changedPaths = Array.isArray(diff?.changedPaths) ? diff.changedPaths : [];
+      } catch {
+        changedPaths = [];
+      }
+    }
+    return {
+      phase,
+      projectId: typeof ctx.projectId === 'string' ? ctx.projectId : null,
+      leaseId: lease.leaseId,
+      runId: lease.runId,
+      workspaceRoot: lease.workspaceRoot,
+      access: lease.access,
+      cwd: lease.cwd,
+      branch: lease.branch ?? null,
+      isolated: lease.isolated === true,
+      status: lease.status,
+      reason: lease.reason ?? null,
+      changedPaths,
+      capturedAt: new Date().toISOString(),
+      ...extra,
+    };
+  }
+
+  async function emitWorkspaceLeaseSnapshot(emit, lease, phase, extra = {}) {
+    emit('workspace.lease.snapshot', await workspaceLeaseSnapshotPayload(lease, phase, extra));
+  }
+
+  async function emitWorkspaceLeaseSnapshotLine(lease, phase, extra = {}) {
+    ctx.emit(
+      agentRunLine({
+        threadId: ctx.threadId,
+        rootRunId: ctx.rootRunId,
+        runId: lease.runId,
+        parentRunId: lease.runId === ctx.rootRunId ? undefined : ctx.rootRunId,
+        runType: 'workspace.lease.snapshot',
+        payload: await workspaceLeaseSnapshotPayload(lease, phase, extra),
+      }),
+    );
+  }
 
   /** Build a per-run emitter that stamps this run's scope + relation + workKind
    *  onto every neutral agentRun line. relation/workKind are constant for a run,
@@ -340,7 +386,9 @@ export function createChildSupervisor(ctx) {
         ? employee.persona.trim()
         : undefined;
     const requestedModel = asNonEmptyString(employee.model);
-    const model = requestedModel ? (ctx.resolveModel(requestedModel) ?? ctx.rootModel) : ctx.rootModel;
+    const model = requestedModel
+      ? (ctx.resolveModel(requestedModel) ?? ctx.rootModel)
+      : ctx.rootModel;
 
     // Children always run under the Auto gate: a no-op for read access (no bash
     // tool) and a catastrophic-bash block for review/write — without needing a UI
@@ -367,15 +415,13 @@ export function createChildSupervisor(ctx) {
           access,
         });
         if (leaseResult?.outcome === 'blocked') {
-          return blocked(
-            emit,
-            `${leaseResult.reason} (blocked by ${leaseResult.blockedByRunId})`,
-          );
+          return blocked(emit, `${leaseResult.reason} (blocked by ${leaseResult.blockedByRunId})`);
         }
         lease = leaseResult?.lease ?? null;
         if (typeof lease?.cwd === 'string' && lease.cwd.trim()) {
           childCwd = lease.cwd;
         }
+        if (lease) await emitWorkspaceLeaseSnapshot(emit, lease, 'acquired');
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         return blocked(emit, `Workspace lease failed: ${message}`);
@@ -417,7 +463,11 @@ export function createChildSupervisor(ctx) {
       }));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      if (lease) await ctx.leaseManager?.releaseLease?.(lease.leaseId).catch(() => undefined);
+      if (lease) {
+        const released = await ctx.leaseManager?.releaseLease?.(lease.leaseId).catch(() => null);
+        if (released)
+          await emitWorkspaceLeaseSnapshot(emit, released, 'released_after_start_failure');
+      }
       emit('run.failed', {
         status: 'failed',
         summary: `Failed to start: ${message}`,
@@ -481,7 +531,8 @@ export function createChildSupervisor(ctx) {
       await session.prompt(effectiveObjective);
       const assistantError = asNonEmptyString(finalAssistant?.errorMessage);
       if (finalAssistant?.stopReason === 'error' || assistantError) {
-        const message = assistantError ?? 'Pi Agent model returned an error stop without a message.';
+        const message =
+          assistantError ?? 'Pi Agent model returned an error stop without a message.';
         emit('run.failed', { status: 'failed', summary: message, usage });
         return `Delegation failed: ${message}`;
       }
@@ -493,9 +544,7 @@ export function createChildSupervisor(ctx) {
         emit('run.failed', { status: 'failed', summary: reason, usage });
         return `Delegation failed: ${reason}`;
       }
-      const summary = renderChildSummary(
-        parseChildSummary(assistantText),
-      );
+      const summary = renderChildSummary(parseChildSummary(assistantText));
       if (timedOut) {
         const reason = `Timed out after ${Math.round(limits.childTimeoutMs / 1000)}s`;
         emit('run.failed', { status: 'failed', summary: reason, usage });
@@ -525,7 +574,8 @@ export function createChildSupervisor(ctx) {
       session.dispose();
       if (signal) signal.removeEventListener('abort', onAbort);
       if (lease && !(lease.isolated && access === 'write')) {
-        await ctx.leaseManager?.releaseLease?.(lease.leaseId).catch(() => undefined);
+        const released = await ctx.leaseManager?.releaseLease?.(lease.leaseId).catch(() => null);
+        if (released) await emitWorkspaceLeaseSnapshot(emit, released, 'released');
       }
       // Fold this child's token spend into the tree budget (whatever the outcome),
       // so the next delegation round sees it.
@@ -560,6 +610,13 @@ export function createChildSupervisor(ctx) {
       .filter((lease) => lease.access === 'write' && lease.status === 'active');
     if (writableLeases.length === 0) return '';
     const plan = await ctx.leaseManager.planIntegration(writableLeases);
+    for (const lease of ctx.leaseManager.listLeases().filter((item) => item.access === 'write')) {
+      await emitWorkspaceLeaseSnapshotLine(lease, 'planned', {
+        conflicts: plan.conflicts
+          .filter((conflict) => conflict.leaseIds.includes(lease.leaseId))
+          .map((conflict) => conflict.path),
+      });
+    }
     if (plan.conflicts.length > 0) {
       const leaseById = new Map(writableLeases.map((lease) => [lease.leaseId, lease]));
       return [
@@ -581,11 +638,21 @@ export function createChildSupervisor(ctx) {
     if (plan.mergeable.length === 0) return 'No mergeable write leases were produced.';
     const approved = ctx.confirmIntegration ? await ctx.confirmIntegration(plan) : false;
     if (!approved) {
+      for (const lease of plan.mergeable) {
+        await emitWorkspaceLeaseSnapshotLine(lease, 'retained_for_review', {
+          status: 'retained',
+          reason: 'merge review was not approved; worktree retained for inspection',
+        });
+      }
       return `Merge review was not approved; ${plan.mergeable.length} worktree(s) retained for inspection.`;
     }
     const result = await ctx.leaseManager.integrate(plan);
+    for (const lease of ctx.leaseManager.listLeases().filter((item) => item.access === 'write')) {
+      await emitWorkspaceLeaseSnapshotLine(lease, 'integrated');
+    }
     for (const lease of result.merged) {
-      await ctx.leaseManager.releaseLease(lease.leaseId).catch(() => undefined);
+      const released = await ctx.leaseManager.releaseLease(lease.leaseId).catch(() => null);
+      if (released) await emitWorkspaceLeaseSnapshotLine(released, 'released_after_merge');
     }
     if (result.conflicted) {
       return `Integration stopped on merge conflict in lease ${result.conflicted.lease.leaseId}: ${result.conflicted.conflicts.join(', ')}`;

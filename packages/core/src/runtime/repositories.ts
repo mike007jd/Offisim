@@ -69,6 +69,7 @@ export interface AgentRunRow {
   run_id: string;
   thread_id: string;
   company_id: string;
+  project_id: string | null;
   parent_run_id: string | null;
   root_run_id: string;
   employee_id: string | null;
@@ -81,6 +82,7 @@ export interface AgentRunRow {
   // Path to the Pi session JSONL that holds this run's durable context. Set when
   // the run's session is created; used by durable resume to re-continue context.
   session_file: string | null;
+  runtime_context_json: string | null;
   started_at: string;
   finished_at: string | null;
 }
@@ -211,13 +213,21 @@ export type NewTaskRun = Omit<TaskRunRow, 'finished_at'>;
  *  a fresh run carries only its scope + objective. */
 export type NewAgentRun = Omit<
   AgentRunRow,
-  'started_at' | 'finished_at' | 'usage_json' | 'result_summary_json' | 'session_file'
+  | 'started_at'
+  | 'finished_at'
+  | 'usage_json'
+  | 'result_summary_json'
+  | 'session_file'
+  | 'project_id'
+  | 'runtime_context_json'
 > & {
   started_at?: string;
   finished_at?: string | null;
   usage_json?: string | null;
   result_summary_json?: string | null;
   session_file?: string | null;
+  project_id?: string | null;
+  runtime_context_json?: string | null;
 };
 export type NewToolCall = Omit<ToolCallRow, 'finished_at'>;
 export type NewHandoffEvent = Omit<HandoffEventRow, never>;
@@ -286,6 +296,7 @@ export interface AgentRunRepository {
       sessionFile?: string | null;
     },
   ): Promise<void>;
+  updateRuntimeContext(runId: string, runtimeContextJson: string | null): Promise<void>;
 }
 
 /** Updatable fields for an employee. */
@@ -449,12 +460,16 @@ export interface McpAuditRow {
   result_json: string | null;
   error: string | null;
   latency_ms: number;
-  approved_by: string;
+  approval_status: 'not_required' | 'human_approved' | 'human_denied';
+  approved_by: string | null;
   created_at: string;
 }
 
 /** Full-row insert: caller supplies audit_id + created_at (backend does not stamp). */
-export type NewMcpAudit = Omit<McpAuditRow, never>;
+export type NewMcpAudit = Omit<McpAuditRow, 'approval_status' | 'approved_by'> & {
+  approval_status?: McpAuditRow['approval_status'];
+  approved_by?: string | null;
+};
 
 export interface McpAuditRepository {
   create(audit: NewMcpAudit): Promise<McpAuditRow>;
@@ -475,12 +490,21 @@ export interface McpToolGrantRow {
   tool_name: string;
   scope: string;
   project_id: string | null;
+  risk_class: 'read' | 'write' | 'destructive' | 'open_world';
+  risk_source: 'server_annotation' | 'name_heuristic' | 'human_override' | 'trusted_manifest';
+  trusted_server_id: string | null;
   granted_by: string;
   created_at: string;
 }
 
-export type NewMcpToolGrant = Omit<McpToolGrantRow, 'created_at'> & {
+export type NewMcpToolGrant = Omit<
+  McpToolGrantRow,
+  'created_at' | 'risk_class' | 'risk_source' | 'trusted_server_id'
+> & {
   created_at?: string;
+  risk_class?: McpToolGrantRow['risk_class'];
+  risk_source?: McpToolGrantRow['risk_source'];
+  trusted_server_id?: string | null;
 };
 
 export interface McpToolGrantRepository {

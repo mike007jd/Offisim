@@ -36,6 +36,8 @@ export interface InterruptedRunCard {
   runId: string;
   companyId: string;
   threadId: string;
+  projectId: string | null;
+  workspaceRoot: string | null;
   /** The run's objective (the resume target's intent), if recorded. */
   objective: string | null;
   startedAt: string;
@@ -49,6 +51,49 @@ export interface InterruptedRunCard {
   classificationReasons: string[];
   /** Plain-language description of what a resume will do. */
   whatResumeWillDo: string;
+}
+
+interface RunContextSnapshot {
+  workspaceRoot?: unknown;
+  runtime?: unknown;
+  piSdkVersion?: unknown;
+  wireProtocolVersion?: unknown;
+  model?: unknown;
+  permissionMode?: unknown;
+  thinkingLevel?: unknown;
+  projectId?: unknown;
+}
+
+interface InterruptedRunCardOptions {
+  workspaceExists?: boolean | null;
+  resolvedWorkspaceRoot?: string | null;
+  currentWireProtocolVersion?: number;
+}
+
+export const PI_HOST_PROTOCOL_VERSION = 4;
+
+function parseRuntimeContext(raw: string | null): RunContextSnapshot | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as RunContextSnapshot;
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function stringOrNull(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+export function resolveAgentRunProjectId(root: AgentRunRow): string | null {
+  const context = parseRuntimeContext(root.runtime_context_json);
+  return root.project_id ?? stringOrNull(context?.projectId);
+}
+
+function resolveAgentRunWorkspaceRoot(root: AgentRunRow): string | null {
+  const context = parseRuntimeContext(root.runtime_context_json);
+  return stringOrNull(context?.workspaceRoot);
 }
 
 /** The structured result of a startup run-reconciliation pass. */
@@ -149,26 +194,65 @@ export function buildInterruptedRunCard(
   root: AgentRunRow,
   cancelledChildRunIds: string[],
   partialUsageJson: string | null,
+  options: InterruptedRunCardOptions = {},
 ): InterruptedRunCard {
   const sessionFile = root.session_file;
-  // Classification is derived, not stored (the roadmap defers a hard compat-hash
-  // block): a session file → resumable; none → restart-from-scratch needs confirm.
-  // `incompatible` is reserved for a future runtime compatibility check.
-  const classification: RecoveryClassification = sessionFile ? 'resumable' : 'needs_user_confirm';
-  const classificationReasons = sessionFile
-    ? []
-    : ['no Pi session file recorded — a resume would restart the run from its objective, so it needs confirmation'];
+  const context = parseRuntimeContext(root.runtime_context_json);
+  const projectId = resolveAgentRunProjectId(root);
+  const workspaceRoot = resolveAgentRunWorkspaceRoot(root) ?? options.resolvedWorkspaceRoot ?? null;
+  const wireProtocolVersion =
+    typeof context?.wireProtocolVersion === 'number' ? context.wireProtocolVersion : null;
+  const currentWireProtocolVersion =
+    options.currentWireProtocolVersion ?? PI_HOST_PROTOCOL_VERSION;
+  const classificationReasons: string[] = [];
+  if (!projectId) {
+    classificationReasons.push('original project context is missing');
+  }
+  if (!workspaceRoot) {
+    classificationReasons.push('original workspace folder was not recorded');
+  }
+  if (options.workspaceExists === false) {
+    classificationReasons.push('original workspace folder is no longer accessible');
+  }
+  if (!sessionFile) {
+    classificationReasons.push(
+      'no Pi session file recorded; this run cannot continue from durable session context',
+    );
+  }
+  const protocolMismatch =
+    wireProtocolVersion !== null && wireProtocolVersion !== currentWireProtocolVersion;
+  if (protocolMismatch) {
+    classificationReasons.push(
+      `saved host protocol ${wireProtocolVersion} does not match current protocol ${currentWireProtocolVersion}`,
+    );
+  }
+  const workspaceBlocked = !projectId || !workspaceRoot || options.workspaceExists === false;
+  const classification: RecoveryClassification = protocolMismatch
+    ? 'incompatible'
+    : workspaceBlocked
+      ? 'incompatible'
+      : sessionFile
+        ? 'resumable'
+        : 'needs_user_confirm';
   const cancelledNote =
     cancelledChildRunIds.length > 0
       ? ` ${cancelledChildRunIds.length} child run(s) left running were cancelled and would be re-delegated as needed.`
       : '';
-  const whatResumeWillDo = sessionFile
-    ? `Resume the interrupted run from its Pi session context.${cancelledNote}`
-    : `No durable session was recorded; resuming restarts this run from its objective. Confirm before resuming, or discard.${cancelledNote}`;
+  const workspaceNote = workspaceRoot ? ` in ${workspaceRoot}` : '';
+  const whatResumeWillDo =
+    classification === 'resumable'
+      ? `Resume the interrupted run from its Pi session context${workspaceNote}.${cancelledNote}`
+      : classification === 'needs_user_confirm'
+        ? `No durable session was recorded; resuming restarts this run from its objective${workspaceNote}. Confirm before resuming.${cancelledNote}`
+      : classification === 'incompatible'
+        ? `Resume is blocked for this run. Start a fresh run or discard it.${cancelledNote}`
+        : `Start a fresh run or discard this interrupted run.${cancelledNote}`;
   return {
     runId: root.run_id,
     companyId: root.company_id,
     threadId: root.thread_id,
+    projectId,
+    workspaceRoot,
     objective: root.objective,
     startedAt: root.started_at,
     sessionFile,

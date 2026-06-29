@@ -18,6 +18,19 @@ export function InterruptedRunCardView({
   onDiscard,
   onViewPartial,
 }: InterruptedRunCardViewProps) {
+  const resumeDisabled = busy || card.classification === 'incompatible';
+  const handleResume = () => {
+    if (
+      card.classification === 'needs_user_confirm' &&
+      !globalThis.confirm(
+        'No durable Pi session was recorded. Resume will restart this run from its objective.',
+      )
+    ) {
+      return;
+    }
+    onResume();
+  };
+
   return (
     <div className="off-task-recovery" data-selected={selected ? '' : undefined}>
       <div className="off-task-recovery-main">
@@ -27,6 +40,9 @@ export function InterruptedRunCardView({
           <div className="off-task-recovery-desc">
             {card.objective || card.whatResumeWillDo}
           </div>
+          {card.workspaceRoot ? (
+            <div className="off-task-recovery-desc">{card.workspaceRoot}</div>
+          ) : null}
         </div>
       </div>
       <div className="off-task-recovery-actions">
@@ -43,8 +59,8 @@ export function InterruptedRunCardView({
         <button
           type="button"
           className="off-task-action is-primary off-focusable"
-          disabled={busy}
-          onClick={onResume}
+          disabled={resumeDisabled}
+          onClick={handleResume}
           title="Resume this interrupted run"
         >
           <Play aria-hidden />

@@ -107,6 +107,8 @@ export interface AgentRunScopeFields {
 export interface AgentRunStartedPayload {
   readonly objective: string;
   readonly access: AgentRunAccess;
+  readonly projectId?: string | null;
+  readonly runtimeContextJson?: string | null;
 }
 
 export interface AgentRunDeltaPayload {

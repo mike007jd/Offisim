@@ -198,6 +198,8 @@ pub fn run() {
             pi_agent_host::agent_runtime_resume,
             pi_agent_host::agent_runtime_abort,
             pi_agent_host::agent_runtime_answer,
+            pi_agent_host::agent_runtime_stream_snapshot,
+            pi_agent_host::agent_runtime_reattach,
             pi_agent_host::agent_runtime_status,
             git::git_exec,
             local_paths::open_local_path,

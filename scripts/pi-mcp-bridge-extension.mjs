@@ -91,6 +91,8 @@ export function createMcpBridgeExtensionFactory({
     (t) => typeof t?.name === 'string' && typeof t?.server === 'string',
   );
   const byName = new Map(tools.map((t) => [t.name, t]));
+  const approvedWriteCalls = new Map();
+  const approvalKey = (server, name) => `${server}\u0000${name}`;
 
   return (pi) => {
     // Write-class MCP tool calls pause for ctx.ui.confirm BEFORE running (the
@@ -105,9 +107,30 @@ export function createMcpBridgeExtensionFactory({
         'Approve MCP tool call?',
         `${tool.server} → ${name} can modify data outside this chat. Approve to run it.`,
       );
-      return approved
-        ? undefined
-        : { block: true, reason: `MCP write tool "${name}" rejected by operator.` };
+      if (approved) {
+        const key = approvalKey(tool.server, name);
+        approvedWriteCalls.set(key, (approvedWriteCalls.get(key) ?? 0) + 1);
+        return undefined;
+      }
+      emitMcpAuditLine({
+        emit,
+        threadId,
+        rootRunId,
+        employeeId,
+        server: tool.server,
+        toolName: name,
+        args:
+          event.input?.input && typeof event.input.input === 'object'
+            ? event.input.input
+            : event.input?.arguments && typeof event.input.arguments === 'object'
+              ? event.input.arguments
+              : {},
+        result: { ok: false, error: `MCP write tool "${name}" rejected by operator.` },
+        latencyMs: 0,
+        write: true,
+        approvalStatus: 'human_denied',
+      });
+      return { block: true, reason: `MCP write tool "${name}" rejected by operator.` };
     });
 
     pi.registerTool({
@@ -185,6 +208,14 @@ export function createMcpBridgeExtensionFactory({
         const startedAt = Date.now();
         const result = await requestMcpResult(tool.server, name, args);
         const latencyMs = Math.max(0, Date.now() - startedAt);
+        const write = isWriteMcpTool(tool);
+        const approvalKeyForTool = approvalKey(tool.server, name);
+        const approvedCount = approvedWriteCalls.get(approvalKeyForTool) ?? 0;
+        if (approvedCount > 1) {
+          approvedWriteCalls.set(approvalKeyForTool, approvedCount - 1);
+        } else if (approvedCount === 1) {
+          approvedWriteCalls.delete(approvalKeyForTool);
+        }
         emitMcpAuditLine({
           emit,
           threadId,
@@ -195,8 +226,8 @@ export function createMcpBridgeExtensionFactory({
           args,
           result,
           latencyMs,
-          write: isWriteMcpTool(tool),
-          approved: true,
+          write,
+          approvalStatus: write && approvedCount > 0 ? 'human_approved' : 'not_required',
         });
         if (!result || result.ok !== true) {
           return textResult(`MCP call failed: ${result?.error ?? 'unknown error'}`, true);
@@ -221,7 +252,7 @@ function emitMcpAuditLine({
   result,
   latencyMs,
   write,
-  approved,
+  approvalStatus,
 }) {
   if (typeof emit !== 'function' || !threadId || !rootRunId) return;
   emit(
@@ -240,7 +271,8 @@ function emitMcpAuditLine({
         error: result?.ok === true ? null : (result?.error ?? 'unknown error'),
         latencyMs,
         write,
-        approved,
+        approvalStatus,
+        approved: approvalStatus === 'human_approved',
       },
     }),
   );

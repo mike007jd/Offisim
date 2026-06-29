@@ -132,9 +132,9 @@ Neutral event AgentRunEvent { threadId, rootRunId, runId, parentRunId?, employee
    → renderer Channel onmessage → runtimeEventBus (neutral `agent.run.*`)
    → run-tree projection → chat (RunActivityStrip) + office (employee run states)
 
-Persistence: agent_runs table (run tree) + agent_events (tool/telemetry).
-Note: mcp_audit_log is a legacy LangGraph-era table and is inert — not a delegation
-persistence sink (see Docs/contracts/inert-storage-ledger.md).
+Persistence: agent_runs table (run tree) + agent_events (tool/telemetry and
+workspace lease snapshots). MCP-specific tool audit is separate and persists to
+mcp_audit_log; it is not a delegation/run-tree state sink.
 ```
 
 ### Component responsibilities

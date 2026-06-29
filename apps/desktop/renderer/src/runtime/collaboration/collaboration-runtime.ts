@@ -37,11 +37,21 @@ function persistCollaborationMcpAudit(
     isError?: unknown;
     error?: unknown;
     latencyMs?: unknown;
+    write?: unknown;
     approved?: unknown;
+    approvalStatus?: unknown;
   };
   const server = typeof payload.server === 'string' ? payload.server : '';
   const tool = typeof payload.tool === 'string' ? payload.tool : '';
   if (!server || !tool) return;
+  const approvalStatus =
+    payload.approvalStatus === 'human_approved' ||
+    payload.approvalStatus === 'human_denied' ||
+    payload.approvalStatus === 'not_required'
+      ? payload.approvalStatus
+      : payload.write === true && payload.approved === true
+        ? 'human_approved'
+        : 'not_required';
   void repos.mcpAudit.create({
     audit_id: crypto.randomUUID(),
     thread_id: event.threadId,
@@ -58,7 +68,8 @@ function persistCollaborationMcpAudit(
           ? 'mcp tool returned isError'
           : null,
     latency_ms: typeof payload.latencyMs === 'number' ? Math.max(0, payload.latencyMs) : 0,
-    approved_by: payload.approved === true ? 'boss' : 'auto',
+    approval_status: approvalStatus,
+    approved_by: approvalStatus === 'human_approved' ? 'boss' : null,
     created_at: new Date().toISOString(),
   });
 }

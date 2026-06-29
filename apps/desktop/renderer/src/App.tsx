@@ -16,11 +16,9 @@ export function App() {
   // rendering inside the app shell, so the topbar/nav chrome is hidden.
   const isLifecycle = useUiState((s) => s.surface === 'lifecycle');
 
-  // Tear down the previous company's agent runtime when the active company
-  // changes (or the app unmounts): the cleanup fires for the company this effect
-  // was bound to, killing its MCP child processes + skill-staging timer. The
-  // agent-runtime module is dynamically imported so it stays out of the main
-  // bundle; disposing a never-assembled company is a no-op.
+  // Detach the previous company's renderer-side runtime when the active company
+  // changes (or the app unmounts). Detach must not abort a live Pi host: renderer
+  // reload reconnect relies on the Rust host continuing until explicit Stop.
   const companyId = useUiState((s) => s.companyId);
   useEffect(() => {
     if (!companyId) return;

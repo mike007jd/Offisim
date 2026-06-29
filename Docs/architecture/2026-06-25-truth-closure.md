@@ -1,6 +1,6 @@
 # Truth Closure: run / artifact / cost / evaluation source-of-truth
 
-Checked at: 2026-06-25 NZST
+Checked at: 2026-06-25 NZST; updated 2026-06-29 NZST for MCP audit/runtime
 Status: accepted (Milestone M0, slice VM-001)
 Supersedes the conflicting acceptance assertions corrected below; does **not**
 change runtime code or storage schema (those land in VM-002 / VM-003).
@@ -21,13 +21,18 @@ duplicate it; it decides *direction* per surface.
 
 ## Decisions
 
-### D1 — Run truth = `agent_runs` + `agent_events`
+### D1 — Run truth = `agent_runs` + `agent_events`; MCP audit truth = `mcp_audit_log`
 
 The only live run-truth tables are `agent_runs` (root + child run tree) and
 `agent_events`. They are written by `apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts`
 (via `agent-runs.ts` / `agent-events.ts` Tauri repos) on every real Pi run.
 Delegation/run-tree is modeled by `agent_runs.parent_run_id` / `root_run_id`.
 Already stated in `Docs/DELEGATION_ARCHITECTURE.md` and the inert ledger; ratified here.
+
+MCP tool-call audit is now live in `mcp_audit_log`, written by the Pi MCP bridge
+projection. Approval semantics are explicit: read-only calls persist
+`approval_status='not_required'`, approved writes persist `human_approved`, and denied
+writes persist `human_denied` without invoking the MCP server.
 
 `run.completed` from a runtime is **not** Mission completion. (PRD §0, §14.2 rule 7.)
 
@@ -81,7 +86,7 @@ The LangGraph-era tables enumerated below (the inert ledger's full local-SQLite 
 minus the two writer-dead/live-reader feature gaps `llm_calls` and `deliverables`
 handled by D2/D3) remain schema-frozen with no live writer until a post-1.0 migration.
 No QA scenario, feature spec, or release gate may assert that any of them
-(`mcp_audit_log`, `tool_calls`, `meeting_sessions`,
+(`tool_calls`, `meeting_sessions`,
 `handoff_events`, `task_runs`, `runtime_events`, `recovery_knowledge`, `file_history`,
 `compact_summaries`, `node_summaries`, `memory_entries`, `active_thread_interactions`,
 `graph_threads`) receives data on a live run.
@@ -92,7 +97,7 @@ No QA scenario, feature spec, or release gate may assert that any of them
 |---|---|---|---|
 | Chat transcript / run telemetry | `agent_runs`, `agent_events`, `pi_messages` | `desktop-agent-runtime.ts`, `pi-messages` repo | **LIVE** |
 | Run tree / delegation (RunActivityStrip, office states) | `agent_runs` (parent/root) | `desktop-agent-runtime.ts` | **LIVE** |
-| Activity feed | `agent_events` (+ `interaction_history`) | `desktop-agent-runtime.ts`, permissions repo | **LIVE** |
+| Activity feed | `agent_events`, `mcp_audit_log` (+ `interaction_history`) | `desktop-agent-runtime.ts`, Pi MCP bridge projection, permissions repo | **LIVE** |
 | Approvals (Ask mode HITL) | `interaction_history` | `permissions` repo | **LIVE** |
 | Token / cost panel | currently `llm_calls` → **repoint to** `agent_runs.usage_json` | `desktop-agent-runtime.ts` (usage_json) | **GAP → VM-003** |
 | Outputs / deliverables | `deliverables` | none yet → `publish_artifact` | **GAP → VM-002** |
@@ -104,9 +109,8 @@ without this ADR naming the resolution.
 
 ## Conflicts corrected by this ADR
 
-1. `Docs/test-loops/codex-functional-test-loop.md` **M6** — asserted rows land in
-   `mcp_audit_log` and `llm_calls` (with provider/model evidence). Both are
-   dead-writer; corrected to the live tables and a feature-gap note for cost.
+1. `Docs/test-loops/codex-functional-test-loop.md` **M6** — now distinguishes live
+   MCP audit (`mcp_audit_log`) from the still-dead `llm_calls` cost table.
 2. `Docs/test-loops/codex-functional-test-loop.md` **coverage map** — Calendar marked
    as data-covered by S1; corrected to honest-empty.
 3. `Docs/test-loops/codex-functional-test-loop.md` **"Deliberately NOT a scenario"** —
@@ -118,9 +122,10 @@ without this ADR naming the resolution.
 4. `Docs/FEATURES.md` — Calendar listed as a current Workspace App; clarified as
    honest-empty (`meeting_sessions` inert).
 5. `Docs/FEATURES.md` — Activity "mirrors … tool audit rows"; corrected to mirror
-   `agent_events` (Pi tool activity surfaces there, not in inert `tool_calls`/`mcp_audit_log`).
+   `agent_events` and MCP-specific `mcp_audit_log` (Pi tool activity does not use inert
+   `tool_calls`).
 6. `Docs/DELEGATION_ARCHITECTURE.md` — persistence line referenced `mcp_audit_log`;
-   corrected to `agent_runs` + `agent_events` only.
+   corrected to reserve `mcp_audit_log` for MCP tool audit, not delegation/run-tree state.
 
 ## PRD §34 open decisions settled here
 

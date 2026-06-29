@@ -134,8 +134,13 @@ export class MemoryMcpAuditRepository implements McpAuditRepository {
   }
 
   async create(audit: NewMcpAudit): Promise<McpAuditRow> {
-    this.rows.push(audit);
-    return audit;
+    const row: McpAuditRow = {
+      ...audit,
+      approval_status: audit.approval_status ?? 'not_required',
+      approved_by: audit.approved_by ?? null,
+    };
+    this.rows.push(row);
+    return row;
   }
 
   async listByThread(threadId: string): Promise<McpAuditRow[]> {
@@ -154,7 +159,8 @@ export class MemoryMcpAuditRepository implements McpAuditRepository {
         row.employee_id === employeeId &&
         row.server_name === serverName &&
         row.tool_name === toolName &&
-        row.error === null,
+        row.error === null &&
+        row.approval_status !== 'human_denied',
     );
   }
 

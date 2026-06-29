@@ -249,7 +249,7 @@
 .off-task-row {
   height: 54px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--off-sp-3);
   padding: 0 var(--off-sp-4);
@@ -259,6 +259,10 @@
 .off-task-row:hover,
 .off-task-row.is-selected {
   background: var(--off-surface-2);
+}
+
+.off-task-row.is-child {
+  background: color-mix(in oklab, var(--off-surface-1) 82%, var(--off-surface-2));
 }
 
 .off-task-row-main {
@@ -272,6 +276,33 @@
   border: 0;
   background: transparent;
   text-align: left;
+}
+
+.off-task-tree-toggle {
+  width: 22px;
+  height: 22px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--off-r-sm);
+  background: transparent;
+  color: var(--off-ink-4);
+}
+
+.off-task-tree-toggle:hover:not(:disabled) {
+  background: var(--off-surface-sunken);
+  color: var(--off-ink-2);
+}
+
+.off-task-tree-toggle:disabled {
+  cursor: default;
+  opacity: 0;
+}
+
+.off-task-tree-toggle svg {
+  width: 14px;
+  height: 14px;
 }
 
 .off-task-badge {
@@ -396,6 +427,113 @@
   color: var(--off-ink-3);
   font-size: var(--off-fs-sm);
   line-height: 1.45;
+}
+
+.off-task-lease-review {
+  display: grid;
+  gap: var(--off-sp-3);
+  margin-top: var(--off-sp-5);
+}
+
+.off-task-lease-head,
+.off-task-lease-top,
+.off-task-lease-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--off-sp-3);
+  min-width: 0;
+}
+
+.off-task-lease-head h3 {
+  margin: 0;
+  color: var(--off-ink-1);
+  font-size: var(--off-fs-sm);
+  font-weight: 720;
+}
+
+.off-task-lease-list {
+  display: grid;
+  gap: var(--off-sp-3);
+}
+
+.off-task-lease {
+  display: grid;
+  gap: var(--off-sp-3);
+  padding: var(--off-sp-4);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-md);
+  background: var(--off-surface-1);
+}
+
+.off-task-lease-status {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  height: 22px;
+  padding: 0 var(--off-sp-3);
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-sm);
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-label);
+  font-weight: 720;
+}
+
+.off-task-lease-status.is-conflicted,
+.off-task-lease-status.is-retained {
+  border-color: color-mix(in oklab, var(--off-warn) 42%, var(--off-line));
+  color: var(--off-warn);
+}
+
+.off-task-lease-status.is-merged,
+.off-task-lease-status.is-released {
+  border-color: color-mix(in oklab, var(--off-ok) 36%, var(--off-line));
+  color: var(--off-ok);
+}
+
+.off-task-lease-id {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--off-ink-4);
+  font-size: var(--off-fs-label);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.off-task-lease-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--off-sp-2);
+  margin: 0;
+}
+
+.off-task-lease-grid div {
+  min-width: 0;
+}
+
+.off-task-lease-grid dt {
+  color: var(--off-ink-4);
+  font-size: var(--off-fs-label);
+}
+
+.off-task-lease-grid dd {
+  margin: 2px 0 0;
+  overflow: hidden;
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-meta);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.off-task-lease-note {
+  margin: 0;
+  color: var(--off-warn);
+  font-size: var(--off-fs-meta);
+  line-height: 1.4;
+}
+
+.off-task-lease-actions {
+  justify-content: flex-end;
 }
 
 @container (max-width: 760px) {

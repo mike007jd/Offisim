@@ -75,7 +75,19 @@ export type PiAgentHostEvent =
       payload: unknown;
     }
   | { kind: 'result'; response: PiAgentHostResponse }
-  | { kind: 'error'; code: string; message: string };
+  | { kind: 'error'; code: string; message: string }
+  | { kind: 'streamCursor'; cursor: number };
+
+export interface PiRunStreamSnapshot {
+  requestId: string;
+  running: boolean;
+  cursor: number;
+  buffered: number;
+  terminal?: {
+    status: string;
+    message?: string;
+  };
+}
 
 // Wire-contract typecheck guard. These canonical events must stay assignable to
 // PiAgentHostEvent; `satisfies` makes tsc fail here if the renderer union drifts
@@ -116,4 +128,5 @@ void ([
   },
   { kind: 'result', response: { text: 't', reasoning: 'r', sessionId: 's', sessionFile: '/f' } },
   { kind: 'error', code: 'upstream', message: 'm' },
+  { kind: 'streamCursor', cursor: 1 },
 ] satisfies PiAgentHostEvent[]);

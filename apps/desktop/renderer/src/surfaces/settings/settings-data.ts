@@ -385,6 +385,7 @@ async function writeMcpTestAudit(input: {
     result_json: JSON.stringify(input.resultValue),
     error: input.error,
     latency_ms: Math.max(0, Math.round(input.latencyMs)),
+    approval_status: 'human_approved',
     approved_by: 'boss',
     created_at: new Date().toISOString(),
   };

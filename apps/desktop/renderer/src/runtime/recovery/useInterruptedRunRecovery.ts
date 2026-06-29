@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { getDesktopAgentRuntime } from '../desktop-agent-runtime.js';
 import { getRepos } from '../repos.js';
 import {
   type InterruptedRunCard,
   buildInterruptedRunCard,
   reconcileInterruptedRuns,
+  resolveAgentRunProjectId,
 } from './reconcile-interrupted-runs.js';
 import type { AgentRunRepository } from '@offisim/core/browser';
+import type { ProjectRepository } from '@offisim/core/browser';
 
 const hydratedByCompany = new Set<string>();
 const cardsByCompany = new Map<string, InterruptedRunCard[]>();
@@ -24,6 +27,7 @@ function removeCard(companyId: string, runId: string): InterruptedRunCard[] {
 
 export async function loadInterruptedRunRecoveryCards(input: {
   repo: AgentRunRepository;
+  projects?: ProjectRepository;
   companyId: string;
   now: () => string;
   skipReconcile?: boolean;
@@ -35,12 +39,46 @@ export async function loadInterruptedRunRecoveryCards(input: {
     result.cards.map((card) => [card.runId, card]),
   );
   const interrupted = await input.repo.findByStatus(input.companyId, ['interrupted']);
+  const projectIds = [
+    ...new Set(interrupted.map((row) => resolveAgentRunProjectId(row)).filter(Boolean)),
+  ] as string[];
+  const projectsById = new Map(
+    await Promise.all(
+      projectIds.map(async (projectId) => [projectId, await input.projects?.findById(projectId)] as const),
+    ),
+  );
+  const workspaceExistsByProject = new Map(
+    await Promise.all(
+      projectIds.map(async (projectId) => [projectId, await checkWorkspaceExists(projectId)] as const),
+    ),
+  );
   for (const row of interrupted) {
-    if (!merged.has(row.run_id)) {
-      merged.set(row.run_id, buildInterruptedRunCard(row, [], row.usage_json));
-    }
+    const current = merged.get(row.run_id);
+    const projectId = resolveAgentRunProjectId(row);
+    const project = projectId ? projectsById.get(projectId) : null;
+    merged.set(
+      row.run_id,
+      buildInterruptedRunCard(
+        row,
+        current?.cancelledChildRunIds ?? [],
+        current?.partialUsageJson ?? row.usage_json,
+        {
+          resolvedWorkspaceRoot: project?.workspace_root ?? null,
+          workspaceExists: projectId ? (workspaceExistsByProject.get(projectId) ?? null) : null,
+        },
+      ),
+    );
   }
   return [...merged.values()];
+}
+
+async function checkWorkspaceExists(projectId: string | null): Promise<boolean | null> {
+  if (!projectId) return null;
+  try {
+    return await invoke<boolean>('project_exists', { path: '.', cwd: null, projectId });
+  } catch {
+    return null;
+  }
 }
 
 export function useInterruptedRunRecovery(companyId: string | null): {
@@ -91,6 +129,7 @@ export function useInterruptedRunRecovery(
         }
         const loadedCards = await loadInterruptedRunRecoveryCards({
           repo: repos.agentRuns,
+          projects: repos.projects,
           companyId,
           now: () => new Date().toISOString(),
           skipReconcile,

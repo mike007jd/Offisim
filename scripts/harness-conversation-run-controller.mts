@@ -578,9 +578,9 @@ const scenarios: Array<{
     },
   },
   {
-    name: 'stop persists interrupted partial assistant checkpoint',
+    name: 'stop is idempotent and persists interrupted partial assistant checkpoint',
     criteria:
-      'Pass when Stop aborts runtime, snapshot becomes interrupted, and the persisted assistant checkpoint is marked interrupted.',
+      'Pass when repeated Stop aborts runtime once, snapshot becomes interrupted, and the persisted assistant checkpoint is marked interrupted.',
     run: async () => {
       const env = makeEnv();
       env.runtime.onExecute = async (input) => {
@@ -594,15 +594,61 @@ const scenarios: Array<{
         () => env.controller.getSnapshot('thread-1').liveMessages.length === 2,
       );
       env.controller.stop('thread-1');
+      env.controller.stop('thread-1');
       await waitFor(
         'interrupted run',
         () => env.controller.getSnapshot('thread-1').phase === 'interrupted',
       );
+      assert.deepEqual(env.runtime.aborts, ['thread-1']);
       assert.ok(env.persisted.some((call) => call.message.status === 'interrupted'));
       return {
         phase: env.controller.getSnapshot('thread-1').phase,
+        aborts: env.runtime.aborts,
         interruptedPersisted: env.persisted.filter((call) => call.message.status === 'interrupted')
           .length,
+      };
+    },
+  },
+  {
+    name: 'route subscriber unmount does not cancel an active run',
+    criteria:
+      'Pass when the React-facing subscription can unsubscribe mid-run while the controller keeps receiving runtime events and completes the run.',
+    run: async () => {
+      const env = makeEnv();
+      const release = new Deferred<DesktopAgentRunResult>();
+      let notifications = 0;
+      const unsubscribe = env.controller.subscribe('thread-1', () => {
+        notifications += 1;
+      });
+      env.runtime.onExecute = async (input) => {
+        env.runtime.emitContent(input, 'before route change');
+        return release.promise;
+      };
+      await submitDefault(env.controller);
+      await waitFor(
+        'streaming before unmount',
+        () => env.controller.getSnapshot('thread-1').liveMessages.length === 2,
+      );
+      unsubscribe();
+      const notificationsAfterUnmount = notifications;
+      const input = env.runtime.executeCalls[0];
+      assert.ok(input);
+      env.runtime.emitContent(input, ' after route change');
+      release.resolve({ text: 'finished after route change' });
+      await waitFor(
+        'completed after route unmount',
+        () => env.controller.getSnapshot('thread-1').phase === 'completed',
+      );
+      const snapshot = env.controller.getSnapshot('thread-1');
+      assert.equal(snapshot.liveMessages[1]?.body, 'finished after route change');
+      assert.deepEqual(env.runtime.aborts, []);
+      assert.equal(notifications, notificationsAfterUnmount);
+      return {
+        phase: snapshot.phase,
+        finalBody: snapshot.liveMessages[1]?.body,
+        aborts: env.runtime.aborts,
+        notificationsAfterUnmount,
+        notificationsFinal: notifications,
       };
     },
   },

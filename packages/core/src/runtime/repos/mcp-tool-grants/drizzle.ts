@@ -22,6 +22,9 @@ export function createMcpToolGrantsDrizzleRepos(db: Db): McpToolGrantsDrizzleRep
     async create(grant: NewMcpToolGrant) {
       const row: McpToolGrantRow = {
         ...grant,
+        risk_class: grant.risk_class ?? 'write',
+        risk_source: grant.risk_source ?? 'human_override',
+        trusted_server_id: grant.trusted_server_id ?? null,
         created_at: grant.created_at ?? now(),
       };
       db.insert(schema.mcpToolGrants).values(row).run();

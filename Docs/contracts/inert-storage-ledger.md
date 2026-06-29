@@ -14,8 +14,9 @@ The core services that used to write the orchestration tables
 recorded-call LLM middleware, `SummarizationMiddleware`) are still exported from
 `@offisim/core` but are **never instantiated/wired into `apps/desktop`** (the live Pi
 runtime). The corresponding legacy repository `create`/`insert` methods therefore have
-zero callers. The shipping live-orchestration table is `agent_runs` (+ `agent_events`),
-written by `desktop-agent-runtime`.
+zero callers. The shipping live-orchestration tables are `agent_runs` (+ `agent_events`),
+written by `desktop-agent-runtime`; MCP calls are audited through the live
+`mcp_audit_log` writer.
 
 Classification: **WRITER-DEAD** = schema present, no live writer. **READER-DEAD** =
 written but never read. **FULLY-INERT** = neither writer nor reader in the shipping app.
@@ -27,7 +28,6 @@ written but never read. **FULLY-INERT** = neither writer nor reader in the shipp
 | `graph_threads` | WRITER-DEAD | `ThreadRepository.create` has zero callers. `updateProject` backfill removed in this pass. |
 | `task_runs` | FULLY-INERT | `TaskRunRepository.create` zero callers; only memory-snapshot serialization references it. |
 | `tool_calls` | FULLY-INERT | `ToolCallRepository.create` zero callers; col `review_state` unused. Pi tool activity surfaces via `agent_events`. |
-| `mcp_audit_log` | FULLY-INERT | `McpAuditRepository.create` zero callers; col `approved_by` unused. |
 | `handoff_events` | FULLY-INERT | Modeled LangGraph manager→employee handoffs; Pi delegation uses `agent_runs.parent_run_id`/`root_run_id`. |
 | `meeting_sessions` | FULLY-INERT | Meeting-subgraph removed; the Rust `sessions.rs` reader/writer commands were deleted in this pass. Calendar surface is honest-empty. |
 | `runtime_events` | FULLY-INERT | `EventRepository.insert` only called from unwired core services. |
@@ -56,7 +56,7 @@ before any removal.
 ## Live tables (for contrast — do NOT touch)
 
 `companies`, `employees`, `projects`, `chat_threads`, `project_assignments`, `zones`,
-`prefab_instances`, `agent_runs`, `agent_events`, `interaction_history`,
+`prefab_instances`, `agent_runs`, `agent_events`, `mcp_audit_log`, `interaction_history`,
 `employee_versions`, `skills`, `model_cost_rates`, `settings`, `pi_messages`, and the
 `install_*` family.
 

@@ -399,6 +399,7 @@ export const agentRuns = sqliteTable(
     company_id: text('company_id')
       .notNull()
       .references(() => companies.company_id, { onDelete: 'cascade' }),
+    project_id: text('project_id').references(() => projects.project_id, { onDelete: 'set null' }),
     parent_run_id: text('parent_run_id').references((): AnySQLiteColumn => agentRuns.run_id, {
       onDelete: 'set null',
     }),
@@ -414,6 +415,7 @@ export const agentRuns = sqliteTable(
     result_summary_json: text('result_summary_json'),
     // Pi session JSONL path for durable resume (nullable; set when session opens).
     session_file: text('session_file'),
+    runtime_context_json: text('runtime_context_json'),
     started_at: text('started_at').notNull(),
     finished_at: text('finished_at'),
   },
@@ -421,6 +423,11 @@ export const agentRuns = sqliteTable(
     index('idx_agent_runs_thread').on(table.thread_id),
     index('idx_agent_runs_root').on(table.root_run_id),
     index('idx_agent_runs_parent').on(table.parent_run_id),
+    index('idx_agent_runs_company_project_status').on(
+      table.company_id,
+      table.project_id,
+      table.status,
+    ),
   ],
 );
 
@@ -671,7 +678,8 @@ export const mcpAuditLog = sqliteTable(
     result_json: text('result_json'),
     error: text('error'),
     latency_ms: integer('latency_ms').notNull(),
-    approved_by: text('approved_by').notNull().default('auto'),
+    approval_status: text('approval_status').notNull().default('not_required'),
+    approved_by: text('approved_by'),
     created_at: text('created_at').notNull(),
   },
   (table) => [
@@ -731,6 +739,9 @@ export const mcpToolGrants = sqliteTable(
     tool_name: text('tool_name').notNull(),
     scope: text('scope').notNull().default('employee'),
     project_id: text('project_id'),
+    risk_class: text('risk_class').notNull().default('write'),
+    risk_source: text('risk_source').notNull().default('human_override'),
+    trusted_server_id: text('trusted_server_id'),
     granted_by: text('granted_by').notNull(),
     created_at: text('created_at').notNull(),
   },

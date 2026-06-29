@@ -73,10 +73,14 @@ assert(
 );
 assert(
   /const baseTools = toolAllowlistForMode\(permissionMode\)/.test(nodeHostSource) &&
+    /const scopedMcpTools =[\s\S]*permissionMode === 'plan'[\s\S]*mcpTools\.filter\(\(tool\) => !isWriteMcpTool\(tool\)\)[\s\S]*: mcpTools/.test(
+      nodeHostSource,
+    ) &&
+    /const mcpEnabled = scopedMcpTools\.length > 0/.test(nodeHostSource) &&
     /const tools = mcpEnabled[\s\S]*\.\.\.\(baseTools \?\? \['read', 'write', 'edit', 'bash'\]\)[\s\S]*'mcp_search_tools'[\s\S]*'mcp_describe_tool'[\s\S]*'mcp_call'/.test(
       nodeHostSource,
     ),
-  'execute host must append MCP meta tools to an explicit Pi tool allowlist when mcpTools are scoped',
+  'execute host must append MCP meta tools to an explicit Pi tool allowlist and filter write MCP in plan mode',
 );
 assert(
   /const scopedGrants = grants\.filter/.test(desktopRuntimeScopeSource) &&

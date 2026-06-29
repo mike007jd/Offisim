@@ -16,9 +16,19 @@ import {
   type MissionEvaluationSubmittedPayload,
 } from './mission/mission-events.js';
 import { readPiModelOverride } from './pi-agent-config.js';
-import type { PiAgentHostEvent, PiAgentHostResponse } from './pi-runtime-driver.js';
+import type {
+  PiAgentHostEvent,
+  PiAgentHostResponse,
+  PiRunStreamSnapshot,
+} from './pi-runtime-driver.js';
 import { persistRunStartIfAbsent } from './recovery/persist-run-idempotency.js';
+import {
+  PI_HOST_PROTOCOL_VERSION,
+  resolveAgentRunProjectId,
+} from './recovery/reconcile-interrupted-runs.js';
 import { aggregateSubtreeUsage } from './recovery/usage-aggregation.js';
+
+const PI_SDK_VERSION = '0.79.8';
 
 // Re-export the mission-bridge event vocabulary so existing importers of
 // desktop-agent-runtime keep working; the canonical definition lives in
@@ -209,6 +219,34 @@ function toolStatus(status: PiAgentHostEvent & { kind: 'tool' }) {
   return 'started' as const;
 }
 
+interface PersistedRunContext {
+  requestId?: string | null;
+  streamCursor?: number | null;
+  workspaceRoot: string | null;
+  runtime: 'pi-agent';
+  piSdkVersion: string;
+  wireProtocolVersion: number;
+  model: string | null;
+  permissionMode: string;
+  thinkingLevel: string | null;
+  projectId: string | null;
+  createdAt: string;
+}
+
+function parseRunContext(raw: string | null | undefined): Partial<PersistedRunContext> | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<PersistedRunContext>;
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeStreamCursor(cursor: unknown): number {
+  return Number.isSafeInteger(cursor) && Number(cursor) > 0 ? Number(cursor) : 0;
+}
+
 class DesktopPiAgentRuntime implements DesktopAgentRuntime {
   private readonly inFlightByThread = new Map<string, string>();
   // Request ids the user aborted. A Rust-side abort kills the host and resolves
@@ -232,6 +270,17 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     this.persistQueue = this.persistQueue.then(work);
   }
 
+  private async persistRunStreamCursor(
+    runId: string,
+    context: Partial<PersistedRunContext>,
+    cursor: number,
+  ): Promise<void> {
+    const nextCursor = normalizeStreamCursor(cursor);
+    if (nextCursor <= normalizeStreamCursor(context.streamCursor)) return;
+    context.streamCursor = nextCursor;
+    await this.repos.agentRuns?.updateRuntimeContext(runId, JSON.stringify(context));
+  }
+
   async execute(input: DesktopAgentRunInput): Promise<DesktopAgentRunResult> {
     return this.runPiTurn(input, 'agent_runtime_execute');
   }
@@ -246,6 +295,14 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     if (row.status !== 'interrupted') {
       throw new Error(`Cannot resume Pi Agent run: expected interrupted, got ${row.status}.`);
     }
+    const context = parseRunContext(row.runtime_context_json);
+    const projectId = resolveAgentRunProjectId(row);
+    if (!projectId) {
+      throw new Error(
+        'Cannot resume Pi Agent run: original project context is missing. Restart from the objective instead.',
+      );
+    }
+    await this.assertProjectWorkspaceAvailable(projectId);
     await repo.updateStatus(runId, 'running', { finishedAt: null });
     return this.runPiTurn(
       {
@@ -254,12 +311,283 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
         }`,
         threadId: row.thread_id,
         employeeId: row.employee_id,
-        projectId: null,
+        projectId,
         runId: row.run_id,
-        permissionMode: row.access === 'read' ? 'plan' : undefined,
+        permissionMode:
+          typeof context?.permissionMode === 'string' && context.permissionMode.trim()
+            ? context.permissionMode.trim()
+            : row.access === 'read'
+              ? 'plan'
+              : undefined,
+        model:
+          typeof context?.model === 'string' && context.model.trim()
+            ? context.model.trim()
+            : undefined,
+        thinkingLevel:
+          typeof context?.thinkingLevel === 'string' && context.thinkingLevel.trim()
+            ? context.thinkingLevel.trim()
+            : undefined,
       },
       'agent_runtime_resume',
     );
+  }
+
+  private async assertProjectWorkspaceAvailable(projectId: string): Promise<void> {
+    const project = await this.repos.projects.findById(projectId);
+    if (!project || project.company_id !== this.companyId) {
+      throw new Error('Cannot resume Pi Agent run: original project is unavailable.');
+    }
+    if (!project.workspace_root?.trim()) {
+      throw new Error('Cannot resume Pi Agent run: original project has no workspace folder bound.');
+    }
+    try {
+      const exists = await invoke<boolean>('project_exists', {
+        path: '.',
+        cwd: null,
+        projectId,
+      });
+      if (exists !== true) {
+        throw new Error('workspace folder no longer exists');
+      }
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      throw new Error(`Cannot resume Pi Agent run: original workspace is unavailable (${detail}).`);
+    }
+  }
+
+  async reattachLiveRuns(): Promise<void> {
+    const repo = this.repos.agentRuns;
+    if (!repo) return;
+    const rows = await repo.findByStatus(this.companyId, ['running']).catch(() => []);
+    for (const row of rows) {
+      if (row.parent_run_id) continue;
+      const context = parseRunContext(row.runtime_context_json);
+      const runtimeContext: Partial<PersistedRunContext> = context ?? {};
+      const requestId =
+        typeof context?.requestId === 'string' && context.requestId.trim()
+          ? context.requestId.trim()
+          : null;
+      if (!requestId) continue;
+      const snapshot = await invoke<PiRunStreamSnapshot | null>('agent_runtime_stream_snapshot', {
+        requestId,
+      }).catch(() => null);
+      if (!snapshot?.running) continue;
+
+      const projectId = resolveAgentRunProjectId(row);
+      const runScope = piRunScope(projectId, row.thread_id, row.employee_id, row.run_id);
+      const startedAtByTool = new Map<string, number>();
+      const rootRun = (
+        type: AgentRunEvent['type'],
+        payload: AgentRunEvent['payload'],
+      ): AgentRunEvent =>
+        ({
+          threadId: row.thread_id,
+          rootRunId: row.run_id,
+          runId: row.run_id,
+          ...(row.employee_id ? { employeeId: row.employee_id } : {}),
+          type,
+          payload,
+        }) as AgentRunEvent;
+      const emitRootBus = (evt: AgentRunEvent): void => {
+        runtimeEventBus.emit(agentRunEvent(this.companyId, evt));
+      };
+      const onEvent = new Channel<PiAgentHostEvent>();
+      onEvent.onmessage = (event) => {
+        if (event.kind === 'streamCursor') {
+          this.enqueuePersist(() =>
+            this.persistRunStreamCursor(row.run_id, runtimeContext, event.cursor),
+          );
+          return;
+        }
+        if (event.kind === 'started') {
+          if (event.sessionFile) {
+            this.enqueuePersist(() =>
+              this.repos.agentRuns?.updateStatus(row.run_id, 'running', {
+                sessionFile: event.sessionFile,
+              }) ?? Promise.resolve(),
+            );
+          }
+          return;
+        }
+        if (event.kind === 'messageDelta' && event.delta) {
+          const channel = event.channel === 'reasoning' ? 'reasoning' : 'content';
+          runtimeEventBus.emit(
+            llmStreamChunk(
+              this.companyId,
+              row.thread_id,
+              'pi_agent',
+              event.delta,
+              channel,
+              runScope,
+            ),
+          );
+          return;
+        }
+        if (event.kind === 'tool') {
+          const startedAt = startedAtByTool.get(event.toolCallId) ?? Date.now();
+          if (event.status === 'started') {
+            startedAtByTool.set(event.toolCallId, startedAt);
+          }
+          const completedAt =
+            event.status === 'completed' || event.status === 'failed' ? Date.now() : undefined;
+          runtimeEventBus.emit(
+            toolExecutionTelemetry(this.companyId, row.thread_id, {
+              toolCallId: event.toolCallId,
+              toolName: event.toolName,
+              toolType: 'builtin',
+              evidenceClass: 'sdk-native',
+              threadId: row.thread_id,
+              nodeName: 'pi_agent',
+              employeeId: row.employee_id ?? undefined,
+              startedAt,
+              completedAt,
+              durationMs:
+                event.durationMs ??
+                (completedAt ? Math.max(0, completedAt - startedAt) : undefined),
+              status: toolStatus(event),
+              detail: event.detail,
+              errorType: event.status === 'failed' ? (event.detail ?? 'pi_tool_failed') : undefined,
+              chatConversationKey: runScope.conversationKey,
+              chatRunId: runScope.runId,
+            }),
+          );
+          if (event.status === 'started') {
+            emitRootBus(
+              rootRun('tool.started', {
+                toolCallId: event.toolCallId,
+                toolName: event.toolName,
+                status: 'started',
+                detail: event.detail,
+              }),
+            );
+          } else if (event.status === 'completed' || event.status === 'failed') {
+            emitRootBus(
+              rootRun('tool.completed', {
+                toolCallId: event.toolCallId,
+                toolName: event.toolName,
+                status: event.status,
+                detail: event.detail,
+              }),
+            );
+          }
+          return;
+        }
+        if (event.kind === 'uiRequest') {
+          runtimeEventBus.emit(
+            agentUiRequestEvent(this.companyId, row.thread_id, {
+              requestId,
+              runId: row.run_id,
+              id: event.id,
+              method: event.method,
+              title: event.title,
+              message: event.message,
+              options: event.options,
+              placeholder: event.placeholder,
+              prefill: event.prefill,
+            }),
+          );
+          if (event.method === 'confirm') {
+            emitRootBus(
+              rootRun('approval.requested', {
+                uiRequestId: event.id,
+                title: event.title,
+                message: event.message,
+              }),
+            );
+          }
+          return;
+        }
+        if (event.kind === 'agentRun') {
+          if (event.runType === 'mcp.tool.called') {
+            this.enqueuePersist(() => this.persistMcpToolCall(event, row.employee_id));
+            return;
+          }
+          if (event.runType === 'workspace.lease.snapshot') {
+            this.enqueuePersist(() => this.persistWorkspaceLeaseSnapshot(event, projectId));
+            return;
+          }
+          if (event.runType === 'evaluation_submitted') {
+            const p = (event.payload ?? {}) as {
+              criterionId?: string;
+              summary?: string;
+              evidenceRefs?: string[];
+            };
+            if (typeof p.criterionId === 'string' && p.criterionId.trim()) {
+              runtimeEventBus.emit(
+                missionEvaluationSubmittedEvent(this.companyId, event.threadId, {
+                  runId: event.runId,
+                  rootRunId: event.rootRunId,
+                  criterionId: p.criterionId,
+                  summary: typeof p.summary === 'string' ? p.summary : '',
+                  evidenceRefs: Array.isArray(p.evidenceRefs)
+                    ? p.evidenceRefs.filter((r): r is string => typeof r === 'string')
+                    : [],
+                }),
+              );
+            }
+            return;
+          }
+          if (event.runType === 'mission_state_query') return;
+          const agentEvt = {
+            threadId: event.threadId,
+            rootRunId: event.rootRunId,
+            runId: event.runId,
+            ...(event.parentRunId ? { parentRunId: event.parentRunId } : {}),
+            ...(event.employeeId ? { employeeId: event.employeeId } : {}),
+            ...(event.relation ? { relation: event.relation } : {}),
+            ...(event.workKind ? { workKind: event.workKind } : {}),
+            type: event.runType,
+            payload: event.payload,
+          } as AgentRunEvent;
+          if (event.runType === 'artifact.created') {
+            this.enqueuePersist(() => this.persistArtifact(agentEvt, projectId));
+          } else {
+            runtimeEventBus.emit(agentRunEvent(this.companyId, agentEvt));
+            this.enqueuePersist(() => this.persistAgentRun(agentEvt));
+          }
+          return;
+        }
+        if (event.kind === 'result') {
+          emitRootBus(
+            rootRun('run.completed', {
+              status: 'completed',
+              ...(event.response.text ? { summary: event.response.text } : {}),
+              ...(event.response.usage ? { usage: event.response.usage } : {}),
+            }),
+          );
+          this.enqueuePersist(() =>
+            this.reconcileRoot(row.run_id, 'completed', event.response.usage),
+          );
+          if (this.inFlightByThread.get(row.thread_id) === requestId) {
+            this.inFlightByThread.delete(row.thread_id);
+          }
+          return;
+        }
+        if (event.kind === 'error') {
+          emitRootBus(rootRun('run.failed', { status: 'failed', summary: event.message }));
+          this.enqueuePersist(() => this.reconcileRoot(row.run_id, 'failed', undefined));
+          if (this.inFlightByThread.get(row.thread_id) === requestId) {
+            this.inFlightByThread.delete(row.thread_id);
+          }
+        }
+      };
+
+      this.inFlightByThread.set(row.thread_id, requestId);
+      await invoke<PiRunStreamSnapshot>('agent_runtime_reattach', {
+        requestId,
+        afterCursor: normalizeStreamCursor(runtimeContext.streamCursor),
+        onEvent,
+      }).catch((err: unknown) => {
+        if (this.inFlightByThread.get(row.thread_id) === requestId) {
+          this.inFlightByThread.delete(row.thread_id);
+        }
+        console.warn('[desktop-agent-runtime] reattach live Pi stream failed', {
+          requestId,
+          runId: row.run_id,
+          err,
+        });
+      });
+    }
   }
 
   private async runPiTurn(
@@ -283,6 +611,25 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     // office dramaturgy + run projection just like delegated work.
     const permissionMode = input.permissionMode?.trim() || resolveThreadMode(input.threadId);
     const rootAccess: 'read' | 'write' = permissionMode === 'plan' ? 'read' : 'write';
+    const resolvedModel = input.model?.trim() || readPiModelOverride() || undefined;
+    const resolvedThinkingLevel =
+      input.thinkingLevel?.trim() || resolveThreadThinkingOverride(input.threadId);
+    const workspaceRoot = projectId
+      ? ((await this.repos.projects.findById(projectId))?.workspace_root ?? null)
+      : null;
+    const runtimeContext: PersistedRunContext = {
+      requestId,
+      streamCursor: 0,
+      workspaceRoot,
+      runtime: 'pi-agent',
+      piSdkVersion: PI_SDK_VERSION,
+      wireProtocolVersion: PI_HOST_PROTOCOL_VERSION,
+      model: resolvedModel ?? null,
+      permissionMode,
+      thinkingLevel: resolvedThinkingLevel ?? null,
+      projectId,
+      createdAt: new Date().toISOString(),
+    };
     const rootRun = (
       type: AgentRunEvent['type'],
       payload: AgentRunEvent['payload'],
@@ -301,6 +648,12 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
 
     const onEvent = new Channel<PiAgentHostEvent>();
     onEvent.onmessage = (event) => {
+      if (event.kind === 'streamCursor') {
+        this.enqueuePersist(() =>
+          this.persistRunStreamCursor(runScope.runId, runtimeContext, event.cursor),
+        );
+        return;
+      }
       if (event.kind === 'started') {
         if (event.sessionFile) {
           this.enqueuePersist(() =>
@@ -417,6 +770,10 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           this.enqueuePersist(() => this.persistMcpToolCall(event, input.employeeId));
           return;
         }
+        if (event.runType === 'workspace.lease.snapshot') {
+          this.enqueuePersist(() => this.persistWorkspaceLeaseSnapshot(event, projectId));
+          return;
+        }
         // Mission-bridge signals (MS-005) ride the same `agentRun` wire kind but
         // are NOT run-tree dramaturgy events — they are verification signals for
         // the MissionRunController, not the AgentRunEvent union. Intercept them
@@ -478,6 +835,9 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       }
       if (event.kind === 'result') {
         finalText = event.response.text || finalText;
+        this.enqueuePersist(() =>
+          this.reconcileRoot(runScope.runId, 'completed', event.response.usage),
+        );
         return;
       }
       if (event.kind === 'error') {
@@ -507,7 +867,12 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     // commits ahead of any child's run.started write on the serialized persist
     // chain (children reference it via parent_run_id FK). Unconditional: every
     // run is a tree root, delegating or not.
-    const startedEvt = rootRun('run.started', { objective: input.text, access: rootAccess });
+    const startedEvt = rootRun('run.started', {
+      objective: input.text,
+      access: rootAccess,
+      projectId,
+      runtimeContextJson: JSON.stringify(runtimeContext),
+    });
     emitRootBus(startedEvt);
     this.enqueuePersist(() => this.persistAgentRun(startedEvt));
 
@@ -521,13 +886,12 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           threadId: input.threadId,
           projectId,
           employeeId: input.employeeId,
-          model: input.model?.trim() || readPiModelOverride() || undefined,
+          model: resolvedModel,
           permissionMode,
           // Like `model`: forward only an explicit override, else `undefined` so
           // the host omits it and Pi resolves its own default/session level
           // rather than Offisim pinning every run to `medium`.
-          thinkingLevel:
-            input.thinkingLevel?.trim() || resolveThreadThinkingOverride(input.threadId),
+          thinkingLevel: resolvedThinkingLevel,
           systemPromptAppend: systemPromptAppend ?? undefined,
           // Delegation scope: the root run id lets the host stamp child agentRun
           // events; the roster tells it who can be delegated to. Empty roster →
@@ -650,6 +1014,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           run_id: evt.runId,
           thread_id: evt.threadId,
           company_id: this.companyId,
+          project_id: payload.projectId ?? null,
           parent_run_id: evt.parentRunId ?? null,
           root_run_id: evt.rootRunId,
           employee_id: evt.employeeId ?? null,
@@ -657,6 +1022,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           objective: payload.objective ?? null,
           access: payload.access ?? null,
           status: 'running',
+          runtime_context_json: payload.runtimeContextJson ?? null,
         });
       } else if (
         evt.type === 'run.completed' ||
@@ -672,6 +1038,44 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       }
     } catch (err) {
       console.warn('[desktop-agent-runtime] persist agent_run failed', { runId: evt.runId, err });
+    }
+  }
+
+  private async persistWorkspaceLeaseSnapshot(
+    event: Extract<PiAgentHostEvent, { kind: 'agentRun' }>,
+    fallbackProjectId: string | null,
+  ): Promise<void> {
+    const repo = this.repos.agentEvents;
+    if (!repo) return;
+    const payload =
+      event.payload && typeof event.payload === 'object'
+        ? (event.payload as Record<string, unknown>)
+        : {};
+    const projectId =
+      typeof payload.projectId === 'string' && payload.projectId.trim()
+        ? payload.projectId
+        : fallbackProjectId;
+    try {
+      await repo.append({
+        event_id: crypto.randomUUID(),
+        project_id: projectId,
+        thread_id: event.threadId,
+        company_id: this.companyId,
+        agent_name: event.employeeId ?? event.runId,
+        event_type: 'workspace.lease.snapshot',
+        payload_json: JSON.stringify({
+          ...payload,
+          rootRunId: event.rootRunId,
+          runId: event.runId,
+          parentRunId: event.parentRunId ?? null,
+        }),
+        parent_event_id: null,
+      });
+    } catch (err) {
+      console.warn('[desktop-agent-runtime] persist workspace lease snapshot failed', {
+        runId: event.runId,
+        err,
+      });
     }
   }
 
@@ -770,6 +1174,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       latencyMs?: unknown;
       write?: unknown;
       approved?: unknown;
+      approvalStatus?: unknown;
     };
     const server = typeof payload.server === 'string' ? payload.server : '';
     const tool = typeof payload.tool === 'string' ? payload.tool : '';
@@ -777,6 +1182,14 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     const employeeId = event.employeeId ?? fallbackEmployeeId ?? 'unknown';
     const createdAt = new Date().toISOString();
     const isError = payload.isError === true;
+    const approvalStatus =
+      payload.approvalStatus === 'human_approved' ||
+      payload.approvalStatus === 'human_denied' ||
+      payload.approvalStatus === 'not_required'
+        ? payload.approvalStatus
+        : payload.write === true && payload.approved === true
+          ? 'human_approved'
+          : 'not_required';
     try {
       await this.repos.mcpAudit.create({
         audit_id: crypto.randomUUID(),
@@ -794,10 +1207,11 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
               ? 'mcp tool returned isError'
               : null,
         latency_ms: typeof payload.latencyMs === 'number' ? Math.max(0, payload.latencyMs) : 0,
-        approved_by: payload.approved === true ? 'boss' : 'auto',
+        approval_status: approvalStatus,
+        approved_by: approvalStatus === 'human_approved' ? 'boss' : null,
         created_at: createdAt,
       });
-      if (payload.write === true && payload.approved === true) {
+      if (payload.write === true && approvalStatus === 'human_approved') {
         await this.repos.toolPermissionApprovals.create({
           approval_id: crypto.randomUUID(),
           thread_id: event.threadId,
@@ -846,9 +1260,9 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
   }
 
   async dispose(): Promise<void> {
-    for (const requestId of this.inFlightByThread.values()) {
-      await invoke('agent_runtime_abort', { requestId }).catch(() => undefined);
-    }
+    // Renderer dispose is a detach boundary, not a user cancel. Explicit Stop
+    // still calls abort(threadId); unmount/reload must leave the Rust host alive
+    // so a fresh renderer can `agent_runtime_reattach` by the persisted requestId.
     this.inFlightByThread.clear();
   }
 }
@@ -862,7 +1276,11 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
       throw new Error(`Cannot start Pi Agent runtime: repos.${required} is unavailable.`);
     }
   }
-  return new DesktopPiAgentRuntime(companyId, repos);
+  const runtime = new DesktopPiAgentRuntime(companyId, repos);
+  await runtime.reattachLiveRuns().catch((err) => {
+    console.warn('[desktop-agent-runtime] live run reattach bootstrap failed', { companyId, err });
+  });
+  return runtime;
 }
 
 export function getDesktopAgentRuntime(companyId: string): Promise<DesktopAgentRuntime> {

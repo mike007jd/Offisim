@@ -29,6 +29,9 @@ export class MemoryMcpToolGrantRepository implements McpToolGrantRepository {
   async create(grant: NewMcpToolGrant): Promise<McpToolGrantRow> {
     const row: McpToolGrantRow = {
       ...grant,
+      risk_class: grant.risk_class ?? 'write',
+      risk_source: grant.risk_source ?? 'human_override',
+      trusted_server_id: grant.trusted_server_id ?? null,
       created_at: grant.created_at ?? now(),
     };
     this.rows.set(keyOf(row.company_id, row.employee_id, row.server_name, row.tool_name), row);

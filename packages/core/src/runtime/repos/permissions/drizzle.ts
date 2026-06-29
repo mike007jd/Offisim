@@ -119,8 +119,13 @@ export function createPermissionsDrizzleRepos(db: Db): PermissionsDrizzleRepos {
 
   const mcpAudit: McpAuditRepository = {
     async create(audit: NewMcpAudit) {
-      db.insert(schema.mcpAuditLog).values(audit).run();
-      return audit as McpAuditRow;
+      const row: McpAuditRow = {
+        ...audit,
+        approval_status: audit.approval_status ?? 'not_required',
+        approved_by: audit.approved_by ?? null,
+      };
+      db.insert(schema.mcpAuditLog).values(row).run();
+      return row;
     },
     async listByThread(threadId) {
       return db
@@ -140,6 +145,7 @@ export function createPermissionsDrizzleRepos(db: Db): PermissionsDrizzleRepos {
             eq(schema.mcpAuditLog.server_name, serverName),
             eq(schema.mcpAuditLog.tool_name, toolName),
             sql`${schema.mcpAuditLog.error} IS NULL`,
+            sql`${schema.mcpAuditLog.approval_status} != 'human_denied'`,
           ),
         )
         .limit(1)

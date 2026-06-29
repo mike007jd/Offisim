@@ -23,7 +23,7 @@ import {
 
 let passed = 0;
 let failed = 0;
-const TOTAL = 12;
+const TOTAL = 14;
 
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
   try {
@@ -166,7 +166,8 @@ async function main(): Promise<void> {
           error: null,
           latencyMs: (emitted[0] as { payload: { latencyMs: number } }).payload.latencyMs,
           write: false,
-          approved: true,
+          approvalStatus: 'not_required',
+          approved: false,
         },
       },
     );
@@ -197,7 +198,16 @@ async function main(): Promise<void> {
   });
 
   await check('(8) gate: write tool pauses for confirm; DENY blocks it', async () => {
-    const { handler } = build([READ_TOOL, WRITE_TOOL], noop);
+    const emitted: unknown[] = [];
+    const env = makeFakePi();
+    createMcpBridgeExtensionFactory({
+      mcpTools: [READ_TOOL, WRITE_TOOL],
+      requestMcpResult: noop,
+      emit: (line: unknown) => emitted.push(line),
+      threadId: 'thread-1',
+      rootRunId: 'run-1',
+      employeeId: 'emp-1',
+    } as never)(env.pi as never);
     let confirmed = false;
     const ctx = {
       ui: {
@@ -207,11 +217,17 @@ async function main(): Promise<void> {
         },
       },
     };
-    const verdict = await handler()!({ toolName: 'mcp_call', input: { name: 'write_file' } }, ctx);
+    const verdict = await env.handler()!({ toolName: 'mcp_call', input: { name: 'write_file' } }, ctx);
     assert.equal(confirmed, true, 'a write tool must prompt');
     assert.equal((verdict as { block?: boolean })?.block, true, 'deny blocks the call');
+    assert.equal(emitted.length, 1, 'deny emits a rejected audit line');
+    assert.equal(
+      (emitted[0] as { payload?: { approvalStatus?: string; error?: string } }).payload
+        ?.approvalStatus,
+      'human_denied',
+    );
     // Approve path → no block.
-    const okVerdict = await handler()!(
+    const okVerdict = await env.handler()!(
       { toolName: 'mcp_call', input: { name: 'write_file' } },
       { ui: { confirm: async () => true } },
     );
@@ -245,6 +261,56 @@ async function main(): Promise<void> {
     assert.equal(isWriteMcpTool({ annotations: { destructiveHint: true } }), true);
     assert.equal(isWriteMcpTool({ annotations: { readOnlyHint: true } }), false);
     assert.equal(isWriteMcpTool({}), false, 'unknown annotations fall back to read');
+  });
+
+  await check('(12) write MCP execution emits human_approved audit status', async () => {
+    const emitted: unknown[] = [];
+    const env = makeFakePi();
+    createMcpBridgeExtensionFactory({
+      mcpTools: [WRITE_TOOL],
+      requestMcpResult: async () => ({ ok: true, content: [{ type: 'text', text: 'ok' }] }),
+      emit: (line: unknown) => emitted.push(line),
+      threadId: 'thread-1',
+      rootRunId: 'run-1',
+      employeeId: 'emp-1',
+    } as never)(env.pi as never);
+    const tool = env.registered.find((t) => t.name === 'mcp_call') as Record<string, unknown> & {
+      execute: (id: string, p: unknown) => Promise<{ content: Array<{ text?: string }>; isError?: boolean }>;
+    };
+    await env.handler()!(
+      { toolName: 'mcp_call', input: { name: 'write_file' } },
+      { ui: { confirm: async () => true } },
+    );
+    await tool.execute('1', { name: 'write_file', input: { path: 'a' } });
+    assert.equal(
+      (emitted[0] as { payload?: { approvalStatus?: string; approved?: boolean } }).payload
+        ?.approvalStatus,
+      'human_approved',
+    );
+    assert.equal((emitted[0] as { payload?: { approved?: boolean } }).payload?.approved, true);
+  });
+
+  await check('(13) write MCP execution without gate does not fake approval', async () => {
+    const emitted: unknown[] = [];
+    const env = makeFakePi();
+    createMcpBridgeExtensionFactory({
+      mcpTools: [WRITE_TOOL],
+      requestMcpResult: async () => ({ ok: true, content: [{ type: 'text', text: 'ok' }] }),
+      emit: (line: unknown) => emitted.push(line),
+      threadId: 'thread-1',
+      rootRunId: 'run-1',
+      employeeId: 'emp-1',
+    } as never)(env.pi as never);
+    const tool = env.registered.find((t) => t.name === 'mcp_call') as Record<string, unknown> & {
+      execute: (id: string, p: unknown) => Promise<{ content: Array<{ text?: string }>; isError?: boolean }>;
+    };
+    await tool.execute('1', { name: 'write_file', input: { path: 'a' } });
+    assert.equal(
+      (emitted[0] as { payload?: { approvalStatus?: string; approved?: boolean } }).payload
+        ?.approvalStatus,
+      'not_required',
+    );
+    assert.equal((emitted[0] as { payload?: { approved?: boolean } }).payload?.approved, false);
   });
 
   console.log(`\n${passed}/${TOTAL} checks passed${failed ? `, ${failed} FAILED` : ''}.`);

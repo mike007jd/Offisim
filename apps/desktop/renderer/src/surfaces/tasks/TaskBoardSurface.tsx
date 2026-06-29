@@ -5,17 +5,39 @@ import { Select, type SelectOption } from '@/design-system/grammar/Select.js';
 import { useCompanyEmployees } from '@/data/queries.js';
 import { cn } from '@/lib/utils.js';
 import { getRepos } from '@/runtime/repos.js';
-import { EmptyState, ErrorState, SkeletonRows, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
+import { createTauriGitWorktreeOps } from '@/runtime/mission/workspace/git-worktree-ops.js';
+import {
+  EmptyState,
+  ErrorState,
+  SkeletonRows,
+  errorDetail,
+} from '@/surfaces/shared/SurfaceStates.js';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { CheckCircle2, CircleStop, Clock3, Eye, ListChecks, Pause, Search, XCircle } from 'lucide-react';
+import {
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  CircleStop,
+  Clock3,
+  Eye,
+  ListChecks,
+  Pause,
+  Search,
+  XCircle,
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { InterruptedRunCardView } from './InterruptedRunCardView.js';
 import {
+  type TaskBoardChildRow,
   type TaskBoardRow,
   type TaskBoardStatus,
+  type WorkspaceLeaseReviewRow,
+  WORKSPACE_LEASE_ACTION_EVENT,
   filterTaskRows,
+  flattenTaskRows,
   useTaskBoard,
+  useWorkspaceLeaseReviews,
 } from './task-board-data.js';
 
 const ROW_HEIGHT = 54;
@@ -60,16 +82,40 @@ function summarizeUsage(usageJson: string | null): string {
   try {
     const value = JSON.parse(usageJson) as Record<string, unknown>;
     const total =
-      value.totalTokens ?? value.total_tokens ?? value.tokens ?? value.outputTokens ?? value.output_tokens;
+      value.totalTokens ??
+      value.total_tokens ??
+      value.tokens ??
+      value.outputTokens ??
+      value.output_tokens;
     return typeof total === 'number' ? `${total.toLocaleString()} tokens` : 'Usage recorded';
   } catch {
     return 'Usage recorded';
   }
 }
 
-function employeeName(row: TaskBoardRow, employeeNames: Map<string, string>): string {
+function employeeName(
+  row: TaskBoardRow | TaskBoardChildRow,
+  employeeNames: Map<string, string>,
+): string {
   if (!row.employeeId) return 'Team run';
   return employeeNames.get(row.employeeId) ?? row.employeeId;
+}
+
+function summarizeResult(resultSummaryJson: string | null): string {
+  if (!resultSummaryJson) return 'No summary yet';
+  try {
+    const parsed = JSON.parse(resultSummaryJson) as Record<string, unknown>;
+    const summary = parsed.summary;
+    return typeof summary === 'string' && summary.trim() ? summary.trim() : 'Summary recorded';
+  } catch {
+    return 'Summary recorded';
+  }
+}
+
+function summarizePaths(paths: readonly string[]): string {
+  if (paths.length === 0) return 'No changed paths recorded';
+  if (paths.length <= 3) return paths.join(', ');
+  return `${paths.slice(0, 3).join(', ')} +${paths.length - 3}`;
 }
 
 function StatusIcon({ status }: { status: TaskBoardStatus }) {
@@ -90,6 +136,7 @@ export function TaskBoardSurface() {
   const [status, setStatus] = useState<TaskBoardStatus | 'all'>('all');
   const [search, setSearch] = useState('');
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [expandedRunIds, setExpandedRunIds] = useState<Set<string>>(() => new Set());
   const [busyRunId, setBusyRunId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -108,9 +155,18 @@ export function TaskBoardSurface() {
     [board.rows, search, status],
   );
 
+  const visibleRows = useMemo(
+    () => flattenTaskRows(filteredRows, expandedRunIds),
+    [expandedRunIds, filteredRows],
+  );
+
   const selectedRow = useMemo(
-    () => board.rows.find((row) => row.runId === selectedRunId) ?? null,
-    [board.rows, selectedRunId],
+    () => visibleRows.find((item) => item.row.runId === selectedRunId)?.row ?? null,
+    [selectedRunId, visibleRows],
+  );
+  const leaseReviews = useWorkspaceLeaseReviews(
+    selectedRow?.threadId ?? null,
+    selectedRow?.rootRunId ?? null,
   );
 
   const interruptedRunIds = useMemo(
@@ -129,7 +185,7 @@ export function TaskBoardSurface() {
   );
 
   const virtualizer = useVirtualizer({
-    count: filteredRows.length,
+    count: visibleRows.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => ROW_HEIGHT,
     overscan: 8,
@@ -140,7 +196,7 @@ export function TaskBoardSurface() {
   }, [board, recovery]);
 
   const cancelRun = useCallback(
-    async (row: TaskBoardRow) => {
+    async (row: TaskBoardRow | TaskBoardChildRow) => {
       if (!companyId) return;
       setBusyRunId(row.runId);
       try {
@@ -209,9 +265,118 @@ export function TaskBoardSurface() {
     [recovery, refetchBoard],
   );
 
+  const recordLeaseAction = useCallback(
+    async (
+      lease: WorkspaceLeaseReviewRow,
+      action: string,
+      status: string,
+      extra: Record<string, unknown> = {},
+    ) => {
+      if (!companyId || !selectedRow?.threadId) return;
+      const repos = await getRepos();
+      await repos.agentEvents?.append({
+        event_id: crypto.randomUUID(),
+        project_id: lease.projectId,
+        thread_id: selectedRow.threadId,
+        company_id: companyId,
+        agent_name: 'workspace-lease-review',
+        event_type: WORKSPACE_LEASE_ACTION_EVENT,
+        payload_json: JSON.stringify({
+          leaseId: lease.leaseId,
+          rootRunId: lease.rootRunId,
+          runId: lease.runId,
+          action,
+          status,
+          createdAt: new Date().toISOString(),
+          ...extra,
+        }),
+        parent_event_id: null,
+      });
+    },
+    [companyId, selectedRow?.threadId],
+  );
+
+  const mergeLease = useCallback(
+    async (lease: WorkspaceLeaseReviewRow) => {
+      if (!lease.projectId || !lease.branch) {
+        toast.error('This worktree is missing a project or branch.');
+        return;
+      }
+      if (!window.confirm(`Merge ${lease.branch} into the root workspace?`)) return;
+      try {
+        await recordLeaseAction(lease, 'merge_approved', 'pending_merge');
+        const ops = createTauriGitWorktreeOps({ projectId: lease.projectId });
+        const result = await ops.merge(lease.branch);
+        if (!result.ok) {
+          throw new Error(`Merge conflict: ${result.conflicts.join(', ') || 'paths unavailable'}`);
+        }
+        await recordLeaseAction(lease, 'merge_completed', 'merged');
+        if (lease.cwd) {
+          try {
+            await ops.removeWorktree(lease.cwd);
+            await recordLeaseAction(lease, 'merge_cleanup_completed', 'released');
+          } catch (cleanupErr) {
+            await recordLeaseAction(lease, 'merge_cleanup_failed', 'merged', {
+              error: cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr),
+            });
+          }
+        }
+        await leaseReviews.refetch();
+        toast.success('Worktree merged.');
+      } catch (err) {
+        await recordLeaseAction(lease, 'merge_failed', 'conflicted', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+        await leaseReviews.refetch();
+        toast.error(errorDetail(err, 'Could not merge the worktree.'));
+      }
+    },
+    [leaseReviews, recordLeaseAction],
+  );
+
+  const discardLease = useCallback(
+    async (lease: WorkspaceLeaseReviewRow) => {
+      if (!lease.projectId || !lease.cwd) {
+        toast.error('This worktree is missing a project or path.');
+        return;
+      }
+      if (
+        !window.confirm(`Discard worktree ${lease.cwd}? Git will refuse if it still has changes.`)
+      )
+        return;
+      try {
+        await recordLeaseAction(lease, 'discard_approved', lease.status);
+        const ops = createTauriGitWorktreeOps({ projectId: lease.projectId });
+        await ops.removeWorktree(lease.cwd);
+        await recordLeaseAction(lease, 'discard_completed', 'released');
+        await leaseReviews.refetch();
+        toast.success('Worktree discarded.');
+      } catch (err) {
+        await recordLeaseAction(lease, 'discard_failed', lease.status, {
+          error: err instanceof Error ? err.message : String(err),
+        });
+        await leaseReviews.refetch();
+        toast.error(errorDetail(err, 'Could not discard the worktree.'));
+      }
+    },
+    [leaseReviews, recordLeaseAction],
+  );
+
   const resetFilters = useCallback(() => {
     setSearch('');
     setStatus('all');
+  }, []);
+
+  const toggleExpanded = useCallback((runId: string) => {
+    setExpandedRunIds((current) => {
+      const next = new Set(current);
+      if (next.has(runId)) {
+        next.delete(runId);
+      } else {
+        next.add(runId);
+      }
+      return next;
+    });
   }, []);
 
   const virtualItems = virtualizer.getVirtualItems();
@@ -300,7 +465,7 @@ export function TaskBoardSurface() {
             action={{ label: 'Open Office', onClick: () => setSurface('office') }}
           />
         </div>
-      ) : filteredRows.length === 0 ? (
+      ) : visibleRows.length === 0 ? (
         <div className="off-task-empty-wrap">
           <EmptyState
             icon={Search}
@@ -314,14 +479,18 @@ export function TaskBoardSurface() {
           <div className="off-task-list" ref={scrollRef}>
             <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
               {virtualItems.map((vi) => {
-                const row = filteredRows[vi.index];
-                if (!row) return null;
+                const item = visibleRows[vi.index];
+                if (!item) return null;
+                const row = item.row;
                 const selected = row.runId === selectedRunId;
                 const card = recoveryByRunId.get(row.runId);
+                const isRoot = item.level === 0;
+                const expandable = isRoot && item.childCount > 0;
+                const expanded = expandable && expandedRunIds.has(row.runId);
                 return (
                   <div
                     key={row.runId}
-                    className={cn('off-task-row', selected && 'is-selected')}
+                    className={cn('off-task-row', selected && 'is-selected', !isRoot && 'is-child')}
                     style={{
                       position: 'absolute',
                       top: 0,
@@ -329,6 +498,21 @@ export function TaskBoardSurface() {
                       width: '100%',
                     }}
                   >
+                    <button
+                      type="button"
+                      className="off-task-tree-toggle off-focusable"
+                      disabled={!expandable}
+                      title={expanded ? 'Collapse child runs' : 'Expand child runs'}
+                      onClick={() => toggleExpanded(row.runId)}
+                    >
+                      {expandable ? (
+                        expanded ? (
+                          <ChevronDown aria-hidden />
+                        ) : (
+                          <ChevronRight aria-hidden />
+                        )
+                      ) : null}
+                    </button>
                     <button
                       type="button"
                       className="off-task-row-main off-focusable"
@@ -339,10 +523,13 @@ export function TaskBoardSurface() {
                         {statusLabel(row.status)}
                       </span>
                       <span className="off-task-title">
+                        {!isRoot && row.relation ? `${row.relation}: ` : ''}
                         {row.objective || `${employeeName(row, employeeNames)} run`}
                       </span>
                       <span className="off-task-meta">
                         {employeeName(row, employeeNames)} · {formatWhen(row.startedAt)}
+                        {!isRoot && row.access ? ` · ${row.access}` : ''}
+                        {isRoot && item.childCount > 0 ? ` · ${item.childCount} child runs` : ''}
                         {row.live ? ' · live' : ''}
                       </span>
                     </button>
@@ -355,7 +542,7 @@ export function TaskBoardSurface() {
                       >
                         <Eye aria-hidden />
                       </button>
-                      {row.status === 'running' ? (
+                      {isRoot && row.status === 'running' ? (
                         <button
                           type="button"
                           className="off-task-action is-danger off-focusable"
@@ -365,7 +552,7 @@ export function TaskBoardSurface() {
                           <CircleStop aria-hidden />
                           Cancel
                         </button>
-                      ) : row.status === 'interrupted' && card ? (
+                      ) : isRoot && row.status === 'interrupted' && card ? (
                         <button
                           type="button"
                           className="off-task-action is-primary off-focusable"
@@ -412,6 +599,14 @@ export function TaskBoardSurface() {
                   <dd>{employeeName(selectedRow, employeeNames)}</dd>
                 </div>
                 <div>
+                  <dt>Relation</dt>
+                  <dd>{selectedRow.relation || 'Root'}</dd>
+                </div>
+                <div>
+                  <dt>Access</dt>
+                  <dd>{selectedRow.access || 'Not recorded'}</dd>
+                </div>
+                <div>
                   <dt>Started</dt>
                   <dd>{formatWhen(selectedRow.startedAt)}</dd>
                 </div>
@@ -424,6 +619,10 @@ export function TaskBoardSurface() {
                   <dd>{summarizeUsage(selectedRow.usageJson)}</dd>
                 </div>
                 <div>
+                  <dt>Summary</dt>
+                  <dd>{summarizeResult(selectedRow.resultSummaryJson)}</dd>
+                </div>
+                <div>
                   <dt>Session file</dt>
                   <dd>{selectedRow.sessionFile || 'Not recorded'}</dd>
                 </div>
@@ -433,6 +632,81 @@ export function TaskBoardSurface() {
                   {recoveryByRunId.get(selectedRow.runId)?.whatResumeWillDo}
                 </p>
               ) : null}
+              <section className="off-task-lease-review" aria-label="Workspace lease review">
+                <div className="off-task-lease-head">
+                  <h3>Worktree review</h3>
+                  <button
+                    type="button"
+                    className="off-task-refresh off-focusable"
+                    onClick={() => void leaseReviews.refetch()}
+                  >
+                    Refresh
+                  </button>
+                </div>
+                {leaseReviews.isLoading ? (
+                  <p className="off-task-detail-note">Loading worktree leases...</p>
+                ) : leaseReviews.rows.length === 0 ? (
+                  <p className="off-task-detail-note">No delegated write worktrees recorded.</p>
+                ) : (
+                  <div className="off-task-lease-list">
+                    {leaseReviews.rows.map((lease) => (
+                      <article className="off-task-lease" key={lease.leaseId}>
+                        <div className="off-task-lease-top">
+                          <span className={cn('off-task-lease-status', `is-${lease.status}`)}>
+                            {lease.status}
+                          </span>
+                          <span className="off-task-lease-id">{lease.runId}</span>
+                        </div>
+                        <dl className="off-task-lease-grid">
+                          <div>
+                            <dt>Branch</dt>
+                            <dd>{lease.branch || 'Not recorded'}</dd>
+                          </div>
+                          <div>
+                            <dt>CWD</dt>
+                            <dd>{lease.cwd || 'Not recorded'}</dd>
+                          </div>
+                          <div>
+                            <dt>Changed paths</dt>
+                            <dd>{summarizePaths(lease.changedPaths)}</dd>
+                          </div>
+                          <div>
+                            <dt>Conflicts</dt>
+                            <dd>
+                              {lease.conflicts.length > 0 ? lease.conflicts.join(', ') : 'None'}
+                            </dd>
+                          </div>
+                        </dl>
+                        {lease.reason || lease.lastActionError ? (
+                          <p className="off-task-lease-note">
+                            {lease.lastActionError || lease.reason}
+                          </p>
+                        ) : null}
+                        <div className="off-task-lease-actions">
+                          <button
+                            type="button"
+                            className="off-task-action is-primary off-focusable"
+                            disabled={
+                              !lease.branch || !lease.projectId || lease.status === 'released'
+                            }
+                            onClick={() => void mergeLease(lease)}
+                          >
+                            Merge
+                          </button>
+                          <button
+                            type="button"
+                            className="off-task-action is-danger off-focusable"
+                            disabled={!lease.cwd || !lease.projectId || lease.status === 'released'}
+                            onClick={() => void discardLease(lease)}
+                          >
+                            Discard
+                          </button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
             </aside>
           ) : null}
         </div>

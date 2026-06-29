@@ -1,6 +1,9 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicU64, Ordering},
+};
 
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
@@ -36,12 +39,22 @@ static IN_FLIGHT: InFlightRegistry = InFlightRegistry::new("pi_agent_host");
 /// stdin (EOF).
 static PI_STDIN: Lazy<Mutex<HashMap<String, Arc<AsyncMutex<ChildStdin>>>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
+static PI_RUN_STREAMS: Lazy<Mutex<HashMap<String, PiRunStreamState>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
+static PI_STREAM_SUBSCRIBER_ID: AtomicU64 = AtomicU64::new(1);
+const PI_RUN_STREAM_BUFFER_LIMIT: usize = 4096;
 
 fn pi_stdin_guard() -> std::sync::MutexGuard<'static, HashMap<String, Arc<AsyncMutex<ChildStdin>>>>
 {
     PI_STDIN
         .lock()
         .unwrap_or_else(|_| panic!("pi_agent_host PI_STDIN poisoned"))
+}
+
+fn pi_run_streams_guard() -> std::sync::MutexGuard<'static, HashMap<String, PiRunStreamState>> {
+    PI_RUN_STREAMS
+        .lock()
+        .unwrap_or_else(|_| panic!("pi_agent_host PI_RUN_STREAMS poisoned"))
 }
 
 /// Wire-contract version negotiated with the bundled Node host via the `ready`
@@ -300,6 +313,136 @@ pub enum PiAgentHostEvent {
         code: String,
         message: String,
     },
+    StreamCursor {
+        cursor: u64,
+    },
+}
+
+struct PiRunStreamState {
+    next_cursor: u64,
+    events: VecDeque<PiRunStreamBufferedEvent>,
+    subscribers: HashMap<u64, Channel<PiAgentHostEvent>>,
+    terminal: Option<PiRunStreamTerminal>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PiRunStreamBufferedEvent {
+    cursor: u64,
+    event: PiAgentHostEvent,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PiRunStreamTerminal {
+    status: String,
+    #[serde(default)]
+    message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PiRunStreamSnapshot {
+    request_id: String,
+    running: bool,
+    cursor: u64,
+    buffered: usize,
+    #[serde(default)]
+    terminal: Option<PiRunStreamTerminal>,
+}
+
+impl PiRunStreamState {
+    fn new() -> Self {
+        Self {
+            next_cursor: 1,
+            events: VecDeque::new(),
+            subscribers: HashMap::new(),
+            terminal: None,
+        }
+    }
+
+    fn snapshot(&self, request_id: &str) -> PiRunStreamSnapshot {
+        PiRunStreamSnapshot {
+            request_id: request_id.to_string(),
+            running: self.terminal.is_none(),
+            cursor: self.next_cursor.saturating_sub(1),
+            buffered: self.events.len(),
+            terminal: self.terminal.clone(),
+        }
+    }
+}
+
+fn begin_run_stream(request_id: &str) {
+    pi_run_streams_guard().insert(request_id.to_string(), PiRunStreamState::new());
+}
+
+fn finish_run_stream(request_id: &str, status: &str, message: Option<String>) {
+    if let Some(state) = pi_run_streams_guard().get_mut(request_id) {
+        state.terminal = Some(PiRunStreamTerminal {
+            status: status.to_string(),
+            message,
+        });
+    }
+}
+
+fn publish_host_event(
+    request_id: Option<&str>,
+    on_event: Option<&Channel<PiAgentHostEvent>>,
+    event: PiAgentHostEvent,
+    send_label: &str,
+) -> Result<(), HostError> {
+    if let Some(request_id) = request_id {
+        let mut streams = pi_run_streams_guard();
+        let state = streams
+            .entry(request_id.to_string())
+            .or_insert_with(PiRunStreamState::new);
+        let cursor = state.next_cursor;
+        state.next_cursor = state.next_cursor.saturating_add(1);
+        state.events.push_back(PiRunStreamBufferedEvent {
+            cursor,
+            event: event.clone(),
+        });
+        while state.events.len() > PI_RUN_STREAM_BUFFER_LIMIT {
+            state.events.pop_front();
+        }
+
+        let mut dead_subscribers = Vec::new();
+        for (id, subscriber) in state.subscribers.iter() {
+            if subscriber.send(event.clone()).is_err() {
+                dead_subscribers.push(*id);
+            } else if subscriber
+                .send(PiAgentHostEvent::StreamCursor { cursor })
+                .is_err()
+            {
+                dead_subscribers.push(*id);
+            }
+        }
+        for id in dead_subscribers {
+            state.subscribers.remove(&id);
+        }
+    }
+
+    if let Some(on_event) = on_event {
+        if let Err(err) = on_event.send(event) {
+            if request_id.is_none() {
+                return Err(HostError::Request(format!("{send_label}: {err}")));
+            }
+            eprintln!("[pi-agent-host] dropped stale renderer channel for {send_label}: {err}");
+        } else if let Some(request_id) = request_id {
+            let cursor = pi_run_streams_guard()
+                .get(request_id)
+                .map(|state| state.next_cursor.saturating_sub(1))
+                .unwrap_or(0);
+            if cursor > 0 {
+                if let Err(err) = on_event.send(PiAgentHostEvent::StreamCursor { cursor }) {
+                    eprintln!(
+                        "[pi-agent-host] dropped stale renderer channel for {send_label} cursor: {err}"
+                    );
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -637,6 +780,7 @@ fn parse_status(value: serde_json::Value) -> Result<PiAgentStatusResponse, HostE
 }
 
 fn send_sidecar_event(
+    request_id: Option<&str>,
     on_event: Option<&Channel<PiAgentHostEvent>>,
     line: PiSidecarLine,
 ) -> Result<Option<serde_json::Value>, HostError> {
@@ -649,24 +793,26 @@ fn send_sidecar_event(
             model,
             model_fallback_message,
         } => {
-            if let Some(on_event) = on_event {
-                on_event
-                    .send(PiAgentHostEvent::Started {
-                        session_id,
-                        session_file,
-                        model,
-                        model_fallback_message,
-                    })
-                    .map_err(|err| HostError::Request(format!("Send Pi start event: {err}")))?;
-            }
+            publish_host_event(
+                request_id,
+                on_event,
+                PiAgentHostEvent::Started {
+                    session_id,
+                    session_file,
+                    model,
+                    model_fallback_message,
+                },
+                "Send Pi start event",
+            )?;
             Ok(None)
         }
         PiSidecarLine::MessageDelta { delta, channel } => {
-            if let Some(on_event) = on_event {
-                on_event
-                    .send(PiAgentHostEvent::MessageDelta { delta, channel })
-                    .map_err(|err| HostError::Request(format!("Send Pi message delta: {err}")))?;
-            }
+            publish_host_event(
+                request_id,
+                on_event,
+                PiAgentHostEvent::MessageDelta { delta, channel },
+                "Send Pi message delta",
+            )?;
             Ok(None)
         }
         PiSidecarLine::MessageEnd {
@@ -674,15 +820,16 @@ fn send_sidecar_event(
             stop_reason,
             error_message,
         } => {
-            if let Some(on_event) = on_event {
-                on_event
-                    .send(PiAgentHostEvent::MessageEnd {
-                        text,
-                        stop_reason,
-                        error_message,
-                    })
-                    .map_err(|err| HostError::Request(format!("Send Pi message end: {err}")))?;
-            }
+            publish_host_event(
+                request_id,
+                on_event,
+                PiAgentHostEvent::MessageEnd {
+                    text,
+                    stop_reason,
+                    error_message,
+                },
+                "Send Pi message end",
+            )?;
             Ok(None)
         }
         PiSidecarLine::Tool {
@@ -692,17 +839,18 @@ fn send_sidecar_event(
             detail,
             duration_ms,
         } => {
-            if let Some(on_event) = on_event {
-                on_event
-                    .send(PiAgentHostEvent::Tool {
-                        status,
-                        tool_call_id,
-                        tool_name,
-                        detail,
-                        duration_ms,
-                    })
-                    .map_err(|err| HostError::Request(format!("Send Pi tool event: {err}")))?;
-            }
+            publish_host_event(
+                request_id,
+                on_event,
+                PiAgentHostEvent::Tool {
+                    status,
+                    tool_call_id,
+                    tool_name,
+                    detail,
+                    duration_ms,
+                },
+                "Send Pi tool event",
+            )?;
             Ok(None)
         }
         PiSidecarLine::UiRequest {
@@ -714,19 +862,20 @@ fn send_sidecar_event(
             placeholder,
             prefill,
         } => {
-            if let Some(on_event) = on_event {
-                on_event
-                    .send(PiAgentHostEvent::UiRequest {
-                        id,
-                        method,
-                        title,
-                        message,
-                        options,
-                        placeholder,
-                        prefill,
-                    })
-                    .map_err(|err| HostError::Request(format!("Send Pi UI request: {err}")))?;
-            }
+            publish_host_event(
+                request_id,
+                on_event,
+                PiAgentHostEvent::UiRequest {
+                    id,
+                    method,
+                    title,
+                    message,
+                    options,
+                    placeholder,
+                    prefill,
+                },
+                "Send Pi UI request",
+            )?;
             Ok(None)
         }
         // mcpCall is intercepted in the stream loop (handled in-process, never
@@ -746,31 +895,35 @@ fn send_sidecar_event(
             run_type,
             payload,
         } => {
-            if let Some(on_event) = on_event {
-                on_event
-                    .send(PiAgentHostEvent::AgentRun {
-                        thread_id,
-                        root_run_id,
-                        run_id,
-                        parent_run_id,
-                        employee_id,
-                        relation,
-                        work_kind,
-                        run_type,
-                        payload,
-                    })
-                    .map_err(|err| HostError::Request(format!("Send Pi agent run event: {err}")))?;
-            }
+            publish_host_event(
+                request_id,
+                on_event,
+                PiAgentHostEvent::AgentRun {
+                    thread_id,
+                    root_run_id,
+                    run_id,
+                    parent_run_id,
+                    employee_id,
+                    relation,
+                    work_kind,
+                    run_type,
+                    payload,
+                },
+                "Send Pi agent run event",
+            )?;
             Ok(None)
         }
         PiSidecarLine::Result { response } => Ok(Some(response)),
         PiSidecarLine::Error { code, message } => {
-            if let Some(on_event) = on_event {
-                let _ = on_event.send(PiAgentHostEvent::Error {
+            let _ = publish_host_event(
+                request_id,
+                on_event,
+                PiAgentHostEvent::Error {
                     code: code.clone(),
                     message: message.clone(),
-                });
-            }
+                },
+                "Send Pi error event",
+            );
             Err(HostError::Upstream {
                 code: Some(code),
                 message,
@@ -1165,6 +1318,7 @@ async fn run_pi_sidecar_jsonl<R: tauri::Runtime>(
     token: CancellationToken,
     on_event: Option<&Channel<PiAgentHostEvent>>,
     register_stdin: Option<&str>,
+    stream_request_id: Option<&str>,
 ) -> Result<serde_json::Value, HostError> {
     let node_executable = resolve_node_executable(script_path);
     let mut command = Command::new(&node_executable);
@@ -1273,7 +1427,7 @@ async fn run_pi_sidecar_jsonl<R: tauri::Runtime>(
                     }
                     continue;
                 }
-                if let Some(response) = send_sidecar_event(on_event, parsed)? {
+                if let Some(response) = send_sidecar_event(stream_request_id, on_event, parsed)? {
                     final_response = Some(response);
                 }
             }
@@ -1342,14 +1496,18 @@ async fn do_execute<R: tauri::Runtime>(
         token,
         Some(on_event),
         Some(&req.request_id),
+        Some(&req.request_id),
     )
     .await?;
     let response = parse_response(response)?;
-    on_event
-        .send(PiAgentHostEvent::Result {
+    publish_host_event(
+        Some(&req.request_id),
+        Some(on_event),
+        PiAgentHostEvent::Result {
             response: response.clone(),
-        })
-        .map_err(|err| HostError::Request(format!("Send Pi result event: {err}")))?;
+        },
+        "Send Pi result event",
+    )?;
     Ok(response)
 }
 
@@ -1364,26 +1522,39 @@ async fn execute_impl(
     on_event: Channel<PiAgentHostEvent>,
 ) -> Result<PiAgentHostResponse, String> {
     let request_id = req.request_id.clone();
+    begin_run_stream(&request_id);
     let token = IN_FLIGHT.register(&request_id);
     let result = do_execute(&app, req, &on_event, token.clone()).await;
     IN_FLIGHT.clear(&request_id);
 
     match result {
-        Ok(response) => Ok(response),
-        Err(HostError::Aborted) => Ok(PiAgentHostResponse {
-            text: String::new(),
-            reasoning: None,
-            session_id: None,
-            session_file: None,
-            model: None,
-            usage: None,
-        }),
+        Ok(response) => {
+            finish_run_stream(&request_id, "completed", None);
+            Ok(response)
+        }
+        Err(HostError::Aborted) => {
+            finish_run_stream(&request_id, "aborted", None);
+            Ok(PiAgentHostResponse {
+                text: String::new(),
+                reasoning: None,
+                session_id: None,
+                session_file: None,
+                model: None,
+                usage: None,
+            })
+        }
         Err(error) => {
             let (code, message) = error.into_code_message(PI_LANE);
-            let _ = on_event.send(PiAgentHostEvent::Error {
-                code: code.clone(),
-                message: message.clone(),
-            });
+            let _ = publish_host_event(
+                Some(&request_id),
+                Some(&on_event),
+                PiAgentHostEvent::Error {
+                    code: code.clone(),
+                    message: message.clone(),
+                },
+                "Send Pi error event",
+            );
+            finish_run_stream(&request_id, "failed", Some(message.clone()));
             Err(format!("{code}: {message}"))
         }
     }
@@ -1424,6 +1595,7 @@ async fn do_enhance<R: tauri::Runtime>(
         payload,
         token,
         Some(on_event),
+        None,
         None,
     )
     .await?;
@@ -1510,6 +1682,7 @@ async fn do_collaborate<R: tauri::Runtime>(
         token,
         Some(on_event),
         register_stdin,
+        None,
     )
     .await?;
     let response = parse_response(response)?;
@@ -1565,6 +1738,48 @@ fn abort_impl(request_id: String) -> Result<(), String> {
         token.cancel();
     }
     Ok(())
+}
+
+#[tauri::command]
+pub fn agent_runtime_stream_snapshot(
+    request_id: String,
+) -> Result<Option<PiRunStreamSnapshot>, String> {
+    Ok(pi_run_streams_guard()
+        .get(&request_id)
+        .map(|state| state.snapshot(&request_id)))
+}
+
+#[tauri::command]
+pub fn agent_runtime_reattach(
+    request_id: String,
+    after_cursor: Option<u64>,
+    on_event: Channel<PiAgentHostEvent>,
+) -> Result<PiRunStreamSnapshot, String> {
+    let mut streams = pi_run_streams_guard();
+    let state = streams
+        .get_mut(&request_id)
+        .ok_or_else(|| format!("No live Pi Agent stream for request {request_id}"))?;
+    let replay_after = after_cursor.unwrap_or(0);
+    let replay = state
+        .events
+        .iter()
+        .filter(|entry| entry.cursor > replay_after)
+        .cloned()
+        .collect::<Vec<_>>();
+    for entry in replay {
+        let cursor = entry.cursor;
+        on_event
+            .send(entry.event)
+            .map_err(|err| format!("Replay Pi Agent stream event: {err}"))?;
+        on_event
+            .send(PiAgentHostEvent::StreamCursor { cursor })
+            .map_err(|err| format!("Replay Pi Agent stream cursor: {err}"))?;
+    }
+    if state.terminal.is_none() {
+        let subscriber_id = PI_STREAM_SUBSCRIBER_ID.fetch_add(1, Ordering::Relaxed);
+        state.subscribers.insert(subscriber_id, on_event);
+    }
+    Ok(state.snapshot(&request_id))
 }
 
 #[tauri::command]
@@ -1784,6 +1999,7 @@ async fn status_impl(app: AppHandle) -> Result<PiAgentStatusResponse, String> {
         CancellationToken::new(),
         None,
         None,
+        None,
     )
     .await
     .map_err(|err| err.into_code_message(PI_LANE).1)?;
@@ -1924,6 +2140,59 @@ mod tests {
             !json.contains("tool_call_id"),
             "snake_case key leaked to the renderer Channel: {json}"
         );
+    }
+
+    #[test]
+    fn pi_run_stream_buffers_events_and_terminal_snapshot() {
+        let request_id = format!(
+            "test-stream-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("system clock before epoch")
+                .as_nanos()
+        );
+        begin_run_stream(&request_id);
+        publish_host_event(
+            Some(&request_id),
+            None,
+            PiAgentHostEvent::MessageDelta {
+                delta: "hello".into(),
+                channel: Some("content".into()),
+            },
+            "test stream delta",
+        )
+        .expect("publish buffered delta");
+        publish_host_event(
+            Some(&request_id),
+            None,
+            PiAgentHostEvent::Tool {
+                status: "completed".into(),
+                tool_call_id: "call-1".into(),
+                tool_name: "read_file".into(),
+                detail: None,
+                duration_ms: Some(3),
+            },
+            "test stream tool",
+        )
+        .expect("publish buffered tool");
+        finish_run_stream(&request_id, "completed", None);
+
+        let streams = pi_run_streams_guard();
+        let state = streams.get(&request_id).expect("stream state exists");
+        let snapshot = state.snapshot(&request_id);
+        assert!(!snapshot.running, "finished stream must not report running");
+        assert_eq!(snapshot.cursor, 2);
+        assert_eq!(snapshot.buffered, 2);
+        assert_eq!(
+            snapshot.terminal.as_ref().map(|terminal| terminal.status.as_str()),
+            Some("completed")
+        );
+        let replay = state
+            .events
+            .iter()
+            .filter(|entry| entry.cursor > 1)
+            .collect::<Vec<_>>();
+        assert_eq!(replay.len(), 1, "cursor replay should skip already seen events");
     }
 
     #[test]

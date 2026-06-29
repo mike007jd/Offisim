@@ -111,8 +111,13 @@ export function createPermissionsTauriRepos(db: TauriDrizzleDb): PermissionsTaur
 
   const mcpAudit: RuntimeRepositories['mcpAudit'] = {
     async create(audit: NewMcpAudit) {
-      await db.insert(schema.mcpAuditLog).values(audit);
-      return audit as McpAuditRow;
+      const row: McpAuditRow = {
+        ...audit,
+        approval_status: audit.approval_status ?? 'not_required',
+        approved_by: audit.approved_by ?? null,
+      };
+      await db.insert(schema.mcpAuditLog).values(row);
+      return row;
     },
     async listByThread(threadId) {
       return (await db
@@ -131,6 +136,7 @@ export function createPermissionsTauriRepos(db: TauriDrizzleDb): PermissionsTaur
             eq(schema.mcpAuditLog.server_name, serverName),
             eq(schema.mcpAuditLog.tool_name, toolName),
             sql`${schema.mcpAuditLog.error} IS NULL`,
+            sql`${schema.mcpAuditLog.approval_status} != 'human_denied'`,
           ),
         )
         .limit(1);

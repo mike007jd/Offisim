@@ -18,9 +18,11 @@ export function createAgentRunsDrizzleRepos(db: Db): AgentRunsDrizzleRepos {
     async create(run: NewAgentRun) {
       const row: AgentRunRow = {
         ...run,
+        project_id: run.project_id ?? null,
         usage_json: run.usage_json ?? null,
         result_summary_json: run.result_summary_json ?? null,
         session_file: run.session_file ?? null,
+        runtime_context_json: run.runtime_context_json ?? null,
         started_at: run.started_at ?? now(),
         finished_at: run.finished_at ?? null,
       };
@@ -72,6 +74,12 @@ export function createAgentRunsDrizzleRepos(db: Db): AgentRunsDrizzleRepos {
       if (opts?.finishedAt !== undefined) patch.finished_at = opts.finishedAt;
       if (opts?.sessionFile !== undefined) patch.session_file = opts.sessionFile;
       db.update(schema.agentRuns).set(patch).where(eq(schema.agentRuns.run_id, runId)).run();
+    },
+    async updateRuntimeContext(runId, runtimeContextJson) {
+      db.update(schema.agentRuns)
+        .set({ runtime_context_json: runtimeContextJson })
+        .where(eq(schema.agentRuns.run_id, runId))
+        .run();
     },
   };
 

@@ -16,7 +16,7 @@ const LOCAL_SCHEMA_SQL: &str = include_str!("../../../../packages/db-local/src/s
 /// (b) bump this constant by 1, and (c) add a matching upgrade entry to
 /// `MIGRATIONS` so released user databases have an upgrade path. Public migration
 /// history starts only after the first public release baseline.
-const LOCAL_SCHEMA_VERSION: i64 = 9;
+const LOCAL_SCHEMA_VERSION: i64 = 12;
 
 /// Ordered upgrade chain for existing user databases: `(target_version, sql)`
 /// where each entry upgrades `target_version - 1` → `target_version`. Each entry
@@ -57,6 +57,18 @@ const MIGRATIONS: &[(i64, &str)] = &[
     (
         9,
         include_str!("../../../../packages/db-local/src/migrations/0009_collaboration_profile.sql"),
+    ),
+    (
+        10,
+        include_str!("../../../../packages/db-local/src/migrations/0010_agent_run_context.sql"),
+    ),
+    (
+        11,
+        include_str!("../../../../packages/db-local/src/migrations/0011_mcp_audit_approval_status.sql"),
+    ),
+    (
+        12,
+        include_str!("../../../../packages/db-local/src/migrations/0012_mcp_tool_grant_risk.sql"),
     ),
 ];
 
