@@ -307,7 +307,7 @@ function GameViewOptions() {
   );
 }
 
-export function StageViewMenu() {
+function StageViewMenu() {
   const [menuOpen, setMenuOpen] = useState(false);
   const selectedThreadId = useUiState((s) => s.selectedThreadId);
   const projectId = useUiState((s) => s.projectId);
