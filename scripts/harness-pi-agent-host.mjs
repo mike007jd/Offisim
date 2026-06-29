@@ -172,11 +172,14 @@ try {
   );
   assert(
     result.response.modelsConfig?.exists === true &&
-      result.response.modelsConfig.providerCount === 1 &&
-      result.response.modelsConfig.modelCount === 1 &&
-      result.response.modelsConfig.overrideCount === 1 &&
+      result.response.modelsConfig.providers.includes('local-test') &&
+      result.response.modelsConfig.modelCount === result.response.allModelCount &&
       !result.response.modelsConfig.parseError,
-    'Pi Agent status response must expose a safe JSONC models.json configuration summary',
+    'Pi Agent status response must expose the Pi ModelRegistry-loaded models.json summary',
+  );
+  assert(
+    !/function stripJsoncComments/.test(nodeHostSource) && !/function parseJsonc/.test(nodeHostSource),
+    'Pi Agent host must not duplicate Pi ModelRegistry JSONC parsing',
   );
 } finally {
   rmSync(tempAgentDir, { recursive: true, force: true });
