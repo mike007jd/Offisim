@@ -19,6 +19,7 @@
 // The renderer (B4) owns scope + per-tool grants + audit; this is the agent-facing
 // surface only.
 
+import { createHash } from 'node:crypto';
 import { Type } from 'typebox';
 import { agentRunLine } from './pi-agent-host-wire.mjs';
 
@@ -73,6 +74,61 @@ function textResult(text, isError = false) {
   return { content: [{ type: 'text', text }], ...(isError ? { isError: true } : {}) };
 }
 
+function normalizedCallArgs(params) {
+  const rawInput =
+    params?.input !== undefined
+      ? params.input
+      : params?.arguments !== undefined
+        ? params.arguments
+        : {};
+  return rawInput && typeof rawInput === 'object' && !Array.isArray(rawInput) ? rawInput : {};
+}
+
+function stableJson(value) {
+  if (Array.isArray(value)) return `[${value.map((item) => stableJson(item)).join(',')}]`;
+  if (value && typeof value === 'object') {
+    const entries = Object.keys(value)
+      .filter((key) => value[key] !== undefined)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`);
+    return `{${entries.join(',')}}`;
+  }
+  return JSON.stringify(value) ?? 'null';
+}
+
+function stableInputHash(input) {
+  return createHash('sha256').update(stableJson(input)).digest('hex');
+}
+
+export const MCP_APPROVAL_TOKEN_TTL_MS = 60_000;
+const MAX_PENDING_APPROVAL_TOKENS = 128;
+
+function inputApprovalKey(server, name, inputHash) {
+  return `${server}\u0000${name}\u0000input:${inputHash}`;
+}
+
+function callApprovalKey(server, name, toolCallId, inputHash) {
+  return `${server}\u0000${name}\u0000call:${toolCallId}\u0000input:${inputHash}`;
+}
+
+function approvalKey({ server, name, toolCallId, args }) {
+  const inputHash = stableInputHash(args);
+  if (typeof toolCallId === 'string' && toolCallId.trim()) {
+    return callApprovalKey(server, name, toolCallId, inputHash);
+  }
+  return inputApprovalKey(server, name, inputHash);
+}
+
+function approvalLookupKeys({ server, name, toolCallId, args }) {
+  const inputHash = stableInputHash(args);
+  const keys = [];
+  if (typeof toolCallId === 'string' && toolCallId.trim()) {
+    keys.push(callApprovalKey(server, name, toolCallId, inputHash));
+  }
+  keys.push(inputApprovalKey(server, name, inputHash));
+  return keys;
+}
+
 /**
  * Build the MCP bridge extension factory.
  * @param {{ mcpTools: Array<{name:string, server:string, description?:string, inputSchema?:object, annotations?:object, write?:boolean}>, requestMcpResult: (server:string, tool:string, args:object) => Promise<{id:string, ok:boolean, content?:unknown, isError?:boolean, error?:string}>, emit?: (line: object) => void, threadId?: string, rootRunId?: string, employeeId?: string }} deps
@@ -91,8 +147,53 @@ export function createMcpBridgeExtensionFactory({
     (t) => typeof t?.name === 'string' && typeof t?.server === 'string',
   );
   const byName = new Map(tools.map((t) => [t.name, t]));
-  const approvedWriteCalls = new Map();
-  const approvalKey = (server, name) => `${server}\u0000${name}`;
+  const approvedWriteTokens = new Map();
+  const countPendingApprovals = () =>
+    [...approvedWriteTokens.values()].reduce((total, tokens) => total + tokens.length, 0);
+  const cleanupApprovals = (now = Date.now()) => {
+    for (const [key, tokens] of approvedWriteTokens.entries()) {
+      const active = tokens.filter((token) => now - token.createdAt <= MCP_APPROVAL_TOKEN_TTL_MS);
+      if (active.length > 0) {
+        approvedWriteTokens.set(key, active);
+      } else {
+        approvedWriteTokens.delete(key);
+      }
+    }
+    let pending = countPendingApprovals();
+    while (pending > MAX_PENDING_APPROVAL_TOKENS) {
+      let oldestKey = '';
+      let oldestAt = Number.POSITIVE_INFINITY;
+      for (const [key, tokens] of approvedWriteTokens.entries()) {
+        if (tokens[0] && tokens[0].createdAt < oldestAt) {
+          oldestKey = key;
+          oldestAt = tokens[0].createdAt;
+        }
+      }
+      const tokens = approvedWriteTokens.get(oldestKey);
+      if (!tokens) break;
+      tokens.shift();
+      if (tokens.length === 0) approvedWriteTokens.delete(oldestKey);
+      pending -= 1;
+    }
+  };
+  const rememberApproval = (key) => {
+    cleanupApprovals();
+    const tokens = approvedWriteTokens.get(key) ?? [];
+    tokens.push({ createdAt: Date.now() });
+    approvedWriteTokens.set(key, tokens);
+    cleanupApprovals();
+  };
+  const consumeApproval = (keys) => {
+    cleanupApprovals();
+    for (const key of keys) {
+      const tokens = approvedWriteTokens.get(key);
+      const token = tokens?.shift();
+      if (!token) continue;
+      if (tokens.length === 0) approvedWriteTokens.delete(key);
+      return true;
+    }
+    return false;
+  };
 
   return (pi) => {
     // Write-class MCP tool calls pause for ctx.ui.confirm BEFORE running (the
@@ -103,13 +204,20 @@ export function createMcpBridgeExtensionFactory({
       const name = typeof event.input?.name === 'string' ? event.input.name : '';
       const tool = byName.get(name);
       if (!tool || !isWriteMcpTool(tool)) return undefined;
+      const args = normalizedCallArgs(event.input);
       const approved = await ctx.ui.confirm(
         'Approve MCP tool call?',
         `${tool.server} → ${name} can modify data outside this chat. Approve to run it.`,
       );
       if (approved) {
-        const key = approvalKey(tool.server, name);
-        approvedWriteCalls.set(key, (approvedWriteCalls.get(key) ?? 0) + 1);
+        rememberApproval(
+          approvalKey({
+            server: tool.server,
+            name,
+            toolCallId: event.toolCallId,
+            args,
+          }),
+        );
         return undefined;
       }
       emitMcpAuditLine({
@@ -119,12 +227,7 @@ export function createMcpBridgeExtensionFactory({
         employeeId,
         server: tool.server,
         toolName: name,
-        args:
-          event.input?.input && typeof event.input.input === 'object'
-            ? event.input.input
-            : event.input?.arguments && typeof event.input.arguments === 'object'
-              ? event.input.arguments
-              : {},
+        args,
         result: { ok: false, error: `MCP write tool "${name}" rejected by operator.` },
         latencyMs: 0,
         write: true,
@@ -194,28 +297,45 @@ export function createMcpBridgeExtensionFactory({
       description:
         'Invoke an MCP tool by name with input matching mcp_describe_tool. Write-class tools pause for the operator’s approval.',
       parameters: CallParams,
-      async execute(_toolCallId, params) {
+      async execute(toolCallId, params) {
         const name = typeof params?.name === 'string' ? params.name : '';
         const tool = byName.get(name);
         if (!tool) return textResult(`Unknown MCP tool "${name}". Use mcp_search_tools first.`, true);
-        const rawInput =
-          params?.input !== undefined
-            ? params.input
-            : params?.arguments !== undefined
-              ? params.arguments
-              : {};
-        const args = rawInput && typeof rawInput === 'object' && !Array.isArray(rawInput) ? rawInput : {};
+        const args = normalizedCallArgs(params);
+        const write = isWriteMcpTool(tool);
+        const approved =
+          !write ||
+          consumeApproval(
+            approvalLookupKeys({
+              server: tool.server,
+              name,
+              toolCallId,
+              args,
+            }),
+          );
+        if (!approved) {
+          const result = { ok: false, error: 'missing_required_approval' };
+          emitMcpAuditLine({
+            emit,
+            threadId,
+            rootRunId,
+            employeeId,
+            server: tool.server,
+            toolName: name,
+            args,
+            result,
+            latencyMs: 0,
+            write: true,
+            approvalStatus: 'human_denied',
+          });
+          return textResult(
+            'MCP write tool requires approval but no matching approval token was found.',
+            true,
+          );
+        }
         const startedAt = Date.now();
         const result = await requestMcpResult(tool.server, name, args);
         const latencyMs = Math.max(0, Date.now() - startedAt);
-        const write = isWriteMcpTool(tool);
-        const approvalKeyForTool = approvalKey(tool.server, name);
-        const approvedCount = approvedWriteCalls.get(approvalKeyForTool) ?? 0;
-        if (approvedCount > 1) {
-          approvedWriteCalls.set(approvalKeyForTool, approvedCount - 1);
-        } else if (approvedCount === 1) {
-          approvedWriteCalls.delete(approvalKeyForTool);
-        }
         emitMcpAuditLine({
           emit,
           threadId,
@@ -227,7 +347,7 @@ export function createMcpBridgeExtensionFactory({
           result,
           latencyMs,
           write,
-          approvalStatus: write && approvedCount > 0 ? 'human_approved' : 'not_required',
+          approvalStatus: write ? 'human_approved' : 'not_required',
         });
         if (!result || result.ok !== true) {
           return textResult(`MCP call failed: ${result?.error ?? 'unknown error'}`, true);

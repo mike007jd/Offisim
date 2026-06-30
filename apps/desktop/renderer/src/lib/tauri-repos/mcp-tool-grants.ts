@@ -52,6 +52,32 @@ export function createMcpToolGrantsTauriRepos(db: TauriDrizzleDb): McpToolGrants
           ),
         );
     },
+    async updateRisk(companyId, employeeId, serverName, toolName, risk) {
+      await db
+        .update(schema.mcpToolGrants)
+        .set(risk)
+        .where(
+          and(
+            eq(schema.mcpToolGrants.company_id, companyId),
+            eq(schema.mcpToolGrants.employee_id, employeeId),
+            eq(schema.mcpToolGrants.server_name, serverName),
+            eq(schema.mcpToolGrants.tool_name, toolName),
+          ),
+        );
+      const rows = (await db
+        .select()
+        .from(schema.mcpToolGrants)
+        .where(
+          and(
+            eq(schema.mcpToolGrants.company_id, companyId),
+            eq(schema.mcpToolGrants.employee_id, employeeId),
+            eq(schema.mcpToolGrants.server_name, serverName),
+            eq(schema.mcpToolGrants.tool_name, toolName),
+          ),
+        )
+        .limit(1)) as McpToolGrantRow[];
+      return rows[0] ?? null;
+    },
     async hasGrant(companyId, employeeId, serverName, toolName) {
       const rows = await db
         .select({ grant_id: schema.mcpToolGrants.grant_id })

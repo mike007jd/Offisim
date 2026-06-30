@@ -1,5 +1,6 @@
 import { isTauriRuntime, reposOrNull } from '@/data/adapters.js';
 import { UI_DATA_COLORS } from '@/data/color-palette.js';
+import { inferMcpGrantRiskClass } from '@/data/mcp-risk.js';
 /**
  * Settings-surface view-models, fixtures, and local query hooks.
  *
@@ -20,6 +21,8 @@ import type {
 import { readResponseTextWithLimit } from '@offisim/registry-client';
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
+
+export { inferMcpGrantRiskClass, inferMcpGrantRiskSource } from '@/data/mcp-risk.js';
 
 // ───────────────────────── Appearance ─────────────────────────
 
@@ -156,6 +159,9 @@ export interface McpToolGrant {
   readonly toolName: string;
   readonly scope: string;
   readonly projectId: string | null;
+  readonly riskClass: McpToolGrantRow['risk_class'];
+  readonly riskSource: McpToolGrantRow['risk_source'];
+  readonly trustedServerId: string | null;
   readonly grantedBy: string;
   readonly createdAt: string;
 }
@@ -212,11 +218,7 @@ function mcpServerFromRegistered(
 }
 
 export function isWriteMcpTool(tool: Pick<McpToolInfo, 'name' | 'annotations'>): boolean {
-  const annotations = tool.annotations ?? {};
-  if (annotations.readOnlyHint === false || annotations.destructiveHint === true) return true;
-  return /(^|_)(write|delete|remove|move|copy|create|edit|update|append|mkdir|touch)(_|$)/i.test(
-    tool.name,
-  );
+  return inferMcpGrantRiskClass(tool) !== 'read';
 }
 
 function argsFromForm(value: string): string[] {
@@ -299,6 +301,9 @@ function mcpToolGrantFromRow(row: McpToolGrantRow): McpToolGrant {
     toolName: row.tool_name,
     scope: row.scope,
     projectId: row.project_id,
+    riskClass: row.risk_class,
+    riskSource: row.risk_source,
+    trustedServerId: row.trusted_server_id,
     grantedBy: row.granted_by,
     createdAt: row.created_at,
   };
@@ -317,6 +322,9 @@ export async function grantMcpTool(input: {
   serverName: string;
   toolName: string;
   projectId?: string | null;
+  riskClass: McpToolGrantRow['risk_class'];
+  riskSource?: McpToolGrantRow['risk_source'];
+  trustedServerId?: string | null;
   grantedBy?: string;
 }): Promise<McpToolGrant> {
   const repos = await reposOrNull();
@@ -329,9 +337,37 @@ export async function grantMcpTool(input: {
     tool_name: input.toolName,
     scope: input.projectId ? 'project' : 'employee',
     project_id: input.projectId ?? null,
+    risk_class: input.riskClass,
+    risk_source: input.riskSource ?? 'human_override',
+    trusted_server_id: input.trustedServerId ?? null,
     granted_by: input.grantedBy ?? 'boss',
   };
   return mcpToolGrantFromRow(await repos.mcpToolGrants.create(row));
+}
+
+export async function updateMcpToolGrantRisk(input: {
+  companyId: string;
+  employeeId: string;
+  serverName: string;
+  toolName: string;
+  riskClass: McpToolGrantRow['risk_class'];
+  riskSource: McpToolGrantRow['risk_source'];
+  trustedServerId?: string | null;
+}): Promise<McpToolGrant | null> {
+  const repos = await reposOrNull();
+  if (!repos?.mcpToolGrants) throw new Error('MCP grants repository is unavailable.');
+  const row = await repos.mcpToolGrants.updateRisk(
+    input.companyId,
+    input.employeeId,
+    input.serverName,
+    input.toolName,
+    {
+      risk_class: input.riskClass,
+      risk_source: input.riskSource,
+      trusted_server_id: input.trustedServerId ?? null,
+    },
+  );
+  return row ? mcpToolGrantFromRow(row) : null;
 }
 
 export async function revokeMcpTool(input: {

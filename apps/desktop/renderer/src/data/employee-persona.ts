@@ -1,5 +1,6 @@
 import { titleizeSlug } from '@/lib/utils.js';
 import type { EmployeeRow, McpToolGrantRow, RuntimeRepositories } from '@offisim/core/browser';
+import { inferMcpGrantRiskClass } from './mcp-risk.js';
 
 /**
  * Canonical employee system prompt.
@@ -261,7 +262,8 @@ function toMcpScopedTool(grant: McpToolGrantRow, tool?: RuntimeMcpToolInfo): Mcp
     tool?.annotations && typeof tool.annotations === 'object'
       ? normalizeMcpAnnotations(tool.annotations as Record<string, unknown>)
       : {};
-  const effectiveRisk = grant.risk_class ?? inferMcpRiskClass(grant.tool_name, annotations);
+  const effectiveRisk =
+    grant.risk_class ?? inferMcpGrantRiskClass({ name: grant.tool_name, annotations });
   return {
     name: grant.tool_name,
     server: grant.server_name,
@@ -283,18 +285,4 @@ function normalizeMcpAnnotations(raw: Record<string, unknown>): Record<string, u
     idempotentHint: raw.idempotentHint ?? raw.idempotent_hint,
     openWorldHint: raw.openWorldHint ?? raw.open_world_hint,
   };
-}
-
-function inferMcpRiskClass(
-  toolName: string,
-  annotations: Record<string, unknown>,
-): McpToolGrantRow['risk_class'] {
-  if (annotations.destructiveHint === true) return 'destructive';
-  if (annotations.openWorldHint === true) return 'open_world';
-  if (annotations.readOnlyHint === false) return 'write';
-  return /(^|_)(write|delete|remove|move|copy|create|edit|update|append|mkdir|touch)(_|$)/i.test(
-    toolName,
-  )
-    ? 'write'
-    : 'read';
 }

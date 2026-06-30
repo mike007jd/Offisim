@@ -383,13 +383,6 @@ function stringValue(value: unknown): string | null {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
 }
 
-function isWriteMcpTool(toolName: string, annotations: Record<string, unknown>): boolean {
-  if (annotations.readOnlyHint === false || annotations.destructiveHint === true) return true;
-  return /(^|_)(write|delete|remove|move|copy|create|edit|update|append|mkdir|touch)(_|$)/i.test(
-    toolName,
-  );
-}
-
 export function useEmployeeMcpTools(employeeId: string | null) {
   const companyId = useUiState((s) => s.companyId);
   return useQuery<EmployeeMcpTool[]>({
@@ -423,7 +416,7 @@ export function useEmployeeMcpTools(employeeId: string | null) {
           toolName: grant.tool_name,
           title,
           description,
-          readOnly: !isWriteMcpTool(grant.tool_name, annotations),
+          readOnly: grant.risk_class === 'read',
           grantedAt: grant.created_at,
         });
       }

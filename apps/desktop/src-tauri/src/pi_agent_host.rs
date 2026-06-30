@@ -4,6 +4,7 @@ use std::sync::{
     Arc, Mutex,
     atomic::{AtomicU64, Ordering},
 };
+use std::time::{Duration, Instant};
 
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
@@ -43,6 +44,7 @@ static PI_RUN_STREAMS: Lazy<Mutex<HashMap<String, PiRunStreamState>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 static PI_STREAM_SUBSCRIBER_ID: AtomicU64 = AtomicU64::new(1);
 const PI_RUN_STREAM_BUFFER_LIMIT: usize = 4096;
+const PI_RUN_STREAM_TERMINAL_TTL: Duration = Duration::from_secs(30 * 60);
 
 fn pi_stdin_guard() -> std::sync::MutexGuard<'static, HashMap<String, Arc<AsyncMutex<ChildStdin>>>>
 {
@@ -323,6 +325,7 @@ struct PiRunStreamState {
     events: VecDeque<PiRunStreamBufferedEvent>,
     subscribers: HashMap<u64, Channel<PiAgentHostEvent>>,
     terminal: Option<PiRunStreamTerminal>,
+    finished_at: Option<Instant>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -358,6 +361,7 @@ impl PiRunStreamState {
             events: VecDeque::new(),
             subscribers: HashMap::new(),
             terminal: None,
+            finished_at: None,
         }
     }
 
@@ -372,16 +376,51 @@ impl PiRunStreamState {
     }
 }
 
+fn cleanup_terminal_run_streams_locked(
+    streams: &mut HashMap<String, PiRunStreamState>,
+    now: Instant,
+) {
+    streams.retain(|_, state| {
+        if state.terminal.is_none() {
+            return true;
+        }
+        match state.finished_at {
+            Some(finished_at) => {
+                now.saturating_duration_since(finished_at) <= PI_RUN_STREAM_TERMINAL_TTL
+            }
+            None => true,
+        }
+    });
+}
+
+fn cleanup_terminal_run_streams(now: Instant) {
+    let mut streams = pi_run_streams_guard();
+    cleanup_terminal_run_streams_locked(&mut streams, now);
+}
+
 fn begin_run_stream(request_id: &str) {
-    pi_run_streams_guard().insert(request_id.to_string(), PiRunStreamState::new());
+    let mut streams = pi_run_streams_guard();
+    cleanup_terminal_run_streams_locked(&mut streams, Instant::now());
+    streams.insert(request_id.to_string(), PiRunStreamState::new());
 }
 
 fn finish_run_stream(request_id: &str, status: &str, message: Option<String>) {
+    finish_run_stream_at(request_id, status, message, Instant::now());
+}
+
+fn finish_run_stream_at(
+    request_id: &str,
+    status: &str,
+    message: Option<String>,
+    finished_at: Instant,
+) {
     if let Some(state) = pi_run_streams_guard().get_mut(request_id) {
         state.terminal = Some(PiRunStreamTerminal {
             status: status.to_string(),
             message,
         });
+        state.finished_at = Some(finished_at);
+        state.subscribers.clear();
     }
 }
 
@@ -391,6 +430,8 @@ fn publish_host_event(
     event: PiAgentHostEvent,
     send_label: &str,
 ) -> Result<(), HostError> {
+    let mut stream_cursor = None;
+    let mut stream_subscribers = Vec::new();
     if let Some(request_id) = request_id {
         let mut streams = pi_run_streams_guard();
         let state = streams
@@ -405,20 +446,33 @@ fn publish_host_event(
         while state.events.len() > PI_RUN_STREAM_BUFFER_LIMIT {
             state.events.pop_front();
         }
+        stream_cursor = Some(cursor);
+        stream_subscribers = state
+            .subscribers
+            .iter()
+            .map(|(id, subscriber)| (*id, subscriber.clone()))
+            .collect::<Vec<_>>();
+    }
 
+    if let Some(cursor) = stream_cursor {
         let mut dead_subscribers = Vec::new();
-        for (id, subscriber) in state.subscribers.iter() {
-            if subscriber.send(event.clone()).is_err() {
-                dead_subscribers.push(*id);
-            } else if subscriber
-                .send(PiAgentHostEvent::StreamCursor { cursor })
-                .is_err()
+        for (id, subscriber) in stream_subscribers {
+            if subscriber.send(event.clone()).is_err()
+                || subscriber
+                    .send(PiAgentHostEvent::StreamCursor { cursor })
+                    .is_err()
             {
-                dead_subscribers.push(*id);
+                dead_subscribers.push(id);
             }
         }
-        for id in dead_subscribers {
-            state.subscribers.remove(&id);
+        if !dead_subscribers.is_empty() {
+            if let Some(request_id) = request_id {
+                if let Some(state) = pi_run_streams_guard().get_mut(request_id) {
+                    for id in dead_subscribers {
+                        state.subscribers.remove(&id);
+                    }
+                }
+            }
         }
     }
 
@@ -428,17 +482,11 @@ fn publish_host_event(
                 return Err(HostError::Request(format!("{send_label}: {err}")));
             }
             eprintln!("[pi-agent-host] dropped stale renderer channel for {send_label}: {err}");
-        } else if let Some(request_id) = request_id {
-            let cursor = pi_run_streams_guard()
-                .get(request_id)
-                .map(|state| state.next_cursor.saturating_sub(1))
-                .unwrap_or(0);
-            if cursor > 0 {
-                if let Err(err) = on_event.send(PiAgentHostEvent::StreamCursor { cursor }) {
-                    eprintln!(
-                        "[pi-agent-host] dropped stale renderer channel for {send_label} cursor: {err}"
-                    );
-                }
+        } else if let Some(cursor) = stream_cursor {
+            if let Err(err) = on_event.send(PiAgentHostEvent::StreamCursor { cursor }) {
+                eprintln!(
+                    "[pi-agent-host] dropped stale renderer channel for {send_label} cursor: {err}"
+                );
             }
         }
     }
@@ -1744,9 +1792,23 @@ fn abort_impl(request_id: String) -> Result<(), String> {
 pub fn agent_runtime_stream_snapshot(
     request_id: String,
 ) -> Result<Option<PiRunStreamSnapshot>, String> {
+    cleanup_terminal_run_streams(Instant::now());
     Ok(pi_run_streams_guard()
         .get(&request_id)
         .map(|state| state.snapshot(&request_id)))
+}
+
+#[tauri::command]
+pub fn agent_runtime_release_stream(request_id: String) -> Result<(), String> {
+    let mut streams = pi_run_streams_guard();
+    if streams
+        .get(&request_id)
+        .map(|state| state.terminal.is_some())
+        .unwrap_or(false)
+    {
+        streams.remove(&request_id);
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -1755,17 +1817,25 @@ pub fn agent_runtime_reattach(
     after_cursor: Option<u64>,
     on_event: Channel<PiAgentHostEvent>,
 ) -> Result<PiRunStreamSnapshot, String> {
-    let mut streams = pi_run_streams_guard();
-    let state = streams
-        .get_mut(&request_id)
-        .ok_or_else(|| format!("No live Pi Agent stream for request {request_id}"))?;
     let replay_after = after_cursor.unwrap_or(0);
-    let replay = state
-        .events
-        .iter()
-        .filter(|entry| entry.cursor > replay_after)
-        .cloned()
-        .collect::<Vec<_>>();
+    let (replay, snapshot) = {
+        let mut streams = pi_run_streams_guard();
+        cleanup_terminal_run_streams_locked(&mut streams, Instant::now());
+        let state = streams
+            .get_mut(&request_id)
+            .ok_or_else(|| format!("No live Pi Agent stream for request {request_id}"))?;
+        let replay = state
+            .events
+            .iter()
+            .filter(|entry| entry.cursor > replay_after)
+            .cloned()
+            .collect::<Vec<_>>();
+        if state.terminal.is_none() {
+            let subscriber_id = PI_STREAM_SUBSCRIBER_ID.fetch_add(1, Ordering::Relaxed);
+            state.subscribers.insert(subscriber_id, on_event.clone());
+        }
+        (replay, state.snapshot(&request_id))
+    };
     for entry in replay {
         let cursor = entry.cursor;
         on_event
@@ -1775,11 +1845,7 @@ pub fn agent_runtime_reattach(
             .send(PiAgentHostEvent::StreamCursor { cursor })
             .map_err(|err| format!("Replay Pi Agent stream cursor: {err}"))?;
     }
-    if state.terminal.is_none() {
-        let subscriber_id = PI_STREAM_SUBSCRIBER_ID.fetch_add(1, Ordering::Relaxed);
-        state.subscribers.insert(subscriber_id, on_event);
-    }
-    Ok(state.snapshot(&request_id))
+    Ok(snapshot)
 }
 
 #[tauri::command]
@@ -2020,13 +2086,26 @@ pub async fn agent_runtime_status(app: AppHandle) -> Result<PiAgentStatusRespons
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use std::sync::{Arc, Mutex};
+    use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-    fn temp_project_root(label: &str) -> PathBuf {
-        let suffix = SystemTime::now()
+    static PI_RUN_STREAM_TEST_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+
+    fn pi_run_stream_test_guard() -> std::sync::MutexGuard<'static, ()> {
+        PI_RUN_STREAM_TEST_LOCK
+            .lock()
+            .expect("pi run stream test lock poisoned")
+    }
+
+    fn unique_suffix() -> u128 {
+        SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("system clock before epoch")
-            .as_nanos();
+            .as_nanos()
+    }
+
+    fn temp_project_root(label: &str) -> PathBuf {
+        let suffix = unique_suffix();
         let root = std::env::temp_dir().join(format!("offisim-pi-agent-{label}-{suffix}"));
         std::fs::create_dir_all(&root).expect("create temp project root");
         root.canonicalize().expect("canonical temp project root")
@@ -2144,6 +2223,7 @@ mod tests {
 
     #[test]
     fn pi_run_stream_buffers_events_and_terminal_snapshot() {
+        let _stream_test_guard = pi_run_stream_test_guard();
         let request_id = format!(
             "test-stream-{}",
             SystemTime::now()
@@ -2193,6 +2273,227 @@ mod tests {
             .filter(|entry| entry.cursor > 1)
             .collect::<Vec<_>>();
         assert_eq!(replay.len(), 1, "cursor replay should skip already seen events");
+    }
+
+    #[test]
+    fn pi_run_stream_terminal_cleanup_and_release() {
+        let _stream_test_guard = pi_run_stream_test_guard();
+        let old_id = format!("test-stream-old-{}", unique_suffix());
+        let fresh_id = format!("test-stream-fresh-{}", unique_suffix());
+        let running_id = format!("test-stream-running-{}", unique_suffix());
+        let now = Instant::now();
+        let old_finished_at = now
+            .checked_sub(PI_RUN_STREAM_TERMINAL_TTL + Duration::from_secs(1))
+            .expect("test instant should support subtracting terminal ttl");
+
+        begin_run_stream(&old_id);
+        finish_run_stream_at(&old_id, "completed", None, old_finished_at);
+        begin_run_stream(&fresh_id);
+        finish_run_stream_at(&fresh_id, "completed", None, now);
+        begin_run_stream(&running_id);
+
+        cleanup_terminal_run_streams(now);
+        {
+            let streams = pi_run_streams_guard();
+            assert!(
+                !streams.contains_key(&old_id),
+                "expired terminal stream should be cleaned"
+            );
+            assert!(
+                streams.contains_key(&fresh_id),
+                "fresh terminal stream should remain available"
+            );
+            assert!(
+                streams.contains_key(&running_id),
+                "running stream should not be cleaned by terminal ttl"
+            );
+        }
+
+        agent_runtime_release_stream(fresh_id.clone()).expect("release terminal stream");
+        agent_runtime_release_stream(running_id.clone()).expect("release running stream is a no-op");
+        {
+            let streams = pi_run_streams_guard();
+            assert!(
+                !streams.contains_key(&fresh_id),
+                "manual release should remove terminal stream"
+            );
+            assert!(
+                streams.contains_key(&running_id),
+                "manual release must not remove running stream"
+            );
+        }
+
+        finish_run_stream_at(&running_id, "aborted", None, old_finished_at);
+        cleanup_terminal_run_streams(now);
+    }
+
+    #[test]
+    fn pi_run_stream_reattach_replays_after_cursor_and_subscribes() {
+        let _stream_test_guard = pi_run_stream_test_guard();
+        let request_id = format!("test-stream-reattach-{}", unique_suffix());
+        begin_run_stream(&request_id);
+        publish_host_event(
+            Some(&request_id),
+            None,
+            PiAgentHostEvent::MessageDelta {
+                delta: "first".into(),
+                channel: Some("content".into()),
+            },
+            "test stream first",
+        )
+        .expect("publish first buffered event");
+        publish_host_event(
+            Some(&request_id),
+            None,
+            PiAgentHostEvent::MessageDelta {
+                delta: "second".into(),
+                channel: Some("content".into()),
+            },
+            "test stream second",
+        )
+        .expect("publish second buffered event");
+
+        let delivered = Arc::new(Mutex::new(0usize));
+        let delivered_for_channel = delivered.clone();
+        let channel: Channel<PiAgentHostEvent> = Channel::new(move |_body| {
+            *delivered_for_channel
+                .lock()
+                .expect("delivered counter poisoned") += 1;
+            Ok(())
+        });
+
+        let snapshot = agent_runtime_reattach(request_id.clone(), Some(1), channel)
+            .expect("reattach stream");
+        assert!(snapshot.running, "reattach snapshot should still be running");
+        assert_eq!(snapshot.cursor, 2);
+        assert_eq!(
+            *delivered.lock().expect("delivered counter poisoned"),
+            2,
+            "reattach should replay the second event and its cursor"
+        );
+
+        publish_host_event(
+            Some(&request_id),
+            None,
+            PiAgentHostEvent::MessageDelta {
+                delta: "third".into(),
+                channel: Some("content".into()),
+            },
+            "test stream third",
+        )
+        .expect("publish event to reattached subscriber");
+        assert_eq!(
+            *delivered.lock().expect("delivered counter poisoned"),
+            4,
+            "reattached subscriber should receive future event and cursor"
+        );
+
+        let old_finished_at = Instant::now()
+            .checked_sub(PI_RUN_STREAM_TERMINAL_TTL + Duration::from_secs(1))
+            .expect("test instant should support subtracting terminal ttl");
+        finish_run_stream_at(&request_id, "completed", None, old_finished_at);
+        cleanup_terminal_run_streams(Instant::now());
+    }
+
+    #[test]
+    fn pi_run_stream_reattach_subscribes_before_replay_without_lock_send() {
+        let _stream_test_guard = pi_run_stream_test_guard();
+        let request_id = format!("test-stream-reattach-race-{}", unique_suffix());
+        begin_run_stream(&request_id);
+        publish_host_event(
+            Some(&request_id),
+            None,
+            PiAgentHostEvent::MessageDelta {
+                delta: "first".into(),
+                channel: Some("content".into()),
+            },
+            "test stream first",
+        )
+        .expect("publish first buffered event");
+        publish_host_event(
+            Some(&request_id),
+            None,
+            PiAgentHostEvent::MessageDelta {
+                delta: "second".into(),
+                channel: Some("content".into()),
+            },
+            "test stream second",
+        )
+        .expect("publish second buffered event");
+
+        let delivered = Arc::new(Mutex::new(0usize));
+        let lock_failures = Arc::new(Mutex::new(0usize));
+        let published_during_replay = Arc::new(Mutex::new(false));
+        let request_id_for_channel = request_id.clone();
+        let delivered_for_channel = delivered.clone();
+        let lock_failures_for_channel = lock_failures.clone();
+        let published_for_channel = published_during_replay.clone();
+        let channel: Channel<PiAgentHostEvent> = Channel::new(move |_body| {
+            if PI_RUN_STREAMS.try_lock().is_err() {
+                *lock_failures_for_channel
+                    .lock()
+                    .expect("lock failure counter poisoned") += 1;
+            }
+            {
+                let mut delivered = delivered_for_channel
+                    .lock()
+                    .expect("delivered counter poisoned");
+                *delivered += 1;
+            }
+            let should_publish = {
+                let mut already_published = published_for_channel
+                    .lock()
+                    .expect("published flag poisoned");
+                if *already_published {
+                    false
+                } else {
+                    *already_published = true;
+                    true
+                }
+            };
+            if should_publish {
+                publish_host_event(
+                    Some(&request_id_for_channel),
+                    None,
+                    PiAgentHostEvent::MessageDelta {
+                        delta: "third".into(),
+                        channel: Some("content".into()),
+                    },
+                    "test stream third during replay",
+                )
+                .expect("publish future event during replay");
+            }
+            Ok(())
+        });
+
+        let snapshot = agent_runtime_reattach(request_id.clone(), Some(1), channel)
+            .expect("reattach stream");
+        assert!(snapshot.running, "reattach snapshot should still be running");
+        assert_eq!(snapshot.cursor, 2);
+        assert_eq!(
+            *delivered.lock().expect("delivered counter poisoned"),
+            4,
+            "reattach should deliver replay event/cursor plus future event/cursor"
+        );
+        assert_eq!(
+            *lock_failures.lock().expect("lock failure counter poisoned"),
+            0,
+            "Channel.send must happen after releasing PI_RUN_STREAMS"
+        );
+        assert_eq!(
+            agent_runtime_stream_snapshot(request_id.clone())
+                .expect("snapshot")
+                .expect("stream exists")
+                .cursor,
+            3,
+            "future event published during replay should remain in the stream"
+        );
+
+        let old_finished_at = Instant::now()
+            .checked_sub(PI_RUN_STREAM_TERMINAL_TTL + Duration::from_secs(1))
+            .expect("test instant should support subtracting terminal ttl");
+        finish_run_stream_at(&request_id, "completed", None, old_finished_at);
+        cleanup_terminal_run_streams(Instant::now());
     }
 
     #[test]

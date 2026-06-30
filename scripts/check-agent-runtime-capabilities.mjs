@@ -26,6 +26,7 @@ const REQUIRED_COMMANDS = [
   'agent_runtime_abort',
   'agent_runtime_answer',
   'agent_runtime_stream_snapshot',
+  'agent_runtime_release_stream',
   'agent_runtime_reattach',
   'agent_runtime_status',
 ];

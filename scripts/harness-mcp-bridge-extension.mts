@@ -7,7 +7,8 @@
  * `ctx.ui.confirm`. No Pi SDK, no host process. Proves: the registered schema is
  * ALWAYS exactly 3 tools (token-proxy invariant) regardless of tool count;
  * search/describe shapes; mcp_call routes to requestMcpResult; a write-class tool
- * pauses for confirm and a deny blocks it; a read-only tool never prompts.
+ * pauses for confirm; a deny blocks it; a read-only tool never prompts; write
+ * execution fails closed unless it can consume an exact approval token.
  *
  * Inject-proof (run manually, then revert): make the gate confirm EVERY mcp_call
  * (drop the isWriteMcpTool check) → check (8) read-tool-no-prompt fails; OR make
@@ -19,11 +20,12 @@ import assert from 'node:assert/strict';
 import {
   createMcpBridgeExtensionFactory,
   isWriteMcpTool,
+  MCP_APPROVAL_TOKEN_TTL_MS,
 } from './pi-mcp-bridge-extension.mjs';
 
 let passed = 0;
 let failed = 0;
-const TOTAL = 14;
+const TOTAL = 19;
 
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
   try {
@@ -38,6 +40,9 @@ async function check(name: string, run: () => void | Promise<void>): Promise<voi
 }
 
 type Tool = Record<string, unknown> & { name: string };
+type McpCallTool = Record<string, unknown> & {
+  execute: (id: string, p: unknown) => Promise<{ content: Array<{ text?: string }>; isError?: boolean }>;
+};
 
 function makeFakePi() {
   const registered: Array<Record<string, unknown>> = [];
@@ -73,6 +78,10 @@ function build(mcpTools: Tool[], requestMcpResult: (s: string, t: string, a: obj
       execute: (id: string, p: unknown) => Promise<{ content: Array<{ text?: string }>; isError?: boolean }>;
     };
   return { ...env, tool };
+}
+
+function mcpCallTool(env: { registered: Array<Record<string, unknown>> }): McpCallTool {
+  return env.registered.find((t) => t.name === 'mcp_call') as McpCallTool;
 }
 
 const noop = async () => ({ ok: true, content: [] });
@@ -143,9 +152,7 @@ async function main(): Promise<void> {
       rootRunId: 'run-1',
       employeeId: 'emp-1',
     } as never)(env.pi as never);
-    const tool = env.registered.find((t) => t.name === 'mcp_call') as Record<string, unknown> & {
-      execute: (id: string, p: unknown) => Promise<{ content: Array<{ text?: string }>; isError?: boolean }>;
-    };
+    const tool = mcpCallTool(env);
     await tool.execute('1', { name: 'read_file', input: { path: 'a' } });
     assert.equal(emitted.length, 1);
     assert.deepEqual(
@@ -265,23 +272,26 @@ async function main(): Promise<void> {
 
   await check('(12) write MCP execution emits human_approved audit status', async () => {
     const emitted: unknown[] = [];
+    const calls: Array<[string, string, object]> = [];
     const env = makeFakePi();
     createMcpBridgeExtensionFactory({
       mcpTools: [WRITE_TOOL],
-      requestMcpResult: async () => ({ ok: true, content: [{ type: 'text', text: 'ok' }] }),
+      requestMcpResult: async (server: string, t: string, args: object) => {
+        calls.push([server, t, args]);
+        return { ok: true, content: [{ type: 'text', text: 'ok' }] };
+      },
       emit: (line: unknown) => emitted.push(line),
       threadId: 'thread-1',
       rootRunId: 'run-1',
       employeeId: 'emp-1',
     } as never)(env.pi as never);
-    const tool = env.registered.find((t) => t.name === 'mcp_call') as Record<string, unknown> & {
-      execute: (id: string, p: unknown) => Promise<{ content: Array<{ text?: string }>; isError?: boolean }>;
-    };
+    const tool = mcpCallTool(env);
     await env.handler()!(
-      { toolName: 'mcp_call', input: { name: 'write_file' } },
+      { toolName: 'mcp_call', toolCallId: 'call-a', input: { name: 'write_file', input: { path: 'a' } } },
       { ui: { confirm: async () => true } },
     );
-    await tool.execute('1', { name: 'write_file', input: { path: 'a' } });
+    await tool.execute('call-a', { name: 'write_file', input: { path: 'a' } });
+    assert.deepEqual(calls[0], ['filesystem', 'write_file', { path: 'a' }]);
     assert.equal(
       (emitted[0] as { payload?: { approvalStatus?: string; approved?: boolean } }).payload
         ?.approvalStatus,
@@ -290,27 +300,186 @@ async function main(): Promise<void> {
     assert.equal((emitted[0] as { payload?: { approved?: boolean } }).payload?.approved, true);
   });
 
-  await check('(13) write MCP execution without gate does not fake approval', async () => {
+  await check('(13) write MCP execution without gate fails closed before server call', async () => {
     const emitted: unknown[] = [];
     const env = makeFakePi();
+    let called = false;
     createMcpBridgeExtensionFactory({
       mcpTools: [WRITE_TOOL],
-      requestMcpResult: async () => ({ ok: true, content: [{ type: 'text', text: 'ok' }] }),
+      requestMcpResult: async () => {
+        called = true;
+        return { ok: true, content: [{ type: 'text', text: 'ok' }] };
+      },
       emit: (line: unknown) => emitted.push(line),
       threadId: 'thread-1',
       rootRunId: 'run-1',
       employeeId: 'emp-1',
     } as never)(env.pi as never);
-    const tool = env.registered.find((t) => t.name === 'mcp_call') as Record<string, unknown> & {
-      execute: (id: string, p: unknown) => Promise<{ content: Array<{ text?: string }>; isError?: boolean }>;
-    };
-    await tool.execute('1', { name: 'write_file', input: { path: 'a' } });
+    const tool = mcpCallTool(env);
+    const res = await tool.execute('1', { name: 'write_file', input: { path: 'a' } });
+    assert.equal(called, false, 'missing approval must not reach the MCP server');
+    assert.equal(res.isError, true);
+    assert.match(res.content[0].text ?? '', /requires approval/);
     assert.equal(
-      (emitted[0] as { payload?: { approvalStatus?: string; approved?: boolean } }).payload
+      (emitted[0] as { payload?: { approvalStatus?: string; approved?: boolean; error?: string } }).payload
         ?.approvalStatus,
-      'not_required',
+      'human_denied',
     );
     assert.equal((emitted[0] as { payload?: { approved?: boolean } }).payload?.approved, false);
+    assert.equal(
+      (emitted[0] as { payload?: { error?: string } }).payload?.error,
+      'missing_required_approval',
+    );
+  });
+
+  await check('(14) write approval with toolCallId requires the same call and input', async () => {
+    const calls: Array<[string, string, object]> = [];
+    const env = makeFakePi();
+    createMcpBridgeExtensionFactory({
+      mcpTools: [WRITE_TOOL],
+      requestMcpResult: async (server: string, t: string, args: object) => {
+        calls.push([server, t, args]);
+        return { ok: true, content: [{ type: 'text', text: 'ok' }] };
+      },
+    } as never)(env.pi as never);
+    const tool = mcpCallTool(env);
+    await env.handler()!(
+      {
+        toolName: 'mcp_call',
+        toolCallId: 'call-bound',
+        input: { name: 'write_file', input: { path: 'approved' } },
+      },
+      { ui: { confirm: async () => true } },
+    );
+    const mutatedInput = await tool.execute('call-bound', {
+      name: 'write_file',
+      input: { path: 'mutated' },
+    });
+    const swappedCall = await tool.execute('different-call', {
+      name: 'write_file',
+      input: { path: 'approved' },
+    });
+    const exact = await tool.execute('call-bound', {
+      name: 'write_file',
+      input: { path: 'approved' },
+    });
+    assert.equal(mutatedInput.isError, true, 'same call id with changed input must fail closed');
+    assert.equal(swappedCall.isError, true, 'same input with different call id must fail closed');
+    assert.equal(exact.isError, undefined, 'the approved exact call/input pair still executes');
+    assert.deepEqual(calls, [['filesystem', 'write_file', { path: 'approved' }]]);
+  });
+
+  await check('(15) write approval without toolCallId falls back to exact input hash', async () => {
+    const emitted: unknown[] = [];
+    const calls: Array<[string, string, object]> = [];
+    const env = makeFakePi();
+    createMcpBridgeExtensionFactory({
+      mcpTools: [WRITE_TOOL],
+      requestMcpResult: async (server: string, t: string, args: object) => {
+        calls.push([server, t, args]);
+        return { ok: true, content: [{ type: 'text', text: 'ok' }] };
+      },
+      emit: (line: unknown) => emitted.push(line),
+      threadId: 'thread-1',
+      rootRunId: 'run-1',
+      employeeId: 'emp-1',
+    } as never)(env.pi as never);
+    const tool = mcpCallTool(env);
+    await env.handler()!(
+      { toolName: 'mcp_call', input: { name: 'write_file', input: { path: 'a', mode: '0644' } } },
+      { ui: { confirm: async () => true } },
+    );
+    const res = await tool.execute('different-call-id', {
+      name: 'write_file',
+      input: { mode: '0644', path: 'a' },
+    });
+    assert.equal(res.isError, undefined, 'same input with sorted object keys consumes hash fallback');
+    assert.deepEqual(calls, [['filesystem', 'write_file', { mode: '0644', path: 'a' }]]);
+
+    const denied = await tool.execute('different-call-id-2', {
+      name: 'write_file',
+      input: { path: 'b', mode: '0644' },
+    });
+    assert.equal(denied.isError, true, 'different input must not consume the previous approval');
+    assert.equal(calls.length, 1, 'different input must not reach the MCP server');
+    assert.equal(
+      (emitted.at(-1) as { payload?: { approvalStatus?: string; error?: string } }).payload
+        ?.approvalStatus,
+      'human_denied',
+    );
+  });
+
+  await check('(16) write approval hash keeps sparse array input distinct', async () => {
+    let calls = 0;
+    const env = makeFakePi();
+    createMcpBridgeExtensionFactory({
+      mcpTools: [WRITE_TOOL],
+      requestMcpResult: async () => {
+        calls += 1;
+        return { ok: true, content: [{ type: 'text', text: 'ok' }] };
+      },
+    } as never)(env.pi as never);
+    const tool = mcpCallTool(env);
+    await env.handler()!(
+      { toolName: 'mcp_call', input: { name: 'write_file', input: { values: [undefined] } } },
+      { ui: { confirm: async () => true } },
+    );
+    const denied = await tool.execute('different-call-id', {
+      name: 'write_file',
+      input: { values: [] },
+    });
+    assert.equal(denied.isError, true, 'sparse array-like input must not match empty array input');
+    assert.equal(calls, 0, 'hash collision must not reach the MCP server');
+  });
+
+  await check('(17) write approval hash fallback expires if execute never arrives', async () => {
+    const originalNow = Date.now;
+    let now = 1_000_000;
+    Date.now = () => now;
+    try {
+      let calls = 0;
+      const env = makeFakePi();
+      createMcpBridgeExtensionFactory({
+        mcpTools: [WRITE_TOOL],
+        requestMcpResult: async () => {
+          calls += 1;
+          return { ok: true, content: [{ type: 'text', text: 'ok' }] };
+        },
+      } as never)(env.pi as never);
+      const tool = mcpCallTool(env);
+      await env.handler()!(
+        { toolName: 'mcp_call', input: { name: 'write_file', input: { path: 'a' } } },
+        { ui: { confirm: async () => true } },
+      );
+      now += MCP_APPROVAL_TOKEN_TTL_MS + 1;
+      const denied = await tool.execute('late-call', { name: 'write_file', input: { path: 'a' } });
+      assert.equal(denied.isError, true, 'stale hash fallback token must not execute later');
+      assert.equal(calls, 0, 'expired approval must not reach the MCP server');
+    } finally {
+      Date.now = originalNow;
+    }
+  });
+
+  await check('(18) one approval token is consumed once only', async () => {
+    let calls = 0;
+    const env = makeFakePi();
+    createMcpBridgeExtensionFactory({
+      mcpTools: [WRITE_TOOL],
+      requestMcpResult: async () => {
+        calls += 1;
+        return { ok: true, content: [{ type: 'text', text: 'ok' }] };
+      },
+    } as never)(env.pi as never);
+    const tool = mcpCallTool(env);
+    await env.handler()!(
+      { toolName: 'mcp_call', toolCallId: 'call-once', input: { name: 'write_file', input: { path: 'a' } } },
+      { ui: { confirm: async () => true } },
+    );
+    const first = await tool.execute('call-once', { name: 'write_file', input: { path: 'a' } });
+    const second = await tool.execute('call-once', { name: 'write_file', input: { path: 'a' } });
+    assert.equal(first.isError, undefined);
+    assert.equal(second.isError, true);
+    assert.equal(calls, 1, 'retry without a new approval must not call the server');
   });
 
   console.log(`\n${passed}/${TOTAL} checks passed${failed ? `, ${failed} FAILED` : ''}.`);

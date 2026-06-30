@@ -53,6 +53,21 @@ export class MemoryMcpToolGrantRepository implements McpToolGrantRepository {
     this.rows.delete(keyOf(companyId, employeeId, serverName, toolName));
   }
 
+  async updateRisk(
+    companyId: string,
+    employeeId: string,
+    serverName: string,
+    toolName: string,
+    risk: Pick<McpToolGrantRow, 'risk_class' | 'risk_source' | 'trusted_server_id'>,
+  ): Promise<McpToolGrantRow | null> {
+    const key = keyOf(companyId, employeeId, serverName, toolName);
+    const row = this.rows.get(key);
+    if (!row) return null;
+    const updated = { ...row, ...risk };
+    this.rows.set(key, updated);
+    return updated;
+  }
+
   async hasGrant(
     companyId: string,
     employeeId: string,

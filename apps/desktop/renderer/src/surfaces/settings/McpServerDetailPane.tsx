@@ -17,9 +17,12 @@ import {
   type McpStatus,
   type McpToolInfo,
   grantMcpTool,
+  inferMcpGrantRiskClass,
+  inferMcpGrantRiskSource,
   isWriteMcpTool,
   revokeMcpTool,
   testMcpTool,
+  updateMcpToolGrantRisk,
   useMcpToolGrants,
 } from './settings-data.js';
 
@@ -69,6 +72,23 @@ function toolBadge(tool: McpToolInfo) {
   );
 }
 
+const MCP_RISK_OPTIONS = [
+  { value: 'read', label: 'Read' },
+  { value: 'write', label: 'Write' },
+  { value: 'destructive', label: 'Destructive' },
+  { value: 'open_world', label: 'Open world' },
+] as const;
+
+type McpGrantRiskClass = (typeof MCP_RISK_OPTIONS)[number]['value'];
+
+function riskLabel(value: McpGrantRiskClass): string {
+  return MCP_RISK_OPTIONS.find((option) => option.value === value)?.label ?? value;
+}
+
+function grantRiskStateKey(serverName: string, employeeId: string, toolName: string): string {
+  return `${employeeId}\u0000${serverName}\u0000${toolName}`;
+}
+
 export function McpServerDetailPane({
   server,
   busy,
@@ -90,6 +110,7 @@ export function McpServerDetailPane({
   const [busyTool, setBusyTool] = useState<string | null>(null);
   const [argsByTool, setArgsByTool] = useState<Record<string, string>>({});
   const [resultByTool, setResultByTool] = useState<Record<string, string>>({});
+  const [riskByTool, setRiskByTool] = useState<Record<string, McpGrantRiskClass>>({});
   const grants = useMcpToolGrants(companyId, employeeId || null);
 
   useEffect(() => {
@@ -104,11 +125,33 @@ export function McpServerDetailPane({
     );
   }, [grants.data, server.name]);
 
+  const grantsByTool = useMemo(() => {
+    return new Map(
+      (grants.data ?? [])
+        .filter((grant) => grant.serverName === server.name)
+        .map((grant) => [grant.toolName, grant] as const),
+    );
+  }, [grants.data, server.name]);
+
   async function refreshGrantViews() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['settings', 'mcp-tool-grants'] }),
       queryClient.invalidateQueries({ queryKey: ['employee-mcp-tools'] }),
     ]);
+  }
+
+  async function saveGrant(tool: McpToolInfo, riskClass: McpGrantRiskClass) {
+    if (!companyId) throw new Error('Select a company before editing MCP grants.');
+    const suggestedRisk = inferMcpGrantRiskClass(tool);
+    await grantMcpTool({
+      companyId,
+      employeeId,
+      serverName: server.name,
+      toolName: tool.name,
+      riskClass,
+      riskSource: riskClass === suggestedRisk ? inferMcpGrantRiskSource(tool) : 'human_override',
+      trustedServerId: server.id,
+    });
   }
 
   async function toggleGrant(tool: McpToolInfo) {
@@ -127,17 +170,51 @@ export function McpServerDetailPane({
         });
         toast.success(`Revoked "${tool.name}" from selected employee`);
       } else {
-        await grantMcpTool({
-          companyId,
-          employeeId,
-          serverName: server.name,
-          toolName: tool.name,
-        });
+        const key = grantRiskStateKey(server.name, employeeId, tool.name);
+        await saveGrant(tool, riskByTool[key] ?? inferMcpGrantRiskClass(tool));
         toast.success(`Granted "${tool.name}" to selected employee`);
       }
       await refreshGrantViews();
     } catch (error) {
       toast.error('MCP grant was not updated', { description: safeErrorMessage(error) });
+    } finally {
+      setBusyTool(null);
+    }
+  }
+
+  async function changeRisk(tool: McpToolInfo, riskClass: McpGrantRiskClass) {
+    if (!companyId || !employeeId) {
+      setRiskByTool((current) => ({
+        ...current,
+        [grantRiskStateKey(server.name, employeeId, tool.name)]: riskClass,
+      }));
+      return;
+    }
+    const key = grantRiskStateKey(server.name, employeeId, tool.name);
+    if (!grantedTools.has(tool.name)) {
+      setRiskByTool((current) => ({ ...current, [key]: riskClass }));
+      return;
+    }
+    setBusyTool(tool.name);
+    try {
+      const suggestedRisk = inferMcpGrantRiskClass(tool);
+      const updated = await updateMcpToolGrantRisk({
+        companyId,
+        employeeId,
+        serverName: server.name,
+        toolName: tool.name,
+        riskClass,
+        riskSource: riskClass === suggestedRisk ? inferMcpGrantRiskSource(tool) : 'human_override',
+        trustedServerId: server.id,
+      });
+      if (!updated) {
+        await saveGrant(tool, riskClass);
+      }
+      setRiskByTool((current) => ({ ...current, [key]: riskClass }));
+      await refreshGrantViews();
+      toast.success(`Updated "${tool.name}" risk to ${riskLabel(riskClass)}`);
+    } catch (error) {
+      toast.error('MCP risk class was not updated', { description: safeErrorMessage(error) });
     } finally {
       setBusyTool(null);
     }
@@ -249,6 +326,11 @@ export function McpServerDetailPane({
               {server.tools.map((tool) => {
                 const enabled = grantedTools.has(tool.name);
                 const toolBusy = busyTool === tool.name;
+                const grant = grantsByTool.get(tool.name);
+                const suggestedRisk = inferMcpGrantRiskClass(tool);
+                const riskStateKey = grantRiskStateKey(server.name, employeeId, tool.name);
+                const selectedRisk = riskByTool[riskStateKey] ?? grant?.riskClass ?? suggestedRisk;
+                const riskDrift = Boolean(grant && grant.riskClass !== suggestedRisk);
                 return (
                   <div key={tool.name} className="off-set-mcp-tool-row">
                     <div className="off-set-mcp-tool-main">
@@ -258,6 +340,12 @@ export function McpServerDetailPane({
                         <code>{tool.name}</code>
                         {toolBadge(tool)}
                       </div>
+                      <div className="off-set-mcp-risk-line">
+                        <span>Suggested {riskLabel(suggestedRisk)}</span>
+                        {riskDrift ? (
+                          <span>Saved {riskLabel(grant?.riskClass ?? suggestedRisk)}</span>
+                        ) : null}
+                      </div>
                       <p>{tool.description || 'No description provided by this MCP server.'}</p>
                       <details className="off-set-mcp-schema">
                         <summary>Input schema</summary>
@@ -265,6 +353,15 @@ export function McpServerDetailPane({
                       </details>
                     </div>
                     <div className="off-set-mcp-tool-actions">
+                      <Select
+                        aria-label={`${tool.name} grant risk class`}
+                        value={selectedRisk}
+                        disabled={toolBusy}
+                        onChange={(event) =>
+                          void changeRisk(tool, event.target.value as McpGrantRiskClass)
+                        }
+                        options={MCP_RISK_OPTIONS}
+                      />
                       <label
                         className={cn(
                           'off-set-mcp-grant-toggle',

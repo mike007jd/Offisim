@@ -1,5 +1,6 @@
 import type { InterruptedRunCard } from '@/runtime/recovery/reconcile-interrupted-runs.js';
 import { AlertTriangle, Eye, Play, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 
 interface InterruptedRunCardViewProps {
   card: InterruptedRunCard;
@@ -18,16 +19,14 @@ export function InterruptedRunCardView({
   onDiscard,
   onViewPartial,
 }: InterruptedRunCardViewProps) {
+  const [confirmingResume, setConfirmingResume] = useState(false);
   const resumeDisabled = busy || card.classification === 'incompatible';
   const handleResume = () => {
-    if (
-      card.classification === 'needs_user_confirm' &&
-      !globalThis.confirm(
-        'No durable Pi session was recorded. Resume will restart this run from its objective.',
-      )
-    ) {
+    if (card.classification === 'needs_user_confirm' && !confirmingResume) {
+      setConfirmingResume(true);
       return;
     }
+    setConfirmingResume(false);
     onResume();
   };
 
@@ -64,7 +63,9 @@ export function InterruptedRunCardView({
           title="Resume this interrupted run"
         >
           <Play aria-hidden />
-          Resume
+          {card.classification === 'needs_user_confirm' && confirmingResume
+            ? 'Confirm resume'
+            : 'Resume'}
         </button>
         <button
           type="button"

@@ -199,6 +199,7 @@ pub fn run() {
             pi_agent_host::agent_runtime_abort,
             pi_agent_host::agent_runtime_answer,
             pi_agent_host::agent_runtime_stream_snapshot,
+            pi_agent_host::agent_runtime_release_stream,
             pi_agent_host::agent_runtime_reattach,
             pi_agent_host::agent_runtime_status,
             git::git_exec,

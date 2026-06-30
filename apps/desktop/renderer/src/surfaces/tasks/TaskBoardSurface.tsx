@@ -41,6 +41,7 @@ import {
 } from './task-board-data.js';
 
 const ROW_HEIGHT = 54;
+type PendingLeaseAction = { leaseId: string; action: 'merge' | 'discard' } | null;
 const STATUS_OPTIONS: ReadonlyArray<SelectOption> = [
   { value: 'all', label: 'All statuses' },
   { value: 'running', label: 'Running' },
@@ -138,11 +139,16 @@ export function TaskBoardSurface() {
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [expandedRunIds, setExpandedRunIds] = useState<Set<string>>(() => new Set());
   const [busyRunId, setBusyRunId] = useState<string | null>(null);
+  const [pendingLeaseAction, setPendingLeaseAction] = useState<PendingLeaseAction>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     void recovery.refetch();
   }, [recovery.refetch]);
+
+  useEffect(() => {
+    setPendingLeaseAction(null);
+  }, [selectedRunId]);
 
   const employeeNames = useMemo(() => {
     const map = new Map<string, string>();
@@ -188,6 +194,7 @@ export function TaskBoardSurface() {
     count: visibleRows.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => ROW_HEIGHT,
+    getItemKey: (index) => visibleRows[index]?.row.runId ?? index,
     overscan: 8,
   });
 
@@ -302,7 +309,7 @@ export function TaskBoardSurface() {
         toast.error('This worktree is missing a project or branch.');
         return;
       }
-      if (!window.confirm(`Merge ${lease.branch} into the root workspace?`)) return;
+      setPendingLeaseAction(null);
       try {
         await recordLeaseAction(lease, 'merge_approved', 'pending_merge');
         const ops = createTauriGitWorktreeOps({ projectId: lease.projectId });
@@ -340,10 +347,7 @@ export function TaskBoardSurface() {
         toast.error('This worktree is missing a project or path.');
         return;
       }
-      if (
-        !window.confirm(`Discard worktree ${lease.cwd}? Git will refuse if it still has changes.`)
-      )
-        return;
+      setPendingLeaseAction(null);
       try {
         await recordLeaseAction(lease, 'discard_approved', lease.status);
         const ops = createTauriGitWorktreeOps({ projectId: lease.projectId });
@@ -360,6 +364,31 @@ export function TaskBoardSurface() {
       }
     },
     [leaseReviews, recordLeaseAction],
+  );
+
+  const requestMergeLease = useCallback(
+    (lease: WorkspaceLeaseReviewRow) => {
+      if (pendingLeaseAction?.leaseId !== lease.leaseId || pendingLeaseAction.action !== 'merge') {
+        setPendingLeaseAction({ leaseId: lease.leaseId, action: 'merge' });
+        return;
+      }
+      void mergeLease(lease);
+    },
+    [mergeLease, pendingLeaseAction],
+  );
+
+  const requestDiscardLease = useCallback(
+    (lease: WorkspaceLeaseReviewRow) => {
+      if (
+        pendingLeaseAction?.leaseId !== lease.leaseId ||
+        pendingLeaseAction.action !== 'discard'
+      ) {
+        setPendingLeaseAction({ leaseId: lease.leaseId, action: 'discard' });
+        return;
+      }
+      void discardLease(lease);
+    },
+    [discardLease, pendingLeaseAction],
   );
 
   const resetFilters = useCallback(() => {
@@ -649,61 +678,71 @@ export function TaskBoardSurface() {
                   <p className="off-task-detail-note">No delegated write worktrees recorded.</p>
                 ) : (
                   <div className="off-task-lease-list">
-                    {leaseReviews.rows.map((lease) => (
-                      <article className="off-task-lease" key={lease.leaseId}>
-                        <div className="off-task-lease-top">
-                          <span className={cn('off-task-lease-status', `is-${lease.status}`)}>
-                            {lease.status}
-                          </span>
-                          <span className="off-task-lease-id">{lease.runId}</span>
-                        </div>
-                        <dl className="off-task-lease-grid">
-                          <div>
-                            <dt>Branch</dt>
-                            <dd>{lease.branch || 'Not recorded'}</dd>
+                    {leaseReviews.rows.map((lease) => {
+                      const mergePending =
+                        pendingLeaseAction?.leaseId === lease.leaseId &&
+                        pendingLeaseAction.action === 'merge';
+                      const discardPending =
+                        pendingLeaseAction?.leaseId === lease.leaseId &&
+                        pendingLeaseAction.action === 'discard';
+                      return (
+                        <article className="off-task-lease" key={lease.leaseId}>
+                          <div className="off-task-lease-top">
+                            <span className={cn('off-task-lease-status', `is-${lease.status}`)}>
+                              {lease.status}
+                            </span>
+                            <span className="off-task-lease-id">{lease.runId}</span>
                           </div>
-                          <div>
-                            <dt>CWD</dt>
-                            <dd>{lease.cwd || 'Not recorded'}</dd>
+                          <dl className="off-task-lease-grid">
+                            <div>
+                              <dt>Branch</dt>
+                              <dd>{lease.branch || 'Not recorded'}</dd>
+                            </div>
+                            <div>
+                              <dt>CWD</dt>
+                              <dd>{lease.cwd || 'Not recorded'}</dd>
+                            </div>
+                            <div>
+                              <dt>Changed paths</dt>
+                              <dd>{summarizePaths(lease.changedPaths)}</dd>
+                            </div>
+                            <div>
+                              <dt>Conflicts</dt>
+                              <dd>
+                                {lease.conflicts.length > 0 ? lease.conflicts.join(', ') : 'None'}
+                              </dd>
+                            </div>
+                          </dl>
+                          {lease.reason || lease.lastActionError ? (
+                            <p className="off-task-lease-note">
+                              {lease.lastActionError || lease.reason}
+                            </p>
+                          ) : null}
+                          <div className="off-task-lease-actions">
+                            <button
+                              type="button"
+                              className="off-task-action is-primary off-focusable"
+                              disabled={
+                                !lease.branch || !lease.projectId || lease.status === 'released'
+                              }
+                              onClick={() => requestMergeLease(lease)}
+                            >
+                              {mergePending ? 'Confirm merge' : 'Merge'}
+                            </button>
+                            <button
+                              type="button"
+                              className="off-task-action is-danger off-focusable"
+                              disabled={
+                                !lease.cwd || !lease.projectId || lease.status === 'released'
+                              }
+                              onClick={() => requestDiscardLease(lease)}
+                            >
+                              {discardPending ? 'Confirm discard' : 'Discard'}
+                            </button>
                           </div>
-                          <div>
-                            <dt>Changed paths</dt>
-                            <dd>{summarizePaths(lease.changedPaths)}</dd>
-                          </div>
-                          <div>
-                            <dt>Conflicts</dt>
-                            <dd>
-                              {lease.conflicts.length > 0 ? lease.conflicts.join(', ') : 'None'}
-                            </dd>
-                          </div>
-                        </dl>
-                        {lease.reason || lease.lastActionError ? (
-                          <p className="off-task-lease-note">
-                            {lease.lastActionError || lease.reason}
-                          </p>
-                        ) : null}
-                        <div className="off-task-lease-actions">
-                          <button
-                            type="button"
-                            className="off-task-action is-primary off-focusable"
-                            disabled={
-                              !lease.branch || !lease.projectId || lease.status === 'released'
-                            }
-                            onClick={() => void mergeLease(lease)}
-                          >
-                            Merge
-                          </button>
-                          <button
-                            type="button"
-                            className="off-task-action is-danger off-focusable"
-                            disabled={!lease.cwd || !lease.projectId || lease.status === 'released'}
-                            onClick={() => void discardLease(lease)}
-                          >
-                            Discard
-                          </button>
-                        </div>
-                      </article>
-                    ))}
+                        </article>
+                      );
+                    })}
                   </div>
                 )}
               </section>

@@ -45,6 +45,7 @@ export interface TaskBoardRow {
   resultSummaryJson: string | null;
   live: boolean;
   children: TaskBoardChildRow[];
+  searchChildFiltered?: boolean;
 }
 
 export type TaskBoardChildRow = Omit<TaskBoardRow, 'children'>;
@@ -181,6 +182,28 @@ function sortRows(
   return Date.parse(b.startedAt) - Date.parse(a.startedAt);
 }
 
+function rootRowMatchesSearch(row: TaskBoardRow, q: string): boolean {
+  return [
+    row.runId,
+    row.threadId,
+    row.employeeId ?? '',
+    row.objective ?? '',
+    row.status,
+    row.source ?? '',
+  ].some((value) => value.toLowerCase().includes(q));
+}
+
+function childRowMatchesSearch(row: TaskBoardChildRow, q: string): boolean {
+  return [
+    row.runId,
+    row.employeeId ?? '',
+    row.relation ?? '',
+    row.access ?? '',
+    row.objective ?? '',
+    row.status,
+  ].some((value) => value.toLowerCase().includes(q));
+}
+
 export function useTaskBoard(companyId: string | null): TaskBoardView & {
   isLoading: boolean;
   isError: boolean;
@@ -258,29 +281,24 @@ export function filterTaskRows(
   filters: { status: TaskBoardStatus | 'all'; search: string },
 ): TaskBoardRow[] {
   const q = filters.search.trim().toLowerCase();
-  return rows.filter((row) => {
-    if (filters.status !== 'all' && row.status !== filters.status) return false;
-    if (!q) return true;
-    const ownMatch = [
-      row.runId,
-      row.threadId,
-      row.employeeId ?? '',
-      row.objective ?? '',
-      row.status,
-      row.source ?? '',
-    ].some((value) => value.toLowerCase().includes(q));
-    if (ownMatch) return true;
-    return row.children.some((child) =>
-      [
-        child.runId,
-        child.employeeId ?? '',
-        child.relation ?? '',
-        child.access ?? '',
-        child.objective ?? '',
-        child.status,
-      ].some((value) => value.toLowerCase().includes(q)),
-    );
-  });
+  const filtered: TaskBoardRow[] = [];
+  for (const row of rows) {
+    if (filters.status !== 'all' && row.status !== filters.status) continue;
+    if (!q) {
+      filtered.push(row);
+      continue;
+    }
+    const children = row.children.filter((child) => childRowMatchesSearch(child, q));
+    if (children.length > 0) {
+      filtered.push({ ...row, children, searchChildFiltered: true });
+      continue;
+    }
+    if (rootRowMatchesSearch(row, q)) {
+      filtered.push(row);
+      continue;
+    }
+  }
+  return filtered;
 }
 
 export function flattenTaskRows(
@@ -290,8 +308,10 @@ export function flattenTaskRows(
   const visible: TaskBoardVisibleRow[] = [];
   for (const row of rows) {
     visible.push({ row, level: 0, childCount: row.children.length });
-    if (!expandedRunIds.has(row.runId)) continue;
-    for (const child of row.children) {
+    const expanded = expandedRunIds.has(row.runId);
+    const children = expanded || row.searchChildFiltered ? row.children : [];
+    if (!expanded && children.length === 0) continue;
+    for (const child of children) {
       visible.push({ row: child, level: 1, childCount: 0 });
     }
   }

@@ -12,7 +12,7 @@ import {
 const rows: AgentRunRow[] = [
   {
     run_id: 'root-a',
-    thread_id: 'thread-a',
+    thread_id: 'chat-a',
     company_id: 'co',
     project_id: 'project-a',
     parent_run_id: null,
@@ -31,7 +31,7 @@ const rows: AgentRunRow[] = [
   },
   {
     run_id: 'child-a1',
-    thread_id: 'thread-a',
+    thread_id: 'chat-a',
     company_id: 'co',
     project_id: 'project-a',
     parent_run_id: 'root-a',
@@ -50,7 +50,7 @@ const rows: AgentRunRow[] = [
   },
   {
     run_id: 'child-a2',
-    thread_id: 'thread-a',
+    thread_id: 'chat-a',
     company_id: 'co',
     project_id: 'project-a',
     parent_run_id: 'root-a',
@@ -92,12 +92,56 @@ assert.deepEqual(
 const childMatch = filterTaskRows(tree, { status: 'all', search: 'reviewer' });
 assert.equal(childMatch.length, 1, 'search matches child employee');
 assert.equal(childMatch[0]?.runId, 'root-a', 'matching child keeps root visible');
+const visibleRunIdsForSearch = (search: string) =>
+  flattenTaskRows(filterTaskRows(tree, { status: 'all', search }), new Set()).map(
+    (item) => item.row.runId,
+  );
+assert.deepEqual(
+  visibleRunIdsForSearch('reviewer'),
+  ['root-a', 'child-a2'],
+  'searching a child employee auto-expands the matching child row',
+);
+assert.deepEqual(
+  visibleRunIdsForSearch('running'),
+  ['root-a', 'child-a2'],
+  'mixed root and child search match still auto-expands the matching child row',
+);
+assert.deepEqual(
+  visibleRunIdsForSearch('review'),
+  ['root-a', 'child-a2'],
+  'searching a child relation auto-expands the matching child row',
+);
+assert.deepEqual(
+  visibleRunIdsForSearch('read'),
+  ['root-a', 'child-a2'],
+  'searching a child access mode auto-expands the matching child row',
+);
+assert.deepEqual(
+  visibleRunIdsForSearch('writer'),
+  ['root-a', 'child-a2', 'child-a1'],
+  'searching a child objective auto-expands all matching child rows in task order',
+);
+assert.deepEqual(
+  visibleRunIdsForSearch('export flow'),
+  ['root-a'],
+  'root-only search match stays collapsed',
+);
+assert.deepEqual(
+  visibleRunIdsForSearch('chat-a'),
+  ['root-a'],
+  'thread/root-only search match stays collapsed',
+);
+assert.deepEqual(
+  flattenTaskRows(tree, new Set()).map((item) => item.row.runId),
+  ['root-a'],
+  'clearing search restores the collapsed tree',
+);
 
 const leaseEvents: AgentEventRow[] = [
   {
     event_id: 'evt-1',
     project_id: 'project-a',
-    thread_id: 'thread-a',
+    thread_id: 'chat-a',
     company_id: 'co',
     agent_name: 'dev-1',
     event_type: WORKSPACE_LEASE_SNAPSHOT_EVENT,
@@ -123,7 +167,7 @@ const leaseEvents: AgentEventRow[] = [
   {
     event_id: 'evt-2',
     project_id: 'project-a',
-    thread_id: 'thread-a',
+    thread_id: 'chat-a',
     company_id: 'co',
     agent_name: 'workspace-lease-review',
     event_type: WORKSPACE_LEASE_ACTION_EVENT,

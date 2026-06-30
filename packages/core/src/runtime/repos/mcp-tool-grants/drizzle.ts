@@ -55,6 +55,33 @@ export function createMcpToolGrantsDrizzleRepos(db: Db): McpToolGrantsDrizzleRep
         )
         .run();
     },
+    async updateRisk(companyId, employeeId, serverName, toolName, risk) {
+      db.update(schema.mcpToolGrants)
+        .set(risk)
+        .where(
+          and(
+            eq(schema.mcpToolGrants.company_id, companyId),
+            eq(schema.mcpToolGrants.employee_id, employeeId),
+            eq(schema.mcpToolGrants.server_name, serverName),
+            eq(schema.mcpToolGrants.tool_name, toolName),
+          ),
+        )
+        .run();
+      const rows = db
+        .select()
+        .from(schema.mcpToolGrants)
+        .where(
+          and(
+            eq(schema.mcpToolGrants.company_id, companyId),
+            eq(schema.mcpToolGrants.employee_id, employeeId),
+            eq(schema.mcpToolGrants.server_name, serverName),
+            eq(schema.mcpToolGrants.tool_name, toolName),
+          ),
+        )
+        .limit(1)
+        .all() as McpToolGrantRow[];
+      return rows[0] ?? null;
+    },
     async hasGrant(companyId, employeeId, serverName, toolName) {
       const rows = db
         .select({ grant_id: schema.mcpToolGrants.grant_id })

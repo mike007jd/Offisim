@@ -510,6 +510,13 @@ export type NewMcpToolGrant = Omit<
 export interface McpToolGrantRepository {
   create(grant: NewMcpToolGrant): Promise<McpToolGrantRow>;
   listByEmployee(companyId: string, employeeId: string): Promise<McpToolGrantRow[]>;
+  updateRisk(
+    companyId: string,
+    employeeId: string,
+    serverName: string,
+    toolName: string,
+    risk: Pick<McpToolGrantRow, 'risk_class' | 'risk_source' | 'trusted_server_id'>,
+  ): Promise<McpToolGrantRow | null>;
   delete(companyId: string, employeeId: string, serverName: string, toolName: string): Promise<void>;
   hasGrant(companyId: string, employeeId: string, serverName: string, toolName: string): Promise<boolean>;
 }

@@ -471,6 +471,7 @@ mod tests {
             DROP TABLE IF EXISTS loop_skill_bindings;\n\
             DROP TABLE IF EXISTS loop_revisions;\n\
             DROP TABLE IF EXISTS loop_definitions;\n\
+            DROP TABLE IF EXISTS mcp_tool_grants;\n\
             ALTER TABLE collaboration_threads DROP COLUMN capability_profile;";
         apply_sql_and_stamp(&migrated, drop_loop_objects, 4, "rewind to v4 (drop loop objects)")
             .await
@@ -538,6 +539,7 @@ mod tests {
             .expect("seed v6 baseline");
         let drop_turns_objects = "\
             DROP TABLE IF EXISTS collaboration_turns;\n\
+            DROP TABLE IF EXISTS mcp_tool_grants;\n\
             ALTER TABLE collaboration_threads DROP COLUMN capability_profile;";
         apply_sql_and_stamp(&migrated, drop_turns_objects, 5, "rewind to v5 (drop turns objects)")
             .await
@@ -598,6 +600,7 @@ mod tests {
         let rewind_to_v6 = "\
             PRAGMA defer_foreign_keys = ON;\n\
             ALTER TABLE collaboration_threads DROP COLUMN capability_profile;\n\
+            DROP TABLE IF EXISTS mcp_tool_grants;\n\
             DROP TABLE agent_runs;\n\
             CREATE TABLE agent_runs (\n\
               run_id              TEXT PRIMARY KEY,\n\
@@ -701,6 +704,9 @@ mod tests {
             .expect("seed v8 baseline");
         let rewind_to_v7 = "\
             PRAGMA defer_foreign_keys = ON;\n\
+            DROP INDEX IF EXISTS idx_agent_runs_company_project_status;\n\
+            ALTER TABLE agent_runs DROP COLUMN project_id;\n\
+            ALTER TABLE agent_runs DROP COLUMN runtime_context_json;\n\
             ALTER TABLE collaboration_threads DROP COLUMN capability_profile;\n\
             DROP TABLE IF EXISTS mcp_tool_grants;\n\
             DROP TABLE mcp_audit_log;\n\

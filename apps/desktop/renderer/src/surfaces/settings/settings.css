@@ -973,6 +973,23 @@
   line-height: 1.5;
 }
 
+.off-set-mcp-risk-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--off-sp-2);
+  margin-top: var(--off-sp-2);
+  font-size: var(--off-fs-xs);
+  color: var(--off-ink-4);
+}
+
+.off-set-mcp-risk-line span {
+  min-width: 0;
+  padding: 2px var(--off-sp-2);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-2);
+}
+
 .off-set-mcp-tool-badge {
   height: 18px;
   display: inline-flex;

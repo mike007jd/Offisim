@@ -46,6 +46,7 @@ export function RecoveryPanel() {
   });
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [busyRunId, setBusyRunId] = useState<string | null>(null);
+  const [confirmingResumeRunId, setConfirmingResumeRunId] = useState<string | null>(null);
 
   const visibleCards = useMemo(() => cards.slice(0, 4), [cards]);
   if (visibleCards.length === 0) return null;
@@ -71,11 +72,14 @@ export function RecoveryPanel() {
     }
   };
 
-  const confirmResume = (card: InterruptedRunCard): boolean =>
-    card.classification !== 'needs_user_confirm' ||
-    globalThis.confirm(
-      'No durable Pi session was recorded. Resume will restart this run from its objective.',
-    );
+  const requestResume = (card: InterruptedRunCard) => {
+    if (card.classification === 'needs_user_confirm' && confirmingResumeRunId !== card.runId) {
+      setConfirmingResumeRunId(card.runId);
+      return;
+    }
+    setConfirmingResumeRunId(null);
+    void runAction(card.runId, () => resume(card.runId));
+  };
 
   return (
     <aside className="off-recovery" aria-label="Interrupted runs">
@@ -115,13 +119,13 @@ export function RecoveryPanel() {
                   type="button"
                   className="off-recovery-btn off-focusable"
                   disabled={busy || card.classification === 'incompatible'}
-                  onClick={() => {
-                    if (!confirmResume(card)) return;
-                    void runAction(card.runId, () => resume(card.runId));
-                  }}
+                  onClick={() => requestResume(card)}
                 >
                   <Icon icon={RotateCcw} size="sm" />
-                  Resume
+                  {card.classification === 'needs_user_confirm' &&
+                  confirmingResumeRunId === card.runId
+                    ? 'Confirm resume'
+                    : 'Resume'}
                 </button>
                 <button
                   type="button"
