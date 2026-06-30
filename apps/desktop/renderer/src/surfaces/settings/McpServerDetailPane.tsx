@@ -184,10 +184,7 @@ export function McpServerDetailPane({
 
   async function changeRisk(tool: McpToolInfo, riskClass: McpGrantRiskClass) {
     if (!companyId || !employeeId) {
-      setRiskByTool((current) => ({
-        ...current,
-        [grantRiskStateKey(server.name, employeeId, tool.name)]: riskClass,
-      }));
+      toast.error('Select a company employee before editing MCP grant risk.');
       return;
     }
     const key = grantRiskStateKey(server.name, employeeId, tool.name);
@@ -356,7 +353,7 @@ export function McpServerDetailPane({
                       <Select
                         aria-label={`${tool.name} grant risk class`}
                         value={selectedRisk}
-                        disabled={toolBusy}
+                        disabled={toolBusy || !companyId || !employeeId}
                         onChange={(event) =>
                           void changeRisk(tool, event.target.value as McpGrantRiskClass)
                         }
