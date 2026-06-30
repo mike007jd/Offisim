@@ -20,7 +20,7 @@ export interface DefaultPrefabPlacement {
   rotation?: 0 | 90 | 180 | 270;
 }
 
-export type ZoneLayoutType =
+type ZoneLayoutType =
   | 'department'
   | 'library'
   | 'rest_area'
