@@ -24,6 +24,7 @@ import type {
   ConversationRunsSnapshot,
 } from '../apps/desktop/renderer/src/assistant/runtime/conversation-run-controller.js';
 import { projectEmployeeWorkloads } from '../apps/desktop/renderer/src/assistant/runtime/conversation-run-projections.js';
+import { groupedWorkload } from '../apps/desktop/renderer/src/surfaces/office/scene/workload-chips.js';
 
 let failures = 0;
 let checks = 0;
@@ -568,6 +569,103 @@ const sum = (record: Readonly<Record<string, number>>): number =>
       w.workloadSummary.byStatus.artifact === 2 &&
       sum(w.workloadSummary.byStatus) === 4,
     `byStatus ${JSON.stringify(w?.workloadSummary.byStatus)}`,
+  );
+}
+
+// === End-to-end acceptance: snapshot → projectEmployeeWorkloads → groupedWorkload
+// Ties the projection layer (INC-2) and the bubble grouping (WAVE 1) together so
+// the PRD acceptance criteria are proven through the real pipeline, not just each
+// layer in isolation.
+console.log('\n[acceptance] snapshot → projection → grouped bubble');
+
+// --- 1 active run → one actor, no ×N, one chip ------------------------------
+{
+  const snap = snapshot([runSnapshot({ attemptId: 'solo', employeeId: 'e1', phase: 'running' })]);
+  const w = projectEmployeeWorkloads(snap, PRJ, () => null).get('e1');
+  const g = w ? groupedWorkload(w) : null;
+  check(
+    'acceptance: 1 run → tier small, no ×N badge',
+    g?.tier === 'small' && g.countLabel === null,
+    `tier ${g?.tier} count ${g?.countLabel}`,
+  );
+}
+
+// --- 3 active runs → one actor, ×3, small chips -----------------------------
+{
+  const snap = snapshot([
+    runSnapshot({
+      attemptId: 'lead3',
+      employeeId: 'e3',
+      phase: 'running',
+      delegations: [
+        { runId: 'c1', parentRunId: 'lead3', employeeId: 'e3', objective: 'x', state: 'running' },
+        { runId: 'c2', parentRunId: 'lead3', employeeId: 'e3', objective: 'y', state: 'running' },
+      ],
+    }),
+  ]);
+  const w = projectEmployeeWorkloads(snap, PRJ, () => null).get('e3');
+  const g = w ? groupedWorkload(w) : null;
+  check(
+    'acceptance: 3 runs → tier small, ×3, ≤3 chips',
+    g?.tier === 'small' && g.countLabel === '×3' && g.chips.length <= 3,
+    `tier ${g?.tier} count ${g?.countLabel} chips ${g?.chips.length}`,
+  );
+}
+
+// --- 58 active runs → one actor, ×58, grouped distribution ------------------
+{
+  const N = 58;
+  const kinds = ['research', 'implement', 'review'] as const;
+  const delegations = Array.from({ length: N - 1 }, (_v, i) => ({
+    runId: `d${String(i).padStart(3, '0')}`,
+    parentRunId: 'big',
+    employeeId: 'e58',
+    objective: 'o',
+    state: 'running' as const,
+  }));
+  const snap = snapshot([
+    runSnapshot({ attemptId: 'big', employeeId: 'e58', phase: 'running', delegations }),
+  ]);
+  const beatFor = (runId: string): SceneBeat | null =>
+    runId === 'big' ? null : beat(runId, { workKind: kinds[runId.charCodeAt(3) % kinds.length] });
+  const w = projectEmployeeWorkloads(snap, PRJ, beatFor).get('e58');
+  const g = w ? groupedWorkload(w) : null;
+  check(
+    'acceptance: 58 runs → one actor, ×58, tier large',
+    w?.activeCount === 58 && g?.tier === 'large' && g.countLabel === '×58',
+    `active ${w?.activeCount} tier ${g?.tier} count ${g?.countLabel}`,
+  );
+  check(
+    'acceptance: 58 runs → grouped distribution chips (not per-run labels)',
+    g != null && g.chips.length > 0 && g.chips.every((c) => typeof c.count === 'number'),
+    `chips ${JSON.stringify(g?.chips)}`,
+  );
+}
+
+// --- blocked state outranks normal work in the bubble -----------------------
+{
+  const snap = snapshot([
+    runSnapshot({
+      attemptId: 'work',
+      employeeId: 'eb',
+      phase: 'running',
+      delegations: [
+        { runId: 'blk', parentRunId: 'work', employeeId: 'eb', objective: 'q', state: 'running' },
+      ],
+    }),
+  ]);
+  const blocked = beat('blk', {
+    workKind: 'compute',
+    resource: { kind: 'token', severity: 'exhausted', label: 'Token exhausted' },
+  });
+  const beatFor = (runId: string): SceneBeat | null =>
+    runId === 'blk' ? blocked : runId === 'work' ? beat('work', { workKind: 'implement' }) : null;
+  const w = projectEmployeeWorkloads(snap, PRJ, beatFor).get('eb');
+  const g = w ? groupedWorkload(w) : null;
+  check(
+    'acceptance: blocked beat surfaces as the dominant + topIssue',
+    w?.dominant?.runId === 'blk' && g?.topIssue?.kind === 'resource',
+    `dominant ${w?.dominant?.runId} topIssue ${g?.topIssue?.kind}`,
   );
 }
 
