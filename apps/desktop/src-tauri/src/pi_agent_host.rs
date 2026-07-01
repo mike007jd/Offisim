@@ -796,6 +796,16 @@ fn sidecar_payload<R: tauri::Runtime>(
         // employees the root agent may delegate to. All forwarded verbatim.
         "threadId": req.thread_id,
         "companyId": req.company_id,
+        // The project owning this workspace + the speaking employee. The host's
+        // delegation supervisor stamps child agentRun events with `projectId`
+        // (so the renderer's task board / recovery scope children to the same
+        // project), and the publish-artifact / mission-bridge extensions stamp
+        // their events with `employeeId`. Both are optional and forwarded
+        // verbatim; a missing `projectId` previously left the host referencing an
+        // undeclared identifier and crashing every rostered run with
+        // "projectId is not defined".
+        "projectId": req.project_id,
+        "employeeId": req.employee_id,
         "rootRunId": req.root_run_id,
         "roster": req.roster,
         // Verified Missions context (MS-005): forwarded verbatim. The host

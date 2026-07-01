@@ -1023,6 +1023,13 @@ async function runPrompt(payload) {
   // maxDepth. When delegation is on, the fixed-flow guidance is appended too.
   const rootRunId = asNonEmptyString(payload.rootRunId);
   const threadId = asNonEmptyString(payload.threadId);
+  // The project owning this workspace, forwarded verbatim by the Tauri host. The
+  // delegation supervisor stamps every child agentRun event with it so the
+  // renderer scopes children to the same project. Optional (null on a run with
+  // no bound project) — but it MUST be declared here: the supervisor args object
+  // below references `projectId`, and a bare undeclared reference throws
+  // "projectId is not defined", failing every rostered Office run at bootstrap.
+  const projectId = asNonEmptyString(payload.projectId);
   const roster = Array.isArray(payload.roster) ? payload.roster : [];
   const delegationEnabled = Boolean(rootRunId && threadId && roster.length > 0);
   // Publish-artifact: register the `publish_artifact` tool whenever the run has a
