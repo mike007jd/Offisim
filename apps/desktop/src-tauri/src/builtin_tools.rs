@@ -4,7 +4,7 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::{Component, Path, PathBuf};
 use std::process::Stdio;
-use tauri::{Manager, Runtime};
+use tauri::Runtime;
 use tokio::io::{AsyncReadExt, BufReader};
 use tokio::process::Command;
 use tokio::time::{timeout, Duration};
@@ -341,7 +341,8 @@ fn redacted_text(bytes: &[u8], max_bytes: usize) -> String {
 }
 
 fn append_shell_audit<R: Runtime>(app: &tauri::AppHandle<R>, input: ShellAuditInput<'_>) {
-    let Some(dir) = app.path().app_local_data_dir().ok() else {
+    let _ = app;
+    let Ok(dir) = crate::local_paths::offisim_home_dir() else {
         return;
     };
     let _ = std::fs::create_dir_all(&dir);

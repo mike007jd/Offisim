@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
 use std::sync::Arc;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, State};
 use tokio::sync::Mutex;
 
 /// IMPORTANT: Uses tokio::sync::Mutex (NOT std::sync::Mutex) because
@@ -21,10 +21,8 @@ fn audit_event<R: tauri::Runtime>(
     app: &AppHandle<R>,
     event: serde_json::Value,
 ) -> Result<(), McpBridgeError> {
-    let dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|err| McpBridgeError::Registry(err.to_string()))?;
+    let _ = app;
+    let dir = crate::local_paths::offisim_home_dir().map_err(McpBridgeError::Registry)?;
     fs::create_dir_all(&dir).map_err(|err| McpBridgeError::Registry(err.to_string()))?;
     let path = dir.join("mcp-stdio-audit.jsonl");
     let mut file = fs::OpenOptions::new()
@@ -208,10 +206,8 @@ pub async fn mcp_connect_registered(
             // cwd jail = app-owned local data root. Relative command/arg paths
             // resolve here, and installed-asset absolute command paths must
             // canonicalize inside it (enforced in ManagedProcess::spawn).
-            let jail_dir = app
-                .path()
-                .app_local_data_dir()
-                .map_err(|err| McpBridgeError::Registry(err.to_string()))?;
+            let jail_dir =
+                crate::local_paths::offisim_home_dir().map_err(McpBridgeError::Registry)?;
             fs::create_dir_all(&jail_dir)
                 .map_err(|err| McpBridgeError::Registry(err.to_string()))?;
             let result = spawn_managed_process(

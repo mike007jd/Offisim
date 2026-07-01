@@ -26,9 +26,6 @@
     }
   },
   "plugins": {
-    "sql": {
-      "preload": ["sqlite:offisim.db"]
-    },
     "deep-link": {
       "mobile": [],
       "desktop": {

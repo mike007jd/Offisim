@@ -1,6 +1,6 @@
 //! Binary-safe IPC for chat attachments.
 //!
-//! Files land at `<app_local_data_dir>/attachments/<companyId>/<threadId>/<attachmentId>.bin`
+//! Files land at `~/.offisim/attachments/<companyId>/<threadId>/<attachmentId>.bin`
 //! with a sibling `<attachmentId>.meta.json`. Bytes cross the JS↔Rust boundary
 //! as raw `Vec<u8>` (no base64 inflation).
 //!
@@ -15,7 +15,7 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
-use tauri::{Manager, Runtime};
+use tauri::Runtime;
 use thiserror::Error;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
@@ -112,11 +112,8 @@ fn assert_attachment_id(s: &str) -> Result<(), AttachmentError> {
 }
 
 fn attachments_root<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, AttachmentError> {
-    let base = app
-        .path()
-        .app_local_data_dir()
-        .map_err(|err| AttachmentError::Io(format!("app_local_data_dir: {err}")))?;
-    Ok(base.join(ATTACHMENTS_DIR_NAME))
+    let _ = app;
+    crate::local_paths::offisim_storage_dir(ATTACHMENTS_DIR_NAME).map_err(AttachmentError::Io)
 }
 
 fn parse_vault_ref(vault_ref: &str) -> Result<(String, String, String), AttachmentError> {

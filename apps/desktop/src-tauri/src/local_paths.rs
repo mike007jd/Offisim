@@ -9,6 +9,28 @@ use tokio::process::Command;
 
 pub(crate) const OVERBROAD_WORKSPACE_ROOT_ERROR: &str =
     "workspace_root is too broad; bind a specific project folder";
+const OFFISIM_HOME_DIR: &str = ".offisim";
+const LEGACY_STORAGE_CHILDREN: &[&str] = &[
+    ".DS_Store",
+    "offisim.db",
+    "offisim.db-wal",
+    "offisim.db-shm",
+    "offisim.sqlite3",
+    "offisim.db.pre-m2-backup",
+    "offisim.db.pre-vm002-backup",
+    "offisim.db.pre-vm002-backup-wal",
+    "offisim.db.pre-vm002-backup-shm",
+    "mcp-servers.json",
+    "mcp-stdio-audit.jsonl",
+    "shell-execution-audit.jsonl",
+    "trusted-sidecar-audit.jsonl",
+    "secret.key",
+    "workspaces",
+    "vault",
+    "attachments",
+    "exports",
+    "pi-agent-sessions",
+];
 
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -37,6 +59,90 @@ pub struct LocalExportResult {
 pub struct RuntimeVaultFileStat {
     mtime_ms: u128,
     size: u64,
+}
+
+pub(crate) fn offisim_home_dir() -> Result<PathBuf, String> {
+    dirs::home_dir()
+        .map(|home| home.join(OFFISIM_HOME_DIR))
+        .ok_or_else(|| "Resolve user home directory".to_string())
+}
+
+pub(crate) fn offisim_storage_path(child: impl AsRef<Path>) -> Result<PathBuf, String> {
+    let root = offisim_home_dir()?;
+    fs::create_dir_all(&root).map_err(|err| format!("Create ~/.offisim directory: {err}"))?;
+    Ok(root.join(child))
+}
+
+pub(crate) fn offisim_storage_dir(child: impl AsRef<Path>) -> Result<PathBuf, String> {
+    let dir = offisim_storage_path(child)?;
+    fs::create_dir_all(&dir).map_err(|err| format!("Create Offisim storage directory: {err}"))?;
+    Ok(dir)
+}
+
+pub(crate) fn offisim_sqlite_url() -> Result<String, String> {
+    let db_path = offisim_storage_path("offisim.db")?;
+    Ok(format!("sqlite://{}?mode=rwc", db_path.to_string_lossy()))
+}
+
+pub(crate) fn purge_legacy_app_storage<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+) -> Result<(), String> {
+    let root = offisim_home_dir()?;
+    fs::create_dir_all(&root).map_err(|err| format!("Create ~/.offisim directory: {err}"))?;
+
+    let mut legacy_roots = Vec::new();
+    for candidate in [
+        app.path().app_config_dir().ok(),
+        app.path().app_data_dir().ok(),
+        app.path().app_local_data_dir().ok(),
+    ]
+    .into_iter()
+    .flatten()
+    {
+        if candidate != root && !legacy_roots.iter().any(|known| known == &candidate) {
+            legacy_roots.push(candidate);
+        }
+    }
+
+    for legacy_root in legacy_roots {
+        remove_legacy_children(&legacy_root)?;
+    }
+    Ok(())
+}
+
+fn remove_legacy_children(root: &Path) -> Result<(), String> {
+    if !root.exists() {
+        return Ok(());
+    }
+    let metadata = fs::symlink_metadata(root)
+        .map_err(|err| format!("Inspect legacy Offisim storage: {err}"))?;
+    if !metadata.is_dir() || metadata.file_type().is_symlink() {
+        return Ok(());
+    }
+
+    for child in LEGACY_STORAGE_CHILDREN {
+        let path = root.join(child);
+        if path.exists() {
+            remove_legacy_path(&path)?;
+        }
+    }
+    Ok(())
+}
+
+fn remove_legacy_path(path: &Path) -> Result<(), String> {
+    if !path.exists() {
+        return Ok(());
+    }
+    let metadata = fs::symlink_metadata(path)
+        .map_err(|err| format!("Inspect legacy Offisim storage: {err}"))?;
+    if metadata.file_type().is_symlink() || metadata.is_file() {
+        fs::remove_file(path).map_err(|err| format!("Remove legacy Offisim storage file: {err}"))
+    } else if metadata.is_dir() {
+        fs::remove_dir_all(path)
+            .map_err(|err| format!("Remove legacy Offisim storage directory: {err}"))
+    } else {
+        Ok(())
+    }
 }
 
 #[tauri::command]
@@ -93,7 +199,7 @@ pub async fn reveal_local_path<R: Runtime>(
 /// sandbox-jailable working directory even before the user binds a project to a
 /// real repo folder — mirroring how Codex / Claude Code default to a working
 /// directory rather than refusing to run tools. The returned path is a deep
-/// app-data path (`…/com.offisim.desktop/workspaces/<companyId>`), so it has
+/// user-owned path (`~/.offisim/workspaces/<companyId>`), so it has
 /// well over two path components and is never treated as an overbroad root by
 /// the builtin-tool sandbox.
 #[tauri::command]
@@ -155,11 +261,8 @@ pub async fn delete_company_workspace<R: Runtime>(
 }
 
 fn company_workspace_parent<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
-    let base = app
-        .path()
-        .app_local_data_dir()
-        .map_err(|err| format!("Resolve app local data directory: {err}"))?;
-    Ok(base.join("workspaces"))
+    let _ = app;
+    offisim_storage_dir("workspaces")
 }
 
 fn company_workspace_dir<R: Runtime>(
@@ -507,19 +610,13 @@ async fn reveal_path_in_file_manager(target: &Path) -> Result<(), String> {
 }
 
 fn local_exports_dir<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
-    let base = app
-        .path()
-        .app_local_data_dir()
-        .map_err(|err| format!("Resolve app local data directory: {err}"))?;
-    Ok(base.join("exports"))
+    let _ = app;
+    offisim_storage_dir("exports")
 }
 
 fn runtime_vault_dir<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
-    let base = app
-        .path()
-        .app_local_data_dir()
-        .map_err(|err| format!("Resolve app local data directory: {err}"))?;
-    Ok(base.join("vault"))
+    let _ = app;
+    offisim_storage_dir("vault")
 }
 
 fn runtime_vault_root<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, String> {

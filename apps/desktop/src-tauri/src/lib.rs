@@ -172,13 +172,13 @@ pub fn run() {
         // Single-instance MUST be registered first — the handler short-circuits
         // subsequent launches before any DB/plugin init runs. Without it a
         // second `cargo tauri dev` / binary launch hits the SQLite write lock
-        // held by the running instance (tauri-plugin-sql opens offisim.db in
-        // the shared appDataDir) and the second window hangs with a black
+        // held by the running instance and the second window hangs with a black
         // webview. The callback focuses the existing window instead.
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             schedule_ensure_main_window(app);
         }))
         .invoke_handler(tauri::generate_handler![
+            local_db::local_db_url,
             local_db::local_db_execute_transaction,
             builtin_tools::project_read_file,
             builtin_tools::project_read_file_lines,

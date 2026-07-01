@@ -21,7 +21,7 @@ type Row = Record<string, unknown>;
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, '..');
 const checkedAt = new Date().toISOString();
-const dbPath = path.join(os.homedir(), 'Library/Application Support/com.offisim.desktop/offisim.db');
+const dbPath = path.join(os.homedir(), '.offisim/offisim.db');
 const ledgerPath = path.join(repoRoot, 'Docs/eval/H2-ledger-2026-06-28.json');
 
 function all<T extends Row>(db: Db, sql: string, params: readonly unknown[] = []): T[] {

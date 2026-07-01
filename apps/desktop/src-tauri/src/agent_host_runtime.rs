@@ -278,7 +278,8 @@ pub(crate) fn append_sidecar_audit<R: tauri::Runtime>(
     cwd: &Path,
     status: &str,
 ) {
-    let Some(dir) = app.path().app_local_data_dir().ok() else {
+    let _ = app;
+    let Ok(dir) = crate::local_paths::offisim_home_dir() else {
         return;
     };
     let _ = std::fs::create_dir_all(&dir);

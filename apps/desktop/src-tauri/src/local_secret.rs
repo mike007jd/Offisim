@@ -14,7 +14,7 @@
 //! ## Crypto
 //!   - AEAD: ChaCha20-Poly1305 (`chacha20poly1305` 0.10.x, RustCrypto).
 //!   - Key: 32 random bytes from `OsRng`, generated once and persisted at
-//!     `<app_local_data_dir>/secret.key` with `0o600` on unix. Load-or-create.
+//!     `~/.offisim/secret.key` with `0o600` on unix. Load-or-create.
 //!   - Nonce: fresh 12 random bytes **per call** (never reused with one key).
 //!   - Envelope: `base64( 0x01 || nonce[12] || ciphertext+tag )`.
 //!
@@ -36,7 +36,7 @@ use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
 use rand::rngs::OsRng;
 use rand::RngCore;
 use std::path::{Path, PathBuf};
-use tauri::{Manager, Runtime};
+use tauri::Runtime;
 use thiserror::Error;
 
 const KEY_FILE_NAME: &str = "secret.key";
@@ -56,14 +56,11 @@ pub enum SecretError {
     Decrypt,
 }
 
-/// Resolve the per-install key path under the OS app-local-data dir (never the
+/// Resolve the per-install key path under the user-owned Offisim dir (never the
 /// project folder).
 fn key_path<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, SecretError> {
-    let base = app
-        .path()
-        .app_local_data_dir()
-        .map_err(|err| SecretError::KeyIo(format!("app_local_data_dir: {err}")))?;
-    Ok(base.join(KEY_FILE_NAME))
+    let _ = app;
+    crate::local_paths::offisim_storage_path(KEY_FILE_NAME).map_err(SecretError::KeyIo)
 }
 
 /// Load the 32-byte key, generating + persisting it on first use.

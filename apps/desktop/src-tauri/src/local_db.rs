@@ -79,7 +79,8 @@ pub struct OffisimDbState {
 }
 
 pub async fn init_offisim_db_state<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<(), String> {
-    let db_url = offisim_db_url(app)?;
+    crate::local_paths::purge_legacy_app_storage(app)?;
+    let db_url = offisim_db_url()?;
     let pool = SqlitePoolOptions::new()
         .min_connections(1)
         .max_connections(4)
@@ -89,6 +90,11 @@ pub async fn init_offisim_db_state<R: Runtime>(app: &tauri::AppHandle<R>) -> Res
     apply_schema(&pool).await?;
     app.manage(OffisimDbState { pool });
     Ok(())
+}
+
+#[tauri::command]
+pub fn local_db_url() -> Result<String, String> {
+    offisim_db_url()
 }
 
 pub fn get_offisim_pool<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<SqlitePool, String> {
@@ -212,13 +218,8 @@ fn bind_json_param<'q>(
     }
 }
 
-fn offisim_db_url<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<String, String> {
-    let mut db_path = app
-        .path()
-        .app_config_dir()
-        .map_err(|err| format!("resolve app config dir: {err}"))?;
-    db_path.push("offisim.db");
-    Ok(format!("sqlite:{}", db_path.to_string_lossy()))
+fn offisim_db_url() -> Result<String, String> {
+    crate::local_paths::offisim_sqlite_url()
 }
 
 async fn apply_schema(pool: &SqlitePool) -> Result<(), String> {

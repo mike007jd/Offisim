@@ -6,7 +6,7 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use tauri::{AppHandle, Manager, Wry};
+use tauri::{AppHandle, Wry};
 
 const REGISTRY_FILE: &str = "mcp-servers.json";
 const USER_CONFIG_SOURCE: &str = "user-config";
@@ -69,9 +69,8 @@ pub struct RegisteredServerStore {
 
 impl RegisteredServerStore {
     pub fn load(app: &AppHandle<Wry>) -> Result<Self, String> {
-        let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
-        fs::create_dir_all(&app_data_dir).map_err(|e| e.to_string())?;
-        let file_path = app_data_dir.join(REGISTRY_FILE);
+        crate::local_paths::purge_legacy_app_storage(app)?;
+        let file_path = crate::local_paths::offisim_storage_path(REGISTRY_FILE)?;
 
         let servers = load_registry_entries(&file_path)?;
 

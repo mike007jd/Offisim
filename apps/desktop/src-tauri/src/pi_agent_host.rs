@@ -750,10 +750,9 @@ fn app_pi_session_dir<R: tauri::Runtime>(
     app: &AppHandle<R>,
     thread_id: &str,
 ) -> Result<PathBuf, HostError> {
-    let base = app
-        .path()
-        .app_local_data_dir()
-        .map_err(|err| HostError::HostUnavailable(format!("resolve app local data dir: {err}")))?;
+    let _ = app;
+    let base = crate::local_paths::offisim_storage_dir("pi-agent-sessions")
+        .map_err(HostError::HostUnavailable)?;
     let safe_thread_id = thread_id
         .chars()
         .map(|ch| {
