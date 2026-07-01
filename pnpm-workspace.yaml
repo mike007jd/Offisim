@@ -16,3 +16,17 @@ overrides:
   vite: ^6.4.2
   hono: ^4.12.25
   ws: ^8.21.0
+
+# @hookform/resolvers declares zod as an OPTIONAL peer, so pnpm's isolated
+# linker does not place a zod copy inside the resolver's own node_modules; its
+# `zod/v3` + `zod/v4/core` type imports then resolve only via the fragile
+# .pnpm/node_modules hoist, whose bare-name pick is non-deterministic across
+# installs. On installs where it misses, the resolver types degrade to a
+# fallback ($ZodType with _zod.version.minor 0) and every zodResolver() call
+# site fails typecheck against the real zod@4.x schemas (TS2769). Injecting zod
+# as a real dependency wires the SAME zod@4.4.3 instance into the resolver
+# variant, making resolution deterministic on every OS/install.
+packageExtensions:
+  '@hookform/resolvers':
+    dependencies:
+      zod: ^4.4.3
