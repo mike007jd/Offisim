@@ -26,7 +26,7 @@ export function defaultPiAgentDir() {
 
 /**
  * Pi env is "configured" iff the agent dir carries BOTH `auth.json` (provider
- * credentials) and `models.json` (the provider/model catalog). The functional
+ * credentials) and `models.json` (Pi-owned model registry/config). The functional
  * test loop §1 ties SKIP-for-S10–S12 to exactly this pair being present. A bare
  * `auth.json` with no `models.json` (or vice-versa) means the agent cannot route
  * a real run → SKIP, not FAIL.

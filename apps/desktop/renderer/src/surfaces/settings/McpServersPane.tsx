@@ -90,7 +90,7 @@ export function McpServersPane() {
         });
       } else {
         toast.success(`Registered MCP server "${server.name}"`, {
-          description: 'SSE servers connect from the web runtime when used.',
+          description: 'SSE servers connect from the desktop WebView client when used.',
         });
       }
       form.reset(MCP_SERVER_DEFAULTS);
@@ -179,25 +179,17 @@ export function McpServersPane() {
           const canConnect = desktopAvailable && userOwned && server.transport === 'stdio';
           const connectLabel =
             server.transport === 'sse'
-              ? 'SSE servers connect from the web runtime'
+              ? 'SSE servers connect from the desktop WebView client'
               : server.status === 'connected'
                 ? 'Refresh tool list'
                 : 'Connect';
           return (
-            <div
-              key={server.id}
-              className="off-set-mcp-row"
-              role="button"
-              tabIndex={0}
-              onClick={() => setSelectedServerId(server.id)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault();
-                  setSelectedServerId(server.id);
-                }
-              }}
-            >
-              <div className="min-w-0">
+            <div key={server.id} className="off-set-mcp-row">
+              <button
+                type="button"
+                className="off-set-mcp-row-main off-focusable min-w-0"
+                onClick={() => setSelectedServerId(server.id)}
+              >
                 <div className="off-set-mcp-name-row">
                   <span className="off-set-mcp-name">{server.name}</span>
                   <StatusPill tone={statusTone(busy ? 'connecting' : server.status)} running={busy}>
@@ -209,13 +201,8 @@ export function McpServersPane() {
                   ) : null}
                 </div>
                 <div className="off-set-mcp-cmd">{server.command}</div>
-              </div>
-              <div
-                className="off-set-row-actions"
-                onClick={(event) => {
-                  event.stopPropagation();
-                }}
-              >
+              </button>
+              <div className="off-set-row-actions">
                 <IconButton
                   icon={RefreshCw}
                   label={connectLabel}

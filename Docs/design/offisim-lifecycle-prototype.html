@@ -995,10 +995,10 @@
       lifecycle surface — built 1:1 with the real component + its controller — is below.
       <br /><br />
       <b>Lifecycle gating (App.tsx).</b> First-run welcome shows iff
-      <code>welcome_seen===false &amp;&amp; providerConfiguredForWelcome===false &amp;&amp; companies.length===0 &amp;&amp; tour_dismissed===false</code>.
+      <code>welcome_seen===false &amp;&amp; piAgentReadyForWelcome===false &amp;&amp; companies.length===0 &amp;&amp; tour_dismissed===false</code>.
       <code>Get started</code> → <code>markWelcomeSeen()</code>; <code>Skip and explore</code> /
       backdrop dismiss → <code>markWelcomeSeen() + dismissTour()</code>. Onboarding state persists in
-      <code>localStorage["offisim.onboarding.v2"]</code> (account: <code>provider_configured</code>,
+      <code>localStorage["offisim.onboarding.v2"]</code> (account: <code>pi_agent_ready</code>,
       <code>welcome_seen</code>, <code>tour_completed[]</code>, <code>tour_dismissed</code>,
       <code>first_employee_clicked</code>; per-company: <code>first_task_sent</code>,
       <code>first_deliverable_seen</code>). Business flags auto-complete the matching tour step via
@@ -1420,7 +1420,7 @@
           <div class="tour-ledger">
             <div class="tour-lrow done">
               <div class="tour-lnum"><svg class="ico xs"><use href="#i-check"/></svg></div>
-              <div class="tour-lbody"><div class="lt">Connect your AI provider</div><div class="ld">Open Settings and add the configured provider credential so the team can start working. The selected runtime profile stays editable in Settings.</div><div class="lm">connect-provider · settings · settings:provider-cta · auto-completes on provider_configured</div></div>
+              <div class="tour-lbody"><div class="lt">Connect Pi Agent</div><div class="ld">Open Settings and confirm Pi auth plus models.json so the team can start working. Provider details stay editable in Pi-owned config.</div><div class="lm">connect-pi-agent · settings · settings:pi-agent-cta · auto-completes on pi_agent_ready</div></div>
             </div>
             <div class="tour-lrow active">
               <div class="tour-lnum">2</div>
@@ -1436,7 +1436,7 @@
             </div>
             <div class="tour-lrow">
               <div class="tour-lnum">5</div>
-              <div class="tour-lbody"><div class="lt">Browse Personnel</div><div class="ld">Personnel is the roster: configure skills, runtime engines, and memory for each employee.</div><div class="lm">browse-personnel · personnel · personnel:nav-button</div></div>
+              <div class="tour-lbody"><div class="lt">Browse Personnel</div><div class="ld">Personnel is the roster: tune skills, collaboration behavior, and memory for each employee.</div><div class="lm">browse-personnel · personnel · personnel:nav-button</div></div>
             </div>
             <div class="tour-lrow">
               <div class="tour-lnum">6</div>
@@ -1446,7 +1446,7 @@
         </div>
         <p class="annot-dark">Step state is derived, not stored as "current": <code>activeIndex</code>
           = first index whose id is not in <code>tour_completed[]</code>. Business events
-          auto-complete steps (<code>provider_configured→connect-provider</code>,
+          auto-complete steps (<code>pi_agent_ready→connect-pi-agent</code>,
           <code>first_task_sent→send-first-message</code>,
           <code>first_deliverable_seen→open-tasks</code>) so the tour stays in sync even if the user
           does the action without clicking "Next". <code>v1→v2</code> migration folds legacy flags
@@ -2328,7 +2328,7 @@ Acme,usage,…</pre>
                 <div class="flag-row"><span class="fk">welcome_seen</span><span class="fv"><span class="flag-chip t">true</span></span></div>
                 <div class="flag-row"><span class="fk">tour_completed[]</span><span class="fv"><span class="flag-chip p">6 / 6</span></span></div>
                 <div class="flag-row"><span class="fk">tour_dismissed</span><span class="fv"><span class="flag-chip t">true</span></span></div>
-                <div class="flag-row"><span class="fk">provider_configured</span><span class="fv"><span class="flag-chip t">true</span></span></div>
+                <div class="flag-row"><span class="fk">pi_agent_ready</span><span class="fv"><span class="flag-chip t">true</span></span></div>
               </div>
               <p class="annot-dark" style="padding-top:8px"><b>Start exploring</b> is purely
                 visual — closing this panel has no extra side-effect beyond what
@@ -2351,7 +2351,7 @@ Acme,usage,…</pre>
             <div class="mini-cap">Account flags — first-run user, mid-tour</div>
             <div class="flag-table">
               <div class="flag-row"><span class="fk">welcome_seen</span><span class="fv"><span class="flag-chip t">true</span></span></div>
-              <div class="flag-row"><span class="fk">provider_configured</span><span class="fv"><span class="flag-chip t">true</span></span></div>
+              <div class="flag-row"><span class="fk">pi_agent_ready</span><span class="fv"><span class="flag-chip t">true</span></span></div>
               <div class="flag-row"><span class="fk">tour_dismissed</span><span class="fv"><span class="flag-chip f">false</span></span></div>
               <div class="flag-row"><span class="fk">tour_completed[]</span><span class="fv"><span class="flag-chip p">2 / 6</span></span></div>
               <div class="flag-row"><span class="fk">first_employee_clicked</span><span class="fv"><span class="flag-chip f">false</span></span></div>

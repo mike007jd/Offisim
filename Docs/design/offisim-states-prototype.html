@@ -2974,24 +2974,24 @@
 
     <!-- 23 · Configure-an-API-key inline -->
     <div class="spec-state">
-      <div class="spec-cap"><span class="n">23</span><span class="t">configure-api-key · chat-top warning</span>
-        <span class="d"><code>useProviderStatus()</code> · banner mounted above chat body when no provider configured for active company</span></div>
+      <div class="spec-cap"><span class="n">23</span><span class="t">connect-pi-agent · chat-top warning</span>
+        <span class="d"><code>usePiAgentStatus()</code> · banner mounted above chat body when Pi auth/model config is missing</span></div>
       <div class="spec-frame">
         <div class="mini-pane">
-          <div class="mini-cap">Chat-top warning — no provider configured</div>
+          <div class="mini-cap">Chat-top warning — Pi Agent not configured</div>
           <div class="mini-bd">
             <div class="api-warn">
               <span class="ic"><svg class="ico sm"><use href="#i-key"/></svg></span>
-              <span class="msg">No provider configured · runs will fail until you configure an API key</span>
-              <button class="btn sm primary"><svg class="ico xs"><use href="#i-settings"/></svg>Configure API key</button>
+              <span class="msg">Pi Agent needs auth + models.json before runs can start</span>
+              <button class="btn sm primary"><svg class="ico xs"><use href="#i-settings"/></svg>Open Pi settings</button>
             </div>
           </div>
         </div>
         <p class="annot-dark">Banner pins above <code>.chat-b</code> (cross-references the Office
-          surface). <i>Configure API key</i> opens Settings → Provider with the active company
-          pre-selected. Banner suppresses Send (composer accepts text but Send shows tooltip
-          "Configure provider first"). Detection runs at mount + on
-          <code>provider.config.changed</code>; clears when at least one provider is enabled.</p>
+          surface). <i>Open Pi settings</i> opens Settings → Providers and shows the Pi-owned
+          <code>auth.json</code> / <code>models.json</code> state. Banner suppresses Send (composer
+          accepts text but Send shows tooltip "Configure Pi Agent first"). Detection runs at mount
+          + after Pi status refresh; clears when Pi reports usable auth and models.</p>
       </div>
     </div>
 

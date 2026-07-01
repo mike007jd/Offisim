@@ -246,7 +246,7 @@ pub async fn mcp_connect_registered(
             Ok(result)
         }
         McpTransport::Sse => Err(McpBridgeError::Registry(
-            "SSE servers should connect directly from the web runtime".into(),
+            "SSE servers should connect directly from the desktop WebView client".into(),
         )),
     }
 }

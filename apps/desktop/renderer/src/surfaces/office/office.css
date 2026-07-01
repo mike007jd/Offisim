@@ -1841,12 +1841,6 @@
   background: var(--off-ink-4);
 }
 
-.off-team-status.is-online {
-  color: var(--off-ok);
-}
-.off-team-status.is-online .off-team-dot {
-  background: var(--off-ok);
-}
 .off-team-status.is-running {
   color: var(--off-accent);
 }

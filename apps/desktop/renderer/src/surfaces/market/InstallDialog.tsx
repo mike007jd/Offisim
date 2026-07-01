@@ -252,7 +252,7 @@ function ConfigureStep({
     <>
       <DialogHeader>
         <DialogTitle>Configure Bindings</DialogTitle>
-        <DialogDescription>Assign a model profile to each role.</DialogDescription>
+        <DialogDescription>Assign Pi model preferences to each role.</DialogDescription>
       </DialogHeader>
       <form onSubmit={submit} className="off-mkt-dlg-body">
         {bindings.map((b) => {
@@ -278,7 +278,7 @@ function ConfigureStep({
               {!isSkipped ? (
                 <>
                   <CapsLabel className="off-bind-hint">{b.hint}</CapsLabel>
-                  <Input placeholder="runtime profile id" {...form.register(b.id)} />
+                  <Input placeholder="model id or preference key" {...form.register(b.id)} />
                   {err ? <span className="off-bind-err">{err}</span> : null}
                   {b.suggestions.length > 0 ? (
                     <div className="off-bind-sugg">

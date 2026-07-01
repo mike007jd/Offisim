@@ -65,7 +65,7 @@ export function stageTabForTarget(target: StageViewTarget): StagePrimaryTab {
   }
 }
 
-export function stageTabIdForTarget(target: StageOpenTarget): string {
+function stageTabIdForTarget(target: StageOpenTarget): string {
   switch (target.kind) {
     case 'output':
       return `output:${target.deliverableId}`;

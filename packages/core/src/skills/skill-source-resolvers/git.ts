@@ -146,7 +146,7 @@ export async function resolveGitSource(
   if (!gh) {
     return {
       kind: 'git-web-non-github',
-      message: `Web runtime can only install from github.com URLs. Got: ${input.url}`,
+      message: `Desktop client installs can only use github.com URLs. Got: ${input.url}`,
       sourceRef: input.url,
     };
   }

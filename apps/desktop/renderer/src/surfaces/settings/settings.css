@@ -1252,6 +1252,15 @@
   padding: var(--off-sp-3);
   border-radius: var(--off-r-sm);
   transition: background var(--off-motion-fast) var(--off-motion-ease);
+}
+
+.off-set-mcp-row-main {
+  display: block;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
   cursor: pointer;
 }
 
@@ -1263,7 +1272,7 @@
   background: var(--off-surface-sunken);
 }
 
-.off-set-mcp-row:focus-visible {
+.off-set-mcp-row-main:focus-visible {
   outline: var(--off-focus-ring-width) solid var(--off-accent-ring);
   outline-offset: var(--off-focus-ring-offset);
 }

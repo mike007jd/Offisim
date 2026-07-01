@@ -2973,7 +2973,7 @@
               <div class="composer-tools">
                 <button class="ibtn" title="Attach file — / and @ are typed inline (slash registry / mention), no button needed"><svg class="ico sm"><use href="#i-paperclip"/></svg></button>
                 <span class="divider"></span>
-                <button class="pill model-chip" title="Model — provider ▸ model cascade + think level. The only in-conversation model switch; reads configured ProviderConfig, full key/endpoint setup lives in Settings">
+                <button class="pill model-chip" title="Model — Pi model override + think level. The only in-conversation model switch; full auth and endpoint setup stays in Pi-owned Settings">
                   <svg class="ico xs"><use href="#i-sparkle"/></svg>Runtime model · Med<span class="mode-caret"><svg class="ico xs"><use href="#i-chev-down"/></svg></span>
                 </button>
                 <button class="pill mode-chip mode-plan" title="SessionModeChip — the only mode entry (Plan / Human-in-loop / Direct / YOLO)">
@@ -3380,13 +3380,13 @@ Run the verify script against the deliverable set…</div>
 
           <div class="mmenu-div"></div>
           <div class="mmenu-foot">
-            <svg class="ico sm"><use href="#i-settings"/></svg>Manage providers &amp; keys
+            <svg class="ico sm"><use href="#i-settings"/></svg>Manage Pi auth &amp; models
             <span class="go">Settings ›</span>
           </div>
         </div>
       </div>
       <div class="spec-cap" style="border-top:1px solid rgba(255,255,255,0.06);border-bottom:0">
-        <span class="d">Chip label = <code style="color:#aab6cc">runtime model · think</code> compact form. Clicking the chip opens Settings/provider configuration; it does not locally change provider, key, endpoint, or model state.</span>
+        <span class="d">Chip label = <code style="color:#aab6cc">runtime model · think</code> compact form. Clicking the chip opens Settings/Providers; Offisim edits Pi-owned config and does not maintain a separate provider catalog.</span>
       </div>
     </div>
 
@@ -3966,20 +3966,20 @@ Run the verify script against the deliverable set…</div>
     <!-- 23 · ErrorBanner — full variants -->
     <div class="spec-state">
       <div class="spec-cap">
-        <span class="n">23</span><span class="t">ErrorBanner — provider failure details</span>
-        <span class="d">Surfaced above the composer when a run fails. Recovery is explicit state: Details expands error history, Settings opens provider configuration, and redispatch is shown only after a runtime recovery target exists.</span>
+        <span class="n">23</span><span class="t">ErrorBanner — Pi runtime failure details</span>
+        <span class="d">Surfaced above the composer when a run fails. Recovery is explicit state: Details expands error history, Settings opens Pi configuration, and redispatch is shown only after a runtime recovery target exists.</span>
       </div>
       <div class="spec-frame spec-stage-bg" style="padding:24px;display:flex;justify-content:center">
         <div style="width:600px;display:flex;flex-direction:column;gap:10px">
           <div class="inline-warn">
             <svg class="ico sm"><use href="#i-alert"/></svg>
             <div>
-              <div><b>Provider returned 429</b> · Runtime model rate-limited</div>
+              <div><b>Pi Agent returned 429</b> · Runtime model rate-limited</div>
               <div style="font-size:var(--fs-micro);font-weight:540">Last turn: "Generate diff vs golden" — Alex Chen</div>
             </div>
             <div style="margin-left:auto;display:inline-flex;gap:6px">
               <button class="mp-btn outline">Details</button>
-              <button class="mp-btn">Provider Settings</button>
+              <button class="mp-btn">Pi Settings</button>
             </div>
           </div>
           <div class="mini-pane">
@@ -4024,18 +4024,18 @@ Run the verify script against the deliverable set…</div>
       </div>
     </div>
 
-    <!-- 25 · Configure-an-API-key inline warning -->
+    <!-- 25 · Configure-Pi-Agent inline warning -->
     <div class="spec-state">
       <div class="spec-cap">
-        <span class="n">25</span><span class="t">Configure-an-API-key — chat banner</span>
-        <span class="d">When no ProviderConfig is selected, every chat send is blocked. Banner sits above the composer with one clear action — open Settings · Providers (NOT a modal; the user can still scroll the conversation).</span>
+        <span class="n">25</span><span class="t">Configure-Pi-Agent — chat banner</span>
+        <span class="d">When Pi auth/models are unavailable, every chat send is blocked. Banner sits above the composer with one clear action — open Settings · Providers (NOT a modal; the user can still scroll the conversation).</span>
       </div>
       <div class="spec-frame spec-stage-bg" style="padding:24px;display:flex;justify-content:center">
         <div class="inline-warn" style="width:560px;max-width:100%">
           <svg class="ico sm"><use href="#i-alert"/></svg>
           <div>
-            <div><b>No provider configured</b></div>
-            <div style="font-size:var(--fs-micro);font-weight:540">Pick a provider and paste a key to start sending — current selection: <code style="font-family:var(--mono)">none</code></div>
+            <div><b>Pi Agent is not ready</b></div>
+            <div style="font-size:var(--fs-micro);font-weight:540">Configure Pi auth and models.json to start sending — current status: <code style="font-family:var(--mono)">missing config</code></div>
           </div>
           <span class="iw-link">Configure ›</span>
         </div>

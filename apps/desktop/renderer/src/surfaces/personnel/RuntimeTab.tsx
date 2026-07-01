@@ -34,7 +34,7 @@ export function RuntimeTab({ employee }: RuntimeTabProps) {
             <Icon icon={Bot} size="sm" />
           </span>
           <div>
-            <div className="off-pers-runtime-title">Provider gateway</div>
+            <div className="off-pers-runtime-title">Pi Agent runtime</div>
             <div className="off-pers-runtime-sub">{employee.modelLabel} · company default</div>
           </div>
           <span className="off-pers-runtime-ok">

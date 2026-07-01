@@ -264,7 +264,9 @@ export async function registerMcpServer(values: McpServerFormValues): Promise<Mc
 
 export async function connectMcpServer(server: McpServer): Promise<McpSpawnResult> {
   if (server.transport !== 'stdio') {
-    throw new Error('SSE MCP servers are registered here and connect from the web runtime.');
+    throw new Error(
+      'SSE MCP servers are registered here and connect from the desktop WebView client.',
+    );
   }
   if (!server.approvalId || !server.commandFingerprint) {
     throw new Error('Registered stdio server is missing approval or command fingerprint.');

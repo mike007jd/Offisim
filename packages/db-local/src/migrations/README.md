@@ -30,7 +30,7 @@ at startup rather than running a partial upgrade.
 
 ## Ledger
 
-`LOCAL_SCHEMA_VERSION` is currently `8` (`apps/desktop/src-tauri/src/local_db.rs`).
+`LOCAL_SCHEMA_VERSION` is currently `12` (`apps/desktop/src-tauri/src/local_db.rs`).
 
 | File | Version | Scope | Adds |
 |------|---------|-------|------|
@@ -41,11 +41,15 @@ at startup rather than running a partial upgrade.
 | `0006_collaboration_turns.sql` | v6 | Connect | `collaboration_turns` (AI-reply lifecycle ledger) |
 | `0007_agent_run_interrupted.sql` | v7 | Pi Agent recovery | `agent_runs.status='interrupted'`, `agent_runs.session_file` |
 | `0008_mcp_tool_grants.sql` | v8 | MCP live scope | `mcp_tool_grants`, drops graph-thread FK from MCP audit/approval ledgers |
+| `0009_collaboration_profile.sql` | v9 | Connect | Company collaboration profile fields |
+| `0010_agent_run_context.sql` | v10 | Pi Agent runtime | `agent_runs.context_json` |
+| `0011_mcp_audit_approval_status.sql` | v11 | MCP approvals | MCP audit/approval status backfill |
+| `0012_mcp_tool_grant_risk.sql` | v12 | MCP live scope | Tool-grant risk classification |
 
-`0004` / `0005` / `0006` are the Connect + Loops additive migrations. `0007` and
-`0008` rebuild existing tables because SQLite cannot alter CHECK/FK constraints
-in place. Every file's end-state matches `../schema.sql` exactly. The
-collaboration tables are company-scoped (no `project_id`, no `agent_runs`
+`0004` / `0005` / `0006` are the Connect + Loops additive migrations. `0007` /
+`0008` / `0011` rebuild existing tables because SQLite cannot alter CHECK/FK
+constraints in place. Every file's end-state matches `../schema.sql` exactly.
+The collaboration tables are company-scoped (no `project_id`, no `agent_runs`
 linkage) and stay separate from project `chat_threads`; see
 `Docs/architecture/2026-06-26-collaboration-domain-boundary.md` and
 `Docs/architecture/2026-06-26-loop-domain-mission-adapter.md`.

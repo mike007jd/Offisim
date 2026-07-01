@@ -1,5 +1,8 @@
 # Verified Missions — 整改路线图（post-audit）
 
+Historical archive note (2026-07-01): this was a remediation snapshot and no
+longer represents the active roadmap.
+
 > 状态：**TIER A+B 已落地（确定性层正确性 + marketplace 边界已修，全 release-gates 绿）/ TIER C（live 产品接线）PENDING**
 > 日期：2026-06-26 ｜ 基线：`main@48fc545b`
 > 来源：ChatGPT 对「全 M0–M7 实现层完成」的审计 + 本仓逐条核实（亲读关键文件 + 9 个独立只读 verifier 并行复核 + GitNexus 调用图佐证）

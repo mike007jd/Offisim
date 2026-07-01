@@ -372,7 +372,7 @@ mod tests {
     }
 
     #[test]
-    fn bundled_node_is_resolved_next_to_bundled_sidecar() {
+    fn bundled_node_is_resolved_next_to_bundled_pi_host() {
         let suffix = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("system clock before epoch")
@@ -382,7 +382,7 @@ mod tests {
         std::fs::create_dir_all(node.parent().expect("node parent")).expect("create node dir");
         std::fs::write(&node, b"node").expect("write node marker");
 
-        let script = root.join("claude-agent-host.mjs");
+        let script = root.join("pi-agent-host.mjs");
         assert_eq!(bundled_node_executable(&script), Some(node));
 
         let _ = std::fs::remove_dir_all(root);

@@ -1,6 +1,6 @@
 /**
  * Chat attachment contract — shared between composer UI, persistence backends,
- * AI tool surface, and LangGraph state. SSOT for the `add-chat-attachment-end-to-end`
+ * and the Pi Agent tool surface. SSOT for the `add-chat-attachment-end-to-end`
  * capability. Companion runtime event payloads live in
  * `./events/chat-attachment-events.ts`.
  */
