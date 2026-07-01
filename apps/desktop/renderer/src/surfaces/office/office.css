@@ -587,6 +587,15 @@
   pointer-events: none;
 }
 
+/* Interactive badge — opens the read-only workload drilldown. Button reset so
+   it reads identically to the passive span. */
+.off-scene-count-badge.is-interactive {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
 .off-scene-resource-marker {
   position: absolute;
   top: -6px;
@@ -607,6 +616,29 @@
   pointer-events: none;
 }
 
+/* Resource-marker hierarchy — one marker keyed off the most-severe unresolved
+   issue (exhausted > blocked > warning), so exhausted reads strongest and a
+   warning stays subtle. Mirrors the 2D scene's disc-size hierarchy. */
+.off-scene-resource-marker.is-exhausted {
+  border-color: var(--off-danger);
+  background: var(--off-danger);
+  color: var(--off-surface-1);
+  box-shadow: var(--off-elev-1);
+}
+
+.off-scene-resource-marker.is-blocked {
+  border-color: color-mix(in oklab, var(--off-danger) 42%, var(--off-surface-1));
+  background: var(--off-danger-surface);
+  color: var(--off-danger);
+}
+
+.off-scene-resource-marker.is-warning {
+  border-color: color-mix(in oklab, var(--off-warn) 42%, var(--off-surface-1));
+  background: var(--off-warn-surface);
+  color: var(--off-warn);
+  font-weight: 700;
+}
+
 .off-scene-workload-bubble {
   position: absolute;
   top: calc(100% + 2px);
@@ -614,7 +646,11 @@
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  max-width: 144px;
+  /* Fixed cap: grouped chips ("Blocked 3") are wider than the small per-run
+     chips, but the bubble never spills — extra groups clip and the overflow
+     pill (or the ×N badge) opens the full breakdown in the drilldown. */
+  max-width: 184px;
+  overflow: hidden;
   transform: translateX(-50%);
   pointer-events: none;
 }
@@ -622,7 +658,8 @@
 .off-scene-workload-bubble span {
   display: inline-flex;
   align-items: center;
-  max-width: 48px;
+  flex: 0 0 auto;
+  max-width: 72px;
   height: 15px;
   padding: 0 5px;
   border: 1px solid var(--off-line-soft);
@@ -657,6 +694,30 @@
   color: var(--off-ok);
 }
 
+/* Overflow affordance — a compact pill that opens the same read-only workload
+   drilldown as the ×N badge when more groups exist than the bubble shows. */
+.off-scene-workload-overflow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  height: 15px;
+  padding: 0 5px;
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-pill);
+  background: color-mix(in oklab, var(--off-surface-1) 88%, transparent);
+  color: var(--off-ink-2);
+  box-shadow: var(--off-elev-1);
+  appearance: none;
+  cursor: pointer;
+  pointer-events: auto;
+  white-space: nowrap;
+  font-size: var(--off-fs-micro);
+  font-weight: 700;
+  line-height: 1;
+  text-shadow: none;
+}
+
 .off-scene-delivery-shelf {
   display: inline-grid;
   grid-template-columns: auto auto;
@@ -674,6 +735,25 @@
   text-transform: uppercase;
   white-space: nowrap;
   pointer-events: none;
+}
+
+/* Interactive delivery shelf — clicking opens the most recent artifact beat on
+   the stage. Button reset + keyboard-focusable; overrides the passive base so
+   the shelf actually receives pointer events. */
+.off-scene-delivery-shelf.is-interactive {
+  appearance: none;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.off-scene-delivery-shelf.is-interactive:hover {
+  border-color: var(--off-accent-ring);
+  color: var(--off-ink-1);
+}
+
+.off-scene-delivery-shelf.is-interactive:focus-visible {
+  outline: 2px solid var(--off-accent);
+  outline-offset: 2px;
 }
 
 .off-scene-delivery-shelf b {
@@ -1573,6 +1653,342 @@
 .off-mission-phase.is-failure {
   border-color: var(--off-danger-line);
   color: var(--off-ink-1);
+}
+
+/* Workload drilldown drawer (INC-5): a read-only side inspector for one
+   employee's aggregated workload. Anchored top-right of the stage (mirrors the
+   RecoveryPanel idiom on the left); glass surface, scrollable body, no motion. */
+.off-drill {
+  position: absolute;
+  top: 88px;
+  right: var(--off-sp-6);
+  z-index: var(--off-z-float);
+  width: min(340px, calc(100% - (var(--off-sp-6) * 2)));
+  max-height: min(600px, calc(100% - 160px));
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-md);
+  background: var(--off-surface-glass-strong);
+  backdrop-filter: blur(var(--off-blur-lg));
+  box-shadow: var(--off-elev-3);
+  overflow: hidden;
+}
+
+.off-drill-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--off-sp-3);
+  padding: var(--off-sp-4);
+  border-bottom: 1px solid var(--off-line);
+}
+
+.off-drill-identity {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.off-drill-name {
+  color: var(--off-ink-1);
+  font-size: var(--off-fs-lg);
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.off-drill-role {
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-meta);
+}
+
+.off-drill-close {
+  margin-left: auto;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-glass-weak);
+  color: var(--off-ink-2);
+}
+
+.off-drill-close:hover {
+  color: var(--off-ink-1);
+  background: var(--off-surface-sunken);
+}
+
+.off-drill-body {
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--off-sp-4);
+  padding: var(--off-sp-4);
+}
+
+.off-drill-summary {
+  display: flex;
+  align-items: baseline;
+  gap: var(--off-sp-3);
+}
+
+.off-drill-summary-num {
+  color: var(--off-ink-1);
+  font-family: var(--off-font-mono);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.off-drill-summary-label {
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-meta);
+}
+
+.off-drill-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--off-sp-3);
+}
+
+.off-drill-h {
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+  margin: 0;
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-meta);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.off-drill-count {
+  margin-left: auto;
+  color: var(--off-ink-3);
+  font-family: var(--off-font-mono);
+  font-weight: 650;
+}
+
+.off-drill-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--off-sp-2);
+}
+
+.off-drill-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+  height: 22px;
+  padding: 0 var(--off-sp-2);
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-pill);
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-meta);
+  font-weight: 600;
+}
+
+.off-drill-chip b {
+  font-family: var(--off-font-mono);
+  font-weight: 700;
+}
+
+.off-drill-chip.is-risk {
+  border-color: var(--off-danger-line);
+  color: var(--off-danger);
+}
+
+.off-drill-chip.is-wait {
+  border-color: var(--off-warn-line);
+  color: var(--off-warn);
+}
+
+.off-drill-chip.is-done {
+  border-color: var(--off-ok-line);
+  color: var(--off-ok);
+}
+
+.off-drill-beat {
+  margin: 0;
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-sm);
+  line-height: 1.4;
+}
+
+.off-drill-issues,
+.off-drill-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--off-sp-2);
+}
+
+.off-drill-issue {
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+  padding: var(--off-sp-2) var(--off-sp-3);
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-sm);
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-meta);
+}
+
+.off-drill-issue.is-exhausted,
+.off-drill-issue.is-blocked {
+  border-color: var(--off-danger-line);
+}
+
+.off-drill-issue.is-warning {
+  border-color: var(--off-warn-line);
+}
+
+.off-drill-issue-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.off-drill-issue-tags {
+  margin-left: auto;
+  display: inline-flex;
+  gap: var(--off-sp-2);
+}
+
+.off-drill-tag {
+  font-family: var(--off-font-mono);
+  font-size: var(--off-fs-micro);
+  font-style: normal;
+  color: var(--off-ink-3);
+  text-transform: uppercase;
+}
+
+.off-drill-row,
+.off-drill-run {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+  padding: var(--off-sp-2) var(--off-sp-3);
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-glass-weak);
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-meta);
+  text-align: left;
+}
+
+.off-drill-row:hover,
+.off-drill-run:hover {
+  color: var(--off-ink-1);
+  background: var(--off-surface-sunken);
+}
+
+.off-drill-row-title {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.off-drill-row-go {
+  flex: none;
+  color: var(--off-ink-3);
+}
+
+.off-drill-artifact {
+  display: flex;
+  align-items: stretch;
+  gap: var(--off-sp-2);
+}
+
+.off-drill-artifact .off-drill-row {
+  width: auto;
+  flex: 1;
+}
+
+.off-drill-row-action {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--off-sp-2);
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-glass-weak);
+  color: var(--off-ink-3);
+}
+
+.off-drill-row-action:hover {
+  color: var(--off-ink-1);
+  background: var(--off-surface-sunken);
+}
+
+.off-drill-run {
+  align-items: flex-start;
+}
+
+.off-drill-run-state {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-top: 4px;
+  border-radius: var(--off-r-pill);
+  background: var(--off-ink-3);
+}
+
+.off-drill-run-state.is-running {
+  background: var(--off-accent);
+}
+
+.off-drill-run-state.is-failed {
+  background: var(--off-danger);
+}
+
+.off-drill-run-state.is-done {
+  background: var(--off-ok);
+}
+
+.off-drill-run-main {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.off-drill-run-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.off-drill-run-summary {
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-micro);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.off-drill-note {
+  margin: 0;
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-meta);
 }
 
 /* --- Team dock --- */

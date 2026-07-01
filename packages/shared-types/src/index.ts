@@ -313,6 +313,7 @@ export type {
   ResourceKind,
   ResourceIntent,
   ResourceSeverity,
+  SurfacedResourceSeverity,
   SceneBeat,
   TimedAgentRunEvent,
   VisualEmotion,
@@ -326,6 +327,8 @@ export {
   DRAMATURGY_VERSION,
   beatLifespanMs,
   composeBeats,
+  resourceSeverityRank,
+  surfacedResourceSeverity,
 } from './dramaturgy/beat-composer.js';
 export type {
   MissionBeatPhase,

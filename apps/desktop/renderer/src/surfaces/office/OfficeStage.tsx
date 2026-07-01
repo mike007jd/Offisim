@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Suspense, useSyncExternalStore } from 'react';
 import { RecoveryPanel } from './RecoveryPanel.js';
+import { WorkloadDrilldown } from './WorkloadDrilldown.js';
 import { OfficeScene2D } from './scene/OfficeScene2D.js';
 import { OfficeScene3D } from './scene/OfficeScene3D.js';
 import { zoneDefsFromLayout } from './scene/scene-layout.js';
@@ -134,6 +135,11 @@ export function OfficeStage() {
       ) : null}
       <StageAutoOpen />
       <StageViewer />
+
+      {/* Read-only workload drilldown (INC-5): self-gates on `workloadDrilldown`
+          state; opened from an office actor / workload bubble / delivery chip.
+          Inspect-only — no worker-lifecycle control. */}
+      <WorkloadDrilldown />
 
       {/* Pipeline pill: always present while a run is live (Stop lives here). */}
       <RunPipelinePill />

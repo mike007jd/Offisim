@@ -139,6 +139,12 @@ interface UiState {
   /** Dramaturgy presentation density for the office scene. */
   officeMode: DramaturgyMode;
   sceneDropDiagnostics: SceneDropDiagnostic[];
+  /**
+   * The employee whose workload drilldown drawer is open, or null when closed.
+   * A read/inspect layer opened from the office scene (employee / workload bubble
+   * / delivery chip) — never a worker-management console.
+   */
+  workloadDrilldown: { employeeId: string } | null;
 
   /** Personnel surface */
   selectedEmployeeId: string | null;
@@ -233,6 +239,10 @@ interface UiState {
   setOfficeStageMaximized: (maximized: boolean) => void;
   setOfficeMode: (mode: DramaturgyMode) => void;
   recordSceneDropDiagnostic: (event: SceneDropDiagnostic) => void;
+  /** Open the workload drilldown drawer for an employee (read/inspect only). */
+  openWorkloadDrilldown: (employeeId: string) => void;
+  /** Close the workload drilldown drawer. */
+  closeWorkloadDrilldown: () => void;
 
   selectEmployee: (employeeId: string | null) => void;
   setPersonnelRailCollapsed: (collapsed: boolean) => void;
@@ -267,6 +277,7 @@ export const useUiState = create<UiState>((set, get) => ({
   officeStageMaximized: false,
   officeMode: 'office',
   sceneDropDiagnostics: [],
+  workloadDrilldown: null,
 
   selectedEmployeeId: null,
   personnelRailCollapsed: false,
@@ -439,6 +450,8 @@ export const useUiState = create<UiState>((set, get) => ({
   setOfficeMode: (officeMode) => set({ officeMode }),
   recordSceneDropDiagnostic: (event) =>
     set((s) => ({ sceneDropDiagnostics: [event, ...s.sceneDropDiagnostics].slice(0, 10) })),
+  openWorkloadDrilldown: (employeeId) => set({ workloadDrilldown: { employeeId } }),
+  closeWorkloadDrilldown: () => set({ workloadDrilldown: null }),
 
   selectEmployee: (selectedEmployeeId) => set({ selectedEmployeeId }),
   setPersonnelRailCollapsed: (personnelRailCollapsed) => set({ personnelRailCollapsed }),

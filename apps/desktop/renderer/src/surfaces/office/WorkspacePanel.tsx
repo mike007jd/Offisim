@@ -30,6 +30,7 @@ import {
 import { type CSSProperties, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { ProjectDialog } from './ProjectDialog.js';
+import { openStageFilePreview } from './stage-viewer/file-preview.js';
 
 type PanelTab = 'projects' | 'files' | 'git';
 const FILE_PREVIEW_BYTES = 12_000;
@@ -53,12 +54,6 @@ const NON_TEXT_PREVIEW_EXTENSIONS = new Set([
   'zip',
 ]);
 
-interface FilePreviewState {
-  path: string;
-  content: string;
-  truncated: boolean;
-  totalSize: number;
-}
 
 interface FileContextMenuState {
   node: FileNode;
@@ -167,39 +162,12 @@ function FilesTab({
       });
       return;
     }
-    openStageView({ kind: 'file', path: node.path, loading: true });
-    if (!isTauriRuntime()) {
-      openStageView({
-        kind: 'file',
-        path: node.path,
-        error: 'File preview requires the desktop runtime.',
-      });
-      return;
-    }
-    try {
-      const { invoke } = await import('@tauri-apps/api/core');
-      const result = await invoke<FilePreviewState>('project_read_file_preview', {
-        path: node.path,
-        cwd: null,
-        maxBytes: FILE_PREVIEW_BYTES,
-        projectId,
-      });
-      openStageView({
-        kind: 'file',
-        path: node.path,
-        content: result.content,
-        truncated: result.truncated,
-        totalSize: result.totalSize,
-      });
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : typeof error === 'string'
-            ? error
-            : 'File preview failed.';
-      openStageView({ kind: 'file', path: node.path, error: message });
-    }
+    await openStageFilePreview({
+      path: node.path,
+      openStageView,
+      projectId,
+      maxBytes: FILE_PREVIEW_BYTES,
+    });
   }
 
   async function invokePathCommand(

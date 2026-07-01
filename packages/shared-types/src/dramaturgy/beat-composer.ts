@@ -86,6 +86,7 @@ export interface ArtifactIntent {
   readonly kind: string;
   readonly ref?: string;
   readonly deliverableId?: string;
+  readonly path?: string;
 }
 
 export type ResourceKind = 'token' | 'budget' | 'permission' | 'context' | 'runtime' | 'tool';
@@ -95,6 +96,25 @@ export interface ResourceIntent {
   readonly kind: ResourceKind;
   readonly severity: ResourceSeverity;
   readonly label: string;
+}
+
+/**
+ * The three severities the UI surfaces for a resource strain. `recovering`
+ * collapses to `warning` — it is a transient, non-blocking state. Shared so the
+ * office projection, scene markers, and drilldown all rank strain identically.
+ */
+export type SurfacedResourceSeverity = 'warning' | 'blocked' | 'exhausted';
+
+/** Collapse a raw {@link ResourceSeverity} to the three surfaced levels. */
+export function surfacedResourceSeverity(severity: ResourceSeverity): SurfacedResourceSeverity {
+  if (severity === 'exhausted') return 'exhausted';
+  if (severity === 'blocked') return 'blocked';
+  return 'warning';
+}
+
+/** Rank a surfaced severity for ordering (exhausted > blocked > warning; higher wins). */
+export function resourceSeverityRank(severity: SurfacedResourceSeverity): number {
+  return severity === 'exhausted' ? 2 : severity === 'blocked' ? 1 : 0;
 }
 
 export interface VisualIntent {
@@ -275,6 +295,7 @@ function artifactIntent(payload: AgentRunArtifactPayload): ArtifactIntent {
     kind: payload.kind ?? payload.mimeType ?? 'artifact',
     ...(payload.ref ? { ref: payload.ref } : {}),
     ...(payload.deliverableId ? { deliverableId: payload.deliverableId } : {}),
+    ...(payload.path ? { path: payload.path } : {}),
   };
 }
 
