@@ -79,6 +79,16 @@ function tool(at: number, s: Scope, toolName: string): TimedAgentRunEvent {
     timestamp: at,
   };
 }
+function toolFailed(at: number, s: Scope, toolName: string): TimedAgentRunEvent {
+  return {
+    threadId: THREAD,
+    rootRunId: ROOT,
+    ...s,
+    type: 'tool.completed',
+    payload: { toolCallId: `${s.runId}:${at}`, toolName, status: 'failed' },
+    timestamp: at,
+  };
+}
 function approval(at: number, s: Scope): TimedAgentRunEvent {
   return {
     threadId: THREAD,
@@ -95,7 +105,7 @@ function artifact(at: number, s: Scope, title = 'out.md'): TimedAgentRunEvent {
     rootRunId: ROOT,
     ...s,
     type: 'artifact.created',
-    payload: { title },
+    payload: { title, kind: 'report', deliverableId: `${s.runId}:artifact` },
     timestamp: at,
   };
 }
@@ -151,6 +161,40 @@ console.log('\n[sustained] long compute relocates once');
   check(
     'relocation targets server-inspect affordance',
     compute[1]?.affordance === 'server-inspect',
+  );
+}
+
+// ── Universal work signals: flow / artifact / resource ─────────────────────
+console.log('\n[signals] flow, artifact, and resource intents');
+{
+  const beats = composeBeats(
+    [
+      started(0, { runId: ROOT, employeeId: 'alex', workKind: 'plan' }),
+      tool(300, { runId: ROOT, employeeId: 'alex' }, 'run_tests'),
+      toolFailed(450, { runId: ROOT, employeeId: 'alex' }, 'run_tests'),
+      approval(600, { runId: ROOT, employeeId: 'alex' }),
+      artifact(900, { runId: ROOT, employeeId: 'alex' }, 'qa-report.md'),
+      finished(1200, { runId: ROOT, employeeId: 'alex' }, 'failed'),
+    ],
+    CONFIG,
+  );
+  const artifactBeat = beats.find((beat) => beat.artifact);
+  const approvalBeat = byKind(beats, 'approval')[0];
+  const failures = byKind(beats, 'failure');
+  check(
+    'artifact beat carries an artifact intent',
+    artifactBeat?.artifact?.title === 'qa-report.md',
+  );
+  check('artifact beat flows to delivery', artifactBeat?.flow?.target === 'delivery');
+  check('approval beat carries permission resource', approvalBeat?.resource?.kind === 'permission');
+  check('tool failure and run failure both stage failure beats', failures.length === 2);
+  check(
+    'failure beats carry blocked/exhausted resource state',
+    failures.every((beat) => beat.resource?.severity === 'blocked'),
+  );
+  check(
+    'every emitted beat has a visual intent',
+    beats.every((beat) => beat.visual.phase && beat.visual.emotion),
   );
 }
 

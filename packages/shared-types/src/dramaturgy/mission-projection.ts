@@ -205,6 +205,35 @@ export function projectMissionEventToBeat(
     // Mission beats carry no random variant (no per-actor visual loop to break);
     // a fixed 0 keeps the projection byte-deterministic.
     variant: 0,
+    visual: {
+      phase:
+        map.phase === 'verification'
+          ? 'review'
+          : map.phase === 'approval'
+            ? 'wait'
+            : map.phase === 'failure'
+              ? 'blocked'
+              : map.phase === 'completion'
+                ? 'complete'
+                : 'plan',
+      intensity: map.phase === 'failure' ? 3 : map.phase === 'completion' ? 2 : 1,
+      emotion:
+        map.phase === 'failure'
+          ? 'blocked'
+          : map.phase === 'completion'
+            ? 'celebrating'
+            : map.phase === 'approval'
+              ? 'worried'
+              : 'focus',
+      affordance: map.affordance,
+      badges: [map.phase],
+    },
+    flow: null,
+    artifact: null,
+    resource:
+      map.phase === 'failure'
+        ? { kind: 'runtime', severity: 'blocked', label: 'mission failed' }
+        : null,
     at: event.at,
     lifecycle: { startedAt: event.at, endsAt: event.at + beatLifespanMs(map.beatKind) },
   };

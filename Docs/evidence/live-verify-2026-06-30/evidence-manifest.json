@@ -1,0 +1,492 @@
+{
+  "schemaVersion": 1,
+  "app": "Offisim",
+  "checkedAt": "2026-06-30T21:08:46+12:00",
+  "completedAt": "2026-06-30T21:53:16+12:00",
+  "mode": "real-user-live-verify",
+  "runTarget": "desktop-release-app",
+  "dataMode": "sanitized-local",
+  "liveArtifact": "apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app",
+  "report": "Docs/live-verify-report-2026-06-30.md",
+  "bugLedger": "Docs/live-verify-bugs-2026-06-30.md",
+  "protectedActions": [
+    "production data",
+    "paid calls",
+    "credentials",
+    "model downloads",
+    "publish",
+    "install",
+    "merge/discard worktrees",
+    "irreversible delete"
+  ],
+  "commands": [
+    {
+      "name": "date",
+      "status": "pass",
+      "summary": "2026-06-30 21:08:46 NZST +1200; final sync 2026-06-30 21:53:16 NZST +1200"
+    },
+    {
+      "name": "corepack pnpm install --frozen-lockfile",
+      "status": "pass",
+      "log": "logs/pnpm-install.log"
+    },
+    {
+      "name": "corepack pnpm validate",
+      "status": "toolchain-retry",
+      "log": "logs/pnpm-validate.log",
+      "note": "Initial run failed because a nested process resolved global pnpm 11.7.0 instead of packageManager pnpm 10.15.1."
+    },
+    {
+      "name": "PATH=/tmp/offisim-corepack-bin:$PATH pnpm validate",
+      "status": "pass",
+      "log": "logs/pnpm-validate-rerun.log",
+      "note": "Corepack shim forced pnpm 10.15.1 for nested package scripts."
+    },
+    {
+      "name": "PATH=/tmp/offisim-corepack-bin:$PATH pnpm check:ui-hygiene",
+      "status": "pass",
+      "log": "logs/pnpm-check-ui-hygiene.log"
+    },
+    {
+      "name": "PATH=/tmp/offisim-corepack-bin:$PATH pnpm security:harness",
+      "status": "pass",
+      "log": "logs/pnpm-security-harness.log"
+    },
+    {
+      "name": "PATH=/tmp/offisim-corepack-bin:$PATH pnpm audit --prod --audit-level high",
+      "status": "pass",
+      "log": "logs/pnpm-audit-prod-high.log",
+      "summary": "7 vulnerabilities found: 1 low, 6 moderate; no high/critical."
+    },
+    {
+      "name": "cargo test --locked",
+      "status": "pass",
+      "log": "logs/cargo-test-locked.log",
+      "summary": "138 passed, 0 failed."
+    },
+    {
+      "name": "PATH=/tmp/offisim-corepack-bin:$PATH pnpm --filter @offisim/desktop-renderer build",
+      "status": "pass",
+      "log": "logs/desktop-renderer-build.log"
+    },
+    {
+      "name": "PATH=/tmp/offisim-corepack-bin:$PATH pnpm --filter @offisim/desktop build",
+      "status": "pass",
+      "log": "logs/desktop-tauri-build.log"
+    },
+    {
+      "name": "PATH=/tmp/offisim-corepack-bin:$PATH pnpm --filter @offisim/desktop build",
+      "status": "pass",
+      "log": "logs/desktop-tauri-build-after-loop-fix.log",
+      "note": "Release app rebuilt after BUG-LV-01 fix."
+    },
+    {
+      "name": "PATH=/tmp/offisim-corepack-bin:$PATH pnpm validate",
+      "status": "pass",
+      "log": "logs/pnpm-validate-after-loop-fix.log",
+      "note": "Full validation after BUG-LV-01 fix."
+    },
+    {
+      "name": "PATH=/tmp/offisim-corepack-bin:$PATH pnpm check:ui-hygiene",
+      "status": "pass",
+      "log": "logs/pnpm-check-ui-hygiene-after-loop-fix.log",
+      "note": "UI hygiene after BUG-LV-01 fix."
+    },
+    {
+      "name": "PATH=/tmp/offisim-corepack-bin:$PATH pnpm security:harness",
+      "status": "pass",
+      "log": "logs/pnpm-security-harness-after-loop-fix.log",
+      "note": "Security harness after BUG-LV-01 fix."
+    },
+    {
+      "name": "git diff --check",
+      "status": "pass"
+    },
+    {
+      "name": "GitNexus detect_changes",
+      "status": "pass",
+      "summary": "MEDIUM expected scope: Loops/Mission renderer data flows."
+    }
+  ],
+  "screenshots": [
+    {
+      "id": "SS-00",
+      "path": "screenshots/00-cold-start-company-wizard.png",
+      "surface": "Lifecycle",
+      "note": "Cold start company wizard in isolated HOME."
+    },
+    {
+      "id": "SS-01",
+      "path": "screenshots/01-office-created-company.png",
+      "surface": "Office",
+      "note": "Created R&D company, Office 3D scene, team, workspace, and conversation shell."
+    },
+    {
+      "id": "SS-02",
+      "path": "screenshots/02-office-bound-workspace.png",
+      "surface": "Office/ScopeBar",
+      "note": "Project workspace rebound to sanitized fixture and file tree visible."
+    },
+    {
+      "id": "SS-03",
+      "path": "screenshots/03-office-draft-safe-stop.png",
+      "surface": "Office conversation",
+      "note": "New conversation draft accepts text and Send enables; external model call not clicked."
+    },
+    {
+      "id": "SS-04",
+      "path": "screenshots/04-connect-chats-empty.png",
+      "surface": "Connect/Chats",
+      "note": "Chats empty state and search."
+    },
+    {
+      "id": "SS-05",
+      "path": "screenshots/05-connect-calendar-empty.png",
+      "surface": "Connect/Calendar",
+      "note": "Calendar empty state."
+    },
+    {
+      "id": "SS-06",
+      "path": "screenshots/06-connect-contacts-roster.png",
+      "surface": "Connect/Contacts",
+      "note": "Contacts roster."
+    },
+    {
+      "id": "SS-07",
+      "path": "screenshots/07-connect-contacts-search.png",
+      "surface": "Connect/Contacts",
+      "note": "Contacts search filtering."
+    },
+    {
+      "id": "SS-08",
+      "path": "screenshots/08-connect-workplace-dashboard.png",
+      "surface": "Connect/Workplace",
+      "note": "Workplace app launcher dashboard."
+    },
+    {
+      "id": "SS-09",
+      "path": "screenshots/09-connect-workplace-kanban.png",
+      "surface": "Connect/Workplace",
+      "note": "Workplace Kanban app opens."
+    },
+    {
+      "id": "SS-10",
+      "path": "screenshots/10-loops-library-empty.png",
+      "surface": "Loops/Library",
+      "note": "Loops library empty state."
+    },
+    {
+      "id": "SS-11",
+      "path": "screenshots/11-loops-draft-editor.png",
+      "surface": "Loops/Editor",
+      "note": "Draft prompt typed in editor before fix."
+    },
+    {
+      "id": "SS-12",
+      "path": "screenshots/12-loops-draft-description-lost.png",
+      "surface": "Loops/Library",
+      "note": "BUG-LV-01 reproduction: uncompiled draft description lost after Back."
+    },
+    {
+      "id": "SS-13",
+      "path": "screenshots/13-restart-company-persisted.png",
+      "surface": "Lifecycle",
+      "note": "Company persisted after release app restart."
+    },
+    {
+      "id": "SS-14",
+      "path": "screenshots/14-loops-draft-summary-fixed.png",
+      "surface": "Loops/Library",
+      "note": "BUG-LV-01 fixed: library card retains draft summary."
+    },
+    {
+      "id": "SS-15",
+      "path": "screenshots/15-loops-draft-editor-restored.png",
+      "surface": "Loops/Editor",
+      "note": "BUG-LV-01 fixed: editor rehydrates draft prompt."
+    },
+    {
+      "id": "SS-16",
+      "path": "screenshots/16-market-no-registry.png",
+      "surface": "Market/Browse",
+      "note": "No registry configured state."
+    },
+    {
+      "id": "SS-17",
+      "path": "screenshots/17-market-installed-empty.png",
+      "surface": "Market/Installed",
+      "note": "Installed tab empty state."
+    },
+    {
+      "id": "SS-18",
+      "path": "screenshots/18-market-registry-token-dialog.png",
+      "surface": "Market/Registry",
+      "note": "Registry token dialog opens; credential save not submitted."
+    },
+    {
+      "id": "SS-19",
+      "path": "screenshots/19-personnel-roster.png",
+      "surface": "Personnel/Roster",
+      "note": "Roster list."
+    },
+    {
+      "id": "SS-20",
+      "path": "screenshots/20-personnel-employee-profile.png",
+      "surface": "Personnel/Profile",
+      "note": "Employee profile tabs and details."
+    },
+    {
+      "id": "SS-21",
+      "path": "screenshots/21-personnel-search-filter.png",
+      "surface": "Personnel/Search",
+      "note": "Roster search/filter."
+    },
+    {
+      "id": "SS-22",
+      "path": "screenshots/22-personnel-search-select.png",
+      "surface": "Personnel/Search",
+      "note": "Search result selection."
+    },
+    {
+      "id": "SS-23",
+      "path": "screenshots/23-activity-events.png",
+      "surface": "Activity",
+      "note": "Activity events and stats."
+    },
+    {
+      "id": "SS-24",
+      "path": "screenshots/24-activity-search.png",
+      "surface": "Activity",
+      "note": "Activity search/filter state."
+    },
+    {
+      "id": "SS-25",
+      "path": "screenshots/25-tasks-empty.png",
+      "surface": "Tasks",
+      "note": "Tasks empty state and controls."
+    },
+    {
+      "id": "SS-26",
+      "path": "screenshots/26-settings-pi-agent.png",
+      "surface": "Settings/Pi Agent",
+      "note": "Pi Agent auth/model config state; no Offisim provider catalog."
+    },
+    {
+      "id": "SS-27",
+      "path": "screenshots/27-settings-runtime.png",
+      "surface": "Settings/Runtime",
+      "note": "Runtime engine resolves to Pi Agent."
+    },
+    {
+      "id": "SS-28",
+      "path": "screenshots/28-settings-mcp-empty.png",
+      "surface": "Settings/MCP",
+      "note": "MCP settings pane empty state."
+    },
+    {
+      "id": "SS-29",
+      "path": "screenshots/29-settings-external-employees.png",
+      "surface": "Settings/External Employees",
+      "note": "External employees pane."
+    },
+    {
+      "id": "SS-30",
+      "path": "screenshots/30-studio-scene-tree.png",
+      "surface": "Studio",
+      "note": "Studio scene tree and editor shell."
+    },
+    {
+      "id": "SS-31",
+      "path": "screenshots/31-studio-zone-selected-rendered.png",
+      "surface": "Studio",
+      "note": "Studio zone selected with nonblank rendered scene."
+    },
+    {
+      "id": "SS-32",
+      "path": "screenshots/32-office-post-fix.png",
+      "surface": "Office",
+      "note": "Office smoke after BUG-LV-01 fix."
+    },
+    {
+      "id": "SS-33",
+      "path": "screenshots/33-connect-post-fix.png",
+      "surface": "Connect",
+      "note": "Connect smoke after BUG-LV-01 fix."
+    },
+    {
+      "id": "SS-34",
+      "path": "screenshots/34-fresh-cold-start-company-created.png",
+      "surface": "Lifecycle",
+      "note": "Fresh HOME company created after release rebuild."
+    },
+    {
+      "id": "SS-35",
+      "path": "screenshots/35-fresh-loop-draft-fixed.png",
+      "surface": "Loops/Library",
+      "note": "Fresh HOME confirms uncompiled Loop draft summary persists."
+    },
+    {
+      "id": "SS-36",
+      "path": "screenshots/36-connect-new-chat-dialog.png",
+      "surface": "Connect/Chats",
+      "note": "New chat dialog opens; no chat created."
+    },
+    {
+      "id": "SS-37",
+      "path": "screenshots/37-personnel-hire-dialog.png",
+      "surface": "Personnel/Hire",
+      "note": "Hire employee dialog opens with disabled submit until valid input; no employee created."
+    }
+  ],
+  "artifacts": [
+    {
+      "id": "APP-HASH-INITIAL",
+      "name": "release app file-list sha256 before BUG-LV-01 fix",
+      "path": "artifacts/offisim-app-files.sha256",
+      "sha256OfFileList": "18d7252086c3a35edf9c8836d47f22f2cdea68522da805daf67768b35ae351a0",
+      "appSize": "147M"
+    },
+    {
+      "id": "APP-HASH-FINAL",
+      "name": "release app file-list sha256 after BUG-LV-01 fix",
+      "path": "artifacts/offisim-app-files-after-loop-fix.sha256",
+      "sha256OfFileList": "74b67ebea6b0d9147853b2892d4d51887759891330ad9b649fa9a40c1cfde05a",
+      "appSize": "147M"
+    },
+    {
+      "id": "DB-COUNTS",
+      "name": "db counts after company create",
+      "path": "artifacts/db-counts-after-company.txt"
+    },
+    {
+      "id": "WORKSPACE-ROOT",
+      "name": "project workspace root",
+      "path": "artifacts/project-workspace-root.txt"
+    }
+  ],
+  "liveRows": [
+    {
+      "id": "INV-01",
+      "status": "PASS",
+      "evidence": ["SS-00", "SS-01", "SS-13", "SS-34", "DB-COUNTS"],
+      "note": "Cold start wizard, company creation, persistence after restart, and fresh HOME creation verified."
+    },
+    {
+      "id": "INV-02",
+      "status": "PASS",
+      "evidence": ["SS-02", "WORKSPACE-ROOT"],
+      "note": "Project workspace root saved to sanitized fixture and file browser rendered via desktop commands."
+    },
+    {
+      "id": "INV-03",
+      "status": "PASS",
+      "evidence": ["SS-01", "SS-02", "SS-32"],
+      "note": "Office shell, 3D stage, file panel, team dock, and conversations panel rendered before and after fix."
+    },
+    {
+      "id": "INV-04",
+      "status": "PASS_SAFE_STOP",
+      "evidence": ["SS-03"],
+      "note": "Composer accepts draft and enables Send; external Pi/model call skipped as protected without auth."
+    },
+    {
+      "id": "INV-05",
+      "status": "PASS_SAFE_STOP",
+      "evidence": ["SS-04", "SS-33", "SS-36"],
+      "note": "Connect Chats empty/search and New chat dialog verified; no chat or AI action submitted."
+    },
+    {
+      "id": "INV-06",
+      "status": "PASS",
+      "evidence": ["SS-05", "SS-06", "SS-07", "SS-08", "SS-09"],
+      "note": "Calendar, Contacts, search, Workplace dashboard, and Kanban rail switching verified."
+    },
+    {
+      "id": "INV-07",
+      "status": "PASS",
+      "evidence": ["SS-10", "SS-14", "SS-35"],
+      "note": "Loops library empty state, draft card state, and fresh rerun persistence verified."
+    },
+    {
+      "id": "INV-08",
+      "status": "PASS_SAFE_STOP",
+      "evidence": ["SS-11", "SS-15"],
+      "note": "Loops editor opens and rehydrates drafts; Compile/Enhance/Use stopped before Pi-dependent action."
+    },
+    {
+      "id": "INV-09",
+      "status": "PASS_SAFE_STOP",
+      "evidence": ["SS-16", "SS-17", "SS-18"],
+      "note": "Market browse/installed states and registry token dialog verified; credential save/install/publish not submitted."
+    },
+    {
+      "id": "INV-10",
+      "status": "PASS_SAFE_STOP",
+      "evidence": ["SS-19", "SS-20", "SS-21", "SS-22", "SS-37"],
+      "note": "Personnel roster, profile, search/filter, and hire dialog verified; hire/delete not submitted."
+    },
+    {
+      "id": "INV-11",
+      "status": "PASS",
+      "evidence": ["SS-23", "SS-24"],
+      "note": "Activity stats, events, and search/filter verified."
+    },
+    {
+      "id": "INV-12",
+      "status": "PASS_SAFE_STOP",
+      "evidence": ["SS-25"],
+      "note": "Tasks empty state and controls verified; cancel/resume/merge/discard actions not finalized."
+    },
+    {
+      "id": "INV-13",
+      "status": "PASS",
+      "evidence": ["SS-26"],
+      "note": "Settings Pi Agent pane shows auth/model paths and no Offisim-managed provider catalog."
+    },
+    {
+      "id": "INV-14",
+      "status": "PASS_SAFE_STOP",
+      "evidence": ["SS-27", "SS-28", "SS-29"],
+      "note": "Runtime, MCP, and External Employees panes render; credential/install actions not finalized."
+    },
+    {
+      "id": "INV-15",
+      "status": "PASS",
+      "evidence": ["SS-30", "SS-31"],
+      "note": "Studio editor, scene tree, inspector, prefab tray, and nonblank rendered scene verified."
+    }
+  ],
+  "bugs": [
+    {
+      "id": "BUG-LV-01",
+      "severity": "P2",
+      "status": "FIXED",
+      "surface": "Loops",
+      "evidenceBefore": ["SS-11", "SS-12"],
+      "evidenceAfter": ["SS-14", "SS-15", "SS-35"],
+      "summary": "Uncompiled Loop draft prompt was lost after Back navigation; fixed by persisting draft summary metadata and hydrating editor from it."
+    }
+  ],
+  "finalDecision": "GO",
+  "residualRisks": [
+    "Pi-auth-dependent actions were safe-stopped because the sanitized profile had no Pi credentials.",
+    "Protected shared-state or credential actions were opened only to the first safe dialog state."
+  ],
+  "toolchain": {
+    "node": "v22.22.3",
+    "pnpm": "10.15.1 (corepack shim)",
+    "cargo": "cargo 1.96.0 (30a34c682 2026-05-25) (Homebrew)",
+    "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25) (Homebrew)"
+  },
+  "sanitizedData": {
+    "home": "/tmp/offisim-live-verify-home-20260630",
+    "workspaceRoot": "/tmp/offisim-live-verify-workspace-20260630",
+    "freshHome": "/tmp/offisim-live-verify-home-20260630-fresh",
+    "freshWorkspaceRoot": "/tmp/offisim-live-verify-workspace-20260630-fresh",
+    "files": [
+      "README.md",
+      "src/sample.ts",
+      "docs/notes.md"
+    ]
+  }
+}

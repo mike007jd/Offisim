@@ -3,7 +3,7 @@ import {
   dominantBeatsFrom,
   useEmployeeWorkloads,
 } from '@/assistant/runtime/conversation-run-react.js';
-import { usePrefersReducedMotion } from '@/assistant/runtime/office-dramaturgy.js';
+import { useOfficeBeats, usePrefersReducedMotion } from '@/assistant/runtime/office-dramaturgy.js';
 import { OFFICE_SCENE_2D_COLORS } from '@/data/color-palette.js';
 import { useEmployees, useOfficeLayout, useThreads } from '@/data/queries.js';
 import type { ZoneKind } from '@/data/types.js';
@@ -59,6 +59,7 @@ export function OfficeScene2D() {
   const employees = useEmployees();
   const threads = useThreads(projectId);
   const workloads = useEmployeeWorkloads(projectId, companyId);
+  const liveBeats = useOfficeBeats(companyId);
   // Same real source as the 3D scene — real zones + real roster, with the
   // synthetic fallback only when there is no backend (non-Tauri/dev preview).
   const layout = useOfficeLayout(companyId);
@@ -211,24 +212,13 @@ export function OfficeScene2D() {
               a.id === selectedEmployeeId ? -1 : b.id === selectedEmployeeId ? 1 : 0,
             );
       const zoneById = new Map(zoneDefs.map((zone) => [zone.id, zone]));
-      for (const employee of ordered) {
-        const pos = positions.get(employee.id);
-        if (!pos) continue;
-        const thread = threadByEmployee.get(employee.id);
-        const workload = workloads.get(employee.id);
-        const activeCount = workload?.activeCount ?? 0;
-        const running = activeCount > 0;
-        const active = Boolean(thread && thread.id === selectedThreadId);
-        const colors = resolveAppearance(employee.id, employee.appearance);
-        const staged = stagedById.get(employee.id);
+
+      const screenForEmployee = (employeeId: string) => {
+        const pos = positions.get(employeeId);
+        if (!pos) return null;
+        const staged = stagedById.get(employeeId);
         let sx = wx(staged ? staged.x : pos.x);
         let sy = wy(staged ? staged.z : pos.z);
-
-        // Screen-space re-clamp of the world clampSeat: the world margin only
-        // folds to ~margin*scale px, while the painted extent (disc + ring +
-        // label slots) is in fixed px, so on small stages seats must be pulled
-        // back inside their zone rect here. Relocated actors sit at a precise
-        // cross-zone anchor, so they skip the home-zone clamp.
         const zone = staged ? undefined : zoneById.get(pos.zoneId);
         if (zone) {
           sx = clampSpan(
@@ -242,6 +232,97 @@ export function OfficeScene2D() {
             wy(zone.cz + zone.d / 2) - r - ringPad - labelBand,
           );
         }
+        return { sx, sy };
+      };
+
+      const flowTarget = (target: NonNullable<(typeof liveBeats)[number]['flow']>['target']) => {
+        switch (target) {
+          case 'delivery':
+            return { sx: wx(floorW / 2 - 2.7), sy: wy(floorD / 2 - 2.0) };
+          case 'tool':
+            return { sx: wx(floorW / 2 - 4.8), sy: wy(-floorD / 2 + 3.2) };
+          case 'review':
+            return { sx: wx(-floorW / 2 + 4.2), sy: wy(-floorD / 2 + 3.3) };
+          case 'user':
+            return { sx: wx(0), sy: wy(floorD / 2 - 1.7) };
+          default:
+            return { sx: wx(0), sy: wy(0) };
+        }
+      };
+
+      const artifactBeats = liveBeats.filter((beat) => beat.artifact && beat.employeeId).slice(-3);
+      const signalBeats = liveBeats
+        .filter((beat) => beat.employeeId && (beat.flow || beat.resource || beat.artifact))
+        .slice(-8);
+
+      // Flow layer: visible handoff/result/resource packets derived from generic
+      // beat facts, separate from actor movement.
+      for (const beat of signalBeats) {
+        if (!beat.employeeId) continue;
+        const source = screenForEmployee(beat.employeeId);
+        if (!source) continue;
+        const target = flowTarget(beat.flow?.target ?? (beat.resource ? 'tool' : 'delivery'));
+        const color = beat.resource
+          ? OFFICE_SCENE_2D_COLORS.resourceLine
+          : beat.artifact
+            ? OFFICE_SCENE_2D_COLORS.artifactLine
+            : OFFICE_SCENE_2D_COLORS.flowLine;
+        const packet = beat.resource
+          ? OFFICE_SCENE_2D_COLORS.resourcePacket
+          : beat.artifact
+            ? OFFICE_SCENE_2D_COLORS.artifactPacket
+            : OFFICE_SCENE_2D_COLORS.flowPacket;
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = beat.resource ? 2.2 : 1.6;
+        ctx.setLineDash(beat.flow?.pulse === false ? [4, 5] : []);
+        ctx.beginPath();
+        const mx = (source.sx + target.sx) / 2;
+        const my = Math.min(source.sy, target.sy) - 30;
+        ctx.moveTo(source.sx, source.sy);
+        ctx.quadraticCurveTo(mx, my, target.sx, target.sy);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        const t = ((Date.now() - beat.at) % 1400) / 1400;
+        const px = (1 - t) ** 2 * source.sx + 2 * (1 - t) * t * mx + t ** 2 * target.sx;
+        const py = (1 - t) ** 2 * source.sy + 2 * (1 - t) * t * my + t ** 2 * target.sy;
+        ctx.fillStyle = packet;
+        ctx.beginPath();
+        ctx.arc(px, py, beat.resource ? 4.2 : 3.4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      if (artifactBeats.length > 0) {
+        const shelf = flowTarget('delivery');
+        const shelfW = 116;
+        const shelfH = 34;
+        ctx.fillStyle = OFFICE_SCENE_2D_COLORS.deliveryShelf;
+        roundRect(ctx, shelf.sx - shelfW / 2, shelf.sy - shelfH / 2, shelfW, shelfH, 8);
+        ctx.fill();
+        ctx.strokeStyle = OFFICE_SCENE_2D_COLORS.deliveryShelfLine;
+        ctx.stroke();
+        ctx.font = CANVAS_FONT_TOKENS.officeSceneLabel;
+        ctx.fillStyle = OFFICE_SCENE_2D_COLORS.name;
+        ctx.textAlign = 'center';
+        ctx.fillText('DELIVERY', shelf.sx, shelf.sy - 2);
+        ctx.fillStyle = OFFICE_SCENE_2D_COLORS.artifactPacket;
+        ctx.fillText(`×${artifactBeats.length}`, shelf.sx, shelf.sy + 11);
+        ctx.textAlign = 'left';
+      }
+
+      for (const employee of ordered) {
+        const pos = positions.get(employee.id);
+        if (!pos) continue;
+        const thread = threadByEmployee.get(employee.id);
+        const workload = workloads.get(employee.id);
+        const activeCount = workload?.activeCount ?? 0;
+        const running = activeCount > 0;
+        const active = Boolean(thread && thread.id === selectedThreadId);
+        const colors = resolveAppearance(employee.id, employee.appearance);
+        const screen = screenForEmployee(employee.id);
+        if (!screen) continue;
+        const { sx, sy } = screen;
 
         // desk — below ~14px/unit it is no longer legible as furniture
         if (scale >= 14) {
@@ -273,6 +354,38 @@ export function OfficeScene2D() {
           ctx.fillText(`×${activeCount}`, bx, by);
           ctx.textAlign = 'left';
           occupied.push({ x0: bx - 9, x1: bx + 9, y0: by - 9, y1: by + 5 });
+        }
+
+        if (workload?.workloadChips.some((chip) => chip.tone === 'risk')) {
+          ctx.fillStyle = OFFICE_SCENE_2D_COLORS.resourcePacket;
+          ctx.beginPath();
+          ctx.arc(sx - r - 5, sy - r - 4, 4.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        if (workload?.workloadChips.length) {
+          const chips = workload.workloadChips.slice(0, 3);
+          ctx.font = CANVAS_FONT_TOKENS.officeSceneLabel;
+          ctx.textAlign = 'center';
+          const totalW = chips.length * 22 + (chips.length - 1) * 3;
+          let cx = sx - totalW / 2 + 11;
+          const cy = sy + r + 32;
+          for (const chip of chips) {
+            ctx.fillStyle =
+              chip.tone === 'risk'
+                ? OFFICE_SCENE_2D_COLORS.resourcePacket
+                : chip.tone === 'done'
+                  ? OFFICE_SCENE_2D_COLORS.artifactPacket
+                  : chip.tone === 'wait'
+                    ? OFFICE_SCENE_2D_COLORS.deliveryShelfLine
+                    : OFFICE_SCENE_2D_COLORS.flowPacket;
+            roundRect(ctx, cx - 11, cy - 6, 22, 12, 6);
+            ctx.fill();
+            ctx.fillStyle = OFFICE_SCENE_2D_COLORS.floor;
+            ctx.fillText(chip.label.slice(0, 3), cx, cy + 4);
+            cx += 25;
+          }
+          ctx.textAlign = 'left';
         }
 
         // body (clothing) disc
@@ -330,10 +443,20 @@ export function OfficeScene2D() {
       }
     };
 
-    draw();
+    let raf = 0;
+    const hasPulsingFlow = liveBeats.some((beat) => beat.flow?.pulse && beat.employeeId);
+    const tick = () => {
+      draw();
+      raf = hasPulsingFlow ? window.requestAnimationFrame(tick) : 0;
+    };
+
+    tick();
     const observer = new ResizeObserver(draw);
     if (canvas.parentElement) observer.observe(canvas.parentElement);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (raf) window.cancelAnimationFrame(raf);
+    };
   }, [
     zoneDefs,
     floorW,
@@ -345,6 +468,7 @@ export function OfficeScene2D() {
     selectedEmployeeId,
     selectedThreadId,
     workloads,
+    liveBeats,
   ]);
 
   // A zero-zone (empty) office draws the bare floor slab with nobody seated —

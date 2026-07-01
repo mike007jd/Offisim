@@ -4,7 +4,7 @@ import {
   useConversationRun,
   useEmployeeWorkloads,
 } from '@/assistant/runtime/conversation-run-react.js';
-import { usePrefersReducedMotion } from '@/assistant/runtime/office-dramaturgy.js';
+import { useOfficeBeats, usePrefersReducedMotion } from '@/assistant/runtime/office-dramaturgy.js';
 import { useEmployees, useOfficeLayout, useReassignEmployee, useThreads } from '@/data/queries.js';
 import type { Employee } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
@@ -18,7 +18,7 @@ import {
   applyDramaturgyMode,
   projectOfficeStaging,
 } from '@offisim/shared-types';
-import { Html, OrbitControls } from '@react-three/drei';
+import { Html, Line, OrbitControls } from '@react-three/drei';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ACESFilmicToneMapping, type Group } from 'three';
@@ -77,6 +77,29 @@ interface SceneDropNotice {
   readonly message: string;
 }
 
+interface SceneFlowLine {
+  readonly id: string;
+  readonly from: readonly [number, number, number];
+  readonly to: readonly [number, number, number];
+  readonly color: string;
+  readonly label: string;
+}
+
+function flowTarget3D(target: 'workstation' | 'tool' | 'review' | 'delivery' | 'user') {
+  switch (target) {
+    case 'delivery':
+      return [14.8, 0.1, 12.4] as const;
+    case 'tool':
+      return [10.4, 0.1, -9.0] as const;
+    case 'review':
+      return [-6.4, 0.1, -7.4] as const;
+    case 'user':
+      return [0, 0.1, 13.4] as const;
+    default:
+      return [0, 0.1, 0] as const;
+  }
+}
+
 /** Display-only placed prefab. All editing now lives in StudioScene3D. */
 function ScenePrefabInstance3D({
   instance,
@@ -109,6 +132,8 @@ function EmployeeUnit({
   withDesk,
   running,
   activeCount,
+  workloadChips,
+  resourceLabel,
   reducedMotion,
   active,
   dragging,
@@ -127,6 +152,11 @@ function EmployeeUnit({
   withDesk: boolean;
   running: boolean;
   activeCount: number;
+  workloadChips: readonly {
+    readonly label: string;
+    readonly tone: 'work' | 'wait' | 'risk' | 'done';
+  }[];
+  resourceLabel: string | null;
   reducedMotion: boolean;
   active: boolean;
   dragging: boolean;
@@ -467,6 +497,20 @@ function EmployeeUnit({
                 {`×${activeCount}`}
               </span>
             ) : null}
+            {resourceLabel ? (
+              <span className="off-scene-resource-marker" aria-label={resourceLabel}>
+                !
+              </span>
+            ) : null}
+            {workloadChips.length > 0 ? (
+              <div className="off-scene-workload-bubble" aria-label="Workload">
+                {workloadChips.map((chip) => (
+                  <span key={`${chip.tone}:${chip.label}`} className={`is-${chip.tone}`}>
+                    {chip.label.slice(0, 10)}
+                  </span>
+                ))}
+              </div>
+            ) : null}
           </div>
         </Html>
       ) : null}
@@ -578,6 +622,7 @@ export function OfficeScene3D() {
   const employees = useEmployees();
   const threads = useThreads(projectId);
   const workloads = useEmployeeWorkloads(projectId, companyId);
+  const liveBeats = useOfficeBeats(companyId);
   const selectedRun = useConversationRun(selectedThreadId ?? '');
   const layout = useOfficeLayout(companyId);
   const reassign = useReassignEmployee();
@@ -639,6 +684,46 @@ export function OfficeScene3D() {
         ).map((d) => [d.employeeId, d]),
       ),
     [dominantBeats, stagingPrefabs, placementsByEmployee, officeMode, reducedMotion],
+  );
+
+  const signalBeats = useMemo(
+    () =>
+      liveBeats
+        .filter((beat) => beat.employeeId && (beat.flow || beat.resource || beat.artifact))
+        .slice(-8),
+    [liveBeats],
+  );
+  const artifactBeats = useMemo(
+    () => liveBeats.filter((beat) => beat.employeeId && beat.artifact).slice(-3),
+    [liveBeats],
+  );
+  const sceneFlowLines = useMemo<SceneFlowLine[]>(
+    () =>
+      signalBeats.flatMap((beat) => {
+        if (!beat.employeeId) return [];
+        const home = placementsByEmployee.get(beat.employeeId) ?? {
+          x: defaultEmployeeZone.cx,
+          z: defaultEmployeeZone.cz,
+        };
+        const staged = dramaturgyByEmployee.get(beat.employeeId)?.staging;
+        const fromX = staged?.x ?? home.x;
+        const fromZ = staged?.z ?? home.z;
+        const target = flowTarget3D(beat.flow?.target ?? (beat.resource ? 'tool' : 'delivery'));
+        return [
+          {
+            id: beat.id,
+            from: [fromX, 0.12, fromZ] as const,
+            to: target,
+            color: beat.resource
+              ? LIGHT_SCENE_3D.ghostBlocked
+              : beat.artifact
+                ? LIGHT_SCENE_3D.ghostValid
+                : LIGHT_SCENE_3D.selectionRing,
+            label: beat.flow?.label ?? beat.visual.phase,
+          },
+        ];
+      }),
+    [defaultEmployeeZone, dramaturgyByEmployee, placementsByEmployee, signalBeats],
   );
 
   const threadByEmployee = useMemo(() => {
@@ -742,6 +827,10 @@ export function OfficeScene3D() {
                   withDesk={!real}
                   running={running}
                   activeCount={activeCount}
+                  workloadChips={workload?.workloadChips ?? []}
+                  resourceLabel={
+                    workload?.workloadChips.find((chip) => chip.tone === 'risk')?.label ?? null
+                  }
                   reducedMotion={reducedMotion}
                   active={Boolean(thread && thread.id === selectedThreadId)}
                   dragging={employeeDrag?.employeeId === employee.id}
@@ -781,6 +870,32 @@ export function OfficeScene3D() {
           <EmployeeDragGhost employee={draggedEmployee} drag={employeeDrag} />
         ) : null}
         {dropNotice ? <SceneDropNoticeLabel key={dropNotice.id} notice={dropNotice} /> : null}
+        {sceneFlowLines.map((line) => (
+          <Fragment key={line.id}>
+            <Line
+              points={[line.from, line.to]}
+              color={line.color}
+              lineWidth={1.6}
+              transparent
+              opacity={0.58}
+            />
+          </Fragment>
+        ))}
+        {artifactBeats.length > 0 ? (
+          <Html
+            position={flowTarget3D('delivery')}
+            center
+            distanceFactor={18}
+            occlude={false}
+            zIndexRange={[3, 0]}
+            className="off-scene-html-passive"
+          >
+            <div className="off-scene-delivery-shelf">
+              <span>Delivery</span>
+              <b>{artifactBeats.length}</b>
+            </div>
+          </Html>
+        ) : null}
 
         {/* Free orbit camera: drag to rotate, two-finger / right-drag to pan,
           scroll to zoom. Damped for a premium feel. Polar clamps keep the user

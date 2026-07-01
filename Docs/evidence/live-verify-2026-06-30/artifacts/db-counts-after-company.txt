@@ -1,0 +1,5 @@
+companies|1
+employees|8
+projects|1
+zones|7
+workstations|3

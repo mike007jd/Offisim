@@ -308,8 +308,17 @@ export type {
   BeatKind,
   DramaturgyConfig,
   DramaturgyTiming,
+  ArtifactIntent,
+  FlowIntent,
+  ResourceKind,
+  ResourceIntent,
+  ResourceSeverity,
   SceneBeat,
   TimedAgentRunEvent,
+  VisualEmotion,
+  VisualIntent,
+  VisualPhase,
+  VisualProp,
 } from './dramaturgy/beat-composer.js';
 export {
   BEAT_PRIORITY,

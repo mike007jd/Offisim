@@ -7,6 +7,7 @@ import {
   type LoopCompileModel,
   type LoopCompileResult,
   type LoopModelOutput,
+  type LoopDefinitionRow,
   type LoopService,
   type LoopServiceRepos,
   type RuntimeRepositories,
@@ -35,6 +36,20 @@ function loopServiceRepos(repos: RuntimeRepositories): LoopServiceRepos | null {
   const { loopDefinitions, loopRevisions, loopSkillBindings, loopInvocations } = repos;
   if (!loopDefinitions || !loopRevisions || !loopSkillBindings || !loopInvocations) return null;
   return { loopDefinitions, loopRevisions, loopSkillBindings, loopInvocations };
+}
+
+function toLoopDefinition(row: LoopDefinitionRow): LoopDefinition {
+  return {
+    loopId: row.loop_id,
+    companyId: row.company_id,
+    title: row.title,
+    summary: row.summary,
+    profileId: row.profile_id,
+    currentRevisionId: row.current_revision_id ?? undefined,
+    status: row.status as LoopDefinition['status'],
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
 }
 
 /** Build the Loop service over the live repos, or throw if unavailable (desktop-only). */
@@ -225,6 +240,42 @@ export function useCreateLoop(companyId: string | null) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: loopKeys.list(companyId) });
+    },
+  });
+}
+
+/**
+ * Persist natural-language draft metadata before the user leaves an uncompiled Loop.
+ *
+ * This intentionally writes only loop_definitions.summary. It does not create a
+ * revision, run the compiler, select a current revision, or touch Mission/runtime
+ * tables; immutable revision history still starts at explicit Compile + Save.
+ */
+export function useUpdateLoopDraftSummary(companyId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { loopId: string; summary: string }): Promise<LoopDefinition> => {
+      if (!companyId) throw new Error('Updating a Loop draft needs a selected company.');
+      const repos = await reposOrNull();
+      if (!repos) throw new Error('Updating a Loop draft needs the desktop app.');
+      const subset = loopServiceRepos(repos);
+      if (!subset) throw new Error('Loop repositories are unavailable in this runtime.');
+
+      const row = await subset.loopDefinitions.findById(input.loopId);
+      if (!row || row.company_id !== companyId) throw new Error('Loop not found.');
+
+      const updatedAt = new Date().toISOString();
+      await subset.loopDefinitions.update(input.loopId, {
+        summary: input.summary,
+        updatedAt,
+      });
+      return toLoopDefinition({ ...row, summary: input.summary, updated_at: updatedAt });
+    },
+    onSuccess: (updated) => {
+      qc.setQueryData(loopKeys.detail(updated.loopId), updated);
+      qc.setQueryData<LoopDefinition[] | undefined>(loopKeys.list(companyId), (rows) =>
+        rows?.map((row) => (row.loopId === updated.loopId ? updated : row)),
+      );
     },
   });
 }

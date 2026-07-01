@@ -21,6 +21,7 @@
  */
 import {
   type ActivityKind,
+  type AgentRunArtifactPayload,
   type AgentRunEvent,
   type AgentRunEventType,
   type WorkKind,
@@ -51,6 +52,60 @@ export type BeatKind =
 /** Interaction anchor kind a beat targets (resolved to real anchors via staging). */
 export type BeatAffordance = InteractionAnchorKind;
 
+export type VisualPhase =
+  | 'plan'
+  | 'read'
+  | 'produce'
+  | 'compute'
+  | 'review'
+  | 'wait'
+  | 'blocked'
+  | 'complete';
+
+export type VisualEmotion =
+  | 'neutral'
+  | 'focus'
+  | 'thinking'
+  | 'worried'
+  | 'blocked'
+  | 'confident'
+  | 'celebrating'
+  | 'urgent';
+
+export type VisualProp = 'document' | 'laptop' | 'terminal' | 'package' | 'pointer' | 'archive';
+
+export interface FlowIntent {
+  readonly kind: 'task' | 'delegation' | 'tool' | 'artifact' | 'approval' | 'failure' | 'join';
+  readonly label: string;
+  readonly target: 'workstation' | 'tool' | 'review' | 'delivery' | 'user';
+  readonly pulse: boolean;
+}
+
+export interface ArtifactIntent {
+  readonly title: string;
+  readonly kind: string;
+  readonly ref?: string;
+  readonly deliverableId?: string;
+}
+
+export type ResourceKind = 'token' | 'budget' | 'permission' | 'context' | 'runtime' | 'tool';
+export type ResourceSeverity = 'warning' | 'blocked' | 'exhausted' | 'recovering';
+
+export interface ResourceIntent {
+  readonly kind: ResourceKind;
+  readonly severity: ResourceSeverity;
+  readonly label: string;
+}
+
+export interface VisualIntent {
+  readonly phase: VisualPhase;
+  readonly intensity: 0 | 1 | 2 | 3;
+  readonly emotion: VisualEmotion;
+  readonly prop?: VisualProp;
+  readonly affordance: BeatAffordance | null;
+  readonly badges: readonly string[];
+}
+
 export interface SceneBeat {
   readonly id: string;
   readonly kind: BeatKind;
@@ -70,6 +125,10 @@ export interface SceneBeat {
   readonly interrupt: boolean;
   /** Deterministic, seed-derived variant index. */
   readonly variant: number;
+  readonly visual: VisualIntent;
+  readonly flow: FlowIntent | null;
+  readonly artifact: ArtifactIntent | null;
+  readonly resource: ResourceIntent | null;
   readonly at: number;
   /**
    * Beat lifetime so the office can expire a beat without waiting for a future
@@ -195,7 +254,170 @@ interface WorkSignal {
   readonly milestone: boolean;
   readonly activityKind: ActivityKind | null;
   readonly workKind: WorkKind | null;
+  readonly flow?: FlowIntent;
+  readonly artifact?: ArtifactIntent;
+  readonly resource?: ResourceIntent;
   readonly at: number;
+}
+
+function flow(
+  kind: FlowIntent['kind'],
+  label: string,
+  target: FlowIntent['target'],
+  pulse = true,
+): FlowIntent {
+  return { kind, label, target, pulse };
+}
+
+function artifactIntent(payload: AgentRunArtifactPayload): ArtifactIntent {
+  return {
+    title: payload.title,
+    kind: payload.kind ?? payload.mimeType ?? 'artifact',
+    ...(payload.ref ? { ref: payload.ref } : {}),
+    ...(payload.deliverableId ? { deliverableId: payload.deliverableId } : {}),
+  };
+}
+
+function resourceFromFailure(summary?: string): ResourceIntent {
+  const text = (summary ?? '').toLowerCase();
+  if (text.includes('token')) {
+    return { kind: 'token', severity: 'exhausted', label: 'token exhausted' };
+  }
+  if (text.includes('budget')) {
+    return { kind: 'budget', severity: 'exhausted', label: 'budget exhausted' };
+  }
+  if (text.includes('permission') || text.includes('approval') || text.includes('denied')) {
+    return { kind: 'permission', severity: 'blocked', label: 'permission blocked' };
+  }
+  if (text.includes('context') || text.includes('compact')) {
+    return { kind: 'context', severity: 'blocked', label: 'context blocked' };
+  }
+  if (text.includes('disconnect') || text.includes('provider') || text.includes('runtime')) {
+    return { kind: 'runtime', severity: 'blocked', label: 'runtime blocked' };
+  }
+  return { kind: 'tool', severity: 'blocked', label: 'run blocked' };
+}
+
+function visualForSignal(signal: WorkSignal): VisualIntent {
+  if (signal.resource?.severity === 'exhausted') {
+    return {
+      phase: 'blocked',
+      intensity: 3,
+      emotion: 'blocked',
+      affordance: signal.affordance,
+      badges: [signal.resource.label],
+    };
+  }
+  if (signal.resource) {
+    return {
+      phase: signal.kind === 'approval' ? 'wait' : 'blocked',
+      intensity: signal.kind === 'approval' ? 2 : 3,
+      emotion: signal.kind === 'approval' ? 'worried' : 'blocked',
+      affordance: signal.affordance,
+      badges: [signal.resource.label],
+    };
+  }
+  if (signal.artifact) {
+    return {
+      phase: 'produce',
+      intensity: 2,
+      emotion: 'confident',
+      prop: 'package',
+      affordance: signal.affordance,
+      badges: ['artifact'],
+    };
+  }
+  switch (signal.kind) {
+    case 'receive-task':
+      return {
+        phase: 'plan',
+        intensity: 1,
+        emotion: 'focus',
+        prop: 'document',
+        affordance: signal.affordance,
+        badges: ['task'],
+      };
+    case 'plan':
+      return {
+        phase: 'plan',
+        intensity: 1,
+        emotion: 'thinking',
+        prop: 'pointer',
+        affordance: signal.affordance,
+        badges: ['plan'],
+      };
+    case 'delegate':
+      return {
+        phase: 'plan',
+        intensity: 2,
+        emotion: 'focus',
+        prop: 'document',
+        affordance: signal.affordance,
+        badges: ['handoff'],
+      };
+    case 'research':
+      return {
+        phase: 'read',
+        intensity: 1,
+        emotion: 'focus',
+        prop: 'document',
+        affordance: signal.affordance,
+        badges: [signal.activityKind ?? 'read'],
+      };
+    case 'compute':
+      return {
+        phase: 'compute',
+        intensity: 2,
+        emotion: 'focus',
+        prop: 'terminal',
+        affordance: signal.affordance,
+        badges: [signal.activityKind ?? 'compute'],
+      };
+    case 'review':
+    case 'join':
+      return {
+        phase: 'review',
+        intensity: 1,
+        emotion: 'focus',
+        prop: 'pointer',
+        affordance: signal.affordance,
+        badges: [signal.kind],
+      };
+    case 'approval':
+      return {
+        phase: 'wait',
+        intensity: 2,
+        emotion: 'worried',
+        affordance: signal.affordance,
+        badges: ['approval'],
+      };
+    case 'failure':
+      return {
+        phase: 'blocked',
+        intensity: 3,
+        emotion: 'blocked',
+        affordance: signal.affordance,
+        badges: ['blocked'],
+      };
+    case 'complete':
+      return {
+        phase: 'complete',
+        intensity: 2,
+        emotion: 'celebrating',
+        prop: 'package',
+        affordance: signal.affordance,
+        badges: ['complete'],
+      };
+    default:
+      return {
+        phase: signal.activityKind === 'wait' ? 'wait' : 'produce',
+        intensity: signal.activityKind === 'wait' ? 0 : 1,
+        emotion: signal.activityKind === 'wait' ? 'thinking' : 'focus',
+        prop: signal.activityKind === 'wait' ? undefined : 'laptop',
+        affordance: signal.affordance,
+        badges: signal.activityKind ? [signal.activityKind] : [],
+      };
+  }
 }
 
 /** Normalize one event into a work signal, or null if it stages nothing. */
@@ -225,6 +447,7 @@ function normalize(event: TimedAgentRunEvent): WorkSignal | null {
           affordance: 'board-presenter',
           movement: true,
           interrupt: false,
+          flow: flow('task', 'plan', 'review'),
           activityKind: null,
         };
       }
@@ -236,6 +459,7 @@ function normalize(event: TimedAgentRunEvent): WorkSignal | null {
           affordance: 'standing-review',
           movement: true,
           interrupt: false,
+          flow: flow('join', 'review', 'review'),
           activityKind: null,
         };
       }
@@ -247,6 +471,7 @@ function normalize(event: TimedAgentRunEvent): WorkSignal | null {
           affordance: 'workstation',
           movement: true,
           interrupt: false,
+          flow: flow('delegation', 'handoff', 'workstation'),
           activityKind: null,
         };
       }
@@ -257,6 +482,7 @@ function normalize(event: TimedAgentRunEvent): WorkSignal | null {
         affordance: 'workstation',
         movement: false,
         interrupt: false,
+        flow: flow('task', 'task', 'workstation', false),
         activityKind: null,
       };
     }
@@ -276,9 +502,27 @@ function normalize(event: TimedAgentRunEvent): WorkSignal | null {
         movement: false,
         interrupt: false,
         relocates: map.relocates,
+        flow: flow(
+          'tool',
+          ak,
+          ak === 'shell' || ak === 'build' || ak === 'test' ? 'tool' : 'workstation',
+        ),
         activityKind: ak,
       };
     }
+    case 'tool.completed':
+      if (event.payload.status !== 'failed') return null;
+      return {
+        ...base,
+        kind: 'failure',
+        priority: BEAT_PRIORITY.failure,
+        affordance: null,
+        movement: false,
+        interrupt: true,
+        resource: { kind: 'tool', severity: 'blocked', label: 'tool failed' },
+        flow: flow('failure', 'tool failed', 'tool'),
+        activityKind: null,
+      };
     case 'artifact.created':
       // A delivered artifact is a milestone: always emit, never swallowed by an
       // adjacent produce/write/edit stream.
@@ -290,6 +534,8 @@ function normalize(event: TimedAgentRunEvent): WorkSignal | null {
         movement: false,
         interrupt: false,
         milestone: true,
+        artifact: artifactIntent(event.payload),
+        flow: flow('artifact', 'artifact', 'delivery'),
         activityKind: null,
       };
     case 'approval.requested':
@@ -300,6 +546,8 @@ function normalize(event: TimedAgentRunEvent): WorkSignal | null {
         affordance: null,
         movement: false,
         interrupt: true,
+        resource: { kind: 'permission', severity: 'blocked', label: 'approval needed' },
+        flow: flow('approval', 'approval', 'user'),
         activityKind: null,
       };
     case 'run.failed':
@@ -311,6 +559,12 @@ function normalize(event: TimedAgentRunEvent): WorkSignal | null {
         affordance: null,
         movement: false,
         interrupt: true,
+        resource: resourceFromFailure(event.payload.summary),
+        flow: flow(
+          'failure',
+          event.payload.status === 'cancelled' ? 'cancelled' : 'blocked',
+          'tool',
+        ),
         activityKind: null,
       };
     case 'run.completed': {
@@ -323,6 +577,7 @@ function normalize(event: TimedAgentRunEvent): WorkSignal | null {
             affordance: 'standing-review',
             movement: true,
             interrupt: false,
+            flow: flow('join', 'join', 'review'),
             activityKind: null,
           }
         : {
@@ -332,6 +587,7 @@ function normalize(event: TimedAgentRunEvent): WorkSignal | null {
             affordance: 'board-presenter',
             movement: true,
             interrupt: false,
+            flow: flow('artifact', 'complete', 'delivery'),
             activityKind: null,
           };
     }
@@ -453,6 +709,10 @@ export function composeBeats(
       parallel,
       interrupt: signal.interrupt,
       variant,
+      visual: visualForSignal(signal),
+      flow: signal.flow ?? null,
+      artifact: signal.artifact ?? null,
+      resource: signal.resource ?? null,
       at: signal.at,
       lifecycle: { startedAt: signal.at, endsAt: signal.at + beatLifespanMs(signal.kind) },
     });

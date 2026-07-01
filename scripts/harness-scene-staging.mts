@@ -282,6 +282,16 @@ console.log('\n[performance] layered state for every beat kind');
     parallel: false,
     interrupt: false,
     variant: 0,
+    visual: {
+      phase: kind === 'failure' ? 'blocked' : kind === 'complete' ? 'complete' : 'produce',
+      intensity: kind === 'failure' ? 3 : 1,
+      emotion: kind === 'failure' ? 'blocked' : kind === 'complete' ? 'celebrating' : 'focus',
+      affordance: null,
+      badges: [kind],
+    },
+    flow: null,
+    artifact: null,
+    resource: kind === 'failure' ? { kind: 'tool', severity: 'blocked', label: 'blocked' } : null,
     at: 0,
     lifecycle: { startedAt: 0, endsAt: 1_000 },
   });

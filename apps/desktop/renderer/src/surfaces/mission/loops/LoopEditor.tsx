@@ -10,6 +10,7 @@ import {
   useLoopRevisions,
   useSaveLoopRevision,
   useSelectLoopRevision,
+  useUpdateLoopDraftSummary,
 } from '@/data/loops.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
@@ -82,6 +83,7 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
   const revisions = useLoopRevisions(loopId);
   const saveRevision = useSaveLoopRevision(companyId);
   const selectRevision = useSelectLoopRevision(companyId);
+  const updateDraftSummary = useUpdateLoopDraftSummary(companyId);
 
   // ── Editor model (drives the pure state machine) ──
   const [prompt, setPrompt] = useState('');
@@ -105,6 +107,7 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
     if (!loop.data) return;
     if (!current) {
       hydratedFor.current = loopId;
+      setPrompt(loop.data.summary);
       return;
     }
     const rev = revisions.data?.find((r) => r.revisionId === current);
@@ -308,10 +311,37 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
 
   const blockedReason = useBlockedReason(model);
 
+  const handleBack = useCallback(async () => {
+    const draftSummary = prompt.trim();
+    const existingSummary = loop.data?.summary.trim() ?? '';
+    const shouldPersistDraft =
+      loop.data !== undefined &&
+      loop.data !== null &&
+      !loop.data.currentRevisionId &&
+      draftSummary !== existingSummary;
+
+    if (shouldPersistDraft) {
+      try {
+        await updateDraftSummary.mutateAsync({ loopId, summary: draftSummary });
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Could not save the Loop draft.');
+        return;
+      }
+    }
+
+    onBack();
+  }, [loop.data, loopId, onBack, prompt, updateDraftSummary]);
+
   return (
     <div className="off-loop-editor">
       <header className="off-loop-editor-head">
-        <Button variant="ghost" size="iconSm" onClick={onBack} aria-label="Back to library">
+        <Button
+          variant="ghost"
+          size="iconSm"
+          onClick={() => void handleBack()}
+          disabled={updateDraftSummary.isPending}
+          aria-label="Back to library"
+        >
           <Icon icon={ArrowLeft} size="sm" />
         </Button>
         <div className="off-loop-editor-titles">

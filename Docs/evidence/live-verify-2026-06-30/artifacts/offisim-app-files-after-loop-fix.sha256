@@ -1,0 +1,5 @@
+ab408befa08914c0307d633b45c7c26b96a47b20f8cbe6da45eb5da585d7b43b  apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app/Contents/Info.plist
+74239f65ad8ac0e06496be0a36db43c6c58e5d89749c5269e1d5d65a2c7a8db0  apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app/Contents/MacOS/offisim-desktop
+e744c6cdd7fac62a4e4e737ed9677e9ee32fd4de91da3dcb029f93bf73eab2c5  apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app/Contents/Resources/icon.icns
+5d9d3872911e2340a43b707962e68143de8a4e8d54628845c0c4f2de1fb7cd5c  apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app/Contents/Resources/resources/node/bin/node
+05858100e65ee4e598012855a845b175234db3f87e52b4c088c14d4ca13af317  apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app/Contents/Resources/resources/pi-agent-host.mjs

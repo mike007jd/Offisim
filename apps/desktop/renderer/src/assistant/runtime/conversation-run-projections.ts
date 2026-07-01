@@ -19,12 +19,48 @@ export interface EmployeeWorkloadProjection {
   readonly activeRunIds: readonly string[];
   readonly activeCount: number;
   readonly waitingCount: number;
+  /** Up to three generic work chips shown in the single-actor workload bubble. */
+  readonly workloadChips: readonly EmployeeWorkloadChip[];
   /** The single run that drives the visible performance; null when none active. */
   readonly dominant: {
     readonly runId: string;
     readonly state: 'working' | 'waiting';
     readonly beat: SceneBeat | null;
   } | null;
+}
+
+interface EmployeeWorkloadChip {
+  readonly runId: string;
+  readonly label: string;
+  readonly tone: 'work' | 'wait' | 'risk' | 'done';
+}
+
+function workloadChipFor(
+  runId: string,
+  waiting: boolean,
+  beat: SceneBeat | null,
+): EmployeeWorkloadChip {
+  if (waiting) return { runId, label: 'Approval', tone: 'wait' };
+  if (!beat) return { runId, label: 'Work', tone: 'work' };
+  if (beat.resource) return { runId, label: beat.resource.label, tone: 'risk' };
+  if (beat.artifact) return { runId, label: 'Artifact', tone: 'done' };
+  if (beat.visual.badges.length > 0) {
+    const label = beat.visual.badges[0] ?? 'Work';
+    return { runId, label: `${label.charAt(0).toUpperCase()}${label.slice(1)}`, tone: 'work' };
+  }
+  const fallback =
+    beat.visual.phase === 'read'
+      ? 'Read'
+      : beat.visual.phase === 'compute'
+        ? 'Compute'
+        : beat.visual.phase === 'review'
+          ? 'Review'
+          : beat.visual.phase === 'wait'
+            ? 'Wait'
+            : beat.visual.phase === 'complete'
+              ? 'Done'
+              : 'Work';
+  return { runId, label: fallback, tone: fallback === 'Done' ? 'done' : 'work' };
 }
 
 /**
@@ -83,12 +119,25 @@ export function projectEmployeeWorkloads(
     // for a deterministic tie-break; activeRunIds is a separate new array.
     const runId = pool.sort()[0] ?? null;
     const activeRunIds = [...working, ...waiting];
+    const beatByRun = new Map(
+      activeRunIds.map((activeRunId) => [activeRunId, beatForRun?.(activeRunId) ?? null] as const),
+    );
+    const waitingSet = new Set(waiting);
     out.set(employeeId, {
       employeeId,
       activeRunIds,
       activeCount: activeRunIds.length,
       waitingCount: waiting.length,
-      dominant: runId ? { runId, state, beat: beatForRun?.(runId) ?? null } : null,
+      workloadChips: activeRunIds
+        .map((activeRunId) =>
+          workloadChipFor(
+            activeRunId,
+            waitingSet.has(activeRunId),
+            beatByRun.get(activeRunId) ?? null,
+          ),
+        )
+        .slice(0, 3),
+      dominant: runId ? { runId, state, beat: beatByRun.get(runId) ?? null } : null,
     });
   }
   return out;

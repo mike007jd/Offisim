@@ -869,7 +869,16 @@ const scenarios: Array<{
       assert.equal(emp?.waitingCount, 0);
       assert.equal(emp?.dominant?.state, 'working');
       assert.equal(emp?.activeRunIds.length, 2);
-      return { activeCount: emp?.activeCount, activeRunIds: [...(emp?.activeRunIds ?? [])] };
+      assert.equal(emp?.workloadChips.length, 2);
+      assert.deepEqual(
+        emp?.workloadChips.map((chip) => chip.label),
+        ['Work', 'Work'],
+      );
+      return {
+        activeCount: emp?.activeCount,
+        activeRunIds: [...(emp?.activeRunIds ?? [])],
+        workloadChips: emp?.workloadChips,
+      };
     },
   },
   {
