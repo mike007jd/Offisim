@@ -2,6 +2,7 @@
 
 ## Current Time Baseline
 - Checked at: 2026-07-01 23:10 NZST.
+- Revised after implementation-boundary audit: 2026-07-02 00:16 NZST.
 - Scope: Offisim desktop Office scene, employee workload projection, agent run tree, and generic dramaturgy display.
 - Status: Product requirements document. This document does not authorize a new runtime, provider lane, or sub-agent identity model.
 
@@ -35,7 +36,7 @@ The requirement must build on the current implementation, not replace it.
 | Dramaturgy intent | `packages/shared-types/src/dramaturgy/beat-composer.ts` | `SceneBeat` already carries `visual`, `flow`, `artifact`, and `resource` intents. This is the right generic work grammar. |
 | 2D expression | `apps/desktop/renderer/src/surfaces/office/scene/OfficeScene2D.tsx` | 2D already has flow lines, packets, active count, risk marker, workload chips, and delivery shelf count. |
 | 3D expression | `apps/desktop/renderer/src/surfaces/office/scene/OfficeScene3D.tsx` | 3D already has active count, workload bubble, resource marker, flow lines, and a passive Delivery shelf count. |
-| Output opening | `apps/desktop/renderer/src/surfaces/office/stage-viewer/StageViewer.tsx` | `openStageView` and deliverable auto-open already exist; artifact claim should reuse this path. |
+| Output opening | `apps/desktop/renderer/src/surfaces/office/stage-viewer/StageViewer.tsx` | `openStageView` and deliverable auto-open already exist; artifact claim should reuse this path. File claims must resolve file content before or during `openStageView`; `FileView` does not read by path on its own. |
 
 ## Goals
 1. Make large parallel work readable at a glance.
@@ -69,7 +70,8 @@ Drilldown view:
 - Opens as a lightweight drawer or panel, not a new management console.
 - Groups the employee's active runs by `workKind`, status, and issue type.
 - Shows run count, newest meaningful beat, artifact count, approval count, and failure/resource summary.
-- Allows opening existing logs, output, preview, files, or review views through `openStageView`.
+- Allows opening existing logs, output, preview, files, or review views through current `StageViewTarget` kinds.
+- Allows jumping to the owning thread through the existing thread selection action, not by inventing a new StageViewer target.
 - Does not allow configuring individual workers, changing their persona, or manually managing lifecycle.
 
 ## Workload Bubble Requirements
@@ -115,12 +117,13 @@ Flow should communicate work movement, not draw decorative lines.
 Artifacts should feel like delivered work.
 
 - Use `SceneBeat.artifact` as the source signal.
+- First preserve `AgentRunArtifactPayload.path` on `ArtifactIntent`; path-based file claim is unavailable until the artifact intent carries it.
 - Keep delivery count in both 2D and 3D.
 - Upgrade delivery shelf from passive count to claimable output surface.
 - For each recent artifact, expose a compact chip with title/kind when space allows.
 - Clicking a claimable artifact opens:
   - `kind: 'output'` when `deliverableId` is available.
-  - `kind: 'file'` when only a path is available and it is workspace-readable.
+  - `kind: 'file'` when only a path is available and the claim handler has already read or is actively reading workspace-safe file content through the existing project file preview path.
   - `kind: 'preview'` when it is a browser/HTML preview artifact.
   - fallback to logs when only event detail exists.
 - Do not create a separate artifact persistence path. Reuse deliverables repo and existing StageViewer behavior.
@@ -131,12 +134,13 @@ Resource state must be immediately legible.
 - `approval requested`: waiting marker, approval chip, and drilldown priority.
 - `tool failed`: risk marker and tool/log open action.
 - `token exhausted`: exhausted marker; should not look like a normal warning.
-- `budget`: warning or blocked marker depending on severity.
+- `budget`: current beat composition maps budget failures to `exhausted`; show an exhausted marker in this iteration. Warning/near-limit budget states require a new upstream signal and are out of this PRD unless implemented explicitly.
 - `permission`: blocked marker with approval/security implication.
 - `context`: context/resource marker with recovery hint in drilldown.
 - `runtime`: runtime blocked marker and logs action.
 
 The actor should not keep playing a normal working state when the dominant unresolved state is blocked.
+Dominant selection must therefore account for high-priority unresolved `resource`, `failure`, and `approval` beats; it cannot remain a simple "working run beats waiting run" sort when an issue beat is still live.
 
 ## Drilldown Requirements
 The drilldown is a read/inspect layer.
@@ -158,8 +162,8 @@ Minimum actions:
 - open output.
 - open preview.
 - open logs.
-- open changed file/review.
-- jump to thread.
+- open changed file/review through the existing `changes` target when a path/change is available.
+- jump to thread through the existing thread selection action.
 
 Forbidden actions in this iteration:
 
@@ -173,16 +177,29 @@ The implementation should extend existing projection, not the runtime model.
 Preferred direction:
 
 - Add aggregated workload distribution to `EmployeeWorkloadProjection`.
-- Derive distribution from existing fields:
-  - `employeeId`
-  - `rootRunId`
-  - `parentRunId`
-  - `runId`
-  - `workKind`
-  - run phase/status
-  - `SceneBeat.visual`
-  - `SceneBeat.resource`
-  - `SceneBeat.artifact`
+- Derive distribution from current data sources, split by source:
+  - snapshot fields:
+    - `employeeId`
+    - root attempt id / active run id
+    - run phase/status
+    - pending approval
+    - delegated child `runId`
+    - delegated child `parentRunId`
+    - delegated child state
+    - delegated child objective/summary when available
+  - `SceneBeat` fields injected through `beatForRun(runId)`:
+    - `rootRunId`
+    - `workKind`
+    - `SceneBeat.visual`
+    - `SceneBeat.resource`
+    - `SceneBeat.artifact`
+  - recent live beat fields:
+    - still-live `resource`
+    - still-live `artifact`
+    - still-live approval/failure signals
+- Do not describe `rootRunId`, `parentRunId`, or `workKind` as top-level `ConversationRunSnapshot` fields; they are available through delegation records or `SceneBeat` injection.
+- Active runs with no live beat must still count toward `total` and fall back to run phase/status or `unclassified`, so grouped counts never silently drop below `activeCount`.
+- `priorityIssues` and `artifactCount` must combine active run membership with recent high-signal live beats and terminal delegation states; a failed child may no longer be an active workload run but still needs to remain visible while its issue beat is live.
 - Keep `workloadChips` for small counts, but add a grouped summary for large counts.
 - Do not add `delegationBatchId` unless grouping cannot be derived reliably from current run tree fields.
 
@@ -227,12 +244,14 @@ Regression acceptance:
 - Existing deliverables rail and auto-open behavior continue to work.
 
 ## Suggested Implementation Slice
-1. Extend workload projection with grouped summary.
-2. Update 2D and 3D workload bubble rendering for grouped summary.
-3. Make 3D/2D delivery shelf interactive and artifact-aware.
-4. Add lightweight employee workload drilldown.
-5. Strengthen resource marker hierarchy.
-6. Add deterministic harness coverage for small/medium/large concurrency, artifact claim, and blocked priority.
+1. Preserve `AgentRunArtifactPayload.path` in `ArtifactIntent`, then implement an artifact claim resolver for output, preview, file, changes, or logs.
+2. Extend `EmployeeWorkloadProjection` with `workloadSummary` while keeping current `workloadChips` for small counts.
+3. Ensure `workloadSummary.priorityIssues` merges active runs, recent high-signal beats, and terminal child delegation states.
+4. Update 2D and 3D workload bubble rendering for grouped summary.
+5. Make 3D/2D delivery shelf interactive and artifact-aware.
+6. Add lightweight employee workload drilldown.
+7. Strengthen resource marker hierarchy and dominant issue selection.
+8. Add deterministic harness coverage for small/medium/large concurrency, artifact claim resolution, no-live-beat fallback, terminal child failure visibility, reduced-motion state retention, and blocked priority.
 
 ## Verification Plan
 - `pnpm harness:agent-run-projection`
@@ -240,6 +259,7 @@ Regression acceptance:
 - `pnpm harness:conversation-run-controller`
 - `pnpm harness:office-projection`
 - `pnpm harness:dramaturgy-stress`
+- `pnpm harness:pi-agent-host`
 - `pnpm --filter @offisim/desktop-renderer typecheck`
 - `pnpm --filter @offisim/desktop-renderer build`
 - `pnpm validate`
