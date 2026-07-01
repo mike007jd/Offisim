@@ -2,6 +2,8 @@ import type {
   EmployeeWorkloadProjection,
   WorkloadPriorityIssue,
 } from '@/assistant/runtime/conversation-run-projections.js';
+import type { ClaimableArtifact } from '@/surfaces/office/stage-viewer/artifact-claim.js';
+import type { SceneBeat } from '@offisim/shared-types';
 
 /**
  * The generic workload chip tone vocabulary, shared by 2D and 3D scenes.
@@ -42,9 +44,25 @@ const LARGE_MIN = 13;
 const GROUPED_MAX_CHIPS = 4;
 
 /** Human label for a workKind bucket key (capitalized; the catch-all reads 'Working'). */
-function workKindLabel(kind: string): string {
+export function workKindLabel(kind: string): string {
   if (kind === 'unclassified') return 'Working';
   return `${kind.charAt(0).toUpperCase()}${kind.slice(1)}`;
+}
+
+/**
+ * Project a beat's artifact intent into a ClaimableArtifact (or null when the
+ * beat carries no artifact). Shared by the 2D/3D delivery shelves and the
+ * drilldown so all three build the claim from one place.
+ */
+export function beatToClaimable(beat: SceneBeat | undefined | null): ClaimableArtifact | null {
+  if (!beat?.artifact) return null;
+  return {
+    title: beat.artifact.title,
+    kind: beat.artifact.kind,
+    deliverableId: beat.artifact.deliverableId,
+    path: beat.artifact.path,
+    threadId: beat.threadId,
+  };
 }
 
 /** The per-run small-count chips, mapped from the existing workloadChips model. */

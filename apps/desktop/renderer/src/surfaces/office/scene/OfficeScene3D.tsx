@@ -8,6 +8,7 @@ import { useOfficeBeats, usePrefersReducedMotion } from '@/assistant/runtime/off
 import { useEmployees, useOfficeLayout, useReassignEmployee, useThreads } from '@/data/queries.js';
 import type { Employee } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
+import { openArtifactClaim } from '@/surfaces/office/stage-viewer/artifact-claim.js';
 import {
   type CharacterPerformanceState,
   type PrefabDefinition,
@@ -40,6 +41,7 @@ import { OFFICE_CAMERA_PRESET, SCENE_CONTENT_SCALE } from './r3d/scene-art-direc
 import { LIGHT_SCENE_3D } from './r3d/scene-colors.js';
 import { type ScenePlacementPoint, groundPointFromClient } from './scene-ground.js';
 import { compactSceneEmployeeName } from './scene-labels.js';
+import { type GroupedWorkload, beatToClaimable, groupedWorkload } from './workload-chips.js';
 import {
   type EmployeePosture,
   type ZoneDef,
@@ -131,15 +133,14 @@ function EmployeeUnit({
   posture,
   withDesk,
   running,
-  activeCount,
-  workloadChips,
-  resourceLabel,
+  grouped,
   reducedMotion,
   active,
   dragging,
   performance,
   zones,
   onSelect,
+  onDrilldown,
   onHoverZone,
   onDrop,
   onDragState,
@@ -151,18 +152,14 @@ function EmployeeUnit({
   posture: EmployeePosture;
   withDesk: boolean;
   running: boolean;
-  activeCount: number;
-  workloadChips: readonly {
-    readonly label: string;
-    readonly tone: 'work' | 'wait' | 'risk' | 'done';
-  }[];
-  resourceLabel: string | null;
+  grouped: GroupedWorkload | null;
   reducedMotion: boolean;
   active: boolean;
   dragging: boolean;
   performance?: CharacterPerformanceState;
   zones: ZoneDef[];
   onSelect: () => void;
+  onDrilldown: () => void;
   onHoverZone: (zoneId: string | null) => void;
   onDrop: (result: SceneEmployeeDrop) => void;
   onDragState: (drag: SceneEmployeeDrag | null) => void;
@@ -219,7 +216,13 @@ function EmployeeUnit({
   const labelY = 2.12 + labelTier * 0.18 + Math.abs(labelLane) * 0.06;
   const labelZ = (labelTier - 1) * 0.24 + labelLane * 0.07;
   const labelText = compactSceneEmployeeName(employee.name);
+  // The tag is interactive when selectable/running; the Html host also needs
+  // pointer events when the grouped bubble carries a clickable badge/marker/
+  // chip row (drilldown) even if the actor itself is idle.
+  const hasClickableWorkload =
+    grouped != null && (grouped.countLabel != null || grouped.topIssue != null || grouped.chips.length > 0);
   const labelInteractive = active || running;
+  const htmlInteractive = labelInteractive || hasClickableWorkload;
   const characterRotation = (rotation * Math.PI) / 180;
   // One desk-depth-ish step along the character's facing (prefab-local +z).
   const fallbackDeskOffset = rotateLocal(0, 0.99, rotation);
@@ -453,7 +456,7 @@ function EmployeeUnit({
           distanceFactor={18}
           occlude={false}
           zIndexRange={[2, 0]}
-          className={labelInteractive ? 'off-scene-html-interactive' : 'off-scene-html-passive'}
+          className={htmlInteractive ? 'off-scene-html-interactive' : 'off-scene-html-passive'}
         >
           {/* Relative wrapper so the active-count badge can sit at the tag's
               top-right corner without being clipped by the tag's overflow. */}
@@ -492,23 +495,59 @@ function EmployeeUnit({
             ) : (
               <span className="off-scene-tag">{labelText}</span>
             )}
-            {activeCount > 1 ? (
-              <span className="off-scene-count-badge" aria-label={`${activeCount} active runs`}>
-                {`×${activeCount}`}
-              </span>
+            {/* WAVE 1 grouped bubble — one render-agnostic projection drives the
+                ×N badge, the resource-marker hierarchy, and the chip row, in
+                lockstep with the 2D scene. All static (deterministic): no
+                motion-only signal, so reduced motion changes nothing here. */}
+            {grouped?.countLabel ? (
+              <button
+                type="button"
+                className="off-scene-count-badge is-interactive"
+                aria-label={`${grouped.activeCount} active runs — inspect workload`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDrilldown();
+                }}
+              >
+                {grouped.countLabel}
+              </button>
             ) : null}
-            {resourceLabel ? (
-              <span className="off-scene-resource-marker" aria-label={resourceLabel}>
+            {grouped?.topIssue ? (
+              <span
+                className={`off-scene-resource-marker is-${grouped.topIssue.severity}`}
+                aria-label={grouped.topIssue.label}
+              >
                 !
               </span>
             ) : null}
-            {workloadChips.length > 0 ? (
+            {grouped && grouped.chips.length > 0 ? (
               <div className="off-scene-workload-bubble" aria-label="Workload">
-                {workloadChips.map((chip) => (
-                  <span key={`${chip.tone}:${chip.label}`} className={`is-${chip.tone}`}>
-                    {chip.label.slice(0, 10)}
+                {grouped.chips.map((chip) => (
+                  <span
+                    key={`${chip.tone}:${chip.label}`}
+                    className={`is-${chip.tone}`}
+                    title={chip.count != null ? `${chip.label} ${chip.count}` : chip.label}
+                  >
+                    {grouped.tier === 'small'
+                      ? chip.label.slice(0, 10)
+                      : chip.count != null
+                        ? `${chip.label} ${chip.count}`
+                        : chip.label}
                   </span>
                 ))}
+                {grouped.overflow ? (
+                  <button
+                    type="button"
+                    className="off-scene-workload-overflow is-interactive"
+                    aria-label="More workload — inspect"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDrilldown();
+                    }}
+                  >
+                    +…
+                  </button>
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -618,6 +657,7 @@ export function OfficeScene3D() {
   const openThread = useUiState((s) => s.openThread);
   const closeThread = useUiState((s) => s.closeThread);
   const openStageView = useUiState((s) => s.openStageView);
+  const openWorkloadDrilldown = useUiState((s) => s.openWorkloadDrilldown);
   const recordSceneDropDiagnostic = useUiState((s) => s.recordSceneDropDiagnostic);
   const employees = useEmployees();
   const threads = useThreads(projectId);
@@ -697,6 +737,10 @@ export function OfficeScene3D() {
     () => liveBeats.filter((beat) => beat.employeeId && beat.artifact).slice(-3),
     [liveBeats],
   );
+  // The delivery shelf's click target is the most recent artifact beat, mapped
+  // to a claimable stage artifact (matching the 2D scene). Null when no beat
+  // carries an artifact intent — then the shelf renders passive with no claim.
+  const latestArtifactClaim = useMemo(() => beatToClaimable(artifactBeats.at(-1)), [artifactBeats]);
   const sceneFlowLines = useMemo<SceneFlowLine[]>(
     () =>
       signalBeats.flatMap((beat) => {
@@ -802,6 +846,9 @@ export function OfficeScene3D() {
               const workload = workloads.get(employee.id);
               const activeCount = workload?.activeCount ?? 0;
               const running = activeCount > 0;
+              // One render-agnostic grouping drives the ×N badge, resource
+              // marker, and chip row — the same projection the 2D scene reads.
+              const grouped = workload ? groupedWorkload(workload) : null;
               // High-value movement beats relocate the actor to a reserved
               // anchor; everything else stays at the home placement (and only
               // the performance changes).
@@ -826,17 +873,14 @@ export function OfficeScene3D() {
                   posture={!real ? 'sitting' : target.posture}
                   withDesk={!real}
                   running={running}
-                  activeCount={activeCount}
-                  workloadChips={workload?.workloadChips ?? []}
-                  resourceLabel={
-                    workload?.workloadChips.find((chip) => chip.tone === 'risk')?.label ?? null
-                  }
+                  grouped={grouped}
                   reducedMotion={reducedMotion}
                   active={Boolean(thread && thread.id === selectedThreadId)}
                   dragging={employeeDrag?.employeeId === employee.id}
                   performance={dram?.performance}
                   zones={zoneDefs}
                   onSelect={() => thread && openThread(thread.id)}
+                  onDrilldown={() => openWorkloadDrilldown(employee.id)}
                   onHoverZone={setHoveredZoneId}
                   onDragState={setEmployeeDrag}
                   onDrop={(result) => {
@@ -888,12 +932,30 @@ export function OfficeScene3D() {
             distanceFactor={18}
             occlude={false}
             zIndexRange={[3, 0]}
-            className="off-scene-html-passive"
+            className={
+              latestArtifactClaim ? 'off-scene-html-interactive' : 'off-scene-html-passive'
+            }
           >
-            <div className="off-scene-delivery-shelf">
-              <span>Delivery</span>
-              <b>{artifactBeats.length}</b>
-            </div>
+            {latestArtifactClaim ? (
+              // Interactive delivery shelf — clicking opens the most recent
+              // artifact beat on the stage (same claim path as the 2D scene).
+              <button
+                type="button"
+                className="off-scene-delivery-shelf is-interactive"
+                aria-label={`Open delivery — ${latestArtifactClaim.title}`}
+                onClick={() => {
+                  void openArtifactClaim(latestArtifactClaim, { openStageView, projectId });
+                }}
+              >
+                <span>Delivery</span>
+                <b>{artifactBeats.length}</b>
+              </button>
+            ) : (
+              <div className="off-scene-delivery-shelf">
+                <span>Delivery</span>
+                <b>{artifactBeats.length}</b>
+              </div>
+            )}
           </Html>
         ) : null}
 

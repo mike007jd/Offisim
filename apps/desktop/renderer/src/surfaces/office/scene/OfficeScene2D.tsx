@@ -9,6 +9,7 @@ import { useEmployees, useOfficeLayout, useThreads } from '@/data/queries.js';
 import type { ZoneKind } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
 import { CANVAS_FONT_TOKENS } from '@/styles/visual-tokens.js';
+import { type ClaimableArtifact, openArtifactClaim } from '@/surfaces/office/stage-viewer/artifact-claim.js';
 import {
   type StagingPrefab,
   applyDramaturgyMode,
@@ -25,6 +26,7 @@ import {
   floorBounds,
   zoneDefsFromLayout,
 } from './scene-layout.js';
+import { type GroupedWorkload, beatToClaimable, groupedWorkload } from './workload-chips.js';
 
 const ZONE_TINT: Record<ZoneKind, string> = {
   workspace: OFFICE_SCENE_2D_COLORS.zoneWorkspace,
@@ -32,12 +34,26 @@ const ZONE_TINT: Record<ZoneKind, string> = {
   lounge: OFFICE_SCENE_2D_COLORS.zoneLounge,
 };
 
-interface Hit {
+/** A circular hit target: an employee actor whose click opens its thread. */
+interface EmployeeHit {
+  kind: 'employee';
   threadId: string;
   sx: number;
   sy: number;
   r: number;
 }
+
+/** A rectangular hit target for the interactive bubble / marker surfaces. */
+interface RectHit {
+  kind: 'drilldown' | 'delivery';
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  employeeId?: string;
+}
+
+type Hit = EmployeeHit | RectHit;
 
 function roundRect(
   ctx: CanvasRenderingContext2D,
@@ -56,6 +72,8 @@ export function OfficeScene2D() {
   const projectId = useUiState((s) => s.projectId);
   const selectedThreadId = useUiState((s) => s.selectedThreadId);
   const openThread = useUiState((s) => s.openThread);
+  const openStageView = useUiState((s) => s.openStageView);
+  const openWorkloadDrilldown = useUiState((s) => s.openWorkloadDrilldown);
   const employees = useEmployees();
   const threads = useThreads(projectId);
   const workloads = useEmployeeWorkloads(projectId, companyId);
@@ -66,6 +84,9 @@ export function OfficeScene2D() {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const hitsRef = useRef<Hit[]>([]);
+  // The delivery-shelf click reads the most recent artifact beat outside the
+  // draw closure; the draw effect keeps this ref current each frame.
+  const latestArtifactRef = useRef<ClaimableArtifact | null>(null);
 
   // Memoized so positions and the canvas draw effect don't recompute/redraw on
   // every render — `employees.data ?? []` is otherwise a fresh array each time.
@@ -293,7 +314,12 @@ export function OfficeScene2D() {
         ctx.restore();
       }
 
-      if (artifactBeats.length > 0) {
+      // Delivery shelf — the latest artifact beat is the claimable target. The
+      // shelf registers a hit rect so a click opens that artifact on the stage;
+      // with no artifact beat there is no shelf and no hit (handled by the guard).
+      const latestArtifact = artifactBeats.at(-1);
+      latestArtifactRef.current = beatToClaimable(latestArtifact);
+      if (latestArtifact?.artifact) {
         const shelf = flowTarget('delivery');
         const shelfW = 116;
         const shelfH = 34;
@@ -309,6 +335,13 @@ export function OfficeScene2D() {
         ctx.fillStyle = OFFICE_SCENE_2D_COLORS.artifactPacket;
         ctx.fillText(`×${artifactBeats.length}`, shelf.sx, shelf.sy + 11);
         ctx.textAlign = 'left';
+        hitsRef.current.push({
+          kind: 'delivery',
+          x0: shelf.sx - shelfW / 2,
+          y0: shelf.sy - shelfH / 2,
+          x1: shelf.sx + shelfW / 2,
+          y1: shelf.sy + shelfH / 2,
+        });
       }
 
       for (const employee of ordered) {
@@ -342,50 +375,125 @@ export function OfficeScene2D() {
           ctx.stroke();
         }
 
+        // WAVE 1 grouped bubble: one render-agnostic projection drives the ×N
+        // badge, the resource-marker hierarchy, and the chip row. small tier
+        // keeps the per-run chip look; medium/large collapse into priority-
+        // ordered grouped chips with counts. All static — no motion dependence.
+        const grouped: GroupedWorkload | null = workload ? groupedWorkload(workload) : null;
+
         // active-count badge — multiple concurrent runs collapse to one actor,
         // so the count (×2, ×3, …) is the only signal of parallel work. Drawn
         // top-right of the disc and registered so name labels dodge it.
-        if (activeCount > 1) {
+        if (grouped?.countLabel) {
           const bx = sx + r + 3;
           const by = sy - r - 3;
           ctx.font = CANVAS_FONT_TOKENS.officeSceneLabel;
           ctx.textAlign = 'center';
           ctx.fillStyle = OFFICE_SCENE_2D_COLORS.activeRing;
-          ctx.fillText(`×${activeCount}`, bx, by);
+          ctx.fillText(grouped.countLabel, bx, by);
           ctx.textAlign = 'left';
           occupied.push({ x0: bx - 9, x1: bx + 9, y0: by - 9, y1: by + 5 });
         }
 
-        if (workload?.workloadChips.some((chip) => chip.tone === 'risk')) {
-          ctx.fillStyle = OFFICE_SCENE_2D_COLORS.resourcePacket;
-          ctx.beginPath();
-          ctx.arc(sx - r - 5, sy - r - 4, 4.5, 0, Math.PI * 2);
-          ctx.fill();
+        // Resource-marker hierarchy — one marker keyed off the most-severe
+        // unresolved issue (exhausted > blocked > warning). Drawn top-left so it
+        // never collides with the top-right ×N badge. No topIssue → no marker.
+        const topIssue = grouped?.topIssue ?? null;
+        if (topIssue) {
+          const mx = sx - r - 5;
+          const my = sy - r - 4;
+          if (topIssue.severity === 'exhausted') {
+            // Strongest: a larger filled disc with a '!' glyph.
+            ctx.fillStyle = OFFICE_SCENE_2D_COLORS.resourcePacket;
+            ctx.beginPath();
+            ctx.arc(mx, my, 6.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.font = CANVAS_FONT_TOKENS.officeSceneLabel;
+            ctx.fillStyle = OFFICE_SCENE_2D_COLORS.floor;
+            ctx.textAlign = 'center';
+            ctx.fillText('!', mx, my + 4);
+            ctx.textAlign = 'left';
+          } else if (topIssue.severity === 'blocked') {
+            // Medium: a plain filled disc.
+            ctx.fillStyle = OFFICE_SCENE_2D_COLORS.resourcePacket;
+            ctx.beginPath();
+            ctx.arc(mx, my, 4.5, 0, Math.PI * 2);
+            ctx.fill();
+          } else {
+            // Subtle: a small hollow ring in the translucent resource ink.
+            ctx.strokeStyle = OFFICE_SCENE_2D_COLORS.resourceLine;
+            ctx.lineWidth = 1.4;
+            ctx.beginPath();
+            ctx.arc(mx, my, 3.6, 0, Math.PI * 2);
+            ctx.stroke();
+          }
         }
 
-        if (workload?.workloadChips.length) {
-          const chips = workload.workloadChips.slice(0, 3);
+        // Chip row — the bubble is capped to fixed dimensions. small keeps the
+        // 3-char per-run look; medium/large draw grouped chips with their count
+        // ("Blocked 3", "Research 24") in pills widened to the measured text so
+        // the count is never clipped. groupedWorkload already caps chips at 4.
+        if (grouped && grouped.chips.length > 0) {
+          const isGrouped = grouped.tier !== 'small';
           ctx.font = CANVAS_FONT_TOKENS.officeSceneLabel;
           ctx.textAlign = 'center';
-          const totalW = chips.length * 22 + (chips.length - 1) * 3;
-          let cx = sx - totalW / 2 + 11;
           const cy = sy + r + 32;
-          for (const chip of chips) {
+          const chipPad = 7;
+          const chipH = 12;
+          const gap = 4;
+          const overflowW = 24;
+          type ChipCell = { text: string; tone: (typeof grouped.chips)[number]['tone']; w: number };
+          const cells: ChipCell[] = grouped.chips.map((chip) => {
+            const text = isGrouped
+              ? chip.count != null
+                ? `${chip.label} ${chip.count}`
+                : chip.label
+              : chip.label.slice(0, 3);
+            const w = isGrouped ? ctx.measureText(text).width + chipPad * 2 : 22;
+            return { text, tone: chip.tone, w };
+          });
+          const totalW =
+            cells.reduce((sum, c) => sum + c.w, 0) +
+            (cells.length - 1) * gap +
+            (grouped.overflow ? overflowW + gap : 0);
+          let cx = sx - totalW / 2;
+          const cyTop = cy - chipH / 2;
+          for (const cell of cells) {
             ctx.fillStyle =
-              chip.tone === 'risk'
+              cell.tone === 'risk'
                 ? OFFICE_SCENE_2D_COLORS.resourcePacket
-                : chip.tone === 'done'
+                : cell.tone === 'done'
                   ? OFFICE_SCENE_2D_COLORS.artifactPacket
-                  : chip.tone === 'wait'
+                  : cell.tone === 'wait'
                     ? OFFICE_SCENE_2D_COLORS.deliveryShelfLine
                     : OFFICE_SCENE_2D_COLORS.flowPacket;
-            roundRect(ctx, cx - 11, cy - 6, 22, 12, 6);
+            roundRect(ctx, cx, cyTop, cell.w, chipH, 6);
             ctx.fill();
             ctx.fillStyle = OFFICE_SCENE_2D_COLORS.floor;
-            ctx.fillText(chip.label.slice(0, 3), cx, cy + 4);
-            cx += 25;
+            ctx.fillText(cell.text, cx + cell.w / 2, cy + 4);
+            cx += cell.w + gap;
+          }
+          // Overflow affordance — a compact "+more" pill that opens the same
+          // read-only drilldown as the bubble region.
+          if (grouped.overflow) {
+            ctx.fillStyle = OFFICE_SCENE_2D_COLORS.deliveryShelfLine;
+            roundRect(ctx, cx, cyTop, overflowW, chipH, 6);
+            ctx.fill();
+            ctx.fillStyle = OFFICE_SCENE_2D_COLORS.name;
+            ctx.fillText('+…', cx + overflowW / 2, cy + 4);
           }
           ctx.textAlign = 'left';
+
+          // Drilldown hit rect over the whole chip row (including the overflow
+          // pill). Clicking anywhere on the bubble opens the inspect drawer.
+          hitsRef.current.push({
+            kind: 'drilldown',
+            employeeId: employee.id,
+            x0: sx - totalW / 2,
+            y0: cyTop,
+            x1: sx + totalW / 2,
+            y1: cyTop + chipH,
+          });
         }
 
         // body (clothing) disc
@@ -439,7 +547,8 @@ export function OfficeScene2D() {
           y1: sy + r + ringPad,
         });
 
-        if (thread) hitsRef.current.push({ threadId: thread.id, sx, sy, r: r + 6 });
+        if (thread)
+          hitsRef.current.push({ kind: 'employee', threadId: thread.id, sx, sy, r: r + 6 });
       }
     };
 
@@ -483,8 +592,35 @@ export function OfficeScene2D() {
         const rect = e.currentTarget.getBoundingClientRect();
         const px = e.clientX - rect.left;
         const py = e.clientY - rect.top;
-        const hit = hitsRef.current.find((h) => Math.hypot(px - h.sx, py - h.sy) <= h.r);
-        if (hit) openThread(hit.threadId);
+        // Hit testing walks registration order in REVERSE so the topmost-drawn
+        // target wins — later employees' chip rows paint over earlier ones, so a
+        // click on an overlap must resolve to what the user actually sees.
+        // Employee-body clicks are still authoritative: they win over ANY
+        // overlapping bubble/shelf rect, so a wide neighbour chip row can never
+        // steal a body click (thread selection is never hijacked).
+        const reversed = hitsRef.current.slice().reverse();
+        const employeeHit = reversed.find(
+          (h): h is EmployeeHit => h.kind === 'employee' && Math.hypot(px - h.sx, py - h.sy) <= h.r,
+        );
+        if (employeeHit) {
+          openThread(employeeHit.threadId);
+          return;
+        }
+        const rectHit = reversed.find(
+          (h): h is RectHit =>
+            h.kind !== 'employee' && px >= h.x0 && px <= h.x1 && py >= h.y0 && py <= h.y1,
+        );
+        if (!rectHit) return;
+        if (rectHit.kind === 'drilldown') {
+          if (rectHit.employeeId) openWorkloadDrilldown(rectHit.employeeId);
+          return;
+        }
+        // delivery — open the most recent artifact claim (carries threadId so the
+        // output surface loads in-thread, identical to the 3D shelf).
+        const latest = latestArtifactRef.current;
+        if (latest) {
+          void openArtifactClaim(latest, { openStageView, projectId });
+        }
       }}
     />
   );
