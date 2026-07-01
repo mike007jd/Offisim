@@ -3,7 +3,6 @@ import { createTauriRepositories } from '@/lib/tauri-repos.js';
 import {
   InMemoryEventBus,
   type RuntimeRepositories,
-  seedDefaultCostRates,
 } from '@offisim/core/browser';
 import { repairPersistedPrefabLayouts } from './repair-prefab-layouts.js';
 
@@ -24,14 +23,6 @@ export function getRepos(): Promise<RuntimeRepositories> {
       const db = createTauriDrizzleDb();
       const repos = createTauriRepositories(db, runtimeEventBus);
       await repairPersistedPrefabLayouts(repos);
-      // Seed default model cost rates once so the cost UI reports real spend
-      // instead of $0 out of the box (the model_cost_rates table is otherwise
-      // empty). Best-effort: a seeding failure must not block runtime access.
-      if (repos.settings) {
-        await seedDefaultCostRates({ costRates: repos.costRates, settings: repos.settings }).catch(
-          () => undefined,
-        );
-      }
       return repos;
     })().catch((err) => {
       reposPromise = null;

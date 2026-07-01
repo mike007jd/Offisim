@@ -267,7 +267,6 @@ export {
   getTemplate,
   serializeTemplatePersona,
 } from './templates/index.js';
-export { DEFAULT_COST_RATES, seedDefaultCostRates } from './runtime/default-cost-rates.js';
 
 // --- Runtime ---
 export { UnconfiguredToolExecutor } from './runtime/tool-executor.js';

@@ -303,7 +303,6 @@ export {
   getTemplate,
   serializeTemplatePersona,
 } from './templates/index.js';
-export { DEFAULT_COST_RATES, seedDefaultCostRates } from './runtime/default-cost-rates.js';
 export { WorkstationAssignmentService } from './runtime/workstation-assignment-service.js';
 export { WorkstationToolResolver } from './services/workstation-tool-resolver.js';
 export {

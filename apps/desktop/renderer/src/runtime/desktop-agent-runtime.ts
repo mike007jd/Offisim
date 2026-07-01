@@ -845,24 +845,6 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       }
     };
 
-    // Resolve, in one DB pass, the acting employee's persona (forwarded as Pi's
-    // `appendSystemPrompt` — a generic agent capability, an extra system prompt)
-    // plus the delegation roster (the teammates this root agent may delegate to).
-    // Both are built renderer-side (we own the employee repo) and forwarded
-    // verbatim. A failure must never fail the run, so it degrades to no persona
-    // addendum + no delegation.
-    const { systemPromptAppend, roster } = await buildDelegationContext(
-      this.repos,
-      this.companyId,
-      input.employeeId,
-    ).catch(() => ({ systemPromptAppend: null, roster: [] }));
-    const mcpTools = await buildMcpScope(
-      this.repos,
-      this.companyId,
-      input.employeeId,
-      projectId,
-    ).catch(() => []);
-
     // Open the root run on the stream + persist its row BEFORE the invoke, so it
     // commits ahead of any child's run.started write on the serialized persist
     // chain (children reference it via parent_run_id FK). Unconditional: every
@@ -878,6 +860,22 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
 
     this.inFlightByThread.set(input.threadId, requestId);
     try {
+      // Resolve, in one DB pass, the acting employee's persona (forwarded as Pi's
+      // `appendSystemPrompt`) plus the delegation roster. If this fails, the run
+      // fails visibly instead of silently becoming a base Pi run with no employee
+      // identity. MCP scope remains a separate safe degradation below.
+      const { systemPromptAppend, roster } = await buildDelegationContext(
+        this.repos,
+        this.companyId,
+        input.employeeId,
+      );
+      const mcpTools = await buildMcpScope(
+        this.repos,
+        this.companyId,
+        input.employeeId,
+        projectId,
+      ).catch(() => []);
+
       const commandResponse = (await invoke(commandName, {
         req: {
           requestId,
