@@ -438,7 +438,10 @@ mod tests {
             "content": [{ "type": "text", "text": "boom" }],
             "isError": true
         });
-        assert!(parse_tool_call_result(Some(&err)).is_error, "isError:true surfaces");
+        assert!(
+            parse_tool_call_result(Some(&err)).is_error,
+            "isError:true surfaces"
+        );
     }
 
     #[test]

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
 import {
@@ -11,6 +11,7 @@ import {
   createAgentSession,
   isToolCallEventType,
 } from '@earendil-works/pi-coding-agent';
+import stripJsonComments from 'strip-json-comments';
 import { createWorkspaceLeaseManager } from '../packages/core/dist/browser.js';
 import {
   errorLine,
@@ -22,8 +23,6 @@ import {
   toolLine,
   uiRequestLine,
 } from './pi-agent-host-wire.mjs';
-import { createMcpCallChannel } from './pi-host-mcp-channel.mjs';
-import { createWorktreeCallChannel } from './pi-host-worktree-channel.mjs';
 import {
   COLLABORATION_FORBIDDEN_TOOLS,
   collaborationToolAllowlist,
@@ -35,6 +34,8 @@ import {
 } from './pi-agent-permission-modes.mts';
 import { createChildSupervisor, createDelegationLimits } from './pi-child-supervisor.mjs';
 import { createDelegationExtensionFactory } from './pi-delegation-extension.mjs';
+import { createMcpCallChannel } from './pi-host-mcp-channel.mjs';
+import { createWorktreeCallChannel } from './pi-host-worktree-channel.mjs';
 import { createMcpBridgeExtensionFactory, isWriteMcpTool } from './pi-mcp-bridge-extension.mjs';
 import { createMissionBridgeExtensionFactory } from './pi-mission-bridge-extension.mjs';
 import { createPublishArtifactExtensionFactory } from './pi-publish-artifact-extension.mjs';
@@ -351,7 +352,7 @@ function normalizeMcpContentBlock(value) {
   if (typeof normalized.data === 'string') {
     const dataBytes = Buffer.byteLength(normalized.data, 'base64');
     if (dataBytes > MAX_INLINE_IMAGE_BYTES) {
-      delete normalized.data;
+      normalized.data = undefined;
       normalized.dataRef = `${normalized.mimeType}:${dataBytes}b`;
       normalized.dataBytes = dataBytes;
     }
@@ -486,6 +487,416 @@ function modelsConfigSummary(modelsPath, modelRegistry) {
   };
 }
 
+function readModelsJsonForWrite(modelsPath) {
+  if (!existsSync(modelsPath)) return { providers: {} };
+  const parsed = JSON.parse(
+    stripJsonComments(readFileSync(modelsPath, 'utf8'), {
+      trailingCommas: true,
+    }),
+  );
+  if (!isRecord(parsed)) {
+    throw new Error('models.json root must be an object');
+  }
+  if (parsed.providers === undefined) {
+    parsed.providers = {};
+  }
+  if (!isRecord(parsed.providers)) {
+    throw new Error('models.json providers must be an object');
+  }
+  return parsed;
+}
+
+function skipJsoncTrivia(source, index) {
+  let cursor = index;
+  while (cursor < source.length) {
+    const char = source[cursor];
+    if (/\s/u.test(char)) {
+      cursor += 1;
+      continue;
+    }
+    if (char === '/' && source[cursor + 1] === '/') {
+      cursor += 2;
+      while (cursor < source.length && source[cursor] !== '\n') cursor += 1;
+      continue;
+    }
+    if (char === '/' && source[cursor + 1] === '*') {
+      cursor += 2;
+      while (cursor < source.length && !(source[cursor] === '*' && source[cursor + 1] === '/')) {
+        cursor += 1;
+      }
+      cursor = Math.min(cursor + 2, source.length);
+      continue;
+    }
+    break;
+  }
+  return cursor;
+}
+
+function parseJsonStringAt(source, index) {
+  if (source[index] !== '"') throw new Error('Expected JSON string key in models.json');
+  let cursor = index + 1;
+  while (cursor < source.length) {
+    const char = source[cursor];
+    if (char === '\\') {
+      cursor += 2;
+      continue;
+    }
+    if (char === '"') {
+      const end = cursor + 1;
+      return {
+        value: JSON.parse(source.slice(index, end)),
+        end,
+      };
+    }
+    cursor += 1;
+  }
+  throw new Error('Unterminated JSON string in models.json');
+}
+
+function findJsoncMatching(source, openIndex, openChar, closeChar) {
+  let depth = 0;
+  let cursor = openIndex;
+  while (cursor < source.length) {
+    const char = source[cursor];
+    if (char === '"') {
+      cursor = parseJsonStringAt(source, cursor).end;
+      continue;
+    }
+    if (char === '/' && (source[cursor + 1] === '/' || source[cursor + 1] === '*')) {
+      cursor = skipJsoncTrivia(source, cursor);
+      continue;
+    }
+    if (char === openChar) depth += 1;
+    if (char === closeChar) {
+      depth -= 1;
+      if (depth === 0) return cursor;
+    }
+    cursor += 1;
+  }
+  throw new Error('Unbalanced models.json object');
+}
+
+function findJsoncValueEnd(source, valueStart) {
+  const start = skipJsoncTrivia(source, valueStart);
+  const char = source[start];
+  if (char === '{') return findJsoncMatching(source, start, '{', '}') + 1;
+  if (char === '[') return findJsoncMatching(source, start, '[', ']') + 1;
+  if (char === '"') return parseJsonStringAt(source, start).end;
+  let cursor = start;
+  while (cursor < source.length && !/[,\]}]/u.test(source[cursor])) cursor += 1;
+  return cursor;
+}
+
+function lineIndentAt(source, index) {
+  const lineStart = source.lastIndexOf('\n', Math.max(0, index - 1)) + 1;
+  return source.slice(lineStart, index).match(/^\s*/u)?.[0] ?? '';
+}
+
+function previousJsoncSignificantChar(source, index) {
+  let cursor = index - 1;
+  while (cursor >= 0) {
+    if (/\s/u.test(source[cursor])) {
+      cursor -= 1;
+      continue;
+    }
+    if (source[cursor] === '/' && source[cursor - 1] === '/') {
+      cursor -= 2;
+      while (cursor >= 0 && source[cursor] !== '\n') cursor -= 1;
+      continue;
+    }
+    if (source[cursor] === '/' && source[cursor - 1] === '*') {
+      cursor -= 2;
+      while (cursor >= 0 && !(source[cursor] === '/' && source[cursor + 1] === '*')) {
+        cursor -= 1;
+      }
+      cursor -= 1;
+      continue;
+    }
+    return source[cursor];
+  }
+  return undefined;
+}
+
+function findJsoncObjectProperty(source, objectStart, propertyName) {
+  const objectEnd = findJsoncMatching(source, objectStart, '{', '}');
+  let cursor = skipJsoncTrivia(source, objectStart + 1);
+  while (cursor < objectEnd) {
+    if (source[cursor] === ',') {
+      cursor = skipJsoncTrivia(source, cursor + 1);
+      continue;
+    }
+    if (source[cursor] !== '"') break;
+    const key = parseJsonStringAt(source, cursor);
+    const colon = skipJsoncTrivia(source, key.end);
+    if (source[colon] !== ':') throw new Error('Expected colon in models.json object');
+    const valueStart = skipJsoncTrivia(source, colon + 1);
+    const valueEnd = findJsoncValueEnd(source, valueStart);
+    if (key.value === propertyName) {
+      return {
+        valueStart,
+        valueEnd,
+      };
+    }
+    cursor = skipJsoncTrivia(source, valueEnd);
+    if (source[cursor] === ',') cursor = skipJsoncTrivia(source, cursor + 1);
+  }
+  return null;
+}
+
+function formatJsoncValue(value, indent) {
+  return JSON.stringify(value, null, 2)
+    .split('\n')
+    .map((line, index) => (index === 0 ? line : `${indent}${line}`))
+    .join('\n');
+}
+
+function insertJsoncObjectProperty(source, objectStart, propertyName, value) {
+  const objectEnd = findJsoncMatching(source, objectStart, '{', '}');
+  const parentIndent = lineIndentAt(source, objectStart);
+  const firstChild = skipJsoncTrivia(source, objectStart + 1);
+  const childIndent =
+    firstChild < objectEnd ? lineIndentAt(source, firstChild) : `${parentIndent}  `;
+  const propertyText = `${JSON.stringify(propertyName)}: ${formatJsoncValue(value, childIndent)}`;
+  const hasProperties = firstChild < objectEnd;
+  const needsComma = hasProperties && previousJsoncSignificantChar(source, objectEnd) !== ',';
+  const insertion = `${needsComma ? ',' : ''}\n${childIndent}${propertyText}\n${parentIndent}`;
+  return `${source.slice(0, objectEnd)}${insertion}${source.slice(objectEnd)}`;
+}
+
+function upsertJsoncObjectProperty(source, objectStart, propertyName, value) {
+  const property = findJsoncObjectProperty(source, objectStart, propertyName);
+  if (!property) return insertJsoncObjectProperty(source, objectStart, propertyName, value);
+  const indent = lineIndentAt(source, property.valueStart);
+  return `${source.slice(0, property.valueStart)}${formatJsoncValue(value, indent)}${source.slice(
+    property.valueEnd,
+  )}`;
+}
+
+function writeModelsJsonProvider(modelsPath, providerId, provider) {
+  if (!existsSync(modelsPath)) {
+    writeFileSync(
+      modelsPath,
+      `${JSON.stringify({ providers: { [providerId]: provider } }, null, 2)}\n`,
+    );
+    return;
+  }
+  const source = readFileSync(modelsPath, 'utf8');
+  const rootStart = skipJsoncTrivia(source, 0);
+  if (source[rootStart] !== '{') throw new Error('models.json root must be an object');
+  const providersProperty = findJsoncObjectProperty(source, rootStart, 'providers');
+  const next = providersProperty
+    ? upsertJsoncObjectProperty(source, providersProperty.valueStart, providerId, provider)
+    : insertJsoncObjectProperty(source, rootStart, 'providers', { [providerId]: provider });
+  writeFileSync(modelsPath, next.endsWith('\n') ? next : `${next}\n`);
+}
+
+function positiveInteger(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? Math.floor(number) : undefined;
+}
+
+function setOptionalString(target, key, value) {
+  const normalized = asNonEmptyString(value);
+  if (normalized) {
+    target[key] = normalized;
+  } else {
+    delete target[key];
+  }
+}
+
+function setOptionalInteger(target, key, value) {
+  const normalized = positiveInteger(value);
+  if (normalized) {
+    target[key] = normalized;
+  } else {
+    delete target[key];
+  }
+}
+
+function normalizedProviderModelConfig(model, existingModel) {
+  if (!isRecord(model)) return undefined;
+  const id = asNonEmptyString(model.id);
+  if (!id) return undefined;
+  const next = {
+    ...(isRecord(existingModel) ? existingModel : {}),
+    id,
+  };
+  setOptionalString(next, 'name', model.name);
+  setOptionalString(next, 'api', model.api);
+  setOptionalInteger(next, 'contextWindow', model.contextWindow);
+  setOptionalInteger(next, 'maxTokens', model.maxTokens);
+  return next;
+}
+
+function normalizeProviderId(value) {
+  const providerId = asNonEmptyString(value);
+  if (!providerId) throw new Error('Provider id is required');
+  if (!/^[A-Za-z0-9._-]+$/u.test(providerId)) {
+    throw new Error('Provider id may only contain letters, numbers, dot, dash, and underscore');
+  }
+  return providerId;
+}
+
+function normalizeBaseUrl(value) {
+  const baseUrl = asNonEmptyString(value);
+  if (!baseUrl) throw new Error('Base URL is required');
+  let parsed;
+  try {
+    parsed = new URL(baseUrl);
+  } catch (error) {
+    throw new Error(`Base URL is invalid: ${error?.message ?? String(error)}`);
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error('Base URL must start with http:// or https://');
+  }
+  return baseUrl;
+}
+
+function normalizeApi(value) {
+  const api = asNonEmptyString(value);
+  if (!api) throw new Error('API format is required');
+  if (!/^[A-Za-z0-9._/-]+$/u.test(api)) {
+    throw new Error(
+      'API format may only contain letters, numbers, dot, slash, dash, and underscore',
+    );
+  }
+  return api;
+}
+
+function providerConfigsFromModelsJson(modelsPath, modelRegistry) {
+  const path = asNonEmptyString(modelsPath);
+  if (!path || !existsSync(path)) return [];
+  let root;
+  try {
+    root = readModelsJsonForWrite(path);
+  } catch {
+    return [];
+  }
+  return Object.entries(root.providers)
+    .filter(([, provider]) => isRecord(provider))
+    .map(([providerId, provider]) => {
+      const auth = modelRegistry.getProviderAuthStatus(providerId);
+      const configuredName = asNonEmptyString(provider.name);
+      return {
+        provider: providerId,
+        displayName: configuredName ?? modelRegistry.getProviderDisplayName(providerId),
+        ...(configuredName ? { name: configuredName } : {}),
+        ...(asNonEmptyString(provider.baseUrl)
+          ? { baseUrl: asNonEmptyString(provider.baseUrl) }
+          : {}),
+        ...(asNonEmptyString(provider.api) ? { api: asNonEmptyString(provider.api) } : {}),
+        hasApiKey: Boolean(asNonEmptyString(provider.apiKey)),
+        authSource: auth?.source,
+        models: Array.isArray(provider.models)
+          ? provider.models.map((model) => normalizedProviderModelConfig(model)).filter(Boolean)
+          : [],
+      };
+    })
+    .sort((a, b) => a.displayName.localeCompare(b.displayName));
+}
+
+function providerTemplatesFromRegistry(modelRegistry, configuredProviders) {
+  const templates = new Map();
+  for (const model of modelRegistry.getAll()) {
+    const provider = asNonEmptyString(model.provider);
+    const id = asNonEmptyString(model.id);
+    if (!provider || !id) continue;
+    const current = templates.get(provider) ?? {
+      provider,
+      displayName: modelRegistry.getProviderDisplayName(provider),
+      configured: configuredProviders.has(provider),
+      models: [],
+    };
+    if (!current.baseUrl && asNonEmptyString(model.baseUrl)) {
+      current.baseUrl = asNonEmptyString(model.baseUrl);
+    }
+    if (!current.api && asNonEmptyString(model.api)) {
+      current.api = asNonEmptyString(model.api);
+    }
+    if (current.models.length < 3) {
+      current.models.push(normalizedProviderModelConfig(model));
+    }
+    templates.set(provider, current);
+  }
+  return [...templates.values()]
+    .map((template) => ({
+      ...template,
+      models: template.models.filter(Boolean),
+    }))
+    .sort((a, b) => a.displayName.localeCompare(b.displayName));
+}
+
+function providerConfigForWrite(payload, existingProvider, authStatus) {
+  const config = isRecord(payload.config) ? payload.config : undefined;
+  if (!config) throw new Error('saveProvider requires config');
+  const providerId = normalizeProviderId(config.providerId);
+  const baseUrl = normalizeBaseUrl(config.baseUrl);
+  const api = normalizeApi(config.api);
+  const apiKey = asNonEmptyString(config.apiKey);
+  const keepExistingApiKey = config.keepExistingApiKey === true;
+  const hasExistingKey = Boolean(asNonEmptyString(existingProvider?.apiKey));
+  const canKeepExistingKey = keepExistingApiKey && (hasExistingKey || authStatus?.configured);
+  if (!apiKey && !canKeepExistingKey) throw new Error('API key is required');
+  const existingModels = new Map(
+    Array.isArray(existingProvider?.models)
+      ? existingProvider.models
+          .filter((model) => isRecord(model) && asNonEmptyString(model.id))
+          .map((model) => [asNonEmptyString(model.id), model])
+      : [],
+  );
+  const models = Array.isArray(config.models)
+    ? config.models
+        .map((model) => {
+          const id = asNonEmptyString(model?.id);
+          if (!id) return undefined;
+          const api = asNonEmptyString(model.api);
+          return normalizedProviderModelConfig(
+            {
+              ...model,
+              ...(api ? { api: normalizeApi(api) } : {}),
+            },
+            existingModels.get(id),
+          );
+        })
+        .filter(Boolean)
+    : [];
+  if (!models.length) throw new Error('Add at least one model id');
+  return {
+    providerId,
+    provider: {
+      name: asNonEmptyString(config.displayName),
+      baseUrl,
+      api,
+      ...(apiKey ? { apiKey } : {}),
+      models,
+    },
+  };
+}
+
+function piSaveProvider(payload) {
+  const agentDir = asNonEmptyString(payload.agentDir);
+  if (!agentDir) throw new Error('saveProvider requires agentDir');
+  mkdirSync(agentDir, { recursive: true });
+  const modelsPath = join(agentDir, 'models.json');
+  const root = readModelsJsonForWrite(modelsPath);
+  const { modelRegistry } = createPiRegistries(agentDir);
+  const config = isRecord(payload.config) ? payload.config : {};
+  const requestedProviderId = asNonEmptyString(config.providerId);
+  const existingProvider =
+    requestedProviderId && isRecord(root.providers[requestedProviderId])
+      ? root.providers[requestedProviderId]
+      : {};
+  const authStatus = requestedProviderId
+    ? modelRegistry.getProviderAuthStatus(requestedProviderId)
+    : undefined;
+  const { providerId, provider } = providerConfigForWrite(payload, existingProvider, authStatus);
+  writeModelsJsonProvider(modelsPath, providerId, {
+    ...existingProvider,
+    ...provider,
+  });
+  piStatus(payload);
+}
+
 function selectedModel(modelRegistry, override) {
   const raw = asNonEmptyString(override);
   if (!raw) return undefined;
@@ -516,11 +927,39 @@ function piStatus(payload) {
     displayName: modelRegistry.getProviderDisplayName(provider),
     auth: modelRegistry.getProviderAuthStatus(provider),
   }));
+  const providerConfigs = providerConfigsFromModelsJson(modelsPath, modelRegistry);
+  const configuredProviders = new Set(providerConfigs.map((config) => config.provider));
+  for (const account of providerStatus) {
+    if (account.auth?.configured) configuredProviders.add(account.provider);
+  }
+  const providerStatusById = new Map(providerStatus.map((account) => [account.provider, account]));
+  const configuredProviderStatus = [...configuredProviders]
+    .map((provider) => {
+      const account = providerStatusById.get(provider);
+      if (account) return account;
+      const config = providerConfigs.find((providerConfig) => providerConfig.provider === provider);
+      return {
+        provider,
+        displayName: config?.displayName ?? modelRegistry.getProviderDisplayName(provider),
+        auth: {
+          configured: Boolean(config?.hasApiKey),
+          source: config?.authSource ?? (config?.hasApiKey ? 'models_json_key' : undefined),
+        },
+      };
+    })
+    .sort((a, b) => a.displayName.localeCompare(b.displayName));
+  const providerTemplates = providerTemplatesFromRegistry(
+    modelRegistry,
+    new Set(configuredProviderStatus.map((account) => account.provider)),
+  );
   emit(
     resultLine({
       ok: true,
       authProviders: authStorage.list().sort(),
       providerStatus,
+      configuredProviderStatus,
+      providerConfigs,
+      providerTemplates,
       availableModels: modelRegistry.getAvailable().map(modelSummary),
       allModelCount: modelRegistry.getAll().length,
       paths: {
@@ -1294,6 +1733,16 @@ function main() {
       if (payload.mode === 'status') {
         try {
           piStatus(payload);
+        } catch (error) {
+          fail(error);
+          return;
+        }
+        finishHost();
+        return;
+      }
+      if (payload.mode === 'saveProvider') {
+        try {
+          piSaveProvider(payload);
         } catch (error) {
           fail(error);
           return;

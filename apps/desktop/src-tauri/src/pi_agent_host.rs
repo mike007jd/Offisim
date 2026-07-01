@@ -1,23 +1,23 @@
 use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::{
-    Arc, Mutex,
     atomic::{AtomicU64, Ordering},
+    Arc, Mutex,
 };
 use std::time::{Duration, Instant};
 
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager, ipc::Channel};
+use tauri::{ipc::Channel, AppHandle, Manager};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, Command};
 use tokio::sync::Mutex as AsyncMutex;
 use tokio_util::sync::CancellationToken;
 
 use crate::agent_host_runtime::{
-    AgentHostLane, HostError, SidecarAudit, append_sidecar_audit, dev_workspace_root,
-    project_workspace_root, required_text, resolve_node_executable, resolved_request_cwd,
-    sidecar_script_path, trusted_host_env,
+    append_sidecar_audit, dev_workspace_root, project_workspace_root, required_text,
+    resolve_node_executable, resolved_request_cwd, sidecar_script_path, trusted_host_env,
+    AgentHostLane, HostError, SidecarAudit,
 };
 use crate::in_flight::InFlightRegistry;
 use crate::sidecar_stderr::sanitized_stderr;
@@ -513,12 +513,66 @@ pub struct PiAgentProviderStatus {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct PiAgentProviderModelConfig {
+    id: String,
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    api: Option<String>,
+    #[serde(default)]
+    context_window: Option<u64>,
+    #[serde(default)]
+    max_tokens: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PiAgentProviderConfigStatus {
+    provider: String,
+    display_name: String,
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    base_url: Option<String>,
+    #[serde(default)]
+    api: Option<String>,
+    #[serde(default)]
+    has_api_key: bool,
+    #[serde(default)]
+    auth_source: Option<String>,
+    #[serde(default)]
+    models: Vec<PiAgentProviderModelConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PiAgentProviderTemplate {
+    provider: String,
+    display_name: String,
+    #[serde(default)]
+    base_url: Option<String>,
+    #[serde(default)]
+    api: Option<String>,
+    #[serde(default)]
+    configured: bool,
+    #[serde(default)]
+    models: Vec<PiAgentProviderModelConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PiAgentStatusResponse {
     ok: bool,
     #[serde(default)]
     auth_providers: Vec<String>,
     #[serde(default)]
     provider_status: Vec<PiAgentProviderStatus>,
+    #[serde(default)]
+    configured_provider_status: Vec<PiAgentProviderStatus>,
+    #[serde(default)]
+    provider_configs: Vec<PiAgentProviderConfigStatus>,
+    #[serde(default)]
+    provider_templates: Vec<PiAgentProviderTemplate>,
     #[serde(default)]
     available_models: Vec<PiModelSummary>,
     #[serde(default)]
@@ -558,6 +612,22 @@ pub struct PiAgentModelsConfig {
     providers: Vec<String>,
     #[serde(default)]
     parse_error: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PiAgentProviderConfigInput {
+    provider_id: String,
+    #[serde(default)]
+    display_name: Option<String>,
+    base_url: String,
+    api: String,
+    #[serde(default)]
+    api_key: Option<String>,
+    #[serde(default)]
+    keep_existing_api_key: bool,
+    #[serde(default)]
+    models: Vec<PiAgentProviderModelConfig>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -2041,6 +2111,154 @@ pub async fn pi_agent_open_config_folder(app: AppHandle) -> Result<(), String> {
     }
 }
 
+fn trim_required(value: &str, label: &str) -> Result<String, String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        Err(format!("{label} is required"))
+    } else {
+        Ok(trimmed.to_string())
+    }
+}
+
+fn normalize_provider_id(value: &str) -> Result<String, String> {
+    let provider_id = trim_required(value, "Provider id")?;
+    if !provider_id
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.'))
+    {
+        return Err(
+            "Provider id may only contain letters, numbers, dot, dash, and underscore".into(),
+        );
+    }
+    Ok(provider_id)
+}
+
+fn normalize_base_url(value: &str) -> Result<String, String> {
+    let base_url = trim_required(value, "Base URL")?;
+    let parsed = url::Url::parse(&base_url).map_err(|err| format!("Base URL is invalid: {err}"))?;
+    if !matches!(parsed.scheme(), "http" | "https") {
+        return Err("Base URL must start with http:// or https://".into());
+    }
+    Ok(base_url)
+}
+
+fn normalize_api(value: &str) -> Result<String, String> {
+    let api = trim_required(value, "API format")?;
+    if !api
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.' | '/'))
+    {
+        return Err(
+            "API format may only contain letters, numbers, dot, slash, dash, and underscore".into(),
+        );
+    }
+    Ok(api)
+}
+
+#[tauri::command]
+pub async fn pi_agent_save_provider(
+    app: AppHandle,
+    config: PiAgentProviderConfigInput,
+) -> Result<PiAgentStatusResponse, String> {
+    let provider_id = normalize_provider_id(&config.provider_id)?;
+    let display_name = config
+        .display_name
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    let base_url = normalize_base_url(&config.base_url)?;
+    let api = normalize_api(&config.api)?;
+    let api_key = config
+        .api_key
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    if api_key.is_none() && !config.keep_existing_api_key {
+        return Err("API key is required".into());
+    }
+    let models = config
+        .models
+        .iter()
+        .map(|model| {
+            let id = trim_required(&model.id, "Model id")?;
+            let name = model
+                .name
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string);
+            let api = model
+                .api
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(normalize_api)
+                .transpose()?;
+            let mut value = serde_json::Map::new();
+            value.insert("id".to_string(), serde_json::json!(id));
+            if let Some(name) = name {
+                value.insert("name".to_string(), serde_json::json!(name));
+            }
+            if let Some(api) = api {
+                value.insert("api".to_string(), serde_json::json!(api));
+            }
+            if let Some(context_window) = model.context_window.filter(|value| *value > 0) {
+                value.insert(
+                    "contextWindow".to_string(),
+                    serde_json::json!(context_window),
+                );
+            }
+            if let Some(max_tokens) = model.max_tokens.filter(|value| *value > 0) {
+                value.insert("maxTokens".to_string(), serde_json::json!(max_tokens));
+            }
+            Ok(serde_json::Value::Object(value))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    if models.is_empty() {
+        return Err("Add at least one model id".into());
+    }
+
+    let dev_root = dev_workspace_root();
+    let script_path = sidecar_script_path(&app, dev_root.as_ref(), PI_LANE)
+        .map_err(|err| err.into_code_message(PI_LANE).1)?;
+    let cwd = dev_root
+        .clone()
+        .or_else(|| app.path().home_dir().ok())
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+    let agent_dir = app_pi_agent_dir(&app)
+        .ok_or_else(|| "Resolve Pi Agent config folder: home directory unavailable".to_string())?;
+    let payload = serde_json::json!({
+        "mode": "saveProvider",
+        "agentDir": agent_dir.to_string_lossy().to_string(),
+        "config": {
+            "providerId": provider_id,
+            "displayName": display_name,
+            "baseUrl": base_url,
+            "api": api,
+            "apiKey": api_key,
+            "keepExistingApiKey": config.keep_existing_api_key,
+            "models": models,
+        },
+    });
+    let response = run_pi_sidecar_jsonl(
+        &app,
+        &script_path,
+        &cwd,
+        None,
+        pi_env(None),
+        payload,
+        CancellationToken::new(),
+        None,
+        None,
+        None,
+    )
+    .await
+    .map_err(|err| err.into_code_message(PI_LANE).1)?;
+    parse_status(response).map_err(|err| err.into_code_message(PI_LANE).1)
+}
+
 /// Shared status impl. Both `pi_agent_status` (back-compat + the Pi settings
 /// pane) and `agent_runtime_status` (gateway) call this verbatim.
 async fn status_impl(app: AppHandle) -> Result<PiAgentStatusResponse, String> {
@@ -2264,7 +2482,10 @@ mod tests {
         assert_eq!(snapshot.cursor, 2);
         assert_eq!(snapshot.buffered, 2);
         assert_eq!(
-            snapshot.terminal.as_ref().map(|terminal| terminal.status.as_str()),
+            snapshot
+                .terminal
+                .as_ref()
+                .map(|terminal| terminal.status.as_str()),
             Some("completed")
         );
         let replay = state
@@ -2272,7 +2493,11 @@ mod tests {
             .iter()
             .filter(|entry| entry.cursor > 1)
             .collect::<Vec<_>>();
-        assert_eq!(replay.len(), 1, "cursor replay should skip already seen events");
+        assert_eq!(
+            replay.len(),
+            1,
+            "cursor replay should skip already seen events"
+        );
     }
 
     #[test]
@@ -2310,7 +2535,8 @@ mod tests {
         }
 
         agent_runtime_release_stream(fresh_id.clone()).expect("release terminal stream");
-        agent_runtime_release_stream(running_id.clone()).expect("release running stream is a no-op");
+        agent_runtime_release_stream(running_id.clone())
+            .expect("release running stream is a no-op");
         {
             let streams = pi_run_streams_guard();
             assert!(
@@ -2362,9 +2588,12 @@ mod tests {
             Ok(())
         });
 
-        let snapshot = agent_runtime_reattach(request_id.clone(), Some(1), channel)
-            .expect("reattach stream");
-        assert!(snapshot.running, "reattach snapshot should still be running");
+        let snapshot =
+            agent_runtime_reattach(request_id.clone(), Some(1), channel).expect("reattach stream");
+        assert!(
+            snapshot.running,
+            "reattach snapshot should still be running"
+        );
         assert_eq!(snapshot.cursor, 2);
         assert_eq!(
             *delivered.lock().expect("delivered counter poisoned"),
@@ -2466,9 +2695,12 @@ mod tests {
             Ok(())
         });
 
-        let snapshot = agent_runtime_reattach(request_id.clone(), Some(1), channel)
-            .expect("reattach stream");
-        assert!(snapshot.running, "reattach snapshot should still be running");
+        let snapshot =
+            agent_runtime_reattach(request_id.clone(), Some(1), channel).expect("reattach stream");
+        assert!(
+            snapshot.running,
+            "reattach snapshot should still be running"
+        );
         assert_eq!(snapshot.cursor, 2);
         assert_eq!(
             *delivered.lock().expect("delivered counter poisoned"),

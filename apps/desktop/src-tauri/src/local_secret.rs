@@ -296,10 +296,7 @@ mod tests {
 
         // A value sealed under the persisted key opens back to plaintext.
         let env = encrypt_with_key(&k1, "persisted-key-data").expect("encrypt");
-        assert_eq!(
-            decrypt_with_key(&k2, &env).unwrap(),
-            "persisted-key-data"
-        );
+        assert_eq!(decrypt_with_key(&k2, &env).unwrap(), "persisted-key-data");
 
         #[cfg(unix)]
         {

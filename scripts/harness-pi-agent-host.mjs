@@ -2,9 +2,10 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import stripJsonComments from 'strip-json-comments';
 
 function readJson(path) {
-  return JSON.parse(readFileSync(path, 'utf8'));
+  return JSON.parse(stripJsonComments(readFileSync(path, 'utf8'), { trailingCommas: true }));
 }
 
 function assert(condition, message) {
@@ -13,11 +14,40 @@ function assert(condition, message) {
   }
 }
 
+function parseHostResult(stdout, label) {
+  for (const line of stdout
+    .split('\n')
+    .map((entry) => entry.trim())
+    .filter(Boolean)) {
+    let event;
+    try {
+      event = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (event.kind === 'result') return event;
+  }
+  throw new Error(`${label} did not emit a result line`);
+}
+
+function runHost(scriptPath, payload, label) {
+  const result = spawnSync(process.execPath, [scriptPath], {
+    input: JSON.stringify(payload),
+    encoding: 'utf8',
+    maxBuffer: 8 * 1024 * 1024,
+  });
+  assert(result.status === 0, `${label} failed: ${result.stderr || result.stdout}`);
+  return parseHostResult(result.stdout, label);
+}
+
+const HOST_SCRIPT = 'scripts/tauri-pi-agent-host.entry.mjs';
+const BUNDLED_HOST_SCRIPT = 'apps/desktop/src-tauri/resources/pi-agent-host.mjs';
 const rootPackage = readJson('package.json');
 const desktopPackage = readJson('apps/desktop/package.json');
 const tauriConfig = readJson('apps/desktop/src-tauri/tauri.conf.json');
 const rustHostSource = readFileSync('apps/desktop/src-tauri/src/pi_agent_host.rs', 'utf8');
-const nodeHostSource = readFileSync('scripts/tauri-pi-agent-host.entry.mjs', 'utf8');
+const nodeHostSource = readFileSync(HOST_SCRIPT, 'utf8');
+const bundledNodeHostSource = readFileSync(BUNDLED_HOST_SCRIPT, 'utf8');
 const childSupervisorSource = readFileSync('scripts/pi-child-supervisor.mjs', 'utf8');
 const wireSource = readFileSync('scripts/pi-agent-host-wire.mjs', 'utf8');
 const desktopRuntimeScopeSource = readFileSync(
@@ -130,6 +160,13 @@ assert(
     /Child completed without assistant output/.test(childSupervisorSource),
   'delegated children must fail provider errors and empty outputs instead of reporting completed no-output work',
 );
+assert(
+  /providerStatusById/.test(nodeHostSource) &&
+    /configuredProviderStatus/.test(nodeHostSource) &&
+    /providerStatusById/.test(bundledNodeHostSource) &&
+    /configuredProviderStatus/.test(bundledNodeHostSource),
+  'source and bundled Pi Agent hosts must expose configured provider fallback for malformed registry entries',
+);
 
 const tempAgentDir = mkdtempSync(join(tmpdir(), 'offisim-pi-agent-host-'));
 writeFileSync(
@@ -138,10 +175,24 @@ writeFileSync(
     // Pi models.json accepts JSONC comments and trailing commas.
     "providers": {
       "local-test": {
+        "name": "Local Test",
         "baseUrl": "http://127.0.0.1:11434/v1",
         "api": "openai-completions",
         "apiKey": "test",
-        "models": [{ "id": "fixture-model" }],
+        "headers": { "x-keep": "provider" },
+        "compat": { "mode": "fixture" },
+        "authHeader": true,
+        "models": [
+          {
+            "id": "fixture-model",
+            "name": "Fixture Model",
+            "api": "openai-completions",
+            "contextWindow": 2048,
+            "maxTokens": 512,
+            "headers": { "x-keep": "model" },
+            "compat": { "modelMode": "fixture" },
+          },
+        ],
         "modelOverrides": {
           "builtin-model": { "name": "Fixture override" },
         },
@@ -152,19 +203,7 @@ writeFileSync(
 
 let result;
 try {
-  const status = spawnSync(process.execPath, ['scripts/tauri-pi-agent-host.entry.mjs'], {
-    input: JSON.stringify({ mode: 'status', agentDir: tempAgentDir }),
-    encoding: 'utf8',
-    maxBuffer: 8 * 1024 * 1024,
-  });
-  assert(status.status === 0, `Pi Agent status host failed: ${status.stderr || status.stdout}`);
-  const resultLine = status.stdout
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .find((line) => JSON.parse(line).kind === 'result');
-  assert(resultLine, 'Pi Agent status host did not emit a result line');
-  result = JSON.parse(resultLine);
+  result = runHost(HOST_SCRIPT, { mode: 'status', agentDir: tempAgentDir }, 'Pi Agent status host');
   assert(result.response?.ok === true, 'Pi Agent status response must be ok');
   assert(
     Array.isArray(result.response.availableModels),
@@ -182,8 +221,191 @@ try {
     'Pi Agent status response must expose the Pi ModelRegistry-loaded models.json summary',
   );
   assert(
-    !/function stripJsoncComments/.test(nodeHostSource) && !/function parseJsonc/.test(nodeHostSource),
+    result.response.configuredProviderStatus?.some((account) => account.provider === 'local-test'),
+    'Pi Agent status response must expose configuredProviderStatus for the editable provider list',
+  );
+  assert(
+    result.response.providerStatus.length > result.response.configuredProviderStatus.length,
+    'configuredProviderStatus must not be the full built-in provider catalog',
+  );
+  const editableLocalProvider = result.response.providerConfigs?.find(
+    (provider) => provider.provider === 'local-test',
+  );
+  assert(
+    editableLocalProvider?.displayName === 'Local Test' &&
+      editableLocalProvider.baseUrl === 'http://127.0.0.1:11434/v1' &&
+      editableLocalProvider.api === 'openai-completions' &&
+      editableLocalProvider.hasApiKey === true &&
+      editableLocalProvider.models?.[0]?.contextWindow === 2048 &&
+      editableLocalProvider.models?.[0]?.maxTokens === 512,
+    'Pi Agent status response must expose editable models.json provider config without raw keys',
+  );
+  assert(
+    !JSON.stringify(editableLocalProvider).includes('apiKey'),
+    'Pi Agent status editable provider config must not echo raw API keys',
+  );
+  const openAiTemplate = result.response.providerTemplates?.find(
+    (template) => template.provider === 'openai',
+  );
+  assert(
+    openAiTemplate?.models?.length > 0 &&
+      typeof openAiTemplate.baseUrl === 'string' &&
+      openAiTemplate.configured === false,
+    'Pi Agent status response must expose add-provider templates from the Pi registry',
+  );
+  const invalidAgentDir = mkdtempSync(join(tmpdir(), 'offisim-pi-agent-invalid-'));
+  try {
+    writeFileSync(
+      join(invalidAgentDir, 'models.json'),
+      `{
+        "providers": {
+          "broken-local": {
+            "name": "Broken Local",
+            "baseUrl": "http://127.0.0.1:11434/v1",
+            "api": "openai-completions",
+            "apiKey": "test",
+            "authHeader": "invalid-for-pi-schema",
+            "models": [{ "id": "broken-model" }]
+          }
+        }
+      }`,
+    );
+    for (const scriptPath of [HOST_SCRIPT, BUNDLED_HOST_SCRIPT]) {
+      const invalidResult = runHost(
+        scriptPath,
+        { mode: 'status', agentDir: invalidAgentDir },
+        `Pi Agent invalid-schema status host (${scriptPath})`,
+      );
+      assert(
+        invalidResult.response.modelsConfig?.parseError &&
+          invalidResult.response.providerConfigs?.some(
+            (provider) => provider.provider === 'broken-local',
+          ) &&
+          invalidResult.response.configuredProviderStatus?.some(
+            (provider) => provider.provider === 'broken-local',
+          ),
+        'Pi Agent status must keep models.json providers editable even when Pi ModelRegistry reports a schema error',
+      );
+    }
+  } finally {
+    rmSync(invalidAgentDir, { recursive: true, force: true });
+  }
+  assert(
+    !/function stripJsoncComments/.test(nodeHostSource) &&
+      !/function parseJsonc/.test(nodeHostSource),
     'Pi Agent host must not duplicate Pi ModelRegistry JSONC parsing',
+  );
+
+  runHost(
+    HOST_SCRIPT,
+    {
+      mode: 'saveProvider',
+      agentDir: tempAgentDir,
+      config: {
+        providerId: 'local-test',
+        displayName: 'Local Test Edited',
+        baseUrl: 'http://127.0.0.1:11434/v2',
+        api: 'openai-completions',
+        apiKey: '',
+        keepExistingApiKey: true,
+        models: [
+          {
+            id: 'fixture-model',
+            name: 'Fixture Model Edited',
+            api: 'openai-responses',
+            contextWindow: 4096,
+            maxTokens: 1024,
+          },
+        ],
+      },
+    },
+    'Pi Agent saveProvider keep-key edit',
+  );
+  let modelsRoot = readJson(join(tempAgentDir, 'models.json'));
+  let localProvider = modelsRoot.providers['local-test'];
+  assert(
+    localProvider.name === 'Local Test Edited' &&
+      localProvider.baseUrl === 'http://127.0.0.1:11434/v2' &&
+      localProvider.apiKey === 'test' &&
+      localProvider.headers['x-keep'] === 'provider' &&
+      localProvider.compat.mode === 'fixture' &&
+      localProvider.authHeader === true &&
+      localProvider.modelOverrides['builtin-model'].name === 'Fixture override',
+    'Pi Agent saveProvider must preserve provider-level unknown fields and keep an existing API key when blank',
+  );
+  assert(
+    localProvider.models[0].name === 'Fixture Model Edited' &&
+      localProvider.models[0].api === 'openai-responses' &&
+      localProvider.models[0].contextWindow === 4096 &&
+      localProvider.models[0].maxTokens === 1024 &&
+      localProvider.models[0].headers['x-keep'] === 'model' &&
+      localProvider.models[0].compat.modelMode === 'fixture',
+    'Pi Agent saveProvider must update editable model fields while preserving model-level unknown fields',
+  );
+
+  runHost(
+    HOST_SCRIPT,
+    {
+      mode: 'saveProvider',
+      agentDir: tempAgentDir,
+      config: {
+        providerId: 'local-test',
+        displayName: 'Local Test Edited',
+        baseUrl: 'http://127.0.0.1:11434/v2',
+        api: 'openai-completions',
+        apiKey: 'replacement-key',
+        keepExistingApiKey: true,
+        models: [{ id: 'fixture-model', name: 'Fixture Model Edited' }],
+      },
+    },
+    'Pi Agent saveProvider key replacement',
+  );
+  modelsRoot = readJson(join(tempAgentDir, 'models.json'));
+  localProvider = modelsRoot.providers['local-test'];
+  assert(
+    localProvider.apiKey === 'replacement-key',
+    'Pi Agent saveProvider must replace an existing API key when a new key is entered',
+  );
+  assert(
+    localProvider.models[0].name === 'Fixture Model Edited' &&
+      !('api' in localProvider.models[0]) &&
+      !('contextWindow' in localProvider.models[0]) &&
+      !('maxTokens' in localProvider.models[0]) &&
+      localProvider.models[0].headers['x-keep'] === 'model' &&
+      localProvider.models[0].compat.modelMode === 'fixture',
+    'Pi Agent saveProvider must allow editable model fields to be cleared while preserving unknown model fields',
+  );
+
+  const saveResult = runHost(
+    HOST_SCRIPT,
+    {
+      mode: 'saveProvider',
+      agentDir: tempAgentDir,
+      config: {
+        providerId: 'custom-jsonc',
+        displayName: 'Custom JSONC',
+        baseUrl: 'https://api.example.com/v1',
+        api: 'openai-completions',
+        apiKey: 'test',
+        keepExistingApiKey: false,
+        models: [{ id: 'custom-model', name: 'Custom Model' }],
+      },
+    },
+    'Pi Agent saveProvider host',
+  );
+  assert(saveResult.response?.ok === true, 'Pi Agent saveProvider response must be ok');
+  assert(
+    saveResult.response.modelsConfig?.providers.includes('custom-jsonc') &&
+      saveResult.response.availableModels.some(
+        (model) => model.provider === 'custom-jsonc' && model.id === 'custom-model',
+      ),
+    'Pi Agent saveProvider must preserve JSONC-readable models.json and expose the saved provider',
+  );
+  assert(
+    readFileSync(join(tempAgentDir, 'models.json'), 'utf8').includes(
+      '// Pi models.json accepts JSONC comments and trailing commas.',
+    ),
+    'Pi Agent saveProvider must preserve existing JSONC comments while editing a provider',
   );
 } finally {
   rmSync(tempAgentDir, { recursive: true, force: true });

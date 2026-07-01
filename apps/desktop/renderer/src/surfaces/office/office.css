@@ -260,6 +260,148 @@
   color: var(--off-accent);
 }
 
+/* Project management lives inside the existing left workspace column. It must
+   never become a fourth application column. */
+.off-ws-projects {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.off-ws-projects-actions {
+  flex: none;
+  padding: var(--off-sp-4) var(--off-sp-4) 0;
+}
+
+.off-ws-project-new {
+  width: 100%;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-3);
+  padding: 0 var(--off-sp-3);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-1);
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-sm);
+  font-weight: 620;
+  text-align: left;
+}
+
+.off-ws-project-new:hover {
+  border-color: var(--off-accent-ring);
+  background: var(--off-accent-surface);
+  color: var(--off-accent);
+}
+
+.off-ws-project-scroll {
+  padding-top: var(--off-sp-3);
+}
+
+.off-ws-project-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px;
+  border-radius: var(--off-r-sm);
+}
+
+.off-ws-project-row.is-active {
+  background: var(--off-accent-surface);
+  box-shadow: inset 0 0 0 1px var(--off-accent-ring);
+}
+
+.off-ws-project-main {
+  min-width: 0;
+  height: 42px;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: var(--off-sp-3);
+  padding: 0 var(--off-sp-3);
+  border: 1px solid transparent;
+  border-radius: var(--off-r-sm);
+  background: transparent;
+  color: var(--off-ink-2);
+  text-align: left;
+}
+
+.off-ws-project-main:hover {
+  background: var(--off-surface-sunken);
+  color: var(--off-ink-1);
+}
+
+.off-ws-project-main .off-icon {
+  color: var(--off-ink-4);
+}
+
+.off-ws-project-row.is-active .off-ws-project-main,
+.off-ws-project-row.is-active .off-ws-project-main .off-icon {
+  color: var(--off-accent);
+}
+
+.off-ws-project-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.off-ws-project-copy span,
+.off-ws-project-copy small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.off-ws-project-copy span {
+  color: var(--off-ink-1);
+  font-size: var(--off-fs-sm);
+  font-weight: 650;
+}
+
+.off-ws-project-copy small {
+  color: var(--off-ink-4);
+  font-family: var(--off-font-mono);
+  font-size: var(--off-fs-xs);
+  font-weight: 560;
+}
+
+.off-ws-project-check {
+  color: var(--off-accent);
+}
+
+.off-ws-project-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding-right: var(--off-sp-2);
+}
+
+.off-ws-project-icon {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--off-r-xs);
+  background: transparent;
+  color: var(--off-ink-4);
+}
+
+.off-ws-project-icon:hover {
+  background: var(--off-surface-1);
+  color: var(--off-accent);
+}
+
+.off-ws-project-icon:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 /* --- Stage --- */
 .off-stage {
   grid-area: stage;

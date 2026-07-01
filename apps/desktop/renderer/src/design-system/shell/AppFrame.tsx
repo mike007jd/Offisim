@@ -30,8 +30,10 @@ export function AppFrame({ children, banner }: AppFrameProps) {
         <ScopeBar />
         <WorkspaceNav />
       </header>
-      <div className="off-banner-slot">{banner}</div>
-      <div className="off-surface-host">{children}</div>
+      <div className="off-main-stack">
+        <div className="off-banner-slot">{banner}</div>
+        <div className="off-surface-host">{children}</div>
+      </div>
     </main>
   );
 }

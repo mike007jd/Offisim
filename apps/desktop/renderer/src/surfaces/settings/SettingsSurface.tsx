@@ -2,7 +2,7 @@ import { reposOrNull } from '@/data/adapters.js';
 import { CapsLabel } from '@/design-system/grammar/index.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
-import { Bot, CheckCircle2, Cpu, Plug, ShieldCheck, Users } from 'lucide-react';
+import { Bot, CheckCircle2, Cpu, KeyRound, Plug, ShieldCheck, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ExternalEmployeesPane } from './ExternalEmployeesPane.js';
 import { McpServersPane } from './McpServersPane.js';
@@ -15,10 +15,10 @@ import {
 } from './appearance.js';
 import type { DensityValue, ThemeValue } from './settings-data.js';
 
-type SettingsTab = 'pi-agent' | 'runtime' | 'mcp' | 'external';
+type SettingsTab = 'providers' | 'runtime' | 'mcp' | 'external';
 
 const NAV: ReadonlyArray<{ key: SettingsTab; label: string; icon: typeof Bot }> = [
-  { key: 'pi-agent', label: 'Pi Agent', icon: Bot },
+  { key: 'providers', label: 'Providers', icon: KeyRound },
   { key: 'runtime', label: 'Runtime', icon: Cpu },
   { key: 'mcp', label: 'MCP', icon: Plug },
   { key: 'external', label: 'External Employees', icon: Users },
@@ -113,7 +113,7 @@ function SettingsCompanion({ tab }: { tab: SettingsTab }) {
 }
 
 export function SettingsSurface() {
-  const [tab, setTab] = useState<SettingsTab>('pi-agent');
+  const [tab, setTab] = useState<SettingsTab>('providers');
   const [theme, setTheme] = useState<ThemeValue>('system');
   const [density, setDensity] = useState<DensityValue>('normal');
   useApplyAppearance(theme, density);
@@ -157,7 +157,7 @@ export function SettingsSurface() {
         <div className="off-set-scroll">
           <div className="off-set-workspace">
             <div className="off-set-primary">
-              {tab === 'pi-agent' ? <PiAgentPane /> : null}
+              {tab === 'providers' ? <PiAgentPane /> : null}
               {tab === 'runtime' ? <RuntimePane /> : null}
               {tab === 'mcp' ? <McpServersPane /> : null}
               {tab === 'external' ? <ExternalEmployeesPane /> : null}

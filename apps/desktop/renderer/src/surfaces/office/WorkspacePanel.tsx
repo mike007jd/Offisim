@@ -1,7 +1,7 @@
 import { useUiState } from '@/app/ui-state.js';
 import { isTauriRuntime, reposOrNull } from '@/data/adapters.js';
 import { useGitWorkbench, useProjectFiles, useProjects } from '@/data/queries.js';
-import type { FileNode, GitFileChange, GitWorkbench } from '@/data/types.js';
+import type { FileNode, GitFileChange, GitWorkbench, Project } from '@/data/types.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { SearchInput } from '@/design-system/grammar/SearchInput.js';
@@ -13,20 +13,25 @@ import { overbroadWorkspaceReason } from '@/lib/workspace-root-guard.js';
 import { EmptyState, ErrorState, SkeletonRows } from '@/surfaces/shared/SurfaceStates.js';
 import { useQueryClient } from '@tanstack/react-query';
 import {
+  Check,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
   ExternalLink,
   FileText,
   FolderClosed,
+  FolderGit2,
   FolderOpen,
   GitBranch,
+  Pencil,
+  Plus,
   RefreshCw,
 } from 'lucide-react';
 import { type CSSProperties, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { ProjectDialog } from './ProjectDialog.js';
 
-type PanelTab = 'files' | 'git';
+type PanelTab = 'projects' | 'files' | 'git';
 const FILE_PREVIEW_BYTES = 12_000;
 const NON_TEXT_PREVIEW_EXTENSIONS = new Set([
   'app',
@@ -65,6 +70,11 @@ function canPreviewInline(path: string) {
   const fileName = path.split(/[\\/]/).pop() ?? path;
   const ext = fileName.includes('.') ? fileName.split('.').pop()?.toLowerCase() : '';
   return !ext || !NON_TEXT_PREVIEW_EXTENSIONS.has(ext);
+}
+
+function compactPath(path: string | null | undefined) {
+  if (!path) return 'No folder bound';
+  return path.replace(/^\/Users\/[^/]+/u, '~');
 }
 
 const STATUS_GLYPH: Record<GitFileChange['status'], string> = {
@@ -373,6 +383,111 @@ function FileContextMenu({
   );
 }
 
+function ProjectsTab({
+  projects,
+  activeProjectId,
+  isLoading,
+  error,
+  bindingFolder,
+  onRetry,
+  onSelect,
+  onNew,
+  onEdit,
+  onBindFolder,
+}: {
+  projects: Project[];
+  activeProjectId: string;
+  isLoading: boolean;
+  error: unknown;
+  bindingFolder: boolean;
+  onRetry: () => void;
+  onSelect: (project: Project) => void;
+  onNew: () => void;
+  onEdit: (project: Project) => void;
+  onBindFolder: (project: Project) => void;
+}) {
+  if (isLoading) return <SkeletonRows rows={6} />;
+  if (error) {
+    return (
+      <ErrorState
+        title="Projects unavailable"
+        detail={
+          error instanceof Error
+            ? error.message
+            : typeof error === 'string'
+              ? error
+              : 'Project list failed to load.'
+        }
+        onRetry={onRetry}
+      />
+    );
+  }
+
+  return (
+    <div className="off-ws-projects">
+      <div className="off-ws-projects-actions">
+        <button type="button" className="off-ws-project-new off-focusable" onClick={onNew}>
+          <Icon icon={Plus} size="sm" />
+          New project
+        </button>
+      </div>
+      <div className="off-ws-scroll off-ws-project-scroll">
+        <CapsLabel className="px-[var(--off-sp-3)] pb-[var(--off-sp-1)]">
+          Projects · {projects.length}
+        </CapsLabel>
+        {projects.length > 0 ? (
+          projects.map((project) => {
+            const active = project.id === activeProjectId;
+            return (
+              <div key={project.id} className={cn('off-ws-project-row', active && 'is-active')}>
+                <button
+                  type="button"
+                  className="off-ws-project-main off-focusable"
+                  aria-pressed={active}
+                  onClick={() => onSelect(project)}
+                >
+                  <Icon icon={FolderGit2} size="sm" />
+                  <span className="off-ws-project-copy">
+                    <span>{project.name}</span>
+                    <small>{compactPath(project.workspaceRoot)}</small>
+                  </span>
+                  {active ? <Icon icon={Check} size="sm" className="off-ws-project-check" /> : null}
+                </button>
+                <div className="off-ws-project-row-actions">
+                  <button
+                    type="button"
+                    className="off-ws-project-icon off-focusable"
+                    onClick={() => onBindFolder(project)}
+                    disabled={bindingFolder}
+                    title="Choose workspace folder"
+                  >
+                    <Icon icon={FolderOpen} size="sm" />
+                  </button>
+                  <button
+                    type="button"
+                    className="off-ws-project-icon off-focusable"
+                    onClick={() => onEdit(project)}
+                    title="Edit project"
+                  >
+                    <Icon icon={Pencil} size="sm" />
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <EmptyState
+            icon={FolderGit2}
+            title="No projects yet"
+            description="Create a project and bind a local folder before starting project work."
+            action={{ label: 'New project', onClick: onNew }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
 function GitTab({ workbench }: { workbench: GitWorkbench }) {
   const openStageView = useUiState((s) => s.openStageView);
   return (
@@ -443,6 +558,7 @@ function GitTab({ workbench }: { workbench: GitWorkbench }) {
 export function WorkspacePanel() {
   const companyId = useUiState((s) => s.companyId);
   const projectId = useUiState((s) => s.projectId);
+  const setProject = useUiState((s) => s.setProject);
   const collapsed = useUiState((s) => s.officeLeftRailCollapsed);
   const setCollapsed = useUiState((s) => s.setOfficeLeftRailCollapsed);
   const queryClient = useQueryClient();
@@ -451,18 +567,23 @@ export function WorkspacePanel() {
   const project = projects.data?.find((p) => p.id === projectId);
   const [tab, setTab] = useState<PanelTab>('files');
   const [bindingFolder, setBindingFolder] = useState(false);
+  const [projectDialog, setProjectDialog] = useState<{
+    mode: 'new' | 'edit';
+    project: Project | null;
+  } | null>(null);
 
   const tabs = useMemo(
     () =>
       [
+        { id: 'projects' as const, label: 'Projects' },
         { id: 'files' as const, label: 'Files' },
         { id: 'git' as const, label: 'Git' },
       ] satisfies Array<{ id: PanelTab; label: string }>,
     [],
   );
 
-  async function bindWorkspaceFolder() {
-    if (!project) {
+  async function bindWorkspaceFolder(targetProject = project) {
+    if (!targetProject) {
       toast.error('Select a project before binding a folder');
       return;
     }
@@ -480,12 +601,14 @@ export function WorkspacePanel() {
         toast.error('Project binding requires the desktop runtime');
         return;
       }
-      await repos.projects.update(project.id, { workspace_root: folder });
+      await repos.projects.update(targetProject.id, { workspace_root: folder });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['projects', companyId] }),
-        queryClient.invalidateQueries({ queryKey: ['project-files', project.id] }),
-        queryClient.invalidateQueries({ queryKey: ['git-workbench', project.id] }),
+        queryClient.invalidateQueries({ queryKey: ['project-files', targetProject.id] }),
+        queryClient.invalidateQueries({ queryKey: ['git-workbench', targetProject.id] }),
       ]);
+      setProject(targetProject.id);
+      setTab('files');
       toast.success('Workspace folder bound');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Workspace binding failed');
@@ -503,6 +626,19 @@ export function WorkspacePanel() {
     toast.success('Workspace refreshed');
   }
 
+  function selectProject(nextProject: Project) {
+    setProject(nextProject.id);
+    setTab(nextProject.workspaceRoot ? 'files' : 'projects');
+  }
+
+  function refreshPanel() {
+    if (tab === 'projects') {
+      void projects.refetch();
+      return;
+    }
+    void rescanWorkspace();
+  }
+
   if (collapsed) {
     return (
       <aside className="off-ws-panel is-collapsed" aria-label="Workspace panel">
@@ -513,6 +649,18 @@ export function WorkspacePanel() {
           title="Expand workspace"
         >
           <Icon icon={ChevronsRight} size="sm" />
+        </button>
+        <button
+          type="button"
+          className={cn('off-rail-icon-tab off-focusable', tab === 'projects' && 'is-active')}
+          onClick={() => {
+            setTab('projects');
+            setCollapsed(false);
+          }}
+          title="Projects"
+        >
+          <Icon icon={FolderGit2} size="sm" />
+          <span>Projects</span>
         </button>
         <button
           type="button"
@@ -569,15 +717,28 @@ export function WorkspacePanel() {
         <div className="ml-auto">
           <IconButton
             icon={RefreshCw}
-            label="Rescan workspace"
+            label={tab === 'projects' ? 'Refresh projects' : 'Rescan workspace'}
             size="iconSm"
-            onClick={() => void rescanWorkspace()}
-            disabled={!project?.workspaceRoot || bindingFolder}
+            onClick={refreshPanel}
+            disabled={tab !== 'projects' && (!project?.workspaceRoot || bindingFolder)}
           />
         </div>
       </div>
 
-      {tab === 'files' ? (
+      {tab === 'projects' ? (
+        <ProjectsTab
+          projects={projects.data ?? []}
+          activeProjectId={projectId}
+          isLoading={projects.isLoading}
+          error={projects.error}
+          bindingFolder={bindingFolder}
+          onRetry={() => void projects.refetch()}
+          onSelect={selectProject}
+          onNew={() => setProjectDialog({ mode: 'new', project: null })}
+          onEdit={(nextProject) => setProjectDialog({ mode: 'edit', project: nextProject })}
+          onBindFolder={(nextProject) => void bindWorkspaceFolder(nextProject)}
+        />
+      ) : tab === 'files' ? (
         <FilesTab
           projectId={projectId}
           workspaceRoot={project?.workspaceRoot ?? null}
@@ -611,6 +772,19 @@ export function WorkspacePanel() {
           action={{ label: 'Rebind folder', onClick: () => void bindWorkspaceFolder() }}
         />
       )}
+      <ProjectDialog
+        open={projectDialog !== null}
+        onOpenChange={(open) => {
+          if (!open) setProjectDialog(null);
+        }}
+        mode={projectDialog?.mode ?? 'new'}
+        companyId={companyId || null}
+        project={projectDialog?.project ?? null}
+        onSaved={(savedProjectId) => {
+          setProject(savedProjectId);
+          setTab('files');
+        }}
+      />
     </aside>
   );
 }

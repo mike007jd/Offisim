@@ -192,6 +192,7 @@ pub fn run() {
             pi_agent_host::pi_agent_ui_response,
             pi_agent_host::pi_agent_open_config_folder,
             pi_agent_host::pi_agent_status,
+            pi_agent_host::pi_agent_save_provider,
             pi_agent_host::agent_runtime_execute,
             pi_agent_host::agent_runtime_enhance,
             pi_agent_host::agent_runtime_collaborate,

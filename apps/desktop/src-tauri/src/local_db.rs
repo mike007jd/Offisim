@@ -64,7 +64,9 @@ const MIGRATIONS: &[(i64, &str)] = &[
     ),
     (
         11,
-        include_str!("../../../../packages/db-local/src/migrations/0011_mcp_audit_approval_status.sql"),
+        include_str!(
+            "../../../../packages/db-local/src/migrations/0011_mcp_audit_approval_status.sql"
+        ),
     ),
     (
         12,
@@ -463,9 +465,14 @@ mod tests {
         // chain runs — only 0005_loop_core applies — and the result must be
         // byte-identical to a fresh v5 bootstrap.
         let migrated = memory_pool().await;
-        apply_sql_and_stamp(&migrated, LOCAL_SCHEMA_SQL, LOCAL_SCHEMA_VERSION, "seed v5 baseline")
-            .await
-            .expect("seed v5 baseline");
+        apply_sql_and_stamp(
+            &migrated,
+            LOCAL_SCHEMA_SQL,
+            LOCAL_SCHEMA_VERSION,
+            "seed v5 baseline",
+        )
+        .await
+        .expect("seed v5 baseline");
         let drop_loop_objects = "\
             DROP TABLE IF EXISTS loop_invocations;\n\
             DROP TABLE IF EXISTS loop_skill_bindings;\n\
@@ -473,9 +480,14 @@ mod tests {
             DROP TABLE IF EXISTS loop_definitions;\n\
             DROP TABLE IF EXISTS mcp_tool_grants;\n\
             ALTER TABLE collaboration_threads DROP COLUMN capability_profile;";
-        apply_sql_and_stamp(&migrated, drop_loop_objects, 4, "rewind to v4 (drop loop objects)")
-            .await
-            .expect("rewind to v4");
+        apply_sql_and_stamp(
+            &migrated,
+            drop_loop_objects,
+            4,
+            "rewind to v4 (drop loop objects)",
+        )
+        .await
+        .expect("rewind to v4");
         assert_eq!(read_user_version(&migrated).await.unwrap(), 4);
         // Sanity: the loop tables are gone at v4.
         let v4_sig = schema_object_signature(&migrated).await;
@@ -484,9 +496,14 @@ mod tests {
             "loop tables must be absent at v4"
         );
 
-        ensure_schema(&migrated, LOCAL_SCHEMA_VERSION, LOCAL_SCHEMA_SQL, MIGRATIONS)
-            .await
-            .expect("upgrade v4 → v5 via 0005_loop_core");
+        ensure_schema(
+            &migrated,
+            LOCAL_SCHEMA_VERSION,
+            LOCAL_SCHEMA_SQL,
+            MIGRATIONS,
+        )
+        .await
+        .expect("upgrade v4 → v5 via 0005_loop_core");
         assert_eq!(
             read_user_version(&migrated).await.unwrap(),
             LOCAL_SCHEMA_VERSION
@@ -534,16 +551,26 @@ mod tests {
         // DROPping exactly the objects 0006 introduces, stamping v5, then running
         // the chain — only 0006 applies — and asserting byte-identical end-state.
         let migrated = memory_pool().await;
-        apply_sql_and_stamp(&migrated, LOCAL_SCHEMA_SQL, LOCAL_SCHEMA_VERSION, "seed v6 baseline")
-            .await
-            .expect("seed v6 baseline");
+        apply_sql_and_stamp(
+            &migrated,
+            LOCAL_SCHEMA_SQL,
+            LOCAL_SCHEMA_VERSION,
+            "seed v6 baseline",
+        )
+        .await
+        .expect("seed v6 baseline");
         let drop_turns_objects = "\
             DROP TABLE IF EXISTS collaboration_turns;\n\
             DROP TABLE IF EXISTS mcp_tool_grants;\n\
             ALTER TABLE collaboration_threads DROP COLUMN capability_profile;";
-        apply_sql_and_stamp(&migrated, drop_turns_objects, 5, "rewind to v5 (drop turns objects)")
-            .await
-            .expect("rewind to v5");
+        apply_sql_and_stamp(
+            &migrated,
+            drop_turns_objects,
+            5,
+            "rewind to v5 (drop turns objects)",
+        )
+        .await
+        .expect("rewind to v5");
         assert_eq!(read_user_version(&migrated).await.unwrap(), 5);
         let v5_sig = schema_object_signature(&migrated).await;
         assert!(
@@ -551,9 +578,14 @@ mod tests {
             "collaboration_turns must be absent at v5"
         );
 
-        ensure_schema(&migrated, LOCAL_SCHEMA_VERSION, LOCAL_SCHEMA_SQL, MIGRATIONS)
-            .await
-            .expect("upgrade v5 → v6 via 0006_collaboration_turns");
+        ensure_schema(
+            &migrated,
+            LOCAL_SCHEMA_VERSION,
+            LOCAL_SCHEMA_SQL,
+            MIGRATIONS,
+        )
+        .await
+        .expect("upgrade v5 → v6 via 0006_collaboration_turns");
         assert_eq!(
             read_user_version(&migrated).await.unwrap(),
             LOCAL_SCHEMA_VERSION
@@ -594,9 +626,14 @@ mod tests {
         // a company + a root run + a child run that self-references the root (the
         // self-FK the rebuild must carry through), and stamp v6.
         let migrated = memory_pool().await;
-        apply_sql_and_stamp(&migrated, LOCAL_SCHEMA_SQL, LOCAL_SCHEMA_VERSION, "seed v7 baseline")
-            .await
-            .expect("seed v7 baseline");
+        apply_sql_and_stamp(
+            &migrated,
+            LOCAL_SCHEMA_SQL,
+            LOCAL_SCHEMA_VERSION,
+            "seed v7 baseline",
+        )
+        .await
+        .expect("seed v7 baseline");
         let rewind_to_v6 = "\
             PRAGMA defer_foreign_keys = ON;\n\
             ALTER TABLE collaboration_threads DROP COLUMN capability_profile;\n\
@@ -633,9 +670,14 @@ mod tests {
         assert_eq!(read_user_version(&migrated).await.unwrap(), 6);
 
         // Run the chain — only 0007 applies — rebuilding agent_runs.
-        ensure_schema(&migrated, LOCAL_SCHEMA_VERSION, LOCAL_SCHEMA_SQL, MIGRATIONS)
-            .await
-            .expect("upgrade v6 → v7 via 0007_agent_run_interrupted");
+        ensure_schema(
+            &migrated,
+            LOCAL_SCHEMA_VERSION,
+            LOCAL_SCHEMA_SQL,
+            MIGRATIONS,
+        )
+        .await
+        .expect("upgrade v6 → v7 via 0007_agent_run_interrupted");
         assert_eq!(
             read_user_version(&migrated).await.unwrap(),
             LOCAL_SCHEMA_VERSION
@@ -671,7 +713,10 @@ mod tests {
                 .fetch_one(&migrated)
                 .await
                 .unwrap();
-        assert_eq!(session_file, None, "session_file must exist and default NULL");
+        assert_eq!(
+            session_file, None,
+            "session_file must exist and default NULL"
+        );
 
         // `interrupted` is now an accepted status (the whole point of the rebuild).
         sqlx::query("UPDATE agent_runs SET status = 'interrupted' WHERE run_id = 'root1'")
@@ -699,9 +744,14 @@ mod tests {
         let fresh_sig = schema_object_signature(&fresh).await;
 
         let migrated = memory_pool().await;
-        apply_sql_and_stamp(&migrated, LOCAL_SCHEMA_SQL, LOCAL_SCHEMA_VERSION, "seed v8 baseline")
-            .await
-            .expect("seed v8 baseline");
+        apply_sql_and_stamp(
+            &migrated,
+            LOCAL_SCHEMA_SQL,
+            LOCAL_SCHEMA_VERSION,
+            "seed v8 baseline",
+        )
+        .await
+        .expect("seed v8 baseline");
         let rewind_to_v7 = "\
             PRAGMA defer_foreign_keys = ON;\n\
             DROP INDEX IF EXISTS idx_agent_runs_company_project_status;\n\
@@ -758,9 +808,14 @@ mod tests {
             .expect("rewind to v7");
         assert_eq!(read_user_version(&migrated).await.unwrap(), 7);
 
-        ensure_schema(&migrated, LOCAL_SCHEMA_VERSION, LOCAL_SCHEMA_SQL, MIGRATIONS)
-            .await
-            .expect("upgrade v7 → v8 via 0008_mcp_tool_grants");
+        ensure_schema(
+            &migrated,
+            LOCAL_SCHEMA_VERSION,
+            LOCAL_SCHEMA_SQL,
+            MIGRATIONS,
+        )
+        .await
+        .expect("upgrade v7 → v8 via 0008_mcp_tool_grants");
         assert_eq!(
             read_user_version(&migrated).await.unwrap(),
             LOCAL_SCHEMA_VERSION

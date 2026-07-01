@@ -4,9 +4,17 @@
   height: 100vh;
   margin: 0;
   display: grid;
-  grid-template-rows: var(--off-toolbar) auto 1fr;
+  grid-template-rows: var(--off-toolbar) 1fr;
   overflow: hidden;
   background: var(--off-bg);
+}
+
+.off-main-stack {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
 }
 
 /* Resume tray row between the topbar and the surface host. A real grid row so
