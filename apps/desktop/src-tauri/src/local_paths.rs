@@ -63,6 +63,30 @@ pub async fn open_local_path<R: Runtime>(
     open_path_in_file_manager(&target).await
 }
 
+#[tauri::command]
+pub async fn reveal_local_path<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    project_id: String,
+    path: String,
+) -> Result<(), String> {
+    let trimmed = path.trim();
+    if trimmed.is_empty() {
+        return Err("Path is empty".into());
+    }
+
+    let root = project_workspace_root(&app, &project_id).await?;
+    let target = resolve_relative_target(&root, trimmed)?;
+    if !target.exists() {
+        return Err("Path does not exist in project workspace".into());
+    }
+    let target = target
+        .canonicalize()
+        .map_err(|err| format!("Resolve local path: {err}"))?;
+    ensure_inside(&target, &root)?;
+
+    reveal_path_in_file_manager(&target).await
+}
+
 /// Provision (and return the canonical path of) a per-company default workspace
 /// directory under the app's local data dir. This is the capability-first
 /// fallback that guarantees the agent's file/shell tools always have a real,
@@ -440,6 +464,40 @@ async fn open_path_in_file_manager(target: &Path) -> Result<(), String> {
         .status()
         .await
         .map_err(|err| format!("Failed to launch file manager: {err}"))?;
+
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("File manager exited with status {status}"))
+    }
+}
+
+async fn reveal_path_in_file_manager(target: &Path) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    let mut command = {
+        let mut cmd = Command::new("open");
+        cmd.arg("-R").arg(target);
+        cmd
+    };
+
+    #[cfg(target_os = "linux")]
+    let mut command = {
+        let mut cmd = Command::new("xdg-open");
+        cmd.arg(target.parent().unwrap_or(target));
+        cmd
+    };
+
+    #[cfg(target_os = "windows")]
+    let mut command = {
+        let mut cmd = Command::new("explorer");
+        cmd.arg(format!("/select,{}", target.to_string_lossy()));
+        cmd
+    };
+
+    let status = command
+        .status()
+        .await
+        .map_err(|err| format!("Failed to reveal local path: {err}"))?;
 
     if status.success() {
         Ok(())

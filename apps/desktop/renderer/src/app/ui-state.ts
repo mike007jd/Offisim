@@ -42,6 +42,13 @@ export type StageViewTarget =
       error?: string;
     };
 
+export type StageOpenTarget = Exclude<StageViewTarget, { kind: 'scene' }>;
+
+export interface StageOpenTab {
+  id: string;
+  target: StageOpenTarget;
+}
+
 export function stageTabForTarget(target: StageViewTarget): StagePrimaryTab {
   switch (target.kind) {
     case 'preview':
@@ -56,6 +63,33 @@ export function stageTabForTarget(target: StageViewTarget): StagePrimaryTab {
     default:
       return 'game';
   }
+}
+
+export function stageTabIdForTarget(target: StageOpenTarget): string {
+  switch (target.kind) {
+    case 'output':
+      return `output:${target.deliverableId}`;
+    case 'preview':
+      return `preview:${target.sourceId ?? target.deliverableId ?? target.url ?? target.title ?? 'latest'}`;
+    case 'changes':
+      return `changes:${target.path ?? 'workspace'}`;
+    case 'logs':
+      return `logs:${target.sourceId ?? target.tool ?? target.title ?? 'latest'}`;
+    case 'file':
+      return `file:${target.path}`;
+  }
+}
+
+function stageOpenTabForTarget(target: StageOpenTarget): StageOpenTab {
+  return { id: stageTabIdForTarget(target), target };
+}
+
+function gameStageState() {
+  return {
+    activeStageTabId: null,
+    stagePrimaryTab: 'game' as const,
+    stageView: { kind: 'scene' } as const,
+  };
 }
 
 export interface SceneDropDiagnostic {
@@ -97,6 +131,8 @@ interface UiState {
   sceneRenderMode: SceneRenderMode;
   stagePrimaryTab: StagePrimaryTab;
   stageView: StageViewTarget;
+  stageOpenTabs: StageOpenTab[];
+  activeStageTabId: string | null;
   officeLeftRailCollapsed: boolean;
   officeRightRailCollapsed: boolean;
   officeStageMaximized: boolean;
@@ -190,6 +226,8 @@ interface UiState {
   setStagePrimaryTab: (tab: StagePrimaryTab) => void;
   openStageView: (target: StageViewTarget) => void;
   closeStageView: () => void;
+  activateStageTab: (id: string) => void;
+  closeStageTab: (id: string) => void;
   setOfficeLeftRailCollapsed: (collapsed: boolean) => void;
   setOfficeRightRailCollapsed: (collapsed: boolean) => void;
   setOfficeStageMaximized: (maximized: boolean) => void;
@@ -222,6 +260,8 @@ export const useUiState = create<UiState>((set, get) => ({
   sceneRenderMode: '3d',
   stagePrimaryTab: 'game',
   stageView: { kind: 'scene' },
+  stageOpenTabs: [],
+  activeStageTabId: null,
   officeLeftRailCollapsed: false,
   officeRightRailCollapsed: false,
   officeStageMaximized: false,
@@ -277,6 +317,8 @@ export const useUiState = create<UiState>((set, get) => ({
       railMode: 'list',
       stagePrimaryTab: 'game',
       stageView: { kind: 'scene' },
+      stageOpenTabs: [],
+      activeStageTabId: null,
       officeStageMaximized: false,
     }),
   setProject: (projectId) =>
@@ -287,6 +329,8 @@ export const useUiState = create<UiState>((set, get) => ({
       railMode: 'list',
       stagePrimaryTab: 'game',
       stageView: { kind: 'scene' },
+      stageOpenTabs: [],
+      activeStageTabId: null,
       officeStageMaximized: false,
     }),
 
@@ -297,6 +341,8 @@ export const useUiState = create<UiState>((set, get) => ({
       railMode: 'thread',
       stagePrimaryTab: 'game',
       stageView: { kind: 'scene' },
+      stageOpenTabs: [],
+      activeStageTabId: null,
     }),
   openDraftThread: (employeeId = null) => {
     const id = generateId('thread');
@@ -306,6 +352,8 @@ export const useUiState = create<UiState>((set, get) => ({
       railMode: 'thread',
       stagePrimaryTab: 'game',
       stageView: { kind: 'scene' },
+      stageOpenTabs: [],
+      activeStageTabId: null,
     });
     return id;
   },
@@ -319,11 +367,72 @@ export const useUiState = create<UiState>((set, get) => ({
       railMode: 'list',
       stagePrimaryTab: 'game',
       stageView: { kind: 'scene' },
+      stageOpenTabs: [],
+      activeStageTabId: null,
     }),
   setSceneRenderMode: (sceneRenderMode) => set({ sceneRenderMode }),
-  setStagePrimaryTab: (stagePrimaryTab) => set({ stagePrimaryTab }),
-  openStageView: (stageView) => set({ stageView, stagePrimaryTab: stageTabForTarget(stageView) }),
-  closeStageView: () => set({ stageView: { kind: 'scene' }, stagePrimaryTab: 'game' }),
+  setStagePrimaryTab: (stagePrimaryTab) =>
+    set((state) => {
+      if (stagePrimaryTab === 'game') return gameStageState();
+      const existing = state.stageOpenTabs.find(
+        (tab) => stageTabForTarget(tab.target) === stagePrimaryTab,
+      );
+      if (!existing) return {};
+      return {
+        activeStageTabId: existing.id,
+        stagePrimaryTab,
+        stageView: existing.target,
+      };
+    }),
+  openStageView: (stageView) =>
+    set((state) => {
+      if (stageView.kind === 'scene') return gameStageState();
+      const next = stageOpenTabForTarget(stageView);
+      const existingIndex = state.stageOpenTabs.findIndex((tab) => tab.id === next.id);
+      const stageOpenTabs =
+        existingIndex >= 0
+          ? state.stageOpenTabs.map((tab) => (tab.id === next.id ? next : tab))
+          : [...state.stageOpenTabs, next];
+      return {
+        activeStageTabId: next.id,
+        stageOpenTabs,
+        stagePrimaryTab: stageTabForTarget(stageView),
+        stageView,
+      };
+    }),
+  closeStageView: () => {
+    const active = get().activeStageTabId;
+    if (active) {
+      get().closeStageTab(active);
+      return;
+    }
+    set(gameStageState());
+  },
+  activateStageTab: (id) =>
+    set((state) => {
+      const tab = state.stageOpenTabs.find((candidate) => candidate.id === id);
+      if (!tab) return {};
+      return {
+        activeStageTabId: tab.id,
+        stagePrimaryTab: stageTabForTarget(tab.target),
+        stageView: tab.target,
+      };
+    }),
+  closeStageTab: (id) =>
+    set((state) => {
+      const closedIndex = state.stageOpenTabs.findIndex((tab) => tab.id === id);
+      if (closedIndex < 0) return {};
+      const stageOpenTabs = state.stageOpenTabs.filter((tab) => tab.id !== id);
+      if (state.activeStageTabId !== id) return { stageOpenTabs };
+      const fallback = stageOpenTabs[Math.max(0, closedIndex - 1)] ?? stageOpenTabs[0] ?? null;
+      if (!fallback) return { ...gameStageState(), stageOpenTabs };
+      return {
+        activeStageTabId: fallback.id,
+        stageOpenTabs,
+        stagePrimaryTab: stageTabForTarget(fallback.target),
+        stageView: fallback.target,
+      };
+    }),
   setOfficeLeftRailCollapsed: (officeLeftRailCollapsed) => set({ officeLeftRailCollapsed }),
   setOfficeRightRailCollapsed: (officeRightRailCollapsed) => set({ officeRightRailCollapsed }),
   setOfficeStageMaximized: (officeStageMaximized) => set({ officeStageMaximized }),

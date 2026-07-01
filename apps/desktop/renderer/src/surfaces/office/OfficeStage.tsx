@@ -9,9 +9,11 @@ import { missionRunManager } from '@/runtime/mission/mission-run-manager.js';
 import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
 import type { MissionBeatPhase } from '@offisim/shared-types';
 import {
+  Box,
   CheckCircle2,
   ClipboardList,
   HandHelping,
+  LayoutPanelTop,
   LayoutTemplate,
   ShieldCheck,
   TriangleAlert,
@@ -21,7 +23,12 @@ import { RecoveryPanel } from './RecoveryPanel.js';
 import { OfficeScene2D } from './scene/OfficeScene2D.js';
 import { OfficeScene3D } from './scene/OfficeScene3D.js';
 import { zoneDefsFromLayout } from './scene/scene-layout.js';
-import { StageAutoOpen, StageTopBar, StageViewer } from './stage-viewer/StageViewer.js';
+import {
+  GameViewOptions,
+  StageAutoOpen,
+  StageTopBar,
+  StageViewer,
+} from './stage-viewer/StageViewer.js';
 
 /**
  * Phase → icon for the mission-phase pill. The pill carries the projection's
@@ -36,6 +43,35 @@ const MISSION_PHASE_ICON: Record<MissionBeatPhase, typeof ClipboardList> = {
   failure: TriangleAlert,
   completion: CheckCircle2,
 };
+
+function GameViewControls() {
+  const sceneRenderMode = useUiState((s) => s.sceneRenderMode);
+  const setSceneRenderMode = useUiState((s) => s.setSceneRenderMode);
+
+  return (
+    <div className="off-scene-controls">
+      <div className="off-stage-render-toggle" aria-label="Game view render mode">
+        <button
+          type="button"
+          className={cn('off-stage-mode-btn off-focusable', sceneRenderMode === '3d' && 'is-on')}
+          onClick={() => setSceneRenderMode('3d')}
+        >
+          <Icon icon={Box} size="sm" />
+          3D
+        </button>
+        <button
+          type="button"
+          className={cn('off-stage-mode-btn off-focusable', sceneRenderMode === '2d' && 'is-on')}
+          onClick={() => setSceneRenderMode('2d')}
+        >
+          <Icon icon={LayoutPanelTop} size="sm" />
+          2D
+        </button>
+      </div>
+      <GameViewOptions />
+    </div>
+  );
+}
 
 export function OfficeStage() {
   const sceneRenderMode = useUiState((s) => s.sceneRenderMode);
@@ -82,6 +118,7 @@ export function OfficeStage() {
           ) : (
             <OfficeScene2D />
           )}
+          <GameViewControls />
           {emptyOffice ? (
             // Honest empty office: the scene keeps its bare floor and seats
             // nobody; this HTML overlay carries the guidance for both modes.

@@ -204,6 +204,7 @@ pub fn run() {
             pi_agent_host::agent_runtime_status,
             git::git_exec,
             local_paths::open_local_path,
+            local_paths::reveal_local_path,
             local_paths::ensure_company_workspace,
             local_paths::delete_company_workspace,
             local_paths::runtime_vault_status,

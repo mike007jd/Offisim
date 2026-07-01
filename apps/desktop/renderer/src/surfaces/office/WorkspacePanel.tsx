@@ -16,23 +16,55 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  ExternalLink,
   FileText,
   FolderClosed,
   FolderOpen,
   GitBranch,
   RefreshCw,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { type CSSProperties, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 type PanelTab = 'files' | 'git';
 const FILE_PREVIEW_BYTES = 12_000;
+const NON_TEXT_PREVIEW_EXTENSIONS = new Set([
+  'app',
+  'avif',
+  'db',
+  'dmg',
+  'gif',
+  'gz',
+  'heic',
+  'jpeg',
+  'jpg',
+  'mov',
+  'mp4',
+  'pdf',
+  'png',
+  'sqlite',
+  'tar',
+  'webp',
+  'zip',
+]);
 
 interface FilePreviewState {
   path: string;
   content: string;
   truncated: boolean;
   totalSize: number;
+}
+
+interface FileContextMenuState {
+  node: FileNode;
+  x: number;
+  y: number;
+}
+
+function canPreviewInline(path: string) {
+  const fileName = path.split(/[\\/]/).pop() ?? path;
+  const ext = fileName.includes('.') ? fileName.split('.').pop()?.toLowerCase() : '';
+  return !ext || !NON_TEXT_PREVIEW_EXTENSIONS.has(ext);
 }
 
 const STATUS_GLYPH: Record<GitFileChange['status'], string> = {
@@ -55,9 +87,23 @@ function FilesTab({
   const files = useProjectFiles(projectId);
   const [query, setQuery] = useState('');
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
-  const [preview, setPreview] = useState<FilePreviewState | null>(null);
-  const [previewError, setPreviewError] = useState<string | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
+  const [contextMenu, setContextMenu] = useState<FileContextMenuState | null>(null);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') close();
+    };
+    window.addEventListener('pointerdown', close);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('pointerdown', close);
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [contextMenu]);
 
   if (!workspaceRoot) {
     return (
@@ -92,14 +138,27 @@ function FilesTab({
     `${n.name} ${n.path}`.toLowerCase().includes(query.trim().toLowerCase()),
   );
 
-  async function selectNode(node: FileNode) {
+  function selectNode(node: FileNode) {
     setSelectedPath(node.path);
-    setPreview(null);
-    setPreviewError(null);
-    if (node.kind === 'dir') return;
+  }
+
+  async function previewNode(node: FileNode) {
+    setSelectedPath(node.path);
+    if (node.kind === 'dir') {
+      await revealNode(node);
+      return;
+    }
+    if (!canPreviewInline(node.path)) {
+      openStageView({
+        kind: 'file',
+        path: node.path,
+        error:
+          'This file type cannot be previewed inline. Use the file context menu to open it or show it in Finder.',
+      });
+      return;
+    }
     openStageView({ kind: 'file', path: node.path, loading: true });
     if (!isTauriRuntime()) {
-      setPreviewError('File preview requires the desktop runtime.');
       openStageView({
         kind: 'file',
         path: node.path,
@@ -107,7 +166,6 @@ function FilesTab({
       });
       return;
     }
-    setPreviewLoading(true);
     try {
       const { invoke } = await import('@tauri-apps/api/core');
       const result = await invoke<FilePreviewState>('project_read_file_preview', {
@@ -116,7 +174,6 @@ function FilesTab({
         maxBytes: FILE_PREVIEW_BYTES,
         projectId,
       });
-      setPreview({ ...result, path: node.path });
       openStageView({
         kind: 'file',
         path: node.path,
@@ -131,30 +188,38 @@ function FilesTab({
           : typeof error === 'string'
             ? error
             : 'File preview failed.';
-      setPreviewError(message);
       openStageView({ kind: 'file', path: node.path, error: message });
-    } finally {
-      setPreviewLoading(false);
     }
   }
 
-  async function openNode(node: FileNode) {
+  async function invokePathCommand(
+    command: 'open_local_path' | 'reveal_local_path',
+    node: FileNode,
+  ) {
     if (!isTauriRuntime()) {
-      toast.error('Open requires the desktop runtime');
+      toast.error('File actions require the desktop runtime');
       return;
     }
     try {
       const { invoke } = await import('@tauri-apps/api/core');
-      await invoke('open_local_path', { projectId, path: node.path });
+      await invoke(command, { projectId, path: node.path });
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
           : typeof error === 'string'
             ? error
-            : 'Open local path failed',
+            : 'Local path action failed',
       );
     }
+  }
+
+  async function openNode(node: FileNode) {
+    await invokePathCommand('open_local_path', node);
+  }
+
+  async function revealNode(node: FileNode) {
+    await invokePathCommand('reveal_local_path', node);
   }
 
   return (
@@ -179,8 +244,29 @@ function FilesTab({
               )}
               data-depth={node.depth}
               aria-pressed={selectedPath === node.path}
-              onClick={() => void selectNode(node)}
-              onDoubleClick={() => void openNode(node)}
+              aria-haspopup="menu"
+              onClick={() => selectNode(node)}
+              onDoubleClick={() => void previewNode(node)}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                setSelectedPath(node.path);
+                setContextMenu({ node, x: event.clientX, y: event.clientY });
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  void previewNode(node);
+                }
+                if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
+                  event.preventDefault();
+                  const rect = event.currentTarget.getBoundingClientRect();
+                  setContextMenu({
+                    node,
+                    x: rect.left + rect.width * 0.32,
+                    y: rect.top + rect.height,
+                  });
+                }
+              }}
             >
               <Icon
                 icon={node.kind === 'dir' ? ChevronRight : FileText}
@@ -206,24 +292,84 @@ function FilesTab({
             }
           />
         )}
-        {selectedPath ? (
-          <section className="off-file-preview" aria-label="Selected workspace file">
-            <div className="off-file-preview-head">
-              <span>{selectedPath}</span>
-              {preview ? <span>{preview.totalSize.toLocaleString()} B</span> : null}
-            </div>
-            {previewLoading ? <div className="off-file-preview-empty">Loading preview…</div> : null}
-            {previewError ? <div className="off-file-preview-error">{previewError}</div> : null}
-            {preview ? (
-              <pre className="off-file-preview-body">
-                {preview.content}
-                {preview.truncated ? '\n...' : ''}
-              </pre>
-            ) : null}
-          </section>
+        {contextMenu ? (
+          <FileContextMenu
+            state={contextMenu}
+            onClose={() => setContextMenu(null)}
+            onOpen={(node) => void openNode(node)}
+            onPreview={(node) => void previewNode(node)}
+            onReveal={(node) => void revealNode(node)}
+          />
         ) : null}
       </div>
     </>
+  );
+}
+
+function FileContextMenu({
+  state,
+  onClose,
+  onOpen,
+  onPreview,
+  onReveal,
+}: {
+  state: FileContextMenuState;
+  onClose: () => void;
+  onOpen: (node: FileNode) => void;
+  onPreview: (node: FileNode) => void;
+  onReveal: (node: FileNode) => void;
+}) {
+  const style = {
+    left: state.x,
+    top: state.y,
+  } as CSSProperties;
+
+  return (
+    <div
+      className="off-file-context-menu"
+      role="menu"
+      style={style}
+      onPointerDown={(event) => event.stopPropagation()}
+    >
+      {state.node.kind === 'file' ? (
+        <button
+          type="button"
+          role="menuitem"
+          className="off-file-context-item off-focusable"
+          onClick={() => {
+            onPreview(state.node);
+            onClose();
+          }}
+        >
+          <Icon icon={FileText} size="sm" />
+          Preview in Stage
+        </button>
+      ) : null}
+      <button
+        type="button"
+        role="menuitem"
+        className="off-file-context-item off-focusable"
+        onClick={() => {
+          onOpen(state.node);
+          onClose();
+        }}
+      >
+        <Icon icon={ExternalLink} size="sm" />
+        Open in Default App
+      </button>
+      <button
+        type="button"
+        role="menuitem"
+        className="off-file-context-item off-focusable"
+        onClick={() => {
+          onReveal(state.node);
+          onClose();
+        }}
+      >
+        <Icon icon={FolderOpen} size="sm" />
+        Show in Finder
+      </button>
+    </div>
   );
 }
 
@@ -398,6 +544,14 @@ export function WorkspacePanel() {
 
   return (
     <aside className="off-ws-panel">
+      <button
+        type="button"
+        className="off-rail-collapse-edge off-ws-collapse-edge off-focusable"
+        onClick={() => setCollapsed(true)}
+        title="Collapse workspace"
+      >
+        <Icon icon={ChevronsLeft} size="sm" />
+      </button>
       <div className="off-ws-head">
         <Tabs value={tab} onValueChange={(value) => setTab(value as PanelTab)}>
           <TabsList className="off-ws-tabs" aria-label="Workspace panel">
@@ -419,12 +573,6 @@ export function WorkspacePanel() {
             size="iconSm"
             onClick={() => void rescanWorkspace()}
             disabled={!project?.workspaceRoot || bindingFolder}
-          />
-          <IconButton
-            icon={ChevronsLeft}
-            label="Collapse workspace"
-            size="iconSm"
-            onClick={() => setCollapsed(true)}
           />
         </div>
       </div>

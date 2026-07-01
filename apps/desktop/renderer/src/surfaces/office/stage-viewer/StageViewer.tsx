@@ -1,4 +1,5 @@
 import {
+  type StageOpenTarget,
   type StagePrimaryTab,
   type StageViewTarget,
   stageTabForTarget,
@@ -22,7 +23,6 @@ import {
   Focus,
   GitCompareArrows,
   Globe2,
-  LayoutPanelTop,
   Maximize2,
   Minimize2,
   Plus,
@@ -83,147 +83,58 @@ function htmlDeliverable(deliverables: readonly Deliverable[]) {
 }
 
 export function StageTopBar({ isRunning, tokensLabel, costLabel }: StageTopBarProps) {
-  const selectedThreadId = useUiState((s) => s.selectedThreadId);
-  const projectId = useUiState((s) => s.projectId);
   const stagePrimaryTab = useUiState((s) => s.stagePrimaryTab);
   const setStagePrimaryTab = useUiState((s) => s.setStagePrimaryTab);
-  const stageView = useUiState((s) => s.stageView);
-  const openStageView = useUiState((s) => s.openStageView);
-  const sceneRenderMode = useUiState((s) => s.sceneRenderMode);
-  const setSceneRenderMode = useUiState((s) => s.setSceneRenderMode);
+  const stageOpenTabs = useUiState((s) => s.stageOpenTabs);
+  const activeStageTabId = useUiState((s) => s.activeStageTabId);
+  const activateStageTab = useUiState((s) => s.activateStageTab);
+  const closeStageTab = useUiState((s) => s.closeStageTab);
   const stageMaximized = useUiState((s) => s.officeStageMaximized);
   const setStageMaximized = useUiState((s) => s.setOfficeStageMaximized);
-  const deliverables = useDeliverables(selectedThreadId);
-  const git = useGitWorkbench(projectId);
-  const runs = useActiveConversationRuns();
-  const run = runs.runs.find((candidate) => candidate.threadId === selectedThreadId) ?? null;
-  const latestBrowser = run ? latestBrowserDetail(run.activity) : null;
-  const latestBrowserRichDetail =
-    latestBrowser?.richDetail?.family === 'browser' ? latestBrowser.richDetail : null;
-  const latestLog = run ? latestRichDetail(run.activity) : null;
-  const latestOutput = newestDeliverable(deliverables.data ?? []);
-  const latestHtmlOutput = htmlDeliverable(deliverables.data ?? []);
-  const latestChange = git.data?.changes[0] ?? null;
-
-  function selectPrimaryTab(tab: StagePrimaryTab) {
-    if (tab === 'game') {
-      setStagePrimaryTab('game');
-      return;
-    }
-    if (stageView.kind !== 'scene' && stageTabForTarget(stageView) === tab) {
-      setStagePrimaryTab(tab);
-      return;
-    }
-    if (tab === 'browser') {
-      if (latestBrowserRichDetail) {
-        openStageView({
-          kind: 'preview',
-          sourceId: latestBrowser?.id,
-          title: latestBrowserRichDetail.title ?? latestBrowser?.tool,
-          url: latestBrowserRichDetail.url,
-          detail: latestBrowserRichDetail,
-        });
-        return;
-      }
-      if (latestHtmlOutput) {
-        openStageView({
-          kind: 'preview',
-          deliverableId: latestHtmlOutput.id,
-          threadId: selectedThreadId,
-          title: latestHtmlOutput.name,
-        });
-        return;
-      }
-      setStagePrimaryTab('browser');
-      return;
-    }
-    if (tab === 'terminal') {
-      if (latestLog) {
-        openStageView({
-          kind: 'logs',
-          sourceId: latestLog.id,
-          title: latestLog.tool,
-          tool: latestLog.tool,
-          detail: latestLog.richDetail,
-        });
-        return;
-      }
-      setStagePrimaryTab('terminal');
-      return;
-    }
-    if (tab === 'review') {
-      if (latestChange) {
-        openStageView({ kind: 'changes', path: latestChange.path });
-        return;
-      }
-      setStagePrimaryTab('review');
-      return;
-    }
-    if (stageView.kind === 'file' || stageView.kind === 'output') {
-      setStagePrimaryTab('files');
-      return;
-    }
-    if (latestOutput) {
-      openStageView({
-        kind: 'output',
-        deliverableId: latestOutput.id,
-        threadId: selectedThreadId,
-        title: latestOutput.name,
-      });
-      return;
-    }
-    setStagePrimaryTab('files');
-  }
 
   return (
     <div className="off-stage-topbar">
       <nav className="off-stage-tabs" aria-label="Stage views">
-        {PRIMARY_TABS.map((tab) => (
-          <button
+        <button
+          type="button"
+          className={cn('off-stage-tab off-focusable', stagePrimaryTab === 'game' && 'is-active')}
+          onClick={() => setStagePrimaryTab('game')}
+          aria-current={stagePrimaryTab === 'game' ? 'page' : undefined}
+          aria-label="Game View"
+          title="Game View"
+        >
+          <Icon icon={Box} size="sm" />
+          <span>Game View</span>
+        </button>
+        {stageOpenTabs.map((tab) => (
+          <div
             key={tab.id}
-            type="button"
-            className={cn('off-stage-tab off-focusable', stagePrimaryTab === tab.id && 'is-active')}
-            onClick={() => selectPrimaryTab(tab.id)}
-            aria-current={stagePrimaryTab === tab.id ? 'page' : undefined}
-            aria-label={tab.label}
-            title={tab.label}
+            className={cn('off-stage-tab-shell', activeStageTabId === tab.id && 'is-active')}
           >
-            <Icon icon={tab.icon} size="sm" />
-            <span>{tab.label}</span>
-          </button>
+            <button
+              type="button"
+              className="off-stage-tab off-focusable"
+              onClick={() => activateStageTab(tab.id)}
+              aria-current={activeStageTabId === tab.id ? 'page' : undefined}
+              aria-label={stageTabLabel(tab.target)}
+              title={stageTabTitle(tab.target)}
+            >
+              <Icon icon={stageTabIcon(tab.target)} size="sm" />
+              <span>{stageTabLabel(tab.target)}</span>
+            </button>
+            <button
+              type="button"
+              className="off-stage-tab-close off-focusable"
+              onClick={() => closeStageTab(tab.id)}
+              aria-label={`Close ${stageTabLabel(tab.target)}`}
+              title={`Close ${stageTabLabel(tab.target)}`}
+            >
+              <Icon icon={X} size="sm" />
+            </button>
+          </div>
         ))}
         <StageViewMenu />
       </nav>
-
-      {stagePrimaryTab === 'game' ? (
-        <div className="off-stage-game-tools">
-          <div className="off-stage-render-toggle" aria-label="Game view render mode">
-            <button
-              type="button"
-              className={cn(
-                'off-stage-mode-btn off-focusable',
-                sceneRenderMode === '3d' && 'is-on',
-              )}
-              onClick={() => setSceneRenderMode('3d')}
-            >
-              <Icon icon={Box} size="sm" />
-              3D
-            </button>
-            <button
-              type="button"
-              className={cn(
-                'off-stage-mode-btn off-focusable',
-                sceneRenderMode === '2d' && 'is-on',
-              )}
-              onClick={() => setSceneRenderMode('2d')}
-            >
-              <Icon icon={LayoutPanelTop} size="sm" />
-              2D
-            </button>
-          </div>
-          <GameViewOptions />
-        </div>
-      ) : null}
 
       <div className="off-stage-topbar-right">
         <output className={cn('off-stage-readout', isRunning && 'is-live')} aria-label="Run cost">
@@ -253,7 +164,47 @@ export function StageTopBar({ isRunning, tokensLabel, costLabel }: StageTopBarPr
   );
 }
 
-function GameViewOptions() {
+function stageTabIcon(target: StageOpenTarget) {
+  return PRIMARY_TABS.find((candidate) => candidate.id === stageTabForTarget(target))?.icon ?? Box;
+}
+
+function fileLeaf(path: string) {
+  const normalized = path.replace(/\\/g, '/');
+  const parts = normalized.split('/').filter(Boolean);
+  return parts[parts.length - 1] ?? path;
+}
+
+function stageTabLabel(target: StageOpenTarget) {
+  switch (target.kind) {
+    case 'output':
+      return target.title ?? 'Output';
+    case 'preview':
+      return target.title ?? 'Browser';
+    case 'changes':
+      return target.path ? fileLeaf(target.path) : 'Review';
+    case 'logs':
+      return target.tool ?? target.title ?? 'Terminal';
+    case 'file':
+      return fileLeaf(target.path);
+  }
+}
+
+function stageTabTitle(target: StageOpenTarget) {
+  switch (target.kind) {
+    case 'output':
+      return target.title ?? target.deliverableId;
+    case 'preview':
+      return target.title ?? target.url ?? 'Browser preview';
+    case 'changes':
+      return target.path ?? 'Workspace changes';
+    case 'logs':
+      return target.tool ?? target.title ?? 'Terminal log';
+    case 'file':
+      return target.path;
+  }
+}
+
+export function GameViewOptions() {
   const officeMode = useUiState((s) => s.officeMode);
   const setOfficeMode = useUiState((s) => s.setOfficeMode);
   const [open, setOpen] = useState(false);
