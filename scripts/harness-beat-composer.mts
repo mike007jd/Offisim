@@ -342,6 +342,40 @@ console.log('\n[artifact] milestone always emits mid-stream');
   );
 }
 
+// ── artifact.path: payload.path flows through to the beat's artifact intent ──
+console.log('\n[artifact-path] payload.path is carried onto the artifact intent');
+{
+  const withPath: TimedAgentRunEvent = {
+    threadId: THREAD,
+    rootRunId: ROOT,
+    runId: 'c1',
+    employeeId: 'alex',
+    type: 'artifact.created',
+    payload: {
+      title: 'out.md',
+      kind: 'report',
+      deliverableId: 'c1:artifact',
+      path: '/repo/out.md',
+    },
+    timestamp: 0,
+  };
+  const beatWithPath = composeBeats([withPath], CONFIG).find((b) => b.artifact);
+  check(
+    'artifact.created with payload.path → beat.artifact.path equals payload.path',
+    beatWithPath?.artifact?.path === '/repo/out.md',
+    `got ${beatWithPath?.artifact?.path}`,
+  );
+
+  // A payload WITHOUT path must not fabricate one.
+  const withoutPath = artifact(0, { runId: 'c2', employeeId: 'alex' });
+  const beatWithoutPath = composeBeats([withoutPath], CONFIG).find((b) => b.artifact);
+  check(
+    'artifact.created without payload.path → beat.artifact.path is undefined',
+    beatWithoutPath?.artifact !== undefined && beatWithoutPath.artifact.path === undefined,
+    `got ${beatWithoutPath?.artifact?.path}`,
+  );
+}
+
 // ── Determinism: identical beats across repeated runs ───────────────────────
 console.log('\n[determinism] byte-identical beats for a fixed fixture');
 {
