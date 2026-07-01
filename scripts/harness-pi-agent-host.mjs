@@ -102,6 +102,22 @@ assert(
   'execute sidecar payload must forward mcpTools to the Node Pi host',
 );
 assert(
+  /fn sidecar_payload[\s\S]*"projectId": req\.project_id/.test(rustHostSource),
+  'execute sidecar payload must forward projectId so delegation child runs inherit the project scope (a dropped projectId crashed the Node host with "projectId is not defined")',
+);
+assert(
+  /fn sidecar_payload[\s\S]*"employeeId": req\.employee_id/.test(rustHostSource),
+  'execute sidecar payload must forward employeeId so publish-artifact and mission-bridge events keep employee attribution',
+);
+assert(
+  /const projectId = asNonEmptyString\(payload\.projectId\)/.test(nodeHostSource),
+  'execute host must declare projectId from the run payload before delegating (a bare projectId reference throws "projectId is not defined")',
+);
+assert(
+  /const projectId = asNonEmptyString\w*\(payload\.projectId\)/.test(bundledNodeHostSource),
+  'bundled Pi Agent host must also declare projectId from the run payload — rebuild with pnpm build:pi-agent-host',
+);
+assert(
   /const baseTools = toolAllowlistForMode\(permissionMode\)/.test(nodeHostSource) &&
     /const scopedMcpTools =[\s\S]*permissionMode === 'plan'[\s\S]*mcpTools\.filter\(\(tool\) => !isWriteMcpTool\(tool\)\)[\s\S]*: mcpTools/.test(
       nodeHostSource,
