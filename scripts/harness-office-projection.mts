@@ -24,7 +24,7 @@ import type {
   ConversationRunsSnapshot,
 } from '../apps/desktop/renderer/src/assistant/runtime/conversation-run-controller.js';
 import { projectEmployeeWorkloads } from '../apps/desktop/renderer/src/assistant/runtime/conversation-run-projections.js';
-import { groupedWorkload } from '../apps/desktop/renderer/src/surfaces/office/scene/workload-chips.js';
+import { groupedWorkload } from '../apps/desktop/renderer/src/assistant/runtime/scene-cue-projection.js';
 
 let failures = 0;
 let checks = 0;

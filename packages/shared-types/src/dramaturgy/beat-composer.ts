@@ -189,6 +189,16 @@ export function beatLifespanMs(kind: BeatKind): number {
   }
 }
 
+/**
+ * The single liveness cut every beat consumer shares: a beat is live while its
+ * lifecycle window still extends past `now`. Consolidates the inline
+ * `lifecycle.endsAt > now` copies (office store, expiry timers, scene-cue
+ * projection, issue resolution) behind one name so the rule can never drift.
+ */
+export function isBeatLive(beat: SceneBeat, now: number): boolean {
+  return beat.lifecycle.endsAt > now;
+}
+
 /** Beat priority bands (source plan §9.2). */
 export const BEAT_PRIORITY = {
   approval: 100,
@@ -827,7 +837,7 @@ export function composeBeats(
     if (!indices?.length) return;
     for (const index of indices) {
       const beat = beats[index];
-      if (beat && beat.lifecycle.endsAt > event.timestamp) {
+      if (beat && isBeatLive(beat, event.timestamp)) {
         beats[index] = {
           ...beat,
           lifecycle: { startedAt: beat.lifecycle.startedAt, endsAt: event.timestamp },

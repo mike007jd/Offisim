@@ -1,9 +1,3 @@
-import {
-  type GroupedWorkload,
-  beatToClaimable,
-  groupedWorkload,
-} from '@/surfaces/office/scene/workload-chips.js';
-import type { ClaimableArtifact } from '@/surfaces/office/stage-viewer/artifact-claim.js';
 /**
  * SceneCue projection — the single render-facing contract for the office.
  *
@@ -18,10 +12,17 @@ import type { ClaimableArtifact } from '@/surfaces/office/stage-viewer/artifact-
  * Composition, never reimplementation: workload grouping is `groupedWorkload`,
  * claims are `beatToClaimable`, staging is `projectOfficeStaging` +
  * `applyDramaturgyMode`, performance is the staged `performanceForBeat` result
- * (IDLE for unstaged actors). Actor/workload cues read ONLY the snapshot-derived
+ * (null for unstaged actors). Actor/workload cues read ONLY the snapshot-derived
  * workload projection — the rolling 400-event/120s beat buffer feeds nothing but
  * flow/delivery/resource-kind transients, so high concurrency can never
  * undercount work when old beats fall out of the window.
+ *
+ * The projection is split so interaction never recomputes facts:
+ * `projectSceneBaseFrame(facts)` derives everything from runtime facts alone
+ * (interaction booleans false, no selected-thread attention arm), and
+ * `applyInputState(frame, inputState)` overlays selection/hover/drag in
+ * O(actors). `projectSceneCues` composes the two and stays the single-call
+ * contract — byte-identical to the pre-split behavior.
  *
  * Pure function of its arguments: no store reads, no Date.now(), no randomness.
  * Identical input yields byte-identical output (JSON.stringify equality), and
@@ -32,12 +33,13 @@ import {
   type CharacterPerformanceState,
   type DramaturgyMode,
   type FlowIntent,
-  IDLE_PERFORMANCE,
   type ResourceKind,
   type SceneBeat,
   type StagingPrefab,
   type SurfacedResourceSeverity,
+  type ToolRichDetail,
   applyDramaturgyMode,
+  isBeatLive,
   projectOfficeStaging,
   resourceSeverityRank,
 } from '@offisim/shared-types';
@@ -46,6 +48,162 @@ import {
   type WorkloadPriorityIssue,
   dominantBeatsFrom,
 } from './conversation-run-projections.js';
+
+// ── Claimable artifacts (runtime-owned; stage-viewer resolves/opens them) ────
+
+/**
+ * A claimable artifact is any produced/tool/preview surface that can be opened
+ * on the stage. It is intentionally structural (not a wire type): producers fill
+ * whichever fields they have, and the stage-viewer's `resolveArtifactClaim`
+ * picks the single canonical stage target it maps to.
+ */
+export interface ClaimableArtifact {
+  readonly title: string;
+  readonly kind: string;
+  readonly deliverableId?: string;
+  readonly path?: string;
+  readonly url?: string;
+  readonly sourceId?: string;
+  readonly threadId?: string | null;
+  readonly detail?: ToolRichDetail;
+}
+
+/**
+ * Project a beat's artifact intent into a ClaimableArtifact (or null when the
+ * beat carries no artifact). The single claim constructor behind the delivery
+ * shelves and the per-actor artifact lists.
+ */
+function beatToClaimable(beat: SceneBeat | undefined | null): ClaimableArtifact | null {
+  if (!beat?.artifact) return null;
+  return {
+    title: beat.artifact.title,
+    kind: beat.artifact.kind,
+    deliverableId: beat.artifact.deliverableId,
+    path: beat.artifact.path,
+    threadId: beat.threadId,
+  };
+}
+
+// ── Workload grouping (the bubble projection every scene reads) ──────────────
+
+/**
+ * The generic workload chip tone vocabulary, shared by 2D and 3D scenes.
+ * `risk` = blocked/resource/failure, `wait` = approval/waiting, `done` =
+ * artifact/complete, `work` = ordinary in-flight work.
+ */
+export type WorkloadChipTone = 'work' | 'wait' | 'risk' | 'done';
+
+interface WorkloadGroupChip {
+  readonly label: string;
+  readonly tone: WorkloadChipTone;
+  /** Present on grouped (medium/large) chips; absent on small per-run chips. */
+  readonly count?: number;
+}
+
+type WorkloadTier = 'small' | 'medium' | 'large';
+
+/**
+ * A render-agnostic grouping of one employee's workload for the office bubble.
+ * Both scene modes derive their bubble from this single projection so 2D and 3D
+ * never drift. `small` keeps the per-run chip model; `medium`/`large` collapse
+ * into priority-ordered grouped chips with counts.
+ */
+export interface GroupedWorkload {
+  readonly tier: WorkloadTier;
+  /** '×N' badge when more than one active run; null for a single run. */
+  readonly countLabel: string | null;
+  readonly activeCount: number;
+  readonly chips: readonly WorkloadGroupChip[];
+  /** More groups exist than are shown → the bubble offers a drilldown affordance. */
+  readonly overflow: boolean;
+  /** Highest-priority unresolved issue (drives the resource marker hierarchy). */
+  readonly topIssue: WorkloadPriorityIssue | null;
+}
+
+const SMALL_MAX = 3;
+const LARGE_MIN = 13;
+const GROUPED_MAX_CHIPS = 4;
+
+/** Human label for a workKind bucket key (capitalized; the catch-all reads 'Working'). */
+export function workKindLabel(kind: string): string {
+  if (kind === 'unclassified') return 'Working';
+  return `${kind.charAt(0).toUpperCase()}${kind.slice(1)}`;
+}
+
+/** The per-run small-count chips, mapped from the existing workloadChips model. */
+function smallChips(p: EmployeeWorkloadProjection): WorkloadGroupChip[] {
+  const chips: WorkloadGroupChip[] = p.workloadChips
+    .slice(0, SMALL_MAX)
+    .map((chip) => ({ label: chip.label, tone: chip.tone }));
+  // A terminal-only blocked actor (activeCount 0) has no per-run chips; surface
+  // its top issue so the blocked state is never invisible.
+  if (chips.length === 0 && p.workloadSummary.priorityIssues.length > 0) {
+    const issue = p.workloadSummary.priorityIssues[0];
+    if (issue) chips.push({ label: issue.label, tone: 'risk' });
+  }
+  return chips;
+}
+
+/**
+ * Grouped chips for medium/large concurrency, in the PRD priority order:
+ * 1. blocked/resource/failure, 2. approval/waiting, 3. artifact/done,
+ * 4. dominant work-kind distribution. High-signal states are reserved a slot so
+ * they outrank ordinary work even when many work kinds compete for space.
+ */
+function groupedChips(p: EmployeeWorkloadProjection): {
+  chips: WorkloadGroupChip[];
+  groups: number;
+} {
+  const s = p.workloadSummary;
+  const priority: WorkloadGroupChip[] = [];
+  if (s.byStatus.blocked > 0)
+    priority.push({ label: 'Blocked', tone: 'risk', count: s.byStatus.blocked });
+  if (s.approvalCount > 0)
+    priority.push({ label: 'Approval', tone: 'wait', count: s.approvalCount });
+  if (s.artifactCount > 0)
+    priority.push({ label: 'Artifact', tone: 'done', count: s.artifactCount });
+
+  const workKinds = Object.entries(s.byWorkKind)
+    .filter(([, count]) => count > 0)
+    .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
+    .map(([kind, count]) => ({ label: workKindLabel(kind), tone: 'work' as const, count }));
+
+  const groups = priority.length + workKinds.length;
+  // Reserve the high-signal slots first, then fill remaining room with the
+  // biggest work-kind buckets.
+  const reserved = priority.slice(0, GROUPED_MAX_CHIPS);
+  const room = GROUPED_MAX_CHIPS - reserved.length;
+  const chips = [...reserved, ...workKinds.slice(0, room)];
+  return { chips, groups };
+}
+
+/**
+ * Project one employee's workload into a render-agnostic bubble grouping. Tiered
+ * by the full member-set size: small (1-3) keeps the per-run chip model, medium
+ * (4-12) and large (13+) collapse into priority-ordered grouped chips with
+ * counts and an overflow affordance that opens the drilldown.
+ */
+export function groupedWorkload(p: EmployeeWorkloadProjection): GroupedWorkload {
+  const total = p.workloadSummary.total;
+  const tier: WorkloadTier = total <= SMALL_MAX ? 'small' : total < LARGE_MIN ? 'medium' : 'large';
+  const countLabel = p.activeCount > 1 ? `×${p.activeCount}` : null;
+  const topIssue = p.workloadSummary.priorityIssues[0] ?? null;
+
+  if (tier === 'small') {
+    const chips = smallChips(p);
+    return { tier, countLabel, activeCount: p.activeCount, chips, overflow: false, topIssue };
+  }
+
+  const { chips, groups } = groupedChips(p);
+  return {
+    tier,
+    countLabel,
+    activeCount: p.activeCount,
+    chips,
+    overflow: groups > chips.length,
+    topIssue,
+  };
+}
 
 /** Live flow signals a scene draws at once (was the per-scene `slice(-8)`). */
 const FLOW_NOISE_CAP = 8;
@@ -61,14 +219,7 @@ const ACTOR_ARTIFACT_BUDGET = 8;
 export type SceneInk = 'work' | 'artifact' | 'risk' | 'approval' | 'neutral';
 
 /** Semantic flow-signal vocabulary (what the packet MEANS, not where it goes). */
-export type FlowCueKind =
-  | 'fan-out'
-  | 'fan-in'
-  | 'tool'
-  | 'approval'
-  | 'artifact'
-  | 'recovery'
-  | 'failure';
+type FlowCueKind = 'fan-out' | 'fan-in' | 'tool' | 'approval' | 'artifact' | 'recovery' | 'failure';
 
 /**
  * Flow target vocabulary — aliased to the wire's FlowIntent so a new target
@@ -80,14 +231,19 @@ export type FlowCueTarget = FlowIntent['target'];
 /**
  * Interaction state a scene feeds in. Every field optional: a scene lacking an
  * input source (2D has no drag) omits it and the cue degrades to `false`.
+ * Selection is by EMPLOYEE: the hook resolves the ui-state thread selection to
+ * its owning employee across ALL of that employee's threads (any-thread match),
+ * so selecting a non-first thread still selects the actor. `ActorCue.threadId`
+ * (the open-thread click target) keeps the first-thread join independently.
  */
-export interface SceneCueInputState {
-  readonly selectedThreadId?: string | null;
+interface SceneCueInputState {
+  readonly selectedEmployeeId?: string | null;
   readonly hoveredEmployeeId?: string | null;
   readonly draggingEmployeeId?: string | null;
 }
 
-export interface SceneCueInput {
+/** Runtime facts alone — everything `projectSceneBaseFrame` derives from. */
+interface SceneCueFacts {
   /**
    * Roster employee ids — the actor universe. Every roster member gets an
    * ActorCue (resting when idle), so a never-messaged hire still stands on the
@@ -106,6 +262,9 @@ export interface SceneCueInput {
   readonly reducedMotion: boolean;
   /** employeeId → owning threadId (the scenes' threadByEmployee join). */
   readonly threadByEmployee: ReadonlyMap<string, string>;
+}
+
+export interface SceneCueInput extends SceneCueFacts {
   readonly inputState?: SceneCueInputState;
 }
 
@@ -125,7 +284,8 @@ export interface ActorCue {
   readonly hovered: boolean;
   readonly dragging: boolean;
   readonly running: boolean;
-  readonly performance: CharacterPerformanceState;
+  /** Staged performance; null = unstaged (scenes keep their legacy idle pose path). */
+  readonly performance: CharacterPerformanceState | null;
   /** Relocation anchor AFTER applyDramaturgyMode; null = stay home. */
   readonly staging: ActorStaging | null;
   readonly workload: WorkloadCue;
@@ -144,7 +304,7 @@ export interface ActorCue {
  * never fifty. `at` is the newest member's beat time — the scene's animation
  * phase anchor (packet position), so consumers need no raw-beat access.
  */
-export interface FlowCue {
+interface FlowCue {
   readonly employeeId: string;
   readonly kind: FlowCueKind;
   readonly target: FlowCueTarget;
@@ -159,7 +319,16 @@ export interface FlowCue {
   readonly label: string;
 }
 
-export interface DeliveryCue {
+/**
+ * THE bundle stroke-weight rule both scenes share: a bundled cue (≥2 merged
+ * signals) draws one step heavier. Scenes add this to their own ink-based base
+ * width, so 2D and 3D can never drift on when a line reads "bundled".
+ */
+export function bundleEmphasis(cue: FlowCue): 0 | 1 {
+  return cue.bundleCount >= 2 ? 1 : 0;
+}
+
+interface DeliveryCue {
   /** Newest-last claimable chips, capped at the fixed chip budget (3). */
   readonly chips: readonly ClaimableArtifact[];
   /** All live artifact claims (the shelf's ×N figure). */
@@ -175,7 +344,7 @@ export interface DeliveryCue {
  * class; `resourceKind` is the typed strain (token/budget/permission/context/
  * runtime/tool) resolved from the live beat when the issue is a resource strain.
  */
-export interface ResourceCue {
+interface ResourceCue {
   readonly employeeId: string;
   readonly kind: WorkloadPriorityIssue['kind'];
   readonly resourceKind: ResourceKind | null;
@@ -185,7 +354,7 @@ export interface ResourceCue {
 }
 
 /** Focus precedence: severe (blocked-severity) issue > selected thread > fresh delivery. */
-export interface AttentionCue {
+interface AttentionCue {
   readonly target: 'employee' | 'delivery';
   readonly employeeId?: string;
   readonly reason: 'severe-issue' | 'selected-thread' | 'delivery';
@@ -308,11 +477,17 @@ function beatLabel(beat: SceneBeat): string {
 /** Shared frozen empty list keeps idle actors allocation-free and JSON-stable. */
 const NO_ARTIFACTS: readonly ClaimableArtifact[] = Object.freeze([]);
 
-export function projectSceneCues(input: SceneCueInput): SceneCueFrame {
+/**
+ * Fact half of the projection: derives every cue from runtime facts alone.
+ * Interaction is absent by construction — actors carry `selected`/`hovered`/
+ * `dragging: false` and attention knows only severe-issue > delivery — so
+ * hover/drag/selection transitions never invalidate this computation.
+ */
+export function projectSceneBaseFrame(input: SceneCueFacts): SceneCueFrame {
   // Liveness + canonical order: expired beats drop, and equal-timestamp beats
   // resolve by their deterministic id so input arrival order never matters.
   const orderedBeats = input.beats
-    .filter((beat) => beat.lifecycle.endsAt > input.now)
+    .filter((beat) => isBeatLive(beat, input.now))
     .sort((a, b) => a.at - b.at || cmpStr(a.id, b.id));
 
   // ── Staging (duplication items 7/8): one shared invocation of the pipeline
@@ -374,7 +549,6 @@ export function projectSceneCues(input: SceneCueInput): SceneCueFrame {
   const employeeIds = [
     ...new Set([...input.roster, ...input.workloads.keys(), ...input.threadByEmployee.keys()]),
   ].sort();
-  const selectedThreadId = input.inputState?.selectedThreadId ?? null;
 
   const actors: ActorCue[] = employeeIds.map((employeeId) => {
     const workload = input.workloads.get(employeeId);
@@ -390,11 +564,11 @@ export function projectSceneCues(input: SceneCueInput): SceneCueFrame {
     return {
       employeeId,
       threadId,
-      selected: threadId !== null && threadId === selectedThreadId,
-      hovered: input.inputState?.hoveredEmployeeId === employeeId,
-      dragging: input.inputState?.draggingEmployeeId === employeeId,
+      selected: false,
+      hovered: false,
+      dragging: false,
       running: (workload?.activeCount ?? 0) > 0,
-      performance: stagedActor?.performance ?? IDLE_PERFORMANCE,
+      performance: stagedActor?.performance ?? null,
       staging: stagedActor?.staging ?? null,
       workload: workloadCue,
       artifacts: artifactsByEmployee.get(employeeId) ?? NO_ARTIFACTS,
@@ -471,9 +645,10 @@ export function projectSceneCues(input: SceneCueInput): SceneCueFrame {
     });
   }
 
-  // ── Attention: severe issue > selected thread > fresh delivery. The severe
+  // ── Attention (fact arms only): severe issue > fresh delivery. The severe
   // pick prefers the highest severity, then the lexically-first employee so two
-  // equally blocked actors resolve identically every frame.
+  // equally blocked actors resolve identically every frame. The selected-thread
+  // arm is interaction state and is settled by `applyInputState`.
   let severe: { employeeId: string; rank: number } | null = null;
   for (const actor of actors) {
     const issue = actor.workload.topIssue;
@@ -481,14 +656,62 @@ export function projectSceneCues(input: SceneCueInput): SceneCueFrame {
     const rank = resourceSeverityRank(issue.severity);
     if (!severe || rank > severe.rank) severe = { employeeId: actor.employeeId, rank };
   }
-  const selectedActor = actors.find((actor) => actor.selected);
   const attention: AttentionCue | null = severe
     ? { target: 'employee', employeeId: severe.employeeId, reason: 'severe-issue' }
-    : selectedActor
-      ? { target: 'employee', employeeId: selectedActor.employeeId, reason: 'selected-thread' }
-      : delivery.latest
-        ? { target: 'delivery', reason: 'delivery' }
-        : null;
+    : delivery.latest
+      ? { target: 'delivery', reason: 'delivery' }
+      : null;
 
   return { actors, flows, delivery, resources, attention };
+}
+
+/**
+ * Interaction half of the projection: an O(actors) overlay that decorates the
+ * three interaction booleans onto a base frame and settles the full attention
+ * precedence (severe-issue > selected > delivery). The severe and delivery
+ * facts are already ON the frame, so this never re-derives staging, flows,
+ * claims, or workloads — a hover transition costs one actor pass.
+ */
+export function applyInputState(
+  frame: SceneCueFrame,
+  inputState: SceneCueInputState | undefined,
+): SceneCueFrame {
+  const selectedEmployeeId = inputState?.selectedEmployeeId ?? null;
+  const hoveredEmployeeId = inputState?.hoveredEmployeeId ?? null;
+  const draggingEmployeeId = inputState?.draggingEmployeeId ?? null;
+  // Base actors already carry all-false booleans; reuse them untouched so a
+  // no-interaction frame stays byte-identical (and allocation-free).
+  const actors: readonly ActorCue[] =
+    selectedEmployeeId === null && hoveredEmployeeId === null && draggingEmployeeId === null
+      ? frame.actors
+      : frame.actors.map((actor) => {
+          const selected = actor.employeeId === selectedEmployeeId;
+          const hovered = actor.employeeId === hoveredEmployeeId;
+          const dragging = actor.employeeId === draggingEmployeeId;
+          if (!selected && !hovered && !dragging) return actor;
+          return { ...actor, selected, hovered, dragging };
+        });
+  // Full attention precedence: the base frame's severe arm wins outright, then
+  // the selected actor, then the base delivery arm.
+  const severe = frame.attention?.reason === 'severe-issue' ? frame.attention : null;
+  const selectedActor =
+    selectedEmployeeId === null ? undefined : actors.find((actor) => actor.selected);
+  const attention: AttentionCue | null = severe
+    ? severe
+    : selectedActor
+      ? { target: 'employee', employeeId: selectedActor.employeeId, reason: 'selected-thread' }
+      : frame.delivery.latest
+        ? { target: 'delivery', reason: 'delivery' }
+        : null;
+  return { ...frame, actors, attention };
+}
+
+/**
+ * The single-call contract: identical, by construction, to
+ * `applyInputState(projectSceneBaseFrame(facts), inputState)` — the harness
+ * locks the equivalence byte-for-byte.
+ */
+export function projectSceneCues(input: SceneCueInput): SceneCueFrame {
+  const { inputState, ...facts } = input;
+  return applyInputState(projectSceneBaseFrame(facts), inputState);
 }

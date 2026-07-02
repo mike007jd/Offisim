@@ -136,6 +136,14 @@ export const OFFICE_SCENE_2D_COLORS = {
   artifactPacket: UI_DATA_COLORS.green,
   resourceLine: 'rgba(214,69,61,0.4)',
   resourcePacket: UI_DATA_COLORS.red3,
+  /* Approval ink (PRD): "waiting on the user" is its own signal — amber, never
+   * the failure red. Line is the packet hue at flow-line translucency. */
+  approvalLine: 'rgba(245,158,11,0.42)',
+  approvalPacket: UI_DATA_COLORS.amber,
+  /* Neutral ink (PRD): a quiet return to normal flow (recovery) — slate, never
+   * painted in the failure red it just left. */
+  neutralLine: 'rgba(100,113,134,0.38)',
+  neutralPacket: UI_DATA_COLORS.ink6,
   deliveryShelf: 'rgba(255,255,255,0.88)',
   deliveryShelfLine: '#c8d1de',
   externalClothing: UI_DATA_COLORS.ink5,

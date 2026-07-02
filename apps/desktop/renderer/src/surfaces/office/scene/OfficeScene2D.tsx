@@ -1,32 +1,20 @@
 import { useUiState } from '@/app/ui-state.js';
 import {
-  dominantBeatsFrom,
-  useEmployeeWorkloads,
-} from '@/assistant/runtime/conversation-run-react.js';
-import { useOfficeBeats, usePrefersReducedMotion } from '@/assistant/runtime/office-dramaturgy.js';
+  type FlowCueTarget,
+  type SceneInk,
+  type WorkloadChipTone,
+  bundleEmphasis,
+} from '@/assistant/runtime/scene-cue-projection.js';
+import { useSceneCueFrame } from '@/assistant/runtime/scene-cue-react.js';
 import { OFFICE_SCENE_2D_COLORS } from '@/data/color-palette.js';
-import { useEmployees, useOfficeLayout, useThreads } from '@/data/queries.js';
 import type { ZoneKind } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
 import { CANVAS_FONT_TOKENS } from '@/styles/visual-tokens.js';
-import { type ClaimableArtifact, openArtifactClaim } from '@/surfaces/office/stage-viewer/artifact-claim.js';
-import {
-  type StagingPrefab,
-  applyDramaturgyMode,
-  projectOfficeStaging,
-} from '@offisim/shared-types';
-import { useEffect, useMemo, useRef } from 'react';
-import { SCENE_CONTENT_SCALE } from './r3d/scene-art-direction.js';
+import { openArtifactClaim } from '@/surfaces/office/stage-viewer/artifact-claim.js';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { compactSceneEmployeeName } from './scene-labels.js';
-import {
-  archetypeToKind,
-  clamp,
-  defaultEmployeeZone,
-  employeePlacements,
-  floorBounds,
-  zoneDefsFromLayout,
-} from './scene-layout.js';
-import { type GroupedWorkload, beatToClaimable, groupedWorkload } from './workload-chips.js';
+import { archetypeToKind, clamp, floorBounds } from './scene-layout.js';
+import { useSceneStagingInputs } from './use-scene-staging-inputs.js';
 
 const ZONE_TINT: Record<ZoneKind, string> = {
   workspace: OFFICE_SCENE_2D_COLORS.zoneWorkspace,
@@ -34,9 +22,46 @@ const ZONE_TINT: Record<ZoneKind, string> = {
   lounge: OFFICE_SCENE_2D_COLORS.zoneLounge,
 };
 
+/**
+ * THE one 2D ink→hex table: every SceneCue ink role maps to exactly one
+ * palette line/packet pair. Approval is amber — never the risk red (PRD) —
+ * and neutral is the quiet slate used for recovery signals.
+ */
+const INK_2D: Record<SceneInk, { readonly line: string; readonly packet: string }> = {
+  work: { line: OFFICE_SCENE_2D_COLORS.flowLine, packet: OFFICE_SCENE_2D_COLORS.flowPacket },
+  artifact: {
+    line: OFFICE_SCENE_2D_COLORS.artifactLine,
+    packet: OFFICE_SCENE_2D_COLORS.artifactPacket,
+  },
+  risk: {
+    line: OFFICE_SCENE_2D_COLORS.resourceLine,
+    packet: OFFICE_SCENE_2D_COLORS.resourcePacket,
+  },
+  approval: {
+    line: OFFICE_SCENE_2D_COLORS.approvalLine,
+    packet: OFFICE_SCENE_2D_COLORS.approvalPacket,
+  },
+  neutral: {
+    line: OFFICE_SCENE_2D_COLORS.neutralLine,
+    packet: OFFICE_SCENE_2D_COLORS.neutralPacket,
+  },
+};
+
+/**
+ * THE one 2D workload-chip tone→hex table (same discipline as INK_2D): every
+ * chip tone maps to exactly one palette fill.
+ */
+const CHIP_TONE_2D: Record<WorkloadChipTone, string> = {
+  work: OFFICE_SCENE_2D_COLORS.flowPacket,
+  wait: OFFICE_SCENE_2D_COLORS.deliveryShelfLine,
+  risk: OFFICE_SCENE_2D_COLORS.resourcePacket,
+  done: OFFICE_SCENE_2D_COLORS.artifactPacket,
+};
+
 /** A circular hit target: an employee actor whose click opens its thread. */
 interface EmployeeHit {
   kind: 'employee';
+  employeeId: string;
   threadId: string;
   sx: number;
   sy: number;
@@ -68,90 +93,47 @@ function roundRect(
 }
 
 export function OfficeScene2D() {
-  const companyId = useUiState((s) => s.companyId);
   const projectId = useUiState((s) => s.projectId);
-  const selectedThreadId = useUiState((s) => s.selectedThreadId);
   const openThread = useUiState((s) => s.openThread);
   const openStageView = useUiState((s) => s.openStageView);
   const openWorkloadDrilldown = useUiState((s) => s.openWorkloadDrilldown);
-  const employees = useEmployees();
-  const threads = useThreads(projectId);
-  const workloads = useEmployeeWorkloads(projectId, companyId);
-  const liveBeats = useOfficeBeats(companyId);
-  // Same real source as the 3D scene — real zones + real roster, with the
-  // synthetic fallback only when there is no backend (non-Tauri/dev preview).
-  const layout = useOfficeLayout(companyId);
+
+  // Shared staging inputs (real zones + real roster + seat planner); the
+  // synthetic fallback only applies when there is no backend (dev preview).
+  const { roster, zoneDefs, positions, stagingPrefabs } = useSceneStagingInputs();
+  const { floorW, floorD } = useMemo(() => floorBounds(zoneDefs), [zoneDefs]);
+
+  // Hover is this scene's only local interaction state; it feeds the hook so
+  // ActorCue.hovered carries it back as a cue (never a per-scene derivation).
+  const [hoveredEmployeeId, setHoveredEmployeeId] = useState<string | null>(null);
+
+  // THE render contract: one SceneCueFrame per render, shared with the 3D
+  // scene and the drilldown. All runtime facts (staging, flows, delivery,
+  // workload bubbles, selection) come from here — along with the shared
+  // actorById index; only geometry stays local.
+  const { frame, actorById } = useSceneCueFrame({
+    prefabs: stagingPrefabs,
+    actorPositions: positions,
+    hoveredEmployeeId,
+  });
+  const selectedEmployeeId = useMemo(
+    () => frame.actors.find((actor) => actor.selected)?.employeeId ?? null,
+    [frame.actors],
+  );
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const hitsRef = useRef<Hit[]>([]);
-  // The delivery-shelf click reads the most recent artifact beat outside the
-  // draw closure; the draw effect keeps this ref current each frame.
-  const latestArtifactRef = useRef<ClaimableArtifact | null>(null);
-
-  // Memoized so positions and the canvas draw effect don't recompute/redraw on
-  // every render — `employees.data ?? []` is otherwise a fresh array each time.
-  const roster = useMemo(() => employees.data ?? [], [employees.data]);
-  const zoneDefs = useMemo(() => zoneDefsFromLayout(layout.data), [layout.data]);
-  const { floorW, floorD } = useMemo(() => floorBounds(zoneDefs), [zoneDefs]);
-  const fallbackZone = useMemo(() => defaultEmployeeZone(zoneDefs), [zoneDefs]);
-  const positions = useMemo(
-    () => employeePlacements(roster, zoneDefs, fallbackZone, layout.data?.prefabs),
-    [roster, zoneDefs, fallbackZone, layout.data?.prefabs],
-  );
-
-  // Same live dramaturgy projection as the 3D scene → high-value movement beats
-  // relocate the dot to the reserved world anchor (drawn precisely, no zone
-  // clamp). 2D and 3D therefore agree on where each actor is. Staging reads the
-  // dominant beat of each employee's dominant ACTIVE run (one per actor), the
-  // same workload truth that lights the ring — not a separate latest-wins
-  // timeline that could stage a just-finished run over a still-running one.
-  const dominantBeats = useMemo(() => dominantBeatsFrom(workloads), [workloads]);
-  const officeMode = useUiState((s) => s.officeMode);
-  const reducedMotion = usePrefersReducedMotion();
-  const stagedById = useMemo(() => {
-    const prefabs: StagingPrefab[] = (layout.data?.prefabs ?? []).map((p) => ({
-      instanceId: p.instance.instance_id,
-      prefabId: p.instance.prefab_id,
-      x: p.instance.position_x,
-      z: p.instance.position_y,
-      rotation: p.instance.rotation,
-      // Anchor offsets scale to match the home-seat planner (which scales in both
-      // render modes), so a relocated dot sits on the same seat in 2D and 3D.
-      scale: SCENE_CONTENT_SCALE,
-    }));
-    const map = new Map<string, { x: number; z: number }>();
-    const staged = applyDramaturgyMode(projectOfficeStaging(dominantBeats, prefabs, positions), {
-      mode: officeMode,
-      reducedMotion,
-    });
-    for (const d of staged) {
-      if (d.staging?.x != null && d.staging.z != null) {
-        map.set(d.employeeId, { x: d.staging.x, z: d.staging.z });
-      }
-    }
-    return map;
-  }, [dominantBeats, layout.data?.prefabs, positions, officeMode, reducedMotion]);
-
-  const threadList = threads.data;
-  const threadByEmployee = useMemo(() => {
-    const map = new Map<string, NonNullable<typeof threadList>[number]>();
-    for (const thread of threadList ?? []) {
-      if (thread.employeeId && !map.has(thread.employeeId)) map.set(thread.employeeId, thread);
-    }
-    return map;
-  }, [threadList]);
-  const selectedEmployeeId = useMemo(
-    () => threadList?.find((t) => t.id === selectedThreadId)?.employeeId,
-    [selectedThreadId, threadList],
-  );
+  // Latest draw closure, refreshed every render. The ResizeObserver setup and
+  // the frame-driven draw effect below both call through this ref, so neither
+  // tears down when the frame identity changes.
+  const drawRef = useRef<() => void>(() => {});
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const draw = () => {
+    drawRef.current = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
       const parent = canvas.parentElement;
       if (!parent) return;
       const dpr = window.devicePixelRatio || 1;
@@ -237,7 +219,12 @@ export function OfficeScene2D() {
       const screenForEmployee = (employeeId: string) => {
         const pos = positions.get(employeeId);
         if (!pos) return null;
-        const staged = stagedById.get(employeeId);
+        // Relocation comes from the frame's staging cue (after the dramaturgy
+        // mode + reduced-motion cut), drawn precisely at the world anchor with
+        // no zone clamp — 2D and 3D agree on where each actor is.
+        const staging = actorById.get(employeeId)?.staging;
+        const staged =
+          staging?.x != null && staging.z != null ? { x: staging.x, z: staging.z } : null;
         let sx = wx(staged ? staged.x : pos.x);
         let sy = wy(staged ? staged.z : pos.z);
         const zone = staged ? undefined : zoneById.get(pos.zoneId);
@@ -256,7 +243,9 @@ export function OfficeScene2D() {
         return { sx, sy };
       };
 
-      const flowTarget = (target: NonNullable<(typeof liveBeats)[number]['flow']>['target']) => {
+      // World→pixel anchor per flow target — the only flow geometry this scene
+      // owns (the target itself is the cue's vocabulary, never re-derived).
+      const flowTarget = (target: FlowCueTarget) => {
         switch (target) {
           case 'delivery':
             return { sx: wx(floorW / 2 - 2.7), sy: wy(floorD / 2 - 2.0) };
@@ -271,32 +260,19 @@ export function OfficeScene2D() {
         }
       };
 
-      const artifactBeats = liveBeats.filter((beat) => beat.artifact && beat.employeeId).slice(-3);
-      const signalBeats = liveBeats
-        .filter((beat) => beat.employeeId && (beat.flow || beat.resource || beat.artifact))
-        .slice(-8);
-
-      // Flow layer: visible handoff/result/resource packets derived from generic
-      // beat facts, separate from actor movement.
-      for (const beat of signalBeats) {
-        if (!beat.employeeId) continue;
-        const source = screenForEmployee(beat.employeeId);
+      // Flow layer: bundled cues from the frame — one line per (actor, target,
+      // kind). The shared bundleEmphasis rule adds the heavier stroke for
+      // bundled (≥2) cues on top of this scene's risk-aware base, capped at
+      // 3px (the full visual language is a later increment).
+      for (const cue of frame.flows) {
+        const source = screenForEmployee(cue.employeeId);
         if (!source) continue;
-        const target = flowTarget(beat.flow?.target ?? (beat.resource ? 'tool' : 'delivery'));
-        const color = beat.resource
-          ? OFFICE_SCENE_2D_COLORS.resourceLine
-          : beat.artifact
-            ? OFFICE_SCENE_2D_COLORS.artifactLine
-            : OFFICE_SCENE_2D_COLORS.flowLine;
-        const packet = beat.resource
-          ? OFFICE_SCENE_2D_COLORS.resourcePacket
-          : beat.artifact
-            ? OFFICE_SCENE_2D_COLORS.artifactPacket
-            : OFFICE_SCENE_2D_COLORS.flowPacket;
+        const target = flowTarget(cue.target);
+        const ink = INK_2D[cue.ink];
         ctx.save();
-        ctx.strokeStyle = color;
-        ctx.lineWidth = beat.resource ? 2.2 : 1.6;
-        ctx.setLineDash(beat.flow?.pulse === false ? [4, 5] : []);
+        ctx.strokeStyle = ink.line;
+        ctx.lineWidth = Math.min(3, (cue.ink === 'risk' ? 2.2 : 1.6) + bundleEmphasis(cue));
+        ctx.setLineDash(cue.pulse ? [] : [4, 5]);
         ctx.beginPath();
         const mx = (source.sx + target.sx) / 2;
         const my = Math.min(source.sy, target.sy) - 30;
@@ -304,22 +280,20 @@ export function OfficeScene2D() {
         ctx.quadraticCurveTo(mx, my, target.sx, target.sy);
         ctx.stroke();
         ctx.setLineDash([]);
-        const t = ((Date.now() - beat.at) % 1400) / 1400;
+        const t = ((Date.now() - cue.at) % 1400) / 1400;
         const px = (1 - t) ** 2 * source.sx + 2 * (1 - t) * t * mx + t ** 2 * target.sx;
         const py = (1 - t) ** 2 * source.sy + 2 * (1 - t) * t * my + t ** 2 * target.sy;
-        ctx.fillStyle = packet;
+        ctx.fillStyle = ink.packet;
         ctx.beginPath();
-        ctx.arc(px, py, beat.resource ? 4.2 : 3.4, 0, Math.PI * 2);
+        ctx.arc(px, py, cue.ink === 'risk' ? 4.2 : 3.4, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
       }
 
-      // Delivery shelf — the latest artifact beat is the claimable target. The
-      // shelf registers a hit rect so a click opens that artifact on the stage;
-      // with no artifact beat there is no shelf and no hit (handled by the guard).
-      const latestArtifact = artifactBeats.at(-1);
-      latestArtifactRef.current = beatToClaimable(latestArtifact);
-      if (latestArtifact?.artifact) {
+      // Delivery shelf — reads the frame's delivery cue: ×N from recentCount,
+      // click target from `latest` (resolved in the click handler). With no
+      // live claim there is no shelf and no hit.
+      if (frame.delivery.latest) {
         const shelf = flowTarget('delivery');
         const shelfW = 116;
         const shelfH = 34;
@@ -333,7 +307,7 @@ export function OfficeScene2D() {
         ctx.textAlign = 'center';
         ctx.fillText('DELIVERY', shelf.sx, shelf.sy - 2);
         ctx.fillStyle = OFFICE_SCENE_2D_COLORS.artifactPacket;
-        ctx.fillText(`×${artifactBeats.length}`, shelf.sx, shelf.sy + 11);
+        ctx.fillText(`×${frame.delivery.recentCount}`, shelf.sx, shelf.sy + 11);
         ctx.textAlign = 'left';
         hitsRef.current.push({
           kind: 'delivery',
@@ -347,11 +321,13 @@ export function OfficeScene2D() {
       for (const employee of ordered) {
         const pos = positions.get(employee.id);
         if (!pos) continue;
-        const thread = threadByEmployee.get(employee.id);
-        const workload = workloads.get(employee.id);
-        const activeCount = workload?.activeCount ?? 0;
-        const running = activeCount > 0;
-        const active = Boolean(thread && thread.id === selectedThreadId);
+        const cue = actorById.get(employee.id);
+        const running = cue?.running ?? false;
+        const active = cue?.selected ?? false;
+        const hovered = cue?.hovered ?? false;
+        const wl = cue?.workload ?? null;
+        // Blocked primary slot: a blocked-severity issue owns the bubble.
+        const blocked = wl?.primary === 'issue';
         const colors = resolveAppearance(employee.id, employee.appearance);
         const screen = screenForEmployee(employee.id);
         if (!screen) continue;
@@ -364,43 +340,50 @@ export function OfficeScene2D() {
           ctx.fill();
         }
 
-        // running / active ring
-        if (running || active) {
+        // running / active ring — the pulsing "at work" ring never renders
+        // over a blocked actor (blocked wins visually); selection still draws.
+        const showRunningRing = running && !blocked;
+        if (showRunningRing || active) {
           ctx.beginPath();
           ctx.arc(sx, sy, r + 5, 0, Math.PI * 2);
-          ctx.strokeStyle = running
+          ctx.strokeStyle = showRunningRing
             ? OFFICE_SCENE_2D_COLORS.activeRing
             : OFFICE_SCENE_2D_COLORS.activeRingSoft;
-          ctx.lineWidth = running ? 2.5 : 1.5;
+          ctx.lineWidth = showRunningRing ? 2.5 : 1.5;
           ctx.stroke();
         }
 
-        // WAVE 1 grouped bubble: one render-agnostic projection drives the ×N
-        // badge, the resource-marker hierarchy, and the chip row. small tier
-        // keeps the per-run chip look; medium/large collapse into priority-
-        // ordered grouped chips with counts. All static — no motion dependence.
-        const grouped: GroupedWorkload | null = workload ? groupedWorkload(workload) : null;
+        // Hover ring — a subtle affordance from ActorCue.hovered, distinct
+        // from the selected/running ring by radius and translucency.
+        if (hovered) {
+          ctx.beginPath();
+          ctx.arc(sx, sy, r + 8, 0, Math.PI * 2);
+          ctx.strokeStyle = OFFICE_SCENE_2D_COLORS.flowLine;
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        }
 
-        // active-count badge — multiple concurrent runs collapse to one actor,
-        // so the count (×2, ×3, …) is the only signal of parallel work. Drawn
-        // top-right of the disc and registered so name labels dodge it.
-        if (grouped?.countLabel) {
-          const bx = sx + r + 3;
+        // Grouped bubble: the frame's WorkloadCue drives the ×N badge, the
+        // resource-marker hierarchy, and the chip row. When the cue's primary
+        // slot is 'issue', the issue marker takes the top-right primary slot
+        // and the ×N count demotes to the top-left secondary slot.
+        if (wl?.countLabel) {
+          const bx = blocked ? sx - r - 3 : sx + r + 3;
           const by = sy - r - 3;
           ctx.font = CANVAS_FONT_TOKENS.officeSceneLabel;
           ctx.textAlign = 'center';
           ctx.fillStyle = OFFICE_SCENE_2D_COLORS.activeRing;
-          ctx.fillText(grouped.countLabel, bx, by);
+          ctx.fillText(wl.countLabel, bx, by);
           ctx.textAlign = 'left';
           occupied.push({ x0: bx - 9, x1: bx + 9, y0: by - 9, y1: by + 5 });
         }
 
-        // Resource-marker hierarchy — one marker keyed off the most-severe
-        // unresolved issue (exhausted > blocked > warning). Drawn top-left so it
-        // never collides with the top-right ×N badge. No topIssue → no marker.
-        const topIssue = grouped?.topIssue ?? null;
+        // Resource marker — keyed off the cue's top issue (exhausted >
+        // blocked > warning). Primary (top-right) when the issue leads the
+        // bubble; secondary (top-left) otherwise, clear of the ×N badge.
+        const topIssue = wl?.topIssue ?? null;
         if (topIssue) {
-          const mx = sx - r - 5;
+          const mx = blocked ? sx + r + 5 : sx - r - 5;
           const my = sy - r - 4;
           if (topIssue.severity === 'exhausted') {
             // Strongest: a larger filled disc with a '!' glyph.
@@ -432,9 +415,9 @@ export function OfficeScene2D() {
         // Chip row — the bubble is capped to fixed dimensions. small keeps the
         // 3-char per-run look; medium/large draw grouped chips with their count
         // ("Blocked 3", "Research 24") in pills widened to the measured text so
-        // the count is never clipped. groupedWorkload already caps chips at 4.
-        if (grouped && grouped.chips.length > 0) {
-          const isGrouped = grouped.tier !== 'small';
+        // the count is never clipped. The cue already caps chips at 4.
+        if (wl && wl.chips.length > 0) {
+          const isGrouped = wl.tier !== 'small';
           ctx.font = CANVAS_FONT_TOKENS.officeSceneLabel;
           ctx.textAlign = 'center';
           const cy = sy + r + 32;
@@ -442,8 +425,8 @@ export function OfficeScene2D() {
           const chipH = 12;
           const gap = 4;
           const overflowW = 24;
-          type ChipCell = { text: string; tone: (typeof grouped.chips)[number]['tone']; w: number };
-          const cells: ChipCell[] = grouped.chips.map((chip) => {
+          type ChipCell = { text: string; tone: (typeof wl.chips)[number]['tone']; w: number };
+          const cells: ChipCell[] = wl.chips.map((chip) => {
             const text = isGrouped
               ? chip.count != null
                 ? `${chip.label} ${chip.count}`
@@ -455,18 +438,11 @@ export function OfficeScene2D() {
           const totalW =
             cells.reduce((sum, c) => sum + c.w, 0) +
             (cells.length - 1) * gap +
-            (grouped.overflow ? overflowW + gap : 0);
+            (wl.overflow ? overflowW + gap : 0);
           let cx = sx - totalW / 2;
           const cyTop = cy - chipH / 2;
           for (const cell of cells) {
-            ctx.fillStyle =
-              cell.tone === 'risk'
-                ? OFFICE_SCENE_2D_COLORS.resourcePacket
-                : cell.tone === 'done'
-                  ? OFFICE_SCENE_2D_COLORS.artifactPacket
-                  : cell.tone === 'wait'
-                    ? OFFICE_SCENE_2D_COLORS.deliveryShelfLine
-                    : OFFICE_SCENE_2D_COLORS.flowPacket;
+            ctx.fillStyle = CHIP_TONE_2D[cell.tone];
             roundRect(ctx, cx, cyTop, cell.w, chipH, 6);
             ctx.fill();
             ctx.fillStyle = OFFICE_SCENE_2D_COLORS.floor;
@@ -475,7 +451,7 @@ export function OfficeScene2D() {
           }
           // Overflow affordance — a compact "+more" pill that opens the same
           // read-only drilldown as the bubble region.
-          if (grouped.overflow) {
+          if (wl.overflow) {
             ctx.fillStyle = OFFICE_SCENE_2D_COLORS.deliveryShelfLine;
             roundRect(ctx, cx, cyTop, overflowW, chipH, 6);
             ctx.fill();
@@ -547,38 +523,66 @@ export function OfficeScene2D() {
           y1: sy + r + ringPad,
         });
 
-        if (thread)
-          hitsRef.current.push({ kind: 'employee', threadId: thread.id, sx, sy, r: r + 6 });
+        if (cue?.threadId) {
+          hitsRef.current.push({
+            kind: 'employee',
+            employeeId: employee.id,
+            threadId: cue.threadId,
+            sx,
+            sy,
+            r: r + 6,
+          });
+        }
       }
     };
+  });
 
+  // Setup effect: canvas mount only — resize redraws through drawRef, so the
+  // observer never re-subscribes on frame identity changes.
+  useEffect(() => {
+    const parent = canvasRef.current?.parentElement;
+    if (!parent) return;
+    const observer = new ResizeObserver(() => drawRef.current());
+    observer.observe(parent);
+    return () => observer.disconnect();
+  }, []);
+
+  // Draw effect: one draw per decorated frame; while any flow pulses, a RAF
+  // loop keeps the packet animation moving (the exact pre-split behavior).
+  useEffect(() => {
     let raf = 0;
-    const hasPulsingFlow = liveBeats.some((beat) => beat.flow?.pulse && beat.employeeId);
+    const hasPulsingFlow = frame.flows.some((cue) => cue.pulse);
     const tick = () => {
-      draw();
+      drawRef.current();
       raf = hasPulsingFlow ? window.requestAnimationFrame(tick) : 0;
     };
-
     tick();
-    const observer = new ResizeObserver(draw);
-    if (canvas.parentElement) observer.observe(canvas.parentElement);
     return () => {
-      observer.disconnect();
       if (raf) window.cancelAnimationFrame(raf);
     };
-  }, [
-    zoneDefs,
-    floorW,
-    floorD,
-    positions,
-    stagedById,
-    roster,
-    threadByEmployee,
-    selectedEmployeeId,
-    selectedThreadId,
-    workloads,
-    liveBeats,
-  ]);
+  }, [frame]);
+
+  // Hit testing walks registration order in REVERSE so the topmost-drawn
+  // target wins — later employees' chip rows paint over earlier ones, so a
+  // pointer on an overlap must resolve to what the user actually sees.
+  // Employee-body hits are still authoritative: they win over ANY overlapping
+  // bubble/shelf rect, so a wide neighbour chip row can never steal a body
+  // click (thread selection is never hijacked). Index loops: this runs on
+  // every pointermove, so no per-move slice().reverse() allocation.
+  const hitAt = (px: number, py: number): Hit | null => {
+    const hits = hitsRef.current;
+    for (let i = hits.length - 1; i >= 0; i -= 1) {
+      const h = hits[i];
+      if (h?.kind === 'employee' && Math.hypot(px - h.sx, py - h.sy) <= h.r) return h;
+    }
+    for (let i = hits.length - 1; i >= 0; i -= 1) {
+      const h = hits[i];
+      if (h && h.kind !== 'employee' && px >= h.x0 && px <= h.x1 && py >= h.y0 && py <= h.y1) {
+        return h;
+      }
+    }
+    return null;
+  };
 
   // A zero-zone (empty) office draws the bare floor slab with nobody seated —
   // employeePlacements returns no seats for zero zones; OfficeStage owns the
@@ -588,36 +592,33 @@ export function OfficeScene2D() {
     <canvas
       ref={canvasRef}
       className="off-scene-canvas"
+      onPointerMove={(e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const hit = hitAt(e.clientX - rect.left, e.clientY - rect.top);
+        // Interactive hits (employee, bubble, shelf) read as clickable.
+        e.currentTarget.style.cursor = hit ? 'pointer' : '';
+        const next = hit?.kind === 'employee' ? hit.employeeId : null;
+        setHoveredEmployeeId((prev) => (prev === next ? prev : next));
+      }}
+      onPointerLeave={(e) => {
+        e.currentTarget.style.cursor = '';
+        setHoveredEmployeeId(null);
+      }}
       onClick={(e) => {
         const rect = e.currentTarget.getBoundingClientRect();
-        const px = e.clientX - rect.left;
-        const py = e.clientY - rect.top;
-        // Hit testing walks registration order in REVERSE so the topmost-drawn
-        // target wins — later employees' chip rows paint over earlier ones, so a
-        // click on an overlap must resolve to what the user actually sees.
-        // Employee-body clicks are still authoritative: they win over ANY
-        // overlapping bubble/shelf rect, so a wide neighbour chip row can never
-        // steal a body click (thread selection is never hijacked).
-        const reversed = hitsRef.current.slice().reverse();
-        const employeeHit = reversed.find(
-          (h): h is EmployeeHit => h.kind === 'employee' && Math.hypot(px - h.sx, py - h.sy) <= h.r,
-        );
-        if (employeeHit) {
-          openThread(employeeHit.threadId);
+        const hit = hitAt(e.clientX - rect.left, e.clientY - rect.top);
+        if (!hit) return;
+        if (hit.kind === 'employee') {
+          openThread(hit.threadId);
           return;
         }
-        const rectHit = reversed.find(
-          (h): h is RectHit =>
-            h.kind !== 'employee' && px >= h.x0 && px <= h.x1 && py >= h.y0 && py <= h.y1,
-        );
-        if (!rectHit) return;
-        if (rectHit.kind === 'drilldown') {
-          if (rectHit.employeeId) openWorkloadDrilldown(rectHit.employeeId);
+        if (hit.kind === 'drilldown') {
+          if (hit.employeeId) openWorkloadDrilldown(hit.employeeId);
           return;
         }
-        // delivery — open the most recent artifact claim (carries threadId so the
+        // delivery — open the frame's latest claim (carries threadId so the
         // output surface loads in-thread, identical to the 3D shelf).
-        const latest = latestArtifactRef.current;
+        const latest = frame.delivery.latest;
         if (latest) {
           void openArtifactClaim(latest, { openStageView, projectId });
         }

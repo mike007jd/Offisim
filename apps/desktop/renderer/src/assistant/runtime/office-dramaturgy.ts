@@ -26,6 +26,7 @@ import {
   type SceneBeat,
   type TimedAgentRunEvent,
   composeBeats,
+  isBeatLive,
   projectMissionEventToBeat,
 } from '@offisim/shared-types';
 import { useMemo, useSyncExternalStore } from 'react';
@@ -60,7 +61,7 @@ function scheduleExpiry(): void {
   for (const events of buffers.values()) {
     if (events.length === 0) continue;
     for (const beat of composeBeats(events, { dramaturgyVersion: DRAMATURGY_VERSION })) {
-      if (beat.lifecycle.endsAt > now && beat.lifecycle.endsAt < next) next = beat.lifecycle.endsAt;
+      if (isBeatLive(beat, now) && beat.lifecycle.endsAt < next) next = beat.lifecycle.endsAt;
     }
   }
   if (next !== Number.POSITIVE_INFINITY) {
@@ -113,8 +114,8 @@ const officeDramaturgyStore = {
     // Drop beats whose lifetime has elapsed so an idle actor returns home; the
     // expiry timer re-notifies when the soonest endsAt passes.
     const now = Date.now();
-    const beats = composeBeats(events, { dramaturgyVersion: DRAMATURGY_VERSION }).filter(
-      (beat) => beat.lifecycle.endsAt > now,
+    const beats = composeBeats(events, { dramaturgyVersion: DRAMATURGY_VERSION }).filter((beat) =>
+      isBeatLive(beat, now),
     );
     return beats.length > 0 ? beats : EMPTY_BEATS;
   },
@@ -169,7 +170,7 @@ function scheduleMissionExpiry(): void {
   for (const projections of missionBuffers.values()) {
     for (const projection of projections) {
       const endsAt = projection.beat.lifecycle.endsAt;
-      if (endsAt > now && endsAt < next) next = endsAt;
+      if (isBeatLive(projection.beat, now) && endsAt < next) next = endsAt;
     }
   }
   if (next !== Number.POSITIVE_INFINITY) {
@@ -274,7 +275,7 @@ const missionDramaturgyStore = {
     // Drop projections whose beat lifetime has elapsed so a stale phase label
     // does not linger (the shared per-kind TTL, same as the agent-run beats).
     const now = Date.now();
-    const live = projected.filter((p) => p.beat.lifecycle.endsAt > now);
+    const live = projected.filter((p) => isBeatLive(p.beat, now));
     return live.length > 0 ? live : EMPTY_MISSION_BEATS;
   },
 };

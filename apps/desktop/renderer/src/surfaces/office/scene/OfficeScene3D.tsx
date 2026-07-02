@@ -1,11 +1,14 @@
 import { useUiState } from '@/app/ui-state.js';
+import { useConversationRun } from '@/assistant/runtime/conversation-run-react.js';
+import { usePrefersReducedMotion } from '@/assistant/runtime/office-dramaturgy.js';
 import {
-  dominantBeatsFrom,
-  useConversationRun,
-  useEmployeeWorkloads,
-} from '@/assistant/runtime/conversation-run-react.js';
-import { useOfficeBeats, usePrefersReducedMotion } from '@/assistant/runtime/office-dramaturgy.js';
-import { useEmployees, useOfficeLayout, useReassignEmployee, useThreads } from '@/data/queries.js';
+  type FlowCueTarget,
+  type SceneInk,
+  type WorkloadCue,
+  bundleEmphasis,
+} from '@/assistant/runtime/scene-cue-projection.js';
+import { useSceneCueFrame } from '@/assistant/runtime/scene-cue-react.js';
+import { useReassignEmployee } from '@/data/queries.js';
 import type { Employee } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
 import { openArtifactClaim } from '@/surfaces/office/stage-viewer/artifact-claim.js';
@@ -14,10 +17,7 @@ import {
   type PrefabDefinition,
   type PrefabInstanceRow,
   type RoleSlug,
-  type StagingPrefab,
   animationTempoForRole,
-  applyDramaturgyMode,
-  projectOfficeStaging,
 } from '@offisim/shared-types';
 import { Html, Line, OrbitControls } from '@react-three/drei';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
@@ -41,15 +41,8 @@ import { OFFICE_CAMERA_PRESET, SCENE_CONTENT_SCALE } from './r3d/scene-art-direc
 import { LIGHT_SCENE_3D } from './r3d/scene-colors.js';
 import { type ScenePlacementPoint, groundPointFromClient } from './scene-ground.js';
 import { compactSceneEmployeeName } from './scene-labels.js';
-import { type GroupedWorkload, beatToClaimable, groupedWorkload } from './workload-chips.js';
-import {
-  type EmployeePosture,
-  type ZoneDef,
-  employeePlacements,
-  defaultEmployeeZone as resolveDefaultEmployeeZone,
-  rotateLocal,
-  zoneDefsFromLayout,
-} from './scene-layout.js';
+import { type EmployeePosture, type ZoneDef, rotateLocal } from './scene-layout.js';
+import { useSceneStagingInputs } from './use-scene-staging-inputs.js';
 import { WorkBench } from './work-bench/WorkBench.js';
 
 interface SceneEmployeeDrop {
@@ -85,9 +78,24 @@ interface SceneFlowLine {
   readonly to: readonly [number, number, number];
   readonly color: string;
   readonly label: string;
+  /** 1.6px base + the shared bundleEmphasis step (+1 when the cue bundles ≥2 signals). */
+  readonly lineWidth: number;
 }
 
-function flowTarget3D(target: 'workstation' | 'tool' | 'review' | 'delivery' | 'user') {
+/**
+ * THE one 3D ink→hex table: every SceneCue ink role maps to exactly one
+ * LIGHT_SCENE_3D token. Approval is the amber LED tone — never the risk hue
+ * (PRD) — and neutral is the quiet muted-text tone used for recovery signals.
+ */
+const INK_3D: Record<SceneInk, string> = {
+  work: LIGHT_SCENE_3D.selectionRing,
+  artifact: LIGHT_SCENE_3D.ghostValid,
+  risk: LIGHT_SCENE_3D.ghostBlocked,
+  approval: LIGHT_SCENE_3D.ledAmber,
+  neutral: LIGHT_SCENE_3D.textMuted,
+};
+
+function flowTarget3D(target: FlowCueTarget) {
   switch (target) {
     case 'delivery':
       return [14.8, 0.1, 12.4] as const;
@@ -133,7 +141,7 @@ function EmployeeUnit({
   posture,
   withDesk,
   running,
-  grouped,
+  workload,
   reducedMotion,
   active,
   dragging,
@@ -141,6 +149,7 @@ function EmployeeUnit({
   zones,
   onSelect,
   onDrilldown,
+  onHoverChange,
   onHoverZone,
   onDrop,
   onDragState,
@@ -152,7 +161,7 @@ function EmployeeUnit({
   posture: EmployeePosture;
   withDesk: boolean;
   running: boolean;
-  grouped: GroupedWorkload | null;
+  workload: WorkloadCue | null;
   reducedMotion: boolean;
   active: boolean;
   dragging: boolean;
@@ -160,6 +169,7 @@ function EmployeeUnit({
   zones: ZoneDef[];
   onSelect: () => void;
   onDrilldown: () => void;
+  onHoverChange: (hovered: boolean) => void;
   onHoverZone: (zoneId: string | null) => void;
   onDrop: (result: SceneEmployeeDrop) => void;
   onDragState: (drag: SceneEmployeeDrag | null) => void;
@@ -217,12 +227,18 @@ function EmployeeUnit({
   const labelZ = (labelTier - 1) * 0.24 + labelLane * 0.07;
   const labelText = compactSceneEmployeeName(employee.name);
   // The tag is interactive when selectable/running; the Html host also needs
-  // pointer events when the grouped bubble carries a clickable badge/marker/
+  // pointer events when the workload bubble carries a clickable badge/marker/
   // chip row (drilldown) even if the actor itself is idle.
   const hasClickableWorkload =
-    grouped != null && (grouped.countLabel != null || grouped.topIssue != null || grouped.chips.length > 0);
+    workload != null &&
+    (workload.countLabel != null || workload.topIssue != null || workload.chips.length > 0);
   const labelInteractive = active || running;
   const htmlInteractive = labelInteractive || hasClickableWorkload;
+  // Blocked primary slot (PRD): a blocked-severity issue owns the bubble — the
+  // marker takes the primary (top-right) slot, the ×N count demotes to the
+  // secondary (top-left) slot, and the working tell (typing dots + working
+  // halo) never renders over the blocked actor.
+  const blocked = workload?.primary === 'issue';
   const characterRotation = (rotation * Math.PI) / 180;
   // One desk-depth-ish step along the character's facing (prefab-local +z).
   const fallbackDeskOffset = rotateLocal(0, 0.99, rotation);
@@ -426,9 +442,13 @@ function EmployeeUnit({
         onPointerOver={(e) => {
           e.stopPropagation();
           document.body.style.cursor = 'grab';
+          // Feed the scene's hover state so the shared frame's ActorCue.hovered
+          // carries it (the cue is the source; no per-scene hover derivation).
+          onHoverChange(true);
         }}
         onPointerOut={() => {
           document.body.style.cursor = '';
+          onHoverChange(false);
         }}
       >
         <mesh position={[0, 1.05, 0]}>
@@ -438,7 +458,7 @@ function EmployeeUnit({
         {!dragging ? (
           <BlockCharacter
             appearance={appearance}
-            action={active ? 'active' : running ? 'working' : 'idle'}
+            action={active ? 'active' : running && !blocked ? 'working' : 'idle'}
             posture={posture}
             running={running}
             reducedMotion={reducedMotion}
@@ -495,47 +515,51 @@ function EmployeeUnit({
             ) : (
               <span className="off-scene-tag">{labelText}</span>
             )}
-            {/* WAVE 1 grouped bubble — one render-agnostic projection drives the
-                ×N badge, the resource-marker hierarchy, and the chip row, in
-                lockstep with the 2D scene. All static (deterministic): no
-                motion-only signal, so reduced motion changes nothing here. */}
-            {grouped?.countLabel ? (
+            {/* The frame's WorkloadCue drives the ×N badge, the resource-marker
+                hierarchy, and the chip row, in lockstep with the 2D scene. When
+                the cue's primary slot is 'issue' the marker and badge swap
+                slots (blocked wins the primary top-right position). All static
+                (deterministic): no motion-only signal, so reduced motion
+                changes nothing here. */}
+            {workload?.countLabel ? (
               <button
                 type="button"
-                className="off-scene-count-badge is-interactive"
-                aria-label={`${grouped.activeCount} active runs — inspect workload`}
+                className={`off-scene-count-badge is-interactive${blocked ? ' is-secondary' : ''}`}
+                aria-label={`${workload.activeCount} active runs — inspect workload`}
                 onClick={(e) => {
                   e.stopPropagation();
                   onDrilldown();
                 }}
               >
-                {grouped.countLabel}
+                {workload.countLabel}
               </button>
             ) : null}
-            {grouped?.topIssue ? (
+            {workload?.topIssue ? (
               <span
-                className={`off-scene-resource-marker is-${grouped.topIssue.severity}`}
-                aria-label={grouped.topIssue.label}
+                className={`off-scene-resource-marker is-${workload.topIssue.severity}${
+                  blocked ? ' is-primary' : ''
+                }`}
+                aria-label={workload.topIssue.label}
               >
                 !
               </span>
             ) : null}
-            {grouped && grouped.chips.length > 0 ? (
+            {workload && workload.chips.length > 0 ? (
               <div className="off-scene-workload-bubble" aria-label="Workload">
-                {grouped.chips.map((chip) => (
+                {workload.chips.map((chip) => (
                   <span
                     key={`${chip.tone}:${chip.label}`}
                     className={`is-${chip.tone}`}
                     title={chip.count != null ? `${chip.label} ${chip.count}` : chip.label}
                   >
-                    {grouped.tier === 'small'
+                    {workload.tier === 'small'
                       ? chip.label.slice(0, 10)
                       : chip.count != null
                         ? `${chip.label} ${chip.count}`
                         : chip.label}
                   </span>
                 ))}
-                {grouped.overflow ? (
+                {workload.overflow ? (
                   <button
                     type="button"
                     className="off-scene-workload-overflow is-interactive"
@@ -651,7 +675,6 @@ function FallbackFurniture() {
 }
 
 export function OfficeScene3D() {
-  const companyId = useUiState((s) => s.companyId);
   const projectId = useUiState((s) => s.projectId);
   const selectedThreadId = useUiState((s) => s.selectedThreadId);
   const openThread = useUiState((s) => s.openThread);
@@ -659,21 +682,24 @@ export function OfficeScene3D() {
   const openStageView = useUiState((s) => s.openStageView);
   const openWorkloadDrilldown = useUiState((s) => s.openWorkloadDrilldown);
   const recordSceneDropDiagnostic = useUiState((s) => s.recordSceneDropDiagnostic);
-  const employees = useEmployees();
-  const threads = useThreads(projectId);
-  const workloads = useEmployeeWorkloads(projectId, companyId);
-  const liveBeats = useOfficeBeats(companyId);
   const selectedRun = useConversationRun(selectedThreadId ?? '');
-  const layout = useOfficeLayout(companyId);
   const reassign = useReassignEmployee();
   const [employeeDrag, setEmployeeDrag] = useState<SceneEmployeeDrag | null>(null);
+  const [hoveredEmployeeId, setHoveredEmployeeId] = useState<string | null>(null);
   const [hoveredZoneId, setHoveredZoneId] = useState<string | null>(null);
   const [dropNotice, setDropNotice] = useState<SceneDropNotice | null>(null);
 
-  const real = layout.data ?? null;
-  const roster = employees.data ?? [];
-
-  const zoneDefs: ZoneDef[] = useMemo(() => zoneDefsFromLayout(real), [real]);
+  // Shared staging inputs — the same layout/roster/seat-planner facts the 2D
+  // scene and the drilldown read (never re-derived per scene).
+  const {
+    layoutData,
+    roster,
+    zoneDefs,
+    fallbackZone: defaultEmployeeZone,
+    positions: placementsByEmployee,
+    stagingPrefabs,
+  } = useSceneStagingInputs();
+  const real = layoutData ?? null;
   // Only reachable with a real backend layout that has zero zones — the
   // no-backend preview path always resolves to the non-empty FALLBACK_ZONES.
   // OfficeStage owns the "No office layout yet" overlay (so Studio mounts of
@@ -681,102 +707,45 @@ export function OfficeScene3D() {
   const emptyOffice = zoneDefs.length === 0;
   const scenePrefabs = real?.prefabs;
 
-  const defaultEmployeeZone = useMemo(() => resolveDefaultEmployeeZone(zoneDefs), [zoneDefs]);
-
-  const placementsByEmployee = useMemo(
-    () => employeePlacements(roster, zoneDefs, defaultEmployeeZone, scenePrefabs),
-    [defaultEmployeeZone, roster, scenePrefabs, zoneDefs],
-  );
-
-  // Live dramaturgy: the agent.run beat timeline → per-employee performance and
-  // (for high-value movement beats only) a reserved relocation anchor on the
-  // office's real prefab layout. Empty when nothing is running. Staging reads the
-  // dominant beat of each employee's dominant ACTIVE run (the same workload truth
-  // that lights the ring + badge), so a just-finished run never stages over a
-  // still-running one, and 2D/3D agree on the staged target.
-  const dominantBeats = useMemo(() => dominantBeatsFrom(workloads), [workloads]);
-  const stagingPrefabs = useMemo<StagingPrefab[]>(
-    () =>
-      (scenePrefabs ?? []).map((p) => ({
-        instanceId: p.instance.instance_id,
-        prefabId: p.instance.prefab_id,
-        x: p.instance.position_x,
-        z: p.instance.position_y,
-        rotation: p.instance.rotation,
-        // 3D draws each prefab in a SCENE_CONTENT_SCALE group, so anchor offsets
-        // scale with it — the actor lands on the scaled desk, matching the
-        // home-seat planner (which also scales). 2D scales identically below.
-        scale: SCENE_CONTENT_SCALE,
-      })),
-    [scenePrefabs],
-  );
-  const officeMode = useUiState((s) => s.officeMode);
+  // BlockCharacter's reducedMotion prop path (static poses) is a render
+  // concern; the frame separately carries staging=null under reduced motion.
   const reducedMotion = usePrefersReducedMotion();
-  const dramaturgyByEmployee = useMemo(
-    () =>
-      new Map(
-        applyDramaturgyMode(
-          projectOfficeStaging(dominantBeats, stagingPrefabs, placementsByEmployee),
-          {
-            mode: officeMode,
-            reducedMotion,
-          },
-        ).map((d) => [d.employeeId, d]),
-      ),
-    [dominantBeats, stagingPrefabs, placementsByEmployee, officeMode, reducedMotion],
-  );
 
-  const signalBeats = useMemo(
-    () =>
-      liveBeats
-        .filter((beat) => beat.employeeId && (beat.flow || beat.resource || beat.artifact))
-        .slice(-8),
-    [liveBeats],
-  );
-  const artifactBeats = useMemo(
-    () => liveBeats.filter((beat) => beat.employeeId && beat.artifact).slice(-3),
-    [liveBeats],
-  );
-  // The delivery shelf's click target is the most recent artifact beat, mapped
-  // to a claimable stage artifact (matching the 2D scene). Null when no beat
-  // carries an artifact intent — then the shelf renders passive with no claim.
-  const latestArtifactClaim = useMemo(() => beatToClaimable(artifactBeats.at(-1)), [artifactBeats]);
+  // THE render contract: one SceneCueFrame per render, shared with the 2D
+  // scene and the drilldown. Staging, performance, flows, delivery, workload
+  // bubbles, and selection all come from here — along with the shared
+  // actorById index; hover + drag feed its input state so the cues carry
+  // them. Only world geometry stays local.
+  const { frame, actorById } = useSceneCueFrame({
+    prefabs: stagingPrefabs,
+    actorPositions: placementsByEmployee,
+    hoveredEmployeeId,
+    draggingEmployeeId: employeeDrag?.employeeId ?? null,
+  });
+  const deliveryLatest = frame.delivery.latest;
+
   const sceneFlowLines = useMemo<SceneFlowLine[]>(
     () =>
-      signalBeats.flatMap((beat) => {
-        if (!beat.employeeId) return [];
-        const home = placementsByEmployee.get(beat.employeeId) ?? {
+      frame.flows.map((cue) => {
+        const home = placementsByEmployee.get(cue.employeeId) ?? {
           x: defaultEmployeeZone.cx,
           z: defaultEmployeeZone.cz,
         };
-        const staged = dramaturgyByEmployee.get(beat.employeeId)?.staging;
-        const fromX = staged?.x ?? home.x;
-        const fromZ = staged?.z ?? home.z;
-        const target = flowTarget3D(beat.flow?.target ?? (beat.resource ? 'tool' : 'delivery'));
-        return [
-          {
-            id: beat.id,
-            from: [fromX, 0.12, fromZ] as const,
-            to: target,
-            color: beat.resource
-              ? LIGHT_SCENE_3D.ghostBlocked
-              : beat.artifact
-                ? LIGHT_SCENE_3D.ghostValid
-                : LIGHT_SCENE_3D.selectionRing,
-            label: beat.flow?.label ?? beat.visual.phase,
-          },
-        ];
+        const staging = actorById.get(cue.employeeId)?.staging;
+        const fromX = staging?.x ?? home.x;
+        const fromZ = staging?.z ?? home.z;
+        return {
+          id: `${cue.employeeId}|${cue.target}|${cue.kind}`,
+          from: [fromX, 0.12, fromZ] as const,
+          to: flowTarget3D(cue.target),
+          color: INK_3D[cue.ink],
+          label: cue.label,
+          lineWidth: 1.6 + bundleEmphasis(cue),
+        };
       }),
-    [defaultEmployeeZone, dramaturgyByEmployee, placementsByEmployee, signalBeats],
+    [actorById, defaultEmployeeZone, placementsByEmployee, frame.flows],
   );
 
-  const threadByEmployee = useMemo(() => {
-    const map = new Map<string, NonNullable<typeof threads.data>[number]>();
-    for (const t of threads.data ?? []) {
-      if (t.employeeId && !map.has(t.employeeId)) map.set(t.employeeId, t);
-    }
-    return map;
-  }, [threads.data]);
   const draggedEmployee = employeeDrag
     ? (roster.find((employee) => employee.id === employeeDrag.employeeId) ?? null)
     : null;
@@ -842,18 +811,15 @@ export function OfficeScene3D() {
                 rotation: 0,
                 posture: 'standing' as const,
               };
-              const thread = threadByEmployee.get(employee.id);
-              const workload = workloads.get(employee.id);
-              const activeCount = workload?.activeCount ?? 0;
-              const running = activeCount > 0;
-              // One render-agnostic grouping drives the ×N badge, resource
-              // marker, and chip row — the same projection the 2D scene reads.
-              const grouped = workload ? groupedWorkload(workload) : null;
+              // Every runtime fact for this actor comes from its cue: running,
+              // selection, drag, the workload bubble, staging, performance.
+              const cue = actorById.get(employee.id);
+              const running = cue?.running ?? false;
+              const workload = cue?.workload ?? null;
               // High-value movement beats relocate the actor to a reserved
               // anchor; everything else stays at the home placement (and only
               // the performance changes).
-              const dram = dramaturgyByEmployee.get(employee.id);
-              const anchor = dram?.staging;
+              const anchor = cue?.staging ?? null;
               const relocated = anchor != null && anchor.x != null && anchor.z != null;
               const target = relocated
                 ? {
@@ -863,6 +829,11 @@ export function OfficeScene3D() {
                     posture: (anchor.posture ?? placement.posture) as EmployeePosture,
                   }
                 : placement;
+              // Unstaged actors carry performance: null (the cue contract);
+              // map null to undefined so BlockCharacter's legacy action-driven
+              // pose path (idle bob, active swivel) stays byte-identical.
+              const performance = cue?.performance ?? undefined;
+              const threadId = cue?.threadId ?? null;
               return (
                 <EmployeeUnit
                   key={employee.id}
@@ -873,14 +844,19 @@ export function OfficeScene3D() {
                   posture={!real ? 'sitting' : target.posture}
                   withDesk={!real}
                   running={running}
-                  grouped={grouped}
+                  workload={workload}
                   reducedMotion={reducedMotion}
-                  active={Boolean(thread && thread.id === selectedThreadId)}
-                  dragging={employeeDrag?.employeeId === employee.id}
-                  performance={dram?.performance}
+                  active={cue?.selected ?? false}
+                  dragging={cue?.dragging ?? false}
+                  performance={performance}
                   zones={zoneDefs}
-                  onSelect={() => thread && openThread(thread.id)}
+                  onSelect={() => threadId && openThread(threadId)}
                   onDrilldown={() => openWorkloadDrilldown(employee.id)}
+                  onHoverChange={(hovered) =>
+                    setHoveredEmployeeId((prev) =>
+                      hovered ? employee.id : prev === employee.id ? null : prev,
+                    )
+                  }
                   onHoverZone={setHoveredZoneId}
                   onDragState={setEmployeeDrag}
                   onDrop={(result) => {
@@ -919,43 +895,35 @@ export function OfficeScene3D() {
             <Line
               points={[line.from, line.to]}
               color={line.color}
-              lineWidth={1.6}
+              lineWidth={line.lineWidth}
               transparent
               opacity={0.58}
             />
           </Fragment>
         ))}
-        {artifactBeats.length > 0 ? (
+        {deliveryLatest ? (
           <Html
             position={flowTarget3D('delivery')}
             center
             distanceFactor={18}
             occlude={false}
             zIndexRange={[3, 0]}
-            className={
-              latestArtifactClaim ? 'off-scene-html-interactive' : 'off-scene-html-passive'
-            }
+            className="off-scene-html-interactive"
           >
-            {latestArtifactClaim ? (
-              // Interactive delivery shelf — clicking opens the most recent
-              // artifact beat on the stage (same claim path as the 2D scene).
-              <button
-                type="button"
-                className="off-scene-delivery-shelf is-interactive"
-                aria-label={`Open delivery — ${latestArtifactClaim.title}`}
-                onClick={() => {
-                  void openArtifactClaim(latestArtifactClaim, { openStageView, projectId });
-                }}
-              >
-                <span>Delivery</span>
-                <b>{artifactBeats.length}</b>
-              </button>
-            ) : (
-              <div className="off-scene-delivery-shelf">
-                <span>Delivery</span>
-                <b>{artifactBeats.length}</b>
-              </div>
-            )}
+            {/* Interactive delivery shelf — reads the frame's delivery cue: ×N
+                from recentCount, click target from `latest` (same claim path
+                as the 2D scene). */}
+            <button
+              type="button"
+              className="off-scene-delivery-shelf is-interactive"
+              aria-label={`Open delivery — ${deliveryLatest.title}`}
+              onClick={() => {
+                void openArtifactClaim(deliveryLatest, { openStageView, projectId });
+              }}
+            >
+              <span>Delivery</span>
+              <b>{frame.delivery.recentCount}</b>
+            </button>
           </Html>
         ) : null}
 

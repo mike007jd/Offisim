@@ -596,6 +596,14 @@
   pointer-events: auto;
 }
 
+/* Blocked primary slot (PRD): when a blocked-severity issue leads the bubble,
+   the ×N count demotes to the secondary (top-left) slot… */
+.off-scene-count-badge.is-secondary {
+  top: -6px;
+  right: auto;
+  left: -8px;
+}
+
 .off-scene-resource-marker {
   position: absolute;
   top: -6px;
@@ -637,6 +645,13 @@
   background: var(--off-warn-surface);
   color: var(--off-warn);
   font-weight: 700;
+}
+
+/* …and the issue marker takes the primary (top-right) slot. */
+.off-scene-resource-marker.is-primary {
+  top: -5px;
+  left: auto;
+  right: -7px;
 }
 
 .off-scene-workload-bubble {

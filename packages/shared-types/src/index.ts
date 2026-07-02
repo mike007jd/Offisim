@@ -328,6 +328,7 @@ export {
   DRAMATURGY_VERSION,
   beatLifespanMs,
   composeBeats,
+  isBeatLive,
   resourceSeverityRank,
   surfacedResourceSeverity,
 } from './dramaturgy/beat-composer.js';

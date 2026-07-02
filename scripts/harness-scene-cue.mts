@@ -6,6 +6,8 @@ import { projectEmployeeWorkloads } from '../apps/desktop/renderer/src/assistant
 import {
   type SceneCueFrame,
   type SceneCueInput,
+  applyInputState,
+  projectSceneBaseFrame,
   projectSceneCues,
 } from '../apps/desktop/renderer/src/assistant/runtime/scene-cue-projection.js';
 /**
@@ -32,10 +34,11 @@ import {
  *    the neutral cancelled state (no resource cue, no flow);
  *  - determinism: byte-identical output for identical input, beat input order
  *    (equal timestamps) irrelevant;
+ *  - base/input split equivalence: applyInputState(projectSceneBaseFrame(facts),
+ *    state) is byte-identical to projectSceneCues({...facts, inputState: state});
  *  - 58-run high concurrency: tier large, exactly 4 grouped chips, flows capped.
  */
 import {
-  IDLE_PERFORMANCE,
   type SceneBeat,
   type StagingPrefab,
   type TimedAgentRunEvent,
@@ -230,7 +233,7 @@ const fanInput = input({
   beats: fanBeats,
   now: 2000,
   threadByEmployee: new Map([['emp-a', THREAD]]),
-  inputState: { selectedThreadId: THREAD },
+  inputState: { selectedEmployeeId: 'emp-a' },
 });
 {
   const frame = projectSceneCues(fanInput);
@@ -242,7 +245,7 @@ const fanInput = input({
     `${actor?.workload.countLabel}`,
   );
   check(
-    'actor running + selected via thread join',
+    'actor running + selected via employee selection',
     actor?.running === true && actor.selected === true,
   );
   const fanOut = frame.flows.find((f) => f.kind === 'fan-out');
@@ -373,7 +376,7 @@ console.log('\n[resource hierarchy] blocked issue leads, typed strain, attention
         ['emp-d', THREAD],
         ['emp-z', 'thread-z'],
       ]),
-      inputState: { selectedThreadId: 'thread-z' },
+      inputState: { selectedEmployeeId: 'emp-z' },
     }),
   );
   const actor = frame.actors.find((a) => a.employeeId === 'emp-d');
@@ -432,10 +435,8 @@ console.log('\n[cancelled] neutral stop: no resource cue, no flow');
   check('cancelled run → NO resource cue', frame.resources.length === 0, json(frame.resources));
   check('cancelled beat emits no flow signal', frame.flows.length === 0, json(frame.flows));
   check(
-    'actor rests: not running, idle performance, no staging',
-    actor?.running === false &&
-      actor.staging === null &&
-      json(actor.performance) === json(IDLE_PERFORMANCE),
+    'actor rests: not running, unstaged (null) performance, no staging',
+    actor?.running === false && actor.staging === null && actor.performance === null,
   );
 }
 
@@ -684,6 +685,23 @@ console.log('\n[determinism] byte-identical, beat order irrelevant');
   check('two identical invocations → byte-identical frames', a === b);
   const reversed = projectSceneCues({ ...fanInput, beats: [...fanInput.beats].reverse() });
   check('reversed beat input (incl. equal timestamps) → identical frame', json(reversed) === a);
+}
+
+// ── base/input split equivalence ─────────────────────────────────────────────
+console.log('\n[split] applyInputState(projectSceneBaseFrame) ≡ projectSceneCues');
+{
+  const { inputState, ...facts } = fanInput;
+  const base = projectSceneBaseFrame(facts);
+  check(
+    'applyInputState(projectSceneBaseFrame(facts), state) ≡ projectSceneCues({...facts, inputState: state})',
+    json(applyInputState(base, inputState)) === json(projectSceneCues(fanInput)),
+  );
+  check(
+    'base frame carries no interaction: booleans false, no selected-thread attention',
+    base.actors.every((a) => !a.selected && !a.hovered && !a.dragging) &&
+      base.attention?.reason !== 'selected-thread',
+    json(base.attention),
+  );
 }
 
 // ── high concurrency ─────────────────────────────────────────────────────────
