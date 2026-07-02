@@ -193,9 +193,9 @@ export type StageViewTarget =
 ```
 `resolveViewerKind` decision table (extension fallback when MIME absent): md/markdown→markdown; json/ndjson→json; yaml/yml/toml/xml→structured-text; csv/tsv→csv; xlsx/xls→spreadsheet; docx/doc/rtf→doc; pptx/ppt→slides; pdf→pdf; png/jpg/jpeg/gif/webp/svg/avif/heic→image; html/htm→html; mp4/mov/m4v/webm→video; mp3/m4a/wav/aac/flac/ogg→audio; glb/gltf/vrm→model3d; code extensions (ts/tsx/js/rs/py/go/…, reuse `kindFromMime` hints)→code; `hasText`→text; else→unsupported.
 
-- [ ] **Step 1:** Write `harness-stage-preview-targets.mts` FIRST (it will fail to import until Step 2): checks named `resolver:*` and `ui-state:*` — `resolver:md-extension-maps-markdown`, `resolver:mime-wins-over-extension`, `resolver:unknown-binary-unsupported`, `resolver:text-fallback-when-hasText`, `resolver:glb-maps-model3d`, `trust:workspace-file-is-workspace`, `trust:deliverable-is-generated`, `trust:computer-artifact-is-computer`, `ui-state:preview-target-maps-preview-tab`, `ui-state:computer-target-maps-computer-tab`, `ui-state:tab-id-stable-for-same-file`, `ui-state:open-activate-close-roundtrip` (drive the zustand store directly like `harness-conversation-run-controller.mts` does). Register `harness:stage-preview-targets` in package.json (tsx + renderer tsconfig) and append to `validate`.
-- [ ] **Step 2:** Run it → expect FAIL (module missing). Implement `preview-target.ts` and the `ui-state.ts` replacement (update `gameStageState`, `stageTabForTarget`, `stageTabIdForTarget`, `stageOpenTabForTarget`; `openStageView`/`activateStageTab`/`closeStageTab` logic unchanged). Delete the old `output`/`file` kinds outright.
-- [ ] **Step 3:** Run `pnpm harness:stage-preview-targets` → all checks PASS. Renderer typecheck will still FAIL (call sites) — that is Task 2.2's job. Commit `feat(stage): preview-first StageViewTarget + resolver contract`.
+- [x] **Step 1:** Write `harness-stage-preview-targets.mts` FIRST (it will fail to import until Step 2): checks named `resolver:*` and `ui-state:*` — `resolver:md-extension-maps-markdown`, `resolver:mime-wins-over-extension`, `resolver:unknown-binary-unsupported`, `resolver:text-fallback-when-hasText`, `resolver:glb-maps-model3d`, `trust:workspace-file-is-workspace`, `trust:deliverable-is-generated`, `trust:computer-artifact-is-computer`, `ui-state:preview-target-maps-preview-tab`, `ui-state:computer-target-maps-computer-tab`, `ui-state:tab-id-stable-for-same-file`, `ui-state:open-activate-close-roundtrip` (drive the zustand store directly like `harness-conversation-run-controller.mts` does). Register `harness:stage-preview-targets` in package.json (tsx + renderer tsconfig) and append to `validate`.
+- [x] **Step 2:** Run it → expect FAIL (module missing). Implement `preview-target.ts` and the `ui-state.ts` replacement (update `gameStageState`, `stageTabForTarget`, `stageTabIdForTarget`, `stageOpenTabForTarget`; `openStageView`/`activateStageTab`/`closeStageTab` logic unchanged). Delete the old `output`/`file` kinds outright.
+- [x] **Step 3:** Run `pnpm harness:stage-preview-targets` → all checks PASS. Renderer typecheck will still FAIL (call sites) — that is Task 2.2's job. Commit `feat(stage): preview-first StageViewTarget + resolver contract`.
 
 ### Task 2.2: Migrate every `openStageView` call site
 
@@ -203,14 +203,14 @@ export type StageViewTarget =
 
 **Interfaces (consumes):** `PreviewSourceRef`, new `StageViewTarget` from Task 2.1.
 
-- [ ] **Step 1:** Mechanical mapping, no behavior additions:
+- [x] **Step 1:** Mechanical mapping, no behavior additions:
   - ConvOutputs deliverable click → `{ kind:'preview', ref:{ source:'deliverable', deliverableId, threadId, format, name }, title }`
   - WorkspacePanel `previewNode` → `{ kind:'preview', ref:{ source:'workspace-file', path } }` for EVERY file — delete `NON_TEXT_PREVIEW_EXTENSIONS` and `canPreviewInline` entirely.
   - `file-preview.ts`: `openStageFilePreview` shrinks to emitting the preview target (loading/error state moves into the pane in Phase 3); keep the export name so artifact-claim keeps one path.
   - `artifact-claim.ts` resolution: output/file → `preview` refs; browser → `{ source:'browser', ... }`; logs unchanged.
   - StageViewer menu items: Output/Preview/Files entries all emit `kind:'preview'` targets; `StageAutoOpenForThread` new-deliverable → deliverable ref; new-browser-activity → browser ref.
-- [ ] **Step 2:** `pnpm --filter @offisim/desktop-renderer typecheck` → PASS (this is the completion signal that no old-kind references remain). Run `pnpm harness:artifact-claim` — update its expectations to the new target shapes in the same commit.
-- [ ] **Step 3:** Commit `refactor(stage): route all stage opens through PreviewSourceRef`.
+- [x] **Step 2:** `pnpm --filter @offisim/desktop-renderer typecheck` → PASS (this is the completion signal that no old-kind references remain). Run `pnpm harness:artifact-claim` — update its expectations to the new target shapes in the same commit.
+- [x] **Step 3:** Commit `refactor(stage): route all stage opens through PreviewSourceRef`.
 
 **Phase 2 Gate:** `pnpm harness:stage-preview-targets && pnpm harness:artifact-claim` green; renderer typecheck green (build still references old views — acceptable only if typecheck is green; otherwise finish Phase 3 before pausing). Lead simplify + `codex:review`.
 
@@ -466,7 +466,7 @@ Detection: locate `cua-driver` via `$PATH` lookup + known install locations; `--
 | phase | status | evidence |
 |---|---|---|
 | 1 Rust preview lane | done | `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml preview` PASS; `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml` PASS (141 tests); `node scripts/check-platform-tauri-origin-sync.mjs` PASS; `npx --yes pnpm@10.15.1 --filter @offisim/desktop build` PASS; release `.app` built at `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`; commit `4cc7273d` |
-| 2 target model | pending | |
+| 2 target model | done | `npx --yes pnpm@10.15.1 harness:stage-preview-targets` PASS (12/12); `npx --yes pnpm@10.15.1 harness:artifact-claim` PASS (16/16); `npx --yes pnpm@10.15.1 --filter @offisim/desktop-renderer typecheck` PASS; `npx --yes pnpm@10.15.1 --filter @offisim/desktop-renderer build` PASS; GitNexus `detect_changes --repo Offisim --scope staged` risk medium, affected flows limited to Stage tab/id; commit `2c086abb` |
 | 3 pane + core viewers | pending | |
 | 4 doc/media/3D viewers | pending | |
 | 5 computer contract | pending | |
