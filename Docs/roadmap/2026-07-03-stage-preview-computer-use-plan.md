@@ -241,21 +241,21 @@ export function mediaStreamUrl(path: string, projectId: string | null): string; 
 ```
 Loading rules: workspace-file → `invoke('project_preview_meta')`; text kinds use `meta.text`; image/pdf/model3d → `invoke('project_read_file_bytes')` → Blob object URL; video/audio → `mediaStreamUrl` (no read); deliverable → `loadDeliverableBody` (existing, `data/queries.ts:540`), HTML format → `inline-html`, else text; browser → `url` if `isEmbeddablePreviewUrl` (keep that helper, move it here) else `screenshot`; screenshot → `screenshot`; computer-artifact → same as workspace-file.
 
-- [ ] **Step 1:** Implement pane: header (title, byte/size meta, trust badge) + actions bar (open externally / reveal in Finder via existing opener plugin permissions; copy path; copy URL when present) + async load with loading/error/`UnsupportedViewer` states + dispatch on `viewerKind`. Viewer components mount lazily (`React.lazy`) so pdfjs/three chunks stay out of the main bundle.
-- [ ] **Step 2:** Extend `harness-stage-preview-targets.mts` with `data:*` checks for the pure routing parts (`data:workspace-md-loads-text-lane`, `data:mp4-routes-stream-no-read`, `data:html-deliverable-inline-html`, `data:browser-localhost-embeds-url`, `data:browser-external-falls-to-screenshot`) — factor lane selection into a pure `planPreviewLoad(resolved) -> PreviewData['mode']` so it's harness-testable without Tauri.
-- [ ] **Step 3:** `pnpm harness:stage-preview-targets` PASS; renderer typecheck PASS. Commit `feat(stage): StagePreviewPane replaces Output/File/Preview views`.
+- [x] **Step 1:** Implement pane: header (title, byte/size meta, trust badge) + actions bar (open externally / reveal in Finder via existing opener plugin permissions; copy path; copy URL when present) + async load with loading/error/`UnsupportedViewer` states + dispatch on `viewerKind`. Viewer components mount lazily (`React.lazy`) so pdfjs/three chunks stay out of the main bundle.
+- [x] **Step 2:** Extend `harness-stage-preview-targets.mts` with `data:*` checks for the pure routing parts (`data:workspace-md-loads-text-lane`, `data:mp4-routes-stream-no-read`, `data:html-deliverable-inline-html`, `data:browser-localhost-embeds-url`, `data:browser-external-falls-to-screenshot`) — factor lane selection into a pure `planPreviewLoad(resolved) -> PreviewData['mode']` so it's harness-testable without Tauri.
+- [x] **Step 3:** `pnpm harness:stage-preview-targets` PASS; renderer typecheck PASS. Commit `feat(stage): StagePreviewPane replaces Output/File/Preview views`.
 
 ### Task 3.2–3.7: Core viewers (one commit each, same pattern)
 
 **Files:** Create viewer components under `stage-preview/viewers/`; each receives `{ resolved: ResolvedPreviewTarget; data: PreviewData }`.
 
-- [ ] **3.2 TextViewer** (`text`/`code`/logs): monospaced `<pre>` with line numbers, client-side search box (highlight + next/prev), truncation banner from `data.truncated`, virtualized via existing `@tanstack/react-virtual` for >2k lines.
-- [ ] **3.3 StructuredTextViewer** (`json`/`structured-text`): parse JSON natively, YAML via `yaml`, TOML via `smol-toml`, XML via native `DOMParser`; render collapsible key tree; raw toggle falls back to TextViewer; parse failure → raw with error banner. Add renderer deps `yaml@^2`, `smol-toml@^1`.
-- [ ] **3.4 MarkdownViewer**: existing `react-markdown` + `remark-gfm`; raw toggle.
-- [ ] **3.5 ImageViewer**: object URL from bytes; fit/actual-size toggle, wheel zoom + drag pan, dimensions + byte meta line.
-- [ ] **3.6 CsvViewer**: create `csv-parse.ts` (RFC-4180 quoted parser, ~60 lines, handles quotes/escapes/CRLF; unit checks `csv:quoted-comma`, `csv:escaped-quote`, `csv:crlf` go into harness-stage-preview-targets); virtualized table with header row; raw toggle.
-- [ ] **3.7 HtmlViewer**: trusted generated output → `<iframe sandbox="allow-forms allow-scripts" srcDoc={html}>` (drop `allow-same-origin` — trusted-but-generated content gets no host-origin access; this supersedes the old PreviewView sandbox); `url` mode → iframe `src` for localhost URLs (CSP frame-src from Task 1.3); screenshot mode → image + URL caption.
-- [ ] Each viewer: renderer typecheck + build PASS, then commit (`feat(preview): <viewer> viewer`).
+- [x] **3.2 TextViewer** (`text`/`code`/logs): monospaced `<pre>` with line numbers, client-side search box (highlight + next/prev), truncation banner from `data.truncated`, virtualized via existing `@tanstack/react-virtual` for >2k lines.
+- [x] **3.3 StructuredTextViewer** (`json`/`structured-text`): parse JSON natively, YAML via `yaml`, TOML via `smol-toml`, XML via native `DOMParser`; render collapsible key tree; raw toggle falls back to TextViewer; parse failure → raw with error banner. Add renderer deps `yaml@^2`, `smol-toml@^1`.
+- [x] **3.4 MarkdownViewer**: existing `react-markdown` + `remark-gfm`; raw toggle.
+- [x] **3.5 ImageViewer**: object URL from bytes; fit/actual-size toggle, wheel zoom + drag pan, dimensions + byte meta line.
+- [x] **3.6 CsvViewer**: create `csv-parse.ts` (RFC-4180 quoted parser, ~60 lines, handles quotes/escapes/CRLF; unit checks `csv:quoted-comma`, `csv:escaped-quote`, `csv:crlf` go into harness-stage-preview-targets); virtualized table with header row; raw toggle.
+- [x] **3.7 HtmlViewer**: trusted generated output → `<iframe sandbox="allow-forms allow-scripts" srcDoc={html}>` (drop `allow-same-origin` — trusted-but-generated content gets no host-origin access; this supersedes the old PreviewView sandbox); `url` mode → iframe `src` for localhost URLs (CSP frame-src from Task 1.3); screenshot mode → image + URL caption.
+- [x] Each viewer: renderer typecheck + build PASS, then commit (`feat(preview): <viewer> viewer`).
 
 **Phase 3 Gate:** `pnpm --filter @offisim/desktop-renderer typecheck && pnpm --filter @offisim/desktop-renderer build` green; `pnpm validate` green; release `.app` build + live spot-check (open md/json/csv/png/html deliverable + workspace files through Files rail — screenshots into `Docs/evidence/`). Lead simplify + `codex:review`.
 
@@ -467,7 +467,7 @@ Detection: locate `cua-driver` via `$PATH` lookup + known install locations; `--
 |---|---|---|
 | 1 Rust preview lane | done | `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml preview` PASS; `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml` PASS (141 tests); `node scripts/check-platform-tauri-origin-sync.mjs` PASS; `npx --yes pnpm@10.15.1 --filter @offisim/desktop build` PASS; release `.app` built at `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`; commit `4cc7273d` |
 | 2 target model | done | `npx --yes pnpm@10.15.1 harness:stage-preview-targets` PASS (12/12); `npx --yes pnpm@10.15.1 harness:artifact-claim` PASS (16/16); `npx --yes pnpm@10.15.1 --filter @offisim/desktop-renderer typecheck` PASS; `npx --yes pnpm@10.15.1 --filter @offisim/desktop-renderer build` PASS; GitNexus `detect_changes --repo Offisim --scope staged` risk medium, affected flows limited to Stage tab/id; commit `2c086abb` |
-| 3 pane + core viewers | pending | |
+| 3 pane + core viewers | done | `npx --yes pnpm@10.15.1 harness:stage-preview-targets` PASS (21/21); `npx --yes pnpm@10.15.1 harness:artifact-claim` PASS (16/16); `npx --yes pnpm@10.15.1 --filter @offisim/desktop-renderer typecheck` PASS; `npx --yes pnpm@10.15.1 --filter @offisim/desktop-renderer build` PASS; `npx --yes pnpm@10.15.1 validate > /tmp/offisim-validate-phase3-final.log 2>&1` exit 0; `npx --yes pnpm@10.15.1 --filter @offisim/desktop build` PASS; release `.app` spot-checked via Computer Use on pid `99860` for markdown raw/search, JSON tree, CSV table, HTML iframe, PNG image; screenshots in `Docs/evidence/2026-07-03-stage-preview/`; commit `1148b600` |
 | 4 doc/media/3D viewers | pending | |
 | 5 computer contract | pending | |
 | 6 computer tab + mock | pending | |
