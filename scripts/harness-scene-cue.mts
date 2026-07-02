@@ -42,8 +42,13 @@ import {
   type SceneBeat,
   type StagingPrefab,
   type TimedAgentRunEvent,
+  classifyRunFailure,
   composeBeats,
 } from '../packages/shared-types/src/index.js';
+// The bundled hosts can't import TS, so the wire module carries a mirror of the
+// classifier — this harness locks the two implementations equal.
+// @ts-expect-error plain .mjs module without type declarations
+import { classifyRunFailure as classifyRunFailureMjs } from './pi-agent-host-wire.mjs';
 
 let checks = 0;
 let failures = 0;
@@ -413,6 +418,68 @@ console.log('\n[resource hierarchy] blocked issue leads, typed strain, attention
   check(
     'selected actor still reads selected (attention is a separate cue)',
     frame.actors.find((a) => a.employeeId === 'emp-z')?.selected === true,
+  );
+}
+
+// ── root-run failure retention + emit-site classification ────────────────────
+console.log('\n[root failure] failed root keeps its actor on the board, typed');
+{
+  // Live-verified scenario (2026-07-02): a provider 429 fails the ROOT run —
+  // the employee must keep a blocked marker (like a failed delegation does),
+  // and the renderer's emit-site classifier must type the 429 as token strain.
+  const LIVE_429 =
+    'upstream: 429 Token Plan usage limit reached: Upgrade your Token Plan or purchase Credits for more usage. (2056)';
+  check(
+    "renderer classifier types the live 429 message as 'token'",
+    classifyRunFailure(LIVE_429) === 'token',
+    classifyRunFailure(LIVE_429),
+  );
+  for (const probe of [
+    LIVE_429,
+    'maximum context length exceeded: 131072 tokens',
+    'permission denied by provider policy',
+    'provider disconnected mid-stream',
+    'budget cap: spend limit hit',
+    '',
+  ]) {
+    check(
+      `TS/mjs classifier parity: ${JSON.stringify(probe.slice(0, 32))}…`,
+      classifyRunFailure(probe) === classifyRunFailureMjs(probe),
+      `${classifyRunFailure(probe)} vs ${classifyRunFailureMjs(probe)}`,
+    );
+  }
+
+  const stream: TimedAgentRunEvent[] = [
+    started(1000, { runId: 'root-f', rootRunId: 'root-f', employeeId: 'emp-f' }),
+    failed(1200, { runId: 'root-f', rootRunId: 'root-f', employeeId: 'emp-f' }, 'token'),
+  ];
+  const beats = composeBeats(stream, CONFIG);
+  const snap = snapshot([
+    runSnapshot({ attemptId: 'root-f', employeeId: 'emp-f', phase: 'failed' }),
+  ]);
+  const frame = projectSceneCues(
+    input({
+      workloads: projectEmployeeWorkloads(snap, PRJ, beatForFrom(beats)),
+      beats,
+      now: 1500,
+    }),
+  );
+  const actor = frame.actors.find((a) => a.employeeId === 'emp-f');
+  const cue = frame.resources.find((r) => r.employeeId === 'emp-f');
+  check(
+    'failed root run keeps its employee on the board (terminal issue member)',
+    actor != null && actor.workload.topIssue?.terminal === true,
+    json(actor?.workload),
+  );
+  check(
+    'root failure: no active concurrency, issue takes the primary slot',
+    actor?.workload.activeCount === 0 && actor.workload.primary === 'issue',
+    `${actor?.workload.activeCount}/${actor?.workload.primary}`,
+  );
+  check(
+    'root 429 surfaces as {token, exhausted} on the resource cue',
+    cue?.resourceKind === 'token' && cue.severity === 'exhausted',
+    json(cue),
   );
 }
 

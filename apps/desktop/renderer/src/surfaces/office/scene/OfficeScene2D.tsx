@@ -353,13 +353,14 @@ export function OfficeScene2D() {
           ctx.stroke();
         }
 
-        // Hover ring — a subtle affordance from ActorCue.hovered, distinct
-        // from the selected/running ring by radius and translucency.
+        // Hover ring — an affordance from ActorCue.hovered, distinct from the
+        // selected/running ring by its larger radius. activeRingSoft (50%): the
+        // 36% flowLine stroke was invisible against the light zone tints.
         if (hovered) {
           ctx.beginPath();
           ctx.arc(sx, sy, r + 8, 0, Math.PI * 2);
-          ctx.strokeStyle = OFFICE_SCENE_2D_COLORS.flowLine;
-          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = OFFICE_SCENE_2D_COLORS.activeRingSoft;
+          ctx.lineWidth = 2;
           ctx.stroke();
         }
 
