@@ -51,7 +51,8 @@ validation boundaries still require explicit oracles before changing.
 
 These are real product contracts unless a narrower loop proves otherwise:
 
-- Current local SQLite baseline (`LOCAL_SCHEMA_VERSION = 1`, `schema.sql`).
+- Current local SQLite baseline (`schema.sql` + the `LOCAL_SCHEMA_VERSION`
+  constant in `local_db.rs` — the constant is the truth source).
 - Pi Agent JSONL wire, Pi-owned `~/.pi/agent/auth.json`, and Pi `models.json`.
 - MCP bridge, grants, approval status, and risk classification.
 - `offisim://install`, `.offisimpkg`, package integrity, and install receipt
@@ -113,7 +114,8 @@ Before adding or preserving migration/compat/fallback/MVP-shaped work:
 
 ## Current Known Cleanup Direction
 
-- Keep one SQLite baseline only: `LOCAL_SCHEMA_VERSION = 1`, `schema.sql`, and
+- Keep one SQLite baseline only: the current `LOCAL_SCHEMA_VERSION`
+  (truth source: `local_db.rs`), `schema.sql`, and
   `schema.ts`. Historical local migration SQL and `MIGRATIONS` registration are
   deleted debt.
 - Keep durable Pi, MCP, install, platform, and project-file contracts.

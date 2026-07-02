@@ -71,6 +71,37 @@ export type ActivityKind =
   | 'inspect'
   | 'wait';
 
+/**
+ * Typed cause of a failed run. Stamped by the EMITTER from the structurally
+ * known failure site (provider error, timeout, cap refusal, …) — never parsed
+ * out of summary text. Present on a run-finished payload iff
+ * `status === 'failed'`; completed/cancelled runs never carry it.
+ */
+export type RunFailureKind = 'token' | 'budget' | 'permission' | 'context' | 'runtime' | 'tool';
+
+/**
+ * Classify a provider/model failure message into a typed RunFailureKind at the
+ * point where the free text ORIGINATES (a root run's host error, a session
+ * error stop). This is the only place failure text may be interpreted — the
+ * wire carries the typed kind from here on and no downstream consumer
+ * re-parses summaries. Mirror of `classifyRunFailure` in
+ * scripts/pi-agent-host-wire.mjs (the bundled .mjs host cannot import TS);
+ * the two are locked equal by a harness parity check. Order matters:
+ * context-window messages usually mention "tokens", so the context test runs
+ * before the token test. Unrecognized text is host/provider machinery →
+ * 'runtime'.
+ */
+export function classifyRunFailure(message: string | undefined | null): RunFailureKind {
+  const text = typeof message === 'string' ? message.toLowerCase() : '';
+  if (/(context|prompt)[^.]{0,40}(length|window|too long|exceed)|\bcompact/.test(text)) {
+    return 'context';
+  }
+  if (/\btokens?\b|quota|rate.?limit|\b429\b/.test(text)) return 'token';
+  if (/permission|unauthorized|forbidden|denied|\b401\b|\b403\b/.test(text)) return 'permission';
+  if (/budget|cost.?limit|spend.?limit/.test(text)) return 'budget';
+  return 'runtime';
+}
+
 export type AgentRunEventType =
   | 'run.started'
   | 'run.delta' // child token stream (content | reasoning)
@@ -151,6 +182,8 @@ export interface AgentRunFinishedPayload {
   readonly status: AgentRunStatus;
   readonly summary?: string;
   readonly usage?: AgentRunUsage;
+  /** Typed failure cause; present iff `status === 'failed'`. */
+  readonly failureKind?: RunFailureKind;
 }
 
 /** Self-describing delegation event. Discriminated by `type`. */
@@ -329,8 +362,7 @@ function contentTextFrom(value: unknown): string | undefined {
 }
 
 function summarize(value: unknown, max = 200): string | undefined {
-  const text =
-    contentTextFrom(value) ?? (value == null ? undefined : JSON.stringify(value));
+  const text = contentTextFrom(value) ?? (value == null ? undefined : JSON.stringify(value));
   if (!text) return undefined;
   const firstLine = text.split('\n')[0] ?? text;
   return firstLine.length > max ? `${firstLine.slice(0, max)}…` : firstLine;
@@ -374,13 +406,21 @@ function parseBrowserTitle(texts: readonly string[], url?: string): string | und
     const parsed = pickRecord(parseDetailValue(text));
     const fromJson = pickString(parsed?.title, parsed?.pageTitle);
     if (fromJson) return fromJson;
-    for (const line of text.split('\n').map((l) => l.trim()).filter(Boolean)) {
+    for (const line of text
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)) {
       const labelled = line.match(/^(?:title|pageTitle)\s*[:=-]\s*(.+)$/i)?.[1]?.trim();
       if (labelled) return labelled;
     }
   }
   return texts
-    .flatMap((text) => text.split('\n').map((line) => line.trim()).filter(Boolean))
+    .flatMap((text) =>
+      text
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean),
+    )
     .find((line) => line !== url && !/^https?:\/\//i.test(line) && line.length <= 160);
 }
 

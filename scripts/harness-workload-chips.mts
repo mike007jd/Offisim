@@ -10,7 +10,7 @@ import type {
   WorkloadPriorityIssue,
   WorkloadSummary,
 } from '../apps/desktop/renderer/src/assistant/runtime/conversation-run-projections.js';
-import { groupedWorkload } from '../apps/desktop/renderer/src/surfaces/office/scene/workload-chips.js';
+import { groupedWorkload } from '../apps/desktop/renderer/src/assistant/runtime/scene-cue-projection.js';
 
 let checks = 0;
 let failures = 0;

@@ -13,6 +13,7 @@
  * Pure Node via tsx against shared-types source — no DOM, no renderer, no Pi.
  */
 import {
+  type RunFailureKind,
   type SceneBeat,
   type TimedAgentRunEvent,
   composeBeats,
@@ -54,6 +55,7 @@ function finished(
   at: number,
   s: Scope,
   status: 'completed' | 'failed' | 'cancelled',
+  failureKind?: RunFailureKind,
 ): TimedAgentRunEvent {
   return {
     threadId: THREAD,
@@ -65,7 +67,7 @@ function finished(
         : status === 'failed'
           ? 'run.failed'
           : 'run.cancelled',
-    payload: { status },
+    payload: { status, ...(failureKind ? { failureKind } : {}) },
     timestamp: at,
   };
 }
@@ -164,6 +166,108 @@ console.log('\n[sustained] long compute relocates once');
   );
 }
 
+// ── Distinct visual phases per activity kind ─────────────────────────────────
+console.log('\n[work-phases] activity kinds stage distinct visual phases');
+{
+  // One micro beat per tool name (fresh runId each ⇒ fresh stream, no coalesce);
+  // the PRD requires reading/searching vs writing/editing vs shell/build/test to
+  // read as DISTINCT visual phases, not one generic "working" look.
+  const beatFor = (toolName: string): SceneBeat | undefined =>
+    composeBeats([tool(0, { runId: `wp-${toolName}`, employeeId: 'alex' }, toolName)], CONFIG)[0];
+  const read = beatFor('read_file');
+  const search = beatFor('grep');
+  const write = beatFor('write_file');
+  const edit = beatFor('apply_patch');
+  const shell = beatFor('bash');
+  const build = beatFor('compile');
+  const test = beatFor('run_tests');
+  check(
+    "reading: read tool → research beat, phase 'read', reading-seat, document prop",
+    read?.kind === 'research' &&
+      read.activityKind === 'read' &&
+      read.visual.phase === 'read' &&
+      read.affordance === 'reading-seat' &&
+      read.visual.prop === 'document',
+    JSON.stringify(read?.visual),
+  );
+  check(
+    "searching: search tool → research beat, phase 'read', activityKind 'search'",
+    search?.kind === 'research' &&
+      search.activityKind === 'search' &&
+      search.visual.phase === 'read',
+    JSON.stringify(search?.visual),
+  );
+  check(
+    "writing: write tool → produce beat, phase 'produce', workstation, laptop prop",
+    write?.kind === 'produce' &&
+      write.activityKind === 'write' &&
+      write.visual.phase === 'produce' &&
+      write.affordance === 'workstation' &&
+      write.visual.prop === 'laptop',
+    JSON.stringify(write?.visual),
+  );
+  check(
+    "editing: edit tool → produce beat, phase 'produce', activityKind 'edit'",
+    edit?.kind === 'produce' && edit.activityKind === 'edit' && edit.visual.phase === 'produce',
+    JSON.stringify(edit?.visual),
+  );
+  check(
+    "shell: shell tool → compute beat, phase 'compute', server-inspect, terminal prop, tool route",
+    shell?.kind === 'compute' &&
+      shell.activityKind === 'shell' &&
+      shell.visual.phase === 'compute' &&
+      shell.affordance === 'server-inspect' &&
+      shell.visual.prop === 'terminal' &&
+      shell.flow?.target === 'tool',
+    JSON.stringify(shell?.visual),
+  );
+  check(
+    "build/test: both stage compute beats (phase 'compute') with their own activityKind",
+    build?.kind === 'compute' &&
+      build.activityKind === 'build' &&
+      build.visual.phase === 'compute' &&
+      test?.kind === 'compute' &&
+      test.activityKind === 'test' &&
+      test.visual.phase === 'compute',
+    `build ${JSON.stringify(build?.visual)} test ${JSON.stringify(test?.visual)}`,
+  );
+  check(
+    'the three activity families are pairwise distinct phases (read/produce/compute)',
+    new Set([read?.visual.phase, write?.visual.phase, shell?.visual.phase]).size === 3,
+    `${read?.visual.phase}/${write?.visual.phase}/${shell?.visual.phase}`,
+  );
+}
+
+// ── Completed root: celebration beat ─────────────────────────────────────────
+console.log('\n[complete] root completion stages a celebration');
+{
+  const beats = composeBeats(
+    [
+      started(0, { runId: ROOT, employeeId: 'alex' }),
+      finished(9000, { runId: ROOT, employeeId: 'alex' }, 'completed'),
+    ],
+    CONFIG,
+  );
+  const complete = byKind(beats, 'complete')[0];
+  check('root run.completed stages a complete beat (not a join)', Boolean(complete));
+  check(
+    "complete visual celebrates: phase 'complete', emotion 'celebrating', package prop",
+    complete?.visual.phase === 'complete' &&
+      complete.visual.emotion === 'celebrating' &&
+      complete.visual.prop === 'package',
+    JSON.stringify(complete?.visual),
+  );
+  check(
+    'complete flows to delivery and presents at the board (movement beat)',
+    complete?.flow?.kind === 'artifact' &&
+      complete.flow.target === 'delivery' &&
+      complete.affordance === 'board-presenter' &&
+      complete.movement === true,
+    JSON.stringify(complete?.flow),
+  );
+  check('complete carries no resource marker (celebration, not risk)', complete?.resource === null);
+}
+
 // ── Universal work signals: flow / artifact / resource ─────────────────────
 console.log('\n[signals] flow, artifact, and resource intents');
 {
@@ -198,6 +302,191 @@ console.log('\n[signals] flow, artifact, and resource intents');
   );
 }
 
+// ── Typed failure kinds: total map, no keyword parsing ──────────────────────
+console.log('\n[failure-kind] typed failureKind → exact distinct resource intents');
+{
+  // resource.kind must equal the failureKind itself (ResourceKind aliases
+  // RunFailureKind 1:1) — asserted directly rather than tabulated twice.
+  const expected: ReadonlyArray<readonly [RunFailureKind, 'blocked' | 'exhausted', string]> = [
+    ['token', 'exhausted', 'token exhausted'],
+    ['budget', 'exhausted', 'budget exhausted'],
+    ['permission', 'blocked', 'permission blocked'],
+    ['context', 'blocked', 'context blocked'],
+    ['runtime', 'blocked', 'runtime blocked'],
+    ['tool', 'blocked', 'tool failed'],
+  ];
+  for (const [failureKind, severity, label] of expected) {
+    const beats = composeBeats(
+      [finished(0, { runId: `fk-${failureKind}`, employeeId: 'alex' }, 'failed', failureKind)],
+      CONFIG,
+    );
+    const failure = byKind(beats, 'failure')[0];
+    check(
+      `failureKind '${failureKind}' → {${failureKind}, ${severity}, '${label}'}`,
+      failure?.resource?.kind === failureKind &&
+        failure?.resource?.severity === severity &&
+        failure?.resource?.label === label,
+      `got ${JSON.stringify(failure?.resource)}`,
+    );
+  }
+
+  // A failed run whose emitter stamped no kind stages the generic block — the
+  // summary text is never parsed (a 'token'-laden summary must NOT reclassify).
+  const generic = byKind(
+    composeBeats(
+      [
+        {
+          threadId: THREAD,
+          rootRunId: ROOT,
+          runId: 'fk-none',
+          employeeId: 'alex',
+          type: 'run.failed',
+          payload: { status: 'failed', summary: 'token budget permission context runtime' },
+          timestamp: 0,
+        },
+      ],
+      CONFIG,
+    ),
+    'failure',
+  )[0];
+  check(
+    "failed run without failureKind → generic {tool, blocked, 'run blocked'} (summary ignored)",
+    generic?.resource?.kind === 'tool' &&
+      generic?.resource?.severity === 'blocked' &&
+      generic?.resource?.label === 'run blocked',
+    `got ${JSON.stringify(generic?.resource)}`,
+  );
+
+  // The payload rides the wire as unvalidated JSON — an out-of-vocabulary kind
+  // from a skewed emitter must degrade to the generic marker, never vanish.
+  const outOfVocab = byKind(
+    composeBeats(
+      [
+        {
+          threadId: THREAD,
+          rootRunId: ROOT,
+          runId: 'fk-skew',
+          employeeId: 'alex',
+          type: 'run.failed',
+          payload: {
+            status: 'failed',
+            failureKind: 'provider' as unknown as RunFailureKind,
+          },
+          timestamp: 0,
+        },
+      ],
+      CONFIG,
+    ),
+    'failure',
+  )[0];
+  check(
+    'out-of-vocabulary failureKind → generic marker (never a missing resource)',
+    outOfVocab?.resource?.kind === 'tool' &&
+      outOfVocab?.resource?.severity === 'blocked' &&
+      outOfVocab?.resource?.label === 'run blocked',
+    `got ${JSON.stringify(outOfVocab?.resource)}`,
+  );
+}
+
+// ── Cancelled: neutral stopped state, never a blocked/risk marker ───────────
+console.log('\n[cancelled] run.cancelled stages a neutral stop, no resource intent');
+{
+  const beats = composeBeats(
+    [
+      tool(0, { runId: 'cx', employeeId: 'alex' }, 'bash'),
+      finished(300, { runId: 'cx', employeeId: 'alex' }, 'cancelled'),
+    ],
+    CONFIG,
+  );
+  const cancelled = byKind(beats, 'cancelled')[0];
+  check('run.cancelled stages a cancelled beat (not a failure beat)', Boolean(cancelled));
+  check('cancelled beat carries NO resource intent', cancelled?.resource === null);
+  check('cancelled beat carries NO failure flow', cancelled?.flow === null);
+  check(
+    'cancelled visual is neutral (no blocked phase/emotion, no risk badge)',
+    cancelled?.visual.phase !== 'blocked' &&
+      cancelled?.visual.emotion === 'neutral' &&
+      !cancelled?.visual.badges.includes('blocked'),
+    `got ${JSON.stringify(cancelled?.visual)}`,
+  );
+  check(
+    'no failure beat staged for a cancelled run',
+    byKind(beats, 'failure').length === 0,
+    `got ${byKind(beats, 'failure').length}`,
+  );
+  check(
+    'cancelled interrupts (clears activity, supersedes lingering markers)',
+    cancelled?.interrupt === true,
+  );
+}
+
+// ── Issue resolution: approval/failure beats resolve on later same-run events ─
+console.log('\n[issue-resolution] until-resolved beats clamp when the run moves on');
+{
+  const approvalThenTool = composeBeats(
+    [
+      approval(0, { runId: 'ir-1', employeeId: 'alex' }),
+      tool(5_000, { runId: 'ir-1', employeeId: 'alex' }, 'bash'),
+    ],
+    CONFIG,
+  );
+  check(
+    'answered approval: a later tool event clamps the approval beat to its timestamp',
+    byKind(approvalThenTool, 'approval')[0]?.lifecycle.endsAt === 5_000,
+    `got ${byKind(approvalThenTool, 'approval')[0]?.lifecycle.endsAt}`,
+  );
+
+  const approvalThenCancel = composeBeats(
+    [
+      approval(0, { runId: 'ir-2', employeeId: 'alex' }),
+      finished(5_000, { runId: 'ir-2', employeeId: 'alex' }, 'cancelled'),
+    ],
+    CONFIG,
+  );
+  check(
+    'cancelled run: the pending approval beat dies at the cancel, not 600s later',
+    byKind(approvalThenCancel, 'approval')[0]?.lifecycle.endsAt === 5_000 &&
+      byKind(approvalThenCancel, 'cancelled').length === 1,
+    `got ${byKind(approvalThenCancel, 'approval')[0]?.lifecycle.endsAt}`,
+  );
+
+  const failureThenRecovery = composeBeats(
+    [
+      toolFailed(0, { runId: 'ir-3', employeeId: 'alex' }, 'bash'),
+      tool(5_000, { runId: 'ir-3', employeeId: 'alex' }, 'bash'),
+    ],
+    CONFIG,
+  );
+  check(
+    'recovery: a tool-failure beat clamps when the same run resumes work',
+    byKind(failureThenRecovery, 'failure')[0]?.lifecycle.endsAt === 5_000,
+    `got ${byKind(failureThenRecovery, 'failure')[0]?.lifecycle.endsAt}`,
+  );
+
+  const terminalFailure = composeBeats(
+    [finished(0, { runId: 'ir-4', employeeId: 'alex' }, 'failed', 'runtime')],
+    CONFIG,
+  );
+  check(
+    'terminal run.failed keeps its full until-resolved TTL (never clamped)',
+    byKind(terminalFailure, 'failure')[0]?.lifecycle.endsAt === 600_000,
+    `got ${byKind(terminalFailure, 'failure')[0]?.lifecycle.endsAt}`,
+  );
+
+  const crossRun = composeBeats(
+    [
+      approval(0, { runId: 'ir-5', employeeId: 'alex' }),
+      tool(5_000, { runId: 'ir-6', employeeId: 'bea' }, 'bash'),
+    ],
+    CONFIG,
+  );
+  check(
+    "resolution is per-run: another run's event never clamps a pending approval",
+    byKind(crossRun, 'approval')[0]?.lifecycle.endsAt === 600_000,
+    `got ${byKind(crossRun, 'approval')[0]?.lifecycle.endsAt}`,
+  );
+}
+
 // ── Priority / interrupt: approval + failure bypass cooldown ─────────────────
 console.log('\n[interrupt] approval and failure preempt');
 {
@@ -215,9 +504,12 @@ console.log('\n[interrupt] approval and failure preempt');
   check('approval priority is 100', appr?.priority === 100);
   check('approval is an interrupt', appr?.interrupt === true);
   check('approval emitted despite recent activity (bypass cooldown)', appr?.at === 300);
+  // The unresolved long-lifespan property lives in [issue-resolution]; here the
+  // run terminally fails at 600, which RESOLVES the pending approval beat.
   check(
-    'approval beat has a long until-resolved lifespan (not a short auto-expiry)',
-    appr ? appr.lifecycle.endsAt - appr.lifecycle.startedAt === 600_000 : false,
+    "approval beat resolves at the run's terminal failure (clamped, not 600s)",
+    appr?.lifecycle.endsAt === 600,
+    `got ${appr?.lifecycle.endsAt}`,
   );
   check(
     'failure beat emitted with priority 90 interrupt',

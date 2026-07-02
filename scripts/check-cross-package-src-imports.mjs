@@ -59,6 +59,7 @@ const ALLOWLIST = new Set([
   'scripts/harness-mission-office-projection.mts::../packages/shared-types/src/index.js',
   'scripts/harness-dramaturgy-modes.mts::../packages/shared-types/src/index.js',
   'scripts/harness-dramaturgy-stress.mts::../packages/shared-types/src/index.js',
+  'scripts/harness-scene-cue.mts::../packages/shared-types/src/index.js',
   'scripts/harness-mission-service.mts::../packages/core/src/runtime/repos/mission/memory.ts',
   'scripts/harness-mission-service.mts::../packages/core/src/runtime/mission/mission-service.ts',
   'scripts/harness-mission-evaluators.mts::../packages/core/src/runtime/mission/evaluators/registry.ts',

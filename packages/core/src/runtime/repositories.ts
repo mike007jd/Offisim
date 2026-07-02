@@ -74,9 +74,14 @@ export interface AgentRunRow {
   root_run_id: string;
   employee_id: string | null;
   relation: string | null;
+  // Work semantics stamped by the delegate tool on run.started (WorkKind);
+  // null = unclassified.
+  work_kind: string | null;
   objective: string | null;
   access: string | null;
   status: string;
+  // Typed failure cause (RunFailureKind) written on a failed terminal.
+  failure_kind: string | null;
   usage_json: string | null;
   result_summary_json: string | null;
   // Path to the Pi session JSONL that holds this run's durable context. Set when
@@ -220,6 +225,8 @@ export type NewAgentRun = Omit<
   | 'session_file'
   | 'project_id'
   | 'runtime_context_json'
+  | 'work_kind'
+  | 'failure_kind'
 > & {
   started_at?: string;
   finished_at?: string | null;
@@ -228,6 +235,8 @@ export type NewAgentRun = Omit<
   session_file?: string | null;
   project_id?: string | null;
   runtime_context_json?: string | null;
+  work_kind?: string | null;
+  failure_kind?: string | null;
 };
 export type NewToolCall = Omit<ToolCallRow, 'finished_at'>;
 export type NewHandoffEvent = Omit<HandoffEventRow, never>;
@@ -294,6 +303,8 @@ export interface AgentRunRepository {
       usageJson?: string | null;
       finishedAt?: string | null;
       sessionFile?: string | null;
+      /** Typed failure cause (RunFailureKind); written on a failed terminal. */
+      failureKind?: string | null;
     },
   ): Promise<void>;
   updateRuntimeContext(runId: string, runtimeContextJson: string | null): Promise<void>;

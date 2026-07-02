@@ -1,11 +1,17 @@
 import { useUiState } from '@/app/ui-state.js';
+import { useConversationRun } from '@/assistant/runtime/conversation-run-react.js';
+import { usePrefersReducedMotion } from '@/assistant/runtime/office-dramaturgy.js';
 import {
-  dominantBeatsFrom,
-  useConversationRun,
-  useEmployeeWorkloads,
-} from '@/assistant/runtime/conversation-run-react.js';
-import { useOfficeBeats, usePrefersReducedMotion } from '@/assistant/runtime/office-dramaturgy.js';
-import { useEmployees, useOfficeLayout, useReassignEmployee, useThreads } from '@/data/queries.js';
+  FLOW_TARGET_LABELS,
+  type FlowCueTarget,
+  RESOURCE_KIND_GLYPHS,
+  type SceneInk,
+  type WorkloadCue,
+  bundleEmphasis,
+  flowCueText,
+} from '@/assistant/runtime/scene-cue-projection.js';
+import { useSceneCueFrame } from '@/assistant/runtime/scene-cue-react.js';
+import { useReassignEmployee } from '@/data/queries.js';
 import type { Employee } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
 import { openArtifactClaim } from '@/surfaces/office/stage-viewer/artifact-claim.js';
@@ -13,17 +19,17 @@ import {
   type CharacterPerformanceState,
   type PrefabDefinition,
   type PrefabInstanceRow,
+  type ResourceKind,
   type RoleSlug,
-  type StagingPrefab,
   animationTempoForRole,
-  applyDramaturgyMode,
-  projectOfficeStaging,
 } from '@offisim/shared-types';
 import { Html, Line, OrbitControls } from '@react-three/drei';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ACESFilmicToneMapping, type Group } from 'three';
-import { BlockCharacter } from './BlockCharacter.js';
+import { GltfCharacter } from './character/GltfCharacter.js';
+import { preloadCharacterAssets } from './character/character-assets.js';
+import { openDeliveryHistory } from './delivery-history.js';
 import { RoomShell } from './r3d/RoomShell.js';
 import { SceneEnvironment } from './r3d/SceneEnvironment.js';
 import { SceneLighting } from './r3d/SceneLighting.js';
@@ -41,16 +47,14 @@ import { OFFICE_CAMERA_PRESET, SCENE_CONTENT_SCALE } from './r3d/scene-art-direc
 import { LIGHT_SCENE_3D } from './r3d/scene-colors.js';
 import { type ScenePlacementPoint, groundPointFromClient } from './scene-ground.js';
 import { compactSceneEmployeeName } from './scene-labels.js';
-import { type GroupedWorkload, beatToClaimable, groupedWorkload } from './workload-chips.js';
-import {
-  type EmployeePosture,
-  type ZoneDef,
-  employeePlacements,
-  defaultEmployeeZone as resolveDefaultEmployeeZone,
-  rotateLocal,
-  zoneDefsFromLayout,
-} from './scene-layout.js';
+import { type EmployeePosture, type ZoneDef, rotateLocal } from './scene-layout.js';
+import { useSceneStagingInputs } from './use-scene-staging-inputs.js';
 import { WorkBench } from './work-bench/WorkBench.js';
+
+// Warm the glTF loader cache the moment the scene module loads so first paint
+// gets all character bodies/animations/accessories in parallel instead of a
+// per-suspend waterfall (the Personnel preview shares the same cache).
+preloadCharacterAssets();
 
 interface SceneEmployeeDrop {
   readonly zoneId: string | null;
@@ -84,10 +88,28 @@ interface SceneFlowLine {
   readonly from: readonly [number, number, number];
   readonly to: readonly [number, number, number];
   readonly color: string;
+  /** Lane density text (the shared flowCueText rule: `×N · label` for bundles). */
   readonly label: string;
+  /** Lane label anchor — the curve midpoint, stacked when lanes share endpoints. */
+  readonly labelPosition: readonly [number, number, number];
+  /** 1.6px base + the shared bundleEmphasis step (+1 when the cue bundles ≥2 signals). */
+  readonly lineWidth: number;
 }
 
-function flowTarget3D(target: 'workstation' | 'tool' | 'review' | 'delivery' | 'user') {
+/**
+ * THE one 3D ink→hex table: every SceneCue ink role maps to exactly one
+ * LIGHT_SCENE_3D token. Approval is the amber LED tone — never the risk hue
+ * (PRD) — and neutral is the quiet muted-text tone used for recovery signals.
+ */
+const INK_3D: Record<SceneInk, string> = {
+  work: LIGHT_SCENE_3D.selectionRing,
+  artifact: LIGHT_SCENE_3D.ghostValid,
+  risk: LIGHT_SCENE_3D.ghostBlocked,
+  approval: LIGHT_SCENE_3D.ledAmber,
+  neutral: LIGHT_SCENE_3D.textMuted,
+};
+
+function flowTarget3D(target: FlowCueTarget) {
   switch (target) {
     case 'delivery':
       return [14.8, 0.1, 12.4] as const;
@@ -133,14 +155,17 @@ function EmployeeUnit({
   posture,
   withDesk,
   running,
-  grouped,
+  workload,
+  resourceKind,
   reducedMotion,
   active,
+  attention,
   dragging,
   performance,
   zones,
   onSelect,
   onDrilldown,
+  onHoverChange,
   onHoverZone,
   onDrop,
   onDragState,
@@ -152,14 +177,19 @@ function EmployeeUnit({
   posture: EmployeePosture;
   withDesk: boolean;
   running: boolean;
-  grouped: GroupedWorkload | null;
+  workload: WorkloadCue | null;
+  /** Typed strain of the top issue (frame.resources) — the six-kind marker glyph. */
+  resourceKind: ResourceKind | null;
   reducedMotion: boolean;
   active: boolean;
+  /** frame.attention targets this actor — a subtle sustained focus emphasis. */
+  attention: boolean;
   dragging: boolean;
   performance?: CharacterPerformanceState;
   zones: ZoneDef[];
   onSelect: () => void;
   onDrilldown: () => void;
+  onHoverChange: (hovered: boolean) => void;
   onHoverZone: (zoneId: string | null) => void;
   onDrop: (result: SceneEmployeeDrop) => void;
   onDragState: (drag: SceneEmployeeDrag | null) => void;
@@ -217,12 +247,18 @@ function EmployeeUnit({
   const labelZ = (labelTier - 1) * 0.24 + labelLane * 0.07;
   const labelText = compactSceneEmployeeName(employee.name);
   // The tag is interactive when selectable/running; the Html host also needs
-  // pointer events when the grouped bubble carries a clickable badge/marker/
+  // pointer events when the workload bubble carries a clickable badge/marker/
   // chip row (drilldown) even if the actor itself is idle.
   const hasClickableWorkload =
-    grouped != null && (grouped.countLabel != null || grouped.topIssue != null || grouped.chips.length > 0);
+    workload != null &&
+    (workload.countLabel != null || workload.topIssue != null || workload.chips.length > 0);
   const labelInteractive = active || running;
   const htmlInteractive = labelInteractive || hasClickableWorkload;
+  // Blocked primary slot (PRD): a blocked-severity issue owns the bubble — the
+  // marker takes the primary (top-right) slot, the ×N count demotes to the
+  // secondary (top-left) slot, and the working tell (typing dots + working
+  // halo) never renders over the blocked actor.
+  const blocked = workload?.primary === 'issue';
   const characterRotation = (rotation * Math.PI) / 180;
   // One desk-depth-ish step along the character's facing (prefab-local +z).
   const fallbackDeskOffset = rotateLocal(0, 0.99, rotation);
@@ -410,6 +446,15 @@ function EmployeeUnit({
           <meshBasicMaterial color={LIGHT_SCENE_3D.selectionRing} transparent opacity={0.8} />
         </mesh>
       ) : null}
+      {/* Attention focus (frame.attention): the selection-ring style at lower
+          alpha — subtle, sustained, static (reduced-motion safe); never a
+          second full-strength selection ring, and no camera movement. */}
+      {attention && !active && !dragging ? (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
+          <ringGeometry args={[0.52, 0.64, 40]} />
+          <meshBasicMaterial color={LIGHT_SCENE_3D.selectionRing} transparent opacity={0.3} />
+        </mesh>
+      ) : null}
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: r3f raycaster on a 3D object; employees are keyboard-selectable via the team dock and thread list */}
       <group
         rotation={[0, characterRotation, 0]}
@@ -426,9 +471,13 @@ function EmployeeUnit({
         onPointerOver={(e) => {
           e.stopPropagation();
           document.body.style.cursor = 'grab';
+          // Feed the scene's hover state so the shared frame's ActorCue.hovered
+          // carries it (the cue is the source; no per-scene hover derivation).
+          onHoverChange(true);
         }}
         onPointerOut={() => {
           document.body.style.cursor = '';
+          onHoverChange(false);
         }}
       >
         <mesh position={[0, 1.05, 0]}>
@@ -436,17 +485,22 @@ function EmployeeUnit({
           <meshBasicMaterial transparent opacity={0} depthWrite={false} />
         </mesh>
         {!dragging ? (
-          <BlockCharacter
-            appearance={appearance}
-            action={active ? 'active' : running ? 'working' : 'idle'}
-            posture={posture}
-            running={running}
-            reducedMotion={reducedMotion}
-            performance={performance}
-            walkingRef={walkingRef}
-            tempo={tempo}
-            phase={phase}
-          />
+          // Per-actor Suspense: a still-loading glb suspends only this
+          // character (the hitbox, rings, label, and the rest of the scene
+          // stay mounted); assets are module-preloaded so this rarely shows.
+          <Suspense fallback={null}>
+            <GltfCharacter
+              appearance={appearance}
+              action={active ? 'active' : running && !blocked ? 'working' : 'idle'}
+              posture={posture}
+              running={running}
+              reducedMotion={reducedMotion}
+              performance={performance}
+              walkingRef={walkingRef}
+              tempo={tempo}
+              phase={phase}
+            />
+          </Suspense>
         ) : null}
       </group>
       {!dragging ? (
@@ -495,47 +549,56 @@ function EmployeeUnit({
             ) : (
               <span className="off-scene-tag">{labelText}</span>
             )}
-            {/* WAVE 1 grouped bubble — one render-agnostic projection drives the
-                ×N badge, the resource-marker hierarchy, and the chip row, in
-                lockstep with the 2D scene. All static (deterministic): no
-                motion-only signal, so reduced motion changes nothing here. */}
-            {grouped?.countLabel ? (
+            {/* The frame's WorkloadCue drives the ×N badge, the resource-marker
+                hierarchy, and the chip row, in lockstep with the 2D scene. When
+                the cue's primary slot is 'issue' the marker and badge swap
+                slots (blocked wins the primary top-right position). All static
+                (deterministic): no motion-only signal, so reduced motion
+                changes nothing here. */}
+            {workload?.countLabel ? (
               <button
                 type="button"
-                className="off-scene-count-badge is-interactive"
-                aria-label={`${grouped.activeCount} active runs — inspect workload`}
+                className={`off-scene-count-badge is-interactive${blocked ? ' is-secondary' : ''}`}
+                aria-label={`${workload.activeCount} active runs — inspect workload`}
                 onClick={(e) => {
                   e.stopPropagation();
                   onDrilldown();
                 }}
               >
-                {grouped.countLabel}
+                {workload.countLabel}
               </button>
             ) : null}
-            {grouped?.topIssue ? (
+            {workload?.topIssue ? (
+              // An approval issue pins the approval/amber ink — waiting on the
+              // user, never the risk red — and a typed resource strain shows
+              // its six-kind glyph (T/B/P/C/R/X); '!' stays the kindless
+              // fallback (flow failures). Same scheme as the 2D marker disc.
               <span
-                className={`off-scene-resource-marker is-${grouped.topIssue.severity}`}
-                aria-label={grouped.topIssue.label}
+                className={`off-scene-resource-marker is-${workload.topIssue.severity}${
+                  workload.topIssue.kind === 'approval' ? ' is-approval' : ''
+                }${blocked ? ' is-primary' : ''}`}
+                aria-label={workload.topIssue.label}
+                title={workload.topIssue.label}
               >
-                !
+                {resourceKind ? RESOURCE_KIND_GLYPHS[resourceKind] : '!'}
               </span>
             ) : null}
-            {grouped && grouped.chips.length > 0 ? (
+            {workload && workload.chips.length > 0 ? (
               <div className="off-scene-workload-bubble" aria-label="Workload">
-                {grouped.chips.map((chip) => (
+                {workload.chips.map((chip) => (
                   <span
                     key={`${chip.tone}:${chip.label}`}
                     className={`is-${chip.tone}`}
                     title={chip.count != null ? `${chip.label} ${chip.count}` : chip.label}
                   >
-                    {grouped.tier === 'small'
+                    {workload.tier === 'small'
                       ? chip.label.slice(0, 10)
                       : chip.count != null
                         ? `${chip.label} ${chip.count}`
                         : chip.label}
                   </span>
                 ))}
-                {grouped.overflow ? (
+                {workload.overflow ? (
                   <button
                     type="button"
                     className="off-scene-workload-overflow is-interactive"
@@ -587,13 +650,17 @@ function EmployeeDragGhost({ employee, drag }: { employee: Employee; drag: Scene
         />
       </mesh>
       <group scale={1.5}>
-        <BlockCharacter
-          appearance={appearance}
-          action="dragging"
-          running
-          phase={phase}
-          opacity={ghostOpacity}
-        />
+        {/* Ghost fade: GltfCharacter clones per-instance materials (body AND
+            held props), so `opacity` fades the whole silhouette coherently. */}
+        <Suspense fallback={null}>
+          <GltfCharacter
+            appearance={appearance}
+            action="dragging"
+            running
+            phase={phase}
+            opacity={ghostOpacity}
+          />
+        </Suspense>
       </group>
       {drag.moved ? (
         <Html
@@ -651,7 +718,6 @@ function FallbackFurniture() {
 }
 
 export function OfficeScene3D() {
-  const companyId = useUiState((s) => s.companyId);
   const projectId = useUiState((s) => s.projectId);
   const selectedThreadId = useUiState((s) => s.selectedThreadId);
   const openThread = useUiState((s) => s.openThread);
@@ -659,21 +725,24 @@ export function OfficeScene3D() {
   const openStageView = useUiState((s) => s.openStageView);
   const openWorkloadDrilldown = useUiState((s) => s.openWorkloadDrilldown);
   const recordSceneDropDiagnostic = useUiState((s) => s.recordSceneDropDiagnostic);
-  const employees = useEmployees();
-  const threads = useThreads(projectId);
-  const workloads = useEmployeeWorkloads(projectId, companyId);
-  const liveBeats = useOfficeBeats(companyId);
   const selectedRun = useConversationRun(selectedThreadId ?? '');
-  const layout = useOfficeLayout(companyId);
   const reassign = useReassignEmployee();
   const [employeeDrag, setEmployeeDrag] = useState<SceneEmployeeDrag | null>(null);
+  const [hoveredEmployeeId, setHoveredEmployeeId] = useState<string | null>(null);
   const [hoveredZoneId, setHoveredZoneId] = useState<string | null>(null);
   const [dropNotice, setDropNotice] = useState<SceneDropNotice | null>(null);
 
-  const real = layout.data ?? null;
-  const roster = employees.data ?? [];
-
-  const zoneDefs: ZoneDef[] = useMemo(() => zoneDefsFromLayout(real), [real]);
+  // Shared staging inputs — the same layout/roster/seat-planner facts the 2D
+  // scene and the drilldown read (never re-derived per scene).
+  const {
+    layoutData,
+    roster,
+    zoneDefs,
+    fallbackZone: defaultEmployeeZone,
+    positions: placementsByEmployee,
+    stagingPrefabs,
+  } = useSceneStagingInputs();
+  const real = layoutData ?? null;
   // Only reachable with a real backend layout that has zero zones — the
   // no-backend preview path always resolves to the non-empty FALLBACK_ZONES.
   // OfficeStage owns the "No office layout yet" overlay (so Studio mounts of
@@ -681,102 +750,97 @@ export function OfficeScene3D() {
   const emptyOffice = zoneDefs.length === 0;
   const scenePrefabs = real?.prefabs;
 
-  const defaultEmployeeZone = useMemo(() => resolveDefaultEmployeeZone(zoneDefs), [zoneDefs]);
-
-  const placementsByEmployee = useMemo(
-    () => employeePlacements(roster, zoneDefs, defaultEmployeeZone, scenePrefabs),
-    [defaultEmployeeZone, roster, scenePrefabs, zoneDefs],
-  );
-
-  // Live dramaturgy: the agent.run beat timeline → per-employee performance and
-  // (for high-value movement beats only) a reserved relocation anchor on the
-  // office's real prefab layout. Empty when nothing is running. Staging reads the
-  // dominant beat of each employee's dominant ACTIVE run (the same workload truth
-  // that lights the ring + badge), so a just-finished run never stages over a
-  // still-running one, and 2D/3D agree on the staged target.
-  const dominantBeats = useMemo(() => dominantBeatsFrom(workloads), [workloads]);
-  const stagingPrefabs = useMemo<StagingPrefab[]>(
-    () =>
-      (scenePrefabs ?? []).map((p) => ({
-        instanceId: p.instance.instance_id,
-        prefabId: p.instance.prefab_id,
-        x: p.instance.position_x,
-        z: p.instance.position_y,
-        rotation: p.instance.rotation,
-        // 3D draws each prefab in a SCENE_CONTENT_SCALE group, so anchor offsets
-        // scale with it — the actor lands on the scaled desk, matching the
-        // home-seat planner (which also scales). 2D scales identically below.
-        scale: SCENE_CONTENT_SCALE,
-      })),
-    [scenePrefabs],
-  );
-  const officeMode = useUiState((s) => s.officeMode);
+  // GltfCharacter's reducedMotion prop path (frozen mixer → static poses) is a
+  // render concern; the frame separately carries staging=null under reduced motion.
   const reducedMotion = usePrefersReducedMotion();
-  const dramaturgyByEmployee = useMemo(
-    () =>
-      new Map(
-        applyDramaturgyMode(
-          projectOfficeStaging(dominantBeats, stagingPrefabs, placementsByEmployee),
-          {
-            mode: officeMode,
-            reducedMotion,
-          },
-        ).map((d) => [d.employeeId, d]),
-      ),
-    [dominantBeats, stagingPrefabs, placementsByEmployee, officeMode, reducedMotion],
-  );
 
-  const signalBeats = useMemo(
-    () =>
-      liveBeats
-        .filter((beat) => beat.employeeId && (beat.flow || beat.resource || beat.artifact))
-        .slice(-8),
-    [liveBeats],
-  );
-  const artifactBeats = useMemo(
-    () => liveBeats.filter((beat) => beat.employeeId && beat.artifact).slice(-3),
-    [liveBeats],
-  );
-  // The delivery shelf's click target is the most recent artifact beat, mapped
-  // to a claimable stage artifact (matching the 2D scene). Null when no beat
-  // carries an artifact intent — then the shelf renders passive with no claim.
-  const latestArtifactClaim = useMemo(() => beatToClaimable(artifactBeats.at(-1)), [artifactBeats]);
-  const sceneFlowLines = useMemo<SceneFlowLine[]>(
-    () =>
-      signalBeats.flatMap((beat) => {
-        if (!beat.employeeId) return [];
-        const home = placementsByEmployee.get(beat.employeeId) ?? {
-          x: defaultEmployeeZone.cx,
-          z: defaultEmployeeZone.cz,
-        };
-        const staged = dramaturgyByEmployee.get(beat.employeeId)?.staging;
-        const fromX = staged?.x ?? home.x;
-        const fromZ = staged?.z ?? home.z;
-        const target = flowTarget3D(beat.flow?.target ?? (beat.resource ? 'tool' : 'delivery'));
-        return [
-          {
-            id: beat.id,
-            from: [fromX, 0.12, fromZ] as const,
-            to: target,
-            color: beat.resource
-              ? LIGHT_SCENE_3D.ghostBlocked
-              : beat.artifact
-                ? LIGHT_SCENE_3D.ghostValid
-                : LIGHT_SCENE_3D.selectionRing,
-            label: beat.flow?.label ?? beat.visual.phase,
-          },
-        ];
-      }),
-    [defaultEmployeeZone, dramaturgyByEmployee, placementsByEmployee, signalBeats],
-  );
+  // THE render contract: one SceneCueFrame per render, shared with the 2D
+  // scene and the drilldown. Staging, performance, flows, delivery, workload
+  // bubbles, and selection all come from here — along with the shared
+  // actorById index; hover + drag feed its input state so the cues carry
+  // them. Only world geometry stays local.
+  const { frame, actorById } = useSceneCueFrame({
+    prefabs: stagingPrefabs,
+    actorPositions: placementsByEmployee,
+    hoveredEmployeeId,
+    draggingEmployeeId: employeeDrag?.employeeId ?? null,
+  });
+  const deliveryLatest = frame.delivery.latest;
 
-  const threadByEmployee = useMemo(() => {
-    const map = new Map<string, NonNullable<typeof threads.data>[number]>();
-    for (const t of threads.data ?? []) {
-      if (t.employeeId && !map.has(t.employeeId)) map.set(t.employeeId, t);
+  const sceneFlowLines = useMemo<SceneFlowLine[]>(() => {
+    // Same (employee, target) lanes share identical geometry (kinds differ) —
+    // stack their labels vertically instead of painting onto each other.
+    const labelSlots = new Map<string, number>();
+    return frame.flows.map((cue) => {
+      const home = placementsByEmployee.get(cue.employeeId) ?? {
+        x: defaultEmployeeZone.cx,
+        z: defaultEmployeeZone.cz,
+      };
+      const staging = actorById.get(cue.employeeId)?.staging;
+      const fromX = staging?.x ?? home.x;
+      const fromZ = staging?.z ?? home.z;
+      const to = flowTarget3D(cue.target);
+      const laneKey = `${cue.employeeId}|${cue.target}`;
+      const slot = labelSlots.get(laneKey) ?? 0;
+      labelSlots.set(laneKey, slot + 1);
+      return {
+        id: `${cue.employeeId}|${cue.target}|${cue.kind}`,
+        from: [fromX, 0.12, fromZ] as const,
+        to,
+        color: INK_3D[cue.ink],
+        label: flowCueText(cue),
+        labelPosition: [(fromX + to[0]) / 2, 0.6 + slot * 0.34, (fromZ + to[2]) / 2] as const,
+        lineWidth: 1.6 + bundleEmphasis(cue),
+      };
+    });
+  }, [actorById, defaultEmployeeZone, placementsByEmployee, frame.flows]);
+
+  // Purpose-distinct target anchors (I4): every target a live lane points at
+  // gets a small labeled chip so lanes visibly go somewhere; the delivery
+  // shelf is itself the delivery anchor whenever it renders.
+  const activeFlowTargets = useMemo(() => {
+    const targets = new Set<FlowCueTarget>();
+    for (const cue of frame.flows) targets.add(cue.target);
+    return [...targets].sort();
+  }, [frame.flows]);
+
+  // employeeId → typed resource strain for the six-kind marker glyphs.
+  const resourceKindByEmployee = useMemo(
+    () => new Map(frame.resources.map((res) => [res.employeeId, res.resourceKind])),
+    [frame.resources],
+  );
+  const attentionEmployeeId =
+    frame.attention?.target === 'employee' ? (frame.attention.employeeId ?? null) : null;
+  const deliveryAttention = frame.attention?.target === 'delivery';
+
+  // Artifact arrival (I5): a brief shelf highlight when recentCount increases —
+  // a CSS transition on the shelf head; reduced motion renders it without
+  // transition (statically) via the media query. Seeded with the mount count
+  // so pre-existing claims never flash.
+  const [deliveryArrived, setDeliveryArrived] = useState(false);
+  const prevRecentCountRef = useRef(frame.delivery.recentCount);
+  useEffect(() => {
+    const previous = prevRecentCountRef.current;
+    prevRecentCountRef.current = frame.delivery.recentCount;
+    if (frame.delivery.recentCount < previous) {
+      // Claim beats expired (3-4.5s TTL): clear any armed highlight — the
+      // reset timer below was cancelled by this effect's own cleanup, so
+      // without this the shelf would stay highlighted forever.
+      setDeliveryArrived(false);
+      return;
     }
-    return map;
-  }, [threads.data]);
+    if (frame.delivery.recentCount === previous) return;
+    setDeliveryArrived(true);
+    const timer = window.setTimeout(() => setDeliveryArrived(false), 1500);
+    return () => window.clearTimeout(timer);
+  }, [frame.delivery.recentCount]);
+
+  // Delivery history route (I5): the shelf surface / head / +N overflow opens
+  // the latest claim owner's workload drilldown when resolvable, else opens
+  // the claim — the shared owner-routing helper both scenes use.
+  const handleDeliveryHistory = () =>
+    openDeliveryHistory(frame.delivery.latest, { openWorkloadDrilldown, openStageView, projectId });
+
   const draggedEmployee = employeeDrag
     ? (roster.find((employee) => employee.id === employeeDrag.employeeId) ?? null)
     : null;
@@ -797,11 +861,12 @@ export function OfficeScene3D() {
         shadows="soft"
         dpr={[1, 1.75]}
         // Keep R3F's default `frameloop="always"`. We tried "demand" to save
-        // idle CPU but BlockCharacter.useFrame mutates `group.position.y`
-        // directly via refs (idle bob, walk bob) and never invalidates, so
-        // demand mode froze every employee's animation. ServerRack LOD checks
-        // similarly run in useFrame without setState. Re-enable demand only
-        // alongside an invalidate() in those useFrame consumers.
+        // idle CPU but the character mixers advance in useFrame (GltfCharacter
+        // RigView) and EmployeeUnit's glide lerp mutates positions via refs —
+        // neither invalidates, so demand mode froze every employee's
+        // animation. ServerRack LOD checks similarly run in useFrame without
+        // setState. Re-enable demand only alongside an invalidate() in those
+        // useFrame consumers.
         camera={{ position: OFFICE_CAMERA_PRESET.position, fov: OFFICE_CAMERA_PRESET.fov }}
         gl={{ antialias: true, toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.02 }}
         className="off-scene-canvas"
@@ -842,18 +907,15 @@ export function OfficeScene3D() {
                 rotation: 0,
                 posture: 'standing' as const,
               };
-              const thread = threadByEmployee.get(employee.id);
-              const workload = workloads.get(employee.id);
-              const activeCount = workload?.activeCount ?? 0;
-              const running = activeCount > 0;
-              // One render-agnostic grouping drives the ×N badge, resource
-              // marker, and chip row — the same projection the 2D scene reads.
-              const grouped = workload ? groupedWorkload(workload) : null;
+              // Every runtime fact for this actor comes from its cue: running,
+              // selection, drag, the workload bubble, staging, performance.
+              const cue = actorById.get(employee.id);
+              const running = cue?.running ?? false;
+              const workload = cue?.workload ?? null;
               // High-value movement beats relocate the actor to a reserved
               // anchor; everything else stays at the home placement (and only
               // the performance changes).
-              const dram = dramaturgyByEmployee.get(employee.id);
-              const anchor = dram?.staging;
+              const anchor = cue?.staging ?? null;
               const relocated = anchor != null && anchor.x != null && anchor.z != null;
               const target = relocated
                 ? {
@@ -863,6 +925,11 @@ export function OfficeScene3D() {
                     posture: (anchor.posture ?? placement.posture) as EmployeePosture,
                   }
                 : placement;
+              // Unstaged actors carry performance: null (the cue contract);
+              // map null to undefined so GltfCharacter's legacy action-driven
+              // clip path (idle loop, talk loop) stays byte-identical.
+              const performance = cue?.performance ?? undefined;
+              const threadId = cue?.threadId ?? null;
               return (
                 <EmployeeUnit
                   key={employee.id}
@@ -873,14 +940,21 @@ export function OfficeScene3D() {
                   posture={!real ? 'sitting' : target.posture}
                   withDesk={!real}
                   running={running}
-                  grouped={grouped}
+                  workload={workload}
+                  resourceKind={resourceKindByEmployee.get(employee.id) ?? null}
                   reducedMotion={reducedMotion}
-                  active={Boolean(thread && thread.id === selectedThreadId)}
-                  dragging={employeeDrag?.employeeId === employee.id}
-                  performance={dram?.performance}
+                  active={cue?.selected ?? false}
+                  attention={attentionEmployeeId === employee.id}
+                  dragging={cue?.dragging ?? false}
+                  performance={performance}
                   zones={zoneDefs}
-                  onSelect={() => thread && openThread(thread.id)}
+                  onSelect={() => threadId && openThread(threadId)}
                   onDrilldown={() => openWorkloadDrilldown(employee.id)}
+                  onHoverChange={(hovered) =>
+                    setHoveredEmployeeId((prev) =>
+                      hovered ? employee.id : prev === employee.id ? null : prev,
+                    )
+                  }
                   onHoverZone={setHoveredZoneId}
                   onDragState={setEmployeeDrag}
                   onDrop={(result) => {
@@ -919,43 +993,112 @@ export function OfficeScene3D() {
             <Line
               points={[line.from, line.to]}
               color={line.color}
-              lineWidth={1.6}
+              lineWidth={line.lineWidth}
               transparent
               opacity={0.58}
             />
+            {/* Lane density label — the shared flowCueText rule (`×N · label`
+                for bundles), a compact pill at the line midpoint. */}
+            <Html
+              position={line.labelPosition}
+              center
+              distanceFactor={18}
+              occlude={false}
+              zIndexRange={[2, 0]}
+              className="off-scene-html-passive"
+            >
+              <span className="off-scene-flow-label">{line.label}</span>
+            </Html>
           </Fragment>
         ))}
-        {artifactBeats.length > 0 ? (
+        {/* Purpose-distinct target anchors — a small labeled node per active
+            flow target (dense HUD, not decoration); the delivery shelf below
+            is itself the delivery anchor when it renders. */}
+        {activeFlowTargets.map((target) =>
+          target === 'delivery' && deliveryLatest ? null : (
+            <Html
+              key={target}
+              position={flowTarget3D(target)}
+              center
+              distanceFactor={18}
+              occlude={false}
+              zIndexRange={[2, 0]}
+              className="off-scene-html-passive"
+            >
+              <span className="off-scene-flow-anchor">{FLOW_TARGET_LABELS[target]}</span>
+            </Html>
+          ),
+        )}
+        {deliveryLatest ? (
           <Html
             position={flowTarget3D('delivery')}
             center
             distanceFactor={18}
             occlude={false}
             zIndexRange={[3, 0]}
-            className={
-              latestArtifactClaim ? 'off-scene-html-interactive' : 'off-scene-html-passive'
-            }
+            className="off-scene-html-interactive"
           >
-            {latestArtifactClaim ? (
-              // Interactive delivery shelf — clicking opens the most recent
-              // artifact beat on the stage (same claim path as the 2D scene).
+            {/* Delivery shelf (I5) — a claimable output surface: ×N total on
+                the head, up to 3 claimable chips (kind tag + ellipsized title,
+                newest emphasized), +N overflow to history/drilldown, and a
+                brief arrival highlight when a new claim lands. Same click
+                semantics as the 2D shelf: the WHOLE shelf surface (wrapper
+                padding + inter-chip gaps included) routes to history like the
+                old full-surface button; chips/head/overflow keep their own
+                handlers and stop propagation. */}
+            {/* biome-ignore lint/a11y/useKeyWithClickEvents: the wrapper click is a pointer convenience covering gaps between the real buttons; the head/chip/overflow buttons inside are keyboard-focusable and cover every action */}
+            <div
+              className={`off-scene-delivery${deliveryArrived ? ' is-arrived' : ''}${
+                deliveryAttention ? ' is-attention' : ''
+              }`}
+              onClick={handleDeliveryHistory}
+            >
               <button
                 type="button"
                 className="off-scene-delivery-shelf is-interactive"
-                aria-label={`Open delivery — ${latestArtifactClaim.title}`}
-                onClick={() => {
-                  void openArtifactClaim(latestArtifactClaim, { openStageView, projectId });
+                aria-label={`Delivery — ${frame.delivery.recentCount} artifacts, open history`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeliveryHistory();
                 }}
               >
                 <span>Delivery</span>
-                <b>{artifactBeats.length}</b>
+                <b>{frame.delivery.recentCount}</b>
               </button>
-            ) : (
-              <div className="off-scene-delivery-shelf">
-                <span>Delivery</span>
-                <b>{artifactBeats.length}</b>
+              <div className="off-scene-delivery-chips">
+                {frame.delivery.chips.map((chip, index) => (
+                  <button
+                    key={`${chip.deliverableId ?? chip.path ?? chip.title}-${index}`}
+                    type="button"
+                    className={`off-scene-delivery-chip${
+                      index === frame.delivery.chips.length - 1 ? ' is-new' : ''
+                    }`}
+                    title={chip.title}
+                    aria-label={`Open ${chip.title}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void openArtifactClaim(chip, { openStageView, projectId });
+                    }}
+                  >
+                    <i>{chip.kind.slice(0, 3).toUpperCase()}</i>
+                    <span>{chip.title}</span>
+                  </button>
+                ))}
+                {frame.delivery.overflowCount > 0 ? (
+                  <button
+                    type="button"
+                    className="off-scene-delivery-overflow"
+                    aria-label={`${frame.delivery.overflowCount} more artifacts — open history`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeliveryHistory();
+                    }}
+                  >
+                    +{frame.delivery.overflowCount}
+                  </button>
+                ) : null}
               </div>
-            )}
+            </div>
           </Html>
         ) : null}
 

@@ -311,10 +311,7 @@ export function projectEmployeeWorkloads(
   // `terminalIssue` = failed delegations whose beat is still live with a resource
   // or flow.failure signal. They join the member-set rollup (total / priority
   // issues) but NEVER the active counts (activeRunIds / activeCount / waiting).
-  const acc = new Map<
-    string,
-    { working: string[]; waiting: string[]; terminalIssue: string[] }
-  >();
+  const acc = new Map<string, { working: string[]; waiting: string[]; terminalIssue: string[] }>();
   if (!projectId) return new Map();
 
   const add = (
@@ -346,6 +343,17 @@ export function projectEmployeeWorkloads(
     const rootActive = isConversationRunActive(run.phase);
     if (rootActive && run.employeeId && run.attemptId) {
       add(run.employeeId, run.attemptId, run.phase === 'awaiting-approval' ? 'waiting' : 'working');
+    } else if (
+      run.phase === 'failed' &&
+      run.employeeId &&
+      run.attemptId &&
+      hasLiveIssueBeat(liveBeat(run.attemptId))
+    ) {
+      // A failed ROOT run whose failure beat is still live keeps its employee
+      // on the board exactly like a failed delegation does — the actor marker,
+      // bubble, and drilldown must show the blocked state (PRD), not have the
+      // employee silently drop out of the workload map.
+      add(run.employeeId, run.attemptId, 'terminalIssue');
     }
     for (const delegation of run.delegations) {
       if (!delegation.employeeId) continue;

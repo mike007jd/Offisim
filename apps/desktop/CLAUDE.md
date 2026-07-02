@@ -47,7 +47,7 @@ sidecars.
 
 ## Local SQLite
 
-Offisim 已确认未上线，本地 SQLite 不保留历史升级合同。`packages/db-local/src/schema.sql` 是当前 baseline，`local_db.rs::ensure_schema` 只接受 `LOCAL_SCHEMA_VERSION = 1` 或空库 bootstrap；旧本地库、无 stamp 库、其他版本库都是可丢弃开发产物，删除后重建。改 schema 时同步 `schema.sql` + `schema.ts`；不要新增迁移 SQL、兼容升级 helper 或 `MIGRATIONS` 注册。
+Offisim 已确认未上线，本地 SQLite 不保留历史升级合同。`packages/db-local/src/schema.sql` 是当前 baseline，`local_db.rs::ensure_schema` 只接受当前 `LOCAL_SCHEMA_VERSION`（真值以 `local_db.rs` 常量为准）或空库 bootstrap；旧本地库、无 stamp 库、其他版本库都是可丢弃开发产物，删除后重建。改 schema 时同步 `schema.sql` + `schema.ts`；不要新增迁移 SQL、兼容升级 helper 或 `MIGRATIONS` 注册。
 
 ## Release CSP / platform CORS coupling
 

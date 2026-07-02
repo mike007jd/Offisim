@@ -2,13 +2,15 @@ import { buildDelegationContext, buildMcpScope } from '@/data/employee-persona.j
 import { ensureProjectBoundForRun } from '@/runtime/ensure-default-workspace.js';
 import { agentRunEvent, llmStreamChunk, toolExecutionTelemetry } from '@offisim/core/browser';
 import type { RuntimeRepositories } from '@offisim/core/browser';
-import type {
-  AgentRunArtifactPayload,
-  AgentRunEvent,
-  AgentRunFinishedPayload,
-  AgentRunStartedPayload,
-  AgentRunUsage,
-  RuntimeEvent,
+import {
+  type AgentRunArtifactPayload,
+  type AgentRunEvent,
+  type AgentRunFinishedPayload,
+  type AgentRunStartedPayload,
+  type AgentRunUsage,
+  type RunFailureKind,
+  type RuntimeEvent,
+  classifyRunFailure,
 } from '@offisim/shared-types';
 import { Channel, invoke } from '@tauri-apps/api/core';
 import {
@@ -338,7 +340,9 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       throw new Error('Cannot resume Pi Agent run: original project is unavailable.');
     }
     if (!project.workspace_root?.trim()) {
-      throw new Error('Cannot resume Pi Agent run: original project has no workspace folder bound.');
+      throw new Error(
+        'Cannot resume Pi Agent run: original project has no workspace folder bound.',
+      );
     }
     try {
       const exists = await invoke<boolean>('project_exists', {
@@ -401,10 +405,11 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
         }
         if (event.kind === 'started') {
           if (event.sessionFile) {
-            this.enqueuePersist(() =>
-              this.repos.agentRuns?.updateStatus(row.run_id, 'running', {
-                sessionFile: event.sessionFile,
-              }) ?? Promise.resolve(),
+            this.enqueuePersist(
+              () =>
+                this.repos.agentRuns?.updateStatus(row.run_id, 'running', {
+                  sessionFile: event.sessionFile,
+                }) ?? Promise.resolve(),
             );
           }
           return;
@@ -564,8 +569,20 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           return;
         }
         if (event.kind === 'error') {
-          emitRootBus(rootRun('run.failed', { status: 'failed', summary: event.message }));
-          this.enqueuePersist(() => this.reconcileRoot(row.run_id, 'failed', undefined));
+          // A host error message is this lane's free-text ORIGIN — classify the
+          // typed kind here (a provider 429 is token strain, not machinery),
+          // defaulting to 'runtime' for transport/host failures.
+          const failureKind = classifyRunFailure(event.message);
+          emitRootBus(
+            rootRun('run.failed', {
+              status: 'failed',
+              summary: event.message,
+              failureKind,
+            }),
+          );
+          this.enqueuePersist(() =>
+            this.reconcileRoot(row.run_id, 'failed', undefined, failureKind),
+          );
           if (this.inFlightByThread.get(row.thread_id) === requestId) {
             this.inFlightByThread.delete(row.thread_id);
           }
@@ -656,10 +673,11 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       }
       if (event.kind === 'started') {
         if (event.sessionFile) {
-          this.enqueuePersist(() =>
-            this.repos.agentRuns?.updateStatus(runScope.runId, 'running', {
-              sessionFile: event.sessionFile,
-            }) ?? Promise.resolve(),
+          this.enqueuePersist(
+            () =>
+              this.repos.agentRuns?.updateStatus(runScope.runId, 'running', {
+                sessionFile: event.sessionFile,
+              }) ?? Promise.resolve(),
           );
         }
         return;
@@ -950,10 +968,18 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       const aborted = this.abortedRequests.has(requestId);
       const status = aborted ? 'cancelled' : 'failed';
       const message = err instanceof Error ? err.message : String(err);
-      emitRootBus(rootRun(aborted ? 'run.cancelled' : 'run.failed', { status, summary: message }));
+      // A thrown invoke / channel error carries this lane's origin free text —
+      // classify the typed kind from it (provider messages surface here too);
+      // a cancel never carries a failureKind.
+      const failureKind = aborted ? undefined : classifyRunFailure(message);
+      emitRootBus(
+        aborted
+          ? rootRun('run.cancelled', { status, summary: message })
+          : rootRun('run.failed', { status, summary: message, failureKind }),
+      );
       // rootUsage isn't in scope here — the invoke threw before returning it, so
       // there is no root usage to fold in. reconcileRoot still sums any children.
-      this.enqueuePersist(() => this.reconcileRoot(runScope.runId, status, undefined));
+      this.enqueuePersist(() => this.reconcileRoot(runScope.runId, status, undefined, failureKind));
       throw err;
     } finally {
       this.abortedRequests.delete(requestId);
@@ -972,6 +998,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     rootRunId: string,
     status: 'completed' | 'failed' | 'cancelled',
     rootUsage?: AgentRunUsage,
+    failureKind?: RunFailureKind,
   ): Promise<void> {
     const repo = this.repos.agentRuns;
     if (!repo) return;
@@ -987,7 +1014,13 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       // interrupted-run reconciler (DR-003).
       const { usageJson, dangling } = aggregateSubtreeUsage(children, rootRunId, rootUsage);
       await Promise.all([
-        repo.updateStatus(rootRunId, status, { finishedAt, usageJson }),
+        repo.updateStatus(rootRunId, status, {
+          finishedAt,
+          usageJson,
+          // The root's typed failure cause is only meaningful on a failed
+          // terminal; completed/cancelled roots never write one.
+          ...(status === 'failed' ? { failureKind: failureKind ?? null } : {}),
+        }),
         ...dangling.map((id) => repo.updateStatus(id, 'cancelled', { finishedAt })),
       ]);
     } catch (err) {
@@ -1017,6 +1050,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           root_run_id: evt.rootRunId,
           employee_id: evt.employeeId ?? null,
           relation: evt.relation ?? null,
+          work_kind: evt.workKind ?? null,
           objective: payload.objective ?? null,
           access: payload.access ?? null,
           status: 'running',
@@ -1032,6 +1066,9 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           resultSummaryJson: payload.summary ? JSON.stringify({ summary: payload.summary }) : null,
           usageJson: payload.usage ? JSON.stringify(payload.usage) : null,
           finishedAt: new Date().toISOString(),
+          // The typed failure cause is durable only on a failed terminal;
+          // completed/cancelled runs never carry one.
+          ...(evt.type === 'run.failed' ? { failureKind: payload.failureKind ?? null } : {}),
         });
       }
     } catch (err) {

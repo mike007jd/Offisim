@@ -20,7 +20,12 @@ import {
   SessionManager,
   createAgentSession,
 } from '@earendil-works/pi-coding-agent';
-import { WORK_KINDS, agentRunLine } from './pi-agent-host-wire.mjs';
+import {
+  WORK_KINDS,
+  agentRunLine,
+  assertRunFailureKind,
+  classifyRunFailure,
+} from './pi-agent-host-wire.mjs';
 import { createDelegationExtensionFactory } from './pi-delegation-extension.mjs';
 
 // Capability band → child tool allowlist. `write` returns undefined so Pi enables
@@ -320,10 +325,22 @@ export function createChildSupervisor(ctx) {
   }
 
   /** Emit a never-started block as a terminal failure so it's visible (GUI +
-   *  tool result) — caps are never silent. */
-  function blocked(emit, reason) {
-    emit('run.failed', { status: 'failed', summary: reason });
+   *  tool result) — caps are never silent. `failureKind` is the typed cause
+   *  (RunFailureKind) from the structurally-known block site, never keyword-
+   *  derived downstream. */
+  function blocked(emit, reason, failureKind) {
+    assertRunFailureKind(failureKind);
+    emit('run.failed', { status: 'failed', failureKind, summary: reason });
     return `Delegation blocked: ${reason}`;
+  }
+
+  /** Emit an in-flight terminal failure. Every `run.failed` must route through
+   *  here (or `blocked`) so the typed `failureKind` is validated at the emit
+   *  boundary — no failure path can forget it, and nothing downstream
+   *  keyword-parses the summary. */
+  function failed(emit, failureKind, summary, usage) {
+    assertRunFailureKind(failureKind);
+    emit('run.failed', { status: 'failed', failureKind, summary, ...(usage ? { usage } : {}) });
   }
 
   async function runSingle(task, signal) {
@@ -337,10 +354,14 @@ export function createChildSupervisor(ctx) {
 
     if (!employee) {
       const available = roster.map((entry) => entry.employeeId).join(', ') || 'none';
-      return blocked(emit, `Unknown teammate "${task.employeeId}". Available: ${available}.`);
+      return blocked(
+        emit,
+        `Unknown teammate "${task.employeeId}". Available: ${available}.`,
+        'runtime',
+      );
     }
     if (!objective) {
-      return blocked(emit, 'Delegation needs a non-empty objective.');
+      return blocked(emit, 'Delegation needs a non-empty objective.', 'runtime');
     }
     // Start the run now (valid teammate + objective) so even a policy-cap block
     // below leaves a durable agent_runs row — caps are never silent, at the DB
@@ -353,6 +374,7 @@ export function createChildSupervisor(ctx) {
       return blocked(
         emit,
         `Max delegation depth (${limits.maxDepth}) reached — cannot delegate further.`,
+        'runtime',
       );
     }
     // Token budget across the whole tree — the loop-until-budget backstop. Checked
@@ -361,6 +383,7 @@ export function createChildSupervisor(ctx) {
       return blocked(
         emit,
         `Delegation token budget (${limits.maxTotalTokens}) exhausted for this run.`,
+        'budget',
       );
     }
     // Global total-children cap across the whole tree for this root run.
@@ -368,6 +391,7 @@ export function createChildSupervisor(ctx) {
       return blocked(
         emit,
         `Max total delegated agents (${limits.maxTotalChildren}) reached for this run.`,
+        'runtime',
       );
     }
 
@@ -415,7 +439,11 @@ export function createChildSupervisor(ctx) {
           access,
         });
         if (leaseResult?.outcome === 'blocked') {
-          return blocked(emit, `${leaseResult.reason} (blocked by ${leaseResult.blockedByRunId})`);
+          return blocked(
+            emit,
+            `${leaseResult.reason} (blocked by ${leaseResult.blockedByRunId})`,
+            'runtime',
+          );
         }
         lease = leaseResult?.lease ?? null;
         if (typeof lease?.cwd === 'string' && lease.cwd.trim()) {
@@ -424,7 +452,7 @@ export function createChildSupervisor(ctx) {
         if (lease) await emitWorkspaceLeaseSnapshot(emit, lease, 'acquired');
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        return blocked(emit, `Workspace lease failed: ${message}`);
+        return blocked(emit, `Workspace lease failed: ${message}`, 'runtime');
       }
     }
     const effectiveObjective =
@@ -468,10 +496,7 @@ export function createChildSupervisor(ctx) {
         if (released)
           await emitWorkspaceLeaseSnapshot(emit, released, 'released_after_start_failure');
       }
-      emit('run.failed', {
-        status: 'failed',
-        summary: `Failed to start: ${message}`,
-      });
+      failed(emit, 'runtime', `Failed to start: ${message}`);
       return `Delegation failed: ${message}`;
     }
 
@@ -533,41 +558,51 @@ export function createChildSupervisor(ctx) {
       if (finalAssistant?.stopReason === 'error' || assistantError) {
         const message =
           assistantError ?? 'Pi Agent model returned an error stop without a message.';
-        emit('run.failed', { status: 'failed', summary: message, usage });
+        // Provider/model error stops are the one lane where token/context/
+        // permission causes surface — classify the typed kind here, at the
+        // source of the free text.
+        failed(emit, classifyRunFailure(message), message, usage);
         return `Delegation failed: ${message}`;
+      }
+      if (timedOut) {
+        const reason = `Timed out after ${Math.round(limits.childTimeoutMs / 1000)}s`;
+        failed(emit, 'runtime', reason, usage);
+        return `Delegation failed: ${reason}`;
       }
       // Lift the child's reply into a bounded, structured result — the only thing
       // the root model sees; the full transcript stays in telemetry.
       const assistantText = (session.getLastAssistantText() || '').trim();
-      if (!assistantText) {
-        const reason = 'Child completed without assistant output.';
-        emit('run.failed', { status: 'failed', summary: reason, usage });
-        return `Delegation failed: ${reason}`;
-      }
-      const summary = renderChildSummary(parseChildSummary(assistantText));
-      if (timedOut) {
-        const reason = `Timed out after ${Math.round(limits.childTimeoutMs / 1000)}s`;
-        emit('run.failed', { status: 'failed', summary: reason, usage });
-        return `Delegation failed: ${reason}`;
-      }
+      // A user abort is a neutral cancel even when it landed before the child
+      // produced any output — the empty-output failure below is only for runs
+      // that genuinely ran to completion with nothing to say.
       if (aborted) {
+        const summary = assistantText
+          ? renderChildSummary(parseChildSummary(assistantText))
+          : 'Cancelled before the child produced output.';
         emit('run.cancelled', { status: 'cancelled', summary, usage });
         return `Delegation cancelled: ${summary}`;
       }
+      if (!assistantText) {
+        const reason = 'Child completed without assistant output.';
+        failed(emit, 'tool', reason, usage);
+        return `Delegation failed: ${reason}`;
+      }
+      const summary = renderChildSummary(parseChildSummary(assistantText));
       emit('run.completed', { status: 'completed', summary, usage });
       return summary;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       // timedOut wins over aborted (a timeout calls session.abort() internally, so
       // both flags can be set in the race) — consistent with the try-branch which
-      // checks timedOut first. A bare abort is a cancel; anything else is a failure.
-      const status = timedOut ? 'failed' : aborted ? 'cancelled' : 'failed';
-      emit(status === 'cancelled' ? 'run.cancelled' : 'run.failed', {
-        status,
-        summary: message,
-        usage,
-      });
-      return `Delegation ${status}: ${message}`;
+      // checks timedOut first. A bare abort is a cancel (never a failureKind).
+      // Anything else thrown from the session is host/provider machinery, not a
+      // tool — classify from the message, defaulting 'runtime'.
+      if (!timedOut && aborted) {
+        emit('run.cancelled', { status: 'cancelled', summary: message, usage });
+        return `Delegation cancelled: ${message}`;
+      }
+      failed(emit, timedOut ? 'runtime' : classifyRunFailure(message), message, usage);
+      return `Delegation failed: ${message}`;
     } finally {
       if (timer) clearTimeout(timer);
       unsubscribe();

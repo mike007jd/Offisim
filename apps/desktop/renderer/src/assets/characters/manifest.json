@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "bodies": {
+    "male": {
+      "file": "body_male.glb",
+      "heightUnits": 1.8196,
+      "skinReference": {
+        "light": "#a67858",
+        "dark": "#9c6e4e"
+      }
+    },
+    "female": {
+      "file": "body_female.glb",
+      "heightUnits": 1.7751,
+      "skinReference": {
+        "light": "#a97957",
+        "dark": "#a37351"
+      }
+    }
+  },
+  "hair": {
+    "hair_01": "Hair_SimpleParted",
+    "hair_02": "Hair_Long",
+    "hair_03": "Hair_Buns",
+    "hair_04": "Hair_Buzzed",
+    "hair_05": "Hair_BuzzedFemale",
+    "hair_06": "Hair_Beard"
+  },
+  "brows": {
+    "brows_01": "Eyebrows_Regular",
+    "brows_02": "Eyebrows_Female"
+  },
+  "props": {
+    "prop_laptop": "kenney-furniture-kit:laptop.glb",
+    "prop_monitor": "kenney-furniture-kit:computerScreen.glb",
+    "prop_box": "kenney-furniture-kit:cardboardBoxClosed.glb",
+    "prop_books": "kenney-furniture-kit:books.glb",
+    "prop_book": "kaykit-furniture-bits:book_single.gltf"
+  },
+  "clips": [
+    "blocked.headshake",
+    "carry",
+    "celebrate.dance",
+    "celebrate.yes",
+    "consume",
+    "idle",
+    "idle.talk",
+    "inspect.open",
+    "interact",
+    "phone",
+    "pickup",
+    "sit.enter",
+    "sit.exit",
+    "sit.idle",
+    "sit.talk",
+    "tpose",
+    "wait.foldarms",
+    "walk",
+    "walk.formal"
+  ],
+  "clipSources": {
+    "tpose": "UAL1:A_TPose",
+    "idle": "UAL1:Idle_Loop",
+    "idle.talk": "UAL1:Idle_Talking_Loop",
+    "interact": "UAL1:Interact",
+    "pickup": "UAL1:PickUp_Table",
+    "sit.enter": "UAL1:Sitting_Enter",
+    "sit.exit": "UAL1:Sitting_Exit",
+    "sit.idle": "UAL1:Sitting_Idle_Loop",
+    "sit.talk": "UAL1:Sitting_Talking_Loop",
+    "walk": "UAL1:Walk_Loop",
+    "walk.formal": "UAL1:Walk_Formal_Loop",
+    "celebrate.dance": "UAL1:Dance_Loop",
+    "inspect.open": "UAL2:Chest_Open",
+    "consume": "UAL2:Consume",
+    "wait.foldarms": "UAL2:Idle_FoldArms_Loop",
+    "blocked.headshake": "UAL2:Idle_No_Loop",
+    "phone": "UAL2:Idle_TalkingPhone_Loop",
+    "carry": "UAL2:Walk_Carry_Loop",
+    "celebrate.yes": "UAL2:Yes"
+  },
+  "files": {
+    "body_male.glb": 1166332,
+    "body_female.glb": 1105424,
+    "hair_01.glb": 150996,
+    "hair_02.glb": 203296,
+    "hair_03.glb": 209844,
+    "hair_04.glb": 145968,
+    "hair_05.glb": 145936,
+    "hair_06.glb": 148124,
+    "brows_01.glb": 58748,
+    "brows_02.glb": 67988,
+    "animations.glb": 953992,
+    "props.glb": 18344,
+    "LICENSES.md": 4615
+  },
+  "totalBytes": 4379607
+}

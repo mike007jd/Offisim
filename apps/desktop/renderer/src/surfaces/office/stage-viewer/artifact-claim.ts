@@ -1,23 +1,7 @@
 import type { StageViewTarget } from '@/app/ui-state.js';
+import type { ClaimableArtifact } from '@/assistant/runtime/scene-cue-projection.js';
 import type { ToolRichDetail } from '@offisim/shared-types';
 import { openStageFilePreview } from './file-preview.js';
-
-/**
- * A claimable artifact is any produced/tool/preview surface that can be opened
- * on the stage. It is intentionally structural (not a wire type): callers fill
- * whichever fields they have, and {@link resolveArtifactClaim} picks the single
- * canonical stage target it maps to.
- */
-export interface ClaimableArtifact {
-  readonly title: string;
-  readonly kind: string;
-  readonly deliverableId?: string;
-  readonly path?: string;
-  readonly url?: string;
-  readonly sourceId?: string;
-  readonly threadId?: string | null;
-  readonly detail?: ToolRichDetail;
-}
 
 /**
  * The resolved stage intent for a claim: a deterministic projection of a

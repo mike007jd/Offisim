@@ -192,11 +192,17 @@ export type {
   DelegateExecutionMode,
   DelegateTaskInput,
   DelegateToolInput,
+  RunFailureKind,
   ToolFamily,
   ToolRichDetail,
   WorkKind,
 } from './events/agent-run.js';
-export { classifyToolActivity, parseToolRichDetail, toolFamily } from './events/agent-run.js';
+export {
+  classifyRunFailure,
+  classifyToolActivity,
+  parseToolRichDetail,
+  toolFamily,
+} from './events/agent-run.js';
 export type {
   ActivityEntry,
   AgentRunNode,
@@ -327,6 +333,7 @@ export {
   DRAMATURGY_VERSION,
   beatLifespanMs,
   composeBeats,
+  isBeatLive,
   resourceSeverityRank,
   surfacedResourceSeverity,
 } from './dramaturgy/beat-composer.js';

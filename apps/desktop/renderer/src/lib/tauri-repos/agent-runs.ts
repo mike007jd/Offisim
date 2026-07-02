@@ -17,6 +17,8 @@ export function createAgentRunsTauriRepos(db: TauriDrizzleDb): AgentRunsTauriRep
       const row: AgentRunRow = {
         ...run,
         project_id: run.project_id ?? null,
+        work_kind: run.work_kind ?? null,
+        failure_kind: run.failure_kind ?? null,
         usage_json: run.usage_json ?? null,
         result_summary_json: run.result_summary_json ?? null,
         session_file: run.session_file ?? null,
@@ -67,6 +69,7 @@ export function createAgentRunsTauriRepos(db: TauriDrizzleDb): AgentRunsTauriRep
       if (opts?.usageJson !== undefined) patch.usage_json = opts.usageJson;
       if (opts?.finishedAt !== undefined) patch.finished_at = opts.finishedAt;
       if (opts?.sessionFile !== undefined) patch.session_file = opts.sessionFile;
+      if (opts?.failureKind !== undefined) patch.failure_kind = opts.failureKind;
       await db.update(schema.agentRuns).set(patch).where(eq(schema.agentRuns.run_id, runId));
     },
     async updateRuntimeContext(runId, runtimeContextJson) {

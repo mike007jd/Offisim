@@ -14,8 +14,10 @@ import type {
   AgentRunEvent,
   AgentRunFinishedPayload,
   AgentRunStartedPayload,
+  RunFailureKind,
   RuntimeEvent,
   ToolExecutionTelemetryPayload,
+  WorkKind,
 } from '@offisim/shared-types';
 import {
   buildRunError,
@@ -58,6 +60,11 @@ interface RunDelegation {
   objective: string;
   state: 'running' | 'done' | 'failed' | 'cancelled';
   summary?: string;
+  /** Work semantics from the run's scope fields (absent = unclassified). */
+  readonly workKind?: WorkKind;
+  /** Typed failure cause copied from a failed terminal payload; never set on
+   *  done/cancelled delegations. */
+  readonly failureKind?: RunFailureKind;
 }
 
 export interface PendingApproval {
@@ -778,6 +785,7 @@ export class ConversationRunController {
           employeeId: evt.employeeId ?? null,
           objective: payload.objective,
           state: 'running',
+          ...(evt.workKind ? { workKind: evt.workKind } : {}),
         },
       ];
     } else if (
@@ -788,9 +796,18 @@ export class ConversationRunController {
       const payload = evt.payload as AgentRunFinishedPayload;
       const state =
         evt.type === 'run.completed' ? 'done' : evt.type === 'run.failed' ? 'failed' : 'cancelled';
+      // The typed failure cause only rides a failed terminal's payload.
+      const failureKind = evt.type === 'run.failed' ? payload.failureKind : undefined;
       run.delegations = existing
         ? run.delegations.map((d) =>
-            d.runId === evt.runId ? { ...d, state, summary: payload.summary } : d,
+            d.runId === evt.runId
+              ? {
+                  ...d,
+                  state,
+                  summary: payload.summary,
+                  ...(failureKind ? { failureKind } : {}),
+                }
+              : d,
           )
         : [
             ...run.delegations,
@@ -801,6 +818,8 @@ export class ConversationRunController {
               objective: '',
               state,
               summary: payload.summary,
+              ...(evt.workKind ? { workKind: evt.workKind } : {}),
+              ...(failureKind ? { failureKind } : {}),
             },
           ];
     } else {

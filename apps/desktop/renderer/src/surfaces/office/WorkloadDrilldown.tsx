@@ -4,15 +4,13 @@ import {
   useActiveConversationRuns,
   useEmployeeWorkloads,
 } from '@/assistant/runtime/conversation-run-react.js';
-import { useOfficeBeats } from '@/assistant/runtime/office-dramaturgy.js';
-import { Icon } from '@/design-system/icons/Icon.js';
+import { workKindLabel } from '@/assistant/runtime/scene-cue-projection.js';
+import { useSceneCueFrame } from '@/assistant/runtime/scene-cue-react.js';
 import { useEmployees } from '@/data/queries.js';
+import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
-import {
-  type ClaimableArtifact,
-  openArtifactClaim,
-} from '@/surfaces/office/stage-viewer/artifact-claim.js';
-import { beatToClaimable, workKindLabel } from '@/surfaces/office/scene/workload-chips.js';
+import { useSceneStagingInputs } from '@/surfaces/office/scene/use-scene-staging-inputs.js';
+import { openArtifactClaim } from '@/surfaces/office/stage-viewer/artifact-claim.js';
 import type { SceneBeat } from '@offisim/shared-types';
 import {
   AlertOctagon,
@@ -39,9 +37,18 @@ import { useMemo } from 'react';
  * rows) and offers navigation affordances only — open an artifact/file on the
  * stage, jump to the owning thread. It NEVER edits a child run's prompt/persona,
  * spawns/terminates a worker, renames a run, or exposes any lifecycle control.
+ *
+ * Closed = zero work: the outer component reads only the drilldown ui-state, so
+ * none of the panel's hooks (the SceneCue frame projection, staging inputs,
+ * workloads, run snapshot) run per beat while the drawer is closed.
  */
 export function WorkloadDrilldown() {
   const drilldown = useUiState((s) => s.workloadDrilldown);
+  if (!drilldown) return null;
+  return <WorkloadDrilldownPanel employeeId={drilldown.employeeId} />;
+}
+
+function WorkloadDrilldownPanel({ employeeId }: { employeeId: string }) {
   const closeWorkloadDrilldown = useUiState((s) => s.closeWorkloadDrilldown);
   const projectId = useUiState((s) => s.projectId);
   const companyId = useUiState((s) => s.companyId);
@@ -51,12 +58,20 @@ export function WorkloadDrilldown() {
   const employees = useEmployees();
   const workloads = useEmployeeWorkloads(projectId, companyId);
   const runs = useActiveConversationRuns();
-  const beats = useOfficeBeats(companyId);
+  // The SAME SceneCue frame the scenes render (identical staging inputs), so
+  // the drawer's artifacts/issues can never drift from the office floor.
+  const { stagingPrefabs, positions } = useSceneStagingInputs();
+  const { frame, actorById } = useSceneCueFrame({
+    prefabs: stagingPrefabs,
+    actorPositions: positions,
+  });
+  // The typed strain of this employee's top issue (frame.resources) — surfaced
+  // as a small kind tag on the top issue row (six-kind distinction, PRD).
+  const resourceCue = frame.resources.find((res) => res.employeeId === employeeId) ?? null;
 
-  const employeeId = drilldown?.employeeId ?? null;
-  const projection = employeeId ? workloads.get(employeeId) : undefined;
+  const projection = workloads.get(employeeId);
   const employee = useMemo(
-    () => (employeeId ? employees.data?.find((e) => e.id === employeeId) : undefined),
+    () => employees.data?.find((e) => e.id === employeeId),
     [employees.data, employeeId],
   );
 
@@ -64,7 +79,6 @@ export function WorkloadDrilldown() {
   // active-run snapshot attributed to this employee. Delegations carry no thread
   // of their own, so jump-to-thread routes through the owning root run's thread.
   const runRows = useMemo<RunRow[]>(() => {
-    if (!employeeId) return [];
     const rows: RunRow[] = [];
     for (const run of runs.runs) {
       if (run.projectId !== projectId) continue;
@@ -85,20 +99,14 @@ export function WorkloadDrilldown() {
     return rows;
   }, [employeeId, runs.runs, projectId]);
 
-  // Artifacts: the live artifact beats for this employee's runs, newest last —
-  // each is a claimable stage target (same projection the scene delivery shelf
-  // uses). Kept small; the drawer is an inspector, not a file browser.
-  const artifacts = useMemo<ClaimableArtifact[]>(() => {
-    if (!projection) return [];
-    const activeSet = new Set(projection.activeRunIds);
-    return beats
-      .filter((beat) => beat.artifact && (beat.employeeId === employeeId || activeSet.has(beat.runId)))
-      .slice(-8)
-      .map((beat) => beatToClaimable(beat))
-      .filter((claim): claim is ClaimableArtifact => claim !== null);
-  }, [beats, projection, employeeId]);
+  // Artifacts: the actor cue's live claimables, newest last, capped at the
+  // inspector budget — the same attribution the scenes' frame carries (named
+  // employee, or the employee whose active run produced the claim).
+  const actorCue = actorById.get(employeeId) ?? null;
 
-  if (!employeeId || !projection) return null;
+  if (!projection) return null;
+
+  const artifacts = actorCue?.artifacts ?? [];
 
   const summary = projection.workloadSummary;
   const name = employee?.name ?? 'Employee';
@@ -188,7 +196,7 @@ export function WorkloadDrilldown() {
               Issues
             </h3>
             <ul className="off-drill-issues">
-              {summary.priorityIssues.map((issue) => (
+              {summary.priorityIssues.map((issue, index) => (
                 <li
                   key={`${issue.runId}-${issue.kind}`}
                   className={cn('off-drill-issue', `is-${issue.severity}`)}
@@ -196,6 +204,16 @@ export function WorkloadDrilldown() {
                   <Icon icon={issueIcon(issue)} size="sm" />
                   <span className="off-drill-issue-label">{issue.label}</span>
                   <span className="off-drill-issue-tags">
+                    {/* Typed strain tag — joined to the resource cue by runId
+                        (identity, never list position); index 0 is only the
+                        fallback when a runId is missing on either side. */}
+                    {issue.kind === 'resource' &&
+                    resourceCue?.resourceKind &&
+                    (resourceCue.runId && issue.runId
+                      ? resourceCue.runId === issue.runId
+                      : index === 0) ? (
+                      <em className="off-drill-tag">{resourceCue.resourceKind}</em>
+                    ) : null}
                     {issue.terminal ? <em className="off-drill-tag">terminal</em> : null}
                     <em className="off-drill-tag">{issue.severity}</em>
                   </span>

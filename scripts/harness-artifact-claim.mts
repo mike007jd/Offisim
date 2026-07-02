@@ -11,10 +11,8 @@
  * Pure Node via tsx against renderer source (renderer tsconfig paths) — no DOM,
  * no Tauri, no Pi. Only `resolveArtifactClaim` (pure) is exercised.
  */
-import {
-  type ClaimableArtifact,
-  resolveArtifactClaim,
-} from '../apps/desktop/renderer/src/surfaces/office/stage-viewer/artifact-claim.js';
+import type { ClaimableArtifact } from '../apps/desktop/renderer/src/assistant/runtime/scene-cue-projection.js';
+import { resolveArtifactClaim } from '../apps/desktop/renderer/src/surfaces/office/stage-viewer/artifact-claim.js';
 
 let failures = 0;
 let checks = 0;

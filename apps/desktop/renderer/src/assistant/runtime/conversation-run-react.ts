@@ -8,13 +8,12 @@ import {
 } from './conversation-run-controller.js';
 import {
   type EmployeeWorkloadProjection,
-  dominantBeatsFrom,
   isConversationRunActive,
   projectEmployeeWorkloads,
 } from './conversation-run-projections.js';
 import { useOfficeBeats } from './office-dramaturgy.js';
 
-export { isConversationRunActive, dominantBeatsFrom };
+export { isConversationRunActive };
 export type { EmployeeWorkloadProjection };
 export { useInterruptedRunRecovery } from '@/runtime/recovery/useInterruptedRunRecovery.js';
 
