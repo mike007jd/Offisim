@@ -1,203 +1,273 @@
-# Production Work Dramaturgy PRD
+# Fable Production Work Dramaturgy Requirements
 
 ## Current Time Baseline
-- Checked at: 2026-07-02 12:31 NZST.
-- Scope: post-cleanup Offisim desktop Office scene, deterministic dramaturgy projection, 2D/3D work theater, character asset pipeline.
-- Status: production-grade next-stage PRD. This supersedes the open items in `2026-07-01-parallel-work-dramaturgy-prd.md`; it does not change Pi Agent runtime ownership.
+- Checked at: 2026-07-02 12:39 NZST.
+- Scope: post-cleanup Offisim desktop Office scene, deterministic work dramaturgy, 2D/3D work theater, and production-grade UI/UX behavior.
+- Audience: Fable implementation handoff.
+- Status: production-quality requirement document for a prelaunch product. This supersedes the remaining open items in `2026-07-01-parallel-work-dramaturgy-prd.md`. `2026-07-01-universal-work-dramaturgy-iteration-plan.md` is a completed validation record, not an active directive source; its deferred items are not backlog unless restated here.
+
+## Product Context
+Offisim has just been cleaned. It is still a prelaunch product: no real users, no production data, and no historical compatibility contract. This work must not be implemented as small patches on top of old vibe-coding layers.
+
+The correct delivery standard is a clean production baseline:
+
+- no compatibility work for old local state.
+- no migration layer for abandoned scene assumptions.
+- no temporary/fallback UX that becomes permanent debt.
+- no "MVP first, improve later" completion claim.
+- no duplicated interpretation of the same runtime facts across 2D, 3D, drilldown, and delivery surfaces.
+
+The goal is not to decorate the existing scene. The goal is to turn the Office scene into a coherent, fact-driven work dramaturgy system.
 
 ## Current Baseline
-The first parallel-work dramaturgy slice is now a real baseline, not a future wish:
+The first parallel-work slice already exists and should be treated as the baseline:
 
-- `SceneBeat` already carries `visual`, `flow`, `artifact`, and `resource` intent.
-- `ArtifactIntent` preserves `path`.
-- `EmployeeWorkloadProjection` already has `workloadSummary`.
-- grouped workload chips already support small / medium / large concurrency.
-- blocked/resource/failure/approval issues already outrank ordinary work in workload summary and dominant selection.
-- terminal failed child runs can remain visible while their issue beat is live.
-- 2D and 3D already share `projectOfficeStaging`.
-- 2D and 3D delivery shelves already expose the latest claimable artifact.
-- current characters are procedural `BlockCharacter` meshes with a layered `CharacterPerformanceState`, but no production asset contract.
+- `SceneBeat` carries `visual`, `flow`, `artifact`, and `resource` intent.
+- `ArtifactIntent` preserves artifact `path`.
+- `EmployeeWorkloadProjection` has `workloadSummary`.
+- grouped workload chips support small / medium / large concurrency.
+- blocked/resource/failure/approval issues outrank ordinary work in summary and dominant selection.
+- failed child runs can remain visible while their issue beat is live.
+- 2D and 3D share `projectOfficeStaging`.
+- 2D and 3D delivery shelves can expose the latest claimable artifact.
+- current characters are procedural placeholders with no production asset contract; the final presentation must be materially better, judged by the Character And Animation Requirements checklist.
 
-This means the next stage is not "add more chips." The next stage is a production work-theater system: a renderer contract, visual grammar, asset spec, and verification standard.
+Fable should not re-solve the identity model. The model is already correct:
 
-## Product Decision
-Offisim should be a fact-driven work theater, not a profession-animation pack and not a swarm roster.
+- employee = stable visible identity.
+- agent run = temporary work instance.
+- delegated child runs belong under an employee.
+- one employee body may represent many temporary runs.
 
-- Employee remains the stable visible identity.
-- Agent runs remain temporary work instances.
-- Sub-agent volume is shown as grouped workload, flow, exceptions, and delivered outputs.
-- Work is staged from facts: run tree, beat intent, workload summary, artifact/resource state.
-- The scene may be expressive, but no model or agent writes animation commands.
-- Character models are assets used by the renderer; Meshy/Tripo must not become app runtime dependencies.
+## Product Goal
+Make Offisim's Office scene feel like a high-quality AI work operations theater:
 
-## What Changes From The Previous PRD
-The previous PRD correctly defined the identity boundary and parallel workload display. After cleanup and implementation, the remaining gap has moved:
+- one stable employee body.
+- N temporary runs shown as count, grouped state, flow, delivery, and exception signals.
+- work movement that reads as organized fan-out / fan-in, not random lines.
+- artifacts that feel delivered and claimable.
+- blocked, approval, failed tool, token/budget/context/permission/runtime states that are impossible to miss.
+- character and scene animation that feels alive but stays tied to facts.
+- a lightweight drilldown for inspection, not worker management.
 
-- old gap: "Can the UI show many runs under one employee?"
-- new gap: "Can the Office scene read as a high-quality operating theater under high concurrency?"
+The output should feel designed, intentional, dense, and production-ready.
 
-Therefore the new requirements are:
+## Non-Goals
+- Do not change Pi Agent runtime ownership.
+- Do not restore Offisim provider/model catalogs or alternate runtime lanes.
+- Do not create persistent sub-agent identities.
+- Do not render dozens or hundreds of sub-agent bodies.
+- Do not build a worker management console.
+- Do not add task-specific profession animation packs as the core abstraction.
+- Do not implement character-model generation strategy here. Fable owns the visual/model solution.
+- Do not add legacy compatibility, migration, rollout, or fallback layers for prelaunch artifacts.
 
-1. formalize a render-agnostic `SceneCue` layer above `SceneBeat` / `workloadSummary`.
-2. make fan-out, fan-in, blocked state, approval, artifacts, and recovery visually legible as a system.
-3. replace ad hoc procedural character visuals with a production character asset pipeline.
-4. preserve the current deterministic facts and harnesses.
-5. verify in release `.app`, not just dev renderer screenshots.
+## Core Architecture Requirement
+Fable should introduce a proper scene renderer contract instead of letting each component interpret facts independently.
 
-## Dramaturgy Renderer Contract
-Add a renderer-facing cue contract. It should be derived, not persisted.
+Required projection:
 
-`SceneBeat` remains the semantic source. `EmployeeWorkloadProjection` remains the workload source. A new scene-level projection should resolve them into renderable cues:
+- `SceneBeat` remains the semantic event source.
+- `EmployeeWorkloadProjection` remains the workload source.
+- a new render-facing `SceneCue` or equivalent projection should derive all visible scene signals. It lives in the renderer runtime (alongside `conversation-run-projections.ts`), not in `packages/shared-types`: its workload input is renderer-coupled. Its harness follows the existing renderer-tsconfig harness pattern.
 
-- actor cue: employee id, stable identity, current performance, issue state, workload tier.
-- flow cue: fan-out, fan-in, tool route, approval route, artifact route, recovery route.
-- delivery cue: claimable artifacts, count, recency, target action.
-- resource cue: token/budget/context/permission/runtime/tool issue hierarchy.
-- concurrency cue: active count, grouped distribution, top issue, overflow drilldown.
-- camera/attention cue: optional focus target for active thread or severe issue.
+The projection should produce at least:
 
-The renderer contract is the boundary where 2D canvas, 3D scene, and future visual tests align. Individual components should not each re-derive their own interpretation of a beat.
+- actor cues: employee id, stable identity, active state, performance, selected/hover/drag status. Input scope: 3D already feeds selected/hover/drag; the 2D canvas is click-only today and must add hover hit-testing, while drag/reassign stays 3D-only in this work. The cue contract must degrade gracefully when a scene lacks an input source.
+- workload cues: active count, tier, grouped distribution, top issue, overflow state.
+- flow cues: fan-out, fan-in, tool route, approval route, artifact route, recovery route.
+- delivery cues: claimable artifacts, recent count, title/kind, open target.
+- resource cues: token/budget/context/permission/runtime/tool issues. Hierarchy means severity precedence (blocked outranks risk outranks normal); the six kinds are distinct labels, not a priority order among themselves.
+- attention cues: severe issue focus, selected thread focus, delivery focus.
+
+The projection must retain per-run work-kind and issue facts durably enough for high concurrency: do not inherit the current 400-event/120s rolling beat window as the retention contract. Controller-side run records are the durable source; `RunDelegation` currently drops `workKind` even though every `AgentRunEvent` carries it, and should be extended as part of this work.
+
+2D scene, 3D scene, drilldown, delivery shelf, the scene-cue harness fixtures, and the release `.app` evidence flow must all read from this same contract.
 
 ## Work Theater Language
-The visual language should be generic and operational:
+The work theater should communicate what is happening without requiring the user to read logs.
 
-- fan-out: one employee emits controlled work packets into parallel lanes, not dozens of bodies.
-- fan-in: completion and review converge toward the owner or delivery area.
-- artifact: output lands in a clear delivery surface with claim/open action.
-- approval: route to the user with a waiting state that cannot be confused with ordinary work.
-- blocked: actor, bubble, and route all show the issue; normal work animation must not dominate it.
-- recovery: after issue resolution, the route should visibly return to normal work without celebration.
-- idle/rest: quiet, legible, and not visually competing with active work.
+### Fan-Out
+When one employee starts many delegated runs:
 
-Motion is bounded. It communicates state transfer and urgency; it must not become decorative motion.
+- keep one employee body.
+- show `xN` as the primary density indicator.
+- show grouped status chips, not individual child labels at high count.
+- animate or draw bundled outbound work lanes.
+- route work by purpose/target when possible: tool, review, delivery, user.
+- avoid line noise by grouping repeated flows.
 
-## Character Model Direction
-Current procedural characters are useful as fallback and debugging assets, but they should not be the production look.
+### Fan-In
+When child work returns:
 
-Production direction:
+- show convergence back to the owner, review point, or delivery shelf.
+- completed artifacts should visibly move toward delivery/output.
+- review/join beats should feel like consolidation, not another random packet.
 
-- stylized desk-scale employee avatars, not realistic humans.
-- one canonical rig and animation vocabulary shared by all employees.
-- swappable hair, clothing, accent, skin, and accessory variants.
-- props attach to known sockets: document, laptop, terminal, package, pointer/tablet.
-- faces can remain texture/decal based for readability at small scale.
-- silhouettes must be readable from the current office camera distance.
-- role differences come from color/accent/accessory and performance flavor, not separate professions or task-specific bodies.
-- `BlockCharacter` stays as deterministic fallback when an asset fails to load.
+### Artifact Delivery
+Artifacts must feel like actual outputs arriving in the workspace:
 
-The target look is polished low-poly / toy-like office operators: simple enough for dense 3D, much better than block primitives, and consistent with a HUD-style desktop product.
+- delivery shelf is a real interaction surface, not just a passive count.
+- recent artifacts should show compact claimable chips up to a fixed chip budget; beyond it, the overflow rule below applies.
+- clicking an artifact should open the correct existing StageViewer target.
+- overflow should lead to history/drilldown, not expand until it breaks layout.
+- delivery must exist in both 2D and 3D.
 
-## Meshy / Tripo Assessment
-Checked current public sources on 2026-07-02:
+### Approval / User Wait
+Approval must not look like normal work:
 
-- Meshy has an official MCP server and API path. Official docs describe MCP tools for text-to-3D, image-to-3D, multi-image-to-3D, refine, task check, and download, with `MESHY_API_KEY` authentication. Meshy text-to-3D is a preview-then-refine workflow.
-- Meshy also publishes an open-source `meshy-3d-agent` skill pack that describes model, texture, rig-character, animation, and preparation workflows.
-- Tripo has an official MCP repo, but it is marked alpha and currently focuses on Tripo API plus Blender addon integration.
-- Tripo's API product page emphasizes text/image/multi-image 3D, animation, stylization, and post-processing.
+- route visually toward the user.
+- actor should enter a waiting/concern state.
+- workload bubble should prioritize approval.
+- drilldown should expose the approval reason/action path when available.
 
-Decision:
+### Blocked / Resource / Failure
+Failures must dominate ordinary work:
 
-- Use Meshy first for offline asset exploration because its MCP/API path is more direct for agent-driven generation.
-- Use Tripo second as a comparison lane for Blender-assisted art direction and high-detail variants.
-- Do not integrate either as a runtime dependency inside Offisim.
-- Do not put Meshy/Tripo API keys into the app.
-- Do not let generated assets bypass review, optimization, license metadata, or deterministic bundling.
+- token exhausted, budget exhausted, permission blocked, context blocked, runtime blocked, and tool failed states must be visually distinct.
+- these distinctions must become typed runtime facts: today five of the six (all except tool failed) are keyword heuristics over free-text failure summaries, produced only at terminal run failure. Add a typed failure/resource kind to the run-finished wire payload as part of this work so live failures classify deterministically; keyword derivation is not an acceptable long-term contract.
+- top issue should appear on actor marker, workload bubble, and drilldown.
+- if any blocked-severity issue is present, the issue count/marker takes the primary slot and the active count demotes to secondary.
+- normal typing/working motion must not visually override blocked state.
 
-The production pipeline is: concept sheet -> generated candidate GLB -> human/agent art review -> retopo/optimize -> canonical rig/animation check -> checked-in asset pack -> release `.app` verification.
+### Recovery
+When work resumes after a problem:
 
-## Asset Pipeline Requirements
-Create a first-party character asset pipeline before replacing `BlockCharacter`.
+- show a quiet return to normal flow.
+- do not celebrate recovery as completion.
+- preserve the history in drilldown while returning the main scene to active work.
 
-Minimum asset manifest:
+## Required State Coverage
+The dramaturgy system should cover these generic states without bespoke profession logic:
 
-- asset id and version.
-- source generator or artist source.
-- license/source URL.
-- triangle budget.
-- texture sizes.
-- material count.
-- rig type and required bones/sockets.
-- animation clips included.
-- LOD availability.
-- fallback asset id.
+- idle employee.
+- selected employee.
+- hovered/dragged/reassigned employee.
+- one active run.
+- three active runs.
+- high concurrency, e.g. 58 active runs (canonical harness fixture tier; live delegation caps a single run tree at 16 children / 4 parallel fan-out — see Verification Plan for the evidence split).
+- planning.
+- reading/searching.
+- writing/editing.
+- shell/build/test/compute.
+- reviewing.
+- delegating.
+- joining/fan-in.
+- waiting for approval.
+- producing an artifact.
+- artifact delivered and claimable.
+- tool failed.
+- token or budget exhausted.
+- permission/context/runtime blocked.
+- cancelled run (reads as a neutral stopped state, distinct from failure — no blocked/risk markers).
+- completed run.
+- reduced-motion mode.
+- no-live-beat active run fallback.
+- terminal failed child still visible while issue is live.
 
-Minimum runtime support:
+Coverage should be generic. Developer, designer, reviewer, researcher, and manager roles may have different flavor, but they should not require separate logic branches to express the same state.
 
-- load GLB assets through the existing Three/drei stack.
-- cache assets per employee appearance profile.
-- bind `CharacterPerformanceState` to animation clips or procedural overlays.
-- preserve reduced-motion by freezing/choosing static clips.
-- retain `BlockCharacter` fallback.
-- fail closed: missing asset means fallback character, not broken Office scene.
+## Character And Animation Requirements
+Fable owns the model/art solution. This document only defines product requirements.
 
-Minimum art budgets:
+The final character presentation must be materially better than the current procedural block characters:
 
-- one base body mesh.
-- 6-8 hair variants.
-- 4-6 clothing silhouettes.
-- 8-12 accessory/prop meshes.
-- 5 expression decals.
-- initial animation set: idle, sit, walk, type, read, inspect-terminal, write-board, handoff, wait/worried, celebrate.
+- polished, coherent, and readable from the default camera.
+- stylized rather than realistic.
+- expressive enough for focus, thinking, waiting, blocked, happy/complete, and neutral states.
+- works at dense office scale with many employees on screen.
+- supports props or equivalent visual tells for document, laptop/terminal, package/artifact, pointer/review.
+- supports idle, walk, sit, type/work, read, inspect, handoff, wait/worried, blocked, and complete/celebrate states.
+- does not require profession-specific animation packs.
+- does not obscure workload bubbles or markers.
+- respects reduced-motion mode.
 
-## Program Animation Requirements
-The current procedural rig is too embedded in `BlockCharacter`. The production renderer should separate:
+`CharacterPerformanceState` or its replacement should remain a semantic state, not a hard-coded animation name. Fable may redesign the renderer internals, but the scene must still be driven by facts, not model-authored animation commands.
 
-- semantic performance state: already `CharacterPerformanceState`.
-- animation resolver: maps performance to clip/procedural layer.
-- asset renderer: GLB/mesh rendering.
-- overlay renderer: workload bubble, issue marker, delivery/flow cues.
+Asset and dependency boundary:
 
-This keeps animation generic. Developer, designer, reviewer, and researcher do not need unique animation packs; they use the same action vocabulary with different props, accents, and tempo.
+- character/scene assets must be license-clean and bundled locally into the `.app`; no runtime asset downloads.
+- keep character asset weight compatible with the desktop bundle: tens of MB, not hundreds.
+- any new 3D/animation dependency is an architecture decision recorded in `Docs/UI_FRAMEWORK_STACK.md`.
+- character art colors go through the existing scene palette tokens.
+- the new character solution replaces the procedural block rendering in the Office scene outright, with no permanent fallback lane; update the Personnel appearance preview to the same character language in the same change so the product does not ship two character systems.
 
-Do not introduce a new animation framework. Use the approved stack: Three/R3F/drei for 3D, Motion for React where DOM overlay motion is needed, and deterministic frame logic where 3D state needs it.
+"Materially better" is judged against the checklist above (default-camera readability, expressive states, dense-scale legibility, prop tells, no bubble occlusion, reduced-motion), evaluated on the Verification Plan screenshot evidence — not against taste.
 
-## High-Concurrency Requirements
-At high concurrency the scene should read like an operations console:
-
-- one visible body per employee.
-- `xN` remains the primary density signal.
-- grouped distribution remains the bubble default.
-- flow lanes aggregate by target and issue type.
-- fan-out/fan-in should visually bundle, not draw a line per child after the noise cap.
-- drilldown is inspection only, not worker management.
-- severe issue count can claim visual priority over ordinary work count.
-- delivery shelf shows recent outputs and an overflow/history action.
-
-The scene must support the mental model "one employee can command many temporary runs" without making those runs feel like new staff.
-
-## UI / UX Quality Bar
-The Office scene must feel production-grade:
+## UI / UX Requirements
+The scene should be dense, operational, and high quality:
 
 - no nested cards in scene overlays.
-- no text overflow in labels, chips, badges, or delivery shelf.
-- no large decorative animations that cover work state.
-- issue markers should be legible from the default camera.
-- flow and packets must be visible but not noisy.
-- role/color variants must avoid one-note palette clusters.
-- 2D and 3D must agree on workload, artifact, resource, and drilldown state.
-- reduced-motion must keep all state visible.
+- no text overflow in labels, chips, badges, drilldown rows, or delivery chips.
+- no decorative animation that hides work state.
+- no huge modal unless the user explicitly opens drilldown.
+- workload bubble remains compact and stable.
+- `xN`, top issue, and delivery state remain readable at default zoom.
+- 2D and 3D must agree on the same facts.
+- if the scene is busy, priority/aggregation should reduce noise instead of showing everything.
+- the user should understand "this employee owns many temporary runs" at a glance.
+
+## Drilldown Requirements
+The drilldown is an inspection layer:
+
+- employee name, role, and stable identity.
+- active count.
+- status distribution.
+- work-kind distribution.
+- top issue and recent issues.
+- approval requests.
+- artifact list.
+- newest meaningful beat.
+- run rows with objective/summary when available.
+- open output / preview / file / changes (diff/review) / logs through existing StageViewer paths.
+- jump to owning thread through existing thread selection.
+
+Forbidden:
+
+- do not configure child worker persona.
+- do not rename temporary runs as employees.
+- do not manually manage each child run lifecycle from this view.
+
+## Production Quality Bar
+This work is not complete until it feels like a coherent system:
+
+- every visible animation/state maps back to deterministic facts.
+- all high-priority states are visually impossible to miss.
+- high concurrency remains readable.
+- delivery and drilldown interactions are closed-loop.
+- the existing deliverables rail and deliverable auto-open behavior continue to work after the delivery-shelf rebuild.
+- visual language is consistent across 2D and 3D.
+- reduced-motion preserves information.
+- release `.app` verification proves the actual desktop product works.
 
 ## Suggested Implementation Sequence
-1. Mark the 2026-07-01 parallel-work PRD as Wave 1 baseline and reference this PRD for next-stage work.
-2. Add the render-agnostic scene cue projection and harness it.
-3. Move flow/delivery/resource visual interpretation to the shared cue projection.
-4. Upgrade fan-out/fan-in rendering with grouped lanes and recency/priority scoring.
-5. Define the character asset manifest and runtime loader with `BlockCharacter` fallback.
-6. Produce one production-style character asset pack candidate through Meshy first, then compare a Tripo/Blender candidate.
-7. Bind `CharacterPerformanceState` to asset clips/procedural overlays.
-8. Run 2D/3D visual verification in release `.app`, including high-concurrency, blocked, approval, artifact, and reduced-motion scenes.
+1. Treat the previous parallel-work PRD as Wave 1 baseline, not an active backlog to re-implement.
+2. Define the render-facing scene cue projection and make 2D/3D/drilldown consume it.
+3. Rebuild flow/delivery/resource rendering around grouped cues instead of per-component interpretation.
+4. Upgrade fan-out/fan-in visual language for high concurrency.
+5. Upgrade delivery shelf into a polished claimable output surface in both 2D and 3D.
+6. Upgrade character presentation and animation system to Fable's chosen production solution.
+7. Ensure all required states above have deterministic fixtures/harness coverage.
+8. Verify in release `.app` with real desktop interaction and screenshots.
 
 ## Verification Plan
 - `pnpm harness:beat-composer`
 - `pnpm harness:conversation-run-controller`
 - `pnpm harness:office-projection`
 - `pnpm harness:dramaturgy-stress`
-- new scene-cue harness for fan-out/fan-in/resource/artifact grouping.
-- renderer typecheck and build.
+- `pnpm harness:workload-chips`
+- `pnpm harness:artifact-claim`
+- `pnpm harness:scene-staging`
+- `pnpm harness:dramaturgy-modes`
+- new scene-cue harness for fan-out/fan-in/resource/artifact grouping, registered into the root `pnpm validate` chain.
+- renderer typecheck.
+- renderer build.
 - `pnpm validate`
-- release `.app` Computer Use verification for 2D and 3D Office scene.
-- screenshot/canvas evidence for: idle, 1 run, 3 runs, 58 runs, blocked, approval, artifact delivery, reduced-motion.
-- asset validation for GLB size/material/texture/animation/manifest constraints before bundling.
+- release `.app` build.
+- Computer Use verification against the release `.app`.
+- release `.app` screenshots/evidence for: idle, 1 run, 3 runs, approval, blocked (approval/permission driven), artifact delivery, drilldown, reduced-motion, 2D/3D parity, and the highest concurrency reachable under real delegation caps (one root run at full fan-out).
+- deterministic harness evidence is the sanctioned form for exact high-concurrency tiers (e.g. 58 runs) and resource-exhausted blocked states (token/budget/context/runtime): these are structurally unreachable or nondeterministic in a release build. Do not burn live model runs chasing exact counts, and do not add a fixture-injection lane to the release app.
+- reduced-motion evidence is driven via macOS System Settings → Accessibility → Display → Reduce Motion (WKWebView maps it to `prefers-reduced-motion`); record the original value and restore it afterwards.
 
 ## Final Requirement Statement
-Offisim's next dramaturgy phase should turn the current fact-driven workload display into a production work theater: one stable employee body, many temporary run instances, grouped operational signals, organized work flow, claimable output delivery, prioritized exceptions, and polished stylized character assets generated offline and bundled deterministically.
+Build the next Offisim work dramaturgy as a production-grade framework, not a patch layer: one stable employee body, many temporary run instances, grouped operational workload, organized fan-out/fan-in, claimable delivery, prioritized exception states, lively but fact-driven animation, and a polished Fable-quality Office scene that can become the long-term foundation before launch.
