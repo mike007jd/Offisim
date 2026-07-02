@@ -34,6 +34,9 @@ export const CHARACTER_ASSET_URLS = {
     hair_03: hair03Url,
     hair_04: hair04Url,
     hair_05: hair05Url,
+    /** RESERVED: beard mesh — ships and stays addressable for a future
+     *  facial-accent slot, but no HAIR_STYLE_TO_ASSET entry maps to it, so it
+     *  is deliberately NOT in the preload set (see PRELOADED_URLS). */
     hair_06: hair06Url,
   },
   brows: {
@@ -52,12 +55,22 @@ function withMeshoptDecoder(loader: Loader): void {
   (loader as GLTFLoader).setMeshoptDecoder(MeshoptDecoder);
 }
 
-const ALL_URLS: readonly string[] = [
+/**
+ * The runtime-reachable asset set: everything GltfCharacter can actually load.
+ * `hair_06` (beard) is excluded — it is reserved (unmapped in
+ * HAIR_STYLE_TO_ASSET), so warming it would fetch dead bytes on every office
+ * mount. Add it here the moment a style/accent maps to it.
+ */
+const PRELOADED_URLS: readonly string[] = [
   CHARACTER_ASSET_URLS.bodyMale,
   CHARACTER_ASSET_URLS.bodyFemale,
   CHARACTER_ASSET_URLS.animations,
   CHARACTER_ASSET_URLS.props,
-  ...Object.values(CHARACTER_ASSET_URLS.hair),
+  CHARACTER_ASSET_URLS.hair.hair_01,
+  CHARACTER_ASSET_URLS.hair.hair_02,
+  CHARACTER_ASSET_URLS.hair.hair_03,
+  CHARACTER_ASSET_URLS.hair.hair_04,
+  CHARACTER_ASSET_URLS.hair.hair_05,
   ...Object.values(CHARACTER_ASSET_URLS.brows),
 ];
 
@@ -72,7 +85,7 @@ export function useCharacterGltf(url: string) {
   return useLoader(GLTFLoader, url, withMeshoptDecoder);
 }
 
-/** Warm the loader cache for every character asset (call from the office shell). */
+/** Warm the loader cache for every REACHABLE character asset (office shell). */
 export function preloadCharacterAssets(): void {
-  useLoader.preload(GLTFLoader, [...ALL_URLS], withMeshoptDecoder);
+  useLoader.preload(GLTFLoader, [...PRELOADED_URLS], withMeshoptDecoder);
 }

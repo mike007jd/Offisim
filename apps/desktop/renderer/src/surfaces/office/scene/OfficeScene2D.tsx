@@ -16,6 +16,7 @@ import { resolveAppearance } from '@/lib/avatar.js';
 import { CANVAS_FONT_TOKENS } from '@/styles/visual-tokens.js';
 import { openArtifactClaim } from '@/surfaces/office/stage-viewer/artifact-claim.js';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { openDeliveryHistory } from './delivery-history.js';
 import { compactSceneEmployeeName } from './scene-labels.js';
 import { archetypeToKind, clamp, floorBounds } from './scene-layout.js';
 import { useSceneStagingInputs } from './use-scene-staging-inputs.js';
@@ -127,13 +128,45 @@ export function OfficeScene2D() {
     [frame.actors],
   );
 
+  // ── Hoisted draw inputs: the draw closure below runs on every RAF tick
+  // (~60×/s while any flow pulses), so every per-frame join/sort lives up here
+  // on its actual deps and the closure only reads.
+  // Attention (frame.attention → employee): the attention actor draws right
+  // after the selected one, so both always win a name-label slot.
+  const attentionEmployeeId =
+    frame.attention?.target === 'employee' ? (frame.attention.employeeId ?? null) : null;
+  // employeeId → typed resource strain for the six-kind marker glyphs.
+  const resourceKindByEmployee = useMemo(
+    () => new Map(frame.resources.map((res) => [res.employeeId, res.resourceKind])),
+    [frame.resources],
+  );
+  const zoneById = useMemo(() => new Map(zoneDefs.map((zone) => [zone.id, zone])), [zoneDefs]);
+  // The selected employee draws first so its name label always wins a slot.
+  const orderedRoster = useMemo(() => {
+    if (selectedEmployeeId == null && attentionEmployeeId == null) return roster;
+    const labelPriority = (id: string) =>
+      id === selectedEmployeeId ? 0 : id === attentionEmployeeId ? 1 : 2;
+    return [...roster].sort((a, b) => labelPriority(a.id) - labelPriority(b.id));
+  }, [roster, selectedEmployeeId, attentionEmployeeId]);
+  // Purpose-distinct anchor targets: a lane only draws when its employee has a
+  // seat, so gating on the same membership keeps this set identical to what
+  // the flow pass paints.
+  const activeFlowTargets = useMemo(() => {
+    const targets = new Set<FlowCueTarget>();
+    for (const cue of frame.flows) {
+      if (positions.has(cue.employeeId)) targets.add(cue.target);
+    }
+    return [...targets].sort();
+  }, [frame.flows, positions]);
+
   // Reduced motion freezes the packet animation and the shelf arrival glow
   // while every lane/label/anchor/marker keeps rendering statically.
   const reducedMotion = usePrefersReducedMotion();
 
   // Artifact arrival (I5): a short-lived shelf glow when recentCount increases.
-  // Refs only — the glow rides the existing pulsing-flow RAF, never its own
-  // loop. Seeded with the mount count so pre-existing claims never glow.
+  // Refs only — the draw effect below keeps a bounded RAF alive while the glow
+  // is armed (pulsing flows share the same loop). Seeded with the mount count
+  // so pre-existing claims never glow.
   const prevRecentCountRef = useRef(frame.delivery.recentCount);
   const shelfGlowUntilRef = useRef(0);
   useEffect(() => {
@@ -228,22 +261,6 @@ export function OfficeScene2D() {
       // narrower on screen than the disc's painted extent has min > max).
       const clampSpan = (v: number, min: number, max: number) =>
         min > max ? (min + max) / 2 : clamp(v, min, max);
-      // Attention (frame.attention → employee): the attention actor draws right
-      // after the selected one, so both always win a name-label slot.
-      const attentionEmployeeId =
-        frame.attention?.target === 'employee' ? (frame.attention.employeeId ?? null) : null;
-      // employeeId → typed resource strain for the six-kind marker glyphs.
-      const resourceKindByEmployee = new Map(
-        frame.resources.map((res) => [res.employeeId, res.resourceKind]),
-      );
-      const labelPriority = (id: string) =>
-        id === selectedEmployeeId ? 0 : id === attentionEmployeeId ? 1 : 2;
-      // The selected employee draws first so its name label always wins a slot.
-      const ordered =
-        selectedEmployeeId == null && attentionEmployeeId == null
-          ? roster
-          : [...roster].sort((a, b) => labelPriority(a.id) - labelPriority(b.id));
-      const zoneById = new Map(zoneDefs.map((zone) => [zone.id, zone]));
 
       const screenForEmployee = (employeeId: string) => {
         const pos = positions.get(employeeId);
@@ -304,14 +321,12 @@ export function OfficeScene2D() {
       // bundled (≥2) cues on top of this scene's risk-aware base, capped at
       // 3px. Each lane carries the shared flowCueText density label (`×N ·
       // label` for bundles) on a backing pill at the curve midpoint.
-      const activeFlowTargets = new Set<FlowCueTarget>();
       // Same (employee, target) lanes share identical curve geometry (kinds
       // differ) — stack their labels instead of painting them onto each other.
       const laneLabelSlots = new Map<string, number>();
       for (const cue of frame.flows) {
         const source = screenForEmployee(cue.employeeId);
         if (!source) continue;
-        activeFlowTargets.add(cue.target);
         const target = flowTarget(cue.target);
         const ink = INK_2D[cue.ink];
         ctx.save();
@@ -325,11 +340,12 @@ export function OfficeScene2D() {
         ctx.quadraticCurveTo(mx, my, target.sx, target.sy);
         ctx.stroke();
         ctx.setLineDash([]);
-        // Packet param: frozen under reduced motion (static position keeps the
-        // information), and REVERSED for fan-in so returning work reads as
-        // consolidation into the owner, not another outbound dispatch.
-        const tRaw = reducedMotion ? 0.35 : ((Date.now() - cue.at) % 1400) / 1400;
-        const t = cue.kind === 'fan-in' ? 1 - tRaw : tRaw;
+        // Packet param: frozen under reduced motion (static position keeps
+        // the information). Uniform source→target for EVERY kind: join cues
+        // are attributed to the completing CHILD employee, so source→target
+        // already reads as consolidation (child → review); reversing fan-in
+        // would animate review → child, backwards.
+        const t = reducedMotion ? 0.35 : ((Date.now() - cue.at) % 1400) / 1400;
         const px = (1 - t) ** 2 * source.sx + 2 * (1 - t) * t * mx + t ** 2 * target.sx;
         const py = (1 - t) ** 2 * source.sy + 2 * (1 - t) * t * my + t ** 2 * target.sy;
         ctx.fillStyle = ink.packet;
@@ -366,7 +382,7 @@ export function OfficeScene2D() {
       // live lane points at, so lanes visibly go SOMEWHERE. Dense HUD style —
       // neutral node + micro label; the delivery shelf itself is the delivery
       // anchor whenever it renders.
-      for (const anchorTarget of [...activeFlowTargets].sort()) {
+      for (const anchorTarget of activeFlowTargets) {
         if (anchorTarget === 'delivery' && frame.delivery.latest) continue;
         const anchor = flowTarget(anchorTarget);
         ctx.fillStyle = OFFICE_SCENE_2D_COLORS.neutralPacket;
@@ -423,9 +439,10 @@ export function OfficeScene2D() {
         ctx.stroke();
         ctx.lineWidth = 1;
         // Arrival glow: a short-lived ring after recentCount increases, faded
-        // by remaining time. It rides the pulsing-flow RAF (the arriving
-        // artifact's own flow cue), never a new loop; reduced motion skips it
-        // — the chip + ×N carry the information statically.
+        // by remaining time. The draw effect keeps a bounded RAF running until
+        // glowUntil passes (shared with the pulsing-flow loop when one is
+        // active); reduced motion skips it — the chip + ×N carry the
+        // information statically.
         const glowLeft = shelfGlowUntilRef.current - Date.now();
         if (!reducedMotion && glowLeft > 0) {
           ctx.save();
@@ -490,7 +507,7 @@ export function OfficeScene2D() {
         occupied.push({ x0, x1: x0 + shelfW, y0, y1 });
       }
 
-      for (const employee of ordered) {
+      for (const employee of orderedRoster) {
         const pos = positions.get(employee.id);
         if (!pos) continue;
         const cue = actorById.get(employee.id);
@@ -601,6 +618,20 @@ export function OfficeScene2D() {
             ctx.beginPath();
             ctx.arc(mx, my, 4.5, 0, Math.PI * 2);
             ctx.fill();
+          } else if (glyph) {
+            // Subtle + typed: the hollow warning ring widened to carry the
+            // six-kind glyph legibly (same severity shape language — still a
+            // ring, never a filled disc; the 3D marker types every severity).
+            ctx.strokeStyle = markerSoft;
+            ctx.lineWidth = 1.4;
+            ctx.beginPath();
+            ctx.arc(mx, my, 5.2, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.font = CANVAS_FONT_TOKENS.officeSceneMarkerGlyph;
+            ctx.fillStyle = markerStrong;
+            ctx.textAlign = 'center';
+            ctx.fillText(glyph, mx, my + 3);
+            ctx.textAlign = 'left';
           } else {
             // Subtle: a small hollow ring in the translucent issue ink.
             ctx.strokeStyle = markerSoft;
@@ -747,14 +778,18 @@ export function OfficeScene2D() {
   }, []);
 
   // Draw effect: one draw per decorated frame; while any flow pulses, a RAF
-  // loop keeps the packet animation (and the shelf arrival glow) moving.
-  // Reduced motion never loops — everything renders once, statically.
+  // loop keeps the packet animation moving. An armed arrival glow keeps the
+  // loop alive on its own when no flow pulses — bounded by glowUntil (≤1.6s),
+  // so the glow can never freeze mid-fade — and the loop stops itself once
+  // both animations are done. Reduced motion never loops — everything renders
+  // once, statically (and the glow is skipped entirely).
   useEffect(() => {
     let raf = 0;
     const hasPulsingFlow = !reducedMotion && frame.flows.some((cue) => cue.pulse);
+    const glowActive = () => !reducedMotion && shelfGlowUntilRef.current > Date.now();
     const tick = () => {
       drawRef.current();
-      raf = hasPulsingFlow ? window.requestAnimationFrame(tick) : 0;
+      raf = hasPulsingFlow || glowActive() ? window.requestAnimationFrame(tick) : 0;
     };
     tick();
     return () => {
@@ -823,15 +858,14 @@ export function OfficeScene2D() {
           if (chip) void openArtifactClaim(chip, { openStageView, projectId });
           return;
         }
-        // delivery body / +N overflow — the history route: the latest claim's
-        // owning employee's drilldown when resolvable, else open the claim.
-        const latest = frame.delivery.latest;
-        if (!latest) return;
-        const owner = frame.actors.find(
-          (actor) => actor.threadId != null && actor.threadId === latest.threadId,
-        );
-        if (owner) openWorkloadDrilldown(owner.employeeId);
-        else void openArtifactClaim(latest, { openStageView, projectId });
+        // delivery body / +N overflow — the shared history route (owner
+        // drilldown via the claim's projection-stamped employeeId, else open
+        // the claim itself).
+        openDeliveryHistory(frame.delivery.latest, {
+          openWorkloadDrilldown,
+          openStageView,
+          projectId,
+        });
       }}
     />
   );

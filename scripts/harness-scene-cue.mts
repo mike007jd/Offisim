@@ -541,6 +541,11 @@ console.log('\n[delivery] chip budget 3, counts, latest');
     d.chips.every((c) => c.threadId === THREAD),
   );
   check(
+    'chips carry the owning employeeId (the scenes route history by owner, not threadId)',
+    d.chips.every((c) => c.employeeId === 'emp-e') && d.latest?.employeeId === 'emp-e',
+    json(d.chips.map((c) => c.employeeId)),
+  );
+  check(
     'no severe/selected → attention falls to the fresh delivery',
     frame.attention?.target === 'delivery' && frame.attention.reason === 'delivery',
     json(frame.attention),
@@ -805,16 +810,23 @@ console.log('\n[actor artifacts] employee-named + active-run attribution, cap 8'
     json(actor?.artifacts.map((c) => c.title)),
   );
   check(
+    'child-run claim carries the resolved owner employeeId (run-owner attribution)',
+    actor?.artifacts.find((c) => c.title === 'ChildArtifact')?.employeeId === 'emp-r',
+    json(actor?.artifacts.find((c) => c.title === 'ChildArtifact')),
+  );
+  check(
     'newest artifact last, oldest beyond the cap dropped (drilldown ordering)',
     actor?.artifacts[actor.artifacts.length - 1]?.title === 'ChildArtifact' &&
       actor.artifacts[0]?.title === 'R3',
     json(actor?.artifacts.map((c) => c.title)),
   );
   check(
-    'global shelf keeps employee-named claims only (unchanged semantics)',
-    frame.delivery.recentCount === 9 &&
-      frame.delivery.chips.every((c) => c.title !== 'ChildArtifact'),
-    `${frame.delivery.recentCount}`,
+    "global shelf carries every owner-resolvable claim (a child run's artifact never vanishes)",
+    frame.delivery.recentCount === 10 &&
+      frame.delivery.chips.some((c) => c.title === 'ChildArtifact') &&
+      frame.delivery.latest?.title === 'ChildArtifact' &&
+      frame.delivery.latest.employeeId === 'emp-r',
+    `${frame.delivery.recentCount} / ${json(frame.delivery.latest)}`,
   );
 }
 

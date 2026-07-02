@@ -794,12 +794,15 @@
 }
 
 /* Delivery shelf column (I5) — the claimable output surface: shelf head (×N
-   total) over a compact chip column. Flat chips, never nested cards. */
+   total) over a compact chip column. Flat chips, never nested cards. The
+   whole wrapper surface (padding + inter-chip gaps) opens the history route,
+   so it reads clickable like the buttons it wraps. */
 .off-scene-delivery {
   display: inline-flex;
   flex-direction: column;
   align-items: center;
   gap: 3px;
+  cursor: pointer;
 }
 
 .off-scene-delivery-chips {

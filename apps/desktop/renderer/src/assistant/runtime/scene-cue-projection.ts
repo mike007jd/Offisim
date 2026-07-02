@@ -65,15 +65,27 @@ export interface ClaimableArtifact {
   readonly url?: string;
   readonly sourceId?: string;
   readonly threadId?: string | null;
+  /**
+   * Owning employee, resolved during the delivery walk: the beat's named
+   * employee, or the employee whose active run produced the claim. The scenes'
+   * delivery-history route reads THIS (never a threadId join — a multi-thread
+   * employee's non-first-thread claims would miss a first-thread-only join).
+   */
+  readonly employeeId?: string;
   readonly detail?: ToolRichDetail;
 }
 
 /**
  * Project a beat's artifact intent into a ClaimableArtifact (or null when the
  * beat carries no artifact). The single claim constructor behind the delivery
- * shelves and the per-actor artifact lists.
+ * shelves and the per-actor artifact lists. `owner` is the resolved owning
+ * employee (`beat.employeeId ?? employeeByRun.get(beat.runId)`); ownerless
+ * claims omit the field.
  */
-function beatToClaimable(beat: SceneBeat | undefined | null): ClaimableArtifact | null {
+function beatToClaimable(
+  beat: SceneBeat | undefined | null,
+  owner: string | null,
+): ClaimableArtifact | null {
   if (!beat?.artifact) return null;
   return {
     title: beat.artifact.title,
@@ -81,6 +93,7 @@ function beatToClaimable(beat: SceneBeat | undefined | null): ClaimableArtifact 
     deliverableId: beat.artifact.deliverableId,
     path: beat.artifact.path,
     threadId: beat.threadId,
+    ...(owner ? { employeeId: owner } : {}),
   };
 }
 
@@ -391,6 +404,9 @@ interface DeliveryCue {
  */
 interface ResourceCue {
   readonly employeeId: string;
+  /** The top issue's owning run — consumers join cue↔issue by THIS identity,
+   *  never by list position. */
+  readonly runId: string;
   readonly kind: WorkloadPriorityIssue['kind'];
   readonly resourceKind: ResourceKind | null;
   readonly severity: SurfacedResourceSeverity;
@@ -558,10 +574,14 @@ export function projectSceneBaseFrame(input: SceneCueFacts): SceneCueFrame {
   const resourceKindByRun = new Map<string, ResourceKind>();
   for (const beat of orderedBeats) {
     if (beat.resource) resourceKindByRun.set(beat.runId, beat.resource.kind);
-    const claim = beatToClaimable(beat);
+    const runOwner = employeeByRun.get(beat.runId) ?? null;
+    const claim = beatToClaimable(beat, beat.employeeId ?? runOwner);
     if (!claim) continue;
-    if (beat.employeeId) claims.push(claim);
-    const runOwner = employeeByRun.get(beat.runId);
+    // The global shelf carries every owner-resolvable claim: a delegated
+    // child's artifact (runOwner attribution, no beat.employeeId) is a real
+    // delivery and must not vanish from the shelf/history while appearing in
+    // its owner's actor list.
+    if (claim.employeeId) claims.push(claim);
     const owners = beat.employeeId
       ? runOwner && runOwner !== beat.employeeId
         ? [beat.employeeId, runOwner]
@@ -681,6 +701,7 @@ export function projectSceneBaseFrame(input: SceneCueFacts): SceneCueFrame {
     if (!topIssue) continue;
     resources.push({
       employeeId: actor.employeeId,
+      runId: topIssue.runId,
       kind: topIssue.kind,
       resourceKind:
         topIssue.kind === 'resource' ? (resourceKindByRun.get(topIssue.runId) ?? null) : null,

@@ -80,13 +80,22 @@ const TOP_CYCLE = [
   'shortWaved',
 ] as const;
 
-/** Knuth multiplicative hash → stable index into a palette. */
-function paletteIndex(seed: string, length: number): number {
+/**
+ * Knuth multiplicative hash — THE deterministic string hash for appearance
+ * identity (palette picks here, the 3D character's neutral-gender body pick).
+ * Stable across sessions/locales: pure charCode arithmetic, uint32 output.
+ */
+export function hashString(seed: string): number {
   let hash = 0;
   for (let i = 0; i < seed.length; i += 1) {
     hash = (hash * 2654435761 + seed.charCodeAt(i)) >>> 0;
   }
-  return hash % length;
+  return hash;
+}
+
+/** Knuth hash → stable index into a palette. */
+function paletteIndex(seed: string, length: number): number {
+  return hashString(seed) % length;
 }
 
 function pick<T extends string>(seed: string, palette: readonly T[], salt: string): T {

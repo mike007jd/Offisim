@@ -28,6 +28,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ACESFilmicToneMapping, type Group } from 'three';
 import { BlockCharacter } from './BlockCharacter.js';
+import { openDeliveryHistory } from './delivery-history.js';
 import { RoomShell } from './r3d/RoomShell.js';
 import { SceneEnvironment } from './r3d/SceneEnvironment.js';
 import { SceneLighting } from './r3d/SceneLighting.js';
@@ -806,23 +807,24 @@ export function OfficeScene3D() {
   useEffect(() => {
     const previous = prevRecentCountRef.current;
     prevRecentCountRef.current = frame.delivery.recentCount;
-    if (frame.delivery.recentCount <= previous) return;
+    if (frame.delivery.recentCount < previous) {
+      // Claim beats expired (3-4.5s TTL): clear any armed highlight — the
+      // reset timer below was cancelled by this effect's own cleanup, so
+      // without this the shelf would stay highlighted forever.
+      setDeliveryArrived(false);
+      return;
+    }
+    if (frame.delivery.recentCount === previous) return;
     setDeliveryArrived(true);
     const timer = window.setTimeout(() => setDeliveryArrived(false), 1500);
     return () => window.clearTimeout(timer);
   }, [frame.delivery.recentCount]);
 
-  // Delivery history route (I5): the shelf head / +N overflow opens the latest
-  // claim owner's workload drilldown when resolvable, else opens the claim.
-  const openDeliveryHistory = () => {
-    const latest = frame.delivery.latest;
-    if (!latest) return;
-    const owner = frame.actors.find(
-      (actor) => actor.threadId != null && actor.threadId === latest.threadId,
-    );
-    if (owner) openWorkloadDrilldown(owner.employeeId);
-    else void openArtifactClaim(latest, { openStageView, projectId });
-  };
+  // Delivery history route (I5): the shelf surface / head / +N overflow opens
+  // the latest claim owner's workload drilldown when resolvable, else opens
+  // the claim — the shared owner-routing helper both scenes use.
+  const handleDeliveryHistory = () =>
+    openDeliveryHistory(frame.delivery.latest, { openWorkloadDrilldown, openStageView, projectId });
 
   const draggedEmployee = employeeDrag
     ? (roster.find((employee) => employee.id === employeeDrag.employeeId) ?? null)
@@ -1024,17 +1026,25 @@ export function OfficeScene3D() {
                 the head, up to 3 claimable chips (kind tag + ellipsized title,
                 newest emphasized), +N overflow to history/drilldown, and a
                 brief arrival highlight when a new claim lands. Same click
-                semantics as the 2D shelf. */}
+                semantics as the 2D shelf: the WHOLE shelf surface (wrapper
+                padding + inter-chip gaps included) routes to history like the
+                old full-surface button; chips/head/overflow keep their own
+                handlers and stop propagation. */}
+            {/* biome-ignore lint/a11y/useKeyWithClickEvents: the wrapper click is a pointer convenience covering gaps between the real buttons; the head/chip/overflow buttons inside are keyboard-focusable and cover every action */}
             <div
               className={`off-scene-delivery${deliveryArrived ? ' is-arrived' : ''}${
                 deliveryAttention ? ' is-attention' : ''
               }`}
+              onClick={handleDeliveryHistory}
             >
               <button
                 type="button"
                 className="off-scene-delivery-shelf is-interactive"
                 aria-label={`Delivery — ${frame.delivery.recentCount} artifacts, open history`}
-                onClick={openDeliveryHistory}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeliveryHistory();
+                }}
               >
                 <span>Delivery</span>
                 <b>{frame.delivery.recentCount}</b>
@@ -1049,7 +1059,8 @@ export function OfficeScene3D() {
                     }`}
                     title={chip.title}
                     aria-label={`Open ${chip.title}`}
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       void openArtifactClaim(chip, { openStageView, projectId });
                     }}
                   >
@@ -1062,7 +1073,10 @@ export function OfficeScene3D() {
                     type="button"
                     className="off-scene-delivery-overflow"
                     aria-label={`${frame.delivery.overflowCount} more artifacts — open history`}
-                    onClick={openDeliveryHistory}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeliveryHistory();
+                    }}
                   >
                     +{frame.delivery.overflowCount}
                   </button>

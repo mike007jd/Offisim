@@ -204,9 +204,14 @@ function WorkloadDrilldownPanel({ employeeId }: { employeeId: string }) {
                   <Icon icon={issueIcon(issue)} size="sm" />
                   <span className="off-drill-issue-label">{issue.label}</span>
                   <span className="off-drill-issue-tags">
-                    {/* Typed strain tag on the top issue row (the resource cue
-                        resolves the kind for priorityIssues[0] only). */}
-                    {index === 0 && issue.kind === 'resource' && resourceCue?.resourceKind ? (
+                    {/* Typed strain tag — joined to the resource cue by runId
+                        (identity, never list position); index 0 is only the
+                        fallback when a runId is missing on either side. */}
+                    {issue.kind === 'resource' &&
+                    resourceCue?.resourceKind &&
+                    (resourceCue.runId && issue.runId
+                      ? resourceCue.runId === issue.runId
+                      : index === 0) ? (
                       <em className="off-drill-tag">{resourceCue.resourceKind}</em>
                     ) : null}
                     {issue.terminal ? <em className="off-drill-tag">terminal</em> : null}

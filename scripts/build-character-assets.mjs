@@ -36,9 +36,14 @@
  *         Idle_No_Loop→blocked.headshake  Idle_TalkingPhone_Loop→phone
  *         Walk_Carry_Loop→carry    Yes→celebrate.yes
  *
- * RAW_DIR is a dev-machine artifact (downloaded + unpacked pack contents); it is
- * NOT checked in. Override with CHARACTER_ASSETS_RAW_DIR. The emitted files ARE
- * source-controlled. The build is deterministic for a given raw set.
+ * The raw packs are a dev-machine artifact (downloaded + unpacked pack
+ * contents) and are NOT checked in. CHARACTER_ASSETS_RAW_DIR is REQUIRED —
+ * there is no default raw directory; if unset or missing, the script exits 1
+ * with the pack list, source URLs, and the expected layout (requireRawDir).
+ *
+ * The COMMITTED files under `apps/desktop/renderer/src/assets/characters/`
+ * remain the source of truth — this script exists only to REGENERATE them
+ * from a raw workspace, and the build is deterministic for a given raw set.
  *
  * Hard gate: total emitted size (glb + LICENSES.md) must stay under 25 MB or the
  * script exits 1.
@@ -60,9 +65,46 @@ import {
 import { MeshoptDecoder, MeshoptEncoder } from 'meshoptimizer';
 import sharp from 'sharp';
 
-const RAW_DIR =
-  process.env.CHARACTER_ASSETS_RAW_DIR ??
-  '/private/tmp/claude-501/-Users-haoshengli-Seafile-WebWorkSpace-Offisim/6f9f221a-ba6c-4646-9a27-635b28e31f51/scratchpad/character-assets';
+/**
+ * REQUIRED raw-pack workspace. No default: a checked-in script must never
+ * point at a session temp dir. Exits 1 with download + layout guidance when
+ * the env var is unset or the directory is missing.
+ */
+function requireRawDir() {
+  const dir = process.env.CHARACTER_ASSETS_RAW_DIR;
+  if (dir && existsSync(dir) && statSync(dir).isDirectory()) return dir;
+  const reason = dir
+    ? existsSync(dir)
+      ? `CHARACTER_ASSETS_RAW_DIR is not a directory: ${dir}`
+      : `CHARACTER_ASSETS_RAW_DIR does not exist: ${dir}`
+    : 'CHARACTER_ASSETS_RAW_DIR is not set';
+  console.error(
+    [
+      `FAIL: ${reason}`,
+      '',
+      'This script only REGENERATES the committed character assets under',
+      'apps/desktop/renderer/src/assets/characters/ (those stay the source of',
+      'truth). To run it, download + unpack the CC0 source packs into a raw',
+      'workspace and point CHARACTER_ASSETS_RAW_DIR at it:',
+      '',
+      '  Universal Base Characters [Standard]   https://quaternius.itch.io/universal-base-characters',
+      '  Universal Animation Library [Standard] https://quaternius.itch.io/universal-animation-library',
+      '  Universal Animation Library 2 [Std]    https://quaternius.itch.io/universal-animation-library-2',
+      '  Kenney Furniture Kit                   https://kenney.nl/assets/furniture-kit',
+      '  KayKit Furniture Bits (github)         https://kaylousberg.itch.io/furniture-bits',
+      '',
+      'Expected layout under $CHARACTER_ASSETS_RAW_DIR:',
+      '  unpacked/ubc/Universal Base Characters[Standard]/            (bodies, hairstyles, License_Standard.txt)',
+      '  unpacked/ual/Universal Animation Library[Standard]/Unreal-Godot/UAL1_Standard.glb  (+ License.txt)',
+      '  unpacked/ual2/Universal Animation Library 2[Standard]/Unreal-Godot/UAL2_Standard.glb (+ License.txt)',
+      '  unpacked/kenney-furniture/Models/GLTF format/                (+ License.txt)',
+      '  kaykit-furniture-github/addons/kaykit_furniture_bits/Assets/ (+ LICENSE.txt)',
+    ].join('\n'),
+  );
+  process.exit(1);
+}
+
+const RAW_DIR = requireRawDir();
 const OUT_DIR = join(process.cwd(), 'apps/desktop/renderer/src/assets/characters');
 const SIZE_BUDGET_BYTES = 25 * 1024 * 1024;
 
@@ -690,11 +732,7 @@ function writeLicenses() {
 }
 
 async function main() {
-  if (!existsSync(RAW_DIR)) {
-    fail(
-      `RAW_DIR not found: ${RAW_DIR}\nThe raw packs are a dev-machine artifact (not checked in). Set CHARACTER_ASSETS_RAW_DIR.`,
-    );
-  }
+  // RAW_DIR existence is enforced by requireRawDir() at module load.
   await MeshoptEncoder.ready;
   mkdirSync(OUT_DIR, { recursive: true });
   const io = createIO();

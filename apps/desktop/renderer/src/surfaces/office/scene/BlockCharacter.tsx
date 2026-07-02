@@ -654,7 +654,13 @@ interface BlockCharacterProps {
   opacity?: number;
 }
 
-function ActionHalo({ action, opacity }: { action: BlockCharacterAction; opacity: number }) {
+/**
+ * Ground halo for the non-idle action states — shared by BlockCharacter and
+ * GltfCharacter (one indicator language for every character renderer).
+ * NOTE: BlockCharacter is scheduled for replacement by GltfCharacter; when it
+ * goes, ActionHalo/TypingDots MOVE to the `character/` dir with it.
+ */
+export function ActionHalo({ action, opacity }: { action: BlockCharacterAction; opacity: number }) {
   if (action === 'idle') return null;
   const color =
     action === 'working'
@@ -683,13 +689,18 @@ function ActionHalo({ action, opacity }: { action: BlockCharacterAction; opacity
   );
 }
 
-/** Three bouncing dots above the head — the unmistakable "I'm working" tell. */
-function TypingDots({
+/**
+ * Three bouncing dots above the head — the unmistakable "I'm working" tell.
+ * `y` is the head-clearance height (scene units): each character renderer
+ * passes its own silhouette's value. Shared with GltfCharacter (see the
+ * ActionHalo note about the planned move to `character/`).
+ */
+export function TypingDots({
   phase,
   opacity,
-  posture,
+  y,
   reducedMotion = false,
-}: { phase: number; opacity: number; posture: BlockCharacterPosture; reducedMotion?: boolean }) {
+}: { phase: number; opacity: number; y: number; reducedMotion?: boolean }) {
   const dotRefs = [useRef<Mesh>(null), useRef<Mesh>(null), useRef<Mesh>(null)];
   useFrame((state) => {
     const t = state.clock.elapsedTime + phase;
@@ -709,7 +720,7 @@ function TypingDots({
     }
   });
   return (
-    <group position={[0, posture === 'sitting' ? 1.96 : 1.78, 0]}>
+    <group position={[0, y, 0]}>
       {[-0.09, 0, 0.09].map((x, index) => (
         <mesh key={x} position={[x, 0, 0]} ref={dotRefs[index]}>
           <sphereGeometry args={[0.032, 10, 8]} />
@@ -782,7 +793,7 @@ export function BlockCharacter({
         <TypingDots
           phase={phase}
           opacity={opacity}
-          posture={posture}
+          y={posture === 'sitting' ? 1.96 : 1.78}
           reducedMotion={reducedMotion}
         />
       ) : null}
