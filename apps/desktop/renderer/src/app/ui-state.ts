@@ -10,7 +10,7 @@ export type SurfaceKey = WorkspaceKey | OverlaySurface;
 type SceneRenderMode = '3d' | '2d';
 export type StagePrimaryTab = 'game' | 'preview' | 'computer' | 'terminal' | 'review';
 type RailMode = 'list' | 'thread';
-export type StageToolStatus = 'running' | 'done' | 'error';
+type StageToolStatus = 'running' | 'done' | 'error';
 
 export type StageViewTarget =
   | { kind: 'scene' }

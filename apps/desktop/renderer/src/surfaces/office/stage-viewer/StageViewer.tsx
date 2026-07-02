@@ -6,13 +6,14 @@ import {
   useUiState,
 } from '@/app/ui-state.js';
 import { useActiveConversationRuns } from '@/assistant/runtime/conversation-run-react.js';
-import { loadDeliverableBody, useDeliverables, useGitWorkbench } from '@/data/queries.js';
+import { useDeliverables, useGitWorkbench } from '@/data/queries.js';
 import type { Deliverable, GitFileChange } from '@/data/types.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Popover, PopoverContent, PopoverTrigger } from '@/design-system/primitives/popover.js';
 import { cn } from '@/lib/utils.js';
 import type { PreviewSourceRef } from '@/surfaces/office/stage-preview/preview-target.js';
+import { StagePreviewPane } from '@/surfaces/office/stage-preview/StagePreviewPane.js';
 import { WorkBench } from '@/surfaces/office/scene/work-bench/WorkBench.js';
 import type { DramaturgyMode, ToolRichDetail } from '@offisim/shared-types';
 import {
@@ -215,17 +216,6 @@ function previewRefMeta(ref: PreviewSourceRef) {
       return ref.url ?? ref.mimeType;
     case 'computer-artifact':
       return ref.runId ? `${ref.runId} · ${ref.path}` : ref.path;
-  }
-}
-
-function previewRefUrl(ref: PreviewSourceRef) {
-  switch (ref.source) {
-    case 'browser':
-      return ref.url ?? ref.detail?.url;
-    case 'screenshot':
-      return ref.url;
-    default:
-      return undefined;
   }
 }
 
@@ -601,7 +591,7 @@ function StageTabBody({
   target: StageViewTarget | null;
 }) {
   if (tab === 'preview') {
-    if (target?.kind === 'preview') return <PreviewView target={target} />;
+    if (target?.kind === 'preview') return <StagePreviewPane target={target} />;
     return (
       <StageEmpty
         title="No preview open"
@@ -688,108 +678,6 @@ function viewerMeta(target: StageViewTarget) {
     default:
       return '';
   }
-}
-
-function PreviewView({
-  target,
-}: {
-  target: Extract<StageViewTarget, { kind: 'preview' }>;
-}) {
-  const ref = target.ref;
-  const deliverableRef = ref.source === 'deliverable' ? ref : null;
-  const deliverables = useDeliverables(deliverableRef?.threadId ?? null);
-  const deliverable =
-    deliverableRef && deliverables.data
-      ? deliverables.data.find((row) => row.id === deliverableRef.deliverableId)
-      : null;
-  const body = useDeliverableText(deliverable ?? null);
-  const screenshot =
-    ref.source === 'browser'
-      ? ref.detail?.screenshot
-      : ref.source === 'screenshot'
-        ? { dataRef: ref.dataRef }
-        : undefined;
-  const previewUrl = previewRefUrl(ref);
-  const title = target.title ?? previewRefLabel(ref);
-  if (deliverable) {
-    const format = (deliverable.format ?? deliverableRef?.format ?? '').toUpperCase();
-    if (format === 'HTML' && body.text) {
-      return (
-        <iframe
-          className="off-stage-preview-frame"
-          title={title}
-          sandbox="allow-forms allow-scripts allow-same-origin"
-          srcDoc={body.text}
-        />
-      );
-    }
-    return (
-      <div className="off-stage-doc">
-        <div className="off-stage-doc-bar">
-          <span>{deliverable.name}</span>
-          <span>{deliverable.format ?? deliverableRef?.format ?? 'TXT'}</span>
-        </div>
-        <pre className="off-stage-doc-body">
-          {body.text || (body.loading ? 'Loading output...' : 'No output body.')}
-        </pre>
-      </div>
-    );
-  }
-  if (ref.source === 'deliverable' && body.loading) {
-    return <StageEmpty title="Loading preview" detail="Preparing the output preview." />;
-  }
-  if (ref.source === 'workspace-file') {
-    return (
-      <StageEmpty
-        title={fileLeaf(ref.path)}
-        detail="Workspace file preview will load through the desktop preview pane."
-      />
-    );
-  }
-  if (ref.source === 'computer-artifact') {
-    return (
-      <StageEmpty
-        title={fileLeaf(ref.path)}
-        detail="Computer artifact preview will load through the desktop preview pane."
-      />
-    );
-  }
-  if (ref.source === 'deliverable') {
-    return (
-      <StageEmpty
-        title="Output unavailable"
-        detail="The output is not in this thread anymore."
-      />
-    );
-  }
-  if (previewUrl && isEmbeddablePreviewUrl(previewUrl)) {
-    return (
-      <iframe
-        className="off-stage-preview-frame"
-        title={title}
-        sandbox="allow-forms allow-scripts allow-same-origin"
-        src={previewUrl}
-      />
-    );
-  }
-  if (screenshot?.dataRef) {
-    return (
-      <div className="off-stage-preview-shot-wrap">
-        <img
-          className="off-stage-preview-shot"
-          src={screenshot.dataRef}
-          alt={title ?? previewUrl ?? 'Browser preview'}
-        />
-        {previewUrl ? <code className="off-stage-preview-url">{previewUrl}</code> : null}
-      </div>
-    );
-  }
-  return (
-    <StageEmpty
-      title="Preview unavailable"
-      detail="No browser frame or screenshot is available yet."
-    />
-  );
 }
 
 function ChangesView({
@@ -879,32 +767,4 @@ function StageEmpty({ title, detail }: { title: string; detail: string }) {
       <span>{detail}</span>
     </div>
   );
-}
-
-function useDeliverableText(deliverable: Deliverable | null) {
-  const [state, setState] = useState({ loading: false, text: '' });
-  useEffect(() => {
-    let cancelled = false;
-    if (!deliverable) {
-      setState({ loading: false, text: '' });
-      return;
-    }
-    const preview = deliverable.preview ?? '';
-    setState({ loading: true, text: preview });
-    void loadDeliverableBody(deliverable)
-      .then((text) => {
-        if (!cancelled) setState({ loading: false, text });
-      })
-      .catch(() => {
-        if (!cancelled) setState({ loading: false, text: preview });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [deliverable]);
-  return state;
-}
-
-function isEmbeddablePreviewUrl(url: string) {
-  return /^https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(?::|\/|$)/i.test(url);
 }
