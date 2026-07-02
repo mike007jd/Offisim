@@ -185,9 +185,14 @@ function DeliverableCard({
           setOpen(nextOpen);
           if (nextOpen) void ensureOutputBody();
           openStageView({
-            kind: 'output',
-            deliverableId: deliverable.id,
-            threadId: deliverable.threadId ?? null,
+            kind: 'preview',
+            ref: {
+              source: 'deliverable',
+              deliverableId: deliverable.id,
+              threadId: deliverable.threadId ?? null,
+              format: deliverable.format ?? undefined,
+              name: deliverable.name,
+            },
             title: deliverable.name,
           });
         }}

@@ -1,28 +1,20 @@
 import { generateId } from '@offisim/core/browser';
 import type { DramaturgyMode, ToolRichDetail } from '@offisim/shared-types';
 import { create } from 'zustand';
+import type { PreviewSourceRef } from '@/surfaces/office/stage-preview/preview-target.js';
 
 type WorkspaceKey = 'office' | 'workspace' | 'market' | 'personnel';
 type OverlaySurface = 'mission' | 'activity' | 'tasks' | 'settings' | 'studio' | 'lifecycle';
 export type SurfaceKey = WorkspaceKey | OverlaySurface;
 
 type SceneRenderMode = '3d' | '2d';
-export type StagePrimaryTab = 'game' | 'browser' | 'terminal' | 'review' | 'files';
+export type StagePrimaryTab = 'game' | 'preview' | 'computer' | 'terminal' | 'review';
 type RailMode = 'list' | 'thread';
-type StageToolStatus = 'running' | 'done' | 'error';
+export type StageToolStatus = 'running' | 'done' | 'error';
 
 export type StageViewTarget =
   | { kind: 'scene' }
-  | { kind: 'output'; deliverableId: string; threadId: string | null; title?: string }
-  | {
-      kind: 'preview';
-      title?: string;
-      url?: string;
-      sourceId?: string;
-      threadId?: string | null;
-      deliverableId?: string;
-      detail?: Extract<ToolRichDetail, { family: 'browser' }>;
-    }
+  | { kind: 'preview'; ref: PreviewSourceRef; title?: string }
   | { kind: 'changes'; path?: string | null }
   | {
       kind: 'logs';
@@ -32,15 +24,7 @@ export type StageViewTarget =
       status?: StageToolStatus;
       detail?: ToolRichDetail;
     }
-  | {
-      kind: 'file';
-      path: string;
-      content?: string;
-      truncated?: boolean;
-      totalSize?: number;
-      loading?: boolean;
-      error?: string;
-    };
+  | { kind: 'computer'; threadId?: string | null };
 
 export type StageOpenTarget = Exclude<StageViewTarget, { kind: 'scene' }>;
 
@@ -52,31 +36,51 @@ export interface StageOpenTab {
 export function stageTabForTarget(target: StageViewTarget): StagePrimaryTab {
   switch (target.kind) {
     case 'preview':
-      return 'browser';
+      return 'preview';
+    case 'computer':
+      return 'computer';
     case 'logs':
       return 'terminal';
     case 'changes':
       return 'review';
-    case 'file':
-    case 'output':
-      return 'files';
     default:
       return 'game';
   }
 }
 
+function hashString(input: string): string {
+  let hash = 5381;
+  for (let index = 0; index < input.length; index += 1) {
+    hash = (hash * 33) ^ input.charCodeAt(index);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function stagePreviewTabId(ref: PreviewSourceRef): string {
+  switch (ref.source) {
+    case 'workspace-file':
+      return `preview:workspace-file:${ref.path}`;
+    case 'deliverable':
+      return `preview:deliverable:${ref.deliverableId}`;
+    case 'browser':
+      return `preview:browser:${ref.sourceId ?? ref.url ?? ref.detail?.url ?? 'latest'}`;
+    case 'screenshot':
+      return `preview:screenshot:${hashString(ref.dataRef)}`;
+    case 'computer-artifact':
+      return `preview:computer-artifact:${ref.path}`;
+  }
+}
+
 function stageTabIdForTarget(target: StageOpenTarget): string {
   switch (target.kind) {
-    case 'output':
-      return `output:${target.deliverableId}`;
     case 'preview':
-      return `preview:${target.sourceId ?? target.deliverableId ?? target.url ?? target.title ?? 'latest'}`;
+      return stagePreviewTabId(target.ref);
     case 'changes':
       return `changes:${target.path ?? 'workspace'}`;
     case 'logs':
       return `logs:${target.sourceId ?? target.tool ?? target.title ?? 'latest'}`;
-    case 'file':
-      return `file:${target.path}`;
+    case 'computer':
+      return 'computer';
   }
 }
 

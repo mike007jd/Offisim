@@ -3,10 +3,10 @@
  *
  * Locks the pure projection in
  * `apps/desktop/renderer/src/surfaces/office/stage-viewer/artifact-claim.ts`:
- * every claimable artifact resolves to exactly one stage kind under a fixed
- * priority (deliverableId > url/browser-detail > path > logs), and the key
- * fields survive the projection. Assertions compare against distinct expected
- * kinds so a resolver that collapsed everything to one kind would fail.
+ * every visual claim resolves to the unified preview stage target under a fixed
+ * source priority (deliverableId > url/browser-detail > path > logs), and the
+ * key fields survive the projection. Logs remain the generic non-visual
+ * fallback.
  *
  * Pure Node via tsx against renderer source (renderer tsconfig paths) — no DOM,
  * no Tauri, no Pi. Only `resolveArtifactClaim` (pure) is exercised.
@@ -27,8 +27,8 @@ function check(name: string, condition: boolean, detail?: string): void {
 
 console.log('artifact-claim gate');
 
-// ── deliverableId-only → output ─────────────────────────────────────────────
-console.log('\n[output] a deliverable id resolves to the output surface');
+// ── deliverableId-only → preview/deliverable ────────────────────────────────
+console.log('\n[preview] a deliverable id resolves to a deliverable preview source');
 {
   const claim: ClaimableArtifact = {
     title: 'qa-report.md',
@@ -37,24 +37,25 @@ console.log('\n[output] a deliverable id resolves to the output surface');
     threadId: 'th-9',
   };
   const r = resolveArtifactClaim(claim);
-  check('kind is output (not logs/file/preview)', r.kind === 'output', `got ${r.kind}`);
+  check('kind is preview (not logs)', r.kind === 'preview', `got ${r.kind}`);
   check(
-    'output carries deliverableId + threadId + title',
-    r.kind === 'output' &&
-      r.deliverableId === 'del-1' &&
-      r.threadId === 'th-9' &&
+    'preview ref carries deliverableId + threadId + title',
+    r.kind === 'preview' &&
+      r.ref.source === 'deliverable' &&
+      r.ref.deliverableId === 'del-1' &&
+      r.ref.threadId === 'th-9' &&
       r.title === 'qa-report.md',
   );
 }
 
 // ── deliverableId with no threadId → threadId null ──────────────────────────
-console.log('\n[output] missing threadId defaults to null');
+console.log('\n[preview] missing threadId defaults to null');
 {
   const r = resolveArtifactClaim({ title: 't', kind: 'k', deliverableId: 'del-2' });
   check(
-    'output threadId defaults to null when absent',
-    r.kind === 'output' && r.threadId === null,
-    r.kind === 'output' ? String(r.threadId) : r.kind,
+    'deliverable preview threadId defaults to null when absent',
+    r.kind === 'preview' && r.ref.source === 'deliverable' && r.ref.threadId === null,
+    r.kind === 'preview' && r.ref.source === 'deliverable' ? String(r.ref.threadId) : r.kind,
   );
 }
 
@@ -71,11 +72,15 @@ console.log('\n[preview] a url resolves to the preview surface');
   check(
     'preview carries url + sourceId + title',
     r.kind === 'preview' &&
-      r.url === 'https://example.test/' &&
-      r.sourceId === 'src-1' &&
+      r.ref.source === 'browser' &&
+      r.ref.url === 'https://example.test/' &&
+      r.ref.sourceId === 'src-1' &&
       r.title === 'Landing',
   );
-  check('url-only preview has no browser detail', r.kind === 'preview' && r.detail === undefined);
+  check(
+    'url-only preview has no browser detail',
+    r.kind === 'preview' && r.ref.source === 'browser' && r.ref.detail === undefined,
+  );
 }
 
 // ── browser-detail → preview (detail included only when family is browser) ──
@@ -89,7 +94,10 @@ console.log('\n[preview] a browser rich detail resolves to preview + detail');
   check('kind is preview from browser detail', r.kind === 'preview', `got ${r.kind}`);
   check(
     'preview includes the browser detail',
-    r.kind === 'preview' && r.detail?.family === 'browser' && r.detail.url === 'https://d.test/',
+    r.kind === 'preview' &&
+      r.ref.source === 'browser' &&
+      r.ref.detail?.family === 'browser' &&
+      r.ref.detail.url === 'https://d.test/',
   );
 }
 
@@ -108,14 +116,17 @@ console.log('\n[logs] a non-browser detail with no url/path/deliverable → logs
   );
 }
 
-// ── path-only → file ────────────────────────────────────────────────────────
-console.log('\n[file] a filesystem path resolves to the file surface');
+// ── path-only → preview/workspace-file ──────────────────────────────────────
+console.log('\n[preview] a filesystem path resolves to a workspace-file source');
 {
   const r = resolveArtifactClaim({ title: 'main.rs', kind: 'file', path: '/repo/src/main.rs' });
-  check('kind is file (not logs)', r.kind === 'file', `got ${r.kind}`);
+  check('kind is preview (not logs)', r.kind === 'preview', `got ${r.kind}`);
   check(
-    'file carries path + title',
-    r.kind === 'file' && r.path === '/repo/src/main.rs' && r.title === 'main.rs',
+    'preview ref carries path + title',
+    r.kind === 'preview' &&
+      r.ref.source === 'workspace-file' &&
+      r.ref.path === '/repo/src/main.rs' &&
+      r.title === 'main.rs',
   );
 }
 
@@ -140,8 +151,8 @@ console.log('\n[priority] deliverableId outranks path');
     path: '/repo/out.md',
   });
   check(
-    'deliverableId + path → output (not file)',
-    r.kind === 'output' && r.deliverableId === 'del-3',
+    'deliverableId + path → deliverable preview (not workspace-file)',
+    r.kind === 'preview' && r.ref.source === 'deliverable' && r.ref.deliverableId === 'del-3',
     `got ${r.kind}`,
   );
 }
@@ -156,8 +167,8 @@ console.log('\n[priority] url outranks path');
     path: '/repo/out.html',
   });
   check(
-    'url + path → preview (not file)',
-    r.kind === 'preview' && r.url === 'https://p.test/',
+    'url + path → browser preview (not workspace-file)',
+    r.kind === 'preview' && r.ref.source === 'browser' && r.ref.url === 'https://p.test/',
     `got ${r.kind}`,
   );
 }

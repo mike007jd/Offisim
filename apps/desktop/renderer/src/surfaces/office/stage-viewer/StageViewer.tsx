@@ -12,6 +12,7 @@ import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Popover, PopoverContent, PopoverTrigger } from '@/design-system/primitives/popover.js';
 import { cn } from '@/lib/utils.js';
+import type { PreviewSourceRef } from '@/surfaces/office/stage-preview/preview-target.js';
 import { WorkBench } from '@/surfaces/office/scene/work-bench/WorkBench.js';
 import type { DramaturgyMode, ToolRichDetail } from '@offisim/shared-types';
 import {
@@ -25,6 +26,7 @@ import {
   Globe2,
   Maximize2,
   Minimize2,
+  MonitorSmartphone,
   Plus,
   SlidersHorizontal,
   TerminalSquare,
@@ -33,13 +35,12 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
-type StageViewKind = Exclude<StageViewTarget['kind'], 'scene'>;
-
 interface StageMenuItem {
-  kind: StageViewKind;
+  id: string;
   label: string;
   meta: string;
   disabled?: boolean;
+  isActive?: boolean;
   icon: typeof FileCode2;
   onSelect: () => void;
 }
@@ -52,10 +53,10 @@ interface StageTopBarProps {
 
 const PRIMARY_TABS = [
   { id: 'game', label: 'Game View', icon: Box },
-  { id: 'browser', label: 'Browser', icon: Globe2 },
+  { id: 'preview', label: 'Preview', icon: Globe2 },
+  { id: 'computer', label: 'Computer', icon: MonitorSmartphone },
   { id: 'terminal', label: 'Terminal', icon: TerminalSquare },
   { id: 'review', label: 'Review', icon: GitCompareArrows },
-  { id: 'files', label: 'Files', icon: FileText },
 ] as const satisfies ReadonlyArray<{
   id: StagePrimaryTab;
   label: string;
@@ -174,33 +175,83 @@ function fileLeaf(path: string) {
   return parts[parts.length - 1] ?? path;
 }
 
+function previewRefLabel(ref: PreviewSourceRef) {
+  switch (ref.source) {
+    case 'workspace-file':
+    case 'computer-artifact':
+      return fileLeaf(ref.path);
+    case 'deliverable':
+      return ref.name ?? 'Output';
+    case 'browser':
+      return ref.detail?.title ?? ref.url ?? 'Browser';
+    case 'screenshot':
+      return ref.title ?? ref.url ?? 'Screenshot';
+  }
+}
+
+function previewRefTitle(ref: PreviewSourceRef) {
+  switch (ref.source) {
+    case 'workspace-file':
+    case 'computer-artifact':
+      return ref.path;
+    case 'deliverable':
+      return ref.name ?? ref.deliverableId;
+    case 'browser':
+      return ref.detail?.url ?? ref.url ?? ref.sourceId ?? 'Browser preview';
+    case 'screenshot':
+      return ref.url ?? ref.title ?? 'Screenshot';
+  }
+}
+
+function previewRefMeta(ref: PreviewSourceRef) {
+  switch (ref.source) {
+    case 'workspace-file':
+      return ref.path;
+    case 'deliverable':
+      return ref.format ?? 'Generated output';
+    case 'browser':
+      return ref.detail?.url ?? ref.url ?? 'Browser preview';
+    case 'screenshot':
+      return ref.url ?? ref.mimeType;
+    case 'computer-artifact':
+      return ref.runId ? `${ref.runId} · ${ref.path}` : ref.path;
+  }
+}
+
+function previewRefUrl(ref: PreviewSourceRef) {
+  switch (ref.source) {
+    case 'browser':
+      return ref.url ?? ref.detail?.url;
+    case 'screenshot':
+      return ref.url;
+    default:
+      return undefined;
+  }
+}
+
 function stageTabLabel(target: StageOpenTarget) {
   switch (target.kind) {
-    case 'output':
-      return target.title ?? 'Output';
     case 'preview':
-      return target.title ?? 'Browser';
+      return target.title ?? previewRefLabel(target.ref);
     case 'changes':
       return target.path ? fileLeaf(target.path) : 'Review';
     case 'logs':
       return target.tool ?? target.title ?? 'Terminal';
-    case 'file':
-      return fileLeaf(target.path);
+    case 'computer':
+      return 'Computer';
   }
 }
 
 function stageTabTitle(target: StageOpenTarget) {
   switch (target.kind) {
-    case 'output':
-      return target.title ?? target.deliverableId;
     case 'preview':
-      return target.title ?? target.url ?? 'Browser preview';
+      return target.title ?? previewRefTitle(target.ref);
     case 'changes':
       return target.path ?? 'Workspace changes';
     case 'logs':
       return target.tool ?? target.title ?? 'Terminal log';
-    case 'file':
-      return target.path;
+    case 'computer':
+      return 'Computer Use';
   }
 }
 
@@ -276,29 +327,38 @@ function StageViewMenu() {
   const latestOutput = newestDeliverable(deliverables.data ?? []);
   const latestHtmlOutput = htmlDeliverable(deliverables.data ?? []);
   const latestChange = git.data?.changes[0] ?? null;
-  const selectedFile = stageView.kind === 'file' ? stageView : null;
+  const selectedFile =
+    stageView.kind === 'preview' && stageView.ref.source === 'workspace-file'
+      ? { target: stageView, path: stageView.ref.path }
+      : null;
 
   const items: StageMenuItem[] = [
     {
-      kind: 'output',
+      id: 'output',
       label: 'Output',
       meta: latestOutput
         ? `${latestOutput.name} · ${latestOutput.format ?? 'TXT'}`
         : 'No output yet',
       disabled: !latestOutput,
+      isActive: stageView.kind === 'preview' && stageView.ref.source === 'deliverable',
       icon: FileCode2,
       onSelect: () => {
         if (!latestOutput) return;
         openStageView({
-          kind: 'output',
-          deliverableId: latestOutput.id,
-          threadId: selectedThreadId,
+          kind: 'preview',
+          ref: {
+            source: 'deliverable',
+            deliverableId: latestOutput.id,
+            threadId: selectedThreadId,
+            format: latestOutput.format ?? undefined,
+            name: latestOutput.name,
+          },
           title: latestOutput.name,
         });
       },
     },
     {
-      kind: 'preview',
+      id: 'preview',
       label: 'Preview',
       meta: latestBrowserRichDetail
         ? latestBrowserRichDetail.title ||
@@ -309,43 +369,56 @@ function StageViewMenu() {
           ? latestHtmlOutput.name
           : 'No preview yet',
       disabled: !latestBrowserRichDetail && !latestHtmlOutput,
+      isActive:
+        stageView.kind === 'preview' &&
+        (stageView.ref.source === 'browser' || stageView.ref.source === 'screenshot'),
       icon: Globe2,
       onSelect: () => {
         if (latestBrowserRichDetail) {
           openStageView({
             kind: 'preview',
-            sourceId: latestBrowser?.id,
+            ref: {
+              source: 'browser',
+              sourceId: latestBrowser?.id,
+              url: latestBrowserRichDetail.url,
+              detail: latestBrowserRichDetail,
+            },
             title: latestBrowserRichDetail.title ?? latestBrowser?.tool,
-            url: latestBrowserRichDetail.url,
-            detail: latestBrowserRichDetail,
           });
           return;
         }
         if (latestHtmlOutput) {
           openStageView({
             kind: 'preview',
-            deliverableId: latestHtmlOutput.id,
-            threadId: selectedThreadId,
+            ref: {
+              source: 'deliverable',
+              deliverableId: latestHtmlOutput.id,
+              threadId: selectedThreadId,
+              format: latestHtmlOutput.format ?? undefined,
+              name: latestHtmlOutput.name,
+            },
             title: latestHtmlOutput.name,
           });
         }
       },
     },
     {
-      kind: 'changes',
+      id: 'changes',
       label: 'Changes',
       meta: latestChange
         ? `${git.data?.changes.length ?? 0} changed · ${latestChange.path}`
         : 'No local changes',
       disabled: !latestChange,
+      isActive: stageView.kind === 'changes',
       icon: GitCompareArrows,
       onSelect: () => openStageView({ kind: 'changes', path: latestChange?.path ?? null }),
     },
     {
-      kind: 'logs',
+      id: 'logs',
       label: 'Logs',
       meta: latestLog ? latestLog.tool : 'No tool logs yet',
       disabled: !latestLog,
+      isActive: stageView.kind === 'logs',
       icon: TerminalSquare,
       onSelect: () => {
         if (!latestLog) return;
@@ -359,13 +432,14 @@ function StageViewMenu() {
       },
     },
     {
-      kind: 'file',
+      id: 'files',
       label: 'Files',
       meta: selectedFile ? selectedFile.path : 'Pick a file on the left',
       disabled: !selectedFile,
+      isActive: Boolean(selectedFile),
       icon: FileText,
       onSelect: () => {
-        if (selectedFile) openStageView(selectedFile);
+        if (selectedFile) openStageView(selectedFile.target);
       },
     },
   ];
@@ -392,11 +466,11 @@ function StageViewMenu() {
         <div className="off-stage-view-options">
           {items.map((item) => (
             <button
-              key={item.kind}
+              key={item.id}
               type="button"
               className={cn(
                 'off-stage-view-option off-focusable',
-                stageView.kind === item.kind && 'is-active',
+                item.isActive && 'is-active',
               )}
               disabled={item.disabled}
               onClick={() => {
@@ -443,9 +517,14 @@ function StageAutoOpenForThread({ threadId }: { threadId: string }) {
     seenDeliverables.current = ids;
     if (!fresh) return;
     openStageView({
-      kind: 'output',
-      deliverableId: fresh.id,
-      threadId,
+      kind: 'preview',
+      ref: {
+        source: 'deliverable',
+        deliverableId: fresh.id,
+        threadId,
+        format: fresh.format ?? undefined,
+        name: fresh.name,
+      },
       title: fresh.name,
     });
   }, [deliverables.data, openStageView, threadId]);
@@ -469,10 +548,13 @@ function StageAutoOpenForThread({ threadId }: { threadId: string }) {
     if (!latest?.richDetail || latest.richDetail.family !== 'browser') return;
     openStageView({
       kind: 'preview',
-      sourceId: latest.id,
+      ref: {
+        source: 'browser',
+        sourceId: latest.id,
+        url: latest.richDetail.url,
+        detail: latest.richDetail,
+      },
       title: latest.richDetail.title ?? latest.tool,
-      url: latest.richDetail.url,
-      detail: latest.richDetail,
     });
   }, [openStageView, run]);
 
@@ -518,12 +600,20 @@ function StageTabBody({
   tab: Exclude<StagePrimaryTab, 'game'>;
   target: StageViewTarget | null;
 }) {
-  if (tab === 'browser') {
+  if (tab === 'preview') {
     if (target?.kind === 'preview') return <PreviewView target={target} />;
     return (
       <StageEmpty
-        title="No browser preview"
-        detail="Browser pages, localhost previews, and screenshots appear here when available."
+        title="No preview open"
+        detail="Outputs, workspace files, browser pages, and screenshots appear here when available."
+      />
+    );
+  }
+  if (tab === 'computer') {
+    return (
+      <StageEmpty
+        title="No computer activity"
+        detail="Computer Use windows and artifacts appear here when available."
       />
     );
   }
@@ -545,13 +635,8 @@ function StageTabBody({
       />
     );
   }
-  if (target?.kind === 'output') return <OutputView target={target} />;
-  if (target?.kind === 'file') return <FileView target={target} />;
   return (
-    <StageEmpty
-      title="No file open"
-      detail="AI outputs and selected workspace files will appear here."
-    />
+    <StageEmpty title="No preview open" detail="Open an output or workspace file to inspect it." />
   );
 }
 
@@ -562,14 +647,14 @@ function ViewerIcon({ tab }: { tab: StagePrimaryTab }) {
 
 function viewerTitle(tab: StagePrimaryTab) {
   switch (tab) {
-    case 'browser':
-      return 'Browser';
+    case 'preview':
+      return 'Preview';
+    case 'computer':
+      return 'Computer';
     case 'terminal':
       return 'Terminal';
     case 'review':
       return 'Review';
-    case 'files':
-      return 'Files';
     default:
       return 'Game View';
   }
@@ -577,14 +662,14 @@ function viewerTitle(tab: StagePrimaryTab) {
 
 function viewerEmptyMeta(tab: StagePrimaryTab) {
   switch (tab) {
-    case 'browser':
+    case 'preview':
       return 'Preview workspace';
+    case 'computer':
+      return 'Computer Use';
     case 'terminal':
       return 'Run log';
     case 'review':
       return 'Workspace changes';
-    case 'files':
-      return 'Outputs and files';
     default:
       return 'Office scene';
   }
@@ -592,44 +677,17 @@ function viewerEmptyMeta(tab: StagePrimaryTab) {
 
 function viewerMeta(target: StageViewTarget) {
   switch (target.kind) {
-    case 'output':
-      return target.title ?? target.deliverableId;
     case 'preview':
-      return target.title ?? target.url ?? 'Browser view';
+      return target.title ?? previewRefMeta(target.ref);
     case 'changes':
       return target.path ?? 'Workspace diff';
     case 'logs':
       return target.tool ?? target.title ?? 'Tool run';
-    case 'file':
-      return target.path;
+    case 'computer':
+      return target.threadId ?? 'Computer Use';
     default:
       return '';
   }
-}
-
-function OutputView({
-  target,
-}: {
-  target: Extract<StageViewTarget, { kind: 'output' }>;
-}) {
-  const deliverables = useDeliverables(target.threadId);
-  const deliverable = deliverables.data?.find((row) => row.id === target.deliverableId) ?? null;
-  const body = useDeliverableText(deliverable);
-  if (!deliverable)
-    return (
-      <StageEmpty title="Output unavailable" detail="The output is not in this thread anymore." />
-    );
-  return (
-    <div className="off-stage-doc">
-      <div className="off-stage-doc-bar">
-        <span>{deliverable.name}</span>
-        <span>{deliverable.format ?? 'TXT'}</span>
-      </div>
-      <pre className="off-stage-doc-body">
-        {body.text || (body.loading ? 'Loading output...' : 'No output body.')}
-      </pre>
-    </div>
-  );
 }
 
 function PreviewView({
@@ -637,31 +695,78 @@ function PreviewView({
 }: {
   target: Extract<StageViewTarget, { kind: 'preview' }>;
 }) {
-  const deliverables = useDeliverables(target.threadId ?? null);
+  const ref = target.ref;
+  const deliverableRef = ref.source === 'deliverable' ? ref : null;
+  const deliverables = useDeliverables(deliverableRef?.threadId ?? null);
   const deliverable =
-    target.deliverableId && deliverables.data
-      ? deliverables.data.find((row) => row.id === target.deliverableId)
+    deliverableRef && deliverables.data
+      ? deliverables.data.find((row) => row.id === deliverableRef.deliverableId)
       : null;
   const body = useDeliverableText(deliverable ?? null);
-  const screenshot = target.detail?.screenshot;
-  const previewUrl = target.url ?? target.detail?.url;
-  if (deliverable && body.text) {
+  const screenshot =
+    ref.source === 'browser'
+      ? ref.detail?.screenshot
+      : ref.source === 'screenshot'
+        ? { dataRef: ref.dataRef }
+        : undefined;
+  const previewUrl = previewRefUrl(ref);
+  const title = target.title ?? previewRefLabel(ref);
+  if (deliverable) {
+    const format = (deliverable.format ?? deliverableRef?.format ?? '').toUpperCase();
+    if (format === 'HTML' && body.text) {
+      return (
+        <iframe
+          className="off-stage-preview-frame"
+          title={title}
+          sandbox="allow-forms allow-scripts allow-same-origin"
+          srcDoc={body.text}
+        />
+      );
+    }
     return (
-      <iframe
-        className="off-stage-preview-frame"
-        title={target.title ?? deliverable.name}
-        sandbox="allow-forms allow-scripts allow-same-origin"
-        srcDoc={body.text}
+      <div className="off-stage-doc">
+        <div className="off-stage-doc-bar">
+          <span>{deliverable.name}</span>
+          <span>{deliverable.format ?? deliverableRef?.format ?? 'TXT'}</span>
+        </div>
+        <pre className="off-stage-doc-body">
+          {body.text || (body.loading ? 'Loading output...' : 'No output body.')}
+        </pre>
+      </div>
+    );
+  }
+  if (ref.source === 'deliverable' && body.loading) {
+    return <StageEmpty title="Loading preview" detail="Preparing the output preview." />;
+  }
+  if (ref.source === 'workspace-file') {
+    return (
+      <StageEmpty
+        title={fileLeaf(ref.path)}
+        detail="Workspace file preview will load through the desktop preview pane."
       />
     );
   }
-  if (body.loading)
-    return <StageEmpty title="Loading preview" detail="Preparing the output preview." />;
+  if (ref.source === 'computer-artifact') {
+    return (
+      <StageEmpty
+        title={fileLeaf(ref.path)}
+        detail="Computer artifact preview will load through the desktop preview pane."
+      />
+    );
+  }
+  if (ref.source === 'deliverable') {
+    return (
+      <StageEmpty
+        title="Output unavailable"
+        detail="The output is not in this thread anymore."
+      />
+    );
+  }
   if (previewUrl && isEmbeddablePreviewUrl(previewUrl)) {
     return (
       <iframe
         className="off-stage-preview-frame"
-        title={target.title ?? previewUrl}
+        title={title}
         sandbox="allow-forms allow-scripts allow-same-origin"
         src={previewUrl}
       />
@@ -673,7 +778,7 @@ function PreviewView({
         <img
           className="off-stage-preview-shot"
           src={screenshot.dataRef}
-          alt={target.title ?? previewUrl ?? 'Browser preview'}
+          alt={title ?? previewUrl ?? 'Browser preview'}
         />
         {previewUrl ? <code className="off-stage-preview-url">{previewUrl}</code> : null}
       </div>
@@ -749,31 +854,6 @@ function LogsView({
   return (
     <div className="off-stage-logs">
       <WorkBench detail={target.detail} status={target.status ?? 'done'} />
-    </div>
-  );
-}
-
-function FileView({
-  target,
-}: {
-  target: Extract<StageViewTarget, { kind: 'file' }>;
-}) {
-  return (
-    <div className="off-stage-doc">
-      <div className="off-stage-doc-bar">
-        <span>{target.path}</span>
-        {target.totalSize != null ? <span>{target.totalSize.toLocaleString()} B</span> : null}
-      </div>
-      {target.loading ? (
-        <StageEmpty title="Loading file" detail="Reading the workspace file." />
-      ) : null}
-      {target.error ? <StageEmpty title="File unavailable" detail={target.error} /> : null}
-      {target.content != null ? (
-        <pre className="off-stage-doc-body">
-          {target.content}
-          {target.truncated ? '\n...' : ''}
-        </pre>
-      ) : null}
     </div>
   );
 }

@@ -1132,10 +1132,13 @@ export function OfficeScene3D() {
             if (detail.family === 'browser') {
               openStageView({
                 kind: 'preview',
-                sourceId: selectedWorkBenchEntry.id,
+                ref: {
+                  source: 'browser',
+                  sourceId: selectedWorkBenchEntry.id,
+                  url: detail.url,
+                  detail,
+                },
                 title: detail.title ?? selectedWorkBenchEntry.tool,
-                url: detail.url,
-                detail,
               });
               return;
             }

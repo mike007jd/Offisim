@@ -34,37 +34,11 @@ import { openStageFilePreview } from './stage-viewer/file-preview.js';
 
 type PanelTab = 'projects' | 'files' | 'git';
 const FILE_PREVIEW_BYTES = 12_000;
-const NON_TEXT_PREVIEW_EXTENSIONS = new Set([
-  'app',
-  'avif',
-  'db',
-  'dmg',
-  'gif',
-  'gz',
-  'heic',
-  'jpeg',
-  'jpg',
-  'mov',
-  'mp4',
-  'pdf',
-  'png',
-  'sqlite',
-  'tar',
-  'webp',
-  'zip',
-]);
-
 
 interface FileContextMenuState {
   node: FileNode;
   x: number;
   y: number;
-}
-
-function canPreviewInline(path: string) {
-  const fileName = path.split(/[\\/]/).pop() ?? path;
-  const ext = fileName.includes('.') ? fileName.split('.').pop()?.toLowerCase() : '';
-  return !ext || !NON_TEXT_PREVIEW_EXTENSIONS.has(ext);
 }
 
 function compactPath(path: string | null | undefined) {
@@ -151,15 +125,6 @@ function FilesTab({
     setSelectedPath(node.path);
     if (node.kind === 'dir') {
       await revealNode(node);
-      return;
-    }
-    if (!canPreviewInline(node.path)) {
-      openStageView({
-        kind: 'file',
-        path: node.path,
-        error:
-          'This file type cannot be previewed inline. Use the file context menu to open it or show it in Finder.',
-      });
       return;
     }
     await openStageFilePreview({
