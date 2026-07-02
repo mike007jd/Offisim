@@ -22,21 +22,26 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https: wss: ipc: http://ipc.localhost http://localhost:4100 https://localhost:4100 tauri://localhost; font-src 'self' data:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'"
+      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https: wss: ipc: http://ipc.localhost http://localhost:4100 https://localhost:4100 tauri://localhost; font-src 'self' data:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'"
     }
   },
   "plugins": {
     "deep-link": {
       "mobile": [],
       "desktop": {
-        "schemes": ["offisim"]
+        "schemes": [
+          "offisim"
+        ]
       }
     }
   },
   "bundle": {
     "active": true,
     "targets": "all",
-    "resources": ["resources/pi-agent-host.mjs", "resources/node/bin/node"],
+    "resources": [
+      "resources/pi-agent-host.mjs",
+      "resources/node/bin/node"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
