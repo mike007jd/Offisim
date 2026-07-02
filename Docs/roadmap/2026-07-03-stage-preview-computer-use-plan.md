@@ -99,11 +99,11 @@ pub async fn project_preview_meta<R: Runtime>(
 ) -> Result<ProjectPreviewMeta, String>
 ```
 
-- [ ] **Step 1:** Write `preview.rs` with the struct above. Resolution mirrors `project_read_file_preview` exactly: `workspace_roots(&app, project_id.as_deref())` → `resolve_project_candidate(&path, None, &roots)` → `.canonicalize()` → `ensure_inside_workspace(&candidate, &roots)` (import these from `crate::builtin_tools`; make them `pub(crate)` if not already). Sniff MIME with `infer::get(&first_8kb)`, fall back to `None`. Text detection: read up to `MAX_PREVIEW_TEXT_BYTES`, reuse `builtin_tools::utf8_boundary_safe_string` semantics; treat as text only when the sniffed type is text-like or sniffing found nothing AND the bytes round-trip as UTF-8 with < 1% replacement.
-- [ ] **Step 2:** Add `#[cfg(test)]` tests in `preview.rs` following the existing `builtin_tools.rs` test style: `meta_reports_mime_for_png_magic_bytes`, `meta_returns_text_for_utf8_source`, `meta_truncates_text_at_budget`, `meta_rejects_out_of_workspace_path` (use tempdir workspace like existing tests).
-- [ ] **Step 3:** Register: `mod preview;` in lib.rs, `preview::project_preview_meta` in `generate_handler![]`, `"project_preview_meta"` appended to `fs-shell.toml` `commands.allow`.
-- [ ] **Step 4:** Run `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml preview` — expect all new tests PASS.
-- [ ] **Step 5:** Commit `feat(preview): binary-aware project_preview_meta command`.
+- [x] **Step 1:** Write `preview.rs` with the struct above. Resolution mirrors `project_read_file_preview` exactly: `workspace_roots(&app, project_id.as_deref())` → `resolve_project_candidate(&path, None, &roots)` → `.canonicalize()` → `ensure_inside_workspace(&candidate, &roots)` (import these from `crate::builtin_tools`; make them `pub(crate)` if not already). Sniff MIME with `infer::get(&first_8kb)`, fall back to `None`. Text detection: read up to `MAX_PREVIEW_TEXT_BYTES`, reuse `builtin_tools::utf8_boundary_safe_string` semantics; treat as text only when the sniffed type is text-like or sniffing found nothing AND the bytes round-trip as UTF-8 with < 1% replacement.
+- [x] **Step 2:** Add `#[cfg(test)]` tests in `preview.rs` following the existing `builtin_tools.rs` test style: `meta_reports_mime_for_png_magic_bytes`, `meta_returns_text_for_utf8_source`, `meta_truncates_text_at_budget`, `meta_rejects_out_of_workspace_path` (use tempdir workspace like existing tests).
+- [x] **Step 3:** Register: `mod preview;` in lib.rs, `preview::project_preview_meta` in `generate_handler![]`, `"project_preview_meta"` appended to `fs-shell.toml` `commands.allow`.
+- [x] **Step 4:** Run `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml preview` — expect all new tests PASS.
+- [x] **Step 5:** Commit `feat(preview): binary-aware project_preview_meta command`.
 
 ### Task 1.2: `project_read_file_bytes` raw-IPC command
 
@@ -121,9 +121,9 @@ pub async fn project_read_file_bytes<R: Runtime>(
 ```
 Renderer consumes via `const buf: ArrayBuffer = await invoke('project_read_file_bytes', {...})` (Tauri 2 raw IPC).
 
-- [ ] **Step 1:** Implement with identical sandbox resolution order; return `tauri::ipc::Response::new(bytes)`. Reject empty roots and out-of-workspace exactly like Task 1.1.
-- [ ] **Step 2:** Tests: `bytes_clamps_to_binary_budget`, `bytes_rejects_out_of_workspace_path`. Note: command returns `Response`, so test the extracted `read_bounded_bytes(candidate, clamp) -> Result<Vec<u8>, String>` helper directly.
-- [ ] **Step 3:** Register in lib.rs + fs-shell.toml. Run cargo tests → PASS. Commit `feat(preview): raw-IPC bounded binary reads`.
+- [x] **Step 1:** Implement with identical sandbox resolution order; return `tauri::ipc::Response::new(bytes)`. Reject empty roots and out-of-workspace exactly like Task 1.1.
+- [x] **Step 2:** Tests: `bytes_clamps_to_binary_budget`, `bytes_rejects_out_of_workspace_path`. Note: command returns `Response`, so test the extracted `read_bounded_bytes(candidate, clamp) -> Result<Vec<u8>, String>` helper directly.
+- [x] **Step 3:** Register in lib.rs + fs-shell.toml. Run cargo tests → PASS. Commit `feat(preview): raw-IPC bounded binary reads`.
 
 ### Task 1.3: `offisim-media` streaming protocol + CSP
 
@@ -132,14 +132,14 @@ Renderer consumes via `const buf: ArrayBuffer = await invoke('project_read_file_
 **Interfaces (produces):** URL shape consumed by renderer:
 `offisim-media://localhost/file?path=<urlencoded-abs-path>&projectId=<id>` (macOS WKWebView form; renderer builds it via a helper in `preview-data.ts`).
 
-- [ ] **Step 1:** In `lib.rs` builder chain add `.register_asynchronous_uri_scheme_protocol("offisim-media", ...)` delegating to `preview::serve_media(app, request, responder)`. `serve_media` parses `path`/`projectId` query params, runs the same four-step sandbox resolution, then serves bytes honoring a `Range: bytes=start-end` header: `206 Partial Content` + `Content-Range`/`Accept-Ranges: bytes`/`Content-Length`, `200` for full requests, `403` for sandbox rejection, `404` for missing file. Read only the requested window (seek + take), never the whole file.
-- [ ] **Step 2:** Tests for the pure range logic: `range_parses_and_clamps`, `range_serves_full_when_absent`, `media_rejects_out_of_workspace` (test the extracted `plan_media_response(path_ok, file_len, range_header) -> MediaPlan` helper).
-- [ ] **Step 3:** Replace the CSP string in `tauri.conf.json` with exactly:
+- [x] **Step 1:** In `lib.rs` builder chain add `.register_asynchronous_uri_scheme_protocol("offisim-media", ...)` delegating to `preview::serve_media(app, request, responder)`. `serve_media` parses `path`/`projectId` query params, runs the same four-step sandbox resolution, then serves bytes honoring a `Range: bytes=start-end` header: `206 Partial Content` + `Content-Range`/`Accept-Ranges: bytes`/`Content-Length`, `200` for full requests, `403` for sandbox rejection, `404` for missing file. Read only the requested window (seek + take), never the whole file.
+- [x] **Step 2:** Tests for the pure range logic: `range_parses_and_clamps`, `range_serves_full_when_absent`, `media_rejects_out_of_workspace` (test the extracted `plan_media_response(path_ok, file_len, range_header) -> MediaPlan` helper).
+- [x] **Step 3:** Replace the CSP string in `tauri.conf.json` with exactly:
 ```
 default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: offisim-media: http://offisim-media.localhost; media-src 'self' blob: offisim-media: http://offisim-media.localhost; frame-src 'self' blob: http://localhost:* http://127.0.0.1:* https://localhost:*; connect-src 'self' https: wss: ipc: http://ipc.localhost http://localhost:4100 https://localhost:4100 tauri://localhost offisim-media: http://offisim-media.localhost; font-src 'self' data:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'
 ```
 (`scripts/check-platform-tauri-origin-sync.mjs` only asserts connect-src ⊇ platform origins — unchanged origins keep it green; run it to confirm.)
-- [ ] **Step 4:** `cargo test` PASS; `node scripts/check-platform-tauri-origin-sync.mjs` PASS. Commit `feat(preview): sandboxed offisim-media streaming protocol + CSP media/frame directives`.
+- [x] **Step 4:** `cargo test` PASS; `node scripts/check-platform-tauri-origin-sync.mjs` PASS. Commit `feat(preview): sandboxed offisim-media streaming protocol + CSP media/frame directives`.
 
 **Phase 1 Gate:** `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml` green; `pnpm --filter @offisim/desktop build` compiles. Lead runs simplify + `codex:review` on the diff.
 
@@ -465,7 +465,7 @@ Detection: locate `cua-driver` via `$PATH` lookup + known install locations; `--
 ## Progress Ledger
 | phase | status | evidence |
 |---|---|---|
-| 1 Rust preview lane | pending | |
+| 1 Rust preview lane | done | `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml preview` PASS; `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml` PASS (141 tests); `node scripts/check-platform-tauri-origin-sync.mjs` PASS; `npx --yes pnpm@10.15.1 --filter @offisim/desktop build` PASS; release `.app` built at `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`; commit `4cc7273d` |
 | 2 target model | pending | |
 | 3 pane + core viewers | pending | |
 | 4 doc/media/3D viewers | pending | |
