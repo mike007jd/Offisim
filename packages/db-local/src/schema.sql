@@ -175,8 +175,14 @@ CREATE TABLE IF NOT EXISTS agent_runs (
   root_run_id         TEXT NOT NULL,
   employee_id         TEXT REFERENCES employees(employee_id) ON DELETE SET NULL,
   relation            TEXT,
+  -- Work semantics stamped by the delegate tool on run.started (WorkKind);
+  -- NULL = unclassified, never a fabricated default.
+  work_kind           TEXT,
   objective           TEXT,
   access              TEXT,
+  -- Typed failure cause (RunFailureKind) written on a failed terminal;
+  -- NULL for running/completed/cancelled/interrupted runs.
+  failure_kind        TEXT,
   -- `interrupted`: host died/was killed mid-run; startup reconcile parks the
   -- dangling root here (running→interrupted), distinct from a clean cancel.
   status              TEXT NOT NULL CHECK (status IN ('running', 'interrupted', 'completed', 'failed', 'cancelled')),

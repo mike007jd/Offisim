@@ -24,6 +24,7 @@ import {
   type AgentRunArtifactPayload,
   type AgentRunEvent,
   type AgentRunEventType,
+  type RunFailureKind,
   type WorkKind,
   classifyToolActivity,
 } from '../events/agent-run.js';
@@ -45,6 +46,7 @@ export type BeatKind =
   | 'review'
   | 'approval'
   | 'failure'
+  | 'cancelled'
   | 'join'
   | 'complete'
   | 'activity';
@@ -89,7 +91,8 @@ export interface ArtifactIntent {
   readonly path?: string;
 }
 
-export type ResourceKind = 'token' | 'budget' | 'permission' | 'context' | 'runtime' | 'tool';
+/** Resource-strain vocabulary — 1:1 with the typed wire failure kind. */
+export type ResourceKind = RunFailureKind;
 export type ResourceSeverity = 'warning' | 'blocked' | 'exhausted' | 'recovering';
 
 export interface ResourceIntent {
@@ -141,7 +144,7 @@ export interface SceneBeat {
   readonly movement: boolean;
   /** Part of a same-root parallel fan-out. */
   readonly parallel: boolean;
-  /** High-priority beat that bypasses cooldowns (approval / failure). */
+  /** High-priority beat that bypasses cooldowns (approval / failure / cancelled). */
   readonly interrupt: boolean;
   /** Deterministic, seed-derived variant index. */
   readonly variant: number;
@@ -174,6 +177,7 @@ export function beatLifespanMs(kind: BeatKind): number {
     case 'join':
       return 8_000; // 6-10s
     case 'complete':
+    case 'cancelled':
       return 4_500; // 3-6s
     case 'activity':
     case 'research':
@@ -299,24 +303,31 @@ function artifactIntent(payload: AgentRunArtifactPayload): ArtifactIntent {
   };
 }
 
-function resourceFromFailure(summary?: string): ResourceIntent {
-  const text = (summary ?? '').toLowerCase();
-  if (text.includes('token')) {
-    return { kind: 'token', severity: 'exhausted', label: 'token exhausted' };
-  }
-  if (text.includes('budget')) {
-    return { kind: 'budget', severity: 'exhausted', label: 'budget exhausted' };
-  }
-  if (text.includes('permission') || text.includes('approval') || text.includes('denied')) {
-    return { kind: 'permission', severity: 'blocked', label: 'permission blocked' };
-  }
-  if (text.includes('context') || text.includes('compact')) {
-    return { kind: 'context', severity: 'blocked', label: 'context blocked' };
-  }
-  if (text.includes('disconnect') || text.includes('provider') || text.includes('runtime')) {
-    return { kind: 'runtime', severity: 'blocked', label: 'runtime blocked' };
-  }
-  return { kind: 'tool', severity: 'blocked', label: 'run blocked' };
+/** The one ResourceIntent each typed failure kind stages — no text parsing. */
+const RESOURCE_INTENT_BY_FAILURE_KIND: Readonly<Record<RunFailureKind, ResourceIntent>> = {
+  token: { kind: 'token', severity: 'exhausted', label: 'token exhausted' },
+  budget: { kind: 'budget', severity: 'exhausted', label: 'budget exhausted' },
+  permission: { kind: 'permission', severity: 'blocked', label: 'permission blocked' },
+  context: { kind: 'context', severity: 'blocked', label: 'context blocked' },
+  runtime: { kind: 'runtime', severity: 'blocked', label: 'runtime blocked' },
+  tool: { kind: 'tool', severity: 'blocked', label: 'tool failed' },
+};
+
+const GENERIC_RUN_BLOCKED: ResourceIntent = {
+  kind: 'tool',
+  severity: 'blocked',
+  label: 'run blocked',
+};
+
+/** Total map from the wire's typed failure kind to a staged resource intent.
+ *  An absent kind stages the generic block — and so does an out-of-vocabulary
+ *  kind, since the payload rides the wire as unvalidated JSON (a skewed emitter
+ *  must degrade to the generic marker, never to a missing one). */
+function resourceFromFailureKind(failureKind: RunFailureKind | undefined): ResourceIntent {
+  const intent: ResourceIntent | undefined = failureKind
+    ? RESOURCE_INTENT_BY_FAILURE_KIND[failureKind]
+    : undefined;
+  return intent ?? GENERIC_RUN_BLOCKED;
 }
 
 function visualForSignal(signal: WorkSignal): VisualIntent {
@@ -419,6 +430,16 @@ function visualForSignal(signal: WorkSignal): VisualIntent {
         emotion: 'blocked',
         affordance: signal.affordance,
         badges: ['blocked'],
+      };
+    case 'cancelled':
+      // A neutral stopped state (PRD): distinct from failure (no blocked/risk
+      // marker) and from complete (no celebration).
+      return {
+        phase: 'complete',
+        intensity: 0,
+        emotion: 'neutral',
+        affordance: signal.affordance,
+        badges: ['cancelled'],
       };
     case 'complete':
       return {
@@ -540,7 +561,7 @@ function normalize(event: TimedAgentRunEvent): WorkSignal | null {
         affordance: null,
         movement: false,
         interrupt: true,
-        resource: { kind: 'tool', severity: 'blocked', label: 'tool failed' },
+        resource: RESOURCE_INTENT_BY_FAILURE_KIND.tool,
         flow: flow('failure', 'tool failed', 'tool'),
         activityKind: null,
       };
@@ -572,7 +593,6 @@ function normalize(event: TimedAgentRunEvent): WorkSignal | null {
         activityKind: null,
       };
     case 'run.failed':
-    case 'run.cancelled':
       return {
         ...base,
         kind: 'failure',
@@ -580,12 +600,22 @@ function normalize(event: TimedAgentRunEvent): WorkSignal | null {
         affordance: null,
         movement: false,
         interrupt: true,
-        resource: resourceFromFailure(event.payload.summary),
-        flow: flow(
-          'failure',
-          event.payload.status === 'cancelled' ? 'cancelled' : 'blocked',
-          'tool',
-        ),
+        resource: resourceFromFailureKind(event.payload.failureKind),
+        flow: flow('failure', 'blocked', 'tool'),
+        activityKind: null,
+      };
+    case 'run.cancelled':
+      // A neutral stopped state (PRD): interrupts (clears the actor's activity;
+      // the run's lingering approval/failure beats are resolved by
+      // resolveIssueBeats in composeBeats) and carries NO resource intent and
+      // NO failure flow — cancelled is not a risk.
+      return {
+        ...base,
+        kind: 'cancelled',
+        priority: BEAT_PRIORITY.phase,
+        affordance: null,
+        movement: false,
+        interrupt: true,
         activityKind: null,
       };
     case 'run.completed': {
@@ -682,6 +712,9 @@ export function composeBeats(
   const runningChildren = new Map<string, Set<string>>();
   const actors = new Map<string, ActorState>();
   const beatIndexByKey = new Map<string, number>();
+  // Until-resolved beats (approval/failure) per run, as indices into `beats` —
+  // a later event from the same run resolves them (see resolveIssueBeats).
+  const issueBeatIndicesByRun = new Map<string, number[]>();
   // Deterministic anti-repeat: the last variant emitted per (actor, beatKind),
   // so consecutive same beats never reuse the same variant (no visible loop).
   const lastVariantByKey = new Map<string, number>();
@@ -715,6 +748,11 @@ export function composeBeats(
     const last = lastVariantByKey.get(idxKey);
     if (variantCount > 1 && last === variant) variant = (variant + 1) % variantCount;
     lastVariantByKey.set(idxKey, variant);
+    if (signal.kind === 'approval' || signal.kind === 'failure') {
+      const indices = issueBeatIndicesByRun.get(signal.runId) ?? [];
+      indices.push(beats.length);
+      issueBeatIndicesByRun.set(signal.runId, indices);
+    }
     beats.push({
       id: `${signal.runId}:${signal.kind}:${beatIndex}`,
       kind: signal.kind,
@@ -766,8 +804,42 @@ export function composeBeats(
     }
   };
 
+  // Approval/failure beats "persist until a later event resolves them"
+  // (beatLifespanMs): resolution means a later event from the SAME run proving
+  // execution moved on — tool activity, an artifact, a new approval replacing
+  // the old, or the run's terminal. Clamp the earlier issue beat's lifetime to
+  // that event so an answered approval, a recovered failure, or a cancelled run
+  // stops staging a blocked/waiting marker. The terminal `run.failed` beat is
+  // never clamped: no later event exists for that run, so it keeps its full
+  // until-resolved TTL (terminal failed children stay visible).
+  const RESOLVING_EVENT_TYPES: ReadonlySet<TimedAgentRunEvent['type']> = new Set([
+    'tool.started',
+    'tool.completed',
+    'artifact.created',
+    'approval.requested',
+    'run.completed',
+    'run.failed',
+    'run.cancelled',
+  ]);
+  const resolveIssueBeats = (event: TimedAgentRunEvent): void => {
+    if (!RESOLVING_EVENT_TYPES.has(event.type)) return;
+    const indices = issueBeatIndicesByRun.get(event.runId);
+    if (!indices?.length) return;
+    for (const index of indices) {
+      const beat = beats[index];
+      if (beat && beat.lifecycle.endsAt > event.timestamp) {
+        beats[index] = {
+          ...beat,
+          lifecycle: { startedAt: beat.lifecycle.startedAt, endsAt: event.timestamp },
+        };
+      }
+    }
+    indices.length = 0;
+  };
+
   for (const event of ordered) {
     const parallel = trackRunStart(event);
+    resolveIssueBeats(event);
     const signal = normalize(event);
     trackRunEnd(event);
     if (!signal) continue;

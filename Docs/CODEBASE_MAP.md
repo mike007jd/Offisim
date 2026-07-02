@@ -65,7 +65,9 @@ Connect (collaboration) and Loops are isolated from Office's project chat and ru
 
 ## Local SQLite Baseline
 
-Local schema is at `LOCAL_SCHEMA_VERSION = 1`. Fresh databases apply the current
+Local schema version: the `LOCAL_SCHEMA_VERSION` constant in
+`apps/desktop/src-tauri/src/local_db.rs` is the single truth source (docs do
+not restate the number). Fresh databases apply the current
 baseline `packages/db-local/src/schema.sql` directly and are stamped by
 `apps/desktop/src-tauri/src/local_db.rs`.
 

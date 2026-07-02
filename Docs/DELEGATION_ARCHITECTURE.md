@@ -282,7 +282,8 @@ the renderer semantic layer.
 
 `agent_runs` is part of the current local SQLite end-state schema and ships in
 `schema.sql`. Fresh databases apply that baseline directly and are stamped with
-`LOCAL_SCHEMA_VERSION = 1`; older local/dev databases are disposable and are
+the current `LOCAL_SCHEMA_VERSION` (truth source: `local_db.rs`); older
+local/dev databases are disposable and are
 deleted/rebuilt rather than upgraded. `schema.sql` is the authority (Rust
 `include_str!`); `schema.ts` (Drizzle) must stay in lockstep, per
 `packages/db-local/src/migrations/README.md`.

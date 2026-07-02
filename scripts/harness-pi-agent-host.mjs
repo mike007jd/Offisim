@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import stripJsonComments from 'strip-json-comments';
+import { RUN_FAILURE_KINDS, classifyRunFailure } from './pi-agent-host-wire.mjs';
 
 function readJson(path) {
   return JSON.parse(stripJsonComments(readFileSync(path, 'utf8'), { trailingCommas: true }));
@@ -182,6 +183,57 @@ assert(
     /providerStatusById/.test(bundledNodeHostSource) &&
     /configuredProviderStatus/.test(bundledNodeHostSource),
   'source and bundled Pi Agent hosts must expose configured provider fallback for malformed registry entries',
+);
+// Typed failure kinds (I1): the supervisor may only emit run.failed through the
+// blocked()/failed() helpers, which validate the typed failureKind at the emit
+// boundary (assertRunFailureKind throws on a missing/unknown kind) — no failure
+// path can forget it, and nothing downstream keyword-parses the summary. Lock
+// the mechanism (exactly two helper-owned emits, each validated), not per-site
+// payload shapes.
+const supervisorRunFailedEmits =
+  childSupervisorSource.match(/emit\w*\(["']run\.failed["'],\s*\{[^}]*/g) ?? [];
+assert(
+  supervisorRunFailedEmits.length === 2 &&
+    supervisorRunFailedEmits.every((payload) => payload.includes('failureKind')) &&
+    /function failed\(emit\w*, failureKind[\s\S]{0,200}?assertRunFailureKind\(failureKind\)/.test(
+      childSupervisorSource,
+    ) &&
+    /function blocked\(emit\w*, reason, failureKind[\s\S]{0,200}?assertRunFailureKind\(failureKind\)/.test(
+      childSupervisorSource,
+    ),
+  'child supervisor must route every run.failed through the validated blocked()/failed() helpers',
+);
+// The emit-boundary validator and the emitter-side classifier are behaviorally
+// checked here (the wire module is dependency-free, safe to import).
+assert(
+  RUN_FAILURE_KINDS.length === 6 &&
+    ['token', 'budget', 'permission', 'context', 'runtime', 'tool'].every((kind) =>
+      RUN_FAILURE_KINDS.includes(kind),
+    ),
+  'RUN_FAILURE_KINDS must mirror the six-kind RunFailureKind union',
+);
+for (const [message, expected] of [
+  ['maximum context length exceeded: 131072 tokens', 'context'],
+  ['prompt is too long for the model window', 'context'],
+  ['rate limit reached (429), retry later', 'token'],
+  ['insufficient token quota for this request', 'token'],
+  ['permission denied by provider policy', 'permission'],
+  ['401 unauthorized', 'permission'],
+  ['provider disconnected mid-stream', 'runtime'],
+  ['', 'runtime'],
+]) {
+  assert(
+    classifyRunFailure(message) === expected,
+    `classifyRunFailure(${JSON.stringify(message)}) must be '${expected}', got '${classifyRunFailure(message)}'`,
+  );
+}
+// The bundler may suffix-rename identifiers (emit2, …); match loosely.
+const bundledRunFailedEmits =
+  bundledNodeHostSource.match(/emit\w*\(["']run\.failed["'],\s*\{[^}]*/g) ?? [];
+assert(
+  bundledRunFailedEmits.length === 2 &&
+    bundledRunFailedEmits.every((payload) => payload.includes('failureKind')),
+  'bundled Pi Agent host must route run.failed through the typed-failureKind helpers — rebuild with pnpm build:pi-agent-host',
 );
 
 const tempAgentDir = mkdtempSync(join(tmpdir(), 'offisim-pi-agent-host-'));

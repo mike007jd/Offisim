@@ -12,6 +12,8 @@ export class MemoryAgentRunRepository implements AgentRunRepository {
     const row: AgentRunRow = {
       ...run,
       project_id: run.project_id ?? null,
+      work_kind: run.work_kind ?? null,
+      failure_kind: run.failure_kind ?? null,
       usage_json: run.usage_json ?? null,
       result_summary_json: run.result_summary_json ?? null,
       session_file: run.session_file ?? null,
@@ -55,6 +57,7 @@ export class MemoryAgentRunRepository implements AgentRunRepository {
       usageJson?: string | null;
       finishedAt?: string | null;
       sessionFile?: string | null;
+      failureKind?: string | null;
     },
   ): Promise<void> {
     const row = this.store.get(runId);
@@ -67,6 +70,7 @@ export class MemoryAgentRunRepository implements AgentRunRepository {
       usage_json: opts?.usageJson !== undefined ? opts.usageJson : row.usage_json,
       finished_at: opts?.finishedAt !== undefined ? opts.finishedAt : row.finished_at,
       session_file: opts?.sessionFile !== undefined ? opts.sessionFile : row.session_file,
+      failure_kind: opts?.failureKind !== undefined ? opts.failureKind : row.failure_kind,
     });
   }
 

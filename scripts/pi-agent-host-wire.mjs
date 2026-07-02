@@ -44,6 +44,45 @@ export const WORK_KINDS = Object.freeze([
   'coordinate',
 ]);
 
+// The RunFailureKind enum (mirror of packages/shared-types RunFailureKind) —
+// the typed cause a run.failed finished payload must carry. Same single-source
+// rationale as WORK_KINDS: the .mjs hosts and the contract gate share these
+// values so emitters and checker can't drift from the TS union.
+export const RUN_FAILURE_KINDS = Object.freeze([
+  'token',
+  'budget',
+  'permission',
+  'context',
+  'runtime',
+  'tool',
+]);
+
+/** Throw unless `kind` is a RunFailureKind — the emit helpers call this so no
+ *  failure path can ship an untyped run.failed. Fail loud (prelaunch). */
+export function assertRunFailureKind(kind) {
+  if (!RUN_FAILURE_KINDS.includes(kind)) {
+    throw new Error(`run.failed requires a typed RunFailureKind, got: ${String(kind)}`);
+  }
+}
+
+// Classify a provider/model failure message into a typed RunFailureKind at the
+// point where the free text originates (session error stops, thrown transport
+// errors). This is the ONLY place failure text may be interpreted — the wire
+// carries the typed kind from here on and no downstream consumer re-parses
+// summaries. Order matters: context-window messages usually mention "tokens",
+// so the context test runs before the token test. Unrecognized text is host/
+// provider machinery → 'runtime'.
+export function classifyRunFailure(message) {
+  const text = typeof message === 'string' ? message.toLowerCase() : '';
+  if (/(context|prompt)[^.]{0,40}(length|window|too long|exceed)|\bcompact/.test(text)) {
+    return 'context';
+  }
+  if (/\btokens?\b|quota|rate.?limit|\b429\b/.test(text)) return 'token';
+  if (/permission|unauthorized|forbidden|denied|\b401\b|\b403\b/.test(text)) return 'permission';
+  if (/budget|cost.?limit|spend.?limit/.test(text)) return 'budget';
+  return 'runtime';
+}
+
 // Drop undefined-valued keys so the builder's in-memory object matches the
 // on-wire JSON exactly. The production emit path would already strip them via
 // JSON.stringify; this matters for the contract gate, whose key-by-key deep-equal
@@ -141,7 +180,9 @@ export function worktreeCallLine({ id, op, args } = {}) {
 // AgentRunEvent.type) + an opaque `payload`. The renderer rebuilds the
 // `AgentRunEvent` and emits it on the bus as a single `agent.run` family event.
 // `runType` (not `type`) sidesteps the Rust `type` keyword; `payload` stays
-// opaque so the wire is stable as new run-event types are added.
+// opaque so the wire is stable as new run-event types are added. A `run.failed`
+// finished payload carries a typed `failureKind` (RunFailureKind) stamped by the
+// emitter — it rides the opaque payload verbatim (no envelope change).
 export function agentRunLine({
   threadId,
   rootRunId,

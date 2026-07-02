@@ -20,7 +20,7 @@
  *    always wins on any drift.
  *
  * Fresh databases apply schema.sql directly and are stamped with
- * LOCAL_SCHEMA_VERSION = 1. There is no prelaunch migration chain: existing
+ * LOCAL_SCHEMA_VERSION = 2. There is no prelaunch migration chain: existing
  * local/dev databases with another version are disposable and should be
  * deleted/rebuilt from the current baseline.
  */
@@ -410,8 +410,13 @@ export const agentRuns = sqliteTable(
       onDelete: 'set null',
     }),
     relation: text('relation'),
+    // Work semantics stamped by the delegate tool on run.started (WorkKind);
+    // null = unclassified.
+    work_kind: text('work_kind'),
     objective: text('objective'),
     access: text('access'),
+    // Typed failure cause (RunFailureKind) written on a failed terminal.
+    failure_kind: text('failure_kind'),
     status: text('status').notNull(),
     usage_json: text('usage_json'),
     result_summary_json: text('result_summary_json'),

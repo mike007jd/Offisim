@@ -14,6 +14,7 @@ import {
   PI_HOST_PROTOCOL_VERSION,
   PI_WIRE_BUILDERS,
   PI_WIRE_KINDS,
+  RUN_FAILURE_KINDS,
 } from './pi-agent-host-wire.mjs';
 
 const FIXTURE_PATH = fileURLToPath(new URL('./fixtures/pi-wire-contract.json', import.meta.url));
@@ -155,6 +156,19 @@ assert(readyLine, 'fixture must include a ready handshake line');
 assert(
   readyLine.protocolVersion === PI_HOST_PROTOCOL_VERSION,
   `ready.protocolVersion ${readyLine.protocolVersion} != PI_HOST_PROTOCOL_VERSION ${PI_HOST_PROTOCOL_VERSION}`,
+);
+
+// The typed failure kind rides the opaque agentRun payload (no envelope change,
+// no protocol bump) — the fixture must exercise a failed terminal carrying it so
+// the Rust round-trip sees a realistic failureKind-bearing payload.
+const failedAgentRun = fixture.find(
+  (line) => line.kind === 'agentRun' && line.runType === 'run.failed',
+);
+assert(failedAgentRun, 'fixture must exercise an agentRun run.failed line');
+assert(
+  failedAgentRun.payload?.status === 'failed' &&
+    RUN_FAILURE_KINDS.includes(failedAgentRun.payload?.failureKind),
+  'agentRun run.failed payload must carry a typed failureKind (RunFailureKind)',
 );
 
 for (const kind of PI_WIRE_KINDS) {

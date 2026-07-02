@@ -17,7 +17,7 @@
 - 即使完成大清洁，当前干净状态仍然只是 prelaunch baseline，不是上线后的兼容合同；未来不得因为“曾经清理过”重新引入生产迁移、历史兼容、rollout 或 fallback 债务。
 - 未上线项目的默认策略不是做 MVP 小补丁，而是把目标行为做完整、直达、可验证。禁止用“先最小可行 / 先临时兜底 / 以后迁移”作为交付口径。
 - 看到 `legacy` / `compat` / `fallback` / `migration` / `backfill` / `rollout` / `temporary` / `post-launch` 时，先分类：真实用户数据、外部契约、安全边界、Pi wire、MCP、安装包格式、deep link、project file sandbox 默认保留；纯粹因为 AI 误判已上线而存在的层，走 `prelaunch-assumption-convergence-loop` 分流到最小合适 loop。
-- 本地 SQLite 当前事实：`LOCAL_SCHEMA_VERSION = 1`，fresh DB 直接应用当前 baseline `schema.sql`；`packages/db-local/src/migrations/` 不保留历史迁移 SQL。旧本地库和无 stamp 库是可丢弃开发产物，删除后由 app 重建。
+- 本地 SQLite 当前事实：`LOCAL_SCHEMA_VERSION` 真值以 `apps/desktop/src-tauri/src/local_db.rs` 常量为准（文档不重复数字），fresh DB 直接应用当前 baseline `schema.sql`；`packages/db-local/src/migrations/` 不保留历史迁移 SQL。旧本地库和无 stamp 库是可丢弃开发产物，删除后由 app 重建。
 - 详细策略见 `Docs/architecture/2026-07-02-prelaunch-vibe-debt-policy.md`。这份文档是后续 agent 判断伪迁移、伪兼容和 vibe-coding debt 的入口。
 
 # 当前架构决策（2026-05-18）
@@ -56,7 +56,7 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **Offisim** (12689 symbols, 27140 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **Offisim** (12712 symbols, 27163 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 

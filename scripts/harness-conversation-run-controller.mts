@@ -911,6 +911,112 @@ const scenarios: Array<{
       return { activeCount: emp?.activeCount, dominantRunId: emp?.dominant?.runId, attemptA };
     },
   },
+  {
+    name: 'delegation records retain workKind and typed failureKind',
+    criteria:
+      'Pass when run.started seeds RunDelegation.workKind from the event scope, a failed terminal copies the typed failureKind from the finished payload, and completed/cancelled terminals never carry one.',
+    run: async () => {
+      const env = makeEnv();
+      env.runtime.onExecute = async (input) => {
+        const emitAgentRun = (evt: Record<string, unknown>): void => {
+          env.eventBus.emit({
+            type: 'agent.run',
+            entityId: String(evt.runId),
+            entityType: 'runtime',
+            companyId: 'co',
+            threadId: input.threadId,
+            timestamp: Date.now(),
+            payload: {
+              threadId: input.threadId,
+              rootRunId: input.runId,
+              parentRunId: input.runId,
+              ...evt,
+            },
+          } satisfies RuntimeEvent<Record<string, unknown>>);
+        };
+        const children = [
+          {
+            runId: 'child-fail',
+            employeeId: 'emp-2',
+            workKind: 'test',
+            objective: 'Run the suite',
+            access: 'read',
+            terminal: {
+              type: 'run.failed',
+              payload: {
+                status: 'failed',
+                failureKind: 'runtime',
+                summary: 'Timed out after 300s',
+              },
+            },
+          },
+          {
+            runId: 'child-done',
+            employeeId: 'emp-3',
+            workKind: 'research',
+            objective: 'Scan the docs',
+            access: 'read',
+            terminal: {
+              type: 'run.completed',
+              payload: { status: 'completed', summary: 'Docs scanned.' },
+            },
+          },
+          {
+            runId: 'child-cancel',
+            employeeId: 'emp-4',
+            workKind: 'implement',
+            objective: 'Draft the patch',
+            access: 'write',
+            terminal: {
+              type: 'run.cancelled',
+              payload: { status: 'cancelled', summary: 'Stopped by the lead.' },
+            },
+          },
+        ] as const;
+        for (const child of children) {
+          emitAgentRun({
+            runId: child.runId,
+            employeeId: child.employeeId,
+            workKind: child.workKind,
+            type: 'run.started',
+            payload: { objective: child.objective, access: child.access },
+          });
+        }
+        for (const child of children) {
+          emitAgentRun({
+            runId: child.runId,
+            employeeId: child.employeeId,
+            workKind: child.workKind,
+            type: child.terminal.type,
+            payload: child.terminal.payload,
+          });
+        }
+        env.runtime.emitContent(input, 'delegated work wrapped up');
+        return { text: 'delegated work wrapped up' };
+      };
+      await submitDefault(env.controller);
+      await waitFor(
+        'delegation scenario complete',
+        () => env.controller.getSnapshot('thread-1').phase === 'completed',
+      );
+      const delegations = env.controller.getSnapshot('thread-1').delegations;
+      const failed = delegations.find((d) => d.runId === 'child-fail');
+      const done = delegations.find((d) => d.runId === 'child-done');
+      const cancelled = delegations.find((d) => d.runId === 'child-cancel');
+      assert.equal(failed?.workKind, 'test', 'run.started seeded workKind on the failed child');
+      assert.equal(failed?.state, 'failed');
+      assert.equal(failed?.failureKind, 'runtime', 'failed terminal copied the typed failureKind');
+      assert.equal(done?.workKind, 'research');
+      assert.equal(done?.state, 'done');
+      assert.equal(done?.failureKind, undefined, 'completed terminal carries no failureKind');
+      assert.equal(cancelled?.workKind, 'implement');
+      assert.equal(cancelled?.state, 'cancelled');
+      assert.equal(cancelled?.failureKind, undefined, 'cancelled terminal carries no failureKind');
+      return {
+        delegations: delegations.map((d) => [d.runId, d.state, d.workKind, d.failureKind ?? null]),
+      };
+    },
+  },
 ];
 
 const results: Array<{

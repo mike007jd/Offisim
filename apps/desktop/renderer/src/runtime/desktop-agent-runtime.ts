@@ -8,6 +8,7 @@ import type {
   AgentRunFinishedPayload,
   AgentRunStartedPayload,
   AgentRunUsage,
+  RunFailureKind,
   RuntimeEvent,
 } from '@offisim/shared-types';
 import { Channel, invoke } from '@tauri-apps/api/core';
@@ -564,8 +565,16 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           return;
         }
         if (event.kind === 'error') {
-          emitRootBus(rootRun('run.failed', { status: 'failed', summary: event.message }));
-          this.enqueuePersist(() => this.reconcileRoot(row.run_id, 'failed', undefined));
+          // A host error is a runtime failure by construction (transport /
+          // provider / host process), so the root stamps the typed kind itself.
+          emitRootBus(
+            rootRun('run.failed', {
+              status: 'failed',
+              summary: event.message,
+              failureKind: 'runtime',
+            }),
+          );
+          this.enqueuePersist(() => this.reconcileRoot(row.run_id, 'failed', undefined, 'runtime'));
           if (this.inFlightByThread.get(row.thread_id) === requestId) {
             this.inFlightByThread.delete(row.thread_id);
           }
@@ -950,10 +959,19 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       const aborted = this.abortedRequests.has(requestId);
       const status = aborted ? 'cancelled' : 'failed';
       const message = err instanceof Error ? err.message : String(err);
-      emitRootBus(rootRun(aborted ? 'run.cancelled' : 'run.failed', { status, summary: message }));
+      // A thrown invoke / channel error is a host-runtime failure by
+      // construction, so the failed terminal stamps 'runtime'; a cancel never
+      // carries a failureKind.
+      emitRootBus(
+        aborted
+          ? rootRun('run.cancelled', { status, summary: message })
+          : rootRun('run.failed', { status, summary: message, failureKind: 'runtime' }),
+      );
       // rootUsage isn't in scope here — the invoke threw before returning it, so
       // there is no root usage to fold in. reconcileRoot still sums any children.
-      this.enqueuePersist(() => this.reconcileRoot(runScope.runId, status, undefined));
+      this.enqueuePersist(() =>
+        this.reconcileRoot(runScope.runId, status, undefined, aborted ? undefined : 'runtime'),
+      );
       throw err;
     } finally {
       this.abortedRequests.delete(requestId);
@@ -972,6 +990,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     rootRunId: string,
     status: 'completed' | 'failed' | 'cancelled',
     rootUsage?: AgentRunUsage,
+    failureKind?: RunFailureKind,
   ): Promise<void> {
     const repo = this.repos.agentRuns;
     if (!repo) return;
@@ -987,7 +1006,13 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       // interrupted-run reconciler (DR-003).
       const { usageJson, dangling } = aggregateSubtreeUsage(children, rootRunId, rootUsage);
       await Promise.all([
-        repo.updateStatus(rootRunId, status, { finishedAt, usageJson }),
+        repo.updateStatus(rootRunId, status, {
+          finishedAt,
+          usageJson,
+          // The root's typed failure cause is only meaningful on a failed
+          // terminal; completed/cancelled roots never write one.
+          ...(status === 'failed' ? { failureKind: failureKind ?? null } : {}),
+        }),
         ...dangling.map((id) => repo.updateStatus(id, 'cancelled', { finishedAt })),
       ]);
     } catch (err) {
@@ -1017,6 +1042,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           root_run_id: evt.rootRunId,
           employee_id: evt.employeeId ?? null,
           relation: evt.relation ?? null,
+          work_kind: evt.workKind ?? null,
           objective: payload.objective ?? null,
           access: payload.access ?? null,
           status: 'running',
@@ -1032,6 +1058,9 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           resultSummaryJson: payload.summary ? JSON.stringify({ summary: payload.summary }) : null,
           usageJson: payload.usage ? JSON.stringify(payload.usage) : null,
           finishedAt: new Date().toISOString(),
+          // The typed failure cause is durable only on a failed terminal;
+          // completed/cancelled runs never carry one.
+          ...(evt.type === 'run.failed' ? { failureKind: payload.failureKind ?? null } : {}),
         });
       }
     } catch (err) {

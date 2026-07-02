@@ -71,6 +71,14 @@ export type ActivityKind =
   | 'inspect'
   | 'wait';
 
+/**
+ * Typed cause of a failed run. Stamped by the EMITTER from the structurally
+ * known failure site (provider error, timeout, cap refusal, …) — never parsed
+ * out of summary text. Present on a run-finished payload iff
+ * `status === 'failed'`; completed/cancelled runs never carry it.
+ */
+export type RunFailureKind = 'token' | 'budget' | 'permission' | 'context' | 'runtime' | 'tool';
+
 export type AgentRunEventType =
   | 'run.started'
   | 'run.delta' // child token stream (content | reasoning)
@@ -151,6 +159,8 @@ export interface AgentRunFinishedPayload {
   readonly status: AgentRunStatus;
   readonly summary?: string;
   readonly usage?: AgentRunUsage;
+  /** Typed failure cause; present iff `status === 'failed'`. */
+  readonly failureKind?: RunFailureKind;
 }
 
 /** Self-describing delegation event. Discriminated by `type`. */

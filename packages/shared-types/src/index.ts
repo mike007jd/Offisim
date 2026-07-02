@@ -192,6 +192,7 @@ export type {
   DelegateExecutionMode,
   DelegateTaskInput,
   DelegateToolInput,
+  RunFailureKind,
   ToolFamily,
   ToolRichDetail,
   WorkKind,
