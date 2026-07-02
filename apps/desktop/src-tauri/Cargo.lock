@@ -2764,6 +2764,7 @@ dependencies = [
  "dirs",
  "futures-util",
  "hex",
+ "infer",
  "libc",
  "objc2",
  "objc2-app-kit",

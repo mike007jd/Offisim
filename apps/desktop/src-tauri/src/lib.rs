@@ -51,6 +51,7 @@ mod local_paths;
 mod local_secret;
 mod mcp_bridge;
 mod pi_agent_host;
+mod preview;
 mod redaction;
 mod shell_classifier;
 mod sidecar_stderr;
@@ -177,12 +178,17 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             schedule_ensure_main_window(app);
         }))
+        .register_asynchronous_uri_scheme_protocol("offisim-media", |ctx, request, responder| {
+            preview::serve_media(ctx.app_handle().clone(), request, responder);
+        })
         .invoke_handler(tauri::generate_handler![
             local_db::local_db_url,
             local_db::local_db_execute_transaction,
             builtin_tools::project_read_file,
             builtin_tools::project_read_file_lines,
             builtin_tools::project_read_file_preview,
+            preview::project_preview_meta,
+            preview::project_read_file_bytes,
             builtin_tools::project_exists,
             builtin_tools::project_list_dir,
             builtin_tools::project_write_file,
