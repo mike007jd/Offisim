@@ -45,9 +45,6 @@ export const CHARACTER_ASSET_URLS = {
   },
 } as const;
 
-export type HairAssetKey = keyof typeof CHARACTER_ASSET_URLS.hair;
-export type BrowsAssetKey = keyof typeof CHARACTER_ASSET_URLS.brows;
-
 /** Build-time manifest: file sizes, clip list, body metrics, skin tint references. */
 export { characterManifest };
 

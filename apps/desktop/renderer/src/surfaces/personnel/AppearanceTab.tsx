@@ -9,8 +9,8 @@ import { cn } from '@/lib/utils.js';
 import { OrbitControls } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
 import { Lock } from 'lucide-react';
-import { type CSSProperties, useId } from 'react';
-import { BlockCharacter } from '../office/scene/BlockCharacter.js';
+import { type CSSProperties, Suspense, useId } from 'react';
+import { GltfCharacter } from '../office/scene/character/GltfCharacter.js';
 import {
   ACCENT_SWATCHES,
   type AppearanceDraft,
@@ -85,7 +85,10 @@ function AppearancePreviewPanel({
           <ambientLight intensity={0.84} />
           <directionalLight position={[2, 4, 3]} intensity={1.75} />
           <group position={[0, -0.9, 0]} rotation={[0, -0.26, 0]} scale={1.28}>
-            <BlockCharacter appearance={resolved} running={false} phase={0} />
+            {/* glb loads suspend; the empty fallback keeps the canvas/lights up. */}
+            <Suspense fallback={null}>
+              <GltfCharacter appearance={resolved} running={false} phase={0} />
+            </Suspense>
           </group>
           <OrbitControls
             enablePan={false}
@@ -181,7 +184,7 @@ export function AppearanceTab({ employee, draft, onChange }: AppearanceTabProps)
             />
             <SwatchRow
               label="Clothing accent"
-              hint="Renders as a visible vest panel."
+              hint="Tints the lower outfit."
               swatches={ACCENT_SWATCHES}
               value={draft.accentColor}
               onChange={(c) => onChange({ ...draft, accentColor: c })}

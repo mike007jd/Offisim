@@ -18,8 +18,7 @@
         "src/design-system/**/*.{ts,tsx}",
         "src/runtime/collaboration/collaboration-runtime.ts",
         "src/runtime/collaboration/collaboration-react.ts",
-        "src/surfaces/mission/loops/graph/index.ts",
-        "src/surfaces/office/scene/character/**/*.{ts,tsx}"
+        "src/surfaces/mission/loops/graph/index.ts"
       ],
       "ignore": [
         "src/polyfills/**"

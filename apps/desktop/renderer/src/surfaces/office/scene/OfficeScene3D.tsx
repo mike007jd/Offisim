@@ -25,9 +25,10 @@ import {
 } from '@offisim/shared-types';
 import { Html, Line, OrbitControls } from '@react-three/drei';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ACESFilmicToneMapping, type Group } from 'three';
-import { BlockCharacter } from './BlockCharacter.js';
+import { GltfCharacter } from './character/GltfCharacter.js';
+import { preloadCharacterAssets } from './character/character-assets.js';
 import { openDeliveryHistory } from './delivery-history.js';
 import { RoomShell } from './r3d/RoomShell.js';
 import { SceneEnvironment } from './r3d/SceneEnvironment.js';
@@ -49,6 +50,11 @@ import { compactSceneEmployeeName } from './scene-labels.js';
 import { type EmployeePosture, type ZoneDef, rotateLocal } from './scene-layout.js';
 import { useSceneStagingInputs } from './use-scene-staging-inputs.js';
 import { WorkBench } from './work-bench/WorkBench.js';
+
+// Warm the glTF loader cache the moment the scene module loads so first paint
+// gets all character bodies/animations/accessories in parallel instead of a
+// per-suspend waterfall (the Personnel preview shares the same cache).
+preloadCharacterAssets();
 
 interface SceneEmployeeDrop {
   readonly zoneId: string | null;
@@ -479,17 +485,22 @@ function EmployeeUnit({
           <meshBasicMaterial transparent opacity={0} depthWrite={false} />
         </mesh>
         {!dragging ? (
-          <BlockCharacter
-            appearance={appearance}
-            action={active ? 'active' : running && !blocked ? 'working' : 'idle'}
-            posture={posture}
-            running={running}
-            reducedMotion={reducedMotion}
-            performance={performance}
-            walkingRef={walkingRef}
-            tempo={tempo}
-            phase={phase}
-          />
+          // Per-actor Suspense: a still-loading glb suspends only this
+          // character (the hitbox, rings, label, and the rest of the scene
+          // stay mounted); assets are module-preloaded so this rarely shows.
+          <Suspense fallback={null}>
+            <GltfCharacter
+              appearance={appearance}
+              action={active ? 'active' : running && !blocked ? 'working' : 'idle'}
+              posture={posture}
+              running={running}
+              reducedMotion={reducedMotion}
+              performance={performance}
+              walkingRef={walkingRef}
+              tempo={tempo}
+              phase={phase}
+            />
+          </Suspense>
         ) : null}
       </group>
       {!dragging ? (
@@ -639,13 +650,17 @@ function EmployeeDragGhost({ employee, drag }: { employee: Employee; drag: Scene
         />
       </mesh>
       <group scale={1.5}>
-        <BlockCharacter
-          appearance={appearance}
-          action="dragging"
-          running
-          phase={phase}
-          opacity={ghostOpacity}
-        />
+        {/* Ghost fade: GltfCharacter clones per-instance materials (body AND
+            held props), so `opacity` fades the whole silhouette coherently. */}
+        <Suspense fallback={null}>
+          <GltfCharacter
+            appearance={appearance}
+            action="dragging"
+            running
+            phase={phase}
+            opacity={ghostOpacity}
+          />
+        </Suspense>
       </group>
       {drag.moved ? (
         <Html
@@ -735,8 +750,8 @@ export function OfficeScene3D() {
   const emptyOffice = zoneDefs.length === 0;
   const scenePrefabs = real?.prefabs;
 
-  // BlockCharacter's reducedMotion prop path (static poses) is a render
-  // concern; the frame separately carries staging=null under reduced motion.
+  // GltfCharacter's reducedMotion prop path (frozen mixer → static poses) is a
+  // render concern; the frame separately carries staging=null under reduced motion.
   const reducedMotion = usePrefersReducedMotion();
 
   // THE render contract: one SceneCueFrame per render, shared with the 2D
@@ -846,11 +861,12 @@ export function OfficeScene3D() {
         shadows="soft"
         dpr={[1, 1.75]}
         // Keep R3F's default `frameloop="always"`. We tried "demand" to save
-        // idle CPU but BlockCharacter.useFrame mutates `group.position.y`
-        // directly via refs (idle bob, walk bob) and never invalidates, so
-        // demand mode froze every employee's animation. ServerRack LOD checks
-        // similarly run in useFrame without setState. Re-enable demand only
-        // alongside an invalidate() in those useFrame consumers.
+        // idle CPU but the character mixers advance in useFrame (GltfCharacter
+        // RigView) and EmployeeUnit's glide lerp mutates positions via refs —
+        // neither invalidates, so demand mode froze every employee's
+        // animation. ServerRack LOD checks similarly run in useFrame without
+        // setState. Re-enable demand only alongside an invalidate() in those
+        // useFrame consumers.
         camera={{ position: OFFICE_CAMERA_PRESET.position, fov: OFFICE_CAMERA_PRESET.fov }}
         gl={{ antialias: true, toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.02 }}
         className="off-scene-canvas"
@@ -910,8 +926,8 @@ export function OfficeScene3D() {
                   }
                 : placement;
               // Unstaged actors carry performance: null (the cue contract);
-              // map null to undefined so BlockCharacter's legacy action-driven
-              // pose path (idle bob, active swivel) stays byte-identical.
+              // map null to undefined so GltfCharacter's legacy action-driven
+              // clip path (idle loop, talk loop) stays byte-identical.
               const performance = cue?.performance ?? undefined;
               const threadId = cue?.threadId ?? null;
               return (

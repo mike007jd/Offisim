@@ -2,12 +2,12 @@ import { type ResolvedAppearance, hashString } from '@/lib/avatar.js';
 import type { CharacterPerformanceState } from '@offisim/shared-types';
 import { useAnimations } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
-import type { ComponentProps } from 'react';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import {
   type AnimationAction,
   type AnimationClip,
   Color,
+  type Group,
   LoopOnce,
   LoopRepeat,
   type Mesh,
@@ -17,7 +17,6 @@ import {
   SkinnedMesh,
 } from 'three';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { ActionHalo, type BlockCharacter, TypingDots } from '../BlockCharacter.js';
 import { clamp } from '../scene-layout.js';
 import { CHARACTER_ASSET_URLS, characterManifest, useCharacterGltf } from './character-assets.js';
 import {
@@ -26,13 +25,14 @@ import {
   POSTURE_TRANSITION_CLIPS,
   clipForPerformance,
 } from './clip-map.js';
+import { ActionHalo, type CharacterAction, TypingDots } from './indicators.js';
 
 /**
- * GltfCharacter — drop-in replacement for {@link BlockCharacter} rendering the
- * Quaternius rigged bodies + shared animation library built by
- * `scripts/build-character-assets.mjs`. Implements the exact BlockCharacter
- * props contract (`ComponentProps<typeof BlockCharacter>` — compiler-enforced
- * parity) so the scene can swap components without call-site changes.
+ * GltfCharacter — THE office character renderer: Quaternius rigged bodies +
+ * the shared animation library built by `scripts/build-character-assets.mjs`.
+ * It replaced the procedural block-person renderer outright and owns its props
+ * contract ({@link CharacterProps}); the scene (EmployeeUnit / drag ghost) and
+ * the Personnel appearance preview are the two call sites.
  *
  * Appearance mapping:
  *  - gender: masculine → male body, feminine → female body, neutral →
@@ -42,35 +42,83 @@ import {
  *  - skin: Light/Dark texture variant picked by target luminance, then a
  *    channel-wise multiply tint toward the exact resolved skin color (reference
  *    averages ship in manifest.json).
- *  - clothing: flat Body_Top multiply; Body_Bottom gets the same color darkened
- *    (slacks); shoes keep their baked dark color.
+ *  - clothing: flat Body_Top multiply; Body_Bottom renders the ACCENT color
+ *    (darkened so vivid accents read as slacks) — the two-tone outfit is where
+ *    the Personnel "clothing accent" swatch shows up; shoes keep their baked
+ *    dark color.
  *  - hair: 8 HairStyle values → 6 baked hair meshes (see HAIR_STYLE_TO_ASSET);
  *    `bald` attaches none. Eyebrows always attach (gendered mesh), tinted with
  *    the hair color. Hair textures are grayscale-normalized so the multiply
  *    reproduces the palette color faithfully.
- *  - accentColor/accentVariant: NOT rendered — the base bodies have no
- *    vest/jacket/scarf overlay geometry (documented integration gap).
+ *  - accentVariant: data-only — the base bodies have no vest/jacket/scarf
+ *    overlay geometry, so the variant has no visual (accentColor renders via
+ *    the bottom-wear tint above).
  *  - expression: drives clip selection only; the gltf face is textured and has
  *    no morph targets, so there is no per-expression face swap.
  *
- * Rendering contract parity: the selection halo + working typing-dots are the
- * SHARED components exported by BlockCharacter (they move to this directory
- * when BlockCharacter is replaced). Animation binding lives in the inner
- * {@link RigView}, keyed per rig instance: drei's useAnimations caches its
- * actions against the first bound root, so an appearance/gender/hair change
- * (rig rebuild) must remount the binding or the new clone T-poses forever.
+ * Status indicators (action halo + typing dots) come from `./indicators.js` —
+ * one indicator language, floor/head anchored at the component origin.
+ * Animation binding lives in the inner {@link RigView}, keyed per rig
+ * instance: drei's useAnimations caches its actions against the first bound
+ * root, so an appearance/gender/hair change (rig rebuild) must remount the
+ * binding or the new clone T-poses forever.
  * Must be mounted inside <Suspense> (glb loads suspend).
  */
 
-type GltfCharacterProps = ComponentProps<typeof BlockCharacter>;
-type BlockAction = NonNullable<GltfCharacterProps['action']>;
-type BlockPosture = NonNullable<GltfCharacterProps['posture']>;
+type CharacterPosture = 'standing' | 'sitting';
+
+export interface CharacterProps {
+  appearance: ResolvedAppearance;
+  action?: CharacterAction;
+  posture?: CharacterPosture;
+  running?: boolean;
+  /**
+   * Accessibility: when true the character holds a STATIC resting pose — the
+   * mixer freezes (timeScale 0) so there is no idle bob, typing sway, gesture
+   * loop, celebration, or walk. Status color, expression-driven clip choice,
+   * label, approval, and error info are preserved (they are not vestibular
+   * motion). Relocation is separately suppressed upstream (modes.ts).
+   */
+  reducedMotion?: boolean;
+  /**
+   * Layered dramaturgy performance (Phase 3+). When provided it drives the
+   * clip selection; when absent the clip is derived from the legacy `action`
+   * enum so existing call sites are unchanged. The `action` enum still drives
+   * the UI indicators (selection halo, working dots).
+   */
+  performance?: CharacterPerformanceState;
+  /** Per-frame relocation flag (set by the scene's lerp) → walk locomotion while
+   *  in transit, then the destination performance once arrived. */
+  walkingRef?: { readonly current: boolean };
+  /** Performance-profile tempo (employee flavor); scales animation speed only. */
+  tempo?: number;
+  /** Deterministic phase offset so idle loops don't sync across the room. */
+  phase?: number;
+  opacity?: number;
+}
 
 /** Uniform scale normalizing the ~1.8-unit bodies into the scene's character size. */
 const TARGET_HEIGHT_UNITS = 1.62;
 /** Typing-dots heights (scene units), adapted to the gltf silhouette. */
 const DOTS_Y_STANDING = 1.86;
 const DOTS_Y_SITTING = 1.62;
+/**
+ * Seated-body alignment. The sit clips are authored floor-origin: posed-mesh
+ * sampling of `sit.idle` puts the butt-bottom at ~0.47 raw units (≈0.42 scene)
+ * with the pelvis pulled 0.33 raw (≈0.30 scene) BEHIND the origin and the feet
+ * on the floor at the origin — a ~0.45-unit authoring seat. Scene chairs
+ * (OfficeChair) top their cushion at 0.60 local, and the seat planner anchors
+ * seated actors 0.04 inside the chair centre expecting the butt AT the anchor
+ * (the block-character convention the anchors were tuned for). So while seated
+ * the rig shifts up and forward to park the butt on the cushion at the anchor;
+ * the shift lives HERE (not in the scene) so the floor-anchored ActionHalo and
+ * the component origin stay on the ground at the seat anchor. Applied with a
+ * short ease so walk→sit arrivals blend through sit.enter instead of popping.
+ */
+const SEATED_BODY_LIFT = 0.17;
+const SEATED_BODY_FORWARD = 0.3;
+/** Ease rate (per second) for the seated-body offset blend. */
+const SEATED_OFFSET_EASE = 7;
 /** Skin tint clamp so extreme palette/texture ratios stay physical. */
 const TINT_MIN = 0.35;
 const TINT_MAX = 2.8;
@@ -136,7 +184,10 @@ function cloneMaterial(mesh: Mesh, materials: MeshStandardMaterial[]): MeshStand
   return material;
 }
 
-function legacyPerformance(action: BlockAction, posture: BlockPosture): CharacterPerformanceState {
+function legacyPerformance(
+  action: CharacterAction,
+  posture: CharacterPosture,
+): CharacterPerformanceState {
   const base = {
     locomotion: 'idle',
     posture: posture === 'sitting' ? 'sit' : 'stand',
@@ -158,8 +209,8 @@ function legacyPerformance(action: BlockAction, posture: BlockPosture): Characte
 interface RigViewProps {
   rig: CharacterRig;
   animations: AnimationClip[];
-  actionState: BlockAction;
-  posture: BlockPosture;
+  actionState: CharacterAction;
+  posture: CharacterPosture;
   performance?: CharacterPerformanceState;
   usePerformance: boolean;
   walkingRef?: { readonly current: boolean };
@@ -189,6 +240,23 @@ function RigView({
   reducedMotion,
 }: RigViewProps) {
   const { actions, mixer } = useAnimations(animations, rig.root);
+  /** Wrapper group carrying scale + the seated-body offset. The offset must NOT
+   *  live on rig.root — the clips bind a constant-zero `root.position` track
+   *  that would overwrite any mutation there every mixer update. */
+  const bodyRef = useRef<Group>(null);
+
+  // Seed the seated offset before first paint so already-seated actors mount
+  // parked on their chair instead of easing up out of the floor.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: mount-only seed — the per-frame ease below owns the offset afterwards.
+  useLayoutEffect(() => {
+    const seated =
+      usePerformance && performance ? performance.posture === 'sit' : posture === 'sitting';
+    bodyRef.current?.position.set(
+      0,
+      seated ? SEATED_BODY_LIFT : 0,
+      seated ? SEATED_BODY_FORWARD : 0,
+    );
+  }, []);
 
   const playback = useRef<{
     clip: ClipName | null;
@@ -196,6 +264,9 @@ function RigView({
     posture: CharacterPerformanceState['posture'] | null;
     pending: ClipSelection | null;
   }>({ clip: null, action: null, posture: null, pending: null });
+  // Tracks reduced-motion transitions: enabling it mid-clip must snap to the
+  // clip's static pose, not freeze whatever frame the mixer happened to be on.
+  const wasReducedMotionRef = useRef(reducedMotion);
 
   const startClip = (selection: ClipSelection, instant: boolean) => {
     const next = actions[selection.clip];
@@ -234,7 +305,7 @@ function RigView({
     return () => mixer.removeEventListener('finished', onFinished);
   }, [mixer]);
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     mixer.timeScale = reducedMotion ? 0 : tempo;
     const walking = reducedMotion ? false : (walkingRef?.current ?? false);
     const perf =
@@ -244,6 +315,23 @@ function RigView({
           : performance
         : legacyPerformance(actionState, posture);
     const selection = clipForPerformance(perf);
+
+    // Seated-body offset (see SEATED_BODY_LIFT): butt onto the chair cushion
+    // while seated, floor origin otherwise. Eased so walk→sit arrivals blend
+    // through sit.enter; reduced motion snaps (static pose, no drift motion).
+    const body = bodyRef.current;
+    if (body) {
+      const seated = perf.posture === 'sit' && perf.locomotion !== 'walk';
+      const targetLift = seated ? SEATED_BODY_LIFT : 0;
+      const targetForward = seated ? SEATED_BODY_FORWARD : 0;
+      if (reducedMotion) {
+        body.position.set(0, targetLift, targetForward);
+      } else {
+        const ease = Math.min(1, delta * SEATED_OFFSET_EASE);
+        body.position.y += (targetLift - body.position.y) * ease;
+        body.position.z += (targetForward - body.position.z) * ease;
+      }
+    }
     // While relocating the actor is on their feet — keeps the stand ⇄ sit
     // transition correct when a walk ends at a seated anchor.
     if (perf.locomotion === 'walk') playback.current.posture = 'stand';
@@ -255,7 +343,14 @@ function RigView({
     if (laptop) laptop.visible = propKind === 'laptop';
     if (book) book.visible = propKind === 'document' || propKind === 'tablet';
 
-    if (playback.current.clip === selection.clip) return;
+    const reducedJustEnabled = reducedMotion && !wasReducedMotionRef.current;
+    wasReducedMotionRef.current = reducedMotion;
+    if (playback.current.clip === selection.clip) {
+      // Same clip, but reduce-motion just turned on: re-seat the action at its
+      // static frame so the freeze is an intentional pose, not a mid-swing one.
+      if (reducedJustEnabled) startClip(selection, true);
+      return;
+    }
     const previousPosture = playback.current.posture;
     playback.current.posture = perf.posture;
     if (reducedMotion) {
@@ -284,7 +379,7 @@ function RigView({
   });
 
   return (
-    <group scale={rig.scale}>
+    <group ref={bodyRef} scale={rig.scale}>
       <primitive object={rig.root} />
     </group>
   );
@@ -301,8 +396,8 @@ export function GltfCharacter({
   tempo = 1,
   phase = 0,
   opacity = 1,
-}: GltfCharacterProps) {
-  const actionState: BlockAction = action ?? (running ? 'working' : 'idle');
+}: CharacterProps) {
+  const actionState: CharacterAction = action ?? (running ? 'working' : 'idle');
   const usePerformance = performance !== undefined && actionState !== 'dragging';
 
   const appearanceKey = useMemo(() => JSON.stringify(appearance), [appearance]);
@@ -352,8 +447,12 @@ export function GltfCharacter({
       clamp(target.g / Math.max(reference.g, 0.01), TINT_MIN, TINT_MAX),
       clamp(target.b / Math.max(reference.b, 0.01), TINT_MIN, TINT_MAX),
     );
+    // Two-tone outfit: top = clothing, bottom = the accent color — this is
+    // where the Personnel "clothing accent" swatch renders on the GLTF bodies
+    // (the block renderer's vest/scarf accent meshes have no equivalent here).
+    // Slightly darkened so vivid accents still read as slacks, not neon.
     const clothing = new Color(appearance.clothing);
-    const bottom = clothing.clone().multiplyScalar(BOTTOM_DARKEN);
+    const bottom = new Color(appearance.accent).multiplyScalar(BOTTOM_DARKEN);
     const hairColor = new Color(appearance.hair);
 
     const unusedSkinVariant = useLight ? 'Body_Skin_Dark' : 'Body_Skin_Light';
