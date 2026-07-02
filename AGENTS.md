@@ -14,6 +14,7 @@
 
 # 未上线 / Vibe Coding 债务护栏
 - 当前阶段：Offisim 已确认未上线；没有真实用户、生产数据或必须保护的历史兼容合同。不要为了旧本地状态新增迁移、兼容、fallback 或最小补丁。
+- 即使完成大清洁，当前干净状态仍然只是 prelaunch baseline，不是上线后的兼容合同；未来不得因为“曾经清理过”重新引入生产迁移、历史兼容、rollout 或 fallback 债务。
 - 未上线项目的默认策略不是做 MVP 小补丁，而是把目标行为做完整、直达、可验证。禁止用“先最小可行 / 先临时兜底 / 以后迁移”作为交付口径。
 - 看到 `legacy` / `compat` / `fallback` / `migration` / `backfill` / `rollout` / `temporary` / `post-launch` 时，先分类：真实用户数据、外部契约、安全边界、Pi wire、MCP、安装包格式、deep link、project file sandbox 默认保留；纯粹因为 AI 误判已上线而存在的层，走 `prelaunch-assumption-convergence-loop` 分流到最小合适 loop。
 - 本地 SQLite 当前事实：`LOCAL_SCHEMA_VERSION = 1`，fresh DB 直接应用当前 baseline `schema.sql`；`packages/db-local/src/migrations/` 不保留历史迁移 SQL。旧本地库和无 stamp 库是可丢弃开发产物，删除后由 app 重建。

@@ -1,5 +1,7 @@
 # Parallel Work Dramaturgy PRD
 
+> Status update, 2026-07-02: this PRD is now the Wave 1 baseline. Most core projection requirements have landed (`workloadSummary`, grouped workload chips, artifact path preservation, terminal issue visibility, dominant issue priority, claimable delivery). New production-stage dramaturgy, renderer, and character-asset requirements live in `Docs/roadmap/2026-07-02-production-work-dramaturgy-prd.md`.
+
 ## Current Time Baseline
 - Checked at: 2026-07-01 23:10 NZST.
 - Revised after implementation-boundary audit: 2026-07-02 00:16 NZST.

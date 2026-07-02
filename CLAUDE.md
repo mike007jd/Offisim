@@ -54,11 +54,13 @@ area; spacing belongs inside panels, rails, and toolbar regions.
 
 ## Prelaunch / Vibe-Coding Debt Guard
 
-- Current stage: Offisim has RC/local release evidence but no proven public
-  launch, public GitHub release, deployment, or user base. Before changing
-  migrations, compatibility, fallback, release, external contract, or data
-  preservation logic, verify the launch-state evidence instead of assuming
-  production users exist.
+- Current stage: Offisim is confirmed prelaunch: no real users, production data,
+  or historical compatibility contract. Do not add migrations, compatibility,
+  fallback, or minimal patches for old local state.
+- Even after a large cleanup, the clean state is still only the prelaunch
+  baseline, not a post-launch compatibility contract. Future agents must not
+  reintroduce production migration, historical compatibility, rollout, or
+  fallback debt just because the project was previously cleaned.
 - Prelaunch does not mean MVP shortcuts. Complete the requested product behavior
   directly and verify it; do not ship "temporary", "minimal viable", or
   "we'll migrate later" patches as completion.
