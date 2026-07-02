@@ -8,11 +8,10 @@ import { LoopLibrary } from './loops/LoopLibrary.js';
 import { LoopRuns } from './loops/LoopRuns.js';
 
 /**
- * The Loops surface root (PR-08). The internal surface key stays `mission` (a
- * compatibility alias — see nav-registry), but the USER entry is now the
- * prompt-first Loops product: a Library of reusable Loop definitions + a
- * natural-language Editor, with old Verified Missions demoted to a read-only
- * "Legacy Runs" tab.
+ * The Loops surface root. The internal surface key stays `mission` until the
+ * app-state schema is renamed, but the product surface is prompt-first Loops:
+ * a Library of reusable Loop definitions, a natural-language Editor, and a
+ * read-only Runs list over persisted execution records.
  *
  * The old big-form MissionComposer / MissionControl are NO LONGER reachable from
  * this entry (PR-11 deletes them); this surface never routes to them. Pure view
@@ -76,7 +75,7 @@ export function MissionSurface() {
           onClick={() => setView({ kind: 'list', tab: 'runs' })}
           aria-current={view.tab === 'runs' ? 'page' : undefined}
         >
-          Legacy Runs
+          Runs
         </button>
       </nav>
       {view.tab === 'library' ? (

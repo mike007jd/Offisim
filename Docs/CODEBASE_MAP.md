@@ -63,19 +63,16 @@ Connect (collaboration) and Loops are isolated from Office's project chat and ru
 | `scripts/harness-collaboration-repo-contract.mts`, `scripts/harness-pi-collaboration-runtime.mts`, `scripts/harness-connect-chat-flow.mts` | Connect/collaboration domain, no-tools runtime, and chat-flow harnesses |
 | `scripts/harness-loop-*.mts`, `scripts/harness-prompt-enhance.mts` | Loop compiler/repository/mission-adapter/graph-projection/office-invocation/authoring + versioned Enhance harnesses |
 
-## Local SQLite Migrations
+## Local SQLite Baseline
 
-Local schema is at `LOCAL_SCHEMA_VERSION = 6`. Migration files live in
-`packages/db-local/src/migrations/` (ledger: `packages/db-local/src/migrations/README.md`):
+Local schema is at `LOCAL_SCHEMA_VERSION = 1`. Fresh databases apply the current
+baseline `packages/db-local/src/schema.sql` directly and are stamped by
+`apps/desktop/src-tauri/src/local_db.rs`.
 
-| File | Version | Adds |
-|------|---------|------|
-| `0004_collaboration.sql` | v4 | Connect collaboration domain (`collaboration_threads` / `_thread_members` / `_messages` / `_read_state`) |
-| `0005_loop_core.sql` | v5 | Loop domain (`loop_definitions` / `loop_revisions` / `loop_skill_bindings` / `loop_invocations`) |
-| `0006_collaboration_turns.sql` | v6 | Connect AI-reply ledger (`collaboration_turns`) |
-
-All three are additive, DDL-only (no row migration, no better-sqlite3 native
-rebuild). End-state matches `packages/db-local/src/schema.sql`.
+`packages/db-local/src/migrations/` intentionally contains no historical
+migration SQL. Offisim is prelaunch, so old local/dev databases with another
+version, or tables without a `PRAGMA user_version` stamp, are disposable and
+should be deleted/rebuilt from the current baseline.
 
 ## Documentation Ownership
 

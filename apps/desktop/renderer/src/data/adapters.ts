@@ -8,8 +8,8 @@ import type { ChatThread, Company, Employee, Project, RunState } from './types.j
 /**
  * Real-backend adapters: map SQLite repo rows → renderer view-model types so the
  * UI renders REAL company/employee/project data with no shape changes upstream.
- * Browser preview may fall back to fixtures. Release Tauri builds must surface
- * repository failures instead of silently rendering preview fixtures as success.
+ * Release Tauri builds must surface repository failures instead of silently
+ * rendering fake preview state as success.
  */
 
 export function isTauriRuntime(): boolean {

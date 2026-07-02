@@ -12,6 +12,13 @@
 - Settings 只能表达 `Pi Agent` account/runtime/model config 状态；必须透出 Pi 的 `~/.pi/agent/auth.json` / `models.json` 配置入口和安全摘要。模型只允许作为 Pi 的高级 override，不再做 Offisim 自维护 model catalog。
 - 未来 Claude/Codex 若回归，必须是互斥的完整 runtime engine 替换，并有独立 release `.app` 证据；不能作为 Pi 里的 provider lane。
 
+# 未上线 / Vibe Coding 债务护栏
+- 当前阶段：Offisim 已确认未上线；没有真实用户、生产数据或必须保护的历史兼容合同。不要为了旧本地状态新增迁移、兼容、fallback 或最小补丁。
+- 未上线项目的默认策略不是做 MVP 小补丁，而是把目标行为做完整、直达、可验证。禁止用“先最小可行 / 先临时兜底 / 以后迁移”作为交付口径。
+- 看到 `legacy` / `compat` / `fallback` / `migration` / `backfill` / `rollout` / `temporary` / `post-launch` 时，先分类：真实用户数据、外部契约、安全边界、Pi wire、MCP、安装包格式、deep link、project file sandbox 默认保留；纯粹因为 AI 误判已上线而存在的层，走 `prelaunch-assumption-convergence-loop` 分流到最小合适 loop。
+- 本地 SQLite 当前事实：`LOCAL_SCHEMA_VERSION = 1`，fresh DB 直接应用当前 baseline `schema.sql`；`packages/db-local/src/migrations/` 不保留历史迁移 SQL。旧本地库和无 stamp 库是可丢弃开发产物，删除后由 app 重建。
+- 详细策略见 `Docs/architecture/2026-07-02-prelaunch-vibe-debt-policy.md`。这份文档是后续 agent 判断伪迁移、伪兼容和 vibe-coding debt 的入口。
+
 # 当前架构决策（2026-05-18）
 - 开源前结构目标是生产级可维护拆分。
 - Offisim 只保留 Tauri v2 桌面产品；不要新增独立 web、browser runtime 或 launcher 产品工作。
@@ -48,7 +55,7 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **Offisim** (12740 symbols, 27221 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **Offisim** (12689 symbols, 27140 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 

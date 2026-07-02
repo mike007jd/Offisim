@@ -79,11 +79,10 @@ right-click → Inspect on the `.app` must be made with
 1.0 ships without `tauri-plugin-updater` or any in-app update channel. Updating
 means installing a newer build manually. This is intentional for the 1.0
 local-first scope: an update channel implies signed artifacts, an update
-server, and a rollback story — all post-1.0 work. User data survives manual
-reinstalls: the local SQLite schema is versioned (`PRAGMA user_version`) and a
-versioned-migration mechanism (`packages/db-local/src/migrations/`) is wired and
-cargo-tested. The migration chain is currently empty — 1.0 ships a single
-baseline schema, and the first ordered migration is added only with the first
-post-launch schema change.
+server, and a rollback story — all post-1.0 work. Before public launch, local
+data is disposable across manual reinstalls: the local SQLite schema is a single
+current baseline stamped with `PRAGMA user_version = 1`. Fresh databases
+bootstrap from `packages/db-local/src/schema.sql`; older local/dev databases are
+deleted and rebuilt rather than migrated.
 
 See also: [LOCAL_DEVELOPMENT.md](./LOCAL_DEVELOPMENT.md) · [RELEASE_GATES.md](./RELEASE_GATES.md)

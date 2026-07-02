@@ -10,16 +10,16 @@ import type { SceneBeat } from '@offisim/shared-types';
  * `risk` = blocked/resource/failure, `wait` = approval/waiting, `done` =
  * artifact/complete, `work` = ordinary in-flight work.
  */
-export type WorkloadChipTone = 'work' | 'wait' | 'risk' | 'done';
+type WorkloadChipTone = 'work' | 'wait' | 'risk' | 'done';
 
-export interface WorkloadGroupChip {
+interface WorkloadGroupChip {
   readonly label: string;
   readonly tone: WorkloadChipTone;
   /** Present on grouped (medium/large) chips; absent on small per-run chips. */
   readonly count?: number;
 }
 
-export type WorkloadTier = 'small' | 'medium' | 'large';
+type WorkloadTier = 'small' | 'medium' | 'large';
 
 /**
  * A render-agnostic grouping of one employee's workload for the office bubble.

@@ -25,6 +25,6 @@ API until a separate downstream review proves otherwise.
 |---|---|---|
 | Tauri command names, permission allowlists, and renderer `invoke(commandName)` paths | Keep | These are runtime string contracts rather than import graph edges; deleting by grep would miss registered commands and permission entries. |
 | `apps/desktop/src-tauri/resources/**` | Keep | Generated Pi Agent host resource is bundled by Tauri release config and verified by `pnpm harness:pi-agent-host`; `knip.json` intentionally ignores it. |
-| DB schema and migration SQL | Keep | `local_db.rs` uses `include_str!` for `schema.sql` and each migration. The stale migration README was updated instead of deleting live migration files. |
+| DB schema baseline | Keep | `local_db.rs` uses `include_str!` for `schema.sql`; historical local migration SQL was removed after confirming Offisim has no launched user-data upgrade contract. |
 | `packages/renderer` | Keep | It is pure shared renderer logic used by desktop renderer and platform, not a standalone web product or shared visual UI package. |
-| Historical second-runtime scorecard and inert-storage ledger | Archive/keep | The scorecard is historical NO-GO evidence and was moved out of the active architecture path. Inert SQLite tables remain schema-frozen until a real migration/removal plan exists. |
+| Historical second-runtime scorecard and inert-storage ledger | Archive/keep | The scorecard is historical NO-GO evidence and was moved out of the active architecture path. Inert SQLite tables remain documented until a deliberate baseline cleanup removes or rewires them. |

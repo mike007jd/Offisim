@@ -1,5 +1,4 @@
 import { useUiState } from '@/app/ui-state.js';
-import { isTauriRuntime } from '@/data/adapters.js';
 import { UI_DATA_COLORS } from '@/data/color-palette.js';
 import { useEmployees } from '@/data/queries.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
@@ -11,25 +10,16 @@ import { CalendarDays, Check, MessageSquare } from 'lucide-react';
 import { useMemo, useRef } from 'react';
 import { type AgendaEvent, type WsMeeting, useWsAgenda, useWsMeetings } from '../workspace-data.js';
 
-/** real agenda event ids are `mtg-ev-<meeting_id>`. */
 const MEETING_EVENT_PREFIX = 'mtg-ev-';
 function meetingIdForEvent(eventId: string | null): string | undefined {
   if (eventId?.startsWith(MEETING_EVENT_PREFIX)) return eventId.slice(MEETING_EVENT_PREFIX.length);
-  return eventId ? FIXTURE_EVENT_TO_MEETING[eventId] : undefined;
+  return undefined;
 }
 
 const STATUS_TONE: Record<WsMeeting['status'], 'accent' | 'ok' | 'muted'> = {
   live: 'accent',
   upcoming: 'ok',
   ended: 'muted',
-};
-
-/** Browser-preview-only: maps the demo agenda fixture event ids to fixture
- *  meeting ids. Release agenda events use the `mtg-ev-<id>` derived ids above. */
-const FIXTURE_EVENT_TO_MEETING: Record<string, string> = {
-  'ev-standup': 'mtg-standup',
-  'ev-design': 'mtg-design',
-  'ev-signoff': 'mtg-signoff',
 };
 
 export function CalendarApp() {
@@ -96,7 +86,6 @@ export function CalendarApp() {
           Today
         </button>
         <span className="off-grow" />
-        {!isTauriRuntime() ? <span className="off-ws-preview-tag">Preview</span> : null}
       </div>
 
       {agenda.isError ? (

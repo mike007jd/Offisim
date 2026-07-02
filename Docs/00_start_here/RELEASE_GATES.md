@@ -33,7 +33,7 @@ when the list changes.
 | Pi Agent Host | `pnpm harness:pi-agent-host` | official Pi SDK host wiring, Pi AuthStorage/ModelRegistry status path, release resources, and validate script shape |
 | UI hygiene | `pnpm check:ui-hygiene` | no stale/dead UI copy, no hardcoded provider copy outside settings, design-token discipline |
 | Security harness | `pnpm security:harness` | platform auth/body-limit, doc-engine CSV, git-source tarball cap/zip-bomb, registry-client, web fetch/search boundaries |
-| Desktop Rust | `cargo test` in `apps/desktop/src-tauri` | path containment, shell classifier, redaction, attachment store, local db migration chain |
+| Desktop Rust | `cargo test` in `apps/desktop/src-tauri` | path containment, shell classifier, redaction, attachment store, local db baseline/refusal behavior |
 | Supply chain | `pnpm audit --prod --audit-level high` | no unresolved high/critical advisories in the prod tree (transitive highs are pinned via root `pnpm.overrides`) |
 
 ## Build gates (desktop release)

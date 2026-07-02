@@ -6,13 +6,12 @@ import {
   useProjects,
 } from '@/data/queries.js';
 import type { ChatToolCall, Employee } from '@/data/types.js';
-import { resolveAsync } from '@/lib/platform.js';
 import { getTauriDb } from '@/lib/tauri-db.js';
 import type { MeetingSessionRow } from '@offisim/core/browser';
 import { useQuery } from '@tanstack/react-query';
 
 /**
- * Workspace-suite view-models + fixtures + local query hooks.
+ * Workspace-suite view-models + local query hooks.
  *
  * These models are owned by the Workspace surface and intentionally diverge from
  * the (legacy / incorrect) `@/data/types` `Approval` / `CalendarEvent` shapes:
@@ -21,8 +20,7 @@ import { useQuery } from '@tanstack/react-query';
  * roster as Contacts, and the agenda of meetings / runs / ceremonies / deadlines.
  *
  * Employee identity is shared: callers join these by `employeeId` against
- * `useEmployees()`. Fixtures are resolved through `resolveAsync` so the query
- * keys + shapes form the seam for sandboxed Tauri commands later.
+ * `useEmployees()`.
  */
 
 /* ── Messenger conversation list ─────────────────────────────────────────── */
@@ -79,7 +77,7 @@ export interface WsMessage {
   /** Role chip shown next to employee name. */
   role?: string;
   timeLabel: string;
-  /** Epoch ms the message was created. Set on persisted rows; fixtures omit it. */
+  /** Epoch ms the message was created. */
   at?: number;
   body: string;
   reasoning?: string;
@@ -153,345 +151,12 @@ export interface WsMeeting {
   actionItems: WsActionItem[];
 }
 
-/* ════════════════ Fixtures ════════════════ */
-/* Employee ids are the shared roster from fixtures.ts:
- *   emp-mara (Engineering Lead), emp-devin (Product Designer),
- *   emp-sela (QA Analyst), emp-orion (Security Review · external). */
-
-const SYSTEM_CONV_ID = 'sys-channel';
-
-const conversations: WsConversation[] = [
-  {
-    id: 'th-team',
-    kind: 'group',
-    title: 'Relay Launch · Team',
-    employeeId: null,
-    snippet: 'Mara: Session contract verified ✅',
-    timeLabel: '14:32',
-    unread: 3,
-    section: 'pinned',
-    members: 4,
-    workingNow: 2,
-  },
-  {
-    id: 'th-mara',
-    kind: 'direct',
-    title: 'Mara Quinn',
-    employeeId: 'emp-mara',
-    presence: 'working',
-    snippet: 'On it — reviewing the edge cases now',
-    timeLabel: '14:30',
-    unread: 1,
-  },
-  {
-    id: SYSTEM_CONV_ID,
-    kind: 'system',
-    title: 'System',
-    employeeId: null,
-    snippet: 'HR assessment complete · 3 roles recommended',
-    timeLabel: '14:18',
-    unread: 2,
-  },
-  {
-    id: 'th-devin',
-    kind: 'direct',
-    title: 'Devin Park',
-    employeeId: 'emp-devin',
-    presence: 'idle',
-    snippet: 'Sandbox is ready whenever you are',
-    timeLabel: '13:55',
-    read: true,
-  },
-  {
-    id: 'th-design',
-    kind: 'group',
-    title: 'Design Review',
-    employeeId: null,
-    snippet: 'Devin: pushed v3 of the spec sheet',
-    timeLabel: 'Mon',
-    members: 3,
-    workingNow: 0,
-  },
-  {
-    id: 'th-audit',
-    kind: 'external',
-    title: 'Orion Audit',
-    employeeId: 'emp-orion',
-    presence: 'working',
-    snippet: 'Outsourced render batch delivered',
-    timeLabel: 'Mon',
-    muted: true,
-  },
-  {
-    id: 'th-sela',
-    kind: 'direct',
-    title: 'Sela Ortiz',
-    employeeId: 'emp-sela',
-    presence: 'offline',
-    snippet: 'Thanks! Closing this one out 🎉',
-    timeLabel: 'Sun',
-    section: 'earlier',
-    read: true,
-  },
-];
-
-const threadsById: Record<string, WsThread> = {
-  'th-team': {
-    messages: [
-      {
-        id: 't-m1',
-        author: 'boss',
-        employeeId: null,
-        timeLabel: '14:05',
-        body: 'Kick off the Relay launch checklist — verify the doc-engine export flow and harden the attachment pipeline. Loop in whoever you need.',
-      },
-      {
-        id: 't-m2',
-        author: 'employee',
-        employeeId: 'emp-orion',
-        role: 'manager',
-        timeLabel: '14:06',
-        body: "Got it. Breaking this into a 7-step plan and assigning Devin (sandbox), Mara (edge cases) and Sela (spec). I'll report back as steps land.",
-      },
-      {
-        id: 't-m3',
-        author: 'employee',
-        employeeId: 'emp-devin',
-        role: 'devops',
-        timeLabel: '14:24',
-        body: 'Provisioned the deterministic harness sandbox — green. Handing the parser off to Mara.',
-        attachment: {
-          id: 't-a1',
-          name: 'sandbox-bootstrap.log',
-          meta: '3.2 KB · Text attachment',
-        },
-      },
-      {
-        id: 't-m4',
-        author: 'employee',
-        employeeId: 'emp-orion',
-        role: 'manager',
-        timeLabel: '14:32',
-        body: 'Fixture parser verified ✅ — wrote up the report. The artifact is attached to this thread.',
-        deliverable: {
-          id: 't-d1',
-          title: 'Fixture Verification Report',
-          meta: '2.4 KB · 1m',
-          format: 'MD',
-          contributorIds: ['emp-orion', 'emp-devin'],
-          content: [
-            '# Fixture Verification Report',
-            '',
-            '## Scope',
-            '- Verified the Relay launch fixture parser against the deterministic harness sandbox.',
-            '- Confirmed the attachment metadata path resolves into this Workspace thread.',
-            '- Checked the remaining sign-off block before the doc-engine export handoff.',
-            '',
-            '## Result',
-            '- Parser fixture set: pass',
-            '- Attachment pipeline: pass',
-            '- Export handoff: blocked until the bound project workspace is available',
-            '',
-            '## Owners',
-            '- Orion Audit: verification lead',
-            '- Devin Park: sandbox bootstrap',
-          ].join('\n'),
-        },
-      },
-    ],
-  },
-  'th-mara': {
-    messages: [
-      {
-        id: 'd-m1',
-        author: 'boss',
-        employeeId: null,
-        timeLabel: '14:20',
-        body: 'Can you double-check the boundary cases on the markdown attachment parser before we ship?',
-      },
-      {
-        id: 'd-m2',
-        author: 'employee',
-        employeeId: 'emp-mara',
-        role: 'developer',
-        timeLabel: '14:22',
-        body: "On it. Running the parser against empty files, 8 MB caps and non-UTF-8 input. Will flag anything that needs a tool I don't have.",
-      },
-      {
-        id: 'd-m3',
-        author: 'employee',
-        employeeId: 'emp-mara',
-        role: 'developer',
-        timeLabel: '14:30',
-        body: 'Three pass, one needs your call: reading ./.cache is outside the workspace root. I’ve asked for your approval right here in the thread.',
-      },
-    ],
-  },
-};
-
-/** Contact KV detail keyed by employee id (joined against `useEmployees()`). */
-const contactDetails: Record<string, ContactDetail> = {
-  'emp-mara': {
-    presence: 'working',
-    presenceNote: '“Edge case review”',
-    zone: 'Engineering (workstation E-2)',
-    expertise: 'parsers · edge cases · TypeScript',
-    tools: 'read_file · write_file · bash',
-    toolsNote: '(ask for out-of-root)',
-    decisionStyle: 'analytical · balanced risk',
-    openChats: '1 direct · 2 group',
-    source: 'Internal employee',
-    group: 'Engineering',
-  },
-  'emp-devin': {
-    presence: 'idle',
-    zone: 'DevOps (workstation D-1)',
-    expertise: 'sandboxes · CI · provisioning',
-    tools: 'read_file · write_file · bash',
-    decisionStyle: 'pragmatic · low risk',
-    openChats: '1 direct · 1 group',
-    source: 'Internal employee',
-    group: 'Engineering',
-  },
-  'emp-sela': {
-    presence: 'offline',
-    zone: 'Design (workstation S-1)',
-    expertise: 'specs · writing · launch metrics',
-    tools: 'read_file · write_file',
-    decisionStyle: 'thorough · detail-first',
-    openChats: '0 direct · 1 group',
-    source: 'Internal employee',
-    group: 'Design',
-  },
-  'emp-orion': {
-    presence: 'working',
-    presenceNote: 'managing the Relay run',
-    zone: 'Management (workstation M-1)',
-    expertise: 'planning · routing · static analysis',
-    tools: 'plan · delegate · read_file',
-    decisionStyle: 'decisive · risk-aware',
-    openChats: '1 direct · 3 group',
-    source: 'External · brand (A2A · render)',
-    group: 'External · brand',
-  },
-};
-
-const agenda: AgendaDay[] = [
-  {
-    id: 'd-thu',
-    weekday: 'Thu',
-    date: 'May 23',
-    today: true,
-    events: [
-      {
-        id: 'ev-standup',
-        kind: 'meeting',
-        title: 'Relay Launch standup',
-        timeLabel: '09:30',
-        note: '4 attendees · daily ceremony',
-      },
-      {
-        id: 'ev-run',
-        kind: 'run',
-        title: 'Run · Attachment pipeline',
-        timeLabel: '11:00',
-        note: '7 steps · live now',
-      },
-      {
-        id: 'ev-deadline',
-        kind: 'deadline',
-        title: 'Pitch deck due',
-        timeLabel: '17:00',
-        note: 'owner Sela',
-      },
-    ],
-  },
-  {
-    id: 'd-fri',
-    weekday: 'Fri',
-    date: 'May 24',
-    events: [
-      {
-        id: 'ev-design',
-        kind: 'meeting',
-        title: 'Design review',
-        timeLabel: '14:00',
-        note: 'Sela, Orion',
-      },
-      {
-        id: 'ev-signoff',
-        kind: 'ceremony',
-        title: 'Launch sign-off ceremony',
-        timeLabel: '16:00',
-        note: 'boss + managers',
-      },
-    ],
-  },
-  {
-    id: 'd-mon',
-    weekday: 'Mon',
-    date: 'May 27',
-    events: [
-      {
-        id: 'ev-retro',
-        kind: 'run',
-        title: 'Weekly retro run',
-        timeLabel: '10:00',
-        note: 'auto-scheduled run',
-      },
-    ],
-  },
-];
-
-const meetings: WsMeeting[] = [
-  {
-    id: 'mtg-standup',
-    title: 'Relay Launch standup',
-    status: 'ended',
-    sub: 'Today 09:30 · 12 min · 4 attendees · ended',
-    timeLabel: 'Today · 09:30',
-    attendeeIds: ['emp-mara', 'emp-devin', 'emp-sela', 'emp-orion'],
-    threadId: 'th-team',
-    actionItems: [
-      { id: 'ai-1', text: 'Provision the harness sandbox', ownerId: 'emp-devin', done: true },
-      { id: 'ai-2', text: 'Review parser boundary cases', ownerId: 'emp-mara', done: false },
-      { id: 'ai-3', text: 'Draft pitch deck v2', ownerId: 'emp-sela', done: false },
-      { id: 'ai-4', text: 'Approve out-of-root bash for Mara', ownerId: null, done: false },
-    ],
-  },
-  {
-    id: 'mtg-design',
-    title: 'Design review',
-    status: 'upcoming',
-    sub: 'Fri 14:00 · 30 min · 2 attendees · upcoming',
-    timeLabel: 'Fri · 14:00',
-    attendeeIds: ['emp-sela', 'emp-orion'],
-    threadId: 'th-design',
-    actionItems: [
-      { id: 'ai-5', text: 'Walk through v3 spec sheet', ownerId: 'emp-sela', done: false },
-      { id: 'ai-6', text: 'Confirm export format decision', ownerId: 'emp-orion', done: false },
-    ],
-  },
-  {
-    id: 'mtg-signoff',
-    title: 'Launch sign-off ceremony',
-    status: 'upcoming',
-    sub: 'Fri 16:00 · 15 min · boss + managers',
-    timeLabel: 'Fri · 16:00',
-    attendeeIds: ['emp-orion', 'emp-mara'],
-    threadId: 'th-team',
-    actionItems: [{ id: 'ai-7', text: 'Confirm all gates resolved', ownerId: null, done: false }],
-  },
-];
-
-/* ── Query hooks (fixture seam) ──────────────────────────────────────────── */
+/* ── Query hooks ─────────────────────────────────────────────────── */
 
 /**
  * Real conversation list = the active project's non-archived chat_threads
- * (employee_id set => direct, null => group). Browser preview (no repos) keeps
- * the demo fixture so the surface renders; release shows an honest empty list
- * when the project has no threads. No presence/unread/snippet beyond the real
- * summary — those have no backing column.
+ * (employee_id set => direct, null => group). No presence/unread/snippet beyond
+ * the real summary — those have no backing column.
  */
 export function useWsConversations() {
   const projectId = useUiState((s) => s.projectId);
@@ -499,7 +164,6 @@ export function useWsConversations() {
     queryKey: projectChatThreadRowsQueryKey(projectId),
     queryFn: () => loadProjectChatThreadRows(projectId),
     select: (rows): WsConversation[] => {
-      if (!isTauriRuntime()) return conversations;
       return rows.map((row) => ({
         id: row.thread_id,
         kind: row.employee_id ? 'direct' : 'group',
@@ -520,9 +184,9 @@ export function useWsThread(conversationId: string | null) {
     queryFn: async (): Promise<WsThread | null> => {
       if (!conversationId) return null;
       const repos = await reposOrNull();
-      if (!repos) return threadsById[conversationId] ?? null; // browser preview seed
-      // Release: the message stream is the persisted agent_events feed rendered
-      // by WorkspaceAssistantThread. Return an honest empty seed — no fabricated
+      if (!repos) return { messages: [] };
+      // The message stream is the persisted agent_events feed rendered by
+      // WorkspaceAssistantThread. Return an honest empty seed — no fabricated
       // messages on top of the real persisted ones.
       return { messages: [] };
     },
@@ -620,8 +284,7 @@ export function useWsContactDetails(employees: readonly Employee[] = []) {
   return useQuery({
     queryKey: ['ws', 'contact-details', companyId, employeeIds],
     queryFn: async (): Promise<Record<string, ContactDetail>> => {
-      // Browser preview (no Tauri runtime / repos): keep the demo fixture.
-      if (!isTauriRuntime()) return resolveAsync(contactDetails);
+      if (!isTauriRuntime()) return {};
       return loadContactDetails(companyId, employees);
     },
   });
@@ -685,7 +348,7 @@ export function useWsMeetings() {
       if (!companyId) return [];
       return repos.meetings.findByCompany(companyId);
     },
-    select: (rows) => (isTauriRuntime() ? rows.map(meetingRowToVm) : meetings),
+    select: (rows) => rows.map(meetingRowToVm),
   });
 }
 
@@ -733,7 +396,7 @@ export function useWsAgenda() {
       if (!companyId) return [];
       return repos.meetings.findByCompany(companyId);
     },
-    select: (rows) => (isTauriRuntime() ? meetingsToAgenda(rows) : agenda),
+    select: (rows) => meetingsToAgenda(rows),
   });
 }
 
@@ -778,35 +441,6 @@ interface BoardThreadRow {
   archived_at: string | null;
 }
 
-// Browser-preview cards so the board renders without a Tauri DB. Release builds
-// query the real chat_threads rows; these are never shown in the desktop app.
-const boardFixture: WsBoardCard[] = [
-  {
-    threadId: 'demo-board-1',
-    employeeId: 'emp-1',
-    title: 'Draft the launch announcement',
-    updatedAtMs: Date.now() - 22 * 60_000,
-    archived: false,
-    ageLabel: '22m',
-  },
-  {
-    threadId: 'demo-board-2',
-    employeeId: 'emp-2',
-    title: 'Reconcile the Q2 ad spend',
-    updatedAtMs: Date.now() - 3 * 3_600_000,
-    archived: false,
-    ageLabel: '3h',
-  },
-  {
-    threadId: 'demo-board-3',
-    employeeId: 'emp-3',
-    title: 'Competitor pricing sweep',
-    updatedAtMs: Date.now() - 26 * 3_600_000,
-    archived: true,
-    ageLabel: '1d',
-  },
-];
-
 /**
  * Every conversation in the active project as a board card, newest first.
  * `archived` splits To do vs Done; the live In progress / Waiting columns are
@@ -819,7 +453,7 @@ export function useWsBoard(projectId: string | null) {
   return useQuery<WsBoardCard[]>({
     queryKey: ['ws', 'board', projectId],
     queryFn: async (): Promise<WsBoardCard[]> => {
-      if (!isTauriRuntime()) return resolveAsync(boardFixture);
+      if (!isTauriRuntime()) return [];
       if (!projectId) return [];
       const db = await getTauriDb();
       const rows = await db.select<BoardThreadRow[]>(

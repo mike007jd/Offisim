@@ -1,6 +1,5 @@
 import { useUiState } from '@/app/ui-state.js';
 import { loadPersistedChatMessages } from '@/data/chat-message-events.js';
-import { resolveAsync } from '@/lib/platform.js';
 import { getTauriDb } from '@/lib/tauri-db.js';
 import { buildWizardTemplates } from '@/surfaces/lifecycle/template-view.js';
 import { getBuiltinPrefab } from '@offisim/renderer';
@@ -21,22 +20,11 @@ import {
   reposOrNull,
   threadToVm,
 } from './adapters.js';
-import {
-  companies,
-  deliverables,
-  employeeSkills,
-  employees,
-  messages,
-  projectFiles,
-  projects,
-  threads,
-} from './fixtures.js';
 import { gitErrorMessage, isNonGitWorkspace, loadGitWorkbench } from './git-workbench.js';
 import { deleteCompanyDeep, deleteConversationDeep } from './local-data-deletion.js';
 import { loadRunCost } from './run-cost.js';
 import type {
   ChatMessage,
-  ChatThread,
   Deliverable,
   Employee,
   FileNode,
@@ -45,8 +33,8 @@ import type {
 } from './types.js';
 
 /**
- * Query hooks over the renderer data source. Browser preview can resolve
- * fixtures; release Tauri builds must use repository-backed data or fail loudly.
+ * Query hooks over the renderer data source. Release Tauri builds must use
+ * repository-backed data or fail loudly instead of rendering fake preview state.
  */
 
 export function useCompanies() {
@@ -54,7 +42,7 @@ export function useCompanies() {
     queryKey: ['companies'],
     queryFn: async () => {
       const repos = await reposOrNull();
-      if (!repos) return resolveAsync(companies);
+      if (!repos) return [];
       const rows = await repos.companies.findAll();
       return rows.filter((c) => c.status !== 'archived').map(companyToVm);
     },
@@ -66,7 +54,7 @@ export function useCompanyTemplates() {
     queryKey: ['company-templates'],
     // Templates are static, canonical core data — no I/O. Returns the 5 built-in
     // templates; the wizard appends the renderer-only "Create your own" entry.
-    queryFn: () => resolveAsync(buildWizardTemplates()),
+    queryFn: () => buildWizardTemplates(),
   });
 }
 
@@ -75,7 +63,7 @@ export function useProjects(companyId: string | null) {
     queryKey: ['projects', companyId],
     queryFn: async () => {
       const repos = await reposOrNull();
-      if (!repos) return resolveAsync(projects.filter((p) => p.companyId === companyId));
+      if (!repos) return [];
       const rows = await repos.projects.findByCompany(companyId ?? '');
       return rows.map(projectToVm);
     },
@@ -89,7 +77,7 @@ export function useEmployees() {
     queryKey: ['employees', companyId],
     queryFn: async () => {
       const repos = await reposOrNull();
-      if (!repos) return resolveAsync(employees);
+      if (!repos) return [];
       const rows = await repos.employees.findByCompany(companyId);
       return rows.map(employeeToVm);
     },
@@ -105,7 +93,7 @@ export function useCompanyEmployees(companyId: string | null) {
     queryKey: ['employees', companyId],
     queryFn: async () => {
       const repos = await reposOrNull();
-      if (!repos) return resolveAsync<Employee[]>(employees);
+      if (!repos) return [] as Employee[];
       const rows = await repos.employees.findByCompany(companyId ?? '');
       return rows.map(employeeToVm);
     },
@@ -151,36 +139,11 @@ export interface ProjectChatThreadRow {
 export const projectChatThreadRowsQueryKey = (projectId: string | null) =>
   ['threads', projectId] as const;
 
-function fixtureThreadToRow(thread: ChatThread): ProjectChatThreadRow {
-  return {
-    thread_id: thread.id,
-    project_id: thread.projectId,
-    employee_id: thread.employeeId,
-    title: thread.title,
-    summary: thread.subtitle,
-    updated_at: new Date(thread.updatedAt).toISOString(),
-    run_status:
-      thread.runState === 'running'
-        ? 'running'
-        : thread.runState === 'paused'
-          ? 'paused'
-          : thread.runState === 'error'
-            ? 'failed'
-            : thread.runState === 'done'
-              ? 'completed'
-              : 'idle',
-  };
-}
-
 export async function loadProjectChatThreadRows(
   projectId: string | null,
 ): Promise<ProjectChatThreadRow[]> {
   const repos = await reposOrNull();
-  if (!repos) {
-    return resolveAsync(
-      threads.filter((thread) => thread.projectId === projectId).map(fixtureThreadToRow),
-    );
-  }
+  if (!repos) return [];
   const rows = (await repos.chatThreads.listByProject(projectId ?? '')) as ProjectChatThreadRow[];
   if (rows.length === 0) return [];
   const db = await getTauriDb();
@@ -319,10 +282,7 @@ export function useEmployeeSkills(employeeId: string | null) {
     queryFn: async () => {
       if (!employeeId) return [] as Skill[];
       const repos = await reposOrNull();
-      // Browser preview (no Tauri repos): keep the demo fixture so the surface
-      // still renders. Release always has repos and reads the real skills table —
-      // matching useEmployeeMemories / useEmployeeVersions, not a fixture seam.
-      if (!repos?.skills) return resolveAsync<Skill[]>(employeeSkills[employeeId] ?? []);
+      if (!repos?.skills) return [] as Skill[];
       // An employee's effective skill set = the company-global skills that apply
       // to everyone plus this employee's own (employee-scoped) skills. The two
       // queries are disjoint (employee_id IS NULL vs = id), so no dedup needed.
@@ -512,7 +472,7 @@ export function useMessages(threadId: string | null) {
       // Chat messages are not a persisted DB table — they are produced live by
       // the direct desktop provider path and stored as agent event rows.
       if (repos) return loadPersistedChatMessages(threadId ?? '');
-      return resolveAsync<ChatMessage[]>(threadId ? (messages[threadId] ?? []) : []);
+      return [] as ChatMessage[];
     },
     enabled: threadId !== null,
   });
@@ -554,18 +514,7 @@ export function useDeliverables(threadId: string | null) {
     queryFn: async () => {
       if (companyId === null || threadId === null) return [] as Deliverable[];
       const repos = await reposOrNull();
-      if (!repos?.deliverables)
-        return resolveAsync(
-          deliverables.filter(
-            (deliverable) =>
-              deliverable.threadId === threadId &&
-              deliverableVisible({
-                title: deliverable.name,
-                fileName: deliverable.fileName,
-                kind: deliverable.kind,
-              }),
-          ),
-        );
+      if (!repos?.deliverables) return [] as Deliverable[];
       const rows = await repos.deliverables.listByCompany(companyId, {
         threadId,
         limit: 40,
@@ -591,9 +540,7 @@ export function useDeliverables(threadId: string | null) {
 export async function loadDeliverableBody(deliverable: Deliverable): Promise<string> {
   if (deliverable.preview !== undefined) return deliverable.preview;
   const repos = await reposOrNull();
-  if (!repos?.deliverables) {
-    return deliverables.find((fixture) => fixture.id === deliverable.id)?.preview ?? '';
-  }
+  if (!repos?.deliverables) return '';
   const row = await repos.deliverables.findById(deliverable.id);
   return row?.content ?? '';
 }
@@ -903,7 +850,7 @@ export function useProjectFiles(projectId: string | null) {
     queryKey: ['project-files', projectId],
     queryFn: async () => {
       if (!projectId) return [];
-      if (!isTauriRuntime()) return resolveAsync<FileNode[]>(projectFiles[projectId] ?? []);
+      if (!isTauriRuntime()) return [] as FileNode[];
       try {
         const { invoke } = await import('@tauri-apps/api/core');
         const rows = await invoke<

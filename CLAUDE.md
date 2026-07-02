@@ -52,10 +52,32 @@ area; spacing belongs inside panels, rails, and toolbar regions.
   replacement with independent release `.app` evidence, not a provider lane
   inside Pi Agent.
 
+## Prelaunch / Vibe-Coding Debt Guard
+
+- Current stage: Offisim has RC/local release evidence but no proven public
+  launch, public GitHub release, deployment, or user base. Before changing
+  migrations, compatibility, fallback, release, external contract, or data
+  preservation logic, verify the launch-state evidence instead of assuming
+  production users exist.
+- Prelaunch does not mean MVP shortcuts. Complete the requested product behavior
+  directly and verify it; do not ship "temporary", "minimal viable", or
+  "we'll migrate later" patches as completion.
+- When touching `legacy`, `compat`, `fallback`, `migration`, `backfill`,
+  `rollout`, `temporary`, or `post-launch` surfaces, classify the boundary first.
+  Real local data, external contracts, security, Pi wire, MCP, package formats,
+  deep links, and project-file sandboxing default to retain; false production
+  assumptions go through the prelaunch convergence loop and the smallest
+  appropriate child loop.
+- Local SQLite fact: `LOCAL_SCHEMA_VERSION = 1`; fresh databases apply the
+  current baseline `schema.sql`. `packages/db-local/src/migrations/` intentionally
+  contains no historical migration SQL. Old local databases are disposable
+  prelaunch artifacts and should be deleted/rebuilt, not upgraded.
+- Policy source: `Docs/architecture/2026-07-02-prelaunch-vibe-debt-policy.md`.
+
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **Offisim** (12740 symbols, 27221 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **Offisim** (12689 symbols, 27140 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 

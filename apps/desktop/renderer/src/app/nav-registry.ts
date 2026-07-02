@@ -32,11 +32,8 @@ export const NAV_ENTRIES: readonly NavEntry[] = [
   // key stays 'workspace' as a legacy internal identifier so this rename does
   // not ripple through routing/state — only the user-visible label changes.
   { key: 'workspace', label: 'Connect', icon: MessagesSquare, tier: 'primary' },
-  // The Missions surface is now the prompt-first **Loops** product (PR-08). The
-  // internal surface key stays 'mission' as a compatibility alias so routing,
-  // ui-state, and the command palette do not ripple — only the user-visible
-  // label / aria / palette text becomes "Loops". Old Missions live on as Legacy
-  // Runs inside this surface.
+  // The internal surface key still says 'mission' until the app-state schema is
+  // renamed, but the user-visible product is Loops.
   { key: 'mission', label: 'Loops', icon: Target, tier: 'primary' },
   { key: 'market', label: 'Market', icon: Store, tier: 'primary' },
   { key: 'personnel', label: 'Personnel', icon: UsersRound, tier: 'primary' },

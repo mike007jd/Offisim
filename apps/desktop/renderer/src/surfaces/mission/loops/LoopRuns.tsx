@@ -12,13 +12,9 @@ import {
 import { History } from 'lucide-react';
 
 /**
- * Legacy Runs (PR-08) — the existing Verified Missions rows, READ-ONLY. Old
- * missions are not auto-converted to Loops (their manual criteria are not
- * necessarily a reusable design); they remain viewable here as history. There are
- * NO Start/Pause/Resume/Cancel controls — the live run wiring is not part of this
- * surface, so we never show misleading buttons. The detail view (PR-11) decides
- * whether a legacy mission opens; for now this lists title / goal / status /
- * updated so the history stays auditable.
+ * Read-only run history for persisted execution rows. There are no
+ * Start/Pause/Resume/Cancel controls here; live run control belongs to Office,
+ * while this view only lists title / goal / status / updated time.
  */
 
 function timeAgo(iso: string): string {
@@ -40,7 +36,7 @@ export function LoopRuns() {
     <div className="off-loops-runs">
       <div className="off-loops-runs-intro">
         <Icon icon={History} size="sm" />
-        <span>Legacy Runs — earlier Missions, kept for history. New work uses Loops.</span>
+        <span>Runs — persisted execution records for this company.</span>
       </div>
       {missions.isError ? (
         <ErrorState
@@ -53,8 +49,8 @@ export function LoopRuns() {
       ) : (missions.data?.length ?? 0) === 0 ? (
         <EmptyState
           icon={History}
-          title="No legacy runs"
-          description="There are no earlier Missions for this company."
+          title="No runs"
+          description="This company has no persisted execution records yet."
         />
       ) : (
         <ul className="off-loops-runs-list">

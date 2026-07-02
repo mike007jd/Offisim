@@ -169,7 +169,7 @@ turns it into a generic Loop IR, the IR projects as a read-only nested graph, an
 Save stores an immutable revision. Loops are authoring artifacts — they describe
 how work should run, they do not run it. A Run (Mission) is created only when a
 Loop is used at Office Send (PR-10). The nav label is "Loops"; the internal
-route/surface key remains `mission` as a legacy identifier.
+route/surface key remains `mission` until the app-state schema is renamed.
 
 Mission is the internal execution-compatibility engine, not a user-facing creation
 model: the user no longer creates a Mission directly. A Loop revision compiles to
@@ -179,13 +179,13 @@ pinned revision onto the existing Mission engine only at send time. See
 `Docs/architecture/2026-06-26-loop-graph-react-flow-elk.md` (graph view).
 
 Surface: Library (saved Loops) + a graph-centric NL editor (≤3 clarifying
-questions, immutable versions, "Use in Office") + Legacy Runs (read-only history
-of Missions, including those created from Loop sends).
+questions, immutable versions, "Use in Office") + Runs (read-only persisted
+execution records, including those created from Loop sends).
 
 Owner paths:
 
 - `apps/desktop/renderer/src/surfaces/mission/loops` (Library, NL editor, version
-  panel, Legacy Runs, authoring machine)
+  panel, Runs, authoring machine)
 - `apps/desktop/renderer/src/surfaces/mission/loops/graph` (`LoopGraphPanel`,
   read-only IR projection over `@xyflow/react` + `elkjs`)
 - `packages/core/src/loops` (loop service, compiler profiles, validate,

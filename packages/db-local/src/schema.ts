@@ -19,8 +19,10 @@
  *  - When schema.sql changes, mirror it here for type-accuracy, but schema.sql
  *    always wins on any drift.
  *
- * Offisim is still pre-launch, so local SQLite uses a single bootstrap schema
- * (schema.sql) instead of a versioned migration chain.
+ * Fresh databases apply schema.sql directly and are stamped with
+ * LOCAL_SCHEMA_VERSION = 1. There is no prelaunch migration chain: existing
+ * local/dev databases with another version are disposable and should be
+ * deleted/rebuilt from the current baseline.
  */
 
 import type { AssetKind } from '@offisim/asset-schema';

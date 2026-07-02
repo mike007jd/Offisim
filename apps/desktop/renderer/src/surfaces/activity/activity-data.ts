@@ -1,5 +1,4 @@
 import { isTauriRuntime } from '@/data/adapters.js';
-import { resolveAsync } from '@/lib/platform.js';
 import { getTauriDb } from '@/lib/tauri-db.js';
 import { escapeRegExp } from '@/lib/utils.js';
 import { useInfiniteQuery } from '@tanstack/react-query';
@@ -851,233 +850,12 @@ export const LEVEL_BADGE_LABEL: Record<ActivityLevel, string> = {
   error: 'Error',
 };
 
-/* ── Fixtures ────────────────────────────────────────────────────────────── */
-
-const HOUR = 60 * 60 * 1000;
-const DAY = 24 * HOUR;
-const MIN = 60 * 1000;
-
-function buildFixtures(now: number): ActivityRecord[] {
-  const rows: ActivityRecord[] = [
-    {
-      id: 'evt-meeting-q3',
-      type: 'meeting.started',
-      at: now - 20 * 1000,
-      entity: { label: 'Q3 launch microsite', type: 'meeting', id: 'mtg_77f2' },
-      actor: 'Boss',
-      payload: {
-        message: 'Plan the Q3 launch microsite',
-        attendees: ['Maya Chen', 'Diego Santos', 'Aria Kim'],
-        agenda: 'kickoff',
-      },
-    },
-    {
-      id: 'evt-plan-step',
-      type: 'plan.step.advanced',
-      at: now - 1 * MIN,
-      entity: { label: 'Q3 microsite plan', type: 'plan', id: 'pln_30a1' },
-      actor: 'Boss',
-      payload: { message: 'Plan step advanced: drafting → review', from: 'drafting', to: 'review' },
-    },
-    {
-      id: 'evt-emp-maya-hero',
-      type: 'employee.run.progress',
-      at: now - 2 * MIN,
-      entity: { label: 'Maya Chen', type: 'employee', id: 'emp_4f1a' },
-      actor: 'Maya Chen',
-      payload: { message: 'Building the hero section', employeeName: 'Maya Chen' },
-    },
-    {
-      id: 'evt-reroute-1',
-      type: 'task.assignment.rerouted',
-      at: now - 5 * MIN,
-      entity: { label: 'task-871', type: 'task', id: 'tsk_871' },
-      actor: 'Boss',
-      payload: { source: 'manager', reason: 'requires-local-tools', taskRunId: 'run_19' },
-    },
-    {
-      id: 'evt-reroute-2',
-      type: 'task.assignment.rerouted',
-      at: now - 5 * MIN - 2 * 1000,
-      entity: { label: 'task-871', type: 'task', id: 'tsk_871' },
-      actor: 'Boss',
-      payload: { source: 'manager', reason: 'requires-local-tools', taskRunId: 'run_19' },
-    },
-    {
-      id: 'evt-reroute-3',
-      type: 'task.assignment.rerouted',
-      at: now - 5 * MIN - 4 * 1000,
-      entity: { label: 'task-871', type: 'task', id: 'tsk_871' },
-      actor: 'Boss',
-      payload: { source: 'manager', reason: 'requires-local-tools', taskRunId: 'run_19' },
-    },
-    {
-      id: 'evt-reroute-4',
-      type: 'task.assignment.rerouted',
-      at: now - 5 * MIN - 6 * 1000,
-      entity: { label: 'task-871', type: 'task', id: 'tsk_871' },
-      actor: 'Boss',
-      payload: { source: 'manager', reason: 'requires-local-tools', taskRunId: 'run_19' },
-    },
-    {
-      id: 'evt-skill-install',
-      type: 'skill.installed',
-      at: now - 11 * MIN,
-      entity: { label: 'Competitive Teardown', type: 'skill', id: 'skl_ct01' },
-      actor: 'Maya Chen',
-      payload: { message: 'Skill installed — Competitive Teardown', source: 'market' },
-    },
-    {
-      id: 'evt-mcp-connected',
-      type: 'mcp.server.connected',
-      at: now - 14 * MIN,
-      entity: { label: 'filesystem', type: 'mcp-server', id: 'mcp_fs' },
-      actor: 'Boss',
-      payload: { message: 'MCP server connected — filesystem', transport: 'stdio', tools: 6 },
-    },
-    {
-      id: 'evt-export-failed',
-      type: 'deliverable.export.failed',
-      at: now - 22 * MIN,
-      entity: { label: 'launch-deck.pdf', type: 'deliverable', id: 'dlv_pdf02' },
-      actor: 'Diego Santos',
-      payload: {
-        message: 'deliverable export failed — pdf encoder timeout',
-        encoder: 'pdf',
-        timeoutMs: 30000,
-        draftKey: null,
-      },
-    },
-    {
-      id: 'evt-knowledge-indexed',
-      type: 'knowledge.pack.indexed',
-      at: now - 31 * MIN,
-      entity: { label: 'brand guidelines', type: 'knowledge-pack', id: 'kp_brand' },
-      actor: 'Aria Kim',
-      payload: { message: 'Knowledge pack indexed — brand guidelines', chunks: 142 },
-    },
-    {
-      id: 'evt-handoff',
-      type: 'handoff.completed',
-      at: now - 44 * MIN,
-      entity: { label: 'design review', type: 'handoff', id: 'hnd_91' },
-      actor: 'Maya Chen',
-      payload: {
-        message: 'Handed off to Aria Kim',
-        from: 'Maya Chen',
-        to: 'Aria Kim',
-      },
-    },
-    {
-      id: 'evt-deliverable-created',
-      type: 'deliverable.created',
-      at: now - 50 * MIN,
-      entity: { label: 'launch-brief.md', type: 'deliverable', id: 'dlv_9c2f71' },
-      actor: 'Maya Chen',
-      payload: { message: 'Deliverable created', name: 'launch-brief.md' },
-    },
-    {
-      id: 'evt-deliverable-persisted',
-      type: 'deliverable.persisted',
-      at: now - 51 * MIN,
-      entity: { label: 'launch-brief.md', type: 'deliverable', id: 'dlv_9c2f71' },
-      actor: 'Maya Chen',
-      payload: {
-        name: 'launch-brief.md',
-        bytes: 8244,
-        employeeName: 'Maya Chen',
-        draftKey: null,
-        contributors: [
-          'Maya Chen',
-          'Diego Santos',
-          'Aria Kim',
-          'Noah Patel',
-          'Boss',
-          'Manager',
-          'PM',
-        ],
-        artifact: {
-          mimeType: 'text/markdown',
-          roles: ['pm', 'designer', 'developer'],
-        },
-        diagnostics: {},
-      },
-    },
-    // ── Yesterday ──
-    {
-      id: 'evt-hr-hire',
-      type: 'hr.employee.hired',
-      at: now - 1 * DAY - 2 * HOUR,
-      entity: { label: 'Noah Patel', type: 'employee', id: 'emp_noah' },
-      actor: 'Boss',
-      payload: { message: 'HR — Noah Patel hired (QA)', role: 'QA', employeeName: 'Noah Patel' },
-    },
-    {
-      id: 'evt-memory-reinforced',
-      type: 'memory.reinforced',
-      at: now - 1 * DAY - 3 * HOUR,
-      entity: { label: 'PR style', type: 'memory', id: 'mem_pr01' },
-      actor: 'Maya Chen',
-      payload: { message: 'Memory reinforced — prefers terse PR descriptions', weight: 0.8 },
-    },
-    {
-      id: 'evt-cost-recorded',
-      type: 'cost.recorded',
-      at: now - 1 * DAY - 5 * HOUR,
-      entity: { label: 'Runtime default model', type: 'model', id: 'mdl_default' },
-      actor: 'employee:emp_4f1a',
-      payload: {
-        message: 'cost recorded by the configured runtime provider',
-        model: 'Runtime default',
-        usd: 0.0142,
-      },
-    },
-    // ── This Week ──
-    {
-      id: 'evt-skill-forked',
-      type: 'skill.install.outcome',
-      at: now - 3 * DAY,
-      entity: { label: 'Competitive Teardown', type: 'skill', id: 'skl_ct01' },
-      actor: 'Maya Chen',
-      payload: { action: 'forked', employeeName: 'Maya Chen' },
-    },
-    {
-      id: 'evt-mcp-tool',
-      type: 'mcp.tool.invoked',
-      at: now - 3 * DAY - 4 * HOUR,
-      entity: { label: 'read_file', type: 'mcp-tool', id: 'tool_read' },
-      actor: 'Diego Santos',
-      payload: { message: 'mcp.tool.invoked — read_file', server: 'filesystem' },
-    },
-    // ── This Month ──
-    {
-      id: 'evt-install-completed',
-      type: 'install.completed',
-      at: now - 12 * DAY,
-      entity: { label: 'Hermes A2A peer', type: 'install', id: 'ins_hermes' },
-      actor: 'Boss',
-      payload: { message: 'install.completed — Hermes A2A peer', kind: 'external-employee' },
-    },
-    // ── Older ──
-    {
-      id: 'evt-company-created',
-      type: 'company.created',
-      at: now - 40 * DAY,
-      entity: { label: 'Acme Studio', type: 'company', id: 'co_acme' },
-      actor: 'Boss',
-      payload: { message: 'company.created — Acme Studio', template: 'design-studio' },
-    },
-  ];
-  return rows;
-}
-
 /* ── Query hook ──────────────────────────────────────────────────────────── */
 
 /**
  * AC1: cursor-paginated activity feed. Page 0 fetches the newest rows; "Load
  * older" walks `nextCursor` back through history so "All time" reaches rows past
- * the per-source page wall. Browser preview returns the fixtures as a single
- * terminal page. The Activity surface flattens `data.pages[*].records`.
+ * the per-source page wall. The Activity surface flattens `data.pages[*].records`.
  */
 export function useActivityRecords(companyId: string) {
   return useInfiniteQuery<ActivityPage>({
@@ -1086,10 +864,7 @@ export function useActivityRecords(companyId: string) {
     queryFn: ({ pageParam }) =>
       isTauriRuntime()
         ? loadActivityPage(companyId, { before: (pageParam as string | null) ?? undefined })
-        : resolveAsync<ActivityPage>({
-            records: buildFixtures(Date.now()),
-            nextCursor: null,
-          }),
+        : ({ records: [], nextCursor: null }) satisfies ActivityPage,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
   });
 }

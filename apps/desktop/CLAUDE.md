@@ -47,7 +47,7 @@ sidecars.
 
 ## Local SQLite
 
-1.0 起为版本化 schema（取代 `ba7788c9` 的"无迁移链"口径）：`packages/db-local/src/schema.sql` 永远是**最新端态**，`local_db.rs::ensure_schema` 用 `PRAGMA user_version` 区分——全新库直接 bootstrap 端态并打上 `LOCAL_SCHEMA_VERSION`；已有用户库走 `packages/db-local/src/migrations/` 顺序迁移链（每条独立事务 + 版本戳，链断档/降级打开会拒启）。改 schema 三步缺一不可：① 同步 `schema.ts` + `schema.sql` ② bump `LOCAL_SCHEMA_VERSION` ③ 加 `migrations/NNNN_*.sql` 并注册进 `MIGRATIONS`。详见 `packages/db-local/src/migrations/README.md`。
+Offisim 已确认未上线，本地 SQLite 不保留历史升级合同。`packages/db-local/src/schema.sql` 是当前 baseline，`local_db.rs::ensure_schema` 只接受 `LOCAL_SCHEMA_VERSION = 1` 或空库 bootstrap；旧本地库、无 stamp 库、其他版本库都是可丢弃开发产物，删除后重建。改 schema 时同步 `schema.sql` + `schema.ts`；不要新增迁移 SQL、兼容升级 helper 或 `MIGRATIONS` 注册。
 
 ## Release CSP / platform CORS coupling
 

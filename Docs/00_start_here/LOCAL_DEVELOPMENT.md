@@ -76,8 +76,9 @@ inside Pi-owned storage.
 
 The desktop app uses a single-baseline schema
 (`packages/db-local/src/schema.sql`), bootstrapped at startup — there is no
-migration chain. To wipe dirty local data, use the repo's release run action
-(`pnpm release:run`), not a hand-written migration.
+migration chain. To wipe dirty local data, delete the local `offisim.db` and let
+the app rebuild it from the current baseline; do not add a hand-written
+migration for prelaunch local state.
 
 ## Troubleshooting
 

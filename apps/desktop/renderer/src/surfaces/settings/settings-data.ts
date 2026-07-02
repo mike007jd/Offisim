@@ -2,7 +2,7 @@ import { isTauriRuntime, reposOrNull } from '@/data/adapters.js';
 import { UI_DATA_COLORS } from '@/data/color-palette.js';
 import { inferMcpGrantRiskClass } from '@/data/mcp-risk.js';
 /**
- * Settings-surface view-models, fixtures, and local query hooks.
+ * Settings-surface view-models and local query hooks.
  *
  * This file is the data SSOT for the Settings surface only. Every shape here is a
  * Settings-local view-model (runtime defaults, MCP servers, external employees,
@@ -11,7 +11,6 @@ import { inferMcpGrantRiskClass } from '@/data/mcp-risk.js';
  * release builds read the real employee repository because A2A peers are part
  * of the company roster.
  */
-import { resolveAsync } from '@/lib/platform.js';
 import type {
   EmployeeRow,
   McpToolGrantRow,
@@ -233,7 +232,7 @@ function approvalIdFor(values: Pick<McpServerFormValues, 'name' | 'approvalId'>)
 }
 
 async function loadMcpServers(): Promise<McpServer[]> {
-  if (!isTauriRuntime()) return resolveAsync([]);
+  if (!isTauriRuntime()) return [];
   const { invoke } = await import('@tauri-apps/api/core');
   const [registered, runtimeStatuses] = await Promise.all([
     invoke<RegisteredMcpServerSummary[]>('mcp_list_registered_servers'),
@@ -486,48 +485,6 @@ export interface ExternalEmployee {
   readonly installedAt: number;
 }
 
-const EXTERNAL_EMPLOYEES_FIXTURE: readonly ExternalEmployee[] = [
-  {
-    id: 'otto',
-    name: 'Otto Reeves',
-    brand: 'OpenClaw',
-    brandGradient: [UI_DATA_COLORS.hot1, UI_DATA_COLORS.hot2],
-    logoMark: 'O',
-    role: 'research-analyst',
-    cardUrl: 'https://agent.openclaw.ai/.well-known/agent.json',
-    url: 'https://agent.openclaw.ai/a2a',
-    cardLabel: 'OpenClaw Research · v2.4.1',
-    connected: true,
-    installedAt: 3,
-  },
-  {
-    id: 'hermes',
-    name: 'Hermes Ops',
-    brand: 'Hermes',
-    brandGradient: [UI_DATA_COLORS.violet, UI_DATA_COLORS.blue3],
-    logoMark: 'H',
-    role: 'ops-runner',
-    cardUrl: 'https://hermes.run/.well-known/agent.json',
-    url: 'https://hermes.run/v1/a2a',
-    cardLabel: 'Hermes · v1.9.0',
-    connected: true,
-    installedAt: 2,
-  },
-  {
-    id: 'codex',
-    name: 'Codex Worker',
-    brand: 'Codex',
-    brandGradient: [UI_DATA_COLORS.green, UI_DATA_COLORS.green2],
-    logoMark: 'C',
-    role: 'code-writer',
-    cardUrl: 'https://a2a.local:7878/.well-known/agent.json',
-    url: 'https://a2a.local:7878',
-    cardLabel: 'Codex · custom',
-    connected: true,
-    installedAt: 1,
-  },
-];
-
 export interface DiscoveredCard {
   readonly name: string;
   readonly description: string;
@@ -728,11 +685,9 @@ export function useExternalEmployees(companyId: string | null) {
   return useQuery({
     queryKey: ['settings', 'external-employees', companyId],
     queryFn: async () => {
-      // No company selected → empty result even in the preview build, so the
-      // demo fixture never surfaces as if it were a real company's roster.
       if (!companyId) return [];
       const repos = await reposOrNull();
-      if (!repos) return resolveAsync(EXTERNAL_EMPLOYEES_FIXTURE);
+      if (!repos) return [];
       const rows = await repos.employees.findByCompany(companyId);
       return rows.filter((row) => row.is_external === 1).map(externalEmployeeFromRow);
     },

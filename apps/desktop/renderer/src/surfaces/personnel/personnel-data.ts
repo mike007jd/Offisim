@@ -1,21 +1,17 @@
 /**
- * Personnel-surface view-models, fixtures, zod form schema, and local query
- * hooks.
+ * Personnel-surface view-models, zod form schema, and local query hooks.
  *
  * This file is the data SSOT for the Personnel surface only. Every shape here is
  * a Personnel-local view-model (memory entries, version history / fork
  * provenance / diffs, tool permissions, appearance option palettes, profile
- * form schema). It deliberately does not reach into `src/data/**` — Personnel
- * owns its own contracts until the real Tauri commands are available per capability
- * (see apps/desktop/CLAUDE.md). Async hooks use `resolveAsync` from
- * `@/lib/platform.js` so the query paths are exercised.
+ * form schema). It deliberately does not reach into `src/data/**` for visual
+ * contracts; release data comes from the local repositories.
  */
 import { reposOrNull } from '@/data/adapters.js';
 import { UI_DATA_COLORS } from '@/data/color-palette.js';
 import { buildEmployeeSystemPrompt } from '@/data/employee-persona.js';
 import type { Employee } from '@/data/types.js';
 import type { BodyType, EmployeeAppearance, Gender, HairStyle } from '@/lib/avatar.js';
-import { resolveAsync } from '@/lib/platform.js';
 import {
   type EmployeeVersionRow,
   EmployeeVersionService,
@@ -218,7 +214,7 @@ export type MemoryCategory = (typeof MEMORY_CATEGORIES)[number];
 
 type MemoryScope = 'employee' | 'company';
 
-export interface MemoryEntry {
+interface MemoryEntry {
   id: string;
   category: MemoryCategory;
   content: string;
@@ -227,61 +223,13 @@ export interface MemoryEntry {
   reinforced: number;
 }
 
-const MEMORY_FIXTURE: Record<string, MemoryEntry[]> = {
-  'emp-mara': [
-    {
-      id: 'mem-1',
-      category: 'experience',
-      content:
-        'Shipped the v3 layout overhaul; learned the Tabs retain-state class is required to avoid CLS.',
-      importance: 0.8,
-      scope: 'employee',
-      reinforced: 3,
-    },
-    {
-      id: 'mem-2',
-      category: 'experience',
-      content: 'Boss prefers one bundled PR over many small ones for refactors in the chat area.',
-      importance: 0.6,
-      scope: 'company',
-      reinforced: 1,
-    },
-    {
-      id: 'mem-3',
-      category: 'decision',
-      content:
-        'Picked Drizzle over Prisma for the local DB layer (small surface, no codegen runtime).',
-      importance: 0.5,
-      scope: 'company',
-      reinforced: 2,
-    },
-    {
-      id: 'mem-4',
-      category: 'knowledge',
-      content:
-        'Deterministic harness is the only allowed automated-proof layer; product validation stays live-agent.',
-      importance: 0.7,
-      scope: 'company',
-      reinforced: 5,
-    },
-    {
-      id: 'mem-5',
-      category: 'preference',
-      content: 'Replies in Chinese unless the question is English-tagged.',
-      importance: 0.4,
-      scope: 'employee',
-      reinforced: 8,
-    },
-  ],
-};
-
 export function useEmployeeMemories(employeeId: string | null) {
   return useQuery({
     queryKey: ['personnel', 'memories', employeeId],
     queryFn: async () => {
       if (!employeeId) return [];
       const repos = await reposOrNull();
-      if (!repos) return resolveAsync<MemoryEntry[]>(MEMORY_FIXTURE[employeeId] ?? []);
+      if (!repos) return [] as MemoryEntry[];
       const rows = await repos.memories.findByOwner(employeeId, { limit: 50 });
       return rows.filter((row) => row.scope === 'employee').map(memoryEntryFromRow);
     },
@@ -413,85 +361,6 @@ export interface EmployeeHistory {
   diffs: Record<number, VersionDiffRow[]>;
 }
 
-const HISTORY_FIXTURE: Record<string, EmployeeHistory> = {
-  'emp-mara': {
-    fork: {
-      sourceAssetId: 'asset_frontend_eng_v2',
-      packageId: 'pkg_studio_bundle',
-      marketplaceUrl: 'https://market.offisim.dev/listing/asset_frontend_eng_v2',
-    },
-    versions: [
-      {
-        id: 'v5',
-        version: 5,
-        changeType: 'updated',
-        summary: 'Tighten persona; bump max tokens',
-        timestamp: '2026-05-04 14:22',
-        current: true,
-      },
-      {
-        id: 'v4',
-        version: 4,
-        changeType: 'updated',
-        summary: 'Switch model mode to custom',
-        timestamp: '2026-05-01 09:18',
-        current: false,
-      },
-      {
-        id: 'v3',
-        version: 3,
-        changeType: 'rollback',
-        summary: 'Rolled back to v1 persona',
-        timestamp: '2026-04-22 17:03',
-        current: false,
-      },
-      {
-        id: 'v2',
-        version: 2,
-        changeType: 'updated',
-        summary: 'Add accessibility expertise',
-        timestamp: '2026-04-12 11:40',
-        current: false,
-      },
-      {
-        id: 'v1',
-        version: 1,
-        changeType: 'created',
-        summary: '2026-04-02 10:14',
-        timestamp: '2026-04-02 10:14',
-        current: false,
-      },
-    ],
-    diffs: {
-      3: [
-        {
-          field: 'workingStyle',
-          kind: 'change',
-          previous: 'collaborative',
-          current: 'detail-oriented, collaborative',
-        },
-        { field: 'maxTokens', kind: 'change', previous: '4096', current: '8192' },
-        { field: 'modelPreference', kind: 'add', previous: '(empty)', current: 'Runtime default' },
-        {
-          field: 'legacyHint',
-          kind: 'remove',
-          previous: '"force collaborative tone"',
-          current: '(removed)',
-        },
-      ],
-      4: [{ field: 'maxTokens', kind: 'change', previous: '4096', current: '8192' }],
-      2: [
-        {
-          field: 'expertise',
-          kind: 'add',
-          previous: '(empty)',
-          current: 'accessibility',
-        },
-      ],
-    },
-  },
-};
-
 function formatVersionTimestamp(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
@@ -563,7 +432,7 @@ export function useEmployeeVersions(employeeId: string | null) {
     queryFn: async () => {
       if (!employeeId) return null;
       const repos = await reposOrNull();
-      if (!repos) return resolveAsync<EmployeeHistory | null>(HISTORY_FIXTURE[employeeId] ?? null);
+      if (!repos) return null;
       const rows = await repos.employeeVersions.findByEmployee(employeeId, { limit: 24 });
       return employeeHistoryFromRows(rows);
     },

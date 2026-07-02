@@ -5,9 +5,8 @@ export type { EmployeeAppearance };
 
 /**
  * Renderer view-model types. These are presentation contracts for the desktop
- * UI; they are intentionally decoupled from the core runtime/db schema. Browser
- * preview can use fixtures, but release data must come from Tauri repositories
- * and sandboxed commands.
+ * UI; they are intentionally decoupled from the core runtime/db schema. Product
+ * data must come from Tauri repositories and sandboxed commands.
  */
 
 export type RunState = 'idle' | 'running' | 'paused' | 'error' | 'done';

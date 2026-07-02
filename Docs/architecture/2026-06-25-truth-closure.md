@@ -84,7 +84,8 @@ Deterministic evaluator verdict — never the root agent's "I'm done" — decide
 
 The LangGraph-era tables enumerated below (the inert ledger's full local-SQLite list,
 minus the two writer-dead/live-reader feature gaps `llm_calls` and `deliverables`
-handled by D2/D3) remain schema-frozen with no live writer until a post-1.0 migration.
+handled by D2/D3) remain schema-frozen with no live writer until a deliberate
+baseline schema cleanup/removal plan.
 No QA scenario, feature spec, or release gate may assert that any of them
 (`tool_calls`, `meeting_sessions`,
 `handoff_events`, `task_runs`, `runtime_events`, `recovery_knowledge`, `file_history`,

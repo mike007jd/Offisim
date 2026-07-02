@@ -43,6 +43,37 @@ function tableExists(db: Db, name: string): boolean {
   );
 }
 
+function sqliteIdentifier(name: string): string {
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+    throw new Error(`Unsafe SQLite identifier: ${name}`);
+  }
+  return `"${name}"`;
+}
+
+function columnExists(db: Db, table: string, column: string): boolean {
+  return all<{ name: string }>(db, `PRAGMA table_info(${sqliteIdentifier(table)})`).some((row) => row.name === column);
+}
+
+function requireLiveEvalSchema(db: Db): void {
+  const requiredTables = ['projects', 'agent_runs', 'agent_events', 'pi_messages', 'mcp_audit_log'];
+  const requiredColumns: Array<[table: string, column: string]> = [
+    ['agent_runs', 'status'],
+    ['agent_runs', 'session_file'],
+    ['agent_runs', 'context_json'],
+    ['agent_events', 'payload_json'],
+    ['pi_messages', 'message_json'],
+  ];
+  const missing = [
+    ...requiredTables.filter((table) => !tableExists(db, table)).map((table) => `table:${table}`),
+    ...requiredColumns
+      .filter(([table, column]) => !columnExists(db, table, column))
+      .map(([table, column]) => `column:${table}.${column}`),
+  ];
+  if (missing.length > 0) {
+    throw new Error(`Live DB schema is missing H2 scoring baseline objects: ${missing.join(', ')}`);
+  }
+}
+
 function stringValue(value: unknown): string {
   return typeof value === 'string' ? value : value == null ? '' : String(value);
 }
@@ -487,9 +518,7 @@ if (!fs.existsSync(dbPath)) {
 const db = new Database(dbPath, { readonly: true, fileMustExist: true });
 try {
   const userVersion = Number(get<{ user_version: number }>(db, 'PRAGMA user_version')?.user_version ?? 0);
-  if (userVersion < 7) {
-    throw new Error(`Live DB user_version=${userVersion}; H2 requires user_version >= 7 before scoring.`);
-  }
+  requireLiveEvalSchema(db);
 
   const workspaceRoot = activeWorkspaceRoot(db);
   if (!workspaceRoot) throw new Error('No active project workspace_root found in live DB.');

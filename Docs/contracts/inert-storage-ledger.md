@@ -1,9 +1,10 @@
 # Inert Storage Ledger (legacy orchestration residue)
 
-Status: informational ledger — **not an action list**. The 1.0 storage contracts are
-frozen (single-baseline SQLite schema; see `storage-consistency-contracts.md` and
-`apps/desktop/CLAUDE.md` → Local SQLite). Removing any table/column requires a real
-migration and is intentionally deferred. This file records, as of the 2026-06-24
+Status: informational ledger — **not an action list**. The local storage shape is
+the current prelaunch SQLite baseline; see `storage-consistency-contracts.md`
+and `apps/desktop/CLAUDE.md` -> Local SQLite. Removing any table/column requires
+a deliberate baseline cleanup plus matching code/docs/harness updates, not a
+historical user-data migration. This file records, as of the 2026-06-24
 hygiene pass, which persisted structures are **inert in the shipping desktop app**
 after the LangGraph → Pi kernel migration.
 
@@ -60,7 +61,7 @@ before any removal.
 `employee_versions`, `skills`, `model_cost_rates`, `settings`, `pi_messages`, and the
 `install_*` family.
 
-## Recommended follow-up (post-launch, behind a migration)
+## Recommended follow-up (baseline schema cleanup)
 
 > Direction now set by `Docs/architecture/2026-06-25-truth-closure.md` (VM-001):
 > `deliverables` → reuse-and-fix as the Artifact store, live writer in **VM-002**;
@@ -71,5 +72,6 @@ before any removal.
    the Activity/Outputs and cost-rollup surfaces are meant to populate).
 2. The two LIVE-reader / dead-writer tables (`llm_calls`, `deliverables`) are the only
    user-visible symptoms — they render empty surfaces today. Prioritize those.
-3. Bundle removals into the first post-1.0 migration (`packages/db-local/src/migrations/NNNN_*.sql`)
-   per the three-step schema-change rule in `apps/desktop/CLAUDE.md`.
+3. Bundle removals into a deliberate baseline cleanup: update `schema.sql`,
+   `schema.ts`, affected repositories, docs, and gates together. Do not add a
+   prelaunch compatibility migration.
