@@ -166,6 +166,108 @@ console.log('\n[sustained] long compute relocates once');
   );
 }
 
+// ── Distinct visual phases per activity kind ─────────────────────────────────
+console.log('\n[work-phases] activity kinds stage distinct visual phases');
+{
+  // One micro beat per tool name (fresh runId each ⇒ fresh stream, no coalesce);
+  // the PRD requires reading/searching vs writing/editing vs shell/build/test to
+  // read as DISTINCT visual phases, not one generic "working" look.
+  const beatFor = (toolName: string): SceneBeat | undefined =>
+    composeBeats([tool(0, { runId: `wp-${toolName}`, employeeId: 'alex' }, toolName)], CONFIG)[0];
+  const read = beatFor('read_file');
+  const search = beatFor('grep');
+  const write = beatFor('write_file');
+  const edit = beatFor('apply_patch');
+  const shell = beatFor('bash');
+  const build = beatFor('compile');
+  const test = beatFor('run_tests');
+  check(
+    "reading: read tool → research beat, phase 'read', reading-seat, document prop",
+    read?.kind === 'research' &&
+      read.activityKind === 'read' &&
+      read.visual.phase === 'read' &&
+      read.affordance === 'reading-seat' &&
+      read.visual.prop === 'document',
+    JSON.stringify(read?.visual),
+  );
+  check(
+    "searching: search tool → research beat, phase 'read', activityKind 'search'",
+    search?.kind === 'research' &&
+      search.activityKind === 'search' &&
+      search.visual.phase === 'read',
+    JSON.stringify(search?.visual),
+  );
+  check(
+    "writing: write tool → produce beat, phase 'produce', workstation, laptop prop",
+    write?.kind === 'produce' &&
+      write.activityKind === 'write' &&
+      write.visual.phase === 'produce' &&
+      write.affordance === 'workstation' &&
+      write.visual.prop === 'laptop',
+    JSON.stringify(write?.visual),
+  );
+  check(
+    "editing: edit tool → produce beat, phase 'produce', activityKind 'edit'",
+    edit?.kind === 'produce' && edit.activityKind === 'edit' && edit.visual.phase === 'produce',
+    JSON.stringify(edit?.visual),
+  );
+  check(
+    "shell: shell tool → compute beat, phase 'compute', server-inspect, terminal prop, tool route",
+    shell?.kind === 'compute' &&
+      shell.activityKind === 'shell' &&
+      shell.visual.phase === 'compute' &&
+      shell.affordance === 'server-inspect' &&
+      shell.visual.prop === 'terminal' &&
+      shell.flow?.target === 'tool',
+    JSON.stringify(shell?.visual),
+  );
+  check(
+    "build/test: both stage compute beats (phase 'compute') with their own activityKind",
+    build?.kind === 'compute' &&
+      build.activityKind === 'build' &&
+      build.visual.phase === 'compute' &&
+      test?.kind === 'compute' &&
+      test.activityKind === 'test' &&
+      test.visual.phase === 'compute',
+    `build ${JSON.stringify(build?.visual)} test ${JSON.stringify(test?.visual)}`,
+  );
+  check(
+    'the three activity families are pairwise distinct phases (read/produce/compute)',
+    new Set([read?.visual.phase, write?.visual.phase, shell?.visual.phase]).size === 3,
+    `${read?.visual.phase}/${write?.visual.phase}/${shell?.visual.phase}`,
+  );
+}
+
+// ── Completed root: celebration beat ─────────────────────────────────────────
+console.log('\n[complete] root completion stages a celebration');
+{
+  const beats = composeBeats(
+    [
+      started(0, { runId: ROOT, employeeId: 'alex' }),
+      finished(9000, { runId: ROOT, employeeId: 'alex' }, 'completed'),
+    ],
+    CONFIG,
+  );
+  const complete = byKind(beats, 'complete')[0];
+  check('root run.completed stages a complete beat (not a join)', Boolean(complete));
+  check(
+    "complete visual celebrates: phase 'complete', emotion 'celebrating', package prop",
+    complete?.visual.phase === 'complete' &&
+      complete.visual.emotion === 'celebrating' &&
+      complete.visual.prop === 'package',
+    JSON.stringify(complete?.visual),
+  );
+  check(
+    'complete flows to delivery and presents at the board (movement beat)',
+    complete?.flow?.kind === 'artifact' &&
+      complete.flow.target === 'delivery' &&
+      complete.affordance === 'board-presenter' &&
+      complete.movement === true,
+    JSON.stringify(complete?.flow),
+  );
+  check('complete carries no resource marker (celebration, not risk)', complete?.resource === null);
+}
+
 // ── Universal work signals: flow / artifact / resource ─────────────────────
 console.log('\n[signals] flow, artifact, and resource intents');
 {

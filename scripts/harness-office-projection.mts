@@ -1,3 +1,9 @@
+import type {
+  ConversationRunSnapshot,
+  ConversationRunsSnapshot,
+} from '../apps/desktop/renderer/src/assistant/runtime/conversation-run-controller.js';
+import { projectEmployeeWorkloads } from '../apps/desktop/renderer/src/assistant/runtime/conversation-run-projections.js';
+import { groupedWorkload } from '../apps/desktop/renderer/src/assistant/runtime/scene-cue-projection.js';
 /**
  * Office projection gate (Phase 4 core, source plan §6 / §13).
  *
@@ -13,18 +19,13 @@
  */
 import type { SceneBeat } from '../packages/shared-types/src/index.js';
 import {
+  IDLE_PERFORMANCE,
   type StagingPrefab,
   type TimedAgentRunEvent,
   composeBeats,
   performanceForBeat,
   projectOfficeStaging,
 } from '../packages/shared-types/src/index.js';
-import type {
-  ConversationRunSnapshot,
-  ConversationRunsSnapshot,
-} from '../apps/desktop/renderer/src/assistant/runtime/conversation-run-controller.js';
-import { projectEmployeeWorkloads } from '../apps/desktop/renderer/src/assistant/runtime/conversation-run-projections.js';
-import { groupedWorkload } from '../apps/desktop/renderer/src/assistant/runtime/scene-cue-projection.js';
 
 let failures = 0;
 let checks = 0;
@@ -187,6 +188,104 @@ console.log('\n[determinism]');
   check('same stream → identical office projection (order-independent)', a === b);
 }
 
+// ── plan / review / compute / complete / cancelled direction ────────────────
+// The remaining PRD work states through the same real pipeline (composeBeats →
+// projectOfficeStaging → performanceForBeat): each state's beat kind, visual
+// phase, relocation behavior, and character performance are asserted together.
+console.log('\n[work states] plan / review / compute / complete / cancelled');
+{
+  const office2: StagingPrefab[] = [
+    prefab('ws1', 'workstation-standard', -4, 0),
+    prefab('ws2', 'workstation-standard', -2, 0),
+    prefab('wb1', 'whiteboard', 4, 0),
+    prefab('wb2', 'whiteboard', 6, 0),
+    prefab('stand2', 'standing-table', 2, 0),
+  ];
+  const stream2: TimedAgentRunEvent[] = [
+    // closer: the root run itself is employee-owned and completes → celebration.
+    started(0, { runId: ROOT, employeeId: 'closer' }),
+    // planner: a plan-work child → plan beat at the board.
+    started(100, { runId: 'p1', parentRunId: ROOT, employeeId: 'planner', workKind: 'plan' }),
+    // reviewer: a review child → review beat at the standing table.
+    started(120, { runId: 'p2', parentRunId: ROOT, employeeId: 'reviewer', relation: 'review' }),
+    // sysop: shell work → compute micro-action in place.
+    started(140, { runId: 'p3', parentRunId: ROOT, employeeId: 'sysop', relation: 'delegate' }),
+    tool(9200, { runId: 'p3', employeeId: 'sysop' }, 'bash'),
+    finished(9000, { runId: ROOT, employeeId: 'closer' }),
+  ];
+  const staging2 = projectOfficeStaging(composeBeats(stream2, CONFIG), office2);
+  const by2 = new Map(staging2.map((s) => [s.employeeId, s]));
+  const planner = by2.get('planner');
+  check(
+    "planning: plan beat (phase 'plan') presents at the board with write-board + thinking",
+    planner?.beat.kind === 'plan' &&
+      planner.beat.visual.phase === 'plan' &&
+      planner.staging != null &&
+      planner.performance.workGesture === 'write-board' &&
+      planner.performance.expression === 'thinking',
+    JSON.stringify(planner?.performance),
+  );
+  const reviewer = by2.get('reviewer');
+  check(
+    "reviewing: review beat (phase 'review') relocates to standing review with annotate + discuss",
+    reviewer?.beat.kind === 'review' &&
+      reviewer.beat.visual.phase === 'review' &&
+      reviewer.staging != null &&
+      reviewer.performance.workGesture === 'annotate' &&
+      reviewer.performance.socialGesture === 'discuss',
+    JSON.stringify(reviewer?.performance),
+  );
+  const sysop = by2.get('sysop');
+  check(
+    "compute: shell beat (phase 'compute') stays in place with inspect-terminal + terminal prop",
+    sysop?.beat.kind === 'compute' &&
+      sysop.beat.visual.phase === 'compute' &&
+      sysop.staging === null &&
+      sysop.performance.workGesture === 'inspect-terminal' &&
+      sysop.performance.prop === 'terminal',
+    JSON.stringify(sysop?.performance),
+  );
+  const closer = by2.get('closer');
+  check(
+    "completed: complete beat (phase 'complete') celebrates — happy + point at the board, delivery flow",
+    closer?.beat.kind === 'complete' &&
+      closer.beat.visual.phase === 'complete' &&
+      closer.beat.visual.emotion === 'celebrating' &&
+      closer.beat.flow?.target === 'delivery' &&
+      closer.performance.expression === 'happy' &&
+      closer.performance.workGesture === 'point' &&
+      closer.staging != null,
+    JSON.stringify(closer?.beat.visual),
+  );
+  // cancelled: a neutral stop — the performance maps to IDLE, no staging.
+  const cancelledStaging = projectOfficeStaging(
+    composeBeats(
+      [
+        tool(0, { runId: 'p4', employeeId: 'stopped' }, 'bash'),
+        {
+          threadId: THREAD,
+          rootRunId: ROOT,
+          runId: 'p4',
+          employeeId: 'stopped',
+          type: 'run.cancelled',
+          payload: { status: 'cancelled' },
+          timestamp: 300,
+        },
+      ],
+      CONFIG,
+    ),
+    office2,
+  );
+  const stopped = cancelledStaging.find((s) => s.employeeId === 'stopped');
+  check(
+    'cancelled: actor rests in the neutral IDLE performance (no celebration, no worry, no staging)',
+    stopped?.beat.kind === 'cancelled' &&
+      JSON.stringify(stopped.performance) === JSON.stringify(IDLE_PERFORMANCE) &&
+      stopped.staging === null,
+    JSON.stringify(stopped?.performance),
+  );
+}
+
 // ---------------------------------------------------------------------------
 // projectEmployeeWorkloads — workloadSummary / priorityIssues / dominant (INC-2)
 //
@@ -203,9 +302,7 @@ const PRJ = 'prj';
 /** A minimal complete SceneBeat with only the fields the rollup reads set. */
 function beat(
   runId: string,
-  over: Partial<
-    Pick<SceneBeat, 'workKind' | 'flow' | 'artifact' | 'resource' | 'employeeId'>
-  > = {},
+  over: Partial<Pick<SceneBeat, 'workKind' | 'flow' | 'artifact' | 'resource' | 'employeeId'>> = {},
 ): SceneBeat {
   return {
     id: `beat-${runId}`,
@@ -264,12 +361,14 @@ const sum = (record: Readonly<Record<string, number>>): number =>
 
 // --- 1 active run → total 1 -------------------------------------------------
 {
-  const snap = snapshot([
-    runSnapshot({ attemptId: 'a1', employeeId: 'e-solo', phase: 'running' }),
-  ]);
+  const snap = snapshot([runSnapshot({ attemptId: 'a1', employeeId: 'e-solo', phase: 'running' })]);
   const w = projectEmployeeWorkloads(snap, PRJ).get('e-solo');
   check('1 active run → activeCount 1', w?.activeCount === 1, `got ${w?.activeCount}`);
-  check('1 active run → summary.total 1', w?.workloadSummary.total === 1, `got ${w?.workloadSummary.total}`);
+  check(
+    '1 active run → summary.total 1',
+    w?.workloadSummary.total === 1,
+    `got ${w?.workloadSummary.total}`,
+  );
 }
 
 // --- 3 active runs (1 direct + 2 running delegations) → total 3 -------------
@@ -287,7 +386,11 @@ const sum = (record: Readonly<Record<string, number>>): number =>
   ]);
   const w = projectEmployeeWorkloads(snap, PRJ).get('e-lead');
   check('3 members → activeCount 3', w?.activeCount === 3, `got ${w?.activeCount}`);
-  check('3 members → summary.total 3', w?.workloadSummary.total === 3, `got ${w?.workloadSummary.total}`);
+  check(
+    '3 members → summary.total 3',
+    w?.workloadSummary.total === 3,
+    `got ${w?.workloadSummary.total}`,
+  );
 }
 
 // --- 58 members → total 58 AND both groupings sum to 58 ---------------------
@@ -312,7 +415,11 @@ const sum = (record: Readonly<Record<string, number>>): number =>
     return beat(runId, { workKind: kinds[idx % kinds.length] });
   };
   const w = projectEmployeeWorkloads(snap, PRJ, beatFor).get('e-big');
-  check('58 members → summary.total 58', w?.workloadSummary.total === 58, `got ${w?.workloadSummary.total}`);
+  check(
+    '58 members → summary.total 58',
+    w?.workloadSummary.total === 58,
+    `got ${w?.workloadSummary.total}`,
+  );
   check(
     '58 members → sum(byWorkKind) === 58',
     w != null && sum(w.workloadSummary.byWorkKind) === 58,
@@ -338,7 +445,13 @@ const sum = (record: Readonly<Record<string, number>>): number =>
       employeeId: 'e-block',
       phase: 'running',
       delegations: [
-        { runId: 'z-blocked', parentRunId: 'w-normal', employeeId: 'e-block', objective: 'q', state: 'running' },
+        {
+          runId: 'z-blocked',
+          parentRunId: 'w-normal',
+          employeeId: 'e-block',
+          objective: 'q',
+          state: 'running',
+        },
       ],
     }),
   ]);
@@ -347,7 +460,11 @@ const sum = (record: Readonly<Record<string, number>>): number =>
     resource: { kind: 'token', severity: 'exhausted', label: 'Token budget spent' },
   });
   const beatFor = (runId: string): SceneBeat | null =>
-    runId === 'z-blocked' ? blockedBeat : runId === 'w-normal' ? beat('w-normal', { workKind: 'implement' }) : null;
+    runId === 'z-blocked'
+      ? blockedBeat
+      : runId === 'w-normal'
+        ? beat('w-normal', { workKind: 'implement' })
+        : null;
   const w = projectEmployeeWorkloads(snap, PRJ, beatFor).get('e-block');
   check(
     'blocked beat outranks working → dominant is the blocked run',
@@ -375,7 +492,13 @@ const sum = (record: Readonly<Record<string, number>>): number =>
       employeeId: 'e-fail',
       phase: 'running',
       delegations: [
-        { runId: 'child-failed', parentRunId: 'root-f', employeeId: 'e-fail', objective: 'boom', state: 'failed' },
+        {
+          runId: 'child-failed',
+          parentRunId: 'root-f',
+          employeeId: 'e-fail',
+          objective: 'boom',
+          state: 'failed',
+        },
       ],
     }),
   ]);
@@ -383,7 +506,11 @@ const sum = (record: Readonly<Record<string, number>>): number =>
     flow: { kind: 'failure', label: 'Build failed', target: 'workstation', pulse: true },
   });
   const beatFor = (runId: string): SceneBeat | null =>
-    runId === 'child-failed' ? failBeat : runId === 'root-f' ? beat('root-f', { workKind: 'implement' }) : null;
+    runId === 'child-failed'
+      ? failBeat
+      : runId === 'root-f'
+        ? beat('root-f', { workKind: 'implement' })
+        : null;
   const w = projectEmployeeWorkloads(snap, PRJ, beatFor).get('e-fail');
   // root-f is the only ACTIVE member; the failed child joins only the rollup.
   check(
@@ -417,9 +544,21 @@ const sum = (record: Readonly<Record<string, number>>): number =>
       phase: 'running',
       delegations: [
         // An active, currently-running child with a plain beat (issue rank 0)...
-        { runId: 'child-running', parentRunId: 'root-live', employeeId: 'e-mix2', objective: 'go', state: 'running' },
+        {
+          runId: 'child-running',
+          parentRunId: 'root-live',
+          employeeId: 'e-mix2',
+          objective: 'go',
+          state: 'running',
+        },
         // ...and a DEAD failed child whose beat still carries a live failure (rank 10).
-        { runId: 'child-dead', parentRunId: 'root-live', employeeId: 'e-mix2', objective: 'boom', state: 'failed' },
+        {
+          runId: 'child-dead',
+          parentRunId: 'root-live',
+          employeeId: 'e-mix2',
+          objective: 'boom',
+          state: 'failed',
+        },
       ],
     }),
   ]);
@@ -444,7 +583,9 @@ const sum = (record: Readonly<Record<string, number>>): number =>
   // But the dead child is still visible in the rollup as a terminal issue.
   check(
     'terminal failed member still surfaces in priorityIssues (terminal true)',
-    w?.workloadSummary.priorityIssues.some((i) => i.runId === 'child-dead' && i.terminal === true) === true,
+    w?.workloadSummary.priorityIssues.some(
+      (i) => i.runId === 'child-dead' && i.terminal === true,
+    ) === true,
     `issues ${JSON.stringify(w?.workloadSummary.priorityIssues)}`,
   );
 }
@@ -457,7 +598,13 @@ const sum = (record: Readonly<Record<string, number>>): number =>
       employeeId: 'e-late',
       phase: 'completed', // root is NO LONGER active
       delegations: [
-        { runId: 'late-fail', parentRunId: 'root-done', employeeId: 'e-late', objective: 'boom', state: 'failed' },
+        {
+          runId: 'late-fail',
+          parentRunId: 'root-done',
+          employeeId: 'e-late',
+          objective: 'boom',
+          state: 'failed',
+        },
       ],
     }),
   ]);
@@ -478,7 +625,9 @@ const sum = (record: Readonly<Record<string, number>>): number =>
   );
   check(
     'terminal-root failed child appears in priorityIssues (terminal true)',
-    w?.workloadSummary.priorityIssues.some((i) => i.runId === 'late-fail' && i.terminal === true) === true,
+    w?.workloadSummary.priorityIssues.some(
+      (i) => i.runId === 'late-fail' && i.terminal === true,
+    ) === true,
     `issues ${JSON.stringify(w?.workloadSummary.priorityIssues)}`,
   );
 }
@@ -491,7 +640,13 @@ const sum = (record: Readonly<Record<string, number>>): number =>
       employeeId: 'e-drop',
       phase: 'running',
       delegations: [
-        { runId: 'child-gone', parentRunId: 'root-g', employeeId: 'e-drop', objective: 'z', state: 'failed' },
+        {
+          runId: 'child-gone',
+          parentRunId: 'root-g',
+          employeeId: 'e-drop',
+          objective: 'z',
+          state: 'failed',
+        },
       ],
     }),
   ]);
@@ -539,8 +694,20 @@ const sum = (record: Readonly<Record<string, number>>): number =>
       employeeId: 'e-mix',
       phase: 'awaiting-approval',
       delegations: [
-        { runId: 'art-1', parentRunId: 'ap-root', employeeId: 'e-mix', objective: 'a', state: 'running' },
-        { runId: 'art-2', parentRunId: 'ap-root', employeeId: 'e-mix', objective: 'b', state: 'running' },
+        {
+          runId: 'art-1',
+          parentRunId: 'ap-root',
+          employeeId: 'e-mix',
+          objective: 'a',
+          state: 'running',
+        },
+        {
+          runId: 'art-2',
+          parentRunId: 'ap-root',
+          employeeId: 'e-mix',
+          objective: 'b',
+          state: 'running',
+        },
       ],
     }),
   ]);
@@ -552,7 +719,11 @@ const sum = (record: Readonly<Record<string, number>>): number =>
   const beatFor = (runId: string): SceneBeat | null =>
     runId === 'art-1' || runId === 'art-2' ? artifactBeat(runId) : null;
   const w = projectEmployeeWorkloads(snap, PRJ, beatFor).get('e-mix');
-  check('mixed rollup → total 4', w?.workloadSummary.total === 4, `total ${w?.workloadSummary.total}`);
+  check(
+    'mixed rollup → total 4',
+    w?.workloadSummary.total === 4,
+    `total ${w?.workloadSummary.total}`,
+  );
   check(
     'approvalCount reflects the 2 awaiting-approval members',
     w?.workloadSummary.approvalCount === 2,

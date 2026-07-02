@@ -33,8 +33,11 @@ import {
  *  - delivery chip budget (3) + recentCount/overflow/latest;
  *  - graceful degradation with inputState omitted (false, never undefined);
  *  - reduced-motion / focus-mode staging clears (applyDramaturgyMode reuse);
- *  - typed failure integration (failureKind 'token' → {token, exhausted}) and
- *    the neutral cancelled state (no resource cue, no flow);
+ *  - typed failure integration for ALL six strain kinds (failureKind 'token' →
+ *    {token, exhausted}, plus budget/permission/context/runtime/tool end-to-end)
+ *    and the neutral cancelled state (no resource cue, no flow);
+ *  - the interaction overlay: hovered/dragged actor booleans, and the
+ *    no-live-beat active-run fallback (a beatless run keeps a working chip);
  *  - determinism: byte-identical output for identical input, beat input order
  *    (equal timestamps) irrelevant;
  *  - base/input split equivalence: applyInputState(projectSceneBaseFrame(facts),
@@ -42,6 +45,7 @@ import {
  *  - 58-run high concurrency: tier large, exactly 4 grouped chips, flows capped.
  */
 import {
+  type RunFailureKind,
   type SceneBeat,
   type StagingPrefab,
   type TimedAgentRunEvent,
@@ -96,7 +100,7 @@ const finished = (at: number, s: Scope): TimedAgentRunEvent => ({
   payload: { status: 'completed' },
   timestamp: at,
 });
-const failed = (at: number, s: Scope, failureKind: 'token' | 'tool'): TimedAgentRunEvent => ({
+const failed = (at: number, s: Scope, failureKind: RunFailureKind): TimedAgentRunEvent => ({
   ...scopeOf(s),
   type: 'run.failed',
   payload: { status: 'failed', failureKind },
@@ -486,6 +490,68 @@ console.log('\n[root failure] failed root keeps its actor on the board, typed');
   );
 }
 
+// ── six typed strain kinds end-to-end ────────────────────────────────────────
+console.log('\n[typed kinds] budget/permission/context/runtime/tool through the frame');
+{
+  // token is locked in [resource hierarchy]/[root failure] above; the remaining
+  // five kinds each ride the same REAL pipeline (typed run.failed → composeBeats
+  // → projectEmployeeWorkloads → projectSceneCues) so a regression in any single
+  // kind's ResourceCue projection fails its own named check.
+  const rest = [
+    ['budget', 'exhausted'],
+    ['permission', 'blocked'],
+    ['context', 'blocked'],
+    ['runtime', 'blocked'],
+    ['tool', 'blocked'],
+  ] as const;
+  for (const [kind, severity] of rest) {
+    const rootId = `root-k-${kind}`;
+    const childId = `child-k-${kind}`;
+    const emp = `emp-k-${kind}`;
+    const scope = { rootRunId: rootId, parentRunId: rootId, employeeId: emp };
+    const stream: TimedAgentRunEvent[] = [
+      started(1000, { runId: rootId, rootRunId: rootId, employeeId: emp }),
+      started(1100, { ...scope, runId: childId, relation: 'delegate' }),
+      failed(1200, { ...scope, runId: childId }, kind),
+    ];
+    const beats = composeBeats(stream, CONFIG);
+    const snap = snapshot([
+      runSnapshot({
+        attemptId: rootId,
+        employeeId: emp,
+        delegations: [
+          {
+            runId: childId,
+            parentRunId: rootId,
+            employeeId: emp,
+            objective: 'x',
+            state: 'failed',
+            failureKind: kind,
+          },
+        ],
+      }),
+    ]);
+    const frame = projectSceneCues(
+      input({
+        workloads: projectEmployeeWorkloads(snap, PRJ, beatForFrom(beats)),
+        beats,
+        now: 1500,
+      }),
+    );
+    const actor = frame.actors.find((a) => a.employeeId === emp);
+    const cue = frame.resources.find((r) => r.employeeId === emp);
+    check(
+      `failureKind '${kind}' → ResourceCue {${kind}, ${severity}}, glyph '${RESOURCE_KIND_GLYPHS[kind]}', issue leads the bubble`,
+      cue?.resourceKind === kind &&
+        cue.severity === severity &&
+        cue.terminal === true &&
+        actor?.workload.primary === 'issue' &&
+        RESOURCE_KIND_GLYPHS[kind].length === 1,
+      json(cue),
+    );
+  }
+}
+
 // ── cancelled = neutral ──────────────────────────────────────────────────────
 console.log('\n[cancelled] neutral stop: no resource cue, no flow');
 {
@@ -575,6 +641,47 @@ console.log('\n[degradation] inputState omitted → false, never undefined');
     'no selection → attention null (nothing severe, no delivery)',
     frame.attention === null,
     json(frame.attention),
+  );
+}
+
+// ── hover / drag input overlay ───────────────────────────────────────────────
+console.log('\n[input overlay] hovered + dragged actor cues');
+{
+  const facts = {
+    workloads: fanInput.workloads,
+    beats: fanInput.beats,
+    now: fanInput.now,
+    threadByEmployee: fanInput.threadByEmployee,
+  };
+  const hovered = projectSceneCues(input({ ...facts, inputState: { hoveredEmployeeId: 'emp-a' } }));
+  const hoveredActor = hovered.actors.find((a) => a.employeeId === 'emp-a');
+  check(
+    'hoveredEmployeeId → ActorCue.hovered true (selected/dragging stay false)',
+    hoveredActor?.hovered === true && !hoveredActor.selected && !hoveredActor.dragging,
+    json(hoveredActor),
+  );
+  check(
+    'hover is not an attention arm (nothing severe/selected/delivered → attention null)',
+    hovered.attention === null,
+    json(hovered.attention),
+  );
+  const dragged = projectSceneCues(
+    input({ ...facts, inputState: { draggingEmployeeId: 'emp-a' } }),
+  );
+  const draggedActor = dragged.actors.find((a) => a.employeeId === 'emp-a');
+  check(
+    'draggingEmployeeId → ActorCue.dragging true (3D drag input; 2D omits the source)',
+    draggedActor?.dragging === true && !draggedActor.selected && !draggedActor.hovered,
+    json(draggedActor),
+  );
+  check(
+    'hover/drag of an unknown id decorates nobody (exact employee match only)',
+    projectSceneCues(
+      input({
+        ...facts,
+        inputState: { hoveredEmployeeId: 'emp-ghost', draggingEmployeeId: 'emp-ghost' },
+      }),
+    ).actors.every((a) => !a.hovered && !a.dragging),
   );
 }
 
@@ -759,6 +866,45 @@ console.log('\n[roster] every hire stands on the floor, resting when idle');
       idle.workload.primary === 'count' &&
       idle.artifacts.length === 0,
     json(idle),
+  );
+}
+
+// ── no-live-beat active run fallback ─────────────────────────────────────────
+console.log('\n[no-live-beat] active run without any live beat still renders');
+{
+  // beatForRun yields null for every run — e.g. all beats expired out of the
+  // rolling window while the run is still active. The actor must keep working.
+  const snap = snapshot([runSnapshot({ attemptId: 'root-n', employeeId: 'emp-n' })]);
+  const workloads = projectEmployeeWorkloads(snap, PRJ, () => null);
+  const frame = projectSceneCues(
+    input({ workloads, beats: [], now: 1000, threadByEmployee: new Map([['emp-n', THREAD]]) }),
+  );
+  const actor = frame.actors.find((a) => a.employeeId === 'emp-n');
+  check(
+    'beatless active run still yields a running actor cue',
+    actor?.running === true && actor.workload.activeCount === 1,
+    json(actor),
+  );
+  check(
+    'one active run → NO ×N badge (countLabel null) and the count leads',
+    actor?.workload.countLabel === null && actor.workload.primary === 'count',
+    json(actor?.workload),
+  );
+  check(
+    "beatless run still shows a generic 'Work' chip (never an empty bubble)",
+    actor?.workload.chips.length === 1 &&
+      actor.workload.chips[0]?.label === 'Work' &&
+      actor.workload.chips[0].tone === 'work',
+    json(actor?.workload.chips),
+  );
+  check(
+    'no live beat → unstaged: null performance, no staging (scene keeps its idle pose path)',
+    actor?.performance === null && actor.staging === null,
+  );
+  check(
+    'beatless frame carries no flow/resource noise',
+    frame.flows.length === 0 && frame.resources.length === 0,
+    json(frame.flows),
   );
 }
 
