@@ -4,9 +4,12 @@ import type {
 } from '../apps/desktop/renderer/src/assistant/runtime/conversation-run-controller.js';
 import { projectEmployeeWorkloads } from '../apps/desktop/renderer/src/assistant/runtime/conversation-run-projections.js';
 import {
+  FLOW_TARGET_LABELS,
+  RESOURCE_KIND_GLYPHS,
   type SceneCueFrame,
   type SceneCueInput,
   applyInputState,
+  flowCueText,
   projectSceneBaseFrame,
   projectSceneCues,
 } from '../apps/desktop/renderer/src/assistant/runtime/scene-cue-projection.js';
@@ -652,6 +655,77 @@ console.log('\n[bundle merge] ink escalation, newest label/anchor, pulse OR');
     `${bundle?.label}@${bundle?.at}`,
   );
   check('pulse is the OR of members (any pulsing member pulses)', bundle?.pulse === true);
+}
+
+// ── lane text + shared scene vocabulary (I4) ─────────────────────────────────
+console.log('\n[lane text] flowCueText, target labels, six-kind glyphs');
+{
+  const longLabel = 'compile-the-quarterly-report';
+  const beats: SceneBeat[] = [
+    {
+      ...rawBeat('t1', 1000, {
+        employeeId: 'emp-t',
+        flow: { kind: 'tool', label: 'ship it', target: 'tool', pulse: true },
+      }),
+      id: 't-1',
+    },
+    {
+      ...rawBeat('t2', 1100, {
+        employeeId: 'emp-t',
+        flow: { kind: 'artifact', label: longLabel, target: 'delivery', pulse: true },
+      }),
+      id: 't-2',
+    },
+    {
+      ...rawBeat('t3', 1200, {
+        employeeId: 'emp-t',
+        flow: { kind: 'artifact', label: longLabel, target: 'delivery', pulse: true },
+      }),
+      id: 't-3',
+    },
+  ];
+  const frame = projectSceneCues(input({ beats, now: 1300 }));
+  const single = frame.flows.find((f) => f.kind === 'tool');
+  const bundle = frame.flows.find((f) => f.kind === 'artifact');
+  check(
+    'single cue lane text is the bare label',
+    single != null && flowCueText(single) === 'ship it',
+    single && flowCueText(single),
+  );
+  check(
+    'bundled cue lane text reads ×N · label (count is the density signal)',
+    bundle?.bundleCount === 2 && flowCueText(bundle).startsWith('×2 · '),
+    bundle && flowCueText(bundle),
+  );
+  check(
+    'long labels ellipsize at 16 chars (PRD: no text overflow)',
+    bundle != null && flowCueText(bundle) === `×2 · ${longLabel.slice(0, 15)}…`,
+    bundle && flowCueText(bundle),
+  );
+  const targets = Object.keys(FLOW_TARGET_LABELS).sort();
+  check(
+    'FLOW_TARGET_LABELS covers exactly the FlowCueTarget vocabulary',
+    json(targets) === json(['delivery', 'review', 'tool', 'user', 'workstation']),
+    json(targets),
+  );
+  check(
+    'anchor labels stay compact (non-empty, ≤8 chars)',
+    Object.values(FLOW_TARGET_LABELS).every((label) => label.length > 0 && label.length <= 8),
+    json(FLOW_TARGET_LABELS),
+  );
+  const glyphs = Object.entries(RESOURCE_KIND_GLYPHS);
+  check(
+    'RESOURCE_KIND_GLYPHS covers exactly the six resource kinds',
+    json(glyphs.map(([kind]) => kind).sort()) ===
+      json(['budget', 'context', 'permission', 'runtime', 'token', 'tool']),
+    json(glyphs),
+  );
+  check(
+    'six single-character glyphs, all distinct (T/B/P/C/R/X)',
+    glyphs.every(([, glyph]) => glyph.length === 1) &&
+      new Set(glyphs.map(([, glyph]) => glyph)).size === 6,
+    json(glyphs),
+  );
 }
 
 // ── roster universe ──────────────────────────────────────────────────────────

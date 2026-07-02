@@ -130,6 +130,9 @@ export const OFFICE_SCENE_2D_COLORS = {
   desk: 'rgba(40,60,90,0.08)',
   activeRing: UI_DATA_COLORS.blue,
   activeRingSoft: 'rgba(47,107,255,0.5)',
+  /* Attention emphasis (frame.attention): the selection-ring hue at lower
+   * alpha — a subtle sustained focus cue, never a second selection ring. */
+  attentionRing: 'rgba(47,107,255,0.28)',
   flowLine: 'rgba(47,107,255,0.36)',
   flowPacket: UI_DATA_COLORS.blue,
   artifactLine: 'rgba(26,164,106,0.42)',

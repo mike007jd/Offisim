@@ -647,6 +647,14 @@
   font-weight: 700;
 }
 
+/* Approval reads as waiting on the user (PRD): the marker pins the approval/
+   amber ink regardless of severity — never the risk red. */
+.off-scene-resource-marker.is-approval {
+  border-color: color-mix(in oklab, var(--off-warn) 55%, var(--off-surface-1));
+  background: var(--off-warn-surface);
+  color: var(--off-warn);
+}
+
 /* …and the issue marker takes the primary (top-right) slot. */
 .off-scene-resource-marker.is-primary {
   top: -5px;
@@ -783,6 +791,168 @@
   color: var(--off-surface-1);
   font-size: var(--off-fs-micro);
   line-height: 1;
+}
+
+/* Delivery shelf column (I5) — the claimable output surface: shelf head (×N
+   total) over a compact chip column. Flat chips, never nested cards. */
+.off-scene-delivery {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.off-scene-delivery-chips {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+}
+
+/* One claimable chip: kind tag + ellipsized title, click opens THAT artifact. */
+.off-scene-delivery-chip {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 132px;
+  height: 16px;
+  padding: 0 6px;
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-pill);
+  background: color-mix(in oklab, var(--off-surface-1) 88%, transparent);
+  color: var(--off-ink-3);
+  box-shadow: var(--off-elev-1);
+  cursor: pointer;
+  pointer-events: auto;
+  font-size: var(--off-fs-micro);
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.off-scene-delivery-chip i {
+  flex: 0 0 auto;
+  font-style: normal;
+  font-size: 8px;
+  font-weight: 760;
+  letter-spacing: 0.04em;
+  color: var(--off-ok);
+}
+
+.off-scene-delivery-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Newest claim reads emphasized (artifact ink border + full ink title). */
+.off-scene-delivery-chip.is-new {
+  border-color: color-mix(in oklab, var(--off-ok) 55%, var(--off-line));
+  color: var(--off-ink-1);
+}
+
+.off-scene-delivery-chip:hover {
+  border-color: var(--off-accent-ring);
+  color: var(--off-ink-1);
+}
+
+.off-scene-delivery-chip:focus-visible {
+  outline: 2px solid var(--off-accent);
+  outline-offset: 1px;
+}
+
+/* +N overflow — routes to history/drilldown, never expands the column. */
+.off-scene-delivery-overflow {
+  appearance: none;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 13px;
+  padding: 0 6px;
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-pill);
+  background: color-mix(in oklab, var(--off-surface-1) 82%, transparent);
+  color: var(--off-ink-4);
+  cursor: pointer;
+  pointer-events: auto;
+  font-size: var(--off-fs-micro);
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* Artifact arrival highlight — a brief ok-ink emphasis on the shelf head when
+   a new claim lands (recentCount increase). Transition only; the information
+   (chip + ×N) is carried statically. */
+.off-scene-delivery .off-scene-delivery-shelf {
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.off-scene-delivery.is-arrived .off-scene-delivery-shelf {
+  border-color: var(--off-ok);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--off-ok) 24%, transparent);
+}
+
+/* Attention (frame.attention → delivery): a gentle sustained emphasis. */
+.off-scene-delivery.is-attention .off-scene-delivery-shelf {
+  border-color: color-mix(in oklab, var(--off-ok) 55%, var(--off-line));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .off-scene-delivery .off-scene-delivery-shelf {
+    transition: none;
+  }
+}
+
+/* Lane density label (I4) — the shared flowCueText (`×N · label`) on a
+   compact pill at the flow-line midpoint. */
+.off-scene-flow-label {
+  display: inline-flex;
+  align-items: center;
+  max-width: 148px;
+  height: 15px;
+  padding: 0 5px;
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-pill);
+  background: color-mix(in oklab, var(--off-surface-1) 88%, transparent);
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-micro);
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+/* Purpose-distinct flow-target anchor (I4) — a tiny labeled node marking where
+   live lanes converge (tool / review / delivery / user / work). Dense HUD. */
+.off-scene-flow-anchor {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 14px;
+  padding: 0 5px;
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-pill);
+  background: color-mix(in oklab, var(--off-surface-1) 82%, transparent);
+  color: var(--off-ink-4);
+  font-size: var(--off-fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.off-scene-flow-anchor::before {
+  content: "";
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--off-ink-5);
 }
 
 .off-scene-zone-label {

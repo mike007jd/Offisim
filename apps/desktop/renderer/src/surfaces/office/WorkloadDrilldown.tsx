@@ -61,7 +61,13 @@ function WorkloadDrilldownPanel({ employeeId }: { employeeId: string }) {
   // The SAME SceneCue frame the scenes render (identical staging inputs), so
   // the drawer's artifacts/issues can never drift from the office floor.
   const { stagingPrefabs, positions } = useSceneStagingInputs();
-  const { actorById } = useSceneCueFrame({ prefabs: stagingPrefabs, actorPositions: positions });
+  const { frame, actorById } = useSceneCueFrame({
+    prefabs: stagingPrefabs,
+    actorPositions: positions,
+  });
+  // The typed strain of this employee's top issue (frame.resources) — surfaced
+  // as a small kind tag on the top issue row (six-kind distinction, PRD).
+  const resourceCue = frame.resources.find((res) => res.employeeId === employeeId) ?? null;
 
   const projection = workloads.get(employeeId);
   const employee = useMemo(
@@ -190,7 +196,7 @@ function WorkloadDrilldownPanel({ employeeId }: { employeeId: string }) {
               Issues
             </h3>
             <ul className="off-drill-issues">
-              {summary.priorityIssues.map((issue) => (
+              {summary.priorityIssues.map((issue, index) => (
                 <li
                   key={`${issue.runId}-${issue.kind}`}
                   className={cn('off-drill-issue', `is-${issue.severity}`)}
@@ -198,6 +204,11 @@ function WorkloadDrilldownPanel({ employeeId }: { employeeId: string }) {
                   <Icon icon={issueIcon(issue)} size="sm" />
                   <span className="off-drill-issue-label">{issue.label}</span>
                   <span className="off-drill-issue-tags">
+                    {/* Typed strain tag on the top issue row (the resource cue
+                        resolves the kind for priorityIssues[0] only). */}
+                    {index === 0 && issue.kind === 'resource' && resourceCue?.resourceKind ? (
+                      <em className="off-drill-tag">{resourceCue.resourceKind}</em>
+                    ) : null}
                     {issue.terminal ? <em className="off-drill-tag">terminal</em> : null}
                     <em className="off-drill-tag">{issue.severity}</em>
                   </span>

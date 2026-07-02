@@ -2,10 +2,13 @@ import { useUiState } from '@/app/ui-state.js';
 import { useConversationRun } from '@/assistant/runtime/conversation-run-react.js';
 import { usePrefersReducedMotion } from '@/assistant/runtime/office-dramaturgy.js';
 import {
+  FLOW_TARGET_LABELS,
   type FlowCueTarget,
+  RESOURCE_KIND_GLYPHS,
   type SceneInk,
   type WorkloadCue,
   bundleEmphasis,
+  flowCueText,
 } from '@/assistant/runtime/scene-cue-projection.js';
 import { useSceneCueFrame } from '@/assistant/runtime/scene-cue-react.js';
 import { useReassignEmployee } from '@/data/queries.js';
@@ -16,6 +19,7 @@ import {
   type CharacterPerformanceState,
   type PrefabDefinition,
   type PrefabInstanceRow,
+  type ResourceKind,
   type RoleSlug,
   animationTempoForRole,
 } from '@offisim/shared-types';
@@ -77,7 +81,10 @@ interface SceneFlowLine {
   readonly from: readonly [number, number, number];
   readonly to: readonly [number, number, number];
   readonly color: string;
+  /** Lane density text (the shared flowCueText rule: `×N · label` for bundles). */
   readonly label: string;
+  /** Lane label anchor — the curve midpoint, stacked when lanes share endpoints. */
+  readonly labelPosition: readonly [number, number, number];
   /** 1.6px base + the shared bundleEmphasis step (+1 when the cue bundles ≥2 signals). */
   readonly lineWidth: number;
 }
@@ -142,8 +149,10 @@ function EmployeeUnit({
   withDesk,
   running,
   workload,
+  resourceKind,
   reducedMotion,
   active,
+  attention,
   dragging,
   performance,
   zones,
@@ -162,8 +171,12 @@ function EmployeeUnit({
   withDesk: boolean;
   running: boolean;
   workload: WorkloadCue | null;
+  /** Typed strain of the top issue (frame.resources) — the six-kind marker glyph. */
+  resourceKind: ResourceKind | null;
   reducedMotion: boolean;
   active: boolean;
+  /** frame.attention targets this actor — a subtle sustained focus emphasis. */
+  attention: boolean;
   dragging: boolean;
   performance?: CharacterPerformanceState;
   zones: ZoneDef[];
@@ -426,6 +439,15 @@ function EmployeeUnit({
           <meshBasicMaterial color={LIGHT_SCENE_3D.selectionRing} transparent opacity={0.8} />
         </mesh>
       ) : null}
+      {/* Attention focus (frame.attention): the selection-ring style at lower
+          alpha — subtle, sustained, static (reduced-motion safe); never a
+          second full-strength selection ring, and no camera movement. */}
+      {attention && !active && !dragging ? (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
+          <ringGeometry args={[0.52, 0.64, 40]} />
+          <meshBasicMaterial color={LIGHT_SCENE_3D.selectionRing} transparent opacity={0.3} />
+        </mesh>
+      ) : null}
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: r3f raycaster on a 3D object; employees are keyboard-selectable via the team dock and thread list */}
       <group
         rotation={[0, characterRotation, 0]}
@@ -535,13 +557,18 @@ function EmployeeUnit({
               </button>
             ) : null}
             {workload?.topIssue ? (
+              // An approval issue pins the approval/amber ink — waiting on the
+              // user, never the risk red — and a typed resource strain shows
+              // its six-kind glyph (T/B/P/C/R/X); '!' stays the kindless
+              // fallback (flow failures). Same scheme as the 2D marker disc.
               <span
                 className={`off-scene-resource-marker is-${workload.topIssue.severity}${
-                  blocked ? ' is-primary' : ''
-                }`}
+                  workload.topIssue.kind === 'approval' ? ' is-approval' : ''
+                }${blocked ? ' is-primary' : ''}`}
                 aria-label={workload.topIssue.label}
+                title={workload.topIssue.label}
               >
-                !
+                {resourceKind ? RESOURCE_KIND_GLYPHS[resourceKind] : '!'}
               </span>
             ) : null}
             {workload && workload.chips.length > 0 ? (
@@ -724,27 +751,78 @@ export function OfficeScene3D() {
   });
   const deliveryLatest = frame.delivery.latest;
 
-  const sceneFlowLines = useMemo<SceneFlowLine[]>(
-    () =>
-      frame.flows.map((cue) => {
-        const home = placementsByEmployee.get(cue.employeeId) ?? {
-          x: defaultEmployeeZone.cx,
-          z: defaultEmployeeZone.cz,
-        };
-        const staging = actorById.get(cue.employeeId)?.staging;
-        const fromX = staging?.x ?? home.x;
-        const fromZ = staging?.z ?? home.z;
-        return {
-          id: `${cue.employeeId}|${cue.target}|${cue.kind}`,
-          from: [fromX, 0.12, fromZ] as const,
-          to: flowTarget3D(cue.target),
-          color: INK_3D[cue.ink],
-          label: cue.label,
-          lineWidth: 1.6 + bundleEmphasis(cue),
-        };
-      }),
-    [actorById, defaultEmployeeZone, placementsByEmployee, frame.flows],
+  const sceneFlowLines = useMemo<SceneFlowLine[]>(() => {
+    // Same (employee, target) lanes share identical geometry (kinds differ) —
+    // stack their labels vertically instead of painting onto each other.
+    const labelSlots = new Map<string, number>();
+    return frame.flows.map((cue) => {
+      const home = placementsByEmployee.get(cue.employeeId) ?? {
+        x: defaultEmployeeZone.cx,
+        z: defaultEmployeeZone.cz,
+      };
+      const staging = actorById.get(cue.employeeId)?.staging;
+      const fromX = staging?.x ?? home.x;
+      const fromZ = staging?.z ?? home.z;
+      const to = flowTarget3D(cue.target);
+      const laneKey = `${cue.employeeId}|${cue.target}`;
+      const slot = labelSlots.get(laneKey) ?? 0;
+      labelSlots.set(laneKey, slot + 1);
+      return {
+        id: `${cue.employeeId}|${cue.target}|${cue.kind}`,
+        from: [fromX, 0.12, fromZ] as const,
+        to,
+        color: INK_3D[cue.ink],
+        label: flowCueText(cue),
+        labelPosition: [(fromX + to[0]) / 2, 0.6 + slot * 0.34, (fromZ + to[2]) / 2] as const,
+        lineWidth: 1.6 + bundleEmphasis(cue),
+      };
+    });
+  }, [actorById, defaultEmployeeZone, placementsByEmployee, frame.flows]);
+
+  // Purpose-distinct target anchors (I4): every target a live lane points at
+  // gets a small labeled chip so lanes visibly go somewhere; the delivery
+  // shelf is itself the delivery anchor whenever it renders.
+  const activeFlowTargets = useMemo(() => {
+    const targets = new Set<FlowCueTarget>();
+    for (const cue of frame.flows) targets.add(cue.target);
+    return [...targets].sort();
+  }, [frame.flows]);
+
+  // employeeId → typed resource strain for the six-kind marker glyphs.
+  const resourceKindByEmployee = useMemo(
+    () => new Map(frame.resources.map((res) => [res.employeeId, res.resourceKind])),
+    [frame.resources],
   );
+  const attentionEmployeeId =
+    frame.attention?.target === 'employee' ? (frame.attention.employeeId ?? null) : null;
+  const deliveryAttention = frame.attention?.target === 'delivery';
+
+  // Artifact arrival (I5): a brief shelf highlight when recentCount increases —
+  // a CSS transition on the shelf head; reduced motion renders it without
+  // transition (statically) via the media query. Seeded with the mount count
+  // so pre-existing claims never flash.
+  const [deliveryArrived, setDeliveryArrived] = useState(false);
+  const prevRecentCountRef = useRef(frame.delivery.recentCount);
+  useEffect(() => {
+    const previous = prevRecentCountRef.current;
+    prevRecentCountRef.current = frame.delivery.recentCount;
+    if (frame.delivery.recentCount <= previous) return;
+    setDeliveryArrived(true);
+    const timer = window.setTimeout(() => setDeliveryArrived(false), 1500);
+    return () => window.clearTimeout(timer);
+  }, [frame.delivery.recentCount]);
+
+  // Delivery history route (I5): the shelf head / +N overflow opens the latest
+  // claim owner's workload drilldown when resolvable, else opens the claim.
+  const openDeliveryHistory = () => {
+    const latest = frame.delivery.latest;
+    if (!latest) return;
+    const owner = frame.actors.find(
+      (actor) => actor.threadId != null && actor.threadId === latest.threadId,
+    );
+    if (owner) openWorkloadDrilldown(owner.employeeId);
+    else void openArtifactClaim(latest, { openStageView, projectId });
+  };
 
   const draggedEmployee = employeeDrag
     ? (roster.find((employee) => employee.id === employeeDrag.employeeId) ?? null)
@@ -845,8 +923,10 @@ export function OfficeScene3D() {
                   withDesk={!real}
                   running={running}
                   workload={workload}
+                  resourceKind={resourceKindByEmployee.get(employee.id) ?? null}
                   reducedMotion={reducedMotion}
                   active={cue?.selected ?? false}
+                  attention={attentionEmployeeId === employee.id}
                   dragging={cue?.dragging ?? false}
                   performance={performance}
                   zones={zoneDefs}
@@ -899,8 +979,38 @@ export function OfficeScene3D() {
               transparent
               opacity={0.58}
             />
+            {/* Lane density label — the shared flowCueText rule (`×N · label`
+                for bundles), a compact pill at the line midpoint. */}
+            <Html
+              position={line.labelPosition}
+              center
+              distanceFactor={18}
+              occlude={false}
+              zIndexRange={[2, 0]}
+              className="off-scene-html-passive"
+            >
+              <span className="off-scene-flow-label">{line.label}</span>
+            </Html>
           </Fragment>
         ))}
+        {/* Purpose-distinct target anchors — a small labeled node per active
+            flow target (dense HUD, not decoration); the delivery shelf below
+            is itself the delivery anchor when it renders. */}
+        {activeFlowTargets.map((target) =>
+          target === 'delivery' && deliveryLatest ? null : (
+            <Html
+              key={target}
+              position={flowTarget3D(target)}
+              center
+              distanceFactor={18}
+              occlude={false}
+              zIndexRange={[2, 0]}
+              className="off-scene-html-passive"
+            >
+              <span className="off-scene-flow-anchor">{FLOW_TARGET_LABELS[target]}</span>
+            </Html>
+          ),
+        )}
         {deliveryLatest ? (
           <Html
             position={flowTarget3D('delivery')}
@@ -910,20 +1020,55 @@ export function OfficeScene3D() {
             zIndexRange={[3, 0]}
             className="off-scene-html-interactive"
           >
-            {/* Interactive delivery shelf — reads the frame's delivery cue: ×N
-                from recentCount, click target from `latest` (same claim path
-                as the 2D scene). */}
-            <button
-              type="button"
-              className="off-scene-delivery-shelf is-interactive"
-              aria-label={`Open delivery — ${deliveryLatest.title}`}
-              onClick={() => {
-                void openArtifactClaim(deliveryLatest, { openStageView, projectId });
-              }}
+            {/* Delivery shelf (I5) — a claimable output surface: ×N total on
+                the head, up to 3 claimable chips (kind tag + ellipsized title,
+                newest emphasized), +N overflow to history/drilldown, and a
+                brief arrival highlight when a new claim lands. Same click
+                semantics as the 2D shelf. */}
+            <div
+              className={`off-scene-delivery${deliveryArrived ? ' is-arrived' : ''}${
+                deliveryAttention ? ' is-attention' : ''
+              }`}
             >
-              <span>Delivery</span>
-              <b>{frame.delivery.recentCount}</b>
-            </button>
+              <button
+                type="button"
+                className="off-scene-delivery-shelf is-interactive"
+                aria-label={`Delivery — ${frame.delivery.recentCount} artifacts, open history`}
+                onClick={openDeliveryHistory}
+              >
+                <span>Delivery</span>
+                <b>{frame.delivery.recentCount}</b>
+              </button>
+              <div className="off-scene-delivery-chips">
+                {frame.delivery.chips.map((chip, index) => (
+                  <button
+                    key={`${chip.deliverableId ?? chip.path ?? chip.title}-${index}`}
+                    type="button"
+                    className={`off-scene-delivery-chip${
+                      index === frame.delivery.chips.length - 1 ? ' is-new' : ''
+                    }`}
+                    title={chip.title}
+                    aria-label={`Open ${chip.title}`}
+                    onClick={() => {
+                      void openArtifactClaim(chip, { openStageView, projectId });
+                    }}
+                  >
+                    <i>{chip.kind.slice(0, 3).toUpperCase()}</i>
+                    <span>{chip.title}</span>
+                  </button>
+                ))}
+                {frame.delivery.overflowCount > 0 ? (
+                  <button
+                    type="button"
+                    className="off-scene-delivery-overflow"
+                    aria-label={`${frame.delivery.overflowCount} more artifacts — open history`}
+                    onClick={openDeliveryHistory}
+                  >
+                    +{frame.delivery.overflowCount}
+                  </button>
+                ) : null}
+              </div>
+            </div>
           </Html>
         ) : null}
 

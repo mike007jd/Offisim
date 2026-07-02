@@ -1,9 +1,13 @@
 import { useUiState } from '@/app/ui-state.js';
+import { usePrefersReducedMotion } from '@/assistant/runtime/office-dramaturgy.js';
 import {
+  FLOW_TARGET_LABELS,
   type FlowCueTarget,
+  RESOURCE_KIND_GLYPHS,
   type SceneInk,
   type WorkloadChipTone,
   bundleEmphasis,
+  flowCueText,
 } from '@/assistant/runtime/scene-cue-projection.js';
 import { useSceneCueFrame } from '@/assistant/runtime/scene-cue-react.js';
 import { OFFICE_SCENE_2D_COLORS } from '@/data/color-palette.js';
@@ -68,14 +72,16 @@ interface EmployeeHit {
   r: number;
 }
 
-/** A rectangular hit target for the interactive bubble / marker surfaces. */
+/** A rectangular hit target for the interactive bubble / marker / shelf surfaces. */
 interface RectHit {
-  kind: 'drilldown' | 'delivery';
+  kind: 'drilldown' | 'delivery' | 'delivery-chip';
   x0: number;
   y0: number;
   x1: number;
   y1: number;
   employeeId?: string;
+  /** Index into frame.delivery.chips for a 'delivery-chip' hit. */
+  chipIndex?: number;
 }
 
 type Hit = EmployeeHit | RectHit;
@@ -120,6 +126,21 @@ export function OfficeScene2D() {
     () => frame.actors.find((actor) => actor.selected)?.employeeId ?? null,
     [frame.actors],
   );
+
+  // Reduced motion freezes the packet animation and the shelf arrival glow
+  // while every lane/label/anchor/marker keeps rendering statically.
+  const reducedMotion = usePrefersReducedMotion();
+
+  // Artifact arrival (I5): a short-lived shelf glow when recentCount increases.
+  // Refs only — the glow rides the existing pulsing-flow RAF, never its own
+  // loop. Seeded with the mount count so pre-existing claims never glow.
+  const prevRecentCountRef = useRef(frame.delivery.recentCount);
+  const shelfGlowUntilRef = useRef(0);
+  useEffect(() => {
+    const previous = prevRecentCountRef.current;
+    prevRecentCountRef.current = frame.delivery.recentCount;
+    if (frame.delivery.recentCount > previous) shelfGlowUntilRef.current = Date.now() + 1600;
+  }, [frame.delivery.recentCount]);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const hitsRef = useRef<Hit[]>([]);
@@ -207,13 +228,21 @@ export function OfficeScene2D() {
       // narrower on screen than the disc's painted extent has min > max).
       const clampSpan = (v: number, min: number, max: number) =>
         min > max ? (min + max) / 2 : clamp(v, min, max);
+      // Attention (frame.attention → employee): the attention actor draws right
+      // after the selected one, so both always win a name-label slot.
+      const attentionEmployeeId =
+        frame.attention?.target === 'employee' ? (frame.attention.employeeId ?? null) : null;
+      // employeeId → typed resource strain for the six-kind marker glyphs.
+      const resourceKindByEmployee = new Map(
+        frame.resources.map((res) => [res.employeeId, res.resourceKind]),
+      );
+      const labelPriority = (id: string) =>
+        id === selectedEmployeeId ? 0 : id === attentionEmployeeId ? 1 : 2;
       // The selected employee draws first so its name label always wins a slot.
       const ordered =
-        selectedEmployeeId == null
+        selectedEmployeeId == null && attentionEmployeeId == null
           ? roster
-          : [...roster].sort((a, b) =>
-              a.id === selectedEmployeeId ? -1 : b.id === selectedEmployeeId ? 1 : 0,
-            );
+          : [...roster].sort((a, b) => labelPriority(a.id) - labelPriority(b.id));
       const zoneById = new Map(zoneDefs.map((zone) => [zone.id, zone]));
 
       const screenForEmployee = (employeeId: string) => {
@@ -260,13 +289,29 @@ export function OfficeScene2D() {
         }
       };
 
+      // Width-aware ellipsis for canvas text (lane labels, delivery chips) —
+      // the PRD's no-text-overflow rule at draw resolution.
+      const ellipsizeToWidth = (text: string, maxWidth: number): string => {
+        if (ctx.measureText(text).width <= maxWidth) return text;
+        let out = text;
+        while (out.length > 1 && ctx.measureText(`${out}…`).width > maxWidth)
+          out = out.slice(0, -1);
+        return `${out}…`;
+      };
+
       // Flow layer: bundled cues from the frame — one line per (actor, target,
       // kind). The shared bundleEmphasis rule adds the heavier stroke for
       // bundled (≥2) cues on top of this scene's risk-aware base, capped at
-      // 3px (the full visual language is a later increment).
+      // 3px. Each lane carries the shared flowCueText density label (`×N ·
+      // label` for bundles) on a backing pill at the curve midpoint.
+      const activeFlowTargets = new Set<FlowCueTarget>();
+      // Same (employee, target) lanes share identical curve geometry (kinds
+      // differ) — stack their labels instead of painting them onto each other.
+      const laneLabelSlots = new Map<string, number>();
       for (const cue of frame.flows) {
         const source = screenForEmployee(cue.employeeId);
         if (!source) continue;
+        activeFlowTargets.add(cue.target);
         const target = flowTarget(cue.target);
         const ink = INK_2D[cue.ink];
         ctx.save();
@@ -280,42 +325,169 @@ export function OfficeScene2D() {
         ctx.quadraticCurveTo(mx, my, target.sx, target.sy);
         ctx.stroke();
         ctx.setLineDash([]);
-        const t = ((Date.now() - cue.at) % 1400) / 1400;
+        // Packet param: frozen under reduced motion (static position keeps the
+        // information), and REVERSED for fan-in so returning work reads as
+        // consolidation into the owner, not another outbound dispatch.
+        const tRaw = reducedMotion ? 0.35 : ((Date.now() - cue.at) % 1400) / 1400;
+        const t = cue.kind === 'fan-in' ? 1 - tRaw : tRaw;
         const px = (1 - t) ** 2 * source.sx + 2 * (1 - t) * t * mx + t ** 2 * target.sx;
         const py = (1 - t) ** 2 * source.sy + 2 * (1 - t) * t * my + t ** 2 * target.sy;
         ctx.fillStyle = ink.packet;
         ctx.beginPath();
         ctx.arc(px, py, cue.ink === 'risk' ? 4.2 : 3.4, 0, Math.PI * 2);
         ctx.fill();
+        // Lane density label — flowCueText on a subtle backing pill at the
+        // curve midpoint (registered in `occupied` so name labels dodge it).
+        ctx.font = CANVAS_FONT_TOKENS.officeSceneLabel;
+        const laneKey = `${cue.employeeId}|${cue.target}`;
+        const slot = laneLabelSlots.get(laneKey) ?? 0;
+        laneLabelSlots.set(laneKey, slot + 1);
+        const text = ellipsizeToWidth(flowCueText(cue), 132);
+        const textW = ctx.measureText(text).width;
+        const lx = 0.25 * source.sx + 0.5 * mx + 0.25 * target.sx;
+        const ly = 0.25 * source.sy + 0.5 * my + 0.25 * target.sy + slot * 17;
+        ctx.fillStyle = OFFICE_SCENE_2D_COLORS.deliveryShelf;
+        roundRect(ctx, lx - textW / 2 - 5, ly - 8, textW + 10, 15, 7);
+        ctx.fill();
+        ctx.fillStyle = ink.packet;
+        ctx.textAlign = 'center';
+        ctx.fillText(text, lx, ly + 3.5);
+        ctx.textAlign = 'left';
+        occupied.push({
+          x0: lx - textW / 2 - 5,
+          x1: lx + textW / 2 + 5,
+          y0: ly - 8,
+          y1: ly + 7,
+        });
         ctx.restore();
       }
 
-      // Delivery shelf — reads the frame's delivery cue: ×N from recentCount,
-      // click target from `latest` (resolved in the click handler). With no
-      // live claim there is no shelf and no hit.
+      // Purpose-distinct target anchors: a tiny labeled node at every target a
+      // live lane points at, so lanes visibly go SOMEWHERE. Dense HUD style —
+      // neutral node + micro label; the delivery shelf itself is the delivery
+      // anchor whenever it renders.
+      for (const anchorTarget of [...activeFlowTargets].sort()) {
+        if (anchorTarget === 'delivery' && frame.delivery.latest) continue;
+        const anchor = flowTarget(anchorTarget);
+        ctx.fillStyle = OFFICE_SCENE_2D_COLORS.neutralPacket;
+        ctx.beginPath();
+        ctx.arc(anchor.sx, anchor.sy, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.font = CANVAS_FONT_TOKENS.officeSceneLabel;
+        const anchorText = FLOW_TARGET_LABELS[anchorTarget].toUpperCase();
+        const anchorW = ctx.measureText(anchorText).width;
+        const ax = anchor.sx;
+        const ay = anchor.sy + 15;
+        ctx.fillStyle = OFFICE_SCENE_2D_COLORS.deliveryShelf;
+        roundRect(ctx, ax - anchorW / 2 - 4, ay - 8, anchorW + 8, 14, 7);
+        ctx.fill();
+        ctx.fillStyle = OFFICE_SCENE_2D_COLORS.zoneLabel;
+        ctx.textAlign = 'center';
+        ctx.fillText(anchorText, ax, ay + 3);
+        ctx.textAlign = 'left';
+        occupied.push({
+          x0: ax - anchorW / 2 - 4,
+          x1: ax + anchorW / 2 + 4,
+          y0: anchor.sy - 4,
+          y1: ay + 6,
+        });
+      }
+
+      // Delivery shelf (I5) — a claimable output surface: DELIVERY header with
+      // the ×N running total, up to 3 compact claimable chips (kind tag +
+      // ellipsized title, newest emphasized), and a +N overflow tag routed to
+      // history/drilldown through the body hit. Grows upward from a fixed
+      // bottom edge so it stays on the floor. With no live claim there is no
+      // shelf and no hit.
       if (frame.delivery.latest) {
         const shelf = flowTarget('delivery');
-        const shelfW = 116;
-        const shelfH = 34;
+        const chips = frame.delivery.chips;
+        const shelfW = 132;
+        const headH = 18;
+        const chipH = 15;
+        const chipGap = 3;
+        const overflowH = frame.delivery.overflowCount > 0 ? 14 : 0;
+        const shelfH = headH + chips.length * (chipH + chipGap) + overflowH + 6;
+        const x0 = shelf.sx - shelfW / 2;
+        const y1 = shelf.sy + 17; // fixed bottom edge (the old box's bottom)
+        const y0 = y1 - shelfH;
+        const attentionShelf = frame.attention?.target === 'delivery';
         ctx.fillStyle = OFFICE_SCENE_2D_COLORS.deliveryShelf;
-        roundRect(ctx, shelf.sx - shelfW / 2, shelf.sy - shelfH / 2, shelfW, shelfH, 8);
+        roundRect(ctx, x0, y0, shelfW, shelfH, 8);
         ctx.fill();
-        ctx.strokeStyle = OFFICE_SCENE_2D_COLORS.deliveryShelfLine;
+        // Attention (frame.attention → delivery): a gentle artifact-ink border.
+        ctx.strokeStyle = attentionShelf
+          ? OFFICE_SCENE_2D_COLORS.artifactLine
+          : OFFICE_SCENE_2D_COLORS.deliveryShelfLine;
+        ctx.lineWidth = attentionShelf ? 1.6 : 1;
         ctx.stroke();
+        ctx.lineWidth = 1;
+        // Arrival glow: a short-lived ring after recentCount increases, faded
+        // by remaining time. It rides the pulsing-flow RAF (the arriving
+        // artifact's own flow cue), never a new loop; reduced motion skips it
+        // — the chip + ×N carry the information statically.
+        const glowLeft = shelfGlowUntilRef.current - Date.now();
+        if (!reducedMotion && glowLeft > 0) {
+          ctx.save();
+          ctx.globalAlpha = Math.min(1, glowLeft / 1600);
+          ctx.strokeStyle = OFFICE_SCENE_2D_COLORS.artifactPacket;
+          ctx.lineWidth = 2.5;
+          roundRect(ctx, x0 - 2.5, y0 - 2.5, shelfW + 5, shelfH + 5, 10);
+          ctx.stroke();
+          ctx.restore();
+        }
         ctx.font = CANVAS_FONT_TOKENS.officeSceneLabel;
         ctx.fillStyle = OFFICE_SCENE_2D_COLORS.name;
-        ctx.textAlign = 'center';
-        ctx.fillText('DELIVERY', shelf.sx, shelf.sy - 2);
+        ctx.fillText('DELIVERY', x0 + 8, y0 + 13);
         ctx.fillStyle = OFFICE_SCENE_2D_COLORS.artifactPacket;
-        ctx.fillText(`×${frame.delivery.recentCount}`, shelf.sx, shelf.sy + 11);
+        ctx.textAlign = 'right';
+        ctx.fillText(`×${frame.delivery.recentCount}`, x0 + shelfW - 8, y0 + 13);
         ctx.textAlign = 'left';
-        hitsRef.current.push({
-          kind: 'delivery',
-          x0: shelf.sx - shelfW / 2,
-          y0: shelf.sy - shelfH / 2,
-          x1: shelf.sx + shelfW / 2,
-          y1: shelf.sy + shelfH / 2,
+        // Body hit first, chips after — the reverse-order hit walk resolves a
+        // chip click before the body (history/drilldown) click.
+        hitsRef.current.push({ kind: 'delivery', x0, y0, x1: x0 + shelfW, y1 });
+        let chipY = y0 + headH + 1;
+        chips.forEach((chip, chipIndex) => {
+          const newest = chipIndex === chips.length - 1;
+          const cx0 = x0 + 6;
+          const cw = shelfW - 12;
+          ctx.fillStyle = OFFICE_SCENE_2D_COLORS.floor;
+          roundRect(ctx, cx0, chipY, cw, chipH, 6);
+          ctx.fill();
+          ctx.strokeStyle = newest
+            ? OFFICE_SCENE_2D_COLORS.artifactPacket
+            : OFFICE_SCENE_2D_COLORS.deliveryShelfLine;
+          ctx.stroke();
+          // Kind glyph tag + ellipsized title (never overflows the chip).
+          ctx.font = CANVAS_FONT_TOKENS.officeSceneMarkerGlyph;
+          const kindTag = chip.kind.slice(0, 3).toUpperCase();
+          ctx.fillStyle = OFFICE_SCENE_2D_COLORS.artifactPacket;
+          ctx.fillText(kindTag, cx0 + 5, chipY + 10.5);
+          const kindW = ctx.measureText(kindTag).width;
+          ctx.font = CANVAS_FONT_TOKENS.officeSceneLabel;
+          ctx.fillStyle = newest ? OFFICE_SCENE_2D_COLORS.name : OFFICE_SCENE_2D_COLORS.zoneLabel;
+          const titleX = cx0 + 5 + kindW + 5;
+          ctx.fillText(ellipsizeToWidth(chip.title, cx0 + cw - 5 - titleX), titleX, chipY + 11.5);
+          hitsRef.current.push({
+            kind: 'delivery-chip',
+            chipIndex,
+            x0: cx0,
+            y0: chipY,
+            x1: cx0 + cw,
+            y1: chipY + chipH,
+          });
+          chipY += chipH + chipGap;
         });
+        // Overflow tag — +N routes to history/drilldown via the body hit.
+        if (frame.delivery.overflowCount > 0) {
+          ctx.font = CANVAS_FONT_TOKENS.officeSceneMarkerGlyph;
+          ctx.fillStyle = OFFICE_SCENE_2D_COLORS.zoneLabel;
+          ctx.textAlign = 'center';
+          ctx.fillText(`+${frame.delivery.overflowCount} MORE`, shelf.sx, chipY + 9);
+          ctx.textAlign = 'left';
+        }
+        // Register the shelf footprint so employee name labels dodge it.
+        occupied.push({ x0, x1: x0 + shelfW, y0, y1 });
       }
 
       for (const employee of ordered) {
@@ -364,6 +536,17 @@ export function OfficeScene2D() {
           ctx.stroke();
         }
 
+        // Attention focus (frame.attention): the selection-ring style at lower
+        // alpha — a subtle sustained emphasis, static (reduced-motion safe).
+        // The selected actor already carries the full-strength ring.
+        if (employee.id === attentionEmployeeId && !active) {
+          ctx.beginPath();
+          ctx.arc(sx, sy, r + 11, 0, Math.PI * 2);
+          ctx.strokeStyle = OFFICE_SCENE_2D_COLORS.attentionRing;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+
         // Grouped bubble: the frame's WorkloadCue drives the ×N badge, the
         // resource-marker hierarchy, and the chip row. When the cue's primary
         // slot is 'issue', the issue marker takes the top-right primary slot
@@ -382,30 +565,45 @@ export function OfficeScene2D() {
         // Resource marker — keyed off the cue's top issue (exhausted >
         // blocked > warning). Primary (top-right) when the issue leads the
         // bubble; secondary (top-left) otherwise, clear of the ×N badge.
+        // An approval issue draws in approval ink — waiting on the user,
+        // never the risk red — and a typed resource strain carries its
+        // six-kind glyph (RESOURCE_KIND_GLYPHS) inside the disc.
         const topIssue = wl?.topIssue ?? null;
         if (topIssue) {
           const mx = blocked ? sx + r + 5 : sx - r - 5;
           const my = sy - r - 4;
-          if (topIssue.severity === 'exhausted') {
-            // Strongest: a larger filled disc with a '!' glyph.
-            ctx.fillStyle = OFFICE_SCENE_2D_COLORS.resourcePacket;
+          const approvalIssue = topIssue.kind === 'approval';
+          const markerStrong = approvalIssue
+            ? OFFICE_SCENE_2D_COLORS.approvalPacket
+            : OFFICE_SCENE_2D_COLORS.resourcePacket;
+          const markerSoft = approvalIssue
+            ? OFFICE_SCENE_2D_COLORS.approvalLine
+            : OFFICE_SCENE_2D_COLORS.resourceLine;
+          const strainKind = resourceKindByEmployee.get(employee.id) ?? null;
+          const glyph = strainKind ? RESOURCE_KIND_GLYPHS[strainKind] : null;
+          if (topIssue.severity === 'exhausted' || (topIssue.severity === 'blocked' && glyph)) {
+            // Strongest: a filled disc carrying the typed kind glyph ('!'
+            // stays the fallback for kindless issues like flow failures).
+            ctx.fillStyle = markerStrong;
             ctx.beginPath();
-            ctx.arc(mx, my, 6.5, 0, Math.PI * 2);
+            ctx.arc(mx, my, topIssue.severity === 'exhausted' ? 6.5 : 5.5, 0, Math.PI * 2);
             ctx.fill();
-            ctx.font = CANVAS_FONT_TOKENS.officeSceneLabel;
+            ctx.font = glyph
+              ? CANVAS_FONT_TOKENS.officeSceneMarkerGlyph
+              : CANVAS_FONT_TOKENS.officeSceneLabel;
             ctx.fillStyle = OFFICE_SCENE_2D_COLORS.floor;
             ctx.textAlign = 'center';
-            ctx.fillText('!', mx, my + 4);
+            ctx.fillText(glyph ?? '!', mx, my + (glyph ? 3 : 4));
             ctx.textAlign = 'left';
           } else if (topIssue.severity === 'blocked') {
             // Medium: a plain filled disc.
-            ctx.fillStyle = OFFICE_SCENE_2D_COLORS.resourcePacket;
+            ctx.fillStyle = markerStrong;
             ctx.beginPath();
             ctx.arc(mx, my, 4.5, 0, Math.PI * 2);
             ctx.fill();
           } else {
-            // Subtle: a small hollow ring in the translucent resource ink.
-            ctx.strokeStyle = OFFICE_SCENE_2D_COLORS.resourceLine;
+            // Subtle: a small hollow ring in the translucent issue ink.
+            ctx.strokeStyle = markerSoft;
             ctx.lineWidth = 1.4;
             ctx.beginPath();
             ctx.arc(mx, my, 3.6, 0, Math.PI * 2);
@@ -549,10 +747,11 @@ export function OfficeScene2D() {
   }, []);
 
   // Draw effect: one draw per decorated frame; while any flow pulses, a RAF
-  // loop keeps the packet animation moving (the exact pre-split behavior).
+  // loop keeps the packet animation (and the shelf arrival glow) moving.
+  // Reduced motion never loops — everything renders once, statically.
   useEffect(() => {
     let raf = 0;
-    const hasPulsingFlow = frame.flows.some((cue) => cue.pulse);
+    const hasPulsingFlow = !reducedMotion && frame.flows.some((cue) => cue.pulse);
     const tick = () => {
       drawRef.current();
       raf = hasPulsingFlow ? window.requestAnimationFrame(tick) : 0;
@@ -561,7 +760,7 @@ export function OfficeScene2D() {
     return () => {
       if (raf) window.cancelAnimationFrame(raf);
     };
-  }, [frame]);
+  }, [frame, reducedMotion]);
 
   // Hit testing walks registration order in REVERSE so the topmost-drawn
   // target wins — later employees' chip rows paint over earlier ones, so a
@@ -617,12 +816,22 @@ export function OfficeScene2D() {
           if (hit.employeeId) openWorkloadDrilldown(hit.employeeId);
           return;
         }
-        // delivery — open the frame's latest claim (carries threadId so the
-        // output surface loads in-thread, identical to the 3D shelf).
-        const latest = frame.delivery.latest;
-        if (latest) {
-          void openArtifactClaim(latest, { openStageView, projectId });
+        // delivery chip — open exactly THAT claim on the stage (carries
+        // threadId so the output surface loads in-thread, like the 3D shelf).
+        if (hit.kind === 'delivery-chip') {
+          const chip = frame.delivery.chips[hit.chipIndex ?? -1];
+          if (chip) void openArtifactClaim(chip, { openStageView, projectId });
+          return;
         }
+        // delivery body / +N overflow — the history route: the latest claim's
+        // owning employee's drilldown when resolvable, else open the claim.
+        const latest = frame.delivery.latest;
+        if (!latest) return;
+        const owner = frame.actors.find(
+          (actor) => actor.threadId != null && actor.threadId === latest.threadId,
+        );
+        if (owner) openWorkloadDrilldown(owner.employeeId);
+        else void openArtifactClaim(latest, { openStageView, projectId });
       }}
     />
   );

@@ -328,6 +328,51 @@ export function bundleEmphasis(cue: FlowCue): 0 | 1 {
   return cue.bundleCount >= 2 ? 1 : 0;
 }
 
+/** Max label characters on a lane before ellipsis (PRD: no text overflow). */
+const FLOW_LABEL_MAX = 16;
+
+/**
+ * THE lane text rule both scenes share (I4): a single cue reads its `label`,
+ * a bundled cue reads `×N · label` so the count is the primary density signal.
+ * Labels ellipsize at {@link FLOW_LABEL_MAX} characters — 2D paints this text
+ * over a backing pill at the curve midpoint, 3D at the flow-line label slot.
+ */
+export function flowCueText(cue: FlowCue): string {
+  const label =
+    cue.label.length > FLOW_LABEL_MAX ? `${cue.label.slice(0, FLOW_LABEL_MAX - 1)}…` : cue.label;
+  return cue.bundleCount >= 2 ? `×${cue.bundleCount} · ${label}` : label;
+}
+
+/**
+ * Compact anchor label per flow target — the scenes' shared vocabulary for the
+ * purpose-distinct target anchors (a lane visibly goes SOMEWHERE). Geometry
+ * stays per-scene; the wording never drifts between 2D and 3D.
+ */
+export const FLOW_TARGET_LABELS: Readonly<Record<FlowCueTarget, string>> = {
+  workstation: 'Work',
+  tool: 'Tool',
+  review: 'Review',
+  delivery: 'Delivery',
+  user: 'User',
+};
+
+/**
+ * THE six-kind resource marker glyph scheme (PRD: token/budget/permission/
+ * context/runtime/tool must be distinguishable, not just severity):
+ * T token · B budget · P permission · C context · R runtime · X tool-failed.
+ * The marker keeps its severity shape/color hierarchy; the glyph types it.
+ * 2D draws the glyph inside the marker disc, 3D inside the marker chip; `!`
+ * stays the fallback for kindless issues (flow failures, approvals).
+ */
+export const RESOURCE_KIND_GLYPHS: Readonly<Record<ResourceKind, string>> = {
+  token: 'T',
+  budget: 'B',
+  permission: 'P',
+  context: 'C',
+  runtime: 'R',
+  tool: 'X',
+};
+
 interface DeliveryCue {
   /** Newest-last claimable chips, capped at the fixed chip budget (3). */
   readonly chips: readonly ClaimableArtifact[];
