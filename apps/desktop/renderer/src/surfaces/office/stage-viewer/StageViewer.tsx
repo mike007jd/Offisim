@@ -31,6 +31,7 @@ import {
   FileText,
   Focus,
   GitCompareArrows,
+  Eye,
   Globe2,
   Maximize2,
   Minimize2,
@@ -359,9 +360,6 @@ function StageViewMenu() {
   const latestBrowser = run ? latestBrowserDetail(run.activity) : null;
   const latestBrowserRichDetail =
     latestBrowser?.richDetail?.family === 'browser' ? latestBrowser.richDetail : null;
-  const latestComputer = run
-    ? [...run.activity].reverse().find((entry) => entry.richDetail?.family === 'computer')
-    : null;
   const latestLog = run ? latestRichDetail(run.activity) : null;
   const latestOutput = newestDeliverable(deliverables.data ?? []);
   const latestHtmlOutput = htmlDeliverable(deliverables.data ?? []);
@@ -380,7 +378,10 @@ function StageViewMenu() {
         ? `${latestOutput.name} · ${latestOutput.format ?? 'TXT'}`
         : 'No output yet',
       disabled: !latestOutput,
-      isActive: stageView.kind === 'preview' && stageView.ref.source === 'deliverable',
+      isActive:
+        stageView.kind === 'preview' &&
+        stageView.ref.source === 'deliverable' &&
+        stageView.ref.deliverableId === latestOutput?.id,
       icon: FileCode2,
       onSelect: () => {
         if (!latestOutput) return;
@@ -398,58 +399,61 @@ function StageViewMenu() {
       },
     },
     {
-      id: 'preview',
-      label: 'Preview',
+      id: 'browser',
+      label: 'Browser',
       meta: latestBrowserRichDetail
         ? latestBrowserRichDetail.title ||
           latestBrowserRichDetail.url ||
           latestBrowser?.tool ||
-          'Browser'
-        : latestHtmlOutput
-          ? latestHtmlOutput.name
-          : 'No preview yet',
-      disabled: !latestBrowserRichDetail && !latestHtmlOutput,
+          'Browser page'
+        : 'No browser page yet',
+      disabled: !latestBrowserRichDetail,
       isActive:
         stageView.kind === 'preview' &&
         (stageView.ref.source === 'browser' || stageView.ref.source === 'screenshot'),
       icon: Globe2,
       onSelect: () => {
-        if (latestBrowserRichDetail) {
-          openStageView({
-            kind: 'preview',
-            ref: {
-              source: 'browser',
-              sourceId: latestBrowser?.id,
-              url: latestBrowserRichDetail.url,
-              detail: latestBrowserRichDetail,
-            },
-            title: latestBrowserRichDetail.title ?? latestBrowser?.tool,
-          });
-          return;
-        }
-        if (latestHtmlOutput) {
-          openStageView({
-            kind: 'preview',
-            ref: {
-              source: 'deliverable',
-              deliverableId: latestHtmlOutput.id,
-              threadId: selectedThreadId,
-              format: latestHtmlOutput.format ?? undefined,
-              name: latestHtmlOutput.name,
-            },
-            title: latestHtmlOutput.name,
-          });
-        }
+        if (!latestBrowserRichDetail) return;
+        openStageView({
+          kind: 'preview',
+          ref: {
+            source: 'browser',
+            sourceId: latestBrowser?.id,
+            url: latestBrowserRichDetail.url,
+            detail: latestBrowserRichDetail,
+          },
+          title: latestBrowserRichDetail.title ?? latestBrowser?.tool,
+        });
       },
     },
     {
-      id: 'computer',
-      label: 'Computer',
-      meta: latestComputer ? latestComputer.tool : 'Setup and desktop activity',
-      disabled: false,
-      isActive: stageView.kind === 'computer' || stagePrimaryTab === 'computer',
-      icon: MonitorSmartphone,
-      onSelect: () => openStageView({ kind: 'computer', threadId: selectedThreadId }),
+      id: 'preview',
+      label: 'Preview',
+      meta: latestHtmlOutput ? latestHtmlOutput.name : 'No preview yet',
+      disabled: !latestHtmlOutput,
+      // Only owns the highlight when it points at a DIFFERENT deliverable than
+      // Output (i.e. an older HTML output); when the newest output is itself the
+      // HTML one, Output owns the highlight so the two entries never both light up.
+      isActive:
+        stageView.kind === 'preview' &&
+        stageView.ref.source === 'deliverable' &&
+        stageView.ref.deliverableId === latestHtmlOutput?.id &&
+        latestHtmlOutput?.id !== latestOutput?.id,
+      icon: Eye,
+      onSelect: () => {
+        if (!latestHtmlOutput) return;
+        openStageView({
+          kind: 'preview',
+          ref: {
+            source: 'deliverable',
+            deliverableId: latestHtmlOutput.id,
+            threadId: selectedThreadId,
+            format: latestHtmlOutput.format ?? undefined,
+            name: latestHtmlOutput.name,
+          },
+          title: latestHtmlOutput.name,
+        });
+      },
     },
     {
       id: 'changes',

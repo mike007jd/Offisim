@@ -27,7 +27,6 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { ComputerSetupPanel } from './ComputerSetupPanel.js';
 
 type RunActivity = ConversationRunSnapshot['activity'][number];
 type ComputerDetail = Extract<ToolRichDetail, { family: 'computer' }>;
@@ -110,6 +109,7 @@ function uniqueArtifactPaths(entries: readonly ComputerActivity[]) {
 export function ComputerView({ threadId }: { threadId?: string | null }) {
   const selectedThreadId = useUiState((s) => s.selectedThreadId);
   const openStageView = useUiState((s) => s.openStageView);
+  const setSurface = useUiState((s) => s.setSurface);
   const runsSnapshot = useActiveConversationRuns();
   const requestedThreadId = threadId ?? selectedThreadId;
   const run = pickRun(runsSnapshot.runs, runsSnapshot.activeRuns, requestedThreadId);
@@ -218,11 +218,16 @@ export function ComputerView({ threadId }: { threadId?: string | null }) {
   if (!run) {
     return (
       <div className="off-computer-view is-empty">
-        <ComputerSetupPanel />
         <div className="off-computer-empty">
           <Icon icon={MonitorSmartphone} size="md" />
-          <strong>No computer run</strong>
-          <span>Computer work appears here after an employee uses desktop tools.</span>
+          <strong>No computer activity</strong>
+          <span>
+            Computer Use opens here automatically while an employee runs desktop tools. Install and
+            enable the driver in Settings › Computer Use.
+          </span>
+          <Button type="button" variant="outline" size="sm" onClick={() => setSurface('settings')}>
+            Open Settings
+          </Button>
         </div>
       </div>
     );
@@ -282,7 +287,6 @@ export function ComputerView({ threadId }: { threadId?: string | null }) {
                   ? 'This run is active but has not emitted computer activity.'
                   : (shot?.mimeType ?? 'The next screenshot event will appear here.')}
               </span>
-              {entries.length === 0 ? <ComputerSetupPanel compact /> : null}
             </div>
           )}
         </section>

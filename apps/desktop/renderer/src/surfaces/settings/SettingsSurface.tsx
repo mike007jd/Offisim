@@ -1,19 +1,30 @@
 import { CapsLabel } from '@/design-system/grammar/index.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
-import { Bot, CheckCircle2, Cpu, KeyRound, Plug, ShieldCheck, Users } from 'lucide-react';
+import { ComputerSetupPanel } from '@/surfaces/office/computer/ComputerSetupPanel.js';
+import {
+  Bot,
+  CheckCircle2,
+  Cpu,
+  KeyRound,
+  MonitorSmartphone,
+  Plug,
+  ShieldCheck,
+  Users,
+} from 'lucide-react';
 import { useState } from 'react';
 import { ExternalEmployeesPane } from './ExternalEmployeesPane.js';
 import { McpServersPane } from './McpServersPane.js';
 import { PiAgentPane } from './PiAgentPane.js';
 import { RuntimePane } from './RuntimePane.js';
 
-type SettingsTab = 'providers' | 'runtime' | 'mcp' | 'external';
+type SettingsTab = 'providers' | 'runtime' | 'mcp' | 'computer' | 'external';
 
 const NAV: ReadonlyArray<{ key: SettingsTab; label: string; icon: typeof Bot }> = [
   { key: 'providers', label: 'Providers', icon: KeyRound },
   { key: 'runtime', label: 'Runtime', icon: Cpu },
   { key: 'mcp', label: 'MCP', icon: Plug },
+  { key: 'computer', label: 'Computer Use', icon: MonitorSmartphone },
   { key: 'external', label: 'External Employees', icon: Users },
 ];
 
@@ -52,6 +63,28 @@ function SettingsCompanion({ tab }: { tab: SettingsTab }) {
           <p className="off-set-comp-copy">
             MCP remains a project tool layer. The agent loop and tool protocol are owned by Pi.
           </p>
+        </div>
+      </aside>
+    );
+  }
+
+  if (tab === 'computer') {
+    return (
+      <aside className="off-set-companion" aria-label="Computer Use summary">
+        <div className="off-set-comp-card">
+          <div className="off-set-comp-k">Capability</div>
+          <div className="off-set-comp-main">
+            <Icon icon={MonitorSmartphone} size="sm" />
+            Computer Use
+          </div>
+          <p className="off-set-comp-copy">
+            Install and enable the desktop driver here. During a run, Computer Use activity opens as
+            a trace attached to that thread — it is not a standing workspace tab.
+          </p>
+          <div className="off-set-comp-note">
+            <Icon icon={ShieldCheck} size="sm" />
+            Prefer a structured MCP tool when one exists
+          </div>
         </div>
       </aside>
     );
@@ -135,6 +168,7 @@ export function SettingsSurface() {
               {tab === 'providers' ? <PiAgentPane /> : null}
               {tab === 'runtime' ? <RuntimePane /> : null}
               {tab === 'mcp' ? <McpServersPane /> : null}
+              {tab === 'computer' ? <ComputerSetupPanel /> : null}
               {tab === 'external' ? <ExternalEmployeesPane /> : null}
             </div>
             <SettingsCompanion tab={tab} />
