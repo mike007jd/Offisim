@@ -1,5 +1,6 @@
 import { useUiState } from '@/app/ui-state.js';
 import { isTauriRuntime, reposOrNull } from '@/data/adapters.js';
+import { initGitRepository } from '@/data/git-workbench.js';
 import { useGitWorkbench, useProjectFiles, useProjects } from '@/data/queries.js';
 import type { FileNode, GitFileChange, GitWorkbench, Project } from '@/data/types.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
@@ -505,6 +506,7 @@ export function WorkspacePanel() {
   const project = projects.data?.find((p) => p.id === projectId);
   const [tab, setTab] = useState<PanelTab>('files');
   const [bindingFolder, setBindingFolder] = useState(false);
+  const [initializingRepo, setInitializingRepo] = useState(false);
   const [projectDialog, setProjectDialog] = useState<{
     mode: 'new' | 'edit';
     project: Project | null;
@@ -552,6 +554,28 @@ export function WorkspacePanel() {
       toast.error(error instanceof Error ? error.message : 'Workspace binding failed');
     } finally {
       setBindingFolder(false);
+    }
+  }
+
+  async function initializeRepository() {
+    if (initializingRepo) return;
+    if (!project) {
+      toast.error('Select a project before initializing a repository');
+      return;
+    }
+    setInitializingRepo(true);
+    try {
+      await initGitRepository(project.id);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['git-workbench', project.id] }),
+        queryClient.invalidateQueries({ queryKey: ['project-files', project.id] }),
+      ]);
+      setTab('git');
+      toast.success('Initialized an empty git repository');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'git init failed');
+    } finally {
+      setInitializingRepo(false);
     }
   }
 
@@ -690,24 +714,38 @@ export function WorkspacePanel() {
           detail={git.error?.message ?? 'Git workbench failed to load.'}
           onRetry={() => void git.refetch()}
         />
-      ) : git.data ? (
-        <GitTab workbench={git.data} />
-      ) : !project?.workspaceRoot ? (
-        // Same task as the Files empty state, so same copy + affordance.
+      ) : git.data?.status === 'repo' ? (
+        <GitTab workbench={git.data.workbench} />
+      ) : git.data?.status === 'uninitialized' ? (
+        // Valid folder, just not a git repo yet → Initialize is the primary
+        // action; Rebind is only for a mistaken folder selection.
+        <EmptyState
+          icon={GitBranch}
+          title="Not a git repository yet"
+          description="Initialize a repository here to track changes, review diffs, and let runs commit work."
+          action={{
+            label: initializingRepo ? 'Initializing…' : 'Initialize repository',
+            onClick: () => void initializeRepository(),
+          }}
+          secondaryAction={{ label: 'Rebind folder', onClick: () => void bindWorkspaceFolder() }}
+          detail={`${compactPath(project?.workspaceRoot)} · no git repository`}
+        />
+      ) : git.data?.status === 'invalid-folder' ? (
+        // The bound folder can no longer be resolved (moved/deleted) → Rebind.
+        <EmptyState
+          icon={FolderClosed}
+          title="Workspace folder not found"
+          description="The bound folder is missing or can no longer be read. Rebind this project to a folder that exists."
+          action={{ label: 'Rebind folder', onClick: () => void bindWorkspaceFolder() }}
+          detail={`${compactPath(project?.workspaceRoot)} · not found`}
+        />
+      ) : (
+        // Unbound project (no workspace_root). Same task as the Files empty state.
         <EmptyState
           icon={FolderClosed}
           title="No workspace bound"
           description="Bind a local folder to give this project file context for runs."
           action={{ label: 'Bind folder', onClick: () => void bindWorkspaceFolder() }}
-        />
-      ) : (
-        // A folder is bound but the workbench resolved to null → it is not a
-        // git repository (useGitWorkbench folds both causes into null).
-        <EmptyState
-          icon={GitBranch}
-          title="Not a git repository"
-          description="The bound folder has no git repository. Bind a folder that contains one."
-          action={{ label: 'Rebind folder', onClick: () => void bindWorkspaceFolder() }}
         />
       )}
       <ProjectDialog

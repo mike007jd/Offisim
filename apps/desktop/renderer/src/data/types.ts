@@ -205,6 +205,17 @@ export interface GitWorkbench {
   checks: GitCheck[];
 }
 
+/** Resolved git state for a project's bound workspace folder. Distinguishes the
+ *  three non-repo causes so the UI can route them differently — Initialize a
+ *  valid uninitialized folder, Rebind an invalid/missing one, Bind an unbound
+ *  project — instead of collapsing all of them into a single null "not a repo"
+ *  state that only ever offered Rebind. */
+export type GitRepoState =
+  | { status: 'repo'; workbench: GitWorkbench }
+  | { status: 'uninitialized' }
+  | { status: 'invalid-folder' }
+  | { status: 'unbound' };
+
 export interface RunCost {
   tokens: number;
   costLabel: string;

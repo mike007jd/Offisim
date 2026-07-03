@@ -19,10 +19,22 @@ import {
   reposOrNull,
   threadToVm,
 } from './adapters.js';
-import { gitErrorMessage, isNonGitWorkspace, loadGitWorkbench } from './git-workbench.js';
+import {
+  classifyNonGitWorkspace,
+  gitErrorMessage,
+  isNonGitWorkspace,
+  loadGitWorkbench,
+} from './git-workbench.js';
 import { deleteCompanyDeep, deleteConversationDeep } from './local-data-deletion.js';
 import { loadRunCost } from './run-cost.js';
-import type { ChatMessage, Deliverable, Employee, FileNode, GitWorkbench, Skill } from './types.js';
+import type {
+  ChatMessage,
+  Deliverable,
+  Employee,
+  FileNode,
+  GitRepoState,
+  Skill,
+} from './types.js';
 
 /**
  * Query hooks over the renderer data source. Release Tauri builds must use
@@ -893,16 +905,16 @@ export function useProjectFiles(projectId: string | null) {
 }
 
 export function useGitWorkbench(projectId: string | null) {
-  return useQuery<GitWorkbench | null, Error>({
+  return useQuery<GitRepoState, Error>({
     queryKey: ['git-workbench', projectId],
     queryFn: async () => {
-      if (!projectId) return null;
-      if (!isTauriRuntime()) return null;
+      if (!projectId) return { status: 'unbound' };
+      if (!isTauriRuntime()) return { status: 'unbound' };
       try {
         return await loadGitWorkbench(projectId);
       } catch (error) {
         const message = gitErrorMessage(error);
-        if (isNonGitWorkspace(message)) return null;
+        if (isNonGitWorkspace(message)) return classifyNonGitWorkspace(message);
         throw new Error(message);
       }
     },

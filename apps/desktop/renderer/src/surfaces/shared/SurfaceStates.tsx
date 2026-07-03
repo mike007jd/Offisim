@@ -4,15 +4,33 @@ import { cn } from '@/lib/utils.js';
 import type { LucideIcon } from 'lucide-react';
 import { AlertTriangle } from 'lucide-react';
 
+interface EmptyStateAction {
+  label: string;
+  onClick: () => void;
+}
+
 interface EmptyStateProps {
   icon: LucideIcon;
   title: string;
   description: string;
-  action?: { label: string; onClick: () => void };
+  /** Primary call to action, rendered as the emphasized button. */
+  action?: EmptyStateAction;
+  /** Optional lower-emphasis alternative shown beside the primary action. */
+  secondaryAction?: EmptyStateAction;
+  /** Muted tertiary line for context (e.g. the bound folder path + detected state). */
+  detail?: string;
   className?: string;
 }
 
-export function EmptyState({ icon, title, description, action, className }: EmptyStateProps) {
+export function EmptyState({
+  icon,
+  title,
+  description,
+  action,
+  secondaryAction,
+  detail,
+  className,
+}: EmptyStateProps) {
   return (
     <div className={cn('off-state', className)}>
       <span className="off-state-glyph">
@@ -20,11 +38,21 @@ export function EmptyState({ icon, title, description, action, className }: Empt
       </span>
       <p className="off-state-title">{title}</p>
       <p className="off-state-desc">{description}</p>
-      {action ? (
-        <Button variant="subtle" size="sm" onClick={action.onClick}>
-          {action.label}
-        </Button>
+      {action || secondaryAction ? (
+        <div className="off-state-actions">
+          {action ? (
+            <Button variant="subtle" size="sm" onClick={action.onClick}>
+              {action.label}
+            </Button>
+          ) : null}
+          {secondaryAction ? (
+            <Button variant="ghost" size="sm" onClick={secondaryAction.onClick}>
+              {secondaryAction.label}
+            </Button>
+          ) : null}
+        </div>
       ) : null}
+      {detail ? <p className="off-state-detail">{detail}</p> : null}
     </div>
   );
 }

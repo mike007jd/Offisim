@@ -6,6 +6,7 @@ import {
   useUiState,
 } from '@/app/ui-state.js';
 import { useActiveConversationRuns } from '@/assistant/runtime/conversation-run-react.js';
+import { workbenchOf } from '@/data/git-workbench.js';
 import { useDeliverables, useGitWorkbench } from '@/data/queries.js';
 import type { Deliverable, GitFileChange } from '@/data/types.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
@@ -364,7 +365,8 @@ function StageViewMenu() {
   const latestLog = run ? latestRichDetail(run.activity) : null;
   const latestOutput = newestDeliverable(deliverables.data ?? []);
   const latestHtmlOutput = htmlDeliverable(deliverables.data ?? []);
-  const latestChange = git.data?.changes[0] ?? null;
+  const gitChanges = workbenchOf(git.data)?.changes ?? [];
+  const latestChange = gitChanges[0] ?? null;
   const selectedFile =
     stageView.kind === 'preview' && stageView.ref.source === 'workspace-file'
       ? { target: stageView, path: stageView.ref.path }
@@ -453,7 +455,7 @@ function StageViewMenu() {
       id: 'changes',
       label: 'Review',
       meta: latestChange
-        ? `${git.data?.changes.length ?? 0} changed · ${latestChange.path}`
+        ? `${gitChanges.length} changed · ${latestChange.path}`
         : 'No local changes',
       disabled: !latestChange,
       isActive: stageView.kind === 'changes',
@@ -705,12 +707,7 @@ function StageTabBody({
   }
   if (tab === 'review') {
     if (target?.kind === 'changes') return <ChangesView target={target} />;
-    return (
-      <StageEmpty
-        title="No changes to review"
-        detail="Git diffs and changed files will appear here when the workspace changes."
-      />
-    );
+    return <ReviewEmpty />;
   }
   return (
     <StageEmpty title="No preview open" detail="Open an output or workspace file to inspect it." />
@@ -767,6 +764,37 @@ function viewerMeta(target: StageViewTarget) {
   }
 }
 
+/** Review-tab empty state that mirrors the workspace Git panel: a valid folder
+ *  that is not yet a repo (or a missing folder) points at the Git tab where the
+ *  Initialize/Rebind actions live, instead of a generic "no changes" message
+ *  that cannot tell non-repo from a clean tree. */
+function ReviewEmpty() {
+  const projectId = useUiState((s) => s.projectId);
+  const git = useGitWorkbench(projectId);
+  if (git.data?.status === 'uninitialized') {
+    return (
+      <StageEmpty
+        title="Not a git repository yet"
+        detail="Initialize a repository from the Git tab in the workspace rail to review diffs here."
+      />
+    );
+  }
+  if (git.data?.status === 'invalid-folder') {
+    return (
+      <StageEmpty
+        title="Workspace folder not found"
+        detail="Rebind this project to a folder that exists from the Git tab in the workspace rail."
+      />
+    );
+  }
+  return (
+    <StageEmpty
+      title="No changes to review"
+      detail="Git diffs and changed files will appear here when the workspace changes."
+    />
+  );
+}
+
 function ChangesView({
   target,
 }: {
@@ -775,7 +803,7 @@ function ChangesView({
   const projectId = useUiState((s) => s.projectId);
   const openStageView = useUiState((s) => s.openStageView);
   const git = useGitWorkbench(projectId);
-  const workbench = git.data;
+  const workbench = workbenchOf(git.data);
   if (git.isLoading)
     return <StageEmpty title="Loading changes" detail="Reading workspace status." />;
   if (!workbench)
