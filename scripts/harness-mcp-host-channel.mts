@@ -6,8 +6,8 @@
  * lines. No host process, no Rust, no B3 extension — just the park-and-resume
  * logic in isolation. Proves: a request emits a well-formed `mcpCall` line and
  * parks; the matching `mcpResult` settles it; a non-matching id never settles it;
- * delivery is idempotent; stdin-close fails parked calls; concurrent calls stay
- * independent.
+ * delivery is idempotent; stdin-close / timeout fail parked calls; concurrent calls
+ * stay independent.
  *
  * Inject-proof (run manually, then revert): drop the `pending.delete` /
  * id-correlation in resolveMcpResult (settle the FIRST pending regardless of id)
@@ -20,7 +20,7 @@ import { createMcpCallChannel } from './pi-host-mcp-channel.mjs';
 
 let passed = 0;
 let failed = 0;
-const TOTAL = 6;
+const TOTAL = 7;
 
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
   try {
@@ -34,9 +34,12 @@ async function check(name: string, run: () => void | Promise<void>): Promise<voi
   }
 }
 
-function makeChannel() {
+function makeChannel(timeoutMs?: number, keepTimeoutRef = false) {
   const emitted: Array<Record<string, unknown>> = [];
-  const channel = createMcpCallChannel((line: Record<string, unknown>) => emitted.push(line));
+  const channel = createMcpCallChannel(
+    (line: Record<string, unknown>) => emitted.push(line),
+    timeoutMs == null ? undefined : { timeoutMs, keepTimeoutRef },
+  );
   return { channel, emitted };
 }
 
@@ -64,7 +67,12 @@ async function main(): Promise<void> {
     const { channel, emitted } = makeChannel();
     const p = channel.requestMcpResult('filesystem', 'read_file', {});
     const id = emitted[0].id as string;
-    channel.resolveMcpResult({ id, ok: true, content: [{ type: 'text', text: 'hi' }], isError: false });
+    channel.resolveMcpResult({
+      id,
+      ok: true,
+      content: [{ type: 'text', text: 'hi' }],
+      isError: false,
+    });
     const result = await p;
     assert.equal(result.ok, true);
     assert.equal(result.isError, false);
@@ -116,6 +124,15 @@ async function main(): Promise<void> {
     const [ra, rb] = await Promise.all([pa, pb]);
     assert.equal((ra.content as Array<{ text: string }>)[0].text, 'A');
     assert.equal((rb.content as Array<{ text: string }>)[0].text, 'B');
+  });
+
+  await check('(7) a parked call fails if no mcpResult arrives before timeout', async () => {
+    const { channel, emitted } = makeChannel(5, true);
+    const result = await channel.requestMcpResult('slow-server', 'slow_tool', {});
+    assert.equal(emitted.length, 1);
+    assert.equal(result.ok, false);
+    assert.match(String(result.error), /MCP result timed out after/);
+    assert.match(String(result.error), /slow-server\.slow_tool/);
   });
 
   console.log(`\n${passed}/${TOTAL} checks passed${failed ? `, ${failed} FAILED` : ''}.`);

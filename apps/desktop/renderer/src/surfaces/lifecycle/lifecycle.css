@@ -9,8 +9,53 @@
 /* Front-door boot placeholder — holds the full window at the base background
    while the company count resolves, so the wrong front door never flashes. */
 .off-lc-boot {
+  display: grid;
+  place-items: center;
   height: 100vh;
   background: var(--off-bg);
+}
+
+.off-lc-boot-panel {
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-4);
+  padding: var(--off-sp-5) var(--off-sp-6);
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-md);
+  background: var(--off-surface-1);
+  box-shadow: var(--off-elev-2);
+}
+
+.off-lc-boot-mark {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--off-r-round);
+  background: var(--off-accent);
+  animation: off-lc-boot-pulse var(--off-motion-loop-slow) var(--off-motion-loop-ease) infinite;
+}
+
+.off-lc-boot-title {
+  font-size: var(--off-fs-md);
+  font-weight: 680;
+  color: var(--off-ink-1);
+}
+
+.off-lc-boot-copy {
+  margin-top: 2px;
+  font-size: var(--off-fs-sm);
+  color: var(--off-ink-3);
+}
+
+@keyframes off-lc-boot-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.38;
+    transform: scale(0.72);
+  }
 }
 
 /* Front-door load failure — full window, centered honest error + Retry. Must

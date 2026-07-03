@@ -45,6 +45,7 @@ static PI_RUN_STREAMS: Lazy<Mutex<HashMap<String, PiRunStreamState>>> =
 static PI_STREAM_SUBSCRIBER_ID: AtomicU64 = AtomicU64::new(1);
 const PI_RUN_STREAM_BUFFER_LIMIT: usize = 4096;
 const PI_RUN_STREAM_TERMINAL_TTL: Duration = Duration::from_secs(30 * 60);
+const PI_MCP_CALL_TIMEOUT: Duration = Duration::from_secs(75);
 
 fn pi_stdin_guard() -> std::sync::MutexGuard<'static, HashMap<String, Arc<AsyncMutex<ChildStdin>>>>
 {
@@ -62,7 +63,7 @@ fn pi_run_streams_guard() -> std::sync::MutexGuard<'static, HashMap<String, PiRu
 /// Wire-contract version negotiated with the bundled Node host via the `ready`
 /// handshake. Must stay in lockstep with `PI_HOST_PROTOCOL_VERSION` in
 /// scripts/pi-agent-host-wire.mjs; bump both when a line's required shape changes.
-const PI_HOST_PROTOCOL_VERSION: u32 = 4;
+const PI_HOST_PROTOCOL_VERSION: u32 = 5;
 
 /// Wire kinds the Rust bridge knows how to decode. A line with an unknown kind is
 /// skipped (forward-compatible with newer hosts); a malformed line on a KNOWN kind
@@ -1152,8 +1153,8 @@ struct PiWorktreeResult {
 
 /// Service an intercepted `mcpCall`: invoke the tool through mcp_bridge in-process
 /// and write a matching `mcpResult` line back to the host's stdin. A missing
-/// registry or stdin channel yields an error mcpResult (or a silent drop if the
-/// run already ended) — never a panic, never a crash of the run.
+/// registry yields an error mcpResult; a missing stdin channel is a host error so
+/// the run fails visibly instead of leaving the tool call parked forever.
 async fn handle_mcp_call<R: tauri::Runtime>(
     app: &AppHandle<R>,
     request_id: Option<&str>,
@@ -1395,7 +1396,10 @@ fn parse_conflict_paths(stdout: &str, stderr: &str) -> Vec<String> {
 async fn write_mcp_result(request_id: &str, response: &PiMcpResult) -> Result<(), HostError> {
     let writer = pi_stdin_guard().get(request_id).cloned();
     let Some(writer) = writer else {
-        return Ok(());
+        return Err(HostError::Request(format!(
+            "Pi Agent stdin channel missing while writing mcpResult id={}",
+            response.id
+        )));
     };
     let mut line = serde_json::to_string(response)
         .map_err(|err| HostError::Request(format!("Serialize mcpResult: {err}")))?;
@@ -1531,13 +1535,42 @@ async fn run_pi_sidecar_jsonl<R: tauri::Runtime>(
                     arguments,
                 } = parsed
                 {
+                    let timeout_id = id.clone();
+                    let timeout_server = server.clone();
+                    let timeout_tool = tool.clone();
                     tokio::select! {
                         _ = token.cancelled() => {
                             kill_child(&mut child).await;
                             return Err(HostError::Aborted);
                         }
-                        result = handle_mcp_call(app, register_stdin, id, server, tool, arguments) => {
-                            result?;
+                        result = tokio::time::timeout(
+                            PI_MCP_CALL_TIMEOUT,
+                            handle_mcp_call(app, register_stdin, id, server, tool, arguments),
+                        ) => {
+                            match result {
+                                Ok(result) => result?,
+                                Err(_) => {
+                                    let Some(request_id) = register_stdin else {
+                                        eprintln!(
+                                            "[pi-agent-host] timed out mcpCall with no stdin channel; dropping id={timeout_id}"
+                                        );
+                                        continue;
+                                    };
+                                    let response = PiMcpResult {
+                                        id: timeout_id,
+                                        ok: false,
+                                        content: None,
+                                        is_error: None,
+                                        error: Some(format!(
+                                            "MCP tool call timed out after {}s: {}.{}",
+                                            PI_MCP_CALL_TIMEOUT.as_secs(),
+                                            timeout_server,
+                                            timeout_tool
+                                        )),
+                                    };
+                                    write_mcp_result(request_id, &response).await?;
+                                }
+                            }
                         }
                     }
                     continue;

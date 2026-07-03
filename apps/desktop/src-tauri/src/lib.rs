@@ -1,6 +1,7 @@
 mod agent_host_runtime;
 mod attachment_store;
 mod builtin_tools;
+mod computer_driver;
 mod deep_link;
 #[cfg(target_os = "macos")]
 mod escape_forwarder;
@@ -8,6 +9,12 @@ mod escape_forwarder;
 mod macos_window_activation {
     use objc2::MainThreadMarker;
     use objc2_app_kit::{NSApplication, NSWindow};
+    use objc2_foundation::{ns_string, NSUserDefaults};
+
+    pub fn disable_state_restoration() {
+        let defaults = NSUserDefaults::standardUserDefaults();
+        defaults.setBool_forKey(false, ns_string!("NSQuitAlwaysKeepsWindows"));
+    }
 
     pub fn raise_webview_window<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) {
         let Ok(ns_window) = window.ns_window() else {
@@ -34,6 +41,8 @@ mod macos_window_activation {
             let app = NSApplication::sharedApplication(main_thread);
             // SAFETY: `ns_window` came from Tauri's `ns_window()` for a live window.
             let ns_window = &*ns_window.cast::<NSWindow>();
+            ns_window.setRestorable(false);
+            ns_window.invalidateRestorableState();
             // `activate` alone can leave Tauri windows occluded until the first
             // real click; this call makes the release app immediately visible
             // to macOS accessibility tools and Computer Use.
@@ -51,6 +60,7 @@ mod local_paths;
 mod local_secret;
 mod mcp_bridge;
 mod pi_agent_host;
+mod preview;
 mod redaction;
 mod shell_classifier;
 mod sidecar_stderr;
@@ -109,7 +119,7 @@ fn create_main_window_with_label<R: tauri::Runtime>(
     let window =
         tauri::WebviewWindowBuilder::new(app, label, tauri::WebviewUrl::App("index.html".into()))
             .title("Offisim")
-            .inner_size(1280.0, 800.0)
+            .inner_size(1440.0, 900.0)
             .min_inner_size(1024.0, 700.0)
             .visible(true)
             .focused(true)
@@ -168,6 +178,9 @@ fn schedule_ensure_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "macos")]
+    macos_window_activation::disable_state_restoration();
+
     tauri::Builder::default()
         // Single-instance MUST be registered first — the handler short-circuits
         // subsequent launches before any DB/plugin init runs. Without it a
@@ -177,12 +190,17 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             schedule_ensure_main_window(app);
         }))
+        .register_asynchronous_uri_scheme_protocol("offisim-media", |ctx, request, responder| {
+            preview::serve_media(ctx.app_handle().clone(), request, responder);
+        })
         .invoke_handler(tauri::generate_handler![
             local_db::local_db_url,
             local_db::local_db_execute_transaction,
             builtin_tools::project_read_file,
             builtin_tools::project_read_file_lines,
             builtin_tools::project_read_file_preview,
+            preview::project_preview_meta,
+            preview::project_read_file_bytes,
             builtin_tools::project_exists,
             builtin_tools::project_list_dir,
             builtin_tools::project_write_file,
@@ -203,6 +221,7 @@ pub fn run() {
             pi_agent_host::agent_runtime_release_stream,
             pi_agent_host::agent_runtime_reattach,
             pi_agent_host::agent_runtime_status,
+            computer_driver::computer_driver_status,
             git::git_exec,
             local_paths::open_local_path,
             local_paths::reveal_local_path,
@@ -217,6 +236,7 @@ pub fn run() {
             local_paths::runtime_vault_remove,
             local_paths::runtime_vault_mkdir,
             local_paths::export_runtime_vault_zip,
+            local_paths::export_computer_run_trace,
             local_paths::export_scene_drop_diagnostic,
             local_paths::save_deliverable_to_local,
             mcp_bridge::commands::mcp_list_registered_servers,

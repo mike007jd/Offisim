@@ -5,6 +5,8 @@ commands.allow = [
   "project_read_file",
   "project_read_file_lines",
   "project_read_file_preview",
+  "project_preview_meta",
+  "project_read_file_bytes",
   "project_exists",
   "project_list_dir",
   "project_write_file",
@@ -17,4 +19,5 @@ commands.allow = [
   "attachment_delete_company",
   "secret_encrypt",
   "secret_decrypt",
+  "export_computer_run_trace",
 ]

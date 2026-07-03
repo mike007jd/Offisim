@@ -9,7 +9,11 @@ import {
 } from '@/runtime/desktop-agent-runtime.js';
 import { getRepos, runtimeEventBus } from '@/runtime/repos.js';
 import type { EventBus, RuntimeRepositories } from '@offisim/core/browser';
-import { parseToolRichDetail, type ToolRichDetail } from '@offisim/shared-types';
+import {
+  mergeToolRichDetail,
+  parseToolRichDetail,
+  type ToolRichDetail,
+} from '@offisim/shared-types';
 import type {
   AgentRunEvent,
   AgentRunFinishedPayload,
@@ -235,39 +239,6 @@ function detailFromTelemetry(payload: ToolExecutionTelemetryPayload): string | u
   if (payload.errorType) return payload.errorType;
   const parts = [payload.serverName, payload.nodeName, payload.toolType].filter(Boolean);
   return parts.length > 0 ? parts.join(' · ') : undefined;
-}
-
-function mergeToolRichDetail(
-  previous: ToolRichDetail | undefined,
-  next: ToolRichDetail,
-): ToolRichDetail {
-  if (!previous || previous.family !== next.family) return next;
-  if (next.family === 'terminal' && previous.family === 'terminal') {
-    return {
-      family: 'terminal',
-      command: next.command ?? previous.command,
-      exitCode: next.exitCode ?? previous.exitCode,
-      outputSummary: next.outputSummary ?? previous.outputSummary,
-    };
-  }
-  if (next.family === 'file' && previous.family === 'file') {
-    return {
-      family: 'file',
-      path: next.path ?? previous.path,
-      summary: next.summary ?? previous.summary,
-    };
-  }
-  if (next.family === 'search' && previous.family === 'search') {
-    return {
-      family: 'search',
-      query: next.query ?? previous.query,
-      hitCount: next.hitCount ?? previous.hitCount,
-    };
-  }
-  if (next.family === 'generic' && previous.family === 'generic') {
-    return { family: 'generic', text: next.text ?? previous.text };
-  }
-  return next;
 }
 
 function eventThreadId(
@@ -937,8 +908,16 @@ export class ConversationRunController {
       state: request.method === 'confirm' ? 'live' : 'unsupported',
       createdAt: this.deps.now(),
     };
-    await this.upsertActiveInteraction(run, approval);
     this.patchSnapshot(run.threadId, { phase: 'awaiting-approval', approval });
+    try {
+      await this.upsertActiveInteraction(run, approval);
+    } catch (err) {
+      console.warn('[conversation-run] active approval persist failed', {
+        threadId: run.threadId,
+        uiRequestId: approval.uiRequestId,
+        err,
+      });
+    }
     if (run.assistantMessage)
       await this.persistRunMessage(run, stripToolCalls(run.assistantMessage));
     if (request.method !== 'confirm' && run.runtime) {

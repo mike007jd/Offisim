@@ -14,6 +14,7 @@
       {
         "label": "main",
         "title": "Offisim",
+        "url": "index.html",
         "create": true,
         "width": 1440,
         "height": 900,
@@ -22,7 +23,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https: wss: ipc: http://ipc.localhost http://localhost:4100 https://localhost:4100 tauri://localhost; font-src 'self' data:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'"
+      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: offisim-media: http://offisim-media.localhost; media-src 'self' blob: offisim-media: http://offisim-media.localhost; frame-src 'self' blob: http://localhost:* http://127.0.0.1:* https://localhost:*; connect-src 'self' https: wss: ipc: http://ipc.localhost http://localhost:4100 https://localhost:4100 tauri://localhost offisim-media: http://offisim-media.localhost; font-src 'self' data:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'"
     }
   },
   "plugins": {

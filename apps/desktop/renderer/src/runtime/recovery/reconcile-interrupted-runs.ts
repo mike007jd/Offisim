@@ -70,7 +70,7 @@ interface InterruptedRunCardOptions {
   currentWireProtocolVersion?: number;
 }
 
-export const PI_HOST_PROTOCOL_VERSION = 4;
+export const PI_HOST_PROTOCOL_VERSION = 5;
 
 function parseRuntimeContext(raw: string | null): RunContextSnapshot | null {
   if (!raw) return null;

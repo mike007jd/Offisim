@@ -9,6 +9,8 @@ pub struct McpProcessConfig {
     pub command: String,
     pub args: Vec<String>,
     #[serde(default)]
+    pub category: Option<String>,
+    #[serde(default)]
     pub env: HashMap<String, String>,
     pub source: Option<String>,
     /// Jailed working directory for the spawned child. Set by the connect
@@ -46,6 +48,7 @@ pub struct RegisteredMcpServerSummary {
     pub source_manifest_hash: Option<String>,
     pub request_surface: Option<String>,
     pub approval_id: Option<String>,
+    pub category: Option<String>,
     pub risk_class: Option<String>,
     pub command_fingerprint: Option<String>,
     pub requested_tools: Vec<String>,
@@ -62,6 +65,8 @@ pub struct McpSpawnResult {
 pub struct McpToolInfo {
     pub name: String,
     pub description: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub category: Option<String>,
     pub input_schema: serde_json::Value,
     /// MCP tool annotations (behavior hints). Optional — many servers omit them.
     /// `read_only_hint` / `destructive_hint` drive whether a call needs approval.
@@ -175,6 +180,7 @@ mod tests {
             source_manifest_hash: Some("manifest-a".into()),
             request_surface: Some("installed-asset-runtime".into()),
             approval_id: Some("approval-1".into()),
+            category: Some("computer-use".into()),
             risk_class: Some("high".into()),
             command_fingerprint: Some("fingerprint-a".into()),
             requested_tools: vec!["search".into()],
@@ -182,5 +188,6 @@ mod tests {
 
         let value = serde_json::to_value(summary).unwrap();
         assert_eq!(value["requestSurface"], "installed-asset-runtime");
+        assert_eq!(value["category"], "computer-use");
     }
 }

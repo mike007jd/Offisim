@@ -1,5 +1,5 @@
 [
-  { "kind": "ready", "protocolVersion": 4 },
+  { "kind": "ready", "protocolVersion": 5 },
   {
     "kind": "started",
     "sessionId": "sess_1",
@@ -58,6 +58,22 @@
     "workKind": "research",
     "runType": "run.started",
     "payload": { "objective": "Investigate the failing test", "access": "read" }
+  },
+  {
+    "kind": "agentRun",
+    "threadId": "thread_1",
+    "rootRunId": "attempt_1",
+    "runId": "run_child_1",
+    "runType": "computer.target.selected",
+    "payload": { "targetApp": "TextEdit", "targetWindow": "Untitled" }
+  },
+  {
+    "kind": "agentRun",
+    "threadId": "thread_1",
+    "rootRunId": "attempt_1",
+    "runId": "run_child_1",
+    "runType": "computer.sensitive.paused",
+    "payload": { "reason": "credential-field", "detail": "Password field focused" }
   },
   {
     "kind": "agentRun",

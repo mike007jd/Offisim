@@ -178,6 +178,8 @@ export type {
   AgentRunAccess,
   AgentRunApprovalPayload,
   AgentRunArtifactPayload,
+  AgentRunComputerSensitivePausePayload,
+  AgentRunComputerTargetPayload,
   AgentRunDeltaPayload,
   AgentRunEvent,
   AgentRunEventType,
@@ -200,6 +202,7 @@ export type {
 export {
   classifyRunFailure,
   classifyToolActivity,
+  mergeToolRichDetail,
   parseToolRichDetail,
   toolFamily,
 } from './events/agent-run.js';

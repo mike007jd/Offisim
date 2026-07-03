@@ -116,7 +116,17 @@ export function LifecycleSurface() {
 
   // Don't flash the wrong front door before the company count resolves.
   if (companies.isLoading) {
-    return <div className="off-lc-boot" aria-busy="true" />;
+    return (
+      <div className="off-lc-boot" aria-busy="true" role="status">
+        <div className="off-lc-boot-panel">
+          <div className="off-lc-boot-mark" />
+          <div>
+            <div className="off-lc-boot-title">Loading Offisim</div>
+            <div className="off-lc-boot-copy">Opening the local company workspace.</div>
+          </div>
+        </div>
+      </div>
+    );
   }
   // A read failure must NOT collapse into the empty-account 'create' path — a
   // user who actually has companies would otherwise be dropped into the wizard

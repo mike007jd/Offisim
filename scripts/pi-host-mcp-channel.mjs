@@ -14,6 +14,8 @@
 
 import { mcpCallLine } from './pi-agent-host-wire.mjs';
 
+export const DEFAULT_MCP_RESULT_TIMEOUT_MS = 90_000;
+
 /**
  * Build an MCP-call channel bound to an `emit(line)` sink (the host's stdout
  * writer). Returns the three operations the host wires in:
@@ -21,9 +23,23 @@ import { mcpCallLine } from './pi-agent-host-wire.mjs';
  *   - resolveMcpResult(line) — settle the parked call matching line.id
  *   - rejectAllMcpCalls() — fail every parked call (stdin EOF / abort)
  */
-export function createMcpCallChannel(emit) {
+export function createMcpCallChannel(emit, options = {}) {
   let seq = 0;
-  const pending = new Map(); // mcp call id -> resolve(resultObject)
+  const timeoutMs =
+    Number.isFinite(options.timeoutMs) && options.timeoutMs > 0
+      ? Math.max(1, Math.floor(options.timeoutMs))
+      : DEFAULT_MCP_RESULT_TIMEOUT_MS;
+  const keepTimeoutRef = options.keepTimeoutRef === true;
+  const pending = new Map(); // mcp call id -> { resolve(resultObject), timeoutId }
+
+  function settle(id, result) {
+    const entry = pending.get(id);
+    if (!entry) return false;
+    pending.delete(id);
+    clearTimeout(entry.timeoutId);
+    entry.resolve(result);
+    return true;
+  }
 
   return {
     requestMcpResult(server, tool, args) {
@@ -31,23 +47,26 @@ export function createMcpCallChannel(emit) {
       const id = `mcp-${seq}`;
       emit(mcpCallLine({ id, server, tool, arguments: args }));
       return new Promise((resolve) => {
-        pending.set(id, resolve);
+        const timeoutId = setTimeout(() => {
+          settle(id, {
+            id,
+            ok: false,
+            error: `MCP result timed out after ${Math.round(timeoutMs / 1000)}s: ${server}.${tool}`,
+          });
+        }, timeoutMs);
+        if (!keepTimeoutRef) timeoutId.unref?.();
+        pending.set(id, { resolve, timeoutId });
       });
     },
 
     resolveMcpResult(result) {
       if (!result || typeof result.id !== 'string') return;
-      const resolve = pending.get(result.id);
-      if (resolve) {
-        pending.delete(result.id);
-        resolve(result);
-      }
+      settle(result.id, result);
     },
 
     rejectAllMcpCalls() {
-      for (const [id, resolve] of pending) {
-        pending.delete(id);
-        resolve({ id, ok: false, error: 'host stdin closed' });
+      for (const id of [...pending.keys()]) {
+        settle(id, { id, ok: false, error: 'host stdin closed' });
       }
     },
   };

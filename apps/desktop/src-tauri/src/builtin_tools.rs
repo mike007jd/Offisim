@@ -72,7 +72,7 @@ pub struct ProjectDirEntry {
     size: Option<u64>,
 }
 
-async fn workspace_roots<R: Runtime>(
+pub(crate) async fn workspace_roots<R: Runtime>(
     app: &tauri::AppHandle<R>,
     project_id: Option<&str>,
 ) -> Result<Vec<PathBuf>, String> {
@@ -156,7 +156,7 @@ fn resolve_candidate(path: &str, cwd: Option<&str>) -> Result<PathBuf, String> {
     Ok(candidate)
 }
 
-fn resolve_project_candidate(
+pub(crate) fn resolve_project_candidate(
     path: &str,
     cwd: Option<&str>,
     roots: &[PathBuf],
@@ -174,7 +174,7 @@ fn resolve_project_candidate(
     resolve_candidate(path, cwd)
 }
 
-fn relativize_for_error(path: &Path, roots: &[PathBuf]) -> String {
+pub(crate) fn relativize_for_error(path: &Path, roots: &[PathBuf]) -> String {
     for root in roots {
         if path.starts_with(root) {
             let root_name = root
@@ -191,7 +191,7 @@ fn relativize_for_error(path: &Path, roots: &[PathBuf]) -> String {
     "<out-of-bounds>".to_string()
 }
 
-fn ensure_inside_workspace(candidate: &Path, roots: &[PathBuf]) -> Result<(), String> {
+pub(crate) fn ensure_inside_workspace(candidate: &Path, roots: &[PathBuf]) -> Result<(), String> {
     if roots.is_empty() {
         return Err("no project workspace_root is bound for file/shell tools".to_string());
     }
@@ -300,7 +300,7 @@ fn resolve_write_target(candidate: &Path, roots: &[PathBuf]) -> Result<PathBuf, 
     Ok(canonical_ancestor.join(tail))
 }
 
-fn fs_resolve_error<E: std::fmt::Display>(stage: &str, path: &Path, err: E) -> String {
+pub(crate) fn fs_resolve_error<E: std::fmt::Display>(stage: &str, path: &Path, err: E) -> String {
     eprintln!(
         "[builtin_tools] {stage} {} failed: {err}",
         path.to_string_lossy()
@@ -308,7 +308,12 @@ fn fs_resolve_error<E: std::fmt::Display>(stage: &str, path: &Path, err: E) -> S
     format!("{stage} failed")
 }
 
-fn fs_op_error(stage: &str, path: &Path, roots: &[PathBuf], err: std::io::Error) -> String {
+pub(crate) fn fs_op_error(
+    stage: &str,
+    path: &Path,
+    roots: &[PathBuf],
+    err: std::io::Error,
+) -> String {
     eprintln!(
         "[builtin_tools] {stage} {} failed: {err}",
         path.to_string_lossy()
@@ -398,7 +403,7 @@ fn containing_root<'a>(candidate: &Path, roots: &'a [PathBuf]) -> Option<&'a Pat
 /// mid-codepoint, walk back to the last valid UTF-8 boundary so callers always
 /// get a clean string. Returns the empty string if the walk-back yields zero
 /// valid bytes (e.g. all-binary preview).
-fn utf8_boundary_safe_string(bytes: Vec<u8>) -> String {
+pub(crate) fn utf8_boundary_safe_string(bytes: Vec<u8>) -> String {
     match String::from_utf8(bytes) {
         Ok(text) => text,
         Err(err) => {
