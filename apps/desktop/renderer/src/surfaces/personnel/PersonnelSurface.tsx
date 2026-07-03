@@ -18,7 +18,7 @@ import {
 } from '@/design-system/primitives/dialog.js';
 import { Input } from '@/design-system/primitives/input.js';
 import { Tabs, TabsList, TabsTrigger } from '@/design-system/primitives/tabs.js';
-import { cn, titleizeSlug } from '@/lib/utils.js';
+import { cn } from '@/lib/utils.js';
 import { PANEL_SIZE_TOKENS } from '@/styles/visual-tokens.js';
 import {
   clearDiscardConfirm,
@@ -100,17 +100,12 @@ function roleSlug(role: string): RoleSlug {
   return 'developer';
 }
 
-function newEmployeePersona(role: string): Record<string, unknown> {
-  return {
-    profile: {
-      expertise: [],
-      workingStyle: 'Generalist',
-      communication: 'Concise',
-      risk: 'balanced',
-      decisionStyle: 'Ask when scope changes',
-      customInstructions: `${titleizeSlug(role)} hired from Personnel.`,
-    },
-  };
+function newEmployeePersona(): Record<string, unknown> {
+  // A newly-hired employee starts with no persona — every profile field stays
+  // empty ("not set") until the user fills it, matching profileDefaults. Seeding
+  // stub values here would fabricate persona the user never chose (and the old
+  // 'Concise'/'Ask when scope changes' weren't even valid enum values).
+  return {};
 }
 
 function RosterRow({
@@ -595,7 +590,7 @@ function HireEmployeeDialog({
         role_slug: slug,
         source_asset_id: null,
         source_package_id: null,
-        persona_json: JSON.stringify(newEmployeePersona(slug)),
+        persona_json: JSON.stringify(newEmployeePersona()),
         config_json: '{}',
       });
       await queryClient.invalidateQueries({ queryKey: ['employees', companyId] });

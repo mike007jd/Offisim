@@ -941,7 +941,7 @@ export function PiAgentPane() {
         <div className="off-set-provider-config-card">
           <div className="off-set-cs-label">
             <Icon icon={ShieldCheck} size="sm" />
-            Pi AuthStorage / ModelRegistry
+            Stored credentials & model catalog
           </div>
           <div className="off-set-cs-sum">
             auth.json · {status?.authProviders.length ?? 0} stored providers
@@ -953,7 +953,7 @@ export function PiAgentPane() {
         <div className="off-set-provider-config-card">
           <div className="off-set-cs-label">
             <Icon icon={SlidersHorizontal} size="sm" />
-            Pi model configuration
+            Model configuration
           </div>
           <div className="off-set-cs-sum">
             {modelsConfig?.exists ? 'present' : 'not created'} · {modelsConfig?.providerCount ?? 0}{' '}

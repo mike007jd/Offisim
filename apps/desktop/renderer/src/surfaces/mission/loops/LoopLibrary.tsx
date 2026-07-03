@@ -100,8 +100,13 @@ export function LoopLibrary({ onOpenLoop }: LoopLibraryProps) {
 
   function handleNewLoop() {
     if (!companyId) return;
+    // Unique working title ("Untitled loop", "Untitled loop 2", …) so several
+    // drafts stay distinguishable in the library list.
+    const titles = new Set((loops.data ?? []).map((loop) => loop.title));
+    let title = 'Untitled loop';
+    for (let n = 2; titles.has(title); n += 1) title = `Untitled loop ${n}`;
     createLoop.mutate(
-      { title: 'Untitled loop', profileId: DEFAULT_COMPILER_PROFILE_ID },
+      { title, profileId: DEFAULT_COMPILER_PROFILE_ID },
       {
         onSuccess: (loop) => onOpenLoop(loop.loopId),
         onError: (err) =>
@@ -185,7 +190,7 @@ export function LoopLibrary({ onOpenLoop }: LoopLibraryProps) {
           <EmptyState
             icon={Repeat}
             title="No loops yet"
-            description="A Loop is a reusable, natural-language design for repeatable work. Describe what you want, enhance it, and compile it into a runnable graph."
+            description="A Loop is a reusable playbook for repeatable work. Describe the job once, refine it, and run it whenever you need it."
             action={companyId ? { label: 'New Loop', onClick: handleNewLoop } : undefined}
           />
         ) : filtered.length === 0 ? (

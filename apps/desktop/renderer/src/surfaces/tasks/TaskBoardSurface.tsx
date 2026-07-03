@@ -14,6 +14,7 @@ import {
 } from '@/surfaces/shared/SurfaceStates.js';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
+  Ban,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
@@ -123,7 +124,23 @@ function StatusIcon({ status }: { status: TaskBoardStatus }) {
   if (status === 'running') return <Clock3 aria-hidden />;
   if (status === 'completed') return <CheckCircle2 aria-hidden />;
   if (status === 'interrupted') return <Pause aria-hidden />;
+  if (status === 'cancelled') return <Ban aria-hidden />;
   return <XCircle aria-hidden />;
+}
+
+const TASK_TITLE_MAX_CHARS = 60;
+
+/** Row/detail headline: the objective's first sentence, capped at 60 chars with
+ *  an ellipsis. The full prompt stays available via title attributes and the
+ *  detail panel. */
+function taskTitle(objective: string | null): string | null {
+  const text = objective?.trim();
+  if (!text) return null;
+  const firstSegment = text.split(/\r?\n/, 1)[0] ?? text;
+  const sentenceMatch = /^.*?[.。!?！？](?=\s|$)/.exec(firstSegment);
+  const sentence = (sentenceMatch?.[0] ?? firstSegment).trim();
+  if (sentence.length <= TASK_TITLE_MAX_CHARS) return sentence;
+  return `${sentence.slice(0, TASK_TITLE_MAX_CHARS).trimEnd()}…`;
 }
 
 export function TaskBoardSurface() {
@@ -453,7 +470,7 @@ export function TaskBoardSurface() {
         </div>
         <div className="off-task-stat is-muted">
           <span className="off-task-stat-v">{board.stats.total}</span>
-          <span className="off-task-stat-l">Total roots</span>
+          <span className="off-task-stat-l">Total tasks</span>
         </div>
       </div>
 
@@ -551,9 +568,9 @@ export function TaskBoardSurface() {
                         <StatusIcon status={row.status} />
                         {statusLabel(row.status)}
                       </span>
-                      <span className="off-task-title">
+                      <span className="off-task-title" title={row.objective ?? undefined}>
                         {!isRoot && row.relation ? `${row.relation}: ` : ''}
-                        {row.objective || `${employeeName(row, employeeNames)} run`}
+                        {taskTitle(row.objective) || `${employeeName(row, employeeNames)} run`}
                       </span>
                       <span className="off-task-meta">
                         {employeeName(row, employeeNames)} · {formatWhen(row.startedAt)}
@@ -603,7 +620,7 @@ export function TaskBoardSurface() {
               <div className="off-task-detail-head">
                 <div>
                   <div className="off-task-detail-kicker">{statusLabel(selectedRow.status)}</div>
-                  <h2>{selectedRow.objective || 'Agent run'}</h2>
+                  <h2>{taskTitle(selectedRow.objective) || 'Agent run'}</h2>
                 </div>
                 <button
                   type="button"
@@ -614,26 +631,13 @@ export function TaskBoardSurface() {
                   <XCircle aria-hidden />
                 </button>
               </div>
+              {selectedRow.objective ? (
+                <p className="off-task-detail-objective">{selectedRow.objective}</p>
+              ) : null}
               <dl className="off-task-detail-grid">
-                <div>
-                  <dt>Run</dt>
-                  <dd>{selectedRow.runId}</dd>
-                </div>
-                <div>
-                  <dt>Thread</dt>
-                  <dd>{selectedRow.threadId}</dd>
-                </div>
                 <div>
                   <dt>Owner</dt>
                   <dd>{employeeName(selectedRow, employeeNames)}</dd>
-                </div>
-                <div>
-                  <dt>Relation</dt>
-                  <dd>{selectedRow.relation || 'Root'}</dd>
-                </div>
-                <div>
-                  <dt>Access</dt>
-                  <dd>{selectedRow.access || 'Not recorded'}</dd>
                 </div>
                 <div>
                   <dt>Started</dt>
@@ -651,11 +655,32 @@ export function TaskBoardSurface() {
                   <dt>Summary</dt>
                   <dd>{summarizeResult(selectedRow.resultSummaryJson)}</dd>
                 </div>
-                <div>
-                  <dt>Session file</dt>
-                  <dd>{selectedRow.sessionFile || 'Not recorded'}</dd>
-                </div>
               </dl>
+              <details className="off-task-detail-tech">
+                <summary>Technical details</summary>
+                <dl className="off-task-detail-grid">
+                  <div>
+                    <dt>Run</dt>
+                    <dd>{selectedRow.runId}</dd>
+                  </div>
+                  <div>
+                    <dt>Thread</dt>
+                    <dd>{selectedRow.threadId}</dd>
+                  </div>
+                  <div>
+                    <dt>Relation</dt>
+                    <dd>{selectedRow.relation || 'Root'}</dd>
+                  </div>
+                  <div>
+                    <dt>Access</dt>
+                    <dd>{selectedRow.access || 'Not recorded'}</dd>
+                  </div>
+                  <div>
+                    <dt>Session file</dt>
+                    <dd>{selectedRow.sessionFile || 'Not recorded'}</dd>
+                  </div>
+                </dl>
+              </details>
               {recoveryByRunId.has(selectedRow.runId) ? (
                 <p className="off-task-detail-note">
                   {recoveryByRunId.get(selectedRow.runId)?.whatResumeWillDo}
