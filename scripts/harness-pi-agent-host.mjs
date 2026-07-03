@@ -49,6 +49,7 @@ const tauriConfig = readJson('apps/desktop/src-tauri/tauri.conf.json');
 const rustHostSource = readFileSync('apps/desktop/src-tauri/src/pi_agent_host.rs', 'utf8');
 const nodeHostSource = readFileSync(HOST_SCRIPT, 'utf8');
 const bundledNodeHostSource = readFileSync(BUNDLED_HOST_SCRIPT, 'utf8');
+const mcpBridgeSource = readFileSync('scripts/pi-mcp-bridge-extension.mjs', 'utf8');
 const childSupervisorSource = readFileSync('scripts/pi-child-supervisor.mjs', 'utf8');
 const wireSource = readFileSync('scripts/pi-agent-host-wire.mjs', 'utf8');
 const desktopRuntimeScopeSource = readFileSync(
@@ -123,11 +124,16 @@ assert(
     /const scopedMcpTools =[\s\S]*permissionMode === 'plan'[\s\S]*mcpTools\.filter\(\(tool\) => !isWriteMcpTool\(tool\)\)[\s\S]*: mcpTools/.test(
       nodeHostSource,
     ) &&
-    /const mcpEnabled = scopedMcpTools\.length > 0/.test(nodeHostSource) &&
-    /const tools = mcpEnabled[\s\S]*\.\.\.\(baseTools \?\? \['read', 'write', 'edit', 'bash'\]\)[\s\S]*'mcp_search_tools'[\s\S]*'mcp_describe_tool'[\s\S]*'mcp_call'/.test(
+    /const mcpHasCatalog = scopedMcpTools\.length > 0/.test(nodeHostSource) &&
+    /const tools = \[[\s\S]*\.\.\.\(baseTools \?\? \['read', 'write', 'edit', 'bash'\]\)[\s\S]*'mcp_search_tools',[\s\S]*'mcp_describe_tool',[\s\S]*\.\.\.\(mcpHasCatalog \? \['mcp_call'\] : \[\]\)/.test(
       nodeHostSource,
     ),
-  'execute host must append MCP meta tools to an explicit Pi tool allowlist and filter write MCP in plan mode',
+  'execute host must always expose MCP discovery (mcp_search_tools/mcp_describe_tool) in the explicit tool allowlist, gate mcp_call on a non-empty grant catalog, and filter write MCP in plan mode',
+);
+assert(
+  /No MCP tools are granted to you yet/.test(mcpBridgeSource) &&
+    /No MCP tools are granted to you yet/.test(bundledNodeHostSource),
+  'source and bundled MCP bridge must return an actionable "no tools granted" setup state for an empty catalog (screenshot-1 apology fix) — rebuild the bundle with pnpm build:pi-agent-host',
 );
 assert(
   /const scopedGrants = grants\.filter/.test(desktopRuntimeScopeSource) &&

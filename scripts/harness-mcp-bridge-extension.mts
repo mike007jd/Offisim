@@ -22,7 +22,7 @@ import { parseToolRichDetail } from '../packages/shared-types/src/index.js';
 
 let passed = 0;
 let failed = 0;
-const TOTAL = 22;
+const TOTAL = 23;
 
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
   try {
@@ -139,6 +139,25 @@ async function main(): Promise<void> {
     const none = await tool('mcp_search_tools').execute('1', { query: 'zzz-nomatch' });
     assert.match(none.content[0].text ?? '', /No MCP tools match/);
   });
+
+  await check(
+    '(3b) empty catalog: discovery stays registered and search gives an actionable setup state (no apology)',
+    async () => {
+      // The always-on discovery path: an ungranted employee still gets the 3 meta
+      // tools registered, and mcp_search_tools returns the "grant them in Settings"
+      // state instead of a dead end — this is the screenshot-1 apology fix.
+      const { registered, tool } = build([], noop);
+      assert.equal(registered.length, 3, 'discovery meta tools register even with 0 granted tools');
+      const empty = await tool('mcp_search_tools').execute('1', {});
+      assert.match(empty.content[0].text ?? '', /granted to you yet/);
+      assert.match(empty.content[0].text ?? '', /Settings/);
+      // mcp_call cannot invoke anything when the catalog is empty — the grant
+      // catalog stays the trust boundary even though discovery is always on.
+      const call = await tool('mcp_call').execute('1', { name: 'anything' });
+      assert.equal(call.isError, true);
+      assert.match(call.content[0].text ?? '', /Unknown MCP tool/);
+    },
+  );
 
   await check('(4) mcp_describe_tool returns schema + write class; unknown errors', async () => {
     const { tool } = build([READ_TOOL, WRITE_TOOL], noop);

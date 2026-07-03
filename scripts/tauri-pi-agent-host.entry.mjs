@@ -1083,37 +1083,42 @@ async function runPrompt(payload) {
   // every mode — a mission run may legitimately submit a read-only criterion.
   const missionContextJson = asNonEmptyString(payload.missionContextJson);
   const missionEnabled = Boolean(rootRunId && threadId && missionContextJson);
-  // MCP bridge (B3): register the 3 fixed meta tools (mcp_search_tools /
-  // mcp_describe_tool / mcp_call) when the renderer scoped MCP tools to this run.
-  // Plan mode keeps only read-class MCP tools; write-class tools are filtered out
-  // before the meta tools become visible.
+  // MCP bridge (B3): the discovery meta-tools (mcp_search_tools /
+  // mcp_describe_tool) are registered on EVERY run so an employee with no MCP
+  // grants can still answer "what tools do I have?" — mcp_search_tools returns an
+  // actionable "none granted yet, enable them in Settings" state instead of the
+  // apology in screenshot 1. The execution path (mcp_call) is only exposed when a
+  // grant-scoped catalog exists, so discovery never becomes an ungated call path:
+  // the per-employee grant catalog stays the trust boundary. Plan mode keeps only
+  // read-class MCP tools; write-class tools are filtered out of the catalog.
   const mcpTools = Array.isArray(payload.mcpTools) ? payload.mcpTools : [];
   const scopedMcpTools =
     permissionMode === 'plan' ? mcpTools.filter((tool) => !isWriteMcpTool(tool)) : mcpTools;
-  const mcpEnabled = scopedMcpTools.length > 0;
-  const tools = mcpEnabled
-    ? [
-        ...(baseTools ?? ['read', 'write', 'edit', 'bash']),
-        ...(delegationEnabled ? ['delegate'] : []),
-        ...(publishArtifactEnabled ? ['publish_artifact'] : []),
-        ...(missionEnabled ? ['submit_for_evaluation', 'query_mission_state'] : []),
-        'mcp_search_tools',
-        'mcp_describe_tool',
-        'mcp_call',
-      ]
-    : baseTools;
+  const mcpHasCatalog = scopedMcpTools.length > 0;
+  // `tools` is an EXPLICIT allowlist on every run (never left undefined). Passing
+  // undefined would let Pi auto-activate whatever tools any disk-loaded CLI/global
+  // Pi extension registered; Offisim deliberately keeps a controlled tool surface
+  // (built-ins + its own delegate/publish/mission/mcp extensions routed through the
+  // harness/gateway path — AI Runtime Policy), the same surface the MCP path
+  // already enforced. This enumeration is complete: they are the only tools any
+  // Offisim-registered extension exposes (harness:pi-agent-host locks it).
+  const tools = [
+    ...(baseTools ?? ['read', 'write', 'edit', 'bash']),
+    ...(delegationEnabled ? ['delegate'] : []),
+    ...(publishArtifactEnabled ? ['publish_artifact'] : []),
+    ...(missionEnabled ? ['submit_for_evaluation', 'query_mission_state'] : []),
+    'mcp_search_tools',
+    'mcp_describe_tool',
+    ...(mcpHasCatalog ? ['mcp_call'] : []),
+  ];
   // A write-class MCP tool pauses for ctx.ui.confirm, which needs the forwarding
   // UI context bound — the same bind `ask` mode already does.
-  const mcpNeedsUi = mcpEnabled && scopedMcpTools.some(isWriteMcpTool);
+  const mcpNeedsUi = mcpHasCatalog && scopedMcpTools.some(isWriteMcpTool);
+  // The MCP discovery bridge is registered on every run (so an ungranted employee
+  // can still discover tools), so a resource loader + extension list is always
+  // built now — no run reaches createAgentSession without one.
   let resourceLoader;
-  if (
-    gateFactory ||
-    systemPromptAppend ||
-    delegationEnabled ||
-    publishArtifactEnabled ||
-    missionEnabled ||
-    mcpEnabled
-  ) {
+  {
     const settingsManager = SettingsManager.create(cwd, agentDir);
     const extensionFactories = [];
     if (gateFactory) extensionFactories.push(gateFactory);
@@ -1200,19 +1205,20 @@ async function runPrompt(payload) {
         }),
       );
     }
-    if (mcpEnabled) {
-      extensionFactories.push(
-        createMcpBridgeExtensionFactory({
-          mcpTools: scopedMcpTools,
-          requestMcpResult: mcpChannel.requestMcpResult,
-          confirmMcpToolCall,
-          emit,
-          threadId,
-          rootRunId,
-          employeeId: asNonEmptyString(payload.employeeId),
-        }),
-      );
-    }
+    // Always register the MCP bridge so mcp_search_tools/mcp_describe_tool exist
+    // on every run; when scopedMcpTools is empty, search returns the actionable
+    // "no tools granted yet" state and mcp_call is not in the allowlist above.
+    extensionFactories.push(
+      createMcpBridgeExtensionFactory({
+        mcpTools: scopedMcpTools,
+        requestMcpResult: mcpChannel.requestMcpResult,
+        confirmMcpToolCall,
+        emit,
+        threadId,
+        rootRunId,
+        employeeId: asNonEmptyString(payload.employeeId),
+      }),
+    );
     // Append the employee persona and, when delegation is on, the fixed-flow
     // guidance — both are generic appended system prompts (Pi's official option).
     const appendSystemPrompt = [];
@@ -1593,9 +1599,11 @@ async function runCollaboration(payload) {
   const appendSystemPrompt = systemPromptAppend ? [systemPromptAppend] : [];
   const rawMcpTools = Array.isArray(payload.mcpTools) ? payload.mcpTools : [];
   const mcpTools = collaborationRead ? rawMcpTools.filter((tool) => !isWriteMcpTool(tool)) : [];
-  const mcpEnabled = collaborationRead && mcpTools.length > 0;
+  const mcpHasCatalog = mcpTools.length > 0;
   const extensionFactories = [];
-  if (mcpEnabled) {
+  // collaboration_read always gets MCP discovery (search+describe); mcp_call is
+  // added below only with a read-scoped catalog. Daily chat keeps no MCP surface.
+  if (collaborationRead) {
     extensionFactories.push(
       createMcpBridgeExtensionFactory({
         mcpTools,
@@ -1616,7 +1624,10 @@ async function runCollaboration(payload) {
   });
   await resourceLoader.reload();
   const collaborationTools = collaborationToolAllowlist(collaborationProfile);
-  if (mcpEnabled) collaborationTools.push('mcp_search_tools', 'mcp_describe_tool', 'mcp_call');
+  if (collaborationRead) {
+    collaborationTools.push('mcp_search_tools', 'mcp_describe_tool');
+    if (mcpHasCatalog) collaborationTools.push('mcp_call');
+  }
 
   const { session, modelFallbackMessage } = await createAgentSession({
     cwd,

@@ -325,6 +325,13 @@ export function createMcpBridgeExtensionFactory({
             (t.description ?? '').toLowerCase().includes(q),
         );
         if (matches.length === 0) {
+          if (tools.length === 0) {
+            // Empty catalog = this employee has no MCP grants. Give an actionable
+            // setup state instead of a dead end (closes the screenshot-1 apology).
+            return textResult(
+              'No MCP tools are granted to you yet. MCP servers and their tools are enabled per employee in Settings › MCP — ask your operator to grant them, then search again.',
+            );
+          }
           return textResult(
             q ? `No MCP tools match "${params.query}".` : 'No MCP tools are available.',
           );
