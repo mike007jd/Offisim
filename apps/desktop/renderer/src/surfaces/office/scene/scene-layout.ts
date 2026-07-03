@@ -263,6 +263,29 @@ function obstacleRadius(prefab: SeatAnchorPrefab): number {
   }
 }
 
+/** A circular obstacle footprint (world x/z + radius) for floor pathfinding. */
+export interface SceneObstacle {
+  readonly x: number;
+  readonly z: number;
+  readonly radius: number;
+}
+
+/**
+ * Project placed prefabs into circular obstacle footprints for the floor
+ * pathfinder (H1/H2). Reuses the SAME `obstacleRadius` table the seat planner
+ * settles seats against, so a walked route and a settled seat agree on where
+ * furniture is — one obstacle source, never two. Prefab positions are stored
+ * authoring coords == world coords (SCENE_CONTENT_SCALE lives on the render
+ * group, not the position), matching how the seat planner reads them.
+ */
+export function sceneObstacles(prefabs: readonly SeatAnchorPrefab[] | undefined): SceneObstacle[] {
+  return (prefabs ?? []).map((prefab) => ({
+    x: prefab.instance.position_x,
+    z: prefab.instance.position_y,
+    radius: obstacleRadius(prefab),
+  }));
+}
+
 function workstationAnchorSeats(
   count: number,
   zonePrefabs: readonly SeatAnchorPrefab[],

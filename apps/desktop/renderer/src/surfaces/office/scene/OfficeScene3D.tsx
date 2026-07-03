@@ -47,7 +47,18 @@ import { OFFICE_CAMERA_PRESET, SCENE_CONTENT_SCALE } from './r3d/scene-art-direc
 import { LIGHT_SCENE_3D } from './r3d/scene-colors.js';
 import { type ScenePlacementPoint, groundPointFromClient } from './scene-ground.js';
 import { compactSceneEmployeeName } from './scene-labels.js';
-import { type EmployeePosture, type ZoneDef, rotateLocal } from './scene-layout.js';
+import {
+  type EmployeePosture,
+  type ZoneDef,
+  floorBounds,
+  rotateLocal,
+  sceneObstacles,
+} from './scene-layout.js';
+import {
+  type OfficePathfinder,
+  type PathPoint,
+  buildOfficePathfinder,
+} from './scene-pathfinding.js';
 import { useSceneStagingInputs } from './use-scene-staging-inputs.js';
 import { WorkBench } from './work-bench/WorkBench.js';
 
@@ -163,6 +174,7 @@ function EmployeeUnit({
   dragging,
   performance,
   zones,
+  pathfinder,
   onSelect,
   onDrilldown,
   onHoverChange,
@@ -187,6 +199,8 @@ function EmployeeUnit({
   dragging: boolean;
   performance?: CharacterPerformanceState;
   zones: ZoneDef[];
+  /** Floor pathfinder (H1/H2); null → the straight-line lerp fallback. */
+  pathfinder: OfficePathfinder | null;
   onSelect: () => void;
   onDrilldown: () => void;
   onHoverChange: (hovered: boolean) => void;
@@ -195,30 +209,69 @@ function EmployeeUnit({
   onDragState: (drag: SceneEmployeeDrag | null) => void;
 }) {
   const { camera, gl } = useThree();
-  // Smoothly glide to the target (home placement or a high-value staged anchor)
-  // rather than snapping; `walkingRef` flips on the walk locomotion in transit.
+  // Walk to the target (home placement or a high-value staged anchor) — routed
+  // around known obstacles when a pathfinder is available, else a straight glide.
+  // `walkingRef` flips on the walk locomotion while in transit.
   const unitRef = useRef<Group>(null);
   const walkingRef = useRef(false);
   const targetRef = useRef<[number, number]>([x, z]);
   targetRef.current = [x, z];
-  // biome-ignore lint/correctness/useExhaustiveDependencies: this effect only seeds the initial mount position on first render; x/z are intentionally excluded (subsequent moves animate via useFrame using targetRef). Adding x/z would re-snap the position every move, defeating the glide animation.
+  // Waypoint route toward the current target. Always holds at least the final
+  // target, so useFrame walks the list in order; when routing is unavailable it
+  // holds just [target] and the walk is the straight lerp — behavior-identical
+  // to the pre-pathfinding scene (zero regression).
+  const waypointsRef = useRef<PathPoint[]>([[x, z]]);
+  const waypointIndexRef = useRef(0);
+  const plannedTargetRef = useRef<[number, number]>([x, z]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: this effect only seeds the initial mount position on first render; x/z are intentionally excluded (subsequent moves plan a route via the effect below and animate in useFrame). Adding x/z would re-snap the position every move, defeating the walk animation.
   useLayoutEffect(() => {
     unitRef.current?.position.set(x, 0, z);
     // Only seed the initial mount position; subsequent moves animate in useFrame.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // Precompute the walk route when the target changes — NOT every frame. A drag
+  // to a new seat or a dramaturgy relocation replans from where the character
+  // actually stands (its live animated position) around the known obstacles; an
+  // unobstructed move (or a null pathfinder) collapses to a single-waypoint
+  // straight line, the safe fallback that matches the old glide exactly.
+  useEffect(() => {
+    const [px, pz] = plannedTargetRef.current;
+    if (Math.hypot(x - px, z - pz) < 0.05) return; // no meaningful target change
+    plannedTargetRef.current = [x, z];
+    const group = unitRef.current;
+    const start: PathPoint = group ? [group.position.x, group.position.z] : [x, z];
+    const route = pathfinder?.findWaypoints(start, [x, z]) ?? null;
+    waypointsRef.current = route && route.length > 0 ? route : [[x, z]];
+    waypointIndexRef.current = 0;
+  }, [x, z, pathfinder]);
   useFrame((_, delta) => {
     const group = unitRef.current;
     if (!group) return;
-    const [tx, tz] = targetRef.current;
-    const dx = tx - group.position.x;
-    const dz = tz - group.position.z;
-    const dist = Math.hypot(dx, dz);
+    const waypoints = waypointsRef.current;
+    const lastIndex = waypoints.length - 1;
+    let index = waypointIndexRef.current;
+    if (index > lastIndex) index = lastIndex;
+    let wp = waypoints[index] ?? targetRef.current;
+    let dx = wp[0] - group.position.x;
+    let dz = wp[1] - group.position.z;
+    let dist = Math.hypot(dx, dz);
+    // Advance through intermediate waypoints once close enough; only the final
+    // waypoint uses the fine arrival threshold below.
+    while (dist <= 0.28 && index < lastIndex) {
+      index += 1;
+      wp = waypoints[index]!;
+      dx = wp[0] - group.position.x;
+      dz = wp[1] - group.position.z;
+      dist = Math.hypot(dx, dz);
+    }
+    waypointIndexRef.current = index;
     if (dist > 0.04) {
       const step = Math.min(1, (1.9 * delta) / dist);
       group.position.x += dx * step;
       group.position.z += dz * step;
-      walkingRef.current = dist > 0.12;
+      // Walking tell: still traversing to a later waypoint, or the final leg is
+      // more than a pace away (same 0.12 threshold as the old straight glide).
+      walkingRef.current = index < lastIndex || dist > 0.12;
     } else {
       walkingRef.current = false;
     }
@@ -750,6 +803,22 @@ export function OfficeScene3D() {
   const emptyOffice = zoneDefs.length === 0;
   const scenePrefabs = real?.prefabs;
 
+  // Floor pathfinder (H1/H2): one grid built per obstacle set from the SAME
+  // prefab obstacle radii the seat planner uses, so employees WALK a route
+  // around furniture instead of gliding through it. Built once here (not per
+  // frame, not per actor) and shared by every EmployeeUnit; null (no real
+  // prefabs, e.g. the no-backend preview) keeps the straight-line lerp. A* runs
+  // only when an actor's target changes.
+  const pathfinder = useMemo(() => {
+    const obstacles = sceneObstacles(scenePrefabs);
+    if (obstacles.length === 0) return null;
+    const { floorW, floorD } = floorBounds(zoneDefs);
+    return buildOfficePathfinder(
+      { minX: -floorW / 2, minZ: -floorD / 2, maxX: floorW / 2, maxZ: floorD / 2 },
+      obstacles,
+    );
+  }, [scenePrefabs, zoneDefs]);
+
   // GltfCharacter's reducedMotion prop path (frozen mixer → static poses) is a
   // render concern; the frame separately carries staging=null under reduced motion.
   const reducedMotion = usePrefersReducedMotion();
@@ -948,6 +1017,7 @@ export function OfficeScene3D() {
                   dragging={cue?.dragging ?? false}
                   performance={performance}
                   zones={zoneDefs}
+                  pathfinder={pathfinder}
                   onSelect={() => threadId && openThread(threadId)}
                   onDrilldown={() => openWorkloadDrilldown(employee.id)}
                   onHoverChange={(hovered) =>
