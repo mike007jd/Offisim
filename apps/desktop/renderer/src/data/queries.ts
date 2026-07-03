@@ -533,6 +533,30 @@ function deliverableVisible(input: {
   return kind !== 'debug' && kind !== 'diagnostic' && kind !== 'temp' && kind !== 'temporary';
 }
 
+/** Parse the stored `contributors_json` into employee ids, tolerating both a
+ *  string[] and an array of `{ id | employeeId }` objects. The producer is the
+ *  first contributor; the rest are co-contributors (J1 provenance). */
+function parseContributorIds(json: string | null | undefined): string[] {
+  if (!json) return [];
+  try {
+    const parsed: unknown = JSON.parse(json);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((entry) => {
+        if (typeof entry === 'string') return entry;
+        if (entry && typeof entry === 'object') {
+          const record = entry as { id?: unknown; employeeId?: unknown };
+          if (typeof record.id === 'string') return record.id;
+          if (typeof record.employeeId === 'string') return record.employeeId;
+        }
+        return null;
+      })
+      .filter((id): id is string => Boolean(id));
+  } catch {
+    return [];
+  }
+}
+
 export function useDeliverables(threadId: string | null) {
   const companyId = useUiState((s) => s.companyId);
   return useQuery({
@@ -550,9 +574,10 @@ export function useDeliverables(threadId: string | null) {
         .map((r) => ({
           id: r.deliverable_id,
           threadId: r.chat_thread_id ?? r.thread_id,
+          runId: r.run_id ?? null,
           name: r.file_name?.trim() || r.title,
           kind: r.kind ?? 'document',
-          contributorIds: [],
+          contributorIds: parseContributorIds(r.contributors_json),
           fileName: r.file_name,
           mimeType: r.mime_type,
           contentSize: r.content_size,

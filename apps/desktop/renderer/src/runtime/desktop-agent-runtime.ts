@@ -1176,7 +1176,10 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
         kind: payload.kind === 'file' ? 'file' : 'document',
         file_name: basename,
         mime_type: payload.mimeType ?? null,
-        contributors_json: '[]',
+        // Record the producing employee as the artifact's contributor so the
+        // output card can show real producer provenance (J1); empty only when the
+        // run had no employee scope (e.g. a bare root turn).
+        contributors_json: JSON.stringify(evt.employeeId ? [evt.employeeId] : []),
         created_at: new Date().toISOString(),
         run_id: evt.runId,
         content_hash: hash,

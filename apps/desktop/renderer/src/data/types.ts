@@ -163,6 +163,8 @@ export interface ChatMessage {
 export interface Deliverable {
   id: string;
   threadId?: string | null;
+  /** The run that produced this artifact — its provenance / "where it came from". */
+  runId?: string | null;
   name: string;
   kind: string;
   contributorIds: string[];

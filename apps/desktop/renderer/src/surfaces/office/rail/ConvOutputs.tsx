@@ -87,6 +87,18 @@ function DeliverableCard({
   workspaceBound: boolean;
 }) {
   const openStageView = useUiState((s) => s.openStageView);
+  // J1 provenance: who produced it (first contributor) and which run it came
+  // from, so an output explains why it exists and where it originated.
+  const producerName = deliverable.contributorIds[0]
+    ? (employeesById.get(deliverable.contributorIds[0])?.name ?? null)
+    : null;
+  const provenance = [
+    producerName ? `By ${producerName}` : null,
+    deliverable.kind,
+    deliverable.runId ? `run ${deliverable.runId.slice(0, 8)}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
   const [open, setOpen] = useState(false);
   const [busyAction, setBusyAction] = useState<'save' | 'open' | null>(null);
   const [savedPath, setSavedPath] = useState<string | null>(null);
@@ -222,6 +234,7 @@ function DeliverableCard({
       </button>
       {open ? (
         <div className="off-dlv-body">
+          {provenance ? <div className="off-dlv-provenance">{provenance}</div> : null}
           <pre className="off-dlv-preview">
             {bodyLoading ? 'Loading output…' : outputBody || 'No output body.'}
           </pre>

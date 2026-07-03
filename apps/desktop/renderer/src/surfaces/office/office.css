@@ -6083,6 +6083,10 @@
   flex-direction: column;
   gap: var(--off-sp-3);
 }
+.off-dlv-provenance {
+  font-size: var(--off-fs-xs);
+  color: var(--off-ink-4);
+}
 .off-dlv-preview {
   margin: 0;
   padding: var(--off-sp-3);
