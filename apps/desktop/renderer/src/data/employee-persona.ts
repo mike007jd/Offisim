@@ -101,6 +101,7 @@ export interface DelegationContext {
 export interface McpScopedTool {
   name: string;
   server: string;
+  category?: 'computer-use';
   description?: string;
   inputSchema?: unknown;
   annotations?: Record<string, unknown>;
@@ -116,6 +117,7 @@ interface RuntimeMcpToolInfo {
   inputSchema?: unknown;
   input_schema?: unknown;
   annotations?: unknown;
+  category?: unknown;
 }
 
 interface RuntimeMcpServerStatus {
@@ -268,6 +270,7 @@ function toMcpScopedTool(grant: McpToolGrantRow, tool?: RuntimeMcpToolInfo): Mcp
     name: grant.tool_name,
     server: grant.server_name,
     ...(typeof tool?.description === 'string' ? { description: tool.description } : {}),
+    ...(tool?.category === 'computer-use' ? { category: 'computer-use' as const } : {}),
     inputSchema: tool?.inputSchema ?? tool?.input_schema ?? {},
     annotations,
     write: effectiveRisk !== 'read',

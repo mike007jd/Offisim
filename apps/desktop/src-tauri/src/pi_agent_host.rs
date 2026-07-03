@@ -62,7 +62,7 @@ fn pi_run_streams_guard() -> std::sync::MutexGuard<'static, HashMap<String, PiRu
 /// Wire-contract version negotiated with the bundled Node host via the `ready`
 /// handshake. Must stay in lockstep with `PI_HOST_PROTOCOL_VERSION` in
 /// scripts/pi-agent-host-wire.mjs; bump both when a line's required shape changes.
-const PI_HOST_PROTOCOL_VERSION: u32 = 4;
+const PI_HOST_PROTOCOL_VERSION: u32 = 5;
 
 /// Wire kinds the Rust bridge knows how to decode. A line with an unknown kind is
 /// skipped (forward-compatible with newer hosts); a malformed line on a KNOWN kind

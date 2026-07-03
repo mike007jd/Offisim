@@ -4130,6 +4130,10 @@
   border-color: color-mix(in oklab, var(--off-danger) 34%, var(--off-line-soft));
 }
 
+.off-work-bench.is-computer {
+  border-color: color-mix(in oklab, var(--off-accent) 28%, var(--off-line-soft));
+}
+
 .off-work-bench-head {
   display: flex;
   align-items: center;
@@ -4141,7 +4145,9 @@
 .off-work-bench-family,
 .off-work-bench-status,
 .off-work-bench-exit,
-.off-work-bench-hits {
+.off-work-bench-hits,
+.off-work-bench-action,
+.off-work-bench-result {
   min-width: 0;
   display: inline-flex;
   align-items: center;
@@ -4170,6 +4176,21 @@
   color: var(--off-danger);
 }
 
+.off-work-bench-result.is-ok {
+  border-color: color-mix(in oklab, var(--off-ok) 38%, var(--off-line-soft));
+  color: var(--off-ok);
+}
+
+.off-work-bench-result.is-failed {
+  border-color: color-mix(in oklab, var(--off-danger) 38%, var(--off-line-soft));
+  color: var(--off-danger);
+}
+
+.off-work-bench-result.is-pending {
+  border-color: color-mix(in oklab, var(--off-warn) 38%, var(--off-line-soft));
+  color: var(--off-warn);
+}
+
 .off-work-bench-body {
   min-width: 0;
   display: flex;
@@ -4181,7 +4202,9 @@
 .off-work-bench-command,
 .off-work-bench-path,
 .off-work-bench-query,
-.off-work-bench-url {
+.off-work-bench-url,
+.off-work-bench-target,
+.off-work-bench-coordinates {
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
@@ -4197,6 +4220,10 @@
 }
 
 .off-work-bench-browser {
+  align-items: flex-start;
+}
+
+.off-work-bench-computer {
   align-items: flex-start;
 }
 

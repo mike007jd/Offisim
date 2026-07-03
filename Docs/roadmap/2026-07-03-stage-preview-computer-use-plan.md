@@ -325,9 +325,9 @@ Loading rules: workspace-file → `invoke('project_preview_meta')`; text kinds u
 ```
 Detection is data-driven like browser: `computerDetailFrom(value)` returns the family iff the detail JSON has a `computer` object (`{ computer: { action, targetApp, ... }, image? }`); checked BEFORE `browserDetailFrom` in `parseToolRichDetail`. `mergeToolRichDetail` keeps the last screenshot when the terminal event has none.
 
-- [ ] **Step 1:** Write `harness-computer-rich-detail.mts` first with named checks: `computer:detail-json-maps-family`, `computer:action-kind-parsed`, `computer:screenshot-dataref-preserved`, `computer:merge-keeps-last-screenshot`, `computer:text-preview-caps-length`, `computer:no-marker-falls-through-to-browser-then-generic`, `computer:coordinates-parsed`. Register `harness:computer-rich-detail` + append to `validate`. Run → FAIL.
-- [ ] **Step 2:** Implement in agent-run.ts; force-refresh shared-types dist. Run harness → PASS. Also run `pnpm harness:agent-run-projection && pnpm harness:conversation-run-controller` — must stay green (additive family).
-- [ ] **Step 3:** Commit `feat(events): computer tool rich-detail family`.
+- [x] **Step 1:** Write `harness-computer-rich-detail.mts` first with named checks: `computer:detail-json-maps-family`, `computer:action-kind-parsed`, `computer:screenshot-dataref-preserved`, `computer:merge-keeps-last-screenshot`, `computer:text-preview-caps-length`, `computer:no-marker-falls-through-to-browser-then-generic`, `computer:coordinates-parsed`. Register `harness:computer-rich-detail` + append to `validate`. Run → FAIL.
+- [x] **Step 2:** Implement in agent-run.ts; force-refresh shared-types dist. Run harness → PASS. Also run `pnpm harness:agent-run-projection && pnpm harness:conversation-run-controller` — must stay green (additive family).
+- [x] **Step 3:** Commit `feat(events): computer tool rich-detail family`.
 
 ### Task 5.2: New event types + protocol v5
 
@@ -340,9 +340,9 @@ export type AgentRunEventType = /* existing 9 */ | 'computer.target.selected' | 
 //           sensitive.paused { reason: 'external-navigation' | 'download' | 'credential-field' | 'destructive' ; detail?: string }
 ```
 
-- [ ] **Step 1:** Extend the type + payload union + any exhaustive switches shared-types exports (compiler will surface them). Bump `PI_HOST_PROTOCOL_VERSION` 4→5 in BOTH literals. Extend the wire builders in `pi-agent-host-wire.mjs` so the new event types appear in the contract fixture; regenerate `scripts/fixtures/pi-wire-contract.json` from the builders (the check script proves fixture ≡ builders — follow its regeneration instructions in the header comment).
-- [ ] **Step 2:** Run `pnpm check:pi-wire-contract` → PASS; `pnpm harness:pi-agent-host` → PASS (Rust handshake test reads the same fixture — run `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml` too).
-- [ ] **Step 3:** Commit `feat(wire): computer-use event types, protocol v5`.
+- [x] **Step 1:** Extend the type + payload union + any exhaustive switches shared-types exports (compiler will surface them). Bump `PI_HOST_PROTOCOL_VERSION` 4→5 in BOTH literals. Extend the wire builders in `pi-agent-host-wire.mjs` so the new event types appear in the contract fixture; regenerate `scripts/fixtures/pi-wire-contract.json` from the builders (the check script proves fixture ≡ builders — follow its regeneration instructions in the header comment).
+- [x] **Step 2:** Run `pnpm check:pi-wire-contract` → PASS; `pnpm harness:pi-agent-host` → PASS (Rust handshake test reads the same fixture — run `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml` too).
+- [x] **Step 3:** Commit `feat(wire): computer-use event types, protocol v5`.
 
 ### Task 5.3: MCP bridge tagging (dual-side)
 
@@ -353,16 +353,16 @@ export type AgentRunEventType = /* existing 9 */ | 'computer.target.selected' | 
 - `mcpTools` catalog entries gain `category?: 'computer-use'` (renderer builds the catalog in settings-data.ts / grant flow — thread the field through).
 - Bridge extension: when an executed MCP tool's catalog entry has `category === 'computer-use'`, the emitted tool detail JSON is `{ computer: { action, targetApp, coordinates, textPreview, resultState }, image? }` mapped from the tool name/args/result (cua-driver tool names → action kinds; screenshot images ride the existing image block).
 
-- [ ] **Step 1:** Implement all three sides; the wire rule applies — `mcpTools` already crosses the boundary verbatim so no `sidecar_payload` change is needed, but the detail JSON shape must match what `computerDetailFrom` (Task 5.1) parses: assert that in `harness:mcp-bridge-extension` with new named checks `bridge:computer-category-tags-detail`, `bridge:non-computer-tools-untouched`, `bridge:screenshot-image-block-passthrough`.
-- [ ] **Step 2:** `pnpm harness:mcp-bridge-extension && pnpm harness:mcp-host-channel && pnpm harness:pi-agent-host` → PASS. Rebuild the bundled host; `pnpm check:pi-wire-contract` PASS.
-- [ ] **Step 3:** Commit `feat(mcp): computer-use category tagging through bridge extension`.
+- [x] **Step 1:** Implement all three sides; the wire rule applies — `mcpTools` already crosses the boundary verbatim so no `sidecar_payload` change is needed, but the detail JSON shape must match what `computerDetailFrom` (Task 5.1) parses: assert that in `harness:mcp-bridge-extension` with new named checks `bridge:computer-category-tags-detail`, `bridge:non-computer-tools-untouched`, `bridge:screenshot-image-block-passthrough`.
+- [x] **Step 2:** `pnpm harness:mcp-bridge-extension && pnpm harness:mcp-host-channel && pnpm harness:pi-agent-host` → PASS. Rebuild the bundled host; `pnpm check:pi-wire-contract` PASS.
+- [x] **Step 3:** Commit `feat(mcp): computer-use category tagging through bridge extension`.
 
 ### Task 5.4: WorkBench ComputerBench
 
 **Files:** Modify `apps/desktop/renderer/src/surfaces/office/scene/work-bench/WorkBench.tsx`
 
-- [ ] **Step 1:** Add `ComputerBench` for `family: 'computer'`: action glyph + target app + coordinates line, screenshot thumb (same inline `data:` handling as BrowserBench), resultState tint via `is-computer` root class.
-- [ ] **Step 2:** Renderer typecheck/build PASS. Commit `feat(scene): computer family work bench`.
+- [x] **Step 1:** Add `ComputerBench` for `family: 'computer'`: action glyph + target app + coordinates line, screenshot thumb (same inline `data:` handling as BrowserBench), resultState tint via `is-computer` root class.
+- [x] **Step 2:** Renderer typecheck/build PASS. Commit `feat(scene): computer family work bench`.
 
 **Phase 5 Gate:** `pnpm validate` green end-to-end (includes new harnesses); cargo tests green. Lead simplify + `codex:review`.
 
@@ -469,6 +469,6 @@ Detection: locate `cua-driver` via `$PATH` lookup + known install locations; `--
 | 2 target model | done | `npx --yes pnpm@10.15.1 harness:stage-preview-targets` PASS (12/12); `npx --yes pnpm@10.15.1 harness:artifact-claim` PASS (16/16); `npx --yes pnpm@10.15.1 --filter @offisim/desktop-renderer typecheck` PASS; `npx --yes pnpm@10.15.1 --filter @offisim/desktop-renderer build` PASS; GitNexus `detect_changes --repo Offisim --scope staged` risk medium, affected flows limited to Stage tab/id; commit `2c086abb` |
 | 3 pane + core viewers | done | `npx --yes pnpm@10.15.1 harness:stage-preview-targets` PASS (21/21); `npx --yes pnpm@10.15.1 harness:artifact-claim` PASS (16/16); `npx --yes pnpm@10.15.1 --filter @offisim/desktop-renderer typecheck` PASS; `npx --yes pnpm@10.15.1 --filter @offisim/desktop-renderer build` PASS; `npx --yes pnpm@10.15.1 validate > /tmp/offisim-validate-phase3-final.log 2>&1` exit 0; `npx --yes pnpm@10.15.1 --filter @offisim/desktop build` PASS; release `.app` spot-checked via Computer Use on pid `99860` for markdown raw/search, JSON tree, CSV table, HTML iframe, PNG image; screenshots in `Docs/evidence/2026-07-03-stage-preview/`; commit `1148b600` |
 | 4 doc/media/3D viewers | done | `npx --yes pnpm@10.15.1 harness:stage-preview-targets` PASS (27/27); `npx --yes pnpm@10.15.1 harness:doc-engine` PASS (8/8); `npx --yes pnpm@10.15.1 --filter @offisim/desktop-renderer typecheck` PASS; `npx --yes pnpm@10.15.1 --filter @offisim/desktop-renderer build` PASS; `npx --yes pnpm@10.15.1 validate > /tmp/offisim-validate-phase4-final.log 2>&1` exit 0; `npx --yes pnpm@10.15.1 --filter @offisim/desktop build` PASS; release `.app` checked via Computer Use on pid `73335` for PDF pages/search, DOCX HTML/raw, XLSX sheets, PPTX slides, MP4 play/seek, MP3 audio, GLB, VRM, CSV, JSON, HTML, PNG, unsupported codec and unsupported binary; screenshots in `Docs/evidence/2026-07-03-stage-preview/phase4-*.png` |
-| 5 computer contract | pending | |
+| 5 computer contract | done | `npx --yes pnpm@10.15.1 harness:computer-rich-detail` PASS (7/7); `npx --yes pnpm@10.15.1 harness:mcp-bridge-extension` PASS (22/22); `npx --yes pnpm@10.15.1 harness:mcp-host-channel` PASS (6/6); `npx --yes pnpm@10.15.1 harness:agent-run-projection` PASS (65/65); `npx --yes pnpm@10.15.1 harness:conversation-run-controller` PASS (16/16); `npx --yes pnpm@10.15.1 harness:pi-agent-host` PASS; `npx --yes pnpm@10.15.1 check:pi-wire-contract` PASS (`protocolVersion: 5`, 18 fixture lines); `npx --yes pnpm@10.15.1 --filter @offisim/desktop-renderer typecheck` PASS; `npx --yes pnpm@10.15.1 --filter @offisim/desktop-renderer build` PASS; `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml` PASS (141 tests); `npx --yes pnpm@10.15.1 validate > /tmp/offisim-validate-phase5-final.log 2>&1` exit 0 |
 | 6 computer tab + mock | pending | |
 | 7 live + matrix | pending | |

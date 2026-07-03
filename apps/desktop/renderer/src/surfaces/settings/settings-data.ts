@@ -48,6 +48,7 @@ type McpSource = 'user-config' | 'workspace' | 'defaults' | 'installed-asset' | 
 export interface McpServer {
   readonly id: string;
   readonly name: string;
+  readonly category?: 'computer-use';
   readonly transport: McpTransport;
   readonly status: McpStatus;
   readonly source: McpSource;
@@ -114,6 +115,7 @@ interface RegisteredMcpServerSummary {
   url?: string | null;
   source?: string | null;
   approvalId?: string | null;
+  category?: string | null;
   riskClass?: string | null;
   commandFingerprint?: string | null;
   requestedTools?: string[];
@@ -203,6 +205,7 @@ function mcpServerFromRegistered(
   return {
     id: server.serverId,
     name: server.name,
+    ...(server.category === 'computer-use' ? { category: 'computer-use' as const } : {}),
     transport: server.transport,
     status: mcpStatusFromRuntime(server, statuses),
     source: normalizeMcpSource(server.source),

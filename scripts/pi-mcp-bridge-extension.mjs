@@ -65,6 +65,7 @@ const CallParams = Type.Object({
  * @param {{ write?: boolean, annotations?: { readOnlyHint?: boolean, destructiveHint?: boolean } }} tool
  */
 export function isWriteMcpTool(tool) {
+  if (tool?.category === 'computer-use') return true;
   if (typeof tool?.write === 'boolean') return tool.write;
   const ann = tool?.annotations;
   return ann?.readOnlyHint === false || ann?.destructiveHint === true;
@@ -72,6 +73,82 @@ export function isWriteMcpTool(tool) {
 
 function textResult(text, isError = false) {
   return { content: [{ type: 'text', text }], ...(isError ? { isError: true } : {}) };
+}
+
+function pickString(...values) {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return undefined;
+}
+
+function pickNumber(...values) {
+  for (const value of values) {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+  }
+  return undefined;
+}
+
+function cappedText(value, max = 160) {
+  const text = pickString(value);
+  if (!text) return undefined;
+  const normalized = text.replace(/\s+/g, ' ');
+  return normalized.length > max ? normalized.slice(0, max) : normalized;
+}
+
+function firstImageBlock(content) {
+  if (!Array.isArray(content)) return undefined;
+  return content.find(
+    (item) =>
+      item &&
+      typeof item === 'object' &&
+      item.type === 'image' &&
+      typeof item.mimeType === 'string' &&
+      item.mimeType.startsWith('image/'),
+  );
+}
+
+function computerActionForTool(toolName, args) {
+  const name = String(toolName ?? '').toLowerCase();
+  const action = pickString(args?.action)?.toLowerCase();
+  const source = `${name} ${action ?? ''}`;
+  if (/screenshot|screen[_-]?shot|capture/.test(source)) return 'screenshot';
+  if (/click|tap/.test(source)) return 'click';
+  if (/type|input|insert|text/.test(source)) return 'type';
+  if (/key|press|hotkey/.test(source)) return 'key';
+  if (/scroll|wheel/.test(source)) return 'scroll';
+  if (/wait|sleep/.test(source)) return 'wait';
+  if (/drag/.test(source)) return 'drag';
+  if (/move|hover/.test(source)) return 'move';
+  return 'observe';
+}
+
+function coordinatesFromArgs(args) {
+  const coordinates = args?.coordinates && typeof args.coordinates === 'object' ? args.coordinates : {};
+  const x = pickNumber(args?.x, coordinates.x);
+  const y = pickNumber(args?.y, coordinates.y);
+  return x == null || y == null ? undefined : { x, y };
+}
+
+function computerDetailForMcpTool(tool, toolName, args, result) {
+  if (tool?.category !== 'computer-use') return undefined;
+  const image = firstImageBlock(result?.content);
+  const computer = {
+    action: computerActionForTool(toolName, args),
+    targetApp: pickString(args?.targetApp, args?.target_app, args?.app, args?.application, args?.bundleId),
+    targetWindow: pickString(args?.targetWindow, args?.target_window, args?.window, args?.windowTitle),
+    url: pickString(args?.url),
+    coordinates: coordinatesFromArgs(args),
+    textPreview: cappedText(args?.text ?? args?.value ?? args?.input),
+    resultState: result?.ok === true && result?.isError !== true ? 'ok' : 'failed',
+    artifactPaths: Array.isArray(result?.artifactPaths)
+      ? result.artifactPaths.filter((item) => typeof item === 'string' && item.length > 0)
+      : undefined,
+  };
+  for (const key of Object.keys(computer)) {
+    if (computer[key] === undefined) delete computer[key];
+  }
+  return { computer, ...(image ? { image } : {}) };
 }
 
 function normalizedCallArgs(params) {
@@ -131,7 +208,7 @@ function approvalLookupKeys({ server, name, toolCallId, args }) {
 
 /**
  * Build the MCP bridge extension factory.
- * @param {{ mcpTools: Array<{name:string, server:string, description?:string, inputSchema?:object, annotations?:object, write?:boolean}>, requestMcpResult: (server:string, tool:string, args:object) => Promise<{id:string, ok:boolean, content?:unknown, isError?:boolean, error?:string}>, emit?: (line: object) => void, threadId?: string, rootRunId?: string, employeeId?: string }} deps
+ * @param {{ mcpTools: Array<{name:string, server:string, description?:string, inputSchema?:object, annotations?:object, write?:boolean, category?:string}>, requestMcpResult: (server:string, tool:string, args:object) => Promise<{id:string, ok:boolean, content?:unknown, isError?:boolean, error?:string, artifactPaths?:string[]}>, emit?: (line: object) => void, threadId?: string, rootRunId?: string, employeeId?: string }} deps
  */
 export function createMcpBridgeExtensionFactory({
   mcpTools,
@@ -257,8 +334,9 @@ export function createMcpBridgeExtensionFactory({
         }
         const lines = matches.map((t) => {
           const rw = isWriteMcpTool(t) ? 'write' : 'read';
+          const category = t.category ? `, ${t.category}` : '';
           const desc = (t.description ?? '').split('\n')[0].slice(0, 120);
-          return `- ${t.name} [${t.server}, ${rw}]${desc ? `: ${desc}` : ''}`;
+          return `- ${t.name} [${t.server}, ${rw}${category}]${desc ? `: ${desc}` : ''}`;
         });
         return textResult(`${matches.length} MCP tool(s):\n${lines.join('\n')}`);
       },
@@ -281,6 +359,7 @@ export function createMcpBridgeExtensionFactory({
               server: tool.server,
               description: tool.description ?? '',
               write: isWriteMcpTool(tool),
+              ...(tool.category ? { category: tool.category } : {}),
               inputSchema: tool.inputSchema ?? {},
               annotations: tool.annotations ?? {},
             },
@@ -336,6 +415,7 @@ export function createMcpBridgeExtensionFactory({
         const startedAt = Date.now();
         const result = await requestMcpResult(tool.server, name, args);
         const latencyMs = Math.max(0, Date.now() - startedAt);
+        const computerDetail = computerDetailForMcpTool(tool, name, args, result);
         emitMcpAuditLine({
           emit,
           threadId,
@@ -348,14 +428,18 @@ export function createMcpBridgeExtensionFactory({
           latencyMs,
           write,
           approvalStatus: write ? 'human_approved' : 'not_required',
+          computerDetail,
         });
         if (!result || result.ok !== true) {
-          return textResult(`MCP call failed: ${result?.error ?? 'unknown error'}`, true);
+          return {
+            ...textResult(`MCP call failed: ${result?.error ?? 'unknown error'}`, true),
+            ...(computerDetail ?? {}),
+          };
         }
         const content = Array.isArray(result.content)
           ? result.content
           : [{ type: 'text', text: JSON.stringify(result.content ?? null) }];
-        return { content, ...(result.isError ? { isError: true } : {}) };
+        return { content, ...(result.isError ? { isError: true } : {}), ...(computerDetail ?? {}) };
       },
     });
   };
@@ -373,6 +457,7 @@ function emitMcpAuditLine({
   latencyMs,
   write,
   approvalStatus,
+  computerDetail,
 }) {
   if (typeof emit !== 'function' || !threadId || !rootRunId) return;
   emit(
@@ -387,6 +472,7 @@ function emitMcpAuditLine({
         tool: toolName,
         arguments: args,
         result: result?.ok === true ? { content: result.content ?? null } : null,
+        ...(computerDetail ? { computer: computerDetail.computer } : {}),
         isError: result?.ok === true ? result.isError === true : true,
         error: result?.ok === true ? null : (result?.error ?? 'unknown error'),
         latencyMs,

@@ -22,10 +22,11 @@ import {
   isWriteMcpTool,
   MCP_APPROVAL_TOKEN_TTL_MS,
 } from './pi-mcp-bridge-extension.mjs';
+import { parseToolRichDetail } from '../packages/shared-types/src/index.js';
 
 let passed = 0;
 let failed = 0;
-const TOTAL = 19;
+const TOTAL = 22;
 
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
   try {
@@ -68,6 +69,13 @@ const WRITE_TOOL = {
   server: 'filesystem',
   description: 'Write a file.',
   annotations: { readOnlyHint: false, destructiveHint: true },
+};
+const COMPUTER_TOOL = {
+  name: 'computer_click',
+  server: 'cua-driver',
+  category: 'computer-use',
+  description: 'Click a coordinate in a target app.',
+  annotations: { readOnlyHint: true },
 };
 
 function build(mcpTools: Tool[], requestMcpResult: (s: string, t: string, a: object) => Promise<unknown>) {
@@ -267,6 +275,7 @@ async function main(): Promise<void> {
     assert.equal(isWriteMcpTool({ annotations: { readOnlyHint: false } }), true);
     assert.equal(isWriteMcpTool({ annotations: { destructiveHint: true } }), true);
     assert.equal(isWriteMcpTool({ annotations: { readOnlyHint: true } }), false);
+    assert.equal(isWriteMcpTool({ category: 'computer-use', annotations: { readOnlyHint: true } }), true);
     assert.equal(isWriteMcpTool({}), false, 'unknown annotations fall back to read');
   });
 
@@ -480,6 +489,67 @@ async function main(): Promise<void> {
     assert.equal(first.isError, undefined);
     assert.equal(second.isError, true);
     assert.equal(calls, 1, 'retry without a new approval must not call the server');
+  });
+
+  await check('(19) bridge:computer-category-tags-detail', async () => {
+    const env = build([COMPUTER_TOOL], async () => ({
+      ok: true,
+      content: [{ type: 'text', text: 'clicked' }],
+    }));
+    const input = {
+      name: 'computer_click',
+      input: { targetApp: 'Safari', targetWindow: 'Example', coordinates: { x: 12, y: 34 } },
+    };
+    await env.handler()!(
+      { toolName: 'mcp_call', toolCallId: 'call-computer', input },
+      { ui: { confirm: async () => true } },
+    );
+    const res = await env.tool('mcp_call').execute('call-computer', input);
+    assert.equal((res as { computer?: { action?: string } }).computer?.action, 'click');
+    const rich = parseToolRichDetail('mcp_call', JSON.stringify({ result: res }));
+    assert.equal(rich.family, 'computer');
+    if (rich.family !== 'computer') return;
+    assert.equal(rich.targetApp, 'Safari');
+    assert.deepEqual(rich.coordinates, { x: 12, y: 34 });
+    assert.equal(rich.resultState, 'ok');
+  });
+
+  await check('(20) bridge:non-computer-tools-untouched', async () => {
+    const { tool } = build([READ_TOOL], async () => ({
+      ok: true,
+      content: [{ type: 'text', text: 'file body' }],
+    }));
+    const res = await tool('mcp_call').execute('read', { name: 'read_file', input: { path: 'a' } });
+    assert.equal((res as { computer?: unknown }).computer, undefined);
+    const rich = parseToolRichDetail('mcp_call', JSON.stringify({ result: res }));
+    assert.equal(rich.family, 'generic');
+  });
+
+  await check('(21) bridge:screenshot-image-block-passthrough', async () => {
+    const screenshotTool = { ...COMPUTER_TOOL, name: 'computer_screenshot' };
+    const env = build([screenshotTool], async () => ({
+      ok: true,
+      content: [{ type: 'image', mimeType: 'image/png', data: 'aGVsbG8=' }],
+    }));
+    const input = { name: 'computer_screenshot', input: { targetApp: 'Safari' } };
+    await env.handler()!(
+      { toolName: 'mcp_call', toolCallId: 'call-shot', input },
+      { ui: { confirm: async () => true } },
+    );
+    const res = await env.tool('mcp_call').execute('call-shot', input);
+    assert.deepEqual((res as { image?: unknown }).image, {
+      type: 'image',
+      mimeType: 'image/png',
+      data: 'aGVsbG8=',
+    });
+    const rich = parseToolRichDetail('mcp_call', JSON.stringify({ result: res }));
+    assert.equal(rich.family, 'computer');
+    if (rich.family !== 'computer') return;
+    assert.equal(rich.action, 'screenshot');
+    assert.deepEqual(rich.screenshot, {
+      mimeType: 'image/png',
+      dataRef: 'data:image/png;base64,aGVsbG8=',
+    });
   });
 
   console.log(`\n${passed}/${TOTAL} checks passed${failed ? `, ${failed} FAILED` : ''}.`);

@@ -109,6 +109,8 @@ export type AgentRunEventType =
   | 'tool.completed' // carries status: completed | failed
   | 'artifact.created'
   | 'approval.requested'
+  | 'computer.target.selected'
+  | 'computer.sensitive.paused'
   | 'run.completed'
   | 'run.failed'
   | 'run.cancelled';
@@ -178,6 +180,16 @@ export interface AgentRunApprovalPayload {
   readonly message?: string;
 }
 
+export interface AgentRunComputerTargetPayload {
+  readonly targetApp: string;
+  readonly targetWindow?: string;
+}
+
+export interface AgentRunComputerSensitivePausePayload {
+  readonly reason: 'external-navigation' | 'download' | 'credential-field' | 'destructive';
+  readonly detail?: string;
+}
+
 export interface AgentRunFinishedPayload {
   readonly status: AgentRunStatus;
   readonly summary?: string;
@@ -194,6 +206,11 @@ export type AgentRunEvent = AgentRunScopeFields &
     | { readonly type: 'tool.started' | 'tool.completed'; readonly payload: AgentRunToolPayload }
     | { readonly type: 'artifact.created'; readonly payload: AgentRunArtifactPayload }
     | { readonly type: 'approval.requested'; readonly payload: AgentRunApprovalPayload }
+    | { readonly type: 'computer.target.selected'; readonly payload: AgentRunComputerTargetPayload }
+    | {
+        readonly type: 'computer.sensitive.paused';
+        readonly payload: AgentRunComputerSensitivePausePayload;
+      }
     | {
         readonly type: 'run.completed' | 'run.failed' | 'run.cancelled';
         readonly payload: AgentRunFinishedPayload;
@@ -254,7 +271,7 @@ export function classifyToolActivity(toolName: string): ActivityKind {
 }
 
 /** Coarse rendering family for a tool's rich detail view (D1). */
-export type ToolFamily = 'terminal' | 'file' | 'search' | 'browser' | 'generic';
+export type ToolFamily = 'terminal' | 'file' | 'search' | 'browser' | 'computer' | 'generic';
 
 /** Map an {@link ActivityKind} to its rich-view {@link ToolFamily}. */
 export function toolFamily(kind: ActivityKind): ToolFamily {
@@ -293,6 +310,27 @@ export type ToolRichDetail =
       readonly url?: string;
       readonly title?: string;
       readonly screenshot?: { readonly mimeType: string; readonly dataRef: string };
+    }
+  | {
+      readonly family: 'computer';
+      readonly action?:
+        | 'click'
+        | 'type'
+        | 'key'
+        | 'scroll'
+        | 'wait'
+        | 'screenshot'
+        | 'observe'
+        | 'drag'
+        | 'move';
+      readonly targetApp?: string;
+      readonly targetWindow?: string;
+      readonly url?: string;
+      readonly coordinates?: { readonly x: number; readonly y: number };
+      readonly textPreview?: string;
+      readonly resultState?: 'ok' | 'failed' | 'pending';
+      readonly screenshot?: { readonly mimeType: string; readonly dataRef: string };
+      readonly artifactPaths?: readonly string[];
     }
   | { readonly family: 'generic'; readonly text?: string };
 
@@ -334,6 +372,13 @@ function pickNumber(...values: unknown[]): number | undefined {
     if (typeof v === 'number' && Number.isFinite(v)) return v;
   }
   return undefined;
+}
+
+function cappedString(value: unknown, max: number): string | undefined {
+  if (typeof value !== 'string' || value.length === 0) return undefined;
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  if (!normalized) return undefined;
+  return normalized.length > max ? normalized.slice(0, max) : normalized;
 }
 
 function contentTextFrom(value: unknown): string | undefined {
@@ -385,6 +430,18 @@ function isImageBlock(value: unknown): value is Record<string, unknown> {
     typeof record.mimeType === 'string' &&
     record.mimeType.startsWith('image/')
   );
+}
+
+function screenshotFromImageValue(
+  value: unknown,
+): { readonly mimeType: string; readonly dataRef: string } | undefined {
+  const record = pickRecord(value);
+  const mimeType = pickString(record?.mimeType, record?.mime_type);
+  if (!mimeType?.startsWith('image/')) return undefined;
+  const data = pickString(record?.data);
+  const existingRef = pickString(record?.dataRef, record?.data_ref, record?.uri, record?.url);
+  const dataRef = data ? `data:${mimeType};base64,${data}` : existingRef;
+  return dataRef ? { mimeType, dataRef } : undefined;
 }
 
 function textBlocksFrom(blocks: readonly unknown[]): string[] {
@@ -444,6 +501,80 @@ function browserDetailFrom(value: unknown): Extract<ToolRichDetail, { family: 'b
   };
 }
 
+function computerActionFrom(value: unknown): Extract<ToolRichDetail, { family: 'computer' }>['action'] {
+  switch (value) {
+    case 'click':
+    case 'type':
+    case 'key':
+    case 'scroll':
+    case 'wait':
+    case 'screenshot':
+    case 'observe':
+    case 'drag':
+    case 'move':
+      return value;
+    default:
+      return undefined;
+  }
+}
+
+function computerResultStateFrom(
+  value: unknown,
+): Extract<ToolRichDetail, { family: 'computer' }>['resultState'] {
+  switch (value) {
+    case 'ok':
+    case 'failed':
+    case 'pending':
+      return value;
+    default:
+      return undefined;
+  }
+}
+
+function computerCoordinatesFrom(
+  value: unknown,
+): { readonly x: number; readonly y: number } | undefined {
+  const record = pickRecord(value);
+  const x = pickNumber(record?.x);
+  const y = pickNumber(record?.y);
+  return x == null || y == null ? undefined : { x, y };
+}
+
+function computerDetailFrom(value: unknown): Extract<ToolRichDetail, { family: 'computer' }> | null {
+  const root = pickRecord(value);
+  const result = pickRecord(root?.result);
+  const partialResult = pickRecord(root?.partialResult);
+  const container = pickRecord(root?.computer)
+    ? root
+    : pickRecord(result?.computer)
+      ? result
+      : pickRecord(partialResult?.computer)
+        ? partialResult
+        : null;
+  const computer = pickRecord(container?.computer);
+  if (!computer) return null;
+  const blocks = contentBlocksFrom(container);
+  const screenshot =
+    screenshotFromImageValue(computer.screenshot) ??
+    screenshotFromImageValue(container?.image) ??
+    screenshotFromImageValue(blocks?.find(isImageBlock));
+  const artifactPaths = Array.isArray(computer.artifactPaths)
+    ? computer.artifactPaths.filter((item): item is string => typeof item === 'string' && item.length > 0)
+    : undefined;
+  return {
+    family: 'computer',
+    ...(computerActionFrom(computer.action) ? { action: computerActionFrom(computer.action) } : {}),
+    ...(pickString(computer.targetApp, computer.target_app) ? { targetApp: pickString(computer.targetApp, computer.target_app) } : {}),
+    ...(pickString(computer.targetWindow, computer.target_window) ? { targetWindow: pickString(computer.targetWindow, computer.target_window) } : {}),
+    ...(pickString(computer.url) ? { url: pickString(computer.url) } : {}),
+    ...(computerCoordinatesFrom(computer.coordinates) ? { coordinates: computerCoordinatesFrom(computer.coordinates) } : {}),
+    ...(cappedString(computer.textPreview ?? computer.text_preview, 160) ? { textPreview: cappedString(computer.textPreview ?? computer.text_preview, 160) } : {}),
+    ...(computerResultStateFrom(computer.resultState ?? computer.result_state) ? { resultState: computerResultStateFrom(computer.resultState ?? computer.result_state) } : {}),
+    ...(screenshot ? { screenshot } : {}),
+    ...(artifactPaths && artifactPaths.length > 0 ? { artifactPaths } : {}),
+  };
+}
+
 /**
  * Parse a tool event's opaque `detail` JSON (the host emits `JSON.stringify` of
  * the tool args on `started` and the result on `completed`) into a
@@ -455,6 +586,8 @@ function browserDetailFrom(value: unknown): Extract<ToolRichDetail, { family: 'b
 export function parseToolRichDetail(toolName: string, detail?: string): ToolRichDetail {
   const family = toolFamily(classifyToolActivity(toolName));
   const detailValue = parseDetailValue(detail);
+  const computer = computerDetailFrom(detailValue);
+  if (computer) return computer;
   const browser = browserDetailFrom(detailValue);
   if (browser) return browser;
   const d = pickRecord(detailValue);
@@ -545,6 +678,61 @@ export function parseToolRichDetail(toolName: string, detail?: string): ToolRich
     };
   }
   return { family: 'generic', text: summarize(detail) };
+}
+
+export function mergeToolRichDetail(
+  previous: ToolRichDetail | undefined,
+  next: ToolRichDetail,
+): ToolRichDetail {
+  if (!previous || previous.family !== next.family) return next;
+  if (next.family === 'terminal' && previous.family === 'terminal') {
+    return {
+      family: 'terminal',
+      command: next.command ?? previous.command,
+      exitCode: next.exitCode ?? previous.exitCode,
+      outputSummary: next.outputSummary ?? previous.outputSummary,
+    };
+  }
+  if (next.family === 'file' && previous.family === 'file') {
+    return {
+      family: 'file',
+      path: next.path ?? previous.path,
+      summary: next.summary ?? previous.summary,
+    };
+  }
+  if (next.family === 'search' && previous.family === 'search') {
+    return {
+      family: 'search',
+      query: next.query ?? previous.query,
+      hitCount: next.hitCount ?? previous.hitCount,
+    };
+  }
+  if (next.family === 'browser' && previous.family === 'browser') {
+    return {
+      family: 'browser',
+      url: next.url ?? previous.url,
+      title: next.title ?? previous.title,
+      screenshot: next.screenshot ?? previous.screenshot,
+    };
+  }
+  if (next.family === 'computer' && previous.family === 'computer') {
+    return {
+      family: 'computer',
+      action: next.action ?? previous.action,
+      targetApp: next.targetApp ?? previous.targetApp,
+      targetWindow: next.targetWindow ?? previous.targetWindow,
+      url: next.url ?? previous.url,
+      coordinates: next.coordinates ?? previous.coordinates,
+      textPreview: next.textPreview ?? previous.textPreview,
+      resultState: next.resultState ?? previous.resultState,
+      screenshot: next.screenshot ?? previous.screenshot,
+      artifactPaths: next.artifactPaths ?? previous.artifactPaths,
+    };
+  }
+  if (next.family === 'generic' && previous.family === 'generic') {
+    return { family: 'generic', text: next.text ?? previous.text };
+  }
+  return next;
 }
 
 /**

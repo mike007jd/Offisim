@@ -679,6 +679,8 @@ const EVENT_RANK: Record<AgentRunEventType, number> = {
   'tool.completed': 3,
   'artifact.created': 4,
   'approval.requested': 5,
+  'computer.target.selected': 5,
+  'computer.sensitive.paused': 5,
   'run.completed': 6,
   'run.failed': 6,
   'run.cancelled': 6,

@@ -182,6 +182,8 @@ export function projectAgentRun(events: readonly AgentRunEvent[]): AgentRunProje
         });
         break;
       }
+      case 'computer.target.selected':
+      case 'computer.sensitive.paused':
       case 'run.delta':
         break;
     }

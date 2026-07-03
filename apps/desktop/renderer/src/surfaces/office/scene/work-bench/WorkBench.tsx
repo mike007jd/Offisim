@@ -37,6 +37,7 @@ export function WorkBench({
       {detail.family === 'file' ? <FileBench detail={detail} /> : null}
       {detail.family === 'search' ? <SearchBench detail={detail} /> : null}
       {detail.family === 'browser' ? <BrowserBench detail={detail} /> : null}
+      {detail.family === 'computer' ? <ComputerBench detail={detail} /> : null}
       {detail.family === 'generic' ? <GenericBench detail={detail} /> : null}
     </div>
   );
@@ -124,6 +125,47 @@ function BrowserBench({ detail }: { detail: Extract<ToolRichDetail, { family: 'b
       ) : (
         <span className="off-work-bench-muted">Waiting for screenshot</span>
       )}
+    </div>
+  );
+}
+
+function ComputerBench({ detail }: { detail: Extract<ToolRichDetail, { family: 'computer' }> }) {
+  const dataRef = detail.screenshot?.dataRef;
+  const isInlineImage = dataRef?.startsWith('data:') === true;
+  return (
+    <div className="off-work-bench-body off-work-bench-computer">
+      <span className="off-work-bench-action">{detail.action ?? 'observe'}</span>
+      {detail.resultState ? (
+        <span className={cn('off-work-bench-result', `is-${detail.resultState}`)}>
+          {detail.resultState}
+        </span>
+      ) : null}
+      {detail.targetApp || detail.targetWindow ? (
+        <code className="off-work-bench-target">
+          {[detail.targetApp, detail.targetWindow].filter(Boolean).join(' / ')}
+        </code>
+      ) : null}
+      {detail.coordinates ? (
+        <code className="off-work-bench-coordinates">
+          x {detail.coordinates.x} y {detail.coordinates.y}
+        </code>
+      ) : null}
+      {detail.textPreview ? (
+        <span className="off-work-bench-copy">{detail.textPreview}</span>
+      ) : null}
+      {detail.screenshot ? (
+        isInlineImage ? (
+          <img
+            className="off-work-bench-shot"
+            src={dataRef}
+            alt={detail.targetApp ?? detail.targetWindow ?? 'Computer screenshot'}
+          />
+        ) : (
+          <span className="off-work-bench-shot-ref">
+            {detail.screenshot.mimeType} screenshot
+          </span>
+        )
+      ) : null}
     </div>
   );
 }
