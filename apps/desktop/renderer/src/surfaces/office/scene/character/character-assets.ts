@@ -72,7 +72,7 @@ const PRELOADED_URLS: readonly string[] = [
 ];
 
 /**
- * Suspense-cached glTF load with the meshopt decoder wired in. Equivalent to
+ * Suspense-cached glTF load with the meshopt decoder enabled. Equivalent to
  * drei's `useGLTF` minus its DRACO path — drei hardcodes a `www.gstatic.com`
  * DRACO decoder URL constant that would put a CDN reference into the desktop
  * bundle; the character set is meshopt-only, so we load through fiber's

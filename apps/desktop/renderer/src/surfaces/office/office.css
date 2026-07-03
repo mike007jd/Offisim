@@ -890,7 +890,8 @@
    a new claim lands (recentCount increase). Transition only; the information
    (chip + ×N) is carried statically. */
 .off-scene-delivery .off-scene-delivery-shelf {
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  transition: border-color var(--off-motion-slow) var(--off-motion-ease),
+    box-shadow var(--off-motion-slow) var(--off-motion-ease);
 }
 
 .off-scene-delivery.is-arrived .off-scene-delivery-shelf {
@@ -954,7 +955,7 @@
   content: "";
   width: 4px;
   height: 4px;
-  border-radius: 50%;
+  border-radius: var(--off-r-round);
   background: var(--off-ink-5);
 }
 
@@ -1812,7 +1813,7 @@
 .off-csv-scroll th {
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: var(--off-z-base);
   background: var(--off-surface-2);
   color: var(--off-ink-1);
   text-align: left;
@@ -1886,7 +1887,7 @@
 .off-pdf-page canvas {
   max-width: 100%;
   border: 1px solid var(--off-line);
-  background: #fff;
+  background: var(--off-surface-1);
   box-shadow: var(--off-elev-2);
 }
 
@@ -1966,7 +1967,7 @@
 .off-media-stage video {
   width: min(100%, 960px);
   max-height: 100%;
-  background: #000;
+  background: var(--off-ink-1);
 }
 
 .off-media-stage audio {

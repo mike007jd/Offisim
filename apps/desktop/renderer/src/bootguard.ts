@@ -21,24 +21,24 @@ function ensureMount() {
   mount.style.cssText = [
     'position:fixed',
     'inset:0',
-    'z-index:2147483647',
+    'z-index:var(--off-z-emergency)',
     'display:flex',
     'align-items:center',
     'justify-content:center',
-    'background:#f6f8fb',
-    'color:#101827',
-    'font:14px/1.5 -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif',
+    'background:var(--off-bg)',
+    'color:var(--off-ink-1)',
+    'font:var(--off-fs-md)/1.5 var(--off-font-sans)',
     'padding:32px',
     'box-sizing:border-box',
   ].join(';');
   const panel = document.createElement('div');
   panel.style.cssText = [
     'max-width:640px',
-    'border:1px solid #cfd7e3',
-    'background:#ffffff',
-    'border-radius:8px',
+    'border:1px solid var(--off-line-strong)',
+    'background:var(--off-surface-1)',
+    'border-radius:var(--off-r-sm)',
     'padding:18px 20px',
-    'box-shadow:0 16px 40px rgba(15,23,42,.12)',
+    'box-shadow:var(--off-elev-3)',
   ].join(';');
   const title = document.createElement('div');
   title.id = 'offisim-bootguard-title';
@@ -46,7 +46,7 @@ function ensureMount() {
   title.textContent = 'Loading Offisim';
   const body = document.createElement('div');
   body.id = 'offisim-bootguard-body';
-  body.style.cssText = 'white-space:pre-wrap;color:#465264';
+  body.style.cssText = 'white-space:pre-wrap;color:var(--off-ink-2)';
   body.textContent = 'Opening the local company workspace.';
   panel.appendChild(title);
   panel.appendChild(body);
