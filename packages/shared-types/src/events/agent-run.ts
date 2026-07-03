@@ -110,6 +110,9 @@ export type AgentRunEventType =
   | 'artifact.created'
   | 'approval.requested'
   | 'computer.target.selected'
+  // Wire contract only (protocol v5): no producer emits this yet. The live
+  // safety gate for computer-use today is the write-class MCP approval flow;
+  // driver-signalled sensitive pauses are future work.
   | 'computer.sensitive.paused'
   | 'run.completed'
   | 'run.failed'
@@ -381,6 +384,20 @@ function cappedString(value: unknown, max: number): string | undefined {
   return normalized.length > max ? normalized.slice(0, max) : normalized;
 }
 
+const SENSITIVE_KEY_VALUE_PATTERN =
+  /\b(password|passwd|pwd|passphrase|secret|token|api[_-]?key|access[_-]?key|client[_-]?secret|private[_-]?key|bearer|authorization)\b(\s*[:=]\s*|\s+)(\S+)/gi;
+const SENSITIVE_TOKEN_PATTERN =
+  /\b(sk-[A-Za-z0-9_-]{8,}|ghp_[A-Za-z0-9]{8,}|gho_[A-Za-z0-9]{8,}|github_pat_[A-Za-z0-9_]{8,}|xox[baprs]-[A-Za-z0-9-]{8,}|AKIA[0-9A-Z]{12,}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,})\b/g;
+
+/** Mask credential-shaped content in computer-use text previews; the raw typed
+ * text must never reach the UI or exported traces. Mirrored in
+ * `scripts/pi-mcp-bridge-extension.mjs` (emit side). */
+function redactSensitiveText(text: string): string {
+  return text
+    .replace(SENSITIVE_KEY_VALUE_PATTERN, (_match, key: string, sep: string) => `${key}${sep}•••`)
+    .replace(SENSITIVE_TOKEN_PATTERN, '•••');
+}
+
 function contentTextFrom(value: unknown): string | undefined {
   if (typeof value === 'string' && value.trim()) return value;
   if (Array.isArray(value)) {
@@ -568,7 +585,10 @@ function computerDetailFrom(value: unknown): Extract<ToolRichDetail, { family: '
     ...(pickString(computer.targetWindow, computer.target_window) ? { targetWindow: pickString(computer.targetWindow, computer.target_window) } : {}),
     ...(pickString(computer.url) ? { url: pickString(computer.url) } : {}),
     ...(computerCoordinatesFrom(computer.coordinates) ? { coordinates: computerCoordinatesFrom(computer.coordinates) } : {}),
-    ...(cappedString(computer.textPreview ?? computer.text_preview, 160) ? { textPreview: cappedString(computer.textPreview ?? computer.text_preview, 160) } : {}),
+    ...(() => {
+      const preview = cappedString(computer.textPreview ?? computer.text_preview, 160);
+      return preview ? { textPreview: redactSensitiveText(preview) } : {};
+    })(),
     ...(computerResultStateFrom(computer.resultState ?? computer.result_state) ? { resultState: computerResultStateFrom(computer.resultState ?? computer.result_state) } : {}),
     ...(screenshot ? { screenshot } : {}),
     ...(artifactPaths && artifactPaths.length > 0 ? { artifactPaths } : {}),

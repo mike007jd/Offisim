@@ -63,8 +63,6 @@ export function SheetViewer({
   if (state.parsed.kind !== 'xlsx') {
     return <UnsupportedViewer resolved={resolved} data={{ mode: 'none', reason: 'Workbook parser did not return XLSX sheets.' }} />;
   }
-  if (raw && sheet) return <TextViewer text={sheet.csv} languageLabel={sheet.name} />;
-
   return (
     <div className="off-sheet-viewer">
       <div className="off-preview-text-tools">
@@ -72,7 +70,7 @@ export function SheetViewer({
           <button
             key={item.name}
             type="button"
-            className={index === activeSheet ? 'is-active' : undefined}
+            className={index === activeSheet && !raw ? 'is-active' : undefined}
             onClick={() => {
               setActiveSheet(index);
               setRaw(false);
@@ -82,11 +80,15 @@ export function SheetViewer({
           </button>
         ))}
         {sheet ? <span>{sheet.rowCount.toLocaleString()} rows</span> : null}
-        <button type="button" disabled={!sheet} onClick={() => setRaw(true)}>
-          Raw
+        <button type="button" disabled={!sheet} onClick={() => setRaw(!raw)}>
+          {raw ? 'Table' : 'Raw'}
         </button>
       </div>
-      <DataTable rows={rows} emptyLabel="No cells in this sheet" />
+      {raw && sheet ? (
+        <TextViewer text={sheet.csv} languageLabel={sheet.name} />
+      ) : (
+        <DataTable rows={rows} emptyLabel="No cells in this sheet" />
+      )}
     </div>
   );
 }

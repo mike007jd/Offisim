@@ -1520,6 +1520,19 @@
   font-size: var(--off-fs-micro);
 }
 
+.off-preview-trust {
+  margin-left: var(--off-sp-2);
+  padding: 1px var(--off-sp-2);
+  border: 1px solid color-mix(in oklab, var(--off-accent) 30%, var(--off-line-soft));
+  border-radius: var(--off-r-xs);
+  background: var(--off-accent-surface);
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-2xs);
+  font-style: normal;
+  font-weight: 640;
+  vertical-align: 1px;
+}
+
 .off-preview-actions {
   flex: none;
   display: flex;
@@ -1583,8 +1596,38 @@
   min-width: 0;
   min-height: 0;
   height: 100%;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
+}
+
+.off-preview-text-tools,
+.off-structured-tools,
+.off-image-tools,
+.off-preview-banner {
+  flex: none;
+}
+
+.off-preview-text-scroll,
+.off-structured-scroll,
+.off-markdown-scroll,
+.off-csv-scroll,
+.off-pdf-shell,
+.off-doc-scroll,
+.off-slides-scroll,
+.off-media-stage,
+.off-model-canvas,
+.off-image-canvas {
+  flex: 1 1 0;
+}
+
+.off-structured-shell > .off-preview-text,
+.off-csv-viewer > .off-preview-text,
+.off-doc-viewer > .off-preview-text,
+.off-sheet-viewer > .off-preview-text,
+.off-slides-viewer > .off-preview-text {
+  height: auto;
+  flex: 1 1 0;
+  min-height: 0;
 }
 
 .off-preview-text-tools,

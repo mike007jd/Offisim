@@ -9,11 +9,15 @@ export function HtmlViewer({
   data: Extract<PreviewData, { mode: 'inline-html' | 'url' | 'screenshot' }>;
 }) {
   if (data.mode === 'inline-html') {
+    // Scripts run only for AI-generated deliverables (interactive HTML reports).
+    // Workspace and computer-use artifacts can be arbitrary saved web pages;
+    // their scripts would inherit the app CSP's broad https: egress.
+    const allowScripts = resolved.trustLevel === 'generated';
     return (
       <iframe
         className="off-stage-preview-frame"
         title={resolved.meta.title}
-        sandbox="allow-forms allow-scripts"
+        sandbox={allowScripts ? 'allow-forms allow-scripts' : 'allow-forms'}
         srcDoc={data.html}
       />
     );

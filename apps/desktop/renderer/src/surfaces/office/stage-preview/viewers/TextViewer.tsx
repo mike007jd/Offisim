@@ -94,6 +94,8 @@ export function TextViewer({
           {virtualizer.getVirtualItems().map((item) => (
             <div
               key={item.key}
+              ref={virtualizer.measureElement}
+              data-index={item.index}
               className={cn('off-preview-line', activeLine === item.index && 'is-match')}
               style={{ transform: `translateY(${item.start}px)` }}
             >

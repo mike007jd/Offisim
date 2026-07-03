@@ -75,19 +75,21 @@ export function DocViewer({
   if (state.parsed.kind !== 'docx') {
     return <UnsupportedViewer resolved={resolved} data={{ mode: 'none', reason: 'Document parser did not return DOCX content.' }} />;
   }
-  if (raw) return <TextViewer text={state.parsed.text} languageLabel="DOCX text" />;
-
   return (
     <div className="off-doc-viewer">
       <div className="off-preview-text-tools">
         <span>DOCX</span>
-        <button type="button" onClick={() => setRaw(true)}>
-          Raw
+        <button type="button" onClick={() => setRaw(!raw)}>
+          {raw ? 'Rendered' : 'Raw'}
         </button>
       </div>
-      <div className="off-doc-scroll">
-        <div className="off-doc-html" dangerouslySetInnerHTML={{ __html: safeHtml }} />
-      </div>
+      {raw ? (
+        <TextViewer text={state.parsed.text} languageLabel="DOCX text" />
+      ) : (
+        <div className="off-doc-scroll">
+          <div className="off-doc-html" dangerouslySetInnerHTML={{ __html: safeHtml }} />
+        </div>
+      )}
     </div>
   );
 }

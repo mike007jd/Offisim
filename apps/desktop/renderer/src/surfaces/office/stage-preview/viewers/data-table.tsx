@@ -17,9 +17,13 @@ export function DataTable({ rows, emptyLabel = 'No rows' }: { rows: string[][]; 
     return <div className="off-preview-empty-note">{emptyLabel}</div>;
   }
 
+  // Wide sheets get a per-column floor so columns stay readable and the
+  // container scrolls horizontally instead of crushing every cell.
+  const minWidth = columns > 6 ? `${columns * 120}px` : undefined;
+
   return (
     <div ref={scrollRef} className="off-csv-scroll">
-      <table>
+      <table style={{ minWidth }}>
         <thead>
           <tr>
             {Array.from({ length: columns }, (_, index) => (
@@ -28,7 +32,7 @@ export function DataTable({ rows, emptyLabel = 'No rows' }: { rows: string[][]; 
           </tr>
         </thead>
       </table>
-      <div style={{ height: `${virtualizer.getTotalSize()}px` }} className="off-csv-body">
+      <div style={{ height: `${virtualizer.getTotalSize()}px`, minWidth }} className="off-csv-body">
         {virtualizer.getVirtualItems().map((item) => {
           const row = body[item.index] ?? [];
           return (

@@ -101,6 +101,20 @@ function cappedText(value, max = 160) {
   return normalized.length > max ? normalized.slice(0, max) : normalized;
 }
 
+const SENSITIVE_KEY_VALUE_PATTERN =
+  /\b(password|passwd|pwd|passphrase|secret|token|api[_-]?key|access[_-]?key|client[_-]?secret|private[_-]?key|bearer|authorization)\b(\s*[:=]\s*|\s+)(\S+)/gi;
+const SENSITIVE_TOKEN_PATTERN =
+  /\b(sk-[A-Za-z0-9_-]{8,}|ghp_[A-Za-z0-9]{8,}|gho_[A-Za-z0-9]{8,}|github_pat_[A-Za-z0-9_]{8,}|xox[baprs]-[A-Za-z0-9-]{8,}|AKIA[0-9A-Z]{12,}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,})\b/g;
+
+// Mask credential-shaped content before the typed text leaves the host.
+// Mirrored in shared-types agent-run.ts (parse side).
+function redactSensitiveText(text) {
+  if (!text) return text;
+  return text
+    .replace(SENSITIVE_KEY_VALUE_PATTERN, (_match, key, sep) => `${key}${sep}•••`)
+    .replace(SENSITIVE_TOKEN_PATTERN, '•••');
+}
+
 function firstImageBlock(content) {
   if (!Array.isArray(content)) return undefined;
   return content.find(
@@ -156,7 +170,7 @@ function computerDetailForMcpTool(tool, toolName, args, result) {
     ),
     url: pickString(args?.url),
     coordinates: coordinatesFromArgs(args),
-    textPreview: cappedText(args?.text ?? args?.value ?? args?.input),
+    textPreview: redactSensitiveText(cappedText(args?.text ?? args?.value ?? args?.input)),
     resultState: result?.ok === true && result?.isError !== true ? 'ok' : 'failed',
     artifactPaths: Array.isArray(result?.artifactPaths)
       ? result.artifactPaths.filter((item) => typeof item === 'string' && item.length > 0)

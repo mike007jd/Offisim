@@ -1,7 +1,11 @@
 import { useUiState, type StageViewTarget } from '@/app/ui-state.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
-import type { ResolvedPreviewTarget } from '@/surfaces/office/stage-preview/preview-target.js';
+import {
+  formatByteSize,
+  viewerKindLabel,
+  type ResolvedPreviewTarget,
+} from '@/surfaces/office/stage-preview/preview-target.js';
 import { Copy, ExternalLink, FolderOpen } from 'lucide-react';
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -70,9 +74,11 @@ function urlForResolved(resolved: ResolvedPreviewTarget, data: PreviewData): str
   return resolved.meta.url ?? null;
 }
 
-function sizeLabel(resolved: ResolvedPreviewTarget): string | null {
-  return resolved.meta.byteLength != null ? `${resolved.meta.byteLength.toLocaleString()} B` : null;
-}
+const TRUST_BADGES: Partial<Record<ResolvedPreviewTarget['trustLevel'], string>> = {
+  generated: 'AI output',
+  external: 'External',
+  computer: 'Computer Use',
+};
 
 async function invokePathCommand(
   command: 'open_local_path' | 'reveal_local_path',
@@ -170,17 +176,18 @@ export function StagePreviewPane({
   const url = resolved && data ? urlForResolved(resolved, data) : null;
   const title = resolved?.meta.title ?? target.title ?? 'Preview';
   const meta = useMemo(() => {
-    if (!resolved) return target.ref.source;
+    if (!resolved) return null;
+    const kindLabel = viewerKindLabel(resolved.viewerKind);
+    const extension = resolved.meta.extension?.toUpperCase();
     return [
-      resolved.viewerKind,
-      resolved.trustLevel,
-      resolved.meta.extension,
-      resolved.meta.mimeType,
-      sizeLabel(resolved),
+      kindLabel,
+      extension && !kindLabel.toUpperCase().includes(extension) ? extension : null,
+      resolved.meta.byteLength != null ? formatByteSize(resolved.meta.byteLength) : null,
     ]
       .filter(Boolean)
       .join(' · ');
-  }, [resolved, target.ref.source]);
+  }, [resolved]);
+  const trustBadge = resolved ? TRUST_BADGES[resolved.trustLevel] : null;
 
   async function copyValue(value: string, label: string) {
     await navigator.clipboard.writeText(value);
@@ -191,8 +198,13 @@ export function StagePreviewPane({
     <div className="off-preview-pane">
       <div className="off-preview-head">
         <div className="off-preview-title">
-          <span>{title}</span>
-          <small>{meta}</small>
+          <span>
+            {title}
+            {trustBadge ? <em className="off-preview-trust">{trustBadge}</em> : null}
+          </span>
+          <small title={resolved?.meta.mimeType}>
+            {meta ?? (state.status === 'loading' ? 'Loading…' : '')}
+          </small>
         </div>
         <div className="off-preview-actions">
           {path ? (

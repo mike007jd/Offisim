@@ -203,6 +203,45 @@ export function resolveViewerKind(input: {
   return input.hasText ? 'text' : 'unsupported';
 }
 
+const VIEWER_KIND_LABELS: Readonly<Record<PreviewViewerKind, string>> = {
+  text: 'Text',
+  code: 'Code',
+  json: 'JSON',
+  'structured-text': 'Structured text',
+  markdown: 'Markdown',
+  image: 'Image',
+  pdf: 'PDF',
+  html: 'HTML',
+  csv: 'CSV',
+  spreadsheet: 'Spreadsheet',
+  doc: 'Document',
+  slides: 'Slides',
+  video: 'Video',
+  audio: 'Audio',
+  model3d: '3D model',
+  browser: 'Browser',
+  screenshot: 'Screenshot',
+  unsupported: 'File',
+};
+
+export function viewerKindLabel(kind: PreviewViewerKind): string {
+  return VIEWER_KIND_LABELS[kind];
+}
+
+export function formatByteSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ['KB', 'MB', 'GB'] as const;
+  let value = bytes;
+  let unit: (typeof units)[number] = 'KB';
+  for (const next of units) {
+    value /= 1024;
+    unit = next;
+    if (value < 1024) break;
+  }
+  return `${value >= 100 ? Math.round(value) : value.toFixed(1)} ${unit}`;
+}
+
 export function trustLevelFor(ref: PreviewSourceRef): ResolvedPreviewTarget['trustLevel'] {
   switch (ref.source) {
     case 'workspace-file':

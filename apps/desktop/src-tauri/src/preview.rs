@@ -272,7 +272,10 @@ pub(crate) fn plan_media_response(
     range_header: Option<&str>,
 ) -> Result<MediaPlan, String> {
     if let Some(range) = range_header.filter(|value| !value.trim().is_empty()) {
-        let (start, end) = parse_range_header(range, file_len)?;
+        let (start, requested_end) = parse_range_header(range, file_len)?;
+        // Serve at most one chunk per response; a shorter-than-requested 206
+        // is valid and the client re-requests the remainder.
+        let end = requested_end.min(start + (MAX_PREVIEW_BINARY_BYTES - 1));
         let content_length = end - start + 1;
         return Ok(MediaPlan {
             status: StatusCode::PARTIAL_CONTENT,
@@ -280,6 +283,16 @@ pub(crate) fn plan_media_response(
             end,
             content_length,
             content_range: Some(format!("bytes {start}-{end}/{file_len}")),
+        });
+    }
+    if file_len > MAX_PREVIEW_BINARY_BYTES {
+        let end = MAX_PREVIEW_BINARY_BYTES - 1;
+        return Ok(MediaPlan {
+            status: StatusCode::PARTIAL_CONTENT,
+            start: 0,
+            end,
+            content_length: MAX_PREVIEW_BINARY_BYTES,
+            content_range: Some(format!("bytes 0-{end}/{file_len}")),
         });
     }
     let end = file_len.saturating_sub(1);
@@ -568,6 +581,32 @@ mod tests {
         assert_eq!(plan.end, 11);
         assert_eq!(plan.content_length, 12);
         assert!(plan.content_range.is_none());
+    }
+
+    #[test]
+    fn full_request_over_budget_serves_bounded_first_chunk() {
+        let file_len = MAX_PREVIEW_BINARY_BYTES * 4;
+        let plan = plan_media_response(file_len, None).expect("range plan");
+
+        assert_eq!(plan.status, StatusCode::PARTIAL_CONTENT);
+        assert_eq!(plan.start, 0);
+        assert_eq!(plan.end, MAX_PREVIEW_BINARY_BYTES - 1);
+        assert_eq!(plan.content_length, MAX_PREVIEW_BINARY_BYTES);
+        assert_eq!(
+            plan.content_range.as_deref(),
+            Some(format!("bytes 0-{}/{file_len}", MAX_PREVIEW_BINARY_BYTES - 1).as_str())
+        );
+    }
+
+    #[test]
+    fn open_ended_range_clamps_to_chunk_budget() {
+        let file_len = MAX_PREVIEW_BINARY_BYTES * 4;
+        let plan = plan_media_response(file_len, Some("bytes=0-")).expect("range plan");
+
+        assert_eq!(plan.status, StatusCode::PARTIAL_CONTENT);
+        assert_eq!(plan.start, 0);
+        assert_eq!(plan.end, MAX_PREVIEW_BINARY_BYTES - 1);
+        assert_eq!(plan.content_length, MAX_PREVIEW_BINARY_BYTES);
     }
 
     #[test]

@@ -22,7 +22,7 @@ import { parseToolRichDetail } from '../packages/shared-types/src/index.js';
 
 let passed = 0;
 let failed = 0;
-const TOTAL = 21;
+const TOTAL = 22;
 
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
   try {
@@ -573,6 +573,25 @@ async function main(): Promise<void> {
       mimeType: 'image/png',
       dataRef: 'data:image/png;base64,aGVsbG8=',
     });
+  });
+
+  await check('(18) bridge:computer-text-preview-redacts-credentials', async () => {
+    const typeTool = { ...COMPUTER_TOOL, name: 'computer_type' };
+    const env = build([typeTool], async () => ({
+      ok: true,
+      content: [{ type: 'text', text: 'typed' }],
+    }));
+    const input = {
+      name: 'computer_type',
+      input: { text: 'user admin password: hunter2 token=ghp_abcdef1234567890' },
+    };
+    const res = await env.tool('mcp_call').execute('call-type', input, undefined, undefined, {
+      ui: { confirm: async () => true },
+    });
+    const preview = (res as { computer?: { textPreview?: string } }).computer?.textPreview ?? '';
+    assert.ok(preview.includes('user admin'), 'benign text must survive');
+    assert.ok(!preview.includes('hunter2'), 'password value must be masked');
+    assert.ok(!preview.includes('ghp_abcdef1234567890'), 'token value must be masked');
   });
 
   console.log(`\n${passed}/${TOTAL} checks passed${failed ? `, ${failed} FAILED` : ''}.`);

@@ -10,7 +10,7 @@ import { mergeToolRichDetail, parseToolRichDetail } from '../packages/shared-typ
 
 let passed = 0;
 let failed = 0;
-const TOTAL = 7;
+const TOTAL = 8;
 
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
   try {
@@ -95,6 +95,24 @@ await check('computer:text-preview-caps-length', () => {
   assert.equal(detail.family, 'computer');
   if (detail.family !== 'computer') return;
   assert.equal(detail.textPreview?.length, 160);
+});
+
+await check('computer:text-preview-redacts-credentials', () => {
+  const detail = parseToolRichDetail(
+    'mcp_call',
+    JSON.stringify({
+      computer: {
+        action: 'type',
+        textPreview: 'login with password: hunter2 then paste sk-abc123def456ghi789',
+      },
+    }),
+  );
+  assert.equal(detail.family, 'computer');
+  if (detail.family !== 'computer') return;
+  assert.ok(detail.textPreview);
+  assert.ok(!detail.textPreview.includes('hunter2'), 'password value must be masked');
+  assert.ok(!detail.textPreview.includes('sk-abc123def456ghi789'), 'token must be masked');
+  assert.ok(detail.textPreview.includes('login with'), 'benign text must survive');
 });
 
 await check('computer:no-marker-falls-through-to-browser-then-generic', () => {

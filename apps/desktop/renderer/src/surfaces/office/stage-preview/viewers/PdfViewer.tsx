@@ -33,9 +33,26 @@ function PdfCanvasPage({
   pageRef: (node: HTMLDivElement | null) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
+  const [visible, setVisible] = useState(pageNumber <= 2);
 
   useEffect(() => {
+    if (visible) return undefined;
+    const root = rootRef.current;
+    if (!root) return undefined;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) setVisible(true);
+      },
+      { rootMargin: '800px' },
+    );
+    observer.observe(root);
+    return () => observer.disconnect();
+  }, [visible]);
+
+  useEffect(() => {
+    if (!visible) return undefined;
     let cancelled = false;
     let page: PDFPageProxy | null = null;
     let renderTask: ReturnType<PDFPageProxy['render']> | null = null;
@@ -67,15 +84,21 @@ function PdfCanvasPage({
       renderTask?.cancel();
       page?.cleanup();
     };
-  }, [doc, pageNumber, scale]);
+  }, [doc, pageNumber, scale, visible]);
 
   return (
-    <div ref={pageRef} className={`off-pdf-page${active ? ' is-active' : ''}`}>
+    <div
+      ref={(node) => {
+        rootRef.current = node;
+        pageRef(node);
+      }}
+      className={`off-pdf-page${active ? ' is-active' : ''}`}
+    >
       <div className="off-pdf-page-meta">
         <span>Page {pageNumber}</span>
         {size ? <span>{Math.round(size.width)} x {Math.round(size.height)}</span> : null}
       </div>
-      <canvas ref={canvasRef} />
+      <canvas ref={canvasRef} style={size ? undefined : { minWidth: 320, minHeight: 420 }} />
     </div>
   );
 }
@@ -197,12 +220,20 @@ export function PdfViewer({
           <ChevronDown size={14} aria-hidden="true" />
           Next
         </button>
-        <output>{hits.length > 0 ? `${activeHit + 1}/${hits.length}` : parsedPages ? '0/0' : 'Text idle'}</output>
+        <output>
+          {hits.length > 0
+            ? `${activeHit + 1}/${hits.length}`
+            : query.trim()
+              ? parsedPages
+                ? '0/0'
+                : 'Indexing…'
+              : ''}
+        </output>
         <button type="button" onClick={() => setScale((value) => Math.max(0.5, value - 0.15))}>
           <ZoomOut size={14} aria-hidden="true" />
         </button>
         <button type="button" onClick={() => setScale(1)}>
-          Fit
+          100%
         </button>
         <button type="button" onClick={() => setScale((value) => Math.min(2.6, value + 0.15))}>
           <ZoomIn size={14} aria-hidden="true" />

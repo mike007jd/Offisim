@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { PreviewData } from '../preview-data.js';
-import type { ResolvedPreviewTarget } from '../preview-target.js';
+import { formatByteSize, type ResolvedPreviewTarget } from '../preview-target.js';
 import { UnsupportedViewer } from './UnsupportedViewer.js';
 
 function formatDuration(value: number): string {
@@ -19,7 +19,7 @@ export function MediaViewer({
 }) {
   const [failed, setFailed] = useState(false);
   const [duration, setDuration] = useState<number | null>(null);
-  const byteLabel = resolved.meta.byteLength ? `${resolved.meta.byteLength.toLocaleString()} B` : null;
+  const byteLabel = resolved.meta.byteLength ? formatByteSize(resolved.meta.byteLength) : null;
 
   if (failed) {
     return (

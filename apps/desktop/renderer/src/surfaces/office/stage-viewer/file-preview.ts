@@ -12,5 +12,7 @@ export async function openStageFilePreview(deps: {
   maxBytes: number;
 }): Promise<void> {
   const { path, openStageView } = deps;
-  openStageView({ kind: 'preview', ref: { source: 'workspace-file', path }, title: path });
+  // No explicit title: tab label and pane header derive the leaf name from the
+  // ref, and the full path stays available as the tab tooltip.
+  openStageView({ kind: 'preview', ref: { source: 'workspace-file', path } });
 }

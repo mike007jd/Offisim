@@ -8,7 +8,7 @@ import {
   isConversationRunActive,
   useActiveConversationRuns,
 } from '@/assistant/runtime/conversation-run-react.js';
-import { useDeliverables } from '@/data/queries.js';
+import { useDeliverables, useEmployees } from '@/data/queries.js';
 import type { Deliverable } from '@/data/types.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
@@ -125,10 +125,16 @@ export function ComputerView({ threadId }: { threadId?: string | null }) {
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const timelineRef = useRef<HTMLDivElement | null>(null);
+  const employeesQuery = useEmployees();
+  const employeeName = run?.employeeId
+    ? (employeesQuery.data?.find((employee) => employee.id === run.employeeId)?.name ??
+      run.employeeId)
+    : null;
   const rowVirtualizer = useVirtualizer({
     count: entries.length,
     getScrollElement: () => timelineRef.current,
-    estimateSize: () => 58,
+    // 48px row + 6px gap between cards.
+    estimateSize: () => 54,
     overscan: 6,
   });
 
@@ -230,7 +236,7 @@ export function ComputerView({ threadId }: { threadId?: string | null }) {
           <div>
             <strong>{latest?.targetApp ?? latest?.targetWindow ?? 'Computer Use'}</strong>
             <span>
-              {[run.employeeId, run.phase, latest?.targetWindow, latest?.url]
+              {[employeeName, run.phase, latest?.targetWindow, latest?.url]
                 .filter(Boolean)
                 .join(' · ') || run.threadId}
             </span>
@@ -356,7 +362,6 @@ export function ComputerView({ threadId }: { threadId?: string | null }) {
                   style={{
                     position: 'absolute',
                     insetInline: 0,
-                    height: virtualRow.size,
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
                   onClick={() => setSelectedActivityId(entry.id)}

@@ -55,24 +55,26 @@ export function SlidesViewer({
   if (state.parsed.kind !== 'pptx') {
     return <UnsupportedViewer resolved={resolved} data={{ mode: 'none', reason: 'Slide parser did not return PPTX content.' }} />;
   }
-  if (raw) return <TextViewer text={state.parsed.text} languageLabel="PPTX text" />;
-
   return (
     <div className="off-slides-viewer">
       <div className="off-preview-text-tools">
         <span>{state.parsed.slides.length.toLocaleString()} slides</span>
-        <button type="button" onClick={() => setRaw(true)}>
-          Raw
+        <button type="button" onClick={() => setRaw(!raw)}>
+          {raw ? 'Slides' : 'Raw'}
         </button>
       </div>
-      <div className="off-slides-scroll">
-        {state.parsed.slides.map((slide, index) => (
-          <article key={index} className="off-slide-card">
-            <span>Slide {index + 1}</span>
-            <p>{slide}</p>
-          </article>
-        ))}
-      </div>
+      {raw ? (
+        <TextViewer text={state.parsed.text} languageLabel="PPTX text" />
+      ) : (
+        <div className="off-slides-scroll">
+          {state.parsed.slides.map((slide, index) => (
+            <article key={index} className="off-slide-card">
+              <span>Slide {index + 1}</span>
+              <p>{slide}</p>
+            </article>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

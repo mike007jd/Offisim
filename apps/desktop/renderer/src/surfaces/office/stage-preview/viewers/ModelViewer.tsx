@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { PreviewData } from '../preview-data.js';
-import type { ResolvedPreviewTarget } from '../preview-target.js';
+import { formatByteSize, type ResolvedPreviewTarget } from '../preview-target.js';
 import { UnsupportedViewer } from './UnsupportedViewer.js';
 
 type ModelState =
@@ -86,7 +86,7 @@ export function ModelViewer({
     };
   }, [bytes, extension]);
 
-  const byteLabel = useMemo(() => `${bytes.byteLength.toLocaleString()} B`, [bytes.byteLength]);
+  const byteLabel = useMemo(() => formatByteSize(bytes.byteLength), [bytes.byteLength]);
 
   if (state.status === 'loading') {
     return (
