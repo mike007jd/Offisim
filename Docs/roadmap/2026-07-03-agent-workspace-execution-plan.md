@@ -82,32 +82,39 @@ Branch `feat/agent-workspace-requirements`. Each phase: implement → `/simplify
 | 6 Composer slash commands (E2/D2) | `cfe487af` | NO MATERIAL FINDINGS | shot 10 |
 | 7 Output provenance (J1/J2) | `0983f114` | 1 MEDIUM fixed | — |
 | hygiene deadcode | `f440a5c2` | full `pnpm validate` green | — |
+| UI/UX audit fixes | `c313b371` | audit verdict: consistent | — |
+| 8 Character clothing + diversity (G) | `9dabb3f3` | 2 MEDIUM fixed | shot 4 (impl) |
+| 9 A* pathfinding around furniture (H1) | `f73d906e` | 1 HIGH fixed | shot 5 (impl) |
 
-Screenshot failure classes closed: **8 / 10** (1, 2, 3, 6, 7, 8, 9, 10).
+Screenshot failure classes addressed: **10 / 10** — 8 fully closed + verified
+(1, 2, 3, 6, 7, 8, 9, 10); shots 4 and 9 have their fix IMPLEMENTED + all
+deterministic gates green, but **on-screen 3D quality is UNVERIFIED** (see below).
 Requirement groups landed: I, A1, A2, A3, B, C, E2, D2, F1, F2, F3(documented
-unavailable), J1, J2, D3(memory/output roles clarified), K1/K2(partial).
+unavailable), G(clothing geometry + bodyType silhouette), H1(pathfinding),
+H2(existing 19-clip machine intact), J1, J2, D3(memory/output roles clarified),
+K1/K2(partial).
 
-Full `pnpm validate` passes on the cumulative diff (typecheck all packages, 60+
-harness contracts, src-imports, agent-runtime-capabilities, knip) —
-no contract broken, no dead code introduced.
+Final `pnpm validate` passes on the complete 9-phase diff (174 checks: typecheck
+all packages, 60+ harness contracts including scene-cue 87/87, office-projection
+50/50, character-clip-map 12960 states, src-imports, agent-runtime-capabilities,
+knip) — no contract broken, no dead code introduced. Final desktop release build
+green (`Offisim.app` bundled).
 
-## Continuation (needs a dedicated 3D effort + live release-.app verification)
+## Live-3D verification still owed (P8 + P9 on-screen quality)
 
-These two are the requirements package's own "dedicated simulation layer"
-lane — not tractable to a *verified* close in a single non-visual session,
-because their acceptance is inherently live-3D (cold-start release `.app` +
-Computer Use screenshots/interaction, per the hard rule "compile-green ≠
-verified").
+Both 3D phases are implemented + deterministically green + safe (additive, with
+byte-equivalent fallbacks), but their acceptance is inherently visual and was
+NOT verified on screen this session (hard rule: "compile-green ≠ verified for
+3D" needs a cold-start release `.app` + a real drag/observation).
 
-- **Phase 8 — 3D character clothing + diversity (Group G, shot 4).** Needs
-  modular garment geometry (jacket/shirt/dress/trousers/shoes) authored into
-  `build-character-assets.mjs` + a `clothingSet→mesh` table in `GltfCharacter`,
-  consume the currently-unused `bodyType`, and live 3D screenshot evidence.
-- **Phase 9 — living office motion ecology (Group H, shot 5).** Needs a
-  navmesh/pathfinding subsystem (evaluate recast-navigation vs three-pathfinding),
-  route `EmployeeUnit` through waypoints, planned-walk on drag, and an autonomous
-  behavior/schedule layer — flowing through `projectSceneCues` to keep 2D/3D in
-  sync — plus cold-start live 3D recording.
+- **P8** — garment radii/offsets, lapel splay, skirt flare, and how pieces track
+  during walk/sit clips need a live pass; expect a tuning follow-up on the
+  hand-tuned dimensions. Character facing still follows target rotation (not
+  travel direction) — a deliberate no-touch of the rotation/clip system.
+- **P9** — the walked route / obstacle avoidance needs a live drag on a real
+  backend layout (with placed prefabs). The dev-preview fallback keeps
+  straight-line by design. Travel-direction facing along a bent route is a
+  possible future polish.
 
 Deeper follow-ons noted along the way: the unified typed `@`-reference palette
 (E1) building on `useThreadCapabilities`; the full D1 host-side skill/plugin
