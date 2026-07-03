@@ -53,17 +53,17 @@ const MODE_META: Record<PermissionMode, { label: string; icon: LucideIcon; meta:
 };
 
 /**
- * Thinking-level labels + token-budget hints, mirroring Pi's own
- * `LEVEL_DESCRIPTIONS` (the values are display-only labels, not enforced
- * budgets — the provider decides the real budget per level).
+ * Thinking-level labels + qualitative depth hints. Deliberately no token
+ * numbers: the provider decides the real budget per level, so a "~Nk tokens"
+ * figure would be false precision.
  */
 const THINKING_META: Record<ThinkingLevel, { label: string; meta: string }> = {
   off: { label: 'Off', meta: 'No reasoning' },
-  minimal: { label: 'Minimal', meta: 'Very brief (~1k tokens)' },
-  low: { label: 'Low', meta: 'Light (~2k tokens)' },
-  medium: { label: 'Medium', meta: 'Moderate (~8k tokens)' },
-  high: { label: 'High', meta: 'Deep (~16k tokens)' },
-  xhigh: { label: 'Max', meta: 'Maximum (~32k tokens)' },
+  minimal: { label: 'Minimal', meta: 'Very brief' },
+  low: { label: 'Low', meta: 'Light' },
+  medium: { label: 'Medium', meta: 'Moderate' },
+  high: { label: 'High', meta: 'Deep' },
+  xhigh: { label: 'Max', meta: 'Maximum' },
 };
 
 function shortModelName(value: string): string {
@@ -133,7 +133,7 @@ export function ComposerSettingsMenu({
           type="button"
           className="off-composer-chip off-composer-settings-chip off-focusable"
           aria-label="Conversation settings"
-          title="Model, reasoning, and permission mode"
+          title={summary}
         >
           <Icon icon={SlidersHorizontal} size="sm" />
           <span className="off-composer-chip-text">{summary}</span>

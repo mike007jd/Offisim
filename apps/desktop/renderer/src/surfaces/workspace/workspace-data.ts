@@ -7,6 +7,7 @@ import {
 } from '@/data/queries.js';
 import type { ChatToolCall, Employee } from '@/data/types.js';
 import { getTauriDb } from '@/lib/tauri-db.js';
+import { compactAge } from '@/lib/utils.js';
 import type { MeetingSessionRow } from '@offisim/core/browser';
 import { useQuery } from '@tanstack/react-query';
 
@@ -101,9 +102,6 @@ export interface ContactDetail {
   zone: string;
   model?: string;
   expertise: string;
-  tools: string;
-  toolsNote?: string;
-  decisionStyle: string;
   openChats: string;
   source: string;
   /** Group the contact sorts under (zone, or 'Unassigned'). */
@@ -130,14 +128,7 @@ export interface AgendaDay {
   events: AgendaEvent[];
 }
 
-/* ── Meetings + action items ─────────────────────────────────────────────── */
-
-interface WsActionItem {
-  id: string;
-  text: string;
-  ownerId: string | null;
-  done: boolean;
-}
+/* ── Meetings ────────────────────────────────────────────────────────────── */
 
 export interface WsMeeting {
   id: string;
@@ -148,7 +139,6 @@ export interface WsMeeting {
   timeLabel: string;
   attendeeIds: string[];
   threadId: string;
-  actionItems: WsActionItem[];
 }
 
 /* ── Query hooks ─────────────────────────────────────────────────── */
@@ -170,9 +160,7 @@ export function useWsConversations() {
         title: displayThreadTitle(row.title),
         employeeId: row.employee_id ?? null,
         snippet: row.summary ?? '',
-        timeLabel: Number.isFinite(Date.parse(row.updated_at))
-          ? ageLabelFrom(Date.parse(row.updated_at), Date.now())
-          : '',
+        timeLabel: compactAge(Date.parse(row.updated_at)),
       }));
     },
   });
@@ -194,17 +182,6 @@ export function useWsThread(conversationId: string | null) {
   });
 }
 
-function ageLabelFrom(createdAtMs: number, now: number): string {
-  const diff = Math.max(0, now - createdAtMs);
-  const min = 60_000;
-  const hour = 60 * min;
-  const day = 24 * hour;
-  if (diff < min) return 'just now';
-  if (diff < hour) return `${Math.floor(diff / min)}m`;
-  if (diff < day) return `${Math.floor(diff / hour)}h`;
-  return `${Math.floor(diff / day)}d`;
-}
-
 /* ── Contacts detail real-bind (employee row + workstation zone + chat count) ─ */
 
 interface WorkstationLabelRow {
@@ -219,8 +196,8 @@ interface DirectChatCountRow {
 /**
  * Real per-employee Contacts detail, derived from the employee row + the office
  * workstation it is seated at + a direct-chat count. No presumptuous default:
- * fields with no persisted source (tools / decision style / live working-or-
- * blocked presence) render an em dash.
+ * a field with no persisted source (live working-or-blocked presence) renders
+ * an em dash; fields with no source at all simply don't exist here.
  */
 async function loadContactDetails(
   companyId: string | null,
@@ -263,8 +240,6 @@ async function loadContactDetails(
       zone: zone || '—',
       model: e.modelLabel,
       expertise: e.expertise && e.expertise.length > 0 ? e.expertise.join(' · ') : '—',
-      tools: '—',
-      decisionStyle: '—',
       openChats: directChats === 1 ? '1 direct' : `${directChats} direct`,
       source:
         e.kind === 'external'
@@ -333,8 +308,6 @@ function meetingRowToVm(row: MeetingSessionRow): WsMeeting {
     timeLabel,
     attendeeIds: parseAttendeeIds(row.summary_json),
     threadId: row.thread_id ?? '',
-    // No action-items column / no action-items in summary_json -> always empty.
-    actionItems: [],
   };
 }
 
@@ -472,7 +445,7 @@ export function useWsBoard(projectId: string | null) {
           title: displayThreadTitle(row.title),
           updatedAtMs: Number.isFinite(ms) ? ms : 0,
           archived: row.archived_at != null,
-          ageLabel: Number.isFinite(ms) ? ageLabelFrom(ms, now) : '',
+          ageLabel: Number.isFinite(ms) ? compactAge(ms, now) : '',
         };
       });
     },

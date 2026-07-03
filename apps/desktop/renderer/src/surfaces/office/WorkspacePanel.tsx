@@ -14,11 +14,11 @@ import { EmptyState, ErrorState, SkeletonRows } from '@/surfaces/shared/SurfaceS
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Check,
-  ChevronRight,
   ChevronsLeft,
   ChevronsRight,
   ExternalLink,
   FileText,
+  Folder,
   FolderClosed,
   FolderGit2,
   FolderOpen,
@@ -170,7 +170,7 @@ function FilesTab({
       <div className="off-ws-toolbar">
         <span className="off-ws-wsroot" title={workspaceRoot}>
           <Icon icon={FolderOpen} size="sm" />
-          {workspaceRoot}
+          {compactPath(workspaceRoot)}
         </span>
         <SearchInput value={query} onChange={setQuery} placeholder="Search files…" />
       </div>
@@ -188,7 +188,12 @@ function FilesTab({
               data-depth={node.depth}
               aria-pressed={selectedPath === node.path}
               aria-haspopup="menu"
-              onClick={() => selectNode(node)}
+              onClick={() => {
+                // Single click opens the file preview (same gesture as the Git
+                // tab); directories only select — Enter/context menu reveal them.
+                if (node.kind === 'dir') selectNode(node);
+                else void previewNode(node);
+              }}
               onDoubleClick={() => void previewNode(node)}
               onContextMenu={(event) => {
                 event.preventDefault();
@@ -212,7 +217,7 @@ function FilesTab({
               }}
             >
               <Icon
-                icon={node.kind === 'dir' ? ChevronRight : FileText}
+                icon={node.kind === 'dir' ? Folder : FileText}
                 size="sm"
                 className="off-tree-icon"
               />

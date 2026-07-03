@@ -130,7 +130,9 @@ export function MessageItem({ message, employeesById }: MessageItemProps) {
             />
           ) : null}
           <span className="off-msg-author">{meta.name}</span>
-          <span className="off-msg-time">{relativeTime(message.at)}</span>
+          <span className="off-msg-time" title={new Date(message.at).toLocaleString()}>
+            {relativeTime(message.at)}
+          </span>
         </header>
         <div className="off-msg-body">
           <AssistantMessageParts reasoningStreaming={reasoningStreaming} />

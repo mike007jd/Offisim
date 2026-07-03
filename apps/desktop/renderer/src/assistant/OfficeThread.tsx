@@ -28,7 +28,6 @@ import {
 } from './composer/composer-loop-reference-store.js';
 import { OfficeEnhanceButton } from './enhance/OfficeEnhanceButton.js';
 import { ChatErrorBanner } from './parts/ChatErrorBanner.js';
-import { MeetingTray } from './parts/Meeting.js';
 import { PermissionApprovalBar } from './parts/PermissionApprovalBar.js';
 import { RunActivityStrip } from './parts/RunActivityStrip.js';
 import { isConversationRunActive, useConversationRun } from './runtime/conversation-run-react.js';
@@ -284,8 +283,7 @@ function OfficeComposer({
                 title={storageAvailable ? 'Attach file' : 'Attachment storage unavailable'}
                 onClick={() => fileInput.current?.click()}
               />
-              <div className="off-thread-pitbar" aria-label="Conversation outputs and follow-up">
-                <MeetingTray />
+              <div className="off-thread-pitbar" aria-label="Conversation outputs">
                 <ConvOutputs deliverables={deliverables} employeesById={employeesById} />
               </div>
               <div className="off-composer-controls">

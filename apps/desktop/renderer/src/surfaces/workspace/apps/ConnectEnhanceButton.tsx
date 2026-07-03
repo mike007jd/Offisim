@@ -98,7 +98,7 @@ export function ConnectEnhanceButton({
     <>
       <button
         type="button"
-        className="off-connect-enhance off-focusable"
+        className="off-enhance-overlay off-focusable"
         aria-label="Enhance message"
         title="Enhance message"
         disabled={disabled}

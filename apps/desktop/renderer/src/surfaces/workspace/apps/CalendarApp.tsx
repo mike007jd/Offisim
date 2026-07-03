@@ -1,12 +1,11 @@
 import { useUiState } from '@/app/ui-state.js';
-import { UI_DATA_COLORS } from '@/data/color-palette.js';
 import { useEmployees } from '@/data/queries.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { StatusPill } from '@/design-system/grammar/StatusPill.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 import { EmptyState, ErrorState, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
-import { CalendarDays, Check, MessageSquare } from 'lucide-react';
+import { CalendarDays, MessageSquare } from 'lucide-react';
 import { useMemo, useRef } from 'react';
 import { type AgendaEvent, type WsMeeting, useWsAgenda, useWsMeetings } from '../workspace-data.js';
 
@@ -76,7 +75,7 @@ export function CalendarApp() {
   return (
     <div className="off-ws-detail off-ws-detail-full off-ws-cal">
       <div className="off-ws-cal-head">
-        <span className="off-ws-cal-ttl">This week</span>
+        <span className="off-ws-cal-ttl">Upcoming</span>
         <button
           type="button"
           className="off-ws-cal-today off-focusable"
@@ -155,45 +154,6 @@ export function CalendarApp() {
                       );
                     })}
                   </div>
-                ) : null}
-                {meeting.actionItems.length > 0 ? (
-                  <>
-                    <div className="off-ws-meet-sec-head">
-                      Action items{' '}
-                      <span className="off-ws-seg-ct">{meeting.actionItems.length}</span>
-                    </div>
-                    {meeting.actionItems.map((item) => {
-                      const done = item.done;
-                      const owner = item.ownerId ? byId.get(item.ownerId) : null;
-                      return (
-                        <div key={item.id} className={cn('off-ws-ai', done && 'is-done')}>
-                          <span className="off-ws-ai-box">
-                            {done ? <Icon icon={Check} size="sm" /> : null}
-                          </span>
-                          <span className="off-ws-ai-tx">{item.text}</span>
-                          <span className="off-ws-ai-who">
-                            {owner ? (
-                              <EmployeeAvatar
-                                seed={owner.id}
-                                appearance={owner.appearance}
-                                colorA={owner.avatarA}
-                                colorB={owner.avatarB}
-                                size={16}
-                                brand={owner.kind === 'external'}
-                              />
-                            ) : (
-                              <EmployeeAvatar
-                                seed="Boss"
-                                colorA={UI_DATA_COLORS.bossA}
-                                colorB={UI_DATA_COLORS.bossB}
-                                size={16}
-                              />
-                            )}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </>
                 ) : null}
                 <button
                   type="button"
