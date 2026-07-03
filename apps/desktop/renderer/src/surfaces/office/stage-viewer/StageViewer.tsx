@@ -32,6 +32,7 @@ import {
   Focus,
   GitCompareArrows,
   Eye,
+  Globe,
   Globe2,
   Maximize2,
   Minimize2,
@@ -411,7 +412,7 @@ function StageViewMenu() {
       isActive:
         stageView.kind === 'preview' &&
         (stageView.ref.source === 'browser' || stageView.ref.source === 'screenshot'),
-      icon: Globe2,
+      icon: Globe,
       onSelect: () => {
         if (!latestBrowserRichDetail) return;
         openStageView({

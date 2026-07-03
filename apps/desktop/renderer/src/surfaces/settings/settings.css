@@ -556,6 +556,10 @@
   box-shadow: 0 0 0 3px var(--off-ok-surface);
 }
 
+.off-set-provider-dot.is-muted {
+  background: var(--off-ink-5);
+}
+
 .off-set-provider-detail {
   min-width: 0;
   min-height: 0;
