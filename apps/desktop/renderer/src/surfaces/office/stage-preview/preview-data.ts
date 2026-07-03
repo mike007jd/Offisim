@@ -85,7 +85,13 @@ function extensionFromPath(path: string | undefined): string | undefined {
   return leaf.slice(index + 1).toLowerCase();
 }
 
-function mimeForExtension(extension: string | undefined): string | undefined {
+const OOXML_MIME_TYPES = new Set([
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+]);
+
+export function mimeForPreviewExtension(extension: string | undefined): string | undefined {
   switch (extension?.toLowerCase()) {
     case 'md':
     case 'markdown':
@@ -117,15 +123,46 @@ function mimeForExtension(extension: string | undefined): string | undefined {
       return 'image/svg+xml';
     case 'pdf':
       return 'application/pdf';
+    case 'docx':
+      return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    case 'doc':
+      return 'application/msword';
+    case 'rtf':
+      return 'application/rtf';
+    case 'xlsx':
+      return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    case 'xls':
+      return 'application/vnd.ms-excel';
+    case 'pptx':
+      return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+    case 'ppt':
+      return 'application/vnd.ms-powerpoint';
     case 'mp4':
       return 'video/mp4';
     case 'mov':
       return 'video/quicktime';
+    case 'm4v':
+      return 'video/x-m4v';
+    case 'webm':
+      return 'video/webm';
+    case 'mkv':
+      return 'video/x-matroska';
+    case 'avi':
+      return 'video/x-msvideo';
     case 'mp3':
       return 'audio/mpeg';
+    case 'm4a':
+      return 'audio/mp4';
     case 'wav':
       return 'audio/wav';
+    case 'aac':
+      return 'audio/aac';
+    case 'flac':
+      return 'audio/flac';
+    case 'ogg':
+      return 'audio/ogg';
     case 'glb':
+    case 'vrm':
       return 'model/gltf-binary';
     case 'gltf':
       return 'model/gltf+json';
@@ -134,9 +171,26 @@ function mimeForExtension(extension: string | undefined): string | undefined {
   }
 }
 
+export function resolvePreviewMimeType(
+  sniffedMime: string | undefined,
+  extension: string | undefined,
+): string | undefined {
+  const extensionMime = mimeForPreviewExtension(extension);
+  const sniffed = sniffedMime?.toLowerCase();
+  if (
+    extensionMime &&
+    OOXML_MIME_TYPES.has(extensionMime) &&
+    (!sniffed || sniffed === 'application/zip' || sniffed === 'application/octet-stream')
+  ) {
+    return extensionMime;
+  }
+  return sniffedMime ?? extensionMime;
+}
+
 function resolvedFromMeta(ref: PreviewSourceRef, meta: ProjectPreviewMeta): ResolvedPreviewTarget {
-  const mimeType = meta.mimeType ?? undefined;
+  const sniffedMime = meta.mimeType ?? undefined;
   const extension = meta.extension ?? extensionFromPath(meta.fileName);
+  const mimeType = resolvePreviewMimeType(sniffedMime, extension);
   const hasText = meta.text != null;
   return {
     ref,
@@ -158,7 +212,7 @@ function resolvedDeliverable(ref: Extract<PreviewSourceRef, { source: 'deliverab
   const extension =
     extensionFromPath(ref.name) ??
     (ref.format ? ref.format.trim().toLowerCase().replace(/^\./, '') : undefined);
-  const mimeType = mimeForExtension(extension);
+  const mimeType = mimeForPreviewExtension(extension);
   const viewerKind = resolveViewerKind({ mimeType, extension, hasText: true });
   return {
     ref,

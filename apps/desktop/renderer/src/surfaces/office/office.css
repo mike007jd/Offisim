@@ -1529,7 +1529,8 @@
 .off-preview-actions button,
 .off-preview-text-tools button,
 .off-structured-tools button,
-.off-image-tools button {
+.off-image-tools button,
+.off-pdf-rail button {
   height: 26px;
   display: inline-flex;
   align-items: center;
@@ -1546,13 +1547,17 @@
 .off-preview-actions button:hover,
 .off-preview-text-tools button:hover,
 .off-structured-tools button:hover,
-.off-image-tools button:hover {
+.off-image-tools button:hover,
+.off-pdf-rail button:hover,
+.off-pdf-rail button.is-active,
+.off-preview-text-tools button.is-active {
   border-color: var(--off-accent-ring);
   color: var(--off-ink-1);
 }
 
 .off-preview-actions button:disabled,
-.off-preview-text-tools button:disabled {
+.off-preview-text-tools button:disabled,
+.off-pdf-rail button:disabled {
   opacity: 0.45;
   pointer-events: none;
 }
@@ -1567,7 +1572,13 @@
 .off-structured-shell,
 .off-markdown-preview,
 .off-image-viewer,
-.off-csv-viewer {
+.off-csv-viewer,
+.off-pdf-viewer,
+.off-doc-viewer,
+.off-sheet-viewer,
+.off-slides-viewer,
+.off-media-viewer,
+.off-model-viewer {
   min-width: 0;
   min-height: 0;
   height: 100%;
@@ -1620,6 +1631,14 @@
   background: color-mix(in srgb, var(--off-warn) 12%, var(--off-surface-1));
   color: var(--off-ink-2);
   font-size: var(--off-fs-meta);
+}
+
+.off-preview-empty-note {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-sm);
 }
 
 .off-preview-text-scroll,
@@ -1759,6 +1778,159 @@
   position: absolute;
   left: 0;
   right: 0;
+}
+
+.off-pdf-shell {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+}
+
+.off-pdf-rail {
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--off-sp-1);
+  padding: var(--off-sp-2);
+  border-right: 1px solid var(--off-line-soft);
+  background: var(--off-surface-2);
+}
+
+.off-pdf-rail button {
+  width: 34px;
+  height: 26px;
+  padding: 0;
+  font-family: var(--off-font-mono);
+}
+
+.off-pdf-scroll,
+.off-doc-scroll,
+.off-slides-scroll {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.off-pdf-scroll {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--off-sp-4);
+  padding: var(--off-sp-5);
+  background: var(--off-surface-sunken);
+}
+
+.off-pdf-page {
+  display: grid;
+  gap: var(--off-sp-2);
+}
+
+.off-pdf-page.is-active canvas {
+  outline: 2px solid var(--off-accent);
+}
+
+.off-pdf-page-meta {
+  display: flex;
+  justify-content: space-between;
+  color: var(--off-ink-3);
+  font-family: var(--off-font-mono);
+  font-size: var(--off-fs-micro);
+}
+
+.off-pdf-page canvas {
+  max-width: 100%;
+  border: 1px solid var(--off-line);
+  background: #fff;
+  box-shadow: var(--off-elev-2);
+}
+
+.off-doc-scroll {
+  padding: var(--off-sp-5);
+  background: var(--off-surface-sunken);
+}
+
+.off-doc-html {
+  max-width: 880px;
+  min-height: 100%;
+  margin: 0 auto;
+  padding: var(--off-sp-6);
+  border: 1px solid var(--off-line-soft);
+  background: var(--off-surface-0);
+  color: var(--off-ink-1);
+  font-size: var(--off-fs-sm);
+  line-height: 1.6;
+}
+
+.off-doc-html p,
+.off-doc-html ul,
+.off-doc-html ol,
+.off-doc-html table {
+  margin: 0 0 var(--off-sp-4);
+}
+
+.off-doc-html table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.off-doc-html td,
+.off-doc-html th {
+  padding: var(--off-sp-2);
+  border: 1px solid var(--off-line-soft);
+}
+
+.off-slides-scroll {
+  display: grid;
+  gap: var(--off-sp-4);
+  padding: var(--off-sp-5);
+  background: var(--off-surface-sunken);
+}
+
+.off-slide-card {
+  min-width: 0;
+  padding: var(--off-sp-5);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-md);
+  background: var(--off-surface-0);
+}
+
+.off-slide-card span {
+  color: var(--off-ink-3);
+  font-family: var(--off-font-mono);
+  font-size: var(--off-fs-micro);
+}
+
+.off-slide-card p {
+  margin: var(--off-sp-3) 0 0;
+  white-space: pre-wrap;
+  color: var(--off-ink-1);
+  line-height: 1.55;
+}
+
+.off-media-stage,
+.off-model-canvas {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--off-surface-sunken);
+}
+
+.off-media-stage video {
+  width: min(100%, 960px);
+  max-height: 100%;
+  background: #000;
+}
+
+.off-media-stage audio {
+  width: min(720px, calc(100% - var(--off-sp-8)));
+}
+
+.off-model-canvas canvas {
+  outline: none;
 }
 
 .off-preview-unsupported {

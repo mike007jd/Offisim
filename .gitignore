@@ -59,6 +59,8 @@ test-*.mjs
 apps/desktop/src-tauri/resources/claude-agent-host.mjs
 apps/desktop/src-tauri/resources/claude-code-native/
 apps/desktop/src-tauri/resources/node/
+apps/desktop/renderer/public/pdf.worker.min.mjs
+apps/desktop/renderer/public/pdfjs-standard-fonts/
 .gitnexus
 
 # Review/feedback dumps (local-only, not shared)

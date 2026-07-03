@@ -116,6 +116,8 @@ const EXTENSION_VIEWERS: Readonly<Record<string, PreviewViewerKind>> = {
   mov: 'video',
   m4v: 'video',
   webm: 'video',
+  mkv: 'video',
+  avi: 'video',
   mp3: 'audio',
   m4a: 'audio',
   wav: 'audio',

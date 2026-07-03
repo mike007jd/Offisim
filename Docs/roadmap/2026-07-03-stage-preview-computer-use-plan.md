@@ -6,7 +6,7 @@
 
 **Architecture:** A unified preview resolver replaces the `output`/`file`/`preview` split in `StageViewTarget`; a binary-safe Rust preview lane (raw-IPC bounded reads + a sandboxed streaming URI scheme) feeds renderer viewer components that reuse doc-engine parsers. Computer Use rides the existing single `agent.run` envelope: a new `ToolRichDetail` `family: 'computer'`, two new `AgentRunEventType` values, protocol bump 4→5, and a `computer` Stage tab; Cua Driver mounts as a stdio MCP server through the existing `mcp_bridge` + Settings MCP pane.
 
-**Tech Stack:** React 19 / Tailwind v4 / zustand / TanStack Query (existing), doc-engine (pdfjs-dist, mammoth, SheetJS), `@pixiv/three-vrm@^3.5.2`, three + @react-three/fiber/drei (existing), Tauri 2 raw IPC + `register_asynchronous_uri_scheme_protocol`, Cua Driver MCP (`trycua/cua`).
+**Tech Stack:** React 19 / Tailwind v4 / zustand / TanStack Query (existing), doc-engine (pdfjs-dist, mammoth, SheetJS), `@pixiv/three-vrm@^3.5.4`, three + @react-three/fiber/drei (existing), Tauri 2 raw IPC + `register_asynchronous_uri_scheme_protocol`, Cua Driver MCP (`trycua/cua`).
 
 **PRD:** `Docs/roadmap/2026-07-02-stage-preview-computer-use-prd.md` (audited against code 2026-07-03).
 
@@ -24,7 +24,7 @@
 - `validate` exit-code trap: run `pnpm validate > log 2>&1` with NO trailing `echo`; check the real exit status.
 - Build order: `shared-types → doc-engine → core → renderer`; `tsc-build-if-dist-missing` skips existing dist — force-refresh doc-engine/shared-types dist (`pnpm --filter <pkg> exec tsc --project tsconfig.json`) after changing them and before harness/release runs.
 - Gate strategy: between phases the lead (main session) does simplify personally; code review via `codex:review`; do NOT launch the token-heavy code-review workflow.
-- New npm deps must be exact and current (verified 2026-07-03): `@pixiv/three-vrm@^3.5.2`, `pdfjs-dist@^4.7.76` (match doc-engine), `yaml@^2`, `smol-toml@^1`. New Rust dep: `infer` (MIME sniffing).
+- New npm deps must be exact and current (verified 2026-07-03): `@pixiv/three-vrm@^3.5.4`, `pdfjs-dist@^4.7.76` (match doc-engine), `yaml@^2`, `smol-toml@^1`. New Rust dep: `infer` (MIME sniffing).
 
 ## Source Truth (verified 2026-07-03)
 
@@ -269,9 +269,9 @@ Loading rules: workspace-file → `invoke('project_preview_meta')`; text kinds u
 
 **Interfaces (consumes):** `data.bytes`; doc-engine `resolvePdfWorkerSrc` (exported from `@offisim/doc-engine`) for worker wiring; doc-engine `parseAttachment` for the text/search lane.
 
-- [ ] **Step 1:** Render via `pdfjs-dist` `getDocument({ data: bytes })`: page canvas list with page-number rail, zoom (fit-width/fit-page/percent), prev/next. Text search: run `parseAttachment(bytes, 'application/pdf', name)` lazily on first search; jump-to-page from `pages[]` hit index.
-- [ ] **Step 2:** Renderer build must show pdfjs in a lazy chunk (check `dist/assets` listing; main chunk must not grow past current ~1.7 MB baseline by more than 50 KB).
-- [ ] **Step 3:** Typecheck/build PASS; live check one real PDF in release `.app`. Commit.
+- [x] **Step 1:** Render via `pdfjs-dist` `getDocument({ data: bytes })`: page canvas list with page-number rail, zoom (fit-width/fit-page/percent), prev/next. Text search: run `parseAttachment(bytes, 'application/pdf', name)` lazily on first search; jump-to-page from `pages[]` hit index.
+- [x] **Step 2:** Renderer build must show pdfjs in a lazy chunk (check `dist/assets` listing; main chunk must not grow past current ~1.7 MB baseline by more than 50 KB).
+- [x] **Step 3:** Typecheck/build PASS; live check one real PDF in release `.app`. Commit.
 
 ### Task 4.2: DOCX / XLSX / PPTX viewers via doc-engine
 
@@ -279,26 +279,26 @@ Loading rules: workspace-file → `invoke('project_preview_meta')`; text kinds u
 
 **Interfaces (consumes):** `parseAttachment(bytes, mimeType, filename)` from `@offisim/doc-engine`; `ParsedAttachment` variants `docx{html,text}`, `xlsx{sheets[{name,csv,rowCount}]}`, `pptx{slides[]}` (shared-types `chat-attachments.ts:114-146`).
 
-- [ ] **Step 1:** DocViewer: render mammoth HTML inside a style-scoped container (`off-doc-html` class, sanitize with the same approach as chat if any exists — otherwise render via `dangerouslySetInnerHTML` inside a sandboxed shadow-root wrapper); raw-text toggle. SheetViewer: sheet tabs from `sheets[].name`, each rendered through `csv-parse.ts` + the virtualized table from CsvViewer (extract shared `DataTable` into `viewers/data-table.tsx`). SlidesViewer: slide cards from `slides[]` with index.
-- [ ] **Step 2:** MIME passed to parseAttachment comes from `resolveViewerKind` inputs (map ext→official MIME with a small table in preview-data.ts; `kindFromMime` in shared-types is the reference for exact strings).
-- [ ] **Step 3:** Typecheck/build PASS; live check one real .docx/.xlsx/.pptx. Commit.
+- [x] **Step 1:** DocViewer: render mammoth HTML inside a style-scoped container (`off-doc-html` class, sanitize with the same approach as chat if any exists — otherwise render via `dangerouslySetInnerHTML` inside a sandboxed shadow-root wrapper); raw-text toggle. SheetViewer: sheet tabs from `sheets[].name`, each rendered through `csv-parse.ts` + the virtualized table from CsvViewer (extract shared `DataTable` into `viewers/data-table.tsx`). SlidesViewer: slide cards from `slides[]` with index.
+- [x] **Step 2:** MIME passed to parseAttachment comes from `resolveViewerKind` inputs (map ext→official MIME with a small table in preview-data.ts; `kindFromMime` in shared-types is the reference for exact strings).
+- [x] **Step 3:** Typecheck/build PASS; live check one real .docx/.xlsx/.pptx. Commit.
 
 ### Task 4.3: Media viewer (video/audio streaming)
 
 **Files:** Create `viewers/MediaViewer.tsx`
 
-- [ ] **Step 1:** `<video controls src={data.streamUrl}>` / `<audio controls src={...}>`; `onError` → swap to UnsupportedViewer with codec explanation + open-externally action (WKWebView codec set: H.264/HEVC/AAC/MP3); metadata line (duration once `loadedmetadata`, byte size).
-- [ ] **Step 2:** Live check in release `.app`: an H.264 .mp4 plays AND seeks (seek proves Range serving works); an unsupported codec file degrades to the unsupported state. This is the CSP `media-src` proof — dev webview does not count.
-- [ ] **Step 3:** Commit.
+- [x] **Step 1:** `<video controls src={data.streamUrl}>` / `<audio controls src={...}>`; `onError` → swap to UnsupportedViewer with codec explanation + open-externally action (WKWebView codec set: H.264/HEVC/AAC/MP3); metadata line (duration once `loadedmetadata`, byte size).
+- [x] **Step 2:** Live check in release `.app`: an H.264 .mp4 plays AND seeks (seek proves Range serving works); an unsupported codec file degrades to the unsupported state. This is the CSP `media-src` proof — dev webview does not count.
+- [x] **Step 3:** Commit.
 
 ### Task 4.4: 3D model viewer (GLB/GLTF/VRM)
 
-**Files:** Create `viewers/ModelViewer.tsx`; Modify renderer `package.json` (add `@pixiv/three-vrm@^3.5.2`)
+**Files:** Create `viewers/ModelViewer.tsx`; Modify renderer `package.json` (add `@pixiv/three-vrm@^3.5.4`)
 
 **Interfaces (consumes):** `data.bytes`; the character system's existing meshopt decoder wiring (find its GLTFLoader setup under the character/GLB modules and reuse the same decoder import — single decoder path in the app).
 
-- [ ] **Step 1:** R3F `<Canvas>` + `GLTFLoader.parse(bytes.buffer)` with meshopt decoder registered; `.vrm` extension additionally registers `VRMLoaderPlugin` from `@pixiv/three-vrm` and renders `gltf.userData.vrm.scene`; drei `OrbitControls` + `Stage`-style lighting + reset-camera button; dispose scene on unmount.
-- [ ] **Step 2:** Typecheck/build PASS (three-vrm in lazy chunk); live check one .glb and one .vrm in release `.app`. Commit.
+- [x] **Step 1:** R3F `<Canvas>` + `GLTFLoader.parse(bytes.buffer)` with meshopt decoder registered; `.vrm` extension additionally registers `VRMLoaderPlugin` from `@pixiv/three-vrm` and renders `gltf.userData.vrm.scene`; drei `OrbitControls` + `Stage`-style lighting + reset-camera button; dispose scene on unmount.
+- [x] **Step 2:** Typecheck/build PASS (three-vrm in lazy chunk); live check one .glb and one .vrm in release `.app`. Commit.
 
 **Phase 4 Gate:** full `pnpm validate` green; `pnpm --filter @offisim/desktop build`; release `.app` screenshot evidence for image/PDF/JSON/CSV/XLSX/DOCX/PPTX/HTML/video/audio/GLB/VRM/unsupported-binary into `Docs/evidence/2026-07-XX-stage-preview/`. Lead simplify + `codex:review`.
 
@@ -468,7 +468,7 @@ Detection: locate `cua-driver` via `$PATH` lookup + known install locations; `--
 | 1 Rust preview lane | done | `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml preview` PASS; `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml` PASS (141 tests); `node scripts/check-platform-tauri-origin-sync.mjs` PASS; `npx --yes pnpm@10.15.1 --filter @offisim/desktop build` PASS; release `.app` built at `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`; commit `4cc7273d` |
 | 2 target model | done | `npx --yes pnpm@10.15.1 harness:stage-preview-targets` PASS (12/12); `npx --yes pnpm@10.15.1 harness:artifact-claim` PASS (16/16); `npx --yes pnpm@10.15.1 --filter @offisim/desktop-renderer typecheck` PASS; `npx --yes pnpm@10.15.1 --filter @offisim/desktop-renderer build` PASS; GitNexus `detect_changes --repo Offisim --scope staged` risk medium, affected flows limited to Stage tab/id; commit `2c086abb` |
 | 3 pane + core viewers | done | `npx --yes pnpm@10.15.1 harness:stage-preview-targets` PASS (21/21); `npx --yes pnpm@10.15.1 harness:artifact-claim` PASS (16/16); `npx --yes pnpm@10.15.1 --filter @offisim/desktop-renderer typecheck` PASS; `npx --yes pnpm@10.15.1 --filter @offisim/desktop-renderer build` PASS; `npx --yes pnpm@10.15.1 validate > /tmp/offisim-validate-phase3-final.log 2>&1` exit 0; `npx --yes pnpm@10.15.1 --filter @offisim/desktop build` PASS; release `.app` spot-checked via Computer Use on pid `99860` for markdown raw/search, JSON tree, CSV table, HTML iframe, PNG image; screenshots in `Docs/evidence/2026-07-03-stage-preview/`; commit `1148b600` |
-| 4 doc/media/3D viewers | pending | |
+| 4 doc/media/3D viewers | done | `npx --yes pnpm@10.15.1 harness:stage-preview-targets` PASS (27/27); `npx --yes pnpm@10.15.1 harness:doc-engine` PASS (8/8); `npx --yes pnpm@10.15.1 --filter @offisim/desktop-renderer typecheck` PASS; `npx --yes pnpm@10.15.1 --filter @offisim/desktop-renderer build` PASS; `npx --yes pnpm@10.15.1 validate > /tmp/offisim-validate-phase4-final.log 2>&1` exit 0; `npx --yes pnpm@10.15.1 --filter @offisim/desktop build` PASS; release `.app` checked via Computer Use on pid `73335` for PDF pages/search, DOCX HTML/raw, XLSX sheets, PPTX slides, MP4 play/seek, MP3 audio, GLB, VRM, CSV, JSON, HTML, PNG, unsupported codec and unsupported binary; screenshots in `Docs/evidence/2026-07-03-stage-preview/phase4-*.png` |
 | 5 computer contract | pending | |
 | 6 computer tab + mock | pending | |
 | 7 live + matrix | pending | |

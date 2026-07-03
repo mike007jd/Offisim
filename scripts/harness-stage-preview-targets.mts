@@ -13,7 +13,9 @@ import {
 import { parseCsvRows } from '../apps/desktop/renderer/src/surfaces/office/stage-preview/csv-parse.js';
 import {
   mediaStreamUrl,
+  mimeForPreviewExtension,
   planPreviewLoad,
+  resolvePreviewMimeType,
 } from '../apps/desktop/renderer/src/surfaces/office/stage-preview/preview-data.js';
 
 let checks = 0;
@@ -58,6 +60,10 @@ check('resolver:text-fallback-when-hasText', () => {
 
 check('resolver:glb-maps-model3d', () => {
   assert.equal(resolveViewerKind({ extension: 'glb', hasText: false }), 'model3d');
+});
+
+check('resolver:vrm-maps-model3d', () => {
+  assert.equal(resolveViewerKind({ extension: 'vrm', hasText: false }), 'model3d');
 });
 
 check('trust:workspace-file-is-workspace', () => {
@@ -158,10 +164,68 @@ check('data:mp4-routes-stream-no-read', () => {
   );
 });
 
+check('data:mp3-routes-stream-no-read', () => {
+  assert.equal(
+    planPreviewLoad(
+      resolved(
+        { source: 'workspace-file', path: '/repo/audio.mp3' },
+        'audio',
+        { title: 'audio.mp3', extension: 'mp3', path: '/repo/audio.mp3' },
+      ),
+    ),
+    'stream',
+  );
+});
+
+check('data:avi-routes-stream-for-codec-fallback', () => {
+  assert.equal(
+    planPreviewLoad(
+      resolved(
+        { source: 'workspace-file', path: '/repo/legacy.avi' },
+        'video',
+        { title: 'legacy.avi', extension: 'avi', path: '/repo/legacy.avi' },
+      ),
+    ),
+    'stream',
+  );
+});
+
 check('data:media-stream-url-encodes-path-and-project', () => {
   assert.equal(
     mediaStreamUrl('/repo/My File.mp4', 'proj-1'),
     'offisim-media://localhost/file?path=%2Frepo%2FMy+File.mp4&projectId=proj-1',
+  );
+});
+
+check('data:docx-extension-official-mime', () => {
+  assert.equal(
+    mimeForPreviewExtension('docx'),
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  );
+});
+
+check('data:docx-zip-sniff-prefers-official-mime', () => {
+  assert.equal(
+    resolvePreviewMimeType('application/zip', 'docx'),
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  );
+});
+
+check('data:xlsx-routes-bytes', () => {
+  assert.equal(
+    planPreviewLoad(
+      resolved(
+        { source: 'workspace-file', path: '/repo/book.xlsx' },
+        'spreadsheet',
+        {
+          title: 'book.xlsx',
+          extension: 'xlsx',
+          mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          path: '/repo/book.xlsx',
+        },
+      ),
+    ),
+    'bytes',
   );
 });
 

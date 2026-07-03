@@ -31,6 +31,24 @@ const CsvViewer = lazy(() =>
 const HtmlViewer = lazy(() =>
   import('./viewers/HtmlViewer.js').then((module) => ({ default: module.HtmlViewer })),
 );
+const PdfViewer = lazy(() =>
+  import('./viewers/PdfViewer.js').then((module) => ({ default: module.PdfViewer })),
+);
+const DocViewer = lazy(() =>
+  import('./viewers/DocViewer.js').then((module) => ({ default: module.DocViewer })),
+);
+const SheetViewer = lazy(() =>
+  import('./viewers/SheetViewer.js').then((module) => ({ default: module.SheetViewer })),
+);
+const SlidesViewer = lazy(() =>
+  import('./viewers/SlidesViewer.js').then((module) => ({ default: module.SlidesViewer })),
+);
+const MediaViewer = lazy(() =>
+  import('./viewers/MediaViewer.js').then((module) => ({ default: module.MediaViewer })),
+);
+const ModelViewer = lazy(() =>
+  import('./viewers/ModelViewer.js').then((module) => ({ default: module.ModelViewer })),
+);
 
 type PreviewState =
   | { status: 'loading' }
@@ -90,6 +108,24 @@ function ViewerDispatch({ resolved, data }: { resolved: ResolvedPreviewTarget; d
   }
   if (data.mode === 'bytes' && resolved.viewerKind === 'image') {
     return <ImageViewer resolved={resolved} data={data} />;
+  }
+  if (data.mode === 'bytes' && resolved.viewerKind === 'pdf') {
+    return <PdfViewer resolved={resolved} data={data} />;
+  }
+  if (data.mode === 'bytes' && resolved.viewerKind === 'doc') {
+    return <DocViewer resolved={resolved} data={data} />;
+  }
+  if (data.mode === 'bytes' && resolved.viewerKind === 'spreadsheet') {
+    return <SheetViewer resolved={resolved} data={data} />;
+  }
+  if (data.mode === 'bytes' && resolved.viewerKind === 'slides') {
+    return <SlidesViewer resolved={resolved} data={data} />;
+  }
+  if (data.mode === 'stream' && (resolved.viewerKind === 'video' || resolved.viewerKind === 'audio')) {
+    return <MediaViewer resolved={resolved} data={data} />;
+  }
+  if (data.mode === 'bytes' && resolved.viewerKind === 'model3d') {
+    return <ModelViewer resolved={resolved} data={data} />;
   }
   return <UnsupportedViewer resolved={resolved} data={data} />;
 }
