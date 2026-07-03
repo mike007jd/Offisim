@@ -6,6 +6,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import {
   type AnimationAction,
   type AnimationClip,
+  type BufferGeometry,
   Color,
   type Group,
   LoopOnce,
@@ -19,6 +20,7 @@ import {
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { clamp } from '../scene-layout.js';
 import { CHARACTER_ASSET_URLS, characterManifest, useCharacterGltf } from './character-assets.js';
+import { attachGarments } from './garments.js';
 import {
   type ClipName,
   type ClipSelection,
@@ -42,17 +44,27 @@ import { ActionHalo, type CharacterAction, TypingDots } from './indicators.js';
  *  - skin: Light/Dark texture variant picked by target luminance, then a
  *    channel-wise multiply tint toward the exact resolved skin color (reference
  *    averages ship in manifest.json).
- *  - clothing: flat Body_Top multiply; Body_Bottom renders the ACCENT color
- *    (darkened so vivid accents read as slacks) — the two-tone outfit is where
- *    the Personnel "clothing accent" swatch shows up; shoes keep their baked
- *    dark color.
+ *  - clothing: the flat Body_Top / Body_Bottom multiply is the BASE layer, then
+ *    procedural garment geometry (see ./garments.ts) is bone-attached OVER it so
+ *    the character reads as dressed, not as a color-coded bodysuit. Body_Top =
+ *    clothing color, Body_Bottom = the ACCENT color darkened (both still show
+ *    where garments don't cover); the "clothing accent" swatch also tints lapels
+ *    / plackets / belts. Baked shoes keep their dark color.
+ *  - outfit: blazer | shirt | sweater | dress → the garment SET (jacket lapels +
+ *    collar + belt / button placket + collar / crewneck / bodice + flared skirt).
+ *    Sleeves + torso shell are common; dress swaps trousers for a skirt. Pieces
+ *    are rigid segments parented to the rig bones (torso→spine, sleeves→arm
+ *    bones, trousers→leg bones) so they follow every clip; a missing bone just
+ *    drops that piece. See ./garments.ts for the attachment math.
+ *  - bodyType: slim | normal | stocky → a girth factor applied as a non-uniform
+ *    XZ scale on the body wrapper (BODY_TYPE_GIRTH), so the whole silhouette —
+ *    body + garments together — reads narrower/wider. Height stays normalized.
  *  - hair: 8 HairStyle values → 6 baked hair meshes (see HAIR_STYLE_TO_ASSET);
  *    `bald` attaches none. Eyebrows always attach (gendered mesh), tinted with
  *    the hair color. Hair textures are grayscale-normalized so the multiply
  *    reproduces the palette color faithfully.
- *  - accentVariant: data-only — the base bodies have no vest/jacket/scarf
- *    overlay geometry, so the variant has no visual (accentColor renders via
- *    the bottom-wear tint above).
+ *  - accentVariant: data-only — no dedicated overlay geometry maps to it yet
+ *    (the accent color renders via the bottom-wear tint + garment trim above).
  *  - expression: drives clip selection only; the gltf face is textured and has
  *    no morph targets, so there is no per-expression face swap.
  *
@@ -124,6 +136,12 @@ const TINT_MIN = 0.35;
 const TINT_MAX = 2.8;
 /** Bottom-wear darkening relative to the clothing color (reads as slacks). */
 const BOTTOM_DARKEN = 0.62;
+/** bodyType → silhouette girth (non-uniform XZ scale on the body wrapper). */
+const BODY_TYPE_GIRTH: Record<ResolvedAppearance['bodyType'], number> = {
+  slim: 0.9,
+  normal: 1,
+  stocky: 1.13,
+};
 
 /** 8 HairStyle values → shipped hair meshes (hair_06 beard reserved for future accents). */
 const HAIR_STYLE_TO_ASSET: Record<
@@ -171,8 +189,13 @@ interface CharacterRig {
    *  bone texture) — disposed on rebuild/unmount; shared loader-cache geometry
    *  and textures are NEVER disposed here. */
   skeletons: Skeleton[];
+  /** Per-instance procedural garment geometries — created fresh per rig, so
+   *  they are disposed on rebuild/unmount (unlike shared loader-cache geometry). */
+  garmentGeometries: BufferGeometry[];
   propHandles: { laptop: Object3D | null; book: Object3D | null };
   scale: number;
+  /** Silhouette girth from bodyType — applied as the wrapper's XZ scale. */
+  girth: number;
 }
 
 let rigInstanceSeq = 0;
@@ -379,7 +402,10 @@ function RigView({
   });
 
   return (
-    <group ref={bodyRef} scale={rig.scale}>
+    // Non-uniform XZ girth (bodyType) widens/narrows the whole silhouette —
+    // body + bone-attached garments together — while height stays normalized.
+    // The per-frame seated offset only mutates position, so this scale is stable.
+    <group ref={bodyRef} scale={[rig.scale * rig.girth, rig.scale, rig.scale * rig.girth]}>
       <primitive object={rig.root} />
     </group>
   );
@@ -447,12 +473,13 @@ export function GltfCharacter({
       clamp(target.g / Math.max(reference.g, 0.01), TINT_MIN, TINT_MAX),
       clamp(target.b / Math.max(reference.b, 0.01), TINT_MIN, TINT_MAX),
     );
-    // Two-tone outfit: top = clothing, bottom = the accent color — this is
-    // where the Personnel "clothing accent" swatch renders on the GLTF bodies
-    // (the block renderer's vest/scarf accent meshes have no equivalent here).
-    // Slightly darkened so vivid accents still read as slacks, not neon.
+    // Two-tone BASE layer: top = clothing, bottom = the accent color darkened so
+    // vivid accents read as slacks. The procedural garments (below) sit over this
+    // so the character reads as dressed; the base still shows where garments
+    // don't cover, and accent also tints garment lapels/plackets/belts.
     const clothing = new Color(appearance.clothing);
-    const bottom = new Color(appearance.accent).multiplyScalar(BOTTOM_DARKEN);
+    const accent = new Color(appearance.accent);
+    const bottom = accent.clone().multiplyScalar(BOTTOM_DARKEN);
     const hairColor = new Color(appearance.hair);
 
     const unusedSkinVariant = useLight ? 'Body_Skin_Dark' : 'Body_Skin_Light';
@@ -521,6 +548,14 @@ export function GltfCharacter({
       propHandles[key] = prop;
     }
 
+    // Procedural office garments bone-attached over the base tint (see
+    // ./garments.ts). Their materials join `materials` (so the scene's fade
+    // opacity + disposal cover them); their geometries are per-instance and
+    // disposed alongside the clone. Guards internally, so a differently-built
+    // body just yields fewer pieces.
+    const garments = attachGarments(root, appearance, { clothing, accent, bottom });
+    materials.push(...garments.materials);
+
     rigInstanceSeq += 1;
     return {
       id: rigInstanceSeq,
@@ -528,8 +563,10 @@ export function GltfCharacter({
       headBone,
       materials,
       skeletons: [...skeletonSet],
+      garmentGeometries: garments.geometries,
       propHandles,
       scale: TARGET_HEIGHT_UNITS / body.heightUnits,
+      girth: BODY_TYPE_GIRTH[appearance.bodyType] ?? 1,
     };
   }, [
     bodyGltf.scene,
@@ -558,6 +595,7 @@ export function GltfCharacter({
     () => () => {
       for (const material of rig.materials) material.dispose();
       for (const skeleton of rig.skeletons) skeleton.dispose();
+      for (const geometry of rig.garmentGeometries) geometry.dispose();
     },
     [rig],
   );

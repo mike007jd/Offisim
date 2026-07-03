@@ -305,6 +305,7 @@ function appearancePayload(draft: AppearanceDraft): EmployeeAppearance {
     bodyType: draft.bodyType,
     gender: draft.gender,
     accentVariant: draft.accentVariant,
+    outfit: draft.outfit,
   };
 }
 

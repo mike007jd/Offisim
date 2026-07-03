@@ -11,6 +11,8 @@ import { createAvatar } from '@dicebear/core';
 export type BodyType = 'slim' | 'normal' | 'stocky';
 export type Gender = 'masculine' | 'feminine' | 'neutral';
 type AccentVariant = 'vest' | 'jacket' | 'scarf';
+/** Procedural office-garment set driving the 3D character's overlay clothing. */
+export type Outfit = 'blazer' | 'shirt' | 'sweater' | 'dress';
 
 export interface EmployeeAppearance {
   hairStyle?: HairStyle;
@@ -23,6 +25,7 @@ export interface EmployeeAppearance {
   accentVariant?: AccentVariant;
   bodyType?: BodyType;
   gender?: Gender;
+  outfit?: Outfit;
 }
 
 export type HairStyle =
@@ -125,6 +128,7 @@ const HAIR_STYLES: readonly HairStyle[] = [
 const BODY_TYPES: readonly BodyType[] = ['slim', 'normal', 'stocky'];
 const GENDERS: readonly Gender[] = ['masculine', 'feminine', 'neutral'];
 const ACCENT_VARIANTS: readonly AccentVariant[] = ['vest', 'jacket', 'scarf'];
+const OUTFITS: readonly Outfit[] = ['blazer', 'shirt', 'sweater', 'dress'];
 
 export interface ResolvedAppearance {
   skin: string;
@@ -135,6 +139,7 @@ export interface ResolvedAppearance {
   bodyType: BodyType;
   gender: Gender;
   accentVariant: AccentVariant;
+  outfit: Outfit;
 }
 
 /** Resolve concrete colors + body params for an employee — shared by the DiceBear
@@ -155,11 +160,25 @@ export function resolveAppearance(
     hair: withHash(appearance?.hairColor ?? pick(seed, HAIR_COLORS, 'hair')),
     clothing,
     accent,
-    hairStyle: appearance?.hairStyle ?? pick(seed, HAIR_STYLES, 'hairstyle'),
-    bodyType: appearance?.bodyType ?? pick(seed, BODY_TYPES, 'body'),
-    gender: appearance?.gender ?? pick(seed, GENDERS, 'gender'),
-    accentVariant: appearance?.accentVariant ?? pick(seed, ACCENT_VARIANTS, 'accentvar'),
+    hairStyle: oneOf(appearance?.hairStyle, HAIR_STYLES, seed, 'hairstyle'),
+    bodyType: oneOf(appearance?.bodyType, BODY_TYPES, seed, 'body'),
+    gender: oneOf(appearance?.gender, GENDERS, seed, 'gender'),
+    accentVariant: oneOf(appearance?.accentVariant, ACCENT_VARIANTS, seed, 'accentvar'),
+    outfit: oneOf(appearance?.outfit, OUTFITS, seed, 'outfitstyle'),
   };
+}
+
+/** Return `value` when it is a member of the enum `set`, else a stable seed pick.
+ *  Guards against an out-of-set value from untyped persona_json (e.g. an imported
+ *  bodyType "average") reaching a lookup table and producing NaN / a dropped
+ *  garment — the resolver always yields a valid ResolvedAppearance enum. */
+function oneOf<T extends string>(
+  value: T | undefined,
+  set: readonly T[],
+  seed: string,
+  salt: string,
+): T {
+  return value !== undefined && set.includes(value) ? value : pick(seed, set, salt);
 }
 
 const cache = new Map<string, string>();

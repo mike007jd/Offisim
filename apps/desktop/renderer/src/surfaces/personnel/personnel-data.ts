@@ -11,7 +11,14 @@ import { reposOrNull } from '@/data/adapters.js';
 import { UI_DATA_COLORS } from '@/data/color-palette.js';
 import { buildEmployeeSystemPrompt } from '@/data/employee-persona.js';
 import type { Employee } from '@/data/types.js';
-import type { BodyType, EmployeeAppearance, Gender, HairStyle } from '@/lib/avatar.js';
+import {
+  type BodyType,
+  type EmployeeAppearance,
+  type Gender,
+  type HairStyle,
+  type Outfit,
+  resolveAppearance,
+} from '@/lib/avatar.js';
 import {
   type EmployeeVersionRow,
   EmployeeVersionService,
@@ -199,6 +206,13 @@ export const BODY_TYPE_OPTIONS: ReadonlyArray<{ value: BodyType; label: string }
   { value: 'stocky', label: 'Stocky' },
 ];
 
+export const OUTFIT_OPTIONS: ReadonlyArray<{ value: Outfit; label: string }> = [
+  { value: 'blazer', label: 'Blazer' },
+  { value: 'shirt', label: 'Button-up' },
+  { value: 'sweater', label: 'Sweater' },
+  { value: 'dress', label: 'Dress' },
+];
+
 export const GENDER_OPTIONS: ReadonlyArray<{ value: Gender; label: string }> = [
   { value: 'neutral', label: 'Neutral' },
   { value: 'masculine', label: 'Masc' },
@@ -208,15 +222,21 @@ export const GENDER_OPTIONS: ReadonlyArray<{ value: Gender; label: string }> = [
 export type AppearanceDraft = EmployeeAppearance;
 
 export function appearanceDraftFor(employee: Employee): AppearanceDraft {
+  // Default the enum axes to the SAME seed-derived values the office scene
+  // renders (resolveAppearance(employee.id, …)), not fixed literals — otherwise
+  // editing one field and saving would silently overwrite an unauthored,
+  // seed-varied look (hair/body/gender/accent/outfit) with a uniform default.
+  const resolved = resolveAppearance(employee.id, employee.appearance);
   return {
     skinColor: employee.appearance?.skinColor,
     hairColor: employee.appearance?.hairColor,
     clothingColor: employee.appearance?.clothingColor ?? employee.avatarA,
     accentColor: employee.appearance?.accentColor ?? employee.avatarB,
-    hairStyle: employee.appearance?.hairStyle ?? 'short',
-    bodyType: employee.appearance?.bodyType ?? 'normal',
-    gender: employee.appearance?.gender ?? 'neutral',
-    accentVariant: employee.appearance?.accentVariant ?? 'vest',
+    hairStyle: resolved.hairStyle,
+    bodyType: resolved.bodyType,
+    gender: resolved.gender,
+    accentVariant: resolved.accentVariant,
+    outfit: resolved.outfit,
   };
 }
 

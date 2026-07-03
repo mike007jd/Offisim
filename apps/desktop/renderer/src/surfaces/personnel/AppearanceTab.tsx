@@ -19,6 +19,7 @@ import {
   GENDER_OPTIONS,
   HAIR_STYLE_OPTIONS,
   HAIR_SWATCHES,
+  OUTFIT_OPTIONS,
   SKIN_SWATCHES,
   type SwatchOption,
 } from './personnel-data.js';
@@ -123,6 +124,7 @@ interface AppearanceTabProps {
 export function AppearanceTab({ employee, draft, onChange }: AppearanceTabProps) {
   const hairStyleId = useId();
   const bodyTypeId = useId();
+  const outfitId = useId();
   const seed = employee.id;
   const isExternal = employee.kind === 'external';
 
@@ -135,6 +137,7 @@ export function AppearanceTab({ employee, draft, onChange }: AppearanceTabProps)
     bodyType: draft.bodyType,
     gender: draft.gender,
     accentVariant: draft.accentVariant,
+    outfit: draft.outfit,
   };
 
   if (isExternal) {
@@ -226,6 +229,19 @@ export function AppearanceTab({ employee, draft, onChange }: AppearanceTabProps)
                     onChange({ ...draft, bodyType: e.target.value as AppearanceDraft['bodyType'] })
                   }
                   options={BODY_TYPE_OPTIONS}
+                />
+              </div>
+              <div className="off-field">
+                <label className="off-field-label" htmlFor={outfitId}>
+                  Outfit
+                </label>
+                <Select
+                  id={outfitId}
+                  value={draft.outfit ?? 'blazer'}
+                  onChange={(e) =>
+                    onChange({ ...draft, outfit: e.target.value as AppearanceDraft['outfit'] })
+                  }
+                  options={OUTFIT_OPTIONS}
                 />
               </div>
             </div>
