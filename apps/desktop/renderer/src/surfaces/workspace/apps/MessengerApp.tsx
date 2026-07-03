@@ -1109,7 +1109,7 @@ function Composer({
             Ask team
           </button>
         ) : null}
-        {threadId ? <ComposerSettingsMenu threadId={threadId} /> : null}
+        {threadId ? <ComposerSettingsMenu threadId={threadId} showMode={false} /> : null}
         {running ? (
           <button
             type="button"

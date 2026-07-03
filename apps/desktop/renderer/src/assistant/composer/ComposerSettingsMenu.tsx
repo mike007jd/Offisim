@@ -83,10 +83,13 @@ function shortModelName(value: string): string {
 export function ComposerSettingsMenu({
   threadId,
   contextLabel,
+  showMode = true,
 }: {
   threadId: string;
   /** Quiet menu heading (e.g. the project name); omitted when empty. */
   contextLabel?: string;
+  /** Permission mode applies to Office runs; Connect uses its Chat/Read-only profile instead. */
+  showMode?: boolean;
 }) {
   const perThreadModel = usePiThreadModelStore((s) => s.byThread[threadId] ?? '');
   const setThreadModel = usePiThreadModelStore((s) => s.setThreadModel);
@@ -121,7 +124,7 @@ export function ComposerSettingsMenu({
   const summary = [
     shortModelName(effective),
     supportsReasoning ? THINKING_META[level].label : null,
-    MODE_META[mode].label,
+    showMode ? MODE_META[mode].label : null,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -223,31 +226,33 @@ export function ComposerSettingsMenu({
             </DropdownMenuSubContent>
           </DropdownMenuSub>
         ) : null}
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger>
-            <Icon icon={MODE_META[mode].icon} size="sm" />
-            <span className="off-composer-menu-row">
-              <span className="off-composer-menu-name">Mode</span>
-              <span className="off-composer-menu-meta">{MODE_META[mode].label}</span>
-            </span>
-          </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="off-composer-menu off-composer-mode-menu">
-            <DropdownMenuLabel>Permission mode</DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={mode}
-              onValueChange={(value) => setThreadMode(threadId, value as PermissionMode)}
-            >
-              {PERMISSION_MODES.map((value) => (
-                <DropdownMenuRadioItem key={value} value={value}>
-                  <span className="off-composer-menu-row">
-                    <span className="off-composer-menu-name">{MODE_META[value].label}</span>
-                    <span className="off-composer-menu-meta">{MODE_META[value].meta}</span>
-                  </span>
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
+        {showMode ? (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <Icon icon={MODE_META[mode].icon} size="sm" />
+              <span className="off-composer-menu-row">
+                <span className="off-composer-menu-name">Mode</span>
+                <span className="off-composer-menu-meta">{MODE_META[mode].label}</span>
+              </span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="off-composer-menu off-composer-mode-menu">
+              <DropdownMenuLabel>Permission mode</DropdownMenuLabel>
+              <DropdownMenuRadioGroup
+                value={mode}
+                onValueChange={(value) => setThreadMode(threadId, value as PermissionMode)}
+              >
+                {PERMISSION_MODES.map((value) => (
+                  <DropdownMenuRadioItem key={value} value={value}>
+                    <span className="off-composer-menu-row">
+                      <span className="off-composer-menu-name">{MODE_META[value].label}</span>
+                      <span className="off-composer-menu-meta">{MODE_META[value].meta}</span>
+                    </span>
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );
