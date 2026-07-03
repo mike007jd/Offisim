@@ -66,3 +66,52 @@ Branch: `feat/agent-workspace-requirements`. Checked at 2026-07-03.
 
 - `dead-code-and-docs-cleanup-loop` (hygiene) on the accumulated diff.
 - `ui-ux-audit-loop` to confirm UI/UX did not drift during development.
+
+## Delivered (2026-07-04)
+
+Branch `feat/agent-workspace-requirements`. Each phase: implement → `/simplify`
+(lead) → `codex:review` → verify + fix findings → gate re-green.
+
+| Phase | Commit | Codex gate | Closes |
+|---|---|---|---|
+| 1 Git Initialize | `520563cf` | verified | shot 9 |
+| 2 MCP always-on discovery | `2e1fd82e` | NO MATERIAL FINDINGS | shot 1 |
+| 3 Provider settings focus | `8c366d6b` | NO MATERIAL FINDINGS | shots 6/7/8 |
+| 4 De-tab Computer + Browser + IA | `0361fb64` | 1 LOW fixed | shots 2/3 |
+| 5 Capability manifest (A1) | `db8a673a` | NO MATERIAL FINDINGS | shot 1 (deepen) |
+| 6 Composer slash commands (E2/D2) | `cfe487af` | NO MATERIAL FINDINGS | shot 10 |
+| 7 Output provenance (J1/J2) | `0983f114` | 1 MEDIUM fixed | — |
+| hygiene deadcode | `f440a5c2` | full `pnpm validate` green | — |
+
+Screenshot failure classes closed: **8 / 10** (1, 2, 3, 6, 7, 8, 9, 10).
+Requirement groups landed: I, A1, A2, A3, B, C, E2, D2, F1, F2, F3(documented
+unavailable), J1, J2, D3(memory/output roles clarified), K1/K2(partial).
+
+Full `pnpm validate` passes on the cumulative diff (typecheck all packages, 60+
+harness contracts, src-imports, agent-runtime-capabilities, knip) —
+no contract broken, no dead code introduced.
+
+## Continuation (needs a dedicated 3D effort + live release-.app verification)
+
+These two are the requirements package's own "dedicated simulation layer"
+lane — not tractable to a *verified* close in a single non-visual session,
+because their acceptance is inherently live-3D (cold-start release `.app` +
+Computer Use screenshots/interaction, per the hard rule "compile-green ≠
+verified").
+
+- **Phase 8 — 3D character clothing + diversity (Group G, shot 4).** Needs
+  modular garment geometry (jacket/shirt/dress/trousers/shoes) authored into
+  `build-character-assets.mjs` + a `clothingSet→mesh` table in `GltfCharacter`,
+  consume the currently-unused `bodyType`, and live 3D screenshot evidence.
+- **Phase 9 — living office motion ecology (Group H, shot 5).** Needs a
+  navmesh/pathfinding subsystem (evaluate recast-navigation vs three-pathfinding),
+  route `EmployeeUnit` through waypoints, planned-walk on drag, and an autonomous
+  behavior/schedule layer — flowing through `projectSceneCues` to keep 2D/3D in
+  sync — plus cold-start live 3D recording.
+
+Deeper follow-ons noted along the way: the unified typed `@`-reference palette
+(E1) building on `useThreadCapabilities`; the full D1 host-side skill/plugin
+import; a browsable/citable Vault KB surface (D3); and deleting the dead
+Offisim provider-catalog type vocabulary in `packages/shared-types/src/models.ts`
+(EngineId / RuntimeEngine* / MainHarness* / ProviderProduct*) as a scoped
+dead-code sweep.
