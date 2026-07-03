@@ -18,7 +18,7 @@ export function CsvViewer({ text, truncated }: { text: string; truncated?: boole
         <div className="off-preview-banner">Preview truncated at the desktop text budget.</div>
       ) : null}
       {raw ? (
-        <TextViewer text={text} truncated={truncated} languageLabel="CSV" />
+        <TextViewer text={text} truncated={truncated} />
       ) : (
         <DataTable rows={rows} />
       )}

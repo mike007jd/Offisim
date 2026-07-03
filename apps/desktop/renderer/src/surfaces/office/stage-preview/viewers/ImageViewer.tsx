@@ -1,7 +1,7 @@
 import { Move, ZoomIn, ZoomOut } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { PreviewData } from '../preview-data.js';
-import { formatByteSize, type ResolvedPreviewTarget } from '../preview-target.js';
+import type { ResolvedPreviewTarget } from '../preview-target.js';
 
 export function ImageViewer({
   resolved,
@@ -17,7 +17,6 @@ export function ImageViewer({
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const fitRef = useRef(fit);
   fitRef.current = fit;
-  const sizeLabel = formatByteSize(resolved.meta.byteLength ?? data.bytes.byteLength);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -36,13 +35,11 @@ export function ImageViewer({
   return (
     <div className="off-image-viewer">
       <div className="off-image-tools">
-        <span>{resolved.meta.mimeType ?? resolved.meta.extension ?? 'image'}</span>
         {dimensions ? (
           <span>
             {dimensions.width} × {dimensions.height}
           </span>
         ) : null}
-        <span>{sizeLabel}</span>
         <button type="button" onClick={() => setFit(!fit)}>
           <Move size={14} aria-hidden="true" />
           {fit ? 'Actual' : 'Fit'}

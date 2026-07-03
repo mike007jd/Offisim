@@ -14,6 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/design-system/primiti
 import { cn } from '@/lib/utils.js';
 import type { PreviewSourceRef } from '@/surfaces/office/stage-preview/preview-target.js';
 import { StagePreviewPane } from '@/surfaces/office/stage-preview/StagePreviewPane.js';
+import { StageChromeProvider, useStageChrome } from '@/surfaces/office/stage-viewer/stage-chrome.js';
 import { WorkBench } from '@/surfaces/office/scene/work-bench/WorkBench.js';
 import { ComputerView } from '@/surfaces/office/computer/ComputerView.js';
 import type { DramaturgyMode, ToolRichDetail } from '@offisim/shared-types';
@@ -583,32 +584,51 @@ function StageAutoOpenForThread({ threadId }: { threadId: string }) {
 export function StageViewer() {
   const stagePrimaryTab = useUiState((s) => s.stagePrimaryTab);
   const stageView = useUiState((s) => s.stageView);
-  const closeStageView = useUiState((s) => s.closeStageView);
   const viewerTab = stagePrimaryTab;
   if (viewerTab === 'game') return null;
   const visibleTarget =
     stageView.kind !== 'scene' && stageTabForTarget(stageView) === viewerTab ? stageView : null;
   return (
-    <section className="off-stage-viewer" aria-label="Stage viewer">
-      <div className="off-stage-viewer-head">
-        <ViewerIcon tab={viewerTab} />
-        <div className="off-stage-viewer-title">
-          <span>{viewerTitle(viewerTab)}</span>
-          <small>{visibleTarget ? viewerMeta(visibleTarget) : viewerEmptyMeta(viewerTab)}</small>
+    <StageChromeProvider>
+      <section className="off-stage-viewer" aria-label="Stage viewer">
+        <StageViewerHead tab={viewerTab} target={visibleTarget} />
+        <div className="off-stage-viewer-body">
+          <StageTabBody tab={viewerTab} target={visibleTarget} />
         </div>
-        <button
-          type="button"
-          className="off-stage-viewer-close off-focusable"
-          onClick={closeStageView}
-          title="Close view"
-        >
-          <Icon icon={X} size="sm" />
-        </button>
+      </section>
+    </StageChromeProvider>
+  );
+}
+
+function StageViewerHead({
+  tab,
+  target,
+}: {
+  tab: Exclude<StagePrimaryTab, 'game'>;
+  target: StageViewTarget | null;
+}) {
+  const closeStageView = useUiState((s) => s.closeStageView);
+  const chrome = useStageChrome();
+  return (
+    <div className="off-stage-viewer-head">
+      <ViewerIcon tab={tab} />
+      <div className="off-stage-viewer-title">
+        <span>
+          {chrome?.title ?? viewerTitle(tab)}
+          {chrome?.badge ? <em className="off-preview-trust">{chrome.badge}</em> : null}
+        </span>
+        <small>{chrome?.meta ?? (target ? viewerMeta(target) : viewerEmptyMeta(tab))}</small>
       </div>
-      <div className="off-stage-viewer-body">
-        <StageTabBody tab={viewerTab} target={visibleTarget} />
-      </div>
-    </section>
+      {chrome?.actions ? <div className="off-preview-actions">{chrome.actions}</div> : null}
+      <button
+        type="button"
+        className="off-stage-viewer-close off-focusable"
+        onClick={closeStageView}
+        title="Close view"
+      >
+        <Icon icon={X} size="sm" />
+      </button>
+    </div>
   );
 }
 

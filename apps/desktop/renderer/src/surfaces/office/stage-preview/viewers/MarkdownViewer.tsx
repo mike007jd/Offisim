@@ -7,13 +7,12 @@ export function MarkdownViewer({ text, truncated }: { text: string; truncated?: 
   return (
     <div className="off-markdown-preview">
       <div className="off-preview-text-tools">
-        <span>Markdown</span>
         <button type="button" onClick={() => setRaw(!raw)}>
           {raw ? 'Rendered' : 'Raw'}
         </button>
       </div>
       {raw ? (
-        <TextViewer text={text} truncated={truncated} languageLabel="Markdown" />
+        <TextViewer text={text} truncated={truncated} />
       ) : (
         <div className="off-markdown-scroll">
           {truncated ? (
