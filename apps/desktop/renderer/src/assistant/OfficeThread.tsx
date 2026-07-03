@@ -2,6 +2,7 @@ import { isTauriRuntime } from '@/data/adapters.js';
 import type { ChatMessage, Deliverable, Employee, RunState } from '@/data/types.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { Icon } from '@/design-system/icons/Icon.js';
+import { CapabilityManifest } from '@/surfaces/office/rail/CapabilityManifest.js';
 import { ConvOutputs } from '@/surfaces/office/rail/ConvOutputs.js';
 import { MessageItem } from '@/surfaces/office/rail/MessageItem.js';
 import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
@@ -283,7 +284,8 @@ function OfficeComposer({
                 title={storageAvailable ? 'Attach file' : 'Attachment storage unavailable'}
                 onClick={() => fileInput.current?.click()}
               />
-              <div className="off-thread-pitbar" aria-label="Conversation outputs">
+              <div className="off-thread-pitbar" aria-label="Conversation panels">
+                <CapabilityManifest threadId={threadId} employeeId={scopeEmployeeId} />
                 <ConvOutputs deliverables={deliverables} employeesById={employeesById} />
               </div>
               <div className="off-composer-controls">
