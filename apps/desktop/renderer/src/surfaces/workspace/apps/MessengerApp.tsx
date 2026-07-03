@@ -13,6 +13,7 @@ import { useUiState } from '@/app/ui-state.js';
 import { displayThreadTitle } from '@/data/adapters.js';
 import { useEmployees } from '@/data/queries.js';
 import type { Employee } from '@/data/types.js';
+import { ComposerSettingsMenu } from '@/assistant/composer/ComposerSettingsMenu.js';
 import { ChatComposerInput } from '@/design-system/grammar/ChatComposerInput.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
@@ -1105,6 +1106,7 @@ function Composer({
             Ask team
           </button>
         ) : null}
+        {threadId ? <ComposerSettingsMenu threadId={threadId} /> : null}
         {running ? (
           <button
             type="button"
