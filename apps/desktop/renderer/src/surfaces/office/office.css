@@ -1037,6 +1037,14 @@
   gap: var(--off-sp-1);
   overflow-x: auto;
   scrollbar-width: none;
+  /* Edge fade hints that more tabs are reachable by scrolling (scrollbar is hidden). */
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    black var(--off-sp-3),
+    black calc(100% - var(--off-sp-3)),
+    transparent
+  );
 }
 
 .off-stage-tabs::-webkit-scrollbar {
@@ -1075,6 +1083,14 @@
   padding: 0 var(--off-sp-3);
   font-size: var(--off-fs-sm);
   font-weight: 660;
+}
+
+.off-stage-tab span {
+  min-width: 0;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .off-stage-tab-shell .off-stage-tab {
@@ -1192,17 +1208,23 @@
 }
 
 @media (max-width: 1500px) {
-  .off-stage-tab {
+  /* Narrow stage: inactive tabs collapse to icons, but the active tab always
+     keeps a (tighter) readable label. Both active buttons carry
+     aria-current="page", so that is the active hook here. */
+  .off-stage-tab span {
+    max-width: 96px;
+  }
+
+  .off-stage-tab:not([aria-current='page']) {
     width: 30px;
     justify-content: center;
     padding: 0;
   }
 
-  .off-stage-tab-shell .off-stage-tab {
-    padding: 0;
+  .off-stage-tab:not([aria-current='page']) span {
+    display: none;
   }
 
-  .off-stage-tab span,
   .off-stage-view-options-btn span {
     display: none;
   }
@@ -1747,7 +1769,15 @@
   display: grid;
   place-items: center;
   overflow: hidden;
+  cursor: default;
+}
+
+.off-image-canvas.is-pannable {
   cursor: grab;
+}
+
+.off-image-canvas.is-pannable:active {
+  cursor: grabbing;
 }
 
 .off-image-canvas img {
@@ -2247,6 +2277,14 @@
 .off-computer-setup.is-compact {
   margin: 0;
   padding: var(--off-sp-3);
+}
+
+/* Compact setup card rendered inside the waiting viewport keeps its own
+   left-aligned layout instead of inheriting the empty-state centering. */
+.off-computer-viewport-empty .off-computer-setup {
+  width: min(420px, 100%);
+  margin-top: var(--off-sp-3);
+  text-align: left;
 }
 
 .off-computer-setup-head {
@@ -3529,10 +3567,11 @@
   background: none;
   border: 0;
   padding: 0;
+  /* Sentence case: the label carries a duration ("Thought for 12s"), which
+     reads wrong shouted; weight + tracking keep it recognizable as a control. */
   font-size: var(--off-fs-micro);
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0;
+  letter-spacing: var(--off-ls-caps);
   color: var(--off-ink-3);
 }
 

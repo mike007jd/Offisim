@@ -195,8 +195,10 @@ export function StagePreviewPane({
       title,
       meta: meta ?? (state.status === 'loading' ? 'Loading…' : undefined),
       badge: trustBadge ?? undefined,
+      // A failed preview must not offer copy/reveal/open actions for content
+      // that did not load; keep the title so the user still knows what failed.
       actions:
-        path || url ? (
+        state.status !== 'error' && (path || url) ? (
           <>
             {path ? (
               <>

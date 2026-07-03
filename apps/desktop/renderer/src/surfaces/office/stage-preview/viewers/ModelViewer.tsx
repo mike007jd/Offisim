@@ -1,3 +1,4 @@
+import { Icon } from '@/design-system/icons/Icon.js';
 import { OrbitControls, Stage } from '@react-three/drei';
 import { VRMLoaderPlugin } from '@pixiv/three-vrm';
 import { Canvas } from '@react-three/fiber';
@@ -102,7 +103,7 @@ export function ModelViewer({
     <div className="off-model-viewer">
       <div className="off-preview-text-tools">
         <button type="button" onClick={() => setResetToken((value) => value + 1)}>
-          <RotateCcw size={14} aria-hidden="true" />
+          <Icon icon={RotateCcw} size="sm" />
           Reset
         </button>
       </div>

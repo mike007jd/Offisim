@@ -1,3 +1,4 @@
+import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Search } from 'lucide-react';
@@ -62,7 +63,7 @@ export function TextViewer({
     <div className="off-preview-text">
       <div className="off-preview-text-tools">
         <label className="off-preview-search">
-          <Search size={14} aria-hidden="true" />
+          <Icon icon={Search} size="sm" />
           <input
             value={query}
             onChange={(event) => {

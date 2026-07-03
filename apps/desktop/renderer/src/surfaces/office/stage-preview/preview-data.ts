@@ -3,6 +3,7 @@ import type { Deliverable } from '@/data/types.js';
 import {
   type PreviewSourceRef,
   type ResolvedPreviewTarget,
+  extensionFromPath,
   resolveViewerKind,
   trustLevelFor,
 } from './preview-target.js';
@@ -75,14 +76,6 @@ export function planPreviewLoad(
     return 'bytes';
   }
   return 'none';
-}
-
-function extensionFromPath(path: string | undefined): string | undefined {
-  if (!path) return undefined;
-  const leaf = path.replace(/\\/g, '/').split('/').pop() ?? path;
-  const index = leaf.lastIndexOf('.');
-  if (index <= 0 || index === leaf.length - 1) return undefined;
-  return leaf.slice(index + 1).toLowerCase();
 }
 
 const OOXML_MIME_TYPES = new Set([

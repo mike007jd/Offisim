@@ -107,14 +107,18 @@ export function ComputerSetupPanel({ compact = false }: { compact?: boolean }) {
       : !status
         ? 'Checking'
         : !status.installed
-          ? 'Driver missing'
+          ? 'Desktop driver not installed'
           : !status.daemonRunning
-            ? 'Daemon stopped'
+            ? 'Desktop driver not running'
             : !computerServer
-              ? 'MCP not registered'
+              ? 'Driver not linked to Offisim'
               : computerServer.status !== 'connected'
-                ? 'MCP disconnected'
+                ? 'Driver link disconnected'
                 : 'Ready';
+
+  // In compact placements (waiting viewport) the panel is a setup nudge only;
+  // once the driver is fully ready there is nothing left to set up.
+  if (compact && ready) return null;
 
   return (
     <section className={cn('off-computer-setup', compact && 'is-compact')}>
@@ -138,8 +142,17 @@ export function ComputerSetupPanel({ compact = false }: { compact?: boolean }) {
         </Button>
       </div>
 
+      {!compact && !ready ? (
+        <p className="off-computer-setup-copy">
+          Computer Use lets teammates drive this Mac&apos;s screen. It needs the Cua desktop driver
+          installed once.
+        </p>
+      ) : null}
+
       {!desktopAvailable ? (
-        <p className="off-computer-setup-copy">Release desktop builds read driver and MCP state.</p>
+        <p className="off-computer-setup-copy">
+          Driver status is only visible in the desktop app.
+        </p>
       ) : null}
 
       {status && !status.installed ? (
@@ -153,12 +166,12 @@ export function ComputerSetupPanel({ compact = false }: { compact?: boolean }) {
       {status?.installed && !status.daemonRunning ? (
         <>
           <CommandRow
-            label="Daemon"
+            label="Start driver"
             value={CUA_DRIVER_DAEMON_COMMAND}
-            actionLabel="Copy daemon command"
+            actionLabel="Copy start command"
           />
           <CommandRow
-            label="Permissions"
+            label="Grant access"
             value={CUA_DRIVER_PERMISSIONS_COMMAND}
             actionLabel="Copy permission command"
           />
@@ -190,7 +203,8 @@ export function ComputerSetupPanel({ compact = false }: { compact?: boolean }) {
 
       {ready ? (
         <p className="off-computer-setup-copy">
-          Computer Use tools are connected as write-class MCP tools.
+          Computer Use is ready. Teammates can now drive this Mac&apos;s desktop, and every action
+          shows up here.
         </p>
       ) : null}
     </section>

@@ -12,7 +12,11 @@ import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Popover, PopoverContent, PopoverTrigger } from '@/design-system/primitives/popover.js';
 import { cn } from '@/lib/utils.js';
-import type { PreviewSourceRef } from '@/surfaces/office/stage-preview/preview-target.js';
+import {
+  previewRefViewerKind,
+  viewerKindIcon,
+  type PreviewSourceRef,
+} from '@/surfaces/office/stage-preview/preview-target.js';
 import { StagePreviewPane } from '@/surfaces/office/stage-preview/StagePreviewPane.js';
 import { StageChromeProvider, useStageChrome } from '@/surfaces/office/stage-viewer/stage-chrome.js';
 import { WorkBench } from '@/surfaces/office/scene/work-bench/WorkBench.js';
@@ -96,6 +100,12 @@ export function StageTopBar({ isRunning, tokensLabel, costLabel }: StageTopBarPr
   const stageMaximized = useUiState((s) => s.officeStageMaximized);
   const setStageMaximized = useUiState((s) => s.setOfficeStageMaximized);
 
+  const labelCounts = new Map<string, number>();
+  for (const tab of stageOpenTabs) {
+    const label = stageTabLabel(tab.target);
+    labelCounts.set(label, (labelCounts.get(label) ?? 0) + 1);
+  }
+
   return (
     <div className="off-stage-topbar">
       <nav className="off-stage-tabs" aria-label="Stage views">
@@ -110,33 +120,43 @@ export function StageTopBar({ isRunning, tokensLabel, costLabel }: StageTopBarPr
           <Icon icon={Box} size="sm" />
           <span>Game View</span>
         </button>
-        {stageOpenTabs.map((tab) => (
-          <div
-            key={tab.id}
-            className={cn('off-stage-tab-shell', activeStageTabId === tab.id && 'is-active')}
-          >
-            <button
-              type="button"
-              className="off-stage-tab off-focusable"
-              onClick={() => activateStageTab(tab.id)}
-              aria-current={activeStageTabId === tab.id ? 'page' : undefined}
-              aria-label={stageTabLabel(tab.target)}
-              title={stageTabTitle(tab.target)}
+        {stageOpenTabs.map((tab) => {
+          const baseLabel = stageTabLabel(tab.target);
+          const label =
+            (labelCounts.get(baseLabel) ?? 0) > 1
+              ? stageTabDisambiguatedLabel(tab.target)
+              : baseLabel;
+          return (
+            <div
+              key={tab.id}
+              className={cn('off-stage-tab-shell', activeStageTabId === tab.id && 'is-active')}
             >
-              <Icon icon={stageTabIcon(tab.target)} size="sm" />
-              <span>{stageTabLabel(tab.target)}</span>
-            </button>
-            <button
-              type="button"
-              className="off-stage-tab-close off-focusable"
-              onClick={() => closeStageTab(tab.id)}
-              aria-label={`Close ${stageTabLabel(tab.target)}`}
-              title={`Close ${stageTabLabel(tab.target)}`}
-            >
-              <Icon icon={X} size="sm" />
-            </button>
-          </div>
-        ))}
+              <button
+                type="button"
+                className="off-stage-tab off-focusable"
+                onClick={() => activateStageTab(tab.id)}
+                onAuxClick={(event) => {
+                  if (event.button === 1) closeStageTab(tab.id);
+                }}
+                aria-current={activeStageTabId === tab.id ? 'page' : undefined}
+                aria-label={label}
+                title={stageTabTitle(tab.target)}
+              >
+                <Icon icon={stageTabIcon(tab.target)} size="sm" />
+                <span>{label}</span>
+              </button>
+              <button
+                type="button"
+                className="off-stage-tab-close off-focusable"
+                onClick={() => closeStageTab(tab.id)}
+                aria-label={`Close ${label}`}
+                title={`Close ${label}`}
+              >
+                <Icon icon={X} size="sm" />
+              </button>
+            </div>
+          );
+        })}
         <StageViewMenu />
       </nav>
 
@@ -169,6 +189,10 @@ export function StageTopBar({ isRunning, tokensLabel, costLabel }: StageTopBarPr
 }
 
 function stageTabIcon(target: StageOpenTarget) {
+  if (target.kind === 'preview') {
+    const kind = previewRefViewerKind(target.ref);
+    if (kind) return viewerKindIcon(kind);
+  }
   return PRIMARY_TABS.find((candidate) => candidate.id === stageTabForTarget(target))?.icon ?? Box;
 }
 
@@ -176,6 +200,25 @@ function fileLeaf(path: string) {
   const normalized = path.replace(/\\/g, '/');
   const parts = normalized.split('/').filter(Boolean);
   return parts[parts.length - 1] ?? path;
+}
+
+function fileParentLeaf(path: string) {
+  const parts = path.replace(/\\/g, '/').split('/').filter(Boolean);
+  const leaf = parts[parts.length - 1] ?? path;
+  const parent = parts[parts.length - 2];
+  return parent ? `${parent}/${leaf}` : leaf;
+}
+
+/** Longer label used when two open tabs would otherwise read identically. */
+function stageTabDisambiguatedLabel(target: StageOpenTarget) {
+  if (
+    target.kind === 'preview' &&
+    (target.ref.source === 'workspace-file' || target.ref.source === 'computer-artifact')
+  ) {
+    return fileParentLeaf(target.ref.path);
+  }
+  if (target.kind === 'changes' && target.path) return fileParentLeaf(target.path);
+  return stageTabLabel(target);
 }
 
 function previewRefLabel(ref: PreviewSourceRef) {
@@ -408,7 +451,7 @@ function StageViewMenu() {
     },
     {
       id: 'changes',
-      label: 'Changes',
+      label: 'Review',
       meta: latestChange
         ? `${git.data?.changes.length ?? 0} changed · ${latestChange.path}`
         : 'No local changes',
@@ -419,7 +462,7 @@ function StageViewMenu() {
     },
     {
       id: 'logs',
-      label: 'Logs',
+      label: 'Terminal',
       meta: latestLog ? latestLog.tool : 'No tool logs yet',
       disabled: !latestLog,
       isActive: stageView.kind === 'logs',

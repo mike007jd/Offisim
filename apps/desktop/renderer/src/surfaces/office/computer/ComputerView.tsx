@@ -282,6 +282,7 @@ export function ComputerView({ threadId }: { threadId?: string | null }) {
                   ? 'This run is active but has not emitted computer activity.'
                   : (shot?.mimeType ?? 'The next screenshot event will appear here.')}
               </span>
+              {entries.length === 0 ? <ComputerSetupPanel compact /> : null}
             </div>
           )}
         </section>
