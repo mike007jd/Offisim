@@ -44,9 +44,9 @@ import { loadComputerDriverStatus } from '@/surfaces/office/computer/computer-st
 export type CapabilityStatus = 'available' | 'needs-setup' | 'disabled' | 'unavailable';
 
 /** Where a capability physically comes from, shown as a source label per row. */
-export type CapabilitySource = 'Pi runtime' | 'MCP grant' | 'Workspace' | 'Settings';
+type CapabilitySource = 'Pi runtime' | 'MCP grant' | 'Workspace' | 'Settings';
 
-export interface CapabilitySetup {
+interface CapabilitySetup {
   /** Action-oriented label, e.g. "Open Settings › MCP". */
   readonly label: string;
   /** Routes to the owning setup surface. Never performs the mutation itself. */

@@ -2,9 +2,9 @@ import { reposOrNull } from '@/data/adapters.js';
 import { useEffect } from 'react';
 import type { DensityValue, ThemeValue } from './settings-data.js';
 
-export const RUNTIME_SETTINGS_KEY = 'settings.runtime.v1';
+const RUNTIME_SETTINGS_KEY = 'settings.runtime.v1';
 
-export interface PersistedRuntimeSettings {
+interface PersistedRuntimeSettings {
   theme: ThemeValue;
   density: DensityValue;
 }
@@ -17,9 +17,7 @@ function isDensityValue(value: unknown): value is DensityValue {
   return value === 'compact' || value === 'normal' || value === 'spacious';
 }
 
-export function parsePersistedRuntimeSettings(
-  value: string | null,
-): PersistedRuntimeSettings | null {
+function parsePersistedRuntimeSettings(value: string | null): PersistedRuntimeSettings | null {
   if (!value) return null;
   try {
     const raw = JSON.parse(value) as Partial<PersistedRuntimeSettings>;
@@ -59,23 +57,6 @@ function applyAppearance(theme: ThemeValue, density: DensityValue): void {
   const root = document.documentElement;
   root.setAttribute('data-theme', resolveTheme(theme));
   root.setAttribute('data-density', density);
-}
-
-/**
- * Apply the given theme/density to the document and keep `data-theme` in sync
- * with the OS color scheme while the preference is 'system'. Re-applies on any
- * change to theme or density.
- */
-export function useApplyAppearance(theme: ThemeValue, density: DensityValue): void {
-  useEffect(() => {
-    applyAppearance(theme, density);
-    if (theme !== 'system') return;
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
-    const media = window.matchMedia(SYSTEM_DARK_QUERY);
-    const onChange = () => applyAppearance('system', density);
-    media.addEventListener('change', onChange);
-    return () => media.removeEventListener('change', onChange);
-  }, [theme, density]);
 }
 
 /**
