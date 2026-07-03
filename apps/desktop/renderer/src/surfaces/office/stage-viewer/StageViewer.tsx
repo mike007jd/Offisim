@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils.js';
 import type { PreviewSourceRef } from '@/surfaces/office/stage-preview/preview-target.js';
 import { StagePreviewPane } from '@/surfaces/office/stage-preview/StagePreviewPane.js';
 import { WorkBench } from '@/surfaces/office/scene/work-bench/WorkBench.js';
+import { ComputerView } from '@/surfaces/office/computer/ComputerView.js';
 import type { DramaturgyMode, ToolRichDetail } from '@offisim/shared-types';
 import {
   Box,
@@ -313,6 +314,9 @@ function StageViewMenu() {
   const latestBrowser = run ? latestBrowserDetail(run.activity) : null;
   const latestBrowserRichDetail =
     latestBrowser?.richDetail?.family === 'browser' ? latestBrowser.richDetail : null;
+  const latestComputer = run
+    ? [...run.activity].reverse().find((entry) => entry.richDetail?.family === 'computer')
+    : null;
   const latestLog = run ? latestRichDetail(run.activity) : null;
   const latestOutput = newestDeliverable(deliverables.data ?? []);
   const latestHtmlOutput = htmlDeliverable(deliverables.data ?? []);
@@ -393,6 +397,15 @@ function StageViewMenu() {
       },
     },
     {
+      id: 'computer',
+      label: 'Computer',
+      meta: latestComputer ? latestComputer.tool : 'Setup and desktop activity',
+      disabled: false,
+      isActive: stageView.kind === 'computer' || stagePrimaryTab === 'computer',
+      icon: MonitorSmartphone,
+      onSelect: () => openStageView({ kind: 'computer', threadId: selectedThreadId }),
+    },
+    {
       id: 'changes',
       label: 'Changes',
       meta: latestChange
@@ -458,10 +471,7 @@ function StageViewMenu() {
             <button
               key={item.id}
               type="button"
-              className={cn(
-                'off-stage-view-option off-focusable',
-                item.isActive && 'is-active',
-              )}
+              className={cn('off-stage-view-option off-focusable', item.isActive && 'is-active')}
               disabled={item.disabled}
               onClick={() => {
                 item.onSelect();
@@ -494,6 +504,7 @@ function StageAutoOpenForThread({ threadId }: { threadId: string }) {
   const run = runs.runs.find((candidate) => candidate.threadId === threadId) ?? null;
   const seenDeliverables = useRef<Set<string> | null>(null);
   const seenBrowserActivities = useRef<Set<string> | null>(null);
+  const seenComputerActivities = useRef<Set<string> | null>(null);
 
   useEffect(() => {
     const rows = deliverables.data;
@@ -548,6 +559,24 @@ function StageAutoOpenForThread({ threadId }: { threadId: string }) {
     });
   }, [openStageView, run]);
 
+  useEffect(() => {
+    if (!run) return;
+    const computerActivities = run.activity.filter(
+      (entry) => entry.richDetail?.family === 'computer',
+    );
+    const ids = new Set(computerActivities.map((entry) => entry.id));
+    if (!seenComputerActivities.current) {
+      seenComputerActivities.current = ids;
+      return;
+    }
+    const latest = [...computerActivities]
+      .reverse()
+      .find((entry) => !seenComputerActivities.current?.has(entry.id));
+    seenComputerActivities.current = ids;
+    if (!latest) return;
+    openStageView({ kind: 'computer', threadId });
+  }, [openStageView, run, threadId]);
+
   return null;
 }
 
@@ -600,12 +629,7 @@ function StageTabBody({
     );
   }
   if (tab === 'computer') {
-    return (
-      <StageEmpty
-        title="No computer activity"
-        detail="Computer Use windows and artifacts appear here when available."
-      />
-    );
+    return <ComputerView threadId={target?.kind === 'computer' ? target.threadId : null} />;
   }
   if (tab === 'terminal') {
     if (target?.kind === 'logs') return <LogsView target={target} />;

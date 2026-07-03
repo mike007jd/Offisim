@@ -14,13 +14,14 @@ import { Textarea } from '@/design-system/primitives/textarea.js';
 import { safeErrorMessage } from '@/lib/error-message.js';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
-import { Globe, Plus, RefreshCw, Terminal, Trash2 } from 'lucide-react';
+import { Globe, MonitorSmartphone, Plus, RefreshCw, Terminal, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { McpServerDetailPane } from './McpServerDetailPane.js';
 import { McpStdioConfirmDialog } from './McpStdioConfirmDialog.js';
 import {
+  CUA_DRIVER_MCP_PRESET,
   MCP_SERVER_DEFAULTS,
   MCP_STATUS_LABELS,
   type McpServer,
@@ -58,12 +59,16 @@ export function McpServersPane() {
     mode: 'onSubmit',
   });
   const transport = form.watch('transport');
+  const category = form.watch('category');
 
   const groups = useMemo(() => {
     const stdio = servers.filter((s) => s.transport === 'stdio');
     const sse = servers.filter((s) => s.transport === 'sse');
     return { stdio, sse };
   }, [servers]);
+  const hasCuaDriver = servers.some(
+    (server) => server.category === 'computer-use' || server.name === CUA_DRIVER_MCP_PRESET.name,
+  );
 
   const selectedServer =
     selectedServerId === null ? null : servers.find((server) => server.id === selectedServerId);
@@ -196,6 +201,9 @@ export function McpServersPane() {
                     {busy ? MCP_STATUS_LABELS.connecting : MCP_STATUS_LABELS[server.status]}
                   </StatusPill>
                   <span className="off-set-chip-mini">{server.source}</span>
+                  {server.category === 'computer-use' ? (
+                    <span className="off-set-chip-mini">computer</span>
+                  ) : null}
                   {typeof server.toolCount === 'number' ? (
                     <span className="off-set-chip-mini">{server.toolCount} tools</span>
                   ) : null}
@@ -266,10 +274,30 @@ export function McpServersPane() {
         <div className="off-set-sec-head">
           <CapsLabel>Configured servers</CapsLabel>
           {showForm ? null : (
-            <Button size="sm" onClick={() => setShowForm(true)}>
-              <Icon icon={Plus} size="sm" />
-              Add server
-            </Button>
+            <div className="off-set-row-actions">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!desktopAvailable || hasCuaDriver || submitting}
+                onClick={() => {
+                  form.reset(CUA_DRIVER_MCP_PRESET);
+                  setShowForm(false);
+                  setPending(CUA_DRIVER_MCP_PRESET);
+                }}
+                title={
+                  hasCuaDriver
+                    ? 'Cua Driver is already registered'
+                    : 'Register the Cua Driver stdio MCP server'
+                }
+              >
+                <Icon icon={MonitorSmartphone} size="sm" />
+                Computer Use
+              </Button>
+              <Button size="sm" onClick={() => setShowForm(true)}>
+                <Icon icon={Plus} size="sm" />
+                Add server
+              </Button>
+            </div>
           )}
         </div>
         <CardBlock>
@@ -308,6 +336,20 @@ export function McpServersPane() {
                   ]}
                 />
               </div>
+              <label className="off-set-callout">
+                <input
+                  type="checkbox"
+                  checked={category === 'computer-use'}
+                  onChange={(event) => {
+                    form.setValue(
+                      'category',
+                      event.currentTarget.checked ? 'computer-use' : undefined,
+                    );
+                  }}
+                />
+                <Icon icon={MonitorSmartphone} size="sm" />
+                Computer Use tools
+              </label>
               <div className="off-set-grid-2">
                 <FieldRow
                   label={

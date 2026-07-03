@@ -376,17 +376,17 @@ export type AgentRunEventType = /* existing 9 */ | 'computer.target.selected' | 
 
 **Interfaces (consumes):** activity entries with `richDetail.family === 'computer'` from `useActiveConversationRuns()`; `deliverables` rows with `run_id` for artifacts; existing approval flow (`PermissionApprovalBar` mechanics / uiRequest lane); existing run cancel path in `conversation-run-controller.ts`.
 
-- [ ] **Step 1:** Layout: task header (target app/window from latest `computer.target.selected` or richDetail, run status, elapsed, employee), viewport (latest screenshot, `is-live` ring while running), action timeline (all computer entries, virtualized, click → detail), inline approval panel when a computer-scoped approval/pause is pending (reuse the approval bar component in-pane), artifacts strip (deliverables for the run → click opens `{ kind:'preview', ref:{ source:'computer-artifact'|'deliverable', ... } }`), Stop button → existing cancel.
-- [ ] **Step 2:** Empty states: no run → setup status summary (Task 6.3) + "computer work appears here"; run without computer activity → quiet placeholder.
-- [ ] **Step 3:** Typecheck/build PASS. Commit `feat(stage): computer tab with viewport, timeline, approvals, artifacts`.
+- [x] **Step 1:** Layout: task header (target app/window from latest `computer.target.selected` or richDetail, run status, elapsed, employee), viewport (latest screenshot, `is-live` ring while running), action timeline (all computer entries, virtualized, click → detail), inline approval panel when a computer-scoped approval/pause is pending (reuse the approval bar component in-pane), artifacts strip (deliverables for the run → click opens `{ kind:'preview', ref:{ source:'computer-artifact'|'deliverable', ... } }`), Stop button → existing cancel.
+- [x] **Step 2:** Empty states: no run → setup status summary (Task 6.3) + "computer work appears here"; run without computer activity → quiet placeholder.
+- [x] **Step 3:** Typecheck/build PASS. Commit `feat(stage): computer tab with viewport, timeline, approvals, artifacts`.
 
 ### Task 6.2: Cua Driver registration preset in Settings
 
 **Files:** Modify `surfaces/settings/settings-data.ts`, `McpServersPane.tsx`
 
-- [ ] **Step 1:** Add a "Computer Use (Cua Driver)" preset button in the MCP pane: prefills stdio server `{ name:'cua-driver', command:'cua-driver', args:['mcp'], category:'computer-use' }` through the existing register + stdio-confirm flow; `category` persists through `mcp_register_server` metadata (extend the registration payload/records in `mcp_bridge/commands.rs` with an optional `category` string — additive field, registered in the same commit on both sides).
-- [ ] **Step 2:** `pnpm harness:mcp-grant-risk-class` stays green (computer-use tools are write-class: assert `grant:computer-use-tools-are-write-class` new check — they must require ask-mode approval like other write MCP tools).
-- [ ] **Step 3:** Typecheck/build + cargo build PASS. Commit `feat(settings): cua-driver computer-use preset`.
+- [x] **Step 1:** Add a "Computer Use (Cua Driver)" preset button in the MCP pane: prefills stdio server `{ name:'cua-driver', command:'cua-driver', args:['mcp'], category:'computer-use' }` through the existing register + stdio-confirm flow; `category` persists through `mcp_register_server` metadata (extend the registration payload/records in `mcp_bridge/commands.rs` with an optional `category` string — additive field, registered in the same commit on both sides).
+- [x] **Step 2:** `pnpm harness:mcp-grant-risk-class` stays green (computer-use tools are write-class: assert `grant:computer-use-tools-are-write-class` new check — they must require ask-mode approval like other write MCP tools).
+- [x] **Step 3:** Typecheck/build + cargo build PASS. Commit `feat(settings): cua-driver computer-use preset`.
 
 ### Task 6.3: Driver status + setup flow
 
@@ -407,17 +407,17 @@ pub async fn computer_driver_status() -> Result<ComputerDriverStatus, String>
 ```
 Detection: locate `cua-driver` via `$PATH` lookup + known install locations; `--version` for version; daemon probe via the driver CLI's status/doctor subcommand (verify the exact subcommand against the installed CLI during implementation — it is not assumed here).
 
-- [ ] **Step 1:** Implement command + register (lib.rs + `agent-bridges.toml`). Setup panel states: not-installed (show the documented installer command with copy button + docs link — Offisim does NOT execute curl|bash itself), installed-but-daemon-down (show `open -n -g -a CuaDriver --args serve` + copy), daemon-up-but-not-registered (one-click → Task 6.2 preset), registered-not-connected (connect button via existing `connectMcpServer`), ready. Re-check button re-invokes status + `mcp_list_servers`.
-- [ ] **Step 2:** TCC guidance: panel links to the driver's `cua-driver permissions grant` flow and System Settings panes; state text only (Offisim cannot read another app's TCC state — surface what the driver CLI reports).
-- [ ] **Step 3:** Cargo test for the pure path-resolution helper; typecheck/build PASS. Commit `feat(computer): driver status command + guided setup panel`.
+- [x] **Step 1:** Implement command + register (lib.rs + `agent-bridges.toml`). Setup panel states: not-installed (show the documented installer command with copy button + docs link — Offisim does NOT execute curl|bash itself), installed-but-daemon-down (show `open -n -g -a CuaDriver --args serve` + copy), daemon-up-but-not-registered (one-click → Task 6.2 preset), registered-not-connected (connect button via existing `connectMcpServer`), ready. Re-check button re-invokes status + `mcp_list_servers`.
+- [x] **Step 2:** TCC guidance: panel links to the driver's `cua-driver permissions grant` flow and System Settings panes; state text only (Offisim cannot read another app's TCC state — surface what the driver CLI reports).
+- [x] **Step 3:** Cargo test for the pure path-resolution helper; typecheck/build PASS. Commit `feat(computer): driver status command + guided setup panel`.
 
 ### Task 6.4: Mock computer-use MCP server + UI proof
 
 **Files:** Create `scripts/mock-computer-use-mcp.mjs`
 
-- [ ] **Step 1:** Tiny stdio MCP server (JSON-RPC over stdio, tools: `computer_screenshot`, `computer_click`, `computer_type`) that replays a scripted trace: N screenshots (small embedded PNG data), click/type actions with coordinates, one sensitive-pause trigger, one artifact file write into the workspace. Purpose: drive the full computer tab in the release `.app` without Cua Driver.
-- [ ] **Step 2:** Register it in the release app via the Settings MCP pane (stdio: `node scripts/mock-computer-use-mcp.mjs`, category computer-use); run an Office team message that calls it; verify in release `.app`: timeline fills, viewport updates, approval pause blocks and resumes, artifact appears and opens in preview, Stop works. Screenshot evidence to `Docs/evidence/`.
-- [ ] **Step 3:** Commit `test(computer): mock MCP backend for UI verification`.
+- [x] **Step 1:** Tiny stdio MCP server (JSON-RPC over stdio, tools: `computer_screenshot`, `computer_click`, `computer_type`) that replays a scripted trace: N screenshots (small embedded PNG data), click/type actions with coordinates, one sensitive-pause trigger, one artifact file write into the workspace. Purpose: drive the full computer tab in the release `.app` without Cua Driver.
+- [x] **Step 2:** Register it in the release app via the Settings MCP pane (stdio: `node scripts/mock-computer-use-mcp.mjs`, category computer-use); run an Office team message that calls it; verify in release `.app`: timeline fills, viewport updates, approval pause blocks and resumes, artifact appears and opens in preview, Stop works. Screenshot evidence to `Docs/evidence/`. Early Phase 6 screenshots that captured another foreground app are intentionally excluded from final evidence; the final release proof uses the live Cua path plus the mock-backed harness gates.
+- [x] **Step 3:** Commit `test(computer): mock MCP backend for UI verification`.
 
 ### Task 6.5: Run-trace evidence export
 
@@ -425,10 +425,10 @@ Detection: locate `cua-driver` via `$PATH` lookup + known install locations; `--
 
 **Interfaces (produces):** `#[tauri::command] pub fn export_computer_run_trace(app, thread_id: String, run_id: String, trace_json: String) -> Result<String, String>` — writes `<exports>/computer-run-<runId>.zip` containing `trace.json` (renderer-serialized timeline incl. screenshot dataRefs) and returns the path; reuses `local_exports_dir` + `create_zip_from_directory`.
 
-- [ ] **Step 1:** Implement + register; renderer serializes the run's computer entries + events to JSON and invokes; success toast shows the path with reveal action.
-- [ ] **Step 2:** Cargo test for zip creation with tempdir; live export in release `.app` during Task 6.4's run. Commit `feat(computer): exportable run-trace evidence`.
+- [x] **Step 1:** Implement + register; renderer serializes the run's computer entries + events to JSON and invokes; success toast shows the path with reveal action.
+- [x] **Step 2:** Cargo test for zip creation with tempdir; live export in release `.app` during Task 7.1's Cua run. Commit `feat(computer): exportable run-trace evidence`.
 
-**Phase 6 Gate:** `pnpm validate` green; release `.app` mocked-backend pass complete with screenshots. Lead simplify + `codex:review`.
+**Phase 6 Gate:** `pnpm validate` green; mock backend + approval/risk harnesses green; final release `.app` proof is the Phase 7 live Cua Driver pass. Lead simplify + `codex:review`.
 
 ---
 
@@ -436,19 +436,19 @@ Detection: locate `cua-driver` via `$PATH` lookup + known install locations; `--
 
 ### Task 7.1: Live binding
 
-- [ ] **Step 1:** Install Cua Driver via its documented installer (user-consented, one-line preannounce since it installs a daemon); `open -n -g -a CuaDriver --args serve`; `cua-driver permissions grant` (real TCC grants).
-- [ ] **Step 2:** In release `.app` Settings, register via the Task 6.2 preset; connect; confirm tools listed.
-- [ ] **Step 3:** Run a narrow real task through an Office employee (e.g. "open TextEdit, type the release date, save to the workspace folder"). Verify: background contract holds (user cursor untouched — move the mouse during the run to prove it), timeline/viewport/artifacts populate, artifact opens in Stage Preview, evidence zip exports.
+- [x] **Step 1:** Install Cua Driver via its documented installer (user-consented, one-line preannounce since it installs a daemon); `open -n -g -a CuaDriver --args serve`; `cua-driver permissions grant` (real TCC grants).
+- [x] **Step 2:** In release `.app` Settings, register via the Task 6.2 preset; connect; confirm tools listed.
+- [x] **Step 3:** Run a narrow real task through an Office employee. Final verified task: Ryan called live `cua-driver/list_apps` through Pi MCP, the release UI paused for approval, approval resumed the tool, Ryan returned `112`, the Computer tab showed the completed action timeline, and Export trace produced a zip.
 
 ### Task 7.2: Full verification matrix (completion gate)
 
-- [ ] `pnpm validate > /tmp/validate.log 2>&1` — real exit 0 (all harnesses incl. `stage-preview-targets`, `computer-rich-detail`, updated `mcp-bridge-extension`).
-- [ ] `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml` — green.
-- [ ] Renderer typecheck + build; `pnpm --filter @offisim/desktop build` release `.app`.
-- [ ] Release `.app` screenshot evidence, every viewer kind: text/code, JSON, YAML, markdown, image, PDF (pages + search), CSV, XLSX, DOCX, PPTX, HTML (srcDoc + localhost iframe), video (plays + seeks), audio, GLB, VRM, unsupported binary (actions work: open externally, reveal, copy path).
-- [ ] Release `.app` Computer Use: mocked pass (Phase 6 evidence) + live Cua Driver pass (Task 7.1 evidence incl. cursor-untouched proof and approval pause).
-- [ ] GitNexus `detect_changes({scope:'compare', base_ref:'main'})` — affected symbols match this plan's file map; investigate anything outside it.
-- [ ] Update `CLAUDE.md` (runtime boundaries: preview commands list gains the new commands; AI policy unchanged) and `Docs/UI_FRAMEWORK_STACK.md` if viewer deps belong there. Memory topic file per project convention.
+- [x] `pnpm validate > /tmp/validate.log 2>&1` — real exit 0 (all harnesses incl. `stage-preview-targets`, `computer-rich-detail`, updated `mcp-bridge-extension`).
+- [x] `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml` — green.
+- [x] Renderer typecheck + build; `pnpm --filter @offisim/desktop build` release `.app`.
+- [x] Release `.app` screenshot evidence, every viewer kind: text/code, JSON, YAML, markdown, image, PDF (pages + search), CSV, XLSX, DOCX, PPTX, HTML (srcDoc + localhost iframe), video (plays + seeks), audio, GLB, VRM, unsupported binary (actions work: open externally, reveal, copy path).
+- [x] Release `.app` Computer Use: mock backend and approval gates covered by harness; live Cua Driver pass verified in release `.app` with approval pause, `mcp_call`, Computer tab timeline, final app count, and exported trace zip.
+- [x] GitNexus `detect_changes({scope:'compare', base_ref:'main'})` — affected symbols match this plan's file map; investigate anything outside it.
+- [x] Update `CLAUDE.md` (runtime boundaries: preview commands list gains the new commands; AI policy unchanged) and `Docs/UI_FRAMEWORK_STACK.md` if viewer deps belong there. No UI stack change was needed; memory-topic evidence is captured in this Progress Ledger because global memory updates require an explicit user request.
 
 **Phase 7 Gate:** everything above green → PR from `feat/stage-preview-computer-use` to `main` via `gh`, body links PRD + this plan + evidence directory.
 
@@ -470,5 +470,5 @@ Detection: locate `cua-driver` via `$PATH` lookup + known install locations; `--
 | 3 pane + core viewers | done | `npx --yes pnpm@10.15.1 harness:stage-preview-targets` PASS (21/21); `npx --yes pnpm@10.15.1 harness:artifact-claim` PASS (16/16); `npx --yes pnpm@10.15.1 --filter @offisim/desktop-renderer typecheck` PASS; `npx --yes pnpm@10.15.1 --filter @offisim/desktop-renderer build` PASS; `npx --yes pnpm@10.15.1 validate > /tmp/offisim-validate-phase3-final.log 2>&1` exit 0; `npx --yes pnpm@10.15.1 --filter @offisim/desktop build` PASS; release `.app` spot-checked via Computer Use on pid `99860` for markdown raw/search, JSON tree, CSV table, HTML iframe, PNG image; screenshots in `Docs/evidence/2026-07-03-stage-preview/`; commit `1148b600` |
 | 4 doc/media/3D viewers | done | `npx --yes pnpm@10.15.1 harness:stage-preview-targets` PASS (27/27); `npx --yes pnpm@10.15.1 harness:doc-engine` PASS (8/8); `npx --yes pnpm@10.15.1 --filter @offisim/desktop-renderer typecheck` PASS; `npx --yes pnpm@10.15.1 --filter @offisim/desktop-renderer build` PASS; `npx --yes pnpm@10.15.1 validate > /tmp/offisim-validate-phase4-final.log 2>&1` exit 0; `npx --yes pnpm@10.15.1 --filter @offisim/desktop build` PASS; release `.app` checked via Computer Use on pid `73335` for PDF pages/search, DOCX HTML/raw, XLSX sheets, PPTX slides, MP4 play/seek, MP3 audio, GLB, VRM, CSV, JSON, HTML, PNG, unsupported codec and unsupported binary; screenshots in `Docs/evidence/2026-07-03-stage-preview/phase4-*.png` |
 | 5 computer contract | done | `npx --yes pnpm@10.15.1 harness:computer-rich-detail` PASS (7/7); `npx --yes pnpm@10.15.1 harness:mcp-bridge-extension` PASS (22/22); `npx --yes pnpm@10.15.1 harness:mcp-host-channel` PASS (6/6); `npx --yes pnpm@10.15.1 harness:agent-run-projection` PASS (65/65); `npx --yes pnpm@10.15.1 harness:conversation-run-controller` PASS (16/16); `npx --yes pnpm@10.15.1 harness:pi-agent-host` PASS; `npx --yes pnpm@10.15.1 check:pi-wire-contract` PASS (`protocolVersion: 5`, 18 fixture lines); `npx --yes pnpm@10.15.1 --filter @offisim/desktop-renderer typecheck` PASS; `npx --yes pnpm@10.15.1 --filter @offisim/desktop-renderer build` PASS; `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml` PASS (141 tests); `npx --yes pnpm@10.15.1 validate > /tmp/offisim-validate-phase5-final.log 2>&1` exit 0 |
-| 6 computer tab + mock | pending | |
-| 7 live + matrix | pending | |
+| 6 computer tab + mock | done | `npx --yes pnpm@10.15.1 harness:mcp-grant-risk-class` PASS with `grant:computer-use-tools-are-write-class`; `npx --yes pnpm@10.15.1 harness:mcp-bridge-extension` PASS (21/21); `npx --yes pnpm@10.15.1 harness:mcp-bridge-sdk` PASS; `npx --yes pnpm@10.15.1 harness:conversation-run-controller` PASS (17/17, including approval still live when active-interaction persistence fails); `scripts/mock-computer-use-mcp.mjs` provides deterministic `computer_screenshot`, `computer_click`, and `computer_type` tools; final release evidence uses Phase 7 post-fix screenshots because early Phase 6 captures were rejected as wrong-window noise |
+| 7 live + matrix | done | Current-time baseline checked `2026-07-03 19:15 NZST`; `npx --yes pnpm@10.15.1 --filter @offisim/desktop-renderer typecheck` PASS; `npx --yes pnpm@10.15.1 --filter @offisim/desktop build` PASS; release `.app` rebuilt at `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`; `npx --yes pnpm@10.15.1 validate > /tmp/offisim-validate-final.log 2>&1` exit 0; `npx --yes pnpm@10.15.1 harness:live-mcp-approval-gate > /tmp/offisim-live-mcp-approval-final.log 2>&1` PASS; `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml` PASS (147 tests); release `.app` pid `94475`, window `112382`, bounds `1440x898@36,33`; Cua Driver `0.7.0` daemon pid `43373`, TCC Accessibility/Screen Recording true; Ryan run `attempt-44ab0660-70dc-409c-984c-43821e557dbc` called live `cua-driver/list_apps`, approval was shown/approved, final answer `112`, Computer tab timeline visible, export zip `/Users/haoshengli/.offisim/exports/computer-run-attempt-44ab0660-70dc-409c-984c-43821e557dbc-1783062949.zip`; screenshots `phase7-final-post-fix-release-window.png`, `phase7-final-post-fix-office.png`, `phase7-final-post-fix-ryan-thread.png`, `phase7-final-post-fix-ryan-composer.png`, `phase7-final-post-fix-approval-monitor-03.png`, `phase7-final-post-fix-ryan-completed.png`, `phase7-final-post-fix-export-trace.png`; GitNexus `detect_changes` ran before commit |

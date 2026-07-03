@@ -7,7 +7,43 @@
     <title>Offisim</title>
   </head>
   <body>
+    <div
+      id="offisim-static-boot"
+      role="status"
+      style="
+        position: fixed;
+        inset: 0;
+        z-index: 2147483647;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f6f8fb;
+        color: #101827;
+        font: 14px/1.5 -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif;
+        box-sizing: border-box;
+        padding: 32px;
+      "
+    >
+      <div
+        style="
+          max-width: 520px;
+          border: 1px solid #cfd7e3;
+          background: #ffffff;
+          border-radius: 8px;
+          padding: 18px 20px;
+          box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
+        "
+      >
+        <div id="offisim-bootguard-title" style="font-weight: 650; margin-bottom: 6px">
+          Loading Offisim
+        </div>
+        <div id="offisim-bootguard-body" style="color: #465264">
+          Opening the local company workspace.
+        </div>
+      </div>
+    </div>
     <div id="root"></div>
+    <script type="module" src="./src/bootguard.ts"></script>
     <script type="module" src="./src/main.tsx"></script>
   </body>
 </html>

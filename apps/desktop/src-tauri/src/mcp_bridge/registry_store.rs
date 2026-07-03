@@ -35,6 +35,7 @@ pub struct RegisteredMcpServer {
     pub source_package_version: Option<String>,
     pub source_manifest_hash: Option<String>,
     pub approval_id: Option<String>,
+    pub category: Option<String>,
     pub risk_class: Option<String>,
     pub command_fingerprint: Option<String>,
     #[serde(default)]
@@ -56,6 +57,7 @@ pub struct McpServerRegistrationInput {
     pub source_package_version: Option<String>,
     pub source_manifest_hash: Option<String>,
     pub approval_id: Option<String>,
+    pub category: Option<String>,
     pub risk_class: Option<String>,
     #[serde(default)]
     pub requested_tools: Vec<String>,
@@ -131,6 +133,7 @@ impl RegisteredServerStore {
         let source_package_id = normalize_optional(input.source_package_id.as_deref());
         let source_package_version = normalize_optional(input.source_package_version.as_deref());
         let source_manifest_hash = normalize_optional(input.source_manifest_hash.as_deref());
+        let category = normalize_mcp_category(input.category.as_deref())?;
         let command_fingerprint = match input.transport {
             McpTransport::Stdio => Some(command_fingerprint(
                 command.as_deref().unwrap_or_default(),
@@ -163,6 +166,7 @@ impl RegisteredServerStore {
                 .as_ref()
                 .map(|value| value.trim().to_string())
                 .filter(|value| !value.is_empty()),
+            category,
             risk_class: input
                 .risk_class
                 .as_ref()
@@ -258,6 +262,7 @@ impl RegisteredServerStore {
                 }
             }
         }
+        normalize_mcp_category(input.category.as_deref())?;
 
         Ok(())
     }
@@ -291,6 +296,14 @@ fn normalize_optional(value: Option<&str>) -> Option<String> {
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(ToString::to_string)
+}
+
+fn normalize_mcp_category(value: Option<&str>) -> Result<Option<String>, String> {
+    match normalize_optional(value).as_deref() {
+        None => Ok(None),
+        Some("computer-use") => Ok(Some("computer-use".into())),
+        Some(other) => Err(format!("unsupported MCP category '{other}'")),
+    }
 }
 
 pub(super) fn expected_stdio_request_surface(source: &str) -> Option<&'static str> {
@@ -457,10 +470,20 @@ mod tests {
             source_package_version: None,
             source_manifest_hash: None,
             approval_id: Some("approval-1".into()),
+            category: None,
             risk_class: Some("high".into()),
             requested_tools: Vec::new(),
             request_surface: Some(surface.into()),
         }
+    }
+
+    #[test]
+    fn only_known_mcp_category_is_accepted() {
+        assert_eq!(
+            normalize_mcp_category(Some(" computer-use ")).unwrap(),
+            Some("computer-use".into())
+        );
+        assert!(normalize_mcp_category(Some("browser-use")).is_err());
     }
 
     #[test]

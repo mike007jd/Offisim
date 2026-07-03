@@ -2,7 +2,6 @@ import { useUiState } from '@/app/ui-state.js';
 import { loadPersistedChatMessages } from '@/data/chat-message-events.js';
 import { getTauriDb } from '@/lib/tauri-db.js';
 import { buildWizardTemplates } from '@/surfaces/lifecycle/template-view.js';
-import { getBuiltinPrefab } from '@offisim/renderer';
 import type {
   ActivityType,
   PrefabDefinition,
@@ -23,29 +22,44 @@ import {
 import { gitErrorMessage, isNonGitWorkspace, loadGitWorkbench } from './git-workbench.js';
 import { deleteCompanyDeep, deleteConversationDeep } from './local-data-deletion.js';
 import { loadRunCost } from './run-cost.js';
-import type {
-  ChatMessage,
-  Deliverable,
-  Employee,
-  FileNode,
-  GitWorkbench,
-  Skill,
-} from './types.js';
+import type { ChatMessage, Deliverable, Employee, FileNode, GitWorkbench, Skill } from './types.js';
 
 /**
  * Query hooks over the renderer data source. Release Tauri builds must use
  * repository-backed data or fail loudly instead of rendering fake preview state.
  */
 
+const DESKTOP_STARTUP_QUERY_TIMEOUT_MS = 8_000;
+type GetBuiltinPrefab = typeof import('@offisim/renderer')['getBuiltinPrefab'];
+let getBuiltinPrefabPromise: Promise<GetBuiltinPrefab> | null = null;
+
+function withStartupQueryTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error(`${label} did not respond within 8 seconds.`));
+    }, DESKTOP_STARTUP_QUERY_TIMEOUT_MS);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
+function loadGetBuiltinPrefab(): Promise<GetBuiltinPrefab> {
+  getBuiltinPrefabPromise ??= import('@offisim/renderer').then((module) => module.getBuiltinPrefab);
+  return getBuiltinPrefabPromise;
+}
+
 export function useCompanies() {
   return useQuery({
     queryKey: ['companies'],
     queryFn: async () => {
-      const repos = await reposOrNull();
+      const repos = await withStartupQueryTimeout(reposOrNull(), 'Desktop repositories');
       if (!repos) return [];
-      const rows = await repos.companies.findAll();
+      const rows = await withStartupQueryTimeout(repos.companies.findAll(), 'Company list');
       return rows.filter((c) => c.status !== 'archived').map(companyToVm);
     },
+    retry: 1,
   });
 }
 
@@ -558,6 +572,7 @@ export function useOfficeLayout(companyId: string | null) {
     queryFn: async () => {
       const repos = await reposOrNull();
       if (!repos) return null;
+      const getBuiltinPrefab = await loadGetBuiltinPrefab();
       const [zones, prefabRows] = await Promise.all([
         repos.zones.findByCompany(companyId ?? ''),
         repos.prefabInstances.findByCompany(companyId ?? ''),
@@ -741,6 +756,7 @@ export function useCreatePrefabInstance() {
     // Optimistically insert the new object so the next placement click probes
     // collisions against it (closes the rapid repeat-click overlap window).
     onMutate: async ({ instanceId, zoneId, prefabId, x, z, rotation = 0 }) => {
+      const getBuiltinPrefab = await loadGetBuiltinPrefab();
       const definition = getBuiltinPrefab(prefabId);
       if (!companyId || !definition) return { previous: undefined };
       const key = ['office-layout', companyId];

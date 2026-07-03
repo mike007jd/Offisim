@@ -503,6 +503,32 @@ pub async fn export_runtime_vault_zip<R: Runtime>(
 }
 
 #[tauri::command]
+pub async fn export_computer_run_trace<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    thread_id: String,
+    run_id: String,
+    trace_json: String,
+) -> Result<LocalExportResult, String> {
+    let exports_dir = local_exports_dir(&app)?;
+    fs::create_dir_all(&exports_dir)
+        .map_err(|err| format!("Failed to create local exports folder: {err}"))?;
+    let exports_dir = exports_dir
+        .canonicalize()
+        .map_err(|err| format!("Resolve local exports folder: {err}"))?;
+    let stamp = unix_timestamp()?;
+    let file_name = computer_trace_file_name(&run_id, stamp);
+    let destination = exports_dir.join(&file_name);
+    let staging = exports_dir.join(format!(
+        "computer-run-trace-{}-{stamp}",
+        sanitize_file_name(&run_id).trim_end_matches(".txt")
+    ));
+    write_computer_trace_staging(&staging, &thread_id, &run_id, &trace_json, stamp)?;
+    create_zip_from_directory(&staging, &destination).await?;
+    let _ = fs::remove_dir_all(&staging);
+    local_export_result(destination, file_name)
+}
+
+#[tauri::command]
 pub async fn export_scene_drop_diagnostic<R: Runtime>(
     app: tauri::AppHandle<R>,
     diagnostics_json: String,
@@ -520,6 +546,36 @@ pub async fn export_scene_drop_diagnostic<R: Runtime>(
     fs::write(&destination, diagnostics_json)
         .map_err(|err| format!("Failed to write scene diagnostic export: {err}"))?;
     local_export_result(destination, file_name)
+}
+
+fn computer_trace_file_name(run_id: &str, stamp: u64) -> String {
+    let safe = sanitize_file_name(run_id);
+    let safe = safe.trim_end_matches(".txt").trim();
+    let safe = if safe.is_empty() { "run" } else { safe };
+    format!("computer-run-{safe}-{stamp}.zip")
+}
+
+fn write_computer_trace_staging(
+    staging: &Path,
+    thread_id: &str,
+    run_id: &str,
+    trace_json: &str,
+    exported_at: u64,
+) -> Result<(), String> {
+    let trace = serde_json::from_str::<serde_json::Value>(trace_json)
+        .map_err(|err| format!("Computer trace payload is not valid JSON: {err}"))?;
+    fs::create_dir_all(staging)
+        .map_err(|err| format!("Failed to create computer trace staging folder: {err}"))?;
+    let envelope = serde_json::json!({
+        "threadId": thread_id,
+        "runId": run_id,
+        "exportedAtUnix": exported_at,
+        "trace": trace,
+    });
+    let body = serde_json::to_string_pretty(&envelope)
+        .map_err(|err| format!("Failed to serialize computer trace export: {err}"))?;
+    fs::write(staging.join("trace.json"), body)
+        .map_err(|err| format!("Failed to write computer trace export: {err}"))
 }
 
 async fn create_zip_from_directory(source_dir: &Path, destination: &Path) -> Result<(), String> {
@@ -1017,6 +1073,34 @@ mod tests {
     fn byte_format_is_human_readable() {
         assert_eq!(format_bytes(0), "0 B");
         assert_eq!(format_bytes(1024), "1.0 KB");
+    }
+
+    #[test]
+    fn computer_trace_file_name_sanitizes_run_id() {
+        assert_eq!(
+            computer_trace_file_name("attempt:../abc", 42),
+            "computer-run-attempt_.._abc-42.zip"
+        );
+    }
+
+    #[test]
+    fn computer_trace_staging_writes_trace_json() {
+        let root = temp_root();
+        let staging = root.join("trace");
+        write_computer_trace_staging(
+            &staging,
+            "thread-1",
+            "run-1",
+            r#"{"entries":[{"action":"click"}]}"#,
+            42,
+        )
+        .unwrap();
+        let raw = std::fs::read_to_string(staging.join("trace.json")).unwrap();
+        let value: serde_json::Value = serde_json::from_str(&raw).unwrap();
+        assert_eq!(value["threadId"], "thread-1");
+        assert_eq!(value["runId"], "run-1");
+        assert_eq!(value["trace"]["entries"][0]["action"], "click");
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[cfg(unix)]

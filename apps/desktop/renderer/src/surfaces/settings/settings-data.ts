@@ -76,6 +76,7 @@ export const mcpServerSchema = z
     command: z.string(),
     url: z.string(),
     args: z.string(),
+    category: z.enum(['computer-use']).optional(),
   })
   .superRefine((value, ctx) => {
     if (value.transport === 'stdio' && value.command.trim().length === 0) {
@@ -102,6 +103,16 @@ export const MCP_SERVER_DEFAULTS: McpServerFormValues = {
   command: '',
   url: '',
   args: '',
+};
+
+export const CUA_DRIVER_MCP_PRESET: McpServerFormValues = {
+  transport: 'stdio',
+  name: 'cua-driver',
+  approvalId: 'mcp.cua-driver',
+  command: 'cua-driver',
+  url: '',
+  args: 'mcp',
+  category: 'computer-use',
 };
 
 type TauriMcpTransport = 'stdio' | 'sse';
@@ -142,6 +153,7 @@ interface McpToolCallResult {
 export interface McpToolInfo {
   name: string;
   description: string;
+  category?: 'computer-use';
   inputSchema: unknown;
   annotations?: {
     title?: string;
@@ -219,7 +231,9 @@ function mcpServerFromRegistered(
   };
 }
 
-export function isWriteMcpTool(tool: Pick<McpToolInfo, 'name' | 'annotations'>): boolean {
+export function isWriteMcpTool(
+  tool: Pick<McpToolInfo, 'name' | 'category' | 'annotations'>,
+): boolean {
   return inferMcpGrantRiskClass(tool) !== 'read';
 }
 
@@ -256,6 +270,7 @@ export async function registerMcpServer(values: McpServerFormValues): Promise<Mc
       url: values.transport === 'sse' ? values.url.trim() : null,
       source: 'user-config',
       approvalId: approvalIdFor(values),
+      category: values.category === 'computer-use' ? 'computer-use' : null,
       riskClass: values.transport === 'stdio' ? 'high' : 'medium',
       requestedTools: [],
       requestSurface: 'settings',
@@ -432,6 +447,24 @@ async function writeMcpTestAudit(input: {
   await repos.mcpAudit.create(row);
 }
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      reject(new Error(`${label} timed out after ${Math.round(timeoutMs / 1000)}s`));
+    }, timeoutMs);
+    promise.then(
+      (value) => {
+        window.clearTimeout(timeoutId);
+        resolve(value);
+      },
+      (error: unknown) => {
+        window.clearTimeout(timeoutId);
+        reject(error);
+      },
+    );
+  });
+}
+
 export async function testMcpTool(input: {
   serverName: string;
   toolName: string;
@@ -443,11 +476,15 @@ export async function testMcpTool(input: {
   const started = performance.now();
   const employeeId = input.employeeId?.trim() || 'settings';
   try {
-    const result = await invoke<McpToolCallResult>('mcp_call_tool', {
-      server: input.serverName,
-      tool: input.toolName,
-      arguments: argumentsValue,
-    });
+    const result = await withTimeout(
+      invoke<McpToolCallResult>('mcp_call_tool', {
+        server: input.serverName,
+        tool: input.toolName,
+        arguments: argumentsValue,
+      }),
+      20_000,
+      `MCP tool "${input.toolName}"`,
+    );
     await writeMcpTestAudit({
       employeeId,
       serverName: input.serverName,

@@ -58,6 +58,23 @@ function describeResult(value: unknown): string {
   }
 }
 
+function safeToolText(value: unknown, fallback: string): string {
+  if (typeof value === 'string') return value;
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return fallback;
+}
+
+function safeTools(server: McpServer): readonly McpToolInfo[] {
+  return Array.isArray(server.tools) ? server.tools : [];
+}
+
+function safeRiskClass(value: unknown, fallback: McpGrantRiskClass): McpGrantRiskClass {
+  return MCP_RISK_OPTIONS.some((option) => option.value === value)
+    ? (value as McpGrantRiskClass)
+    : fallback;
+}
+
 function toolBadge(tool: McpToolInfo) {
   return isWriteMcpTool(tool) ? (
     <span className="off-set-mcp-tool-badge is-write">
@@ -112,6 +129,7 @@ export function McpServerDetailPane({
   const [resultByTool, setResultByTool] = useState<Record<string, string>>({});
   const [riskByTool, setRiskByTool] = useState<Record<string, McpGrantRiskClass>>({});
   const grants = useMcpToolGrants(companyId, employeeId || null);
+  const tools = safeTools(server);
 
   useEffect(() => {
     if (!employeeId && employeeOptions[0]?.value) setEmployeeId(employeeOptions[0].value);
@@ -222,22 +240,23 @@ export function McpServerDetailPane({
       toast.error('MCP tool tests require the release desktop app.');
       return;
     }
-    setBusyTool(tool.name);
+    const toolName = safeToolText(tool.name, 'tool');
+    setBusyTool(toolName);
     try {
       const result = await testMcpTool({
         serverName: server.name,
-        toolName: tool.name,
-        argsText: argsByTool[tool.name] ?? '{}',
+        toolName,
+        argsText: argsByTool[toolName] ?? '{}',
         employeeId,
       });
-      setResultByTool((current) => ({ ...current, [tool.name]: describeResult(result.content) }));
-      toast.success(`Tested "${tool.name}"`, {
+      setResultByTool((current) => ({ ...current, [toolName]: describeResult(result.content) }));
+      toast.success(`Tested "${toolName}"`, {
         description: result.isError ? 'Tool returned isError' : 'Tool returned content',
       });
     } catch (error) {
       setResultByTool((current) => ({
         ...current,
-        [tool.name]: safeErrorMessage(error),
+        [toolName]: safeErrorMessage(error),
       }));
       toast.error('MCP tool test failed', { description: safeErrorMessage(error) });
     } finally {
@@ -314,27 +333,36 @@ export function McpServerDetailPane({
           />
         </div>
         <CardBlock>
-          {server.tools.length === 0 ? (
+          {tools.length === 0 ? (
             <div className="off-set-empty-line">
               No tools discovered yet. Connect or refresh this server to read its live tool catalog.
             </div>
           ) : (
             <div className="off-set-mcp-tool-list">
-              {server.tools.map((tool) => {
-                const enabled = grantedTools.has(tool.name);
-                const toolBusy = busyTool === tool.name;
-                const grant = grantsByTool.get(tool.name);
+              {tools.map((tool, index) => {
+                const toolName = safeToolText(tool.name, `tool-${index + 1}`);
+                const toolTitle = safeToolText(tool.annotations?.title, toolName);
+                const toolDescription = safeToolText(
+                  tool.description,
+                  'No description provided by this MCP server.',
+                );
+                const enabled = grantedTools.has(toolName);
+                const toolBusy = busyTool === toolName;
+                const grant = grantsByTool.get(toolName);
                 const suggestedRisk = inferMcpGrantRiskClass(tool);
-                const riskStateKey = grantRiskStateKey(server.name, employeeId, tool.name);
-                const selectedRisk = riskByTool[riskStateKey] ?? grant?.riskClass ?? suggestedRisk;
+                const riskStateKey = grantRiskStateKey(server.name, employeeId, toolName);
+                const selectedRisk = safeRiskClass(
+                  riskByTool[riskStateKey] ?? grant?.riskClass,
+                  suggestedRisk,
+                );
                 const riskDrift = Boolean(grant && grant.riskClass !== suggestedRisk);
                 return (
-                  <div key={tool.name} className="off-set-mcp-tool-row">
+                  <div key={`${toolName}:${index}`} className="off-set-mcp-tool-row">
                     <div className="off-set-mcp-tool-main">
                       <div className="off-set-mcp-tool-title">
                         <Icon icon={Wrench} size="sm" />
-                        <span>{tool.annotations?.title || tool.name}</span>
-                        <code>{tool.name}</code>
+                        <span>{toolTitle}</span>
+                        <code>{toolName}</code>
                         {toolBadge(tool)}
                       </div>
                       <div className="off-set-mcp-risk-line">
@@ -343,7 +371,7 @@ export function McpServerDetailPane({
                           <span>Saved {riskLabel(grant?.riskClass ?? suggestedRisk)}</span>
                         ) : null}
                       </div>
-                      <p>{tool.description || 'No description provided by this MCP server.'}</p>
+                      <p>{toolDescription}</p>
                       <details className="off-set-mcp-schema">
                         <summary>Input schema</summary>
                         <pre>{describeSchema(tool.inputSchema)}</pre>
@@ -351,7 +379,7 @@ export function McpServerDetailPane({
                     </div>
                     <div className="off-set-mcp-tool-actions">
                       <Select
-                        aria-label={`${tool.name} grant risk class`}
+                        aria-label={`${toolName} grant risk class`}
                         value={selectedRisk}
                         disabled={toolBusy || !companyId || !employeeId}
                         onChange={(event) =>
@@ -376,17 +404,17 @@ export function McpServerDetailPane({
                       </label>
                       <Textarea
                         className="off-set-mcp-args off-mono"
-                        value={argsByTool[tool.name] ?? '{}'}
+                        value={argsByTool[toolName] ?? '{}'}
                         autoCapitalize="none"
                         autoCorrect="off"
                         spellCheck={false}
                         onChange={(event) =>
                           setArgsByTool((current) => ({
                             ...current,
-                            [tool.name]: event.target.value,
+                            [toolName]: event.target.value,
                           }))
                         }
-                        aria-label={`${tool.name} test arguments`}
+                        aria-label={`${toolName} test arguments`}
                       />
                       <Button
                         variant="outline"
@@ -397,8 +425,8 @@ export function McpServerDetailPane({
                         <Icon icon={Play} size="sm" />
                         Test
                       </Button>
-                      {resultByTool[tool.name] ? (
-                        <pre className="off-set-mcp-result">{resultByTool[tool.name]}</pre>
+                      {resultByTool[toolName] ? (
+                        <pre className="off-set-mcp-result">{resultByTool[toolName]}</pre>
                       ) : null}
                     </div>
                   </div>

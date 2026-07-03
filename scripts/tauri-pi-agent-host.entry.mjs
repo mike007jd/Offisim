@@ -49,6 +49,7 @@ import { createPublishArtifactExtensionFactory } from './pi-publish-artifact-ext
  * capability inside `createAgentSession`.
  */
 const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh'];
+const MCP_APPROVAL_TIMEOUT_MS = 75_000;
 
 function normalizeThinkingLevel(value) {
   return typeof value === 'string' && THINKING_LEVELS.includes(value) ? value : undefined;
@@ -69,13 +70,13 @@ const pendingUiRequests = new Map(); // request id -> settle(responseObject)
 function requestUiResponse(method, fields, opts) {
   uiRequestSeq += 1;
   const id = `ui-${uiRequestSeq}`;
-  emit(uiRequestLine({ id, method, ...fields }));
   return new Promise((resolve) => {
     const settle = (response) => {
       if (!pendingUiRequests.delete(id)) return;
       resolve(response);
     };
     pendingUiRequests.set(id, settle);
+    emit(uiRequestLine({ id, method, ...fields }));
     // ExtensionUIDialogOptions: a parked prompt can be cancelled by an abort
     // signal or a timeout. Either way the primitive resolves to its "no answer"
     // value (false / undefined) so the agent loop never hangs.
@@ -196,6 +197,40 @@ function createForwardingUiContext() {
     getToolsExpanded: () => false,
     setToolsExpanded: () => {},
   };
+}
+
+function stringifyApprovalArgs(args) {
+  try {
+    const text = JSON.stringify(args ?? {}, null, 2);
+    return text.length > 2000 ? `${text.slice(0, 2000)}\n[truncated]` : text;
+  } catch {
+    return '{}';
+  }
+}
+
+async function confirmMcpToolCall({ server, toolName, args, tool }) {
+  const computerUse = tool?.category === 'computer-use';
+  const message = [
+    `${server} -> ${toolName}`,
+    '',
+    computerUse
+      ? 'This computer-use tool can read or control local desktop state.'
+      : 'This MCP tool can modify data outside this chat.',
+    '',
+    'Input:',
+    stringifyApprovalArgs(args),
+  ].join('\n');
+  const response = await requestUiResponse(
+    'confirm',
+    {
+      title: 'Approve MCP tool call?',
+      message,
+    },
+    {
+      timeout: MCP_APPROVAL_TIMEOUT_MS,
+    },
+  );
+  return response.confirmed === true;
 }
 
 /**
@@ -1170,6 +1205,7 @@ async function runPrompt(payload) {
         createMcpBridgeExtensionFactory({
           mcpTools: scopedMcpTools,
           requestMcpResult: mcpChannel.requestMcpResult,
+          confirmMcpToolCall,
           emit,
           threadId,
           rootRunId,

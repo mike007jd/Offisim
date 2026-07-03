@@ -38,6 +38,11 @@ const readAnnotatedWriteNameTool = {
   name: 'update_record',
   annotations: { readOnlyHint: true },
 };
+const computerUseReadAnnotatedTool = {
+  name: 'screenshot',
+  category: 'computer-use',
+  annotations: { readOnlyHint: true },
+};
 
 assert.equal(inferMcpGrantRiskClass(readTool), 'read');
 assert.equal(inferMcpGrantRiskClass(writeTool), 'write');
@@ -45,9 +50,15 @@ assert.equal(inferMcpGrantRiskClass(destructiveTool), 'destructive');
 assert.equal(inferMcpGrantRiskClass(openWorldTool), 'open_world');
 assert.equal(inferMcpGrantRiskClass(heuristicWriteTool), 'write');
 assert.equal(inferMcpGrantRiskClass(readAnnotatedWriteNameTool), 'write');
+assert.equal(
+  inferMcpGrantRiskClass(computerUseReadAnnotatedTool),
+  'write',
+  'grant:computer-use-tools-are-write-class',
+);
 assert.equal(inferMcpGrantRiskSource(readTool), 'server_annotation');
 assert.equal(inferMcpGrantRiskSource(heuristicWriteTool), 'name_heuristic');
 assert.equal(inferMcpGrantRiskSource(readAnnotatedWriteNameTool), 'name_heuristic');
+assert.equal(inferMcpGrantRiskSource(computerUseReadAnnotatedTool), 'server_annotation');
 
 const repo = createMemoryRepositories().mcpToolGrants;
 assert.ok(repo, 'memory repositories expose mcpToolGrants');

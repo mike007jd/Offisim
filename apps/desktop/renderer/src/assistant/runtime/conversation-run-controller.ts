@@ -9,7 +9,11 @@ import {
 } from '@/runtime/desktop-agent-runtime.js';
 import { getRepos, runtimeEventBus } from '@/runtime/repos.js';
 import type { EventBus, RuntimeRepositories } from '@offisim/core/browser';
-import { mergeToolRichDetail, parseToolRichDetail, type ToolRichDetail } from '@offisim/shared-types';
+import {
+  mergeToolRichDetail,
+  parseToolRichDetail,
+  type ToolRichDetail,
+} from '@offisim/shared-types';
 import type {
   AgentRunEvent,
   AgentRunFinishedPayload,
@@ -904,8 +908,16 @@ export class ConversationRunController {
       state: request.method === 'confirm' ? 'live' : 'unsupported',
       createdAt: this.deps.now(),
     };
-    await this.upsertActiveInteraction(run, approval);
     this.patchSnapshot(run.threadId, { phase: 'awaiting-approval', approval });
+    try {
+      await this.upsertActiveInteraction(run, approval);
+    } catch (err) {
+      console.warn('[conversation-run] active approval persist failed', {
+        threadId: run.threadId,
+        uiRequestId: approval.uiRequestId,
+        err,
+      });
+    }
     if (run.assistantMessage)
       await this.persistRunMessage(run, stripToolCalls(run.assistantMessage));
     if (request.method !== 'confirm' && run.runtime) {

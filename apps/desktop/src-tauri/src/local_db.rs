@@ -173,11 +173,7 @@ async fn apply_schema(pool: &SqlitePool) -> Result<(), String> {
 ///   database is an unrecognized local artifact, not a supported shape to adopt
 /// - `user_version == latest` → no-op
 /// - any other `user_version` → refuse and ask for local reset
-async fn ensure_schema(
-    pool: &SqlitePool,
-    latest: i64,
-    baseline_sql: &str,
-) -> Result<(), String> {
+async fn ensure_schema(pool: &SqlitePool, latest: i64, baseline_sql: &str) -> Result<(), String> {
     let version = read_user_version(pool).await?;
     if version == latest {
         return Ok(());

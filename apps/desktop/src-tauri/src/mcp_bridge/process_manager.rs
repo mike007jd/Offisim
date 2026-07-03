@@ -273,6 +273,10 @@ impl ManagedProcess {
                                 .get("inputSchema")
                                 .cloned()
                                 .unwrap_or(serde_json::Value::Object(Default::default())),
+                            category: t
+                                .get("category")
+                                .and_then(|category| category.as_str())
+                                .map(ToString::to_string),
                             // Behavior hints (readOnly/destructive/…). Absent or
                             // malformed annotations → None (advisory only).
                             annotations: t.get("annotations").and_then(|a| {
@@ -281,6 +285,11 @@ impl ManagedProcess {
                         })
                     })
                     .collect();
+                if let Some(category) = self.config.category.clone() {
+                    for tool in &mut self.tools {
+                        tool.category = Some(category.clone());
+                    }
+                }
             }
         }
 
@@ -385,6 +394,7 @@ mod tests {
             name: "test".into(),
             command: command.into(),
             args: vec![],
+            category: None,
             env: HashMap::new(),
             source: Some(source.into()),
             cwd,

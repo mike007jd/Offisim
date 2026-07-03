@@ -187,7 +187,9 @@ export async function buildMcpScope(
   } catch {
     return [];
   }
-  const scopedGrants = grants.filter((grant) => !grant.project_id || grant.project_id === projectId);
+  const scopedGrants = grants.filter(
+    (grant) => !grant.project_id || grant.project_id === projectId,
+  );
   if (scopedGrants.length === 0) return [];
   try {
     const { invoke } = await import('@tauri-apps/api/core');
@@ -203,8 +205,8 @@ export async function buildMcpScope(
       if (!server) {
         continue;
       }
-	      const tool = (server.tools ?? []).find((candidate) => candidate.name === grant.tool_name);
-	      scoped.push(toMcpScopedTool(grant, tool));
+      const tool = (server.tools ?? []).find((candidate) => candidate.name === grant.tool_name);
+      scoped.push(toMcpScopedTool(grant, tool));
     }
     return scoped;
   } catch {
@@ -222,7 +224,9 @@ async function ensureGrantedMcpServersConnected(
       .filter((server) => server.state === 'ready' && typeof server.name === 'string')
       .map((server) => server.name as string),
   );
-  const needed = new Set(grants.map((grant) => grant.server_name).filter((name) => !ready.has(name)));
+  const needed = new Set(
+    grants.map((grant) => grant.server_name).filter((name) => !ready.has(name)),
+  );
   if (needed.size === 0) return statuses;
 
   const registered = await invoke<RuntimeRegisteredMcpServer[]>('mcp_list_registered_servers');
@@ -265,7 +269,12 @@ function toMcpScopedTool(grant: McpToolGrantRow, tool?: RuntimeMcpToolInfo): Mcp
       ? normalizeMcpAnnotations(tool.annotations as Record<string, unknown>)
       : {};
   const effectiveRisk =
-    grant.risk_class ?? inferMcpGrantRiskClass({ name: grant.tool_name, annotations });
+    grant.risk_class ??
+    inferMcpGrantRiskClass({
+      name: grant.tool_name,
+      ...(tool?.category === 'computer-use' ? { category: 'computer-use' as const } : {}),
+      annotations,
+    });
   return {
     name: grant.tool_name,
     server: grant.server_name,

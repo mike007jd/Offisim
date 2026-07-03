@@ -19,4 +19,5 @@ commands.allow = [
   "attachment_delete_company",
   "secret_encrypt",
   "secret_decrypt",
+  "export_computer_run_trace",
 ]

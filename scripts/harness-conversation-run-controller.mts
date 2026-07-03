@@ -209,9 +209,13 @@ class FakeRuntime {
 class FakeRepos {
   activeRows = new Map<string, ActiveInteractionRow>();
   historyRows: HistoryRow[] = [];
+  failActiveInteractionUpsert = false;
 
   activeInteractions = {
     upsert: async (row: ActiveInteractionRow) => {
+      if (this.failActiveInteractionUpsert) {
+        throw new Error('active interaction upsert failed');
+      }
       this.activeRows.set(row.thread_id, { ...row });
       return row;
     },
@@ -265,12 +269,15 @@ class FakeRepos {
   }
 }
 
-function makeEnv(options: { failPersistFirst?: boolean } = {}): HarnessEnv {
+function makeEnv(
+  options: { failPersistFirst?: boolean; failActiveInteractionUpsert?: boolean } = {},
+): HarnessEnv {
   const eventBus = new InMemoryEventBus();
   const runtime = new FakeRuntime(eventBus);
   const persisted: PersistCall[] = [];
   const appendedEvents: AppendEventCall[] = [];
   const repos = new FakeRepos();
+  repos.failActiveInteractionUpsert = options.failActiveInteractionUpsert === true;
   let now = Date.parse('2026-06-20T00:00:00.000Z');
   let uuid = 0;
   let persistCalls = 0;
@@ -745,6 +752,48 @@ const scenarios: Array<{
       return {
         answers: env.runtime.answers,
         historyStatus: env.repos.historyRows[0]?.status,
+        phase: env.controller.getSnapshot('thread-1').phase,
+      };
+    },
+  },
+  {
+    name: 'confirm approval remains live when active interaction persistence fails',
+    criteria:
+      'Pass when a confirm UI request still reaches the live snapshot and can be answered even if active_interactions upsert fails.',
+    run: async () => {
+      const env = makeEnv({ failActiveInteractionUpsert: true });
+      env.runtime.onExecute = async (input) => {
+        env.runtime.emitUiRequest(input, 'confirm', 'ui-confirm');
+        await waitFor(
+          'approval answer after failed persist',
+          () => env.runtime.answers.length === 1,
+        );
+        env.runtime.emitContent(input, 'approved despite persist failure');
+        return { text: 'approved despite persist failure' };
+      };
+      await submitDefault(env.controller);
+      await waitFor(
+        'approval pending despite failed active interaction persist',
+        () => env.controller.getSnapshot('thread-1').phase === 'awaiting-approval',
+      );
+      const approval = env.controller.getSnapshot('thread-1').approval;
+      assert.ok(approval);
+      assert.equal(env.repos.activeRows.size, 0);
+      await env.controller.answerApproval({
+        threadId: 'thread-1',
+        attemptId: approval.attemptId,
+        hostRequestId: approval.hostRequestId,
+        uiRequestId: approval.uiRequestId,
+        confirmed: true,
+      });
+      await waitFor(
+        'approval run complete after failed persist',
+        () => env.controller.getSnapshot('thread-1').phase === 'completed',
+      );
+      assert.equal(env.runtime.answers[0]?.confirmed, true);
+      return {
+        activeRows: env.repos.activeRows.size,
+        answers: env.runtime.answers,
         phase: env.controller.getSnapshot('thread-1').phase,
       };
     },

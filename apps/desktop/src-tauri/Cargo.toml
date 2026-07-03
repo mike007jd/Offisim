@@ -61,8 +61,10 @@ infer = "0.19"
 objc2-app-kit = { version = "0.3", features = [
   "NSApplication",
   "NSEvent",
+  "NSWindowRestoration",
   "NSWindow",
   "block2",
 ] }
+objc2-foundation = { version = "0.3", features = ["NSString", "NSUserDefaults"] }
 objc2 = "0.6"
 block2 = "0.6"

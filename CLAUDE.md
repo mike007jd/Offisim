@@ -36,6 +36,10 @@ area; spacing belongs inside panels, rails, and toolbar regions.
 - Project workspace file browsing must continue to go through the sandboxed
   Tauri commands `project_list_dir`, `project_read_file`, and
   `project_read_file_preview`.
+- Preview and Computer Use desktop surfaces may add only narrow, sandboxed
+  Tauri commands for their own product lanes: `project_preview_meta`,
+  `project_read_file_bytes`, `computer_driver_status`, and
+  `export_computer_run_trace`.
 - Model/tool execution must continue through the Offisim harness/gateway path;
   external A2A and unverified model transports must not masquerade as local
   tool executors.

@@ -414,6 +414,9 @@ pub fn serve_media<R: Runtime>(
 mod tests {
     use super::*;
     use std::fs;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static TEMP_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
 
     struct TestDir {
         path: PathBuf,
@@ -421,12 +424,13 @@ mod tests {
 
     impl TestDir {
         fn new(label: &str) -> Self {
+            let id = TEMP_DIR_COUNTER.fetch_add(1, Ordering::SeqCst);
             let unique = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .expect("clock")
                 .as_nanos();
             let path = std::env::temp_dir().join(format!(
-                "offisim-preview-{label}-{}-{unique}",
+                "offisim-preview-{label}-{}-{unique}-{id}",
                 std::process::id()
             ));
             fs::create_dir_all(&path).expect("create temp dir");
