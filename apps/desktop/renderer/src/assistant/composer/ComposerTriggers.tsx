@@ -5,7 +5,19 @@ import {
   unstable_useMentionAdapter,
   unstable_useSlashCommandAdapter,
 } from '@assistant-ui/react';
-import { Activity, Inbox, MessageSquarePlus, Settings } from 'lucide-react';
+import {
+  Activity,
+  Brain,
+  Globe,
+  Inbox,
+  MessageSquarePlus,
+  MonitorSmartphone,
+  Package,
+  Repeat,
+  Settings,
+  Sparkles,
+  Wrench,
+} from 'lucide-react';
 import { useMemo } from 'react';
 import {
   type MentionEmployee,
@@ -19,6 +31,20 @@ function slashIcon(id: string) {
   switch (id) {
     case 'new':
       return MessageSquarePlus;
+    case 'loop':
+      return Repeat;
+    case 'skill':
+      return Sparkles;
+    case 'tool':
+      return Wrench;
+    case 'browser':
+      return Globe;
+    case 'computer':
+      return MonitorSmartphone;
+    case 'memory':
+      return Brain;
+    case 'output':
+      return Package;
     case 'inbox':
       return Inbox;
     case 'activity':

@@ -152,6 +152,42 @@ export function buildSlashCommands(): Unstable_SlashCommand[] {
       execute: () => openLoopPicker(),
     },
     {
+      id: 'skill',
+      label: 'Skills',
+      description: 'Browse the skills employees can run',
+      execute: () => useUiState.getState().setSurface('personnel'),
+    },
+    {
+      id: 'tool',
+      label: 'Tools & MCP',
+      description: 'Manage MCP servers and tool grants',
+      execute: () => useUiState.getState().openSettings('mcp'),
+    },
+    {
+      id: 'browser',
+      label: 'Browser',
+      description: 'See rendered browser pages from runs',
+      execute: () => useUiState.getState().setSurface('activity'),
+    },
+    {
+      id: 'computer',
+      label: 'Computer Use',
+      description: 'Set up the desktop-control capability',
+      execute: () => useUiState.getState().openSettings('computer'),
+    },
+    {
+      id: 'memory',
+      label: 'Memory',
+      description: 'Open agent memory and reusable context',
+      execute: () => useUiState.getState().setSurface('personnel'),
+    },
+    {
+      id: 'output',
+      label: 'Outputs',
+      description: 'View artifacts produced by runs',
+      execute: () => useUiState.getState().setSurface('activity'),
+    },
+    {
       id: 'inbox',
       label: 'Open in Inbox',
       description: 'View this conversation in the Workspace inbox',

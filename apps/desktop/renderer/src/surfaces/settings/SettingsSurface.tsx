@@ -1,3 +1,4 @@
+import { useUiState } from '@/app/ui-state.js';
 import { CapsLabel } from '@/design-system/grammar/index.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
@@ -12,7 +13,7 @@ import {
   ShieldCheck,
   Users,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ExternalEmployeesPane } from './ExternalEmployeesPane.js';
 import { McpServersPane } from './McpServersPane.js';
 import { PiAgentPane } from './PiAgentPane.js';
@@ -143,6 +144,16 @@ export function SettingsSurface() {
   // at the app root (App.tsx); Settings holds no local copy since there is no
   // control to change it (the design system is light-only today).
   const [tab, setTab] = useState<SettingsTab>('providers');
+  // Composer `/` routes (e.g. /tool, /computer) deep-link via openSettings(section);
+  // land on that section, then clear the pending request so it fires once.
+  const settingsSection = useUiState((s) => s.settingsSection);
+  const clearSettingsSection = useUiState((s) => s.clearSettingsSection);
+  useEffect(() => {
+    if (settingsSection && NAV.some((item) => item.key === settingsSection)) {
+      setTab(settingsSection as SettingsTab);
+    }
+    if (settingsSection) clearSettingsSection();
+  }, [settingsSection, clearSettingsSection]);
 
   return (
     <div className="off-settings">

@@ -117,6 +117,9 @@ export type WorkspaceApp = 'messenger' | 'kanban' | 'calendar' | 'contacts' | 'w
 
 interface UiState {
   surface: SurfaceKey;
+  /** When Settings is opened via a capability route (e.g. `/tool`, `/computer`),
+   *  the section to land on. Consumed and cleared by SettingsSurface. */
+  settingsSection: string | null;
   companyId: string;
   projectId: string;
 
@@ -199,6 +202,10 @@ interface UiState {
   pendingLoopProjectSelect: { loopId: string; revisionId: string } | null;
 
   setSurface: (surface: SurfaceKey) => void;
+  /** Open Settings, optionally deep-linking to a section (composer `/` routes). */
+  openSettings: (section?: string) => void;
+  /** Clear the pending Settings section once SettingsSurface has consumed it. */
+  clearSettingsSection: () => void;
   /** Navigate to the lifecycle front door with an explicit initial intent. */
   openLifecycle: (intent: 'select' | 'create') => void;
   /** Navigate to Personnel and flag the Hire dialog to open on arrival. */
@@ -263,6 +270,7 @@ export const useUiState = create<UiState>((set, get) => ({
   // Land on the lifecycle front door; LifecycleSurface derives create-vs-select
   // from the real company count. No seed fixtures — ids are assigned on entry.
   surface: 'lifecycle',
+  settingsSection: null,
   companyId: '',
   projectId: '',
 
@@ -301,6 +309,8 @@ export const useUiState = create<UiState>((set, get) => ({
   pendingLoopProjectSelect: null,
 
   setSurface: (surface) => set({ surface }),
+  openSettings: (section) => set({ surface: 'settings', settingsSection: section ?? null }),
+  clearSettingsSection: () => set({ settingsSection: null }),
   openLifecycle: (intent) => set({ surface: 'lifecycle', lifecycleIntent: intent }),
   requestHire: () => set({ surface: 'personnel', pendingHire: true }),
   consumePendingHire: () => set({ pendingHire: false }),
