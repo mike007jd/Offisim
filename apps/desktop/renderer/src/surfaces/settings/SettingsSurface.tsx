@@ -1,19 +1,12 @@
-import { reposOrNull } from '@/data/adapters.js';
 import { CapsLabel } from '@/design-system/grammar/index.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 import { Bot, CheckCircle2, Cpu, KeyRound, Plug, ShieldCheck, Users } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ExternalEmployeesPane } from './ExternalEmployeesPane.js';
 import { McpServersPane } from './McpServersPane.js';
 import { PiAgentPane } from './PiAgentPane.js';
 import { RuntimePane } from './RuntimePane.js';
-import {
-  RUNTIME_SETTINGS_KEY,
-  parsePersistedRuntimeSettings,
-  useApplyAppearance,
-} from './appearance.js';
-import type { DensityValue, ThemeValue } from './settings-data.js';
 
 type SettingsTab = 'providers' | 'runtime' | 'mcp' | 'external';
 
@@ -92,15 +85,15 @@ function SettingsCompanion({ tab }: { tab: SettingsTab }) {
         <dl className="off-set-comp-list">
           <div>
             <dt>Auth</dt>
-            <dd>Pi AuthStorage</dd>
+            <dd>Stored credentials</dd>
           </div>
           <div>
             <dt>Models</dt>
-            <dd>Pi ModelRegistry</dd>
+            <dd>Model catalog</dd>
           </div>
           <div>
             <dt>Sessions</dt>
-            <dd>Pi SessionManager</dd>
+            <dd>Conversation sessions</dd>
           </div>
         </dl>
         <div className="off-set-comp-note">
@@ -113,28 +106,10 @@ function SettingsCompanion({ tab }: { tab: SettingsTab }) {
 }
 
 export function SettingsSurface() {
+  // Appearance (theme/density) is applied app-wide by useLoadPersistedAppearance
+  // at the app root (App.tsx); Settings holds no local copy since there is no
+  // control to change it (the design system is light-only today).
   const [tab, setTab] = useState<SettingsTab>('providers');
-  const [theme, setTheme] = useState<ThemeValue>('system');
-  const [density, setDensity] = useState<DensityValue>('normal');
-  useApplyAppearance(theme, density);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function loadAppearance() {
-      const repos = await reposOrNull();
-      if (!repos?.settings) return;
-      const persisted = parsePersistedRuntimeSettings(
-        await repos.settings.get(RUNTIME_SETTINGS_KEY),
-      );
-      if (!persisted || cancelled) return;
-      setTheme(persisted.theme);
-      setDensity(persisted.density);
-    }
-    void loadAppearance();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   return (
     <div className="off-settings">

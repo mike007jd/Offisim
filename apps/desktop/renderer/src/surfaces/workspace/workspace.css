@@ -467,12 +467,6 @@
   align-items: center;
 }
 
-.off-ws-seg-ct {
-  font-family: var(--off-font-mono);
-  font-size: var(--off-fs-xs);
-  opacity: 0.85;
-}
-
 /* ── Conversation scroll + composer ──────────────────────────────────────── */
 .off-ws-conv-scroll {
   flex: 1;
@@ -539,9 +533,13 @@
   background: var(--off-surface-sunken);
 }
 
-.off-ws-msg-tm {
-  font-size: var(--off-fs-label);
+/* Muted stamp under a bubble; hugs the bubble tighter than the row gap. */
+.off-ws-bubble-time {
+  font-size: var(--off-fs-micro);
   color: var(--off-ink-4);
+  font-variant-numeric: tabular-nums;
+  padding: 0 var(--off-sp-1);
+  margin-top: calc(-1 * var(--off-sp-1));
 }
 
 .off-ws-bubble {
@@ -1543,10 +1541,6 @@
   font-weight: 560;
 }
 
-.off-ws-ct-kv-note {
-  color: var(--off-ink-4);
-}
-
 /* ── Calendar / Meetings ─────────────────────────────────────────────────── */
 .off-ws-cal {
   display: grid;
@@ -1750,66 +1744,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--off-sp-3);
-}
-
-.off-ws-meet-sec-head {
-  font-size: var(--off-fs-micro);
-  letter-spacing: 0;
-  font-weight: 700;
-  color: var(--off-ink-3);
-  text-transform: uppercase;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.off-ws-ai {
-  display: grid;
-  grid-template-columns: 18px 1fr auto;
-  gap: var(--off-sp-3);
-  align-items: start;
-  font-size: var(--off-fs-sm);
-  background: transparent;
-  border: 0;
-  text-align: left;
-  padding: 0;
-}
-
-.off-ws-ai-box {
-  width: 16px;
-  height: 16px;
-  border-radius: var(--off-r-2xs);
-  border: 1.5px solid var(--off-line-strong);
-  margin-top: 1px;
-  display: grid;
-  place-items: center;
-  color: transparent;
-}
-
-.off-ws-ai.is-done .off-ws-ai-box {
-  background: var(--off-ok);
-  border-color: var(--off-ok);
-  color: var(--off-accent-fg);
-}
-
-.off-ws-ai-tx {
-  color: var(--off-ink-1);
-  line-height: 1.4;
-}
-
-.off-ws-ai.is-done .off-ws-ai-tx {
-  color: var(--off-ink-3);
-  text-decoration: line-through;
-}
-
-.off-ws-ai-who {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.off-ws-ai-who .off-av {
-  border-radius: var(--off-r-round);
 }
 
 .off-ws-meet-open {
@@ -2281,30 +2215,17 @@
   gap: var(--off-sp-2);
 }
 
-.off-connect-enhance {
-  flex: none;
-  align-self: flex-end;
-  width: 30px;
-  height: 30px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: var(--off-r-round);
-  background: transparent;
-  color: var(--off-ink-3);
-  transition: background var(--off-motion-fast) var(--off-motion-ease), color var(--off-motion-fast)
-    var(--off-motion-ease);
+/* Relative host so the shared Enhance overlay (`.off-enhance-overlay`, the same
+   icon-only top-right control the Office composer uses) pins inside the input. */
+.off-ws-input-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: grid;
 }
 
-.off-connect-enhance:hover:not(:disabled) {
-  background: var(--off-surface-sunken);
-  color: var(--off-accent);
-}
-
-.off-connect-enhance:disabled {
-  opacity: 0.4;
-  pointer-events: none;
+.off-ws-input-wrap .off-ws-composer-input {
+  padding-right: var(--off-sp-10);
 }
 
 .off-connect-ask {

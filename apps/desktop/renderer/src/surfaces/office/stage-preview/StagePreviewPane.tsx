@@ -9,6 +9,7 @@ import {
 import { Copy, ExternalLink, FolderOpen } from 'lucide-react';
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { useSetStageChrome } from '@/surfaces/office/stage-viewer/stage-chrome.js';
 import {
   type PreviewData,
   loadPreview,
@@ -89,6 +90,11 @@ async function invokePathCommand(
   await invoke(command, { projectId, path });
 }
 
+async function copyValue(value: string, label: string) {
+  await navigator.clipboard.writeText(value);
+  toast.success(`${label} copied`);
+}
+
 function ViewerDispatch({ resolved, data }: { resolved: ResolvedPreviewTarget; data: PreviewData }) {
   if (data.mode === 'none') return <UnsupportedViewer resolved={resolved} data={data} />;
   if (data.mode === 'text') {
@@ -101,13 +107,7 @@ function ViewerDispatch({ resolved, data }: { resolved: ResolvedPreviewTarget; d
     if (resolved.viewerKind === 'csv') {
       return <CsvViewer text={data.text} truncated={data.truncated} />;
     }
-    return (
-      <TextViewer
-        text={data.text}
-        truncated={data.truncated}
-        languageLabel={resolved.viewerKind === 'code' ? resolved.meta.extension : 'Text'}
-      />
-    );
+    return <TextViewer text={data.text} truncated={data.truncated} />;
   }
   if (data.mode === 'inline-html' || data.mode === 'url' || data.mode === 'screenshot') {
     return <HtmlViewer resolved={resolved} data={data} />;
@@ -188,63 +188,63 @@ export function StagePreviewPane({
       .join(' · ');
   }, [resolved]);
   const trustBadge = resolved ? TRUST_BADGES[resolved.trustLevel] : null;
+  const setChrome = useSetStageChrome();
 
-  async function copyValue(value: string, label: string) {
-    await navigator.clipboard.writeText(value);
-    toast.success(`${label} copied`);
-  }
+  useEffect(() => {
+    setChrome({
+      title,
+      meta: meta ?? (state.status === 'loading' ? 'Loading…' : undefined),
+      badge: trustBadge ?? undefined,
+      // A failed preview must not offer copy/reveal/open actions for content
+      // that did not load; keep the title so the user still knows what failed.
+      actions:
+        state.status !== 'error' && (path || url) ? (
+          <>
+            {path ? (
+              <>
+                <button type="button" onClick={() => void copyValue(path, 'Path')}>
+                  <Icon icon={Copy} size="sm" />
+                  <span>Path</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void invokePathCommand('reveal_local_path', projectId, path).catch((error) =>
+                      toast.error(error instanceof Error ? error.message : 'Reveal failed'),
+                    )
+                  }
+                >
+                  <Icon icon={FolderOpen} size="sm" />
+                  <span>Reveal</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void invokePathCommand('open_local_path', projectId, path).catch((error) =>
+                      toast.error(error instanceof Error ? error.message : 'Open failed'),
+                    )
+                  }
+                >
+                  <Icon icon={ExternalLink} size="sm" />
+                  <span>Open</span>
+                </button>
+              </>
+            ) : null}
+            {url ? (
+              <button type="button" onClick={() => void copyValue(url, 'URL')}>
+                <Icon icon={Copy} size="sm" />
+                <span>URL</span>
+              </button>
+            ) : null}
+          </>
+        ) : undefined,
+    });
+  }, [meta, path, projectId, setChrome, state.status, title, trustBadge, url]);
+
+  useEffect(() => () => setChrome(null), [setChrome]);
 
   return (
     <div className="off-preview-pane">
-      <div className="off-preview-head">
-        <div className="off-preview-title">
-          <span>
-            {title}
-            {trustBadge ? <em className="off-preview-trust">{trustBadge}</em> : null}
-          </span>
-          <small title={resolved?.meta.mimeType}>
-            {meta ?? (state.status === 'loading' ? 'Loading…' : '')}
-          </small>
-        </div>
-        <div className="off-preview-actions">
-          {path ? (
-            <>
-              <button type="button" onClick={() => void copyValue(path, 'Path')}>
-                <Icon icon={Copy} size="sm" />
-                <span>Path</span>
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  void invokePathCommand('reveal_local_path', projectId, path).catch((error) =>
-                    toast.error(error instanceof Error ? error.message : 'Reveal failed'),
-                  )
-                }
-              >
-                <Icon icon={FolderOpen} size="sm" />
-                <span>Reveal</span>
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  void invokePathCommand('open_local_path', projectId, path).catch((error) =>
-                    toast.error(error instanceof Error ? error.message : 'Open failed'),
-                  )
-                }
-              >
-                <Icon icon={ExternalLink} size="sm" />
-                <span>Open</span>
-              </button>
-            </>
-          ) : null}
-          {url ? (
-            <button type="button" onClick={() => void copyValue(url, 'URL')}>
-              <Icon icon={Copy} size="sm" />
-              <span>URL</span>
-            </button>
-          ) : null}
-        </div>
-      </div>
       <div
         className={cn(
           'off-preview-body',

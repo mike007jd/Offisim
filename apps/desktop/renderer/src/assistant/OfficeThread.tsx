@@ -15,12 +15,8 @@ import {
 import { listen } from '@tauri-apps/api/event';
 import { MessageSquarePlus, Paperclip, SendHorizontal, Square } from 'lucide-react';
 import { type DragEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ModeControl,
-  ModelControl,
-  ScopeControl,
-  ThinkingControl,
-} from './composer/ComposerControls.js';
+import { DraftRecipientRow } from './composer/ComposerControls.js';
+import { ComposerSettingsMenu } from './composer/ComposerSettingsMenu.js';
 import { ComposerLoopChip } from './composer/ComposerLoopChip.js';
 import { ComposerTriggers } from './composer/ComposerTriggers.js';
 import { LoopPicker } from './composer/LoopPicker.js';
@@ -32,7 +28,6 @@ import {
 } from './composer/composer-loop-reference-store.js';
 import { OfficeEnhanceButton } from './enhance/OfficeEnhanceButton.js';
 import { ChatErrorBanner } from './parts/ChatErrorBanner.js';
-import { MeetingTray } from './parts/Meeting.js';
 import { PermissionApprovalBar } from './parts/PermissionApprovalBar.js';
 import { RunActivityStrip } from './parts/RunActivityStrip.js';
 import { isConversationRunActive, useConversationRun } from './runtime/conversation-run-react.js';
@@ -250,13 +245,24 @@ function OfficeComposer({
           <PermissionApprovalBar threadId={threadId} />
           <RunActivityStrip threadId={threadId} />
           <div className="off-composer-shell">
+            {isDraft ? (
+              <DraftRecipientRow scopeEmployeeId={scopeEmployeeId} employees={employees} />
+            ) : null}
             <ComposerLoopChip threadId={threadId} />
-            <ComposerPrimitive.Input
-              className="off-composer-input"
-              placeholder={employeeName ? `Message ${employeeName}` : 'Message the team'}
-              rows={1}
-              submitOnEnter
-            />
+            <div className="off-composer-input-wrap">
+              <ComposerPrimitive.Input
+                className="off-composer-input"
+                placeholder={employeeName ? `Message ${employeeName}` : 'Message the team'}
+                rows={1}
+                submitOnEnter
+              />
+              <OfficeEnhanceButton
+                threadId={threadId}
+                projectName={projectName}
+                scopeEmployeeId={scopeEmployeeId}
+                employees={employees}
+              />
+            </div>
             <StagedAttachments />
             <div className="off-composer-footer">
               <input
@@ -277,28 +283,11 @@ function OfficeComposer({
                 title={storageAvailable ? 'Attach file' : 'Attachment storage unavailable'}
                 onClick={() => fileInput.current?.click()}
               />
-              <div className="off-thread-pitbar" aria-label="Conversation outputs and follow-up">
-                <MeetingTray />
+              <div className="off-thread-pitbar" aria-label="Conversation outputs">
                 <ConvOutputs deliverables={deliverables} employeesById={employeesById} />
               </div>
               <div className="off-composer-controls">
-                <span className="off-composer-context" title={projectName}>
-                  {projectName}
-                </span>
-                <ScopeControl
-                  isDraft={isDraft}
-                  scopeEmployeeId={scopeEmployeeId}
-                  employees={employees}
-                />
-                <ModelControl threadId={threadId} />
-                <ThinkingControl threadId={threadId} />
-                <OfficeEnhanceButton
-                  threadId={threadId}
-                  projectName={projectName}
-                  scopeEmployeeId={scopeEmployeeId}
-                  employees={employees}
-                />
-                <ModeControl threadId={threadId} />
+                <ComposerSettingsMenu threadId={threadId} contextLabel={projectName} />
                 {isRunning ? (
                   <ComposerPrimitive.Cancel
                     className="off-composer-send is-stop off-focusable"

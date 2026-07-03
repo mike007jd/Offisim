@@ -92,19 +92,18 @@ export function StructuredTextViewer({
     return (
       <div className="off-structured-shell">
         <div className="off-structured-tools">
-          {parsed.error ? <span>Parse failed: {parsed.error}</span> : <span>Raw</span>}
+          {parsed.error ? <span>Parse failed: {parsed.error}</span> : null}
           <button type="button" onClick={() => setRaw(!raw)} disabled={Boolean(parsed.error)}>
             {raw ? 'Tree' : 'Raw'}
           </button>
         </div>
-        <TextViewer text={text} truncated={truncated} languageLabel={resolved.viewerKind} />
+        <TextViewer text={text} truncated={truncated} />
       </div>
     );
   }
   return (
     <div className="off-structured-shell">
       <div className="off-structured-tools">
-        <span>{resolved.meta.extension?.toUpperCase() ?? resolved.viewerKind}</span>
         <button type="button" onClick={() => setRaw(true)}>
           Raw
         </button>

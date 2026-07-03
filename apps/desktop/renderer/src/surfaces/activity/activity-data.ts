@@ -294,7 +294,7 @@ function runtimeRecordFromRow(row: RuntimeEventDbRow): ActivityRecord {
     id: row.event_id,
     type: row.event_type,
     at: toEventTime(row.created_at),
-    actor: typeof payload.actor === 'string' ? payload.actor : 'runtime',
+    actor: typeof payload.actor === 'string' ? displayActorName(payload.actor) : 'runtime',
     entity: entityFromPayload(payload, {
       label: row.event_type,
       type: 'runtime-event',
@@ -304,13 +304,25 @@ function runtimeRecordFromRow(row: RuntimeEventDbRow): ActivityRecord {
   };
 }
 
+/** System actor slugs mapped to product vocabulary. Real employee names pass
+ *  through untouched — this never fabricates a person. */
+const ACTOR_DISPLAY_NAMES: Record<string, string> = {
+  'pi-agent': 'Assistant',
+  'desktop-provider': 'Assistant',
+  boss: 'You',
+};
+
+function displayActorName(actor: string): string {
+  return ACTOR_DISPLAY_NAMES[actor] ?? actor;
+}
+
 function agentRecordFromRow(row: AgentEventDbRow): ActivityRecord {
   const payload = parsePayload(row.payload_json);
   return {
     id: row.event_id,
     type: `agent.${row.event_type}`,
     at: toEventTime(row.created_at),
-    actor: row.agent_name,
+    actor: displayActorName(row.agent_name),
     entity: entityFromPayload(payload, {
       label: row.agent_name,
       type: 'agent-event',
@@ -545,8 +557,17 @@ export function getEventLevel(type: string): ActivityLevel {
 const KNOWN_TOPIC_LABELS: Record<string, string> = {
   'agent.action': 'Employee completed an action',
   'agent.decision': 'Employee recorded a decision',
-  'agent.workspace_chat.message': 'Workspace chat message',
-  'agent.direct_chat.message': 'Direct chat message',
+  'agent.workspace_chat.message': 'Sent a message in the workspace',
+  'agent.direct_chat.message': 'Sent a message',
+  'agent.conversation.run.tool': 'Ran a tool',
+  'agent.conversation.compact.completed': 'Compacted the conversation',
+  'agent.conversation.synopsis.updated': 'Updated the conversation summary',
+  'agent.workspace.lease.snapshot': 'Recorded a worktree snapshot',
+  'agent.workspace.lease.action': 'Reviewed a worktree',
+  'agent.mission.resumed': 'Resumed a mission',
+  'agent.mission.status.changed': 'Mission status changed',
+  'agent.mission.evaluation.submitted': 'Submitted a mission evaluation',
+  'agent.company.created': 'Created the company',
   'boss.route.decided': 'Boss routed the task',
   'pm-preflight-cancelled': 'Preflight was cancelled',
 };
@@ -816,7 +837,7 @@ export function collapseReroutes(records: ActivityRecord[]): TimelineRow[] {
 
 /* ── Timestamp formatting ────────────────────────────────────────────────── */
 
-const fullTimestampFmt = new Intl.DateTimeFormat('en-US', {
+const fullTimestampFmt = new Intl.DateTimeFormat(undefined, {
   year: 'numeric',
   month: 'short',
   day: 'numeric',

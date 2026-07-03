@@ -116,7 +116,14 @@ function makeFakeTransport(): FakeTransport {
 // repos are the REAL CollaborationService repos (so message/turn persistence is
 // exercised), but there is NO agent_runs / mission repo anywhere in scope — a
 // write to one is structurally impossible (case 4).
-function makeController(ctx: CollaborationThreadContext, transport: FakeTransport) {
+function makeController(
+  ctx: CollaborationThreadContext,
+  transport: FakeTransport,
+  runtimeOverrides?: {
+    model?: (threadId: string) => string | undefined;
+    thinkingLevel?: (threadId: string) => string | undefined;
+  },
+) {
   const deps = makeDeps();
   const repos = createCollaborationMemoryRepos();
   const service = createCollaborationService(
@@ -144,6 +151,7 @@ function makeController(ctx: CollaborationThreadContext, transport: FakeTranspor
     },
     now: deps.now,
     newId: deps.newId,
+    ...runtimeOverrides,
   });
   // Seed the thread row so appendMessage's touchThread + the service find work.
   return { controller, repos, service };
@@ -294,7 +302,10 @@ async function seedThread(
 await (async () => {
   const ctx = directCtx();
   const transport = makeFakeTransport();
-  const { controller, repos, service } = makeController(ctx, transport);
+  const { controller, repos, service } = makeController(ctx, transport, {
+    model: (threadId) => (threadId === ctx.threadId ? 'fixture/model-connect' : undefined),
+    thinkingLevel: (threadId) => (threadId === ctx.threadId ? 'high' : undefined),
+  });
   await seedThread(service, ctx);
   const { message, scheduled } = await controller.sendBossMessage(ctx.threadId, 'hi alex');
   check(
@@ -307,6 +318,15 @@ await (async () => {
     '(1) the transport request carries no project id (collaborationThreadId only)',
     !('projectId' in (transport.requests[0] ?? {})) &&
       transport.requests[0]?.collaborationThreadId === ctx.threadId,
+  );
+  check(
+    '(1) Connect model/thinking overrides are resolved by thread id',
+    transport.requests[0]?.model === 'fixture/model-connect' &&
+      transport.requests[0]?.thinkingLevel === 'high',
+    JSON.stringify({
+      model: transport.requests[0]?.model,
+      thinkingLevel: transport.requests[0]?.thinkingLevel,
+    }),
   );
   // (5) stable-id streaming upsert: the visible message row id is the turn's, and
   // the final body is the canned reply (upserted, not duplicated).

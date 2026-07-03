@@ -37,14 +37,29 @@ const RELATIVE_UNITS: ReadonlyArray<[Intl.RelativeTimeFormatUnit, number]> = [
   ['minute', 60_000],
 ];
 
-/** Compact relative time label, e.g. "2h ago", "Just now". */
+/** Compact relative time label, e.g. "2h ago", "now". */
 export function relativeTime(at: number, from = Date.now()): string {
   const diff = at - from;
   const abs = Math.abs(diff);
-  if (abs < 60_000) return 'Just now';
+  if (abs < 60_000) return 'now';
   const fmt = new Intl.RelativeTimeFormat('en', { numeric: 'auto', style: 'short' });
   for (const [unit, ms] of RELATIVE_UNITS) {
     if (abs >= ms) return fmt.format(Math.round(diff / ms), unit);
   }
-  return 'Just now';
+  return 'now';
+}
+
+/** Tightest age label for chat rows and bubbles: "now", "5m", "3h", "2d".
+ *  The single wording source for every compact timestamp (Office rail,
+ *  Connect list/bubbles, workspace board) so "now" never drifts per surface. */
+export function compactAge(atMs: number, from = Date.now()): string {
+  if (!Number.isFinite(atMs)) return '';
+  const diff = Math.max(0, from - atMs);
+  const min = 60_000;
+  const hour = 60 * min;
+  const day = 24 * hour;
+  if (diff < min) return 'now';
+  if (diff < hour) return `${Math.floor(diff / min)}m`;
+  if (diff < day) return `${Math.floor(diff / hour)}h`;
+  return `${Math.floor(diff / day)}d`;
 }

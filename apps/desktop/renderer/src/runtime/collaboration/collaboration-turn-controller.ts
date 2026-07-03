@@ -84,8 +84,8 @@ export interface CollaborationTurnControllerDeps {
   now(): string;
   newId(): string;
   /** Optional model / thinking overrides forwarded to the host per turn. */
-  model?: () => string | undefined;
-  thinkingLevel?: () => string | undefined;
+  model?: (threadId: string) => string | undefined;
+  thinkingLevel?: (threadId: string) => string | undefined;
 }
 
 type CollaborationTurnPhase = 'pending' | 'streaming' | 'complete' | 'interrupted' | 'failed';
@@ -491,8 +491,8 @@ export class CollaborationTurnController {
           employeeId: speaker.employeeId,
           text: triggerMessage.body,
           systemPromptAppend,
-          model: this.deps.model?.(),
-          thinkingLevel: this.deps.thinkingLevel?.(),
+          model: this.deps.model?.(ctx.threadId),
+          thinkingLevel: this.deps.thinkingLevel?.(ctx.threadId),
           collaborationProfile: ctx.capabilityProfile,
           mcpTools: scopedMcpTools,
         },

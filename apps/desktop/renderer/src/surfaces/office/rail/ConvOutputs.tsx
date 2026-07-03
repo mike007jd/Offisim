@@ -23,6 +23,23 @@ const TEXT_OUTPUT_EXTENSIONS: Record<string, string> = {
   CSV: 'csv',
   JSON: 'json',
   HTML: 'html',
+  PY: 'py',
+  YAML: 'yaml',
+  YML: 'yml',
+  XML: 'xml',
+  SH: 'sh',
+  CSS: 'css',
+  SCSS: 'scss',
+  SQL: 'sql',
+  GO: 'go',
+  RS: 'rs',
+  JAVA: 'java',
+  RB: 'rb',
+  TOML: 'toml',
+  INI: 'ini',
+  LOG: 'log',
+  CONF: 'conf',
+  SVG: 'svg',
 };
 
 interface ConvOutputsProps {

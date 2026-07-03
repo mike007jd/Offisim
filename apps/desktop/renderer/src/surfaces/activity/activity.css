@@ -1,9 +1,9 @@
 /* ══════════ Activity Log surface ══════════
    ActivityFilterBar (top) + content grid (timeline XOR split with detail).
    Based on Docs/design/offisim-activity-prototype.html, tokens only.
-   Intentional deviations from the prototype (2026-06-12 visual audit): timeline
-   card is capped to the wide content column and content-bound in height, and
-   the trailing per-row level bar is gone (left border is the only indicator). */
+   Intentional deviations from the prototype: the timeline card is full-width
+   (dense workbench, 2026-07-03 M5-09) and content-bound in height, and the
+   trailing per-row level bar is gone (left border is the only indicator). */
 
 .off-act {
   position: absolute;
@@ -39,8 +39,7 @@
 .off-act-stats {
   flex: none;
   width: 100%;
-  max-width: var(--off-content-col-wide);
-  margin: var(--off-sp-5) auto 0;
+  margin: var(--off-sp-5) 0 0;
   padding: 0 var(--off-sp-5);
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -197,8 +196,6 @@
 .off-act-tl {
   min-width: 0;
   width: 100%;
-  max-width: var(--off-content-col-wide);
-  margin-inline: auto;
   /* Content-bound card: the default grid stretch would pin the card to the full
      track and leave a visible empty tail under short timelines; max-height
      keeps overflow-y scrolling once content exceeds the track. */

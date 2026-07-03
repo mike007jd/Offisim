@@ -64,7 +64,7 @@ export function SlidesViewer({
         </button>
       </div>
       {raw ? (
-        <TextViewer text={state.parsed.text} languageLabel="PPTX text" />
+        <TextViewer text={state.parsed.text} />
       ) : (
         <div className="off-slides-scroll">
           {state.parsed.slides.map((slide, index) => (

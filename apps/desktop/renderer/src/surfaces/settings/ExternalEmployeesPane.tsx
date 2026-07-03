@@ -25,7 +25,9 @@ function externalRoleSlug(role: string): RoleSlug {
   if (normalized.includes('code') || normalized.includes('engineer')) return 'engineer';
   if (normalized.includes('qa') || normalized.includes('test')) return 'qa';
   if (normalized.includes('design')) return 'designer';
-  return 'researcher';
+  // Generic IC fallback, consistent with Personnel's roleSlug — an unrecognized
+  // role is not silently labeled a researcher.
+  return 'developer';
 }
 
 export function ExternalEmployeesPane() {

@@ -1,3 +1,4 @@
+import { Icon } from '@/design-system/icons/Icon.js';
 import { parseAttachment, resolvePdfWorkerSrc } from '@offisim/doc-engine';
 import { ChevronDown, ChevronUp, Search, ZoomIn, ZoomOut } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -202,7 +203,7 @@ export function PdfViewer({
       <div className="off-preview-text-tools">
         <span>{state.pages.length.toLocaleString()} pages</span>
         <label className="off-preview-search">
-          <Search size={14} aria-hidden="true" />
+          <Icon icon={Search} size="sm" />
           <input
             value={query}
             onChange={(event) => {
@@ -213,11 +214,11 @@ export function PdfViewer({
           />
         </label>
         <button type="button" disabled={hits.length === 0} onClick={() => jump(-1)}>
-          <ChevronUp size={14} aria-hidden="true" />
+          <Icon icon={ChevronUp} size="sm" />
           Prev
         </button>
         <button type="button" disabled={hits.length === 0} onClick={() => jump(1)}>
-          <ChevronDown size={14} aria-hidden="true" />
+          <Icon icon={ChevronDown} size="sm" />
           Next
         </button>
         <output>
@@ -230,13 +231,13 @@ export function PdfViewer({
               : ''}
         </output>
         <button type="button" onClick={() => setScale((value) => Math.max(0.5, value - 0.15))}>
-          <ZoomOut size={14} aria-hidden="true" />
+          <Icon icon={ZoomOut} size="sm" />
         </button>
         <button type="button" onClick={() => setScale(1)}>
           100%
         </button>
         <button type="button" onClick={() => setScale((value) => Math.min(2.6, value + 0.15))}>
-          <ZoomIn size={14} aria-hidden="true" />
+          <Icon icon={ZoomIn} size="sm" />
         </button>
         <span>{Math.round(scale * 100)}%</span>
       </div>

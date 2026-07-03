@@ -3,7 +3,7 @@ import { useThreads } from '@/data/queries.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { RunStatePill } from '@/design-system/grammar/RunStatePill.js';
 import { SearchInput } from '@/design-system/grammar/SearchInput.js';
-import { cn } from '@/lib/utils.js';
+import { cn, relativeTime } from '@/lib/utils.js';
 import {
   EmptyState,
   ErrorState,
@@ -84,7 +84,12 @@ export function ThreadList() {
               >
                 <span className="off-thread-info">
                   <span className="off-thread-name">{thread.title}</span>
-                  <span className="off-thread-sub">{thread.subtitle}</span>
+                  <span
+                    className="off-thread-sub"
+                    title={new Date(thread.updatedAt).toLocaleString()}
+                  >
+                    {relativeTime(thread.updatedAt)} · {thread.subtitle}
+                  </span>
                 </span>
                 <RunStatePill state={thread.runState} />
               </button>

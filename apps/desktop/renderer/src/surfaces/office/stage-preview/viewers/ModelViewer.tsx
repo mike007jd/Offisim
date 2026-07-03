@@ -1,13 +1,14 @@
+import { Icon } from '@/design-system/icons/Icon.js';
 import { OrbitControls, Stage } from '@react-three/drei';
 import { VRMLoaderPlugin } from '@pixiv/three-vrm';
 import { Canvas } from '@react-three/fiber';
 import { RotateCcw } from 'lucide-react';
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { PreviewData } from '../preview-data.js';
-import { formatByteSize, type ResolvedPreviewTarget } from '../preview-target.js';
+import type { ResolvedPreviewTarget } from '../preview-target.js';
 import { UnsupportedViewer } from './UnsupportedViewer.js';
 
 type ModelState =
@@ -86,8 +87,6 @@ export function ModelViewer({
     };
   }, [bytes, extension]);
 
-  const byteLabel = useMemo(() => formatByteSize(bytes.byteLength), [bytes.byteLength]);
-
   if (state.status === 'loading') {
     return (
       <div className="off-stage-empty">
@@ -103,10 +102,8 @@ export function ModelViewer({
   return (
     <div className="off-model-viewer">
       <div className="off-preview-text-tools">
-        <span>{state.label}</span>
-        <span>{byteLabel}</span>
         <button type="button" onClick={() => setResetToken((value) => value + 1)}>
-          <RotateCcw size={14} aria-hidden="true" />
+          <Icon icon={RotateCcw} size="sm" />
           Reset
         </button>
       </div>

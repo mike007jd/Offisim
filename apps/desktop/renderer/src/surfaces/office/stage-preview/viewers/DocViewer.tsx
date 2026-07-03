@@ -78,13 +78,12 @@ export function DocViewer({
   return (
     <div className="off-doc-viewer">
       <div className="off-preview-text-tools">
-        <span>DOCX</span>
         <button type="button" onClick={() => setRaw(!raw)}>
           {raw ? 'Rendered' : 'Raw'}
         </button>
       </div>
       {raw ? (
-        <TextViewer text={state.parsed.text} languageLabel="DOCX text" />
+        <TextViewer text={state.parsed.text} />
       ) : (
         <div className="off-doc-scroll">
           <div className="off-doc-html" dangerouslySetInnerHTML={{ __html: safeHtml }} />

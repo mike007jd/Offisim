@@ -13,12 +13,13 @@ import { useUiState } from '@/app/ui-state.js';
 import { displayThreadTitle } from '@/data/adapters.js';
 import { useEmployees } from '@/data/queries.js';
 import type { Employee } from '@/data/types.js';
+import { ComposerSettingsMenu } from '@/assistant/composer/ComposerSettingsMenu.js';
 import { ChatComposerInput } from '@/design-system/grammar/ChatComposerInput.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { SearchInput } from '@/design-system/grammar/SearchInput.js';
 import { Icon } from '@/design-system/icons/Icon.js';
-import { cn } from '@/lib/utils.js';
+import { cn, compactAge } from '@/lib/utils.js';
 import { parseMentions } from '@/runtime/collaboration/collaboration-context.js';
 import { EmptyState, ErrorState, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
 import { generateId } from '@offisim/core/browser';
@@ -31,7 +32,7 @@ import {
   MessageSquare,
   Plus,
   RotateCw,
-  Send,
+  SendHorizontal,
   Settings2,
   Square,
   Users,
@@ -87,17 +88,9 @@ interface GroupDraft {
 }
 type ConnectDraft = DirectDraft | GroupDraft;
 
+/** Shared compact age wording (lib/utils) over an ISO stamp; '' when unparsable. */
 function timeLabelFrom(iso: string): string {
-  const ms = Date.parse(iso);
-  if (!Number.isFinite(ms)) return '';
-  const diff = Math.max(0, Date.now() - ms);
-  const min = 60_000;
-  const hour = 60 * min;
-  const day = 24 * hour;
-  if (diff < min) return 'now';
-  if (diff < hour) return `${Math.floor(diff / min)}m`;
-  if (diff < day) return `${Math.floor(diff / hour)}h`;
-  return `${Math.floor(diff / day)}d`;
+  return compactAge(Date.parse(iso));
 }
 
 /* ── List row ─────────────────────────────────────────────────────────────── */
@@ -197,6 +190,9 @@ function MessageRow({
 }) {
   const isMe = row.author === 'boss';
   const name = isMe ? 'You' : (employee?.name ?? row.senderLabel ?? 'Teammate');
+  // Persisted rows carry an ISO createdAt; live streaming rows carry '' (no
+  // stamp until the row persists), so the label simply hides for them.
+  const timeLabel = timeLabelFrom(row.createdAt);
   if (row.pending) {
     return (
       <div className="off-ws-msg-row">
@@ -253,6 +249,11 @@ function MessageRow({
         <div className="off-ws-bubble off-connect-bubble-err">
           {row.error || 'This reply failed.'}
         </div>
+      ) : null}
+      {timeLabel ? (
+        <span className="off-ws-bubble-time" title={new Date(row.createdAt).toLocaleString()}>
+          {timeLabel}
+        </span>
       ) : null}
       {row.status === 'failed' && onRetry ? (
         <button type="button" className="off-connect-retry off-focusable" onClick={onRetry}>
@@ -749,8 +750,7 @@ function PersistedThreadDetail({
   const directEmployee = thread.directEmployeeId
     ? (byId.get(thread.directEmployeeId) ?? null)
     : null;
-  const profileLabel =
-    thread.capabilityProfile === 'collaboration_read' ? 'Read-only assistant' : 'Strict chat';
+  const profileLabel = thread.capabilityProfile === 'collaboration_read' ? 'Read-only' : 'Chat';
   const subtitle = isGroup
     ? `${policyLabel(thread.replyPolicy)} · group · ${profileLabel}`
     : `Direct · ${directEmployee?.role ?? '—'} · ${profileLabel}`;
@@ -777,8 +777,8 @@ function PersistedThreadDetail({
             icon={BookOpenCheck}
             label={
               thread.capabilityProfile === 'collaboration_read'
-                ? 'Use strict chat'
-                : 'Use read-only assistant'
+                ? 'Switch to full chat — replies can act on the conversation again'
+                : 'Switch to read-only — replies can look things up but not act'
             }
             variant={thread.capabilityProfile === 'collaboration_read' ? 'accentSoft' : 'ghost'}
             size="iconSm"
@@ -797,7 +797,9 @@ function PersistedThreadDetail({
       <div className="off-ws-conv-scroll" ref={scrollRef}>
         <section className="off-ws-messages">
           {rows.length === 0 ? (
-            <div className="off-connect-thread-empty">No messages yet — say hello.</div>
+            <div className="off-connect-thread-empty">
+              No messages yet — your first message starts it.
+            </div>
           ) : (
             rows.map((row) => (
               <MessageRow
@@ -925,7 +927,7 @@ function DraftThreadDetail({
       <div className="off-ws-conv-scroll">
         <section className="off-ws-messages">
           <div className="off-connect-thread-empty">
-            New conversation — your first message starts it.
+            No messages yet — your first message starts it.
           </div>
         </section>
       </div>
@@ -1071,28 +1073,30 @@ function Composer({
         </div>
       ) : null}
       <div className="off-ws-composer-shell">
-        <ConnectEnhanceButton
-          threadId={threadId}
-          value={text}
-          threadTitle={threadTitle}
-          scope={scope}
-          employees={employees}
-          onApply={setText}
-        />
-        <ChatComposerInput
-          ref={taRef}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={onKeyDown}
-          placeholder={
-            isRoundtable
-              ? 'Message the team, then Start round…'
-              : scope === 'group'
-                ? 'Message the team — @mention to ask someone…'
-                : 'Message…'
-          }
-          aria-label="Message"
-        />
+        <div className="off-ws-input-wrap">
+          <ChatComposerInput
+            ref={taRef}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={onKeyDown}
+            placeholder={
+              isRoundtable
+                ? 'Message the team, then Start round…'
+                : scope === 'group'
+                  ? 'Message the team — @mention to ask someone…'
+                  : 'Message…'
+            }
+            aria-label="Message"
+          />
+          <ConnectEnhanceButton
+            threadId={threadId}
+            value={text}
+            threadTitle={threadTitle}
+            scope={scope}
+            employees={employees}
+            onApply={setText}
+          />
+        </div>
         {showAskTeam ? (
           <button
             type="button"
@@ -1105,6 +1109,7 @@ function Composer({
             Ask team
           </button>
         ) : null}
+        {threadId ? <ComposerSettingsMenu threadId={threadId} showMode={false} /> : null}
         {running ? (
           <button
             type="button"
@@ -1124,7 +1129,7 @@ function Composer({
             aria-label={isRoundtable ? 'Send and start round' : 'Send'}
             title={isRoundtable ? 'Send and start round' : 'Send'}
           >
-            <Icon icon={Send} size="sm" />
+            <Icon icon={SendHorizontal} size="sm" />
           </button>
         )}
       </div>

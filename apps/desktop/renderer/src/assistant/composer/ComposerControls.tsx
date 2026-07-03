@@ -4,322 +4,66 @@ import { Icon } from '@/design-system/icons/Icon.js';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/design-system/primitives/dropdown-menu.js';
-import { readPiModelOverride } from '@/runtime/pi-agent-config.js';
-import {
-  DEFAULT_PERMISSION_MODE,
-  PERMISSION_MODES,
-  type PermissionMode,
-  usePiThreadModeStore,
-} from '@/runtime/pi-thread-mode-store.js';
-import { usePiThreadModelStore } from '@/runtime/pi-thread-model-store.js';
-import {
-  DEFAULT_THINKING_LEVEL,
-  THINKING_LEVELS,
-  type ThinkingLevel,
-  usePiThreadThinkingStore,
-} from '@/runtime/pi-thread-thinking-store.js';
-import {
-  Bot,
-  Brain,
-  ChevronDown,
-  Eye,
-  type LucideIcon,
-  MessageCircleQuestion,
-  ShieldCheck,
-  SlidersHorizontal,
-  User,
-  Users,
-  Zap,
-} from 'lucide-react';
-import { useMemo } from 'react';
-import { usePiAgentModels } from './usePiAgentModels.js';
-
-const MODE_META: Record<PermissionMode, { label: string; icon: LucideIcon; meta: string }> = {
-  plan: { label: 'Plan', icon: Eye, meta: 'Read-only — investigate, no changes' },
-  ask: {
-    label: 'Ask',
-    icon: MessageCircleQuestion,
-    meta: 'Pauses for your approval on destructive commands',
-  },
-  auto: { label: 'Auto', icon: ShieldCheck, meta: 'Autonomous — blocks destructive commands' },
-  full: { label: 'Full', icon: Zap, meta: 'No restrictions' },
-};
+import { ChevronDown, User, Users } from 'lucide-react';
 
 /**
- * Thinking-level labels + token-budget hints, mirroring Pi's own
- * `LEVEL_DESCRIPTIONS` (the values are display-only labels, not enforced
- * budgets — the provider decides the real budget per level).
+ * Draft-only recipient row ("To: …"), rendered along the composer's top edge —
+ * the messaging-compose convention. Conversation scope (team vs one teammate)
+ * is fixed at the draft's first message, so the row exists only while the
+ * thread is still a draft; afterwards the input placeholder ("Message Ryan
+ * Torres") carries the recipient and the row disappears — never a fake
+ * mid-thread switch.
  */
-const THINKING_META: Record<ThinkingLevel, { label: string; meta: string }> = {
-  off: { label: 'Off', meta: 'No reasoning' },
-  minimal: { label: 'Minimal', meta: 'Very brief (~1k tokens)' },
-  low: { label: 'Low', meta: 'Light (~2k tokens)' },
-  medium: { label: 'Medium', meta: 'Moderate (~8k tokens)' },
-  high: { label: 'High', meta: 'Deep (~16k tokens)' },
-  xhigh: { label: 'Max', meta: 'Maximum (~32k tokens)' },
-};
-
-function shortModelName(value: string): string {
-  if (!value) return 'Auto';
-  const tail = value.includes('/') ? value.slice(value.lastIndexOf('/') + 1) : value;
-  return tail || value;
-}
-
-/**
- * Conversation scope (the real "mode" axis in Offisim): a team thread reaches
- * the whole roster, a direct thread targets one teammate. Scope is fixed at the
- * draft's first message, so this is an editable picker only on a draft and a
- * truthful read-only chip afterward — never a fake mid-thread switch.
- */
-export function ScopeControl({
-  isDraft,
+export function DraftRecipientRow({
   scopeEmployeeId,
   employees,
 }: {
-  isDraft: boolean;
   scopeEmployeeId: string | null;
   employees: readonly Employee[];
 }) {
   const setDraftEmployee = useUiState((s) => s.setDraftEmployee);
   const current = scopeEmployeeId ? employees.find((e) => e.id === scopeEmployeeId) : null;
-  const label = current ? current.name : 'Team';
+  const label = current ? current.name : 'Whole team';
   const ScopeIcon = current ? User : Users;
 
-  if (!isDraft) {
-    return (
-      <span
-        className="off-composer-chip is-static"
-        title={current ? `Direct conversation with ${current.name}` : 'Team conversation'}
-      >
-        <Icon icon={ScopeIcon} size="sm" />
-        <span className="off-composer-chip-text">{label}</span>
-      </span>
-    );
-  }
-
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className="off-composer-chip off-focusable"
-          aria-label="Conversation scope"
-        >
-          <Icon icon={ScopeIcon} size="sm" />
-          <span className="off-composer-chip-text">{label}</span>
-          <Icon icon={ChevronDown} size="sm" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="off-composer-menu">
-        <DropdownMenuLabel>Conversation scope</DropdownMenuLabel>
-        <DropdownMenuRadioGroup
-          value={scopeEmployeeId ?? ''}
-          onValueChange={(value) => setDraftEmployee(value || null)}
-        >
-          <DropdownMenuRadioItem value="">Whole team</DropdownMenuRadioItem>
-          {employees.map((employee) => (
-            <DropdownMenuRadioItem key={employee.id} value={employee.id}>
-              <span className="off-composer-menu-row">
-                <span className="off-composer-menu-name">{employee.name}</span>
-                <span className="off-composer-menu-meta">{employee.role}</span>
-              </span>
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-/**
- * Per-conversation Pi model picker. Sticky per-thread (not per-message — the
- * single-shot host has no live session to retarget). Lists only models Pi has
- * auth for; "Auto" defers to the global Settings override, then Pi's default.
- */
-export function ModelControl({ threadId }: { threadId: string }) {
-  const perThread = usePiThreadModelStore((s) => s.byThread[threadId] ?? '');
-  const setThreadModel = usePiThreadModelStore((s) => s.setThreadModel);
-  const models = usePiAgentModels();
-  const setSurface = useUiState((s) => s.setSurface);
-  // Derive the effective model + provider-grouped list once per change. The
-  // composer subtree re-renders on every keystroke and run-state tick, so this
-  // keeps the grouping (and the localStorage override read) off the hot path.
-  const { providers, effective } = useMemo(() => {
-    const list = models.data ?? [];
-    const effectiveModel = perThread || readPiModelOverride();
-    const groups = new Map<string, typeof list>();
-    for (const option of list) {
-      const existing = groups.get(option.provider);
-      if (existing) existing.push(option);
-      else groups.set(option.provider, [option]);
-    }
-    return {
-      effective: effectiveModel,
-      providers: [...groups].map(([provider, items]) => ({ provider, items })),
-    };
-  }, [perThread, models.data]);
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className="off-composer-chip off-focusable"
-          aria-label="Model for this conversation"
-        >
-          <Icon icon={Bot} size="sm" />
-          <span className="off-composer-chip-text">{shortModelName(effective)}</span>
-          <Icon icon={ChevronDown} size="sm" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="off-composer-menu off-composer-model-menu">
-        <DropdownMenuLabel>Model for this conversation</DropdownMenuLabel>
-        <DropdownMenuRadioGroup
-          value={perThread}
-          onValueChange={(value) => setThreadModel(threadId, value)}
-        >
-          <DropdownMenuRadioItem value="">Auto (Pi default)</DropdownMenuRadioItem>
-          {providers.length ? (
-            providers.map((group) => (
-              <div key={group.provider}>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel className="off-composer-menu-provider">
-                  {group.provider}
-                </DropdownMenuLabel>
-                {group.items.map((option) => (
-                  <DropdownMenuRadioItem key={option.value} value={option.value}>
-                    <span className="off-composer-menu-row">
-                      <span className="off-composer-menu-name">{option.name}</span>
-                      {option.reasoning ? (
-                        <span className="off-composer-menu-meta">reasoning</span>
-                      ) : null}
-                    </span>
-                  </DropdownMenuRadioItem>
-                ))}
-              </div>
-            ))
-          ) : (
-            <DropdownMenuItem disabled>
-              {models.isLoading ? 'Loading models…' : 'No authenticated models'}
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuRadioGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => setSurface('settings')}>
-          <Icon icon={SlidersHorizontal} size="sm" />
-          Manage models…
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-/**
- * Per-conversation permission mode. Picks how much autonomy the agent has on
- * this thread: Plan (read-only investigation), Ask (approval for recoverable
- * destructive commands), Auto (autonomous with catastrophe guard — the default),
- * or Full (no restrictions). The host enforces the choice as real Pi tool gating;
- * this only stores and forwards it.
- */
-export function ModeControl({ threadId }: { threadId: string }) {
-  const mode = usePiThreadModeStore((s) => s.byThread[threadId] ?? DEFAULT_PERMISSION_MODE);
-  const setThreadMode = usePiThreadModeStore((s) => s.setThreadMode);
-  const current = MODE_META[mode];
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className="off-composer-chip off-focusable"
-          aria-label="Permission mode for this conversation"
-        >
-          <Icon icon={current.icon} size="sm" />
-          <span className="off-composer-chip-text">{current.label}</span>
-          <Icon icon={ChevronDown} size="sm" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="off-composer-menu off-composer-mode-menu">
-        <DropdownMenuLabel>Permission mode</DropdownMenuLabel>
-        <DropdownMenuRadioGroup
-          value={mode}
-          onValueChange={(value) => setThreadMode(threadId, value as PermissionMode)}
-        >
-          {PERMISSION_MODES.map((value) => (
-            <DropdownMenuRadioItem key={value} value={value}>
-              <span className="off-composer-menu-row">
-                <span className="off-composer-menu-name">{MODE_META[value].label}</span>
-                <span className="off-composer-menu-meta">{MODE_META[value].meta}</span>
-              </span>
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-/**
- * Per-conversation thinking level (reasoning effort). Only meaningful for models
- * that support reasoning, so the chip hides itself for non-reasoning models —
- * replacing the old passive "this model can think" Sparkles badge with a
- * functional dial. Sticky per-thread (the single-shot host has no live session to
- * retarget). The host clamps the chosen level to the model's real capabilities;
- * this only stores and forwards the user's intent.
- */
-export function ThinkingControl({ threadId }: { threadId: string }) {
-  const level = usePiThreadThinkingStore((s) => s.byThread[threadId] ?? DEFAULT_THINKING_LEVEL);
-  const setThreadThinking = usePiThreadThinkingStore((s) => s.setThreadThinking);
-  const perThreadModel = usePiThreadModelStore((s) => s.byThread[threadId] ?? '');
-  const models = usePiAgentModels();
-  // Gate on the effective model's reasoning flag, derived the same way the model
-  // picker resolves it (per-thread pick, else the global Settings override).
-  const supportsReasoning = useMemo(() => {
-    const effectiveModel = perThreadModel || readPiModelOverride();
-    return (
-      (models.data ?? []).find((option) => option.value === effectiveModel)?.reasoning ?? false
-    );
-  }, [perThreadModel, models.data]);
-
-  if (!supportsReasoning) return null;
-  const current = THINKING_META[level];
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className="off-composer-chip off-focusable"
-          aria-label="Thinking level for this conversation"
-        >
-          <Icon icon={Brain} size="sm" />
-          <span className="off-composer-chip-text">{current.label}</span>
-          <Icon icon={ChevronDown} size="sm" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="off-composer-menu off-composer-thinking-menu">
-        <DropdownMenuLabel>Thinking level</DropdownMenuLabel>
-        <DropdownMenuRadioGroup
-          value={level}
-          onValueChange={(value) => setThreadThinking(threadId, value as ThinkingLevel)}
-        >
-          {THINKING_LEVELS.map((value) => (
-            <DropdownMenuRadioItem key={value} value={value}>
-              <span className="off-composer-menu-row">
-                <span className="off-composer-menu-name">{THINKING_META[value].label}</span>
-                <span className="off-composer-menu-meta">{THINKING_META[value].meta}</span>
-              </span>
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <div className="off-composer-to-row">
+      <span className="off-composer-to-label">To</span>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className="off-composer-chip off-focusable"
+            aria-label="Conversation recipient"
+          >
+            <Icon icon={ScopeIcon} size="sm" />
+            <span className="off-composer-chip-text">{label}</span>
+            <Icon icon={ChevronDown} size="sm" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="off-composer-menu">
+          <DropdownMenuLabel>Send to</DropdownMenuLabel>
+          <DropdownMenuRadioGroup
+            value={scopeEmployeeId ?? ''}
+            onValueChange={(value) => setDraftEmployee(value || null)}
+          >
+            <DropdownMenuRadioItem value="">Whole team</DropdownMenuRadioItem>
+            {employees.map((employee) => (
+              <DropdownMenuRadioItem key={employee.id} value={employee.id}>
+                <span className="off-composer-menu-row">
+                  <span className="off-composer-menu-name">{employee.name}</span>
+                  <span className="off-composer-menu-meta">{employee.role}</span>
+                </span>
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }

@@ -1,7 +1,9 @@
-import { Move, ZoomIn, ZoomOut } from 'lucide-react';
+import { Icon } from '@/design-system/icons/Icon.js';
+import { cn } from '@/lib/utils.js';
+import { Expand, ZoomIn, ZoomOut } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { PreviewData } from '../preview-data.js';
-import { formatByteSize, type ResolvedPreviewTarget } from '../preview-target.js';
+import type { ResolvedPreviewTarget } from '../preview-target.js';
 
 export function ImageViewer({
   resolved,
@@ -17,7 +19,6 @@ export function ImageViewer({
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const fitRef = useRef(fit);
   fitRef.current = fit;
-  const sizeLabel = formatByteSize(resolved.meta.byteLength ?? data.bytes.byteLength);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -36,28 +37,26 @@ export function ImageViewer({
   return (
     <div className="off-image-viewer">
       <div className="off-image-tools">
-        <span>{resolved.meta.mimeType ?? resolved.meta.extension ?? 'image'}</span>
         {dimensions ? (
           <span>
             {dimensions.width} × {dimensions.height}
           </span>
         ) : null}
-        <span>{sizeLabel}</span>
         <button type="button" onClick={() => setFit(!fit)}>
-          <Move size={14} aria-hidden="true" />
+          <Icon icon={Expand} size="sm" />
           {fit ? 'Actual' : 'Fit'}
         </button>
         <button type="button" disabled={fit} onClick={() => setZoom((value) => Math.max(0.25, value - 0.25))}>
-          <ZoomOut size={14} aria-hidden="true" />
+          <Icon icon={ZoomOut} size="sm" />
         </button>
         <button type="button" disabled={fit} onClick={() => setZoom((value) => Math.min(4, value + 0.25))}>
-          <ZoomIn size={14} aria-hidden="true" />
+          <Icon icon={ZoomIn} size="sm" />
         </button>
         {fit ? null : <span>{Math.round(zoom * 100)}%</span>}
       </div>
       <div
         ref={canvasRef}
-        className="off-image-canvas"
+        className={cn('off-image-canvas', !fit && 'is-pannable')}
         onPointerDown={(event) => {
           if (fit) return;
           const start = { x: event.clientX, y: event.clientY, origin };

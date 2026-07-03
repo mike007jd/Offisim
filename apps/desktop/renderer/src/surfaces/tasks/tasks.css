@@ -111,8 +111,7 @@
 .off-task-stats {
   flex: none;
   width: 100%;
-  max-width: var(--off-content-col-wide);
-  margin: var(--off-sp-5) auto 0;
+  margin: var(--off-sp-5) 0 0;
   padding: 0 var(--off-sp-5);
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -152,8 +151,7 @@
 .off-task-recovery-strip {
   flex: none;
   width: 100%;
-  max-width: var(--off-content-col-wide);
-  margin: var(--off-sp-3) auto 0;
+  margin: var(--off-sp-3) 0 0;
   padding: 0 var(--off-sp-5);
   display: grid;
   gap: var(--off-sp-2);
@@ -237,8 +235,6 @@
 .off-task-list {
   min-width: 0;
   width: 100%;
-  max-width: var(--off-content-col-wide);
-  margin-inline: auto;
   overflow-y: auto;
   border: 1px solid var(--off-line-soft);
   border-radius: var(--off-r-md);
@@ -339,9 +335,14 @@
   color: var(--off-ok);
 }
 
-.off-task-badge.is-failed,
-.off-task-badge.is-cancelled {
+.off-task-badge.is-failed {
   color: var(--off-danger);
+}
+
+/* Cancelled is a deliberate stop, not a failure — neutral, not red. */
+.off-task-badge.is-cancelled {
+  color: var(--off-ink-3);
+  background: var(--off-surface-2);
 }
 
 .off-task-title,
@@ -399,10 +400,60 @@
   line-height: 1.25;
 }
 
+.off-task-detail-objective {
+  margin: var(--off-sp-4) 0 0;
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-sm);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
 .off-task-detail-grid {
   display: grid;
   gap: var(--off-sp-4);
   margin: var(--off-sp-5) 0 0;
+}
+
+/* Raw run identifiers folded out of the main read. */
+.off-task-detail-tech {
+  margin-top: var(--off-sp-5);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-md);
+  background: var(--off-surface-1);
+}
+
+.off-task-detail-tech > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+  padding: var(--off-sp-3) var(--off-sp-4);
+  border-radius: var(--off-r-md);
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-label);
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+}
+
+.off-task-detail-tech > summary:hover {
+  background: var(--off-surface-2);
+}
+
+.off-task-detail-tech[open] > summary {
+  border-bottom: 1px solid var(--off-line-soft);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.off-task-detail-tech .off-task-detail-grid {
+  margin: 0;
+  padding: var(--off-sp-4);
+}
+
+.off-task-detail-tech dd {
+  font-family: var(--off-font-mono);
+  font-size: var(--off-fs-meta);
 }
 
 .off-task-detail-grid div {

@@ -308,12 +308,14 @@ export function MarketSurface() {
     <div className={cn('off-market', detailOpen && 'is-detail-mode')}>
       <div className="off-mkt-fbar">
         <div className="off-mkt-fbar-main">
-          <SearchInput
-            value={query}
-            onChange={setQuery}
-            placeholder="Search employees, skills, templates…"
-            className="off-mkt-search"
-          />
+          {registryNotConnected && mode === 'explore' ? null : (
+            <SearchInput
+              value={query}
+              onChange={setQuery}
+              placeholder="Search employees, skills, templates…"
+              className="off-mkt-search"
+            />
+          )}
           <SegmentedControl
             options={MODE_TABS}
             value={mode}
@@ -502,7 +504,10 @@ function RegistryTokenDialog({
       <DialogContent className="off-mkt-dialog">
         <DialogHeader>
           <DialogTitle>Registry Token</DialogTitle>
-          <DialogDescription>Connect a token to publish and track your drafts.</DialogDescription>
+          <DialogDescription>
+            Paste the access token from your registry administrator to browse, publish, and track
+            drafts.
+          </DialogDescription>
         </DialogHeader>
         <div className="off-token-dialog">
           <div className="off-token-status">
@@ -749,8 +754,8 @@ function MarketNotConnected({
         </span>
         <div className="off-mkt-hero-t">No marketplace connected</div>
         <div className="off-mkt-hero-d">
-          Browsing a remote catalog needs a registry. You can install packages right now by
-          importing a local .offisimpkg or .zip file.
+          A registry is a catalog server your team publishes packages to. Connect one to browse it,
+          or install packages right now by importing a local .offisimpkg or .zip file.
         </div>
         <div className="off-mkt-hero-a">
           <Button size="md" onClick={onImport} disabled={importing}>

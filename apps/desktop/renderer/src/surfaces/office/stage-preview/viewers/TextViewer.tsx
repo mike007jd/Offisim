@@ -1,3 +1,4 @@
+import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Search } from 'lucide-react';
@@ -26,11 +27,9 @@ function HighlightedText({ text, query }: { text: string; query: string }) {
 export function TextViewer({
   text,
   truncated,
-  languageLabel,
 }: {
   text: string;
   truncated?: boolean;
-  languageLabel?: string;
 }) {
   const [query, setQuery] = useState('');
   const rows = useMemo(() => text.split(/\r?\n/u), [text]);
@@ -63,9 +62,8 @@ export function TextViewer({
   return (
     <div className="off-preview-text">
       <div className="off-preview-text-tools">
-        <span>{languageLabel ?? 'Text'}</span>
         <label className="off-preview-search">
-          <Search size={14} aria-hidden="true" />
+          <Icon icon={Search} size="sm" />
           <input
             value={query}
             onChange={(event) => {

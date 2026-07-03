@@ -85,7 +85,7 @@ export function SheetViewer({
         </button>
       </div>
       {raw && sheet ? (
-        <TextViewer text={sheet.csv} languageLabel={sheet.name} />
+        <TextViewer text={sheet.csv} />
       ) : (
         <DataTable rows={rows} emptyLabel="No cells in this sheet" />
       )}

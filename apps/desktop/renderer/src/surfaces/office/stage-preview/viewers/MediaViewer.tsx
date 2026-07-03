@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { PreviewData } from '../preview-data.js';
-import { formatByteSize, type ResolvedPreviewTarget } from '../preview-target.js';
+import type { ResolvedPreviewTarget } from '../preview-target.js';
 import { UnsupportedViewer } from './UnsupportedViewer.js';
 
 function formatDuration(value: number): string {
@@ -19,7 +19,6 @@ export function MediaViewer({
 }) {
   const [failed, setFailed] = useState(false);
   const [duration, setDuration] = useState<number | null>(null);
-  const byteLabel = resolved.meta.byteLength ? formatByteSize(resolved.meta.byteLength) : null;
 
   if (failed) {
     return (
@@ -37,8 +36,6 @@ export function MediaViewer({
   return (
     <div className="off-media-viewer">
       <div className="off-preview-text-tools">
-        <span>{resolved.meta.mimeType ?? resolved.viewerKind}</span>
-        {byteLabel ? <span>{byteLabel}</span> : null}
         <span>{duration == null ? 'metadata pending' : formatDuration(duration)}</span>
       </div>
       <div className="off-media-stage">

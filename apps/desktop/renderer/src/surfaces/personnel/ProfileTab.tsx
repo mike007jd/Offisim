@@ -12,6 +12,7 @@ import { Controller, type UseFormReturn } from 'react-hook-form';
 import {
   COMMUNICATION_OPTIONS,
   DECISION_STYLE_OPTIONS,
+  PERSONA_RUNTIME_DEFAULTS,
   type ProfileFormValues,
   RISK_OPTIONS,
   buildSystemPrompt,
@@ -132,8 +133,8 @@ export function ProfileTab({ employee, companyName, form }: ProfileTabProps) {
                 {employee.zoneLabel
                   ? `${employee.zoneLabel}${employee.deskLabel ? ` · ${employee.deskLabel}` : ''}`
                   : employee.workstationId
-                    ? (employee.deskLabel ?? `Workstation ${employee.workstationId.slice(0, 8)}`)
-                    : 'Unassigned'}
+                    ? 'Assigned'
+                    : 'Unassigned — assign a desk in Office'}
               </div>
               <p className="off-field-hint">
                 Managed by the Office zone assignment flow so tool scope stays tied to the real
@@ -155,7 +156,12 @@ export function ProfileTab({ employee, companyName, form }: ProfileTabProps) {
               <label className="off-field-label" htmlFor={workingStyleId}>
                 Working style
               </label>
-              <Textarea id={workingStyleId} rows={2} {...register('workingStyle')} />
+              <Textarea
+                id={workingStyleId}
+                rows={2}
+                placeholder="e.g. detail-oriented, collaborative"
+                {...register('workingStyle')}
+              />
             </div>
             <Controller
               control={control}
@@ -163,12 +169,17 @@ export function ProfileTab({ employee, companyName, form }: ProfileTabProps) {
               render={({ field }) => (
                 <div className="off-field">
                   <span className="off-field-label">Communication frequency</span>
-                  <SegmentedControl
+                  <SegmentedControl<ProfileFormValues['communication']>
                     options={COMMUNICATION_OPTIONS}
                     value={field.value}
                     onChange={field.onChange}
                     ariaLabel="Communication frequency"
                   />
+                  {field.value === '' ? (
+                    <p className="off-field-hint">
+                      Not set — runs as {PERSONA_RUNTIME_DEFAULTS.communication} until you choose.
+                    </p>
+                  ) : null}
                 </div>
               )}
             />
@@ -178,12 +189,17 @@ export function ProfileTab({ employee, companyName, form }: ProfileTabProps) {
               render={({ field }) => (
                 <div className="off-field">
                   <span className="off-field-label">Risk preference</span>
-                  <SegmentedControl
+                  <SegmentedControl<ProfileFormValues['risk']>
                     options={RISK_OPTIONS}
                     value={field.value}
                     onChange={field.onChange}
                     ariaLabel="Risk preference"
                   />
+                  {field.value === '' ? (
+                    <p className="off-field-hint">
+                      Not set — runs as {PERSONA_RUNTIME_DEFAULTS.risk} until you choose.
+                    </p>
+                  ) : null}
                 </div>
               )}
             />
@@ -201,6 +217,11 @@ export function ProfileTab({ employee, companyName, form }: ProfileTabProps) {
                     onChange={(e) => field.onChange(e.target.value)}
                     options={DECISION_STYLE_OPTIONS}
                   />
+                  {field.value === '' ? (
+                    <p className="off-field-hint">
+                      Not set — runs as {PERSONA_RUNTIME_DEFAULTS.decisionStyle} until you choose.
+                    </p>
+                  ) : null}
                 </div>
               )}
             />

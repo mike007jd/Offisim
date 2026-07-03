@@ -197,6 +197,12 @@
   padding: 0 var(--off-sp-3);
 }
 
+/* The active utility tab reveals its text label (icon-only when inactive),
+   so the padding widens to match the primary text tabs. */
+.off-workspace-nav button.is-icon.is-active {
+  padding: 0 var(--off-sp-4);
+}
+
 /* Divider between the primary text tabs and the utility icon tabs. */
 .off-nav-divider {
   width: 1px;

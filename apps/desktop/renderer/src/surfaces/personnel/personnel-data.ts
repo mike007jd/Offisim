@@ -43,6 +43,9 @@ export const DECISION_STYLE_OPTIONS = [
   { value: 'autonomous', label: 'Autonomous' },
 ] as const;
 
+/** Persona selectors accept '' = "not set" so an unedited profile never shows a
+ *  fabricated preference. The runtime applies its own defaults for empty values
+ *  (see `buildSystemPrompt` below, which mirrors them in the preview). */
 export const profileFormSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   role: z.string().min(1, 'Role is required'),
@@ -50,17 +53,17 @@ export const profileFormSchema = z.object({
   workstation: z.string(),
   expertise: z.string(),
   workingStyle: z.string(),
-  communication: z.enum(['low', 'medium', 'high']),
-  risk: z.enum(['conservative', 'balanced', 'aggressive']),
-  decisionStyle: z.string().min(1),
+  communication: z.enum(['low', 'medium', 'high']).or(z.literal('')),
+  risk: z.enum(['conservative', 'balanced', 'aggressive']).or(z.literal('')),
+  decisionStyle: z.string(),
   customInstructions: z.string(),
 });
 export type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
-/** Seed the profile form from the thin employee view-model. The persona fields
- *  are stub defaults here; the real persisted persona is layered on by
- *  {@link profileDefaultsFromRecord} once the full row is read at mount. Using
- *  the stubs alone would let an untouched Save overwrite the saved persona. */
+/** Seed the profile form from the thin employee view-model. Persona fields
+ *  start EMPTY ("not set") — never presumptuous stub values — and the real
+ *  persisted persona is layered on by {@link profileDefaultsFromRecord} once
+ *  the full row is read at mount. */
 export function profileDefaults(employee: Employee): ProfileFormValues {
   return {
     name: employee.name,
@@ -68,10 +71,10 @@ export function profileDefaults(employee: Employee): ProfileFormValues {
     enabled: !employee.disabled,
     workstation: employee.workstationId ?? '',
     expertise: (employee.expertise ?? []).join(', '),
-    workingStyle: 'detail-oriented, collaborative',
-    communication: 'medium',
-    risk: 'balanced',
-    decisionStyle: 'collaborative',
+    workingStyle: '',
+    communication: '',
+    risk: '',
+    decisionStyle: '',
     customInstructions: '',
   };
 }
@@ -113,9 +116,19 @@ export function profileDefaultsFromRecord(
   };
 }
 
+/** Runtime defaults applied when a persona selector was never set — MUST stay
+ *  in sync with `personaFromRow` in `data/employee-persona.ts`, so the preview
+ *  shows exactly what the employee's Pi sessions receive. */
+export const PERSONA_RUNTIME_DEFAULTS = {
+  communication: 'medium',
+  risk: 'balanced',
+  decisionStyle: 'collaborative',
+} as const;
+
 /** Compose the live system-prompt preview from the form state. Delegates to the
- *  shared {@link buildEmployeeSystemPrompt} so the preview matches exactly what
- *  the employee's Pi sessions receive as `appendSystemPrompt`. */
+ *  shared {@link buildEmployeeSystemPrompt} and applies the same empty-value
+ *  fallbacks as the runtime (`personaFromRow`), so the preview matches exactly
+ *  what the employee's Pi sessions receive as `appendSystemPrompt`. */
 export function buildSystemPrompt(values: ProfileFormValues, companyName: string): string {
   return buildEmployeeSystemPrompt({
     name: values.name,
@@ -123,9 +136,9 @@ export function buildSystemPrompt(values: ProfileFormValues, companyName: string
     companyName,
     expertise: values.expertise,
     workingStyle: values.workingStyle,
-    communication: values.communication,
-    risk: values.risk,
-    decisionStyle: values.decisionStyle,
+    communication: values.communication || PERSONA_RUNTIME_DEFAULTS.communication,
+    risk: values.risk || PERSONA_RUNTIME_DEFAULTS.risk,
+    decisionStyle: values.decisionStyle || PERSONA_RUNTIME_DEFAULTS.decisionStyle,
     customInstructions: values.customInstructions,
   });
 }

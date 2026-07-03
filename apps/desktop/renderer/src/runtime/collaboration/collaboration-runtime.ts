@@ -16,6 +16,8 @@ import type { EmployeeRow, RuntimeRepositories } from '@offisim/core/browser';
 import type { CollaborationMessage } from '@offisim/shared-types';
 import type { PiAgentHostEvent } from '../pi-runtime-driver.js';
 import { getRepos } from '../repos.js';
+import { resolveThreadModel } from '../pi-thread-model-store.js';
+import { resolveThreadThinkingOverride } from '../pi-thread-thinking-store.js';
 import type { CollaborationParticipant } from './collaboration-context.js';
 import { createTauriCollaborationTransport } from './collaboration-transport.js';
 import {
@@ -212,6 +214,8 @@ async function assembleController(): Promise<CollaborationTurnController> {
     recentMessages,
     now: () => new Date().toISOString(),
     newId: () => crypto.randomUUID(),
+    model: resolveThreadModel,
+    thinkingLevel: resolveThreadThinkingOverride,
   });
 }
 

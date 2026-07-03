@@ -129,5 +129,11 @@ export function DropdownMenuSubContent({
   className,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.SubContent>) {
-  return <DropdownMenuPrimitive.SubContent className={cn(menuSurface, className)} {...props} />;
+  // Portal like DropdownMenuContent: the menu surface clips overflow, so an
+  // inline submenu would be cut away entirely.
+  return (
+    <DropdownMenuPrimitive.Portal>
+      <DropdownMenuPrimitive.SubContent className={cn(menuSurface, className)} {...props} />
+    </DropdownMenuPrimitive.Portal>
+  );
 }

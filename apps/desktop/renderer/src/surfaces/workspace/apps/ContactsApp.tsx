@@ -204,19 +204,6 @@ export function ContactsApp() {
                 <dd>{activeDetail?.expertise ?? active.expertise?.join(' · ') ?? '—'}</dd>
               </div>
               <div className="off-ws-ct-kv-row">
-                <dt>Tools</dt>
-                <dd>
-                  {activeDetail?.tools ?? '—'}
-                  {activeDetail?.toolsNote ? (
-                    <span className="off-ws-ct-kv-note"> {activeDetail.toolsNote}</span>
-                  ) : null}
-                </dd>
-              </div>
-              <div className="off-ws-ct-kv-row">
-                <dt>Decision style</dt>
-                <dd>{activeDetail?.decisionStyle ?? '—'}</dd>
-              </div>
-              <div className="off-ws-ct-kv-row">
                 <dt>Open chats</dt>
                 <dd>{activeDetail?.openChats ?? '—'}</dd>
               </div>

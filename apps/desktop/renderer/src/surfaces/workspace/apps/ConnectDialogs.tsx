@@ -158,7 +158,15 @@ export function DirectPickerDialog({
   const list = useMemo(() => filterByQuery(enabledEmployees(employees), query), [employees, query]);
 
   return (
-    <Dialog open={open} onOpenChange={(o) => (o ? undefined : onClose())}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) {
+          setQuery('');
+          onClose();
+        }
+      }}
+    >
       <DialogContent title="Direct message" className="off-connect-dialog">
         <DialogHeader>
           <DialogTitle>Direct message</DialogTitle>

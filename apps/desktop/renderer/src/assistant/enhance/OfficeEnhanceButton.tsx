@@ -1,9 +1,9 @@
 /**
  * Office composer Enhance button (PR-06).
  *
- * The first (and, in this PR, only) entry point into the shared Prompt Enhance
- * platform. It sits in the dense composer HUD between ThinkingControl and
- * ModeControl. Pressing it:
+ * The first entry point into the shared Prompt Enhance platform. It renders as
+ * an icon-only overlay pinned to the input's top-right corner (hidden while the
+ * input is empty) so it never consumes composer-footer width. Pressing it:
  *   1. reads the current composer text (via assistant-ui's composer runtime),
  *   2. extracts protected spans from the live roster (so @mentions, code, paths,
  *      and attachment/loop tokens are guarded),
@@ -106,14 +106,13 @@ export function OfficeEnhanceButton({
     <>
       <button
         type="button"
-        className="off-composer-chip off-focusable off-enhance-trigger"
+        className="off-enhance-overlay off-focusable"
         aria-label="Enhance message"
         title="Enhance message"
         disabled={disabled}
         onClick={openAndRun}
       >
         <Icon icon={Sparkles} size="sm" />
-        <span className="off-composer-chip-text">Enhance</span>
       </button>
       <PromptEnhanceReview
         open={open}

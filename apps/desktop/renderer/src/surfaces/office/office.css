@@ -1037,6 +1037,14 @@
   gap: var(--off-sp-1);
   overflow-x: auto;
   scrollbar-width: none;
+  /* Edge fade hints that more tabs are reachable by scrolling (scrollbar is hidden). */
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    black var(--off-sp-3),
+    black calc(100% - var(--off-sp-3)),
+    transparent
+  );
 }
 
 .off-stage-tabs::-webkit-scrollbar {
@@ -1075,6 +1083,14 @@
   padding: 0 var(--off-sp-3);
   font-size: var(--off-fs-sm);
   font-weight: 660;
+}
+
+.off-stage-tab span {
+  min-width: 0;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .off-stage-tab-shell .off-stage-tab {
@@ -1192,17 +1208,23 @@
 }
 
 @media (max-width: 1500px) {
-  .off-stage-tab {
+  /* Narrow stage: inactive tabs collapse to icons, but the active tab always
+     keeps a (tighter) readable label. Both active buttons carry
+     aria-current="page", so that is the active hook here. */
+  .off-stage-tab span {
+    max-width: 96px;
+  }
+
+  .off-stage-tab:not([aria-current='page']) {
     width: 30px;
     justify-content: center;
     padding: 0;
   }
 
-  .off-stage-tab-shell .off-stage-tab {
-    padding: 0;
+  .off-stage-tab:not([aria-current='page']) span {
+    display: none;
   }
 
-  .off-stage-tab span,
   .off-stage-view-options-btn span {
     display: none;
   }
@@ -1480,45 +1502,8 @@
   min-height: 0;
   height: 100%;
   display: grid;
-  grid-template-rows: 36px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   background: var(--off-surface-1);
-}
-
-.off-preview-head {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: var(--off-sp-3);
-  padding: 0 var(--off-sp-4);
-  border-bottom: 1px solid var(--off-line-soft);
-  background: var(--off-surface-2);
-}
-
-.off-preview-title {
-  min-width: 0;
-  flex: 1;
-  display: grid;
-  gap: 1px;
-}
-
-.off-preview-title span,
-.off-preview-title small {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.off-preview-title span {
-  color: var(--off-ink-1);
-  font-size: var(--off-fs-sm);
-  font-weight: 700;
-}
-
-.off-preview-title small {
-  color: var(--off-ink-3);
-  font-family: var(--off-font-mono);
-  font-size: var(--off-fs-micro);
 }
 
 .off-preview-trust {
@@ -1539,6 +1524,10 @@
   display: flex;
   align-items: center;
   gap: var(--off-sp-1);
+}
+
+.off-stage-viewer-head .off-preview-actions {
+  margin-left: auto;
 }
 
 .off-preview-actions button,
@@ -1780,7 +1769,15 @@
   display: grid;
   place-items: center;
   overflow: hidden;
+  cursor: default;
+}
+
+.off-image-canvas.is-pannable {
   cursor: grab;
+}
+
+.off-image-canvas.is-pannable:active {
+  cursor: grabbing;
 }
 
 .off-image-canvas img {
@@ -2280,6 +2277,14 @@
 .off-computer-setup.is-compact {
   margin: 0;
   padding: var(--off-sp-3);
+}
+
+/* Compact setup card rendered inside the waiting viewport keeps its own
+   left-aligned layout instead of inheriting the empty-state centering. */
+.off-computer-viewport-empty .off-computer-setup {
+  width: min(420px, 100%);
+  margin-top: var(--off-sp-3);
+  text-align: left;
 }
 
 .off-computer-setup-head {
@@ -3562,10 +3567,11 @@
   background: none;
   border: 0;
   padding: 0;
+  /* Sentence case: the label carries a duration ("Thought for 12s"), which
+     reads wrong shouted; weight + tracking keep it recognizable as a control. */
   font-size: var(--off-fs-micro);
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0;
+  letter-spacing: var(--off-ls-caps);
   color: var(--off-ink-3);
 }
 
@@ -4090,6 +4096,33 @@
   opacity: 1;
 }
 
+/* Draft-only "To:" row along the composer's top edge (messaging convention). */
+.off-composer-to-row {
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+  padding: 0 var(--off-sp-2) var(--off-sp-2);
+  border-bottom: 1px solid var(--off-line-soft);
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-meta);
+}
+
+.off-composer-to-label {
+  color: var(--off-ink-4);
+  font-weight: 600;
+}
+
+/* Relative host so the Enhance overlay can pin to the input's top-right. */
+.off-composer-input-wrap {
+  position: relative;
+  display: grid;
+  min-width: 0;
+}
+
+.off-composer-input-wrap .off-composer-input {
+  padding-right: var(--off-sp-10);
+}
+
 .off-composer-input {
   min-height: var(--off-composer-input-min);
   max-height: var(--off-composer-input-max);
@@ -4140,20 +4173,7 @@
   min-width: 0;
 }
 
-.off-composer-context {
-  max-width: 132px;
-  height: 26px;
-  display: inline-flex;
-  align-items: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--off-ink-4);
-  font-size: var(--off-fs-meta);
-  font-weight: 580;
-}
-
-/* Scope + model chips read as quiet metadata until hovered/opened. */
+/* The consolidated settings chip reads as quiet metadata until hovered/opened. */
 .off-composer-chip {
   height: 26px;
   flex: 0 0 auto;
@@ -4177,17 +4197,16 @@
   border-color: var(--off-accent);
 }
 
-.off-composer-chip.is-static {
-  cursor: default;
-  background: transparent;
-  border-color: transparent;
-  color: var(--off-ink-4);
-}
-
 .off-composer-chip-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* The consolidated settings chip carries a three-part summary
+   ("model · reasoning · mode") — give it more room than a plain chip. */
+.off-composer-settings-chip {
+  max-width: 232px;
 }
 
 .off-composer-send {
@@ -6027,20 +6046,31 @@
 }
 
 /* ── Prompt Enhance (PR-06) ──────────────────────────────────────────────────
-   The Enhance trigger is a composer chip (inherits .off-composer-chip). Its accent
-   tint marks it as the one generative affordance among the otherwise neutral
-   controls. The review dialog reuses the shared .off-dialog surface. */
-.off-enhance-trigger {
+   The Enhance trigger is an icon-only overlay pinned inside the composer input
+   (top-right). It fades out entirely while the input is empty so it never reads
+   as a dead control. The review dialog reuses the shared .off-dialog surface. */
+.off-enhance-overlay {
+  position: absolute;
+  top: var(--off-sp-1);
+  right: var(--off-sp-1);
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--off-r-sm);
+  background: transparent;
   color: var(--off-accent);
+  transition: opacity var(--off-motion-fast) var(--off-motion-ease), background
+    var(--off-motion-fast) var(--off-motion-ease);
 }
 
-.off-enhance-trigger:not(:disabled):hover {
+.off-enhance-overlay:not(:disabled):hover {
   background: var(--off-accent-surface);
-  border-color: var(--off-accent);
 }
 
-.off-enhance-trigger:disabled {
-  opacity: 0.45;
+.off-enhance-overlay:disabled {
+  opacity: 0;
   pointer-events: none;
 }
 
