@@ -7,10 +7,14 @@ import { Input } from '@/design-system/primitives/input.js';
 import { safeErrorMessage } from '@/lib/error-message.js';
 import { readPiModelOverride, writePiModelOverride } from '@/runtime/pi-agent-config.js';
 import {
+  ArrowLeft,
   Bot,
+  ChevronRight,
   Copy,
   FolderOpen,
   Info,
+  List,
+  Pencil,
   Plus,
   RefreshCw,
   Search,
@@ -151,14 +155,21 @@ interface ProviderFormState {
   models: ProviderModelFormRow[];
 }
 
+// Pure, render-safe fallback for reading the first model row's fields when the
+// form somehow holds no rows. Unlike emptyModelRow() it allocates no rowKey and
+// does not mutate the module sequence, so it is safe to reference during render.
+const EMPTY_MODEL_FIELDS: Omit<ProviderModelFormRow, 'rowKey'> = {
+  id: '',
+  name: '',
+  api: '',
+  contextWindow: '',
+  maxTokens: '',
+};
+
 function emptyModelRow(): ProviderModelFormRow {
   return {
     rowKey: nextProviderModelRowKey(),
-    id: '',
-    name: '',
-    api: '',
-    contextWindow: '',
-    maxTokens: '',
+    ...EMPTY_MODEL_FIELDS,
   };
 }
 
@@ -304,14 +315,16 @@ async function copyText(text: string | undefined, label: string) {
 function FormField({
   label,
   htmlFor,
+  wide,
   children,
 }: {
   label: string;
   htmlFor?: string;
+  wide?: boolean;
   children: ReactNode;
 }) {
   return (
-    <div className="off-set-provider-field">
+    <div className={`off-set-provider-field${wide ? ' is-wide' : ''}`}>
       <label htmlFor={htmlFor}>{label}</label>
       {children}
     </div>
@@ -404,6 +417,10 @@ export function PiAgentPane() {
   const baseUrlInputId = useId();
   const apiSelectId = useId();
   const apiKeyInputId = useId();
+  const initialModelInputId = useId();
+  const contextWindowInputId = useId();
+  const maxTokensInputId = useId();
+  const modelApiInputId = useId();
   const [status, setStatus] = useState<PiAgentStatusResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [savingProvider, setSavingProvider] = useState(false);
@@ -477,6 +494,29 @@ export function PiAgentPane() {
   );
   const modelsConfig = status?.modelsConfig;
   const paths = status?.paths;
+  const isOverview = selection.mode === 'none';
+  // Summary-first landing rows: name, status, model count, auth source per
+  // configured provider. Model count prefers the runtime registry (available
+  // models) and falls back to the saved config's model list when the provider
+  // is configured but not yet authenticated.
+  const providerOverview = useMemo(
+    () =>
+      providerAccounts.map((account) => {
+        const config = providerConfigById.get(account.provider);
+        const availableCount = (status?.availableModels ?? []).filter(
+          (model) => model.provider === account.provider,
+        ).length;
+        const modelCount = availableCount || config?.models?.length || 0;
+        return {
+          account,
+          modelCount,
+          authSource: authSourceLabel(config?.authSource ?? account.auth.source),
+        };
+      }),
+    [providerAccounts, providerConfigById, status],
+  );
+  const firstModelRow = form.models[0] ?? EMPTY_MODEL_FIELDS;
+  const formModelCount = form.models.filter((model) => model.id.trim()).length;
 
   const refresh = useCallback(async () => {
     if (!desktopAvailable) {
@@ -505,25 +545,23 @@ export function PiAgentPane() {
   useEffect(() => {
     if (!status) return;
     if (!providerAccounts.length) {
+      // Nothing to summarize yet — land straight on the guided add form.
       if (selection.mode !== 'add') {
         loadedProviderRef.current = null;
         setSelection({ mode: 'add' });
       }
       return;
     }
-    const firstProvider = providerAccounts[0]?.provider;
-    if (!firstProvider) return;
-    if (selection.mode === 'none') {
-      loadedProviderRef.current = null;
-      setSelection({ mode: 'edit', provider: firstProvider });
-      return;
-    }
+    // Providers exist: the landing state is the summary overview ('none'). We do
+    // NOT auto-hydrate provider[0] into the full edit form — the edit form only
+    // opens on an explicit provider click. The one correction we make is pulling
+    // a stale edit selection (provider deleted/renamed) back to the overview.
     if (
       selection.mode === 'edit' &&
       !providerAccounts.some((account) => account.provider === selection.provider)
     ) {
       loadedProviderRef.current = null;
-      setSelection({ mode: 'edit', provider: firstProvider });
+      setSelection({ mode: 'none' });
     }
   }, [providerAccounts, selection, status]);
 
@@ -555,6 +593,22 @@ export function PiAgentPane() {
 
   function updateForm<K extends keyof ProviderFormState>(key: K, value: ProviderFormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  // The minimal add path edits a single initial model (row 0) directly; the full
+  // multi-row list stays behind the "Manage models" disclosure.
+  function updateFirstModel(patch: Partial<Omit<ProviderModelFormRow, 'rowKey'>>) {
+    setForm((current) => {
+      const rows = current.models.length ? current.models : [emptyModelRow()];
+      const [first, ...rest] = rows;
+      const head = first ?? emptyModelRow();
+      return { ...current, models: [{ ...head, ...patch }, ...rest] };
+    });
+  }
+
+  function backToOverview() {
+    loadedProviderRef.current = null;
+    setSelection({ mode: 'none' });
   }
 
   function showAddProvider() {
@@ -677,6 +731,16 @@ export function PiAgentPane() {
             <CapsLabel>Configured</CapsLabel>
             <span>{providerAccounts.length}</span>
           </div>
+          {providerAccounts.length ? (
+            <button
+              type="button"
+              className={`off-set-provider-nav off-focusable ${isOverview ? 'is-active' : ''}`}
+              onClick={backToOverview}
+            >
+              <Icon icon={List} size="sm" />
+              <span>All providers</span>
+            </button>
+          ) : null}
           <button
             type="button"
             className={`off-set-provider-nav off-focusable ${isAddProvider ? 'is-active' : ''}`}
@@ -719,9 +783,19 @@ export function PiAgentPane() {
           {isAddProvider ? (
             <div className="off-set-provider-form">
               <div className="off-set-provider-detail-head">
-                <div>
+                <div className="min-w-0">
+                  {providerAccounts.length ? (
+                    <button
+                      type="button"
+                      className="off-set-provider-back off-focusable"
+                      onClick={backToOverview}
+                    >
+                      <Icon icon={ArrowLeft} size="sm" />
+                      All providers
+                    </button>
+                  ) : null}
                   <h3>Add model provider</h3>
-                  <p>Start blank or choose a Pi registry template below.</p>
+                  <p>Enter the essentials, or start from a Pi registry template below.</p>
                 </div>
                 <Button
                   variant="outline"
@@ -743,23 +817,6 @@ export function PiAgentPane() {
                     onChange={(event) => updateForm('providerId', event.currentTarget.value)}
                   />
                 </FormField>
-                <FormField label="Display name" htmlFor={providerNameInputId}>
-                  <Input
-                    id={providerNameInputId}
-                    value={form.displayName}
-                    placeholder="Z.ai"
-                    onChange={(event) => updateForm('displayName', event.currentTarget.value)}
-                  />
-                </FormField>
-                <FormField label="Base URL" htmlFor={baseUrlInputId}>
-                  <Input
-                    id={baseUrlInputId}
-                    value={form.baseUrl}
-                    placeholder="https://api.example.com/v1"
-                    spellCheck={false}
-                    onChange={(event) => updateForm('baseUrl', event.currentTarget.value)}
-                  />
-                </FormField>
                 <FormField label="API format" htmlFor={apiSelectId}>
                   <Input
                     id={apiSelectId}
@@ -769,7 +826,16 @@ export function PiAgentPane() {
                     onChange={(event) => updateForm('api', event.currentTarget.value)}
                   />
                 </FormField>
-                <FormField label="API key" htmlFor={apiKeyInputId}>
+                <FormField label="Base URL" htmlFor={baseUrlInputId} wide>
+                  <Input
+                    id={baseUrlInputId}
+                    value={form.baseUrl}
+                    placeholder="https://api.example.com/v1"
+                    spellCheck={false}
+                    onChange={(event) => updateForm('baseUrl', event.currentTarget.value)}
+                  />
+                </FormField>
+                <FormField label="API key" htmlFor={apiKeyInputId} wide>
                   <Input
                     id={apiKeyInputId}
                     type="password"
@@ -779,11 +845,93 @@ export function PiAgentPane() {
                     onChange={(event) => updateForm('apiKey', event.currentTarget.value)}
                   />
                 </FormField>
+                <FormField label="Initial model id" htmlFor={initialModelInputId} wide>
+                  <Input
+                    id={initialModelInputId}
+                    value={firstModelRow.id}
+                    placeholder="glm-5.2"
+                    spellCheck={false}
+                    onChange={(event) => updateFirstModel({ id: event.currentTarget.value })}
+                  />
+                </FormField>
               </div>
-              <ProviderModelsEditor
-                models={form.models}
-                onChange={(models) => updateForm('models', models)}
-              />
+
+              <details className="off-set-disclosure">
+                <summary>
+                  <span className="off-set-chev">
+                    <Icon icon={ChevronRight} size="sm" />
+                  </span>
+                  Advanced
+                </summary>
+                <div className="off-set-disclosure-body">
+                  <div className="off-set-provider-form-grid">
+                    <FormField label="Display name" htmlFor={providerNameInputId} wide>
+                      <Input
+                        id={providerNameInputId}
+                        value={form.displayName}
+                        placeholder="Z.ai"
+                        onChange={(event) => updateForm('displayName', event.currentTarget.value)}
+                      />
+                    </FormField>
+                    <FormField label="Context window" htmlFor={contextWindowInputId}>
+                      <Input
+                        id={contextWindowInputId}
+                        value={firstModelRow.contextWindow}
+                        inputMode="numeric"
+                        placeholder="128000"
+                        spellCheck={false}
+                        onChange={(event) =>
+                          updateFirstModel({ contextWindow: event.currentTarget.value })
+                        }
+                      />
+                    </FormField>
+                    <FormField label="Max tokens" htmlFor={maxTokensInputId}>
+                      <Input
+                        id={maxTokensInputId}
+                        value={firstModelRow.maxTokens}
+                        inputMode="numeric"
+                        placeholder="8192"
+                        spellCheck={false}
+                        onChange={(event) =>
+                          updateFirstModel({ maxTokens: event.currentTarget.value })
+                        }
+                      />
+                    </FormField>
+                    <FormField label="Model API override" htmlFor={modelApiInputId} wide>
+                      <Input
+                        id={modelApiInputId}
+                        value={firstModelRow.api}
+                        placeholder="Inherit provider API format"
+                        spellCheck={false}
+                        onChange={(event) => updateFirstModel({ api: event.currentTarget.value })}
+                      />
+                    </FormField>
+                  </div>
+                </div>
+              </details>
+
+              {/* F3: PiAgentModelSummary from pi_agent_status carries no per-model
+                  source or checked/stale timestamp — only a single top-level
+                  checkedAt for the whole registry read (already shown in the
+                  runtime header). Exact model ids are shown, but no per-model
+                  "source · checked" indicator is added, since fabricating one
+                  would misrepresent data the Pi registry payload does not expose. */}
+              <details className="off-set-disclosure">
+                <summary>
+                  <span className="off-set-chev">
+                    <Icon icon={ChevronRight} size="sm" />
+                  </span>
+                  Manage models
+                  <span className="off-set-provider-disc-count">{formModelCount}</span>
+                </summary>
+                <div className="off-set-disclosure-body">
+                  <ProviderModelsEditor
+                    models={form.models}
+                    onChange={(models) => updateForm('models', models)}
+                  />
+                </div>
+              </details>
+
               <div className="off-set-provider-form-actions">
                 <Button
                   disabled={savingProvider || !desktopAvailable}
@@ -833,6 +981,14 @@ export function PiAgentPane() {
             <div className="off-set-provider-form">
               <div className="off-set-provider-detail-head">
                 <div className="min-w-0">
+                  <button
+                    type="button"
+                    className="off-set-provider-back off-focusable"
+                    onClick={backToOverview}
+                  >
+                    <Icon icon={ArrowLeft} size="sm" />
+                    All providers
+                  </button>
                   <h3>{selectedAccount.displayName}</h3>
                   <p>{selectedAccount.provider}</p>
                 </div>
@@ -859,12 +1015,13 @@ export function PiAgentPane() {
               </div>
 
               <div className="off-set-provider-form-grid">
-                <FormField label="Provider id" htmlFor={providerIdInputId}>
+                <FormField label="Base URL" htmlFor={baseUrlInputId} wide>
                   <Input
-                    id={providerIdInputId}
-                    value={form.providerId}
-                    disabled
+                    id={baseUrlInputId}
+                    value={form.baseUrl}
+                    placeholder="https://api.example.com/v1"
                     spellCheck={false}
+                    onChange={(event) => updateForm('baseUrl', event.currentTarget.value)}
                   />
                 </FormField>
                 <FormField label="Display name" htmlFor={providerNameInputId}>
@@ -872,15 +1029,6 @@ export function PiAgentPane() {
                     id={providerNameInputId}
                     value={form.displayName}
                     onChange={(event) => updateForm('displayName', event.currentTarget.value)}
-                  />
-                </FormField>
-                <FormField label="Base URL" htmlFor={baseUrlInputId}>
-                  <Input
-                    id={baseUrlInputId}
-                    value={form.baseUrl}
-                    placeholder="https://api.example.com/v1"
-                    spellCheck={false}
-                    onChange={(event) => updateForm('baseUrl', event.currentTarget.value)}
                   />
                 </FormField>
                 <FormField label="API format" htmlFor={apiSelectId}>
@@ -892,7 +1040,7 @@ export function PiAgentPane() {
                     onChange={(event) => updateForm('api', event.currentTarget.value)}
                   />
                 </FormField>
-                <FormField label="Replace API key" htmlFor={apiKeyInputId}>
+                <FormField label="Replace API key" htmlFor={apiKeyInputId} wide>
                   <Input
                     id={apiKeyInputId}
                     type="password"
@@ -907,10 +1055,26 @@ export function PiAgentPane() {
                   />
                 </FormField>
               </div>
-              <ProviderModelsEditor
-                models={form.models}
-                onChange={(models) => updateForm('models', models)}
-              />
+
+              {/* F3: no per-model source/checked timestamp exists on the Pi
+                  registry payload (see PiAgentModelSummary) — exact model ids are
+                  editable here without a fabricated per-model indicator. */}
+              <details className="off-set-disclosure">
+                <summary>
+                  <span className="off-set-chev">
+                    <Icon icon={ChevronRight} size="sm" />
+                  </span>
+                  Manage models
+                  <span className="off-set-provider-disc-count">{formModelCount}</span>
+                </summary>
+                <div className="off-set-disclosure-body">
+                  <ProviderModelsEditor
+                    models={form.models}
+                    onChange={(models) => updateForm('models', models)}
+                  />
+                </div>
+              </details>
+
               <div className="off-set-provider-form-actions">
                 <Button
                   disabled={savingProvider || !desktopAvailable}
@@ -928,10 +1092,52 @@ export function PiAgentPane() {
                 </Button>
               </div>
             </div>
+          ) : providerOverview.length ? (
+            <div className="off-set-provider-form">
+              <div className="off-set-provider-detail-head">
+                <div className="min-w-0">
+                  <h3>Configured providers</h3>
+                  <p>Select a provider to edit its endpoint and models, or add a new one.</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={showAddProvider}>
+                  <Icon icon={Plus} size="sm" />
+                  Add provider
+                </Button>
+              </div>
+              <div className="off-set-provider-overview">
+                {providerOverview.map(({ account, modelCount, authSource }) => (
+                  <div className="off-set-provider-overview-row" key={account.provider}>
+                    <span
+                      className={`off-set-provider-dot ${
+                        account.auth.configured ? 'is-ready' : 'is-muted'
+                      }`}
+                    />
+                    <span className="off-set-provider-overview-copy">
+                      <strong>{account.displayName}</strong>
+                      <small>{account.provider}</small>
+                    </span>
+                    <span className="off-set-provider-overview-meta">
+                      {modelCount} {modelCount === 1 ? 'model' : 'models'} · {authSource}
+                    </span>
+                    <StatusPill tone={account.auth.configured ? 'ok' : 'muted'}>
+                      {account.auth.configured ? 'Enabled' : 'Needs auth'}
+                    </StatusPill>
+                    <Button
+                      variant="subtle"
+                      size="sm"
+                      onClick={() => selectProvider(account.provider)}
+                    >
+                      <Icon icon={Pencil} size="sm" />
+                      Edit
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
           ) : (
             <div className="off-set-callout is-muted">
               <Icon icon={Info} size="sm" />
-              Select a configured provider or add one.
+              No providers configured yet. Add one to get started.
             </div>
           )}
         </div>

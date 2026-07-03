@@ -587,6 +587,80 @@
   font-weight: 520;
 }
 
+.off-set-provider-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--off-sp-1);
+  margin-bottom: var(--off-sp-2);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--off-ink-4);
+  font-size: var(--off-fs-meta);
+  font-weight: 600;
+}
+
+.off-set-provider-back:hover {
+  color: var(--off-accent);
+}
+
+/* Provider overview — summary-first landing list (no auto-hydrated edit form). */
+.off-set-provider-overview {
+  min-width: 0;
+  display: grid;
+  gap: var(--off-sp-2);
+}
+
+.off-set-provider-overview-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: var(--off-sp-4);
+  padding: var(--off-sp-3) var(--off-sp-4);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-2);
+}
+
+.off-set-provider-overview-copy {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.off-set-provider-overview-copy strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--off-ink-1);
+  font-size: var(--off-fs-sm);
+  font-weight: 650;
+}
+
+.off-set-provider-overview-copy small {
+  color: var(--off-ink-4);
+  font-family: var(--off-font-mono);
+  font-size: var(--off-fs-xs);
+  font-weight: 560;
+}
+
+.off-set-provider-overview-meta {
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-meta);
+  font-weight: 540;
+  white-space: nowrap;
+}
+
+.off-set-provider-disc-count {
+  margin-left: var(--off-sp-1);
+  color: var(--off-ink-4);
+  font-family: var(--off-font-mono);
+  font-size: var(--off-fs-xs);
+  font-weight: 620;
+}
+
 .off-set-provider-summary-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -639,10 +713,14 @@
   gap: var(--off-sp-2);
 }
 
-.off-set-provider-field:nth-child(3),
-.off-set-provider-field:nth-child(5),
-.off-set-provider-field:nth-child(6) {
+.off-set-provider-field.is-wide {
   grid-column: 1 / -1;
+}
+
+/* Advanced-disclosure fields reuse the provider form grid; drop its trailing
+   margin so the disclosure body owns the bottom padding. */
+.off-set-disclosure-body .off-set-provider-form-grid {
+  margin-bottom: 0;
 }
 
 .off-set-provider-field label {
