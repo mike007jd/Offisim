@@ -45,6 +45,7 @@ pnpm --filter @offisim/desktop-renderer build
 
 # desktop release .app
 pnpm --filter @offisim/desktop build
+codesign --verify --deep --strict --verbose=2 apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app
 ```
 
 The desktop `cargo` side is gated by `cargo check` / `cargo test` in
@@ -82,7 +83,8 @@ apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app
 ```
 
 Drive it with Computer Use (window attach, interaction, screenshots,
-foregrounding, closing). Record the app path/hash plus the observed behavior.
+foregrounding, closing). Record the app path/hash, ad-hoc signing verification,
+plus the observed behavior.
 
 Not acceptable as release evidence: dev webviews, `pnpm --filter
 @offisim/desktop-renderer dev` servers, localhost browser checks, or

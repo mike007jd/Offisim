@@ -59,10 +59,21 @@ independent-but-paired lists. Drift on either side is caught at build time by
 
 ## Desktop distribution
 
-The desktop release is produced by `pnpm --filter @offisim/desktop build`; the
-notarizable bundle is at
-`apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`. Code signing /
-notarization is environment-specific and out of scope for this repo's defaults.
+The desktop release `.app` used for local release verification is produced by
+`pnpm --filter @offisim/desktop build`; the bundle is at
+`apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`.
+
+Signed Developer ID DMGs are produced from the repo root with:
+
+```bash
+pnpm release:dmg
+```
+
+That command loads the Apple distribution variables from the ignored root
+`.env.local`, validates the configured keychain identity, overrides the default
+ad-hoc signing identity for this distribution build only, and runs Tauri's DMG
+bundle flow. It then submits the final DMG for notarization and staples/validates
+the DMG ticket. The required local variables are documented in `.env.example`.
 
 The recommended release entrypoint is `pnpm release:run` from the repo root —
 it enforces the core gates from

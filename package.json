@@ -81,6 +81,7 @@
     "format": "biome format --write .",
     "clean": "turbo run clean && rm -rf node_modules",
     "release:run": "node scripts/run-clean-release.mjs",
+    "release:dmg": "node scripts/build-signed-dmg.mjs",
     "check:deadcode": "knip",
     "qa:loop": "node scripts/run-functional-test-loop.mjs",
     "harness:live-agent-run": "node scripts/harness-live-agent-run.mjs",
