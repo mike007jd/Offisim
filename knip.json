@@ -38,7 +38,8 @@
   "ignoreBinaries": [
     "lsof",
     "osascript",
-    "pgrep"
+    "pgrep",
+    "security"
   ],
   "rules": {
     "files": "error",
