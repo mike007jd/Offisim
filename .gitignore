@@ -22,6 +22,7 @@ coverage/
 *.swo
 tmp/
 .worktrees/
+/.tmp/
 
 # Tool-generated local state (per-machine, not shared)
 .playwright-mcp/
@@ -33,14 +34,12 @@ tmp/
 
 # Playwright test artifacts
 test-results/
-frontend/test-results/
 playwright-report/
 blob-report/
 output/
 output/playwright/
 test-loop/
 test-loop-s*/
-apps/web/output/
 apps/*/dist/
 packages/*/dist/
 
@@ -53,7 +52,6 @@ audit-*.png
 smoke-*.png
 [0-9]*-*.png
 /icon.png
-output_frontend_home.png
 Docs/design/.audit-*.png
 test-*.mjs
 apps/desktop/src-tauri/resources/claude-agent-host.mjs
@@ -81,8 +79,6 @@ openspec/changes/**/.live-verify/
 openspec/changes/**/verify-screenshots/
 openspec/changes/**/evidence/
 openspec/changes/**/evidence.md
-/legacy/
-/legacy-a1c1110/
 
 # Dead-code cleanup loop quarantine (local-only, retrievable)
 /.trash/
