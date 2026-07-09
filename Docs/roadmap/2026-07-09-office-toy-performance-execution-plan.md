@@ -198,7 +198,7 @@ P0 只把**角色 + 单张 canonical workstation 的纵向/接触度量**收进
 
 ### P0 Spike — GO（2026-07-10）
 
-- **branch / commit**：`feat/office-toy-p0-spike`；phase commit 与 stacked PR 在本节完成后创建并回填 PR。
+- **branch / commit / PR**：`feat/office-toy-p0-spike` / `b48e85b1` / [#18](https://github.com/mike007jd/Offisim/pull/18)，stack base 为文档包 [#13](https://github.com/mike007jd/Offisim/pull/13)。
 - **实现**：保留 Quaternius Universal 65-joint skeleton，程序化生成 2.472 头身 `body_toy.glb`；删除旧 `body_male.glb` / `body_female.glb` runtime lane；重烘焙 19 个 canonical non-root-motion clips；统一角色、椅面、桌面、坐姿与 held-laptop 度量。
 - **自动 oracle**：`node scripts/harness-character-toy-p0.mjs` → 21/21；`pnpm harness:character-clip-map` → 12,960 states / 19 clips；同 raw 输入 clean build 两次 aggregate SHA-256 均为 `c62390f45b88dcf22b8c80b74b57a4cf633ce6da97086d5f373c6df7ad49f55a`；资产总量 1,734,710 bytes / 26,214,400 bytes。
 - **全量门禁**：`pnpm validate` PASS；renderer typecheck/build PASS；Rust `cargo test` 149/149 PASS；diagnostic release `.app` build/sign PASS。
