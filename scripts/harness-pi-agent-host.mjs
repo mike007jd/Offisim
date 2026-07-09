@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import stripJsonComments from 'strip-json-comments';
@@ -41,8 +41,29 @@ function runHost(scriptPath, payload, label) {
   return parseHostResult(result.stdout, label);
 }
 
+function ensureBundledHost(scriptPath) {
+  if (existsSync(scriptPath)) return;
+
+  console.log(`[harness:pi-agent-host] rebuilding missing bundle ${scriptPath}`);
+  const result = spawnSync(process.execPath, ['scripts/build-pi-agent-host.mjs'], {
+    stdio: 'inherit',
+  });
+  if (result.error) {
+    throw new Error(`Failed to start Pi Agent host bundle build: ${result.error.message}`);
+  }
+  if (result.status !== 0) {
+    throw new Error(
+      `Pi Agent host bundle build failed (exit ${result.status ?? 'unknown'}${result.signal ? `, signal ${result.signal}` : ''})`,
+    );
+  }
+  if (!existsSync(scriptPath)) {
+    throw new Error(`Pi Agent host bundle build succeeded but did not create ${scriptPath}`);
+  }
+}
+
 const HOST_SCRIPT = 'scripts/tauri-pi-agent-host.entry.mjs';
 const BUNDLED_HOST_SCRIPT = 'apps/desktop/src-tauri/resources/pi-agent-host.mjs';
+ensureBundledHost(BUNDLED_HOST_SCRIPT);
 const rootPackage = readJson('package.json');
 const desktopPackage = readJson('apps/desktop/package.json');
 const tauriConfig = readJson('apps/desktop/src-tauri/tauri.conf.json');
