@@ -18,15 +18,18 @@ import {
   SkinnedMesh,
 } from 'three';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { clamp } from '../scene-layout.js';
+import toyMetrics from '../toy-performance-metrics.json';
+import { OFFICE_CHARACTER_METRICS, WORKSTATION_VERTICAL_METRICS } from '../workstation-geometry.js';
 import { CHARACTER_ASSET_URLS, characterManifest, useCharacterGltf } from './character-assets.js';
-import { attachGarments } from './garments.js';
 import {
   type ClipName,
   type ClipSelection,
   POSTURE_TRANSITION_CLIPS,
   clipForPerformance,
+  clipUsesSeatedOffset,
+  selectionForClip,
 } from './clip-map.js';
+import { attachGarments } from './garments.js';
 import { ActionHalo, type CharacterAction, TypingDots } from './indicators.js';
 
 /**
@@ -107,10 +110,12 @@ export interface CharacterProps {
   /** Deterministic phase offset so idle loops don't sync across the room. */
   phase?: number;
   opacity?: number;
+  /** P0 release fixture only: bypasses business performance mapping to play one canonical clip. */
+  diagnosticClip?: ClipName;
 }
 
 /** Uniform scale normalizing the ~1.8-unit bodies into the scene's character size. */
-const TARGET_HEIGHT_UNITS = 1.62;
+const TARGET_HEIGHT_UNITS = OFFICE_CHARACTER_METRICS.height;
 /** Typing-dots heights (scene units), adapted to the gltf silhouette. */
 const DOTS_Y_STANDING = 1.86;
 const DOTS_Y_SITTING = 1.62;
@@ -127,13 +132,10 @@ const DOTS_Y_SITTING = 1.62;
  * the component origin stay on the ground at the seat anchor. Applied with a
  * short ease so walk→sit arrivals blend through sit.enter instead of popping.
  */
-const SEATED_BODY_LIFT = 0.17;
-const SEATED_BODY_FORWARD = 0.3;
+const SEATED_BODY_LIFT = WORKSTATION_VERTICAL_METRICS.seatedBodyLift;
+const SEATED_BODY_FORWARD = WORKSTATION_VERTICAL_METRICS.seatedBodyForward;
 /** Ease rate (per second) for the seated-body offset blend. */
 const SEATED_OFFSET_EASE = 7;
-/** Skin tint clamp so extreme palette/texture ratios stay physical. */
-const TINT_MIN = 0.35;
-const TINT_MAX = 2.8;
 /** Bottom-wear darkening relative to the clothing color (reads as slacks). */
 const BOTTOM_DARKEN = 0.62;
 /** bodyType → silhouette girth (non-uniform XZ scale on the body wrapper). */
@@ -161,10 +163,10 @@ const HAIR_STYLE_TO_ASSET: Record<
 /** Hand-prop attach table (offsets are integration-tunable). */
 const PROP_ATTACH = {
   laptop: {
-    node: 'prop_laptop',
-    bone: 'hand_l',
-    position: [0, 0.06, 0.04] as const,
-    rotation: [-Math.PI / 2, 0, 0] as const,
+    node: toyMetrics.heldProps.laptop.node,
+    bone: toyMetrics.heldProps.laptop.bone,
+    position: toyMetrics.heldProps.laptop.position as [number, number, number],
+    rotation: toyMetrics.heldProps.laptop.rotation as [number, number, number],
   },
   book: {
     node: 'prop_book',
@@ -173,10 +175,6 @@ const PROP_ATTACH = {
     rotation: [-Math.PI / 2, 0, Math.PI] as const,
   },
 } as const;
-
-function luminance(color: Color): number {
-  return 0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b;
-}
 
 interface CharacterRig {
   /** Monotonic instance id — keys the RigView remount per rebuilt clone. */
@@ -240,6 +238,7 @@ interface RigViewProps {
   tempo: number;
   phase: number;
   reducedMotion: boolean;
+  diagnosticClip?: ClipName;
 }
 
 /**
@@ -261,6 +260,7 @@ function RigView({
   tempo,
   phase,
   reducedMotion,
+  diagnosticClip,
 }: RigViewProps) {
   const { actions, mixer } = useAnimations(animations, rig.root);
   /** Wrapper group carrying scale + the seated-body offset. The offset must NOT
@@ -337,14 +337,18 @@ function RigView({
           ? { ...performance, locomotion: 'walk' as const }
           : performance
         : legacyPerformance(actionState, posture);
-    const selection = clipForPerformance(perf);
+    const selection: ClipSelection = diagnosticClip
+      ? selectionForClip(diagnosticClip)
+      : clipForPerformance(perf);
 
     // Seated-body offset (see SEATED_BODY_LIFT): butt onto the chair cushion
     // while seated, floor origin otherwise. Eased so walk→sit arrivals blend
     // through sit.enter; reduced motion snaps (static pose, no drift motion).
     const body = bodyRef.current;
     if (body) {
-      const seated = perf.posture === 'sit' && perf.locomotion !== 'walk';
+      const seated = diagnosticClip
+        ? clipUsesSeatedOffset(diagnosticClip)
+        : perf.posture === 'sit' && perf.locomotion !== 'walk';
       const targetLift = seated ? SEATED_BODY_LIFT : 0;
       const targetForward = seated ? SEATED_BODY_FORWARD : 0;
       if (reducedMotion) {
@@ -381,7 +385,12 @@ function RigView({
       startClip(selection, true);
       return;
     }
-    if (perf.locomotion !== 'walk' && previousPosture && previousPosture !== perf.posture) {
+    if (
+      !diagnosticClip &&
+      perf.locomotion !== 'walk' &&
+      previousPosture &&
+      previousPosture !== perf.posture
+    ) {
       // stand ⇄ sit goes through the transition one-shot, then the destination.
       const transition: ClipName =
         perf.posture === 'sit'
@@ -422,6 +431,7 @@ export function GltfCharacter({
   tempo = 1,
   phase = 0,
   opacity = 1,
+  diagnosticClip,
 }: CharacterProps) {
   const actionState: CharacterAction = action ?? (running ? 'working' : 'idle');
   const usePerformance = performance !== undefined && actionState !== 'dragging';
@@ -439,9 +449,7 @@ export function GltfCharacter({
           ? 'male'
           : 'female';
 
-  const bodyGltf = useCharacterGltf(
-    bodyGender === 'male' ? CHARACTER_ASSET_URLS.bodyMale : CHARACTER_ASSET_URLS.bodyFemale,
-  );
+  const bodyGltf = useCharacterGltf(CHARACTER_ASSET_URLS.bodyToy);
   const animationsGltf = useCharacterGltf(CHARACTER_ASSET_URLS.animations);
   const propsGltf = useCharacterGltf(CHARACTER_ASSET_URLS.props);
   const hairAsset = HAIR_STYLE_TO_ASSET[appearance.hairStyle];
@@ -460,19 +468,12 @@ export function GltfCharacter({
     const root = cloneSkeleton(bodyGltf.scene);
     const materials: MeshStandardMaterial[] = [];
     const skeletonSet = new Set<Skeleton>();
-    const body = characterManifest.bodies[bodyGender];
+    const body = characterManifest.bodies.toy;
 
-    // Skin variant pick + exact-tone tint.
+    // The procedural P0 body has no basecolor texture: apply the resolved skin
+    // tone directly. Texture-ratio tinting would replace the material factor
+    // with a multiplier and overexpose light tones.
     const target = new Color(appearance.skin);
-    const lightRef = new Color(body.skinReference.light);
-    const darkRef = new Color(body.skinReference.dark);
-    const useLight = luminance(target) >= (luminance(lightRef) + luminance(darkRef)) / 2;
-    const reference = useLight ? lightRef : darkRef;
-    const skinTint = new Color(
-      clamp(target.r / Math.max(reference.r, 0.01), TINT_MIN, TINT_MAX),
-      clamp(target.g / Math.max(reference.g, 0.01), TINT_MIN, TINT_MAX),
-      clamp(target.b / Math.max(reference.b, 0.01), TINT_MIN, TINT_MAX),
-    );
     // Two-tone BASE layer: top = clothing, bottom = the accent color darkened so
     // vivid accents read as slacks. The procedural garments (below) sit over this
     // so the character reads as dressed; the base still shows where garments
@@ -482,7 +483,7 @@ export function GltfCharacter({
     const bottom = accent.clone().multiplyScalar(BOTTOM_DARKEN);
     const hairColor = new Color(appearance.hair);
 
-    const unusedSkinVariant = useLight ? 'Body_Skin_Dark' : 'Body_Skin_Light';
+    const unusedSkinVariant = 'Body_Skin_Dark';
     const removals: Object3D[] = [];
     root.traverse((child) => {
       if (!(child as Mesh).isMesh) return;
@@ -496,7 +497,7 @@ export function GltfCharacter({
       if (mesh.name === unusedSkinVariant) {
         removals.push(mesh);
       } else if (mesh.name === 'Body_Skin_Light' || mesh.name === 'Body_Skin_Dark') {
-        cloneMaterial(mesh, materials).color.copy(skinTint);
+        cloneMaterial(mesh, materials).color.copy(target);
       } else if (mesh.name === 'Body_Top') {
         cloneMaterial(mesh, materials).color.copy(clothing);
       } else if (mesh.name === 'Body_Bottom') {
@@ -623,6 +624,7 @@ export function GltfCharacter({
         tempo={tempo}
         phase={phase}
         reducedMotion={reducedMotion}
+        diagnosticClip={diagnosticClip}
       />
     </group>
   );

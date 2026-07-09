@@ -1,6 +1,5 @@
 import animationsUrl from '@/assets/characters/animations.glb?url';
-import bodyFemaleUrl from '@/assets/characters/body_female.glb?url';
-import bodyMaleUrl from '@/assets/characters/body_male.glb?url';
+import bodyToyUrl from '@/assets/characters/body_toy.glb?url';
 import brows01Url from '@/assets/characters/brows_01.glb?url';
 import brows02Url from '@/assets/characters/brows_02.glb?url';
 import hair01Url from '@/assets/characters/hair_01.glb?url';
@@ -24,8 +23,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
  * meshopt_decoder.module.js`, wasm inlined — no CDN fetch) into GLTFLoader.
  */
 export const CHARACTER_ASSET_URLS = {
-  bodyMale: bodyMaleUrl,
-  bodyFemale: bodyFemaleUrl,
+  bodyToy: bodyToyUrl,
   animations: animationsUrl,
   props: propsUrl,
   hair: {
@@ -59,8 +57,7 @@ function withMeshoptDecoder(loader: Loader): void {
  * mount. Add it here the moment a style/accent maps to it.
  */
 const PRELOADED_URLS: readonly string[] = [
-  CHARACTER_ASSET_URLS.bodyMale,
-  CHARACTER_ASSET_URLS.bodyFemale,
+  CHARACTER_ASSET_URLS.bodyToy,
   CHARACTER_ASSET_URLS.animations,
   CHARACTER_ASSET_URLS.props,
   CHARACTER_ASSET_URLS.hair.hair_01,

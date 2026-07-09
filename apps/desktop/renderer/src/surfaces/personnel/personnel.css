@@ -932,6 +932,53 @@
   text-transform: uppercase;
 }
 
+.off-pers-prev.has-p0-diagnostic .off-pers-prev-2d {
+  bottom: 76px;
+}
+
+.off-pers-p0-diagnostic {
+  position: absolute;
+  left: var(--off-sp-4);
+  right: var(--off-sp-4);
+  bottom: var(--off-sp-4);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--off-sp-3);
+  padding: var(--off-sp-3);
+  border: 1px solid var(--off-line-strong);
+  border-radius: var(--off-r-sm);
+  background: color-mix(in srgb, var(--off-surface-1) 94%, transparent);
+  box-shadow: var(--off-elev-2);
+}
+
+.off-pers-p0-diagnostic-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.off-pers-p0-diagnostic-copy strong {
+  overflow: hidden;
+  color: var(--off-ink-1);
+  font-family: var(--off-font-mono);
+  font-size: var(--off-fs-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.off-pers-p0-diagnostic-copy span {
+  color: var(--off-ink-4);
+  font-size: var(--off-fs-micro);
+}
+
+.off-pers-p0-diagnostic-controls {
+  display: flex;
+  flex: none;
+  gap: var(--off-sp-2);
+}
+
 /* ── Runtime tab ──────────────────────────────── */
 .off-pers-runtime-head {
   display: flex;

@@ -1,0 +1,49 @@
+{
+  "checkedAt": "2026-07-10T08:25:00+12:00",
+  "licensePolicy": "CC0 1.0 Universal only",
+  "rawFilesCommitted": false,
+  "normalizations": [
+    "UBC Standard glTF references T_Hair_1_Normal_png.png; mapped to the shipped T_Hair_1_Normal.png",
+    "UBC Standard glTF references T_Eye_Normal_png.png; mapped to the shipped T_Eye_Normal.png",
+    "KayKit Free Assets is exposed at the builder's expected addon layout"
+  ],
+  "sources": [
+    {
+      "id": "quaternius-universal-base-characters-standard",
+      "sourceUrl": "https://quaternius.com/packs/universalbasecharacters.html",
+      "downloadPage": "https://quaternius.itch.io/universal-base-characters",
+      "file": "Universal Base Characters[Standard].zip",
+      "uploadId": "15861669",
+      "sha256": "fdbf1804c90dfc1ea03e992bff7da2dfd1a79318e13270a660180f9308455f40"
+    },
+    {
+      "id": "quaternius-universal-animation-library-standard",
+      "sourceUrl": "https://quaternius.com/packs/universalanimationlibrary.html",
+      "downloadPage": "https://quaternius.itch.io/universal-animation-library",
+      "file": "Universal Animation Library[Standard].zip",
+      "uploadId": "17958403",
+      "sha256": "cc73fc4e495b82958207316596317a3f40b9fa38065bde1027937452da537724"
+    },
+    {
+      "id": "quaternius-universal-animation-library-2-standard",
+      "sourceUrl": "https://quaternius.com/packs/universalanimationlibrary2.html",
+      "downloadPage": "https://quaternius.itch.io/universal-animation-library-2",
+      "file": "Universal Animation Library 2[Standard].zip",
+      "uploadId": "17958478",
+      "sha256": "4008ea208a604773a2b2177d965f0f5d3195498b5bf838c3f5785d68e95f2a68"
+    },
+    {
+      "id": "kenney-furniture-kit-1.0",
+      "sourceUrl": "https://kenney.nl/assets/furniture-kit",
+      "file": "kenney_furniture-kit.zip",
+      "sha256": "e67652d0932cee41683f74711c03d3e192a2af9979ef8e6b237711f5482d46b0"
+    },
+    {
+      "id": "kaykit-furniture-bits-free-1.0",
+      "sourceUrl": "https://kaylousberg.itch.io/furniture-bits",
+      "file": "KayKit Furniture Bits Free.zip",
+      "uploadId": "8655517",
+      "sha256": "e6d75f34c5545486b5a8f45f86209dbd49092f3e77ae23011bdb87edab89e7e4"
+    }
+  ]
+}

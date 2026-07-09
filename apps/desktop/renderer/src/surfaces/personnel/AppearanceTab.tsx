@@ -4,13 +4,15 @@ import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { SegmentedControl } from '@/design-system/grammar/SegmentedControl.js';
 import { Select } from '@/design-system/grammar/Select.js';
 import { Icon } from '@/design-system/icons/Icon.js';
+import { Button } from '@/design-system/primitives/button.js';
 import { type EmployeeAppearance, resolveAppearance } from '@/lib/avatar.js';
 import { cn } from '@/lib/utils.js';
 import { OrbitControls } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
-import { Lock } from 'lucide-react';
-import { type CSSProperties, Suspense, useId } from 'react';
+import { ChevronLeft, ChevronRight, Lock, Pause, Play } from 'lucide-react';
+import { type CSSProperties, Suspense, useEffect, useId, useState } from 'react';
 import { GltfCharacter } from '../office/scene/character/GltfCharacter.js';
+import { CLIP_NAMES } from '../office/scene/character/clip-map.js';
 import {
   ACCENT_SWATCHES,
   type AppearanceDraft,
@@ -23,6 +25,9 @@ import {
   SKIN_SWATCHES,
   type SwatchOption,
 } from './personnel-data.js';
+
+const P0_TOY_DIAGNOSTIC = import.meta.env.VITE_OFFICE_TOY_P0_DIAGNOSTIC === '1';
+const P0_CLIP_DURATION_MS = 4_000;
 
 function swatchStyle(value: string): CSSProperties {
   return { '--off-pers-swatch': value } as CSSProperties;
@@ -78,8 +83,26 @@ function AppearancePreviewPanel({
   brand: boolean;
 }) {
   const resolved = resolveAppearance(seed, appearance);
+  const [clipIndex, setClipIndex] = useState(0);
+  const [sequencing, setSequencing] = useState(P0_TOY_DIAGNOSTIC);
+  const diagnosticClip = P0_TOY_DIAGNOSTIC ? CLIP_NAMES[clipIndex] : undefined;
+
+  useEffect(() => {
+    if (!P0_TOY_DIAGNOSTIC || !sequencing) return;
+    const timer = window.setInterval(
+      () => setClipIndex((current) => (current + 1) % CLIP_NAMES.length),
+      P0_CLIP_DURATION_MS,
+    );
+    return () => window.clearInterval(timer);
+  }, [sequencing]);
+
+  const stepClip = (delta: number) => {
+    setSequencing(false);
+    setClipIndex((current) => (current + delta + CLIP_NAMES.length) % CLIP_NAMES.length);
+  };
+
   return (
-    <div className="off-pers-prev is-3d-main">
+    <div className={cn('off-pers-prev is-3d-main', P0_TOY_DIAGNOSTIC && 'has-p0-diagnostic')}>
       <span className="off-pers-prev-label">3D</span>
       <div className="off-pers-prev-canvas" aria-label="3D avatar preview">
         <Canvas camera={{ position: [0, 1.4, 5.6], fov: 34 }} dpr={[1, 2]}>
@@ -88,7 +111,12 @@ function AppearancePreviewPanel({
           <group position={[0, -0.9, 0]} rotation={[0, -0.26, 0]} scale={1.28}>
             {/* glb loads suspend; the empty fallback keeps the canvas/lights up. */}
             <Suspense fallback={null}>
-              <GltfCharacter appearance={resolved} running={false} phase={0} />
+              <GltfCharacter
+                appearance={resolved}
+                running={false}
+                phase={0}
+                diagnosticClip={diagnosticClip}
+              />
             </Suspense>
           </group>
           <OrbitControls
@@ -111,6 +139,42 @@ function AppearancePreviewPanel({
         />
         <span>2D</span>
       </div>
+      {P0_TOY_DIAGNOSTIC && diagnosticClip ? (
+        <div className="off-pers-p0-diagnostic" aria-label="P0 toy animation sequencer">
+          <div className="off-pers-p0-diagnostic-copy" aria-live="polite">
+            <strong>{diagnosticClip}</strong>
+            <span>
+              P0 release QA · {String(clipIndex + 1).padStart(2, '0')}/{CLIP_NAMES.length}
+            </span>
+          </div>
+          <div className="off-pers-p0-diagnostic-controls">
+            <Button
+              variant="outline"
+              size="iconSm"
+              aria-label="Previous diagnostic clip"
+              onClick={() => stepClip(-1)}
+            >
+              <ChevronLeft aria-hidden />
+            </Button>
+            <Button
+              variant="outline"
+              size="iconSm"
+              aria-label={sequencing ? 'Pause diagnostic clips' : 'Play diagnostic clips'}
+              onClick={() => setSequencing((current) => !current)}
+            >
+              {sequencing ? <Pause aria-hidden /> : <Play aria-hidden />}
+            </Button>
+            <Button
+              variant="outline"
+              size="iconSm"
+              aria-label="Next diagnostic clip"
+              onClick={() => stepClip(1)}
+            >
+              <ChevronRight aria-hidden />
+            </Button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

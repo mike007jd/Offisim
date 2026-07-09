@@ -12,6 +12,7 @@ import {
   WORKSTATION_DESK_DEPTH,
   WORKSTATION_DUAL_LANES,
   WORKSTATION_SINGLE_LANES,
+  WORKSTATION_VERTICAL_METRICS,
 } from '../../workstation-geometry.js';
 import { hashStringToInt } from '../scene-hash.js';
 import { EmissiveMaterial, SceneMaterial } from '../scene-materials.js';
@@ -67,17 +68,18 @@ function ChairBase({
 }
 
 function ChairPneumaticColumn({ color }: { color: string }) {
+  const height = WORKSTATION_VERTICAL_METRICS.seatTop - 0.12;
   return (
-    <group position={[0, 0.32, 0]}>
+    <group position={[0, WORKSTATION_VERTICAL_METRICS.seatTop / 2, 0]}>
       <mesh castShadow>
-        <cylinderGeometry args={[0.045, 0.05, 0.24, 14]} />
+        <cylinderGeometry args={[0.045, 0.05, height, 14]} />
         <SceneMaterial materialClass="metal-chrome" color={color} />
       </mesh>
-      <mesh position={[0, 0.13, 0]} castShadow>
+      <mesh position={[0, height / 2 - 0.015, 0]} castShadow>
         <cylinderGeometry args={[0.052, 0.052, 0.022, 14]} />
         <SceneMaterial materialClass="metal-chrome" color={color} />
       </mesh>
-      <mesh position={[0, 0.18, 0]} castShadow>
+      <mesh position={[0, height / 2 + 0.03, 0]} castShadow>
         <cylinderGeometry args={[0.032, 0.032, 0.08, 12]} />
         <SceneMaterial materialClass="metal-chrome" color={color} />
       </mesh>
@@ -87,7 +89,7 @@ function ChairPneumaticColumn({ color }: { color: string }) {
 
 function ChairTiltMechanism({ color }: { color: string }) {
   return (
-    <mesh position={[0, 0.5, 0]} castShadow>
+    <mesh position={[0, WORKSTATION_VERTICAL_METRICS.seatTop - 0.07, 0]} castShadow>
       <boxGeometry args={[0.22, 0.06, 0.18]} />
       <SceneMaterial materialClass="plastic" color={color} overrides={{ roughness: 0.5 }} />
     </mesh>
@@ -105,7 +107,7 @@ function ChairArmrest({
 }) {
   const x = side * 0.28;
   return (
-    <group position={[x, 0.6, -0.02]}>
+    <group position={[x, WORKSTATION_VERTICAL_METRICS.seatTop, -0.02]}>
       <mesh position={[0, 0.12, 0]} castShadow>
         <boxGeometry args={[0.04, 0.24, 0.05]} />
         <SceneMaterial materialClass="metal" color={frameColor} overrides={{ roughness: 0.38 }} />
@@ -131,7 +133,7 @@ function ChairBackrest({
   frameColor: string;
 }) {
   return (
-    <group position={[0, 0.85, 0.22]}>
+    <group position={[0, WORKSTATION_VERTICAL_METRICS.seatTop + 0.25, 0.22]}>
       <mesh position={[0, -0.06, -0.012]} castShadow>
         <boxGeometry args={[0.04, 0.22, 0.03]} />
         <SceneMaterial materialClass="metal" color={frameColor} overrides={{ roughness: 0.36 }} />
@@ -176,9 +178,13 @@ export function OfficeChair({
       <ChairPneumaticColumn color={sc.furnitureLight} />
       <ChairTiltMechanism color={sc.furnitureDark} />
       <RoundedBox
-        args={[0.5, 0.08, 0.48]}
-        position={[0, 0.56, 0]}
-        radius={0.04}
+        args={[
+          WORKSTATION_VERTICAL_METRICS.chairCushionWidth,
+          WORKSTATION_VERTICAL_METRICS.chairCushionThickness,
+          WORKSTATION_VERTICAL_METRICS.chairCushionDepth,
+        ]}
+        position={[0, WORKSTATION_VERTICAL_METRICS.chairCushionCenter, 0]}
+        radius={WORKSTATION_VERTICAL_METRICS.chairCushionRadius}
         smoothness={4}
         castShadow
       >
@@ -264,8 +270,9 @@ export function WorkstationUnit3D({
   const rotY = (rotation * Math.PI) / 180;
   const isCompact = variant === 'compact';
   const isDual = variant === 'dual';
-  const deskWidth = isCompact ? 1.45 : 2.1;
+  const deskWidth = isCompact ? 1.45 : WORKSTATION_VERTICAL_METRICS.standardDeskWidth;
   const deskDepth = WORKSTATION_DESK_DEPTH[variant];
+  const deskLegHeight = WORKSTATION_VERTICAL_METRICS.deskTop - 0.06;
   const laptopPositions = isDual
     ? ([
         [-0.35, 0.12, 0.08],
@@ -276,8 +283,8 @@ export function WorkstationUnit3D({
   return (
     <group position={position} rotation={[0, rotY, 0]}>
       <RoundedBox
-        args={[deskWidth, 0.055, deskDepth]}
-        position={[0, 0.74, 0]}
+        args={[deskWidth, WORKSTATION_VERTICAL_METRICS.deskTopThickness, deskDepth]}
+        position={[0, WORKSTATION_VERTICAL_METRICS.deskTopCenter, 0]}
         radius={0.02}
         smoothness={4}
         castShadow
@@ -289,17 +296,21 @@ export function WorkstationUnit3D({
           overrides={{ useProceduralNormal: true, normalScale: 0.06 }}
         />
       </RoundedBox>
-      <group position={[0, 0.775, 0.16]}>
+      <group position={[0, WORKSTATION_VERTICAL_METRICS.deskTop + 0.007, 0.16]}>
         <WorkSurfaceAccent3D width={deskWidth * 0.62} depth={deskDepth * 0.46} opacity={0.78} />
       </group>
       {[-1, 1].map((xSign) =>
         [-1, 1].map((zSign) => (
           <mesh
             key={`unit-leg-${xSign}-${zSign}`}
-            position={[xSign * (deskWidth / 2 - 0.12), 0.37, zSign * (deskDepth / 2 - 0.12)]}
+            position={[
+              xSign * (deskWidth / 2 - 0.12),
+              deskLegHeight / 2,
+              zSign * (deskDepth / 2 - 0.12),
+            ]}
             castShadow
           >
-            <cylinderGeometry args={[0.035, 0.035, 0.72, 8]} />
+            <cylinderGeometry args={[0.035, 0.035, deskLegHeight, 8]} />
             <SceneMaterial
               materialClass="metal"
               color={sc.deskEdge}
@@ -308,12 +319,19 @@ export function WorkstationUnit3D({
           </mesh>
         )),
       )}
-      <mesh position={[0, 1.05, -deskDepth / 2 + 0.06]} castShadow>
+      <mesh
+        position={[0, WORKSTATION_VERTICAL_METRICS.deskTop + 0.282, -deskDepth / 2 + 0.06]}
+        castShadow
+      >
         <boxGeometry args={[deskWidth * 0.82, 0.48, 0.045]} />
         <SceneMaterial materialClass="glass" color={sc.partition} overrides={{ thickness: 0.04 }} />
       </mesh>
       {laptopPositions.map(([x, z, rot]) => (
-        <Laptop key={`unit-laptop-${x}`} position={[x, 0.78, z]} rotation={[0, rot, 0]} />
+        <Laptop
+          key={`unit-laptop-${x}`}
+          position={[x, WORKSTATION_VERTICAL_METRICS.laptopDeck, z]}
+          rotation={[0, rot, 0]}
+        />
       ))}
       {/* One chair per seat lane — employees sit into these (scene-layout
           anchors sitting placements via the same workstation-geometry constants). */}

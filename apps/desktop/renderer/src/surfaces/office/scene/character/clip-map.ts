@@ -60,6 +60,8 @@ const LOCOMOTION_FADE = 0.15;
 const CELEBRATE_FADE = 0.2;
 const DEFAULT_FADE = 0.3;
 
+const SEATED_OFFSET_CLIPS = new Set<ClipName>(['sit.enter', 'sit.idle', 'sit.talk']);
+
 /** Playback metadata for every shipped clip (total over CLIP_NAMES). */
 export const CLIP_META: Record<ClipName, { loop: boolean; fade: number }> = {
   'blocked.headshake': { loop: true, fade: DEFAULT_FADE },
@@ -91,6 +93,16 @@ export const POSTURE_TRANSITION_CLIPS = {
 
 function select(clip: ClipName): ClipSelection {
   return { clip, loop: CLIP_META[clip].loop, fade: CLIP_META[clip].fade };
+}
+
+/** Explicit clip selection for the release QA sequencer; shares production playback metadata. */
+export function selectionForClip(clip: ClipName): ClipSelection {
+  return select(clip);
+}
+
+/** Whether a directly-driven clip uses the seated body/workstation alignment. */
+export function clipUsesSeatedOffset(clip: ClipName): boolean {
+  return SEATED_OFFSET_CLIPS.has(clip);
 }
 
 function walkClip(perf: CharacterPerformanceState): ClipName {

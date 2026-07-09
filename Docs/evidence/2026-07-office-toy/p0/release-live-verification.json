@@ -1,0 +1,98 @@
+{
+  "checkedAt": "2026-07-10T10:11:26+12:00",
+  "result": "go",
+  "application": {
+    "path": "/Users/haoshengli/Seafile/WebWorkSpace/Offisim/apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app",
+    "binarySha256": "7ecaee7e42a65294bc18aa2ccaebbf76eed145a129e2d8b2b2f7a5c30ce35d78",
+    "pid": 33174,
+    "window": {
+      "cgWindowNumber": 137587,
+      "title": "Offisim",
+      "bounds": {
+        "x": 36,
+        "y": 33,
+        "width": 1440,
+        "height": 893
+      }
+    },
+    "buildFlag": "VITE_OFFICE_TOY_P0_DIAGNOSTIC=1"
+  },
+  "clipSequencer": {
+    "count": 19,
+    "order": [
+      "blocked.headshake",
+      "carry",
+      "celebrate.dance",
+      "celebrate.yes",
+      "consume",
+      "idle",
+      "idle.talk",
+      "inspect.open",
+      "interact",
+      "phone",
+      "pickup",
+      "sit.enter",
+      "sit.exit",
+      "sit.idle",
+      "sit.talk",
+      "tpose",
+      "wait.foldarms",
+      "walk",
+      "walk.formal"
+    ],
+    "recording": {
+      "path": "Docs/evidence/2026-07-office-toy/p0/release-19-clips.mp4",
+      "sha256": "f30dc77acdbdf6db37fad50d231a927c8cc689918bbd12e0e4fd9cd8f7c14a21",
+      "bytes": 1880691,
+      "durationSeconds": 93.125917,
+      "width": 1552,
+      "height": 1006,
+      "codec": "h264",
+      "method": "Computer Use manual 4-second stepping in CGWindowNumber 137587; the final walk.formal window segment is appended after the continuous 01-18 pass"
+    },
+    "result": "pass",
+    "observations": [
+      "All canonical labels are present in manifest order and all 19 clips render in the release application.",
+      "No P0 blocker-level self-intersection, root drift, foot sliding, or silhouette failure was observed.",
+      "The P1 hair, face-expression, garment, and role-prop adaptation work remains intentionally visible as the next phase scope."
+    ]
+  },
+  "views": [
+    {
+      "name": "closeup",
+      "path": "Docs/evidence/2026-07-office-toy/p0/release-closeup-idle.png",
+      "sha256": "4a617396e1591ec158e4c0eb06e17067800994dc8131d581cd9fb7542996baea",
+      "bytes": 102364,
+      "result": "pass"
+    },
+    {
+      "name": "office-normal",
+      "path": "Docs/evidence/2026-07-office-toy/p0/release-office-normal.png",
+      "sha256": "44b2f4eb8a296926d12c0f9e8d12adc231663782a55c39aac3c33f5bb1705470",
+      "bytes": 143298,
+      "result": "pass"
+    },
+    {
+      "name": "office-far",
+      "path": "Docs/evidence/2026-07-office-toy/p0/release-office-far.png",
+      "sha256": "ddf74083dfbabfab09f2a180d578ec125c9b0e3a5651f457f2197a1dfcafeefc",
+      "bytes": 143809,
+      "result": "pass"
+    }
+  ],
+  "runtimeLog": {
+    "source": "macOS unified log",
+    "predicate": "processID == 33174",
+    "window": "45 minutes ending after live verification",
+    "fatalPattern": "panic|fatal|crash|segmentation fault|unhandled|webprocess.*terminated",
+    "fatalMatches": 0,
+    "observedWebContentFootprintMiB": 914,
+    "result": "pass"
+  },
+  "decision": {
+    "ladder": "same-skeleton toy reshape",
+    "headCount": 2.472263,
+    "reason": "Automated contact, root-motion, asset, geometry, and ground oracles pass, and the close, normal, and maximum-distance release views read as toy employees without a blocker.",
+    "nextPhase": "P1 full toy character system"
+  }
+}

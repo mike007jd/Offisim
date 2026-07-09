@@ -7,10 +7,10 @@ built by `scripts/build-character-assets.mjs`. Original license texts follow.
 
 - Source: https://quaternius.itch.io/universal-base-characters
 - License: CC0 1.0 Universal (public domain) — https://creativecommons.org/publicdomain/zero/1.0/
-- Used for: Superhero male/female bodies, 6 hairstyles, 2 eyebrow meshes, skin/hair/eye textures.
+- Used for: Superhero male 65-joint rig topology, 6 hairstyles, and 2 eyebrow meshes.
 
 ```text
-This is the standard FREE version of the Universal Base Characters Kit, which only contains 
+This is the standard FREE version of the Universal Base Characters Kit, which only contains
 a portion of the models . You can buy the SOURCE version which has all the models with rigged .blends,
 and Unity(URP), Unreal Engine and Godot projects
 with custom shaders already set up.
@@ -19,7 +19,7 @@ You can get the other version from the website https://quaternius.com
 
 -------------------------------------------------------
 License:
-CC0 1.0 Universal (CC0 1.0) 
+CC0 1.0 Universal (CC0 1.0)
 Public Domain Dedication
 https://creativecommons.org/publicdomain/zero/1.0/
 
@@ -43,7 +43,7 @@ https://discord.gg/vJqnRUYRfT
 ```text
 -------------------------------------------------------
 License:
-CC0 1.0 Universal (CC0 1.0) 
+CC0 1.0 Universal (CC0 1.0)
 Public Domain Dedication
 https://creativecommons.org/publicdomain/zero/1.0/
 
@@ -63,7 +63,7 @@ https://www.patreon.com/quaternius
 ```text
 -------------------------------------------------------
 License:
-CC0 1.0 Universal (CC0 1.0) 
+CC0 1.0 Universal (CC0 1.0)
 Public Domain Dedication
 https://creativecommons.org/publicdomain/zero/1.0/
 
@@ -91,7 +91,8 @@ Furniture Kit (2.0)
 	License: (Creative Commons Zero, CC0)
 	http://creativecommons.org/publicdomain/zero/1.0/
 
-	This content is free to use in personal, educational and commercial projects.
+	This content is free to use in personal, educational and commercial projects.
+
 	Support us by crediting Kenney or www.kenney.nl (this is not mandatory)
 
 			------------------------------
