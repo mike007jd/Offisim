@@ -1,0 +1,200 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "mode": "execute",
+      "request": {
+        "requestId": "request-execute-1",
+        "text": "Inspect the workspace",
+        "companyId": "company-1",
+        "threadId": "thread-1",
+        "cwd": "/fixture/project/requested-cwd",
+        "projectId": "project-1",
+        "employeeId": "employee-1",
+        "model": "fixture-provider/fixture-model",
+        "permissionMode": "ask",
+        "thinkingLevel": "high",
+        "systemPromptAppend": "You are the fixture employee.",
+        "rootRunId": "root-run-1",
+        "roster": [
+          {
+            "employeeId": "employee-2",
+            "displayName": "Fixture Teammate",
+            "access": "read"
+          }
+        ],
+        "missionContextJson": "{\"missionId\":\"mission-1\"}",
+        "mcpTools": [
+          {
+            "serverId": "server-1",
+            "toolName": "read_fixture",
+            "riskClass": "read"
+          }
+        ]
+      },
+      "context": {
+        "cwd": "/fixture/project/resolved-cwd",
+        "sessionDir": "/fixture/sessions/thread-1",
+        "agentDir": "/fixture/home/.pi/agent"
+      },
+      "payload": {
+        "mode": "execute",
+        "text": "Inspect the workspace",
+        "cwd": "/fixture/project/resolved-cwd",
+        "sessionDir": "/fixture/sessions/thread-1",
+        "agentDir": "/fixture/home/.pi/agent",
+        "model": "fixture-provider/fixture-model",
+        "permissionMode": "ask",
+        "thinkingLevel": "high",
+        "systemPromptAppend": "You are the fixture employee.",
+        "threadId": "thread-1",
+        "projectId": "project-1",
+        "employeeId": "employee-1",
+        "rootRunId": "root-run-1",
+        "roster": [
+          {
+            "employeeId": "employee-2",
+            "displayName": "Fixture Teammate",
+            "access": "read"
+          }
+        ],
+        "missionContextJson": "{\"missionId\":\"mission-1\"}",
+        "mcpTools": [
+          {
+            "serverId": "server-1",
+            "toolName": "read_fixture",
+            "riskClass": "read"
+          }
+        ]
+      },
+      "normalized": {
+        "mode": "execute",
+        "text": "Inspect the workspace",
+        "cwd": "/fixture/project/resolved-cwd",
+        "sessionDir": "/fixture/sessions/thread-1",
+        "agentDir": "/fixture/home/.pi/agent",
+        "model": "fixture-provider/fixture-model",
+        "permissionMode": "ask",
+        "thinkingLevel": "high",
+        "systemPromptAppend": "You are the fixture employee.",
+        "threadId": "thread-1",
+        "projectId": "project-1",
+        "employeeId": "employee-1",
+        "rootRunId": "root-run-1",
+        "roster": [
+          {
+            "employeeId": "employee-2",
+            "displayName": "Fixture Teammate",
+            "access": "read"
+          }
+        ],
+        "missionContextJson": "{\"missionId\":\"mission-1\"}",
+        "mcpTools": [
+          {
+            "serverId": "server-1",
+            "toolName": "read_fixture",
+            "riskClass": "read"
+          }
+        ]
+      }
+    },
+    {
+      "mode": "enhance",
+      "request": {
+        "requestId": "request-enhance-1",
+        "text": "make this clearer",
+        "systemPrompt": "Rewrite clearly and preserve intent.",
+        "model": "fixture-provider/fixture-model",
+        "thinkingLevel": "medium"
+      },
+      "context": {
+        "cwd": "/fixture/neutral/enhance",
+        "agentDir": "/fixture/home/.pi/agent"
+      },
+      "payload": {
+        "mode": "enhance",
+        "text": "make this clearer",
+        "systemPrompt": "Rewrite clearly and preserve intent.",
+        "cwd": "/fixture/neutral/enhance",
+        "agentDir": "/fixture/home/.pi/agent",
+        "model": "fixture-provider/fixture-model",
+        "thinkingLevel": "medium"
+      },
+      "normalized": {
+        "mode": "enhance",
+        "text": "make this clearer",
+        "systemPrompt": "Rewrite clearly and preserve intent.",
+        "cwd": "/fixture/neutral/enhance",
+        "agentDir": "/fixture/home/.pi/agent",
+        "model": "fixture-provider/fixture-model",
+        "thinkingLevel": "medium"
+      }
+    },
+    {
+      "mode": "collaborate",
+      "request": {
+        "requestId": "request-collaborate-1",
+        "text": "Summarize today's discussion",
+        "capabilityProfile": "collaboration",
+        "collaborationProfile": "collaboration_read",
+        "companyId": "company-1",
+        "collaborationThreadId": "collaboration-thread-1",
+        "employeeId": "employee-1",
+        "model": "fixture-provider/fixture-model",
+        "thinkingLevel": "low",
+        "mcpTools": [
+          {
+            "serverId": "server-1",
+            "toolName": "search_notes",
+            "riskClass": "read"
+          }
+        ],
+        "systemPromptAppend": "Reply as the fixture employee."
+      },
+      "context": {
+        "cwd": "/fixture/neutral/collaboration",
+        "agentDir": "/fixture/home/.pi/agent"
+      },
+      "payload": {
+        "mode": "collaborate",
+        "requestId": "request-collaborate-1",
+        "text": "Summarize today's discussion",
+        "collaborationProfile": "collaboration_read",
+        "mcpTools": [
+          {
+            "serverId": "server-1",
+            "toolName": "search_notes",
+            "riskClass": "read"
+          }
+        ],
+        "cwd": "/fixture/neutral/collaboration",
+        "agentDir": "/fixture/home/.pi/agent",
+        "collaborationThreadId": "collaboration-thread-1",
+        "employeeId": "employee-1",
+        "model": "fixture-provider/fixture-model",
+        "thinkingLevel": "low",
+        "systemPromptAppend": "Reply as the fixture employee."
+      },
+      "normalized": {
+        "mode": "collaborate",
+        "requestId": "request-collaborate-1",
+        "text": "Summarize today's discussion",
+        "collaborationProfile": "collaboration_read",
+        "mcpTools": [
+          {
+            "serverId": "server-1",
+            "toolName": "search_notes",
+            "riskClass": "read"
+          }
+        ],
+        "cwd": "/fixture/neutral/collaboration",
+        "agentDir": "/fixture/home/.pi/agent",
+        "collaborationThreadId": "collaboration-thread-1",
+        "employeeId": "employee-1",
+        "model": "fixture-provider/fixture-model",
+        "thinkingLevel": "low",
+        "systemPromptAppend": "Reply as the fixture employee."
+      }
+    }
+  ]
+}

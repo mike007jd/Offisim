@@ -774,11 +774,11 @@ fn app_pi_agent_dir<R: tauri::Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
         .map(|home| home.join(".pi/agent"))
 }
 
-fn sidecar_payload<R: tauri::Runtime>(
-    app: &AppHandle<R>,
+fn sidecar_payload(
     req: &PiAgentExecuteRequest,
     cwd: &Path,
     session_dir: &Path,
+    agent_dir: Option<&Path>,
 ) -> serde_json::Value {
     serde_json::json!({
         // `mode` is the host dispatch discriminator (execute vs status); the
@@ -787,7 +787,7 @@ fn sidecar_payload<R: tauri::Runtime>(
         "text": req.text,
         "cwd": cwd.to_string_lossy().to_string(),
         "sessionDir": session_dir.to_string_lossy().to_string(),
-        "agentDir": app_pi_agent_dir(app).map(|path| path.to_string_lossy().to_string()),
+        "agentDir": agent_dir.map(|path| path.to_string_lossy().to_string()),
         "model": req.model,
         "permissionMode": req.permission_mode,
         "thinkingLevel": req.thinking_level,
@@ -796,7 +796,6 @@ fn sidecar_payload<R: tauri::Runtime>(
         // supervisor stamp child agentRun events, and the roster tells it which
         // employees the root agent may delegate to. All forwarded verbatim.
         "threadId": req.thread_id,
-        "companyId": req.company_id,
         // The project owning this workspace + the speaking employee. The host's
         // delegation supervisor stamps child agentRun events with `projectId`
         // (so the renderer's task board / recovery scope children to the same
@@ -820,17 +819,17 @@ fn sidecar_payload<R: tauri::Runtime>(
 /// host to its dedicated isolated path — no project workspace, no tools, no
 /// persistence. The `cwd` is a NEUTRAL directory (never a project root), and
 /// nothing scope-related is forwarded because enhance has no scope.
-fn enhance_payload<R: tauri::Runtime>(
-    app: &AppHandle<R>,
+fn enhance_payload(
     req: &PiAgentEnhanceRequest,
     cwd: &Path,
+    agent_dir: Option<&Path>,
 ) -> serde_json::Value {
     serde_json::json!({
         "mode": "enhance",
         "text": req.text,
         "systemPrompt": req.system_prompt,
         "cwd": cwd.to_string_lossy().to_string(),
-        "agentDir": app_pi_agent_dir(app).map(|path| path.to_string_lossy().to_string()),
+        "agentDir": agent_dir.map(|path| path.to_string_lossy().to_string()),
         "model": req.model,
         "thinkingLevel": req.thinking_level,
     })
@@ -839,23 +838,23 @@ fn enhance_payload<R: tauri::Runtime>(
 /// Build the Collaboration sidecar payload (PR-03). `mode:'collaborate'` routes the
 /// host to its STREAMING isolated path — no project workspace, no tools, no
 /// persistence. The `cwd` is a NEUTRAL directory (never a project root). The scope
-/// fields (company / collaboration thread / employee) form the conversationKey, not
-/// a workspace; no `projectId`, `roster`, or `missionContextJson` is forwarded.
-fn collaborate_payload<R: tauri::Runtime>(
-    app: &AppHandle<R>,
+/// host correlation fields (collaboration thread / employee) identify the turn,
+/// not a workspace; company scope is validated at the Tauri boundary but is not
+/// consumed by the Node host. No `projectId`, `roster`, or `missionContextJson`
+/// is forwarded.
+fn collaborate_payload(
     req: &PiAgentCollaborateRequest,
     cwd: &Path,
+    agent_dir: Option<&Path>,
 ) -> serde_json::Value {
     serde_json::json!({
         "mode": "collaborate",
         "requestId": req.request_id,
         "text": req.text,
-        "capabilityProfile": req.capability_profile,
         "collaborationProfile": req.collaboration_profile,
         "mcpTools": req.mcp_tools,
         "cwd": cwd.to_string_lossy().to_string(),
-        "agentDir": app_pi_agent_dir(app).map(|path| path.to_string_lossy().to_string()),
-        "companyId": req.company_id,
+        "agentDir": agent_dir.map(|path| path.to_string_lossy().to_string()),
         "collaborationThreadId": req.collaboration_thread_id,
         "employeeId": req.employee_id,
         "model": req.model,
@@ -1645,7 +1644,8 @@ async fn do_execute<R: tauri::Runtime>(
 
     let dev_root = dev_workspace_root();
     let script_path = sidecar_script_path(app, dev_root.as_ref(), PI_LANE)?;
-    let payload = sidecar_payload(app, &req, &cwd, &session_dir);
+    let agent_dir = app_pi_agent_dir(app);
+    let payload = sidecar_payload(&req, &cwd, &session_dir, agent_dir.as_deref());
     let response = run_pi_sidecar_jsonl(
         app,
         &script_path,
@@ -1743,7 +1743,8 @@ async fn do_enhance<R: tauri::Runtime>(
     let cwd = neutral_cwd(app);
     let dev_root = dev_workspace_root();
     let script_path = sidecar_script_path(app, dev_root.as_ref(), PI_LANE)?;
-    let payload = enhance_payload(app, &req, &cwd);
+    let agent_dir = app_pi_agent_dir(app);
+    let payload = enhance_payload(&req, &cwd, agent_dir.as_deref());
     // `register_stdin: None` — enhance has no extension-UI response channel, so
     // stdin is closed immediately after the single payload line (single-shot).
     let response = run_pi_sidecar_jsonl(
@@ -1811,6 +1812,16 @@ async fn do_collaborate<R: tauri::Runtime>(
 ) -> Result<PiAgentHostResponse, HostError> {
     let _ = required_text(Some(&req.request_id), "requestId", PI_LANE)?;
     let _ = required_text(Some(&req.text), "text", PI_LANE)?;
+    let capability_profile = required_text(
+        req.capability_profile.as_ref(),
+        "capabilityProfile",
+        PI_LANE,
+    )?;
+    if capability_profile != "collaboration" {
+        return Err(HostError::Request(format!(
+            "Pi Agent collaboration request requires capabilityProfile=collaboration, got {capability_profile}"
+        )));
+    }
     let _ = required_text(Some(&req.company_id), "companyId", PI_LANE)?;
     let _ = required_text(
         Some(&req.collaboration_thread_id),
@@ -1823,7 +1834,8 @@ async fn do_collaborate<R: tauri::Runtime>(
     let cwd = neutral_cwd(app);
     let dev_root = dev_workspace_root();
     let script_path = sidecar_script_path(app, dev_root.as_ref(), PI_LANE)?;
-    let payload = collaborate_payload(app, &req, &cwd);
+    let agent_dir = app_pi_agent_dir(app);
+    let payload = collaborate_payload(&req, &cwd, agent_dir.as_deref());
     // Strict collaboration registers zero tools and closes stdin. Read-only
     // collaboration keeps stdin open so the host can receive MCP results through
     // the same JSONL response channel as work runs.
@@ -2857,6 +2869,87 @@ mod tests {
             !line.contains("value") && !line.contains("cancelled"),
             "unset response fields must be dropped, not serialized as null: {line}"
         );
+    }
+
+    #[derive(Debug, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct PiRequestContractFixture {
+        cases: Vec<PiRequestContractCase>,
+    }
+
+    #[derive(Debug, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct PiRequestContractCase {
+        mode: String,
+        request: serde_json::Value,
+        context: PiRequestContractContext,
+        payload: serde_json::Value,
+        #[serde(rename = "normalized")]
+        _normalized: serde_json::Value,
+    }
+
+    #[derive(Debug, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct PiRequestContractContext {
+        cwd: String,
+        #[serde(default)]
+        session_dir: Option<String>,
+        #[serde(default)]
+        agent_dir: Option<String>,
+    }
+
+    #[test]
+    fn pi_request_fixture_encodes_across_languages() {
+        // The SAME fixture is decoded through the production Node request decoder
+        // by scripts/check-pi-wire-contract.mjs. Rust owns the raw payload emitter;
+        // Node owns normalization/dispatch, so either side drifting fails a gate.
+        let fixture_path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../../scripts/fixtures/pi-request-contract.json"
+        );
+        let raw = std::fs::read_to_string(fixture_path)
+            .unwrap_or_else(|err| panic!("read request fixture {fixture_path}: {err}"));
+        let fixture: PiRequestContractFixture =
+            serde_json::from_str(&raw).expect("request fixture is valid JSON");
+        assert_eq!(
+            fixture.cases.len(),
+            3,
+            "fixture must cover all request modes"
+        );
+
+        for case in fixture.cases {
+            let cwd = Path::new(&case.context.cwd);
+            let agent_dir = case.context.agent_dir.as_deref().map(Path::new);
+            let actual = match case.mode.as_str() {
+                "execute" => {
+                    let req: PiAgentExecuteRequest = serde_json::from_value(case.request)
+                        .expect("decode execute request from camelCase fixture");
+                    let session_dir = case
+                        .context
+                        .session_dir
+                        .as_deref()
+                        .map(Path::new)
+                        .expect("execute fixture requires sessionDir");
+                    sidecar_payload(&req, cwd, session_dir, agent_dir)
+                }
+                "enhance" => {
+                    let req: PiAgentEnhanceRequest = serde_json::from_value(case.request)
+                        .expect("decode enhance request from camelCase fixture");
+                    enhance_payload(&req, cwd, agent_dir)
+                }
+                "collaborate" => {
+                    let req: PiAgentCollaborateRequest = serde_json::from_value(case.request)
+                        .expect("decode collaborate request from camelCase fixture");
+                    collaborate_payload(&req, cwd, agent_dir)
+                }
+                other => panic!("unknown request fixture mode: {other}"),
+            };
+            assert_eq!(
+                actual, case.payload,
+                "Rust request payload drifted for mode {}",
+                case.mode
+            );
+        }
     }
 
     #[test]
