@@ -34,6 +34,7 @@ const SKIP_DIRS = new Set(['node_modules', 'dist', 'target', '.turbo', 'build', 
  * that must be bundled/run without a build; product code must never appear here.
  */
 const ALLOWLIST = new Set([
+  'scripts/check-local-schema-drift.mts::../packages/db-local/src/schema.js',
   'scripts/harness-registry-client-security.mts::../packages/registry-client/src/index.ts',
   'scripts/pi-agent-permission-modes.mts::../packages/core/src/tools/builtin/shell-command-classifier.ts',
   'scripts/harness-web-fetch-security.mts::../packages/core/src/tools/builtin/web-fetch-tool.js',
