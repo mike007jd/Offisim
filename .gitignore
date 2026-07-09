@@ -57,6 +57,7 @@ output_frontend_home.png
 Docs/design/.audit-*.png
 test-*.mjs
 apps/desktop/src-tauri/resources/claude-agent-host.mjs
+apps/desktop/src-tauri/resources/pi-agent-host.mjs
 apps/desktop/src-tauri/resources/claude-code-native/
 apps/desktop/src-tauri/resources/node/
 apps/desktop/renderer/public/pdf.worker.min.mjs
