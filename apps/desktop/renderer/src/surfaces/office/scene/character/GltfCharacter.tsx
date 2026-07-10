@@ -29,6 +29,13 @@ import {
 import { OFFICE_CHARACTER_METRICS, WORKSTATION_VERTICAL_METRICS } from '../workstation-geometry.js';
 import { CHARACTER_ASSET_URLS, characterManifest, useCharacterGltf } from './character-assets.js';
 import {
+  createCharacterPlaybackState,
+  finishCharacterPlayback,
+  isStandingMovementMount,
+  reconcilePlaybackMount,
+  requestCharacterPlayback,
+} from './character-playback.js';
+import {
   type ClipName,
   type ClipSelection,
   POSTURE_TRANSITION_CLIPS,
@@ -268,7 +275,7 @@ interface RigViewProps {
  * whole binding down and re-creates it against the new cloned root — drei's
  * useAnimations lazily caches its actions on the first root it binds, so
  * rebinding in place would leave the fresh clone unanimated (T-pose) while the
- * `playback.clip === selection.clip` guard suppresses any restart.
+ * active/desired playback guards suppress any restart.
  */
 function RigView({
   rig,
@@ -302,13 +309,14 @@ function RigView({
   }, []);
 
   const initialPosture: CharacterPerformanceState['posture'] =
-    usePerformance && performance ? performance.posture : posture === 'sitting' ? 'sit' : 'stand';
-  const playback = useRef<{
-    clip: ClipName | null;
-    action: AnimationAction | null;
-    posture: CharacterPerformanceState['posture'] | null;
-    pending: ClipSelection | null;
-  }>({ clip: null, action: null, posture: initialPosture, pending: null });
+    walkingRef?.current === 'walk'
+      ? 'stand'
+      : usePerformance && performance
+        ? performance.posture
+        : posture === 'sitting'
+          ? 'sit'
+          : 'stand';
+  const playback = useRef(createCharacterPlaybackState(initialPosture));
   // Tracks reduced-motion transitions: enabling it mid-clip must snap to the
   // clip's static pose, not freeze whatever frame the mixer happened to be on.
   const wasReducedMotionRef = useRef(reducedMotion);
@@ -319,16 +327,18 @@ function RigView({
   const startClip = (selection: ClipSelection, instant: boolean) => {
     const next = actions[selection.clip];
     if (!next) return;
-    const previous = playback.current.action;
+    const previousClip = playback.current.activeClip;
+    const previous = previousClip ? actions[previousClip] : null;
     next.reset();
+    next.clampWhenFinished = !selection.loop;
+    const duration = next.getClip().duration;
     if (selection.loop) {
       next.setLoop(LoopRepeat, Number.POSITIVE_INFINITY);
-      const duration = next.getClip().duration;
       if (duration > 0) next.time = (phase * 1.7) % duration;
     } else {
       next.setLoop(LoopOnce, 1);
-      next.clampWhenFinished = true;
     }
+    if (instant) next.time = Math.min(Math.max(selection.reducedPoseTime, 0), duration);
     if (previous && previous !== next && !instant) {
       next.crossFadeFrom(previous, selection.fade, false);
     } else if (previous && previous !== next) {
@@ -336,8 +346,6 @@ function RigView({
     }
     next.play();
     if (instant) mixer.update(0);
-    playback.current.clip = selection.clip;
-    playback.current.action = next;
   };
 
   // Posture transitions completing → enter the pending destination clip. A
@@ -346,13 +354,13 @@ function RigView({
   // biome-ignore lint/correctness/useExhaustiveDependencies: startClip reads live refs/actions; the mixer lives as long as this RigView instance (keyed per rig), so mount-time registration is exactly right.
   useEffect(() => {
     const onFinished = (event: { action: AnimationAction }) => {
-      const pending = playback.current.pending;
-      if (!pending) return;
-      playback.current.pending = null;
-      startClip(pending, false);
+      const finishedClip = event.action.getClip().name as ClipName;
+      const result = finishCharacterPlayback(playback.current, finishedClip);
+      if (result.command) startClip(result.command.selection, result.command.instant);
+      playback.current = result.state;
       if (
         walkingRef?.current === 'sit-exit' &&
-        event.action === actions[POSTURE_TRANSITION_CLIPS.sitExit]
+        result.completedTransition === POSTURE_TRANSITION_CLIPS.sitExit
       ) {
         walkingRef.current = 'walk';
       }
@@ -364,6 +372,8 @@ function RigView({
   useFrame((state, delta) => {
     mixer.timeScale = reducedMotion ? 0 : tempo;
     const movementPhase = reducedMotion ? 'idle' : (walkingRef?.current ?? 'idle');
+    const standingMovementMount = isStandingMovementMount(playback.current, movementPhase);
+    playback.current = reconcilePlaybackMount(playback.current, movementPhase);
     const basePerformance =
       usePerformance && performance ? performance : legacyPerformance(actionState, posture);
     const perf = performanceForMovementPhase(basePerformance, movementPhase);
@@ -377,7 +387,7 @@ function RigView({
       const seated = perf.posture === 'sit' && perf.locomotion !== 'walk';
       const targetLift = seated ? SEATED_BODY_LIFT : 0;
       const targetForward = seated ? SEATED_BODY_FORWARD : 0;
-      if (reducedMotion) {
+      if (reducedMotion || standingMovementMount) {
         body.position.set(0, targetLift, targetForward);
       } else {
         const ease = Math.min(1, delta * SEATED_OFFSET_EASE);
@@ -385,10 +395,6 @@ function RigView({
         body.position.z += (targetForward - body.position.z) * ease;
       }
     }
-    // While relocating the actor is on their feet — keeps the stand ⇄ sit
-    // transition correct when a walk ends at a seated anchor.
-    if (perf.locomotion === 'walk') playback.current.posture = 'stand';
-
     // Explicit dramaturgy props win. When none is authored, an active character
     // may show the role's default accessory; idle figures never permanently
     // hold props. Only visibility transitions write into the scene graph.
@@ -416,49 +422,24 @@ function RigView({
     const reducedJustEnabled = reducedMotion && !wasReducedMotionRef.current;
     wasReducedMotionRef.current = reducedMotion;
     // A standing actor has nothing to exit. Promote immediately, but never
-    // interrupt an in-flight sit.exit (`pending` stays set until mixer finish).
+    // interrupt an in-flight sit.exit (`transition` stays set until mixer finish).
     if (
       shouldPromoteSitExit(
         movementPhase,
-        playback.current.posture,
-        playback.current.pending !== null,
+        playback.current.actualPosture,
+        playback.current.transition !== null,
       )
     ) {
       if (walkingRef) walkingRef.current = 'walk';
       return;
     }
-    if (playback.current.clip === selection.clip) {
-      // Same clip, but reduce-motion just turned on: re-seat the action at its
-      // static frame so the freeze is an intentional pose, not a mid-swing one.
-      if (reducedJustEnabled) startClip(selection, true);
-      return;
-    }
-    const previousPosture = playback.current.posture;
-    playback.current.posture = perf.posture;
-    if (reducedMotion) {
-      // Static pose: jump straight to the destination clip's first frame.
-      playback.current.pending = null;
-      startClip(selection, true);
-      return;
-    }
-    if (perf.locomotion !== 'walk' && previousPosture && previousPosture !== perf.posture) {
-      // stand ⇄ sit goes through the transition one-shot, then the destination.
-      const transition: ClipName =
-        perf.posture === 'sit'
-          ? POSTURE_TRANSITION_CLIPS.sitEnter
-          : POSTURE_TRANSITION_CLIPS.sitExit;
-      const transitionAction = actions[transition];
-      if (transitionAction) {
-        playback.current.pending = selection;
-        startClip({ clip: transition, loop: false, fade: 0.15 }, false);
-        // Report the destination so later frames don't cut the transition short;
-        // the mixer 'finished' event promotes `pending` into the playing clip.
-        playback.current.clip = selection.clip;
-        return;
-      }
-    }
-    playback.current.pending = null;
-    startClip(selection, false);
+    const result = requestCharacterPlayback(
+      playback.current,
+      { posture: perf.posture, selection },
+      { reducedMotion, forceRestart: reducedJustEnabled },
+    );
+    if (result.command) startClip(result.command.selection, result.command.instant);
+    playback.current = result.state;
   });
 
   return (

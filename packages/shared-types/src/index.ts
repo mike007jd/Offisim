@@ -370,10 +370,16 @@ export type {
   Locomotion,
   Posture,
   Prop,
+  RoutinePerformanceKind,
+  RoutineWorkGesture,
   SocialGesture,
   WorkGesture,
 } from './dramaturgy/performance.js';
-export { IDLE_PERFORMANCE, performanceForBeat } from './dramaturgy/performance.js';
+export {
+  IDLE_PERFORMANCE,
+  performanceForBeat,
+  performanceForRoutine,
+} from './dramaturgy/performance.js';
 export type { EmployeeStaging } from './dramaturgy/office-projection.js';
 export { currentBeatsByEmployee, projectOfficeStaging } from './dramaturgy/office-projection.js';
 export { animationTempoForRole } from './dramaturgy/profiles.js';

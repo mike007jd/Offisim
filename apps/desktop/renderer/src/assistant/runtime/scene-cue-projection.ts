@@ -499,11 +499,11 @@ function flowCueTarget(beat: SceneBeat): FlowCueTarget {
 }
 
 /**
- * Semantic ink for a signal beat. An approval keeps its own role even though the
- * beat carries a blocking permission resource — "waiting on the user" is not the
- * same signal as "broken" — and a RECOVERING resource reads neutral (PRD: a
- * quiet return to normal flow, never painted in the failure red it just left).
- * Otherwise resource strain wins, then artifact, then the ordinary work stroke.
+ * Semantic ink for a signal beat. An approval keeps its own amber role because
+ * "waiting on the user" is not the same signal as "broken". A RECOVERING resource
+ * also reads neutral (PRD: a quiet return to normal flow, never painted in the
+ * failure red it just left). Otherwise resource strain wins, then artifact, then
+ * the ordinary work stroke.
  */
 function inkForBeat(beat: SceneBeat): SceneInk {
   if (beat.flow?.kind === 'approval') return 'approval';

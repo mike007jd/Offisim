@@ -459,28 +459,32 @@ const assetHashes = Object.fromEntries(
     ]),
   ),
 );
-await mkdir(EVIDENCE_DIR, { recursive: true });
-await writeFile(
-  EVIDENCE_PATH,
-  `${JSON.stringify(
-    {
-      version: 1,
-      result: failures.length === 0 ? 'pass' : 'fail',
-      contractVersion: contract.version,
-      checks,
-      assets: {
-        files: actualSizes,
-        sha256: assetHashes,
-        totalBytes: actualBytes,
-        budgetBytes: BUDGET,
+if (process.env.CHARACTER_TOY_ORACLE_NO_WRITE !== '1') {
+  await mkdir(EVIDENCE_DIR, { recursive: true });
+  await writeFile(
+    EVIDENCE_PATH,
+    `${JSON.stringify(
+      {
+        version: 1,
+        result: failures.length === 0 ? 'pass' : 'fail',
+        contractVersion: contract.version,
+        checks,
+        assets: {
+          files: actualSizes,
+          sha256: assetHashes,
+          totalBytes: actualBytes,
+          budgetBytes: BUDGET,
+        },
       },
-    },
-    null,
-    2,
-  )}\n`,
-);
+      null,
+      2,
+    )}\n`,
+  );
+}
 
 console.log(
-  `\nP1 character oracle: ${passed} passed, ${failures.length} failed; evidence=${EVIDENCE_PATH}`,
+  `\nP1 character oracle: ${passed} passed, ${failures.length} failed; evidence=${
+    process.env.CHARACTER_TOY_ORACLE_NO_WRITE === '1' ? 'not written' : EVIDENCE_PATH
+  }`,
 );
 if (failures.length > 0) process.exit(1);

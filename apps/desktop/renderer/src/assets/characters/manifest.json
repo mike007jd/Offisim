@@ -1,14 +1,14 @@
 {
-  "version": 3,
+  "version": 4,
   "bodies": {
     "toy": {
       "file": "body_toy.glb",
       "heightUnits": 2.0163,
       "headHeightUnits": 0.823,
       "headRadiiUnits": [
-        0.3743,
-        0.4113,
-        0.3661
+        0.3745,
+        0.4115,
+        0.3662
       ],
       "headRatio": 2.45,
       "allowedHeadRatio": [
@@ -230,89 +230,119 @@
     "allTranslationKeysChecked": true,
     "maxAbsDeltaThreshold": 0.00001,
     "maxObservedAbsDelta": 0,
-    "clipsChecked": 19,
-    "translationChannelsChecked": 19,
+    "clipsChecked": 21,
+    "translationChannelsChecked": 21,
     "clips": {
       "tpose": {
         "keysChecked": 76,
+        "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "celebrate.dance": {
         "keysChecked": 31,
+        "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "idle": {
         "keysChecked": 76,
+        "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "idle.talk": {
         "keysChecked": 89,
+        "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "interact": {
         "keysChecked": 61,
+        "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "pickup": {
         "keysChecked": 26,
+        "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "sit.enter": {
         "keysChecked": 40,
+        "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "sit.exit": {
         "keysChecked": 32,
+        "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "sit.idle": {
         "keysChecked": 51,
+        "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "sit.talk": {
         "keysChecked": 89,
+        "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "walk.formal": {
         "keysChecked": 41,
+        "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "walk": {
         "keysChecked": 41,
+        "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "inspect.open": {
         "keysChecked": 42,
+        "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "consume": {
         "keysChecked": 41,
+        "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "wait.foldarms": {
         "keysChecked": 76,
+        "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "blocked.headshake": {
         "keysChecked": 76,
+        "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "phone": {
         "keysChecked": 89,
+        "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "carry": {
         "keysChecked": 61,
+        "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "celebrate.yes": {
         "keysChecked": 76,
+        "rootTranslationTracks": 1,
+        "maxAbsDelta": 0
+      },
+      "sit.type": {
+        "keysChecked": 51,
+        "rootTranslationTracks": 1,
+        "maxAbsDelta": 0
+      },
+      "approval.wait": {
+        "keysChecked": 76,
+        "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       }
     },
     "result": "pass"
   },
   "clips": [
+    "approval.wait",
     "blocked.headshake",
     "carry",
     "celebrate.dance",
@@ -328,6 +358,7 @@
     "sit.exit",
     "sit.idle",
     "sit.talk",
+    "sit.type",
     "tpose",
     "wait.foldarms",
     "walk",
@@ -352,7 +383,49 @@
     "blocked.headshake": "UAL2:Idle_No_Loop",
     "phone": "UAL2:Idle_TalkingPhone_Loop",
     "carry": "UAL2:Walk_Carry_Loop",
-    "celebrate.yes": "UAL2:Yes"
+    "celebrate.yes": "UAL2:Yes",
+    "sit.type": "offisim-procedural:sit.type",
+    "approval.wait": "offisim-procedural:approval.wait"
+  },
+  "proceduralAnimations": {
+    "sit.type": {
+      "baseClip": "sit.idle",
+      "poseReferenceClip": "sit.talk",
+      "mode": "loop",
+      "durationSeconds": 1.6,
+      "sampleRate": 30,
+      "modifiedJoints": [
+        "clavicle_l",
+        "upperarm_l",
+        "lowerarm_l",
+        "hand_l",
+        "clavicle_r",
+        "upperarm_r",
+        "lowerarm_r",
+        "hand_r",
+        "index_01_r",
+        "middle_01_r"
+      ],
+      "lowerBodyPolicy": "exact sit.idle channels with duration-normalized key times"
+    },
+    "approval.wait": {
+      "baseClip": "idle",
+      "poseReferenceClip": "wait.foldarms",
+      "mode": "hold",
+      "durationSeconds": 1.6,
+      "sampleRate": 30,
+      "modifiedJoints": [
+        "clavicle_l",
+        "upperarm_l",
+        "lowerarm_l",
+        "hand_l",
+        "clavicle_r",
+        "upperarm_r",
+        "lowerarm_r",
+        "hand_r"
+      ],
+      "lowerBodyPolicy": "exact idle channels with duration-normalized key times"
+    }
   },
   "animationRetarget": {
     "nonRootTranslationPolicy": "removed; toy body bind offsets remain authoritative",
@@ -389,9 +462,9 @@
     "hair_04.glb": 145968,
     "hair_05.glb": 145936,
     "hair_06.glb": 13628,
-    "animations.glb": 515484,
-    "props.glb": 52692,
-    "LICENSES.md": 3741
+    "animations.glb": 547280,
+    "props.glb": 52248,
+    "LICENSES.md": 4126
   },
-  "totalBytes": 1500109
+  "totalBytes": 1531846
 }

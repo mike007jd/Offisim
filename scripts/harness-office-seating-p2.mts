@@ -347,41 +347,49 @@ check(
 );
 
 console.log('\n[production wiring] shared source + visible move choreography');
-const [sharedHook, scene2d, scene3d, character, queries, employeeRepo] = await Promise.all([
-  readFile(
-    new URL(
-      '../apps/desktop/renderer/src/surfaces/office/scene/use-scene-staging-inputs.ts',
-      import.meta.url,
+const [sharedHook, scene2d, scene3d, character, playback, queries, employeeRepo] =
+  await Promise.all([
+    readFile(
+      new URL(
+        '../apps/desktop/renderer/src/surfaces/office/scene/use-scene-staging-inputs.ts',
+        import.meta.url,
+      ),
+      'utf8',
     ),
-    'utf8',
-  ),
-  readFile(
-    new URL(
-      '../apps/desktop/renderer/src/surfaces/office/scene/OfficeScene2D.tsx',
-      import.meta.url,
+    readFile(
+      new URL(
+        '../apps/desktop/renderer/src/surfaces/office/scene/OfficeScene2D.tsx',
+        import.meta.url,
+      ),
+      'utf8',
     ),
-    'utf8',
-  ),
-  readFile(
-    new URL(
-      '../apps/desktop/renderer/src/surfaces/office/scene/OfficeScene3D.tsx',
-      import.meta.url,
+    readFile(
+      new URL(
+        '../apps/desktop/renderer/src/surfaces/office/scene/OfficeScene3D.tsx',
+        import.meta.url,
+      ),
+      'utf8',
     ),
-    'utf8',
-  ),
-  readFile(
-    new URL(
-      '../apps/desktop/renderer/src/surfaces/office/scene/character/GltfCharacter.tsx',
-      import.meta.url,
+    readFile(
+      new URL(
+        '../apps/desktop/renderer/src/surfaces/office/scene/character/GltfCharacter.tsx',
+        import.meta.url,
+      ),
+      'utf8',
     ),
-    'utf8',
-  ),
-  readFile(new URL('../apps/desktop/renderer/src/data/queries.ts', import.meta.url), 'utf8'),
-  readFile(
-    new URL('../apps/desktop/renderer/src/lib/tauri-repos/employees.ts', import.meta.url),
-    'utf8',
-  ),
-]);
+    readFile(
+      new URL(
+        '../apps/desktop/renderer/src/surfaces/office/scene/character/character-playback.ts',
+        import.meta.url,
+      ),
+      'utf8',
+    ),
+    readFile(new URL('../apps/desktop/renderer/src/data/queries.ts', import.meta.url), 'utf8'),
+    readFile(
+      new URL('../apps/desktop/renderer/src/lib/tauri-repos/employees.ts', import.meta.url),
+      'utf8',
+    ),
+  ]);
 check(
   'shared hook reconciles and persists seat slots before employeePlacements',
   sharedHook.includes('reconcileSeatSlotRegistry') &&
@@ -405,8 +413,10 @@ check(
   'seat moves retain A* routing and explicit sit-exit/walk/sit-enter phases',
   scene3d.includes('planCharacterMove') &&
     character.includes('shouldPromoteSitExit') &&
-    character.includes('POSTURE_TRANSITION_CLIPS.sitExit') &&
-    character.includes('POSTURE_TRANSITION_CLIPS.sitEnter'),
+    character.includes('requestCharacterPlayback') &&
+    character.includes('finishCharacterPlayback') &&
+    playback.includes('POSTURE_TRANSITION_CLIPS.sitExit') &&
+    playback.includes('POSTURE_TRANSITION_CLIPS.sitEnter'),
 );
 check(
   'non-reassign drops walk from the ghost; a real zone change starts at the original seat',

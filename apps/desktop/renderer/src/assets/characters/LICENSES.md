@@ -10,6 +10,14 @@ and are built by `scripts/build-character-assets.mjs`. Original license texts fo
 - Used for: toy capsule body, runtime eye contract, chunky curl hair, and the
   clipboard, tablet, terminal, pointer, headset, swatch, checklist, and keycard props.
 
+## Offisim-authored procedural animation derivatives
+
+- Build logic: `scripts/build-character-assets.mjs` in this repository.
+- Source clips: Quaternius CC0 rig clips from the packs listed below.
+- License: the baked animation derivatives remain CC0 1.0; the build logic is
+  covered by the Offisim repository license.
+- Used for: the `sit.type` and `approval.wait` animation tracks.
+
 ## Universal Base Characters [Standard] — Quaternius
 
 - Source: https://quaternius.itch.io/universal-base-characters

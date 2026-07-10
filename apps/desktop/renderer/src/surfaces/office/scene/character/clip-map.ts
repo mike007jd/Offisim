@@ -6,25 +6,17 @@ import type { CharacterPerformanceState } from '@offisim/shared-types';
  * (see the rename table in that script's header). Deterministic and total:
  * every state yields a defined selection, falling back to the posture idle.
  *
- * Documented proxy choices until custom clips are authored:
- *  - `type` / `note` / `annotate` while seated → `sit.talk` (desk-work proxy —
- *    the seated gesturing loop reads as active desk work at office camera
- *    distance; a true seated-typing clip replaces it later).
- *  - `read` while standing → `inspect.open` (open-and-hold reads as opening a
- *    document; one-shot clips clamp on their final frame).
- *  - standing `type`/`note`/`inspect-terminal`/`write-board`/`annotate` →
- *    `interact` looped (repeated manipulation reads as ongoing work).
- *  - `worried` (no work gesture) → `wait.foldarms`; escalated worry
- *    (intensity 2 — the failure beat) → `blocked.headshake`.
- *  - `thinking` while standing idle → `wait.foldarms`.
- *
- * `phone` and `consume` are shipped but not reachable from performance state
- * yet (reserved for break-room / call cues); `sit.enter` / `sit.exit` are
- * posture transitions driven by GltfCharacter; `tpose` is the rig reference.
+ * Generic long-lived families are intentional: standing manipulation gestures
+ * share `interact`, standing document inspection uses `inspect.open`, and
+ * thinking rests in `wait.foldarms`. Seated typing and approval are authored
+ * clips, not talk/blocked proxies. `phone` / `consume` have a typed P5 routine
+ * seam; `sit.enter` / `sit.exit` are posture transitions and `tpose` is the rig
+ * reference.
  */
 
 /** Every clip emitted into animations.glb — must match manifest.json `clips`. */
 export const CLIP_NAMES = [
+  'approval.wait',
   'blocked.headshake',
   'carry',
   'celebrate.dance',
@@ -40,49 +32,74 @@ export const CLIP_NAMES = [
   'sit.exit',
   'sit.idle',
   'sit.talk',
+  'sit.type',
   'tpose',
   'wait.foldarms',
   'walk',
   'walk.formal',
 ] as const;
 
+/** P0/P3 art-budget contract: future phases may not silently bloat the library. */
+export const MAX_CHARACTER_CLIPS = 24;
+
 export type ClipName = (typeof CLIP_NAMES)[number];
 
 export interface ClipSelection {
   readonly clip: ClipName;
-  /** Looping ambient clip; non-looping clips play once and clamp on the last frame. */
+  /** Looping ambient clip; one-shots without `returnTo` hold their last frame. */
   readonly loop: boolean;
   /** Crossfade duration in seconds when entering this clip. */
   readonly fade: number;
+  /** Stable static sample used when reduced motion freezes animation. */
+  readonly reducedPoseTime: number;
+  /** Optional resting clip entered once this one-shot completes. */
+  readonly returnTo?: ClipName;
 }
 
 const LOCOMOTION_FADE = 0.15;
 const CELEBRATE_FADE = 0.2;
 const DEFAULT_FADE = 0.3;
 
-const SEATED_OFFSET_CLIPS = new Set<ClipName>(['sit.enter', 'sit.idle', 'sit.talk']);
+const SEATED_OFFSET_CLIPS = new Set<ClipName>(['sit.enter', 'sit.idle', 'sit.talk', 'sit.type']);
 
 /** Playback metadata for every shipped clip (total over CLIP_NAMES). */
-export const CLIP_META: Record<ClipName, { loop: boolean; fade: number }> = {
-  'blocked.headshake': { loop: true, fade: DEFAULT_FADE },
-  carry: { loop: true, fade: LOCOMOTION_FADE },
-  'celebrate.dance': { loop: true, fade: CELEBRATE_FADE },
-  'celebrate.yes': { loop: false, fade: CELEBRATE_FADE },
-  consume: { loop: false, fade: DEFAULT_FADE },
-  idle: { loop: true, fade: DEFAULT_FADE },
-  'idle.talk': { loop: true, fade: DEFAULT_FADE },
-  'inspect.open': { loop: false, fade: DEFAULT_FADE },
-  interact: { loop: true, fade: DEFAULT_FADE },
-  phone: { loop: true, fade: DEFAULT_FADE },
-  pickup: { loop: false, fade: DEFAULT_FADE },
-  'sit.enter': { loop: false, fade: LOCOMOTION_FADE },
-  'sit.exit': { loop: false, fade: LOCOMOTION_FADE },
-  'sit.idle': { loop: true, fade: DEFAULT_FADE },
-  'sit.talk': { loop: true, fade: DEFAULT_FADE },
-  tpose: { loop: false, fade: DEFAULT_FADE },
-  'wait.foldarms': { loop: true, fade: DEFAULT_FADE },
-  walk: { loop: true, fade: LOCOMOTION_FADE },
-  'walk.formal': { loop: true, fade: LOCOMOTION_FADE },
+export const CLIP_META: Record<ClipName, Omit<ClipSelection, 'clip'>> = {
+  'approval.wait': { loop: false, fade: 0.22, reducedPoseTime: 1.6 },
+  'blocked.headshake': {
+    loop: false,
+    fade: 0.22,
+    reducedPoseTime: 1.2,
+    returnTo: 'wait.foldarms',
+  },
+  carry: { loop: true, fade: LOCOMOTION_FADE, reducedPoseTime: 0.25 },
+  'celebrate.dance': {
+    loop: false,
+    fade: CELEBRATE_FADE,
+    reducedPoseTime: 0.5,
+    returnTo: 'idle',
+  },
+  'celebrate.yes': {
+    loop: false,
+    fade: CELEBRATE_FADE,
+    reducedPoseTime: 1.2,
+    returnTo: 'idle',
+  },
+  consume: { loop: false, fade: 0.22, reducedPoseTime: 0.65, returnTo: 'idle' },
+  idle: { loop: true, fade: DEFAULT_FADE, reducedPoseTime: 0 },
+  'idle.talk': { loop: true, fade: DEFAULT_FADE, reducedPoseTime: 0.6 },
+  'inspect.open': { loop: false, fade: 0.24, reducedPoseTime: 0.8 },
+  interact: { loop: true, fade: 0.24, reducedPoseTime: 0.4 },
+  phone: { loop: true, fade: 0.24, reducedPoseTime: 0.8 },
+  pickup: { loop: false, fade: 0.24, reducedPoseTime: 0.7 },
+  'sit.enter': { loop: false, fade: LOCOMOTION_FADE, reducedPoseTime: 0 },
+  'sit.exit': { loop: false, fade: LOCOMOTION_FADE, reducedPoseTime: 0 },
+  'sit.idle': { loop: true, fade: DEFAULT_FADE, reducedPoseTime: 0 },
+  'sit.talk': { loop: true, fade: DEFAULT_FADE, reducedPoseTime: 0.7 },
+  'sit.type': { loop: true, fade: 0.22, reducedPoseTime: 0.4 },
+  tpose: { loop: false, fade: DEFAULT_FADE, reducedPoseTime: 0 },
+  'wait.foldarms': { loop: true, fade: 0.24, reducedPoseTime: 0.7 },
+  walk: { loop: true, fade: LOCOMOTION_FADE, reducedPoseTime: 0.2 },
+  'walk.formal': { loop: true, fade: LOCOMOTION_FADE, reducedPoseTime: 0.2 },
 };
 
 /** Posture transition clips (played by GltfCharacter between stand ⇄ sit). */
@@ -92,7 +109,7 @@ export const POSTURE_TRANSITION_CLIPS = {
 } as const satisfies Record<string, ClipName>;
 
 function select(clip: ClipName): ClipSelection {
-  return { clip, loop: CLIP_META[clip].loop, fade: CLIP_META[clip].fade };
+  return { clip, ...CLIP_META[clip] };
 }
 
 /** Explicit clip selection for the release QA sequencer; shares production playback metadata. */
@@ -121,12 +138,15 @@ function sitClip(perf: CharacterPerformanceState): ClipName {
     case 'type':
     case 'note':
     case 'annotate':
-    case 'handoff':
-      return 'sit.talk';
+      return 'sit.type';
     case 'read':
     case 'inspect-terminal':
     case 'write-board':
     case 'point':
+    case 'handoff':
+    case 'approval-wait':
+    case 'phone':
+    case 'consume':
       return 'sit.idle';
     default:
       break;
@@ -136,6 +156,9 @@ function sitClip(perf: CharacterPerformanceState): ClipName {
 }
 
 function standClip(perf: CharacterPerformanceState): ClipName {
+  if (perf.workGesture === 'approval-wait') return 'approval.wait';
+  if (perf.workGesture === 'phone') return 'phone';
+  if (perf.workGesture === 'consume') return 'consume';
   if (perf.workGesture === 'point' && perf.expression === 'happy') {
     return perf.intensity === 2 ? 'celebrate.dance' : 'celebrate.yes';
   }

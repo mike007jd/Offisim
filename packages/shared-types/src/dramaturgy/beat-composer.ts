@@ -429,7 +429,8 @@ function visualForSignal(signal: WorkSignal): VisualIntent {
       return {
         phase: 'wait',
         intensity: 2,
-        emotion: 'worried',
+        emotion: 'thinking',
+        prop: 'document',
         affordance: signal.affordance,
         badges: ['approval'],
       };
@@ -598,7 +599,10 @@ function normalize(event: TimedAgentRunEvent): WorkSignal | null {
         affordance: null,
         movement: false,
         interrupt: true,
-        resource: { kind: 'permission', severity: 'blocked', label: 'approval needed' },
+        // Approval is an amber waiting state, not a permission failure. The
+        // workload projection derives its typed approval issue from `waiting`;
+        // true permission failures still arrive through run.failed and keep the
+        // blocked resource lane.
         flow: flow('approval', 'approval', 'user'),
         activityKind: null,
       };

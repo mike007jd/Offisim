@@ -11,6 +11,7 @@ import type {
 import {
   CLIP_META,
   CLIP_NAMES,
+  MAX_CHARACTER_CLIPS,
   POSTURE_TRANSITION_CLIPS,
   clipForPerformance,
   idleClipForPosture,
@@ -54,6 +55,9 @@ const WORK_GESTURES = keysOf<WorkGesture>({
   point: true,
   annotate: true,
   handoff: true,
+  'approval-wait': true,
+  phone: true,
+  consume: true,
 });
 const SOCIAL_GESTURES = keysOf<SocialGesture>({
   none: true,
@@ -93,8 +97,14 @@ check(
 for (const clip of CLIP_NAMES) {
   const meta = CLIP_META[clip];
   check(meta !== undefined, `CLIP_META missing '${clip}'`);
-  check(typeof meta.loop === 'boolean' && meta.fade > 0, `CLIP_META['${clip}'] invalid`);
+  check(
+    typeof meta.loop === 'boolean' && meta.fade > 0 && meta.reducedPoseTime >= 0,
+    `CLIP_META['${clip}'] invalid`,
+  );
+  if (meta.returnTo)
+    check(clipNameSet.has(meta.returnTo), `return clip '${meta.returnTo}' missing`);
 }
+check(CLIP_NAMES.length <= MAX_CHARACTER_CLIPS, `clip budget exceeded (${CLIP_NAMES.length})`);
 
 // 3. Totality + determinism over the full semantic space.
 let states = 0;
@@ -140,8 +150,8 @@ for (const locomotion of LOCOMOTIONS) {
     }
   }
 }
-// 2 locomotion × 2 posture × 9 work × 4 social × 5 expression × 6 prop × 3 intensity.
-check(states === 12960, `expected 12960 enumerated states, saw ${states}`);
+// 2 locomotion × 2 posture × 12 work × 4 social × 5 expression × 6 prop × 3 intensity.
+check(states === 17280, `expected 17280 enumerated states, saw ${states}`);
 
 // 4. Posture idles + transitions resolve against the shipped clip set.
 for (const posture of POSTURES) {
@@ -171,8 +181,14 @@ const anchor = (
 };
 anchor({ locomotion: 'walk', prop: 'laptop' }, 'carry', 'walk+laptop carries');
 anchor({ locomotion: 'walk', intensity: 2 }, 'walk.formal', 'urgent walk is formal');
-anchor({ posture: 'sit', workGesture: 'type', prop: 'laptop' }, 'sit.talk', 'seated typing proxy');
+anchor({ posture: 'sit', workGesture: 'type', prop: 'laptop' }, 'sit.type', 'seated typing');
+anchor({ posture: 'sit', workGesture: 'note' }, 'sit.type', 'seated note');
+anchor({ posture: 'sit', workGesture: 'annotate' }, 'sit.type', 'seated annotate');
+anchor({ posture: 'sit', socialGesture: 'discuss' }, 'sit.talk', 'seated real conversation');
 anchor({ workGesture: 'read', prop: 'document' }, 'inspect.open', 'standing read proxy');
+anchor({ workGesture: 'approval-wait', prop: 'document' }, 'approval.wait', 'approval wait');
+anchor({ workGesture: 'phone' }, 'phone', 'reserved phone routine');
+anchor({ workGesture: 'consume' }, 'consume', 'reserved consume routine');
 anchor({ expression: 'worried' }, 'wait.foldarms', 'worried folds arms');
 anchor({ expression: 'worried', intensity: 2 }, 'blocked.headshake', 'blocked shakes head');
 anchor(
@@ -182,6 +198,41 @@ anchor(
 );
 anchor({ workGesture: 'handoff', prop: 'document' }, 'pickup', 'handoff picks up');
 anchor({ posture: 'sit' }, 'sit.idle', 'seated rest idles');
+anchor(
+  { locomotion: 'walk', workGesture: 'approval-wait', prop: 'document' },
+  'carry',
+  'approval relocation carries clipboard',
+);
+
+// 6. Explicit reachability ledger: production semantics, posture transitions,
+// P5-reserved routines, and the rig reference account for every shipped clip.
+const REACHABILITY = {
+  production: [
+    'approval.wait',
+    'blocked.headshake',
+    'carry',
+    'celebrate.dance',
+    'celebrate.yes',
+    'idle',
+    'idle.talk',
+    'interact',
+    'pickup',
+    'sit.idle',
+    'sit.talk',
+    'sit.type',
+    'wait.foldarms',
+    'walk',
+    'walk.formal',
+  ],
+  postureTransition: ['sit.enter', 'sit.exit'],
+  p5Reserved: ['consume', 'inspect.open', 'phone'],
+  rigReference: ['tpose'],
+} as const satisfies Record<string, readonly (typeof CLIP_NAMES)[number][]>;
+const accountedFor = Object.values(REACHABILITY).flat().sort();
+check(
+  JSON.stringify(accountedFor) === JSON.stringify([...CLIP_NAMES].sort()),
+  `reachability ledger drift\n  accounted: ${accountedFor.join(', ')}\n  shipped: ${[...CLIP_NAMES].sort().join(', ')}`,
+);
 
 if (failures > 0) {
   console.error(`\nharness-character-clip-map: ${failures} failure(s)`);

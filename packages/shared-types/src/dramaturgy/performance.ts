@@ -22,7 +22,14 @@ export type WorkGesture =
   | 'write-board'
   | 'point'
   | 'annotate'
-  | 'handoff';
+  | 'handoff'
+  | 'approval-wait'
+  | 'phone'
+  | 'consume';
+
+/** Reserved deterministic micro-actions consumed by the P5 ambient scheduler. */
+export type RoutineWorkGesture = Extract<WorkGesture, 'phone' | 'consume'>;
+export type RoutinePerformanceKind = RoutineWorkGesture | 'inspect';
 
 export type SocialGesture = 'none' | 'listen' | 'nod' | 'discuss';
 export type Expression = 'neutral' | 'focus' | 'thinking' | 'worried' | 'happy';
@@ -118,9 +125,10 @@ export function performanceForBeat(beat: SceneBeat): CharacterPerformanceState {
       return {
         locomotion: 'idle',
         posture: 'stand',
-        workGesture: 'none',
+        workGesture: 'approval-wait',
         socialGesture: 'none',
-        expression: 'worried',
+        expression: 'thinking',
+        prop: 'document',
         intensity: 1,
       };
     case 'failure':
@@ -153,11 +161,31 @@ export function performanceForBeat(beat: SceneBeat): CharacterPerformanceState {
         workGesture: 'point',
         socialGesture: 'none',
         expression: 'happy',
-        intensity: 2,
+        // Most completions use a restrained affirmative gesture; one seeded
+        // variant gets the short dance. Both shipped clips therefore
+        // have a real deterministic producer without making celebration noisy.
+        intensity: beat.variant % 4 === 0 ? 2 : 1,
       };
     default:
       return IDLE_PERFORMANCE;
   }
+}
+
+/**
+ * Typed P5 seam for routine micro-actions. Keeping this in dramaturgy means the
+ * future ambient scheduler requests semantic behavior, never a renderer clip.
+ */
+export function performanceForRoutine(kind: RoutinePerformanceKind): CharacterPerformanceState {
+  const workGesture: WorkGesture = kind === 'inspect' ? 'read' : kind;
+  return {
+    locomotion: 'idle',
+    posture: 'stand',
+    workGesture,
+    socialGesture: kind === 'phone' ? 'listen' : 'none',
+    expression: kind === 'phone' || kind === 'inspect' ? 'focus' : 'neutral',
+    ...(kind === 'inspect' ? { prop: 'document' as const } : {}),
+    intensity: 0,
+  };
 }
 
 /** Activity/produce beats refine the work gesture from the tool-fact activity kind. */

@@ -32,7 +32,28 @@ const LANDMARKS = [
 ];
 const SAMPLE_TIMES = [0, 0.25, 0.5, 0.75, 1];
 const LOCOMOTION_CLIPS = ['walk', 'walk.formal', 'carry'];
-const EXPECTED_CLIP_COUNT = 19;
+const P0_CLIPS = [
+  'blocked.headshake',
+  'carry',
+  'celebrate.dance',
+  'celebrate.yes',
+  'consume',
+  'idle',
+  'idle.talk',
+  'inspect.open',
+  'interact',
+  'phone',
+  'pickup',
+  'sit.enter',
+  'sit.exit',
+  'sit.idle',
+  'sit.talk',
+  'tpose',
+  'wait.foldarms',
+  'walk',
+  'walk.formal',
+];
+const MAX_CLIP_COUNT = 24;
 const GROUND_TOLERANCE = 0.04;
 
 const round = (value) => Number(value.toFixed(6));
@@ -184,9 +205,11 @@ const checks = [];
 checks.push(
   check(
     'clip-count',
-    clips.length === EXPECTED_CLIP_COUNT && manifest.clips.length === EXPECTED_CLIP_COUNT,
+    clips.length === manifest.clips.length &&
+      clips.length <= MAX_CLIP_COUNT &&
+      P0_CLIPS.every((clip) => clipsByName.has(clip)),
     { glb: clips.length, manifest: manifest.clips.length },
-    EXPECTED_CLIP_COUNT,
+    { retainedP0Clips: P0_CLIPS.length, max: MAX_CLIP_COUNT },
   ),
 );
 for (const landmark of LANDMARKS) {
@@ -246,12 +269,12 @@ checks.push(
 
 const finalRootMotion = inspectFinalRootMotion(clips);
 const finalRootPass =
-  finalRootMotion.clipsChecked === EXPECTED_CLIP_COUNT &&
+  finalRootMotion.clipsChecked === clips.length &&
   Object.values(finalRootMotion.checked).every((item) => item.pass) &&
   finalRootMotion.maxObservedAbsDelta <= 0.00001;
 checks.push(
   check('final-animation-root-motion', finalRootPass, finalRootMotion, {
-    clipsChecked: EXPECTED_CLIP_COUNT,
+    clipsChecked: clips.length,
     maxAbsDelta: 0.00001,
   }),
 );
@@ -259,11 +282,11 @@ checks.push(
   check(
     'root-motion-all-keys',
     manifest.rootMotionOracle?.result === 'pass' &&
-      manifest.rootMotionOracle?.clipsChecked === EXPECTED_CLIP_COUNT &&
+      manifest.rootMotionOracle?.clipsChecked === clips.length &&
       manifest.rootMotionOracle?.maxObservedAbsDelta <=
         manifest.rootMotionOracle?.maxAbsDeltaThreshold,
     manifest.rootMotionOracle,
-    { clipsChecked: EXPECTED_CLIP_COUNT, maxAbsDelta: 0.00001 },
+    { clipsChecked: clips.length, maxAbsDelta: 0.00001 },
   ),
 );
 
@@ -419,7 +442,9 @@ const report = {
   samples,
 };
 
-await writeFile(EVIDENCE_URL, `${JSON.stringify(report, null, 2)}\n`);
+if (process.env.CHARACTER_TOY_ORACLE_NO_WRITE !== '1') {
+  await writeFile(EVIDENCE_URL, `${JSON.stringify(report, null, 2)}\n`);
+}
 console.log(
   `[toy-p0] ${checks.filter((item) => item.pass).length}/${checks.length} checks passed; ` +
     `evidence=${fileURLToPath(EVIDENCE_URL)}`,

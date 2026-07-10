@@ -122,6 +122,7 @@ const TOY_METRICS = JSON.parse(
 );
 const SIZE_BUDGET_BYTES = 25 * 1024 * 1024;
 const ROOT_MOTION_MAX_DELTA = 1e-5;
+const MAX_ANIMATION_CLIPS = 24;
 const TOY_HEAD_RATIO = TOY_METRICS.character.targetHeadCount;
 const TOY_HEAD_RATIO_RANGE = [
   TOY_METRICS.character.minimumHeadCount,
@@ -169,6 +170,50 @@ const UAL2_CLIP_RENAMES = {
   Idle_TalkingPhone_Loop: 'phone',
   Walk_Carry_Loop: 'carry',
   Yes: 'celebrate.yes',
+};
+
+/**
+ * Authored at build time from the retained CC0 skeleton clips. They are baked
+ * as ordinary full glTF animations — the runtime needs no additive-animation
+ * feature or source-pack access.
+ */
+const PROCEDURAL_ANIMATION_SPECS = {
+  'sit.type': {
+    baseClip: 'sit.idle',
+    poseReferenceClip: 'sit.talk',
+    poseReferenceTime: 0.5,
+    durationSeconds: 1.6,
+    mode: 'loop',
+    modifiedJoints: [
+      'clavicle_l',
+      'upperarm_l',
+      'lowerarm_l',
+      'hand_l',
+      'clavicle_r',
+      'upperarm_r',
+      'lowerarm_r',
+      'hand_r',
+      'index_01_r',
+      'middle_01_r',
+    ],
+  },
+  'approval.wait': {
+    baseClip: 'idle',
+    poseReferenceClip: 'wait.foldarms',
+    poseReferenceTime: 0.5,
+    durationSeconds: 1.6,
+    mode: 'hold',
+    modifiedJoints: [
+      'clavicle_l',
+      'upperarm_l',
+      'lowerarm_l',
+      'hand_l',
+      'clavicle_r',
+      'upperarm_r',
+      'lowerarm_r',
+      'hand_r',
+    ],
+  },
 };
 
 const SOURCE_BODY_GLTF = 'Superhero_Male_FullBody.gltf';
@@ -1033,6 +1078,249 @@ function offsetClipPelvisTranslation(document, clipName, localOffset) {
   };
 }
 
+function animationDuration(animation) {
+  let duration = 0;
+  for (const sampler of animation.listSamplers()) {
+    const times = sampler.getInput()?.getArray();
+    if (times?.length) duration = Math.max(duration, times[times.length - 1]);
+  }
+  if (!(duration > 0)) fail(`animations: clip '${animation.getName()}' has no duration`);
+  return duration;
+}
+
+function normalizeQuaternion(value) {
+  const length = Math.hypot(value[0], value[1], value[2], value[3]);
+  if (!(length > Number.EPSILON)) fail('animations: cannot normalize a zero quaternion');
+  return value.map((component) => component / length);
+}
+
+function slerpQuaternion(from, to, amount) {
+  let target = to;
+  let dot = from[0] * to[0] + from[1] * to[1] + from[2] * to[2] + from[3] * to[3];
+  if (dot < 0) {
+    dot = -dot;
+    target = to.map((component) => -component);
+  }
+  if (dot > 0.9995) {
+    return normalizeQuaternion(
+      from.map((component, index) => component + amount * (target[index] - component)),
+    );
+  }
+  const theta = Math.acos(Math.min(1, Math.max(-1, dot)));
+  const denominator = Math.sin(theta);
+  const fromWeight = Math.sin((1 - amount) * theta) / denominator;
+  const toWeight = Math.sin(amount * theta) / denominator;
+  return normalizeQuaternion(
+    from.map((component, index) => component * fromWeight + target[index] * toWeight),
+  );
+}
+
+function multiplyQuaternions(left, right) {
+  const [ax, ay, az, aw] = left;
+  const [bx, by, bz, bw] = right;
+  return normalizeQuaternion([
+    aw * bx + ax * bw + ay * bz - az * by,
+    aw * by - ax * bz + ay * bw + az * bx,
+    aw * bz + ax * by - ay * bx + az * bw,
+    aw * bw - ax * bx - ay * by - az * bz,
+  ]);
+}
+
+function quaternionFromEulerXYZ([x, y, z]) {
+  const c1 = Math.cos(x / 2);
+  const c2 = Math.cos(y / 2);
+  const c3 = Math.cos(z / 2);
+  const s1 = Math.sin(x / 2);
+  const s2 = Math.sin(y / 2);
+  const s3 = Math.sin(z / 2);
+  return normalizeQuaternion([
+    s1 * c2 * c3 + c1 * s2 * s3,
+    c1 * s2 * c3 - s1 * c2 * s3,
+    c1 * c2 * s3 + s1 * s2 * c3,
+    c1 * c2 * c3 - s1 * s2 * s3,
+  ]);
+}
+
+function sampleAnimationChannel(channel, time) {
+  const sampler = channel.getSampler();
+  const input = sampler.getInput();
+  const output = sampler.getOutput();
+  const times = input?.getArray();
+  if (!input || !output || !times?.length) {
+    fail(`animations: cannot sample empty '${channel.getTargetNode()?.getName()}' channel`);
+  }
+  if (sampler.getInterpolation() === 'CUBICSPLINE') {
+    fail('animations: procedural authoring requires LINEAR/STEP source tracks');
+  }
+  if (time <= times[0]) return output.getElement(samplerValueIndex(sampler, 0), []);
+  const last = times.length - 1;
+  if (time >= times[last]) return output.getElement(samplerValueIndex(sampler, last), []);
+  let right = 1;
+  while (times[right] < time) right += 1;
+  const left = right - 1;
+  const from = output.getElement(samplerValueIndex(sampler, left), []);
+  if (sampler.getInterpolation() === 'STEP') return from;
+  const to = output.getElement(samplerValueIndex(sampler, right), []);
+  const amount = (time - times[left]) / (times[right] - times[left]);
+  if (channel.getTargetPath() === 'rotation') return slerpQuaternion(from, to, amount);
+  return from.map((component, index) => component + amount * (to[index] - component));
+}
+
+function smoothstep(value) {
+  const t = Math.min(1, Math.max(0, value));
+  return t * t * (3 - 2 * t);
+}
+
+function typingPoseWeight(joint) {
+  if (joint.startsWith('clavicle_')) return 0.82;
+  if (joint.startsWith('upperarm_')) return 0.94;
+  if (joint.startsWith('lowerarm_')) return 0.98;
+  if (joint === 'hand_l') return 1;
+  if (joint === 'hand_r') return 0.96;
+  return 0;
+}
+
+function typingEulerDelta(joint, normalizedTime) {
+  const alternating = Math.sin(normalizedTime * Math.PI * 4);
+  const cycle = Math.sin(normalizedTime * Math.PI * 2);
+  switch (joint) {
+    case 'lowerarm_l':
+      return [0.008 * cycle, 0, 0];
+    case 'lowerarm_r':
+      return [0.025 * alternating, 0, 0];
+    case 'hand_r':
+      return [0.09 * alternating, 0, 0.025 * cycle];
+    case 'index_01_r':
+      return [0.14 * Math.max(0, alternating), 0, 0];
+    case 'middle_01_r':
+      return [0.14 * Math.max(0, -alternating), 0, 0];
+    default:
+      return [0, 0, 0];
+  }
+}
+
+function addAnimationChannel(document, animation, buffer, sourceChannel, inputArray, outputArray) {
+  const target = sourceChannel.getTargetNode();
+  const path = sourceChannel.getTargetPath();
+  if (!target) fail(`animations: procedural '${animation.getName()}' channel target is missing`);
+  const key = `${animation.getName()}_${target.getName()}_${path}`;
+  const sourceInput = sourceChannel.getSampler().getInput();
+  const sourceOutput = sourceChannel.getSampler().getOutput();
+  const input = document
+    .createAccessor(`${key}_input`)
+    .setType(sourceInput.getType())
+    .setArray(inputArray)
+    .setBuffer(buffer);
+  const output = document
+    .createAccessor(`${key}_output`)
+    .setType(sourceOutput.getType())
+    .setNormalized(sourceOutput.getNormalized())
+    .setArray(outputArray)
+    .setBuffer(buffer);
+  const sampler = document
+    .createAnimationSampler()
+    .setInterpolation(sourceChannel.getSampler().getInterpolation())
+    .setInput(input)
+    .setOutput(output);
+  const channel = document
+    .createAnimationChannel()
+    .setTargetNode(target)
+    .setTargetPath(path)
+    .setSampler(sampler);
+  animation.addSampler(sampler).addChannel(channel);
+}
+
+function createProceduralAnimation(document, name, spec) {
+  const root = document.getRoot();
+  const base = root.listAnimations().find((animation) => animation.getName() === spec.baseClip);
+  const reference = root
+    .listAnimations()
+    .find((animation) => animation.getName() === spec.poseReferenceClip);
+  if (!base || !reference) {
+    fail(
+      `animations: '${name}' source clips missing ` +
+        `(base=${spec.baseClip}, reference=${spec.poseReferenceClip})`,
+    );
+  }
+  const buffer = root.listBuffers()[0];
+  if (!buffer) fail(`animations: '${name}' has no target buffer`);
+  const baseDuration = animationDuration(base);
+  const referenceDuration = animationDuration(reference);
+  const referenceChannels = new Map(
+    reference
+      .listChannels()
+      .map((channel) => [
+        `${channel.getTargetNode()?.getName()}:${channel.getTargetPath()}`,
+        channel,
+      ]),
+  );
+  const modified = new Set(spec.modifiedJoints);
+  const observed = new Set();
+  const animation = document.createAnimation(name);
+
+  for (const sourceChannel of base.listChannels()) {
+    const sampler = sourceChannel.getSampler();
+    const sourceInput = sampler.getInput();
+    const sourceOutput = sampler.getOutput();
+    const sourceTimes = sourceInput?.getArray();
+    const sourceValues = sourceOutput?.getArray();
+    const joint = sourceChannel.getTargetNode()?.getName();
+    const path = sourceChannel.getTargetPath();
+    if (!sourceInput || !sourceOutput || !sourceTimes || !sourceValues || !joint) {
+      fail(`animations: '${name}' cannot clone an incomplete base channel`);
+    }
+
+    if (path === 'rotation' && modified.has(joint)) {
+      observed.add(joint);
+      const referenceChannel = referenceChannels.get(`${joint}:rotation`);
+      if (!referenceChannel) fail(`animations: '${name}' reference rotation '${joint}' missing`);
+      const frameCount = Math.round(spec.durationSeconds * 30) + 1;
+      const times = new Float32Array(frameCount);
+      const values = new Float32Array(frameCount * 4);
+      for (let frame = 0; frame < frameCount; frame += 1) {
+        const normalizedTime = frame / (frameCount - 1);
+        times[frame] = normalizedTime * spec.durationSeconds;
+        const baseRotation = sampleAnimationChannel(sourceChannel, normalizedTime * baseDuration);
+        const referenceRotation = sampleAnimationChannel(
+          referenceChannel,
+          spec.poseReferenceTime * referenceDuration,
+        );
+        const poseWeight =
+          name === 'sit.type' ? typingPoseWeight(joint) : smoothstep(normalizedTime / 0.55);
+        let rotation = slerpQuaternion(baseRotation, referenceRotation, poseWeight);
+        if (name === 'sit.type') {
+          rotation = multiplyQuaternions(
+            rotation,
+            quaternionFromEulerXYZ(typingEulerDelta(joint, normalizedTime)),
+          );
+        }
+        values.set(rotation, frame * 4);
+      }
+      addAnimationChannel(document, animation, buffer, sourceChannel, times, values);
+      continue;
+    }
+
+    const times = sourceTimes.slice();
+    for (let index = 0; index < times.length; index += 1) {
+      times[index] = (times[index] / baseDuration) * spec.durationSeconds;
+    }
+    addAnimationChannel(document, animation, buffer, sourceChannel, times, sourceValues.slice());
+  }
+
+  const missing = spec.modifiedJoints.filter((joint) => !observed.has(joint));
+  if (missing.length > 0)
+    fail(`animations: '${name}' did not author joints [${missing.join(', ')}]`);
+  return {
+    baseClip: spec.baseClip,
+    poseReferenceClip: spec.poseReferenceClip,
+    mode: spec.mode,
+    durationSeconds: spec.durationSeconds,
+    sampleRate: 30,
+    modifiedJoints: spec.modifiedJoints,
+    lowerBodyPolicy: `exact ${spec.baseClip} channels with duration-normalized key times`,
+  };
+}
+
 /**
  * Assert that every retained clip is in-place for every translation key, not
  * merely at its endpoints. This intentionally targets the skeleton `root`;
@@ -1045,6 +1333,7 @@ function assertInPlaceRootMotion(animations) {
   for (const animation of animations) {
     let clipMax = 0;
     let keysChecked = 0;
+    let rootTranslationTracks = 0;
     for (const channel of animation.listChannels()) {
       if (
         channel.getTargetPath() !== 'translation' ||
@@ -1052,6 +1341,7 @@ function assertInPlaceRootMotion(animations) {
       ) {
         continue;
       }
+      rootTranslationTracks += 1;
       translationChannelsChecked += 1;
       const sampler = channel.getSampler();
       const input = sampler.getInput();
@@ -1070,6 +1360,11 @@ function assertInPlaceRootMotion(animations) {
         keysChecked += 1;
       }
     }
+    if (rootTranslationTracks !== 1) {
+      fail(
+        `animations: clip '${animation.getName()}' has ${rootTranslationTracks} root translation tracks (expected 1)`,
+      );
+    }
     if (clipMax > ROOT_MOTION_MAX_DELTA) {
       fail(
         `animations: clip '${animation.getName()}' root translation drifts by ` +
@@ -1078,6 +1373,7 @@ function assertInPlaceRootMotion(animations) {
     }
     clips[animation.getName()] = {
       keysChecked,
+      rootTranslationTracks,
       maxAbsDelta: Number(clipMax.toFixed(8)),
     };
   }
@@ -1143,6 +1439,13 @@ async function buildAnimations(io, manifest) {
   if (dropped.size > 0)
     console.log(`  animations: dropped channels targeting [${[...dropped].join(', ')}]`);
 
+  const proceduralAnimations = Object.fromEntries(
+    Object.entries(PROCEDURAL_ANIMATION_SPECS).map(([name, spec]) => [
+      name,
+      createProceduralAnimation(target, name, spec),
+    ]),
+  );
+
   // Every remaining track must target a bone that exists on the UBC body rig.
   const bodyDoc = quietDoc(await io.read(join(BODY_DIR, SOURCE_BODY_GLTF)));
   const bodyBoneNames = new Set(
@@ -1174,11 +1477,15 @@ async function buildAnimations(io, manifest) {
   const expected = [
     ...Object.values(UAL1_CLIP_RENAMES),
     ...Object.values(UAL2_CLIP_RENAMES),
+    ...Object.keys(PROCEDURAL_ANIMATION_SPECS),
   ].sort();
   if (JSON.stringify(clipNames) !== JSON.stringify(expected)) {
     fail(
       `animations: clip set mismatch\n  got:      ${clipNames.join(', ')}\n  expected: ${expected.join(', ')}`,
     );
+  }
+  if (clipNames.length > MAX_ANIMATION_CLIPS) {
+    fail(`animations: clip budget exceeded (${clipNames.length}/${MAX_ANIMATION_CLIPS})`);
   }
 
   await io.write(join(OUT_DIR, 'animations.glb'), target);
@@ -1186,7 +1493,11 @@ async function buildAnimations(io, manifest) {
   manifest.clipSources = {
     ...Object.fromEntries(Object.entries(UAL1_CLIP_RENAMES).map(([k, v]) => [v, `UAL1:${k}`])),
     ...Object.fromEntries(Object.entries(UAL2_CLIP_RENAMES).map(([k, v]) => [v, `UAL2:${k}`])),
+    ...Object.fromEntries(
+      Object.keys(PROCEDURAL_ANIMATION_SPECS).map((name) => [name, `offisim-procedural:${name}`]),
+    ),
   };
+  manifest.proceduralAnimations = proceduralAnimations;
   manifest.animationRetarget = {
     nonRootTranslationPolicy: 'removed; toy body bind offsets remain authoritative',
     scalePolicy: 'constant tracks removed; animated scale tracks retained',
@@ -1383,6 +1694,14 @@ function writeLicenses() {
     '- Used for: toy capsule body, runtime eye contract, chunky curl hair, and the',
     '  clipboard, tablet, terminal, pointer, headset, swatch, checklist, and keycard props.',
     '',
+    '## Offisim-authored procedural animation derivatives',
+    '',
+    '- Build logic: `scripts/build-character-assets.mjs` in this repository.',
+    '- Source clips: Quaternius CC0 rig clips from the packs listed below.',
+    '- License: the baked animation derivatives remain CC0 1.0; the build logic is',
+    '  covered by the Offisim repository license.',
+    '- Used for: the `sit.type` and `approval.wait` animation tracks.',
+    '',
   ].join('\n');
   writeFileSync(join(OUT_DIR, 'LICENSES.md'), `${header}\n${sections.join('\n\n')}\n`);
 }
@@ -1392,7 +1711,7 @@ async function main() {
   await MeshoptEncoder.ready;
   mkdirSync(OUT_DIR, { recursive: true });
   const io = createIO();
-  const manifest = { version: 3, bodies: {}, hair: {}, props: {} };
+  const manifest = { version: 4, bodies: {}, hair: {}, props: {} };
 
   console.log('building body_toy.glb');
   await buildToyBody(io, manifest);

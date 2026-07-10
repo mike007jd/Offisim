@@ -193,12 +193,12 @@ P1 只完善 P0 已验证的单一 `body_toy.glb` lane；不得恢复旧 male/fe
 - [x] release .app 验证：拖人录屏（P-5 闭合证据）。
 
 ### P3 动作补全 + 状态机（C）
-- [ ] 按 P0 采集的 pack 全量清单决策：sit.type / approval.wait 挖现成 vs 程序化叠加合成（build script 内 additive track）。
-- [ ] rename 表 + CLIP_NAMES + CLIP_META 扩展；总量 ≤24。
-- [ ] WorkGesture 加 `approval-wait`（或等价）；performanceForBeat/performanceForActivity 映射更新；clip-map proxy 清理。
-- [ ] phone/consume 可达性预留接口（真正消费在 P5）。
-- [ ] harness-character-clip-map 计数/断言同步；全量 pnpm validate 相关子集复绿。
-- [ ] release .app 验证：打字 vs 交谈 vs 阅读对比截图（P-1 闭合证据）。
+- [x] 按 P0 采集的 pack 全量清单决策：sit.type / approval.wait 挖现成 vs 程序化叠加合成（build script 内 additive track）。
+- [x] rename 表 + CLIP_NAMES + CLIP_META 扩展；总量 ≤24。
+- [x] WorkGesture 加 `approval-wait`（或等价）；performanceForBeat/performanceForActivity 映射更新；clip-map proxy 清理。
+- [x] phone/consume 可达性预留接口（真正消费在 P5）。
+- [x] harness-character-clip-map 计数/断言同步；全量 pnpm validate 相关子集复绿。
+- [x] release .app 验证：打字 vs 交谈 vs 阅读对比截图（P-1 闭合证据）。
 
 ### P4 状态视觉语言（D）
 - [ ] 四态 overlay 体系实现：indicators.tsx + OfficeScene3D 状态叠加整合重绘（working/approval/blocked/selected），旧 CharacterAction 路径整合。

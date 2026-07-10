@@ -43,6 +43,9 @@ importers:
       '@gltf-transform/functions':
         specifier: 4.4.1
         version: 4.4.1
+      '@offisim/shared-types':
+        specifier: workspace:*
+        version: link:packages/shared-types
       '@types/better-sqlite3':
         specifier: ^7.6.13
         version: 7.6.13
@@ -64,6 +67,9 @@ importers:
       sharp:
         specifier: 0.35.3
         version: 0.35.3
+      three:
+        specifier: ^0.184.0
+        version: 0.184.0
       turbo:
         specifier: ^2.4.0
         version: 2.8.14

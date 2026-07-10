@@ -1,0 +1,185 @@
+{
+  "schemaVersion": 1,
+  "phase": "P3 character actions and playback state machine",
+  "checkedAt": "2026-07-10T20:09:04+10:00",
+  "timeZone": "Australia/Sydney",
+  "result": "pass",
+  "releaseApp": {
+    "path": "/Users/haoshengli/Seafile/WebWorkSpace/Offisim/apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app",
+    "binaryPath": "/Users/haoshengli/Seafile/WebWorkSpace/Offisim/apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app/Contents/MacOS/offisim-desktop",
+    "binarySha256": "00ac7129823f3206d4ef91a6aecd79d15b5ef6c13d505ccdc34a27496727ac6a",
+    "binarySizeBytes": 28576896,
+    "binaryModifiedAt": "2026-07-10T18:53:01+10:00",
+    "codesignVerify": "pass",
+    "notarization": "not run; Apple credentials are not configured on this machine"
+  },
+  "computerUse": {
+    "appSelector": "/Users/haoshengli/Seafile/WebWorkSpace/Offisim/apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app",
+    "window": {
+      "cgWindowNumber": 238,
+      "pid": 12973,
+      "title": "Offisim",
+      "bounds": {
+        "x": 36,
+        "y": 33,
+        "width": 1440,
+        "height": 877
+      }
+    },
+    "coldLaunch": {
+      "result": "pass",
+      "evidence": "Computer Use quit the exact worktree release app with Cmd+Q; the exact binary path was absent from the process list before get_app_state relaunched it. The fresh company screen and tauri://localhost renderer were reached before entering Dramaturgy Smoke Lab."
+    }
+  },
+  "piRuntime": {
+    "provider": "openrouter-free",
+    "model": "openrouter/free",
+    "modelSourceUrl": "https://openrouter.ai/api/v1/models",
+    "modelCheckedAt": "2026-07-10T19:50:35+10:00",
+    "keyEndpointHttpStatus": 200,
+    "modelsEndpointHttpStatus": 200,
+    "pricing": {
+      "prompt": "0",
+      "completion": "0"
+    },
+    "toolCallingDeclared": true,
+    "configuration": "The user-authorized live configuration removed the expired ZAI credential and loaded the already-declared openrouter-free provider with a redacted key. No credential is stored in repository evidence.",
+    "routingNote": "qwen/qwen3-coder:free was exact-catalog valid but its public pool returned a transient 429. A fresh run selected openrouter/free and completed both read and write tool scenarios."
+  },
+  "scenarios": [
+    {
+      "name": "selected seated employee talking",
+      "result": "pass",
+      "employee": "Maya Lin",
+      "observed": [
+        "Computer Use selected Maya directly in the release 3D stage; the accessibility target changed to Open Maya Lin.",
+        "The selected seated actor held the social-discuss talking performance across eight independently captured frames, distinct from the read and write performances."
+      ],
+      "evidence": [
+        "release-talk-selected.jpg"
+      ]
+    },
+    {
+      "name": "read tool performance",
+      "result": "pass",
+      "runId": "attempt-8ff5d1d6-ef68-48ef-aa13-19fa43fdecc3",
+      "model": "openrouter-free/openrouter/free",
+      "permissionMode": "auto",
+      "tool": {
+        "name": "read",
+        "status": "completed",
+        "durationMs": 4
+      },
+      "observed": [
+        "The real Pi run read haikus.md and replied exactly P3 READ VERIFIED.",
+        "The release stage showed the read tool card and the actor's reading performance, distinct from the writing and talking stills."
+      ],
+      "evidence": [
+        "release-read.jpg"
+      ]
+    },
+    {
+      "name": "write tool performance",
+      "result": "pass",
+      "runId": "attempt-d4edbf01-247d-4032-8bf2-aa37b1d51e3e",
+      "model": "openrouter-free/openrouter/free",
+      "permissionMode": "auto",
+      "tool": {
+        "name": "write",
+        "status": "completed",
+        "durationMs": 4
+      },
+      "outputProbe": {
+        "path": "p3-release-live-smoke.txt",
+        "sizeBytes": 37,
+        "sha256": "626a894b993bcc9b38db913e49b0d8a89fead2f2a423171314cb462863286a4e",
+        "cleaned": true
+      },
+      "observed": [
+        "The real Pi run created the exact requested file and replied exactly P3 TYPE VERIFIED.",
+        "The release stage showed the write tool card, Write semantic label, and typing performance, distinct from reading and talking."
+      ],
+      "evidence": [
+        "release-type.jpg"
+      ]
+    },
+    {
+      "name": "approval wait versus blocked",
+      "result": "pass",
+      "approval": {
+        "runId": "attempt-fe676e7f-abaf-4272-9329-b97476fc5e43",
+        "model": "openrouter-free/openrouter/free",
+        "permissionMode": "ask",
+        "phase": "awaiting-approval",
+        "prompt": "Approve command?",
+        "reason": "Destructive shell command 'rm -rf' requires approval.",
+        "decision": "rejected",
+        "toolStatus": "failed after human rejection",
+        "testDirectoryDeletedByTool": false
+      },
+      "blockedComparator": {
+        "runId": "attempt-1a8f2523-fa80-4baf-b7b5-6a3357fda830",
+        "cause": "expired external ZAI balance returned upstream 429",
+        "stageState": "blocked"
+      },
+      "observed": [
+        "The approval state used the dedicated approval label, user-resource cue, 50% Approval pipeline step, amber approval treatment, and live Reject/Approve bar.",
+        "The external provider failure used the separate red blocked state and token-exhausted resource cue.",
+        "The approval was rejected; the command never deleted the test directory. The directory was later removed by terminal cleanup."
+      ],
+      "evidence": [
+        "release-approval-wait.jpg",
+        "release-blocked-token-exhausted.jpg"
+      ]
+    },
+    {
+      "name": "test artifact cleanup",
+      "result": "pass",
+      "observed": [
+        "p3-release-live-smoke.txt was removed from the product workspace after its exact hash and size were recorded.",
+        "/tmp/offisim-p3-approval-test-dir, temporary OpenRouter responses, and intermediate polling frames were removed.",
+        "The conversation permission mode was restored from Ask to Auto; the OpenRouter free model selection remains active."
+      ]
+    }
+  ],
+  "screenshots": {
+    "release-talk-selected.jpg": {
+      "sha256": "193c450bd2589d11aaa1d7aa7fb2f2f49be131300433044c1339e8730fa9cc33",
+      "width": 1262,
+      "height": 768
+    },
+    "release-read.jpg": {
+      "sha256": "7fb97791c03e237ccde46d40367a4c793dde80015d7794e123609e8e528c8eed",
+      "width": 1262,
+      "height": 768
+    },
+    "release-type.jpg": {
+      "sha256": "8e52539163741222f0097531797ad91c3df9b1ef376973ce936890b001991adc",
+      "width": 1262,
+      "height": 768
+    },
+    "release-approval-wait.jpg": {
+      "sha256": "536a75fa85baa43c6ee9f86764e31a40d426394529dbfde537defb8841e9784f",
+      "width": 1262,
+      "height": 768
+    },
+    "release-blocked-token-exhausted.jpg": {
+      "sha256": "8eeaf02c860d0bef05a220bcdcef039abaf8e0c6996691c3f128779cc46778d4",
+      "width": 1263,
+      "height": 768
+    },
+    "release-prepare-working.jpg": {
+      "sha256": "1b108ecc5c5e47b1a4051c7d9742b3a13aedfc21c2d8432876c1843872cbfbcc",
+      "width": 1263,
+      "height": 768
+    }
+  },
+  "runtimeLogScan": {
+    "command": "/usr/bin/log show --style compact --last 30m --predicate 'process == offisim-desktop'",
+    "linesScanned": 21382,
+    "productFailurePattern": "panic|fatal|uncaught|unhandled|webgl|renderer.*(crash|fail)|black screen|failed to load.*(glb|gltf|asset)|asset.*(fail|error)",
+    "productFailureMatches": 0,
+    "result": "pass",
+    "classification": "No product panic, renderer crash, black-screen, WebGL, GLB/GLTF, or character asset-load failure signature was present. Expected upstream provider 429 responses during provider fallback were external runtime failures and are recorded separately above."
+  }
+}
