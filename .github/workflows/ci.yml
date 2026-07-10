@@ -14,7 +14,7 @@ concurrency:
 jobs:
   gates:
     name: Types / harness / security gates
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, macOS, ARM64]
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v6
@@ -27,9 +27,12 @@ jobs:
 
   rust:
     name: Desktop Rust tests
-    runs-on: macos-latest
+    runs-on: [self-hosted, macOS, ARM64]
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
