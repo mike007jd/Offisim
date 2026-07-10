@@ -17,7 +17,7 @@ import { useUiState } from '@/app/ui-state.js';
 import { useEmployees, useOfficeLayout } from '@/data/queries.js';
 import type { Employee } from '@/data/types.js';
 import type { StagingPrefab } from '@offisim/shared-types';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { SCENE_CONTENT_SCALE } from './r3d/scene-art-direction.js';
 import {
   type EmployeeScenePlacement,
@@ -26,8 +26,17 @@ import {
   employeePlacements,
   zoneDefsFromLayout,
 } from './scene-layout.js';
+import {
+  type SeatSlotRegistry,
+  readSeatSlotRegistry,
+  reconcileSeatSlotRegistry,
+  seatSlotRegistriesEqual,
+  writeSeatSlotRegistry,
+} from './seat-slot-registry.js';
 
 export interface SceneStagingInputs {
+  /** Both roster and layout queries have settled; scenes suppress actors before this. */
+  readonly ready: boolean;
   /** Real backend layout (zones + placed prefabs); null in the no-backend preview. */
   readonly layoutData: ReturnType<typeof useOfficeLayout>['data'];
   readonly roster: Employee[];
@@ -45,12 +54,47 @@ export function useSceneStagingInputs(): SceneStagingInputs {
   const layout = useOfficeLayout(companyId);
   const layoutData = layout.data;
 
-  const roster = useMemo(() => employees.data ?? [], [employees.data]);
-  const zoneDefs = useMemo(() => zoneDefsFromLayout(layoutData), [layoutData]);
+  const ready = employees.isSuccess && layout.isSuccess;
+  const roster = useMemo(() => (ready ? (employees.data ?? []) : []), [employees.data, ready]);
+  const zoneDefs = useMemo(
+    () => (ready ? zoneDefsFromLayout(layoutData) : []),
+    [layoutData, ready],
+  );
   const fallbackZone = useMemo(() => defaultEmployeeZone(zoneDefs), [zoneDefs]);
+  const [registrySnapshot, setRegistrySnapshot] = useState<{
+    companyId: string;
+    registry: SeatSlotRegistry;
+  }>(() => ({ companyId, registry: readSeatSlotRegistry(companyId) }));
+  const persistedRegistry = useMemo(
+    () =>
+      registrySnapshot.companyId === companyId
+        ? registrySnapshot.registry
+        : readSeatSlotRegistry(companyId),
+    [companyId, registrySnapshot],
+  );
+  // Never rewrite a real company's stored slots from the synthetic fallback
+  // while either query is still loading. Dev preview reaches isSuccess with a
+  // null layout and intentionally uses the same stable registry contract.
+  const registryReady = ready;
+  const seatSlotRegistry = useMemo(
+    () =>
+      registryReady
+        ? reconcileSeatSlotRegistry(roster, zoneDefs, fallbackZone, persistedRegistry)
+        : persistedRegistry,
+    [fallbackZone, persistedRegistry, registryReady, roster, zoneDefs],
+  );
+  useEffect(() => {
+    if (!registryReady) return;
+    writeSeatSlotRegistry(companyId, seatSlotRegistry);
+    setRegistrySnapshot((current) =>
+      current.companyId === companyId && seatSlotRegistriesEqual(current.registry, seatSlotRegistry)
+        ? current
+        : { companyId, registry: seatSlotRegistry },
+    );
+  }, [companyId, registryReady, seatSlotRegistry]);
   const positions = useMemo(
-    () => employeePlacements(roster, zoneDefs, fallbackZone, layoutData?.prefabs),
-    [roster, zoneDefs, fallbackZone, layoutData?.prefabs],
+    () => employeePlacements(roster, zoneDefs, fallbackZone, layoutData?.prefabs, seatSlotRegistry),
+    [roster, zoneDefs, fallbackZone, layoutData?.prefabs, seatSlotRegistry],
   );
   const stagingPrefabs = useMemo<StagingPrefab[]>(
     () =>
@@ -69,7 +113,7 @@ export function useSceneStagingInputs(): SceneStagingInputs {
   );
 
   return useMemo(
-    () => ({ layoutData, roster, zoneDefs, fallbackZone, positions, stagingPrefabs }),
-    [layoutData, roster, zoneDefs, fallbackZone, positions, stagingPrefabs],
+    () => ({ ready, layoutData, roster, zoneDefs, fallbackZone, positions, stagingPrefabs }),
+    [ready, layoutData, roster, zoneDefs, fallbackZone, positions, stagingPrefabs],
   );
 }

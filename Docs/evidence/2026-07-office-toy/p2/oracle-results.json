@@ -1,0 +1,47 @@
+{
+  "phase": "P2",
+  "checkedAt": "2026-07-10T16:44:01+10:00",
+  "branch": "feat/office-toy-p2-seating",
+  "status": "passed",
+  "oracle": {
+    "command": "pnpm harness:office-seating-p2",
+    "checksPassed": 32,
+    "checksFailed": 0,
+    "sections": {
+      "identityRegistryAndCapacity": 18,
+      "executableMovementStateMachine": 7,
+      "productionWiring": 7
+    }
+  },
+  "acceptance": {
+    "semanticPersistenceOnly": true,
+    "rosterAddDeleteReorderStable": true,
+    "unaffectedEmployeesStableAcrossZoneMove": true,
+    "crossSessionStable": true,
+    "twoDThreeDSingleSource": true,
+    "atomicSitExitWalkSitEnter": true,
+    "nonReassignDropWalksHome": true,
+    "newEmployeeWalksFromZoneEntry": true,
+    "reducedMotionSnapsAtAnyPhase": true,
+    "straightFallbackOnlyWithoutPathfinder": true,
+    "companyCapacity": 16
+  },
+  "gates": {
+    "pnpmValidate": "passed",
+    "rendererProductionBuild": "passed",
+    "desktopRustTests": "149 passed, 0 failed",
+    "p1CharacterRegression": "32 passed, 0 failed",
+    "characterClipMap": "12960 states, 19 clips, passed",
+    "deadCode": "passed with 3 pre-existing warnings",
+    "releaseAppBuild": "passed",
+    "releaseBinarySha256": "d83c0b2d4f379f084f29a12f920314a552bf195409102cca3e627e3b91e02f85",
+    "codesignVerify": "passed"
+  },
+  "review": {
+    "firstPassConfirmedImportant": 6,
+    "firstPassResolved": 6,
+    "secondPassBlocker": 0,
+    "secondPassImportant": 0,
+    "secondPassResult": "PASS"
+  }
+}

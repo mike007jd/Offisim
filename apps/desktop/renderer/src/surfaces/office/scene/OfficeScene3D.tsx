@@ -27,6 +27,11 @@ import { Html, Line, OrbitControls } from '@react-three/drei';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Fragment, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ACESFilmicToneMapping, type Group } from 'three';
+import {
+  type CharacterMoveOrigin,
+  type CharacterMovementPhase,
+  planCharacterMove,
+} from './character-movement.js';
 import { GltfCharacter } from './character/GltfCharacter.js';
 import { preloadCharacterAssets } from './character/character-assets.js';
 import { openDeliveryHistory } from './delivery-history.js';
@@ -49,6 +54,7 @@ import { type ScenePlacementPoint, groundPointFromClient } from './scene-ground.
 import { compactSceneEmployeeName } from './scene-labels.js';
 import {
   type EmployeePosture,
+  type EmployeeScenePlacement,
   type ZoneDef,
   floorBounds,
   rotateLocal,
@@ -87,6 +93,20 @@ interface SceneEmployeeDrag {
   readonly moved: boolean;
 }
 
+interface SceneEmployeeReturn {
+  readonly id: string;
+  readonly employeeId: string;
+  readonly x: number;
+  readonly z: number;
+}
+
+interface SceneEmployeeEntry {
+  readonly id: string;
+  readonly employeeId: string;
+  readonly x: number;
+  readonly z: number;
+}
+
 interface SceneDropNotice {
   readonly id: string;
   readonly x: number;
@@ -105,6 +125,36 @@ interface SceneFlowLine {
   readonly labelPosition: readonly [number, number, number];
   /** 1.6px base + the shared bundleEmphasis step (+1 when the cue bundles ≥2 signals). */
   readonly lineWidth: number;
+}
+
+function employeeMovePlan(
+  pathfinder: OfficePathfinder | null,
+  start: PathPoint,
+  target: PathPoint,
+  origin: CharacterMoveOrigin,
+  currentPhase: CharacterMovementPhase,
+  reducedMotion: boolean,
+) {
+  const routedWaypoints = pathfinder?.findWaypoints(start, target) ?? null;
+  return planCharacterMove({
+    start,
+    target,
+    origin,
+    currentPhase,
+    reducedMotion,
+    pathfinderAvailable: pathfinder !== null,
+    routedWaypoints,
+  });
+}
+
+/** Stable inside-edge spawn point for a newly added employee. */
+function employeeEntryPoint(
+  placement: EmployeeScenePlacement,
+  zones: readonly ZoneDef[],
+): PathPoint {
+  const zone = zones.find((candidate) => candidate.id === placement.zoneId);
+  if (!zone) return [placement.x, placement.z];
+  return [zone.cx, zone.cz + Math.max(0, zone.d / 2 - 0.8)];
 }
 
 /**
@@ -175,6 +225,8 @@ function EmployeeUnit({
   performance,
   zones,
   pathfinder,
+  entryFrom,
+  returnFromDrop,
   onSelect,
   onDrilldown,
   onHoverChange,
@@ -201,6 +253,11 @@ function EmployeeUnit({
   zones: ZoneDef[];
   /** Floor pathfinder (H1/H2); null → the straight-line lerp fallback. */
   pathfinder: OfficePathfinder | null;
+  /** New hires walk in from a stable zone-edge source instead of mounting at the seat. */
+  entryFrom: SceneEmployeeEntry | null;
+  /** A non-zone drop re-seeds the real actor at the visible ghost position;
+   *  it then walks back to its unchanged semantic seat. */
+  returnFromDrop: SceneEmployeeReturn | null;
   onSelect: () => void;
   onDrilldown: () => void;
   onHoverChange: (hovered: boolean) => void;
@@ -209,11 +266,14 @@ function EmployeeUnit({
   onDragState: (drag: SceneEmployeeDrag | null) => void;
 }) {
   const { camera, gl } = useThree();
-  // Walk to the target (home placement or a high-value staged anchor) — routed
-  // around known obstacles when a pathfinder is available, else a straight glide.
-  // `walkingRef` flips on the walk locomotion while in transit.
+  // Walk to the target (home placement or a high-value staged anchor). A
+  // standard target change enters the atomic sit.exit phase; GltfCharacter
+  // promotes it to walk only after the one-shot finishes (or immediately when
+  // the actor is already standing). No-pathfinder previews use the explicit
+  // straight fallback; a real pathfinder returning no route never glides.
   const unitRef = useRef<Group>(null);
-  const walkingRef = useRef(false);
+  const walkingRef = useRef<CharacterMovementPhase>('idle');
+  const appliedReturnIdRef = useRef<string | null>(null);
   const targetRef = useRef<[number, number]>([x, z]);
   targetRef.current = [x, z];
   // Waypoint route toward the current target. Always holds at least the final
@@ -223,10 +283,31 @@ function EmployeeUnit({
   const waypointsRef = useRef<PathPoint[]>([[x, z]]);
   const waypointIndexRef = useRef(0);
   const plannedTargetRef = useRef<[number, number]>([x, z]);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: this effect only seeds the initial mount position on first render; x/z are intentionally excluded (subsequent moves plan a route via the effect below and animate in useFrame). Adding x/z would re-snap the position every move, defeating the walk animation.
+  const plannedPostureRef = useRef<EmployeePosture>(posture);
+  const plannedPathfinderRef = useRef(pathfinder);
+  // Mount at the final seat for a loaded roster, or at the explicit entry point
+  // for a newly added employee. Subsequent target changes are never snapped by
+  // this mount-only effect.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: mount-only seed; live target changes are owned by the effects below.
   useLayoutEffect(() => {
-    unitRef.current?.position.set(x, 0, z);
-    // Only seed the initial mount position; subsequent moves animate in useFrame.
+    const group = unitRef.current;
+    if (!group) return;
+    const start: PathPoint = entryFrom ? [entryFrom.x, entryFrom.z] : [x, z];
+    group.position.set(start[0], 0, start[1]);
+    if (entryFrom) {
+      const plan = employeeMovePlan(
+        pathfinder,
+        start,
+        [x, z],
+        'entry',
+        walkingRef.current,
+        reducedMotion,
+      );
+      waypointsRef.current = [...plan.waypoints];
+      waypointIndexRef.current = 0;
+      if (plan.snapToTarget) group.position.set(x, 0, z);
+      walkingRef.current = plan.phase;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   // Precompute the walk route when the target changes — NOT every frame. A drag
@@ -235,18 +316,72 @@ function EmployeeUnit({
   // unobstructed move (or a null pathfinder) collapses to a single-waypoint
   // straight line, the safe fallback that matches the old glide exactly.
   useEffect(() => {
-    const [px, pz] = plannedTargetRef.current;
-    if (Math.hypot(x - px, z - pz) < 0.05) return; // no meaningful target change
-    plannedTargetRef.current = [x, z];
     const group = unitRef.current;
+    if (reducedMotion && walkingRef.current !== 'idle') {
+      group?.position.set(x, 0, z);
+      walkingRef.current = 'idle';
+      waypointsRef.current = [[x, z]];
+      waypointIndexRef.current = 0;
+      plannedTargetRef.current = [x, z];
+      plannedPostureRef.current = posture;
+      plannedPathfinderRef.current = pathfinder;
+      return;
+    }
+    const [px, pz] = plannedTargetRef.current;
+    const distanceFromPlan = Math.hypot(x - px, z - pz);
+    if (
+      distanceFromPlan < 0.05 &&
+      plannedPostureRef.current === posture &&
+      plannedPathfinderRef.current === pathfinder
+    )
+      return;
+    plannedTargetRef.current = [x, z];
+    plannedPostureRef.current = posture;
+    plannedPathfinderRef.current = pathfinder;
     const start: PathPoint = group ? [group.position.x, group.position.z] : [x, z];
-    const route = pathfinder?.findWaypoints(start, [x, z]) ?? null;
-    waypointsRef.current = route && route.length > 0 ? route : [[x, z]];
+    const plan = employeeMovePlan(
+      pathfinder,
+      start,
+      [x, z],
+      'settled',
+      walkingRef.current,
+      reducedMotion,
+    );
+    waypointsRef.current = [...plan.waypoints];
     waypointIndexRef.current = 0;
-  }, [x, z, pathfinder]);
+    if (plan.snapToTarget) group?.position.set(x, 0, z);
+    walkingRef.current = plan.phase;
+  }, [x, z, pathfinder, posture, reducedMotion]);
+
+  // A drag ghost is the visible position the user released. Seed the actual
+  // actor there before paint, then route to the shared placement. This handles
+  // both successful zone changes and non-zone fallbacks without teleporting.
+  useLayoutEffect(() => {
+    if (!returnFromDrop || appliedReturnIdRef.current === returnFromDrop.id) return;
+    const group = unitRef.current;
+    if (!group) return;
+    appliedReturnIdRef.current = returnFromDrop.id;
+    group.position.set(returnFromDrop.x, 0, returnFromDrop.z);
+    plannedTargetRef.current = [x, z];
+    plannedPostureRef.current = posture;
+    const start: PathPoint = [returnFromDrop.x, returnFromDrop.z];
+    const plan = employeeMovePlan(
+      pathfinder,
+      start,
+      [x, z],
+      'drop-return',
+      walkingRef.current,
+      reducedMotion,
+    );
+    waypointsRef.current = [...plan.waypoints];
+    waypointIndexRef.current = 0;
+    if (plan.snapToTarget) group.position.set(x, 0, z);
+    walkingRef.current = plan.phase;
+  }, [pathfinder, posture, reducedMotion, returnFromDrop, x, z]);
   useFrame((_, delta) => {
     const group = unitRef.current;
     if (!group) return;
+    if (walkingRef.current !== 'walk') return;
     const waypoints = waypointsRef.current;
     const lastIndex = waypoints.length - 1;
     let index = waypointIndexRef.current;
@@ -259,7 +394,9 @@ function EmployeeUnit({
     // waypoint uses the fine arrival threshold below.
     while (dist <= 0.28 && index < lastIndex) {
       index += 1;
-      wp = waypoints[index]!;
+      const nextWaypoint = waypoints[index];
+      if (!nextWaypoint) break;
+      wp = nextWaypoint;
       dx = wp[0] - group.position.x;
       dz = wp[1] - group.position.z;
       dist = Math.hypot(dx, dz);
@@ -269,11 +406,9 @@ function EmployeeUnit({
       const step = Math.min(1, (1.9 * delta) / dist);
       group.position.x += dx * step;
       group.position.z += dz * step;
-      // Walking tell: still traversing to a later waypoint, or the final leg is
-      // more than a pace away (same 0.12 threshold as the old straight glide).
-      walkingRef.current = index < lastIndex || dist > 0.12;
     } else {
-      walkingRef.current = false;
+      group.position.set(x, 0, z);
+      walkingRef.current = 'idle';
     }
   });
   const cleanupRef = useRef<(() => void) | null>(null);
@@ -792,6 +927,7 @@ export function OfficeScene3D() {
   const selectedRun = useConversationRun(selectedThreadId ?? '');
   const reassign = useReassignEmployee();
   const [employeeDrag, setEmployeeDrag] = useState<SceneEmployeeDrag | null>(null);
+  const [returnFromDrop, setReturnFromDrop] = useState<SceneEmployeeReturn | null>(null);
   const [hoveredEmployeeId, setHoveredEmployeeId] = useState<string | null>(null);
   const [hoveredZoneId, setHoveredZoneId] = useState<string | null>(null);
   const [dropNotice, setDropNotice] = useState<SceneDropNotice | null>(null);
@@ -799,6 +935,7 @@ export function OfficeScene3D() {
   // Shared staging inputs — the same layout/roster/seat-planner facts the 2D
   // scene and the drilldown read (never re-derived per scene).
   const {
+    ready: sceneInputsReady,
     layoutData,
     roster,
     zoneDefs,
@@ -806,6 +943,18 @@ export function OfficeScene3D() {
     positions: placementsByEmployee,
     stagingPrefabs,
   } = useSceneStagingInputs();
+  const knownEmployeeIdsRef = useRef<Set<string> | null>(null);
+  const enteringEmployeeIds = new Set<string>();
+  if (sceneInputsReady && knownEmployeeIdsRef.current) {
+    for (const employee of roster) {
+      if (!knownEmployeeIdsRef.current.has(employee.id)) enteringEmployeeIds.add(employee.id);
+    }
+  }
+  useLayoutEffect(() => {
+    knownEmployeeIdsRef.current = sceneInputsReady
+      ? new Set(roster.map((employee) => employee.id))
+      : null;
+  }, [roster, sceneInputsReady]);
   const real = layoutData ?? null;
   // Only reachable with a real backend layout that has zero zones — the
   // no-backend preview path always resolves to the non-empty FALLBACK_ZONES.
@@ -986,6 +1135,7 @@ export function OfficeScene3D() {
                 z: defaultEmployeeZone.cz,
                 rotation: 0,
                 posture: 'standing' as const,
+                zoneId: defaultEmployeeZone.id,
               };
               // Every runtime fact for this actor comes from its cue: running,
               // selection, drag, the workload bubble, staging, performance.
@@ -1010,6 +1160,9 @@ export function OfficeScene3D() {
               // clip path (idle loop, talk loop) stays byte-identical.
               const performance = cue?.performance ?? undefined;
               const threadId = cue?.threadId ?? null;
+              const entryPoint = enteringEmployeeIds.has(employee.id)
+                ? employeeEntryPoint(placement, zoneDefs)
+                : null;
               return (
                 <EmployeeUnit
                   key={employee.id}
@@ -1029,6 +1182,19 @@ export function OfficeScene3D() {
                   performance={performance}
                   zones={zoneDefs}
                   pathfinder={pathfinder}
+                  entryFrom={
+                    entryPoint
+                      ? {
+                          id: `entry-${employee.id}`,
+                          employeeId: employee.id,
+                          x: entryPoint[0],
+                          z: entryPoint[1],
+                        }
+                      : null
+                  }
+                  returnFromDrop={
+                    returnFromDrop?.employeeId === employee.id ? returnFromDrop : null
+                  }
                   onSelect={() => threadId && openThread(threadId)}
                   onDrilldown={() => openWorkloadDrilldown(employee.id)}
                   onHoverChange={(hovered) =>
@@ -1039,7 +1205,16 @@ export function OfficeScene3D() {
                   onHoverZone={setHoveredZoneId}
                   onDragState={setEmployeeDrag}
                   onDrop={(result) => {
-                    if (result.zoneId)
+                    const changesZone = result.zoneId != null && result.zoneId !== placement.zoneId;
+                    if (result.moved && !changesZone && result.x != null && result.z != null) {
+                      setReturnFromDrop({
+                        id: `drop-return-${crypto.randomUUID()}`,
+                        employeeId: employee.id,
+                        x: result.x,
+                        z: result.z,
+                      });
+                    }
+                    if (changesZone && result.zoneId)
                       reassign.mutate({ employeeId: employee.id, zoneId: result.zoneId });
                     recordSceneDropDiagnostic({
                       id: `drop-${crypto.randomUUID()}`,

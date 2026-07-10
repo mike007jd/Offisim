@@ -30,7 +30,7 @@ export function ExternalEmployeeInstallDialog({
   const [discovering, setDiscovering] = useState(false);
   const [discoverError, setDiscoverError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
-  const [installError, setInstallError] = useState(false);
+  const [installError, setInstallError] = useState<string | null>(null);
 
   const form = useForm<DiscoverValues>({
     resolver: zodResolver(discoverSchema),
@@ -44,7 +44,7 @@ export function ExternalEmployeeInstallDialog({
     setDiscovering(false);
     setDiscoverError(null);
     setConnecting(false);
-    setInstallError(false);
+    setInstallError(null);
     form.reset({ url: '' });
   }
 
@@ -59,7 +59,7 @@ export function ExternalEmployeeInstallDialog({
     if (card && urlValue !== discoveredUrl) {
       setCard(null);
       setDiscoveredUrl(null);
-      setInstallError(false);
+      setInstallError(null);
     }
   }, [urlValue, card, discoveredUrl]);
 
@@ -81,12 +81,12 @@ export function ExternalEmployeeInstallDialog({
   async function runConnect() {
     if (!card) return;
     setConnecting(true);
-    setInstallError(false);
+    setInstallError(null);
     try {
       await onInstalled(card);
       handleOpenChange(false);
-    } catch {
-      setInstallError(true);
+    } catch (error) {
+      setInstallError(error instanceof Error ? error.message : 'No connection was created.');
       setConnecting(false);
     }
   }
@@ -167,7 +167,7 @@ export function ExternalEmployeeInstallDialog({
               <Icon icon={AlertTriangle} size="sm" />
               <div>
                 <div className="off-set-err-title">Connection failed</div>
-                <div className="off-set-err-msg">No connection was created. You can retry.</div>
+                <div className="off-set-err-msg">{installError}</div>
               </div>
             </div>
           ) : null}

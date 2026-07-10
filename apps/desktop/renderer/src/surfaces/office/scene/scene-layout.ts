@@ -2,6 +2,11 @@ import type { Employee, ZoneKind } from '@/data/types.js';
 import { normalizeRotation, rotateLocalXZ } from '@offisim/shared-types';
 import { SCENE_CONTENT_SCALE } from './r3d/scene-art-direction.js';
 import {
+  SEAT_SLOT_CAPACITY,
+  type SeatSlotRegistry,
+  reconcileSeatSlotRegistry,
+} from './seat-slot-registry.js';
+import {
   WORKSTATION_DESK_DEPTH,
   WORKSTATION_DUAL_LANES,
   WORKSTATION_SEAT_FORWARD,
@@ -554,16 +559,25 @@ function employeeZone(employee: Employee, zones: ZoneDef[], fallbackZone: ZoneDe
   return zones.find((zone) => zone.id === employee.workstationId) ?? fallbackZone;
 }
 
-/** Deterministic 3D placement per employee, grouped by their assigned zone. */
+/**
+ * Identity-stable placement shared by the 2D and 3D scenes.
+ *
+ * The registry binds identity to a semantic slot; this function derives that
+ * slot's current world coordinate from a fixed-size catalog. Building all 16
+ * candidates even when only one employee is present is intentional: adding or
+ * removing another employee cannot reshape the earlier candidate prefix.
+ */
 export function employeePlacements(
   roster: Employee[],
   zones: ZoneDef[],
   fallbackZone: ZoneDef,
   prefabs?: readonly SeatAnchorPrefab[],
+  seatSlotRegistry: SeatSlotRegistry = { version: 1, assignments: {} },
 ): Map<string, EmployeeScenePlacement> {
   // A real backend with no layout has no zones to seat anyone in: place no
   // one, rather than parking the roster in a synthetic placeholder zone.
   if (zones.length === 0) return new Map();
+  const resolvedRegistry = reconcileSeatSlotRegistry(roster, zones, fallbackZone, seatSlotRegistry);
   const byZone = new Map<string, { zone: ZoneDef; employees: Employee[] }>();
   for (const employee of roster) {
     const zone = employeeZone(employee, zones, fallbackZone);
@@ -575,12 +589,13 @@ export function employeePlacements(
   const placements = new Map<string, EmployeeScenePlacement>();
   for (const { zone, employees } of byZone.values()) {
     const zonePrefabs = prefabsForZone(zone, prefabs);
-    const anchored = workstationAnchorSeats(employees.length, zonePrefabs);
-    const candidates = mergedSeats(zone, employees.length, anchored);
+    const anchored = workstationAnchorSeats(SEAT_SLOT_CAPACITY, zonePrefabs);
+    const candidates = mergedSeats(zone, SEAT_SLOT_CAPACITY, anchored);
     const seats = settleSeats(zone, candidates, zonePrefabs);
-    employees.forEach((employee, index) => {
-      const seat = seats[index] ?? [zone.cx, zone.cz];
-      const candidate = candidates[index];
+    for (const employee of employees) {
+      const slot = resolvedRegistry.assignments[employee.id]?.slot ?? 0;
+      const seat = seats[slot] ?? [zone.cx, zone.cz];
+      const candidate = candidates[slot];
       placements.set(employee.id, {
         x: seat[0],
         z: seat[1],
@@ -588,7 +603,7 @@ export function employeePlacements(
         posture: candidate?.posture ?? 'standing',
         zoneId: zone.id,
       });
-    });
+    }
   }
   return placements;
 }

@@ -21,6 +21,11 @@ import {
   TorusGeometry,
 } from 'three';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
+import {
+  type CharacterMovementPhase,
+  performanceForMovementPhase,
+  shouldPromoteSitExit,
+} from '../character-movement.js';
 import { OFFICE_CHARACTER_METRICS, WORKSTATION_VERTICAL_METRICS } from '../workstation-geometry.js';
 import { CHARACTER_ASSET_URLS, characterManifest, useCharacterGltf } from './character-assets.js';
 import {
@@ -113,9 +118,10 @@ export interface CharacterProps {
    * the UI indicators (selection halo, working dots).
    */
   performance?: CharacterPerformanceState;
-  /** Per-frame relocation flag (set by the scene's lerp) → walk locomotion while
-   *  in transit, then the destination performance once arrived. */
-  walkingRef?: { readonly current: boolean };
+  /** Mutable scene movement phase. A seated departure holds `sit-exit` until
+   *  that one-shot finishes, then this component promotes it to `walk`; arrival
+   *  returns to `idle` and the normal posture transition plays sit.enter. */
+  walkingRef?: { current: CharacterMovementPhase };
   /** Performance-profile tempo (employee flavor); scales animation speed only. */
   tempo?: number;
   /** Deterministic phase offset so idle loops don't sync across the room. */
@@ -250,7 +256,7 @@ interface RigViewProps {
   posture: CharacterPosture;
   performance?: CharacterPerformanceState;
   usePerformance: boolean;
-  walkingRef?: { readonly current: boolean };
+  walkingRef?: { current: CharacterMovementPhase };
   tempo: number;
   phase: number;
   reducedMotion: boolean;
@@ -295,12 +301,14 @@ function RigView({
     );
   }, []);
 
+  const initialPosture: CharacterPerformanceState['posture'] =
+    usePerformance && performance ? performance.posture : posture === 'sitting' ? 'sit' : 'stand';
   const playback = useRef<{
     clip: ClipName | null;
     action: AnimationAction | null;
     posture: CharacterPerformanceState['posture'] | null;
     pending: ClipSelection | null;
-  }>({ clip: null, action: null, posture: null, pending: null });
+  }>({ clip: null, action: null, posture: initialPosture, pending: null });
   // Tracks reduced-motion transitions: enabling it mid-clip must snap to the
   // clip's static pose, not freeze whatever frame the mixer happened to be on.
   const wasReducedMotionRef = useRef(reducedMotion);
@@ -332,14 +340,22 @@ function RigView({
     playback.current.action = next;
   };
 
-  // Posture transitions completing → enter the pending destination clip.
+  // Posture transitions completing → enter the pending destination clip. A
+  // scene-requested seated departure advances only AFTER sit.exit has visibly
+  // completed, so translation can never start under a seated pose.
   // biome-ignore lint/correctness/useExhaustiveDependencies: startClip reads live refs/actions; the mixer lives as long as this RigView instance (keyed per rig), so mount-time registration is exactly right.
   useEffect(() => {
-    const onFinished = () => {
+    const onFinished = (event: { action: AnimationAction }) => {
       const pending = playback.current.pending;
       if (!pending) return;
       playback.current.pending = null;
       startClip(pending, false);
+      if (
+        walkingRef?.current === 'sit-exit' &&
+        event.action === actions[POSTURE_TRANSITION_CLIPS.sitExit]
+      ) {
+        walkingRef.current = 'walk';
+      }
     };
     mixer.addEventListener('finished', onFinished);
     return () => mixer.removeEventListener('finished', onFinished);
@@ -347,13 +363,10 @@ function RigView({
 
   useFrame((state, delta) => {
     mixer.timeScale = reducedMotion ? 0 : tempo;
-    const walking = reducedMotion ? false : (walkingRef?.current ?? false);
-    const perf =
-      usePerformance && performance
-        ? walking
-          ? { ...performance, locomotion: 'walk' as const }
-          : performance
-        : legacyPerformance(actionState, posture);
+    const movementPhase = reducedMotion ? 'idle' : (walkingRef?.current ?? 'idle');
+    const basePerformance =
+      usePerformance && performance ? performance : legacyPerformance(actionState, posture);
+    const perf = performanceForMovementPhase(basePerformance, movementPhase);
     const selection: ClipSelection = clipForPerformance(perf);
 
     // Seated-body offset (see SEATED_BODY_LIFT): butt onto the chair cushion
@@ -402,6 +415,18 @@ function RigView({
 
     const reducedJustEnabled = reducedMotion && !wasReducedMotionRef.current;
     wasReducedMotionRef.current = reducedMotion;
+    // A standing actor has nothing to exit. Promote immediately, but never
+    // interrupt an in-flight sit.exit (`pending` stays set until mixer finish).
+    if (
+      shouldPromoteSitExit(
+        movementPhase,
+        playback.current.posture,
+        playback.current.pending !== null,
+      )
+    ) {
+      if (walkingRef) walkingRef.current = 'walk';
+      return;
+    }
     if (playback.current.clip === selection.clip) {
       // Same clip, but reduce-motion just turned on: re-seat the action at its
       // static frame so the freeze is an intentional pose, not a mid-swing one.
@@ -412,6 +437,7 @@ function RigView({
     playback.current.posture = perf.posture;
     if (reducedMotion) {
       // Static pose: jump straight to the destination clip's first frame.
+      playback.current.pending = null;
       startClip(selection, true);
       return;
     }

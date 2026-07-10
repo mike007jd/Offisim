@@ -1,5 +1,7 @@
 import { useUiState } from '@/app/ui-state.js';
 import { reposOrNull } from '@/data/adapters.js';
+import { EMPLOYEE_CAPACITY_MESSAGE, MAX_COMPANY_EMPLOYEES } from '@/data/employee-capacity.js';
+import { useEmployees } from '@/data/queries.js';
 import { IconButton } from '@/design-system/grammar/index.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
@@ -36,6 +38,7 @@ export function ExternalEmployeesPane() {
   const setSurface = useUiState((s) => s.setSurface);
   const selectEmployee = useUiState((s) => s.selectEmployee);
   const queryClient = useQueryClient();
+  const employees = useEmployees();
   const { data: fetched = [] } = useExternalEmployees(companyId);
   const [installOpen, setInstallOpen] = useState(false);
   const [tokenEditId, setTokenEditId] = useState<string | null>(null);
@@ -60,6 +63,9 @@ export function ExternalEmployeesPane() {
   async function handleInstalled(card: DiscoveredCard) {
     if (!hasCompany) {
       throw new Error('Create or select a company before connecting an external employee.');
+    }
+    if ((employees.data?.length ?? 0) >= MAX_COMPANY_EMPLOYEES) {
+      throw new Error(EMPLOYEE_CAPACITY_MESSAGE);
     }
     const repos = await reposOrNull();
     if (!repos) {
@@ -192,6 +198,13 @@ export function ExternalEmployeesPane() {
   }
 
   const sorted = [...fetched].sort((a, b) => b.installedAt - a.installedAt);
+  const atCapacity = (employees.data?.length ?? 0) >= MAX_COMPANY_EMPLOYEES;
+  const canConnect = hasCompany && !atCapacity;
+  const connectDisabledReason = !hasCompany
+    ? 'Create or select a company first'
+    : atCapacity
+      ? EMPLOYEE_CAPACITY_MESSAGE
+      : undefined;
 
   return (
     <div className="off-set-pane">
@@ -201,7 +214,12 @@ export function ExternalEmployeesPane() {
           <div className="off-set-panedesc">External employees connected over A2A.</div>
         </div>
         {sorted.length > 0 ? (
-          <Button size="md" disabled={!hasCompany} onClick={() => setInstallOpen(true)}>
+          <Button
+            size="md"
+            disabled={!canConnect}
+            title={connectDisabledReason}
+            onClick={() => setInstallOpen(true)}
+          >
             <Icon icon={Plug} size="sm" />
             Connect employee
           </Button>
@@ -218,7 +236,8 @@ export function ExternalEmployeesPane() {
           <Button
             size="md"
             className="mt-[var(--off-sp-5)]"
-            disabled={!hasCompany}
+            disabled={!canConnect}
+            title={connectDisabledReason}
             onClick={() => setInstallOpen(true)}
           >
             <Icon icon={Plus} size="sm" />

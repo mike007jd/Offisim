@@ -186,11 +186,11 @@ P1 只完善 P0 已验证的单一 `body_toy.glb` lane；不得恢复旧 male/fe
 - [x] release .app 验证：多员工多样性全景 + 岗位识别截图。
 
 ### P2 座位身份与移动（B）
-- [ ] `employeePlacements` 改身份稳定分座（zone 内按 employee id 排序绑 seat slot；评估是否需要显式 seat 字段——需要则走 prelaunch schema 三步）。
-- [ ] 换位走路编排：reassign / relocation 回家 / 新入座统一走 sit.exit → A* walk → sit.enter 流水（现有 posture promote 机制复用）。
-- [ ] 拖拽落点回退路径：非 zone 落点 → 走回原座（非瞬移）。
-- [ ] harness：分座稳定性守卫（增删/重排 roster、跨 zone 移动，断言其余座位不变）。
-- [ ] release .app 验证：拖人录屏（P-5 闭合证据）。
+- [x] `employeePlacements` 改身份稳定分座：renderer 按 company 持久化 `employee id → zone id + slot index`，首次分配按 employee id 排序取最低空 slot；roster 重排、增删、他人跨 zone 不重编号。seat catalog 固定为与当前 roster 人数无关的 16-slot 前缀稳定目录；只持久化 slot，不持久化 x/z，不改 Rust/core schema。
+- [x] 换位走路编排：reassign / relocation 回家 / 新入座统一走 sit.exit → A* walk → sit.enter 流水（现有 posture promote 机制复用）。
+- [x] 拖拽落点回退路径：非 zone 落点 → 走回原座（非瞬移）。
+- [x] harness：分座稳定性守卫（初始 id 排序、增删/重排 roster、跨 zone 移动、存储 roundtrip/坏数据重置、2D/3D 单源 wiring，断言其余 slot 与坐标不变）；移动 wiring 守卫锁定 sit.exit → A* walk → sit.enter、drop-origin 回座和 repository-success-first zone reassign。
+- [x] release .app 验证：拖人录屏（P-5 闭合证据）。
 
 ### P3 动作补全 + 状态机（C）
 - [ ] 按 P0 采集的 pack 全量清单决策：sit.type / approval.wait 挖现成 vs 程序化叠加合成（build script 内 additive track）。
