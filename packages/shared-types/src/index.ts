@@ -366,6 +366,7 @@ export {
 } from './dramaturgy/staging.js';
 export type {
   CharacterPerformanceState,
+  CharacterStatus,
   Expression,
   Locomotion,
   Posture,
@@ -379,6 +380,7 @@ export {
   IDLE_PERFORMANCE,
   performanceForBeat,
   performanceForRoutine,
+  performanceForStatus,
 } from './dramaturgy/performance.js';
 export type { EmployeeStaging } from './dramaturgy/office-projection.js';
 export { currentBeatsByEmployee, projectOfficeStaging } from './dramaturgy/office-projection.js';

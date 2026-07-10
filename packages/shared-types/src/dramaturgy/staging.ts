@@ -20,7 +20,8 @@ export type InteractionAnchorKind =
   | 'standing-review'
   | 'reading-seat'
   | 'server-inspect'
-  | 'social-seat';
+  | 'social-seat'
+  | 'delivery-shelf';
 
 /** A single interaction point on a prefab, in prefab-local space. */
 export interface InteractionAnchor {
@@ -45,6 +46,16 @@ const a = (
  * (plants, switches, cabling) are simply absent.
  */
 export const BUILTIN_PREFAB_AFFORDANCES: Readonly<Record<string, readonly InteractionAnchor[]>> = {
+  // Renderer-owned semantic fixture: both scene modes inject one instance at
+  // the shared delivery location. Four service positions let ordinary parallel
+  // output remain truthful without stacking actors on one point; the normal
+  // reservation table still applies focus/reduced-motion/walker-cap rules.
+  'office-delivery-shelf': [
+    a('delivery-shelf', [-0.62, 0.96], 180, 'standing'),
+    a('delivery-shelf', [0.62, 0.96], 180, 'standing'),
+    a('delivery-shelf', [-1.32, 0], 90, 'standing'),
+    a('delivery-shelf', [1.32, 0], 270, 'standing'),
+  ],
   'workstation-standard': [a('workstation', [0, 0.55], 180, 'sitting')],
   'workstation-compact': [a('workstation', [0, 0.5], 180, 'sitting')],
   // Two seats, one per lane — a dual desk seats two independent actors.

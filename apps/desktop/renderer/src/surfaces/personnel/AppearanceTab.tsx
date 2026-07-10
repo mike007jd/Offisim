@@ -1,10 +1,10 @@
+import { usePrefersReducedMotion } from '@/assistant/runtime/office-dramaturgy.js';
 import type { Employee } from '@/data/types.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { SegmentedControl } from '@/design-system/grammar/SegmentedControl.js';
 import { Select } from '@/design-system/grammar/Select.js';
 import { Icon } from '@/design-system/icons/Icon.js';
-import { usePrefersReducedMotion } from '@/assistant/runtime/office-dramaturgy.js';
 import { type EmployeeAppearance, resolveAppearance } from '@/lib/avatar.js';
 import { cn } from '@/lib/utils.js';
 import { OrbitControls } from '@react-three/drei';
@@ -98,7 +98,8 @@ function AppearancePreviewPanel({
             <Suspense fallback={null}>
               <GltfCharacter
                 appearance={resolved}
-                action="active"
+                status="idle"
+                selected
                 role={employee.roleSlug ?? employee.role}
                 phase={0}
                 reducedMotion={reducedMotion}

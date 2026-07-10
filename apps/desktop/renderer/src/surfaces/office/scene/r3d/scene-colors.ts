@@ -64,6 +64,28 @@ export interface Scene3DColors {
   emissiveBase: string;
 }
 
+/**
+ * P4 operational-state source of truth from the office art bible. These exact
+ * values are intentionally separate from generic UI accent/warn/danger tokens:
+ * the diorama has a lower-saturation material language. 2D keeps a manually
+ * mirrored table in color-palette.ts and the P4 oracle locks equality.
+ */
+export const OFFICE_TOY_STATE_COLORS = {
+  working: '#5C9A96',
+  approval: '#D09A45',
+  blocked: '#C65F5A',
+  selected: '#7FA9D8',
+} as const;
+
+export const OFFICE_TOY_SIGNAL_COLORS = {
+  artifact: '#1AA46A',
+  neutral: '#647186',
+} as const;
+
+export const OFFICE_TOY_CHARACTER_COLORS = {
+  eye: '#111820',
+} as const;
+
 export const LIGHT_SCENE_3D: Scene3DColors = {
   floor: '#cfcabc',
   desk: '#c0a781',

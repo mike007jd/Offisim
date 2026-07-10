@@ -18,6 +18,7 @@ import { useEmployees, useOfficeLayout } from '@/data/queries.js';
 import type { Employee } from '@/data/types.js';
 import type { StagingPrefab } from '@offisim/shared-types';
 import { useEffect, useMemo, useState } from 'react';
+import { OFFICE_DELIVERY_STAGING_PREFAB } from './office-visual-language.js';
 import { SCENE_CONTENT_SCALE } from './r3d/scene-art-direction.js';
 import {
   type EmployeeScenePlacement,
@@ -97,8 +98,8 @@ export function useSceneStagingInputs(): SceneStagingInputs {
     [roster, zoneDefs, fallbackZone, layoutData?.prefabs, seatSlotRegistry],
   );
   const stagingPrefabs = useMemo<StagingPrefab[]>(
-    () =>
-      (layoutData?.prefabs ?? []).map((p) => ({
+    () => [
+      ...(layoutData?.prefabs ?? []).map((p) => ({
         instanceId: p.instance.instance_id,
         prefabId: p.instance.prefab_id,
         x: p.instance.position_x,
@@ -109,6 +110,10 @@ export function useSceneStagingInputs(): SceneStagingInputs {
         // and 3D.
         scale: SCENE_CONTENT_SCALE,
       })),
+      // A semantic scene fixture, not persisted customer layout: artifact beats
+      // reserve it through the same deterministic anchor pipeline as furniture.
+      OFFICE_DELIVERY_STAGING_PREFAB,
+    ],
     [layoutData?.prefabs],
   );
 

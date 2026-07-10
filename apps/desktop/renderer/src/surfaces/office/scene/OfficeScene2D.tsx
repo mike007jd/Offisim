@@ -15,8 +15,9 @@ import type { ZoneKind } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
 import { CANVAS_FONT_TOKENS } from '@/styles/visual-tokens.js';
 import { openArtifactClaim } from '@/surfaces/office/stage-viewer/artifact-claim.js';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { openDeliveryHistory } from './delivery-history.js';
+import { OFFICE_DELIVERY_WORLD, officeResourceMarkerColor } from './office-visual-language.js';
 import { compactSceneEmployeeName } from './scene-labels.js';
 import { archetypeToKind, clamp, floorBounds } from './scene-layout.js';
 import { useSceneStagingInputs } from './use-scene-staging-inputs.js';
@@ -58,7 +59,7 @@ const INK_2D: Record<SceneInk, { readonly line: string; readonly packet: string 
  */
 const CHIP_TONE_2D: Record<WorkloadChipTone, string> = {
   work: OFFICE_SCENE_2D_COLORS.flowPacket,
-  wait: OFFICE_SCENE_2D_COLORS.deliveryShelfLine,
+  wait: OFFICE_SCENE_2D_COLORS.approvalPacket,
   risk: OFFICE_SCENE_2D_COLORS.resourcePacket,
   done: OFFICE_SCENE_2D_COLORS.artifactPacket,
 };
@@ -110,10 +111,6 @@ export function OfficeScene2D() {
   const { roster, zoneDefs, positions, stagingPrefabs } = useSceneStagingInputs();
   const { floorW, floorD } = useMemo(() => floorBounds(zoneDefs), [zoneDefs]);
 
-  // Hover is this scene's only local interaction state; it feeds the hook so
-  // ActorCue.hovered carries it back as a cue (never a per-scene derivation).
-  const [hoveredEmployeeId, setHoveredEmployeeId] = useState<string | null>(null);
-
   // THE render contract: one SceneCueFrame per render, shared with the 3D
   // scene and the drilldown. All runtime facts (staging, flows, delivery,
   // workload bubbles, selection) come from here — along with the shared
@@ -121,7 +118,6 @@ export function OfficeScene2D() {
   const { frame, actorById } = useSceneCueFrame({
     prefabs: stagingPrefabs,
     actorPositions: positions,
-    hoveredEmployeeId,
   });
   const selectedEmployeeId = useMemo(
     () => frame.actors.find((actor) => actor.selected)?.employeeId ?? null,
@@ -250,7 +246,7 @@ export function OfficeScene2D() {
       // fixed px minimum decouples from the world-unit seat spacing/edge
       // margins and overflows zone rects on narrow stages.
       const r = Math.min(16, Math.max(9, scale * 0.42));
-      // The running ring draws at r + 5 with a 2.5px stroke.
+      // The operational-state ring draws at r + 5; selection is the outer ring.
       const ringPad = 6;
       // Zone title sits in the top 18px band (+ descenders); keeping discs
       // below it means the title can never be painted over.
@@ -294,7 +290,7 @@ export function OfficeScene2D() {
       const flowTarget = (target: FlowCueTarget) => {
         switch (target) {
           case 'delivery':
-            return { sx: wx(floorW / 2 - 2.7), sy: wy(floorD / 2 - 2.0) };
+            return { sx: wx(OFFICE_DELIVERY_WORLD.x), sy: wy(OFFICE_DELIVERY_WORLD.z) };
           case 'tool':
             return { sx: wx(floorW / 2 - 4.8), sy: wy(-floorD / 2 + 3.2) };
           case 'review':
@@ -345,7 +341,7 @@ export function OfficeScene2D() {
         // are attributed to the completing CHILD employee, so source→target
         // already reads as consolidation (child → review); reversing fan-in
         // would animate review → child, backwards.
-        const t = reducedMotion ? 0.35 : ((Date.now() - cue.at) % 1400) / 1400;
+        const t = reducedMotion || !cue.pulse ? 0.35 : ((Date.now() - cue.at) % 1400) / 1400;
         const px = (1 - t) ** 2 * source.sx + 2 * (1 - t) * t * mx + t ** 2 * target.sx;
         const py = (1 - t) ** 2 * source.sy + 2 * (1 - t) * t * my + t ** 2 * target.sy;
         ctx.fillStyle = ink.packet;
@@ -511,12 +507,10 @@ export function OfficeScene2D() {
         const pos = positions.get(employee.id);
         if (!pos) continue;
         const cue = actorById.get(employee.id);
-        const running = cue?.running ?? false;
-        const active = cue?.selected ?? false;
-        const hovered = cue?.hovered ?? false;
+        const selected = cue?.selected ?? false;
         const wl = cue?.workload ?? null;
-        // Blocked primary slot: a blocked-severity issue owns the bubble.
-        const blocked = wl?.primary === 'issue';
+        const status = cue?.status ?? 'idle';
+        const blocked = status === 'blocked';
         const colors = resolveAppearance(employee.id, employee.appearance);
         const screen = screenForEmployee(employee.id);
         if (!screen) continue;
@@ -529,38 +523,30 @@ export function OfficeScene2D() {
           ctx.fill();
         }
 
-        // running / active ring — the pulsing "at work" ring never renders
-        // over a blocked actor (blocked wins visually); selection still draws.
-        const showRunningRing = running && !blocked;
-        if (showRunningRing || active) {
+        // Shared P4 operational state: geometry remains the existing 2D ring,
+        // but classification and exact ink come only from ActorCue.status.
+        if (status !== 'idle') {
           ctx.beginPath();
           ctx.arc(sx, sy, r + 5, 0, Math.PI * 2);
-          ctx.strokeStyle = showRunningRing
-            ? OFFICE_SCENE_2D_COLORS.activeRing
-            : OFFICE_SCENE_2D_COLORS.activeRingSoft;
-          ctx.lineWidth = showRunningRing ? 2.5 : 1.5;
+          ctx.strokeStyle =
+            status === 'working'
+              ? OFFICE_SCENE_2D_COLORS.stateWorking
+              : status === 'approval'
+                ? OFFICE_SCENE_2D_COLORS.stateApproval
+                : OFFICE_SCENE_2D_COLORS.stateBlocked;
+          ctx.lineWidth = status === 'blocked' ? 2 : 2.4;
+          if (status === 'blocked') ctx.setLineDash([5, 3]);
           ctx.stroke();
+          ctx.setLineDash([]);
         }
 
-        // Hover ring — an affordance from ActorCue.hovered, distinct from the
-        // selected/running ring by its larger radius. activeRingSoft (50%): the
-        // 36% flowLine stroke was invisible against the light zone tints.
-        if (hovered) {
+        // Selection is an orthogonal, single outer ring and never replaces or
+        // recolours the business-state ring.
+        if (selected) {
           ctx.beginPath();
-          ctx.arc(sx, sy, r + 8, 0, Math.PI * 2);
-          ctx.strokeStyle = OFFICE_SCENE_2D_COLORS.activeRingSoft;
-          ctx.lineWidth = 2;
-          ctx.stroke();
-        }
-
-        // Attention focus (frame.attention): the selection-ring style at lower
-        // alpha — a subtle sustained emphasis, static (reduced-motion safe).
-        // The selected actor already carries the full-strength ring.
-        if (employee.id === attentionEmployeeId && !active) {
-          ctx.beginPath();
-          ctx.arc(sx, sy, r + 11, 0, Math.PI * 2);
-          ctx.strokeStyle = OFFICE_SCENE_2D_COLORS.attentionRing;
-          ctx.lineWidth = 2;
+          ctx.arc(sx, sy, r + 9, 0, Math.PI * 2);
+          ctx.strokeStyle = OFFICE_SCENE_2D_COLORS.stateSelected;
+          ctx.lineWidth = 1.8;
           ctx.stroke();
         }
 
@@ -573,73 +559,45 @@ export function OfficeScene2D() {
           const by = sy - r - 3;
           ctx.font = CANVAS_FONT_TOKENS.officeSceneLabel;
           ctx.textAlign = 'center';
-          ctx.fillStyle = OFFICE_SCENE_2D_COLORS.activeRing;
+          ctx.fillStyle = OFFICE_SCENE_2D_COLORS.neutralPacket;
           ctx.fillText(wl.countLabel, bx, by);
           ctx.textAlign = 'left';
           occupied.push({ x0: bx - 9, x1: bx + 9, y0: by - 9, y1: by + 5 });
         }
 
-        // Resource marker — keyed off the cue's top issue (exhausted >
-        // blocked > warning). Primary (top-right) when the issue leads the
-        // bubble; secondary (top-left) otherwise, clear of the ×N badge.
-        // An approval issue draws in approval ink — waiting on the user,
-        // never the risk red — and a typed resource strain carries its
-        // six-kind glyph (RESOURCE_KIND_GLYPHS) inside the disc.
+        // Resource marker: only a typed T/B/P/C/R/X strain may occupy this
+        // rounded-square slot. Approval is the amber operational ring; a
+        // kindless failure is confirmed by the generic blocked status marker.
         const topIssue = wl?.topIssue ?? null;
-        if (topIssue) {
+        const strainKind = resourceKindByEmployee.get(employee.id) ?? null;
+        if (topIssue && topIssue.kind !== 'approval' && strainKind) {
           const mx = blocked ? sx + r + 5 : sx - r - 5;
           const my = sy - r - 4;
-          const approvalIssue = topIssue.kind === 'approval';
-          const markerStrong = approvalIssue
-            ? OFFICE_SCENE_2D_COLORS.approvalPacket
-            : OFFICE_SCENE_2D_COLORS.resourcePacket;
-          const markerSoft = approvalIssue
-            ? OFFICE_SCENE_2D_COLORS.approvalLine
-            : OFFICE_SCENE_2D_COLORS.resourceLine;
-          const strainKind = resourceKindByEmployee.get(employee.id) ?? null;
-          const glyph = strainKind ? RESOURCE_KIND_GLYPHS[strainKind] : null;
-          if (topIssue.severity === 'exhausted' || (topIssue.severity === 'blocked' && glyph)) {
-            // Strongest: a filled disc carrying the typed kind glyph ('!'
-            // stays the fallback for kindless issues like flow failures).
-            ctx.fillStyle = markerStrong;
-            ctx.beginPath();
-            ctx.arc(mx, my, topIssue.severity === 'exhausted' ? 6.5 : 5.5, 0, Math.PI * 2);
+          const glyph = RESOURCE_KIND_GLYPHS[strainKind];
+          const filled = topIssue.severity !== 'warning';
+          const markerColor = officeResourceMarkerColor(topIssue.severity);
+          if (filled) {
+            ctx.fillStyle = markerColor;
+            roundRect(ctx, mx - 6, my - 6, 12, 12, 4);
             ctx.fill();
-            ctx.font = glyph
-              ? CANVAS_FONT_TOKENS.officeSceneMarkerGlyph
-              : CANVAS_FONT_TOKENS.officeSceneLabel;
             ctx.fillStyle = OFFICE_SCENE_2D_COLORS.floor;
-            ctx.textAlign = 'center';
-            ctx.fillText(glyph ?? '!', mx, my + (glyph ? 3 : 4));
-            ctx.textAlign = 'left';
-          } else if (topIssue.severity === 'blocked') {
-            // Medium: a plain filled disc.
-            ctx.fillStyle = markerStrong;
-            ctx.beginPath();
-            ctx.arc(mx, my, 4.5, 0, Math.PI * 2);
-            ctx.fill();
-          } else if (glyph) {
-            // Subtle + typed: the hollow warning ring widened to carry the
-            // six-kind glyph legibly (same severity shape language — still a
-            // ring, never a filled disc; the 3D marker types every severity).
-            ctx.strokeStyle = markerSoft;
-            ctx.lineWidth = 1.4;
-            ctx.beginPath();
-            ctx.arc(mx, my, 5.2, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.font = CANVAS_FONT_TOKENS.officeSceneMarkerGlyph;
-            ctx.fillStyle = markerStrong;
-            ctx.textAlign = 'center';
-            ctx.fillText(glyph, mx, my + 3);
-            ctx.textAlign = 'left';
           } else {
-            // Subtle: a small hollow ring in the translucent issue ink.
-            ctx.strokeStyle = markerSoft;
+            ctx.strokeStyle = markerColor;
             ctx.lineWidth = 1.4;
-            ctx.beginPath();
-            ctx.arc(mx, my, 3.6, 0, Math.PI * 2);
+            roundRect(ctx, mx - 6, my - 6, 12, 12, 4);
             ctx.stroke();
+            ctx.fillStyle = markerColor;
           }
+          ctx.font = CANVAS_FONT_TOKENS.officeSceneMarkerGlyph;
+          ctx.textAlign = 'center';
+          ctx.fillText(glyph, mx, my + 3);
+          ctx.textAlign = 'left';
+        } else if (blocked) {
+          const mx = sx + r + 5;
+          const my = sy - r - 4;
+          ctx.fillStyle = OFFICE_SCENE_2D_COLORS.stateBlocked;
+          roundRect(ctx, mx - 5, my - 5, 10, 10, 3.5);
+          ctx.fill();
         }
 
         // Chip row — the bubble is capped to fixed dimensions. small keeps the
@@ -832,12 +790,9 @@ export function OfficeScene2D() {
         const hit = hitAt(e.clientX - rect.left, e.clientY - rect.top);
         // Interactive hits (employee, bubble, shelf) read as clickable.
         e.currentTarget.style.cursor = hit ? 'pointer' : '';
-        const next = hit?.kind === 'employee' ? hit.employeeId : null;
-        setHoveredEmployeeId((prev) => (prev === next ? prev : next));
       }}
       onPointerLeave={(e) => {
         e.currentTarget.style.cursor = '';
-        setHoveredEmployeeId(null);
       }}
       onClick={(e) => {
         const rect = e.currentTarget.getBoundingClientRect();

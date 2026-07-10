@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { UI_DATA_COLORS } from '@/data/color-palette.js';
+import type { ResolvedAppearance } from '@/lib/avatar.js';
 import { Color } from 'three';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import type { ResolvedAppearance } from '@/lib/avatar.js';
 import { attachGarments } from './garments.js';
 import {
   BODY_TYPE_GIRTH,
@@ -13,6 +14,7 @@ import {
   blinkScheduleForPhase,
   eyeStyleForExpression,
   isBlinking,
+  rolePresentationFor,
 } from './toy-character-contract.js';
 
 /** Executable P1 character oracle. Test-only: imported by the root harness. */
@@ -93,10 +95,10 @@ export async function runToyCharacterRuntimeOracle(bodyUrl: URL): Promise<void> 
   for (const outfit of Object.keys(requiredPiece) as Array<keyof typeof requiredPiece>) {
     const characterRoot = cloneSkeleton(bodyGltf.scene);
     const appearance: ResolvedAppearance = {
-      skin: '#e5b48a',
-      hair: '#4a312c',
-      clothing: '#2f6bff',
-      accent: '#c98410',
+      skin: UI_DATA_COLORS.fairSkin,
+      hair: UI_DATA_COLORS.darkBrown,
+      clothing: UI_DATA_COLORS.blue,
+      accent: UI_DATA_COLORS.amber3,
       hairStyle: 'short',
       bodyType: 'normal',
       headShape: 'round',
@@ -111,7 +113,7 @@ export async function runToyCharacterRuntimeOracle(bodyUrl: URL): Promise<void> 
         accent: new Color(appearance.accent),
         bottom: new Color(appearance.accent).multiplyScalar(0.62),
       },
-      '#5c7fa3',
+      rolePresentationFor('developer').color,
     );
     assert.ok(characterRoot.getObjectByName('garmentTorso'));
     assert.ok(characterRoot.getObjectByName('roleBadge'));

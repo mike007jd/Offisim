@@ -583,8 +583,8 @@ function normalize(event: TimedAgentRunEvent): WorkSignal | null {
         ...base,
         kind: 'produce',
         priority: BEAT_PRIORITY.sustained,
-        affordance: 'workstation',
-        movement: false,
+        affordance: 'delivery-shelf',
+        movement: true,
         interrupt: false,
         milestone: true,
         artifact: artifactIntent(event.payload),
@@ -789,7 +789,14 @@ export function composeBeats(
       artifact: signal.artifact ?? null,
       resource: signal.resource ?? null,
       at: signal.at,
-      lifecycle: { startedAt: signal.at, endsAt: signal.at + beatLifespanMs(signal.kind) },
+      // A delivery walk crosses the real office, so the artifact milestone must
+      // outlive the 3s workstation micro-action window. Twenty-four seconds
+      // covers the longest routed floor traversal at the canonical walk speed,
+      // then the actor naturally returns when the beat expires.
+      lifecycle: {
+        startedAt: signal.at,
+        endsAt: signal.at + (signal.artifact ? 24_000 : beatLifespanMs(signal.kind)),
+      },
     });
     if (movement) actorOf(actorKey).lastMovementAt = signal.at;
   };
@@ -871,9 +878,10 @@ export function composeBeats(
     }
 
     // Milestones (artifacts) always emit and never coalesce, but leave the
-    // ongoing activity stream intact (the actor keeps producing).
+    // ongoing activity stream intact. Delivery is a real movement beat; the
+    // downstream dramaturgy-mode gate still decides whether it may relocate.
     if (signal.milestone) {
-      emit(signal, false, false);
+      emit(signal, signal.movement, false);
       continue;
     }
 

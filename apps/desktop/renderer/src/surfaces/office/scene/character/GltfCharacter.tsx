@@ -1,5 +1,9 @@
 import type { ResolvedAppearance } from '@/lib/avatar.js';
-import type { CharacterPerformanceState } from '@offisim/shared-types';
+import {
+  type CharacterPerformanceState,
+  type CharacterStatus,
+  performanceForStatus,
+} from '@offisim/shared-types';
 import { useAnimations } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
@@ -26,6 +30,7 @@ import {
   performanceForMovementPhase,
   shouldPromoteSitExit,
 } from '../character-movement.js';
+import { OFFICE_TOY_CHARACTER_COLORS } from '../r3d/scene-colors.js';
 import { OFFICE_CHARACTER_METRICS, WORKSTATION_VERTICAL_METRICS } from '../workstation-geometry.js';
 import { CHARACTER_ASSET_URLS, characterManifest, useCharacterGltf } from './character-assets.js';
 import {
@@ -42,7 +47,7 @@ import {
   clipForPerformance,
 } from './clip-map.js';
 import { attachGarments } from './garments.js';
-import { ActionHalo, type CharacterAction, TypingDots } from './indicators.js';
+import { CharacterIndicators } from './indicators.js';
 import {
   type AccessoryKind,
   BODY_TYPE_GIRTH,
@@ -94,8 +99,9 @@ import {
  *  - role: a small chest badge is always present; explicit dramaturgy props win,
  *    otherwise an active role may show its default work accessory.
  *
- * Status indicators (action halo + typing dots) come from `./indicators.js` —
- * one indicator language, floor/head anchored at the component origin.
+ * Status indicators come from `./indicators.js`: one operational-state
+ * language, floor/head anchored at the component origin, with selection as an
+ * orthogonal layer.
  * Animation binding lives in the inner {@link RigView}, keyed per rig
  * instance: drei's useAnimations caches its actions against the first bound
  * root, so an appearance/gender/hair change (rig rebuild) must remount the
@@ -107,9 +113,14 @@ type CharacterPosture = 'standing' | 'sitting';
 
 export interface CharacterProps {
   appearance: ResolvedAppearance;
-  action?: CharacterAction;
   posture?: CharacterPosture;
-  running?: boolean;
+  /** First-class office state. Selection never rewrites this value. */
+  status?: CharacterStatus;
+  selected?: boolean;
+  /** A typed T/B/P/C/R/X marker already owns the head-confirmation slot. */
+  hasTypedResourceMarker?: boolean;
+  /** Suppresses office indicators inside the separately-rendered drag ghost. */
+  dragging?: boolean;
   /**
    * Accessibility: when true the character holds a STATIC resting pose — the
    * mixer freezes (timeScale 0) so there is no idle bob, typing sway, gesture
@@ -119,10 +130,8 @@ export interface CharacterProps {
    */
   reducedMotion?: boolean;
   /**
-   * Layered dramaturgy performance (Phase 3+). When provided it drives the
-   * clip selection; when absent the clip is derived from the legacy `action`
-   * enum so existing call sites are unchanged. The `action` enum still drives
-   * the UI indicators (selection halo, working dots).
+   * Layered dramaturgy performance (Phase 3+). When absent, a total fallback is
+   * derived from `status + posture`; there is no legacy action lane.
    */
   performance?: CharacterPerformanceState;
   /** Mutable scene movement phase. A seated departure holds `sit-exit` until
@@ -152,8 +161,8 @@ const DOTS_Y_SITTING = 1.62;
  * seated actors 0.04 inside the chair centre expecting the butt AT the anchor
  * (the block-character convention the anchors were tuned for). So while seated
  * the rig shifts up and forward to park the butt on the cushion at the anchor;
- * the shift lives HERE (not in the scene) so the floor-anchored ActionHalo and
- * the component origin stay on the ground at the seat anchor. Applied with a
+ * the shift lives HERE (not in the scene) so the floor indicator and component
+ * origin stay on the ground at the seat anchor. Applied with a
  * short ease so walk→sit arrivals blend through sit.enter instead of popping.
  */
 const SEATED_BODY_LIFT = WORKSTATION_VERTICAL_METRICS.seatedBodyLift;
@@ -200,7 +209,7 @@ function attachEyeDecals(
   geometries: BufferGeometry[],
 ): EyeHandles {
   const eyeMaterial = new MeshStandardMaterial({
-    color: '#111820',
+    color: OFFICE_TOY_CHARACTER_COLORS.eye,
     roughness: 0.96,
     metalness: 0,
   });
@@ -234,35 +243,12 @@ function attachEyeDecals(
   return handles;
 }
 
-function legacyPerformance(
-  action: CharacterAction,
-  posture: CharacterPosture,
-): CharacterPerformanceState {
-  const base = {
-    locomotion: 'idle',
-    posture: posture === 'sitting' ? 'sit' : 'stand',
-    workGesture: 'none',
-    socialGesture: 'none',
-    expression: 'neutral',
-    intensity: 0,
-  } as const satisfies CharacterPerformanceState;
-  if (action === 'working') {
-    return { ...base, workGesture: 'type', expression: 'focus', intensity: 1, prop: 'laptop' };
-  }
-  if (action === 'active') {
-    return { ...base, socialGesture: 'discuss', expression: 'happy', intensity: 1 };
-  }
-  // idle + dragging both rest — the halo carries the dragging state.
-  return base;
-}
-
 interface RigViewProps {
   rig: CharacterRig;
   animations: AnimationClip[];
-  actionState: CharacterAction;
   posture: CharacterPosture;
+  status: CharacterStatus;
   performance?: CharacterPerformanceState;
-  usePerformance: boolean;
   walkingRef?: { current: CharacterMovementPhase };
   tempo: number;
   phase: number;
@@ -280,10 +266,9 @@ interface RigViewProps {
 function RigView({
   rig,
   animations,
-  actionState,
   posture,
+  status,
   performance,
-  usePerformance,
   walkingRef,
   tempo,
   phase,
@@ -294,13 +279,14 @@ function RigView({
    *  live on rig.root — the clips bind a constant-zero `root.position` track
    *  that would overwrite any mutation there every mixer update. */
   const bodyRef = useRef<Group>(null);
+  const basePerformance =
+    performance ?? performanceForStatus(status, posture === 'sitting' ? 'sit' : 'stand');
 
   // Seed the seated offset before first paint so already-seated actors mount
   // parked on their chair instead of easing up out of the floor.
   // biome-ignore lint/correctness/useExhaustiveDependencies: mount-only seed — the per-frame ease below owns the offset afterwards.
   useLayoutEffect(() => {
-    const seated =
-      usePerformance && performance ? performance.posture === 'sit' : posture === 'sitting';
+    const seated = basePerformance.posture === 'sit';
     bodyRef.current?.position.set(
       0,
       seated ? SEATED_BODY_LIFT : 0,
@@ -309,13 +295,7 @@ function RigView({
   }, []);
 
   const initialPosture: CharacterPerformanceState['posture'] =
-    walkingRef?.current === 'walk'
-      ? 'stand'
-      : usePerformance && performance
-        ? performance.posture
-        : posture === 'sitting'
-          ? 'sit'
-          : 'stand';
+    walkingRef?.current === 'walk' ? 'stand' : basePerformance.posture;
   const playback = useRef(createCharacterPlaybackState(initialPosture));
   // Tracks reduced-motion transitions: enabling it mid-clip must snap to the
   // clip's static pose, not freeze whatever frame the mixer happened to be on.
@@ -374,8 +354,6 @@ function RigView({
     const movementPhase = reducedMotion ? 'idle' : (walkingRef?.current ?? 'idle');
     const standingMovementMount = isStandingMovementMount(playback.current, movementPhase);
     playback.current = reconcilePlaybackMount(playback.current, movementPhase);
-    const basePerformance =
-      usePerformance && performance ? performance : legacyPerformance(actionState, posture);
     const perf = performanceForMovementPhase(basePerformance, movementPhase);
     const selection: ClipSelection = clipForPerformance(perf);
 
@@ -398,11 +376,7 @@ function RigView({
     // Explicit dramaturgy props win. When none is authored, an active character
     // may show the role's default accessory; idle figures never permanently
     // hold props. Only visibility transitions write into the scene graph.
-    const accessory = accessoryForPerformance(
-      perf.prop,
-      rig.roleAccessory,
-      actionState === 'active' || actionState === 'working',
-    );
+    const accessory = accessoryForPerformance(perf.prop, rig.roleAccessory, status === 'working');
     const nextProp = accessory ? (rig.propHandles[accessory] ?? null) : null;
     if (visiblePropRef.current !== nextProp) {
       if (visiblePropRef.current) visiblePropRef.current.visible = false;
@@ -454,9 +428,11 @@ function RigView({
 
 export function GltfCharacter({
   appearance,
-  action,
   posture = 'standing',
-  running = false,
+  status = 'idle',
+  selected = false,
+  hasTypedResourceMarker = false,
+  dragging = false,
   reducedMotion = false,
   performance,
   walkingRef,
@@ -465,9 +441,6 @@ export function GltfCharacter({
   opacity = 1,
   role,
 }: CharacterProps) {
-  const actionState: CharacterAction = action ?? (running ? 'working' : 'idle');
-  const usePerformance = performance !== undefined && actionState !== 'dragging';
-
   // `gender` is deliberately absent: it is 2D/persona metadata and must not
   // rebuild the 3D skeleton, materials, props, garments, or animation binding.
   const appearanceKey = JSON.stringify([
@@ -643,23 +616,27 @@ export function GltfCharacter({
 
   return (
     <group>
-      <ActionHalo action={actionState} opacity={opacity} />
-      {actionState === 'working' ? (
-        <TypingDots
-          phase={phase}
-          opacity={opacity}
-          y={posture === 'sitting' ? DOTS_Y_SITTING : DOTS_Y_STANDING}
-          reducedMotion={reducedMotion}
-        />
-      ) : null}
+      <CharacterIndicators
+        status={status}
+        selected={selected}
+        dragging={dragging}
+        phase={phase}
+        opacity={opacity}
+        headY={
+          (performance?.posture ?? (posture === 'sitting' ? 'sit' : 'stand')) === 'sit'
+            ? DOTS_Y_SITTING
+            : DOTS_Y_STANDING
+        }
+        reducedMotion={reducedMotion}
+        hasTypedResourceMarker={hasTypedResourceMarker}
+      />
       <RigView
         key={rig.id}
         rig={rig}
         animations={animationsGltf.animations}
-        actionState={actionState}
         posture={posture}
+        status={status}
         performance={performance}
-        usePerformance={usePerformance}
         walkingRef={walkingRef}
         tempo={tempo}
         phase={phase}
