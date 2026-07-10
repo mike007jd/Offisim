@@ -13,9 +13,10 @@ import type { Deliverable } from '@/data/types.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import { safeErrorMessage } from '@/lib/error-message.js';
+import { invokeCommand } from '@/lib/tauri-commands.js';
 import { cn } from '@/lib/utils.js';
-import { useVirtualizer } from '@tanstack/react-virtual';
 import type { ToolRichDetail } from '@offisim/shared-types';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   Camera,
   Download,
@@ -31,14 +32,6 @@ import { toast } from 'sonner';
 type RunActivity = ConversationRunSnapshot['activity'][number];
 type ComputerDetail = Extract<ToolRichDetail, { family: 'computer' }>;
 type ComputerActivity = RunActivity & { richDetail: ComputerDetail };
-
-interface LocalExportResult {
-  path: string;
-  displayPath: string;
-  fileName: string;
-  sizeBytes: number;
-  size: string;
-}
 
 function isComputerActivity(entry: RunActivity): entry is ComputerActivity {
   return entry.richDetail?.family === 'computer';
@@ -201,8 +194,7 @@ export function ComputerView({ threadId }: { threadId?: string | null }) {
           format: deliverable.format ?? null,
         })),
       };
-      const { invoke } = await import('@tauri-apps/api/core');
-      const result = await invoke<LocalExportResult>('export_computer_run_trace', {
+      const result = await invokeCommand('export_computer_run_trace', {
         threadId: run.threadId,
         runId: runId ?? run.threadId,
         traceJson: JSON.stringify(trace),

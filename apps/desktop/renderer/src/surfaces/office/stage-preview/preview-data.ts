@@ -1,6 +1,12 @@
 import { loadDeliverableBody } from '@/data/queries.js';
 import type { Deliverable } from '@/data/types.js';
 import {
+  type CommandArgs,
+  type CommandMap,
+  type CommandResult,
+  invokeCommand,
+} from '@/lib/tauri-commands.js';
+import {
   type PreviewSourceRef,
   type ResolvedPreviewTarget,
   extensionFromPath,
@@ -192,7 +198,9 @@ function resolvedFromMeta(ref: PreviewSourceRef, meta: ProjectPreviewMeta): Reso
     meta: {
       title: meta.fileName,
       path:
-        ref.source === 'workspace-file' || ref.source === 'computer-artifact' ? ref.path : undefined,
+        ref.source === 'workspace-file' || ref.source === 'computer-artifact'
+          ? ref.path
+          : undefined,
       mimeType,
       extension,
       byteLength: meta.byteLength,
@@ -248,21 +256,28 @@ function bytesToUint8Array(value: ArrayBuffer | Uint8Array | number[]): Uint8Arr
 }
 
 function objectUrlForBytes(bytes: Uint8Array, mimeType: string | undefined): string {
-  const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+  const buffer = bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  ) as ArrayBuffer;
   const blob = new Blob([buffer], { type: mimeType ?? 'application/octet-stream' });
   return URL.createObjectURL(blob);
 }
 
-async function invokeTauri<T>(command: string, args: Record<string, unknown>): Promise<T> {
-  const { invoke } = await import('@tauri-apps/api/core');
-  return await invoke<T>(command, args);
+type PreviewCommand = Extract<keyof CommandMap, 'project_preview_meta' | 'project_read_file_bytes'>;
+
+async function invokeTauri<K extends PreviewCommand>(
+  command: K,
+  args: CommandArgs<K>,
+): Promise<CommandResult<K>> {
+  return invokeCommand(command, args);
 }
 
 async function loadFilePreview(
   ref: Extract<PreviewSourceRef, { source: 'workspace-file' | 'computer-artifact' }>,
   projectId: string | null,
 ): Promise<{ resolved: ResolvedPreviewTarget; data: PreviewData }> {
-  const meta = await invokeTauri<ProjectPreviewMeta>('project_preview_meta', {
+  const meta = await invokeTauri('project_preview_meta', {
     path: ref.path,
     projectId,
   });
@@ -290,7 +305,7 @@ async function loadFilePreview(
     return { resolved, data: { mode: 'stream', streamUrl: mediaStreamUrl(ref.path, projectId) } };
   }
   if (mode === 'bytes') {
-    const raw = await invokeTauri<ArrayBuffer | Uint8Array | number[]>('project_read_file_bytes', {
+    const raw = await invokeTauri('project_read_file_bytes', {
       path: ref.path,
       projectId,
       maxBytes: undefined,
@@ -343,9 +358,15 @@ export async function loadPreview(
       if (mode === 'screenshot' && ref.detail?.screenshot?.dataRef) {
         return { resolved, data: { mode: 'screenshot', dataRef: ref.detail.screenshot.dataRef } };
       }
-      return { resolved, data: { mode: 'none', reason: 'No embeddable URL or screenshot is available.' } };
+      return {
+        resolved,
+        data: { mode: 'none', reason: 'No embeddable URL or screenshot is available.' },
+      };
     }
     case 'screenshot':
-      return { resolved: resolvedScreenshot(ref), data: { mode: 'screenshot', dataRef: ref.dataRef } };
+      return {
+        resolved: resolvedScreenshot(ref),
+        data: { mode: 'screenshot', dataRef: ref.dataRef },
+      };
   }
 }

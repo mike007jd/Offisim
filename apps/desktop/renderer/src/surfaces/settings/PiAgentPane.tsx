@@ -5,6 +5,7 @@ import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import { Input } from '@/design-system/primitives/input.js';
 import { safeErrorMessage } from '@/lib/error-message.js';
+import { invokeCommand } from '@/lib/tauri-commands.js';
 import { readPiModelOverride, writePiModelOverride } from '@/runtime/pi-agent-config.js';
 import {
   ArrowLeft,
@@ -186,21 +187,18 @@ function initialProviderForm(): ProviderFormState {
 }
 
 async function loadPiAgentStatus(): Promise<PiAgentStatusResponse> {
-  const { invoke } = await import('@tauri-apps/api/core');
-  return invoke<PiAgentStatusResponse>('pi_agent_status');
+  return invokeCommand('pi_agent_status');
 }
 
 async function openPiConfigFolder(): Promise<void> {
-  const { invoke } = await import('@tauri-apps/api/core');
-  await invoke('pi_agent_open_config_folder');
+  await invokeCommand('pi_agent_open_config_folder');
 }
 
 async function savePiProvider(
   config: ProviderFormState,
   models: SerializedProviderModelRow[],
 ): Promise<PiAgentStatusResponse> {
-  const { invoke } = await import('@tauri-apps/api/core');
-  return invoke<PiAgentStatusResponse>('pi_agent_save_provider', {
+  return invokeCommand('pi_agent_save_provider', {
     config: {
       providerId: config.providerId,
       displayName: config.displayName || null,

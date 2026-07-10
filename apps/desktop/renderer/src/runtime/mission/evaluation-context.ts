@@ -1,19 +1,6 @@
+import { invokeCommand } from '@/lib/tauri-commands.js';
 import type { EvaluationContext } from '@offisim/core/browser';
 import type { RuntimeRepositories } from '@offisim/core/browser';
-
-// Lazy Tauri import (mirrors git-workbench / ensure-default-workspace): keeping it
-// out of module scope means a Node harness can import this module — and the
-// MissionRunController that depends on it — without resolving `@tauri-apps/api`.
-// In the live `.app` it resolves immediately on first capability call.
-type Invoke = <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
-let invokeImpl: Invoke | null = null;
-async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  if (!invokeImpl) {
-    const mod = await import('@tauri-apps/api/core');
-    invokeImpl = mod.invoke as Invoke;
-  }
-  return invokeImpl<T>(cmd, args);
-}
 
 /**
  * Tauri-backed {@link EvaluationContext} (PRD §14.2 / §20.3, slice MS-005).
@@ -64,18 +51,6 @@ export interface TauriEvaluationContextInput {
  * code (the same IPC-boundary class as the VM-003/RD usage-drop bug). Only the
  * fields the evaluator reads are declared.
  */
-interface BashExecuteResult {
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-  timedOut: boolean;
-}
-
-interface GitExecResult {
-  ok: boolean;
-  stdout: string;
-  stderr: string;
-}
 
 const BASH_TIMEOUT_MS = 120_000;
 
@@ -104,7 +79,7 @@ export function createTauriEvaluationContext(
       // matching runCommand's guard.
       if (!projectId) return null;
       try {
-        return await tauriInvoke<string>('project_read_file', { path, projectId });
+        return await invokeCommand('project_read_file', { path, projectId });
       } catch {
         // Out-of-jail / missing / unreadable — the contract sentinel is null.
         return null;
@@ -120,7 +95,7 @@ export function createTauriEvaluationContext(
       // (project_read_file has an 8 MB cap, which is acceptable for an existence
       // check on workspace files an evaluator asserts on.)
       try {
-        await tauriInvoke<string>('project_read_file', { path, projectId });
+        await invokeCommand('project_read_file', { path, projectId });
         return true;
       } catch {
         return false;
@@ -136,7 +111,7 @@ export function createTauriEvaluationContext(
       // and a published artifact's content_hash agree byte-for-byte.
       let content: string;
       try {
-        content = await tauriInvoke<string>('project_read_file', { path, projectId });
+        content = await invokeCommand('project_read_file', { path, projectId });
       } catch {
         return null;
       }
@@ -164,7 +139,7 @@ export function createTauriEvaluationContext(
         };
       }
       try {
-        const result = await tauriInvoke<BashExecuteResult>('bash_execute', {
+        const result = await invokeCommand('bash_execute', {
           cwd: workspaceRoot,
           cmd: command,
           timeoutMs: BASH_TIMEOUT_MS,
@@ -205,7 +180,7 @@ export function createTauriEvaluationContext(
       // The evaluator maps `null` → ERROR (the diff is unknowable).
       if (!projectId) return null;
       try {
-        const result = await tauriInvoke<GitExecResult>('git_exec', {
+        const result = await invokeCommand('git_exec', {
           projectId,
           args: ['status', '--porcelain'],
           cwd: null,

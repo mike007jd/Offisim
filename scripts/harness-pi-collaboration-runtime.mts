@@ -702,8 +702,8 @@ await (async () => {
   const transportSrc = readFileSync(transportPath, 'utf8');
   check(
     '(4) collaboration transport invokes agent_runtime_collaborate (not _execute)',
-    transportSrc.includes("invoke('agent_runtime_collaborate'") &&
-      !transportSrc.includes("invoke('agent_runtime_execute'"),
+    transportSrc.includes("invokeCommand('agent_runtime_collaborate'") &&
+      !transportSrc.includes("invokeCommand('agent_runtime_execute'"),
   );
   check(
     '(4) collaboration transport never touches agent_runs / mission / chat_threads',

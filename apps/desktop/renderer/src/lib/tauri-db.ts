@@ -1,5 +1,5 @@
+import { invokeCommand } from '@/lib/tauri-commands.js';
 import type Database from '@tauri-apps/plugin-sql';
-import { invoke } from '@tauri-apps/api/core';
 type TauriSqlModule = typeof import('@tauri-apps/plugin-sql');
 
 /**
@@ -13,7 +13,7 @@ export function getTauriDb(): Promise<Database> {
     dbPromise = (async () => {
       const tauriSqlModule: TauriSqlModule = await import('@tauri-apps/plugin-sql');
       const { default: Database } = tauriSqlModule;
-      const dbUrl = await invoke<string>('local_db_url');
+      const dbUrl = await invokeCommand('local_db_url');
       const db = await Database.load(dbUrl);
       // Enable WAL for concurrent read/write safety
       await db.execute('PRAGMA journal_mode=WAL', []);

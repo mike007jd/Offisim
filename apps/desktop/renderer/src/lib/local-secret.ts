@@ -21,13 +21,13 @@
  */
 
 import { isTauriRuntime } from '@/data/adapters.js';
-import { invoke } from '@tauri-apps/api/core';
+import { invokeCommand } from '@/lib/tauri-commands.js';
 
 /** Seal a value for at-rest storage. Returns an opaque envelope string. */
 export async function secretEncrypt(plaintext: string): Promise<string> {
   if (!isTauriRuntime()) return plaintext;
   try {
-    return await invoke<string>('secret_encrypt', { plaintext });
+    return await invokeCommand('secret_encrypt', { plaintext });
   } catch (err) {
     // Never block a save on a crypto failure — persist unsealed rather than
     // silently dropping the user's token.
@@ -43,7 +43,7 @@ export async function secretEncrypt(plaintext: string): Promise<string> {
 export async function secretDecrypt(envelope: string): Promise<string> {
   if (!isTauriRuntime()) return envelope;
   try {
-    return await invoke<string>('secret_decrypt', { envelope });
+    return await invokeCommand('secret_decrypt', { envelope });
   } catch (err) {
     // AEAD-open failure on a real envelope is the only case the Rust side
     // throws; returning the stored value as-is keeps legacy plaintext working

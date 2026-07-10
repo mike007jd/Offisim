@@ -1,5 +1,6 @@
 import { useUiState } from '@/app/ui-state.js';
 import { loadPersistedChatMessages } from '@/data/chat-message-events.js';
+import { invokeCommand } from '@/lib/tauri-commands.js';
 import { getTauriDb } from '@/lib/tauri-db.js';
 import { buildWizardTemplates } from '@/surfaces/lifecycle/template-view.js';
 import type {
@@ -27,14 +28,7 @@ import {
 } from './git-workbench.js';
 import { deleteCompanyDeep, deleteConversationDeep } from './local-data-deletion.js';
 import { loadRunCost } from './run-cost.js';
-import type {
-  ChatMessage,
-  Deliverable,
-  Employee,
-  FileNode,
-  GitRepoState,
-  Skill,
-} from './types.js';
+import type { ChatMessage, Deliverable, Employee, FileNode, GitRepoState, Skill } from './types.js';
 
 /**
  * Query hooks over the renderer data source. Release Tauri builds must use
@@ -329,20 +323,6 @@ export function useEmployeeSkills(employeeId: string | null) {
   });
 }
 
-interface RuntimeMcpToolInfo {
-  name?: unknown;
-  description?: unknown;
-  inputSchema?: unknown;
-  input_schema?: unknown;
-  annotations?: unknown;
-}
-
-interface RuntimeMcpServerStatus {
-  name?: unknown;
-  state?: unknown;
-  tools?: RuntimeMcpToolInfo[];
-}
-
 interface EmployeeMcpTool {
   id: string;
   serverName: string;
@@ -377,10 +357,9 @@ export function useEmployeeMcpTools(employeeId: string | null) {
       if (!companyId || !employeeId) return [];
       const repos = await reposOrNull();
       if (!repos?.mcpToolGrants || !isTauriRuntime()) return [];
-      const { invoke } = await import('@tauri-apps/api/core');
       const [grants, statuses] = await Promise.all([
         repos.mcpToolGrants.listByEmployee(companyId, employeeId),
-        invoke<RuntimeMcpServerStatus[]>('mcp_list_servers'),
+        invokeCommand('mcp_list_servers'),
       ]);
       const connected = new Map(
         statuses
@@ -905,10 +884,7 @@ export function useProjectFiles(projectId: string | null) {
       if (!projectId) return [];
       if (!isTauriRuntime()) return [] as FileNode[];
       try {
-        const { invoke } = await import('@tauri-apps/api/core');
-        const rows = await invoke<
-          Array<{ name: string; isFile: boolean; isDirectory: boolean; path: string }>
-        >('project_list_dir', {
+        const rows = await invokeCommand('project_list_dir', {
           path: '.',
           cwd: null,
           projectId,

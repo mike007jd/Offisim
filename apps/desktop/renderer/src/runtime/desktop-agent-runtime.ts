@@ -1,4 +1,5 @@
 import { buildDelegationContext, buildMcpScope } from '@/data/employee-persona.js';
+import { invokeCommand } from '@/lib/tauri-commands.js';
 import { ensureProjectBoundForRun } from '@/runtime/ensure-default-workspace.js';
 import { agentRunEvent, llmStreamChunk, toolExecutionTelemetry } from '@offisim/core/browser';
 import type { RuntimeRepositories } from '@offisim/core/browser';
@@ -12,17 +13,13 @@ import {
   type RuntimeEvent,
   classifyRunFailure,
 } from '@offisim/shared-types';
-import { Channel, invoke } from '@tauri-apps/api/core';
+import { Channel } from '@tauri-apps/api/core';
 import {
   MISSION_EVALUATION_SUBMITTED_EVENT,
   type MissionEvaluationSubmittedPayload,
 } from './mission/mission-events.js';
 import { readPiModelOverride } from './pi-agent-config.js';
-import type {
-  PiAgentHostEvent,
-  PiAgentHostResponse,
-  PiRunStreamSnapshot,
-} from './pi-runtime-driver.js';
+import type { PiAgentHostEvent, PiAgentHostResponse } from './pi-runtime-driver.js';
 import { persistRunStartIfAbsent } from './recovery/persist-run-idempotency.js';
 import {
   PI_HOST_PROTOCOL_VERSION,
@@ -345,7 +342,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       );
     }
     try {
-      const exists = await invoke<boolean>('project_exists', {
+      const exists = await invokeCommand('project_exists', {
         path: '.',
         cwd: null,
         projectId,
@@ -372,7 +369,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           ? context.requestId.trim()
           : null;
       if (!requestId) continue;
-      const snapshot = await invoke<PiRunStreamSnapshot | null>('agent_runtime_stream_snapshot', {
+      const snapshot = await invokeCommand('agent_runtime_stream_snapshot', {
         requestId,
       }).catch(() => null);
       if (!snapshot?.running) continue;
@@ -590,7 +587,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       };
 
       this.inFlightByThread.set(row.thread_id, requestId);
-      await invoke<PiRunStreamSnapshot>('agent_runtime_reattach', {
+      await invokeCommand('agent_runtime_reattach', {
         requestId,
         afterCursor: normalizeStreamCursor(runtimeContext.streamCursor),
         onEvent,
@@ -894,7 +891,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
         projectId,
       ).catch(() => []);
 
-      const commandResponse = (await invoke(commandName, {
+      const commandResponse = (await invokeCommand(commandName, {
         req: {
           requestId,
           text: input.text,
@@ -1138,7 +1135,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     // violation or a missing file rejects here → no row, no bus event.
     let content: string;
     try {
-      content = (await invoke('project_read_file', { path, projectId })) as string;
+      content = (await invokeCommand('project_read_file', { path, projectId })) as string;
     } catch (err) {
       console.warn(
         '[desktop-agent-runtime] artifact.created path unreadable (out-of-workspace or missing) — no deliverable written',
@@ -1282,13 +1279,13 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     // text, and the flag is how execute() knows to classify the terminal as
     // cancelled rather than completed.
     this.abortedRequests.add(requestId);
-    void invoke('agent_runtime_abort', { requestId }).catch((err: unknown) => {
+    void invokeCommand('agent_runtime_abort', { requestId }).catch((err: unknown) => {
       console.warn('[desktop-agent-runtime] Pi abort failed', { threadId, err });
     });
   }
 
   async answerUiRequest(answer: AgentUiAnswer): Promise<void> {
-    await invoke('agent_runtime_answer', {
+    await invokeCommand('agent_runtime_answer', {
       requestId: answer.requestId,
       id: answer.id,
       confirmed: answer.confirmed,

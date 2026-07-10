@@ -1,3 +1,4 @@
+import { invokeCommand } from '@/lib/tauri-commands.js';
 import type { GitFileChange, GitRepoState, GitWorkbench } from './types.js';
 
 // Git porcelain parser: runs `git_exec` and parses status/numstat/diff output
@@ -50,8 +51,7 @@ export function workbenchOf(state: GitRepoState | null | undefined): GitWorkbenc
 }
 
 async function runGit(projectId: string, args: string[]): Promise<GitExecResult> {
-  const { invoke } = await import('@tauri-apps/api/core');
-  return invoke<GitExecResult>('git_exec', { projectId, args, cwd: null });
+  return invokeCommand('git_exec', { projectId, args, cwd: null });
 }
 
 /** Initialize a git repository in the project's bound workspace folder. Routes
