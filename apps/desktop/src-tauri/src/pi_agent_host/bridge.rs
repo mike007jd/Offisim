@@ -12,6 +12,12 @@ use tokio::sync::Mutex as AsyncMutex;
 
 use crate::agent_host_runtime::HostError;
 
+/// Ask mode: live stdin writers for running Pi hosts, keyed by request id. While
+/// a host pauses a tool awaiting the user's answer to a Pi extension-UI prompt,
+/// `pi_agent_ui_response` looks the writer up here and writes a one-line response
+/// back to the child's stdin. The entry is inserted when the run starts and
+/// removed when it ends, which drops the last handle and closes the child's
+/// stdin (EOF).
 static PI_STDIN: Lazy<Mutex<HashMap<String, Arc<AsyncMutex<ChildStdin>>>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 pub(super) const PI_MCP_CALL_TIMEOUT: Duration = Duration::from_secs(75);
