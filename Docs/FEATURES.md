@@ -62,7 +62,7 @@ Owner paths:
 - `scripts/tauri-pi-agent-host.entry.mjs`
 - `scripts/build-pi-agent-host.mjs`
 - `scripts/harness-pi-agent-host.mjs`
-- `apps/desktop/src-tauri/src/pi_agent_host.rs`
+- `apps/desktop/src-tauri/src/pi_agent_host/`
 - `Docs/HARNESS_ARCHITECTURE.md`
 
 Data/contracts:
@@ -143,7 +143,7 @@ Owner paths:
   controller)
 - `packages/core/src/runtime/collaboration/collaboration-service.ts` (domain
   repository over the collaboration tables)
-- `apps/desktop/src-tauri/src/pi_agent_host.rs` (`agent_runtime_collaborate`)
+- `apps/desktop/src-tauri/src/pi_agent_host/mod.rs` (`agent_runtime_collaborate`)
 
 Data/contracts:
 
@@ -249,7 +249,7 @@ external employee setup.
 Owner paths:
 
 - `apps/desktop/renderer/src/surfaces/settings`
-- `apps/desktop/src-tauri/src/pi_agent_host.rs`
+- `apps/desktop/src-tauri/src/pi_agent_host/`
 - `apps/desktop/src-tauri/src/mcp_bridge`
 - `Docs/UI_FRAMEWORK_STACK.md`
 

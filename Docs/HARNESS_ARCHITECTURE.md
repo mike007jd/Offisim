@@ -14,7 +14,7 @@ as a thin client. It sends user turns to the Tauri command
 - run/tool telemetry
 - 3D office work-state animation
 
-The Tauri side lives in `apps/desktop/src-tauri/src/pi_agent_host.rs`. It starts
+The Tauri side lives in `apps/desktop/src-tauri/src/pi_agent_host/`. It starts
 the bundled Node host `apps/desktop/src-tauri/resources/pi-agent-host.mjs`, binds
 the active project workspace as the Pi session cwd, and forwards JSONL events to
 the renderer.
