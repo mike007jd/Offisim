@@ -80,7 +80,24 @@ soft-edged and never obscure the face or prop.
 | blocked | muted red `#C65F5A` | warning confirmation + worried eyes |
 | selected | cool highlight `#7FA9D8` | crisp outer ring + nameplate |
 
-P4 consumes these exact semantics when consolidating legacy rings, bubbles and markers.
+### P4 application contract
+
+Business-state precedence is `blocked > approval > working > idle`; selection is an orthogonal interaction
+layer and never rewrites business state. The production indicator owns one vocabulary only:
+
+- idle: low-contrast base disc;
+- working: muted teal disc plus exactly three restrained dots;
+- approval: amber ring plus one head confirmation;
+- blocked: muted-red segmented ring plus one head confirmation; a typed `T/B/P/C/R/X` resource marker
+  replaces the generic blocked marker instead of stacking with it;
+- selected: one cool outer ring outside the business-state treatment.
+
+Diegetic evidence remains primary. Approval uses `approval.wait` + clipboard, blocked uses worried eyes +
+headshake, and artifact delivery uses carry/handoff + document while walking to a real, uniquely reserved
+delivery-shelf anchor. Non-blocking resource warnings stay slate; only blocked/exhausted resource states may
+use muted red. The 2D scene consumes the same status/ink source without a P4 visual redesign. Workload,
+marker, chip, shelf and flow treatments use compact toy bevels; blocked nameplates state the actor identity
+explicitly and do not repeat the failure phrase on the flow lane.
 
 ## 6. Environment handoff for P6
 

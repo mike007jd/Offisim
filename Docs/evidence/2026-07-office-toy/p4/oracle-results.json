@@ -1,0 +1,56 @@
+{
+  "phase": "P4",
+  "checkedAt": "2026-07-10T21:59:16+10:00",
+  "timeZone": "Australia/Sydney",
+  "branch": "feat/office-toy-p4-visual-language",
+  "implementationCommit": "a10f0b25",
+  "status": "passed",
+  "oracle": {
+    "command": "pnpm harness:office-visual-language-p4",
+    "result": "passed",
+    "checks": "50/50",
+    "coverage": [
+      "idle, working, approval and blocked in one real frame",
+      "blocked > approval > working > idle precedence",
+      "selection orthogonal to business state",
+      "single indicator owner and exact art-bible inks",
+      "reduced-motion static state tells",
+      "typed T/B/P/C/R/X marker de-duplication",
+      "approval and blocked diegetic performance",
+      "physical delivery shelf and unique real anchors",
+      "employee-less delegated artifact owner preservation",
+      "static flow packets and removed legacy lanes"
+    ]
+  },
+  "gates": {
+    "pnpmValidate": "passed",
+    "rendererTypecheck": "passed",
+    "rendererBuild": "passed",
+    "sceneCue": "87/87 passed",
+    "officeProjection": "50/50 passed",
+    "characterActionsP3": "passed",
+    "uiFrameworkHygiene": "passed",
+    "desktopRustTests": "149 passed, 0 failed",
+    "desktopReleaseBuild": "passed",
+    "releaseBinarySha256": "ae2bf3d965851384609a5544cad2fb5051551b3b7c1437c1303f7682cd83a800",
+    "codesignVerify": "passed",
+    "gitDiffCheck": "passed",
+    "focusedBiome": "passed"
+  },
+  "review": {
+    "codeSimplifyLanes": {
+      "count": 3,
+      "result": "PASS"
+    },
+    "fiveSecondBlindReview": {
+      "initialResult": "BLOCKER",
+      "initialFinding": "blocked actor identity was ambiguous",
+      "fix": "explicit actor-plus-BLOCKED nameplate and duplicate failure-flow label suppression",
+      "finalResult": "PASS"
+    }
+  },
+  "knownNonBlockers": [
+    "Apple notarization was not run because signing credentials are not configured on this machine.",
+    "The two dead-code warnings predate P4: hashString and clipUsesSeatedOffset."
+  ]
+}

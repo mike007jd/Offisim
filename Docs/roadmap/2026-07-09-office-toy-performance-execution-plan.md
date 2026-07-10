@@ -201,11 +201,11 @@ P1 只完善 P0 已验证的单一 `body_toy.glb` lane；不得恢复旧 male/fe
 - [x] release .app 验证：打字 vs 交谈 vs 阅读对比截图（P-1 闭合证据）。
 
 ### P4 状态视觉语言（D）
-- [ ] 四态 overlay 体系实现：indicators.tsx + OfficeScene3D 状态叠加整合重绘（working/approval/blocked/selected），旧 CharacterAction 路径整合。
-- [ ] diegetic 编排：approval=approval.wait+clipboard、blocked=headshake+担忧眼、delivering=carry 向交付架。
-- [ ] workload 气泡/marker/chips/delivery shelf/flow lane 视觉重绘（语义不动）。
-- [ ] 2D ink 表与语义对齐（视觉重绘不做）。
-- [ ] release .app 验证：三态同屏截图 5 秒可辨（P-3/P-4 闭合证据）。
+- [x] 四态 overlay 体系实现：indicators.tsx + OfficeScene3D 状态叠加整合重绘（working/approval/blocked/selected），旧 CharacterAction 路径整合。
+- [x] diegetic 编排：approval=approval.wait+clipboard、blocked=headshake+担忧眼、delivering=carry 向交付架。
+- [x] workload 气泡/marker/chips/delivery shelf/flow lane 视觉重绘（语义不动）。
+- [x] 2D ink 表与语义对齐（视觉重绘不做）。
+- [x] release .app 验证：三态同屏截图 5 秒可辨（P-3/P-4 闭合证据）。
 
 ### P5 Ambient 生命感（E）
 - [ ] ambient 调度器：seeded 随机、45s–4min 频率、同屏离位 ≤2、目的地锚点（water-cooler/书架/邻座）、行为脚本（walk→consume/inspect.open/idle.talk→walk 回）。
@@ -289,3 +289,13 @@ P1 只完善 P0 已验证的单一 `body_toy.glb` lane；不得恢复旧 male/fe
 - **release live**：精确当前 worktree `.app`，binary SHA-256 `00ac7129823f3206d4ef91a6aecd79d15b5ef6c13d505ccdc34a27496727ac6a`，PID 12973，CGWindowNumber 238。Computer Use 冷启动后真实 Pi `openrouter/free` run 完成 read/write；talking、read、type 三态截图可辨；真实 Ask-mode `rm -rf` 进入 `awaiting-approval`，Reject 后命令未执行，并与外部 provider 429 的 red blocked 截图明确分离。21,382 行 unified log 中产品 panic/WebGL/asset/uncaught/black-screen/renderer-crash pattern 为 0；证据见 `Docs/evidence/2026-07-office-toy/p3/release-live-verification.json`。
 - **资产基线修正**：保留 `props.glb` 与 manifest head-radius/byte-ledger 修正；P1/P2 committed bytes 无法由最终 builder + exact frozen raw 重现，恢复旧 bytes 会让 clean full build 再次变脏，当前输出才是 deterministic builder truth。
 - **结论**：**P3 完成交付，继续 P4**。动作资产、语义映射、播放状态机、approval/blocked 分流、自动 oracle、独立 review 与 release 真交互均闭合；未修改 Pi wire/provider/host/Rust command surface。
+
+### P4 状态视觉语言 — Delivered（2026-07-10）
+
+- **branch / implementation commit / PR**：`feat/office-toy-p4-visual-language` / `a10f0b25` / [#26](https://github.com/mike007jd/Offisim/pull/26)，stack base 为 P3 [#25](https://github.com/mike007jd/Offisim/pull/25)。
+- **实现**：共享 frame 只保留 `idle / working / approval / blocked` 四态，优先级固定为 blocked > approval > working > idle，selected 正交叠加；旧 `CharacterAction` / `ActionHalo` / legacy performance lane 删除。单一指示器词汇使用 exact art-bible ink、typed `T/B/P/C/R/X` 去重、slate warning 与显式 blocked 人名牌。approval 继续 `approval.wait + clipboard`，blocked 继续 worried + headshake；artifact beat 走真实 carry/handoff + document 到物理 delivery shelf，唯一真实 anchor 才拥有 delivering。2D 只消费同一 status/ink，不重做画面。
+- **自动 oracle**：`pnpm harness:office-visual-language-p4` → 50/50，覆盖四态同帧、状态优先级、selection 正交、指示器唯一所有权、reduced-motion、typed marker、真实交付架/唯一 anchor、employee-less delegated artifact 归属、static flow packet 与旧 lane 不回流；scene-cue 87/87、office-projection 50/50、P3 character-actions 均复绿。
+- **全量门禁**：`pnpm validate` exit 0；renderer typecheck/build PASS；Rust `cargo test --locked` 149/149 PASS（P4 无 Rust 改动）；当前 worktree release `.app` build/sign 与 `codesign --verify --deep --strict` PASS。GitNexus change graph 为预期 HIGH：共享 projection、OfficeScene2D/3D 与角色渲染主路径共 9 条已知场景流程；无 Pi wire/provider/host/Rust command surface 扩散。既有 dead-code warning 仅 `hashString`、`clipUsesSeatedOffset`。
+- **review**：三条独立 code/simplify review 最终均 PASS。首轮 5 秒盲审确认 working/approval 但指出 blocked 人物归属含糊；修复为 `Alex C. · BLOCKED`、去除重复 failure flow 文案并重做 release 后，最终盲审四项全 PASS：三态人物对应、blocked 归属、amber/red 区分、无 selected 冷蓝外圈。
+- **release live**：精确当前 worktree `.app`，binary SHA-256 `ae2bf3d965851384609a5544cad2fb5051551b3b7c1437c1303f7682cd83a800`，PID 75434，CGWindowNumber 744，1440×884。Computer Use 冷启动后用真实 Pi `openrouter/free` 同屏形成 Alex blocked、Maya approval、Marcus working，返回会话列表并最大化 stage 后截图；证据 SHA-256 `c5525a2e2b44569e66d0614b7ede7ed15eba5b4508b425b437c628fb60d802b`。最终所有测试 run 清到 8 人 IDLE、无 pending approval/active control；逐项记录见 `Docs/evidence/2026-07-office-toy/p4/release-live-verification.json`。
+- **结论**：**P4 完成交付，继续 P5**。状态语言、diegetic 证据、typed resource、交付架、2D 语义同源、自动 oracle、独立 review 与 release 真交互均闭合；未修改 Pi/Rust runtime surface。
