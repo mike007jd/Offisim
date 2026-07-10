@@ -91,7 +91,7 @@ export interface PiRunStreamSnapshot {
 
 // Wire-contract typecheck guard. These canonical events must stay assignable to
 // PiAgentHostEvent; `satisfies` makes tsc fail here if the renderer union drifts
-// from the camelCase wire contract shared with the Rust host (pi_agent_host.rs)
+// from the camelCase wire contract shared with the Rust host (pi_agent_host/)
 // and the Node emitter (scripts/pi-agent-host-wire.mjs). The runtime round-trip is
 // gated by check:pi-wire-contract and the cargo fixture test.
 void ([

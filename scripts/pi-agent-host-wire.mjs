@@ -1,7 +1,7 @@
 // Single source of truth for both directions of the Pi Agent host JSONL wire contract.
 //
 // The Node host (scripts/tauri-pi-agent-host.entry.mjs) builds every stdout line
-// through the helpers below, the Rust bridge (apps/desktop/src-tauri/src/pi_agent_host.rs)
+// through the helpers below, the Rust bridge (apps/desktop/src-tauri/src/pi_agent_host/)
 // decodes the same shapes, and the renderer (desktop-agent-runtime.ts) consumes them.
 // All field names are camelCase on the wire. Keep this file, the Rust `PiSidecarLine`
 // enum, and the renderer `PiAgentHostEvent` union in lockstep — the contract gate

@@ -25,7 +25,7 @@ vendored Pi fork as the main runtime path.
 |-------|-------------|----------------|--------------|
 | Desktop renderer | `apps/desktop/renderer` | GUI shell, assistant-ui chat surface, 3D/2D office theater, Settings, Market, Personnel, Activity, Studio, Workspace apps | Provider SDK transports, model catalog freshness, local filesystem reads outside Tauri commands |
 | Tauri shell | `apps/desktop/src-tauri` | Window lifecycle, local SQLite setup, command boundary, workspace sandbox, shell/git/file safety, attachment store, MCP process bridge | AI model/provider logic |
-| Pi Agent host | `scripts/tauri-pi-agent-host.entry.mjs`, `apps/desktop/src-tauri/src/pi_agent_host.rs` | Runs bundled `@earendil-works/pi-coding-agent`, forwards JSONL events, exposes status, binds cwd/session/config paths | Offisim-specific business persistence or UI state |
+| Pi Agent host | `scripts/tauri-pi-agent-host.entry.mjs`, `apps/desktop/src-tauri/src/pi_agent_host/` | Runs bundled `@earendil-works/pi-coding-agent`, forwards JSONL events, exposes status, binds cwd/session/config paths | Offisim-specific business persistence or UI state |
 | Local data contracts | `packages/db-local`, `packages/core/src/runtime/repositories.ts` | Company/project/thread/activity/install/vault state and local schema migrations | Provider credentials |
 | Package/install contracts | `packages/asset-schema`, `packages/install-core`, `packages/registry-client`, `packages/shared-types` | Declarative package schema, install state machine, registry client validation, shared types | Install hooks, hidden postinstall execution |
 | Scene engine | `packages/renderer` | Office layout, prefab geometry/state, scene tokens shared by renderer surfaces | Product data ownership |
@@ -51,7 +51,7 @@ Source of truth:
 
 - `Docs/HARNESS_ARCHITECTURE.md`
 - `Docs/architecture/2026-06-18-pi-agent-only-runtime.md`
-- `apps/desktop/src-tauri/src/pi_agent_host.rs`
+- `apps/desktop/src-tauri/src/pi_agent_host/`
 - `scripts/tauri-pi-agent-host.entry.mjs`
 - `apps/desktop/renderer/src/assistant/runtime/desktop-chat-runtime.ts`
 

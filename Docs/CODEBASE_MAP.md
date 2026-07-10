@@ -46,7 +46,7 @@ Connect (collaboration) and Loops are isolated from Office's project chat and ru
 | Connect renderer glue (collaboration aggregate) | `apps/desktop/renderer/src/surfaces/workspace/collaboration-data.ts` |
 | Connect no-tools runtime + turn controller | `apps/desktop/renderer/src/runtime/collaboration` |
 | Connect domain repository | `packages/core/src/runtime/collaboration/collaboration-service.ts` |
-| Connect host capability | `agent_runtime_collaborate` in `apps/desktop/src-tauri/src/pi_agent_host.rs` |
+| Connect host capability | `agent_runtime_collaborate` in `apps/desktop/src-tauri/src/pi_agent_host/mod.rs` |
 | Loops editor / library / graph | `apps/desktop/renderer/src/surfaces/mission/loops` (graph in `loops/graph`, `LoopGraphPanel.tsx`) |
 | Loops domain (service, profiles, IR adapter) | `packages/core/src/loops` (+ `packages/shared-types/src/loops/ir.ts`) |
 | Versioned Prompt Enhance | `apps/desktop/renderer/src/assistant/enhance` |

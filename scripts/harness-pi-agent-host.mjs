@@ -1,5 +1,12 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  globSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import stripJsonComments from 'strip-json-comments';
@@ -67,7 +74,10 @@ ensureBundledHost(BUNDLED_HOST_SCRIPT);
 const rootPackage = readJson('package.json');
 const desktopPackage = readJson('apps/desktop/package.json');
 const tauriConfig = readJson('apps/desktop/src-tauri/tauri.conf.json');
-const rustHostSource = readFileSync('apps/desktop/src-tauri/src/pi_agent_host.rs', 'utf8');
+const rustHostSource = globSync('apps/desktop/src-tauri/src/pi_agent_host/*.rs')
+  .sort()
+  .map((path) => readFileSync(path, 'utf8'))
+  .join('\n');
 const nodeHostSource = readFileSync(HOST_SCRIPT, 'utf8');
 const bundledNodeHostSource = readFileSync(BUNDLED_HOST_SCRIPT, 'utf8');
 const mcpBridgeSource = readFileSync('scripts/pi-mcp-bridge-extension.mjs', 'utf8');
