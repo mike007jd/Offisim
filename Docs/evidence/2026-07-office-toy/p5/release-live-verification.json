@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 1,
+  "phase": "P5 deterministic ambient life",
+  "checkedAt": "2026-07-11T07:52:00+10:00",
+  "timeZone": "Australia/Sydney",
+  "branch": "feat/office-toy-p5-ambient-life",
+  "implementationCommit": "72688738",
+  "result": "pass",
+  "releaseApp": {
+    "path": "/Users/haoshengli/Seafile/WebWorkSpace/Offisim/apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app",
+    "binaryPath": "/Users/haoshengli/Seafile/WebWorkSpace/Offisim/apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app/Contents/MacOS/offisim-desktop",
+    "binarySha256": "4c28303ab759bf71a694746caf7f564562edbf681a2701b94205be39db7a4cfd",
+    "binarySizeBytes": 28576896,
+    "binaryModifiedAt": "2026-07-10T23:50:11+10:00",
+    "codesignVerify": "pass",
+    "signature": "adhoc runtime",
+    "notarization": "not run; Apple credentials are not configured on this machine"
+  },
+  "computerUse": {
+    "appSelector": "/Users/haoshengli/Seafile/WebWorkSpace/Offisim/apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app",
+    "window": {
+      "cgWindowNumber": 1133,
+      "pid": 69224,
+      "title": "Offisim",
+      "url": "tauri://localhost",
+      "bounds": {
+        "x": 36,
+        "y": 33,
+        "width": 1440,
+        "height": 876
+      }
+    },
+    "coldLaunch": {
+      "result": "pass",
+      "launchedAt": "2026-07-11T07:30:49+10:00",
+      "evidence": "Computer Use quit the previously running exact release app, confirmed the process absent, cold-launched the exact current-worktree path, entered Dramaturgy Smoke Lab, selected 3D and maximized the stage."
+    }
+  },
+  "ambientScenario": {
+    "name": "unaccelerated two-minute ambient observation",
+    "result": "pass",
+    "capture": {
+      "file": "release-ambient-125s.mp4",
+      "durationSeconds": 125.133333,
+      "width": 1280,
+      "height": 814,
+      "frameRate": 15,
+      "sha256": "2d6e9501b383f3b75cea93ed26109be205ea38da6fdc6e887c1ae7f558d63355"
+    },
+    "method": "The exact release CGWindow was recorded for 125.008 seconds without speed-up or concurrent GUI actions. Frames at 5, 30, 60, 90 and 120 seconds were extracted and visually inspected; all five were complete, non-black WebGL frames.",
+    "observed": [
+      "At 60 seconds Marcus was visibly away from his assigned workstation in the central area.",
+      "At 90 seconds Maya was at the library while another ambient actor occupied the right-side area; away concurrency remained within the hard cap.",
+      "By 120 seconds the observed actors had returned, proving a complete outbound-dwell-return lifecycle rather than static placement."
+    ]
+  },
+  "focusQuietScenario": {
+    "result": "pass",
+    "capture": {
+      "file": "release-focus-quiet-55s.mp4",
+      "durationSeconds": 55.133333,
+      "sha256": "d7280f566d2616f368a605a8a3cd9b528c25270b3b7243d14ba5f5f865bad56c"
+    },
+    "evidence": "After selecting Focus in the release View options, an already-active ambient actor completed its return; the 25-second and 52-second samples then retained the same employee zone/workstation positions with no new away behavior."
+  },
+  "runPreemptionScenario": {
+    "result": "pass",
+    "employee": "Marcus Johnson",
+    "interaction": "A real direct-message Pi run was triggered with the user-authorized openrouter/free model. The conversation showed Typing and Stop, the Office view showed Marcus at his workstation under the real working performance, and the run completed with OK.",
+    "timingEvidence": "The exact <=1 second interrupt is covered by the executable 66/66 ambient oracle; live Computer Use confirms the same real Pi event reaches the release scene and owns Marcus's visible performance.",
+    "screenshot": {
+      "file": "release-run-preemption-marcus.jpg",
+      "sha256": "d288f7fb0827e886355ee7feaebd5bee8ab50385ba4c700c07215b2462736d96",
+      "width": 1263,
+      "height": 768
+    }
+  },
+  "piRuntime": {
+    "provider": "openrouter-free",
+    "model": "openrouter/free",
+    "result": "pass",
+    "configuration": "The stale per-conversation glm-5.2 override first produced the expected missing-zai-key failure. Computer Use changed only this local conversation override to openrouter/free, retried, and received OK. No credential is stored in repository evidence and no Pi/provider source code changed."
+  },
+  "screenshots": {
+    "release-ambient-60s.jpg": {
+      "sha256": "f4f6405851d5946be2487abfc188416c813b866be0ad46b77b578e5d898db776",
+      "width": 3104,
+      "height": 1976
+    },
+    "release-ambient-90s.jpg": {
+      "sha256": "da818a7d5e342acb957c7c42d49aad22f6ef4d72f12fb3650823c90e09bfd45a",
+      "width": 3104,
+      "height": 1976
+    },
+    "release-focus-quiet-25s.jpg": {
+      "sha256": "a1665d06c7f12e55bc842062ebf25e00eb55686ce387d3bd3c90216fff5b1446",
+      "width": 3104,
+      "height": 1976
+    },
+    "release-focus-quiet-52s.jpg": {
+      "sha256": "466adf604ed7eb55eb7b5b42119c1c609e05adda17e842f491a1ac5b03a90115",
+      "width": 3104,
+      "height": 1976
+    }
+  },
+  "gates": {
+    "pnpmValidate": "passed",
+    "officeAmbientP5": "66/66 passed",
+    "rendererTypecheck": "passed",
+    "rendererBuild": "passed",
+    "officeSeatingP2": "32/32 passed",
+    "sceneStaging": "34/34 passed",
+    "sceneCue": "87/87 passed",
+    "officeVisualLanguageP4": "50/50 passed",
+    "codesignVerify": "passed"
+  },
+  "runtimeLogScan": {
+    "command": "/usr/bin/log show --style compact --predicate 'processID == 69224' --start '2026-07-11 07:30:49'",
+    "linesReturned": 5396,
+    "failurePatternMatches": 0,
+    "patterns": "panic|webgl|uncaught|black-screen|renderer-crash|fatal|segmentation|asset failure/error",
+    "result": "pass"
+  }
+}

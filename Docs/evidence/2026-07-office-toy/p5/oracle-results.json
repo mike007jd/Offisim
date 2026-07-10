@@ -1,0 +1,64 @@
+{
+  "phase": "P5",
+  "checkedAt": "2026-07-10T23:51:35+10:00",
+  "timeZone": "Australia/Sydney",
+  "branch": "feat/office-toy-p5-ambient-life",
+  "implementationCommit": "72688738",
+  "status": "passed",
+  "oracle": {
+    "command": "pnpm harness:office-ambient-p5",
+    "result": "passed",
+    "checks": "66/66",
+    "coverage": [
+      "seeded and roster-order-independent deterministic replay",
+      "45-120 second first due and 45-240 second later attempt cadence",
+      "no queue, backfill or suspension catch-up burst",
+      "refreshment, library, social, phone and seated-shift shipped clips",
+      "exact outbound, dwell, return and home phase scripts",
+      "office hard caps of two away and four active actors",
+      "real A* distance, no-route fallback and route-revision invalidation",
+      "fixture reservation plus farther reachable fixture fallback",
+      "floor-bound target rejection while outside-start drag return remains valid",
+      "run, drag, fixture, focus and reduced-motion preemption",
+      "multi-owner 2D, 3D and drilldown singleton lifecycle"
+    ]
+  },
+  "gates": {
+    "pnpmValidate": "passed; VALIDATE_EXIT=0",
+    "rendererTypecheck": "passed",
+    "rendererBuild": "passed",
+    "officeAmbientP5": "66/66 passed",
+    "officeSeatingP2": "32/32 passed",
+    "sceneStaging": "34/34 passed",
+    "sceneCue": "87/87 passed",
+    "dramaturgyModes": "16/16 passed",
+    "characterClipMap": "17280 states and 21 clips passed",
+    "characterActionsP3": "passed",
+    "officeVisualLanguageP4": "50/50 passed",
+    "uiFrameworkHygiene": "passed",
+    "desktopReleaseBuild": "passed",
+    "releaseBinarySha256": "4c28303ab759bf71a694746caf7f564562edbf681a2701b94205be39db7a4cfd",
+    "codesignVerify": "passed",
+    "gitDiffCheck": "passed",
+    "gitNexusDetectChanges": "high expected surface risk; 15 affected office processes reviewed and covered by shared-scene gates"
+  },
+  "review": {
+    "coldReview": "PASS; 0 confirmed blocker on final stable snapshot",
+    "simplifyReview": "PASS; 0 blocker, 0 important, 0 minor on final stable snapshot",
+    "confirmedFindingsFixed": [
+      "long-gap catch-up and activity resume",
+      "fixture double booking and unreachable-nearest fallback",
+      "multi-owner busy last-writer-wins and new-owner notification",
+      "surface-switch state cancellation",
+      "global one-frame blanking on actor or fixture preemption",
+      "chair-overlapping phone and obstacle-crossing social destinations",
+      "route revision and floor-bound target invalidation",
+      "outside-start drag-return regression introduced during review"
+    ]
+  },
+  "knownNonBlockers": [
+    "Apple notarization was not run because signing credentials are not configured on this machine.",
+    "The two dead-code warnings predate P5: hashString and clipUsesSeatedOffset.",
+    "No Rust command or Pi runtime surface changed, so the P5 diff relies on the existing Rust baseline plus the full repository validate gate."
+  ]
+}

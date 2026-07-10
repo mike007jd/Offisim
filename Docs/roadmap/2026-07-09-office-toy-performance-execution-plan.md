@@ -208,12 +208,12 @@ P1 只完善 P0 已验证的单一 `body_toy.glb` lane；不得恢复旧 male/fe
 - [x] release .app 验证：三态同屏截图 5 秒可辨（P-3/P-4 闭合证据）。
 
 ### P5 Ambient 生命感（E）
-- [ ] 契约冻结：45s–4min 是每名员工独立、seeded、与 roster 顺序无关的“到期/尝试”节奏，不承诺每次都物理离位（16 人 + 离位硬上限 2 + 30s 社交在数学上无法保证全员 4 分钟内离位）。首轮 45–120s 且优先 water/library/social，容量/锚点不足时确定性降级为原位 phone/坐姿微动作；不排队、不补发、不形成 catch-up burst。后续每次尝试 45–240s。
-- [ ] ambient 调度器：seeded 随机、45s–4min 频率、同屏离位 ≤2、目的地锚点（water-cooler/书架/邻座）、行为脚本（walk→consume/inspect.open/idle.talk→walk 回）。
-- [ ] run 抢占：活跃 beat 员工不参与；beat 到达 ≤1s 中断 ambient。
-- [ ] modes.ts 门控扩展（focus/reduced-motion 全关离位层）。
-- [ ] harness：seeded 重放守卫 + 抢占守卫。
-- [ ] release .app 验证：2 分钟录屏（P-2 闭合证据）。
+- [x] 契约冻结：45s–4min 是每名员工独立、seeded、与 roster 顺序无关的“到期/尝试”节奏，不承诺每次都物理离位（16 人 + 离位硬上限 2 + 30s 社交在数学上无法保证全员 4 分钟内离位）。首轮 45–120s 且优先 water/library/social，容量/锚点不足时确定性降级为原位 phone/坐姿微动作；不排队、不补发、不形成 catch-up burst。后续每次尝试 45–240s。
+- [x] ambient 调度器：seeded 随机、45s–4min 频率、同屏离位 ≤2、目的地锚点（water-cooler/书架/邻座）、行为脚本（walk→consume/inspect.open/idle.talk→walk 回）。
+- [x] run 抢占：活跃 beat 员工不参与；beat 到达 ≤1s 中断 ambient。
+- [x] modes.ts 门控扩展（focus/reduced-motion 全关离位层）。
+- [x] harness：seeded 重放守卫 + 抢占守卫。
+- [x] release .app 验证：2 分钟录屏（P-2 闭合证据）。
 
 ### P6 Diorama 环境（F）
 - [ ] RoomShell 重做：删墙/玻璃隔断/墙面板，地台厚度+倒角，ZoneRug 升级，背景渐变+雾调参。
@@ -300,3 +300,13 @@ P1 只完善 P0 已验证的单一 `body_toy.glb` lane；不得恢复旧 male/fe
 - **review**：三条独立 code/simplify review 最终均 PASS。首轮 5 秒盲审确认 working/approval 但指出 blocked 人物归属含糊；修复为 `Alex C. · BLOCKED`、去除重复 failure flow 文案并重做 release 后，最终盲审四项全 PASS：三态人物对应、blocked 归属、amber/red 区分、无 selected 冷蓝外圈。
 - **release live**：精确当前 worktree `.app`，binary SHA-256 `ae2bf3d965851384609a5544cad2fb5051551b3b7c1437c1303f7682cd83a800`，PID 75434，CGWindowNumber 744，1440×884。Computer Use 冷启动后用真实 Pi `openrouter/free` 同屏形成 Alex blocked、Maya approval、Marcus working，返回会话列表并最大化 stage 后截图；证据 SHA-256 `c5525a2e2b44569e66d0614b7ede7ed15eba5b4508b425b437c628fb60d802b`。最终所有测试 run 清到 8 人 IDLE、无 pending approval/active control；逐项记录见 `Docs/evidence/2026-07-office-toy/p4/release-live-verification.json`。
 - **结论**：**P4 完成交付，继续 P5**。状态语言、diegetic 证据、typed resource、交付架、2D 语义同源、自动 oracle、独立 review 与 release 真交互均闭合；未修改 Pi/Rust runtime surface。
+
+### P5 Ambient 生命感 — Delivered（2026-07-11）
+
+- **branch / implementation commit / stacked base**：`feat/office-toy-p5-ambient-life` / `72688738`，stack base 为 P4 `feat/office-toy-p4-visual-language`。
+- **实现**：renderer 内单一 deterministic ambient scheduler；每员工 seed 与 roster 顺序解耦，首轮 45–120s、后续 45–240s，不排队/补发/catch-up。refreshment/library/social/phone/seated-shift 五类行为走真实 clip 与 A*；office 同屏最多 2 人离位、4 人 active，fixture reservation、可达 fallback、route revision 与 floor bounds 均为硬约束。run、drag、fixture、surface、focus、reduced-motion 都能抢占或清理 ambient。
+- **自动 oracle**：`pnpm harness:office-ambient-p5` → 66/66；P2 seating 32/32、scene-staging 34/34、scene-cue 87/87、P4 visual-language 50/50、clip-map 17,280 states / 21 clips 均复绿。
+- **全量门禁**：`pnpm validate` exit 0；renderer typecheck/build、UI framework hygiene、当前 worktree release `.app` build/sign 与 `codesign --verify --deep --strict` PASS。GitNexus 为预期 HIGH：15 条共享 Office scene process，均由受影响 harness 与 release live 覆盖；未触达 Pi wire/provider/host/Rust command surface。
+- **review**：独立 cold review 与 simplify review 最终均 PASS、0 confirmed finding。确认修复 catch-up burst、fixture double-book、multi-owner busy、surface switch、preemption blank frame、chair/obstacle target、route revision/floor bounds 以及 outside-start drag-return 回归。
+- **release live**：精确 `.app` binary SHA-256 `4c28303ab759bf71a694746caf7f564562edbf681a2701b94205be39db7a4cfd`，PID 69224，CGWindowNumber 1133。125.133 秒无加速录屏跨 5/30/60/90/120 秒抽检完整，观察 Marcus/Maya 离位并回归；Focus 55.133 秒验证 active 收尾后不再新离位；真实 Pi `openrouter/free` run 形成 Marcus working 抢占并返回 `OK`。5,396 行 unified log 中产品 fatal/WebGL/asset/uncaught/black-screen/renderer-crash pattern 为 0；完整哈希与证据见 `Docs/evidence/2026-07-office-toy/p5/release-live-verification.json`。
+- **结论**：**P5 完成交付，继续 P6**。P-2 由 deterministic oracle、两分钟真实观察、mode quiet 与真实 run scene ownership 双证据闭合。
