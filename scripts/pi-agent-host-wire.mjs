@@ -1,4 +1,4 @@
-// Single source of truth for the Pi Agent host JSONL wire contract.
+// Single source of truth for both directions of the Pi Agent host JSONL wire contract.
 //
 // The Node host (scripts/tauri-pi-agent-host.entry.mjs) builds every stdout line
 // through the helpers below, the Rust bridge (apps/desktop/src-tauri/src/pi_agent_host.rs)
@@ -26,6 +26,168 @@ export const PI_WIRE_KINDS = Object.freeze([
   'result',
   'error',
 ]);
+
+const requestSpec = (keys, nullable = []) =>
+  Object.freeze({
+    required: Object.freeze([...keys]),
+    allowed: Object.freeze([...keys]),
+    nullable: Object.freeze([...nullable]),
+  });
+
+// Rust emits these three request envelopes and the Node entrypoint decodes them
+// before dispatch. Optional values remain present as JSON null, so the key set is
+// exact even when a model/persona/scope override is absent. companyId is enforced
+// at the Tauri request boundary but is not consumed by the Node host; the redundant
+// collaboration capabilityProfile is likewise not part of this wire envelope.
+export const PI_REQUEST_SPEC = Object.freeze({
+  execute: requestSpec(
+    [
+      'mode',
+      'text',
+      'cwd',
+      'sessionDir',
+      'agentDir',
+      'model',
+      'permissionMode',
+      'thinkingLevel',
+      'systemPromptAppend',
+      'threadId',
+      'projectId',
+      'employeeId',
+      'rootRunId',
+      'roster',
+      'missionContextJson',
+      'mcpTools',
+    ],
+    [
+      'agentDir',
+      'model',
+      'permissionMode',
+      'thinkingLevel',
+      'systemPromptAppend',
+      'projectId',
+      'employeeId',
+      'rootRunId',
+      'roster',
+      'missionContextJson',
+      'mcpTools',
+    ],
+  ),
+  enhance: requestSpec(
+    ['mode', 'text', 'systemPrompt', 'cwd', 'agentDir', 'model', 'thinkingLevel'],
+    ['agentDir', 'model', 'thinkingLevel'],
+  ),
+  collaborate: requestSpec(
+    [
+      'mode',
+      'requestId',
+      'text',
+      'collaborationProfile',
+      'mcpTools',
+      'cwd',
+      'agentDir',
+      'collaborationThreadId',
+      'employeeId',
+      'model',
+      'thinkingLevel',
+      'systemPromptAppend',
+    ],
+    [
+      'collaborationProfile',
+      'mcpTools',
+      'agentDir',
+      'employeeId',
+      'model',
+      'thinkingLevel',
+      'systemPromptAppend',
+    ],
+  ),
+});
+
+const PI_REQUEST_NORMALIZERS = Object.freeze({
+  execute: (payload) => ({
+    mode: payload.mode,
+    text: payload.text,
+    cwd: payload.cwd,
+    sessionDir: payload.sessionDir,
+    agentDir: payload.agentDir,
+    model: payload.model,
+    permissionMode: payload.permissionMode,
+    thinkingLevel: payload.thinkingLevel,
+    systemPromptAppend: payload.systemPromptAppend,
+    threadId: payload.threadId,
+    projectId: payload.projectId,
+    employeeId: payload.employeeId,
+    rootRunId: payload.rootRunId,
+    roster: payload.roster,
+    missionContextJson: payload.missionContextJson,
+    mcpTools: payload.mcpTools,
+  }),
+  enhance: (payload) => ({
+    mode: payload.mode,
+    text: payload.text,
+    systemPrompt: payload.systemPrompt,
+    cwd: payload.cwd,
+    agentDir: payload.agentDir,
+    model: payload.model,
+    thinkingLevel: payload.thinkingLevel,
+  }),
+  collaborate: (payload) => ({
+    mode: payload.mode,
+    requestId: payload.requestId,
+    text: payload.text,
+    collaborationProfile: payload.collaborationProfile,
+    mcpTools: payload.mcpTools,
+    cwd: payload.cwd,
+    agentDir: payload.agentDir,
+    collaborationThreadId: payload.collaborationThreadId,
+    employeeId: payload.employeeId,
+    model: payload.model,
+    thinkingLevel: payload.thinkingLevel,
+    systemPromptAppend: payload.systemPromptAppend,
+  }),
+});
+
+export function decodePiRequestPayload(payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw Object.assign(new Error('Pi Agent request payload must be an object.'), {
+      code: 'invalid-request',
+    });
+  }
+  const mode = typeof payload.mode === 'string' ? payload.mode : '';
+  const spec = PI_REQUEST_SPEC[mode];
+  const normalize = PI_REQUEST_NORMALIZERS[mode];
+  if (!spec || !normalize) {
+    throw Object.assign(new Error(`Unknown Pi Agent request mode: ${mode || '(missing)'}.`), {
+      code: 'invalid-request',
+    });
+  }
+  const keys = Object.keys(payload);
+  const missing = spec.required.filter((key) => !Object.hasOwn(payload, key));
+  if (missing.length > 0) {
+    throw Object.assign(
+      new Error(`Pi Agent ${mode} request is missing keys: ${missing.join(', ')}.`),
+      { code: 'invalid-request' },
+    );
+  }
+  const invalidNulls = spec.required.filter(
+    (key) => payload[key] === null && !spec.nullable.includes(key),
+  );
+  if (invalidNulls.length > 0) {
+    throw Object.assign(
+      new Error(`Pi Agent ${mode} request has null non-nullable keys: ${invalidNulls.join(', ')}.`),
+      { code: 'invalid-request' },
+    );
+  }
+  const unexpected = keys.filter((key) => !spec.allowed.includes(key));
+  if (unexpected.length > 0) {
+    throw Object.assign(
+      new Error(`Pi Agent ${mode} request has unexpected keys: ${unexpected.join(', ')}.`),
+      { code: 'invalid-request' },
+    );
+  }
+  return normalize(payload);
+}
 
 // The WorkKind enum (mirror of packages/shared-types WorkKind) — the kinds the
 // delegate tool may stamp on a run. Single source for the host scripts so the

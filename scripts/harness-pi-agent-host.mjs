@@ -73,6 +73,14 @@ const bundledNodeHostSource = readFileSync(BUNDLED_HOST_SCRIPT, 'utf8');
 const mcpBridgeSource = readFileSync('scripts/pi-mcp-bridge-extension.mjs', 'utf8');
 const childSupervisorSource = readFileSync('scripts/pi-child-supervisor.mjs', 'utf8');
 const wireSource = readFileSync('scripts/pi-agent-host-wire.mjs', 'utf8');
+const executePayloadSource = rustHostSource.slice(
+  rustHostSource.indexOf('fn sidecar_payload'),
+  rustHostSource.indexOf('/// Build the Prompt Enhance sidecar payload'),
+);
+const collaboratePayloadSource = rustHostSource.slice(
+  rustHostSource.indexOf('fn collaborate_payload'),
+  rustHostSource.indexOf('/// Write the execute/status payload'),
+);
 const desktopRuntimeScopeSource = readFileSync(
   'apps/desktop/renderer/src/data/employee-persona.ts',
   'utf8',
@@ -119,18 +127,34 @@ assert(
   'execute request must deserialize mcpTools so Office runs can receive employee MCP grants',
 );
 assert(
-  /fn sidecar_payload[\s\S]*"mode": "execute"[\s\S]*"mcpTools": req\.mcp_tools/.test(
-    rustHostSource,
+  /fn sidecar_payload\([\s\S]*agent_dir: Option<&Path>[\s\S]*"mode": "execute"[\s\S]*"mcpTools": req\.mcp_tools/.test(
+    executePayloadSource,
   ),
-  'execute sidecar payload must forward mcpTools to the Node Pi host',
+  'execute sidecar payload must be AppHandle-free and forward mcpTools to the Node Pi host',
 );
 assert(
-  /fn sidecar_payload[\s\S]*"projectId": req\.project_id/.test(rustHostSource),
+  /"projectId": req\.project_id/.test(executePayloadSource),
   'execute sidecar payload must forward projectId so delegation child runs inherit the project scope (a dropped projectId crashed the Node host with "projectId is not defined")',
 );
 assert(
-  /fn sidecar_payload[\s\S]*"employeeId": req\.employee_id/.test(rustHostSource),
+  /"employeeId": req\.employee_id/.test(executePayloadSource),
   'execute sidecar payload must forward employeeId so publish-artifact and mission-bridge events keep employee attribution',
+);
+assert(
+  !/"companyId": req\.company_id/.test(executePayloadSource),
+  'execute sidecar payload must not emit companyId because the Node execute host has no companyId consumer',
+);
+assert(
+  /fn collaborate_payload\([\s\S]*agent_dir: Option<&Path>/.test(collaboratePayloadSource) &&
+    !/"companyId": req\.company_id|"capabilityProfile": req\.capability_profile/.test(
+      collaboratePayloadSource,
+    ),
+  'collaboration payload must be AppHandle-free and omit companyId/capabilityProfile fields that the Node host does not consume',
+);
+assert(
+  /payload = decodePiRequestPayload\(payload\)/.test(nodeHostSource) &&
+    /export function decodePiRequestPayload/.test(wireSource),
+  'the production Node entrypoint must pass execute/enhance/collaborate payloads through the shared request decoder',
 );
 assert(
   /const projectId = asNonEmptyString\(payload\.projectId\)/.test(nodeHostSource),
