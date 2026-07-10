@@ -173,17 +173,17 @@ P1 只完善 P0 已验证的单一 `body_toy.glb` lane；不得恢复旧 male/fe
 - [x] 结论落盘（go / 放宽头身比 / 新骨架）到本文件 Delivered 区。
 
 ### P1 角色系统全量（A）
-- [ ] 接续 P0 已落地的单一 `body_toy.glb`（旧 male/female 已删除）：复核 `heightUnits` / TARGET_HEIGHT_UNITS 语义，完善 6 档 skin tone direct tint；不得恢复双 body 或旧纹理分流。
-- [ ] BODY_TYPE_GIRTH 重调（玩具体下 slim/normal/stocky 视觉差异要可读）。
-- [ ] headShape 三档（round/soft-square/capsule）：head 骨骼非均匀缩放实现 + appearance 字段 + AppearanceTab UI。
-- [ ] 眼神贴片机制：4 态 eye decal + 眨眼调度（per-phase 去同步、reduced-motion 门控）+ expression 接线。
-- [ ] 发型适配玩具头（6 hair mesh 重烘焙或缩放适配；brows 评估去留——玩具脸上眉毛可能并入眼神贴片）。
-- [ ] garments.ts 全量重调（4 outfit 部件比例、大鞋底）。
-- [ ] schema 演进：删 accentVariant（类型、resolveAppearance、AppearanceTab、garments 引用）；skin tone UI 改 tone 命名；gender 不再选 mesh。
-- [ ] 岗位配件：props.glb 扩展（clipboard/tablet/headset/swatch/checklist/keycard）+ PROP_ATTACH 补齐 + roleBadge 胸牌 + role→prop 默认映射；prop 枚举与 mesh 对齐（terminal/pointer 补齐或删值）。
-- [ ] role↔skinTone 独立性静态守卫。
-- [ ] LICENSES.md 更新；25MB 门禁复核。
-- [ ] release .app 验证：多员工多样性全景 + 岗位识别截图。
+- [x] 接续 P0 已落地的单一 `body_toy.glb`（旧 male/female 已删除）：复核 `heightUnits` / TARGET_HEIGHT_UNITS 语义，完善 6 档 skin tone direct tint；不得恢复双 body 或旧纹理分流。
+- [x] BODY_TYPE_GIRTH 重调（玩具体下 slim/normal/stocky 视觉差异要可读）。
+- [x] headShape 三档（round/soft-square/capsule）：head 骨骼非均匀缩放实现 + appearance 字段 + AppearanceTab UI。
+- [x] 眼神贴片机制：4 态 eye decal + 眨眼调度（per-phase 去同步、reduced-motion 门控）+ expression 接线。
+- [x] 发型适配玩具头（6 hair mesh 重烘焙或缩放适配；brows 评估去留——玩具脸上眉毛可能并入眼神贴片）。
+- [x] garments.ts 全量重调（4 outfit 部件比例、大鞋底）。
+- [x] schema 演进：删 accentVariant（类型、resolveAppearance、AppearanceTab、garments 引用）；skin tone UI 改 tone 命名；gender 不再选 mesh。
+- [x] 岗位配件：props.glb 扩展（clipboard/tablet/headset/swatch/checklist/keycard）+ PROP_ATTACH 补齐 + roleBadge 胸牌 + role→prop 默认映射；prop 枚举与 mesh 对齐（terminal/pointer 补齐或删值）。
+- [x] role↔skinTone 独立性静态守卫。
+- [x] LICENSES.md 更新；25MB 门禁复核。
+- [x] release .app 验证：多员工多样性全景 + 岗位识别截图。
 
 ### P2 座位身份与移动（B）
 - [ ] `employeePlacements` 改身份稳定分座（zone 内按 employee id 排序绑 seat slot；评估是否需要显式 seat 字段——需要则走 prelaunch schema 三步）。
@@ -258,3 +258,13 @@ P1 只完善 P0 已验证的单一 `body_toy.glb` lane；不得恢复旧 male/fe
 - **review**：三条并行 simplify lane 最终 PASS；独立 cold review 最终 PASS。确认并修复的 blocker/important：三角面反绕、textureless skin ratio tint 过曝、臀点只验 Y 未验椅垫平顶 X/Z；P0 diagnostic seam 明确留到 P1 删除。
 - **release live**：当前 worktree 精确 `.app`，PID 33174，CGWindowNumber 137587。19 clips 全播视频 `Docs/evidence/2026-07-office-toy/p0/release-19-clips.mp4`；特写、正常办公室距离、最大距离截图及窗口/哈希记录见 `release-live-verification.json`。
 - **结论**：**GO，继续 P1**。同骨架玩具体在自动接触、ground/root guards 与三档 release 视图均无 blocker；不放宽到 3 头身，不换骨架。发型、4 态眼神、garment 全量适配与岗位道具保持为 P1 正式 scope。
+
+### P1 角色系统全量 — Delivered（2026-07-10）
+
+- **branch / implementation commit / PR**：`feat/office-toy-p1-characters` / `b5e369bf` / [#21](https://github.com/mike007jd/Offisim/pull/21)，stack base 为 P0 [#18](https://github.com/mike007jd/Offisim/pull/18)。
+- **实现**：单一玩具体端态；三档 XZ girth 与三档 head shape；4 态眼神 + 2–6s/120ms deterministic blink；6 发型、4 garment、role badge、五值 dramaturgy prop 与岗位默认道具；删 `accentVariant` / baked eyes / brows；gender 只进入 persona/2D avatar；palette 与自定义色 UI 单源；art bible 落盘。
+- **自动 oracle**：`node scripts/harness-character-toy-p1.mjs` → 32/32（包含可执行 scale/blink/reduced-motion/prop precedence/garment oracle 与 production wiring guards）；P0 oracle 21/21；clip-map 12,960 states / 19 clips；资产目录、manifest byte、node/bone、license 与 25 MiB 预算 exact，当前总量 1,500,109 bytes。
+- **全量门禁**：`pnpm validate` exit 0；renderer typecheck/build PASS；Rust `cargo test --locked` 149/149 PASS；当前 worktree release `.app` build/sign 与 `codesign --verify --deep --strict` PASS；GitNexus pre-commit change graph 为 medium，仅触达 Office/Personnel/asset-builder flows。
+- **review**：三条 simplify lane 四轮收敛到 0 blocker / 0 important；独立 cold review 最终 PASS。确认并修复的重点包括 prop/attach/oracle false-green、hair head-envelope、palette/custom color 单源、gender 3D rig churn、reduced-motion 漏接、逐帧 visibility/geometry/material 重复和 GitNexus scope 污染。
+- **release live**：精确 `.app` bundle SHA-256 `046e488e1ae2756c9fc2d6e5f181db922eff9e7663aaefa042beb7d73d3b3e02`，PID 90747，CGWindowNumber 138618。Computer Use 验证八员工全景、QA checklist、Designer swatch、Curly+Capsule+Stocky+Dress、gender 2D-only、Reset 无持久化；5,212 行 unified log 中产品 WebGL/asset/panic/uncaught/black-screen/renderer-crash pattern 为 0。截图、哈希和逐项记录见 `Docs/evidence/2026-07-office-toy/p1/release-live-verification.json`。
+- **结论**：**P1 完成交付，继续 P2**。P0 diagnostic seam 已删；角色视觉、资源、schema、props 与验收 oracle 均收口，未引入 Pi/Rust runtime 改动。
