@@ -1,5 +1,5 @@
+import { invokeCommand } from '@/lib/tauri-commands.js';
 import * as schema from '@offisim/db-local';
-import { invoke } from '@tauri-apps/api/core';
 import { drizzle } from 'drizzle-orm/sqlite-proxy';
 import { getTauriDb } from './tauri-db';
 
@@ -153,7 +153,7 @@ export async function withTauriSqlTransaction<T>(
     const txDb = createTauriDrizzleDbForQueue(queue);
     const result = await fn(txDb);
     if (queue.statements.length > 0) {
-      await invoke('local_db_execute_transaction', { statements: queue.statements });
+      await invokeCommand('local_db_execute_transaction', { statements: queue.statements });
     }
     return result;
   });

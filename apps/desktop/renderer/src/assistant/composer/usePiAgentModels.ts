@@ -1,4 +1,5 @@
 import { isTauriRuntime } from '@/data/adapters.js';
+import { invokeCommand } from '@/lib/tauri-commands.js';
 import { useQuery } from '@tanstack/react-query';
 
 /** One Pi-available model, as projected by the `pi_agent_status` command. */
@@ -18,18 +19,13 @@ interface PiAgentModelSummary {
   reasoning?: boolean;
 }
 
-interface PiAgentStatusResponse {
-  availableModels?: PiAgentModelSummary[];
-}
-
 function modelValue(model: PiAgentModelSummary): string {
   const id = model.id ?? model.name ?? 'model';
   return model.provider ? `${model.provider}/${id}` : id;
 }
 
 async function loadModels(): Promise<PiAgentModelOption[]> {
-  const { invoke } = await import('@tauri-apps/api/core');
-  const status = await invoke<PiAgentStatusResponse>('pi_agent_status');
+  const status = await invokeCommand('pi_agent_status');
   const models = status.availableModels ?? [];
   return models.map((model) => ({
     value: modelValue(model),

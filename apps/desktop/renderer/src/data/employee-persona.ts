@@ -1,3 +1,4 @@
+import { invokeCommand } from '@/lib/tauri-commands.js';
 import { titleizeSlug } from '@/lib/utils.js';
 import type { EmployeeRow, McpToolGrantRow, RuntimeRepositories } from '@offisim/core/browser';
 import { inferMcpGrantRiskClass } from './mcp-risk.js';
@@ -126,18 +127,6 @@ interface RuntimeMcpServerStatus {
   tools?: RuntimeMcpToolInfo[];
 }
 
-interface RuntimeRegisteredMcpServer {
-  serverId?: unknown;
-  name?: unknown;
-  transport?: unknown;
-  approvalId?: unknown;
-  commandFingerprint?: unknown;
-  sourcePackageId?: unknown;
-  sourcePackageVersion?: unknown;
-  sourceManifestHash?: unknown;
-  requestSurface?: unknown;
-}
-
 /**
  * Build a turn's full delegation context in ONE pass: a single `findByCompany`
  * (all employee rows) + a single company read derives both the acting employee's
@@ -192,8 +181,7 @@ export async function buildMcpScope(
   );
   if (scopedGrants.length === 0) return [];
   try {
-    const { invoke } = await import('@tauri-apps/api/core');
-    const statuses = await ensureGrantedMcpServersConnected(invoke, scopedGrants);
+    const statuses = await ensureGrantedMcpServersConnected(scopedGrants);
     const connected = new Map(
       statuses
         .filter((server) => server.state === 'ready' && typeof server.name === 'string')
@@ -215,10 +203,9 @@ export async function buildMcpScope(
 }
 
 async function ensureGrantedMcpServersConnected(
-  invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>,
   grants: readonly { server_name: string }[],
 ): Promise<RuntimeMcpServerStatus[]> {
-  const statuses = await invoke<RuntimeMcpServerStatus[]>('mcp_list_servers');
+  const statuses = await invokeCommand('mcp_list_servers');
   const ready = new Set(
     statuses
       .filter((server) => server.state === 'ready' && typeof server.name === 'string')
@@ -229,7 +216,7 @@ async function ensureGrantedMcpServersConnected(
   );
   if (needed.size === 0) return statuses;
 
-  const registered = await invoke<RuntimeRegisteredMcpServer[]>('mcp_list_registered_servers');
+  const registered = await invokeCommand('mcp_list_registered_servers');
   await Promise.all(
     registered
       .filter((server) => typeof server.name === 'string' && needed.has(server.name))
@@ -242,7 +229,7 @@ async function ensureGrantedMcpServersConnected(
         ) {
           return;
         }
-        await invoke('mcp_connect_registered', {
+        await invokeCommand('mcp_connect_registered', {
           request: {
             serverId: server.serverId,
             approvalId: server.approvalId,
@@ -260,7 +247,7 @@ async function ensureGrantedMcpServersConnected(
         }).catch(() => undefined);
       }),
   );
-  return invoke<RuntimeMcpServerStatus[]>('mcp_list_servers');
+  return invokeCommand('mcp_list_servers');
 }
 
 function toMcpScopedTool(grant: McpToolGrantRow, tool?: RuntimeMcpToolInfo): McpScopedTool {

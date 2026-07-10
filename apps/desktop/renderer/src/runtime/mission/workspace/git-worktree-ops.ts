@@ -1,3 +1,4 @@
+import { invokeCommand } from '@/lib/tauri-commands.js';
 import type { GitWorktreeOps, MergeResult } from '@offisim/core/browser';
 
 /**
@@ -22,19 +23,6 @@ interface GitExecResult {
   stderr: string;
 }
 
-// Lazy Tauri import (mirrors evaluation-context / git-workbench): keeping it out
-// of module scope means a Node harness can import this module without resolving
-// `@tauri-apps/api`. In the live `.app` it resolves on first call.
-type Invoke = <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
-let invokeImpl: Invoke | null = null;
-async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  if (!invokeImpl) {
-    const mod = await import('@tauri-apps/api/core');
-    invokeImpl = mod.invoke as Invoke;
-  }
-  return invokeImpl<T>(cmd, args);
-}
-
 export interface TauriGitWorktreeOpsInput {
   /** The selected project's id — scopes every `git_exec` call to its workspace. */
   projectId: string;
@@ -50,7 +38,7 @@ export function createTauriGitWorktreeOps(input: TauriGitWorktreeOpsInput): GitW
   const { projectId } = input;
 
   async function run(args: string[], cwd: string | null): Promise<GitExecResult> {
-    return tauriInvoke<GitExecResult>('git_exec', { projectId, args, cwd });
+    return invokeCommand('git_exec', { projectId, args, cwd });
   }
 
   return {

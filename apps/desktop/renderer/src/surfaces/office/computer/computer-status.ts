@@ -1,4 +1,5 @@
 import { isTauriRuntime } from '@/data/adapters.js';
+import { invokeCommand } from '@/lib/tauri-commands.js';
 
 export const CUA_DRIVER_INSTALL_COMMAND =
   '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/trycua/cua/main/libs/cua-driver/scripts/install.sh)"';
@@ -17,6 +18,5 @@ export async function loadComputerDriverStatus(): Promise<ComputerDriverStatus> 
   if (!isTauriRuntime()) {
     return { installed: false, binaryPath: null, version: null, daemonRunning: false };
   }
-  const { invoke } = await import('@tauri-apps/api/core');
-  return invoke<ComputerDriverStatus>('computer_driver_status');
+  return invokeCommand('computer_driver_status');
 }

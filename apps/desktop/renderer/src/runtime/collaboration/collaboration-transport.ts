@@ -9,9 +9,10 @@
 // transport (no live model) and the production transport is the only Tauri-bound
 // piece.
 
+import { invokeCommand } from '@/lib/tauri-commands.js';
 import type { AgentRunUsage } from '@offisim/shared-types';
 import type { CollaborationProfile } from '@offisim/shared-types';
-import { Channel, invoke } from '@tauri-apps/api/core';
+import { Channel } from '@tauri-apps/api/core';
 import { readPiModelOverride } from '../pi-agent-config.js';
 import type { PiAgentHostEvent, PiAgentHostResponse } from '../pi-runtime-driver.js';
 
@@ -79,7 +80,9 @@ export function createTauriCollaborationTransport(
       };
 
       const onAbort = () => {
-        void invoke('agent_runtime_abort', { requestId: req.requestId }).catch(() => undefined);
+        void invokeCommand('agent_runtime_abort', { requestId: req.requestId }).catch(
+          () => undefined,
+        );
       };
       const signal = opts?.signal;
       if (signal) {
@@ -88,7 +91,7 @@ export function createTauriCollaborationTransport(
       }
 
       try {
-        const response = (await invoke('agent_runtime_collaborate', {
+        const response = (await invokeCommand('agent_runtime_collaborate', {
           req: {
             requestId: req.requestId,
             // The frozen capability enum the host routes on. Always 'collaboration'

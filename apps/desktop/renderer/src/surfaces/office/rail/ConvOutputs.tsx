@@ -7,6 +7,7 @@ import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Popover, PopoverContent, PopoverTrigger } from '@/design-system/primitives/popover.js';
 import { safeErrorMessage } from '@/lib/error-message.js';
+import { invokeCommand } from '@/lib/tauri-commands.js';
 import { cn } from '@/lib/utils.js';
 import { ChevronDown, Copy, FileCode2, FolderOpen, Save } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -174,7 +175,6 @@ function DeliverableCard({
     }
     setBusyAction(action);
     try {
-      const { invoke } = await import('@tauri-apps/api/core');
       const exportableBody = await ensureOutputBody();
       if (!exportableBody.trim()) {
         toast.error('No text to save');
@@ -183,14 +183,14 @@ function DeliverableCard({
       const relativePath =
         action === 'open' && savedPath
           ? savedPath
-          : await invoke<string>('save_deliverable_to_local', {
+          : await invokeCommand('save_deliverable_to_local', {
               projectId,
               fileName: outputFileName(),
               content: exportableBody,
             });
       setSavedPath(relativePath);
       if (action === 'open') {
-        await invoke('open_local_path', { projectId, path: relativePath });
+        await invokeCommand('open_local_path', { projectId, path: relativePath });
         toast.success('Opened output', { description: relativePath });
       } else {
         toast.success('Saved output', { description: relativePath });

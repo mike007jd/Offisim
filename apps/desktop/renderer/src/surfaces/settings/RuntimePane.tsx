@@ -4,6 +4,7 @@ import { CapsLabel, CardBlock } from '@/design-system/grammar/index.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import { safeErrorMessage } from '@/lib/error-message.js';
+import { invokeCommand } from '@/lib/tauri-commands.js';
 import { useQuery } from '@tanstack/react-query';
 import { Check, ChevronRight, Download, FolderOpen, Package } from 'lucide-react';
 import { useState } from 'react';
@@ -39,8 +40,7 @@ async function loadRuntimeVaultStatus(): Promise<RuntimeVaultStatus> {
       available: false,
     };
   }
-  const { invoke } = await import('@tauri-apps/api/core');
-  return invoke<RuntimeVaultStatus>('runtime_vault_status');
+  return invokeCommand('runtime_vault_status');
 }
 
 function sceneDiagnosticPayload(events: SceneDropDiagnostic[]): string {
@@ -85,8 +85,7 @@ export function RuntimePane() {
     if (!canOpenVault) return;
     setOpeningVault(true);
     try {
-      const { invoke } = await import('@tauri-apps/api/core');
-      await invoke('open_runtime_vault_folder');
+      await invokeCommand('open_runtime_vault_folder');
       await vaultQuery.refetch();
       toast.success('Opened local vault folder');
     } catch (error) {
@@ -100,8 +99,7 @@ export function RuntimePane() {
     if (!canExportVaultZip) return;
     setExportingVaultZip(true);
     try {
-      const { invoke } = await import('@tauri-apps/api/core');
-      const result = await invoke<LocalExportResult>('export_runtime_vault_zip');
+      const result = await invokeCommand('export_runtime_vault_zip');
       setLastVaultExport(result);
       await vaultQuery.refetch();
       toast.success('Exported vault zip', { description: result.displayPath });
@@ -116,8 +114,7 @@ export function RuntimePane() {
     if (!canExportSceneDiagnostic) return;
     setExportingSceneDiagnostic(true);
     try {
-      const { invoke } = await import('@tauri-apps/api/core');
-      const result = await invoke<LocalExportResult>('export_scene_drop_diagnostic', {
+      const result = await invokeCommand('export_scene_drop_diagnostic', {
         diagnosticsJson: sceneDiagnosticPayload(sceneDropDiagnostics),
       });
       setLastSceneDiagnostic(result);

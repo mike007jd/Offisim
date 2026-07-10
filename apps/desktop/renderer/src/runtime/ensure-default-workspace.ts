@@ -1,3 +1,4 @@
+import { invokeCommand } from '@/lib/tauri-commands.js';
 import type { RuntimeRepositories } from '@offisim/core/browser';
 
 /**
@@ -25,8 +26,7 @@ const DEFAULT_WORKSPACE_PROJECT_NAME = 'Default Workspace';
  *  Returns null off-desktop or when the command is unavailable. */
 async function provisionCompanyWorkspaceDir(companyId: string): Promise<string | null> {
   try {
-    const { invoke } = await import('@tauri-apps/api/core');
-    const root = await invoke<string>('ensure_company_workspace', { companyId });
+    const root = await invokeCommand('ensure_company_workspace', { companyId });
     return root.trim().length > 0 ? root : null;
   } catch (err) {
     console.warn('[ensure-default-workspace] could not provision workspace dir', {
