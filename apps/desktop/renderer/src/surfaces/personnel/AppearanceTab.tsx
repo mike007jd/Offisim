@@ -4,15 +4,14 @@ import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { SegmentedControl } from '@/design-system/grammar/SegmentedControl.js';
 import { Select } from '@/design-system/grammar/Select.js';
 import { Icon } from '@/design-system/icons/Icon.js';
-import { Button } from '@/design-system/primitives/button.js';
+import { usePrefersReducedMotion } from '@/assistant/runtime/office-dramaturgy.js';
 import { type EmployeeAppearance, resolveAppearance } from '@/lib/avatar.js';
 import { cn } from '@/lib/utils.js';
 import { OrbitControls } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
-import { ChevronLeft, ChevronRight, Lock, Pause, Play } from 'lucide-react';
-import { type CSSProperties, Suspense, useEffect, useId, useState } from 'react';
+import { Lock } from 'lucide-react';
+import { type CSSProperties, Suspense, useId } from 'react';
 import { GltfCharacter } from '../office/scene/character/GltfCharacter.js';
-import { CLIP_NAMES } from '../office/scene/character/clip-map.js';
 import {
   ACCENT_SWATCHES,
   type AppearanceDraft,
@@ -21,13 +20,11 @@ import {
   GENDER_OPTIONS,
   HAIR_STYLE_OPTIONS,
   HAIR_SWATCHES,
+  HEAD_SHAPE_OPTIONS,
   OUTFIT_OPTIONS,
   SKIN_SWATCHES,
   type SwatchOption,
 } from './personnel-data.js';
-
-const P0_TOY_DIAGNOSTIC = import.meta.env.VITE_OFFICE_TOY_P0_DIAGNOSTIC === '1';
-const P0_CLIP_DURATION_MS = 4_000;
 
 function swatchStyle(value: string): CSSProperties {
   return { '--off-pers-swatch': value } as CSSProperties;
@@ -46,11 +43,15 @@ function SwatchRow({
   value: string | undefined;
   onChange: (color: string) => void;
 }) {
+  const displayedSwatches =
+    value && !swatches.some((swatch) => swatch.value.toLowerCase() === value.toLowerCase())
+      ? [{ value, label: 'Current custom' }, ...swatches]
+      : swatches;
   return (
     <div className="off-pers-swrow">
       <span className="off-pers-sw-label">{label}</span>
       <div className="off-pers-sws">
-        {swatches.map((swatch) => {
+        {displayedSwatches.map((swatch) => {
           const selected = (value ?? '').toLowerCase() === swatch.value.toLowerCase();
           return (
             <button
@@ -83,26 +84,10 @@ function AppearancePreviewPanel({
   brand: boolean;
 }) {
   const resolved = resolveAppearance(seed, appearance);
-  const [clipIndex, setClipIndex] = useState(0);
-  const [sequencing, setSequencing] = useState(P0_TOY_DIAGNOSTIC);
-  const diagnosticClip = P0_TOY_DIAGNOSTIC ? CLIP_NAMES[clipIndex] : undefined;
-
-  useEffect(() => {
-    if (!P0_TOY_DIAGNOSTIC || !sequencing) return;
-    const timer = window.setInterval(
-      () => setClipIndex((current) => (current + 1) % CLIP_NAMES.length),
-      P0_CLIP_DURATION_MS,
-    );
-    return () => window.clearInterval(timer);
-  }, [sequencing]);
-
-  const stepClip = (delta: number) => {
-    setSequencing(false);
-    setClipIndex((current) => (current + delta + CLIP_NAMES.length) % CLIP_NAMES.length);
-  };
+  const reducedMotion = usePrefersReducedMotion();
 
   return (
-    <div className={cn('off-pers-prev is-3d-main', P0_TOY_DIAGNOSTIC && 'has-p0-diagnostic')}>
+    <div className="off-pers-prev is-3d-main">
       <span className="off-pers-prev-label">3D</span>
       <div className="off-pers-prev-canvas" aria-label="3D avatar preview">
         <Canvas camera={{ position: [0, 1.4, 5.6], fov: 34 }} dpr={[1, 2]}>
@@ -113,9 +98,10 @@ function AppearancePreviewPanel({
             <Suspense fallback={null}>
               <GltfCharacter
                 appearance={resolved}
-                running={false}
+                action="active"
+                role={employee.roleSlug ?? employee.role}
                 phase={0}
-                diagnosticClip={diagnosticClip}
+                reducedMotion={reducedMotion}
               />
             </Suspense>
           </group>
@@ -139,42 +125,6 @@ function AppearancePreviewPanel({
         />
         <span>2D</span>
       </div>
-      {P0_TOY_DIAGNOSTIC && diagnosticClip ? (
-        <div className="off-pers-p0-diagnostic" aria-label="P0 toy animation sequencer">
-          <div className="off-pers-p0-diagnostic-copy" aria-live="polite">
-            <strong>{diagnosticClip}</strong>
-            <span>
-              P0 release QA · {String(clipIndex + 1).padStart(2, '0')}/{CLIP_NAMES.length}
-            </span>
-          </div>
-          <div className="off-pers-p0-diagnostic-controls">
-            <Button
-              variant="outline"
-              size="iconSm"
-              aria-label="Previous diagnostic clip"
-              onClick={() => stepClip(-1)}
-            >
-              <ChevronLeft aria-hidden />
-            </Button>
-            <Button
-              variant="outline"
-              size="iconSm"
-              aria-label={sequencing ? 'Pause diagnostic clips' : 'Play diagnostic clips'}
-              onClick={() => setSequencing((current) => !current)}
-            >
-              {sequencing ? <Pause aria-hidden /> : <Play aria-hidden />}
-            </Button>
-            <Button
-              variant="outline"
-              size="iconSm"
-              aria-label="Next diagnostic clip"
-              onClick={() => stepClip(1)}
-            >
-              <ChevronRight aria-hidden />
-            </Button>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -188,6 +138,7 @@ interface AppearanceTabProps {
 export function AppearanceTab({ employee, draft, onChange }: AppearanceTabProps) {
   const hairStyleId = useId();
   const bodyTypeId = useId();
+  const headShapeId = useId();
   const outfitId = useId();
   const seed = employee.id;
   const isExternal = employee.kind === 'external';
@@ -199,8 +150,8 @@ export function AppearanceTab({ employee, draft, onChange }: AppearanceTabProps)
     accentColor: draft.accentColor,
     hairStyle: draft.hairStyle,
     bodyType: draft.bodyType,
+    headShape: draft.headShape,
     gender: draft.gender,
-    accentVariant: draft.accentVariant,
     outfit: draft.outfit,
   };
 
@@ -296,6 +247,22 @@ export function AppearanceTab({ employee, draft, onChange }: AppearanceTabProps)
                 />
               </div>
               <div className="off-field">
+                <label className="off-field-label" htmlFor={headShapeId}>
+                  Head shape
+                </label>
+                <Select
+                  id={headShapeId}
+                  value={draft.headShape ?? 'round'}
+                  onChange={(e) =>
+                    onChange({
+                      ...draft,
+                      headShape: e.target.value as AppearanceDraft['headShape'],
+                    })
+                  }
+                  options={HEAD_SHAPE_OPTIONS}
+                />
+              </div>
+              <div className="off-field">
                 <label className="off-field-label" htmlFor={outfitId}>
                   Outfit
                 </label>
@@ -311,7 +278,8 @@ export function AppearanceTab({ employee, draft, onChange }: AppearanceTabProps)
             </div>
 
             <p className="off-field-hint">
-              These controls persist to the employee persona and drive the office 3D avatar.
+              Appearance persists to the employee persona. Gender presentation affects the 2D
+              reference only; the other controls drive the office 3D avatar.
             </p>
           </div>
 

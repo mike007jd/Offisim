@@ -8,7 +8,6 @@
  * contracts; release data comes from the local repositories.
  */
 import { reposOrNull } from '@/data/adapters.js';
-import { UI_DATA_COLORS } from '@/data/color-palette.js';
 import { buildEmployeeSystemPrompt } from '@/data/employee-persona.js';
 import type { Employee } from '@/data/types.js';
 import {
@@ -16,9 +15,11 @@ import {
   type EmployeeAppearance,
   type Gender,
   type HairStyle,
+  type HeadShape,
   type Outfit,
   resolveAppearance,
 } from '@/lib/avatar.js';
+import toyCharacterContract from '@/lib/toy-character-contract.json';
 import {
   type EmployeeVersionRow,
   EmployeeVersionService,
@@ -160,31 +161,23 @@ export interface SwatchOption {
 /** Curated swatch palettes — SSOT mirrors `src/lib/avatar.ts` palettes
  *  (hash-stripped hex with a leading `#` for swatch rendering). */
 export const SKIN_SWATCHES: SwatchOption[] = [
-  { value: UI_DATA_COLORS.lightSkin, label: 'Light' },
-  { value: UI_DATA_COLORS.fairSkin, label: 'Fair' },
-  { value: UI_DATA_COLORS.tanSkin, label: 'Tan' },
-  { value: UI_DATA_COLORS.brownSkin, label: 'Brown' },
-  { value: UI_DATA_COLORS.deepSkin, label: 'Deep' },
-  { value: UI_DATA_COLORS.warmSkin, label: 'Warm' },
+  ...toyCharacterContract.skinTones.map((tone) => ({ value: `#${tone.hex}`, label: tone.label })),
 ];
 
 export const HAIR_SWATCHES: SwatchOption[] = [
-  { value: UI_DATA_COLORS.brownBlack, label: 'Black' },
-  { value: UI_DATA_COLORS.darkBrown, label: 'Dark brown' },
-  { value: UI_DATA_COLORS.midBrown, label: 'Brown' },
-  { value: UI_DATA_COLORS.auburn, label: 'Auburn' },
-  { value: UI_DATA_COLORS.lightBrown, label: 'Light brown' },
-  { value: UI_DATA_COLORS.blonde, label: 'Blonde' },
-  { value: UI_DATA_COLORS.greyHair, label: 'Grey' },
+  ...new Map(
+    toyCharacterContract.hairColors.map((color) => [
+      color.hex,
+      { value: `#${color.hex}`, label: color.label },
+    ]),
+  ).values(),
 ];
 
 export const CLOTHING_SWATCHES: SwatchOption[] = [
-  { value: UI_DATA_COLORS.blue, label: 'Blue' },
-  { value: UI_DATA_COLORS.green, label: 'Green' },
-  { value: UI_DATA_COLORS.red3, label: 'Red' },
-  { value: UI_DATA_COLORS.amber3, label: 'Amber' },
-  { value: UI_DATA_COLORS.violet, label: 'Violet' },
-  { value: UI_DATA_COLORS.ink3, label: 'Slate' },
+  ...toyCharacterContract.outfitColors.map((color) => ({
+    value: `#${color.hex}`,
+    label: color.label,
+  })),
 ];
 
 export const ACCENT_SWATCHES: SwatchOption[] = [...CLOTHING_SWATCHES];
@@ -206,6 +199,12 @@ export const BODY_TYPE_OPTIONS: ReadonlyArray<{ value: BodyType; label: string }
   { value: 'stocky', label: 'Stocky' },
 ];
 
+export const HEAD_SHAPE_OPTIONS: ReadonlyArray<{ value: HeadShape; label: string }> = [
+  { value: 'round', label: 'Round' },
+  { value: 'soft-square', label: 'Soft square' },
+  { value: 'capsule', label: 'Capsule' },
+];
+
 export const OUTFIT_OPTIONS: ReadonlyArray<{ value: Outfit; label: string }> = [
   { value: 'blazer', label: 'Blazer' },
   { value: 'shirt', label: 'Button-up' },
@@ -225,17 +224,17 @@ export function appearanceDraftFor(employee: Employee): AppearanceDraft {
   // Default the enum axes to the SAME seed-derived values the office scene
   // renders (resolveAppearance(employee.id, …)), not fixed literals — otherwise
   // editing one field and saving would silently overwrite an unauthored,
-  // seed-varied look (hair/body/gender/accent/outfit) with a uniform default.
+  // seed-varied look (hair/body/head/gender/outfit) with a uniform default.
   const resolved = resolveAppearance(employee.id, employee.appearance);
   return {
-    skinColor: employee.appearance?.skinColor,
-    hairColor: employee.appearance?.hairColor,
-    clothingColor: employee.appearance?.clothingColor ?? employee.avatarA,
-    accentColor: employee.appearance?.accentColor ?? employee.avatarB,
+    skinColor: resolved.skin,
+    hairColor: resolved.hair,
+    clothingColor: resolved.clothing,
+    accentColor: resolved.accent,
     hairStyle: resolved.hairStyle,
     bodyType: resolved.bodyType,
+    headShape: resolved.headShape,
     gender: resolved.gender,
-    accentVariant: resolved.accentVariant,
     outfit: resolved.outfit,
   };
 }

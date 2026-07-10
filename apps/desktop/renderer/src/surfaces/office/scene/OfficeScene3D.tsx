@@ -552,6 +552,7 @@ function EmployeeUnit({
               walkingRef={walkingRef}
               tempo={tempo}
               phase={phase}
+              role={employee.roleSlug ?? employee.role}
             />
           </Suspense>
         ) : null}
@@ -673,7 +674,15 @@ function EmployeeUnit({
   );
 }
 
-function EmployeeDragGhost({ employee, drag }: { employee: Employee; drag: SceneEmployeeDrag }) {
+function EmployeeDragGhost({
+  employee,
+  drag,
+  reducedMotion,
+}: {
+  employee: Employee;
+  drag: SceneEmployeeDrag;
+  reducedMotion: boolean;
+}) {
   const appearance = useMemo(
     () => resolveAppearance(employee.id, employee.appearance),
     [employee.id, employee.appearance],
@@ -712,6 +721,8 @@ function EmployeeDragGhost({ employee, drag }: { employee: Employee; drag: Scene
             running
             phase={phase}
             opacity={ghostOpacity}
+            role={employee.roleSlug ?? employee.role}
+            reducedMotion={reducedMotion}
           />
         </Suspense>
       </group>
@@ -1055,7 +1066,11 @@ export function OfficeScene3D() {
             })}
 
         {employeeDrag && draggedEmployee ? (
-          <EmployeeDragGhost employee={draggedEmployee} drag={employeeDrag} />
+          <EmployeeDragGhost
+            employee={draggedEmployee}
+            drag={employeeDrag}
+            reducedMotion={reducedMotion}
+          />
         ) : null}
         {dropNotice ? <SceneDropNoticeLabel key={dropNotice.id} notice={dropNotice} /> : null}
         {sceneFlowLines.map((line) => (

@@ -26,13 +26,5 @@
     "seatedBodyForward": 0.38,
     "contactTolerance": 0.08,
     "deskEdgeInset": 0.04
-  },
-  "heldProps": {
-    "laptop": {
-      "node": "prop_laptop",
-      "bone": "hand_l",
-      "position": [0, 0.06, 0.13],
-      "rotation": [-1.5707963267948966, 0, 0]
-    }
   }
 }

@@ -40,8 +40,8 @@ import { Group, Panel, Separator, usePanelRef } from 'react-resizable-panels';
 import { toast } from 'sonner';
 import { AppearanceTab } from './AppearanceTab.js';
 import { HistoryTab } from './HistoryTab.js';
-import { MemoryTab } from './MemoryTab.js';
 import { McpToolsTab } from './McpToolsTab.js';
+import { MemoryTab } from './MemoryTab.js';
 import { ProfileTab } from './ProfileTab.js';
 import { RuntimeTab } from './RuntimeTab.js';
 import { SkillsTab } from './SkillsTab.js';
@@ -303,8 +303,8 @@ function appearancePayload(draft: AppearanceDraft): EmployeeAppearance {
     accentColor: draft.accentColor,
     hairStyle: draft.hairStyle,
     bodyType: draft.bodyType,
+    headShape: draft.headShape,
     gender: draft.gender,
-    accentVariant: draft.accentVariant,
     outfit: draft.outfit,
   };
 }

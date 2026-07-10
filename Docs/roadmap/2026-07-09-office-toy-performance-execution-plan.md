@@ -109,6 +109,59 @@ P0 只把**角色 + 单张 canonical workstation 的纵向/接触度量**收进
 - **go**：自动 oracle 全绿且三档真实 release 视图没有 blocker；继续 P1。**no-go**：先放宽到
   ~3 头身再重测，仍失败才建议新骨架；no-go 是唯一人工暂停闸。
 
+## P1 contract freeze（2026-07-10）
+
+P1 只完善 P0 已验证的单一 `body_toy.glb` lane；不得恢复旧 male/female body、眉毛资产、
+`accentVariant` 或运行时 provider 分支。角色规范同步落到
+`Docs/design/office-art-bible.md`，P4/P6 只能扩展对应章节，不能另起视觉 token。
+
+### Appearance / silhouette contract
+
+- `bodyType` 只缩放角色 wrapper 的 X/Z，固定 `slim=0.84`、`normal=1.00`、
+  `stocky=1.18`；Y 与 `TARGET_HEIGHT_UNITS=1.62` 不变，避免体型改变座椅/桌面接触高度。
+- `headShape` 固定三档 Head-bone scale：`round=[1,1,1]`、
+  `soft-square=[1.10,0.94,0.98]`、`capsule=[0.90,1.12,0.94]`。头发、眼神贴片都挂在
+  Head bone 下共享变换，不新增独立头部资产。
+- 保留 6 档 direct-tint skin tone，Personnel 文案仅使用 `Tone 01`…`Tone 06` 与中性明暗描述；
+  禁止族裔标签。`gender` 只保留为 persona/2D avatar 输入，不参与 3D body、眉毛或头型选择。
+- `accentVariant` 从 renderer appearance 端态、序列化 payload 和 UI 全部删除；prelaunch 不加
+  migration/fallback。既有 JSON 中多余 key 由宽松对象边界自然忽略。
+- seed identity 的既有盐值保持不变；新增 head shape 使用独立 `headshape` 盐。角色岗位绝不进入
+  skin tone seed、palette index 或 default appearance 解析路径。
+
+### Face / hair / garment contract
+
+- `body_toy.glb` 不再烘焙 `ToyEyeDots`；Head bone 下运行时创建四态无嘴眼神：
+  `neutral|thinking→neutral`、`happy→happy`、`worried→worried`、`focus→focus`。
+  blink 间隔由 employee phase 确定性分布到 2–6s，闭眼 120ms；`reducedMotion` 时不眨眼，
+  但静态 expression 仍切换。
+- 删除 `brows_01/02.glb` 及 URL/preload/manifest lane。6 个非 bald hairstyle 都必须映射到
+  可见且经玩具头适配的 hair mesh；bald 不以眉毛作 hook placeholder。
+- 4 套 garment 必须保持外层几何：blazer 有 lapel、shirt 有 placket、sweater 有 crewneck、
+  dress 有独立 skirt；所有套装有骨骼跟随袖管，鞋底保持 body mesh 的大鞋轮廓。
+
+### Role / prop contract
+
+- 现有 dramaturgy `Prop` 五值全部可见且不改枚举：`laptop→prop_laptop`、
+  `document→prop_clipboard`、`tablet→prop_tablet`、`terminal→prop_terminal`、
+  `pointer→prop_pointer`。显式 performance prop 永远覆盖 role default。
+- `props.glb` 新增 `prop_clipboard/tablet/terminal/pointer/headset/swatch/checklist/keycard`；
+  岗位默认族为 Engineering→laptop、Design→swatch、Product/PM→clipboard、
+  QA→checklist、Research→tablet、Operations→headset/keycard。未知岗位回落 clipboard，
+  但岗位字符串不参与 appearance 采样。
+- 每个角色都有胸前 `roleBadge` 几何；badge 色来自 art bible 的岗位辅助色，不取代衣服色，
+  也不编码肤色。岗位默认道具只在 Personnel 预览或 working/active performance 时显示，
+  避免 idle 办公室人人永久举物。
+
+### Automated / live oracle
+
+- `node scripts/harness-character-toy-p1.mjs` 验证 appearance 端态、三档 scale、体型差值、
+  4 态眼神/blink/reduced-motion、6 发型、4 garment、role/skin 独立性、五值 prop 完整映射、
+  glTF node、无 brows、license 与 25 MiB 预算；失败退出 1。
+- P0 fixture-only `VITE_OFFICE_TOY_P0_DIAGNOSTIC` seam 在 P1 删除，正常 release 不含 sequencer。
+- release `.app` 冷启动至少保留：Personnel 特写（头型/眼神/服装/岗位道具）与办公室多员工
+  全景（体型、发型、衣服色与岗位识别）；日志中 WebGL/asset fatal pattern 必须为 0。
+
 ## Per-phase tasks
 
 ### P0 Spike（go/no-go，独立 stacked PR，产出可运行 spike、证据与结论）

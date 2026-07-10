@@ -3,22 +3,24 @@
  * Character asset pipeline (production-work-dramaturgy I6).
  *
  * Reads the raw CC0 packs (Quaternius Universal Base Characters + Universal
- * Animation Library 1/2, Kenney Furniture Kit, KayKit Furniture Bits) from
+ * Animation Library 1/2, Kenney Furniture Kit) from
  * RAW_DIR and emits the shipped runtime set into
  * `apps/desktop/renderer/src/assets/characters/`:
  *
  *   body_toy.glb                      procedural toy capsule body on the exact
  *                                     65-joint UBC rig, with machine-sampleable
  *                                     head/contact landmark nodes.
- *   hair_01..06.glb, brows_01..02.glb head-bone-baked static meshes (source
- *                                     meshes are 100% `Head`-weighted; verified
- *                                     at build time) with grayscale-normalized
- *                                     basecolor so hair color is a pure multiply.
+ *   hair_01..05.glb                   head-bone-baked CC0 meshes (100% `Head`
+ *                                     weighted; verified at build time) with a
+ *                                     grayscale basecolor for pure tinting.
+ *   hair_06.glb                       Offisim-authored chunky curl cap in the
+ *                                     same head-local coordinate contract.
  *   animations.glb                    one shared clip library on the 65-bone rig
  *                                     (mannequin stripped), clips renamed to the
  *                                     neutral scheme below.
- *   props.glb                         laptop / monitor / box / books / book as
- *                                     flat retintable materials.
+ *   props.glb                         Kenney laptop plus Offisim-authored toy
+ *                                     work accessories used by every Prop enum
+ *                                     and role-default lane.
  *   manifest.json                     file sizes, clip list, body metrics, and
  *                                     skin-tint reference colors (consumed by
  *                                     the clip-map harness + GltfCharacter).
@@ -46,7 +48,15 @@
  * script exits 1.
  */
 
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { Document, Logger, NodeIO, PropertyType } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
@@ -88,14 +98,12 @@ function requireRawDir() {
       '  Universal Animation Library [Standard] https://quaternius.itch.io/universal-animation-library',
       '  Universal Animation Library 2 [Std]    https://quaternius.itch.io/universal-animation-library-2',
       '  Kenney Furniture Kit                   https://kenney.nl/assets/furniture-kit',
-      '  KayKit Furniture Bits (github)         https://kaylousberg.itch.io/furniture-bits',
       '',
       'Expected layout under $CHARACTER_ASSETS_RAW_DIR:',
       '  unpacked/ubc/Universal Base Characters[Standard]/            (bodies, hairstyles, License_Standard.txt)',
       '  unpacked/ual/Universal Animation Library[Standard]/Unreal-Godot/UAL1_Standard.glb  (+ License.txt)',
       '  unpacked/ual2/Universal Animation Library 2[Standard]/Unreal-Godot/UAL2_Standard.glb (+ License.txt)',
       '  unpacked/kenney-furniture/Models/GLTF format/                (+ License.txt)',
-      '  kaykit-furniture-github/addons/kaykit_furniture_bits/Assets/ (+ LICENSE.txt)',
     ].join('\n'),
   );
   process.exit(1);
@@ -137,7 +145,6 @@ const UAL2_GLB = join(
   'unpacked/ual2/Universal Animation Library 2[Standard]/Unreal-Godot/UAL2_Standard.glb',
 );
 const KENNEY_DIR = join(RAW_DIR, 'unpacked/kenney-furniture/Models/GLTF format');
-const KAYKIT_DIR = join(RAW_DIR, 'kaykit-furniture-github/addons/kaykit_furniture_bits/Assets');
 
 /** Neutral clip names taken from each animation library file. */
 const UAL1_CLIP_RENAMES = {
@@ -172,27 +179,20 @@ const HAIR_FILES = {
   hair_03: 'Hair_Buns',
   hair_04: 'Hair_Buzzed',
   hair_05: 'Hair_BuzzedFemale',
-  hair_06: 'Hair_Beard',
-  brows_01: 'Eyebrows_Regular',
-  brows_02: 'Eyebrows_Female',
 };
+const SHIPPED_HAIR_NAMES = ['hair_01', 'hair_02', 'hair_03', 'hair_04', 'hair_05', 'hair_06'];
 
 const KENNEY_PROPS = {
   prop_laptop: 'laptop.glb',
-  prop_monitor: 'computerScreen.glb',
-  prop_box: 'cardboardBoxClosed.glb',
-  prop_books: 'books.glb',
 };
 
 const HAIR_TEXTURE_SIZE = 512;
-const BROWS_TEXTURE_SIZE = 256;
 /** Grayscale-normalized hair mean luminance target (0-255): multiply-tint base. */
 const HAIR_LUMINANCE_TARGET = 184;
 const SHOE_BASE_COLOR = [0.16, 0.17, 0.2, 1];
-const BOOK_BASE_COLOR = [0.61, 0.3, 0.29, 1];
 const TOY_SKIN_LIGHT = [0.651, 0.471, 0.345, 1];
 const TOY_SKIN_DARK = [0.612, 0.431, 0.306, 1];
-const TOY_EYE_COLOR = [0.035, 0.043, 0.055, 1];
+const AUTHORED_HAIR_COLOR = [0.72, 0.72, 0.72, 1];
 
 const add3 = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const subtract3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -336,6 +336,45 @@ function createToyAccessors(document, buffer, name, geometry) {
       .setArray(indexArray)
       .setBuffer(buffer),
   };
+}
+
+/** Position/normal/index subset for unskinned authored hair and prop pieces. */
+function createStaticAccessors(document, buffer, name, geometry) {
+  if (geometry.positions.length === 0 || geometry.indices.length === 0) {
+    fail(`static mesh '${name}' generated empty geometry`);
+  }
+  const vertexCount = geometry.positions.length / 3;
+  const indexArray =
+    vertexCount > 65535 ? new Uint32Array(geometry.indices) : new Uint16Array(geometry.indices);
+  return {
+    position: document
+      .createAccessor(`${name}_POSITION`)
+      .setType('VEC3')
+      .setArray(new Float32Array(geometry.positions))
+      .setBuffer(buffer),
+    normal: document
+      .createAccessor(`${name}_NORMAL`)
+      .setType('VEC3')
+      .setArray(new Float32Array(geometry.normals))
+      .setBuffer(buffer),
+    indices: document
+      .createAccessor(`${name}_INDICES`)
+      .setType('SCALAR')
+      .setArray(indexArray)
+      .setBuffer(buffer),
+  };
+}
+
+function addStaticMeshNode(document, parent, name, accessors, material) {
+  const primitive = document
+    .createPrimitive()
+    .setAttribute('POSITION', accessors.position)
+    .setAttribute('NORMAL', accessors.normal)
+    .setIndices(accessors.indices)
+    .setMaterial(material);
+  const node = document.createNode(name).setMesh(document.createMesh(name).addPrimitive(primitive));
+  parent.addChild(node);
+  return node;
 }
 
 function addToyMeshNode(document, parent, skin, name, accessors, material) {
@@ -539,7 +578,6 @@ async function buildToyBody(io, manifest) {
   const topGeometry = createToyGeometry();
   const bottomGeometry = createToyGeometry();
   const shoesGeometry = createToyGeometry();
-  const eyesGeometry = createToyGeometry();
 
   const headCenter = jointPosition('Head');
   const headRadiusY = (headCenter[1] - TOY_SHOE_BOTTOM_Y) / (2 * TOY_HEAD_RATIO - 1);
@@ -630,24 +668,7 @@ async function buildToyBody(io, manifest) {
     );
   }
 
-  const eyeOffsetX = headRadii[0] * 0.34;
-  const eyeOffsetY = headRadii[1] * 0.19;
-  const faceSurfaceZ =
-    headCenter[2] +
-    headRadii[2] *
-      Math.sqrt(1 - (eyeOffsetX / headRadii[0]) ** 2 - (eyeOffsetY / headRadii[1]) ** 2);
-  for (const direction of [-1, 1]) {
-    addToyEllipsoid(
-      eyesGeometry,
-      [headCenter[0] + eyeOffsetX * direction, headCenter[1] + eyeOffsetY, faceSurfaceZ + 0.006],
-      [0.042, 0.048, 0.028],
-      joint('Head').index,
-      6,
-      9,
-    );
-  }
-
-  const allGeometry = [skinGeometry, topGeometry, bottomGeometry, shoesGeometry, eyesGeometry];
+  const allGeometry = [skinGeometry, topGeometry, bottomGeometry, shoesGeometry];
   const yValues = allGeometry.flatMap((geometry) =>
     geometry.positions.filter((_, index) => index % 3 === 1),
   );
@@ -679,7 +700,6 @@ async function buildToyBody(io, manifest) {
     top: makeMaterial('OutfitTop', [1, 1, 1, 1]),
     bottom: makeMaterial('OutfitBottom', [1, 1, 1, 1]),
     shoes: makeMaterial('Shoes', SHOE_BASE_COLOR),
-    eyes: makeMaterial('EyeDots', TOY_EYE_COLOR),
   };
   const skinAccessors = createToyAccessors(document, buffer, 'ToySkin', skinGeometry);
   addToyMeshNode(document, scene, skin, 'Body_Skin_Light', skinAccessors, materials.skinLight);
@@ -708,15 +728,6 @@ async function buildToyBody(io, manifest) {
     createToyAccessors(document, buffer, 'ToyShoes', shoesGeometry),
     materials.shoes,
   );
-  addToyMeshNode(
-    document,
-    scene,
-    skin,
-    'ToyEyeDots',
-    createToyAccessors(document, buffer, 'ToyEyes', eyesGeometry),
-    materials.eyes,
-  );
-
   const landmarks = {
     ToyHeadTop: { joint: 'Head', bindPosition: [headCenter[0], headTop, headCenter[2]] },
     ToyChin: { joint: 'Head', bindPosition: [headCenter[0], headBottom, headCenter[2]] },
@@ -772,10 +783,11 @@ async function buildToyBody(io, manifest) {
     file: 'body_toy.glb',
     heightUnits: Number(totalHeight.toFixed(4)),
     headHeightUnits: Number((headTop - headBottom).toFixed(4)),
+    headRadiiUnits: headRadii.map((value) => Number(value.toFixed(4))),
     headRatio: Number(measuredHeadRatio.toFixed(4)),
     allowedHeadRatio: TOY_HEAD_RATIO_RANGE,
     silhouette:
-      'procedural capsule body, short chunky limbs, oversized shoes, point eyes, no mouth',
+      'procedural capsule body, short chunky limbs, oversized shoes; runtime eye decals, no mouth',
     rig: {
       source: 'Quaternius Universal Base Characters Standard',
       jointCount: joints.length,
@@ -797,7 +809,7 @@ async function buildToyBody(io, manifest) {
   };
 }
 
-/** Bake a Head-rigged accessory (hair/brows) into head-local space as a static mesh. */
+/** Bake a Head-rigged hairstyle into head-local space as a static mesh. */
 async function buildHeadAccessory(io, outName, sourceName, manifest) {
   const document = quietDoc(await io.read(join(HAIR_DIR, `${sourceName}.gltf`)));
   const root = document.getRoot();
@@ -834,7 +846,6 @@ async function buildHeadAccessory(io, outName, sourceName, manifest) {
     dropInertAttributes(meshPrim);
   }
 
-  const isBrows = outName.startsWith('brows');
   const scene = root.listScenes()[0];
   const bakedNode = document.createNode(outName).setMesh(mesh);
   meshNode.setMesh(null);
@@ -848,15 +859,62 @@ async function buildHeadAccessory(io, outName, sourceName, manifest) {
   const material = materials[0].setName('Hair').setMetallicFactor(0).setRoughnessFactor(1);
   const baseTexture = material.getBaseColorTexture();
   if (!baseTexture) fail(`${sourceName}: missing basecolor texture`);
-  const size = isBrows ? BROWS_TEXTURE_SIZE : HAIR_TEXTURE_SIZE;
   baseTexture
-    .setImage(await grayscaleNormalizedPng(baseTexture.getImage(), size, HAIR_LUMINANCE_TARGET))
+    .setImage(
+      await grayscaleNormalizedPng(
+        baseTexture.getImage(),
+        HAIR_TEXTURE_SIZE,
+        HAIR_LUMINANCE_TARGET,
+      ),
+    )
     .setMimeType('image/png')
     .setName(outName);
 
   await document.transform(dedup(), meshopt({ encoder: MeshoptEncoder, level: 'medium' }));
   await io.write(join(OUT_DIR, `${outName}.glb`), document);
-  manifest[isBrows ? 'brows' : 'hair'][outName] = sourceName;
+  manifest.hair[outName] = sourceName;
+}
+
+/** Sixth hairstyle: a chunky toy curl cap authored from low-poly ellipsoids. */
+async function buildProceduralToyHair(io, manifest) {
+  const document = quietDoc(new Document());
+  const buffer = document.createBuffer();
+  const scene = document.createScene('hair_06');
+  document.getRoot().setDefaultScene(scene);
+  const geometry = createToyGeometry();
+  // Continuous undershell prevents bald gaps between the chunky curl lobes.
+  // It stays behind the face surface (front z tops at 0.24 vs the toy head's
+  // ~0.39), so the eye-decal plane and forehead remain clean.
+  addToyEllipsoid(geometry, [0, 0.2, -0.08], [0.35, 0.24, 0.32], 0, 8, 12);
+  const curls = [
+    [-0.24, 0.24, -0.03],
+    [-0.08, 0.32, -0.02],
+    [0.09, 0.32, -0.02],
+    [0.24, 0.24, -0.03],
+    [-0.27, 0.12, 0.01],
+    [0.27, 0.12, 0.01],
+    [-0.16, 0.12, -0.24],
+    [0.16, 0.12, -0.24],
+    [-0.28, 0.05, -0.12],
+    [0.28, 0.05, -0.12],
+    [0, 0.08, -0.3],
+  ];
+  for (const center of curls) addToyEllipsoid(geometry, center, [0.15, 0.14, 0.15], 0, 6, 9);
+  const material = document
+    .createMaterial('Hair')
+    .setBaseColorFactor(AUTHORED_HAIR_COLOR)
+    .setMetallicFactor(0)
+    .setRoughnessFactor(1);
+  addStaticMeshNode(
+    document,
+    scene,
+    'hair_06',
+    createStaticAccessors(document, buffer, 'hair_06', geometry),
+    material,
+  );
+  await document.transform(dedup(), meshopt({ encoder: MeshoptEncoder, level: 'medium' }));
+  await io.write(join(OUT_DIR, 'hair_06.glb'), document);
+  manifest.hair.hair_06 = 'offisim-procedural:chunky-curl-cap';
 }
 
 function stripToSkeleton(document, keepClipRenames) {
@@ -1142,9 +1200,53 @@ async function buildAnimations(io, manifest) {
 
 async function buildProps(io, manifest) {
   const props = quietDoc(new Document());
-  props.createBuffer();
+  const buffer = props.createBuffer();
   const scene = props.createScene('props');
   props.getRoot().setDefaultScene(scene);
+
+  const authoredMaterials = new Map();
+  const materialFor = (name, color) => {
+    const key = `${name}:${color.join(',')}`;
+    const existing = authoredMaterials.get(key);
+    if (existing) return existing;
+    const material = props
+      .createMaterial(name)
+      .setBaseColorFactor(color)
+      .setMetallicFactor(0)
+      .setRoughnessFactor(0.78);
+    authoredMaterials.set(key, material);
+    return material;
+  };
+  const ellipsoid = (center, radii, color, name = 'surface') => {
+    const geometry = createToyGeometry();
+    addToyEllipsoid(geometry, center, radii, 0, 6, 10);
+    return { geometry, color, name };
+  };
+  const capsule = (start, end, radius, color, name = 'trim') => {
+    const geometry = createToyGeometry();
+    addToyCapsule(geometry, start, end, radius, 0, 9);
+    return { geometry, color, name };
+  };
+  const addAuthoredProp = (nodeName, parts) => {
+    const group = props.createNode(nodeName);
+    scene.addChild(group);
+    parts.forEach((part, index) => {
+      addStaticMeshNode(
+        props,
+        group,
+        `${nodeName}_${part.name}_${index + 1}`,
+        createStaticAccessors(props, buffer, `${nodeName}_${index + 1}`, part.geometry),
+        materialFor(part.name, part.color),
+      );
+    });
+    manifest.props[nodeName] = 'offisim-procedural:toy-work-accessory';
+  };
+  const ink = [0.12, 0.15, 0.18, 1];
+  const paper = [0.82, 0.78, 0.68, 1];
+  const blue = [0.25, 0.46, 0.65, 1];
+  const teal = [0.3, 0.55, 0.52, 1];
+  const amber = [0.7, 0.5, 0.25, 1];
+  const violet = [0.52, 0.4, 0.63, 1];
 
   const absorb = (sourceDoc, nodeName) => {
     mergeDocuments(props, sourceDoc);
@@ -1161,13 +1263,51 @@ async function buildProps(io, manifest) {
     absorb(quietDoc(await io.read(join(KENNEY_DIR, file))), nodeName);
     manifest.props[nodeName] = `kenney-furniture-kit:${file}`;
   }
-  const bookDoc = quietDoc(await io.read(join(KAYKIT_DIR, 'gltf/book_single.gltf')));
-  // The KayKit atlas costs ~1MB for one book — flatten to a retintable color.
-  for (const material of bookDoc.getRoot().listMaterials()) {
-    material.setBaseColorTexture(null).setBaseColorFactor(BOOK_BASE_COLOR);
-  }
-  absorb(bookDoc, 'prop_book');
-  manifest.props.prop_book = 'kaykit-furniture-bits:book_single.gltf';
+  addAuthoredProp('prop_clipboard', [
+    ellipsoid([0, 0, 0], [0.18, 0.25, 0.025], paper, 'board'),
+    capsule([-0.055, 0.19, 0.032], [0.055, 0.19, 0.032], 0.032, ink, 'clip'),
+  ]);
+  addAuthoredProp('prop_tablet', [
+    ellipsoid([0, 0, 0], [0.18, 0.25, 0.03], ink, 'shell'),
+    ellipsoid([0, 0.005, 0.033], [0.145, 0.21, 0.008], blue, 'screen'),
+  ]);
+  addAuthoredProp('prop_terminal', [
+    ellipsoid([0, 0.055, 0], [0.21, 0.17, 0.035], ink, 'shell'),
+    ellipsoid([0, 0.06, 0.038], [0.17, 0.125, 0.008], teal, 'screen'),
+    capsule([-0.15, -0.13, 0], [0.15, -0.13, 0], 0.045, ink, 'keyboard'),
+  ]);
+  addAuthoredProp('prop_pointer', [
+    capsule([0, -0.28, 0], [0, 0.28, 0], 0.018, ink, 'shaft'),
+    ellipsoid([0, 0.31, 0], [0.035, 0.06, 0.035], amber, 'tip'),
+  ]);
+  addAuthoredProp('prop_headset', [
+    capsule([-0.34, 0, 0], [-0.34, 0.15, 0], 0.035, ink, 'band'),
+    capsule([-0.34, 0.15, 0], [-0.18, 0.31, 0], 0.035, ink, 'band'),
+    capsule([-0.18, 0.31, 0], [0.18, 0.31, 0], 0.035, ink, 'band'),
+    capsule([0.18, 0.31, 0], [0.34, 0.15, 0], 0.035, ink, 'band'),
+    capsule([0.34, 0.15, 0], [0.34, 0, 0], 0.035, ink, 'band'),
+    ellipsoid([-0.35, -0.03, 0], [0.07, 0.1, 0.06], blue, 'earpad'),
+    ellipsoid([0.35, -0.03, 0], [0.07, 0.1, 0.06], blue, 'earpad'),
+    capsule([0.35, -0.05, 0.03], [0.22, -0.18, 0.17], 0.018, ink, 'microphone'),
+  ]);
+  addAuthoredProp('prop_swatch', [
+    ellipsoid([-0.055, 0.02, 0], [0.12, 0.24, 0.018], violet, 'card'),
+    ellipsoid([0, 0, 0.022], [0.12, 0.24, 0.018], teal, 'card'),
+    ellipsoid([0.055, -0.02, 0.044], [0.12, 0.24, 0.018], amber, 'card'),
+    ellipsoid([0, -0.19, 0.07], [0.03, 0.03, 0.025], ink, 'pin'),
+  ]);
+  addAuthoredProp('prop_checklist', [
+    ellipsoid([0, 0, 0], [0.18, 0.25, 0.025], paper, 'board'),
+    capsule([-0.09, 0.12, 0.035], [0.1, 0.12, 0.035], 0.014, teal, 'check'),
+    capsule([-0.09, 0.02, 0.035], [0.1, 0.02, 0.035], 0.014, teal, 'check'),
+    capsule([-0.09, -0.08, 0.035], [0.1, -0.08, 0.035], 0.014, teal, 'check'),
+  ]);
+  addAuthoredProp('prop_keycard', [
+    capsule([-0.09, 0.22, 0], [0, 0.34, 0], 0.014, ink, 'lanyard'),
+    capsule([0, 0.34, 0], [0.09, 0.22, 0], 0.014, ink, 'lanyard'),
+    ellipsoid([0, 0, 0], [0.15, 0.2, 0.025], blue, 'card'),
+    ellipsoid([0, 0.055, 0.03], [0.075, 0.06, 0.008], paper, 'label'),
+  ]);
 
   // Kenney files ship KHR_materials_unlit — drop it so props take scene lighting.
   for (const material of props.getRoot().listMaterials()) {
@@ -1189,7 +1329,7 @@ function writeLicenses() {
       name: 'Universal Base Characters [Standard] — Quaternius',
       url: 'https://quaternius.itch.io/universal-base-characters',
       license: join(UBC_DIR, 'License_Standard.txt'),
-      used: 'Superhero male 65-joint rig topology, 6 hairstyles, and 2 eyebrow meshes.',
+      used: 'Superhero male 65-joint rig topology and 5 source hairstyles.',
     },
     {
       name: 'Universal Animation Library [Standard] — Quaternius',
@@ -1207,13 +1347,7 @@ function writeLicenses() {
       name: 'Furniture Kit (2.0) — Kenney (kenney.nl)',
       url: 'https://kenney.nl/assets/furniture-kit',
       license: join(RAW_DIR, 'unpacked/kenney-furniture/License.txt'),
-      used: 'laptop, computerScreen, cardboardBoxClosed, books props.',
-    },
-    {
-      name: 'KayKit Furniture Bits — Kay Lousberg',
-      url: 'https://kaylousberg.itch.io/furniture-bits',
-      license: join(RAW_DIR, 'kaykit-furniture-github/LICENSE.txt'),
-      used: 'book_single prop (atlas material replaced with a flat color).',
+      used: 'laptop prop.',
     },
   ];
   const sections = packs.map((pack) => {
@@ -1239,8 +1373,15 @@ function writeLicenses() {
   const header = [
     '# Character Asset Licenses',
     '',
-    'All assets in this directory are processed derivatives of CC0 1.0 packs,',
-    'built by `scripts/build-character-assets.mjs`. Original license texts follow.',
+    'Third-party derivatives in this directory come from the CC0 1.0 packs below',
+    'and are built by `scripts/build-character-assets.mjs`. Original license texts follow.',
+    '',
+    '## Offisim-authored procedural geometry',
+    '',
+    '- Source: `scripts/build-character-assets.mjs` in this repository.',
+    '- License: covered by the Offisim repository license; no third-party asset input.',
+    '- Used for: toy capsule body, runtime eye contract, chunky curl hair, and the',
+    '  clipboard, tablet, terminal, pointer, headset, swatch, checklist, and keycard props.',
     '',
   ].join('\n');
   writeFileSync(join(OUT_DIR, 'LICENSES.md'), `${header}\n${sections.join('\n\n')}\n`);
@@ -1251,7 +1392,7 @@ async function main() {
   await MeshoptEncoder.ready;
   mkdirSync(OUT_DIR, { recursive: true });
   const io = createIO();
-  const manifest = { version: 2, bodies: {}, hair: {}, brows: {}, props: {} };
+  const manifest = { version: 3, bodies: {}, hair: {}, props: {} };
 
   console.log('building body_toy.glb');
   await buildToyBody(io, manifest);
@@ -1259,6 +1400,8 @@ async function main() {
     console.log(`building ${outName}.glb (${sourceName})`);
     await buildHeadAccessory(io, outName, sourceName, manifest);
   }
+  console.log('building hair_06.glb (Offisim procedural curl cap)');
+  await buildProceduralToyHair(io, manifest);
   console.log('building animations.glb');
   await buildAnimations(io, manifest);
   console.log('building props.glb');
@@ -1267,11 +1410,17 @@ async function main() {
 
   const files = [
     'body_toy.glb',
-    ...Object.keys(HAIR_FILES).map((name) => `${name}.glb`),
+    ...SHIPPED_HAIR_NAMES.map((name) => `${name}.glb`),
     'animations.glb',
     'props.glb',
     'LICENSES.md',
   ];
+  const shippedFiles = new Set(files);
+  for (const entry of readdirSync(OUT_DIR, { withFileTypes: true })) {
+    if (entry.isFile() && entry.name.endsWith('.glb') && !shippedFiles.has(entry.name)) {
+      rmSync(join(OUT_DIR, entry.name), { force: true });
+    }
+  }
   let total = 0;
   const sizes = {};
   for (const file of files) {

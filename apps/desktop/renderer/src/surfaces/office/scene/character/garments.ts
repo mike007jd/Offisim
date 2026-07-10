@@ -73,8 +73,10 @@ export function attachGarments(
   root: Object3D,
   appearance: ResolvedAppearance,
   colors: GarmentColors,
+  roleBadgeColor: string,
 ): GarmentBuild {
   const materials: MeshStandardMaterial[] = [];
+  const materialByColor = new Map<string, MeshStandardMaterial>();
   const geometries: BufferGeometry[] = [];
   const result = { materials, geometries };
 
@@ -115,15 +117,32 @@ export function attachGarments(
   const right = new Vector3().crossVectors(up, forward).normalize();
   forward = new Vector3().crossVectors(right, up).normalize();
 
-  const basis = (pos: Vector3): Matrix4 => new Matrix4().makeBasis(right, up, forward).setPosition(pos);
+  const basis = (pos: Vector3): Matrix4 =>
+    new Matrix4().makeBasis(right, up, forward).setPosition(pos);
 
-  const attach = (geometry: BufferGeometry, color: Color, driveBone: Object3D, world: Matrix4) => {
+  const materialFor = (color: Color): MeshStandardMaterial => {
+    const key = color.toArray().join(',');
+    const existing = materialByColor.get(key);
+    if (existing) return existing;
     const material = new MeshStandardMaterial({
       color: color.clone(),
       roughness: GARMENT_ROUGHNESS,
       metalness: 0,
     });
-    const mesh = new Mesh(geometry, material);
+    materialByColor.set(key, material);
+    materials.push(material);
+    return material;
+  };
+
+  const attach = (
+    geometry: BufferGeometry,
+    color: Color,
+    driveBone: Object3D,
+    world: Matrix4,
+    name?: string,
+  ) => {
+    const mesh = new Mesh(geometry, materialFor(color));
+    if (name) mesh.name = name;
     mesh.castShadow = true;
     mesh.frustumCulled = false;
     // Preserve the exact bone-local matrix (bone chains can carry scale).
@@ -131,7 +150,6 @@ export function attachGarments(
     mesh.matrix.copy(driveBone.matrixWorld).invert().multiply(world);
     mesh.matrixWorldNeedsUpdate = true;
     driveBone.add(mesh);
-    materials.push(material);
     geometries.push(geometry);
   };
 
@@ -167,22 +185,22 @@ export function attachGarments(
   const torsoBottom = pPelvis.clone();
   const torsoCenter = pTop.clone().add(torsoBottom).multiplyScalar(0.5);
   const torsoLen = pTop.distanceTo(torsoBottom) * 1.04;
-  let widthR = shoulderW * 0.3;
-  let depthR = shoulderW * 0.2;
+  let widthR = shoulderW * 0.33;
+  let depthR = shoulderW * 0.23;
   if (outfit === 'sweater') {
-    widthR *= 1.06;
-    depthR *= 1.2;
+    widthR *= 1.08;
+    depthR *= 1.22;
   } else if (outfit === 'shirt') {
-    widthR *= 0.96;
-    depthR *= 0.9;
+    widthR *= 0.98;
+    depthR *= 0.92;
   } else if (isDress) {
-    widthR *= 0.92;
-    depthR *= 0.86;
+    widthR *= 0.95;
+    depthR *= 0.9;
   }
   {
     const geometry = new CylinderGeometry(widthR, widthR, torsoLen, 16, 1);
     geometry.scale(1, 1, depthR / widthR); // flatten front-to-back into an oval
-    attach(geometry, colors.clothing, spine2, basis(torsoCenter));
+    attach(geometry, colors.clothing, spine2, basis(torsoCenter), 'garmentTorso');
   }
 
   // ── Sleeves (all outfits) — upper + fore arm on both sides.
@@ -190,15 +208,36 @@ export function attachGarments(
   const lowerArmR = bone('lowerarm_r');
   const handL = bone('hand_l');
   const handR = bone('hand_r');
-  segment(upperArmL, lowerArmL, upperArmL, shoulderW * 0.1, shoulderW * 0.082, colors.clothing);
-  segment(upperArmR, lowerArmR, upperArmR, shoulderW * 0.1, shoulderW * 0.082, colors.clothing);
-  segment(lowerArmL, handL, lowerArmL, shoulderW * 0.078, shoulderW * 0.062, colors.clothing);
-  segment(lowerArmR, handR, lowerArmR, shoulderW * 0.078, shoulderW * 0.062, colors.clothing);
+  segment(upperArmL, lowerArmL, upperArmL, shoulderW * 0.115, shoulderW * 0.094, colors.clothing);
+  segment(upperArmR, lowerArmR, upperArmR, shoulderW * 0.115, shoulderW * 0.094, colors.clothing);
+  segment(lowerArmL, handL, lowerArmL, shoulderW * 0.09, shoulderW * 0.07, colors.clothing);
+  segment(lowerArmR, handR, lowerArmR, shoulderW * 0.09, shoulderW * 0.07, colors.clothing);
+
+  // Small always-on role badge: a rounded, matte chest cue whose color comes
+  // from the art-bible role family. It never inherits or encodes skin tone.
+  {
+    const badge = new CylinderGeometry(shoulderW * 0.11, shoulderW * 0.11, shoulderW * 0.025, 16);
+    badge.rotateX(Math.PI / 2);
+    badge.scale(1.2, 0.72, 1);
+    const badgePos = pTop
+      .clone()
+      .lerp(torsoCenter, 0.46)
+      .add(forward.clone().multiplyScalar(depthR * 1.07))
+      .add(right.clone().multiplyScalar(shoulderW * 0.16));
+    attach(badge, new Color(roleBadgeColor), spine3, basis(badgePos), 'roleBadge');
+  }
 
   // ── Neckline / front detail (outfit-specific).
   if (outfit === 'blazer' || outfit === 'shirt') {
     // Collar band ringing the neck base.
-    const collar = new CylinderGeometry(widthR * 0.52, widthR * 0.46, shoulderW * 0.07, 14, 1, true);
+    const collar = new CylinderGeometry(
+      widthR * 0.52,
+      widthR * 0.46,
+      shoulderW * 0.07,
+      14,
+      1,
+      true,
+    );
     collar.scale(1, 1, depthR / widthR);
     attach(collar, collarShade, spine3, basis(pTop.clone()));
   }
@@ -206,9 +245,9 @@ export function attachGarments(
     // Two lapels splayed into a V on the upper chest.
     const chest = pTop.clone().lerp(torsoCenter, 0.4);
     for (const side of [1, -1] as const) {
-      const w = shoulderW * 0.085;
-      const h = torsoLen * 0.42;
-      const d = shoulderW * 0.028;
+      const w = shoulderW * 0.1;
+      const h = torsoLen * 0.46;
+      const d = shoulderW * 0.035;
       const geometry = new BoxGeometry(w, h, d);
       geometry.rotateZ(side * 0.3);
       const pos = chest
@@ -216,25 +255,45 @@ export function attachGarments(
         .add(forward.clone().multiplyScalar(depthR * 0.95))
         .add(right.clone().multiplyScalar(side * shoulderW * 0.07))
         .add(up.clone().multiplyScalar(-h * 0.15));
-      attach(geometry, colors.accent, spine3, basis(pos));
+      attach(
+        geometry,
+        colors.accent,
+        spine3,
+        basis(pos),
+        side > 0 ? 'blazerLapelLeft' : 'blazerLapelRight',
+      );
     }
   }
   if (outfit === 'shirt') {
     // Button placket down the center front.
     const geometry = new BoxGeometry(shoulderW * 0.04, torsoLen * 0.7, shoulderW * 0.02);
     const pos = torsoCenter.clone().add(forward.clone().multiplyScalar(depthR * 0.98));
-    attach(geometry, colors.accent, spine2, basis(pos));
+    attach(geometry, colors.accent, spine2, basis(pos), 'shirtPlacket');
   }
   if (outfit === 'sweater') {
     // Crewneck ring.
-    const geometry = new CylinderGeometry(widthR * 0.5, widthR * 0.5, shoulderW * 0.06, 16, 1, true);
+    const geometry = new CylinderGeometry(
+      widthR * 0.5,
+      widthR * 0.5,
+      shoulderW * 0.06,
+      16,
+      1,
+      true,
+    );
     geometry.scale(1, 1, depthR / widthR);
-    attach(geometry, crewneckShade, spine3, basis(pTop.clone()));
+    attach(geometry, crewneckShade, spine3, basis(pTop.clone()), 'sweaterCrewneck');
   }
   if (outfit === 'blazer' || outfit === 'shirt') {
     // Waist belt just above the pelvis.
     const beltPos = pPelvis.clone().add(up.clone().multiplyScalar(shoulderW * 0.05));
-    const geometry = new CylinderGeometry(widthR * 0.98, widthR * 0.98, shoulderW * 0.05, 16, 1, true);
+    const geometry = new CylinderGeometry(
+      widthR * 0.98,
+      widthR * 0.98,
+      shoulderW * 0.05,
+      16,
+      1,
+      true,
+    );
     geometry.scale(1, 1, (depthR / widthR) * 1.02);
     attach(geometry, beltShade, spine2, basis(beltPos));
   }
@@ -259,7 +318,7 @@ export function attachGarments(
     const hemR = hipW * 0.6 + widthR * 0.55;
     const geometry = new CylinderGeometry(waistR, hemR, skirtLen, 18, 1, true);
     geometry.scale(1, 1, depthR / widthR);
-    attach(geometry, colors.clothing, pelvis, basis(skirtCenter));
+    attach(geometry, colors.clothing, pelvis, basis(skirtCenter), 'dressSkirt');
   } else {
     const legHipR = shoulderW * 0.13;
     const legKneeR = shoulderW * 0.1;

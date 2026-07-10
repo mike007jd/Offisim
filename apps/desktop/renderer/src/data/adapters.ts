@@ -89,9 +89,9 @@ export function normalizeAppearance(raw: unknown): EmployeeAppearance | undefine
   if (typeof a.hairStyle === 'string')
     out.hairStyle = a.hairStyle as EmployeeAppearance['hairStyle'];
   if (typeof a.bodyType === 'string') out.bodyType = a.bodyType as EmployeeAppearance['bodyType'];
+  if (typeof a.headShape === 'string')
+    out.headShape = a.headShape as EmployeeAppearance['headShape'];
   if (typeof a.gender === 'string') out.gender = a.gender as EmployeeAppearance['gender'];
-  if (typeof a.accentVariant === 'string')
-    out.accentVariant = a.accentVariant as EmployeeAppearance['accentVariant'];
   if (typeof a.outfit === 'string') out.outfit = a.outfit as EmployeeAppearance['outfit'];
   return Object.keys(out).length > 0 ? out : undefined;
 }

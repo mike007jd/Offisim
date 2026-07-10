@@ -16,6 +16,10 @@ const METRICS_URL = new URL(
   'apps/desktop/renderer/src/surfaces/office/scene/toy-performance-metrics.json',
   ROOT,
 );
+const CHARACTER_CONTRACT_URL = new URL(
+  'apps/desktop/renderer/src/lib/toy-character-contract.json',
+  ROOT,
+);
 const EVIDENCE_URL = new URL('Docs/evidence/2026-07-office-toy/p0/oracle-results.json', ROOT);
 const LANDMARKS = [
   'ToyHeadTop',
@@ -161,13 +165,15 @@ function inspectFinalRootMotion(clips) {
   };
 }
 
-const [manifest, metrics, bodyAsset, animationAsset, propsAsset] = await Promise.all([
-  readJson(new URL('manifest.json', ASSET_DIR)),
-  readJson(METRICS_URL),
-  loadGltf('body_toy.glb'),
-  loadGltf('animations.glb'),
-  loadGltf('props.glb'),
-]);
+const [manifest, metrics, characterContract, bodyAsset, animationAsset, propsAsset] =
+  await Promise.all([
+    readJson(new URL('manifest.json', ASSET_DIR)),
+    readJson(METRICS_URL),
+    readJson(CHARACTER_CONTRACT_URL),
+    loadGltf('body_toy.glb'),
+    loadGltf('animations.glb'),
+    loadGltf('props.glb'),
+  ]);
 
 const body = bodyAsset.gltf.scene;
 const clips = animationAsset.gltf.animations;
@@ -345,7 +351,7 @@ contactSamples.push({
   pass: buttDelta <= 0.05 && buttInChairFootprint,
 });
 
-const laptopContract = metrics.heldProps.laptop;
+const laptopContract = characterContract.propAttach.laptop;
 const laptopSource = requireObject(propsAsset.gltf.scene, laptopContract.node);
 const laptop = laptopSource.clone(true);
 laptop.position.fromArray(laptopContract.position);

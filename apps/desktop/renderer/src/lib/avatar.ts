@@ -1,5 +1,6 @@
 import { avataaars } from '@dicebear/collection';
 import { createAvatar } from '@dicebear/core';
+import toyCharacterContract from './toy-character-contract.json';
 
 /**
  * Offisim employee avatars — DiceBear `avataaars` rendered from an employee seed,
@@ -10,7 +11,7 @@ import { createAvatar } from '@dicebear/core';
 
 export type BodyType = 'slim' | 'normal' | 'stocky';
 export type Gender = 'masculine' | 'feminine' | 'neutral';
-type AccentVariant = 'vest' | 'jacket' | 'scarf';
+export type HeadShape = 'round' | 'soft-square' | 'capsule';
 /** Procedural office-garment set driving the 3D character's overlay clothing. */
 export type Outfit = 'blazer' | 'shirt' | 'sweater' | 'dress';
 
@@ -22,8 +23,8 @@ export interface EmployeeAppearance {
   hairColor?: string;
   clothingColor?: string;
   accentColor?: string;
-  accentVariant?: AccentVariant;
   bodyType?: BodyType;
+  headShape?: HeadShape;
   gender?: Gender;
   outfit?: Outfit;
 }
@@ -49,29 +50,9 @@ const HAIR_STYLE_TO_TOP = {
   braids: 'fro',
 } as const satisfies Record<HairStyle, string>;
 
-const OUTFIT_COLORS = [
-  '2f6bff',
-  '7c4ddb',
-  '1aa46a',
-  'c98410',
-  'd6453d',
-  '3c4a60',
-  '0f7a4d',
-  '5b2fb0',
-  '1f54d8',
-  '8a5a0c',
-];
-const SKIN_TONES = ['f8d9c4', 'edb98a', 'd08b5b', 'ae5d29', '614335', 'fd9841'];
-const HAIR_COLORS = [
-  '2c1b18',
-  '4a312c',
-  '724133',
-  'a55728',
-  'b58143',
-  'd6b370',
-  'e8e1e1',
-  '724133',
-];
+const OUTFIT_COLORS = toyCharacterContract.outfitColors.map((color) => color.hex);
+const SKIN_TONES = toyCharacterContract.skinTones.map((tone) => tone.hex);
+const HAIR_COLORS = toyCharacterContract.hairColors.map((color) => color.hex);
 const TOP_CYCLE = [
   'shortFlat',
   'shortCurly',
@@ -82,10 +63,20 @@ const TOP_CYCLE = [
   'fro',
   'shortWaved',
 ] as const;
+const TOP_CYCLE_BY_GENDER = {
+  masculine: ['shortFlat', 'shortCurly', 'shortWaved', 'frizzle'],
+  feminine: ['straight01', 'bob', 'bun', 'fro'],
+  neutral: TOP_CYCLE,
+} as const satisfies Record<Gender, readonly (typeof TOP_CYCLE)[number][]>;
+const AVATAR_CLOTHING_BY_GENDER = {
+  masculine: 'shirtCrewNeck',
+  feminine: 'shirtScoopNeck',
+  neutral: 'hoodie',
+} as const;
 
 /**
  * Knuth multiplicative hash — THE deterministic string hash for appearance
- * identity (palette picks here, the 3D character's neutral-gender body pick).
+ * identity (palette picks here and the DiceBear reference avatar).
  * Stable across sessions/locales: pure charCode arithmetic, uint32 output.
  */
 export function hashString(seed: string): number {
@@ -126,8 +117,8 @@ const HAIR_STYLES: readonly HairStyle[] = [
   'braids',
 ];
 const BODY_TYPES: readonly BodyType[] = ['slim', 'normal', 'stocky'];
+const HEAD_SHAPES: readonly HeadShape[] = ['round', 'soft-square', 'capsule'];
 const GENDERS: readonly Gender[] = ['masculine', 'feminine', 'neutral'];
-const ACCENT_VARIANTS: readonly AccentVariant[] = ['vest', 'jacket', 'scarf'];
 const OUTFITS: readonly Outfit[] = ['blazer', 'shirt', 'sweater', 'dress'];
 
 export interface ResolvedAppearance {
@@ -137,8 +128,8 @@ export interface ResolvedAppearance {
   accent: string;
   hairStyle: HairStyle;
   bodyType: BodyType;
+  headShape: HeadShape;
   gender: Gender;
-  accentVariant: AccentVariant;
   outfit: Outfit;
 }
 
@@ -162,8 +153,8 @@ export function resolveAppearance(
     accent,
     hairStyle: oneOf(appearance?.hairStyle, HAIR_STYLES, seed, 'hairstyle'),
     bodyType: oneOf(appearance?.bodyType, BODY_TYPES, seed, 'body'),
+    headShape: oneOf(appearance?.headShape, HEAD_SHAPES, seed, 'headshape'),
     gender: oneOf(appearance?.gender, GENDERS, seed, 'gender'),
-    accentVariant: oneOf(appearance?.accentVariant, ACCENT_VARIANTS, seed, 'accentvar'),
     outfit: oneOf(appearance?.outfit, OUTFITS, seed, 'outfitstyle'),
   };
 }
@@ -190,8 +181,12 @@ export function employeeAvatarUri(seed: string, appearance?: EmployeeAppearance)
   if (cached) return cached;
 
   const hairStyle = appearance?.hairStyle;
-  const top = hairStyle ? HAIR_STYLE_TO_TOP[hairStyle] : pick(seed, TOP_CYCLE, 'top');
+  const gender = oneOf(appearance?.gender, GENDERS, seed, 'gender');
+  const top = hairStyle
+    ? HAIR_STYLE_TO_TOP[hairStyle]
+    : pick(seed, TOP_CYCLE_BY_GENDER[gender], 'top');
   const isBald = hairStyle === 'bald';
+  const facialHair = gender === 'masculine';
 
   const uri = createAvatar(avataaars, {
     seed,
@@ -200,7 +195,11 @@ export function employeeAvatarUri(seed: string, appearance?: EmployeeAppearance)
     skinColor: [toHexColor(appearance?.skinColor ?? pick(seed, SKIN_TONES, 'skin'))],
     hairColor: [toHexColor(appearance?.hairColor ?? pick(seed, HAIR_COLORS, 'hair'))],
     clothesColor: [toHexColor(appearance?.clothingColor ?? pick(seed, OUTFIT_COLORS, 'outfit'))],
+    clothing: [AVATAR_CLOTHING_BY_GENDER[gender]],
     top: [top],
+    facialHair: ['beardLight'],
+    facialHairProbability: facialHair ? 100 : 0,
+    facialHairColor: [toHexColor(appearance?.hairColor ?? pick(seed, HAIR_COLORS, 'hair'))],
     // Friendly expressions only — DiceBear still samples per-seed within these
     // sets, so the same seed keeps the same face. Without this constraint the
     // full avataaars pool includes concerned/sad/screamOpen/angry variants.

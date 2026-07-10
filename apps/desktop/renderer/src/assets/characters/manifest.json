@@ -1,16 +1,21 @@
 {
-  "version": 2,
+  "version": 3,
   "bodies": {
     "toy": {
       "file": "body_toy.glb",
       "heightUnits": 2.0163,
       "headHeightUnits": 0.823,
+      "headRadiiUnits": [
+        0.3743,
+        0.4113,
+        0.3661
+      ],
       "headRatio": 2.45,
       "allowedHeadRatio": [
         2.2,
         2.6
       ],
-      "silhouette": "procedural capsule body, short chunky limbs, oversized shoes, point eyes, no mouth",
+      "silhouette": "procedural capsule body, short chunky limbs, oversized shoes; runtime eye decals, no mouth",
       "rig": {
         "source": "Quaternius Universal Base Characters Standard",
         "jointCount": 65,
@@ -202,18 +207,18 @@
     "hair_03": "Hair_Buns",
     "hair_04": "Hair_Buzzed",
     "hair_05": "Hair_BuzzedFemale",
-    "hair_06": "Hair_Beard"
-  },
-  "brows": {
-    "brows_01": "Eyebrows_Regular",
-    "brows_02": "Eyebrows_Female"
+    "hair_06": "offisim-procedural:chunky-curl-cap"
   },
   "props": {
     "prop_laptop": "kenney-furniture-kit:laptop.glb",
-    "prop_monitor": "kenney-furniture-kit:computerScreen.glb",
-    "prop_box": "kenney-furniture-kit:cardboardBoxClosed.glb",
-    "prop_books": "kenney-furniture-kit:books.glb",
-    "prop_book": "kaykit-furniture-bits:book_single.gltf"
+    "prop_clipboard": "offisim-procedural:toy-work-accessory",
+    "prop_tablet": "offisim-procedural:toy-work-accessory",
+    "prop_terminal": "offisim-procedural:toy-work-accessory",
+    "prop_pointer": "offisim-procedural:toy-work-accessory",
+    "prop_headset": "offisim-procedural:toy-work-accessory",
+    "prop_swatch": "offisim-procedural:toy-work-accessory",
+    "prop_checklist": "offisim-procedural:toy-work-accessory",
+    "prop_keycard": "offisim-procedural:toy-work-accessory"
   },
   "rootMotionOracle": {
     "sourceFiles": [
@@ -377,18 +382,16 @@
     }
   },
   "files": {
-    "body_toy.glb": 65444,
+    "body_toy.glb": 58524,
     "hair_01.glb": 150996,
     "hair_02.glb": 203296,
     "hair_03.glb": 209844,
     "hair_04.glb": 145968,
     "hair_05.glb": 145936,
-    "hair_06.glb": 148124,
-    "brows_01.glb": 58748,
-    "brows_02.glb": 67988,
+    "hair_06.glb": 13628,
     "animations.glb": 515484,
-    "props.glb": 18344,
-    "LICENSES.md": 4538
+    "props.glb": 52692,
+    "LICENSES.md": 3741
   },
-  "totalBytes": 1734710
+  "totalBytes": 1500109
 }
