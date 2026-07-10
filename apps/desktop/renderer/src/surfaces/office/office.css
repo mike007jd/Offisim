@@ -489,7 +489,28 @@
   box-shadow: var(--off-elev-1);
 }
 
-/* drei Html name tag floating over a character */
+.off-scene-annotation {
+  transform-origin: center;
+  transition: opacity var(--off-motion-fast) ease-out;
+  will-change: opacity, transform;
+  pointer-events: none;
+}
+
+.off-scene-annotation.is-start {
+  transform-origin: left center;
+}
+
+.off-scene-annotation.is-interactive.is-visible {
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .off-scene-annotation {
+    transition: none;
+  }
+}
+
+/* Camera-safe scene name tag floating over a character. */
 .off-scene-tag {
   display: inline-flex;
   align-items: center;
@@ -516,16 +537,11 @@
   text-overflow: ellipsis;
   transform: translateY(-100%);
   opacity: 0.8;
-  scale: 0.86;
   pointer-events: none;
 }
 
 .off-scene-html-passive {
   pointer-events: none;
-}
-
-.off-scene-html-interactive {
-  pointer-events: auto;
 }
 
 .off-scene-tag.is-interactive {

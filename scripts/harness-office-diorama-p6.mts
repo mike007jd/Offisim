@@ -46,6 +46,8 @@ const [
   roomSource,
   zoneSource,
   officeSource,
+  studioSource,
+  annotationSource,
   dressingSource,
   backdropSource,
   lightingSource,
@@ -55,6 +57,8 @@ const [
   read('apps/desktop/renderer/src/surfaces/office/scene/r3d/RoomShell.tsx'),
   read('apps/desktop/renderer/src/surfaces/office/scene/r3d/ZoneDressing.tsx'),
   read('apps/desktop/renderer/src/surfaces/office/scene/OfficeScene3D.tsx'),
+  read('apps/desktop/renderer/src/surfaces/studio/StudioScene3D.tsx'),
+  read('apps/desktop/renderer/src/surfaces/office/scene/r3d/SceneAnnotation.tsx'),
   read('apps/desktop/renderer/src/surfaces/office/scene/r3d/DioramaDressing.tsx'),
   read('apps/desktop/renderer/src/surfaces/office/scene/r3d/DioramaBackdrop.tsx'),
   read('apps/desktop/renderer/src/surfaces/office/scene/r3d/SceneLighting.tsx'),
@@ -112,6 +116,56 @@ check(
   /<DioramaDressing\s+zones=\{zoneDefs\}\s+prefabCount=\{scenePrefabs\?\.length \?\? 0\}\s*\/>/.test(
     officeSource,
   ),
+);
+check(
+  'Office labels use one camera-safe annotation primitive',
+  officeSource.includes('<SceneAnnotation') &&
+    zoneSource.includes('<SceneAnnotation') &&
+    !officeSource.includes('<Html') &&
+    !zoneSource.includes('<Html'),
+);
+check(
+  'scene annotations have bounded readable scale profiles',
+  annotationSource.includes("critical: { fullOpacityDistance: 48") &&
+    annotationSource.includes('minScale: 0.8') &&
+    annotationSource.includes('minScale: 0.9'),
+);
+check(
+  'scene annotations depth-test real geometry and ignore transparent pointer hitboxes',
+  annotationSource.includes('intersectObjects(scene.children, true)') &&
+    annotationSource.includes('entry.opacity >= 0.24') &&
+    annotationSource.includes('objectHierarchyIsVisible') &&
+    annotationSource.includes("'isMesh' in object") &&
+    !annotationSource.includes('occlude={false}'),
+);
+check(
+  'annotation occlusion uses one bounded per-frame scheduler',
+  annotationSource.includes('export function SceneAnnotationScheduler') &&
+    annotationSource.includes('OCCLUSION_BUDGET_PER_FRAME = 4') &&
+    annotationSource.match(/useFrame\(/g)?.length === 1 &&
+    officeSource.includes('<SceneAnnotationScheduler />') &&
+    studioSource.includes('<SceneAnnotationScheduler />') &&
+    !annotationSource.includes('samplers.clear()') &&
+    !annotationSource.includes('ANNOTATION_REGISTRIES.delete'),
+);
+check(
+  'annotation rays stop at the label instead of sorting geometry behind it',
+  annotationSource.includes('raycaster.far = Math.max(0, anchorDistance - OCCLUSION_EPSILON)'),
+);
+check(
+  'occluded interactive annotations are hidden and inert before first sample',
+  annotationSource.includes('hasOcclusionSampleRef.current') &&
+    annotationSource.includes('useState(false)') &&
+    annotationSource.includes('hidden={!visible}') &&
+    annotationSource.includes('inert={!visible}') &&
+    annotationSource.includes('aria-hidden={!visible}'),
+);
+check(
+  'annotation semantic priority owns separate z-index bands',
+  annotationSource.includes('ambient: [4, 2]') &&
+    annotationSource.includes('actor: [8, 5]') &&
+    annotationSource.includes('critical: [12, 9]') &&
+    annotationSource.includes('key={priority}'),
 );
 check(
   'backdrop is a closed gradient sphere',

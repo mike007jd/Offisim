@@ -26,7 +26,7 @@ import {
   type RoleSlug,
   animationTempoForRole,
 } from '@offisim/shared-types';
-import { Html, Line, OrbitControls, RoundedBox } from '@react-three/drei';
+import { Line, OrbitControls, RoundedBox } from '@react-three/drei';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import {
   type CSSProperties,
@@ -52,6 +52,7 @@ import { OFFICE_DELIVERY_WORLD, officeResourceMarkerColor } from './office-visua
 import { RoomShell } from './r3d/RoomShell.js';
 import { DioramaBackdrop } from './r3d/DioramaBackdrop.js';
 import { DioramaDressing } from './r3d/DioramaDressing.js';
+import { SceneAnnotation, SceneAnnotationScheduler } from './r3d/SceneAnnotation.js';
 import { SceneEnvironment } from './r3d/SceneEnvironment.js';
 import { SceneLighting } from './r3d/SceneLighting.js';
 import { ScenePostFx } from './r3d/ScenePostFx.js';
@@ -822,13 +823,11 @@ function EmployeeUnit({
         ) : null}
       </group>
       {!dragging ? (
-        <Html
+        <SceneAnnotation
           position={[labelX, labelY, labelZ]}
-          center
-          distanceFactor={18}
-          occlude={false}
-          zIndexRange={[2, 0]}
-          className={htmlInteractive ? 'off-scene-html-interactive' : 'off-scene-html-passive'}
+          priority={selected || blocked || running ? 'critical' : 'actor'}
+          interactive={htmlInteractive}
+          exclude={unitRef}
         >
           {/* Relative wrapper so the active-count badge can sit at the tag's
               top-right corner without being clipped by the tag's overflow. */}
@@ -932,7 +931,7 @@ function EmployeeUnit({
               </div>
             ) : null}
           </div>
-        </Html>
+        </SceneAnnotation>
       ) : null}
     </group>
   );
@@ -991,16 +990,12 @@ function EmployeeDragGhost({
         </Suspense>
       </group>
       {drag.moved ? (
-        <Html
+        <SceneAnnotation
           position={[0, 2.64, 0]}
-          center
-          distanceFactor={17}
-          occlude={false}
-          zIndexRange={[2, 0]}
-          className="off-scene-html-passive"
+          priority="critical"
         >
           <span className="off-scene-drag-chip">Move</span>
-        </Html>
+        </SceneAnnotation>
       ) : null}
     </group>
   );
@@ -1008,16 +1003,12 @@ function EmployeeDragGhost({
 
 function SceneDropNoticeLabel({ notice }: { notice: SceneDropNotice }) {
   return (
-    <Html
+    <SceneAnnotation
       position={[notice.x, 1.15, notice.z]}
-      center
-      distanceFactor={18}
-      occlude={false}
-      zIndexRange={[2, 0]}
-      className="off-scene-html-passive"
+      priority="critical"
     >
       <span className="off-scene-drop-note">{notice.message}</span>
-    </Html>
+    </SceneAnnotation>
   );
 }
 
@@ -1223,6 +1214,7 @@ export function OfficeScene3D() {
         gl={{ antialias: true, toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.02 }}
         className="off-scene-canvas"
       >
+        <SceneAnnotationScheduler />
         <DioramaBackdrop />
         <SceneLighting />
         <SceneEnvironment />
@@ -1394,13 +1386,9 @@ export function OfficeScene3D() {
             {/* Lane density label — the shared flowCueText rule (`×N · label`
                 for bundles), a compact pill at the line midpoint. */}
             {line.showLabel ? (
-              <Html
+              <SceneAnnotation
                 position={line.labelPosition}
-                center
-                distanceFactor={18}
-                occlude={false}
-                zIndexRange={[2, 0]}
-                className="off-scene-html-passive"
+                priority="ambient"
               >
                 <span
                   className={`off-scene-flow-label is-${line.ink}`}
@@ -1408,7 +1396,7 @@ export function OfficeScene3D() {
                 >
                   {line.label}
                 </span>
-              </Html>
+              </SceneAnnotation>
             ) : null}
           </Fragment>
         ))}
@@ -1417,27 +1405,20 @@ export function OfficeScene3D() {
             is itself the delivery anchor when it renders. */}
         {activeFlowTargets.map((target) =>
           target === 'delivery' ? null : (
-            <Html
+            <SceneAnnotation
               key={target}
               position={flowTarget3D(target)}
-              center
-              distanceFactor={18}
-              occlude={false}
-              zIndexRange={[2, 0]}
-              className="off-scene-html-passive"
+              priority="ambient"
             >
               <span className="off-scene-flow-anchor">{FLOW_TARGET_LABELS[target]}</span>
-            </Html>
+            </SceneAnnotation>
           ),
         )}
         {deliveryLatest ? (
-          <Html
+          <SceneAnnotation
             position={[OFFICE_DELIVERY_WORLD.x, 0.88, OFFICE_DELIVERY_WORLD.z]}
-            center
-            distanceFactor={18}
-            occlude={false}
-            zIndexRange={[3, 0]}
-            className="off-scene-html-interactive"
+            priority="critical"
+            interactive
           >
             {/* Delivery shelf (I5) — a claimable output surface: ×N total on
                 the head, up to 3 claimable chips (kind tag + ellipsized title,
@@ -1505,7 +1486,7 @@ export function OfficeScene3D() {
                 ) : null}
               </div>
             </div>
-          </Html>
+          </SceneAnnotation>
         ) : null}
 
         {/* Free orbit camera: drag to rotate, two-finger / right-drag to pan,

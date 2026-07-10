@@ -1,9 +1,10 @@
-import { Html } from '@react-three/drei';
-import { memo } from 'react';
+import { memo, useRef } from 'react';
+import type { Group } from 'three';
 import type { ZoneDef } from '../scene-layout.js';
 import { LIGHT_SCENE_3D } from './scene-colors.js';
 import { EmissiveMaterial, SceneMaterial } from './scene-materials.js';
 import { RoundedSlab } from './RoundedSlab.js';
+import { SceneAnnotation } from './SceneAnnotation.js';
 
 const ZONE_TINT: Record<string, string> = {
   workspace: LIGHT_SCENE_3D.zoneWorkspace,
@@ -49,6 +50,7 @@ export const ZoneRug = memo(function ZoneRug({
   highlight = false,
   dimmed = false,
 }: { zone: ZoneDef; highlight?: boolean; dimmed?: boolean }) {
+  const rugRef = useRef<Group>(null);
   const rugOpacity = dimmed ? 0.22 : 1;
   const labelZ =
     zone.archetype === 'meeting' || zone.archetype === 'server'
@@ -59,7 +61,7 @@ export const ZoneRug = memo(function ZoneRug({
       ? -zone.w / 2 + 4.2
       : -zone.w / 2 + 0.72;
   return (
-    <group position={[zone.cx, 0, zone.cz]}>
+    <group ref={rugRef} position={[zone.cx, 0, zone.cz]}>
       <RoundedSlab
         width={zone.w}
         depth={zone.d}
@@ -93,16 +95,14 @@ export const ZoneRug = memo(function ZoneRug({
           }}
         />
       </RoundedSlab>
-      <Html
+      <SceneAnnotation
         position={[labelX, 0.14, labelZ]}
-        center={false}
-        distanceFactor={12}
-        occlude={false}
-        zIndexRange={[2, 0]}
-        className="off-scene-html-passive"
+        align="start"
+        priority="ambient"
+        exclude={rugRef}
       >
         <span className="off-scene-zone-label">{zone.label}</span>
-      </Html>
+      </SceneAnnotation>
     </group>
   );
 });
