@@ -11,6 +11,7 @@ import {
   WORKSTATION_CHAIR_FORWARD,
   WORKSTATION_DESK_DEPTH,
   WORKSTATION_DUAL_LANES,
+  WORKSTATION_GEOMETRY_METRICS,
   WORKSTATION_SINGLE_LANES,
   WORKSTATION_VERTICAL_METRICS,
 } from '../../workstation-geometry.js';
@@ -205,19 +206,22 @@ function Laptop({
   rotation?: [number, number, number];
 }) {
   const sc = useSceneColors();
+  const width = WORKSTATION_GEOMETRY_METRICS.laptopWidth;
+  const depth = WORKSTATION_GEOMETRY_METRICS.laptopDepth;
+  const screenHeight = WORKSTATION_GEOMETRY_METRICS.laptopScreenHeight;
   return (
     <group position={position} rotation={rotation}>
       <mesh position={[0, 0.01, 0]} castShadow>
-        <boxGeometry args={[0.4, 0.02, 0.3]} />
+        <boxGeometry args={[width, 0.02, depth]} />
         <SceneMaterial materialClass="metal" color={sc.metal} overrides={{ roughness: 0.25 }} />
       </mesh>
-      <group position={[0, 0.02, -0.15]} rotation={[-0.2, 0, 0]}>
-        <mesh position={[0, 0.15, 0]} castShadow>
-          <boxGeometry args={[0.4, 0.3, 0.02]} />
+      <group position={[0, 0.02, -depth / 2]} rotation={[-0.2, 0, 0]}>
+        <mesh position={[0, screenHeight / 2, 0]} castShadow>
+          <boxGeometry args={[width, screenHeight, 0.02]} />
           <SceneMaterial materialClass="metal" color={sc.metal} overrides={{ roughness: 0.25 }} />
         </mesh>
-        <mesh position={[0, 0.15, 0.011]}>
-          <planeGeometry args={[0.38, 0.28]} />
+        <mesh position={[0, screenHeight / 2, 0.011]}>
+          <planeGeometry args={[width - 0.02, screenHeight - 0.02]} />
           <EmissiveMaterial color={sc.screen} tier="screen" />
         </mesh>
       </group>
@@ -270,7 +274,9 @@ export function WorkstationUnit3D({
   const rotY = (rotation * Math.PI) / 180;
   const isCompact = variant === 'compact';
   const isDual = variant === 'dual';
-  const deskWidth = isCompact ? 1.45 : WORKSTATION_VERTICAL_METRICS.standardDeskWidth;
+  const deskWidth = isCompact
+    ? WORKSTATION_GEOMETRY_METRICS.compactDeskWidth
+    : WORKSTATION_GEOMETRY_METRICS.standardDeskWidth;
   const deskDepth = WORKSTATION_DESK_DEPTH[variant];
   const deskLegHeight = WORKSTATION_VERTICAL_METRICS.deskTop - 0.06;
   const laptopPositions = isDual

@@ -35,7 +35,6 @@ export const OFFICE_CHARACTER_METRICS = toyMetrics.character;
 const { workstation } = toyMetrics;
 
 export const WORKSTATION_VERTICAL_METRICS = {
-  standardDeskWidth: workstation.standardDeskWidth,
   seatTop: workstation.seatTop,
   chairCushionWidth: workstation.chairCushionWidth,
   chairCushionDepth: workstation.chairCushionDepth,
@@ -48,4 +47,45 @@ export const WORKSTATION_VERTICAL_METRICS = {
   laptopDeck: workstation.laptopDeck,
   seatedBodyLift: workstation.seatedBodyLift,
   seatedBodyForward: workstation.seatedBodyForward,
+} as const;
+
+export const WORKSTATION_GEOMETRY_METRICS = {
+  standardDeskWidth: workstation.standardDeskWidth,
+  compactDeskWidth: workstation.compactDeskWidth,
+  laptopWidth: workstation.laptopWidth,
+  laptopDepth: workstation.laptopDepth,
+  laptopScreenHeight: workstation.laptopScreenHeight,
+} as const;
+
+function workstationFootprintRadius(
+  width: number,
+  depth: number,
+  lanes: readonly number[],
+): number {
+  const laneExtent =
+    Math.max(...lanes.map((lane) => Math.abs(lane))) + workstation.chairCushionWidth / 2;
+  const halfWidth = Math.max(width / 2, laneExtent);
+  const forwardExtent = depth / 2 + workstation.chairForward + workstation.chairCushionDepth / 2;
+  return Math.hypot(halfWidth, forwardExtent);
+}
+
+/** Authoring-space furniture footprint derived from the same desk/chair body
+ * metrics as the rendered mesh. scene-layout applies SCENE_CONTENT_SCALE and a
+ * small navigation clearance, eliminating the previous hand-tuned radii. */
+export const WORKSTATION_FOOTPRINT_RADIUS = {
+  standard: workstationFootprintRadius(
+    workstation.standardDeskWidth,
+    workstation.deskDepth.standard,
+    WORKSTATION_SINGLE_LANES,
+  ),
+  compact: workstationFootprintRadius(
+    workstation.compactDeskWidth,
+    workstation.deskDepth.compact,
+    WORKSTATION_SINGLE_LANES,
+  ),
+  dual: workstationFootprintRadius(
+    workstation.standardDeskWidth,
+    workstation.deskDepth.dual,
+    WORKSTATION_DUAL_LANES,
+  ),
 } as const;

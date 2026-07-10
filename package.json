@@ -49,6 +49,8 @@
     "harness:character-actions-p3": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-character-actions-p3.mts",
     "harness:office-visual-language-p4": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-office-visual-language-p4.mts",
     "harness:office-ambient-p5": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-office-ambient-p5.mts",
+    "harness:office-diorama-p6": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-office-diorama-p6.mts",
+    "prevalidate": "pnpm harness:office-diorama-p6",
     "harness:office-seating-p2": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-office-seating-p2.mts",
     "build:character-assets": "node scripts/build-character-assets.mjs",
     "harness:employee-version-on-save": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-employee-version-on-save.mts",

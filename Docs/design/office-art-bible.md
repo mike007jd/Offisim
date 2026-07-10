@@ -99,9 +99,31 @@ use muted red. The 2D scene consumes the same status/ink source without a P4 vis
 marker, chip, shelf and flow treatments use compact toy bevels; blocked nameplates state the actor identity
 explicitly and do not repeat the failure phrase on the flow lane.
 
-## 6. Environment handoff for P6
+## 6. P6 final environment contract
 
-The scene becomes an open, thick, bevel-edged display plinth with rugs and furniture clusters defining zones;
-walls and glass partitions are excluded. P6 derives all chair/desk/obstacle metrics from the canonical toy
-character, extends the low-saturation palette to furniture, calibrates fog/light/post-processing, and records
-the final 50–100 prop density and batching rules in this section.
+The production Office is an open display model, never a room. A `42 × 42` warm-neutral floor sits on a
+`0.52`-unit thick wood-edged plinth with a rounded top lip; three walls, side windows, wall art, interior glass
+and ceiling-dependent lights are excluded from the Office render path. Thick rounded rugs, furniture clusters,
+low planters and marker posts define the seven zones. The Studio editor may retain its preview luminaire, but
+that component must not be mounted by `OfficeScene3D`.
+
+The backdrop is a closed three-stop studio gradient, so every legal orbit angle remains intentional. Fog begins
+beyond the main furnishing span (`46 → 118`), not over the characters. Lighting stays static and broad: warm
+key, cool fill, restrained rim. N8AO runs half-resolution with SMAA retained; bloom and vignette remain subtle
+enough that material and state ink stay readable. Canvas keeps continuous animation and DPR `[1, 1.75]`.
+
+Furniture contact metrics are one contract with the `1.62`-unit toy body. Chair top is `0.42`, desk top is
+`0.768`, and laptop width is `0.40`; workstation widths, chair envelope, seat anchors and pathfinding radii all
+derive from `toy-performance-metrics.json`. Runtime obstacle radius is the rendered desk/chair footprint times
+`SCENE_CONTENT_SCALE`, plus `0.08` navigation clearance; every non-workstation radius derives from the public
+shared world-space prefab footprint contract instead of a renderer-only table. The P6 oracle rejects scale drift that
+overlaps the system workspace layout or pushes a canonical zone beyond the plinth.
+
+The canonical seven-zone office contains 33 semantic prefab instances plus four low edge props per zone, for
+61 active floor props—inside the `50–100` budget. Repeated pots, foliage, marker bodies and caps use four
+`InstancedMesh` draw calls independent of zone count. Decorative dressing stays low, has no affordance or
+interaction anchor, and cannot become a second source for navigation or dramaturgy.
+
+Environment palette remains low-saturation: warm wood/plastic for the plinth, archetype tint only on rugs,
+muted green foliage, and small warm/cool accents on dressing. Environment bevel radius stays `6–14%` of the
+shortest visible prop dimension; rugs use a broader `0.19–0.28` soft edge because they are zone-scale forms.

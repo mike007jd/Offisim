@@ -12,6 +12,7 @@
       "dual": 1.25
     },
     "standardDeskWidth": 2.1,
+    "compactDeskWidth": 1.45,
     "seatTop": 0.42,
     "chairCushionWidth": 0.5,
     "chairCushionDepth": 0.48,
@@ -22,6 +23,9 @@
     "deskTop": 0.768,
     "deskTopThickness": 0.055,
     "laptopDeck": 0.78,
+    "laptopWidth": 0.4,
+    "laptopDepth": 0.3,
+    "laptopScreenHeight": 0.3,
     "seatedBodyLift": 0.17,
     "seatedBodyForward": 0.38,
     "contactTolerance": 0.08,

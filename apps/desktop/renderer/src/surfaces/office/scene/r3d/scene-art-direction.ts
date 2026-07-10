@@ -8,9 +8,15 @@ const ROOM_DEPTH = 42;
 export const OFFICE_ROOM = {
   width: ROOM_WIDTH,
   depth: ROOM_DEPTH,
-  wallHeight: 5,
   tileSize: 2,
-  trimHeight: 0.18,
+} as const;
+
+export const OFFICE_PLINTH = {
+  baseHeight: 0.52,
+  baseCenterY: -0.4,
+  lipHeight: 0.14,
+  lipCenterY: -0.07,
+  floorY: 0.001,
 } as const;
 
 /** Default office framing — a lower, closer hero 3/4 view (not the old high
@@ -56,7 +62,7 @@ export const FLOOR_BANDS = [
     widthOffset: 2.2,
     depth: 5.2,
     z: 0,
-    layerOffset: 0.006,
+    layerOffset: 0.003,
     colorToken: 'floorTileAlt',
     opacity: 0.34,
     roughness: 0.62,
@@ -66,7 +72,7 @@ export const FLOOR_BANDS = [
     widthOffset: 3.4,
     depth: 3.6,
     z: -8.4,
-    layerOffset: 0.007,
+    layerOffset: 0.004,
     colorToken: 'floorTileAlt',
     opacity: 0.22,
     roughness: 0.62,
@@ -76,7 +82,7 @@ export const FLOOR_BANDS = [
     widthOffset: 1.5,
     depth: 1.2,
     z: 13.5,
-    layerOffset: 0.008,
+    layerOffset: 0.005,
     colorToken: 'floorBorder',
     opacity: 0.24,
     roughness: 0.68,
@@ -90,22 +96,6 @@ export const FLOOR_BANDS = [
   colorToken: keyof Scene3DColors;
   opacity: number;
   roughness: number;
-}[];
-
-export const WALL_PANELS = [-13.5, -4.5, 4.5, 13.5].map((x) => ({
-  id: `back-panel-${x}`,
-  x,
-  y: 2.78,
-  width: 7.2,
-  height: 3.6,
-  depth: 0.08,
-})) as readonly {
-  id: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  depth: number;
 }[];
 
 export const ROOM_GRID = {

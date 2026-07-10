@@ -50,10 +50,12 @@ import { preloadCharacterAssets } from './character/character-assets.js';
 import { openDeliveryHistory } from './delivery-history.js';
 import { OFFICE_DELIVERY_WORLD, officeResourceMarkerColor } from './office-visual-language.js';
 import { RoomShell } from './r3d/RoomShell.js';
+import { DioramaBackdrop } from './r3d/DioramaBackdrop.js';
+import { DioramaDressing } from './r3d/DioramaDressing.js';
 import { SceneEnvironment } from './r3d/SceneEnvironment.js';
 import { SceneLighting } from './r3d/SceneLighting.js';
 import { ScenePostFx } from './r3d/ScenePostFx.js';
-import { ZoneCeilingLight, ZoneRug } from './r3d/ZoneDressing.js';
+import { ZoneRug } from './r3d/ZoneDressing.js';
 import { BookshelfMesh3D } from './r3d/prefabs/BookshelfMesh3D.js';
 import { DecorativeMesh3D } from './r3d/prefabs/DecorativeMesh3D.js';
 import { MeetingTableMesh3D } from './r3d/prefabs/MeetingTableMesh3D.js';
@@ -1209,7 +1211,7 @@ export function OfficeScene3D() {
       <Canvas
         shadows="soft"
         dpr={[1, 1.75]}
-        // Keep R3F's default `frameloop="always"`. We tried "demand" to save
+        // Keep R3F's continuous frame loop. We tried "demand" to save
         // idle CPU but the character mixers advance in useFrame (GltfCharacter
         // RigView) and EmployeeUnit's glide lerp mutates positions via refs —
         // neither invalidates, so demand mode froze every employee's
@@ -1217,21 +1219,23 @@ export function OfficeScene3D() {
         // setState. Re-enable demand only alongside an invalidate() in those
         // useFrame consumers.
         camera={{ position: OFFICE_CAMERA_PRESET.position, fov: OFFICE_CAMERA_PRESET.fov }}
+        frameloop="always"
         gl={{ antialias: true, toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.02 }}
         className="off-scene-canvas"
       >
-        <color attach="background" args={[LIGHT_SCENE_3D.sceneBackground]} />
-
+        <DioramaBackdrop />
         <SceneLighting />
         <SceneEnvironment />
         <RoomShell onFloorClick={closeThread} />
 
         {zoneDefs.map((zone) => (
-          <Fragment key={zone.id}>
-            <ZoneRug zone={zone} highlight={employeeDrag !== null && hoveredZoneId === zone.id} />
-            <ZoneCeilingLight zone={zone} />
-          </Fragment>
+          <ZoneRug
+            key={zone.id}
+            zone={zone}
+            highlight={employeeDrag !== null && hoveredZoneId === zone.id}
+          />
         ))}
+        <DioramaDressing zones={zoneDefs} prefabCount={scenePrefabs?.length ?? 0} />
 
         {real ? (
           scenePrefabs?.map(({ instance, definition }) => (

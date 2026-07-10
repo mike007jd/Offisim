@@ -1,5 +1,5 @@
 import type { Employee, ZoneKind } from '@/data/types.js';
-import { normalizeRotation, rotateLocalXZ } from '@offisim/shared-types';
+import { getBuiltinPrefabFootprint, normalizeRotation, rotateLocalXZ } from '@offisim/shared-types';
 import { SCENE_CONTENT_SCALE } from './r3d/scene-art-direction.js';
 import {
   SEAT_SLOT_CAPACITY,
@@ -9,6 +9,7 @@ import {
 import {
   WORKSTATION_DESK_DEPTH,
   WORKSTATION_DUAL_LANES,
+  WORKSTATION_FOOTPRINT_RADIUS,
   WORKSTATION_SEAT_FORWARD,
   WORKSTATION_SINGLE_LANES,
 } from './workstation-geometry.js';
@@ -230,41 +231,18 @@ function isFacingAnchor(prefab: SeatAnchorPrefab): boolean {
 
 function obstacleRadius(prefab: SeatAnchorPrefab): number {
   const id = prefab.definition.prefabId ?? prefab.instance.prefab_id;
+  const workstationClearance = 0.08;
   switch (id) {
     case 'workstation-dual':
-      return 1.75;
+      return WORKSTATION_FOOTPRINT_RADIUS.dual * SCENE_CONTENT_SCALE + workstationClearance;
     case 'workstation-standard':
-      return 1.58;
+      return WORKSTATION_FOOTPRINT_RADIUS.standard * SCENE_CONTENT_SCALE + workstationClearance;
     case 'workstation-compact':
-      return 1.35;
-    case 'sofa-set':
-      return 3.35;
-    case 'meeting-table-8':
-      return 3.45;
-    case 'meeting-table-4':
-      return 2.3;
-    case 'standing-table':
-      return 1.6;
-    case 'coffee-table':
-      return 1.1;
-    case 'server-rack-4u':
-    case 'server-rack-2u':
-    case 'gpu-cluster':
-      return 1.0;
-    case 'bookshelf-double':
-    case 'bookshelf-single':
-    case 'filing-cabinet':
-      return 1.2;
-    case 'plant-large':
-      return 0.95;
-    case 'plant-small':
-    case 'chair-standalone':
-      return 0.72;
-    default:
-      if (prefab.definition.category === 'collaboration') return 2.8;
-      if (prefab.definition.category === 'compute') return 1.0;
-      if (prefab.definition.category === 'decorative') return 0.8;
-      return 1.15;
+      return WORKSTATION_FOOTPRINT_RADIUS.compact * SCENE_CONTENT_SCALE + workstationClearance;
+    default: {
+      const footprint = getBuiltinPrefabFootprint(id);
+      return Math.hypot(footprint.halfW + footprint.padding, footprint.halfD + footprint.padding);
+    }
   }
 }
 

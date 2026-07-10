@@ -163,4 +163,7 @@ export const SCENE_ENV_COLORS = {
   frontBounce: '#f1cfaa',
   backRim: '#e5ebee',
   streak: '#f8f4ec',
+  backdropTop: '#dbe7ed',
+  backdropHorizon: '#edf0e9',
+  backdropBottom: '#c9d1cc',
 } as const;
