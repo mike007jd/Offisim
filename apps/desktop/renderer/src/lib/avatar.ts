@@ -79,7 +79,7 @@ const AVATAR_CLOTHING_BY_GENDER = {
  * identity (palette picks here and the DiceBear reference avatar).
  * Stable across sessions/locales: pure charCode arithmetic, uint32 output.
  */
-export function hashString(seed: string): number {
+function hashString(seed: string): number {
   let hash = 0;
   for (let i = 0; i < seed.length; i += 1) {
     hash = (hash * 2654435761 + seed.charCodeAt(i)) >>> 0;
