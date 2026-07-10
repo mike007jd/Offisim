@@ -19,6 +19,8 @@ export type InteractionAnchorKind =
   | 'board-presenter'
   | 'standing-review'
   | 'reading-seat'
+  | 'library-inspect'
+  | 'refreshment'
   | 'server-inspect'
   | 'social-seat'
   | 'delivery-shelf';
@@ -69,11 +71,16 @@ export const BUILTIN_PREFAB_AFFORDANCES: Readonly<Record<string, readonly Intera
     a('server-inspect', [-1.1, 1.0], 180, 'standing'),
     a('server-inspect', [1.1, 1.0], 180, 'standing'),
   ],
-  'bookshelf-single': [a('reading-seat', [0, 0.7], 180, 'standing')],
+  'bookshelf-single': [
+    a('reading-seat', [0, 0.7], 180, 'standing'),
+    a('library-inspect', [0, 0.92], 180, 'standing'),
+  ],
   'bookshelf-double': [
     a('reading-seat', [-0.7, 0.7], 180, 'standing'),
     a('reading-seat', [0.7, 0.7], 180, 'standing'),
+    a('library-inspect', [0, 0.92], 180, 'standing'),
   ],
+  'water-cooler': [a('refreshment', [0, 0.72], 180, 'standing')],
   'reading-table': [
     a('reading-seat', [0, 0.7], 180, 'sitting'),
     a('reading-seat', [0, -0.7], 0, 'sitting'),

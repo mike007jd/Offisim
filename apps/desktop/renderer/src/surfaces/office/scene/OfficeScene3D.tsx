@@ -17,6 +17,7 @@ import type { Employee } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
 import { openArtifactClaim } from '@/surfaces/office/stage-viewer/artifact-claim.js';
 import {
+  CHARACTER_WALK_SPEED_UNITS_PER_SECOND,
   type CharacterPerformanceState,
   type CharacterStatus,
   type PrefabDefinition,
@@ -73,15 +74,9 @@ import {
   type EmployeePosture,
   type EmployeeScenePlacement,
   type ZoneDef,
-  floorBounds,
   rotateLocal,
-  sceneObstacles,
 } from './scene-layout.js';
-import {
-  type OfficePathfinder,
-  type PathPoint,
-  buildOfficePathfinder,
-} from './scene-pathfinding.js';
+import type { OfficePathfinder, PathPoint } from './scene-pathfinding.js';
 import { useSceneStagingInputs } from './use-scene-staging-inputs.js';
 import { WorkBench } from './work-bench/WorkBench.js';
 
@@ -545,7 +540,7 @@ function EmployeeUnit({
     }
     waypointIndexRef.current = index;
     if (dist > 0.04) {
-      const step = Math.min(1, (1.9 * delta) / dist);
+      const step = Math.min(1, (CHARACTER_WALK_SPEED_UNITS_PER_SECOND * delta) / dist);
       group.position.x += dx * step;
       group.position.z += dz * step;
     } else {
@@ -1074,6 +1069,9 @@ export function OfficeScene3D() {
     fallbackZone: defaultEmployeeZone,
     positions: placementsByEmployee,
     stagingPrefabs,
+    pathfinder,
+    routeFor,
+    routeSignature,
   } = useSceneStagingInputs();
   const knownEmployeeIdsRef = useRef<Set<string> | null>(null);
   const enteringEmployeeIds = new Set<string>();
@@ -1095,22 +1093,6 @@ export function OfficeScene3D() {
   const emptyOffice = zoneDefs.length === 0;
   const scenePrefabs = real?.prefabs;
 
-  // Floor pathfinder (H1/H2): one grid built per obstacle set from the SAME
-  // prefab obstacle radii the seat planner uses, so employees WALK a route
-  // around furniture instead of gliding through it. Built once here (not per
-  // frame, not per actor) and shared by every EmployeeUnit; null (no real
-  // prefabs, e.g. the no-backend preview) keeps the straight-line lerp. A* runs
-  // only when an actor's target changes.
-  const pathfinder = useMemo(() => {
-    const obstacles = sceneObstacles(scenePrefabs);
-    if (obstacles.length === 0) return null;
-    const { floorW, floorD } = floorBounds(zoneDefs);
-    return buildOfficePathfinder(
-      { minX: -floorW / 2, minZ: -floorD / 2, maxX: floorW / 2, maxZ: floorD / 2 },
-      obstacles,
-    );
-  }, [scenePrefabs, zoneDefs]);
-
   // GltfCharacter's reducedMotion prop path (frozen mixer → static poses) is a
   // render concern; the frame separately carries staging=null under reduced motion.
   const reducedMotion = usePrefersReducedMotion();
@@ -1123,6 +1105,8 @@ export function OfficeScene3D() {
   const { frame, actorById } = useSceneCueFrame({
     prefabs: stagingPrefabs,
     actorPositions: placementsByEmployee,
+    routeFor,
+    routeSignature,
     hoveredEmployeeId,
     draggingEmployeeId: employeeDrag?.employeeId ?? null,
   });

@@ -16,7 +16,7 @@
 import { useUiState } from '@/app/ui-state.js';
 import { useEmployees, useOfficeLayout } from '@/data/queries.js';
 import type { Employee } from '@/data/types.js';
-import type { StagingPrefab } from '@offisim/shared-types';
+import type { AmbientRoutePlanner, StagingPrefab } from '@offisim/shared-types';
 import { useEffect, useMemo, useState } from 'react';
 import { OFFICE_DELIVERY_STAGING_PREFAB } from './office-visual-language.js';
 import { SCENE_CONTENT_SCALE } from './r3d/scene-art-direction.js';
@@ -25,8 +25,15 @@ import {
   type ZoneDef,
   defaultEmployeeZone,
   employeePlacements,
+  floorBounds,
+  sceneObstacles,
   zoneDefsFromLayout,
 } from './scene-layout.js';
+import {
+  type OfficePathfinder,
+  buildOfficePathfinder,
+  measureOfficeRouteWithinBounds,
+} from './scene-pathfinding.js';
 import {
   type SeatSlotRegistry,
   readSeatSlotRegistry,
@@ -47,6 +54,10 @@ export interface SceneStagingInputs {
   readonly positions: Map<string, EmployeeScenePlacement>;
   /** Placed prefabs as staging anchors, offsets scaled like the seat planner. */
   readonly stagingPrefabs: StagingPrefab[];
+  /** One exact A* route grid shared by scene motion and ambient admission. */
+  readonly pathfinder: OfficePathfinder | null;
+  readonly routeFor: AmbientRoutePlanner;
+  readonly routeSignature: string;
 }
 
 export function useSceneStagingInputs(): SceneStagingInputs {
@@ -116,9 +127,72 @@ export function useSceneStagingInputs(): SceneStagingInputs {
     ],
     [layoutData?.prefabs],
   );
+  const routeGeometry = useMemo(() => {
+    const obstacles = sceneObstacles(layoutData?.prefabs);
+    const { floorW, floorD } = floorBounds(zoneDefs);
+    return {
+      bounds: { minX: -floorW / 2, minZ: -floorD / 2, maxX: floorW / 2, maxZ: floorD / 2 },
+      obstacles,
+    };
+  }, [layoutData?.prefabs, zoneDefs]);
+  const routeSignature = useMemo(
+    () =>
+      JSON.stringify({
+        bounds: routeGeometry.bounds,
+        obstacles: [...routeGeometry.obstacles].sort(
+          (a, b) => a.x - b.x || a.z - b.z || a.radius - b.radius,
+        ),
+      }),
+    [routeGeometry],
+  );
+  const pathfinder = useMemo(
+    () =>
+      routeGeometry.obstacles.length === 0
+        ? null
+        : buildOfficePathfinder(routeGeometry.bounds, routeGeometry.obstacles),
+    [routeGeometry],
+  );
+  const routeFor = useMemo<AmbientRoutePlanner>(
+    () =>
+      ({ from, to, allowBlockedTarget }) => {
+        const fromPoint = [from.x, from.z] as const;
+        const toPoint = [to.x, to.z] as const;
+        const distance = measureOfficeRouteWithinBounds(
+          routeGeometry.bounds,
+          pathfinder,
+          fromPoint,
+          toPoint,
+          allowBlockedTarget,
+        );
+        return distance === null ? null : { distance };
+      },
+    [pathfinder, routeGeometry.bounds],
+  );
 
   return useMemo(
-    () => ({ ready, layoutData, roster, zoneDefs, fallbackZone, positions, stagingPrefabs }),
-    [ready, layoutData, roster, zoneDefs, fallbackZone, positions, stagingPrefabs],
+    () => ({
+      ready,
+      layoutData,
+      roster,
+      zoneDefs,
+      fallbackZone,
+      positions,
+      stagingPrefabs,
+      pathfinder,
+      routeFor,
+      routeSignature,
+    }),
+    [
+      ready,
+      layoutData,
+      roster,
+      zoneDefs,
+      fallbackZone,
+      positions,
+      stagingPrefabs,
+      pathfinder,
+      routeFor,
+      routeSignature,
+    ],
   );
 }

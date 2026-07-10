@@ -35,6 +35,16 @@ export interface PathfinderBounds {
 
 export type PathPoint = readonly [number, number];
 
+/** Inclusive floor containment shared by route admission and the A* grid. */
+export function pointInsideOfficeBounds(bounds: PathfinderBounds, point: PathPoint): boolean {
+  return (
+    point[0] >= bounds.minX &&
+    point[0] <= bounds.maxX &&
+    point[1] >= bounds.minZ &&
+    point[1] <= bounds.maxZ
+  );
+}
+
 /** Grid cell size in world units — office corridors/gaps are ~1u, so 0.6 keeps
  *  narrow passages walkable without an excessive cell count. */
 const CELL_SIZE = 0.6;
@@ -134,7 +144,9 @@ export class OfficePathfinder {
       const cz = this.minZ + (r + 0.5) * cell;
       for (let c = 0; c < this.cols; c += 1) {
         const cx = this.minX + (c + 0.5) * cell;
-        if (this.pointBlocked(cx, cz)) this.blocked[r * this.cols + c] = 1;
+        if (!pointInsideOfficeBounds(bounds, [cx, cz]) || this.pointBlocked(cx, cz)) {
+          this.blocked[r * this.cols + c] = 1;
+        }
       }
     }
   }
@@ -341,6 +353,54 @@ export class OfficePathfinder {
     out.push(points[points.length - 1]!);
     return out;
   }
+}
+
+/**
+ * Measure the exact production A* route used by EmployeeUnit. A null result is
+ * a real no-route decision; callers must not schedule a timed choreography that
+ * the character cannot perform. Non-furniture destinations must also be open
+ * floor, while a shelf/cooler/home anchor may intentionally touch an inflated
+ * fixture footprint and use the router's snapped final approach.
+ */
+export function measureOfficeRouteDistance(
+  pathfinder: OfficePathfinder | null,
+  start: PathPoint,
+  target: PathPoint,
+  allowBlockedTarget: boolean,
+): number | null {
+  if (!pathfinder) return Math.hypot(target[0] - start[0], target[1] - start[1]);
+  if (
+    !allowBlockedTarget &&
+    !pathfinder.clearLineOfSight(target[0], target[1], target[0], target[1])
+  ) {
+    return null;
+  }
+  const waypoints = pathfinder.findWaypoints(start, target);
+  if (!waypoints) return null;
+  let distance = 0;
+  let prior = start;
+  for (const waypoint of waypoints) {
+    distance += Math.hypot(waypoint[0] - prior[0], waypoint[1] - prior[1]);
+    prior = waypoint;
+  }
+  return distance;
+}
+
+/**
+ * Route-admission contract for authored floor destinations. An actor may start
+ * outside the floor after a raw drag and must still be able to walk home, but
+ * no new staging target may be scheduled outside the floor rectangle.
+ */
+export function measureOfficeRouteWithinBounds(
+  bounds: PathfinderBounds,
+  pathfinder: OfficePathfinder | null,
+  start: PathPoint,
+  target: PathPoint,
+  allowBlockedTarget: boolean,
+): number | null {
+  return pointInsideOfficeBounds(bounds, target)
+    ? measureOfficeRouteDistance(pathfinder, start, target, allowBlockedTarget)
+    : null;
 }
 
 function clamp(value: number, min: number, max: number): number {

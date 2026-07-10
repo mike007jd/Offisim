@@ -108,7 +108,8 @@ export function OfficeScene2D() {
 
   // Shared staging inputs (real zones + real roster + seat planner); the
   // synthetic fallback only applies when there is no backend (dev preview).
-  const { roster, zoneDefs, positions, stagingPrefabs } = useSceneStagingInputs();
+  const { roster, zoneDefs, positions, stagingPrefabs, routeFor, routeSignature } =
+    useSceneStagingInputs();
   const { floorW, floorD } = useMemo(() => floorBounds(zoneDefs), [zoneDefs]);
 
   // THE render contract: one SceneCueFrame per render, shared with the 3D
@@ -118,6 +119,8 @@ export function OfficeScene2D() {
   const { frame, actorById } = useSceneCueFrame({
     prefabs: stagingPrefabs,
     actorPositions: positions,
+    routeFor,
+    routeSignature,
   });
   const selectedEmployeeId = useMemo(
     () => frame.actors.find((actor) => actor.selected)?.employeeId ?? null,

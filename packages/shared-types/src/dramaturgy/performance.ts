@@ -35,9 +35,9 @@ export type WorkGesture =
   | 'phone'
   | 'consume';
 
-/** Reserved deterministic micro-actions consumed by the P5 ambient scheduler. */
+/** Deterministic micro-actions consumed by the P5 ambient scheduler. */
 export type RoutineWorkGesture = Extract<WorkGesture, 'phone' | 'consume'>;
-export type RoutinePerformanceKind = RoutineWorkGesture | 'inspect';
+export type RoutinePerformanceKind = RoutineWorkGesture | 'inspect' | 'social' | 'seated-shift';
 
 export type SocialGesture = 'none' | 'listen' | 'nod' | 'discuss';
 export type Expression = 'neutral' | 'focus' | 'thinking' | 'worried' | 'happy';
@@ -225,9 +225,29 @@ export function performanceForBeat(beat: SceneBeat): CharacterPerformanceState {
 
 /**
  * Typed P5 seam for routine micro-actions. Keeping this in dramaturgy means the
- * future ambient scheduler requests semantic behavior, never a renderer clip.
+ * ambient scheduler requests semantic behavior, never a renderer clip.
  */
 export function performanceForRoutine(kind: RoutinePerformanceKind): CharacterPerformanceState {
+  if (kind === 'social') {
+    return {
+      locomotion: 'idle',
+      posture: 'stand',
+      workGesture: 'none',
+      socialGesture: 'discuss',
+      expression: 'neutral',
+      intensity: 0,
+    };
+  }
+  if (kind === 'seated-shift') {
+    return {
+      locomotion: 'idle',
+      posture: 'sit',
+      workGesture: 'none',
+      socialGesture: 'nod',
+      expression: 'neutral',
+      intensity: 0,
+    };
+  }
   const workGesture: WorkGesture = kind === 'inspect' ? 'read' : kind;
   return {
     locomotion: 'idle',

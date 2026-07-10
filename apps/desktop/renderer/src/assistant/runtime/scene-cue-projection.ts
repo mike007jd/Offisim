@@ -30,6 +30,7 @@
  */
 import {
   type ActorStaging,
+  type AmbientActorDirection,
   type CharacterPerformanceState,
   type CharacterStatus,
   type DramaturgyMode,
@@ -816,6 +817,77 @@ export function projectSceneBaseFrame(input: SceneCueFacts): SceneCueFrame {
       : null;
 
   return { actors, flows, delivery, resources, attention };
+}
+
+/**
+ * A real scene fact always owns the actor before ambient presentation does.
+ * Kept public so the scheduler context and the final render overlay share the
+ * exact same synchronous preemption predicate.
+ */
+export function actorAcceptsAmbientCue(actor: ActorCue): boolean {
+  return (
+    actor.status === 'idle' &&
+    !actor.running &&
+    !actor.delivering &&
+    actor.performance === null &&
+    actor.staging === null
+  );
+}
+
+/** Keep unrelated ambience stable while a real actor or fixture claim preempts one pair. */
+export function ambientDirectionsForAvailableActors(
+  directions: readonly AmbientActorDirection[],
+  unavailableEmployeeIds: ReadonlySet<string>,
+  unavailableAnchorIds?: ReadonlySet<string>,
+): readonly AmbientActorDirection[] {
+  if (
+    unavailableEmployeeIds.size === 0 &&
+    (!unavailableAnchorIds || unavailableAnchorIds.size === 0)
+  ) {
+    return directions;
+  }
+  const preemptedEmployeeIds = new Set(unavailableEmployeeIds);
+  if (unavailableAnchorIds && unavailableAnchorIds.size > 0) {
+    for (const direction of directions) {
+      if (!direction.staging?.anchorId || !unavailableAnchorIds.has(direction.staging.anchorId)) {
+        continue;
+      }
+      preemptedEmployeeIds.add(direction.employeeId);
+      if (direction.partnerId) preemptedEmployeeIds.add(direction.partnerId);
+    }
+  }
+  return directions.filter(
+    (direction) =>
+      !preemptedEmployeeIds.has(direction.employeeId) &&
+      (!direction.partnerId || !preemptedEmployeeIds.has(direction.partnerId)),
+  );
+}
+
+/**
+ * Overlay renderer-owned ambient directions onto a fact frame. The predicate
+ * is deliberately checked again on every render: if a run arrives before the
+ * scheduler effect/timer catches up, the real frame still preempts ambient in
+ * that same render. Flows, workload, attention, status and interaction stay
+ * byte-identical.
+ */
+export function applyAmbientCues(
+  frame: SceneCueFrame,
+  directions: readonly AmbientActorDirection[],
+): SceneCueFrame {
+  if (directions.length === 0) return frame;
+  const byEmployee = new Map(directions.map((direction) => [direction.employeeId, direction]));
+  let changed = false;
+  const actors = frame.actors.map((actor) => {
+    const direction = byEmployee.get(actor.employeeId);
+    if (!direction || !actorAcceptsAmbientCue(actor)) return actor;
+    changed = true;
+    return {
+      ...actor,
+      performance: direction.performance,
+      staging: direction.staging,
+    };
+  });
+  return changed ? { ...frame, actors } : frame;
 }
 
 /**

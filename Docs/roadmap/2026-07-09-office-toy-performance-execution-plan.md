@@ -208,6 +208,7 @@ P1 只完善 P0 已验证的单一 `body_toy.glb` lane；不得恢复旧 male/fe
 - [x] release .app 验证：三态同屏截图 5 秒可辨（P-3/P-4 闭合证据）。
 
 ### P5 Ambient 生命感（E）
+- [ ] 契约冻结：45s–4min 是每名员工独立、seeded、与 roster 顺序无关的“到期/尝试”节奏，不承诺每次都物理离位（16 人 + 离位硬上限 2 + 30s 社交在数学上无法保证全员 4 分钟内离位）。首轮 45–120s 且优先 water/library/social，容量/锚点不足时确定性降级为原位 phone/坐姿微动作；不排队、不补发、不形成 catch-up burst。后续每次尝试 45–240s。
 - [ ] ambient 调度器：seeded 随机、45s–4min 频率、同屏离位 ≤2、目的地锚点（water-cooler/书架/邻座）、行为脚本（walk→consume/inspect.open/idle.talk→walk 回）。
 - [ ] run 抢占：活跃 beat 员工不参与；beat 到达 ≤1s 中断 ambient。
 - [ ] modes.ts 门控扩展（focus/reduced-motion 全关离位层）。
