@@ -180,7 +180,12 @@ export function employeeAvatarUri(seed: string, appearance?: EmployeeAppearance)
   const cached = cache.get(key);
   if (cached) return cached;
 
-  const hairStyle = appearance?.hairStyle;
+  // Same untyped-persona guard as resolveAppearance: an out-of-set hairStyle
+  // would index HAIR_STYLE_TO_TOP to undefined and silently drop the hair.
+  const hairStyle =
+    appearance?.hairStyle && appearance.hairStyle in HAIR_STYLE_TO_TOP
+      ? appearance.hairStyle
+      : undefined;
   const gender = oneOf(appearance?.gender, GENDERS, seed, 'gender');
   const top = hairStyle
     ? HAIR_STYLE_TO_TOP[hairStyle]

@@ -147,11 +147,15 @@ check(
     avatar.includes('facialHairProbability') &&
     character.includes('gender: persona/2D-avatar metadata only'),
 );
-const resolver = avatar.slice(
-  avatar.indexOf('export function resolveAppearance'),
-  avatar.indexOf('function oneOf'),
+const resolverStart = avatar.indexOf('export function resolveAppearance');
+const resolverEnd = avatar.indexOf('function oneOf');
+const resolver = avatar.slice(resolverStart, resolverEnd);
+// Anchors must exist: a renamed function would otherwise yield an empty slice
+// and turn this purely negative assertion into a vacuous pass.
+check(
+  'role and skin sampling are independent',
+  resolverStart >= 0 && resolverEnd > resolverStart && !/role/i.test(resolver),
 );
-check('role and skin sampling are independent', !/role/i.test(resolver));
 const appearance3DKeySource = character.slice(
   character.indexOf('// `gender` is deliberately absent'),
   character.indexOf('const bodyGltf'),
