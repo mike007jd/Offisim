@@ -93,6 +93,79 @@ export function createDelegationLimits(overrides = {}) {
   };
 }
 
+/** Integrate the isolated write leases produced by one completed delegate call.
+ * Both single and parallel execution route through this function so a write
+ * task can never finish with its committed work stranded in a child worktree. */
+export async function integrateCompletedDelegation({
+  tasks,
+  runIds,
+  leaseManager,
+  rootLease,
+  confirmIntegration,
+  emitSnapshot,
+}) {
+  if (!leaseManager || !rootLease || !tasks.some((task) => task.access === 'write')) return '';
+  const completedRunIds = new Set(runIds);
+  const writableLeases = leaseManager
+    .listLeases()
+    .filter(
+      (lease) =>
+        completedRunIds.has(lease.runId) && lease.access === 'write' && lease.status === 'active',
+    );
+  if (writableLeases.length === 0) return '';
+  const plan = await leaseManager.planIntegration(writableLeases);
+  for (const lease of writableLeases) {
+    await emitSnapshot(lease, 'planned', {
+      conflicts: plan.conflicts
+        .filter((conflict) => conflict.leaseIds.includes(lease.leaseId))
+        .map((conflict) => conflict.path),
+    });
+  }
+  if (plan.conflicts.length > 0) {
+    const leaseById = new Map(writableLeases.map((lease) => [lease.leaseId, lease]));
+    return [
+      'Parallel write integration found conflicts and did not merge automatically.',
+      ...plan.conflicts.flatMap((conflict) => {
+        const rows = [`- ${conflict.path}:`];
+        for (const leaseId of conflict.leaseIds) {
+          const lease = leaseById.get(leaseId);
+          rows.push(
+            lease
+              ? `  - ${leaseId}: ${lease.runId} ${lease.branch ?? '(no branch)'} at ${lease.cwd}`
+              : `  - ${leaseId}: (lease details unavailable)`,
+          );
+        }
+        return rows;
+      }),
+    ].join('\n');
+  }
+  if (plan.mergeable.length === 0) return 'No mergeable write leases were produced.';
+  const approved = confirmIntegration ? await confirmIntegration(plan) : false;
+  if (!approved) {
+    for (const lease of plan.mergeable) {
+      await emitSnapshot(lease, 'retained_for_review', {
+        status: 'retained',
+        reason: 'merge review was not approved; worktree retained for inspection',
+      });
+    }
+    return `Merge review was not approved; ${plan.mergeable.length} worktree(s) retained for inspection.`;
+  }
+  const result = await leaseManager.integrate(plan);
+  for (const lease of writableLeases) await emitSnapshot(lease, 'integrated');
+  for (const lease of result.merged) {
+    const released = await leaseManager.releaseLease(lease.leaseId).catch(() => null);
+    if (released) await emitSnapshot(released, 'released_after_merge');
+  }
+  if (result.conflicted) {
+    return `Integration stopped on merge conflict in lease ${result.conflicted.lease.leaseId}: ${result.conflicted.conflicts.join(', ')}`;
+  }
+  const skipped =
+    result.skipped.length > 0
+      ? ` Skipped: ${result.skipped.map((item) => `${item.leaseId} (${item.reason})`).join('; ')}.`
+      : '';
+  return `Merged ${result.merged.length} write lease(s) into the root workspace.${skipped}`;
+}
+
 function normalizeAccess(access) {
   return access === 'write' || access === 'review' ? access : 'read';
 }
@@ -343,7 +416,7 @@ export function createChildSupervisor(ctx) {
     emit('run.failed', { status: 'failed', failureKind, summary, ...(usage ? { usage } : {}) });
   }
 
-  async function runSingle(task, signal) {
+  async function runTask(task, signal) {
     const runId = `run-${randomUUID()}`;
     const access = normalizeAccess(task.access);
     const objective = typeof task.objective === 'string' ? task.objective.trim() : '';
@@ -354,14 +427,22 @@ export function createChildSupervisor(ctx) {
 
     if (!employee) {
       const available = roster.map((entry) => entry.employeeId).join(', ') || 'none';
-      return blocked(
-        emit,
-        `Unknown teammate "${task.employeeId}". Available: ${available}.`,
-        'runtime',
-      );
+      return {
+        summary: blocked(
+          emit,
+          `Unknown teammate "${task.employeeId}". Available: ${available}.`,
+          'runtime',
+        ),
+        runId,
+        completed: false,
+      };
     }
     if (!objective) {
-      return blocked(emit, 'Delegation needs a non-empty objective.', 'runtime');
+      return {
+        summary: blocked(emit, 'Delegation needs a non-empty objective.', 'runtime'),
+        runId,
+        completed: false,
+      };
     }
     // Start the run now (valid teammate + objective) so even a policy-cap block
     // below leaves a durable agent_runs row — caps are never silent, at the DB
@@ -371,31 +452,59 @@ export function createChildSupervisor(ctx) {
     // Depth cap — a child still carries a delegate tool, but spawning past maxDepth
     // is blocked with a reason (the plan's controlled-recursion contract).
     if (depth + 1 > limits.maxDepth) {
-      return blocked(
-        emit,
-        `Max delegation depth (${limits.maxDepth}) reached — cannot delegate further.`,
-        'runtime',
-      );
+      return {
+        summary: blocked(
+          emit,
+          `Max delegation depth (${limits.maxDepth}) reached — cannot delegate further.`,
+          'runtime',
+        ),
+        runId,
+        completed: false,
+      };
     }
     // Token budget across the whole tree — the loop-until-budget backstop. Checked
     // before spawning so a goal-directed loop stops cleanly once spend crosses it.
     if (limits.budgetExceeded()) {
-      return blocked(
-        emit,
-        `Delegation token budget (${limits.maxTotalTokens}) exhausted for this run.`,
-        'budget',
-      );
+      return {
+        summary: blocked(
+          emit,
+          `Delegation token budget (${limits.maxTotalTokens}) exhausted for this run.`,
+          'budget',
+        ),
+        runId,
+        completed: false,
+      };
     }
     // Global total-children cap across the whole tree for this root run.
     if (!limits.reserveTotal()) {
-      return blocked(
-        emit,
-        `Max total delegated agents (${limits.maxTotalChildren}) reached for this run.`,
-        'runtime',
-      );
+      return {
+        summary: blocked(
+          emit,
+          `Max total delegated agents (${limits.maxTotalChildren}) reached for this run.`,
+          'runtime',
+        ),
+        runId,
+        completed: false,
+      };
     }
 
-    return runChildSession(runId, emit, employee, objective, access, signal);
+    return {
+      summary: await runChildSession(runId, emit, employee, objective, access, signal),
+      runId,
+      completed: true,
+    };
+  }
+
+  async function runSingle(task, signal) {
+    const result = await runTask(task, signal);
+    const integration = result.completed ? await maybeIntegrateWrites([task], [result.runId]) : '';
+    return capBytes(
+      [result.summary, integration ? `Integration:\n${integration}` : '']
+        .filter(Boolean)
+        .join('\n\n---\n\n'),
+      COMBINED_OUTPUT_CAP,
+      'combined',
+    );
   }
 
   async function runChildSession(runId, emit, employee, objective, access, signal) {
@@ -626,77 +735,28 @@ export function createChildSupervisor(ctx) {
     const summaries = await mapWithConcurrencyLimit(
       tasks,
       limits.maxParallelPerDelegation,
-      (task) => runSingle(task, signal),
+      (task) => runTask(task, signal),
     );
-    const integration = await maybeIntegrateParallelWrites(tasks);
+    const integration = await maybeIntegrateWrites(
+      tasks,
+      summaries.filter((result) => result.completed).map((result) => result.runId),
+    );
     const combined = tasks
-      .map((task, i) => `### ${task.employeeId}\n${summaries[i] ?? '(no output)'}`)
+      .map((task, i) => `### ${task.employeeId}\n${summaries[i]?.summary ?? '(no output)'}`)
       .concat(integration ? [`### Integration\n${integration}`] : [])
       .join('\n\n---\n\n');
     return capBytes(combined, COMBINED_OUTPUT_CAP, 'combined');
   }
 
-  async function maybeIntegrateParallelWrites(tasks) {
-    if (!ctx.leaseManager || !ctx.rootLease || !tasks.some((task) => task.access === 'write')) {
-      return '';
-    }
-    const writableLeases = ctx.leaseManager
-      .listLeases()
-      .filter((lease) => lease.access === 'write' && lease.status === 'active');
-    if (writableLeases.length === 0) return '';
-    const plan = await ctx.leaseManager.planIntegration(writableLeases);
-    for (const lease of ctx.leaseManager.listLeases().filter((item) => item.access === 'write')) {
-      await emitWorkspaceLeaseSnapshotLine(lease, 'planned', {
-        conflicts: plan.conflicts
-          .filter((conflict) => conflict.leaseIds.includes(lease.leaseId))
-          .map((conflict) => conflict.path),
-      });
-    }
-    if (plan.conflicts.length > 0) {
-      const leaseById = new Map(writableLeases.map((lease) => [lease.leaseId, lease]));
-      return [
-        'Parallel write integration found conflicts and did not merge automatically.',
-        ...plan.conflicts.flatMap((conflict) => {
-          const rows = [`- ${conflict.path}:`];
-          for (const leaseId of conflict.leaseIds) {
-            const lease = leaseById.get(leaseId);
-            rows.push(
-              lease
-                ? `  - ${leaseId}: ${lease.runId} ${lease.branch ?? '(no branch)'} at ${lease.cwd}`
-                : `  - ${leaseId}: (lease details unavailable)`,
-            );
-          }
-          return rows;
-        }),
-      ].join('\n');
-    }
-    if (plan.mergeable.length === 0) return 'No mergeable write leases were produced.';
-    const approved = ctx.confirmIntegration ? await ctx.confirmIntegration(plan) : false;
-    if (!approved) {
-      for (const lease of plan.mergeable) {
-        await emitWorkspaceLeaseSnapshotLine(lease, 'retained_for_review', {
-          status: 'retained',
-          reason: 'merge review was not approved; worktree retained for inspection',
-        });
-      }
-      return `Merge review was not approved; ${plan.mergeable.length} worktree(s) retained for inspection.`;
-    }
-    const result = await ctx.leaseManager.integrate(plan);
-    for (const lease of ctx.leaseManager.listLeases().filter((item) => item.access === 'write')) {
-      await emitWorkspaceLeaseSnapshotLine(lease, 'integrated');
-    }
-    for (const lease of result.merged) {
-      const released = await ctx.leaseManager.releaseLease(lease.leaseId).catch(() => null);
-      if (released) await emitWorkspaceLeaseSnapshotLine(released, 'released_after_merge');
-    }
-    if (result.conflicted) {
-      return `Integration stopped on merge conflict in lease ${result.conflicted.lease.leaseId}: ${result.conflicted.conflicts.join(', ')}`;
-    }
-    const skipped =
-      result.skipped.length > 0
-        ? ` Skipped: ${result.skipped.map((item) => `${item.leaseId} (${item.reason})`).join('; ')}.`
-        : '';
-    return `Merged ${result.merged.length} write lease(s) into the root workspace.${skipped}`;
+  async function maybeIntegrateWrites(tasks, runIds) {
+    return integrateCompletedDelegation({
+      tasks,
+      runIds,
+      leaseManager: ctx.leaseManager,
+      rootLease: ctx.rootLease,
+      confirmIntegration: ctx.confirmIntegration,
+      emitSnapshot: emitWorkspaceLeaseSnapshotLine,
+    });
   }
 
   return { runSingle, runParallel, roster };
