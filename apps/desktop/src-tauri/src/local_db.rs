@@ -147,28 +147,25 @@ async fn select_rows(
         .map(|row| {
             let mut values = Map::new();
             for (index, column) in row.columns().iter().enumerate() {
-                values.insert(
-                    column.name().to_string(),
-                    sqlite_value(row, index, column.type_info().name())?,
-                );
+                values.insert(column.name().to_string(), sqlite_value(row, index)?);
             }
             Ok(Value::Object(values))
         })
         .collect()
 }
 
-fn sqlite_value(
-    row: &sqlx::sqlite::SqliteRow,
-    index: usize,
-    type_name: &str,
-) -> Result<Value, String> {
+fn sqlite_value(row: &sqlx::sqlite::SqliteRow, index: usize) -> Result<Value, String> {
     let raw = row
         .try_get_raw(index)
         .map_err(|err| format!("read local db column {index}: {err}"))?;
     if raw.is_null() {
         return Ok(Value::Null);
     }
-    match type_name {
+    // Decode by the runtime value type, not the column decltype: expression
+    // columns (count(*), max(...), literals) have no decltype in SQLite, and
+    // any column may hold any type under SQLite's dynamic typing.
+    let type_name = raw.type_info().name().to_string();
+    match type_name.as_str() {
         "INTEGER" => row
             .try_get::<i64, _>(index)
             .map(Value::from)
@@ -420,6 +417,32 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(exists, 1, "rejected SQL must not execute");
+    }
+
+    #[tokio::test]
+    async fn select_rows_decodes_aggregate_expression_columns() {
+        let pool = memory_pool().await;
+        raw_sql("CREATE TABLE employees (id TEXT PRIMARY KEY, company_id TEXT NOT NULL)")
+            .execute(&pool)
+            .await
+            .unwrap();
+        execute_statement(
+            &pool,
+            "INSERT INTO employees (id, company_id) VALUES ($1, $2)",
+            vec![serde_json::json!("e1"), serde_json::json!("c1")],
+        )
+        .await
+        .unwrap();
+        let rows = select_rows(
+            &pool,
+            "select count(*) from \"employees\" where \"employees\".\"company_id\" = $1",
+            vec![serde_json::json!("c1")],
+        )
+        .await
+        .expect("aggregate select must decode");
+        assert_eq!(rows.len(), 1);
+        let row = rows[0].as_object().expect("row object");
+        assert_eq!(row.values().next().and_then(Value::as_i64), Some(1));
     }
 
     // max_connections(1): each new connection to `sqlite::memory:` is a
