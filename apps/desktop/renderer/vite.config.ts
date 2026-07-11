@@ -30,7 +30,7 @@ export default defineConfig(({ command }) => ({
   },
   optimizeDeps: {
     include: ['@offisim/core/browser', '@offisim/shared-types', '@offisim/db-local', 'drizzle-orm'],
-    exclude: ['@tauri-apps/api', '@tauri-apps/plugin-sql'],
+    exclude: ['@tauri-apps/api'],
   },
   build: {
     // The desktop agent UI layer is code-split behind explicit dynamic imports

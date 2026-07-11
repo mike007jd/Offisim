@@ -1,6 +1,12 @@
 use serde::Deserialize;
-use serde_json::Value;
-use sqlx::{query::Query, raw_sql, sqlite::SqlitePoolOptions, Sqlite, SqlitePool};
+use serde_json::{Map, Value};
+use sqlx::{
+    query::Query,
+    raw_sql,
+    sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
+    Column, Row, Sqlite, SqlitePool, TypeInfo, ValueRef,
+};
+use std::{str::FromStr, time::Duration};
 use tauri::{Manager, Runtime};
 
 const LOCAL_SCHEMA_SQL: &str = include_str!("../../../../packages/db-local/src/schema.sql");
@@ -22,20 +28,21 @@ pub struct OffisimDbState {
 pub async fn init_offisim_db_state<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<(), String> {
     crate::local_paths::purge_legacy_app_storage(app)?;
     let db_url = offisim_db_url()?;
+    let options = SqliteConnectOptions::from_str(&db_url)
+        .map_err(|err| format!("parse offisim.db URL: {err}"))?
+        .create_if_missing(true)
+        .foreign_keys(true)
+        .journal_mode(SqliteJournalMode::Wal)
+        .busy_timeout(Duration::from_secs(5));
     let pool = SqlitePoolOptions::new()
         .min_connections(1)
         .max_connections(4)
-        .connect(&db_url)
+        .connect_with(options)
         .await
         .map_err(|err| format!("open offisim.db: {err}"))?;
     apply_schema(&pool).await?;
     app.manage(OffisimDbState { pool });
     Ok(())
-}
-
-#[tauri::command]
-pub fn local_db_url() -> Result<String, String> {
-    offisim_db_url()
 }
 
 pub fn get_offisim_pool<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<SqlitePool, String> {
@@ -83,6 +90,102 @@ pub async fn local_db_execute_transaction<R: Runtime>(
         .await
         .map_err(|err| format!("commit local db transaction: {err}"))?;
     Ok(())
+}
+
+#[tauri::command]
+pub async fn local_db_execute<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    sql: String,
+    params: Vec<Value>,
+) -> Result<u64, String> {
+    let pool = get_offisim_pool(&app)?;
+    execute_statement(&pool, &sql, params).await
+}
+
+#[tauri::command]
+pub async fn local_db_select<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    sql: String,
+    params: Vec<Value>,
+) -> Result<Vec<Value>, String> {
+    let pool = get_offisim_pool(&app)?;
+    select_rows(&pool, &sql, params).await
+}
+
+async fn execute_statement(
+    pool: &SqlitePool,
+    sql: &str,
+    params: Vec<Value>,
+) -> Result<u64, String> {
+    validate_statement_sql(sql)?;
+    let mut query = sqlx::query(sql);
+    for param in params {
+        query = bind_json_param(query, param)?;
+    }
+    query
+        .execute(pool)
+        .await
+        .map(|result| result.rows_affected())
+        .map_err(|err| format!("execute local db statement: {err}"))
+}
+
+async fn select_rows(
+    pool: &SqlitePool,
+    sql: &str,
+    params: Vec<Value>,
+) -> Result<Vec<Value>, String> {
+    validate_statement_sql(sql)?;
+    let mut query = sqlx::query(sql);
+    for param in params {
+        query = bind_json_param(query, param)?;
+    }
+    let rows = query
+        .fetch_all(pool)
+        .await
+        .map_err(|err| format!("select local db rows: {err}"))?;
+    rows.iter()
+        .map(|row| {
+            let mut values = Map::new();
+            for (index, column) in row.columns().iter().enumerate() {
+                values.insert(
+                    column.name().to_string(),
+                    sqlite_value(row, index, column.type_info().name())?,
+                );
+            }
+            Ok(Value::Object(values))
+        })
+        .collect()
+}
+
+fn sqlite_value(
+    row: &sqlx::sqlite::SqliteRow,
+    index: usize,
+    type_name: &str,
+) -> Result<Value, String> {
+    let raw = row
+        .try_get_raw(index)
+        .map_err(|err| format!("read local db column {index}: {err}"))?;
+    if raw.is_null() {
+        return Ok(Value::Null);
+    }
+    match type_name {
+        "INTEGER" => row
+            .try_get::<i64, _>(index)
+            .map(Value::from)
+            .map_err(|err| format!("decode integer column {index}: {err}")),
+        "REAL" => row
+            .try_get::<f64, _>(index)
+            .map(Value::from)
+            .map_err(|err| format!("decode real column {index}: {err}")),
+        "BLOB" => row
+            .try_get::<Vec<u8>, _>(index)
+            .map(|bytes| Value::Array(bytes.into_iter().map(Value::from).collect()))
+            .map_err(|err| format!("decode blob column {index}: {err}")),
+        _ => row
+            .try_get::<String, _>(index)
+            .map(Value::from)
+            .map_err(|err| format!("decode text column {index}: {err}")),
+    }
 }
 
 // Renderer-facing SQL allowlist. Even though Drizzle generates only DML, this
@@ -297,6 +400,26 @@ mod tests {
         validate_statement_sql("INSERT INTO x VALUES (1);").expect("trailing `;` should be ok");
         validate_statement_sql("INSERT INTO x VALUES (1) ;  \n")
             .expect("trailing `;` + whitespace should be ok");
+    }
+
+    #[tokio::test]
+    async fn renderer_sql_boundary_rejects_non_allowlisted_statement() {
+        let pool = memory_pool().await;
+        raw_sql("CREATE TABLE guarded (id TEXT PRIMARY KEY)")
+            .execute(&pool)
+            .await
+            .unwrap();
+        let err = execute_statement(&pool, "DROP TABLE guarded", Vec::new())
+            .await
+            .unwrap_err();
+        assert!(err.contains("not in allowlist"), "got {err}");
+        let exists: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'guarded'",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(exists, 1, "rejected SQL must not execute");
     }
 
     // max_connections(1): each new connection to `sqlite::memory:` is a

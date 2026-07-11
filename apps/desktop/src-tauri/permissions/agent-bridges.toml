@@ -2,7 +2,8 @@
 identifier = "agent-bridges"
 description = "Allow Pi Agent host, runtime session, project workspace, and MCP bridge commands."
 commands.allow = [
-  "local_db_url",
+  "local_db_execute",
+  "local_db_select",
   "local_db_execute_transaction",
   "pi_agent_execute",
   "pi_agent_abort",

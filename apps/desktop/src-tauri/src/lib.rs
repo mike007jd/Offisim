@@ -194,7 +194,8 @@ pub fn run() {
             preview::serve_media(ctx.app_handle().clone(), request, responder);
         })
         .invoke_handler(tauri::generate_handler![
-            local_db::local_db_url,
+            local_db::local_db_execute,
+            local_db::local_db_select,
             local_db::local_db_execute_transaction,
             builtin_tools::project_read_file,
             builtin_tools::project_read_file_lines,
@@ -255,7 +256,6 @@ pub fn run() {
             local_secret::secret_encrypt,
             local_secret::secret_decrypt,
         ])
-        .plugin(tauri_plugin_sql::Builder::default().build())
         .plugin(tauri_plugin_cors_fetch::init())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_dialog::init())
