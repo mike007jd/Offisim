@@ -956,8 +956,10 @@ export const prefabInstances = sqliteTable(
     bindings_json: text('bindings_json'),
     config_json: text('config_json'),
     enabled: integer('enabled').notNull().default(1),
-    created_at: text('created_at').notNull().default(sql`(datetime('now'))`),
-    updated_at: text('updated_at').notNull().default(sql`(datetime('now'))`),
+    // No DB-side default in schema.sql (the sole DDL authority): callers must
+    // supply both timestamps, and the insert type must say so.
+    created_at: text('created_at').notNull(),
+    updated_at: text('updated_at').notNull(),
   },
   (table) => [
     index('idx_prefab_instances_company').on(table.company_id),

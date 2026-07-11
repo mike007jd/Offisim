@@ -9,6 +9,7 @@
  *   clips  — a single character cycling a chosen clip (?clip=walk)
  */
 import type { HairStyle, ResolvedAppearance } from '@/lib/avatar.js';
+import toyCharacterContract from '@/lib/toy-character-contract.json';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { Suspense, useRef } from 'react';
@@ -16,6 +17,10 @@ import { createRoot } from 'react-dom/client';
 import type { Group } from 'three';
 import type { CharacterMovementPhase } from '@/surfaces/office/scene/character-movement.js';
 import { GltfCharacter } from '@/surfaces/office/scene/character/GltfCharacter.js';
+import {
+  LIGHT_SCENE_3D,
+  SCENE_LIGHTING_COLORS,
+} from '@/surfaces/office/scene/r3d/scene-colors.js';
 
 const params = new URLSearchParams(window.location.search);
 const view = params.get('view') ?? 'hair';
@@ -31,15 +36,17 @@ const HAIR_STYLES: readonly HairStyle[] = [
   'braids',
 ];
 
-const SKINS = ['#f2d2bd', '#e5b48a', '#c9875a', '#a95f38', '#68483c', '#4a3029'];
-const HAIRC = ['#2c1b18', '#4a312c', '#724133', '#a55728', '#b58143', '#d6b370', '#e8e1e1', '#724133'];
+// Production palettes verbatim — the lab must show contract colors, not its own.
+const SKINS = toyCharacterContract.skinTones.map((tone) => `#${tone.hex}`);
+const HAIRC = toyCharacterContract.hairColors.map((color) => `#${color.hex}`);
+const OUTFITS = toyCharacterContract.outfitColors.map((color) => `#${color.hex}`);
 
 function appearanceFor(i: number, hairStyle: HairStyle): ResolvedAppearance {
   return {
-    skin: SKINS[i % SKINS.length] ?? '#e5b48a',
-    hair: HAIRC[i % HAIRC.length] ?? '#2c1b18',
-    clothing: ['#2f6bff', '#7c4ddb', '#1aa46a', '#c98410', '#d6453d', '#3c4a60'][i % 6] ?? '#2f6bff',
-    accent: ['#d6453d', '#1aa46a', '#2f6bff', '#5b2fb0', '#c98410', '#0f7a4d'][i % 6] ?? '#d6453d',
+    skin: SKINS[i % SKINS.length] ?? LIGHT_SCENE_3D.floorTile,
+    hair: HAIRC[i % HAIRC.length] ?? LIGHT_SCENE_3D.furnitureDark,
+    clothing: OUTFITS[i % OUTFITS.length] ?? LIGHT_SCENE_3D.furniture,
+    accent: OUTFITS[(i + 3) % OUTFITS.length] ?? LIGHT_SCENE_3D.furniture,
     hairStyle,
     bodyType: (['slim', 'normal', 'stocky'] as const)[i % 3] ?? 'normal',
     headShape: (['round', 'soft-square', 'capsule'] as const)[i % 3] ?? 'round',
@@ -51,10 +58,21 @@ function appearanceFor(i: number, hairStyle: HairStyle): ResolvedAppearance {
 function Lights() {
   return (
     <>
-      <hemisphereLight args={['#dfe8f2', '#b9a98f', 0.38]} />
-      <directionalLight castShadow position={[10, 20, 12]} intensity={1.2} color="#fff2df" />
-      <directionalLight position={[-15, 12, -10]} intensity={0.24} color="#cfe0f4" />
-      <directionalLight position={[5, 9, -18]} intensity={0.2} color="#ffe7c4" />
+      <hemisphereLight
+        args={[SCENE_LIGHTING_COLORS.hemisphereSky, SCENE_LIGHTING_COLORS.hemisphereGround, 0.38]}
+      />
+      <directionalLight
+        castShadow
+        position={[10, 20, 12]}
+        intensity={1.2}
+        color={SCENE_LIGHTING_COLORS.key}
+      />
+      <directionalLight
+        position={[-15, 12, -10]}
+        intensity={0.24}
+        color={SCENE_LIGHTING_COLORS.sideFill}
+      />
+      <directionalLight position={[5, 9, -18]} intensity={0.2} color={SCENE_LIGHTING_COLORS.rim} />
       <ambientLight intensity={0.12} />
     </>
   );
@@ -168,7 +186,7 @@ createRoot(document.getElementById('lab-root') as HTMLElement).render(
       (window as unknown as Record<string, unknown>).__labScene = state.scene;
     }}
   >
-    <color attach="background" args={['#e8e6e1']} />
+    <color attach="background" args={[LIGHT_SCENE_3D.sceneBackground]} />
     <Lights />
     <Suspense fallback={null}>
       {view === 'hair' ? <HairGrid /> : null}
@@ -178,7 +196,7 @@ createRoot(document.getElementById('lab-root') as HTMLElement).render(
     </Suspense>
     <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
       <planeGeometry args={[40, 40]} />
-      <meshStandardMaterial color="#d9d4cb" />
+      <meshStandardMaterial color={LIGHT_SCENE_3D.floorTile} />
     </mesh>
     <OrbitControls target={cam?.target} />
   </Canvas>,

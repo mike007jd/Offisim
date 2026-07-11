@@ -366,7 +366,9 @@ async function main(): Promise<void> {
         }
         const sqlDefault = normalizeDefaultSql(sqlColumn.dflt_value);
         const drizzleDefault = normalizeDrizzleDefault(drizzleColumn.default);
-        if (sqlDefault !== null && drizzleDefault !== null && sqlDefault !== drizzleDefault) {
+        // Compare unconditionally: one side declaring a default while the other
+        // omits it IS drift — a null-guarded comparison silently passes it.
+        if (sqlDefault !== drizzleDefault) {
           differences.push(
             `${tableName}.${columnName}: default differs (SQL ${stringify(sqlDefault)}, Drizzle ${stringify(drizzleDefault)})`,
           );
@@ -401,11 +403,10 @@ async function main(): Promise<void> {
         })
         .sort((left, right) => stringify(left).localeCompare(stringify(right)));
       foreignKeyCount += sqlFks.length;
-      if (
-        sqlFks.length > 0 &&
-        drizzleFks.length > 0 &&
-        stringify(sqlFks) !== stringify(drizzleFks)
-      ) {
+      // Compare unconditionally: an empty FK set on exactly one side is the
+      // classic drift this gate exists for (a dropped .references() call would
+      // otherwise short-circuit the whole comparison and pass silently).
+      if (stringify(sqlFks) !== stringify(drizzleFks)) {
         differences.push(
           `${tableName}: foreign keys differ\n  SQL: ${stringify(sqlFks)}\n  Drizzle: ${stringify(drizzleFks)}`,
         );

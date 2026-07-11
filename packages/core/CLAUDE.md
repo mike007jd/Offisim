@@ -2,7 +2,7 @@
 
 Core now holds shared services, repos, data contracts, tools, vault, and legacy
 helpers. It is no longer the product AI runtime owner. Desktop AI execution is
-Pi Agent Host (`apps/desktop/src-tauri/src/pi_agent_host.rs` +
+Pi Agent Host (`apps/desktop/src-tauri/src/pi_agent_host/` +
 `scripts/tauri-pi-agent-host.entry.mjs`), and renderer code must treat
 `DesktopAgentRuntime` as a thin Pi client.
 

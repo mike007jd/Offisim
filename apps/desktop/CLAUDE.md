@@ -39,7 +39,7 @@ Release/live validation is release `.app` only: rebuild `@offisim/desktop-render
 
 ## Pi Agent Host
 
-AI execution only goes through `src-tauri/src/pi_agent_host.rs` and the bundled
+AI execution only goes through `src-tauri/src/pi_agent_host/` (mod/run/wire/payload/stream/bridge/provider/types) and the bundled
 `resources/pi-agent-host.mjs` official Pi SDK host. Offisim passes the selected
 project workspace as Pi `cwd`, forwards Pi JSONL events to the renderer, and
 does not inject provider secrets, parse model catalogs, or run Claude/Codex
@@ -64,7 +64,7 @@ Tauri release `.app` CSP `connect-src` 与 `apps/platform/src/startup.ts` `DEV_D
 |------|------|
 | `lib.rs` | plugin 注册顺序 + command 注册（特权 command 必须挂 capability） |
 | `builtin_tools.rs` | `read_file` / `write_file` / `bash` / 文件预览 sandbox |
-| `pi_agent_host.rs` | official Pi SDK host bridge and JSONL event projection |
+| `pi_agent_host/` | official Pi SDK host bridge and JSONL event projection (split into focused modules, PR #20) |
 | `local_db.rs` | SQLite bootstrap + connection pool |
 | `local_paths.rs` | workspace_root resolution + 路径校验 helper |
 | `mcp_bridge/` | desktop 专属 MCP bridge（web 没有） |

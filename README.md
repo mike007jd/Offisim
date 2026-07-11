@@ -147,7 +147,7 @@ Current application/package shape:
 - Local SQLite schema → `packages/db-local/src/schema.ts` + `packages/db-local/src/schema.sql`
 - Platform Postgres schema → `packages/db-platform/src/schema.ts`
 - A2A JSON-RPC → `packages/core/src/a2a/`
-- Desktop AI runtime → `apps/desktop/src-tauri/src/pi_agent_host.rs` + `scripts/tauri-pi-agent-host.entry.mjs` (architecture: `Docs/HARNESS_ARCHITECTURE.md`)
+- Desktop AI runtime → `apps/desktop/src-tauri/src/pi_agent_host/` + `scripts/tauri-pi-agent-host.entry.mjs` (architecture: `Docs/HARNESS_ARCHITECTURE.md`)
 
 ### Design source files
 
