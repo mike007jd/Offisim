@@ -29,6 +29,7 @@ export type {
   LlmCallRepository,
   CompanyRepository,
   EmployeeRepository,
+  EmployeeCreate,
   EmployeeUpdate,
   ThreadRepository,
   TaskRunRepository,

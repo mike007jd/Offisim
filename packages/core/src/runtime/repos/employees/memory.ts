@@ -1,6 +1,6 @@
-import type { NewEmployee } from '@offisim/install-core';
 import type { RoleSlug } from '@offisim/shared-types';
 import type {
+  EmployeeCreate,
   EmployeeRepository,
   EmployeeRow,
   EmployeeVersionRepository,
@@ -19,7 +19,7 @@ export class MemoryEmployeeRepository implements EmployeeRepository {
     }
   }
 
-  async create(emp: NewEmployee): Promise<{ employee_id: string }> {
+  async create(emp: EmployeeCreate): Promise<{ employee_id: string }> {
     const employee_id = emp.employee_id ?? crypto.randomUUID();
     const ts = now();
     const row: EmployeeRow = {
@@ -32,6 +32,8 @@ export class MemoryEmployeeRepository implements EmployeeRepository {
       workstation_id: null,
       persona_json: emp.persona_json ?? null,
       config_json: emp.config_json ?? null,
+      model: emp.model ?? null,
+      thinking_level: emp.thinking_level ?? null,
       enabled: 1,
       is_external: emp.is_external ? 1 : 0,
       a2a_url: emp.a2a_url ?? null,

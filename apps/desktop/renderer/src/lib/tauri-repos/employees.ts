@@ -73,6 +73,8 @@ export function createEmployeesTauriRepos(db: TauriDrizzleDb): EmployeesTauriRep
         workstation_id: null,
         persona_json: emp.persona_json ?? null,
         config_json: emp.config_json ?? null,
+        model: emp.model ?? null,
+        thinking_level: emp.thinking_level ?? null,
         enabled: 1,
         is_external: emp.is_external ? 1 : 0,
         a2a_url: emp.a2a_url ?? null,

@@ -20,7 +20,7 @@
  *    always wins on any drift.
  *
  * Fresh databases apply schema.sql directly and are stamped with
- * LOCAL_SCHEMA_VERSION = 2. There is no prelaunch migration chain: existing
+ * LOCAL_SCHEMA_VERSION = 3. There is no prelaunch migration chain: existing
  * local/dev databases with another version are disposable and should be
  * deleted/rebuilt from the current baseline.
  */
@@ -141,6 +141,8 @@ export const employees = sqliteTable(
     }),
     persona_json: text('persona_json'),
     config_json: text('config_json'),
+    model: text('model'),
+    thinking_level: text('thinking_level'),
     enabled: integer('enabled').notNull().default(1),
     is_external: integer('is_external').notNull().default(0),
     a2a_url: text('a2a_url'),

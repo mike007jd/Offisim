@@ -40,6 +40,8 @@ export function createEmployeesDrizzleRepos(db: Db): EmployeesDrizzleRepos {
           role_slug: emp.role_slug,
           persona_json: emp.persona_json ?? null,
           config_json: emp.config_json ?? null,
+          model: emp.model ?? null,
+          thinking_level: emp.thinking_level ?? null,
           is_external: emp.is_external ? 1 : 0,
           a2a_url: emp.a2a_url ?? null,
           a2a_token: emp.a2a_token ?? null,

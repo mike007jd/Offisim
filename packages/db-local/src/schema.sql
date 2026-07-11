@@ -59,6 +59,8 @@ CREATE TABLE IF NOT EXISTS employees (
   workstation_id TEXT REFERENCES workstations(workstation_id) ON DELETE SET NULL,
   persona_json TEXT,
   config_json TEXT,
+  model TEXT,
+  thinking_level TEXT,
   enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
   is_external INTEGER NOT NULL DEFAULT 0,
   a2a_url TEXT,
