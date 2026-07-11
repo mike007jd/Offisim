@@ -1790,6 +1790,37 @@
   gap: var(--off-sp-3);
 }
 
+.off-ws-wp-cost {
+  display: grid;
+  gap: var(--off-sp-2);
+  min-width: min(100%, 320px);
+}
+
+.off-ws-wp-cost-breakdown {
+  display: grid;
+  gap: 2px;
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-micro);
+}
+
+.off-ws-wp-cost-breakdown > div {
+  display: grid;
+  grid-template-columns: minmax(72px, 0.8fr) minmax(110px, 1.4fr) auto;
+  gap: var(--off-sp-2);
+  align-items: center;
+}
+
+.off-ws-wp-cost-breakdown span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.off-ws-wp-cost-breakdown b {
+  color: var(--off-ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
 .off-ws-wp-stat {
   border: 1px solid var(--off-line-soft);
   border-radius: var(--off-r-md);

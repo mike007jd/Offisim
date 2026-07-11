@@ -53,13 +53,26 @@ export function WorkplaceApp() {
               {company?.name ?? 'Company'} · {project?.name ?? 'Project'} · {headcount} employees
             </span>
           </div>
-          <div className="off-ws-wp-stats">
-            {stats.map((s) => (
-              <div key={s.label} className={cn('off-ws-wp-stat', s.alert && 'is-alert')}>
-                <div className="off-ws-wp-stat-v">{s.value}</div>
-                <div className="off-ws-wp-stat-k">{s.label}</div>
+          <div className="off-ws-wp-cost">
+            <div className="off-ws-wp-stats">
+              {stats.map((s) => (
+                <div key={s.label} className={cn('off-ws-wp-stat', s.alert && 'is-alert')}>
+                  <div className="off-ws-wp-stat-v">{s.value}</div>
+                  <div className="off-ws-wp-stat-k">{s.label}</div>
+                </div>
+              ))}
+            </div>
+            {(runCost.data?.breakdown.length ?? 0) > 0 ? (
+              <div className="off-ws-wp-cost-breakdown" aria-label="Cost by employee and model">
+                {runCost.data?.breakdown.slice(0, 4).map((row) => (
+                  <div key={`${row.employeeId ?? 'root'}-${row.model}`}>
+                    <span>{row.employeeName}</span>
+                    <span title={row.model}>{row.model}</span>
+                    <b>{row.costLabel}</b>
+                  </div>
+                ))}
               </div>
-            ))}
+            ) : null}
           </div>
         </div>
 
