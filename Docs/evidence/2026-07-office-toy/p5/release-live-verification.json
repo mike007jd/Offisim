@@ -52,7 +52,14 @@
       "At 60 seconds Marcus was visibly away from his assigned workstation in the central area.",
       "At 90 seconds Maya was at the library while another ambient actor occupied the right-side area; away concurrency remained within the hard cap.",
       "By 120 seconds the observed actors had returned, proving a complete outbound-dwell-return lifecycle rather than static placement."
-    ]
+    ],
+    "microMovementEvidence": {
+      "result": "pass",
+      "auditedAt": "2026-07-11T10:24:00+10:00",
+      "timeRange": "00:00-00:18",
+      "method": "The existing 125.133-second release recording was decoded at 00:00, 00:02, 00:04, 00:06, 00:08, 00:10, 00:12, 00:14, 00:16 and 00:18 with a tight crop around the red-shirt seated Product actor.",
+      "observed": "Across those frames the actor's head, torso and hands visibly shift while the chair and workstation anchor remain fixed, proving the recording itself contains seated idle micro-motion in addition to the later away behavior."
+    }
   },
   "focusQuietScenario": {
     "result": "pass",

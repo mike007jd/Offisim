@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "phase": "P6 open diorama environment",
+  "checkedAt": "2026-07-11T10:20:44+10:00",
+  "timeZone": "Australia/Sydney",
+  "branch": "feat/office-toy-p6-open-diorama",
+  "verifiedHead": "afc08cd7",
+  "pullRequest": "https://github.com/mike007jd/Offisim/pull/28",
+  "result": "pass",
+  "releaseApp": {
+    "path": "/Users/haoshengli/Seafile/WebWorkSpace/Offisim/apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app",
+    "binaryPath": "/Users/haoshengli/Seafile/WebWorkSpace/Offisim/apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app/Contents/MacOS/offisim-desktop",
+    "binarySha256": "a94f06cf041bf2e18b52906b2710447c7f8b60ab5075647c26e82cc0f6947652",
+    "bundleAggregateSha256": "7ff3604994a550483936b2fb79a9095a5e470e0dc4bbda656ed64b0b751422e6",
+    "bundleHashMethod": "SHA-256 over sorted relative file paths plus each file SHA-256",
+    "binarySizeBytes": 28576896,
+    "binaryModifiedAt": "2026-07-11T10:09:14+10:00",
+    "codesignVerify": "pass",
+    "signature": "adhoc runtime",
+    "notarization": "not run; Apple credentials are not configured on this machine"
+  },
+  "computerUse": {
+    "appSelector": "/Users/haoshengli/Seafile/WebWorkSpace/Offisim/apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app",
+    "window": {
+      "cgWindowNumber": 1575,
+      "pid": 70671,
+      "title": "Offisim",
+      "url": "tauri://localhost",
+      "bounds": {
+        "x": 0,
+        "y": 33,
+        "width": 1512,
+        "height": 874
+      }
+    },
+    "coldLaunch": {
+      "result": "pass",
+      "launchedAt": "2026-07-11T10:09:59+10:00",
+      "evidence": "Computer Use attached to the exact current-worktree release path, entered Dramaturgy Smoke Lab, maximized the real 3D stage, selected Focus presentation and performed the final seating and orbit interactions. PID and CGWindow were independently resolved from the exact process path before capture."
+    }
+  },
+  "visualScenarios": {
+    "defaultFullStage": {
+      "result": "pass",
+      "observed": "The release stage reads as a populated open toy-office display plinth. Thick platform edges, thin rounded zone rugs, furniture groups, greenery, characters and the studio gradient are visible without enclosing walls.",
+      "screenshot": {
+        "file": "release-open-plinth-default.png",
+        "sha256": "9879cb8607636d58566f0e33346fca98fe6ae471e26af107bb4f3f5b274e0579",
+        "width": 3248,
+        "height": 1972
+      }
+    },
+    "lowOrbit": {
+      "result": "pass",
+      "observed": "A real low opposite-side orbit shows the whole environment remains intentional: no single-sided wall, glass sheet, missing backdrop, black void or floor-layer flicker is visible. Camera-safe annotations remain scene-owned and pointer-inert when occluded.",
+      "screenshot": {
+        "file": "release-open-plinth-orbit.png",
+        "sha256": "ac32ed915e039c1cf7ab9b3d2fd487701dd0bbda5a7e2e106257301f82ec4110",
+        "width": 3248,
+        "height": 1972
+      }
+    }
+  },
+  "orbitPerformance": {
+    "result": "pass",
+    "capture": {
+      "file": "release-open-plinth-orbit-15s.mp4",
+      "sha256": "09445bdebd04b4a815d51657c6b4f2f713166c046cedd42da6d8079918a30b38",
+      "durationSeconds": 15.015,
+      "width": 3248,
+      "height": 1972,
+      "frames": 858,
+      "averageCaptureFramesPerSecond": 57.105
+    },
+    "method": "The exact release CGWindow was recorded while Computer Use performed a real orbit drag from the default overview to the low opposite-side view. Six evenly spaced raw-video frames were visually inspected as complete, non-black WebGL frames.",
+    "interpretation": "The window capture sustained 57.105 recorded frames per second under Retina capture overhead with no visible stall, black frame or scene break. This is delivery-surface evidence, not a direct GPU profiler trace; the executable P6 oracle separately guards the approved continuous frameloop, DPR, half-resolution AO and SMAA budget."
+  },
+  "finalSeatingAcceptance": {
+    "result": "pass",
+    "capture": {
+      "file": "../p2/release-final-drag-walk-seat.mp4",
+      "sha256": "6a47f232701dbe500554ddb54e584d1196daff4c8e0f4adedaf994443ba56a31",
+      "durationSeconds": 58.667,
+      "width": 1280,
+      "height": 778,
+      "frames": 880,
+      "frameRate": 15
+    },
+    "observed": "With Focus presentation active and all ambient work settled, Maya is dragged from her Development chair to the empty Art & Design chair. She leaves the original chair, walks continuously across the office and enters the destination sit pose; Zara and the other six employees retain their seats/anchors for the entire recording. An independent cold review returned PASS with no blocker.",
+    "timeline": {
+      "0-9.5s": "Maya seated at the Development origin; every other employee remains stable",
+      "9.6-12s": "drag and sit.exit",
+      "12-28s": "continuous cross-office walk without teleportation",
+      "28-30s": "arrival and sit.enter at the empty Art & Design chair",
+      "30-58.667s": "Maya remains seated beside Zara; all other anchors remain unchanged"
+    },
+    "rawPixelAudit": "Independent review sampled the retained H.264 evidence at 0/9.6/12/28/30/58 seconds and ran blackframe across all 880 retained frames: zero window-interior black-frame hits. Apparent black tiles in Computer Use image display were viewer tiling artifacts, not captured pixels."
+  },
+  "gates": {
+    "pnpmValidate": "passed",
+    "officeDioramaP6": "58/58 passed; 61 floor props",
+    "rendererTypecheck": "passed",
+    "rendererBuild": "passed",
+    "officeAmbientP5": "66/66 passed",
+    "officeSeatingP2": "32/32 passed",
+    "officeVisualLanguageP4": "50/50 passed",
+    "deadcode": "passed; zero findings",
+    "uiFrameworkHygiene": "passed",
+    "uiUxDrift": "passed",
+    "codesignVerify": "passed"
+  },
+  "runtimeLogScan": {
+    "command": "/usr/bin/log show --style compact --predicate 'processID == 70671' --start '2026-07-11 10:09:00'",
+    "linesReturned": 3430,
+    "productFailurePatternMatches": 0,
+    "patterns": "panic|WebGL failure/loss|uncaught|black-screen|renderer-crash|fatal|segmentation|asset failure/error",
+    "result": "pass",
+    "classifiedNonProductLine": "One launchservices CRASHSTRING for the WebContent sandbox appeared during startup; the final WebContent and app remained healthy through more than ten minutes of interaction and all captures, so it is classified as a macOS service warning rather than a product crash."
+  }
+}

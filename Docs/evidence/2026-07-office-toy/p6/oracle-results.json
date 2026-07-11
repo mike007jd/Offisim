@@ -1,0 +1,75 @@
+{
+  "phase": "P6",
+  "checkedAt": "2026-07-11T10:20:44+10:00",
+  "timeZone": "Australia/Sydney",
+  "branch": "feat/office-toy-p6-open-diorama",
+  "verifiedHead": "afc08cd7",
+  "implementationCommits": [
+    "d63cfb54",
+    "5a117306",
+    "afc08cd7"
+  ],
+  "pullRequest": "https://github.com/mike007jd/Offisim/pull/28",
+  "status": "passed",
+  "oracle": {
+    "command": "pnpm harness:office-diorama-p6",
+    "result": "passed",
+    "checks": "58/58",
+    "activeFloorProps": 61,
+    "coverage": [
+      "open bevelled plinth with no wall, glass, panel or wall-height production geometry",
+      "strict plinth, lip, floor, band and grid vertical ordering without coplanar surfaces",
+      "closed inward studio gradient backdrop that follows arbitrary legal camera pan",
+      "real-prefab-aware dressing generated from one slot template and capped at 100 total props",
+      "four instanced dressing draw groups with no semantic interaction anchors",
+      "character-derived chair, desk, display and compact workstation metrics",
+      "shared non-workstation prefab footprint metadata for navigation obstacles",
+      "one camera-safe annotation primitive for Office and Studio labels",
+      "one bounded per-Canvas annotation scheduler with depth-tested self-excluding rays",
+      "hidden and inert occluded annotations plus semantic z-index priority bands",
+      "canonical workstation spacing, platform containment and lighting span",
+      "half-resolution ambient occlusion, SMAA, DPR and continuous-frame budget",
+      "art-bible environment, prop-budget and instancing contracts"
+    ]
+  },
+  "gates": {
+    "pnpmValidate": "passed; exit 0",
+    "rendererTypecheck": "passed",
+    "rendererBuild": "passed",
+    "officeDioramaP6": "58/58 passed; 61 floor props",
+    "officeAmbientP5": "66/66 passed",
+    "officeSeatingP2": "32/32 passed",
+    "officeVisualLanguageP4": "50/50 passed",
+    "characterActionsP3": "passed",
+    "sceneCue": "87/87 passed",
+    "deadcode": "passed; knip reported zero findings",
+    "uiFrameworkHygiene": "passed",
+    "uiUxDrift": "passed",
+    "desktopReleaseBuild": "passed",
+    "releaseBinarySha256": "a94f06cf041bf2e18b52906b2710447c7f8b60ab5075647c26e82cc0f6947652",
+    "releaseBundleAggregateSha256": "7ff3604994a550483936b2fb79a9095a5e470e0dc4bbda656ed64b0b751422e6",
+    "codesignVerify": "passed",
+    "gitDiffCheck": "passed",
+    "gitNexusDetectChanges": "expected HIGH Office surface risk; OfficeScene3D/OfficeStage/OfficeSurface and Studio annotation consumers were reviewed and covered by the P6 and dependent phase gates"
+  },
+  "review": {
+    "coldReview": "PASS; 0 blocker, 0 important and 0 minor on the final source/oracle snapshot",
+    "simplifyReview": "PASS; 0 blocker, 0 important and 0 minor after cleanup and annotation convergence",
+    "confirmedFindingsFixed": [
+      "malformed thin rounded geometry and incorrect bevel envelope",
+      "plinth, rug and floor-band coplanar z-fighting",
+      "finite backdrop escape under free camera pan",
+      "navigation footprint drift from renderer-only obstacle radii",
+      "custom-layout prop count overflow and transparent rug overdraw",
+      "foliage token drift and unnecessary fastener/shadow draw work",
+      "obsolete character exports and stale production paths",
+      "annotation labels leaking through racks or remaining pointer-active while occluded",
+      "duplicate per-label raycasting replaced by one bounded per-Canvas scheduler"
+    ]
+  },
+  "knownNonBlockers": [
+    "Apple notarization was not run because signing credentials are not configured on this machine.",
+    "Body_Skin_Dark/SkinDark and the skinReference asset contract were retained: P0 requires both light and dark references and removal would require a coupled GLB/manifest/regeneration contract change rather than evidence-backed dead-code deletion.",
+    "No Pi wire/provider/host or Rust command surface changed; the full repository validate gate and current release artifact cover the unchanged baseline."
+  ]
+}

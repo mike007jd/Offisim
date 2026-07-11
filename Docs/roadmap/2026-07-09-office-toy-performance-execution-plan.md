@@ -7,8 +7,8 @@ Companion to `2026-07-09-office-toy-performance-requirements.md`（specs）与
 （用户 2026-07-02 gate 指示；禁 token 巨贵的 code-review workflow）。
 
 分支拓扑：`docs/office-toy-performance-package` → `feat/office-toy-p0-spike` →
-`feat/office-toy-p1-characters` → … → `feat/office-toy-p6-diorama`，每个 phase 一个线性
-stacked PR；只 push / 开 PR，不合并、不改 `main`。Checked at 2026-07-10。
+`feat/office-toy-p1-characters` → … → `feat/office-toy-p6-open-diorama`，每个 phase 一个线性
+stacked PR；只 push / 开 PR，不合并、不改 `main`。Checked at 2026-07-11。
 
 ## Corrected assumptions（深读核实，执行时勿再踩）
 
@@ -216,12 +216,12 @@ P1 只完善 P0 已验证的单一 `body_toy.glb` lane；不得恢复旧 male/fe
 - [x] release .app 验证：2 分钟录屏（P-2 闭合证据）。
 
 ### P6 Diorama 环境（F）
-- [ ] RoomShell 重做：删墙/玻璃隔断/墙面板，地台厚度+倒角，ZoneRug 升级，背景渐变+雾调参。
-- [ ] R1b 全量：workstation-geometry 常量从角色度量派生重推；obstacleRadius 表与座位锚点重调；SCENE_CONTENT_SCALE 跨包耦合补 guard。
-- [ ] props 密度 50–100：Kenney/KayKit 管线扩展 + 高重复家具评估 InstancedMesh + 合批。
-- [ ] 灯光/后处理随新材质校准；60fps 预算复核（必要时 dpr/AO 降档策略）。
-- [ ] `Docs/design/office-art-bible.md` 落盘（比例/色板/bevel/饱和度/指示器规范）。
-- [ ] release .app 验证：全景 + 任意 orbit 角度无穿帮（「简陋」闭合证据）。
+- [x] RoomShell 重做：删墙/玻璃隔断/墙面板，地台厚度+倒角，ZoneRug 升级，背景渐变+雾调参。
+- [x] R1b 全量：workstation-geometry 常量从角色度量派生重推；obstacleRadius 表与座位锚点重调；SCENE_CONTENT_SCALE 跨包耦合补 guard。
+- [x] props 密度 50–100：**批准实现偏离**——不新增 Kenney/KayKit 外部资产与 license surface，改为扩展既有 prefab/dressing 管线：33 个真实语义 prefab + 28 个同 art-bible 的 procedural low props，四组 InstancedMesh、共享材质、真实 prefab 数抑制，最终 61 active floor props。该实现满足密度/合批/视觉合同，且比新增外部资产更可重复。
+- [x] 灯光/后处理随新材质校准；60fps **预算合同**复核：保留 `frameloop="always"`、DPR `[1,1.75]`、half-resolution AO、SMAA 与 instancing；Retina 窗口录屏在 capture overhead 下为 57.105fps 且无可见 stall/黑帧。此证据证明预算配置与 delivery surface 连续性，不宣称 direct GPU profiler 的 exact 60fps trace。
+- [x] `Docs/design/office-art-bible.md` 落盘（比例/色板/bevel/饱和度/指示器规范）。
+- [x] release .app 验证：全景 + 任意 orbit 角度无穿帮（「简陋」闭合证据）。
 
 ## Per-phase gate（每个出 diff 的 phase）
 
@@ -303,10 +303,27 @@ P1 只完善 P0 已验证的单一 `body_toy.glb` lane；不得恢复旧 male/fe
 
 ### P5 Ambient 生命感 — Delivered（2026-07-11）
 
-- **branch / implementation commit / stacked base**：`feat/office-toy-p5-ambient-life` / `72688738`，stack base 为 P4 `feat/office-toy-p4-visual-language`。
+- **branch / implementation commit / PR**：`feat/office-toy-p5-ambient-life` / `72688738` / [#27](https://github.com/mike007jd/Offisim/pull/27)，stack base 为 P4 [#26](https://github.com/mike007jd/Offisim/pull/26)。
 - **实现**：renderer 内单一 deterministic ambient scheduler；每员工 seed 与 roster 顺序解耦，首轮 45–120s、后续 45–240s，不排队/补发/catch-up。refreshment/library/social/phone/seated-shift 五类行为走真实 clip 与 A*；office 同屏最多 2 人离位、4 人 active，fixture reservation、可达 fallback、route revision 与 floor bounds 均为硬约束。run、drag、fixture、surface、focus、reduced-motion 都能抢占或清理 ambient。
 - **自动 oracle**：`pnpm harness:office-ambient-p5` → 66/66；P2 seating 32/32、scene-staging 34/34、scene-cue 87/87、P4 visual-language 50/50、clip-map 17,280 states / 21 clips 均复绿。
 - **全量门禁**：`pnpm validate` exit 0；renderer typecheck/build、UI framework hygiene、当前 worktree release `.app` build/sign 与 `codesign --verify --deep --strict` PASS。GitNexus 为预期 HIGH：15 条共享 Office scene process，均由受影响 harness 与 release live 覆盖；未触达 Pi wire/provider/host/Rust command surface。
 - **review**：独立 cold review 与 simplify review 最终均 PASS、0 confirmed finding。确认修复 catch-up burst、fixture double-book、multi-owner busy、surface switch、preemption blank frame、chair/obstacle target、route revision/floor bounds 以及 outside-start drag-return 回归。
-- **release live**：精确 `.app` binary SHA-256 `4c28303ab759bf71a694746caf7f564562edbf681a2701b94205be39db7a4cfd`，PID 69224，CGWindowNumber 1133。125.133 秒无加速录屏跨 5/30/60/90/120 秒抽检完整，观察 Marcus/Maya 离位并回归；Focus 55.133 秒验证 active 收尾后不再新离位；真实 Pi `openrouter/free` run 形成 Marcus working 抢占并返回 `OK`。5,396 行 unified log 中产品 fatal/WebGL/asset/uncaught/black-screen/renderer-crash pattern 为 0；完整哈希与证据见 `Docs/evidence/2026-07-office-toy/p5/release-live-verification.json`。
+- **release live**：精确 `.app` binary SHA-256 `4c28303ab759bf71a694746caf7f564562edbf681a2701b94205be39db7a4cfd`，PID 69224，CGWindowNumber 1133。125.133 秒无加速录屏跨 5/30/60/90/120 秒抽检完整，观察 Marcus/Maya 离位并回归；对同一视频 00:00–00:18 每 2 秒解码复核，Product 红衣坐姿角色的头、躯干和手部持续微动而座椅锚点不变。Focus 55.133 秒验证 active 收尾后不再新离位；真实 Pi `openrouter/free` run 形成 Marcus working 抢占并返回 `OK`。5,396 行 unified log 中产品 fatal/WebGL/asset/uncaught/black-screen/renderer-crash pattern 为 0；完整哈希与证据见 `Docs/evidence/2026-07-office-toy/p5/release-live-verification.json`。
 - **结论**：**P5 完成交付，继续 P6**。P-2 由 deterministic oracle、两分钟真实观察、mode quiet 与真实 run scene ownership 双证据闭合。
+
+### P6 开放式 Diorama 环境 — Delivered（2026-07-11）
+
+- **branch / implementation commits / PR**：`feat/office-toy-p6-open-diorama` / `d63cfb54` + cleanup `5a117306` + annotation fix `afc08cd7` / [#28](https://github.com/mike007jd/Offisim/pull/28)，stack base 为 P5 [#27](https://github.com/mike007jd/Offisim/pull/27)。
+- **实现**：旧三面墙、玻璃隔断与墙板生产路径删除，替换为有厚度/倒角的开放展示地台、严格分层 floor/bands/grid、薄圆角 ZoneRug 和随 camera 平移的封闭渐变 studio backdrop。工位尺寸从玩具角色度量派生，非工位障碍改读共享 prefab footprint；canonical 33 个语义 prefab + 28 个低装饰组成 61 个 active floor props，装饰由单一 slot template 生成、按真实 prefab 数抑制并以 4 组 InstancedMesh 渲染。灯光、雾、half-resolution AO、SMAA、DPR 与显式 continuous frameloop 同步校准；Office/Studio annotation 统一为 camera-safe primitive，由每 Canvas 一个 bounded scheduler 做 depth-tested/self-excluding occlusion、hidden/inert ownership 与语义 z-index 分层；art bible 环境合同落盘。
+- **自动 oracle**：`pnpm harness:office-diorama-p6` → 58/58、61 floor props；P5 ambient 66/66、P2 seating 32/32、P4 visual-language 50/50、scene-cue 87/87 与 P3 actions 均复绿。oracle 包含无墙/玻璃 production source、精确 bevel envelope、无 coplanar z-fighting、camera-follow backdrop、100 prop hard cap、共享 navigation footprint、camera-safe annotation scheduler、工位不重叠/地台包含、后处理与 art-bible 守卫。
+- **全量门禁**：`pnpm validate` exit 0；renderer typecheck/build、`pnpm check:deadcode`（0 findings）、UI framework hygiene、UI/UX drift、当前 worktree release `.app` build/sign 与 `codesign --verify --deep --strict` PASS。GitNexus staged graph 为预期 HIGH，集中在 OfficeScene3D/OfficeStage/OfficeSurface 与 Studio annotation 消费面；未触达 Pi wire/provider/host/Rust command surface。
+- **review**：三条 simplify lane 与独立 cold review 最终均 PASS，0 blocker / 0 important / 0 minor。确认修复薄圆角几何 envelope、地台/地毯层级 z-fighting、自由平移离开有限背景、renderer-only obstacle 半径、custom layout prop overflow、透明地毯 overdraw、foliage token、fastener/shadow 绘制、obsolete exports，以及 label 穿 rack/被遮挡仍可点击/逐 label raycast 问题。
+- **release live**：精确 `.app` binary SHA-256 `a94f06cf041bf2e18b52906b2710447c7f8b60ab5075647c26e82cc0f6947652`、bundle aggregate SHA-256 `7ff3604994a550483936b2fb79a9095a5e470e0dc4bbda656ed64b0b751422e6`，PID 70671，CGWindowNumber 1575。Computer Use 冷启动后默认全景与低角 orbit 均无围墙/纸片/黑洞/层级闪烁；15.015 秒真实 orbit 录屏 858 帧、平均 capture 57.105fps，均匀抽帧完整且无可见 hitch/黑帧。3,430 行 unified log 中产品 fatal/WebGL/asset/uncaught/black-screen/renderer-crash pattern 为 0；唯一 launchservices WebContent CRASHSTRING 经持续存活与全程交互归类为 macOS service warning。证据见 `Docs/evidence/2026-07-office-toy/p6/release-live-verification.json`。
+- **结论**：**P6 完成交付，进入 Epic close-out**。开放玩具办公沙盘、R1b 家具/导航耦合、50–100 props 密度、性能预算配置与无可见 hitch 的 delivery-surface 证据、art bible、独立 review 与 release 真交互均闭合；不把 57.105fps capture 写成 exact 60fps GPU trace。
+
+### Epic Close-out — Delivered（2026-07-11）
+
+- **最终六项验收**：P1 玩具角色特写/全景、P3 type/talk/read 三态、P5 125.133 秒离位 + 00:00–00:18 坐姿微动、P4 working/approval/blocked 同屏、P2 58.667 秒 Maya Development → Art & Design `drag → walk → sit.enter` 且其余座位不动、P6 默认/低角开放地台与 15.015 秒 orbit，全部逐项 PASS；哈希、时序和映射见 `Docs/evidence/2026-07-office-toy/epic-closeout.json`。
+- **cleanup / audit**：`dead-code-and-docs-cleanup-loop` 删除 old body/brows/P0 seam/legacy walls-glass/old indicators/obsolete exports；`pnpm check:deadcode` 最终 0 findings。`ui-ux-audit-loop` 的 framework hygiene 与 UI/UX drift 均 PASS。`Body_Skin_Dark` / `SkinDark` / `skinReference` 因 P0 light+dark 资产与 regeneration contract 仍真实耦合而保留，不冒充 dead code 删除。
+- **stack / external CI**：#13/#18/#21/#24/#25/#26/#27/#28 均 OPEN、MERGEABLE，线性 base 正确；未 merge、未碰 main。GitHub Actions 两个 job 均 0 step，annotation 明确为账户付款/支出上限导致未启动，归类 external billing block，不冒充代码测试失败；本地完整门禁与 release 证据均已闭合。
+- **结论**：**backlog、confirmed findings 与 required evidence 均为 0**；Epic 在允许 scope 内完整交付。
