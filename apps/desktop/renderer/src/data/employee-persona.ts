@@ -65,6 +65,20 @@ function readProfile(personaJson: string | null | undefined): Record<string, unk
   }
 }
 
+/** Human role title stored at persona_json top level by template materialization
+ *  (e.g. "Orchestrator") — surfaced to the root agent's teammate roster. */
+function readDisplayTitle(personaJson: string | null | undefined): string | undefined {
+  if (!personaJson) return undefined;
+  try {
+    const parsed = JSON.parse(personaJson) as Record<string, unknown>;
+    return typeof parsed.displayTitle === 'string' && parsed.displayTitle.trim()
+      ? parsed.displayTitle.trim()
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Build the system-prompt text for an already-loaded employee row + company name. */
 function personaFromRow(employee: EmployeeRow, companyName: string): string {
   const profile = readProfile(employee.persona_json);
@@ -147,11 +161,13 @@ export async function buildDelegationContext(
     .map((e) => {
       const model = e.model?.trim();
       const thinkingLevel = e.thinking_level?.trim();
+      const displayTitle = readDisplayTitle(e.persona_json);
       return {
         employeeId: e.employee_id,
         name: e.name ?? e.employee_id,
         roleSlug: e.role_slug,
         persona: personaFromRow(e, companyName),
+        ...(displayTitle ? { displayTitle } : {}),
         ...(model ? { model } : {}),
         ...(model && thinkingLevel ? { thinkingLevel } : {}),
       };
