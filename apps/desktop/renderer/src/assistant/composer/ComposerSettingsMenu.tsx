@@ -106,7 +106,11 @@ export function ComposerSettingsMenu({
   // read) off the hot path.
   const { providers, effective, supportsReasoning } = useMemo(() => {
     const list = models.data ?? [];
-    const effectiveModel = perThreadModel || readPiModelOverride();
+    const persisted = perThreadModel || readPiModelOverride();
+    // Never display a model Pi no longer offers (loadModels also prunes the
+    // persisted values); an invalid pick renders as Auto (Pi default).
+    const effectiveModel =
+      models.data && !list.some((option) => option.value === persisted) ? '' : persisted;
     const groups = new Map<string, typeof list>();
     for (const option of list) {
       const existing = groups.get(option.provider);
