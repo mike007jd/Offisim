@@ -22,6 +22,15 @@ const FIXTURE_PATH = fileURLToPath(new URL('./fixtures/pi-wire-contract.json', i
 const REQUEST_FIXTURE_PATH = fileURLToPath(
   new URL('./fixtures/pi-request-contract.json', import.meta.url),
 );
+const RUST_WIRE_PATH = fileURLToPath(
+  new URL('../apps/desktop/src-tauri/src/pi_agent_host/wire.rs', import.meta.url),
+);
+const RECOVERY_PATH = fileURLToPath(
+  new URL(
+    '../apps/desktop/renderer/src/runtime/recovery/reconcile-interrupted-runs.ts',
+    import.meta.url,
+  ),
+);
 
 const SPEC = {
   ready: { required: ['protocolVersion'], allowed: ['protocolVersion'] },
@@ -72,6 +81,32 @@ function fail(message) {
 function assert(condition, message) {
   if (!condition) fail(message);
 }
+
+function protocolLiteral(path, pattern, label) {
+  const source = readFileSync(path, 'utf8');
+  const match = source.match(pattern);
+  assert(match, `${label} protocol version literal was not found`);
+  return Number(match[1]);
+}
+
+const rustProtocolVersion = protocolLiteral(
+  RUST_WIRE_PATH,
+  /PI_HOST_PROTOCOL_VERSION:\s*u32\s*=\s*(\d+)\s*;/,
+  'Rust host',
+);
+const recoveryProtocolVersion = protocolLiteral(
+  RECOVERY_PATH,
+  /export const PI_HOST_PROTOCOL_VERSION\s*=\s*(\d+)\s*;/,
+  'renderer recovery',
+);
+assert(
+  rustProtocolVersion === PI_HOST_PROTOCOL_VERSION,
+  `Rust protocol version ${rustProtocolVersion} != Node protocol version ${PI_HOST_PROTOCOL_VERSION}`,
+);
+assert(
+  recoveryProtocolVersion === PI_HOST_PROTOCOL_VERSION,
+  `renderer recovery protocol version ${recoveryProtocolVersion} != Node protocol version ${PI_HOST_PROTOCOL_VERSION}`,
+);
 
 function stableStringify(value) {
   if (Array.isArray(value)) {

@@ -78,17 +78,6 @@ export type PiAgentHostEvent =
   | { kind: 'error'; code: string; message: string }
   | { kind: 'streamCursor'; cursor: number };
 
-export interface PiRunStreamSnapshot {
-  requestId: string;
-  running: boolean;
-  cursor: number;
-  buffered: number;
-  terminal?: {
-    status: string;
-    message?: string;
-  };
-}
-
 // Wire-contract typecheck guard. These canonical events must stay assignable to
 // PiAgentHostEvent; `satisfies` makes tsc fail here if the renderer union drifts
 // from the camelCase wire contract shared with the Rust host (pi_agent_host/)

@@ -84,6 +84,7 @@ const ALLOWLIST = new Set([
   'scripts/harness-mission-recovery.mts::../packages/core/src/runtime/mission/recovery/resume-plan.ts',
   'scripts/harness-mission-recovery.mts::../packages/core/src/runtime/mission/recovery/types.ts',
   'scripts/harness-workspace-lease.mts::../packages/core/src/runtime/mission/workspace/lease-manager.ts',
+  'scripts/harness-pi-delegation-integration.mts::../packages/core/src/runtime/mission/workspace/lease-manager.ts',
   'scripts/harness-run-recovery.mts::../packages/core/src/runtime/repositories.ts',
   'scripts/harness-run-recovery.mts::../packages/core/src/runtime/repos/agent-runs/memory.ts',
   'scripts/harness-playbook-validation.mts::../packages/shared-types/src/index.ts',

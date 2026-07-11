@@ -387,7 +387,8 @@ type CommandSpec<TArgs, TResult> = {
 };
 
 export interface CommandMap {
-  local_db_url: CommandSpec<undefined, string>;
+  local_db_execute: CommandSpec<{ sql: string; params: unknown[] }, number>;
+  local_db_select: CommandSpec<{ sql: string; params: unknown[] }, unknown[]>;
   local_db_execute_transaction: CommandSpec<{ statements: LocalDbTransactionStatement[] }, void>;
   project_read_file: CommandSpec<ProjectPathArgs, string>;
   project_read_file_lines: CommandSpec<

@@ -1,14 +1,11 @@
 import { createTauriDrizzleDb } from '@/lib/tauri-drizzle.js';
 import { createTauriRepositories } from '@/lib/tauri-repos.js';
-import {
-  InMemoryEventBus,
-  type RuntimeRepositories,
-} from '@offisim/core/browser';
+import { InMemoryEventBus, type RuntimeRepositories } from '@offisim/core/browser';
 import { repairPersistedPrefabLayouts } from './repair-prefab-layouts.js';
 
 /**
  * Real backend access for the renderer: Drizzle (sqlite-proxy over
- * tauri-plugin-sql) → RuntimeRepositories. No preview-fixture data — this is the single
+ * allowlisted Rust SQL commands) → RuntimeRepositories. No preview-fixture data — this is the single
  * door to `~/.offisim/offisim.db`. First-run company creation is owned by the
  * lifecycle surface so deleting every company leaves an honest empty state.
  */

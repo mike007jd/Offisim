@@ -147,7 +147,8 @@ impl ManagedProcess {
             .envs(&env)
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::piped());
+            .stderr(std::process::Stdio::piped())
+            .kill_on_drop(true);
 
         // cwd jail: resolve relative command/arg paths inside an app-owned
         // directory instead of the process's ambient cwd. The connect command
@@ -175,13 +176,14 @@ impl ManagedProcess {
 
         let stdin = BufWriter::new(child_stdin);
         let tracker = RequestTracker::new();
+        let pid = child.id();
 
         // Start read loop in background task
         let tracker_clone = tracker.clone_inner();
         tokio::spawn(async move {
             // Read loop parses NDJSON and sends to channel
             let (raw_tx, mut raw_rx) = mpsc::channel(64);
-            tokio::spawn(read_loop(child_stdout, raw_tx));
+            tokio::spawn(read_loop(child_stdout, raw_tx, pid));
 
             while let Some(msg) = raw_rx.recv().await {
                 // Try to resolve as response to pending request
@@ -190,7 +192,7 @@ impl ManagedProcess {
                 }
             }
         });
-        tokio::spawn(drain_stderr(child_stderr));
+        tokio::spawn(drain_stderr(child_stderr, pid));
 
         Ok(Self {
             child,

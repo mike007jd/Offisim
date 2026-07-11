@@ -39,6 +39,8 @@ interface PiThreadModelStore {
   byThread: Record<string, string>;
   /** Set (non-empty) or clear (empty string) this thread's model override. */
   setThreadModel: (threadId: string, model: string) => void;
+  /** Drop persisted picks that are no longer in Pi's available-model list. */
+  pruneInvalidModels: (validValues: readonly string[]) => void;
 }
 
 export const usePiThreadModelStore = create<PiThreadModelStore>((set) => ({
@@ -49,6 +51,15 @@ export const usePiThreadModelStore = create<PiThreadModelStore>((set) => ({
       const trimmed = model.trim();
       if (trimmed) next[threadId] = trimmed;
       else delete next[threadId];
+      saveMap(next);
+      return { byThread: next };
+    }),
+  pruneInvalidModels: (validValues) =>
+    set((state) => {
+      const valid = new Set(validValues);
+      const entries = Object.entries(state.byThread).filter(([, value]) => valid.has(value));
+      if (entries.length === Object.keys(state.byThread).length) return state;
+      const next = Object.fromEntries(entries);
       saveMap(next);
       return { byThread: next };
     }),

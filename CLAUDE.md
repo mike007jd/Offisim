@@ -56,6 +56,17 @@ area; spacing belongs inside panels, rails, and toolbar regions.
   replacement with independent release `.app` evidence, not a provider lane
   inside Pi Agent.
 
+## Desktop Credential Isolation
+
+- Pi Agent owns provider authentication in `~/.pi/agent/auth.json` and its model
+  configuration in `~/.pi/agent/models.json`; Offisim only exposes safe status
+  summaries and opens the Pi configuration folder.
+- Offisim-owned application secrets, such as registry credentials, cross the
+  narrow `secret_encrypt` / `secret_decrypt` Tauri commands and are sealed by
+  `apps/desktop/src-tauri/src/local_secret.rs`. They are not AI provider auth.
+- Renderer, logs, diagnostics, and settings must never receive or persist raw Pi
+  provider credentials.
+
 ## Prelaunch / Vibe-Coding Debt Guard
 
 - Current stage: Offisim is confirmed prelaunch: no real users, production data,

@@ -1,5 +1,7 @@
 import { isTauriRuntime } from '@/data/adapters.js';
 import { invokeCommand } from '@/lib/tauri-commands.js';
+import { readPiModelOverride, writePiModelOverride } from '@/runtime/pi-agent-config.js';
+import { usePiThreadModelStore } from '@/runtime/pi-thread-model-store.js';
 import { useQuery } from '@tanstack/react-query';
 
 /** One Pi-available model, as projected by the `pi_agent_status` command. */
@@ -27,12 +29,20 @@ function modelValue(model: PiAgentModelSummary): string {
 async function loadModels(): Promise<PiAgentModelOption[]> {
   const status = await invokeCommand('pi_agent_status');
   const models = status.availableModels ?? [];
-  return models.map((model) => ({
+  const options = models.map((model) => ({
     value: modelValue(model),
     name: model.id ?? model.name ?? 'model',
     provider: model.provider ?? 'pi',
     reasoning: model.reasoning === true,
   }));
+  // Pi's list is the only truth for what can run. Persisted picks (the global
+  // Settings override and per-thread selections) that no longer exist there
+  // are cleared, never displayed or sent — no phantom defaults.
+  const valid = options.map((option) => option.value);
+  const override = readPiModelOverride();
+  if (override && !valid.includes(override)) writePiModelOverride('');
+  usePiThreadModelStore.getState().pruneInvalidModels(valid);
+  return options;
 }
 
 /**

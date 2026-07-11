@@ -1,33 +1,17 @@
 import { invokeCommand } from '@/lib/tauri-commands.js';
-import type Database from '@tauri-apps/plugin-sql';
-type TauriSqlModule = typeof import('@tauri-apps/plugin-sql');
 
-/**
- * Shared singleton for tauri-plugin-sql Database connection.
- * Resets on init failure so next call retries instead of permanent poisoning.
- */
-let dbPromise: Promise<Database> | null = null;
+export interface TauriDb {
+  execute(sql: string, params: readonly unknown[]): Promise<number>;
+  select<T>(sql: string, params?: readonly unknown[]): Promise<T>;
+}
 
-export function getTauriDb(): Promise<Database> {
-  if (!dbPromise) {
-    dbPromise = (async () => {
-      const tauriSqlModule: TauriSqlModule = await import('@tauri-apps/plugin-sql');
-      const { default: Database } = tauriSqlModule;
-      const dbUrl = await invokeCommand('local_db_url');
-      const db = await Database.load(dbUrl);
-      // Enable WAL for concurrent read/write safety
-      await db.execute('PRAGMA journal_mode=WAL', []);
-      await db.execute('PRAGMA busy_timeout=5000', []);
-      // SQLite defaults foreign_keys=OFF per connection, which silently disables
-      // the schema's declared `ON DELETE CASCADE` / `SET NULL` rules. Enable it so
-      // a `companies.delete(...)` (and other parent deletes) atomically cascades to
-      // child rows instead of leaving orphans — relied on for compensating rollback.
-      await db.execute('PRAGMA foreign_keys=ON', []);
-      return db;
-    })().catch((err) => {
-      dbPromise = null; // Reset so next call retries
-      throw err;
-    });
-  }
-  return dbPromise;
+const db: TauriDb = {
+  execute: (sql, params) => invokeCommand('local_db_execute', { sql, params: [...params] }),
+  select: <T>(sql: string, params: readonly unknown[] = []) =>
+    invokeCommand('local_db_select', { sql, params: [...params] }) as Promise<T>,
+};
+
+/** All renderer SQL crosses the Rust allowlist; no native plugin command is exposed. */
+export async function getTauriDb(): Promise<TauriDb> {
+  return db;
 }

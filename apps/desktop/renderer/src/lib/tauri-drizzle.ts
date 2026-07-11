@@ -34,10 +34,10 @@ function serializeWrite<T>(task: () => Promise<T>): Promise<T> {
 }
 
 /**
- * Convert Drizzle's `?` placeholders to tauri-plugin-sql's `$1, $2, ...` format.
+ * Convert Drizzle's `?` placeholders to sqlx's `$1, $2, ...` format.
  *
- * Drizzle sqlite dialect uses `?` (standard SQLite), but tauri-plugin-sql
- * (backed by sqlx) uses `$N` positional parameters for SQLite.
+ * Drizzle sqlite dialect uses `?` (standard SQLite), but the Rust sqlx boundary
+ * uses `$N` positional parameters for SQLite.
  *
  * ASSUMPTION: Only used for Drizzle-generated SQL. Drizzle never places `?`
  * inside string literals — all values are parameterized. If used with raw SQL
@@ -49,14 +49,8 @@ function convertPlaceholders(sql: string): string {
 }
 
 /**
- * Reconstruct a positional column array from a plugin-sql row.
- *
- * CONSTRAINT: When the row is an object (the plugin returns named columns),
- * column order is taken from `Object.values` key ordering, which mirrors the
- * SELECT projection. Drizzle generates explicit, single-table column lists, so
- * this ordering is stable. Do NOT route a `SELECT *` across joins (or any query
- * with duplicate/ambiguous column names) through this proxy — duplicate keys
- * collapse and the positional reconstruction would be wrong.
+ * Normalize rows returned by the Rust boundary. Column order follows the
+ * SELECT projection, matching the previous plugin-backed contract.
  */
 function normalizePluginSqlRow(row: unknown): unknown[] {
   if (Array.isArray(row)) {
@@ -84,7 +78,7 @@ function normalizePluginSqlRows(rows: unknown, method: 'all' | 'values' | 'get')
 }
 
 /**
- * Create a Drizzle ORM database instance backed by tauri-plugin-sql.
+ * Create a Drizzle ORM database instance backed by allowlisted Rust commands.
  *
  * The sqlite-proxy driver generates SQL in JavaScript, then this callback
  * sends it to the Rust backend via Tauri IPC for execution.
