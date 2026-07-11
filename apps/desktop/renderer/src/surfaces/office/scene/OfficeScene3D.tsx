@@ -6,6 +6,7 @@ import {
   type FlowCueTarget,
   RESOURCE_KIND_GLYPHS,
   type SceneInk,
+  type WorkloadChipTone,
   type WorkloadCue,
   bundleEmphasis,
   flowCueText,
@@ -16,25 +17,47 @@ import type { Employee } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
 import { openArtifactClaim } from '@/surfaces/office/stage-viewer/artifact-claim.js';
 import {
+  CHARACTER_TURN_RATE_PER_SECOND,
+  CHARACTER_WALK_SPEED_UNITS_PER_SECOND,
   type CharacterPerformanceState,
+  type CharacterStatus,
   type PrefabDefinition,
   type PrefabInstanceRow,
   type ResourceKind,
   type RoleSlug,
   animationTempoForRole,
 } from '@offisim/shared-types';
-import { Html, Line, OrbitControls } from '@react-three/drei';
+import { Line, OrbitControls, RoundedBox } from '@react-three/drei';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Fragment, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ACESFilmicToneMapping, type Group } from 'three';
+import {
+  type CSSProperties,
+  Fragment,
+  type RefObject,
+  Suspense,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { ACESFilmicToneMapping, type Group, type Mesh } from 'three';
+import {
+  type CharacterMoveOrigin,
+  type CharacterMovementPhase,
+  planCharacterMove,
+} from './character-movement.js';
 import { GltfCharacter } from './character/GltfCharacter.js';
 import { preloadCharacterAssets } from './character/character-assets.js';
 import { openDeliveryHistory } from './delivery-history.js';
+import { OFFICE_DELIVERY_WORLD, officeResourceMarkerColor } from './office-visual-language.js';
 import { RoomShell } from './r3d/RoomShell.js';
+import { DioramaBackdrop } from './r3d/DioramaBackdrop.js';
+import { DioramaDressing } from './r3d/DioramaDressing.js';
+import { SceneAnnotation, SceneAnnotationScheduler } from './r3d/SceneAnnotation.js';
 import { SceneEnvironment } from './r3d/SceneEnvironment.js';
 import { SceneLighting } from './r3d/SceneLighting.js';
 import { ScenePostFx } from './r3d/ScenePostFx.js';
-import { ZoneCeilingLight, ZoneRug } from './r3d/ZoneDressing.js';
+import { ZoneRug } from './r3d/ZoneDressing.js';
 import { BookshelfMesh3D } from './r3d/prefabs/BookshelfMesh3D.js';
 import { DecorativeMesh3D } from './r3d/prefabs/DecorativeMesh3D.js';
 import { MeetingTableMesh3D } from './r3d/prefabs/MeetingTableMesh3D.js';
@@ -44,21 +67,20 @@ import { ServerRackUnit3D } from './r3d/prefabs/ServerRackMesh3D.js';
 import { WhiteboardMesh3D } from './r3d/prefabs/WhiteboardMesh3D.js';
 import { WorkstationUnit3D } from './r3d/prefabs/WorkstationMesh3D.js';
 import { OFFICE_CAMERA_PRESET, SCENE_CONTENT_SCALE } from './r3d/scene-art-direction.js';
-import { LIGHT_SCENE_3D } from './r3d/scene-colors.js';
+import {
+  LIGHT_SCENE_3D,
+  OFFICE_TOY_SIGNAL_COLORS,
+  OFFICE_TOY_STATE_COLORS,
+} from './r3d/scene-colors.js';
 import { type ScenePlacementPoint, groundPointFromClient } from './scene-ground.js';
 import { compactSceneEmployeeName } from './scene-labels.js';
 import {
   type EmployeePosture,
+  type EmployeeScenePlacement,
   type ZoneDef,
-  floorBounds,
   rotateLocal,
-  sceneObstacles,
 } from './scene-layout.js';
-import {
-  type OfficePathfinder,
-  type PathPoint,
-  buildOfficePathfinder,
-} from './scene-pathfinding.js';
+import type { OfficePathfinder, PathPoint } from './scene-pathfinding.js';
 import { useSceneStagingInputs } from './use-scene-staging-inputs.js';
 import { WorkBench } from './work-bench/WorkBench.js';
 
@@ -87,6 +109,20 @@ interface SceneEmployeeDrag {
   readonly moved: boolean;
 }
 
+interface SceneEmployeeReturn {
+  readonly id: string;
+  readonly employeeId: string;
+  readonly x: number;
+  readonly z: number;
+}
+
+interface SceneEmployeeEntry {
+  readonly id: string;
+  readonly employeeId: string;
+  readonly x: number;
+  readonly z: number;
+}
+
 interface SceneDropNotice {
   readonly id: string;
   readonly x: number;
@@ -99,6 +135,11 @@ interface SceneFlowLine {
   readonly from: readonly [number, number, number];
   readonly to: readonly [number, number, number];
   readonly color: string;
+  readonly ink: SceneInk;
+  readonly pulse: boolean;
+  readonly phase: number;
+  /** Failure wording already lives on the actor workload; keep line/packet/target only. */
+  readonly showLabel: boolean;
   /** Lane density text (the shared flowCueText rule: `×N · label` for bundles). */
   readonly label: string;
   /** Lane label anchor — the curve midpoint, stacked when lanes share endpoints. */
@@ -107,23 +148,60 @@ interface SceneFlowLine {
   readonly lineWidth: number;
 }
 
+function employeeMovePlan(
+  pathfinder: OfficePathfinder | null,
+  start: PathPoint,
+  target: PathPoint,
+  origin: CharacterMoveOrigin,
+  currentPhase: CharacterMovementPhase,
+  reducedMotion: boolean,
+) {
+  const routedWaypoints = pathfinder?.findWaypoints(start, target) ?? null;
+  return planCharacterMove({
+    start,
+    target,
+    origin,
+    currentPhase,
+    reducedMotion,
+    pathfinderAvailable: pathfinder !== null,
+    routedWaypoints,
+  });
+}
+
+/** Stable inside-edge spawn point for a newly added employee. */
+function employeeEntryPoint(
+  placement: EmployeeScenePlacement,
+  zones: readonly ZoneDef[],
+): PathPoint {
+  const zone = zones.find((candidate) => candidate.id === placement.zoneId);
+  if (!zone) return [placement.x, placement.z];
+  return [zone.cx, zone.cz + Math.max(0, zone.d / 2 - 0.8)];
+}
+
 /**
  * THE one 3D ink→hex table: every SceneCue ink role maps to exactly one
  * LIGHT_SCENE_3D token. Approval is the amber LED tone — never the risk hue
  * (PRD) — and neutral is the quiet muted-text tone used for recovery signals.
  */
 const INK_3D: Record<SceneInk, string> = {
-  work: LIGHT_SCENE_3D.selectionRing,
-  artifact: LIGHT_SCENE_3D.ghostValid,
-  risk: LIGHT_SCENE_3D.ghostBlocked,
-  approval: LIGHT_SCENE_3D.ledAmber,
-  neutral: LIGHT_SCENE_3D.textMuted,
+  work: OFFICE_TOY_STATE_COLORS.working,
+  artifact: OFFICE_TOY_SIGNAL_COLORS.artifact,
+  risk: OFFICE_TOY_STATE_COLORS.blocked,
+  approval: OFFICE_TOY_STATE_COLORS.approval,
+  neutral: OFFICE_TOY_SIGNAL_COLORS.neutral,
+};
+
+const CHIP_TONE_3D: Record<WorkloadChipTone, string> = {
+  work: OFFICE_TOY_STATE_COLORS.working,
+  wait: OFFICE_TOY_STATE_COLORS.approval,
+  risk: OFFICE_TOY_STATE_COLORS.blocked,
+  done: OFFICE_TOY_SIGNAL_COLORS.artifact,
 };
 
 function flowTarget3D(target: FlowCueTarget) {
   switch (target) {
     case 'delivery':
-      return [14.8, 0.1, 12.4] as const;
+      return [OFFICE_DELIVERY_WORLD.x, 0.055, OFFICE_DELIVERY_WORLD.z] as const;
     case 'tool':
       return [10.4, 0.1, -9.0] as const;
     case 'review':
@@ -133,6 +211,117 @@ function flowTarget3D(target: FlowCueTarget) {
     default:
       return [0, 0.1, 0] as const;
   }
+}
+
+function FlowPacketMesh({
+  color,
+  position,
+  meshRef,
+}: {
+  readonly color: string;
+  readonly position: readonly [number, number, number];
+  readonly meshRef?: RefObject<Mesh | null>;
+}) {
+  return (
+    <mesh ref={meshRef} position={position}>
+      <sphereGeometry args={[0.075, 12, 8]} />
+      <meshBasicMaterial color={color} transparent opacity={0.82} depthWrite={false} />
+    </mesh>
+  );
+}
+
+function AnimatedFlowPacket3D({
+  from,
+  to,
+  color,
+  phase,
+}: {
+  from: readonly [number, number, number];
+  to: readonly [number, number, number];
+  color: string;
+  phase: number;
+}) {
+  const ref = useRef<Mesh>(null);
+  useFrame((state) => {
+    const packet = ref.current;
+    if (!packet) return;
+    const t = (state.clock.elapsedTime / 1.6 + phase) % 1;
+    packet.position.set(
+      from[0] + (to[0] - from[0]) * t,
+      from[1] + 0.035,
+      from[2] + (to[2] - from[2]) * t,
+    );
+  });
+  return <FlowPacketMesh meshRef={ref} position={from} color={color} />;
+}
+
+function FlowPacket3D({
+  from,
+  to,
+  color,
+  pulse,
+  phase,
+  reducedMotion,
+}: {
+  from: readonly [number, number, number];
+  to: readonly [number, number, number];
+  color: string;
+  pulse: boolean;
+  phase: number;
+  reducedMotion: boolean;
+}) {
+  if (pulse && !reducedMotion) {
+    return <AnimatedFlowPacket3D from={from} to={to} color={color} phase={phase} />;
+  }
+  const t = 0.35;
+  return (
+    <FlowPacketMesh
+      color={color}
+      position={[from[0] + (to[0] - from[0]) * t, from[1] + 0.035, from[2] + (to[2] - from[2]) * t]}
+    />
+  );
+}
+
+function DeliveryShelf3D({ interactive, onOpen }: { interactive: boolean; onOpen: () => void }) {
+  return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: the physical mesh is a pointer convenience; the adjacent Html shelf and artifact buttons expose every action to keyboard users.
+    <group
+      position={[OFFICE_DELIVERY_WORLD.x, 0, OFFICE_DELIVERY_WORLD.z]}
+      onClick={(event) => {
+        if (!interactive) return;
+        event.stopPropagation();
+        onOpen();
+      }}
+      onPointerOver={() => {
+        if (interactive) document.body.style.cursor = 'pointer';
+      }}
+      onPointerOut={() => {
+        document.body.style.cursor = '';
+      }}
+    >
+      <RoundedBox args={[2.2, 0.32, 0.68]} radius={0.08} smoothness={4} position={[0, 0.16, 0]}>
+        <meshStandardMaterial
+          color={LIGHT_SCENE_3D.furnitureLight}
+          roughness={0.82}
+          metalness={0}
+        />
+      </RoundedBox>
+      <RoundedBox args={[1.72, 0.42, 0.14]} radius={0.055} smoothness={4} position={[0, 0.5, 0.24]}>
+        <meshStandardMaterial color={LIGHT_SCENE_3D.furniture} roughness={0.78} metalness={0} />
+      </RoundedBox>
+      {[-0.92, 0.92].map((x) => (
+        <RoundedBox
+          key={x}
+          args={[0.12, 0.24, 0.58]}
+          radius={0.035}
+          smoothness={3}
+          position={[x, 0.36, 0]}
+        >
+          <meshStandardMaterial color={LIGHT_SCENE_3D.deskEdge} roughness={0.8} metalness={0} />
+        </RoundedBox>
+      ))}
+    </group>
+  );
 }
 
 /** Display-only placed prefab. All editing now lives in StudioScene3D. */
@@ -166,15 +355,18 @@ function EmployeeUnit({
   posture,
   withDesk,
   running,
+  status,
   workload,
   resourceKind,
   reducedMotion,
-  active,
+  selected,
   attention,
   dragging,
   performance,
   zones,
   pathfinder,
+  entryFrom,
+  returnFromDrop,
   onSelect,
   onDrilldown,
   onHoverChange,
@@ -189,11 +381,12 @@ function EmployeeUnit({
   posture: EmployeePosture;
   withDesk: boolean;
   running: boolean;
+  status: CharacterStatus;
   workload: WorkloadCue | null;
   /** Typed strain of the top issue (frame.resources) — the six-kind marker glyph. */
   resourceKind: ResourceKind | null;
   reducedMotion: boolean;
-  active: boolean;
+  selected: boolean;
   /** frame.attention targets this actor — a subtle sustained focus emphasis. */
   attention: boolean;
   dragging: boolean;
@@ -201,6 +394,11 @@ function EmployeeUnit({
   zones: ZoneDef[];
   /** Floor pathfinder (H1/H2); null → the straight-line lerp fallback. */
   pathfinder: OfficePathfinder | null;
+  /** New hires walk in from a stable zone-edge source instead of mounting at the seat. */
+  entryFrom: SceneEmployeeEntry | null;
+  /** A non-zone drop re-seeds the real actor at the visible ghost position;
+   *  it then walks back to its unchanged semantic seat. */
+  returnFromDrop: SceneEmployeeReturn | null;
   onSelect: () => void;
   onDrilldown: () => void;
   onHoverChange: (hovered: boolean) => void;
@@ -209,11 +407,18 @@ function EmployeeUnit({
   onDragState: (drag: SceneEmployeeDrag | null) => void;
 }) {
   const { camera, gl } = useThree();
-  // Walk to the target (home placement or a high-value staged anchor) — routed
-  // around known obstacles when a pathfinder is available, else a straight glide.
-  // `walkingRef` flips on the walk locomotion while in transit.
+  // Walk to the target (home placement or a high-value staged anchor). A
+  // standard target change enters the atomic sit.exit phase; GltfCharacter
+  // promotes it to walk only after the one-shot finishes (or immediately when
+  // the actor is already standing). No-pathfinder previews use the explicit
+  // straight fallback; a real pathfinder returning no route never glides.
   const unitRef = useRef<Group>(null);
-  const walkingRef = useRef(false);
+  /** Inner character wrapper whose Y rotation is frame-driven (walk heading /
+   *  seat facing). NOT a JSX rotation prop: re-renders mid-walk would snap the
+   *  walker back to its seat orientation. */
+  const headingRef = useRef<Group>(null);
+  const walkingRef = useRef<CharacterMovementPhase>('idle');
+  const appliedReturnIdRef = useRef<string | null>(null);
   const targetRef = useRef<[number, number]>([x, z]);
   targetRef.current = [x, z];
   // Waypoint route toward the current target. Always holds at least the final
@@ -223,10 +428,32 @@ function EmployeeUnit({
   const waypointsRef = useRef<PathPoint[]>([[x, z]]);
   const waypointIndexRef = useRef(0);
   const plannedTargetRef = useRef<[number, number]>([x, z]);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: this effect only seeds the initial mount position on first render; x/z are intentionally excluded (subsequent moves plan a route via the effect below and animate in useFrame). Adding x/z would re-snap the position every move, defeating the walk animation.
+  const plannedPostureRef = useRef<EmployeePosture>(posture);
+  const plannedPathfinderRef = useRef(pathfinder);
+  // Mount at the final seat for a loaded roster, or at the explicit entry point
+  // for a newly added employee. Subsequent target changes are never snapped by
+  // this mount-only effect.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: mount-only seed; live target changes are owned by the effects below.
   useLayoutEffect(() => {
-    unitRef.current?.position.set(x, 0, z);
-    // Only seed the initial mount position; subsequent moves animate in useFrame.
+    const group = unitRef.current;
+    if (!group) return;
+    const start: PathPoint = entryFrom ? [entryFrom.x, entryFrom.z] : [x, z];
+    group.position.set(start[0], 0, start[1]);
+    headingRef.current?.rotation.set(0, (rotation * Math.PI) / 180, 0);
+    if (entryFrom) {
+      const plan = employeeMovePlan(
+        pathfinder,
+        start,
+        [x, z],
+        'entry',
+        walkingRef.current,
+        reducedMotion,
+      );
+      waypointsRef.current = [...plan.waypoints];
+      waypointIndexRef.current = 0;
+      if (plan.snapToTarget) group.position.set(x, 0, z);
+      walkingRef.current = plan.phase;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   // Precompute the walk route when the target changes — NOT every frame. A drag
@@ -235,45 +462,118 @@ function EmployeeUnit({
   // unobstructed move (or a null pathfinder) collapses to a single-waypoint
   // straight line, the safe fallback that matches the old glide exactly.
   useEffect(() => {
-    const [px, pz] = plannedTargetRef.current;
-    if (Math.hypot(x - px, z - pz) < 0.05) return; // no meaningful target change
-    plannedTargetRef.current = [x, z];
     const group = unitRef.current;
+    if (reducedMotion && walkingRef.current !== 'idle') {
+      group?.position.set(x, 0, z);
+      walkingRef.current = 'idle';
+      waypointsRef.current = [[x, z]];
+      waypointIndexRef.current = 0;
+      plannedTargetRef.current = [x, z];
+      plannedPostureRef.current = posture;
+      plannedPathfinderRef.current = pathfinder;
+      return;
+    }
+    const [px, pz] = plannedTargetRef.current;
+    const distanceFromPlan = Math.hypot(x - px, z - pz);
+    if (
+      distanceFromPlan < 0.05 &&
+      plannedPostureRef.current === posture &&
+      plannedPathfinderRef.current === pathfinder
+    )
+      return;
+    plannedTargetRef.current = [x, z];
+    plannedPostureRef.current = posture;
+    plannedPathfinderRef.current = pathfinder;
     const start: PathPoint = group ? [group.position.x, group.position.z] : [x, z];
-    const route = pathfinder?.findWaypoints(start, [x, z]) ?? null;
-    waypointsRef.current = route && route.length > 0 ? route : [[x, z]];
+    const plan = employeeMovePlan(
+      pathfinder,
+      start,
+      [x, z],
+      'settled',
+      walkingRef.current,
+      reducedMotion,
+    );
+    waypointsRef.current = [...plan.waypoints];
     waypointIndexRef.current = 0;
-  }, [x, z, pathfinder]);
+    if (plan.snapToTarget) group?.position.set(x, 0, z);
+    walkingRef.current = plan.phase;
+  }, [x, z, pathfinder, posture, reducedMotion]);
+
+  // A drag ghost is the visible position the user released. Seed the actual
+  // actor there before paint, then route to the shared placement. This handles
+  // both successful zone changes and non-zone fallbacks without teleporting.
+  useLayoutEffect(() => {
+    if (!returnFromDrop || appliedReturnIdRef.current === returnFromDrop.id) return;
+    const group = unitRef.current;
+    if (!group) return;
+    appliedReturnIdRef.current = returnFromDrop.id;
+    group.position.set(returnFromDrop.x, 0, returnFromDrop.z);
+    plannedTargetRef.current = [x, z];
+    plannedPostureRef.current = posture;
+    const start: PathPoint = [returnFromDrop.x, returnFromDrop.z];
+    const plan = employeeMovePlan(
+      pathfinder,
+      start,
+      [x, z],
+      'drop-return',
+      walkingRef.current,
+      reducedMotion,
+    );
+    waypointsRef.current = [...plan.waypoints];
+    waypointIndexRef.current = 0;
+    if (plan.snapToTarget) group.position.set(x, 0, z);
+    walkingRef.current = plan.phase;
+  }, [pathfinder, posture, reducedMotion, returnFromDrop, x, z]);
   useFrame((_, delta) => {
     const group = unitRef.current;
     if (!group) return;
-    const waypoints = waypointsRef.current;
-    const lastIndex = waypoints.length - 1;
-    let index = waypointIndexRef.current;
-    if (index > lastIndex) index = lastIndex;
-    let wp = waypoints[index] ?? targetRef.current;
-    let dx = wp[0] - group.position.x;
-    let dz = wp[1] - group.position.z;
-    let dist = Math.hypot(dx, dz);
-    // Advance through intermediate waypoints once close enough; only the final
-    // waypoint uses the fine arrival threshold below.
-    while (dist <= 0.28 && index < lastIndex) {
-      index += 1;
-      wp = waypoints[index]!;
-      dx = wp[0] - group.position.x;
-      dz = wp[1] - group.position.z;
-      dist = Math.hypot(dx, dz);
+    let moveDx = 0;
+    let moveDz = 0;
+    if (walkingRef.current === 'walk') {
+      const waypoints = waypointsRef.current;
+      const lastIndex = waypoints.length - 1;
+      let index = waypointIndexRef.current;
+      if (index > lastIndex) index = lastIndex;
+      let wp = waypoints[index] ?? targetRef.current;
+      let dx = wp[0] - group.position.x;
+      let dz = wp[1] - group.position.z;
+      let dist = Math.hypot(dx, dz);
+      // Advance through intermediate waypoints once close enough; only the final
+      // waypoint uses the fine arrival threshold below.
+      while (dist <= 0.28 && index < lastIndex) {
+        index += 1;
+        const nextWaypoint = waypoints[index];
+        if (!nextWaypoint) break;
+        wp = nextWaypoint;
+        dx = wp[0] - group.position.x;
+        dz = wp[1] - group.position.z;
+        dist = Math.hypot(dx, dz);
+      }
+      waypointIndexRef.current = index;
+      if (dist > 0.04) {
+        const step = Math.min(1, (CHARACTER_WALK_SPEED_UNITS_PER_SECOND * delta) / dist);
+        group.position.x += dx * step;
+        group.position.z += dz * step;
+        moveDx = dx;
+        moveDz = dz;
+      } else {
+        group.position.set(x, 0, z);
+        walkingRef.current = 'idle';
+      }
     }
-    waypointIndexRef.current = index;
-    if (dist > 0.04) {
-      const step = Math.min(1, (1.9 * delta) / dist);
-      group.position.x += dx * step;
-      group.position.z += dz * step;
-      // Walking tell: still traversing to a later waypoint, or the final leg is
-      // more than a pace away (same 0.12 threshold as the old straight glide).
-      walkingRef.current = index < lastIndex || dist > 0.12;
-    } else {
-      walkingRef.current = false;
+    // Face the walk direction while moving; settle back to the seat/staged
+    // facing on arrival. Shortest-arc smoothing — an un-turned walker slides
+    // sideways/backwards along its route and reads as a rigid figurine.
+    const heading = headingRef.current;
+    if (heading) {
+      const target =
+        Math.hypot(moveDx, moveDz) > 0.001 ? Math.atan2(moveDx, moveDz) : characterRotation;
+      let diff = (target - heading.rotation.y) % (Math.PI * 2);
+      if (diff > Math.PI) diff -= Math.PI * 2;
+      if (diff < -Math.PI) diff += Math.PI * 2;
+      heading.rotation.y += reducedMotion
+        ? diff
+        : diff * Math.min(1, delta * CHARACTER_TURN_RATE_PER_SECOND);
     }
   });
   const cleanupRef = useRef<(() => void) | null>(null);
@@ -305,13 +605,28 @@ function EmployeeUnit({
   const hasClickableWorkload =
     workload != null &&
     (workload.countLabel != null || workload.topIssue != null || workload.chips.length > 0);
-  const labelInteractive = active || running;
+  const labelInteractive = selected || running;
   const htmlInteractive = labelInteractive || hasClickableWorkload;
   // Blocked primary slot (PRD): a blocked-severity issue owns the bubble — the
   // marker takes the primary (top-right) slot, the ×N count demotes to the
   // secondary (top-left) slot, and the working tell (typing dots + working
   // halo) never renders over the blocked actor.
-  const blocked = workload?.primary === 'issue';
+  const blocked = status === 'blocked';
+  const hasTypedResourceMarker = Boolean(
+    workload?.topIssue && workload.topIssue.kind !== 'approval' && resourceKind,
+  );
+  const stateColor =
+    status === 'idle' ? OFFICE_TOY_SIGNAL_COLORS.neutral : OFFICE_TOY_STATE_COLORS[status];
+  const resourceColor = workload?.topIssue
+    ? officeResourceMarkerColor(workload.topIssue.severity)
+    : OFFICE_TOY_STATE_COLORS.blocked;
+  const actorStyle = {
+    '--off-scene-state-color': stateColor,
+    '--off-scene-selected-color': OFFICE_TOY_STATE_COLORS.selected,
+    '--off-scene-resource-color': resourceColor,
+  } as CSSProperties;
+  const actorLabelText = status === 'blocked' ? `${labelText} · BLOCKED` : labelText;
+  const actorStatusClass = status === 'idle' ? '' : ` is-status-${status}`;
   const characterRotation = (rotation * Math.PI) / 180;
   // One desk-depth-ish step along the character's facing (prefab-local +z).
   const fallbackDeskOffset = rotateLocal(0, 0.99, rotation);
@@ -482,35 +797,9 @@ function EmployeeUnit({
           variant="compact"
         />
       ) : null}
-      {!dragging ? (
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.018, 0]}>
-          <circleGeometry args={[0.46, 34]} />
-          <meshBasicMaterial
-            color={LIGHT_SCENE_3D.text}
-            transparent
-            opacity={active ? 0.18 : running ? 0.14 : 0.1}
-            depthWrite={false}
-          />
-        </mesh>
-      ) : null}
-      {active && !dragging ? (
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
-          <ringGeometry args={[0.52, 0.64, 40]} />
-          <meshBasicMaterial color={LIGHT_SCENE_3D.selectionRing} transparent opacity={0.8} />
-        </mesh>
-      ) : null}
-      {/* Attention focus (frame.attention): the selection-ring style at lower
-          alpha — subtle, sustained, static (reduced-motion safe); never a
-          second full-strength selection ring, and no camera movement. */}
-      {attention && !active && !dragging ? (
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
-          <ringGeometry args={[0.52, 0.64, 40]} />
-          <meshBasicMaterial color={LIGHT_SCENE_3D.selectionRing} transparent opacity={0.3} />
-        </mesh>
-      ) : null}
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: r3f raycaster on a 3D object; employees are keyboard-selectable via the team dock and thread list */}
       <group
-        rotation={[0, characterRotation, 0]}
+        ref={headingRef}
         onClick={(e) => {
           e.stopPropagation();
           onSelect();
@@ -544,38 +833,38 @@ function EmployeeUnit({
           <Suspense fallback={null}>
             <GltfCharacter
               appearance={appearance}
-              action={active ? 'active' : running && !blocked ? 'working' : 'idle'}
+              status={status}
+              selected={selected}
+              hasTypedResourceMarker={hasTypedResourceMarker}
               posture={posture}
-              running={running}
               reducedMotion={reducedMotion}
               performance={performance}
               walkingRef={walkingRef}
               tempo={tempo}
               phase={phase}
+              role={employee.roleSlug ?? employee.role}
             />
           </Suspense>
         ) : null}
       </group>
       {!dragging ? (
-        <Html
+        <SceneAnnotation
           position={[labelX, labelY, labelZ]}
-          center
-          distanceFactor={18}
-          occlude={false}
-          zIndexRange={[2, 0]}
-          className={htmlInteractive ? 'off-scene-html-interactive' : 'off-scene-html-passive'}
+          priority={selected || blocked || running ? 'critical' : 'actor'}
+          interactive={htmlInteractive}
+          exclude={unitRef}
         >
           {/* Relative wrapper so the active-count badge can sit at the tag's
               top-right corner without being clipped by the tag's overflow. */}
-          <div className="off-scene-actor">
+          <div className="off-scene-actor" style={actorStyle}>
             {labelInteractive ? (
               <button
                 type="button"
-                aria-label={`Open ${employee.name}`}
+                aria-label={`Open ${employee.name}${status === 'blocked' ? ', blocked' : ''}`}
                 title={employee.name}
-                className={`off-scene-tag is-interactive${running ? ' is-running' : ''}${
-                  active ? ' is-active' : ''
-                }`}
+                className={`off-scene-tag is-interactive${actorStatusClass}${
+                  selected ? ' is-selected' : ''
+                }${attention ? ' is-attention' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   onSelect();
@@ -597,10 +886,10 @@ function EmployeeUnit({
                 }}
                 draggable={false}
               >
-                {labelText}
+                {actorLabelText}
               </button>
             ) : (
-              <span className="off-scene-tag">{labelText}</span>
+              <span className={`off-scene-tag${actorStatusClass}`}>{actorLabelText}</span>
             )}
             {/* The frame's WorkloadCue drives the ×N badge, the resource-marker
                 hierarchy, and the chip row, in lockstep with the 2D scene. When
@@ -621,19 +910,18 @@ function EmployeeUnit({
                 {workload.countLabel}
               </button>
             ) : null}
-            {workload?.topIssue ? (
-              // An approval issue pins the approval/amber ink — waiting on the
-              // user, never the risk red — and a typed resource strain shows
-              // its six-kind glyph (T/B/P/C/R/X); '!' stays the kindless
-              // fallback (flow failures). Same scheme as the 2D marker disc.
+            {hasTypedResourceMarker && workload?.topIssue && resourceKind ? (
+              // Resource markers are only the six typed strains. Approval owns
+              // its amber status marker; kindless flow failures are confirmed
+              // by the actor's blocked marker instead of a fake `!` resource.
               <span
                 className={`off-scene-resource-marker is-${workload.topIssue.severity}${
-                  workload.topIssue.kind === 'approval' ? ' is-approval' : ''
-                }${blocked ? ' is-primary' : ''}`}
+                  blocked ? ' is-primary' : ''
+                }`}
                 aria-label={workload.topIssue.label}
                 title={workload.topIssue.label}
               >
-                {resourceKind ? RESOURCE_KIND_GLYPHS[resourceKind] : '!'}
+                {RESOURCE_KIND_GLYPHS[resourceKind]}
               </span>
             ) : null}
             {workload && workload.chips.length > 0 ? (
@@ -642,6 +930,7 @@ function EmployeeUnit({
                   <span
                     key={`${chip.tone}:${chip.label}`}
                     className={`is-${chip.tone}`}
+                    style={{ '--off-scene-chip-color': CHIP_TONE_3D[chip.tone] } as CSSProperties}
                     title={chip.count != null ? `${chip.label} ${chip.count}` : chip.label}
                   >
                     {workload.tier === 'small'
@@ -667,13 +956,21 @@ function EmployeeUnit({
               </div>
             ) : null}
           </div>
-        </Html>
+        </SceneAnnotation>
       ) : null}
     </group>
   );
 }
 
-function EmployeeDragGhost({ employee, drag }: { employee: Employee; drag: SceneEmployeeDrag }) {
+function EmployeeDragGhost({
+  employee,
+  drag,
+  reducedMotion,
+}: {
+  employee: Employee;
+  drag: SceneEmployeeDrag;
+  reducedMotion: boolean;
+}) {
   const appearance = useMemo(
     () => resolveAppearance(employee.id, employee.appearance),
     [employee.id, employee.appearance],
@@ -687,7 +984,7 @@ function EmployeeDragGhost({ employee, drag }: { employee: Employee; drag: Scene
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0]}>
         <circleGeometry args={[0.94, 44]} />
         <meshBasicMaterial
-          color={LIGHT_SCENE_3D.selectionRing}
+          color={OFFICE_TOY_STATE_COLORS.selected}
           transparent
           opacity={drag.moved ? 0.12 : 0.06}
           depthWrite={false}
@@ -696,7 +993,7 @@ function EmployeeDragGhost({ employee, drag }: { employee: Employee; drag: Scene
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
         <ringGeometry args={[0.58, 0.98, 44]} />
         <meshBasicMaterial
-          color={LIGHT_SCENE_3D.selectionRing}
+          color={OFFICE_TOY_STATE_COLORS.selected}
           transparent
           opacity={drag.moved ? 0.42 : 0.24}
           depthWrite={false}
@@ -708,24 +1005,22 @@ function EmployeeDragGhost({ employee, drag }: { employee: Employee; drag: Scene
         <Suspense fallback={null}>
           <GltfCharacter
             appearance={appearance}
-            action="dragging"
-            running
+            status="idle"
+            dragging
             phase={phase}
             opacity={ghostOpacity}
+            role={employee.roleSlug ?? employee.role}
+            reducedMotion={reducedMotion}
           />
         </Suspense>
       </group>
       {drag.moved ? (
-        <Html
+        <SceneAnnotation
           position={[0, 2.64, 0]}
-          center
-          distanceFactor={17}
-          occlude={false}
-          zIndexRange={[2, 0]}
-          className="off-scene-html-passive"
+          priority="critical"
         >
           <span className="off-scene-drag-chip">Move</span>
-        </Html>
+        </SceneAnnotation>
       ) : null}
     </group>
   );
@@ -733,16 +1028,12 @@ function EmployeeDragGhost({ employee, drag }: { employee: Employee; drag: Scene
 
 function SceneDropNoticeLabel({ notice }: { notice: SceneDropNotice }) {
   return (
-    <Html
+    <SceneAnnotation
       position={[notice.x, 1.15, notice.z]}
-      center
-      distanceFactor={18}
-      occlude={false}
-      zIndexRange={[2, 0]}
-      className="off-scene-html-passive"
+      priority="critical"
     >
       <span className="off-scene-drop-note">{notice.message}</span>
-    </Html>
+    </SceneAnnotation>
   );
 }
 
@@ -781,6 +1072,7 @@ export function OfficeScene3D() {
   const selectedRun = useConversationRun(selectedThreadId ?? '');
   const reassign = useReassignEmployee();
   const [employeeDrag, setEmployeeDrag] = useState<SceneEmployeeDrag | null>(null);
+  const [returnFromDrop, setReturnFromDrop] = useState<SceneEmployeeReturn | null>(null);
   const [hoveredEmployeeId, setHoveredEmployeeId] = useState<string | null>(null);
   const [hoveredZoneId, setHoveredZoneId] = useState<string | null>(null);
   const [dropNotice, setDropNotice] = useState<SceneDropNotice | null>(null);
@@ -788,13 +1080,29 @@ export function OfficeScene3D() {
   // Shared staging inputs — the same layout/roster/seat-planner facts the 2D
   // scene and the drilldown read (never re-derived per scene).
   const {
+    ready: sceneInputsReady,
     layoutData,
     roster,
     zoneDefs,
     fallbackZone: defaultEmployeeZone,
     positions: placementsByEmployee,
     stagingPrefabs,
+    pathfinder,
+    routeFor,
+    routeSignature,
   } = useSceneStagingInputs();
+  const knownEmployeeIdsRef = useRef<Set<string> | null>(null);
+  const enteringEmployeeIds = new Set<string>();
+  if (sceneInputsReady && knownEmployeeIdsRef.current) {
+    for (const employee of roster) {
+      if (!knownEmployeeIdsRef.current.has(employee.id)) enteringEmployeeIds.add(employee.id);
+    }
+  }
+  useLayoutEffect(() => {
+    knownEmployeeIdsRef.current = sceneInputsReady
+      ? new Set(roster.map((employee) => employee.id))
+      : null;
+  }, [roster, sceneInputsReady]);
   const real = layoutData ?? null;
   // Only reachable with a real backend layout that has zero zones — the
   // no-backend preview path always resolves to the non-empty FALLBACK_ZONES.
@@ -802,22 +1110,6 @@ export function OfficeScene3D() {
   // this scene never see it); here zero zones just means zero seats.
   const emptyOffice = zoneDefs.length === 0;
   const scenePrefabs = real?.prefabs;
-
-  // Floor pathfinder (H1/H2): one grid built per obstacle set from the SAME
-  // prefab obstacle radii the seat planner uses, so employees WALK a route
-  // around furniture instead of gliding through it. Built once here (not per
-  // frame, not per actor) and shared by every EmployeeUnit; null (no real
-  // prefabs, e.g. the no-backend preview) keeps the straight-line lerp. A* runs
-  // only when an actor's target changes.
-  const pathfinder = useMemo(() => {
-    const obstacles = sceneObstacles(scenePrefabs);
-    if (obstacles.length === 0) return null;
-    const { floorW, floorD } = floorBounds(zoneDefs);
-    return buildOfficePathfinder(
-      { minX: -floorW / 2, minZ: -floorD / 2, maxX: floorW / 2, maxZ: floorD / 2 },
-      obstacles,
-    );
-  }, [scenePrefabs, zoneDefs]);
 
   // GltfCharacter's reducedMotion prop path (frozen mixer → static poses) is a
   // render concern; the frame separately carries staging=null under reduced motion.
@@ -831,6 +1123,8 @@ export function OfficeScene3D() {
   const { frame, actorById } = useSceneCueFrame({
     prefabs: stagingPrefabs,
     actorPositions: placementsByEmployee,
+    routeFor,
+    routeSignature,
     hoveredEmployeeId,
     draggingEmployeeId: employeeDrag?.employeeId ?? null,
   });
@@ -854,12 +1148,16 @@ export function OfficeScene3D() {
       labelSlots.set(laneKey, slot + 1);
       return {
         id: `${cue.employeeId}|${cue.target}|${cue.kind}`,
-        from: [fromX, 0.12, fromZ] as const,
+        from: [fromX, 0.055, fromZ] as const,
         to,
         color: INK_3D[cue.ink],
+        ink: cue.ink,
+        pulse: cue.pulse,
+        phase: (cue.at % 1600) / 1600,
+        showLabel: cue.kind !== 'failure',
         label: flowCueText(cue),
-        labelPosition: [(fromX + to[0]) / 2, 0.6 + slot * 0.34, (fromZ + to[2]) / 2] as const,
-        lineWidth: 1.6 + bundleEmphasis(cue),
+        labelPosition: [(fromX + to[0]) / 2, 0.42 + slot * 0.28, (fromZ + to[2]) / 2] as const,
+        lineWidth: 1.25 + bundleEmphasis(cue) * 0.75,
       };
     });
   }, [actorById, defaultEmployeeZone, placementsByEmployee, frame.flows]);
@@ -892,7 +1190,7 @@ export function OfficeScene3D() {
     const previous = prevRecentCountRef.current;
     prevRecentCountRef.current = frame.delivery.recentCount;
     if (frame.delivery.recentCount < previous) {
-      // Claim beats expired (3-4.5s TTL): clear any armed highlight — the
+      // Claim beats expired after the bounded delivery choreography: clear any
       // reset timer below was cancelled by this effect's own cleanup, so
       // without this the shelf would stay highlighted forever.
       setDeliveryArrived(false);
@@ -929,7 +1227,7 @@ export function OfficeScene3D() {
       <Canvas
         shadows="soft"
         dpr={[1, 1.75]}
-        // Keep R3F's default `frameloop="always"`. We tried "demand" to save
+        // Keep R3F's continuous frame loop. We tried "demand" to save
         // idle CPU but the character mixers advance in useFrame (GltfCharacter
         // RigView) and EmployeeUnit's glide lerp mutates positions via refs —
         // neither invalidates, so demand mode froze every employee's
@@ -937,21 +1235,24 @@ export function OfficeScene3D() {
         // setState. Re-enable demand only alongside an invalidate() in those
         // useFrame consumers.
         camera={{ position: OFFICE_CAMERA_PRESET.position, fov: OFFICE_CAMERA_PRESET.fov }}
+        frameloop="always"
         gl={{ antialias: true, toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.02 }}
         className="off-scene-canvas"
       >
-        <color attach="background" args={[LIGHT_SCENE_3D.sceneBackground]} />
-
+        <SceneAnnotationScheduler />
+        <DioramaBackdrop />
         <SceneLighting />
         <SceneEnvironment />
         <RoomShell onFloorClick={closeThread} />
 
         {zoneDefs.map((zone) => (
-          <Fragment key={zone.id}>
-            <ZoneRug zone={zone} highlight={employeeDrag !== null && hoveredZoneId === zone.id} />
-            <ZoneCeilingLight zone={zone} />
-          </Fragment>
+          <ZoneRug
+            key={zone.id}
+            zone={zone}
+            highlight={employeeDrag !== null && hoveredZoneId === zone.id}
+          />
         ))}
+        <DioramaDressing zones={zoneDefs} prefabCount={scenePrefabs?.length ?? 0} />
 
         {real ? (
           scenePrefabs?.map(({ instance, definition }) => (
@@ -975,6 +1276,7 @@ export function OfficeScene3D() {
                 z: defaultEmployeeZone.cz,
                 rotation: 0,
                 posture: 'standing' as const,
+                zoneId: defaultEmployeeZone.id,
               };
               // Every runtime fact for this actor comes from its cue: running,
               // selection, drag, the workload bubble, staging, performance.
@@ -999,6 +1301,9 @@ export function OfficeScene3D() {
               // clip path (idle loop, talk loop) stays byte-identical.
               const performance = cue?.performance ?? undefined;
               const threadId = cue?.threadId ?? null;
+              const entryPoint = enteringEmployeeIds.has(employee.id)
+                ? employeeEntryPoint(placement, zoneDefs)
+                : null;
               return (
                 <EmployeeUnit
                   key={employee.id}
@@ -1009,15 +1314,29 @@ export function OfficeScene3D() {
                   posture={!real ? 'sitting' : target.posture}
                   withDesk={!real}
                   running={running}
+                  status={cue?.status ?? 'idle'}
                   workload={workload}
                   resourceKind={resourceKindByEmployee.get(employee.id) ?? null}
                   reducedMotion={reducedMotion}
-                  active={cue?.selected ?? false}
+                  selected={cue?.selected ?? false}
                   attention={attentionEmployeeId === employee.id}
                   dragging={cue?.dragging ?? false}
                   performance={performance}
                   zones={zoneDefs}
                   pathfinder={pathfinder}
+                  entryFrom={
+                    entryPoint
+                      ? {
+                          id: `entry-${employee.id}`,
+                          employeeId: employee.id,
+                          x: entryPoint[0],
+                          z: entryPoint[1],
+                        }
+                      : null
+                  }
+                  returnFromDrop={
+                    returnFromDrop?.employeeId === employee.id ? returnFromDrop : null
+                  }
                   onSelect={() => threadId && openThread(threadId)}
                   onDrilldown={() => openWorkloadDrilldown(employee.id)}
                   onHoverChange={(hovered) =>
@@ -1028,7 +1347,16 @@ export function OfficeScene3D() {
                   onHoverZone={setHoveredZoneId}
                   onDragState={setEmployeeDrag}
                   onDrop={(result) => {
-                    if (result.zoneId)
+                    const changesZone = result.zoneId != null && result.zoneId !== placement.zoneId;
+                    if (result.moved && !changesZone && result.x != null && result.z != null) {
+                      setReturnFromDrop({
+                        id: `drop-return-${crypto.randomUUID()}`,
+                        employeeId: employee.id,
+                        x: result.x,
+                        z: result.z,
+                      });
+                    }
+                    if (changesZone && result.zoneId)
                       reassign.mutate({ employeeId: employee.id, zoneId: result.zoneId });
                     recordSceneDropDiagnostic({
                       id: `drop-${crypto.randomUUID()}`,
@@ -1055,9 +1383,14 @@ export function OfficeScene3D() {
             })}
 
         {employeeDrag && draggedEmployee ? (
-          <EmployeeDragGhost employee={draggedEmployee} drag={employeeDrag} />
+          <EmployeeDragGhost
+            employee={draggedEmployee}
+            drag={employeeDrag}
+            reducedMotion={reducedMotion}
+          />
         ) : null}
         {dropNotice ? <SceneDropNoticeLabel key={dropNotice.id} notice={dropNotice} /> : null}
+        <DeliveryShelf3D interactive={deliveryLatest !== null} onOpen={handleDeliveryHistory} />
         {sceneFlowLines.map((line) => (
           <Fragment key={line.id}>
             <Line
@@ -1065,48 +1398,52 @@ export function OfficeScene3D() {
               color={line.color}
               lineWidth={line.lineWidth}
               transparent
-              opacity={0.58}
+              opacity={0.38}
+            />
+            <FlowPacket3D
+              from={line.from}
+              to={line.to}
+              color={line.color}
+              pulse={line.pulse}
+              phase={line.phase}
+              reducedMotion={reducedMotion}
             />
             {/* Lane density label — the shared flowCueText rule (`×N · label`
                 for bundles), a compact pill at the line midpoint. */}
-            <Html
-              position={line.labelPosition}
-              center
-              distanceFactor={18}
-              occlude={false}
-              zIndexRange={[2, 0]}
-              className="off-scene-html-passive"
-            >
-              <span className="off-scene-flow-label">{line.label}</span>
-            </Html>
+            {line.showLabel ? (
+              <SceneAnnotation
+                position={line.labelPosition}
+                priority="ambient"
+              >
+                <span
+                  className={`off-scene-flow-label is-${line.ink}`}
+                  style={{ '--off-scene-flow-color': line.color } as CSSProperties}
+                >
+                  {line.label}
+                </span>
+              </SceneAnnotation>
+            ) : null}
           </Fragment>
         ))}
         {/* Purpose-distinct target anchors — a small labeled node per active
             flow target (dense HUD, not decoration); the delivery shelf below
             is itself the delivery anchor when it renders. */}
         {activeFlowTargets.map((target) =>
-          target === 'delivery' && deliveryLatest ? null : (
-            <Html
+          target === 'delivery' ? null : (
+            <SceneAnnotation
               key={target}
               position={flowTarget3D(target)}
-              center
-              distanceFactor={18}
-              occlude={false}
-              zIndexRange={[2, 0]}
-              className="off-scene-html-passive"
+              priority="ambient"
             >
               <span className="off-scene-flow-anchor">{FLOW_TARGET_LABELS[target]}</span>
-            </Html>
+            </SceneAnnotation>
           ),
         )}
         {deliveryLatest ? (
-          <Html
-            position={flowTarget3D('delivery')}
-            center
-            distanceFactor={18}
-            occlude={false}
-            zIndexRange={[3, 0]}
-            className="off-scene-html-interactive"
+          <SceneAnnotation
+            position={[OFFICE_DELIVERY_WORLD.x, 0.88, OFFICE_DELIVERY_WORLD.z]}
+            priority="critical"
+            interactive
           >
             {/* Delivery shelf (I5) — a claimable output surface: ×N total on
                 the head, up to 3 claimable chips (kind tag + ellipsized title,
@@ -1121,6 +1458,11 @@ export function OfficeScene3D() {
               className={`off-scene-delivery${deliveryArrived ? ' is-arrived' : ''}${
                 deliveryAttention ? ' is-attention' : ''
               }`}
+              style={
+                {
+                  '--off-scene-artifact-color': OFFICE_TOY_SIGNAL_COLORS.artifact,
+                } as CSSProperties
+              }
               onClick={handleDeliveryHistory}
             >
               <button
@@ -1133,7 +1475,7 @@ export function OfficeScene3D() {
                 }}
               >
                 <span>Delivery</span>
-                <b>{frame.delivery.recentCount}</b>
+                <b>×{frame.delivery.recentCount}</b>
               </button>
               <div className="off-scene-delivery-chips">
                 {frame.delivery.chips.map((chip, index) => (
@@ -1169,7 +1511,7 @@ export function OfficeScene3D() {
                 ) : null}
               </div>
             </div>
-          </Html>
+          </SceneAnnotation>
         ) : null}
 
         {/* Free orbit camera: drag to rotate, two-finger / right-drag to pan,

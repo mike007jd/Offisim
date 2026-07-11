@@ -2,6 +2,7 @@ import { RoomShell } from '@/surfaces/office/scene/r3d/RoomShell.js';
 import { SceneEnvironment } from '@/surfaces/office/scene/r3d/SceneEnvironment.js';
 import { SceneLighting } from '@/surfaces/office/scene/r3d/SceneLighting.js';
 import { ScenePostFx } from '@/surfaces/office/scene/r3d/ScenePostFx.js';
+import { SceneAnnotationScheduler } from '@/surfaces/office/scene/r3d/SceneAnnotation.js';
 import { ZoneCeilingLight, ZoneRug } from '@/surfaces/office/scene/r3d/ZoneDressing.js';
 import { Prefab3D } from '@/surfaces/office/scene/r3d/prefabs/Prefab3D.js';
 import {
@@ -529,6 +530,7 @@ export function StudioScene3D({
       gl={{ antialias: true, toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.02 }}
       className="off-scene-canvas"
     >
+      <SceneAnnotationScheduler />
       <color attach="background" args={[LIGHT_SCENE_3D.sceneBackground]} />
       <SceneLighting />
       <SceneEnvironment />

@@ -265,13 +265,21 @@ export function useReassignEmployee() {
   return useMutation({
     mutationFn: async ({ employeeId, zoneId }: { employeeId: string; zoneId: string }) => {
       const repos = await reposOrNull();
-      if (!repos) return;
+      if (!repos) return { employeeId, zoneId, persisted: false };
       const zone = await repos.zones.findById(zoneId);
       if (!zone) throw new Error(`Unknown office zone: ${zoneId}`);
       const workstationId = await ensureZoneWorkstation(zone);
       await repos.employees.update(employeeId, { workstation_id: workstationId });
+      return { employeeId, zoneId, persisted: true };
     },
-    onSuccess: () => {
+    onSuccess: ({ employeeId, zoneId, persisted }) => {
+      if (persisted) {
+        queryClient.setQueryData<Employee[]>(['employees', companyId], (current) =>
+          current?.map((employee) =>
+            employee.id === employeeId ? { ...employee, workstationId: zoneId } : employee,
+          ),
+        );
+      }
       queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
       queryClient.invalidateQueries({ queryKey: ['office-layout', companyId] });
     },

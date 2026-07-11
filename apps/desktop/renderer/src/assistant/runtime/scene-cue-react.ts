@@ -22,13 +22,23 @@
  */
 import { useUiState } from '@/app/ui-state.js';
 import { useEmployees, useThreads } from '@/data/queries.js';
-import type { StagingPrefab } from '@offisim/shared-types';
+import {
+  type AmbientActorAvailability,
+  type AmbientActorHome,
+  type AmbientRoutePlanner,
+  type StagingPrefab,
+  worldAnchorsFor,
+} from '@offisim/shared-types';
 import { useMemo } from 'react';
 import { useEmployeeWorkloads } from './conversation-run-react.js';
+import { useOfficeAmbientDirections } from './office-ambient-life.js';
 import { useOfficeBeats, usePrefersReducedMotion } from './office-dramaturgy.js';
 import {
   type ActorCue,
   type SceneCueFrame,
+  actorAcceptsAmbientCue,
+  ambientDirectionsForAvailableActors,
+  applyAmbientCues,
   applyInputState,
   projectSceneBaseFrame,
 } from './scene-cue-projection.js';
@@ -37,7 +47,18 @@ export interface SceneCueFrameOptions {
   /** Staging prefabs in world coordinates (anchor offsets already scaled). */
   readonly prefabs: readonly StagingPrefab[];
   /** Home seat per employee — lets anchor reservation pick the nearest anchor. */
-  readonly actorPositions?: ReadonlyMap<string, { readonly x: number; readonly z: number }>;
+  readonly actorPositions?: ReadonlyMap<
+    string,
+    {
+      readonly x: number;
+      readonly z: number;
+      readonly rotation?: number;
+      readonly posture?: 'sitting' | 'standing';
+    }
+  >;
+  /** Exact route oracle from the live 3D pathfinder; absent surfaces use straight travel. */
+  readonly routeFor?: AmbientRoutePlanner;
+  readonly routeSignature?: string;
   /** Scene-local interaction state; omitted by non-interactive consumers. */
   readonly hoveredEmployeeId?: string | null;
   readonly draggingEmployeeId?: string | null;
@@ -47,7 +68,14 @@ export function useSceneCueFrame(options: SceneCueFrameOptions): {
   readonly frame: SceneCueFrame;
   readonly actorById: Map<string, ActorCue>;
 } {
-  const { prefabs, actorPositions, hoveredEmployeeId, draggingEmployeeId } = options;
+  const {
+    prefabs,
+    actorPositions,
+    routeFor,
+    routeSignature,
+    hoveredEmployeeId,
+    draggingEmployeeId,
+  } = options;
   const companyId = useUiState((s) => s.companyId);
   const projectId = useUiState((s) => s.projectId);
   const selectedThreadId = useUiState((s) => s.selectedThreadId);
@@ -95,15 +123,105 @@ export function useSceneCueFrame(options: SceneCueFrameOptions): {
     [roster, workloads, beats, prefabs, actorPositions, mode, reducedMotion, threadByEmployee],
   );
 
-  // Level 2: the O(actors) interaction overlay.
+  const ambientActors = useMemo<AmbientActorAvailability[]>(
+    () =>
+      baseFrame.actors.map((actor) => ({
+        employeeId: actor.employeeId,
+        busy: !actorAcceptsAmbientCue(actor) || actor.employeeId === draggingEmployeeId,
+      })),
+    [baseFrame, draggingEmployeeId],
+  );
+  const ambientHomes = useMemo<AmbientActorHome[]>(() => {
+    if (!actorPositions) return [];
+    const homes: AmbientActorHome[] = [];
+    for (const employeeId of roster) {
+      const position = actorPositions.get(employeeId);
+      if (!position) continue;
+      homes.push({
+        employeeId,
+        x: position.x,
+        z: position.z,
+        facing: position.rotation ?? 0,
+        posture: position.posture ?? 'sitting',
+      });
+    }
+    return homes;
+  }, [actorPositions, roster]);
+  const blockedAnchorIds = useMemo(
+    () =>
+      baseFrame.actors.flatMap((actor) =>
+        actor.staging?.anchorId ? [actor.staging.anchorId] : [],
+      ),
+    [baseFrame],
+  );
+  const ambientContext = useMemo(
+    () => ({
+      companyId,
+      projectId,
+      actors: ambientActors,
+      homes: ambientHomes,
+      prefabs,
+      blockedAnchorIds,
+      mode,
+      reducedMotion,
+      routeFor,
+      routeSignature,
+    }),
+    [
+      companyId,
+      projectId,
+      ambientActors,
+      ambientHomes,
+      prefabs,
+      blockedAnchorIds,
+      mode,
+      reducedMotion,
+      routeFor,
+      routeSignature,
+    ],
+  );
+  const ambientDirections = useOfficeAmbientDirections(ambientContext);
+  const unavailableEmployeeIds = useMemo(
+    () => new Set(ambientActors.filter((actor) => actor.busy).map((actor) => actor.employeeId)),
+    [ambientActors],
+  );
+  const unavailableAmbientAnchorIds = useMemo(() => {
+    const unavailable = new Set(blockedAnchorIds);
+    if (unavailable.size === 0) return unavailable;
+    const anchors = worldAnchorsFor(prefabs);
+    const blockedFixtureIds = new Set(
+      anchors
+        .filter((anchor) => unavailable.has(anchor.anchorId))
+        .map((anchor) => anchor.instanceId),
+    );
+    for (const anchor of anchors) {
+      if (blockedFixtureIds.has(anchor.instanceId)) unavailable.add(anchor.anchorId);
+    }
+    return unavailable;
+  }, [blockedAnchorIds, prefabs]);
+  const visibleAmbientDirections = useMemo(
+    () =>
+      ambientDirectionsForAvailableActors(
+        ambientDirections,
+        unavailableEmployeeIds,
+        unavailableAmbientAnchorIds,
+      ),
+    [ambientDirections, unavailableEmployeeIds, unavailableAmbientAnchorIds],
+  );
+  const ambientFrame = useMemo(
+    () => applyAmbientCues(baseFrame, visibleAmbientDirections),
+    [baseFrame, visibleAmbientDirections],
+  );
+
+  // Level 2: renderer-owned ambience, then the O(actors) interaction overlay.
   const frame = useMemo(
     () =>
-      applyInputState(baseFrame, {
+      applyInputState(ambientFrame, {
         selectedEmployeeId,
         hoveredEmployeeId: hoveredEmployeeId ?? null,
         draggingEmployeeId: draggingEmployeeId ?? null,
       }),
-    [baseFrame, selectedEmployeeId, hoveredEmployeeId, draggingEmployeeId],
+    [ambientFrame, selectedEmployeeId, hoveredEmployeeId, draggingEmployeeId],
   );
 
   // The shared per-frame actor index every consumer previously rebuilt locally.

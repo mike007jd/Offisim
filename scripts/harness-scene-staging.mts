@@ -308,8 +308,10 @@ console.log('\n[performance] layered state for every beat kind');
   );
   check('complete → happy', performanceForBeat(beat('complete')).expression === 'happy');
   check(
-    'approval → worried (raise hand / wait)',
-    performanceForBeat(beat('approval')).expression === 'worried',
+    'approval → thinking + approval-wait + document',
+    performanceForBeat(beat('approval')).expression === 'thinking' &&
+      performanceForBeat(beat('approval')).workGesture === 'approval-wait' &&
+      performanceForBeat(beat('approval')).prop === 'document',
   );
   check('plan → write-board', performanceForBeat(beat('plan')).workGesture === 'write-board');
   check(

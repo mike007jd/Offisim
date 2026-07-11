@@ -19,6 +19,31 @@ export interface DramaturgyModeOptions {
 
 export const DEFAULT_MAX_WALKERS = 4;
 
+/** Independent density budget for the non-AI P5 ambient-life layer. */
+export interface AmbientModePolicy {
+  readonly enabled: boolean;
+  readonly maxAway: number;
+  readonly maxActiveActors: number;
+}
+
+const AMBIENT_MODE_POLICIES: Readonly<Record<DramaturgyMode, AmbientModePolicy>> = {
+  focus: { enabled: false, maxAway: 0, maxActiveActors: 0 },
+  office: { enabled: true, maxAway: 2, maxActiveActors: 4 },
+  cinematic: { enabled: true, maxAway: 3, maxActiveActors: 6 },
+};
+
+/**
+ * Ambient life is presentation only. Focus and reduced-motion suppress the
+ * whole low-frequency layer; office keeps the hard two-away contract, while
+ * cinematic may use one extra mover without changing any runtime fact.
+ */
+export function ambientPolicyForMode(
+  mode: DramaturgyMode,
+  reducedMotion = false,
+): AmbientModePolicy {
+  return reducedMotion ? AMBIENT_MODE_POLICIES.focus : AMBIENT_MODE_POLICIES[mode];
+}
+
 /**
  *  - Focus / reduced-motion: nobody relocates (status + performance stay in place).
  *  - Office (default): at most `maxWalkers` relocate — the highest-priority beats

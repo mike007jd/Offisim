@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "exportedAt": "2026-07-10T07:28:40.382Z",
+  "source": "settings.runtime.scene-drop-diagnostic",
+  "eventCount": 3,
+  "events": [
+    {
+      "id": "drop-1551ca44-b8b6-404d-a784-c4340284ba08",
+      "at": "2026-07-10T07:27:29.131Z",
+      "employeeId": "d0ab321c-bb00-4cee-8e2b-6410a03e73fb",
+      "startX": 383.0104064941406,
+      "startY": 557.5130004882812,
+      "endX": 582.5911254882812,
+      "endY": 331.3984375,
+      "targetZoneId": null,
+      "decision": "missed"
+    },
+    {
+      "id": "drop-aceb8716-9594-4633-b1f8-70de757d3254",
+      "at": "2026-07-10T07:24:08.768Z",
+      "employeeId": "5218838a-37d0-437b-a1ba-4d530c1ec467",
+      "startX": 680.6510620117188,
+      "startY": 455.9921875,
+      "endX": 519.140625,
+      "endY": 655.5729370117188,
+      "targetZoneId": "8fecc138-fb91-4d39-9e25-332f7728f0f6::zone-product",
+      "decision": "assigned"
+    },
+    {
+      "id": "drop-f97afc17-6da3-4506-806e-c06ad43dcdb9",
+      "at": "2026-07-10T07:22:53.069Z",
+      "employeeId": "5218838a-37d0-437b-a1ba-4d530c1ec467",
+      "startX": 384.1640625,
+      "startY": 562.1276245117188,
+      "endX": 744.1015625,
+      "endY": 446.7630310058594,
+      "targetZoneId": "8fecc138-fb91-4d39-9e25-332f7728f0f6::zone-rest",
+      "decision": "assigned"
+    }
+  ]
+}

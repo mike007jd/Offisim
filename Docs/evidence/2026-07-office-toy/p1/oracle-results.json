@@ -1,0 +1,195 @@
+{
+  "version": 1,
+  "result": "pass",
+  "contractVersion": 1,
+  "checks": [
+    {
+      "name": "girth contract",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "head-shape contract",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "six neutral skin tones",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "appearance endpoint removes accentVariant",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "headShape is editable and persisted",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "tone UI labels are neutral",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "resolver and Personnel share every reachable hair and outfit color",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "explicit template colors remain visibly selected as a custom swatch",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "appearance draft uses the office resolver for every effective color",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "gender presentation affects only the 2D avatar lane",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "role and skin sampling are independent",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "3D rig identity excludes gender and girth scales XZ only",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "hair reachable, transform, manifest, shipped, and runtime URL sets are exact",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "six transformed hair silhouettes wrap the head with a visible front hairline while clearing eyes",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "four eye states and deterministic blink guard are wired",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "reduced-motion reaches office actors, drag ghost, and Personnel preview",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "four garment silhouettes and role badge exist",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "five performance props map to visible accessories",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "every reachable performance and role accessory has one attach spec",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "canonical role registry is fully classified",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "P0 diagnostic seam removed",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "laptop attach has one source shared with the P0 contact oracle",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "props.glb contains every P1 prop node",
+      "pass": true,
+      "detail": "missing "
+    },
+    {
+      "name": "every reachable prop attaches to a shipped top-level node and body bone",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "every P1 prop node has renderable geometry",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "baked P0 eye mesh removed",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "brows assets and manifest lane removed",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "hair manifest ships six assets",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "manifest exactly covers shipped assets, byte sizes, and 25 MiB budget",
+      "pass": true,
+      "detail": "726087/26214400"
+    },
+    {
+      "name": "licenses identify authored P1 geometry",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "executable runtime oracle covers exact scales, blink/reduced-motion, prop precedence, and garments",
+      "pass": true,
+      "detail": "PASS harness-character-toy-p1-runtime\n"
+    },
+    {
+      "name": "production Gltf wiring consumes the executable scale, eye, prop, and garment contracts",
+      "pass": true,
+      "detail": ""
+    }
+  ],
+  "assets": {
+    "files": {
+      "LICENSES.md": 4203,
+      "animations.glb": 547280,
+      "body_toy.glb": 58524,
+      "hair_01.glb": 8880,
+      "hair_02.glb": 10416,
+      "hair_03.glb": 9652,
+      "hair_04.glb": 18900,
+      "hair_05.glb": 6972,
+      "hair_06.glb": 9012,
+      "props.glb": 52248
+    },
+    "sha256": {
+      "LICENSES.md": "83a0982016bc96acbc037a6522125b4383f6225e0129b2d9eb48ef1aff2be08c",
+      "animations.glb": "ddcd02a7a8a1a86c74644ef77b57a4895fd1a17f0be658046c256596d5d5fd71",
+      "body_toy.glb": "a6786c46667910b9fa8f2e811a5f17cee11fdeb93f503aaa480d3a90b17e45d0",
+      "hair_01.glb": "76a400e30bb046aa8a4c0d25c3f21c59c4c3cb33c0c274e1bbcf2e3e3fa528e8",
+      "hair_02.glb": "ed16569a4bf4dd0a0336c39137c2e86843599270594401a68b63f8229348782c",
+      "hair_03.glb": "1030e9c6565ce2e93fc308cacd36b53680ad933aefa8523a17447ba3e38cc5ab",
+      "hair_04.glb": "4f8e529cb6ed527277ea9f600f4232b157d0c3e4f1246bbd961540a8103a9f80",
+      "hair_05.glb": "908489693156e16306cb7a598d508cf8cb8968c8e3ebc621aa5d041f97abbace",
+      "hair_06.glb": "3c1b65446abe4502fbbfb0fbc7d9356a96e68e6db2756e108d85dc35e088331c",
+      "props.glb": "caa4a05a39e918c8fdc9e40650f7dc103e1d1ae2e357bf55d42671b0bc0d8f94"
+    },
+    "totalBytes": 726087,
+    "budgetBytes": 26214400
+  }
+}

@@ -11,11 +11,11 @@
  *
  * Composition, never reimplementation: workload grouping is `groupedWorkload`,
  * claims are `beatToClaimable`, staging is `projectOfficeStaging` +
- * `applyDramaturgyMode`, performance is the staged `performanceForBeat` result
- * (null for unstaged actors). Actor/workload cues read ONLY the snapshot-derived
- * workload projection — the rolling 400-event/120s beat buffer feeds nothing but
- * flow/delivery/resource-kind transients, so high concurrency can never
- * undercount work when old beats fall out of the window.
+ * `applyDramaturgyMode`, and performance is the staged `performanceForBeat`
+ * result plus the total approval/blocked fallback. Actor/workload COUNTS read
+ * only the snapshot-derived workload projection; the rolling beat buffer feeds
+ * flow/delivery/resource transients and the bounded artifact choreography, so
+ * old beats can never undercount high-concurrency work.
  *
  * The projection is split so interaction never recomputes facts:
  * `projectSceneBaseFrame(facts)` derives everything from runtime facts alone
@@ -30,7 +30,9 @@
  */
 import {
   type ActorStaging,
+  type AmbientActorDirection,
   type CharacterPerformanceState,
+  type CharacterStatus,
   type DramaturgyMode,
   type FlowIntent,
   type ResourceKind,
@@ -39,7 +41,9 @@ import {
   type SurfacedResourceSeverity,
   type ToolRichDetail,
   applyDramaturgyMode,
+  compareStrings as cmpStr,
   isBeatLive,
+  performanceForStatus,
   projectOfficeStaging,
   resourceSeverityRank,
 } from '@offisim/shared-types';
@@ -296,8 +300,12 @@ export interface ActorCue {
   readonly selected: boolean;
   readonly hovered: boolean;
   readonly dragging: boolean;
+  /** First-class P4 operational state. Selection stays orthogonal. */
+  readonly status: CharacterStatus;
+  /** A live artifact choreography currently owns this actor's direction. */
+  readonly delivering: boolean;
   readonly running: boolean;
-  /** Staged performance; null = unstaged (scenes keep their legacy idle pose path). */
+  /** Staged/status performance; null means the neutral posture fallback applies. */
   readonly performance: CharacterPerformanceState | null;
   /** Relocation anchor AFTER applyDramaturgyMode; null = stay home. */
   readonly staging: ActorStaging | null;
@@ -436,9 +444,20 @@ function isBlockingIssue(issue: WorkloadPriorityIssue): boolean {
   return resourceSeverityRank(issue.severity) >= BLOCKED_RANK;
 }
 
-/** Deterministic string comparator (sorts never depend on locale). */
-function cmpStr(a: string, b: string): number {
-  return a < b ? -1 : a > b ? 1 : 0;
+/**
+ * The one operational-state classifier consumed by both scene modes. Priority
+ * is fixed: blocked > approval > working/delivering > idle. Selection is not an
+ * input and therefore cannot change business state or performance.
+ */
+function characterStatusFor(
+  workload: EmployeeWorkloadProjection | undefined,
+  delivering = false,
+): CharacterStatus {
+  if ((workload?.workloadSummary.byStatus.blocked ?? 0) > 0) return 'blocked';
+  if ((workload?.workloadSummary.approvalCount ?? workload?.waitingCount ?? 0) > 0)
+    return 'approval';
+  if ((workload?.activeCount ?? 0) > 0 || delivering) return 'working';
+  return 'idle';
 }
 
 /** The empty bubble for an idle actor (in the roster join but off the snapshot). */
@@ -499,11 +518,11 @@ function flowCueTarget(beat: SceneBeat): FlowCueTarget {
 }
 
 /**
- * Semantic ink for a signal beat. An approval keeps its own role even though the
- * beat carries a blocking permission resource — "waiting on the user" is not the
- * same signal as "broken" — and a RECOVERING resource reads neutral (PRD: a
- * quiet return to normal flow, never painted in the failure red it just left).
- * Otherwise resource strain wins, then artifact, then the ordinary work stroke.
+ * Semantic ink for a signal beat. An approval keeps its own amber role because
+ * "waiting on the user" is not the same signal as "broken". A RECOVERING resource
+ * also reads neutral (PRD: a quiet return to normal flow, never painted in the
+ * failure red it just left). Otherwise resource strain wins, then artifact, then
+ * the ordinary work stroke.
  */
 function inkForBeat(beat: SceneBeat): SceneInk {
   if (beat.flow?.kind === 'approval') return 'approval';
@@ -551,15 +570,6 @@ export function projectSceneBaseFrame(input: SceneCueFacts): SceneCueFrame {
     .filter((beat) => isBeatLive(beat, input.now))
     .sort((a, b) => a.at - b.at || cmpStr(a.id, b.id));
 
-  // ── Staging (duplication items 7/8): one shared invocation of the pipeline
-  // both scenes ran independently — dominant ACTIVE beats → anchor reservation →
-  // dramaturgy-mode density cut.
-  const staged = applyDramaturgyMode(
-    projectOfficeStaging(dominantBeatsFrom(input.workloads), input.prefabs, input.actorPositions),
-    { mode: input.mode, reducedMotion: input.reducedMotion },
-  );
-  const stagedByEmployee = new Map(staged.map((s) => [s.employeeId, s]));
-
   // ── Delivery + per-actor artifacts + typed strain, one walk over the live
   // beats: global claims in beat order, each claim attributed to its owner
   // (named employee, or the employee whose active run produced it — delegated
@@ -572,11 +582,22 @@ export function projectSceneBaseFrame(input: SceneCueFacts): SceneCueFrame {
   const claims: ClaimableArtifact[] = [];
   const artifactsByEmployee = new Map<string, ClaimableArtifact[]>();
   const resourceKindByRun = new Map<string, ResourceKind>();
+  // Newest live artifact per owner. It remains a choreography input even when
+  // run.completed is the workload's newer dominant beat, so a fast terminal
+  // event cannot cancel carry-to-shelf before the actor takes one step.
+  const deliveryBeatByEmployee = new Map<string, SceneBeat>();
   for (const beat of orderedBeats) {
     if (beat.resource) resourceKindByRun.set(beat.runId, beat.resource.kind);
     const runOwner = employeeByRun.get(beat.runId) ?? null;
-    const claim = beatToClaimable(beat, beat.employeeId ?? runOwner);
+    const resolvedOwner = beat.employeeId ?? runOwner;
+    const claim = beatToClaimable(beat, resolvedOwner);
     if (!claim) continue;
+    if (resolvedOwner) {
+      deliveryBeatByEmployee.set(
+        resolvedOwner,
+        beat.employeeId === resolvedOwner ? beat : { ...beat, employeeId: resolvedOwner },
+      );
+    }
     // The global shelf carries every owner-resolvable claim: a delegated
     // child's artifact (runOwner attribution, no beat.employeeId) is a real
     // delivery and must not vanish from the shelf/history while appearing in
@@ -607,12 +628,57 @@ export function projectSceneBaseFrame(input: SceneCueFacts): SceneCueFrame {
     latest: chips[chips.length - 1] ?? null,
   };
 
+  // ── Staging: the normal dominant active beat directs each actor, except a
+  // still-live artifact milestone owns direction until its delivery lifecycle
+  // ends. Blocked/approval truth wins over delivery for the same actor.
+  const normalDirectionByEmployee = new Map(
+    dominantBeatsFrom(input.workloads).flatMap((beat) =>
+      beat.employeeId ? ([[beat.employeeId, beat]] as const) : [],
+    ),
+  );
+  const directionByEmployee = new Map(normalDirectionByEmployee);
+  for (const [employeeId, beat] of deliveryBeatByEmployee) {
+    const state = characterStatusFor(input.workloads.get(employeeId));
+    if (state !== 'blocked' && state !== 'approval') directionByEmployee.set(employeeId, beat);
+  }
+  const projectDirections = () =>
+    applyDramaturgyMode(
+      projectOfficeStaging([...directionByEmployee.values()], input.prefabs, input.actorPositions),
+      { mode: input.mode, reducedMotion: input.reducedMotion },
+    );
+  let staged = projectDirections();
+
+  // A scarce delivery anchor may be unavailable under bursty parallel output.
+  // Never claim that actor is carrying while leaving it at its desk: restore
+  // its ordinary dominant direction and project once more. The shelf still
+  // records every artifact; only actors with real coordinates own `delivering`.
+  let restoredOrdinaryDirection = false;
+  for (const actor of staged) {
+    const deliveryBeat = deliveryBeatByEmployee.get(actor.employeeId);
+    if (
+      actor.beat.id === deliveryBeat?.id &&
+      (actor.staging?.anchorId == null || actor.staging.x == null || actor.staging.z == null)
+    ) {
+      const ordinary = normalDirectionByEmployee.get(actor.employeeId);
+      if (ordinary) directionByEmployee.set(actor.employeeId, ordinary);
+      else directionByEmployee.delete(actor.employeeId);
+      restoredOrdinaryDirection = true;
+    }
+  }
+  if (restoredOrdinaryDirection) staged = projectDirections();
+  const stagedByEmployee = new Map(staged.map((s) => [s.employeeId, s]));
+
   // ── Actors: snapshot-derived truth only. The actor set is the roster (every
   // hire stands on the floor, resting when idle) joined with the workload and
   // thread maps, so a terminal-only blocked actor stays visible even if it has
   // dropped off the roster input.
   const employeeIds = [
-    ...new Set([...input.roster, ...input.workloads.keys(), ...input.threadByEmployee.keys()]),
+    ...new Set([
+      ...input.roster,
+      ...input.workloads.keys(),
+      ...input.threadByEmployee.keys(),
+      ...deliveryBeatByEmployee.keys(),
+    ]),
   ].sort();
 
   const actors: ActorCue[] = employeeIds.map((employeeId) => {
@@ -626,15 +692,30 @@ export function projectSceneBaseFrame(input: SceneCueFacts): SceneCueFrame {
       : IDLE_WORKLOAD_CUE;
     const stagedActor = stagedByEmployee.get(employeeId);
     const threadId = input.threadByEmployee.get(employeeId) ?? null;
+    const baseStatus = characterStatusFor(workload);
+    const deliveryBeat = deliveryBeatByEmployee.get(employeeId);
+    const delivering =
+      deliveryBeat != null &&
+      baseStatus !== 'blocked' &&
+      baseStatus !== 'approval' &&
+      stagedActor?.beat.id === deliveryBeat.id &&
+      stagedActor.staging?.anchorId != null &&
+      stagedActor.staging.x != null &&
+      stagedActor.staging.z != null;
+    const status = characterStatusFor(workload, delivering);
+    const statusPerformance =
+      status === 'approval' || status === 'blocked' ? performanceForStatus(status, 'stand') : null;
     return {
       employeeId,
       threadId,
       selected: false,
       hovered: false,
       dragging: false,
-      running: (workload?.activeCount ?? 0) > 0,
-      performance: stagedActor?.performance ?? null,
-      staging: stagedActor?.staging ?? null,
+      status,
+      delivering,
+      running: (workload?.activeCount ?? 0) > 0 || delivering,
+      performance: statusPerformance ?? stagedActor?.performance ?? null,
+      staging: statusPerformance ? null : (stagedActor?.staging ?? null),
       workload: workloadCue,
       artifacts: artifactsByEmployee.get(employeeId) ?? NO_ARTIFACTS,
     };
@@ -643,9 +724,13 @@ export function projectSceneBaseFrame(input: SceneCueFacts): SceneCueFrame {
   // ── Flows: the shared signal filter + noise cap, then bundling. The cap
   // applies BEFORE grouping so the frame carries at most FLOW_NOISE_CAP signal
   // beats total, exactly like the per-scene slice(-8) it replaces.
-  const signalBeats = orderedBeats
-    .filter((beat) => beat.employeeId && (beat.flow || beat.resource || beat.artifact))
-    .slice(-FLOW_NOISE_CAP);
+  const ownedSignalBeats: SceneBeat[] = [];
+  for (const beat of orderedBeats) {
+    const employeeId = beat.employeeId ?? employeeByRun.get(beat.runId);
+    if (!employeeId || !(beat.flow || beat.resource || beat.artifact)) continue;
+    ownedSignalBeats.push(beat.employeeId === employeeId ? beat : { ...beat, employeeId });
+  }
+  const signalBeats = ownedSignalBeats.slice(-FLOW_NOISE_CAP);
   interface MutableFlowGroup {
     readonly employeeId: string;
     readonly kind: FlowCueKind;
@@ -658,8 +743,7 @@ export function projectSceneBaseFrame(input: SceneCueFacts): SceneCueFrame {
   }
   const flowGroups = new Map<string, MutableFlowGroup>();
   for (const beat of signalBeats) {
-    if (!beat.employeeId) continue; // filtered above; re-checked to narrow the type
-    const employeeId = beat.employeeId;
+    const employeeId = beat.employeeId as string;
     const kind = flowCueKind(beat);
     const target = flowCueTarget(beat);
     const ink = inkForBeat(beat);
@@ -729,6 +813,77 @@ export function projectSceneBaseFrame(input: SceneCueFacts): SceneCueFrame {
       : null;
 
   return { actors, flows, delivery, resources, attention };
+}
+
+/**
+ * A real scene fact always owns the actor before ambient presentation does.
+ * Kept public so the scheduler context and the final render overlay share the
+ * exact same synchronous preemption predicate.
+ */
+export function actorAcceptsAmbientCue(actor: ActorCue): boolean {
+  return (
+    actor.status === 'idle' &&
+    !actor.running &&
+    !actor.delivering &&
+    actor.performance === null &&
+    actor.staging === null
+  );
+}
+
+/** Keep unrelated ambience stable while a real actor or fixture claim preempts one pair. */
+export function ambientDirectionsForAvailableActors(
+  directions: readonly AmbientActorDirection[],
+  unavailableEmployeeIds: ReadonlySet<string>,
+  unavailableAnchorIds?: ReadonlySet<string>,
+): readonly AmbientActorDirection[] {
+  if (
+    unavailableEmployeeIds.size === 0 &&
+    (!unavailableAnchorIds || unavailableAnchorIds.size === 0)
+  ) {
+    return directions;
+  }
+  const preemptedEmployeeIds = new Set(unavailableEmployeeIds);
+  if (unavailableAnchorIds && unavailableAnchorIds.size > 0) {
+    for (const direction of directions) {
+      if (!direction.staging?.anchorId || !unavailableAnchorIds.has(direction.staging.anchorId)) {
+        continue;
+      }
+      preemptedEmployeeIds.add(direction.employeeId);
+      if (direction.partnerId) preemptedEmployeeIds.add(direction.partnerId);
+    }
+  }
+  return directions.filter(
+    (direction) =>
+      !preemptedEmployeeIds.has(direction.employeeId) &&
+      (!direction.partnerId || !preemptedEmployeeIds.has(direction.partnerId)),
+  );
+}
+
+/**
+ * Overlay renderer-owned ambient directions onto a fact frame. The predicate
+ * is deliberately checked again on every render: if a run arrives before the
+ * scheduler effect/timer catches up, the real frame still preempts ambient in
+ * that same render. Flows, workload, attention, status and interaction stay
+ * byte-identical.
+ */
+export function applyAmbientCues(
+  frame: SceneCueFrame,
+  directions: readonly AmbientActorDirection[],
+): SceneCueFrame {
+  if (directions.length === 0) return frame;
+  const byEmployee = new Map(directions.map((direction) => [direction.employeeId, direction]));
+  let changed = false;
+  const actors = frame.actors.map((actor) => {
+    const direction = byEmployee.get(actor.employeeId);
+    if (!direction || !actorAcceptsAmbientCue(actor)) return actor;
+    changed = true;
+    return {
+      ...actor,
+      performance: direction.performance,
+      staging: direction.staging,
+    };
+  });
+  return changed ? { ...frame, actors } : frame;
 }
 
 /**

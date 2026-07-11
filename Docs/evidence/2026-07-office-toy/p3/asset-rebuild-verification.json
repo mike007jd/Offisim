@@ -1,0 +1,36 @@
+{
+  "checkedAt": "2026-07-10T18:56:16+10:00",
+  "timeZone": "Australia/Sydney",
+  "command": "CHARACTER_ASSETS_RAW_DIR=/tmp/offisim-p3-character-raw pnpm build:character-assets",
+  "cleanBuilds": 2,
+  "allFileHashesIdenticalAcrossBuilds": true,
+  "sourceArchives": {
+    "Universal Base Characters[Standard].zip": "fdbf1804c90dfc1ea03e992bff7da2dfd1a79318e13270a660180f9308455f40",
+    "Universal Animation Library[Standard].zip": "cc73fc4e495b82958207316596317a3f40b9fa38065bde1027937452da537724",
+    "Universal Animation Library 2[Standard].zip": "4008ea208a604773a2b2177d965f0f5d3195498b5bf838c3f5785d68e95f2a68",
+    "kenney_furniture-kit.zip": "e67652d0932cee41683f74711c03d3e192a2af9979ef8e6b237711f5482d46b0"
+  },
+  "outputs": {
+    "animations.glb": "ddcd02a7a8a1a86c74644ef77b57a4895fd1a17f0be658046c256596d5d5fd71",
+    "body_toy.glb": "a6786c46667910b9fa8f2e811a5f17cee11fdeb93f503aaa480d3a90b17e45d0",
+    "hair_01.glb": "fb16acda0b54dc1bfe769be43e616697187e15c32632b987cf1d6272808b62c6",
+    "hair_02.glb": "86064ef9b389ab4c8727274e43d45a48e03544e574b95e1ae45a7c34c2e1ac5b",
+    "hair_03.glb": "4715ce963e199eeef706760dcd42eddd1c89a17fd84ab6ec97a7a0e9a9d3f46d",
+    "hair_04.glb": "8997beec23a9d8b92ce5fc9afdfe913897f5d0478d82e9db68d40dec7c78d8ab",
+    "hair_05.glb": "aa62a048f7b2259984bbef0237e44b2194605f60ad44d34482d13d934d7264b9",
+    "hair_06.glb": "74fa8b90c95f76e6e4890a1bed4e76f4fd3f23143cd310c1b9e0a1762c72fb77",
+    "props.glb": "caa4a05a39e918c8fdc9e40650f7dc103e1d1ae2e357bf55d42671b0bc0d8f94",
+    "LICENSES.md": "822d925908990772642293ff5b718e30e4c4a52f947d5fe5939f092287668a3c",
+    "manifest.json": "4318b86c7b79fbebd6e38b448d91f8ac4a33a4ce19023a296f36a6c2c30f904e"
+  },
+  "manifestTotalBytes": 1531846,
+  "budgetBytes": 26214400,
+  "staleBaselineCorrection": {
+    "retained": true,
+    "files": [
+      "props.glb",
+      "manifest.json headRadiiUnits and byte ledger"
+    ],
+    "reason": "The P1/P2 committed artifacts were not reproducible from the final builder and exact frozen P0 source archives. Restoring them would make a clean full build dirty again; the current bytes are the deterministic builder truth."
+  }
+}

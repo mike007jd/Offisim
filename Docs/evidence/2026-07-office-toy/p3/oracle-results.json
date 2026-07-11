@@ -1,0 +1,82 @@
+{
+  "phase": "P3",
+  "checkedAt": "2026-07-10T18:56:16+10:00",
+  "timeZone": "Australia/Sydney",
+  "branch": "feat/office-toy-p3-actions",
+  "status": "passed",
+  "oracle": {
+    "command": "pnpm harness:character-actions-p3",
+    "result": "passed",
+    "realGlbClipCount": 21,
+    "originalClipCountPreserved": 19,
+    "proceduralClips": [
+      "approval.wait",
+      "sit.type"
+    ],
+    "clipBudget": 24,
+    "coverage": [
+      "GLB, manifest, and CLIP_NAMES exact set",
+      "procedural provenance and metadata",
+      "finite tracks, normalized quaternions, and valid rig targets",
+      "one in-place root translation track per clip",
+      "write/edit to sit.type and approval to approval.wait + clipboard",
+      "approval amber distinct from permission-blocked red",
+      "phone, consume, and inspect P5 routine seam",
+      "atomic posture transitions, stale-finish immunity, and single destination crossfade",
+      "entry/drop-return standing mount and walk-remount floor offset",
+      "reduced-motion semantic pose",
+      "real 60 Hz GLB geometry for seat, desk contact, typing motion, approval hold, and loop seams",
+      "exact shipped asset byte ledger and 25 MiB budget"
+    ]
+  },
+  "acceptance": {
+    "writeEditUsesSitType": true,
+    "sitTypeDistinctFromTalkAndIdle": true,
+    "approvalUsesDedicatedWaitAndClipboard": true,
+    "approvalAmberNotBlockedRed": true,
+    "permissionFailureStillBlocked": true,
+    "seatedTypeNoteAnnotateProxyRemoved": true,
+    "phoneConsumeReservedForP5": true,
+    "everyShippedClipReachableOrExplicitlyReserved": true,
+    "celebrationBoundSeconds": 2.5,
+    "blockedAndApprovalOneShotsDoNotLoop": true,
+    "continuousTransitionFsm": true
+  },
+  "gates": {
+    "pnpmValidate": "passed",
+    "typecheck": "21 passed, 0 failed",
+    "characterClipMap": "17280 states, 21 clips, passed",
+    "officeSeatingP2": "32 passed, 0 failed",
+    "p1CharacterRegressionNoWrite": "32 passed, 0 failed",
+    "desktopRustTests": "149 passed, 0 failed",
+    "desktopReleaseBuild": "passed",
+    "releaseBinarySha256": "00ac7129823f3206d4ef91a6aecd79d15b5ef6c13d505ccdc34a27496727ac6a",
+    "codesignVerify": "passed",
+    "deadCode": "passed with 2 pre-existing unused-export warnings",
+    "gitDiffCheck": "passed",
+    "focusedBiome": "passed"
+  },
+  "review": {
+    "independentReview": {
+      "blocker": 0,
+      "important": 0,
+      "minor": 0,
+      "result": "PASS"
+    },
+    "runtimeSimplify": {
+      "confirmedImportantResolved": 3,
+      "confirmedMinorResolved": 4,
+      "remainingMeasuredRegression": 0,
+      "result": "PASS"
+    },
+    "assetSimplify": {
+      "blocker": 0,
+      "important": 0,
+      "result": "PASS"
+    }
+  },
+  "knownNonBlockers": [
+    "Apple notarization was not run because signing credentials are not configured on this machine.",
+    "The two dead-code warnings predate P3: hashString and clipUsesSeatedOffset."
+  ]
+}

@@ -1,0 +1,131 @@
+{
+  "version": 1,
+  "bodyTypeGirth": {
+    "slim": 0.84,
+    "normal": 1,
+    "stocky": 1.18
+  },
+  "headShapeScale": {
+    "round": [1, 1, 1],
+    "soft-square": [1.1, 0.94, 0.98],
+    "capsule": [0.9, 1.12, 0.94]
+  },
+  "skinTones": [
+    { "id": "tone-01", "label": "Tone 01 · Light neutral", "hex": "f2d2bd" },
+    { "id": "tone-02", "label": "Tone 02 · Light warm", "hex": "e5b48a" },
+    { "id": "tone-03", "label": "Tone 03 · Medium warm", "hex": "c9875a" },
+    { "id": "tone-04", "label": "Tone 04 · Medium deep", "hex": "a95f38" },
+    { "id": "tone-05", "label": "Tone 05 · Deep neutral", "hex": "68483c" },
+    { "id": "tone-06", "label": "Tone 06 · Deep warm", "hex": "4a3029" }
+  ],
+  "hairColors": [
+    { "hex": "2c1b18", "label": "Black" },
+    { "hex": "4a312c", "label": "Dark brown" },
+    { "hex": "724133", "label": "Brown" },
+    { "hex": "a55728", "label": "Auburn" },
+    { "hex": "b58143", "label": "Light brown" },
+    { "hex": "d6b370", "label": "Blonde" },
+    { "hex": "e8e1e1", "label": "Grey" },
+    { "hex": "724133", "label": "Brown" }
+  ],
+  "outfitColors": [
+    { "hex": "2f6bff", "label": "Blue" },
+    { "hex": "7c4ddb", "label": "Violet" },
+    { "hex": "1aa46a", "label": "Green" },
+    { "hex": "c98410", "label": "Amber" },
+    { "hex": "d6453d", "label": "Red" },
+    { "hex": "3c4a60", "label": "Slate" },
+    { "hex": "0f7a4d", "label": "Deep green" },
+    { "hex": "5b2fb0", "label": "Deep violet" },
+    { "hex": "1f54d8", "label": "Royal blue" },
+    { "hex": "8a5a0c", "label": "Ochre" }
+  ],
+  "hairStyleToAsset": {
+    "short": "hair_01",
+    "long": "hair_02",
+    "ponytail": "hair_03",
+    "curly": "hair_04",
+    "bald": null,
+    "bob": "hair_05",
+    "spiky": "hair_06",
+    "braids": "hair_03"
+  },
+  "hairTransforms": {
+    "hair_01": { "position": [0, 0, 0], "scale": [1, 1, 1] },
+    "hair_02": { "position": [0, 0, 0], "scale": [1, 1, 1] },
+    "hair_03": { "position": [0, 0, 0], "scale": [1, 1, 1] },
+    "hair_04": { "position": [0, 0, 0], "scale": [1, 1, 1] },
+    "hair_05": { "position": [0, 0, 0], "scale": [1, 1, 1] },
+    "hair_06": { "position": [0, 0, 0], "scale": [1, 1, 1] }
+  },
+  "eye": {
+    "expressionMap": {
+      "neutral": "neutral",
+      "thinking": "neutral",
+      "happy": "happy",
+      "worried": "worried",
+      "focus": "focus"
+    },
+    "blinkMinSeconds": 2,
+    "blinkMaxSeconds": 6,
+    "blinkDurationSeconds": 0.12,
+    "planeZ": 0.39
+  },
+  "performancePropAsset": {
+    "laptop": "laptop",
+    "document": "clipboard",
+    "tablet": "tablet",
+    "terminal": "terminal",
+    "pointer": "pointer"
+  },
+  "propAttach": {
+    "laptop": { "node": "prop_laptop", "bone": "hand_l", "position": [0, 0.06, 0.13], "rotation": [-1.5707963267948966, 0, 0] },
+    "clipboard": { "node": "prop_clipboard", "bone": "hand_r", "position": [0, 0.055, 0.015], "rotation": [-1.570796, 0, 3.141593] },
+    "tablet": { "node": "prop_tablet", "bone": "hand_r", "position": [0, 0.055, 0.02], "rotation": [-1.570796, 0, 3.141593] },
+    "terminal": { "node": "prop_terminal", "bone": "hand_l", "position": [0, 0.04, 0.015], "rotation": [-1.570796, 0, 0] },
+    "pointer": { "node": "prop_pointer", "bone": "hand_r", "position": [0, 0.03, 0.02], "rotation": [0, 0, 0.35] },
+    "headset": { "node": "prop_headset", "bone": "Head", "position": [0, 0.02, 0], "rotation": [0, 0, 0] },
+    "swatch": { "node": "prop_swatch", "bone": "hand_r", "position": [0, 0.045, 0.02], "rotation": [-1.570796, 0, 2.8] },
+    "checklist": { "node": "prop_checklist", "bone": "hand_r", "position": [0, 0.055, 0.015], "rotation": [-1.570796, 0, 3.141593] },
+    "keycard": { "node": "prop_keycard", "bone": "hand_r", "position": [0, 0.03, 0.015], "rotation": [-1.570796, 0, 3.141593] }
+  },
+  "roleFamilies": {
+    "engineering": { "color": "#5c7fa3", "accessory": "laptop" },
+    "design": { "color": "#8a739b", "accessory": "swatch" },
+    "product": { "color": "#b38a4a", "accessory": "clipboard" },
+    "qa": { "color": "#4f8a82", "accessory": "checklist" },
+    "research": { "color": "#6877a0", "accessory": "tablet" },
+    "operations": { "color": "#65727a", "accessory": "headset" },
+    "identity": { "color": "#65727a", "accessory": "keycard" },
+    "unknown": { "color": "#77736c", "accessory": "clipboard" }
+  },
+  "roleFamilyBySlug": {
+    "boss": "product",
+    "hr": "identity",
+    "manager": "product",
+    "product_manager": "product",
+    "project_manager": "product",
+    "account_manager": "identity",
+    "engineering_manager": "engineering",
+    "yolo_master": "engineering",
+    "developer": "engineering",
+    "engineer": "engineering",
+    "backend": "engineering",
+    "frontend": "engineering",
+    "fullstack": "engineering",
+    "data_engineer": "engineering",
+    "devops": "operations",
+    "designer": "design",
+    "artist": "design",
+    "ui_designer": "design",
+    "ux_designer": "design",
+    "graphic_designer": "design",
+    "writer": "product",
+    "marketer": "operations",
+    "seo_specialist": "research",
+    "pm": "product",
+    "analyst": "research",
+    "researcher": "research",
+    "qa": "qa"
+  }
+}

@@ -290,7 +290,13 @@ console.log('\n[signals] flow, artifact, and resource intents');
     artifactBeat?.artifact?.title === 'qa-report.md',
   );
   check('artifact beat flows to delivery', artifactBeat?.flow?.target === 'delivery');
-  check('approval beat carries permission resource', approvalBeat?.resource?.kind === 'permission');
+  check(
+    'approval is an amber wait signal, not a blocked permission resource',
+    approvalBeat?.resource === null &&
+      approvalBeat.visual.phase === 'wait' &&
+      approvalBeat.visual.emotion === 'thinking' &&
+      approvalBeat.visual.prop === 'document',
+  );
   check('tool failure and run failure both stage failure beats', failures.length === 2);
   check(
     'failure beats carry blocked/exhausted resource state',

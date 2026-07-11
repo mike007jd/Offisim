@@ -1,0 +1,56 @@
+{
+  "checkedAt": "2026-07-11T14:07:00+12:00",
+  "author": "Fable 5 (post-epic visual quality remediation)",
+  "trigger": "User acceptance flagged: bald characters, rough look, stiff walk",
+  "rootCauses": {
+    "baldness": "hair_06 curl cap geometry sat almost entirely INSIDE the toy head (undershell radii [0.35,0.24,0.32] vs head radii [0.3745,0.4115,0.3662]); Quaternius hair_01..05 fit via hand-tuned transforms left buzzed styles skin-tight and long/parted styles mis-shaped; the old oracle accepted 15% exterior vertices with no front-hairline requirement",
+    "stiffWalk": [
+      "no heading logic: characters kept their static seat rotation for the entire walk (sideways/backwards gliding)",
+      "45% foot slide: walk clip stance-foot ground speed measured 1.045 world-units/s vs 1.9 units/s translation"
+    ],
+    "roughness": "eye-only faces (no mouth), close-set small eyes"
+  },
+  "fixes": {
+    "hair": "all six hair assets are now Offisim-authored procedural toy styles built for the exact toy head (short crop, long drape, ponytail, curly afro, helmet bob, spiky crop); runtime hairTransforms are identity; curly maps to the new afro (hair_04), spiky to hair_06",
+    "walkHeading": "EmployeeUnit frame-drives the character wrapper Y rotation: faces the route direction while walking (shortest-arc smoothing, CHARACTER_TURN_RATE_PER_SECOND=10), settles back to seat facing on arrival; reduced motion snaps",
+    "strideSync": "locomotion clips (walk/walk.formal/carry) play at CHARACTER_WALK_ANIMATION_TIME_SCALE=1.82 (measured: 1.9 / 1.045), other clips keep role tempo",
+    "faces": "per-expression mouth decals (neutral small smile / happy wide smile / worried frown / focus flat line) in the same decal material; eyes enlarged 0.042->0.05 and spread to +/-0.145",
+    "oracle": "harness-character-toy-p1 hair-fit check strengthened: >=50% exterior vertices, eye-band z ceiling made y-aware, and a mandatory visible front-hairline vertex band (the exact regression class that shipped bald characters)"
+  },
+  "measurements": {
+    "walkClipStanceFootSpeedLabUnitsPerSecond": 0.886,
+    "labToWorldScale": 1.18,
+    "worldTranslationSpeed": 1.9,
+    "resultingTimeScale": 1.82
+  },
+  "gates": {
+    "pnpmValidate": "exit 0 (full suite, post-change)",
+    "harnessCharacterToyP0": "21/21",
+    "harnessCharacterToyP1": "32/32 (with strengthened hair-fit oracle)",
+    "harnessOfficeSeatingP2": "32/32",
+    "harnessCharacterActionsP3": "pass",
+    "harnessOfficeVisualLanguageP4": "50/50",
+    "harnessOfficeAmbientP5": "66/66",
+    "harnessOfficeDioramaP6": "58/58 (61 floor props)",
+    "harnessCharacterClipMap": "17280 states",
+    "checkDeadcode": "clean (sharp devDependency removed with the hair texture path)"
+  },
+  "assetDelta": {
+    "before": { "hairBytesTotal": 869668, "characterSetTotal": 1531846 },
+    "after": { "hairBytesTotal": 66927, "characterSetTotal": 727340 }
+  },
+  "liveVerification": {
+    "artifact": "apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app (cold relaunch)",
+    "observed": [
+      "all eight roster characters show visible hair from the default office camera; zero unintended bald heads",
+      "Personnel > Appearance > Curly renders a full afro with front hairline, eyes, and smile (previously a buried black patch)",
+      "drag Alex Chen rest-area -> library -> back: sit.exit, route walk facing the travel direction, smooth arrival turn, sit.enter; ambient walkers (Jamie R., Zara O.) also face their routes",
+      "appearance change was reset (not saved) and the app quit cleanly"
+    ],
+    "evidence": [
+      "release-diorama-hair-coverage.png",
+      "release-personnel-curly-preview.png"
+    ],
+    "boundary": "stride-sync verified by measurement + burst screenshots; no continuous video capture was retained in this pass"
+  }
+}

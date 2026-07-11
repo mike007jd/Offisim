@@ -1,3 +1,4 @@
+import { usePrefersReducedMotion } from '@/assistant/runtime/office-dramaturgy.js';
 import type { Employee } from '@/data/types.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
@@ -19,6 +20,7 @@ import {
   GENDER_OPTIONS,
   HAIR_STYLE_OPTIONS,
   HAIR_SWATCHES,
+  HEAD_SHAPE_OPTIONS,
   OUTFIT_OPTIONS,
   SKIN_SWATCHES,
   type SwatchOption,
@@ -41,11 +43,15 @@ function SwatchRow({
   value: string | undefined;
   onChange: (color: string) => void;
 }) {
+  const displayedSwatches =
+    value && !swatches.some((swatch) => swatch.value.toLowerCase() === value.toLowerCase())
+      ? [{ value, label: 'Current custom' }, ...swatches]
+      : swatches;
   return (
     <div className="off-pers-swrow">
       <span className="off-pers-sw-label">{label}</span>
       <div className="off-pers-sws">
-        {swatches.map((swatch) => {
+        {displayedSwatches.map((swatch) => {
           const selected = (value ?? '').toLowerCase() === swatch.value.toLowerCase();
           return (
             <button
@@ -78,6 +84,8 @@ function AppearancePreviewPanel({
   brand: boolean;
 }) {
   const resolved = resolveAppearance(seed, appearance);
+  const reducedMotion = usePrefersReducedMotion();
+
   return (
     <div className="off-pers-prev is-3d-main">
       <span className="off-pers-prev-label">3D</span>
@@ -88,7 +96,14 @@ function AppearancePreviewPanel({
           <group position={[0, -0.9, 0]} rotation={[0, -0.26, 0]} scale={1.28}>
             {/* glb loads suspend; the empty fallback keeps the canvas/lights up. */}
             <Suspense fallback={null}>
-              <GltfCharacter appearance={resolved} running={false} phase={0} />
+              <GltfCharacter
+                appearance={resolved}
+                status="idle"
+                selected
+                role={employee.roleSlug ?? employee.role}
+                phase={0}
+                reducedMotion={reducedMotion}
+              />
             </Suspense>
           </group>
           <OrbitControls
@@ -124,6 +139,7 @@ interface AppearanceTabProps {
 export function AppearanceTab({ employee, draft, onChange }: AppearanceTabProps) {
   const hairStyleId = useId();
   const bodyTypeId = useId();
+  const headShapeId = useId();
   const outfitId = useId();
   const seed = employee.id;
   const isExternal = employee.kind === 'external';
@@ -135,8 +151,8 @@ export function AppearanceTab({ employee, draft, onChange }: AppearanceTabProps)
     accentColor: draft.accentColor,
     hairStyle: draft.hairStyle,
     bodyType: draft.bodyType,
+    headShape: draft.headShape,
     gender: draft.gender,
-    accentVariant: draft.accentVariant,
     outfit: draft.outfit,
   };
 
@@ -232,6 +248,22 @@ export function AppearanceTab({ employee, draft, onChange }: AppearanceTabProps)
                 />
               </div>
               <div className="off-field">
+                <label className="off-field-label" htmlFor={headShapeId}>
+                  Head shape
+                </label>
+                <Select
+                  id={headShapeId}
+                  value={draft.headShape ?? 'round'}
+                  onChange={(e) =>
+                    onChange({
+                      ...draft,
+                      headShape: e.target.value as AppearanceDraft['headShape'],
+                    })
+                  }
+                  options={HEAD_SHAPE_OPTIONS}
+                />
+              </div>
+              <div className="off-field">
                 <label className="off-field-label" htmlFor={outfitId}>
                   Outfit
                 </label>
@@ -247,7 +279,8 @@ export function AppearanceTab({ employee, draft, onChange }: AppearanceTabProps)
             </div>
 
             <p className="off-field-hint">
-              These controls persist to the employee persona and drive the office 3D avatar.
+              Appearance persists to the employee persona. Gender presentation affects the 2D
+              reference only; the other controls drive the office 3D avatar.
             </p>
           </div>
 

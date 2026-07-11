@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 1,
+  "phase": "P2 identity-stable seating and movement",
+  "checkedAt": "2026-07-10T17:39:51+10:00",
+  "timeZone": "Australia/Sydney",
+  "result": "pass",
+  "releaseApp": {
+    "path": "/Users/haoshengli/Seafile/WebWorkSpace/Offisim/apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app",
+    "binaryPath": "/Users/haoshengli/Seafile/WebWorkSpace/Offisim/apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app/Contents/MacOS/offisim-desktop",
+    "binarySha256": "d83c0b2d4f379f084f29a12f920314a552bf195409102cca3e627e3b91e02f85",
+    "binarySizeBytes": 28560480,
+    "binaryModifiedAt": "2026-07-10T16:42:14+10:00",
+    "codesignVerify": "pass",
+    "notarization": "not run; Apple credentials are not configured on this machine"
+  },
+  "computerUse": {
+    "appSelector": "/Users/haoshengli/Seafile/WebWorkSpace/Offisim/apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app",
+    "window": {
+      "cgWindowNumber": 138989,
+      "pid": 84330,
+      "title": "Offisim",
+      "bounds": {
+        "x": 36,
+        "y": 33,
+        "width": 1440,
+        "height": 884
+      }
+    },
+    "coldLaunch": {
+      "result": "pass",
+      "evidence": "Computer Use quit the exact app with Cmd+Q, list_apps reported isRunning=false, then get_app_state relaunched the exact path and the company was entered again."
+    }
+  },
+  "scenarios": [
+    {
+      "name": "valid cross-zone reassignment",
+      "result": "pass",
+      "employee": {
+        "id": "5218838a-37d0-437b-a1ba-4d530c1ec467",
+        "name": "Jamie Reeves"
+      },
+      "observed": [
+        "The actor left the original workstation and walked rather than teleporting.",
+        "The actor settled in Rest Area with the zone's standing posture.",
+        "A second reassignment returned the actor to Product and the workstation sitting posture.",
+        "Other visible employees retained their positions during both moves."
+      ],
+      "diagnosticEvents": [
+        {
+          "at": "2026-07-10T17:22:53.069+10:00",
+          "targetZoneId": "8fecc138-fb91-4d39-9e25-332f7728f0f6::zone-rest",
+          "decision": "assigned"
+        },
+        {
+          "at": "2026-07-10T17:24:08.768+10:00",
+          "targetZoneId": "8fecc138-fb91-4d39-9e25-332f7728f0f6::zone-product",
+          "decision": "assigned"
+        }
+      ],
+      "evidence": [
+        "release-before-drag.jpg",
+        "release-cross-zone-walk.jpg",
+        "release-cross-zone-arrived.jpg",
+        "release-cross-zone-seated.jpg",
+        "scene-drop-diagnostic.json"
+      ]
+    },
+    {
+      "name": "non-zone drop return",
+      "result": "pass",
+      "employee": {
+        "id": "d0ab321c-bb00-4cee-8e2b-6410a03e73fb",
+        "name": "Ryan Torres"
+      },
+      "observed": [
+        "The release app exposed the exact Drop on a zone prompt in the visual surface and accessibility tree.",
+        "The real actor appeared at the released ghost point and walked back to the unchanged home placement.",
+        "The employee's workstation remained zone-product after the missed drop."
+      ],
+      "diagnosticEvent": {
+        "at": "2026-07-10T17:27:29.131+10:00",
+        "targetZoneId": null,
+        "decision": "missed"
+      },
+      "evidence": [
+        "release-non-zone-return.jpg",
+        "release-non-zone-home.jpg",
+        "scene-drop-diagnostic.json"
+      ]
+    },
+    {
+      "name": "cross-process seat persistence",
+      "result": "pass",
+      "observed": [
+        "After a true process quit and cold relaunch, the same roster loaded without synthetic-to-real mass movement.",
+        "The assigned semantic slots and all visible non-target employee positions remained stable."
+      ],
+      "evidence": [
+        "release-cold-relaunch-stable.jpg"
+      ]
+    },
+    {
+      "name": "drag recording",
+      "result": "pass",
+      "recording": {
+        "path": "release-drag-verification.mov",
+        "sha256": "3fe82d8e47bf43217ff3cc1fc1a55fcdd761f601456cae81cc168c215c0c07d1",
+        "codec": "h264",
+        "width": 3104,
+        "height": 1992,
+        "frameRate": "120/1",
+        "durationSeconds": 12.03,
+        "sizeBytes": 13845860
+      },
+      "observed": "The exact Offisim window recording captures the Computer Use pointer drag and the start of Ryan Torres' real movement toward Rest Area. The complete arrival is covered by the independent screenshot and diagnostic chain.",
+      "linkedDiagnosticEvent": {
+        "at": "2026-07-10T17:31:21.798+10:00",
+        "targetZoneId": "8fecc138-fb91-4d39-9e25-332f7728f0f6::zone-rest",
+        "decision": "assigned",
+        "evidence": "scene-drop-diagnostic-video.json"
+      }
+    },
+    {
+      "name": "test-data cleanup",
+      "result": "pass",
+      "observed": [
+        "Ryan Torres was restored through the product's Move employee UI to zone-product.",
+        "Jamie Reeves and Ryan Torres both ended in zone-product in the live SQLite state.",
+        "The shared 2D map and the final 3D view both showed the restored placement."
+      ],
+      "evidence": [
+        "release-cleanup-restored-2d.jpg",
+        "release-cleanup-restored-3d.jpg"
+      ]
+    }
+  ],
+  "runtimeLogScan": {
+    "command": "/usr/bin/log show --style compact --last 20m --predicate 'process == offisim-desktop'",
+    "productFailurePattern": "panic|fatal|uncaught|unhandled|webgl|renderer.*(crash|fail)|black screen|failed to load.*(glb|gltf|asset)|asset.*(fail|error)",
+    "productFailureMatches": 0,
+    "result": "pass",
+    "classification": "The broader macOS log contains expected AppIntents, WebContent sandbox, pasteboard, CoreAudio registration, and WebPrivacy service noise. No product panic, renderer crash, black screen, WebGL failure, or character asset-load failure was present."
+  }
+}

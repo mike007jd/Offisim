@@ -1,0 +1,244 @@
+{
+  "schemaVersion": 1,
+  "epic": "Office Toy Performance Epic",
+  "checkedAt": "2026-07-11T10:24:00+10:00",
+  "timeZone": "Australia/Sydney",
+  "result": "pass",
+  "verifiedSourceHead": "afc08cd7",
+  "scope": {
+    "included": [
+      "apps/desktop/renderer",
+      "packages/shared-types dramaturgy surfaces",
+      "scripts",
+      "Docs",
+      "root package.json only for the P6 harness registration and prevalidate gate"
+    ],
+    "excludedAndUnchanged": [
+      "Pi wire/provider/host",
+      "Rust command surface",
+      "main branch",
+      "merge state"
+    ]
+  },
+  "phaseDelivery": [
+    {
+      "phase": "P0",
+      "branch": "feat/office-toy-p0-spike",
+      "sourceCommit": "b48e85b1",
+      "pullRequest": "https://github.com/mike007jd/Offisim/pull/18",
+      "result": "GO"
+    },
+    {
+      "phase": "P1",
+      "branch": "feat/office-toy-p1-characters",
+      "sourceCommit": "b5e369bf",
+      "pullRequest": "https://github.com/mike007jd/Offisim/pull/21",
+      "result": "passed"
+    },
+    {
+      "phase": "P2",
+      "branch": "feat/office-toy-p2-seating",
+      "sourceCommit": "046abf81",
+      "pullRequest": "https://github.com/mike007jd/Offisim/pull/24",
+      "result": "passed"
+    },
+    {
+      "phase": "P3",
+      "branch": "feat/office-toy-p3-actions",
+      "sourceCommit": "e3bd67c5",
+      "pullRequest": "https://github.com/mike007jd/Offisim/pull/25",
+      "result": "passed"
+    },
+    {
+      "phase": "P4",
+      "branch": "feat/office-toy-p4-visual-language",
+      "sourceCommit": "a10f0b25",
+      "pullRequest": "https://github.com/mike007jd/Offisim/pull/26",
+      "result": "passed"
+    },
+    {
+      "phase": "P5",
+      "branch": "feat/office-toy-p5-ambient-life",
+      "sourceCommit": "72688738",
+      "pullRequest": "https://github.com/mike007jd/Offisim/pull/27",
+      "result": "passed"
+    },
+    {
+      "phase": "P6",
+      "branch": "feat/office-toy-p6-open-diorama",
+      "sourceCommits": [
+        "d63cfb54",
+        "5a117306",
+        "afc08cd7"
+      ],
+      "pullRequest": "https://github.com/mike007jd/Offisim/pull/28",
+      "result": "passed"
+    }
+  ],
+  "finalAcceptance": [
+    {
+      "id": 1,
+      "requirement": "角色不诡异不廉价",
+      "result": "pass",
+      "evidence": [
+        {
+          "file": "p1/release-curly-capsule-dress.jpg",
+          "sha256": "157dadf8acce596d23ae238daa490afce96513383f2b941bdd8a2f2ecb4c7962"
+        },
+        {
+          "file": "p1/release-office-diversity.jpg",
+          "sha256": "a8a521d68d391da925062c28b4e769057c4106409d3c3afa0130ecdfbc014fea"
+        }
+      ],
+      "proof": "Release close-up and full office show the approved 2.472-head toy body, varied hair/garment/head/girth combinations and non-human costume proportions."
+    },
+    {
+      "id": 2,
+      "requirement": "真在工作",
+      "result": "pass",
+      "evidence": [
+        {
+          "file": "p3/release-type.jpg",
+          "sha256": "8e52539163741222f0097531797ad91c3df9b1ef376973ce936890b001991adc"
+        },
+        {
+          "file": "p3/release-talk-selected.jpg",
+          "sha256": "193c450bd2589d11aaa1d7aa7fb2f2f49be131300433044c1339e8730fa9cc33"
+        },
+        {
+          "file": "p3/release-read.jpg",
+          "sha256": "7fb97791c03e237ccde46d40367a4c793dde80015d7794e123609e8e528c8eed"
+        }
+      ],
+      "proof": "Three release screenshots distinguish seated typing, talking and reading through different body motion and held props."
+    },
+    {
+      "id": 3,
+      "requirement": "活着",
+      "result": "pass",
+      "evidence": [
+        {
+          "file": "p5/release-ambient-125s.mp4",
+          "sha256": "2d6e9501b383f3b75cea93ed26109be205ea38da6fdc6e887c1ae7f558d63355",
+          "durationSeconds": 125.133
+        }
+      ],
+      "proof": "The unaccelerated release recording contains seated head/torso/hand micro-motion at 00:00-00:18, Marcus away at about 00:60, Maya/library behavior at about 00:90 and return completion by 02:00. The micro-motion timestamps were rechecked from decoded frames at two-second intervals."
+    },
+    {
+      "id": 4,
+      "requirement": "可读",
+      "result": "pass",
+      "evidence": [
+        {
+          "file": "p4/release-three-state-unselected.jpeg",
+          "sha256": "c5525a2e2b44569e66d0614b7ede7ed15eba5b4508b425b437c628fb60d802b4"
+        }
+      ],
+      "proof": "The release screenshot shows working, approval and blocked simultaneously with distinct ink, marker, prop and named blocked ownership, without selection styling."
+    },
+    {
+      "id": 5,
+      "requirement": "座位稳定",
+      "result": "pass",
+      "evidence": [
+        {
+          "file": "p2/release-final-drag-walk-seat.mp4",
+          "sha256": "6a47f232701dbe500554ddb54e584d1196daff4c8e0f4adedaf994443ba56a31",
+          "durationSeconds": 58.667
+        }
+      ],
+      "proof": "Independent cold review PASS: 0-9.5s stable origin, 9.6-12s drag/sit.exit, 12-28s continuous cross-office walk, 28-30s sit.enter, and 30-58.667s stable destination seat. Zara and all other employee anchors remain unchanged throughout; the retained evidence had zero window-interior black-frame hits across all 880 frames."
+    },
+    {
+      "id": 6,
+      "requirement": "环境",
+      "result": "pass",
+      "evidence": [
+        {
+          "file": "p6/release-open-plinth-default.png",
+          "sha256": "9879cb8607636d58566f0e33346fca98fe6ae471e26af107bb4f3f5b274e0579"
+        },
+        {
+          "file": "p6/release-open-plinth-orbit.png",
+          "sha256": "ac32ed915e039c1cf7ab9b3d2fd487701dd0bbda5a7e2e106257301f82ec4110"
+        },
+        {
+          "file": "p6/release-open-plinth-orbit-15s.mp4",
+          "sha256": "09445bdebd04b4a815d51657c6b4f2f713166c046cedd42da6d8079918a30b38",
+          "durationSeconds": 15.015,
+          "frames": 858,
+          "averageCaptureFramesPerSecond": 57.105
+        }
+      ],
+      "proof": "Default and opposite-side release views show a populated open plinth with no enclosing walls, glass sheets, black void or coplanar floor flicker. The 61-prop contract is inside the 50-100 budget."
+    }
+  ],
+  "cleanup": {
+    "result": "pass",
+    "deadCode": "pnpm check:deadcode returned zero findings",
+    "uiFrameworkHygiene": "passed",
+    "uiUxDrift": "passed",
+    "removed": [
+      "old male/female body runtime lane",
+      "brows and baked-eye lane",
+      "P0 diagnostic seam",
+      "legacy room walls, windows and glass partitions",
+      "legacy action halo and duplicate indicator ownership",
+      "obsolete character exports"
+    ],
+    "retainedWithEvidence": "Body_Skin_Dark/SkinDark and skinReference remain because the frozen P0 light/dark asset contract and regeneration pipeline still consume them."
+  },
+  "approvedImplementationDeviations": [
+    {
+      "requirement": "F4 suggested extending the existing Kenney/KayKit asset pipeline for the 50-100 prop target.",
+      "decision": "Use the existing 33 semantic prefabs plus 28 procedural, art-bible-aligned low props rendered in four InstancedMesh groups instead of importing new external asset files.",
+      "reason": "This reaches 61 active props, preserves real-prefab density suppression, shared materials, batching and deterministic regeneration without adding license or asset-byte surface. The frozen user-facing density and open-diorama acceptance remain unchanged."
+    }
+  ],
+  "performanceEvidenceBoundary": {
+    "requirement": "Preserve the 60fps budget.",
+    "result": "pass_at_budget_contract_level",
+    "proof": "The executable P6 oracle guards frameloop always, DPR [1,1.75], half-resolution AO, SMAA and instanced repeated props; the retained Retina capture averaged 57.105 recorded fps under capture overhead with no visible stall or black frame.",
+    "boundary": "No direct GPU profiler trace is claimed, and the 57.105fps capture is not represented as exact 60fps output."
+  },
+  "finalGates": {
+    "pnpmValidate": "passed",
+    "desktopReleaseBuild": "passed",
+    "codesignVerify": "passed",
+    "releaseBinarySha256": "a94f06cf041bf2e18b52906b2710447c7f8b60ab5075647c26e82cc0f6947652",
+    "releaseBundleAggregateSha256": "7ff3604994a550483936b2fb79a9095a5e470e0dc4bbda656ed64b0b751422e6",
+    "officeDioramaP6": "58/58 passed",
+    "officeAmbientP5": "66/66 passed",
+    "officeSeatingP2": "32/32 passed",
+    "officeVisualLanguageP4": "50/50 passed",
+    "deadcode": "zero findings",
+    "uiFrameworkHygiene": "passed",
+    "uiUxDrift": "passed"
+  },
+  "stackedPullRequests": {
+    "topology": [
+      "main <- #13 docs/office-toy-performance-package",
+      "#13 <- #18 feat/office-toy-p0-spike",
+      "#18 <- #21 feat/office-toy-p1-characters",
+      "#21 <- #24 feat/office-toy-p2-seating",
+      "#24 <- #25 feat/office-toy-p3-actions",
+      "#25 <- #26 feat/office-toy-p4-visual-language",
+      "#26 <- #27 feat/office-toy-p5-ambient-life",
+      "#27 <- #28 feat/office-toy-p6-open-diorama"
+    ],
+    "state": "all eight PRs are OPEN and MERGEABLE; #28 is ready for review; no PR was merged and main was not modified",
+    "externalCi": {
+      "result": "not_started_external_block",
+      "pullRequest": "https://github.com/mike007jd/Offisim/pull/28",
+      "evidence": "The latest P6-head jobs were inspected after push and completed with zero steps. GitHub annotated that the jobs were not started because recent account payments failed or the spending limit must be increased. The manifest intentionally anchors this to the PR rather than freezing an older run URL, because every evidence-only push creates a new equivalent zero-step run.",
+      "classification": "external GitHub billing/spending block, not a code/test failure"
+    }
+  },
+  "backlog": {
+    "confirmedImplementationItemsRemaining": 0,
+    "confirmedReviewFindingsRemaining": 0,
+    "requiredEvidenceItemsRemaining": 0,
+    "result": "empty"
+  }
+}

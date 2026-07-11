@@ -27,22 +27,22 @@ export function ScenePostFx() {
       <N8AO
         aoRadius={1.05}
         distanceFalloff={1.25}
-        intensity={1.18}
+        intensity={1.05}
         quality="medium"
-        aoSamples={16}
-        denoiseSamples={8}
-        denoiseRadius={9}
-        halfRes={false}
+        aoSamples={12}
+        denoiseSamples={6}
+        denoiseRadius={8}
+        halfRes
       />
       <Bloom
         luminanceThreshold={1}
         luminanceSmoothing={0.03}
-        intensity={0.5}
+        intensity={0.42}
         radius={0.7}
         mipmapBlur
       />
       <SMAA />
-      <Vignette offset={0.32} darkness={0.5} />
+      <Vignette offset={0.3} darkness={0.36} />
     </EffectComposer>
   );
 }

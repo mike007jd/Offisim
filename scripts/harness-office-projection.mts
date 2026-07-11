@@ -169,8 +169,10 @@ check(
   byEmp.get('researcher')?.performance.workGesture === 'read',
 );
 check(
-  'waiter performance is worried (approval)',
-  byEmp.get('waiter')?.performance.expression === 'worried',
+  'waiter performance is approval-wait + clipboard (distinct from blocked)',
+  byEmp.get('waiter')?.performance.workGesture === 'approval-wait' &&
+    byEmp.get('waiter')?.performance.expression === 'thinking' &&
+    byEmp.get('waiter')?.performance.prop === 'document',
 );
 check(
   'performance equals performanceForBeat(beat)',

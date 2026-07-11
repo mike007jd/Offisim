@@ -1,8 +1,5 @@
 import animationsUrl from '@/assets/characters/animations.glb?url';
-import bodyFemaleUrl from '@/assets/characters/body_female.glb?url';
-import bodyMaleUrl from '@/assets/characters/body_male.glb?url';
-import brows01Url from '@/assets/characters/brows_01.glb?url';
-import brows02Url from '@/assets/characters/brows_02.glb?url';
+import bodyToyUrl from '@/assets/characters/body_toy.glb?url';
 import hair01Url from '@/assets/characters/hair_01.glb?url';
 import hair02Url from '@/assets/characters/hair_02.glb?url';
 import hair03Url from '@/assets/characters/hair_03.glb?url';
@@ -24,8 +21,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
  * meshopt_decoder.module.js`, wasm inlined — no CDN fetch) into GLTFLoader.
  */
 export const CHARACTER_ASSET_URLS = {
-  bodyMale: bodyMaleUrl,
-  bodyFemale: bodyFemaleUrl,
+  bodyToy: bodyToyUrl,
   animations: animationsUrl,
   props: propsUrl,
   hair: {
@@ -34,14 +30,8 @@ export const CHARACTER_ASSET_URLS = {
     hair_03: hair03Url,
     hair_04: hair04Url,
     hair_05: hair05Url,
-    /** RESERVED: beard mesh — ships and stays addressable for a future
-     *  facial-accent slot, but no HAIR_STYLE_TO_ASSET entry maps to it, so it
-     *  is deliberately NOT in the preload set (see PRELOADED_URLS). */
+    /** Offisim-authored chunky curl cap for the toy-head silhouette. */
     hair_06: hair06Url,
-  },
-  brows: {
-    brows_01: brows01Url,
-    brows_02: brows02Url,
   },
 } as const;
 
@@ -54,13 +44,10 @@ function withMeshoptDecoder(loader: Loader): void {
 
 /**
  * The runtime-reachable asset set: everything GltfCharacter can actually load.
- * `hair_06` (beard) is excluded — it is reserved (unmapped in
- * HAIR_STYLE_TO_ASSET), so warming it would fetch dead bytes on every office
- * mount. Add it here the moment a style/accent maps to it.
+ * Every URL here is reachable from at least one resolved hairstyle/prop path.
  */
 const PRELOADED_URLS: readonly string[] = [
-  CHARACTER_ASSET_URLS.bodyMale,
-  CHARACTER_ASSET_URLS.bodyFemale,
+  CHARACTER_ASSET_URLS.bodyToy,
   CHARACTER_ASSET_URLS.animations,
   CHARACTER_ASSET_URLS.props,
   CHARACTER_ASSET_URLS.hair.hair_01,
@@ -68,7 +55,7 @@ const PRELOADED_URLS: readonly string[] = [
   CHARACTER_ASSET_URLS.hair.hair_03,
   CHARACTER_ASSET_URLS.hair.hair_04,
   CHARACTER_ASSET_URLS.hair.hair_05,
-  ...Object.values(CHARACTER_ASSET_URLS.brows),
+  CHARACTER_ASSET_URLS.hair.hair_06,
 ];
 
 /**

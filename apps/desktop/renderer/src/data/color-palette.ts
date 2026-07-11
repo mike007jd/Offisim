@@ -128,21 +128,28 @@ export const OFFICE_SCENE_2D_COLORS = {
   /* Translucent ink so desks read as a darkening on the zone tint instead of
    * opaque white plates punched into it. */
   desk: 'rgba(40,60,90,0.08)',
-  activeRing: UI_DATA_COLORS.blue,
-  activeRingSoft: 'rgba(47,107,255,0.5)',
+  /* Exact P4 office-art-bible state inks. Kept here because Canvas2D owns its
+   * palette while the WebGL lane owns scene-colors.ts; the P4 oracle locks the
+   * two tables byte-equal so this deliberate mirror cannot drift. */
+  stateWorking: '#5C9A96',
+  stateApproval: '#D09A45',
+  stateBlocked: '#C65F5A',
+  stateSelected: '#7FA9D8',
+  activeRing: '#7FA9D8',
+  activeRingSoft: 'rgba(127,169,216,0.5)',
   /* Attention emphasis (frame.attention): the selection-ring hue at lower
    * alpha — a subtle sustained focus cue, never a second selection ring. */
-  attentionRing: 'rgba(47,107,255,0.28)',
-  flowLine: 'rgba(47,107,255,0.36)',
-  flowPacket: UI_DATA_COLORS.blue,
+  attentionRing: 'rgba(127,169,216,0.28)',
+  flowLine: 'rgba(92,154,150,0.38)',
+  flowPacket: '#5C9A96',
   artifactLine: 'rgba(26,164,106,0.42)',
   artifactPacket: UI_DATA_COLORS.green,
-  resourceLine: 'rgba(214,69,61,0.4)',
-  resourcePacket: UI_DATA_COLORS.red3,
+  resourceLine: 'rgba(198,95,90,0.4)',
+  resourcePacket: '#C65F5A',
   /* Approval ink (PRD): "waiting on the user" is its own signal — amber, never
    * the failure red. Line is the packet hue at flow-line translucency. */
-  approvalLine: 'rgba(245,158,11,0.42)',
-  approvalPacket: UI_DATA_COLORS.amber,
+  approvalLine: 'rgba(208,154,69,0.42)',
+  approvalPacket: '#D09A45',
   /* Neutral ink (PRD): a quiet return to normal flow (recovery) — slate, never
    * painted in the failure red it just left. */
   neutralLine: 'rgba(100,113,134,0.38)',

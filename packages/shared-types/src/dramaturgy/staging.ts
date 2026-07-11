@@ -19,8 +19,11 @@ export type InteractionAnchorKind =
   | 'board-presenter'
   | 'standing-review'
   | 'reading-seat'
+  | 'library-inspect'
+  | 'refreshment'
   | 'server-inspect'
-  | 'social-seat';
+  | 'social-seat'
+  | 'delivery-shelf';
 
 /** A single interaction point on a prefab, in prefab-local space. */
 export interface InteractionAnchor {
@@ -45,6 +48,16 @@ const a = (
  * (plants, switches, cabling) are simply absent.
  */
 export const BUILTIN_PREFAB_AFFORDANCES: Readonly<Record<string, readonly InteractionAnchor[]>> = {
+  // Renderer-owned semantic fixture: both scene modes inject one instance at
+  // the shared delivery location. Four service positions let ordinary parallel
+  // output remain truthful without stacking actors on one point; the normal
+  // reservation table still applies focus/reduced-motion/walker-cap rules.
+  'office-delivery-shelf': [
+    a('delivery-shelf', [-0.62, 0.96], 180, 'standing'),
+    a('delivery-shelf', [0.62, 0.96], 180, 'standing'),
+    a('delivery-shelf', [-1.32, 0], 90, 'standing'),
+    a('delivery-shelf', [1.32, 0], 270, 'standing'),
+  ],
   'workstation-standard': [a('workstation', [0, 0.55], 180, 'sitting')],
   'workstation-compact': [a('workstation', [0, 0.5], 180, 'sitting')],
   // Two seats, one per lane — a dual desk seats two independent actors.
@@ -58,11 +71,16 @@ export const BUILTIN_PREFAB_AFFORDANCES: Readonly<Record<string, readonly Intera
     a('server-inspect', [-1.1, 1.0], 180, 'standing'),
     a('server-inspect', [1.1, 1.0], 180, 'standing'),
   ],
-  'bookshelf-single': [a('reading-seat', [0, 0.7], 180, 'standing')],
+  'bookshelf-single': [
+    a('reading-seat', [0, 0.7], 180, 'standing'),
+    a('library-inspect', [0, 0.92], 180, 'standing'),
+  ],
   'bookshelf-double': [
     a('reading-seat', [-0.7, 0.7], 180, 'standing'),
     a('reading-seat', [0.7, 0.7], 180, 'standing'),
+    a('library-inspect', [0, 0.92], 180, 'standing'),
   ],
+  'water-cooler': [a('refreshment', [0, 0.72], 180, 'standing')],
   'reading-table': [
     a('reading-seat', [0, 0.7], 180, 'sitting'),
     a('reading-seat', [0, -0.7], 0, 'sitting'),

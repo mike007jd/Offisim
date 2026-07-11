@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 1,
+  "phase": "P4 office state visual language",
+  "checkedAt": "2026-07-10T21:59:16+10:00",
+  "timeZone": "Australia/Sydney",
+  "branch": "feat/office-toy-p4-visual-language",
+  "implementationCommit": "a10f0b25",
+  "pullRequest": "https://github.com/mike007jd/Offisim/pull/26",
+  "result": "pass",
+  "releaseApp": {
+    "path": "/Users/haoshengli/Seafile/WebWorkSpace/Offisim/apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app",
+    "binaryPath": "/Users/haoshengli/Seafile/WebWorkSpace/Offisim/apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app/Contents/MacOS/offisim-desktop",
+    "binarySha256": "ae2bf3d965851384609a5544cad2fb5051551b3b7c1437c1303f7682cd83a800",
+    "binarySizeBytes": 28576896,
+    "binaryModifiedAt": "2026-07-10T21:40:47+10:00",
+    "codesignVerify": "pass",
+    "signature": "adhoc runtime",
+    "notarization": "not run; Apple credentials are not configured on this machine"
+  },
+  "computerUse": {
+    "appSelector": "/Users/haoshengli/Seafile/WebWorkSpace/Offisim/apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app",
+    "window": {
+      "cgWindowNumber": 744,
+      "pid": 75434,
+      "title": "Offisim",
+      "url": "tauri://localhost",
+      "bounds": {
+        "x": 36,
+        "y": 33,
+        "width": 1440,
+        "height": 884
+      }
+    },
+    "coldLaunch": {
+      "result": "pass",
+      "evidence": "Computer Use first matched the existing Offisim title, exact app path and tauri://localhost content; it then quit that exact window with Cmd+Q, confirmed the exact binary was absent, and relaunched the exact current-worktree release path to the company screen."
+    }
+  },
+  "piRuntime": {
+    "provider": "openrouter-free",
+    "model": "openrouter/free",
+    "modelSourceUrl": "https://openrouter.ai/api/v1/models",
+    "modelCheckedAt": "2026-07-10T11:59:04.618Z",
+    "modelsEndpointHttpStatus": 200,
+    "pricing": {
+      "prompt": "0",
+      "completion": "0"
+    },
+    "toolCallingDeclared": true,
+    "configuration": "The live Pi configuration used the user-authorized openrouter-free provider. No credential is stored in repository evidence."
+  },
+  "scenario": {
+    "name": "unselected three-state five-second scan",
+    "capturedAt": "2026-07-10T21:54:17+10:00",
+    "result": "pass",
+    "states": [
+      {
+        "employee": "Alex Chen",
+        "status": "blocked",
+        "runId": "attempt-cc13bff0-d50f-4171-9ee1-fc82ff693988",
+        "finalRunStatus": "completed",
+        "visibleEvidence": "Alex C. · BLOCKED, muted-red segmented ground treatment, typed X marker and worried/headshake diegesis"
+      },
+      {
+        "employee": "Maya Lin",
+        "status": "approval",
+        "runId": "attempt-3f3263b7-016a-49ed-a026-f69d63b4e5eb",
+        "finalRunStatus": "completed after cleanup rejection",
+        "visibleEvidence": "Approval nameplate, amber treatment and approval.wait + clipboard"
+      },
+      {
+        "employee": "Marcus Johnson",
+        "status": "working",
+        "runId": "attempt-ccb14901-3e43-482a-8825-fdc38e9c6d12",
+        "finalRunStatus": "cancelled during cleanup",
+        "visibleEvidence": "Work nameplate and muted teal working treatment"
+      }
+    ],
+    "selection": {
+      "selected": false,
+      "evidence": "The thread was closed before capture; the final image contains no cool-blue complete outer ring. Alex only retains the muted-red segmented blocked ring."
+    },
+    "blindReview": {
+      "result": "PASS",
+      "criteria": [
+        "all three employees and states map within five seconds",
+        "blocked identity is unambiguous",
+        "approval amber and blocked muted red remain distinct",
+        "no selected cool-blue outer ring is visible"
+      ]
+    }
+  },
+  "cleanup": {
+    "result": "pass",
+    "destructiveCommandsExecuted": false,
+    "observed": [
+      "Every rm -rf request targeted a dedicated /tmp test path and was rejected in the product permission UI.",
+      "Marcus's sleep run was stopped through the product UI.",
+      "Maya's pending approval was rejected and its response finished.",
+      "The final release snapshot reported no Stop run, permission request, APPROVAL NEEDED or bash running controls.",
+      "All eight team roster entries reported IDLE."
+    ]
+  },
+  "screenshots": {
+    "release-three-state-unselected.jpeg": {
+      "sha256": "c5525a2e2b44569e66d0614b7ede7ed15eba5b4508b425b437c628fb60d802b4",
+      "width": 1252,
+      "height": 768
+    }
+  },
+  "gates": {
+    "pnpmValidate": "passed",
+    "officeVisualLanguageP4": "50/50 passed",
+    "rendererTypecheck": "passed",
+    "rendererBuild": "passed",
+    "sceneCue": "87/87 passed",
+    "officeProjection": "50/50 passed",
+    "desktopRustTests": "149 passed, 0 failed; no P4 Rust changes",
+    "codesignVerify": "passed"
+  },
+  "runtimeLogScan": {
+    "commands": [
+      "log show --style compact --predicate 'processID == 75434' --start '2026-07-10 21:41:35'",
+      "log show --style compact --last 30m --predicate 'process == offisim-desktop'"
+    ],
+    "linesReturned": 0,
+    "failurePatternMatches": 0,
+    "result": "no-records",
+    "note": "The current macOS unified-log reader returned no rows for either predicate. This is recorded as unavailable log evidence, not as a zero-error scan; the release UI remained responsive throughout cold launch and live interaction."
+  }
+}

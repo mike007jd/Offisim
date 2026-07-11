@@ -1,0 +1,34 @@
+{
+  "character": {
+    "height": 1.62,
+    "targetHeadCount": 2.45,
+    "minimumHeadCount": 2.2,
+    "maximumHeadCount": 2.6
+  },
+  "workstation": {
+    "deskDepth": {
+      "standard": 1.25,
+      "compact": 1.05,
+      "dual": 1.25
+    },
+    "standardDeskWidth": 2.1,
+    "compactDeskWidth": 1.45,
+    "seatTop": 0.42,
+    "chairCushionWidth": 0.5,
+    "chairCushionDepth": 0.48,
+    "chairCushionThickness": 0.08,
+    "chairCushionRadius": 0.04,
+    "chairForward": 0.14,
+    "seatForward": 0.13,
+    "deskTop": 0.768,
+    "deskTopThickness": 0.055,
+    "laptopDeck": 0.78,
+    "laptopWidth": 0.4,
+    "laptopDepth": 0.3,
+    "laptopScreenHeight": 0.3,
+    "seatedBodyLift": 0.17,
+    "seatedBodyForward": 0.38,
+    "contactTolerance": 0.08,
+    "deskEdgeInset": 0.04
+  }
+}

@@ -366,19 +366,61 @@ export {
 } from './dramaturgy/staging.js';
 export type {
   CharacterPerformanceState,
+  CharacterStatus,
   Expression,
   Locomotion,
   Posture,
   Prop,
+  RoutinePerformanceKind,
+  RoutineWorkGesture,
   SocialGesture,
   WorkGesture,
 } from './dramaturgy/performance.js';
-export { IDLE_PERFORMANCE, performanceForBeat } from './dramaturgy/performance.js';
+export {
+  IDLE_PERFORMANCE,
+  performanceForBeat,
+  performanceForRoutine,
+  performanceForStatus,
+} from './dramaturgy/performance.js';
 export type { EmployeeStaging } from './dramaturgy/office-projection.js';
 export { currentBeatsByEmployee, projectOfficeStaging } from './dramaturgy/office-projection.js';
 export { animationTempoForRole } from './dramaturgy/profiles.js';
+export {
+  CHARACTER_TURN_RATE_PER_SECOND,
+  CHARACTER_WALK_ANIMATION_TIME_SCALE,
+  CHARACTER_WALK_SPEED_UNITS_PER_SECOND,
+} from './dramaturgy/character-motion.js';
 export type { DramaturgyMode, DramaturgyModeOptions } from './dramaturgy/modes.js';
-export { DEFAULT_MAX_WALKERS, applyDramaturgyMode } from './dramaturgy/modes.js';
+export type { AmbientModePolicy } from './dramaturgy/modes.js';
+export {
+  DEFAULT_MAX_WALKERS,
+  ambientPolicyForMode,
+  applyDramaturgyMode,
+} from './dramaturgy/modes.js';
+export type {
+  AmbientActivity,
+  AmbientActivityPhase,
+  AmbientActorAvailability,
+  AmbientActorDirection,
+  AmbientActorHome,
+  AmbientDestination,
+  AmbientEmployeeClock,
+  AmbientRoutineKind,
+  AmbientRoutePlan,
+  AmbientRoutePlanner,
+  AmbientRoutePoint,
+  AmbientRouteRequest,
+  AmbientSchedulerInput,
+  AmbientSchedulerSnapshot,
+  AmbientSchedulerState,
+} from './dramaturgy/ambient.js';
+export {
+  AMBIENT_SCHEDULER_VERSION,
+  AMBIENT_TIMING,
+  advanceAmbientScheduler,
+  ambientActivityPhase,
+  compareStrings,
+} from './dramaturgy/ambient.js';
 export type {
   EmployeePerformanceAction,
   EmployeePerformanceDomain,

@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "checkedAt": "2026-07-10T16:10:00+12:00",
+  "result": "pass",
+  "app": {
+    "path": "/Users/haoshengli/Seafile/WebWorkSpace/Offisim/apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app",
+    "bundleSha256": "046e488e1ae2756c9fc2d6e5f181db922eff9e7663aaefa042beb7d73d3b3e02",
+    "pid": 90747,
+    "bundleIdentifier": "com.offisim.desktop",
+    "signature": "adhoc",
+    "codeSignVerify": "pass",
+    "uiUrl": "tauri://localhost",
+    "window": {
+      "cgWindowNumber": 138618,
+      "title": "Offisim",
+      "bounds": {
+        "x": 36,
+        "y": 33,
+        "width": 1440,
+        "height": 887
+      }
+    }
+  },
+  "startup": {
+    "oldProcessQuitWithComputerUse": true,
+    "exactPathRelaunchedWithComputerUse": true,
+    "windowRaisedWithComputerUse": true,
+    "companyScreenReached": true,
+    "platformHealth": "http://127.0.0.1:4100/health -> 200"
+  },
+  "interactions": [
+    {
+      "id": "office-diversity",
+      "result": "pass",
+      "observed": "Maximized release stage showed all eight named employees with distinct body, hair, clothing, and head silhouettes; normal build contained no P0 sequencer."
+    },
+    {
+      "id": "qa-role-prop",
+      "result": "pass",
+      "observed": "Ryan Torres (QA) Appearance preview showed happy eyes, chest role badge, and the checklist work prop."
+    },
+    {
+      "id": "palette-and-custom-colors",
+      "result": "pass",
+      "observed": "Four explicit template colors were each represented by a selected Current custom swatch; six neutral skin tones, seven unique hair colors, and all ten outfit colors remained selectable."
+    },
+    {
+      "id": "gender-2d-only",
+      "result": "pass",
+      "observed": "Gender presentation switched Masc to Neutral while the 3D controls and rig appearance remained independent; the UI states that gender affects only the 2D reference. Runtime URI hashes for neutral/masculine/feminine were all distinct."
+    },
+    {
+      "id": "curly-capsule-stocky-dress",
+      "result": "pass",
+      "observed": "The live preview rendered a continuous chunky curl cap outside the face, capsule head, stocky XZ silhouette, dress geometry, happy eyes, and role prop."
+    },
+    {
+      "id": "designer-role-prop",
+      "result": "pass",
+      "observed": "Zara Okafor (UX Designer) rendered the Design role badge and swatch prop with long-hair silhouette."
+    },
+    {
+      "id": "reset-without-persistence",
+      "result": "pass",
+      "observed": "After editing gender, hair, body, head, and outfit, Reset restored Masc/Short/Slim/Round/Blazer and disabled both Reset and Save."
+    }
+  ],
+  "gender2dUriSha256": {
+    "neutral": "431ca16a095e379f617031099eac3cfb511ff1765d37d060842dcca1d0df45b9",
+    "masculine": "06aaaa9169a403c12666f354611e311ca94ba4a43e02f4722be0baf13019166e",
+    "feminine": "9c3eeb9298453a9593df1d2178f816fdb08b9b581cd705605ae8415177d93d4e"
+  },
+  "screenshots": {
+    "release-office-diversity.jpg": "a8a521d68d391da925062c28b4e769057c4106409d3c3afa0130ecdfbc014fea",
+    "release-qa-role-prop.jpg": "0a6ff705bb0e52fe5b6ce3265dad5395feb55e0f9ec58d581bdc4fb9518b1cf0",
+    "release-curly-capsule-dress.jpg": "157dadf8acce596d23ae238daa490afce96513383f2b941bdd8a2f2ecb4c7962",
+    "release-designer-role-prop.jpg": "b36150a88a90ad10c47cece0376187b9551b2ba17b99519c29790b11b8bcf112"
+  },
+  "logs": {
+    "source": "macOS unified log for process offisim-desktop, final 20 minute window",
+    "linesScanned": 5212,
+    "webglAssetFatalPatterns": 0,
+    "note": "macOS AppIntents/pasteboard/audio sandbox registration noise was excluded from product fatal matching; no WebGL, asset, panic, uncaught, unhandled, black-screen, or renderer-crash signature was present."
+  }
+}

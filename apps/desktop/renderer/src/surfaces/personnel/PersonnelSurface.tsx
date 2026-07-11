@@ -1,5 +1,6 @@
 import { useUiState } from '@/app/ui-state.js';
 import { displayRole, isTauriRuntime, reposOrNull } from '@/data/adapters.js';
+import { EMPLOYEE_CAPACITY_MESSAGE, MAX_COMPANY_EMPLOYEES } from '@/data/employee-capacity.js';
 import { useCompanies, useEmployees } from '@/data/queries.js';
 import type { Employee, EmployeeAppearance } from '@/data/types.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
@@ -40,8 +41,8 @@ import { Group, Panel, Separator, usePanelRef } from 'react-resizable-panels';
 import { toast } from 'sonner';
 import { AppearanceTab } from './AppearanceTab.js';
 import { HistoryTab } from './HistoryTab.js';
-import { MemoryTab } from './MemoryTab.js';
 import { McpToolsTab } from './McpToolsTab.js';
+import { MemoryTab } from './MemoryTab.js';
 import { ProfileTab } from './ProfileTab.js';
 import { RuntimeTab } from './RuntimeTab.js';
 import { SkillsTab } from './SkillsTab.js';
@@ -160,6 +161,7 @@ function RosterRail({
   onToggleCollapse,
   onHire,
   canHire,
+  hireDisabledReason,
   onSelectEmployee,
 }: {
   employees: Employee[];
@@ -167,6 +169,7 @@ function RosterRail({
   onToggleCollapse: () => void;
   onHire: () => void;
   canHire: boolean;
+  hireDisabledReason: string | undefined;
   onSelectEmployee: (id: string) => void;
 }) {
   const selectedEmployeeId = useUiState((s) => s.selectedEmployeeId);
@@ -215,7 +218,7 @@ function RosterRail({
           {!collapsed ? (
             <IconButton
               icon={UserPlus}
-              label="Hire employee"
+              label={canHire ? 'Hire employee' : (hireDisabledReason ?? 'Hire unavailable')}
               variant="subtle"
               size="iconSm"
               disabled={!canHire}
@@ -303,8 +306,8 @@ function appearancePayload(draft: AppearanceDraft): EmployeeAppearance {
     accentColor: draft.accentColor,
     hairStyle: draft.hairStyle,
     bodyType: draft.bodyType,
+    headShape: draft.headShape,
     gender: draft.gender,
-    accentVariant: draft.accentVariant,
     outfit: draft.outfit,
   };
 }
@@ -721,7 +724,13 @@ export function PersonnelSurface() {
     if (collapsed) listPanelRef.current?.expand();
     else listPanelRef.current?.collapse();
   };
-  const canHire = isTauriRuntime();
+  const atCapacity = roster.length >= MAX_COMPANY_EMPLOYEES;
+  const canHire = isTauriRuntime() && !atCapacity;
+  const hireDisabledReason = !isTauriRuntime()
+    ? 'Employee creation requires the release desktop app'
+    : atCapacity
+      ? EMPLOYEE_CAPACITY_MESSAGE
+      : undefined;
 
   // The Office "Hire" card navigates here with a one-shot intent; open the Hire
   // dialog on arrival, then clear the flag so a later manual visit doesn't
@@ -778,7 +787,7 @@ export function PersonnelSurface() {
                 size="sm"
                 onClick={() => setHireOpen(true)}
                 disabled={!canHire}
-                title={canHire ? undefined : 'Employee creation requires the release desktop app'}
+                title={hireDisabledReason}
               >
                 <Icon icon={UserPlus} size="sm" />
                 Hire employee
@@ -817,6 +826,7 @@ export function PersonnelSurface() {
             onToggleCollapse={onToggleList}
             onHire={() => setHireOpen(true)}
             canHire={canHire}
+            hireDisabledReason={hireDisabledReason}
             onSelectEmployee={guardedSelect}
           />
         </Panel>

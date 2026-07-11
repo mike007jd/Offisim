@@ -60,10 +60,12 @@ function WorkloadDrilldownPanel({ employeeId }: { employeeId: string }) {
   const runs = useActiveConversationRuns();
   // The SAME SceneCue frame the scenes render (identical staging inputs), so
   // the drawer's artifacts/issues can never drift from the office floor.
-  const { stagingPrefabs, positions } = useSceneStagingInputs();
+  const { stagingPrefabs, positions, routeFor, routeSignature } = useSceneStagingInputs();
   const { frame, actorById } = useSceneCueFrame({
     prefabs: stagingPrefabs,
     actorPositions: positions,
+    routeFor,
+    routeSignature,
   });
   // The typed strain of this employee's top issue (frame.resources) — surfaced
   // as a small kind tag on the top issue row (six-kind distinction, PRD).

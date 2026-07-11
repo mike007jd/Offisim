@@ -489,7 +489,28 @@
   box-shadow: var(--off-elev-1);
 }
 
-/* drei Html name tag floating over a character */
+.off-scene-annotation {
+  transform-origin: center;
+  transition: opacity var(--off-motion-fast) ease-out;
+  will-change: opacity, transform;
+  pointer-events: none;
+}
+
+.off-scene-annotation.is-start {
+  transform-origin: left center;
+}
+
+.off-scene-annotation.is-interactive.is-visible {
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .off-scene-annotation {
+    transition: none;
+  }
+}
+
+/* Camera-safe scene name tag floating over a character. */
 .off-scene-tag {
   display: inline-flex;
   align-items: center;
@@ -500,7 +521,7 @@
   min-height: 18px;
   padding: 2px var(--off-sp-3);
   border: 1px solid transparent;
-  border-radius: var(--off-r-pill);
+  border-radius: var(--off-scene-toy-radius);
   background: transparent;
   box-shadow: none;
   color: var(--off-ink-2);
@@ -516,16 +537,11 @@
   text-overflow: ellipsis;
   transform: translateY(-100%);
   opacity: 0.8;
-  scale: 0.86;
   pointer-events: none;
 }
 
 .off-scene-html-passive {
   pointer-events: none;
-}
-
-.off-scene-html-interactive {
-  pointer-events: auto;
 }
 
 .off-scene-tag.is-interactive {
@@ -541,21 +557,36 @@
   cursor: grabbing;
 }
 
-.off-scene-tag.is-running {
-  border-color: var(--off-accent-ring);
-  background: color-mix(in oklab, var(--off-surface-glass) 78%, transparent);
-  box-shadow: var(--off-elev-1);
-  color: var(--off-accent);
+.off-scene-tag[class*="is-status-"] {
+  color: var(--off-scene-state-color);
   opacity: 0.9;
   scale: 1;
 }
 
-.off-scene-tag.is-active {
-  border-color: var(--off-accent);
-  background: var(--off-surface-glass-strong);
+/* A blocked actor must map failure → person within one glance. The typed
+   resource glyph still owns the marker slot; this compact nameplate supplies
+   attribution without adding another icon or status ring. */
+.off-scene-tag.is-status-blocked {
+  max-width: 112px;
+  border-color: color-mix(in oklab, var(--off-scene-state-color) 48%, white);
+  background: color-mix(in oklab, var(--off-scene-state-color) 12%, white);
+  box-shadow: var(--off-scene-toy-shadow);
+  color: var(--off-scene-state-color);
+  font-weight: 760;
+  opacity: 1;
+}
+
+.off-scene-tag.is-selected {
+  border-color: var(--off-scene-selected-color);
+  background: var(--off-scene-toy-surface);
+  box-shadow: var(--off-scene-toy-shadow);
   color: var(--off-ink-1);
   opacity: 1;
   scale: 1;
+}
+
+.off-scene-tag.is-attention:not(.is-selected) {
+  opacity: 1;
 }
 
 /* Relative anchor for the active-count badge; the tag clips its own text, so the
@@ -577,8 +608,9 @@
   min-width: 14px;
   height: 14px;
   padding: 0 3px;
-  border-radius: var(--off-r-pill);
-  background: var(--off-accent);
+  border: 1px solid var(--off-scene-toy-edge);
+  border-radius: var(--off-scene-toy-radius);
+  background: var(--off-ink-3);
   color: var(--off-surface-1);
   font-size: var(--off-fs-micro);
   font-weight: 700;
@@ -591,7 +623,6 @@
    it reads identically to the passive span. */
 .off-scene-count-badge.is-interactive {
   appearance: none;
-  border: none;
   cursor: pointer;
   pointer-events: auto;
 }
@@ -611,12 +642,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 14px;
-  height: 14px;
-  border: 1px solid color-mix(in oklab, var(--off-danger) 42%, var(--off-surface-1));
-  border-radius: var(--off-r-pill);
-  background: var(--off-danger-surface);
-  color: var(--off-danger);
+  width: 18px;
+  height: 18px;
+  border: 1px solid color-mix(in oklab, var(--off-scene-resource-color) 45%, white);
+  border-radius: var(--off-scene-toy-radius);
+  background: color-mix(in oklab, var(--off-scene-resource-color) 14%, white);
+  color: var(--off-scene-resource-color);
   font-size: var(--off-fs-micro);
   font-weight: 760;
   line-height: 1;
@@ -628,31 +659,23 @@
    issue (exhausted > blocked > warning), so exhausted reads strongest and a
    warning stays subtle. Mirrors the 2D scene's disc-size hierarchy. */
 .off-scene-resource-marker.is-exhausted {
-  border-color: var(--off-danger);
-  background: var(--off-danger);
+  border-color: var(--off-scene-resource-color);
+  background: var(--off-scene-resource-color);
   color: var(--off-surface-1);
-  box-shadow: var(--off-elev-1);
+  box-shadow: var(--off-scene-toy-shadow);
 }
 
 .off-scene-resource-marker.is-blocked {
-  border-color: color-mix(in oklab, var(--off-danger) 42%, var(--off-surface-1));
-  background: var(--off-danger-surface);
-  color: var(--off-danger);
+  border-color: color-mix(in oklab, var(--off-scene-resource-color) 45%, white);
+  background: color-mix(in oklab, var(--off-scene-resource-color) 14%, white);
+  color: var(--off-scene-resource-color);
 }
 
 .off-scene-resource-marker.is-warning {
-  border-color: color-mix(in oklab, var(--off-warn) 42%, var(--off-surface-1));
-  background: var(--off-warn-surface);
-  color: var(--off-warn);
+  border-color: color-mix(in oklab, var(--off-scene-resource-color) 45%, white);
+  background: var(--off-scene-toy-surface);
+  color: var(--off-scene-resource-color);
   font-weight: 700;
-}
-
-/* Approval reads as waiting on the user (PRD): the marker pins the approval/
-   amber ink regardless of severity — never the risk red. */
-.off-scene-resource-marker.is-approval {
-  border-color: color-mix(in oklab, var(--off-warn) 55%, var(--off-surface-1));
-  background: var(--off-warn-surface);
-  color: var(--off-warn);
 }
 
 /* …and the issue marker takes the primary (top-right) slot. */
@@ -669,6 +692,11 @@
   display: inline-flex;
   align-items: center;
   gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--off-scene-toy-edge);
+  border-radius: var(--off-scene-toy-radius);
+  background: var(--off-scene-toy-surface-muted);
+  box-shadow: var(--off-scene-toy-shadow);
   /* Fixed cap: grouped chips ("Blocked 3") are wider than the small per-run
      chips, but the bubble never spills — extra groups clip and the overflow
      pill (or the ×N badge) opens the full breakdown in the drilldown. */
@@ -685,11 +713,11 @@
   max-width: 72px;
   height: 15px;
   padding: 0 5px;
-  border: 1px solid var(--off-line-soft);
-  border-radius: var(--off-r-pill);
-  background: color-mix(in oklab, var(--off-surface-1) 88%, transparent);
-  color: var(--off-ink-3);
-  box-shadow: var(--off-elev-1);
+  border: 1px solid color-mix(in oklab, var(--off-scene-chip-color) 34%, white);
+  border-radius: var(--off-scene-toy-radius);
+  background: color-mix(in oklab, var(--off-scene-chip-color) 13%, white);
+  color: color-mix(in oklab, var(--off-scene-chip-color) 82%, var(--off-ink-1));
+  box-shadow: none;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -697,24 +725,6 @@
   font-weight: 700;
   line-height: 1;
   text-shadow: none;
-}
-
-.off-scene-workload-bubble span.is-wait {
-  border-color: color-mix(in oklab, var(--off-warn) 36%, var(--off-line));
-  background: var(--off-warn-surface);
-  color: var(--off-warn);
-}
-
-.off-scene-workload-bubble span.is-risk {
-  border-color: color-mix(in oklab, var(--off-danger) 36%, var(--off-line));
-  background: var(--off-danger-surface);
-  color: var(--off-danger);
-}
-
-.off-scene-workload-bubble span.is-done {
-  border-color: color-mix(in oklab, var(--off-ok) 36%, var(--off-line));
-  background: var(--off-ok-surface);
-  color: var(--off-ok);
 }
 
 /* Overflow affordance — a compact pill that opens the same read-only workload
@@ -726,11 +736,11 @@
   flex: 0 0 auto;
   height: 15px;
   padding: 0 5px;
-  border: 1px solid var(--off-line-soft);
-  border-radius: var(--off-r-pill);
-  background: color-mix(in oklab, var(--off-surface-1) 88%, transparent);
+  border: 1px solid var(--off-scene-toy-edge);
+  border-radius: var(--off-scene-toy-radius);
+  background: var(--off-scene-toy-surface);
   color: var(--off-ink-2);
-  box-shadow: var(--off-elev-1);
+  box-shadow: none;
   appearance: none;
   cursor: pointer;
   pointer-events: auto;
@@ -748,11 +758,11 @@
   gap: var(--off-sp-2);
   height: 24px;
   padding: 0 var(--off-sp-3);
-  border: 1px solid var(--off-line);
-  border-radius: var(--off-r-pill);
-  background: var(--off-surface-glass-strong);
+  border: 1px solid var(--off-scene-toy-edge);
+  border-radius: var(--off-scene-toy-radius);
+  background: var(--off-scene-toy-surface);
   color: var(--off-ink-2);
-  box-shadow: var(--off-elev-1);
+  box-shadow: var(--off-scene-toy-shadow);
   font-size: var(--off-fs-micro);
   font-weight: 720;
   text-transform: uppercase;
@@ -770,7 +780,7 @@
 }
 
 .off-scene-delivery-shelf.is-interactive:hover {
-  border-color: var(--off-accent-ring);
+  border-color: var(--off-scene-artifact-color);
   color: var(--off-ink-1);
 }
 
@@ -786,8 +796,8 @@
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
-  border-radius: var(--off-r-pill);
-  background: var(--off-ok);
+  border-radius: var(--off-scene-toy-radius);
+  background: var(--off-scene-artifact-color);
   color: var(--off-surface-1);
   font-size: var(--off-fs-micro);
   line-height: 1;
@@ -802,6 +812,9 @@
   flex-direction: column;
   align-items: center;
   gap: 3px;
+  padding: 3px;
+  border-radius: var(--off-scene-toy-radius);
+  background: color-mix(in oklab, var(--off-scene-toy-surface-muted) 76%, transparent);
   cursor: pointer;
 }
 
@@ -821,11 +834,11 @@
   max-width: 132px;
   height: 16px;
   padding: 0 6px;
-  border: 1px solid var(--off-line-soft);
-  border-radius: var(--off-r-pill);
-  background: color-mix(in oklab, var(--off-surface-1) 88%, transparent);
+  border: 1px solid var(--off-scene-toy-edge);
+  border-radius: var(--off-scene-toy-radius);
+  background: var(--off-scene-toy-surface);
   color: var(--off-ink-3);
-  box-shadow: var(--off-elev-1);
+  box-shadow: none;
   cursor: pointer;
   pointer-events: auto;
   font-size: var(--off-fs-micro);
@@ -840,7 +853,7 @@
   font-size: 8px;
   font-weight: 760;
   letter-spacing: 0.04em;
-  color: var(--off-ok);
+  color: var(--off-scene-artifact-color);
 }
 
 .off-scene-delivery-chip span {
@@ -851,7 +864,8 @@
 
 /* Newest claim reads emphasized (artifact ink border + full ink title). */
 .off-scene-delivery-chip.is-new {
-  border-color: color-mix(in oklab, var(--off-ok) 55%, var(--off-line));
+  border-color: color-mix(in oklab, var(--off-scene-artifact-color) 58%, white);
+  box-shadow: inset 0 2px 0 var(--off-scene-artifact-color);
   color: var(--off-ink-1);
 }
 
@@ -874,9 +888,9 @@
   justify-content: center;
   height: 13px;
   padding: 0 6px;
-  border: 1px solid var(--off-line-soft);
-  border-radius: var(--off-r-pill);
-  background: color-mix(in oklab, var(--off-surface-1) 82%, transparent);
+  border: 1px solid var(--off-scene-toy-edge);
+  border-radius: var(--off-scene-toy-radius);
+  background: var(--off-scene-toy-surface-muted);
   color: var(--off-ink-4);
   cursor: pointer;
   pointer-events: auto;
@@ -890,18 +904,18 @@
    a new claim lands (recentCount increase). Transition only; the information
    (chip + ×N) is carried statically. */
 .off-scene-delivery .off-scene-delivery-shelf {
-  transition: border-color var(--off-motion-slow) var(--off-motion-ease),
-    box-shadow var(--off-motion-slow) var(--off-motion-ease);
+  transition: border-color var(--off-motion-slow) var(--off-motion-ease), box-shadow
+    var(--off-motion-slow) var(--off-motion-ease);
 }
 
 .off-scene-delivery.is-arrived .off-scene-delivery-shelf {
-  border-color: var(--off-ok);
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--off-ok) 24%, transparent);
+  border-color: var(--off-scene-artifact-color);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--off-scene-artifact-color) 24%, transparent);
 }
 
 /* Attention (frame.attention → delivery): a gentle sustained emphasis. */
 .off-scene-delivery.is-attention .off-scene-delivery-shelf {
-  border-color: color-mix(in oklab, var(--off-ok) 55%, var(--off-line));
+  border-color: color-mix(in oklab, var(--off-scene-artifact-color) 58%, white);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -918,10 +932,10 @@
   max-width: 148px;
   height: 15px;
   padding: 0 5px;
-  border: 1px solid var(--off-line-soft);
-  border-radius: var(--off-r-pill);
-  background: color-mix(in oklab, var(--off-surface-1) 88%, transparent);
-  color: var(--off-ink-3);
+  border: 1px solid color-mix(in oklab, var(--off-scene-flow-color) 34%, white);
+  border-radius: var(--off-scene-toy-radius);
+  background: var(--off-scene-toy-surface);
+  color: var(--off-scene-flow-color);
   font-size: var(--off-fs-micro);
   font-weight: 700;
   line-height: 1;
@@ -939,9 +953,9 @@
   gap: 3px;
   height: 14px;
   padding: 0 5px;
-  border: 1px solid var(--off-line-soft);
-  border-radius: var(--off-r-pill);
-  background: color-mix(in oklab, var(--off-surface-1) 82%, transparent);
+  border: 1px solid var(--off-scene-toy-edge);
+  border-radius: var(--off-scene-toy-radius);
+  background: var(--off-scene-toy-surface-muted);
   color: var(--off-ink-4);
   font-size: var(--off-fs-micro);
   font-weight: 700;
@@ -1215,13 +1229,13 @@
     max-width: 96px;
   }
 
-  .off-stage-tab:not([aria-current='page']) {
+  .off-stage-tab:not([aria-current="page"]) {
     width: 30px;
     justify-content: center;
     padding: 0;
   }
 
-  .off-stage-tab:not([aria-current='page']) span {
+  .off-stage-tab:not([aria-current="page"]) span {
     display: none;
   }
 

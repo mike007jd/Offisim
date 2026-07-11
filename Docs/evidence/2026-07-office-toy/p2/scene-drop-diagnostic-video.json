@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "exportedAt": "2026-07-10T07:36:18.075Z",
+  "source": "settings.runtime.scene-drop-diagnostic",
+  "eventCount": 2,
+  "events": [
+    {
+      "id": "drop-95b2dbde-1d5b-4906-8db8-c31a9a33a51f",
+      "at": "2026-07-10T07:32:25.819Z",
+      "employeeId": "d0ab321c-bb00-4cee-8e2b-6410a03e73fb",
+      "startX": 701.6015625,
+      "startY": 467.0703125,
+      "endX": 393.2734375,
+      "endY": 469.9609375,
+      "targetZoneId": "8fecc138-fb91-4d39-9e25-332f7728f0f6::zone-library",
+      "decision": "assigned"
+    },
+    {
+      "id": "drop-e8c511cf-a62b-41cd-b2bd-35540673a8d8",
+      "at": "2026-07-10T07:31:21.798Z",
+      "employeeId": "d0ab321c-bb00-4cee-8e2b-6410a03e73fb",
+      "startX": 382.1458435058594,
+      "startY": 556.1823120117188,
+      "endX": 742.421875,
+      "endY": 445.6822814941406,
+      "targetZoneId": "8fecc138-fb91-4d39-9e25-332f7728f0f6::zone-rest",
+      "decision": "assigned"
+    }
+  ]
+}

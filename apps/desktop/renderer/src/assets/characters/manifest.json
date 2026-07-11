@@ -1,43 +1,348 @@
 {
-  "version": 1,
+  "version": 4,
   "bodies": {
-    "male": {
-      "file": "body_male.glb",
-      "heightUnits": 1.8196,
+    "toy": {
+      "file": "body_toy.glb",
+      "heightUnits": 2.0163,
+      "headHeightUnits": 0.823,
+      "headRadiiUnits": [
+        0.3745,
+        0.4115,
+        0.3662
+      ],
+      "headRatio": 2.45,
+      "allowedHeadRatio": [
+        2.2,
+        2.6
+      ],
+      "silhouette": "procedural capsule body, short chunky limbs, oversized shoes; runtime eye decals, no mouth",
+      "rig": {
+        "source": "Quaternius Universal Base Characters Standard",
+        "jointCount": 65,
+        "topologyPreserved": true,
+        "inverseBindMatricesRecomputed": true,
+        "bindReshape": {
+          "purpose": "lower shoulders and shorten forearms/hands for the toy silhouette",
+          "armLengthScale": 0.72,
+          "shoulderDropUnits": 0.2,
+          "joints": {
+            "clavicle_l": {
+              "before": [
+                0.0314,
+                0.173718,
+                0.067328
+              ],
+              "after": [
+                0.0314,
+                -0.026282,
+                0.067328
+              ]
+            },
+            "lowerarm_l": {
+              "before": [
+                0,
+                0.251115,
+                0
+              ],
+              "after": [
+                0,
+                0.180803,
+                0
+              ]
+            },
+            "hand_l": {
+              "before": [
+                0,
+                0.243594,
+                0
+              ],
+              "after": [
+                0,
+                0.175388,
+                0
+              ]
+            },
+            "clavicle_r": {
+              "before": [
+                -0.0314,
+                0.173718,
+                0.067328
+              ],
+              "after": [
+                -0.0314,
+                -0.026282,
+                0.067328
+              ]
+            },
+            "lowerarm_r": {
+              "before": [
+                0,
+                0.251115,
+                0
+              ],
+              "after": [
+                0,
+                0.180803,
+                0
+              ]
+            },
+            "hand_r": {
+              "before": [
+                0,
+                0.243594,
+                0
+              ],
+              "after": [
+                0,
+                0.175388,
+                0
+              ]
+            }
+          }
+        }
+      },
+      "landmarks": {
+        "ToyHeadTop": {
+          "joint": "Head",
+          "bindPosition": [
+            0,
+            2.011287,
+            -0.0174
+          ],
+          "jointLocalTranslation": [
+            0,
+            0.411315,
+            -0.011919
+          ]
+        },
+        "ToyChin": {
+          "joint": "Head",
+          "bindPosition": [
+            0,
+            1.188313,
+            -0.0174
+          ],
+          "jointLocalTranslation": [
+            0,
+            -0.411314,
+            0.011919
+          ]
+        },
+        "ToyButtContact": {
+          "joint": "pelvis",
+          "bindPosition": [
+            0,
+            0.7191,
+            -0.043
+          ],
+          "jointLocalTranslation": [
+            0,
+            -0.220677,
+            0.06482
+          ]
+        },
+        "ToyPalmL": {
+          "joint": "hand_l",
+          "bindPosition": [
+            0.586034,
+            1.155608,
+            -0.002489
+          ],
+          "jointLocalTranslation": [
+            0.105,
+            0.018,
+            0.018
+          ]
+        },
+        "ToyPalmR": {
+          "joint": "hand_r",
+          "bindPosition": [
+            -0.586034,
+            1.155608,
+            -0.002489
+          ],
+          "jointLocalTranslation": [
+            -0.105,
+            0.018,
+            0.018
+          ]
+        },
+        "ToySoleL": {
+          "joint": "foot_l",
+          "bindPosition": [
+            0.114305,
+            -0.005,
+            0.04
+          ],
+          "jointLocalTranslation": [
+            0,
+            0.154987,
+            0.024646
+          ]
+        },
+        "ToySoleR": {
+          "joint": "foot_r",
+          "bindPosition": [
+            -0.114305,
+            -0.005,
+            0.04
+          ],
+          "jointLocalTranslation": [
+            0,
+            0.154987,
+            0.024646
+          ]
+        }
+      },
       "skinReference": {
         "light": "#a67858",
         "dark": "#9c6e4e"
-      }
-    },
-    "female": {
-      "file": "body_female.glb",
-      "heightUnits": 1.7751,
-      "skinReference": {
-        "light": "#a97957",
-        "dark": "#a37351"
-      }
+      },
+      "skinTintMode": "direct"
     }
   },
   "hair": {
-    "hair_01": "Hair_SimpleParted",
-    "hair_02": "Hair_Long",
-    "hair_03": "Hair_Buns",
-    "hair_04": "Hair_Buzzed",
-    "hair_05": "Hair_BuzzedFemale",
-    "hair_06": "Hair_Beard"
-  },
-  "brows": {
-    "brows_01": "Eyebrows_Regular",
-    "brows_02": "Eyebrows_Female"
+    "hair_01": "offisim-procedural:short-crop",
+    "hair_02": "offisim-procedural:long-drape",
+    "hair_03": "offisim-procedural:ponytail",
+    "hair_04": "offisim-procedural:curly-afro",
+    "hair_05": "offisim-procedural:helmet-bob",
+    "hair_06": "offisim-procedural:spiky-crop"
   },
   "props": {
     "prop_laptop": "kenney-furniture-kit:laptop.glb",
-    "prop_monitor": "kenney-furniture-kit:computerScreen.glb",
-    "prop_box": "kenney-furniture-kit:cardboardBoxClosed.glb",
-    "prop_books": "kenney-furniture-kit:books.glb",
-    "prop_book": "kaykit-furniture-bits:book_single.gltf"
+    "prop_clipboard": "offisim-procedural:toy-work-accessory",
+    "prop_tablet": "offisim-procedural:toy-work-accessory",
+    "prop_terminal": "offisim-procedural:toy-work-accessory",
+    "prop_pointer": "offisim-procedural:toy-work-accessory",
+    "prop_headset": "offisim-procedural:toy-work-accessory",
+    "prop_swatch": "offisim-procedural:toy-work-accessory",
+    "prop_checklist": "offisim-procedural:toy-work-accessory",
+    "prop_keycard": "offisim-procedural:toy-work-accessory"
+  },
+  "rootMotionOracle": {
+    "sourceFiles": [
+      "UAL1_Standard.glb",
+      "UAL2_Standard.glb"
+    ],
+    "sourceMode": "non-root-motion",
+    "targetNode": "root",
+    "allTranslationKeysChecked": true,
+    "maxAbsDeltaThreshold": 0.00001,
+    "maxObservedAbsDelta": 0,
+    "clipsChecked": 21,
+    "translationChannelsChecked": 21,
+    "clips": {
+      "tpose": {
+        "keysChecked": 76,
+        "rootTranslationTracks": 1,
+        "maxAbsDelta": 0
+      },
+      "celebrate.dance": {
+        "keysChecked": 31,
+        "rootTranslationTracks": 1,
+        "maxAbsDelta": 0
+      },
+      "idle": {
+        "keysChecked": 76,
+        "rootTranslationTracks": 1,
+        "maxAbsDelta": 0
+      },
+      "idle.talk": {
+        "keysChecked": 89,
+        "rootTranslationTracks": 1,
+        "maxAbsDelta": 0
+      },
+      "interact": {
+        "keysChecked": 61,
+        "rootTranslationTracks": 1,
+        "maxAbsDelta": 0
+      },
+      "pickup": {
+        "keysChecked": 26,
+        "rootTranslationTracks": 1,
+        "maxAbsDelta": 0
+      },
+      "sit.enter": {
+        "keysChecked": 40,
+        "rootTranslationTracks": 1,
+        "maxAbsDelta": 0
+      },
+      "sit.exit": {
+        "keysChecked": 32,
+        "rootTranslationTracks": 1,
+        "maxAbsDelta": 0
+      },
+      "sit.idle": {
+        "keysChecked": 51,
+        "rootTranslationTracks": 1,
+        "maxAbsDelta": 0
+      },
+      "sit.talk": {
+        "keysChecked": 89,
+        "rootTranslationTracks": 1,
+        "maxAbsDelta": 0
+      },
+      "walk.formal": {
+        "keysChecked": 41,
+        "rootTranslationTracks": 1,
+        "maxAbsDelta": 0
+      },
+      "walk": {
+        "keysChecked": 41,
+        "rootTranslationTracks": 1,
+        "maxAbsDelta": 0
+      },
+      "inspect.open": {
+        "keysChecked": 42,
+        "rootTranslationTracks": 1,
+        "maxAbsDelta": 0
+      },
+      "consume": {
+        "keysChecked": 41,
+        "rootTranslationTracks": 1,
+        "maxAbsDelta": 0
+      },
+      "wait.foldarms": {
+        "keysChecked": 76,
+        "rootTranslationTracks": 1,
+        "maxAbsDelta": 0
+      },
+      "blocked.headshake": {
+        "keysChecked": 76,
+        "rootTranslationTracks": 1,
+        "maxAbsDelta": 0
+      },
+      "phone": {
+        "keysChecked": 89,
+        "rootTranslationTracks": 1,
+        "maxAbsDelta": 0
+      },
+      "carry": {
+        "keysChecked": 61,
+        "rootTranslationTracks": 1,
+        "maxAbsDelta": 0
+      },
+      "celebrate.yes": {
+        "keysChecked": 76,
+        "rootTranslationTracks": 1,
+        "maxAbsDelta": 0
+      },
+      "sit.type": {
+        "keysChecked": 51,
+        "rootTranslationTracks": 1,
+        "maxAbsDelta": 0
+      },
+      "approval.wait": {
+        "keysChecked": 76,
+        "rootTranslationTracks": 1,
+        "maxAbsDelta": 0
+      }
+    },
+    "result": "pass"
   },
   "clips": [
+    "approval.wait",
     "blocked.headshake",
     "carry",
     "celebrate.dance",
@@ -53,6 +358,7 @@
     "sit.exit",
     "sit.idle",
     "sit.talk",
+    "sit.type",
     "tpose",
     "wait.foldarms",
     "walk",
@@ -77,22 +383,88 @@
     "blocked.headshake": "UAL2:Idle_No_Loop",
     "phone": "UAL2:Idle_TalkingPhone_Loop",
     "carry": "UAL2:Walk_Carry_Loop",
-    "celebrate.yes": "UAL2:Yes"
+    "celebrate.yes": "UAL2:Yes",
+    "sit.type": "offisim-procedural:sit.type",
+    "approval.wait": "offisim-procedural:approval.wait"
+  },
+  "proceduralAnimations": {
+    "sit.type": {
+      "baseClip": "sit.idle",
+      "poseReferenceClip": "sit.talk",
+      "mode": "loop",
+      "durationSeconds": 1.6,
+      "sampleRate": 30,
+      "modifiedJoints": [
+        "clavicle_l",
+        "upperarm_l",
+        "lowerarm_l",
+        "hand_l",
+        "clavicle_r",
+        "upperarm_r",
+        "lowerarm_r",
+        "hand_r",
+        "index_01_r",
+        "middle_01_r"
+      ],
+      "lowerBodyPolicy": "exact sit.idle channels with duration-normalized key times"
+    },
+    "approval.wait": {
+      "baseClip": "idle",
+      "poseReferenceClip": "wait.foldarms",
+      "mode": "hold",
+      "durationSeconds": 1.6,
+      "sampleRate": 30,
+      "modifiedJoints": [
+        "clavicle_l",
+        "upperarm_l",
+        "lowerarm_l",
+        "hand_l",
+        "clavicle_r",
+        "upperarm_r",
+        "lowerarm_r",
+        "hand_r"
+      ],
+      "lowerBodyPolicy": "exact idle channels with duration-normalized key times"
+    }
+  },
+  "animationRetarget": {
+    "nonRootTranslationPolicy": "removed; toy body bind offsets remain authoritative",
+    "scalePolicy": "constant tracks removed; animated scale tracks retained",
+    "clipGrounding": {
+      "clip": "carry",
+      "joint": "pelvis",
+      "localOffset": [
+        0,
+        0,
+        0.025
+      ],
+      "keysAdjusted": 61,
+      "worldEffect": "constant vertical lift; does not create root-motion drift"
+    },
+    "sourceTrackCleanup": {
+      "UAL1": {
+        "removedNonRootTranslations": 756,
+        "removedConstantScales": 780,
+        "retainedAnimatedScales": 0
+      },
+      "UAL2": {
+        "removedNonRootTranslations": 441,
+        "removedConstantScales": 455,
+        "retainedAnimatedScales": 0
+      }
+    }
   },
   "files": {
-    "body_male.glb": 1166332,
-    "body_female.glb": 1105424,
-    "hair_01.glb": 150996,
-    "hair_02.glb": 203296,
-    "hair_03.glb": 209844,
-    "hair_04.glb": 145968,
-    "hair_05.glb": 145936,
-    "hair_06.glb": 148124,
-    "brows_01.glb": 58748,
-    "brows_02.glb": 67988,
-    "animations.glb": 953992,
-    "props.glb": 18344,
-    "LICENSES.md": 4615
+    "body_toy.glb": 58524,
+    "hair_01.glb": 8880,
+    "hair_02.glb": 10416,
+    "hair_03.glb": 9652,
+    "hair_04.glb": 18900,
+    "hair_05.glb": 6972,
+    "hair_06.glb": 9012,
+    "animations.glb": 547280,
+    "props.glb": 52248,
+    "LICENSES.md": 4203
   },
-  "totalBytes": 4379607
+  "totalBytes": 726087
 }

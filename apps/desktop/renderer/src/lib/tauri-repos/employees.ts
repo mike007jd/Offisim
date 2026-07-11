@@ -9,6 +9,7 @@ import type {
 import * as schema from '@offisim/db-local';
 import type { NewEmployee } from '@offisim/install-core';
 import { and, desc, eq, sql } from 'drizzle-orm';
+import { assertCompanyEmployeeCapacity } from '../../data/employee-capacity.js';
 import type { TauriDrizzleDb } from '../tauri-drizzle';
 
 function now(): string {
@@ -55,6 +56,11 @@ export interface EmployeesTauriRepos {
 export function createEmployeesTauriRepos(db: TauriDrizzleDb): EmployeesTauriRepos {
   const employees: EmployeeRepository = {
     async create(emp: NewEmployee) {
+      const countRows = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.employees)
+        .where(eq(schema.employees.company_id, emp.company_id));
+      assertCompanyEmployeeCapacity(Number(countRows[0]?.count ?? 0));
       const employee_id = emp.employee_id ?? crypto.randomUUID();
       const ts = now();
       const row = {
