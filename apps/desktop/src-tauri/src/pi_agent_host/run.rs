@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use tauri::{ipc::Channel, AppHandle, Manager};
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::Mutex as AsyncMutex;
 use tokio_util::sync::CancellationToken;
@@ -13,7 +13,9 @@ use crate::agent_host_runtime::{
     resolve_node_executable, resolved_request_cwd, sidecar_script_path, HostError, SidecarAudit,
 };
 use crate::in_flight::InFlightRegistry;
-use crate::sidecar_stderr::sanitized_stderr;
+use crate::sidecar_stderr::{
+    read_capped_line, read_capped_to_end, sanitized_stderr, MAX_SIDECAR_OUTPUT_BYTES,
+};
 
 use super::bridge::{
     handle_mcp_call, handle_worktree_call, pi_stdin_guard, write_mcp_result, PiMcpResult,
@@ -39,10 +41,15 @@ async fn kill_child(child: &mut Child) {
     let _ = child.kill().await;
 }
 
-async fn read_stderr(mut stderr: tokio::process::ChildStderr) -> Vec<u8> {
-    let mut bytes = Vec::new();
-    let _ = stderr.read_to_end(&mut bytes).await;
-    bytes
+async fn read_stderr(mut stderr: tokio::process::ChildStderr) -> (Vec<u8>, bool) {
+    read_capped_to_end(&mut stderr, MAX_SIDECAR_OUTPUT_BYTES)
+        .await
+        .unwrap_or_else(|error| {
+            (
+                format!("failed to read Pi Agent stderr: {error}").into_bytes(),
+                true,
+            )
+        })
 }
 
 pub(super) async fn run_pi_sidecar_jsonl<R: tauri::Runtime>(
@@ -105,8 +112,9 @@ pub(super) async fn run_pi_sidecar_jsonl<R: tauri::Runtime>(
             StdinGuard(None)
         }
     };
-    let stderr_task = tokio::spawn(read_stderr(stderr));
-    let mut lines = BufReader::new(stdout).lines();
+    let mut stderr_task = tokio::spawn(read_stderr(stderr));
+    let mut stderr_result = None;
+    let mut stdout = BufReader::new(stdout);
     let mut final_response: Option<serde_json::Value> = None;
     let mut saw_ready = false;
 
@@ -116,10 +124,26 @@ pub(super) async fn run_pi_sidecar_jsonl<R: tauri::Runtime>(
                 kill_child(&mut child).await;
                 return Err(HostError::Aborted);
             }
-            next_line = lines.next_line() => {
-                let Some(line) = next_line.map_err(|err| HostError::Request(format!("Read Pi Agent stdout: {err}")))? else {
+            result = &mut stderr_task, if stderr_result.is_none() => {
+                let result = result
+                    .map_err(|err| HostError::Request(format!("Join Pi Agent stderr task: {err}")))?;
+                if result.1 {
+                    kill_child(&mut child).await;
+                    return Err(HostError::Protocol(format!(
+                        "Pi Agent stderr exceeded the {} byte limit; output was truncated and the sidecar was terminated.",
+                        MAX_SIDECAR_OUTPUT_BYTES
+                    )));
+                }
+                stderr_result = Some(result);
+            }
+            next_line = read_capped_line(&mut stdout, MAX_SIDECAR_OUTPUT_BYTES) => {
+                let Some(line) = next_line.map_err(|err| {
+                    let _ = child.start_kill();
+                    HostError::Protocol(format!("Pi Agent stdout frame limit exceeded: {err}"))
+                })? else {
                     break;
                 };
+                let line = String::from_utf8_lossy(&line);
                 let trimmed = line.trim();
                 if trimmed.is_empty() {
                     continue;
@@ -204,9 +228,18 @@ pub(super) async fn run_pi_sidecar_jsonl<R: tauri::Runtime>(
         .wait()
         .await
         .map_err(|err| HostError::Request(format!("Wait for Pi Agent host process: {err}")))?;
-    let stderr_bytes = stderr_task
-        .await
-        .map_err(|err| HostError::Request(format!("Join Pi Agent stderr task: {err}")))?;
+    let (stderr_bytes, stderr_truncated) = match stderr_result {
+        Some(result) => result,
+        None => stderr_task
+            .await
+            .map_err(|err| HostError::Request(format!("Join Pi Agent stderr task: {err}")))?,
+    };
+    if stderr_truncated {
+        return Err(HostError::Protocol(format!(
+            "Pi Agent stderr exceeded the {} byte limit; output was truncated and the run was rejected.",
+            MAX_SIDECAR_OUTPUT_BYTES
+        )));
+    }
     if !status.success() && final_response.is_none() {
         let stderr_text = sanitized_stderr(&stderr_bytes);
         return Err(HostError::Upstream {

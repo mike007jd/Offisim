@@ -1,15 +1,24 @@
 use crate::mcp_bridge::types::JsonRpcMessage;
+use crate::sidecar_stderr::{read_capped_line, MAX_SIDECAR_OUTPUT_BYTES};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter};
+use tokio::io::{AsyncWriteExt, BufReader, BufWriter};
 use tokio::process::{ChildStderr, ChildStdin, ChildStdout};
 use tokio::sync::{mpsc, oneshot};
 
 /// Reads NDJSON from stdout, parses into JsonRpcMessage, dispatches to channel.
-pub async fn read_loop(stdout: ChildStdout, tx: mpsc::Sender<JsonRpcMessage>) {
-    let reader = BufReader::new(stdout);
-    let mut lines = reader.lines();
-    while let Ok(Some(line)) = lines.next_line().await {
+pub async fn read_loop(stdout: ChildStdout, tx: mpsc::Sender<JsonRpcMessage>, pid: Option<u32>) {
+    let mut reader = BufReader::new(stdout);
+    loop {
+        let line = match read_capped_line(&mut reader, MAX_SIDECAR_OUTPUT_BYTES).await {
+            Ok(Some(bytes)) => String::from_utf8_lossy(&bytes).into_owned(),
+            Ok(None) => break,
+            Err(error) => {
+                eprintln!("[mcp_bridge] terminating server after stdout protocol error: {error}");
+                terminate_process(pid);
+                break;
+            }
+        };
         let trimmed = line.trim();
         if trimmed.is_empty() {
             continue;
@@ -27,15 +36,32 @@ pub async fn read_loop(stdout: ChildStdout, tx: mpsc::Sender<JsonRpcMessage>) {
     }
 }
 
-pub async fn drain_stderr(stderr: ChildStderr) {
-    let reader = BufReader::new(stderr);
-    let mut lines = reader.lines();
-    while let Ok(Some(line)) = lines.next_line().await {
+pub async fn drain_stderr(stderr: ChildStderr, pid: Option<u32>) {
+    let mut reader = BufReader::new(stderr);
+    loop {
+        let line = match read_capped_line(&mut reader, MAX_SIDECAR_OUTPUT_BYTES).await {
+            Ok(Some(bytes)) => String::from_utf8_lossy(&bytes).into_owned(),
+            Ok(None) => break,
+            Err(error) => {
+                eprintln!("[mcp_bridge] terminating server after stderr limit error: {error}");
+                terminate_process(pid);
+                break;
+            }
+        };
         let trimmed = line.trim();
         if !trimmed.is_empty() {
             eprintln!("[mcp_bridge][stderr] {trimmed}");
         }
     }
+}
+
+fn terminate_process(pid: Option<u32>) {
+    #[cfg(unix)]
+    if let Some(pid) = pid {
+        let _ = unsafe { libc::kill(pid as i32, libc::SIGKILL) };
+    }
+    #[cfg(not(unix))]
+    let _ = pid;
 }
 
 /// Writes a JsonRpcMessage as NDJSON (serialize + \n + flush).
