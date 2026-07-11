@@ -5,7 +5,7 @@ import { usePiThreadModelStore } from '@/runtime/pi-thread-model-store.js';
 import { useQuery } from '@tanstack/react-query';
 
 /** One Pi-available model, as projected by the `pi_agent_status` command. */
-interface PiAgentModelOption {
+export interface PiAgentModelOption {
   /** `provider/id` registry label — the value forwarded to the Pi host. */
   value: string;
   /** Short model id for display (e.g. `glm-4.6`). */
