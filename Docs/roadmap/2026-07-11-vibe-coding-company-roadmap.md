@@ -49,7 +49,7 @@
 2. **SQL capability 旁路**(P0 防御纵深,已亲验:`capabilities/default.json:9-10`):`sql:allow-execute`/`sql:allow-select` 把原生 plugin-sql 命令直接开给主窗口,自建的 `validate_statement_sql` 白名单(防 XSS/deep-link 任意 SQL)只护 `local_db_execute_transaction` 一扇门,而 `tauri-drizzle.ts:113,124` 的日常读写全走未设防的原生路径。修法:全部 SQL 收口到单一 Rust 命令做白名单,或在 `getTauriDb()` 包装层统一校验。
 3. **sidecar/MCP stdout 无界缓冲**(P1,`mcp_bridge/jsonrpc_framer.rs:9-28`、`pi_agent_host/run.rs:42-46,109`):恶意/失控 MCP server 一行超长输出可 OOM 整个桌面进程;git lane 已有 `read_capped`(1MB)范式,照抄。
 4. **协议版本第三 literal 无门禁**(P2,`reconcile-interrupted-runs.ts:73`):`check-pi-wire-contract.mjs` 只对 Rust/Node,TS 副本可静默失同步。纳入门禁。
-5. **文档 drift**(P2):根 CLAUDE.md「Desktop credential isolation」段描述的 `llm_transport`/`runtime_secret.txt` 已不存在(现实是 `local_secret.rs` + Pi 自管 auth),重写。
+5. **文档 drift**(P2):根 CLAUDE.md 的「Desktop Credential Isolation」必须以 `local_secret.rs` 的应用密钥封装边界和 Pi 自管 `~/.pi/agent/auth.json` 为当前事实。
 
 ### P1 — 员工-模型绑定(核心解锁,模版的前置)
 
