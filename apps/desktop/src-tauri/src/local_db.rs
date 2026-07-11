@@ -445,6 +445,42 @@ mod tests {
         assert_eq!(row.values().next().and_then(Value::as_i64), Some(1));
     }
 
+    #[tokio::test]
+    async fn select_rows_preserves_projection_column_order() {
+        let pool = memory_pool().await;
+        raw_sql("CREATE TABLE companies (company_id TEXT PRIMARY KEY, name TEXT, created_at TEXT)")
+            .execute(&pool)
+            .await
+            .unwrap();
+        execute_statement(
+            &pool,
+            "INSERT INTO companies (company_id, name, created_at) VALUES ($1, $2, $3)",
+            vec![
+                serde_json::json!("c1"),
+                serde_json::json!("P0 Verify Co"),
+                serde_json::json!("2026-07-11"),
+            ],
+        )
+        .await
+        .unwrap();
+        let rows = select_rows(
+            &pool,
+            "SELECT name, created_at, company_id FROM companies",
+            Vec::new(),
+        )
+        .await
+        .unwrap();
+        // The renderer reconstructs positional columns from key order; it must
+        // follow the SELECT projection, not alphabetical ordering.
+        let keys: Vec<&str> = rows[0]
+            .as_object()
+            .expect("row object")
+            .keys()
+            .map(String::as_str)
+            .collect();
+        assert_eq!(keys, ["name", "created_at", "company_id"]);
+    }
+
     // max_connections(1): each new connection to `sqlite::memory:` is a
     // separate database, so the pool must reuse a single connection.
     async fn memory_pool() -> SqlitePool {
