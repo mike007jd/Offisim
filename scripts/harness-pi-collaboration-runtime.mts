@@ -10,12 +10,12 @@
  *
  * It ALSO asserts the host `collaborate` path is isolated (zero tools, no
  * workspace, no persistence, no extension factories, streaming) by reading the
- * entry.mjs + pi_agent_host.rs source — the host config is a property of the
+ * entry.mjs + pi_agent_host/*.rs source — the host config is a property of the
  * source, not of the in-memory controller. Style mirrors harness-prompt-enhance.mts
  * + harness-conversation-run-controller.mts: a `check(...)` counter, exit 0/1.
  */
 
-import { readFileSync } from 'node:fs';
+import { globSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
   type CollaborationParticipant,
@@ -640,10 +640,13 @@ await (async () => {
   );
 
   // Rust host: a neutral cwd, no project bind, register_stdin None.
-  const rsPath = fileURLToPath(
-    new URL('../apps/desktop/src-tauri/src/pi_agent_host.rs', import.meta.url),
+  const rsPattern = fileURLToPath(
+    new URL('../apps/desktop/src-tauri/src/pi_agent_host/*.rs', import.meta.url),
   );
-  const rs = readFileSync(rsPath, 'utf8');
+  const rs = globSync(rsPattern)
+    .sort()
+    .map((path) => readFileSync(path, 'utf8'))
+    .join('\n');
   const rstart = rs.indexOf('async fn do_collaborate');
   const rend = rs.indexOf('async fn collaborate_impl');
   check('(1) do_collaborate found in Rust host', rstart >= 0 && rend > rstart);
@@ -699,8 +702,8 @@ await (async () => {
   const transportSrc = readFileSync(transportPath, 'utf8');
   check(
     '(4) collaboration transport invokes agent_runtime_collaborate (not _execute)',
-    transportSrc.includes("invoke('agent_runtime_collaborate'") &&
-      !transportSrc.includes("invoke('agent_runtime_execute'"),
+    transportSrc.includes("invokeCommand('agent_runtime_collaborate'") &&
+      !transportSrc.includes("invokeCommand('agent_runtime_execute'"),
   );
   check(
     '(4) collaboration transport never touches agent_runs / mission / chat_threads',

@@ -9,6 +9,7 @@ import { SearchInput } from '@/design-system/grammar/SearchInput.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Tabs, TabsList, TabsTrigger } from '@/design-system/primitives/tabs.js';
 import { pickWorkspaceFolder } from '@/lib/desktop-dialog.js';
+import { invokeCommand } from '@/lib/tauri-commands.js';
 import { cn } from '@/lib/utils.js';
 import { overbroadWorkspaceReason } from '@/lib/workspace-root-guard.js';
 import { EmptyState, ErrorState, SkeletonRows } from '@/surfaces/shared/SurfaceStates.js';
@@ -145,8 +146,7 @@ function FilesTab({
       return;
     }
     try {
-      const { invoke } = await import('@tauri-apps/api/core');
-      await invoke(command, { projectId, path: node.path });
+      await invokeCommand(command, { projectId, path: node.path });
     } catch (error) {
       toast.error(
         error instanceof Error

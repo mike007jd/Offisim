@@ -1,19 +1,17 @@
-import { useUiState, type StageViewTarget } from '@/app/ui-state.js';
+import { type StageViewTarget, useUiState } from '@/app/ui-state.js';
 import { Icon } from '@/design-system/icons/Icon.js';
+import { invokeCommand } from '@/lib/tauri-commands.js';
 import { cn } from '@/lib/utils.js';
 import {
+  type ResolvedPreviewTarget,
   formatByteSize,
   viewerKindLabel,
-  type ResolvedPreviewTarget,
 } from '@/surfaces/office/stage-preview/preview-target.js';
-import { Copy, ExternalLink, FolderOpen } from 'lucide-react';
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
-import { toast } from 'sonner';
 import { useSetStageChrome } from '@/surfaces/office/stage-viewer/stage-chrome.js';
-import {
-  type PreviewData,
-  loadPreview,
-} from './preview-data.js';
+import { Copy, ExternalLink, FolderOpen } from 'lucide-react';
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
+import { type PreviewData, loadPreview } from './preview-data.js';
 import { UnsupportedViewer } from './viewers/UnsupportedViewer.js';
 
 const TextViewer = lazy(() =>
@@ -86,8 +84,7 @@ async function invokePathCommand(
   projectId: string | null,
   path: string,
 ): Promise<void> {
-  const { invoke } = await import('@tauri-apps/api/core');
-  await invoke(command, { projectId, path });
+  await invokeCommand(command, { projectId, path });
 }
 
 async function copyValue(value: string, label: string) {
@@ -95,14 +92,19 @@ async function copyValue(value: string, label: string) {
   toast.success(`${label} copied`);
 }
 
-function ViewerDispatch({ resolved, data }: { resolved: ResolvedPreviewTarget; data: PreviewData }) {
+function ViewerDispatch({
+  resolved,
+  data,
+}: { resolved: ResolvedPreviewTarget; data: PreviewData }) {
   if (data.mode === 'none') return <UnsupportedViewer resolved={resolved} data={data} />;
   if (data.mode === 'text') {
     if (resolved.viewerKind === 'markdown') {
       return <MarkdownViewer text={data.text} truncated={data.truncated} />;
     }
     if (resolved.viewerKind === 'json' || resolved.viewerKind === 'structured-text') {
-      return <StructuredTextViewer text={data.text} resolved={resolved} truncated={data.truncated} />;
+      return (
+        <StructuredTextViewer text={data.text} resolved={resolved} truncated={data.truncated} />
+      );
     }
     if (resolved.viewerKind === 'csv') {
       return <CsvViewer text={data.text} truncated={data.truncated} />;
@@ -127,7 +129,10 @@ function ViewerDispatch({ resolved, data }: { resolved: ResolvedPreviewTarget; d
   if (data.mode === 'bytes' && resolved.viewerKind === 'slides') {
     return <SlidesViewer resolved={resolved} data={data} />;
   }
-  if (data.mode === 'stream' && (resolved.viewerKind === 'video' || resolved.viewerKind === 'audio')) {
+  if (
+    data.mode === 'stream' &&
+    (resolved.viewerKind === 'video' || resolved.viewerKind === 'audio')
+  ) {
     return <MediaViewer resolved={resolved} data={data} />;
   }
   if (data.mode === 'bytes' && resolved.viewerKind === 'model3d') {

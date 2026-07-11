@@ -10,7 +10,7 @@
 DROP TABLE IF EXISTS _sqlx_migrations;
 
 CREATE TABLE IF NOT EXISTS companies (
-  company_id TEXT PRIMARY KEY,
+  company_id TEXT PRIMARY KEY NOT NULL,
   name TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'archived')),
   template_id TEXT,
@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS companies (
   updated_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS workstations (
-  workstation_id TEXT PRIMARY KEY,
+  workstation_id TEXT PRIMARY KEY NOT NULL,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   room_type TEXT NOT NULL,
   label TEXT NOT NULL,
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS workstations (
   updated_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS racks (
-  rack_id TEXT PRIMARY KEY,
+  rack_id TEXT PRIMARY KEY NOT NULL,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   provider_type TEXT NOT NULL,
   label TEXT NOT NULL,
@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS racks (
   updated_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS slots (
-  slot_id TEXT PRIMARY KEY,
+  slot_id TEXT PRIMARY KEY NOT NULL,
   rack_id TEXT NOT NULL REFERENCES racks(rack_id) ON DELETE CASCADE,
   capability_name TEXT NOT NULL,
   exposure_scope TEXT NOT NULL CHECK (exposure_scope IN ('private', 'team', 'company')),
@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS slots (
   updated_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS employees (
-  employee_id TEXT PRIMARY KEY,
+  employee_id TEXT PRIMARY KEY NOT NULL,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   source_asset_id TEXT,
   source_package_id TEXT,
@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS employees (
   updated_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS install_transactions (
-  install_txn_id TEXT PRIMARY KEY,
+  install_txn_id TEXT PRIMARY KEY NOT NULL,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   source_type TEXT NOT NULL CHECK (source_type IN ('registry', 'url', 'file')),
   source_ref TEXT,
@@ -106,7 +106,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS install_transactions_company_idempotency
   WHERE idempotency_key IS NOT NULL
     AND state NOT IN ('failed', 'rolled_back', 'cancelled');
 CREATE TABLE IF NOT EXISTS installed_packages (
-  installed_package_id TEXT PRIMARY KEY,
+  installed_package_id TEXT PRIMARY KEY NOT NULL,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   package_id TEXT NOT NULL,
   package_kind TEXT NOT NULL CHECK (package_kind IN ('employee', 'skill', 'company_template', 'office_layout', 'prefab', 'bundle')),
@@ -124,7 +124,7 @@ CREATE TABLE IF NOT EXISTS installed_packages (
   UNIQUE(company_id, package_id, version)
 );
 CREATE TABLE IF NOT EXISTS installed_assets (
-  installed_asset_id TEXT PRIMARY KEY,
+  installed_asset_id TEXT PRIMARY KEY NOT NULL,
   installed_package_id TEXT NOT NULL REFERENCES installed_packages(installed_package_id) ON DELETE CASCADE,
   asset_id TEXT NOT NULL,
   asset_kind TEXT NOT NULL CHECK (asset_kind IN ('employee', 'skill', 'company_template', 'office_layout', 'prefab', 'bundle')),
@@ -137,7 +137,7 @@ CREATE TABLE IF NOT EXISTS installed_assets (
   UNIQUE(installed_package_id, asset_id)
 );
 CREATE TABLE IF NOT EXISTS asset_bindings (
-  binding_id TEXT PRIMARY KEY,
+  binding_id TEXT PRIMARY KEY NOT NULL,
   installed_asset_id TEXT REFERENCES installed_assets(installed_asset_id) ON DELETE CASCADE,
   install_txn_id TEXT REFERENCES install_transactions(install_txn_id) ON DELETE CASCADE,
   binding_type TEXT NOT NULL CHECK (binding_type IN ('model_profile', 'secret_slot', 'workspace_map', 'mcp_slot')),
@@ -149,7 +149,7 @@ CREATE TABLE IF NOT EXISTS asset_bindings (
   CHECK (installed_asset_id IS NOT NULL OR install_txn_id IS NOT NULL)
 );
 CREATE TABLE IF NOT EXISTS task_runs (
-  task_run_id TEXT PRIMARY KEY,
+  task_run_id TEXT PRIMARY KEY NOT NULL,
   thread_id TEXT NOT NULL REFERENCES graph_threads(thread_id) ON DELETE CASCADE,
   employee_id TEXT REFERENCES employees(employee_id) ON DELETE SET NULL,
   parent_task_run_id TEXT REFERENCES task_runs(task_run_id) ON DELETE SET NULL,
@@ -164,7 +164,7 @@ CREATE TABLE IF NOT EXISTS task_runs (
 -- the tree is rebuilt from parent_run_id / root_run_id. Distinct from task_runs
 -- (work items) — agent_runs are cognition instances of an employee identity.
 CREATE TABLE IF NOT EXISTS agent_runs (
-  run_id              TEXT PRIMARY KEY,
+  run_id              TEXT PRIMARY KEY NOT NULL,
   -- thread_id is the product-layer chat_threads.thread_id (no FK — chat threads
   -- have no graph_threads row; matches agent_events). Cleaned up by company FK
   -- cascade + explicit per-thread deletion in local-data-deletion.
@@ -195,7 +195,7 @@ CREATE TABLE IF NOT EXISTS agent_runs (
   finished_at         TEXT
 );
 CREATE TABLE IF NOT EXISTS tool_calls (
-  tool_call_id TEXT PRIMARY KEY,
+  tool_call_id TEXT PRIMARY KEY NOT NULL,
   task_run_id TEXT NOT NULL REFERENCES task_runs(task_run_id) ON DELETE CASCADE,
   tool_name TEXT NOT NULL,
   capability_name TEXT,
@@ -208,7 +208,7 @@ CREATE TABLE IF NOT EXISTS tool_calls (
   finished_at TEXT
 );
 CREATE TABLE IF NOT EXISTS handoff_events (
-  handoff_id TEXT PRIMARY KEY,
+  handoff_id TEXT PRIMARY KEY NOT NULL,
   thread_id TEXT NOT NULL REFERENCES graph_threads(thread_id) ON DELETE CASCADE,
   from_employee_id TEXT REFERENCES employees(employee_id) ON DELETE SET NULL,
   to_employee_id TEXT REFERENCES employees(employee_id) ON DELETE SET NULL,
@@ -217,7 +217,7 @@ CREATE TABLE IF NOT EXISTS handoff_events (
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS meeting_sessions (
-  meeting_id TEXT PRIMARY KEY,
+  meeting_id TEXT PRIMARY KEY NOT NULL,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   thread_id TEXT REFERENCES graph_threads(thread_id) ON DELETE SET NULL,
   topic TEXT NOT NULL,
@@ -228,7 +228,7 @@ CREATE TABLE IF NOT EXISTS meeting_sessions (
   updated_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS runtime_events (
-  event_id TEXT PRIMARY KEY,
+  event_id TEXT PRIMARY KEY NOT NULL,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   thread_id TEXT REFERENCES graph_threads(thread_id) ON DELETE SET NULL,
   event_type TEXT NOT NULL,
@@ -237,7 +237,7 @@ CREATE TABLE IF NOT EXISTS runtime_events (
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS llm_calls (
-  llm_call_id   TEXT PRIMARY KEY,
+  llm_call_id   TEXT PRIMARY KEY NOT NULL,
   thread_id     TEXT REFERENCES graph_threads(thread_id) ON DELETE SET NULL,
   task_run_id   TEXT REFERENCES task_runs(task_run_id) ON DELETE SET NULL,
   node_name     TEXT NOT NULL,
@@ -260,7 +260,7 @@ CREATE TABLE IF NOT EXISTS llm_calls (
   created_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE TABLE IF NOT EXISTS employee_versions (
-  version_id    TEXT PRIMARY KEY,
+  version_id    TEXT PRIMARY KEY NOT NULL,
   employee_id   TEXT NOT NULL REFERENCES employees(employee_id) ON DELETE CASCADE,
   version_num   INTEGER NOT NULL,
   change_type   TEXT NOT NULL CHECK(change_type IN ('create', 'update', 'rollback')),
@@ -270,7 +270,7 @@ CREATE TABLE IF NOT EXISTS employee_versions (
   created_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE TABLE IF NOT EXISTS model_cost_rates (
-  rate_id              TEXT PRIMARY KEY,
+  rate_id              TEXT PRIMARY KEY NOT NULL,
   provider             TEXT NOT NULL,
   model_pattern        TEXT NOT NULL,
   input_cost_per_mtok  REAL NOT NULL,
@@ -280,7 +280,7 @@ CREATE TABLE IF NOT EXISTS model_cost_rates (
   created_at           TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE TABLE IF NOT EXISTS company_template_assets (
-  company_template_asset_id TEXT PRIMARY KEY,
+  company_template_asset_id TEXT PRIMARY KEY NOT NULL,
   company_id      TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   template_id     TEXT NOT NULL,
   name            TEXT NOT NULL,
@@ -293,7 +293,7 @@ CREATE TABLE IF NOT EXISTS company_template_assets (
   updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE TABLE IF NOT EXISTS office_layouts (
-  layout_id   TEXT PRIMARY KEY,
+  layout_id   TEXT PRIMARY KEY NOT NULL,
   company_id  TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   name        TEXT NOT NULL,
   layout_json TEXT NOT NULL,
@@ -302,7 +302,7 @@ CREATE TABLE IF NOT EXISTS office_layouts (
   updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE TABLE IF NOT EXISTS library_documents (
-  doc_id       TEXT PRIMARY KEY,
+  doc_id       TEXT PRIMARY KEY NOT NULL,
   company_id   TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   title        TEXT NOT NULL,
   content_text TEXT NOT NULL DEFAULT '',
@@ -319,7 +319,7 @@ CREATE TABLE IF NOT EXISTS workstation_racks (
   PRIMARY KEY (workstation_id, rack_id)
 );
 CREATE TABLE IF NOT EXISTS prefab_instances (
-  instance_id   TEXT PRIMARY KEY,
+  instance_id   TEXT PRIMARY KEY NOT NULL,
   company_id    TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   prefab_id     TEXT NOT NULL,
   zone_id       TEXT NOT NULL,
@@ -333,7 +333,7 @@ CREATE TABLE IF NOT EXISTS prefab_instances (
   updated_at    TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS "graph_threads" (
-  thread_id    TEXT PRIMARY KEY,
+  thread_id    TEXT PRIMARY KEY NOT NULL,
   company_id   TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   entry_mode   TEXT NOT NULL CHECK (entry_mode IN (
     'boss_chat', 'meeting', 'install_flow', 'background_sync', 'direct_chat'
@@ -350,7 +350,7 @@ CREATE TABLE IF NOT EXISTS "graph_threads" (
   updated_at   TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS projects (
-  project_id  TEXT PRIMARY KEY,
+  project_id  TEXT PRIMARY KEY NOT NULL,
   company_id  TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   name        TEXT NOT NULL,
   description TEXT,
@@ -361,7 +361,7 @@ CREATE TABLE IF NOT EXISTS projects (
   updated_at  TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS chat_threads (
-  thread_id         TEXT PRIMARY KEY,
+  thread_id         TEXT PRIMARY KEY NOT NULL,
   project_id        TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
   employee_id       TEXT REFERENCES employees(employee_id) ON DELETE SET NULL,
   title             TEXT NOT NULL DEFAULT 'New thread',
@@ -372,7 +372,7 @@ CREATE TABLE IF NOT EXISTS chat_threads (
   updated_at        TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS project_assignments (
-  assignment_id TEXT PRIMARY KEY,
+  assignment_id TEXT PRIMARY KEY NOT NULL,
   project_id    TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
   employee_id   TEXT NOT NULL REFERENCES employees(employee_id) ON DELETE CASCADE,
   role          TEXT NOT NULL DEFAULT 'member',
@@ -380,7 +380,7 @@ CREATE TABLE IF NOT EXISTS project_assignments (
   UNIQUE(project_id, employee_id)
 );
 CREATE TABLE IF NOT EXISTS agent_events (
-  event_id         TEXT PRIMARY KEY,
+  event_id         TEXT PRIMARY KEY NOT NULL,
   project_id       TEXT REFERENCES projects(project_id) ON DELETE CASCADE,
   thread_id        TEXT NOT NULL,
   company_id       TEXT NOT NULL,
@@ -391,7 +391,7 @@ CREATE TABLE IF NOT EXISTS agent_events (
   created_at       TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS recovery_knowledge (
-  knowledge_id   TEXT PRIMARY KEY,
+  knowledge_id   TEXT PRIMARY KEY NOT NULL,
   symptom        TEXT NOT NULL,    -- 'LLM_TIMEOUT', 'TOOL_CALL_FAILED:read_file', 'PARSE_ERROR:json'
   cause          TEXT NOT NULL,    -- 'rate_limit', 'file_not_found', 'malformed_llm_output'
   fix_strategy   TEXT NOT NULL,    -- 'retry_with_backoff', 'switch_model', 'skip_and_continue', 'replan_step', 'escalate', or custom
@@ -402,7 +402,7 @@ CREATE TABLE IF NOT EXISTS recovery_knowledge (
   created_at     TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS file_history (
-  history_id TEXT PRIMARY KEY,
+  history_id TEXT PRIMARY KEY NOT NULL,
   snapshot_id TEXT NOT NULL,
   thread_id TEXT NOT NULL REFERENCES graph_threads(thread_id) ON DELETE CASCADE,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
@@ -419,7 +419,7 @@ CREATE TABLE IF NOT EXISTS file_history (
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS active_thread_interactions (
-  thread_id TEXT PRIMARY KEY REFERENCES graph_threads(thread_id) ON DELETE CASCADE,
+  thread_id TEXT PRIMARY KEY NOT NULL REFERENCES graph_threads(thread_id) ON DELETE CASCADE,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   interaction_id TEXT NOT NULL UNIQUE,
   kind TEXT NOT NULL,
@@ -430,7 +430,7 @@ CREATE TABLE IF NOT EXISTS active_thread_interactions (
   updated_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS interaction_history (
-  history_id TEXT PRIMARY KEY,
+  history_id TEXT PRIMARY KEY NOT NULL,
   interaction_id TEXT NOT NULL,
   thread_id TEXT NOT NULL REFERENCES graph_threads(thread_id) ON DELETE CASCADE,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
@@ -446,7 +446,7 @@ CREATE TABLE IF NOT EXISTS interaction_history (
   resolved_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS "mcp_audit_log" (
-  audit_id TEXT PRIMARY KEY,
+  audit_id TEXT PRIMARY KEY NOT NULL,
   thread_id TEXT NOT NULL,
   task_run_id TEXT REFERENCES task_runs(task_run_id) ON DELETE SET NULL,
   employee_id TEXT NOT NULL,
@@ -462,7 +462,7 @@ CREATE TABLE IF NOT EXISTS "mcp_audit_log" (
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS mcp_tool_grants (
-  grant_id TEXT PRIMARY KEY,
+  grant_id TEXT PRIMARY KEY NOT NULL,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   employee_id TEXT NOT NULL,
   server_name TEXT NOT NULL,
@@ -479,13 +479,13 @@ CREATE TABLE IF NOT EXISTS mcp_tool_grants (
   UNIQUE(company_id, employee_id, server_name, tool_name)
 );
 CREATE TABLE IF NOT EXISTS zones (
-  zone_id TEXT PRIMARY KEY,
+  zone_id TEXT PRIMARY KEY NOT NULL,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   kind TEXT NOT NULL,
   archetype TEXT,
   label TEXT NOT NULL,
   accent_color TEXT NOT NULL DEFAULT '#64748b',
-  floor_color REAL NOT NULL DEFAULT 0x2a3a5c,
+  floor_color INTEGER NOT NULL DEFAULT 0x2a3a5c,
   cx REAL NOT NULL DEFAULT 0,
   cz REAL NOT NULL DEFAULT 0,
   w REAL NOT NULL DEFAULT 10,
@@ -499,7 +499,7 @@ CREATE TABLE IF NOT EXISTS zones (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE TABLE IF NOT EXISTS "memory_entries" (
-  memory_id TEXT PRIMARY KEY,
+  memory_id TEXT PRIMARY KEY NOT NULL,
   company_id TEXT NOT NULL,
   scope TEXT NOT NULL CHECK(scope IN ('employee', 'team', 'company')),
   owner_id TEXT NOT NULL,
@@ -518,7 +518,7 @@ CREATE TABLE IF NOT EXISTS "memory_entries" (
   access_count INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS deliverables (
-  deliverable_id     TEXT PRIMARY KEY,
+  deliverable_id     TEXT PRIMARY KEY NOT NULL,
   company_id         TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   thread_id          TEXT,
   chat_thread_id     TEXT,
@@ -534,12 +534,12 @@ CREATE TABLE IF NOT EXISTS deliverables (
   version            INTEGER NOT NULL DEFAULT 1
 );
 CREATE TABLE IF NOT EXISTS settings (
-  key         TEXT PRIMARY KEY,
+  key         TEXT PRIMARY KEY NOT NULL,
   value       TEXT NOT NULL,
   updated_at  INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS node_summaries (
-  summary_id TEXT PRIMARY KEY,
+  summary_id TEXT PRIMARY KEY NOT NULL,
   thread_id TEXT NOT NULL REFERENCES graph_threads(thread_id) ON DELETE CASCADE,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   node_name TEXT NOT NULL,
@@ -556,7 +556,7 @@ CREATE TABLE IF NOT EXISTS node_summaries (
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS compact_summaries (
-  compact_id TEXT PRIMARY KEY,
+  compact_id TEXT PRIMARY KEY NOT NULL,
   thread_id TEXT NOT NULL REFERENCES graph_threads(thread_id) ON DELETE CASCADE,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   compact_kind TEXT NOT NULL,
@@ -569,7 +569,7 @@ CREATE TABLE IF NOT EXISTS compact_summaries (
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS "skills" (
-  skill_id     TEXT PRIMARY KEY,
+  skill_id     TEXT PRIMARY KEY NOT NULL,
   company_id   TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   employee_id  TEXT REFERENCES employees(employee_id) ON DELETE CASCADE,
   scope        TEXT NOT NULL CHECK (scope IN ('company', 'employee')),
@@ -584,7 +584,7 @@ CREATE TABLE IF NOT EXISTS "skills" (
   updated_at   INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS tool_permission_approvals (
-  approval_id TEXT PRIMARY KEY,
+  approval_id TEXT PRIMARY KEY NOT NULL,
   thread_id TEXT NOT NULL,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   employee_id TEXT,
@@ -726,7 +726,7 @@ CREATE INDEX IF NOT EXISTS idx_meeting_sessions_mode
 -- No FK to graph_threads: pi threads are standalone and survive independent of
 -- the legacy graph thread lifecycle.
 CREATE TABLE IF NOT EXISTS pi_messages (
-  message_id TEXT PRIMARY KEY,
+  message_id TEXT PRIMARY KEY NOT NULL,
   thread_id TEXT NOT NULL,
   company_id TEXT NOT NULL,
   employee_id TEXT,
@@ -745,7 +745,7 @@ CREATE TABLE IF NOT EXISTS pi_messages (
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS mission (
-  mission_id              TEXT PRIMARY KEY,
+  mission_id              TEXT PRIMARY KEY NOT NULL,
   company_id              TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   project_id              TEXT,
   thread_id               TEXT NOT NULL,
@@ -763,7 +763,7 @@ CREATE TABLE IF NOT EXISTS mission (
 );
 
 CREATE TABLE IF NOT EXISTS mission_criterion (
-  criterion_id           TEXT PRIMARY KEY,
+  criterion_id           TEXT PRIMARY KEY NOT NULL,
   mission_id             TEXT NOT NULL REFERENCES mission(mission_id) ON DELETE CASCADE,
   description            TEXT NOT NULL,
   evaluator_id           TEXT NOT NULL,
@@ -775,7 +775,7 @@ CREATE TABLE IF NOT EXISTS mission_criterion (
 );
 
 CREATE TABLE IF NOT EXISTS mission_attempt (
-  attempt_id               TEXT PRIMARY KEY,
+  attempt_id               TEXT PRIMARY KEY NOT NULL,
   mission_id               TEXT NOT NULL REFERENCES mission(mission_id) ON DELETE CASCADE,
   attempt_number           INTEGER NOT NULL,
   root_run_id              TEXT,
@@ -788,7 +788,7 @@ CREATE TABLE IF NOT EXISTS mission_attempt (
 );
 
 CREATE TABLE IF NOT EXISTS mission_evaluation (
-  evaluation_id      TEXT PRIMARY KEY,
+  evaluation_id      TEXT PRIMARY KEY NOT NULL,
   mission_id         TEXT NOT NULL REFERENCES mission(mission_id) ON DELETE CASCADE,
   criterion_id       TEXT NOT NULL,
   attempt_id         TEXT NOT NULL,
@@ -801,7 +801,7 @@ CREATE TABLE IF NOT EXISTS mission_evaluation (
 );
 
 CREATE TABLE IF NOT EXISTS runtime_session_link (
-  runtime_session_link_id TEXT PRIMARY KEY,
+  runtime_session_link_id TEXT PRIMARY KEY NOT NULL,
   mission_id              TEXT NOT NULL REFERENCES mission(mission_id) ON DELETE CASCADE,
   runtime_id              TEXT NOT NULL,
   runtime_version         TEXT,
@@ -813,7 +813,7 @@ CREATE TABLE IF NOT EXISTS runtime_session_link (
 );
 
 CREATE TABLE IF NOT EXISTS mission_event (
-  mission_event_id TEXT PRIMARY KEY,
+  mission_event_id TEXT PRIMARY KEY NOT NULL,
   mission_id       TEXT NOT NULL REFERENCES mission(mission_id) ON DELETE CASCADE,
   attempt_id       TEXT,
   type             TEXT NOT NULL,
@@ -846,7 +846,7 @@ CREATE INDEX IF NOT EXISTS idx_mission_event_mission_time
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS collaboration_threads (
-  thread_id          TEXT PRIMARY KEY,
+  thread_id          TEXT PRIMARY KEY NOT NULL,
   company_id         TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   kind               TEXT NOT NULL CHECK (kind IN ('direct', 'group')),
   title              TEXT NOT NULL,
@@ -868,7 +868,7 @@ CREATE TABLE IF NOT EXISTS collaboration_threads (
 );
 
 CREATE TABLE IF NOT EXISTS collaboration_thread_members (
-  member_id    TEXT PRIMARY KEY,
+  member_id    TEXT PRIMARY KEY NOT NULL,
   thread_id    TEXT NOT NULL REFERENCES collaboration_threads(thread_id) ON DELETE CASCADE,
   actor_type   TEXT NOT NULL CHECK (actor_type IN ('boss', 'employee')),
   employee_id  TEXT REFERENCES employees(employee_id) ON DELETE CASCADE,
@@ -878,7 +878,7 @@ CREATE TABLE IF NOT EXISTS collaboration_thread_members (
 );
 
 CREATE TABLE IF NOT EXISTS collaboration_messages (
-  message_id          TEXT PRIMARY KEY,
+  message_id          TEXT PRIMARY KEY NOT NULL,
   thread_id           TEXT NOT NULL REFERENCES collaboration_threads(thread_id) ON DELETE CASCADE,
   sender_type         TEXT NOT NULL CHECK (sender_type IN ('boss', 'employee', 'system')),
   sender_employee_id  TEXT REFERENCES employees(employee_id) ON DELETE SET NULL,
@@ -898,7 +898,7 @@ CREATE TABLE IF NOT EXISTS collaboration_messages (
 -- No boss/user account id in the current product → last-read boundary per thread.
 -- Unread is COMPUTED from this boundary, never stored as a drifting counter.
 CREATE TABLE IF NOT EXISTS collaboration_read_state (
-  thread_id            TEXT PRIMARY KEY REFERENCES collaboration_threads(thread_id) ON DELETE CASCADE,
+  thread_id            TEXT PRIMARY KEY NOT NULL REFERENCES collaboration_threads(thread_id) ON DELETE CASCADE,
   last_read_message_id TEXT,
   updated_at           TEXT NOT NULL
 );
@@ -933,7 +933,7 @@ CREATE INDEX IF NOT EXISTS idx_collaboration_members_employee
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS loop_definitions (
-  loop_id             TEXT PRIMARY KEY,
+  loop_id             TEXT PRIMARY KEY NOT NULL,
   company_id          TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   title               TEXT NOT NULL,
   summary             TEXT NOT NULL DEFAULT '',
@@ -948,7 +948,7 @@ CREATE TABLE IF NOT EXISTS loop_definitions (
 
 -- Immutable: any edit appends a new revision; rows are never UPDATEd in place.
 CREATE TABLE IF NOT EXISTS loop_revisions (
-  revision_id              TEXT PRIMARY KEY,
+  revision_id              TEXT PRIMARY KEY NOT NULL,
   loop_id                  TEXT NOT NULL REFERENCES loop_definitions(loop_id) ON DELETE CASCADE,
   revision_number          INTEGER NOT NULL,
   source_prompt            TEXT NOT NULL,
@@ -965,7 +965,7 @@ CREATE TABLE IF NOT EXISTS loop_revisions (
 );
 
 CREATE TABLE IF NOT EXISTS loop_skill_bindings (
-  binding_id    TEXT PRIMARY KEY,
+  binding_id    TEXT PRIMARY KEY NOT NULL,
   revision_id   TEXT NOT NULL REFERENCES loop_revisions(revision_id) ON DELETE CASCADE,
   skill_id      TEXT NOT NULL,
   skill_version TEXT NOT NULL,
@@ -977,7 +977,7 @@ CREATE TABLE IF NOT EXISTS loop_skill_bindings (
 -- is archived. The service forbids physically deleting a definition that has
 -- invocation history (archive instead); there is no cascade from here.
 CREATE TABLE IF NOT EXISTS loop_invocations (
-  invocation_id TEXT PRIMARY KEY,
+  invocation_id TEXT PRIMARY KEY NOT NULL,
   loop_id       TEXT NOT NULL,
   revision_id   TEXT NOT NULL,
   company_id    TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
@@ -1018,7 +1018,7 @@ CREATE INDEX IF NOT EXISTS idx_loop_invocations_company_created
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS collaboration_turns (
-  turn_id            TEXT PRIMARY KEY,
+  turn_id            TEXT PRIMARY KEY NOT NULL,
   thread_id          TEXT NOT NULL REFERENCES collaboration_threads(thread_id) ON DELETE CASCADE,
   -- The message that scheduled this speaker. Not an FK (a turn stays readable for
   -- recovery even if the trigger message is removed, and may reference a

@@ -1,6 +1,7 @@
 import { isTauriRuntime, reposOrNull } from '@/data/adapters.js';
 import { UI_DATA_COLORS } from '@/data/color-palette.js';
 import { inferMcpGrantRiskClass } from '@/data/mcp-risk.js';
+import { invokeCommand } from '@/lib/tauri-commands.js';
 /**
  * Settings-surface view-models and local query hooks.
  *
@@ -250,18 +251,16 @@ function approvalIdFor(values: Pick<McpServerFormValues, 'name' | 'approvalId'>)
 
 async function loadMcpServers(): Promise<McpServer[]> {
   if (!isTauriRuntime()) return [];
-  const { invoke } = await import('@tauri-apps/api/core');
   const [registered, runtimeStatuses] = await Promise.all([
-    invoke<RegisteredMcpServerSummary[]>('mcp_list_registered_servers'),
-    invoke<McpServerStatusRow[]>('mcp_list_servers'),
+    invokeCommand('mcp_list_registered_servers'),
+    invokeCommand('mcp_list_servers'),
   ]);
   const statuses = new Map(runtimeStatuses.map((status) => [status.name, status] as const));
   return registered.map((server) => mcpServerFromRegistered(server, statuses));
 }
 
 export async function registerMcpServer(values: McpServerFormValues): Promise<McpServer> {
-  const { invoke } = await import('@tauri-apps/api/core');
-  const registered = await invoke<RegisteredMcpServerSummary>('mcp_register_server', {
+  const registered = await invokeCommand('mcp_register_server', {
     input: {
       name: values.name.trim(),
       transport: values.transport,
@@ -288,8 +287,7 @@ export async function connectMcpServer(server: McpServer): Promise<McpSpawnResul
   if (!server.approvalId || !server.commandFingerprint) {
     throw new Error('Registered stdio server is missing approval or command fingerprint.');
   }
-  const { invoke } = await import('@tauri-apps/api/core');
-  return invoke<McpSpawnResult>('mcp_connect_registered', {
+  return invokeCommand('mcp_connect_registered', {
     request: {
       serverId: server.id,
       approvalId: server.approvalId,
@@ -304,11 +302,10 @@ export async function connectMcpServer(server: McpServer): Promise<McpSpawnResul
 }
 
 export async function unregisterMcpServer(server: McpServer): Promise<void> {
-  const { invoke } = await import('@tauri-apps/api/core');
   if (server.transport === 'stdio') {
-    await invoke('mcp_kill', { server: server.name }).catch(() => undefined);
+    await invokeCommand('mcp_kill', { server: server.name }).catch(() => undefined);
   }
-  await invoke('mcp_unregister_server', { serverId: server.id });
+  await invokeCommand('mcp_unregister_server', { serverId: server.id });
 }
 
 function mcpToolGrantFromRow(row: McpToolGrantRow): McpToolGrant {
@@ -471,13 +468,12 @@ export async function testMcpTool(input: {
   argsText: string;
   employeeId?: string | null;
 }): Promise<McpToolCallResult> {
-  const { invoke } = await import('@tauri-apps/api/core');
   const argumentsValue = parseToolArguments(input.argsText);
   const started = performance.now();
   const employeeId = input.employeeId?.trim() || 'settings';
   try {
     const result = await withTimeout(
-      invoke<McpToolCallResult>('mcp_call_tool', {
+      invokeCommand('mcp_call_tool', {
         server: input.serverName,
         tool: input.toolName,
         arguments: argumentsValue,

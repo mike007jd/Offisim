@@ -1,5 +1,7 @@
+import { invokeCommand } from '@/lib/tauri-commands.js';
+import type { AgentRunRepository } from '@offisim/core/browser';
+import type { ProjectRepository } from '@offisim/core/browser';
 import { useCallback, useEffect, useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import { getDesktopAgentRuntime } from '../desktop-agent-runtime.js';
 import { getRepos } from '../repos.js';
 import {
@@ -8,8 +10,6 @@ import {
   reconcileInterruptedRuns,
   resolveAgentRunProjectId,
 } from './reconcile-interrupted-runs.js';
-import type { AgentRunRepository } from '@offisim/core/browser';
-import type { ProjectRepository } from '@offisim/core/browser';
 
 const hydratedByCompany = new Set<string>();
 const cardsByCompany = new Map<string, InterruptedRunCard[]>();
@@ -32,9 +32,7 @@ export async function loadInterruptedRunRecoveryCards(input: {
   now: () => string;
   skipReconcile?: boolean;
 }): Promise<InterruptedRunCard[]> {
-  const result = input.skipReconcile
-    ? { cards: [] }
-    : await reconcileInterruptedRuns(input);
+  const result = input.skipReconcile ? { cards: [] } : await reconcileInterruptedRuns(input);
   const merged = new Map<string, InterruptedRunCard>(
     result.cards.map((card) => [card.runId, card]),
   );
@@ -44,12 +42,16 @@ export async function loadInterruptedRunRecoveryCards(input: {
   ] as string[];
   const projectsById = new Map(
     await Promise.all(
-      projectIds.map(async (projectId) => [projectId, await input.projects?.findById(projectId)] as const),
+      projectIds.map(
+        async (projectId) => [projectId, await input.projects?.findById(projectId)] as const,
+      ),
     ),
   );
   const workspaceExistsByProject = new Map(
     await Promise.all(
-      projectIds.map(async (projectId) => [projectId, await checkWorkspaceExists(projectId)] as const),
+      projectIds.map(
+        async (projectId) => [projectId, await checkWorkspaceExists(projectId)] as const,
+      ),
     ),
   );
   for (const row of interrupted) {
@@ -75,7 +77,7 @@ export async function loadInterruptedRunRecoveryCards(input: {
 async function checkWorkspaceExists(projectId: string | null): Promise<boolean | null> {
   if (!projectId) return null;
   try {
-    return await invoke<boolean>('project_exists', { path: '.', cwd: null, projectId });
+    return await invokeCommand('project_exists', { path: '.', cwd: null, projectId });
   } catch {
     return null;
   }

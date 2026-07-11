@@ -35,9 +35,7 @@ export const ReviewCreateSchema = z.object({
 
 export const DraftCreateSchema = z.object({
   kind: z.enum(VALID_KINDS, {
-    errorMap: (_issue, ctx) => ({
-      message: `Invalid draft kind: ${ctx.data}`,
-    }),
+    error: (issue) => `Invalid draft kind: ${String(issue.input)}`,
   }),
   title: z.string().min(1, 'title is required'),
   summary: z.string().optional(),
@@ -47,7 +45,7 @@ export const DraftCreateSchema = z.object({
 // ── Publish: Manifest upload ──
 
 export const ManifestUploadSchema = z.object({
-  manifest_json: z.record(z.unknown()),
+  manifest_json: z.record(z.string(), z.unknown()),
   artifact: z
     .object({
       external_url: z.string().optional(),
@@ -80,7 +78,7 @@ export const InstallReceiptSchema = z.object({
     .min(1, 'package_version_id is required')
     .regex(UUID_REGEX, 'package_version_id must be a valid UUID'),
   install_source: z.enum(['registry', 'url', 'file'], {
-    errorMap: () => ({ message: 'install_source must be registry, url, or file' }),
+    error: 'install_source must be registry, url, or file',
   }),
 });
 
@@ -96,9 +94,7 @@ const VALID_REPORT_REASONS = [
 
 export const ReportCreateSchema = z.object({
   reason: z.enum(VALID_REPORT_REASONS, {
-    errorMap: () => ({
-      message: 'reason must be one of: spam, malicious_code, copyright, misleading, other',
-    }),
+    error: 'reason must be one of: spam, malicious_code, copyright, misleading, other',
   }),
   details: z.string().max(1000).optional(),
 });
@@ -124,7 +120,7 @@ export const RegisterCreatorSchema = z.object({
 
 export const ListingStatusPatchSchema = z.object({
   status: z.enum(['listed', 'hidden', 'retired'], {
-    errorMap: () => ({ message: 'status must be one of: listed, hidden, retired' }),
+    error: 'status must be one of: listed, hidden, retired',
   }),
   reason: z.string().max(500).optional(),
 });

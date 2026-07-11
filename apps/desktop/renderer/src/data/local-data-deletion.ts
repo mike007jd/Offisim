@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { invokeCommand } from '@/lib/tauri-commands.js';
 import { isTauriRuntime } from './adapters.js';
 
 /**
@@ -30,7 +30,7 @@ export interface DeleteCompanyDeepResult {
 
 function localDbTransaction(statements: LocalDbTransactionStatement[]): Promise<void> {
   if (statements.length === 0) return Promise.resolve();
-  return invoke('local_db_execute_transaction', { statements });
+  return invokeCommand('local_db_execute_transaction', { statements });
 }
 
 function localErrorMessage(error: unknown): string {
@@ -41,12 +41,12 @@ function localErrorMessage(error: unknown): string {
 
 async function deleteCompanyWorkspace(companyId: string): Promise<void> {
   if (!isTauriRuntime()) return;
-  await invoke('delete_company_workspace', { companyId });
+  await invokeCommand('delete_company_workspace', { companyId });
 }
 
 async function deleteCompanyAttachments(companyId: string): Promise<void> {
   if (!isTauriRuntime()) return;
-  await invoke('attachment_delete_company', { companyId });
+  await invokeCommand('attachment_delete_company', { companyId });
 }
 
 function attachmentVaultRef(meta: StoredAttachmentMeta): string {
@@ -59,12 +59,10 @@ async function deleteThreadAttachments(
 ): Promise<void> {
   if (!isTauriRuntime()) return;
   const metas = companyId
-    ? await invoke<StoredAttachmentMeta[]>('attachment_list', { companyId, threadId })
-    : (await invoke<StoredAttachmentMeta[]>('attachment_list_all')).filter(
-        (meta) => meta.threadId === threadId,
-      );
+    ? await invokeCommand('attachment_list', { companyId, threadId })
+    : (await invokeCommand('attachment_list_all')).filter((meta) => meta.threadId === threadId);
   await Promise.all(
-    metas.map((meta) => invoke('attachment_delete', { vaultRef: attachmentVaultRef(meta) })),
+    metas.map((meta) => invokeCommand('attachment_delete', { vaultRef: attachmentVaultRef(meta) })),
   );
 }
 

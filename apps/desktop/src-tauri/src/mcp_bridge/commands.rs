@@ -266,7 +266,7 @@ pub async fn mcp_kill(
 
 /// Look up a connected MCP process by name and invoke a tool. Shared by the
 /// `mcp_call_tool` command and the Pi host's in-process mcpCall interception
-/// (pi_agent_host.rs). Drops the map lock BEFORE locking the process — async
+/// (pi_agent_host/). Drops the map lock BEFORE locking the process — async
 /// ManagedProcess methods must never hold the map lock across an await (mirrors
 /// mcp_kill). Transport / protocol failures surface as errors; a tool-level
 /// failure returns with `is_error`.

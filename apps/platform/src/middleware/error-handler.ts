@@ -51,7 +51,7 @@ export const errorHandler: ErrorHandler<PlatformEnv> = (err, c) => {
         error: {
           code: 'VALIDATION_ERROR',
           message: 'Request validation failed',
-          details: err.errors.map((e) => ({
+          details: err.issues.map((e) => ({
             path: e.path.join('.'),
             message: e.message,
           })),

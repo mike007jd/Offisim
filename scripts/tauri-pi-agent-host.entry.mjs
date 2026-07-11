@@ -14,6 +14,7 @@ import {
 import stripJsonComments from 'strip-json-comments';
 import { createWorkspaceLeaseManager } from '../packages/core/dist/browser.js';
 import {
+  decodePiRequestPayload,
   errorLine,
   messageDeltaLine,
   messageEndLine,
@@ -1560,10 +1561,12 @@ async function runEnhance(payload) {
 //      context packet) and ZERO `extensionFactories` — no permission gate, no
 //      delegation, no publish, no mission bridge, no `ctx.ui` binding.
 //
-// The conversationKey (companyId + collaborationThreadId + employeeId) is the
-// session identity; it is NOT a project workspace. The persona and participant
-// roster ride in `systemPromptAppend` as identity CONTEXT only — never a delegate
-// roster (no `roster` is read here, and no delegate tool is ever registered).
+// The collaborationThreadId + employeeId correlation scope is NOT a project
+// workspace. companyId is validated at the Tauri boundary and is not forwarded
+// because this ephemeral host does not persist a session. The persona and
+// participant roster ride in `systemPromptAppend` as identity CONTEXT only —
+// never a delegate roster (no `roster` is read here, and no delegate tool is
+// ever registered).
 async function runCollaboration(payload) {
   const text = asNonEmptyString(payload.text);
   if (!text) {
@@ -1802,6 +1805,12 @@ function main() {
           return;
         }
         finishHost();
+        return;
+      }
+      try {
+        payload = decodePiRequestPayload(payload);
+      } catch (error) {
+        fail(error);
         return;
       }
       if (payload.mode === 'enhance') {

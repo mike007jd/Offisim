@@ -10,7 +10,8 @@
  * span layers stay transport-agnostic so the harness drives them with a fake.
  */
 
-import { Channel, invoke } from '@tauri-apps/api/core';
+import { invokeCommand } from '@/lib/tauri-commands.js';
+import { Channel } from '@tauri-apps/api/core';
 import { readPiModelOverride } from '../../runtime/pi-agent-config.js';
 import type { PiAgentHostEvent, PiAgentHostResponse } from '../../runtime/pi-runtime-driver.js';
 import { resolveThreadThinkingOverride } from '../../runtime/pi-thread-thinking-store.js';
@@ -45,7 +46,7 @@ export function createTauriEnhanceTransport(opts?: {
       // Cancel through the SAME in-flight abort path execute uses; enhance shares
       // the request-id keyed IN_FLIGHT registry on the Rust side.
       const onAbort = () => {
-        void invoke('agent_runtime_abort', { requestId }).catch(() => undefined);
+        void invokeCommand('agent_runtime_abort', { requestId }).catch(() => undefined);
       };
       if (signal) {
         if (signal.aborted) onAbort();
@@ -53,7 +54,7 @@ export function createTauriEnhanceTransport(opts?: {
       }
 
       try {
-        const response = (await invoke('agent_runtime_enhance', {
+        const response = (await invokeCommand('agent_runtime_enhance', {
           req: {
             requestId,
             text: request.text,

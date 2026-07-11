@@ -1,4 +1,5 @@
 import type { ChatAttachment, ChatToolCall, RunError, StagedAttachment } from '@/data/types.js';
+import { invokeCommand } from '@/lib/tauri-commands.js';
 import type { AppendMessage } from '@assistant-ui/react';
 import { sha256Hex } from '@offisim/install-core';
 import {
@@ -76,7 +77,6 @@ export async function materializeChatTurn({
 }): Promise<MaterializedChatTurn> {
   const attached = staged.filter((attachment) => attachment.status === 'attached');
   if (attached.length === 0) return { promptText: text, attachments: [] };
-  const { invoke } = await import('@tauri-apps/api/core');
   const attachments: ChatAttachment[] = [];
   const promptLines: string[] = [
     text,
@@ -86,7 +86,7 @@ export async function materializeChatTurn({
   ];
 
   for (const attachment of attached) {
-    const materialized = await persistAttachment({ invoke, companyId, threadId, attachment });
+    const materialized = await persistAttachment({ companyId, threadId, attachment });
     attachments.push(materialized.chatAttachment);
     promptLines.push(
       ...attachmentPromptLines(materialized.chatAttachment, attachment, materialized.bytes),
@@ -97,12 +97,10 @@ export async function materializeChatTurn({
 }
 
 async function persistAttachment({
-  invoke,
   companyId,
   threadId,
   attachment,
 }: {
-  invoke: <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
   companyId: string | null;
   threadId: string;
   attachment: StagedAttachment;
@@ -133,7 +131,7 @@ async function persistAttachment({
     parsedRev: CURRENT_PARSED_REV,
     kind: attachment.kind ?? 'other',
   };
-  const vaultRef = await invoke<string>('attachment_write', {
+  const vaultRef = await invokeCommand('attachment_write', {
     meta,
     bytes: Array.from(materialized.bytes),
   });

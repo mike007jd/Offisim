@@ -19,7 +19,7 @@
   "dependencies": {
     "@offisim/asset-schema": "workspace:*",
     "@offisim/shared-types": "workspace:*",
-    "drizzle-orm": "^0.39.0"
+    "drizzle-orm": "^0.45.2"
   },
   "devDependencies": {
     "typescript": "^5.7.0"

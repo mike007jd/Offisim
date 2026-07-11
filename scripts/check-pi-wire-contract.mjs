@@ -1,23 +1,27 @@
 // Cross-language wire-contract gate for the Pi Agent host.
 //
-// Guards the exact class of bug that shipped to a live build: the Node host emits
-// camelCase keys, but the contract was never exercised past `mode:'status'`, so a
-// snake/camel divergence between the Node emitter and the Rust decoder went
-// undetected. This gate proves the checked-in fixture (scripts/fixtures/pi-wire-contract.json)
-// is reproducible from the same builders the production host uses, is fully camelCase,
-// and carries the current protocol version. The Rust side reads the SAME fixture in a
-// cargo test (pi_agent_host.rs), so Node and Rust cannot drift apart silently.
+// Guards both Pi Agent JSONL directions. For host→Rust events it proves the event
+// fixture is reproducible from the production Node builders and decodable by Rust.
+// For Rust→host requests it runs the checked-in raw payloads through the same
+// production decoder imported by tauri-pi-agent-host.entry.mjs; Rust cargo tests
+// rebuild those raw payloads from the same fixture. Both envelopes are camelCase,
+// deterministic, and fail here when either language drops or renames a field.
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
   PI_HOST_PROTOCOL_VERSION,
+  PI_REQUEST_SPEC,
   PI_WIRE_BUILDERS,
   PI_WIRE_KINDS,
   RUN_FAILURE_KINDS,
+  decodePiRequestPayload,
 } from './pi-agent-host-wire.mjs';
 
 const FIXTURE_PATH = fileURLToPath(new URL('./fixtures/pi-wire-contract.json', import.meta.url));
+const REQUEST_FIXTURE_PATH = fileURLToPath(
+  new URL('./fixtures/pi-request-contract.json', import.meta.url),
+);
 
 const SPEC = {
   ready: { required: ['protocolVersion'], allowed: ['protocolVersion'] },
@@ -175,6 +179,97 @@ for (const kind of PI_WIRE_KINDS) {
   assert(seenKinds.has(kind), `fixture must exercise every wire kind; missing "${kind}"`);
 }
 
+const requestFixture = JSON.parse(readFileSync(REQUEST_FIXTURE_PATH, 'utf8'));
+assert(requestFixture?.version === 1, 'request fixture version must be 1');
+assert(
+  Array.isArray(requestFixture.cases) && requestFixture.cases.length > 0,
+  'request fixture cases must be a non-empty array',
+);
+const seenRequestModes = new Set();
+for (const [index, requestCase] of requestFixture.cases.entries()) {
+  const where = `request case ${index} (${requestCase?.mode ?? 'no mode'})`;
+  assert(
+    requestCase && typeof requestCase === 'object' && !Array.isArray(requestCase),
+    `${where}: not an object`,
+  );
+  const { mode, request, context, payload, normalized } = requestCase;
+  const spec = PI_REQUEST_SPEC[mode];
+  assert(spec, `${where}: unknown request mode "${mode}"`);
+  assert(!seenRequestModes.has(mode), `${where}: duplicate request mode`);
+  seenRequestModes.add(mode);
+
+  for (const [label, value] of Object.entries({ request, context, payload, normalized })) {
+    assert(
+      value && typeof value === 'object' && !Array.isArray(value),
+      `${where}: ${label} must be an object`,
+    );
+    scanForSnakeCaseKeys(value, `${where}.${label}`);
+  }
+
+  assert(payload.mode === mode, `${where}: payload mode must equal case mode`);
+  const payloadKeys = Object.keys(payload);
+  for (const required of spec.required) {
+    assert(payloadKeys.includes(required), `${where}: payload missing required key "${required}"`);
+  }
+  for (const key of payloadKeys) {
+    assert(spec.allowed.includes(key), `${where}: payload has unexpected key "${key}"`);
+  }
+  const normalizedKeys = Object.keys(normalized);
+  assert(
+    stableStringify([...normalizedKeys].sort()) === stableStringify([...spec.allowed].sort()),
+    `${where}: normalized key set must exactly match PI_REQUEST_SPEC`,
+  );
+
+  // This is the production decoder imported by tauri-pi-agent-host.entry.mjs,
+  // not a source-text approximation. A missing field mapping changes behavior
+  // and makes this deep comparison fail.
+  const decoded = decodePiRequestPayload(payload);
+  assert(
+    stableStringify(decoded) === stableStringify(normalized),
+    `${where}: production request decoder diverges from fixture\n  fixture: ${stableStringify(normalized)}\n  decoded: ${stableStringify(decoded)}`,
+  );
+
+  for (const key of spec.nullable) {
+    const nullablePayload = { ...payload, [key]: null };
+    assert(
+      decodePiRequestPayload(nullablePayload)[key] === null,
+      `${where}: nullable key "${key}" must accept and preserve null`,
+    );
+  }
+  for (const key of spec.required.filter((entry) => !spec.nullable.includes(entry))) {
+    let rejectedNull = false;
+    try {
+      decodePiRequestPayload({ ...payload, [key]: null });
+    } catch (error) {
+      rejectedNull = error?.code === 'invalid-request';
+    }
+    assert(rejectedNull, `${where}: non-nullable key "${key}" must reject null`);
+  }
+}
+
+for (const mode of Object.keys(PI_REQUEST_SPEC)) {
+  assert(seenRequestModes.has(mode), `request fixture must exercise mode "${mode}"`);
+}
+
+let rejectedUnknownMode = false;
+try {
+  decodePiRequestPayload({ mode: 'unknown' });
+} catch (error) {
+  rejectedUnknownMode = error?.code === 'invalid-request';
+}
+assert(rejectedUnknownMode, 'production request decoder must reject unknown modes');
+
+let rejectedUnexpectedKey = false;
+try {
+  decodePiRequestPayload({
+    ...requestFixture.cases.find((entry) => entry.mode === 'execute').payload,
+    unexpectedKey: true,
+  });
+} catch (error) {
+  rejectedUnexpectedKey = error?.code === 'invalid-request';
+}
+assert(rejectedUnexpectedKey, 'production request decoder must reject unexpected keys');
+
 console.log(
   JSON.stringify(
     {
@@ -183,6 +278,8 @@ console.log(
       protocolVersion: PI_HOST_PROTOCOL_VERSION,
       kinds: PI_WIRE_KINDS.length,
       fixtureLines: fixture.length,
+      requestModes: seenRequestModes.size,
+      requestCases: requestFixture.cases.length,
     },
     null,
     2,

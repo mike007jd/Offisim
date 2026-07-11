@@ -44,6 +44,11 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
 
+// This module is the query-typing mirror for the local SQLite baseline, not a
+// second DDL authority. SQL-only CHECK constraints and other SQLite enforcement
+// that Drizzle does not model stay solely in schema.sql; mirrored table/column,
+// key, index, and relation shapes are guarded by the schema drift gate.
+
 // ---------------------------------------------------------------------------
 // 001 — Core tables
 // ---------------------------------------------------------------------------
