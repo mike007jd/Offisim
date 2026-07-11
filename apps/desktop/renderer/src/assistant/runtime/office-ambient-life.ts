@@ -17,6 +17,7 @@ import {
   type StagingPrefab,
   advanceAmbientScheduler,
   ambientPolicyForMode,
+  compareStrings as cmpString,
 } from '@offisim/shared-types';
 import { useEffect, useId, useMemo, useSyncExternalStore } from 'react';
 
@@ -54,10 +55,6 @@ const sessions = new Map<string, AmbientSession>();
 const listeners = new Set<() => void>();
 let version = 0;
 let wakeTimer: ReturnType<typeof setTimeout> | null = null;
-
-function cmpString(a: string, b: string): number {
-  return a < b ? -1 : a > b ? 1 : 0;
-}
 
 /** Stable context identity; stale geometry/directions are never shown across a switch. */
 function officeAmbientContextSignature(context: OfficeAmbientContext): string {

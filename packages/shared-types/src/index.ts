@@ -419,6 +419,7 @@ export {
   AMBIENT_TIMING,
   advanceAmbientScheduler,
   ambientActivityPhase,
+  compareStrings,
 } from './dramaturgy/ambient.js';
 export type {
   EmployeePerformanceAction,

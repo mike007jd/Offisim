@@ -146,6 +146,13 @@ export interface AmbientSchedulerSnapshot {
 }
 
 const MOVEMENT_ROUTINES: readonly AmbientRoutineKind[] = ['refreshment', 'library', 'social'];
+/** At-destination dwell per movement routine (phone = standing desk-side call). */
+const MOVEMENT_DWELL_MS = {
+  refreshment: AMBIENT_TIMING.refreshmentDwellMs,
+  library: AMBIENT_TIMING.libraryDwellMs,
+  social: AMBIENT_TIMING.socialDwellMs,
+  phone: AMBIENT_TIMING.phoneDwellMs,
+} as const;
 const ROUTINE_MIX: readonly AmbientRoutineKind[] = [
   'refreshment',
   'library',
@@ -155,9 +162,11 @@ const ROUTINE_MIX: readonly AmbientRoutineKind[] = [
   'phone',
 ];
 
-function cmpString(a: string, b: string): number {
+/** Deterministic locale-independent comparator shared by every dramaturgy sort. */
+export function compareStrings(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
+const cmpString = compareStrings;
 
 /** FNV-1a → stable unit interval; domain strings isolate every decision. */
 function seededUnit(seed: string, employeeId: string, sequence: number, domain: string): number {
@@ -342,14 +351,7 @@ function activityForMovement(
   returnDistance: number,
   now: number,
 ): AmbientActivity {
-  const dwellMs =
-    routine === 'refreshment'
-      ? AMBIENT_TIMING.refreshmentDwellMs
-      : routine === 'library'
-        ? AMBIENT_TIMING.libraryDwellMs
-        : routine === 'social'
-          ? AMBIENT_TIMING.socialDwellMs
-          : AMBIENT_TIMING.phoneDwellMs;
+  const dwellMs = MOVEMENT_DWELL_MS[routine];
   const outboundTravelMs = Math.max(
     AMBIENT_TIMING.outboundMs,
     Math.ceil((outboundDistance / CHARACTER_WALK_SPEED_UNITS_PER_SECOND) * 1_000) +

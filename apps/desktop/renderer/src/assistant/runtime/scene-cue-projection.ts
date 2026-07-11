@@ -41,6 +41,7 @@ import {
   type SurfacedResourceSeverity,
   type ToolRichDetail,
   applyDramaturgyMode,
+  compareStrings as cmpStr,
   isBeatLive,
   performanceForStatus,
   projectOfficeStaging,
@@ -457,11 +458,6 @@ function characterStatusFor(
     return 'approval';
   if ((workload?.activeCount ?? 0) > 0 || delivering) return 'working';
   return 'idle';
-}
-
-/** Deterministic string comparator (sorts never depend on locale). */
-function cmpStr(a: string, b: string): number {
-  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 /** The empty bubble for an idle actor (in the roster join but off the snapshot). */

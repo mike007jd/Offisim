@@ -2,14 +2,7 @@ import { Html } from '@react-three/drei';
 import { type RootState, useFrame, useThree } from '@react-three/fiber';
 import type { ReactNode, RefObject } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import {
-  type Group,
-  type Material,
-  type Object3D,
-  Raycaster,
-  Vector2,
-  Vector3,
-} from 'three';
+import { type Group, type Material, type Object3D, Raycaster, Vector2, Vector3 } from 'three';
 
 type AnnotationPriority = 'ambient' | 'actor' | 'critical';
 
@@ -28,6 +21,10 @@ type AnnotationRegistry = {
   nextId: number;
   cursor: number;
   samplers: Map<number, AnnotationSampler>;
+  /** Rebuilt only on register/unregister — the scheduler iterates every frame. */
+  entries: [number, AnnotationSampler][];
+  /** Reused each frame by the scheduler (cleared, never reallocated). */
+  sampleIds: Set<number>;
 };
 
 const ANNOTATION_PROFILE = {
@@ -57,7 +54,13 @@ const ANNOTATION_REGISTRIES = new WeakMap<object, AnnotationRegistry>();
 function annotationRegistry(renderer: object): AnnotationRegistry {
   const existing = ANNOTATION_REGISTRIES.get(renderer);
   if (existing) return existing;
-  const created: AnnotationRegistry = { nextId: 1, cursor: 0, samplers: new Map() };
+  const created: AnnotationRegistry = {
+    nextId: 1,
+    cursor: 0,
+    samplers: new Map(),
+    entries: [],
+    sampleIds: new Set(),
+  };
   ANNOTATION_REGISTRIES.set(renderer, created);
   return created;
 }
@@ -85,8 +88,7 @@ function materialCanOcclude(material: Material | Material[] | undefined): boolea
   if (!material) return false;
   const materials = Array.isArray(material) ? material : [material];
   return materials.some(
-    (entry) =>
-      entry.visible && entry.depthWrite && (!entry.transparent || entry.opacity >= 0.24),
+    (entry) => entry.visible && entry.depthWrite && (!entry.transparent || entry.opacity >= 0.24),
   );
 }
 
@@ -94,7 +96,8 @@ function objectCanOcclude(object: Object3D): boolean {
   if (!('isMesh' in object) || object.isMesh !== true || !objectHierarchyIsVisible(object)) {
     return false;
   }
-  const material = 'material' in object ? (object.material as Material | Material[] | undefined) : undefined;
+  const material =
+    'material' in object ? (object.material as Material | Material[] | undefined) : undefined;
   return materialCanOcclude(material);
 }
 
@@ -104,10 +107,11 @@ export function SceneAnnotationScheduler() {
   const registry = annotationRegistry(renderer);
 
   useFrame((state) => {
-    const entries = [...registry.samplers.entries()];
+    const entries = registry.entries;
     if (entries.length === 0) return;
 
-    const sampleIds = new Set<number>();
+    const sampleIds = registry.sampleIds;
+    sampleIds.clear();
     const sampleCount = Math.min(OCCLUSION_BUDGET_PER_FRAME, entries.length);
     for (let offset = 0; offset < sampleCount; offset += 1) {
       sampleIds.add(entries[(registry.cursor + offset) % entries.length]?.[0] ?? -1);
@@ -218,8 +222,10 @@ export function SceneAnnotation({
     };
 
     registry.samplers.set(id, sample);
+    registry.entries = [...registry.samplers.entries()];
     return () => {
       registry.samplers.delete(id);
+      registry.entries = [...registry.samplers.entries()];
     };
   }, [exclude, profile, registry]);
 
