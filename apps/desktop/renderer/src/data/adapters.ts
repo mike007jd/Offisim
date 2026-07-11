@@ -106,25 +106,19 @@ interface EmployeeRowLike {
   brand_key: string | null;
   persona_json: string | null;
   config_json: string | null;
+  model: string | null;
+  thinking_level: string | null;
 }
 export function employeeToVm(row: EmployeeRowLike): Employee {
   const [a, b] = accentPair(row.employee_id);
   let appearance: EmployeeAppearance | undefined;
   const discipline = humanizeRole(row.role_slug);
-  let modelLabel = 'Runtime default';
+  const model = row.model?.trim() || null;
   try {
     const persona = row.persona_json ? JSON.parse(row.persona_json) : null;
     if (persona?.appearance) appearance = normalizeAppearance(persona.appearance);
   } catch {
     /* persona JSON malformed — fall back to role-derived appearance */
-  }
-  try {
-    const config = row.config_json ? JSON.parse(row.config_json) : null;
-    if (typeof config?.modelPreference === 'string' && config.modelPreference.trim()) {
-      modelLabel = config.modelPreference.trim();
-    }
-  } catch {
-    /* config JSON malformed — keep default model label */
   }
   return {
     id: row.employee_id,
@@ -139,7 +133,9 @@ export function employeeToVm(row: EmployeeRowLike): Employee {
     appearance,
     discipline,
     roleSlug: row.role_slug as Employee['roleSlug'],
-    modelLabel,
+    model,
+    thinkingLevel: row.thinking_level?.trim() || null,
+    modelLabel: model ?? 'Inherit conversation model',
     skillCount: 0,
     workstationId: row.workstation_id,
   };

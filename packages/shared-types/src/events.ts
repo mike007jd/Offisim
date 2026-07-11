@@ -5,6 +5,7 @@
  * re-exports every domain so the public surface stays flat.
  */
 
+export * from './events/agent-run.js';
 export * from './events/boss-route.js';
 export * from './events/chat-attachment-events.js';
 export * from './events/chat-thread.js';

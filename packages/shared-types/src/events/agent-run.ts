@@ -128,6 +128,17 @@ export interface AgentRunUsage {
   readonly turns?: number;
 }
 
+/** One employee available to the Pi delegation supervisor. Model selection is
+ * employee-owned: delegate tool input never carries a per-task model override. */
+export interface DelegationRosterEntry {
+  readonly employeeId: string;
+  readonly name: string;
+  readonly roleSlug: string;
+  readonly persona: string;
+  readonly model?: string;
+  readonly thinkingLevel?: string;
+}
+
 /** Scope fields present on every event — the run tree is rebuilt from these. */
 export interface AgentRunScopeFields {
   readonly threadId: string;

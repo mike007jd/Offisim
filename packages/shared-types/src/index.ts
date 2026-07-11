@@ -192,6 +192,7 @@ export type {
   AgentRunToolPayload,
   AgentRunUsage,
   DelegateExecutionMode,
+  DelegationRosterEntry,
   DelegateTaskInput,
   DelegateToolInput,
   RunFailureKind,
