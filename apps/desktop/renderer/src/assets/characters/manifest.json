@@ -202,12 +202,12 @@
     }
   },
   "hair": {
-    "hair_01": "Hair_SimpleParted",
-    "hair_02": "Hair_Long",
-    "hair_03": "Hair_Buns",
-    "hair_04": "Hair_Buzzed",
-    "hair_05": "Hair_BuzzedFemale",
-    "hair_06": "offisim-procedural:chunky-curl-cap"
+    "hair_01": "offisim-procedural:short-crop",
+    "hair_02": "offisim-procedural:long-drape",
+    "hair_03": "offisim-procedural:ponytail",
+    "hair_04": "offisim-procedural:curly-afro",
+    "hair_05": "offisim-procedural:helmet-bob",
+    "hair_06": "offisim-procedural:spiky-crop"
   },
   "props": {
     "prop_laptop": "kenney-furniture-kit:laptop.glb",
@@ -456,15 +456,15 @@
   },
   "files": {
     "body_toy.glb": 58524,
-    "hair_01.glb": 150996,
-    "hair_02.glb": 203296,
-    "hair_03.glb": 209844,
-    "hair_04.glb": 145968,
-    "hair_05.glb": 145936,
-    "hair_06.glb": 13628,
+    "hair_01.glb": 8880,
+    "hair_02.glb": 10416,
+    "hair_03.glb": 9652,
+    "hair_04.glb": 18900,
+    "hair_05.glb": 6972,
+    "hair_06.glb": 9012,
     "animations.glb": 547280,
     "props.glb": 52248,
-    "LICENSES.md": 4126
+    "LICENSES.md": 4203
   },
-  "totalBytes": 1531846
+  "totalBytes": 726087
 }

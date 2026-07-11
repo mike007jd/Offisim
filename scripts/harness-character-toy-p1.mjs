@@ -197,6 +197,8 @@ for (const [asset, transform] of Object.entries(contract.hairTransforms)) {
   const width = transformedMax[0] - transformedMin[0];
   let exteriorVertices = 0;
   let vertexCount = 0;
+  let eyeBandZMax = Number.NEGATIVE_INFINITY;
+  let frontHairlineVertices = 0;
   for (const node of hairDoc.getRoot().listNodes()) {
     const mesh = node.getMesh();
     if (!mesh) continue;
@@ -215,6 +217,19 @@ for (const [asset, transform] of Object.entries(contract.hairTransforms)) {
           (transformed[1] / headRadiusY) ** 2 +
           (transformed[2] / headRadiusZ) ** 2;
         if (ellipsoidQ > 1.03) exteriorVertices += 1;
+        // Eye band: hair must stay behind the eye-decal plane at eye height.
+        if (transformed[1] < 0.13) eyeBandZMax = Math.max(eyeBandZMax, transformed[2]);
+        // Front hairline: OUTSIDE-the-skull hair over the forehead. The P1
+        // baldness regression (a cap fully buried inside the head) had zero
+        // such vertices while still passing the old whole-mesh z ceiling.
+        if (
+          ellipsoidQ > 1.02 &&
+          transformed[1] >= 0.14 &&
+          transformed[1] <= 0.34 &&
+          transformed[2] > 0.24
+        ) {
+          frontHairlineVertices += 1;
+        }
         vertexCount += 1;
       }
     }
@@ -227,16 +242,18 @@ for (const [asset, transform] of Object.entries(contract.hairTransforms)) {
     transformedMax[1] < headRadiusY * 0.92 ||
     transformedMin[1] > headRadiusY * 0.8 ||
     transformedMin[2] > -headRadiusZ * 0.65 ||
-    transformedMax[2] > contract.eye.planeZ - 0.02 ||
-    exteriorRatio < 0.15
+    eyeBandZMax > contract.eye.planeZ - 0.02 ||
+    transformedMax[2] > 0.46 ||
+    exteriorRatio < 0.5 ||
+    frontHairlineVertices < 8
   ) {
     hairFitFailures.push(
-      `${asset}:x${width.toFixed(3)} y${transformedMin[1].toFixed(3)}..${transformedMax[1].toFixed(3)} z${transformedMin[2].toFixed(3)}..${transformedMax[2].toFixed(3)} exterior=${exteriorRatio.toFixed(3)}`,
+      `${asset}:x${width.toFixed(3)} y${transformedMin[1].toFixed(3)}..${transformedMax[1].toFixed(3)} z${transformedMin[2].toFixed(3)}..${transformedMax[2].toFixed(3)} eyeBandZ=${eyeBandZMax.toFixed(3)} exterior=${exteriorRatio.toFixed(3)} hairline=${frontHairlineVertices}`,
     );
   }
 }
 check(
-  'six transformed hair silhouettes overlap the head while clearing eyes',
+  'six transformed hair silhouettes wrap the head with a visible front hairline while clearing eyes',
   hairFitFailures.length === 0,
   hairFitFailures.join(', '),
 );

@@ -107,7 +107,6 @@
     "elkjs": "^0.11.1",
     "knip": "^6.17.1",
     "meshoptimizer": "1.2.0",
-    "sharp": "0.35.3",
     "three": "^0.184.0",
     "turbo": "^2.4.0",
     "typescript": "^5.7.0"

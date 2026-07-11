@@ -17,6 +17,7 @@ import type { Employee } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
 import { openArtifactClaim } from '@/surfaces/office/stage-viewer/artifact-claim.js';
 import {
+  CHARACTER_TURN_RATE_PER_SECOND,
   CHARACTER_WALK_SPEED_UNITS_PER_SECOND,
   type CharacterPerformanceState,
   type CharacterStatus,
@@ -412,6 +413,10 @@ function EmployeeUnit({
   // the actor is already standing). No-pathfinder previews use the explicit
   // straight fallback; a real pathfinder returning no route never glides.
   const unitRef = useRef<Group>(null);
+  /** Inner character wrapper whose Y rotation is frame-driven (walk heading /
+   *  seat facing). NOT a JSX rotation prop: re-renders mid-walk would snap the
+   *  walker back to its seat orientation. */
+  const headingRef = useRef<Group>(null);
   const walkingRef = useRef<CharacterMovementPhase>('idle');
   const appliedReturnIdRef = useRef<string | null>(null);
   const targetRef = useRef<[number, number]>([x, z]);
@@ -434,6 +439,7 @@ function EmployeeUnit({
     if (!group) return;
     const start: PathPoint = entryFrom ? [entryFrom.x, entryFrom.z] : [x, z];
     group.position.set(start[0], 0, start[1]);
+    headingRef.current?.rotation.set(0, (rotation * Math.PI) / 180, 0);
     if (entryFrom) {
       const plan = employeeMovePlan(
         pathfinder,
@@ -521,34 +527,53 @@ function EmployeeUnit({
   useFrame((_, delta) => {
     const group = unitRef.current;
     if (!group) return;
-    if (walkingRef.current !== 'walk') return;
-    const waypoints = waypointsRef.current;
-    const lastIndex = waypoints.length - 1;
-    let index = waypointIndexRef.current;
-    if (index > lastIndex) index = lastIndex;
-    let wp = waypoints[index] ?? targetRef.current;
-    let dx = wp[0] - group.position.x;
-    let dz = wp[1] - group.position.z;
-    let dist = Math.hypot(dx, dz);
-    // Advance through intermediate waypoints once close enough; only the final
-    // waypoint uses the fine arrival threshold below.
-    while (dist <= 0.28 && index < lastIndex) {
-      index += 1;
-      const nextWaypoint = waypoints[index];
-      if (!nextWaypoint) break;
-      wp = nextWaypoint;
-      dx = wp[0] - group.position.x;
-      dz = wp[1] - group.position.z;
-      dist = Math.hypot(dx, dz);
+    let moveDx = 0;
+    let moveDz = 0;
+    if (walkingRef.current === 'walk') {
+      const waypoints = waypointsRef.current;
+      const lastIndex = waypoints.length - 1;
+      let index = waypointIndexRef.current;
+      if (index > lastIndex) index = lastIndex;
+      let wp = waypoints[index] ?? targetRef.current;
+      let dx = wp[0] - group.position.x;
+      let dz = wp[1] - group.position.z;
+      let dist = Math.hypot(dx, dz);
+      // Advance through intermediate waypoints once close enough; only the final
+      // waypoint uses the fine arrival threshold below.
+      while (dist <= 0.28 && index < lastIndex) {
+        index += 1;
+        const nextWaypoint = waypoints[index];
+        if (!nextWaypoint) break;
+        wp = nextWaypoint;
+        dx = wp[0] - group.position.x;
+        dz = wp[1] - group.position.z;
+        dist = Math.hypot(dx, dz);
+      }
+      waypointIndexRef.current = index;
+      if (dist > 0.04) {
+        const step = Math.min(1, (CHARACTER_WALK_SPEED_UNITS_PER_SECOND * delta) / dist);
+        group.position.x += dx * step;
+        group.position.z += dz * step;
+        moveDx = dx;
+        moveDz = dz;
+      } else {
+        group.position.set(x, 0, z);
+        walkingRef.current = 'idle';
+      }
     }
-    waypointIndexRef.current = index;
-    if (dist > 0.04) {
-      const step = Math.min(1, (CHARACTER_WALK_SPEED_UNITS_PER_SECOND * delta) / dist);
-      group.position.x += dx * step;
-      group.position.z += dz * step;
-    } else {
-      group.position.set(x, 0, z);
-      walkingRef.current = 'idle';
+    // Face the walk direction while moving; settle back to the seat/staged
+    // facing on arrival. Shortest-arc smoothing — an un-turned walker slides
+    // sideways/backwards along its route and reads as a rigid figurine.
+    const heading = headingRef.current;
+    if (heading) {
+      const target =
+        Math.hypot(moveDx, moveDz) > 0.001 ? Math.atan2(moveDx, moveDz) : characterRotation;
+      let diff = (target - heading.rotation.y) % (Math.PI * 2);
+      if (diff > Math.PI) diff -= Math.PI * 2;
+      if (diff < -Math.PI) diff += Math.PI * 2;
+      heading.rotation.y += reducedMotion
+        ? diff
+        : diff * Math.min(1, delta * CHARACTER_TURN_RATE_PER_SECOND);
     }
   });
   const cleanupRef = useRef<(() => void) | null>(null);
@@ -774,7 +799,7 @@ function EmployeeUnit({
       ) : null}
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: r3f raycaster on a 3D object; employees are keyboard-selectable via the team dock and thread list */}
       <group
-        rotation={[0, characterRotation, 0]}
+        ref={headingRef}
         onClick={(e) => {
           e.stopPropagation();
           onSelect();

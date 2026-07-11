@@ -16,6 +16,7 @@
     "apps/desktop/renderer": {
       "entry": [
         "src/design-system/**/*.{ts,tsx}",
+        "src/dev-lab/main.tsx",
         "src/runtime/collaboration/collaboration-runtime.ts",
         "src/runtime/collaboration/collaboration-react.ts",
         "src/surfaces/mission/loops/graph/index.ts"

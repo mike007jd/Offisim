@@ -1,5 +1,6 @@
 import type { ResolvedAppearance } from '@/lib/avatar.js';
 import {
+  CHARACTER_WALK_ANIMATION_TIME_SCALE,
   type CharacterPerformanceState,
   type CharacterStatus,
   performanceForStatus,
@@ -203,6 +204,10 @@ function cloneMaterial(mesh: Mesh, materials: MeshStandardMaterial[]): MeshStand
   return material;
 }
 
+/** Mouth decal plane: on the face curve below the eyes, above the chin. */
+const MOUTH_Y = -0.15;
+const MOUTH_Z = 0.365;
+
 function attachEyeDecals(
   headBone: Object3D,
   materials: MeshStandardMaterial[],
@@ -215,9 +220,12 @@ function attachEyeDecals(
   });
   materials.push(eyeMaterial);
   const handles = {} as EyeHandles;
-  const makePair = (
+  // Each expression group carries its eyes AND its mouth, so the per-frame
+  // visibility toggle keeps the whole face consistent as one unit.
+  const makeFace = (
     style: EyeStyle | 'blink',
     geometry: BufferGeometry,
+    mouth: { geometry: BufferGeometry; flipped?: boolean },
     rotationFor: (side: -1 | 1) => number = () => 0,
   ) => {
     const group = new Group();
@@ -226,20 +234,40 @@ function attachEyeDecals(
     geometries.push(geometry);
     for (const side of [-1, 1] as const) {
       const eye = new Mesh(geometry, eyeMaterial);
-      eye.position.set(side * 0.14, 0.07, EYE_SPEC.planeZ);
+      eye.position.set(side * 0.145, 0.07, EYE_SPEC.planeZ);
       eye.rotation.z = rotationFor(side);
       eye.castShadow = false;
       eye.frustumCulled = false;
       group.add(eye);
     }
+    geometries.push(mouth.geometry);
+    const mouthMesh = new Mesh(mouth.geometry, eyeMaterial);
+    mouthMesh.position.set(0, MOUTH_Y, MOUTH_Z);
+    // Torus arcs open upward by default; a smile needs the arc flipped down.
+    mouthMesh.rotation.z = mouth.flipped ? 0 : Math.PI;
+    mouthMesh.castShadow = false;
+    mouthMesh.frustumCulled = false;
+    group.add(mouthMesh);
     headBone.add(group);
     handles[style] = group;
   };
-  makePair('neutral', new CircleGeometry(0.042, 16));
-  makePair('happy', new TorusGeometry(0.052, 0.013, 6, 14, Math.PI));
-  makePair('worried', new BoxGeometry(0.082, 0.019, 0.012), (side) => side * 0.28);
-  makePair('focus', new BoxGeometry(0.086, 0.018, 0.012));
-  makePair('blink', new BoxGeometry(0.08, 0.016, 0.012));
+  const smallSmile = () => ({ geometry: new TorusGeometry(0.05, 0.012, 6, 14, Math.PI) });
+  makeFace('neutral', new CircleGeometry(0.05, 16), smallSmile());
+  makeFace(
+    'happy',
+    new TorusGeometry(0.056, 0.014, 6, 14, Math.PI),
+    { geometry: new TorusGeometry(0.066, 0.015, 6, 14, Math.PI) },
+  );
+  makeFace(
+    'worried',
+    new BoxGeometry(0.088, 0.02, 0.012),
+    { geometry: new TorusGeometry(0.042, 0.012, 6, 14, Math.PI), flipped: true },
+    (side) => side * 0.28,
+  );
+  makeFace('focus', new BoxGeometry(0.09, 0.019, 0.012), {
+    geometry: new BoxGeometry(0.07, 0.016, 0.012),
+  });
+  makeFace('blink', new BoxGeometry(0.086, 0.017, 0.012), smallSmile());
   return handles;
 }
 
@@ -350,12 +378,18 @@ function RigView({
   }, [mixer]);
 
   useFrame((state, delta) => {
-    mixer.timeScale = reducedMotion ? 0 : tempo;
     const movementPhase = reducedMotion ? 'idle' : (walkingRef?.current ?? 'idle');
     const standingMovementMount = isStandingMovementMount(playback.current, movementPhase);
     playback.current = reconcilePlaybackMount(playback.current, movementPhase);
     const perf = performanceForMovementPhase(basePerformance, movementPhase);
     const selection: ClipSelection = clipForPerformance(perf);
+    // Locomotion clips play at the stride-synced rate (feet match the ground
+    // actually covered at CHARACTER_WALK_SPEED_UNITS_PER_SECOND); everything
+    // else keeps the employee's tempo flavor.
+    const striding =
+      movementPhase === 'walk' &&
+      (selection.clip === 'walk' || selection.clip === 'walk.formal' || selection.clip === 'carry');
+    mixer.timeScale = reducedMotion ? 0 : striding ? CHARACTER_WALK_ANIMATION_TIME_SCALE : tempo;
 
     // Seated-body offset (see SEATED_BODY_LIFT): butt onto the chair cushion
     // while seated, floor origin otherwise. Eased so walk→sit arrivals blend

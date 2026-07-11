@@ -22,9 +22,11 @@ first by pose + prop + eyes, then confirmed by a restrained indicator.
 | head capsule | `[0.90, 1.12, 0.94]` | Taller, narrower silhouette. |
 | edge language | radius or bevel `6–14%` of shortest dimension | No knife edges on character garments or authored props. |
 
-Faces use two dark eye marks and no mouth. Hair is a clear silhouette cap outside the head surface; brows,
-lashes and realistic facial texture are excluded. Garments must add readable outer geometry rather than only
-changing body color.
+Faces use two dark eye marks plus one minimal mouth mark per expression state (small smile / wide smile /
+frown / flat line) — the mouth is a decal in the same dark tone as the eyes, never lips or texture. Hair is a
+clear silhouette cap that visibly wraps OUTSIDE the head surface with a front hairline over the forehead
+(hair geometry buried inside the skull reads as bald from the office camera); brows, lashes and realistic
+facial texture are excluded. Garments must add readable outer geometry rather than only changing body color.
 
 ## 3. Palette and material
 

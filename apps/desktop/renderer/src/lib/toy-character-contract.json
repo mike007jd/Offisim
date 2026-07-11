@@ -44,18 +44,18 @@
     "short": "hair_01",
     "long": "hair_02",
     "ponytail": "hair_03",
-    "curly": "hair_06",
+    "curly": "hair_04",
     "bald": null,
     "bob": "hair_05",
-    "spiky": "hair_04",
+    "spiky": "hair_06",
     "braids": "hair_03"
   },
   "hairTransforms": {
-    "hair_01": { "position": [0, -0.31, -0.03], "scale": [4, 3, 3.9] },
-    "hair_02": { "position": [0, -0.2, -0.02], "scale": [3.2, 2.9, 3] },
-    "hair_03": { "position": [0, -0.28, -0.02], "scale": [2.8, 3, 3] },
-    "hair_04": { "position": [0, -0.17, -0.02], "scale": [4.4, 2.7, 3.8] },
-    "hair_05": { "position": [0, -0.2, -0.02], "scale": [4.2, 2.8, 3.6] },
+    "hair_01": { "position": [0, 0, 0], "scale": [1, 1, 1] },
+    "hair_02": { "position": [0, 0, 0], "scale": [1, 1, 1] },
+    "hair_03": { "position": [0, 0, 0], "scale": [1, 1, 1] },
+    "hair_04": { "position": [0, 0, 0], "scale": [1, 1, 1] },
+    "hair_05": { "position": [0, 0, 0], "scale": [1, 1, 1] },
     "hair_06": { "position": [0, 0, 0], "scale": [1, 1, 1] }
   },
   "eye": {

@@ -7,7 +7,8 @@ and are built by `scripts/build-character-assets.mjs`. Original license texts fo
 
 - Source: `scripts/build-character-assets.mjs` in this repository.
 - License: covered by the Offisim repository license; no third-party asset input.
-- Used for: toy capsule body, runtime eye contract, chunky curl hair, and the
+- Used for: toy capsule body, runtime eye contract, all six toy hairstyles
+  (short crop, long drape, ponytail, curly afro, helmet bob, spiky crop), and the
   clipboard, tablet, terminal, pointer, headset, swatch, checklist, and keycard props.
 
 ## Offisim-authored procedural animation derivatives
@@ -22,7 +23,7 @@ and are built by `scripts/build-character-assets.mjs`. Original license texts fo
 
 - Source: https://quaternius.itch.io/universal-base-characters
 - License: CC0 1.0 Universal (public domain) — https://creativecommons.org/publicdomain/zero/1.0/
-- Used for: Superhero male 65-joint rig topology and 5 source hairstyles.
+- Used for: Superhero male 65-joint rig topology (body skeleton basis).
 
 ```text
 This is the standard FREE version of the Universal Base Characters Kit, which only contains

@@ -69,7 +69,7 @@
       "detail": ""
     },
     {
-      "name": "six transformed hair silhouettes overlap the head while clearing eyes",
+      "name": "six transformed hair silhouettes wrap the head with a visible front hairline while clearing eyes",
       "pass": true,
       "detail": ""
     },
@@ -146,7 +146,7 @@
     {
       "name": "manifest exactly covers shipped assets, byte sizes, and 25 MiB budget",
       "pass": true,
-      "detail": "1500109/26214400"
+      "detail": "726087/26214400"
     },
     {
       "name": "licenses identify authored P1 geometry",
@@ -166,30 +166,30 @@
   ],
   "assets": {
     "files": {
-      "LICENSES.md": 3741,
-      "animations.glb": 515484,
+      "LICENSES.md": 4203,
+      "animations.glb": 547280,
       "body_toy.glb": 58524,
-      "hair_01.glb": 150996,
-      "hair_02.glb": 203296,
-      "hair_03.glb": 209844,
-      "hair_04.glb": 145968,
-      "hair_05.glb": 145936,
-      "hair_06.glb": 13628,
-      "props.glb": 52692
+      "hair_01.glb": 8880,
+      "hair_02.glb": 10416,
+      "hair_03.glb": 9652,
+      "hair_04.glb": 18900,
+      "hair_05.glb": 6972,
+      "hair_06.glb": 9012,
+      "props.glb": 52248
     },
     "sha256": {
-      "LICENSES.md": "7cc77d025734e24ee8013ea9f7ff88452b3b591746a02bde16c8d35b2923e48a",
-      "animations.glb": "20a679676ec2b7ff8d7c4d6f8a672b6bd5ee1d1ef9c5afb81af26d13374f3398",
+      "LICENSES.md": "83a0982016bc96acbc037a6522125b4383f6225e0129b2d9eb48ef1aff2be08c",
+      "animations.glb": "ddcd02a7a8a1a86c74644ef77b57a4895fd1a17f0be658046c256596d5d5fd71",
       "body_toy.glb": "a6786c46667910b9fa8f2e811a5f17cee11fdeb93f503aaa480d3a90b17e45d0",
-      "hair_01.glb": "fb16acda0b54dc1bfe769be43e616697187e15c32632b987cf1d6272808b62c6",
-      "hair_02.glb": "86064ef9b389ab4c8727274e43d45a48e03544e574b95e1ae45a7c34c2e1ac5b",
-      "hair_03.glb": "4715ce963e199eeef706760dcd42eddd1c89a17fd84ab6ec97a7a0e9a9d3f46d",
-      "hair_04.glb": "8997beec23a9d8b92ce5fc9afdfe913897f5d0478d82e9db68d40dec7c78d8ab",
-      "hair_05.glb": "aa62a048f7b2259984bbef0237e44b2194605f60ad44d34482d13d934d7264b9",
-      "hair_06.glb": "74fa8b90c95f76e6e4890a1bed4e76f4fd3f23143cd310c1b9e0a1762c72fb77",
-      "props.glb": "4c6a8e973be71bf63dbc2770505cbafe134d9e64631c1fac2afb7a51063b45a0"
+      "hair_01.glb": "76a400e30bb046aa8a4c0d25c3f21c59c4c3cb33c0c274e1bbcf2e3e3fa528e8",
+      "hair_02.glb": "ed16569a4bf4dd0a0336c39137c2e86843599270594401a68b63f8229348782c",
+      "hair_03.glb": "1030e9c6565ce2e93fc308cacd36b53680ad933aefa8523a17447ba3e38cc5ab",
+      "hair_04.glb": "4f8e529cb6ed527277ea9f600f4232b157d0c3e4f1246bbd961540a8103a9f80",
+      "hair_05.glb": "908489693156e16306cb7a598d508cf8cb8968c8e3ebc621aa5d041f97abbace",
+      "hair_06.glb": "3c1b65446abe4502fbbfb0fbc7d9356a96e68e6db2756e108d85dc35e088331c",
+      "props.glb": "caa4a05a39e918c8fdc9e40650f7dc103e1d1ae2e357bf55d42671b0bc0d8f94"
     },
-    "totalBytes": 1500109,
+    "totalBytes": 726087,
     "budgetBytes": 26214400
   }
 }

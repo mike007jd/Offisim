@@ -385,7 +385,11 @@ export {
 export type { EmployeeStaging } from './dramaturgy/office-projection.js';
 export { currentBeatsByEmployee, projectOfficeStaging } from './dramaturgy/office-projection.js';
 export { animationTempoForRole } from './dramaturgy/profiles.js';
-export { CHARACTER_WALK_SPEED_UNITS_PER_SECOND } from './dramaturgy/character-motion.js';
+export {
+  CHARACTER_TURN_RATE_PER_SECOND,
+  CHARACTER_WALK_ANIMATION_TIME_SCALE,
+  CHARACTER_WALK_SPEED_UNITS_PER_SECOND,
+} from './dramaturgy/character-motion.js';
 export type { DramaturgyMode, DramaturgyModeOptions } from './dramaturgy/modes.js';
 export type { AmbientModePolicy } from './dramaturgy/modes.js';
 export {

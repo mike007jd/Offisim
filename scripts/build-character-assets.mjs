@@ -10,11 +10,9 @@
  *   body_toy.glb                      procedural toy capsule body on the exact
  *                                     65-joint UBC rig, with machine-sampleable
  *                                     head/contact landmark nodes.
- *   hair_01..05.glb                   head-bone-baked CC0 meshes (100% `Head`
- *                                     weighted; verified at build time) with a
- *                                     grayscale basecolor for pure tinting.
- *   hair_06.glb                       Offisim-authored chunky curl cap in the
- *                                     same head-local coordinate contract.
+ *   hair_01..06.glb                   Offisim-authored chunky toy hairstyles in
+ *                                     the Head-bone-local coordinate contract,
+ *                                     gray tint-ready basecolor (no textures).
  *   animations.glb                    one shared clip library on the 65-bone rig
  *                                     (mannequin stripped), clips renamed to the
  *                                     neutral scheme below.
@@ -70,7 +68,6 @@ import {
   unpartition,
 } from '@gltf-transform/functions';
 import { MeshoptDecoder, MeshoptEncoder } from 'meshoptimizer';
-import sharp from 'sharp';
 
 /**
  * REQUIRED raw-pack workspace. No default: a checked-in script must never
@@ -136,7 +133,6 @@ const TOY_CARRY_GROUND_LIFT_UNITS = 0.025;
 
 const UBC_DIR = join(RAW_DIR, 'unpacked/ubc/Universal Base Characters[Standard]');
 const BODY_DIR = join(UBC_DIR, 'Base Characters/Godot - UE');
-const HAIR_DIR = join(UBC_DIR, 'Hairstyles/Rigged to Head Bone/glTF (Godot -Unreal)');
 const UAL1_GLB = join(
   RAW_DIR,
   'unpacked/ual/Universal Animation Library[Standard]/Unreal-Godot/UAL1_Standard.glb',
@@ -218,22 +214,11 @@ const PROCEDURAL_ANIMATION_SPECS = {
 
 const SOURCE_BODY_GLTF = 'Superhero_Male_FullBody.gltf';
 
-const HAIR_FILES = {
-  hair_01: 'Hair_SimpleParted',
-  hair_02: 'Hair_Long',
-  hair_03: 'Hair_Buns',
-  hair_04: 'Hair_Buzzed',
-  hair_05: 'Hair_BuzzedFemale',
-};
 const SHIPPED_HAIR_NAMES = ['hair_01', 'hair_02', 'hair_03', 'hair_04', 'hair_05', 'hair_06'];
 
 const KENNEY_PROPS = {
   prop_laptop: 'laptop.glb',
 };
-
-const HAIR_TEXTURE_SIZE = 512;
-/** Grayscale-normalized hair mean luminance target (0-255): multiply-tint base. */
-const HAIR_LUMINANCE_TARGET = 184;
 const SHOE_BASE_COLOR = [0.16, 0.17, 0.2, 1];
 const TOY_SKIN_LIGHT = [0.651, 0.471, 0.345, 1];
 const TOY_SKIN_DARK = [0.612, 0.431, 0.306, 1];
@@ -550,14 +535,6 @@ function toHex(rgb) {
     .join('')}`;
 }
 
-async function grayscaleNormalizedPng(input, size, meanTarget) {
-  const gray = sharp(input).resize(size, size, { fit: 'fill' }).greyscale();
-  const stats = await gray.clone().stats();
-  const mean = stats.channels[0].mean || 1;
-  const factor = Math.max(0.5, Math.min(3, meanTarget / mean));
-  return gray.linear(factor, 0).png({ compressionLevel: 9, adaptiveFiltering: true }).toBuffer();
-}
-
 function stripSecondaryTextures(document) {
   for (const material of document.getRoot().listMaterials()) {
     material.setNormalTexture(null);
@@ -854,97 +831,126 @@ async function buildToyBody(io, manifest) {
   };
 }
 
-/** Bake a Head-rigged hairstyle into head-local space as a static mesh. */
-async function buildHeadAccessory(io, outName, sourceName, manifest) {
-  const document = quietDoc(await io.read(join(HAIR_DIR, `${sourceName}.gltf`)));
-  const root = document.getRoot();
-  const meshNode = root.listNodes().find((node) => node.getMesh());
-  if (!meshNode || !meshNode.getSkin()) fail(`${sourceName}: expected one skinned mesh node`);
+/**
+ * Offisim-authored toy hairstyles — six chunky low-poly caps purpose-built for
+ * the toy head, all in the Head-bone-local coordinate contract.
+ *
+ * Toy head reference (head-local units, manifest `headRadiiUnits`):
+ *   ellipsoid radii ~[0.3745, 0.4115, 0.3662] centered at the Head bone origin,
+ *   eye decals at (±0.14, 0.07, EYE plane z 0.39).
+ *
+ * Every style starts from a scalp shell slightly LARGER than the skull so the
+ * cap visibly wraps the head from every camera (the P1 baldness bug was hair
+ * geometry buried inside the head). The front hairline is kept above the eye
+ * band; fringes overhang the forehead, never the eyes.
+ */
+const TOY_HAIR_STYLES = {
+  hair_01: 'offisim-procedural:short-crop',
+  hair_02: 'offisim-procedural:long-drape',
+  hair_03: 'offisim-procedural:ponytail',
+  hair_04: 'offisim-procedural:curly-afro',
+  hair_05: 'offisim-procedural:helmet-bob',
+  hair_06: 'offisim-procedural:spiky-crop',
+};
 
-  const skin = meshNode.getSkin();
-  const joints = skin.listJoints();
-  const headIndex = joints.findIndex((joint) => joint.getName() === 'Head');
-  if (headIndex < 0) fail(`${sourceName}: no 'Head' joint in skin`);
-
-  // Verify the 100%-Head weighting the bake relies on.
-  const prim = meshNode.getMesh().listPrimitives()[0];
-  const jointsAcc = prim.getAttribute('JOINTS_0');
-  const weightsAcc = prim.getAttribute('WEIGHTS_0');
-  const j = [];
-  const w = [];
-  for (let i = 0; i < jointsAcc.getCount(); i += 1) {
-    jointsAcc.getElement(i, j);
-    weightsAcc.getElement(i, w);
-    for (let c = 0; c < 4; c += 1) {
-      if (w[c] > 0.001 && joints[j[c]].getName() !== 'Head') {
-        fail(`${sourceName}: vertex ${i} weighted to '${joints[j[c]].getName()}', not Head-only`);
-      }
-    }
-  }
-
-  const ibm = skin.getInverseBindMatrices().getElement(headIndex, []);
-  const mesh = meshNode.getMesh();
-  transformMesh(mesh, ibm);
-  for (const meshPrim of mesh.listPrimitives()) {
-    meshPrim.setAttribute('JOINTS_0', null);
-    meshPrim.setAttribute('WEIGHTS_0', null);
-    dropInertAttributes(meshPrim);
-  }
-
-  const scene = root.listScenes()[0];
-  const bakedNode = document.createNode(outName).setMesh(mesh);
-  meshNode.setMesh(null);
-  for (const child of scene.listChildren()) disposeSubtree(child);
-  scene.addChild(bakedNode);
-
-  stripSecondaryTextures(document);
-  await document.transform(prune());
-  const materials = root.listMaterials();
-  if (materials.length !== 1) fail(`${sourceName}: expected 1 material after prune`);
-  const material = materials[0].setName('Hair').setMetallicFactor(0).setRoughnessFactor(1);
-  const baseTexture = material.getBaseColorTexture();
-  if (!baseTexture) fail(`${sourceName}: missing basecolor texture`);
-  baseTexture
-    .setImage(
-      await grayscaleNormalizedPng(
-        baseTexture.getImage(),
-        HAIR_TEXTURE_SIZE,
-        HAIR_LUMINANCE_TARGET,
-      ),
-    )
-    .setMimeType('image/png')
-    .setName(outName);
-
-  await document.transform(dedup(), meshopt({ encoder: MeshoptEncoder, level: 'medium' }));
-  await io.write(join(OUT_DIR, `${outName}.glb`), document);
-  manifest.hair[outName] = sourceName;
+/** Scalp shell: an ellipsoid cap wrapping the skull; the base of every style. */
+function addHairShell(geometry, center = [0, 0.13, -0.03], radii = [0.402, 0.4, 0.392]) {
+  addToyEllipsoid(geometry, center, radii, 0, 10, 14);
 }
 
-/** Sixth hairstyle: a chunky toy curl cap authored from low-poly ellipsoids. */
-async function buildProceduralToyHair(io, manifest) {
+/** Chunky fringe lobes across the forehead (above the eye band, y >= ~0.16). */
+function addHairFringe(geometry, lobes = [-0.21, 0, 0.21], y = 0.2, z = 0.295) {
+  for (const x of lobes) {
+    addToyEllipsoid(geometry, [x, y, z], [0.15, 0.09, 0.1], 0, 6, 9);
+  }
+}
+
+const TOY_HAIR_BUILDERS = {
+  // Short crop: snug shell + fringe + side tufts.
+  hair_01(geometry) {
+    addHairShell(geometry, [0, 0.13, -0.03], [0.4, 0.385, 0.39]);
+    addHairFringe(geometry);
+    addToyEllipsoid(geometry, [-0.36, 0.02, 0.05], [0.09, 0.14, 0.13], 0, 6, 9);
+    addToyEllipsoid(geometry, [0.36, 0.02, 0.05], [0.09, 0.14, 0.13], 0, 6, 9);
+  },
+  // Long drape: shell + fringe + full back drape + side curtains past the chin.
+  hair_02(geometry) {
+    addHairShell(geometry);
+    addHairFringe(geometry);
+    addToyEllipsoid(geometry, [0, -0.16, -0.3], [0.34, 0.44, 0.15], 0, 8, 12);
+    addToyEllipsoid(geometry, [-0.32, -0.08, 0.02], [0.11, 0.36, 0.16], 0, 6, 9);
+    addToyEllipsoid(geometry, [0.32, -0.08, 0.02], [0.11, 0.36, 0.16], 0, 6, 9);
+  },
+  // Ponytail: shell + fringe + tie bump + tail capsule falling from the crown.
+  hair_03(geometry) {
+    addHairShell(geometry);
+    addHairFringe(geometry);
+    addToyEllipsoid(geometry, [0, 0.3, -0.36], [0.1, 0.1, 0.1], 0, 6, 9);
+    addToyCapsule(geometry, [0, 0.28, -0.42], [0, -0.04, -0.54], 0.1, 0, 8);
+    addToyEllipsoid(geometry, [0, -0.12, -0.57], [0.08, 0.11, 0.08], 0, 6, 9);
+  },
+  // Curly afro: bigger undershell + curl lobes over the whole dome, including a
+  // visible front row above the brow (the old cap sat inside the head = bald).
+  hair_04(geometry) {
+    addHairShell(geometry, [0, 0.16, -0.04], [0.42, 0.38, 0.41]);
+    const curls = [
+      [-0.2, 0.28, 0.24],
+      [0, 0.3, 0.27],
+      [0.2, 0.28, 0.24],
+      [-0.34, 0.12, 0.16],
+      [0.34, 0.12, 0.16],
+      [-0.16, 0.42, 0.02],
+      [0.16, 0.42, 0.02],
+      [0, 0.44, -0.1],
+      [-0.3, 0.32, -0.06],
+      [0.3, 0.32, -0.06],
+      [-0.2, 0.2, -0.32],
+      [0.2, 0.2, -0.32],
+      [0, 0.24, -0.36],
+      [-0.32, 0.02, -0.18],
+      [0.32, 0.02, -0.18],
+      [0, 0.04, -0.38],
+    ];
+    for (const center of curls) {
+      addToyEllipsoid(geometry, center, [0.16, 0.15, 0.16], 0, 6, 9);
+    }
+  },
+  // Bob: jaw-length shell + a flatter fringe that hugs the forehead (a fringe
+  // that protrudes past the shell reads as a cap brim, not hair).
+  hair_05(geometry) {
+    addHairShell(geometry, [0, 0.04, -0.06], [0.42, 0.43, 0.395]);
+    addHairFringe(geometry, [-0.18, 0, 0.18], 0.22, 0.27);
+  },
+  // Spiky crop: snug shell + short fringe + crown spikes swept slightly back.
+  hair_06(geometry) {
+    addHairShell(geometry, [0, 0.13, -0.03], [0.398, 0.385, 0.388]);
+    addHairFringe(geometry, [-0.24, 0, 0.24], 0.19, 0.285);
+    const spikes = [
+      [-0.26, 0.32, -0.04],
+      [-0.09, 0.42, 0],
+      [0.09, 0.42, 0],
+      [0.26, 0.32, -0.04],
+      [-0.17, 0.36, -0.2],
+      [0.17, 0.36, -0.2],
+      [0, 0.38, -0.24],
+    ];
+    // Low-segment tall ellipsoids render as faceted points, not curls.
+    for (const center of spikes) {
+      addToyEllipsoid(geometry, center, [0.075, 0.24, 0.075], 0, 3, 5);
+    }
+  },
+};
+
+/** Build one authored toy hairstyle glb (static mesh, tint-ready gray base). */
+async function buildProceduralToyHair(io, manifest, outName) {
+  const builder = TOY_HAIR_BUILDERS[outName];
+  if (!builder) fail(`no authored hair builder for ${outName}`);
   const document = quietDoc(new Document());
   const buffer = document.createBuffer();
-  const scene = document.createScene('hair_06');
+  const scene = document.createScene(outName);
   document.getRoot().setDefaultScene(scene);
   const geometry = createToyGeometry();
-  // Continuous undershell prevents bald gaps between the chunky curl lobes.
-  // It stays behind the face surface (front z tops at 0.24 vs the toy head's
-  // ~0.39), so the eye-decal plane and forehead remain clean.
-  addToyEllipsoid(geometry, [0, 0.2, -0.08], [0.35, 0.24, 0.32], 0, 8, 12);
-  const curls = [
-    [-0.24, 0.24, -0.03],
-    [-0.08, 0.32, -0.02],
-    [0.09, 0.32, -0.02],
-    [0.24, 0.24, -0.03],
-    [-0.27, 0.12, 0.01],
-    [0.27, 0.12, 0.01],
-    [-0.16, 0.12, -0.24],
-    [0.16, 0.12, -0.24],
-    [-0.28, 0.05, -0.12],
-    [0.28, 0.05, -0.12],
-    [0, 0.08, -0.3],
-  ];
-  for (const center of curls) addToyEllipsoid(geometry, center, [0.15, 0.14, 0.15], 0, 6, 9);
+  builder(geometry);
   const material = document
     .createMaterial('Hair')
     .setBaseColorFactor(AUTHORED_HAIR_COLOR)
@@ -953,13 +959,13 @@ async function buildProceduralToyHair(io, manifest) {
   addStaticMeshNode(
     document,
     scene,
-    'hair_06',
-    createStaticAccessors(document, buffer, 'hair_06', geometry),
+    outName,
+    createStaticAccessors(document, buffer, outName, geometry),
     material,
   );
   await document.transform(dedup(), meshopt({ encoder: MeshoptEncoder, level: 'medium' }));
-  await io.write(join(OUT_DIR, 'hair_06.glb'), document);
-  manifest.hair.hair_06 = 'offisim-procedural:chunky-curl-cap';
+  await io.write(join(OUT_DIR, `${outName}.glb`), document);
+  manifest.hair[outName] = TOY_HAIR_STYLES[outName];
 }
 
 function stripToSkeleton(document, keepClipRenames) {
@@ -1640,7 +1646,7 @@ function writeLicenses() {
       name: 'Universal Base Characters [Standard] — Quaternius',
       url: 'https://quaternius.itch.io/universal-base-characters',
       license: join(UBC_DIR, 'License_Standard.txt'),
-      used: 'Superhero male 65-joint rig topology and 5 source hairstyles.',
+      used: 'Superhero male 65-joint rig topology (body skeleton basis).',
     },
     {
       name: 'Universal Animation Library [Standard] — Quaternius',
@@ -1691,7 +1697,8 @@ function writeLicenses() {
     '',
     '- Source: `scripts/build-character-assets.mjs` in this repository.',
     '- License: covered by the Offisim repository license; no third-party asset input.',
-    '- Used for: toy capsule body, runtime eye contract, chunky curl hair, and the',
+    '- Used for: toy capsule body, runtime eye contract, all six toy hairstyles',
+    '  (short crop, long drape, ponytail, curly afro, helmet bob, spiky crop), and the',
     '  clipboard, tablet, terminal, pointer, headset, swatch, checklist, and keycard props.',
     '',
     '## Offisim-authored procedural animation derivatives',
@@ -1715,12 +1722,10 @@ async function main() {
 
   console.log('building body_toy.glb');
   await buildToyBody(io, manifest);
-  for (const [outName, sourceName] of Object.entries(HAIR_FILES)) {
-    console.log(`building ${outName}.glb (${sourceName})`);
-    await buildHeadAccessory(io, outName, sourceName, manifest);
+  for (const outName of SHIPPED_HAIR_NAMES) {
+    console.log(`building ${outName}.glb (${TOY_HAIR_STYLES[outName]})`);
+    await buildProceduralToyHair(io, manifest, outName);
   }
-  console.log('building hair_06.glb (Offisim procedural curl cap)');
-  await buildProceduralToyHair(io, manifest);
   console.log('building animations.glb');
   await buildAnimations(io, manifest);
   console.log('building props.glb');
