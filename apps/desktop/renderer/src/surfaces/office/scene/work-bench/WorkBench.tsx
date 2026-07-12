@@ -1,5 +1,5 @@
-import { cn } from '@/lib/utils.js';
 import { sceneWorkDetailSummary } from '@/assistant/runtime/scene-cue-projection.js';
+import { cn } from '@/lib/utils.js';
 import type { ToolRichDetail } from '@offisim/shared-types';
 
 type WorkBenchStatus = 'running' | 'done' | 'error';
@@ -17,6 +17,20 @@ export function WorkBench({
     return (
       <div className={cn('off-work-bench', compact && 'is-compact', `is-${status}`)}>
         <div className="off-work-bench-empty">{status === 'running' ? 'Running' : 'No details'}</div>
+      </div>
+    );
+  }
+
+  if (compact) {
+    return (
+      <div className={cn('off-work-bench', 'is-compact', `is-${status}`, `is-${detail.family}`)}>
+        <div className="off-work-bench-head">
+          <span className="off-work-bench-family">Work update</span>
+          {statusBadge(status)}
+        </div>
+        <div className="off-work-bench-body">
+          <span className="off-work-bench-copy">{compactWorkBenchSummary(detail)}</span>
+        </div>
       </div>
     );
   }
@@ -42,6 +56,22 @@ export function WorkBench({
       {detail.family === 'generic' ? <GenericBench detail={detail} /> : null}
     </div>
   );
+}
+
+export function compactWorkBenchSummary(detail: ToolRichDetail): string {
+  switch (detail.family) {
+    case 'terminal':
+      return sceneWorkDetailSummary('shell');
+    case 'file':
+      return sceneWorkDetailSummary('edit');
+    case 'search':
+    case 'browser':
+      return sceneWorkDetailSummary('research');
+    case 'computer':
+      return sceneWorkDetailSummary('compute');
+    case 'generic':
+      return sceneWorkDetailSummary(detail.text);
+  }
 }
 
 function statusBadge(status: WorkBenchStatus) {
