@@ -146,6 +146,9 @@ interface ProjectRowLike {
   company_id: string;
   name: string;
   workspace_root: string | null;
+  verify_command: string | null;
+  verify_max_attempts: number;
+  verify_token_budget: number | null;
 }
 export function projectToVm(row: ProjectRowLike): Project {
   return {
@@ -154,6 +157,9 @@ export function projectToVm(row: ProjectRowLike): Project {
     name: row.name,
     workspaceRoot: row.workspace_root,
     branch: null,
+    verifyCommand: row.verify_command,
+    verifyMaxAttempts: row.verify_max_attempts,
+    verifyTokenBudget: row.verify_token_budget,
   };
 }
 

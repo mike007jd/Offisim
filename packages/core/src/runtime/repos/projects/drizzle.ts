@@ -60,7 +60,14 @@ export function createProjectsDrizzleRepos(db: Db): ProjectsDrizzleRepos {
   const projects: ProjectRepository = {
     async create(project: NewProject) {
       const ts = now();
-      const row: ProjectRow = { ...project, created_at: ts, updated_at: ts };
+      const row: ProjectRow = {
+        ...project,
+        verify_command: project.verify_command ?? null,
+        verify_max_attempts: project.verify_max_attempts ?? 3,
+        verify_token_budget: project.verify_token_budget ?? null,
+        created_at: ts,
+        updated_at: ts,
+      };
       db.insert(schema.projects).values(row).run();
       return row;
     },
