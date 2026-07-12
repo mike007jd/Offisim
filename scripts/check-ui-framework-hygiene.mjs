@@ -568,7 +568,6 @@ const requiredChecks = [
       /key:\s*'workspace'/,
       /key:\s*'market'/,
       /key:\s*'personnel'/,
-      /key:\s*'activity'/,
       /key:\s*'settings'/,
       /key:\s*'studio'/,
       /export const PRIMARY_NAV/,

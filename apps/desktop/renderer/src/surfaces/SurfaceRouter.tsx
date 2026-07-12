@@ -3,9 +3,6 @@ import { type SurfaceKey, useUiState } from '@/app/ui-state.js';
 import { motion } from 'motion/react';
 import { type ReactNode, Suspense, lazy } from 'react';
 
-const ActivitySurface = lazy(() =>
-  import('./activity/ActivitySurface.js').then((m) => ({ default: m.ActivitySurface })),
-);
 const MarketSurface = lazy(() =>
   import('./market/MarketSurface.js').then((m) => ({ default: m.MarketSurface })),
 );
@@ -24,9 +21,6 @@ const SettingsSurface = lazy(() =>
 const StudioSurface = lazy(() =>
   import('./studio/StudioSurface.js').then((m) => ({ default: m.StudioSurface })),
 );
-const TaskBoardSurface = lazy(() =>
-  import('./tasks/TaskBoardSurface.js').then((m) => ({ default: m.TaskBoardSurface })),
-);
 const WorkspaceSurface = lazy(() =>
   import('./workspace/WorkspaceSurface.js').then((m) => ({ default: m.WorkspaceSurface })),
 );
@@ -41,10 +35,6 @@ function renderSurface(surface: SurfaceKey): ReactNode {
       return <MissionSurface />;
     case 'personnel':
       return <PersonnelSurface />;
-    case 'activity':
-      return <ActivitySurface />;
-    case 'tasks':
-      return <TaskBoardSurface />;
     case 'settings':
       return <SettingsSurface />;
     case 'studio':

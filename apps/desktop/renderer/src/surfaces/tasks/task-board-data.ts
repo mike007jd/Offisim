@@ -59,7 +59,7 @@ export interface TaskBoardRow {
   searchChildFiltered?: boolean;
 }
 
-export type TaskBoardChildRow = Omit<TaskBoardRow, 'children'>;
+type TaskBoardChildRow = Omit<TaskBoardRow, 'children'>;
 
 export interface TaskBoardVisibleRow {
   row: TaskBoardRow | TaskBoardChildRow;
@@ -571,19 +571,4 @@ export function useProjectWorkspaceLeaseReviews(projectId: string | null): {
     isLoading: query.isLoading,
     refetch: query.refetch,
   };
-}
-
-export function useProjectLeaseStatusMap(
-  projectId: string | null,
-): Map<string, WorkspaceLeaseReviewRow> {
-  const reviews = useProjectWorkspaceLeaseReviews(projectId);
-  return useMemo(
-    () =>
-      new Map(
-        reviews.rows.flatMap((lease) =>
-          lease.relatedRunIds.map((runId) => [runId, lease] as const),
-        ),
-      ),
-    [reviews.rows],
-  );
 }

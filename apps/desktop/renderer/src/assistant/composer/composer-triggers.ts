@@ -167,7 +167,7 @@ export function buildSlashCommands(): Unstable_SlashCommand[] {
       id: 'browser',
       label: 'Browser',
       description: 'See rendered browser pages from runs',
-      execute: () => useUiState.getState().setSurface('activity'),
+      execute: () => useUiState.getState().openBoard('timeline'),
     },
     {
       id: 'computer',
@@ -185,7 +185,7 @@ export function buildSlashCommands(): Unstable_SlashCommand[] {
       id: 'output',
       label: 'Outputs',
       description: 'View artifacts produced by runs',
-      execute: () => useUiState.getState().setSurface('activity'),
+      execute: () => useUiState.getState().openBoard('timeline'),
     },
     {
       id: 'inbox',
@@ -202,7 +202,7 @@ export function buildSlashCommands(): Unstable_SlashCommand[] {
       id: 'activity',
       label: 'Activity log',
       description: 'Open the run activity log',
-      execute: () => useUiState.getState().setSurface('activity'),
+      execute: () => useUiState.getState().openBoard('timeline'),
     },
     {
       id: 'settings',

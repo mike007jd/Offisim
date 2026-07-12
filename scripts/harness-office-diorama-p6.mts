@@ -353,7 +353,15 @@ check(
   /<N8AO[\s\S]*?\shalfRes\s*[\/>]/.test(postFxSource) && !postFxSource.includes('halfRes={false}'),
 );
 check('post processing preserves SMAA', postFxSource.includes('<SMAA />'));
-check('Canvas keeps the approved DPR budget', officeSource.includes('dpr={[1, 1.75]}'));
+check(
+  'Canvas keeps the approved full-view DPR budget and pins PiP to DPR 1',
+  /dpr=\{pip \? 1 : \[1, 1\.75\]\}/.test(officeSource),
+);
+check(
+  'PiP disables shadows and post processing without unmounting the scene',
+  officeSource.includes("shadows={pip ? false : 'soft'}") &&
+    officeSource.includes('{pip ? null : <ScenePostFx />}'),
+);
 check(
   'Canvas keeps one explicit continuous animation frame prop',
   (officeSource.match(/frameloop="always"/g) ?? []).length === 1 &&

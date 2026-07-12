@@ -50,9 +50,9 @@ import { GltfCharacter } from './character/GltfCharacter.js';
 import { preloadCharacterAssets } from './character/character-assets.js';
 import { openDeliveryHistory } from './delivery-history.js';
 import { OFFICE_DELIVERY_WORLD, officeResourceMarkerColor } from './office-visual-language.js';
-import { RoomShell } from './r3d/RoomShell.js';
 import { DioramaBackdrop } from './r3d/DioramaBackdrop.js';
 import { DioramaDressing } from './r3d/DioramaDressing.js';
+import { RoomShell } from './r3d/RoomShell.js';
 import { SceneAnnotation, SceneAnnotationScheduler } from './r3d/SceneAnnotation.js';
 import { SceneEnvironment } from './r3d/SceneEnvironment.js';
 import { SceneLighting } from './r3d/SceneLighting.js';
@@ -1015,10 +1015,7 @@ function EmployeeDragGhost({
         </Suspense>
       </group>
       {drag.moved ? (
-        <SceneAnnotation
-          position={[0, 2.64, 0]}
-          priority="critical"
-        >
+        <SceneAnnotation position={[0, 2.64, 0]} priority="critical">
           <span className="off-scene-drag-chip">Move</span>
         </SceneAnnotation>
       ) : null}
@@ -1028,10 +1025,7 @@ function EmployeeDragGhost({
 
 function SceneDropNoticeLabel({ notice }: { notice: SceneDropNotice }) {
   return (
-    <SceneAnnotation
-      position={[notice.x, 1.15, notice.z]}
-      priority="critical"
-    >
+    <SceneAnnotation position={[notice.x, 1.15, notice.z]} priority="critical">
       <span className="off-scene-drop-note">{notice.message}</span>
     </SceneAnnotation>
   );
@@ -1411,10 +1405,7 @@ export function OfficeScene3D({ pip = false }: { pip?: boolean }) {
             {/* Lane density label — the shared flowCueText rule (`×N · label`
                 for bundles), a compact pill at the line midpoint. */}
             {line.showLabel ? (
-              <SceneAnnotation
-                position={line.labelPosition}
-                priority="ambient"
-              >
+              <SceneAnnotation position={line.labelPosition} priority="ambient">
                 <span
                   className={`off-scene-flow-label is-${line.ink}`}
                   style={{ '--off-scene-flow-color': line.color } as CSSProperties}
@@ -1430,11 +1421,7 @@ export function OfficeScene3D({ pip = false }: { pip?: boolean }) {
             is itself the delivery anchor when it renders. */}
         {activeFlowTargets.map((target) =>
           target === 'delivery' ? null : (
-            <SceneAnnotation
-              key={target}
-              position={flowTarget3D(target)}
-              priority="ambient"
-            >
+            <SceneAnnotation key={target} position={flowTarget3D(target)} priority="ambient">
               <span className="off-scene-flow-anchor">{FLOW_TARGET_LABELS[target]}</span>
             </SceneAnnotation>
           ),

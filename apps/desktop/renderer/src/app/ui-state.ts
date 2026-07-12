@@ -1,14 +1,15 @@
+import type { PreviewSourceRef } from '@/surfaces/office/stage-preview/preview-target.js';
 import { generateId } from '@offisim/core/browser';
 import type { DramaturgyMode, ToolRichDetail } from '@offisim/shared-types';
 import { create } from 'zustand';
-import type { PreviewSourceRef } from '@/surfaces/office/stage-preview/preview-target.js';
 
 type WorkspaceKey = 'office' | 'workspace' | 'market' | 'personnel';
-type OverlaySurface = 'mission' | 'activity' | 'tasks' | 'settings' | 'studio' | 'lifecycle';
+type OverlaySurface = 'mission' | 'settings' | 'studio' | 'lifecycle';
 export type SurfaceKey = WorkspaceKey | OverlaySurface;
 
 type SceneRenderMode = '3d' | '2d';
 export type StagePrimaryTab = 'game' | 'board' | 'preview' | 'computer' | 'terminal' | 'review';
+type BoardLens = 'board' | 'timeline';
 type RailMode = 'list' | 'thread';
 type StageToolStatus = 'running' | 'done' | 'error';
 
@@ -143,6 +144,7 @@ interface UiState {
   stageOpenTabs: StageOpenTab[];
   activeStageTabId: string | null;
   boardHighlightedRunId: string | null;
+  boardLens: BoardLens;
   scenePipCollapsed: boolean;
   officeLeftRailCollapsed: boolean;
   officeRightRailCollapsed: boolean;
@@ -250,6 +252,8 @@ interface UiState {
   activateStageTab: (id: string) => void;
   closeStageTab: (id: string) => void;
   highlightBoardRun: (runId: string | null) => void;
+  openBoard: (lens?: BoardLens) => void;
+  setBoardLens: (lens: BoardLens) => void;
   setScenePipCollapsed: (collapsed: boolean) => void;
   setOfficeLeftRailCollapsed: (collapsed: boolean) => void;
   setOfficeRightRailCollapsed: (collapsed: boolean) => void;
@@ -291,6 +295,7 @@ export const useUiState = create<UiState>((set, get) => ({
   stageOpenTabs: [],
   activeStageTabId: null,
   boardHighlightedRunId: null,
+  boardLens: 'board',
   scenePipCollapsed: false,
   officeLeftRailCollapsed: false,
   officeRightRailCollapsed: false,
@@ -476,6 +481,15 @@ export const useUiState = create<UiState>((set, get) => ({
       };
     }),
   highlightBoardRun: (boardHighlightedRunId) => set({ boardHighlightedRunId }),
+  openBoard: (boardLens = 'board') =>
+    set({
+      surface: 'office',
+      activeStageTabId: null,
+      stagePrimaryTab: 'board',
+      stageView: { kind: 'scene' },
+      boardLens,
+    }),
+  setBoardLens: (boardLens) => set({ boardLens }),
   setScenePipCollapsed: (scenePipCollapsed) => set({ scenePipCollapsed }),
   setOfficeLeftRailCollapsed: (officeLeftRailCollapsed) => set({ officeLeftRailCollapsed }),
   setOfficeRightRailCollapsed: (officeRightRailCollapsed) => set({ officeRightRailCollapsed }),

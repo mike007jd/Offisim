@@ -13,11 +13,8 @@ import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Popover, PopoverContent, PopoverTrigger } from '@/design-system/primitives/popover.js';
 import { cn } from '@/lib/utils.js';
+import { BoardPendingReviewAutoOpen, BoardStage } from '@/surfaces/office/board/BoardStage.js';
 import { ComputerView } from '@/surfaces/office/computer/ComputerView.js';
-import {
-  BoardPendingReviewAutoOpen,
-  BoardStage,
-} from '@/surfaces/office/board/BoardStage.js';
 import { WorkBench } from '@/surfaces/office/scene/work-bench/WorkBench.js';
 import { StagePreviewPane } from '@/surfaces/office/stage-preview/StagePreviewPane.js';
 import {
@@ -35,8 +32,8 @@ import type { DramaturgyMode, ToolRichDetail } from '@offisim/shared-types';
 import {
   Box,
   Clapperboard,
-  Columns3,
   Coins,
+  Columns3,
   Eye,
   FileCode2,
   FileText,
@@ -151,7 +148,9 @@ export function StageTopBar({ isRunning, tokensLabel, costLabel }: StageTopBarPr
         >
           <Icon icon={Columns3} size="sm" />
           <span>Board</span>
-          {pendingReviewCount > 0 ? <b className="off-stage-tab-badge">{pendingReviewCount}</b> : null}
+          {pendingReviewCount > 0 ? (
+            <b className="off-stage-tab-badge">{pendingReviewCount}</b>
+          ) : null}
         </button>
         {stageOpenTabs.map((tab) => {
           const baseLabel = stageTabLabel(tab.target);

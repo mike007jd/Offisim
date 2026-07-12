@@ -122,25 +122,25 @@ export function OfficeStage() {
           stagePrimaryTab !== 'game' && scenePipCollapsed && 'is-collapsed',
         )}
       >
-          {sceneRenderMode === '3d' ? (
-            <Suspense fallback={<div className="off-scene-loading">Loading scene…</div>}>
-              <OfficeScene3D pip={stagePrimaryTab !== 'game'} />
-            </Suspense>
-          ) : (
-            <OfficeScene2D />
-          )}
-          <GameViewControls />
-          {emptyOffice ? (
-            // Honest empty office: the scene keeps its bare floor and seats
-            // nobody; this HTML overlay carries the guidance for both modes.
-            <EmptyState
-              icon={LayoutTemplate}
-              title="No office layout yet"
-              description="Open Studio to lay out your floor."
-              action={{ label: 'Open Studio', onClick: () => setSurface('studio') }}
-              className="off-scene-empty"
-            />
-          ) : null}
+        {sceneRenderMode === '3d' ? (
+          <Suspense fallback={<div className="off-scene-loading">Loading scene…</div>}>
+            <OfficeScene3D pip={stagePrimaryTab !== 'game'} />
+          </Suspense>
+        ) : (
+          <OfficeScene2D />
+        )}
+        <GameViewControls />
+        {emptyOffice ? (
+          // Honest empty office: the scene keeps its bare floor and seats
+          // nobody; this HTML overlay carries the guidance for both modes.
+          <EmptyState
+            icon={LayoutTemplate}
+            title="No office layout yet"
+            description="Open Studio to lay out your floor."
+            action={{ label: 'Open Studio', onClick: () => setSurface('studio') }}
+            className="off-scene-empty"
+          />
+        ) : null}
         {stagePrimaryTab !== 'game' ? (
           <div className="off-scene-pip-actions">
             <button

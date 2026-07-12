@@ -57,7 +57,8 @@ P3 session 占用任务板/git/lease/pi_host 全链路(P4 要动 `pi-child-super
 | Phase | 内容 | 依赖 |
 |---|---|---|
 | A(本分支 `feat/shell-ia-and-character`) | Market 降 utility;Connect 保持 primary 并下线 Kanban;发型扩库 + 映射对齐;AppearanceTab 预览 + 向导外观 | 无,基于 P2 HEAD |
-| B(P3 合入后) | Board 以看板列进 Office 舞台视图(范围切换/来源回链/自动开窗);顶级 Tasks tab 退场;Activity 并入 Board 时间线;Connect 去留按 dogfood 频率定(Messenger 并入 Office 或退场) | P3 merge |
+| B1(2026-07-12 已完成) | Board 以四列看板进 Office 舞台(项目/公司范围、来源回链、审查抽屉、自动开窗);Activity 并入公司级时间线;Tasks/Activity 顶级入口退场;所有工作视图保留场景画中画 | P3 merged |
+| B2 | Connect 的 Messenger/Calendar 数据域并入 Office/Board 后退场 | B1 |
 
 禁区(P3 session 属地,本 lane 不碰):`tasks/` 内部逻辑、`git-workbench`、`lease-manager`、`pi_agent_host/*`、`git.rs`、`WorkspacePanel`、`StageViewer`、`pi-child-supervisor.mjs`。
 

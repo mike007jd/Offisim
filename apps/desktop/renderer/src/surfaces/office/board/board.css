@@ -8,7 +8,7 @@
   background: var(--off-warn);
   color: var(--off-surface-0);
   font-family: var(--off-font-mono);
-  font-size: 10px;
+  font-size: var(--off-fs-micro);
   line-height: 1;
 }
 
@@ -180,6 +180,12 @@
   display: grid;
   gap: var(--off-sp-2);
   padding: var(--off-sp-3);
+  background: transparent;
+}
+
+.off-board-card-open {
+  min-width: 0;
+  padding: 0;
   border: 0;
   background: transparent;
   color: inherit;
@@ -193,10 +199,10 @@
   right: 10px;
   width: 7px;
   height: 7px;
-  border-radius: 50%;
+  border-radius: var(--off-r-round);
   background: var(--off-ok);
   box-shadow: 0 0 0 4px color-mix(in oklab, var(--off-ok) 18%, transparent);
-  animation: off-board-pulse 1.5s ease-in-out infinite;
+  animation: off-board-pulse var(--off-motion-loop-slow) var(--off-motion-loop-ease) infinite;
 }
 
 @keyframes off-board-pulse { 50% { opacity: 0.45; transform: scale(0.78); } }
@@ -220,7 +226,7 @@
   border-radius: var(--off-r-pill);
   color: var(--off-accent);
   font-family: var(--off-font-mono);
-  font-size: 10px;
+  font-size: var(--off-fs-micro);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -235,7 +241,7 @@
   gap: var(--off-sp-2);
   color: var(--off-ink-4);
   font-family: var(--off-font-mono);
-  font-size: 10px;
+  font-size: var(--off-fs-micro);
 }
 
 .off-board-avatars {
@@ -357,7 +363,7 @@
 .off-board-timeline { min-width: 0; min-height: 0; padding: var(--off-sp-3) max(var(--off-sp-4), 6vw); overflow: auto; }
 .off-board-timeline > section { max-width: 980px; margin: 0 auto var(--off-sp-4); border: 1px solid var(--off-line-soft); border-radius: var(--off-r-md); background: var(--off-surface-1); overflow: hidden; }
 .off-board-timeline > section > header { height: 32px; display: flex; align-items: center; gap: var(--off-sp-2); padding: 0 var(--off-sp-3); border-bottom: 1px solid var(--off-line-soft); background: var(--off-surface-2); color: var(--off-ink-2); font-size: var(--off-fs-meta); }
-.off-board-timeline > section > header span { min-width: 20px; height: 18px; display: inline-grid; place-items: center; border-radius: var(--off-r-pill); background: var(--off-surface-sunken); font-family: var(--off-font-mono); font-size: 10px; }
+.off-board-timeline > section > header span { min-width: 20px; height: 18px; display: inline-grid; place-items: center; border-radius: var(--off-r-pill); background: var(--off-surface-sunken); font-family: var(--off-font-mono); font-size: var(--off-fs-micro); }
 .off-board-event { min-height: 36px; display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; align-items: center; gap: var(--off-sp-2); padding: 0 var(--off-sp-3); border-bottom: 1px solid var(--off-line-soft); color: var(--off-ink-3); font-size: var(--off-fs-meta); }
 .off-board-event:last-child { border-bottom: 0; }
 .off-board-event.is-warning { background: color-mix(in oklab, var(--off-warn) 5%, transparent); }
@@ -365,10 +371,105 @@
 .off-board-event > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .off-board-event > span b { color: var(--off-ink-1); }
 .off-board-event > span em { color: var(--off-accent); font-style: normal; font-weight: 720; }
-.off-board-event time { color: var(--off-ink-4); font-family: var(--off-font-mono); font-size: 10px; }
+.off-board-event time { color: var(--off-ink-4); font-family: var(--off-font-mono); font-size: var(--off-fs-micro); }
 .off-board-load-more { display: flex; margin: 0 auto var(--off-sp-4); padding: 0 var(--off-sp-4); }
 
 .off-stage-changes.is-lease-review { display: block; overflow: hidden; }
+
+/* Shared lease/workspace diff UI now belongs to the Office Board domain. */
+.off-task-detail-note {
+  margin: var(--off-sp-5) 0 0;
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-sm);
+  line-height: 1.45;
+}
+
+.off-diff-panel {
+  display: grid;
+  grid-template-columns: minmax(140px, 28%) minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-1);
+}
+
+.off-diff-files { border-right: 1px solid var(--off-line); }
+
+.off-diff-file {
+  display: block;
+  width: 100%;
+  padding: var(--off-sp-2);
+  border: 0;
+  border-bottom: 1px solid var(--off-line);
+  background: transparent;
+  color: var(--off-ink-3);
+  font: inherit;
+  text-align: left;
+}
+
+.off-diff-file.is-active { background: var(--off-surface-sunken); color: var(--off-ink-1); }
+
+.off-diff-code {
+  min-height: 180px;
+  max-height: 420px;
+  margin: 0;
+  overflow: auto;
+  padding: var(--off-sp-3);
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-meta);
+  white-space: pre;
+}
+
+.off-diff-code .is-add { color: var(--off-ok); background: color-mix(in oklab, var(--off-ok) 10%, transparent); }
+.off-diff-code .is-remove { color: var(--off-danger); background: color-mix(in oklab, var(--off-danger) 10%, transparent); }
+.off-diff-code .is-hunk { color: var(--off-accent); }
+
+.off-diff-review-actions {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: var(--off-sp-2);
+  padding: var(--off-sp-2);
+  border-top: 1px solid var(--off-line);
+}
+
+.off-diff-review-actions textarea {
+  min-width: 0;
+  min-height: 72px;
+  padding: var(--off-sp-2);
+  resize: vertical;
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-2);
+  color: var(--off-ink-1);
+}
+
+.off-diff-review-actions > div { display: flex; justify-content: flex-end; gap: var(--off-sp-2); }
+
+.off-diff-review-actions button {
+  padding: var(--off-sp-2) var(--off-sp-3);
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-2);
+  color: var(--off-ink-2);
+}
+
+.off-gw-task-select {
+  width: 100%;
+  margin: var(--off-sp-2) 0;
+  padding: var(--off-sp-2);
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-2);
+  color: var(--off-ink-2);
+}
+
+.off-gw .off-diff-panel { grid-template-columns: 1fr; }
+.off-gw .off-diff-files { border-right: 0; border-bottom: 1px solid var(--off-line); }
+
+@container (max-width: 760px) {
+  .off-diff-panel { grid-template-columns: 1fr; }
+  .off-diff-files { border-right: 0; border-bottom: 1px solid var(--off-line); }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .off-board-card.is-highlighted,
