@@ -75,14 +75,16 @@
 }
 
 .off-board-columns {
+  width: 100%;
   min-width: 0;
   min-height: 0;
   height: 100%;
   display: grid;
-  grid-template-columns: repeat(4, minmax(220px, 1fr));
+  grid-template-columns: repeat(4, minmax(252px, 1fr));
   gap: var(--off-sp-3);
   padding: var(--off-sp-3);
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
   transition: padding-right var(--off-motion-slow) var(--off-motion-ease);
 }
 
@@ -91,7 +93,7 @@
 }
 
 .off-board-column {
-  min-width: 220px;
+  min-width: 252px;
   min-height: 0;
   display: grid;
   grid-template-rows: 52px minmax(0, 1fr);

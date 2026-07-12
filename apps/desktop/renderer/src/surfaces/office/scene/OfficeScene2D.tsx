@@ -100,7 +100,7 @@ function roundRect(
   ctx.roundRect(x, y, w, h, r);
 }
 
-export function OfficeScene2D() {
+export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
   const projectId = useUiState((s) => s.projectId);
   const openThread = useUiState((s) => s.openThread);
   const openStageView = useUiState((s) => s.openStageView);
@@ -234,13 +234,20 @@ export function OfficeScene2D() {
           10,
         );
         ctx.fill();
-        ctx.fillStyle = OFFICE_SCENE_2D_COLORS.zoneLabel;
-        const title = zone.label.toUpperCase();
-        const titleX = wx(zone.cx - zone.w / 2) + 10;
-        const titleY = wy(zone.cz - zone.d / 2) + 18;
-        ctx.fillText(title, titleX, titleY);
-        const titleW = ctx.measureText(title).width;
-        occupied.push({ x0: titleX - 2, x1: titleX + titleW + 2, y0: titleY - 10, y1: titleY + 4 });
+        if (!pip) {
+          ctx.fillStyle = OFFICE_SCENE_2D_COLORS.zoneLabel;
+          const title = zone.label.toUpperCase();
+          const titleX = wx(zone.cx - zone.w / 2) + 10;
+          const titleY = wy(zone.cz - zone.d / 2) + 18;
+          ctx.fillText(title, titleX, titleY);
+          const titleW = ctx.measureText(title).width;
+          occupied.push({
+            x0: titleX - 2,
+            x1: titleX + titleW + 2,
+            y0: titleY - 10,
+            y1: titleY + 4,
+          });
+        }
       }
 
       // employees — real roster, seated by the shared layout helper
@@ -607,7 +614,7 @@ export function OfficeScene2D() {
         // 3-char per-run look; medium/large draw grouped chips with their count
         // ("Blocked 3", "Research 24") in pills widened to the measured text so
         // the count is never clipped. The cue already caps chips at 4.
-        if (wl && wl.chips.length > 0) {
+        if (!pip && wl && wl.chips.length > 0) {
           const isGrouped = wl.tier !== 'small';
           ctx.font = CANVAS_FONT_TOKENS.officeSceneLabel;
           ctx.textAlign = 'center';

@@ -127,7 +127,7 @@ export function OfficeStage() {
             <OfficeScene3D pip={stagePrimaryTab !== 'game'} />
           </Suspense>
         ) : (
-          <OfficeScene2D />
+          <OfficeScene2D pip={stagePrimaryTab !== 'game'} />
         )}
         <GameViewControls />
         {emptyOffice ? (

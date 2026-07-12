@@ -1092,6 +1092,13 @@
   pointer-events: none;
 }
 
+/* PiP is an ambient status preview: dense scene annotations are illegible at
+   this size and return automatically with the full Game View. */
+.off-scene-host.is-pip .off-scene-zone-label,
+.off-scene-host.is-pip .off-scene-workload-bubble {
+  display: none;
+}
+
 .off-scene-drag-chip {
   display: inline-flex;
   align-items: center;
