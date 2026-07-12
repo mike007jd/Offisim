@@ -11,6 +11,13 @@ pub struct PiAgentExecuteRequest {
     pub(super) cwd: Option<String>,
     #[serde(default)]
     pub(super) project_id: Option<String>,
+    /// Project-owned delegated-write verification policy, forwarded verbatim.
+    #[serde(default)]
+    pub(super) project_verify_command: Option<String>,
+    #[serde(default)]
+    pub(super) project_verify_max_attempts: Option<u32>,
+    #[serde(default)]
+    pub(super) project_verify_token_budget: Option<u64>,
     #[serde(default)]
     pub(super) employee_id: Option<String>,
     #[serde(default)]

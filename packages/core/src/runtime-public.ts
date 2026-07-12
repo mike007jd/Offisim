@@ -3,6 +3,16 @@
 export { HookRegistry } from './runtime/hook-registry.js';
 export { createRuntimeContext, disposeRuntime } from './runtime/runtime-context.js';
 export { Scratchpad } from './runtime/scratchpad.js';
+export {
+  decideBoundedLoop,
+  stableFailureSignature,
+} from './runtime/bounded-loop.js';
+export type {
+  BoundedLoopDecision,
+  BoundedLoopDecisionInput,
+  BoundedLoopStopReason,
+  LoopFailureFact,
+} from './runtime/bounded-loop.js';
 
 export {
   buildSkillUpdateValues,

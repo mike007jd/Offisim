@@ -9,7 +9,7 @@ use super::types::{PiAgentHostEvent, PiAgentHostResponse, PiAgentStatusResponse,
 /// Wire-contract version negotiated with the bundled Node host via the `ready`
 /// handshake. Must stay in lockstep with `PI_HOST_PROTOCOL_VERSION` in
 /// scripts/pi-agent-host-wire.mjs; bump both when a line's required shape changes.
-pub(super) const PI_HOST_PROTOCOL_VERSION: u32 = 5;
+pub(super) const PI_HOST_PROTOCOL_VERSION: u32 = 6;
 
 /// Wire kinds the Rust bridge knows how to decode. A line with an unknown kind is
 /// skipped (forward-compatible with newer hosts); a malformed line on a KNOWN kind
@@ -23,6 +23,7 @@ pub(super) const PI_KNOWN_WIRE_KINDS: &[&str] = &[
     "uiRequest",
     "mcpCall",
     "worktreeCall",
+    "verifyCall",
     "agentRun",
     "result",
     "error",
@@ -113,6 +114,12 @@ pub(super) enum PiSidecarLine {
         #[serde(default)]
         args: Option<serde_json::Value>,
     },
+    VerifyCall {
+        id: String,
+        command: String,
+        cwd: String,
+        project_id: String,
+    },
     Result {
         response: serde_json::Value,
     },
@@ -133,6 +140,7 @@ impl PiSidecarLine {
             Self::UiRequest { .. } => "uiRequest",
             Self::McpCall { .. } => "mcpCall",
             Self::WorktreeCall { .. } => "worktreeCall",
+            Self::VerifyCall { .. } => "verifyCall",
             Self::AgentRun { .. } => "agentRun",
             Self::Result { .. } => "result",
             Self::Error { .. } => "error",
@@ -255,6 +263,9 @@ pub(super) fn send_sidecar_event(
         // worktreeCall follows the same in-process intercept pattern; never
         // forward it to the renderer.
         PiSidecarLine::WorktreeCall { .. } => Ok(None),
+        // verifyCall is serviced through the sandboxed bash builtin in the
+        // stream loop and answered on stdin; never forward it to the renderer.
+        PiSidecarLine::VerifyCall { .. } => Ok(None),
         PiSidecarLine::AgentRun {
             thread_id,
             root_run_id,

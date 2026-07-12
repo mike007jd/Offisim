@@ -18,8 +18,8 @@ use crate::sidecar_stderr::{
 };
 
 use super::bridge::{
-    handle_mcp_call, handle_worktree_call, pi_stdin_guard, write_mcp_result, PiMcpResult,
-    StdinGuard, PI_MCP_CALL_TIMEOUT,
+    handle_mcp_call, handle_verify_call, handle_worktree_call, pi_stdin_guard, write_mcp_result,
+    PiMcpResult, StdinGuard, PI_MCP_CALL_TIMEOUT,
 };
 use super::payload::{
     app_pi_agent_dir, app_pi_session_dir, collaborate_payload, enhance_payload, pi_env,
@@ -212,6 +212,18 @@ pub(super) async fn run_pi_sidecar_jsonl<R: tauri::Runtime>(
                             return Err(HostError::Aborted);
                         }
                         result = handle_worktree_call(register_stdin, workspace_root, id, op, args) => {
+                            result?;
+                        }
+                    }
+                    continue;
+                }
+                if let PiSidecarLine::VerifyCall { id, command, cwd, project_id } = parsed {
+                    tokio::select! {
+                        _ = token.cancelled() => {
+                            kill_child(&mut child).await;
+                            return Err(HostError::Aborted);
+                        }
+                        result = handle_verify_call(app, register_stdin, id, project_id, cwd, command) => {
                             result?;
                         }
                     }

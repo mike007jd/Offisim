@@ -665,9 +665,8 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     const resolvedModel = input.model?.trim() || readPiModelOverride() || undefined;
     const resolvedThinkingLevel =
       input.thinkingLevel?.trim() || resolveThreadThinkingOverride(input.threadId);
-    const workspaceRoot = projectId
-      ? ((await this.repos.projects.findById(projectId))?.workspace_root ?? null)
-      : null;
+    const project = projectId ? await this.repos.projects.findById(projectId) : null;
+    const workspaceRoot = project?.workspace_root ?? null;
     const runtimeContext: PersistedRunContext = {
       requestId,
       streamCursor: 0,
@@ -946,6 +945,9 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           companyId: this.companyId,
           threadId: input.threadId,
           projectId,
+          projectVerifyCommand: project?.verify_command ?? undefined,
+          projectVerifyMaxAttempts: project?.verify_max_attempts ?? undefined,
+          projectVerifyTokenBudget: project?.verify_token_budget ?? undefined,
           employeeId: input.employeeId,
           model: resolvedModel,
           permissionMode,

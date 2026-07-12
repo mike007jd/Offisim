@@ -67,6 +67,17 @@ struct PiWorktreeResult {
     error: Option<String>,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PiVerifyResult {
+    id: String,
+    ok: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    result: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+}
+
 /// Service an intercepted `mcpCall`: invoke the tool through mcp_bridge in-process
 /// and write a matching `mcpResult` line back to the host's stdin. A missing
 /// registry yields an error mcpResult; a missing stdin channel is a host error so
@@ -157,6 +168,49 @@ pub(super) async fn handle_worktree_call(
         },
     };
     write_worktree_result(request_id, &response).await
+}
+
+pub(super) async fn handle_verify_call<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    request_id: Option<&str>,
+    id: String,
+    project_id: String,
+    cwd: String,
+    command: String,
+) -> Result<(), HostError> {
+    let Some(request_id) = request_id else {
+        eprintln!("[pi-agent-host] verifyCall on a lane with no stdin channel; dropping id={id}");
+        return Ok(());
+    };
+    let response = match crate::builtin_tools::bash_execute(
+        app.clone(),
+        cwd,
+        command,
+        5 * 60 * 1000,
+        Some(1024 * 1024),
+        Some(project_id),
+        None,
+        None,
+        None,
+    )
+    .await
+    {
+        Ok(result) => PiVerifyResult {
+            id,
+            ok: true,
+            result: Some(serde_json::to_value(result).map_err(|err| {
+                HostError::Request(format!("Serialize verify command result: {err}"))
+            })?),
+            error: None,
+        },
+        Err(error) => PiVerifyResult {
+            id,
+            ok: false,
+            result: None,
+            error: Some(error),
+        },
+    };
+    write_verify_result(request_id, &response).await
 }
 
 async fn run_worktree_op(
@@ -453,6 +507,26 @@ async fn write_worktree_result(
         .flush()
         .await
         .map_err(|err| HostError::Request(format!("Flush worktreeResult: {err}")))?;
+    Ok(())
+}
+
+async fn write_verify_result(request_id: &str, response: &PiVerifyResult) -> Result<(), HostError> {
+    let writer = pi_stdin_guard().get(request_id).cloned();
+    let Some(writer) = writer else {
+        return Ok(());
+    };
+    let mut line = serde_json::to_string(response)
+        .map_err(|err| HostError::Request(format!("Serialize verifyResult: {err}")))?;
+    line.push('\n');
+    let mut stdin = writer.lock().await;
+    stdin
+        .write_all(line.as_bytes())
+        .await
+        .map_err(|err| HostError::Request(format!("Write verifyResult: {err}")))?;
+    stdin
+        .flush()
+        .await
+        .map_err(|err| HostError::Request(format!("Flush verifyResult: {err}")))?;
     Ok(())
 }
 

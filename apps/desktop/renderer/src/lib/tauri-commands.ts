@@ -49,6 +49,9 @@ interface PiAgentExecuteRequest {
   threadId: string;
   cwd?: string | null;
   projectId?: string | null;
+  projectVerifyCommand?: string | null;
+  projectVerifyMaxAttempts?: number | null;
+  projectVerifyTokenBudget?: number | null;
   employeeId?: string | null;
   model?: string | null;
   permissionMode?: string | null;

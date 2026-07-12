@@ -56,6 +56,10 @@ const SPEC = {
     required: ['id', 'op'],
     allowed: ['id', 'op', 'args'],
   },
+  verifyCall: {
+    required: ['id', 'command', 'cwd', 'projectId'],
+    allowed: ['id', 'command', 'cwd', 'projectId'],
+  },
   agentRun: {
     required: ['threadId', 'rootRunId', 'runId', 'runType', 'payload'],
     allowed: [

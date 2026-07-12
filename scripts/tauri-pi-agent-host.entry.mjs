@@ -36,6 +36,7 @@ import {
 import { createChildSupervisor, createDelegationLimits } from './pi-child-supervisor.mjs';
 import { createDelegationExtensionFactory } from './pi-delegation-extension.mjs';
 import { createMcpCallChannel } from './pi-host-mcp-channel.mjs';
+import { createVerifyCallChannel } from './pi-host-verify-channel.mjs';
 import { createWorktreeCallChannel } from './pi-host-worktree-channel.mjs';
 import { createMcpBridgeExtensionFactory, isWriteMcpTool } from './pi-mcp-bridge-extension.mjs';
 import { createMissionBridgeExtensionFactory } from './pi-mission-bridge-extension.mjs';
@@ -109,6 +110,7 @@ function rejectAllUiRequests() {
 // `mcpResult` lines (resolveMcpResult) and unwinds on stdin close.
 const mcpChannel = createMcpCallChannel(emit);
 const worktreeChannel = createWorktreeCallChannel(emit);
+const verifyChannel = createVerifyCallChannel(emit);
 const activeChildControllers = new Map();
 
 function resolveRuntimeControl(message) {
@@ -1088,6 +1090,13 @@ async function runPrompt(payload) {
   // below references `projectId`, and a bare undeclared reference throws
   // "projectId is not defined", failing every rostered Office run at bootstrap.
   const projectId = asNonEmptyString(payload.projectId);
+  const projectVerifyCommand = asNonEmptyString(payload.projectVerifyCommand);
+  const projectVerifyMaxAttempts = Number.isInteger(payload.projectVerifyMaxAttempts)
+    ? Math.max(1, Math.min(20, payload.projectVerifyMaxAttempts))
+    : 3;
+  const projectVerifyTokenBudget = Number.isFinite(payload.projectVerifyTokenBudget)
+    ? Math.max(1, payload.projectVerifyTokenBudget)
+    : undefined;
   // The DB may retain a model binding Pi no longer offers. Keep persistence
   // honest, but do not forward that phantom value: an invalid binding behaves
   // exactly like an unbound employee and inherits this conversation's model.
@@ -1212,6 +1221,14 @@ async function runPrompt(payload) {
         modelRegistry,
         cwd,
         projectId,
+        verifyConfig: projectVerifyCommand
+          ? {
+              command: projectVerifyCommand,
+              maxAttempts: projectVerifyMaxAttempts,
+              tokenBudget: projectVerifyTokenBudget,
+            }
+          : undefined,
+        requestVerifyResult: verifyChannel.requestVerifyResult,
         settingsManager,
         threadId,
         rootRunId,
@@ -1914,6 +1931,7 @@ function main() {
       resolveRuntimeControl(msg);
       mcpChannel.resolveMcpResult(msg);
       worktreeChannel.resolveWorktreeResult(msg);
+      verifyChannel.resolveVerifyResult(msg);
     } catch {
       // Ignore malformed response lines rather than crashing the run.
     }
@@ -1925,6 +1943,7 @@ function main() {
     rejectAllUiRequests();
     mcpChannel.rejectAllMcpCalls();
     worktreeChannel.rejectAllWorktreeCalls();
+    verifyChannel.rejectAllVerifyCalls();
   });
 }
 
