@@ -1,10 +1,6 @@
 import { useUiState } from '@/app/ui-state.js';
 import { displayThreadTitle, isTauriRuntime, reposOrNull } from '@/data/adapters.js';
-import {
-  loadProjectChatThreadRows,
-  projectChatThreadRowsQueryKey,
-  useProjects,
-} from '@/data/queries.js';
+import { loadProjectChatThreadRows, projectChatThreadRowsQueryKey } from '@/data/queries.js';
 import type { ChatToolCall, Employee } from '@/data/types.js';
 import { getTauriDb } from '@/lib/tauri-db.js';
 import { compactAge } from '@/lib/utils.js';
@@ -370,88 +366,5 @@ export function useWsAgenda() {
       return repos.meetings.findByCompany(companyId);
     },
     select: (rows) => meetingsToAgenda(rows),
-  });
-}
-
-/* ── Kanban board (conversations as work cards) ──────────────────────────── */
-
-/**
- * The project a per-project workspace app operates on: the explicitly-selected
- * project, or the company's first project as a fallback. Shared so the Workplace
- * launcher tile and the Kanban board it opens can never name different projects.
- */
-export function useActiveProject(companyId: string) {
-  const projectId = useUiState((s) => s.projectId);
-  const projects = useProjects(companyId);
-  return projects.data?.find((p) => p.id === projectId) ?? projects.data?.[0] ?? null;
-}
-
-/**
- * The board's columns. `todo` / `done` are *durable* (derived from each
- * conversation's `archived_at`); `active` / `waiting` are *live* overlays the
- * board computes from the run store for the single in-flight thread — Offisim
- * has no persisted multi-thread task lifecycle, so the conversation is the unit
- * of work and its live run-state is the only honest "in motion" signal.
- */
-export type BoardColumn = 'todo' | 'active' | 'waiting' | 'done';
-
-export interface WsBoardCard {
-  threadId: string;
-  employeeId: string | null;
-  title: string;
-  updatedAtMs: number;
-  /** `archived_at` is set — the boss has filed this conversation as done. */
-  archived: boolean;
-  /** Relative age of the last activity ("3h", "2d"). */
-  ageLabel: string;
-}
-
-interface BoardThreadRow {
-  thread_id: string;
-  employee_id: string | null;
-  title: string | null;
-  updated_at: string;
-  archived_at: string | null;
-}
-
-/**
- * Every conversation in the active project as a board card, newest first.
- * `archived` splits To do vs Done; the live In progress / Waiting columns are
- * an overlay the KanbanApp applies from the run store. Mirrors the raw-SQL seam
- * `loadProjectChatThreadRows` uses (chat_threads is the source of truth; the
- * repo's `listByProject` hides archived rows, so the board reads the table
- * directly to keep its Done column).
- */
-export function useWsBoard(projectId: string | null) {
-  return useQuery<WsBoardCard[]>({
-    queryKey: ['ws', 'board', projectId],
-    queryFn: async (): Promise<WsBoardCard[]> => {
-      if (!isTauriRuntime()) return [];
-      if (!projectId) return [];
-      const db = await getTauriDb();
-      const rows = await db.select<BoardThreadRow[]>(
-        `select thread_id, employee_id, title, updated_at, archived_at
-           from chat_threads
-          where project_id = $1
-          order by updated_at desc`,
-        [projectId],
-      );
-      const now = Date.now();
-      return rows.map((row) => {
-        const ms = Date.parse(row.updated_at);
-        return {
-          threadId: row.thread_id,
-          employeeId: row.employee_id ?? null,
-          title: displayThreadTitle(row.title),
-          updatedAtMs: Number.isFinite(ms) ? ms : 0,
-          archived: row.archived_at != null,
-          ageLabel: Number.isFinite(ms) ? compactAge(ms, now) : '',
-        };
-      });
-    },
-    // No poll: like the other useWs* hooks, the board refetches on mount (every
-    // time it is opened from the launcher) and after archive/unarchive. The
-    // active/waiting columns track the run store live, so nothing in-flight is
-    // missed between opens.
   });
 }

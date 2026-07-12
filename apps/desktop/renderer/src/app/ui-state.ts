@@ -108,12 +108,8 @@ export interface SceneDropDiagnostic {
   decision: 'assigned' | 'missed' | 'not-moved';
 }
 
-/**
- * A workspace surface. Most are rail tabs (`messenger`, `calendar`, `contacts`,
- * `workplace`); `kanban` is a launcher app opened from the Workplace tile grid,
- * not a rail tab — only the rail tabs appear in `APP_GROUPS`.
- */
-export type WorkspaceApp = 'messenger' | 'kanban' | 'calendar' | 'contacts' | 'workplace';
+/** The three focused Connect apps. */
+export type WorkspaceApp = 'messenger' | 'calendar' | 'contacts';
 
 interface UiState {
   surface: SurfaceKey;
