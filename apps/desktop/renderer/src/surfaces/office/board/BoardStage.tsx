@@ -47,10 +47,13 @@ import {
   useTaskBoard,
   workspaceLeaseReviewsQueryOptions,
 } from './task-board-data.js';
+import { useWorkspaceLeaseDecisionVersion } from './use-workspace-lease-decision.js';
 import {
+  type WorkspaceLeaseReviewOutcome,
   appendWorkspaceLeaseAction,
   requestWorkspaceLeaseChanges,
   reviewWorkspaceLease,
+  workspaceLeaseDecisionAction,
 } from './workspace-lease-actions.js';
 
 type BoardScope = 'project' | 'company';
@@ -152,7 +155,26 @@ function countDiffLines(files: readonly { diff: string }[]) {
   return { added, removed };
 }
 
+function toastLeaseOutcomes(
+  outcomes: readonly WorkspaceLeaseReviewOutcome[],
+  failedCount = 0,
+): void {
+  const merged = outcomes.filter((outcome) => outcome === 'merged').length;
+  const discarded = outcomes.filter((outcome) => outcome === 'discarded').length;
+  const hostResolved = outcomes.filter((outcome) => outcome === 'host_resolved').length;
+  const parts = [
+    merged ? `${merged} merged` : '',
+    discarded ? `${discarded} discarded` : '',
+    hostResolved ? `${hostResolved} completed by Pi` : '',
+    failedCount ? `${failedCount} failed` : '',
+  ].filter(Boolean);
+  const message = `Lease decision: ${parts.join(', ')}.`;
+  if (failedCount > 0 || parts.length > 1) toast.warning(message);
+  else toast.success(message);
+}
+
 export function BoardStage() {
+  useWorkspaceLeaseDecisionVersion();
   const companyId = useUiState((state) => state.companyId);
   const projectId = useUiState((state) => state.projectId);
   const requestThreadFocus = useUiState((state) => state.requestThreadFocus);
@@ -204,6 +226,8 @@ export function BoardStage() {
   );
   const selectedRow = scopedRows.find((row) => row.runId === selectedRunId) ?? null;
   const selectedLeases = selectedRow ? leasesForRow(selectedRow, allLeases) : [];
+  const hasPendingDecision = (leases: readonly WorkspaceLeaseReviewRow[]) =>
+    leases.some((lease) => workspaceLeaseDecisionAction(lease.leaseId) !== null);
 
   const refresh = useCallback(async () => {
     await Promise.all([board.refetch(), leaseQuery.refetch(), recovery.refetch()]);
@@ -261,8 +285,11 @@ export function BoardStage() {
         const leases = leasesForRow(row, allLeases).filter((lease) =>
           ['active', 'pending_review', 'failed'].includes(lease.status),
         );
+        const outcomes: WorkspaceLeaseReviewOutcome[] = [];
         if (leases.length > 0 && companyId) {
-          for (const lease of leases) await reviewWorkspaceLease(lease, companyId, 'discard');
+          for (const lease of leases) {
+            outcomes.push(await reviewWorkspaceLease(lease, companyId, 'discard'));
+          }
         } else if (
           row.status === 'interrupted' &&
           recovery.cards.some((card) => card.runId === row.runId)
@@ -274,7 +301,8 @@ export function BoardStage() {
             finishedAt: new Date().toISOString(),
           });
         }
-        toast.success('Request discarded.');
+        if (outcomes.length > 0) toastLeaseOutcomes(outcomes);
+        else toast.success('Request discarded.');
         if (selectedRunId === row.runId) setSelectedRunId(null);
         await refresh();
       } catch (error) {
@@ -292,14 +320,17 @@ export function BoardStage() {
       const actionable = selectedLeases.filter((lease) => lease.status === 'pending_review');
       if (actionable.length === 0) return;
       setBusyId(selectedRow.runId);
-      const succeeded: WorkspaceLeaseReviewRow[] = [];
+      const succeeded: Array<{
+        lease: WorkspaceLeaseReviewRow;
+        outcome: WorkspaceLeaseReviewOutcome;
+      }> = [];
       const failed: Array<{ lease: WorkspaceLeaseReviewRow; error: unknown }> = [];
       let outcomeRecordingError: unknown = null;
       try {
         for (const lease of actionable) {
           try {
-            await reviewWorkspaceLease(lease, companyId, action);
-            succeeded.push(lease);
+            const outcome = await reviewWorkspaceLease(lease, companyId, action);
+            succeeded.push({ lease, outcome });
           } catch (error) {
             failed.push({ lease, error });
             try {
@@ -319,10 +350,11 @@ export function BoardStage() {
             ),
           );
         } else if (failed.length === 0) {
-          toast.success(action === 'merge' ? 'Request merged.' : 'Request discarded.');
+          toastLeaseOutcomes(succeeded.map((result) => result.outcome));
         } else if (succeeded.length > 0) {
-          toast.warning(
-            `${succeeded.length} of ${actionable.length} leases ${action === 'merge' ? 'merged' : 'discarded'}; ${failed.length} need attention.`,
+          toastLeaseOutcomes(
+            succeeded.map((result) => result.outcome),
+            failed.length,
           );
         } else {
           toast.error(
@@ -458,7 +490,9 @@ export function BoardStage() {
                         employeeById={employeeById}
                         selected={selectedRunId === row.runId}
                         highlighted={highlightedRunId === row.runId}
-                        busy={busyId === row.runId}
+                        busy={
+                          busyId === row.runId || hasPendingDecision(leasesForRow(row, allLeases))
+                        }
                         onSelect={() => setSelectedRunId(row.runId)}
                         onThread={() => {
                           if (!row.projectId) {
@@ -481,7 +515,7 @@ export function BoardStage() {
               row={selectedRow}
               leases={selectedLeases}
               employeeById={employeeById}
-              busy={busyId === selectedRow.runId}
+              busy={busyId === selectedRow.runId || hasPendingDecision(selectedLeases)}
               feedback={feedback}
               onFeedback={setFeedback}
               onClose={() => setSelectedRunId(null)}

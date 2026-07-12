@@ -6,11 +6,22 @@ import {
   type WorkspaceLeaseReviewRow,
   buildProjectWorkspaceLeaseReviewRows,
 } from './task-board-data.js';
+import {
+  type WorkspaceLeaseDecisionAction,
+  WorkspaceLeaseDecisionCoordinator,
+} from './workspace-lease-decision-coordinator.js';
 
 export type WorkspaceLeaseReviewOutcome = 'merged' | 'discarded' | 'host_resolved';
 
 const WORKSPACE_LEASE_REVIEW_TITLE_PREFIX = 'Review delegated work ';
-const leaseDecisionById = new Map<string, Promise<WorkspaceLeaseReviewOutcome>>();
+const leaseDecisionById = new WorkspaceLeaseDecisionCoordinator<WorkspaceLeaseReviewOutcome>();
+
+export const subscribeWorkspaceLeaseDecisions = leaseDecisionById.subscribe;
+export const workspaceLeaseDecisionVersion = leaseDecisionById.getVersion;
+
+export function workspaceLeaseDecisionAction(leaseId: string): WorkspaceLeaseDecisionAction | null {
+  return leaseDecisionById.actionFor(leaseId);
+}
 
 export function workspaceLeaseIdFromApprovalTitle(title: string): string | null {
   if (!title.startsWith(WORKSPACE_LEASE_REVIEW_TITLE_PREFIX)) return null;
@@ -195,13 +206,9 @@ export function reviewWorkspaceLease(
   companyId: string,
   action: 'merge' | 'discard',
 ): Promise<WorkspaceLeaseReviewOutcome> {
-  const active = leaseDecisionById.get(row.leaseId);
-  if (active) return active;
-  const decision = resolveWorkspaceLeaseReview(row, companyId, action).finally(() => {
-    if (leaseDecisionById.get(row.leaseId) === decision) leaseDecisionById.delete(row.leaseId);
-  });
-  leaseDecisionById.set(row.leaseId, decision);
-  return decision;
+  return leaseDecisionById.run(row.leaseId, action, () =>
+    resolveWorkspaceLeaseReview(row, companyId, action),
+  );
 }
 
 export async function requestWorkspaceLeaseChanges(
