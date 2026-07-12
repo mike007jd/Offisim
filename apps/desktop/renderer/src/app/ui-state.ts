@@ -1,21 +1,28 @@
+import type { PreviewSourceRef } from '@/surfaces/office/stage-preview/preview-target.js';
 import { generateId } from '@offisim/core/browser';
 import type { DramaturgyMode, ToolRichDetail } from '@offisim/shared-types';
 import { create } from 'zustand';
-import type { PreviewSourceRef } from '@/surfaces/office/stage-preview/preview-target.js';
 
 type WorkspaceKey = 'office' | 'workspace' | 'market' | 'personnel';
-type OverlaySurface = 'mission' | 'activity' | 'tasks' | 'settings' | 'studio' | 'lifecycle';
+type OverlaySurface = 'mission' | 'settings' | 'studio' | 'lifecycle';
 export type SurfaceKey = WorkspaceKey | OverlaySurface;
 
 type SceneRenderMode = '3d' | '2d';
-export type StagePrimaryTab = 'game' | 'preview' | 'computer' | 'terminal' | 'review';
+export type StagePrimaryTab = 'game' | 'board' | 'preview' | 'computer' | 'terminal' | 'review';
+type BoardLens = 'board' | 'timeline';
 type RailMode = 'list' | 'thread';
 type StageToolStatus = 'running' | 'done' | 'error';
 
 export type StageViewTarget =
   | { kind: 'scene' }
   | { kind: 'preview'; ref: PreviewSourceRef; title?: string }
-  | { kind: 'changes'; path?: string | null }
+  | {
+      kind: 'changes';
+      path?: string | null;
+      leaseId?: string;
+      files?: Array<{ path: string; diff: string }>;
+      status?: 'active' | 'pending_review' | 'merged' | 'discarded' | 'failed';
+    }
   | {
       kind: 'logs';
       title?: string;
@@ -76,7 +83,7 @@ function stageTabIdForTarget(target: StageOpenTarget): string {
     case 'preview':
       return stagePreviewTabId(target.ref);
     case 'changes':
-      return `changes:${target.path ?? 'workspace'}`;
+      return `changes:${target.leaseId ?? target.path ?? 'workspace'}`;
     case 'logs':
       return `logs:${target.sourceId ?? target.tool ?? target.title ?? 'latest'}`;
     case 'computer':
@@ -136,6 +143,9 @@ interface UiState {
   stageView: StageViewTarget;
   stageOpenTabs: StageOpenTab[];
   activeStageTabId: string | null;
+  boardHighlightedRunId: string | null;
+  boardLens: BoardLens;
+  scenePipCollapsed: boolean;
   officeLeftRailCollapsed: boolean;
   officeRightRailCollapsed: boolean;
   officeStageMaximized: boolean;
@@ -197,6 +207,10 @@ interface UiState {
    */
   pendingLoopProjectSelect: { loopId: string; revisionId: string } | null;
 
+  /** One-shot cross-project conversation focus. The target project's thread
+   * query consumes this only after it has resolved successfully. */
+  pendingThreadFocus: { projectId: string; threadId: string } | null;
+
   setSurface: (surface: SurfaceKey) => void;
   /** Open Settings, optionally deep-linking to a section (composer `/` routes). */
   openSettings: (section?: string) => void;
@@ -216,6 +230,8 @@ interface UiState {
   requestLoopProjectSelect: (intent: { loopId: string; revisionId: string }) => void;
   /** Clear the one-shot Loop project-select intent once it has been handled. */
   consumePendingLoopProjectSelect: () => { loopId: string; revisionId: string } | null;
+  requestThreadFocus: (intent: { projectId: string; threadId: string }) => void;
+  consumePendingThreadFocus: () => { projectId: string; threadId: string } | null;
   setScope: (companyId: string, projectId: string) => void;
   setProject: (projectId: string) => void;
 
@@ -241,6 +257,10 @@ interface UiState {
   closeStageView: () => void;
   activateStageTab: (id: string) => void;
   closeStageTab: (id: string) => void;
+  highlightBoardRun: (runId: string | null) => void;
+  openBoard: (lens?: BoardLens) => void;
+  setBoardLens: (lens: BoardLens) => void;
+  setScenePipCollapsed: (collapsed: boolean) => void;
   setOfficeLeftRailCollapsed: (collapsed: boolean) => void;
   setOfficeRightRailCollapsed: (collapsed: boolean) => void;
   setOfficeStageMaximized: (maximized: boolean) => void;
@@ -280,6 +300,9 @@ export const useUiState = create<UiState>((set, get) => ({
   stageView: { kind: 'scene' },
   stageOpenTabs: [],
   activeStageTabId: null,
+  boardHighlightedRunId: null,
+  boardLens: 'board',
+  scenePipCollapsed: false,
   officeLeftRailCollapsed: false,
   officeRightRailCollapsed: false,
   officeStageMaximized: false,
@@ -303,6 +326,7 @@ export const useUiState = create<UiState>((set, get) => ({
   pendingDirectChatEmployeeId: null,
 
   pendingLoopProjectSelect: null,
+  pendingThreadFocus: null,
 
   setSurface: (surface) => set({ surface }),
   openSettings: (section) => set({ surface: 'settings', settingsSection: section ?? null }),
@@ -329,6 +353,25 @@ export const useUiState = create<UiState>((set, get) => ({
     if (intent) set({ pendingLoopProjectSelect: null });
     return intent;
   },
+  requestThreadFocus: (intent) =>
+    set({
+      projectId: intent.projectId,
+      pendingThreadFocus: intent,
+      selectedThreadId: null,
+      draftThread: null,
+      railMode: 'list',
+      stagePrimaryTab: 'game',
+      stageView: { kind: 'scene' },
+      stageOpenTabs: [],
+      activeStageTabId: null,
+      boardHighlightedRunId: null,
+      officeStageMaximized: false,
+    }),
+  consumePendingThreadFocus: () => {
+    const intent = get().pendingThreadFocus;
+    if (intent) set({ pendingThreadFocus: null });
+    return intent;
+  },
   setScope: (companyId, projectId) =>
     set({
       companyId,
@@ -340,6 +383,8 @@ export const useUiState = create<UiState>((set, get) => ({
       stageView: { kind: 'scene' },
       stageOpenTabs: [],
       activeStageTabId: null,
+      boardHighlightedRunId: null,
+      pendingThreadFocus: null,
       officeStageMaximized: false,
     }),
   setProject: (projectId) =>
@@ -352,6 +397,8 @@ export const useUiState = create<UiState>((set, get) => ({
       stageView: { kind: 'scene' },
       stageOpenTabs: [],
       activeStageTabId: null,
+      boardHighlightedRunId: null,
+      pendingThreadFocus: null,
       officeStageMaximized: false,
     }),
 
@@ -395,6 +442,13 @@ export const useUiState = create<UiState>((set, get) => ({
   setStagePrimaryTab: (stagePrimaryTab) =>
     set((state) => {
       if (stagePrimaryTab === 'game') return gameStageState();
+      if (stagePrimaryTab === 'board') {
+        return {
+          activeStageTabId: null,
+          stagePrimaryTab,
+          stageView: { kind: 'scene' },
+        };
+      }
       const existing = state.stageOpenTabs.find(
         (tab) => stageTabForTarget(tab.target) === stagePrimaryTab,
       );
@@ -454,6 +508,17 @@ export const useUiState = create<UiState>((set, get) => ({
         stageView: fallback.target,
       };
     }),
+  highlightBoardRun: (boardHighlightedRunId) => set({ boardHighlightedRunId }),
+  openBoard: (boardLens = 'board') =>
+    set({
+      surface: 'office',
+      activeStageTabId: null,
+      stagePrimaryTab: 'board',
+      stageView: { kind: 'scene' },
+      boardLens,
+    }),
+  setBoardLens: (boardLens) => set({ boardLens }),
+  setScenePipCollapsed: (scenePipCollapsed) => set({ scenePipCollapsed }),
   setOfficeLeftRailCollapsed: (officeLeftRailCollapsed) => set({ officeLeftRailCollapsed }),
   setOfficeRightRailCollapsed: (officeRightRailCollapsed) => set({ officeRightRailCollapsed }),
   setOfficeStageMaximized: (officeStageMaximized) => set({ officeStageMaximized }),

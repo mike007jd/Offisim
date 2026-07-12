@@ -5,14 +5,13 @@
 @import "../design-system/shell/shell.css";
 @import "../surfaces/surfaces.css";
 @import "../surfaces/office/office.css";
+@import "../surfaces/office/board/board.css";
 @import "../surfaces/workspace/workspace.css";
 @import "../surfaces/market/market.css";
 @import "../surfaces/mission/mission.css";
 @import "../surfaces/mission/loops/loops.css";
 @import "../surfaces/personnel/personnel.css";
 @import "../surfaces/settings/settings.css";
-@import "../surfaces/activity/activity.css";
-@import "../surfaces/tasks/tasks.css";
 @import "../surfaces/studio/studio.css";
 @import "../surfaces/lifecycle/lifecycle.css";
 

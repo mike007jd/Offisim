@@ -15,13 +15,13 @@ import {
 } from 'lucide-react';
 
 /**
- * Activity-surface data model.
+ * Office Board Timeline data model.
  *
  * The shared `data/types.ts` `ActivityEvent` is a flat presentation row. The
- * Activity Log surface needs a richer topic-based event model (the same shape
+ * The Board Timeline needs a richer topic-based event model (the same shape
  * the runtime `EventBus` broadcasts) so it can derive level, domain icon,
  * display label, time grouping and reroute collapsing the way the prototype
- * specifies. That model lives here, local to the surface, and never mutates the
+ * specifies. That model lives with its Office owner and never mutates the
  * shared flat type.
  */
 
@@ -450,69 +450,6 @@ async function loadActivityPage(
   );
 }
 
-/* ── Date presets ────────────────────────────────────────────────────────── */
-
-export type DatePreset = 'today' | '7d' | '30d' | 'all';
-
-export const DATE_PRESETS: ReadonlyArray<{ value: DatePreset; label: string }> = [
-  { value: 'today', label: 'Today' },
-  { value: '7d', label: 'Last 7 days' },
-  { value: '30d', label: 'Last 30 days' },
-  { value: 'all', label: 'All time' },
-];
-
-/* ── Event type options ──────────────────────────────────────────────────── */
-
-export interface EventTypeOption {
-  /** Stable filter value (also the select option value). */
-  value: string;
-  label: string;
-}
-
-/** The 18 named event-type filters (label → topic prefixes). `all` is implicit. */
-export const ALL_EVENT_TYPES: ReadonlyArray<EventTypeOption> = [
-  { value: 'node', label: 'Node' },
-  { value: 'plan', label: 'Plan' },
-  { value: 'task', label: 'Task' },
-  { value: 'deliverable', label: 'Deliverable' },
-  { value: 'employee', label: 'Employee' },
-  { value: 'install', label: 'Install' },
-  { value: 'skill', label: 'Skill' },
-  { value: 'llm', label: 'LLM' },
-  { value: 'interaction', label: 'Interaction' },
-  { value: 'error', label: 'Error' },
-  { value: 'mcp', label: 'MCP' },
-  { value: 'knowledge', label: 'Knowledge' },
-  { value: 'meeting', label: 'Meeting' },
-  { value: 'hr', label: 'HR' },
-  { value: 'memory', label: 'Memory' },
-  { value: 'infrastructure', label: 'Infrastructure' },
-  { value: 'git', label: 'Git' },
-  { value: 'attachment', label: 'Attachment' },
-];
-
-/** Each filter value maps to the topic prefixes it accepts. */
-const TYPE_PREFIX_MAP: Record<string, string[]> = {
-  node: ['graph.node.', 'graph.'],
-  plan: ['plan.'],
-  task: ['task.'],
-  deliverable: ['deliverable.'],
-  employee: ['employee.'],
-  install: ['install.'],
-  skill: ['skill.'],
-  llm: ['llm.', 'cost.'],
-  interaction: ['interaction.', 'chat.', 'direct.chat.'],
-  error: ['error.'],
-  mcp: ['mcp.'],
-  knowledge: ['knowledge.'],
-  meeting: ['meeting.', 'direct.chat.'],
-  hr: ['hr.'],
-  memory: ['memory.'],
-  infrastructure: ['rack.', 'slot.', 'binding.', 'cost.'],
-  git: ['git.'],
-  attachment: ['attachment.'],
-};
-
 /* ── Domain icon ─────────────────────────────────────────────────────────── */
 
 export interface DomainIcon {
@@ -605,7 +542,7 @@ function isMachineFormattedMessage(message: string): boolean {
 
 /** Resolve the human label shown on a row. Dedicated formatters win, then the
  *  payload message/name fields, then a topic-derived fallback. */
-export function getDisplayLabel(record: ActivityRecord): string {
+function getDisplayLabel(record: ActivityRecord): string {
   const { type, payload } = record;
 
   if (type === 'task.assignment.rerouted') {
@@ -660,66 +597,6 @@ export function getDisplaySummary(record: ActivityRecord): { actor: string | nul
   // Strip the generic "Employee " / "Agent " prefix when an actor name replaces it.
   const trimmed = label.replace(/^(?:Agent|Employee)\s+/i, '');
   return { actor, label: trimmed };
-}
-
-/* ── Filter pipeline ─────────────────────────────────────────────────────── */
-
-export interface ActivityFilters {
-  datePreset: DatePreset;
-  /** Selected event type filter value, or 'all'. */
-  eventType: string;
-  /** Selected actor filter value, or 'all'. */
-  actor: string;
-  search: string;
-}
-
-function datePresetCutoff(preset: DatePreset, now: number): number {
-  const day = 24 * 60 * 60 * 1000;
-  if (preset === 'today') {
-    const start = new Date(now);
-    start.setHours(0, 0, 0, 0);
-    return start.getTime();
-  }
-  if (preset === '7d') return now - 7 * day;
-  if (preset === '30d') return now - 30 * day;
-  return Number.NEGATIVE_INFINITY;
-}
-
-function matchesType(type: string, filter: string): boolean {
-  if (filter === 'all') return true;
-  const prefixes = TYPE_PREFIX_MAP[filter];
-  if (!prefixes) return type.startsWith(`${filter}.`);
-  return prefixes.some((p) => type.startsWith(p));
-}
-
-/** Apply the date → type → actor → search pipeline. */
-export function filterRecords(
-  records: ActivityRecord[],
-  filters: ActivityFilters,
-  now: number = Date.now(),
-): ActivityRecord[] {
-  const cutoff = datePresetCutoff(filters.datePreset, now);
-  const search = filters.search.trim().toLowerCase();
-  return records.filter((record) => {
-    if (record.at < cutoff) return false;
-    if (!matchesType(record.type, filters.eventType)) return false;
-    if (filters.actor !== 'all' && record.actor !== filters.actor) return false;
-    if (search) {
-      const haystack =
-        `${record.type} ${getDisplayLabel(record)} ${record.entity?.type ?? ''}`.toLowerCase();
-      if (!haystack.includes(search)) return false;
-    }
-    return true;
-  });
-}
-
-/** Distinct, sorted actor filter options derived from the events. */
-export function getAvailableActorFilters(records: ActivityRecord[]): EventTypeOption[] {
-  const seen = new Set<string>();
-  for (const record of records) {
-    if (record.actor) seen.add(record.actor);
-  }
-  return [...seen].sort((a, b) => a.localeCompare(b)).map((value) => ({ value, label: value }));
 }
 
 /* ── Time grouping ───────────────────────────────────────────────────────── */
@@ -837,20 +714,6 @@ export function collapseReroutes(records: ActivityRecord[]): TimelineRow[] {
 
 /* ── Timestamp formatting ────────────────────────────────────────────────── */
 
-const fullTimestampFmt = new Intl.DateTimeFormat(undefined, {
-  year: 'numeric',
-  month: 'short',
-  day: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-});
-
-/** Absolute timestamp for the detail panel. */
-export function formatFullTimestamp(at: number): string {
-  return fullTimestampFmt.format(at);
-}
-
 /** Relative "2m ago" timestamp for the row. */
 export function formatRelativeTimestamp(at: number, now: number = Date.now()): string {
   const diff = Math.max(0, now - at);
@@ -863,20 +726,12 @@ export function formatRelativeTimestamp(at: number, now: number = Date.now()): s
   return `${Math.floor(diff / day)}d ago`;
 }
 
-/* ── Level → detail badge tone ───────────────────────────────────────────── */
-
-export const LEVEL_BADGE_LABEL: Record<ActivityLevel, string> = {
-  info: 'Info',
-  warning: 'Warning',
-  error: 'Error',
-};
-
 /* ── Query hook ──────────────────────────────────────────────────────────── */
 
 /**
  * AC1: cursor-paginated activity feed. Page 0 fetches the newest rows; "Load
- * older" walks `nextCursor` back through history so "All time" reaches rows past
- * the per-source page wall. The Activity surface flattens `data.pages[*].records`.
+ * older" walks `nextCursor` back through history so the Board timeline reaches
+ * rows past the per-source page wall.
  */
 export function useActivityRecords(companyId: string) {
   return useInfiniteQuery<ActivityPage>({
@@ -885,7 +740,7 @@ export function useActivityRecords(companyId: string) {
     queryFn: ({ pageParam }) =>
       isTauriRuntime()
         ? loadActivityPage(companyId, { before: (pageParam as string | null) ?? undefined })
-        : ({ records: [], nextCursor: null }) satisfies ActivityPage,
+        : ({ records: [], nextCursor: null } satisfies ActivityPage),
     getNextPageParam: (lastPage) => lastPage.nextCursor,
   });
 }

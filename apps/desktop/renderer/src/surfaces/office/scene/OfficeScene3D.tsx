@@ -50,9 +50,9 @@ import { GltfCharacter } from './character/GltfCharacter.js';
 import { preloadCharacterAssets } from './character/character-assets.js';
 import { openDeliveryHistory } from './delivery-history.js';
 import { OFFICE_DELIVERY_WORLD, officeResourceMarkerColor } from './office-visual-language.js';
-import { RoomShell } from './r3d/RoomShell.js';
 import { DioramaBackdrop } from './r3d/DioramaBackdrop.js';
 import { DioramaDressing } from './r3d/DioramaDressing.js';
+import { RoomShell } from './r3d/RoomShell.js';
 import { SceneAnnotation, SceneAnnotationScheduler } from './r3d/SceneAnnotation.js';
 import { SceneEnvironment } from './r3d/SceneEnvironment.js';
 import { SceneLighting } from './r3d/SceneLighting.js';
@@ -107,6 +107,21 @@ interface SceneEmployeeDrag {
   readonly clientX: number;
   readonly clientY: number;
   readonly moved: boolean;
+}
+
+const PIP_FRAME_INTERVAL_MS = 250;
+
+/** Expanded PiP renders at a bounded 4fps. Full Game View keeps its continuous
+ * loop; collapsed PiP is unmounted by OfficeStage and schedules zero frames. */
+function PipFrameDriver({ active }: { active: boolean }) {
+  const invalidate = useThree((state) => state.invalidate);
+  useEffect(() => {
+    if (!active) return;
+    invalidate();
+    const timer = window.setInterval(invalidate, PIP_FRAME_INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, [active, invalidate]);
+  return null;
 }
 
 interface SceneEmployeeReturn {
@@ -1015,10 +1030,7 @@ function EmployeeDragGhost({
         </Suspense>
       </group>
       {drag.moved ? (
-        <SceneAnnotation
-          position={[0, 2.64, 0]}
-          priority="critical"
-        >
+        <SceneAnnotation position={[0, 2.64, 0]} priority="critical">
           <span className="off-scene-drag-chip">Move</span>
         </SceneAnnotation>
       ) : null}
@@ -1028,10 +1040,7 @@ function EmployeeDragGhost({
 
 function SceneDropNoticeLabel({ notice }: { notice: SceneDropNotice }) {
   return (
-    <SceneAnnotation
-      position={[notice.x, 1.15, notice.z]}
-      priority="critical"
-    >
+    <SceneAnnotation position={[notice.x, 1.15, notice.z]} priority="critical">
       <span className="off-scene-drop-note">{notice.message}</span>
     </SceneAnnotation>
   );
@@ -1061,7 +1070,7 @@ function FallbackFurniture() {
   );
 }
 
-export function OfficeScene3D() {
+export function OfficeScene3D({ pip = false }: { pip?: boolean }) {
   const projectId = useUiState((s) => s.projectId);
   const selectedThreadId = useUiState((s) => s.selectedThreadId);
   const openThread = useUiState((s) => s.openThread);
@@ -1225,20 +1234,14 @@ export function OfficeScene3D() {
   return (
     <>
       <Canvas
-        shadows="soft"
-        dpr={[1, 1.75]}
-        // Keep R3F's continuous frame loop. We tried "demand" to save
-        // idle CPU but the character mixers advance in useFrame (GltfCharacter
-        // RigView) and EmployeeUnit's glide lerp mutates positions via refs —
-        // neither invalidates, so demand mode froze every employee's
-        // animation. ServerRack LOD checks similarly run in useFrame without
-        // setState. Re-enable demand only alongside an invalidate() in those
-        // useFrame consumers.
+        shadows={pip ? false : 'soft'}
+        dpr={pip ? 1 : [1, 1.75]}
         camera={{ position: OFFICE_CAMERA_PRESET.position, fov: OFFICE_CAMERA_PRESET.fov }}
-        frameloop="always"
+        frameloop={pip ? 'demand' : 'always'}
         gl={{ antialias: true, toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.02 }}
         className="off-scene-canvas"
       >
+        <PipFrameDriver active={pip} />
         <SceneAnnotationScheduler />
         <DioramaBackdrop />
         <SceneLighting />
@@ -1250,6 +1253,7 @@ export function OfficeScene3D() {
             key={zone.id}
             zone={zone}
             highlight={employeeDrag !== null && hoveredZoneId === zone.id}
+            showLabel={!pip}
           />
         ))}
         <DioramaDressing zones={zoneDefs} prefabCount={scenePrefabs?.length ?? 0} />
@@ -1315,7 +1319,7 @@ export function OfficeScene3D() {
                   withDesk={!real}
                   running={running}
                   status={cue?.status ?? 'idle'}
-                  workload={workload}
+                  workload={pip ? null : workload}
                   resourceKind={resourceKindByEmployee.get(employee.id) ?? null}
                   reducedMotion={reducedMotion}
                   selected={cue?.selected ?? false}
@@ -1410,11 +1414,8 @@ export function OfficeScene3D() {
             />
             {/* Lane density label — the shared flowCueText rule (`×N · label`
                 for bundles), a compact pill at the line midpoint. */}
-            {line.showLabel ? (
-              <SceneAnnotation
-                position={line.labelPosition}
-                priority="ambient"
-              >
+            {!pip && line.showLabel ? (
+              <SceneAnnotation position={line.labelPosition} priority="ambient">
                 <span
                   className={`off-scene-flow-label is-${line.ink}`}
                   style={{ '--off-scene-flow-color': line.color } as CSSProperties}
@@ -1428,17 +1429,15 @@ export function OfficeScene3D() {
         {/* Purpose-distinct target anchors — a small labeled node per active
             flow target (dense HUD, not decoration); the delivery shelf below
             is itself the delivery anchor when it renders. */}
-        {activeFlowTargets.map((target) =>
-          target === 'delivery' ? null : (
-            <SceneAnnotation
-              key={target}
-              position={flowTarget3D(target)}
-              priority="ambient"
-            >
-              <span className="off-scene-flow-anchor">{FLOW_TARGET_LABELS[target]}</span>
-            </SceneAnnotation>
-          ),
-        )}
+        {pip
+          ? null
+          : activeFlowTargets.map((target) =>
+              target === 'delivery' ? null : (
+                <SceneAnnotation key={target} position={flowTarget3D(target)} priority="ambient">
+                  <span className="off-scene-flow-anchor">{FLOW_TARGET_LABELS[target]}</span>
+                </SceneAnnotation>
+              ),
+            )}
         {deliveryLatest ? (
           <SceneAnnotation
             position={[OFFICE_DELIVERY_WORLD.x, 0.88, OFFICE_DELIVERY_WORLD.z]}
@@ -1531,7 +1530,7 @@ export function OfficeScene3D() {
           minPolarAngle={OFFICE_CAMERA_PRESET.minPolarAngle}
           maxPolarAngle={OFFICE_CAMERA_PRESET.maxPolarAngle}
         />
-        <ScenePostFx />
+        {pip ? null : <ScenePostFx />}
       </Canvas>
       {selectedThreadId && selectedWorkBenchEntry?.richDetail ? (
         <button

@@ -13,6 +13,9 @@ import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Popover, PopoverContent, PopoverTrigger } from '@/design-system/primitives/popover.js';
 import { cn } from '@/lib/utils.js';
+import { BoardPendingReviewAutoOpen, BoardStage } from '@/surfaces/office/board/BoardStage.js';
+import { DiffPanel } from '@/surfaces/office/board/DiffPanel.js';
+import { useProjectWorkspaceLeaseReviews } from '@/surfaces/office/board/task-board-data.js';
 import { ComputerView } from '@/surfaces/office/computer/ComputerView.js';
 import { WorkBench } from '@/surfaces/office/scene/work-bench/WorkBench.js';
 import { StagePreviewPane } from '@/surfaces/office/stage-preview/StagePreviewPane.js';
@@ -25,12 +28,12 @@ import {
   StageChromeProvider,
   useStageChrome,
 } from '@/surfaces/office/stage-viewer/stage-chrome.js';
-import { DiffPanel } from '@/surfaces/tasks/DiffPanel.js';
 import type { DramaturgyMode, ToolRichDetail } from '@offisim/shared-types';
 import {
   Box,
   Clapperboard,
   Coins,
+  Columns3,
   Eye,
   FileCode2,
   FileText,
@@ -67,6 +70,7 @@ interface StageTopBarProps {
 
 const PRIMARY_TABS = [
   { id: 'game', label: 'Game View', icon: Box },
+  { id: 'board', label: 'Board', icon: Columns3 },
   { id: 'preview', label: 'Preview', icon: Globe2 },
   { id: 'computer', label: 'Computer', icon: MonitorSmartphone },
   { id: 'terminal', label: 'Terminal', icon: TerminalSquare },
@@ -106,6 +110,13 @@ export function StageTopBar({ isRunning, tokensLabel, costLabel }: StageTopBarPr
   const closeStageTab = useUiState((s) => s.closeStageTab);
   const stageMaximized = useUiState((s) => s.officeStageMaximized);
   const setStageMaximized = useUiState((s) => s.setOfficeStageMaximized);
+  const projectId = useUiState((s) => s.projectId);
+  const leaseReviews = useProjectWorkspaceLeaseReviews(projectId || null);
+  const pendingReviewCount = new Set(
+    leaseReviews.rows
+      .filter((lease) => lease.status === 'pending_review')
+      .map((lease) => lease.rootRunId),
+  ).size;
 
   const labelCounts = new Map<string, number>();
   for (const tab of stageOpenTabs) {
@@ -126,6 +137,20 @@ export function StageTopBar({ isRunning, tokensLabel, costLabel }: StageTopBarPr
         >
           <Icon icon={Box} size="sm" />
           <span>Game View</span>
+        </button>
+        <button
+          type="button"
+          className={cn('off-stage-tab off-focusable', stagePrimaryTab === 'board' && 'is-active')}
+          onClick={() => setStagePrimaryTab('board')}
+          aria-current={stagePrimaryTab === 'board' ? 'page' : undefined}
+          aria-label={`Board${pendingReviewCount ? `, ${pendingReviewCount} pending review` : ''}`}
+          title="Board"
+        >
+          <Icon icon={Columns3} size="sm" />
+          <span>Board</span>
+          {pendingReviewCount > 0 ? (
+            <b className="off-stage-tab-badge">{pendingReviewCount}</b>
+          ) : null}
         </button>
         {stageOpenTabs.map((tab) => {
           const baseLabel = stageTabLabel(tab.target);
@@ -548,8 +573,14 @@ function StageViewMenu() {
 
 export function StageAutoOpen() {
   const selectedThreadId = useUiState((s) => s.selectedThreadId);
-  if (!selectedThreadId) return null;
-  return <StageAutoOpenForThread key={selectedThreadId} threadId={selectedThreadId} />;
+  return (
+    <>
+      <BoardPendingReviewAutoOpen />
+      {selectedThreadId ? (
+        <StageAutoOpenForThread key={selectedThreadId} threadId={selectedThreadId} />
+      ) : null}
+    </>
+  );
 }
 
 function StageAutoOpenForThread({ threadId }: { threadId: string }) {
@@ -693,6 +724,7 @@ function StageTabBody({
   tab: Exclude<StagePrimaryTab, 'game'>;
   target: StageViewTarget | null;
 }) {
+  if (tab === 'board') return <BoardStage />;
   if (tab === 'preview') {
     if (target?.kind === 'preview') return <StagePreviewPane target={target} />;
     return (
@@ -738,6 +770,8 @@ function viewerTitle(tab: StagePrimaryTab) {
       return 'Terminal';
     case 'review':
       return 'Review';
+    case 'board':
+      return 'Board';
     default:
       return 'Game View';
   }
@@ -753,6 +787,8 @@ function viewerEmptyMeta(tab: StagePrimaryTab) {
       return 'Run log';
     case 'review':
       return 'Workspace changes';
+    case 'board':
+      return 'Requests and review';
     default:
       return 'Office scene';
   }
@@ -805,6 +841,32 @@ function ReviewEmpty() {
 }
 
 function ChangesView({
+  target,
+}: {
+  target: Extract<StageViewTarget, { kind: 'changes' }>;
+}) {
+  return target.files ? (
+    <LeaseChangesView target={{ ...target, files: target.files }} />
+  ) : (
+    <WorkspaceChangesView target={target} />
+  );
+}
+
+function LeaseChangesView({
+  target,
+}: {
+  target: Extract<StageViewTarget, { kind: 'changes' }> & {
+    files: NonNullable<Extract<StageViewTarget, { kind: 'changes' }>['files']>;
+  };
+}) {
+  return (
+    <div className="off-stage-changes is-lease-review">
+      <DiffPanel files={target.files} status={target.status} initialPath={target.path} />
+    </div>
+  );
+}
+
+function WorkspaceChangesView({
   target,
 }: {
   target: Extract<StageViewTarget, { kind: 'changes' }>;

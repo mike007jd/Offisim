@@ -7,30 +7,30 @@ import {
   getSystemZoneDefaultPrefabs,
 } from '@offisim/shared-types';
 import {
-  countDioramaFloorProps,
-  buildDioramaDressingPoints,
-  dioramaDressingPropBudget,
   DIORAMA_DRESSING_PROPS_PER_ZONE,
   DIORAMA_FLOOR_PROP_MAX,
   DIORAMA_FLOOR_PROP_MIN,
+  buildDioramaDressingPoints,
+  countDioramaFloorProps,
+  dioramaDressingPropBudget,
 } from '../apps/desktop/renderer/src/surfaces/office/scene/r3d/DioramaDressing.tsx';
+import { createRoundedSlabGeometry } from '../apps/desktop/renderer/src/surfaces/office/scene/r3d/RoundedSlab.tsx';
 import {
   FLOOR_BANDS,
   OFFICE_PLINTH,
   OFFICE_ROOM,
   SCENE_CONTENT_SCALE,
 } from '../apps/desktop/renderer/src/surfaces/office/scene/r3d/scene-art-direction.ts';
-import { createRoundedSlabGeometry } from '../apps/desktop/renderer/src/surfaces/office/scene/r3d/RoundedSlab.tsx';
+import {
+  type SeatAnchorPrefab,
+  sceneObstacles,
+} from '../apps/desktop/renderer/src/surfaces/office/scene/scene-layout.ts';
 import {
   OFFICE_CHARACTER_METRICS,
   WORKSTATION_FOOTPRINT_RADIUS,
   WORKSTATION_GEOMETRY_METRICS,
   WORKSTATION_VERTICAL_METRICS,
 } from '../apps/desktop/renderer/src/surfaces/office/scene/workstation-geometry.ts';
-import {
-  type SeatAnchorPrefab,
-  sceneObstacles,
-} from '../apps/desktop/renderer/src/surfaces/office/scene/scene-layout.ts';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const read = (path: string) => readFile(`${root}/${path}`, 'utf8');
@@ -53,6 +53,7 @@ const [
   lightingSource,
   postFxSource,
   artBible,
+  officeStageSource,
 ] = await Promise.all([
   read('apps/desktop/renderer/src/surfaces/office/scene/r3d/RoomShell.tsx'),
   read('apps/desktop/renderer/src/surfaces/office/scene/r3d/ZoneDressing.tsx'),
@@ -64,6 +65,7 @@ const [
   read('apps/desktop/renderer/src/surfaces/office/scene/r3d/SceneLighting.tsx'),
   read('apps/desktop/renderer/src/surfaces/office/scene/r3d/ScenePostFx.tsx'),
   read('Docs/design/office-art-bible.md'),
+  read('apps/desktop/renderer/src/surfaces/office/OfficeStage.tsx'),
 ]);
 
 check(
@@ -126,7 +128,7 @@ check(
 );
 check(
   'scene annotations have bounded readable scale profiles',
-  annotationSource.includes("critical: { fullOpacityDistance: 48") &&
+  annotationSource.includes('critical: { fullOpacityDistance: 48') &&
     annotationSource.includes('minScale: 0.8') &&
     annotationSource.includes('minScale: 0.9'),
 );
@@ -353,11 +355,27 @@ check(
   /<N8AO[\s\S]*?\shalfRes\s*[\/>]/.test(postFxSource) && !postFxSource.includes('halfRes={false}'),
 );
 check('post processing preserves SMAA', postFxSource.includes('<SMAA />'));
-check('Canvas keeps the approved DPR budget', officeSource.includes('dpr={[1, 1.75]}'));
 check(
-  'Canvas keeps one explicit continuous animation frame prop',
-  (officeSource.match(/frameloop="always"/g) ?? []).length === 1 &&
-    /<Canvas[\s\S]*?frameloop="always"[\s\S]*?>/.test(officeSource),
+  'Canvas keeps the approved full-view DPR budget and pins PiP to DPR 1',
+  /dpr=\{pip \? 1 : \[1, 1\.75\]\}/.test(officeSource),
+);
+check(
+  'PiP disables shadows and post processing without unmounting the scene',
+  officeSource.includes("shadows={pip ? false : 'soft'}") &&
+    officeSource.includes('{pip ? null : <ScenePostFx />}'),
+);
+check(
+  'full Game View keeps continuous frames while expanded PiP uses a bounded demand loop',
+  officeSource.includes("frameloop={pip ? 'demand' : 'always'}") &&
+    officeSource.includes('PIP_FRAME_INTERVAL_MS = 250') &&
+    officeSource.includes('<PipFrameDriver active={pip} />'),
+);
+check(
+  'collapsed PiP unmounts rendering and returning to Game View restores it',
+  officeStageSource.includes("const sceneIsPip = stagePrimaryTab !== 'game'") &&
+    officeStageSource.includes('const sceneIsCollapsed = sceneIsPip && scenePipCollapsed') &&
+    officeStageSource.includes("sceneIsCollapsed ? null : sceneRenderMode === '3d'") &&
+    officeStageSource.includes('<OfficeScene3D pip={sceneIsPip} />'),
 );
 check(
   'art bible records final P6 plinth contract',

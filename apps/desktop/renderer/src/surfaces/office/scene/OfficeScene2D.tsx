@@ -100,7 +100,7 @@ function roundRect(
   ctx.roundRect(x, y, w, h, r);
 }
 
-export function OfficeScene2D() {
+export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
   const projectId = useUiState((s) => s.projectId);
   const openThread = useUiState((s) => s.openThread);
   const openStageView = useUiState((s) => s.openStageView);
@@ -234,13 +234,20 @@ export function OfficeScene2D() {
           10,
         );
         ctx.fill();
-        ctx.fillStyle = OFFICE_SCENE_2D_COLORS.zoneLabel;
-        const title = zone.label.toUpperCase();
-        const titleX = wx(zone.cx - zone.w / 2) + 10;
-        const titleY = wy(zone.cz - zone.d / 2) + 18;
-        ctx.fillText(title, titleX, titleY);
-        const titleW = ctx.measureText(title).width;
-        occupied.push({ x0: titleX - 2, x1: titleX + titleW + 2, y0: titleY - 10, y1: titleY + 4 });
+        if (!pip) {
+          ctx.fillStyle = OFFICE_SCENE_2D_COLORS.zoneLabel;
+          const title = zone.label.toUpperCase();
+          const titleX = wx(zone.cx - zone.w / 2) + 10;
+          const titleY = wy(zone.cz - zone.d / 2) + 18;
+          ctx.fillText(title, titleX, titleY);
+          const titleW = ctx.measureText(title).width;
+          occupied.push({
+            x0: titleX - 2,
+            x1: titleX + titleW + 2,
+            y0: titleY - 10,
+            y1: titleY + 4,
+          });
+        }
       }
 
       // employees — real roster, seated by the shared layout helper
@@ -351,29 +358,31 @@ export function OfficeScene2D() {
         ctx.beginPath();
         ctx.arc(px, py, cue.ink === 'risk' ? 4.2 : 3.4, 0, Math.PI * 2);
         ctx.fill();
-        // Lane density label — flowCueText on a subtle backing pill at the
-        // curve midpoint (registered in `occupied` so name labels dodge it).
-        ctx.font = CANVAS_FONT_TOKENS.officeSceneLabel;
-        const laneKey = `${cue.employeeId}|${cue.target}`;
-        const slot = laneLabelSlots.get(laneKey) ?? 0;
-        laneLabelSlots.set(laneKey, slot + 1);
-        const text = ellipsizeToWidth(flowCueText(cue), 132);
-        const textW = ctx.measureText(text).width;
-        const lx = 0.25 * source.sx + 0.5 * mx + 0.25 * target.sx;
-        const ly = 0.25 * source.sy + 0.5 * my + 0.25 * target.sy + slot * 17;
-        ctx.fillStyle = OFFICE_SCENE_2D_COLORS.deliveryShelf;
-        roundRect(ctx, lx - textW / 2 - 5, ly - 8, textW + 10, 15, 7);
-        ctx.fill();
-        ctx.fillStyle = ink.packet;
-        ctx.textAlign = 'center';
-        ctx.fillText(text, lx, ly + 3.5);
-        ctx.textAlign = 'left';
-        occupied.push({
-          x0: lx - textW / 2 - 5,
-          x1: lx + textW / 2 + 5,
-          y0: ly - 8,
-          y1: ly + 7,
-        });
+        if (!pip) {
+          // Lane density label — flowCueText on a subtle backing pill at the
+          // curve midpoint (registered in `occupied` so name labels dodge it).
+          ctx.font = CANVAS_FONT_TOKENS.officeSceneLabel;
+          const laneKey = `${cue.employeeId}|${cue.target}`;
+          const slot = laneLabelSlots.get(laneKey) ?? 0;
+          laneLabelSlots.set(laneKey, slot + 1);
+          const text = ellipsizeToWidth(flowCueText(cue), 132);
+          const textW = ctx.measureText(text).width;
+          const lx = 0.25 * source.sx + 0.5 * mx + 0.25 * target.sx;
+          const ly = 0.25 * source.sy + 0.5 * my + 0.25 * target.sy + slot * 17;
+          ctx.fillStyle = OFFICE_SCENE_2D_COLORS.deliveryShelf;
+          roundRect(ctx, lx - textW / 2 - 5, ly - 8, textW + 10, 15, 7);
+          ctx.fill();
+          ctx.fillStyle = ink.packet;
+          ctx.textAlign = 'center';
+          ctx.fillText(text, lx, ly + 3.5);
+          ctx.textAlign = 'left';
+          occupied.push({
+            x0: lx - textW / 2 - 5,
+            x1: lx + textW / 2 + 5,
+            y0: ly - 8,
+            y1: ly + 7,
+          });
+        }
         ctx.restore();
       }
 
@@ -607,7 +616,7 @@ export function OfficeScene2D() {
         // 3-char per-run look; medium/large draw grouped chips with their count
         // ("Blocked 3", "Research 24") in pills widened to the measured text so
         // the count is never clipped. The cue already caps chips at 4.
-        if (wl && wl.chips.length > 0) {
+        if (!pip && wl && wl.chips.length > 0) {
           const isGrouped = wl.tier !== 'small';
           ctx.font = CANVAS_FONT_TOKENS.officeSceneLabel;
           ctx.textAlign = 'center';

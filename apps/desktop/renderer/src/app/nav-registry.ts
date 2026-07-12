@@ -1,8 +1,6 @@
 import type { SurfaceKey } from '@/app/ui-state.js';
 import {
-  Activity,
   BriefcaseBusiness,
-  ListChecks,
   type LucideIcon,
   MessagesSquare,
   PencilRuler,
@@ -37,8 +35,6 @@ export const NAV_ENTRIES: readonly NavEntry[] = [
   { key: 'mission', label: 'Loops', icon: Target, tier: 'primary' },
   { key: 'personnel', label: 'Personnel', icon: UsersRound, tier: 'primary' },
   { key: 'market', label: 'Market', icon: Store, tier: 'utility' },
-  { key: 'activity', label: 'Activity', icon: Activity, tier: 'utility' },
-  { key: 'tasks', label: 'Tasks', icon: ListChecks, tier: 'utility' },
   { key: 'studio', label: 'Studio', icon: PencilRuler, tier: 'utility' },
   { key: 'settings', label: 'Settings', icon: Settings, tier: 'utility' },
 ];

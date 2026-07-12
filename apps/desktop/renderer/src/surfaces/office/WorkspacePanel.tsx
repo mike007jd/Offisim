@@ -37,13 +37,16 @@ import { pickWorkspaceFolder } from '@/lib/desktop-dialog.js';
 import { invokeCommand } from '@/lib/tauri-commands.js';
 import { cn } from '@/lib/utils.js';
 import { overbroadWorkspaceReason } from '@/lib/workspace-root-guard.js';
-import { EmptyState, ErrorState, SkeletonRows } from '@/surfaces/shared/SurfaceStates.js';
-import { DiffPanel } from '@/surfaces/tasks/DiffPanel.js';
-import { useProjectWorkspaceLeaseReviews, useTaskBoard } from '@/surfaces/tasks/task-board-data.js';
+import { DiffPanel } from '@/surfaces/office/board/DiffPanel.js';
+import {
+  useProjectWorkspaceLeaseReviews,
+  useTaskBoard,
+} from '@/surfaces/office/board/task-board-data.js';
 import {
   requestWorkspaceLeaseChanges,
   reviewWorkspaceLease,
-} from '@/surfaces/tasks/workspace-lease-actions.js';
+} from '@/surfaces/office/board/workspace-lease-actions.js';
+import { EmptyState, ErrorState, SkeletonRows } from '@/surfaces/shared/SurfaceStates.js';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Check,

@@ -324,7 +324,7 @@ recoverable.
 
 Owner paths:
 
-- `apps/desktop/renderer/src/surfaces/activity`
+- `apps/desktop/renderer/src/surfaces/office/board/activity-data.ts`
 - `apps/desktop/renderer/src/assistant/parts/PermissionApprovalBar.tsx`
 - `packages/core/src/mcp`
 - `apps/desktop/src-tauri/src/redaction.rs`

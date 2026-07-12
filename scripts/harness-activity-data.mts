@@ -1,5 +1,5 @@
 /**
- * Activity-surface data-layer gate (audit items AC1 + AC2).
+ * Office Board Timeline data-layer gate (audit items AC1 + AC2).
  *
  * AC2 — secret redaction + size cap: feed an args object carrying real-looking
  * secrets and an oversized blob through `sanitizeMcpActivityValue`, assert the
@@ -18,13 +18,13 @@ import type {
   ActivityPayloadValue,
   ActivityRecord,
   ActivitySourcePage,
-} from '../apps/desktop/renderer/src/surfaces/activity/activity-data.js';
+} from '../apps/desktop/renderer/src/surfaces/office/board/activity-data.js';
 import {
   MAX_MCP_VALUE_CHARS,
   mergeActivityPage,
   redactSecrets,
   sanitizeMcpActivityValue,
-} from '../apps/desktop/renderer/src/surfaces/activity/activity-data.js';
+} from '../apps/desktop/renderer/src/surfaces/office/board/activity-data.js';
 
 let failures = 0;
 let checks = 0;
