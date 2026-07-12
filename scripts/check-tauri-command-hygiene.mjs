@@ -9,6 +9,8 @@ const RENDERER_SRC = join(ROOT, 'apps/desktop/renderer/src');
 const FACADE = 'apps/desktop/renderer/src/lib/tauri-commands.ts';
 const CORE_MODULE = '@tauri-apps/api/core';
 const failures = [];
+const GH_PERMISSION = 'apps/desktop/src-tauri/permissions/github.toml';
+const GH_CAPABILITY = 'apps/desktop/src-tauri/capabilities/github.json';
 
 function collectTypeScriptFiles(directory) {
   const files = [];
@@ -320,6 +322,30 @@ for (const command of commandMapKeys.filter((key) => !rustSet.has(key))) {
     file: FACADE,
     line: 1,
     message: `CommandMap has unregistered command: ${command}`,
+  });
+}
+
+const ghPermissionText = readFileSync(join(ROOT, GH_PERMISSION), 'utf8');
+if (
+  !ghPermissionText.includes('identifier = "github"') ||
+  !ghPermissionText.includes('"gh_exec"')
+) {
+  failures.push({
+    file: GH_PERMISSION,
+    line: 1,
+    message: 'github permission must exclusively expose the gh_exec command',
+  });
+}
+const ghCapability = JSON.parse(readFileSync(join(ROOT, GH_CAPABILITY), 'utf8'));
+if (
+  ghCapability.identifier !== 'offisim:github' ||
+  JSON.stringify(ghCapability.windows) !== JSON.stringify(['main', 'main-live']) ||
+  JSON.stringify(ghCapability.permissions) !== JSON.stringify(['github'])
+) {
+  failures.push({
+    file: GH_CAPABILITY,
+    line: 1,
+    message: 'github capability must mount only github on main and main-live',
   });
 }
 

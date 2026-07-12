@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "github"
+description = "Allow the user-facing Git workbench to run approved GitHub CLI PR commands."
+commands.allow = ["gh_exec"]

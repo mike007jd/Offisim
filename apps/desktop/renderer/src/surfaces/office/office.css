@@ -5824,6 +5824,95 @@
   flex-direction: column;
   gap: var(--off-sp-2);
 }
+.off-gw-action-section {
+  padding-bottom: var(--off-sp-3);
+  border-bottom: 1px solid var(--off-line-soft);
+}
+.off-gw-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--off-sp-2);
+}
+.off-gw-stage-row,
+.off-gw-check-row {
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+  min-width: 0;
+  font-size: var(--off-fs-micro);
+  color: var(--off-ink-3);
+}
+.off-gw-stage-row {
+  padding: 3px var(--off-sp-2);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-sunken);
+}
+.off-gw-stage-row input,
+.off-gw-check-row input {
+  accent-color: var(--off-accent);
+}
+.off-gw-remote,
+.off-gw-guidance {
+  padding: var(--off-sp-2);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-sunken);
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-micro);
+  overflow-wrap: anywhere;
+}
+.off-gw-guidance.is-ok {
+  border-color: color-mix(in srgb, var(--off-ok) 35%, var(--off-line-soft));
+  color: var(--off-ok);
+}
+.off-gw-output,
+.off-gw-result pre {
+  max-height: 180px;
+  margin: 0;
+  padding: var(--off-sp-2);
+  overflow: auto;
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-0);
+  color: var(--off-ink-2);
+  font-family: var(--off-font-mono);
+  font-size: var(--off-fs-micro);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.off-gw-result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--off-sp-2);
+  padding: var(--off-sp-3);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-sm);
+  font-size: var(--off-fs-micro);
+}
+.off-gw-result.is-ok {
+  border-color: color-mix(in srgb, var(--off-ok) 35%, var(--off-line-soft));
+}
+.off-gw-result.is-error {
+  border-color: color-mix(in srgb, var(--off-danger) 45%, var(--off-line-soft));
+}
+.off-gw-confirm {
+  display: grid;
+  grid-template-columns: minmax(72px, auto) 1fr;
+  gap: var(--off-sp-2) var(--off-sp-4);
+  margin: 0;
+  font-size: var(--off-fs-sm);
+}
+.off-gw-confirm dt {
+  color: var(--off-ink-3);
+}
+.off-gw-confirm dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--off-ink-1);
+  overflow-wrap: anywhere;
+}
+.off-gw-confirm dd.is-prewrap {
+  white-space: pre-wrap;
+}
 .off-gw-files {
   display: flex;
   flex-direction: column;

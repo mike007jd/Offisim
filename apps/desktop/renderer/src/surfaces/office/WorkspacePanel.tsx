@@ -1,6 +1,19 @@
 import { useUiState } from '@/app/ui-state.js';
 import { isTauriRuntime, reposOrNull } from '@/data/adapters.js';
-import { initGitRepository } from '@/data/git-workbench.js';
+import {
+  type CommandExecResult,
+  commitGitChanges,
+  createPullRequest,
+  getGhAuthStatus,
+  getOriginRemote,
+  getPullRequestStatus,
+  initGitRepository,
+  listPullRequests,
+  pushGitBranch,
+  stageGitFiles,
+  switchGitBranch,
+  viewPullRequest,
+} from '@/data/git-workbench.js';
 import { useGitWorkbench, useProjectFiles, useProjects } from '@/data/queries.js';
 import type { FileNode, GitFileChange, GitWorkbench, Project } from '@/data/types.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
@@ -8,7 +21,18 @@ import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { SearchInput } from '@/design-system/grammar/SearchInput.js';
 import { Select } from '@/design-system/grammar/Select.js';
 import { Icon } from '@/design-system/icons/Icon.js';
+import { Button } from '@/design-system/primitives/button.js';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/design-system/primitives/dialog.js';
+import { Input } from '@/design-system/primitives/input.js';
 import { Tabs, TabsList, TabsTrigger } from '@/design-system/primitives/tabs.js';
+import { Textarea } from '@/design-system/primitives/textarea.js';
 import { pickWorkspaceFolder } from '@/lib/desktop-dialog.js';
 import { invokeCommand } from '@/lib/tauri-commands.js';
 import { cn } from '@/lib/utils.js';
@@ -32,9 +56,11 @@ import {
   FolderGit2,
   FolderOpen,
   GitBranch,
+  GitPullRequest,
   Pencil,
   Plus,
   RefreshCw,
+  Upload,
 } from 'lucide-react';
 import { type CSSProperties, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -61,6 +87,27 @@ const STATUS_GLYPH: Record<GitFileChange['status'], string> = {
   deleted: 'D',
   renamed: 'R',
 };
+
+function commandOutput(result: CommandExecResult) {
+  return [result.stdout.trim(), result.stderr.trim()].filter(Boolean).join('\n');
+}
+
+async function loadGitConnections(projectId: string) {
+  const [originResult, authResult] = await Promise.allSettled([
+    getOriginRemote(projectId),
+    getGhAuthStatus(projectId),
+  ]);
+  const rejected = (reason: unknown): CommandExecResult => ({
+    ok: false,
+    stdout: '',
+    stderr: reason instanceof Error ? reason.message : String(reason),
+  });
+  return {
+    origin:
+      originResult.status === 'fulfilled' ? originResult.value : rejected(originResult.reason),
+    auth: authResult.status === 'fulfilled' ? authResult.value : rejected(authResult.reason),
+  };
+}
 
 function FilesTab({
   projectId,
@@ -444,6 +491,7 @@ function GitTab({
   projectId: string;
 }) {
   const openStageView = useUiState((s) => s.openStageView);
+  const queryClient = useQueryClient();
   const leaseReviews = useProjectWorkspaceLeaseReviews(projectId);
   const board = useTaskBoard(companyId);
   const taskByRun = new Map(
@@ -452,9 +500,102 @@ function GitTab({
   const reviewable = leaseReviews.rows.filter((lease) => lease.status === 'pending_review');
   const [selectedLeaseId, setSelectedLeaseId] = useState('');
   const [busyLeaseId, setBusyLeaseId] = useState<string | null>(null);
+  const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
+  const [commitMessage, setCommitMessage] = useState('');
+  const [branchName, setBranchName] = useState('');
+  const [origin, setOrigin] = useState<CommandExecResult | null>(null);
+  const [ghAuth, setGhAuth] = useState<CommandExecResult | null>(null);
+  const [prStatus, setPrStatus] = useState<CommandExecResult | null>(null);
+  const [prList, setPrList] = useState<CommandExecResult | null>(null);
+  const [prTitle, setPrTitle] = useState('');
+  const [prBody, setPrBody] = useState('');
+  const [prBase, setPrBase] = useState('');
+  const [prDraft, setPrDraft] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<'push' | 'create-pr' | 'view-pr' | null>(null);
+  const [lastOutput, setLastOutput] = useState<{ label: string; result: CommandExecResult } | null>(
+    null,
+  );
   const selectedLease =
     reviewable.find((lease) => lease.leaseId === selectedLeaseId) ?? reviewable[0] ?? null;
   const task = selectedLease ? taskByRun.get(selectedLease.runId) : null;
+
+  useEffect(() => {
+    let active = true;
+    void loadGitConnections(projectId).then((connections) => {
+      if (!active) return;
+      setOrigin(connections.origin);
+      setGhAuth(connections.auth);
+    });
+    return () => {
+      active = false;
+    };
+  }, [projectId]);
+
+  const refreshConnections = async () => {
+    setBusy('Check setup');
+    const connections = await loadGitConnections(projectId);
+    setOrigin(connections.origin);
+    setGhAuth(connections.auth);
+    setLastOutput({ label: 'GitHub CLI auth status', result: connections.auth });
+    setBusy(null);
+  };
+
+  const refreshGit = async () => {
+    await queryClient.invalidateQueries({ queryKey: ['git-workbench', projectId] });
+  };
+
+  const execute = async (
+    label: string,
+    operation: () => Promise<CommandExecResult>,
+    afterSuccess?: () => void | Promise<void>,
+  ) => {
+    setBusy(label);
+    try {
+      const result = await operation();
+      setLastOutput({ label, result });
+      if (!result.ok) {
+        toast.error(`${label} failed`);
+        return;
+      }
+      await afterSuccess?.();
+      toast.success(`${label} completed`);
+    } catch (error) {
+      const result = {
+        ok: false,
+        stdout: '',
+        stderr: error instanceof Error ? error.message : String(error),
+      };
+      setLastOutput({ label, result });
+      toast.error(`${label} failed`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const refreshPullRequests = async (recordOutput = true) => {
+    setBusy('Refresh PRs');
+    try {
+      const [status, list] = await Promise.all([
+        getPullRequestStatus(projectId),
+        listPullRequests(projectId),
+      ]);
+      setPrStatus(status);
+      setPrList(list);
+      if (recordOutput) setLastOutput({ label: 'PR status', result: status.ok ? list : status });
+    } catch (error) {
+      setLastOutput({
+        label: 'Refresh PRs',
+        result: {
+          ok: false,
+          stdout: '',
+          stderr: error instanceof Error ? error.message : String(error),
+        },
+      });
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const act = async (action: 'merge' | 'discard') => {
     if (!selectedLease) return;
@@ -483,6 +624,213 @@ function GitTab({
         <span className="off-gw-counts">
           ↑{workbench.ahead} ↓{workbench.behind}
         </span>
+      </div>
+
+      <div className="off-gw-section off-gw-action-section">
+        <CapsLabel>Stage &amp; commit</CapsLabel>
+        <div className="off-gw-files">
+          {workbench.changes.map((change) => (
+            <label key={`stage-${change.path}`} className="off-gw-stage-row">
+              <input
+                type="checkbox"
+                checked={change.staged || selectedPaths.includes(change.path)}
+                disabled={change.staged || busy !== null}
+                onChange={(event) =>
+                  setSelectedPaths((current) =>
+                    event.target.checked
+                      ? [...current, change.path]
+                      : current.filter((path) => path !== change.path),
+                  )
+                }
+              />
+              <span className="off-gw-path">{change.path}</span>
+              <span>{change.staged ? 'staged' : 'unstaged'}</span>
+            </label>
+          ))}
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={selectedPaths.length === 0 || busy !== null}
+          onClick={() =>
+            void execute(
+              'Stage files',
+              () => stageGitFiles(projectId, selectedPaths),
+              async () => {
+                setSelectedPaths([]);
+                await refreshGit();
+              },
+            )
+          }
+        >
+          Stage selected ({selectedPaths.length})
+        </Button>
+        <Input
+          value={commitMessage}
+          onChange={(event) => setCommitMessage(event.target.value)}
+          placeholder="Commit message"
+          aria-label="Commit message"
+        />
+        <Button
+          size="sm"
+          disabled={!commitMessage.trim() || busy !== null}
+          onClick={() =>
+            void execute(
+              'Commit',
+              () => commitGitChanges(projectId, commitMessage.trim()),
+              async () => {
+                setCommitMessage('');
+                await refreshGit();
+              },
+            )
+          }
+        >
+          Commit staged changes
+        </Button>
+      </div>
+
+      <div className="off-gw-section off-gw-action-section">
+        <CapsLabel>Branch</CapsLabel>
+        <Input
+          value={branchName}
+          onChange={(event) => setBranchName(event.target.value)}
+          placeholder="feature/branch-name"
+          aria-label="Branch name"
+        />
+        <div className="off-gw-actions">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!branchName.trim() || busy !== null}
+            onClick={() =>
+              void execute(
+                'Switch branch',
+                () => switchGitBranch(projectId, branchName.trim(), false),
+                refreshGit,
+              )
+            }
+          >
+            Switch
+          </Button>
+          <Button
+            size="sm"
+            disabled={!branchName.trim() || busy !== null}
+            onClick={() =>
+              void execute(
+                'Create branch',
+                () => switchGitBranch(projectId, branchName.trim(), true),
+                async () => {
+                  setBranchName('');
+                  await refreshGit();
+                },
+              )
+            }
+          >
+            Create &amp; switch
+          </Button>
+        </div>
+      </div>
+
+      <div className="off-gw-section off-gw-action-section">
+        <CapsLabel>Push</CapsLabel>
+        {origin?.ok ? (
+          <div className="off-gw-remote">origin · {origin.stdout.trim()}</div>
+        ) : (
+          <div className="off-gw-guidance">
+            No origin remote is configured. Add origin in a terminal, then refresh this panel.
+          </div>
+        )}
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!origin?.ok || workbench.branch === 'detached' || busy !== null}
+          onClick={() => setConfirming('push')}
+        >
+          <Upload size={14} /> Push {workbench.branch}
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={busy !== null}
+          onClick={() => void refreshConnections()}
+        >
+          Check remote &amp; CLI setup
+        </Button>
+      </div>
+
+      <div className="off-gw-section off-gw-action-section">
+        <CapsLabel>Pull requests</CapsLabel>
+        {ghAuth?.ok ? (
+          <div className="off-gw-guidance is-ok">GitHub CLI authenticated.</div>
+        ) : (
+          <div className="off-gw-guidance">
+            GitHub CLI is unavailable or not logged in. Install `gh` or run `gh auth login` in a
+            terminal, then refresh.
+          </div>
+        )}
+        {ghAuth ? <pre className="off-gw-output">{commandOutput(ghAuth)}</pre> : null}
+        <div className="off-gw-actions">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!ghAuth?.ok || busy !== null}
+            onClick={() => void refreshPullRequests()}
+          >
+            Refresh PRs
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!ghAuth?.ok || busy !== null}
+            onClick={() => void execute('View PR', () => viewPullRequest(projectId))}
+          >
+            View current
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!ghAuth?.ok || busy !== null}
+            onClick={() => setConfirming('view-pr')}
+          >
+            Open web
+          </Button>
+        </div>
+        {prStatus ? <pre className="off-gw-output">{commandOutput(prStatus)}</pre> : null}
+        {prList ? <pre className="off-gw-output">{commandOutput(prList)}</pre> : null}
+        <Input
+          value={prTitle}
+          onChange={(event) => setPrTitle(event.target.value)}
+          placeholder="PR title"
+          aria-label="PR title"
+        />
+        <Textarea
+          value={prBody}
+          onChange={(event) => setPrBody(event.target.value)}
+          placeholder="PR body"
+          aria-label="PR body"
+          rows={4}
+        />
+        <Input
+          value={prBase}
+          onChange={(event) => setPrBase(event.target.value)}
+          placeholder="Base branch (optional)"
+          aria-label="PR base branch"
+        />
+        <label className="off-gw-check-row">
+          <input
+            type="checkbox"
+            checked={prDraft}
+            onChange={(event) => setPrDraft(event.target.checked)}
+          />
+          Create as draft
+        </label>
+        <Button
+          size="sm"
+          disabled={!ghAuth?.ok || !prTitle.trim() || busy !== null}
+          onClick={() => setConfirming('create-pr')}
+        >
+          <GitPullRequest size={14} /> Review PR creation
+        </Button>
       </div>
 
       {selectedLease ? (
@@ -582,6 +930,92 @@ function GitTab({
           </span>
         ))}
       </div>
+      {lastOutput ? (
+        <div className={cn('off-gw-result', lastOutput.result.ok ? 'is-ok' : 'is-error')}>
+          <strong>{lastOutput.label}</strong>
+          <pre>{commandOutput(lastOutput.result) || 'Completed with no output.'}</pre>
+        </div>
+      ) : null}
+
+      <Dialog open={confirming !== null} onOpenChange={(open) => !open && setConfirming(null)}>
+        <DialogContent showClose={false} className="off-dialog-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {confirming === 'push'
+                ? 'Confirm push'
+                : confirming === 'create-pr'
+                  ? 'Confirm pull request'
+                  : 'Open pull request in browser'}
+            </DialogTitle>
+            <DialogDescription>
+              {confirming === 'push'
+                ? 'This updates the shared origin remote.'
+                : confirming === 'create-pr'
+                  ? 'Review the exact title, body and base before creating the remote pull request.'
+                  : 'This opens the current pull request using GitHub CLI.'}
+            </DialogDescription>
+          </DialogHeader>
+          {confirming === 'push' ? (
+            <dl className="off-gw-confirm">
+              <dt>Remote</dt>
+              <dd>origin</dd>
+              <dt>Branch</dt>
+              <dd>{workbench.branch}</dd>
+            </dl>
+          ) : confirming === 'create-pr' ? (
+            <dl className="off-gw-confirm">
+              <dt>Title</dt>
+              <dd>{prTitle}</dd>
+              <dt>Base</dt>
+              <dd>{prBase || 'repository default'}</dd>
+              <dt>Mode</dt>
+              <dd>{prDraft ? 'draft' : 'ready for review'}</dd>
+              <dt>Body</dt>
+              <dd className="is-prewrap">{prBody || '(empty)'}</dd>
+            </dl>
+          ) : null}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirming(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                const action = confirming;
+                setConfirming(null);
+                if (action === 'push') {
+                  void execute(
+                    'Push',
+                    () => pushGitBranch(projectId, workbench.branch),
+                    refreshGit,
+                  );
+                } else if (action === 'create-pr') {
+                  void execute(
+                    'Create PR',
+                    () =>
+                      createPullRequest(projectId, {
+                        title: prTitle.trim(),
+                        body: prBody,
+                        base: prBase.trim() || undefined,
+                        draft: prDraft,
+                      }),
+                    async () => {
+                      setPrTitle('');
+                      setPrBody('');
+                      setPrBase('');
+                      setPrDraft(false);
+                      await refreshPullRequests(false);
+                    },
+                  );
+                } else if (action === 'view-pr') {
+                  void execute('Open PR', () => viewPullRequest(projectId, true));
+                }
+              }}
+            >
+              Confirm
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

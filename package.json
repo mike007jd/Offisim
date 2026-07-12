@@ -10,7 +10,7 @@
     "build:pi-agent-host": "node scripts/build-pi-agent-host.mjs",
     "build:runtime-deps": "node scripts/build-runtime-deps.mjs",
     "check:ui-hygiene": "node scripts/check-ui-framework-hygiene.mjs",
-    "check:tauri-command-hygiene": "node scripts/check-tauri-command-hygiene.mjs",
+    "check:tauri-command-hygiene": "node scripts/check-tauri-command-hygiene.mjs && node scripts/harness-git-pr-workbench.mjs",
     "check:ui-ux-drift": "node scripts/check-ui-ux-drift.mjs",
     "dev:all": "node scripts/dev-all.mjs",
     "harness:doc-engine": "node scripts/harness-doc-engine-parsers.mjs",

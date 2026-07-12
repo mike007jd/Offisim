@@ -53,6 +53,7 @@ mod macos_window_activation {
         }
     }
 }
+mod gh;
 mod git;
 mod in_flight;
 mod local_db;
@@ -225,6 +226,7 @@ pub fn run() {
             pi_agent_host::agent_runtime_status,
             computer_driver::computer_driver_status,
             git::git_exec,
+            gh::gh_exec,
             git::workspace_lease_discard,
             local_paths::open_local_path,
             local_paths::reveal_local_path,
@@ -420,5 +422,16 @@ mod tests {
             .and_then(Value::as_array)
             .expect("permissions array");
         assert_eq!(permissions, &vec![Value::String("fs-shell".into())]);
+    }
+
+    #[test]
+    fn github_capability_is_main_window_only() {
+        let capability = capability(include_str!("../capabilities/github.json"));
+        assert_privileged_capability_is_main_window_only(&capability);
+        let permissions = capability
+            .get("permissions")
+            .and_then(Value::as_array)
+            .expect("permissions array");
+        assert_eq!(permissions, &vec![Value::String("github".into())]);
     }
 }
