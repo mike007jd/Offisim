@@ -181,10 +181,13 @@ export function BoardStage() {
 
   useEffect(() => {
     if (!highlightedRunId) return;
+    const highlightedRow = board.rows.find((row) => row.runId === highlightedRunId);
+    if (!highlightedRow) return;
+    setScope(highlightedRow.projectId === projectId ? 'project' : 'company');
     setSelectedRunId(highlightedRunId);
     const timer = window.setTimeout(() => highlightBoardRun(null), 4_500);
     return () => window.clearTimeout(timer);
-  }, [highlightBoardRun, highlightedRunId]);
+  }, [board.rows, highlightBoardRun, highlightedRunId, projectId]);
 
   const employeeById = useMemo(
     () => new Map((employees.data ?? []).map((employee) => [employee.id, employee])),

@@ -251,6 +251,14 @@ assert(
     'apps/desktop/renderer/src/surfaces/office/board/workspace-lease-actions.ts',
     'utf8',
   );
+  const permissionApprovalSource = readFileSync(
+    'apps/desktop/renderer/src/assistant/parts/PermissionApprovalBar.tsx',
+    'utf8',
+  );
+  const boardStageSource = readFileSync(
+    'apps/desktop/renderer/src/surfaces/office/board/BoardStage.tsx',
+    'utf8',
+  );
   assert(
     nodeHostSource.includes('`Review delegated work ${mergeable[0]?.leaseId'),
     'execute host must title the integration approval "Review delegated work <leaseId>" — the Task Board matches this exact title',
@@ -258,6 +266,26 @@ assert(
   assert(
     leaseActionsSource.split('`Review delegated work ${row.leaseId}`').length === 3,
     'workspace-lease-actions must match the approval card by the exact "Review delegated work <leaseId>" title in both review and request-changes paths',
+  );
+  assert(
+    /workspaceLeaseIdFromApprovalTitle/.test(permissionApprovalSource) &&
+      /reviewWorkspaceLease\(leaseReview, companyId/.test(permissionApprovalSource) &&
+      /openBoard\('board'\)/.test(permissionApprovalSource) &&
+      /highlightBoardRun\(leaseReview\.rootRunId\)/.test(permissionApprovalSource) &&
+      /isLeaseReview\s*\? leaseReview !== null/.test(permissionApprovalSource) &&
+      /stale && !isLeaseReview/.test(permissionApprovalSource) &&
+      /isLeaseReview && leaseDecisionComplete/.test(permissionApprovalSource) &&
+      /queryKey: \['workspace-lease-reviews'\]/.test(permissionApprovalSource),
+    'the pending-review permission notice must use the Board lease decision channel, stay actionable after restart, open the matching Board drawer, and refresh every active Board scope',
+  );
+  assert(
+    /leaseDecisionById/.test(leaseActionsSource) &&
+      /persisted === 'merged' \|\| persisted === 'discarded'/.test(leaseActionsSource),
+    'workspace lease decisions must coalesce concurrent entry-point actions and short-circuit already-terminal leases',
+  );
+  assert(
+    /highlightedRow\.projectId === projectId \? 'project' : 'company'/.test(boardStageSource),
+    'a pending-review jump must select the Board scope containing the highlighted request before opening its drawer',
   );
 }
 assert(

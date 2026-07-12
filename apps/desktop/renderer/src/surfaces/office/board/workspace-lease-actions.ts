@@ -9,6 +9,15 @@ import {
 
 export type WorkspaceLeaseReviewOutcome = 'merged' | 'discarded' | 'host_resolved';
 
+const WORKSPACE_LEASE_REVIEW_TITLE_PREFIX = 'Review delegated work ';
+const leaseDecisionById = new Map<string, Promise<WorkspaceLeaseReviewOutcome>>();
+
+export function workspaceLeaseIdFromApprovalTitle(title: string): string | null {
+  if (!title.startsWith(WORKSPACE_LEASE_REVIEW_TITLE_PREFIX)) return null;
+  const leaseId = title.slice(WORKSPACE_LEASE_REVIEW_TITLE_PREFIX.length).trim();
+  return leaseId && !/\s/u.test(leaseId) ? leaseId : null;
+}
+
 async function waitForConversationTerminal(threadId: string, attemptId: string): Promise<void> {
   const terminalPhases = new Set(['completed', 'failed', 'interrupted']);
   await new Promise<void>((resolve, reject) => {
@@ -144,11 +153,14 @@ export async function appendWorkspaceLeaseAction(
   });
 }
 
-export async function reviewWorkspaceLease(
+async function resolveWorkspaceLeaseReview(
   row: WorkspaceLeaseReviewRow,
   companyId: string,
   action: 'merge' | 'discard',
 ): Promise<WorkspaceLeaseReviewOutcome> {
+  const persisted = await persistedLeaseStatus(row);
+  if (persisted === 'merged' || persisted === 'discarded') return persisted;
+
   const approval = conversationRunController.getSnapshot(row.threadId).approval;
   const live =
     approval?.state === 'live' && approval.title === `Review delegated work ${row.leaseId}`;
@@ -176,6 +188,20 @@ export async function reviewWorkspaceLease(
     action === 'merge' ? 'merged' : 'discarded',
   );
   return action === 'merge' ? 'merged' : 'discarded';
+}
+
+export function reviewWorkspaceLease(
+  row: WorkspaceLeaseReviewRow,
+  companyId: string,
+  action: 'merge' | 'discard',
+): Promise<WorkspaceLeaseReviewOutcome> {
+  const active = leaseDecisionById.get(row.leaseId);
+  if (active) return active;
+  const decision = resolveWorkspaceLeaseReview(row, companyId, action).finally(() => {
+    if (leaseDecisionById.get(row.leaseId) === decision) leaseDecisionById.delete(row.leaseId);
+  });
+  leaseDecisionById.set(row.leaseId, decision);
+  return decision;
 }
 
 export async function requestWorkspaceLeaseChanges(
