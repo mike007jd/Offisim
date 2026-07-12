@@ -389,7 +389,7 @@ export function PublishDialog({
                 {activeSource?.unavailableReason ?? 'Select a source'}
               </span>
             )}
-            <Button size="md" type="submit" disabled={publishBlocked}>
+            <Button className="off-pub-submit" size="md" type="submit" disabled={publishBlocked}>
               {publishing ? 'Publishing…' : 'Submit'}
             </Button>
           </div>
