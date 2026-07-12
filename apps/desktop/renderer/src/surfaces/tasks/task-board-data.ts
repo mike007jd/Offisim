@@ -434,6 +434,10 @@ function leaseReviewStatus(
     return 'discarded';
   }
   if (status === 'conflicted' || action?.endsWith('_failed')) return 'failed';
+  // A verification-terminated loop (stuck / attempt cap / budget) is a FAILED
+  // run whose worktree is retained for inspection — leaving the lease 'active'
+  // would keep painting the child as Running with a live Stop control.
+  if (phase === 'verification_terminated') return 'failed';
   if (phase === 'planned' || phase === 'pending_review' || status === 'pending_review') {
     return 'pending_review';
   }
