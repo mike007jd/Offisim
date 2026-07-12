@@ -1,4 +1,4 @@
-/* Workspace suite — Feishu/Teams-style collaboration: app-rail | list | detail.
+/* Office company channels — compact collaboration list + detail.
  * Mapped 1:1 from Docs/design/offisim-workspace-prototype.html, tokens-only. */
 .off-ws {
   position: absolute;
@@ -129,6 +129,36 @@
 }
 
 /* ── List column ─────────────────────────────────────────────────────────── */
+.off-company-channel-list {
+  min-height: 0;
+  background: var(--off-surface-1);
+}
+
+.off-company-channel-list .off-ws-list-head {
+  padding-left: calc(var(--off-sp-5) + 32px);
+}
+
+.off-company-channel-list .off-ws-list-title {
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+}
+
+.off-company-channel-detail {
+  grid-row: 1 / -1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--off-surface-1);
+}
+
+.off-company-channel-detail .off-ws-chat-head {
+  grid-template-columns: 36px 32px minmax(0, 1fr) auto;
+}
+
 .off-ws-list {
   display: flex;
   flex-direction: column;
@@ -1875,6 +1905,15 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--off-sp-3);
+  padding: 6px var(--off-sp-3);
+  border: 1px solid var(--off-warn-line-subtle);
+  border-radius: var(--off-r-sm);
+  background: var(--off-warn-surface);
+  color: var(--off-warn);
+  font-size: var(--off-fs-meta);
+}
+
+.off-connect-dialog-error {
   padding: 6px var(--off-sp-3);
   border: 1px solid var(--off-warn-line-subtle);
   border-radius: var(--off-r-sm);

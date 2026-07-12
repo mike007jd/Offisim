@@ -3,7 +3,7 @@ import { generateId } from '@offisim/core/browser';
 import type { DramaturgyMode, ToolRichDetail } from '@offisim/shared-types';
 import { create } from 'zustand';
 
-type WorkspaceKey = 'office' | 'workspace' | 'market' | 'personnel';
+type WorkspaceKey = 'office' | 'market' | 'personnel';
 type OverlaySurface = 'mission' | 'settings' | 'studio' | 'lifecycle';
 export type SurfaceKey = WorkspaceKey | OverlaySurface;
 
@@ -115,8 +115,15 @@ export interface SceneDropDiagnostic {
   decision: 'assigned' | 'missed' | 'not-moved';
 }
 
-/** The three focused Connect apps. */
-export type WorkspaceApp = 'messenger' | 'calendar' | 'contacts';
+export type CompanyThreadDraft =
+  | { kind: 'direct'; id: string; employeeId: string; employeeName: string }
+  | {
+      kind: 'group';
+      id: string;
+      title: string;
+      employeeIds: string[];
+      replyPolicy: 'mentions_only' | 'roundtable' | 'silent';
+    };
 
 interface UiState {
   surface: SurfaceKey;
@@ -129,6 +136,10 @@ interface UiState {
   /** Office surface */
   railMode: RailMode;
   selectedThreadId: string | null;
+  /** Company-channel selection is intentionally distinct from project chat. */
+  selectedCompanyThreadId: string | null;
+  /** Unpersisted company channel; materialized by the first send. */
+  companyThreadDraft: CompanyThreadDraft | null;
   /**
    * A composed-but-not-yet-persisted conversation. Clicking "New conversation"
    * (or messaging an employee with no existing thread) opens a draft instead of
@@ -170,10 +181,6 @@ interface UiState {
    *  from a composer chip's "open detail" affordance). */
   selectedLoopId: string | null;
 
-  /** Workspace suite */
-  workspaceApp: WorkspaceApp;
-  workspaceSelectedId: string | null;
-
   /**
    * Which lifecycle front door to open on entry: the company selection page
    * ('select'), the creation wizard ('create'), or count-derived (null). Set by
@@ -188,15 +195,6 @@ interface UiState {
    * PersonnelSurface so a later manual visit doesn't re-open the dialog.
    */
   pendingHire: boolean;
-
-  /**
-   * One-shot intent (PR-05): Contacts' "Message" sets the employee to start a
-   * direct Connect chat with. The Connect Messenger consumes it on mount —
-   * opening the existing active direct thread if there is one, else a fresh
-   * unpersisted direct draft. Cleared once consumed so a later manual visit
-   * doesn't re-open a draft.
-   */
-  pendingDirectChatEmployeeId: string | null;
 
   /**
    * One-shot intent set by "Use in Office" (PR-10) when there is NO active project:
@@ -222,10 +220,6 @@ interface UiState {
   requestHire: () => void;
   /** Clear the one-shot Hire intent after the Personnel surface consumes it. */
   consumePendingHire: () => void;
-  /** Open Connect Messenger and flag a direct chat to start with `employeeId`. */
-  requestDirectChat: (employeeId: string) => void;
-  /** Read + clear the one-shot direct-chat intent (Connect consumes it on mount). */
-  consumePendingDirectChat: () => string | null;
   /** Request an explicit project selection to resume a "Use in Office" Loop flow. */
   requestLoopProjectSelect: (intent: { loopId: string; revisionId: string }) => void;
   /** Clear the one-shot Loop project-select intent once it has been handled. */
@@ -236,6 +230,8 @@ interface UiState {
   setProject: (projectId: string) => void;
 
   openThread: (threadId: string) => void;
+  openCompanyThread: (threadId: string) => void;
+  openCompanyDraft: (draft: CompanyThreadDraft) => void;
   /**
    * Open a fresh draft conversation (no DB row yet). Returns the generated
    * thread id so callers can address the not-yet-persisted thread. Pass an
@@ -277,9 +273,6 @@ interface UiState {
   selectListing: (listingId: string | null) => void;
   /** Open a Loop's detail on the Loops (mission) surface — used by a composer chip. */
   openLoopDetail: (loopId: string) => void;
-
-  setWorkspaceApp: (app: WorkspaceApp, selectedId?: string | null) => void;
-  selectWorkspaceItem: (id: string | null) => void;
 }
 
 export const useUiState = create<UiState>((set, get) => ({
@@ -294,6 +287,8 @@ export const useUiState = create<UiState>((set, get) => ({
   // real conversations instead of a permanent loading skeleton.
   railMode: 'list',
   selectedThreadId: null,
+  selectedCompanyThreadId: null,
+  companyThreadDraft: null,
   draftThread: null,
   sceneRenderMode: '3d',
   stagePrimaryTab: 'game',
@@ -316,14 +311,9 @@ export const useUiState = create<UiState>((set, get) => ({
   selectedListingId: null,
   selectedLoopId: null,
 
-  workspaceApp: 'messenger',
-  workspaceSelectedId: null,
-
   lifecycleIntent: null,
 
   pendingHire: false,
-
-  pendingDirectChatEmployeeId: null,
 
   pendingLoopProjectSelect: null,
   pendingThreadFocus: null,
@@ -334,18 +324,6 @@ export const useUiState = create<UiState>((set, get) => ({
   openLifecycle: (intent) => set({ surface: 'lifecycle', lifecycleIntent: intent }),
   requestHire: () => set({ surface: 'personnel', pendingHire: true }),
   consumePendingHire: () => set({ pendingHire: false }),
-  requestDirectChat: (employeeId) =>
-    set({
-      surface: 'workspace',
-      workspaceApp: 'messenger',
-      workspaceSelectedId: null,
-      pendingDirectChatEmployeeId: employeeId,
-    }),
-  consumePendingDirectChat: (): string | null => {
-    const id = get().pendingDirectChatEmployeeId;
-    if (id) set({ pendingDirectChatEmployeeId: null });
-    return id;
-  },
   requestLoopProjectSelect: (intent) =>
     set({ surface: 'office', railMode: 'list', pendingLoopProjectSelect: intent }),
   consumePendingLoopProjectSelect: (): { loopId: string; revisionId: string } | null => {
@@ -358,6 +336,8 @@ export const useUiState = create<UiState>((set, get) => ({
       projectId: intent.projectId,
       pendingThreadFocus: intent,
       selectedThreadId: null,
+      selectedCompanyThreadId: null,
+      companyThreadDraft: null,
       draftThread: null,
       railMode: 'list',
       stagePrimaryTab: 'game',
@@ -377,6 +357,8 @@ export const useUiState = create<UiState>((set, get) => ({
       companyId,
       projectId,
       selectedThreadId: null,
+      selectedCompanyThreadId: null,
+      companyThreadDraft: null,
       draftThread: null,
       railMode: 'list',
       stagePrimaryTab: 'game',
@@ -391,6 +373,8 @@ export const useUiState = create<UiState>((set, get) => ({
     set({
       projectId,
       selectedThreadId: null,
+      selectedCompanyThreadId: null,
+      companyThreadDraft: null,
       draftThread: null,
       railMode: 'list',
       stagePrimaryTab: 'game',
@@ -405,6 +389,8 @@ export const useUiState = create<UiState>((set, get) => ({
   openThread: (threadId) =>
     set({
       selectedThreadId: threadId,
+      selectedCompanyThreadId: null,
+      companyThreadDraft: null,
       draftThread: null,
       railMode: 'thread',
       stagePrimaryTab: 'game',
@@ -416,6 +402,8 @@ export const useUiState = create<UiState>((set, get) => ({
     const id = generateId('thread');
     set({
       selectedThreadId: id,
+      selectedCompanyThreadId: null,
+      companyThreadDraft: null,
       draftThread: { id, employeeId: employeeId ?? null },
       railMode: 'thread',
       stagePrimaryTab: 'game',
@@ -425,12 +413,38 @@ export const useUiState = create<UiState>((set, get) => ({
     });
     return id;
   },
+  openCompanyThread: (selectedCompanyThreadId) =>
+    set({
+      selectedCompanyThreadId,
+      companyThreadDraft: null,
+      selectedThreadId: null,
+      draftThread: null,
+      railMode: 'thread',
+      stagePrimaryTab: 'game',
+      stageView: { kind: 'scene' },
+      stageOpenTabs: [],
+      activeStageTabId: null,
+    }),
+  openCompanyDraft: (companyThreadDraft) =>
+    set({
+      selectedCompanyThreadId: companyThreadDraft.id,
+      companyThreadDraft,
+      selectedThreadId: null,
+      draftThread: null,
+      railMode: 'thread',
+      stagePrimaryTab: 'game',
+      stageView: { kind: 'scene' },
+      stageOpenTabs: [],
+      activeStageTabId: null,
+    }),
   markDraftPersisted: () => set({ draftThread: null }),
   setDraftEmployee: (employeeId) =>
     set((s) => (s.draftThread ? { draftThread: { ...s.draftThread, employeeId } } : {})),
   closeThread: () =>
     set({
       selectedThreadId: null,
+      selectedCompanyThreadId: null,
+      companyThreadDraft: null,
       draftThread: null,
       railMode: 'list',
       stagePrimaryTab: 'game',
@@ -533,8 +547,4 @@ export const useUiState = create<UiState>((set, get) => ({
 
   selectListing: (selectedListingId) => set({ selectedListingId }),
   openLoopDetail: (selectedLoopId) => set({ surface: 'mission', selectedLoopId }),
-
-  setWorkspaceApp: (workspaceApp, workspaceSelectedId = null) =>
-    set({ workspaceApp, workspaceSelectedId }),
-  selectWorkspaceItem: (workspaceSelectedId) => set({ workspaceSelectedId }),
 }));

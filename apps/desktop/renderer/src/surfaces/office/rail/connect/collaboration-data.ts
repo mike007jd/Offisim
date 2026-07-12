@@ -1,4 +1,4 @@
-// Connect (Collaboration) renderer data layer (PR-05).
+// Company-channel collaboration data layer, owned by the Office rail.
 //
 // The ONE door from the Connect UI to the PR-02 CollaborationService — the
 // company-scoped daily-chat aggregate (direct + group), FULLY isolated from the

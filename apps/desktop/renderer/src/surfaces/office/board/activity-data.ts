@@ -102,6 +102,15 @@ interface McpAuditDbRow {
   created_at: string;
 }
 
+export interface MeetingActivityDbRow {
+  meeting_id: string;
+  thread_id: string | null;
+  topic: string;
+  status: string;
+  summary_json: string | null;
+  created_at: string;
+}
+
 function parsePayload(json: string | null | undefined): Record<string, ActivityPayloadValue> {
   if (!json) return {};
   try {
@@ -374,6 +383,30 @@ function mcpRecordFromRow(row: McpAuditDbRow): ActivityRecord {
   };
 }
 
+/** Preserve the meeting title and wall-clock label when projecting the old
+ * Calendar source into the company timeline. */
+export function meetingRecordFromRow(row: MeetingActivityDbRow): ActivityRecord {
+  const at = toEventTime(row.created_at);
+  const date = new Date(at);
+  const timeLabel = Number.isFinite(date.getTime())
+    ? date.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+    : 'Unknown time';
+  return {
+    id: `meeting-${row.meeting_id}`,
+    type: `meeting.${row.status}`,
+    at,
+    entity: { label: row.topic, type: 'meeting', id: row.meeting_id },
+    payload: {
+      message: `${row.topic} · ${timeLabel} · ${row.status}`,
+      title: row.topic,
+      timeLabel,
+      status: row.status,
+      threadId: row.thread_id,
+      summary: parsePayload(row.summary_json),
+    },
+  };
+}
+
 /**
  * AC1: cursor-paginated activity loader. Each of the three sources is fetched
  * with the same `created_at < cursor` predicate (when a cursor is given) and the
@@ -392,7 +425,7 @@ async function loadActivityPage(
   // passed as a value that sorts after any real ISO timestamp so the predicate
   // `created_at < cursor` is a no-op on the first page.
   const cursor = before ?? '~';
-  const [runtimeRows, agentRows, mcpRows] = await Promise.all([
+  const [runtimeRows, agentRows, mcpRows, meetingRows] = await Promise.all([
     db.select<RuntimeEventDbRow[]>(
       `select event_id, event_type, severity, payload_json, created_at, thread_id
        from runtime_events
@@ -420,6 +453,14 @@ async function loadActivityPage(
        limit $3`,
       [companyId, cursor, pageSize],
     ),
+    db.select<MeetingActivityDbRow[]>(
+      `select meeting_id, thread_id, topic, status, summary_json, created_at
+       from meeting_sessions
+       where company_id = $1 and created_at < $2
+       order by created_at desc
+       limit $3`,
+      [companyId, cursor, pageSize],
+    ),
   ]);
 
   return mergeActivityPage(
@@ -444,6 +485,13 @@ async function loadActivityPage(
           createdAt: row.created_at,
         })),
         saturated: mcpRows.length >= pageSize,
+      },
+      {
+        rows: meetingRows.map((row) => ({
+          record: meetingRecordFromRow(row),
+          createdAt: row.created_at,
+        })),
+        saturated: meetingRows.length >= pageSize,
       },
     ],
     pageSize,

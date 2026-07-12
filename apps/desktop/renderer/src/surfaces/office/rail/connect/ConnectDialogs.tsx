@@ -1,4 +1,4 @@
-// Connect chat-creation + group-management dialogs (PR-05).
+// Company-channel creation + group-management dialogs.
 //
 // `New chat` → Direct (pick one enabled employee) | New group (title + ≥1
 // employee + reply policy). Group member settings edits membership + shows the
@@ -18,6 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/design-system/primitives/dialog.js';
+import { safeErrorMessage } from '@/lib/error-message.js';
 import { cn } from '@/lib/utils.js';
 import type { CollaborationReplyPolicy } from '@offisim/shared-types';
 import { Check, MessageSquare, Users } from 'lucide-react';
@@ -211,12 +212,14 @@ export function NewGroupDialog({
     title: string;
     employeeIds: string[];
     replyPolicy: CollaborationReplyPolicy;
-  }) => void;
+  }) => Promise<void>;
 }) {
   const [title, setTitle] = useState('');
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [policy, setPolicy] = useState<CollaborationReplyPolicy>('mentions_only');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const pool = useMemo(() => enabledEmployees(employees), [employees]);
   const list = useMemo(() => filterByQuery(pool, query), [pool, query]);
@@ -239,23 +242,33 @@ export function NewGroupDialog({
       .filter((n): n is string => !!n)
       .slice(0, 3)
       .join(', ') || 'New group';
-  const canCreate = chosen.length >= 1 && !busy;
+  const pending = busy || submitting;
+  const canCreate = chosen.length >= 1 && !pending;
 
   function reset(): void {
     setTitle('');
     setQuery('');
     setSelected(new Set());
     setPolicy('mentions_only');
+    setSubmitError(null);
   }
 
-  function submit(): void {
+  async function submit(): Promise<void> {
     if (!canCreate) return;
-    onCreate({
-      title: title.trim() || derivedTitle,
-      employeeIds: chosen,
-      replyPolicy: policy,
-    });
-    reset();
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await onCreate({
+        title: title.trim() || derivedTitle,
+        employeeIds: chosen,
+        replyPolicy: policy,
+      });
+      reset();
+    } catch (error) {
+      setSubmitError(safeErrorMessage(error));
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -263,6 +276,7 @@ export function NewGroupDialog({
       open={open}
       onOpenChange={(o) => {
         if (!o) {
+          if (pending) return;
           reset();
           onClose();
         }
@@ -319,8 +333,18 @@ export function NewGroupDialog({
             )}
           </div>
         </div>
+        {submitError ? (
+          <div className="off-connect-dialog-error" role="alert">
+            Group creation failed: {submitError}
+          </div>
+        ) : null}
         <DialogFooter>
-          <button type="button" className="off-connect-btn off-focusable" onClick={onClose}>
+          <button
+            type="button"
+            className="off-connect-btn off-focusable"
+            disabled={pending}
+            onClick={onClose}
+          >
             Cancel
           </button>
           <button
@@ -329,7 +353,7 @@ export function NewGroupDialog({
             disabled={!canCreate}
             onClick={submit}
           >
-            Create group
+            {pending ? 'Creating…' : 'Create group'}
           </button>
         </DialogFooter>
       </DialogContent>

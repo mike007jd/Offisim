@@ -35,15 +35,15 @@ User-visible terms differ from internal route/surface keys; keep them mapped.
 | User-visible surface | Owner path | Internal key |
 |----------------------|------------|--------------|
 | Office (real AI work) | `apps/desktop/renderer/src/surfaces/office` | `office` |
-| Connect (company chat) | `apps/desktop/renderer/src/surfaces/workspace` | `workspace` (legacy) |
+| Office company channels | `apps/desktop/renderer/src/surfaces/office/rail/connect` | `office` rail |
 | Loops (work-loop definitions) | `apps/desktop/renderer/src/surfaces/mission` | `mission` (legacy) |
 | Personnel / Settings / Market / Studio / Activity | `apps/desktop/renderer/src/surfaces/<name>` | matches name |
 
-Connect (collaboration) and Loops are isolated from Office's project chat and runtime:
+Company-channel collaboration and Loops remain isolated from project chat/runtime:
 
 | Concern | Where it lives |
 |---------|----------------|
-| Connect renderer glue (collaboration aggregate) | `apps/desktop/renderer/src/surfaces/workspace/collaboration-data.ts` |
+| Company-channel renderer glue | `apps/desktop/renderer/src/surfaces/office/rail/connect/collaboration-data.ts` |
 | Connect no-tools runtime + turn controller | `apps/desktop/renderer/src/runtime/collaboration` |
 | Connect domain repository | `packages/core/src/runtime/collaboration/collaboration-service.ts` |
 | Connect host capability | `agent_runtime_collaborate` in `apps/desktop/src-tauri/src/pi_agent_host/mod.rs` |

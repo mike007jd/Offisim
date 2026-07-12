@@ -183,7 +183,7 @@ assertIncludesAll(
 );
 
 // The old Connect chat (WorkspaceAssistantThread) was removed in the Connect/
-// Loops refactor — Connect chat is now MessengerApp over the collaboration
+// Loops refactor — company-channel chat is now ConnectRail over the collaboration
 // aggregate and deliberately does NOT use ConversationRunController (it runs the
 // isolated PR-03 collaboration turn controller; guarded by harness-connect-chat-
 // flow + harness-pi-collaboration-runtime). Office's runtime is the lone owner.

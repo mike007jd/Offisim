@@ -5,7 +5,7 @@ import {
   mergePresentationMessages,
   shouldShowPendingReply,
   visibleWorkspaceMessages,
-} from '../apps/desktop/renderer/src/surfaces/workspace/apps/workspace-chat-presentation.js';
+} from '../apps/desktop/renderer/src/surfaces/office/rail/connect/company-chat-presentation.js';
 
 type ScenarioEvidence = Record<string, unknown>;
 

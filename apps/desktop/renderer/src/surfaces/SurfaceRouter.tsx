@@ -21,14 +21,8 @@ const SettingsSurface = lazy(() =>
 const StudioSurface = lazy(() =>
   import('./studio/StudioSurface.js').then((m) => ({ default: m.StudioSurface })),
 );
-const WorkspaceSurface = lazy(() =>
-  import('./workspace/WorkspaceSurface.js').then((m) => ({ default: m.WorkspaceSurface })),
-);
-
 function renderSurface(surface: SurfaceKey): ReactNode {
   switch (surface) {
-    case 'workspace':
-      return <WorkspaceSurface />;
     case 'market':
       return <MarketSurface />;
     case 'mission':

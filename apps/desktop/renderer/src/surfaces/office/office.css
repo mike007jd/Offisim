@@ -3490,11 +3490,33 @@
 }
 
 /* List head */
+.off-thread-list-groups {
+  grid-row: 1 / -1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.off-conv-list-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--off-sp-2);
+  padding: var(--off-sp-4) var(--off-sp-4) var(--off-sp-2) calc(var(--off-sp-5) + 32px);
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-micro);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 .off-conv-list-head {
   display: grid;
   grid-template-columns: 1fr 30px;
   gap: var(--off-sp-2);
   padding: var(--off-sp-4) var(--off-sp-5) var(--off-sp-4) calc(var(--off-sp-5) + 32px);
+  border-bottom: 1px solid var(--off-line);
+}
+
+.off-project-thread-list {
   border-bottom: 1px solid var(--off-line);
 }
 

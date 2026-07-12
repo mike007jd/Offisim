@@ -27,7 +27,8 @@ import {
   type PresentationMessage,
   shouldShowPendingReply,
   visibleWorkspaceMessages,
-} from '../apps/desktop/renderer/src/surfaces/workspace/apps/workspace-chat-presentation.js';
+} from '../apps/desktop/renderer/src/surfaces/office/rail/connect/company-chat-presentation.js';
+import { submitNewGroupFromDialog } from '../apps/desktop/renderer/src/surfaces/office/rail/connect/new-group-submit.js';
 import {
   type CollaborationServiceDeps,
   createCollaborationService,
@@ -131,6 +132,7 @@ function seed(db: Database.Database): void {
   const emp = db.prepare('INSERT INTO employees (employee_id, company_id, name) VALUES (?, ?, ?)');
   emp.run('emp-1', 'co-1', 'Alex');
   emp.run('emp-2', 'co-1', 'Kai');
+  emp.run('emp-3', 'co-1', 'Sophie');
   // A pre-existing project chat row whose count must NEVER change.
   db.prepare(
     'INSERT INTO chat_threads (thread_id, project_id, title, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
@@ -215,6 +217,76 @@ async function materializeDirectDraftAndSend(
 
 async function main(): Promise<void> {
   console.log('connect-chat-flow (PR-05): deterministic Connect data/flow layer');
+
+  // ── (0) the NewGroupDialog submit handler persists before it closes ───────
+  await check(
+    '(0) UI group submit handler creates the thread with all selected members before closing',
+    async () => {
+      const db = new Database(':memory:');
+      seed(db);
+      const svc = makeService(db);
+      const events: string[] = [];
+      const threadId = await submitNewGroupFromDialog(
+        {
+          title: 'B2 Release Roundtable',
+          employeeIds: ['emp-1', 'emp-2', 'emp-3'],
+          replyPolicy: 'roundtable',
+        },
+        {
+          createGroup: async (input) => {
+            events.push('create:start');
+            const thread = await svc.createGroup({ companyId: 'co-1', ...input });
+            events.push('create:success');
+            return thread.threadId;
+          },
+          openThread: (createdThreadId) => events.push(`open:${createdThreadId}`),
+          closeDialog: () => events.push('close'),
+        },
+      );
+
+      const persisted = await svc.listThreads('co-1');
+      const group = persisted.find((thread) => thread.threadId === threadId);
+      assert.equal(group?.kind, 'group', 'handler returns a persisted group thread');
+      assert.equal(group?.title, 'B2 Release Roundtable', 'handler forwards the title');
+      assert.equal(group?.replyPolicy, 'roundtable', 'handler forwards the reply policy');
+      const members = await svc.listMembers(threadId);
+      assert.deepEqual(
+        members
+          .filter((member) => member.actorType === 'employee')
+          .map((member) => member.employeeId),
+        ['emp-1', 'emp-2', 'emp-3'],
+        'handler persists all three selected employees',
+      );
+      assert.deepEqual(
+        events,
+        ['create:start', 'create:success', `open:${threadId}`, 'close'],
+        'the dialog closes only after persistence succeeds and the thread opens',
+      );
+    },
+  );
+
+  await check('(0b) a failed UI group submit never opens a thread or closes the dialog', async () => {
+    const events: string[] = [];
+    await assert.rejects(
+      submitNewGroupFromDialog(
+        {
+          title: 'B2 Release Roundtable',
+          employeeIds: ['emp-1', 'emp-2', 'emp-3'],
+          replyPolicy: 'roundtable',
+        },
+        {
+          createGroup: async () => {
+            events.push('create:start');
+            throw new Error('sqlite write rejected');
+          },
+          openThread: (threadId) => events.push(`open:${threadId}`),
+          closeDialog: () => events.push('close'),
+        },
+      ),
+      /sqlite write rejected/,
+    );
+    assert.deepEqual(events, ['create:start'], 'failure leaves the dialog open for visible retry');
+  });
 
   // ── (1) draft materialization calls getOrCreateDirect ONCE (idempotent) ────
   await check('(1) direct draft double-send materializes exactly ONE direct thread', async () => {

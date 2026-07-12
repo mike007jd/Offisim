@@ -1,4 +1,4 @@
-// Connect runtime glue (PR-05): the React seam between the Connect UI and the
+// Company-channel runtime glue: the React seam between the Office rail and the
 // PR-03 collaboration turn controller. The controller is resolved once per
 // company and cached; the live turn snapshot for the active thread is subscribed
 // via the PR-03 `useCollaborationTurns` store. Every send/ask/round/retry call
