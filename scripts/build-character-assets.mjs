@@ -68,7 +68,7 @@ import {
   unpartition,
 } from '@gltf-transform/functions';
 import { MeshoptDecoder, MeshoptEncoder } from 'meshoptimizer';
-import { buildToyHairAssets, HAIR_ASSET_IDS } from './lib/toy-hair-assets.mjs';
+import { HAIR_ASSET_IDS, buildToyHairAssets } from './lib/toy-hair-assets.mjs';
 
 /**
  * REQUIRED raw-pack workspace. No default: a checked-in script must never

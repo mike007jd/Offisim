@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { MeshoptDecoder, MeshoptEncoder } from 'meshoptimizer';
-import { buildToyHairAssets, HAIR_ASSET_IDS, renderHairEvidence } from './lib/toy-hair-assets.mjs';
+import { HAIR_ASSET_IDS, buildToyHairAssets, renderHairEvidence } from './lib/toy-hair-assets.mjs';
 
 function argument(name, fallback) {
   const index = process.argv.indexOf(name);

@@ -671,6 +671,7 @@ function HireEmployeeDialog({
       if (!repos) throw new Error('Employee creation requires the release desktop app');
       const slug = roleSlug(role);
       const { employee_id } = await repos.employees.create({
+        employee_id: appearanceSetup.seed,
         company_id: companyId,
         name: name.trim(),
         role_slug: slug,

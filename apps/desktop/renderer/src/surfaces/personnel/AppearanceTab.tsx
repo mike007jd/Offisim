@@ -1,5 +1,5 @@
-import type { Employee } from '@/data/types.js';
 import { UI_DATA_COLORS } from '@/data/color-palette.js';
+import type { Employee } from '@/data/types.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { SegmentedControl } from '@/design-system/grammar/SegmentedControl.js';
@@ -8,7 +8,7 @@ import { Icon } from '@/design-system/icons/Icon.js';
 import { type EmployeeAppearance, resolveAppearance } from '@/lib/avatar.js';
 import { cn } from '@/lib/utils.js';
 import { Lock } from 'lucide-react';
-import { type CSSProperties, lazy, Suspense, useId } from 'react';
+import { type CSSProperties, Suspense, lazy, useId } from 'react';
 import {
   ACCENT_SWATCHES,
   type AppearanceDraft,
