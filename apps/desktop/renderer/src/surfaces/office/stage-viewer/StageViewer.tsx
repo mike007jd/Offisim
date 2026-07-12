@@ -44,6 +44,8 @@ import {
   Maximize2,
   Minimize2,
   MonitorSmartphone,
+  PanelRightClose,
+  PanelRightOpen,
   Plus,
   SlidersHorizontal,
   TerminalSquare,
@@ -51,6 +53,7 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { Group, Panel, Separator } from 'react-resizable-panels';
 
 interface StageMenuItem {
   id: string;
@@ -108,6 +111,8 @@ export function StageTopBar({ isRunning, tokensLabel, costLabel }: StageTopBarPr
   const activeStageTabId = useUiState((s) => s.activeStageTabId);
   const activateStageTab = useUiState((s) => s.activateStageTab);
   const closeStageTab = useUiState((s) => s.closeStageTab);
+  const stageSplitTabId = useUiState((s) => s.stageSplitTabId);
+  const toggleStageSplitTab = useUiState((s) => s.toggleStageSplitTab);
   const stageMaximized = useUiState((s) => s.officeStageMaximized);
   const setStageMaximized = useUiState((s) => s.setOfficeStageMaximized);
   const projectId = useUiState((s) => s.projectId);
@@ -162,6 +167,7 @@ export function StageTopBar({ isRunning, tokensLabel, costLabel }: StageTopBarPr
             <div
               key={tab.id}
               className={cn('off-stage-tab-shell', activeStageTabId === tab.id && 'is-active')}
+              data-split={stageSplitTabId === tab.id ? 'right' : undefined}
             >
               <button
                 type="button"
@@ -170,12 +176,40 @@ export function StageTopBar({ isRunning, tokensLabel, costLabel }: StageTopBarPr
                 onAuxClick={(event) => {
                   if (event.button === 1) closeStageTab(tab.id);
                 }}
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  toggleStageSplitTab(tab.id);
+                }}
                 aria-current={activeStageTabId === tab.id ? 'page' : undefined}
                 aria-label={label}
                 title={stageTabTitle(tab.target)}
               >
                 <Icon icon={stageTabIcon(tab.target)} size="sm" />
                 <span>{label}</span>
+              </button>
+              <button
+                type="button"
+                className="off-stage-tab-split off-focusable"
+                onClick={() => toggleStageSplitTab(tab.id)}
+                aria-label={
+                  stageSplitTabId === tab.id
+                    ? `Restore ${label} to single view`
+                    : `Split ${label} to right`
+                }
+                aria-pressed={stageSplitTabId === tab.id}
+                title={
+                  stageSplitTabId === tab.id
+                    ? 'Restore single view'
+                    : stageOpenTabs.length > 1
+                      ? 'Split to right'
+                      : 'Open another work view to split'
+                }
+                disabled={stageOpenTabs.length < 2 && stageSplitTabId !== tab.id}
+              >
+                <Icon
+                  icon={stageSplitTabId === tab.id ? PanelRightClose : PanelRightOpen}
+                  size="sm"
+                />
               </button>
               <button
                 type="button"
@@ -669,16 +703,64 @@ function StageAutoOpenForThread({ threadId }: { threadId: string }) {
 export function StageViewer() {
   const stagePrimaryTab = useUiState((s) => s.stagePrimaryTab);
   const stageView = useUiState((s) => s.stageView);
+  const stageOpenTabs = useUiState((s) => s.stageOpenTabs);
+  const activeStageTabId = useUiState((s) => s.activeStageTabId);
+  const stageSplitTabId = useUiState((s) => s.stageSplitTabId);
   const viewerTab = stagePrimaryTab;
   if (viewerTab === 'game') return null;
   const visibleTarget =
     stageView.kind !== 'scene' && stageTabForTarget(stageView) === viewerTab ? stageView : null;
+  const splitTab =
+    viewerTab !== 'board' && stageSplitTabId !== activeStageTabId
+      ? (stageOpenTabs.find((tab) => tab.id === stageSplitTabId) ?? null)
+      : null;
+  return (
+    <section className="off-stage-viewer" aria-label="Stage viewer">
+      {splitTab ? (
+        <Group orientation="horizontal" className="off-stage-split" id="stage-split-view">
+          <Panel id="stage-primary" defaultSize="56%" minSize="30%">
+            <StageViewPane tab={viewerTab} target={visibleTarget} tabId={activeStageTabId} />
+          </Panel>
+          <Separator
+            className="off-resize-handle off-stage-split-handle"
+            aria-label="Resize stage views"
+          />
+          <Panel id="stage-secondary" defaultSize="44%" minSize="30%">
+            <StageViewPane
+              tab={stageTabForTarget(splitTab.target)}
+              target={splitTab.target}
+              tabId={splitTab.id}
+              split
+            />
+          </Panel>
+        </Group>
+      ) : (
+        <StageViewPane tab={viewerTab} target={visibleTarget} tabId={activeStageTabId} />
+      )}
+    </section>
+  );
+}
+
+function StageViewPane({
+  tab,
+  target,
+  tabId,
+  split = false,
+}: {
+  tab: Exclude<StagePrimaryTab, 'game'>;
+  target: StageViewTarget | null;
+  tabId: string | null;
+  split?: boolean;
+}) {
   return (
     <StageChromeProvider>
-      <section className="off-stage-viewer" aria-label="Stage viewer">
-        <StageViewerHead tab={viewerTab} target={visibleTarget} />
+      <section
+        className={cn('off-stage-viewer-pane', split && 'is-split')}
+        aria-label={split ? `Pinned ${viewerTitle(tab)} view` : `${viewerTitle(tab)} view`}
+      >
+        <StageViewerHead tab={tab} target={target} tabId={tabId} split={split} />
         <div className="off-stage-viewer-body">
-          <StageTabBody tab={viewerTab} target={visibleTarget} />
+          <StageTabBody tab={tab} target={target} />
         </div>
       </section>
     </StageChromeProvider>
@@ -688,11 +770,17 @@ export function StageViewer() {
 function StageViewerHead({
   tab,
   target,
+  tabId,
+  split,
 }: {
   tab: Exclude<StagePrimaryTab, 'game'>;
   target: StageViewTarget | null;
+  tabId: string | null;
+  split: boolean;
 }) {
   const closeStageView = useUiState((s) => s.closeStageView);
+  const closeStageTab = useUiState((s) => s.closeStageTab);
+  const toggleStageSplitTab = useUiState((s) => s.toggleStageSplitTab);
   const chrome = useStageChrome();
   return (
     <div className="off-stage-viewer-head">
@@ -704,15 +792,29 @@ function StageViewerHead({
         </span>
         <small>{chrome?.meta ?? (target ? viewerMeta(target) : viewerEmptyMeta(tab))}</small>
       </div>
-      {chrome?.actions ? <div className="off-preview-actions">{chrome.actions}</div> : null}
-      <button
-        type="button"
-        className="off-stage-viewer-close off-focusable"
-        onClick={closeStageView}
-        title="Close view"
-      >
-        <Icon icon={X} size="sm" />
-      </button>
+      <div className="off-stage-viewer-controls">
+        {chrome?.actions ? <div className="off-preview-actions">{chrome.actions}</div> : null}
+        {split && tabId ? (
+          <button
+            type="button"
+            className="off-stage-viewer-split off-focusable"
+            onClick={() => toggleStageSplitTab(tabId)}
+            aria-label="Restore single stage view"
+            title="Restore single view"
+          >
+            <Icon icon={PanelRightClose} size="sm" />
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className="off-stage-viewer-close off-focusable"
+          onClick={() => (split && tabId ? closeStageTab(tabId) : closeStageView())}
+          aria-label={`Close ${viewerTitle(tab)} view`}
+          title="Close view"
+        >
+          <Icon icon={X} size="sm" />
+        </button>
+      </div>
     </div>
   );
 }

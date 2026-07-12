@@ -40,6 +40,10 @@ export interface StageOpenTab {
   target: StageOpenTarget;
 }
 
+export function stageTabForTarget(
+  target: StageOpenTarget,
+): Exclude<StagePrimaryTab, 'game' | 'board'>;
+export function stageTabForTarget(target: StageViewTarget): StagePrimaryTab;
 export function stageTabForTarget(target: StageViewTarget): StagePrimaryTab {
   switch (target.kind) {
     case 'preview':
@@ -98,6 +102,7 @@ function stageOpenTabForTarget(target: StageOpenTarget): StageOpenTab {
 function gameStageState() {
   return {
     activeStageTabId: null,
+    stageSplitTabId: null,
     stagePrimaryTab: 'game' as const,
     stageView: { kind: 'scene' } as const,
   };
@@ -154,6 +159,8 @@ interface UiState {
   stageView: StageViewTarget;
   stageOpenTabs: StageOpenTab[];
   activeStageTabId: string | null;
+  /** Open work tab pinned to the resizable right stage pane. */
+  stageSplitTabId: string | null;
   boardHighlightedRunId: string | null;
   boardLens: BoardLens;
   scenePipCollapsed: boolean;
@@ -253,6 +260,7 @@ interface UiState {
   closeStageView: () => void;
   activateStageTab: (id: string) => void;
   closeStageTab: (id: string) => void;
+  toggleStageSplitTab: (id: string) => void;
   highlightBoardRun: (runId: string | null) => void;
   openBoard: (lens?: BoardLens) => void;
   setBoardLens: (lens: BoardLens) => void;
@@ -295,6 +303,7 @@ export const useUiState = create<UiState>((set, get) => ({
   stageView: { kind: 'scene' },
   stageOpenTabs: [],
   activeStageTabId: null,
+  stageSplitTabId: null,
   boardHighlightedRunId: null,
   boardLens: 'board',
   scenePipCollapsed: false,
@@ -344,6 +353,7 @@ export const useUiState = create<UiState>((set, get) => ({
       stageView: { kind: 'scene' },
       stageOpenTabs: [],
       activeStageTabId: null,
+      stageSplitTabId: null,
       boardHighlightedRunId: null,
       officeStageMaximized: false,
     }),
@@ -365,6 +375,7 @@ export const useUiState = create<UiState>((set, get) => ({
       stageView: { kind: 'scene' },
       stageOpenTabs: [],
       activeStageTabId: null,
+      stageSplitTabId: null,
       boardHighlightedRunId: null,
       pendingThreadFocus: null,
       officeStageMaximized: false,
@@ -381,6 +392,7 @@ export const useUiState = create<UiState>((set, get) => ({
       stageView: { kind: 'scene' },
       stageOpenTabs: [],
       activeStageTabId: null,
+      stageSplitTabId: null,
       boardHighlightedRunId: null,
       pendingThreadFocus: null,
       officeStageMaximized: false,
@@ -397,6 +409,7 @@ export const useUiState = create<UiState>((set, get) => ({
       stageView: { kind: 'scene' },
       stageOpenTabs: [],
       activeStageTabId: null,
+      stageSplitTabId: null,
     }),
   openDraftThread: (employeeId = null) => {
     const id = generateId('thread');
@@ -410,6 +423,7 @@ export const useUiState = create<UiState>((set, get) => ({
       stageView: { kind: 'scene' },
       stageOpenTabs: [],
       activeStageTabId: null,
+      stageSplitTabId: null,
     });
     return id;
   },
@@ -424,6 +438,7 @@ export const useUiState = create<UiState>((set, get) => ({
       stageView: { kind: 'scene' },
       stageOpenTabs: [],
       activeStageTabId: null,
+      stageSplitTabId: null,
     }),
   openCompanyDraft: (companyThreadDraft) =>
     set({
@@ -436,6 +451,7 @@ export const useUiState = create<UiState>((set, get) => ({
       stageView: { kind: 'scene' },
       stageOpenTabs: [],
       activeStageTabId: null,
+      stageSplitTabId: null,
     }),
   markDraftPersisted: () => set({ draftThread: null }),
   setDraftEmployee: (employeeId) =>
@@ -451,6 +467,7 @@ export const useUiState = create<UiState>((set, get) => ({
       stageView: { kind: 'scene' },
       stageOpenTabs: [],
       activeStageTabId: null,
+      stageSplitTabId: null,
     }),
   setSceneRenderMode: (sceneRenderMode) => set({ sceneRenderMode }),
   setStagePrimaryTab: (stagePrimaryTab) =>
@@ -459,6 +476,7 @@ export const useUiState = create<UiState>((set, get) => ({
       if (stagePrimaryTab === 'board') {
         return {
           activeStageTabId: null,
+          stageSplitTabId: null,
           stagePrimaryTab,
           stageView: { kind: 'scene' },
         };
@@ -482,6 +500,7 @@ export const useUiState = create<UiState>((set, get) => ({
         existingIndex >= 0
           ? state.stageOpenTabs.map((tab) => (tab.id === next.id ? next : tab))
           : [...state.stageOpenTabs, next];
+      if (state.stageSplitTabId === next.id) return { stageOpenTabs };
       return {
         activeStageTabId: next.id,
         stageOpenTabs,
@@ -501,6 +520,14 @@ export const useUiState = create<UiState>((set, get) => ({
     set((state) => {
       const tab = state.stageOpenTabs.find((candidate) => candidate.id === id);
       if (!tab) return {};
+      if (state.stageSplitTabId === id && state.activeStageTabId) {
+        return {
+          activeStageTabId: tab.id,
+          stageSplitTabId: state.activeStageTabId,
+          stagePrimaryTab: stageTabForTarget(tab.target),
+          stageView: tab.target,
+        };
+      }
       return {
         activeStageTabId: tab.id,
         stagePrimaryTab: stageTabForTarget(tab.target),
@@ -512,14 +539,33 @@ export const useUiState = create<UiState>((set, get) => ({
       const closedIndex = state.stageOpenTabs.findIndex((tab) => tab.id === id);
       if (closedIndex < 0) return {};
       const stageOpenTabs = state.stageOpenTabs.filter((tab) => tab.id !== id);
+      if (state.stageSplitTabId === id) return { stageOpenTabs, stageSplitTabId: null };
       if (state.activeStageTabId !== id) return { stageOpenTabs };
-      const fallback = stageOpenTabs[Math.max(0, closedIndex - 1)] ?? stageOpenTabs[0] ?? null;
+      const unpinnedTabs = stageOpenTabs.filter((tab) => tab.id !== state.stageSplitTabId);
+      const fallback =
+        unpinnedTabs[Math.max(0, closedIndex - 1)] ?? unpinnedTabs[0] ?? stageOpenTabs[0] ?? null;
       if (!fallback) return { ...gameStageState(), stageOpenTabs };
       return {
         activeStageTabId: fallback.id,
         stageOpenTabs,
+        stageSplitTabId: fallback.id === state.stageSplitTabId ? null : state.stageSplitTabId,
         stagePrimaryTab: stageTabForTarget(fallback.target),
         stageView: fallback.target,
+      };
+    }),
+  toggleStageSplitTab: (id) =>
+    set((state) => {
+      if (state.stageSplitTabId === id) return { stageSplitTabId: null };
+      const splitTab = state.stageOpenTabs.find((tab) => tab.id === id);
+      if (!splitTab) return {};
+      if (state.activeStageTabId !== id) return { stageSplitTabId: id };
+      const leftTab = [...state.stageOpenTabs].reverse().find((tab) => tab.id !== id);
+      if (!leftTab) return {};
+      return {
+        activeStageTabId: leftTab.id,
+        stageSplitTabId: id,
+        stagePrimaryTab: stageTabForTarget(leftTab.target),
+        stageView: leftTab.target,
       };
     }),
   highlightBoardRun: (boardHighlightedRunId) => set({ boardHighlightedRunId }),
@@ -527,6 +573,7 @@ export const useUiState = create<UiState>((set, get) => ({
     set({
       surface: 'office',
       activeStageTabId: null,
+      stageSplitTabId: null,
       stagePrimaryTab: 'board',
       stageView: { kind: 'scene' },
       boardLens,
