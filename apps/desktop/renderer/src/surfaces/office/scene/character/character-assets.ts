@@ -6,6 +6,12 @@ import hair03Url from '@/assets/characters/hair_03.glb?url';
 import hair04Url from '@/assets/characters/hair_04.glb?url';
 import hair05Url from '@/assets/characters/hair_05.glb?url';
 import hair06Url from '@/assets/characters/hair_06.glb?url';
+import hair07Url from '@/assets/characters/hair_07.glb?url';
+import hair08Url from '@/assets/characters/hair_08.glb?url';
+import hair09Url from '@/assets/characters/hair_09.glb?url';
+import hair10Url from '@/assets/characters/hair_10.glb?url';
+import hair11Url from '@/assets/characters/hair_11.glb?url';
+import hair12Url from '@/assets/characters/hair_12.glb?url';
 import characterManifest from '@/assets/characters/manifest.json';
 import propsUrl from '@/assets/characters/props.glb?url';
 import { useLoader } from '@react-three/fiber';
@@ -30,8 +36,13 @@ export const CHARACTER_ASSET_URLS = {
     hair_03: hair03Url,
     hair_04: hair04Url,
     hair_05: hair05Url,
-    /** Offisim-authored chunky curl cap for the toy-head silhouette. */
     hair_06: hair06Url,
+    hair_07: hair07Url,
+    hair_08: hair08Url,
+    hair_09: hair09Url,
+    hair_10: hair10Url,
+    hair_11: hair11Url,
+    hair_12: hair12Url,
   },
 } as const;
 
@@ -50,12 +61,7 @@ const PRELOADED_URLS: readonly string[] = [
   CHARACTER_ASSET_URLS.bodyToy,
   CHARACTER_ASSET_URLS.animations,
   CHARACTER_ASSET_URLS.props,
-  CHARACTER_ASSET_URLS.hair.hair_01,
-  CHARACTER_ASSET_URLS.hair.hair_02,
-  CHARACTER_ASSET_URLS.hair.hair_03,
-  CHARACTER_ASSET_URLS.hair.hair_04,
-  CHARACTER_ASSET_URLS.hair.hair_05,
-  CHARACTER_ASSET_URLS.hair.hair_06,
+  ...Object.values(CHARACTER_ASSET_URLS.hair),
 ];
 
 /**

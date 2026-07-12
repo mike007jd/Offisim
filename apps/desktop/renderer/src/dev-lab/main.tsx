@@ -34,6 +34,11 @@ const HAIR_STYLES: readonly HairStyle[] = [
   'bob',
   'spiky',
   'braids',
+  'bun',
+  'afro',
+  'mohawk',
+  'sidepart',
+  'undercut',
 ];
 
 // Production palettes verbatim — the lab must show contract colors, not its own.

@@ -48,7 +48,12 @@
     "bald": null,
     "bob": "hair_05",
     "spiky": "hair_06",
-    "braids": "hair_03"
+    "braids": "hair_07",
+    "bun": "hair_08",
+    "afro": "hair_09",
+    "mohawk": "hair_10",
+    "sidepart": "hair_11",
+    "undercut": "hair_12"
   },
   "hairTransforms": {
     "hair_01": { "position": [0, 0, 0], "scale": [1, 1, 1] },
@@ -56,7 +61,13 @@
     "hair_03": { "position": [0, 0, 0], "scale": [1, 1, 1] },
     "hair_04": { "position": [0, 0, 0], "scale": [1, 1, 1] },
     "hair_05": { "position": [0, 0, 0], "scale": [1, 1, 1] },
-    "hair_06": { "position": [0, 0, 0], "scale": [1, 1, 1] }
+    "hair_06": { "position": [0, 0, 0], "scale": [1, 1, 1] },
+    "hair_07": { "position": [0, 0, 0], "scale": [1, 1, 1] },
+    "hair_08": { "position": [0, 0, 0], "scale": [1, 1, 1] },
+    "hair_09": { "position": [0, 0, 0], "scale": [1, 1, 1] },
+    "hair_10": { "position": [0, 0, 0], "scale": [1, 1, 1] },
+    "hair_11": { "position": [0, 0, 0], "scale": [1, 1, 1] },
+    "hair_12": { "position": [0, 0, 0], "scale": [1, 1, 1] }
   },
   "eye": {
     "expressionMap": {

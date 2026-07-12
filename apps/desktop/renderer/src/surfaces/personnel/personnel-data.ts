@@ -191,6 +191,11 @@ export const HAIR_STYLE_OPTIONS: ReadonlyArray<{ value: HairStyle; label: string
   { value: 'bob', label: 'Bob' },
   { value: 'spiky', label: 'Spiky' },
   { value: 'braids', label: 'Braids' },
+  { value: 'bun', label: 'Bun' },
+  { value: 'afro', label: 'Afro' },
+  { value: 'mohawk', label: 'Mohawk' },
+  { value: 'sidepart', label: 'Side part' },
+  { value: 'undercut', label: 'Undercut' },
 ];
 
 export const BODY_TYPE_OPTIONS: ReadonlyArray<{ value: BodyType; label: string }> = [
