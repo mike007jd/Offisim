@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils.js';
+import { sceneWorkDetailSummary } from '@/assistant/runtime/scene-cue-projection.js';
 import type { ToolRichDetail } from '@offisim/shared-types';
 
 type WorkBenchStatus = 'running' | 'done' | 'error';
@@ -173,7 +174,7 @@ function ComputerBench({ detail }: { detail: Extract<ToolRichDetail, { family: '
 function GenericBench({ detail }: { detail: Extract<ToolRichDetail, { family: 'generic' }> }) {
   return (
     <div className="off-work-bench-body">
-      <span className="off-work-bench-copy">{detail.text ?? 'No structured detail'}</span>
+      <span className="off-work-bench-copy">{sceneWorkDetailSummary(detail.text)}</span>
     </div>
   );
 }

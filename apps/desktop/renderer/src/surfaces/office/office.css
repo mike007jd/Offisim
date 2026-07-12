@@ -4969,6 +4969,16 @@
   font-size: var(--off-fs-meta);
   color: var(--off-ink-2);
 }
+.off-permission-bar.is-lease-review {
+  gap: var(--off-sp-1);
+  padding: var(--off-sp-2) var(--off-sp-3);
+  border-color: var(--off-warn);
+  background: color-mix(in srgb, var(--off-warn) 7%, var(--off-surface-sunken));
+}
+.off-permission-bar.is-lease-review .off-permission-icon,
+.off-permission-bar.is-lease-review .off-permission-lead {
+  color: var(--off-warn);
+}
 .off-permission-head {
   display: flex;
   align-items: center;

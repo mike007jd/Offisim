@@ -19,6 +19,7 @@ interface AppFrameProps {
 
 export function AppFrame({ children, banner }: AppFrameProps) {
   const openLifecycle = useUiState((s) => s.openLifecycle);
+  const openSettings = useUiState((s) => s.openSettings);
   const runCost = useRunCost();
   const alert =
     runCost.data?.alerts.find((item) => item.level === 'critical') ?? runCost.data?.alerts[0];
@@ -35,12 +36,14 @@ export function AppFrame({ children, banner }: AppFrameProps) {
     lastToastRef.current = signature;
     for (const item of runCost.data?.alerts ?? []) {
       const scope = item.scope === 'monthly' ? 'Monthly company' : 'Current session';
-      const message = `${scope} token budget ${item.level === 'critical' ? 'reached' : 'at 80%'}`;
-      const detail = `${item.used.toLocaleString()} / ${item.budget.toLocaleString()} tokens`;
-      if (item.level === 'critical') toast.error(message, { description: detail });
-      else toast.warning(message, { description: detail });
+      const message = `${scope} token alert ${item.level === 'critical' ? 'threshold reached' : 'at 80%'}`;
+      const detail = `${item.used.toLocaleString()} / ${item.budget.toLocaleString()} tokens. Advisory only — this run continues.`;
+      toast.warning(message, {
+        description: detail,
+        action: { label: 'Budget settings', onClick: () => openSettings('runtime') },
+      });
     }
-  }, [runCost.data?.alerts]);
+  }, [openSettings, runCost.data?.alerts]);
   return (
     <main className="off-app">
       <header className="off-topbar">
@@ -59,7 +62,7 @@ export function AppFrame({ children, banner }: AppFrameProps) {
           aria-label="Token cost and budget status"
           title={
             alert
-              ? `${alert.scope} budget: ${alert.used.toLocaleString()} / ${alert.budget.toLocaleString()} tokens`
+              ? `${alert.scope} token alert: ${alert.used.toLocaleString()} / ${alert.budget.toLocaleString()} tokens; advisory only`
               : 'No token budget alert'
           }
         >
