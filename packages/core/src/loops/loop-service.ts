@@ -20,6 +20,7 @@ import type {
   LoopDefinition,
   LoopIR,
   LoopRevision,
+  LoopScheduleIntervalMinutes,
   LoopSkillBinding,
   LoopValidation,
 } from '@offisim/shared-types';
@@ -110,6 +111,12 @@ function toDefinition(row: LoopDefinitionRow): LoopDefinition {
     profileId: row.profile_id,
     currentRevisionId: row.current_revision_id ?? undefined,
     status: row.status as LoopDefinition['status'],
+    ...(row.schedule_interval_minutes
+      ? { scheduleIntervalMinutes: row.schedule_interval_minutes as LoopScheduleIntervalMinutes }
+      : {}),
+    ...(row.next_run_at ? { nextRunAt: row.next_run_at } : {}),
+    ...(row.last_run_at ? { lastRunAt: row.last_run_at } : {}),
+    ...(row.last_run_result ? { lastRunResult: row.last_run_result } : {}),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -146,6 +153,16 @@ export interface LoopService {
   selectRevision(loopId: string, revisionId: string): Promise<LoopDefinition>;
   /** Archive (default) — never physically deletes a revision with history. */
   archiveLoop(loopId: string): Promise<LoopDefinition>;
+  /** Null returns the Loop to manual-only. A configured schedule starts one
+   * interval from now; there is deliberately no zero/default schedule. */
+  configureSchedule(
+    loopId: string,
+    intervalMinutes: LoopScheduleIntervalMinutes | null,
+  ): Promise<LoopDefinition>;
+  /** Advance a missed schedule without running it (app hidden/not running). */
+  skipMissedSchedule(loopId: string): Promise<LoopDefinition>;
+  /** Persist the last automatic result and advance from completion time. */
+  completeScheduledRun(loopId: string, result: string): Promise<LoopDefinition>;
   /**
    * Physically delete the definition (cascades revisions+bindings). REFUSED when
    * the loop has invocation history — callers should archive instead.
@@ -154,6 +171,9 @@ export interface LoopService {
 }
 
 export function createLoopService(repos: LoopServiceRepos, deps: LoopServiceDeps): LoopService {
+  const scheduleIntervals = new Set<number>([15, 60, 360, 1440]);
+  const nextRunAt = (now: string, minutes: number): string =>
+    new Date(Date.parse(now) + minutes * 60_000).toISOString();
   async function requireLoop(loopId: string): Promise<LoopDefinitionRow> {
     const row = await repos.loopDefinitions.findById(loopId);
     if (!row) throw new LoopServiceError(`loop ${loopId} not found`, 'loop_not_found');
@@ -178,6 +198,10 @@ export function createLoopService(repos: LoopServiceRepos, deps: LoopServiceDeps
         profile_id: input.profileId,
         current_revision_id: null,
         status: 'draft',
+        schedule_interval_minutes: null,
+        next_run_at: null,
+        last_run_at: null,
+        last_run_result: null,
         created_at: ts,
         updated_at: ts,
       };
@@ -353,6 +377,57 @@ export function createLoopService(repos: LoopServiceRepos, deps: LoopServiceDeps
       const ts = deps.now();
       await repos.loopDefinitions.update(loopId, { status: 'archived', updatedAt: ts });
       return toDefinition({ ...loop, status: 'archived', updated_at: ts });
+    },
+
+    async configureSchedule(loopId, intervalMinutes) {
+      const loop = await requireLoop(loopId);
+      if (intervalMinutes !== null && !scheduleIntervals.has(intervalMinutes)) {
+        throw new Error(`Unsupported Loop schedule interval: ${intervalMinutes}`);
+      }
+      const ts = deps.now();
+      const next = intervalMinutes === null ? null : nextRunAt(ts, intervalMinutes);
+      await repos.loopDefinitions.update(loopId, {
+        scheduleIntervalMinutes: intervalMinutes,
+        nextRunAt: next,
+        updatedAt: ts,
+      });
+      return toDefinition({
+        ...loop,
+        schedule_interval_minutes: intervalMinutes,
+        next_run_at: next,
+        updated_at: ts,
+      });
+    },
+
+    async skipMissedSchedule(loopId) {
+      const loop = await requireLoop(loopId);
+      if (!loop.schedule_interval_minutes) return toDefinition(loop);
+      const ts = deps.now();
+      const next = nextRunAt(ts, loop.schedule_interval_minutes);
+      await repos.loopDefinitions.update(loopId, { nextRunAt: next, updatedAt: ts });
+      return toDefinition({ ...loop, next_run_at: next, updated_at: ts });
+    },
+
+    async completeScheduledRun(loopId, result) {
+      const loop = await requireLoop(loopId);
+      const ts = deps.now();
+      const next = loop.schedule_interval_minutes
+        ? nextRunAt(ts, loop.schedule_interval_minutes)
+        : null;
+      const normalizedResult = result.trim().slice(0, 240) || 'completed';
+      await repos.loopDefinitions.update(loopId, {
+        lastRunAt: ts,
+        lastRunResult: normalizedResult,
+        nextRunAt: next,
+        updatedAt: ts,
+      });
+      return toDefinition({
+        ...loop,
+        last_run_at: ts,
+        last_run_result: normalizedResult,
+        next_run_at: next,
+        updated_at: ts,
+      });
     },
 
     async deleteLoop(loopId) {

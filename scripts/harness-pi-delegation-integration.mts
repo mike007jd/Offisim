@@ -156,6 +156,9 @@ try {
     ['fixture/employee-b', modelB],
   ]);
   const sessionOptions: Array<Record<string, unknown>> = [];
+  const resourceLoaderOptions: Array<Record<string, unknown>> = [];
+  const inheritedPermissionModes: string[] = [];
+  let askUiBindings = 0;
   const makeSession = () => {
     let subscriber: ((event: unknown) => void) | undefined;
     return {
@@ -191,6 +194,7 @@ try {
         employeeId: 'employee-a',
         model: 'fixture/employee-a',
         thinkingLevel: 'high',
+        skillPaths: ['/fixture/vault/company/SKILL.md', '/fixture/vault/employee-a/SKILL.md'],
       },
       {
         employeeId: 'employee-b',
@@ -202,9 +206,19 @@ try {
     resolveModel: (modelId?: string) => (modelId ? modelById.get(modelId) : undefined),
     rootModel,
     rootThinkingLevel: 'medium',
-    buildPermissionGate: () => null,
+    permissionMode: 'ask',
+    buildPermissionGate: (mode: string) => {
+      inheritedPermissionModes.push(mode);
+      return null;
+    },
+    bindChildUi: async () => {
+      askUiBindings += 1;
+    },
     limits: createDelegationLimits({ childTimeoutMs: 0 }),
-    createResourceLoader: () => ({ reload: async () => {} }),
+    createResourceLoader: (options: Record<string, unknown>) => {
+      resourceLoaderOptions.push(options);
+      return { reload: async () => {} };
+    },
     createSessionManager: () => ({}),
     createAgentSession: async (options: Record<string, unknown>) => {
       sessionOptions.push(options);
@@ -220,6 +234,12 @@ try {
   assert.equal(sessionOptions[1]?.thinkingLevel, 'low');
   assert.equal(sessionOptions[2]?.model, rootModel);
   assert.equal(sessionOptions[2]?.thinkingLevel, 'medium');
+  assert.deepEqual(resourceLoaderOptions[0]?.additionalSkillPaths, [
+    '/fixture/vault/company/SKILL.md',
+    '/fixture/vault/employee-a/SKILL.md',
+  ]);
+  assert.deepEqual(inheritedPermissionModes, ['ask', 'ask', 'ask']);
+  assert.equal(askUiBindings, 3, 'every Ask child binds the renderer approval channel');
 
   let reworkId = 0;
   const originalManager = createWorkspaceLeaseManager({
@@ -311,6 +331,8 @@ try {
   console.log('PASS write lease released');
   console.log('PASS single and parallel modes share the integration implementation');
   console.log('PASS employee model and thinking bindings reach child createAgentSession');
+  console.log('PASS employee company + personal skill paths reach child Pi resource loader');
+  console.log('PASS child sessions inherit Ask and bind the existing UI approval channel');
   console.log('PASS unbound employee inherits root model and thinking level');
   console.log('PASS request changes creates a linked rework run on the same lease/worktree');
 } finally {

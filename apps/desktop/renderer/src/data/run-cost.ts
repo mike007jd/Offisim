@@ -14,25 +14,40 @@ function formatCostLabel(cost: number): string {
   return `$${cost.toFixed(2)}`;
 }
 
-export async function loadRunCost(): Promise<RunCost> {
-  if (!isTauriRuntime()) return { tokens: 0, costLabel: '$0.00', live: false, breakdown: [] };
+export async function loadRunCost(
+  companyId: string | null = null,
+  threadId: string | null = null,
+): Promise<RunCost> {
+  const empty: RunCost = {
+    tokens: 0,
+    monthlyTokens: 0,
+    sessionTokens: 0,
+    costLabel: '$0.00',
+    live: false,
+    breakdown: [],
+    alerts: [],
+  };
+  if (!isTauriRuntime() || !companyId) return empty;
   try {
     const db = await getTauriDb();
     const rows = await db.select<
       Array<{
         run_id: string;
         root_run_id: string;
+        thread_id: string;
+        started_at: string;
         employee_id: string | null;
         employee_name: string | null;
         usage_json: string | null;
         runtime_context_json: string | null;
       }>
     >(
-      `SELECT ar.run_id, ar.root_run_id, ar.employee_id, e.name AS employee_name,
-              ar.usage_json, ar.runtime_context_json
+      `SELECT ar.run_id, ar.root_run_id, ar.thread_id, ar.started_at,
+              ar.employee_id, e.name AS employee_name, ar.usage_json, ar.runtime_context_json
          FROM agent_runs ar
          LEFT JOIN employees e ON e.employee_id = ar.employee_id
-        WHERE ar.usage_json IS NOT NULL`,
+        WHERE ar.company_id = $1 AND ar.usage_json IS NOT NULL`,
+      [companyId],
     );
     let input = 0;
     let output = 0;
@@ -54,7 +69,13 @@ export async function loadRunCost(): Promise<RunCost> {
         return [];
       }
     });
-    const roots = parsedRows.filter((row) => row.run_id === row.root_run_id);
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+    const monthlyRows = parsedRows.filter(
+      (row) => Date.parse(row.started_at) >= monthStart.getTime(),
+    );
+    const roots = monthlyRows.filter((row) => row.run_id === row.root_run_id);
     for (const row of roots) {
       input += row.usage.input ?? 0;
       output += row.usage.output ?? 0;
@@ -63,23 +84,26 @@ export async function loadRunCost(): Promise<RunCost> {
       cost += row.usage.cost ?? 0;
     }
     const tokens = input + output + cacheRead + cacheWrite;
+    const sessionTokens = parsedRows
+      .filter((row) => row.run_id === row.root_run_id && row.thread_id === threadId)
+      .reduce(
+        (sum, row) =>
+          sum +
+          (row.usage.input ?? 0) +
+          (row.usage.output ?? 0) +
+          (row.usage.cacheRead ?? 0) +
+          (row.usage.cacheWrite ?? 0),
+        0,
+      );
     // Tokens flowed but cost is zero → the lane didn't report a price (e.g. the
     // compat default provider where cost is 0). Surface that honestly rather than
     // claiming a free run. With no tokens at all, '$0.00' is the correct label.
     const costLabel = tokens > 0 && cost === 0 ? 'Cost unavailable' : formatCostLabel(cost);
     type Usage = (typeof parsedRows)[number]['usage'];
     const groups = new Map<string, RunCostBreakdown & { cost: number }>();
-    const add = (
-      employeeId: string | null,
-      employeeName: string,
-      model: string,
-      usage: Usage,
-    ) => {
+    const add = (employeeId: string | null, employeeName: string, model: string, usage: Usage) => {
       const rowTokens =
-        (usage.input ?? 0) +
-        (usage.output ?? 0) +
-        (usage.cacheRead ?? 0) +
-        (usage.cacheWrite ?? 0);
+        (usage.input ?? 0) + (usage.output ?? 0) + (usage.cacheRead ?? 0) + (usage.cacheWrite ?? 0);
       const rowCost = usage.cost ?? 0;
       if (rowTokens === 0 && rowCost === 0) return;
       const key = `${employeeId ?? 'root'}\0${model}`;
@@ -105,7 +129,7 @@ export async function loadRunCost(): Promise<RunCost> {
         return fallback;
       }
     };
-    for (const child of parsedRows.filter((row) => row.run_id !== row.root_run_id)) {
+    for (const child of monthlyRows.filter((row) => row.run_id !== row.root_run_id)) {
       add(
         child.employee_id,
         child.employee_name ?? 'Employee',
@@ -114,7 +138,7 @@ export async function loadRunCost(): Promise<RunCost> {
       );
     }
     for (const root of roots) {
-      const descendants = parsedRows.filter(
+      const descendants = monthlyRows.filter(
         (row) => row.root_run_id === root.run_id && row.run_id !== root.run_id,
       );
       const own: Usage = { ...root.usage };
@@ -139,10 +163,18 @@ export async function loadRunCost(): Promise<RunCost> {
           group.tokens > 0 && groupCost === 0 ? 'Cost unavailable' : formatCostLabel(groupCost),
       }))
       .sort((a, b) => b.tokens - a.tokens || a.employeeName.localeCompare(b.employeeName));
-    return { tokens, costLabel, live: roots.length > 0, breakdown };
+    return {
+      tokens,
+      monthlyTokens: tokens,
+      sessionTokens,
+      costLabel,
+      live: roots.length > 0,
+      breakdown,
+      alerts: [],
+    };
   } catch {
     // A missing/renamed table or column should degrade to a non-live zero cost,
     // not surface as a hard query error in the cost UI.
-    return { tokens: 0, costLabel: '$0.00', live: false, breakdown: [] };
+    return empty;
   }
 }

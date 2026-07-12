@@ -32,6 +32,7 @@ export type {
 // ---------------------------------------------------------------------------
 
 export type LoopStatus = 'draft' | 'ready' | 'archived';
+export type LoopScheduleIntervalMinutes = 15 | 60 | 360 | 1440;
 
 export interface LoopDefinition {
   loopId: string;
@@ -43,6 +44,11 @@ export interface LoopDefinition {
   /** The revision currently selected as the Loop's live shape (ready/draft). */
   currentRevisionId?: string;
   status: LoopStatus;
+  /** Null/absent means manual only. Scheduler runs only while the app is visible. */
+  scheduleIntervalMinutes?: LoopScheduleIntervalMinutes;
+  nextRunAt?: string;
+  lastRunAt?: string;
+  lastRunResult?: string;
   createdAt: string;
   updatedAt: string;
 }

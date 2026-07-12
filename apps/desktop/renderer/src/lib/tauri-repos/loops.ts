@@ -54,6 +54,11 @@ export function createLoopTauriRepos(db: TauriDrizzleDb): LoopTauriRepos {
       if (patch.summary !== undefined) set.summary = patch.summary;
       if (patch.status !== undefined) set.status = patch.status;
       if (patch.currentRevisionId !== undefined) set.current_revision_id = patch.currentRevisionId;
+      if (patch.scheduleIntervalMinutes !== undefined)
+        set.schedule_interval_minutes = patch.scheduleIntervalMinutes;
+      if (patch.nextRunAt !== undefined) set.next_run_at = patch.nextRunAt;
+      if (patch.lastRunAt !== undefined) set.last_run_at = patch.lastRunAt;
+      if (patch.lastRunResult !== undefined) set.last_run_result = patch.lastRunResult;
       await db
         .update(schema.loopDefinitions)
         .set(set)

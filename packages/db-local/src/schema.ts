@@ -676,7 +676,8 @@ export const mcpAuditLog = sqliteTable(
   'mcp_audit_log',
   {
     audit_id: text('audit_id').primaryKey(),
-    thread_id: text('thread_id').notNull(),
+    thread_id: text('thread_id')
+      .notNull(),
     task_run_id: text('task_run_id').references(() => taskRuns.task_run_id, {
       onDelete: 'set null',
     }),
@@ -702,7 +703,8 @@ export const toolPermissionApprovals = sqliteTable(
   'tool_permission_approvals',
   {
     approval_id: text('approval_id').primaryKey(),
-    thread_id: text('thread_id').notNull(),
+    thread_id: text('thread_id')
+      .notNull(),
     company_id: text('company_id')
       .notNull()
       .references(() => companies.company_id, { onDelete: 'cascade' }),
@@ -774,8 +776,7 @@ export const nodeSummaries = sqliteTable(
   'node_summaries',
   {
     summary_id: text('summary_id').primaryKey(),
-    thread_id: text('thread_id')
-      .notNull(),
+    thread_id: text('thread_id').notNull(),
     company_id: text('company_id')
       .notNull()
       .references(() => companies.company_id, { onDelete: 'cascade' }),
@@ -802,8 +803,7 @@ export const compactSummaries = sqliteTable(
   'compact_summaries',
   {
     compact_id: text('compact_id').primaryKey(),
-    thread_id: text('thread_id')
-      .notNull(),
+    thread_id: text('thread_id').notNull(),
     company_id: text('company_id')
       .notNull()
       .references(() => companies.company_id, { onDelete: 'cascade' }),
@@ -1405,6 +1405,10 @@ export const loopDefinitions = sqliteTable(
     // must survive an archive that keeps revisions with invocation history.
     current_revision_id: text('current_revision_id'),
     status: text('status').notNull().default('draft'),
+    schedule_interval_minutes: integer('schedule_interval_minutes'),
+    next_run_at: text('next_run_at'),
+    last_run_at: text('last_run_at'),
+    last_run_result: text('last_run_result'),
     created_at: text('created_at').notNull(),
     updated_at: text('updated_at').notNull(),
   },

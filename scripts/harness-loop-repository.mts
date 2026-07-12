@@ -14,6 +14,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { decideLoopSchedule } from '../apps/desktop/renderer/src/runtime/loops/loop-scheduler-policy.ts';
 import {
   type LoopServiceDeps,
   LoopServiceError,
@@ -392,6 +393,10 @@ await check('a duplicate loop_definition id THROWS (no silent drop)', async () =
     profile_id: 'software-development',
     current_revision_id: null,
     status: 'draft',
+    schedule_interval_minutes: null,
+    next_run_at: null,
+    last_run_at: null,
+    last_run_result: null,
     created_at: '2026-01-01T00:00:00.000Z',
     updated_at: '2026-01-01T00:00:00.000Z',
   };
@@ -425,6 +430,48 @@ await check('a duplicate loop_skill_binding id THROWS (no silent drop of a bindi
   const bindings = await repos.loopSkillBindings!.listByRevision('rev-x');
   assert.equal(bindings.length, 1, 'exactly one binding survived');
   assert.equal(bindings[0]!.skill_id, 'sk-1', 'the original binding is intact');
+});
+
+await check('Loop schedule is opt-in, persists next/last state, and never backfills', async () => {
+  const { svc } = freshSystem();
+  const loop = await svc.createLoop({
+    companyId: 'co-1',
+    title: 'Scheduled',
+    profileId: 'software-development',
+  });
+  assert.equal(loop.scheduleIntervalMinutes, undefined, 'new loops are manual-only');
+  const configured = await svc.configureSchedule(loop.loopId, 60);
+  assert.equal(configured.scheduleIntervalMinutes, 60);
+  assert.ok(configured.nextRunAt, 'configuration persists next_run_at');
+  const due = { ...configured, status: 'ready' as const, currentRevisionId: 'rev-1' };
+  const dueMs = Date.parse(due.nextRunAt!);
+  assert.equal(
+    decideLoopSchedule({
+      loop: due,
+      nowMs: dueMs + 1,
+      eligibleSinceMs: dueMs - 1,
+      visible: true,
+      hasProject: true,
+    }),
+    'run',
+  );
+  assert.equal(
+    decideLoopSchedule({
+      loop: due,
+      nowMs: dueMs + 1,
+      eligibleSinceMs: dueMs + 1,
+      visible: true,
+      hasProject: true,
+    }),
+    'skip',
+    'a slot already due when the foreground epoch begins is missed, not backfilled',
+  );
+  const completed = await svc.completeScheduledRun(loop.loopId, 'Started · mission-1');
+  assert.equal(completed.lastRunResult, 'Started · mission-1');
+  assert.ok(completed.lastRunAt);
+  const manual = await svc.configureSchedule(loop.loopId, null);
+  assert.equal(manual.scheduleIntervalMinutes, undefined);
+  assert.equal(manual.nextRunAt, undefined);
 });
 
 if (failed > 0) {

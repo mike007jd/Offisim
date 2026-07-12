@@ -199,6 +199,16 @@
   margin-left: auto;
 }
 
+.off-loop-card-schedule {
+  display: grid;
+  gap: 2px;
+  padding-top: var(--off-sp-2);
+  border-top: 1px solid var(--off-line-soft);
+  font-size: var(--off-fs-meta);
+  color: var(--off-ink-3);
+  text-align: left;
+}
+
 .off-loop-card-actions {
   display: flex;
   align-items: center;

@@ -2,6 +2,7 @@ import { useUiState } from '@/app/ui-state.js';
 import { loadPersistedChatMessages } from '@/data/chat-message-events.js';
 import { invokeCommand } from '@/lib/tauri-commands.js';
 import { getTauriDb } from '@/lib/tauri-db.js';
+import { createTauriVaultFileSystem } from '@/lib/tauri-vault-fs.js';
 import { buildWizardTemplates } from '@/surfaces/lifecycle/template-view.js';
 import type {
   ActivityType,
@@ -28,6 +29,7 @@ import {
 } from './git-workbench.js';
 import { deleteCompanyDeep, deleteConversationDeep } from './local-data-deletion.js';
 import { loadRunCost } from './run-cost.js';
+import { computeTokenBudgetAlerts, loadTokenBudgets } from './token-budgets.js';
 import type { ChatMessage, Deliverable, Employee, FileNode, GitRepoState, Skill } from './types.js';
 
 /**
@@ -318,14 +320,18 @@ export function useEmployeeSkills(employeeId: string | null) {
         repos.skills.listByCompanyScope(companyId ?? ''),
         repos.skills.listByEmployee(companyId ?? '', employeeId),
       ]);
-      return [...companyScoped, ...personal].map<Skill>((row) => ({
-        id: row.skill_id,
-        name: row.name,
-        description: row.description,
-        // DB scope is only 'company' | 'employee'; the view-model's 'global'
-        // tier is never produced by the real source.
-        scope: row.scope === 'employee' ? 'employee' : 'company',
-      }));
+      const vault = createTauriVaultFileSystem();
+      return Promise.all(
+        [...companyScoped, ...personal].map<Promise<Skill>>(async (row) => ({
+          id: row.skill_id,
+          name: row.name,
+          description: row.description,
+          // DB scope is only 'company' | 'employee'; the view-model's 'global'
+          // tier is never produced by the real source.
+          scope: row.scope === 'employee' ? 'employee' : 'company',
+          runtimeInjected: (await vault.stat(row.vault_path).catch(() => null)) !== null,
+        })),
+      );
     },
     enabled: employeeId !== null,
   });
@@ -584,7 +590,26 @@ export async function loadDeliverableBody(deliverable: Deliverable): Promise<str
 }
 
 export function useRunCost() {
-  return useQuery({ queryKey: ['run-cost'], queryFn: loadRunCost });
+  const companyId = useUiState((state) => state.companyId) || null;
+  const threadId = useUiState((state) => state.selectedThreadId);
+  return useQuery({
+    queryKey: ['run-cost', companyId, threadId],
+    queryFn: async () => {
+      const [cost, budgets] = await Promise.all([
+        loadRunCost(companyId, threadId),
+        loadTokenBudgets(companyId),
+      ]);
+      return {
+        ...cost,
+        alerts: computeTokenBudgetAlerts({
+          monthlyTokens: cost.monthlyTokens,
+          sessionTokens: cost.sessionTokens,
+          budgets,
+        }),
+      };
+    },
+    refetchInterval: 15_000,
+  });
 }
 
 /** Real office layout: zones + enabled prefab instances (paired with catalog

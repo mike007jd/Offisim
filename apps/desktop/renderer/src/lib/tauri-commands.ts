@@ -57,6 +57,7 @@ interface PiAgentExecuteRequest {
   permissionMode?: string | null;
   thinkingLevel?: string | null;
   systemPromptAppend?: string | null;
+  skillPaths?: string[] | null;
   rootRunId?: string | null;
   roster?: unknown;
   missionContextJson?: string | null;

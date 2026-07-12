@@ -1,6 +1,7 @@
 import { CommandPalette } from '@/app/CommandPalette.js';
 import { useUiState } from '@/app/ui-state.js';
 import { AppFrame } from '@/design-system/shell/AppFrame.js';
+import { LoopScheduler } from '@/runtime/loops/LoopScheduler.js';
 import { useRealDataBootstrap } from '@/runtime/useRealDataBootstrap.js';
 import { SurfaceRouter } from '@/surfaces/SurfaceRouter.js';
 import { LifecycleSurface } from '@/surfaces/lifecycle/LifecycleSurface.js';
@@ -38,6 +39,7 @@ export function App() {
         </AppFrame>
       )}
       <CommandPalette />
+      <LoopScheduler />
     </>
   );
 }

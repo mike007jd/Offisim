@@ -2,7 +2,7 @@ import { useEmployeeSkills } from '@/data/queries.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { ErrorState, SkeletonRows, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
-import { Puzzle } from 'lucide-react';
+import { CheckCircle2, Puzzle, TriangleAlert } from 'lucide-react';
 
 interface SkillsTabProps {
   employeeId: string;
@@ -43,6 +43,18 @@ export function SkillsTab({ employeeId }: SkillsTabProps) {
                   </span>
                 </div>
                 <p className="off-pers-skrow-desc">{skill.description}</p>
+                <span
+                  className={
+                    skill.runtimeInjected
+                      ? 'off-pers-sk-runtime is-ready'
+                      : 'off-pers-sk-runtime is-missing'
+                  }
+                >
+                  <Icon icon={skill.runtimeInjected ? CheckCircle2 : TriangleAlert} size="sm" />
+                  {skill.runtimeInjected
+                    ? 'Injected into Pi runtime'
+                    : 'SKILL.md missing — not injected'}
+                </span>
               </div>
             </div>
           ))

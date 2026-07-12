@@ -1,5 +1,6 @@
 import type { EmployeeAppearance } from '@/lib/avatar.js';
 import type { AttachmentKind, RoleSlug, VaultRef } from '@offisim/shared-types';
+import type { TokenBudgetAlert } from './token-budget-policy.js';
 
 export type { EmployeeAppearance };
 
@@ -228,9 +229,12 @@ export type GitRepoState =
 
 export interface RunCost {
   tokens: number;
+  monthlyTokens: number;
+  sessionTokens: number;
   costLabel: string;
   live: boolean;
   breakdown: RunCostBreakdown[];
+  alerts: TokenBudgetAlert[];
 }
 
 export interface RunCostBreakdown {
@@ -255,6 +259,9 @@ export interface Skill {
   name: string;
   description: string;
   scope: 'global' | 'company' | 'employee';
+  /** True only when the vault-authoritative SKILL.md exists and will be passed
+   * to Pi's native resource loader at session creation. */
+  runtimeInjected: boolean;
 }
 
 /** A recoverable chat run failure. Drives the in-thread ErrorBanner. */

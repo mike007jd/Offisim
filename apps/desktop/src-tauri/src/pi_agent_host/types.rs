@@ -38,6 +38,10 @@ pub struct PiAgentExecuteRequest {
     /// host hands it to the resource loader. Absent → Pi uses its base prompt.
     #[serde(default)]
     pub(super) system_prompt_append: Option<String>,
+    /// Absolute vault SKILL.md paths for the acting employee. The renderer
+    /// resolves company + employee scope; Rust forwards them opaquely.
+    #[serde(default)]
+    pub(super) skill_paths: Option<Vec<String>>,
     /// Root run id for this user turn (the renderer's controller attemptId). The
     /// delegation supervisor stamps every child `agentRun` event with it so the
     /// renderer can graft children under the root. Absent → no delegation scope.

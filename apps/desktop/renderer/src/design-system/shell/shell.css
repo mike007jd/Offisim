@@ -47,6 +47,36 @@
   backdrop-filter: blur(var(--off-blur-sm));
 }
 
+.off-topbar-cost {
+  margin-left: auto;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+  padding: 0 var(--off-sp-3);
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-pill);
+  background: var(--off-surface-2);
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-meta);
+  white-space: nowrap;
+}
+
+.off-topbar-cost svg {
+  width: 14px;
+  height: 14px;
+}
+
+.off-topbar-cost.is-warning {
+  color: var(--off-warn);
+  border-color: color-mix(in srgb, var(--off-warn) 38%, var(--off-line));
+}
+
+.off-topbar-cost.is-critical {
+  color: var(--off-danger);
+  border-color: color-mix(in srgb, var(--off-danger) 42%, var(--off-line));
+}
+
 .off-surface-host {
   position: relative;
   min-height: 0;

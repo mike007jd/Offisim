@@ -1075,6 +1075,12 @@ async function runPrompt(payload) {
   // DefaultResourceLoader whenever there's a permission gate OR a persona, and
   // merge both into it so Pi receives a single loader.
   const systemPromptAppend = asNonEmptyString(payload.systemPromptAppend);
+  // Vault-authoritative employee skills use Pi's native discovery contract.
+  // The renderer resolves the effective company + employee scope and Rust
+  // forwards absolute SKILL.md paths; the loader parses and injects them.
+  const skillPaths = Array.isArray(payload.skillPaths)
+    ? payload.skillPaths.filter((path) => typeof path === 'string' && path.trim())
+    : [];
   // Delegation: when the renderer supplies a root run id + thread id + a non-empty
   // company roster, register the `delegate` tool so the root agent can hand bounded
   // subtasks to teammates. Children are built in-process by the supervisor (see
@@ -1237,8 +1243,11 @@ async function runPrompt(payload) {
           return effectiveRootModel;
         },
         rootThinkingLevel: thinkingLevel,
+        permissionMode,
         resolveModel: (modelId) => selectedModel(modelRegistry, modelId),
         buildPermissionGate,
+        bindChildUi: (session) =>
+          session.bindExtensions({ uiContext: createForwardingUiContext(), mode: 'rpc' }),
         limits: createDelegationLimits(),
         leaseManager,
         rootLease,
@@ -1297,6 +1306,7 @@ async function runPrompt(payload) {
       settingsManager,
       ...(extensionFactories.length > 0 ? { extensionFactories } : {}),
       ...(appendSystemPrompt.length > 0 ? { appendSystemPrompt } : {}),
+      ...(skillPaths.length > 0 ? { additionalSkillPaths: skillPaths } : {}),
     });
     await resourceLoader.reload();
   }

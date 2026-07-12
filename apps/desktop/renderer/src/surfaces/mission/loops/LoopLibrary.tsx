@@ -1,7 +1,13 @@
 import { useUiState } from '@/app/ui-state.js';
 import { openLoopInOffice } from '@/assistant/composer/open-loop-in-office.js';
 import { startLoopAsParallelProjectRun } from '@/assistant/runtime/loop-send-execution.js';
-import { useArchiveLoop, useCreateLoop, useDuplicateLoop, useLoops } from '@/data/loops.js';
+import {
+  useArchiveLoop,
+  useConfigureLoopSchedule,
+  useCreateLoop,
+  useDuplicateLoop,
+  useLoops,
+} from '@/data/loops.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import {
@@ -21,7 +27,7 @@ import {
   errorDetail,
 } from '@/surfaces/shared/SurfaceStates.js';
 import { DEFAULT_COMPILER_PROFILE_ID, listCompilerProfiles } from '@offisim/core/browser';
-import type { LoopDefinition } from '@offisim/shared-types';
+import type { LoopDefinition, LoopScheduleIntervalMinutes } from '@offisim/shared-types';
 import {
   Copy,
   Filter,
@@ -30,8 +36,8 @@ import {
   Repeat,
   Search,
   Send,
-  SquarePlay,
   SquareArrowOutUpRight,
+  SquarePlay,
   Trash2,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -70,6 +76,23 @@ function timeAgo(iso: string): string {
   const hours = Math.floor(mins / 60);
   if (hours < 24) return `${hours}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
+}
+
+const SCHEDULE_LABELS: ReadonlyArray<{
+  value: 'manual' | `${LoopScheduleIntervalMinutes}`;
+  label: string;
+}> = [
+  { value: 'manual', label: 'Manual only' },
+  { value: '15', label: 'Every 15 minutes' },
+  { value: '60', label: 'Every hour' },
+  { value: '360', label: 'Every 6 hours' },
+  { value: '1440', label: 'Every 24 hours' },
+];
+
+function scheduleTime(iso: string | undefined): string {
+  if (!iso) return '—';
+  const value = new Date(iso);
+  return Number.isNaN(value.getTime()) ? '—' : value.toLocaleString();
 }
 
 interface LoopLibraryProps {
@@ -233,6 +256,7 @@ function LoopCard({
 }) {
   const duplicate = useDuplicateLoop(companyId);
   const archive = useArchiveLoop(companyId);
+  const configureSchedule = useConfigureLoopSchedule(companyId);
   const projectId = useUiState((s) => s.projectId) || null;
   const [starting, setStarting] = useState(false);
   const status = STATUS_VIEW[loop.status];
@@ -283,6 +307,16 @@ function LoopCard({
           </span>
           <span className="off-loop-card-time">{timeAgo(loop.updatedAt)}</span>
         </div>
+        <div className="off-loop-card-schedule">
+          <span>
+            {loop.scheduleIntervalMinutes ? `Next ${scheduleTime(loop.nextRunAt)}` : 'Manual only'}
+          </span>
+          <span>
+            {loop.lastRunAt
+              ? `Last ${scheduleTime(loop.lastRunAt)} · ${loop.lastRunResult ?? 'completed'}`
+              : 'No scheduled run yet'}
+          </span>
+        </div>
       </button>
       <div className="off-loop-card-actions">
         <Button variant="subtle" size="sm" onClick={onOpen}>
@@ -326,6 +360,35 @@ function LoopCard({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuRadioGroup
+              value={loop.scheduleIntervalMinutes ? String(loop.scheduleIntervalMinutes) : 'manual'}
+              onValueChange={(value) =>
+                configureSchedule.mutate(
+                  {
+                    loopId: loop.loopId,
+                    intervalMinutes:
+                      value === 'manual' ? null : (Number(value) as LoopScheduleIntervalMinutes),
+                  },
+                  {
+                    onSuccess: () =>
+                      toast.success(
+                        value === 'manual' ? 'Loop set to manual' : 'Loop schedule updated',
+                      ),
+                    onError: (error) =>
+                      toast.error(
+                        error instanceof Error ? error.message : 'Schedule update failed',
+                      ),
+                  },
+                )
+              }
+            >
+              {SCHEDULE_LABELS.map((option) => (
+                <DropdownMenuRadioItem key={option.value} value={option.value}>
+                  {option.label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+            <DropdownMenuSeparator />
             <DropdownMenuItem
               onSelect={() =>
                 duplicate.mutate(loop, {

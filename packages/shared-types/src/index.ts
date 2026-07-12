@@ -291,6 +291,7 @@ export type {
 export type {
   LoopDefinition,
   LoopStatus,
+  LoopScheduleIntervalMinutes,
   LoopRevision,
   LoopCompileStatus,
   LoopCompileQuestion,

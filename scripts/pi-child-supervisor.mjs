@@ -30,6 +30,7 @@ import {
   assertRunFailureKind,
   classifyRunFailure,
 } from './pi-agent-host-wire.mjs';
+import { normalizePermissionMode, toolAllowlistForMode } from './pi-agent-permission-modes.mts';
 import { createDelegationExtensionFactory } from './pi-delegation-extension.mjs';
 
 // Capability band → child tool allowlist. `write` returns undefined so Pi enables
@@ -39,6 +40,19 @@ const ACCESS_TOOLS = {
   review: ['read', 'grep', 'find', 'ls', 'bash'],
   write: undefined,
 };
+
+/** Intersect the delegated access band with the root conversation's permission
+ * mode. `undefined` preserves Pi's default tool set for write+auto/full/ask. */
+export function childToolsForPermissionMode(access, permissionMode) {
+  const accessTools = ACCESS_TOOLS[access];
+  const permissionTools = toolAllowlistForMode(normalizePermissionMode(permissionMode));
+  const workTools = permissionTools
+    ? accessTools
+      ? permissionTools.filter((tool) => accessTools.includes(tool))
+      : [...permissionTools]
+    : accessTools;
+  return workTools ? [...new Set([...workTools, 'delegate'])] : undefined;
+}
 
 // Model-visible output caps. Full transcript / tool timeline / usage stay in the
 // telemetry events; only a bounded, structured summary reaches the root's model
@@ -349,7 +363,9 @@ async function mapWithConcurrencyLimit(items, limit, fn) {
  * @param {(modelId?: string) => object|undefined} ctx.resolveModel
  * @param {object|undefined} [ctx.rootModel] model explicitly selected for the parent run
  * @param {string|undefined} [ctx.rootThinkingLevel] thinking level selected for the parent run
+ * @param {string|undefined} [ctx.permissionMode] root conversation permission mode inherited by every child
  * @param {(mode: string) => ((pi: unknown) => void)|null} ctx.buildPermissionGate
+ * @param {(session: object) => Promise<void>} [ctx.bindChildUi] binds the existing renderer approval channel for Ask children
  * @param {typeof createAgentSession} [ctx.createAgentSession] deterministic harness seam
  * @param {(options: object) => {reload: () => Promise<void>}} [ctx.createResourceLoader]
  * @param {(cwd: string) => object} [ctx.createSessionManager]
@@ -620,18 +636,18 @@ export function createChildSupervisor(ctx) {
     // orchestration capability, not a work tool, so it must survive the allowlist
     // — otherwise a restricted-access child silently loses its delegate tool and
     // can never recurse. `write` (undefined = all tools) already includes it.
-    const accessTools = ACCESS_TOOLS[access];
-    const tools = accessTools ? [...accessTools, 'delegate'] : accessTools;
+    const permissionMode = normalizePermissionMode(ctx.permissionMode);
+    const tools = childToolsForPermissionMode(access, permissionMode);
     const persona =
       typeof employee.persona === 'string' && employee.persona.trim()
         ? employee.persona.trim()
         : undefined;
     const { model, thinkingLevel } = binding;
+    const skillPaths = Array.isArray(employee.skillPaths)
+      ? employee.skillPaths.filter((path) => typeof path === 'string' && path.trim())
+      : [];
 
-    // Children always run under the Auto gate: a no-op for read access (no bash
-    // tool) and a catastrophic-bash block for review/write — without needing a UI
-    // binding the headless child can't satisfy.
-    const gateFactory = ctx.buildPermissionGate ? ctx.buildPermissionGate('auto') : null;
+    const gateFactory = ctx.buildPermissionGate ? ctx.buildPermissionGate(permissionMode) : null;
     // Controlled recursion: the child receives its own delegate tool, one level
     // deeper, parented at this child's runId. The depth cap in runSingle stops it
     // going past maxDepth.
@@ -721,6 +737,7 @@ export function createChildSupervisor(ctx) {
             appendSystemPrompt: persona
               ? [persona, CHILD_RESULT_GUIDANCE]
               : [CHILD_RESULT_GUIDANCE],
+            ...(skillPaths.length > 0 ? { additionalSkillPaths: skillPaths } : {}),
           })
         : new DefaultResourceLoader({
             cwd: childCwd,
@@ -731,6 +748,7 @@ export function createChildSupervisor(ctx) {
             appendSystemPrompt: persona
               ? [persona, CHILD_RESULT_GUIDANCE]
               : [CHILD_RESULT_GUIDANCE],
+            ...(skillPaths.length > 0 ? { additionalSkillPaths: skillPaths } : {}),
           });
       await resourceLoader.reload();
       const createSession = ctx.createAgentSession ?? createAgentSession;
@@ -747,6 +765,9 @@ export function createChildSupervisor(ctx) {
         ...(tools ? { tools } : {}),
         resourceLoader,
       }));
+      if (permissionMode === 'ask' && ctx.bindChildUi) {
+        await ctx.bindChildUi(session);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (lease) {

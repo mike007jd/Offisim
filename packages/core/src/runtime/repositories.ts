@@ -539,8 +539,18 @@ export interface McpToolGrantRepository {
     toolName: string,
     risk: Pick<McpToolGrantRow, 'risk_class' | 'risk_source' | 'trusted_server_id'>,
   ): Promise<McpToolGrantRow | null>;
-  delete(companyId: string, employeeId: string, serverName: string, toolName: string): Promise<void>;
-  hasGrant(companyId: string, employeeId: string, serverName: string, toolName: string): Promise<boolean>;
+  delete(
+    companyId: string,
+    employeeId: string,
+    serverName: string,
+    toolName: string,
+  ): Promise<void>;
+  hasGrant(
+    companyId: string,
+    employeeId: string,
+    serverName: string,
+    toolName: string,
+  ): Promise<boolean>;
 }
 
 export type ToolPermissionApprovalScope = 'once' | 'thread';
@@ -1374,6 +1384,10 @@ export interface LoopDefinitionRow {
   profile_id: string;
   current_revision_id: string | null;
   status: string;
+  schedule_interval_minutes: number | null;
+  next_run_at: string | null;
+  last_run_at: string | null;
+  last_run_result: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -1431,6 +1445,10 @@ export interface LoopDefinitionUpdate {
   status?: string;
   /** `null` clears the selected revision; `undefined` leaves it unchanged. */
   currentRevisionId?: string | null;
+  scheduleIntervalMinutes?: number | null;
+  nextRunAt?: string | null;
+  lastRunAt?: string | null;
+  lastRunResult?: string | null;
   /** ISO timestamp to stamp `updated_at`; caller supplies. */
   updatedAt: string;
 }

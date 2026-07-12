@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Check, ChevronRight, Download, FolderOpen, Package } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { TokenBudgetSettingsCard } from './TokenBudgetSettingsCard.js';
 
 interface RuntimeVaultStatus {
   readonly path: string;
@@ -158,6 +159,13 @@ export function RuntimePane() {
             </span>
           </div>
         </CardBlock>
+      </section>
+
+      <section className="off-set-sec">
+        <div className="off-set-sec-head">
+          <CapsLabel>Cost alerts</CapsLabel>
+        </div>
+        <TokenBudgetSettingsCard />
       </section>
 
       {/* Advanced — genuinely local actions only. */}
