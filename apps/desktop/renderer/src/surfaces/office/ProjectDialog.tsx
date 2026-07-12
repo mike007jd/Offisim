@@ -244,7 +244,7 @@ export function ProjectDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={save} disabled={saving}>
+          <Button className="off-project-save" onClick={save} disabled={saving}>
             {saving ? 'Saving...' : 'Save'}
           </Button>
         </DialogFooter>

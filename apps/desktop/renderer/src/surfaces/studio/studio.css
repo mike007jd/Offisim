@@ -414,3 +414,12 @@
   padding-top: var(--off-sp-3);
   border-top: 1px solid var(--off-line-soft);
 }
+
+.off-studio-danger [data-slot="button"] {
+  flex: 1;
+}
+
+.off-studio-delete-cancel.is-placeholder {
+  visibility: hidden;
+  pointer-events: none;
+}

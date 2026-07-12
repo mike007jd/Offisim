@@ -66,11 +66,17 @@ function ConfirmDeleteButton({
         <Icon icon={Trash2} size="sm" />
         {armed ? 'Confirm delete' : label}
       </Button>
-      {armed ? (
-        <Button variant="ghost" size="sm" onClick={() => setArmed(false)}>
-          Cancel
-        </Button>
-      ) : null}
+      <Button
+        variant="ghost"
+        size="sm"
+        className={armed ? 'off-studio-delete-cancel' : 'off-studio-delete-cancel is-placeholder'}
+        disabled={!armed}
+        aria-hidden={!armed}
+        tabIndex={armed ? 0 : -1}
+        onClick={() => setArmed(false)}
+      >
+        Cancel
+      </Button>
     </>
   );
 }

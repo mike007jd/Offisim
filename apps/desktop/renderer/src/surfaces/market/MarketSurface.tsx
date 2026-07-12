@@ -308,7 +308,9 @@ export function MarketSurface() {
     <div className={cn('off-market', detailOpen && 'is-detail-mode')}>
       <div className="off-mkt-fbar">
         <div className="off-mkt-fbar-main">
-          {registryNotConnected && mode === 'explore' ? null : (
+          {registryNotConnected && mode === 'explore' ? (
+            <div className="off-mkt-search off-mkt-search-placeholder" aria-hidden="true" />
+          ) : (
             <SearchInput
               value={query}
               onChange={setQuery}

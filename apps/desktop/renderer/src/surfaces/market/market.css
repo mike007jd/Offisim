@@ -62,6 +62,10 @@
   max-width: 360px;
 }
 
+.off-mkt-search-placeholder {
+  height: var(--off-button-h-md);
+}
+
 /* ── Grid wrap + scroll ───────────────────────────────────────────────── */
 .off-mkt-grid-wrap {
   flex: 1;
@@ -1280,6 +1284,7 @@
   text-transform: lowercase;
 }
 .off-bind-skip {
+  width: 72px;
   height: 22px;
   padding: 0 8px;
   border: 0;
@@ -1482,6 +1487,10 @@
   gap: var(--off-sp-3);
   padding-top: var(--off-sp-5);
   border-top: 1px solid var(--off-line-soft);
+}
+
+.off-pub-submit {
+  width: 112px;
 }
 
 /* source picker */
