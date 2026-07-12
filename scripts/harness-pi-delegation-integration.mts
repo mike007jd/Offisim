@@ -48,6 +48,11 @@ try {
       git(path, ['diff', '--name-only', rootHead(), 'HEAD']).split('\n').filter(Boolean),
     diffText: (path, changedPath) =>
       git(path, ['diff', '--unified=3', rootHead(), 'HEAD', '--', changedPath]),
+    commitAll: (path, message) => {
+      if (git(path, ['status', '--porcelain']).length === 0) return;
+      git(path, ['add', '--all']);
+      git(path, ['commit', '-m', message]);
+    },
     merge: (branch): MergeResult => {
       try {
         git(repo, ['merge', '--no-ff', '--no-edit', branch]);
@@ -103,6 +108,35 @@ try {
   assert.equal(existsSync(childLease.cwd), false, 'isolated worktree must be removed');
   assert.equal(leaseManager.getLease(childLease.leaseId)?.status, 'released');
   assert.deepEqual(phases, ['planned', 'integrated', 'released_after_merge']);
+
+  // A child that edits but never commits (model behavior, not a guarantee —
+  // caught live 2026-07-12 with a free-tier executor): the deterministic
+  // commitAll safety net in planIntegration must still land the work.
+  const uncommittedAcquire = await leaseManager.acquireChildLease({
+    rootLease,
+    runId: 'run-uncommitted-write',
+    access: 'write',
+  });
+  assert.equal(uncommittedAcquire.outcome, 'granted');
+  if (uncommittedAcquire.outcome !== 'granted') throw new Error('write lease was not granted');
+  const uncommittedLease = uncommittedAcquire.lease;
+  writeFileSync(join(uncommittedLease.cwd, 'uncommitted-artifact.txt'), 'never committed\n');
+  const uncommittedSummary = await integrateCompletedDelegation({
+    tasks: [{ access: 'write' }],
+    runIds: ['run-uncommitted-write'],
+    leaseManager,
+    rootLease,
+    confirmIntegration: async () => true,
+    emitSnapshot: async () => {},
+  });
+  assert.match(uncommittedSummary, /Merged 1 write lease/);
+  assert.equal(
+    readFileSync(join(repo, 'uncommitted-artifact.txt'), 'utf8'),
+    'never committed\n',
+    'an uncommitted child edit must be auto-committed and merged, not silently dropped',
+  );
+  assert.equal(leaseManager.getLease(uncommittedLease.leaseId)?.status, 'released');
+  console.log('PASS uncommitted child edit auto-committed and merged');
 
   const supervisorSource = readFileSync(
     fileURLToPath(new URL('./pi-child-supervisor.mjs', import.meta.url)),

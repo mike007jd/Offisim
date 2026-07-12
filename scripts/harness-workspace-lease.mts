@@ -103,6 +103,8 @@ interface FakeGit extends GitWorktreeOps {
   readonly removed: string[];
   /** Branches merged via merge, in order. */
   readonly mergedBranches: string[];
+  /** cwds commitAll was invoked on, in order (planIntegration safety net). */
+  readonly committed: string[];
 }
 
 function makeFakeGit(config: FakeGitConfig): FakeGit {
@@ -110,6 +112,7 @@ function makeFakeGit(config: FakeGitConfig): FakeGit {
   const createdBranches: string[] = [];
   const removed: string[] = [];
   const mergedBranches: string[] = [];
+  const committed: string[] = [];
   const changedPaths = config.changedPaths ?? new Map<string, string[]>();
   const mergeResults = config.mergeResults ?? new Map<string, MergeResult>();
 
@@ -118,6 +121,7 @@ function makeFakeGit(config: FakeGitConfig): FakeGit {
     createdBranches,
     removed,
     mergedBranches,
+    committed,
     isGitRepo: () => config.isGit,
     addWorktree: (branch: string, path: string) => {
       liveWorktrees.add(path);
@@ -135,6 +139,9 @@ function makeFakeGit(config: FakeGitConfig): FakeGit {
     diff: (path: string) => changedPaths.get(path) ?? [],
     diffText: (_path: string, changedPath: string) =>
       `diff --git a/${changedPath} b/${changedPath}`,
+    commitAll: (path: string) => {
+      committed.push(path);
+    },
     merge: (branch: string) => {
       mergedBranches.push(branch);
       return mergeResults.get(branch) ?? { ok: true, conflicts: [] };
@@ -309,6 +316,15 @@ await check(
     // Mergeable leases moved to pending_review.
     assert.equal(mgr.getLease(a.leaseId)?.status, 'pending_review', 'lease a awaiting review');
     assert.equal(mgr.getLease(b.leaseId)?.status, 'pending_review', 'lease b awaiting review');
+    // Deterministic commit safety net: merge carries committed work only, so
+    // planIntegration must commit each isolated writable worktree before it
+    // reads diffs (a child that edited but never committed would otherwise
+    // review empty and merge nothing — caught live 2026-07-12).
+    assert.deepEqual(
+      git.committed,
+      [a.cwd, b.cwd],
+      'planIntegration commits every isolated writable worktree before diffing',
+    );
   },
 );
 
@@ -698,6 +714,7 @@ await check(
       'worktreeChanged',
       'diff',
       'diffText',
+      'commitAll',
       'merge',
     ] as const) {
       assert.equal(typeof ops[method], 'function', `adapter exposes ${method}()`);

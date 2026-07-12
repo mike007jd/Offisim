@@ -320,6 +320,17 @@ export function createWorkspaceLeaseManager(
     // Only WRITABLE leases integrate — read/review leases produce nothing to merge.
     const writable = childLeases.filter((l) => l.access === 'write');
 
+    // Merge carries COMMITTED work only, and the overlap detection below reads
+    // committed diffs. A child is instructed to commit its own work, but that is
+    // model behavior, not a guarantee — deterministically commit any uncommitted
+    // remainder first so review, overlap detection, and merge all see the same
+    // complete change set. Only isolated worktrees: a non-isolated write lease
+    // edits the user's root checkout, which is never auto-committed.
+    for (const lease of writable) {
+      if (!lease.isolated) continue;
+      await gitOps.commitAll(lease.cwd, `offisim: delegated work (${lease.runId})`);
+    }
+
     // Compute each writable lease's changed paths once.
     const changedByLease = new Map<string, Set<string>>();
     for (const lease of writable) {

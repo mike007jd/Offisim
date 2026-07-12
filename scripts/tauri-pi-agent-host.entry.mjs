@@ -150,6 +150,9 @@ function createHostGitWorktreeOps(requestWorktreeResult) {
       const result = await call('diffText', { path, changedPath });
       return typeof result === 'string' ? result : '';
     },
+    async commitAll(path, message) {
+      await call('commitAll', { path, message });
+    },
     async merge(branch) {
       const result = await call('merge', { branch });
       return {

@@ -127,6 +127,19 @@ export function createTauriGitWorktreeOps(input: TauriGitWorktreeOpsInput): GitW
         .join('\n');
     },
 
+    async commitAll(path: string, message: string): Promise<void> {
+      // The whitelist takes explicit pathspecs only (no `add -A`), so stage
+      // exactly what porcelain reports. No-op on a clean worktree.
+      const status = await run(['status', '--porcelain'], path);
+      if (!status.ok) throw new Error(`git status failed: ${status.stderr.trim()}`);
+      const paths = parsePorcelainPaths(status.stdout);
+      if (paths.length === 0) return;
+      const add = await run(['add', '--', ...paths], path);
+      if (!add.ok) throw new Error(`git add failed: ${add.stderr.trim()}`);
+      const commit = await run(['commit', '-m', message], path);
+      if (!commit.ok) throw new Error(`git commit failed: ${commit.stderr.trim()}`);
+    },
+
     async merge(branch: string): Promise<MergeResult> {
       // A non-ok result with conflict markers in stderr/stdout is reported as a
       // conflict (NOT an overwrite — the manager surfaces it).

@@ -123,6 +123,10 @@ export interface GitWorktreeOps {
   diff(path: string): string[] | Promise<string[]>;
   /** The review patch for one changed path, scoped to the worktree cwd. */
   diffText(path: string, changedPath: string): string | Promise<string>;
+  /** Stage and commit every uncommitted change in the worktree at `path`
+   *  (no-op when clean). Merge carries committed work only; this is the
+   *  deterministic safety net for a child that edited but never committed. */
+  commitAll(path: string, message: string): void | Promise<void>;
   /** Merge `branch` into the root (WI-005). Reports conflicts; never overwrites. */
   merge(branch: string): MergeResult | Promise<MergeResult>;
 }

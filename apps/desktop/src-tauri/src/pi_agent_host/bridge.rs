@@ -229,6 +229,43 @@ async fn run_worktree_op(
                 Err(nonzero_git_error(result))
             }
         }
+        "commitAll" => {
+            // Merge carries committed work only; deterministically commit a
+            // child's uncommitted remainder. The git whitelist takes explicit
+            // pathspecs (no `add -A`), so stage exactly what porcelain reports.
+            let path = worktree_arg(&args, "path")?;
+            let message = worktree_arg(&args, "message")?;
+            let cwd = PathBuf::from(path);
+            let status = crate::git::run_git_validated(
+                vec!["status".into(), "--porcelain".into()],
+                root,
+                Some(&cwd),
+            )
+            .await?;
+            if !status.ok {
+                return Err(nonzero_git_error(status));
+            }
+            let paths = parse_porcelain_paths(&status.stdout);
+            if paths.is_empty() {
+                return Ok(serde_json::json!({ "ok": true, "committed": false }));
+            }
+            let mut add_args: Vec<String> = vec!["add".into(), "--".into()];
+            add_args.extend(paths);
+            let add = crate::git::run_git_validated(add_args, root, Some(&cwd)).await?;
+            if !add.ok {
+                return Err(nonzero_git_error(add));
+            }
+            let commit = crate::git::run_git_validated(
+                vec!["commit".into(), "-m".into(), message],
+                root,
+                Some(&cwd),
+            )
+            .await?;
+            if !commit.ok {
+                return Err(nonzero_git_error(commit));
+            }
+            Ok(serde_json::json!({ "ok": true, "committed": true }))
+        }
         "diff" => {
             let path = worktree_arg(&args, "path")?;
             let cwd = PathBuf::from(path);
@@ -328,6 +365,26 @@ fn parse_line_paths(stdout: &str) -> Vec<String> {
         .filter(|line| !line.is_empty())
         .map(ToOwned::to_owned)
         .collect()
+}
+
+/// Paths from `git status --porcelain` v1 output: strip the two status columns
+/// and the separator; a rename entry (`R  old -> new`) yields the new side.
+fn parse_porcelain_paths(stdout: &str) -> Vec<String> {
+    let mut paths = Vec::new();
+    for line in stdout.lines() {
+        if line.len() <= 3 || line.starts_with("##") {
+            continue;
+        }
+        let entry = line[3..].trim();
+        let path = match entry.split_once(" -> ") {
+            Some((_, renamed)) => renamed,
+            None => entry,
+        };
+        if !path.is_empty() {
+            paths.push(path.to_string());
+        }
+    }
+    paths
 }
 
 fn parse_conflict_paths(stdout: &str, stderr: &str) -> Vec<String> {
