@@ -15,11 +15,11 @@
 |---|---|---|---|
 | Offisim is a desktop-only Tauri product; final verification must use the release `.app`. | TRUE | `AGENTS.md`; `Docs/00_start_here/RELEASE_GATES.md` | Build and launch the exact worktree app path before UI PASS. |
 | Pi Agent is the only active runtime; Offisim must not restore provider/model catalogs or alternate SDK lanes. | TRUE | `AGENTS.md`; `Docs/UI_FRAMEWORK_STACK.md`; `Docs/FEATURES.md` | Settings and runtime checks focus on Pi config/auth/model summary only. |
-| User-visible navigation contains Office, Connect, Loops, Market, Personnel, Activity, Tasks, Settings, Studio. | TRUE | `apps/desktop/renderer/src/app/nav-registry.ts`; `apps/desktop/renderer/src/surfaces/SurfaceRouter.tsx` | Inventory covers every nav entry, not only Office. |
+| User-visible navigation contains Office, Connect, Loops, Market, Personnel, Settings, and Studio; Board and Timeline live inside Office. | TRUE | `apps/desktop/renderer/src/app/nav-registry.ts`; `apps/desktop/renderer/src/surfaces/SurfaceRouter.tsx`; `apps/desktop/renderer/src/surfaces/office/board/BoardStage.tsx` | Inventory covers every nav entry and the Office Board lens. |
 | Connect is company chat, isolated from Office project work. | TRUE | `Docs/FEATURES.md`; `apps/desktop/renderer/src/surfaces/workspace/apps/MessengerApp.tsx` | Connect tests must not expect project tools or Office thread state. |
 | Loops are reusable authoring artifacts; run materialization happens through Office send/start. | TRUE | `Docs/FEATURES.md`; `apps/desktop/renderer/src/surfaces/mission/MissionSurface.tsx`; `LoopLibrary.tsx`; `LoopEditor.tsx` | Live verify covers library/editor gates and stops before external Pi-dependent compile if auth is absent. |
 | Market publish/install/registry token paths can mutate shared state or require credentials. | TRUE | `MarketSurface.tsx` | Verify dialogs and safe-stop states, not final publish/install/token save without explicit approval. |
-| Task Board merge/discard worktree actions are destructive/shared-state actions. | TRUE | `TaskBoardSurface.tsx` | Verify review UI up to first confirmation only. |
+| Office Board merge/discard worktree actions are destructive/shared-state actions. | TRUE | `apps/desktop/renderer/src/surfaces/office/board/BoardStage.tsx` | Verify review UI up to first confirmation only. |
 | Project workspace browsing must go through sandboxed Tauri commands. | TRUE | `AGENTS.md`; `desktop-agent-runtime.ts`; `evaluation-context.ts` | Live verify records project scope and workspace folder behavior without direct webview fs access. |
 
 ## Plan Packet

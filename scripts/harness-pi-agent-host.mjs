@@ -248,7 +248,7 @@ assert(
   // string; if either side drifts, the board silently bypasses the live approval
   // and double-drives the lease pipeline. Lock the literal on both sides.
   const leaseActionsSource = readFileSync(
-    'apps/desktop/renderer/src/surfaces/tasks/workspace-lease-actions.ts',
+    'apps/desktop/renderer/src/surfaces/office/board/workspace-lease-actions.ts',
     'utf8',
   );
   assert(

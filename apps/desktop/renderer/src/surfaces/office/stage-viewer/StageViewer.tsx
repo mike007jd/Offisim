@@ -14,6 +14,8 @@ import { Icon } from '@/design-system/icons/Icon.js';
 import { Popover, PopoverContent, PopoverTrigger } from '@/design-system/primitives/popover.js';
 import { cn } from '@/lib/utils.js';
 import { BoardPendingReviewAutoOpen, BoardStage } from '@/surfaces/office/board/BoardStage.js';
+import { DiffPanel } from '@/surfaces/office/board/DiffPanel.js';
+import { useProjectWorkspaceLeaseReviews } from '@/surfaces/office/board/task-board-data.js';
 import { ComputerView } from '@/surfaces/office/computer/ComputerView.js';
 import { WorkBench } from '@/surfaces/office/scene/work-bench/WorkBench.js';
 import { StagePreviewPane } from '@/surfaces/office/stage-preview/StagePreviewPane.js';
@@ -26,8 +28,6 @@ import {
   StageChromeProvider,
   useStageChrome,
 } from '@/surfaces/office/stage-viewer/stage-chrome.js';
-import { DiffPanel } from '@/surfaces/tasks/DiffPanel.js';
-import { useProjectWorkspaceLeaseReviews } from '@/surfaces/tasks/task-board-data.js';
 import type { DramaturgyMode, ToolRichDetail } from '@offisim/shared-types';
 import {
   Box,

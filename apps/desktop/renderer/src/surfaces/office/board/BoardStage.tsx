@@ -8,34 +8,11 @@ import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 import { getRepos } from '@/runtime/repos.js';
 import {
-  type ActivityRecord,
-  collapseReroutes,
-  domainIcon,
-  formatRelativeTimestamp,
-  getDisplaySummary,
-  getEventLevel,
-  groupByTime,
-  useActivityRecords,
-} from '@/surfaces/activity/activity-data.js';
-import {
   EmptyState,
   ErrorState,
   SkeletonRows,
   errorDetail,
 } from '@/surfaces/shared/SurfaceStates.js';
-import {
-  type TaskBoardRow,
-  type TaskBoardStatus,
-  type WorkspaceLeaseReviewRow,
-  buildProjectWorkspaceLeaseReviewRows,
-  useProjectWorkspaceLeaseReviews,
-  useTaskBoard,
-} from '@/surfaces/tasks/task-board-data.js';
-import {
-  appendWorkspaceLeaseAction,
-  requestWorkspaceLeaseChanges,
-  reviewWorkspaceLease,
-} from '@/surfaces/tasks/workspace-lease-actions.js';
 import { useQuery } from '@tanstack/react-query';
 import {
   AlertTriangle,
@@ -52,6 +29,29 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import {
+  type ActivityRecord,
+  collapseReroutes,
+  domainIcon,
+  formatRelativeTimestamp,
+  getDisplaySummary,
+  getEventLevel,
+  groupByTime,
+  useActivityRecords,
+} from './activity-data.js';
+import {
+  type TaskBoardRow,
+  type TaskBoardStatus,
+  type WorkspaceLeaseReviewRow,
+  useProjectWorkspaceLeaseReviews,
+  useTaskBoard,
+  workspaceLeaseReviewsQueryOptions,
+} from './task-board-data.js';
+import {
+  appendWorkspaceLeaseAction,
+  requestWorkspaceLeaseChanges,
+  reviewWorkspaceLease,
+} from './workspace-lease-actions.js';
 
 type BoardScope = 'project' | 'company';
 type BoardColumnId = 'running' | 'pending_review' | 'done' | 'attention';
@@ -152,29 +152,6 @@ function countDiffLines(files: readonly { diff: string }[]) {
   return { added, removed };
 }
 
-function useCompanyLeaseReviews(companyId: string | null, projectIds: readonly string[]) {
-  return useQuery({
-    queryKey: ['workspace-lease-reviews-by-company', companyId, projectIds],
-    queryFn: async () => {
-      if (!companyId || projectIds.length === 0) return [];
-      const repos = await getRepos();
-      if (!repos.agentEvents) return [];
-      const perProject = await Promise.all(
-        projectIds.map(async (projectId) => {
-          const [snapshots, actions] = await Promise.all([
-            repos.agentEvents?.findByProject(projectId, { eventType: 'workspace.lease.snapshot' }),
-            repos.agentEvents?.findByProject(projectId, { eventType: 'workspace.lease.action' }),
-          ]);
-          return buildProjectWorkspaceLeaseReviewRows([...(snapshots ?? []), ...(actions ?? [])]);
-        }),
-      );
-      return perProject.flat().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-    },
-    enabled: Boolean(companyId) && projectIds.length > 0,
-    refetchInterval: 2_000,
-  });
-}
-
 export function BoardStage() {
   const companyId = useUiState((state) => state.companyId);
   const projectId = useUiState((state) => state.projectId);
@@ -191,7 +168,7 @@ export function BoardStage() {
     () => (projects.data ?? []).map((project) => project.id),
     [projects.data],
   );
-  const leaseQuery = useCompanyLeaseReviews(companyId || null, projectIds);
+  const leaseQuery = useQuery(workspaceLeaseReviewsQueryOptions(projectIds));
   const recovery = useInterruptedRunRecovery(companyId || null, { skipReconcile: true });
   const [scope, setScope] = useState<BoardScope>('project');
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
@@ -480,9 +457,13 @@ export function BoardStage() {
                         highlighted={highlightedRunId === row.runId}
                         busy={busyId === row.runId}
                         onSelect={() => setSelectedRunId(row.runId)}
-                        onThread={() =>
-                          requestThreadFocus({ projectId: row.projectId, threadId: row.threadId })
-                        }
+                        onThread={() => {
+                          if (!row.projectId) {
+                            toast.error('The source conversation has no project binding.');
+                            return;
+                          }
+                          requestThreadFocus({ projectId: row.projectId, threadId: row.threadId });
+                        }}
                         onRetry={() => void retry(row)}
                         onDiscard={() => void discard(row)}
                       />

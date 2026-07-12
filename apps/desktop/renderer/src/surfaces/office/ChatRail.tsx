@@ -32,7 +32,7 @@ import {
 } from '@/surfaces/workspace/workspace-message-events.js';
 import { useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, ChevronsLeft, ChevronsRight, Inbox, MessageSquare, Plus } from 'lucide-react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { ConversationActionsMenu } from './rail/ConversationActionsMenu.js';
 import { ThreadList } from './rail/ThreadList.js';

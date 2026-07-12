@@ -15,13 +15,13 @@ import {
 } from 'lucide-react';
 
 /**
- * Activity-surface data model.
+ * Office Board Timeline data model.
  *
  * The shared `data/types.ts` `ActivityEvent` is a flat presentation row. The
- * Activity Log surface needs a richer topic-based event model (the same shape
+ * The Board Timeline needs a richer topic-based event model (the same shape
  * the runtime `EventBus` broadcasts) so it can derive level, domain icon,
  * display label, time grouping and reroute collapsing the way the prototype
- * specifies. That model lives here, local to the surface, and never mutates the
+ * specifies. That model lives with its Office owner and never mutates the
  * shared flat type.
  */
 

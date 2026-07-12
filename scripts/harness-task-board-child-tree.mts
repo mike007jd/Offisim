@@ -8,7 +8,14 @@ import {
   buildWorkspaceLeaseReviewRows,
   filterTaskRows,
   flattenTaskRows,
-} from '../apps/desktop/renderer/src/surfaces/tasks/task-board-data.js';
+  workspaceLeaseReviewsQueryOptions,
+} from '../apps/desktop/renderer/src/surfaces/office/board/task-board-data.js';
+
+assert.deepEqual(
+  workspaceLeaseReviewsQueryOptions(['project-b', 'project-a', 'project-b']).queryKey,
+  ['workspace-lease-reviews', ['project-a', 'project-b']],
+  'project and company lease reviews share one canonical sorted query factory',
+);
 
 const rows: AgentRunRow[] = [
   {

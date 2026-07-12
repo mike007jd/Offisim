@@ -29,7 +29,7 @@
 
 **明确不做(推迟,任何 PR 不得触碰)**:
 - OfficeScene3D.tsx / OfficeScene2D.tsx 与 UI store 的解耦、office.css(6281 行)拆分、场景组件瘦身——`Docs/roadmap/plan-office-toy-performance-overhaul.md` 的 D5 拆墙/R1b 家具重推/座位语义改造将重写这些文件,现在做是白做。
-- PiAgentPane.tsx(1221 行)、TaskBoardSurface.tsx(780 行)巨石组件拆分——降级为将来机会性清理,不单开 PR。
+- PiAgentPane.tsx 巨石组件拆分——降级为将来机会性清理,不单开 PR。Board ownership 已迁入 `surfaces/office/board`，不再保留已删除旧 surface 的拆分任务。
 - git 历史清理(filter-repo 移除 14MB 历史 blob)——改写历史是独立决策,不进本轮。
 - `local_db.rs` 顶部 `include_str!("../../../../packages/db-local/src/schema.sql")` 跨包路径——路径失效会编译期大声失败,内容 drift 由 PR-5 的 gate 覆盖,不改。
 

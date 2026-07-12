@@ -466,6 +466,36 @@ export function buildProjectWorkspaceLeaseReviewRows(
   return buildWorkspaceLeaseRows(events, null);
 }
 
+/** One cache/query contract for both project and company Board views. A company
+ * view is simply the sorted set of its project ids, so overlapping scopes share
+ * the same loader and event projection. */
+export function workspaceLeaseReviewsQueryOptions(projectIds: readonly string[]) {
+  const scopeProjectIds = [...new Set(projectIds.filter(Boolean))].sort();
+  return {
+    queryKey: ['workspace-lease-reviews', scopeProjectIds] as const,
+    queryFn: async () => {
+      const repos = await getRepos();
+      if (!repos.agentEvents) return [];
+      const perProject = await Promise.all(
+        scopeProjectIds.map(async (projectId) => {
+          const [snapshots, actions] = await Promise.all([
+            repos.agentEvents?.findByProject(projectId, {
+              eventType: WORKSPACE_LEASE_SNAPSHOT_EVENT,
+            }),
+            repos.agentEvents?.findByProject(projectId, {
+              eventType: WORKSPACE_LEASE_ACTION_EVENT,
+            }),
+          ]);
+          return buildProjectWorkspaceLeaseReviewRows([...(snapshots ?? []), ...(actions ?? [])]);
+        }),
+      );
+      return perProject.flat().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    },
+    enabled: scopeProjectIds.length > 0,
+    refetchInterval: 2_000,
+  };
+}
+
 function buildWorkspaceLeaseRows(
   events: readonly AgentEventRow[],
   rootRunId: string | null,
@@ -550,22 +580,7 @@ export function useProjectWorkspaceLeaseReviews(projectId: string | null): {
   isLoading: boolean;
   refetch: () => Promise<unknown>;
 } {
-  const query = useQuery({
-    queryKey: ['workspace-lease-reviews-by-project', projectId],
-    queryFn: async () => {
-      if (!projectId) return [];
-      const repos = await getRepos();
-      if (!repos.agentEvents) return [];
-      const [snapshots, actions] = await Promise.all([
-        repos.agentEvents.findByProject(projectId, { eventType: WORKSPACE_LEASE_SNAPSHOT_EVENT }),
-        repos.agentEvents.findByProject(projectId, { eventType: WORKSPACE_LEASE_ACTION_EVENT }),
-      ]);
-      const events = [...snapshots, ...actions];
-      return buildProjectWorkspaceLeaseReviewRows(events);
-    },
-    enabled: Boolean(projectId),
-    refetchInterval: 2_000,
-  });
+  const query = useQuery(workspaceLeaseReviewsQueryOptions(projectId ? [projectId] : []));
   return {
     rows: query.data ?? [],
     isLoading: query.isLoading,
