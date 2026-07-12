@@ -16,6 +16,7 @@ import {
   normalizePermissionMode,
   toolAllowlistForMode,
 } from './pi-agent-permission-modes.mts';
+import { childToolsForPermissionMode } from './pi-child-supervisor.mjs';
 
 let passed = 0;
 const failures: string[] = [];
@@ -76,6 +77,22 @@ check('auto/full keep the default tool set', () => {
 check('ask normalizes + keeps the default tool set', () => {
   assert.equal(normalizePermissionMode('ask'), 'ask');
   assert.equal(toolAllowlistForMode('ask'), undefined);
+});
+
+check('child tools inherit Plan while preserving delegated access bounds', () => {
+  assert.deepEqual(childToolsForPermissionMode('write', 'plan'), [
+    ...PLAN_TOOL_ALLOWLIST,
+    'delegate',
+  ]);
+  assert.deepEqual(childToolsForPermissionMode('read', 'plan'), [
+    ...PLAN_TOOL_ALLOWLIST,
+    'delegate',
+  ]);
+});
+check('child Ask/Auto/Full preserve write tools for their inherited runtime gate', () => {
+  assert.equal(childToolsForPermissionMode('write', 'ask'), undefined);
+  assert.equal(childToolsForPermissionMode('write', 'auto'), undefined);
+  assert.equal(childToolsForPermissionMode('write', 'full'), undefined);
 });
 
 // --- force-push detection --------------------------------------------------

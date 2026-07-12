@@ -152,6 +152,15 @@ assert(
   'execute sidecar payload must forward employeeId so publish-artifact and mission-bridge events keep employee attribution',
 );
 assert(
+  /"skillPaths": req\.skill_paths/.test(executePayloadSource) &&
+    /additionalSkillPaths: skillPaths/.test(nodeHostSource) &&
+    /additionalSkillPaths: skillPaths/.test(childSupervisorSource) &&
+    /additionalSkillPaths: skillPaths/.test(bundledNodeHostSource) &&
+    /repos\.skills\?\.listByCompany\(companyId\)/.test(desktopRuntimeScopeSource) &&
+    /skillPaths: skillPathsForEmployee\(e\.employee_id\)/.test(desktopRuntimeScopeSource),
+  'vault-authoritative company + employee skills must cross the renderer/Rust wire and reach Pi native resource loaders for root and child sessions',
+);
+assert(
   !/"companyId": req\.company_id/.test(executePayloadSource),
   'execute sidecar payload must not emit companyId because the Node execute host has no companyId consumer',
 );
@@ -187,6 +196,16 @@ assert(
   'execute host must always expose MCP discovery (mcp_search_tools/mcp_describe_tool) in the explicit tool allowlist, gate mcp_call on a non-empty grant catalog, and filter write MCP in plan mode',
 );
 assert(
+  /permissionMode,\s*resolveModel/.test(nodeHostSource) &&
+    /bindChildUi:\s*\(session\)[\s\S]*session\.bindExtensions/.test(nodeHostSource) &&
+    /const permissionMode = normalizePermissionMode\(ctx\.permissionMode\)/.test(
+      childSupervisorSource,
+    ) &&
+    /ctx\.buildPermissionGate\(permissionMode\)/.test(childSupervisorSource) &&
+    /permissionMode === 'ask' && ctx\.bindChildUi/.test(childSupervisorSource),
+  'delegated children must inherit the root permission mode and bind Ask approvals to the existing renderer UI channel',
+);
+assert(
   /No MCP tools are granted to you yet/.test(mcpBridgeSource) &&
     /No MCP tools are granted to you yet/.test(bundledNodeHostSource),
   'source and bundled MCP bridge must return an actionable "no tools granted" setup state for an empty catalog (screenshot-1 apology fix) — rebuild the bundle with pnpm build:pi-agent-host',
@@ -201,8 +220,8 @@ assert(
   'desktop buildMcpScope must connect registered MCP servers with their approved surface and expose only ready tools',
 );
 assert(
-  /PI_HOST_PROTOCOL_VERSION = 6/.test(wireSource) &&
-    /PI_HOST_PROTOCOL_VERSION: u32 = 6/.test(rustHostSource) &&
+  /PI_HOST_PROTOCOL_VERSION = 7/.test(wireSource) &&
+    /PI_HOST_PROTOCOL_VERSION: u32 = 7/.test(rustHostSource) &&
     /'worktreeCall'/.test(wireSource) &&
     /WorktreeCall/.test(rustHostSource) &&
     /'verifyCall'/.test(wireSource) &&
