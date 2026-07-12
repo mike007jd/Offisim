@@ -126,6 +126,15 @@ pub fn agent_runtime_abort(request_id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub async fn agent_runtime_control(
+    request_id: String,
+    action: String,
+    run_id: String,
+) -> Result<(), String> {
+    bridge::control_impl(request_id, action, run_id).await
+}
+
+#[tauri::command]
 pub async fn pi_agent_ui_response(
     request_id: String,
     id: String,

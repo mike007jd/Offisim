@@ -54,6 +54,9 @@ pub struct PiAgentExecuteRequest {
     /// / `mcp_call`). Opaque to Rust.
     #[serde(default)]
     pub(super) mcp_tools: Option<serde_json::Value>,
+    /// Task Board deterministic single delegation / same-lease rework packet.
+    #[serde(default)]
+    pub(super) direct_delegation: Option<serde_json::Value>,
 }
 
 /// Prompt Enhance request (PR-06). A DEDICATED, isolated one-shot — never a work

@@ -205,6 +205,15 @@ async fn run_worktree_op(
                 Err(nonzero_git_error(result))
             }
         }
+        "discardWorktree" => {
+            let path = worktree_arg(&args, "path")?;
+            let lease_id = Path::new(&path)
+                .file_name()
+                .and_then(|value| value.to_str())
+                .ok_or_else(|| "discard worktree path has no lease id".to_string())?;
+            crate::git::discard_workspace_lease_at(root, lease_id).await?;
+            Ok(serde_json::json!({ "ok": true }))
+        }
         "worktreeChanged" => {
             let path = worktree_arg(&args, "path")?;
             let cwd = PathBuf::from(path);
@@ -257,6 +266,38 @@ async fn run_worktree_op(
                 "ok": result.ok,
                 "conflicts": if result.ok { Vec::<String>::new() } else { parse_conflict_paths(&result.stdout, &result.stderr) },
             }))
+        }
+        "diffText" => {
+            let path = worktree_arg(&args, "path")?;
+            let changed_path = worktree_arg(&args, "changedPath")?;
+            let cwd = PathBuf::from(path);
+            let root_head = crate::git::run_git_validated(
+                vec!["rev-parse".into(), "HEAD".into()],
+                root,
+                Some(root),
+            )
+            .await?;
+            if !root_head.ok {
+                return Err(nonzero_git_error(root_head));
+            }
+            let result = crate::git::run_git_validated(
+                vec![
+                    "diff".into(),
+                    "--unified=3".into(),
+                    root_head.stdout.trim().into(),
+                    "HEAD".into(),
+                    "--".into(),
+                    changed_path,
+                ],
+                root,
+                Some(&cwd),
+            )
+            .await?;
+            if result.ok {
+                Ok(serde_json::Value::String(result.stdout))
+            } else {
+                Err(nonzero_git_error(result))
+            }
         }
         other => Err(format!("unknown worktree operation '{other}'")),
     }
@@ -412,5 +453,32 @@ pub(super) async fn ui_response_impl(
         .flush()
         .await
         .map_err(|err| format!("Flush Pi UI response: {err}"))?;
+    Ok(())
+}
+
+pub(super) async fn control_impl(
+    request_id: String,
+    action: String,
+    run_id: String,
+) -> Result<(), String> {
+    let writer = pi_stdin_guard().get(&request_id).cloned();
+    let Some(writer) = writer else {
+        return Ok(());
+    };
+    if action != "stopChild" || run_id.trim().is_empty() {
+        return Err("Unsupported agent runtime control request".into());
+    }
+    let mut line =
+        serde_json::json!({ "type": "control", "action": action, "runId": run_id }).to_string();
+    line.push('\n');
+    let mut stdin = writer.lock().await;
+    stdin
+        .write_all(line.as_bytes())
+        .await
+        .map_err(|err| format!("Write Pi control: {err}"))?;
+    stdin
+        .flush()
+        .await
+        .map_err(|err| format!("Flush Pi control: {err}"))?;
     Ok(())
 }

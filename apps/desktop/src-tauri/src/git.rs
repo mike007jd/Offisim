@@ -132,6 +132,44 @@ pub async fn git_exec<R: Runtime>(
     run_git_validated(args, &root, Some(&cwd_path)).await
 }
 
+pub(crate) async fn discard_workspace_lease_at(root: &Path, lease_id: &str) -> Result<(), String> {
+    if lease_id.is_empty()
+        || !lease_id
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.'))
+    {
+        return Err("Invalid workspace lease id".into());
+    }
+    let path = root.join(".offisim").join("worktrees").join(lease_id);
+    let resolved =
+        resolve_new_path_under_root(root, path.to_string_lossy().as_ref(), "lease worktree")?;
+    let mut command = Command::new("git");
+    command
+        .args(["worktree", "remove", "--force"])
+        .arg(&resolved)
+        .current_dir(root)
+        .env_clear()
+        .envs(scrubbed_git_env());
+    let result = run_git_capped(command, GIT_EXEC_TIMEOUT, MAX_GIT_OUTPUT_BYTES).await?;
+    if result.ok {
+        Ok(())
+    } else if !result.stderr.trim().is_empty() {
+        Err(result.stderr.trim().into())
+    } else {
+        Err(result.stdout.trim().into())
+    }
+}
+
+#[tauri::command]
+pub async fn workspace_lease_discard<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    project_id: String,
+    lease_id: String,
+) -> Result<(), String> {
+    let root = project_workspace_root(&app, &project_id).await?;
+    discard_workspace_lease_at(&root, &lease_id).await
+}
+
 /// G3: spawn git, stream stdout/stderr each capped at `max_bytes` (so a flood
 /// cannot balloon memory before truncation), and bound the whole run by `timeout`
 /// with `kill_on_drop` so a hung process is terminated rather than blocking.
@@ -376,6 +414,17 @@ fn validate_diff(args: &[String], root: &Path) -> Result<(), String> {
         }
         return Err("git diff base revision must be a full hex commit id".into());
     }
+    if tail.len() >= 5
+        && tail[0].starts_with("--unified=")
+        && is_full_git_sha(tail[1])
+        && tail[2] == "HEAD"
+        && tail[3] == "--"
+    {
+        for path in &tail[4..] {
+            validate_git_pathspec(path, root, "git diff path")?;
+        }
+        return Ok(());
+    }
 
     let mut path_mode = false;
     for arg in args.iter().skip(1) {
@@ -393,7 +442,12 @@ fn validate_diff(args: &[String], root: &Path) -> Result<(), String> {
             value if value.starts_with('-') => {
                 return Err(format!("git diff option '{}' is not allowed", value));
             }
-            value => validate_git_pathspec(value, root, "git diff path")?,
+            value => {
+                return Err(format!(
+                    "git diff path '{}' must follow the -- separator",
+                    value
+                ));
+            }
         }
     }
     Ok(())
@@ -773,6 +827,14 @@ mod tests {
                 "HEAD",
             ],
             vec!["diff", "--cached", "--", "src/main.ts"],
+            vec![
+                "diff",
+                "--unified=3",
+                "0123456789abcdef0123456789abcdef01234567",
+                "HEAD",
+                "--",
+                "src/main.ts",
+            ],
             vec!["remote", "get-url", "origin"],
             vec!["rev-parse", "--abbrev-ref", "HEAD"],
             vec!["add", "--", "src/main.ts"],
@@ -799,6 +861,7 @@ mod tests {
             vec!["diff", "--name-only", "0123456", "HEAD"],
             vec!["diff", "--name-only", "master", "HEAD"],
             vec!["diff", "--name-only", "HEAD~1", "HEAD"],
+            vec!["diff", "--unified=3", "main", "HEAD", "--", "src/main.ts"],
             vec![
                 "diff",
                 "--name-only",

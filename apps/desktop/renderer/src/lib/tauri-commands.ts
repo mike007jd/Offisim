@@ -58,6 +58,7 @@ interface PiAgentExecuteRequest {
   roster?: unknown;
   missionContextJson?: string | null;
   mcpTools?: unknown;
+  directDelegation?: unknown;
 }
 
 interface PiAgentEnhanceRequest {
@@ -440,6 +441,10 @@ export interface CommandMap {
   >;
   agent_runtime_resume: CommandSpec<AgentRuntimeArgs<PiAgentExecuteRequest>, PiAgentHostResponse>;
   agent_runtime_abort: CommandSpec<{ requestId: string }, void>;
+  agent_runtime_control: CommandSpec<
+    { requestId: string; action: 'stopChild'; runId: string },
+    void
+  >;
   agent_runtime_answer: CommandSpec<AgentUiResponseArgs, void>;
   agent_runtime_stream_snapshot: CommandSpec<{ requestId: string }, PiRunStreamSnapshot | null>;
   agent_runtime_release_stream: CommandSpec<{ requestId: string }, void>;
@@ -450,6 +455,7 @@ export interface CommandMap {
   agent_runtime_status: CommandSpec<undefined, PiAgentStatusResponse>;
   computer_driver_status: CommandSpec<undefined, ComputerDriverStatus>;
   git_exec: CommandSpec<{ args: string[]; projectId: string; cwd?: string | null }, GitExecResult>;
+  workspace_lease_discard: CommandSpec<{ projectId: string; leaseId: string }, void>;
   open_local_path: CommandSpec<{ projectId: string | null; path: string }, void>;
   reveal_local_path: CommandSpec<{ projectId: string | null; path: string }, void>;
   ensure_company_workspace: CommandSpec<{ companyId: string }, string>;

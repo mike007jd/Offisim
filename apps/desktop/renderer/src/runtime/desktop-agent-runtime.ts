@@ -49,6 +49,22 @@ import { getRepos, runtimeEventBus } from './repos.js';
  */
 export type AgentCapabilityProfile = 'work' | 'collaboration';
 
+export interface DirectDelegationInput {
+  employeeId: string;
+  objective: string;
+  access: 'read' | 'write' | 'review';
+  workKind?: string;
+  originRunId?: string;
+  resumeLease?: {
+    leaseId: string;
+    runId: string;
+    workspaceRoot: string;
+    cwd: string;
+    branch: string;
+    createdAt: string;
+  };
+}
+
 export interface DesktopAgentRunInput {
   text: string;
   threadId: string;
@@ -99,6 +115,8 @@ export interface DesktopAgentRunInput {
   missionId?: string;
   attemptId?: string;
   missionContextJson?: string;
+  /** Deterministic Task Board dispatch through the existing supervisor.runSingle lane. */
+  directDelegation?: DirectDelegationInput;
 }
 
 export interface DesktopAgentRunResult {
@@ -130,6 +148,7 @@ export interface DesktopAgentRuntime {
   execute(input: DesktopAgentRunInput): Promise<DesktopAgentRunResult>;
   resume(runId: string): Promise<DesktopAgentRunResult>;
   abort(threadId: string): void;
+  abortChild(threadId: string, runId: string): void;
   /** Deliver the user's answer to a mid-run `agent.ui.request` back to the host. */
   answerUiRequest(answer: AgentUiAnswer): Promise<void>;
   dispose(): Promise<void>;
@@ -218,7 +237,9 @@ function toolStatus(status: PiAgentHostEvent & { kind: 'tool' }) {
   return 'started' as const;
 }
 
-function hostModelRef(model: Extract<PiAgentHostEvent, { kind: 'started' }>['model']): string | null {
+function hostModelRef(
+  model: Extract<PiAgentHostEvent, { kind: 'started' }>['model'],
+): string | null {
   if (!model?.id) return null;
   return model.provider ? `${model.provider}/${model.id}` : model.id;
 }
@@ -944,6 +965,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           // attempt. Undefined on a plain chat — host registers no mission bridge.
           missionContextJson: input.missionContextJson?.trim() || undefined,
           mcpTools,
+          directDelegation: input.directDelegation,
         },
         onEvent,
       })) as PiAgentHostResponse;
@@ -1309,6 +1331,14 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     void invokeCommand('agent_runtime_abort', { requestId }).catch((err: unknown) => {
       console.warn('[desktop-agent-runtime] Pi abort failed', { threadId, err });
     });
+  }
+
+  abortChild(threadId: string, runId: string): void {
+    const requestId = this.inFlightByThread.get(threadId);
+    if (!requestId) return;
+    void invokeCommand('agent_runtime_control', { requestId, action: 'stopChild', runId }).catch(
+      (err: unknown) => console.warn('[desktop-agent-runtime] child stop failed', { runId, err }),
+    );
   }
 
   async answerUiRequest(answer: AgentUiAnswer): Promise<void> {

@@ -141,30 +141,40 @@ export async function integrateCompletedDelegation({
     ].join('\n');
   }
   if (plan.mergeable.length === 0) return 'No mergeable write leases were produced.';
-  const approved = confirmIntegration ? await confirmIntegration(plan) : false;
-  if (!approved) {
-    for (const lease of plan.mergeable) {
-      await emitSnapshot(lease, 'retained_for_review', {
-        status: 'retained',
-        reason: 'merge review was not approved; worktree retained for inspection',
+  const merged = [];
+  const skippedItems = [];
+  let conflicted = null;
+  for (const lease of plan.mergeable) {
+    const approved = confirmIntegration
+      ? await confirmIntegration({ ...plan, mergeable: [lease] })
+      : false;
+    if (!approved) {
+      await emitSnapshot(lease, 'pending_review', {
+        status: 'pending_review',
+        reason: 'worktree is waiting for diff review',
       });
+      continue;
     }
-    return `Merge review was not approved; ${plan.mergeable.length} worktree(s) retained for inspection.`;
+    const result = await leaseManager.integrate({ ...plan, mergeable: [lease] });
+    merged.push(...result.merged);
+    skippedItems.push(...result.skipped);
+    conflicted = result.conflicted;
+    for (const integrated of result.merged) await emitSnapshot(integrated, 'integrated');
+    for (const integrated of result.merged) {
+      const released = await leaseManager.releaseLease(integrated.leaseId).catch(() => null);
+      if (released) await emitSnapshot(released, 'released_after_merge');
+    }
+    if (conflicted) break;
   }
-  const result = await leaseManager.integrate(plan);
-  for (const lease of writableLeases) await emitSnapshot(lease, 'integrated');
-  for (const lease of result.merged) {
-    const released = await leaseManager.releaseLease(lease.leaseId).catch(() => null);
-    if (released) await emitSnapshot(released, 'released_after_merge');
+  if (conflicted) {
+    return `Integration stopped on merge conflict in lease ${conflicted.lease.leaseId}: ${conflicted.conflicts.join(', ')}`;
   }
-  if (result.conflicted) {
-    return `Integration stopped on merge conflict in lease ${result.conflicted.lease.leaseId}: ${result.conflicted.conflicts.join(', ')}`;
-  }
-  const skipped =
-    result.skipped.length > 0
-      ? ` Skipped: ${result.skipped.map((item) => `${item.leaseId} (${item.reason})`).join('; ')}.`
+  const skippedSummary =
+    skippedItems.length > 0
+      ? ` Skipped: ${skippedItems.map((item) => `${item.leaseId} (${item.reason})`).join('; ')}.`
       : '';
-  return `Merged ${result.merged.length} write lease(s) into the root workspace.${skipped}`;
+  const pending = plan.mergeable.length - merged.length;
+  return `Merged ${merged.length} write lease(s); ${pending} awaiting review.${skippedSummary}`;
 }
 
 function normalizeAccess(access) {
@@ -336,6 +346,7 @@ export function createChildSupervisor(ctx) {
   const depth = ctx.depth ?? 0;
   const parentRunId = ctx.parentRunId ?? ctx.rootRunId;
   const limits = ctx.limits;
+  const childControllers = ctx.childControllers ?? new Map();
 
   function resolveEmployeeBinding(employee) {
     const requestedModel = asNonEmptyString(employee.model);
@@ -348,16 +359,19 @@ export function createChildSupervisor(ctx) {
       throw new Error(`Employee thinking level is invalid: ${requestedThinking}`);
     }
     const thinkingLevel = requestedThinking ?? ctx.rootThinkingLevel;
-    const modelLabel = model?.provider && model?.id ? `${model.provider}/${model.id}` : requestedModel;
+    const modelLabel =
+      model?.provider && model?.id ? `${model.provider}/${model.id}` : requestedModel;
     return { model, modelLabel, thinkingLevel };
   }
 
   async function workspaceLeaseSnapshotPayload(lease, phase, extra = {}) {
     let changedPaths = [];
+    let files = [];
     if (lease?.access === 'write' && ctx.leaseManager?.collectDiff) {
       try {
         const diff = await ctx.leaseManager.collectDiff(lease);
         changedPaths = Array.isArray(diff?.changedPaths) ? diff.changedPaths : [];
+        files = Array.isArray(diff?.files) ? diff.files : [];
       } catch {
         changedPaths = [];
       }
@@ -374,7 +388,9 @@ export function createChildSupervisor(ctx) {
       isolated: lease.isolated === true,
       status: lease.status,
       reason: lease.reason ?? null,
+      createdAt: lease.createdAt,
       changedPaths,
+      files,
       capturedAt: new Date().toISOString(),
       ...extra,
     };
@@ -472,7 +488,11 @@ export function createChildSupervisor(ctx) {
     try {
       binding = resolveEmployeeBinding(employee);
     } catch (error) {
-      emit('run.started', { objective, access });
+      emit('run.started', {
+        objective,
+        access,
+        ...(asNonEmptyString(task.originRunId) ? { originRunId: task.originRunId } : {}),
+      });
       const message = error instanceof Error ? error.message : String(error);
       failed(emit, 'runtime', `Failed to start: ${message}`);
       return { summary: `Delegation failed: ${message}`, runId, completed: false };
@@ -480,6 +500,7 @@ export function createChildSupervisor(ctx) {
     emit('run.started', {
       objective,
       access,
+      ...(asNonEmptyString(task.originRunId) ? { originRunId: task.originRunId } : {}),
       runtimeContextJson: JSON.stringify({
         runtime: 'pi-agent',
         model: binding.modelLabel ?? null,
@@ -526,11 +547,30 @@ export function createChildSupervisor(ctx) {
       };
     }
 
-    return {
-      summary: await runChildSession(runId, emit, employee, binding, objective, access, signal),
-      runId,
-      completed: true,
-    };
+    const controller = new AbortController();
+    childControllers.set(runId, controller);
+    const abortFromParent = () => controller.abort();
+    if (signal?.aborted) controller.abort();
+    else signal?.addEventListener('abort', abortFromParent, { once: true });
+    try {
+      return {
+        summary: await runChildSession(
+          runId,
+          emit,
+          employee,
+          binding,
+          objective,
+          access,
+          controller.signal,
+          task.resumeLease,
+        ),
+        runId,
+        completed: true,
+      };
+    } finally {
+      signal?.removeEventListener('abort', abortFromParent);
+      childControllers.delete(runId);
+    }
   }
 
   async function runSingle(task, signal) {
@@ -545,7 +585,16 @@ export function createChildSupervisor(ctx) {
     );
   }
 
-  async function runChildSession(runId, emit, employee, binding, objective, access, signal) {
+  async function runChildSession(
+    runId,
+    emit,
+    employee,
+    binding,
+    objective,
+    access,
+    signal,
+    resumeLease,
+  ) {
     // The access band restricts WORK tools (read/write/bash). `delegate` is an
     // orchestration capability, not a work tool, so it must survive the allowlist
     // — otherwise a restricted-access child silently loses its delegate tool and
@@ -570,6 +619,7 @@ export function createChildSupervisor(ctx) {
       rosterById,
       depth: depth + 1,
       parentRunId: runId,
+      childControllers,
     });
     const childDelegationFactory = createDelegationExtensionFactory(childSupervisor);
     const extensionFactories = [gateFactory, childDelegationFactory].filter(Boolean);
@@ -577,11 +627,28 @@ export function createChildSupervisor(ctx) {
     let childCwd = ctx.cwd;
     if (ctx.leaseManager && ctx.rootLease) {
       try {
-        const leaseResult = await ctx.leaseManager.acquireChildLease({
-          rootLease: ctx.rootLease,
-          runId,
-          access,
-        });
+        // A rework packet crosses the renderer wire; refuse one that points at a
+        // different workspace than this run's root lease (adoptLease only checks
+        // the packet's internal consistency, not which project it belongs to).
+        if (resumeLease && resumeLease.workspaceRoot !== ctx.rootLease.workspaceRoot) {
+          throw new Error('Rework lease belongs to a different workspace than this run.');
+        }
+        const leaseResult = resumeLease
+          ? {
+              outcome: 'granted',
+              lease: ctx.leaseManager.adoptLease({
+                ...resumeLease,
+                runId,
+                access: 'write',
+                isolated: true,
+                status: 'active',
+              }),
+            }
+          : await ctx.leaseManager.acquireChildLease({
+              rootLease: ctx.rootLease,
+              runId,
+              access,
+            });
         if (leaseResult?.outcome === 'blocked') {
           return blocked(
             emit,
@@ -593,7 +660,11 @@ export function createChildSupervisor(ctx) {
         if (typeof lease?.cwd === 'string' && lease.cwd.trim()) {
           childCwd = lease.cwd;
         }
-        if (lease) await emitWorkspaceLeaseSnapshot(emit, lease, 'acquired');
+        if (lease) {
+          await emitWorkspaceLeaseSnapshot(emit, lease, 'acquired', {
+            ...(asNonEmptyString(resumeLease?.runId) ? { originRunId: resumeLease.runId } : {}),
+          });
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         return blocked(emit, `Workspace lease failed: ${message}`, 'runtime');

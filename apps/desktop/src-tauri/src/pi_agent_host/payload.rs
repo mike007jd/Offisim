@@ -46,7 +46,7 @@ pub(super) fn sidecar_payload(
     session_dir: &Path,
     agent_dir: Option<&Path>,
 ) -> serde_json::Value {
-    serde_json::json!({
+    let mut payload = serde_json::json!({
         // `mode` is the host dispatch discriminator (execute vs status); the
         // permission mode rides under a distinct key so it cannot collide.
         "mode": "execute",
@@ -78,7 +78,14 @@ pub(super) fn sidecar_payload(
         // registers the mission-bridge extension only when this is present.
         "missionContextJson": req.mission_context_json,
         "mcpTools": req.mcp_tools,
-    })
+    });
+    if let Some(direct_delegation) = &req.direct_delegation {
+        payload
+            .as_object_mut()
+            .expect("execute payload is an object")
+            .insert("directDelegation".into(), direct_delegation.clone());
+    }
+    payload
 }
 
 /// Build the Prompt Enhance sidecar payload (PR-06). `mode:'enhance'` routes the
