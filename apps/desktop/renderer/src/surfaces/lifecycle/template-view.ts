@@ -44,6 +44,8 @@ export interface WizardEmployee {
   capabilities: string[];
   expertise: string;
   workingStyle: string;
+  modelTier?: 'best' | 'economical' | 'balanced';
+  tierHint?: string;
   /** Slug of the zone this employee starts in, or null when unresolved. */
   homeZoneSlug: string | null;
 }
@@ -129,6 +131,8 @@ function toWizardTemplate(def: ReturnType<typeof listTemplates>[number]): Wizard
       capabilities: [...emp.capabilities],
       expertise: emp.persona.profile.expertise,
       workingStyle: emp.persona.profile.workingStyle,
+      modelTier: emp.modelTier,
+      tierHint: emp.tierHint,
       homeZoneSlug,
     };
   });

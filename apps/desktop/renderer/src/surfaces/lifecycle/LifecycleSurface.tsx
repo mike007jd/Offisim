@@ -83,10 +83,24 @@ export function LifecycleSurface() {
           repos.zones,
           repos.workstations,
         );
-        await templateService.materializeTemplate(request.template.id, companyId);
+        await templateService.materializeTemplate(request.template.id, companyId, {
+          employeeModels: request.employeeModels,
+        });
       }
 
-      projectId = (await ensureCompanyWorkspaceProjectId(repos, companyId)) ?? '';
+      if (request.workspaceRoot) {
+        projectId = crypto.randomUUID();
+        await repos.projects.create({
+          project_id: projectId,
+          company_id: companyId,
+          name: 'Main Project',
+          description: request.description,
+          status: 'planning',
+          workspace_root: request.workspaceRoot,
+        });
+      } else {
+        projectId = (await ensureCompanyWorkspaceProjectId(repos, companyId)) ?? '';
+      }
     } catch (error) {
       // C3 compensation (saga): roll the whole company back with the deep delete
       // (explicit multi-table delete + workspace + attachments), not just the

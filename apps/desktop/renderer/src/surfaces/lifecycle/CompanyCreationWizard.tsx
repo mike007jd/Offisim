@@ -1,12 +1,16 @@
+import { usePiAgentModels } from '@/assistant/composer/usePiAgentModels.js';
 import { UI_DATA_COLORS } from '@/data/color-palette.js';
 import { useCompanyTemplates } from '@/data/queries.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
+import { Select } from '@/design-system/grammar/Select.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Textarea } from '@/design-system/primitives/textarea.js';
+import { pickWorkspaceFolder } from '@/lib/desktop-dialog.js';
 import { cn } from '@/lib/utils.js';
-import { ChevronDown, ChevronLeft, ChevronUp, Loader2 } from 'lucide-react';
+import { overbroadWorkspaceReason } from '@/lib/workspace-root-guard.js';
+import { ChevronDown, ChevronLeft, ChevronUp, FolderOpen, Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { type CSSProperties, useCallback, useEffect, useMemo, useState } from 'react';
+import { type CSSProperties, useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { clearDiscardConfirm, showDiscardConfirm } from './DiscardConfirmToast.js';
 import { CyoBlueprint, TemplatePreview } from './TemplatePreview.js';
 import {
@@ -37,8 +41,9 @@ function firstSentence(text: string): string {
 export interface CreateCompanyRequest {
   name: string;
   description: string | null;
-  /** createCompany only needs the template id + name. */
   template: { id: string; name: string };
+  employeeModels: Record<string, string | null>;
+  workspaceRoot: string | null;
   openStudio: boolean;
 }
 
@@ -55,8 +60,25 @@ interface CompanyCreationWizardProps {
   dismissible?: boolean;
 }
 
-function EmployeeCard({ templateId, employee }: { templateId: string; employee: WizardEmployee }) {
-  const [expanded, setExpanded] = useState(false);
+function EmployeeCard({
+  templateId,
+  employee,
+  model,
+  modelOptions,
+  defaultExpanded,
+  modelsLoading,
+  onModelChange,
+}: {
+  templateId: string;
+  employee: WizardEmployee;
+  model: string;
+  modelOptions: ReadonlyArray<{ value: string; label: string }>;
+  defaultExpanded: boolean;
+  modelsLoading: boolean;
+  onModelChange: (value: string) => void;
+}) {
+  const modelSelectId = useId();
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const accent = employee.appearance?.accentColor ?? UI_DATA_COLORS.blue2;
   const clothing = employee.appearance?.clothingColor ?? UI_DATA_COLORS.ink3;
   return (
@@ -88,6 +110,18 @@ function EmployeeCard({ templateId, employee }: { templateId: string; employee: 
       </button>
       {expanded ? (
         <div className="off-wiz-emp-detail">
+          {employee.tierHint ? <p className="off-wiz-tier-hint">{employee.tierHint}</p> : null}
+          <label className="off-wiz-model-field" htmlFor={modelSelectId}>
+            <span>Model</span>
+            <Select
+              value={model}
+              id={modelSelectId}
+              options={modelOptions}
+              disabled={modelsLoading}
+              aria-label={`${employee.name} model`}
+              onChange={(event) => onModelChange(event.target.value)}
+            />
+          </label>
           <div className="off-wiz-emp-tags">
             {employee.capabilities.map((tag) => (
               <span key={tag} className="off-wiz-tag" style={roleAccentStyle(accent)}>
@@ -108,6 +142,7 @@ export function CompanyCreationWizard({
   dismissible = true,
 }: CompanyCreationWizardProps) {
   const templatesQuery = useCompanyTemplates();
+  const modelsQuery = usePiAgentModels();
 
   const templates = useMemo<WizardTemplate[]>(
     () => [...(templatesQuery.data ?? []), CREATE_YOUR_OWN_TEMPLATE],
@@ -117,17 +152,36 @@ export function CompanyCreationWizard({
   const [index, setIndex] = useState(0);
   const [companyName, setCompanyName] = useState('');
   const [description, setDescription] = useState('');
+  const [workspaceRoot, setWorkspaceRoot] = useState('');
+  const [employeeModels, setEmployeeModels] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
   const safeIndex = templates.length ? Math.min(index, templates.length - 1) : 0;
   const selected = templates[safeIndex] ?? null;
   const isCustom = selected?.isCustom === true;
+  const isVibeCodingStudio = selected?.id === 'vibe-coding-studio';
+  const availableModels = modelsQuery.data ?? [];
+  const modelOptions = useMemo(
+    () => [
+      { value: '', label: 'Inherit conversation model' },
+      ...availableModels.map((model) => ({
+        value: model.value,
+        label: `${model.name} · ${model.provider}`,
+      })),
+    ],
+    [availableModels],
+  );
+  const showModelLayeringHint = !modelsQuery.isLoading && availableModels.length <= 1;
 
   // Dirty = the user typed something (name or description). Browsing template
   // cards is not a draft — guarding it made Esc look broken (it armed a discard
   // toast instead of exiting), so template selection alone never blocks dismiss.
-  const hasTypedContent = companyName.trim().length > 0 || description.trim().length > 0;
+  const hasTypedContent =
+    companyName.trim().length > 0 ||
+    description.trim().length > 0 ||
+    workspaceRoot.trim().length > 0 ||
+    Object.values(employeeModels).some(Boolean);
 
   // Close attempt (button or Esc) routes through one dirty guard: clean closes
   // immediately, dirty arms (or re-arms) the single discard confirm rather than
@@ -161,16 +215,41 @@ export function CompanyCreationWizard({
     setBusy(true);
     const name = companyName.trim();
     try {
+      const cleanWorkspaceRoot = workspaceRoot.trim() || null;
+      const overbroad = cleanWorkspaceRoot
+        ? await overbroadWorkspaceReason(cleanWorkspaceRoot)
+        : null;
+      if (overbroad) throw new Error(overbroad);
       await onComplete({
         name,
         description: description.trim() || null,
         template: { id: selected.id, name: selected.name },
+        employeeModels: Object.fromEntries(
+          selected.employees.map((employee) => [
+            employee.key,
+            employeeModels[employee.key] || null,
+          ]),
+        ),
+        workspaceRoot: cleanWorkspaceRoot,
         openStudio: isCustom,
       });
       clearDiscardConfirm();
     } catch (error) {
       setBusy(false);
       setCreateError(error instanceof Error ? error.message : 'Company creation failed');
+    }
+  }
+
+  async function chooseWorkspaceFolder() {
+    setCreateError(null);
+    try {
+      const folder = await pickWorkspaceFolder('Select project workspace folder');
+      if (!folder) return;
+      const overbroad = await overbroadWorkspaceReason(folder);
+      if (overbroad) throw new Error(overbroad);
+      setWorkspaceRoot(folder);
+    } catch (error) {
+      setCreateError(error instanceof Error ? error.message : 'Folder picker failed');
     }
   }
 
@@ -213,7 +292,11 @@ export function CompanyCreationWizard({
                 className="off-wiz-card-radio"
                 checked={active}
                 disabled={busy}
-                onChange={() => setIndex(i)}
+                onChange={() => {
+                  setIndex(i);
+                  setEmployeeModels({});
+                  setCreateError(null);
+                }}
               />
               <span className="off-wiz-card-ic" style={roleAccentStyle(t.accentHex)}>
                 <Icon icon={t.icon} size="md" />
@@ -255,14 +338,34 @@ export function CompanyCreationWizard({
               <p>Build your office in the Studio editor.</p>
             </div>
           ) : selected ? (
-            <details className="off-wiz-team" open>
-              <summary>Team · {selected.employees.length}</summary>
-              <div className="off-wiz-team-list">
-                {selected.employees.map((e) => (
-                  <EmployeeCard key={e.key} templateId={selected.id} employee={e} />
-                ))}
-              </div>
-            </details>
+            <>
+              {showModelLayeringHint ? (
+                <div className="off-wiz-model-notice" role="note">
+                  Add more models in Pi <code>models.json</code> to give planners and builders
+                  distinct model tiers. Check its status in Settings; you can still create this
+                  company now.
+                </div>
+              ) : null}
+              <details className="off-wiz-team" open>
+                <summary>Team · {selected.employees.length}</summary>
+                <div className="off-wiz-team-list">
+                  {selected.employees.map((employee) => (
+                    <EmployeeCard
+                      key={`${selected.id}:${employee.key}`}
+                      templateId={selected.id}
+                      employee={employee}
+                      model={employeeModels[employee.key] ?? ''}
+                      modelOptions={modelOptions}
+                      defaultExpanded={isVibeCodingStudio}
+                      modelsLoading={modelsQuery.isLoading}
+                      onModelChange={(model) =>
+                        setEmployeeModels((current) => ({ ...current, [employee.key]: model }))
+                      }
+                    />
+                  ))}
+                </div>
+              </details>
+            </>
           ) : null}
         </aside>
       </div>
@@ -317,6 +420,29 @@ export function CompanyCreationWizard({
                   disabled={busy}
                   onChange={(e) => setDescription(e.target.value)}
                 />
+              </div>
+              <div className="off-wiz-workspace">
+                <label htmlFor="off-wiz-workspace">
+                  Project folder <span className="off-wiz-opt">optional</span>
+                </label>
+                <div className="off-wiz-workspace-control">
+                  <input
+                    id="off-wiz-workspace"
+                    placeholder="Auto workspace"
+                    value={workspaceRoot}
+                    disabled={busy}
+                    onChange={(event) => setWorkspaceRoot(event.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="off-wiz-folder off-focusable"
+                    aria-label="Choose project folder"
+                    disabled={busy}
+                    onClick={() => void chooseWorkspaceFolder()}
+                  >
+                    <Icon icon={FolderOpen} size="sm" />
+                  </button>
+                </div>
               </div>
             </div>
             <button

@@ -82,6 +82,7 @@ const nodeHostSource = readFileSync(HOST_SCRIPT, 'utf8');
 const bundledNodeHostSource = readFileSync(BUNDLED_HOST_SCRIPT, 'utf8');
 const mcpBridgeSource = readFileSync('scripts/pi-mcp-bridge-extension.mjs', 'utf8');
 const childSupervisorSource = readFileSync('scripts/pi-child-supervisor.mjs', 'utf8');
+const delegationExtensionSource = readFileSync('scripts/pi-delegation-extension.mjs', 'utf8');
 const wireSource = readFileSync('scripts/pi-agent-host-wire.mjs', 'utf8');
 const executePayloadSource = rustHostSource.slice(
   rustHostSource.indexOf('fn sidecar_payload'),
@@ -260,6 +261,13 @@ assert(
   /finalAssistant\?\.stopReason === 'error'/.test(childSupervisorSource) &&
     /Child completed without assistant output/.test(childSupervisorSource),
   'delegated children must fail provider errors and empty outputs instead of reporting completed no-output work',
+);
+assert(
+  /an Orchestrator must never delegate a task to itself/.test(nodeHostSource) &&
+    /Executors are/.test(nodeHostSource) &&
+    /Use a Reviewer for independent diff review/.test(nodeHostSource) &&
+    /entry\.displayTitle/.test(delegationExtensionSource),
+  'delegation guidance must expose and enforce Orchestrator / Executor / Reviewer responsibilities',
 );
 assert(
   /providerStatusById/.test(nodeHostSource) &&

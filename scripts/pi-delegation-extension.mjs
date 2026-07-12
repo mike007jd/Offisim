@@ -54,14 +54,17 @@ const DelegateParams = Type.Object({
 /**
  * Build the extension factory that registers `delegate`, closing over the
  * supervisor that actually runs children.
- * @param {{ runSingle: Function, roster: Array<{employeeId:string,name?:string,roleSlug?:string}> }} supervisor
+ * @param {{ runSingle: Function, roster: Array<{employeeId:string,name?:string,roleSlug?:string,displayTitle?:string}> }} supervisor
  */
 export function createDelegationExtensionFactory(supervisor) {
   const roster = supervisor.roster ?? [];
   const teammates =
     roster
       .map((entry) => {
-        const role = entry.roleSlug ? `, ${entry.roleSlug}` : '';
+        // displayTitle is projected from persona_json by the renderer roster
+        // builder; the persona field here is rendered prose, never JSON.
+        const roleLabel = entry.displayTitle ?? entry.roleSlug;
+        const role = roleLabel ? `, ${roleLabel}` : '';
         return `${entry.employeeId} (${entry.name ?? entry.employeeId}${role})`;
       })
       .join('; ') || 'none';

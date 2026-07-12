@@ -307,6 +307,10 @@ export class CompanyTemplateService {
   async materializeTemplate(
     templateId: string,
     companyId: string,
+    options: {
+      /** Optional Pi model bindings keyed by canonical template employee key. */
+      employeeModels?: Readonly<Record<string, string | null | undefined>>;
+    } = {},
   ): Promise<{
     employeeIds: string[];
     layoutId: string | null;
@@ -361,6 +365,7 @@ export class CompanyTemplateService {
             role_slug: emp.roleSlug,
             persona_json: serializeTemplatePersona(emp),
             config_json: null,
+            model: options.employeeModels?.[emp.key]?.trim() || null,
           });
         }
 
@@ -410,6 +415,7 @@ export class CompanyTemplateService {
           role_slug: emp.roleSlug,
           persona_json: serializeTemplatePersona(emp),
           config_json: null,
+          model: options.employeeModels?.[emp.key]?.trim() || null,
         });
         employeeIds.push(result.employee_id);
 

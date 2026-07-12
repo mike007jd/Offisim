@@ -12,12 +12,16 @@ import { aiStartupTemplate } from './ai-startup.js';
 import { contentStudioTemplate } from './content-studio.js';
 import { productTeamTemplate } from './product-team.js';
 import { rdCompanyTemplate } from './rd-company.js';
+import { vibeCodingStudioTemplate } from './vibe-coding-studio.js';
 
 export { agencyLiteTemplate } from './agency-lite.js';
 export { aiStartupTemplate } from './ai-startup.js';
 export { contentStudioTemplate } from './content-studio.js';
 export { productTeamTemplate } from './product-team.js';
 export { rdCompanyTemplate } from './rd-company.js';
+export { vibeCodingStudioTemplate } from './vibe-coding-studio.js';
+
+export type TemplateModelTier = 'best' | 'economical' | 'balanced';
 
 /**
  * Canonical persona profile authored by a built-in template.
@@ -60,6 +64,10 @@ export interface TemplateEmployeeDefinition {
   readonly displayTitle: string;
   readonly capabilities: readonly string[];
   readonly persona: TemplateEmployeePersona;
+  /** Model capability intent for wizard guidance; never a model id or default. */
+  readonly modelTier?: TemplateModelTier;
+  /** Plain-language guidance shown beside the optional model assignment. */
+  readonly tierHint?: string;
   readonly homeZoneSlug?: string;
 }
 
@@ -98,6 +106,7 @@ const TEMPLATES: readonly CompanyTemplateDefinition[] = [
   productTeamTemplate,
   agencyLiteTemplate,
   aiStartupTemplate,
+  vibeCodingStudioTemplate,
 ];
 
 export function listTemplates(): readonly CompanyTemplateDefinition[] {

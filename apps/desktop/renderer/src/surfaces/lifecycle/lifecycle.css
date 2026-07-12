@@ -735,6 +735,22 @@
   gap: var(--off-sp-2);
 }
 
+.off-wiz-model-notice {
+  margin-bottom: var(--off-sp-4);
+  padding: var(--off-sp-4);
+  border: 1px solid color-mix(in srgb, var(--off-accent) 35%, var(--off-line));
+  border-radius: var(--off-r-md);
+  background: color-mix(in srgb, var(--off-accent) 7%, var(--off-surface-1));
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-meta);
+  line-height: 1.45;
+}
+
+.off-wiz-model-notice code {
+  color: var(--off-ink-1);
+  font-weight: 620;
+}
+
 /* employee cards */
 .off-wiz-emp {
   border: 1px solid var(--off-line-soft);
@@ -824,6 +840,28 @@
   font-size: var(--off-fs-meta);
   line-height: 1.55;
   color: var(--off-ink-2);
+}
+
+.off-wiz-emp-detail .off-wiz-tier-hint {
+  color: var(--off-wiz-role-accent);
+  font-weight: 600;
+}
+
+.off-wiz-model-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.off-wiz-model-field > span {
+  font-size: var(--off-fs-micro);
+  font-weight: 680;
+  text-transform: uppercase;
+  color: var(--off-ink-3);
+}
+
+.off-wiz-model-field .off-select {
+  width: 100%;
 }
 
 .off-wiz-emp-tags {
@@ -1013,12 +1051,13 @@
   min-width: 0;
   display: grid;
   /* Name carries more weight than the optional description. */
-  grid-template-columns: 3fr 2fr;
+  grid-template-columns: 3fr 2fr 3fr;
   gap: var(--off-sp-4);
 }
 
 .off-wiz-name,
-.off-wiz-desc {
+.off-wiz-desc,
+.off-wiz-workspace {
   display: flex;
   flex-direction: column;
   /* Controls bottom-align onto the footer's flex-end baseline even if the
@@ -1028,7 +1067,8 @@
 }
 
 .off-wiz-name label,
-.off-wiz-desc label {
+.off-wiz-desc label,
+.off-wiz-workspace > label {
   display: block;
   margin-bottom: 6px;
   font-size: var(--off-fs-micro);
@@ -1046,7 +1086,8 @@
   color: var(--off-ink-4);
 }
 
-.off-wiz-name input {
+.off-wiz-name input,
+.off-wiz-workspace input {
   width: 100%;
   height: var(--off-wiz-control-h);
   padding: 0 var(--off-sp-5);
@@ -1057,6 +1098,34 @@
   font-size: var(--off-fs-sm);
   outline: none;
   transition: border-color var(--off-motion-fast) var(--off-motion-ease);
+}
+
+.off-wiz-workspace-control {
+  display: flex;
+  min-width: 0;
+}
+
+.off-wiz-workspace input {
+  min-width: 0;
+  border-radius: var(--off-r-sm) 0 0 var(--off-r-sm);
+}
+
+.off-wiz-folder {
+  width: var(--off-wiz-control-h);
+  height: var(--off-wiz-control-h);
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--off-line-strong);
+  border-left: 0;
+  border-radius: 0 var(--off-r-sm) var(--off-r-sm) 0;
+  background: var(--off-surface-sunken);
+  color: var(--off-ink-2);
+}
+
+.off-wiz-folder:hover {
+  color: var(--off-ink-1);
+  background: var(--off-surface-2);
 }
 
 /* The textarea opts into the grammar's `.is-compact` variant (no comfortable

@@ -68,7 +68,7 @@ const templates = listTemplates();
 const ids = new Set<string>();
 const names = new Set<string>();
 
-check('exactly 5 built-in templates', templates.length === 5, `got ${templates.length}`);
+check('exactly 6 built-in templates', templates.length === 6, `got ${templates.length}`);
 
 for (const t of templates) {
   console.log(`\n[${t.id}] static`);
@@ -81,6 +81,10 @@ for (const t of templates) {
     typeof t.presentation.icon === 'string' && t.presentation.icon.length > 0,
   );
   check(`${t.id}: has employees`, t.employees.length > 0);
+  check(
+    `${t.id}: layoutPreset is a non-empty string`,
+    typeof t.layoutPreset === 'string' && t.layoutPreset.trim().length > 0,
+  );
 
   for (const e of t.employees) {
     const tag = `${t.id}/${e.key}`;
@@ -135,6 +139,41 @@ for (const t of templates) {
       LEGACY_CONFIG_KEYS.every((k) => !(k in serialized)),
     );
   }
+}
+
+const vibeStudio = getTemplate('vibe-coding-studio');
+check('vibe-coding-studio: template exists', vibeStudio !== undefined);
+if (vibeStudio) {
+  const tierCounts = vibeStudio.employees.reduce<Record<string, number>>((counts, employee) => {
+    const tier = employee.modelTier ?? 'missing';
+    counts[tier] = (counts[tier] ?? 0) + 1;
+    return counts;
+  }, {});
+  check('vibe-coding-studio: five-person roster', vibeStudio.employees.length === 5);
+  check(
+    'vibe-coding-studio: tier distribution is 1 best / 3 economical / 1 balanced',
+    tierCounts.best === 1 && tierCounts.economical === 3 && tierCounts.balanced === 1,
+    JSON.stringify(tierCounts),
+  );
+  check(
+    'vibe-coding-studio: every tier has guidance',
+    vibeStudio.employees.every(
+      (employee) => typeof employee.tierHint === 'string' && employee.tierHint.trim().length > 0,
+    ),
+  );
+  check(
+    'vibe-coding-studio: personas encode role boundaries',
+    vibeStudio.employees.every(
+      (employee) => employee.persona.profile.customInstructions.trim().length > 0,
+    ),
+  );
+  check(
+    'vibe-coding-studio: contains no model ids or model defaults',
+    vibeStudio.employees.every(
+      (employee) =>
+        !('model' in employee) && !('modelId' in employee) && !('modelPreference' in employee),
+    ),
+  );
 }
 
 // ── Materialization invariants ──────────────────────────────────────────────
@@ -204,6 +243,7 @@ for (const t of templates) {
       row.config_json === null,
       row.config_json ?? 'null',
     );
+    check(`${tag}: no phantom model default`, row.model === null, row.model ?? 'null');
 
     const persona = parseJson(row.persona_json);
     const profile = (persona.profile ?? {}) as Record<string, unknown>;
@@ -228,6 +268,64 @@ for (const t of templates) {
         `${tag}: home zone is a workspace`,
         zone?.archetype === 'workspace',
         zone?.archetype ?? 'no-zone',
+      );
+    }
+  }
+}
+
+// ── Wizard assignment → template materialization → employee persistence ─────
+// This is the deterministic non-DOM seam used by the creation flow. The browser
+// interaction itself remains a release-app live verification responsibility.
+{
+  const template = getTemplate('vibe-coding-studio');
+  if (!template) {
+    check('vibe-coding-studio model assignment fixture exists', false);
+  } else {
+    const repos = createMemoryRepositories();
+    const companyId = 'co-vibe-model-assignment';
+    const nowIso = new Date().toISOString();
+    await repos.companies.create({
+      company_id: companyId,
+      name: template.name,
+      status: 'active',
+      template_id: template.id,
+      template_label: template.name,
+      workspace_root: null,
+      description_json: null,
+      created_at: nowIso,
+      updated_at: nowIso,
+    });
+    const selectedModels = {
+      'ava-orchestrator': 'fixture-provider/planning-model',
+      'leo-executor': 'fixture-provider/execution-model',
+      'iris-reviewer': 'fixture-provider/review-model',
+    } as const;
+    const service = new CompanyTemplateService(
+      repos.employees,
+      repos.officeLayouts,
+      new InMemoryEventBus(),
+      repos.prefabInstances,
+      undefined,
+      repos.zones,
+      repos.workstations,
+    );
+    await service.materializeTemplate(template.id, companyId, {
+      employeeModels: selectedModels,
+    });
+
+    const rows = await repos.employees.findByCompany(companyId);
+    for (const employee of template.employees) {
+      const row = rows.find((candidate) => candidate.name === employee.name);
+      const expected = selectedModels[employee.key as keyof typeof selectedModels] ?? null;
+      check(
+        `wizard model assignment persists for ${employee.key}`,
+        row?.model === expected,
+        `${row?.model ?? 'null'} vs ${expected ?? 'null'}`,
+      );
+      check(
+        `wizard leaves thinking level unassigned for ${employee.key}`,
+        row?.thinking_level === null,
+        row?.thinking_level ?? 'null',
       );
     }
   }
