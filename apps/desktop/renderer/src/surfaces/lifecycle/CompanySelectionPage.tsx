@@ -409,10 +409,12 @@ function SelectedCompany({
           onClick={onArchive}
         >
           <Icon icon={Archive} size="sm" />
-          {confirmArchive ? 'Archive (again to confirm)' : 'Archive'}
+          Archive
         </button>
         {confirmArchive ? (
-          <div className="off-csp-arch-warn">Remove {company.name} from the active list?</div>
+          <div className="off-csp-arch-warn">
+            Click Archive again to remove {company.name} from the active list.
+          </div>
         ) : null}
       </div>
     </div>

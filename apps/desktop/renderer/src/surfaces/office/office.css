@@ -2828,6 +2828,15 @@
   opacity: 0.55;
 }
 
+.off-recovery-resume {
+  width: 116px;
+  white-space: nowrap;
+}
+
+.off-project-save {
+  width: 84px;
+}
+
 .off-recovery-partial {
   display: grid;
   gap: 3px;

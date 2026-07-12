@@ -117,7 +117,7 @@ export function RecoveryPanel() {
               <div className="off-recovery-actions">
                 <button
                   type="button"
-                  className="off-recovery-btn off-focusable"
+                  className="off-recovery-btn off-recovery-resume off-focusable"
                   disabled={busy || card.classification === 'incompatible'}
                   onClick={() => requestResume(card)}
                 >
