@@ -1071,41 +1071,47 @@ function Composer({
             onApply={setText}
           />
         </div>
-        {showAskTeam ? (
-          <button
-            type="button"
-            className="off-connect-ask off-focusable"
-            onClick={onAskTeam ?? undefined}
-            disabled={running}
-            title="Ask team"
-          >
-            <Icon icon={Users} size="sm" />
-            Ask team
-          </button>
-        ) : null}
-        {threadId ? <ComposerSettingsMenu threadId={threadId} showMode={false} /> : null}
-        {running ? (
-          <button
-            type="button"
-            className="off-ws-send off-connect-stop off-focusable"
-            onClick={onStop}
-            aria-label="Stop"
-            title="Stop"
-          >
-            <Icon icon={Square} size="sm" />
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="off-ws-send off-focusable"
-            onClick={() => void doSend()}
-            disabled={sendDisabled}
-            aria-label={isRoundtable ? 'Send and start round' : 'Send'}
-            title={isRoundtable ? 'Send and start round' : 'Send'}
-          >
-            <Icon icon={SendHorizontal} size="sm" />
-          </button>
-        )}
+        <div className="off-ws-composer-footer">
+          <div className="off-ws-composer-footer-start">
+            {showAskTeam ? (
+              <button
+                type="button"
+                className="off-connect-ask off-focusable"
+                onClick={onAskTeam ?? undefined}
+                disabled={running}
+                title="Ask team"
+              >
+                <Icon icon={Users} size="sm" />
+                Ask team
+              </button>
+            ) : null}
+            {threadId ? <ComposerSettingsMenu threadId={threadId} showMode={false} /> : null}
+          </div>
+          <div className="off-ws-composer-footer-end">
+            {running ? (
+              <button
+                type="button"
+                className="off-ws-send off-connect-stop off-focusable"
+                onClick={onStop}
+                aria-label="Stop"
+                title="Stop"
+              >
+                <Icon icon={Square} size="sm" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="off-ws-send off-focusable"
+                onClick={() => void doSend()}
+                disabled={sendDisabled}
+                aria-label={isRoundtable ? 'Send and start round' : 'Send'}
+                title={isRoundtable ? 'Send and start round' : 'Send'}
+              >
+                <Icon icon={SendHorizontal} size="sm" />
+              </button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

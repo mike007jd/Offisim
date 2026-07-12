@@ -876,7 +876,8 @@
 
 .off-ws-composer-shell {
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
+  align-items: stretch;
   gap: var(--off-sp-2);
   border: 1px solid var(--off-line-strong);
   border-radius: var(--off-r-lg);
@@ -1826,6 +1827,31 @@
   flex: 1;
   min-width: 0;
   display: grid;
+  width: 100%;
+}
+
+.off-ws-composer-footer {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+  min-width: 0;
+}
+
+.off-ws-composer-footer-start,
+.off-ws-composer-footer-end {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+}
+
+.off-ws-composer-footer-start {
+  min-width: 0;
+}
+
+.off-ws-composer-footer-end {
+  margin-left: auto;
+  flex: none;
 }
 
 .off-ws-input-wrap .off-ws-composer-input {
@@ -1834,7 +1860,6 @@
 
 .off-connect-ask {
   flex: none;
-  align-self: flex-end;
   height: 30px;
   padding: 0 10px;
   display: inline-flex;
