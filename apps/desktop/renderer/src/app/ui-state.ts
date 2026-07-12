@@ -52,7 +52,7 @@ export const DEFAULT_STAGE_SPLIT_LAYOUT: StageSplitLayout = {
 
 const STAGE_SPLIT_LAYOUT_STORAGE_KEY = 'offisim:ui-state:stage-split-layout';
 
-export function normalizeStageSplitLayout(value: unknown): StageSplitLayout {
+function normalizeStageSplitLayout(value: unknown): StageSplitLayout {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return DEFAULT_STAGE_SPLIT_LAYOUT;
   }
