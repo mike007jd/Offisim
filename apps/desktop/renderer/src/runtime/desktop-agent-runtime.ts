@@ -312,19 +312,19 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
 
   async resume(runId: string): Promise<DesktopAgentRunResult> {
     const repo = this.repos.agentRuns;
-    if (!repo) throw new Error('Cannot resume Pi Agent run: agentRuns repo is unavailable.');
+    if (!repo) throw new Error('Cannot resume Agent runtime run: agentRuns repo is unavailable.');
     const row = await repo.findById(runId);
     if (!row || row.company_id !== this.companyId) {
-      throw new Error('Cannot resume Pi Agent run: run not found for this company.');
+      throw new Error('Cannot resume Agent runtime run: run not found for this company.');
     }
     if (row.status !== 'interrupted') {
-      throw new Error(`Cannot resume Pi Agent run: expected interrupted, got ${row.status}.`);
+      throw new Error(`Cannot resume Agent runtime run: expected interrupted, got ${row.status}.`);
     }
     const context = parseRunContext(row.runtime_context_json);
     const projectId = resolveAgentRunProjectId(row);
     if (!projectId) {
       throw new Error(
-        'Cannot resume Pi Agent run: original project context is missing. Restart from the objective instead.',
+        'Cannot resume Agent runtime run: original project context is missing. Restart from the objective instead.',
       );
     }
     await this.assertProjectWorkspaceAvailable(projectId);
@@ -360,11 +360,11 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
   private async assertProjectWorkspaceAvailable(projectId: string): Promise<void> {
     const project = await this.repos.projects.findById(projectId);
     if (!project || project.company_id !== this.companyId) {
-      throw new Error('Cannot resume Pi Agent run: original project is unavailable.');
+      throw new Error('Cannot resume Agent runtime run: original project is unavailable.');
     }
     if (!project.workspace_root?.trim()) {
       throw new Error(
-        'Cannot resume Pi Agent run: original project has no workspace folder bound.',
+        'Cannot resume Agent runtime run: original project has no workspace folder bound.',
       );
     }
     try {
@@ -378,7 +378,9 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       }
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err);
-      throw new Error(`Cannot resume Pi Agent run: original workspace is unavailable (${detail}).`);
+      throw new Error(
+        `Cannot resume Agent runtime run: original workspace is unavailable (${detail}).`,
+      );
     }
   }
 
@@ -662,8 +664,8 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     // office dramaturgy + run projection just like delegated work.
     const permissionMode = input.permissionMode?.trim() || resolveThreadMode(input.threadId);
     const rootAccess: 'read' | 'write' = permissionMode === 'plan' ? 'read' : 'write';
-    const resolvedModel = input.model?.trim() || readPiModelOverride() || undefined;
-    const resolvedThinkingLevel =
+    let resolvedModel = input.model?.trim() || readPiModelOverride() || undefined;
+    let resolvedThinkingLevel =
       input.thinkingLevel?.trim() || resolveThreadThinkingOverride(input.threadId);
     const project = projectId ? await this.repos.projects.findById(projectId) : null;
     const workspaceRoot = project?.workspace_root ?? null;
@@ -926,11 +928,27 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       // `appendSystemPrompt`) plus the delegation roster. If this fails, the run
       // fails visibly instead of silently becoming a base Pi run with no employee
       // identity. MCP scope remains a separate safe degradation below.
-      const { systemPromptAppend, skillPaths, roster } = await buildDelegationContext(
-        this.repos,
-        this.companyId,
-        input.employeeId,
-      );
+      const { systemPromptAppend, skillPaths, runtimeSelection, roster } =
+        await buildDelegationContext(this.repos, this.companyId, input.employeeId, {
+          model: resolvedModel,
+          thinkingLevel: resolvedThinkingLevel,
+        });
+      // A resume stays on its persisted Pi session selection. A new employee-owned
+      // run resolves the latest employee binding at send time, so Personnel and
+      // TeamDock changes apply without restarting the desktop app.
+      if (commandName === 'agent_runtime_execute' && input.employeeId) {
+        resolvedModel = runtimeSelection.model;
+        resolvedThinkingLevel = runtimeSelection.thinkingLevel;
+        runtimeContext.model = resolvedModel ?? null;
+        runtimeContext.thinkingLevel = resolvedThinkingLevel ?? null;
+        this.enqueuePersist(
+          () =>
+            this.repos.agentRuns?.updateRuntimeContext(
+              runScope.runId,
+              JSON.stringify(runtimeContext),
+            ) ?? Promise.resolve(),
+        );
+      }
       const mcpTools = await buildMcpScope(
         this.repos,
         this.companyId,
@@ -1368,7 +1386,7 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
   const repos = await getRepos();
   for (const required of ['threads', 'chatThreads', 'projects'] as const) {
     if (!repos[required]) {
-      throw new Error(`Cannot start Pi Agent runtime: repos.${required} is unavailable.`);
+      throw new Error(`Cannot start Agent runtime: repos.${required} is unavailable.`);
     }
   }
   const runtime = new DesktopPiAgentRuntime(companyId, repos);

@@ -159,7 +159,7 @@ const chatRuntime = await source(
 );
 assertIncludesAll(
   chatRuntime,
-  ['Pi Agent run failed.', 'materializeChatTurn', 'displayAttachmentsFromStaged'],
+  ['Agent runtime run failed.', 'materializeChatTurn', 'displayAttachmentsFromStaged'],
   'desktop chat helper must keep only shared message/attachment helpers.',
 );
 assertNoMatch(

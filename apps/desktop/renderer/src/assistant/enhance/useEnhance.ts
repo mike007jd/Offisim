@@ -30,7 +30,7 @@ function describeError(err: unknown): string {
     return 'Rate limited — wait a moment and try Enhance again.';
   }
   if (/not logged in|no available model|no api key/i.test(raw)) {
-    return 'Pi Agent has no available model. Sign in, then retry.';
+    return 'Agent runtime has no available model. Sign in, then retry.';
   }
   return raw || 'Enhance failed. Try again.';
 }

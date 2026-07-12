@@ -37,7 +37,7 @@ export function newDraftId(prefix: string): string {
 export function buildRunError(message: string): RunError {
   return {
     id: newDraftId('run-error'),
-    message: 'Pi Agent run failed.',
+    message: 'Agent runtime run failed.',
     technicalDetail: message,
   };
 }
@@ -82,7 +82,7 @@ export async function materializeChatTurn({
     text,
     '',
     '## Current turn attachments',
-    'The user attached files to this turn. Text/data excerpts below are readable context. Binary or metadata-only attachments are not readable in this Pi Agent turn; do not claim to have inspected their contents.',
+    'The user attached files to this turn. Text/data excerpts below are readable context. Binary or metadata-only attachments are not readable in this Agent runtime turn; do not claim to have inspected their contents.',
   ];
 
   for (const attachment of attached) {
@@ -158,7 +158,7 @@ function attachmentPromptLines(
   const ref = chatAttachment.vaultRef ? `, ref=${chatAttachment.vaultRef}` : '';
   const header = `[attachment ${chatAttachment.name}, ${mime}, ${chatAttachment.byteLength ?? 0} bytes, kind=${kind}${ref}]`;
   const inline = inlineAttachmentText(staged, bytes);
-  if (!inline) return [header, 'Readable content: unavailable in this Pi Agent turn.'];
+  if (!inline) return [header, 'Readable content: unavailable in this Agent runtime turn.'];
   return [header, 'Readable content:', '```', inline, '```'];
 }
 

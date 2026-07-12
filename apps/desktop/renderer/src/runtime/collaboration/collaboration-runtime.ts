@@ -9,15 +9,16 @@
 // hidden system prompt and any non-participant private memory are FORBIDDEN from
 // the context packet (see collaboration-context.ts).
 
+import { buildMcpScope, resolveEmployeeRuntimeSelection } from '@/data/employee-persona.js';
+import { invokeCommand } from '@/lib/tauri-commands.js';
 import { titleizeSlug } from '@/lib/utils.js';
-import { buildMcpScope } from '@/data/employee-persona.js';
 import { createCollaborationService } from '@offisim/core/browser';
 import type { EmployeeRow, RuntimeRepositories } from '@offisim/core/browser';
 import type { CollaborationMessage } from '@offisim/shared-types';
 import type { PiAgentHostEvent } from '../pi-runtime-driver.js';
-import { getRepos } from '../repos.js';
 import { resolveThreadModel } from '../pi-thread-model-store.js';
 import { resolveThreadThinkingOverride } from '../pi-thread-thinking-store.js';
+import { getRepos } from '../repos.js';
 import type { CollaborationParticipant } from './collaboration-context.js';
 import { createTauriCollaborationTransport } from './collaboration-transport.js';
 import {
@@ -147,10 +148,11 @@ async function assembleController(): Promise<CollaborationTurnController> {
     if (!thread) throw new Error(`collaboration thread not found: ${threadId}`);
     const capabilityProfile =
       thread.capability_profile === 'collaboration_read' ? 'collaboration_read' : 'strict';
-    const [company, members, allEmployees] = await Promise.all([
+    const [company, members, allEmployees, piStatus] = await Promise.all([
       repos.companies!.findById(thread.company_id).catch(() => null),
       repos.collaborationMembers!.listActiveByThread(threadId),
       repos.employees!.findByCompany(thread.company_id),
+      invokeCommand('pi_agent_status').catch(() => null),
     ]);
     const byId = new Map(allEmployees.map((e) => [e.employee_id, e]));
     // Participants are the thread's ACTIVE employee members, in their join order
@@ -160,16 +162,36 @@ async function assembleController(): Promise<CollaborationTurnController> {
       .map((m) => byId.get(m.employee_id as string))
       .filter((e): e is EmployeeRow => e != null)
       .map(toParticipant);
+    const inheritedRuntime = {
+      model: resolveThreadModel(threadId) || undefined,
+      thinkingLevel: resolveThreadThinkingOverride(threadId),
+    };
+    const runtimeByEmployeeId = new Map(
+      allEmployees.map((employee) => [
+        employee.employee_id,
+        resolveEmployeeRuntimeSelection(
+          employee,
+          piStatus?.availableModels ?? [],
+          inheritedRuntime,
+        ),
+      ]),
+    );
     const mcpToolsByEmployeeId =
       capabilityProfile === 'collaboration_read'
         ? new Map(
             await Promise.all(
-              participants.map(async (participant) => [
-                participant.employeeId,
-                await buildMcpScope(repos, thread.company_id, participant.employeeId, null).catch(
-                  () => [],
-                ),
-              ] as const),
+              participants.map(
+                async (participant) =>
+                  [
+                    participant.employeeId,
+                    await buildMcpScope(
+                      repos,
+                      thread.company_id,
+                      participant.employeeId,
+                      null,
+                    ).catch(() => []),
+                  ] as const,
+              ),
             ),
           )
         : undefined;
@@ -188,6 +210,7 @@ async function assembleController(): Promise<CollaborationTurnController> {
           ? (mcpToolsByEmployeeId?.get(thread.direct_employee_id) ?? [])
           : [],
       mcpToolsByEmployeeId,
+      runtimeByEmployeeId,
       participants,
     };
   };

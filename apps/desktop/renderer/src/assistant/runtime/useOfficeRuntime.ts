@@ -160,7 +160,7 @@ export function useOfficeRuntime({
         // the chip so the user can retry without re-inserting the Loop.
         if (loopReference) useComposerLoopReferenceStore.getState().clearReference(threadId);
       } catch (error) {
-        toast.error(loopReference ? 'Could not send this Loop run' : 'Pi Agent run failed', {
+        toast.error(loopReference ? 'Could not send this Loop run' : 'Agent runtime run failed', {
           description: safeErrorMessage(error),
         });
       }

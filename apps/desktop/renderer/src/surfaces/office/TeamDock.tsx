@@ -1,5 +1,10 @@
 import { useUiState } from '@/app/ui-state.js';
 import {
+  type PiAgentModelOption,
+  usePiAgentModels,
+} from '@/assistant/composer/usePiAgentModels.js';
+import { reposOrNull } from '@/data/adapters.js';
+import {
   type ProjectChatThreadRow,
   loadProjectChatThreadRows,
   projectChatThreadRowsQueryKey,
@@ -13,6 +18,7 @@ import {
 import type { ChatThread, Employee, EmployeePresence, RunState } from '@/data/types.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
+import { Select } from '@/design-system/grammar/Select.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import {
@@ -27,7 +33,10 @@ import {
 } from '@/design-system/primitives/dropdown-menu.js';
 import { Popover, PopoverContent, PopoverTrigger } from '@/design-system/primitives/popover.js';
 import { cn } from '@/lib/utils.js';
-import { useEmployeeMemories } from '@/surfaces/personnel/personnel-data.js';
+import {
+  recordEmployeeVersionOnSave,
+  useEmployeeMemories,
+} from '@/surfaces/personnel/personnel-data.js';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ChevronDown,
@@ -84,6 +93,48 @@ interface TeamZoneOption {
   label: string;
 }
 
+interface EmployeeModelState {
+  label: string;
+  value: string;
+  invalid: boolean;
+}
+
+function shortModelName(value: string): string {
+  return value.split('/').at(-1) || value;
+}
+
+function employeeModelState(
+  employee: Employee,
+  models: readonly PiAgentModelOption[] | undefined,
+): EmployeeModelState {
+  if (employee.kind === 'external') return { label: 'External', value: '', invalid: false };
+  const value = employee.model?.trim() ?? '';
+  if (!value) return { label: 'Inherit', value: '', invalid: false };
+  const option = models?.find((candidate) => candidate.value === value);
+  return {
+    label: option?.name ?? shortModelName(value),
+    value,
+    invalid: models !== undefined && !option,
+  };
+}
+
+function companyModelSummary(
+  employees: readonly Employee[],
+  models: readonly PiAgentModelOption[] | undefined,
+): string {
+  const counts = new Map<string, number>();
+  for (const employee of employees) {
+    const state = employeeModelState(employee, models);
+    const label = state.invalid ? 'Inherit' : state.label;
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort(([labelA, countA], [labelB, countB]) => countB - countA || labelA.localeCompare(labelB))
+    .slice(0, 3)
+    .map(([label, count]) => `${count} ${label.toLowerCase()}`)
+    .join(' · ');
+}
+
 function presenceFor(employee: Employee, running: boolean): EmployeePresence {
   if (running) return 'working';
   return employee.presence ?? (employee.online ? 'idle' : 'offline');
@@ -100,9 +151,13 @@ function EmployeeDockPopover({
   onViewProfile,
   onAssignZone,
   onToggleEnabled,
+  models,
+  modelsLoading,
+  onModelChange,
   messaging,
   assigning,
   toggling,
+  modelUpdating,
 }: {
   employee: Employee;
   presence: EmployeePresence;
@@ -114,14 +169,19 @@ function EmployeeDockPopover({
   onViewProfile: () => void;
   onAssignZone: (zoneId: string) => void;
   onToggleEnabled: () => void;
+  models: readonly PiAgentModelOption[] | undefined;
+  modelsLoading: boolean;
+  onModelChange: (model: string) => void;
   messaging: boolean;
   assigning: boolean;
   toggling: boolean;
+  modelUpdating: boolean;
 }) {
   const messages = useMessages(thread?.id ?? null);
   const memories = useEmployeeMemories(employee.id);
+  const modelState = employeeModelState(employee, models);
   const capabilitySummary = [
-    employee.modelLabel,
+    modelState.invalid ? 'Model unavailable · inherits' : modelState.label,
     `${employee.skillCount} skills`,
     employee.kind === 'external' ? (employee.brandLabel ?? 'External') : employee.discipline,
   ]
@@ -179,6 +239,36 @@ function EmployeeDockPopover({
           <dd>{capabilitySummary}</dd>
         </div>
       </dl>
+      {employee.kind === 'internal' ? (
+        <section className="off-team-pop-section">
+          <span className="off-team-pop-section-title">Runtime model</span>
+          <Select
+            value={modelState.value}
+            onChange={(event) => onModelChange(event.target.value)}
+            disabled={modelsLoading || models === undefined || modelUpdating}
+            aria-label={`Runtime model for ${employee.name}`}
+            className="w-full"
+            options={[
+              { value: '', label: 'Inherit conversation model' },
+              ...(modelState.invalid && employee.model
+                ? [
+                    {
+                      value: employee.model,
+                      label: `Unavailable · ${shortModelName(employee.model)}`,
+                    },
+                  ]
+                : []),
+              ...(models ?? []).map((option) => ({
+                value: option.value,
+                label: `${option.provider} · ${option.name}`,
+              })),
+            ]}
+          />
+          {modelState.invalid ? (
+            <p className="off-team-pop-sub">Saved model is unavailable; runs inherit instead.</p>
+          ) : null}
+        </section>
+      ) : null}
       <section className="off-team-pop-section">
         <span className="off-team-pop-section-title">
           <Icon icon={ListChecks} size="sm" />
@@ -272,10 +362,49 @@ export function TeamDock() {
   const selectEmployee = useUiState((s) => s.selectEmployee);
   const queryClient = useQueryClient();
   const employees = useEmployees();
+  const models = usePiAgentModels();
   const threads = useThreads(projectId);
   const layout = useOfficeLayout(companyId);
   const assignZone = useReassignEmployee();
   const updateEnabled = useUpdateEmployeeEnabled();
+  const updateModel = useMutation({
+    mutationFn: async ({ employee, model }: { employee: Employee; model: string }) => {
+      const repos = await reposOrNull();
+      if (!repos) throw new Error('Changing an employee model requires the desktop runtime');
+      const row = await repos.employees.findById(employee.id);
+      if (!row) throw new Error('Employee no longer exists');
+      const option = models.data?.find((candidate) => candidate.value === model);
+      if (model && !option) throw new Error('Selected model is no longer available');
+      const thinkingLevel = model && option?.reasoning ? row.thinking_level : null;
+      await recordEmployeeVersionOnSave({
+        repos,
+        employeeId: employee.id,
+        performUpdate: () =>
+          repos.employees.update(employee.id, {
+            model: model || null,
+            thinking_level: thinkingLevel,
+          }),
+      });
+      return { employee, model, thinkingLevel };
+    },
+    onSuccess: ({ employee, model, thinkingLevel }) => {
+      queryClient.setQueryData<Employee[]>(['employees', companyId], (current) =>
+        current?.map((candidate) =>
+          candidate.id === employee.id
+            ? { ...candidate, model: model || null, thinkingLevel }
+            : candidate,
+        ),
+      );
+      queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['personnel', 'versions', employee.id] });
+      toast.success(`${employee.name} model updated`);
+    },
+    onError: (error) => {
+      toast.error('Could not update employee model', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
+    },
+  });
   const directThread = useMutation({
     mutationFn: async (
       employee: Employee,
@@ -369,12 +498,15 @@ export function TeamDock() {
   // list-options control once the roster is large enough to need it.
   const rosterSize = employees.data?.length ?? 0;
   const showListControls = rosterSize > 6;
+  const modelSummary = companyModelSummary(employees.data ?? [], models.data);
 
   return (
-    <div className={cn('off-team', collapsed && 'is-collapsed')} aria-label="Team">
+    <div className={cn('off-team relative', collapsed && 'is-collapsed')} aria-label="Team">
       <div className="off-dock-label">
         <span className="off-dock-title">Team</span>
-        <span className="off-dock-count">{rosterSize} people</span>
+        <span className="off-dock-count">
+          {rosterSize} people{modelSummary ? ` · ${modelSummary}` : ''}
+        </span>
       </div>
 
       <div className="off-dock-strip">
@@ -383,6 +515,7 @@ export function TeamDock() {
           const running = thread?.runState === 'running';
           const active = Boolean(thread && thread.id === selectedThreadId);
           const presence = presenceFor(employee, running);
+          const modelState = employeeModelState(employee, models.data);
           const currentZone = zones.find((zone) => zone.id === employee.workstationId) ?? null;
           return (
             <Popover key={employee.id}>
@@ -401,7 +534,22 @@ export function TeamDock() {
                   />
                   <span className="off-team-info">
                     <span className="off-team-name">{employee.name}</span>
-                    <span className="off-team-role">{employee.role}</span>
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <span className="off-team-role min-w-0">{employee.role}</span>
+                      <span
+                        className={cn(
+                          'max-w-24 shrink-0 truncate rounded-full border border-[var(--off-line-soft)] bg-[var(--off-surface-sunken)] px-1.5 py-px font-mono text-xs leading-none text-[var(--off-ink-3)]',
+                          modelState.invalid && 'text-[var(--off-warn)]',
+                        )}
+                        title={
+                          modelState.invalid
+                            ? 'Saved model unavailable; inherits conversation model'
+                            : employee.model || 'Inherits conversation model'
+                        }
+                      >
+                        {modelState.invalid ? 'Inherit' : modelState.label}
+                      </span>
+                    </span>
                     <span className={cn('off-team-status', PRESENCE_CLS[presence])}>
                       <span className="off-team-dot" />
                       {PRESENCE_TEXT[presence]}
@@ -433,11 +581,17 @@ export function TeamDock() {
                       enabled: Boolean(employee.disabled),
                     });
                   }}
+                  models={models.data}
+                  modelsLoading={models.isLoading}
+                  onModelChange={(model) => updateModel.mutate({ employee, model })}
                   assigning={
                     assignZone.isPending && assignZone.variables?.employeeId === employee.id
                   }
                   toggling={
                     updateEnabled.isPending && updateEnabled.variables?.employeeId === employee.id
+                  }
+                  modelUpdating={
+                    updateModel.isPending && updateModel.variables?.employee.id === employee.id
                   }
                   messaging={directThread.isPending && directThread.variables?.id === employee.id}
                 />
@@ -456,7 +610,7 @@ export function TeamDock() {
         </button>
       </div>
 
-      <div className="off-dock-tools">
+      <div className="off-dock-tools items-start pt-3 pr-12">
         {showListControls ? (
           <>
             {showSearch ? (
@@ -512,6 +666,7 @@ export function TeamDock() {
           icon={collapsed ? ChevronUp : ChevronDown}
           label={collapsed ? 'Expand dock' : 'Collapse dock'}
           size="iconSm"
+          className="absolute top-3 right-3"
           onClick={() => setCollapsed((v) => !v)}
         />
       </div>
