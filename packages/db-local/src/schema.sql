@@ -152,7 +152,7 @@ CREATE TABLE IF NOT EXISTS asset_bindings (
 );
 CREATE TABLE IF NOT EXISTS task_runs (
   task_run_id TEXT PRIMARY KEY NOT NULL,
-  thread_id TEXT NOT NULL REFERENCES graph_threads(thread_id) ON DELETE CASCADE,
+  thread_id TEXT NOT NULL,
   employee_id TEXT REFERENCES employees(employee_id) ON DELETE SET NULL,
   parent_task_run_id TEXT REFERENCES task_runs(task_run_id) ON DELETE SET NULL,
   task_type TEXT NOT NULL,
@@ -211,7 +211,7 @@ CREATE TABLE IF NOT EXISTS tool_calls (
 );
 CREATE TABLE IF NOT EXISTS handoff_events (
   handoff_id TEXT PRIMARY KEY NOT NULL,
-  thread_id TEXT NOT NULL REFERENCES graph_threads(thread_id) ON DELETE CASCADE,
+  thread_id TEXT NOT NULL,
   from_employee_id TEXT REFERENCES employees(employee_id) ON DELETE SET NULL,
   to_employee_id TEXT REFERENCES employees(employee_id) ON DELETE SET NULL,
   reason TEXT,
@@ -221,7 +221,7 @@ CREATE TABLE IF NOT EXISTS handoff_events (
 CREATE TABLE IF NOT EXISTS meeting_sessions (
   meeting_id TEXT PRIMARY KEY NOT NULL,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
-  thread_id TEXT REFERENCES graph_threads(thread_id) ON DELETE SET NULL,
+  thread_id TEXT,
   topic TEXT NOT NULL,
   status TEXT NOT NULL CHECK (status IN ('scheduled', 'running', 'paused', 'completed', 'cancelled')),
   summary_json TEXT,
@@ -232,7 +232,7 @@ CREATE TABLE IF NOT EXISTS meeting_sessions (
 CREATE TABLE IF NOT EXISTS runtime_events (
   event_id TEXT PRIMARY KEY NOT NULL,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
-  thread_id TEXT REFERENCES graph_threads(thread_id) ON DELETE SET NULL,
+  thread_id TEXT,
   event_type TEXT NOT NULL,
   severity TEXT NOT NULL DEFAULT 'info' CHECK (severity IN ('debug', 'info', 'warning', 'error')),
   payload_json TEXT,
@@ -240,7 +240,7 @@ CREATE TABLE IF NOT EXISTS runtime_events (
 );
 CREATE TABLE IF NOT EXISTS llm_calls (
   llm_call_id   TEXT PRIMARY KEY NOT NULL,
-  thread_id     TEXT REFERENCES graph_threads(thread_id) ON DELETE SET NULL,
+  thread_id     TEXT,
   task_run_id   TEXT REFERENCES task_runs(task_run_id) ON DELETE SET NULL,
   node_name     TEXT NOT NULL,
   provider      TEXT NOT NULL,
@@ -406,7 +406,7 @@ CREATE TABLE IF NOT EXISTS recovery_knowledge (
 CREATE TABLE IF NOT EXISTS file_history (
   history_id TEXT PRIMARY KEY NOT NULL,
   snapshot_id TEXT NOT NULL,
-  thread_id TEXT NOT NULL REFERENCES graph_threads(thread_id) ON DELETE CASCADE,
+  thread_id TEXT NOT NULL,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   node_name TEXT,
   employee_id TEXT,
@@ -421,7 +421,7 @@ CREATE TABLE IF NOT EXISTS file_history (
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS active_thread_interactions (
-  thread_id TEXT PRIMARY KEY NOT NULL REFERENCES graph_threads(thread_id) ON DELETE CASCADE,
+  thread_id TEXT PRIMARY KEY NOT NULL,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   interaction_id TEXT NOT NULL UNIQUE,
   kind TEXT NOT NULL,
@@ -434,7 +434,7 @@ CREATE TABLE IF NOT EXISTS active_thread_interactions (
 CREATE TABLE IF NOT EXISTS interaction_history (
   history_id TEXT PRIMARY KEY NOT NULL,
   interaction_id TEXT NOT NULL,
-  thread_id TEXT NOT NULL REFERENCES graph_threads(thread_id) ON DELETE CASCADE,
+  thread_id TEXT NOT NULL,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   kind TEXT NOT NULL,
   interaction_mode TEXT NOT NULL,
@@ -542,7 +542,7 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 CREATE TABLE IF NOT EXISTS node_summaries (
   summary_id TEXT PRIMARY KEY NOT NULL,
-  thread_id TEXT NOT NULL REFERENCES graph_threads(thread_id) ON DELETE CASCADE,
+  thread_id TEXT NOT NULL,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   node_name TEXT NOT NULL,
   employee_id TEXT,
@@ -559,7 +559,7 @@ CREATE TABLE IF NOT EXISTS node_summaries (
 );
 CREATE TABLE IF NOT EXISTS compact_summaries (
   compact_id TEXT PRIMARY KEY NOT NULL,
-  thread_id TEXT NOT NULL REFERENCES graph_threads(thread_id) ON DELETE CASCADE,
+  thread_id TEXT NOT NULL,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   compact_kind TEXT NOT NULL,
   summary_source TEXT NOT NULL,

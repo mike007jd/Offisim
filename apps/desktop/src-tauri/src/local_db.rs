@@ -19,7 +19,7 @@ const LOCAL_SCHEMA_SQL: &str = include_str!("../../../../packages/db-local/src/s
 ///
 /// Any existing local database with another version is a disposable dev artifact:
 /// delete it and let the app rebuild from the current baseline.
-const LOCAL_SCHEMA_VERSION: i64 = 3;
+const LOCAL_SCHEMA_VERSION: i64 = 4;
 
 pub struct OffisimDbState {
     pool: SqlitePool,
