@@ -947,6 +947,11 @@ CREATE TABLE IF NOT EXISTS loop_definitions (
   current_revision_id TEXT,
   status              TEXT NOT NULL DEFAULT 'draft'
                         CHECK (status IN ('draft', 'ready', 'archived')),
+  schedule_interval_minutes INTEGER
+                        CHECK (schedule_interval_minutes IS NULL OR schedule_interval_minutes IN (15, 60, 360, 1440)),
+  next_run_at         TEXT,
+  last_run_at         TEXT,
+  last_run_result     TEXT,
   created_at          TEXT NOT NULL,
   updated_at          TEXT NOT NULL
 );

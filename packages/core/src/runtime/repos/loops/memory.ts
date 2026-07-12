@@ -57,6 +57,14 @@ export class MemoryLoopDefinitionRepository implements LoopDefinitionRepository 
       status: patch.status !== undefined ? patch.status : row.status,
       current_revision_id:
         patch.currentRevisionId !== undefined ? patch.currentRevisionId : row.current_revision_id,
+      schedule_interval_minutes:
+        patch.scheduleIntervalMinutes !== undefined
+          ? patch.scheduleIntervalMinutes
+          : row.schedule_interval_minutes,
+      next_run_at: patch.nextRunAt !== undefined ? patch.nextRunAt : row.next_run_at,
+      last_run_at: patch.lastRunAt !== undefined ? patch.lastRunAt : row.last_run_at,
+      last_run_result:
+        patch.lastRunResult !== undefined ? patch.lastRunResult : row.last_run_result,
       updated_at: patch.updatedAt,
     });
   }

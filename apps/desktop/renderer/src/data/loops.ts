@@ -6,8 +6,8 @@ import {
   type LoopCompileInput,
   type LoopCompileModel,
   type LoopCompileResult,
-  type LoopModelOutput,
   type LoopDefinitionRow,
+  type LoopModelOutput,
   type LoopService,
   type LoopServiceRepos,
   type RuntimeRepositories,
@@ -17,7 +17,11 @@ import {
   generateId,
   getCompilerProfile,
 } from '@offisim/core/browser';
-import type { LoopDefinition, LoopRevision } from '@offisim/shared-types';
+import type {
+  LoopDefinition,
+  LoopRevision,
+  LoopScheduleIntervalMinutes,
+} from '@offisim/shared-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 /**
@@ -47,6 +51,12 @@ function toLoopDefinition(row: LoopDefinitionRow): LoopDefinition {
     profileId: row.profile_id,
     currentRevisionId: row.current_revision_id ?? undefined,
     status: row.status as LoopDefinition['status'],
+    ...(row.schedule_interval_minutes
+      ? { scheduleIntervalMinutes: row.schedule_interval_minutes as LoopScheduleIntervalMinutes }
+      : {}),
+    ...(row.next_run_at ? { nextRunAt: row.next_run_at } : {}),
+    ...(row.last_run_at ? { lastRunAt: row.last_run_at } : {}),
+    ...(row.last_run_result ? { lastRunResult: row.last_run_result } : {}),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -143,6 +153,21 @@ export function useLoops(companyId: string | null) {
       return buildLoopService(repos).listLoops(companyId, { limit: 200 });
     },
     enabled: companyId !== null,
+  });
+}
+
+export function useConfigureLoopSchedule(companyId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      loopId: string;
+      intervalMinutes: LoopScheduleIntervalMinutes | null;
+    }) => {
+      const repos = await reposOrNull();
+      if (!repos) throw new Error('Scheduling a Loop needs the desktop app.');
+      return buildLoopService(repos).configureSchedule(input.loopId, input.intervalMinutes);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: loopKeys.list(companyId) }),
   });
 }
 
