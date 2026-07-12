@@ -89,6 +89,11 @@ export interface WorkspaceLeaseReviewRow {
   changedPaths: string[];
   files: Array<{ path: string; diff: string }>;
   conflicts: string[];
+  loopAttempt: number | null;
+  loopMaxAttempts: number | null;
+  verificationSummary: string | null;
+  verificationPassed: boolean | null;
+  terminationReason: string | null;
   updatedAt: string;
   createdAt: string;
   lastAction: string | null;
@@ -398,6 +403,10 @@ function asStringArray(value: unknown): string[] {
     : [];
 }
 
+function asNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
 function asDiffFiles(value: unknown): Array<{ path: string; diff: string }> {
   if (!Array.isArray(value)) return [];
   return value.flatMap((item) => {
@@ -497,6 +506,16 @@ function buildWorkspaceLeaseRows(
         changedPaths: changedPaths.length > 0 ? changedPaths : (current?.changedPaths ?? []),
         files: files.length > 0 ? files : (current?.files ?? []),
         conflicts: asStringArray(payload.conflicts),
+        loopAttempt: asNumber(payload.loopAttempt) ?? current?.loopAttempt ?? null,
+        loopMaxAttempts: asNumber(payload.loopMaxAttempts) ?? current?.loopMaxAttempts ?? null,
+        verificationSummary:
+          asString(payload.verificationSummary) ?? current?.verificationSummary ?? null,
+        verificationPassed:
+          typeof payload.verificationPassed === 'boolean'
+            ? payload.verificationPassed
+            : (current?.verificationPassed ?? null),
+        terminationReason:
+          asString(payload.terminationReason) ?? current?.terminationReason ?? null,
         updatedAt: asString(payload.capturedAt) ?? event.created_at,
         createdAt: asString(payload.createdAt) ?? current?.createdAt ?? event.created_at,
         lastAction: current?.lastAction ?? null,
