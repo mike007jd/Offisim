@@ -17,11 +17,8 @@ function stageState(active: boolean, done: boolean): StageState {
   return done ? 'done' : 'pending';
 }
 
-/**
- * The diegetic run-status pill floating on the Office stage while a run is
- * active. It now reads the controller's global projection, so Office and
- * Workspace runs share one Stop control and one progress surface.
- */
+/** Compact run chip for the Stage top bar. It owns the global run projection,
+ * so Office and Workspace runs share one Stop control and progress surface. */
 export function RunPipelinePill() {
   const selectedThreadId = useUiState((s) => s.selectedThreadId);
   const companyId = useUiState((s) => s.companyId);
@@ -49,7 +46,7 @@ export function RunPipelinePill() {
   const running = run.phase === 'running';
   const stages = [
     { id: 'prepare', label: 'Prepare', state: stageState(preparing, !preparing) },
-    { id: 'agent', label: 'Pi Agent', state: stageState(running, awaiting) },
+    { id: 'work', label: 'Work', state: stageState(running, awaiting) },
     { id: 'approval', label: 'Approval', state: stageState(awaiting, false) },
     { id: 'response', label: 'Response', state: 'pending' as StageState },
   ];
@@ -65,9 +62,16 @@ export function RunPipelinePill() {
     <div className="off-pipe" aria-live="polite">
       <span className="off-pipe-flow">
         {stages.map((stage) => (
-          <span key={stage.id} className={cn('off-pipe-stage', `is-${stage.state}`)}>
-            <span className="off-pipe-dot" />
-            {stage.label}
+          <span
+            key={stage.id}
+            className={cn('off-pipe-stage', `is-${stage.state}`)}
+            title={stage.state === 'active' ? undefined : stage.label}
+            aria-label={`${stage.label}: ${stage.state}`}
+          >
+            <span className="off-pipe-dot" aria-hidden="true" />
+            {stage.state === 'active' ? (
+              <span className="off-pipe-stage-label">{stage.label}</span>
+            ) : null}
           </span>
         ))}
       </span>

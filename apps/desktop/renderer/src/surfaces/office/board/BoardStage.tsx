@@ -56,7 +56,6 @@ import {
   workspaceLeaseDecisionAction,
 } from './workspace-lease-actions.js';
 
-type BoardScope = 'project' | 'company';
 type BoardColumnId = 'running' | 'pending_review' | 'done' | 'attention';
 
 interface BoardColumn {
@@ -192,7 +191,6 @@ export function BoardStage() {
   );
   const leaseQuery = useQuery(workspaceLeaseReviewsQueryOptions(projectIds));
   const recovery = useInterruptedRunRecovery(companyId || null, { skipReconcile: true });
-  const [scope, setScope] = useState<BoardScope>('project');
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState('');
@@ -205,7 +203,11 @@ export function BoardStage() {
     if (!highlightedRunId) return;
     const highlightedRow = board.rows.find((row) => row.runId === highlightedRunId);
     if (!highlightedRow) return;
-    setScope(highlightedRow.projectId === projectId ? 'project' : 'company');
+    const highlightedScope = highlightedRow.projectId === projectId ? 'project' : 'company';
+    if (highlightedScope === 'company') {
+      highlightBoardRun(null);
+      return;
+    }
     setSelectedRunId(highlightedRunId);
     const timer = window.setTimeout(() => highlightBoardRun(null), 4_500);
     return () => window.clearTimeout(timer);
@@ -219,10 +221,10 @@ export function BoardStage() {
   const scopedRows = useMemo(
     () =>
       board.rows
-        .filter((row) => scope === 'company' || row.projectId === projectId)
+        .filter((row) => row.projectId === projectId)
         .map((row) => ({ ...row, status: effectiveStatus(row, allLeases) }))
         .filter((row) => row.status !== 'discarded'),
-    [allLeases, board.rows, projectId, scope],
+    [allLeases, board.rows, projectId],
   );
   const selectedRow = scopedRows.find((row) => row.runId === selectedRunId) ?? null;
   const selectedLeases = selectedRow ? leasesForRow(selectedRow, allLeases) : [];
@@ -405,24 +407,6 @@ export function BoardStage() {
   return (
     <div className="off-board-stage">
       <header className="off-board-toolbar">
-        {lens === 'board' ? (
-          <div className="off-board-segment" aria-label="Board scope">
-            <button
-              className={cn('off-focusable', scope === 'project' && 'is-active')}
-              type="button"
-              onClick={() => setScope('project')}
-            >
-              This project
-            </button>
-            <button
-              className={cn('off-focusable', scope === 'company' && 'is-active')}
-              type="button"
-              onClick={() => setScope('company')}
-            >
-              Company
-            </button>
-          </div>
-        ) : null}
         <div className="off-board-segment" aria-label="Board lens">
           <button
             className={cn('off-focusable', lens === 'board' && 'is-active')}
@@ -435,10 +419,7 @@ export function BoardStage() {
           <button
             className={cn('off-focusable', lens === 'timeline' && 'is-active')}
             type="button"
-            onClick={() => {
-              setScope('company');
-              setLens('timeline');
-            }}
+            onClick={() => setLens('timeline')}
           >
             <Icon icon={History} size="sm" />
             Timeline
@@ -463,11 +444,7 @@ export function BoardStage() {
         <EmptyState
           icon={Columns3}
           title="No requests yet"
-          description={
-            scope === 'project'
-              ? 'Requests for this project appear here as soon as work starts.'
-              : 'Company requests appear here as soon as work starts.'
-          }
+          description="Requests for this project appear here as soon as work starts. Company-wide history lives in Timeline."
         />
       ) : (
         <div className={cn('off-board-body', selectedRow && 'is-drawer-open')}>

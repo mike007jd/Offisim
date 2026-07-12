@@ -1,5 +1,4 @@
 import { useUiState } from '@/app/ui-state.js';
-import { RunPipelinePill } from '@/assistant/parts/RunPipelinePill.js';
 import { useActiveConversationRuns } from '@/assistant/runtime/conversation-run-react.js';
 import { useMissionBeats } from '@/assistant/runtime/office-dramaturgy.js';
 import { useOfficeLayout, useRunCost } from '@/data/queries.js';
@@ -175,8 +174,6 @@ export function OfficeStage() {
           Inspect-only — no worker-lifecycle control. */}
       <WorkloadDrilldown />
 
-      {/* Pipeline pill: always present while a run is live (Stop lives here). */}
-      <RunPipelinePill />
       <RecoveryPanel />
 
       {/* Read-only mission-phase pill (§24.4): the current mission meaning as a
