@@ -40,7 +40,11 @@ export function LoopQuestionCards({ questions, busy, onAccept }: LoopQuestionCar
     <div className="off-loop-questions" role="group" aria-label="Clarifying questions">
       <div className="off-loop-questions-head">
         <Icon icon={MessageCircleQuestion} size="sm" />
-        <span>A few quick questions to finish this Loop</span>
+        <div>
+          <span>A few quick questions to finish this Loop</span>
+          <p>The structure is almost ready. Confirm these choices to generate the graph.</p>
+        </div>
+        <span className="off-loop-questions-count">{shown.length} to answer</span>
       </div>
       <ul className="off-loop-questions-list">
         {shown.map((q) => (

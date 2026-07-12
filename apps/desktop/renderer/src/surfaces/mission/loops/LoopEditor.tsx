@@ -25,6 +25,8 @@ import { LoopGraphPanel } from '@/surfaces/mission/loops/graph/index.js';
 import type { LoopValidationFinding } from '@offisim/shared-types';
 import {
   ArrowLeft,
+  ArrowRight,
+  Check,
   ChevronDown,
   Hammer,
   History,
@@ -90,7 +92,9 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
   const [compiled, setCompiled] = useState<CompiledRevisionView | null>(null);
   const [justSaved, setJustSaved] = useState(false);
   const [errored, setErrored] = useState(false);
+  const [compileError, setCompileError] = useState<string | null>(null);
   const [compiling, setCompiling] = useState(false);
+  const [compileSuccessKey, setCompileSuccessKey] = useState(0);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [enhanceOpen, setEnhanceOpen] = useState(false);
   const [versionsOpen, setVersionsOpen] = useState(false);
@@ -167,6 +171,7 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
       }
       compilingRef.current = true;
       setErrored(false);
+      setCompileError(null);
       setJustSaved(false);
       setCompiling(true);
       lastAnswersRef.current = answers;
@@ -191,13 +196,17 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
           // NOT saved yet — savedRevisionId stays undefined until Save persists it,
           // so Use-in-Office is blocked until the preview is committed.
         });
-        if (result.status === 'ready') toast.success('Compiled — review the graph, then Save');
-        else if (result.status === 'needs_input')
+        if (result.status === 'ready') {
+          setCompileSuccessKey((key) => key + 1);
+          toast.success('Compiled — review the graph, then Save');
+        } else if (result.status === 'needs_input')
           toast.message('A few questions to finish this Loop');
         else toast.error('The Loop has issues to resolve');
       } catch (err) {
+        const message = err instanceof Error ? err.message : 'Compile failed. Your prompt is kept.';
         setErrored(true);
-        toast.error(err instanceof Error ? err.message : 'Compile failed. Your prompt is kept.');
+        setCompileError(message);
+        toast.error(message);
       } finally {
         compilingRef.current = false;
         setCompiling(false);
@@ -385,7 +394,15 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
             </div>
           ) : null}
 
-          {state === 'needs_input' && compiled ? (
+          {state === 'empty' || state === 'draft' ? (
+            <LoopStartGuide
+              promptReady={state === 'draft'}
+              onExampleSelect={(example) => {
+                setPrompt(example);
+                setJustSaved(false);
+              }}
+            />
+          ) : state === 'needs_input' && compiled ? (
             <LoopQuestionCards
               // Key on the question-id set so a SECOND needs_input compile with a
               // DIFFERENT question set remounts the card with fresh defaults — the
@@ -403,27 +420,10 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
               onSelectedNodeChange={setSelectedNodeId}
               state={graphState}
               findings={findings}
+              errorMessage={compileError}
+              focusRequestKey={compileSuccessKey}
             />
           )}
-
-          {state === 'empty' ? (
-            <div className="off-loop-examples">
-              <span className="off-loop-examples-label">Try describing a loop</span>
-              <ul className="off-loop-examples-list">
-                {EXAMPLE_PROMPTS.map((ex) => (
-                  <li key={ex}>
-                    <button
-                      type="button"
-                      className="off-loop-example off-focusable"
-                      onClick={() => setPrompt(ex)}
-                    >
-                      {ex}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
         </div>
 
         <aside className="off-loop-editor-drawer">
@@ -433,6 +433,9 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
             findings={findings}
             profileId={loop.data?.profileId ?? null}
             revisionNumber={compiled?.savedRevisionNumber ?? null}
+            busy={compiling}
+            errorMessage={compileError}
+            expandKey={compileSuccessKey}
           />
         </aside>
       </div>
@@ -464,17 +467,24 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
               Enhance
             </Button>
             <Button
-              variant="outline"
               size="sm"
               onClick={() => void handleCompile()}
               disabled={!canCompile(model)}
+              aria-busy={compiling}
+              className="off-loop-compile-action"
             >
               <Icon
                 icon={compiling ? Loader2 : Hammer}
                 size="sm"
                 className={compiling ? 'off-spin' : undefined}
               />
-              {dirty ? 'Update graph' : compiled ? 'Recompile' : 'Compile'}
+              {compiling
+                ? 'Compiling…'
+                : dirty
+                  ? 'Update graph'
+                  : compiled
+                    ? 'Recompile'
+                    : 'Compile'}
             </Button>
             <Button
               variant="outline"
@@ -495,6 +505,7 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
               Save
             </Button>
             <Button
+              variant="outline"
               size="sm"
               onClick={handleUse}
               disabled={!canUseInOffice(model)}
@@ -522,6 +533,64 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
           enhance.reset();
         }}
       />
+    </div>
+  );
+}
+
+interface LoopStartGuideProps {
+  promptReady: boolean;
+  onExampleSelect: (example: string) => void;
+}
+
+function LoopStartGuide({ promptReady, onExampleSelect }: LoopStartGuideProps) {
+  return (
+    <div className="off-loop-start" aria-label="How to build a loop">
+      <div className="off-loop-start-intro">
+        <span className="off-loop-start-kicker">Build from one clear goal</span>
+        <h2>{promptReady ? 'Your description is ready to compile' : 'Describe the work once'}</h2>
+        <p>Offisim turns it into a reviewable orchestration graph and generated details.</p>
+      </div>
+
+      <ol className="off-loop-start-steps">
+        <li data-step-state={promptReady ? 'done' : 'current'}>
+          <span className="off-loop-start-stepnum">{promptReady ? <Check size={14} /> : '1'}</span>
+          <span>
+            <strong>Describe the goal</strong>
+            <small>Use the field below</small>
+          </span>
+        </li>
+        <li data-step-state={promptReady ? 'current' : 'next'}>
+          <span className="off-loop-start-stepnum">2</span>
+          <span>
+            <strong>Compile</strong>
+            <small>Generate the workflow</small>
+          </span>
+        </li>
+        <li data-step-state="next">
+          <span className="off-loop-start-stepnum">3</span>
+          <span>
+            <strong>Review the graph</strong>
+            <small>Inspect details, then save</small>
+          </span>
+        </li>
+      </ol>
+
+      <div className="off-loop-start-examples">
+        <span>Start with an example</span>
+        <div className="off-loop-start-chips">
+          {EXAMPLE_PROMPTS.map((example, index) => (
+            <button
+              key={example}
+              type="button"
+              className="off-loop-start-chip off-focusable"
+              onClick={() => onExampleSelect(example)}
+            >
+              <span>{['Ship a feature', 'Triage bug reports', 'Keep docs in sync'][index]}</span>
+              <ArrowRight size={14} aria-hidden="true" />
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

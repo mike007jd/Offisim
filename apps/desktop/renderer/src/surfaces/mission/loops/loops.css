@@ -341,45 +341,132 @@
   box-shadow: var(--off-elev-2);
 }
 
-/* Empty-state example prompts overlaid on the graph area. */
-.off-loop-examples {
-  position: absolute;
-  inset: 0;
+/* Guided start state: description → compile → graph. */
+.off-loop-start {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  align-items: center;
   justify-content: center;
-  gap: var(--off-sp-4);
+  gap: var(--off-sp-6);
   padding: var(--off-sp-7);
-  pointer-events: none;
+  background: radial-gradient(circle at 50% 42%, var(--off-accent-surface), transparent 48%),
+    var(--off-surface-sunken);
 }
-.off-loop-examples-label {
+.off-loop-start-intro,
+.off-loop-start-steps,
+.off-loop-start-examples {
+  width: min(680px, 100%);
+  margin-inline: auto;
+}
+.off-loop-start-intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--off-sp-2);
+}
+.off-loop-start-kicker {
+  font-size: var(--off-fs-meta);
+  font-weight: 680;
+  color: var(--off-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.off-loop-start-intro h2 {
+  font-size: clamp(20px, 2.1vw, 28px);
+  line-height: 1.15;
+  color: var(--off-ink-1);
+}
+.off-loop-start-intro p {
+  max-width: 540px;
   font-size: var(--off-fs-sm);
-  font-weight: 620;
   color: var(--off-ink-3);
 }
-.off-loop-examples-list {
-  display: flex;
-  flex-direction: column;
+.off-loop-start-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--off-sp-3);
-  width: 100%;
-  max-width: 560px;
-  pointer-events: auto;
 }
-.off-loop-example {
-  text-align: left;
-  padding: var(--off-sp-4) var(--off-sp-5);
+.off-loop-start-steps li {
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-3);
+  min-width: 0;
+  padding: var(--off-sp-4);
   border: 1px solid var(--off-line-soft);
   border-radius: var(--off-r-md);
   background: var(--off-surface-1);
-  font-size: var(--off-fs-sm);
-  color: var(--off-ink-2);
-  line-height: 1.45;
-  box-shadow: var(--off-elev-1);
 }
-.off-loop-example:hover {
+.off-loop-start-steps li[data-step-state="current"] {
   border-color: var(--off-accent);
+  box-shadow: 0 0 0 1px var(--off-accent-surface), var(--off-elev-1);
+}
+.off-loop-start-steps li[data-step-state="done"] {
+  border-color: var(--off-ok);
+}
+.off-loop-start-stepnum {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: var(--off-r-full);
+  background: var(--off-surface-sunken);
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-meta);
+  font-weight: 700;
+}
+[data-step-state="current"] .off-loop-start-stepnum {
+  color: var(--off-accent-fg);
+  background: var(--off-accent);
+}
+[data-step-state="done"] .off-loop-start-stepnum {
+  color: var(--off-ok);
+  background: var(--off-ok-surface);
+}
+.off-loop-start-steps li > span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.off-loop-start-steps strong {
+  font-size: var(--off-fs-sm);
   color: var(--off-ink-1);
+}
+.off-loop-start-steps small {
+  font-size: var(--off-fs-meta);
+  color: var(--off-ink-4);
+}
+.off-loop-start-examples {
+  display: flex;
+  flex-direction: column;
+  gap: var(--off-sp-3);
+  font-size: var(--off-fs-meta);
+  font-weight: 640;
+  color: var(--off-ink-3);
+}
+.off-loop-start-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--off-sp-2);
+}
+.off-loop-start-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+  padding: var(--off-sp-2) var(--off-sp-3);
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-pill);
+  background: var(--off-surface-1);
+  font-size: var(--off-fs-meta);
+  font-weight: 640;
+  color: var(--off-ink-2);
+}
+.off-loop-start-chip:hover {
+  border-color: var(--off-accent);
+  color: var(--off-accent);
+  transform: translateY(-1px);
 }
 
 /* ── Question cards (needs_input) ── */
@@ -391,6 +478,7 @@
   flex-direction: column;
   gap: var(--off-sp-5);
   padding: var(--off-sp-7);
+  background: linear-gradient(135deg, var(--off-warn-surface), var(--off-surface-sunken) 44%);
 }
 .off-loop-questions-head {
   display: flex;
@@ -399,6 +487,25 @@
   font-size: var(--off-fs-base);
   font-weight: 640;
   color: var(--off-ink-1);
+}
+.off-loop-questions-head > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.off-loop-questions-head p {
+  font-size: var(--off-fs-meta);
+  font-weight: 450;
+  color: var(--off-ink-3);
+}
+.off-loop-questions-count {
+  margin-left: auto;
+  padding: 2px var(--off-sp-2);
+  border-radius: var(--off-r-pill);
+  background: var(--off-warn-surface);
+  color: var(--off-warn);
+  font-size: var(--off-fs-meta);
+  white-space: nowrap;
 }
 .off-loop-questions-list {
   display: flex;
@@ -413,7 +520,8 @@
   padding: var(--off-sp-5);
   border: 1px solid var(--off-line-soft);
   border-radius: var(--off-r-md);
-  background: var(--off-surface-2);
+  background: var(--off-surface-1);
+  box-shadow: var(--off-elev-1);
 }
 .off-loop-question-text {
   font-size: var(--off-fs-sm);
@@ -438,7 +546,8 @@
   gap: var(--off-sp-3);
   padding: var(--off-sp-4) var(--off-sp-7);
   border-top: 1px solid var(--off-line);
-  background: var(--off-surface-1);
+  background: var(--off-surface-2);
+  box-shadow: 0 -10px 28px color-mix(in srgb, var(--off-ink-1) 5%, transparent);
 }
 .off-loop-composer-input {
   resize: none;
@@ -464,6 +573,10 @@
   align-items: center;
   gap: var(--off-sp-2);
   flex: none;
+}
+.off-loop-compile-action {
+  min-width: 108px;
+  box-shadow: var(--off-elev-1);
 }
 
 /* ── Advanced (generated) read-only drawer ── */
@@ -527,6 +640,16 @@
 .off-loop-details-empty-sub {
   font-size: var(--off-fs-meta);
   color: var(--off-ink-4);
+}
+.off-loop-details-empty.is-busy {
+  color: var(--off-accent);
+  border-color: var(--off-accent);
+  background: var(--off-accent-surface);
+}
+.off-loop-details-empty.is-error {
+  color: var(--off-danger);
+  border-color: var(--off-danger);
+  background: var(--off-danger-surface);
 }
 .off-loop-details-body {
   display: flex;
@@ -743,5 +866,8 @@
     border-left: none;
     border-top: 1px solid var(--off-line);
     max-height: 240px;
+  }
+  .off-loop-start-steps {
+    grid-template-columns: 1fr;
   }
 }
