@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { deflateSync } from 'node:zlib';
 import { Document, Logger } from '@gltf-transform/core';
@@ -147,6 +147,31 @@ function addFringe(geometry, lobes = [-0.21, 0, 0.21], y = 0.2, z = 0.295) {
   for (const x of lobes) addEllipsoid(geometry, [x, y, z], [0.15, 0.09, 0.1], 6, 9);
 }
 
+function addTriangle(geometry, a, b, c) {
+  const normal = cross3(subtract3(b, a), subtract3(c, a));
+  const first = pushVertex(geometry, a, normal);
+  pushVertex(geometry, b, normal);
+  pushVertex(geometry, c, normal);
+  geometry.indices.push(first, first + 1, first + 2);
+}
+
+function addMohawkFin(geometry, zFront, zBack, height, halfWidth = 0.105) {
+  const baseY = 0.29;
+  const zPeak = (zFront + zBack) / 2;
+  const leftFront = [-halfWidth, baseY, zFront];
+  const rightFront = [halfWidth, baseY, zFront];
+  const leftBack = [-halfWidth, baseY, zBack];
+  const rightBack = [halfWidth, baseY, zBack];
+  const peak = [0, baseY + height, zPeak];
+
+  addTriangle(geometry, leftFront, rightFront, peak);
+  addTriangle(geometry, rightFront, rightBack, peak);
+  addTriangle(geometry, rightBack, leftBack, peak);
+  addTriangle(geometry, leftBack, leftFront, peak);
+  addTriangle(geometry, leftFront, leftBack, rightBack);
+  addTriangle(geometry, leftFront, rightBack, rightFront);
+}
+
 const BUILDERS = {
   hair_01(geometry) {
     addShell(geometry, [0, 0.13, -0.03], [0.4, 0.385, 0.39]);
@@ -164,9 +189,9 @@ const BUILDERS = {
   hair_03(geometry) {
     addShell(geometry);
     addFringe(geometry);
-    addEllipsoid(geometry, [0, 0.3, -0.36], [0.1, 0.1, 0.1], 6, 9);
-    addCapsule(geometry, [0, 0.28, -0.42], [0, -0.04, -0.54], 0.1, 8);
-    addEllipsoid(geometry, [0, -0.12, -0.57], [0.08, 0.11, 0.08], 6, 9);
+    addEllipsoid(geometry, [0.08, 0.3, -0.37], [0.13, 0.13, 0.13], 6, 9);
+    addCapsule(geometry, [0.08, 0.27, -0.43], [0.18, -0.13, -0.62], 0.14, 9);
+    addEllipsoid(geometry, [0.2, -0.22, -0.65], [0.13, 0.18, 0.13], 6, 9);
   },
   hair_04(geometry) {
     addShell(geometry, [0, 0.12, -0.04], [0.41, 0.39, 0.4]);
@@ -219,29 +244,32 @@ const BUILDERS = {
     addEllipsoid(geometry, [0, 0.36, -0.22], [0.13, 0.12, 0.11], 6, 9);
   },
   hair_09(geometry) {
-    addShell(geometry, [0, 0.16, -0.04], [0.45, 0.42, 0.44]);
-    const curls = [];
-    for (const y of [-0.02, 0.18, 0.38]) {
-      for (const x of [-0.36, -0.18, 0, 0.18, 0.36]) {
-        if (Math.abs(x) === 0.36 && y === 0.38) continue;
-        curls.push([x, y, y < 0.1 ? -0.12 : x === 0 ? 0.18 : 0.08]);
-      }
-    }
-    for (const center of curls) addEllipsoid(geometry, center, [0.18, 0.17, 0.18], 6, 9);
+    addShell(geometry, [0, 0.2, -0.11], [0.43, 0.34, 0.35]);
     for (const center of [
-      [-0.2, 0.52, -0.04],
-      [0.2, 0.52, -0.04],
-      [-0.48, 0.2, -0.08],
-      [0.48, 0.2, -0.08],
+      [-0.27, 0.32, 0.13],
+      [0, 0.34, 0.18],
+      [0.27, 0.32, 0.13],
+      [-0.4, 0.34, -0.03],
+      [0.4, 0.34, -0.03],
+      [-0.27, 0.47, -0.05],
+      [0, 0.51, -0.08],
+      [0.27, 0.47, -0.05],
+      [-0.22, 0.38, -0.29],
+      [0.22, 0.38, -0.29],
+      [0, 0.42, -0.35],
     ])
-      addEllipsoid(geometry, center, [0.16, 0.16, 0.16], 6, 9);
+      addEllipsoid(geometry, center, [0.15, 0.14, 0.15], 6, 9);
   },
   hair_10(geometry) {
-    addShell(geometry, [0, 0.1, -0.04], [0.39, 0.35, 0.38]);
-    addFringe(geometry, [-0.17, 0, 0.17], 0.18, 0.275);
-    for (const z of [0.34, 0.28, 0.18, 0, -0.18, -0.32]) {
-      addEllipsoid(geometry, [0, 0.42, z], [0.105, 0.31, 0.105], 3, 5);
-    }
+    addShell(geometry, [0, 0.1, -0.04], [0.4, 0.36, 0.39]);
+    const fins = [
+      [0.36, 0.2, 0.18],
+      [0.2, 0.04, 0.29],
+      [0.04, -0.13, 0.39],
+      [-0.13, -0.3, 0.31],
+      [-0.3, -0.42, 0.2],
+    ];
+    for (const [zFront, zBack, height] of fins) addMohawkFin(geometry, zFront, zBack, height);
   },
   hair_11(geometry) {
     addShell(geometry, [0, 0.12, -0.04], [0.405, 0.39, 0.39]);
@@ -250,10 +278,12 @@ const BUILDERS = {
     addEllipsoid(geometry, [0.31, 0.17, 0.18], [0.13, 0.18, 0.13], 6, 9);
   },
   hair_12(geometry) {
-    addShell(geometry, [0, 0.08, -0.04], [0.39, 0.34, 0.38]);
-    addFringe(geometry, [-0.2, 0, 0.2], 0.17, 0.275);
-    addCapsule(geometry, [-0.24, 0.36, 0.02], [0.25, 0.46, -0.05], 0.11, 8);
-    addEllipsoid(geometry, [0.27, 0.39, -0.08], [0.18, 0.13, 0.15], 6, 9);
+    addShell(geometry, [0, 0.06, -0.07], [0.395, 0.33, 0.375]);
+    addEllipsoid(geometry, [-0.17, 0.31, 0.06], [0.25, 0.16, 0.19], 7, 10);
+    addCapsule(geometry, [-0.19, 0.34, 0.03], [0.24, 0.4, -0.03], 0.15, 9);
+    addEllipsoid(geometry, [0.28, 0.34, -0.06], [0.2, 0.16, 0.18], 7, 10);
+    addEllipsoid(geometry, [-0.15, 0.25, 0.27], [0.22, 0.1, 0.1], 6, 9);
+    addEllipsoid(geometry, [0.16, 0.28, 0.24], [0.25, 0.11, 0.1], 6, 9);
   },
 };
 
@@ -372,8 +402,7 @@ function validateFit(geometry) {
   };
 }
 
-function transformPoint(point) {
-  const yaw = -0.38;
+function transformPoint(point, yaw) {
   const cos = Math.cos(yaw);
   const sin = Math.sin(yaw);
   const x = point[0] * cos + point[2] * sin;
@@ -381,12 +410,12 @@ function transformPoint(point) {
   return { x: 256 + x * 360, y: 244 - point[1] * 360, z };
 }
 
-function renderGeometry(pixels, zBuffer, geometry, baseColor) {
+function renderGeometry(pixels, zBuffer, geometry, baseColor, yaw) {
   const light = normalize3([-0.35, 0.7, 0.62]);
   for (let offset = 0; offset < geometry.indices.length; offset += 3) {
     const ids = geometry.indices.slice(offset, offset + 3);
     const world = ids.map((index) => vertexAt(geometry.positions, index));
-    const projected = world.map(transformPoint);
+    const projected = world.map((point) => transformPoint(point, yaw));
     const faceNormal = cross3(subtract3(world[1], world[0]), subtract3(world[2], world[0]));
     if (length3(faceNormal) <= 1e-8) continue;
     const normal = normalize3(faceNormal);
@@ -419,8 +448,8 @@ function renderGeometry(pixels, zBuffer, geometry, baseColor) {
   }
 }
 
-function drawEye(pixels, zBuffer, point) {
-  const center = transformPoint(point);
+function drawEye(pixels, zBuffer, point, yaw) {
+  const center = transformPoint(point, yaw);
   for (let y = Math.floor(center.y - 9); y <= Math.ceil(center.y + 9); y += 1) {
     for (let x = Math.floor(center.x - 7); x <= Math.ceil(center.x + 7); x += 1) {
       if (((x - center.x) / 7) ** 2 + ((y - center.y) / 9) ** 2 > 1) continue;
@@ -453,15 +482,15 @@ function pngChunk(type, data) {
   return Buffer.concat([length, typeBuffer, data, checksum]);
 }
 
-function encodePng(pixels) {
+function encodePng(pixels, width = 512, height = 512) {
   const header = Buffer.alloc(13);
-  header.writeUInt32BE(512, 0);
-  header.writeUInt32BE(512, 4);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
   header[8] = 8;
   header[9] = 6;
   const rows = [];
-  for (let y = 0; y < 512; y += 1)
-    rows.push(Buffer.from([0]), pixels.subarray(y * 512 * 4, (y + 1) * 512 * 4));
+  for (let y = 0; y < height; y += 1)
+    rows.push(Buffer.from([0]), pixels.subarray(y * width * 4, (y + 1) * width * 4));
   return Buffer.concat([
     Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
     pngChunk('IHDR', header),
@@ -470,7 +499,7 @@ function encodePng(pixels) {
   ]);
 }
 
-function renderPreview(hairGeometry) {
+function renderPreview(hairGeometry, yaw) {
   const pixels = Buffer.alloc(512 * 512 * 4);
   for (let index = 0; index < pixels.length; index += 4) {
     pixels[index] = 238;
@@ -482,37 +511,82 @@ function renderPreview(hairGeometry) {
   const head = createGeometry();
   addCapsule(head, [0, -0.62, -0.03], [0, -0.34, -0.03], 0.13, 12);
   addEllipsoid(head, [0, 0, 0], HEAD_RADII, 16, 22);
-  renderGeometry(pixels, zBuffer, head, [226, 178, 142]);
-  if (hairGeometry) renderGeometry(pixels, zBuffer, hairGeometry, [67, 43, 36]);
-  drawEye(pixels, zBuffer, [-0.14, 0.07, 0.37]);
-  drawEye(pixels, zBuffer, [0.14, 0.07, 0.37]);
-  return encodePng(pixels);
+  renderGeometry(pixels, zBuffer, head, [226, 178, 142], yaw);
+  if (hairGeometry) renderGeometry(pixels, zBuffer, hairGeometry, [67, 43, 36], yaw);
+  drawEye(pixels, zBuffer, [-0.14, 0.07, 0.37], yaw);
+  drawEye(pixels, zBuffer, [0.14, 0.07, 0.37], yaw);
+  return pixels;
+}
+
+function addContactSheetPreview(sheet, sheetWidth, preview, column, row, previewSize) {
+  for (let y = 0; y < previewSize; y += 1) {
+    const sourceY = Math.floor((y / previewSize) * 512);
+    for (let x = 0; x < previewSize; x += 1) {
+      const sourceX = Math.floor((x / previewSize) * 512);
+      const sourceOffset = (sourceY * 512 + sourceX) * 4;
+      const targetX = column * previewSize + x;
+      const targetY = row * previewSize + y;
+      const targetOffset = (targetY * sheetWidth + targetX) * 4;
+      preview.copy(sheet, targetOffset, sourceOffset, sourceOffset + 4);
+    }
+  }
 }
 
 export async function renderHairEvidence(evidenceDir, geometries) {
   await mkdir(evidenceDir, { recursive: true });
+  const existingFiles = await readdir(evidenceDir);
+  await Promise.all(
+    existingFiles
+      .filter((file) => /^\d{2}-.*\.png$/.test(file) || file === 'contact-sheet.png')
+      .map((file) => rm(join(evidenceDir, file))),
+  );
   const rows = [];
+  const frontPreviews = [];
+  const rearPreviews = [];
   for (const [index, entry] of HAIR_STYLE_ENTRIES.entries()) {
     const geometry = entry.asset
       ? (geometries.get(entry.asset) ?? createHairGeometry(entry.asset))
       : null;
-    const file = `${String(index + 1).padStart(2, '0')}-${entry.style}.png`;
-    await writeFile(join(evidenceDir, file), renderPreview(geometry));
+    const prefix = `${String(index + 1).padStart(2, '0')}-${entry.style}`;
+    const frontFile = `${prefix}-front.png`;
+    const rearFile = `${prefix}-rear-three-quarter.png`;
+    const frontPreview = renderPreview(geometry, 0);
+    const rearPreview = renderPreview(geometry, 2.25);
+    await Promise.all([
+      writeFile(join(evidenceDir, frontFile), encodePng(frontPreview)),
+      writeFile(join(evidenceDir, rearFile), encodePng(rearPreview)),
+    ]);
+    frontPreviews.push(frontPreview);
+    rearPreviews.push(rearPreview);
     const fit = geometry ? validateFit(geometry) : null;
     if (fit && !fit.valid)
       throw new Error(`${entry.asset} failed head-fit validation: ${JSON.stringify(fit)}`);
-    rows.push({ entry, file, fit });
+    rows.push({ entry, frontFile, rearFile, fit });
   }
+  const previewSize = 192;
+  const sheetWidth = previewSize * HAIR_STYLE_ENTRIES.length;
+  const sheetHeight = previewSize * 2;
+  const contactSheet = Buffer.alloc(sheetWidth * sheetHeight * 4);
+  for (let index = 0; index < HAIR_STYLE_ENTRIES.length; index += 1) {
+    addContactSheetPreview(contactSheet, sheetWidth, frontPreviews[index], index, 0, previewSize);
+    addContactSheetPreview(contactSheet, sheetWidth, rearPreviews[index], index, 1, previewSize);
+  }
+  await writeFile(
+    join(evidenceDir, 'contact-sheet.png'),
+    encodePng(contactSheet, sheetWidth, sheetHeight),
+  );
   const manifest = [
     '# Offisim toy hair evidence',
     '',
-    'Generated from the exact procedural geometry written to the shipped GLBs. The head uses the production toy-head radii; previews are software-rendered at a fixed three-quarter camera.',
+    'Generated from the exact procedural geometry written to the shipped GLBs. The head uses the production toy-head radii. Every style includes a front view and a three-quarter rear view; the contact sheet places all front views on the first row and matching rear views on the second row.',
     '',
-    '| # | Style | Asset | Vertices | Triangles | Exterior | Hairline | Preview |',
-    '|---:|---|---|---:|---:|---:|---:|---|',
+    '![Two-view contact sheet](./contact-sheet.png)',
+    '',
+    '| # | Style | Asset | Vertices | Triangles | Exterior | Hairline | Front | Rear 3/4 |',
+    '|---:|---|---|---:|---:|---:|---:|---|---|',
     ...rows.map(
-      ({ entry, file, fit }, index) =>
-        `| ${index + 1} | ${entry.label} | ${entry.asset ?? 'none (intentional bald)'} | ${fit?.vertices ?? 0} | ${fit?.triangles ?? 0} | ${fit ? fit.exteriorRatio.toFixed(3) : 'n/a'} | ${fit?.hairline ?? 'n/a'} | [${file}](./${file}) |`,
+      ({ entry, frontFile, rearFile, fit }, index) =>
+        `| ${index + 1} | ${entry.label} | ${entry.asset ?? 'none (intentional bald)'} | ${fit?.vertices ?? 0} | ${fit?.triangles ?? 0} | ${fit ? fit.exteriorRatio.toFixed(3) : 'n/a'} | ${fit?.hairline ?? 'n/a'} | [front](./${frontFile}) | [rear](./${rearFile}) |`,
     ),
     '',
   ].join('\n');

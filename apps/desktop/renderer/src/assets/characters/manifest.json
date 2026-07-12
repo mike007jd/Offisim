@@ -464,7 +464,7 @@
     "body_toy.glb": 58524,
     "hair_01.glb": 8880,
     "hair_02.glb": 10416,
-    "hair_03.glb": 9652,
+    "hair_03.glb": 9760,
     "hair_04.glb": 13316,
     "hair_05.glb": 6972,
     "hair_06.glb": 9012,
@@ -473,10 +473,10 @@
     "LICENSES.md": 4199,
     "hair_07.glb": 11244,
     "hair_08.glb": 9448,
-    "hair_09.glb": 19780,
-    "hair_10.glb": 8736,
+    "hair_09.glb": 14284,
+    "hair_10.glb": 4928,
     "hair_11.glb": 6984,
-    "hair_12.glb": 8792
+    "hair_12.glb": 9344
   },
-  "totalBytes": 785483
+  "totalBytes": 776839
 }
