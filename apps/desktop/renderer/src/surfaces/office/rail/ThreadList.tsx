@@ -19,7 +19,12 @@ export function ThreadList() {
   const companyId = useUiState((s) => s.companyId);
   const projectId = useUiState((s) => s.projectId);
   const selectedThreadId = useUiState((s) => s.selectedThreadId);
+  const selectedCompanyThreadId = useUiState((s) => s.selectedCompanyThreadId);
+  const companyThreadDraft = useUiState((s) => s.companyThreadDraft);
   const openThread = useUiState((s) => s.openThread);
+  const openCompanyThread = useUiState((s) => s.openCompanyThread);
+  const openCompanyDraft = useUiState((s) => s.openCompanyDraft);
+  const closeThread = useUiState((s) => s.closeThread);
   // "New conversation" opens a draft (no DB row) instead of inserting an empty
   // thread — the row is created from the first message (ChatRail.materializeThread).
   const openDraftThread = useUiState((s) => s.openDraftThread);
@@ -114,7 +119,15 @@ export function ThreadList() {
           </div>
         )}
       </div>
-      <ConnectRail mode="list" />
+      <ConnectRail
+        mode="list"
+        companyId={companyId || null}
+        selectedId={selectedCompanyThreadId}
+        draft={companyThreadDraft}
+        onOpenThread={openCompanyThread}
+        onOpenDraft={openCompanyDraft}
+        onBack={closeThread}
+      />
     </div>
   );
 }

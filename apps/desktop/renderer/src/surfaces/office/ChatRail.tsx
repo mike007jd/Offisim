@@ -35,6 +35,7 @@ export function ChatRail() {
   const projectId = useUiState((s) => s.projectId);
   const selectedThreadId = useUiState((s) => s.selectedThreadId);
   const selectedCompanyThreadId = useUiState((s) => s.selectedCompanyThreadId);
+  const companyThreadDraft = useUiState((s) => s.companyThreadDraft);
   const draftThread = useUiState((s) => s.draftThread);
   const openDraftThread = useUiState((s) => s.openDraftThread);
   const markDraftPersisted = useUiState((s) => s.markDraftPersisted);
@@ -42,6 +43,8 @@ export function ChatRail() {
   const pendingThreadFocus = useUiState((s) => s.pendingThreadFocus);
   const consumePendingThreadFocus = useUiState((s) => s.consumePendingThreadFocus);
   const openThread = useUiState((s) => s.openThread);
+  const openCompanyThread = useUiState((s) => s.openCompanyThread);
+  const openCompanyDraft = useUiState((s) => s.openCompanyDraft);
   const queryClient = useQueryClient();
 
   const threads = useThreads(projectId);
@@ -194,7 +197,15 @@ export function ChatRail() {
         >
           <Icon icon={ChevronsRight} size="sm" />
         </button>
-        <ConnectRail mode="detail" />
+        <ConnectRail
+          mode="detail"
+          companyId={companyId || null}
+          selectedId={selectedCompanyThreadId}
+          draft={companyThreadDraft}
+          onOpenThread={openCompanyThread}
+          onOpenDraft={openCompanyDraft}
+          onBack={closeThread}
+        />
       </section>
     );
   }

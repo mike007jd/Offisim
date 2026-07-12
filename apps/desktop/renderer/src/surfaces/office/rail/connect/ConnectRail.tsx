@@ -9,7 +9,7 @@
 // (no auto-fire; Ask team) + roundtable (Start / Continue round, bounded); the
 // PR-01 single-pending invariant per active speaker turn; unread / archive / time.
 
-import { type CompanyThreadDraft, useUiState } from '@/app/ui-state.js';
+import type { CompanyThreadDraft } from '@/app/ui-state.js';
 import { ComposerSettingsMenu } from '@/assistant/composer/ComposerSettingsMenu.js';
 import { displayThreadTitle } from '@/data/adapters.js';
 import { useEmployees } from '@/data/queries.js';
@@ -254,14 +254,23 @@ function MessageRow({
 
 /* ── Surface ──────────────────────────────────────────────────────────────── */
 
-export function ConnectRail({ mode }: { mode: 'list' | 'detail' }) {
-  const companyId = useUiState((s) => s.companyId) || null;
-  const selectedId = useUiState((s) => s.selectedCompanyThreadId);
-  const draft = useUiState((s) => s.companyThreadDraft);
-  const openCompanyThread = useUiState((s) => s.openCompanyThread);
-  const openCompanyDraft = useUiState((s) => s.openCompanyDraft);
-  const closeThread = useUiState((s) => s.closeThread);
-
+export function ConnectRail({
+  mode,
+  companyId,
+  selectedId,
+  draft,
+  onOpenThread,
+  onOpenDraft,
+  onBack,
+}: {
+  mode: 'list' | 'detail';
+  companyId: string | null;
+  selectedId: string | null;
+  draft: CompanyThreadDraft | null;
+  onOpenThread: (threadId: string) => void;
+  onOpenDraft: (draft: CompanyThreadDraft) => void;
+  onBack: () => void;
+}) {
   const employees = useEmployees();
   const threads = useConnectThreads(companyId);
   const [query, setQuery] = useState('');
@@ -329,7 +338,7 @@ export function ConnectRail({ mode }: { mode: 'list' | 'detail' }) {
 
   function startDirectDraft(employee: Employee): void {
     const id = generateId('thread');
-    openCompanyDraft({ kind: 'direct', id, employeeId: employee.id, employeeName: employee.name });
+    onOpenDraft({ kind: 'direct', id, employeeId: employee.id, employeeName: employee.name });
     setDirectPickerOpen(false);
     setNewChatOpen(false);
   }
@@ -340,7 +349,7 @@ export function ConnectRail({ mode }: { mode: 'list' | 'detail' }) {
     replyPolicy: CollaborationReplyPolicy;
   }): void {
     const id = generateId('thread');
-    openCompanyDraft({ kind: 'group', id, ...input });
+    onOpenDraft({ kind: 'group', id, ...input });
     setNewGroupOpen(false);
     setNewChatOpen(false);
   }
@@ -376,7 +385,7 @@ export function ConnectRail({ mode }: { mode: 'list' | 'detail' }) {
         }
         onOpenMembers={() => setMembersOpen(true)}
         onOpenAskTeam={() => setAskTeamOpen(true)}
-        onBack={closeThread}
+        onBack={onBack}
       />
     );
   } else if (activeDraft) {
@@ -391,7 +400,7 @@ export function ConnectRail({ mode }: { mode: 'list' | 'detail' }) {
               title: activeDraft.employeeName,
             });
             await runtime.send(threadId, body);
-            openCompanyThread(threadId);
+            onOpenThread(threadId);
           } else {
             const threadId = await createGroup.mutateAsync({
               title: activeDraft.title,
@@ -399,10 +408,10 @@ export function ConnectRail({ mode }: { mode: 'list' | 'detail' }) {
               replyPolicy: activeDraft.replyPolicy,
             });
             await runtime.send(threadId, body);
-            openCompanyThread(threadId);
+            onOpenThread(threadId);
           }
         }}
-        onBack={closeThread}
+        onBack={onBack}
       />
     );
   } else {
@@ -479,7 +488,7 @@ export function ConnectRail({ mode }: { mode: 'list' | 'detail' }) {
                   thread.directEmployeeId ? (byId.get(thread.directEmployeeId) ?? null) : null
                 }
                 active={thread.threadId === selectedId}
-                onSelect={() => openCompanyThread(thread.threadId)}
+                onSelect={() => onOpenThread(thread.threadId)}
               />
             ))}
             {archivedThreads.length > 0 ? (
@@ -494,7 +503,7 @@ export function ConnectRail({ mode }: { mode: 'list' | 'detail' }) {
                       thread.directEmployeeId ? (byId.get(thread.directEmployeeId) ?? null) : null
                     }
                     active={thread.threadId === selectedId}
-                    onSelect={() => openCompanyThread(thread.threadId)}
+                    onSelect={() => onOpenThread(thread.threadId)}
                   />
                 ))}
               </>
