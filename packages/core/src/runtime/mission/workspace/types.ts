@@ -31,12 +31,12 @@
  *
  * - `active` — held and in use (the root checkout, a read-only shared lease, or
  *   a live writable worktree).
- * - `pending_merge` — a writable child whose work is ready and awaiting the
- *   root/integration controller's merge decision (§23.3).
+ * - `pending_review` — a writable child whose work is ready for merge, discard,
+ *   or a same-worktree change request (§23.3).
  * - `merged` — a writable child whose branch was merged into the root.
- * - `retained` — a worktree deliberately kept on cleanup because it had changes
- *   that must not be silently discarded (WI-006 data safety), or because the
- *   caller asked to retain it.
+ * - `discarded` — a reviewed writable child whose changes the user explicitly
+ *   rejected: the worktree was force-removed. Unreviewed changed worktrees are
+ *   never auto-discarded — cleanup parks them in `pending_review` (WI-006).
  * - `released` — cleaned up: the worktree (if any) was removed, the lease is done.
  * - `conflicted` — a writable child whose changes overlap another child's, or
  *   whose merge reported a conflict: it is NOT auto-merged; it goes to repair or
@@ -44,9 +44,9 @@
  */
 export type WorkspaceLeaseStatus =
   | 'active'
-  | 'pending_merge'
+  | 'pending_review'
   | 'merged'
-  | 'retained'
+  | 'discarded'
   | 'released'
   | 'conflicted';
 
@@ -115,10 +115,18 @@ export interface GitWorktreeOps {
   addWorktree(branch: string, path: string): void | Promise<void>;
   /** Remove the worktree at `path` (WI-006 cleanup). */
   removeWorktree(path: string): void | Promise<void>;
+  /** Explicit reviewed discard; the boundary may force-remove this one jailed worktree. */
+  discardWorktree(path: string): void | Promise<void>;
   /** Whether the worktree at `path` has uncommitted/committed changes vs the root. */
   worktreeChanged(path: string): boolean | Promise<boolean>;
   /** The paths changed in the worktree at `path` (WI-004 diff/review evidence). */
   diff(path: string): string[] | Promise<string[]>;
+  /** The review patch for one changed path, scoped to the worktree cwd. */
+  diffText(path: string, changedPath: string): string | Promise<string>;
+  /** Stage and commit every uncommitted change in the worktree at `path`
+   *  (no-op when clean). Merge carries committed work only; this is the
+   *  deterministic safety net for a child that edited but never committed. */
+  commitAll(path: string, message: string): void | Promise<void>;
   /** Merge `branch` into the root (WI-005). Reports conflicts; never overwrites. */
   merge(branch: string): MergeResult | Promise<MergeResult>;
 }
@@ -143,6 +151,7 @@ export interface LeaseDiff {
   leaseId: string;
   runId: string;
   changedPaths: string[];
+  files: Array<{ path: string; diff: string }>;
   /** An opaque reference a reviewer/UI can use to fetch the patch (the branch). */
   patchRef: string;
 }
@@ -179,7 +188,7 @@ export interface IntegrationResult {
   merged: WorkspaceLease[];
   /**
    * Mergeable leases that were SKIPPED at integrate time because their live status
-   * was no longer `pending_merge` (e.g. the child aborted / was released, or was
+   * was no longer `pending_review` (e.g. the child aborted / was released, or was
    * re-classified conflicted, between planIntegration and integrate). They are
    * NEVER merged — merging a released worktree would act on a removed checkout.
    * Surfaced so the caller sees the plan's mergeable set was narrowed.

@@ -27,10 +27,10 @@ export const PI_WIRE_KINDS = Object.freeze([
   'error',
 ]);
 
-const requestSpec = (keys, nullable = []) =>
+const requestSpec = (keys, nullable = [], optional = []) =>
   Object.freeze({
     required: Object.freeze([...keys]),
-    allowed: Object.freeze([...keys]),
+    allowed: Object.freeze([...keys, ...optional]),
     nullable: Object.freeze([...nullable]),
   });
 
@@ -72,6 +72,7 @@ export const PI_REQUEST_SPEC = Object.freeze({
       'missionContextJson',
       'mcpTools',
     ],
+    ['directDelegation'],
   ),
   enhance: requestSpec(
     ['mode', 'text', 'systemPrompt', 'cwd', 'agentDir', 'model', 'thinkingLevel'],
@@ -122,6 +123,9 @@ const PI_REQUEST_NORMALIZERS = Object.freeze({
     roster: payload.roster,
     missionContextJson: payload.missionContextJson,
     mcpTools: payload.mcpTools,
+    ...(payload.directDelegation !== undefined
+      ? { directDelegation: payload.directDelegation }
+      : {}),
   }),
   enhance: (payload) => ({
     mode: payload.mode,

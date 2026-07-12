@@ -41,6 +41,15 @@ export function createTauriGitWorktreeOps(input: TauriGitWorktreeOpsInput): GitW
     return invokeCommand('git_exec', { projectId, args, cwd });
   }
 
+  async function rootHead(): Promise<string> {
+    const result = await run(['rev-parse', 'HEAD'], null);
+    const head = result.stdout.trim();
+    if (!result.ok || !/^[0-9a-f]{40}$/i.test(head)) {
+      throw new Error(`Could not resolve the project HEAD: ${result.stderr.trim()}`);
+    }
+    return head;
+  }
+
   return {
     async isGitRepo(root: string): Promise<boolean> {
       // Already-whitelisted (`rev-parse --is-inside-work-tree`). A non-git
@@ -67,6 +76,12 @@ export function createTauriGitWorktreeOps(input: TauriGitWorktreeOpsInput): GitW
       }
     },
 
+    async discardWorktree(path: string): Promise<void> {
+      const leaseId = path.split('/').filter(Boolean).at(-1);
+      if (!leaseId) throw new Error('Workspace lease path has no lease id.');
+      await invokeCommand('workspace_lease_discard', { projectId, leaseId });
+    },
+
     async worktreeChanged(path: string): Promise<boolean> {
       // Already-whitelisted (`status --porcelain`) run IN the worktree cwd: any
       // non-empty porcelain line means the worktree has changes. On failure we
@@ -82,16 +97,47 @@ export function createTauriGitWorktreeOps(input: TauriGitWorktreeOpsInput): GitW
     },
 
     async diff(path: string): Promise<string[]> {
-      // Already-whitelisted. `diff --name-only HEAD` would need a revision arg
-      // that the whitelist forbids, so we use `status --porcelain` (also the
-      // working-tree truth) in the worktree cwd and return its changed paths.
-      try {
-        const result = await run(['status', '--porcelain'], path);
-        if (!result.ok) return [];
-        return parsePorcelainPaths(result.stdout);
-      } catch {
-        return [];
-      }
+      const base = await rootHead();
+      const [committed, workingTree] = await Promise.all([
+        run(['diff', '--name-only', base, 'HEAD'], path),
+        run(['status', '--porcelain'], path),
+      ]);
+      if (!committed.ok) throw new Error(`git diff failed: ${committed.stderr.trim()}`);
+      if (!workingTree.ok) throw new Error(`git status failed: ${workingTree.stderr.trim()}`);
+      return [
+        ...new Set([
+          ...parseLinePaths(committed.stdout),
+          ...parsePorcelainPaths(workingTree.stdout),
+        ]),
+      ];
+    },
+
+    async diffText(path: string, changedPath: string): Promise<string> {
+      const base = await rootHead();
+      const results = await Promise.all([
+        run(['diff', '--unified=3', base, 'HEAD', '--', changedPath], path),
+        run(['diff', '--cached', '--unified=3', '--', changedPath], path),
+        run(['diff', '--unified=3', '--', changedPath], path),
+      ]);
+      const failed = results.find((result) => !result.ok);
+      if (failed) throw new Error(`git diff failed: ${failed.stderr.trim()}`);
+      return results
+        .map((result) => result.stdout.trimEnd())
+        .filter(Boolean)
+        .join('\n');
+    },
+
+    async commitAll(path: string, message: string): Promise<void> {
+      // The whitelist takes explicit pathspecs only (no `add -A`), so stage
+      // exactly what porcelain reports. No-op on a clean worktree.
+      const status = await run(['status', '--porcelain'], path);
+      if (!status.ok) throw new Error(`git status failed: ${status.stderr.trim()}`);
+      const paths = parsePorcelainPaths(status.stdout);
+      if (paths.length === 0) return;
+      const add = await run(['add', '--', ...paths], path);
+      if (!add.ok) throw new Error(`git add failed: ${add.stderr.trim()}`);
+      const commit = await run(['commit', '-m', message], path);
+      if (!commit.ok) throw new Error(`git commit failed: ${commit.stderr.trim()}`);
     },
 
     async merge(branch: string): Promise<MergeResult> {
@@ -128,6 +174,13 @@ function parsePorcelainPaths(stdout: string): string[] {
     if (path) paths.push(path);
   }
   return paths;
+}
+
+function parseLinePaths(stdout: string): string[] {
+  return stdout
+    .split(/\r?\n/)
+    .map((path) => path.trim())
+    .filter(Boolean);
 }
 
 /**

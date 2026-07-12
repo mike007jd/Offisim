@@ -45,7 +45,7 @@ import {
 
 let passed = 0;
 let failed = 0;
-const TOTAL = 10;
+const TOTAL = 14;
 
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
   try {
@@ -103,6 +103,8 @@ interface FakeGit extends GitWorktreeOps {
   readonly removed: string[];
   /** Branches merged via merge, in order. */
   readonly mergedBranches: string[];
+  /** cwds commitAll was invoked on, in order (planIntegration safety net). */
+  readonly committed: string[];
 }
 
 function makeFakeGit(config: FakeGitConfig): FakeGit {
@@ -110,6 +112,7 @@ function makeFakeGit(config: FakeGitConfig): FakeGit {
   const createdBranches: string[] = [];
   const removed: string[] = [];
   const mergedBranches: string[] = [];
+  const committed: string[] = [];
   const changedPaths = config.changedPaths ?? new Map<string, string[]>();
   const mergeResults = config.mergeResults ?? new Map<string, MergeResult>();
 
@@ -118,6 +121,7 @@ function makeFakeGit(config: FakeGitConfig): FakeGit {
     createdBranches,
     removed,
     mergedBranches,
+    committed,
     isGitRepo: () => config.isGit,
     addWorktree: (branch: string, path: string) => {
       liveWorktrees.add(path);
@@ -127,8 +131,17 @@ function makeFakeGit(config: FakeGitConfig): FakeGit {
       liveWorktrees.delete(path);
       removed.push(path);
     },
+    discardWorktree: (path: string) => {
+      liveWorktrees.delete(path);
+      removed.push(path);
+    },
     worktreeChanged: (path: string) => (changedPaths.get(path)?.length ?? 0) > 0,
     diff: (path: string) => changedPaths.get(path) ?? [],
+    diffText: (_path: string, changedPath: string) =>
+      `diff --git a/${changedPath} b/${changedPath}`,
+    commitAll: (path: string) => {
+      committed.push(path);
+    },
     merge: (branch: string) => {
       mergedBranches.push(branch);
       return mergeResults.get(branch) ?? { ok: true, conflicts: [] };
@@ -300,9 +313,18 @@ await check(
       [a.leaseId, b.leaseId],
       'mergeable list is in stable order',
     );
-    // Mergeable leases moved to pending_merge.
-    assert.equal(mgr.getLease(a.leaseId)?.status, 'pending_merge', 'lease a awaiting merge');
-    assert.equal(mgr.getLease(b.leaseId)?.status, 'pending_merge', 'lease b awaiting merge');
+    // Mergeable leases moved to pending_review.
+    assert.equal(mgr.getLease(a.leaseId)?.status, 'pending_review', 'lease a awaiting review');
+    assert.equal(mgr.getLease(b.leaseId)?.status, 'pending_review', 'lease b awaiting review');
+    // Deterministic commit safety net: merge carries committed work only, so
+    // planIntegration must commit each isolated writable worktree before it
+    // reads diffs (a child that edited but never committed would otherwise
+    // review empty and merge nothing — caught live 2026-07-12).
+    assert.deepEqual(
+      git.committed,
+      [a.cwd, b.cwd],
+      'planIntegration commits every isolated writable worktree before diffing',
+    );
   },
 );
 
@@ -391,7 +413,7 @@ await check(
 
     const result = await mgr.integrate(plan);
 
-    // Only B merged; A was SKIPPED (its live status is no longer pending_merge),
+    // Only B merged; A was SKIPPED (its live status is no longer pending_review),
     // and git.merge was NEVER called for A's branch (no action on a removed worktree).
     assert.deepEqual(
       result.merged.map((l) => l.leaseId),
@@ -401,7 +423,7 @@ await check(
     assert.equal(result.skipped.length, 1, 'the released lease was skipped, not merged');
     assert.equal(result.skipped[0]!.leaseId, a.leaseId, 'the skipped lease is the released one');
     assert.ok(
-      /released|pending_merge/i.test(result.skipped[0]!.reason),
+      /released|pending_review/i.test(result.skipped[0]!.reason),
       'skip reason explains the stale status',
     );
     assert.ok(
@@ -428,7 +450,7 @@ await check(
 
     git.diff = (path: string) => (path === a.cwd ? ['src/a.ts'] : []);
     const plan = await mgr.planIntegration([a]);
-    // The ORIGINAL captured reference must NOT have mutated to pending_merge — it is
+    // The ORIGINAL captured reference must NOT have mutated to pending_review — it is
     // a decoupled copy. The plan's mergeable copy AND a fresh getLease show the new
     // live status.
     assert.equal(
@@ -438,12 +460,12 @@ await check(
     );
     assert.equal(
       plan.mergeable[0]!.status,
-      'pending_merge',
+      'pending_review',
       'the plan copy reflects the new status',
     );
     assert.equal(
       mgr.getLease(a.leaseId)?.status,
-      'pending_merge',
+      'pending_review',
       'a fresh getLease reflects the live status',
     );
 
@@ -453,7 +475,7 @@ await check(
     snap.reason = 'tampered';
     assert.equal(
       mgr.getLease(a.leaseId)?.status,
-      'pending_merge',
+      'pending_review',
       'tampering with a returned copy does not affect the manager',
     );
   },
@@ -495,8 +517,8 @@ await check(
     const releasedDirty = await mgr.releaseLease(dirty.leaseId); // abort cleanup, no retain
     assert.equal(
       releasedDirty.status,
-      'retained',
-      'a changed worktree on abort is RETAINED, not discarded',
+      'pending_review',
+      'a changed worktree on abort stays pending review, not discarded',
     );
     assert.ok(
       releasedDirty.reason && /retained|not discarded/i.test(releasedDirty.reason),
@@ -516,7 +538,11 @@ await check(
     });
     const keep = (keepRes as { lease: WorkspaceLease }).lease;
     const releasedKeep = await mgr.releaseLease(keep.leaseId, { retain: true });
-    assert.equal(releasedKeep.status, 'retained', 'an explicit retain keeps the worktree');
+    assert.equal(
+      releasedKeep.status,
+      'pending_review',
+      'an explicit retain keeps the worktree for review',
+    );
     assert.ok(
       !git.removed.includes(keep.cwd),
       'a retained worktree is not removed even when unchanged',
@@ -590,21 +616,105 @@ await check(
   },
 );
 
+await check('P3: completed write enters pending_review, merges, then releases', async () => {
+  const changed = new Map<string, string[]>();
+  const git = makeFakeGit({ isGit: true, changedPaths: changed });
+  const mgr = createWorkspaceLeaseManager(makeDeps(git));
+  const root = await mgr.acquireRootLease('/ws');
+  const result = await mgr.acquireChildLease({
+    rootLease: root,
+    runId: 'run-review',
+    access: 'write',
+  });
+  const lease = (result as { lease: WorkspaceLease }).lease;
+  changed.set(lease.cwd, ['src/review.ts']);
+  const plan = await mgr.planIntegration([lease]);
+  assert.equal(mgr.getLease(lease.leaseId)?.status, 'pending_review');
+  const integrated = await mgr.integrate(plan);
+  assert.equal(integrated.merged[0]?.status, 'merged');
+  changed.delete(lease.cwd);
+  const released = await mgr.releaseLease(lease.leaseId);
+  assert.equal(released.status, 'released');
+});
+
+await check(
+  'P3: discard force-removes a changed review worktree and records discarded',
+  async () => {
+    const changed = new Map<string, string[]>();
+    const git = makeFakeGit({ isGit: true, changedPaths: changed });
+    const mgr = createWorkspaceLeaseManager(makeDeps(git));
+    const root = await mgr.acquireRootLease('/ws');
+    const result = await mgr.acquireChildLease({
+      rootLease: root,
+      runId: 'run-discard',
+      access: 'write',
+    });
+    const lease = (result as { lease: WorkspaceLease }).lease;
+    changed.set(lease.cwd, ['src/discard.ts']);
+    await mgr.planIntegration([lease]);
+    const discarded = await mgr.releaseLease(lease.leaseId, { discard: true });
+    assert.equal(discarded.status, 'discarded');
+    assert.ok(git.removed.includes(lease.cwd));
+  },
+);
+
+await check('P3: request changes adopts the same lease/worktree for a new run', async () => {
+  const git = makeFakeGit({ isGit: true });
+  const first = createWorkspaceLeaseManager(makeDeps(git));
+  const root = await first.acquireRootLease('/ws');
+  const result = await first.acquireChildLease({
+    rootLease: root,
+    runId: 'run-original',
+    access: 'write',
+  });
+  const lease = (result as { lease: WorkspaceLease }).lease;
+  await first.planIntegration([lease]);
+
+  const resumed = createWorkspaceLeaseManager(makeDeps(git));
+  const adopted = resumed.adoptLease({ ...lease, runId: 'run-rework', status: 'active' });
+  assert.equal(adopted.leaseId, lease.leaseId);
+  assert.equal(adopted.cwd, lease.cwd);
+  assert.equal(adopted.runId, 'run-rework');
+  const nextPlan = await resumed.planIntegration([adopted]);
+  assert.equal(nextPlan.mergeable[0]?.status, 'pending_review');
+});
+
+await check('P3: durable lease adoption rejects an unrelated branch', async () => {
+  const git = makeFakeGit({ isGit: true });
+  const mgr = createWorkspaceLeaseManager(makeDeps(git));
+  assert.throws(() =>
+    mgr.adoptLease({
+      leaseId: 'lease-0002',
+      runId: 'run-rework',
+      workspaceRoot: '/ws',
+      access: 'write',
+      cwd: '/ws/.offisim/worktrees/lease-0002',
+      branch: 'main',
+      isolated: true,
+      status: 'active',
+      createdAt: '2026-01-01T00:00:00.000Z',
+    }),
+  );
+});
+
 // ===========================================================================
 // (g) Production adapter contract — the renderer git_exec binding satisfies the
 // injected GitWorktreeOps shape (constructed, not invoked: no real Tauri call).
 // ===========================================================================
 
 await check(
-  'renderer adapter: createTauriGitWorktreeOps satisfies the GitWorktreeOps contract (all 6 methods present)',
+  'renderer adapter: createTauriGitWorktreeOps satisfies the GitWorktreeOps contract',
   () => {
     const ops: GitWorktreeOps = createTauriGitWorktreeOps({ projectId: 'proj-1' });
     for (const method of [
       'isGitRepo',
       'addWorktree',
       'removeWorktree',
+      'discardWorktree',
       'worktreeChanged',
       'diff',
+      'diffText',
+      'commitAll',
       'merge',
     ] as const) {
       assert.equal(typeof ops[method], 'function', `adapter exposes ${method}()`);

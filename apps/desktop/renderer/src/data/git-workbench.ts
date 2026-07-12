@@ -132,6 +132,27 @@ function parseDiffPreview(stdout: string): GitWorkbench['diffPreview'] {
     }));
 }
 
+function splitUnifiedDiff(stdout: string): Map<string, string> {
+  const files = new Map<string, string>();
+  let path = '';
+  let lines: string[] = [];
+  const flush = () => {
+    if (path) files.set(path, lines.join('\n'));
+  };
+  for (const line of stdout.split('\n')) {
+    const match = /^diff --git a\/(.+) b\/(.+)$/.exec(line);
+    if (match) {
+      flush();
+      path = match[2] ?? match[1] ?? '';
+      lines = [line];
+    } else if (path) {
+      lines.push(line);
+    }
+  }
+  flush();
+  return files;
+}
+
 export async function loadGitWorkbench(projectId: string): Promise<GitRepoState> {
   const status = await runGit(projectId, ['status', '--porcelain=v1', '--branch']);
   if (!status.ok) {
@@ -144,15 +165,24 @@ export async function loadGitWorkbench(projectId: string): Promise<GitRepoState>
   const changes = statusLines
     .map(parseStatusLine)
     .filter((row): row is GitFileChange => Boolean(row));
-  const [unstagedStats, stagedStats, diffPreview] = await Promise.all([
+  const [unstagedStats, stagedStats, diffPreview, stagedDiff] = await Promise.all([
     runGit(projectId, ['diff', '--numstat']),
     runGit(projectId, ['diff', '--cached', '--numstat']),
     runGit(projectId, ['diff', '--unified=2']),
+    runGit(projectId, ['diff', '--cached', '--unified=3']),
   ]);
   const stats = new Map([
     ...parseNumstat(unstagedStats.ok ? unstagedStats.stdout : ''),
     ...parseNumstat(stagedStats.ok ? stagedStats.stdout : ''),
   ]);
+  const unstagedByPath = splitUnifiedDiff(diffPreview.ok ? diffPreview.stdout : '');
+  const stagedByPath = splitUnifiedDiff(stagedDiff.ok ? stagedDiff.stdout : '');
+  const diffFiles = changes.map((change) => ({
+    path: change.path,
+    diff: [stagedByPath.get(change.path), unstagedByPath.get(change.path)]
+      .filter((value): value is string => Boolean(value))
+      .join('\n'),
+  }));
 
   return {
     status: 'repo',
@@ -160,6 +190,7 @@ export async function loadGitWorkbench(projectId: string): Promise<GitRepoState>
       ...branch,
       changes: changes.map((change) => ({ ...change, ...(stats.get(change.path) ?? {}) })),
       diffPreview: parseDiffPreview(diffPreview.ok ? diffPreview.stdout : ''),
+      diffFiles,
       checks: [
         {
           id: 'git-status',

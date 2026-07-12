@@ -5,14 +5,15 @@ import {
   AGENT_UI_REQUEST_EVENT,
   type AgentUiRequestPayload,
   type DesktopAgentRuntime,
+  type DirectDelegationInput,
   getDesktopAgentRuntime,
 } from '@/runtime/desktop-agent-runtime.js';
 import { getRepos, runtimeEventBus } from '@/runtime/repos.js';
 import type { EventBus, RuntimeRepositories } from '@offisim/core/browser';
 import {
+  type ToolRichDetail,
   mergeToolRichDetail,
   parseToolRichDetail,
-  type ToolRichDetail,
 } from '@offisim/shared-types';
 import type {
   AgentRunEvent,
@@ -138,6 +139,7 @@ export interface SubmitConversationRun {
   loopExecution?: {
     start: (messageId: string) => Promise<void>;
   };
+  directDelegation?: DirectDelegationInput;
 }
 
 export interface ConversationRunHandle {
@@ -445,6 +447,10 @@ export class ConversationRunController {
     this.saveRetryRecord(run);
   }
 
+  stopChild(threadId: string, runId: string): void {
+    this.activeRuns.get(threadId)?.runtime?.abortChild(threadId, runId);
+  }
+
   async answerApproval(input: AnswerApprovalInput): Promise<void> {
     const run = this.activeRuns.get(input.threadId);
     const snapshot = this.currentSnapshot(input.threadId);
@@ -653,6 +659,7 @@ export class ConversationRunController {
         permissionMode: run.input.permissionMode,
         thinkingLevel: run.input.thinkingLevel,
         runId: run.attemptId,
+        directDelegation: run.input.directDelegation,
       });
       if (!this.isActiveRun(run) || run.stopped) return;
       const reasoning = (response.reasoning || run.reasoningText).trim();

@@ -6,6 +6,7 @@ import type { FileNode, GitFileChange, GitWorkbench, Project } from '@/data/type
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { SearchInput } from '@/design-system/grammar/SearchInput.js';
+import { Select } from '@/design-system/grammar/Select.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Tabs, TabsList, TabsTrigger } from '@/design-system/primitives/tabs.js';
 import { pickWorkspaceFolder } from '@/lib/desktop-dialog.js';
@@ -13,6 +14,12 @@ import { invokeCommand } from '@/lib/tauri-commands.js';
 import { cn } from '@/lib/utils.js';
 import { overbroadWorkspaceReason } from '@/lib/workspace-root-guard.js';
 import { EmptyState, ErrorState, SkeletonRows } from '@/surfaces/shared/SurfaceStates.js';
+import { DiffPanel } from '@/surfaces/tasks/DiffPanel.js';
+import { useProjectWorkspaceLeaseReviews, useTaskBoard } from '@/surfaces/tasks/task-board-data.js';
+import {
+  requestWorkspaceLeaseChanges,
+  reviewWorkspaceLease,
+} from '@/surfaces/tasks/workspace-lease-actions.js';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Check,
@@ -427,8 +434,47 @@ function ProjectsTab({
   );
 }
 
-function GitTab({ workbench }: { workbench: GitWorkbench }) {
+function GitTab({
+  workbench,
+  companyId,
+  projectId,
+}: {
+  workbench: GitWorkbench;
+  companyId: string;
+  projectId: string;
+}) {
   const openStageView = useUiState((s) => s.openStageView);
+  const leaseReviews = useProjectWorkspaceLeaseReviews(projectId);
+  const board = useTaskBoard(companyId);
+  const taskByRun = new Map(
+    board.rows.flatMap((row) => [row, ...row.children]).map((row) => [row.runId, row]),
+  );
+  const reviewable = leaseReviews.rows.filter((lease) => lease.status === 'pending_review');
+  const [selectedLeaseId, setSelectedLeaseId] = useState('');
+  const [busyLeaseId, setBusyLeaseId] = useState<string | null>(null);
+  const selectedLease =
+    reviewable.find((lease) => lease.leaseId === selectedLeaseId) ?? reviewable[0] ?? null;
+  const task = selectedLease ? taskByRun.get(selectedLease.runId) : null;
+
+  const act = async (action: 'merge' | 'discard') => {
+    if (!selectedLease) return;
+    setBusyLeaseId(selectedLease.leaseId);
+    try {
+      const outcome = await reviewWorkspaceLease(selectedLease, companyId, action);
+      await leaseReviews.refetch();
+      toast.success(
+        outcome === 'merged'
+          ? 'Task merged.'
+          : outcome === 'discarded'
+            ? 'Task discarded.'
+            : 'Merge decision completed.',
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : `Could not ${action} task`);
+    } finally {
+      setBusyLeaseId(null);
+    }
+  };
   return (
     <div className="off-gw">
       <div className="off-gw-branch">
@@ -438,6 +484,52 @@ function GitTab({ workbench }: { workbench: GitWorkbench }) {
           ↑{workbench.ahead} ↓{workbench.behind}
         </span>
       </div>
+
+      {selectedLease ? (
+        <div className="off-gw-section">
+          <CapsLabel>Task diff review</CapsLabel>
+          <Select
+            className="off-gw-task-select off-focusable"
+            value={selectedLease.leaseId}
+            onChange={(event) => setSelectedLeaseId(event.target.value)}
+            aria-label="Delegated task diff"
+            options={reviewable.map((lease) => ({
+              value: lease.leaseId,
+              label: taskByRun.get(lease.runId)?.objective ?? lease.runId,
+            }))}
+          />
+          <DiffPanel
+            files={selectedLease.files}
+            status={selectedLease.status}
+            busy={busyLeaseId === selectedLease.leaseId}
+            onMerge={() => void act('merge')}
+            onDiscard={() => void act('discard')}
+            onRequestChanges={(feedback) => {
+              const employeeId = task?.employeeId;
+              if (!employeeId) {
+                toast.error('The original assignee is unavailable.');
+                return;
+              }
+              setBusyLeaseId(selectedLease.leaseId);
+              void requestWorkspaceLeaseChanges(selectedLease, {
+                companyId,
+                projectId,
+                employeeId,
+                objective: task.objective ?? 'Continue the delegated task.',
+                feedback,
+              })
+                .then(async () => {
+                  await leaseReviews.refetch();
+                  toast.success('Rework delegated in the same worktree.');
+                })
+                .catch((error) =>
+                  toast.error(error instanceof Error ? error.message : 'Could not request changes'),
+                )
+                .finally(() => setBusyLeaseId(null));
+            }}
+          />
+        </div>
+      ) : null}
 
       <div className="off-gw-section">
         <CapsLabel>Changes · {workbench.changes.length}</CapsLabel>
@@ -715,7 +807,7 @@ export function WorkspacePanel() {
           onRetry={() => void git.refetch()}
         />
       ) : git.data?.status === 'repo' ? (
-        <GitTab workbench={git.data.workbench} />
+        <GitTab workbench={git.data.workbench} companyId={companyId} projectId={projectId} />
       ) : git.data?.status === 'uninitialized' ? (
         // Valid folder, just not a git repo yet → Initialize is the primary
         // action; Rebind is only for a mistaken folder selection.

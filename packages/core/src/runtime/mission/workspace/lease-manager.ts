@@ -57,6 +57,8 @@ export interface ReleaseLeaseOptions {
    * keep it for inspection). Default false: an unchanged worktree is removed.
    */
   retain?: boolean;
+  /** Explicit review decision: remove the worktree even when it has changes. */
+  discard?: boolean;
 }
 
 export interface WorkspaceLeaseManager {
@@ -69,19 +71,21 @@ export interface WorkspaceLeaseManager {
    * write on a non-Git workspace is BLOCKED (serialized, §23.3).
    */
   acquireChildLease(input: AcquireChildLeaseInput): Promise<AcquireChildResult>;
+  /** Adopt a durable pending-review worktree into a fresh host for review/rework. */
+  adoptLease(lease: WorkspaceLease): WorkspaceLease;
   /** Collect the per-child diff a reviewer verifies (WI-004). */
   collectDiff(lease: WorkspaceLease): Promise<LeaseDiff>;
   /**
    * Plan integration over a set of child leases (WI-005): overlapping writes →
    * conflicts (those leases go `conflicted`, NOT merged); non-overlapping →
    * mergeable, in a stable order. Returns the plan — does NOT merge. The plan's
-   * `mergeable` leases are SNAPSHOT COPIES (status `pending_merge`); integrate()
+   * `mergeable` leases are SNAPSHOT COPIES (status `pending_review`); integrate()
    * re-reads the live status before merging each one.
    */
   planIntegration(childLeases: WorkspaceLease[]): Promise<IntegrationPlan>;
   /**
    * Execute a plan (WI-005): merge ONLY the `mergeable` leases whose LIVE status is
-   * still `pending_merge`, in order. A lease that was released/aborted/re-classified
+   * still `pending_review`, in order. A lease that was released/aborted/re-classified
    * between plan and integrate is SKIPPED (recorded in `result.skipped`), never
    * merged. If a merge reports a conflict (defensive — it shouldn't for
    * non-overlapping leases), mark the lease `conflicted`, STOP, and surface it.
@@ -91,7 +95,7 @@ export interface WorkspaceLeaseManager {
   /**
    * Release a lease (WI-006). Removes an UNCHANGED worktree (or one the caller
    * asks to `retain`); a CHANGED worktree that is not retained is kept and the
-   * lease marked `retained` with a reason — never silently discarded. Returns a
+   * lease marked `pending_review` with a reason — never silently discarded. Returns a
    * snapshot copy of the released lease.
    */
   releaseLease(leaseId: string, options?: ReleaseLeaseOptions): Promise<WorkspaceLease>;
@@ -102,7 +106,7 @@ export interface WorkspaceLeaseManager {
 }
 
 /** A tracked lease is `active` and counts toward concurrency limits. */
-const ACTIVE_WRITE_STATUSES: ReadonlySet<string> = new Set(['active', 'pending_merge']);
+const ACTIVE_WRITE_STATUSES: ReadonlySet<string> = new Set(['active', 'pending_review']);
 
 export function createWorkspaceLeaseManager(
   deps: WorkspaceLeaseManagerDeps,
@@ -129,7 +133,7 @@ export function createWorkspaceLeaseManager(
 
   /**
    * A shallow COPY of a lease for a public output. The manager mutates its OWN
-   * internal Map entries (status → conflicted / pending_merge / merged / retained
+   * internal Map entries (status → conflicted / pending_review / merged / discarded
    * / released); callers must never hold a live reference that mutates under them
    * (they would observe a "snapshot" silently change). Every public boundary
    * (acquireChildLease, getLease, listLeases, planIntegration's mergeable,
@@ -277,17 +281,55 @@ export function createWorkspaceLeaseManager(
     const changedPaths = lease.isolated
       ? await gitOps.diff(lease.cwd)
       : await gitOps.diff(lease.workspaceRoot);
+    const cwd = lease.isolated ? lease.cwd : lease.workspaceRoot;
+    const files = await Promise.all(
+      changedPaths.map(async (path) => ({ path, diff: await gitOps.diffText(cwd, path) })),
+    );
     return {
       leaseId: lease.leaseId,
       runId: lease.runId,
       changedPaths,
+      files,
       patchRef: lease.branch ?? lease.workspaceRoot,
     };
+  }
+
+  function adoptLease(input: WorkspaceLease): WorkspaceLease {
+    if (input.access !== 'write' || !input.isolated || !input.branch) {
+      throw new Error('Only an isolated writable lease can be adopted.');
+    }
+    if (
+      !input.branch.startsWith('offisim/lease/') ||
+      !input.branch.endsWith(`-${sanitizeRef(input.leaseId)}`)
+    ) {
+      throw new Error(`Lease branch does not match its Offisim lease id: ${input.leaseId}`);
+    }
+    const expectedCwd = worktreePathFor(input.workspaceRoot, input.leaseId);
+    if (input.cwd !== expectedCwd) {
+      throw new Error(`Lease cwd does not match its jailed worktree path: ${input.leaseId}`);
+    }
+    const adopted: WorkspaceLease = {
+      ...input,
+      status: input.status === 'active' ? 'active' : 'pending_review',
+    };
+    track(adopted);
+    return snapshot(adopted);
   }
 
   async function planIntegration(childLeases: WorkspaceLease[]): Promise<IntegrationPlan> {
     // Only WRITABLE leases integrate — read/review leases produce nothing to merge.
     const writable = childLeases.filter((l) => l.access === 'write');
+
+    // Merge carries COMMITTED work only, and the overlap detection below reads
+    // committed diffs. A child is instructed to commit its own work, but that is
+    // model behavior, not a guarantee — deterministically commit any uncommitted
+    // remainder first so review, overlap detection, and merge all see the same
+    // complete change set. Only isolated worktrees: a non-isolated write lease
+    // edits the user's root checkout, which is never auto-committed.
+    for (const lease of writable) {
+      if (!lease.isolated) continue;
+      await gitOps.commitAll(lease.cwd, `offisim: delegated work (${lease.runId})`);
+    }
 
     // Compute each writable lease's changed paths once.
     const changedByLease = new Map<string, Set<string>>();
@@ -337,16 +379,16 @@ export function createWorkspaceLeaseManager(
           'overlapping write with another child lease — routed to repair/human, not auto-merged (§23.3)';
       }
     }
-    // A clean mergeable lease moves to pending_merge so its state reflects that it
+    // A clean mergeable lease moves to pending_review so its state reflects that it
     // is awaiting the integration controller's decision. Mutate the LIVE Map entry,
     // then return a SNAPSHOT of it — the plan a caller holds is a decoupled copy
-    // (status === 'pending_merge'); the caller re-reads live status via getLease,
+    // (status === 'pending_review'); the caller re-reads live status via getLease,
     // and integrate() re-checks the live Map entry before merging.
     const mergeableSnapshots: WorkspaceLease[] = [];
     for (const ordered of mergeableOrdered) {
       const live = leases.get(ordered.leaseId);
       if (!live) continue; // untracked (shouldn't happen for a writable lease) — drop it.
-      if (live.status === 'active') live.status = 'pending_merge';
+      if (live.status === 'active') live.status = 'pending_review';
       mergeableSnapshots.push(snapshot(live));
     }
 
@@ -364,7 +406,7 @@ export function createWorkspaceLeaseManager(
       // Re-resolve the LIVE Map entry — the plan carries a decoupled snapshot, and
       // a lease can have changed between planIntegration and integrate (the child
       // aborted/was released → 'released', or was re-classified 'conflicted'). Merge
-      // ONLY a lease whose CURRENT status is still 'pending_merge'; anything else is
+      // ONLY a lease whose CURRENT status is still 'pending_review'; anything else is
       // skipped, never merged (merging a released worktree acts on a removed
       // checkout — silent corruption).
       const lease = leases.get(planned.leaseId);
@@ -375,10 +417,10 @@ export function createWorkspaceLeaseManager(
         });
         continue;
       }
-      if (lease.status !== 'pending_merge') {
+      if (lease.status !== 'pending_review') {
         skipped.push({
           leaseId: lease.leaseId,
-          reason: `lease status is '${lease.status}', not 'pending_merge' — released/aborted/conflicted between plan and integrate; not merged`,
+          reason: `lease status is '${lease.status}', not 'pending_review' — released/aborted/conflicted between plan and integrate; not merged`,
         });
         continue;
       }
@@ -429,13 +471,21 @@ export function createWorkspaceLeaseManager(
     }
 
     const retain = options.retain === true;
+    const discard = options.discard === true;
+
+    if (discard) {
+      await gitOps.discardWorktree(lease.cwd);
+      lease.status = 'discarded';
+      lease.reason = 'discarded by user after diff review';
+      return snapshot(lease);
+    }
     const changed = await gitOps.worktreeChanged(lease.cwd);
 
     if (changed && !retain) {
       // WI-006 DATA SAFETY: a changed worktree is NEVER silently discarded on
       // cleanup. Default policy = retain it and mark `retained` with a reason so
       // the changes survive for inspection / manual recovery.
-      lease.status = 'retained';
+      lease.status = 'pending_review';
       lease.reason =
         'worktree had uncommitted changes at cleanup — retained (not discarded) for recovery (§23.3 WI-006)';
       return snapshot(lease);
@@ -443,7 +493,7 @@ export function createWorkspaceLeaseManager(
 
     if (retain) {
       // Explicit retain: keep the worktree, mark retained with the caller's intent.
-      lease.status = 'retained';
+      lease.status = 'pending_review';
       lease.reason = lease.reason ?? 'retained by caller request';
       return snapshot(lease);
     }
@@ -473,6 +523,7 @@ export function createWorkspaceLeaseManager(
   return {
     acquireRootLease,
     acquireChildLease,
+    adoptLease,
     collectDiff,
     planIntegration,
     integrate,

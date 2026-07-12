@@ -205,6 +205,15 @@ async fn run_worktree_op(
                 Err(nonzero_git_error(result))
             }
         }
+        "discardWorktree" => {
+            let path = worktree_arg(&args, "path")?;
+            let lease_id = Path::new(&path)
+                .file_name()
+                .and_then(|value| value.to_str())
+                .ok_or_else(|| "discard worktree path has no lease id".to_string())?;
+            crate::git::discard_workspace_lease_at(root, lease_id).await?;
+            Ok(serde_json::json!({ "ok": true }))
+        }
         "worktreeChanged" => {
             let path = worktree_arg(&args, "path")?;
             let cwd = PathBuf::from(path);
@@ -219,6 +228,43 @@ async fn run_worktree_op(
             } else {
                 Err(nonzero_git_error(result))
             }
+        }
+        "commitAll" => {
+            // Merge carries committed work only; deterministically commit a
+            // child's uncommitted remainder. The git whitelist takes explicit
+            // pathspecs (no `add -A`), so stage exactly what porcelain reports.
+            let path = worktree_arg(&args, "path")?;
+            let message = worktree_arg(&args, "message")?;
+            let cwd = PathBuf::from(path);
+            let status = crate::git::run_git_validated(
+                vec!["status".into(), "--porcelain".into()],
+                root,
+                Some(&cwd),
+            )
+            .await?;
+            if !status.ok {
+                return Err(nonzero_git_error(status));
+            }
+            let paths = parse_porcelain_paths(&status.stdout);
+            if paths.is_empty() {
+                return Ok(serde_json::json!({ "ok": true, "committed": false }));
+            }
+            let mut add_args: Vec<String> = vec!["add".into(), "--".into()];
+            add_args.extend(paths);
+            let add = crate::git::run_git_validated(add_args, root, Some(&cwd)).await?;
+            if !add.ok {
+                return Err(nonzero_git_error(add));
+            }
+            let commit = crate::git::run_git_validated(
+                vec!["commit".into(), "-m".into(), message],
+                root,
+                Some(&cwd),
+            )
+            .await?;
+            if !commit.ok {
+                return Err(nonzero_git_error(commit));
+            }
+            Ok(serde_json::json!({ "ok": true, "committed": true }))
         }
         "diff" => {
             let path = worktree_arg(&args, "path")?;
@@ -258,6 +304,38 @@ async fn run_worktree_op(
                 "conflicts": if result.ok { Vec::<String>::new() } else { parse_conflict_paths(&result.stdout, &result.stderr) },
             }))
         }
+        "diffText" => {
+            let path = worktree_arg(&args, "path")?;
+            let changed_path = worktree_arg(&args, "changedPath")?;
+            let cwd = PathBuf::from(path);
+            let root_head = crate::git::run_git_validated(
+                vec!["rev-parse".into(), "HEAD".into()],
+                root,
+                Some(root),
+            )
+            .await?;
+            if !root_head.ok {
+                return Err(nonzero_git_error(root_head));
+            }
+            let result = crate::git::run_git_validated(
+                vec![
+                    "diff".into(),
+                    "--unified=3".into(),
+                    root_head.stdout.trim().into(),
+                    "HEAD".into(),
+                    "--".into(),
+                    changed_path,
+                ],
+                root,
+                Some(&cwd),
+            )
+            .await?;
+            if result.ok {
+                Ok(serde_json::Value::String(result.stdout))
+            } else {
+                Err(nonzero_git_error(result))
+            }
+        }
         other => Err(format!("unknown worktree operation '{other}'")),
     }
 }
@@ -287,6 +365,26 @@ fn parse_line_paths(stdout: &str) -> Vec<String> {
         .filter(|line| !line.is_empty())
         .map(ToOwned::to_owned)
         .collect()
+}
+
+/// Paths from `git status --porcelain` v1 output: strip the two status columns
+/// and the separator; a rename entry (`R  old -> new`) yields the new side.
+fn parse_porcelain_paths(stdout: &str) -> Vec<String> {
+    let mut paths = Vec::new();
+    for line in stdout.lines() {
+        if line.len() <= 3 || line.starts_with("##") {
+            continue;
+        }
+        let entry = line[3..].trim();
+        let path = match entry.split_once(" -> ") {
+            Some((_, renamed)) => renamed,
+            None => entry,
+        };
+        if !path.is_empty() {
+            paths.push(path.to_string());
+        }
+    }
+    paths
 }
 
 fn parse_conflict_paths(stdout: &str, stderr: &str) -> Vec<String> {
@@ -412,5 +510,32 @@ pub(super) async fn ui_response_impl(
         .flush()
         .await
         .map_err(|err| format!("Flush Pi UI response: {err}"))?;
+    Ok(())
+}
+
+pub(super) async fn control_impl(
+    request_id: String,
+    action: String,
+    run_id: String,
+) -> Result<(), String> {
+    let writer = pi_stdin_guard().get(&request_id).cloned();
+    let Some(writer) = writer else {
+        return Ok(());
+    };
+    if action != "stopChild" || run_id.trim().is_empty() {
+        return Err("Unsupported agent runtime control request".into());
+    }
+    let mut line =
+        serde_json::json!({ "type": "control", "action": action, "runId": run_id }).to_string();
+    line.push('\n');
+    let mut stdin = writer.lock().await;
+    stdin
+        .write_all(line.as_bytes())
+        .await
+        .map_err(|err| format!("Write Pi control: {err}"))?;
+    stdin
+        .flush()
+        .await
+        .map_err(|err| format!("Flush Pi control: {err}"))?;
     Ok(())
 }

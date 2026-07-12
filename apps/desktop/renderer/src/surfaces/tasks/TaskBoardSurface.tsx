@@ -1,11 +1,10 @@
+import { useUiState } from '@/app/ui-state.js';
 import { conversationRunController } from '@/assistant/runtime/conversation-run-controller.js';
 import { useInterruptedRunRecovery } from '@/assistant/runtime/conversation-run-react.js';
-import { useUiState } from '@/app/ui-state.js';
-import { Select, type SelectOption } from '@/design-system/grammar/Select.js';
 import { useCompanyEmployees } from '@/data/queries.js';
+import { Select, type SelectOption } from '@/design-system/grammar/Select.js';
 import { cn } from '@/lib/utils.js';
 import { getRepos } from '@/runtime/repos.js';
-import { createTauriGitWorktreeOps } from '@/runtime/mission/workspace/git-worktree-ops.js';
 import {
   EmptyState,
   ErrorState,
@@ -28,24 +27,32 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { DiffPanel } from './DiffPanel.js';
 import { InterruptedRunCardView } from './InterruptedRunCardView.js';
 import {
   type TaskBoardChildRow,
   type TaskBoardRow,
   type TaskBoardStatus,
   type WorkspaceLeaseReviewRow,
-  WORKSPACE_LEASE_ACTION_EVENT,
   filterTaskRows,
   flattenTaskRows,
+  useProjectLeaseStatusMap,
+  useProjectWorkspaceLeaseReviews,
   useTaskBoard,
-  useWorkspaceLeaseReviews,
 } from './task-board-data.js';
+import {
+  appendWorkspaceLeaseAction,
+  requestWorkspaceLeaseChanges,
+  reviewWorkspaceLease,
+} from './workspace-lease-actions.js';
 
 const ROW_HEIGHT = 54;
-type PendingLeaseAction = { leaseId: string; action: 'merge' | 'discard' } | null;
 const STATUS_OPTIONS: ReadonlyArray<SelectOption> = [
   { value: 'all', label: 'All statuses' },
   { value: 'running', label: 'Running' },
+  { value: 'pending_review', label: 'Pending review' },
+  { value: 'merged', label: 'Merged' },
+  { value: 'discarded', label: 'Discarded' },
   { value: 'interrupted', label: 'Interrupted' },
   { value: 'completed', label: 'Completed' },
   { value: 'failed', label: 'Failed' },
@@ -56,6 +63,12 @@ function statusLabel(status: TaskBoardStatus): string {
   switch (status) {
     case 'running':
       return 'Running';
+    case 'pending_review':
+      return 'Pending review';
+    case 'merged':
+      return 'Merged';
+    case 'discarded':
+      return 'Discarded';
     case 'interrupted':
       return 'Interrupted';
     case 'completed':
@@ -65,6 +78,13 @@ function statusLabel(status: TaskBoardStatus): string {
     case 'cancelled':
       return 'Cancelled';
   }
+}
+
+function taskStatusFromLease(
+  status: WorkspaceLeaseReviewRow['status'] | undefined,
+  fallback: TaskBoardStatus,
+): TaskBoardStatus {
+  return status === 'active' ? 'running' : (status ?? fallback);
 }
 
 function formatWhen(value: string | null): string {
@@ -122,7 +142,9 @@ function summarizePaths(paths: readonly string[]): string {
 
 function StatusIcon({ status }: { status: TaskBoardStatus }) {
   if (status === 'running') return <Clock3 aria-hidden />;
-  if (status === 'completed') return <CheckCircle2 aria-hidden />;
+  if (status === 'completed' || status === 'merged') return <CheckCircle2 aria-hidden />;
+  if (status === 'pending_review') return <Eye aria-hidden />;
+  if (status === 'discarded') return <Ban aria-hidden />;
   if (status === 'interrupted') return <Pause aria-hidden />;
   if (status === 'cancelled') return <Ban aria-hidden />;
   return <XCircle aria-hidden />;
@@ -145,8 +167,11 @@ function taskTitle(objective: string | null): string | null {
 
 export function TaskBoardSurface() {
   const companyId = useUiState((s) => s.companyId);
+  const projectId = useUiState((s) => s.projectId);
   const setSurface = useUiState((s) => s.setSurface);
   const board = useTaskBoard(companyId || null);
+  const leaseStatusByRunId = useProjectLeaseStatusMap(projectId || null);
+  const projectLeaseReviews = useProjectWorkspaceLeaseReviews(projectId || null);
   const employees = useCompanyEmployees(companyId || null);
   const recovery = useInterruptedRunRecovery(companyId || null, {
     skipReconcile: true,
@@ -156,26 +181,47 @@ export function TaskBoardSurface() {
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [expandedRunIds, setExpandedRunIds] = useState<Set<string>>(() => new Set());
   const [busyRunId, setBusyRunId] = useState<string | null>(null);
-  const [pendingLeaseAction, setPendingLeaseAction] = useState<PendingLeaseAction>(null);
+  const [busyLeaseId, setBusyLeaseId] = useState<string | null>(null);
+  const [newObjective, setNewObjective] = useState('');
+  const [delegateEmployeeId, setDelegateEmployeeId] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     void recovery.refetch();
   }, [recovery.refetch]);
 
-  useEffect(() => {
-    setPendingLeaseAction(null);
-  }, [selectedRunId]);
-
   const employeeNames = useMemo(() => {
     const map = new Map<string, string>();
     for (const employee of employees.data ?? []) map.set(employee.id, employee.name);
     return map;
   }, [employees.data]);
+  const employeeOptions = useMemo(
+    () =>
+      (employees.data ?? [])
+        .filter((employee) => !employee.disabled)
+        .map((employee) => ({ value: employee.id, label: employee.name })),
+    [employees.data],
+  );
 
+  useEffect(() => {
+    if (!delegateEmployeeId && employeeOptions[0]) setDelegateEmployeeId(employeeOptions[0].value);
+  }, [delegateEmployeeId, employeeOptions]);
+
+  const displayRows = useMemo(
+    () =>
+      board.rows.map((row) => ({
+        ...row,
+        status: taskStatusFromLease(leaseStatusByRunId.get(row.runId)?.status, row.status),
+        children: row.children.map((child) => ({
+          ...child,
+          status: taskStatusFromLease(leaseStatusByRunId.get(child.runId)?.status, child.status),
+        })),
+      })),
+    [board.rows, leaseStatusByRunId],
+  );
   const filteredRows = useMemo(
-    () => filterTaskRows(board.rows, { status, search }),
-    [board.rows, search, status],
+    () => filterTaskRows(displayRows, { status, search }),
+    [displayRows, search, status],
   );
 
   const visibleRows = useMemo(
@@ -187,9 +233,27 @@ export function TaskBoardSurface() {
     () => visibleRows.find((item) => item.row.runId === selectedRunId)?.row ?? null,
     [selectedRunId, visibleRows],
   );
-  const leaseReviews = useWorkspaceLeaseReviews(
-    selectedRow?.threadId ?? null,
-    selectedRow?.rootRunId ?? null,
+  const taskByRunId = useMemo(
+    () =>
+      new Map(displayRows.flatMap((row) => [row, ...row.children]).map((row) => [row.runId, row])),
+    [displayRows],
+  );
+  const employeeByRunId = useMemo(
+    () => new Map([...taskByRunId].map(([runId, row]) => [runId, row.employeeId])),
+    [taskByRunId],
+  );
+  const leaseReviews = useMemo(
+    () => ({
+      ...projectLeaseReviews,
+      rows: selectedRow
+        ? projectLeaseReviews.rows.filter((lease) =>
+            selectedRow.parentRunId
+              ? lease.relatedRunIds.includes(selectedRow.runId)
+              : lease.relatedRootRunIds.includes(selectedRow.rootRunId),
+          )
+        : [],
+    }),
+    [projectLeaseReviews, selectedRow],
   );
 
   const interruptedRunIds = useMemo(
@@ -224,6 +288,11 @@ export function TaskBoardSurface() {
       if (!companyId) return;
       setBusyRunId(row.runId);
       try {
+        if (row.parentRunId) {
+          conversationRunController.stopChild(row.threadId, row.runId);
+          toast.success('Task stop requested.');
+          return;
+        }
         conversationRunController.stop(row.threadId);
         const markCancelled = async () => {
           const latestRepos = await getRepos();
@@ -290,122 +359,88 @@ export function TaskBoardSurface() {
   );
 
   const recordLeaseAction = useCallback(
+    async (lease: WorkspaceLeaseReviewRow, action: string, status: string, extra = {}) => {
+      if (!companyId) return;
+      await appendWorkspaceLeaseAction(lease, companyId, action, status, extra);
+    },
+    [companyId],
+  );
+
+  const runLeaseAction = useCallback(
+    async (lease: WorkspaceLeaseReviewRow, action: 'merge' | 'discard') => {
+      setBusyLeaseId(lease.leaseId);
+      try {
+        if (!companyId) return;
+        const outcome = await reviewWorkspaceLease(lease, companyId, action);
+        await Promise.all([leaseReviews.refetch(), refetchBoard()]);
+        toast.success(
+          outcome === 'merged'
+            ? 'Task merged.'
+            : outcome === 'discarded'
+              ? 'Task discarded.'
+              : 'Merge decision completed.',
+        );
+      } catch (err) {
+        await recordLeaseAction(lease, `${action}_failed`, 'failed', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+        await leaseReviews.refetch();
+        toast.error(errorDetail(err, `Could not ${action} the task.`));
+      } finally {
+        setBusyLeaseId(null);
+      }
+    },
+    [companyId, leaseReviews, recordLeaseAction, refetchBoard],
+  );
+
+  const dispatchTask = useCallback(
     async (
-      lease: WorkspaceLeaseReviewRow,
-      action: string,
-      status: string,
-      extra: Record<string, unknown> = {},
+      objective: string,
+      employeeId: string,
+      lease?: WorkspaceLeaseReviewRow,
+      feedback?: string,
     ) => {
-      if (!companyId || !selectedRow?.threadId) return;
+      if (!companyId || !projectId || !objective.trim() || !employeeId) return;
+      if (lease && feedback) {
+        await requestWorkspaceLeaseChanges(lease, {
+          companyId,
+          projectId,
+          employeeId,
+          objective,
+          feedback,
+        });
+        toast.success('Rework delegated in the same worktree.');
+        await refetchBoard();
+        return;
+      }
       const repos = await getRepos();
-      await repos.agentEvents?.append({
-        event_id: crypto.randomUUID(),
-        project_id: lease.projectId,
-        thread_id: selectedRow.threadId,
-        company_id: companyId,
-        agent_name: 'workspace-lease-review',
-        event_type: WORKSPACE_LEASE_ACTION_EVENT,
-        payload_json: JSON.stringify({
-          leaseId: lease.leaseId,
-          rootRunId: lease.rootRunId,
-          runId: lease.runId,
-          action,
-          status,
-          createdAt: new Date().toISOString(),
-          ...extra,
-        }),
-        parent_event_id: null,
+      const threadId = `thread-${crypto.randomUUID()}`;
+      await repos.chatThreads.create({
+        thread_id: threadId,
+        project_id: projectId,
+        employee_id: null,
+        title: 'Task Board delegation',
       });
+      await conversationRunController.submit({
+        companyId,
+        projectId,
+        threadId,
+        employeeId: null,
+        text: objective,
+        stagedAttachments: [],
+        source: 'workspace',
+        directDelegation: {
+          employeeId,
+          objective,
+          access: 'write',
+          workKind: 'implement',
+        },
+      });
+      setNewObjective('');
+      toast.success('Task delegated.');
+      await refetchBoard();
     },
-    [companyId, selectedRow?.threadId],
-  );
-
-  const mergeLease = useCallback(
-    async (lease: WorkspaceLeaseReviewRow) => {
-      if (!lease.projectId || !lease.branch) {
-        toast.error('This worktree is missing a project or branch.');
-        return;
-      }
-      setPendingLeaseAction(null);
-      try {
-        await recordLeaseAction(lease, 'merge_approved', 'pending_merge');
-        const ops = createTauriGitWorktreeOps({ projectId: lease.projectId });
-        const result = await ops.merge(lease.branch);
-        if (!result.ok) {
-          throw new Error(`Merge conflict: ${result.conflicts.join(', ') || 'paths unavailable'}`);
-        }
-        await recordLeaseAction(lease, 'merge_completed', 'merged');
-        if (lease.cwd) {
-          try {
-            await ops.removeWorktree(lease.cwd);
-            await recordLeaseAction(lease, 'merge_cleanup_completed', 'released');
-          } catch (cleanupErr) {
-            await recordLeaseAction(lease, 'merge_cleanup_failed', 'merged', {
-              error: cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr),
-            });
-          }
-        }
-        await leaseReviews.refetch();
-        toast.success('Worktree merged.');
-      } catch (err) {
-        await recordLeaseAction(lease, 'merge_failed', 'conflicted', {
-          error: err instanceof Error ? err.message : String(err),
-        });
-        await leaseReviews.refetch();
-        toast.error(errorDetail(err, 'Could not merge the worktree.'));
-      }
-    },
-    [leaseReviews, recordLeaseAction],
-  );
-
-  const discardLease = useCallback(
-    async (lease: WorkspaceLeaseReviewRow) => {
-      if (!lease.projectId || !lease.cwd) {
-        toast.error('This worktree is missing a project or path.');
-        return;
-      }
-      setPendingLeaseAction(null);
-      try {
-        await recordLeaseAction(lease, 'discard_approved', lease.status);
-        const ops = createTauriGitWorktreeOps({ projectId: lease.projectId });
-        await ops.removeWorktree(lease.cwd);
-        await recordLeaseAction(lease, 'discard_completed', 'released');
-        await leaseReviews.refetch();
-        toast.success('Worktree discarded.');
-      } catch (err) {
-        await recordLeaseAction(lease, 'discard_failed', lease.status, {
-          error: err instanceof Error ? err.message : String(err),
-        });
-        await leaseReviews.refetch();
-        toast.error(errorDetail(err, 'Could not discard the worktree.'));
-      }
-    },
-    [leaseReviews, recordLeaseAction],
-  );
-
-  const requestMergeLease = useCallback(
-    (lease: WorkspaceLeaseReviewRow) => {
-      if (pendingLeaseAction?.leaseId !== lease.leaseId || pendingLeaseAction.action !== 'merge') {
-        setPendingLeaseAction({ leaseId: lease.leaseId, action: 'merge' });
-        return;
-      }
-      void mergeLease(lease);
-    },
-    [mergeLease, pendingLeaseAction],
-  );
-
-  const requestDiscardLease = useCallback(
-    (lease: WorkspaceLeaseReviewRow) => {
-      if (
-        pendingLeaseAction?.leaseId !== lease.leaseId ||
-        pendingLeaseAction.action !== 'discard'
-      ) {
-        setPendingLeaseAction({ leaseId: lease.leaseId, action: 'discard' });
-        return;
-      }
-      void discardLease(lease);
-    },
-    [discardLease, pendingLeaseAction],
+    [companyId, projectId, refetchBoard],
   );
 
   const resetFilters = useCallback(() => {
@@ -452,6 +487,29 @@ export function TaskBoardSurface() {
           onClick={() => void refetchBoard()}
         >
           Refresh
+        </button>
+      </div>
+      <div className="off-task-dispatch" aria-label="Delegate a new task">
+        <input
+          className="off-focusable"
+          value={newObjective}
+          placeholder="Insert a task objective…"
+          aria-label="New task objective"
+          onChange={(event) => setNewObjective(event.target.value)}
+        />
+        <Select
+          options={employeeOptions}
+          value={delegateEmployeeId}
+          aria-label="Task assignee"
+          onChange={(event) => setDelegateEmployeeId(event.target.value)}
+        />
+        <button
+          type="button"
+          className="off-task-action is-primary off-focusable"
+          disabled={!newObjective.trim() || !delegateEmployeeId}
+          onClick={() => void dispatchTask(newObjective, delegateEmployeeId)}
+        >
+          Delegate
         </button>
       </div>
 
@@ -588,7 +646,7 @@ export function TaskBoardSurface() {
                       >
                         <Eye aria-hidden />
                       </button>
-                      {isRoot && row.status === 'running' ? (
+                      {row.status === 'running' ? (
                         <button
                           type="button"
                           className="off-task-action is-danger off-focusable"
@@ -596,7 +654,7 @@ export function TaskBoardSurface() {
                           onClick={() => void cancelRun(row)}
                         >
                           <CircleStop aria-hidden />
-                          Cancel
+                          Stop
                         </button>
                       ) : isRoot && row.status === 'interrupted' && card ? (
                         <button
@@ -606,6 +664,20 @@ export function TaskBoardSurface() {
                           onClick={() => void resumeRun(row.runId)}
                         >
                           Resume
+                        </button>
+                      ) : row.status === 'failed' || row.status === 'cancelled' ? (
+                        <button
+                          type="button"
+                          className="off-task-action is-primary off-focusable"
+                          disabled={!row.objective || !(row.employeeId || delegateEmployeeId)}
+                          onClick={() =>
+                            void dispatchTask(
+                              row.objective ?? '',
+                              row.employeeId ?? delegateEmployeeId,
+                            )
+                          }
+                        >
+                          Re-delegate
                         </button>
                       ) : null}
                     </div>
@@ -704,12 +776,6 @@ export function TaskBoardSurface() {
                 ) : (
                   <div className="off-task-lease-list">
                     {leaseReviews.rows.map((lease) => {
-                      const mergePending =
-                        pendingLeaseAction?.leaseId === lease.leaseId &&
-                        pendingLeaseAction.action === 'merge';
-                      const discardPending =
-                        pendingLeaseAction?.leaseId === lease.leaseId &&
-                        pendingLeaseAction.action === 'discard';
                       return (
                         <article className="off-task-lease" key={lease.leaseId}>
                           <div className="off-task-lease-top">
@@ -743,28 +809,23 @@ export function TaskBoardSurface() {
                               {lease.lastActionError || lease.reason}
                             </p>
                           ) : null}
-                          <div className="off-task-lease-actions">
-                            <button
-                              type="button"
-                              className="off-task-action is-primary off-focusable"
-                              disabled={
-                                !lease.branch || !lease.projectId || lease.status === 'released'
-                              }
-                              onClick={() => requestMergeLease(lease)}
-                            >
-                              {mergePending ? 'Confirm merge' : 'Merge'}
-                            </button>
-                            <button
-                              type="button"
-                              className="off-task-action is-danger off-focusable"
-                              disabled={
-                                !lease.cwd || !lease.projectId || lease.status === 'released'
-                              }
-                              onClick={() => requestDiscardLease(lease)}
-                            >
-                              {discardPending ? 'Confirm discard' : 'Discard'}
-                            </button>
-                          </div>
+                          <DiffPanel
+                            files={lease.files}
+                            status={lease.status}
+                            busy={busyLeaseId === lease.leaseId}
+                            onMerge={() => void runLeaseAction(lease, 'merge')}
+                            onDiscard={() => void runLeaseAction(lease, 'discard')}
+                            onRequestChanges={(feedback) =>
+                              void dispatchTask(
+                                taskByRunId.get(lease.runId)?.objective ??
+                                  selectedRow.objective ??
+                                  'Continue the delegated task.',
+                                employeeByRunId.get(lease.runId) ?? delegateEmployeeId,
+                                lease,
+                                feedback,
+                              )
+                            }
+                          />
                         </article>
                       );
                     })}

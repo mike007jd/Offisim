@@ -109,6 +109,13 @@ function rejectAllUiRequests() {
 // `mcpResult` lines (resolveMcpResult) and unwinds on stdin close.
 const mcpChannel = createMcpCallChannel(emit);
 const worktreeChannel = createWorktreeCallChannel(emit);
+const activeChildControllers = new Map();
+
+function resolveRuntimeControl(message) {
+  if (message?.type !== 'control' || message.action !== 'stopChild') return;
+  const runId = asNonEmptyString(message.runId);
+  if (runId) activeChildControllers.get(runId)?.abort();
+}
 
 function assertWorktreeOk(response, label) {
   if (!response || response.ok !== true) {
@@ -129,12 +136,22 @@ function createHostGitWorktreeOps(requestWorktreeResult) {
     async removeWorktree(path) {
       await call('removeWorktree', { path });
     },
+    async discardWorktree(path) {
+      await call('discardWorktree', { path });
+    },
     async worktreeChanged(path) {
       return Boolean(await call('worktreeChanged', { path }));
     },
     async diff(path) {
       const changedPaths = await call('diff', { path });
       return Array.isArray(changedPaths) ? changedPaths.filter((p) => typeof p === 'string') : [];
+    },
+    async diffText(path, changedPath) {
+      const result = await call('diffText', { path, changedPath });
+      return typeof result === 'string' ? result : '';
+    },
+    async commitAll(path, message) {
+      await call('commitAll', { path, message });
     },
     async merge(branch) {
       const result = await call('merge', { branch });
@@ -1080,11 +1097,14 @@ async function runPrompt(payload) {
         const requested = asNonEmptyString(entry.model);
         if (!requested || selectedModel(modelRegistry, requested)) return entry;
         const rest = { ...entry };
+        // biome-ignore lint/performance/noDelete: the wire must omit stale bindings, not send null/undefined keys.
         delete rest.model;
+        // biome-ignore lint/performance/noDelete: keep the roster packet key set exact.
         delete rest.thinkingLevel;
         return rest;
       })
     : [];
+  const directDelegation = isRecord(payload.directDelegation) ? payload.directDelegation : null;
   const delegationEnabled = Boolean(rootRunId && threadId && roster.length > 0);
   // Publish-artifact: register the `publish_artifact` tool whenever the run has a
   // root id + thread id (the scope fields the renderer needs to persist the
@@ -1142,6 +1162,7 @@ async function runPrompt(payload) {
   // can still discover tools), so a resource loader + extension list is always
   // built now — no run reaches createAgentSession without one.
   let resourceLoader;
+  let directSupervisor = null;
   {
     const settingsManager = SettingsManager.create(cwd, agentDir);
     const extensionFactories = [];
@@ -1179,7 +1200,7 @@ async function runPrompt(payload) {
           'Approve only after reviewing the listed worktree diffs.',
         ].join('\n');
         const response = await requestUiResponse('confirm', {
-          title: 'Approve delegated write merge?',
+          title: `Review delegated work ${mergeable[0]?.leaseId ?? ''}`,
           message,
         });
         return response.confirmed === true;
@@ -1207,7 +1228,9 @@ async function runPrompt(payload) {
         confirmIntegration,
         depth: 0,
         parentRunId: rootRunId,
+        childControllers: activeChildControllers,
       });
+      directSupervisor = supervisor;
       extensionFactories.push(createDelegationExtensionFactory(supervisor));
     }
     if (publishArtifactEnabled) {
@@ -1259,6 +1282,30 @@ async function runPrompt(payload) {
       ...(appendSystemPrompt.length > 0 ? { appendSystemPrompt } : {}),
     });
     await resourceLoader.reload();
+  }
+
+  if (directDelegation) {
+    if (!directSupervisor) throw new Error('Direct delegation requires a valid company roster.');
+    const employeeId = asNonEmptyString(directDelegation.employeeId);
+    const objective = asNonEmptyString(directDelegation.objective);
+    if (!employeeId || !objective)
+      throw new Error('Direct delegation requires employeeId and objective.');
+    emit(startedLine({}));
+    const summary = await directSupervisor.runSingle({
+      employeeId,
+      objective,
+      access:
+        directDelegation.access === 'read' || directDelegation.access === 'review'
+          ? directDelegation.access
+          : 'write',
+      workKind: asNonEmptyString(directDelegation.workKind) ?? undefined,
+      resumeLease: isRecord(directDelegation.resumeLease)
+        ? directDelegation.resumeLease
+        : undefined,
+    });
+    emit(messageEndLine({ text: summary, stopReason: 'end_turn' }));
+    emit(resultLine({ ok: true, text: summary }));
+    return;
   }
 
   const { session, modelFallbackMessage } = await createAgentSession({
@@ -1864,6 +1911,7 @@ function main() {
     try {
       const msg = JSON.parse(trimmed);
       resolveUiResponse(msg);
+      resolveRuntimeControl(msg);
       mcpChannel.resolveMcpResult(msg);
       worktreeChannel.resolveWorktreeResult(msg);
     } catch {

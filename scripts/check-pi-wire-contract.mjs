@@ -250,10 +250,12 @@ for (const [index, requestCase] of requestFixture.cases.entries()) {
     assert(spec.allowed.includes(key), `${where}: payload has unexpected key "${key}"`);
   }
   const normalizedKeys = Object.keys(normalized);
-  assert(
-    stableStringify([...normalizedKeys].sort()) === stableStringify([...spec.allowed].sort()),
-    `${where}: normalized key set must exactly match PI_REQUEST_SPEC`,
-  );
+  for (const required of spec.required) {
+    assert(normalizedKeys.includes(required), `${where}: normalized payload missing "${required}"`);
+  }
+  for (const key of normalizedKeys) {
+    assert(spec.allowed.includes(key), `${where}: normalized payload has unexpected key "${key}"`);
+  }
 
   // This is the production decoder imported by tauri-pi-agent-host.entry.mjs,
   // not a source-text approximation. A missing field mapping changes behavior

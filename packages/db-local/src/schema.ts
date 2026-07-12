@@ -379,8 +379,7 @@ export const taskRuns = sqliteTable(
   {
     task_run_id: text('task_run_id').primaryKey(),
     thread_id: text('thread_id')
-      .notNull()
-      .references(() => graphThreads.thread_id, { onDelete: 'cascade' }),
+      .notNull(),
     employee_id: text('employee_id').references(() => employees.employee_id, {
       onDelete: 'set null',
     }),
@@ -470,8 +469,7 @@ export const toolCalls = sqliteTable(
 export const handoffEvents = sqliteTable('handoff_events', {
   handoff_id: text('handoff_id').primaryKey(),
   thread_id: text('thread_id')
-    .notNull()
-    .references(() => graphThreads.thread_id, { onDelete: 'cascade' }),
+    .notNull(),
   from_employee_id: text('from_employee_id').references(() => employees.employee_id, {
     onDelete: 'set null',
   }),
@@ -490,9 +488,7 @@ export const meetingSessions = sqliteTable(
     company_id: text('company_id')
       .notNull()
       .references(() => companies.company_id, { onDelete: 'cascade' }),
-    thread_id: text('thread_id').references(() => graphThreads.thread_id, {
-      onDelete: 'set null',
-    }),
+    thread_id: text('thread_id'),
     topic: text('topic').notNull(),
     status: text('status').notNull(),
     interaction_mode: text('interaction_mode').notNull().default('boss_proxy'),
@@ -514,9 +510,7 @@ export const runtimeEvents = sqliteTable(
     company_id: text('company_id')
       .notNull()
       .references(() => companies.company_id, { onDelete: 'cascade' }),
-    thread_id: text('thread_id').references(() => graphThreads.thread_id, {
-      onDelete: 'set null',
-    }),
+    thread_id: text('thread_id'),
     event_type: text('event_type').notNull(),
     severity: text('severity').notNull().default('info'),
     payload_json: text('payload_json'),
@@ -557,9 +551,7 @@ export const llmCalls = sqliteTable(
   'llm_calls',
   {
     llm_call_id: text('llm_call_id').primaryKey(),
-    thread_id: text('thread_id').references(() => graphThreads.thread_id, {
-      onDelete: 'set null',
-    }),
+    thread_id: text('thread_id'),
     task_run_id: text('task_run_id').references(() => taskRuns.task_run_id, {
       onDelete: 'set null',
     }),
@@ -780,8 +772,7 @@ export const nodeSummaries = sqliteTable(
   {
     summary_id: text('summary_id').primaryKey(),
     thread_id: text('thread_id')
-      .notNull()
-      .references(() => graphThreads.thread_id, { onDelete: 'cascade' }),
+      .notNull(),
     company_id: text('company_id')
       .notNull()
       .references(() => companies.company_id, { onDelete: 'cascade' }),
@@ -809,8 +800,7 @@ export const compactSummaries = sqliteTable(
   {
     compact_id: text('compact_id').primaryKey(),
     thread_id: text('thread_id')
-      .notNull()
-      .references(() => graphThreads.thread_id, { onDelete: 'cascade' }),
+      .notNull(),
     company_id: text('company_id')
       .notNull()
       .references(() => companies.company_id, { onDelete: 'cascade' }),
@@ -837,8 +827,7 @@ export const activeThreadInteractions = sqliteTable(
   'active_thread_interactions',
   {
     thread_id: text('thread_id')
-      .primaryKey()
-      .references(() => graphThreads.thread_id, { onDelete: 'cascade' }),
+      .primaryKey(),
     company_id: text('company_id')
       .notNull()
       .references(() => companies.company_id, { onDelete: 'cascade' }),
@@ -862,8 +851,7 @@ export const interactionHistory = sqliteTable(
     history_id: text('history_id').primaryKey(),
     interaction_id: text('interaction_id').notNull(),
     thread_id: text('thread_id')
-      .notNull()
-      .references(() => graphThreads.thread_id, { onDelete: 'cascade' }),
+      .notNull(),
     company_id: text('company_id')
       .notNull()
       .references(() => companies.company_id, { onDelete: 'cascade' }),
@@ -891,8 +879,7 @@ export const fileHistory = sqliteTable(
     history_id: text('history_id').primaryKey(),
     snapshot_id: text('snapshot_id').notNull(),
     thread_id: text('thread_id')
-      .notNull()
-      .references(() => graphThreads.thread_id, { onDelete: 'cascade' }),
+      .notNull(),
     company_id: text('company_id')
       .notNull()
       .references(() => companies.company_id, { onDelete: 'cascade' }),

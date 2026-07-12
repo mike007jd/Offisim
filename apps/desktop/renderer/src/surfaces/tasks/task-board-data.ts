@@ -1,27 +1,38 @@
-import { useActiveConversationRuns } from '@/assistant/runtime/conversation-run-react.js';
 import type { ConversationRunPhase } from '@/assistant/runtime/conversation-run-controller.js';
+import { useActiveConversationRuns } from '@/assistant/runtime/conversation-run-react.js';
 import { missionRunManager } from '@/runtime/mission/mission-run-manager.js';
 import { getRepos } from '@/runtime/repos.js';
 import type { AgentEventRow, AgentRunRow } from '@offisim/core/browser';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useSyncExternalStore } from 'react';
 
-export type TaskBoardStatus = 'running' | 'interrupted' | 'completed' | 'failed' | 'cancelled';
+export type TaskBoardStatus =
+  | 'running'
+  | 'pending_review'
+  | 'merged'
+  | 'discarded'
+  | 'interrupted'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
 
-const TASK_STATUSES: readonly TaskBoardStatus[] = [
+const PERSISTED_TASK_STATUSES = [
   'running',
   'interrupted',
   'completed',
   'failed',
   'cancelled',
-];
+] as const;
 
 const STATUS_RANK: Record<TaskBoardStatus, number> = {
   running: 0,
-  interrupted: 1,
-  failed: 2,
-  cancelled: 3,
-  completed: 4,
+  pending_review: 1,
+  interrupted: 2,
+  failed: 3,
+  cancelled: 4,
+  completed: 5,
+  merged: 6,
+  discarded: 7,
 };
 
 export interface TaskBoardRow {
@@ -61,20 +72,25 @@ export const WORKSPACE_LEASE_ACTION_EVENT = 'workspace.lease.action';
 
 export interface WorkspaceLeaseReviewRow {
   leaseId: string;
+  threadId: string;
   rootRunId: string;
   runId: string;
+  relatedRunIds: string[];
+  relatedRootRunIds: string[];
   projectId: string | null;
   workspaceRoot: string | null;
   access: string | null;
   cwd: string | null;
   branch: string | null;
   isolated: boolean;
-  status: string;
+  status: 'active' | 'pending_review' | 'merged' | 'discarded' | 'failed';
   phase: string | null;
   reason: string | null;
   changedPaths: string[];
+  files: Array<{ path: string; diff: string }>;
   conflicts: string[];
   updatedAt: string;
+  createdAt: string;
   lastAction: string | null;
   lastActionError: string | null;
 }
@@ -86,6 +102,9 @@ interface TaskBoardStats {
   completed: number;
   failed: number;
   cancelled: number;
+  pending_review: number;
+  merged: number;
+  discarded: number;
 }
 
 interface TaskBoardView {
@@ -94,7 +113,9 @@ interface TaskBoardView {
 }
 
 function normalizeStatus(value: string): TaskBoardStatus {
-  return TASK_STATUSES.includes(value as TaskBoardStatus) ? (value as TaskBoardStatus) : 'failed';
+  return PERSISTED_TASK_STATUSES.includes(value as (typeof PERSISTED_TASK_STATUSES)[number])
+    ? (value as TaskBoardStatus)
+    : 'failed';
 }
 
 function phaseToStatus(phase: ConversationRunPhase): TaskBoardStatus | null {
@@ -163,7 +184,17 @@ export function buildTaskTree(rows: readonly AgentRunRow[]): TaskBoardRow[] {
 }
 
 function emptyStats(): TaskBoardStats {
-  return { total: 0, running: 0, interrupted: 0, completed: 0, failed: 0, cancelled: 0 };
+  return {
+    total: 0,
+    running: 0,
+    pending_review: 0,
+    merged: 0,
+    discarded: 0,
+    interrupted: 0,
+    completed: 0,
+    failed: 0,
+    cancelled: 0,
+  };
 }
 
 function buildStats(rows: readonly TaskBoardRow[]): TaskBoardStats {
@@ -223,7 +254,7 @@ export function useTaskBoard(companyId: string | null): TaskBoardView & {
       if (!companyId) return [];
       const repos = await getRepos();
       if (!repos.agentRuns) return [];
-      const rows = await repos.agentRuns.findByStatus(companyId, [...TASK_STATUSES]);
+      const rows = await repos.agentRuns.findByStatus(companyId, [...PERSISTED_TASK_STATUSES]);
       return buildTaskTree(rows);
     },
     enabled: Boolean(companyId),
@@ -259,7 +290,43 @@ export function useTaskBoard(companyId: string | null): TaskBoardView & {
         usageJson: existing?.usageJson ?? null,
         resultSummaryJson: existing?.resultSummaryJson ?? null,
         live: true,
-        children: existing?.children ?? [],
+        children: (() => {
+          const childById = new Map(
+            (existing?.children ?? []).map((child) => [child.runId, child]),
+          );
+          for (const delegation of snapshot.delegations) {
+            const current = childById.get(delegation.runId);
+            childById.set(delegation.runId, {
+              runId: delegation.runId,
+              threadId: snapshot.threadId,
+              companyId,
+              projectId: snapshot.projectId,
+              parentRunId: delegation.parentRunId,
+              rootRunId: snapshot.attemptId,
+              employeeId: delegation.employeeId,
+              relation: 'delegate',
+              access: current?.access ?? null,
+              objective: delegation.objective,
+              status:
+                delegation.state === 'done'
+                  ? 'completed'
+                  : delegation.state === 'failed'
+                    ? 'failed'
+                    : delegation.state === 'cancelled'
+                      ? 'cancelled'
+                      : 'running',
+              phase: null,
+              source: snapshot.source,
+              sessionFile: current?.sessionFile ?? null,
+              startedAt: current?.startedAt ?? new Date().toISOString(),
+              finishedAt: current?.finishedAt ?? null,
+              usageJson: current?.usageJson ?? null,
+              resultSummaryJson: current?.resultSummaryJson ?? null,
+              live: delegation.state === 'running',
+            });
+          }
+          return [...childById.values()].sort(sortRows);
+        })(),
       });
     }
 
@@ -295,7 +362,6 @@ export function filterTaskRows(
     }
     if (rootRowMatchesSearch(row, q)) {
       filtered.push(row);
-      continue;
     }
   }
   return filtered;
@@ -332,6 +398,40 @@ function asStringArray(value: unknown): string[] {
     : [];
 }
 
+function asDiffFiles(value: unknown): Array<{ path: string; diff: string }> {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    const record = asRecord(item);
+    const path = record ? asString(record.path) : null;
+    return path ? [{ path, diff: typeof record?.diff === 'string' ? record.diff : '' }] : [];
+  });
+}
+
+function leaseReviewStatus(
+  payload: Record<string, unknown>,
+  current?: WorkspaceLeaseReviewRow,
+): WorkspaceLeaseReviewRow['status'] {
+  const phase = asString(payload.phase);
+  const action = asString(payload.action);
+  const status = asString(payload.status);
+  if (phase === 'released_after_merge' || phase === 'integrated' || action === 'merge_completed') {
+    return 'merged';
+  }
+  if (
+    phase === 'released_after_discard' ||
+    action === 'discard_completed' ||
+    status === 'discarded'
+  ) {
+    return 'discarded';
+  }
+  if (status === 'conflicted' || action?.endsWith('_failed')) return 'failed';
+  if (phase === 'planned' || phase === 'pending_review' || status === 'pending_review') {
+    return 'pending_review';
+  }
+  if (status === 'active') return 'active';
+  return current?.status ?? 'active';
+}
+
 function parsePayload(row: AgentEventRow): Record<string, unknown> | null {
   try {
     return asRecord(JSON.parse(row.payload_json));
@@ -344,19 +444,46 @@ export function buildWorkspaceLeaseReviewRows(
   events: readonly AgentEventRow[],
   rootRunId: string,
 ): WorkspaceLeaseReviewRow[] {
+  return buildWorkspaceLeaseRows(events, rootRunId);
+}
+
+export function buildProjectWorkspaceLeaseReviewRows(
+  events: readonly AgentEventRow[],
+): WorkspaceLeaseReviewRow[] {
+  return buildWorkspaceLeaseRows(events, null);
+}
+
+function buildWorkspaceLeaseRows(
+  events: readonly AgentEventRow[],
+  rootRunId: string | null,
+): WorkspaceLeaseReviewRow[] {
   const byLease = new Map<string, WorkspaceLeaseReviewRow>();
   const ordered = [...events].sort((a, b) => a.created_at.localeCompare(b.created_at));
   for (const event of ordered) {
     const payload = parsePayload(event);
-    if (!payload || asString(payload.rootRunId) !== rootRunId) continue;
+    const eventRootRunId = payload ? asString(payload.rootRunId) : null;
+    if (!payload || !eventRootRunId || (rootRunId && eventRootRunId !== rootRunId)) continue;
     const leaseId = asString(payload.leaseId);
     if (!leaseId) continue;
     if (event.event_type === WORKSPACE_LEASE_SNAPSHOT_EVENT) {
       const current = byLease.get(leaseId);
+      const changedPaths = asStringArray(payload.changedPaths);
+      const files = asDiffFiles(payload.files);
+      const runId = asString(payload.runId) ?? current?.runId ?? '';
+      const originRunId = asString(payload.originRunId);
       byLease.set(leaseId, {
         leaseId,
-        rootRunId,
-        runId: asString(payload.runId) ?? current?.runId ?? '',
+        threadId: event.thread_id,
+        rootRunId: eventRootRunId,
+        runId,
+        relatedRunIds: [
+          ...new Set([
+            ...(current?.relatedRunIds ?? []),
+            ...(runId ? [runId] : []),
+            ...(originRunId ? [originRunId] : []),
+          ]),
+        ],
+        relatedRootRunIds: [...new Set([...(current?.relatedRootRunIds ?? []), eventRootRunId])],
         projectId: asString(payload.projectId) ?? current?.projectId ?? null,
         workspaceRoot: asString(payload.workspaceRoot) ?? current?.workspaceRoot ?? null,
         access: asString(payload.access) ?? current?.access ?? null,
@@ -364,12 +491,14 @@ export function buildWorkspaceLeaseReviewRows(
         branch: asString(payload.branch) ?? current?.branch ?? null,
         isolated:
           typeof payload.isolated === 'boolean' ? payload.isolated : (current?.isolated ?? false),
-        status: asString(payload.status) ?? current?.status ?? 'unknown',
+        status: leaseReviewStatus(payload, current),
         phase: asString(payload.phase) ?? current?.phase ?? null,
         reason: asString(payload.reason) ?? current?.reason ?? null,
-        changedPaths: asStringArray(payload.changedPaths),
+        changedPaths: changedPaths.length > 0 ? changedPaths : (current?.changedPaths ?? []),
+        files: files.length > 0 ? files : (current?.files ?? []),
         conflicts: asStringArray(payload.conflicts),
         updatedAt: asString(payload.capturedAt) ?? event.created_at,
+        createdAt: asString(payload.createdAt) ?? current?.createdAt ?? event.created_at,
         lastAction: current?.lastAction ?? null,
         lastActionError: current?.lastActionError ?? null,
       });
@@ -379,10 +508,9 @@ export function buildWorkspaceLeaseReviewRows(
       const current = byLease.get(leaseId);
       if (!current) continue;
       const action = asString(payload.action);
-      const status = asString(payload.status);
       byLease.set(leaseId, {
         ...current,
-        status: status ?? current.status,
+        status: leaseReviewStatus(payload, current),
         phase: action ?? current.phase,
         reason: asString(payload.reason) ?? current.reason,
         updatedAt: asString(payload.createdAt) ?? event.created_at,
@@ -394,31 +522,45 @@ export function buildWorkspaceLeaseReviewRows(
   return [...byLease.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
-export function useWorkspaceLeaseReviews(
-  threadId: string | null,
-  rootRunId: string | null,
-): {
+export function useProjectWorkspaceLeaseReviews(projectId: string | null): {
   rows: WorkspaceLeaseReviewRow[];
   isLoading: boolean;
   refetch: () => Promise<unknown>;
 } {
   const query = useQuery({
-    queryKey: ['workspace-lease-reviews', threadId, rootRunId],
+    queryKey: ['workspace-lease-reviews-by-project', projectId],
     queryFn: async () => {
-      if (!threadId || !rootRunId) return [];
+      if (!projectId) return [];
       const repos = await getRepos();
       if (!repos.agentEvents) return [];
       const [snapshots, actions] = await Promise.all([
-        repos.agentEvents.findByThread(threadId, { eventType: WORKSPACE_LEASE_SNAPSHOT_EVENT }),
-        repos.agentEvents.findByThread(threadId, { eventType: WORKSPACE_LEASE_ACTION_EVENT }),
+        repos.agentEvents.findByProject(projectId, { eventType: WORKSPACE_LEASE_SNAPSHOT_EVENT }),
+        repos.agentEvents.findByProject(projectId, { eventType: WORKSPACE_LEASE_ACTION_EVENT }),
       ]);
-      return buildWorkspaceLeaseReviewRows([...snapshots, ...actions], rootRunId);
+      const events = [...snapshots, ...actions];
+      return buildProjectWorkspaceLeaseReviewRows(events);
     },
-    enabled: Boolean(threadId && rootRunId),
+    enabled: Boolean(projectId),
+    refetchInterval: 2_000,
   });
   return {
     rows: query.data ?? [],
     isLoading: query.isLoading,
     refetch: query.refetch,
   };
+}
+
+export function useProjectLeaseStatusMap(
+  projectId: string | null,
+): Map<string, WorkspaceLeaseReviewRow> {
+  const reviews = useProjectWorkspaceLeaseReviews(projectId);
+  return useMemo(
+    () =>
+      new Map(
+        reviews.rows.flatMap((lease) =>
+          lease.relatedRunIds.map((runId) => [runId, lease] as const),
+        ),
+      ),
+    [reviews.rows],
+  );
 }

@@ -24,6 +24,21 @@
           }
         ],
         "missionContextJson": "{\"missionId\":\"mission-1\"}",
+        "directDelegation": {
+          "employeeId": "employee-2",
+          "objective": "Address the review feedback",
+          "access": "write",
+          "workKind": "implement",
+          "originRunId": "child-run-1",
+          "resumeLease": {
+            "leaseId": "lease-1",
+            "runId": "child-run-1",
+            "workspaceRoot": "/fixture/project/resolved-cwd",
+            "cwd": "/fixture/project/resolved-cwd/.offisim/worktrees/lease-1",
+            "branch": "offisim/lease/child-run-1-lease-1",
+            "createdAt": "2026-07-11T00:00:00.000Z"
+          }
+        },
         "mcpTools": [
           {
             "serverId": "server-1",
@@ -59,6 +74,21 @@
           }
         ],
         "missionContextJson": "{\"missionId\":\"mission-1\"}",
+        "directDelegation": {
+          "employeeId": "employee-2",
+          "objective": "Address the review feedback",
+          "access": "write",
+          "workKind": "implement",
+          "originRunId": "child-run-1",
+          "resumeLease": {
+            "leaseId": "lease-1",
+            "runId": "child-run-1",
+            "workspaceRoot": "/fixture/project/resolved-cwd",
+            "cwd": "/fixture/project/resolved-cwd/.offisim/worktrees/lease-1",
+            "branch": "offisim/lease/child-run-1-lease-1",
+            "createdAt": "2026-07-11T00:00:00.000Z"
+          }
+        },
         "mcpTools": [
           {
             "serverId": "server-1",
@@ -89,6 +119,21 @@
           }
         ],
         "missionContextJson": "{\"missionId\":\"mission-1\"}",
+        "directDelegation": {
+          "employeeId": "employee-2",
+          "objective": "Address the review feedback",
+          "access": "write",
+          "workKind": "implement",
+          "originRunId": "child-run-1",
+          "resumeLease": {
+            "leaseId": "lease-1",
+            "runId": "child-run-1",
+            "workspaceRoot": "/fixture/project/resolved-cwd",
+            "cwd": "/fixture/project/resolved-cwd/.offisim/worktrees/lease-1",
+            "branch": "offisim/lease/child-run-1-lease-1",
+            "createdAt": "2026-07-11T00:00:00.000Z"
+          }
+        },
         "mcpTools": [
           {
             "serverId": "server-1",
