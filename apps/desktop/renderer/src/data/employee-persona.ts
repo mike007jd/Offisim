@@ -104,7 +104,21 @@ function personaFromRow(employee: EmployeeRow, companyName: string): string {
 export interface DelegationContext {
   /** The acting employee's system prompt, or null (→ Pi base prompt) if absent. */
   systemPromptAppend: string | null;
+  /** Acting employee's effective company + personal SKILL.md paths. */
+  skillPaths: string[];
   roster: DelegationRosterEntry[];
+}
+
+function absoluteVaultSkillPath(root: string, vaultPath: string): string {
+  const cleanRoot = root.replace(/\/+$/u, '');
+  const cleanPath = vaultPath.trim().replace(/^\/+/, '');
+  if (
+    !cleanPath.endsWith('/SKILL.md') ||
+    cleanPath.split('/').some((segment) => segment === '..' || segment === '')
+  ) {
+    throw new Error(`Invalid indexed skill vault path: ${vaultPath}`);
+  }
+  return `${cleanRoot}/${cleanPath}`;
 }
 
 export interface McpScopedTool {
@@ -148,10 +162,22 @@ export async function buildDelegationContext(
   companyId: string,
   actingEmployeeId: string | null,
 ): Promise<DelegationContext> {
-  const [employees, company] = await Promise.all([
+  const [employees, company, skills, vaultStatus] = await Promise.all([
     repos.employees.findByCompany(companyId),
     repos.companies.findById(companyId).catch(() => null),
+    repos.skills?.listByCompany(companyId) ?? Promise.resolve([]),
+    invokeCommand('runtime_vault_status'),
   ]);
+  const vaultRoot = vaultStatus.path;
+  const companySkillPaths = skills
+    .filter((skill) => skill.employee_id === null)
+    .map((skill) => absoluteVaultSkillPath(vaultRoot, skill.vault_path));
+  const skillPathsForEmployee = (employeeId: string | null): string[] => [
+    ...companySkillPaths,
+    ...skills
+      .filter((skill) => skill.employee_id === employeeId)
+      .map((skill) => absoluteVaultSkillPath(vaultRoot, skill.vault_path)),
+  ];
   const companyName = company?.name ?? '';
   const acting = actingEmployeeId
     ? (employees.find((e) => e.employee_id === actingEmployeeId) ?? null)
@@ -170,10 +196,12 @@ export async function buildDelegationContext(
         ...(displayTitle ? { displayTitle } : {}),
         ...(model ? { model } : {}),
         ...(model && thinkingLevel ? { thinkingLevel } : {}),
+        skillPaths: skillPathsForEmployee(e.employee_id),
       };
     });
   return {
     systemPromptAppend: acting ? personaFromRow(acting, companyName) : null,
+    skillPaths: acting ? skillPathsForEmployee(acting.employee_id) : companySkillPaths,
     roster,
   };
 }

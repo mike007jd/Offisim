@@ -58,6 +58,7 @@ pub(super) fn sidecar_payload(
         "permissionMode": req.permission_mode,
         "thinkingLevel": req.thinking_level,
         "systemPromptAppend": req.system_prompt_append,
+        "skillPaths": req.skill_paths,
         // Delegation scope (Phase 1): the root run id + thread id let the host's
         // supervisor stamp child agentRun events, and the roster tells it which
         // employees the root agent may delegate to. All forwarded verbatim.

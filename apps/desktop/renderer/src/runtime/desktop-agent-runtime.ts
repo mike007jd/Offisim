@@ -926,7 +926,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       // `appendSystemPrompt`) plus the delegation roster. If this fails, the run
       // fails visibly instead of silently becoming a base Pi run with no employee
       // identity. MCP scope remains a separate safe degradation below.
-      const { systemPromptAppend, roster } = await buildDelegationContext(
+      const { systemPromptAppend, skillPaths, roster } = await buildDelegationContext(
         this.repos,
         this.companyId,
         input.employeeId,
@@ -956,6 +956,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           // rather than Offisim pinning every run to `medium`.
           thinkingLevel: resolvedThinkingLevel,
           systemPromptAppend: systemPromptAppend ?? undefined,
+          skillPaths,
           // Delegation scope: the root run id lets the host stamp child agentRun
           // events; the roster tells it who can be delegated to. Empty roster →
           // the host registers no delegate tool.

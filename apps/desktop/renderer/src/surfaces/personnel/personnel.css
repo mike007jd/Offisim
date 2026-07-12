@@ -775,6 +775,23 @@
   line-height: 1.5;
 }
 
+.off-pers-sk-runtime {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  font-size: var(--off-fs-xs);
+  font-weight: 650;
+}
+
+.off-pers-sk-runtime.is-ready {
+  color: var(--off-ok);
+}
+
+.off-pers-sk-runtime.is-missing {
+  color: var(--off-warn);
+}
+
 .off-pers-tool-tag {
   height: 17px;
   padding: 0 var(--off-sp-2);
