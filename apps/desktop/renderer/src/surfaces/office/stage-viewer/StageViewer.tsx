@@ -5,6 +5,7 @@ import {
   stageTabForTarget,
   useUiState,
 } from '@/app/ui-state.js';
+import { RunPipelinePill } from '@/assistant/parts/RunPipelinePill.js';
 import { useActiveConversationRuns } from '@/assistant/runtime/conversation-run-react.js';
 import { workbenchOf } from '@/data/git-workbench.js';
 import { useDeliverables, useGitWorkbench } from '@/data/queries.js';
@@ -18,6 +19,8 @@ import { DiffPanel } from '@/surfaces/office/board/DiffPanel.js';
 import { useProjectWorkspaceLeaseReviews } from '@/surfaces/office/board/task-board-data.js';
 import { ComputerView } from '@/surfaces/office/computer/ComputerView.js';
 import { WorkBench } from '@/surfaces/office/scene/work-bench/WorkBench.js';
+import { BrowserEmptyState } from '@/surfaces/office/stage-preview/BrowserEmptyState.js';
+import { StageEmpty } from '@/surfaces/office/stage-preview/StageEmpty.js';
 import { StagePreviewPane } from '@/surfaces/office/stage-preview/StagePreviewPane.js';
 import {
   type PreviewSourceRef,
@@ -59,7 +62,6 @@ interface StageMenuItem {
   id: string;
   label: string;
   meta: string;
-  disabled?: boolean;
   isActive?: boolean;
   icon: typeof FileCode2;
   onSelect: () => void;
@@ -231,6 +233,7 @@ export function StageTopBar({ isRunning, tokensLabel, costLabel }: StageTopBarPr
       </nav>
 
       <div className="off-stage-topbar-right">
+        <RunPipelinePill />
         <output className={cn('off-stage-readout', isRunning && 'is-live')} aria-label="Run cost">
           <span className="off-stage-readout-part">
             <Icon icon={Coins} size="sm" />
@@ -238,12 +241,6 @@ export function StageTopBar({ isRunning, tokensLabel, costLabel }: StageTopBarPr
           </span>
           <span className="off-stage-readout-div" />
           <b>{costLabel}</b>
-          {isRunning ? (
-            <>
-              <span className="off-stage-readout-div" />
-              <span className="off-stage-run-state">live</span>
-            </>
-          ) : null}
         </output>
         <button
           type="button"
@@ -420,6 +417,7 @@ function StageViewMenu() {
   const projectId = useUiState((s) => s.projectId);
   const stageView = useUiState((s) => s.stageView);
   const stagePrimaryTab = useUiState((s) => s.stagePrimaryTab);
+  const setStagePrimaryTab = useUiState((s) => s.setStagePrimaryTab);
   const openStageView = useUiState((s) => s.openStageView);
   const deliverables = useDeliverables(selectedThreadId);
   const git = useGitWorkbench(projectId);
@@ -444,15 +442,17 @@ function StageViewMenu() {
       label: 'Output',
       meta: latestOutput
         ? `${latestOutput.name} · ${latestOutput.format ?? 'TXT'}`
-        : 'No output yet',
-      disabled: !latestOutput,
+        : 'Open the output guide',
       isActive:
         stageView.kind === 'preview' &&
         stageView.ref.source === 'deliverable' &&
         stageView.ref.deliverableId === latestOutput?.id,
       icon: FileCode2,
       onSelect: () => {
-        if (!latestOutput) return;
+        if (!latestOutput) {
+          setStagePrimaryTab('preview', true);
+          return;
+        }
         openStageView({
           kind: 'preview',
           ref: {
@@ -474,14 +474,20 @@ function StageViewMenu() {
           latestBrowserRichDetail.url ||
           latestBrowser?.tool ||
           'Browser page'
-        : 'No browser page yet',
-      disabled: !latestBrowserRichDetail,
+        : 'Preview a local dev server',
       isActive:
         stageView.kind === 'preview' &&
         (stageView.ref.source === 'browser' || stageView.ref.source === 'screenshot'),
       icon: Globe,
       onSelect: () => {
-        if (!latestBrowserRichDetail) return;
+        if (!latestBrowserRichDetail) {
+          openStageView({
+            kind: 'preview',
+            ref: { source: 'browser', sourceId: 'manual' },
+            title: 'Browser',
+          });
+          return;
+        }
         openStageView({
           kind: 'preview',
           ref: {
@@ -497,8 +503,7 @@ function StageViewMenu() {
     {
       id: 'preview',
       label: 'Preview',
-      meta: latestHtmlOutput ? latestHtmlOutput.name : 'No preview yet',
-      disabled: !latestHtmlOutput,
+      meta: latestHtmlOutput ? latestHtmlOutput.name : 'Open the preview guide',
       // Only owns the highlight when it points at a DIFFERENT deliverable than
       // Output (i.e. an older HTML output); when the newest output is itself the
       // HTML one, Output owns the highlight so the two entries never both light up.
@@ -509,7 +514,10 @@ function StageViewMenu() {
         latestHtmlOutput?.id !== latestOutput?.id,
       icon: Eye,
       onSelect: () => {
-        if (!latestHtmlOutput) return;
+        if (!latestHtmlOutput) {
+          setStagePrimaryTab('preview', true);
+          return;
+        }
         openStageView({
           kind: 'preview',
           ref: {
@@ -528,21 +536,28 @@ function StageViewMenu() {
       label: 'Review',
       meta: latestChange
         ? `${gitChanges.length} changed · ${latestChange.path}`
-        : 'No local changes',
-      disabled: !latestChange,
+        : 'Open the review guide',
       isActive: stageView.kind === 'changes',
       icon: GitCompareArrows,
-      onSelect: () => openStageView({ kind: 'changes', path: latestChange?.path ?? null }),
+      onSelect: () => {
+        if (!latestChange) {
+          setStagePrimaryTab('review', true);
+          return;
+        }
+        openStageView({ kind: 'changes', path: latestChange.path });
+      },
     },
     {
       id: 'logs',
       label: 'Terminal',
-      meta: latestLog ? latestLog.tool : 'No tool logs yet',
-      disabled: !latestLog,
+      meta: latestLog ? latestLog.tool : 'Open the read-only run mirror',
       isActive: stageView.kind === 'logs',
       icon: TerminalSquare,
       onSelect: () => {
-        if (!latestLog) return;
+        if (!latestLog) {
+          setStagePrimaryTab('terminal', true);
+          return;
+        }
         openStageView({
           kind: 'logs',
           sourceId: latestLog.id,
@@ -555,13 +570,24 @@ function StageViewMenu() {
     {
       id: 'files',
       label: 'Files',
-      meta: selectedFile ? selectedFile.path : 'Pick a file on the left',
-      disabled: !selectedFile,
+      meta: selectedFile ? selectedFile.path : 'Open the file preview guide',
       isActive: Boolean(selectedFile),
       icon: FileText,
       onSelect: () => {
-        if (selectedFile) openStageView(selectedFile.target);
+        if (selectedFile) {
+          openStageView(selectedFile.target);
+          return;
+        }
+        setStagePrimaryTab('preview', true);
       },
+    },
+    {
+      id: 'computer',
+      label: 'Computer',
+      meta: selectedThreadId ? 'Open Computer Use activity' : 'Open the Computer Use guide',
+      isActive: stageView.kind === 'computer',
+      icon: MonitorSmartphone,
+      onSelect: () => openStageView({ kind: 'computer', threadId: selectedThreadId }),
     },
   ];
 
@@ -590,7 +616,6 @@ function StageViewMenu() {
               key={item.id}
               type="button"
               className={cn('off-stage-view-option off-focusable', item.isActive && 'is-active')}
-              disabled={item.disabled}
               onClick={() => {
                 item.onSelect();
                 setMenuOpen(false);
@@ -840,9 +865,19 @@ function StageTabBody({
 }) {
   if (tab === 'board') return <BoardStage />;
   if (tab === 'preview') {
+    if (
+      target?.kind === 'preview' &&
+      target.ref.source === 'browser' &&
+      !target.ref.url &&
+      !target.ref.detail?.url &&
+      !target.ref.detail?.screenshot
+    ) {
+      return <BrowserEmptyState sourceId={target.ref.sourceId ?? 'manual'} />;
+    }
     if (target?.kind === 'preview') return <StagePreviewPane target={target} />;
     return (
       <StageEmpty
+        icon={Globe2}
         title="No preview open"
         detail="Outputs, workspace files, browser pages, and screenshots appear here when available."
       />
@@ -855,8 +890,9 @@ function StageTabBody({
     if (target?.kind === 'logs') return <LogsView target={target} />;
     return (
       <StageEmpty
+        icon={TerminalSquare}
         title="No terminal log"
-        detail="Tool and terminal activity will appear here as a read-only run log."
+        detail="This is a read-only mirror of agent terminal and tool runs. Activity appears here automatically."
       />
     );
   }
@@ -933,6 +969,7 @@ function ReviewEmpty() {
   if (git.data?.status === 'uninitialized') {
     return (
       <StageEmpty
+        icon={GitCompareArrows}
         title="Not a git repository yet"
         detail="Initialize a repository from the Git tab in the workspace rail to review diffs here."
       />
@@ -941,6 +978,7 @@ function ReviewEmpty() {
   if (git.data?.status === 'invalid-folder') {
     return (
       <StageEmpty
+        icon={GitCompareArrows}
         title="Workspace folder not found"
         detail="Rebind this project to a folder that exists from the Git tab in the workspace rail."
       />
@@ -948,6 +986,7 @@ function ReviewEmpty() {
   }
   return (
     <StageEmpty
+      icon={GitCompareArrows}
       title="No changes to review"
       detail="Git diffs and changed files will appear here when the workspace changes."
     />
@@ -1046,14 +1085,5 @@ function ChangeStatus({ change }: { change: GitFileChange }) {
     <span className={cn('off-stage-change-status', `is-${change.status}`)}>
       {glyph[change.status]}
     </span>
-  );
-}
-
-function StageEmpty({ title, detail }: { title: string; detail: string }) {
-  return (
-    <div className="off-stage-empty">
-      <strong>{title}</strong>
-      <span>{detail}</span>
-    </div>
   );
 }

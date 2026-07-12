@@ -431,10 +431,9 @@
   border-radius: 0;
   background: var(--off-surface-0);
   box-shadow: none;
-  transition: width var(--off-motion-slow) var(--off-motion-ease),
-    height var(--off-motion-slow) var(--off-motion-ease),
-    border-radius var(--off-motion-slow) var(--off-motion-ease),
-    box-shadow var(--off-motion-slow) var(--off-motion-ease);
+  transition: width var(--off-motion-slow) var(--off-motion-ease), height var(--off-motion-slow)
+    var(--off-motion-ease), border-radius var(--off-motion-slow) var(--off-motion-ease), box-shadow
+    var(--off-motion-slow) var(--off-motion-ease);
 }
 
 .off-scene-host.is-pip {
@@ -449,7 +448,7 @@
 }
 
 .off-scene-host.is-pip::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   z-index: var(--off-z-raised);
@@ -2647,6 +2646,74 @@
   max-width: 320px;
   font-size: var(--off-fs-meta);
   line-height: 1.45;
+}
+
+.off-stage-empty-icon {
+  color: var(--off-accent);
+}
+
+.off-stage-empty-action {
+  width: min(440px, 100%);
+  margin-top: var(--off-sp-3);
+}
+
+.off-browser-empty-actions,
+.off-browser-empty-form {
+  display: grid;
+  gap: var(--off-sp-2);
+}
+
+.off-browser-empty-form label {
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-meta);
+  font-weight: 640;
+  text-align: left;
+}
+
+.off-browser-empty-form > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--off-sp-2);
+}
+
+.off-browser-empty-form input {
+  min-width: 0;
+  height: 32px;
+  padding: 0 var(--off-sp-3);
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-1);
+  color: var(--off-ink-1);
+  font-family: var(--off-font-mono);
+  font-size: var(--off-fs-meta);
+}
+
+.off-browser-empty-form button,
+.off-browser-copy-url {
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--off-sp-2);
+  padding: 0 var(--off-sp-4);
+  border: 1px solid var(--off-accent-ring);
+  border-radius: var(--off-r-sm);
+  background: var(--off-accent-surface);
+  color: var(--off-accent);
+  font-size: var(--off-fs-meta);
+  font-weight: 680;
+}
+
+.off-browser-empty-actions output {
+  display: block;
+  margin: var(--off-sp-1) 0 0;
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-meta);
+  line-height: 1.45;
+}
+
+.off-browser-copy-url {
+  justify-self: center;
 }
 
 .off-stage-mode-btn {
@@ -5126,22 +5193,18 @@
 
 /* === Pipeline pill (live run + Stop) ====================================== */
 .off-pipe {
-  position: absolute;
-  top: 40px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: var(--off-z-panel);
+  flex: none;
   display: inline-flex;
   align-items: center;
-  gap: var(--off-sp-3);
-  height: 34px;
-  padding: 0 var(--off-sp-3) 0 var(--off-sp-4);
+  gap: var(--off-sp-2);
+  height: 28px;
+  padding: 0 3px 0 var(--off-sp-3);
   border: 1px solid var(--off-accent-ring);
   border-radius: var(--off-r-pill);
   background: var(--off-surface-glass-xstrong);
   backdrop-filter: blur(var(--off-blur-sm));
-  box-shadow: var(--off-elev-2);
   font-size: var(--off-fs-meta);
+  white-space: nowrap;
 }
 
 .off-pipe-flow {
@@ -5184,7 +5247,7 @@
 .off-pipe-title {
   /* Fixed-height pill: title must single-line truncate, never wrap (M24). */
   min-width: 0;
-  max-width: 200px;
+  max-width: 160px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -5217,6 +5280,19 @@
 }
 .off-pipe-stop:hover {
   filter: brightness(0.96);
+}
+
+@media (max-width: 1500px) {
+  .off-pipe-stage-label,
+  .off-pipe-div,
+  .off-pipe-task,
+  .off-pipe-progress {
+    display: none;
+  }
+
+  .off-pipe-flow {
+    gap: var(--off-sp-2);
+  }
 }
 
 /* === Staged attachments ================================================== */

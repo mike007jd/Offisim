@@ -316,7 +316,7 @@ interface UiState {
   setDraftEmployee: (employeeId: string | null) => void;
   closeThread: () => void;
   setSceneRenderMode: (mode: SceneRenderMode) => void;
-  setStagePrimaryTab: (tab: StagePrimaryTab) => void;
+  setStagePrimaryTab: (tab: StagePrimaryTab, empty?: boolean) => void;
   openStageView: (target: StageViewTarget) => void;
   closeStageView: () => void;
   activateStageTab: (id: string) => void;
@@ -533,10 +533,18 @@ export const useUiState = create<UiState>((set, get) => ({
       stageSplitTabId: null,
     }),
   setSceneRenderMode: (sceneRenderMode) => set({ sceneRenderMode }),
-  setStagePrimaryTab: (stagePrimaryTab) =>
+  setStagePrimaryTab: (stagePrimaryTab, empty = false) =>
     set((state) => {
       if (stagePrimaryTab === 'game') return gameStageState();
       if (stagePrimaryTab === 'board') {
+        return {
+          activeStageTabId: null,
+          stageSplitTabId: null,
+          stagePrimaryTab,
+          stageView: { kind: 'scene' },
+        };
+      }
+      if (empty) {
         return {
           activeStageTabId: null,
           stageSplitTabId: null,
