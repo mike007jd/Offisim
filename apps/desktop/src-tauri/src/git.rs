@@ -15,6 +15,8 @@ const ALLOWED_SUBCOMMANDS: &[&str] = &[
     "log",
     "rev-parse",
     "branch",
+    "switch",
+    "push",
     "remote",
     "init",
     "clone",
@@ -67,6 +69,8 @@ fn is_allowed(args: &[String], root: &Path) -> Result<(), String> {
         "log" => validate_log(args, root),
         "rev-parse" => validate_rev_parse(args),
         "branch" => validate_branch(args),
+        "switch" => validate_switch(args),
+        "push" => validate_push(args),
         "remote" => validate_remote(args),
         "init" => {
             if args.len() == 1 {
@@ -103,6 +107,10 @@ pub(crate) async fn run_git_validated(
         Some(value) => resolve_git_cwd(root, value.to_string_lossy().as_ref())?,
         None => root.to_path_buf(),
     };
+
+    if args.first().map(String::as_str) == Some("push") {
+        validate_push_context(&args, &cwd_path).await?;
+    }
 
     let mut command = Command::new("git");
     command
@@ -517,6 +525,94 @@ fn validate_branch(args: &[String]) -> Result<(), String> {
     }
 }
 
+fn validate_switch(args: &[String]) -> Result<(), String> {
+    let tail: Vec<&str> = args.iter().skip(1).map(String::as_str).collect();
+    match tail.as_slice() {
+        [branch] => validate_user_branch_name(branch),
+        ["-c", branch] => validate_user_branch_name(branch),
+        _ => Err("git switch is restricted to: switch <branch> or switch -c <branch>".into()),
+    }
+}
+
+fn validate_push(args: &[String]) -> Result<(), String> {
+    let tail: Vec<&str> = args.iter().skip(1).map(String::as_str).collect();
+    match tail.as_slice() {
+        [] => Ok(()),
+        ["-u", "origin", branch] => validate_user_branch_name(branch),
+        _ => Err("git push is restricted to: push or push -u origin <current-branch>".into()),
+    }
+}
+
+async fn validate_push_context(args: &[String], cwd: &Path) -> Result<(), String> {
+    let branch = run_git_probe(cwd, &["branch", "--show-current"]).await?;
+    let branch = branch.trim();
+    if branch.is_empty() {
+        return Err("git push requires a checked-out branch".into());
+    }
+    validate_user_branch_name(branch)?;
+
+    if let Some(target) = args.get(3) {
+        if target != branch {
+            return Err(format!(
+                "git push target '{}' does not match current branch '{}'",
+                target, branch
+            ));
+        }
+        return Ok(());
+    }
+
+    let upstream = run_git_probe(
+        cwd,
+        &[
+            "rev-parse",
+            "--abbrev-ref",
+            "--symbolic-full-name",
+            "@{upstream}",
+        ],
+    )
+    .await
+    .map_err(|_| {
+        format!(
+            "Current branch '{}' has no upstream. Use push -u origin {}.",
+            branch, branch
+        )
+    })?;
+    if !upstream.trim().starts_with("origin/") {
+        return Err("git push only allows an origin upstream".into());
+    }
+    Ok(())
+}
+
+async fn run_git_probe(cwd: &Path, args: &[&str]) -> Result<String, String> {
+    let output = Command::new("git")
+        .args(args)
+        .current_dir(cwd)
+        .env_clear()
+        .envs(scrubbed_git_env())
+        .stdin(Stdio::null())
+        .output()
+        .await
+        .map_err(|err| format!("Failed to inspect git push context: {err}"))?;
+    if !output.status.success() {
+        return Err(finalize_git_output(&output.stderr, false));
+    }
+    Ok(finalize_git_output(&output.stdout, false))
+}
+
+fn validate_user_branch_name(value: &str) -> Result<(), String> {
+    reject_option_like_value(value, "git branch name")?;
+    if value.starts_with('/')
+        || value.ends_with('/')
+        || value.contains("//")
+        || !value
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '/' | '_' | '-'))
+    {
+        return Err("git branch name may only contain letters, numbers, '/', '_' and '-'".into());
+    }
+    Ok(())
+}
+
 fn validate_remote(args: &[String]) -> Result<(), String> {
     let tail: Vec<&str> = args.iter().skip(1).map(String::as_str).collect();
     match tail.as_slice() {
@@ -840,6 +936,10 @@ mod tests {
             vec!["add", "--", "src/main.ts"],
             vec!["commit", "-m", "workbench commit"],
             vec!["commit", "-m", "selected commit", "--", "src/main.ts"],
+            vec!["switch", "feature/p5_git-loop"],
+            vec!["switch", "-c", "feature/p5_git-loop"],
+            vec!["push"],
+            vec!["push", "-u", "origin", "feature/p5_git-loop"],
         ];
         for args in cases {
             let owned = args.into_iter().map(String::from).collect::<Vec<_>>();
@@ -853,6 +953,15 @@ mod tests {
         let root = temp_root();
         let cases = vec![
             vec!["push", "origin", "main"],
+            vec!["push", "--force"],
+            vec!["push", "--delete", "origin", "main"],
+            vec!["push", "-u", "upstream", "main"],
+            vec!["push", "-u", "origin", "--force"],
+            vec!["push", "origin", "main:release"],
+            vec!["switch"],
+            vec!["switch", "-c", "--orphan"],
+            vec!["switch", "feature.with-dot"],
+            vec!["switch", "feature//empty"],
             vec!["reset", "--hard"],
             vec!["commit", "--amend"],
             vec!["add", "-A"],
