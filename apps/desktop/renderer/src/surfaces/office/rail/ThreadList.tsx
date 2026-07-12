@@ -44,7 +44,10 @@ export function ThreadList() {
   return (
     <div className="off-thread-list-groups">
       <div className="off-conv-list-section-head">
-        <span>Project conversations</span>
+        <span className="off-ws-list-title">
+          Project conversations
+          <span className="off-ws-im-nb">{threads.data?.length ?? 0}</span>
+        </span>
         <IconButton
           icon={Plus}
           label="New conversation"

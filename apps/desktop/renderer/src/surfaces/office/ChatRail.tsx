@@ -175,7 +175,7 @@ export function ChatRail() {
       <section className="off-rail is-list" aria-label="Conversations">
         <button
           type="button"
-          className="off-rail-collapse-edge off-focusable"
+          className="off-rail-collapse-edge off-rail-collapse-edge-right off-focusable"
           onClick={() => setCollapsed(true)}
           title="Collapse conversations"
         >
@@ -191,7 +191,7 @@ export function ChatRail() {
       <section className="off-rail off-company-channel-rail" aria-label="Company channel">
         <button
           type="button"
-          className="off-rail-collapse-edge off-focusable"
+          className="off-rail-collapse-edge off-rail-collapse-edge-right off-focusable"
           onClick={() => setCollapsed(true)}
           title="Collapse conversations"
         >
@@ -218,7 +218,7 @@ export function ChatRail() {
       <section className="off-rail" aria-label="Conversation">
         <button
           type="button"
-          className="off-rail-collapse-edge off-focusable"
+          className="off-rail-collapse-edge off-rail-collapse-edge-right off-focusable"
           onClick={() => setCollapsed(true)}
           title="Collapse conversations"
         >
@@ -238,7 +238,7 @@ export function ChatRail() {
     <section className="off-rail" aria-label="Conversation">
       <button
         type="button"
-        className="off-rail-collapse-edge off-focusable"
+        className="off-rail-collapse-edge off-rail-collapse-edge-right off-focusable"
         onClick={() => setCollapsed(true)}
         title="Collapse conversations"
       >
