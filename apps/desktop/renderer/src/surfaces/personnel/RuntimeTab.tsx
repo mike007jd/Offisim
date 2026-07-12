@@ -56,7 +56,7 @@ export function RuntimeTab({
             <Icon icon={Bot} size="sm" />
           </span>
           <div>
-            <div className="off-pers-runtime-title">Pi Agent runtime</div>
+            <div className="off-pers-runtime-title">Execution binding</div>
             <div className="off-pers-runtime-sub">
               {invalid
                 ? 'Binding unavailable · inherits conversation model'

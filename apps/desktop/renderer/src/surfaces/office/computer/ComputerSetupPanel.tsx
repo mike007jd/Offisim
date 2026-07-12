@@ -1,14 +1,22 @@
+import { useUiState } from '@/app/ui-state.js';
 import { isTauriRuntime } from '@/data/adapters.js';
+import { useEmployees } from '@/data/queries.js';
+import { Select } from '@/design-system/grammar/Select.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import { safeErrorMessage } from '@/lib/error-message.js';
 import { cn } from '@/lib/utils.js';
 import {
   CUA_DRIVER_MCP_PRESET,
-  connectMcpServer,
-  registerMcpServer,
-  useMcpServers,
   type McpServer,
+  connectMcpServer,
+  grantMcpTool,
+  inferMcpGrantRiskClass,
+  inferMcpGrantRiskSource,
+  registerMcpServer,
+  revokeMcpTool,
+  useMcpServers,
+  useMcpToolGrants,
 } from '@/surfaces/settings/settings-data.js';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -18,8 +26,11 @@ import {
   MonitorSmartphone,
   PlugZap,
   RefreshCw,
+  ShieldCheck,
+  Users,
+  Wrench,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
   CUA_DRIVER_DAEMON_COMMAND,
@@ -47,7 +58,15 @@ async function copyText(value: string, label: string) {
   }
 }
 
-export function ComputerSetupPanel({ compact = false }: { compact?: boolean }) {
+interface ComputerSetupPanelProps {
+  compact?: boolean;
+  onManageToolAccess?: () => void;
+}
+
+export function ComputerSetupPanel({
+  compact = false,
+  onManageToolAccess,
+}: ComputerSetupPanelProps) {
   const desktopAvailable = isTauriRuntime();
   const queryClient = useQueryClient();
   const serversQuery = useMcpServers();
@@ -58,7 +77,7 @@ export function ComputerSetupPanel({ compact = false }: { compact?: boolean }) {
   const [busy, setBusy] = useState(false);
   const ready = Boolean(status?.daemonRunning && computerServer?.status === 'connected');
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     if (!desktopAvailable) return;
     setLoadingStatus(true);
     try {
@@ -70,14 +89,11 @@ export function ComputerSetupPanel({ compact = false }: { compact?: boolean }) {
     } finally {
       setLoadingStatus(false);
     }
-  }
+  }, [desktopAvailable, queryClient]);
 
   useEffect(() => {
     void refresh();
-    // Query client is stable enough for this one-shot status refresh; routing it
-    // through refresh keeps the command and MCP registry invalidation together.
-    // biome-ignore lint/correctness/useExhaustiveDependencies: run once on mount/runtime availability.
-  }, [desktopAvailable]);
+  }, [refresh]);
 
   async function registerOrConnect() {
     if (!desktopAvailable) {
@@ -150,9 +166,7 @@ export function ComputerSetupPanel({ compact = false }: { compact?: boolean }) {
       ) : null}
 
       {!desktopAvailable ? (
-        <p className="off-computer-setup-copy">
-          Driver status is only visible in the desktop app.
-        </p>
+        <p className="off-computer-setup-copy">Driver status is only visible in the desktop app.</p>
       ) : null}
 
       {status && !status.installed ? (
@@ -203,11 +217,159 @@ export function ComputerSetupPanel({ compact = false }: { compact?: boolean }) {
 
       {ready ? (
         <p className="off-computer-setup-copy">
-          Computer Use is ready. Teammates can now drive this Mac&apos;s desktop, and every action
-          shows up here.
+          Computer Use is connected. Only employees with granted tools can use it.
         </p>
       ) : null}
+
+      {ready && computerServer ? (
+        <ComputerAccessSettings server={computerServer} onManageToolAccess={onManageToolAccess} />
+      ) : null}
     </section>
+  );
+}
+
+function ComputerAccessSettings({
+  server,
+  onManageToolAccess,
+}: {
+  server: McpServer;
+  onManageToolAccess?: () => void;
+}) {
+  const companyId = useUiState((state) => state.companyId);
+  const queryClient = useQueryClient();
+  const employees = useEmployees();
+  const employeeOptions = useMemo(
+    () =>
+      (employees.data ?? [])
+        .filter((employee) => !employee.disabled)
+        .map((employee) => ({ value: employee.id, label: employee.name })),
+    [employees.data],
+  );
+  const [employeeId, setEmployeeId] = useState(employeeOptions[0]?.value ?? '');
+  const [updatingAccess, setUpdatingAccess] = useState(false);
+  const grants = useMcpToolGrants(companyId, employeeId || null);
+  const tools = server.tools;
+  const grantedTools = useMemo(
+    () =>
+      new Set(
+        (grants.data ?? [])
+          .filter((grant) => grant.serverName === server.name)
+          .map((grant) => grant.toolName),
+      ),
+    [grants.data, server.name],
+  );
+  const grantedCount = tools.filter((tool) => grantedTools.has(tool.name)).length;
+  const allGranted = tools.length > 0 && grantedCount === tools.length;
+
+  useEffect(() => {
+    if (!employeeOptions.some((option) => option.value === employeeId)) {
+      setEmployeeId(employeeOptions[0]?.value ?? '');
+    }
+  }, [employeeId, employeeOptions]);
+
+  async function toggleComputerAccess() {
+    if (!companyId || !employeeId || tools.length === 0) return;
+    setUpdatingAccess(true);
+    try {
+      if (allGranted) {
+        for (const tool of tools) {
+          await revokeMcpTool({
+            companyId,
+            employeeId,
+            serverName: server.name,
+            toolName: tool.name,
+          });
+        }
+        toast.success('Computer Use access revoked');
+      } else {
+        for (const tool of tools) {
+          if (grantedTools.has(tool.name)) continue;
+          await grantMcpTool({
+            companyId,
+            employeeId,
+            serverName: server.name,
+            toolName: tool.name,
+            riskClass: inferMcpGrantRiskClass(tool),
+            riskSource: inferMcpGrantRiskSource(tool),
+            trustedServerId: server.id,
+          });
+        }
+        toast.success('Computer Use access granted', {
+          description: `${tools.length} discovered tools are available to the selected employee.`,
+        });
+      }
+    } catch (error) {
+      toast.error('Computer Use access was not updated', {
+        description: safeErrorMessage(error),
+      });
+    } finally {
+      await Promise.allSettled([
+        queryClient.invalidateQueries({ queryKey: ['settings', 'mcp-tool-grants'] }),
+        queryClient.invalidateQueries({ queryKey: ['employee-mcp-tools'] }),
+      ]);
+      setUpdatingAccess(false);
+    }
+  }
+
+  return (
+    <div className="off-computer-settings">
+      <div className="off-computer-settings-head">
+        <div>
+          <Icon icon={Users} size="sm" />
+          <span>
+            <strong>Employee access</strong>
+            <small>Enforced by the runtime MCP tool-grant gate.</small>
+          </span>
+        </div>
+        <Select
+          aria-label="Computer Use employee"
+          value={employeeId}
+          disabled={!employeeOptions.length}
+          onChange={(event) => setEmployeeId(event.target.value)}
+          options={
+            employeeOptions.length
+              ? employeeOptions
+              : [{ value: '', label: employees.isLoading ? 'Loading employees' : 'No employees' }]
+          }
+        />
+      </div>
+
+      <div className="off-computer-access-row">
+        <span className={cn('off-computer-access-icon', allGranted && 'is-on')}>
+          <Icon icon={allGranted ? ShieldCheck : Wrench} size="sm" />
+        </span>
+        <div>
+          <strong>{allGranted ? 'Computer Use allowed' : 'Computer Use restricted'}</strong>
+          <small>
+            {tools.length
+              ? `${grantedCount} of ${tools.length} discovered tools granted`
+              : 'No tools discovered; reconnect the driver to refresh its tool list.'}
+          </small>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={
+            !companyId || !employeeId || !tools.length || updatingAccess || grants.isLoading
+          }
+          onClick={() => void toggleComputerAccess()}
+        >
+          {updatingAccess ? 'Updating…' : allGranted ? 'Revoke access' : 'Allow Computer Use'}
+        </Button>
+      </div>
+
+      {onManageToolAccess ? (
+        <button
+          type="button"
+          className="off-computer-manage-tools off-focusable"
+          onClick={onManageToolAccess}
+        >
+          Manage individual tools and risk levels in MCP settings
+          <Icon icon={ExternalLink} size="sm" />
+        </button>
+      ) : null}
+    </div>
   );
 }
 

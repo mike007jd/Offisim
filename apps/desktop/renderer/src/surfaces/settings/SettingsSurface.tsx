@@ -3,16 +3,7 @@ import { CapsLabel } from '@/design-system/grammar/index.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 import { ComputerSetupPanel } from '@/surfaces/office/computer/ComputerSetupPanel.js';
-import {
-  Bot,
-  CheckCircle2,
-  Cpu,
-  KeyRound,
-  MonitorSmartphone,
-  Plug,
-  ShieldCheck,
-  Users,
-} from 'lucide-react';
+import { Bot, Cpu, KeyRound, MonitorSmartphone, Plug, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ExternalEmployeesPane } from './ExternalEmployeesPane.js';
 import { McpServersPane } from './McpServersPane.js';
@@ -34,19 +25,13 @@ function SettingsCompanion({ tab }: { tab: SettingsTab }) {
     return (
       <aside className="off-set-companion" aria-label="Runtime summary">
         <div className="off-set-comp-card">
-          <div className="off-set-comp-k">Effective run mode</div>
           <div className="off-set-comp-main">
             <Icon icon={Cpu} size="sm" />
-            Per conversation
+            Session controls
           </div>
           <p className="off-set-comp-copy">
-            Run mode, model, and thinking level are chosen per conversation from the composer. They
-            are the only runtime knobs the Pi Agent session reads.
+            Choose run mode, model, and thinking in each conversation composer.
           </p>
-          <div className="off-set-comp-note">
-            <Icon icon={ShieldCheck} size="sm" />
-            Pi Agent session runtime
-          </div>
         </div>
       </aside>
     );
@@ -56,14 +41,11 @@ function SettingsCompanion({ tab }: { tab: SettingsTab }) {
     return (
       <aside className="off-set-companion" aria-label="MCP summary">
         <div className="off-set-comp-card">
-          <div className="off-set-comp-k">Tool layer</div>
           <div className="off-set-comp-main">
             <Icon icon={Plug} size="sm" />
-            Pi tools plus MCP
+            MCP servers
           </div>
-          <p className="off-set-comp-copy">
-            MCP remains a project tool layer. The agent loop and tool protocol are owned by Pi.
-          </p>
+          <p className="off-set-comp-copy">Connect tools and manage per-employee access.</p>
         </div>
       </aside>
     );
@@ -73,19 +55,13 @@ function SettingsCompanion({ tab }: { tab: SettingsTab }) {
     return (
       <aside className="off-set-companion" aria-label="Computer Use summary">
         <div className="off-set-comp-card">
-          <div className="off-set-comp-k">Capability</div>
           <div className="off-set-comp-main">
             <Icon icon={MonitorSmartphone} size="sm" />
-            Computer Use
+            Driver &amp; access
           </div>
           <p className="off-set-comp-copy">
-            Install and enable the desktop driver here. During a run, Computer Use activity opens as
-            a trace attached to that thread — it is not a standing workspace tab.
+            Check driver readiness and manage per-employee Computer Use access.
           </p>
-          <div className="off-set-comp-note">
-            <Icon icon={ShieldCheck} size="sm" />
-            Prefer a structured MCP tool when one exists
-          </div>
         </div>
       </aside>
     );
@@ -95,45 +71,26 @@ function SettingsCompanion({ tab }: { tab: SettingsTab }) {
     return (
       <aside className="off-set-companion" aria-label="External employees summary">
         <div className="off-set-comp-card">
-          <div className="off-set-comp-k">Visual roles</div>
           <div className="off-set-comp-main">
             <Icon icon={Users} size="sm" />
             External employees
           </div>
-          <p className="off-set-comp-copy">
-            Employees shape context and theater presentation; they do not own separate model lanes.
-          </p>
+          <p className="off-set-comp-copy">Manage connected A2A employees.</p>
         </div>
       </aside>
     );
   }
 
   return (
-    <aside className="off-set-companion" aria-label="Pi Agent summary">
+    <aside className="off-set-companion" aria-label="Provider summary">
       <div className="off-set-comp-card">
-        <div className="off-set-comp-k">Current engine</div>
         <div className="off-set-comp-main">
           <Icon icon={Bot} size="sm" />
-          Pi Agent
+          Agent runtime
         </div>
-        <dl className="off-set-comp-list">
-          <div>
-            <dt>Auth</dt>
-            <dd>Stored credentials</dd>
-          </div>
-          <div>
-            <dt>Models</dt>
-            <dd>Model catalog</dd>
-          </div>
-          <div>
-            <dt>Sessions</dt>
-            <dd>Conversation sessions</dd>
-          </div>
-        </dl>
-        <div className="off-set-comp-note">
-          <Icon icon={CheckCircle2} size="sm" />
-          Single runtime
-        </div>
+        <p className="off-set-comp-copy">
+          Credentials and model configuration are read from <span className="off-mono">~/.pi</span>.
+        </p>
       </div>
     </aside>
   );
@@ -179,7 +136,9 @@ export function SettingsSurface() {
               {tab === 'providers' ? <PiAgentPane /> : null}
               {tab === 'runtime' ? <RuntimePane /> : null}
               {tab === 'mcp' ? <McpServersPane /> : null}
-              {tab === 'computer' ? <ComputerSetupPanel /> : null}
+              {tab === 'computer' ? (
+                <ComputerSetupPanel onManageToolAccess={() => setTab('mcp')} />
+              ) : null}
               {tab === 'external' ? <ExternalEmployeesPane /> : null}
             </div>
             <SettingsCompanion tab={tab} />
