@@ -10,7 +10,10 @@ import type {
   WorkloadPriorityIssue,
   WorkloadSummary,
 } from '../apps/desktop/renderer/src/assistant/runtime/conversation-run-projections.js';
-import { groupedWorkload } from '../apps/desktop/renderer/src/assistant/runtime/scene-cue-projection.js';
+import {
+  groupedWorkload,
+  sceneWorkDetailSummary,
+} from '../apps/desktop/renderer/src/assistant/runtime/scene-cue-projection.js';
 
 let checks = 0;
 let failures = 0;
@@ -22,6 +25,26 @@ function check(name: string, condition: boolean, detail?: string): void {
     failures += 1;
     console.error(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`);
   }
+}
+
+// --- selected workbench: generic tool payloads use the same trust boundary --
+{
+  const delegatePayload = JSON.stringify({
+    input: { tasks: [{ employeeId: 'e1' }, { employeeId: 'e2' }] },
+  });
+  check(
+    'generic delegate payload → verb + object + count',
+    sceneWorkDetailSummary(delegatePayload) === 'Delegate 2 tasks',
+    sceneWorkDetailSummary(delegatePayload),
+  );
+  check(
+    'clipped delegate payload → safe human summary',
+    sceneWorkDetailSummary('{"input":{"tasks":[{"employeeId"') === 'Delegate task',
+  );
+  check(
+    'unknown generic JSON → human fallback',
+    sceneWorkDetailSummary('{"input":{"opaque":true}}') === 'Work on task',
+  );
 }
 
 console.log('[workload-chips] groupedWorkload tiers + priority');
@@ -110,7 +133,7 @@ const issue = (kind: WorkloadPriorityIssue['kind'], label: string): WorkloadPrio
   );
   check('8 runs → tier medium', g.tier === 'medium', g.tier);
   check('8 runs → ≤ 4 grouped chips', g.chips.length <= 4, `${g.chips.length}`);
-  check('8 runs → blocked chip is first (outranks work)', g.chips[0]?.label === 'Blocked' && g.chips[0]?.tone === 'risk', JSON.stringify(g.chips[0]));
+  check('8 runs → issue summary is first (outranks work)', g.chips[0]?.label === 'Resolve issue' && g.chips[0]?.tone === 'risk', JSON.stringify(g.chips[0]));
   check('8 runs → grouped chips carry counts', g.chips.every((c) => typeof c.count === 'number'), JSON.stringify(g.chips));
   check('8 runs → blocked count is 2', g.chips[0]?.count === 2, `${g.chips[0]?.count}`);
   check('8 runs → overflow (5 groups > 4 shown)', g.overflow === true);
@@ -134,9 +157,45 @@ const issue = (kind: WorkloadPriorityIssue['kind'], label: string): WorkloadPrio
   check('58 runs → tier large', g.tier === 'large', g.tier);
   check('58 runs → countLabel ×58', g.countLabel === '×58', `${g.countLabel}`);
   check('58 runs → exactly 4 chips (fixed dims)', g.chips.length === 4, `${g.chips.length}`);
-  check('58 runs → Blocked reserved first', g.chips[0]?.label === 'Blocked' && g.chips[0]?.count === 3, JSON.stringify(g.chips[0]));
-  check('58 runs → top work kind Research present with count 24', g.chips.some((c) => c.label === 'Research' && c.count === 24), JSON.stringify(g.chips));
+  check('58 runs → issue summary reserved first', g.chips[0]?.label === 'Resolve issue' && g.chips[0]?.count === 3, JSON.stringify(g.chips[0]));
+  check('58 runs → top work kind is a human summary with count 24', g.chips.some((c) => c.label === 'Research files' && c.count === 24), JSON.stringify(g.chips));
   check('58 runs → overflow drops the smallest bucket', g.overflow === true);
+}
+
+// --- hostile/verbose upstream labels never reach either scene verbatim ------
+{
+  const raw = 'ks":[{"employeeId":"e1","objective":"update the board"}]';
+  const verbose = 'Inspect and update every task board card before reporting completion';
+  const g = groupedWorkload(
+    proj({
+      activeCount: 2,
+      activeRunIds: ['raw', 'verbose'],
+      workloadChips: [
+        { runId: 'raw', label: raw, tone: 'work' },
+        { runId: 'verbose', label: verbose, tone: 'work' },
+      ],
+      workloadSummary: summary({
+        total: 2,
+        byWorkKind: { implement: 2 },
+        byStatus: { working: 2, waiting: 0, blocked: 0, artifact: 0 },
+      }),
+    }),
+  );
+  check(
+    'raw JSON-like payload → human fallback',
+    g.chips[0]?.label === 'Work on task',
+    JSON.stringify(g.chips),
+  );
+  check(
+    'verbose plain label → bounded with ellipsis',
+    (g.chips[1]?.label.length ?? 99) <= 22 && g.chips[1]?.label.endsWith('…') === true,
+    JSON.stringify(g.chips),
+  );
+  check(
+    'no bubble chip retains payload syntax',
+    g.chips.every((chip) => !/[{}\[\]]|"\s*:/u.test(chip.label)),
+    JSON.stringify(g.chips),
+  );
 }
 
 // --- terminal-only blocked actor: activeCount 0 but visible issue -----------

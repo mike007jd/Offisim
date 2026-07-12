@@ -140,23 +140,104 @@ export interface GroupedWorkload {
 const SMALL_MAX = 3;
 const LARGE_MIN = 13;
 const GROUPED_MAX_CHIPS = 4;
+const BUBBLE_LABEL_MAX = 22;
 
-/** Human label for a workKind bucket key (capitalized; the catch-all reads 'Working'). */
+const BUBBLE_SUMMARY_BY_SIGNAL: Readonly<Record<string, string>> = {
+  unclassified: 'Work on task',
+  work: 'Work on task',
+  working: 'Work on task',
+  activity: 'Work on task',
+  task: 'Plan task',
+  plan: 'Plan task',
+  read: 'Research files',
+  research: 'Research files',
+  search: 'Research files',
+  implement: 'Update task',
+  write: 'Update task',
+  edit: 'Update task',
+  produce: 'Update task',
+  compute: 'Verify changes',
+  shell: 'Verify changes',
+  build: 'Verify changes',
+  test: 'Verify changes',
+  review: 'Review changes',
+  join: 'Review changes',
+  delegate: 'Delegate task',
+  delegation: 'Delegate task',
+  handoff: 'Delegate task',
+  approval: 'Pending review',
+  wait: 'Pending review',
+  artifact: 'Deliver output',
+  complete: 'Deliver output',
+  done: 'Deliver output',
+  blocked: 'Resolve issue',
+  failure: 'Resolve issue',
+};
+
+/** The final trust boundary for Game View/PiP bubble text. Runtime payloads are
+ * intentionally open-ended, so a skewed producer can place JSON or a verbose
+ * diagnostic in any upstream label field. Scene bubbles accept short human
+ * text only, map known work signals to verb+object summaries, and bound every
+ * remaining label before either renderer sees it. */
+function sceneBubbleSummary(label: string, fallback = 'Work on task'): string {
+  const compact = label.trim().replace(/\s+/gu, ' ');
+  if (!compact || /[{}\[\]]|"\s*:/u.test(compact)) return fallback;
+  const signal = compact.toLowerCase().replace(/[_-]+/gu, ' ');
+  const known = BUBBLE_SUMMARY_BY_SIGNAL[signal];
+  if (known) return known;
+  return compact.length > BUBBLE_LABEL_MAX
+    ? `${compact.slice(0, BUBBLE_LABEL_MAX - 1).trimEnd()}…`
+    : compact;
+}
+
+/** Human summary for open-ended generic tool detail shown on the selected
+ * workbench. Delegate payloads are especially likely to contain a tasks array;
+ * recognize that intent before the shared JSON/length trust boundary removes
+ * producer-specific syntax. */
+export function sceneWorkDetailSummary(label?: string): string {
+  if (!label?.trim()) return 'No structured detail';
+
+  const compact = label.trim().replace(/\s+/gu, ' ');
+  if (/"tasks"\s*:/u.test(compact)) {
+    try {
+      const parsed = JSON.parse(compact) as { input?: { tasks?: unknown[] } };
+      const taskCount = parsed.input?.tasks?.length;
+      if (taskCount && taskCount > 1) return `Delegate ${taskCount} tasks`;
+    } catch {
+      // A clipped/skewed delegate payload still has enough signal for a safe summary.
+    }
+    return 'Delegate task';
+  }
+
+  return sceneBubbleSummary(compact);
+}
+
+/** Human label for a workKind bucket key, through the shared bubble trust boundary. */
 export function workKindLabel(kind: string): string {
-  if (kind === 'unclassified') return 'Working';
-  return `${kind.charAt(0).toUpperCase()}${kind.slice(1)}`;
+  return sceneBubbleSummary(kind);
 }
 
 /** The per-run small-count chips, mapped from the existing workloadChips model. */
 function smallChips(p: EmployeeWorkloadProjection): WorkloadGroupChip[] {
-  const chips: WorkloadGroupChip[] = p.workloadChips
-    .slice(0, SMALL_MAX)
-    .map((chip) => ({ label: chip.label, tone: chip.tone }));
+  const chips: WorkloadGroupChip[] = p.workloadChips.slice(0, SMALL_MAX).map((chip) => ({
+    label: sceneBubbleSummary(
+      chip.label,
+      chip.tone === 'risk'
+        ? 'Resolve issue'
+        : chip.tone === 'wait'
+          ? 'Pending review'
+          : chip.tone === 'done'
+            ? 'Deliver output'
+            : 'Work on task',
+    ),
+    tone: chip.tone,
+  }));
   // A terminal-only blocked actor (activeCount 0) has no per-run chips; surface
   // its top issue so the blocked state is never invisible.
   if (chips.length === 0 && p.workloadSummary.priorityIssues.length > 0) {
     const issue = p.workloadSummary.priorityIssues[0];
-    if (issue) chips.push({ label: issue.label, tone: 'risk' });
+    if (issue)
+      chips.push({ label: sceneBubbleSummary(issue.label, 'Resolve issue'), tone: 'risk' });
   }
   return chips;
 }
@@ -174,11 +255,11 @@ function groupedChips(p: EmployeeWorkloadProjection): {
   const s = p.workloadSummary;
   const priority: WorkloadGroupChip[] = [];
   if (s.byStatus.blocked > 0)
-    priority.push({ label: 'Blocked', tone: 'risk', count: s.byStatus.blocked });
+    priority.push({ label: 'Resolve issue', tone: 'risk', count: s.byStatus.blocked });
   if (s.approvalCount > 0)
-    priority.push({ label: 'Approval', tone: 'wait', count: s.approvalCount });
+    priority.push({ label: 'Pending review', tone: 'wait', count: s.approvalCount });
   if (s.artifactCount > 0)
-    priority.push({ label: 'Artifact', tone: 'done', count: s.artifactCount });
+    priority.push({ label: 'Deliver output', tone: 'done', count: s.artifactCount });
 
   const workKinds = Object.entries(s.byWorkKind)
     .filter(([, count]) => count > 0)

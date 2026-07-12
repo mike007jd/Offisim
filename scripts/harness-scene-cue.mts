@@ -891,9 +891,9 @@ console.log('\n[no-live-beat] active run without any live beat still renders');
     json(actor?.workload),
   );
   check(
-    "beatless run still shows a generic 'Work' chip (never an empty bubble)",
+    "beatless run still shows a generic 'Work on task' chip (never an empty bubble)",
     actor?.workload.chips.length === 1 &&
-      actor.workload.chips[0]?.label === 'Work' &&
+      actor.workload.chips[0]?.label === 'Work on task' &&
       actor.workload.chips[0].tone === 'work',
     json(actor?.workload.chips),
   );
