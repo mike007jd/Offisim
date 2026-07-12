@@ -1,10 +1,10 @@
 # Offisim Multi-Agent Delegation Architecture
 
-> Status: **Phase 0 ratified** (truth check + child-mechanism decision, no behavior
-> change). This document is the architectural source of truth for the delegation
-> epic (Phases 1–5). It records the child-execution decision, the neutral wire
-> contract, the persistence shape, the host-policy limits, and the reason we stay
-> on the pinned Pi version.
+> Status: **Phases 1–4 implemented** (delegation, worktree review, and project-gated
+> loop-until-green). This document is the architectural source of truth for the
+> delegation epic. It records the child-execution decision, the neutral wire
+> contract, persistence shape, host-policy limits, and the reason we stay on the
+> pinned Pi version.
 >
 > Plan of record: `~/.claude/plans/gpt-5-5-pro-golden-kite.md`.
 > Verified against the actually-installed `@earendil-works/pi-coding-agent@0.79.8`
@@ -111,6 +111,21 @@ createAgentSession({
 
 Abort: `childSession.abort()` plus the supervisor's `AbortController`; the parent
 `AbortSignal` cascades to every descendant.
+
+### Project-gated write loop (P4)
+
+Each project may store an explicit verification command, attempt cap, and optional
+token cap. An empty command means the historical single-pass behavior. With a
+command configured, a write child stays in the same lease worktree and repeats:
+
+`child prompt → verifyCall → Rust bash_execute sandbox → repair prompt`
+
+The shared bounded-loop primitive owns attempt-cap, identical-failure-signature,
+and token-budget decisions for both Mission and delegate paths. Verification is
+green only when the sandboxed command actually exits 0. Failure, stuck, attempt
+cap, budget exhaustion, and sandbox infrastructure errors emit terminal truth;
+only a green child proceeds to lease `pending_review`. Progress remains an
+additive `workspace.lease.snapshot` in `agent_events`, not a second event store.
 
 ---
 
