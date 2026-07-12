@@ -20,6 +20,7 @@
 // Determinism: no implicit Date.now()/Math.random() — `now()` / `newId()` are
 // injected so the harness is reproducible.
 
+import type { EmployeeRuntimeSelection } from '@/data/employee-persona.js';
 import type {
   CollaborationMessageRepository,
   CollaborationTurnRepository,
@@ -67,6 +68,8 @@ export interface CollaborationThreadContext {
   roundSpeakerLimit: number;
   mcpTools?: unknown[];
   mcpToolsByEmployeeId?: ReadonlyMap<string, unknown[]>;
+  /** Per-speaker employee binding layered over this conversation's selection. */
+  runtimeByEmployeeId?: ReadonlyMap<string, EmployeeRuntimeSelection>;
   /** Active participants (identity context only), in stable roster order. */
   participants: readonly CollaborationParticipant[];
 }
@@ -461,6 +464,7 @@ export class CollaborationTurnController {
 
     const recent = recentWindow(await this.deps.recentMessages(ctx.threadId));
     const scopedMcpTools = ctx.mcpToolsByEmployeeId?.get(speaker.employeeId) ?? ctx.mcpTools ?? [];
+    const employeeRuntime = ctx.runtimeByEmployeeId?.get(speaker.employeeId);
     const systemPromptAppend = buildContextPacket({
       companyName: ctx.companyName,
       threadTitle: ctx.title,
@@ -491,8 +495,8 @@ export class CollaborationTurnController {
           employeeId: speaker.employeeId,
           text: triggerMessage.body,
           systemPromptAppend,
-          model: this.deps.model?.(ctx.threadId),
-          thinkingLevel: this.deps.thinkingLevel?.(ctx.threadId),
+          model: employeeRuntime?.model ?? this.deps.model?.(ctx.threadId),
+          thinkingLevel: employeeRuntime?.thinkingLevel ?? this.deps.thinkingLevel?.(ctx.threadId),
           collaborationProfile: ctx.capabilityProfile,
           mcpTools: scopedMcpTools,
         },

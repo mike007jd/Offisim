@@ -17,6 +17,7 @@
 
 import { globSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { resolveEmployeeRuntimeSelection } from '../apps/desktop/renderer/src/data/employee-persona.js';
 import {
   type CollaborationParticipant,
   FORBIDDEN_CONTEXT_MARKERS,
@@ -202,6 +203,42 @@ async function seedThread(
 
 // ── Pure scheduling / context unit checks ────────────────────────────────────
 {
+  const inherited = { model: 'fixture/orchestrator', thinkingLevel: 'medium' };
+  const availableModels = [
+    { provider: 'fixture', id: 'orchestrator' },
+    { provider: 'fixture', id: 'employee' },
+  ];
+  const bound = resolveEmployeeRuntimeSelection(
+    { model: 'fixture/employee', thinking_level: 'high' },
+    availableModels,
+    inherited,
+  );
+  check(
+    'employee model/thinking binding overrides the inherited conversation selection',
+    bound.model === 'fixture/employee' && bound.thinkingLevel === 'high',
+    JSON.stringify(bound),
+  );
+  const unbound = resolveEmployeeRuntimeSelection(
+    { model: null, thinking_level: null },
+    availableModels,
+    inherited,
+  );
+  check(
+    'unbound employee inherits the conversation model/thinking selection',
+    unbound.model === inherited.model && unbound.thinkingLevel === inherited.thinkingLevel,
+    JSON.stringify(unbound),
+  );
+  const stale = resolveEmployeeRuntimeSelection(
+    { model: 'fixture/retired', thinking_level: 'xhigh' },
+    availableModels,
+    inherited,
+  );
+  check(
+    'stale employee binding inherits without blocking the run',
+    stale.model === inherited.model && stale.thinkingLevel === inherited.thinkingLevel,
+    JSON.stringify(stale),
+  );
+
   // (6) mentions_only parsing.
   const m = parseMentions('hey @Kai and @Sophie can you look', PARTICIPANTS);
   check(
@@ -376,6 +413,30 @@ await (async () => {
   check(
     '(4) ledger row carries usage + runtime_request_id',
     !!turns[0].usage_json && !!turns[0].runtime_request_id,
+  );
+})();
+
+// ── Employee binding beats conversation selection for the actual speaker ─────
+await (async () => {
+  const ctx = directCtx();
+  ctx.runtimeByEmployeeId = new Map([
+    ['e-alex', { model: 'fixture/model-employee', thinkingLevel: 'xhigh' }],
+  ]);
+  const transport = makeFakeTransport();
+  const { controller, service } = makeController(ctx, transport, {
+    model: () => 'fixture/model-conversation',
+    thinkingLevel: () => 'low',
+  });
+  await seedThread(service, ctx);
+  await controller.sendBossMessage(ctx.threadId, 'use the employee binding');
+  check(
+    '(1) employee-owned collaboration request sends employee input.model and thinkingLevel',
+    transport.requests[0]?.model === 'fixture/model-employee' &&
+      transport.requests[0]?.thinkingLevel === 'xhigh',
+    JSON.stringify({
+      model: transport.requests[0]?.model,
+      thinkingLevel: transport.requests[0]?.thinkingLevel,
+    }),
   );
 })();
 
