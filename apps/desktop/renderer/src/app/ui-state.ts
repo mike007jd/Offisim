@@ -8,14 +8,20 @@ type OverlaySurface = 'mission' | 'activity' | 'tasks' | 'settings' | 'studio' |
 export type SurfaceKey = WorkspaceKey | OverlaySurface;
 
 type SceneRenderMode = '3d' | '2d';
-export type StagePrimaryTab = 'game' | 'preview' | 'computer' | 'terminal' | 'review';
+export type StagePrimaryTab = 'game' | 'board' | 'preview' | 'computer' | 'terminal' | 'review';
 type RailMode = 'list' | 'thread';
 type StageToolStatus = 'running' | 'done' | 'error';
 
 export type StageViewTarget =
   | { kind: 'scene' }
   | { kind: 'preview'; ref: PreviewSourceRef; title?: string }
-  | { kind: 'changes'; path?: string | null }
+  | {
+      kind: 'changes';
+      path?: string | null;
+      leaseId?: string;
+      files?: Array<{ path: string; diff: string }>;
+      status?: 'active' | 'pending_review' | 'merged' | 'discarded' | 'failed';
+    }
   | {
       kind: 'logs';
       title?: string;
@@ -76,7 +82,7 @@ function stageTabIdForTarget(target: StageOpenTarget): string {
     case 'preview':
       return stagePreviewTabId(target.ref);
     case 'changes':
-      return `changes:${target.path ?? 'workspace'}`;
+      return `changes:${target.leaseId ?? target.path ?? 'workspace'}`;
     case 'logs':
       return `logs:${target.sourceId ?? target.tool ?? target.title ?? 'latest'}`;
     case 'computer':
@@ -136,6 +142,8 @@ interface UiState {
   stageView: StageViewTarget;
   stageOpenTabs: StageOpenTab[];
   activeStageTabId: string | null;
+  boardHighlightedRunId: string | null;
+  scenePipCollapsed: boolean;
   officeLeftRailCollapsed: boolean;
   officeRightRailCollapsed: boolean;
   officeStageMaximized: boolean;
@@ -241,6 +249,8 @@ interface UiState {
   closeStageView: () => void;
   activateStageTab: (id: string) => void;
   closeStageTab: (id: string) => void;
+  highlightBoardRun: (runId: string | null) => void;
+  setScenePipCollapsed: (collapsed: boolean) => void;
   setOfficeLeftRailCollapsed: (collapsed: boolean) => void;
   setOfficeRightRailCollapsed: (collapsed: boolean) => void;
   setOfficeStageMaximized: (maximized: boolean) => void;
@@ -280,6 +290,8 @@ export const useUiState = create<UiState>((set, get) => ({
   stageView: { kind: 'scene' },
   stageOpenTabs: [],
   activeStageTabId: null,
+  boardHighlightedRunId: null,
+  scenePipCollapsed: false,
   officeLeftRailCollapsed: false,
   officeRightRailCollapsed: false,
   officeStageMaximized: false,
@@ -340,6 +352,7 @@ export const useUiState = create<UiState>((set, get) => ({
       stageView: { kind: 'scene' },
       stageOpenTabs: [],
       activeStageTabId: null,
+      boardHighlightedRunId: null,
       officeStageMaximized: false,
     }),
   setProject: (projectId) =>
@@ -352,6 +365,7 @@ export const useUiState = create<UiState>((set, get) => ({
       stageView: { kind: 'scene' },
       stageOpenTabs: [],
       activeStageTabId: null,
+      boardHighlightedRunId: null,
       officeStageMaximized: false,
     }),
 
@@ -395,6 +409,13 @@ export const useUiState = create<UiState>((set, get) => ({
   setStagePrimaryTab: (stagePrimaryTab) =>
     set((state) => {
       if (stagePrimaryTab === 'game') return gameStageState();
+      if (stagePrimaryTab === 'board') {
+        return {
+          activeStageTabId: null,
+          stagePrimaryTab,
+          stageView: { kind: 'scene' },
+        };
+      }
       const existing = state.stageOpenTabs.find(
         (tab) => stageTabForTarget(tab.target) === stagePrimaryTab,
       );
@@ -454,6 +475,8 @@ export const useUiState = create<UiState>((set, get) => ({
         stageView: fallback.target,
       };
     }),
+  highlightBoardRun: (boardHighlightedRunId) => set({ boardHighlightedRunId }),
+  setScenePipCollapsed: (scenePipCollapsed) => set({ scenePipCollapsed }),
   setOfficeLeftRailCollapsed: (officeLeftRailCollapsed) => set({ officeLeftRailCollapsed }),
   setOfficeRightRailCollapsed: (officeRightRailCollapsed) => set({ officeRightRailCollapsed }),
   setOfficeStageMaximized: (officeStageMaximized) => set({ officeStageMaximized }),
