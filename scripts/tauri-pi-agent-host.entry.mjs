@@ -1066,7 +1066,20 @@ async function runPrompt(payload) {
   // below references `projectId`, and a bare undeclared reference throws
   // "projectId is not defined", failing every rostered Office run at bootstrap.
   const projectId = asNonEmptyString(payload.projectId);
-  const roster = Array.isArray(payload.roster) ? payload.roster : [];
+  // The DB may retain a model binding Pi no longer offers. Keep persistence
+  // honest, but do not forward that phantom value: an invalid binding behaves
+  // exactly like an unbound employee and inherits this conversation's model.
+  const roster = Array.isArray(payload.roster)
+    ? payload.roster.map((entry) => {
+        if (!isRecord(entry)) return entry;
+        const requested = asNonEmptyString(entry.model);
+        if (!requested || selectedModel(modelRegistry, requested)) return entry;
+        const rest = { ...entry };
+        delete rest.model;
+        delete rest.thinkingLevel;
+        return rest;
+      })
+    : [];
   const delegationEnabled = Boolean(rootRunId && threadId && roster.length > 0);
   // Publish-artifact: register the `publish_artifact` tool whenever the run has a
   // root id + thread id (the scope fields the renderer needs to persist the
@@ -1115,6 +1128,11 @@ async function runPrompt(payload) {
   // A write-class MCP tool pauses for ctx.ui.confirm, which needs the forwarding
   // UI context bound — the same bind `ask` mode already does.
   const mcpNeedsUi = mcpHasCatalog && scopedMcpTools.some(isWriteMcpTool);
+  // When the conversation does not carry an explicit override, Pi chooses the
+  // real root model during createAgentSession. The delegation supervisor reads
+  // this live binding later, when delegate executes, so unbound employees inherit
+  // the actual root model rather than independently resolving another default.
+  let effectiveRootModel = model;
   // The MCP discovery bridge is registered on every run (so an ungranted employee
   // can still discover tools), so a resource loader + extension list is always
   // built now — no run reaches createAgentSession without one.
@@ -1172,7 +1190,10 @@ async function runPrompt(payload) {
         threadId,
         rootRunId,
         roster,
-        rootModel: model,
+        get rootModel() {
+          return effectiveRootModel;
+        },
+        rootThinkingLevel: thinkingLevel,
         resolveModel: (modelId) => selectedModel(modelRegistry, modelId),
         buildPermissionGate,
         limits: createDelegationLimits(),
@@ -1246,6 +1267,7 @@ async function runPrompt(payload) {
     ...(tools ? { tools } : {}),
     ...(resourceLoader ? { resourceLoader } : {}),
   });
+  effectiveRootModel = session.model ?? model;
 
   // Bind a forwarding UI context so a mid-run `ctx.ui.confirm` routes through our
   // stdin channel. Needed by Ask mode (the bash gate) AND by the MCP bridge when

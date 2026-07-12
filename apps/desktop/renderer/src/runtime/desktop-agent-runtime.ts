@@ -218,6 +218,11 @@ function toolStatus(status: PiAgentHostEvent & { kind: 'tool' }) {
   return 'started' as const;
 }
 
+function hostModelRef(model: Extract<PiAgentHostEvent, { kind: 'started' }>['model']): string | null {
+  if (!model?.id) return null;
+  return model.provider ? `${model.provider}/${model.id}` : model.id;
+}
+
 interface PersistedRunContext {
   requestId?: string | null;
   streamCursor?: number | null;
@@ -401,6 +406,17 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           return;
         }
         if (event.kind === 'started') {
+          const actualModel = hostModelRef(event.model);
+          if (actualModel && runtimeContext.model !== actualModel) {
+            runtimeContext.model = actualModel;
+            this.enqueuePersist(
+              () =>
+                this.repos.agentRuns?.updateRuntimeContext(
+                  row.run_id,
+                  JSON.stringify(runtimeContext),
+                ) ?? Promise.resolve(),
+            );
+          }
           if (event.sessionFile) {
             this.enqueuePersist(
               () =>
@@ -669,6 +685,17 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
         return;
       }
       if (event.kind === 'started') {
+        const actualModel = hostModelRef(event.model);
+        if (actualModel && runtimeContext.model !== actualModel) {
+          runtimeContext.model = actualModel;
+          this.enqueuePersist(
+            () =>
+              this.repos.agentRuns?.updateRuntimeContext(
+                runScope.runId,
+                JSON.stringify(runtimeContext),
+              ) ?? Promise.resolve(),
+          );
+        }
         if (event.sessionFile) {
           this.enqueuePersist(
             () =>

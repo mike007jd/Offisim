@@ -102,6 +102,8 @@ export interface EmployeeRow {
   workstation_id: string | null;
   persona_json: string | null;
   config_json: string | null;
+  model: string | null;
+  thinking_level: string | null;
   enabled: number;
   is_external: number;
   a2a_url: string | null;
@@ -318,6 +320,8 @@ export type EmployeeUpdate = Partial<
     | 'role_slug'
     | 'persona_json'
     | 'config_json'
+    | 'model'
+    | 'thinking_level'
     | 'enabled'
     | 'workstation_id'
     | 'is_external'
@@ -329,8 +333,15 @@ export type EmployeeUpdate = Partial<
   >
 >;
 
+/** Employee creation fields owned by the local runtime. Install templates keep
+ * using NewEmployee without model presets; Personnel may add an explicit bind. */
+export type EmployeeCreate = NewEmployee & {
+  readonly model?: string | null;
+  readonly thinking_level?: string | null;
+};
+
 export interface EmployeeRepository {
-  create(employee: NewEmployee): Promise<{ employee_id: string }>;
+  create(employee: EmployeeCreate): Promise<{ employee_id: string }>;
   findById(employeeId: string): Promise<EmployeeRow | null>;
   findByCompany(companyId: string): Promise<EmployeeRow[]>;
   findByRole(companyId: string, roleSlug: RoleSlug): Promise<EmployeeRow[]>;

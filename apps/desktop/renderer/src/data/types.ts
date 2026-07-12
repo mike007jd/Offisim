@@ -50,6 +50,10 @@ export interface Employee {
   discipline: string;
   /** Canonical role family — drives dramaturgy performance flavor (tempo). */
   roleSlug?: RoleSlug;
+  /** Persisted Pi model binding. Null/absent inherits the conversation model. */
+  model?: string | null;
+  /** Optional Pi reasoning effort paired with the employee binding. */
+  thinkingLevel?: string | null;
   modelLabel: string;
   skillCount: number;
   /** Office zone the workstation sits in, e.g. "Engineering Bay". */
@@ -222,6 +226,15 @@ export interface RunCost {
   tokens: number;
   costLabel: string;
   live: boolean;
+  breakdown: RunCostBreakdown[];
+}
+
+export interface RunCostBreakdown {
+  employeeId: string | null;
+  employeeName: string;
+  model: string;
+  tokens: number;
+  costLabel: string;
 }
 
 export interface FileNode {

@@ -228,10 +228,33 @@ assert(
   'execute host must surface Pi model error stops as upstream failures instead of empty completed replies',
 );
 assert(
-  /rootModel:\s*model/.test(nodeHostSource) &&
-    /const requestedModel = asNonEmptyString\(employee\.model\)/.test(childSupervisorSource) &&
-    /: ctx\.rootModel/.test(childSupervisorSource),
+  /get rootModel\(\)[\s\S]*return effectiveRootModel/.test(nodeHostSource) &&
+    /effectiveRootModel = session\.model \?\? model/.test(nodeHostSource) &&
+    /rootThinkingLevel:\s*thinkingLevel/.test(nodeHostSource) &&
+    /function resolveEmployeeBinding\(employee\)/.test(childSupervisorSource) &&
+    /ctx\.resolveModel\(requestedModel\)/.test(childSupervisorSource) &&
+    /thinkingLevel = requestedThinking \?\? ctx\.rootThinkingLevel/.test(childSupervisorSource) &&
+    /\.\.\.\(thinkingLevel \? \{ thinkingLevel \} : \{\}\)/.test(childSupervisorSource),
   'delegated children must inherit the parent run model unless an employee model override is provided',
+);
+assert(
+  /selectedModel\(modelRegistry, requested\)/.test(nodeHostSource) &&
+    /delete rest\.model/.test(nodeHostSource) &&
+    /delete rest\.thinkingLevel/.test(nodeHostSource),
+  'execute host must strip stale employee model/thinking bindings before the roster reaches delegation',
+);
+assert(
+  /function resolveEmployeeBinding\(employee\)/.test(bundledNodeHostSource) &&
+    /rootThinkingLevel:\s*thinkingLevel/.test(bundledNodeHostSource) &&
+    /thinkingLevel:\s*thinkingLevel2/.test(bundledNodeHostSource) &&
+    /selectedModel\(modelRegistry2, requested\)/.test(bundledNodeHostSource),
+  'bundled Pi Agent host must carry employee model/thinking binding and stale-binding filtering',
+);
+assert(
+  /"roster": req\.roster/.test(executePayloadSource) &&
+    /const model = e\.model\?\.trim\(\)/.test(desktopRuntimeScopeSource) &&
+    /model && thinkingLevel \? \{ thinkingLevel \} : \{\}/.test(desktopRuntimeScopeSource),
+  'employee model/thinking fields must cross renderer roster projection and opaque Rust roster forwarding',
 );
 assert(
   /finalAssistant\?\.stopReason === 'error'/.test(childSupervisorSource) &&

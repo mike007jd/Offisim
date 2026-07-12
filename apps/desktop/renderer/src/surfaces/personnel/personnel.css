@@ -178,6 +178,19 @@
   color: var(--off-ink-3);
 }
 
+.off-pers-emp-model {
+  flex-basis: 100%;
+  overflow: hidden;
+  color: var(--off-ink-4);
+  font-size: var(--off-fs-micro);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.off-pers-emp-model.is-invalid {
+  color: var(--off-warn);
+}
+
 .off-pers-emp.is-sel .off-pers-emp-role,
 .off-pers-emp.is-sel .off-pers-emp-dis {
   color: var(--off-accent);
@@ -982,6 +995,27 @@
   text-transform: uppercase;
   letter-spacing: 0;
   white-space: nowrap;
+}
+
+.off-pers-runtime-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--off-sp-3);
+  margin-top: var(--off-sp-4);
+}
+
+.off-pers-runtime-field {
+  display: grid;
+  gap: var(--off-sp-2);
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-meta);
+}
+
+.off-pers-runtime-warning {
+  margin: var(--off-sp-3) 0 0;
+  color: var(--off-warn);
+  font-size: var(--off-fs-meta);
+  line-height: 1.45;
 }
 
 .off-pers-lock-note {

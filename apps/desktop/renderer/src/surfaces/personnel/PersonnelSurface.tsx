@@ -1,4 +1,8 @@
 import { useUiState } from '@/app/ui-state.js';
+import {
+  type PiAgentModelOption,
+  usePiAgentModels,
+} from '@/assistant/composer/usePiAgentModels.js';
 import { displayRole, isTauriRuntime, reposOrNull } from '@/data/adapters.js';
 import { EMPLOYEE_CAPACITY_MESSAGE, MAX_COMPANY_EMPLOYEES } from '@/data/employee-capacity.js';
 import { useCompanies, useEmployees } from '@/data/queries.js';
@@ -111,15 +115,18 @@ function newEmployeePersona(): Record<string, unknown> {
 
 function RosterRow({
   employee,
+  validModels,
   selected,
   collapsed,
   onSelect,
 }: {
   employee: Employee;
+  validModels: ReadonlySet<string> | undefined;
   selected: boolean;
   collapsed: boolean;
   onSelect: () => void;
 }) {
+  const modelInvalid = Boolean(employee.model && validModels && !validModels.has(employee.model));
   return (
     <div className={cn('off-pers-emp-wrap', selected && 'is-sel')}>
       <button
@@ -148,6 +155,13 @@ function RosterRow({
             {employee.kind === 'external' && employee.brandLabel ? (
               <span className="off-pers-emp-brand">{employee.brandLabel}</span>
             ) : null}
+            {employee.kind === 'internal' ? (
+              <span className={cn('off-pers-emp-model', modelInvalid && 'is-invalid')}>
+                {modelInvalid
+                  ? 'Model unavailable · inherits'
+                  : employee.model || 'Inherits conversation model'}
+              </span>
+            ) : null}
           </span>
         </span>
       </button>
@@ -157,6 +171,7 @@ function RosterRow({
 
 function RosterRail({
   employees,
+  validModels,
   collapsed,
   onToggleCollapse,
   onHire,
@@ -165,6 +180,7 @@ function RosterRail({
   onSelectEmployee,
 }: {
   employees: Employee[];
+  validModels: ReadonlySet<string> | undefined;
   collapsed: boolean;
   onToggleCollapse: () => void;
   onHire: () => void;
@@ -256,6 +272,7 @@ function RosterRail({
             <RosterRow
               key={employee.id}
               employee={employee}
+              validModels={validModels}
               selected={employee.id === selectedEmployeeId}
               collapsed={collapsed}
               onSelect={() => onSelectEmployee(employee.id)}
@@ -267,10 +284,17 @@ function RosterRail({
   );
 }
 
-function DetailHeader({ employee }: { employee: Employee }) {
+function DetailHeader({
+  employee,
+  validModels,
+}: {
+  employee: Employee;
+  validModels: ReadonlySet<string> | undefined;
+}) {
   const roleLine = [displayRole(employee), employee.zoneLabel, employee.deskLabel]
     .filter(Boolean)
     .join(' · ');
+  const invalidModel = Boolean(employee.model && validModels && !validModels.has(employee.model));
   return (
     <header className="off-pers-detail-head">
       <EmployeeAvatar
@@ -286,6 +310,11 @@ function DetailHeader({ employee }: { employee: Employee }) {
         <span className="off-pers-role">{roleLine}</span>
       </div>
       <div className="off-pers-detail-pills">
+        {employee.kind === 'internal' ? (
+          <span className={cn('off-pers-st-pill', invalidModel && 'is-off')}>
+            {invalidModel ? 'Model unavailable · inherits' : employee.model || 'Inherits model'}
+          </span>
+        ) : null}
         {employee.kind === 'external' ? (
           <span className="off-pers-st-pill is-brand">{employee.brandLabel ?? 'Brand'}</span>
         ) : (
@@ -323,6 +352,8 @@ function appearanceKey(draft: AppearanceDraft): string {
 function EmployeeDetail({
   employee,
   companyName,
+  models,
+  modelsLoading,
   tab,
   onTabChange,
   onDirtyChange,
@@ -330,6 +361,8 @@ function EmployeeDetail({
 }: {
   employee: Employee;
   companyName: string;
+  models: PiAgentModelOption[] | undefined;
+  modelsLoading: boolean;
   tab: InspectorTab;
   onTabChange: (tab: InspectorTab) => void;
   onDirtyChange?: (dirty: boolean) => void;
@@ -349,6 +382,12 @@ function EmployeeDetail({
   // dirty/reset baseline doesn't lag behind the post-save query refetch.
   const baselineAppearance = useRef<AppearanceDraft>(appearanceDraftFor(employee));
   const [appearance, setAppearance] = useState<AppearanceDraft>(appearanceDraftFor(employee));
+  const baselineRuntime = useRef({
+    model: employee.model ?? '',
+    thinkingLevel: employee.thinkingLevel ?? '',
+  });
+  const [model, setModel] = useState(employee.model ?? '');
+  const [thinkingLevel, setThinkingLevel] = useState(employee.thinkingLevel ?? '');
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -369,7 +408,10 @@ function EmployeeDetail({
   }, [guardPulse]);
 
   const appearanceDirty = appearanceKey(appearance) !== appearanceKey(baselineAppearance.current);
-  const isDirty = form.formState.isDirty || appearanceDirty;
+  const runtimeDirty =
+    model !== baselineRuntime.current.model ||
+    thinkingLevel !== baselineRuntime.current.thinkingLevel;
+  const isDirty = form.formState.isDirty || appearanceDirty || runtimeDirty;
   const nameValid = form.watch('name').trim().length > 0;
   const canSave = isDirty && !isSaving && employee.kind !== 'external' && nameValid;
 
@@ -392,6 +434,13 @@ function EmployeeDetail({
       // overwrite it with the stub defaults; reset clears dirty state.
       const hydrated = profileDefaultsFromRecord(employee, persona);
       baselineProfile.current = hydrated;
+      const hydratedRuntime = {
+        model: row.model?.trim() ?? '',
+        thinkingLevel: row.thinking_level?.trim() ?? '',
+      };
+      baselineRuntime.current = hydratedRuntime;
+      setModel(hydratedRuntime.model);
+      setThinkingLevel(hydratedRuntime.thinkingLevel);
       form.reset(hydrated);
     })();
     return () => {
@@ -432,6 +481,8 @@ function EmployeeDetail({
             role_slug: roleSlug(values.role),
             enabled: values.enabled ? 1 : 0,
             persona_json: JSON.stringify(persona),
+            model: model || null,
+            thinking_level: model && thinkingLevel ? thinkingLevel : null,
           }),
       });
       await queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
@@ -440,6 +491,8 @@ function EmployeeDetail({
       });
       baselineProfile.current = values;
       baselineAppearance.current = appearance;
+      baselineRuntime.current = { model, thinkingLevel: model ? thinkingLevel : '' };
+      if (!model) setThinkingLevel('');
       form.reset(values);
       toast.success(`${employee.name} saved`);
     } catch (error) {
@@ -454,6 +507,8 @@ function EmployeeDetail({
   const onReset = () => {
     form.reset(baselineProfile.current);
     setAppearance(baselineAppearance.current);
+    setModel(baselineRuntime.current.model);
+    setThinkingLevel(baselineRuntime.current.thinkingLevel);
     setSaveError(null);
   };
 
@@ -480,7 +535,10 @@ function EmployeeDetail({
 
   return (
     <>
-      <DetailHeader employee={employee} />
+      <DetailHeader
+        employee={employee}
+        validModels={models ? new Set(models.map((option) => option.value)) : undefined}
+      />
       <Tabs value={tab} onValueChange={(value) => onTabChange(value as InspectorTab)}>
         <TabsList className="off-pers-insp-tabs" aria-label="Employee inspector">
           {INSPECTOR_TABS.map((entry) => (
@@ -504,10 +562,23 @@ function EmployeeDetail({
         {tab === 'appearance' ? (
           <AppearanceTab employee={employee} draft={appearance} onChange={setAppearance} />
         ) : null}
-        {tab === 'runtime' ? <RuntimeTab employee={employee} /> : null}
+        {tab === 'runtime' ? (
+          <RuntimeTab
+            employee={employee}
+            models={models}
+            modelsLoading={modelsLoading}
+            model={model}
+            thinkingLevel={thinkingLevel}
+            onModelChange={(value) => {
+              setModel(value);
+              if (!value) setThinkingLevel('');
+            }}
+            onThinkingLevelChange={setThinkingLevel}
+          />
+        ) : null}
         {tab === 'history' ? <HistoryTab employeeId={employee.id} /> : null}
       </div>
-      {tab === 'profile' || tab === 'appearance' ? (
+      {tab === 'profile' || tab === 'appearance' || tab === 'runtime' ? (
         <>
           {saveError ? <div className="off-pers-save-error">{saveError}</div> : null}
           <div
@@ -565,10 +636,13 @@ function HireEmployeeDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
+  const models = usePiAgentModels();
   const nameInputId = useId();
   const roleInputId = useId();
   const [name, setName] = useState('');
   const [role, setRole] = useState('Developer');
+  const [model, setModel] = useState('');
+  const [thinkingLevel, setThinkingLevel] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const canSubmit = name.trim().length > 0 && role.trim().length > 0 && !isSaving;
@@ -576,6 +650,8 @@ function HireEmployeeDialog({
   const reset = () => {
     setName('');
     setRole('Developer');
+    setModel('');
+    setThinkingLevel('');
     setError(null);
     setIsSaving(false);
   };
@@ -596,6 +672,8 @@ function HireEmployeeDialog({
         source_package_id: null,
         persona_json: JSON.stringify(newEmployeePersona()),
         config_json: '{}',
+        model: model || null,
+        thinking_level: model && thinkingLevel ? thinkingLevel : null,
       });
       await queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
       useUiState.getState().selectEmployee(employee_id);
@@ -638,6 +716,51 @@ function HireEmployeeDialog({
             />
           </div>
           <div className="off-pers-hire-field">
+            <label htmlFor={`${roleInputId}-model`}>Model</label>
+            <Select
+              id={`${roleInputId}-model`}
+              value={model}
+              onChange={(event) => {
+                const next = event.target.value;
+                setModel(next);
+                if (models.data?.find((option) => option.value === next)?.reasoning !== true) {
+                  setThinkingLevel('');
+                }
+              }}
+              disabled={models.isLoading}
+              options={[
+                {
+                  value: '',
+                  label: models.isLoading
+                    ? 'Loading Pi models…'
+                    : 'Inherit conversation model',
+                },
+                ...(models.data ?? []).map((option) => ({
+                  value: option.value,
+                  label: `${option.provider} · ${option.name}`,
+                })),
+              ]}
+            />
+          </div>
+          <div className="off-pers-hire-field">
+            <label htmlFor={`${roleInputId}-thinking`}>Thinking level</label>
+            <Select
+              id={`${roleInputId}-thinking`}
+              value={thinkingLevel}
+              onChange={(event) => setThinkingLevel(event.target.value)}
+              disabled={
+                !model ||
+                models.data?.find((option) => option.value === model)?.reasoning !== true
+              }
+              options={[
+                { value: '', label: 'Use conversation level' },
+                ...(['off', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const).map(
+                  (level) => ({ value: level, label: level }),
+                ),
+              ]}
+            />
+          </div>
+          <div className="off-pers-hire-field">
             <label htmlFor={roleInputId}>Role</label>
             <Input
               id={roleInputId}
@@ -664,6 +787,7 @@ function HireEmployeeDialog({
 
 export function PersonnelSurface() {
   const employees = useEmployees();
+  const models = usePiAgentModels();
   const companies = useCompanies();
   const companyId = useUiState((s) => s.companyId);
   const selectedEmployeeId = useUiState((s) => s.selectedEmployeeId);
@@ -683,6 +807,9 @@ export function PersonnelSurface() {
   const dirtyRef = useRef(false);
 
   const roster = employees.data ?? [];
+  const validModels = models.data
+    ? new Set(models.data.map((option) => option.value))
+    : undefined;
   const selected = roster.find((e) => e.id === selectedEmployeeId) ?? null;
 
   const guardedSelect = useCallback(
@@ -822,6 +949,7 @@ export function PersonnelSurface() {
         >
           <RosterRail
             employees={roster}
+            validModels={validModels}
             collapsed={collapsed}
             onToggleCollapse={onToggleList}
             onHire={() => setHireOpen(true)}
@@ -839,6 +967,8 @@ export function PersonnelSurface() {
               key={selected.id}
               employee={selected}
               companyName={companyName}
+              models={models.data}
+              modelsLoading={models.isLoading}
               tab={tab}
               onTabChange={setTab}
               onDirtyChange={(d) => {

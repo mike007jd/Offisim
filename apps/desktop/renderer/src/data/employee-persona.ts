@@ -1,6 +1,7 @@
 import { invokeCommand } from '@/lib/tauri-commands.js';
 import { titleizeSlug } from '@/lib/utils.js';
 import type { EmployeeRow, McpToolGrantRow, RuntimeRepositories } from '@offisim/core/browser';
+import type { DelegationRosterEntry } from '@offisim/shared-types';
 import { inferMcpGrantRiskClass } from './mcp-risk.js';
 
 /**
@@ -83,13 +84,6 @@ function personaFromRow(employee: EmployeeRow, companyName: string): string {
 /** A teammate the root agent may delegate to. Opaque on the wire; the Node host's
  *  supervisor builds an in-process child session from it. Excludes the acting
  *  employee and external (A2A) employees — those aren't in-process Pi children. */
-interface DelegationRosterEntry {
-  employeeId: string;
-  name: string;
-  roleSlug: string;
-  persona: string;
-}
-
 /** Everything a turn needs to brief the root agent and its potential teammates:
  *  the acting employee's own persona (Pi's `appendSystemPrompt`) plus the
  *  delegation roster. */
@@ -150,12 +144,18 @@ export async function buildDelegationContext(
     : null;
   const roster = employees
     .filter((e) => e.enabled === 1 && e.is_external !== 1 && e.employee_id !== actingEmployeeId)
-    .map((e) => ({
-      employeeId: e.employee_id,
-      name: e.name ?? e.employee_id,
-      roleSlug: e.role_slug,
-      persona: personaFromRow(e, companyName),
-    }));
+    .map((e) => {
+      const model = e.model?.trim();
+      const thinkingLevel = e.thinking_level?.trim();
+      return {
+        employeeId: e.employee_id,
+        name: e.name ?? e.employee_id,
+        roleSlug: e.role_slug,
+        persona: personaFromRow(e, companyName),
+        ...(model ? { model } : {}),
+        ...(model && thinkingLevel ? { thinkingLevel } : {}),
+      };
+    });
   return {
     systemPromptAppend: acting ? personaFromRow(acting, companyName) : null,
     roster,

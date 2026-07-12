@@ -4,7 +4,11 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { integrateCompletedDelegation } from './pi-child-supervisor.mjs';
+import {
+  createChildSupervisor,
+  createDelegationLimits,
+  integrateCompletedDelegation,
+} from './pi-child-supervisor.mjs';
 import { createWorkspaceLeaseManager } from '../packages/core/src/runtime/mission/workspace/lease-manager.ts';
 import type {
   GitWorktreeOps,
@@ -107,10 +111,85 @@ try {
     'single-mode supervisor must invoke the shared integration path',
   );
 
+  const rootModel = { provider: 'fixture', id: 'root-model' };
+  const modelA = { provider: 'fixture', id: 'employee-a' };
+  const modelB = { provider: 'fixture', id: 'employee-b' };
+  const modelById = new Map([
+    ['fixture/employee-a', modelA],
+    ['fixture/employee-b', modelB],
+  ]);
+  const sessionOptions: Array<Record<string, unknown>> = [];
+  const makeSession = () => {
+    let subscriber: ((event: unknown) => void) | undefined;
+    return {
+      subscribe(callback: (event: unknown) => void) {
+        subscriber = callback;
+        return () => {};
+      },
+      async prompt() {
+        subscriber?.({
+          type: 'message_end',
+          message: {
+            role: 'assistant',
+            stopReason: 'stop',
+            usage: { input: 1, output: 1, cost: { total: 0.001 } },
+          },
+        });
+      },
+      getLastAssistantText: () => 'Summary: fixture complete',
+      abort: async () => {},
+      dispose: () => {},
+    };
+  };
+  const supervisor = createChildSupervisor({
+    emit: () => {},
+    authStorage: {},
+    modelRegistry: {},
+    cwd: repo,
+    settingsManager: {},
+    threadId: 'thread-model-binding',
+    rootRunId: 'root-model-binding',
+    roster: [
+      {
+        employeeId: 'employee-a',
+        model: 'fixture/employee-a',
+        thinkingLevel: 'high',
+      },
+      {
+        employeeId: 'employee-b',
+        model: 'fixture/employee-b',
+        thinkingLevel: 'low',
+      },
+      { employeeId: 'employee-inherit' },
+    ],
+    resolveModel: (modelId?: string) => (modelId ? modelById.get(modelId) : undefined),
+    rootModel,
+    rootThinkingLevel: 'medium',
+    buildPermissionGate: () => null,
+    limits: createDelegationLimits({ childTimeoutMs: 0 }),
+    createResourceLoader: () => ({ reload: async () => {} }),
+    createSessionManager: () => ({}),
+    createAgentSession: async (options: Record<string, unknown>) => {
+      sessionOptions.push(options);
+      return { session: makeSession() };
+    },
+  });
+  await supervisor.runSingle({ employeeId: 'employee-a', objective: 'A', access: 'read' });
+  await supervisor.runSingle({ employeeId: 'employee-b', objective: 'B', access: 'read' });
+  await supervisor.runSingle({ employeeId: 'employee-inherit', objective: 'C', access: 'read' });
+  assert.equal(sessionOptions[0]?.model, modelA);
+  assert.equal(sessionOptions[0]?.thinkingLevel, 'high');
+  assert.equal(sessionOptions[1]?.model, modelB);
+  assert.equal(sessionOptions[1]?.thinkingLevel, 'low');
+  assert.equal(sessionOptions[2]?.model, rootModel);
+  assert.equal(sessionOptions[2]?.thinkingLevel, 'medium');
+
   console.log('PASS single write artifact merged into project checkout');
   console.log('PASS isolated worktree removed');
   console.log('PASS write lease released');
   console.log('PASS single and parallel modes share the integration implementation');
+  console.log('PASS employee model and thinking bindings reach child createAgentSession');
+  console.log('PASS unbound employee inherits root model and thinking level');
 } finally {
   rmSync(repo, { recursive: true, force: true });
 }

@@ -17,6 +17,13 @@ interface SelectProps
   onChange?: (event: ChangeEvent<HTMLSelectElement>) => void;
 }
 
+// Radix Select.Item throws on an empty-string value, but callers legitimately
+// use '' for "no selection" options (inherit / none). Map '' through a sentinel
+// at the Radix boundary so the public API keeps plain '' semantics.
+const EMPTY_VALUE_SENTINEL = '__select-empty__';
+const toItemValue = (value: string) => (value === '' ? EMPTY_VALUE_SENTINEL : value);
+const fromItemValue = (value: string) => (value === EMPTY_VALUE_SENTINEL ? '' : value);
+
 function toChangeEvent(name: string | undefined, value: string): ChangeEvent<HTMLSelectElement> {
   return {
     target: { name, value },
@@ -55,11 +62,15 @@ export function Select({
   return (
     <SelectPrimitive.Root
       name={name}
-      value={selected}
-      defaultValue={selected === undefined ? fallbackValue : undefined}
+      value={selected === undefined ? undefined : toItemValue(selected)}
+      defaultValue={
+        selected === undefined && fallbackValue !== undefined
+          ? toItemValue(fallbackValue)
+          : undefined
+      }
       disabled={disabled}
       required={required}
-      onValueChange={(next) => onChange?.(toChangeEvent(name, next))}
+      onValueChange={(next) => onChange?.(toChangeEvent(name, fromItemValue(next)))}
     >
       <SelectPrimitive.Trigger
         id={id}
@@ -83,7 +94,7 @@ export function Select({
             {options.map((option) => (
               <SelectPrimitive.Item
                 key={option.value}
-                value={option.value}
+                value={toItemValue(option.value)}
                 className="off-select-item"
               >
                 <SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText>

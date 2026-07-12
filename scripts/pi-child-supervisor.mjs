@@ -43,6 +43,7 @@ const ACCESS_TOOLS = {
 // announced (never a silent cap).
 const PER_CHILD_OUTPUT_CAP = 8 * 1024;
 const COMBINED_OUTPUT_CAP = 24 * 1024;
+const THINKING_LEVELS = new Set(['off', 'minimal', 'low', 'medium', 'high', 'xhigh']);
 
 // Deterministic host-policy defaults (Docs/DELEGATION_ARCHITECTURE.md §7). These
 // are the only constraints code enforces; everything else is the agent's call.
@@ -314,10 +315,14 @@ async function mapWithConcurrencyLimit(items, limit, fn) {
  * @param {object} ctx.settingsManager
  * @param {string} ctx.threadId
  * @param {string} ctx.rootRunId
- * @param {Array<{employeeId:string,name?:string,roleSlug?:string,persona?:string,model?:string}>} ctx.roster
+ * @param {Array<{employeeId:string,name?:string,roleSlug?:string,persona?:string,model?:string,thinkingLevel?:string}>} ctx.roster
  * @param {(modelId?: string) => object|undefined} ctx.resolveModel
  * @param {object|undefined} [ctx.rootModel] model explicitly selected for the parent run
+ * @param {string|undefined} [ctx.rootThinkingLevel] thinking level selected for the parent run
  * @param {(mode: string) => ((pi: unknown) => void)|null} ctx.buildPermissionGate
+ * @param {typeof createAgentSession} [ctx.createAgentSession] deterministic harness seam
+ * @param {(options: object) => {reload: () => Promise<void>}} [ctx.createResourceLoader]
+ * @param {(cwd: string) => object} [ctx.createSessionManager]
  * @param {object} ctx.limits           shared DelegationLimits (createDelegationLimits)
  * @param {number} [ctx.depth]          this supervisor's level (0 = root). Default 0.
  * @param {string|null} [ctx.projectId] project owning the workspace, when known
@@ -331,6 +336,21 @@ export function createChildSupervisor(ctx) {
   const depth = ctx.depth ?? 0;
   const parentRunId = ctx.parentRunId ?? ctx.rootRunId;
   const limits = ctx.limits;
+
+  function resolveEmployeeBinding(employee) {
+    const requestedModel = asNonEmptyString(employee.model);
+    const model = requestedModel ? ctx.resolveModel(requestedModel) : ctx.rootModel;
+    if (requestedModel && !model) {
+      throw new Error(`Employee model binding was not found in Pi: ${requestedModel}`);
+    }
+    const requestedThinking = asNonEmptyString(employee.thinkingLevel);
+    if (requestedThinking && !THINKING_LEVELS.has(requestedThinking)) {
+      throw new Error(`Employee thinking level is invalid: ${requestedThinking}`);
+    }
+    const thinkingLevel = requestedThinking ?? ctx.rootThinkingLevel;
+    const modelLabel = model?.provider && model?.id ? `${model.provider}/${model.id}` : requestedModel;
+    return { model, modelLabel, thinkingLevel };
+  }
 
   async function workspaceLeaseSnapshotPayload(lease, phase, extra = {}) {
     let changedPaths = [];
@@ -448,7 +468,25 @@ export function createChildSupervisor(ctx) {
     // below leaves a durable agent_runs row — caps are never silent, at the DB
     // layer too. (Invalid-input blocks above stay event-only: their employeeId may
     // not exist, which would fail the row's employee FK.)
-    emit('run.started', { objective, access });
+    let binding;
+    try {
+      binding = resolveEmployeeBinding(employee);
+    } catch (error) {
+      emit('run.started', { objective, access });
+      const message = error instanceof Error ? error.message : String(error);
+      failed(emit, 'runtime', `Failed to start: ${message}`);
+      return { summary: `Delegation failed: ${message}`, runId, completed: false };
+    }
+    emit('run.started', {
+      objective,
+      access,
+      runtimeContextJson: JSON.stringify({
+        runtime: 'pi-agent',
+        model: binding.modelLabel ?? null,
+        thinkingLevel: binding.thinkingLevel ?? null,
+        inheritedModel: !asNonEmptyString(employee.model),
+      }),
+    });
     // Depth cap — a child still carries a delegate tool, but spawning past maxDepth
     // is blocked with a reason (the plan's controlled-recursion contract).
     if (depth + 1 > limits.maxDepth) {
@@ -489,7 +527,7 @@ export function createChildSupervisor(ctx) {
     }
 
     return {
-      summary: await runChildSession(runId, emit, employee, objective, access, signal),
+      summary: await runChildSession(runId, emit, employee, binding, objective, access, signal),
       runId,
       completed: true,
     };
@@ -507,7 +545,7 @@ export function createChildSupervisor(ctx) {
     );
   }
 
-  async function runChildSession(runId, emit, employee, objective, access, signal) {
+  async function runChildSession(runId, emit, employee, binding, objective, access, signal) {
     // The access band restricts WORK tools (read/write/bash). `delegate` is an
     // orchestration capability, not a work tool, so it must survive the allowlist
     // — otherwise a restricted-access child silently loses its delegate tool and
@@ -518,10 +556,7 @@ export function createChildSupervisor(ctx) {
       typeof employee.persona === 'string' && employee.persona.trim()
         ? employee.persona.trim()
         : undefined;
-    const requestedModel = asNonEmptyString(employee.model);
-    const model = requestedModel
-      ? (ctx.resolveModel(requestedModel) ?? ctx.rootModel)
-      : ctx.rootModel;
+    const { model, thinkingLevel } = binding;
 
     // Children always run under the Auto gate: a no-op for read access (no bash
     // tool) and a catastrophic-bash block for review/write — without needing a UI
@@ -579,22 +614,38 @@ export function createChildSupervisor(ctx) {
     // aborted by one child losing its siblings' terminals.
     let session;
     try {
-      const resourceLoader = new DefaultResourceLoader({
-        cwd: childCwd,
-        agentDir: ctx.agentDir,
-        settingsManager: ctx.settingsManager,
-        extensionFactories,
-        // Persona (if any) + the structured-result format the child should end on.
-        appendSystemPrompt: persona ? [persona, CHILD_RESULT_GUIDANCE] : [CHILD_RESULT_GUIDANCE],
-      });
+      const resourceLoader = ctx.createResourceLoader
+        ? ctx.createResourceLoader({
+            cwd: childCwd,
+            agentDir: ctx.agentDir,
+            settingsManager: ctx.settingsManager,
+            extensionFactories,
+            appendSystemPrompt: persona
+              ? [persona, CHILD_RESULT_GUIDANCE]
+              : [CHILD_RESULT_GUIDANCE],
+          })
+        : new DefaultResourceLoader({
+            cwd: childCwd,
+            agentDir: ctx.agentDir,
+            settingsManager: ctx.settingsManager,
+            extensionFactories,
+            // Persona (if any) + the structured-result format the child should end on.
+            appendSystemPrompt: persona
+              ? [persona, CHILD_RESULT_GUIDANCE]
+              : [CHILD_RESULT_GUIDANCE],
+          });
       await resourceLoader.reload();
-      ({ session } = await createAgentSession({
+      const createSession = ctx.createAgentSession ?? createAgentSession;
+      ({ session } = await createSession({
         cwd: childCwd,
         agentDir: ctx.agentDir,
         authStorage: ctx.authStorage,
         modelRegistry: ctx.modelRegistry,
-        sessionManager: SessionManager.inMemory(childCwd),
+        sessionManager: ctx.createSessionManager
+          ? ctx.createSessionManager(childCwd)
+          : SessionManager.inMemory(childCwd),
         ...(model ? { model } : {}),
+        ...(thinkingLevel ? { thinkingLevel } : {}),
         ...(tools ? { tools } : {}),
         resourceLoader,
       }));

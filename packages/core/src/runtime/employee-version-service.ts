@@ -67,6 +67,8 @@ export class EmployeeVersionService {
       enabled: employee.enabled,
       persona_json: employee.persona_json,
       config_json: employee.config_json,
+      model: employee.model,
+      thinking_level: employee.thinking_level,
       workstation_id: employee.workstation_id,
     });
 
@@ -157,6 +159,8 @@ export class EmployeeVersionService {
       enabled: parsed.enabled as number,
       persona_json: (parsed.persona_json as string) ?? null,
       config_json: (parsed.config_json as string) ?? null,
+      model: (parsed.model as string) ?? null,
+      thinking_level: (parsed.thinking_level as string) ?? null,
       workstation_id: (parsed.workstation_id as string) ?? null,
     };
 
