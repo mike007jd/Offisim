@@ -19,19 +19,20 @@ P3 session 占用任务板/git/lease/pi_host 全链路(P4 要动 `pi-child-super
 2. Office 左栏 Git/Diff/lease review 本来就 import 自 `tasks/`,两边天然一体;
 3. Activity(`agent_events` 事件流)与 Tasks(`agent_runs` run 卡)同源不同粒度,不值得两个顶级入口。
 
-层级方案(board-first,与 P3 拍板一致):
+层级方案(board-first,与 P3 拍板一致;以下 Phase A 过程态中已标注 superseded 的内容不得再作为当前实现依据):
 
 - **Office** = 工作台与指挥中心。舞台 OPEN VIEW 视图槽是核心扩展点(已有 Output/Browser/Preview/Review/Terminal/Files)。
 - **Tasks 归 Office**(用户拍板 2026-07-12,推翻此前"独立指挥中心升 primary"方案):Board 作为舞台视图进 Office——项目/全部范围切换、任务卡带「来源会话」回链、事件驱动自动开窗(lease 待审自动弹 Review、出交付物自动亮 Preview)。理由:Office 左栏本就 import tasks/ 的 diff/lease 组件;日常 1-2 个项目撑不起独立顶级 tab;"看公司干活"的心智里任务就发生在办公室。顶级 Tasks tab 过渡期留 utility,Board 视图落地后退场。
 - **Activity** 并入同一 Board 区域做时间线视图,顶级位取消(Phase B)。
 - **Board 以看板列呈现**(用户拍板 2026-07-12):列 = 状态(排队/运行中/待审查/已合并/失败),卡片上直接暂停/改派/看 diff,拖拽用于插单调序;取代原 Tasks 状态分组长列表。
-- **Connect 保持 primary 到 Phase B**:Phase A 只下线与 Tasks 撞车的 KanbanApp,Connect 暂时收敛为 Messenger / Calendar / Contacts。Messenger 并入 Office、议程并入 Board 时间线、Contacts 去重和 Connect 域退场都属于 Phase B/C 的信息模型重构,本 lane 不提前改结构。
+- **[SUPERSEDED by B2] Connect 保持 primary 到 Phase B**:这是 Phase A 的历史过程态。当前 Connect surface 已退场;Messenger 已进入 Office 公司频道,议程已进入 Board 时间线,Contacts 由 Personnel + TeamDock 覆盖。
 - **Market** 降 utility(低频商店)。
 
-最终(Phase A 落地后):primary = Office / Connect / Loops / Personnel;utility = Market / Activity(过渡) / Tasks(过渡) / Studio / Settings。
-内部 surface key 不改(`workspace`/`mission` 历史名保留),只动 tier 与呈现。
+**[SUPERSEDED by B2]** Phase A 曾暂定 primary = Office / Connect / Loops / Personnel;utility = Market / Activity / Tasks / Studio / Settings。当前终局以本节后文的“修正终局”和 B2 交付状态为准。
 
-## 1.5 信息模型(2026-07-12 与用户对齐,待确认「卡 = 需求」)
+当前 `SurfaceKey` 真值为 `office | market | personnel | mission | settings | studio | lifecycle`;`workspace`、`connect`、`activity`、`tasks` 均不再是 surface key。`mission` 仍是 Loops 的内部 key。
+
+## 1.5 信息模型(2026-07-12 已确认:卡 = 需求)
 
 数据真实层级:会话 → 需求(一条指令 = 一次 root run)→ 子任务(planner 拆分,各有 worktree/diff)。
 
@@ -42,7 +43,9 @@ P3 session 占用任务板/git/lease/pi_host 全链路(P4 要动 `pi-child-super
 - **场景管执行**:3D 员工干活 = 子任务活体呈现,双向跳转(卡 ↔ 场景员工)。场景与看板是同一事实的两种镜头;工作视图打开时场景缩驻侧窗/画中画,不消失(硬设计约束)。
 - 无委派的单聊小改 = 0/0 子任务的卡,同走待审查→合并。Loops 产生的 run 落同一看板。
 
-**Connect 拆散溶解(取代上一节的"降级观察")**:Connect 实为"聊天 OS + 应用架",产品里套产品是违和感根源。归宿:① Messenger/圆桌 → Office 右栏会话列表加「公司频道」分组(圆桌接 3D 会议室演绎);② Calendar 议程 → 看板时间线视图(与 Activity 合并);③ Contacts → 删(Personnel + TeamDock 已覆盖)。Connect 域整体退场,不设观察期。工程注意:需合并 project chat_threads 与 collaboration_* 两套 thread 存储,真工程,归 Phase B/C。
+**Connect 拆散溶解(取代上一节的"降级观察")**:Connect 实为"聊天 OS + 应用架",产品里套产品是违和感根源。归宿:① Messenger/圆桌 → Office 右栏会话列表加「公司频道」分组(圆桌接 3D 会议室演绎);② Calendar 议程 → 看板时间线视图(与 Activity 合并);③ Contacts → 删(Personnel + TeamDock 已覆盖)。Connect 域整体退场,不设观察期。
+
+**存储结论(当前真值)**:project `chat_threads` 与 `collaboration_*` 继续按项目会话/公司协作安全边界分域,不合并、不迁移。早期“需合并两套 thread 存储”的结论已被 B2 实现与架构边界 supersede,不得恢复。
 
 **修正终局**:primary = Office / Loops / Personnel;utility = Market / Studio / Settings;Tasks/Activity/Connect 三 surface 溶解退场。
 
@@ -60,7 +63,7 @@ P3 session 占用任务板/git/lease/pi_host 全链路(P4 要动 `pi-child-super
 
 | Phase | 内容 | 依赖 |
 |---|---|---|
-| A(本分支 `feat/shell-ia-and-character`) | Market 降 utility;Connect 保持 primary 并下线 Kanban;发型扩库 + 映射对齐;AppearanceTab 预览 + 向导外观 | 无,基于 P2 HEAD |
+| A(历史过程态,Connect 结论已 superseded) | Market 降 utility;Connect 曾暂时保持 primary 并下线 Kanban;发型扩库 + 映射对齐;AppearanceTab 预览 + 向导外观 | 无,基于 P2 HEAD |
 | B1(2026-07-12 已完成) | Board 以四列看板进 Office 舞台(项目/公司范围、来源回链、审查抽屉、自动开窗);Activity 并入公司级时间线;Tasks/Activity 顶级入口退场;所有工作视图保留场景画中画 | P3 merged |
 | B2(2026-07-12 已完成) | 公司频道 UI 并入 Office、meeting rows 并入 Board 后 Connect surface 退场;底层 collaboration/project 存储保持分域 | B1 |
 
