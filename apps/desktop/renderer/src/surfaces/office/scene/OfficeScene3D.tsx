@@ -1244,6 +1244,7 @@ export function OfficeScene3D({ pip = false }: { pip?: boolean }) {
             key={zone.id}
             zone={zone}
             highlight={employeeDrag !== null && hoveredZoneId === zone.id}
+            showLabel={!pip}
           />
         ))}
         <DioramaDressing zones={zoneDefs} prefabCount={scenePrefabs?.length ?? 0} />
@@ -1309,7 +1310,7 @@ export function OfficeScene3D({ pip = false }: { pip?: boolean }) {
                   withDesk={!real}
                   running={running}
                   status={cue?.status ?? 'idle'}
-                  workload={workload}
+                  workload={pip ? null : workload}
                   resourceKind={resourceKindByEmployee.get(employee.id) ?? null}
                   reducedMotion={reducedMotion}
                   selected={cue?.selected ?? false}
@@ -1404,7 +1405,7 @@ export function OfficeScene3D({ pip = false }: { pip?: boolean }) {
             />
             {/* Lane density label — the shared flowCueText rule (`×N · label`
                 for bundles), a compact pill at the line midpoint. */}
-            {line.showLabel ? (
+            {!pip && line.showLabel ? (
               <SceneAnnotation position={line.labelPosition} priority="ambient">
                 <span
                   className={`off-scene-flow-label is-${line.ink}`}
@@ -1419,13 +1420,15 @@ export function OfficeScene3D({ pip = false }: { pip?: boolean }) {
         {/* Purpose-distinct target anchors — a small labeled node per active
             flow target (dense HUD, not decoration); the delivery shelf below
             is itself the delivery anchor when it renders. */}
-        {activeFlowTargets.map((target) =>
-          target === 'delivery' ? null : (
-            <SceneAnnotation key={target} position={flowTarget3D(target)} priority="ambient">
-              <span className="off-scene-flow-anchor">{FLOW_TARGET_LABELS[target]}</span>
-            </SceneAnnotation>
-          ),
-        )}
+        {pip
+          ? null
+          : activeFlowTargets.map((target) =>
+              target === 'delivery' ? null : (
+                <SceneAnnotation key={target} position={flowTarget3D(target)} priority="ambient">
+                  <span className="off-scene-flow-anchor">{FLOW_TARGET_LABELS[target]}</span>
+                </SceneAnnotation>
+              ),
+            )}
         {deliveryLatest ? (
           <SceneAnnotation
             position={[OFFICE_DELIVERY_WORLD.x, 0.88, OFFICE_DELIVERY_WORLD.z]}

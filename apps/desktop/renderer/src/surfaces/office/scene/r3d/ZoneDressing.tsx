@@ -49,7 +49,8 @@ export const ZoneRug = memo(function ZoneRug({
   zone,
   highlight = false,
   dimmed = false,
-}: { zone: ZoneDef; highlight?: boolean; dimmed?: boolean }) {
+  showLabel = true,
+}: { zone: ZoneDef; highlight?: boolean; dimmed?: boolean; showLabel?: boolean }) {
   const rugRef = useRef<Group>(null);
   const rugOpacity = dimmed ? 0.22 : 1;
   const labelZ =
@@ -95,14 +96,16 @@ export const ZoneRug = memo(function ZoneRug({
           }}
         />
       </RoundedSlab>
-      <SceneAnnotation
-        position={[labelX, 0.14, labelZ]}
-        align="start"
-        priority="ambient"
-        exclude={rugRef}
-      >
-        <span className="off-scene-zone-label">{zone.label}</span>
-      </SceneAnnotation>
+      {showLabel ? (
+        <SceneAnnotation
+          position={[labelX, 0.14, labelZ]}
+          align="start"
+          priority="ambient"
+          exclude={rugRef}
+        >
+          <span className="off-scene-zone-label">{zone.label}</span>
+        </SceneAnnotation>
+      ) : null}
     </group>
   );
 });

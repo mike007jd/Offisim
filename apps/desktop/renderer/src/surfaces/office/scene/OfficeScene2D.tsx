@@ -358,29 +358,31 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
         ctx.beginPath();
         ctx.arc(px, py, cue.ink === 'risk' ? 4.2 : 3.4, 0, Math.PI * 2);
         ctx.fill();
-        // Lane density label — flowCueText on a subtle backing pill at the
-        // curve midpoint (registered in `occupied` so name labels dodge it).
-        ctx.font = CANVAS_FONT_TOKENS.officeSceneLabel;
-        const laneKey = `${cue.employeeId}|${cue.target}`;
-        const slot = laneLabelSlots.get(laneKey) ?? 0;
-        laneLabelSlots.set(laneKey, slot + 1);
-        const text = ellipsizeToWidth(flowCueText(cue), 132);
-        const textW = ctx.measureText(text).width;
-        const lx = 0.25 * source.sx + 0.5 * mx + 0.25 * target.sx;
-        const ly = 0.25 * source.sy + 0.5 * my + 0.25 * target.sy + slot * 17;
-        ctx.fillStyle = OFFICE_SCENE_2D_COLORS.deliveryShelf;
-        roundRect(ctx, lx - textW / 2 - 5, ly - 8, textW + 10, 15, 7);
-        ctx.fill();
-        ctx.fillStyle = ink.packet;
-        ctx.textAlign = 'center';
-        ctx.fillText(text, lx, ly + 3.5);
-        ctx.textAlign = 'left';
-        occupied.push({
-          x0: lx - textW / 2 - 5,
-          x1: lx + textW / 2 + 5,
-          y0: ly - 8,
-          y1: ly + 7,
-        });
+        if (!pip) {
+          // Lane density label — flowCueText on a subtle backing pill at the
+          // curve midpoint (registered in `occupied` so name labels dodge it).
+          ctx.font = CANVAS_FONT_TOKENS.officeSceneLabel;
+          const laneKey = `${cue.employeeId}|${cue.target}`;
+          const slot = laneLabelSlots.get(laneKey) ?? 0;
+          laneLabelSlots.set(laneKey, slot + 1);
+          const text = ellipsizeToWidth(flowCueText(cue), 132);
+          const textW = ctx.measureText(text).width;
+          const lx = 0.25 * source.sx + 0.5 * mx + 0.25 * target.sx;
+          const ly = 0.25 * source.sy + 0.5 * my + 0.25 * target.sy + slot * 17;
+          ctx.fillStyle = OFFICE_SCENE_2D_COLORS.deliveryShelf;
+          roundRect(ctx, lx - textW / 2 - 5, ly - 8, textW + 10, 15, 7);
+          ctx.fill();
+          ctx.fillStyle = ink.packet;
+          ctx.textAlign = 'center';
+          ctx.fillText(text, lx, ly + 3.5);
+          ctx.textAlign = 'left';
+          occupied.push({
+            x0: lx - textW / 2 - 5,
+            x1: lx + textW / 2 + 5,
+            y0: ly - 8,
+            y1: ly + 7,
+          });
+        }
         ctx.restore();
       }
 
