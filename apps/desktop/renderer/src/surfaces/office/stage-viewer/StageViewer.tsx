@@ -178,7 +178,9 @@ export function StageTopBar({ isRunning, tokensLabel, costLabel }: StageTopBarPr
                 }}
                 onContextMenu={(event) => {
                   event.preventDefault();
-                  toggleStageSplitTab(tab.id);
+                  if (stagePrimaryTab !== 'game' && stagePrimaryTab !== 'board') {
+                    toggleStageSplitTab(tab.id);
+                  }
                 }}
                 aria-current={activeStageTabId === tab.id ? 'page' : undefined}
                 aria-label={label}
@@ -187,30 +189,32 @@ export function StageTopBar({ isRunning, tokensLabel, costLabel }: StageTopBarPr
                 <Icon icon={stageTabIcon(tab.target)} size="sm" />
                 <span>{label}</span>
               </button>
-              <button
-                type="button"
-                className="off-stage-tab-split off-focusable"
-                onClick={() => toggleStageSplitTab(tab.id)}
-                aria-label={
-                  stageSplitTabId === tab.id
-                    ? `Restore ${label} to single view`
-                    : `Split ${label} to right`
-                }
-                aria-pressed={stageSplitTabId === tab.id}
-                title={
-                  stageSplitTabId === tab.id
-                    ? 'Restore single view'
-                    : stageOpenTabs.length > 1
-                      ? 'Split to right'
-                      : 'Open another work view to split'
-                }
-                disabled={stageOpenTabs.length < 2 && stageSplitTabId !== tab.id}
-              >
-                <Icon
-                  icon={stageSplitTabId === tab.id ? PanelRightClose : PanelRightOpen}
-                  size="sm"
-                />
-              </button>
+              {stagePrimaryTab !== 'game' && stagePrimaryTab !== 'board' ? (
+                <button
+                  type="button"
+                  className="off-stage-tab-split off-focusable"
+                  onClick={() => toggleStageSplitTab(tab.id)}
+                  aria-label={
+                    stageSplitTabId === tab.id
+                      ? `Restore ${label} to single view`
+                      : `Split ${label} to right`
+                  }
+                  aria-pressed={stageSplitTabId === tab.id}
+                  title={
+                    stageSplitTabId === tab.id
+                      ? 'Restore single view'
+                      : stageOpenTabs.length > 1
+                        ? 'Split to right'
+                        : 'Open another work view to split'
+                  }
+                  disabled={stageOpenTabs.length < 2 && stageSplitTabId !== tab.id}
+                >
+                  <Icon
+                    icon={stageSplitTabId === tab.id ? PanelRightClose : PanelRightOpen}
+                    size="sm"
+                  />
+                </button>
+              ) : null}
               <button
                 type="button"
                 className="off-stage-tab-close off-focusable"
@@ -706,6 +710,8 @@ export function StageViewer() {
   const stageOpenTabs = useUiState((s) => s.stageOpenTabs);
   const activeStageTabId = useUiState((s) => s.activeStageTabId);
   const stageSplitTabId = useUiState((s) => s.stageSplitTabId);
+  const stageSplitLayout = useUiState((s) => s.stageSplitLayout);
+  const setStageSplitLayout = useUiState((s) => s.setStageSplitLayout);
   const viewerTab = stagePrimaryTab;
   if (viewerTab === 'game') return null;
   const visibleTarget =
@@ -717,15 +723,21 @@ export function StageViewer() {
   return (
     <section className="off-stage-viewer" aria-label="Stage viewer">
       {splitTab ? (
-        <Group orientation="horizontal" className="off-stage-split" id="stage-split-view">
-          <Panel id="stage-primary" defaultSize="56%" minSize="30%">
+        <Group
+          orientation="horizontal"
+          className="off-stage-split"
+          id="stage-split-view"
+          defaultLayout={stageSplitLayout}
+          onLayoutChanged={setStageSplitLayout}
+        >
+          <Panel id="stage-primary" minSize="30%">
             <StageViewPane tab={viewerTab} target={visibleTarget} tabId={activeStageTabId} />
           </Panel>
           <Separator
             className="off-resize-handle off-stage-split-handle"
             aria-label="Resize stage views"
           />
-          <Panel id="stage-secondary" defaultSize="44%" minSize="30%">
+          <Panel id="stage-secondary" minSize="30%">
             <StageViewPane
               tab={stageTabForTarget(splitTab.target)}
               target={splitTab.target}

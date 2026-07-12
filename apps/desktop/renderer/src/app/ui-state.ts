@@ -40,6 +40,65 @@ export interface StageOpenTab {
   target: StageOpenTarget;
 }
 
+export interface StageSplitLayout extends Record<string, number> {
+  'stage-primary': number;
+  'stage-secondary': number;
+}
+
+export const DEFAULT_STAGE_SPLIT_LAYOUT: StageSplitLayout = {
+  'stage-primary': 56,
+  'stage-secondary': 44,
+};
+
+const STAGE_SPLIT_LAYOUT_STORAGE_KEY = 'offisim:ui-state:stage-split-layout';
+
+export function normalizeStageSplitLayout(value: unknown): StageSplitLayout {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return DEFAULT_STAGE_SPLIT_LAYOUT;
+  }
+  const layout = value as Record<string, unknown>;
+  const primary = layout['stage-primary'];
+  const secondary = layout['stage-secondary'];
+  if (
+    typeof primary !== 'number' ||
+    typeof secondary !== 'number' ||
+    !Number.isFinite(primary) ||
+    !Number.isFinite(secondary) ||
+    primary < 30 ||
+    secondary < 30 ||
+    Math.abs(primary + secondary - 100) > 0.5
+  ) {
+    return DEFAULT_STAGE_SPLIT_LAYOUT;
+  }
+  return { 'stage-primary': primary, 'stage-secondary': secondary };
+}
+
+type StageSplitLayoutStorage = Pick<Storage, 'getItem' | 'setItem'>;
+
+export function readStageSplitLayout(
+  storage: StageSplitLayoutStorage | undefined = globalThis.localStorage,
+): StageSplitLayout {
+  try {
+    const raw = storage?.getItem(STAGE_SPLIT_LAYOUT_STORAGE_KEY);
+    return raw ? normalizeStageSplitLayout(JSON.parse(raw)) : DEFAULT_STAGE_SPLIT_LAYOUT;
+  } catch {
+    return DEFAULT_STAGE_SPLIT_LAYOUT;
+  }
+}
+
+export function persistStageSplitLayout(
+  value: unknown,
+  storage: StageSplitLayoutStorage | undefined = globalThis.localStorage,
+): StageSplitLayout {
+  const layout = normalizeStageSplitLayout(value);
+  try {
+    storage?.setItem(STAGE_SPLIT_LAYOUT_STORAGE_KEY, JSON.stringify(layout));
+  } catch {
+    // A layout remains usable for this session when WebView storage is unavailable.
+  }
+  return layout;
+}
+
 export function stageTabForTarget(
   target: StageOpenTarget,
 ): Exclude<StagePrimaryTab, 'game' | 'board'>;
@@ -161,6 +220,8 @@ interface UiState {
   activeStageTabId: string | null;
   /** Open work tab pinned to the resizable right stage pane. */
   stageSplitTabId: string | null;
+  /** Last committed horizontal split, retained across pane unmounts and app restarts. */
+  stageSplitLayout: StageSplitLayout;
   boardHighlightedRunId: string | null;
   boardLens: BoardLens;
   scenePipCollapsed: boolean;
@@ -261,6 +322,7 @@ interface UiState {
   activateStageTab: (id: string) => void;
   closeStageTab: (id: string) => void;
   toggleStageSplitTab: (id: string) => void;
+  setStageSplitLayout: (layout: Record<string, number>) => void;
   highlightBoardRun: (runId: string | null) => void;
   openBoard: (lens?: BoardLens) => void;
   setBoardLens: (lens: BoardLens) => void;
@@ -304,6 +366,7 @@ export const useUiState = create<UiState>((set, get) => ({
   stageOpenTabs: [],
   activeStageTabId: null,
   stageSplitTabId: null,
+  stageSplitLayout: readStageSplitLayout(),
   boardHighlightedRunId: null,
   boardLens: 'board',
   scenePipCollapsed: false,
@@ -520,7 +583,15 @@ export const useUiState = create<UiState>((set, get) => ({
     set((state) => {
       const tab = state.stageOpenTabs.find((candidate) => candidate.id === id);
       if (!tab) return {};
-      if (state.stageSplitTabId === id && state.activeStageTabId) {
+      if (state.stageSplitTabId === id) {
+        if (!state.activeStageTabId || state.activeStageTabId === id) {
+          return {
+            activeStageTabId: tab.id,
+            stageSplitTabId: null,
+            stagePrimaryTab: stageTabForTarget(tab.target),
+            stageView: tab.target,
+          };
+        }
         return {
           activeStageTabId: tab.id,
           stageSplitTabId: state.activeStageTabId,
@@ -556,6 +627,13 @@ export const useUiState = create<UiState>((set, get) => ({
   toggleStageSplitTab: (id) =>
     set((state) => {
       if (state.stageSplitTabId === id) return { stageSplitTabId: null };
+      if (
+        state.stagePrimaryTab === 'game' ||
+        state.stagePrimaryTab === 'board' ||
+        !state.activeStageTabId
+      ) {
+        return {};
+      }
       const splitTab = state.stageOpenTabs.find((tab) => tab.id === id);
       if (!splitTab) return {};
       if (state.activeStageTabId !== id) return { stageSplitTabId: id };
@@ -568,6 +646,7 @@ export const useUiState = create<UiState>((set, get) => ({
         stageView: leftTab.target,
       };
     }),
+  setStageSplitLayout: (layout) => set({ stageSplitLayout: persistStageSplitLayout(layout) }),
   highlightBoardRun: (boardHighlightedRunId) => set({ boardHighlightedRunId }),
   openBoard: (boardLens = 'board') =>
     set({
