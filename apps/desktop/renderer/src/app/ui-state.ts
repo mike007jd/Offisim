@@ -207,6 +207,10 @@ interface UiState {
    */
   pendingLoopProjectSelect: { loopId: string; revisionId: string } | null;
 
+  /** One-shot cross-project conversation focus. The target project's thread
+   * query consumes this only after it has resolved successfully. */
+  pendingThreadFocus: { projectId: string; threadId: string } | null;
+
   setSurface: (surface: SurfaceKey) => void;
   /** Open Settings, optionally deep-linking to a section (composer `/` routes). */
   openSettings: (section?: string) => void;
@@ -226,6 +230,8 @@ interface UiState {
   requestLoopProjectSelect: (intent: { loopId: string; revisionId: string }) => void;
   /** Clear the one-shot Loop project-select intent once it has been handled. */
   consumePendingLoopProjectSelect: () => { loopId: string; revisionId: string } | null;
+  requestThreadFocus: (intent: { projectId: string; threadId: string }) => void;
+  consumePendingThreadFocus: () => { projectId: string; threadId: string } | null;
   setScope: (companyId: string, projectId: string) => void;
   setProject: (projectId: string) => void;
 
@@ -320,6 +326,7 @@ export const useUiState = create<UiState>((set, get) => ({
   pendingDirectChatEmployeeId: null,
 
   pendingLoopProjectSelect: null,
+  pendingThreadFocus: null,
 
   setSurface: (surface) => set({ surface }),
   openSettings: (section) => set({ surface: 'settings', settingsSection: section ?? null }),
@@ -346,6 +353,25 @@ export const useUiState = create<UiState>((set, get) => ({
     if (intent) set({ pendingLoopProjectSelect: null });
     return intent;
   },
+  requestThreadFocus: (intent) =>
+    set({
+      projectId: intent.projectId,
+      pendingThreadFocus: intent,
+      selectedThreadId: null,
+      draftThread: null,
+      railMode: 'list',
+      stagePrimaryTab: 'game',
+      stageView: { kind: 'scene' },
+      stageOpenTabs: [],
+      activeStageTabId: null,
+      boardHighlightedRunId: null,
+      officeStageMaximized: false,
+    }),
+  consumePendingThreadFocus: () => {
+    const intent = get().pendingThreadFocus;
+    if (intent) set({ pendingThreadFocus: null });
+    return intent;
+  },
   setScope: (companyId, projectId) =>
     set({
       companyId,
@@ -358,6 +384,7 @@ export const useUiState = create<UiState>((set, get) => ({
       stageOpenTabs: [],
       activeStageTabId: null,
       boardHighlightedRunId: null,
+      pendingThreadFocus: null,
       officeStageMaximized: false,
     }),
   setProject: (projectId) =>
@@ -371,6 +398,7 @@ export const useUiState = create<UiState>((set, get) => ({
       stageOpenTabs: [],
       activeStageTabId: null,
       boardHighlightedRunId: null,
+      pendingThreadFocus: null,
       officeStageMaximized: false,
     }),
 

@@ -133,6 +133,9 @@ export function ChatRail() {
   const openDraftThread = useUiState((s) => s.openDraftThread);
   const markDraftPersisted = useUiState((s) => s.markDraftPersisted);
   const closeThread = useUiState((s) => s.closeThread);
+  const pendingThreadFocus = useUiState((s) => s.pendingThreadFocus);
+  const consumePendingThreadFocus = useUiState((s) => s.consumePendingThreadFocus);
+  const openThread = useUiState((s) => s.openThread);
   const setSurface = useUiState((s) => s.setSurface);
   const setWorkspaceApp = useUiState((s) => s.setWorkspaceApp);
   const queryClient = useQueryClient();
@@ -144,6 +147,29 @@ export function ChatRail() {
   const deliverables = useDeliverables(railMode === 'thread' ? selectedThreadId : null);
   useDeliverableRefresh(railMode === 'thread' ? selectedThreadId : null);
   const workspaceConversations = useWsConversations();
+
+  useEffect(() => {
+    if (!pendingThreadFocus) return;
+    if (pendingThreadFocus.projectId !== projectId) {
+      consumePendingThreadFocus();
+      return;
+    }
+    if (!threads.isSuccess) return;
+    const intent = consumePendingThreadFocus();
+    if (!intent) return;
+    if (threads.data?.some((thread) => thread.id === intent.threadId)) {
+      openThread(intent.threadId);
+      return;
+    }
+    toast.error('The source conversation no longer exists in this project.');
+  }, [
+    consumePendingThreadFocus,
+    openThread,
+    pendingThreadFocus,
+    projectId,
+    threads.data,
+    threads.isSuccess,
+  ]);
 
   const employeesById = useMemo(
     () => new Map((employees.data ?? []).map((e) => [e.id, e])),

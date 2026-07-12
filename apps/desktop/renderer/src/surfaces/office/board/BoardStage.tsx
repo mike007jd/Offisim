@@ -178,7 +178,7 @@ function useCompanyLeaseReviews(companyId: string | null, projectIds: readonly s
 export function BoardStage() {
   const companyId = useUiState((state) => state.companyId);
   const projectId = useUiState((state) => state.projectId);
-  const openThread = useUiState((state) => state.openThread);
+  const requestThreadFocus = useUiState((state) => state.requestThreadFocus);
   const openStageView = useUiState((state) => state.openStageView);
   const highlightedRunId = useUiState((state) => state.boardHighlightedRunId);
   const highlightBoardRun = useUiState((state) => state.highlightBoardRun);
@@ -312,20 +312,47 @@ export function BoardStage() {
       const actionable = selectedLeases.filter((lease) => lease.status === 'pending_review');
       if (actionable.length === 0) return;
       setBusyId(selectedRow.runId);
+      const succeeded: WorkspaceLeaseReviewRow[] = [];
+      const failed: Array<{ lease: WorkspaceLeaseReviewRow; error: unknown }> = [];
+      let outcomeRecordingError: unknown = null;
       try {
-        for (const lease of actionable) await reviewWorkspaceLease(lease, companyId, action);
-        toast.success(action === 'merge' ? 'Request merged.' : 'Request discarded.');
-        setSelectedRunId(null);
-        await refresh();
-      } catch (error) {
-        const lease = actionable[0];
-        if (lease) {
-          await appendWorkspaceLeaseAction(lease, companyId, `${action}_failed`, 'failed', {
-            error: error instanceof Error ? error.message : String(error),
-          });
+        for (const lease of actionable) {
+          try {
+            await reviewWorkspaceLease(lease, companyId, action);
+            succeeded.push(lease);
+          } catch (error) {
+            failed.push({ lease, error });
+            try {
+              await appendWorkspaceLeaseAction(lease, companyId, `${action}_failed`, 'failed', {
+                error: error instanceof Error ? error.message : String(error),
+              });
+            } catch (recordError) {
+              outcomeRecordingError = recordError;
+            }
+          }
         }
-        toast.error(errorDetail(error, `Could not ${action} the request.`));
+        if (outcomeRecordingError) {
+          toast.error(
+            errorDetail(
+              outcomeRecordingError,
+              'A lease failed and its failure outcome could not be recorded.',
+            ),
+          );
+        } else if (failed.length === 0) {
+          toast.success(action === 'merge' ? 'Request merged.' : 'Request discarded.');
+        } else if (succeeded.length > 0) {
+          toast.warning(
+            `${succeeded.length} of ${actionable.length} leases ${action === 'merge' ? 'merged' : 'discarded'}; ${failed.length} need attention.`,
+          );
+        } else {
+          toast.error(
+            errorDetail(failed[0]?.error, `Could not ${action} any lease in this request.`),
+          );
+        }
+        if (failed.length > 0) return;
+        setSelectedRunId(null);
       } finally {
+        await refresh();
         setBusyId(null);
       }
     },
@@ -366,22 +393,24 @@ export function BoardStage() {
   return (
     <div className="off-board-stage">
       <header className="off-board-toolbar">
-        <div className="off-board-segment" aria-label="Board scope">
-          <button
-            className={cn('off-focusable', scope === 'project' && 'is-active')}
-            type="button"
-            onClick={() => setScope('project')}
-          >
-            This project
-          </button>
-          <button
-            className={cn('off-focusable', scope === 'company' && 'is-active')}
-            type="button"
-            onClick={() => setScope('company')}
-          >
-            Company
-          </button>
-        </div>
+        {lens === 'board' ? (
+          <div className="off-board-segment" aria-label="Board scope">
+            <button
+              className={cn('off-focusable', scope === 'project' && 'is-active')}
+              type="button"
+              onClick={() => setScope('project')}
+            >
+              This project
+            </button>
+            <button
+              className={cn('off-focusable', scope === 'company' && 'is-active')}
+              type="button"
+              onClick={() => setScope('company')}
+            >
+              Company
+            </button>
+          </div>
+        ) : null}
         <div className="off-board-segment" aria-label="Board lens">
           <button
             className={cn('off-focusable', lens === 'board' && 'is-active')}
@@ -394,7 +423,10 @@ export function BoardStage() {
           <button
             className={cn('off-focusable', lens === 'timeline' && 'is-active')}
             type="button"
-            onClick={() => setLens('timeline')}
+            onClick={() => {
+              setScope('company');
+              setLens('timeline');
+            }}
           >
             <Icon icon={History} size="sm" />
             Timeline
@@ -448,7 +480,9 @@ export function BoardStage() {
                         highlighted={highlightedRunId === row.runId}
                         busy={busyId === row.runId}
                         onSelect={() => setSelectedRunId(row.runId)}
-                        onThread={() => openThread(row.threadId)}
+                        onThread={() =>
+                          requestThreadFocus({ projectId: row.projectId, threadId: row.threadId })
+                        }
                         onRetry={() => void retry(row)}
                         onDiscard={() => void discard(row)}
                       />
@@ -495,20 +529,28 @@ export function BoardPendingReviewAutoOpen() {
   const setStagePrimaryTab = useUiState((state) => state.setStagePrimaryTab);
   const highlightBoardRun = useUiState((state) => state.highlightBoardRun);
   const reviews = useProjectWorkspaceLeaseReviews(projectId || null);
-  const seen = useRef<Set<string> | null>(null);
+  const seen = useRef<{ projectId: string; leaseIds: Set<string> } | null>(null);
 
   useEffect(() => {
+    if (!projectId || reviews.isLoading) return;
     const pending = reviews.rows.filter((lease) => lease.status === 'pending_review');
-    if (!seen.current) {
-      seen.current = new Set(pending.map((lease) => lease.leaseId));
+    if (seen.current?.projectId !== projectId) {
+      seen.current = { projectId, leaseIds: new Set(pending.map((lease) => lease.leaseId)) };
       return;
     }
-    const fresh = pending.find((lease) => !seen.current?.has(lease.leaseId));
-    for (const lease of pending) seen.current.add(lease.leaseId);
+    const fresh = pending.find((lease) => !seen.current?.leaseIds.has(lease.leaseId));
+    for (const lease of pending) seen.current.leaseIds.add(lease.leaseId);
     if (!fresh || stagePrimaryTab !== 'game') return;
     highlightBoardRun(fresh.rootRunId);
     setStagePrimaryTab('board');
-  }, [highlightBoardRun, reviews.rows, setStagePrimaryTab, stagePrimaryTab]);
+  }, [
+    highlightBoardRun,
+    projectId,
+    reviews.isLoading,
+    reviews.rows,
+    setStagePrimaryTab,
+    stagePrimaryTab,
+  ]);
 
   return null;
 }
@@ -642,6 +684,11 @@ function BoardDrawer({
   const pending = leases.filter((lease) => lease.status === 'pending_review');
   const files = leases.flatMap((lease) => lease.files);
   const stats = countDiffLines(files);
+  const completedCount = leases.filter((lease) =>
+    ['merged', 'discarded'].includes(lease.status),
+  ).length;
+  const failedCount = leases.filter((lease) => lease.status === 'failed').length;
+  const isPartialDecision = completedCount > 0 && failedCount > 0;
   return (
     <aside className="off-board-drawer" aria-label="Request detail">
       <header>
@@ -659,6 +706,18 @@ function BoardDrawer({
         </button>
       </header>
       <div className="off-board-drawer-scroll">
+        {isPartialDecision ? (
+          <section className="off-board-verification">
+            <span className="off-board-verify-status is-failed">
+              <AlertTriangle aria-hidden />
+              Partially completed
+            </span>
+            <p>
+              {completedCount} lease{completedCount === 1 ? '' : 's'} completed; {failedCount} need
+              attention. Successful leases were not rolled back.
+            </p>
+          </section>
+        ) : null}
         <section>
           <h3>Subtasks</h3>
           {row.children.length === 0 ? (
