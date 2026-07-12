@@ -518,7 +518,7 @@ export function PiAgentPane() {
 
   const refresh = useCallback(async () => {
     if (!desktopAvailable) {
-      setError('Pi Agent status requires the release desktop runtime.');
+      setError('Runtime status requires the release desktop runtime.');
       return;
     }
     setIsLoading(true);
@@ -529,7 +529,7 @@ export function PiAgentPane() {
     } catch (err) {
       const message = safeErrorMessage(err);
       setError(message);
-      toast.error('Pi Agent status failed', { description: message });
+      toast.error('Runtime status failed', { description: message });
     } finally {
       setIsLoading(false);
     }
@@ -639,7 +639,7 @@ export function PiAgentPane() {
     try {
       await openPiConfigFolder();
     } catch (err) {
-      toast.error('Open Pi config folder failed', { description: safeErrorMessage(err) });
+      toast.error('Open runtime config folder failed', { description: safeErrorMessage(err) });
     }
   }
 
@@ -660,7 +660,7 @@ export function PiAgentPane() {
       loadedProviderRef.current = null;
       setSelection({ mode: 'edit', provider: form.providerId.trim() });
       setForm((current) => ({ ...current, apiKey: '', keepExistingApiKey: true }));
-      toast.success('Provider saved to Pi models.json');
+      toast.success('Provider saved to ~/.pi/agent/models.json');
     } catch (err) {
       toast.error('Provider save failed', { description: safeErrorMessage(err) });
     } finally {
@@ -673,7 +673,7 @@ export function PiAgentPane() {
       <div className="off-set-panehead">
         <div className="off-set-panetitle">Providers</div>
         <div className="off-set-panedesc">
-          Configure Pi Agent model providers. Offisim shows status and writes Pi config only.
+          Configure providers in ~/.pi/agent/models.json. Credential status comes from auth.json.
         </div>
       </div>
 
@@ -691,7 +691,7 @@ export function PiAgentPane() {
         </div>
         <div className="min-w-0">
           <div className="off-set-pv-name">
-            Pi Agent Runtime
+            Agent runtime
             <StatusPill tone={ready ? 'ok' : 'muted'}>{ready ? 'Ready' : 'Needs auth'}</StatusPill>
           </div>
           <div className="off-set-pv-meta">
@@ -719,7 +719,7 @@ export function PiAgentPane() {
       {!desktopAvailable ? (
         <div className="off-set-callout is-muted mt-[var(--off-sp-3)]">
           <Icon icon={Info} size="sm" />
-          Pi Agent settings are available inside the desktop app.
+          Runtime settings are available inside the desktop app.
         </div>
       ) : null}
 
@@ -771,7 +771,7 @@ export function PiAgentPane() {
               ))
             ) : (
               <div className="off-set-provider-empty">
-                No configured providers yet. Add one from a Pi template or enter a custom endpoint.
+                No configured providers yet. Add a provider template or enter a custom endpoint.
               </div>
             )}
           </div>
@@ -1145,7 +1145,7 @@ export function PiAgentPane() {
         <div className="off-set-provider-config-card">
           <div className="off-set-cs-label">
             <Icon icon={ShieldCheck} size="sm" />
-            Stored credentials & model catalog
+            Runtime configuration files
           </div>
           <div className="off-set-cs-sum">
             auth.json · {status?.authProviders.length ?? 0} stored providers
@@ -1183,7 +1183,7 @@ export function PiAgentPane() {
             <Input
               id={modelOverrideInputId}
               value={modelOverride}
-              placeholder="Pi default"
+              placeholder="Runtime default"
               spellCheck={false}
               onChange={(event) => saveModelOverride(event.currentTarget.value)}
             />

@@ -207,10 +207,13 @@ const settingsSurface = await source(
 const settingsData = await source('apps/desktop/renderer/src/surfaces/settings/settings-data.ts');
 const runtimePane = await source('apps/desktop/renderer/src/surfaces/settings/RuntimePane.tsx');
 const piAgentPane = await source('apps/desktop/renderer/src/surfaces/settings/PiAgentPane.tsx');
+const computerSetupPanel = await source(
+  'apps/desktop/renderer/src/surfaces/office/computer/ComputerSetupPanel.tsx',
+);
 assertIncludesAll(
   settingsSurface,
-  ['PiAgentPane', 'RuntimePane', 'Pi Agent'],
-  'Settings must present the Pi Agent and Runtime panes.',
+  ['PiAgentPane', 'RuntimePane', 'ComputerSetupPanel', 'Agent runtime'],
+  'Settings must present provider, runtime, and Computer Use panes with neutral runtime copy.',
 );
 assertNoMatch(
   settingsSurface,
@@ -224,21 +227,37 @@ assertNoMatch(
 );
 assertIncludesAll(
   runtimePane,
-  ['Resolved: ', 'Pi Agent', 'per conversation'],
-  'Runtime pane must state runtime knobs are chosen per conversation and resolve to Pi Agent.',
+  ['per conversation', 'Cost alerts', 'Local vault', '2D scene diagnostics'],
+  'Runtime pane must keep per-conversation guidance, cost alerts, vault, and diagnostics.',
+);
+assertNoMatch(
+  runtimePane,
+  /Resolved:|Pi Agent session runtime|All employees route through/u,
+  'Runtime pane must not restore the removed runtime promotion card.',
 );
 assertIncludesAll(
   piAgentPane,
   [
     'pi_agent_status',
     'pi_agent_open_config_folder',
-    'Pi Agent Runtime',
-    'Stored credentials & model catalog',
+    'Agent runtime',
+    'Runtime configuration files',
     'Model configuration',
     'models.json',
     'Advanced model override',
   ],
   'Pi Agent settings page must read Pi SDK-owned auth/model status.',
+);
+assertIncludesAll(
+  computerSetupPanel,
+  [
+    'useMcpToolGrants',
+    'grantMcpTool',
+    'revokeMcpTool',
+    'Employee access',
+    'Enforced by the runtime MCP tool-grant gate.',
+  ],
+  'Computer Use settings must enforce per-employee access through the MCP grant repository.',
 );
 const piAgentConfig = await source('apps/desktop/renderer/src/runtime/pi-agent-config.ts');
 assertIncludesAll(

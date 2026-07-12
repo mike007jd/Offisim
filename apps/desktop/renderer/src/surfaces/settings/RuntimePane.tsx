@@ -61,9 +61,8 @@ function sceneDiagnosticPayload(events: SceneDropDiagnostic[]): string {
 /**
  * Runtime settings pane. The autonomy level (Plan / Ask / Auto / Full), model,
  * and thinking level are all chosen per conversation from the composer — they
- * are the only runtime knobs the Pi Agent session actually reads — so this pane
- * carries no global runtime form. It surfaces the honest Pi-owned wiring plus
- * the genuinely local actions: the vault folder and scene diagnostics export.
+ * are the only runtime knobs the session reads — so this pane carries no global
+ * runtime form. It keeps only cost controls and genuinely local advanced actions.
  */
 export function RuntimePane() {
   const sceneDropDiagnostics = useUiState((s) => s.sceneDropDiagnostics);
@@ -131,35 +130,10 @@ export function RuntimePane() {
     <div className="off-set-pane">
       <div className="off-set-panehead">
         <div className="off-set-panetitle">Runtime</div>
-        <div className="off-set-panedesc">How employees plan, ask, and execute work.</div>
-      </div>
-
-      {/* General — the real runtime knobs live in the composer, per conversation. */}
-      <section className="off-set-sec">
-        <div className="off-set-sec-head">
-          <CapsLabel>How employees run</CapsLabel>
+        <div className="off-set-panedesc">
+          Run mode, model, and thinking are selected per conversation in the composer.
         </div>
-        <CardBlock>
-          <div className="off-field">
-            <span className="off-field-label">Run mode, model &amp; thinking</span>
-            <span className="off-field-hint">
-              Chosen per conversation from the composer. The autonomy level (Plan / Ask / Auto /
-              Full), the model, and the thinking level apply to that conversation only — there is no
-              global override to keep in sync.
-            </span>
-          </div>
-          <div className="off-field mt-[var(--off-sp-6)]">
-            <span className="off-field-label">Runtime engine</span>
-            <div className="off-set-rbc-resolved">
-              Resolved: <b>Pi Agent</b>
-            </div>
-            <span className="off-field-hint">
-              All employees route through the same Pi Agent session runtime. Model auth, sessions,
-              compaction, and the tool protocol are owned by Pi Agent.
-            </span>
-          </div>
-        </CardBlock>
-      </section>
+      </div>
 
       <section className="off-set-sec">
         <div className="off-set-sec-head">
