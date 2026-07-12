@@ -258,6 +258,12 @@ interface GitExecResult {
   stderr: string;
 }
 
+interface GhExecResult {
+  ok: boolean;
+  stdout: string;
+  stderr: string;
+}
+
 interface RuntimeVaultStatus {
   path: string;
   displayPath: string;
@@ -458,6 +464,7 @@ export interface CommandMap {
   agent_runtime_status: CommandSpec<undefined, PiAgentStatusResponse>;
   computer_driver_status: CommandSpec<undefined, ComputerDriverStatus>;
   git_exec: CommandSpec<{ args: string[]; projectId: string; cwd?: string | null }, GitExecResult>;
+  gh_exec: CommandSpec<{ args: string[]; projectId: string }, GhExecResult>;
   workspace_lease_discard: CommandSpec<{ projectId: string; leaseId: string }, void>;
   open_local_path: CommandSpec<{ projectId: string | null; path: string }, void>;
   reveal_local_path: CommandSpec<{ projectId: string | null; path: string }, void>;
