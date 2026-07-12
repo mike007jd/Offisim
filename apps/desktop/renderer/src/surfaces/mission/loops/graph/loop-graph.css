@@ -20,10 +20,41 @@
   align-items: center;
   justify-content: center;
   gap: var(--off-sp-3);
+  padding: var(--off-sp-7);
+  text-align: center;
+  background: radial-gradient(circle at 50% 45%, var(--off-accent-surface), transparent 52%),
+    var(--off-bg);
+}
+.off-loopgraph-state-title {
+  max-width: 560px;
+  font-size: var(--off-fs-base);
+  font-weight: 680;
+  color: var(--off-ink-1);
 }
 .off-loopgraph-state-text {
+  max-width: 560px;
   font-size: var(--off-fs-sm);
   color: var(--off-ink-3);
+  line-height: 1.45;
+}
+.off-loopgraph-state-help {
+  max-width: 560px;
+  font-size: var(--off-fs-meta);
+  color: var(--off-ink-4);
+}
+.off-loopgraph-state-findings {
+  width: min(560px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--off-sp-2);
+  padding: var(--off-sp-3) var(--off-sp-4);
+  border: 1px solid var(--off-danger);
+  border-radius: var(--off-r-md);
+  background: var(--off-danger-surface);
+  color: var(--off-danger);
+  font-size: var(--off-fs-sm);
+  text-align: left;
+  list-style-position: inside;
 }
 .off-loopgraph-state-icon {
   width: 28px;
@@ -36,9 +67,76 @@
   color: var(--off-accent);
   animation: off-loopgraph-spin var(--off-motion-spin) var(--off-motion-linear) infinite;
 }
+.off-loopgraph-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-3);
+  text-align: left;
+}
+.off-loopgraph-progress > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.off-loopgraph-skeleton {
+  position: relative;
+  width: min(620px, 86%);
+  height: 180px;
+  margin-top: var(--off-sp-4);
+}
+.off-loopgraph-skeleton::before,
+.off-loopgraph-skeleton::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 17%;
+  right: 17%;
+  height: 1px;
+  background: var(--off-line);
+}
+.off-loopgraph-skeleton::after {
+  transform: rotate(-16deg);
+}
+.off-loopgraph-skeleton span {
+  position: absolute;
+  width: 150px;
+  height: 48px;
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-md);
+  background: linear-gradient(
+    100deg,
+    var(--off-surface-1) 20%,
+    var(--off-surface-2) 42%,
+    var(--off-surface-1) 64%
+  );
+  background-size: 220% 100%;
+  box-shadow: var(--off-elev-1);
+  animation: off-loopgraph-shimmer var(--off-motion-loop-base) var(--off-motion-loop-ease) infinite;
+}
+.off-loopgraph-skeleton span:nth-child(1) {
+  top: 6px;
+  left: 4%;
+}
+.off-loopgraph-skeleton span:nth-child(2) {
+  top: 10px;
+  right: 4%;
+}
+.off-loopgraph-skeleton span:nth-child(3) {
+  bottom: 8px;
+  left: 24%;
+}
+.off-loopgraph-skeleton span:nth-child(4) {
+  right: 22%;
+  bottom: 2px;
+}
 @keyframes off-loopgraph-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+@keyframes off-loopgraph-shimmer {
+  to {
+    background-position: -220% 0;
   }
 }
 
@@ -440,7 +538,8 @@
 
 /* ── Reduced motion: kill spinners + edge/viewport transitions. ── */
 @media (prefers-reduced-motion: reduce) {
-  .off-loopgraph-spin {
+  .off-loopgraph-spin,
+  .off-loopgraph-skeleton span {
     animation: none;
   }
   .off-loopgraph-canvas .react-flow__edge-path,

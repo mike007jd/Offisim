@@ -56,6 +56,8 @@ export interface LoopGraphPanelProps {
   onNavigatePathChange?: (path: string[]) => void;
   state: LoopGraphPanelState;
   findings?: LoopValidationFinding[];
+  errorMessage?: string | null;
+  focusRequestKey?: number;
 }
 
 const nodeTypes: NodeTypes = { loopNode: LoopGraphNode };
@@ -97,8 +99,11 @@ function LoopGraphPanelInner({
   onNavigatePathChange,
   state,
   findings = [],
+  errorMessage = null,
+  focusRequestKey = 0,
 }: LoopGraphPanelProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef<HTMLDivElement | null>(null);
   const rfRef = useRef<ReactFlowInstance | null>(null);
   const elkRef = useRef<ElkLike | null>(null);
   const layoutGenRef = useRef(0);
@@ -266,6 +271,15 @@ function LoopGraphPanelInner({
     [projection],
   );
 
+  useEffect(() => {
+    if (state !== 'ready' || focusRequestKey === 0 || laidOut.nodes.length === 0) return;
+    const frame = requestAnimationFrame(() => {
+      rfRef.current?.fitView({ padding: 0.2, duration: 240 });
+      canvasRef.current?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [focusRequestKey, laidOut.nodes.length, state]);
+
   // ── Keyboard: Esc / Backspace returns to the parent level. ──
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
@@ -284,18 +298,24 @@ function LoopGraphPanelInner({
   );
 
   // ── Non-ready render states ──
-  if (state === 'empty' || !ir || !projection) {
-    return (
-      <div className="off-loopgraph off-loopgraph--state">
-        <p className="off-loopgraph-state-text">No compiled loop to show yet.</p>
-      </div>
-    );
-  }
   if (state === 'compiling') {
     return (
       <div className="off-loopgraph off-loopgraph--state" aria-busy="true">
-        <Loader2 className="off-loopgraph-spin" aria-hidden="true" />
-        <p className="off-loopgraph-state-text">Compiling loop…</p>
+        <div className="off-loopgraph-progress">
+          <Loader2 className="off-loopgraph-spin" aria-hidden="true" />
+          <div>
+            <p className="off-loopgraph-state-title">Building your orchestration graph</p>
+            <p className="off-loopgraph-state-text">
+              Structuring steps, gates, and completion checks…
+            </p>
+          </div>
+        </div>
+        <div className="off-loopgraph-skeleton" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+          <span />
+        </div>
       </div>
     );
   }
@@ -303,7 +323,41 @@ function LoopGraphPanelInner({
     return (
       <div className="off-loopgraph off-loopgraph--state" role="alert">
         <TriangleAlert className="off-loopgraph-state-icon" aria-hidden="true" />
-        <p className="off-loopgraph-state-text">The loop could not be compiled.</p>
+        <p className="off-loopgraph-state-title">The Loop could not be compiled</p>
+        <p className="off-loopgraph-state-text">
+          {errorMessage ?? 'The compiler did not return a usable result.'}
+        </p>
+        <p className="off-loopgraph-state-help">
+          Your description is safe. Resolve the issue and try Compile again.
+        </p>
+      </div>
+    );
+  }
+  if (state === 'invalid' && (!ir || !projection)) {
+    return (
+      <div className="off-loopgraph off-loopgraph--state" role="alert">
+        <TriangleAlert className="off-loopgraph-state-icon" aria-hidden="true" />
+        <p className="off-loopgraph-state-title">This Loop needs a few fixes</p>
+        {findings.length > 0 ? (
+          <ul className="off-loopgraph-state-findings">
+            {findings.slice(0, 3).map((finding, index) => (
+              <li key={`${finding.code}:${finding.ref ?? ''}:${index}`}>{finding.message}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="off-loopgraph-state-text">The compiler could not build a valid graph.</p>
+        )}
+        <p className="off-loopgraph-state-help">Update the description, then compile again.</p>
+      </div>
+    );
+  }
+  if (state === 'empty' || !ir || !projection) {
+    return (
+      <div className="off-loopgraph off-loopgraph--state">
+        <p className="off-loopgraph-state-title">Ready for a description</p>
+        <p className="off-loopgraph-state-text">
+          Describe the goal below, then compile it into a graph.
+        </p>
       </div>
     );
   }
@@ -345,15 +399,13 @@ function LoopGraphPanelInner({
         ) : null}
 
         {/* Canvas */}
-        {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex */}
         <div
+          ref={canvasRef}
           className="off-loopgraph-canvas"
           role="application"
           aria-label={`Loop graph, ${visible.nodes.length} nodes and ${visible.edges.length} edges at this level`}
-          tabIndex={
-            // biome-ignore lint/a11y/noNoninteractiveTabindex: interactive graph canvas (react-flow), keyboard-focusable by design
-            0
-          }
+          // biome-ignore lint/a11y/noNoninteractiveTabindex: interactive React Flow canvas is keyboard-focusable by design
+          tabIndex={0}
           onKeyDown={onKeyDown}
         >
           {isLaying ? (

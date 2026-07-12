@@ -1,6 +1,6 @@
 import { Icon } from '@/design-system/icons/Icon.js';
 import type { LoopCompileStatus, LoopIR, LoopValidationFinding } from '@offisim/shared-types';
-import { CircleSlash, Info, TriangleAlert } from 'lucide-react';
+import { CircleSlash, Info, Loader2, TriangleAlert } from 'lucide-react';
 import { buildGeneratedDetails } from './loop-generated-details.js';
 
 /**
@@ -17,6 +17,9 @@ interface LoopAdvancedDrawerProps {
   findings: LoopValidationFinding[];
   profileId: string | null;
   revisionNumber: number | null;
+  busy?: boolean;
+  errorMessage?: string | null;
+  expandKey?: number;
 }
 
 export function LoopAdvancedDrawer({
@@ -25,6 +28,9 @@ export function LoopAdvancedDrawer({
   findings,
   profileId,
   revisionNumber,
+  busy = false,
+  errorMessage = null,
+  expandKey = 0,
 }: LoopAdvancedDrawerProps) {
   const sections = buildGeneratedDetails(ir);
   const errorFindings = findings.filter((f) => f.severity === 'error');
@@ -60,7 +66,18 @@ export function LoopAdvancedDrawer({
         </div>
       ) : null}
 
-      {sections.length === 0 ? (
+      {busy && sections.length === 0 ? (
+        <div className="off-loop-details-empty is-busy" aria-busy="true">
+          <Icon icon={Loader2} size="sm" className="off-spin" />
+          <p>Generating outcome, inputs, gates, and budget…</p>
+        </div>
+      ) : errorMessage && sections.length === 0 ? (
+        <div className="off-loop-details-empty is-error" role="alert">
+          <Icon icon={TriangleAlert} size="sm" />
+          <p>Details were not generated.</p>
+          <p className="off-loop-details-empty-sub">{errorMessage}</p>
+        </div>
+      ) : sections.length === 0 ? (
         <div className="off-loop-details-empty">
           <Icon icon={CircleSlash} size="sm" />
           <p>
@@ -75,7 +92,7 @@ export function LoopAdvancedDrawer({
       ) : (
         <div className="off-loop-details-body">
           {sections.map((section) => (
-            <section key={section.key} className="off-loop-details-section">
+            <section key={`${expandKey}:${section.key}`} className="off-loop-details-section">
               <h4 className="off-loop-details-sectiontitle">{section.title}</h4>
               <dl className="off-loop-details-rows">
                 {section.rows.map((row, i) => (
