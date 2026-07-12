@@ -5,7 +5,7 @@ import type { GitFileChange, GitRepoState, GitWorkbench } from './types.js';
 // into the GitWorkbench view-model surfaced by useGitWorkbench. Split out of
 // queries.ts so the query module holds query plumbing, not a tar/porcelain parser.
 
-interface GitExecResult {
+export interface CommandExecResult {
   ok: boolean;
   stdout: string;
   stderr: string;
@@ -17,7 +17,7 @@ export function gitErrorMessage(error: unknown): string {
   return 'Git workspace unavailable';
 }
 
-export function isNonGitWorkspace(result: GitExecResult | string): boolean {
+export function isNonGitWorkspace(result: CommandExecResult | string): boolean {
   const message = typeof result === 'string' ? result : `${result.stderr}\n${result.stdout}`;
   return (
     message.includes('not a git repository') ||
@@ -35,7 +35,7 @@ export function isNonGitWorkspace(result: GitExecResult | string): boolean {
  *  non-mutating Rebind/Bind state, so `git init` is never offered on a folder
  *  that is missing rather than merely un-initialized. */
 export function classifyNonGitWorkspace(
-  result: GitExecResult | string,
+  result: CommandExecResult | string,
 ): Exclude<GitRepoState, { status: 'repo' }> {
   const message = typeof result === 'string' ? result : `${result.stderr}\n${result.stdout}`;
   if (message.includes('No workspace_root is bound')) return { status: 'unbound' };
@@ -50,8 +50,58 @@ export function workbenchOf(state: GitRepoState | null | undefined): GitWorkbenc
   return state?.status === 'repo' ? state.workbench : null;
 }
 
-async function runGit(projectId: string, args: string[]): Promise<GitExecResult> {
+async function runGit(projectId: string, args: string[]): Promise<CommandExecResult> {
   return invokeCommand('git_exec', { projectId, args, cwd: null });
+}
+
+async function runGh(projectId: string, args: string[]): Promise<CommandExecResult> {
+  return invokeCommand('gh_exec', { projectId, args });
+}
+
+export async function stageGitFiles(projectId: string, paths: string[]) {
+  return runGit(projectId, ['add', '--', ...paths]);
+}
+
+export async function commitGitChanges(projectId: string, message: string) {
+  return runGit(projectId, ['commit', '-m', message]);
+}
+
+export async function switchGitBranch(projectId: string, branch: string, create: boolean) {
+  return runGit(projectId, create ? ['switch', '-c', branch] : ['switch', branch]);
+}
+
+export async function pushGitBranch(projectId: string, branch: string) {
+  return runGit(projectId, ['push', '-u', 'origin', branch]);
+}
+
+export async function getOriginRemote(projectId: string) {
+  return runGit(projectId, ['remote', 'get-url', 'origin']);
+}
+
+export async function getGhAuthStatus(projectId: string) {
+  return runGh(projectId, ['auth', 'status']);
+}
+
+export async function listPullRequests(projectId: string) {
+  return runGh(projectId, ['pr', 'list']);
+}
+
+export async function getPullRequestStatus(projectId: string) {
+  return runGh(projectId, ['pr', 'status']);
+}
+
+export async function viewPullRequest(projectId: string, web = false) {
+  return runGh(projectId, web ? ['pr', 'view', '--web'] : ['pr', 'view']);
+}
+
+export async function createPullRequest(
+  projectId: string,
+  input: { title: string; body: string; base?: string; draft: boolean },
+) {
+  const args = ['pr', 'create', '--title', input.title, '--body', input.body];
+  if (input.base) args.push('--base', input.base);
+  if (input.draft) args.push('--draft');
+  return runGh(projectId, args);
 }
 
 /** Initialize a git repository in the project's bound workspace folder. Routes
