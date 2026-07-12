@@ -4,16 +4,16 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  createChildSupervisor,
-  createDelegationLimits,
-  integrateCompletedDelegation,
-} from './pi-child-supervisor.mjs';
 import { createWorkspaceLeaseManager } from '../packages/core/src/runtime/mission/workspace/lease-manager.ts';
 import type {
   GitWorktreeOps,
   MergeResult,
 } from '../packages/core/src/runtime/mission/workspace/types.ts';
+import {
+  createChildSupervisor,
+  createDelegationLimits,
+  integrateCompletedDelegation,
+} from './pi-child-supervisor.mjs';
 
 const repo = mkdtempSync(join(tmpdir(), 'offisim-single-delegation-'));
 const git = (cwd: string, args: string[]) =>
@@ -30,7 +30,7 @@ try {
   writeFileSync(join(repo, 'baseline.txt'), 'baseline\n');
   git(repo, ['add', 'baseline.txt']);
   git(repo, ['commit', '-m', 'baseline']);
-  const base = git(repo, ['rev-parse', 'HEAD']);
+  const rootHead = () => git(repo, ['rev-parse', 'HEAD']);
 
   const gitOps: GitWorktreeOps = {
     isGitRepo: () => true,
@@ -40,11 +40,14 @@ try {
     removeWorktree: (path) => {
       git(repo, ['worktree', 'remove', '--force', path]);
     },
+    discardWorktree: (path) => {
+      git(repo, ['worktree', 'remove', '--force', path]);
+    },
     worktreeChanged: (path) => git(path, ['status', '--porcelain']).length > 0,
     diff: (path) =>
-      git(path, ['diff', '--name-only', `${base}...HEAD`])
-        .split('\n')
-        .filter(Boolean),
+      git(path, ['diff', '--name-only', rootHead(), 'HEAD']).split('\n').filter(Boolean),
+    diffText: (path, changedPath) =>
+      git(path, ['diff', '--unified=3', rootHead(), 'HEAD', '--', changedPath]),
     merge: (branch): MergeResult => {
       try {
         git(repo, ['merge', '--no-ff', '--no-edit', branch]);
@@ -184,12 +187,98 @@ try {
   assert.equal(sessionOptions[2]?.model, rootModel);
   assert.equal(sessionOptions[2]?.thinkingLevel, 'medium');
 
+  let reworkId = 0;
+  const originalManager = createWorkspaceLeaseManager({
+    gitOps,
+    now: () => '2026-07-11T01:00:00.000Z',
+    newId: () => `rework-lease-${++reworkId}`,
+  });
+  const originalRoot = await originalManager.acquireRootLease(repo);
+  const originalResult = await originalManager.acquireChildLease({
+    rootLease: originalRoot,
+    runId: 'run-original-review',
+    access: 'write',
+  });
+  assert.equal(originalResult.outcome, 'granted');
+  if (originalResult.outcome !== 'granted') throw new Error('rework lease was not granted');
+  const originalLease = originalResult.lease;
+  writeFileSync(join(originalLease.cwd, 'rework-artifact.txt'), 'first review version\n');
+  git(originalLease.cwd, ['add', 'rework-artifact.txt']);
+  git(originalLease.cwd, ['commit', '-m', 'reviewable delegated work']);
+  await originalManager.planIntegration([originalLease]);
+
+  let resumedId = 0;
+  const resumedManager = createWorkspaceLeaseManager({
+    gitOps,
+    now: () => '2026-07-11T01:05:00.000Z',
+    newId: () => `resumed-root-${++resumedId}`,
+  });
+  const resumedRoot = await resumedManager.acquireRootLease(repo);
+  const reworkEvents: Array<Record<string, unknown>> = [];
+  const reworkSupervisor = createChildSupervisor({
+    emit: (event: Record<string, unknown>) => reworkEvents.push(event),
+    authStorage: {},
+    modelRegistry: {},
+    cwd: repo,
+    settingsManager: {},
+    threadId: 'thread-rework',
+    rootRunId: 'root-rework',
+    projectId: 'project-rework',
+    roster: [{ employeeId: 'employee-a' }],
+    resolveModel: () => undefined,
+    rootModel,
+    rootThinkingLevel: 'medium',
+    buildPermissionGate: () => null,
+    limits: createDelegationLimits({ childTimeoutMs: 0 }),
+    createResourceLoader: () => ({ reload: async () => {} }),
+    createSessionManager: () => ({}),
+    createAgentSession: async () => ({ session: makeSession() }),
+    leaseManager: resumedManager,
+    rootLease: resumedRoot,
+    confirmIntegration: async () => false,
+  });
+  await reworkSupervisor.runSingle({
+    employeeId: 'employee-a',
+    objective: 'Address the review feedback',
+    access: 'write',
+    workKind: 'implement',
+    originRunId: originalLease.runId,
+    resumeLease: {
+      leaseId: originalLease.leaseId,
+      runId: originalLease.runId,
+      workspaceRoot: originalLease.workspaceRoot,
+      cwd: originalLease.cwd,
+      branch: originalLease.branch,
+      createdAt: originalLease.createdAt,
+    },
+  });
+  const acquiredRework = reworkEvents.find(
+    (event) =>
+      event.kind === 'agentRun' &&
+      event.runType === 'workspace.lease.snapshot' &&
+      (event.payload as Record<string, unknown>)?.phase === 'acquired',
+  );
+  assert.ok(acquiredRework, 'request changes creates a rework run');
+  assert.notEqual(acquiredRework.runId, originalLease.runId, 'rework has a fresh run id');
+  assert.equal(
+    (acquiredRework.payload as Record<string, unknown>).leaseId,
+    originalLease.leaseId,
+    'rework keeps the same lease/worktree',
+  );
+  assert.equal(
+    (acquiredRework.payload as Record<string, unknown>).originRunId,
+    originalLease.runId,
+    'rework remains linked to the original task',
+  );
+  assert.equal(resumedManager.getLease(originalLease.leaseId)?.status, 'pending_review');
+
   console.log('PASS single write artifact merged into project checkout');
   console.log('PASS isolated worktree removed');
   console.log('PASS write lease released');
   console.log('PASS single and parallel modes share the integration implementation');
   console.log('PASS employee model and thinking bindings reach child createAgentSession');
   console.log('PASS unbound employee inherits root model and thinking level');
+  console.log('PASS request changes creates a linked rework run on the same lease/worktree');
 } finally {
   rmSync(repo, { recursive: true, force: true });
 }

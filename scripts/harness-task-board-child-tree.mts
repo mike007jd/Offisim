@@ -3,8 +3,9 @@ import type { AgentEventRow, AgentRunRow } from '@offisim/core/browser';
 import {
   WORKSPACE_LEASE_ACTION_EVENT,
   WORKSPACE_LEASE_SNAPSHOT_EVENT,
-  buildWorkspaceLeaseReviewRows,
+  buildProjectWorkspaceLeaseReviewRows,
   buildTaskTree,
+  buildWorkspaceLeaseReviewRows,
   filterTaskRows,
   flattenTaskRows,
 } from '../apps/desktop/renderer/src/surfaces/tasks/task-board-data.js';
@@ -161,14 +162,37 @@ const leaseEvents: AgentEventRow[] = [
       cwd: '/repo/.offisim/worktrees/lease-1',
       branch: 'offisim/lease/child-a1-lease-1',
       isolated: true,
-      status: 'pending_merge',
+      status: 'pending_review',
       phase: 'planned',
       changedPaths: ['src/a.ts', 'src/b.ts'],
+      files: [
+        { path: 'src/a.ts', diff: 'diff --git a/src/a.ts b/src/a.ts' },
+        { path: 'src/b.ts', diff: 'diff --git a/src/b.ts b/src/b.ts' },
+      ],
+      createdAt: '2026-06-29T01:05:00.000Z',
       conflicts: [],
       capturedAt: '2026-06-29T01:06:00.000Z',
     }),
     parent_event_id: null,
     created_at: '2026-06-29T01:06:00.000Z',
+  },
+  {
+    event_id: 'evt-rework',
+    project_id: 'project-a',
+    thread_id: 'chat-a',
+    company_id: 'co',
+    agent_name: 'dev-1',
+    event_type: WORKSPACE_LEASE_SNAPSHOT_EVENT,
+    payload_json: JSON.stringify({
+      rootRunId: 'root-a',
+      runId: 'child-a2',
+      leaseId: 'lease-1',
+      status: 'active',
+      phase: 'rework_started',
+      capturedAt: '2026-06-29T01:06:30.000Z',
+    }),
+    parent_event_id: null,
+    created_at: '2026-06-29T01:06:30.000Z',
   },
   {
     event_id: 'evt-2',
@@ -194,7 +218,60 @@ const leases = buildWorkspaceLeaseReviewRows(leaseEvents, 'root-a');
 assert.equal(leases.length, 1, 'lease snapshot is restored from agent_events');
 assert.equal(leases[0]?.branch, 'offisim/lease/child-a1-lease-1');
 assert.deepEqual(leases[0]?.changedPaths, ['src/a.ts', 'src/b.ts']);
+assert.equal(leases[0]?.files.length, 2, 'per-file patch text survives later lifecycle snapshots');
+assert.equal(leases[0]?.runId, 'child-a2', 'rework run remains associated with the same lease');
 assert.equal(leases[0]?.status, 'merged', 'action event updates current lease status');
 assert.equal(leases[0]?.lastAction, 'merge_completed');
+
+const crossRootReworkEvents: AgentEventRow[] = [
+  leaseEvents[0] as AgentEventRow,
+  {
+    event_id: 'evt-cross-root-rework',
+    project_id: 'project-a',
+    thread_id: 'chat-b',
+    company_id: 'co',
+    agent_name: 'dev-1',
+    event_type: WORKSPACE_LEASE_SNAPSHOT_EVENT,
+    payload_json: JSON.stringify({
+      rootRunId: 'root-b',
+      runId: 'child-b1',
+      originRunId: 'child-a1',
+      leaseId: 'lease-1',
+      status: 'active',
+      phase: 'acquired',
+      capturedAt: '2026-06-29T01:08:00.000Z',
+    }),
+    parent_event_id: null,
+    created_at: '2026-06-29T01:08:00.000Z',
+  },
+  {
+    event_id: 'evt-cross-root-review',
+    project_id: 'project-a',
+    thread_id: 'chat-b',
+    company_id: 'co',
+    agent_name: 'dev-1',
+    event_type: WORKSPACE_LEASE_SNAPSHOT_EVENT,
+    payload_json: JSON.stringify({
+      rootRunId: 'root-b',
+      runId: 'child-b1',
+      leaseId: 'lease-1',
+      status: 'pending_review',
+      phase: 'pending_review',
+      capturedAt: '2026-06-29T01:09:00.000Z',
+    }),
+    parent_event_id: null,
+    created_at: '2026-06-29T01:09:00.000Z',
+  },
+];
+const projectLeases = buildProjectWorkspaceLeaseReviewRows(crossRootReworkEvents);
+assert.equal(projectLeases.length, 1, 'one lease remains one state machine across root runs');
+assert.equal(projectLeases[0]?.runId, 'child-b1', 'the rework run becomes the current lease run');
+assert.equal(projectLeases[0]?.status, 'pending_review');
+assert.deepEqual(
+  projectLeases[0]?.relatedRunIds,
+  ['child-a1', 'child-b1'],
+  'the original task and rework run resolve to the same lease truth',
+);
+assert.deepEqual(projectLeases[0]?.relatedRootRunIds, ['root-a', 'root-b']);
 
 console.log('✓ task-board-child-tree: root expansion and child metadata checks passed');

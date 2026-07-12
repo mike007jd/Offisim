@@ -222,6 +222,23 @@ assert(
     /write_worktree_result/.test(rustHostSource),
   'Rust Pi host must intercept worktreeCall and answer with worktreeResult through stdin',
 );
+{
+  // The Task Board recognizes the in-chat review approval card ONLY by its title
+  // string; if either side drifts, the board silently bypasses the live approval
+  // and double-drives the lease pipeline. Lock the literal on both sides.
+  const leaseActionsSource = readFileSync(
+    'apps/desktop/renderer/src/surfaces/tasks/workspace-lease-actions.ts',
+    'utf8',
+  );
+  assert(
+    nodeHostSource.includes('`Review delegated work ${mergeable[0]?.leaseId'),
+    'execute host must title the integration approval "Review delegated work <leaseId>" — the Task Board matches this exact title',
+  );
+  assert(
+    leaseActionsSource.split('`Review delegated work ${row.leaseId}`').length === 3,
+    'workspace-lease-actions must match the approval card by the exact "Review delegated work <leaseId>" title in both review and request-changes paths',
+  );
+}
 assert(
   /finalAssistant\?\.stopReason === 'error'/.test(nodeHostSource) &&
     /normalizePiErrorMessage/.test(nodeHostSource) &&
