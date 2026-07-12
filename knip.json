@@ -8,9 +8,6 @@
       ],
       "project": [
         "scripts/**/*.{mjs,mts,cjs}"
-      ],
-      "ignore": [
-        "apps/desktop/src-tauri/resources/**"
       ]
     },
     "apps/desktop/renderer": {
