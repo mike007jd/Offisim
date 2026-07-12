@@ -1,4 +1,4 @@
-// Connect composer Enhance button (PR-05 × PR-06).
+// Company-channel composer Enhance button (PR-05 × PR-06).
 //
 // The Connect entry point into the shared Prompt Enhance platform. Unlike the
 // Office button (which reads assistant-ui's composer runtime), Connect's composer

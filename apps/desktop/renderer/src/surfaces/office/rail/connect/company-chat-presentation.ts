@@ -1,5 +1,5 @@
 /**
- * Pure presentation invariant for the Workspace/Connect assistant transcript.
+ * Pure presentation invariant for the Office company-channel transcript.
  *
  * One active attempt owns exactly one assistant response slot. Before the first
  * visible assistant content arrives we render a single synthetic

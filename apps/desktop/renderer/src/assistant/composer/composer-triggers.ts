@@ -189,13 +189,11 @@ export function buildSlashCommands(): Unstable_SlashCommand[] {
     },
     {
       id: 'inbox',
-      label: 'Open in Inbox',
-      description: 'View this conversation in the Workspace inbox',
+      label: 'Open conversations',
+      description: 'Return to the Office conversation list',
       execute: () => {
         const state = useUiState.getState();
-        if (!state.selectedThreadId) return;
-        state.setWorkspaceApp('messenger', state.selectedThreadId);
-        state.setSurface('workspace');
+        state.closeThread();
       },
     },
     {

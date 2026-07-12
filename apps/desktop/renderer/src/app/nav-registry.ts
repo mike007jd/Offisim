@@ -2,7 +2,6 @@ import type { SurfaceKey } from '@/app/ui-state.js';
 import {
   BriefcaseBusiness,
   type LucideIcon,
-  MessagesSquare,
   PencilRuler,
   Settings,
   Store,
@@ -25,11 +24,6 @@ export interface NavEntry {
  */
 export const NAV_ENTRIES: readonly NavEntry[] = [
   { key: 'office', label: 'Office', icon: BriefcaseBusiness, tier: 'primary' },
-  // 'Connect' is the company's daily communication space (chat / calendar /
-  // contacts / tools), distinct from Office's live 3D project work. The surface
-  // key stays 'workspace' as a legacy internal identifier so this rename does
-  // not ripple through routing/state — only the user-visible label changes.
-  { key: 'workspace', label: 'Connect', icon: MessagesSquare, tier: 'primary' },
   // The internal surface key still says 'mission' until the app-state schema is
   // renamed, but the user-visible product is Loops.
   { key: 'mission', label: 'Loops', icon: Target, tier: 'primary' },

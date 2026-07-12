@@ -1,4 +1,4 @@
-// Connect chat-creation + group-management dialogs (PR-05).
+// Company-channel creation + group-management dialogs.
 //
 // `New chat` → Direct (pick one enabled employee) | New group (title + ≥1
 // employee + reply policy). Group member settings edits membership + shows the

@@ -6,7 +6,7 @@
 @import "../surfaces/surfaces.css";
 @import "../surfaces/office/office.css";
 @import "../surfaces/office/board/board.css";
-@import "../surfaces/workspace/workspace.css";
+@import "../surfaces/office/rail/connect/connect.css";
 @import "../surfaces/market/market.css";
 @import "../surfaces/mission/mission.css";
 @import "../surfaces/mission/loops/loops.css";

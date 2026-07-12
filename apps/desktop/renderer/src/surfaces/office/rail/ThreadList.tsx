@@ -13,6 +13,7 @@ import {
 import { MessagesSquare, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { ConversationActionsMenu } from './ConversationActionsMenu.js';
+import { ConnectRail } from './connect/ConnectRail.js';
 
 export function ThreadList() {
   const companyId = useUiState((s) => s.companyId);
@@ -36,9 +37,9 @@ export function ThreadList() {
   }, [threads.data, query]);
 
   return (
-    <>
-      <div className="off-conv-list-head">
-        <SearchInput value={query} onChange={setQuery} placeholder="Search conversations" />
+    <div className="off-thread-list-groups">
+      <div className="off-conv-list-section-head">
+        <span>Project conversations</span>
         <IconButton
           icon={Plus}
           label="New conversation"
@@ -48,64 +49,72 @@ export function ThreadList() {
           onClick={() => openDraftThread()}
         />
       </div>
+      <div className="off-conv-list-head">
+        <SearchInput value={query} onChange={setQuery} placeholder="Search project conversations" />
+      </div>
 
-      {threads.isError ? (
-        <ErrorState
-          title="Couldn't load conversations"
-          detail={errorDetail(threads.error, 'Conversations failed to load.')}
-          onRetry={() => void threads.refetch()}
-        />
-      ) : threads.isLoading ? (
-        <SkeletonRows rows={5} />
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          icon={MessagesSquare}
-          title={query ? 'No matching conversations' : 'No conversations yet'}
-          description={query ? 'Try a different search term.' : 'Message the team or one employee.'}
-        />
-      ) : (
-        <div className="off-conv-list">
-          {filtered.map((thread) => (
-            <div
-              key={thread.id}
-              className={cn(
-                'off-thread-row off-focusable',
-                thread.id === selectedThreadId && 'is-active',
-              )}
-              onContextMenu={(event) => {
-                event.preventDefault();
-                setContextMenuThreadId(thread.id);
-              }}
-            >
-              <button
-                type="button"
-                className="off-thread-main"
-                onClick={() => openThread(thread.id)}
-              >
-                <span className="off-thread-info">
-                  <span className="off-thread-name">{thread.title}</span>
-                  <span
-                    className="off-thread-sub"
-                    title={new Date(thread.updatedAt).toLocaleString()}
-                  >
-                    {relativeTime(thread.updatedAt)} · {thread.subtitle}
-                  </span>
-                </span>
-                <RunStatePill state={thread.runState} />
-              </button>
-              <ConversationActionsMenu
-                thread={thread}
-                projectId={projectId}
-                companyId={companyId}
-                open={contextMenuThreadId === thread.id ? true : undefined}
-                onOpenChange={(open) => {
-                  if (!open && contextMenuThreadId === thread.id) setContextMenuThreadId(null);
+      <div className="off-project-thread-list">
+        {threads.isError ? (
+          <ErrorState
+            title="Couldn't load conversations"
+            detail={errorDetail(threads.error, 'Conversations failed to load.')}
+            onRetry={() => void threads.refetch()}
+          />
+        ) : threads.isLoading ? (
+          <SkeletonRows rows={5} />
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            icon={MessagesSquare}
+            title={query ? 'No matching conversations' : 'No conversations yet'}
+            description={
+              query ? 'Try a different search term.' : 'Message the team or one employee.'
+            }
+          />
+        ) : (
+          <div className="off-conv-list">
+            {filtered.map((thread) => (
+              <div
+                key={thread.id}
+                className={cn(
+                  'off-thread-row off-focusable',
+                  thread.id === selectedThreadId && 'is-active',
+                )}
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  setContextMenuThreadId(thread.id);
                 }}
-              />
-            </div>
-          ))}
-        </div>
-      )}
-    </>
+              >
+                <button
+                  type="button"
+                  className="off-thread-main"
+                  onClick={() => openThread(thread.id)}
+                >
+                  <span className="off-thread-info">
+                    <span className="off-thread-name">{thread.title}</span>
+                    <span
+                      className="off-thread-sub"
+                      title={new Date(thread.updatedAt).toLocaleString()}
+                    >
+                      {relativeTime(thread.updatedAt)} · {thread.subtitle}
+                    </span>
+                  </span>
+                  <RunStatePill state={thread.runState} />
+                </button>
+                <ConversationActionsMenu
+                  thread={thread}
+                  projectId={projectId}
+                  companyId={companyId}
+                  open={contextMenuThreadId === thread.id ? true : undefined}
+                  onOpenChange={(open) => {
+                    if (!open && contextMenuThreadId === thread.id) setContextMenuThreadId(null);
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      <ConnectRail mode="list" />
+    </div>
   );
 }

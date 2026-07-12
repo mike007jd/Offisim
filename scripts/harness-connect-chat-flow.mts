@@ -27,7 +27,7 @@ import {
   type PresentationMessage,
   shouldShowPendingReply,
   visibleWorkspaceMessages,
-} from '../apps/desktop/renderer/src/surfaces/workspace/apps/workspace-chat-presentation.js';
+} from '../apps/desktop/renderer/src/surfaces/office/rail/connect/company-chat-presentation.js';
 import {
   type CollaborationServiceDeps,
   createCollaborationService,

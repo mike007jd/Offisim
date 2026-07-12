@@ -1,4 +1,4 @@
-// Connect — the company chat product (PR-05). Direct + group daily chat over the
+// Office company channels. Direct + group daily chat over the
 // PR-02 CollaborationService and the PR-03 turn controller, FULLY isolated from
 // the project-scoped `chat_threads` / Office work path. This surface NEVER reads
 // `useWsConversations` / `useWsThread`, never calls `conversationRunController`,
@@ -9,11 +9,11 @@
 // (no auto-fire; Ask team) + roundtable (Start / Continue round, bounded); the
 // PR-01 single-pending invariant per active speaker turn; unread / archive / time.
 
-import { useUiState } from '@/app/ui-state.js';
+import { type CompanyThreadDraft, useUiState } from '@/app/ui-state.js';
+import { ComposerSettingsMenu } from '@/assistant/composer/ComposerSettingsMenu.js';
 import { displayThreadTitle } from '@/data/adapters.js';
 import { useEmployees } from '@/data/queries.js';
 import type { Employee } from '@/data/types.js';
-import { ComposerSettingsMenu } from '@/assistant/composer/ComposerSettingsMenu.js';
 import { ChatComposerInput } from '@/design-system/grammar/ChatComposerInput.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
@@ -29,6 +29,7 @@ import {
   Archive,
   ArchiveRestore,
   BookOpenCheck,
+  ChevronLeft,
   MessageSquare,
   Plus,
   RotateCw,
@@ -38,20 +39,6 @@ import {
   Users,
 } from 'lucide-react';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import { toast } from 'sonner';
-import {
-  type ConnectViewMessage,
-  useArchiveThread,
-  useConnectMembers,
-  useConnectMessages,
-  useConnectThreads,
-  useCreateGroup,
-  useGetOrCreateDirect,
-  useMarkRead,
-  useUpdateThreadProfile,
-  useUpdateMembers,
-} from '../collaboration-data.js';
-import { useConnectRuntime } from '../use-connect-runtime.js';
 import {
   AskTeamDialog,
   DirectPickerDialog,
@@ -63,30 +50,30 @@ import {
 } from './ConnectDialogs.js';
 import { ConnectEnhanceButton } from './ConnectEnhanceButton.js';
 import {
+  type ConnectViewMessage,
+  useArchiveThread,
+  useConnectMembers,
+  useConnectMessages,
+  useConnectThreads,
+  useCreateGroup,
+  useGetOrCreateDirect,
+  useMarkRead,
+  useUpdateMembers,
+  useUpdateThreadProfile,
+} from './collaboration-data.js';
+import {
   mergePresentationMessages,
   shouldShowPendingReply,
   visibleWorkspaceMessages,
-} from './workspace-chat-presentation.js';
+} from './company-chat-presentation.js';
+import { useConnectRuntime } from './use-connect-runtime.js';
 
 /* ── Draft model ──────────────────────────────────────────────────────────── */
 
 /** A composed-but-not-yet-persisted Connect conversation. A direct draft carries
  *  the employee; a group draft carries the full create payload. Neither has a DB
  *  row until the first message, so it never appears in the sidebar list. */
-interface DirectDraft {
-  kind: 'direct';
-  id: string;
-  employeeId: string;
-  employeeName: string;
-}
-interface GroupDraft {
-  kind: 'group';
-  id: string;
-  title: string;
-  employeeIds: string[];
-  replyPolicy: CollaborationReplyPolicy;
-}
-type ConnectDraft = DirectDraft | GroupDraft;
+type ConnectDraft = CompanyThreadDraft;
 
 /** Shared compact age wording (lib/utils) over an ISO stamp; '' when unparsable. */
 function timeLabelFrom(iso: string): string {
@@ -267,17 +254,17 @@ function MessageRow({
 
 /* ── Surface ──────────────────────────────────────────────────────────────── */
 
-export function MessengerApp() {
+export function ConnectRail({ mode }: { mode: 'list' | 'detail' }) {
   const companyId = useUiState((s) => s.companyId) || null;
-  const selectedId = useUiState((s) => s.workspaceSelectedId);
-  const selectItem = useUiState((s) => s.selectWorkspaceItem);
-  const pendingDirectChatEmployeeId = useUiState((s) => s.pendingDirectChatEmployeeId);
-  const consumePendingDirectChat = useUiState((s) => s.consumePendingDirectChat);
+  const selectedId = useUiState((s) => s.selectedCompanyThreadId);
+  const draft = useUiState((s) => s.companyThreadDraft);
+  const openCompanyThread = useUiState((s) => s.openCompanyThread);
+  const openCompanyDraft = useUiState((s) => s.openCompanyDraft);
+  const closeThread = useUiState((s) => s.closeThread);
 
   const employees = useEmployees();
   const threads = useConnectThreads(companyId);
   const [query, setQuery] = useState('');
-  const [draft, setDraft] = useState<ConnectDraft | null>(null);
 
   // Dialogs
   const [newChatOpen, setNewChatOpen] = useState(false);
@@ -304,48 +291,6 @@ export function MessengerApp() {
   const archive = useArchiveThread(companyId);
   const updateThreadProfile = useUpdateThreadProfile(companyId);
   const markRead = useMarkRead(companyId);
-
-  // Reset draft + selection on a company switch (the company key changes).
-  // biome-ignore lint/correctness/useExhaustiveDependencies: companyId is an intentionally tracked invalidation key (reset on company switch); selectItem is an unmemoized function ref (not added to avoid render loops).
-  useEffect(() => {
-    setDraft(null);
-    selectItem(null);
-    setQuery('');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companyId]);
-
-  // Consume the one-shot "Message <employee>" intent from Contacts (flow 1):
-  // an existing active direct thread → open it; none → open a fresh direct draft.
-  // Wait until threads + employees have loaded so the existing-direct lookup is
-  // accurate (a draft created before the list resolves would shadow a real thread).
-  // biome-ignore lint/correctness/useExhaustiveDependencies: byId.get, list.find, consumePendingDirectChat, selectItem are function/method refs (not added to avoid render loops); companyId intentionally not re-listed (stable across the intent window).
-  useEffect(() => {
-    if (!pendingDirectChatEmployeeId) return;
-    if (threads.isLoading || employees.isLoading) return;
-    const employee = byId.get(pendingDirectChatEmployeeId);
-    if (!employee) {
-      // The target employee is gone (deleted between the Contacts click and load,
-      // or a stale roster). Consume the intent so it doesn't retry forever, but
-      // surface an honest failure instead of a silent no-op.
-      consumePendingDirectChat();
-      toast.error('That employee is no longer available.');
-      return;
-    }
-    // Only consume the intent once we can actually act on it.
-    consumePendingDirectChat();
-    const existing = list.find(
-      (t) => t.kind === 'direct' && t.directEmployeeId === employee.id && !t.archivedAt,
-    );
-    if (existing) {
-      setDraft(null);
-      selectItem(existing.threadId);
-      return;
-    }
-    const id = generateId('thread');
-    setDraft({ kind: 'direct', id, employeeId: employee.id, employeeName: employee.name });
-    selectItem(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingDirectChatEmployeeId, threads.isLoading, employees.isLoading]);
 
   // Mark the active persisted thread read when opened / when its latest changes.
   const latestId = activeThread?.lastMessage?.messageId ?? null;
@@ -384,8 +329,7 @@ export function MessengerApp() {
 
   function startDirectDraft(employee: Employee): void {
     const id = generateId('thread');
-    setDraft({ kind: 'direct', id, employeeId: employee.id, employeeName: employee.name });
-    selectItem(id);
+    openCompanyDraft({ kind: 'direct', id, employeeId: employee.id, employeeName: employee.name });
     setDirectPickerOpen(false);
     setNewChatOpen(false);
   }
@@ -396,8 +340,7 @@ export function MessengerApp() {
     replyPolicy: CollaborationReplyPolicy;
   }): void {
     const id = generateId('thread');
-    setDraft({ kind: 'group', id, ...input });
-    selectItem(id);
+    openCompanyDraft({ kind: 'group', id, ...input });
     setNewGroupOpen(false);
     setNewChatOpen(false);
   }
@@ -433,6 +376,7 @@ export function MessengerApp() {
         }
         onOpenMembers={() => setMembersOpen(true)}
         onOpenAskTeam={() => setAskTeamOpen(true)}
+        onBack={closeThread}
       />
     );
   } else if (activeDraft) {
@@ -447,8 +391,7 @@ export function MessengerApp() {
               title: activeDraft.employeeName,
             });
             await runtime.send(threadId, body);
-            setDraft(null);
-            selectItem(threadId);
+            openCompanyThread(threadId);
           } else {
             const threadId = await createGroup.mutateAsync({
               title: activeDraft.title,
@@ -456,10 +399,10 @@ export function MessengerApp() {
               replyPolicy: activeDraft.replyPolicy,
             });
             await runtime.send(threadId, body);
-            setDraft(null);
-            selectItem(threadId);
+            openCompanyThread(threadId);
           }
         }}
+        onBack={closeThread}
       />
     );
   } else {
@@ -485,82 +428,82 @@ export function MessengerApp() {
     .filter((m) => m.actorType === 'employee' && m.employeeId)
     .map((m) => byId.get(m.employeeId as string))
     .filter((e): e is Employee => e != null);
+  const unread = list.reduce((sum, thread) => sum + thread.unreadCount, 0);
 
   return (
     <>
-      <div className="off-ws-list">
-        <div className="off-ws-list-head">
-          <span className="off-ws-list-title">Chats</span>
-          <button
-            type="button"
-            className="off-ws-list-add off-focusable"
-            title="New chat"
-            onClick={() => setNewChatOpen(true)}
-          >
-            <Icon icon={Plus} size="sm" />
-          </button>
-        </div>
-        <div className="off-ws-list-search">
-          <SearchInput
-            value={query}
-            onChange={setQuery}
-            placeholder="Search people, groups, messages"
-          />
-        </div>
-        <div className="off-ws-chats">
-          {threads.isError && list.length === 0 ? (
-            <ErrorState
-              title="Couldn't load chats"
-              detail={errorDetail(threads.error, 'Your conversations failed to load.')}
-              onRetry={() => void threads.refetch()}
+      {mode === 'list' ? (
+        <div className="off-company-channel-list">
+          <div className="off-ws-list-head">
+            <span className="off-ws-list-title">
+              Company channels
+              {unread > 0 ? <span className="off-ws-im-nb">{unread}</span> : null}
+            </span>
+            <button
+              type="button"
+              className="off-ws-list-add off-focusable"
+              title="New chat"
+              onClick={() => setNewChatOpen(true)}
+            >
+              <Icon icon={Plus} size="sm" />
+            </button>
+          </div>
+          <div className="off-ws-list-search">
+            <SearchInput
+              value={query}
+              onChange={setQuery}
+              placeholder="Search people, groups, messages"
             />
-          ) : null}
-          {!threads.isError && list.length === 0 && !threads.isLoading ? (
-            <div className="off-connect-list-empty">
-              {(employees.data ?? []).length === 0
-                ? 'Hire an employee to start chatting.'
-                : 'No chats yet — start one with New chat.'}
-            </div>
-          ) : null}
-          {directThreads.map((thread) => (
-            <ThreadRow
-              key={thread.threadId}
-              thread={thread}
-              title={titleFor(thread)}
-              employee={
-                thread.directEmployeeId ? (byId.get(thread.directEmployeeId) ?? null) : null
-              }
-              active={thread.threadId === selectedId}
-              onSelect={() => {
-                setDraft(null);
-                selectItem(thread.threadId);
-              }}
-            />
-          ))}
-          {archivedThreads.length > 0 ? (
-            <>
-              <div className="off-ws-im-sec">Archived</div>
-              {archivedThreads.map((thread) => (
-                <ThreadRow
-                  key={thread.threadId}
-                  thread={thread}
-                  title={titleFor(thread)}
-                  employee={
-                    thread.directEmployeeId ? (byId.get(thread.directEmployeeId) ?? null) : null
-                  }
-                  active={thread.threadId === selectedId}
-                  onSelect={() => {
-                    setDraft(null);
-                    selectItem(thread.threadId);
-                  }}
-                />
-              ))}
-            </>
-          ) : null}
+          </div>
+          <div className="off-ws-chats">
+            {threads.isError && list.length === 0 ? (
+              <ErrorState
+                title="Couldn't load chats"
+                detail={errorDetail(threads.error, 'Your conversations failed to load.')}
+                onRetry={() => void threads.refetch()}
+              />
+            ) : null}
+            {!threads.isError && list.length === 0 && !threads.isLoading ? (
+              <div className="off-connect-list-empty">
+                {(employees.data ?? []).length === 0
+                  ? 'Hire an employee to start chatting.'
+                  : 'No chats yet — start one with New chat.'}
+              </div>
+            ) : null}
+            {directThreads.map((thread) => (
+              <ThreadRow
+                key={thread.threadId}
+                thread={thread}
+                title={titleFor(thread)}
+                employee={
+                  thread.directEmployeeId ? (byId.get(thread.directEmployeeId) ?? null) : null
+                }
+                active={thread.threadId === selectedId}
+                onSelect={() => openCompanyThread(thread.threadId)}
+              />
+            ))}
+            {archivedThreads.length > 0 ? (
+              <>
+                <div className="off-ws-im-sec">Archived</div>
+                {archivedThreads.map((thread) => (
+                  <ThreadRow
+                    key={thread.threadId}
+                    thread={thread}
+                    title={titleFor(thread)}
+                    employee={
+                      thread.directEmployeeId ? (byId.get(thread.directEmployeeId) ?? null) : null
+                    }
+                    active={thread.threadId === selectedId}
+                    onSelect={() => openCompanyThread(thread.threadId)}
+                  />
+                ))}
+              </>
+            ) : null}
+          </div>
         </div>
-      </div>
-
-      <div className="off-ws-detail">{detailBody}</div>
+      ) : (
+        <div className="off-company-channel-detail">{detailBody}</div>
+      )}
 
       <NewChatTypeDialog
         open={newChatOpen}
@@ -637,6 +580,7 @@ function PersistedThreadDetail({
   onProfileToggle,
   onOpenMembers,
   onOpenAskTeam,
+  onBack,
 }: {
   thread: CollaborationThreadSummary;
   title: string;
@@ -646,6 +590,7 @@ function PersistedThreadDetail({
   onProfileToggle: () => void;
   onOpenMembers: () => void;
   onOpenAskTeam: () => void;
+  onBack: () => void;
 }) {
   const messages = useConnectMessages(thread.threadId);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -758,6 +703,13 @@ function PersistedThreadDetail({
   return (
     <>
       <header className="off-ws-chat-head">
+        <IconButton
+          icon={ChevronLeft}
+          label="Back to conversations"
+          variant="ghost"
+          size="icon"
+          onClick={onBack}
+        />
         <ThreadAvatar thread={thread} employee={directEmployee} />
         <div className="off-ws-crumb">
           <span className="off-ws-crumb-title">{title}</span>
@@ -883,10 +835,12 @@ function DraftThreadDetail({
   draft,
   byId,
   onSend,
+  onBack,
 }: {
   draft: ConnectDraft;
   byId: Map<string, Employee>;
   onSend: (body: string) => Promise<void>;
+  onBack: () => void;
 }) {
   const employeesList = useEmployees();
   const directEmployee = draft.kind === 'direct' ? (byId.get(draft.employeeId) ?? null) : null;
@@ -902,6 +856,13 @@ function DraftThreadDetail({
   return (
     <>
       <header className="off-ws-chat-head">
+        <IconButton
+          icon={ChevronLeft}
+          label="Back to conversations"
+          variant="ghost"
+          size="icon"
+          onClick={onBack}
+        />
         {draft.kind === 'direct' && directEmployee ? (
           <span className="off-ws-im-av-wrap">
             <EmployeeAvatar
