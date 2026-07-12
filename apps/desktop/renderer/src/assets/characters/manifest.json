@@ -202,12 +202,18 @@
     }
   },
   "hair": {
-    "hair_01": "offisim-procedural:short-crop",
-    "hair_02": "offisim-procedural:long-drape",
+    "hair_01": "offisim-procedural:short",
+    "hair_02": "offisim-procedural:long",
     "hair_03": "offisim-procedural:ponytail",
-    "hair_04": "offisim-procedural:curly-afro",
-    "hair_05": "offisim-procedural:helmet-bob",
-    "hair_06": "offisim-procedural:spiky-crop"
+    "hair_04": "offisim-procedural:curly",
+    "hair_05": "offisim-procedural:bob",
+    "hair_06": "offisim-procedural:spiky",
+    "hair_07": "offisim-procedural:braids",
+    "hair_08": "offisim-procedural:bun",
+    "hair_09": "offisim-procedural:afro",
+    "hair_10": "offisim-procedural:mohawk",
+    "hair_11": "offisim-procedural:sidepart",
+    "hair_12": "offisim-procedural:undercut"
   },
   "props": {
     "prop_laptop": "kenney-furniture-kit:laptop.glb",
@@ -458,13 +464,19 @@
     "body_toy.glb": 58524,
     "hair_01.glb": 8880,
     "hair_02.glb": 10416,
-    "hair_03.glb": 9652,
-    "hair_04.glb": 18900,
+    "hair_03.glb": 9760,
+    "hair_04.glb": 13316,
     "hair_05.glb": 6972,
     "hair_06.glb": 9012,
     "animations.glb": 547280,
     "props.glb": 52248,
-    "LICENSES.md": 4203
+    "LICENSES.md": 4199,
+    "hair_07.glb": 11244,
+    "hair_08.glb": 9448,
+    "hair_09.glb": 14284,
+    "hair_10.glb": 4928,
+    "hair_11.glb": 6984,
+    "hair_12.glb": 9344
   },
-  "totalBytes": 726087
+  "totalBytes": 776839
 }

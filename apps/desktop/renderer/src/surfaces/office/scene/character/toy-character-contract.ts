@@ -2,7 +2,19 @@ import type { BodyType, HairStyle, HeadShape } from '@/lib/avatar.js';
 import contractJson from '@/lib/toy-character-contract.json';
 import type { Expression, Prop, RoleSlug } from '@offisim/shared-types';
 
-type HairAsset = `hair_0${1 | 2 | 3 | 4 | 5 | 6}`;
+type HairAsset = `hair_${
+  | '01'
+  | '02'
+  | '03'
+  | '04'
+  | '05'
+  | '06'
+  | '07'
+  | '08'
+  | '09'
+  | '10'
+  | '11'
+  | '12'}`;
 export type EyeStyle = 'neutral' | 'happy' | 'worried' | 'focus';
 export type AccessoryKind =
   | 'laptop'

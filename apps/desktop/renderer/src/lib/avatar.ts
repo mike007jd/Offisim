@@ -37,7 +37,12 @@ export type HairStyle =
   | 'bald'
   | 'bob'
   | 'spiky'
-  | 'braids';
+  | 'braids'
+  | 'bun'
+  | 'afro'
+  | 'mohawk'
+  | 'sidepart'
+  | 'undercut';
 
 const HAIR_STYLE_TO_TOP = {
   short: 'shortFlat',
@@ -47,7 +52,14 @@ const HAIR_STYLE_TO_TOP = {
   bald: 'shortFlat',
   bob: 'bob',
   spiky: 'frizzle',
-  braids: 'fro',
+  braids: 'dreads02',
+  bun: 'bun',
+  afro: 'fro',
+  // Avataaars has no exact mohawk/undercut assets. These are the closest
+  // silhouette matches and keep the 2D identity semantically aligned with 3D.
+  mohawk: 'shavedSides',
+  sidepart: 'theCaesarAndSidePart',
+  undercut: 'sides',
 } as const satisfies Record<HairStyle, string>;
 
 const OUTFIT_COLORS = toyCharacterContract.outfitColors.map((color) => color.hex);
@@ -115,6 +127,11 @@ const HAIR_STYLES: readonly HairStyle[] = [
   'bob',
   'spiky',
   'braids',
+  'bun',
+  'afro',
+  'mohawk',
+  'sidepart',
+  'undercut',
 ];
 const BODY_TYPES: readonly BodyType[] = ['slim', 'normal', 'stocky'];
 const HEAD_SHAPES: readonly HeadShape[] = ['round', 'soft-square', 'capsule'];

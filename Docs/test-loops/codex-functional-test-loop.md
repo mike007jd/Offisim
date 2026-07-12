@@ -205,8 +205,8 @@ bundle `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`. They ar
 | Personnel / hiring / skills | S1 wiring · M3 |
 | Market / package import | security: S8 · import: M4 |
 | Studio editor / collision | S6 · visual: M5 |
-| Workspace apps (Kanban/Contacts/Messenger) | data: S1 · live: M (Workspace) |
-| Calendar (Workspace app) | honest-empty — `meeting_sessions` inert, no live writer (S1 = typecheck/build only) |
+| Connect (Chats/Calendar/Contacts) | chat/data: S1 · live: M (Connect) |
+| Calendar (Connect) | honest-empty — `meeting_sessions` inert, no live writer (S1 = typecheck/build only) |
 | Activity feed | data: S1 |
 | Settings / providers (z.ai/MiniMax) | S5 · live routing: S10/M6 |
 | File attachments | ref: S9 · staging: M2 |

@@ -130,7 +130,7 @@ Connect AI replies run on a dedicated host-enforced Pi "collaboration" capabilit
 mentions / roundtable turn controller schedules which employees speak. See
 `Docs/architecture/2026-06-26-collaboration-domain-boundary.md`.
 
-Rail: Chats, Calendar, Contacts, Workplace. Calendar is honest-empty in 1.0 —
+Rail: Chats, Calendar, Contacts. Calendar is honest-empty in 1.0 —
 `meeting_sessions` is inert with no live writer (see
 `Docs/contracts/inert-storage-ledger.md`); it must not imply scheduled execution.
 

@@ -3,28 +3,22 @@ import { UI_DATA_COLORS } from '@/data/color-palette.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
-import { CalendarDays, LayoutGrid, type LucideIcon, MessageSquare, Users } from 'lucide-react';
+import { CalendarDays, type LucideIcon, MessageSquare, Users } from 'lucide-react';
 import { CalendarApp } from './apps/CalendarApp.js';
 import { ContactsApp } from './apps/ContactsApp.js';
-import { KanbanApp } from './apps/KanbanApp.js';
 import { MessengerApp } from './apps/MessengerApp.js';
-import { WorkplaceApp } from './apps/WorkplaceApp.js';
 import { useConnectThreads } from './collaboration-data.js';
 import { useWsAgenda } from './workspace-data.js';
 
 type AppEntry = { key: WorkspaceApp; label: string; icon: LucideIcon };
 
-// Tiered rail: action apps (carry badges) lead, then browse apps, then the
-// Workplace launcher at the bottom — so the rail reads by priority. Kanban is
-// NOT a rail tab: it is an app opened from inside the Workplace launcher, so the
-// rail stays a fixed surface set while the launcher grows with future apps.
+// Tiered rail: communication leads, then the two supporting browse apps.
 const APP_GROUPS: ReadonlyArray<ReadonlyArray<AppEntry>> = [
   [{ key: 'messenger', label: 'Chats', icon: MessageSquare }],
   [
     { key: 'calendar', label: 'Calendar', icon: CalendarDays },
     { key: 'contacts', label: 'Contacts', icon: Users },
   ],
-  [{ key: 'workplace', label: 'Workplace', icon: LayoutGrid }],
 ];
 
 function AppRail() {
@@ -63,9 +57,7 @@ function AppRail() {
             {groupIndex > 0 ? <span className="off-ws-rail-sep" aria-hidden /> : null}
             {group.map((item) => {
               const badge = badgeFor(item.key);
-              // The Workplace launcher stays highlighted while one of its apps
-              // (Kanban) is open, so the rail never looks like nothing is active.
-              const active = app === item.key || (item.key === 'workplace' && app === 'kanban');
+              const active = app === item.key;
               return (
                 <button
                   key={item.key}
@@ -96,10 +88,8 @@ export function WorkspaceSurface() {
     <div className="off-ws">
       <AppRail />
       {app === 'messenger' ? <MessengerApp /> : null}
-      {app === 'kanban' ? <KanbanApp /> : null}
       {app === 'calendar' ? <CalendarApp /> : null}
       {app === 'contacts' ? <ContactsApp /> : null}
-      {app === 'workplace' ? <WorkplaceApp /> : null}
     </div>
   );
 }

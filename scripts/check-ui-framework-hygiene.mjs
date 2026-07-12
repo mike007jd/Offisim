@@ -73,10 +73,9 @@ const checks = [
     excludeFiles: ['packages/doc-engine/CLAUDE.md'],
   },
   {
-    // Kanban (the work Board) is a live workspace surface again as of the
-    // Board + Approvals rail work — so it's intentionally dropped from this
-    // guard. The guard still blocks the genuinely-retired SOP/Docs surfaces and
-    // the OLD board implementation's specific symbols, so neither creeps back.
+    // Connect now exposes Chats, Calendar, and Contacts only. This guard keeps
+    // blocking the retired SOP/Docs surfaces and old board implementation
+    // symbols so they do not creep back through unrelated UI work.
     label: 'retired SOP/Docs surface',
     dirs: SOURCE_DIRS,
     pattern:

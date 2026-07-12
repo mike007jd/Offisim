@@ -43,7 +43,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form';
 import { Group, Panel, Separator, usePanelRef } from 'react-resizable-panels';
 import { toast } from 'sonner';
-import { AppearanceTab } from './AppearanceTab.js';
+import { AppearanceTab, CompactAppearanceEditor } from './AppearanceTab.js';
 import { HistoryTab } from './HistoryTab.js';
 import { McpToolsTab } from './McpToolsTab.js';
 import { MemoryTab } from './MemoryTab.js';
@@ -54,6 +54,7 @@ import {
   type AppearanceDraft,
   type ProfileFormValues,
   appearanceDraftFor,
+  appearanceDraftForSeed,
   profileDefaults,
   profileDefaultsFromRecord,
   profileFormSchema,
@@ -105,12 +106,15 @@ function roleSlug(role: string): RoleSlug {
   return 'developer';
 }
 
-function newEmployeePersona(): Record<string, unknown> {
-  // A newly-hired employee starts with no persona — every profile field stays
-  // empty ("not set") until the user fills it, matching profileDefaults. Seeding
-  // stub values here would fabricate persona the user never chose (and the old
-  // 'Concise'/'Ask when scope changes' weren't even valid enum values).
-  return {};
+function newEmployeePersona(appearance: AppearanceDraft): Record<string, unknown> {
+  // Profile selectors still start empty. Appearance is the one intentional
+  // persona field because the hire dialog previews and edits this exact look.
+  return { appearance: appearancePayload(appearance) };
+}
+
+function createHireAppearance() {
+  const seed = crypto.randomUUID();
+  return { seed, draft: appearanceDraftForSeed(seed) };
 }
 
 function RosterRow({
@@ -643,6 +647,7 @@ function HireEmployeeDialog({
   const [role, setRole] = useState('Developer');
   const [model, setModel] = useState('');
   const [thinkingLevel, setThinkingLevel] = useState('');
+  const [appearanceSetup, setAppearanceSetup] = useState(createHireAppearance);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const canSubmit = name.trim().length > 0 && role.trim().length > 0 && !isSaving;
@@ -652,6 +657,7 @@ function HireEmployeeDialog({
     setRole('Developer');
     setModel('');
     setThinkingLevel('');
+    setAppearanceSetup(createHireAppearance());
     setError(null);
     setIsSaving(false);
   };
@@ -665,12 +671,13 @@ function HireEmployeeDialog({
       if (!repos) throw new Error('Employee creation requires the release desktop app');
       const slug = roleSlug(role);
       const { employee_id } = await repos.employees.create({
+        employee_id: appearanceSetup.seed,
         company_id: companyId,
         name: name.trim(),
         role_slug: slug,
         source_asset_id: null,
         source_package_id: null,
-        persona_json: JSON.stringify(newEmployeePersona()),
+        persona_json: JSON.stringify(newEmployeePersona(appearanceSetup.draft)),
         config_json: '{}',
         model: model || null,
         thinking_level: model && thinkingLevel ? thinkingLevel : null,
@@ -731,9 +738,7 @@ function HireEmployeeDialog({
               options={[
                 {
                   value: '',
-                  label: models.isLoading
-                    ? 'Loading Pi models…'
-                    : 'Inherit conversation model',
+                  label: models.isLoading ? 'Loading Pi models…' : 'Inherit conversation model',
                 },
                 ...(models.data ?? []).map((option) => ({
                   value: option.value,
@@ -749,14 +754,14 @@ function HireEmployeeDialog({
               value={thinkingLevel}
               onChange={(event) => setThinkingLevel(event.target.value)}
               disabled={
-                !model ||
-                models.data?.find((option) => option.value === model)?.reasoning !== true
+                !model || models.data?.find((option) => option.value === model)?.reasoning !== true
               }
               options={[
                 { value: '', label: 'Use conversation level' },
-                ...(['off', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const).map(
-                  (level) => ({ value: level, label: level }),
-                ),
+                ...(['off', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const).map((level) => ({
+                  value: level,
+                  label: level,
+                })),
               ]}
             />
           </div>
@@ -769,6 +774,12 @@ function HireEmployeeDialog({
               placeholder="Frontend Engineer"
             />
           </div>
+          <CompactAppearanceEditor
+            seed={appearanceSetup.seed}
+            role={role}
+            draft={appearanceSetup.draft}
+            onChange={(draft) => setAppearanceSetup((current) => ({ ...current, draft }))}
+          />
           {error ? <p className="off-pers-hire-error">{error}</p> : null}
         </div>
         <DialogFooter>
@@ -807,9 +818,7 @@ export function PersonnelSurface() {
   const dirtyRef = useRef(false);
 
   const roster = employees.data ?? [];
-  const validModels = models.data
-    ? new Set(models.data.map((option) => option.value))
-    : undefined;
+  const validModels = models.data ? new Set(models.data.map((option) => option.value)) : undefined;
   const selected = roster.find((e) => e.id === selectedEmployeeId) ?? null;
 
   const guardedSelect = useCallback(

@@ -55,6 +55,7 @@
     "harness:office-diorama-p6": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-office-diorama-p6.mts",
     "harness:office-seating-p2": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-office-seating-p2.mts",
     "build:character-assets": "node scripts/build-character-assets.mjs",
+    "build:character-hair-assets": "node scripts/build-character-hair-assets.mjs",
     "harness:employee-version-on-save": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-employee-version-on-save.mts",
     "harness:mission-service": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-mission-service.mts",
     "harness:mission-evaluators": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-mission-evaluators.mts",

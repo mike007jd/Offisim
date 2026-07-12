@@ -1,4 +1,4 @@
-import { usePrefersReducedMotion } from '@/assistant/runtime/office-dramaturgy.js';
+import { UI_DATA_COLORS } from '@/data/color-palette.js';
 import type { Employee } from '@/data/types.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
@@ -7,11 +7,8 @@ import { Select } from '@/design-system/grammar/Select.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { type EmployeeAppearance, resolveAppearance } from '@/lib/avatar.js';
 import { cn } from '@/lib/utils.js';
-import { OrbitControls } from '@react-three/drei';
-import { Canvas } from '@react-three/fiber';
 import { Lock } from 'lucide-react';
-import { type CSSProperties, Suspense, useId } from 'react';
-import { GltfCharacter } from '../office/scene/character/GltfCharacter.js';
+import { type CSSProperties, Suspense, lazy, useId } from 'react';
 import {
   ACCENT_SWATCHES,
   type AppearanceDraft,
@@ -25,6 +22,10 @@ import {
   SKIN_SWATCHES,
   type SwatchOption,
 } from './personnel-data.js';
+
+const AppearancePreview3D = lazy(() =>
+  import('./AppearancePreview3D.js').then((module) => ({ default: module.AppearancePreview3D })),
+);
 
 function swatchStyle(value: string): CSSProperties {
   return { '--off-pers-swatch': value } as CSSProperties;
@@ -73,60 +74,112 @@ function SwatchRow({
 }
 
 function AppearancePreviewPanel({
-  employee,
   appearance,
   seed,
-  brand,
+  role,
+  colorA,
+  colorB,
+  brand = false,
+  compact = false,
 }: {
-  employee: Employee;
   appearance: EmployeeAppearance;
   seed: string;
-  brand: boolean;
+  role: string;
+  colorA: string;
+  colorB: string;
+  brand?: boolean;
+  compact?: boolean;
 }) {
   const resolved = resolveAppearance(seed, appearance);
-  const reducedMotion = usePrefersReducedMotion();
 
   return (
-    <div className="off-pers-prev is-3d-main">
+    <div className={cn('off-pers-prev is-3d-main', compact && 'is-compact')}>
       <span className="off-pers-prev-label">3D</span>
       <div className="off-pers-prev-canvas" aria-label="3D avatar preview">
-        <Canvas camera={{ position: [0, 1.4, 5.6], fov: 34 }} dpr={[1, 2]}>
-          <ambientLight intensity={0.84} />
-          <directionalLight position={[2, 4, 3]} intensity={1.75} />
-          <group position={[0, -0.9, 0]} rotation={[0, -0.26, 0]} scale={1.28}>
-            {/* glb loads suspend; the empty fallback keeps the canvas/lights up. */}
-            <Suspense fallback={null}>
-              <GltfCharacter
-                appearance={resolved}
-                status="idle"
-                selected
-                role={employee.roleSlug ?? employee.role}
-                phase={0}
-                reducedMotion={reducedMotion}
-              />
-            </Suspense>
-          </group>
-          <OrbitControls
-            enablePan={false}
-            minDistance={3.2}
-            maxDistance={6.8}
-            minPolarAngle={0.62}
-            maxPolarAngle={1.42}
-          />
-        </Canvas>
+        <Suspense fallback={<div className="off-pers-prev-loading">Loading 3D…</div>}>
+          <AppearancePreview3D appearance={resolved} role={role} compact={compact} />
+        </Suspense>
       </div>
       <div className="off-pers-prev-2d" aria-label="2D avatar reference">
         <EmployeeAvatar
           seed={seed}
           appearance={appearance}
-          colorA={employee.avatarA}
-          colorB={employee.avatarB}
+          colorA={colorA}
+          colorB={colorB}
           size={44}
           brand={brand}
         />
         <span>2D</span>
       </div>
     </div>
+  );
+}
+
+export function CompactAppearanceEditor({
+  seed,
+  role,
+  draft,
+  onChange,
+}: {
+  seed: string;
+  role: string;
+  draft: AppearanceDraft;
+  onChange: (next: AppearanceDraft) => void;
+}) {
+  const hairStyleId = useId();
+  return (
+    <section className="off-pers-hire-appearance" aria-label="Employee appearance">
+      <div className="off-pers-hire-appearance-head">
+        <span>Appearance</span>
+        <small>Randomized for this hire · editable now</small>
+      </div>
+      <div className="off-pers-hire-appearance-grid">
+        <AppearancePreviewPanel
+          appearance={draft}
+          seed={seed}
+          role={role}
+          colorA={UI_DATA_COLORS.blue}
+          colorB={UI_DATA_COLORS.violet}
+          compact
+        />
+        <div className="off-pers-hire-appearance-controls">
+          <div className="off-field">
+            <label className="off-field-label" htmlFor={hairStyleId}>
+              Hair style
+            </label>
+            <Select
+              id={hairStyleId}
+              value={draft.hairStyle ?? 'short'}
+              onChange={(event) =>
+                onChange({
+                  ...draft,
+                  hairStyle: event.target.value as AppearanceDraft['hairStyle'],
+                })
+              }
+              options={HAIR_STYLE_OPTIONS}
+            />
+          </div>
+          <SwatchRow
+            label="Hair color"
+            swatches={HAIR_SWATCHES}
+            value={draft.hairColor}
+            onChange={(hairColor) => onChange({ ...draft, hairColor })}
+          />
+          <SwatchRow
+            label="Skin tone"
+            swatches={SKIN_SWATCHES}
+            value={draft.skinColor}
+            onChange={(skinColor) => onChange({ ...draft, skinColor })}
+          />
+          <SwatchRow
+            label="Outfit color"
+            swatches={CLOTHING_SWATCHES}
+            value={draft.clothingColor}
+            onChange={(clothingColor) => onChange({ ...draft, clothingColor })}
+          />
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -166,9 +219,11 @@ export function AppearanceTab({ employee, draft, onChange }: AppearanceTabProps)
           </div>
           <div className="off-pers-prev-col">
             <AppearancePreviewPanel
-              employee={employee}
               appearance={previewAppearance}
               seed={seed}
+              role={employee.roleSlug ?? employee.role}
+              colorA={employee.avatarA}
+              colorB={employee.avatarB}
               brand
             />
           </div>
@@ -286,9 +341,11 @@ export function AppearanceTab({ employee, draft, onChange }: AppearanceTabProps)
 
           <div className="off-pers-prev-col">
             <AppearancePreviewPanel
-              employee={employee}
               appearance={previewAppearance}
               seed={seed}
+              role={employee.roleSlug ?? employee.role}
+              colorA={employee.avatarA}
+              colorB={employee.avatarB}
               brand={false}
             />
           </div>

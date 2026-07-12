@@ -35,12 +35,12 @@ export const NAV_ENTRIES: readonly NavEntry[] = [
   // The internal surface key still says 'mission' until the app-state schema is
   // renamed, but the user-visible product is Loops.
   { key: 'mission', label: 'Loops', icon: Target, tier: 'primary' },
-  { key: 'market', label: 'Market', icon: Store, tier: 'primary' },
   { key: 'personnel', label: 'Personnel', icon: UsersRound, tier: 'primary' },
+  { key: 'market', label: 'Market', icon: Store, tier: 'utility' },
   { key: 'activity', label: 'Activity', icon: Activity, tier: 'utility' },
   { key: 'tasks', label: 'Tasks', icon: ListChecks, tier: 'utility' },
-  { key: 'settings', label: 'Settings', icon: Settings, tier: 'utility' },
   { key: 'studio', label: 'Studio', icon: PencilRuler, tier: 'utility' },
+  { key: 'settings', label: 'Settings', icon: Settings, tier: 'utility' },
 ];
 
 /** @public — asserted by scripts/check-ui-framework-hygiene.mjs (content match, not import). */

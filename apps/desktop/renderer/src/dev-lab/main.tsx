@@ -3,24 +3,21 @@
  * Not part of the app build; served only by `vite dev` as /character-lab.html.
  *
  * Views (query param `?view=`):
- *   hair   — all 8 hair styles front-facing close-up grid          (default)
+ *   hair   — all hair styles front-facing close-up grid            (default)
  *   heads  — head shapes × body types matrix
  *   walk   — one walker looping a square track (heading/stride test)
  *   clips  — a single character cycling a chosen clip (?clip=walk)
  */
 import type { HairStyle, ResolvedAppearance } from '@/lib/avatar.js';
 import toyCharacterContract from '@/lib/toy-character-contract.json';
-import { Canvas, useFrame } from '@react-three/fiber';
+import type { CharacterMovementPhase } from '@/surfaces/office/scene/character-movement.js';
+import { GltfCharacter } from '@/surfaces/office/scene/character/GltfCharacter.js';
+import { LIGHT_SCENE_3D, SCENE_LIGHTING_COLORS } from '@/surfaces/office/scene/r3d/scene-colors.js';
 import { OrbitControls } from '@react-three/drei';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { Suspense, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Group } from 'three';
-import type { CharacterMovementPhase } from '@/surfaces/office/scene/character-movement.js';
-import { GltfCharacter } from '@/surfaces/office/scene/character/GltfCharacter.js';
-import {
-  LIGHT_SCENE_3D,
-  SCENE_LIGHTING_COLORS,
-} from '@/surfaces/office/scene/r3d/scene-colors.js';
 
 const params = new URLSearchParams(window.location.search);
 const view = params.get('view') ?? 'hair';
@@ -34,6 +31,11 @@ const HAIR_STYLES: readonly HairStyle[] = [
   'bob',
   'spiky',
   'braids',
+  'bun',
+  'afro',
+  'mohawk',
+  'sidepart',
+  'undercut',
 ];
 
 // Production palettes verbatim — the lab must show contract colors, not its own.
@@ -79,13 +81,23 @@ function Lights() {
 }
 
 function HairGrid() {
+  const columns = Math.ceil(HAIR_STYLES.length / 2);
+  const rows = Math.ceil(HAIR_STYLES.length / columns);
   return (
     <>
-      {HAIR_STYLES.map((style, i) => (
-        <group key={style} position={[(i - 3.5) * 1.12, 0, 0]}>
-          <GltfCharacter appearance={appearanceFor(i, style)} status="idle" phase={i * 0.6} />
-        </group>
-      ))}
+      {HAIR_STYLES.map((style, i) => {
+        const row = Math.floor(i / columns);
+        const columnsInRow = Math.min(columns, HAIR_STYLES.length - row * columns);
+        const column = i % columns;
+        return (
+          <group
+            key={style}
+            position={[(column - (columnsInRow - 1) / 2) * 1.12, (rows - row - 1) * 2.05, 0]}
+          >
+            <GltfCharacter appearance={appearanceFor(i, style)} status="idle" phase={i * 0.6} />
+          </group>
+        );
+      })}
     </>
   );
 }
@@ -148,7 +160,11 @@ function Walker() {
   });
   return (
     <group ref={ref} position={[2.5, 0, -2.5]}>
-      <GltfCharacter appearance={appearanceFor(2, 'curly')} status="working" walkingRef={walkingRef} />
+      <GltfCharacter
+        appearance={appearanceFor(2, 'curly')}
+        status="working"
+        walkingRef={walkingRef}
+      />
     </group>
   );
 }
@@ -170,7 +186,7 @@ function Clip() {
 }
 
 const CAMS: Record<string, { pos: [number, number, number]; target: [number, number, number] }> = {
-  hair: { pos: [0, 1.9, 7.4], target: [0, 1.45, 0] },
+  hair: { pos: [0, 2.75, 9.2], target: [0, 2.05, 0] },
   heads: { pos: [0, 3.4, 6.4], target: [0, 1, 0] },
   walk: { pos: [6.5, 5.2, 6.5], target: [0, 0.8, 0] },
   clips: { pos: [0, 1.7, 2.6], target: [0, 1.15, 0] },

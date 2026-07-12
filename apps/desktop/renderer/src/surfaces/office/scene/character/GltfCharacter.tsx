@@ -93,7 +93,7 @@ import {
  *    body + garments together — reads narrower/wider. Height stays normalized.
  *  - headShape: round | soft-square | capsule → non-uniform Head-bone scale;
  *    attached hair and eye decals inherit the same transform.
- *  - hair: 8 HairStyle values → 6 adapted toy-head meshes; bald attaches none.
+ *  - hair: 13 HairStyle values → 12 authored toy-head meshes; bald attaches none.
  *  - expression: switches four procedural eye-decal states. A deterministic
  *    phase-based 2–6s blink is disabled by reduced motion; there is no mouth,
  *    brow, facial bone or morph lane.

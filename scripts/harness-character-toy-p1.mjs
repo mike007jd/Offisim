@@ -9,6 +9,7 @@ import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { getBounds } from '@gltf-transform/functions';
 import { MeshoptDecoder } from 'meshoptimizer';
+import { HAIR_ASSET_IDS } from './lib/toy-hair-assets.mjs';
 
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..');
 const CHARACTER_DIR = join(ROOT, 'apps/desktop/renderer/src/assets/characters');
@@ -64,6 +65,9 @@ const personnelSurface = await text(
 const appearanceTab = await text(
   join(ROOT, 'apps/desktop/renderer/src/surfaces/personnel/AppearanceTab.tsx'),
 );
+const appearancePreview = await text(
+  join(ROOT, 'apps/desktop/renderer/src/surfaces/personnel/AppearancePreview3D.tsx'),
+);
 const officeScene = await text(
   join(ROOT, 'apps/desktop/renderer/src/surfaces/office/scene/OfficeScene3D.tsx'),
 );
@@ -80,6 +84,38 @@ const p0Harness = await text(
 );
 const toyMetrics = await json(
   join(ROOT, 'apps/desktop/renderer/src/surfaces/office/scene/toy-performance-metrics.json'),
+);
+const seedContinuityOracle = spawnSync(
+  'pnpm',
+  [
+    '--filter',
+    '@offisim/platform',
+    'exec',
+    'tsx',
+    '-e',
+    [
+      `import { resolveAppearance } from ${JSON.stringify(join(ROOT, 'apps/desktop/renderer/src/lib/avatar.ts'))};`,
+      'async function run() {',
+      "  const { createMemoryRepositories } = await import('@offisim/core/browser');",
+      "  const seed = 'hire-seed-oracle';",
+      '  const repository = createMemoryRepositories().employees;',
+      '  const created = await repository.create({',
+      '    employee_id: seed,',
+      "    company_id: 'oracle-company',",
+      "    name: 'Oracle Employee',",
+      "    role_slug: 'developer',",
+      '    source_asset_id: null,',
+      '    source_package_id: null,',
+      '  });',
+      "  if (created.employee_id !== seed) throw new Error('repository ignored explicit employee id');",
+      '  const before = resolveAppearance(seed);',
+      '  const after = resolveAppearance(created.employee_id);',
+      "  if (JSON.stringify(before) !== JSON.stringify(after)) throw new Error('appearance changed after create');",
+      '}',
+      'run().catch((error) => { console.error(error); process.exitCode = 1; });',
+    ].join('\n'),
+  ],
+  { cwd: ROOT, encoding: 'utf8', maxBuffer: 1024 * 1024 },
 );
 
 check(
@@ -135,10 +171,16 @@ check(
     appearanceTab.includes('swatches.some((swatch)'),
 );
 check(
-  'appearance draft uses the office resolver for every effective color',
+  'appearance draft uses the office resolver and hire seed survives repository create',
   ['skin', 'hair', 'clothing', 'accent'].every((field) =>
     personnelData.includes(`${field}Color: resolved.${field}`),
-  ) && !personnelData.includes('employee.avatarA'),
+  ) &&
+    !personnelData.includes('employee.avatarA') &&
+    personnelSurface.includes('employee_id: appearanceSetup.seed') &&
+    seedContinuityOracle.status === 0,
+  [seedContinuityOracle.error?.message, seedContinuityOracle.stdout, seedContinuityOracle.stderr]
+    .filter(Boolean)
+    .join('\n'),
 );
 check(
   'gender presentation affects only the 2D avatar lane',
@@ -171,6 +213,7 @@ check(
 const reachableHairAssets = [
   ...new Set(Object.values(contract.hairStyleToAsset).filter(Boolean)),
 ].sort();
+const expectedHairAssets = [...HAIR_ASSET_IDS].sort();
 const transformedHairAssets = Object.keys(contract.hairTransforms).sort();
 const manifestedHairAssets = Object.keys(manifest.hair ?? {}).sort();
 const shippedHairAssets = characterDirEntries
@@ -182,10 +225,13 @@ const runtimeHairAssets = [...characterAssets.matchAll(/^\s+(hair_\d+): hair\d+U
   .sort();
 check(
   'hair reachable, transform, manifest, shipped, and runtime URL sets are exact',
-  reachableHairAssets.length === 6 &&
-    [transformedHairAssets, manifestedHairAssets, shippedHairAssets, runtimeHairAssets].every(
-      (assets) => JSON.stringify(assets) === JSON.stringify(reachableHairAssets),
-    ),
+  [
+    reachableHairAssets,
+    transformedHairAssets,
+    manifestedHairAssets,
+    shippedHairAssets,
+    runtimeHairAssets,
+  ].every((assets) => JSON.stringify(assets) === JSON.stringify(expectedHairAssets)),
 );
 const hairFitFailures = [];
 const [headRadiusX, headRadiusY, headRadiusZ] = manifest.bodies.toy.headRadiiUnits;
@@ -257,7 +303,7 @@ for (const [asset, transform] of Object.entries(contract.hairTransforms)) {
   }
 }
 check(
-  'six transformed hair silhouettes wrap the head with a visible front hairline while clearing eyes',
+  'all transformed hair silhouettes wrap the head with a visible front hairline while clearing eyes',
   hairFitFailures.length === 0,
   hairFitFailures.join(', '),
 );
@@ -271,18 +317,14 @@ check(
     character.includes('isBlinking') &&
     character.includes('eyeStyleForExpression'),
 );
-const appearancePreviewSource = appearanceTab.slice(
-  appearanceTab.indexOf('function AppearancePreviewPanel'),
-  appearanceTab.indexOf('interface AppearanceTabProps'),
-);
 const dragGhostSource = officeScene.slice(
   officeScene.indexOf('function EmployeeDragGhost'),
   officeScene.indexOf('function SceneDropNoticeLabel'),
 );
 check(
   'reduced-motion reaches office actors, drag ghost, and Personnel preview',
-  appearancePreviewSource.includes('usePrefersReducedMotion()') &&
-    appearancePreviewSource.includes('reducedMotion={reducedMotion}') &&
+  appearancePreview.includes('usePrefersReducedMotion()') &&
+    appearancePreview.includes('reducedMotion={reducedMotion}') &&
     dragGhostSource.includes('reducedMotion: boolean') &&
     dragGhostSource.includes('reducedMotion={reducedMotion}') &&
     officeScene.includes('reducedMotion={reducedMotion}'),
@@ -395,11 +437,9 @@ check(
     !/eyebrow/i.test(licenses),
 );
 check(
-  'hair manifest ships six assets',
-  Object.keys(manifest.hair ?? {}).length === 6 &&
-    Array.from({ length: 6 }, (_, index) => `hair_0${index + 1}.glb`).every((file) =>
-      existsSync(join(CHARACTER_DIR, file)),
-    ),
+  'hair manifest ships every contract asset',
+  JSON.stringify(Object.keys(manifest.hair ?? {}).sort()) === JSON.stringify(expectedHairAssets) &&
+    expectedHairAssets.every((asset) => existsSync(join(CHARACTER_DIR, `${asset}.glb`))),
 );
 const files = Object.keys(manifest.files ?? {});
 const actualAssetFiles = characterDirEntries
