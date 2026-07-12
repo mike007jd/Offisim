@@ -1061,7 +1061,7 @@ function FallbackFurniture() {
   );
 }
 
-export function OfficeScene3D() {
+export function OfficeScene3D({ pip = false }: { pip?: boolean }) {
   const projectId = useUiState((s) => s.projectId);
   const selectedThreadId = useUiState((s) => s.selectedThreadId);
   const openThread = useUiState((s) => s.openThread);
@@ -1225,8 +1225,8 @@ export function OfficeScene3D() {
   return (
     <>
       <Canvas
-        shadows="soft"
-        dpr={[1, 1.75]}
+        shadows={pip ? false : 'soft'}
+        dpr={pip ? 1 : [1, 1.75]}
         // Keep R3F's continuous frame loop. We tried "demand" to save
         // idle CPU but the character mixers advance in useFrame (GltfCharacter
         // RigView) and EmployeeUnit's glide lerp mutates positions via refs —
@@ -1531,7 +1531,7 @@ export function OfficeScene3D() {
           minPolarAngle={OFFICE_CAMERA_PRESET.minPolarAngle}
           maxPolarAngle={OFFICE_CAMERA_PRESET.maxPolarAngle}
         />
-        <ScenePostFx />
+        {pip ? null : <ScenePostFx />}
       </Canvas>
       {selectedThreadId && selectedWorkBenchEntry?.richDetail ? (
         <button

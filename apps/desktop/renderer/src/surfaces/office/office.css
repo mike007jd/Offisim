@@ -431,6 +431,103 @@
   border-radius: 0;
   background: var(--off-surface-0);
   box-shadow: none;
+  transition: width var(--off-motion-slow) var(--off-motion-ease),
+    height var(--off-motion-slow) var(--off-motion-ease),
+    border-radius var(--off-motion-slow) var(--off-motion-ease),
+    box-shadow var(--off-motion-slow) var(--off-motion-ease);
+}
+
+.off-scene-host.is-pip {
+  inset: auto auto var(--off-sp-4) var(--off-sp-4);
+  z-index: var(--off-z-popover);
+  width: 208px;
+  height: 136px;
+  border: 1px solid var(--off-line-strong);
+  border-radius: var(--off-r-lg);
+  background: var(--off-surface-1);
+  box-shadow: var(--off-elev-3);
+}
+
+.off-scene-host.is-pip::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: var(--off-z-raised);
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, white 30%, transparent);
+}
+
+.off-scene-host.is-pip .off-scene-controls,
+.off-scene-host.is-pip .off-scene-empty {
+  display: none;
+}
+
+.off-scene-host.is-pip.is-collapsed {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--off-r-round);
+}
+
+.off-scene-host.is-pip.is-collapsed .off-scene-canvas,
+.off-scene-host.is-pip.is-collapsed .off-scene-loading,
+.off-scene-host.is-pip.is-collapsed .off-scene-pip-return {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.off-scene-pip-actions {
+  position: absolute;
+  inset: 0;
+  z-index: var(--off-z-float);
+  pointer-events: none;
+}
+
+.off-scene-pip-return,
+.off-scene-pip-collapse {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in oklab, var(--off-line-strong) 72%, transparent);
+  background: color-mix(in oklab, var(--off-surface-glass-strong) 88%, transparent);
+  color: var(--off-ink-2);
+  backdrop-filter: blur(var(--off-blur-sm));
+  box-shadow: var(--off-elev-1);
+  pointer-events: auto;
+}
+
+.off-scene-pip-return {
+  inset: auto auto var(--off-sp-2) var(--off-sp-2);
+  height: 26px;
+  gap: var(--off-sp-1);
+  padding: 0 var(--off-sp-2);
+  border-radius: var(--off-r-pill);
+  font-size: var(--off-fs-micro);
+  font-weight: 700;
+}
+
+.off-scene-pip-collapse {
+  top: var(--off-sp-2);
+  right: var(--off-sp-2);
+  width: 25px;
+  height: 25px;
+  border-radius: var(--off-r-round);
+}
+
+.off-scene-host.is-pip.is-collapsed .off-scene-pip-collapse {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--off-accent);
+  color: var(--off-accent-fg);
+}
+
+.off-scene-pip-return:hover,
+.off-scene-pip-collapse:hover {
+  border-color: var(--off-accent-ring);
+  color: var(--off-accent);
 }
 
 .off-scene-controls {
@@ -505,6 +602,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .off-scene-host {
+    transition: none;
+  }
+
   .off-scene-annotation {
     transition: none;
   }

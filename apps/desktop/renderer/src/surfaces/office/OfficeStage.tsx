@@ -15,6 +15,8 @@ import {
   HandHelping,
   LayoutPanelTop,
   LayoutTemplate,
+  PanelBottomClose,
+  PictureInPicture2,
   ShieldCheck,
   TriangleAlert,
 } from 'lucide-react';
@@ -77,6 +79,9 @@ function GameViewControls() {
 export function OfficeStage() {
   const sceneRenderMode = useUiState((s) => s.sceneRenderMode);
   const stagePrimaryTab = useUiState((s) => s.stagePrimaryTab);
+  const scenePipCollapsed = useUiState((s) => s.scenePipCollapsed);
+  const setScenePipCollapsed = useUiState((s) => s.setScenePipCollapsed);
+  const setStagePrimaryTab = useUiState((s) => s.setStagePrimaryTab);
   const setSurface = useUiState((s) => s.setSurface);
   const companyId = useUiState((s) => s.companyId);
 
@@ -110,11 +115,16 @@ export function OfficeStage() {
         tokensLabel={runCost.data ? runCost.data.tokens.toLocaleString() : '0'}
         costLabel={runCost.data?.costLabel ?? '$0.00'}
       />
-      {stagePrimaryTab === 'game' ? (
-        <div className="off-scene-host">
+      <div
+        className={cn(
+          'off-scene-host',
+          stagePrimaryTab !== 'game' && 'is-pip',
+          stagePrimaryTab !== 'game' && scenePipCollapsed && 'is-collapsed',
+        )}
+      >
           {sceneRenderMode === '3d' ? (
             <Suspense fallback={<div className="off-scene-loading">Loading scene…</div>}>
-              <OfficeScene3D />
+              <OfficeScene3D pip={stagePrimaryTab !== 'game'} />
             </Suspense>
           ) : (
             <OfficeScene2D />
@@ -131,8 +141,30 @@ export function OfficeStage() {
               className="off-scene-empty"
             />
           ) : null}
-        </div>
-      ) : null}
+        {stagePrimaryTab !== 'game' ? (
+          <div className="off-scene-pip-actions">
+            <button
+              type="button"
+              className="off-scene-pip-return off-focusable"
+              onClick={() => setStagePrimaryTab('game')}
+              aria-label="Return to Game View"
+              title="Return to Game View"
+            >
+              <Icon icon={PictureInPicture2} size="sm" />
+              <span>Game View</span>
+            </button>
+            <button
+              type="button"
+              className="off-scene-pip-collapse off-focusable"
+              onClick={() => setScenePipCollapsed(!scenePipCollapsed)}
+              aria-label={scenePipCollapsed ? 'Expand scene preview' : 'Collapse scene preview'}
+              title={scenePipCollapsed ? 'Expand scene preview' : 'Collapse scene preview'}
+            >
+              <Icon icon={scenePipCollapsed ? PictureInPicture2 : PanelBottomClose} size="sm" />
+            </button>
+          </div>
+        ) : null}
+      </div>
       <StageAutoOpen />
       <StageViewer />
 
