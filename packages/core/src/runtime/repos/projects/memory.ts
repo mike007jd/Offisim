@@ -31,6 +31,9 @@ export class MemoryProjectRepository implements ProjectRepository {
   async create(project: NewProject): Promise<ProjectRow> {
     const row: ProjectRow = {
       ...project,
+      verify_command: project.verify_command ?? null,
+      verify_max_attempts: project.verify_max_attempts ?? 3,
+      verify_token_budget: project.verify_token_budget ?? null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };

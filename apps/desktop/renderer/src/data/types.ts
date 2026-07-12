@@ -27,6 +27,9 @@ export interface Project {
   name: string;
   workspaceRoot: string | null;
   branch: string | null;
+  verifyCommand: string | null;
+  verifyMaxAttempts: number;
+  verifyTokenBudget: number | null;
 }
 
 type EmployeeKind = 'internal' | 'external';

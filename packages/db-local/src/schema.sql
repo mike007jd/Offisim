@@ -359,6 +359,9 @@ CREATE TABLE IF NOT EXISTS projects (
   status      TEXT NOT NULL DEFAULT 'planning'
     CHECK(status IN ('planning', 'active', 'paused', 'completed', 'archived')),
   workspace_root TEXT,
+  verify_command TEXT,
+  verify_max_attempts INTEGER NOT NULL DEFAULT 3 CHECK(verify_max_attempts BETWEEN 1 AND 20),
+  verify_token_budget INTEGER CHECK(verify_token_budget IS NULL OR verify_token_budget > 0),
   created_at  TEXT NOT NULL,
   updated_at  TEXT NOT NULL
 );

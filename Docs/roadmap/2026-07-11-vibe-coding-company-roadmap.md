@@ -73,9 +73,14 @@
 
 ### P4 — 迭代循环 loop-until-green
 
+> 交付状态（2026-07-12）：代码与确定性门禁已完成；release `.app` 真实交互验收留给上游主环境。
+
 - executor 默认工作方式:改 → 跑验证 → 再改,验证判据 = 项目门禁命令(typecheck/test/validate,项目级可配)。
 - 复用/泛化 `MissionLoopController`(attempt 上限、failure signature 去重、token 预算闸全都现成)到普通 delegate task,不再限于 mission 通道。
 - 预算闸与成本分账联动(P1 的分账数据)。
+- 项目配置真相源为 `projects.verify_command / verify_max_attempts / verify_token_budget`；空命令保持单轮。
+- write child 在自己的 lease worktree 里经 Rust `bash_execute` 沙箱真跑门禁；只有 exit code 0 才进入 `pending_review`。
+- 循环进度与终止原因复用 `workspace.lease.snapshot` → `agent_events` 投影，不新增事件存储。
 
 ### P5 — 日常主力闭环(git/PR)
 

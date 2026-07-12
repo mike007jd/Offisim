@@ -171,6 +171,11 @@ const leaseEvents: AgentEventRow[] = [
       ],
       createdAt: '2026-06-29T01:05:00.000Z',
       conflicts: [],
+      loopAttempt: 2,
+      loopMaxAttempts: 3,
+      verificationSummary: 'Exit 1\none test failed',
+      verificationPassed: false,
+      terminationReason: 'stuck',
       capturedAt: '2026-06-29T01:06:00.000Z',
     }),
     parent_event_id: null,
@@ -222,6 +227,41 @@ assert.equal(leases[0]?.files.length, 2, 'per-file patch text survives later lif
 assert.equal(leases[0]?.runId, 'child-a2', 'rework run remains associated with the same lease');
 assert.equal(leases[0]?.status, 'merged', 'action event updates current lease status');
 assert.equal(leases[0]?.lastAction, 'merge_completed');
+assert.equal(leases[0]?.loopAttempt, 2, 'loop attempt survives later lease events');
+assert.equal(leases[0]?.loopMaxAttempts, 3);
+assert.equal(leases[0]?.verificationSummary, 'Exit 1\none test failed');
+assert.equal(leases[0]?.terminationReason, 'stuck', 'termination reason remains board-visible');
+
+// A verification-terminated loop is a FAILED run with a retained worktree —
+// the lease must project 'failed', never linger 'active' (which the board
+// paints as Running with a live Stop control; caught live 2026-07-12).
+{
+  const terminated = buildWorkspaceLeaseReviewRows(
+    [
+      leaseEvents[0] as AgentEventRow,
+      {
+        ...(leaseEvents[0] as AgentEventRow),
+        event_id: 'evt-verify-terminated',
+        payload_json: JSON.stringify({
+          rootRunId: 'root-a',
+          runId: 'child-a1',
+          leaseId: 'lease-1',
+          status: 'active',
+          phase: 'verification_terminated',
+          terminationReason: 'stuck',
+          capturedAt: '2026-06-29T01:08:00.000Z',
+        }),
+        created_at: '2026-06-29T01:08:00.000Z',
+      },
+    ],
+    'root-a',
+  );
+  assert.equal(
+    terminated[0]?.status,
+    'failed',
+    'verification_terminated projects the lease as failed, not active',
+  );
+}
 
 const crossRootReworkEvents: AgentEventRow[] = [
   leaseEvents[0] as AgentEventRow,

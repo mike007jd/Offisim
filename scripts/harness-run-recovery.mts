@@ -35,6 +35,7 @@ import type { NewAgentRun } from '../packages/core/src/runtime/repositories.ts';
 import { MemoryAgentRunRepository } from '../packages/core/src/runtime/repos/agent-runs/memory.ts';
 import { persistRunStartIfAbsent } from '../apps/desktop/renderer/src/runtime/recovery/persist-run-idempotency.js';
 import {
+  PI_HOST_PROTOCOL_VERSION,
   buildInterruptedRunCard,
   reconcileInterruptedRuns,
 } from '../apps/desktop/renderer/src/runtime/recovery/reconcile-interrupted-runs.js';
@@ -70,11 +71,11 @@ async function seedRepo(): Promise<MemoryAgentRunRepository> {
     // root1 carries its OWN partial usage so the no-double-count guard (root row
     // skipped in the child sum, folded in once as rootUsage) is load-bearing: the
     // aggregate must be children + root_own, each counted exactly once.
-    { run_id: 'root1', thread_id: 't1', company_id: CO_A, project_id: 'proj-1', parent_run_id: null, root_run_id: 'root1', employee_id: null, relation: null, objective: 'Build feature X', access: null, status: 'running', started_at: '2026-06-27T10:00:00.000Z', session_file: null, runtime_context_json: JSON.stringify({ runtime: 'pi-agent', projectId: 'proj-1', workspaceRoot: '/tmp/offisim/proj-1', wireProtocolVersion: 5, piSdkVersion: '0.79.8', permissionMode: 'auto', model: null, thinkingLevel: null, createdAt: FIXED_NOW }), usage_json: JSON.stringify({ input: 5, output: 5, cost: 0.05, turns: 1 }) },
+    { run_id: 'root1', thread_id: 't1', company_id: CO_A, project_id: 'proj-1', parent_run_id: null, root_run_id: 'root1', employee_id: null, relation: null, objective: 'Build feature X', access: null, status: 'running', started_at: '2026-06-27T10:00:00.000Z', session_file: null, runtime_context_json: JSON.stringify({ runtime: 'pi-agent', projectId: 'proj-1', workspaceRoot: '/tmp/offisim/proj-1', wireProtocolVersion: PI_HOST_PROTOCOL_VERSION, piSdkVersion: '0.79.8', permissionMode: 'auto', model: null, thinkingLevel: null, createdAt: FIXED_NOW }), usage_json: JSON.stringify({ input: 5, output: 5, cost: 0.05, turns: 1 }) },
     { run_id: 'child1', thread_id: 't1', company_id: CO_A, parent_run_id: 'root1', root_run_id: 'root1', employee_id: null, relation: 'delegate', objective: 'sub a', access: null, status: 'running', started_at: '2026-06-27T10:01:00.000Z' },
     { run_id: 'child2', thread_id: 't1', company_id: CO_A, parent_run_id: 'root1', root_run_id: 'root1', employee_id: null, relation: 'delegate', objective: 'sub b', access: null, status: 'completed', started_at: '2026-06-27T10:02:00.000Z', usage_json: JSON.stringify({ input: 10, output: 20, cost: 0.5, turns: 2 }) },
     // co-A: crashed root WITH a session_file (resumable).
-    { run_id: 'root2', thread_id: 't2', company_id: CO_A, project_id: 'proj-2', parent_run_id: null, root_run_id: 'root2', employee_id: null, relation: null, objective: 'Research Y', access: null, status: 'running', started_at: '2026-06-27T11:00:00.000Z', session_file: '/sessions/root2.jsonl', runtime_context_json: JSON.stringify({ runtime: 'pi-agent', projectId: 'proj-2', workspaceRoot: '/tmp/offisim/proj-2', wireProtocolVersion: 5, piSdkVersion: '0.79.8', permissionMode: 'auto', model: null, thinkingLevel: null, createdAt: FIXED_NOW }) },
+    { run_id: 'root2', thread_id: 't2', company_id: CO_A, project_id: 'proj-2', parent_run_id: null, root_run_id: 'root2', employee_id: null, relation: null, objective: 'Research Y', access: null, status: 'running', started_at: '2026-06-27T11:00:00.000Z', session_file: '/sessions/root2.jsonl', runtime_context_json: JSON.stringify({ runtime: 'pi-agent', projectId: 'proj-2', workspaceRoot: '/tmp/offisim/proj-2', wireProtocolVersion: PI_HOST_PROTOCOL_VERSION, piSdkVersion: '0.79.8', permissionMode: 'auto', model: null, thinkingLevel: null, createdAt: FIXED_NOW }) },
     // co-A: an orphan running child whose root already completed.
     { run_id: 'rootDone', thread_id: 't3', company_id: CO_A, parent_run_id: null, root_run_id: 'rootDone', employee_id: null, relation: null, objective: 'done', access: null, status: 'completed', started_at: '2026-06-27T09:00:00.000Z' },
     { run_id: 'orphan1', thread_id: 't3', company_id: CO_A, parent_run_id: 'rootDone', root_run_id: 'rootDone', employee_id: null, relation: 'delegate', objective: 'orphan', access: null, status: 'running', started_at: '2026-06-27T09:01:00.000Z' },
@@ -204,7 +205,7 @@ async function main(): Promise<void> {
         runtime: 'pi-agent',
         projectId: 'proj-missing',
         workspaceRoot: '/tmp/offisim/missing',
-        wireProtocolVersion: 5,
+        wireProtocolVersion: PI_HOST_PROTOCOL_VERSION,
         piSdkVersion: '0.79.8',
         permissionMode: 'auto',
         model: null,
@@ -331,7 +332,7 @@ async function main(): Promise<void> {
         runtime: 'pi-agent',
         projectId: 'proj-existing',
         workspaceRoot: '/tmp/offisim/existing',
-        wireProtocolVersion: 5,
+        wireProtocolVersion: PI_HOST_PROTOCOL_VERSION,
         piSdkVersion: '0.79.8',
         permissionMode: 'auto',
         model: null,

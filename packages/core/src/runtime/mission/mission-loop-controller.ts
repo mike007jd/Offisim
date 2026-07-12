@@ -33,6 +33,7 @@
  * Additive at MS-004 — nothing consumes the controller yet (live wiring is MS-005).
  */
 
+import { decideBoundedLoop, stableFailureSignature } from '../bounded-loop.js';
 import type { EvaluationContext, EvaluatorRegistry } from './evaluators/index.js';
 import { MissionStateError } from './mission-service.js';
 import type { MissionService } from './mission-service.js';
@@ -271,11 +272,11 @@ function reproductionFrom(evidenceRefs: string[]): string | undefined {
  * across runs (no Map/object key-order dependence).
  */
 function computeFailureSignature(outcomes: CriterionOutcome[]): string {
-  const failed = outcomes
-    .filter((o) => isFailedCriterion(o.verdict))
-    .map((o) => ({ id: o.criterionId, v: o.verdict, s: o.summary }))
-    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-  return JSON.stringify(failed);
+  return stableFailureSignature(
+    outcomes
+      .filter((o) => isFailedCriterion(o.verdict))
+      .map((o) => ({ id: o.criterionId, verdict: o.verdict, summary: o.summary })),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -582,10 +583,18 @@ class MissionLoopControllerImpl implements MissionLoopController {
       // the budget the repair attempt will actually have.
       const failedForPacket = outcomes.filter((o) => isFailedCriterion(o.verdict));
 
+      const boundedDecision = decideBoundedLoop({
+        attemptNumber,
+        maxAttempts: this.budget.maxAttempts,
+        failureSignature,
+        previousFailureSignature,
+        tokenRemaining,
+      });
+
       // §19.2 STUCK: two consecutive attempts with the identical failed set AND
       // identical signature → stop as STUCK (before consuming a repair / a new
       // attempt). Checked against the PREVIOUS attempt's signature.
-      if (previousFailureSignature !== undefined && failureSignature === previousFailureSignature) {
+      if (boundedDecision.action === 'stop' && boundedDecision.reason === 'stuck') {
         const packet = this.buildFailurePacket(
           missionId,
           attemptId,
@@ -612,7 +621,7 @@ class MissionLoopControllerImpl implements MissionLoopController {
       // maxAttempts full attempts — there is no budget for another → stop as
       // failed from `verifying` (a legal transition; a top-of-loop check would
       // be in `repairing` where `→ failed` is illegal).
-      if (attemptNumber >= this.budget.maxAttempts) {
+      if (boundedDecision.action === 'stop' && boundedDecision.reason === 'attempt_cap') {
         const packet = this.buildFailurePacket(
           missionId,
           attemptId,
@@ -636,7 +645,7 @@ class MissionLoopControllerImpl implements MissionLoopController {
       }
 
       // §19.2 token budget: exhausted → no budget for a repair attempt → stop.
-      if (tokenRemaining !== undefined && tokenRemaining <= 0) {
+      if (boundedDecision.action === 'stop' && boundedDecision.reason === 'token_budget') {
         const packet = this.buildFailurePacket(
           missionId,
           attemptId,

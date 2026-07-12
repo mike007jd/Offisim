@@ -588,6 +588,7 @@ export function TaskBoardSurface() {
                 const row = item.row;
                 const selected = row.runId === selectedRunId;
                 const card = recoveryByRunId.get(row.runId);
+                const leaseState = leaseStatusByRunId.get(row.runId);
                 const isRoot = item.level === 0;
                 const expandable = isRoot && item.childCount > 0;
                 const expanded = expandable && expandedRunIds.has(row.runId);
@@ -633,6 +634,12 @@ export function TaskBoardSurface() {
                       <span className="off-task-meta">
                         {employeeName(row, employeeNames)} · {formatWhen(row.startedAt)}
                         {!isRoot && row.access ? ` · ${row.access}` : ''}
+                        {leaseState?.loopAttempt && leaseState.loopMaxAttempts
+                          ? ` · verify ${leaseState.loopAttempt}/${leaseState.loopMaxAttempts}`
+                          : ''}
+                        {leaseState?.terminationReason
+                          ? ` · stopped: ${leaseState.terminationReason}`
+                          : ''}
                         {isRoot && item.childCount > 0 ? ` · ${item.childCount} child runs` : ''}
                         {row.live ? ' · live' : ''}
                       </span>
@@ -804,6 +811,24 @@ export function TaskBoardSurface() {
                               </dd>
                             </div>
                           </dl>
+                          {lease.loopAttempt && lease.loopMaxAttempts ? (
+                            <div className="off-task-lease-note">
+                              <strong>
+                                Verification {lease.loopAttempt}/{lease.loopMaxAttempts}
+                              </strong>
+                              {' · '}
+                              {lease.verificationPassed === true
+                                ? 'Passed'
+                                : lease.terminationReason
+                                  ? `Stopped: ${lease.terminationReason}`
+                                  : 'Repairing'}
+                              {lease.verificationSummary ? (
+                                <pre className="mt-[var(--off-sp-2)] whitespace-pre-wrap font-mono text-[var(--off-fs-meta)]">
+                                  {lease.verificationSummary}
+                                </pre>
+                              ) : null}
+                            </div>
+                          ) : null}
                           {lease.reason || lease.lastActionError ? (
                             <p className="off-task-lease-note">
                               {lease.lastActionError || lease.reason}

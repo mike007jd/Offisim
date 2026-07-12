@@ -1,5 +1,5 @@
 [
-  { "kind": "ready", "protocolVersion": 5 },
+  { "kind": "ready", "protocolVersion": 6 },
   {
     "kind": "started",
     "sessionId": "sess_1",
@@ -46,6 +46,13 @@
       "branch": "offisim/lease/run-1-lease-1",
       "path": "/tmp/project/.offisim/worktrees/lease-1"
     }
+  },
+  {
+    "kind": "verifyCall",
+    "id": "verify-1",
+    "command": "pnpm typecheck",
+    "cwd": "/tmp/project/.offisim/worktrees/lease-1",
+    "projectId": "project-1"
   },
   {
     "kind": "agentRun",

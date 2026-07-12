@@ -201,10 +201,12 @@ assert(
   'desktop buildMcpScope must connect registered MCP servers with their approved surface and expose only ready tools',
 );
 assert(
-  /PI_HOST_PROTOCOL_VERSION = 5/.test(wireSource) &&
-    /PI_HOST_PROTOCOL_VERSION: u32 = 5/.test(rustHostSource) &&
+  /PI_HOST_PROTOCOL_VERSION = 6/.test(wireSource) &&
+    /PI_HOST_PROTOCOL_VERSION: u32 = 6/.test(rustHostSource) &&
     /'worktreeCall'/.test(wireSource) &&
-    /WorktreeCall/.test(rustHostSource),
+    /WorktreeCall/.test(rustHostSource) &&
+    /'verifyCall'/.test(wireSource) &&
+    /VerifyCall/.test(rustHostSource),
   'F2 must keep the Pi host wire version current and decode worktreeCall on both Node and Rust sides',
 );
 assert(

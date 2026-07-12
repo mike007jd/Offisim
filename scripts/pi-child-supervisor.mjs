@@ -21,6 +21,10 @@ import {
   createAgentSession,
 } from '@earendil-works/pi-coding-agent';
 import {
+  decideBoundedLoop,
+  stableFailureSignature,
+} from '../packages/core/dist/runtime/bounded-loop.js';
+import {
   WORK_KINDS,
   agentRunLine,
   assertRunFailureKind,
@@ -44,6 +48,7 @@ const ACCESS_TOOLS = {
 const PER_CHILD_OUTPUT_CAP = 8 * 1024;
 const COMBINED_OUTPUT_CAP = 24 * 1024;
 const THINKING_LEVELS = new Set(['off', 'minimal', 'low', 'medium', 'high', 'xhigh']);
+const VERIFY_SUMMARY_CAP = 4 * 1024;
 
 // Deterministic host-policy defaults (Docs/DELEGATION_ARCHITECTURE.md §7). These
 // are the only constraints code enforces; everything else is the agent's call.
@@ -223,6 +228,21 @@ const RESULT_SECTION_KEYS = ['summary', 'artifacts', 'decisions', 'risks', 'veri
 
 function asNonEmptyString(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function verificationSummary(result, cwd) {
+  const exitCode = Number.isInteger(result?.exitCode) ? result.exitCode : -1;
+  const combined = [result?.stdout, result?.stderr]
+    .filter((value) => typeof value === 'string' && value.trim())
+    .join('\n')
+    .replaceAll(cwd, '<workspace>')
+    .replace(new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g'), '')
+    .trim();
+  return capBytes(
+    `Exit ${exitCode}${combined ? `\n${combined}` : '\n(no output)'}`,
+    VERIFY_SUMMARY_CAP,
+    'verification summary',
+  );
 }
 
 const CHILD_RESULT_GUIDANCE = [
@@ -553,19 +573,20 @@ export function createChildSupervisor(ctx) {
     if (signal?.aborted) controller.abort();
     else signal?.addEventListener('abort', abortFromParent, { once: true });
     try {
-      return {
-        summary: await runChildSession(
-          runId,
-          emit,
-          employee,
-          binding,
-          objective,
-          access,
-          controller.signal,
-          task.resumeLease,
-        ),
+      const childResult = await runChildSession(
         runId,
-        completed: true,
+        emit,
+        employee,
+        binding,
+        objective,
+        access,
+        controller.signal,
+        task.resumeLease,
+      );
+      return {
+        summary: childResult.summary,
+        runId,
+        completed: childResult.completed,
       };
     } finally {
       signal?.removeEventListener('abort', abortFromParent);
@@ -650,11 +671,14 @@ export function createChildSupervisor(ctx) {
               access,
             });
         if (leaseResult?.outcome === 'blocked') {
-          return blocked(
-            emit,
-            `${leaseResult.reason} (blocked by ${leaseResult.blockedByRunId})`,
-            'runtime',
-          );
+          return {
+            summary: blocked(
+              emit,
+              `${leaseResult.reason} (blocked by ${leaseResult.blockedByRunId})`,
+              'runtime',
+            ),
+            completed: false,
+          };
         }
         lease = leaseResult?.lease ?? null;
         if (typeof lease?.cwd === 'string' && lease.cwd.trim()) {
@@ -667,7 +691,10 @@ export function createChildSupervisor(ctx) {
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        return blocked(emit, `Workspace lease failed: ${message}`, 'runtime');
+        return {
+          summary: blocked(emit, `Workspace lease failed: ${message}`, 'runtime'),
+          completed: false,
+        };
       }
     }
     const effectiveObjective =
@@ -728,7 +755,7 @@ export function createChildSupervisor(ctx) {
           await emitWorkspaceLeaseSnapshot(emit, released, 'released_after_start_failure');
       }
       failed(emit, 'runtime', `Failed to start: ${message}`);
-      return `Delegation failed: ${message}`;
+      return { summary: `Delegation failed: ${message}`, completed: false };
     }
 
     const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
@@ -784,43 +811,164 @@ export function createChildSupervisor(ctx) {
     timer?.unref?.();
 
     try {
-      await session.prompt(effectiveObjective);
-      const assistantError = asNonEmptyString(finalAssistant?.errorMessage);
-      if (finalAssistant?.stopReason === 'error' || assistantError) {
-        const message =
-          assistantError ?? 'Pi Agent model returned an error stop without a message.';
-        // Provider/model error stops are the one lane where token/context/
-        // permission causes surface — classify the typed kind here, at the
-        // source of the free text.
-        failed(emit, classifyRunFailure(message), message, usage);
-        return `Delegation failed: ${message}`;
-      }
-      if (timedOut) {
-        const reason = `Timed out after ${Math.round(limits.childTimeoutMs / 1000)}s`;
+      const verifyConfig = access === 'write' ? ctx.verifyConfig : undefined;
+      const loopConfigured = Boolean(verifyConfig?.command);
+      const loopEnabled = Boolean(loopConfigured && ctx.requestVerifyResult && ctx.projectId);
+      if (loopConfigured && !loopEnabled) {
+        const reason = 'Project verification is configured but its sandbox channel is unavailable.';
+        if (lease) {
+          await emitWorkspaceLeaseSnapshot(emit, lease, 'verification_terminated', {
+            loopAttempt: 0,
+            loopMaxAttempts: verifyConfig.maxAttempts ?? 3,
+            verificationSummary: reason,
+            terminationReason: 'verification_infrastructure',
+          });
+        }
         failed(emit, 'runtime', reason, usage);
-        return `Delegation failed: ${reason}`;
+        return { summary: `Delegation failed: ${reason}`, completed: false };
       }
-      // Lift the child's reply into a bounded, structured result — the only thing
-      // the root model sees; the full transcript stays in telemetry.
-      const assistantText = (session.getLastAssistantText() || '').trim();
-      // A user abort is a neutral cancel even when it landed before the child
-      // produced any output — the empty-output failure below is only for runs
-      // that genuinely ran to completion with nothing to say.
-      if (aborted) {
-        const summary = assistantText
-          ? renderChildSummary(parseChildSummary(assistantText))
-          : 'Cancelled before the child produced output.';
-        emit('run.cancelled', { status: 'cancelled', summary, usage });
-        return `Delegation cancelled: ${summary}`;
+      const maxAttempts = Math.max(1, Math.min(20, verifyConfig?.maxAttempts ?? 3));
+      let attemptNumber = 0;
+      let previousFailureSignature;
+      let prompt = effectiveObjective;
+
+      for (;;) {
+        attemptNumber += 1;
+        finalAssistant = undefined;
+        await session.prompt(prompt);
+        const assistantError = asNonEmptyString(finalAssistant?.errorMessage);
+        if (finalAssistant?.stopReason === 'error' || assistantError) {
+          const message =
+            assistantError ?? 'Pi Agent model returned an error stop without a message.';
+          failed(emit, classifyRunFailure(message), message, usage);
+          return { summary: `Delegation failed: ${message}`, completed: false };
+        }
+        if (timedOut) {
+          const reason = `Timed out after ${Math.round(limits.childTimeoutMs / 1000)}s`;
+          failed(emit, 'runtime', reason, usage);
+          return { summary: `Delegation failed: ${reason}`, completed: false };
+        }
+        const assistantText = (session.getLastAssistantText() || '').trim();
+        if (aborted) {
+          const summary = assistantText
+            ? renderChildSummary(parseChildSummary(assistantText))
+            : 'Cancelled before the child produced output.';
+          emit('run.cancelled', { status: 'cancelled', summary, usage });
+          return { summary: `Delegation cancelled: ${summary}`, completed: false };
+        }
+        if (!assistantText) {
+          const reason = 'Child completed without assistant output.';
+          failed(emit, 'tool', reason, usage);
+          return { summary: `Delegation failed: ${reason}`, completed: false };
+        }
+        const summary = renderChildSummary(parseChildSummary(assistantText));
+        if (!loopEnabled) {
+          emit('run.completed', { status: 'completed', summary, usage });
+          return { summary, completed: true };
+        }
+
+        if (lease) {
+          await emitWorkspaceLeaseSnapshot(emit, lease, 'verifying', {
+            loopAttempt: attemptNumber,
+            loopMaxAttempts: maxAttempts,
+            verifyCommand: verifyConfig.command,
+          });
+        }
+        const response = await ctx.requestVerifyResult({
+          command: verifyConfig.command,
+          cwd: childCwd,
+          projectId: ctx.projectId,
+        });
+        if (!response || response.ok !== true || !response.result) {
+          const reason = `Verification could not run: ${response?.error ?? 'unknown sandbox error'}`;
+          if (lease) {
+            await emitWorkspaceLeaseSnapshot(emit, lease, 'verification_terminated', {
+              loopAttempt: attemptNumber,
+              loopMaxAttempts: maxAttempts,
+              verificationSummary: reason,
+              terminationReason: 'verification_infrastructure',
+            });
+          }
+          failed(emit, 'runtime', reason, usage);
+          return { summary: `Delegation failed: ${reason}`, completed: false };
+        }
+        const verifyResult = response.result;
+        const verifySummary = verificationSummary(verifyResult, childCwd);
+        if (verifyResult.exitCode === 0) {
+          if (lease) {
+            await emitWorkspaceLeaseSnapshot(emit, lease, 'verified', {
+              loopAttempt: attemptNumber,
+              loopMaxAttempts: maxAttempts,
+              verificationSummary: verifySummary,
+              verificationPassed: true,
+            });
+          }
+          const verifiedSummary = `${summary}\n\nVerification:\n- Attempt ${attemptNumber}/${maxAttempts}: passed\n- ${verifyConfig.command}`;
+          emit('run.completed', { status: 'completed', summary: verifiedSummary, usage });
+          return { summary: verifiedSummary, completed: true };
+        }
+
+        const failureSignature = stableFailureSignature([
+          { id: 'project.verify', verdict: 'FAIL', summary: verifySummary },
+        ]);
+        const spentTokens = (usage.input || 0) + (usage.output || 0);
+        const projectRemaining =
+          verifyConfig.tokenBudget === undefined
+            ? undefined
+            : verifyConfig.tokenBudget - spentTokens;
+        const treeRemaining = limits.maxTotalTokens - limits.spentTokens() - spentTokens;
+        const tokenRemaining =
+          projectRemaining === undefined
+            ? treeRemaining
+            : Math.min(projectRemaining, treeRemaining);
+        const decision = decideBoundedLoop({
+          attemptNumber,
+          maxAttempts,
+          failureSignature,
+          previousFailureSignature,
+          tokenRemaining,
+        });
+        if (decision.action === 'stop') {
+          const terminationReason = decision.reason;
+          const reason =
+            terminationReason === 'stuck'
+              ? 'Verification stopped because the same failure repeated.'
+              : terminationReason === 'attempt_cap'
+                ? `Verification stopped after ${maxAttempts} attempts.`
+                : 'Verification stopped because the token budget was exhausted.';
+          if (lease) {
+            await emitWorkspaceLeaseSnapshot(emit, lease, 'verification_terminated', {
+              loopAttempt: attemptNumber,
+              loopMaxAttempts: maxAttempts,
+              verificationSummary: verifySummary,
+              verificationPassed: false,
+              terminationReason,
+            });
+          }
+          failed(emit, terminationReason === 'token_budget' ? 'budget' : 'tool', reason, usage);
+          return {
+            summary: `Delegation failed: ${reason}\n\n${verifySummary}`,
+            completed: false,
+          };
+        }
+
+        if (lease) {
+          await emitWorkspaceLeaseSnapshot(emit, lease, 'repairing', {
+            loopAttempt: attemptNumber,
+            loopMaxAttempts: maxAttempts,
+            verificationSummary: verifySummary,
+            verificationPassed: false,
+          });
+        }
+        previousFailureSignature = failureSignature;
+        prompt = [
+          `Project verification failed on attempt ${attemptNumber}/${maxAttempts}.`,
+          `Command: ${verifyConfig.command}`,
+          verifySummary,
+          '',
+          'Continue in the same workspace. Fix the verified failure, then report the updated result.',
+        ].join('\n');
       }
-      if (!assistantText) {
-        const reason = 'Child completed without assistant output.';
-        failed(emit, 'tool', reason, usage);
-        return `Delegation failed: ${reason}`;
-      }
-      const summary = renderChildSummary(parseChildSummary(assistantText));
-      emit('run.completed', { status: 'completed', summary, usage });
-      return summary;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       // timedOut wins over aborted (a timeout calls session.abort() internally, so
@@ -830,10 +978,10 @@ export function createChildSupervisor(ctx) {
       // tool — classify from the message, defaulting 'runtime'.
       if (!timedOut && aborted) {
         emit('run.cancelled', { status: 'cancelled', summary: message, usage });
-        return `Delegation cancelled: ${message}`;
+        return { summary: `Delegation cancelled: ${message}`, completed: false };
       }
       failed(emit, timedOut ? 'runtime' : classifyRunFailure(message), message, usage);
-      return `Delegation failed: ${message}`;
+      return { summary: `Delegation failed: ${message}`, completed: false };
     } finally {
       if (timer) clearTimeout(timer);
       unsubscribe();

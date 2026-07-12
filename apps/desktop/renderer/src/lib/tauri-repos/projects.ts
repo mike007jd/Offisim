@@ -57,7 +57,14 @@ export interface ProjectsTauriRepos {
 export function createProjectsTauriRepos(db: TauriDrizzleDb): ProjectsTauriRepos {
   const projects: ProjectRepository = {
     async create(p: NewProject) {
-      const row: ProjectRow = { ...p, created_at: now(), updated_at: now() };
+      const row: ProjectRow = {
+        ...p,
+        verify_command: p.verify_command ?? null,
+        verify_max_attempts: p.verify_max_attempts ?? 3,
+        verify_token_budget: p.verify_token_budget ?? null,
+        created_at: now(),
+        updated_at: now(),
+      };
       await db.insert(schema.projects).values(row);
       return row;
     },

@@ -18,15 +18,34 @@ export interface ProjectRow {
   description: string | null;
   status: ProjectStatus;
   workspace_root: string | null;
+  /** Project-owned gate for delegated write loops. Null means single-pass. */
+  verify_command: string | null;
+  /** Maximum child edit/verify attempts when a gate is configured. */
+  verify_max_attempts: number;
+  /** Optional per-child token cap; null uses the run-tree budget only. */
+  verify_token_budget: number | null;
   created_at: string;
   updated_at: string;
 }
 
-export type NewProject = Omit<ProjectRow, 'created_at' | 'updated_at'>;
+export type NewProject = Omit<
+  ProjectRow,
+  'created_at' | 'updated_at' | 'verify_command' | 'verify_max_attempts' | 'verify_token_budget'
+> &
+  Partial<Pick<ProjectRow, 'verify_command' | 'verify_max_attempts' | 'verify_token_budget'>>;
 
 /** Patch shape for `ProjectRepository.update`. Explicit `null` unbinds. */
 export type ProjectUpdatePatch = Partial<
-  Pick<ProjectRow, 'name' | 'description' | 'status' | 'workspace_root'>
+  Pick<
+    ProjectRow,
+    | 'name'
+    | 'description'
+    | 'status'
+    | 'workspace_root'
+    | 'verify_command'
+    | 'verify_max_attempts'
+    | 'verify_token_budget'
+  >
 >;
 
 export interface ProjectAssignmentRow {

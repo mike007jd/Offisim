@@ -11,7 +11,7 @@
 // host validates the `ready` handshake against its own copy of this constant and
 // refuses a stale bundled host.
 
-export const PI_HOST_PROTOCOL_VERSION = 5;
+export const PI_HOST_PROTOCOL_VERSION = 6;
 
 export const PI_WIRE_KINDS = Object.freeze([
   'ready',
@@ -22,6 +22,7 @@ export const PI_WIRE_KINDS = Object.freeze([
   'uiRequest',
   'mcpCall',
   'worktreeCall',
+  'verifyCall',
   'agentRun',
   'result',
   'error',
@@ -53,6 +54,9 @@ export const PI_REQUEST_SPEC = Object.freeze({
       'systemPromptAppend',
       'threadId',
       'projectId',
+      'projectVerifyCommand',
+      'projectVerifyMaxAttempts',
+      'projectVerifyTokenBudget',
       'employeeId',
       'rootRunId',
       'roster',
@@ -66,6 +70,9 @@ export const PI_REQUEST_SPEC = Object.freeze({
       'thinkingLevel',
       'systemPromptAppend',
       'projectId',
+      'projectVerifyCommand',
+      'projectVerifyMaxAttempts',
+      'projectVerifyTokenBudget',
       'employeeId',
       'rootRunId',
       'roster',
@@ -118,6 +125,9 @@ const PI_REQUEST_NORMALIZERS = Object.freeze({
     systemPromptAppend: payload.systemPromptAppend,
     threadId: payload.threadId,
     projectId: payload.projectId,
+    projectVerifyCommand: payload.projectVerifyCommand,
+    projectVerifyMaxAttempts: payload.projectVerifyMaxAttempts,
+    projectVerifyTokenBudget: payload.projectVerifyTokenBudget,
     employeeId: payload.employeeId,
     rootRunId: payload.rootRunId,
     roster: payload.roster,
@@ -341,6 +351,10 @@ export function worktreeCallLine({ id, op, args } = {}) {
   });
 }
 
+export function verifyCallLine({ id, command, cwd, projectId } = {}) {
+  return withoutUndefined({ kind: 'verifyCall', id, command, cwd, projectId });
+}
+
 // A delegation run-tree event (root agent delegated to a child, child progress,
 // child finished). The neutral envelope: scope fields + `runType` (the
 // AgentRunEvent.type) + an opaque `payload`. The renderer rebuilds the
@@ -393,6 +407,7 @@ export const PI_WIRE_BUILDERS = Object.freeze({
   uiRequest: uiRequestLine,
   mcpCall: mcpCallLine,
   worktreeCall: worktreeCallLine,
+  verifyCall: verifyCallLine,
   agentRun: agentRunLine,
   result: (line) => resultLine(line.response),
   error: errorLine,

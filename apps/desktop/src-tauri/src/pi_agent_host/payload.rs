@@ -71,6 +71,9 @@ pub(super) fn sidecar_payload(
         // undeclared identifier and crashing every rostered run with
         // "projectId is not defined".
         "projectId": req.project_id,
+        "projectVerifyCommand": req.project_verify_command,
+        "projectVerifyMaxAttempts": req.project_verify_max_attempts,
+        "projectVerifyTokenBudget": req.project_verify_token_budget,
         "employeeId": req.employee_id,
         "rootRunId": req.root_run_id,
         "roster": req.roster,
