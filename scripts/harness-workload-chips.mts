@@ -15,7 +15,7 @@ import {
   sceneWorkDetailSummary,
 } from '../apps/desktop/renderer/src/assistant/runtime/scene-cue-projection.js';
 import { compactWorkBenchSummary } from '../apps/desktop/renderer/src/surfaces/office/scene/work-bench/WorkBench.js';
-import type { ToolRichDetail } from '../packages/shared-types/src/events/agent-run.js';
+import type { ToolRichDetail } from '@offisim/shared-types';
 
 let checks = 0;
 let failures = 0;
