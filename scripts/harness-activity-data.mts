@@ -21,6 +21,7 @@ import type {
 } from '../apps/desktop/renderer/src/surfaces/office/board/activity-data.js';
 import {
   MAX_MCP_VALUE_CHARS,
+  meetingRecordFromRow,
   mergeActivityPage,
   redactSecrets,
   sanitizeMcpActivityValue,
@@ -38,6 +39,18 @@ function check(name: string, condition: boolean, detail?: string): void {
     console.error(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`);
   }
 }
+
+const meeting = meetingRecordFromRow({
+  meeting_id: 'meeting-1',
+  thread_id: 'company-thread-1',
+  topic: 'Launch review',
+  status: 'scheduled',
+  summary_json: '{"participants":["employee-1"]}',
+  created_at: '2026-07-12T09:30:00.000Z',
+});
+check('meeting source keeps title', meeting.entity?.label === 'Launch review');
+check('meeting source keeps a display time', typeof meeting.payload?.timeLabel === 'string');
+check('meeting source is timeline-addressable', meeting.type === 'meeting.scheduled');
 
 /* ── AC2: redaction over individual token shapes ───────────────────────────── */
 console.log('AC2 redactSecrets — token shapes');
