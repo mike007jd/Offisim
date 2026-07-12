@@ -3,6 +3,10 @@
 日期:2026-07-12。状态:已拍板,与 `feat/p3-task-board-orchestration` 并行推进,零文件冲突。
 上位文档:`2026-07-11-vibe-coding-company-roadmap.md`(行业基线 2026-07-11 已核对,本文不重查)。
 
+> B2 交付状态(2026-07-12):已完成纯 UI/IA 重宿主。公司频道进入 Office 右栏,
+> meeting_sessions 进入 Board 时间线,Contacts/Calendar/Connect surface 退场;
+> collaboration_* 与 project chat_threads 按既定安全边界继续分域,未增加迁移层。
+
 ## 0. 为什么开这条 lane
 
 P3 session 占用任务板/git/lease/pi_host 全链路(P4 要动 `pi-child-supervisor.mjs`、P5 要动 `git.rs`,均与其未提交改动冲突)。为提速,本 lane 只做导航层级、页面交互、3D 形象品质——恰好是 roadmap 未覆盖的产品外壳债,且全部文件与 P3 不相交。
@@ -58,7 +62,7 @@ P3 session 占用任务板/git/lease/pi_host 全链路(P4 要动 `pi-child-super
 |---|---|---|
 | A(本分支 `feat/shell-ia-and-character`) | Market 降 utility;Connect 保持 primary 并下线 Kanban;发型扩库 + 映射对齐;AppearanceTab 预览 + 向导外观 | 无,基于 P2 HEAD |
 | B1(2026-07-12 已完成) | Board 以四列看板进 Office 舞台(项目/公司范围、来源回链、审查抽屉、自动开窗);Activity 并入公司级时间线;Tasks/Activity 顶级入口退场;所有工作视图保留场景画中画 | P3 merged |
-| B2 | Connect 的 Messenger/Calendar 数据域并入 Office/Board 后退场 | B1 |
+| B2(2026-07-12 已完成) | 公司频道 UI 并入 Office、meeting rows 并入 Board 后 Connect surface 退场;底层 collaboration/project 存储保持分域 | B1 |
 
 禁区(P3 session 属地,本 lane 不碰):`tasks/` 内部逻辑、`git-workbench`、`lease-manager`、`pi_agent_host/*`、`git.rs`、`WorkspacePanel`、`StageViewer`、`pi-child-supervisor.mjs`。
 

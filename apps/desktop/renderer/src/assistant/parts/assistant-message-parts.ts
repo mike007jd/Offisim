@@ -3,7 +3,7 @@ import type { ThreadMessageLike } from '@assistant-ui/react';
 
 /** The fields a chat message needs to project into assistant-ui content parts.
  *  Shared by the Office rail (`ChatMessage`) and the Workspace messenger
- *  (`WsMessage`), which carry the same author/body/reasoning/toolCalls subset. */
+ *  company-channel messages, which carry the same author/body/reasoning/toolCalls subset. */
 export interface AssistantPartSource {
   author: string;
   /** May be empty (reasoning/tool-only turns) or, on optimistic/streamed drafts,

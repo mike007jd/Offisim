@@ -73,9 +73,8 @@ const checks = [
     excludeFiles: ['packages/doc-engine/CLAUDE.md'],
   },
   {
-    // Connect now exposes Chats, Calendar, and Contacts only. This guard keeps
-    // blocking the retired SOP/Docs surfaces and old board implementation
-    // symbols so they do not creep back through unrelated UI work.
+    // Company channels now live in Office. Keep retired app-launcher and old
+    // board symbols from creeping back through unrelated UI work.
     label: 'retired SOP/Docs surface',
     dirs: SOURCE_DIRS,
     pattern:
@@ -115,14 +114,16 @@ const checks = [
   },
   {
     label: 'raw chat composer textarea',
-    dirs: ['apps/desktop/renderer/src/assistant', 'apps/desktop/renderer/src/surfaces/workspace'],
+    dirs: [
+      'apps/desktop/renderer/src/assistant',
+      'apps/desktop/renderer/src/surfaces/office/rail/connect',
+    ],
     pattern: /<(textarea|Textarea)\b/,
   },
   {
     label: 'workspace chat disabled attachment picker',
     dirs: [
       'apps/desktop/renderer/src/assistant/OfficeThread.tsx',
-      'apps/desktop/renderer/src/surfaces/workspace/apps/WorkspaceAssistantThread.tsx',
       'Docs/design/offisim-states-prototype.html',
     ],
     pattern:
@@ -130,16 +131,13 @@ const checks = [
   },
   {
     label: 'workspace chat fake disabled controls',
-    dirs: ['apps/desktop/renderer/src/surfaces/workspace/apps'],
+    dirs: ['apps/desktop/renderer/src/surfaces/office/rail/connect'],
     pattern:
       /Mention unavailable|Conversation search unavailable|Start meeting unavailable|Members unavailable|More actions unavailable|No additional conversation actions are available|Mark all read unavailable|New chat unavailable|Pin artifact unavailable|System actions require a connected workflow target/,
   },
   {
     label: 'workspace contacts fake direct-chat button',
-    dirs: [
-      'apps/desktop/renderer/src/surfaces/workspace/apps/ContactsApp.tsx',
-      'Docs/design/offisim-workspace-prototype.html',
-    ],
+    dirs: ['Docs/design/offisim-workspace-prototype.html'],
     pattern:
       /No direct chat exists for this contact|<button[\s\S]{0,260}disabled[\s\S]{0,260}Direct chat|Direct chat[\s\S]{0,180}disabled/,
   },
@@ -150,10 +148,7 @@ const checks = [
   },
   {
     label: 'retired Workspace Docs/More rail',
-    dirs: [
-      'apps/desktop/renderer/src/surfaces/workspace',
-      'Docs/design/offisim-workspace-prototype.html',
-    ],
+    dirs: ['Docs/design/offisim-workspace-prototype.html'],
     pattern:
       /No additional workspace apps are available|<span class="lab">(Docs|More)<\/span>|Docs · deliverables library|Chat \(messages\) \/ Files \(attachments shared here\) \/ Docs|Docs tab|Files\/Docs|doc \/ board/,
   },
@@ -227,7 +222,6 @@ const checks = [
       'apps/desktop/renderer/src/surfaces/office',
       'apps/desktop/renderer/src/surfaces/personnel',
       'apps/desktop/renderer/src/surfaces/settings',
-      'apps/desktop/renderer/src/surfaces/workspace',
     ],
     pattern:
       /Registry auth unavailable; (update checks|package updates|draft editing|draft submission|draft deletion)|Registry authentication is not connected in this build|PR unavailable|Commit unavailable|Delegate unavailable|Meeting creation requires the calendar scheduling backend|Action item completion needs (calendar|meeting) persistence|Run retry needs persisted redispatch state|Person swap needs persisted redispatch state|Stage-level stop needs provider abort support|Provider profile creation requires the runtime profile editor flow|off-md-install is-installed" disabled|<Button[\s\S]{0,80}disabled[\s\S]{0,30}Close|Approval resolution requires a connected runtime interaction target|Grant scope changes need approval-resolution persistence|Runtime binding needs employee runtime-profile persistence|Browser vault mounting is unavailable in the desktop release|No browser vault directory is mounted/,
@@ -409,7 +403,7 @@ const checks = [
     label: 'chat model chip fixture-provider fallback',
     dirs: [
       'apps/desktop/renderer/src/surfaces/office/ChatRail.tsx',
-      'apps/desktop/renderer/src/surfaces/workspace/apps/MessengerApp.tsx',
+      'apps/desktop/renderer/src/surfaces/office/rail/connect/ConnectRail.tsx',
     ],
     pattern:
       /find\(\(config\) => config\.hasStoredKey\)\?\.model\s*\?\?\s*providerConfigs\.data\?\.\[0\]\?\.model/,
@@ -537,9 +531,8 @@ const requiredChecks = [
     file: 'apps/desktop/renderer/src/assistant/parts/AssistantMessageParts.tsx',
     patterns: [/MessagePrimitive\.Parts/, /MessagePartPrimitive\.InProgress/, /Markdown/],
   },
-  // (Connect's old WorkspaceAssistantThread was removed in the Connect/Loops
-  // refactor — Connect chat is now MessengerApp over the collaboration aggregate,
-  // covered by harness-connect-chat-flow + harness-workspace-chat-presentation.)
+  // Company-channel chat lives in the Office rail over the collaboration
+  // aggregate, covered by the collaboration flow + presentation harnesses.
   {
     label: 'Market registry install receipt',
     file: 'apps/desktop/renderer/src/surfaces/market/market-data.ts',
@@ -565,7 +558,6 @@ const requiredChecks = [
     patterns: [
       /export const NAV_ENTRIES/,
       /key:\s*'office'/,
-      /key:\s*'workspace'/,
       /key:\s*'market'/,
       /key:\s*'personnel'/,
       /key:\s*'settings'/,

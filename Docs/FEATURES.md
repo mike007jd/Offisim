@@ -90,7 +90,7 @@ Owner paths:
 - `apps/desktop/src-tauri/src/git.rs`
 - `apps/desktop/src-tauri/src/shell_classifier.rs`
 - `apps/desktop/src-tauri/src/attachment_store.rs`
-- `apps/desktop/renderer/src/surfaces/workspace`
+- `apps/desktop/renderer/src/surfaces/office/WorkspacePanel.tsx`
 - `packages/core/src/tools`
 
 Data/contracts:
@@ -105,40 +105,33 @@ Verification:
 - `pnpm harness:chat-attachment-roundtrip` when attachment flow changes
 - release `.app` workspace panel checks when user flow changes
 
-## Connect
+## Company channels
 
-Connect is the company's daily communication and collaboration space — chat,
-calendar, contacts, and tools — for people talking to each other and to their AI
-employees. It is not a generic app launcher and not a second entry point into
-Office's live project work; the two surfaces are semantically distinct. Office
-owns live 3D project execution against a project folder; Connect owns
-human-and-employee communication around the company.
+Company channels are the daily communication area in Office's right conversation
+rail. Project conversations and company-scoped direct/group channels appear as
+two explicit groups; there is no separate Connect app launcher. Meetings appear
+in the Board company timeline, while Personnel owns the employee directory.
 
-Connect's chat data is a separate company-scoped domain from Office's per-project
-assistant threads (the Collaboration data domain landed in PR-02; turn ledger in
-PR-03): a Connect conversation does not share state with, or reopen as, an Office
-project thread. Collaboration lives in its own `collaboration_threads` /
-`collaboration_thread_members` / `collaboration_messages` / `collaboration_read_state`
-tables plus a `collaboration_turns` reply ledger — never `chat_threads`, never an
-`agent_runs` / Mission row, never bound to a project. The internal route/surface
-key remains `workspace` as a legacy identifier, but the user-visible surface is
-"Connect".
+Company-channel data remains a separate company-scoped domain from Office's
+per-project assistant threads. Collaboration lives in its own
+`collaboration_threads` / `collaboration_thread_members` /
+`collaboration_messages` / `collaboration_read_state` tables plus a
+`collaboration_turns` reply ledger — never `chat_threads`, never an `agent_runs`
+or Mission row, and never bound to a project. UI co-location does not merge the
+two storage/runtime contracts.
 
-Connect AI replies run on a dedicated host-enforced Pi "collaboration" capability
+Company-channel replies use the host-enforced Pi `collaboration` capability
 (`agent_runtime_collaborate`) with zero tools, no project cwd bind, and no
-`agent_runs` writes — it is conversation only, not work execution. A direct /
-mentions / roundtable turn controller schedules which employees speak. See
-`Docs/architecture/2026-06-26-collaboration-domain-boundary.md`.
-
-Rail: Chats, Calendar, Contacts. Calendar is honest-empty in 1.0 —
-`meeting_sessions` is inert with no live writer (see
-`Docs/contracts/inert-storage-ledger.md`); it must not imply scheduled execution.
+`agent_runs` writes. Direct, mentions and roundtable behavior is preserved.
+`meeting_sessions` remains honest historical storage with no live writer; real
+rows are projected into the Board timeline and never imply scheduling.
 
 Owner paths:
 
-- `apps/desktop/renderer/src/surfaces/workspace` (Connect surface, apps, contacts)
-- `apps/desktop/renderer/src/surfaces/workspace/collaboration-data.ts` (renderer
-  query/service glue over the collaboration aggregate)
+- `apps/desktop/renderer/src/surfaces/office/rail/connect` (company-channel UI,
+  renderer query/service glue and presentation)
+- `apps/desktop/renderer/src/surfaces/office/board/activity-data.ts` (company
+  timeline, including meeting rows)
 - `apps/desktop/renderer/src/runtime/collaboration` (no-tools transport + turn
   controller)
 - `packages/core/src/runtime/collaboration/collaboration-service.ts` (domain
