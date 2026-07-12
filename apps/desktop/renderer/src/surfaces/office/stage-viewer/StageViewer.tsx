@@ -13,25 +13,29 @@ import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Popover, PopoverContent, PopoverTrigger } from '@/design-system/primitives/popover.js';
 import { cn } from '@/lib/utils.js';
+import { ComputerView } from '@/surfaces/office/computer/ComputerView.js';
+import { WorkBench } from '@/surfaces/office/scene/work-bench/WorkBench.js';
+import { StagePreviewPane } from '@/surfaces/office/stage-preview/StagePreviewPane.js';
 import {
+  type PreviewSourceRef,
   previewRefViewerKind,
   viewerKindIcon,
-  type PreviewSourceRef,
 } from '@/surfaces/office/stage-preview/preview-target.js';
-import { StagePreviewPane } from '@/surfaces/office/stage-preview/StagePreviewPane.js';
-import { StageChromeProvider, useStageChrome } from '@/surfaces/office/stage-viewer/stage-chrome.js';
-import { WorkBench } from '@/surfaces/office/scene/work-bench/WorkBench.js';
-import { ComputerView } from '@/surfaces/office/computer/ComputerView.js';
+import {
+  StageChromeProvider,
+  useStageChrome,
+} from '@/surfaces/office/stage-viewer/stage-chrome.js';
+import { DiffPanel } from '@/surfaces/tasks/DiffPanel.js';
 import type { DramaturgyMode, ToolRichDetail } from '@offisim/shared-types';
 import {
   Box,
   Clapperboard,
   Coins,
+  Eye,
   FileCode2,
   FileText,
   Focus,
   GitCompareArrows,
-  Eye,
   Globe,
   Globe2,
   Maximize2,
@@ -834,18 +838,7 @@ function ChangesView({
           </button>
         ))}
       </div>
-      <pre className="off-stage-diff">
-        {workbench.diffPreview.map((line, index) => (
-          <span
-            // biome-ignore lint/suspicious/noArrayIndexKey: static diff preview lines
-            key={index}
-            className={cn('off-stage-diff-line', `is-${line.kind}`)}
-          >
-            {line.kind === 'add' ? '+ ' : line.kind === 'remove' ? '- ' : '  '}
-            {line.text}
-          </span>
-        ))}
-      </pre>
+      <DiffPanel files={workbench.diffFiles} status="workspace" initialPath={target.path} />
     </div>
   );
 }

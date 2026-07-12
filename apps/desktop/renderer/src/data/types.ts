@@ -208,6 +208,7 @@ export interface GitWorkbench {
   changes: GitFileChange[];
   /** Unified diff preview lines for the focused file. */
   diffPreview: Array<{ kind: 'add' | 'remove' | 'context'; text: string }>;
+  diffFiles: Array<{ path: string; diff: string }>;
   checks: GitCheck[];
 }
 
