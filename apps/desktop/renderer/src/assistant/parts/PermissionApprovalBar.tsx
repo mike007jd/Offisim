@@ -2,6 +2,7 @@ import { useUiState } from '@/app/ui-state.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import { useProjectWorkspaceLeaseReviews } from '@/surfaces/office/board/task-board-data.js';
+import { useWorkspaceLeaseDecision } from '@/surfaces/office/board/use-workspace-lease-decision.js';
 import {
   reviewWorkspaceLease,
   workspaceLeaseIdFromApprovalTitle,
@@ -9,6 +10,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { ShieldAlert } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { conversationRunController } from '../runtime/conversation-run-controller.js';
 import {
   useConversationRun,
@@ -29,6 +31,7 @@ export function PermissionApprovalBar({ threadId }: { threadId: string }) {
   usePendingConversationApprovals(companyId || null);
   const { approval } = useConversationRun(threadId);
   const leaseId = approval ? workspaceLeaseIdFromApprovalTitle(approval.title) : null;
+  const pendingLeaseAction = useWorkspaceLeaseDecision(leaseId);
   const leaseReviews = useProjectWorkspaceLeaseReviews(projectId && leaseId ? projectId : null);
   const [deciding, setDeciding] = useState(false);
   const [decisionError, setDecisionError] = useState<string | null>(null);
@@ -68,7 +71,7 @@ export function PermissionApprovalBar({ threadId }: { threadId: string }) {
         ? 'Approval restored'
         : unsupported
           ? 'Unsupported request'
-      : 'Approval needed';
+          : 'Approval needed';
 
   // Board and the compact notice consume the same lease row. Once either
   // entry point commits a terminal decision, the other must disappear instead
@@ -81,7 +84,18 @@ export function PermissionApprovalBar({ threadId }: { threadId: string }) {
     try {
       if (isLeaseReview) {
         if (!companyId || !leaseReview) throw new Error('The pending lease is still loading.');
-        await reviewWorkspaceLease(leaseReview, companyId, confirmed ? 'merge' : 'discard');
+        const outcome = await reviewWorkspaceLease(
+          leaseReview,
+          companyId,
+          confirmed ? 'merge' : 'discard',
+        );
+        toast.success(
+          outcome === 'merged'
+            ? 'Delegated work merged.'
+            : outcome === 'discarded'
+              ? 'Delegated work discarded.'
+              : 'Delegated review completed by Pi.',
+        );
         await queryClient.invalidateQueries({ queryKey: ['workspace-lease-reviews'] });
       } else {
         await conversationRunController.answerApproval({
@@ -162,7 +176,7 @@ export function PermissionApprovalBar({ threadId }: { threadId: string }) {
             <Button
               variant="destructive"
               size="sm"
-              disabled={deciding || (isLeaseReview && !leaseReview)}
+              disabled={deciding || pendingLeaseAction !== null || (isLeaseReview && !leaseReview)}
               onClick={() => void decide(false)}
             >
               Reject
@@ -170,7 +184,7 @@ export function PermissionApprovalBar({ threadId }: { threadId: string }) {
             <Button
               variant="default"
               size="sm"
-              disabled={deciding || (isLeaseReview && !leaseReview)}
+              disabled={deciding || pendingLeaseAction !== null || (isLeaseReview && !leaseReview)}
               onClick={() => void decide(true)}
             >
               Approve

@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import {
+  DEFAULT_STAGE_SPLIT_LAYOUT,
+  persistStageSplitLayout,
+  readStageSplitLayout,
   stageTabForTarget,
   useUiState,
   type StageViewTarget,
@@ -127,6 +130,128 @@ check('ui-state:open-activate-close-roundtrip', () => {
   useUiState.getState().closeStageView();
   assert.equal(useUiState.getState().stagePrimaryTab, 'game');
   assert.deepEqual(useUiState.getState().stageView, { kind: 'scene' });
+});
+
+check('ui-state:split-view-pin-swap-close-roundtrip', () => {
+  resetUiState();
+  useUiState.getState().openStageView({ kind: 'changes', path: 'src/App.tsx' });
+  const reviewTabId = useUiState.getState().activeStageTabId;
+  useUiState.getState().openStageView({ kind: 'logs', sourceId: 'run-1', title: 'Terminal' });
+  const terminalTabId = useUiState.getState().activeStageTabId;
+  assert.ok(reviewTabId && terminalTabId);
+
+  useUiState.getState().toggleStageSplitTab(reviewTabId);
+  assert.equal(useUiState.getState().activeStageTabId, terminalTabId);
+  assert.equal(useUiState.getState().stageSplitTabId, reviewTabId);
+  assert.equal(useUiState.getState().scenePipCollapsed, false);
+
+  useUiState.getState().activateStageTab(reviewTabId);
+  assert.equal(useUiState.getState().activeStageTabId, reviewTabId);
+  assert.equal(useUiState.getState().stageSplitTabId, terminalTabId);
+
+  useUiState.getState().closeStageTab(terminalTabId);
+  assert.equal(useUiState.getState().stageSplitTabId, null);
+  assert.equal(useUiState.getState().activeStageTabId, reviewTabId);
+});
+
+check('ui-state:pinning-active-view-keeps-a-distinct-left-view', () => {
+  resetUiState();
+  useUiState.getState().openStageView({ kind: 'changes', path: 'src/App.tsx' });
+  const reviewTabId = useUiState.getState().activeStageTabId;
+  useUiState.getState().openStageView({ kind: 'logs', sourceId: 'run-1', title: 'Terminal' });
+  const terminalTabId = useUiState.getState().activeStageTabId;
+  assert.ok(reviewTabId && terminalTabId);
+
+  useUiState.getState().toggleStageSplitTab(terminalTabId);
+  assert.equal(useUiState.getState().activeStageTabId, reviewTabId);
+  assert.equal(useUiState.getState().stageSplitTabId, terminalTabId);
+
+  useUiState.getState().closeStageTab(reviewTabId);
+  assert.equal(useUiState.getState().activeStageTabId, terminalTabId);
+  assert.equal(useUiState.getState().stageSplitTabId, null);
+});
+
+check('ui-state:game-and-board-restore-single-view', () => {
+  resetUiState();
+  useUiState.getState().openStageView({ kind: 'changes', path: 'src/App.tsx' });
+  const reviewTabId = useUiState.getState().activeStageTabId;
+  useUiState.getState().openStageView({ kind: 'logs', sourceId: 'run-1', title: 'Terminal' });
+  assert.ok(reviewTabId);
+  useUiState.getState().toggleStageSplitTab(reviewTabId);
+
+  useUiState.getState().openBoard();
+  assert.equal(useUiState.getState().stagePrimaryTab, 'board');
+  assert.equal(useUiState.getState().stageSplitTabId, null);
+
+  useUiState.getState().activateStageTab(reviewTabId);
+  const terminalTabId = useUiState
+    .getState()
+    .stageOpenTabs.find((tab) => tab.target.kind === 'logs')?.id;
+  assert.ok(terminalTabId);
+  useUiState.getState().toggleStageSplitTab(terminalTabId);
+  useUiState.getState().setStagePrimaryTab('game');
+  assert.equal(useUiState.getState().stagePrimaryTab, 'game');
+  assert.equal(useUiState.getState().stageSplitTabId, null);
+});
+
+check('ui-state:board-and-game-reject-reverse-split-transitions', () => {
+  resetUiState();
+  useUiState.getState().openStageView({ kind: 'changes', path: 'src/App.tsx' });
+  const reviewTabId = useUiState.getState().activeStageTabId;
+  useUiState.getState().openStageView({ kind: 'logs', sourceId: 'run-1', title: 'Terminal' });
+  const terminalTabId = useUiState.getState().activeStageTabId;
+  assert.ok(reviewTabId && terminalTabId);
+
+  useUiState.getState().openBoard();
+  useUiState.getState().toggleStageSplitTab(reviewTabId);
+  assert.equal(useUiState.getState().stageSplitTabId, null);
+  assert.equal(useUiState.getState().activeStageTabId, null);
+
+  useUiState.getState().setStagePrimaryTab('game');
+  useUiState.getState().toggleStageSplitTab(terminalTabId);
+  assert.equal(useUiState.getState().stageSplitTabId, null);
+  assert.equal(useUiState.getState().activeStageTabId, null);
+
+  useUiState.getState().activateStageTab(reviewTabId);
+  assert.equal(useUiState.getState().activeStageTabId, reviewTabId);
+  assert.notEqual(useUiState.getState().stageSplitTabId, reviewTabId);
+});
+
+check('ui-state:split-layout-survives-pane-unmount-and-remount', () => {
+  resetUiState();
+  useUiState
+    .getState()
+    .setStageSplitLayout({ 'stage-primary': 63, 'stage-secondary': 37 });
+  useUiState.getState().openStageView({ kind: 'changes', path: 'src/App.tsx' });
+  const reviewTabId = useUiState.getState().activeStageTabId;
+  useUiState.getState().openStageView({ kind: 'logs', sourceId: 'run-1', title: 'Terminal' });
+  const terminalTabId = useUiState.getState().activeStageTabId;
+  assert.ok(reviewTabId && terminalTabId);
+  useUiState.getState().toggleStageSplitTab(reviewTabId);
+  useUiState.getState().openBoard();
+  useUiState.getState().activateStageTab(terminalTabId);
+  useUiState.getState().toggleStageSplitTab(reviewTabId);
+  assert.deepEqual(useUiState.getState().stageSplitLayout, {
+    'stage-primary': 63,
+    'stage-secondary': 37,
+  });
+});
+
+check('ui-state:split-layout-storage-restores-after-restart', () => {
+  const values = new Map<string, string>();
+  const storage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      values.set(key, value);
+    },
+  };
+  persistStageSplitLayout({ 'stage-primary': 64, 'stage-secondary': 36 }, storage);
+  assert.deepEqual(readStageSplitLayout(storage), {
+    'stage-primary': 64,
+    'stage-secondary': 36,
+  });
+  values.set('offisim:ui-state:stage-split-layout', '{"stage-primary":99}');
+  assert.deepEqual(readStageSplitLayout(storage), DEFAULT_STAGE_SPLIT_LAYOUT);
 });
 
 function resolved(

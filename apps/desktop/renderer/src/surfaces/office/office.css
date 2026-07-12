@@ -1175,6 +1175,7 @@
 
 .off-stage-tab,
 .off-stage-tab-close,
+.off-stage-tab-split,
 .off-stage-view-trigger,
 .off-stage-view-options-btn,
 .off-stage-max-btn {
@@ -1229,6 +1230,32 @@
   border-left: 1px solid transparent;
   border-radius: 0;
   color: var(--off-ink-4);
+}
+
+.off-stage-tab-split {
+  appearance: none;
+  width: 24px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  border-left: 1px solid transparent;
+  background: transparent;
+  color: var(--off-ink-4);
+}
+
+.off-stage-tab-split:hover:not(:disabled),
+.off-stage-tab-split[aria-pressed="true"] {
+  color: var(--off-accent);
+}
+
+.off-stage-tab-split:disabled {
+  opacity: 0.32;
+}
+
+.off-stage-tab-shell[data-split="right"] {
+  border-color: var(--off-accent-ring);
+  box-shadow: inset -2px 0 0 var(--off-accent);
 }
 
 .off-stage-tab:hover,
@@ -1450,14 +1477,32 @@
   z-index: var(--off-z-panel);
   min-width: 0;
   min-height: 0;
-  display: grid;
-  grid-template-rows: 38px minmax(0, 1fr);
   border: 0;
   border-radius: 0;
   background: var(--off-surface-1);
   box-shadow: none;
   backdrop-filter: none;
   overflow: hidden;
+}
+
+.off-stage-viewer-pane,
+.off-stage-split {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.off-stage-viewer-pane {
+  display: grid;
+  grid-template-rows: 38px minmax(0, 1fr);
+  background: var(--off-surface-1);
+  overflow: hidden;
+}
+
+.off-stage-split-handle {
+  width: 2px;
+  cursor: col-resize;
 }
 
 .off-stage-viewer-head {
@@ -1501,9 +1546,9 @@
   font-family: var(--off-font-mono);
 }
 
-.off-stage-viewer-close {
+.off-stage-viewer-close,
+.off-stage-viewer-split {
   appearance: none;
-  margin-left: auto;
   width: 28px;
   height: 28px;
   display: grid;
@@ -1514,9 +1559,18 @@
   color: var(--off-ink-3);
 }
 
-.off-stage-viewer-close:hover {
+.off-stage-viewer-close:hover,
+.off-stage-viewer-split:hover {
   background: var(--off-surface-sunken);
   color: var(--off-ink-1);
+}
+
+.off-stage-viewer-controls {
+  min-width: 0;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-1);
 }
 
 .off-stage-viewer-body {
@@ -1649,7 +1703,7 @@
 }
 
 .off-stage-viewer-head .off-preview-actions {
-  margin-left: auto;
+  margin-left: 0;
 }
 
 .off-preview-actions button,

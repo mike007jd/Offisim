@@ -42,6 +42,7 @@ import {
   useProjectWorkspaceLeaseReviews,
   useTaskBoard,
 } from '@/surfaces/office/board/task-board-data.js';
+import { useWorkspaceLeaseDecision } from '@/surfaces/office/board/use-workspace-lease-decision.js';
 import {
   requestWorkspaceLeaseChanges,
   reviewWorkspaceLease,
@@ -521,6 +522,7 @@ function GitTab({
   );
   const selectedLease =
     reviewable.find((lease) => lease.leaseId === selectedLeaseId) ?? reviewable[0] ?? null;
+  const pendingLeaseAction = useWorkspaceLeaseDecision(selectedLease?.leaseId ?? null);
   const task = selectedLease ? taskByRun.get(selectedLease.runId) : null;
 
   useEffect(() => {
@@ -852,7 +854,7 @@ function GitTab({
           <DiffPanel
             files={selectedLease.files}
             status={selectedLease.status}
-            busy={busyLeaseId === selectedLease.leaseId}
+            busy={busyLeaseId === selectedLease.leaseId || pendingLeaseAction !== null}
             onMerge={() => void act('merge')}
             onDiscard={() => void act('discard')}
             onRequestChanges={(feedback) => {

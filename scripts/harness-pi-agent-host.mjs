@@ -251,12 +251,20 @@ assert(
     'apps/desktop/renderer/src/surfaces/office/board/workspace-lease-actions.ts',
     'utf8',
   );
+  const leaseDecisionCoordinatorSource = readFileSync(
+    'apps/desktop/renderer/src/surfaces/office/board/workspace-lease-decision-coordinator.ts',
+    'utf8',
+  );
   const permissionApprovalSource = readFileSync(
     'apps/desktop/renderer/src/assistant/parts/PermissionApprovalBar.tsx',
     'utf8',
   );
   const boardStageSource = readFileSync(
     'apps/desktop/renderer/src/surfaces/office/board/BoardStage.tsx',
+    'utf8',
+  );
+  const workspacePanelSource = readFileSync(
+    'apps/desktop/renderer/src/surfaces/office/WorkspacePanel.tsx',
     'utf8',
   );
   assert(
@@ -269,19 +277,33 @@ assert(
   );
   assert(
     /workspaceLeaseIdFromApprovalTitle/.test(permissionApprovalSource) &&
-      /reviewWorkspaceLease\(leaseReview, companyId/.test(permissionApprovalSource) &&
+      /reviewWorkspaceLease\(\s*leaseReview,\s*companyId/.test(permissionApprovalSource) &&
       /openBoard\('board'\)/.test(permissionApprovalSource) &&
       /highlightBoardRun\(leaseReview\.rootRunId\)/.test(permissionApprovalSource) &&
       /isLeaseReview\s*\? leaseReview !== null/.test(permissionApprovalSource) &&
       /stale && !isLeaseReview/.test(permissionApprovalSource) &&
       /isLeaseReview && leaseDecisionComplete/.test(permissionApprovalSource) &&
+      /pendingLeaseAction !== null/.test(permissionApprovalSource) &&
+      /const outcome = await reviewWorkspaceLease/.test(permissionApprovalSource) &&
       /queryKey: \['workspace-lease-reviews'\]/.test(permissionApprovalSource),
     'the pending-review permission notice must use the Board lease decision channel, stay actionable after restart, open the matching Board drawer, and refresh every active Board scope',
   );
   assert(
-    /leaseDecisionById/.test(leaseActionsSource) &&
+    /leaseDecisionById\.run/.test(leaseActionsSource) &&
+      /interface InFlightDecision<Outcome>[\s\S]*action: WorkspaceLeaseDecisionAction;[\s\S]*promise: Promise<Outcome>/.test(
+        leaseDecisionCoordinatorSource,
+      ) &&
+      /if \(active\) return active\.promise/.test(leaseDecisionCoordinatorSource) &&
       /persisted === 'merged' \|\| persisted === 'discarded'/.test(leaseActionsSource),
-    'workspace lease decisions must coalesce concurrent entry-point actions and short-circuit already-terminal leases',
+    'workspace lease decisions must record the in-flight action, return its actual outcome to conflicting entries, and short-circuit terminal leases',
+  );
+  assert(
+    /toastLeaseOutcomes\(succeeded\.map\(\(result\) => result\.outcome\)\)/.test(
+      boardStageSource,
+    ) &&
+      /hasPendingDecision\(selectedLeases\)/.test(boardStageSource) &&
+      /pendingLeaseAction !== null/.test(workspacePanelSource),
+    'Board, compact approval, and workspace review entries must disable on shared pending state and report persisted outcomes rather than requested actions',
   );
   assert(
     /highlightedRow\.projectId === projectId \? 'project' : 'company'/.test(boardStageSource),

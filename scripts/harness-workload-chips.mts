@@ -14,6 +14,8 @@ import {
   groupedWorkload,
   sceneWorkDetailSummary,
 } from '../apps/desktop/renderer/src/assistant/runtime/scene-cue-projection.js';
+import { compactWorkBenchSummary } from '../apps/desktop/renderer/src/surfaces/office/scene/work-bench/WorkBench.js';
+import type { ToolRichDetail } from '@offisim/shared-types';
 
 let checks = 0;
 let failures = 0;
@@ -25,6 +27,44 @@ function check(name: string, condition: boolean, detail?: string): void {
     failures += 1;
     console.error(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`);
   }
+}
+
+// --- compact/PiP workbench: every rich family crosses one human-summary boundary --
+{
+  const details: ToolRichDetail[] = [
+    {
+      family: 'terminal',
+      command: 'pwd',
+      outputSummary: '/private/tmp/offisim-secret-worktree',
+    },
+    { family: 'file', path: '/Users/dev/private.txt', summary: '+ secret = true' },
+    { family: 'search', query: 'PRIVATE_TOKEN', hitCount: 4 },
+    { family: 'browser', url: 'https://internal.example/private', title: 'Admin' },
+    {
+      family: 'computer',
+      action: 'click',
+      targetApp: 'Secrets',
+      targetWindow: 'Production',
+      coordinates: { x: 941, y: 612 },
+      textPreview: 'sensitive copy',
+    },
+  ];
+  const expected = [
+    'Verify changes',
+    'Update task',
+    'Research files',
+    'Research files',
+    'Verify changes',
+  ];
+
+  details.forEach((detail, index) => {
+    const summary = compactWorkBenchSummary(detail);
+    check(
+      `compact ${detail.family} bench is deterministic human text`,
+      summary === expected[index],
+      summary,
+    );
+  });
 }
 
 // --- selected workbench: generic tool payloads use the same trust boundary --
