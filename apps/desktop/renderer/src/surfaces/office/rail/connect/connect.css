@@ -1913,6 +1913,15 @@
   font-size: var(--off-fs-meta);
 }
 
+.off-connect-dialog-error {
+  padding: 6px var(--off-sp-3);
+  border: 1px solid var(--off-warn-line-subtle);
+  border-radius: var(--off-r-sm);
+  background: var(--off-warn-surface);
+  color: var(--off-warn);
+  font-size: var(--off-fs-meta);
+}
+
 .off-connect-bubble-err {
   border-color: var(--off-warn-line-subtle) !important;
   background: var(--off-warn-surface) !important;

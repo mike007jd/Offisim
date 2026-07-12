@@ -66,6 +66,10 @@ import {
   shouldShowPendingReply,
   visibleWorkspaceMessages,
 } from './company-chat-presentation.js';
+import {
+  type NewGroupSubmission,
+  submitNewGroupFromDialog,
+} from './new-group-submit.js';
 import { useConnectRuntime } from './use-connect-runtime.js';
 
 /* ── Draft model ──────────────────────────────────────────────────────────── */
@@ -343,15 +347,15 @@ export function ConnectRail({
     setNewChatOpen(false);
   }
 
-  function startGroupDraft(input: {
-    title: string;
-    employeeIds: string[];
-    replyPolicy: CollaborationReplyPolicy;
-  }): void {
-    const id = generateId('thread');
-    onOpenDraft({ kind: 'group', id, ...input });
-    setNewGroupOpen(false);
-    setNewChatOpen(false);
+  async function createGroupFromDialog(input: NewGroupSubmission): Promise<void> {
+    await submitNewGroupFromDialog(input, {
+      createGroup: (payload) => createGroup.mutateAsync(payload),
+      openThread: onOpenThread,
+      closeDialog: () => {
+        setNewGroupOpen(false);
+        setNewChatOpen(false);
+      },
+    });
   }
 
   function onNewChatPick(kind: NewChatKind): void {
@@ -530,7 +534,7 @@ export function ConnectRail({
         employees={employees.data ?? []}
         busy={createGroup.isPending}
         onClose={() => setNewGroupOpen(false)}
-        onCreate={startGroupDraft}
+        onCreate={createGroupFromDialog}
       />
       {activeThread && activeThread.kind === 'group' ? (
         <GroupMembersDialog
