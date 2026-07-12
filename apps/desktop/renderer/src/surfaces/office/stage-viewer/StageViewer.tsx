@@ -845,13 +845,32 @@ function ChangesView({
 }: {
   target: Extract<StageViewTarget, { kind: 'changes' }>;
 }) {
-  if (target.files) {
-    return (
-      <div className="off-stage-changes is-lease-review">
-        <DiffPanel files={target.files} status={target.status} initialPath={target.path} />
-      </div>
-    );
-  }
+  return target.files ? (
+    <LeaseChangesView target={{ ...target, files: target.files }} />
+  ) : (
+    <WorkspaceChangesView target={target} />
+  );
+}
+
+function LeaseChangesView({
+  target,
+}: {
+  target: Extract<StageViewTarget, { kind: 'changes' }> & {
+    files: NonNullable<Extract<StageViewTarget, { kind: 'changes' }>['files']>;
+  };
+}) {
+  return (
+    <div className="off-stage-changes is-lease-review">
+      <DiffPanel files={target.files} status={target.status} initialPath={target.path} />
+    </div>
+  );
+}
+
+function WorkspaceChangesView({
+  target,
+}: {
+  target: Extract<StageViewTarget, { kind: 'changes' }>;
+}) {
   const projectId = useUiState((s) => s.projectId);
   const openStageView = useUiState((s) => s.openStageView);
   const git = useGitWorkbench(projectId);

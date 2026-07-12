@@ -107,6 +107,8 @@ export function OfficeStage() {
   // which mounts OfficeScene3D directly, never sees it.
   const layout = useOfficeLayout(companyId);
   const emptyOffice = zoneDefsFromLayout(layout.data).length === 0;
+  const sceneIsPip = stagePrimaryTab !== 'game';
+  const sceneIsCollapsed = sceneIsPip && scenePipCollapsed;
 
   return (
     <section className={cn('off-stage', isRunning && 'is-live')}>
@@ -122,12 +124,12 @@ export function OfficeStage() {
           stagePrimaryTab !== 'game' && scenePipCollapsed && 'is-collapsed',
         )}
       >
-        {sceneRenderMode === '3d' ? (
+        {sceneIsCollapsed ? null : sceneRenderMode === '3d' ? (
           <Suspense fallback={<div className="off-scene-loading">Loading scene…</div>}>
-            <OfficeScene3D pip={stagePrimaryTab !== 'game'} />
+            <OfficeScene3D pip={sceneIsPip} />
           </Suspense>
         ) : (
-          <OfficeScene2D pip={stagePrimaryTab !== 'game'} />
+          <OfficeScene2D pip={sceneIsPip} />
         )}
         <GameViewControls />
         {emptyOffice ? (

@@ -109,6 +109,21 @@ interface SceneEmployeeDrag {
   readonly moved: boolean;
 }
 
+const PIP_FRAME_INTERVAL_MS = 250;
+
+/** Expanded PiP renders at a bounded 4fps. Full Game View keeps its continuous
+ * loop; collapsed PiP is unmounted by OfficeStage and schedules zero frames. */
+function PipFrameDriver({ active }: { active: boolean }) {
+  const invalidate = useThree((state) => state.invalidate);
+  useEffect(() => {
+    if (!active) return;
+    invalidate();
+    const timer = window.setInterval(invalidate, PIP_FRAME_INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, [active, invalidate]);
+  return null;
+}
+
 interface SceneEmployeeReturn {
   readonly id: string;
   readonly employeeId: string;
@@ -1221,18 +1236,12 @@ export function OfficeScene3D({ pip = false }: { pip?: boolean }) {
       <Canvas
         shadows={pip ? false : 'soft'}
         dpr={pip ? 1 : [1, 1.75]}
-        // Keep R3F's continuous frame loop. We tried "demand" to save
-        // idle CPU but the character mixers advance in useFrame (GltfCharacter
-        // RigView) and EmployeeUnit's glide lerp mutates positions via refs —
-        // neither invalidates, so demand mode froze every employee's
-        // animation. ServerRack LOD checks similarly run in useFrame without
-        // setState. Re-enable demand only alongside an invalidate() in those
-        // useFrame consumers.
         camera={{ position: OFFICE_CAMERA_PRESET.position, fov: OFFICE_CAMERA_PRESET.fov }}
-        frameloop="always"
+        frameloop={pip ? 'demand' : 'always'}
         gl={{ antialias: true, toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.02 }}
         className="off-scene-canvas"
       >
+        <PipFrameDriver active={pip} />
         <SceneAnnotationScheduler />
         <DioramaBackdrop />
         <SceneLighting />

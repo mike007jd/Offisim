@@ -112,7 +112,9 @@ that component must not be mounted by `OfficeScene3D`.
 The backdrop is a closed three-stop studio gradient, so every legal orbit angle remains intentional. Fog begins
 beyond the main furnishing span (`46 → 118`), not over the characters. Lighting stays static and broad: warm
 key, cool fill, restrained rim. N8AO runs half-resolution with SMAA retained; bloom and vignette remain subtle
-enough that material and state ink stay readable. Canvas keeps continuous animation and DPR `[1, 1.75]`.
+enough that material and state ink stay readable. Full Game View keeps continuous animation and DPR
+`[1, 1.75]`; expanded PiP renders on a bounded 4fps demand loop at DPR `1`, and collapsed PiP unmounts the
+scene until it is expanded or Game View resumes.
 
 Furniture contact metrics are one contract with the `1.62`-unit toy body. Chair top is `0.42`, desk top is
 `0.768`, and laptop width is `0.40`; workstation widths, chair envelope, seat anchors and pathfinding radii all
