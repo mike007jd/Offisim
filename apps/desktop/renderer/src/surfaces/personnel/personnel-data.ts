@@ -225,12 +225,11 @@ export const GENDER_OPTIONS: ReadonlyArray<{ value: Gender; label: string }> = [
 
 export type AppearanceDraft = EmployeeAppearance;
 
-export function appearanceDraftFor(employee: Employee): AppearanceDraft {
-  // Default the enum axes to the SAME seed-derived values the office scene
-  // renders (resolveAppearance(employee.id, …)), not fixed literals — otherwise
-  // editing one field and saving would silently overwrite an unauthored,
-  // seed-varied look (hair/body/head/gender/outfit) with a uniform default.
-  const resolved = resolveAppearance(employee.id, employee.appearance);
+export function appearanceDraftForSeed(
+  seed: string,
+  appearance?: EmployeeAppearance,
+): AppearanceDraft {
+  const resolved = resolveAppearance(seed, appearance);
   return {
     skinColor: resolved.skin,
     hairColor: resolved.hair,
@@ -242,6 +241,12 @@ export function appearanceDraftFor(employee: Employee): AppearanceDraft {
     gender: resolved.gender,
     outfit: resolved.outfit,
   };
+}
+
+export function appearanceDraftFor(employee: Employee): AppearanceDraft {
+  // Default to the SAME seed-derived values the office scene renders, not fixed
+  // literals, so editing one field never overwrites the unauthored axes.
+  return appearanceDraftForSeed(employee.id, employee.appearance);
 }
 
 // ───────────────────────── Memory ─────────────────────────

@@ -21,12 +21,15 @@
 }
 
 .off-pers-hire-dialog {
-  max-width: 420px;
+  width: min(760px, calc(100vw - var(--off-sp-8)));
+  max-width: 760px;
+  max-height: calc(100vh - var(--off-sp-8));
+  overflow-y: auto;
 }
 
 .off-pers-hire-form {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--off-sp-4);
 }
 
@@ -45,10 +48,48 @@
 }
 
 .off-pers-hire-error {
+  grid-column: 1 / -1;
   margin: 0;
   color: var(--off-danger);
   font-size: var(--off-fs-meta);
   line-height: 1.45;
+}
+
+.off-pers-hire-appearance {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--off-sp-3);
+  padding-top: var(--off-sp-2);
+  border-top: 1px solid var(--off-line-soft);
+}
+
+.off-pers-hire-appearance-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--off-sp-3);
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-sm);
+  font-weight: 680;
+}
+
+.off-pers-hire-appearance-head small {
+  color: var(--off-ink-4);
+  font-size: var(--off-fs-micro);
+  font-weight: 520;
+}
+
+.off-pers-hire-appearance-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.9fr) minmax(0, 1.1fr);
+  gap: var(--off-sp-4);
+}
+
+.off-pers-hire-appearance-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--off-sp-3);
 }
 
 /* ── Left rail · roster list ──────────────────── */
@@ -939,6 +980,20 @@
   height: 100%;
 }
 
+.off-pers-prev-loading {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  color: var(--off-ink-4);
+  font-size: var(--off-fs-meta);
+}
+
+.off-pers-prev.is-3d-main.is-compact {
+  min-height: 260px;
+  height: 260px;
+}
+
 /* Passive picture-in-picture backplate: translucent fill + soft border are
    needed for contrast over the 3D canvas, but no elevation — it must read
    as a tag pair with the bare "3D" label, not as a control. */
@@ -1445,5 +1500,12 @@
 
   .off-pers-mem-row {
     grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
+
+@media (max-width: 720px) {
+  .off-pers-hire-form,
+  .off-pers-hire-appearance-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
