@@ -48,9 +48,10 @@ export function defaultBudgetForTier(tier: LoopBudgetContract['tier']): LoopBudg
 }
 
 const VALID_TIERS = new Set(['light', 'standard', 'aggressive']);
+const UTF8_ENCODER = new TextEncoder();
 
 function byteLength(s: string): number {
-  return Buffer.byteLength(s, 'utf8');
+  return UTF8_ENCODER.encode(s).byteLength;
 }
 
 export type RepairOutcome =
