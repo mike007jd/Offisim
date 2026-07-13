@@ -31,6 +31,7 @@ import {
   StageTopBar,
   StageViewer,
 } from './stage-viewer/StageViewer.js';
+import { StageSessionReconciler } from './stage-viewer/StageSessionReconciler.js';
 
 /**
  * Phase → icon for the mission-phase pill. The pill carries the projection's
@@ -167,6 +168,7 @@ export function OfficeStage() {
         ) : null}
       </div>
       <StageAutoOpen />
+      <StageSessionReconciler />
       <StageViewer />
 
       {/* Read-only workload drilldown (INC-5): self-gates on `workloadDrilldown`

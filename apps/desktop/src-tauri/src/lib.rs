@@ -1,5 +1,6 @@
 mod agent_host_runtime;
 mod attachment_store;
+mod browser_session;
 mod builtin_tools;
 mod computer_driver;
 mod deep_link;
@@ -65,6 +66,8 @@ mod preview;
 mod redaction;
 mod shell_classifier;
 mod sidecar_stderr;
+mod stage_audit;
+mod terminal_session;
 
 use std::path::Path;
 use tauri::{Emitter, Manager};
@@ -72,6 +75,10 @@ use tauri_plugin_fs::FsExt;
 
 const MAIN_WINDOW_LABEL: &str = "main";
 const MAIN_WINDOW_FALLBACK_LABEL: &str = "main-live";
+
+fn is_main_renderer_label(label: &str) -> bool {
+    matches!(label, MAIN_WINDOW_LABEL | MAIN_WINDOW_FALLBACK_LABEL)
+}
 
 #[derive(Clone, Debug, serde::Serialize)]
 struct NativeDroppedFile {
@@ -207,6 +214,22 @@ pub fn run() {
             builtin_tools::project_list_dir,
             builtin_tools::project_write_file,
             builtin_tools::bash_execute,
+            terminal_session::terminal_session_create,
+            terminal_session::terminal_session_write,
+            terminal_session::terminal_session_resize,
+            terminal_session::terminal_session_snapshot,
+            terminal_session::terminal_session_list_scoped,
+            terminal_session::terminal_session_close,
+            browser_session::browser_session_create,
+            browser_session::browser_session_navigate,
+            browser_session::browser_session_back,
+            browser_session::browser_session_forward,
+            browser_session::browser_session_reload,
+            browser_session::browser_session_set_bounds,
+            browser_session::browser_session_set_visible,
+            browser_session::browser_session_snapshot,
+            browser_session::browser_session_list_scoped,
+            browser_session::browser_session_close,
             pi_agent_host::pi_agent_execute,
             pi_agent_host::pi_agent_abort,
             pi_agent_host::pi_agent_ui_response,
@@ -266,7 +289,12 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(mcp_bridge::init())
+        .manage(terminal_session::TerminalSessionRegistry::default())
+        .manage(browser_session::BrowserSessionRegistry::default())
         .on_webview_event(|webview, event| {
+            if !is_main_renderer_label(webview.label()) {
+                return;
+            }
             if let tauri::WebviewEvent::DragDrop(tauri::DragDropEvent::Drop { paths, position }) =
                 event
             {
@@ -290,6 +318,9 @@ pub fn run() {
             }
         })
         .on_page_load(|webview, payload| {
+            if !is_main_renderer_label(webview.label()) {
+                return;
+            }
             if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished) {
                 let window = webview.window();
                 let _ = window.unminimize();
@@ -365,6 +396,10 @@ pub fn run() {
                 let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
                 let _ = ensure_main_window(app);
             }
+            tauri::RunEvent::Exit => {
+                app.state::<browser_session::BrowserSessionRegistry>()
+                    .close_all(app);
+            }
             #[cfg(target_os = "macos")]
             tauri::RunEvent::Reopen {
                 has_visible_windows,
@@ -386,26 +421,31 @@ mod tests {
         serde_json::from_str(json).expect("capability json parses")
     }
 
-    fn assert_privileged_capability_is_main_window_only(capability: &Value) {
-        let windows = capability
-            .get("windows")
+    fn assert_privileged_capability_is_main_webview_only(capability: &Value) {
+        let webviews = capability
+            .get("webviews")
             .and_then(Value::as_array)
-            .expect("windows array");
+            .expect("webviews array");
         assert_eq!(
-            windows,
+            webviews,
             &vec![
                 Value::String(MAIN_WINDOW_LABEL.into()),
                 Value::String(MAIN_WINDOW_FALLBACK_LABEL.into()),
             ]
         );
         assert!(capability.get("remote").is_none());
-        assert!(capability.get("webviews").is_none());
+        assert!(capability.get("windows").is_none());
+        assert!(!webviews.iter().any(|label| {
+            label
+                .as_str()
+                .is_some_and(|value| value == "browser-*" || value.starts_with("browser-"))
+        }));
     }
 
     #[test]
     fn agent_bridge_capability_does_not_expose_privileged_ipc_to_other_webviews() {
         let capability = capability(include_str!("../capabilities/agent-bridges.json"));
-        assert_privileged_capability_is_main_window_only(&capability);
+        assert_privileged_capability_is_main_webview_only(&capability);
         let permissions = capability
             .get("permissions")
             .and_then(Value::as_array)
@@ -416,7 +456,7 @@ mod tests {
     #[test]
     fn fs_shell_capability_does_not_expose_project_tools_to_other_webviews() {
         let capability = capability(include_str!("../capabilities/fs-shell.json"));
-        assert_privileged_capability_is_main_window_only(&capability);
+        assert_privileged_capability_is_main_webview_only(&capability);
         let permissions = capability
             .get("permissions")
             .and_then(Value::as_array)
@@ -427,11 +467,25 @@ mod tests {
     #[test]
     fn github_capability_is_main_window_only() {
         let capability = capability(include_str!("../capabilities/github.json"));
-        assert_privileged_capability_is_main_window_only(&capability);
+        assert_privileged_capability_is_main_webview_only(&capability);
         let permissions = capability
             .get("permissions")
             .and_then(Value::as_array)
             .expect("permissions array");
         assert_eq!(permissions, &vec![Value::String("github".into())]);
+    }
+
+    #[test]
+    fn remote_browser_children_are_not_main_renderers() {
+        assert!(is_main_renderer_label(MAIN_WINDOW_LABEL));
+        assert!(is_main_renderer_label(MAIN_WINDOW_FALLBACK_LABEL));
+        assert!(!is_main_renderer_label("browser-session-1"));
+        assert!(!is_main_renderer_label("external"));
+    }
+
+    #[test]
+    fn default_capability_is_main_webview_only() {
+        let capability = capability(include_str!("../capabilities/default.json"));
+        assert_privileged_capability_is_main_webview_only(&capability);
     }
 }

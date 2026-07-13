@@ -1,0 +1,22 @@
+{
+  "id": "offisim-codex-companion-v1",
+  "generatedAt": "2026-07-13T08:54:00+10:00",
+  "generator": "Codex built-in image_gen",
+  "source": "codex-companion-state-sheet.png",
+  "sourceSize": [1536, 1024],
+  "grid": { "columns": 4, "rows": 2, "cellSize": [384, 512] },
+  "sha256": "d4c4dbe35a0fc6f61f1510abbc16b1b44d65e1c098aeb70857a0d5ef98019793",
+  "states": {
+    "idle": { "cell": [0, 0], "file": "idle.png", "sha256": "58d28f82b3ecc9aa584fa8ee1996c29fed1b97315b215285efb1fe1e60ba4031" },
+    "run": { "cell": [1, 0], "file": "run.png", "sha256": "855d57103ec6c5a8998b3788a42a777ddfe4920c1647a6eb61907e392b9a2f3d" },
+    "inspect": { "cell": [2, 0], "file": "inspect.png", "sha256": "bdaba578c6f22b8fc4949b71b8612b57f6329fb39c32ec405ff169e4fa9c41bb" },
+    "celebrate": { "cell": [3, 0], "file": "celebrate.png", "sha256": "c571bfc54f39a1de4a2cc88c103d559df1cfe2fa618fd748cf6de774c3a4f929" },
+    "concerned": { "cell": [0, 1], "file": "concerned.png", "sha256": "c40f14e839fc63a8aa1b4b2d0c669876b77028d9c03ed1aee6a4e1dd6f46161d" },
+    "rest": { "cell": [1, 1], "file": "rest.png", "sha256": "1c5a9f5b14c6bae375111a888fbae128db1ac69ba4957d990b40cf40b35b40dc" },
+    "pause": { "cell": [2, 1], "file": "pause.png", "sha256": "a264b5c230589a0048758dac3015daf646eceaa10bfcba5195571b505776312f" },
+    "work-watch": { "cell": [3, 1], "file": "work-watch.png", "sha256": "2fcfff2c1eb4e0316bfec6cdd9e8f8a131bc21e2b59a140e49eb99f0fc9952d9" }
+  },
+  "aliases": { "roam": "run", "sleep": "rest" },
+  "productionImport": "codex-companion-state-sheet.png",
+  "documentation": "Docs/design/2026-07-13-codex-companion-state-sheet.md"
+}

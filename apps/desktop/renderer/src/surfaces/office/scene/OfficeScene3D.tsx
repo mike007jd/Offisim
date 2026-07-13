@@ -49,6 +49,11 @@ import {
 import { GltfCharacter } from './character/GltfCharacter.js';
 import { preloadCharacterAssets } from './character/character-assets.js';
 import { openDeliveryHistory } from './delivery-history.js';
+import { OfficeCompanion3D } from './office-companion/OfficeCompanion3D.js';
+import {
+  buildOfficeCompanionCandidates,
+  officeCompanionOccupiedPoints,
+} from './office-companion/companion-projection.js';
 import { OFFICE_DELIVERY_WORLD, officeResourceMarkerColor } from './office-visual-language.js';
 import { DioramaBackdrop } from './r3d/DioramaBackdrop.js';
 import { DioramaDressing } from './r3d/DioramaDressing.js';
@@ -1137,6 +1142,24 @@ export function OfficeScene3D({ pip = false }: { pip?: boolean }) {
     hoveredEmployeeId,
     draggingEmployeeId: employeeDrag?.employeeId ?? null,
   });
+  const companionActorPositions = useMemo(
+    () =>
+      new Map(
+        [...placementsByEmployee.entries()].map(([employeeId, position]) => [
+          employeeId,
+          { x: position.x, z: position.z },
+        ]),
+      ),
+    [placementsByEmployee],
+  );
+  const companionOccupied = useMemo(
+    () => officeCompanionOccupiedPoints(frame, companionActorPositions, OFFICE_DELIVERY_WORLD),
+    [companionActorPositions, frame],
+  );
+  const companionCandidates = useMemo(
+    () => buildOfficeCompanionCandidates(zoneDefs, companionOccupied, pathfinder),
+    [companionOccupied, pathfinder, zoneDefs],
+  );
   const deliveryLatest = frame.delivery.latest;
 
   const sceneFlowLines = useMemo<SceneFlowLine[]>(() => {
@@ -1269,6 +1292,16 @@ export function OfficeScene3D({ pip = false }: { pip?: boolean }) {
         ) : (
           <FallbackFurniture />
         )}
+
+        <OfficeCompanion3D
+          frame={frame}
+          candidates={companionCandidates}
+          occupiedPoints={companionOccupied}
+          actorPositions={companionActorPositions}
+          pathfinder={pathfinder}
+          geometryRevision={routeSignature}
+          reducedMotion={reducedMotion}
+        />
 
         {/* Zero zones → zero seats: an honest empty office renders nobody, so
             the synthetic default-zone placement fallback below stays unused. */}

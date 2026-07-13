@@ -17,6 +17,19 @@ export type StageViewTarget =
   | { kind: 'scene' }
   | { kind: 'preview'; ref: PreviewSourceRef; title?: string }
   | {
+      kind: 'browser-session';
+      sessionId: string;
+      scope: StageSessionScope;
+      initialUrl: string;
+      title?: string;
+    }
+  | {
+      kind: 'terminal-session';
+      sessionId: string;
+      scope: StageSessionScope;
+      title?: string;
+    }
+  | {
       kind: 'changes';
       path?: string | null;
       leaseId?: string;
@@ -32,6 +45,12 @@ export type StageViewTarget =
       detail?: ToolRichDetail;
     }
   | { kind: 'computer'; threadId?: string | null };
+
+export interface StageSessionScope {
+  companyId: string;
+  projectId: string;
+  threadId?: string | null;
+}
 
 export type StageOpenTarget = Exclude<StageViewTarget, { kind: 'scene' }>;
 
@@ -51,6 +70,7 @@ export const DEFAULT_STAGE_SPLIT_LAYOUT: StageSplitLayout = {
 };
 
 const STAGE_SPLIT_LAYOUT_STORAGE_KEY = 'offisim:ui-state:stage-split-layout';
+const OFFICE_COMPANION_STORAGE_KEY = 'offisim:ui-state:office-companion-enabled';
 
 function normalizeStageSplitLayout(value: unknown): StageSplitLayout {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -99,6 +119,28 @@ export function persistStageSplitLayout(
   return layout;
 }
 
+function readOfficeCompanionEnabled(
+  storage: Pick<Storage, 'getItem'> | undefined = globalThis.localStorage,
+): boolean {
+  try {
+    return storage?.getItem(OFFICE_COMPANION_STORAGE_KEY) !== 'false';
+  } catch {
+    return true;
+  }
+}
+
+function persistOfficeCompanionEnabled(
+  enabled: boolean,
+  storage: Pick<Storage, 'setItem'> | undefined = globalThis.localStorage,
+): boolean {
+  try {
+    storage?.setItem(OFFICE_COMPANION_STORAGE_KEY, String(enabled));
+  } catch {
+    // The current session still honors the preference when storage is unavailable.
+  }
+  return enabled;
+}
+
 export function stageTabForTarget(
   target: StageOpenTarget,
 ): Exclude<StagePrimaryTab, 'game' | 'board'>;
@@ -106,10 +148,12 @@ export function stageTabForTarget(target: StageViewTarget): StagePrimaryTab;
 export function stageTabForTarget(target: StageViewTarget): StagePrimaryTab {
   switch (target.kind) {
     case 'preview':
+    case 'browser-session':
       return 'preview';
     case 'computer':
       return 'computer';
     case 'logs':
+    case 'terminal-session':
       return 'terminal';
     case 'changes':
       return 'review';
@@ -145,10 +189,14 @@ function stageTabIdForTarget(target: StageOpenTarget): string {
   switch (target.kind) {
     case 'preview':
       return stagePreviewTabId(target.ref);
+    case 'browser-session':
+      return `browser-session:${target.sessionId}`;
     case 'changes':
       return `changes:${target.leaseId ?? target.path ?? 'workspace'}`;
     case 'logs':
       return `logs:${target.sourceId ?? target.tool ?? target.title ?? 'latest'}`;
+    case 'terminal-session':
+      return `terminal-session:${target.sessionId}`;
     case 'computer':
       return 'computer';
   }
@@ -230,6 +278,8 @@ interface UiState {
   officeStageMaximized: boolean;
   /** Dramaturgy presentation density for the office scene. */
   officeMode: DramaturgyMode;
+  /** Ambient-only Codex companion visibility; never an AI/runtime actor. */
+  officeCompanionEnabled: boolean;
   sceneDropDiagnostics: SceneDropDiagnostic[];
   /**
    * The employee whose workload drilldown drawer is open, or null when closed.
@@ -331,6 +381,7 @@ interface UiState {
   setOfficeRightRailCollapsed: (collapsed: boolean) => void;
   setOfficeStageMaximized: (maximized: boolean) => void;
   setOfficeMode: (mode: DramaturgyMode) => void;
+  setOfficeCompanionEnabled: (enabled: boolean) => void;
   recordSceneDropDiagnostic: (event: SceneDropDiagnostic) => void;
   /** Open the workload drilldown drawer for an employee (read/inspect only). */
   openWorkloadDrilldown: (employeeId: string) => void;
@@ -374,6 +425,7 @@ export const useUiState = create<UiState>((set, get) => ({
   officeRightRailCollapsed: false,
   officeStageMaximized: false,
   officeMode: 'office',
+  officeCompanionEnabled: readOfficeCompanionEnabled(),
   sceneDropDiagnostics: [],
   workloadDrilldown: null,
 
@@ -671,6 +723,10 @@ export const useUiState = create<UiState>((set, get) => ({
   setOfficeRightRailCollapsed: (officeRightRailCollapsed) => set({ officeRightRailCollapsed }),
   setOfficeStageMaximized: (officeStageMaximized) => set({ officeStageMaximized }),
   setOfficeMode: (officeMode) => set({ officeMode }),
+  setOfficeCompanionEnabled: (officeCompanionEnabled) => {
+    persistOfficeCompanionEnabled(officeCompanionEnabled);
+    set({ officeCompanionEnabled });
+  },
   recordSceneDropDiagnostic: (event) =>
     set((s) => ({ sceneDropDiagnostics: [event, ...s.sceneDropDiagnostics].slice(0, 10) })),
   openWorkloadDrilldown: (employeeId) => set({ workloadDrilldown: { employeeId } }),

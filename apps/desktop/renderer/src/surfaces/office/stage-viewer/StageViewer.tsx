@@ -19,6 +19,7 @@ import { DiffPanel } from '@/surfaces/office/board/DiffPanel.js';
 import { useProjectWorkspaceLeaseReviews } from '@/surfaces/office/board/task-board-data.js';
 import { ComputerView } from '@/surfaces/office/computer/ComputerView.js';
 import { WorkBench } from '@/surfaces/office/scene/work-bench/WorkBench.js';
+import { BrowserSessionView } from '@/surfaces/office/stage-browser/BrowserSessionView.js';
 import { BrowserEmptyState } from '@/surfaces/office/stage-preview/BrowserEmptyState.js';
 import { StageEmpty } from '@/surfaces/office/stage-preview/StageEmpty.js';
 import { StagePreviewPane } from '@/surfaces/office/stage-preview/StagePreviewPane.js';
@@ -27,17 +28,20 @@ import {
   previewRefViewerKind,
   viewerKindIcon,
 } from '@/surfaces/office/stage-preview/preview-target.js';
+import { TerminalSessionView } from '@/surfaces/office/stage-terminal/TerminalSessionView.js';
 import {
   StageChromeProvider,
   useStageChrome,
 } from '@/surfaces/office/stage-viewer/stage-chrome.js';
 import type { DramaturgyMode, ToolRichDetail } from '@offisim/shared-types';
 import {
+  Bot,
   Box,
   Clapperboard,
   Coins,
   Columns3,
   Eye,
+  EyeOff,
   FileCode2,
   FileText,
   Focus,
@@ -335,10 +339,14 @@ function stageTabLabel(target: StageOpenTarget) {
   switch (target.kind) {
     case 'preview':
       return target.title ?? previewRefLabel(target.ref);
+    case 'browser-session':
+      return target.title ?? 'Browser';
     case 'changes':
       return target.path ? fileLeaf(target.path) : 'Review';
     case 'logs':
       return target.tool ?? target.title ?? 'Terminal';
+    case 'terminal-session':
+      return target.title ?? 'Terminal';
     case 'computer':
       return 'Computer';
   }
@@ -348,10 +356,14 @@ function stageTabTitle(target: StageOpenTarget) {
   switch (target.kind) {
     case 'preview':
       return target.title ?? previewRefTitle(target.ref);
+    case 'browser-session':
+      return target.title ?? target.initialUrl;
     case 'changes':
       return target.path ?? 'Workspace changes';
     case 'logs':
       return target.tool ?? target.title ?? 'Terminal log';
+    case 'terminal-session':
+      return target.title ?? 'Interactive project terminal';
     case 'computer':
       return 'Computer Use';
   }
@@ -360,6 +372,8 @@ function stageTabTitle(target: StageOpenTarget) {
 export function GameViewOptions() {
   const officeMode = useUiState((s) => s.officeMode);
   const setOfficeMode = useUiState((s) => s.setOfficeMode);
+  const companionEnabled = useUiState((s) => s.officeCompanionEnabled);
+  const setCompanionEnabled = useUiState((s) => s.setOfficeCompanionEnabled);
   const [open, setOpen] = useState(false);
   const options = [
     { mode: 'focus', icon: Focus, label: 'Focus' },
@@ -405,6 +419,18 @@ export function GameViewOptions() {
               </span>
             </button>
           ))}
+          <button
+            type="button"
+            className={cn('off-stage-view-option off-focusable', companionEnabled && 'is-active')}
+            aria-pressed={companionEnabled}
+            onClick={() => setCompanionEnabled(!companionEnabled)}
+          >
+            <Icon icon={companionEnabled ? Bot : EyeOff} size="sm" />
+            <span className="off-stage-view-option-copy">
+              <span className="off-stage-view-option-label">Codex companion</span>
+              <span className="off-stage-view-option-meta">Ambient only · no AI work</span>
+            </span>
+          </button>
         </div>
       </PopoverContent>
     </Popover>
@@ -414,7 +440,9 @@ export function GameViewOptions() {
 function StageViewMenu() {
   const [menuOpen, setMenuOpen] = useState(false);
   const selectedThreadId = useUiState((s) => s.selectedThreadId);
+  const draftThreadId = useUiState((s) => s.draftThread?.id ?? null);
   const projectId = useUiState((s) => s.projectId);
+  const companyId = useUiState((s) => s.companyId);
   const stageView = useUiState((s) => s.stageView);
   const stagePrimaryTab = useUiState((s) => s.stagePrimaryTab);
   const setStagePrimaryTab = useUiState((s) => s.setStagePrimaryTab);
@@ -435,6 +463,7 @@ function StageViewMenu() {
     stageView.kind === 'preview' && stageView.ref.source === 'workspace-file'
       ? { target: stageView, path: stageView.ref.path }
       : null;
+  const persistedSessionThreadId = selectedThreadId === draftThreadId ? null : selectedThreadId;
 
   const items: StageMenuItem[] = [
     {
@@ -469,22 +498,39 @@ function StageViewMenu() {
     {
       id: 'browser',
       label: 'Browser',
+      meta: 'Navigate the web in Stage',
+      isActive: stageView.kind === 'browser-session',
+      icon: Globe,
+      onSelect: () => {
+        if (!companyId || !projectId) return;
+        openStageView({
+          kind: 'browser-session',
+          sessionId: crypto.randomUUID(),
+          scope: { companyId, projectId, threadId: persistedSessionThreadId },
+          initialUrl: 'https://example.com/',
+          title: 'Browser',
+        });
+      },
+    },
+    {
+      id: 'browser-activity',
+      label: 'Browser activity',
       meta: latestBrowserRichDetail
         ? latestBrowserRichDetail.title ||
           latestBrowserRichDetail.url ||
           latestBrowser?.tool ||
-          'Browser page'
-        : 'Preview a local dev server',
+          'Agent browser page'
+        : 'Open the read-only agent preview',
       isActive:
         stageView.kind === 'preview' &&
         (stageView.ref.source === 'browser' || stageView.ref.source === 'screenshot'),
-      icon: Globe,
+      icon: Eye,
       onSelect: () => {
         if (!latestBrowserRichDetail) {
           openStageView({
             kind: 'preview',
-            ref: { source: 'browser', sourceId: 'manual' },
-            title: 'Browser',
+            ref: { source: 'browser', sourceId: 'agent-latest' },
+            title: 'Browser activity',
           });
           return;
         }
@@ -548,11 +594,27 @@ function StageViewMenu() {
       },
     },
     {
-      id: 'logs',
+      id: 'terminal',
       label: 'Terminal',
-      meta: latestLog ? latestLog.tool : 'Open the read-only run mirror',
-      isActive: stageView.kind === 'logs',
+      meta: 'Interactive project shell',
+      isActive: stageView.kind === 'terminal-session',
       icon: TerminalSquare,
+      onSelect: () => {
+        if (!companyId || !projectId) return;
+        openStageView({
+          kind: 'terminal-session',
+          sessionId: crypto.randomUUID(),
+          scope: { companyId, projectId, threadId: persistedSessionThreadId },
+          title: 'Terminal',
+        });
+      },
+    },
+    {
+      id: 'logs',
+      label: 'Run log',
+      meta: latestLog ? latestLog.tool : 'Open the read-only agent run mirror',
+      isActive: stageView.kind === 'logs',
+      icon: FileText,
       onSelect: () => {
         if (!latestLog) {
           setStagePrimaryTab('terminal', true);
@@ -865,6 +927,7 @@ function StageTabBody({
 }) {
   if (tab === 'board') return <BoardStage />;
   if (tab === 'preview') {
+    if (target?.kind === 'browser-session') return <BrowserSessionView target={target} />;
     if (
       target?.kind === 'preview' &&
       target.ref.source === 'browser' &&
@@ -887,6 +950,7 @@ function StageTabBody({
     return <ComputerView threadId={target?.kind === 'computer' ? target.threadId : null} />;
   }
   if (tab === 'terminal') {
+    if (target?.kind === 'terminal-session') return <TerminalSessionView target={target} />;
     if (target?.kind === 'logs') return <LogsView target={target} />;
     return (
       <StageEmpty
@@ -948,10 +1012,14 @@ function viewerMeta(target: StageViewTarget) {
   switch (target.kind) {
     case 'preview':
       return target.title ?? previewRefMeta(target.ref);
+    case 'browser-session':
+      return target.initialUrl;
     case 'changes':
       return target.path ?? 'Workspace diff';
     case 'logs':
       return target.tool ?? target.title ?? 'Tool run';
+    case 'terminal-session':
+      return target.scope.threadId ?? target.scope.projectId;
     case 'computer':
       return target.threadId ?? 'Computer Use';
     default:

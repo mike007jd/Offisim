@@ -2,7 +2,7 @@
 /**
  * Build-time guard: every chat-attachment Tauri command MUST appear in the
  * `fs-shell` permission allowlist; capability JSONs MUST mount that
- * permission via `offisim:fs-shell` on the main + main-live windows.
+ * permission via `offisim:fs-shell` on the main + main-live renderer WebViews.
  *
  * Mirrors the `check-platform-tauri-origin-sync.mjs` pattern — invoked from
  * `apps/desktop` `prebuild` so a missing entry fails the build instead of
@@ -24,7 +24,7 @@ const REQUIRED_COMMANDS = [
   'attachment_delete',
   'attachment_delete_company',
 ];
-const REQUIRED_WINDOWS = ['main', 'main-live'];
+const REQUIRED_WEBVIEWS = ['main', 'main-live'];
 
 function fail(msg) {
   console.error(`[check-attachment-capabilities] ${msg}`);
@@ -51,12 +51,12 @@ if (capability.identifier !== 'offisim:fs-shell') {
 if (!Array.isArray(capability.permissions) || !capability.permissions.includes('fs-shell')) {
   fail(`capability ${CAPABILITY_FILE} must include permission "fs-shell"`);
 }
-if (!Array.isArray(capability.windows)) {
-  fail(`capability ${CAPABILITY_FILE} windows must be an array`);
+if (!Array.isArray(capability.webviews)) {
+  fail(`capability ${CAPABILITY_FILE} webviews must be an array`);
 }
-const missingWindows = REQUIRED_WINDOWS.filter((w) => !capability.windows.includes(w));
-if (missingWindows.length > 0) {
-  fail(`capability ${CAPABILITY_FILE} windows missing: ${missingWindows.join(', ')}`);
+const missingWebviews = REQUIRED_WEBVIEWS.filter((label) => !capability.webviews.includes(label));
+if (missingWebviews.length > 0) {
+  fail(`capability ${CAPABILITY_FILE} webviews missing: ${missingWebviews.join(', ')}`);
 }
 
 console.log(

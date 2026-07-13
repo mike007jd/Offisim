@@ -1,4 +1,5 @@
 import { useUiState } from '@/app/ui-state.js';
+import companionAtlasUrl from '@/assets/companion/codex-companion-state-sheet.png';
 import { usePrefersReducedMotion } from '@/assistant/runtime/office-dramaturgy.js';
 import {
   FLOW_TARGET_LABELS,
@@ -15,8 +16,18 @@ import type { ZoneKind } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
 import { CANVAS_FONT_TOKENS } from '@/styles/visual-tokens.js';
 import { openArtifactClaim } from '@/surfaces/office/stage-viewer/artifact-claim.js';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { openDeliveryHistory } from './delivery-history.js';
+import {
+  OFFICE_COMPANION_ATLAS_FRAME,
+  type OfficeCompanionPlan,
+  buildOfficeCompanionCandidates,
+  createOfficeCompanionPlan,
+  officeCompanionOccupiedPoints,
+  officeCompanionPlanKey,
+  officeCompanionSpatialRevision,
+  sampleOfficeCompanionPlan,
+} from './office-companion/companion-projection.js';
 import { OFFICE_DELIVERY_WORLD, officeResourceMarkerColor } from './office-visual-language.js';
 import { compactSceneEmployeeName } from './scene-labels.js';
 import { archetypeToKind, clamp, floorBounds } from './scene-layout.js';
@@ -101,14 +112,17 @@ function roundRect(
 }
 
 export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
+  const companyId = useUiState((s) => s.companyId);
   const projectId = useUiState((s) => s.projectId);
+  const officeMode = useUiState((s) => s.officeMode);
+  const companionEnabled = useUiState((s) => s.officeCompanionEnabled);
   const openThread = useUiState((s) => s.openThread);
   const openStageView = useUiState((s) => s.openStageView);
   const openWorkloadDrilldown = useUiState((s) => s.openWorkloadDrilldown);
 
   // Shared staging inputs (real zones + real roster + seat planner); the
   // synthetic fallback only applies when there is no backend (dev preview).
-  const { roster, zoneDefs, positions, stagingPrefabs, routeFor, routeSignature } =
+  const { roster, zoneDefs, positions, stagingPrefabs, pathfinder, routeFor, routeSignature } =
     useSceneStagingInputs();
   const { floorW, floorD } = useMemo(() => floorBounds(zoneDefs), [zoneDefs]);
 
@@ -161,6 +175,42 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
   // Reduced motion freezes the packet animation and the shelf arrival glow
   // while every lane/label/anchor/marker keeps rendering statically.
   const reducedMotion = usePrefersReducedMotion();
+  const companionAtlas = useMemo(() => {
+    const image = new Image();
+    image.src = companionAtlasUrl;
+    return image;
+  }, []);
+  const [companionAtlasReady, setCompanionAtlasReady] = useState(
+    companionAtlas.complete && companionAtlas.naturalWidth > 0,
+  );
+  const companionActorPositions = useMemo(
+    () =>
+      new Map(
+        [...positions.entries()].map(([employeeId, position]) => [
+          employeeId,
+          { x: position.x, z: position.z },
+        ]),
+      ),
+    [positions],
+  );
+  const companionOccupied = useMemo(
+    () => officeCompanionOccupiedPoints(frame, companionActorPositions, OFFICE_DELIVERY_WORLD),
+    [companionActorPositions, frame],
+  );
+  const companionCandidates = useMemo(
+    () => buildOfficeCompanionCandidates(zoneDefs, companionOccupied, pathfinder),
+    [companionOccupied, pathfinder, zoneDefs],
+  );
+  const companionSpatialRevision = useMemo(
+    () =>
+      officeCompanionSpatialRevision(
+        companionCandidates,
+        companionOccupied,
+        companionActorPositions,
+      ),
+    [companionActorPositions, companionCandidates, companionOccupied],
+  );
+  const companionPlanRef = useRef<OfficeCompanionPlan | null>(null);
 
   // Artifact arrival (I5): a short-lived shelf glow when recentCount increases.
   // Refs only — the draw effect below keeps a bounded RAF alive while the glow
@@ -515,6 +565,61 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
         occupied.push({ x0, x1: x0 + shelfW, y0, y1 });
       }
 
+      // Ambient-only companion: one pure company/project projection shared
+      // with 3D. It never enters hitsRef, employee ordering, or runtime state.
+      if (companionEnabled && companionAtlasReady) {
+        const nowMs = Date.now();
+        const input = {
+          enabled: companionEnabled,
+          companyId,
+          projectId,
+          nowMs,
+          mode: officeMode,
+          reducedMotion,
+          geometryRevision: routeSignature,
+          frame,
+          candidates: companionCandidates,
+          occupiedPoints: companionOccupied,
+          actorPositions: companionActorPositions,
+          spatialRevision: companionSpatialRevision,
+          deliveryPoint: OFFICE_DELIVERY_WORLD,
+          pathfinder,
+        } as const;
+        const key = officeCompanionPlanKey(input);
+        let plan = companionPlanRef.current;
+        if (plan?.key !== key) {
+          plan = createOfficeCompanionPlan(input);
+          companionPlanRef.current = plan;
+        }
+        const companion = sampleOfficeCompanionPlan(plan, nowMs);
+        if (companion.visible) {
+          const atlasFrame = OFFICE_COMPANION_ATLAS_FRAME[companion.state];
+          const sourceWidth = companionAtlas.naturalWidth / 4;
+          const sourceHeight = companionAtlas.naturalHeight / 2;
+          const height = Math.min(68, Math.max(34, scale * 1.95));
+          const width = height * 0.75;
+          const sx = wx(companion.x);
+          const sy = wy(companion.z);
+          ctx.save();
+          ctx.translate(sx, sy);
+          ctx.scale(companion.facing, 1);
+          ctx.drawImage(
+            companionAtlas,
+            atlasFrame.column * sourceWidth,
+            atlasFrame.row * sourceHeight,
+            sourceWidth,
+            sourceHeight,
+            -width / 2,
+            -height,
+            width,
+            height,
+          );
+          ctx.restore();
+        }
+      } else {
+        companionPlanRef.current = null;
+      }
+
       for (const employee of orderedRoster) {
         const pos = positions.get(employee.id);
         if (!pos) continue;
@@ -737,6 +842,17 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
     };
   });
 
+  useEffect(() => {
+    if (companionAtlas.complete && companionAtlas.naturalWidth > 0) {
+      setCompanionAtlasReady(true);
+      drawRef.current();
+      return;
+    }
+    const redraw = () => setCompanionAtlasReady(true);
+    companionAtlas.addEventListener('load', redraw, { once: true });
+    return () => companionAtlas.removeEventListener('load', redraw);
+  }, [companionAtlas]);
+
   // Setup effect: canvas mount only — resize redraws through drawRef, so the
   // observer never re-subscribes on frame identity changes.
   useEffect(() => {
@@ -753,19 +869,31 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
   // so the glow can never freeze mid-fade — and the loop stops itself once
   // both animations are done. Reduced motion never loops — everything renders
   // once, statically (and the glow is skipped entirely).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the atlas/store/mode values intentionally invalidate this timer loop even though the live draw closure reads them through drawRef.
   useEffect(() => {
     let raf = 0;
+    let timer = 0;
     const hasPulsingFlow = !reducedMotion && frame.flows.some((cue) => cue.pulse);
     const glowActive = () => !reducedMotion && shelfGlowUntilRef.current > Date.now();
     const tick = () => {
       drawRef.current();
-      raf = hasPulsingFlow || glowActive() ? window.requestAnimationFrame(tick) : 0;
+      if (hasPulsingFlow || glowActive()) {
+        raf = window.requestAnimationFrame(tick);
+        return;
+      }
+      const companionPlan = companionPlanRef.current;
+      if (!companionPlan?.nextWakeAt) return;
+      const delay = companionPlan.static ? Math.max(16, companionPlan.nextWakeAt - Date.now()) : 84;
+      timer = window.setTimeout(() => {
+        raf = window.requestAnimationFrame(tick);
+      }, delay);
     };
     tick();
     return () => {
       if (raf) window.cancelAnimationFrame(raf);
+      if (timer) window.clearTimeout(timer);
     };
-  }, [frame, reducedMotion]);
+  }, [companionAtlasReady, companionEnabled, frame, officeMode, reducedMotion]);
 
   // Hit testing walks registration order in REVERSE so the topmost-drawn
   // target wins — later employees' chip rows paint over earlier ones, so a

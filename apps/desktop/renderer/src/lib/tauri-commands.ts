@@ -42,6 +42,52 @@ interface BashExecuteResult {
   approvalId?: string | null;
 }
 
+export interface NativeStageSessionScope {
+  companyId: string;
+  projectId: string;
+  threadId?: string | null;
+}
+
+export interface TerminalOutputChunk {
+  startCursor: number;
+  endCursor: number;
+  dataBase64: string;
+}
+
+export interface TerminalSessionSnapshot {
+  sessionId: string;
+  scope: NativeStageSessionScope;
+  cwd: string;
+  shell: string;
+  status: 'running' | 'closing' | 'exited' | 'closed' | 'error';
+  startCursor: number;
+  endCursor: number;
+  chunks: TerminalOutputChunk[];
+  gap: boolean;
+  exitCode?: number | null;
+  error?: string | null;
+}
+
+export interface BrowserSessionBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface BrowserSessionSnapshot {
+  sessionId: string;
+  scope: NativeStageSessionScope;
+  status: 'creating' | 'loading' | 'ready' | 'hidden' | 'error' | 'closed';
+  url: string;
+  title?: string | null;
+  canGoBack: boolean;
+  canGoForward: boolean;
+  sequence: number;
+  visible: boolean;
+  error?: string | null;
+}
+
 interface PiAgentExecuteRequest {
   requestId: string;
   text: string;
@@ -433,6 +479,75 @@ export interface CommandMap {
       networkPolicy?: string | null;
     },
     BashExecuteResult
+  >;
+  terminal_session_create: CommandSpec<
+    { sessionId: string; scope: NativeStageSessionScope; cols: number; rows: number },
+    TerminalSessionSnapshot
+  >;
+  terminal_session_write: CommandSpec<
+    { sessionId: string; scope: NativeStageSessionScope; dataBase64: string },
+    void
+  >;
+  terminal_session_resize: CommandSpec<
+    { sessionId: string; scope: NativeStageSessionScope; cols: number; rows: number },
+    void
+  >;
+  terminal_session_snapshot: CommandSpec<
+    { sessionId: string; scope: NativeStageSessionScope; afterCursor?: number | null },
+    TerminalSessionSnapshot
+  >;
+  terminal_session_list_scoped: CommandSpec<
+    { scope: NativeStageSessionScope },
+    TerminalSessionSnapshot[]
+  >;
+  terminal_session_close: CommandSpec<
+    { sessionId: string; scope: NativeStageSessionScope },
+    TerminalSessionSnapshot | null
+  >;
+  browser_session_create: CommandSpec<
+    {
+      sessionId: string;
+      scope: NativeStageSessionScope;
+      url: string;
+      bounds: BrowserSessionBounds;
+    },
+    BrowserSessionSnapshot
+  >;
+  browser_session_navigate: CommandSpec<
+    { sessionId: string; scope: NativeStageSessionScope; url: string },
+    BrowserSessionSnapshot
+  >;
+  browser_session_back: CommandSpec<
+    { sessionId: string; scope: NativeStageSessionScope },
+    BrowserSessionSnapshot
+  >;
+  browser_session_forward: CommandSpec<
+    { sessionId: string; scope: NativeStageSessionScope },
+    BrowserSessionSnapshot
+  >;
+  browser_session_reload: CommandSpec<
+    { sessionId: string; scope: NativeStageSessionScope },
+    BrowserSessionSnapshot
+  >;
+  browser_session_set_bounds: CommandSpec<
+    { sessionId: string; scope: NativeStageSessionScope; bounds: BrowserSessionBounds },
+    BrowserSessionSnapshot
+  >;
+  browser_session_set_visible: CommandSpec<
+    { sessionId: string; scope: NativeStageSessionScope; visible: boolean },
+    BrowserSessionSnapshot
+  >;
+  browser_session_snapshot: CommandSpec<
+    { sessionId: string; scope: NativeStageSessionScope },
+    BrowserSessionSnapshot
+  >;
+  browser_session_list_scoped: CommandSpec<
+    { scope: NativeStageSessionScope },
+    BrowserSessionSnapshot[]
+  >;
+  browser_session_close: CommandSpec<
+    { sessionId: string; scope: NativeStageSessionScope },
+    BrowserSessionSnapshot
   >;
   pi_agent_execute: CommandSpec<AgentRuntimeArgs<PiAgentExecuteRequest>, PiAgentHostResponse>;
   pi_agent_abort: CommandSpec<{ requestId: string }, void>;

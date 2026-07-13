@@ -169,6 +169,12 @@ importers:
       '@tauri-apps/plugin-dialog':
         specifier: ^2.7.1
         version: 2.7.1
+      '@xterm/addon-fit':
+        specifier: ^0.11.0
+        version: 0.11.0
+      '@xterm/xterm':
+        specifier: ^6.0.0
+        version: 6.0.0
       '@xyflow/react':
         specifier: ^12.11.1
         version: 12.11.1(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(immer@11.1.8)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -1110,11 +1116,11 @@ packages:
 
   '@esbuild-kit/core-utils@3.3.2':
     resolution: {integrity: sha512-sPRAnw9CdSsRmEtnsl2WXWdyquogVpB3yZ3dgwJfe8zrOzTsV7cJvmwrKVa+0ma5BoiGJ+BoqkMvawbayKUsqQ==}
-    deprecated: 'Merged into tsx: https://tsx.is'
+    deprecated: 'Merged into tsx: https://tsx.hirok.io'
 
   '@esbuild-kit/esm-loader@2.6.5':
     resolution: {integrity: sha512-FxEMIkJKnodyA1OaCUoEvbYRkoZlLZ4d/eXFu9Fh8CbBBgP5EmZxrfTRyN0qpXZ4vOvqnE5YdRdcrmUUXuU+dA==}
-    deprecated: 'Merged into tsx: https://tsx.is'
+    deprecated: 'Merged into tsx: https://tsx.hirok.io'
 
   '@esbuild/aix-ppc64@0.25.12':
     resolution: {integrity: sha512-Hhmwd6CInZ3dwpuGTF8fJG6yoWmsToE+vYgD4nytZVxcu1ulHpUQRAB1UJ8+N1Am3Mz4+xOByoQoSZf4D+CpkA==}
@@ -3738,6 +3744,12 @@ packages:
   '@xmldom/xmldom@0.8.13':
     resolution: {integrity: sha512-KRYzxepc14G/CEpEGc3Yn+JKaAeT63smlDr+vjB8jRfgTBBI9wRj/nkQEO+ucV8p8I9bfKLWp37uHgFrbntPvw==}
     engines: {node: '>=10.0.0'}
+
+  '@xterm/addon-fit@0.11.0':
+    resolution: {integrity: sha512-jYcgT6xtVYhnhgxh3QgYDnnNMYTcf8ElbxxFzX0IZo+vabQqSPAjC3c1wJrKB5E19VwQei89QCiZZP86DCPF7g==}
+
+  '@xterm/xterm@6.0.0':
+    resolution: {integrity: sha512-TQwDdQGtwwDt+2cgKDLn0IRaSxYu1tSUjgKarSDkUM0ZNiSRXFpjxEsvc/Zgc5kq5omJ+V0a8/kIM2WD3sMOYg==}
 
   '@xyflow/react@12.11.1':
     resolution: {integrity: sha512-L+zBoLGSXham0MnlY8QqjfR7/C5JNw0zxkaey5aZ5XmCgJBAdH4+WRIu8CR40d3l/BdU635V6YbhBK1jMo8/6Q==}
@@ -9404,6 +9416,10 @@ snapshots:
     optional: true
 
   '@xmldom/xmldom@0.8.13': {}
+
+  '@xterm/addon-fit@0.11.0': {}
+
+  '@xterm/xterm@6.0.0': {}
 
   '@xyflow/react@12.11.1(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(immer@11.1.8)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:
