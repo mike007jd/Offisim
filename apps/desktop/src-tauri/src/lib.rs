@@ -2,6 +2,7 @@ mod agent_host_runtime;
 mod attachment_store;
 mod browser_session;
 mod builtin_tools;
+mod codex_pets;
 mod computer_driver;
 mod deep_link;
 #[cfg(target_os = "macos")]
@@ -230,6 +231,8 @@ pub fn run() {
             browser_session::browser_session_snapshot,
             browser_session::browser_session_list_scoped,
             browser_session::browser_session_close,
+            codex_pets::codex_pets_list,
+            codex_pets::codex_pet_load,
             pi_agent_host::pi_agent_execute,
             pi_agent_host::pi_agent_abort,
             pi_agent_host::pi_agent_ui_response,
@@ -473,6 +476,17 @@ mod tests {
             .and_then(Value::as_array)
             .expect("permissions array");
         assert_eq!(permissions, &vec![Value::String("github".into())]);
+    }
+
+    #[test]
+    fn codex_pets_capability_is_main_window_only() {
+        let capability = capability(include_str!("../capabilities/codex-pets.json"));
+        assert_privileged_capability_is_main_webview_only(&capability);
+        let permissions = capability
+            .get("permissions")
+            .and_then(Value::as_array)
+            .expect("permissions array");
+        assert_eq!(permissions, &vec![Value::String("codex-pets".into())]);
     }
 
     #[test]

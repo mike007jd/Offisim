@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
-import { readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { SceneCueFrame } from '../apps/desktop/renderer/src/assistant/runtime/scene-cue-projection.js';
+import { resolveCodexPet } from '../apps/desktop/renderer/src/surfaces/office/scene/office-companion/CodexPetProvider.js';
 import {
-  OFFICE_COMPANION_ATLAS_FRAME,
+  CODEX_PET_ATLAS,
+  codexPetAtlasFrame,
+} from '../apps/desktop/renderer/src/surfaces/office/scene/office-companion/codex-pet-animation.js';
+import {
   OFFICE_COMPANION_ROUTE_CLEARANCE,
-  OFFICE_COMPANION_STATES,
   type OfficeCompanionPlanInput,
   buildOfficeCompanionCandidates,
   createOfficeCompanionPlan,
@@ -18,17 +20,6 @@ import {
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const read = (path: string) => readFileSync(`${ROOT}/${path}`);
 const readText = (path: string) => read(path).toString('utf8');
-
-function pngInfo(path: string) {
-  const value = read(path);
-  assert.deepEqual([...value.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10], `${path} PNG`);
-  return {
-    width: value.readUInt32BE(16),
-    height: value.readUInt32BE(20),
-    colorType: value[25],
-    sha256: createHash('sha256').update(value).digest('hex'),
-  };
-}
 
 function deepFreeze<T>(value: T): T {
   if (value && typeof value === 'object' && !Object.isFrozen(value)) {
@@ -192,7 +183,7 @@ assert.equal(
   stateFor(
     frame({ delivery: { chips: [], recentCount: 1, overflowCount: 0, latest: {} as never } }),
   ),
-  'celebrate',
+  'greet',
 );
 assert.equal(stateFor(frame({ actors: [actor('ava', 'approval')] })), 'inspect');
 assert.equal(stateFor(frame({ actors: [actor('ava', 'blocked')] })), 'concerned');
@@ -226,7 +217,7 @@ assert.equal(
     }),
   ),
   'concerned',
-  'priority is failure > approval > delivery/success > work > quiet',
+  'priority is failure > approval > delivery > success > work > quiet',
 );
 
 const frozenFrame = deepFreeze(frame({ actors: [actor('ava', 'working')] }));
@@ -378,6 +369,8 @@ const companion3d = readText(
 assert.match(scene2d, /createOfficeCompanionPlan/);
 assert.match(scene3d, /<OfficeCompanion3D/);
 assert.match(companion3d, /raycast=\{\(\) => null\}/);
+assert.match(companion3d, /key=\{atlasUrl\}/);
+assert.match(companion3d, /useTexture\.clear\(atlasUrl\)/);
 assert.doesNotMatch(scene2d, /hitsRef\.current\.push\(\{[^}]*companion/s);
 assert.equal((scene3d.match(/<OfficeCompanion3D/g) ?? []).length, 1);
 
@@ -387,44 +380,87 @@ const stageViewer = readText(
 );
 assert.match(uiState, /OFFICE_COMPANION_STORAGE_KEY/);
 assert.match(uiState, /persistOfficeCompanionEnabled/);
+assert.match(uiState, /OFFICE_COMPANION_PET_STORAGE_KEY/);
+assert.match(uiState, /persistOfficeCompanionPetId/);
 assert.match(stageViewer, /aria-pressed=\{companionEnabled\}/);
-assert.match(stageViewer, /Ambient only · no AI work/);
+assert.match(stageViewer, /Choose pet/);
 
-const manifest = JSON.parse(
-  readText('apps/desktop/renderer/src/assets/companion/manifest.json'),
-) as {
-  source: string;
-  sourceSize: [number, number];
-  sha256: string;
-  states: Record<string, { cell: [number, number]; file: string; sha256: string }>;
-};
-assert.deepEqual(Object.keys(manifest.states).sort(), [...OFFICE_COMPANION_STATES].sort());
-assert.deepEqual(manifest.sourceSize, [1536, 1024]);
-const atlasPath = `apps/desktop/renderer/src/assets/companion/${manifest.source}`;
-const atlas = pngInfo(atlasPath);
-assert.deepEqual([atlas.width, atlas.height, atlas.colorType], [1536, 1024, 6]);
-assert.equal(atlas.sha256, manifest.sha256);
-const stateHashes = new Set<string>();
-for (const state of OFFICE_COMPANION_STATES) {
-  const entry = manifest.states[state];
-  assert.ok(entry, `manifest is missing ${state}`);
-  assert.deepEqual(entry.cell, [
-    OFFICE_COMPANION_ATLAS_FRAME[state].column,
-    OFFICE_COMPANION_ATLAS_FRAME[state].row,
-  ]);
-  const info = pngInfo(`apps/desktop/renderer/src/assets/companion/${entry.file}`);
-  assert.deepEqual([info.width, info.height, info.colorType], [384, 512, 6]);
-  assert.equal(info.sha256, entry.sha256);
-  stateHashes.add(info.sha256);
-}
-assert.equal(stateHashes.size, OFFICE_COMPANION_STATES.length, 'state crops are distinct');
-const assetBytes = [manifest.source, ...Object.values(manifest.states).map((entry) => entry.file)]
-  .map((file) => statSync(`${ROOT}/apps/desktop/renderer/src/assets/companion/${file}`).size)
-  .reduce((sum, size) => sum + size, 0);
-assert.ok(assetBytes < 1_500_000, `asset budget exceeded: ${assetBytes}`);
+assert.deepEqual(CODEX_PET_ATLAS, {
+  width: 1536,
+  height: 1872,
+  columns: 8,
+  rows: 9,
+  cellWidth: 192,
+  cellHeight: 208,
+});
+const presentation = (
+  state: Parameters<typeof codexPetAtlasFrame>[0]['state'],
+  facing: -1 | 1 = 1,
+  moving = false,
+) => ({ state, facing, moving });
+assert.equal(codexPetAtlasFrame(presentation('run', 1, true), 0, 0, false).row, 1);
+assert.equal(codexPetAtlasFrame(presentation('run', -1, true), 0, 0, false).row, 2);
+assert.equal(codexPetAtlasFrame(presentation('inspect'), 0, 0, false).row, 6);
+assert.equal(codexPetAtlasFrame(presentation('work-watch'), 0, 0, false).row, 8);
+assert.equal(codexPetAtlasFrame(presentation('celebrate'), 0, 0, false).row, 4);
+assert.equal(codexPetAtlasFrame(presentation('greet'), 0, 0, false).row, 3);
+assert.equal(codexPetAtlasFrame(presentation('concerned'), 0, 0, false).row, 5);
+assert.equal(codexPetAtlasFrame(presentation('pause'), 0, 0, false).row, 0);
+assert.equal(codexPetAtlasFrame(presentation('idle'), 279, 0, false).column, 0);
+assert.equal(codexPetAtlasFrame(presentation('idle'), 280, 0, false).column, 1);
+assert.equal(codexPetAtlasFrame(presentation('idle'), 1_100, 0, false).column, 0);
+assert.deepEqual(codexPetAtlasFrame(presentation('concerned'), 999, 0, true), {
+  state: 'idle',
+  row: 0,
+  column: 0,
+  nextFrameAt: null,
+});
+const catalogPets = [
+  {
+    id: 'bubu',
+    displayName: 'Bubu',
+    description: 'Bear',
+    version: 'bubu-v1',
+    byteSize: 1,
+    width: 1536,
+    height: 1872,
+  },
+  {
+    id: 'papaluo',
+    displayName: 'papaluo',
+    description: 'Bear',
+    version: 'papaluo-v1',
+    byteSize: 1,
+    width: 1536,
+    height: 1872,
+  },
+];
+assert.equal(resolveCodexPet(catalogPets, null, 'papaluo')?.id, 'papaluo');
+assert.equal(resolveCodexPet(catalogPets, 'bubu', 'papaluo')?.id, 'bubu');
+assert.equal(resolveCodexPet(catalogPets, 'removed', 'papaluo')?.id, 'papaluo');
+assert.equal(resolveCodexPet(catalogPets, 'removed', 'also-removed')?.id, 'bubu');
+assert.equal(resolveCodexPet([], 'removed', 'papaluo'), null);
+
+const petProvider = readText(
+  'apps/desktop/renderer/src/surfaces/office/scene/office-companion/CodexPetProvider.tsx',
+);
+assert.match(petProvider, /invokeCommand\('codex_pets_list'\)/);
+assert.match(petProvider, /invokeCommand\('codex_pet_load'/);
+assert.match(petProvider, /URL\.createObjectURL/);
+assert.match(petProvider, /URL\.revokeObjectURL/);
+assert.match(petProvider, /if \(result\.isError\) throw result\.error/);
+assert.match(scene2d, /companionAnimationWakeRef\.current = null/);
+assert.doesNotMatch(scene2d, /codex-companion-state-sheet|naturalWidth \/ 4|naturalHeight \/ 2/);
+assert.doesNotMatch(companion3d, /codex-companion-state-sheet|repeat\.set\(0\.25, 0\.5\)/);
+const oldCompanionAssetDir = `${ROOT}/apps/desktop/renderer/src/assets/companion`;
+assert.equal(
+  existsSync(oldCompanionAssetDir) ? readdirSync(oldCompanionAssetDir).length : 0,
+  0,
+  'Offisim must not bundle replacement Codex pet art',
+);
 assert.match(
-  readText('Docs/design/2026-07-13-codex-companion-state-sheet.md'),
-  /failure\/resource > approval > delivery\/success > active work > quiet/,
+  readText('Docs/design/2026-07-13-codex-pets-sync.md'),
+  /\$\{CODEX_HOME:-~\/\.codex\}\/pets/,
 );
 
 const start = performance.now();

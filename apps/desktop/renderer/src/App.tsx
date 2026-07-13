@@ -5,6 +5,7 @@ import { LoopScheduler } from '@/runtime/loops/LoopScheduler.js';
 import { useRealDataBootstrap } from '@/runtime/useRealDataBootstrap.js';
 import { SurfaceRouter } from '@/surfaces/SurfaceRouter.js';
 import { LifecycleSurface } from '@/surfaces/lifecycle/LifecycleSurface.js';
+import { CodexPetProvider } from '@/surfaces/office/scene/office-companion/CodexPetProvider.js';
 import { useLoadPersistedAppearance } from '@/surfaces/settings/appearance.js';
 import { useEffect } from 'react';
 
@@ -30,7 +31,7 @@ export function App() {
     };
   }, [companyId]);
   return (
-    <>
+    <CodexPetProvider>
       {isLifecycle ? (
         <LifecycleSurface />
       ) : (
@@ -40,6 +41,6 @@ export function App() {
       )}
       <CommandPalette />
       <LoopScheduler />
-    </>
+    </CodexPetProvider>
   );
 }

@@ -18,6 +18,7 @@ import { BoardPendingReviewAutoOpen, BoardStage } from '@/surfaces/office/board/
 import { DiffPanel } from '@/surfaces/office/board/DiffPanel.js';
 import { useProjectWorkspaceLeaseReviews } from '@/surfaces/office/board/task-board-data.js';
 import { ComputerView } from '@/surfaces/office/computer/ComputerView.js';
+import { useCodexPet } from '@/surfaces/office/scene/office-companion/CodexPetProvider.js';
 import { WorkBench } from '@/surfaces/office/scene/work-bench/WorkBench.js';
 import { BrowserSessionView } from '@/surfaces/office/stage-browser/BrowserSessionView.js';
 import { BrowserEmptyState } from '@/surfaces/office/stage-preview/BrowserEmptyState.js';
@@ -35,7 +36,6 @@ import {
 } from '@/surfaces/office/stage-viewer/stage-chrome.js';
 import type { DramaturgyMode, ToolRichDetail } from '@offisim/shared-types';
 import {
-  Bot,
   Box,
   Clapperboard,
   Coins,
@@ -53,6 +53,7 @@ import {
   MonitorSmartphone,
   PanelRightClose,
   PanelRightOpen,
+  PawPrint,
   Plus,
   SlidersHorizontal,
   TerminalSquare,
@@ -374,6 +375,8 @@ export function GameViewOptions() {
   const setOfficeMode = useUiState((s) => s.setOfficeMode);
   const companionEnabled = useUiState((s) => s.officeCompanionEnabled);
   const setCompanionEnabled = useUiState((s) => s.setOfficeCompanionEnabled);
+  const openSettings = useUiState((s) => s.openSettings);
+  const { catalog, selectedPet } = useCodexPet();
   const [open, setOpen] = useState(false);
   const options = [
     { mode: 'focus', icon: Focus, label: 'Focus' },
@@ -425,10 +428,28 @@ export function GameViewOptions() {
             aria-pressed={companionEnabled}
             onClick={() => setCompanionEnabled(!companionEnabled)}
           >
-            <Icon icon={companionEnabled ? Bot : EyeOff} size="sm" />
+            <Icon icon={companionEnabled ? PawPrint : EyeOff} size="sm" />
             <span className="off-stage-view-option-copy">
-              <span className="off-stage-view-option-label">Codex companion</span>
-              <span className="off-stage-view-option-meta">Ambient only · no AI work</span>
+              <span className="off-stage-view-option-label">Show Codex pet</span>
+              <span className="off-stage-view-option-meta">
+                {selectedPet?.displayName ?? 'No local Codex pet'}
+              </span>
+            </span>
+          </button>
+          <button
+            type="button"
+            className="off-stage-view-option off-focusable"
+            onClick={() => {
+              openSettings('companion');
+              setOpen(false);
+            }}
+          >
+            <Icon icon={PawPrint} size="sm" />
+            <span className="off-stage-view-option-copy">
+              <span className="off-stage-view-option-label">Choose pet</span>
+              <span className="off-stage-view-option-meta">
+                {catalog ? `${catalog.pets.length} synced from Codex` : 'Syncing local catalog…'}
+              </span>
             </span>
           </button>
         </div>

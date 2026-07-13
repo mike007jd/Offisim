@@ -3,10 +3,11 @@ import type { DramaturgyMode } from '@offisim/shared-types';
 import type { ZoneDef } from '../scene-layout.js';
 import type { OfficePathfinder, PathPoint } from '../scene-pathfinding.js';
 
-export const OFFICE_COMPANION_STATES = [
+const OFFICE_COMPANION_STATES = [
   'idle',
   'run',
   'inspect',
+  'greet',
   'celebrate',
   'concerned',
   'rest',
@@ -14,20 +15,7 @@ export const OFFICE_COMPANION_STATES = [
   'work-watch',
 ] as const;
 
-export type OfficeCompanionState = (typeof OFFICE_COMPANION_STATES)[number];
-
-export const OFFICE_COMPANION_ATLAS_FRAME: Readonly<
-  Record<OfficeCompanionState, { readonly column: number; readonly row: number }>
-> = {
-  idle: { column: 0, row: 0 },
-  run: { column: 1, row: 0 },
-  inspect: { column: 2, row: 0 },
-  celebrate: { column: 3, row: 0 },
-  concerned: { column: 0, row: 1 },
-  rest: { column: 1, row: 1 },
-  pause: { column: 2, row: 1 },
-  'work-watch': { column: 3, row: 1 },
-};
+type OfficeCompanionState = (typeof OFFICE_COMPANION_STATES)[number];
 
 export interface OfficeCompanionPoint {
   readonly x: number;
@@ -124,14 +112,16 @@ function companionSignal(frame: SceneCueFrame): CompanionSignal {
     return { state: 'inspect', focusEmployeeId: approval.employeeId, focusDelivery: false };
   }
 
-  const happy = frame.actors.find(
-    (actor) => actor.delivering || actor.performance?.expression === 'happy',
-  );
-  if (frame.delivery.latest || happy) {
+  if (frame.delivery.latest) {
+    return { state: 'greet', focusEmployeeId: null, focusDelivery: true };
+  }
+
+  const happy = frame.actors.find((actor) => actor.performance?.expression === 'happy');
+  if (happy) {
     return {
       state: 'celebrate',
-      focusEmployeeId: happy?.employeeId ?? null,
-      focusDelivery: frame.delivery.latest !== null,
+      focusEmployeeId: happy.employeeId,
+      focusDelivery: false,
     };
   }
 
