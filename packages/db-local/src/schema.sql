@@ -372,6 +372,15 @@ CREATE TABLE IF NOT EXISTS chat_threads (
   employee_id       TEXT REFERENCES employees(employee_id) ON DELETE SET NULL,
   title             TEXT NOT NULL DEFAULT 'New thread',
   title_set_by_user INTEGER NOT NULL DEFAULT 0 CHECK (title_set_by_user IN (0, 1)),
+  semantic_title_job_id TEXT,
+  semantic_title_status TEXT CHECK (
+    semantic_title_status IS NULL OR
+    semantic_title_status IN ('running', 'completed', 'failed', 'cancelled')
+  ),
+  semantic_title_source_provenance_json TEXT,
+  semantic_title_result_provenance_json TEXT,
+  semantic_title_usage_json TEXT,
+  semantic_title_error_code TEXT,
   summary           TEXT,
   archived_at       TEXT,
   created_at        TEXT NOT NULL,

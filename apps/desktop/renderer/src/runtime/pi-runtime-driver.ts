@@ -11,6 +11,7 @@
 // directly and are NOT routed through this gateway boundary.
 
 import type { AgentRunUsage } from '@offisim/shared-types';
+import type { TurnExecutionProvenance } from './execution-provenance.js';
 
 interface PiAgentModelSummary {
   provider?: string;
@@ -23,12 +24,15 @@ interface PiAgentModelSummary {
   input?: string[];
 }
 
+type PiExecutionProvenance = TurnExecutionProvenance;
+
 export interface PiAgentHostResponse {
   text: string;
   reasoning?: string;
   sessionId?: string;
   sessionFile?: string;
   model?: PiAgentModelSummary;
+  provenance?: PiExecutionProvenance;
   /** Root Pi session's own rolled-up usage; folded into the root agent_runs row
    *  by reconcileRoot (the solo path otherwise records no root usage). */
   usage?: AgentRunUsage;

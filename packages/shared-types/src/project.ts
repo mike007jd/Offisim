@@ -1,5 +1,6 @@
 export type ProjectStatus = 'planning' | 'active' | 'paused' | 'completed' | 'archived';
 export type ProjectAssignmentRole = 'member' | 'lead';
+type SemanticTitleJobStatus = 'running' | 'completed' | 'failed' | 'cancelled';
 
 export const ACTIVE_PROJECT_STATUSES: readonly ProjectStatus[] = [
   'planning',
@@ -72,6 +73,14 @@ export interface ChatThread {
   title: string;
   /** 1 = user-set (sticky against boss-driven retitle); 0 = system-set. */
   title_set_by_user: 0 | 1;
+  /** At-most-once background semantic-title ledger. This is audit/job state,
+   * not a second title ownership lock; `title_set_by_user` remains authoritative. */
+  semantic_title_job_id: string | null;
+  semantic_title_status: SemanticTitleJobStatus | null;
+  semantic_title_source_provenance_json: string | null;
+  semantic_title_result_provenance_json: string | null;
+  semantic_title_usage_json: string | null;
+  semantic_title_error_code: string | null;
   summary: string | null;
   archived_at: string | null;
   created_at: string;

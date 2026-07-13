@@ -1,4 +1,8 @@
 import { persistChatMessage } from '@/data/chat-message-events.js';
+import {
+  claimSemanticTitleJob,
+  generateSemanticThreadTitle,
+} from '@/data/semantic-thread-title.js';
 import { appendThreadMessageEvent } from '@/data/thread-message-events.js';
 import type { ChatMessage, ChatToolCall, RunError, StagedAttachment } from '@/data/types.js';
 import {
@@ -6,6 +10,7 @@ import {
   type AgentUiRequestPayload,
   type DesktopAgentRuntime,
   type DirectDelegationInput,
+  type TurnExecutionProvenance,
   getDesktopAgentRuntime,
 } from '@/runtime/desktop-agent-runtime.js';
 import { getRepos, runtimeEventBus } from '@/runtime/repos.js';
@@ -131,6 +136,9 @@ export interface SubmitConversationRun {
   /** Called once the user turn is durably persisted. Composer drafts must only
    *  be consumed at this boundary so materialization/DB failures keep them. */
   onMessagePersisted?: () => void;
+  /** Refreshes conversation-list projections after a background semantic title
+   * wins its conditional write. The title job itself never depends on React. */
+  onThreadTitleUpdated?: () => void;
   /**
    * PR-10: a Loop-backed turn. When present, this turn does NOT run a plain chat
    * agent. The hand-off is deliberately two-phase: materialize durable Loop/Mission
@@ -849,6 +857,14 @@ export class ConversationRunController {
         activity: run.activity,
         activityTotal: run.activityTotal,
       });
+      if (response.provenance && assistant.body.trim() && run.runtime) {
+        void this.runTitleJob(run, response.provenance).catch((error: unknown) => {
+          console.warn('[conversation-run] semantic-title generation failed', {
+            threadId: run.threadId,
+            error,
+          });
+        });
+      }
     } catch (error) {
       await this.failRun(run, error);
     } finally {
@@ -857,6 +873,29 @@ export class ConversationRunController {
         this.activeRuns.delete(run.threadId);
       }
     }
+  }
+
+  private async runTitleJob(
+    run: ActiveRun,
+    sourceProvenance: TurnExecutionProvenance,
+  ): Promise<void> {
+    if (!run.runtime) return;
+    const repos = await this.deps.reposFactory();
+    const job = await claimSemanticTitleJob({
+      repos,
+      threadId: run.threadId,
+      sourceProvenance,
+    });
+    if (!job) return;
+    const title = await generateSemanticThreadTitle({
+      repos,
+      runtime: run.runtime,
+      job,
+      firstUserText: run.input.text,
+      firstAssistantText: run.assistantMessage?.body ?? '',
+    });
+    if (!title) return;
+    run.input.onThreadTitleUpdated?.();
   }
 
   private subscribeRuntimeEvents(run: ActiveRun): Array<() => void> {

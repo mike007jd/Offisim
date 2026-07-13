@@ -140,6 +140,15 @@ interface PiAgentEnhanceRequest {
   systemPrompt: string;
   model?: string | null;
   thinkingLevel?: string | null;
+  sourceProvenance?: PiExecutionProvenance | null;
+}
+
+interface PiExecutionProvenance {
+  engineId: string;
+  accountId: string;
+  billingMode: 'api' | 'subscription';
+  modelId: string;
+  runId: string;
 }
 
 interface PiAgentCollaborateRequest {
@@ -173,6 +182,7 @@ interface PiAgentHostResponse {
   sessionId?: string;
   sessionFile?: string;
   model?: PiAgentModelSummary;
+  provenance?: PiExecutionProvenance;
   usage?: AgentRunUsage;
   budgetUsage?: AgentRunUsage;
 }

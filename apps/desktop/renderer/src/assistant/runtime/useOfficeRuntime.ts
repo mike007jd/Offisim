@@ -168,6 +168,12 @@ export function useOfficeRuntime({
           source: 'office',
           persistMessage,
           onMessagePersisted: () => consumeStaged(attachmentScope, stagedIdsForTurn),
+          onThreadTitleUpdated: () => {
+            void Promise.all([
+              queryClient.invalidateQueries({ queryKey: ['threads', projectId] }),
+              queryClient.invalidateQueries({ queryKey: ['unfinished-threads'] }),
+            ]);
+          },
           ...(loopExecution ? { loopExecution } : {}),
         });
         // Clear the chip only after a successful submit — a failed build/submit keeps

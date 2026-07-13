@@ -382,7 +382,21 @@ const ROSTER = [
   );
   check(
     'host enhance creates an ephemeral session (no session dir persistence)',
-    /SessionManager\.create\(cwd\)/.test(enhanceCode) && !/sessionDir/.test(enhanceCode),
+    /SessionManager\.inMemory\(cwd\)/.test(enhanceCode) &&
+      !/SessionManager\.create\(/.test(enhanceCode),
+  );
+  for (const flag of [
+    'noExtensions',
+    'noSkills',
+    'noPromptTemplates',
+    'noThemes',
+    'noContextFiles',
+  ]) {
+    check(`host enhance disables ${flag}`, new RegExp(`${flag}:\\s*true`).test(enhanceCode));
+  }
+  check(
+    'host enhance uses the supplied profile as its complete system prompt',
+    /systemPrompt,/.test(enhanceCode) && !/appendSystemPrompt:/.test(enhanceCode),
   );
   check(
     'host enhance never writes agent_runs / chat_threads / mission tables',

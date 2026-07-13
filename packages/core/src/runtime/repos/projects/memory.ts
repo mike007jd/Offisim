@@ -149,6 +149,12 @@ export class MemoryChatThreadRepository implements ChatThreadRepository {
       employee_id: input.employee_id ?? null,
       title: input.title ?? 'New thread',
       title_set_by_user: 0,
+      semantic_title_job_id: null,
+      semantic_title_status: null,
+      semantic_title_source_provenance_json: null,
+      semantic_title_result_provenance_json: null,
+      semantic_title_usage_json: null,
+      semantic_title_error_code: null,
       summary: null,
       archived_at: null,
       created_at: ts,
@@ -181,22 +187,92 @@ export class MemoryChatThreadRepository implements ChatThreadRepository {
     threadId: string,
     title: string,
     opts: { byUser: boolean },
-  ): Promise<{ title: string; title_set_by_user: 0 | 1 }> {
+  ): Promise<{ title: string; title_set_by_user: 0 | 1; persisted: boolean }> {
     const row = this.store.get(threadId);
     if (!row) {
-      return { title, title_set_by_user: opts.byUser ? 1 : 0 };
+      return { title, title_set_by_user: opts.byUser ? 1 : 0, persisted: false };
     }
     if (!opts.byUser && row.title_set_by_user === 1) {
-      return { title: row.title, title_set_by_user: 1 };
+      return { title: row.title, title_set_by_user: 1, persisted: false };
     }
     const next: ChatThread = {
       ...row,
       title,
       title_set_by_user: opts.byUser ? 1 : 0,
+      ...(opts.byUser && row.semantic_title_status === 'running'
+        ? { semantic_title_status: 'cancelled' }
+        : {}),
       updated_at: new Date().toISOString(),
     };
     this.store.set(threadId, next);
-    return { title: next.title, title_set_by_user: next.title_set_by_user };
+    return { title: next.title, title_set_by_user: next.title_set_by_user, persisted: true };
+  }
+
+  async beginSemanticTitleJob(input: {
+    threadId: string;
+    jobId: string;
+    sourceProvenanceJson: string;
+  }): Promise<boolean> {
+    const row = this.store.get(input.threadId);
+    if (!row || row.title_set_by_user === 1 || row.semantic_title_job_id !== null) return false;
+    this.store.set(input.threadId, {
+      ...row,
+      semantic_title_job_id: input.jobId,
+      semantic_title_status: 'running',
+      semantic_title_source_provenance_json: input.sourceProvenanceJson,
+      semantic_title_result_provenance_json: null,
+      semantic_title_usage_json: null,
+      semantic_title_error_code: null,
+    });
+    return true;
+  }
+
+  async completeSemanticTitleJob(input: {
+    threadId: string;
+    jobId: string;
+    title: string;
+    resultProvenanceJson: string;
+    usageJson: string | null;
+  }): Promise<boolean> {
+    const row = this.store.get(input.threadId);
+    if (
+      !row ||
+      row.title_set_by_user === 1 ||
+      row.semantic_title_job_id !== input.jobId ||
+      row.semantic_title_status !== 'running'
+    ) {
+      return false;
+    }
+    this.store.set(input.threadId, {
+      ...row,
+      title: input.title,
+      semantic_title_status: 'completed',
+      semantic_title_result_provenance_json: input.resultProvenanceJson,
+      semantic_title_usage_json: input.usageJson,
+      semantic_title_error_code: null,
+      updated_at: new Date().toISOString(),
+    });
+    return true;
+  }
+
+  async failSemanticTitleJob(input: {
+    threadId: string;
+    jobId: string;
+    errorCode: string;
+  }): Promise<void> {
+    const row = this.store.get(input.threadId);
+    if (
+      !row ||
+      row.semantic_title_job_id !== input.jobId ||
+      row.semantic_title_status !== 'running'
+    ) {
+      return;
+    }
+    this.store.set(input.threadId, {
+      ...row,
+      semantic_title_status: 'failed',
+      semantic_title_error_code: input.errorCode,
+    });
   }
 
   async touch(threadId: string): Promise<void> {

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use tauri::{ipc::Channel, AppHandle, Manager};
+use tauri::{ipc::Channel, AppHandle};
 use tokio::io::{AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::Mutex as AsyncMutex;
@@ -389,6 +389,7 @@ pub(super) async fn execute_impl(
                 session_id: None,
                 session_file: None,
                 model: None,
+                provenance: None,
                 usage: None,
                 budget_usage: None,
             })
@@ -410,14 +411,16 @@ pub(super) async fn execute_impl(
     }
 }
 
-/// Resolve a NEUTRAL working directory for the enhance path — a dir that is NOT a
-/// project workspace. Mirrors `status_impl`'s cwd resolution (dev root, else home,
-/// else cwd). Enhance must never run with a project bound, so it deliberately does
-/// not call `project_workspace_root` / `resolved_request_cwd`.
-fn neutral_cwd<R: tauri::Runtime>(app: &AppHandle<R>) -> PathBuf {
-    dev_workspace_root()
-        .or_else(|| app.path().home_dir().ok())
-        .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")))
+/// Resolve a dedicated, non-project working directory for ephemeral model jobs.
+/// Resource discovery is disabled in the host as a second boundary, but the cwd
+/// itself must never point at the repository or the user's home directory.
+fn neutral_cwd<R: tauri::Runtime>(_app: &AppHandle<R>) -> Result<PathBuf, HostError> {
+    let cwd = std::env::temp_dir()
+        .join("offisim-agent-runtime")
+        .join("isolated");
+    std::fs::create_dir_all(&cwd)
+        .map_err(|err| HostError::Request(format!("Create isolated agent cwd: {err}")))?;
+    Ok(cwd)
 }
 
 async fn do_enhance<R: tauri::Runtime>(
@@ -430,7 +433,7 @@ async fn do_enhance<R: tauri::Runtime>(
     let _ = required_text(Some(&req.text), "text", PI_LANE)?;
     let _ = required_text(Some(&req.system_prompt), "systemPrompt", PI_LANE)?;
     // No project workspace, no session dir, no audit row: enhance is ephemeral.
-    let cwd = neutral_cwd(app);
+    let cwd = neutral_cwd(app)?;
     let dev_root = dev_workspace_root();
     let script_path = sidecar_script_path(app, dev_root.as_ref(), PI_LANE)?;
     let agent_dir = app_pi_agent_dir(app);
@@ -483,6 +486,7 @@ pub(super) async fn enhance_impl(
             session_id: None,
             session_file: None,
             model: None,
+            provenance: None,
             usage: None,
             budget_usage: None,
         }),
@@ -524,7 +528,7 @@ async fn do_collaborate<R: tauri::Runtime>(
     // No project workspace, no session dir, no audit row: collaboration is
     // ephemeral and company-scoped. Deliberately does NOT call
     // `project_workspace_root` / `resolved_request_cwd`.
-    let cwd = neutral_cwd(app);
+    let cwd = neutral_cwd(app)?;
     let dev_root = dev_workspace_root();
     let script_path = sidecar_script_path(app, dev_root.as_ref(), PI_LANE)?;
     let agent_dir = app_pi_agent_dir(app);
@@ -584,6 +588,7 @@ pub(super) async fn collaborate_impl(
             session_id: None,
             session_file: None,
             model: None,
+            provenance: None,
             usage: None,
             budget_usage: None,
         }),

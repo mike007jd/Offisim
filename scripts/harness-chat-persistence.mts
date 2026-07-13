@@ -3,6 +3,7 @@ import {
   type ConversationRunController,
   createConversationRunController,
 } from '../apps/desktop/renderer/src/assistant/runtime/conversation-run-controller.js';
+import { deriveThreadTitle } from '../apps/desktop/renderer/src/data/auto-title.js';
 // `chat-message-events.js` → `thread-message-events.js` import `data/adapters.js`,
 // whose `reposOrNull` normally needs the Tauri SQL plugin. The harness registers
 // `harness-chat-persistence.loader.mjs` (via NODE_OPTIONS --import, before module
@@ -13,11 +14,15 @@ import {
   loadPersistedChatMessages,
   persistChatMessage,
 } from '../apps/desktop/renderer/src/data/chat-message-events.js';
+import { normalizeSemanticThreadTitle } from '../apps/desktop/renderer/src/data/semantic-thread-title.js';
 import type { ChatMessage } from '../apps/desktop/renderer/src/data/types.js';
 import { AgentRunPersistenceQueue } from '../apps/desktop/renderer/src/runtime/agent-run-persistence-queue.js';
 import type {
   DesktopAgentRunInput,
   DesktopAgentRunResult,
+  IsolatedTextJobInput,
+  IsolatedTextJobResult,
+  TurnExecutionProvenance,
 } from '../apps/desktop/renderer/src/runtime/desktop-agent-runtime.js';
 import {
   InMemoryEventBus,
@@ -239,8 +244,15 @@ function msg(
 
 class FakeRuntime {
   answers: Array<Record<string, unknown>> = [];
+  generateCalls: IsolatedTextJobInput[] = [];
   onExecute: (input: DesktopAgentRunInput) => Promise<DesktopAgentRunResult> = async () => ({
     text: 'ok',
+  });
+  onGenerateText: (input: IsolatedTextJobInput) => Promise<IsolatedTextJobResult> = async (
+    input,
+  ) => ({
+    text: 'Semantic title',
+    provenance: { ...input.sourceProvenance, runId: input.jobId },
   });
   constructor(
     private readonly eventBus: InMemoryEventBus,
@@ -248,6 +260,10 @@ class FakeRuntime {
   ) {}
   async execute(input: DesktopAgentRunInput): Promise<DesktopAgentRunResult> {
     return this.onExecute(input);
+  }
+  async generateText(input: IsolatedTextJobInput): Promise<IsolatedTextJobResult> {
+    this.generateCalls.push(input);
+    return this.onGenerateText(input);
   }
   abort(): void {}
   async answerUiRequest(answer: Record<string, unknown>): Promise<void> {
@@ -280,6 +296,18 @@ class FakeRuntime {
 async function waitFor(label: string, condition: () => boolean, timeoutMs = 1000): Promise<void> {
   const started = Date.now();
   while (!condition()) {
+    if (Date.now() - started > timeoutMs) throw new Error(`Timed out waiting for ${label}`);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+}
+
+async function waitForAsync(
+  label: string,
+  condition: () => Promise<boolean>,
+  timeoutMs = 1000,
+): Promise<void> {
+  const started = Date.now();
+  while (!(await condition())) {
     if (Date.now() - started > timeoutMs) throw new Error(`Timed out waiting for ${label}`);
     await new Promise((resolve) => setTimeout(resolve, 5));
   }
@@ -546,10 +574,314 @@ const p4Scenarios: Array<{
 ];
 
 // ---------------------------------------------------------------------------
+// T02 — fallback + first-success semantic title + manual lock
+// ---------------------------------------------------------------------------
+
+const SOURCE_PROVENANCE: TurnExecutionProvenance = {
+  engineId: 'pi-agent',
+  accountId: 'pi-agent:anthropic:0123456789abcdef',
+  billingMode: 'subscription',
+  modelId: 'anthropic/claude-sonnet-4-20250514',
+  runId: 'placeholder',
+};
+
+async function createTitleFixture(threadId: string): Promise<{
+  repos: RuntimeRepositories;
+  controller: ConversationRunController;
+  runtime: FakeRuntime;
+}> {
+  const repos = createMemoryRepositories();
+  await repos.chatThreads.create({
+    thread_id: threadId,
+    project_id: 'prj',
+    title: deriveThreadTitle('请核实登录后的用量显示 🧪') ?? 'New thread',
+  });
+  const { controller, runtime } = makeController(repos);
+  runtime.onExecute = async (input) => ({
+    text: '已确认订阅账户应显示官方 Usage，而不是伪造 API 成本。',
+    provenance: { ...SOURCE_PROVENANCE, runId: input.runId ?? 'missing-run' },
+  });
+  return { repos, controller, runtime };
+}
+
+const titleScenarios: Array<{
+  name: string;
+  criteria: string;
+  run: () => Promise<ScenarioEvidence>;
+}> = [
+  {
+    name: 'T02: first-message fallback preserves CJK and emoji before any model result',
+    criteria:
+      'Pass when the deterministic immediate title remains readable and does not split the final emoji.',
+    run: async () => {
+      const title = deriveThreadTitle('请核实登录后的用量显示 🧪');
+      assert.equal(title, '请核实登录后的用量显示 🧪');
+      assert.equal(normalizeSemanticThreadTitle('标题：关于 订阅账户用量'), '订阅账户用量');
+      return { title, deSlopped: '订阅账户用量' };
+    },
+  },
+  {
+    name: 'T02: first successful assistant reply claims one same-account semantic-title job',
+    criteria:
+      'Pass when the first complete reply produces one Chinese title, persists source/result provenance and usage, and a later successful turn cannot bill or retitle again.',
+    run: async () => {
+      const { repos, controller, runtime } = await createTitleFixture('thread-title-success');
+      runtime.onGenerateText = async (input) => ({
+        text: '订阅账户 Usage 显示',
+        provenance: { ...input.sourceProvenance, runId: input.jobId },
+        usage: { input: 20, output: 6, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 1 },
+      });
+      await controller.submit({
+        companyId: 'co',
+        projectId: 'prj',
+        threadId: 'thread-title-success',
+        employeeId: null,
+        text: '请核实登录后的用量显示 🧪',
+        stagedAttachments: [],
+        source: 'office',
+      });
+      await waitFor(
+        'successful conversation completion',
+        () => controller.getSnapshot('thread-title-success').phase === 'completed',
+      );
+      await waitForAsync('semantic title persistence', async () => {
+        const row = await repos.chatThreads.findById('thread-title-success');
+        return row?.semantic_title_status === 'completed';
+      });
+      const first = await repos.chatThreads.findById('thread-title-success');
+      assert.equal(first?.title, '订阅账户 Usage 显示');
+      assert.equal(first?.title_set_by_user, 0);
+      assert.equal(runtime.generateCalls.length, 1);
+      assert.deepEqual(JSON.parse(first?.semantic_title_source_provenance_json ?? '{}'), {
+        ...SOURCE_PROVENANCE,
+        runId: 'attempt-uuid-1',
+      });
+      assert.equal(
+        JSON.parse(first?.semantic_title_result_provenance_json ?? '{}').runId,
+        'semantic-title:thread-title-success',
+      );
+      assert.equal(JSON.parse(first?.semantic_title_usage_json ?? '{}').input, 20);
+
+      await controller.submit({
+        companyId: 'co',
+        projectId: 'prj',
+        threadId: 'thread-title-success',
+        employeeId: null,
+        text: '第二轮不应重命名',
+        stagedAttachments: [],
+        source: 'office',
+      });
+      await waitFor(
+        'second conversation completion',
+        () => controller.getSnapshot('thread-title-success').phase === 'completed',
+      );
+      assert.equal(runtime.generateCalls.length, 1, 'semantic job billed more than once');
+      await repos.chatThreads.updateTitle('thread-title-success', '生成后手动锁定', {
+        byUser: true,
+      });
+      const renamed = await repos.chatThreads.findById('thread-title-success');
+      assert.equal(renamed?.title, '生成后手动锁定');
+      assert.equal(renamed?.title_set_by_user, 1);
+      return {
+        generatedTitle: first?.title,
+        finalTitle: renamed?.title,
+        jobId: first?.semantic_title_job_id,
+        generateCalls: runtime.generateCalls.length,
+      };
+    },
+  },
+  {
+    name: 'T02: manual rename before generation prevents job claim',
+    criteria:
+      'Pass when a pre-existing user title remains sticky and no isolated model job starts.',
+    run: async () => {
+      const { repos, controller, runtime } = await createTitleFixture('thread-title-before');
+      await repos.chatThreads.updateTitle('thread-title-before', '我的固定标题', { byUser: true });
+      await controller.submit({
+        companyId: 'co',
+        projectId: 'prj',
+        threadId: 'thread-title-before',
+        employeeId: null,
+        text: '这次也不要覆盖',
+        stagedAttachments: [],
+        source: 'office',
+      });
+      await waitFor(
+        'manually titled conversation completion',
+        () => controller.getSnapshot('thread-title-before').phase === 'completed',
+      );
+      const row = await repos.chatThreads.findById('thread-title-before');
+      assert.equal(row?.title, '我的固定标题');
+      assert.equal(row?.title_set_by_user, 1);
+      assert.equal(runtime.generateCalls.length, 0);
+      return { title: row?.title, generateCalls: runtime.generateCalls.length };
+    },
+  },
+  {
+    name: 'T02: manual rename during generation wins the conditional write',
+    criteria:
+      'Pass when a running title job is cancelled by the user rename and its later model result cannot overwrite the manual title.',
+    run: async () => {
+      const { repos, controller, runtime } = await createTitleFixture('thread-title-during');
+      let resolveTitle: ((result: IsolatedTextJobResult) => void) | undefined;
+      runtime.onGenerateText = (input) =>
+        new Promise((resolve) => {
+          resolveTitle = (result) => resolve(result);
+          assert.equal(input.sourceProvenance.accountId, SOURCE_PROVENANCE.accountId);
+        });
+      await controller.submit({
+        companyId: 'co',
+        projectId: 'prj',
+        threadId: 'thread-title-during',
+        employeeId: null,
+        text: '生成中我会改名',
+        stagedAttachments: [],
+        source: 'office',
+      });
+      await waitFor('isolated title job start', () => runtime.generateCalls.length === 1);
+      await repos.chatThreads.updateTitle('thread-title-during', '生成中手动锁定', {
+        byUser: true,
+      });
+      const call = runtime.generateCalls[0];
+      assert.ok(call);
+      assert.ok(resolveTitle);
+      resolveTitle({
+        text: '迟到的 AI 标题',
+        provenance: { ...call.sourceProvenance, runId: call.jobId },
+      });
+      await waitForAsync('manual cancellation persistence', async () => {
+        const row = await repos.chatThreads.findById('thread-title-during');
+        return row?.semantic_title_status === 'cancelled';
+      });
+      const row = await repos.chatThreads.findById('thread-title-during');
+      assert.equal(row?.title, '生成中手动锁定');
+      assert.equal(row?.title_set_by_user, 1);
+      assert.equal(row?.semantic_title_status, 'cancelled');
+      return { title: row?.title, status: row?.semantic_title_status };
+    },
+  },
+  {
+    name: 'T02: failed and interrupted runs never start a title job',
+    criteria:
+      'Pass when neither a runtime failure nor an approval-stopped run invokes the isolated text model.',
+    run: async () => {
+      const failed = await createTitleFixture('thread-title-failed');
+      failed.runtime.onExecute = async () => {
+        throw new Error('model failed');
+      };
+      await failed.controller.submit({
+        companyId: 'co',
+        projectId: 'prj',
+        threadId: 'thread-title-failed',
+        employeeId: null,
+        text: '失败不生成标题',
+        stagedAttachments: [],
+        source: 'office',
+      });
+      await waitFor(
+        'failed conversation',
+        () => failed.controller.getSnapshot('thread-title-failed').phase === 'failed',
+      );
+      assert.equal(failed.runtime.generateCalls.length, 0);
+
+      const interrupted = await createTitleFixture('thread-title-interrupted');
+      interrupted.runtime.onExecute = async (input) => {
+        interrupted.runtime.emitUiRequest(input, 'title-approval');
+        return new Promise(() => undefined);
+      };
+      await interrupted.controller.submit({
+        companyId: 'co',
+        projectId: 'prj',
+        threadId: 'thread-title-interrupted',
+        employeeId: null,
+        text: '审批阶段不生成标题',
+        stagedAttachments: [],
+        source: 'office',
+      });
+      await waitFor(
+        'approval phase',
+        () =>
+          interrupted.controller.getSnapshot('thread-title-interrupted').phase ===
+          'awaiting-approval',
+      );
+      await interrupted.controller.stopAndWait('thread-title-interrupted');
+      assert.equal(interrupted.runtime.generateCalls.length, 0);
+      assert.equal(
+        interrupted.controller.getSnapshot('thread-title-interrupted').phase,
+        'interrupted',
+      );
+      return { failedCalls: 0, interruptedCalls: 0 };
+    },
+  },
+  {
+    name: 'T02: title-model failure and empty replies preserve the completed fallback',
+    criteria:
+      'Pass when an isolated title failure is recorded without failing the conversation, while an empty assistant result never claims a paid job.',
+    run: async () => {
+      const titleFailure = await createTitleFixture('thread-title-model-failure');
+      const fallback = (await titleFailure.repos.chatThreads.findById('thread-title-model-failure'))
+        ?.title;
+      titleFailure.runtime.onGenerateText = async () => {
+        throw new Error('isolated title model failed');
+      };
+      await titleFailure.controller.submit({
+        companyId: 'co',
+        projectId: 'prj',
+        threadId: 'thread-title-model-failure',
+        employeeId: null,
+        text: '标题失败也要保留正常回复',
+        stagedAttachments: [],
+        source: 'office',
+      });
+      await waitFor(
+        'conversation completion despite title failure',
+        () =>
+          titleFailure.controller.getSnapshot('thread-title-model-failure').phase === 'completed',
+      );
+      await waitForAsync('failed title ledger', async () => {
+        const row = await titleFailure.repos.chatThreads.findById('thread-title-model-failure');
+        return row?.semantic_title_status === 'failed';
+      });
+      const failedRow = await titleFailure.repos.chatThreads.findById('thread-title-model-failure');
+      assert.equal(failedRow?.title, fallback);
+      assert.equal(
+        titleFailure.controller.getSnapshot('thread-title-model-failure').phase,
+        'completed',
+      );
+
+      const empty = await createTitleFixture('thread-title-empty');
+      empty.runtime.onExecute = async (input) => ({
+        text: '',
+        provenance: { ...SOURCE_PROVENANCE, runId: input.runId ?? 'missing-run' },
+      });
+      await empty.controller.submit({
+        companyId: 'co',
+        projectId: 'prj',
+        threadId: 'thread-title-empty',
+        employeeId: null,
+        text: '空回复不应生成标题',
+        stagedAttachments: [],
+        source: 'office',
+      });
+      await waitFor(
+        'empty reply completion',
+        () => empty.controller.getSnapshot('thread-title-empty').phase === 'completed',
+      );
+      assert.equal(empty.runtime.generateCalls.length, 0);
+      assert.equal(
+        (await empty.repos.chatThreads.findById('thread-title-empty'))?.semantic_title_status,
+        null,
+      );
+      return { fallback, titleFailureStatus: failedRow?.semantic_title_status, emptyCalls: 0 };
+    },
+  },
+];
+
+// ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
 
-const allScenarios = [...p1Scenarios, ...p2p3Scenarios, ...p4Scenarios];
+const allScenarios = [...p1Scenarios, ...p2p3Scenarios, ...p4Scenarios, ...titleScenarios];
 const results: Array<{
   name: string;
   criteria: string;

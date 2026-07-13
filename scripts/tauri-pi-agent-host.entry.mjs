@@ -39,6 +39,7 @@ import {
   createDelegationLimits,
 } from './pi-child-supervisor.mjs';
 import { createDelegationExtensionFactory } from './pi-delegation-extension.mjs';
+import { assertSameExecutionAccount, executionProvenance } from './pi-execution-provenance.mjs';
 import { createMcpCallChannel } from './pi-host-mcp-channel.mjs';
 import { createVerifyCallChannel } from './pi-host-verify-channel.mjs';
 import { createWorktreeCallChannel } from './pi-host-worktree-channel.mjs';
@@ -1355,7 +1356,7 @@ async function runPrompt(payload) {
     if (!employeeId || !objective)
       throw new Error('Direct delegation requires employeeId and objective.');
     emit(startedLine({}));
-    const summary = await directSupervisor.runSingle({
+    const directResult = await directSupervisor.runSingleWithMetadata({
       employeeId,
       objective,
       access:
@@ -1367,11 +1368,25 @@ async function runPrompt(payload) {
         ? directDelegation.resumeLease
         : undefined,
     });
+    const summary = directResult.text;
+    if (!directResult.model) {
+      throw Object.assign(
+        new Error('Direct delegation completed without an actual child execution model.'),
+        { code: 'provenance-missing' },
+      );
+    }
     emit(messageEndLine({ text: summary, stopReason: 'end_turn' }));
     emit(
       resultLine({
         ok: true,
         text: summary,
+        model: modelSummary(directResult.model),
+        provenance: await executionProvenance(
+          authStorage,
+          modelRegistry,
+          directResult.model,
+          rootRunId,
+        ),
         ...(delegationBudgetState ? { budgetUsage: delegationBudgetState.usage() } : {}),
       }),
     );
@@ -1561,6 +1576,12 @@ async function runPrompt(payload) {
         sessionId: session.sessionId,
         sessionFile: session.sessionFile,
         model: session.model ? modelSummary(session.model) : undefined,
+        provenance: await executionProvenance(
+          authStorage,
+          modelRegistry,
+          session.model ?? model,
+          asNonEmptyString(payload.rootRunId) ?? session.sessionId,
+        ),
         usage: rootUsage,
         ...(delegationBudgetState ? { budgetUsage: delegationBudgetState.usage() } : {}),
       }),
@@ -1584,7 +1605,7 @@ async function runPrompt(payload) {
 // Isolation, enforced three ways so a regression can't silently re-arm tools:
 //   1. `noTools: 'all'`  — the SDK starts with NO tools enabled.
 //   2. `tools: []`       — the explicit allowlist enables nothing on top.
-//   3. resourceLoader carries ONLY `appendSystemPrompt` (the profile prompt) and
+//   3. resourceLoader carries ONLY the supplied `systemPrompt` and
 //      ZERO `extensionFactories` — no permission gate, no delegation, no publish,
 //      no mission bridge, no `ctx.ui` binding. There is no second stdin channel.
 async function runEnhance(payload) {
@@ -1607,9 +1628,18 @@ async function runEnhance(payload) {
   const cwd = asNonEmptyString(payload.cwd) ?? process.cwd();
   const agentDir = asNonEmptyString(payload.agentDir);
   const { authStorage, modelRegistry } = createPiRegistries(agentDir);
-  const model = selectedModel(modelRegistry, payload.model);
-  if (payload.model && !model) {
-    throw Object.assign(new Error(`Pi model override was not found: ${payload.model}`), {
+  const sourceProvenance = isRecord(payload.sourceProvenance)
+    ? payload.sourceProvenance
+    : undefined;
+  const requestedModel = sourceProvenance?.modelId ?? payload.model;
+  if (sourceProvenance && payload.model && payload.model !== sourceProvenance.modelId) {
+    throw Object.assign(new Error('Isolated text job model does not match source provenance.'), {
+      code: 'provenance-mismatch',
+    });
+  }
+  const model = selectedModel(modelRegistry, requestedModel);
+  if (requestedModel && !model) {
+    throw Object.assign(new Error(`Pi model override was not found: ${requestedModel}`), {
       code: 'model-not-found',
     });
   }
@@ -1617,18 +1647,24 @@ async function runEnhance(payload) {
 
   // No SessionManager persistence: a fresh, ephemeral session per enhance with no
   // session directory, so nothing is written to disk and no transcript survives.
-  const sessionManager = SessionManager.create(cwd);
+  const sessionManager = SessionManager.inMemory(cwd);
   const settingsManager = SettingsManager.create(cwd, agentDir);
-  // The profile system prompt is the ONLY appended prompt; NO extension factories.
+  // The supplied profile is the entire system prompt. No project/global resources
+  // are discoverable on this isolated path.
   const resourceLoader = new DefaultResourceLoader({
     cwd,
     agentDir,
     settingsManager,
-    appendSystemPrompt: [systemPrompt],
+    systemPrompt,
+    noExtensions: true,
+    noSkills: true,
+    noPromptTemplates: true,
+    noThemes: true,
+    noContextFiles: true,
   });
   await resourceLoader.reload();
 
-  const { session } = await createAgentSession({
+  const { session, modelFallbackMessage } = await createAgentSession({
     cwd,
     agentDir,
     authStorage,
@@ -1641,8 +1677,24 @@ async function runEnhance(payload) {
     ...(model ? { model } : {}),
     ...(thinkingLevel ? { thinkingLevel } : {}),
   });
+  if (sourceProvenance && modelFallbackMessage) {
+    session.dispose();
+    throw Object.assign(
+      new Error(`Isolated text job refused model fallback: ${modelFallbackMessage}`),
+      { code: 'provenance-mismatch' },
+    );
+  }
+
+  const actualProvenance = await executionProvenance(
+    authStorage,
+    modelRegistry,
+    session.model ?? model,
+    asNonEmptyString(payload.requestId) ?? session.sessionId,
+  );
+  if (sourceProvenance) assertSameExecutionAccount(sourceProvenance, actualProvenance);
 
   let latestText = '';
+  const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
   const unsubscribe = session.subscribe((event) => {
     // Stream content deltas so the renderer can show a live, cancelable preview.
     if (event.type === 'message_update') {
@@ -1654,6 +1706,15 @@ async function runEnhance(payload) {
     }
     if (event.type === 'message_end' && event.message?.role === 'assistant') {
       latestText = clampText(messageText(event.message));
+      const value = event.message.usage;
+      if (value) {
+        usage.input += value.input || 0;
+        usage.output += value.output || 0;
+        usage.cacheRead += value.cacheRead || 0;
+        usage.cacheWrite += value.cacheWrite || 0;
+        usage.cost += value.cost?.total || 0;
+        usage.turns += 1;
+      }
       return;
     }
     // A tool event here would mean isolation broke. There is no tool registered,
@@ -1683,6 +1744,8 @@ async function runEnhance(payload) {
         text: enhanced,
         sessionId: session.sessionId,
         model: session.model ? modelSummary(session.model) : undefined,
+        provenance: actualProvenance,
+        usage,
       }),
     );
   } finally {
@@ -1737,7 +1800,7 @@ async function runCollaboration(payload) {
   // No SessionManager persistence: a fresh, ephemeral session with no session
   // directory, so nothing is written to disk and no transcript survives. The
   // renderer owns the persisted collaboration message / turn rows.
-  const sessionManager = SessionManager.create(cwd);
+  const sessionManager = SessionManager.inMemory(cwd);
   const settingsManager = SettingsManager.create(cwd, agentDir);
   // The persona + collaboration context packet is the ONLY appended prompt; NO
   // extension factories. `systemPromptAppend` is built renderer-side and carries
@@ -1770,6 +1833,11 @@ async function runCollaboration(payload) {
     settingsManager,
     ...(extensionFactories.length > 0 ? { extensionFactories } : {}),
     ...(appendSystemPrompt.length > 0 ? { appendSystemPrompt } : {}),
+    noExtensions: true,
+    noSkills: true,
+    noPromptTemplates: true,
+    noThemes: true,
+    noContextFiles: true,
   });
   await resourceLoader.reload();
   const collaborationTools = collaborationToolAllowlist(collaborationProfile);

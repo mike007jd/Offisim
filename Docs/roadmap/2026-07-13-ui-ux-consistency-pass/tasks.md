@@ -1,7 +1,7 @@
 # Offisim Codex 对齐盲测收敛 — Tasks
 
 > 对应计划：[plan.md](./plan.md)
-> 状态：IN PROGRESS，2/17 implemented；release 验收统一留在 T16
+> 状态：IN PROGRESS，3/17 implemented；T05a 前置已交付，release 验收统一留在 T16
 > 完成口径：真实行为 + 窄门禁 + full release + 精确 `.app`，仅文档、仅编译或 dev 预览均不算完成。
 
 ## 任务总表
@@ -10,7 +10,7 @@
 |---|---|---|---|
 | T00 | 当前控制真源允许 engine-neutral Accounts / Models | — | [x] |
 | T01 | 历史 approval 与 live run 分离 | T00 | [x] |
-| T02 | 首次成功回复后的语义标题 | T00,T05a | [ ] |
+| T02 | 首次成功回复后的语义标题 | T00,T05a | [x] |
 | T03 | 后端签发 effective task workspace | T00 | [ ] |
 | T04 | 缺失 Project 目录自主恢复 | T03 | [ ] |
 | T05 | 生产 engine gateway 与 API account | T00 | [ ] |
@@ -110,18 +110,26 @@
 
 ### Acceptance
 
-- [ ] 首条消息发送后立即出现 fallback，CJK/emoji 不截断。
-- [ ] 只有首次成功 assistant reply 才触发语义标题；failed/interrupted/approval 不触发。
-- [ ] 标题与对话语言一致，短、具体，不带“关于/讨论/帮助”等 AI 套话。
-- [ ] 手动改名在生成前、生成中、生成后都不被覆盖。
-- [ ] semantic job 重试幂等，刷新/重启不重复计费或反复改名。
-- [ ] job provenance 绑定当前 Turn 的 runtime/account/model/billing mode。
+- [x] 首条消息发送后立即出现 fallback，CJK/emoji 不截断。
+- [x] 只有首次成功 assistant reply 才触发语义标题；failed/interrupted/approval 不触发。
+- [x] 标题与对话语言一致，短、具体，不带“关于/讨论/帮助”等 AI 套话。
+- [x] 手动改名在生成前、生成中、生成后都不被覆盖。
+- [x] semantic job 重试幂等，刷新/重启不重复计费或反复改名。
+- [x] job provenance 绑定当前 Turn 的 runtime/account/model/billing mode。
 
 ### Oracles
 
 - 扩展 auto-title / conversation persistence harness。
 - `pnpm harness:chat-persistence`
 - `pnpm --filter @offisim/desktop-renderer typecheck`
+
+### Evidence
+
+- `pnpm harness:chat-persistence` — 13/13；并联 sqlite-proxy rename/claim 交错 50/50。
+- `pnpm harness:execution-provenance` — 同 engine/account/model/billing、账户替换隔离、无 secret 泄露、terminal stream replay。
+- `pnpm harness:prompt-enhance` — 62/62；isolated job 为 in-memory、no-tools、no workspace resources。
+- `pnpm harness:conversation-run-controller` — 25/25；Stop/final-persist、approval、retry、route unmount 无回归。
+- `pnpm typecheck`、`pnpm check:deadcode`、`git diff --check` — PASS。
 
 ---
 
@@ -193,9 +201,9 @@
 
 ### Acceptance
 
-- [ ] **T05a：** root run result 与持久化 context 都包含 engineId/accountId/billingMode/exact modelId/runId，值来自实际 host selection。
-- [ ] **T05a：** isolated text job 必须消费 source Turn provenance；engine/account/model 不匹配或 adapter fallback 时明确失败。
-- [ ] **T05a：** isolated job host-enforced no tools/no workspace/no transcript persistence，并返回实际 provenance 与 usage。
+- [x] **T05a：** root run result 与持久化 context 都包含 engineId/accountId/billingMode/exact modelId/runId，值来自实际 host selection。
+- [x] **T05a：** isolated text job 必须消费 source Turn provenance；engine/account/model 不匹配或 adapter fallback 时明确失败。
+- [x] **T05a：** isolated job host-enforced no tools/no workspace/no transcript persistence，并返回实际 provenance 与 usage。
 - [ ] API account 可完成真实 run、stream、tool、approval、Stop、recovery。
 - [ ] 一个 task 只绑定一个 engine/account，不静默 fallback。
 - [ ] token 分 input/output/cache/reasoning；缺失字段不伪造 0。
@@ -209,6 +217,14 @@
 - 实施时按真实日期重查官方模型与费率。
 - runtime conformance、agent-run projection、run-cost-scope、Pi host harness。
 - 一条当前 release API live run 证据。
+
+### T05a Evidence
+
+- Pi 0.79.8 `ModelRegistry.isUsingOAuth(actualModel)` 是 billing 真值；OAuth 记 subscription，API key 记 api。
+- Provider-native stable account id 优先；无 stable id 的 opaque credential 使用不可逆 generation fingerprint，宁可在轮换时拆分历史，也不把显式换号的 Usage/Cost 或 isolated job 合并。
+- 成功 root、direct delegation 与 live reattach 缺 provenance 均 fail closed；abort 仍允许无 provenance。
+- `SessionManager.inMemory` + discovery 全关闭 + 专用 temp cwd；Pi in-memory 写消息后无 session 文件。
+- `pnpm harness:pi-agent-host`、Pi wire v7、Rust Pi host 27/27、run recovery 23/23 — PASS。
 
 ---
 

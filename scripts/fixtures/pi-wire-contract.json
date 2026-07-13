@@ -110,7 +110,23 @@
       "text": "Listed 3 files.",
       "reasoning": "I should inspect the workspace first.",
       "sessionId": "sess_1",
-      "sessionFile": "/tmp/offisim/sess_1.jsonl"
+      "sessionFile": "/tmp/offisim/sess_1.jsonl",
+      "model": {
+        "provider": "fixture-provider",
+        "id": "fixture-model"
+      },
+      "provenance": {
+        "engineId": "pi-agent",
+        "accountId": "pi-agent:fixture-provider:0123456789abcdef",
+        "billingMode": "api",
+        "modelId": "fixture-provider/fixture-model",
+        "runId": "root-run-1"
+      },
+      "usage": {
+        "input": 10,
+        "output": 5,
+        "turns": 1
+      }
     }
   },
   { "kind": "error", "code": "upstream", "message": "Pi Agent host failed: upstream boom" }

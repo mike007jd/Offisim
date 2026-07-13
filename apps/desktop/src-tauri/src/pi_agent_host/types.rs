@@ -92,6 +92,11 @@ pub struct PiAgentEnhanceRequest {
     pub(super) model: Option<String>,
     #[serde(default)]
     pub(super) thinking_level: Option<String>,
+    /// Optional source Turn provenance. Present for background isolated text
+    /// jobs, absent for the user-invoked Prompt Enhance surface. Rust forwards
+    /// this opaque packet; the host validates engine/account/model equality.
+    #[serde(default)]
+    pub(super) source_provenance: Option<serde_json::Value>,
 }
 
 /// Collaboration request (PR-03). The HOST-ENFORCED `collaboration` capability
@@ -171,6 +176,8 @@ pub struct PiAgentHostResponse {
     pub(super) session_file: Option<String>,
     #[serde(default)]
     pub(super) model: Option<PiModelSummary>,
+    #[serde(default)]
+    pub(super) provenance: Option<PiExecutionProvenance>,
     // Root-session token/cost usage (the Node host's `rootUsage` on the result
     // line). Carried through as an opaque JSON object so the renderer can record
     // it on the root agent_runs row — without this field serde silently drops it
@@ -182,6 +189,16 @@ pub struct PiAgentHostResponse {
     // child rows when it reconciles the run tree.
     #[serde(default)]
     pub(super) budget_usage: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PiExecutionProvenance {
+    pub(super) engine_id: String,
+    pub(super) account_id: String,
+    pub(super) billing_mode: String,
+    pub(super) model_id: String,
+    pub(super) run_id: String,
 }
 
 #[derive(Debug, Clone, Serialize)]

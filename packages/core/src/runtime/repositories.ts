@@ -1048,7 +1048,28 @@ export interface ChatThreadRepository {
     threadId: string,
     title: string,
     opts: { byUser: boolean },
-  ): Promise<{ title: string; title_set_by_user: 0 | 1 }>;
+  ): Promise<{ title: string; title_set_by_user: 0 | 1; persisted: boolean }>;
+  /** Claim the thread's one semantic-title job. A manual title or an existing
+   * claim refuses the write, preventing restart/retry duplicate billing. */
+  beginSemanticTitleJob(input: {
+    threadId: string;
+    jobId: string;
+    sourceProvenanceJson: string;
+  }): Promise<boolean>;
+  /** Persist a generated title only while this job still owns an unrenamed row. */
+  completeSemanticTitleJob(input: {
+    threadId: string;
+    jobId: string;
+    title: string;
+    resultProvenanceJson: string;
+    usageJson: string | null;
+  }): Promise<boolean>;
+  /** Close a claimed job without changing its readable fallback title. */
+  failSemanticTitleJob(input: {
+    threadId: string;
+    jobId: string;
+    errorCode: string;
+  }): Promise<void>;
   /** Bumps `updated_at`. Used after activity on the thread. */
   touch(threadId: string): Promise<void>;
   /** Sets `archived_at` to now. Idempotent — no-op when already archived. */

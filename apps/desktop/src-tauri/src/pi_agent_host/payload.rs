@@ -111,15 +111,23 @@ pub(super) fn enhance_payload(
     cwd: &Path,
     agent_dir: Option<&Path>,
 ) -> serde_json::Value {
-    serde_json::json!({
+    let mut payload = serde_json::json!({
         "mode": "enhance",
+        "requestId": req.request_id,
         "text": req.text,
         "systemPrompt": req.system_prompt,
         "cwd": cwd.to_string_lossy().to_string(),
         "agentDir": agent_dir.map(|path| path.to_string_lossy().to_string()),
         "model": req.model,
         "thinkingLevel": req.thinking_level,
-    })
+    });
+    if let Some(source_provenance) = &req.source_provenance {
+        payload
+            .as_object_mut()
+            .expect("enhance payload is an object")
+            .insert("sourceProvenance".into(), source_provenance.clone());
+    }
+    payload
 }
 
 /// Build the Collaboration sidecar payload (PR-03). `mode:'collaborate'` routes the

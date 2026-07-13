@@ -19,10 +19,9 @@
  *  - When schema.sql changes, mirror it here for type-accuracy, but schema.sql
  *    always wins on any drift.
  *
- * Fresh databases apply schema.sql directly and are stamped with
- * LOCAL_SCHEMA_VERSION = 5. There is no prelaunch migration chain: existing
- * local/dev databases with another version are disposable and should be
- * deleted/rebuilt from the current baseline.
+ * Fresh databases apply schema.sql directly. The version number lives only in
+ * `apps/desktop/src-tauri/src/local_db.rs`; there is no prelaunch migration
+ * chain, so older local/dev databases are disposable and should be rebuilt.
  */
 
 import type { AssetKind } from '@offisim/asset-schema';
@@ -337,6 +336,12 @@ export const chatThreads = sqliteTable(
     }),
     title: text('title').notNull().default('New thread'),
     title_set_by_user: integer('title_set_by_user').notNull().default(0),
+    semantic_title_job_id: text('semantic_title_job_id'),
+    semantic_title_status: text('semantic_title_status'),
+    semantic_title_source_provenance_json: text('semantic_title_source_provenance_json'),
+    semantic_title_result_provenance_json: text('semantic_title_result_provenance_json'),
+    semantic_title_usage_json: text('semantic_title_usage_json'),
+    semantic_title_error_code: text('semantic_title_error_code'),
     summary: text('summary'),
     archived_at: text('archived_at'),
     created_at: text('created_at').notNull(),

@@ -680,6 +680,7 @@ export function createChildSupervisor(ctx) {
         summary: childResult.summary,
         runId,
         completed: childResult.completed,
+        model: binding.actualModel ?? binding.model,
       };
     } finally {
       signal?.removeEventListener('abort', abortFromParent);
@@ -699,20 +700,27 @@ export function createChildSupervisor(ctx) {
     }
   }
 
-  async function runSingle(task, signal) {
+  async function runSingleWithMetadata(task, signal) {
     return withParentConcurrencySuspended(signal, async () => {
       const result = await runTask(task, signal);
       const integration = result.completed
         ? await maybeIntegrateWrites([task], [result.runId])
         : '';
-      return capBytes(
-        [result.summary, integration ? `Integration:\n${integration}` : '']
-          .filter(Boolean)
-          .join('\n\n---\n\n'),
-        COMBINED_OUTPUT_CAP,
-        'combined',
-      );
+      return {
+        text: capBytes(
+          [result.summary, integration ? `Integration:\n${integration}` : '']
+            .filter(Boolean)
+            .join('\n\n---\n\n'),
+          COMBINED_OUTPUT_CAP,
+          'combined',
+        ),
+        model: result.model,
+      };
     });
+  }
+
+  async function runSingle(task, signal) {
+    return (await runSingleWithMetadata(task, signal)).text;
   }
 
   /** Start every requested task into the shared tree-wide lease queue. The
@@ -877,6 +885,7 @@ export function createChildSupervisor(ctx) {
         ...(tools ? { tools } : {}),
         resourceLoader,
       }));
+      binding.actualModel = session.model ?? model;
       if (permissionMode === 'ask' && ctx.bindChildUi) {
         await ctx.bindChildUi(session);
       }
@@ -1141,5 +1150,5 @@ export function createChildSupervisor(ctx) {
     });
   }
 
-  return { runSingle, runParallel, roster };
+  return { runSingle, runSingleWithMetadata, runParallel, roster };
 }

@@ -183,7 +183,14 @@
         "text": "make this clearer",
         "systemPrompt": "Rewrite clearly and preserve intent.",
         "model": "fixture-provider/fixture-model",
-        "thinkingLevel": "medium"
+        "thinkingLevel": "medium",
+        "sourceProvenance": {
+          "engineId": "pi-agent",
+          "accountId": "pi-agent:fixture-provider:0123456789abcdef",
+          "billingMode": "api",
+          "modelId": "fixture-provider/fixture-model",
+          "runId": "root-run-1"
+        }
       },
       "context": {
         "cwd": "/fixture/neutral/enhance",
@@ -191,21 +198,37 @@
       },
       "payload": {
         "mode": "enhance",
+        "requestId": "request-enhance-1",
         "text": "make this clearer",
         "systemPrompt": "Rewrite clearly and preserve intent.",
         "cwd": "/fixture/neutral/enhance",
         "agentDir": "/fixture/home/.pi/agent",
         "model": "fixture-provider/fixture-model",
-        "thinkingLevel": "medium"
+        "thinkingLevel": "medium",
+        "sourceProvenance": {
+          "engineId": "pi-agent",
+          "accountId": "pi-agent:fixture-provider:0123456789abcdef",
+          "billingMode": "api",
+          "modelId": "fixture-provider/fixture-model",
+          "runId": "root-run-1"
+        }
       },
       "normalized": {
         "mode": "enhance",
+        "requestId": "request-enhance-1",
         "text": "make this clearer",
         "systemPrompt": "Rewrite clearly and preserve intent.",
         "cwd": "/fixture/neutral/enhance",
         "agentDir": "/fixture/home/.pi/agent",
         "model": "fixture-provider/fixture-model",
-        "thinkingLevel": "medium"
+        "thinkingLevel": "medium",
+        "sourceProvenance": {
+          "engineId": "pi-agent",
+          "accountId": "pi-agent:fixture-provider:0123456789abcdef",
+          "billingMode": "api",
+          "modelId": "fixture-provider/fixture-model",
+          "runId": "root-run-1"
+        }
       }
     },
     {

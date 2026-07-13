@@ -86,6 +86,7 @@ export const PI_REQUEST_SPEC = Object.freeze({
   enhance: requestSpec(
     ['mode', 'text', 'systemPrompt', 'cwd', 'agentDir', 'model', 'thinkingLevel'],
     ['agentDir', 'model', 'thinkingLevel'],
+    ['requestId', 'sourceProvenance'],
   ),
   collaborate: requestSpec(
     [
@@ -145,12 +146,16 @@ const PI_REQUEST_NORMALIZERS = Object.freeze({
   }),
   enhance: (payload) => ({
     mode: payload.mode,
+    ...(payload.requestId !== undefined ? { requestId: payload.requestId } : {}),
     text: payload.text,
     systemPrompt: payload.systemPrompt,
     cwd: payload.cwd,
     agentDir: payload.agentDir,
     model: payload.model,
     thinkingLevel: payload.thinkingLevel,
+    ...(payload.sourceProvenance !== undefined
+      ? { sourceProvenance: payload.sourceProvenance }
+      : {}),
   }),
   collaborate: (payload) => ({
     mode: payload.mode,

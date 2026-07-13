@@ -80,7 +80,7 @@ export async function autoTitleThreadFromFirstMessage(input: {
   if (current && current !== DEFAULT_THREAD_TITLE) return null;
 
   const result = await repos.chatThreads.updateTitle(input.threadId, title, { byUser: false });
-  if (result.title_set_by_user === 1) return null; // lost a race with a manual rename
+  if (!result.persisted || result.title_set_by_user === 1) return null;
   await Promise.all([
     input.queryClient.invalidateQueries({ queryKey: ['threads', input.projectId] }),
     input.queryClient.invalidateQueries({ queryKey: ['unfinished-threads'] }),

@@ -16,6 +16,11 @@ import {
 import { Channel } from '@tauri-apps/api/core';
 import { AgentRunPersistenceQueue } from './agent-run-persistence-queue.js';
 import {
+  type TurnExecutionProvenance,
+  assertSameExecutionAccount,
+  requireTurnExecutionProvenance,
+} from './execution-provenance.js';
+import {
   MISSION_EVALUATION_SUBMITTED_EVENT,
   type MissionEvaluationSubmittedPayload,
 } from './mission/mission-events.js';
@@ -135,6 +140,9 @@ export interface DesktopAgentRunInput {
 export interface DesktopAgentRunResult {
   text: string;
   reasoning?: string;
+  /** Actual host-selected execution identity. Requested model/settings are not
+   * provenance and must never be substituted for this value. */
+  provenance?: TurnExecutionProvenance;
   /**
    * The root session's own token usage for this run, when the host reported it.
    * Surfaced on the return (not only folded into the `agent_runs` row by
@@ -146,6 +154,23 @@ export interface DesktopAgentRunResult {
   /** Root + delegated-tree usage for synchronous Mission budget debit only.
    *  Never persist this as root usage: child rows are already rolled up there. */
   budgetUsage?: AgentRunUsage;
+}
+
+export type { AiBillingMode, TurnExecutionProvenance } from './execution-provenance.js';
+
+export interface IsolatedTextJobInput {
+  jobId: string;
+  text: string;
+  systemPrompt: string;
+  sourceProvenance: TurnExecutionProvenance;
+  thinkingLevel?: string;
+  signal?: AbortSignal;
+}
+
+export interface IsolatedTextJobResult {
+  text: string;
+  provenance: TurnExecutionProvenance;
+  usage?: AgentRunUsage;
 }
 
 /** The user's answer to an `agent.ui.request`. `requestId` locates the paused run;
@@ -162,6 +187,7 @@ export interface AgentUiAnswer {
 
 export interface DesktopAgentRuntime {
   execute(input: DesktopAgentRunInput): Promise<DesktopAgentRunResult>;
+  generateText(input: IsolatedTextJobInput): Promise<IsolatedTextJobResult>;
   resume(runId: string): Promise<DesktopAgentRunResult>;
   abort(threadId: string): void;
   abortChild(threadId: string, runId: string): void;
@@ -268,6 +294,7 @@ interface PersistedRunContext {
   piSdkVersion: string;
   wireProtocolVersion: number;
   model: string | null;
+  provenance: TurnExecutionProvenance | null;
   permissionMode: string;
   thinkingLevel: string | null;
   projectId: string | null;
@@ -335,6 +362,48 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
 
   async execute(input: DesktopAgentRunInput): Promise<DesktopAgentRunResult> {
     return this.runPiTurn(input, 'agent_runtime_execute');
+  }
+
+  async generateText(input: IsolatedTextJobInput): Promise<IsolatedTextJobResult> {
+    if (input.sourceProvenance.engineId !== 'pi-agent') {
+      throw new Error(
+        `Pi adapter cannot run an isolated job for engine ${input.sourceProvenance.engineId}.`,
+      );
+    }
+    const requestId = input.jobId.trim();
+    if (!requestId || !input.text.trim() || !input.systemPrompt.trim()) {
+      throw new Error('Isolated text job requires jobId, text, and systemPrompt.');
+    }
+    const onEvent = new Channel<PiAgentHostEvent>();
+    const onAbort = () => {
+      void invokeCommand('agent_runtime_abort', { requestId }).catch(() => undefined);
+    };
+    if (input.signal) {
+      if (input.signal.aborted) onAbort();
+      else input.signal.addEventListener('abort', onAbort, { once: true });
+    }
+    try {
+      const response = (await invokeCommand('agent_runtime_enhance', {
+        req: {
+          requestId,
+          text: input.text,
+          systemPrompt: input.systemPrompt,
+          model: input.sourceProvenance.modelId,
+          thinkingLevel: input.thinkingLevel,
+          sourceProvenance: input.sourceProvenance,
+        },
+        onEvent,
+      })) as PiAgentHostResponse;
+      const provenance = requireTurnExecutionProvenance(response.provenance, requestId);
+      assertSameExecutionAccount(input.sourceProvenance, provenance);
+      return {
+        text: response.text,
+        provenance,
+        ...(response.usage ? { usage: response.usage } : {}),
+      };
+    } finally {
+      input.signal?.removeEventListener('abort', onAbort);
+    }
   }
 
   async resume(runId: string): Promise<DesktopAgentRunResult> {
@@ -425,7 +494,10 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       const snapshot = await invokeCommand('agent_runtime_stream_snapshot', {
         requestId,
       }).catch(() => null);
-      if (!snapshot?.running) continue;
+      // Terminal streams remain replayable until the host TTL expires. A renderer
+      // can disconnect after the host finishes but before SQLite receives the
+      // Result, so `running: false` must still reattach and reconcile that result.
+      if (!snapshot) continue;
 
       const projectId = resolveAgentRunProjectId(row);
       const runScope = piRunScope(projectId, row.thread_id, row.employee_id, row.run_id);
@@ -607,6 +679,28 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           return;
         }
         if (event.kind === 'result') {
+          let provenance: TurnExecutionProvenance;
+          try {
+            provenance = requireTurnExecutionProvenance(event.response.provenance, row.run_id);
+          } catch (error) {
+            const summary = error instanceof Error ? error.message : String(error);
+            this.flushRunStreamCursor(row.run_id);
+            emitRootBus(
+              rootRun('run.failed', { status: 'failed', summary, failureKind: 'runtime' }),
+            );
+            this.enqueuePersist(() =>
+              this.reconcileRoot(row.run_id, 'failed', undefined, 'runtime'),
+            );
+            if (this.inFlightByThread.get(row.thread_id) === requestId) {
+              this.inFlightByThread.delete(row.thread_id);
+            }
+            return;
+          }
+          runtimeContext.provenance = provenance;
+          runtimeContext.model = provenance.modelId;
+          this.enqueuePersist(() =>
+            this.repos.agentRuns.updateRuntimeContext(row.run_id, JSON.stringify(runtimeContext)),
+          );
           this.flushRunStreamCursor(row.run_id);
           emitRootBus(
             rootRun('run.completed', {
@@ -697,6 +791,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       piSdkVersion: PI_SDK_VERSION,
       wireProtocolVersion: PI_HOST_PROTOCOL_VERSION,
       model: resolvedModel ?? null,
+      provenance: null,
       permissionMode,
       thinkingLevel: resolvedThinkingLevel ?? null,
       projectId,
@@ -915,6 +1010,23 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       }
       if (event.kind === 'result') {
         finalText = event.response.text || finalText;
+        try {
+          const provenance = requireTurnExecutionProvenance(
+            event.response.provenance,
+            runScope.runId,
+          );
+          runtimeContext.provenance = provenance;
+          runtimeContext.model = provenance.modelId;
+          this.enqueuePersist(() =>
+            this.repos.agentRuns.updateRuntimeContext(
+              runScope.runId,
+              JSON.stringify(runtimeContext),
+            ),
+          );
+        } catch (error) {
+          channelError = error instanceof Error ? error : new Error(String(error));
+          return;
+        }
         this.flushRunStreamCursor(runScope.runId);
         this.enqueuePersist(() =>
           this.reconcileRoot(runScope.runId, 'completed', event.response.usage),
@@ -1011,6 +1123,14 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       // reconcileRoot (children come from their own rows). Only in scope in this
       // try-branch; the catch branch's invoke threw before returning.
       const rootUsage = commandResponse.usage;
+      const provenance = requireTurnExecutionProvenance(commandResponse.provenance, runScope.runId);
+      if (runtimeContext.provenance?.runId !== provenance.runId) {
+        runtimeContext.provenance = provenance;
+        runtimeContext.model = provenance.modelId;
+        this.enqueuePersist(() =>
+          this.repos.agentRuns.updateRuntimeContext(runScope.runId, JSON.stringify(runtimeContext)),
+        );
+      }
       this.flushRunStreamCursor(runScope.runId);
       if (commandResponse.reasoning && !reasoningText.trim()) {
         runtimeEventBus.emit(
@@ -1047,6 +1167,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
         text: finalText,
         ...(reasoning ? { reasoning } : {}),
         ...(rootUsage ? { usage: rootUsage } : {}),
+        provenance,
         ...(commandResponse.budgetUsage ? { budgetUsage: commandResponse.budgetUsage } : {}),
       };
     } catch (err) {
