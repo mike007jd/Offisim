@@ -432,7 +432,7 @@ const p2p3Scenarios: Array<{
   {
     name: 'P3: stale-approval hydration retries after a transient failure',
     criteria:
-      'Pass when the first hydrate fails (transient DB read error) and leaves the company un-hydrated and retryable, and a second hydrate succeeds and surfaces the stale approval.',
+      'Pass when the first hydrate fails (transient DB read error) and leaves the company un-hydrated and retryable, and a second hydrate succeeds with a dismiss-only stale approval on an interrupted, non-live thread.',
     run: async () => {
       const { repos } = makeFaultRepos({
         failFindByCompany: 1,
@@ -459,8 +459,12 @@ const p2p3Scenarios: Array<{
       const approval = controller.getSnapshot('stale-thread').approval;
       assert.ok(approval, 'retry did not re-hydrate (company key left poisoned)');
       assert.equal(approval.state, 'stale');
-      assert.equal(controller.getSnapshot('stale-thread').phase, 'awaiting-approval');
-      return { firstThrew, hydratedState: approval.state };
+      assert.equal(controller.getSnapshot('stale-thread').phase, 'interrupted');
+      return {
+        firstThrew,
+        hydratedState: approval.state,
+        phase: controller.getSnapshot('stale-thread').phase,
+      };
     },
   },
   {

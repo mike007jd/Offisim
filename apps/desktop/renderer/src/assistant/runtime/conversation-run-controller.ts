@@ -187,6 +187,8 @@ interface RetryRecord {
   input: SubmitConversationRun;
   userMessage: ChatMessage;
   promptText: string;
+  messagePersisted: boolean;
+  clearRestoredApproval: boolean;
   pendingLoopHandoff: PendingLoopHandoff | null;
 }
 
@@ -214,6 +216,7 @@ interface ActiveRun {
   lastCheckpointAt: number;
   firstCheckpointWritten: boolean;
   messagePersistedNotified: boolean;
+  clearRestoredApproval: boolean;
   pendingLoopHandoff: PendingLoopHandoff | null;
   unsubscribers: Array<() => void>;
 }
@@ -354,6 +357,13 @@ export class ConversationRunController {
     if (this.activeRuns.has(input.threadId))
       throw new ConversationRunAlreadyActiveError(input.threadId);
 
+    // A restored approval belongs to the abandoned pre-restart turn. It may be
+    // shown as dismiss-only history, but it cannot block or attach itself to a
+    // new turn. The cleanup runs as retryable preflight after beginRun has
+    // synchronously claimed the thread, preserving duplicate-submit atomicity.
+    const restoredApproval = this.currentSnapshot(input.threadId).approval;
+    const clearRestoredApproval = restoredApproval !== null && restoredApproval.state !== 'live';
+
     const attemptId = `attempt-${this.deps.randomUUID()}`;
     const userMessage: ChatMessage = {
       id: newDraftId('boss'),
@@ -365,7 +375,13 @@ export class ConversationRunController {
       attachments: displayAttachmentsFromStaged(input.stagedAttachments),
       status: 'complete',
     };
-    const run = this.beginRun({ ...input, text: trimmed }, attemptId, userMessage, null);
+    const run = this.beginRun(
+      { ...input, text: trimmed },
+      attemptId,
+      userMessage,
+      null,
+      clearRestoredApproval,
+    );
     void this.runAttempt(run);
     return { threadId: input.threadId, attemptId, userMessageId: userMessage.id };
   }
@@ -377,13 +393,21 @@ export class ConversationRunController {
     if (!record || record.input.threadId !== threadId) throw new Error('Cannot retry this run.');
 
     const nextAttemptId = `attempt-${this.deps.randomUUID()}`;
-    const run = this.beginRun(record.input, nextAttemptId, record.userMessage, record.promptText);
+    const run = this.beginRun(
+      record.input,
+      nextAttemptId,
+      record.userMessage,
+      record.promptText,
+      record.clearRestoredApproval,
+    );
+    run.messagePersistedNotified = record.messagePersisted;
     run.pendingLoopHandoff = record.pendingLoopHandoff;
     if (record.pendingLoopHandoff) {
       void this.resumeLoopHandoff(run, record.pendingLoopHandoff);
-    } else if (record.input.loopExecution) {
+    } else if (record.input.loopExecution || !record.messagePersisted) {
       // Materialization/message persistence failed and compensation succeeded, so
-      // retrying the full two-phase hand-off is safe and cannot duplicate a Mission.
+      // retrying from preflight is safe. A durable user message skips this path,
+      // so model failures still retry only the paid execute attempt.
       void this.runAttempt(run);
     } else {
       void this.executeAttempt(run);
@@ -396,6 +420,7 @@ export class ConversationRunController {
     attemptId: string,
     userMessage: ChatMessage,
     promptText: string | null,
+    clearRestoredApproval: boolean,
   ): ActiveRun {
     const run: ActiveRun = {
       input,
@@ -416,6 +441,7 @@ export class ConversationRunController {
       lastCheckpointAt: 0,
       firstCheckpointWritten: false,
       messagePersistedNotified: false,
+      clearRestoredApproval,
       pendingLoopHandoff: null,
       unsubscribers: [],
     };
@@ -605,7 +631,9 @@ export class ConversationRunController {
         };
         this.patchSnapshot(row.thread_id, {
           companyId,
-          phase: 'awaiting-approval',
+          // The host that owned this request is gone. Keep the request as a
+          // dismiss-only historical notice, never as a live run phase.
+          phase: 'interrupted',
           attemptId: approval.attemptId,
           approval,
         });
@@ -635,7 +663,13 @@ export class ConversationRunController {
     const runs = [...this.snapshots.values()];
     this.globalSnapshot = {
       runs,
-      activeRuns: runs.filter((run) => isConversationRunActive(run.phase)),
+      // `phase` is a presentation snapshot, not proof that a controllable run
+      // exists. The in-memory controller map is the live truth; intersecting it
+      // with active phases keeps terminal snapshots out without allowing DB
+      // hydration to manufacture Stop/workload/scene state.
+      activeRuns: runs.filter(
+        (run) => this.activeRuns.has(run.threadId) && isConversationRunActive(run.phase),
+      ),
       pendingApprovals: runs
         .map((run) => run.approval)
         .filter((a): a is PendingApproval => a !== null),
@@ -650,6 +684,11 @@ export class ConversationRunController {
 
   private async runAttempt(run: ActiveRun): Promise<void> {
     try {
+      if (run.clearRestoredApproval) {
+        const repos = await this.deps.reposFactory();
+        await repos.activeInteractions?.deleteByThread(run.threadId);
+        run.clearRestoredApproval = false;
+      }
       const materialized = await this.deps.materializeTurn({
         text: run.input.text,
         companyId: run.input.companyId,
@@ -717,6 +756,13 @@ export class ConversationRunController {
       this.patchSnapshot(run.threadId, { liveMessages: [run.userMessage] });
       await this.persistRunMessage(run, run.userMessage);
       this.notifyMessagePersisted(run);
+      if (!this.isActiveRun(run) || run.stopped) {
+        // Stop may win while the user message is becoming durable. Preserve
+        // that durability in the retry record without starting paid work or
+        // reviving the interrupted presentation state.
+        this.saveRetryRecord(run);
+        return;
+      }
       this.saveRetryRecord(run);
       await this.executeAttempt(run);
     } catch (error) {
@@ -755,6 +801,7 @@ export class ConversationRunController {
 
   private async executeAttempt(run: ActiveRun): Promise<void> {
     try {
+      if (!this.isActiveRun(run) || run.stopped) return;
       this.patchSnapshot(run.threadId, { phase: 'running' });
       run.runtime = await this.deps.runtimeFactory(run.input.companyId);
       if (!this.isActiveRun(run)) return;
@@ -790,6 +837,9 @@ export class ConversationRunController {
       };
       run.assistantMessage = assistant;
       await this.persistRunMessage(run, assistant);
+      // Stop may win while the final durable write is in flight. The later
+      // completion must not resurrect a run that stopAndWait already retired.
+      if (!this.isActiveRun(run) || run.stopped) return;
       this.cleanupRun(run);
       this.activeRuns.delete(run.threadId);
       this.patchSnapshot(run.threadId, {
@@ -1230,6 +1280,8 @@ export class ConversationRunController {
       input: retryInput,
       userMessage: run.userMessage,
       promptText: run.promptText ?? run.input.text,
+      messagePersisted: run.messagePersistedNotified,
+      clearRestoredApproval: run.clearRestoredApproval,
       pendingLoopHandoff: run.pendingLoopHandoff,
     });
   }

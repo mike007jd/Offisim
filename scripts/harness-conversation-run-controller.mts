@@ -215,6 +215,7 @@ class FakeRepos {
   activeRows = new Map<string, ActiveInteractionRow>();
   historyRows: HistoryRow[] = [];
   failActiveInteractionUpsert = false;
+  failActiveInteractionDelete = 0;
 
   activeInteractions = {
     upsert: async (row: ActiveInteractionRow) => {
@@ -228,6 +229,10 @@ class FakeRepos {
     findByCompany: async (companyId: string) =>
       [...this.activeRows.values()].filter((row) => row.company_id === companyId),
     deleteByThread: async (threadId: string) => {
+      if (this.failActiveInteractionDelete > 0) {
+        this.failActiveInteractionDelete -= 1;
+        throw new Error('active interaction delete failed');
+      }
       this.activeRows.delete(threadId);
     },
   };
@@ -833,6 +838,46 @@ const scenarios: Array<{
     },
   },
   {
+    name: 'Stop while a normal user message write is pending never revives the run',
+    criteria:
+      'Pass when the late durable user write keeps the snapshot interrupted, starts no paid work, and Retry executes once without writing the user message again.',
+    run: async () => {
+      const env = makeEnv();
+      const persistStarted = new Deferred<void>();
+      const releasePersist = new Deferred<void>();
+      let userPersistCalls = 0;
+      env.runtime.onExecute = async () => ({ text: 'completed on retry' });
+
+      const handle = await submitDefault(env.controller, {
+        persistMessage: async (message) => {
+          if (message.author !== 'boss') return;
+          userPersistCalls += 1;
+          persistStarted.resolve(undefined);
+          await releasePersist.promise;
+        },
+      });
+      await persistStarted.promise;
+      await env.controller.stopAndWait('thread-1');
+      releasePersist.resolve(undefined);
+      await new Promise<void>((resolve) => setImmediate(resolve));
+
+      assert.equal(env.controller.getSnapshot('thread-1').phase, 'interrupted');
+      assert.equal(env.runtime.executeCalls.length, 0, 'Stop must prevent the original paid run');
+      await env.controller.retry('thread-1', handle.attemptId);
+      await waitFor(
+        'normal run completes on explicit retry',
+        () => env.controller.getSnapshot('thread-1').phase === 'completed',
+      );
+      assert.equal(userPersistCalls, 1, 'Retry must reuse the durable user message');
+      assert.equal(env.runtime.executeCalls.length, 1);
+      return {
+        phase: env.controller.getSnapshot('thread-1').phase,
+        userPersistCalls,
+        executeCalls: env.runtime.executeCalls.length,
+      };
+    },
+  },
+  {
     name: 'stop is idempotent and persists interrupted partial assistant checkpoint',
     criteria:
       'Pass when repeated Stop aborts runtime once, snapshot becomes interrupted, and the persisted assistant checkpoint is marked interrupted.',
@@ -861,6 +906,44 @@ const scenarios: Array<{
         aborts: env.runtime.aborts,
         interruptedPersisted: env.persisted.filter((call) => call.message.status === 'interrupted')
           .length,
+      };
+    },
+  },
+  {
+    name: 'Stop wins while the final assistant write is pending',
+    criteria:
+      'Pass when Stop retires a run during its final durable write and the late completion cannot change interrupted back to completed.',
+    run: async () => {
+      const env = makeEnv();
+      const finalPersistStarted = new Deferred<void>();
+      const releaseFinalPersist = new Deferred<void>();
+      const persistedStatuses: ChatMessage['status'][] = [];
+      env.runtime.onExecute = async () => ({ text: 'final answer' });
+
+      await submitDefault(env.controller, {
+        persistMessage: async (message) => {
+          if (message.author === 'employee' && message.status === 'complete') {
+            finalPersistStarted.resolve(undefined);
+            await releaseFinalPersist.promise;
+          }
+          persistedStatuses.push(message.status);
+        },
+      });
+      await finalPersistStarted.promise;
+      await env.controller.stopAndWait('thread-1');
+      assert.equal(env.controller.getSnapshot('thread-1').phase, 'interrupted');
+      assert.ok(persistedStatuses.includes('interrupted'));
+
+      releaseFinalPersist.resolve(undefined);
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      assert.equal(
+        env.controller.getSnapshot('thread-1').phase,
+        'interrupted',
+        'late final persistence must not resurrect the stopped run',
+      );
+      return {
+        phase: env.controller.getSnapshot('thread-1').phase,
+        persistedStatuses,
       };
     },
   },
@@ -1076,7 +1159,7 @@ const scenarios: Array<{
   {
     name: 'restart stale approvals and employee work-state projection',
     criteria:
-      'Pass when stale approvals hydrate as waiting but do not assign team-wide employees, while direct active runs mark only their assignee working.',
+      'Pass when stale approvals hydrate as historical interrupted notices, never enter activeRuns, and direct active runs mark only their assignee working.',
     run: async () => {
       const env = makeEnv();
       env.repos.seedStaleApproval({
@@ -1103,7 +1186,18 @@ const scenarios: Array<{
       );
       const global = env.controller.getGlobalSnapshot();
       const employeeStates = projectEmployeeWorkloads(global, 'prj');
-      assert.equal(env.controller.getSnapshot('stale-thread').approval?.state, 'stale');
+      const staleSnapshot = env.controller.getSnapshot('stale-thread');
+      assert.equal(staleSnapshot.approval?.state, 'stale');
+      assert.equal(staleSnapshot.phase, 'interrupted');
+      assert.equal(
+        global.activeRuns.some((run) => run.threadId === 'stale-thread'),
+        false,
+        'a persisted approval is history, not a live run',
+      );
+      assert.deepEqual(
+        global.activeRuns.map((run) => run.threadId).sort(),
+        ['direct-thread', 'team-thread'],
+      );
       assert.equal(employeeStates.get('emp-1')?.dominant?.state, 'working');
       assert.equal(employeeStates.get('emp-1')?.activeCount, 1);
       assert.equal(employeeStates.size, 1);
@@ -1111,6 +1205,61 @@ const scenarios: Array<{
         staleApproval: env.controller.getSnapshot('stale-thread').approval?.state,
         employeeStates: Array.from(employeeStates.entries()),
         activeRuns: global.activeRuns.map((run) => [run.threadId, run.employeeId, run.phase]),
+      };
+    },
+  },
+  {
+    name: 'restored approval never blocks or reattaches to a new turn',
+    criteria:
+      'Pass when a restored approval is non-live, a failed cleanup remains retryable, and Retry clears the transient row before exactly one fresh turn executes.',
+    run: async () => {
+      const env = makeEnv();
+      env.repos.seedStaleApproval({
+        threadId: 'stale-thread',
+        companyId: 'co',
+        attemptId: 'attempt-stale',
+        hostRequestId: 'host-stale',
+        uiRequestId: 'ui-stale',
+      });
+      await env.controller.hydrateStaleApprovals('co');
+      assert.equal(env.controller.getSnapshot('stale-thread').phase, 'interrupted');
+      assert.equal(env.controller.getGlobalSnapshot().activeRuns.length, 0);
+      env.repos.failActiveInteractionDelete = 1;
+
+      env.runtime.onExecute = async (input) => {
+        env.runtime.emitContent(input, 'fresh turn');
+        return { text: 'fresh turn' };
+      };
+      const first = await submitDefault(env.controller, {
+        threadId: 'stale-thread',
+        text: 'Start a fresh turn',
+      });
+      await waitFor('cleanup failure', () => {
+        return env.controller.getSnapshot('stale-thread').phase === 'failed';
+      });
+      assert.equal(env.repos.activeRows.has('stale-thread'), true);
+      assert.equal(env.persisted.length, 0, 'cleanup failure must precede message persistence');
+      assert.equal(env.runtime.executeCalls.length, 0, 'cleanup failure must precede paid execute');
+
+      await env.controller.retry('stale-thread', first.attemptId);
+      await waitFor('fresh turn completion', () => {
+        return env.controller.getSnapshot('stale-thread').phase === 'completed';
+      });
+
+      const completed = env.controller.getSnapshot('stale-thread');
+      assert.equal(completed.approval, null);
+      assert.equal(env.repos.activeRows.has('stale-thread'), false);
+      assert.equal(env.runtime.executeCalls.length, 1);
+      assert.equal(
+        env.persisted.filter((call) => call.message.author === 'boss').length,
+        1,
+        'retry must persist the fresh user message exactly once',
+      );
+      return {
+        phase: completed.phase,
+        approval: completed.approval,
+        activeInteraction: env.repos.activeRows.has('stale-thread'),
+        cleanupRetried: true,
       };
     },
   },

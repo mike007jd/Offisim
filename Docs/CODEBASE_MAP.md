@@ -85,7 +85,8 @@ should be deleted/rebuilt from the current baseline.
 | `Docs/FEATURES.md` | Maintained feature catalog |
 | `Docs/CODEBASE_MAP.md` | Maintained package/code ownership map |
 | `Docs/HARNESS_ARCHITECTURE.md` | Pi Agent Host runtime architecture |
-| `Docs/architecture/2026-06-18-pi-agent-only-runtime.md` | Runtime boundary decision record |
+| `Docs/architecture/2026-07-13-engine-neutral-ai-accounts.md` | Current engine/account/session/workspace target |
+| `Docs/architecture/2026-06-18-pi-agent-only-runtime.md` | Superseded Pi-only implementation history |
 | `Docs/architecture/2026-06-26-collaboration-domain-boundary.md` | Connect collaboration domain + no-tools runtime ADR |
 | `Docs/architecture/2026-06-26-loop-domain-mission-adapter.md` | Loop IR / immutable revisions / Mission send-time adapter ADR |
 | `Docs/architecture/2026-06-26-enhance-profile-contract.md` | Versioned Prompt Enhance profile contract ADR |
