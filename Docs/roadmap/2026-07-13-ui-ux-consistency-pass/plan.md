@@ -1,9 +1,11 @@
 # Offisim UI/UX 一致性专项 — 审计后执行计划
 
-> 状态：IMPLEMENTING — T01-T07 已实现，等待全门禁与 release 验收
+> 状态：COMPLETE — T01-T08 已完整交付
 > 审计时间：2026-07-13 22:41 AEST（+10:00）
+> 完成时间：2026-07-14 02:14 AEST（+10:00）
 > 代码基线：a142000cf360
 > 执行入口：[tasks.md](./tasks.md)
+> 验收证据：[README](../../evidence/2026-07-13-ui-ux-consistency-pass/README.md)
 
 ## 1. 审计结论
 

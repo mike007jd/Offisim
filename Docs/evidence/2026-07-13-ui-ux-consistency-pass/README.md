@@ -3,7 +3,7 @@
 > 结论：PASS
 > 最终核对：2026-07-14T02:08:07+10:00（AEST）
 > 代码基线：`a142000cf360`
-> 实现提交：将在后续 closure commit 回填
+> 实现提交：`110767a16037a504fd805eabbfb0962da6ba304c`
 > 验收分支：`codex/ui-ux-consistency-pass`
 
 ## Artifact
@@ -47,7 +47,7 @@ Tauri 请求的默认 inner size 是 1440×900；macOS 当前可用 frame 将默
 | desktop release build | PASS |
 | `validate` | PASS，exit 0；含全仓 typecheck、runtime/harness 与 deadcode gate |
 | `lint` | PASS，exit 0；197 条既有 warning、0 error |
-| `git diff --check` | 提交前再次执行 |
+| `git diff --check` | PASS |
 
 ## Live matrix
 

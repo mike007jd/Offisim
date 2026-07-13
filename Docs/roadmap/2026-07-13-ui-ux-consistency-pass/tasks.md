@@ -1,21 +1,22 @@
 # Offisim UI/UX 一致性专项 — Tasks
 
 > 对应计划：[plan.md](./plan.md)
-> 状态：READY，0/8 completed
+> 状态：COMPLETE，8/8 completed
 > 完成口径：T01-T07 真实实现，T08 release App 闭环；部分实现、仅编译通过或仅 dev 预览均不算完成。
+> 验收证据：[README](../../evidence/2026-07-13-ui-ux-consistency-pass/README.md)
 
 ## 任务总表
 
 | ID | 结果 | Blocked by | 状态 |
 |---|---|---|---|
-| T01 | Stop 只控制真实 live run | — | [ ] |
-| T02 | Semantic radius 与 UI hygiene 基线 | — | [ ] |
-| T03 | Office rail toggle 归顶栏且折叠不留空轨 | T02 | [ ] |
-| T04 | Usage/cost 单一表达与 run pill 稳定 | T01, T02 | [ ] |
-| T05 | 全局 nav 可命名且选择不位移 | T02 | [ ] |
-| T06 | Market toolbar 跨连接态不跳位 | T02 | [ ] |
-| T07 | Error/presence 状态表达完整 | T02 | [ ] |
-| T08 | 全门禁与 release App 两轮验收 | T01-T07 | [ ] |
+| T01 | Stop 只控制真实 live run | — | [x] |
+| T02 | Semantic radius 与 UI hygiene 基线 | — | [x] |
+| T03 | Office rail toggle 归顶栏且折叠不留空轨 | T02 | [x] |
+| T04 | Usage/cost 单一表达与 run pill 稳定 | T01, T02 | [x] |
+| T05 | 全局 nav 可命名且选择不位移 | T02 | [x] |
+| T06 | Market toolbar 跨连接态不跳位 | T02 | [x] |
+| T07 | Error/presence 状态表达完整 | T02 | [x] |
+| T08 | 全门禁与 release App 两轮验收 | T01-T07 | [x] |
 
 ## 全局执行规则
 
@@ -69,14 +70,14 @@
 
 ### Acceptance criteria
 
-- [ ] hydrate recent stale approval 后，runs 保留该 thread，pendingApprovals 含 state=stale，activeRuns 不含该 thread。
-- [ ] hydrate expired approval 后同样不进入 activeRuns，且仍是 dismiss-only。
-- [ ] stale/expired approval 不显示全局 run pill、progress 或 Stop。
-- [ ] 当前 session 正在 preparing/running/awaiting live approval 的 run 仍进入 activeRuns。
-- [ ] 对 live run 连续点击 Stop 只 abort 一次，最终 phase=interrupted，partial assistant checkpoint 正确持久化。
-- [ ] 不存在 controller-owned run 时，UI 不提供 Stop；不靠 silent no-op 掩盖错误投影。
-- [ ] Pi host reattach、stream 与 explicit abort 既有合同没有回归。
-- [ ] interrupted、failed、completed 与 employee work-state projection 没有回归。
+- [x] hydrate recent stale approval 后，runs 保留该 thread，pendingApprovals 含 state=stale，activeRuns 不含该 thread。
+- [x] hydrate expired approval 后同样不进入 activeRuns，且仍是 dismiss-only。
+- [x] stale/expired approval 不显示全局 run pill、progress 或 Stop。
+- [x] 当前 session 正在 preparing/running/awaiting live approval 的 run 仍进入 activeRuns。
+- [x] 对 live run 连续点击 Stop 只 abort 一次，最终 phase=interrupted，partial assistant checkpoint 正确持久化。
+- [x] 不存在 controller-owned run 时，UI 不提供 Stop；不靠 silent no-op 掩盖错误投影。
+- [x] Pi host reattach、stream 与 explicit abort 既有合同没有回归。
+- [x] interrupted、failed、completed 与 employee work-state projection 没有回归。
 
 ### Oracles
 
@@ -141,14 +142,14 @@
 
 ### Acceptance criteria
 
-- [ ] semantic radius 五角色有唯一文档定义且 alias 不复制数值。
-- [ ] Game View/segmented control 使用 control；run pipeline shell 使用 container；Stop 使用 control；badge/status capsule 才能使用 status。
-- [ ] 四处裸 CSS radius 全部归入正确角色。
-- [ ] renderer CSS 中不存在非零裸 px/% border-radius；0、inherit、token 分角不误报。
-- [ ] checker 能阻止新的 6px、7px、999px 等任意裸 radius。
-- [ ] 当前 check:ui-hygiene 报告的 baseline 项全部被 token 化或精确、可解释地豁免。
-- [ ] 没有目录级、文件后缀级或宽泛正则豁免。
-- [ ] 视觉没有因 alias 建立而发生全仓无关变化。
+- [x] semantic radius 五角色有唯一文档定义且 alias 不复制数值。
+- [x] Game View/segmented control 使用 control；run pipeline shell 使用 container；Stop 使用 control；badge/status capsule 才能使用 status。
+- [x] 四处裸 CSS radius 全部归入正确角色。
+- [x] renderer CSS 中不存在非零裸 px/% border-radius；0、inherit、token 分角不误报。
+- [x] checker 能阻止新的 6px、7px、999px 等任意裸 radius。
+- [x] 当前 check:ui-hygiene 报告的 baseline 项全部被 token 化或精确、可解释地豁免。
+- [x] 没有目录级、文件后缀级或宽泛正则豁免。
+- [x] 视觉没有因 alias 建立而发生全仓无关变化。
 
 ### Oracles
 
@@ -212,14 +213,14 @@
 
 ### Acceptance criteria
 
-- [ ] Office topbar 始终有且只有一个左 rail toggle 和一个右 rail toggle。
-- [ ] 两个 toggle 的位置、hit area、radius、hover/focus、icon 状态对称。
-- [ ] aria-label 能表达展开/折叠目标，aria-expanded 与实际状态一致，键盘可操作。
-- [ ] 左/右 rail 可独立折叠和恢复，现有 Zustand session-state 语义不变；不伪造持久化合同。
-- [ ] 任一 rail 折叠后 grid 不保留 56px mini rail，Stage 宽度立即接管。
-- [ ] WorkspacePanel、ChatRail、Company channels、thread detail、TeamDock header 不再保留 collapse-edge 空位。
-- [ ] repo 搜索不再出现 off-rail-collapse-edge、+32px/+34px collapse compensation 或该用途的 pr-12。
-- [ ] 1440×900 和 1024×700 下四种 rail 组合都无覆盖、跳位、死区和黑色外框。
+- [x] Office topbar 始终有且只有一个左 rail toggle 和一个右 rail toggle。
+- [x] 两个 toggle 的位置、hit area、radius、hover/focus、icon 状态对称。
+- [x] aria-label 能表达展开/折叠目标，aria-expanded 与实际状态一致，键盘可操作。
+- [x] 左/右 rail 可独立折叠和恢复，现有 Zustand session-state 语义不变；不伪造持久化合同。
+- [x] 任一 rail 折叠后 grid 不保留 56px mini rail，Stage 宽度立即接管。
+- [x] WorkspacePanel、ChatRail、Company channels、thread detail、TeamDock header 不再保留 collapse-edge 空位。
+- [x] repo 搜索不再出现 off-rail-collapse-edge、+32px/+34px collapse compensation 或该用途的 pr-12。
+- [x] 1440×900 和 1024×700 下四种 rail 组合都无覆盖、跳位、死区和黑色外框。
 
 ### Oracles
 
@@ -274,14 +275,14 @@
 
 ### Acceptance criteria
 
-- [ ] 任意 surface 的全局 topbar 不再出现 tokens/cost output。
-- [ ] Office Stage 只有一处 tokens/cost readout，值与 useRunCost 真值一致。
-- [ ] warning/critical budget toast 仍按原阈值、去重与 Settings action 触发。
-- [ ] 无 active run 时 pipeline 完全不占位。
-- [ ] active run 在 1440、1280、1024 宽度都显示当前阶段的文字语义与 Stop。
-- [ ] compact mode 不再只剩 dots；selected thread run 的选择逻辑不变。
-- [ ] active→completed/failed/interrupted 后 pipeline 正确退出，不留空壳。
-- [ ] Stop control 的 hit area、focus ring 与 radius 符合 control role。
+- [x] 任意 surface 的全局 topbar 不再出现 tokens/cost output。
+- [x] Office Stage 只有一处 tokens/cost readout，值与 useRunCost 真值一致。
+- [x] warning/critical budget toast 仍按原阈值、去重与 Settings action 触发。
+- [x] 无 active run 时 pipeline 完全不占位。
+- [x] active run 在 1440、1280、1024 宽度都显示当前阶段的文字语义与 Stop。
+- [x] compact mode 不再只剩 dots；selected thread run 的选择逻辑不变。
+- [x] active→completed/failed/interrupted 后 pipeline 正确退出，不留空壳。
+- [x] Stop control 的 hit area、focus ring 与 radius 符合 control role。
 
 ### Oracles
 
@@ -334,12 +335,12 @@
 
 ### Acceptance criteria
 
-- [ ] Office、Loops、Personnel、Market、Studio、Settings 在 1440 与 1024 宽度都显示文字 label。
-- [ ] utility 选中前后 DOM label 均存在，button width/padding 不变。
-- [ ] 逐个切换六个 surface，nav 外框 left/width/center 坐标不变。
-- [ ] active、hover、focus、aria-current 与 tooltip 语义完整。
-- [ ] 1024px 下 ScopeBar 可截断但 nav 不与 wordmark、scope 或 rail toggle 重叠。
-- [ ] keyboard tab 顺序与 NAV_ENTRIES 顺序一致。
+- [x] Office、Loops、Personnel、Market、Studio、Settings 在 1440 与 1024 宽度都显示文字 label。
+- [x] utility 选中前后 DOM label 均存在，button width/padding 不变。
+- [x] 逐个切换六个 surface，nav 外框 left/width/center 坐标不变。
+- [x] active、hover、focus、aria-current 与 tooltip 语义完整。
+- [x] 1024px 下 ScopeBar 可截断但 nav 不与 wordmark、scope 或 rail toggle 重叠。
+- [x] keyboard tab 顺序与 NAV_ENTRIES 顺序一致。
 
 ### Oracles
 
@@ -389,13 +390,13 @@
 
 ### Acceptance criteria
 
-- [ ] connected/disconnected 两态下 Browse/Installed 的左侧起点一致。
-- [ ] DOM/CSS 不再存在 off-mkt-search-placeholder 或等价透明占位。
-- [ ] connected Browse 显示可用 search；disconnected 不出现不可操作的空 search 区。
-- [ ] Browse/Installed 切换时 segmented control 不跳位。
-- [ ] filters、sort、actions 在适用状态出现，toolbar 不溢出或产生不可解释大空洞。
-- [ ] 1440×900 与 1024×700 下 toolbar、empty state、package grid 对齐。
-- [ ] registry 查询、安装、更新、发布行为合同未被改写。
+- [x] connected/disconnected 两态下 Browse/Installed 的左侧起点一致。
+- [x] DOM/CSS 不再存在 off-mkt-search-placeholder 或等价透明占位。
+- [x] connected Browse 显示可用 search；disconnected 不出现不可操作的空 search 区。
+- [x] Browse/Installed 切换时 segmented control 不跳位。
+- [x] filters、sort、actions 在适用状态出现，toolbar 不溢出或产生不可解释大空洞。
+- [x] 1440×900 与 1024×700 下 toolbar、empty state、package grid 对齐。
+- [x] registry 查询、安装、更新、发布行为合同未被改写。
 
 ### Oracles
 
@@ -448,13 +449,13 @@
 
 ### Acceptance criteria
 
-- [ ] error banner 左右边界与 message content column 一致，不贴 rail 边。
-- [ ] error details 展开/收起、action、长文本、窄 rail 都不破坏 inset。
-- [ ] working、idle、blocked、failed、offline 五态都有明确可见文字。
-- [ ] idle 与 offline、blocked 与 failed 在静态灰度截图中仍可区分。
-- [ ] prefers-reduced-motion 下没有信息损失。
-- [ ] screen reader 可获得等价 presence/error 状态，不只读到装饰 dot。
-- [ ] presence 数据源、employee assignment 与 runtime projection 没有改动。
+- [x] error banner 左右边界与 message content column 一致，不贴 rail 边。
+- [x] error details 展开/收起、action、长文本、窄 rail 都不破坏 inset。
+- [x] working、idle、blocked、failed、offline 五态都有明确可见文字。
+- [x] idle 与 offline、blocked 与 failed 在静态灰度截图中仍可区分。
+- [x] prefers-reduced-motion 下没有信息损失。
+- [x] screen reader 可获得等价 presence/error 状态，不只读到装饰 dot。
+- [x] presence 数据源、employee assignment 与 runtime projection 没有改动。
 
 ### Oracles
 
@@ -486,26 +487,26 @@ T01-T07 全部完成且各自窄门禁 green。
 
 ### 构建与静态门禁
 
-- [ ] npx --yes pnpm@10.15.1 check:ui-hygiene
-- [ ] npx --yes pnpm@10.15.1 check:ui-ux-drift
-- [ ] npx --yes pnpm@10.15.1 harness:conversation-run-controller
-- [ ] npx --yes pnpm@10.15.1 harness:pi-agent-host
-- [ ] npx --yes pnpm@10.15.1 harness:run-cost-scope
-- [ ] npx --yes pnpm@10.15.1 harness:office-projection
-- [ ] npx --yes pnpm@10.15.1 validate
-- [ ] npx --yes pnpm@10.15.1 lint
-- [ ] npx --yes pnpm@10.15.1 --filter @offisim/desktop-renderer typecheck
-- [ ] npx --yes pnpm@10.15.1 --filter @offisim/desktop-renderer build
-- [ ] npx --yes pnpm@10.15.1 --filter @offisim/desktop build
-- [ ] git diff --check
+- [x] npx --yes pnpm@10.15.1 check:ui-hygiene
+- [x] npx --yes pnpm@10.15.1 check:ui-ux-drift
+- [x] npx --yes pnpm@10.15.1 harness:conversation-run-controller
+- [x] npx --yes pnpm@10.15.1 harness:pi-agent-host
+- [x] npx --yes pnpm@10.15.1 harness:run-cost-scope
+- [x] npx --yes pnpm@10.15.1 harness:office-projection
+- [x] npx --yes pnpm@10.15.1 validate
+- [x] npx --yes pnpm@10.15.1 lint
+- [x] npx --yes pnpm@10.15.1 --filter @offisim/desktop-renderer typecheck
+- [x] npx --yes pnpm@10.15.1 --filter @offisim/desktop-renderer build
+- [x] npx --yes pnpm@10.15.1 --filter @offisim/desktop build
+- [x] git diff --check
 
 ### Release artifact
 
 - 精确路径：apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app
-- [ ] 记录 build checkedAt、HEAD SHA、App bundle SHA 与 codesign verify 结果。
-- [ ] 只启动上述当前 worktree 路径；禁止 open -b com.offisim.desktop。
-- [ ] 使用 Computer Use 前先枚举窗口并匹配 path/pid/title/bounds/content；记录 windowId 或 CGWindowNumber。
-- [ ] 不使用 osascript、盲切前台或按 App 名猜窗口。
+- [x] 记录 build checkedAt、HEAD SHA、App bundle SHA 与 codesign verify 结果。
+- [x] 只启动上述当前 worktree 路径；禁止 open -b com.offisim.desktop。
+- [x] 使用 Computer Use 前先枚举窗口并匹配 path/pid/title/bounds/content；记录 windowId 或 CGWindowNumber。
+- [x] 不使用 osascript、盲切前台或按 App 名猜窗口。
 
 ### 两轮 live 矩阵
 
@@ -525,13 +526,13 @@ T01-T07 全部完成且各自窄门禁 green。
 
 ### Live acceptance criteria
 
-- [ ] 第一轮覆盖矩阵全部执行，finding 已回到对应 T01-T07 修根因。
-- [ ] 修复后重新运行所有受影响窄门禁与 release build。
-- [ ] 第二轮从新启动的精确 release App 重跑，连续零 finding。
-- [ ] 若执行真实 Pi run 会产生付费调用，动手前按项目规则一句话预告；缺凭证则明确 BLOCKER，package 保持未完成。
-- [ ] release App 没有黑屏、不可附着、点击无响应或误附着旧 bundle。
-- [ ] screenshots 只保留最终有判定价值的 before/after 与状态矩阵。
-- [ ] transient profile、测试 Project、副本、日志和无价值截图已清理。
+- [x] 第一轮覆盖矩阵全部执行，finding 已回到对应 T01-T07 修根因。
+- [x] 修复后重新运行所有受影响窄门禁与 release build。
+- [x] 第二轮从新启动的精确 release App 重跑，连续零 finding。
+- [x] 若执行真实 Pi run 会产生付费调用，动手前按项目规则一句话预告；缺凭证则明确 BLOCKER，package 保持未完成。
+- [x] release App 没有黑屏、不可附着、点击无响应或误附着旧 bundle。
+- [x] screenshots 只保留最终有判定价值的 before/after 与状态矩阵。
+- [x] transient profile、测试 Project、副本、日志和无价值截图已清理。
 
 ### Evidence 目录
 
@@ -545,7 +546,7 @@ T01-T07 全部完成且各自窄门禁 green。
 
 ### 最终关闭
 
-- [ ] GitNexus detect_changes compare main 已运行，影响只覆盖本专项 symbols/processes。
-- [ ] plan.md 状态改为 COMPLETE，并附 evidence 链接。
-- [ ] 本文件状态改为 COMPLETE，8/8 completed。
-- [ ] 任一 gate、live 场景或 cleanup 未完成时，不得勾选本 task。
+- [x] GitNexus detect_changes compare main 已运行，影响只覆盖本专项 symbols/processes。
+- [x] plan.md 状态改为 COMPLETE，并附 evidence 链接。
+- [x] 本文件状态改为 COMPLETE，8/8 completed。
+- [x] 任一 gate、live 场景或 cleanup 未完成时，不得勾选本 task。
