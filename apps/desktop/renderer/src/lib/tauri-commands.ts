@@ -31,6 +31,29 @@ interface ProjectDirEntry {
   size?: number | null;
 }
 
+export interface CodexPetMetadata {
+  id: string;
+  displayName: string;
+  description: string;
+  version: string;
+  byteSize: number;
+  width: number;
+  height: number;
+}
+
+interface InvalidCodexPetEntry {
+  folder: string;
+  code: string;
+  message: string;
+}
+
+export interface CodexPetCatalog {
+  sourcePath: string;
+  selectedPetId?: string | null;
+  pets: CodexPetMetadata[];
+  invalidEntries: InvalidCodexPetEntry[];
+}
+
 interface BashExecuteResult {
   stdout: string;
   stderr: string;
@@ -462,6 +485,11 @@ export interface CommandMap {
   >;
   project_read_file_bytes: CommandSpec<
     { path: string; projectId?: string | null; maxBytes?: number },
+    ArrayBuffer | Uint8Array | number[]
+  >;
+  codex_pets_list: CommandSpec<undefined, CodexPetCatalog>;
+  codex_pet_load: CommandSpec<
+    { petId: string; expectedVersion: string },
     ArrayBuffer | Uint8Array | number[]
   >;
   project_exists: CommandSpec<ProjectPathArgs, boolean>;

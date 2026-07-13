@@ -3,20 +3,22 @@ import { CapsLabel } from '@/design-system/grammar/index.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 import { ComputerSetupPanel } from '@/surfaces/office/computer/ComputerSetupPanel.js';
-import { Bot, Cpu, KeyRound, MonitorSmartphone, Plug, Users } from 'lucide-react';
+import { Bot, Cpu, KeyRound, MonitorSmartphone, PawPrint, Plug, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { CompanionPane } from './CompanionPane.js';
 import { ExternalEmployeesPane } from './ExternalEmployeesPane.js';
 import { McpServersPane } from './McpServersPane.js';
 import { PiAgentPane } from './PiAgentPane.js';
 import { RuntimePane } from './RuntimePane.js';
 
-type SettingsTab = 'providers' | 'runtime' | 'mcp' | 'computer' | 'external';
+type SettingsTab = 'providers' | 'runtime' | 'mcp' | 'computer' | 'companion' | 'external';
 
 const NAV: ReadonlyArray<{ key: SettingsTab; label: string; icon: typeof Bot }> = [
   { key: 'providers', label: 'Providers', icon: KeyRound },
   { key: 'runtime', label: 'Runtime', icon: Cpu },
   { key: 'mcp', label: 'MCP', icon: Plug },
   { key: 'computer', label: 'Computer Use', icon: MonitorSmartphone },
+  { key: 'companion', label: 'Codex Pets', icon: PawPrint },
   { key: 'external', label: 'External Employees', icon: Users },
 ];
 
@@ -81,6 +83,20 @@ function SettingsCompanion({ tab }: { tab: SettingsTab }) {
     );
   }
 
+  if (tab === 'companion') {
+    return (
+      <aside className="off-set-companion" aria-label="Codex pets summary">
+        <div className="off-set-comp-card">
+          <div className="off-set-comp-main">
+            <Icon icon={PawPrint} size="sm" />
+            Local Codex pets
+          </div>
+          <p className="off-set-comp-copy">Read-only sync from your local Codex installation.</p>
+        </div>
+      </aside>
+    );
+  }
+
   return (
     <aside className="off-set-companion" aria-label="Provider summary">
       <div className="off-set-comp-card">
@@ -139,6 +155,7 @@ export function SettingsSurface() {
               {tab === 'computer' ? (
                 <ComputerSetupPanel onManageToolAccess={() => setTab('mcp')} />
               ) : null}
+              {tab === 'companion' ? <CompanionPane /> : null}
               {tab === 'external' ? <ExternalEmployeesPane /> : null}
             </div>
             <SettingsCompanion tab={tab} />

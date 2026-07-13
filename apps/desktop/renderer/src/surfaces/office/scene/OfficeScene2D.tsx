@@ -1,5 +1,4 @@
 import { useUiState } from '@/app/ui-state.js';
-import companionAtlasUrl from '@/assets/companion/codex-companion-state-sheet.png';
 import { usePrefersReducedMotion } from '@/assistant/runtime/office-dramaturgy.js';
 import {
   FLOW_TARGET_LABELS,
@@ -18,8 +17,9 @@ import { CANVAS_FONT_TOKENS } from '@/styles/visual-tokens.js';
 import { openArtifactClaim } from '@/surfaces/office/stage-viewer/artifact-claim.js';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { openDeliveryHistory } from './delivery-history.js';
+import { useCodexPet } from './office-companion/CodexPetProvider.js';
+import { CODEX_PET_ATLAS, codexPetAtlasFrame } from './office-companion/codex-pet-animation.js';
 import {
-  OFFICE_COMPANION_ATLAS_FRAME,
   type OfficeCompanionPlan,
   buildOfficeCompanionCandidates,
   createOfficeCompanionPlan,
@@ -116,6 +116,7 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
   const projectId = useUiState((s) => s.projectId);
   const officeMode = useUiState((s) => s.officeMode);
   const companionEnabled = useUiState((s) => s.officeCompanionEnabled);
+  const { atlasUrl: companionAtlasUrl } = useCodexPet();
   const openThread = useUiState((s) => s.openThread);
   const openStageView = useUiState((s) => s.openStageView);
   const openWorkloadDrilldown = useUiState((s) => s.openWorkloadDrilldown);
@@ -176,13 +177,12 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
   // while every lane/label/anchor/marker keeps rendering statically.
   const reducedMotion = usePrefersReducedMotion();
   const companionAtlas = useMemo(() => {
+    if (!companionAtlasUrl) return null;
     const image = new Image();
     image.src = companionAtlasUrl;
     return image;
-  }, []);
-  const [companionAtlasReady, setCompanionAtlasReady] = useState(
-    companionAtlas.complete && companionAtlas.naturalWidth > 0,
-  );
+  }, [companionAtlasUrl]);
+  const [companionAtlasReady, setCompanionAtlasReady] = useState(false);
   const companionActorPositions = useMemo(
     () =>
       new Map(
@@ -211,6 +211,11 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
     [companionActorPositions, companionCandidates, companionOccupied],
   );
   const companionPlanRef = useRef<OfficeCompanionPlan | null>(null);
+  const companionAnimationRef = useRef<{ state: string | null; startedAt: number }>({
+    state: null,
+    startedAt: 0,
+  });
+  const companionAnimationWakeRef = useRef<number | null>(null);
 
   // Artifact arrival (I5): a short-lived shelf glow when recentCount increases.
   // Refs only — the draw effect below keeps a bounded RAF alive while the glow
@@ -567,7 +572,12 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
 
       // Ambient-only companion: one pure company/project projection shared
       // with 3D. It never enters hitsRef, employee ordering, or runtime state.
-      if (companionEnabled && companionAtlasReady) {
+      if (
+        companionEnabled &&
+        companionAtlasReady &&
+        companionAtlas?.naturalWidth === CODEX_PET_ATLAS.width &&
+        companionAtlas.naturalHeight === CODEX_PET_ATLAS.height
+      ) {
         const nowMs = Date.now();
         const input = {
           enabled: companionEnabled,
@@ -593,31 +603,44 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
         }
         const companion = sampleOfficeCompanionPlan(plan, nowMs);
         if (companion.visible) {
-          const atlasFrame = OFFICE_COMPANION_ATLAS_FRAME[companion.state];
-          const sourceWidth = companionAtlas.naturalWidth / 4;
-          const sourceHeight = companionAtlas.naturalHeight / 2;
+          let atlasFrame = codexPetAtlasFrame(
+            companion,
+            nowMs,
+            companionAnimationRef.current.startedAt,
+            reducedMotion,
+          );
+          if (companionAnimationRef.current.state !== atlasFrame.state) {
+            companionAnimationRef.current = { state: atlasFrame.state, startedAt: nowMs };
+            atlasFrame = codexPetAtlasFrame(companion, nowMs, nowMs, reducedMotion);
+          }
+          companionAnimationWakeRef.current = atlasFrame.nextFrameAt;
           const height = Math.min(68, Math.max(34, scale * 1.95));
-          const width = height * 0.75;
+          const width = height * (CODEX_PET_ATLAS.cellWidth / CODEX_PET_ATLAS.cellHeight);
           const sx = wx(companion.x);
           const sy = wy(companion.z);
           ctx.save();
+          ctx.imageSmoothingEnabled = false;
           ctx.translate(sx, sy);
-          ctx.scale(companion.facing, 1);
           ctx.drawImage(
             companionAtlas,
-            atlasFrame.column * sourceWidth,
-            atlasFrame.row * sourceHeight,
-            sourceWidth,
-            sourceHeight,
+            atlasFrame.column * CODEX_PET_ATLAS.cellWidth,
+            atlasFrame.row * CODEX_PET_ATLAS.cellHeight,
+            CODEX_PET_ATLAS.cellWidth,
+            CODEX_PET_ATLAS.cellHeight,
             -width / 2,
             -height,
             width,
             height,
           );
           ctx.restore();
+        } else {
+          companionAnimationWakeRef.current = null;
+          companionAnimationRef.current = { state: null, startedAt: 0 };
         }
       } else {
         companionPlanRef.current = null;
+        companionAnimationWakeRef.current = null;
+        companionAnimationRef.current = { state: null, startedAt: 0 };
       }
 
       for (const employee of orderedRoster) {
@@ -843,12 +866,22 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
   });
 
   useEffect(() => {
-    if (companionAtlas.complete && companionAtlas.naturalWidth > 0) {
+    setCompanionAtlasReady(false);
+    if (!companionAtlas) return;
+    if (
+      companionAtlas.complete &&
+      companionAtlas.naturalWidth === CODEX_PET_ATLAS.width &&
+      companionAtlas.naturalHeight === CODEX_PET_ATLAS.height
+    ) {
       setCompanionAtlasReady(true);
       drawRef.current();
       return;
     }
-    const redraw = () => setCompanionAtlasReady(true);
+    const redraw = () =>
+      setCompanionAtlasReady(
+        companionAtlas.naturalWidth === CODEX_PET_ATLAS.width &&
+          companionAtlas.naturalHeight === CODEX_PET_ATLAS.height,
+      );
     companionAtlas.addEventListener('load', redraw, { once: true });
     return () => companionAtlas.removeEventListener('load', redraw);
   }, [companionAtlas]);
@@ -882,8 +915,18 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
         return;
       }
       const companionPlan = companionPlanRef.current;
-      if (!companionPlan?.nextWakeAt) return;
-      const delay = companionPlan.static ? Math.max(16, companionPlan.nextWakeAt - Date.now()) : 84;
+      const animationWakeAt = companionAnimationWakeRef.current;
+      if (!companionPlan?.nextWakeAt && !animationWakeAt) return;
+      const delay =
+        companionPlan && !companionPlan.static
+          ? 84
+          : Math.max(
+              16,
+              Math.min(
+                companionPlan?.nextWakeAt ?? Number.POSITIVE_INFINITY,
+                animationWakeAt ?? Number.POSITIVE_INFINITY,
+              ) - Date.now(),
+            );
       timer = window.setTimeout(() => {
         raf = window.requestAnimationFrame(tick);
       }, delay);

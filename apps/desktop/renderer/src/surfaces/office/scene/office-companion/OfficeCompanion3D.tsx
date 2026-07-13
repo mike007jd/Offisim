@@ -1,15 +1,15 @@
 import { useUiState } from '@/app/ui-state.js';
-import companionAtlasUrl from '@/assets/companion/codex-companion-state-sheet.png';
 import type { SceneCueFrame } from '@/assistant/runtime/scene-cue-projection.js';
 import { useTexture } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import type { Sprite } from 'three';
-import { LinearFilter } from 'three';
+import { NearestFilter } from 'three';
 import { OFFICE_DELIVERY_WORLD } from '../office-visual-language.js';
 import type { OfficePathfinder } from '../scene-pathfinding.js';
+import { useCodexPet } from './CodexPetProvider.js';
+import { CODEX_PET_ATLAS, codexPetAtlasFrame } from './codex-pet-animation.js';
 import {
-  OFFICE_COMPANION_ATLAS_FRAME,
   type OfficeCompanionPlan,
   type OfficeCompanionPoint,
   createOfficeCompanionPlan,
@@ -28,7 +28,13 @@ export interface OfficeCompanion3DProps {
   readonly reducedMotion: boolean;
 }
 
-export function OfficeCompanion3D({
+export function OfficeCompanion3D({ ...props }: OfficeCompanion3DProps) {
+  const { atlasUrl } = useCodexPet();
+  if (!atlasUrl) return null;
+  return <LoadedOfficeCompanion3D key={atlasUrl} {...props} atlasUrl={atlasUrl} />;
+}
+
+function LoadedOfficeCompanion3D({
   frame,
   candidates,
   occupiedPoints,
@@ -36,28 +42,41 @@ export function OfficeCompanion3D({
   pathfinder,
   geometryRevision,
   reducedMotion,
-}: OfficeCompanion3DProps) {
+  atlasUrl,
+}: OfficeCompanion3DProps & { readonly atlasUrl: string }) {
   const enabled = useUiState((state) => state.officeCompanionEnabled);
   const companyId = useUiState((state) => state.companyId);
   const projectId = useUiState((state) => state.projectId);
   const mode = useUiState((state) => state.officeMode);
-  const sourceTexture = useTexture(companionAtlasUrl);
+  const sourceTexture = useTexture(atlasUrl);
   const texture = useMemo(() => {
     const clone = sourceTexture.clone();
-    clone.repeat.set(0.25, 0.5);
-    clone.magFilter = LinearFilter;
+    clone.repeat.set(1 / CODEX_PET_ATLAS.columns, 1 / CODEX_PET_ATLAS.rows);
+    clone.magFilter = NearestFilter;
+    clone.minFilter = NearestFilter;
     clone.needsUpdate = true;
     return clone;
   }, [sourceTexture]);
   const spriteRef = useRef<Sprite>(null);
   const planRef = useRef<OfficeCompanionPlan | null>(null);
-  const stateRef = useRef<string | null>(null);
+  const frameKeyRef = useRef<string | null>(null);
+  const animationRef = useRef<{ state: string | null; startedAt: number }>({
+    state: null,
+    startedAt: 0,
+  });
   const spatialRevision = useMemo(
     () => officeCompanionSpatialRevision(candidates, occupiedPoints, actorPositions),
     [actorPositions, candidates, occupiedPoints],
   );
 
-  useEffect(() => () => texture.dispose(), [texture]);
+  useEffect(
+    () => () => {
+      texture.dispose();
+      sourceTexture.dispose();
+      useTexture.clear(atlasUrl);
+    },
+    [atlasUrl, sourceTexture, texture],
+  );
 
   useFrame(() => {
     const sprite = spriteRef.current;
@@ -87,11 +106,24 @@ export function OfficeCompanion3D({
 
     const bob = presentation.static ? 0 : Math.sin(nowMs / 190) * 0.045;
     sprite.position.set(presentation.x, 0.04 + bob, presentation.z);
-    sprite.scale.set(1.55 * presentation.facing, 2.06, 1);
-    if (stateRef.current !== presentation.state) {
-      stateRef.current = presentation.state;
-      const atlasFrame = OFFICE_COMPANION_ATLAS_FRAME[presentation.state];
-      texture.offset.set(atlasFrame.column * 0.25, atlasFrame.row === 0 ? 0.5 : 0);
+    sprite.scale.set(2.06 * (CODEX_PET_ATLAS.cellWidth / CODEX_PET_ATLAS.cellHeight), 2.06, 1);
+    let atlasFrame = codexPetAtlasFrame(
+      presentation,
+      nowMs,
+      animationRef.current.startedAt,
+      reducedMotion,
+    );
+    if (animationRef.current.state !== atlasFrame.state) {
+      animationRef.current = { state: atlasFrame.state, startedAt: nowMs };
+      atlasFrame = codexPetAtlasFrame(presentation, nowMs, nowMs, reducedMotion);
+    }
+    const frameKey = `${atlasFrame.row}:${atlasFrame.column}`;
+    if (frameKeyRef.current !== frameKey) {
+      frameKeyRef.current = frameKey;
+      texture.offset.set(
+        atlasFrame.column / CODEX_PET_ATLAS.columns,
+        (CODEX_PET_ATLAS.rows - atlasFrame.row - 1) / CODEX_PET_ATLAS.rows,
+      );
       texture.needsUpdate = true;
     }
   });

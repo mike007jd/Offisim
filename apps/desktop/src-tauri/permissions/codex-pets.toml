@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "codex-pets"
+description = "Allow read-only discovery and loading of local Codex pet packages."
+commands.allow = ["codex_pets_list", "codex_pet_load"]

@@ -71,6 +71,7 @@ export const DEFAULT_STAGE_SPLIT_LAYOUT: StageSplitLayout = {
 
 const STAGE_SPLIT_LAYOUT_STORAGE_KEY = 'offisim:ui-state:stage-split-layout';
 const OFFICE_COMPANION_STORAGE_KEY = 'offisim:ui-state:office-companion-enabled';
+const OFFICE_COMPANION_PET_STORAGE_KEY = 'offisim:ui-state:office-companion-pet-id';
 
 function normalizeStageSplitLayout(value: unknown): StageSplitLayout {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -139,6 +140,31 @@ function persistOfficeCompanionEnabled(
     // The current session still honors the preference when storage is unavailable.
   }
   return enabled;
+}
+
+function readOfficeCompanionPetId(
+  storage: Pick<Storage, 'getItem'> | undefined = globalThis.localStorage,
+): string | null {
+  try {
+    const value = storage?.getItem(OFFICE_COMPANION_PET_STORAGE_KEY)?.trim();
+    return value && /^[A-Za-z0-9_-]{1,64}$/.test(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistOfficeCompanionPetId(
+  petId: string | null,
+  storage: Pick<Storage, 'removeItem' | 'setItem'> | undefined = globalThis.localStorage,
+): string | null {
+  const normalized = petId?.trim() || null;
+  try {
+    if (normalized) storage?.setItem(OFFICE_COMPANION_PET_STORAGE_KEY, normalized);
+    else storage?.removeItem(OFFICE_COMPANION_PET_STORAGE_KEY);
+  } catch {
+    // The current session still honors the selection when storage is unavailable.
+  }
+  return normalized;
 }
 
 export function stageTabForTarget(
@@ -280,6 +306,8 @@ interface UiState {
   officeMode: DramaturgyMode;
   /** Ambient-only Codex companion visibility; never an AI/runtime actor. */
   officeCompanionEnabled: boolean;
+  /** Selected local Codex pet id; assets remain owned by ~/.codex/pets. */
+  officeCompanionPetId: string | null;
   sceneDropDiagnostics: SceneDropDiagnostic[];
   /**
    * The employee whose workload drilldown drawer is open, or null when closed.
@@ -382,6 +410,7 @@ interface UiState {
   setOfficeStageMaximized: (maximized: boolean) => void;
   setOfficeMode: (mode: DramaturgyMode) => void;
   setOfficeCompanionEnabled: (enabled: boolean) => void;
+  setOfficeCompanionPetId: (petId: string | null) => void;
   recordSceneDropDiagnostic: (event: SceneDropDiagnostic) => void;
   /** Open the workload drilldown drawer for an employee (read/inspect only). */
   openWorkloadDrilldown: (employeeId: string) => void;
@@ -426,6 +455,7 @@ export const useUiState = create<UiState>((set, get) => ({
   officeStageMaximized: false,
   officeMode: 'office',
   officeCompanionEnabled: readOfficeCompanionEnabled(),
+  officeCompanionPetId: readOfficeCompanionPetId(),
   sceneDropDiagnostics: [],
   workloadDrilldown: null,
 
@@ -726,6 +756,10 @@ export const useUiState = create<UiState>((set, get) => ({
   setOfficeCompanionEnabled: (officeCompanionEnabled) => {
     persistOfficeCompanionEnabled(officeCompanionEnabled);
     set({ officeCompanionEnabled });
+  },
+  setOfficeCompanionPetId: (officeCompanionPetId) => {
+    persistOfficeCompanionPetId(officeCompanionPetId);
+    set({ officeCompanionPetId });
   },
   recordSceneDropDiagnostic: (event) =>
     set((s) => ({ sceneDropDiagnostics: [event, ...s.sceneDropDiagnostics].slice(0, 10) })),
